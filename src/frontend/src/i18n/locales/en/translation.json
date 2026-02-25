@@ -1,0 +1,436 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "close": "Close",
+    "confirm": "Confirm",
+    "search": "Search",
+    "loading": "Loading...",
+    "noData": "No data available",
+    "actions": "Actions",
+    "back": "Back",
+    "yes": "Yes",
+    "no": "No",
+    "optional": "Optional",
+    "required": "Required",
+    "rowsPerPage": "Rows per page",
+    "of": "of",
+    "unsavedChanges": "You have unsaved changes. Are you sure you want to leave?",
+    "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
+    "createdAt": "Created at",
+    "updatedAt": "Updated at",
+    "skipToContent": "Skip to content",
+    "toggleSidebar": "Toggle sidebar"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "stammdaten": "Master Data",
+    "botanicalFamilies": "Botanical Families",
+    "species": "Species",
+    "companionPlanting": "Companion Planting",
+    "cropRotation": "Crop Rotation",
+    "standorte": "Locations",
+    "sites": "Sites",
+    "substrates": "Substrates",
+    "pflanzen": "Plants",
+    "plantInstances": "Plant Instances",
+    "calculations": "Calculations",
+    "mainNavigation": "Main navigation"
+  },
+  "errors": {
+    "network": "Network error. Please check your connection.",
+    "server": "Server error. Please try again later.",
+    "notFound": "The requested resource was not found.",
+    "validation": "Please check your input.",
+    "duplicate": "An entry with this name already exists.",
+    "unknown": "An unknown error occurred."
+  },
+  "entities": {
+    "botanicalFamily": "Botanical Family",
+    "botanicalFamilies": "Botanical Families",
+    "species": "Species",
+    "speciesPlural": "Species",
+    "cultivar": "Cultivar",
+    "cultivars": "Cultivars",
+    "site": "Site",
+    "sites": "Sites",
+    "location": "Location",
+    "locations": "Locations",
+    "slot": "Slot",
+    "slots": "Slots",
+    "substrate": "Substrate",
+    "substrates": "Substrates",
+    "batch": "Batch",
+    "batches": "Batches",
+    "plantInstance": "Plant Instance",
+    "plantInstances": "Plant Instances",
+    "phase": "Phase",
+    "phases": "Phases",
+    "lifecycle": "Lifecycle",
+    "profile": "Profile"
+  },
+  "pages": {
+    "dashboard": {
+      "title": "Dashboard",
+      "welcome": "Welcome to Kamerplanter",
+      "quickActions": "Quick Actions",
+      "stats": "Statistics"
+    },
+    "botanicalFamilies": {
+      "title": "Botanical Families",
+      "listIntro": "Botanical families group plant species by relationship and determine typical nutrient requirements. Click an entry to see details and associated species.",
+      "createIntro": "Create a new botanical family. Families group plant species with similar nutrient requirements.",
+      "editIntro": "Edit the properties of this botanical family. Changes affect all associated species.",
+      "create": "Create Family",
+      "name": "Name",
+      "nameHelper": "Botanical family name, must end with '-aceae' (e.g. 'Solanaceae')",
+      "commonNameDe": "German Name",
+      "commonNameDeHelper": "German display name (e.g. 'Nachtschattengewächse')",
+      "commonNameEn": "English Name",
+      "commonNameEnHelper": "English display name (e.g. 'Nightshade family')",
+      "order": "Order",
+      "orderHelper": "Taxonomic order, must end with '-ales' if provided (e.g. 'Solanales')",
+      "description": "Description",
+      "descriptionHelper": "Brief botanical description of the family",
+      "nutrientDemand": "Nutrient Demand",
+      "nutrientDemandHelper": "Typical nutrient requirements: Light feeder, Medium feeder or Heavy feeder",
+      "nitrogenFixing": "Nitrogen Fixing",
+      "nitrogenFixingHelper": "Nitrogen-fixing families (e.g. Fabaceae) reduce fertilizer needs. Incompatible with Heavy feeder.",
+      "rootDepth": "Root Depth",
+      "rootDepthHelper": "Typical root depth: Shallow (<30 cm), Medium (30–60 cm), Deep (>60 cm)",
+      "soilPhMin": "pH Minimum",
+      "soilPhMax": "pH Maximum",
+      "soilPhHelper": "pH range preference for optimal growth (3.0–9.0)",
+      "frostTolerance": "Frost Tolerance",
+      "frostToleranceHelper": "Frost tolerance level of the family",
+      "growthForms": "Growth Forms",
+      "growthFormsHelper": "Typical growth forms in the family, select at least one",
+      "commonPests": "Common Pests",
+      "commonPestsHelper": "Common pests for this family (press Enter to add)",
+      "commonDiseases": "Common Diseases",
+      "commonDiseasesHelper": "Common fungal or bacterial diseases (press Enter to add)",
+      "pollinationType": "Pollination Types",
+      "pollinationTypeHelper": "Pollination types for this family, select at least one",
+      "rotationCategory": "Rotation Category",
+      "rotationCategoryHelper": "Category for crop rotation planning (e.g. 'solanaceae', 'legume')"
+    },
+    "species": {
+      "title": "Species",
+      "listIntro": "Plant species form the foundation of master data. Each species belongs to a botanical family and can have multiple cultivars.",
+      "createIntro": "Create a new plant species. The scientific name must follow binomial nomenclature (e.g. 'Solanum lycopersicum').",
+      "editIntro": "Edit the properties of this plant species. Changes affect associated cultivars and lifecycle configurations.",
+      "create": "Create Species",
+      "scientificName": "Scientific Name",
+      "scientificNameHelper": "Binomial nomenclature: Genus + specific epithet (e.g. 'Solanum lycopersicum')",
+      "commonNames": "Common Names",
+      "commonNamesHelper": "Common names in any language (press Enter to add)",
+      "family": "Family",
+      "familyHelper": "Associated botanical family — determines crop rotation and nutrient requirements",
+      "genus": "Genus",
+      "genusHelper": "Botanical genus, first part of the scientific name (e.g. 'Solanum')",
+      "growthHabit": "Growth Habit",
+      "growthHabitHelper": "Typical growth form: herb, shrub, tree, vine or groundcover",
+      "rootType": "Root Type",
+      "rootTypeHelper": "Root system: fibrous, taproot, tuberous or bulbous",
+      "hardinessZones": "Hardiness Zones",
+      "hardinessZonesHelper": "USDA hardiness zones (e.g. '7a', '8b') — press Enter to add",
+      "nativeHabitat": "Native Habitat",
+      "nativeHabitatHelper": "Original distribution area of the species (e.g. 'South America, Andes')",
+      "allelopathyScore": "Allelopathy Score",
+      "allelopathyScoreHelper": "Biochemical interaction: −1 (strongly inhibiting) to +1 (strongly promoting), 0 = neutral",
+      "baseTemp": "Base Temperature (°C)",
+      "baseTempHelper": "Threshold temperature for GDD calculation (Growing Degree Days), typically 5–15 °C",
+      "description": "Description",
+      "descriptionHelper": "Brief botanical description of the species",
+      "synonyms": "Synonyms",
+      "synonymsHelper": "Taxonomic synonyms / former scientific names (press Enter to add)",
+      "taxonomicAuthority": "Taxonomic Authority",
+      "taxonomicAuthorityHelper": "Original describer of the species per ICZN/ICN (e.g. 'L.' for Linnaeus)",
+      "taxonomicStatus": "Taxonomic Status",
+      "taxonomicStatusHelper": "Current status: accepted, synonym, doubtful, misapplied"
+    },
+    "cultivars": {
+      "title": "Cultivars",
+      "create": "Create Cultivar",
+      "name": "Name",
+      "breeder": "Breeder",
+      "breedingYear": "Breeding Year",
+      "traits": "Traits",
+      "patentStatus": "Patent Status",
+      "daysToMaturity": "Days to Maturity",
+      "diseaseResistances": "Disease Resistances"
+    },
+    "companionPlanting": {
+      "title": "Companion Planting",
+      "compatible": "Compatible Species",
+      "incompatible": "Incompatible Species",
+      "addCompatible": "Add Compatibility",
+      "addIncompatible": "Add Incompatibility",
+      "score": "Score",
+      "reason": "Reason",
+      "selectSpecies": "Select Species"
+    },
+    "cropRotation": {
+      "title": "Crop Rotation",
+      "successors": "Successors",
+      "addSuccessor": "Add Successor",
+      "waitYears": "Wait Years",
+      "fromFamily": "From Family",
+      "toFamily": "To Family"
+    },
+    "sites": {
+      "title": "Sites",
+      "create": "Create Site",
+      "name": "Name",
+      "type": "Type",
+      "climateZone": "Climate Zone",
+      "totalArea": "Total Area (m²)",
+      "gpsCoordinates": "GPS Coordinates"
+    },
+    "locations": {
+      "title": "Locations",
+      "create": "Create Location",
+      "name": "Name",
+      "area": "Area (m²)",
+      "orientation": "Orientation",
+      "lightType": "Light Type",
+      "irrigationSystem": "Irrigation System",
+      "dimensions": "Dimensions (L × W × H)"
+    },
+    "slots": {
+      "title": "Slots",
+      "create": "Create Slot",
+      "slotId": "Slot ID",
+      "position": "Position",
+      "capacity": "Capacity",
+      "occupied": "Occupied"
+    },
+    "substrates": {
+      "title": "Substrates",
+      "create": "Create Substrate",
+      "type": "Type",
+      "brand": "Brand",
+      "phBase": "Base pH",
+      "ecBase": "Base EC (mS/cm)",
+      "waterRetention": "Water Retention",
+      "airPorosity": "Air Porosity (%)",
+      "bufferCapacity": "Buffer Capacity",
+      "reusable": "Reusable",
+      "maxReuseCycles": "Max Reuse Cycles",
+      "checkReusability": "Check Reusability"
+    },
+    "batches": {
+      "title": "Batches",
+      "create": "Create Batch",
+      "batchId": "Batch ID",
+      "volume": "Volume (L)",
+      "mixedOn": "Mixed On",
+      "cyclesUsed": "Cycles Used",
+      "phCurrent": "Current pH",
+      "ecCurrent": "Current EC"
+    },
+    "plantInstances": {
+      "title": "Plant Instances",
+      "create": "Create Plant",
+      "instanceId": "Instance ID",
+      "plantName": "Plant Name",
+      "plantedOn": "Planted On",
+      "removedOn": "Removed On",
+      "currentPhase": "Current Phase",
+      "remove": "Remove Plant",
+      "validatePlanting": "Validate Planting"
+    },
+    "phases": {
+      "title": "Phase Control",
+      "current": "Current Phase",
+      "daysInPhase": "Days in Phase",
+      "nextPhase": "Next Phase",
+      "transition": "Phase Transition",
+      "targetPhase": "Target Phase",
+      "reason": "Reason",
+      "history": "Phase History",
+      "enteredAt": "Entered At",
+      "exitedAt": "Exited At",
+      "duration": "Duration (Days)",
+      "transitionReason": "Transition Reason"
+    },
+    "lifecycle": {
+      "title": "Lifecycle Configuration",
+      "cycleType": "Cycle Type",
+      "lifespanYears": "Lifespan (Years)",
+      "dormancy": "Dormancy Required",
+      "vernalization": "Vernalization Required",
+      "vernalizationDays": "Vernalization Days",
+      "photoperiodType": "Photoperiod Type",
+      "criticalDayLength": "Critical Day Length (h)"
+    },
+    "growthPhases": {
+      "title": "Growth Phases",
+      "create": "Create Phase",
+      "name": "Name",
+      "displayName": "Display Name",
+      "duration": "Typical Duration (Days)",
+      "sequenceOrder": "Sequence Order",
+      "isTerminal": "Terminal Phase",
+      "allowsHarvest": "Allows Harvest",
+      "stressTolerance": "Stress Tolerance"
+    },
+    "profiles": {
+      "requirements": "Requirement Profile",
+      "nutrients": "Nutrient Profile",
+      "generateDefaults": "Generate Defaults",
+      "lightPpfd": "Light PPFD",
+      "photoperiodHours": "Photoperiod (h)",
+      "tempDay": "Day Temperature (°C)",
+      "tempNight": "Night Temperature (°C)",
+      "humidityDay": "Day Humidity (%)",
+      "humidityNight": "Night Humidity (%)",
+      "vpdTarget": "VPD Target (kPa)",
+      "npkRatio": "NPK Ratio",
+      "targetEc": "Target EC (mS/cm)",
+      "targetPh": "Target pH"
+    },
+    "calculations": {
+      "title": "Calculations",
+      "vpd": "VPD Calculator",
+      "vpdTemp": "Temperature (°C)",
+      "vpdHumidity": "Humidity (%)",
+      "vpdResult": "VPD (kPa)",
+      "vpdStatus": "Status",
+      "gdd": "GDD Calculator",
+      "gddBaseTemp": "Base Temperature (°C)",
+      "gddResult": "Accumulated GDD",
+      "photoperiod": "Photoperiod Transition",
+      "currentHours": "Current Hours",
+      "targetHours": "Target Hours",
+      "transitionDays": "Transition Days",
+      "slotCapacity": "Slot Capacity",
+      "areaMsq": "Area (m²)",
+      "plantSpacing": "Plant Spacing (cm)",
+      "calculate": "Calculate"
+    },
+    "notFound": {
+      "title": "Page Not Found",
+      "message": "The requested page does not exist.",
+      "backHome": "Back to Dashboard"
+    }
+  },
+  "enums": {
+    "growthHabit": {
+      "herb": "Herb",
+      "shrub": "Shrub",
+      "tree": "Tree",
+      "vine": "Vine",
+      "groundcover": "Groundcover"
+    },
+    "rootType": {
+      "fibrous": "Fibrous",
+      "taproot": "Taproot",
+      "tuberous": "Tuberous",
+      "bulbous": "Bulbous"
+    },
+    "photoperiodType": {
+      "short_day": "Short Day",
+      "long_day": "Long Day",
+      "day_neutral": "Day Neutral"
+    },
+    "cycleType": {
+      "annual": "Annual",
+      "biennial": "Biennial",
+      "perennial": "Perennial"
+    },
+    "stressTolerance": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "siteType": {
+      "outdoor": "Outdoor",
+      "greenhouse": "Greenhouse",
+      "indoor": "Indoor"
+    },
+    "lightType": {
+      "natural": "Natural",
+      "led": "LED",
+      "hps": "HPS",
+      "cmh": "CMH",
+      "mixed": "Mixed"
+    },
+    "irrigationSystem": {
+      "manual": "Manual",
+      "drip": "Drip",
+      "hydro": "Hydro",
+      "mist": "Mist"
+    },
+    "substrateType": {
+      "soil": "Soil",
+      "coco": "Coco",
+      "rockwool": "Rockwool",
+      "clay_pebbles": "Clay Pebbles",
+      "perlite": "Perlite",
+      "living_soil": "Living Soil",
+      "hydro_solution": "Hydro Solution"
+    },
+    "nutrientDemand": {
+      "light": "Light Feeder",
+      "medium": "Medium Feeder",
+      "heavy": "Heavy Feeder"
+    },
+    "rootDepth": {
+      "shallow": "Shallow",
+      "medium": "Medium",
+      "deep": "Deep"
+    },
+    "frostTolerance": {
+      "sensitive": "Sensitive",
+      "moderate": "Moderate",
+      "hardy": "Hardy",
+      "very_hardy": "Very Hardy"
+    },
+    "pollinationType": {
+      "insect": "Insect Pollination",
+      "wind": "Wind Pollination",
+      "self": "Self Pollination"
+    },
+    "waterRetention": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "bufferCapacity": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "orientation": {
+      "north": "North",
+      "south": "South",
+      "east": "East",
+      "west": "West"
+    },
+    "plantTrait": {
+      "disease_resistant": "Disease Resistant",
+      "pest_resistant": "Pest Resistant",
+      "high_yield": "High Yield",
+      "compact": "Compact",
+      "drought_tolerant": "Drought Tolerant",
+      "cold_hardy": "Cold Hardy",
+      "heat_tolerant": "Heat Tolerant",
+      "early_maturing": "Early Maturing",
+      "long_season": "Long Season",
+      "ornamental": "Ornamental",
+      "heirloom": "Heirloom",
+      "hybrid": "Hybrid",
+      "f1": "F1"
+    },
+    "transitionTriggerType": {
+      "time_based": "Time Based",
+      "manual": "Manual",
+      "event_based": "Event Based",
+      "conditional": "Conditional"
+    }
+  }
+}

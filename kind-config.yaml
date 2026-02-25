@@ -1,0 +1,33 @@
+# Kind cluster configuration for Kamerplanter local development
+# Usage: kind create cluster --config kind-config.yaml --name kamerplanter
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  podSubnet: "10.244.0.0/16"
+  serviceSubnet: "10.96.0.0/16"
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+      - containerPort: 30800
+        hostPort: 8000
+        protocol: TCP
+      - containerPort: 30300
+        hostPort: 3000
+        protocol: TCP
+      - containerPort: 30529
+        hostPort: 8529
+        protocol: TCP
+  - role: worker
+  - role: worker

@@ -1,0 +1,56 @@
+name: Skaffold Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "skaffold.yaml"
+      - "helm/**"
+      - "src/backend/Dockerfile*"
+      - "src/frontend/Dockerfile*"
+      - "kind-config.yaml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Setup Skaffold
+        uses: hiberbee/github-action-skaffold@1.31.0
+        with:
+          skaffold-version: 2.14.0
+
+      - name: Lint Helm charts
+        run: |
+          helm lint helm/kamerplanter-backend/
+          helm lint helm/kamerplanter-frontend/
+          helm lint helm/kamerplanter-arangodb/
+
+      - name: Render Helm templates
+        run: |
+          helm template kamerplanter-backend helm/kamerplanter-backend/ \
+            -f helm/kamerplanter-backend/values-dev.yaml
+          helm template kamerplanter-frontend helm/kamerplanter-frontend/ \
+            -f helm/kamerplanter-frontend/values-dev.yaml
+          helm template kamerplanter-arangodb helm/kamerplanter-arangodb/ \
+            -f helm/kamerplanter-arangodb/values-dev.yaml
+
+      - name: Skaffold diagnose
+        run: skaffold diagnose
+
+      - name: Skaffold render
+        run: |
+          skaffold render --output rendered-manifests.yaml || true
+
+      - name: Upload rendered manifests
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rendered-manifests
+          path: rendered-manifests.yaml
+          retention-days: 5

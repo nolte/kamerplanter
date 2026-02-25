@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kamerplanter-arangodb
+description: ArangoDB instance for Kamerplanter
+type: application
+version: 0.1.0
+appVersion: "3.11"

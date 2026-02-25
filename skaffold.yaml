@@ -1,0 +1,114 @@
+apiVersion: skaffold/v4beta13
+kind: Config
+metadata:
+  name: kamerplanter
+
+build:
+  local:
+    push: false
+  artifacts:
+    - image: kamerplanter-backend
+      context: src/backend
+      docker:
+        dockerfile: Dockerfile.dev
+      sync:
+        manual:
+          - src: "app/**/*.py"
+            dest: /app
+    - image: kamerplanter-frontend
+      context: src/frontend
+      docker:
+        dockerfile: Dockerfile.dev
+      sync:
+        manual:
+          - src: "src/**/*.ts"
+            dest: /app
+          - src: "src/**/*.tsx"
+            dest: /app
+          - src: "src/**/*.css"
+            dest: /app
+
+deploy:
+  helm:
+    releases:
+      - name: kamerplanter-arangodb
+        chartPath: helm/kamerplanter-arangodb
+        valuesFiles:
+          - helm/kamerplanter-arangodb/values-dev.yaml
+        namespace: default
+
+      - name: redis
+        remoteChart: bitnami/redis
+        version: 24.1.0
+        namespace: default
+        setValues:
+          architecture: standalone
+          auth.enabled: false
+          master.persistence.size: 1Gi
+
+      - name: kamerplanter-backend
+        chartPath: helm/kamerplanter-backend
+        valuesFiles:
+          - helm/kamerplanter-backend/values-dev.yaml
+        namespace: default
+        setValueTemplates:
+          image.repository: "{{.IMAGE_REPO_kamerplanter_backend}}"
+          image.tag: "{{.IMAGE_TAG_kamerplanter_backend}}"
+
+      - name: kamerplanter-frontend
+        chartPath: helm/kamerplanter-frontend
+        valuesFiles:
+          - helm/kamerplanter-frontend/values-dev.yaml
+        namespace: default
+        setValueTemplates:
+          image.repository: "{{.IMAGE_REPO_kamerplanter_frontend}}"
+          image.tag: "{{.IMAGE_TAG_kamerplanter_frontend}}"
+
+portForward:
+  - resourceType: service
+    resourceName: kamerplanter-backend
+    namespace: default
+    port: 8000
+    localPort: 8000
+  - resourceType: service
+    resourceName: kamerplanter-frontend
+    namespace: default
+    port: 5173
+    localPort: 3000
+  - resourceType: service
+    resourceName: kamerplanter-arangodb
+    namespace: default
+    port: 8529
+    localPort: 8529
+
+profiles:
+  - name: backend-only
+    patches:
+      - op: remove
+        path: /build/artifacts/1
+      - op: remove
+        path: /deploy/helm/releases/3
+      - op: remove
+        path: /portForward/1
+
+  - name: frontend-only
+    patches:
+      - op: remove
+        path: /build/artifacts/0
+      - op: remove
+        path: /deploy/helm/releases/0
+      - op: remove
+        path: /deploy/helm/releases/0
+      - op: remove
+        path: /portForward/0
+      - op: remove
+        path: /portForward/1
+
+  - name: debug
+    patches:
+      - op: add
+        path: /build/artifacts/0/docker/buildArgs
+        value:
+          DEBUGPY_ENABLED: "true"
+    activation:
+      - command: debug

@@ -1,0 +1,50 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Skaffold: Dev",
+      "type": "shell",
+      "command": "skaffold dev --port-forward",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Skaffold: Dev (Backend Only)",
+      "type": "shell",
+      "command": "skaffold dev --port-forward -p backend-only",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Skaffold: Debug",
+      "type": "shell",
+      "command": "skaffold debug --port-forward",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Skaffold: Run",
+      "type": "shell",
+      "command": "skaffold run --port-forward",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Kind: Create Cluster",
+      "type": "shell",
+      "command": "./scripts/dev-setup.sh",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Kind: Delete Cluster",
+      "type": "shell",
+      "command": "./scripts/dev-teardown.sh",
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}

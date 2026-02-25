@@ -1,0 +1,35 @@
+# Development Dockerfile for Kamerplanter backend
+# Hot-reload enabled via uvicorn --reload
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install debugpy for remote debugging
+RUN pip install --no-cache-dir debugpy
+
+# Install dependencies first for better layer caching
+COPY pyproject.toml .
+RUN pip install --no-cache-dir -e ".[dev]"
+
+# Copy application code
+COPY . .
+
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+
+ENV PYTHONUNBUFFERED=1
+ENV WATCHFILES_FORCE_POLLING=true
+
+EXPOSE 8000
+EXPOSE 5678
+
+HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
+    CMD curl -f http://localhost:8000/api/v1/health/live || exit 1
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

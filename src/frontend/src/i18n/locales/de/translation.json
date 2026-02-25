@@ -1,0 +1,436 @@
+{
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "create": "Erstellen",
+    "close": "Schließen",
+    "confirm": "Bestätigen",
+    "search": "Suchen",
+    "loading": "Wird geladen...",
+    "noData": "Keine Daten vorhanden",
+    "actions": "Aktionen",
+    "back": "Zurück",
+    "yes": "Ja",
+    "no": "Nein",
+    "optional": "Optional",
+    "required": "Pflichtfeld",
+    "rowsPerPage": "Zeilen pro Seite",
+    "of": "von",
+    "unsavedChanges": "Sie haben ungespeicherte Änderungen. Möchten Sie die Seite wirklich verlassen?",
+    "deleteConfirm": "Sind Sie sicher, dass Sie \"{{name}}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "createdAt": "Erstellt am",
+    "updatedAt": "Aktualisiert am",
+    "skipToContent": "Zum Inhalt springen",
+    "toggleSidebar": "Seitenleiste umschalten"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "stammdaten": "Stammdaten",
+    "botanicalFamilies": "Botanische Familien",
+    "species": "Arten",
+    "companionPlanting": "Mischkultur",
+    "cropRotation": "Fruchtfolge",
+    "standorte": "Standorte",
+    "sites": "Standorte",
+    "substrates": "Substrate",
+    "pflanzen": "Pflanzen",
+    "plantInstances": "Pflanzeninstanzen",
+    "calculations": "Berechnungen",
+    "mainNavigation": "Hauptnavigation"
+  },
+  "errors": {
+    "network": "Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung.",
+    "server": "Serverfehler. Bitte versuchen Sie es später erneut.",
+    "notFound": "Die angeforderte Ressource wurde nicht gefunden.",
+    "validation": "Bitte überprüfen Sie Ihre Eingaben.",
+    "duplicate": "Ein Eintrag mit diesem Namen existiert bereits.",
+    "unknown": "Ein unbekannter Fehler ist aufgetreten."
+  },
+  "entities": {
+    "botanicalFamily": "Botanische Familie",
+    "botanicalFamilies": "Botanische Familien",
+    "species": "Art",
+    "speciesPlural": "Arten",
+    "cultivar": "Sorte",
+    "cultivars": "Sorten",
+    "site": "Standort",
+    "sites": "Standorte",
+    "location": "Bereich",
+    "locations": "Bereiche",
+    "slot": "Stellplatz",
+    "slots": "Stellplätze",
+    "substrate": "Substrat",
+    "substrates": "Substrate",
+    "batch": "Charge",
+    "batches": "Chargen",
+    "plantInstance": "Pflanze",
+    "plantInstances": "Pflanzen",
+    "phase": "Phase",
+    "phases": "Phasen",
+    "lifecycle": "Lebenszyklus",
+    "profile": "Profil"
+  },
+  "pages": {
+    "dashboard": {
+      "title": "Dashboard",
+      "welcome": "Willkommen bei Kamerplanter",
+      "quickActions": "Schnellaktionen",
+      "stats": "Statistiken"
+    },
+    "botanicalFamilies": {
+      "title": "Botanische Familien",
+      "listIntro": "Botanische Familien gruppieren Pflanzenarten nach Verwandtschaft und bestimmen den typischen Nährstoffbedarf. Klicken Sie auf einen Eintrag, um Details und zugehörige Arten zu sehen.",
+      "createIntro": "Legen Sie eine neue Botanische Familie an. Familien gruppieren Pflanzenarten mit ähnlichem Nährstoffbedarf.",
+      "editIntro": "Bearbeiten Sie die Eigenschaften dieser Botanischen Familie. Änderungen wirken sich auf alle zugeordneten Arten aus.",
+      "create": "Familie erstellen",
+      "name": "Name",
+      "nameHelper": "Botanischer Familienname, muss auf '-aceae' enden (z.\u00a0B. 'Solanaceae')",
+      "commonNameDe": "Deutscher Name",
+      "commonNameDeHelper": "Deutscher Anzeigename (z.\u00a0B. 'Nachtschattengewächse')",
+      "commonNameEn": "Englischer Name",
+      "commonNameEnHelper": "Englischer Anzeigename (z.\u00a0B. 'Nightshade family')",
+      "order": "Ordnung",
+      "orderHelper": "Taxonomische Ordnung, muss auf '-ales' enden wenn angegeben (z.\u00a0B. 'Solanales')",
+      "description": "Beschreibung",
+      "descriptionHelper": "Kurze botanische Beschreibung der Familie",
+      "nutrientDemand": "Nährstoffbedarf",
+      "nutrientDemandHelper": "Typischer Nährstoffbedarf: Schwachzehrer, Mittelzehrer oder Starkzehrer",
+      "nitrogenFixing": "Stickstofffixierend",
+      "nitrogenFixingHelper": "Stickstofffixierende Familien (z.\u00a0B. Fabaceae) reduzieren Düngebedarf. Inkompatibel mit Starkzehrer.",
+      "rootDepth": "Wurzeltiefe",
+      "rootDepthHelper": "Typische Wurzeltiefe: Flach (<30\u00a0cm), Mittel (30–60\u00a0cm), Tief (>60\u00a0cm)",
+      "soilPhMin": "pH-Minimum",
+      "soilPhMax": "pH-Maximum",
+      "soilPhHelper": "pH-Bereich-Präferenz für optimales Wachstum (3,0–9,0)",
+      "frostTolerance": "Frosttoleranz",
+      "frostToleranceHelper": "Frosttoleranz-Stufe der Familie",
+      "growthForms": "Wuchsformen",
+      "growthFormsHelper": "Typische Wuchsformen in der Familie, mindestens eine auswählen",
+      "commonPests": "Häufige Schädlinge",
+      "commonPestsHelper": "Häufige Schädlinge für diese Familie (Enter drücken zum Hinzufügen)",
+      "commonDiseases": "Häufige Krankheiten",
+      "commonDiseasesHelper": "Häufige Pilz- oder Bakterienkrankheiten (Enter drücken zum Hinzufügen)",
+      "pollinationType": "Bestäubungstypen",
+      "pollinationTypeHelper": "Bestäubungsarten dieser Familie, mindestens eine auswählen",
+      "rotationCategory": "Fruchtfolgekategorie",
+      "rotationCategoryHelper": "Kategorie für Fruchtfolge-Planung (z.\u00a0B. 'solanaceae', 'legume')"
+    },
+    "species": {
+      "title": "Arten",
+      "listIntro": "Pflanzenarten bilden die Grundlage der Stammdaten. Jede Art gehört zu einer Botanischen Familie und kann mehrere Sorten (Cultivare) besitzen.",
+      "createIntro": "Legen Sie eine neue Pflanzenart an. Der wissenschaftliche Name muss der binomialen Nomenklatur folgen (z.\u00a0B. 'Solanum lycopersicum').",
+      "editIntro": "Bearbeiten Sie die Eigenschaften dieser Pflanzenart. Änderungen wirken sich auf zugeordnete Sorten und Lebenszyklen aus.",
+      "create": "Art erstellen",
+      "scientificName": "Wissenschaftlicher Name",
+      "scientificNameHelper": "Binomiale Nomenklatur: Gattung + Artepitheton (z.\u00a0B. 'Solanum lycopersicum')",
+      "commonNames": "Gebräuchliche Namen",
+      "commonNamesHelper": "Volkstümliche Namen in beliebigen Sprachen (Enter drücken zum Hinzufügen)",
+      "family": "Familie",
+      "familyHelper": "Zugehörige Botanische Familie — bestimmt Fruchtfolge und Nährstoffbedarf",
+      "genus": "Gattung",
+      "genusHelper": "Botanische Gattung, erster Teil des wissenschaftlichen Namens (z.\u00a0B. 'Solanum')",
+      "growthHabit": "Wuchsform",
+      "growthHabitHelper": "Typische Wuchsform der Art: Kraut, Strauch, Baum, Ranke oder Bodendecker",
+      "rootType": "Wurzeltyp",
+      "rootTypeHelper": "Wurzelsystem: Faserig, Pfahlwurzel, Knollig oder Zwiebel",
+      "hardinessZones": "Winterhärtezonen",
+      "hardinessZonesHelper": "USDA-Winterhärtezonen (z.\u00a0B. '7a', '8b') — Enter drücken zum Hinzufügen",
+      "nativeHabitat": "Natürlicher Lebensraum",
+      "nativeHabitatHelper": "Ursprüngliches Verbreitungsgebiet der Art (z.\u00a0B. 'Südamerika, Anden')",
+      "allelopathyScore": "Allelopathie-Wert",
+      "allelopathyScoreHelper": "Biochemische Wechselwirkung: −1 (stark hemmend) bis +1 (stark fördernd), 0 = neutral",
+      "baseTemp": "Basistemperatur (°C)",
+      "baseTempHelper": "Schwellentemperatur für GDD-Berechnung (Growing Degree Days), typisch 5–15\u00a0°C",
+      "description": "Beschreibung",
+      "descriptionHelper": "Kurze botanische Beschreibung der Art",
+      "synonyms": "Synonyme",
+      "synonymsHelper": "Taxonomische Synonyme / frühere wissenschaftliche Namen (Enter drücken zum Hinzufügen)",
+      "taxonomicAuthority": "Taxonomische Autorität",
+      "taxonomicAuthorityHelper": "Erstbeschreiber der Art nach ICZN/ICN (z.\u00a0B. 'L.' für Linné)",
+      "taxonomicStatus": "Taxonomischer Status",
+      "taxonomicStatusHelper": "Aktueller Status: accepted, synonym, doubtful, misapplied"
+    },
+    "cultivars": {
+      "title": "Sorten",
+      "create": "Sorte erstellen",
+      "name": "Name",
+      "breeder": "Züchter",
+      "breedingYear": "Zuchtjahr",
+      "traits": "Eigenschaften",
+      "patentStatus": "Patentstatus",
+      "daysToMaturity": "Tage bis Reife",
+      "diseaseResistances": "Krankheitsresistenzen"
+    },
+    "companionPlanting": {
+      "title": "Mischkultur",
+      "compatible": "Kompatible Arten",
+      "incompatible": "Inkompatible Arten",
+      "addCompatible": "Kompatibilität hinzufügen",
+      "addIncompatible": "Inkompatibilität hinzufügen",
+      "score": "Bewertung",
+      "reason": "Grund",
+      "selectSpecies": "Art auswählen"
+    },
+    "cropRotation": {
+      "title": "Fruchtfolge",
+      "successors": "Nachfolger",
+      "addSuccessor": "Nachfolger hinzufügen",
+      "waitYears": "Wartezeit (Jahre)",
+      "fromFamily": "Von Familie",
+      "toFamily": "Zu Familie"
+    },
+    "sites": {
+      "title": "Standorte",
+      "create": "Standort erstellen",
+      "name": "Name",
+      "type": "Typ",
+      "climateZone": "Klimazone",
+      "totalArea": "Gesamtfläche (m²)",
+      "gpsCoordinates": "GPS-Koordinaten"
+    },
+    "locations": {
+      "title": "Bereiche",
+      "create": "Bereich erstellen",
+      "name": "Name",
+      "area": "Fläche (m²)",
+      "orientation": "Ausrichtung",
+      "lightType": "Beleuchtung",
+      "irrigationSystem": "Bewässerungssystem",
+      "dimensions": "Abmessungen (L × B × H)"
+    },
+    "slots": {
+      "title": "Stellplätze",
+      "create": "Stellplatz erstellen",
+      "slotId": "Stellplatz-ID",
+      "position": "Position",
+      "capacity": "Kapazität",
+      "occupied": "Belegt"
+    },
+    "substrates": {
+      "title": "Substrate",
+      "create": "Substrat erstellen",
+      "type": "Typ",
+      "brand": "Marke",
+      "phBase": "pH-Basis",
+      "ecBase": "EC-Basis (mS/cm)",
+      "waterRetention": "Wasserhaltevermögen",
+      "airPorosity": "Luftporosität (%)",
+      "bufferCapacity": "Pufferkapazität",
+      "reusable": "Wiederverwendbar",
+      "maxReuseCycles": "Max. Wiederverwendungszyklen",
+      "checkReusability": "Wiederverwendbarkeit prüfen"
+    },
+    "batches": {
+      "title": "Chargen",
+      "create": "Charge erstellen",
+      "batchId": "Chargen-ID",
+      "volume": "Volumen (L)",
+      "mixedOn": "Gemischt am",
+      "cyclesUsed": "Verwendete Zyklen",
+      "phCurrent": "Aktueller pH",
+      "ecCurrent": "Aktueller EC"
+    },
+    "plantInstances": {
+      "title": "Pflanzeninstanzen",
+      "create": "Pflanze erstellen",
+      "instanceId": "Instanz-ID",
+      "plantName": "Pflanzenname",
+      "plantedOn": "Gepflanzt am",
+      "removedOn": "Entfernt am",
+      "currentPhase": "Aktuelle Phase",
+      "remove": "Pflanze entfernen",
+      "validatePlanting": "Pflanzung validieren"
+    },
+    "phases": {
+      "title": "Phasensteuerung",
+      "current": "Aktuelle Phase",
+      "daysInPhase": "Tage in Phase",
+      "nextPhase": "Nächste Phase",
+      "transition": "Phasenwechsel",
+      "targetPhase": "Zielphase",
+      "reason": "Grund",
+      "history": "Phasenverlauf",
+      "enteredAt": "Beginn",
+      "exitedAt": "Ende",
+      "duration": "Dauer (Tage)",
+      "transitionReason": "Übergangsgrund"
+    },
+    "lifecycle": {
+      "title": "Lebenszyklus-Konfiguration",
+      "cycleType": "Zyklustyp",
+      "lifespanYears": "Lebensdauer (Jahre)",
+      "dormancy": "Winterruhe erforderlich",
+      "vernalization": "Vernalisation erforderlich",
+      "vernalizationDays": "Vernalisation (Tage)",
+      "photoperiodType": "Photoperioden-Typ",
+      "criticalDayLength": "Kritische Tageslänge (h)"
+    },
+    "growthPhases": {
+      "title": "Wachstumsphasen",
+      "create": "Phase erstellen",
+      "name": "Name",
+      "displayName": "Anzeigename",
+      "duration": "Typische Dauer (Tage)",
+      "sequenceOrder": "Reihenfolge",
+      "isTerminal": "Endphase",
+      "allowsHarvest": "Ernte erlaubt",
+      "stressTolerance": "Stresstoleranz"
+    },
+    "profiles": {
+      "requirements": "Anforderungsprofil",
+      "nutrients": "Nährstoffprofil",
+      "generateDefaults": "Standardwerte generieren",
+      "lightPpfd": "Licht-PPFD",
+      "photoperiodHours": "Photoperiode (h)",
+      "tempDay": "Tagestemperatur (°C)",
+      "tempNight": "Nachttemperatur (°C)",
+      "humidityDay": "Luftfeuchtigkeit Tag (%)",
+      "humidityNight": "Luftfeuchtigkeit Nacht (%)",
+      "vpdTarget": "VPD-Ziel (kPa)",
+      "npkRatio": "NPK-Verhältnis",
+      "targetEc": "Ziel-EC (mS/cm)",
+      "targetPh": "Ziel-pH"
+    },
+    "calculations": {
+      "title": "Berechnungen",
+      "vpd": "VPD-Rechner",
+      "vpdTemp": "Temperatur (°C)",
+      "vpdHumidity": "Luftfeuchtigkeit (%)",
+      "vpdResult": "VPD (kPa)",
+      "vpdStatus": "Status",
+      "gdd": "GDD-Rechner",
+      "gddBaseTemp": "Basistemperatur (°C)",
+      "gddResult": "Akkumulierte GDD",
+      "photoperiod": "Photoperioden-Übergang",
+      "currentHours": "Aktuelle Stunden",
+      "targetHours": "Zielstunden",
+      "transitionDays": "Übergangstage",
+      "slotCapacity": "Stellplatz-Kapazität",
+      "areaMsq": "Fläche (m²)",
+      "plantSpacing": "Pflanzabstand (cm)",
+      "calculate": "Berechnen"
+    },
+    "notFound": {
+      "title": "Seite nicht gefunden",
+      "message": "Die angeforderte Seite existiert nicht.",
+      "backHome": "Zurück zum Dashboard"
+    }
+  },
+  "enums": {
+    "growthHabit": {
+      "herb": "Kraut",
+      "shrub": "Strauch",
+      "tree": "Baum",
+      "vine": "Ranke",
+      "groundcover": "Bodendecker"
+    },
+    "rootType": {
+      "fibrous": "Faserig",
+      "taproot": "Pfahlwurzel",
+      "tuberous": "Knollig",
+      "bulbous": "Zwiebel"
+    },
+    "photoperiodType": {
+      "short_day": "Kurztagpflanze",
+      "long_day": "Langtagpflanze",
+      "day_neutral": "Tagneutral"
+    },
+    "cycleType": {
+      "annual": "Einjährig",
+      "biennial": "Zweijährig",
+      "perennial": "Mehrjährig"
+    },
+    "stressTolerance": {
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch"
+    },
+    "siteType": {
+      "outdoor": "Außenbereich",
+      "greenhouse": "Gewächshaus",
+      "indoor": "Innenbereich"
+    },
+    "lightType": {
+      "natural": "Natürlich",
+      "led": "LED",
+      "hps": "HPS",
+      "cmh": "CMH",
+      "mixed": "Gemischt"
+    },
+    "irrigationSystem": {
+      "manual": "Manuell",
+      "drip": "Tropf",
+      "hydro": "Hydro",
+      "mist": "Nebel"
+    },
+    "substrateType": {
+      "soil": "Erde",
+      "coco": "Kokos",
+      "rockwool": "Steinwolle",
+      "clay_pebbles": "Blähton",
+      "perlite": "Perlit",
+      "living_soil": "Lebende Erde",
+      "hydro_solution": "Hydrolösung"
+    },
+    "nutrientDemand": {
+      "light": "Schwachzehrer",
+      "medium": "Mittelzehrer",
+      "heavy": "Starkzehrer"
+    },
+    "rootDepth": {
+      "shallow": "Flach",
+      "medium": "Mittel",
+      "deep": "Tief"
+    },
+    "frostTolerance": {
+      "sensitive": "Empfindlich",
+      "moderate": "Moderat",
+      "hardy": "Hardy",
+      "very_hardy": "Sehr hardy"
+    },
+    "pollinationType": {
+      "insect": "Insektenbestäubung",
+      "wind": "Windbestäubung",
+      "self": "Selbstbestäubung"
+    },
+    "waterRetention": {
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch"
+    },
+    "bufferCapacity": {
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch"
+    },
+    "orientation": {
+      "north": "Nord",
+      "south": "Süd",
+      "east": "Ost",
+      "west": "West"
+    },
+    "plantTrait": {
+      "disease_resistant": "Krankheitsresistent",
+      "pest_resistant": "Schädlingsresistent",
+      "high_yield": "Ertragreich",
+      "compact": "Kompakt",
+      "drought_tolerant": "Trockenheitstolerant",
+      "cold_hardy": "Winterhart",
+      "heat_tolerant": "Hitzetolerant",
+      "early_maturing": "Frühreifend",
+      "long_season": "Langzeit",
+      "ornamental": "Zierpflanze",
+      "heirloom": "Historisch",
+      "hybrid": "Hybrid",
+      "f1": "F1"
+    },
+    "transitionTriggerType": {
+      "time_based": "Zeitbasiert",
+      "manual": "Manuell",
+      "event_based": "Ereignisbasiert",
+      "conditional": "Bedingt"
+    }
+  }
+}

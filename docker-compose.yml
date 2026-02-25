@@ -1,0 +1,67 @@
+version: "3.8"
+
+services:
+  # ── ArangoDB ──────────────────────────────────────────────
+  arangodb:
+    image: arangodb:3.11
+    environment:
+      ARANGO_ROOT_PASSWORD: rootpassword
+    ports:
+      - "8529:8529"
+    volumes:
+      - arangodb_data:/var/lib/arangodb3
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8529/_api/version"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ─────────────────────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend (FastAPI) ─────────────────────────────────────
+  backend:
+    build:
+      context: ./src/backend
+    environment:
+      ARANGODB_HOST: arangodb
+      ARANGODB_PORT: "8529"
+      ARANGODB_DATABASE: kamerplanter
+      ARANGODB_USERNAME: root
+      ARANGODB_PASSWORD: rootpassword
+      REDIS_URL: redis://redis:6379/0
+      CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
+      DEBUG: "false"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - arangodb
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Frontend (React + nginx) ──────────────────────────────
+  frontend:
+    build:
+      context: ./src/frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  arangodb_data:
+  redis_data:
