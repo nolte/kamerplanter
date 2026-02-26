@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -66,25 +66,53 @@ interface EntryRowProps {
   canRemove: boolean;
 }
 
+function toPrefix(name: string): string {
+  return name.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 3);
+}
+
 function EntryRow({ index, control, setValue, speciesList, roles, onRemove, canRemove }: EntryRowProps) {
   const { t } = useTranslation();
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
   const [cultivarsLoading, setCultivarsLoading] = useState(false);
   const speciesKey = useWatch({ control, name: `entries.${index}.species_key` });
+  const cultivarKey = useWatch({ control, name: `entries.${index}.cultivar_key` });
+  const idPrefix = useWatch({ control, name: `entries.${index}.id_prefix` });
+  const autoPrefix = useRef('');
 
   useEffect(() => {
     if (!speciesKey) {
       setCultivarList([]);
+      autoPrefix.current = '';
       return;
     }
     setCultivarsLoading(true);
     setValue(`entries.${index}.cultivar_key`, null);
+    const species = speciesList.find((s) => s.key === speciesKey);
+    if (species) {
+      const prefix = toPrefix(species.genus);
+      if (prefix.length >= 2 && (!idPrefix || idPrefix === autoPrefix.current)) {
+        setValue(`entries.${index}.id_prefix`, prefix);
+        autoPrefix.current = prefix;
+      }
+    }
     speciesApi
       .listCultivars(speciesKey)
       .then(setCultivarList)
       .catch(() => setCultivarList([]))
       .finally(() => setCultivarsLoading(false));
-  }, [speciesKey, index, setValue]);
+  }, [speciesKey, index, setValue]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!cultivarKey) return;
+    const cultivar = cultivarList.find((c) => c.key === cultivarKey);
+    if (cultivar) {
+      const prefix = toPrefix(cultivar.name);
+      if (prefix.length >= 2 && (!idPrefix || idPrefix === autoPrefix.current)) {
+        setValue(`entries.${index}.id_prefix`, prefix);
+        autoPrefix.current = prefix;
+      }
+    }
+  }, [cultivarKey, cultivarList, index, setValue]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1, flexWrap: 'wrap' }}>
