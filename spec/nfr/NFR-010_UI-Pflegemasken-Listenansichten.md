@@ -161,7 +161,7 @@ Jede Domänenentität **MUSS** eine tabellarische Listenansicht besitzen, die au
 - Zeilenklick navigiert zur Detail-Ansicht (`onRowClick`)
 - Jede Zeile ist über einen eindeutigen Schlüssel identifizierbar (`getRowKey`)
 - i18n-konforme Spaltenüberschriften (DE/EN via react-i18next)
-- Domänenwerte in Dropdowns/Tabellen werden gemäß UI-NFR-007 (REQ-001 R-004a, R-005a) lokalisiert
+- Domänenwerte in Dropdowns/Tabellen werden gemäß UI-NFR-007 (R-005, R-007) lokalisiert
 
 ### 3.2 Pagination
 
