@@ -11,7 +11,7 @@ Version: 1.0
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-26
 Tags: [ui, crud, listenansicht, pflegemaske, vollständigkeit, datenpflege, usability]
-Abhängigkeiten: [NFR-001, NFR-003, NFR-006]
+Abhängigkeiten: [NFR-001, NFR-003, NFR-006, UI-NFR-004, UI-NFR-008, UI-NFR-010]
 Betroffene Module: [Frontend]
 ---
 
@@ -19,11 +19,14 @@ Betroffene Module: [Frontend]
 
 ## Abgrenzung zu bestehenden NFRs
 
-| NFR | Fokus | Definiert |
+| Dokument | Fokus | Definiert |
 |---|---|---|
 | NFR-001 (Separation of Concerns) | Schichtenarchitektur, API-Kommunikation | **Wie** Frontend mit Backend kommuniziert |
 | NFR-003 (Code-Standard & Linting) | ESLint, TypeScript strict, Formatierung | **Wie** Code geschrieben wird |
 | NFR-006 (API-Fehlerbehandlung) | Error-Handling, Fehlermeldungen im UI | **Wie** Fehler angezeigt werden |
+| UI-NFR-004 (Feedback) | Toast, Validierungsdarstellung, Bestätigungsdialoge | **Wie** Feedback visuell dargestellt wird |
+| UI-NFR-008 (Formulare) | Validierungszeitpunkte, Dirty-State, Submit-Verhalten | **Wie** Formulare sich verhalten |
+| UI-NFR-010 (Tabellen) | Sortierung, Filter, Pagination, Responsive, a11y | **Wie** Tabellen sich verhalten |
 | **NFR-010 (dieses Dokument)** | CRUD-Masken, Listenansichten, Datenpflege | **Was** pro Entität vorhanden sein muss |
 
 NFR-010 definiert die **Mindestanforderungen an die UI-Abdeckung** jeder Domänenentität. Es stellt sicher, dass jede Entität über vollständige Pflegemasken (Create, Read, Update, Delete) sowie tabellarische Listenansichten verfügt. Die bestehenden Shared-Komponenten und Patterns werden referenziert und als verbindlich für alle CRUD-Masken erklärt.

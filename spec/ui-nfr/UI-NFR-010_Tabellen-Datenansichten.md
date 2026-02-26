@@ -10,11 +10,13 @@ Version: 1.0
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-26
 Tags: [tabellen, tables, sortierung, filter, suche, pagination, responsive, selektion, barrierefreiheit]
-Abhängigkeiten: [UI-NFR-001, UI-NFR-002, UI-NFR-003, UI-NFR-005]
+Abhängigkeiten: [UI-NFR-001, UI-NFR-002, UI-NFR-003, UI-NFR-004, UI-NFR-005, UI-NFR-006, UI-NFR-007]
 Betroffene Module: [Frontend, Mobile]
 ---
 
 # UI-NFR-010: Tabellen & Datenansichten
+
+> **Verwandtes Dokument:** NFR-010 (UI-Pflegemasken & Listenansichten) definiert, **welche** Entitäten Listenansichten benötigen und welche Spalten/Aktionen pro Entität vorhanden sein müssen. Dieses Dokument definiert das allgemeine **Verhalten** aller Tabellen.
 
 ## 1. Business Case
 
@@ -113,7 +115,7 @@ Tabellen sind die primäre Darstellungsform für Sammlungsdaten in der Anwendung
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-029 | Während die Daten geladen werden, MUSS ein Tabellen-Skeleton angezeigt werden (keine leere Tabelle, kein Spinner). | MUSS |
+| R-029 | Während die Daten geladen werden, MUSS ein Skeleton angezeigt werden (keine leere Tabelle, kein Spinner). | MUSS |
 | R-030 | Wenn keine Daten vorhanden sind, MUSS ein leerer Zustand mit erklärendem Text und optionaler Aktion angezeigt werden (z.B. „Noch keine Pflanzen vorhanden. [Jetzt anlegen]"). | MUSS |
 | R-031 | Wenn eine Suche/ein Filter keine Ergebnisse liefert, MUSS ein spezifischer Hinweis erscheinen (z.B. „Keine Ergebnisse für ‚xyz'. [Filter zurücksetzen]") — nicht der allgemeine Leerzustand. | MUSS |
 
@@ -285,7 +287,7 @@ Tabellenansichten bilden ihren Zustand in der URL ab. Beispiel:
     - [ ] Header bleibt beim Scrollen fixiert
     - [ ] Visueller Schatten trennt Header vom Inhalt
 - [ ] **Lade- & Leerzustände**
-    - [ ] Skeleton-Loader während des Ladens
+    - [ ] Skeleton während des Ladens
     - [ ] Leerzustand mit Hinweistext und Aktion
     - [ ] Keine-Ergebnisse-Zustand unterscheidet sich vom allgemeinen Leerzustand
 - [ ] **Barrierefreiheit**

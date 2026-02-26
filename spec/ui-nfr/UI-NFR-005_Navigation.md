@@ -10,7 +10,7 @@ Version: 1.0
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-26
 Tags: [navigation, routing, breadcrumb, deep-linking, browser-history, url-design]
-Abhängigkeiten: [UI-NFR-001]
+Abhängigkeiten: [UI-NFR-001, UI-NFR-002]
 Betroffene Module: [Frontend, Mobile]
 ---
 

@@ -11,7 +11,7 @@ Version: 1.0
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-26
 Tags: [branding, logo, visual-identity, comic-style, nature-theme, illustration, mascot, favicon, app-icon]
-Abhängigkeiten: [UI-NFR-006]
+Abhängigkeiten: [UI-NFR-002, UI-NFR-006]
 Betroffene Module: [Frontend, Mobile, Marketing]
 ---
 

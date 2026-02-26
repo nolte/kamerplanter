@@ -59,7 +59,7 @@ Barrierefreiheit ist nicht nur eine rechtliche Anforderung, sondern verbessert d
 | R-003 | Alle interaktiven Elemente MÜSSEN per Tastatur (Tab, Shift+Tab, Enter, Space, Escape, Pfeiltasten) erreichbar und bedienbar sein. | MUSS |
 | R-004 | Die Tab-Reihenfolge MUSS der visuellen Lesereihenfolge entsprechen (logische Reihenfolge im DOM). | MUSS |
 | R-005 | Der aktuell fokussierte Element MUSS einen deutlich sichtbaren Focus-Indikator haben (mindestens 2px Outline, Kontrastunterschied ≥3:1 zum Hintergrund). | MUSS |
-| R-006 | Focus DARF NICHT in Modalen, Dropdowns oder anderen Overlay-Elementen gefangen werden — Escape MUSS das Overlay schließen und den Fokus zurücksetzen. | MUSS |
+| R-006 | Focus DARF NICHT in Dropdowns, Tooltips oder anderen nicht-modalen Overlay-Elementen gefangen werden — Escape MUSS das Overlay schließen und den Fokus auf das auslösende Element zurücksetzen. | MUSS |
 | R-007 | Skip-Links MÜSSEN implementiert werden, um die Hauptnavigation zu überspringen und direkt zum Hauptinhalt zu gelangen. | MUSS |
 | R-008 | Tastaturfallen (Focus-Traps) DÜRFEN nur in Modalen eingesetzt werden und MÜSSEN per Escape verlassen werden können. | MUSS |
 

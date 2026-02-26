@@ -76,7 +76,7 @@ Performance hat direkten Einfluss auf Nutzerzufriedenheit und Konversion:
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-013 | Das initiale JavaScript-Bundle MUSS unter 200KB (gzipped) liegen. | MUSS |
+| R-013 | Das initiale JavaScript-Bundle SOLL unter 300KB (gzipped) liegen. Bei Einsatz von MUI + Redux Toolkit + react-i18next ist ein realistischer Zielwert 250–350KB; individuelle Routen MÜSSEN per Code-Splitting lazy-loaded werden. | SOLL |
 | R-014 | Das initiale CSS-Bundle SOLL unter 50KB (gzipped) liegen. | SOLL |
 | R-015 | Bundle-Size-Budgets MÜSSEN in der CI-Pipeline überwacht werden — ein Überschreiten MUSS den Build fehlschlagen lassen. | MUSS |
 | R-016 | Tree-Shaking MUSS aktiviert sein, um ungenutzten Code zu entfernen. | MUSS |

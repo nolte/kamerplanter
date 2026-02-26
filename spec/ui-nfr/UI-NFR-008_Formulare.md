@@ -10,11 +10,13 @@ Version: 1.0
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-26
 Tags: [formulare, forms, validierung, dirty-state, autofokus, tab-order, submit, double-submit, fremdschlüssel, autocomplete, dropdown]
-Abhängigkeiten: [UI-NFR-002, UI-NFR-004]
+Abhängigkeiten: [UI-NFR-002, UI-NFR-004, UI-NFR-006, UI-NFR-007]
 Betroffene Module: [Frontend, Mobile]
 ---
 
 # UI-NFR-008: Formulare & Eingabeverhalten
+
+> **Verwandtes Dokument:** NFR-010 (UI-Pflegemasken & Listenansichten) definiert die Formular-Anforderungen pro Entität (Create/Edit-Dialoge, Shared-Komponenten, Zod-Validierung). Dieses Dokument definiert das allgemeine Formularverhalten.
 
 ## 1. Business Case
 
@@ -81,7 +83,7 @@ Formulare sind die primäre Datenerfassungsmethode in der Anwendung. Schlechte F
 | R-015 | In mehrzeiligen Textfeldern (Textarea) DARF Enter NICHT das Formular absenden — Enter fügt eine neue Zeile ein. | MUSS |
 | R-016 | Der Submit-Button MUSS während einer laufenden Anfrage deaktiviert sein (Double-Submit-Schutz). | MUSS |
 | R-017 | Während der Anfrage MUSS der Submit-Button einen Ladezustand anzeigen (Spinner oder Text „Wird gespeichert…"). | MUSS |
-| R-018 | Nach erfolgreichem Submit MUSS eine Bestätigungsmeldung angezeigt werden (Toast oder Inline-Meldung). | MUSS |
+| R-018 | Nach erfolgreichem Submit MUSS eine Bestätigungsmeldung angezeigt werden (Snackbar oder Inline-Meldung). | MUSS |
 | R-019 | Nach fehlgeschlagenem Submit MÜSSEN die eingegebenen Daten erhalten bleiben — das Formular DARF NICHT zurückgesetzt werden. | MUSS |
 
 ### 2.5 Sinnvolle Defaults & Vorauswahlen
