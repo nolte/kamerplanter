@@ -14,7 +14,7 @@ import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/sites';
 
 const schema = z.object({
-  slot_id: z.string().min(1),
+  slot_id: z.string().min(1).transform((v) => v.toUpperCase()),
   capacity_plants: z.number().min(1).max(20),
 });
 

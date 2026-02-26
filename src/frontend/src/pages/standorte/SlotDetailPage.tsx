@@ -21,7 +21,7 @@ import * as api from '@/api/endpoints/sites';
 import type { Slot } from '@/api/types';
 
 const schema = z.object({
-  slot_id: z.string().min(1),
+  slot_id: z.string().min(1).transform((v) => v.toUpperCase()),
   location_key: z.string(),
   capacity_plants: z.number().min(1).max(20),
 });
