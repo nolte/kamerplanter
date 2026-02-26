@@ -6,6 +6,8 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
+import app.data_access.external.gbif_adapter  # noqa: F401  register adapter
+import app.data_access.external.perenual_adapter  # noqa: F401  register adapter
 from app.api.v1.router import api_router
 from app.common.dependencies import close_connection, get_connection
 from app.common.error_handlers import (
@@ -17,8 +19,6 @@ from app.common.exceptions import KamerplanterError
 from app.config.logging import setup_logging
 from app.config.settings import settings
 from app.data_access.arango.collections import ensure_collections
-import app.data_access.external.gbif_adapter  # noqa: F401  register adapter
-import app.data_access.external.perenual_adapter  # noqa: F401  register adapter
 
 logger = structlog.get_logger()
 
