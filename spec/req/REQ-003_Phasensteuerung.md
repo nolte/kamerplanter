@@ -391,14 +391,21 @@ class PhotoperiodManager(BaseModel):
         photoperiod_hours: float,
         preferred_lights_on: time = time(6, 0)
     ) -> dict:
-        """Berechnet Licht-EIN und AUS Zeiten"""
-        
+        """Berechnet Licht-EIN und AUS Zeiten.
+
+        `preferred_lights_on` wird aus dem Location-Model übernommen
+        (Feld `lights_on`), falls gesetzt. Bei natürlichem Licht und
+        `use_dynamic_sunrise=True` wird die berechnete Sonnenaufgangszeit
+        aus dem SunCalculator (REQ-002) verwendet.
+        Default bleibt 06:00 für Abwärtskompatibilität.
+        """
+
         hours_on = int(photoperiod_hours)
         minutes_on = int((photoperiod_hours % 1) * 60)
-        
+
         lights_on_dt = datetime.combine(datetime.today(), preferred_lights_on)
         lights_off_dt = lights_on_dt + timedelta(hours=hours_on, minutes=minutes_on)
-        
+
         return {
             'lights_on': lights_on_dt.time(),
             'lights_off': lights_off_dt.time(),

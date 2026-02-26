@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
@@ -37,10 +38,24 @@ class Location(BaseModel):
     light_type: LightType = LightType.NATURAL
     irrigation_system: IrrigationSystem = IrrigationSystem.MANUAL
     dimensions: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    lights_on: str | None = None
+    lights_off: str | None = None
+    use_dynamic_sunrise: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+    @field_validator("lights_on", "lights_off")
+    @classmethod
+    def validate_time_format(cls, v: str | None) -> str | None:
+        if v is not None:
+            if not re.match(r"^\d{2}:\d{2}$", v):
+                raise ValueError("Time must be in HH:MM format")
+            hours, minutes = v.split(":")
+            if not (0 <= int(hours) <= 23 and 0 <= int(minutes) <= 59):
+                raise ValueError("Invalid time value")
+        return v
 
 
 class Site(BaseModel):
@@ -50,6 +65,7 @@ class Site(BaseModel):
     gps_coordinates: tuple[float, float] | None = None
     climate_zone: str = ""
     total_area_m2: float = Field(default=0.0, ge=0)
+    timezone: str = "UTC"
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

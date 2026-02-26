@@ -47,6 +47,7 @@ Das System verwaltet eine **rekursiv verschachtelbare** Standort-Struktur: **Sit
     - `gps_coordinates: Optional[tuple[float, float]]` (Latitude, Longitude)
     - `climate_zone: str` (USDA Hardiness Zone)
     - `total_area_m2: float`
+    - `timezone: str` — IANA-Zeitzone (z.B. "Europe/Berlin"), Default: "UTC"
 
 - **`:Location`** - Räumlicher Container (Beet, Zelt, Raum) — rekursiv verschachtelbar
   - Properties:
@@ -61,6 +62,9 @@ Das System verwaltet eine **rekursiv verschachtelbare** Standort-Struktur: **Sit
     - `light_type: Literal['natural', 'led', 'hps', 'cmh', 'mixed']`
     - `irrigation_system: Literal['manual', 'drip', 'hydro', 'mist']`
     - `dimensions: tuple[float, float, float]` (length, width, height in meters)
+    - `lights_on: Optional[str]` — Uhrzeit Licht-Ein im Format HH:MM (z.B. "06:00")
+    - `lights_off: Optional[str]` — Uhrzeit Licht-Aus im Format HH:MM (z.B. "22:00")
+    - `use_dynamic_sunrise: bool` — Dynamische Sonnenstandberechnung aus GPS-Koordinaten aktivieren (nur bei `light_type: natural` oder `mixed`)
 
   **LocationType-Enum:**
   ```
@@ -83,6 +87,29 @@ Das System verwaltet eine **rekursiv verschachtelbare** Standort-Struktur: **Sit
     - `capacity_plants: int` (1 für Einzelkultur, >1 für Mischkultur)
     - `currently_occupied: bool`
     - `last_sanitization: Optional[datetime]`
+
+### Lichtzeiten-Verwaltung (Sunrise/Sunset)
+
+Das System unterstützt die Verwaltung von Lichtzeiten pro Location. Das Verhalten richtet sich nach dem `light_type`:
+
+| `light_type` | Verhalten |
+|---|---|
+| `natural` | Dynamische Berechnung aus GPS-Koordinaten + Datum mittels SunCalculator. Optional manueller Override durch `lights_on`/`lights_off`. |
+| `led`, `hps`, `cmh` | Nutzer setzt `lights_on` und `lights_off` frei (Kunstlicht-Zeitplan). |
+| `mixed` | Nutzer setzt Kunstlicht-Zeiten; natürlicher Sonnenstand wird informativ aus GPS berechnet. |
+
+**SunCalculator:**
+- Algorithmus: Astronomische Sonnenstandberechnung basierend auf GPS-Koordinaten (Latitude, Longitude), Datum und Zeitzone
+- Eingabe: `latitude: float`, `longitude: float`, `date: date`, `timezone: str` (IANA)
+- Ausgabe: `sunrise: time`, `sunset: time`, `dawn: time` (bürgerliche Dämmerung), `dusk: time`, `day_length_hours: float`
+- Bibliothek: `astral` (Python, MIT-Lizenz)
+
+**Akzeptanzkriterien:**
+- Für `light_type=natural`: Sonnenauf-/untergang wird aus GPS + Datum dynamisch berechnet, falls `use_dynamic_sunrise=true`
+- Für `light_type=led/hps/cmh`: Nutzer kann `lights_on` und `lights_off` im Format HH:MM setzen
+- Für `light_type=mixed`: Kunstlicht-Zeiten werden gepflegt, Sonnenstand informativ angezeigt
+- Der PhotoperiodCalculator verwendet `lights_on` aus dem Standort statt des Hardcodes 06:00
+- Site-Zeitzone wird bei Sonnenstandberechnung berücksichtigt
 
 - **`:Substrate`** - Substrat-Definition
   - Properties:
@@ -831,6 +858,7 @@ Site: "Zuhause" (indoor, Klimazone 8a, GPS: 52.52°N 13.405°E)
 - REQ-005 (Sensorik): Slot-Position für Sensor-Zuordnung
 - REQ-006 (Tasks): Standort-spezifische Aufgaben
 - REQ-010 (IPM): Standort-Historie für Schädlings-Muster
+- REQ-014 (Tankmanagement): **HOCH** — Location für Tank-Zuordnung, `irrigation_system` für Pflicht-Validierung
 
 ## 5. Akzeptanzkriterien
 

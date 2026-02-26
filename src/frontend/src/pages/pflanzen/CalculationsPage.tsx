@@ -16,7 +16,7 @@ import TableRow from '@mui/material/TableRow';
 import PageTitle from '@/components/layout/PageTitle';
 import { useApiError } from '@/hooks/useApiError';
 import * as calcApi from '@/api/endpoints/calculations';
-import type { VPDResponse, GDDResponse, PhotoperiodScheduleEntry, SlotCapacityResponse } from '@/api/types';
+import type { VPDResponse, GDDResponse, PhotoperiodScheduleEntry, SlotCapacityResponse, SunTimesResponse } from '@/api/types';
 
 export default function CalculationsPage() {
   const { t } = useTranslation();
@@ -36,12 +36,20 @@ export default function CalculationsPage() {
   const [ppCurrent, setPpCurrent] = useState(18);
   const [ppTarget, setPpTarget] = useState(12);
   const [ppDays, setPpDays] = useState(7);
+  const [ppLightsOn, setPpLightsOn] = useState('06:00');
   const [ppSchedule, setPpSchedule] = useState<PhotoperiodScheduleEntry[]>([]);
 
   // Slot Capacity
   const [scArea, setScArea] = useState(10);
   const [scSpacing, setScSpacing] = useState(30);
   const [scResult, setScResult] = useState<SlotCapacityResponse | null>(null);
+
+  // Sun Times
+  const [sunLat, setSunLat] = useState(52.52);
+  const [sunLon, setSunLon] = useState(13.405);
+  const [sunDate, setSunDate] = useState(new Date().toISOString().split('T')[0]);
+  const [sunTz, setSunTz] = useState('Europe/Berlin');
+  const [sunResult, setSunResult] = useState<SunTimesResponse | null>(null);
 
   const calcVpd = async () => {
     try {
@@ -67,6 +75,7 @@ export default function CalculationsPage() {
         current_hours: ppCurrent,
         target_hours: ppTarget,
         transition_days: ppDays,
+        lights_on_time: ppLightsOn,
       });
       setPpSchedule(result);
     } catch (err) { handleError(err); }
@@ -79,6 +88,18 @@ export default function CalculationsPage() {
         plant_spacing_cm: scSpacing,
       });
       setScResult(result);
+    } catch (err) { handleError(err); }
+  };
+
+  const calcSunTimes = async () => {
+    try {
+      const result = await calcApi.calculateSunTimes({
+        latitude: sunLat,
+        longitude: sunLon,
+        date: sunDate,
+        timezone: sunTz,
+      });
+      setSunResult(result);
     } catch (err) { handleError(err); }
   };
 
@@ -165,6 +186,15 @@ export default function CalculationsPage() {
               <TextField type="number" label={t('pages.calculations.currentHours')} value={ppCurrent} onChange={(e) => setPpCurrent(Number(e.target.value))} fullWidth sx={{ mb: 2 }} inputProps={{ min: 0, max: 24 }} />
               <TextField type="number" label={t('pages.calculations.targetHours')} value={ppTarget} onChange={(e) => setPpTarget(Number(e.target.value))} fullWidth sx={{ mb: 2 }} inputProps={{ min: 0, max: 24 }} />
               <TextField type="number" label={t('pages.calculations.transitionDays')} value={ppDays} onChange={(e) => setPpDays(Number(e.target.value))} fullWidth sx={{ mb: 2 }} inputProps={{ min: 1 }} />
+              <TextField
+                type="time"
+                label={t('pages.calculations.lightsOnTime')}
+                value={ppLightsOn}
+                onChange={(e) => setPpLightsOn(e.target.value)}
+                fullWidth
+                sx={{ mb: 2 }}
+                InputLabelProps={{ shrink: true }}
+              />
               <Button variant="contained" onClick={calcPhotoperiod} fullWidth>
                 {t('pages.calculations.calculate')}
               </Button>
@@ -174,6 +204,8 @@ export default function CalculationsPage() {
                     <TableRow>
                       <TableCell>Day</TableCell>
                       <TableCell>Hours</TableCell>
+                      <TableCell>On</TableCell>
+                      <TableCell>Off</TableCell>
                       <TableCell>DLI</TableCell>
                     </TableRow>
                   </TableHead>
@@ -182,6 +214,8 @@ export default function CalculationsPage() {
                       <TableRow key={s.day}>
                         <TableCell>{s.day}</TableCell>
                         <TableCell>{s.photoperiod_hours.toFixed(1)}</TableCell>
+                        <TableCell>{s.lights_on}</TableCell>
+                        <TableCell>{s.lights_off}</TableCell>
                         <TableCell>{s.dli.toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
@@ -206,6 +240,63 @@ export default function CalculationsPage() {
                 <Box sx={{ mt: 2 }}>
                   <Alert severity="info">
                     Max: {scResult.max_capacity} | Optimal: {scResult.optimal_range[0]}-{scResult.optimal_range[1]} | {scResult.plants_per_m2}/m²
+                  </Alert>
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Sun Times */}
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 2 }}>{t('pages.calculations.sunTimes')}</Typography>
+              <TextField
+                type="number"
+                label={t('pages.calculations.latitude')}
+                value={sunLat}
+                onChange={(e) => setSunLat(Number(e.target.value))}
+                fullWidth
+                sx={{ mb: 2 }}
+                inputProps={{ min: -90, max: 90, step: 0.01 }}
+              />
+              <TextField
+                type="number"
+                label={t('pages.calculations.longitude')}
+                value={sunLon}
+                onChange={(e) => setSunLon(Number(e.target.value))}
+                fullWidth
+                sx={{ mb: 2 }}
+                inputProps={{ min: -180, max: 180, step: 0.01 }}
+              />
+              <TextField
+                type="date"
+                label={t('common.createdAt').split(' ')[0]}
+                value={sunDate}
+                onChange={(e) => setSunDate(e.target.value)}
+                fullWidth
+                sx={{ mb: 2 }}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                label={t('pages.sites.timezone')}
+                value={sunTz}
+                onChange={(e) => setSunTz(e.target.value)}
+                fullWidth
+                sx={{ mb: 2 }}
+              />
+              <Button variant="contained" onClick={calcSunTimes} fullWidth>
+                {t('pages.calculations.calculate')}
+              </Button>
+              {sunResult && (
+                <Box sx={{ mt: 2 }}>
+                  <Alert severity="info">
+                    {t('pages.calculations.sunrise')}: {sunResult.sunrise} | {t('pages.calculations.sunset')}: {sunResult.sunset}
+                    <br />
+                    {t('pages.calculations.dawn')}: {sunResult.dawn} | {t('pages.calculations.dusk')}: {sunResult.dusk}
+                    <br />
+                    {t('pages.calculations.dayLength')}: {sunResult.day_length_hours.toFixed(2)} h
                   </Alert>
                 </Box>
               )}

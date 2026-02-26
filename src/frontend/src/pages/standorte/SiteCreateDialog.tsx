@@ -19,6 +19,7 @@ const schema = z.object({
   type: z.enum(['outdoor', 'greenhouse', 'indoor']),
   climate_zone: z.string(),
   total_area_m2: z.number().min(0),
+  timezone: z.string(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -37,7 +38,7 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
 
   const { control, handleSubmit, reset } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', type: 'indoor', climate_zone: '', total_area_m2: 0 },
+    defaultValues: { name: '', type: 'indoor', climate_zone: '', total_area_m2: 0, timezone: 'UTC' },
   });
 
   const onSubmit = async (data: FormData) => {
@@ -71,6 +72,7 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
           />
           <FormTextField name="climate_zone" control={control} label={t('pages.sites.climateZone')} />
           <FormNumberField name="total_area_m2" control={control} label={t('pages.sites.totalArea')} min={0} />
+          <FormTextField name="timezone" control={control} label={t('pages.sites.timezone')} helperText={t('pages.sites.timezoneHelper')} />
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
         </form>
       </DialogContent>

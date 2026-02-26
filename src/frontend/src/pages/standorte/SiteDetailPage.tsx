@@ -28,6 +28,7 @@ const schema = z.object({
   type: z.enum(['outdoor', 'greenhouse', 'indoor']),
   climate_zone: z.string(),
   total_area_m2: z.number().min(0),
+  timezone: z.string(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -45,7 +46,7 @@ export default function SiteDetailPage() {
 
   const { control, handleSubmit, reset, formState: { isDirty } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', type: 'indoor', climate_zone: '', total_area_m2: 0 },
+    defaultValues: { name: '', type: 'indoor', climate_zone: '', total_area_m2: 0, timezone: 'UTC' },
   });
 
   useEffect(() => {
@@ -55,7 +56,7 @@ export default function SiteDetailPage() {
 
   useEffect(() => {
     if (current) {
-      reset({ name: current.name, type: current.type, climate_zone: current.climate_zone, total_area_m2: current.total_area_m2 });
+      reset({ name: current.name, type: current.type, climate_zone: current.climate_zone, total_area_m2: current.total_area_m2, timezone: current.timezone ?? 'UTC' });
     }
   }, [current, reset]);
 
@@ -111,6 +112,7 @@ export default function SiteDetailPage() {
         />
         <FormTextField name="climate_zone" control={control} label={t('pages.sites.climateZone')} />
         <FormNumberField name="total_area_m2" control={control} label={t('pages.sites.totalArea')} min={0} />
+        <FormTextField name="timezone" control={control} label={t('pages.sites.timezone')} helperText={t('pages.sites.timezoneHelper')} />
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
       </Box>
 

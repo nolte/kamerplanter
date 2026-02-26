@@ -29,6 +29,20 @@ class TestTransitionSchedule:
             assert "lights_on" in entry
             assert "lights_off" in entry
 
+    def test_default_lights_on_is_0600(self):
+        schedule = calculate_transition_schedule(12.0, 12.0, 1)
+        assert schedule[0]["lights_on"] == "06:00"
+
+    def test_custom_lights_on_time(self):
+        schedule = calculate_transition_schedule(12.0, 12.0, 1, lights_on_time="20:00")
+        assert schedule[0]["lights_on"] == "20:00"
+        assert schedule[0]["lights_off"] == "23:59"  # 20:00 + 12h = 08:00 next day, capped at 23:59
+
+    def test_custom_lights_on_short_photoperiod(self):
+        schedule = calculate_transition_schedule(8.0, 8.0, 1, lights_on_time="10:00")
+        assert schedule[0]["lights_on"] == "10:00"
+        assert schedule[0]["lights_off"] == "18:00"
+
 
 class TestDLI:
     def test_typical_calculation(self):

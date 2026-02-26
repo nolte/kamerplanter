@@ -196,7 +196,9 @@
       "type": "Type",
       "climateZone": "Climate Zone",
       "totalArea": "Total Area (m²)",
-      "gpsCoordinates": "GPS Coordinates"
+      "gpsCoordinates": "GPS Coordinates",
+      "timezone": "Timezone",
+      "timezoneHelper": "IANA timezone, e.g. 'Europe/Berlin'"
     },
     "locations": {
       "title": "Locations",
@@ -206,7 +208,12 @@
       "orientation": "Orientation",
       "lightType": "Light Type",
       "irrigationSystem": "Irrigation System",
-      "dimensions": "Dimensions (L × W × H)"
+      "dimensions": "Dimensions (L × W × H)",
+      "lightsOn": "Lights On",
+      "lightsOnHelper": "Lights-on time (HH:MM)",
+      "lightsOff": "Lights Off",
+      "lightsOffHelper": "Lights-off time (HH:MM)",
+      "useDynamicSunrise": "Dynamic sunrise calculation"
     },
     "slots": {
       "title": "Slots",
@@ -340,10 +347,19 @@
       "currentHours": "Current Hours",
       "targetHours": "Target Hours",
       "transitionDays": "Transition Days",
+      "lightsOnTime": "Lights On (HH:MM)",
       "slotCapacity": "Slot Capacity",
       "areaMsq": "Area (m²)",
       "plantSpacing": "Plant Spacing (cm)",
-      "calculate": "Calculate"
+      "calculate": "Calculate",
+      "sunTimes": "Sun Position Calculator",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "sunrise": "Sunrise",
+      "sunset": "Sunset",
+      "dawn": "Dawn",
+      "dusk": "Dusk",
+      "dayLength": "Day Length"
     },
     "notFound": {
       "title": "Page Not Found",

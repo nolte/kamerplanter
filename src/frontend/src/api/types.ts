@@ -187,6 +187,7 @@ export interface Site {
   gps_coordinates: [number, number] | null;
   climate_zone: string;
   total_area_m2: number;
+  timezone: string;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -197,6 +198,7 @@ export interface SiteCreate {
   gps_coordinates?: [number, number] | null;
   climate_zone?: string;
   total_area_m2?: number;
+  timezone?: string;
 }
 
 // Locations
@@ -210,6 +212,9 @@ export interface Location {
   light_type: LightType;
   irrigation_system: IrrigationSystem;
   dimensions: [number, number, number];
+  lights_on: string | null;
+  lights_off: string | null;
+  use_dynamic_sunrise: boolean;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -222,6 +227,9 @@ export interface LocationCreate {
   light_type?: LightType;
   irrigation_system?: IrrigationSystem;
   dimensions?: [number, number, number];
+  lights_on?: string | null;
+  lights_off?: string | null;
+  use_dynamic_sunrise?: boolean;
 }
 
 // Slots
@@ -545,12 +553,31 @@ export interface PhotoperiodTransitionRequest {
   target_hours: number;
   transition_days?: number;
   ppfd?: number;
+  lights_on_time?: string;
 }
 
 export interface PhotoperiodScheduleEntry {
   day: number;
   photoperiod_hours: number;
+  lights_on: string;
+  lights_off: string;
   dli: number;
+}
+
+export interface SunTimesRequest {
+  latitude: number;
+  longitude: number;
+  date: string;
+  timezone?: string;
+}
+
+export interface SunTimesResponse {
+  date: string;
+  sunrise: string;
+  sunset: string;
+  dawn: string;
+  dusk: string;
+  day_length_hours: number;
 }
 
 export interface SlotCapacityRequest {

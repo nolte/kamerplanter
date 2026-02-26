@@ -6,7 +6,7 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import PageTitle from '@/components/layout/PageTitle';
@@ -17,6 +17,8 @@ import DataTable, { type Column } from '@/components/common/DataTable';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
+import FormTimeField from '@/components/form/FormTimeField';
+import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import SlotCreateDialog from './SlotCreateDialog';
@@ -26,12 +28,17 @@ import * as api from '@/api/endpoints/sites';
 import type { Location, Slot } from '@/api/types';
 import Chip from '@mui/material/Chip';
 
+const timeRegex = /^\d{2}:\d{2}$/;
+
 const schema = z.object({
   name: z.string().min(1),
   site_key: z.string(),
   area_m2: z.number().min(0),
   light_type: z.enum(['natural', 'led', 'hps', 'cmh', 'mixed']),
   irrigation_system: z.enum(['manual', 'drip', 'hydro', 'mist']),
+  lights_on: z.string().regex(timeRegex).nullable().optional(),
+  lights_off: z.string().regex(timeRegex).nullable().optional(),
+  use_dynamic_sunrise: z.boolean(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -52,8 +59,21 @@ export default function LocationDetailPage() {
 
   const { control, handleSubmit, reset, formState: { isDirty } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', site_key: '', area_m2: 0, light_type: 'natural', irrigation_system: 'manual' },
+    defaultValues: {
+      name: '',
+      site_key: '',
+      area_m2: 0,
+      light_type: 'natural',
+      irrigation_system: 'manual',
+      lights_on: null,
+      lights_off: null,
+      use_dynamic_sunrise: false,
+    },
   });
+
+  const lightType = useWatch({ control, name: 'light_type' });
+  const isArtificial = lightType === 'led' || lightType === 'hps' || lightType === 'cmh';
+  const isNaturalOrMixed = lightType === 'natural' || lightType === 'mixed';
 
   const load = async () => {
     if (!key) return;
@@ -67,6 +87,9 @@ export default function LocationDetailPage() {
         area_m2: loc.area_m2,
         light_type: loc.light_type,
         irrigation_system: loc.irrigation_system,
+        lights_on: loc.lights_on,
+        lights_off: loc.lights_off,
+        use_dynamic_sunrise: loc.use_dynamic_sunrise,
       });
       const s = await api.listSlots(key);
       setSlots(s);
@@ -83,7 +106,11 @@ export default function LocationDetailPage() {
     if (!key) return;
     try {
       setSaving(true);
-      await api.updateLocation(key, data);
+      await api.updateLocation(key, {
+        ...data,
+        lights_on: data.lights_on || undefined,
+        lights_off: data.lights_off || undefined,
+      });
       notification.success(t('common.save'));
       load();
     } catch (err) {
@@ -146,6 +173,32 @@ export default function LocationDetailPage() {
             value: v, label: t(`enums.irrigationSystem.${v}`),
           }))}
         />
+
+        {(isArtificial || isNaturalOrMixed) && (
+          <>
+            <FormTimeField
+              name="lights_on"
+              control={control}
+              label={t('pages.locations.lightsOn')}
+              helperText={t('pages.locations.lightsOnHelper')}
+            />
+            <FormTimeField
+              name="lights_off"
+              control={control}
+              label={t('pages.locations.lightsOff')}
+              helperText={t('pages.locations.lightsOffHelper')}
+            />
+          </>
+        )}
+
+        {isNaturalOrMixed && (
+          <FormSwitchField
+            name="use_dynamic_sunrise"
+            control={control}
+            label={t('pages.locations.useDynamicSunrise')}
+          />
+        )}
+
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
       </Box>
 

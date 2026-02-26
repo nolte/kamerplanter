@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import BaseModel, Field
 
 
@@ -24,6 +26,28 @@ class PhotoperiodTransitionRequest(BaseModel):
     target_hours: float = Field(ge=0, le=24)
     transition_days: int = Field(default=7, ge=1)
     ppfd: int = Field(default=400, ge=0)
+    lights_on_time: str = "06:00"
+
+class SunTimesRequest(BaseModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    date: date
+    timezone: str = "UTC"
+
+class SunTimesResponse(BaseModel):
+    date: str
+    sunrise: str
+    sunset: str
+    dawn: str
+    dusk: str
+    day_length_hours: float
+
+class SunTimesRangeRequest(BaseModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    start_date: date
+    end_date: date
+    timezone: str = "UTC"
 
 class SlotCapacityRequest(BaseModel):
     area_m2: float = Field(gt=0)

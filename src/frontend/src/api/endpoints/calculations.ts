@@ -8,6 +8,8 @@ import type {
   PhotoperiodScheduleEntry,
   SlotCapacityRequest,
   SlotCapacityResponse,
+  SunTimesRequest,
+  SunTimesResponse,
 } from '../types';
 
 const BASE = '/calculations';
@@ -29,6 +31,11 @@ export async function calculatePhotoperiodTransition(
     `${BASE}/photoperiod-transition`,
     payload,
   );
+  return data;
+}
+
+export async function calculateSunTimes(payload: SunTimesRequest): Promise<SunTimesResponse> {
+  const { data } = await client.post<SunTimesResponse>(`${BASE}/sun-times`, payload);
   return data;
 }
 

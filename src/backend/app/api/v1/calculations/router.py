@@ -6,6 +6,9 @@ from app.api.v1.calculations.schemas import (
     PhotoperiodTransitionRequest,
     SlotCapacityRequest,
     SlotCapacityResponse,
+    SunTimesRangeRequest,
+    SunTimesRequest,
+    SunTimesResponse,
     VPDRequest,
     VPDResponse,
 )
@@ -16,6 +19,7 @@ from app.domain.calculators.slot_capacity_calculator import (
     calculate_optimal_range,
     calculate_plants_per_m2,
 )
+from app.domain.calculators.sun_calculator import calculate_sun_times, calculate_sun_times_range
 from app.domain.calculators.vpd_calculator import calculate_vpd, classify_vpd
 
 router = APIRouter(prefix="/calculations", tags=["calculations"])
@@ -33,10 +37,22 @@ def calc_gdd(body: GDDRequest):
 
 @router.post("/photoperiod-transition")
 def calc_photoperiod(body: PhotoperiodTransitionRequest):
-    schedule = calculate_transition_schedule(body.current_hours, body.target_hours, body.transition_days)
+    schedule = calculate_transition_schedule(
+        body.current_hours, body.target_hours, body.transition_days, body.lights_on_time
+    )
     for entry in schedule:
         entry["dli"] = round(calculate_dli(body.ppfd, entry["photoperiod_hours"]), 2)
     return {"schedule": schedule}
+
+@router.post("/sun-times", response_model=SunTimesResponse)
+def calc_sun_times(body: SunTimesRequest):
+    result = calculate_sun_times(body.latitude, body.longitude, body.date, body.timezone)
+    return SunTimesResponse(**result)
+
+@router.post("/sun-times-range", response_model=list[SunTimesResponse])
+def calc_sun_times_range(body: SunTimesRangeRequest):
+    results = calculate_sun_times_range(body.latitude, body.longitude, body.start_date, body.end_date, body.timezone)
+    return [SunTimesResponse(**r) for r in results]
 
 @router.post("/slot-capacity", response_model=SlotCapacityResponse)
 def calc_slot_capacity(body: SlotCapacityRequest):

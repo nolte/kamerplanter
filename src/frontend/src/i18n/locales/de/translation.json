@@ -196,7 +196,9 @@
       "type": "Typ",
       "climateZone": "Klimazone",
       "totalArea": "Gesamtfläche (m²)",
-      "gpsCoordinates": "GPS-Koordinaten"
+      "gpsCoordinates": "GPS-Koordinaten",
+      "timezone": "Zeitzone",
+      "timezoneHelper": "IANA-Zeitzone, z.\u00a0B. 'Europe/Berlin'"
     },
     "locations": {
       "title": "Bereiche",
@@ -206,7 +208,12 @@
       "orientation": "Ausrichtung",
       "lightType": "Beleuchtung",
       "irrigationSystem": "Bewässerungssystem",
-      "dimensions": "Abmessungen (L × B × H)"
+      "dimensions": "Abmessungen (L × B × H)",
+      "lightsOn": "Licht Ein",
+      "lightsOnHelper": "Uhrzeit Licht-Ein (HH:MM)",
+      "lightsOff": "Licht Aus",
+      "lightsOffHelper": "Uhrzeit Licht-Aus (HH:MM)",
+      "useDynamicSunrise": "Dynamische Sonnenstandberechnung"
     },
     "slots": {
       "title": "Stellplätze",
@@ -340,10 +347,19 @@
       "currentHours": "Aktuelle Stunden",
       "targetHours": "Zielstunden",
       "transitionDays": "Übergangstage",
+      "lightsOnTime": "Licht Ein (HH:MM)",
       "slotCapacity": "Stellplatz-Kapazität",
       "areaMsq": "Fläche (m²)",
       "plantSpacing": "Pflanzabstand (cm)",
-      "calculate": "Berechnen"
+      "calculate": "Berechnen",
+      "sunTimes": "Sonnenstand-Rechner",
+      "latitude": "Breitengrad",
+      "longitude": "Längengrad",
+      "sunrise": "Sonnenaufgang",
+      "sunset": "Sonnenuntergang",
+      "dawn": "Morgendämmerung",
+      "dusk": "Abenddämmerung",
+      "dayLength": "Tageslänge"
     },
     "notFound": {
       "title": "Seite nicht gefunden",
