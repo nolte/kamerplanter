@@ -1,24 +1,22 @@
-# Agrotech Software - Vollständige Anforderungsspezifikationen
+# Kamerplanter - Anforderungsspezifikationen
 
 ## Übersicht
-Dieses Paket enthält **10 vollständig ausgearbeitete Anforderungsdokumente** für die "Pflanzen Pflege & Ernte Helfer App" - ein umfassendes Agrotech-System mit Python-Backend und Neo4j Graph-Datenbank.
-
-## Version 2.0 - Vollständige Spezifikationen
+Dieses Verzeichnis enthält **14 vollständig ausgearbeitete Anforderungsdokumente** für das Kamerplanter-System — eine Agrotech-Plattform für Pflanzen-Lebenszyklusmanagement (Cannabis, Gemüse, Kräuter) mit Python/FastAPI-Backend und ArangoDB Graph-Datenbank.
 
 ### Dokumenten-Struktur
 Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
-1. **YAML-Header** - Metadaten, Kategorisierung, Technologie-Stack
-2. **Business Case** - User Stories, fachliche Beschreibung
-3. **GraphDB-Modellierung** - Nodes, Edges, Cypher-Queries
-4. **Technische Umsetzung** - Python-Code, Logik, Validierung (Type Hinting)
-5. **Abhängigkeiten** - Querverweise zu anderen Modulen
-6. **Akzeptanzkriterien** - Definition of Done, Testszenarien
+1. **YAML-Header** — Metadaten, Kategorisierung, Technologie-Stack
+2. **Business Case** — User Stories, fachliche Beschreibung
+3. **GraphDB-Modellierung** — Nodes, Edges, AQL-/Cypher-Queries
+4. **Technische Umsetzung** — Python-Code, Logik, Validierung (Pydantic v2, Type Hinting)
+5. **Abhängigkeiten** — Querverweise zu anderen Modulen (bidirektional, mit Impact-Level)
+6. **Akzeptanzkriterien** — Definition of Done, Testszenarien (GIVEN/WHEN/THEN)
 
 ---
 
 ## Enthaltene Dokumente
 
-### 🌱 REQ-001: Stammdatenverwaltung (19 KB)
+### 🌱 REQ-001: Stammdatenverwaltung (35 KB)
 **Fokus:** Botanische Taxonomie, Lebenszyklus-Typen, Photoperiodismus
 - Vernalisations-Tracking für Zweijährige
 - Dormanz-Trigger für Mehrjährige
@@ -32,9 +30,9 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 
 ---
 
-### 📍 REQ-002: Standort & Substrat (23 KB)
+### 📍 REQ-002: Standort & Substrat (41 KB)
 **Fokus:** Räumliche Verwaltung, Substrat-Management, Fruchtfolge-Engine
-- Hierarchie: Site → Location → Slot
+- Rekursive Hierarchie: Site → Location (beliebig tief) → Slot
 - Indoor (Growzelte) + Outdoor (Beete) + Hydro-Systeme
 - Substrat-Recycling-Tracker mit Aufbereitungs-Anleitung
 - PostGIS-Integration für GPS-basierte Standorte
@@ -55,49 +53,54 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 
 **Highlights:**
 - VPD-Optimizer für Transpirationssteuerung
-- Lichtspe ktrum-Profile (Blue/Red/Far-Red Ratio)
+- Lichtspektrum-Profile (Blue/Red/Far-Red Ratio)
 - Stress-Phasen (Hardening, Drought-Stress)
 
 ---
 
-### 💧 REQ-004: Dünge-Logik (6.5 KB)
-**Fokus:** Multi-Part-Fertilizer, EC-Budget-Management
-- Misch-Reihenfolge (verhindert Ausfällungen)
+### 💧 REQ-004: Dünge-Logik (57 KB)
+**Fokus:** Multi-Part-Fertilizer, EC-Budget-Management, Lifecycle-Nährstoffpläne
+- Kritische Misch-Reihenfolge (verhindert Ausfällungen)
 - EC-Netto-Rechner (Ziel-EC minus Basis-EC)
 - Flushing-Protokolle (Substrat-spezifisch)
-- Inkompatibilitäten-Check (CalMag + Sulfate)
+- Lifecycle Nutrient Plans (NutrientPlan vs. NutrientProfile)
 
 **Highlights:**
 - Step-by-Step Mixing Instructions
 - Rezirkulations-Logik für Hydro-Systeme
+- Inkompatibilitäten-Check (CalMag + Sulfate)
 
 ---
 
-### 🌡️ REQ-005: Hybrid-Sensorik (2.5 KB)
-**Fokus:** Home Assistant Integration, Manual Fallback
+### 🌡️ REQ-005: Hybrid-Sensorik (45 KB)
+**Fokus:** Home Assistant Integration, MQTT, Manual Fallback
 - Dreistufiges Monitoring (Auto / Semi-Auto / Manuell)
-- Sensor-Fallback-Manager (Auto-Task bei Ausfall >24h)
+- Sensor-Fallback-Manager (Auto-Task bei Ausfall >6h)
 - Multi-Parameter-Tracking (Temp, RLF, pH, EC, PPFD, CO2)
+- TimescaleDB-Integration für Zeitreihen
 
 **Highlights:**
 - Graceful Degradation ohne Hardware
 - Datenquellen-Kennzeichnung (Auto vs. Manual)
+- Plausibilitätsprüfung und Interpolation
 
 ---
 
-### ✅ REQ-006: Aufgabenplanung (3.4 KB)
-**Fokus:** Workflow-Templates, HST-Validierung
+### ✅ REQ-006: Aufgabenplanung (45 KB)
+**Fokus:** Workflow-Templates, HST-Validierung, Dependency-Chains
 - System-Templates vs. User-Blueprints
-- Phase-Trigger + Zeit-Trigger + Dependency-Chains
+- Phase-Trigger + Zeit-Trigger + Conditional-Trigger
 - HST-Validator (verhindert Topping in Blüte)
+- Task-Scoring und Priorisierung
 
 **Highlights:**
 - Foto-Upload bei kritischen Tasks
 - Gantt-Chart für 4-Wochen-Vorschau
+- Celery-Integration für Erinnerungen
 
 ---
 
-### 🌾 REQ-007: Erntemanagement (3.3 KB)
+### 🌾 REQ-007: Erntemanagement (47 KB)
 **Fokus:** Gattungsspezifische Reife-Indikatoren
 - Factory-Pattern (TrichomeIndicator vs. FoliageIndicator)
 - Flushing-Trigger (14 Tage vor Ernte)
@@ -109,7 +112,7 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 
 ---
 
-### 🍷 REQ-008: Post-Harvest (3.0 KB)
+### 🍷 REQ-008: Post-Harvest (45 KB)
 **Fokus:** Trocknung, Curing, Lagerung
 - Spezies-spezifische Protokolle (Cannabis, Zwiebel, Kräuter)
 - Burping-Scheduler für Fermentierung
@@ -121,7 +124,7 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 
 ---
 
-### 📊 REQ-009: Dashboard (2.8 KB)
+### 📊 REQ-009: Dashboard (41 KB)
 **Fokus:** Multi-Widget-Dashboard, Mobile-First
 - Live-Grid aller Slots mit Phase-Indikatoren
 - VPD-Ampel, Task-Queue, Alert-Center
@@ -131,21 +134,6 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 - QR-Scanner für Slot-Identifikation
 - Offline-Modus mit Sync
 - Dark-Mode (Growzelt-freundlich)
-
----
-
-### 🔗 REQ-011: Externe Stammdatenanreicherung (18 KB)
-**Fokus:** API-Adapter, Multi-Source-Sync, Datenprovenienz
-- Adapter-Pattern für modulare Quellen-Anbindung (Perenual, OpenFarm, GBIF, Trefle, Otreeba)
-- Periodische Synchronisation via Celery-Beat (täglich inkrementell, wöchentlich full)
-- Lokale Hoheit: manuelle Daten werden nie automatisch überschrieben
-- Checksum-basiertes Überspringen unveränderter Daten
-
-**Highlights:**
-- Taxonomie-Normalisierung via GBIF (Synonym-Auflösung)
-- Cannabis-Sorten-Import via Otreeba
-- Accept/Reject-Workflow für vorgeschlagene Anreicherungen
-- Sync-Historie und Health-Checks
 
 ---
 
@@ -163,29 +151,94 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 
 ---
 
+### 🔗 REQ-011: Externe Stammdatenanreicherung (31 KB)
+**Fokus:** API-Adapter, Multi-Source-Sync, Datenprovenienz
+- Adapter-Pattern für modulare Quellen-Anbindung (Perenual, OpenFarm, GBIF, Trefle, Otreeba)
+- Periodische Synchronisation via Celery-Beat (täglich inkrementell, wöchentlich full)
+- Lokale Hoheit: manuelle Daten werden nie automatisch überschrieben
+- Checksum-basiertes Überspringen unveränderter Daten
+
+**Highlights:**
+- Taxonomie-Normalisierung via GBIF (Synonym-Auflösung)
+- Cannabis-Sorten-Import via Otreeba
+- Accept/Reject-Workflow für vorgeschlagene Anreicherungen
+- Sync-Historie und Health-Checks
+
+---
+
+### 📥 REQ-012: Stammdaten-Import (54 KB)
+**Fokus:** CSV-Upload, Bulk-Import, Zwei-Phasen-Prozess
+- Upload → Preview → Confirm → Import Workflow
+- Transparente Zeilenvalidierung mit Fehleranzeige pro Feld
+- Konfigurierbare Duplikatbehandlung (skip/update/fail)
+- Atomarer Import mit Rollback bei kritischen Fehlern
+
+**Highlights:**
+- Unterstützte Entitäten: Species, Cultivar, BotanicalFamily
+- Vorschau-Tabelle mit Inline-Korrektur
+- Import-Protokollierung mit Ergebnis-Statistiken
+
+---
+
+### 🔄 REQ-013: Pflanzdurchlauf (54 KB)
+**Fokus:** Gruppenmanagement, Batch-Operationen, Seed-to-Shelf-Traceability
+- Pflanzdurchlauf (PlantingRun) als leichtgewichtiger Gruppierungs-Container
+- Batch-Erstellung: N Pflanzen mit auto-generierten IDs anlegen
+- Batch-Phasenübergang, Batch-Ernte, Batch-Entfernung
+- Individuelle Autonomie: Pflanzen jederzeit aus Gruppe lösbar
+
+**Highlights:**
+- 3 Run-Typen: Monokultur, Klon, Mischkultur
+- Direkte HarvestBatch-Verknüpfung (REQ-007)
+- Detach/Reattach ohne Datenverlust
+
+---
+
+### 🪣 REQ-014: Tankmanagement (33 KB)
+**Fokus:** Tank-Verwaltung, Wartungsplanung, Bewässerungsinfrastruktur
+- Tank-Typen: Nährstofflösung, Gießwasser, Reservoir, Rezirkulation
+- Pflicht-Zuordnung zu Location bei automatischer Bewässerung
+- Zustandsüberwachung (pH, EC, Temperatur, Füllstand) mit Alert-System
+- Wartungspläne mit automatischer Task-Generierung (REQ-006)
+
+**Highlights:**
+- Tank-Kaskaden (Reservoir → Mischtank)
+- Standard-Wartungsintervalle je Tank-Typ
+- Algenrisiko-Erkennung (Temperatur + Deckel-Status)
+- Celery-Beat für tägliche Wartungs-Checks
+
+---
+
 ## Technologie-Stack
 
 ### Backend
-- **Python 3.11+** mit Type Hinting (Pydantic)
-- **Neo4j 5.x** (Graph Database)
+- **Python 3.14** mit Type Hinting (Pydantic v2)
+- **ArangoDB 3.11+** (Multi-Model: Dokumente + Graph)
 - **FastAPI** (REST API)
 - **Celery** (Task Scheduling)
-- **TimescaleDB** (Zeitreihen für Sensorik)
+- **TimescaleDB 2.13+** (Zeitreihen für Sensorik)
+- **Redis 7.2+** (Cache + Celery Broker)
+
+### Frontend
+- **React 18** + TypeScript (strict)
+- **MUI** (Material UI)
+- **Redux Toolkit** (State Management)
+- **Vite** (Build Tool)
 
 ### Optionale Integrationen
 - **Home Assistant** (MQTT/REST API)
 - **PostGIS** (GPS-Koordinaten)
-- **Computer Vision** (Schädlings-/Reife-Erkennung)
+- **Flutter 3.16+** (Mobile App)
 
 ---
 
 ## Nutzung für RAG-Systeme
 
 ### Optimierungen
-✅ Konsistente YAML-Header für Metadaten-Extraktion
-✅ Fachterminologie-Dichte für präzises Retrieval
-✅ Cypher-Beispiele für Graph-Query-Generation
-✅ Python-Code-Snippets für Implementierungs-Guidance
+- Konsistente YAML-Header für Metadaten-Extraktion
+- Fachterminologie-Dichte für präzises Retrieval
+- AQL-/Cypher-Beispiele für Graph-Query-Generation
+- Python-Code-Snippets für Implementierungs-Guidance
 
 ### Empfohlene Embedding-Strategie
 - **Chunk-Size:** 512-1024 Tokens
@@ -199,33 +252,34 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 
 | Metrik | Wert |
 |--------|------|
-| Gesamt-Dokumente | 17 (11 unique requirements) |
-| Gesamt-Größe | ~170 KB (Markdown) |
-| Anforderungsdokumente | 11 (REQ-001 bis REQ-011) |
-| Graph-Nodes definiert | ~60 |
-| Graph-Edges definiert | ~80 |
-| Python-Code-Beispiele | ~50 |
-| Cypher-Queries | ~35 |
-| Akzeptanzkriterien | ~150 |
+| Anforderungsdokumente | 14 (REQ-001 bis REQ-014) |
+| Gesamt-Größe | ~566 KB (Markdown) |
+| Graph-Nodes definiert | ~70 |
+| Graph-Edges definiert | ~90 |
+| Python-Code-Beispiele | ~60 |
+| AQL-/Cypher-Queries | ~45 |
+| Akzeptanzkriterien | ~180 |
 
 **Vollständigkeits-Matrix:**
-- ✅ REQ-001: Stammdatenverwaltung (19 KB)
-- ✅ REQ-002: Standort & Substrat (23 KB)
+- ✅ REQ-001: Stammdatenverwaltung (35 KB)
+- ✅ REQ-002: Standort & Substrat (41 KB)
 - ✅ REQ-003: Phasensteuerung (21 KB)
-- ✅ REQ-004: Dünge-Logik (35 KB)
-- ✅ REQ-005: Hybrid-Sensorik (7 KB)
-- ✅ REQ-006: Aufgabenplanung (7.5 KB)
-- ✅ REQ-007: Erntemanagement (9 KB)
-- ✅ REQ-008: Post-Harvest (8 KB)
-- ✅ REQ-009: Dashboard (4.5 KB)
+- ✅ REQ-004: Dünge-Logik (57 KB)
+- ✅ REQ-005: Hybrid-Sensorik (45 KB)
+- ✅ REQ-006: Aufgabenplanung (45 KB)
+- ✅ REQ-007: Erntemanagement (47 KB)
+- ✅ REQ-008: Post-Harvest (45 KB)
+- ✅ REQ-009: Dashboard (41 KB)
 - ✅ REQ-010: IPM-System (16 KB)
-- ✅ REQ-011: Externe Stammdatenanreicherung (18 KB)
+- ✅ REQ-011: Externe Stammdatenanreicherung (31 KB)
+- ✅ REQ-012: Stammdaten-Import (54 KB)
+- ✅ REQ-013: Pflanzdurchlauf (54 KB)
+- ✅ REQ-014: Tankmanagement (33 KB)
 
 ---
 
 ## Autoren & Lizenz
-Erstellt von: Claude (Anthropic)
-Datum: 25. Februar 2026
-Version: 2.0 (Erweitert)
+Datum: 26. Februar 2026
+Version: 3.0
 
 **Verwendung:** Diese Spezifikationen dienen als Grundlage für ein RAG-gestütztes Entwicklungssystem.
