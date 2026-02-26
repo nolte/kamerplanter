@@ -5,9 +5,9 @@ ID: REQ-003
 Titel: Phänologische Phasensteuerung & Ressourcen-Profile
 Kategorie: Wachstumslogik
 Fokus: Beides
-Technologie: Python, GraphDB (Neo4j - Zustandsübergänge)
+Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 2.0
+Version: 2.1
 ```
 
 ## 1. Business Case
@@ -26,10 +26,19 @@ Typische Phasen-Sequenzen:
 - **Perenniale:** [Keimung → ...] → Dormanz → Neuaustrieb → [Wiederholt Vegetativ/Blüte]
 - **Bienniale:** Jahr 1: Keimung → Vegetativ → Dormanz | Jahr 2: Neuaustrieb → Blüte → Samenreife
 
-## 2. GraphDB-Modellierung
+**Dauerkulturen-Modus (Perennial):**
+Mehrjährige Pflanzen (Obstbäume, Beerensträucher, Stauden) durchlaufen jährlich wiederkehrende
+Zyklen statt eines einmaligen linearen Durchlaufs. Das System unterstützt:
+- **Saisonale Zyklen:** Jedes Jahr bildet eine eigene Saison mit eigenem Phasen-Durchlauf
+  (Dormanz → Austrieb → Vegetativ → Blüte → Fruchtentwicklung → Reife → Seneszenz → Dormanz)
+- **Reifegrad-Tracking:** Juvenile Phase (kein Ertrag), Produktive Phase, Ertragsrückgang
+- **Saison-Vergleich:** Ertrag und Performance über Jahre hinweg vergleichbar
+- **Vernalisierung:** Kältestunden-Akkumulation pro Saison (nutzt VernalizationTracker aus REQ-001)
 
-### Nodes:
-- **`:GrowthPhase`** - Wachstumsphase
+## 2. ArangoDB-Modellierung
+
+### Dokumentsammlungen (Collections):
+- **`growth_phases`** - Wachstumsphase
   - Properties:
     - `name: str` (z.B. "vegetative", "flowering", "ripening")
     - `display_name: str` (z.B. "Vegetative Wachstumsphase")
@@ -38,8 +47,9 @@ Typische Phasen-Sequenzen:
     - `is_terminal: bool` (Letzte Phase vor Ernte/Tod)
     - `allows_harvest: bool`
     - `stress_tolerance: Literal['low', 'medium', 'high']`
+    - `is_recurring: bool` — Phase wiederholt sich jährlich (true für Dauerkulturen-Phasen)
 
-- **`:RequirementProfile`** - Ressourcen-Anforderungen
+- **`requirement_profiles`** - Ressourcen-Anforderungen
   - Properties:
     - `light_ppfd_target: int` (μmol/m²/s)
     - `photoperiod_hours: float`
@@ -53,7 +63,7 @@ Typische Phasen-Sequenzen:
     - `irrigation_frequency_days: float`
     - `irrigation_volume_ml_per_plant: int`
 
-- **`:NutrientProfile`** - NPK und Mikronährstoffe
+- **`nutrient_profiles`** - NPK und Mikronährstoffe
   - Properties:
     - `npk_ratio: tuple[int, int, int]` (z.B. (3, 1, 2) für Vegi)
     - `target_ec_ms: float`
@@ -62,14 +72,16 @@ Typische Phasen-Sequenzen:
     - `magnesium_ppm: Optional[int]`
     - `micro_nutrients: dict[str, int]`
 
-- **`:PhaseTransitionRule`** - Übergangslogik
+- **`phase_transition_rules`** - Übergangslogik
   - Properties:
     - `trigger_type: Literal['time_based', 'manual', 'event_based', 'conditional']`
     - `auto_transition_after_days: Optional[int]`
     - `required_conditions: Optional[dict]` (z.B. {"min_height_cm": 30})
     - `notification_before_days: int` (Warnung vor Auto-Transition)
+    - `is_cycle_restart: bool` — Transition startet einen neuen saisonalen Zyklus
+      (erlaubt Rückwärts-Transition bei Dauerkulturen, z.B. Seneszenz → Dormanz)
 
-- **`:PhaseHistory`** - Historie für Analysen
+- **`phase_histories`** - Historie für Analysen
   - Properties:
     - `entered_at: datetime`
     - `exited_at: Optional[datetime]`
@@ -77,53 +89,130 @@ Typische Phasen-Sequenzen:
     - `transition_reason: str`
     - `performance_score: Optional[float]` (0-100, basierend auf Yield/Health)
 
-### Edges:
-```cypher
-(:LifecycleConfig)-[:CONSISTS_OF {sequence: int}]->(:GrowthPhase)
-(:GrowthPhase)-[:NEXT_PHASE]->(:GrowthPhase)
-(:GrowthPhase)-[:GOVERNED_BY]->(:PhaseTransitionRule)
-(:GrowthPhase)-[:REQUIRES_PROFILE]->(:RequirementProfile)
-(:RequirementProfile)-[:USES_NUTRIENTS]->(:NutrientProfile)
-(:PlantInstance)-[:CURRENT_PHASE]->(:GrowthPhase)
-(:PlantInstance)-[:PHASE_HISTORY]->(:PhaseHistory)-[:WAS_PHASE]->(:GrowthPhase)
+- **`seasonal_cycles`** - Saisonaler Zyklus (nur Dauerkulturen)
+  - Properties:
+    - `plant_instance_key: str` — Referenz auf die Pflanze
+    - `season_year: int` — Kalenderjahr (z.B. 2025)
+    - `season_number: int` — Laufende Saison-Nummer (1-basiert, 1 = erste Saison der Pflanze)
+    - `started_at: datetime` — Beginn (typisch: Austrieb nach Dormanz)
+    - `ended_at: Optional[datetime]` — Ende (typisch: Eintritt in Dormanz)
+    - `maturity_stage: Literal['juvenile', 'productive', 'declining']`
+    - `chill_hours_accumulated: int` — Kältestunden der vorangegangenen Dormanz
+    - `yield_kg: Optional[float]` — Gesamtertrag der Saison
+    - `fruit_count: Optional[int]` — Anzahl Früchte (wenn zählbar)
+    - `performance_notes: Optional[str]`
+
+### Edge Collections:
+```
+consists_of:        lifecycle_configs  -> growth_phases         (Attribute: sequence)
+next_phase:         growth_phases      -> growth_phases
+governed_by:        growth_phases      -> phase_transition_rules
+requires_profile:   growth_phases      -> requirement_profiles
+uses_nutrients:     requirement_profiles -> nutrient_profiles
+current_phase:      plant_instances    -> growth_phases
+phase_history:      plant_instances    -> phase_histories
+was_phase:          phase_histories    -> growth_phases
+has_season:         plant_instances    -> seasonal_cycles
+season_history:     seasonal_cycles    -> phase_histories    (Zuordnung Phase-History zu Saison)
 ```
 
-### Cypher-Beispiellogik:
+### AQL-Beispiellogik:
 
 **Nächste Phase mit Ressourcen-Profil laden:**
-```cypher
-MATCH (plant:PlantInstance {id: $plant_id})-[:CURRENT_PHASE]->(current:GrowthPhase)
-      -[:NEXT_PHASE]->(next:GrowthPhase)-[:REQUIRES_PROFILE]->(req:RequirementProfile)
-      -[:USES_NUTRIENTS]->(nutr:NutrientProfile)
-OPTIONAL MATCH (next)-[:GOVERNED_BY]->(rule:PhaseTransitionRule)
-RETURN next, req, nutr, rule
+```aql
+LET plant = DOCUMENT('plant_instances', @plant_id)
+
+FOR current_phase IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['current_phase'] }
+    FOR next IN 1..1 OUTBOUND current_phase GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['next_phase'] }
+        FOR req IN 1..1 OUTBOUND next GRAPH 'kamerplanter_graph'
+            OPTIONS { edgeCollections: ['requires_profile'] }
+            FOR nutr IN 1..1 OUTBOUND req GRAPH 'kamerplanter_graph'
+                OPTIONS { edgeCollections: ['uses_nutrients'] }
+                LET rules = (
+                    FOR rule IN 1..1 OUTBOUND next GRAPH 'kamerplanter_graph'
+                        OPTIONS { edgeCollections: ['governed_by'] }
+                        RETURN rule
+                )
+                RETURN { next, req, nutr, rule: FIRST(rules) }
 ```
 
 **Auto-Transition Kandidaten finden (zeitbasiert):**
-```cypher
-MATCH (plant:PlantInstance)-[:CURRENT_PHASE]->(phase:GrowthPhase)
-      -[:GOVERNED_BY]->(rule:PhaseTransitionRule {trigger_type: 'time_based'})
-MATCH (plant)-[:PHASE_HISTORY]->(history:PhaseHistory {exited_at: null})
-      -[:WAS_PHASE]->(phase)
-WHERE duration.between(history.entered_at, datetime()).days >= rule.auto_transition_after_days
-RETURN plant.id, phase.name AS current_phase, 
-       rule.auto_transition_after_days AS planned_duration,
-       duration.between(history.entered_at, datetime()).days AS actual_duration
+```aql
+FOR plant IN plant_instances
+    FOR phase IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['current_phase'] }
+        FOR rule IN 1..1 OUTBOUND phase GRAPH 'kamerplanter_graph'
+            OPTIONS { edgeCollections: ['governed_by'] }
+            FILTER rule.trigger_type == 'time_based'
+            FOR history IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+                OPTIONS { edgeCollections: ['phase_history'] }
+                FILTER history.exited_at == null
+                FOR hist_phase IN 1..1 OUTBOUND history GRAPH 'kamerplanter_graph'
+                    OPTIONS { edgeCollections: ['was_phase'] }
+                    FILTER hist_phase._id == phase._id
+                    LET actual_duration = DATE_DIFF(history.entered_at, DATE_NOW(), 'days')
+                    FILTER actual_duration >= rule.auto_transition_after_days
+                    RETURN {
+                        plant_id: plant._key,
+                        current_phase: phase.name,
+                        planned_duration: rule.auto_transition_after_days,
+                        actual_duration: actual_duration
+                    }
 ```
 
 **VPD-Optimierung für aktuelle Phase:**
-```cypher
-MATCH (plant:PlantInstance)-[:CURRENT_PHASE]->(phase:GrowthPhase)
-      -[:REQUIRES_PROFILE]->(req:RequirementProfile)
-MATCH (plant)-[:PLACED_IN]->(:Slot)<-[:HAS_SLOT]-(:Location)
-      -[:HAS_SENSOR]->(sensor:Sensor)-[:RECORDED]->(obs:Observation)
-WHERE obs.timestamp > datetime() - duration('PT1H')
-WITH req, obs, 
-     obs.temperature_c AS temp,
-     obs.humidity_percent AS rh
-RETURN req.vpd_target_kpa AS target_vpd,
-       ((610.7 * 10^(7.5*temp/(237.3+temp))) * (1 - rh/100) / 1000) AS current_vpd_kpa,
-       abs(req.vpd_target_kpa - ((610.7 * 10^(7.5*temp/(237.3+temp))) * (1 - rh/100) / 1000)) AS vpd_deviation
+```aql
+LET plant = DOCUMENT('plant_instances', @plant_id)
+LET one_hour_ago = DATE_SUBTRACT(DATE_NOW(), 1, 'hours')
+
+FOR phase IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['current_phase'] }
+    FOR req IN 1..1 OUTBOUND phase GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['requires_profile'] }
+        FOR slot IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+            OPTIONS { edgeCollections: ['placed_in'] }
+            FOR location IN 1..1 INBOUND slot GRAPH 'kamerplanter_graph'
+                OPTIONS { edgeCollections: ['has_slot'] }
+                FOR sensor IN 1..1 OUTBOUND location GRAPH 'kamerplanter_graph'
+                    OPTIONS { edgeCollections: ['has_sensor'] }
+                    FOR obs IN 1..1 OUTBOUND sensor GRAPH 'kamerplanter_graph'
+                        OPTIONS { edgeCollections: ['recorded'] }
+                        FILTER obs.timestamp > one_hour_ago
+                        LET temp = obs.temperature_c
+                        LET rh = obs.humidity_percent
+                        LET current_vpd = (610.7 * POW(10, (7.5 * temp / (237.3 + temp))) * (1 - rh / 100)) / 1000
+                        RETURN {
+                            target_vpd: req.vpd_target_kpa,
+                            current_vpd_kpa: current_vpd,
+                            vpd_deviation: ABS(req.vpd_target_kpa - current_vpd)
+                        }
+```
+
+**Saison-Vergleich für Dauerkultur:**
+```aql
+// Vergleicht Ertrag und Phasen-Dauern über mehrere Saisons einer Pflanze
+FOR season IN seasonal_cycles
+    FILTER season.plant_instance_key == @plant_key
+    SORT season.season_number ASC
+    LET phase_durations = (
+        FOR history IN phase_histories
+            FOR edge IN season_history
+                FILTER edge._from == season._id AND edge._to == history._id
+                RETURN {
+                    phase: history.phase_name,
+                    duration_days: history.actual_duration_days
+                }
+    )
+    RETURN {
+        season: season.season_number,
+        year: season.season_year,
+        maturity: season.maturity_stage,
+        yield_kg: season.yield_kg,
+        chill_hours: season.chill_hours_accumulated,
+        phases: phase_durations
+    }
 ```
 
 ## 3. Technische Umsetzung (Python)
@@ -176,9 +265,9 @@ class PhaseTransitionEngine(BaseModel):
         return False, "Transition-Bedingungen nicht erfüllt", None
     
     def execute_transition(
-        self, 
+        self,
         next_phase_name: str,
-        neo4j_session,
+        arango_db,
         override_reason: Optional[str] = None
     ) -> dict:
         """
@@ -186,53 +275,77 @@ class PhaseTransitionEngine(BaseModel):
         """
         transition_timestamp = datetime.now()
         actual_duration = (transition_timestamp - self.phase_entered_at).days
-        
+
         # 1. Schließe aktuelle Phase-History
-        neo4j_session.run("""
-            MATCH (p:PlantInstance {id: $plant_id})
-                  -[:PHASE_HISTORY]->(history:PhaseHistory {exited_at: null})
-            SET history.exited_at = $exit_time,
-                history.actual_duration_days = $duration,
-                history.transition_reason = $reason
-        """, 
-        plant_id=self.plant_id,
-        exit_time=transition_timestamp,
-        duration=actual_duration,
-        reason=override_reason or "Automatische Transition"
-        )
-        
-        # 2. Aktualisiere CURRENT_PHASE
-        neo4j_session.run("""
-            MATCH (p:PlantInstance {id: $plant_id})-[old:CURRENT_PHASE]->(:GrowthPhase)
-            DELETE old
-            WITH p
-            MATCH (next:GrowthPhase {name: $next_phase})
-            CREATE (p)-[:CURRENT_PHASE]->(next)
-        """, plant_id=self.plant_id, next_phase=next_phase_name)
-        
+        arango_db.aql.execute("""
+            FOR plant IN plant_instances
+                FILTER plant._key == @plant_id
+                FOR history IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+                    OPTIONS { edgeCollections: ['phase_history'] }
+                    FILTER history.exited_at == null
+                    UPDATE history WITH {
+                        exited_at: @exit_time,
+                        actual_duration_days: @duration,
+                        transition_reason: @reason
+                    } IN phase_histories
+        """,
+        bind_vars={
+            'plant_id': self.plant_id,
+            'exit_time': transition_timestamp.isoformat(),
+            'duration': actual_duration,
+            'reason': override_reason or "Automatische Transition"
+        })
+
+        # 2. Aktualisiere CURRENT_PHASE (alte Edge entfernen, neue anlegen)
+        arango_db.aql.execute("""
+            FOR plant IN plant_instances
+                FILTER plant._key == @plant_id
+                FOR phase, edge IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+                    OPTIONS { edgeCollections: ['current_phase'] }
+                    REMOVE edge IN current_phase
+        """, bind_vars={'plant_id': self.plant_id})
+
+        arango_db.aql.execute("""
+            LET plant = DOCUMENT(CONCAT('plant_instances/', @plant_id))
+            FOR next IN growth_phases
+                FILTER next.name == @next_phase
+                INSERT { _from: plant._id, _to: next._id } INTO current_phase
+        """, bind_vars={'plant_id': self.plant_id, 'next_phase': next_phase_name})
+
         # 3. Erstelle neue Phase-History
-        neo4j_session.run("""
-            MATCH (p:PlantInstance {id: $plant_id})
-            MATCH (phase:GrowthPhase {name: $phase_name})
-            CREATE (p)-[:PHASE_HISTORY]->(history:PhaseHistory {
-                entered_at: $enter_time,
-                exited_at: null,
-                transition_reason: 'New phase started'
-            })-[:WAS_PHASE]->(phase)
-        """, 
-        plant_id=self.plant_id,
-        phase_name=next_phase_name,
-        enter_time=transition_timestamp
-        )
-        
+        arango_db.aql.execute("""
+            LET plant = DOCUMENT(CONCAT('plant_instances/', @plant_id))
+            FOR phase IN growth_phases
+                FILTER phase.name == @phase_name
+                LET history = FIRST(
+                    INSERT {
+                        entered_at: @enter_time,
+                        exited_at: null,
+                        transition_reason: 'New phase started'
+                    } INTO phase_histories
+                    RETURN NEW
+                )
+                INSERT { _from: plant._id, _to: history._id } INTO phase_history
+                INSERT { _from: history._id, _to: phase._id } INTO was_phase
+        """,
+        bind_vars={
+            'plant_id': self.plant_id,
+            'phase_name': next_phase_name,
+            'enter_time': transition_timestamp.isoformat()
+        })
+
         # 4. Hole neue Ressourcen-Profile
-        new_profile = neo4j_session.run("""
-            MATCH (phase:GrowthPhase {name: $phase_name})
-                  -[:REQUIRES_PROFILE]->(req:RequirementProfile)
-                  -[:USES_NUTRIENTS]->(nutr:NutrientProfile)
-            RETURN req, nutr
-        """, phase_name=next_phase_name).single()
-        
+        cursor = arango_db.aql.execute("""
+            FOR phase IN growth_phases
+                FILTER phase.name == @phase_name
+                FOR req IN 1..1 OUTBOUND phase GRAPH 'kamerplanter_graph'
+                    OPTIONS { edgeCollections: ['requires_profile'] }
+                    FOR nutr IN 1..1 OUTBOUND req GRAPH 'kamerplanter_graph'
+                        OPTIONS { edgeCollections: ['uses_nutrients'] }
+                        RETURN { req, nutr }
+        """, bind_vars={'phase_name': next_phase_name})
+        new_profile = next(cursor, None)
+
         return {
             'transition_completed': True,
             'previous_phase': self.current_phase,
@@ -413,10 +526,136 @@ class PhotoperiodManager(BaseModel):
         }
 ```
 
+**5. Dauerkulturen-Zyklus-Engine:**
+```python
+class MaturityStage(str, Enum):
+    JUVENILE = "juvenile"         # Kein Ertrag (z.B. Apfelbaum < 3 Jahre)
+    PRODUCTIVE = "productive"     # Voller Ertrag
+    DECLINING = "declining"       # Ertragsrückgang (Alter)
+
+class PerennialCycleEngine(BaseModel):
+    """Verwaltet jährlich wiederkehrende Phasenzyklen für Dauerkulturen"""
+
+    plant_id: str
+    cycle_type: Literal['perennial']
+    current_season_number: int = Field(ge=1)
+    planted_year: int
+    first_bearing_year: Optional[int] = None  # Ab wann Ertrag erwartet
+    expected_productive_years: Optional[int] = None
+
+    def get_maturity_stage(self, current_year: int) -> MaturityStage:
+        """Bestimmt Reifegrad basierend auf Pflanzenalter"""
+        plant_age = current_year - self.planted_year
+
+        if self.first_bearing_year and plant_age < self.first_bearing_year:
+            return MaturityStage.JUVENILE
+
+        if self.expected_productive_years:
+            productive_end = (self.first_bearing_year or 0) + self.expected_productive_years
+            if plant_age > productive_end:
+                return MaturityStage.DECLINING
+
+        return MaturityStage.PRODUCTIVE
+
+    def should_restart_cycle(
+        self,
+        current_phase: str,
+        transition_rule: Optional[dict]
+    ) -> tuple[bool, str]:
+        """
+        Prüft ob der saisonale Zyklus neu starten soll.
+        Returns: (should_restart, reason)
+        """
+        if transition_rule and transition_rule.get('is_cycle_restart'):
+            return True, f"Saisonaler Neustart: Saison {self.current_season_number + 1}"
+        return False, "Kein Zyklus-Neustart"
+
+    def start_new_season(
+        self,
+        arango_db,
+        season_year: int,
+        chill_hours: int = 0
+    ) -> dict:
+        """
+        Startet eine neue Saison: erstellt SeasonalCycle-Dokument,
+        setzt Pflanze auf erste wiederkehrende Phase (typisch: dormancy oder bud_break).
+        """
+        new_season_number = self.current_season_number + 1
+        maturity = self.get_maturity_stage(season_year)
+
+        # Neuen SeasonalCycle anlegen
+        cursor = arango_db.aql.execute("""
+            LET plant = DOCUMENT(CONCAT('plant_instances/', @plant_id))
+            LET season = FIRST(
+                INSERT {
+                    plant_instance_key: @plant_id,
+                    season_year: @year,
+                    season_number: @season_num,
+                    started_at: DATE_ISO8601(DATE_NOW()),
+                    maturity_stage: @maturity,
+                    chill_hours_accumulated: @chill_hours
+                } INTO seasonal_cycles
+                RETURN NEW
+            )
+            INSERT { _from: plant._id, _to: season._id } INTO has_season
+            RETURN season
+        """, bind_vars={
+            'plant_id': self.plant_id,
+            'year': season_year,
+            'season_num': new_season_number,
+            'maturity': maturity.value,
+            'chill_hours': chill_hours
+        })
+
+        return {
+            'season_number': new_season_number,
+            'season_year': season_year,
+            'maturity_stage': maturity.value,
+            'chill_hours': chill_hours
+        }
+
+    def get_season_comparison(self, arango_db) -> list[dict]:
+        """Vergleicht Ertrag und Performance über alle Saisons"""
+        cursor = arango_db.aql.execute("""
+            FOR season IN seasonal_cycles
+                FILTER season.plant_instance_key == @plant_id
+                SORT season.season_number ASC
+                RETURN {
+                    season: season.season_number,
+                    year: season.season_year,
+                    maturity: season.maturity_stage,
+                    yield_kg: season.yield_kg,
+                    chill_hours: season.chill_hours_accumulated
+                }
+        """, bind_vars={'plant_id': self.plant_id})
+        return list(cursor)
+```
+
+**Erweiterung des PhaseTransitionEngine für Dauerkulturen:**
+
+Die bestehende Rückwärts-Transition-Sperre (`sequence_order`-Vergleich) wird für Dauerkulturen
+erweitert: Wenn die `PhaseTransitionRule` das Flag `is_cycle_restart=true` hat, wird eine
+Rückwärts-Transition erlaubt. Dies ist der einzige Fall, in dem `sequence_order` rückwärts
+gehen darf — es handelt sich um den kontrollierten Saison-Neustart.
+
+Pseudocode-Erweiterung:
+```python
+def validate_transition(self, plant_key: str, target_phase_key: str) -> list[str]:
+    # ... bestehende Logik ...
+
+    # Rückwärts-Check mit Dauerkulturen-Ausnahme
+    if target_phase.sequence_order <= current_phase.sequence_order:
+        transition_rule = self._find_transition_rule(current_phase.key, target_phase_key)
+        if transition_rule and transition_rule.is_cycle_restart:
+            warnings.append("Saisonaler Zyklus-Neustart")
+        else:
+            raise PhaseTransitionError("Rückwärts-Transition nicht erlaubt")
+```
+
 ### Datenvalidierung:
 ```python
 from typing import Literal, Optional, Tuple
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 class RequirementProfileDefinition(BaseModel):
     """Ressourcen-Anforderungen einer Phase"""
@@ -429,14 +668,16 @@ class RequirementProfileDefinition(BaseModel):
     humidity_night_percent: int = Field(ge=30, le=95)
     vpd_target_kpa: float = Field(ge=0.2, le=2.5)
     
-    @validator('temperature_night_c')
-    def validate_temp_range(cls, v, values):
-        day_temp = values.get('temperature_day_c')
+    @field_validator('temperature_night_c')
+    @classmethod
+    def validate_temp_range(cls, v, info):
+        day_temp = info.data.get('temperature_day_c')
         if day_temp and v > day_temp:
             raise ValueError("Nachttemperatur muss niedriger als Tagestemperatur sein")
         return v
     
-    @validator('photoperiod_hours')
+    @field_validator('photoperiod_hours')
+    @classmethod
     def validate_photoperiod(cls, v):
         if v < 8 and v > 0:
             raise ValueError("Photoperiode unter 8h kritisch für Photosynthese")
@@ -449,7 +690,8 @@ class NutrientProfileDefinition(BaseModel):
     target_ec_ms: float = Field(ge=0.0, le=4.0, description="Elektrische Leitfähigkeit in mS/cm")
     target_ph: float = Field(ge=4.0, le=8.0)
     
-    @validator('npk_ratio')
+    @field_validator('npk_ratio')
+    @classmethod
     def validate_npk(cls, v):
         if all(x == 0 for x in v):
             return v  # Flushing-Phase erlaubt
@@ -458,13 +700,45 @@ class NutrientProfileDefinition(BaseModel):
         return v
 
 TransitionTriggerType = Literal['time_based', 'manual', 'event_based', 'conditional']
-PhaseType = Literal['seedling', 'vegetative', 'flowering', 'ripening', 'dormancy', 'flushing']
+PhaseType = Literal['seedling', 'vegetative', 'flowering', 'ripening', 'dormancy', 'flushing',
+                    'bud_break', 'fruit_development', 'senescence']
+
+class SeasonalCycleDefinition(BaseModel):
+    """Saisonaler Zyklus einer Dauerkultur"""
+
+    plant_instance_key: str
+    season_year: int = Field(ge=2000, le=2100)
+    season_number: int = Field(ge=1)
+    maturity_stage: Literal['juvenile', 'productive', 'declining']
+    chill_hours_accumulated: int = Field(ge=0, default=0)
+    yield_kg: Optional[float] = Field(None, ge=0)
+    fruit_count: Optional[int] = Field(None, ge=0)
+
+MaturityStage = Literal['juvenile', 'productive', 'declining']
 ```
+
+**Standard-Phasen für Dauerkulturen (Perennial-Template):**
+
+| Phase | `sequence_order` | `is_recurring` | `typical_duration_days` | `allows_harvest` | Beschreibung |
+|---|---|---|---|---|---|
+| `dormancy` | 0 | `true` | 90 (variabel) | `false` | Winterruhe, Kältestunden-Akkumulation |
+| `bud_break` | 1 | `true` | 14 | `false` | Austrieb, Knospenöffnung |
+| `vegetative` | 2 | `true` | 60 | `false` | Trieb- und Blattwachstum |
+| `flowering` | 3 | `true` | 21 | `false` | Blüte, Bestäubung |
+| `fruit_development` | 4 | `true` | 90 | `false` | Fruchtansatz und -wachstum |
+| `ripening` | 5 | `true` | 30 | `true` | Fruchtreife, Ernte möglich |
+| `senescence` | 6 | `true` | 30 | `false` | Blattfall, Einlagerung von Reservestoffen |
+
+Transition `senescence → dormancy` hat `is_cycle_restart: true` und startet eine neue Saison.
+
+Für immergrüne Dauerkulturen (z.B. Zitrus) entfällt `senescence`; `dormancy` kann optional sein.
 
 ## 4. Abhängigkeiten
 
 **Erforderliche Module:**
-- REQ-001 (Stammdaten): LifecycleConfig und GrowthPhase-Definitionen
+- REQ-001 (Stammdaten): LifecycleConfig (`cycle_type`, `dormancy_required`, `vernalization_required`),
+  DormancyTrigger (Dormanz-Auslösung), VernalizationTracker (Kältestunden-Tracking),
+  GrowthPhase-Definitionen
 - REQ-002 (Standort): Slot-Zuordnung für Ressourcen-Steuerung
 - REQ-005 (Sensorik): Klimadaten für VPD-Berechnung und Feedback-Loop
 
@@ -493,6 +767,13 @@ PhaseType = Literal['seedling', 'vegetative', 'flowering', 'ripening', 'dormancy
 - [ ] **Notification-System:** Push bei anstehenden Auto-Transitions
 - [ ] **Profile-Versionierung:** Änderungen an Standard-Profilen historisiert
 - [ ] **Species-Override:** Spezies-spezifische Profile überschreiben Defaults
+- [ ] **Dauerkulturen-Zyklus:** Perenniale Pflanzen durchlaufen jährlich wiederkehrende Phasenzyklen
+- [ ] **Zyklische Transition:** `is_cycle_restart`-Flag erlaubt kontrollierten Rückwärts-Übergang (Seneszenz → Dormanz)
+- [ ] **Saisonales Tracking:** Jede Saison wird als `seasonal_cycles`-Dokument mit Jahr, Ertrag und Reifegrad erfasst
+- [ ] **Reifegrad-Berechnung:** Automatische Bestimmung von juvenile/productive/declining basierend auf Pflanzenalter
+- [ ] **Saison-Vergleich:** Ertrag und Phasen-Dauern sind über mehrere Jahre vergleichbar
+- [ ] **Perennial-Phasen-Template:** Standard-Phasensequenz für Dauerkulturen (dormancy → bud_break → vegetative → flowering → fruit_development → ripening → senescence)
+- [ ] **Kältestunden-Integration:** Chill-Hours pro Saison aus VernalizationTracker (REQ-001) übernommen
 
 ### Testszenarien:
 
@@ -550,9 +831,44 @@ THEN:
   - Tag 7: 12:00h (Ziel erreicht)
 ```
 
+**Szenario 5: Apfelbaum — Erster Saisonzyklus (Juvenil)**
+```
+GIVEN: Apfelbaum (Malus domestica, 'Boskoop'), gepflanzt 2024,
+       first_bearing_year: 3, LifecycleConfig: cycle_type=perennial
+WHEN: Pflanze durchläuft Saison 1 (2024)
+THEN:
+  - Maturity-Stage: "juvenile" (Alter < 3 Jahre)
+  - Phasen: dormancy → bud_break → vegetative → senescence → dormancy
+  - Phasen flowering/fruit_development/ripening werden übersprungen (juvenil)
+  - SeasonalCycle-Dokument: { season_number: 1, season_year: 2024, maturity_stage: "juvenile", yield_kg: null }
+```
+
+**Szenario 6: Apfelbaum — Produktive Saison mit Ernte**
+```
+GIVEN: Apfelbaum, gepflanzt 2020, aktuell Saison 5 (2025), maturity_stage: "productive"
+       Durchlief: dormancy (90 Tage, 800 Kältestunden) → bud_break → vegetative → flowering → fruit_development → ripening
+WHEN: Nutzer erfasst Ernte: 45 kg, 320 Äpfel
+THEN:
+  - SeasonalCycle wird aktualisiert: { yield_kg: 45.0, fruit_count: 320 }
+  - Saison-Vergleich zeigt: 2023: 38 kg, 2024: 42 kg, 2025: 45 kg (steigend)
+  - Nach Ernte: Transition zu senescence → dormancy (is_cycle_restart=true)
+  - Neue Saison 6 (2026) wird angelegt
+```
+
+**Szenario 7: Zyklische Transition — Seneszenz → Dormanz**
+```
+GIVEN: Perenniale Pflanze in Phase "senescence" (sequence_order: 6)
+WHEN: Transition zu "dormancy" (sequence_order: 0) wird ausgelöst
+THEN:
+  - Normale Rückwärts-Sperre wird NICHT ausgelöst (is_cycle_restart=true)
+  - Aktuelle Saison wird geschlossen (ended_at gesetzt)
+  - Neue Saison wird erstellt (season_number + 1)
+  - Phase-History wird korrekt der neuen Saison zugeordnet
+```
+
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Phasensteuerung, State-Machine, VPD, Photoperiode, NPK-Profil, Ressourcen
-- Fachbegriffe: Phänologie, Transpiration, Vapor Pressure Deficit, PPFD, Spektrum
+- Keywords: Phasensteuerung, State-Machine, VPD, Photoperiode, NPK-Profil, Ressourcen, Dauerkultur, Perennial, Saisonzyklus, Reifegrad, Kältestunden, Obstbaum, Juvenil
+- Fachbegriffe: Phänologie, Transpiration, Vapor Pressure Deficit, PPFD, Spektrum, Vernalisierung, Seneszenz, Austrieb, Chill-Hours, Fruchtentwicklung
 - Verknüpfung: Zentral für REQ-004 (Düngung), REQ-005 (Sensorik), REQ-006 (Tasks)
