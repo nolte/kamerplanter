@@ -6,12 +6,19 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
+import shutil
+
 import pytest
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.firefox.service import Service as FirefoxService
-from webdriver_manager.chrome import ChromeDriverManager
-from webdriver_manager.firefox import GeckoDriverManager
+
+try:
+    from webdriver_manager.chrome import ChromeDriverManager
+    from webdriver_manager.firefox import GeckoDriverManager
+except ImportError:
+    ChromeDriverManager = None  # type: ignore[assignment,misc]
+    GeckoDriverManager = None  # type: ignore[assignment,misc]
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -51,7 +58,13 @@ def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
         options.add_argument("--headless")
         options.add_argument("--width=1920")
         options.add_argument("--height=1080")
-        service = FirefoxService(GeckoDriverManager().install())
+        gecko_path = shutil.which("geckodriver")
+        if gecko_path:
+            service = FirefoxService(gecko_path)
+        elif GeckoDriverManager is not None:
+            service = FirefoxService(GeckoDriverManager().install())
+        else:
+            service = FirefoxService()
         driver = webdriver.Firefox(service=service, options=options)
     else:
         options = webdriver.ChromeOptions()
@@ -59,7 +72,13 @@ def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--window-size=1920,1080")
-        service = ChromeService(ChromeDriverManager().install())
+        chrome_path = shutil.which("chromedriver")
+        if chrome_path:
+            service = ChromeService(chrome_path)
+        elif ChromeDriverManager is not None:
+            service = ChromeService(ChromeDriverManager().install())
+        else:
+            service = ChromeService()
         driver = webdriver.Chrome(service=service, options=options)
 
     driver.implicitly_wait(10)

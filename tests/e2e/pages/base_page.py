@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from selenium.common.exceptions import ElementNotInteractableException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -85,6 +86,16 @@ class BasePage:
             By.CSS_SELECTOR, "[data-testid='error-display']"
         )
         return len(elements) > 0 and elements[0].is_displayed()
+
+    # ── Interactions ─────────────────────────────────────────────────────
+
+    def scroll_and_click(self, element: WebElement) -> None:
+        """Scroll an element into view and click it, falling back to JS click."""
+        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+        try:
+            element.click()
+        except ElementNotInteractableException:
+            self.driver.execute_script("arguments[0].click();", element)
 
     # ── Screenshots ───────────────────────────────────────────────────────
 

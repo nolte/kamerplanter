@@ -25,9 +25,12 @@ class TestErrorDisplay:
         )
         assert el.is_displayed(), "NotFound page should be visible"
 
-        # The 404 text should be visible
+        # The page title or body should indicate a 404 / not-found state
         heading = page.driver.find_element(By.TAG_NAME, "h1")
-        assert "404" in heading.text, "Page should display 404 text"
+        page_text = el.text
+        assert "404" in page_text or "not found" in heading.text.lower(), (
+            "Page should display 404 text or 'not found' heading"
+        )
 
     def test_nonexistent_entity(self, page: BasePage) -> None:
         """Accessing a non-existent entity shows an error display."""

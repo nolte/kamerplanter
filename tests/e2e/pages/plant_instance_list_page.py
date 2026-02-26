@@ -38,4 +38,4 @@ class PlantInstanceListPage(BasePage):
     def click_row(self, index: int) -> None:
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         if index < len(rows):
-            rows[index].click()
+            self.scroll_and_click(rows[index])
