@@ -1,7 +1,7 @@
 # Kamerplanter - Anforderungsspezifikationen
 
 ## Übersicht
-Dieses Verzeichnis enthält **16 vollständig ausgearbeitete Anforderungsdokumente** für das Kamerplanter-System — eine Agrotech-Plattform für Pflanzen-Lebenszyklusmanagement (Cannabis, Gemüse, Kräuter) mit Python/FastAPI-Backend und ArangoDB Graph-Datenbank.
+Dieses Verzeichnis enthält **18 vollständig ausgearbeitete Anforderungsdokumente** für das Kamerplanter-System — eine Agrotech-Plattform für Pflanzen-Lebenszyklusmanagement (Cannabis, Gemüse, Kräuter) mit Python/FastAPI-Backend und ArangoDB Graph-Datenbank.
 
 ### Dokumenten-Struktur
 Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
@@ -247,6 +247,37 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 
 ---
 
+### 🌿 REQ-017: Vermehrungsmanagement
+**Fokus:** Stecklinge, Aussaat, Veredelung, Mutterpflanzen, Genetische Abstammung
+- Mutterpflanzen-Verwaltung mit Gesundheitsbewertung und Retirement-Empfehlung
+- 6 Vermehrungsmethoden: Steckling, Aussaat, Teilung, Absenker, Veredelung, Gewebekultur
+- Wiederverwendbare Bewurzelungsprotokolle mit Erfolgsraten-Tracking
+- Genetischer Abstammungsgraph (Lineage) über beliebig viele Generationen
+- Veredelungs-Kompatibilitätsprüfung auf Gattungs-/Familienebene
+
+**Highlights:**
+- PropagationBatch → PlantingRun-Übergabe
+- Phänotyp-Dokumentation für Selektion
+- Generationswarnung bei genetischer Drift (>10 Klon-Generationen)
+
+---
+
+### ⚡ REQ-018: Umgebungssteuerung & Aktorik
+**Fokus:** Aktive Steuerung (Licht, Klima, Bewässerung), Home Assistant, Automatisierungsregeln
+- 11 Aktor-Typen: Licht, Abluft, Umluft, Heizung, Kühlung, Befeuchter, Entfeuchter, CO₂-Doser, Bewässerungsventil, Pumpe, Generic Switch
+- Drei Protokolle: Home Assistant (REST API), MQTT (direkt), Manuell (Fallback-Tasks)
+- Regelbasierte Steuerung mit Hysterese (Oszillationsschutz)
+- Phasengebundene Profile mit graduellem Übergang (z.B. 18h→12h über 7 Tage)
+- Prioritätssystem: Override > Safety > Rule > Schedule
+
+**Highlights:**
+- Home Assistant bidirektional (Service-Calls + State-Sync)
+- Graceful Degradation: HA-Ausfall → automatische Fallback-Tasks (REQ-006)
+- Energieverbrauch-Schätzung pro Location
+- Compound-Regeln (AND/OR) und Dry-Run-Tests
+
+---
+
 ## Technologie-Stack
 
 ### Backend
@@ -291,13 +322,13 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 
 | Metrik | Wert |
 |--------|------|
-| Anforderungsdokumente | 16 (REQ-001 bis REQ-016) |
-| Gesamt-Größe | ~611 KB (Markdown) |
-| Graph-Nodes definiert | ~71 |
-| Graph-Edges definiert | ~91 |
-| Python-Code-Beispiele | ~66 |
-| AQL-Queries | ~51 |
-| Akzeptanzkriterien | ~195 |
+| Anforderungsdokumente | 18 (REQ-001 bis REQ-018) |
+| Gesamt-Größe | ~700 KB (Markdown) |
+| Graph-Nodes definiert | ~80 |
+| Graph-Edges definiert | ~110 |
+| Python-Code-Beispiele | ~80 |
+| AQL-Queries | ~62 |
+| Akzeptanzkriterien | ~245 |
 
 **Vollständigkeits-Matrix:**
 - ✅ REQ-001: Stammdatenverwaltung (35 KB)
@@ -316,6 +347,8 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 - ✅ REQ-014: Tankmanagement (33 KB)
 - ✅ REQ-015: Kalenderansicht & Kalender-Integration
 - ✅ REQ-016: Optionale InvenTree-Integration
+- ✅ REQ-017: Vermehrungsmanagement
+- ✅ REQ-018: Umgebungssteuerung & Aktorik
 
 ---
 
