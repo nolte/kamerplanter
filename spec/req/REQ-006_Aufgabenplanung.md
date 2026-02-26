@@ -1125,6 +1125,7 @@ class TaskCompletion(BaseModel):
 - REQ-007 (Ernte): Harvest-Tasks als Teil von Workflows
 - REQ-010 (IPM): IPM-Tasks (Spraying, Inspection)
 - REQ-009 (Dashboard): Task-Queue-Widget
+- REQ-014 (Tankmanagement): **HOCH** — Automatische Wartungs-Tasks aus MaintenanceSchedule (Wasserwechsel, Reinigung, Kalibrierung etc.)
 
 **Python-Bibliotheken:**
 - `celery` - Zeitgesteuerte Task-Erinnerungen

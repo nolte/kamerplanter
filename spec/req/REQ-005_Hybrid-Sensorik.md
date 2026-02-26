@@ -1191,6 +1191,7 @@ class CalibrationRecord(BaseModel):
 - REQ-004 (Düngung): EC/pH für Nährlösungs-Kontrolle
 - REQ-009 (Dashboard): Real-Time-Daten für Widgets
 - REQ-010 (IPM): Klimadaten für Schädlings-Risiko-Modelle
+- REQ-014 (Tankmanagement): **MITTEL** — Tank-Sensoren für automatische Zustandserfassung (pH, EC, Füllstand, Wassertemperatur)
 
 **Python-Bibliotheken:**
 - `requests` - HTTP für HA REST API

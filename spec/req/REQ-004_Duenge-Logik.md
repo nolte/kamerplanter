@@ -1328,6 +1328,7 @@ class FeedingEventRecord(BaseModel):
 - REQ-006 (Tasks): Automatische Feeding-Tasks
 - REQ-007 (Ernte): Flushing-Protokoll vor Ernte
 - REQ-009 (Dashboard): EC/pH-Ampeln, Kosten-Tracking
+- REQ-014 (Tankmanagement): **HOCH** — MixingResult als Input für Tank-Befüllung; EC-Budget basiert auf Tank-Volumen
 
 **Externe Integrationen:**
 - Dünger-Datenbanken (NPK-Werte, Preise)
