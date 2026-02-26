@@ -70,6 +70,11 @@ class ArangoSpeciesRepository(ISpeciesRepository, BaseArangoRepository):
         doc = BaseArangoRepository(self._db, col.CULTIVARS).get_by_key(key)
         return Cultivar(**doc) if doc else None
 
+    def update_cultivar(self, key: CultivarKey, cultivar: Cultivar) -> Cultivar:
+        repo = BaseArangoRepository(self._db, col.CULTIVARS)
+        doc = repo.update(key, cultivar)
+        return Cultivar(**doc)
+
     def delete_cultivar(self, key: CultivarKey) -> bool:
         return BaseArangoRepository(self._db, col.CULTIVARS).delete(key)
 

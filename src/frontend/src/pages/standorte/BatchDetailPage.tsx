@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Typography from '@mui/material/Typography';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,52 +18,68 @@ import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
-import * as api from '@/api/endpoints/sites';
-import type { Slot } from '@/api/types';
+import * as api from '@/api/endpoints/substrates';
+import type { Batch } from '@/api/types';
 
 const schema = z.object({
-  slot_id: z.string().min(1),
-  location_key: z.string(),
-  capacity_plants: z.number().min(1).max(20),
+  batch_id: z.string().min(1),
+  substrate_key: z.string(),
+  volume_liters: z.number().min(0),
+  mixed_on: z.string().min(1),
 });
 
 type FormData = z.infer<typeof schema>;
 
-export default function SlotDetailPage() {
+export default function BatchDetailPage() {
   const { key } = useParams<{ key: string }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
-  const [slot, setSlot] = useState<Slot | null>(null);
+  const [batch, setBatch] = useState<Batch | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const { control, handleSubmit, reset, formState: { isDirty } } = useForm<FormData>({
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { isDirty },
+  } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { slot_id: '', location_key: '', capacity_plants: 1 },
+    defaultValues: { batch_id: '', substrate_key: '', volume_liters: 0, mixed_on: '' },
   });
 
-  useEffect(() => {
+  const load = async () => {
     if (!key) return;
     setLoading(true);
-    api.getSlot(key)
-      .then((s) => {
-        setSlot(s);
-        reset({ slot_id: s.slot_id, location_key: s.location_key, capacity_plants: s.capacity_plants });
-      })
-      .catch((e) => setError(String(e)))
-      .finally(() => setLoading(false));
-  }, [key, reset]);
+    try {
+      const b = await api.getBatch(key);
+      setBatch(b);
+      reset({
+        batch_id: b.batch_id,
+        substrate_key: b.substrate_key,
+        volume_liters: b.volume_liters,
+        mixed_on: b.mixed_on,
+      });
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onSubmit = async (data: FormData) => {
     if (!key) return;
     try {
       setSaving(true);
-      await api.updateSlot(key, data);
+      await api.updateBatch(key, data);
       notification.success(t('common.save'));
+      load();
     } catch (err) {
       handleError(err);
     } finally {
@@ -73,7 +90,7 @@ export default function SlotDetailPage() {
   const onDelete = async () => {
     if (!key) return;
     try {
-      await api.deleteSlot(key);
+      await api.deleteBatch(key);
       notification.success(t('common.delete'));
       navigate(-1);
     } catch (err) {
@@ -89,22 +106,46 @@ export default function SlotDetailPage() {
     <>
       <UnsavedChangesGuard dirty={isDirty} />
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <PageTitle title={slot?.slot_id ?? t('entities.slot')} />
+        <PageTitle title={batch?.batch_id ?? t('entities.batch')} />
         <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
           {t('common.delete')}
         </Button>
       </Box>
 
       <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 600 }}>
-        <FormTextField name="slot_id" control={control} label={t('pages.slots.slotId')} required />
-        <FormNumberField name="capacity_plants" control={control} label={t('pages.slots.capacity')} min={1} max={20} />
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t('pages.batches.editIntro')}
+        </Typography>
+        <FormTextField name="batch_id" control={control} label={t('pages.batches.batchId')} helperText={t('pages.batches.batchIdHelper')} required />
+        <FormNumberField name="volume_liters" control={control} label={t('pages.batches.volume')} helperText={t('pages.batches.volumeHelper')} min={0} step={0.1} />
+        <FormTextField name="mixed_on" control={control} label={t('pages.batches.mixedOn')} helperText={t('pages.batches.mixedOnHelper')} type="date" required />
+
+        {batch && (
+          <Box sx={{ mt: 2, mb: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+            <Typography variant="subtitle2" color="text.secondary">{t('pages.batches.cyclesUsed')}</Typography>
+            <Typography>{batch.cycles_used}</Typography>
+            {batch.ph_current != null && (
+              <>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>{t('pages.batches.phCurrent')}</Typography>
+                <Typography>{batch.ph_current}</Typography>
+              </>
+            )}
+            {batch.ec_current_ms != null && (
+              <>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>{t('pages.batches.ecCurrent')}</Typography>
+                <Typography>{batch.ec_current_ms} mS/cm</Typography>
+              </>
+            )}
+          </Box>
+        )}
+
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
       </Box>
 
       <ConfirmDialog
         open={deleteOpen}
         title={t('common.delete')}
-        message={t('common.deleteConfirm', { name: slot?.slot_id })}
+        message={t('common.deleteConfirm', { name: batch?.batch_id })}
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
         destructive

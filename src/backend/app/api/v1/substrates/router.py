@@ -33,6 +33,21 @@ def get_substrate(key: str, service: SubstrateService = Depends(get_substrate_se
     s = service.get_substrate(key)
     return SubstrateResponse(key=s.key or "", **s.model_dump(exclude={"key"}))
 
+@router.put("/{key}", response_model=SubstrateResponse)
+def update_substrate(key: str, body: SubstrateCreate, service: SubstrateService = Depends(get_substrate_service)):
+    substrate = Substrate(**body.model_dump())
+    updated = service.update_substrate(key, substrate)
+    return SubstrateResponse(key=updated.key or "", **updated.model_dump(exclude={"key"}))
+
+@router.delete("/{key}", status_code=204)
+def delete_substrate(key: str, service: SubstrateService = Depends(get_substrate_service)):
+    service.delete_substrate(key)
+
+@router.get("/{substrate_key}/batches", response_model=list[BatchResponse])
+def list_batches(substrate_key: str, service: SubstrateService = Depends(get_substrate_service)):
+    batches = service.list_batches(substrate_key)
+    return [BatchResponse(key=b.key or "", **b.model_dump(exclude={"key"})) for b in batches]
+
 @router.post("/batches", response_model=BatchResponse, status_code=201)
 def create_batch(body: BatchCreate, service: SubstrateService = Depends(get_substrate_service)):
     batch = SubstrateBatch(**body.model_dump())
@@ -43,6 +58,16 @@ def create_batch(body: BatchCreate, service: SubstrateService = Depends(get_subs
 def get_batch(key: str, service: SubstrateService = Depends(get_substrate_service)):
     b = service.get_batch(key)
     return BatchResponse(key=b.key or "", **b.model_dump(exclude={"key"}))
+
+@router.put("/batches/{key}", response_model=BatchResponse)
+def update_batch(key: str, body: BatchCreate, service: SubstrateService = Depends(get_substrate_service)):
+    batch = SubstrateBatch(**body.model_dump())
+    updated = service.update_batch(key, batch)
+    return BatchResponse(key=updated.key or "", **updated.model_dump(exclude={"key"}))
+
+@router.delete("/batches/{key}", status_code=204)
+def delete_batch(key: str, service: SubstrateService = Depends(get_substrate_service)):
+    service.delete_batch(key)
 
 @router.post("/batches/{key}/check-reusability", response_model=ReusabilityResponse)
 def check_reusability(key: str, service: SubstrateService = Depends(get_substrate_service)):

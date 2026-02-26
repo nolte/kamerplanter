@@ -59,3 +59,9 @@ class ArangoSubstrateRepository(ISubstrateRepository, BaseArangoRepository):
         repo = BaseArangoRepository(self._db, col.SUBSTRATE_BATCHES)
         doc = repo.update(key, batch)
         return SubstrateBatch(**doc)
+
+    def delete_batch(self, key: BatchKey) -> bool:
+        batch_id = f"{col.SUBSTRATE_BATCHES}/{key}"
+        query = f"FOR e IN {col.FILLED_WITH} FILTER e._to == @to REMOVE e IN {col.FILLED_WITH}"
+        self._db.aql.execute(query, bind_vars={"to": batch_id})
+        return BaseArangoRepository(self._db, col.SUBSTRATE_BATCHES).delete(key)

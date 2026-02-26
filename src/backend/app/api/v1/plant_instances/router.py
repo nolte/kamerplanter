@@ -32,6 +32,12 @@ def create_plant(body: PlantCreate, service: PlantInstanceService = Depends(get_
     created = service.create_plant(plant)
     return PlantResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
 
+@router.put("/{key}", response_model=PlantResponse)
+def update_plant(key: str, body: PlantCreate, service: PlantInstanceService = Depends(get_plant_instance_service)):
+    plant = PlantInstance(**body.model_dump())
+    updated = service.update_plant(key, plant)
+    return PlantResponse(key=updated.key or "", **updated.model_dump(exclude={"key"}))
+
 @router.post("/{key}/remove", response_model=PlantResponse)
 def remove_plant(key: str, service: PlantInstanceService = Depends(get_plant_instance_service)):
     removed = service.remove_plant(key)

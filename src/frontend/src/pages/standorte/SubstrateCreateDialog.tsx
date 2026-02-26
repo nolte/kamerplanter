@@ -9,6 +9,7 @@ import { z } from 'zod';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
+import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -20,6 +21,7 @@ const schema = z.object({
   ph_base: z.number().min(0).max(14),
   ec_base_ms: z.number().min(0),
   water_retention: z.enum(['low', 'medium', 'high']),
+  air_porosity_percent: z.number().min(0).max(100),
   buffer_capacity: z.enum(['low', 'medium', 'high']),
   reusable: z.boolean(),
   max_reuse_cycles: z.number().min(1),
@@ -47,6 +49,7 @@ export default function SubstrateCreateDialog({ open, onClose, onCreated }: Prop
       ph_base: 6.5,
       ec_base_ms: 0.5,
       water_retention: 'medium',
+      air_porosity_percent: 25.0,
       buffer_capacity: 'medium',
       reusable: false,
       max_reuse_cycles: 3,
@@ -91,6 +94,7 @@ export default function SubstrateCreateDialog({ open, onClose, onCreated }: Prop
               value: v, label: t(`enums.waterRetention.${v}`),
             }))}
           />
+          <FormNumberField name="air_porosity_percent" control={control} label={t('pages.substrates.airPorosity')} min={0} max={100} step={1} />
           <FormSelectField
             name="buffer_capacity"
             control={control}
@@ -99,6 +103,7 @@ export default function SubstrateCreateDialog({ open, onClose, onCreated }: Prop
               value: v, label: t(`enums.bufferCapacity.${v}`),
             }))}
           />
+          <FormSwitchField name="reusable" control={control} label={t('pages.substrates.reusable')} />
           <FormNumberField name="max_reuse_cycles" control={control} label={t('pages.substrates.maxReuseCycles')} min={1} />
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
         </form>

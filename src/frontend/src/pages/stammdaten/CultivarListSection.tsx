@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -21,6 +22,7 @@ interface Props {
 
 export default function CultivarListSection({ speciesKey }: Props) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [cultivars, setCultivars] = useState<Cultivar[]>([]);
@@ -95,7 +97,7 @@ export default function CultivarListSection({ speciesKey }: Props) {
         </Button>
       </Box>
 
-      <DataTable columns={columns} rows={cultivars} loading={loading} getRowKey={(r) => r.key} />
+      <DataTable columns={columns} rows={cultivars} loading={loading} getRowKey={(r) => r.key} onRowClick={(r) => navigate(`/stammdaten/species/${speciesKey}/cultivars/${r.key}`)} />
 
       <CultivarCreateDialog
         speciesKey={speciesKey}

@@ -40,3 +40,7 @@ class ISubstrateRepository(ABC):
     @abstractmethod
     def update_batch(self, key: BatchKey, batch: SubstrateBatch) -> SubstrateBatch:
         ...
+
+    @abstractmethod
+    def delete_batch(self, key: BatchKey) -> bool:
+        ...

@@ -30,6 +30,9 @@ spec:
             httpGet:
               path: /_api/version
               port: http
+              httpHeaders:
+                - name: Authorization
+                  value: "Basic {{ printf "root:%s" .Values.rootPassword | b64enc }}"
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
@@ -38,6 +41,9 @@ spec:
             httpGet:
               path: /_api/version
               port: http
+              httpHeaders:
+                - name: Authorization
+                  value: "Basic {{ printf "root:%s" .Values.rootPassword | b64enc }}"
             initialDelaySeconds: 15
             periodSeconds: 5
             timeoutSeconds: 3

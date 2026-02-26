@@ -50,6 +50,10 @@ class SpeciesService:
             raise NotFoundError("Cultivar", key)
         return cultivar
 
+    def update_cultivar(self, key: CultivarKey, cultivar: Cultivar) -> Cultivar:
+        self.get_cultivar(key)
+        return self._repo.update_cultivar(key, cultivar)
+
     def delete_cultivar(self, key: CultivarKey) -> bool:
         self.get_cultivar(key)
         return self._repo.delete_cultivar(key)

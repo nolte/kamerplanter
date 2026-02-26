@@ -47,6 +47,10 @@ class ISpeciesRepository(ABC):
         ...
 
     @abstractmethod
+    def update_cultivar(self, key: CultivarKey, cultivar: Cultivar) -> Cultivar:
+        ...
+
+    @abstractmethod
     def delete_cultivar(self, key: CultivarKey) -> bool:
         ...
 

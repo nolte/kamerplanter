@@ -18,6 +18,19 @@ def create_cultivar(species_key: str, body: CultivarCreate, service: SpeciesServ
     created = service.create_cultivar(cultivar)
     return CultivarResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
 
+@router.get("/{cultivar_key}", response_model=CultivarResponse)
+def get_cultivar(species_key: str, cultivar_key: str, service: SpeciesService = Depends(get_species_service)):
+    c = service.get_cultivar(cultivar_key)
+    return CultivarResponse(key=c.key or "", **c.model_dump(exclude={"key"}))
+
+@router.put("/{cultivar_key}", response_model=CultivarResponse)
+def update_cultivar(
+    species_key: str, cultivar_key: str, body: CultivarCreate, service: SpeciesService = Depends(get_species_service),
+):
+    cultivar = Cultivar(species_key=species_key, **body.model_dump(exclude={"species_key"}))
+    updated = service.update_cultivar(cultivar_key, cultivar)
+    return CultivarResponse(key=updated.key or "", **updated.model_dump(exclude={"key"}))
+
 @router.delete("/{cultivar_key}", status_code=204)
 def delete_cultivar(species_key: str, cultivar_key: str, service: SpeciesService = Depends(get_species_service)):
     service.delete_cultivar(cultivar_key)

@@ -12,6 +12,7 @@ const BotanicalFamilyDetailPage = lazy(
 );
 const SpeciesListPage = lazy(() => import('@/pages/stammdaten/SpeciesListPage'));
 const SpeciesDetailPage = lazy(() => import('@/pages/stammdaten/SpeciesDetailPage'));
+const CultivarDetailPage = lazy(() => import('@/pages/stammdaten/CultivarDetailPage'));
 const CompanionPlantingPage = lazy(
   () => import('@/pages/stammdaten/CompanionPlantingPage'),
 );
@@ -21,6 +22,8 @@ const SiteDetailPage = lazy(() => import('@/pages/standorte/SiteDetailPage'));
 const LocationDetailPage = lazy(() => import('@/pages/standorte/LocationDetailPage'));
 const SubstrateListPage = lazy(() => import('@/pages/standorte/SubstrateListPage'));
 const SubstrateDetailPage = lazy(() => import('@/pages/standorte/SubstrateDetailPage'));
+const BatchDetailPage = lazy(() => import('@/pages/standorte/BatchDetailPage'));
+const SlotDetailPage = lazy(() => import('@/pages/standorte/SlotDetailPage'));
 const PlantInstanceListPage = lazy(
   () => import('@/pages/pflanzen/PlantInstanceListPage'),
 );
@@ -73,6 +76,14 @@ export const router = createBrowserRouter(
         element={
           <Suspense fallback={<LoadingSkeleton variant="form" />}>
             <SpeciesDetailPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="stammdaten/species/:speciesKey/cultivars/:cultivarKey"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="form" />}>
+            <CultivarDetailPage />
           </Suspense>
         }
       />
@@ -131,6 +142,23 @@ export const router = createBrowserRouter(
         element={
           <Suspense fallback={<LoadingSkeleton variant="form" />}>
             <SubstrateDetailPage />
+          </Suspense>
+        }
+      />
+
+      <Route
+        path="standorte/substrates/batches/:key"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="form" />}>
+            <BatchDetailPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="standorte/slots/:key"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="form" />}>
+            <SlotDetailPage />
           </Suspense>
         }
       />

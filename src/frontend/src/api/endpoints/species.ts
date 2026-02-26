@@ -56,6 +56,23 @@ export async function createCultivar(
   return data;
 }
 
+export async function getCultivar(speciesKey: string, cultivarKey: string): Promise<Cultivar> {
+  const { data } = await client.get<Cultivar>(`${BASE}/${speciesKey}/cultivars/${cultivarKey}`);
+  return data;
+}
+
+export async function updateCultivar(
+  speciesKey: string,
+  cultivarKey: string,
+  payload: Omit<CultivarCreate, 'species_key'>,
+): Promise<Cultivar> {
+  const { data } = await client.put<Cultivar>(`${BASE}/${speciesKey}/cultivars/${cultivarKey}`, {
+    ...payload,
+    species_key: speciesKey,
+  });
+  return data;
+}
+
 export async function deleteCultivar(speciesKey: string, cultivarKey: string): Promise<void> {
   await client.delete(`${BASE}/${speciesKey}/cultivars/${cultivarKey}`);
 }

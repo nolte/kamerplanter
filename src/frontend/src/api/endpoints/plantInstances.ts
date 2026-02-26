@@ -29,6 +29,14 @@ export async function createPlantInstance(
   return data;
 }
 
+export async function updatePlantInstance(
+  key: string,
+  payload: Partial<PlantInstanceCreate>,
+): Promise<PlantInstance> {
+  const { data } = await client.put<PlantInstance>(`${BASE}/${key}`, payload);
+  return data;
+}
+
 export async function removePlantInstance(key: string): Promise<PlantInstance> {
   const { data } = await client.post<PlantInstance>(`${BASE}/${key}/remove`);
   return data;

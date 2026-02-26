@@ -30,6 +30,10 @@ class SubstrateService:
         self.get_substrate(key)
         return self._repo.delete_substrate(key)
 
+    def list_batches(self, substrate_key: SubstrateKey) -> list[SubstrateBatch]:
+        self.get_substrate(substrate_key)
+        return self._repo.get_batches_by_substrate(substrate_key)
+
     def get_batch(self, key: BatchKey) -> SubstrateBatch:
         batch = self._repo.get_batch_by_key(key)
         if batch is None:
@@ -43,6 +47,10 @@ class SubstrateService:
     def update_batch(self, key: BatchKey, batch: SubstrateBatch) -> SubstrateBatch:
         self.get_batch(key)
         return self._repo.update_batch(key, batch)
+
+    def delete_batch(self, key: BatchKey) -> bool:
+        self.get_batch(key)
+        return self._repo.delete_batch(key)
 
     def check_reusability(self, batch_key: BatchKey) -> tuple[bool, list[str]]:
         self.get_batch(batch_key)

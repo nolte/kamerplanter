@@ -156,7 +156,7 @@ export default function LocationDetailPage() {
             {t('pages.slots.create')}
           </Button>
         </Box>
-        <DataTable columns={slotColumns} rows={slots} getRowKey={(r) => r.key} />
+        <DataTable columns={slotColumns} rows={slots} getRowKey={(r) => r.key} onRowClick={(r) => navigate(`/standorte/slots/${r.key}`)} />
       </Box>
 
       {key && (
