@@ -10,6 +10,7 @@ import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import type { Control, UseFormSetValue } from 'react-hook-form';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -23,7 +24,7 @@ import { useApiError } from '@/hooks/useApiError';
 import * as runApi from '@/api/endpoints/plantingRuns';
 import * as speciesApi from '@/api/endpoints/species';
 import * as sitesApi from '@/api/endpoints/sites';
-import type { Species, Site, Location } from '@/api/types';
+import type { Species, Cultivar, Site, Location } from '@/api/types';
 
 const entrySchema = z.object({
   species_key: z.string().min(1),
@@ -55,6 +56,96 @@ interface Props {
   onCreated: () => void;
 }
 
+interface EntryRowProps {
+  index: number;
+  control: Control<FormData>;
+  setValue: UseFormSetValue<FormData>;
+  speciesList: Species[];
+  roles: { value: string; label: string }[];
+  onRemove: () => void;
+  canRemove: boolean;
+}
+
+function EntryRow({ index, control, setValue, speciesList, roles, onRemove, canRemove }: EntryRowProps) {
+  const { t } = useTranslation();
+  const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
+  const [cultivarsLoading, setCultivarsLoading] = useState(false);
+  const speciesKey = useWatch({ control, name: `entries.${index}.species_key` });
+
+  useEffect(() => {
+    if (!speciesKey) {
+      setCultivarList([]);
+      return;
+    }
+    setCultivarsLoading(true);
+    setValue(`entries.${index}.cultivar_key`, null);
+    speciesApi
+      .listCultivars(speciesKey)
+      .then(setCultivarList)
+      .catch(() => setCultivarList([]))
+      .finally(() => setCultivarsLoading(false));
+  }, [speciesKey, index, setValue]);
+
+  return (
+    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1, flexWrap: 'wrap' }}>
+      <Box sx={{ flex: 1, minWidth: 160 }}>
+        <FormSelectField
+          name={`entries.${index}.species_key`}
+          control={control}
+          label={t('entities.species')}
+          required
+          options={speciesList.map((s) => ({ value: s.key, label: s.scientific_name }))}
+        />
+      </Box>
+      <Box sx={{ flex: 1, minWidth: 160 }}>
+        <FormSelectField
+          name={`entries.${index}.cultivar_key`}
+          control={control}
+          label={t('entities.cultivar')}
+          disabled={!speciesKey || cultivarsLoading}
+          options={[
+            { value: '', label: '-' },
+            ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
+          ]}
+        />
+      </Box>
+      <Box sx={{ width: 100 }}>
+        <FormNumberField
+          name={`entries.${index}.quantity`}
+          control={control}
+          label={t('pages.plantingRuns.quantity')}
+          required
+          min={1}
+        />
+      </Box>
+      <Box sx={{ width: 100 }}>
+        <FormTextField
+          name={`entries.${index}.id_prefix`}
+          control={control}
+          label={t('pages.plantingRuns.idPrefix')}
+          required
+          helperText="A-Z, 2-5"
+        />
+      </Box>
+      <Box sx={{ width: 140 }}>
+        <FormSelectField
+          name={`entries.${index}.role`}
+          control={control}
+          label={t('pages.plantingRuns.role')}
+          options={roles}
+        />
+      </Box>
+      <IconButton
+        onClick={onRemove}
+        disabled={!canRemove}
+        sx={{ mt: 1 }}
+      >
+        <DeleteIcon />
+      </IconButton>
+    </Box>
+  );
+}
+
 export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Props) {
   const { t } = useTranslation();
   const notification = useNotification();
@@ -76,7 +167,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
       planned_start_date: new Date().toISOString().split('T')[0],
       source_plant_key: null,
       notes: null,
-      entries: [{ species_key: '', quantity: 1, role: 'primary', id_prefix: '', spacing_cm: null, notes: null }],
+      entries: [{ species_key: '', cultivar_key: null, quantity: 1, role: 'primary', id_prefix: '', spacing_cm: null, notes: null }],
     },
   });
 
@@ -95,7 +186,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
         planned_start_date: new Date().toISOString().split('T')[0],
         source_plant_key: null,
         notes: null,
-        entries: [{ species_key: '', quantity: 1, role: 'primary', id_prefix: '', spacing_cm: null, notes: null }],
+        entries: [{ species_key: '', cultivar_key: null, quantity: 1, role: 'primary', id_prefix: '', spacing_cm: null, notes: null }],
       });
       setLocationsList([]);
       speciesApi.listSpecies(0, 200).then((r) => setSpeciesList(r.items)).catch(() => {});
@@ -213,56 +304,22 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
           </Typography>
 
           {fields.map((field, index) => (
-            <Box key={field.id} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1 }}>
-              <Box sx={{ flex: 1 }}>
-                <FormSelectField
-                  name={`entries.${index}.species_key`}
-                  control={control}
-                  label={t('entities.species')}
-                  required
-                  options={speciesList.map((s) => ({ value: s.key, label: s.scientific_name }))}
-                />
-              </Box>
-              <Box sx={{ width: 100 }}>
-                <FormNumberField
-                  name={`entries.${index}.quantity`}
-                  control={control}
-                  label={t('pages.plantingRuns.quantity')}
-                  required
-                  min={1}
-                />
-              </Box>
-              <Box sx={{ width: 100 }}>
-                <FormTextField
-                  name={`entries.${index}.id_prefix`}
-                  control={control}
-                  label={t('pages.plantingRuns.idPrefix')}
-                  required
-                  helperText="A-Z, 2-5"
-                />
-              </Box>
-              <Box sx={{ width: 140 }}>
-                <FormSelectField
-                  name={`entries.${index}.role`}
-                  control={control}
-                  label={t('pages.plantingRuns.role')}
-                  options={roles}
-                />
-              </Box>
-              <IconButton
-                onClick={() => remove(index)}
-                disabled={fields.length <= 1}
-                sx={{ mt: 1 }}
-              >
-                <DeleteIcon />
-              </IconButton>
-            </Box>
+            <EntryRow
+              key={field.id}
+              index={index}
+              control={control}
+              setValue={setValue}
+              speciesList={speciesList}
+              roles={roles}
+              onRemove={() => remove(index)}
+              canRemove={fields.length > 1}
+            />
           ))}
 
           <Button
             startIcon={<AddIcon />}
             onClick={() =>
-              append({ species_key: '', quantity: 1, role: 'primary', id_prefix: '', spacing_cm: null, notes: null })
+              append({ species_key: '', cultivar_key: null, quantity: 1, role: 'primary', id_prefix: '', spacing_cm: null, notes: null })
             }
             sx={{ mb: 2 }}
           >

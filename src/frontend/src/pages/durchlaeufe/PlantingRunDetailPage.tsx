@@ -294,6 +294,7 @@ export default function PlantingRunDetailPage() {
                 <TableHead>
                   <TableRow>
                     <TableCell>{t('entities.species')}</TableCell>
+                    <TableCell>{t('entities.cultivar')}</TableCell>
                     <TableCell>{t('pages.plantingRuns.quantity')}</TableCell>
                     <TableCell>{t('pages.plantingRuns.role')}</TableCell>
                     <TableCell>{t('pages.plantingRuns.idPrefix')}</TableCell>
@@ -304,6 +305,7 @@ export default function PlantingRunDetailPage() {
                   {entries.map((e) => (
                     <TableRow key={e.key}>
                       <TableCell>{e.species_key}</TableCell>
+                      <TableCell>{e.cultivar_key ?? '-'}</TableCell>
                       <TableCell>{e.quantity}</TableCell>
                       <TableCell>{t(`enums.entryRole.${e.role}`)}</TableCell>
                       <TableCell>{e.id_prefix}</TableCell>
