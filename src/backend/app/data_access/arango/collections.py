@@ -21,6 +21,15 @@ EXTERNAL_MAPPINGS = "external_mappings"
 SYNC_RUNS = "sync_runs"
 PLANTING_RUNS = "planting_runs"
 PLANTING_RUN_ENTRIES = "planting_run_entries"
+TANKS = "tanks"
+TANK_STATES = "tank_states"
+MAINTENANCE_LOGS = "maintenance_logs"
+MAINTENANCE_SCHEDULES = "maintenance_schedules"
+FERTILIZERS = "fertilizers"
+FERTILIZER_STOCKS = "fertilizer_stocks"
+NUTRIENT_PLANS = "nutrient_plans"
+NUTRIENT_PLAN_PHASE_ENTRIES = "nutrient_plan_phase_entries"
+FEEDING_EVENTS = "feeding_events"
 
 DOCUMENT_COLLECTIONS = [
     SPECIES,
@@ -43,6 +52,15 @@ DOCUMENT_COLLECTIONS = [
     SYNC_RUNS,
     PLANTING_RUNS,
     PLANTING_RUN_ENTRIES,
+    TANKS,
+    TANK_STATES,
+    MAINTENANCE_LOGS,
+    MAINTENANCE_SCHEDULES,
+    FERTILIZERS,
+    FERTILIZER_STOCKS,
+    NUTRIENT_PLANS,
+    NUTRIENT_PLAN_PHASE_ENTRIES,
+    FEEDING_EVENTS,
 ]
 
 # Edge collections
@@ -71,6 +89,21 @@ RUN_AT_LOCATION = "run_at_location"
 RUN_USES_SUBSTRATE = "run_uses_substrate"
 HAS_ENTRY = "has_entry"
 ENTRY_FOR_SPECIES = "entry_for_species"
+HAS_TANK = "has_tank"
+SUPPLIES = "supplies"
+FEEDS_FROM = "feeds_from"
+HAS_STATE = "has_state"
+HAS_MAINTENANCE = "has_maintenance"
+HAS_SCHEDULE = "has_schedule"
+HAS_COMPONENT = "has_component"
+FERT_INCOMPATIBLE = "fert_incompatible"
+HAS_STOCK = "has_stock"
+FED_BY = "fed_by"
+FEEDING_USED = "feeding_used"
+HAS_PHASE_ENTRY = "has_phase_entry"
+PLAN_USES_FERTILIZER = "plan_uses_fertilizer"
+FOLLOWS_PLAN = "follows_plan"
+CLONED_FROM = "cloned_from"
 
 EDGE_COLLECTIONS = [
     BELONGS_TO_FAMILY,
@@ -98,6 +131,21 @@ EDGE_COLLECTIONS = [
     RUN_USES_SUBSTRATE,
     HAS_ENTRY,
     ENTRY_FOR_SPECIES,
+    HAS_TANK,
+    SUPPLIES,
+    FEEDS_FROM,
+    HAS_STATE,
+    HAS_MAINTENANCE,
+    HAS_SCHEDULE,
+    HAS_COMPONENT,
+    FERT_INCOMPATIBLE,
+    HAS_STOCK,
+    FED_BY,
+    FEEDING_USED,
+    HAS_PHASE_ENTRY,
+    PLAN_USES_FERTILIZER,
+    FOLLOWS_PLAN,
+    CLONED_FROM,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -228,6 +276,81 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [PLANTING_RUN_ENTRIES],
         "to_vertex_collections": [SPECIES],
     },
+    {
+        "edge_collection": HAS_TANK,
+        "from_vertex_collections": [LOCATIONS],
+        "to_vertex_collections": [TANKS],
+    },
+    {
+        "edge_collection": SUPPLIES,
+        "from_vertex_collections": [TANKS],
+        "to_vertex_collections": [LOCATIONS],
+    },
+    {
+        "edge_collection": FEEDS_FROM,
+        "from_vertex_collections": [TANKS],
+        "to_vertex_collections": [TANKS],
+    },
+    {
+        "edge_collection": HAS_STATE,
+        "from_vertex_collections": [TANKS],
+        "to_vertex_collections": [TANK_STATES],
+    },
+    {
+        "edge_collection": HAS_MAINTENANCE,
+        "from_vertex_collections": [TANKS],
+        "to_vertex_collections": [MAINTENANCE_LOGS],
+    },
+    {
+        "edge_collection": HAS_SCHEDULE,
+        "from_vertex_collections": [TANKS],
+        "to_vertex_collections": [MAINTENANCE_SCHEDULES],
+    },
+    {
+        "edge_collection": HAS_COMPONENT,
+        "from_vertex_collections": [FERTILIZERS],
+        "to_vertex_collections": [FERTILIZERS],
+    },
+    {
+        "edge_collection": FERT_INCOMPATIBLE,
+        "from_vertex_collections": [FERTILIZERS],
+        "to_vertex_collections": [FERTILIZERS],
+    },
+    {
+        "edge_collection": HAS_STOCK,
+        "from_vertex_collections": [FERTILIZERS],
+        "to_vertex_collections": [FERTILIZER_STOCKS],
+    },
+    {
+        "edge_collection": FED_BY,
+        "from_vertex_collections": [PLANT_INSTANCES],
+        "to_vertex_collections": [FEEDING_EVENTS],
+    },
+    {
+        "edge_collection": FEEDING_USED,
+        "from_vertex_collections": [FEEDING_EVENTS],
+        "to_vertex_collections": [FERTILIZERS],
+    },
+    {
+        "edge_collection": HAS_PHASE_ENTRY,
+        "from_vertex_collections": [NUTRIENT_PLANS],
+        "to_vertex_collections": [NUTRIENT_PLAN_PHASE_ENTRIES],
+    },
+    {
+        "edge_collection": PLAN_USES_FERTILIZER,
+        "from_vertex_collections": [NUTRIENT_PLAN_PHASE_ENTRIES],
+        "to_vertex_collections": [FERTILIZERS],
+    },
+    {
+        "edge_collection": FOLLOWS_PLAN,
+        "from_vertex_collections": [PLANT_INSTANCES],
+        "to_vertex_collections": [NUTRIENT_PLANS],
+    },
+    {
+        "edge_collection": CLONED_FROM,
+        "from_vertex_collections": [NUTRIENT_PLANS],
+        "to_vertex_collections": [NUTRIENT_PLANS],
+    },
 ]
 
 
@@ -262,6 +385,22 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     runs_col = db.collection(PLANTING_RUNS)
     runs_col.add_hash_index(fields=["name"], unique=False)
+
+    tanks_col = db.collection(TANKS)
+    tanks_col.add_hash_index(fields=["name"], unique=True)
+
+    tank_states_col = db.collection(TANK_STATES)
+    tank_states_col.add_hash_index(fields=["recorded_at"], unique=False)
+
+    fertilizers_col = db.collection(FERTILIZERS)
+    fertilizers_col.add_hash_index(fields=["product_name", "brand"], unique=True)
+
+    feeding_events_col = db.collection(FEEDING_EVENTS)
+    feeding_events_col.add_hash_index(fields=["plant_key"], unique=False)
+    feeding_events_col.add_hash_index(fields=["timestamp"], unique=False)
+
+    plan_entries_col = db.collection(NUTRIENT_PLAN_PHASE_ENTRIES)
+    plan_entries_col.add_hash_index(fields=["plan_key"], unique=False)
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):

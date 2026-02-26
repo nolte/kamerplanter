@@ -8,7 +8,7 @@ export type StressTolerance = 'low' | 'medium' | 'high';
 export type TransitionTriggerType = 'time_based' | 'manual' | 'event_based' | 'conditional';
 export type SiteType = 'outdoor' | 'greenhouse' | 'indoor';
 export type LightType = 'natural' | 'led' | 'hps' | 'cmh' | 'mixed';
-export type IrrigationSystem = 'manual' | 'drip' | 'hydro' | 'mist';
+export type IrrigationSystem = 'manual' | 'drip' | 'hydro' | 'mist' | 'nft' | 'ebb_flow';
 export type SubstrateType =
   | 'soil'
   | 'coco'
@@ -41,6 +41,12 @@ export type PlantTrait =
 export type PlantingRunType = 'monoculture' | 'clone' | 'mixed_culture';
 export type PlantingRunStatus = 'planned' | 'active' | 'harvesting' | 'completed' | 'cancelled';
 export type EntryRole = 'primary' | 'companion' | 'trap_crop';
+export type FertilizerType = 'base' | 'supplement' | 'booster' | 'biological' | 'ph_adjuster' | 'organic';
+export type PhEffect = 'acidic' | 'alkaline' | 'neutral';
+export type ApplicationMethod = 'fertigation' | 'drench' | 'foliar' | 'top_dress' | 'any';
+export type Bioavailability = 'immediate' | 'slow_release' | 'microbial_dependent';
+export type IncompatibilitySeverity = 'critical' | 'warning' | 'minor';
+export type PhaseName = 'germination' | 'seedling' | 'vegetative' | 'flowering' | 'harvest';
 
 // Pagination
 
@@ -700,4 +706,480 @@ export interface PlantInRun {
   current_phase: string;
   detached_at: string | null;
   detach_reason: string | null;
+}
+
+// Tank enums (REQ-014)
+
+export type TankType = 'nutrient' | 'irrigation' | 'reservoir' | 'recirculation';
+export type TankMaterial = 'plastic' | 'stainless_steel' | 'glass' | 'ibc';
+export type MaintenanceType =
+  | 'water_change'
+  | 'cleaning'
+  | 'sanitization'
+  | 'calibration'
+  | 'filter_change'
+  | 'pump_inspection';
+export type MaintenancePriority = 'low' | 'medium' | 'high' | 'critical';
+export type MaintenanceStatus = 'ok' | 'due_soon' | 'overdue';
+
+// Tanks (REQ-014)
+
+export interface Tank {
+  key: string;
+  name: string;
+  tank_type: TankType;
+  volume_liters: number;
+  material: TankMaterial;
+  has_lid: boolean;
+  has_air_pump: boolean;
+  has_circulation_pump: boolean;
+  has_heater: boolean;
+  installed_on: string | null;
+  location_key: string | null;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface TankCreate {
+  name: string;
+  tank_type: TankType;
+  volume_liters: number;
+  material?: TankMaterial;
+  has_lid?: boolean;
+  has_air_pump?: boolean;
+  has_circulation_pump?: boolean;
+  has_heater?: boolean;
+  installed_on?: string | null;
+  location_key?: string | null;
+  notes?: string | null;
+}
+
+export interface TankUpdate {
+  name?: string;
+  tank_type?: TankType;
+  volume_liters?: number;
+  material?: TankMaterial;
+  has_lid?: boolean;
+  has_air_pump?: boolean;
+  has_circulation_pump?: boolean;
+  has_heater?: boolean;
+  installed_on?: string | null;
+  notes?: string | null;
+}
+
+export interface TankState {
+  key: string;
+  tank_key: string;
+  recorded_at: string | null;
+  fill_level_liters: number | null;
+  fill_level_percent: number | null;
+  ph: number | null;
+  ec_ms: number | null;
+  water_temp_celsius: number | null;
+  tds_ppm: number | null;
+  source: string;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface TankStateCreate {
+  fill_level_liters?: number | null;
+  fill_level_percent?: number | null;
+  ph?: number | null;
+  ec_ms?: number | null;
+  water_temp_celsius?: number | null;
+  tds_ppm?: number | null;
+  source?: string;
+}
+
+export interface MaintenanceLog {
+  key: string;
+  tank_key: string;
+  maintenance_type: MaintenanceType;
+  performed_at: string | null;
+  performed_by: string;
+  duration_minutes: number | null;
+  products_used: string[];
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface MaintenanceLogCreate {
+  maintenance_type: MaintenanceType;
+  performed_by?: string;
+  duration_minutes?: number | null;
+  products_used?: string[];
+  notes?: string | null;
+}
+
+export interface MaintenanceSchedule {
+  key: string;
+  tank_key: string;
+  maintenance_type: MaintenanceType;
+  interval_days: number;
+  reminder_days_before: number;
+  is_active: boolean;
+  priority: MaintenancePriority;
+  auto_create_task: boolean;
+  instructions: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface MaintenanceScheduleCreate {
+  maintenance_type: MaintenanceType;
+  interval_days: number;
+  reminder_days_before?: number;
+  is_active?: boolean;
+  priority?: MaintenancePriority;
+  auto_create_task?: boolean;
+  instructions?: string | null;
+}
+
+export interface MaintenanceScheduleUpdate {
+  interval_days?: number;
+  reminder_days_before?: number;
+  is_active?: boolean;
+  priority?: MaintenancePriority;
+  auto_create_task?: boolean;
+  instructions?: string | null;
+}
+
+export interface TankAlert {
+  type: string;
+  severity: string;
+  message: string;
+  value: number;
+}
+
+export interface DueMaintenance {
+  tank_key: string;
+  tank_name: string | null;
+  schedule_key: string | null;
+  maintenance_type: MaintenanceType;
+  next_due: string;
+  days_until: number;
+  status: MaintenanceStatus;
+  priority: MaintenancePriority;
+}
+
+// ── REQ-004 Fertilizer types ────────────────────────────────────────
+
+export interface Fertilizer {
+  key: string;
+  product_name: string;
+  brand: string;
+  fertilizer_type: FertilizerType;
+  is_organic: boolean;
+  tank_safe: boolean;
+  recommended_application: ApplicationMethod;
+  npk_ratio: [number, number, number];
+  ec_contribution_per_ml: number;
+  mixing_priority: number;
+  ph_effect: PhEffect;
+  bioavailability: Bioavailability;
+  shelf_life_days: number | null;
+  storage_temp_min: number | null;
+  storage_temp_max: number | null;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface FertilizerCreate {
+  product_name: string;
+  brand?: string;
+  fertilizer_type: FertilizerType;
+  is_organic?: boolean;
+  tank_safe?: boolean;
+  recommended_application?: ApplicationMethod;
+  npk_ratio?: [number, number, number];
+  ec_contribution_per_ml?: number;
+  mixing_priority?: number;
+  ph_effect?: PhEffect;
+  bioavailability?: Bioavailability;
+  shelf_life_days?: number | null;
+  storage_temp_min?: number | null;
+  storage_temp_max?: number | null;
+  notes?: string | null;
+}
+
+export interface FertilizerUpdate {
+  product_name?: string;
+  brand?: string;
+  fertilizer_type?: FertilizerType;
+  is_organic?: boolean;
+  tank_safe?: boolean;
+  recommended_application?: ApplicationMethod;
+  npk_ratio?: [number, number, number];
+  ec_contribution_per_ml?: number;
+  mixing_priority?: number;
+  ph_effect?: PhEffect;
+  bioavailability?: Bioavailability;
+  shelf_life_days?: number | null;
+  storage_temp_min?: number | null;
+  storage_temp_max?: number | null;
+  notes?: string | null;
+}
+
+export interface FertilizerStock {
+  key: string;
+  fertilizer_key: string;
+  current_volume_ml: number;
+  purchase_date: string | null;
+  expiry_date: string | null;
+  batch_number: string;
+  cost_per_liter: number | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface FertilizerStockCreate {
+  current_volume_ml: number;
+  purchase_date?: string | null;
+  expiry_date?: string | null;
+  batch_number?: string;
+  cost_per_liter?: number | null;
+}
+
+export interface Incompatibility {
+  fertilizer_key: string;
+  product_name: string | null;
+  reason: string;
+  severity: IncompatibilitySeverity;
+}
+
+// ── REQ-004 Nutrient Plan types ─────────────────────────────────────
+
+export interface NutrientPlan {
+  key: string;
+  name: string;
+  description: string;
+  recommended_substrate_type: SubstrateType | null;
+  author: string;
+  is_template: boolean;
+  version: string;
+  tags: string[];
+  cloned_from_key: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface NutrientPlanCreate {
+  name: string;
+  description?: string;
+  recommended_substrate_type?: SubstrateType | null;
+  author?: string;
+  is_template?: boolean;
+  version?: string;
+  tags?: string[];
+}
+
+export interface NutrientPlanUpdate {
+  name?: string;
+  description?: string;
+  recommended_substrate_type?: SubstrateType | null;
+  author?: string;
+  is_template?: boolean;
+  version?: string;
+  tags?: string[];
+}
+
+export interface FertilizerDosage {
+  fertilizer_key: string;
+  ml_per_liter: number;
+  optional: boolean;
+}
+
+export interface NutrientPlanPhaseEntry {
+  key: string;
+  plan_key: string;
+  phase_name: PhaseName;
+  sequence_order: number;
+  week_start: number;
+  week_end: number;
+  npk_ratio: [number, number, number];
+  target_ec_ms: number;
+  target_ph: number;
+  calcium_ppm: number | null;
+  magnesium_ppm: number | null;
+  feeding_frequency_per_week: number;
+  volume_per_feeding_liters: number | null;
+  notes: string | null;
+  fertilizer_dosages: FertilizerDosage[];
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface PhaseEntryCreate {
+  phase_name: PhaseName;
+  sequence_order: number;
+  week_start: number;
+  week_end: number;
+  npk_ratio?: [number, number, number];
+  target_ec_ms?: number;
+  target_ph?: number;
+  calcium_ppm?: number | null;
+  magnesium_ppm?: number | null;
+  feeding_frequency_per_week?: number;
+  volume_per_feeding_liters?: number | null;
+  notes?: string | null;
+  fertilizer_dosages?: FertilizerDosage[];
+}
+
+export interface PhaseEntryUpdate {
+  phase_name?: PhaseName;
+  sequence_order?: number;
+  week_start?: number;
+  week_end?: number;
+  npk_ratio?: [number, number, number];
+  target_ec_ms?: number;
+  target_ph?: number;
+  calcium_ppm?: number | null;
+  magnesium_ppm?: number | null;
+  feeding_frequency_per_week?: number;
+  volume_per_feeding_liters?: number | null;
+  notes?: string | null;
+  fertilizer_dosages?: FertilizerDosage[];
+}
+
+// ── REQ-004 Feeding Event types ─────────────────────────────────────
+
+export interface FeedingEventFertilizer {
+  fertilizer_key: string;
+  ml_applied: number;
+}
+
+export interface FeedingEvent {
+  key: string;
+  plant_key: string;
+  timestamp: string | null;
+  application_method: ApplicationMethod;
+  is_supplemental: boolean;
+  tank_fill_event_key: string | null;
+  volume_applied_liters: number;
+  fertilizers_used: FeedingEventFertilizer[];
+  measured_ec_before: number | null;
+  measured_ec_after: number | null;
+  measured_ph_before: number | null;
+  measured_ph_after: number | null;
+  runoff_ec: number | null;
+  runoff_ph: number | null;
+  runoff_volume_liters: number | null;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface FeedingEventCreate {
+  plant_key: string;
+  application_method?: ApplicationMethod;
+  is_supplemental?: boolean;
+  volume_applied_liters: number;
+  fertilizers_used?: FeedingEventFertilizer[];
+  measured_ec_before?: number | null;
+  measured_ec_after?: number | null;
+  measured_ph_before?: number | null;
+  measured_ph_after?: number | null;
+  runoff_ec?: number | null;
+  runoff_ph?: number | null;
+  runoff_volume_liters?: number | null;
+  notes?: string | null;
+}
+
+// ── REQ-004 Calculation types ───────────────────────────────────────
+
+export interface MixingProtocolRequest {
+  target_volume_liters: number;
+  target_ec_ms: number;
+  target_ph: number;
+  base_water_ec: number;
+  base_water_ph: number;
+  fertilizer_keys: string[];
+  substrate_type?: SubstrateType;
+}
+
+export interface MixingDosage {
+  fertilizer_key: string;
+  product_name: string;
+  ml_per_liter: number;
+  total_ml: number;
+  ec_contribution: number;
+}
+
+export interface MixingProtocolResponse {
+  dosages: MixingDosage[];
+  calculated_ec: number;
+  ph_adjustment: { needed: boolean; direction: string; delta: number };
+  warnings: string[];
+  instructions: string[];
+}
+
+export interface FlushingRequest {
+  current_ec_ms: number;
+  days_until_harvest: number;
+  substrate_type?: SubstrateType;
+}
+
+export interface FlushingScheduleDay {
+  day: number;
+  absolute_day: number;
+  target_ec_ms: number;
+  action: string;
+  dosage_percent: number;
+}
+
+export interface FlushingResponse {
+  substrate_type: string;
+  recommended_flush_days: number;
+  flush_start_day: number;
+  current_ec_ms: number;
+  schedule: FlushingScheduleDay[];
+}
+
+export interface RunoffRequest {
+  input_ec_ms: number;
+  runoff_ec_ms: number;
+  input_ph: number;
+  runoff_ph: number;
+  input_volume_liters: number;
+  runoff_volume_liters: number;
+}
+
+export interface RunoffResponse {
+  ec_delta: number;
+  ec_status: string;
+  ec_message: string;
+  ph_delta: number;
+  ph_status: string;
+  ph_message: string;
+  runoff_percent: number;
+  volume_status: string;
+  volume_message: string;
+  overall_health: string;
+}
+
+export interface MixingSafetyRequest {
+  fertilizer_keys: string[];
+}
+
+export interface MixingSafetyResponse {
+  safe: boolean;
+  warnings: string[];
+}
+
+export interface PlanValidationResult {
+  completeness: { complete: boolean; issues: string[] };
+  ec_budgets: Array<{
+    entry_key: string;
+    phase_name: string;
+    valid: boolean;
+    target_ec: number;
+    calculated_ec: number;
+    delta: number;
+    message: string;
+  }>;
+  valid: boolean;
 }

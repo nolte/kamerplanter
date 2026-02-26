@@ -19,6 +19,10 @@ import LayersIcon from '@mui/icons-material/Layers';
 import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
+import WaterDropIcon from '@mui/icons-material/WaterDrop';
+import OpacityIcon from '@mui/icons-material/Opacity';
+import ListAltIcon from '@mui/icons-material/ListAlt';
+import BiotechIcon from '@mui/icons-material/Biotech';
 import { sidebarWidth } from '@/theme/tokens';
 
 interface SidebarProps {
@@ -66,6 +70,11 @@ export default function Sidebar({ open }: SidebarProps) {
           path: '/standorte/substrates',
           icon: <LayersIcon />,
         },
+        {
+          label: t('nav.tanks'),
+          path: '/standorte/tanks',
+          icon: <WaterDropIcon />,
+        },
       ],
     },
     {
@@ -80,6 +89,26 @@ export default function Sidebar({ open }: SidebarProps) {
           label: t('nav.calculations'),
           path: '/pflanzen/calculations',
           icon: <CalculateIcon />,
+        },
+      ],
+    },
+    {
+      header: t('nav.duengung'),
+      items: [
+        {
+          label: t('nav.fertilizers'),
+          path: '/duengung/fertilizers',
+          icon: <OpacityIcon />,
+        },
+        {
+          label: t('nav.nutrientPlans'),
+          path: '/duengung/plans',
+          icon: <ListAltIcon />,
+        },
+        {
+          label: t('nav.nutrientCalculations'),
+          path: '/duengung/calculations',
+          icon: <BiotechIcon />,
         },
       ],
     },

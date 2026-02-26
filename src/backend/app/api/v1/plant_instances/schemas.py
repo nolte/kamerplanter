@@ -36,3 +36,8 @@ class ValidatePlantingResponse(BaseModel):
     valid: bool
     warnings: list[str]
     benefits: list[str]
+
+
+class AssignNutrientPlanRequest(BaseModel):
+    plan_key: str
+    assigned_by: str = ""

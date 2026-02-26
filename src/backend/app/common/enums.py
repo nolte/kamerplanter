@@ -60,6 +60,8 @@ class IrrigationSystem(StrEnum):
     DRIP = "drip"
     HYDRO = "hydro"
     MIST = "mist"
+    NFT = "nft"
+    EBB_FLOW = "ebb_flow"
 
 
 class SubstrateType(StrEnum):
@@ -167,3 +169,82 @@ class EntryRole(StrEnum):
     PRIMARY = "primary"
     COMPANION = "companion"
     TRAP_CROP = "trap_crop"
+
+
+class TankType(StrEnum):
+    NUTRIENT = "nutrient"
+    IRRIGATION = "irrigation"
+    RESERVOIR = "reservoir"
+    RECIRCULATION = "recirculation"
+
+
+class TankMaterial(StrEnum):
+    PLASTIC = "plastic"
+    STAINLESS_STEEL = "stainless_steel"
+    GLASS = "glass"
+    IBC = "ibc"
+
+
+class MaintenanceType(StrEnum):
+    WATER_CHANGE = "water_change"
+    CLEANING = "cleaning"
+    SANITIZATION = "sanitization"
+    CALIBRATION = "calibration"
+    FILTER_CHANGE = "filter_change"
+    PUMP_INSPECTION = "pump_inspection"
+
+
+class MaintenancePriority(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class MaintenanceStatus(StrEnum):
+    OK = "ok"
+    DUE_SOON = "due_soon"
+    OVERDUE = "overdue"
+
+
+class FertilizerType(StrEnum):
+    BASE = "base"
+    SUPPLEMENT = "supplement"
+    BOOSTER = "booster"
+    BIOLOGICAL = "biological"
+    PH_ADJUSTER = "ph_adjuster"
+    ORGANIC = "organic"
+
+
+class PhEffect(StrEnum):
+    ACIDIC = "acidic"
+    ALKALINE = "alkaline"
+    NEUTRAL = "neutral"
+
+
+class ApplicationMethod(StrEnum):
+    FERTIGATION = "fertigation"
+    DRENCH = "drench"
+    FOLIAR = "foliar"
+    TOP_DRESS = "top_dress"
+    ANY = "any"
+
+
+class Bioavailability(StrEnum):
+    IMMEDIATE = "immediate"
+    SLOW_RELEASE = "slow_release"
+    MICROBIAL_DEPENDENT = "microbial_dependent"
+
+
+class IncompatibilitySeverity(StrEnum):
+    CRITICAL = "critical"
+    WARNING = "warning"
+    MINOR = "minor"
+
+
+class PhaseName(StrEnum):
+    GERMINATION = "germination"
+    SEEDLING = "seedling"
+    VEGETATIVE = "vegetative"
+    FLOWERING = "flowering"
+    HARVEST = "harvest"

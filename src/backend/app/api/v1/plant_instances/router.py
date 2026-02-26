@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.plant_instances.schemas import (
+    AssignNutrientPlanRequest,
     PlantCreate,
     PlantResponse,
     ValidatePlantingRequest,
     ValidatePlantingResponse,
 )
-from app.common.dependencies import get_plant_instance_service
+from app.common.dependencies import get_nutrient_plan_service, get_plant_instance_service
 from app.domain.models.plant_instance import PlantInstance
+from app.domain.services.nutrient_plan_service import NutrientPlanService
 from app.domain.services.plant_instance_service import PlantInstanceService
 
 router = APIRouter(prefix="/plant-instances", tags=["plant-instances"])
@@ -49,3 +51,54 @@ def validate_planting(
 ):
     result = service.validate_planting(slot_key, body.species_key)
     return ValidatePlantingResponse(**result)
+
+
+# ── Nutrient Plan assignment ─────────────────────────────────────────
+
+@router.post("/{key}/nutrient-plan", status_code=201)
+def assign_nutrient_plan(
+    key: str,
+    body: AssignNutrientPlanRequest,
+    plant_service: PlantInstanceService = Depends(get_plant_instance_service),
+    plan_service: NutrientPlanService = Depends(get_nutrient_plan_service),
+):
+    plant_service.get_plant(key)  # ensure exists
+    plan_service.assign_to_plant(key, body.plan_key, body.assigned_by)
+    return {"status": "assigned"}
+
+
+@router.get("/{key}/nutrient-plan")
+def get_nutrient_plan(
+    key: str,
+    plant_service: PlantInstanceService = Depends(get_plant_instance_service),
+    plan_service: NutrientPlanService = Depends(get_nutrient_plan_service),
+):
+    plant_service.get_plant(key)
+    plan = plan_service.get_plant_plan(key)
+    if plan is None:
+        return None
+    return {"key": plan.key, "name": plan.name}
+
+
+@router.delete("/{key}/nutrient-plan", status_code=204)
+def remove_nutrient_plan(
+    key: str,
+    plant_service: PlantInstanceService = Depends(get_plant_instance_service),
+    plan_service: NutrientPlanService = Depends(get_nutrient_plan_service),
+):
+    plant_service.get_plant(key)
+    plan_service.remove_plant_plan(key)
+
+
+@router.get("/{key}/current-dosages")
+def get_current_dosages(
+    key: str,
+    current_week: int = Query(ge=1),
+    plant_service: PlantInstanceService = Depends(get_plant_instance_service),
+    plan_service: NutrientPlanService = Depends(get_nutrient_plan_service),
+):
+    plant = plant_service.get_plant(key)
+    result = plan_service.get_current_dosages(key, plant.current_phase, current_week)
+    if result is None:
+        return {"message": "No plan or matching entry found"}
+    return result

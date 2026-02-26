@@ -9,24 +9,34 @@ from app.data_access.arango.enrichment_repository import (
     ArangoExternalSourceRepository,
     ArangoSyncRunRepository,
 )
+from app.data_access.arango.feeding_repository import ArangoFeedingRepository
+from app.data_access.arango.fertilizer_repository import ArangoFertilizerRepository
 from app.data_access.arango.graph_repository import ArangoGraphRepository
 from app.data_access.arango.lifecycle_repository import ArangoLifecycleRepository
+from app.data_access.arango.nutrient_plan_repository import ArangoNutrientPlanRepository
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.species_repository import ArangoSpeciesRepository
 from app.data_access.arango.substrate_repository import ArangoSubstrateRepository
+from app.data_access.arango.tank_repository import ArangoTankRepository
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.engines.enrichment_engine import EnrichmentEngine
+from app.domain.engines.nutrient_plan_engine import NutrientPlanValidator
 from app.domain.engines.planting_run_engine import PlantingRunEngine
+from app.domain.engines.tank_engine import TankEngine
 from app.domain.services.enrichment_service import EnrichmentService
+from app.domain.services.feeding_service import FeedingService
+from app.domain.services.fertilizer_service import FertilizerService
+from app.domain.services.nutrient_plan_service import NutrientPlanService
 from app.domain.services.phase_service import PhaseService
 from app.domain.services.plant_instance_service import PlantInstanceService
 from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.site_service import SiteService
 from app.domain.services.species_service import SpeciesService
 from app.domain.services.substrate_service import SubstrateService
+from app.domain.services.tank_service import TankService
 
 _connection: ArangoConnection | None = None
 
@@ -118,6 +128,42 @@ def get_planting_run_repo() -> ArangoPlantingRunRepository:
 
 def get_planting_run_service() -> PlantingRunService:
     return PlantingRunService(get_planting_run_repo(), get_plant_repo(), PlantingRunEngine())
+
+
+def get_tank_repo() -> ArangoTankRepository:
+    return ArangoTankRepository(get_db())
+
+
+def get_tank_service() -> TankService:
+    return TankService(get_tank_repo(), TankEngine())
+
+
+def get_fertilizer_repo() -> ArangoFertilizerRepository:
+    return ArangoFertilizerRepository(get_db())
+
+
+def get_nutrient_plan_repo() -> ArangoNutrientPlanRepository:
+    return ArangoNutrientPlanRepository(get_db())
+
+
+def get_feeding_repo() -> ArangoFeedingRepository:
+    return ArangoFeedingRepository(get_db())
+
+
+def get_fertilizer_service() -> FertilizerService:
+    return FertilizerService(get_fertilizer_repo())
+
+
+def get_nutrient_plan_service() -> NutrientPlanService:
+    return NutrientPlanService(
+        get_nutrient_plan_repo(),
+        get_fertilizer_repo(),
+        NutrientPlanValidator(),
+    )
+
+
+def get_feeding_service() -> FeedingService:
+    return FeedingService(get_feeding_repo())
 
 
 def close_connection() -> None:

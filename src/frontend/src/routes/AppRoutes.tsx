@@ -37,6 +37,15 @@ const PlantingRunListPage = lazy(
 const PlantingRunDetailPage = lazy(
   () => import('@/pages/durchlaeufe/PlantingRunDetailPage'),
 );
+const TankListPage = lazy(() => import('@/pages/standorte/TankListPage'));
+const TankDetailPage = lazy(() => import('@/pages/standorte/TankDetailPage'));
+const FertilizerListPage = lazy(() => import('@/pages/duengung/FertilizerListPage'));
+const FertilizerDetailPage = lazy(() => import('@/pages/duengung/FertilizerDetailPage'));
+const NutrientPlanListPage = lazy(() => import('@/pages/duengung/NutrientPlanListPage'));
+const NutrientPlanDetailPage = lazy(() => import('@/pages/duengung/NutrientPlanDetailPage'));
+const NutrientCalculationsPage = lazy(
+  () => import('@/pages/duengung/NutrientCalculationsPage'),
+);
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 export const router = createBrowserRouter(
@@ -169,6 +178,24 @@ export const router = createBrowserRouter(
         }
       />
 
+      {/* REQ-014 Tanks */}
+      <Route
+        path="standorte/tanks"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="table" />}>
+            <TankListPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="standorte/tanks/:key"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="form" />}>
+            <TankDetailPage />
+          </Suspense>
+        }
+      />
+
       {/* REQ-003 Pflanzen */}
       <Route
         path="pflanzen/plant-instances"
@@ -191,6 +218,48 @@ export const router = createBrowserRouter(
         element={
           <Suspense fallback={<LoadingSkeleton variant="card" />}>
             <CalculationsPage />
+          </Suspense>
+        }
+      />
+
+      {/* REQ-004 Düngung */}
+      <Route
+        path="duengung/fertilizers"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="table" />}>
+            <FertilizerListPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="duengung/fertilizers/:key"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="form" />}>
+            <FertilizerDetailPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="duengung/plans"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="table" />}>
+            <NutrientPlanListPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="duengung/plans/:key"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="form" />}>
+            <NutrientPlanDetailPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="duengung/calculations"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="card" />}>
+            <NutrientCalculationsPage />
           </Suspense>
         }
       />
