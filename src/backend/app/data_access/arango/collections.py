@@ -19,6 +19,8 @@ PHASE_HISTORIES = "phase_histories"
 EXTERNAL_SOURCES = "external_sources"
 EXTERNAL_MAPPINGS = "external_mappings"
 SYNC_RUNS = "sync_runs"
+PLANTING_RUNS = "planting_runs"
+PLANTING_RUN_ENTRIES = "planting_run_entries"
 
 DOCUMENT_COLLECTIONS = [
     SPECIES,
@@ -39,6 +41,8 @@ DOCUMENT_COLLECTIONS = [
     EXTERNAL_SOURCES,
     EXTERNAL_MAPPINGS,
     SYNC_RUNS,
+    PLANTING_RUNS,
+    PLANTING_RUN_ENTRIES,
 ]
 
 # Edge collections
@@ -62,6 +66,11 @@ USES_NUTRIENTS = "uses_nutrients"
 CURRENT_PHASE = "current_phase"
 PHASE_HISTORY_EDGE = "phase_history_edge"
 ENRICHED_BY = "enriched_by"
+RUN_CONTAINS = "run_contains"
+RUN_AT_LOCATION = "run_at_location"
+RUN_USES_SUBSTRATE = "run_uses_substrate"
+HAS_ENTRY = "has_entry"
+ENTRY_FOR_SPECIES = "entry_for_species"
 
 EDGE_COLLECTIONS = [
     BELONGS_TO_FAMILY,
@@ -84,6 +93,11 @@ EDGE_COLLECTIONS = [
     CURRENT_PHASE,
     PHASE_HISTORY_EDGE,
     ENRICHED_BY,
+    RUN_CONTAINS,
+    RUN_AT_LOCATION,
+    RUN_USES_SUBSTRATE,
+    HAS_ENTRY,
+    ENTRY_FOR_SPECIES,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -189,6 +203,31 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [SPECIES, CULTIVARS],
         "to_vertex_collections": [EXTERNAL_SOURCES],
     },
+    {
+        "edge_collection": RUN_CONTAINS,
+        "from_vertex_collections": [PLANTING_RUNS],
+        "to_vertex_collections": [PLANT_INSTANCES],
+    },
+    {
+        "edge_collection": RUN_AT_LOCATION,
+        "from_vertex_collections": [PLANTING_RUNS],
+        "to_vertex_collections": [LOCATIONS],
+    },
+    {
+        "edge_collection": RUN_USES_SUBSTRATE,
+        "from_vertex_collections": [PLANTING_RUNS],
+        "to_vertex_collections": [SUBSTRATE_BATCHES],
+    },
+    {
+        "edge_collection": HAS_ENTRY,
+        "from_vertex_collections": [PLANTING_RUNS],
+        "to_vertex_collections": [PLANTING_RUN_ENTRIES],
+    },
+    {
+        "edge_collection": ENTRY_FOR_SPECIES,
+        "from_vertex_collections": [PLANTING_RUN_ENTRIES],
+        "to_vertex_collections": [SPECIES],
+    },
 ]
 
 
@@ -220,6 +259,9 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     sync_runs_col = db.collection(SYNC_RUNS)
     sync_runs_col.add_hash_index(fields=["source_key"], unique=False)
+
+    runs_col = db.collection(PLANTING_RUNS)
+    runs_col.add_hash_index(fields=["name"], unique=False)
 
     # Create named graph
     if not db.has_graph(GRAPH_NAME):

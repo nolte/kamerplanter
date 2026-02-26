@@ -38,6 +38,8 @@
     "pflanzen": "Plants",
     "plantInstances": "Plant Instances",
     "calculations": "Calculations",
+    "durchlaeufe": "Planting Runs",
+    "plantingRuns": "Planting Runs",
     "mainNavigation": "Main navigation"
   },
   "errors": {
@@ -70,7 +72,9 @@
     "phase": "Phase",
     "phases": "Phases",
     "lifecycle": "Lifecycle",
-    "profile": "Profile"
+    "profile": "Profile",
+    "plantingRun": "Planting Run",
+    "plantingRuns": "Planting Runs"
   },
   "pages": {
     "dashboard": {
@@ -361,6 +365,39 @@
       "dusk": "Dusk",
       "dayLength": "Day Length"
     },
+    "plantingRuns": {
+      "title": "Planting Runs",
+      "create": "Create Run",
+      "name": "Name",
+      "runType": "Type",
+      "status": "Status",
+      "plannedQuantity": "Planned Qty",
+      "actualQuantity": "Actual Qty",
+      "plannedStartDate": "Planned Start",
+      "startedAt": "Started At",
+      "completedAt": "Completed At",
+      "sourcePlantKey": "Source Plant",
+      "notes": "Notes",
+      "location": "Location",
+      "entries": "Entries",
+      "quantity": "Quantity",
+      "role": "Role",
+      "idPrefix": "ID Prefix",
+      "spacing": "Spacing",
+      "addEntry": "Add Entry",
+      "tabDetails": "Details",
+      "tabPlants": "Plants",
+      "createPlants": "Create Plants",
+      "createPlantsConfirm": "Create {{count}} plants for this run? The status will be set to 'Active'.",
+      "plantsCreated": "{{count}} plants created successfully.",
+      "batchRemove": "Remove All",
+      "batchRemoveConfirm": "Remove all active plants and complete this run?",
+      "plantsRemoved": "{{count}} plants removed.",
+      "detach": "Detach",
+      "detached": "Detached",
+      "plantDetached": "Plant detached successfully.",
+      "noPlantsYet": "No plants created yet."
+    },
     "notFound": {
       "title": "Page Not Found",
       "message": "The requested page does not exist.",
@@ -480,6 +517,23 @@
       "manual": "Manual",
       "event_based": "Event Based",
       "conditional": "Conditional"
+    },
+    "plantingRunType": {
+      "monoculture": "Monoculture",
+      "clone": "Clone",
+      "mixed_culture": "Mixed Culture"
+    },
+    "plantingRunStatus": {
+      "planned": "Planned",
+      "active": "Active",
+      "harvesting": "Harvesting",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "entryRole": {
+      "primary": "Primary",
+      "companion": "Companion",
+      "trap_crop": "Trap Crop"
     }
   }
 }

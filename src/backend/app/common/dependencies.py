@@ -12,15 +12,18 @@ from app.data_access.arango.enrichment_repository import (
 from app.data_access.arango.graph_repository import ArangoGraphRepository
 from app.data_access.arango.lifecycle_repository import ArangoLifecycleRepository
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
+from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.species_repository import ArangoSpeciesRepository
 from app.data_access.arango.substrate_repository import ArangoSubstrateRepository
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.engines.enrichment_engine import EnrichmentEngine
+from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.services.enrichment_service import EnrichmentService
 from app.domain.services.phase_service import PhaseService
 from app.domain.services.plant_instance_service import PlantInstanceService
+from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.site_service import SiteService
 from app.domain.services.species_service import SpeciesService
 from app.domain.services.substrate_service import SubstrateService
@@ -107,6 +110,14 @@ def get_enrichment_engine() -> EnrichmentEngine:
 
 def get_enrichment_service() -> EnrichmentService:
     return EnrichmentService(get_source_repo(), get_mapping_repo(), get_sync_run_repo(), get_enrichment_engine())
+
+
+def get_planting_run_repo() -> ArangoPlantingRunRepository:
+    return ArangoPlantingRunRepository(get_db())
+
+
+def get_planting_run_service() -> PlantingRunService:
+    return PlantingRunService(get_planting_run_repo(), get_plant_repo(), PlantingRunEngine())
 
 
 def close_connection() -> None:

@@ -5,6 +5,7 @@ import speciesReducer from './slices/speciesSlice';
 import sitesReducer from './slices/sitesSlice';
 import substratesReducer from './slices/substratesSlice';
 import plantInstancesReducer from './slices/plantInstancesSlice';
+import plantingRunsReducer from './slices/plantingRunsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ export const store = configureStore({
     sites: sitesReducer,
     substrates: substratesReducer,
     plantInstances: plantInstancesReducer,
+    plantingRuns: plantingRunsReducer,
   },
 });
 

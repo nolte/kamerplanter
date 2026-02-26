@@ -16,3 +16,5 @@ type SourceKey = str
 type ExternalMappingKey = str
 type SyncRunKey = str
 type ExternalId = str
+type PlantingRunKey = str
+type PlantingRunEntryKey = str

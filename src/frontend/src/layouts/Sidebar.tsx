@@ -18,6 +18,7 @@ import PlaceIcon from '@mui/icons-material/Place';
 import LayersIcon from '@mui/icons-material/Layers';
 import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
 import CalculateIcon from '@mui/icons-material/Calculate';
+import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import { sidebarWidth } from '@/theme/tokens';
 
 interface SidebarProps {
@@ -79,6 +80,16 @@ export default function Sidebar({ open }: SidebarProps) {
           label: t('nav.calculations'),
           path: '/pflanzen/calculations',
           icon: <CalculateIcon />,
+        },
+      ],
+    },
+    {
+      header: t('nav.durchlaeufe'),
+      items: [
+        {
+          label: t('nav.plantingRuns'),
+          path: '/durchlaeufe/planting-runs',
+          icon: <PlaylistAddCheckIcon />,
         },
       ],
     },

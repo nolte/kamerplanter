@@ -38,6 +38,8 @@
     "pflanzen": "Pflanzen",
     "plantInstances": "Pflanzeninstanzen",
     "calculations": "Berechnungen",
+    "durchlaeufe": "Durchläufe",
+    "plantingRuns": "Pflanzdurchläufe",
     "mainNavigation": "Hauptnavigation"
   },
   "errors": {
@@ -70,7 +72,9 @@
     "phase": "Phase",
     "phases": "Phasen",
     "lifecycle": "Lebenszyklus",
-    "profile": "Profil"
+    "profile": "Profil",
+    "plantingRun": "Pflanzdurchlauf",
+    "plantingRuns": "Pflanzdurchläufe"
   },
   "pages": {
     "dashboard": {
@@ -361,6 +365,39 @@
       "dusk": "Abenddämmerung",
       "dayLength": "Tageslänge"
     },
+    "plantingRuns": {
+      "title": "Pflanzdurchläufe",
+      "create": "Durchlauf erstellen",
+      "name": "Name",
+      "runType": "Typ",
+      "status": "Status",
+      "plannedQuantity": "Geplante Menge",
+      "actualQuantity": "Tatsächliche Menge",
+      "plannedStartDate": "Geplanter Start",
+      "startedAt": "Gestartet am",
+      "completedAt": "Abgeschlossen am",
+      "sourcePlantKey": "Quellpflanze",
+      "notes": "Notizen",
+      "location": "Bereich",
+      "entries": "Einträge",
+      "quantity": "Menge",
+      "role": "Rolle",
+      "idPrefix": "ID-Prefix",
+      "spacing": "Abstand",
+      "addEntry": "Eintrag hinzufügen",
+      "tabDetails": "Details",
+      "tabPlants": "Pflanzen",
+      "createPlants": "Pflanzen erstellen",
+      "createPlantsConfirm": "Möchten Sie {{count}} Pflanzen für diesen Durchlauf erstellen? Der Status wird auf 'Aktiv' gesetzt.",
+      "plantsCreated": "{{count}} Pflanzen erfolgreich erstellt.",
+      "batchRemove": "Alle entfernen",
+      "batchRemoveConfirm": "Möchten Sie alle aktiven Pflanzen entfernen und den Durchlauf abschließen?",
+      "plantsRemoved": "{{count}} Pflanzen entfernt.",
+      "detach": "Abtrennen",
+      "detached": "Abgetrennt",
+      "plantDetached": "Pflanze erfolgreich abgetrennt.",
+      "noPlantsYet": "Noch keine Pflanzen erstellt."
+    },
     "notFound": {
       "title": "Seite nicht gefunden",
       "message": "Die angeforderte Seite existiert nicht.",
@@ -480,6 +517,23 @@
       "manual": "Manuell",
       "event_based": "Ereignisbasiert",
       "conditional": "Bedingt"
+    },
+    "plantingRunType": {
+      "monoculture": "Monokultur",
+      "clone": "Klon",
+      "mixed_culture": "Mischkultur"
+    },
+    "plantingRunStatus": {
+      "planned": "Geplant",
+      "active": "Aktiv",
+      "harvesting": "Ernte",
+      "completed": "Abgeschlossen",
+      "cancelled": "Abgebrochen"
+    },
+    "entryRole": {
+      "primary": "Hauptkultur",
+      "companion": "Begleitpflanze",
+      "trap_crop": "Fangpflanze"
     }
   }
 }

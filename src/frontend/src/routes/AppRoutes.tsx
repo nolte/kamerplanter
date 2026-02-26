@@ -31,6 +31,12 @@ const PlantInstanceDetailPage = lazy(
   () => import('@/pages/pflanzen/PlantInstanceDetailPage'),
 );
 const CalculationsPage = lazy(() => import('@/pages/pflanzen/CalculationsPage'));
+const PlantingRunListPage = lazy(
+  () => import('@/pages/durchlaeufe/PlantingRunListPage'),
+);
+const PlantingRunDetailPage = lazy(
+  () => import('@/pages/durchlaeufe/PlantingRunDetailPage'),
+);
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 export const router = createBrowserRouter(
@@ -185,6 +191,24 @@ export const router = createBrowserRouter(
         element={
           <Suspense fallback={<LoadingSkeleton variant="card" />}>
             <CalculationsPage />
+          </Suspense>
+        }
+      />
+
+      {/* REQ-013 Durchläufe */}
+      <Route
+        path="durchlaeufe/planting-runs"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="table" />}>
+            <PlantingRunListPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="durchlaeufe/planting-runs/:key"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="form" />}>
+            <PlantingRunDetailPage />
           </Suspense>
         }
       />

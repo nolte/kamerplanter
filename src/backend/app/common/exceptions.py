@@ -106,6 +106,24 @@ class AdapterNotFoundError(KamerplanterError):
         )
 
 
+class InvalidStatusTransitionError(KamerplanterError):
+    def __init__(self, current: str, target: str) -> None:
+        super().__init__(
+            message=f"Cannot transition from '{current}' to '{target}'.",
+            error_code="INVALID_STATUS_TRANSITION",
+            status_code=422,
+        )
+
+
+class InvalidRunStateError(KamerplanterError):
+    def __init__(self, operation: str, status: str) -> None:
+        super().__init__(
+            message=f"Operation '{operation}' not allowed in status '{status}'.",
+            error_code="INVALID_RUN_STATE",
+            status_code=409,
+        )
+
+
 class ValidationError(KamerplanterError):
     def __init__(self, message: str, details: list[dict[str, str]] | None = None) -> None:
         super().__init__(

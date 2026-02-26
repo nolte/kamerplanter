@@ -38,6 +38,9 @@ export type PlantTrait =
   | 'heirloom'
   | 'hybrid'
   | 'f1';
+export type PlantingRunType = 'monoculture' | 'clone' | 'mixed_culture';
+export type PlantingRunStatus = 'planned' | 'active' | 'harvesting' | 'completed' | 'cancelled';
+export type EntryRole = 'primary' | 'companion' | 'trap_crop';
 
 // Pagination
 
@@ -589,4 +592,112 @@ export interface SlotCapacityResponse {
   max_capacity: number;
   optimal_range: [number, number];
   plants_per_m2: number;
+}
+
+// Planting Runs (REQ-013)
+
+export interface PlantingRunEntry {
+  key: string;
+  run_key: string;
+  species_key: string;
+  cultivar_key: string | null;
+  quantity: number;
+  role: EntryRole;
+  id_prefix: string;
+  spacing_cm: number | null;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface PlantingRunEntryCreate {
+  species_key: string;
+  cultivar_key?: string | null;
+  quantity: number;
+  role?: EntryRole;
+  id_prefix: string;
+  spacing_cm?: number | null;
+  notes?: string | null;
+}
+
+export interface PlantingRun {
+  key: string;
+  name: string;
+  run_type: PlantingRunType;
+  status: PlantingRunStatus;
+  planned_quantity: number;
+  actual_quantity: number;
+  location_key: string | null;
+  substrate_batch_key: string | null;
+  planned_start_date: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  source_plant_key: string | null;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface PlantingRunCreate {
+  name: string;
+  run_type: PlantingRunType;
+  location_key?: string | null;
+  substrate_batch_key?: string | null;
+  planned_start_date?: string | null;
+  source_plant_key?: string | null;
+  notes?: string | null;
+  entries?: PlantingRunEntryCreate[];
+}
+
+export interface PlantingRunUpdate {
+  name?: string;
+  notes?: string | null;
+  planned_start_date?: string | null;
+}
+
+export interface BatchCreatePlantsResponse {
+  run_key: string;
+  created_count: number;
+  plant_keys: string[];
+  instance_ids: string[];
+}
+
+export interface BatchTransitionRequest {
+  target_phase_key: string;
+  target_phase_name: string;
+  exclude_keys?: string[];
+}
+
+export interface BatchTransitionResponse {
+  run_key: string;
+  target_phase: string;
+  transitioned_count: number;
+  skipped_count: number;
+  failed_count: number;
+  transitioned_keys: string[];
+  skipped_keys: string[];
+  failed_keys: string[];
+}
+
+export interface BatchRemoveRequest {
+  reason?: string;
+}
+
+export interface BatchRemoveResponse {
+  run_key: string;
+  removed_count: number;
+  removed_keys: string[];
+}
+
+export interface PlantInRun {
+  key: string;
+  instance_id: string;
+  species_key: string;
+  cultivar_key: string | null;
+  plant_name: string | null;
+  planted_on: string;
+  removed_on: string | null;
+  current_phase: string;
+  detached_at: string | null;
+  detach_reason: string | null;
 }

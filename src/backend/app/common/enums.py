@@ -147,3 +147,23 @@ class PlantTrait(StrEnum):
     HEIRLOOM = "heirloom"
     HYBRID = "hybrid"
     F1 = "f1"
+
+
+class PlantingRunType(StrEnum):
+    MONOCULTURE = "monoculture"
+    CLONE = "clone"
+    MIXED_CULTURE = "mixed_culture"
+
+
+class PlantingRunStatus(StrEnum):
+    PLANNED = "planned"
+    ACTIVE = "active"
+    HARVESTING = "harvesting"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class EntryRole(StrEnum):
+    PRIMARY = "primary"
+    COMPANION = "companion"
+    TRAP_CROP = "trap_crop"

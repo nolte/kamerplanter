@@ -12,6 +12,7 @@ from app.api.v1.lifecycle_configs.router import router as lifecycle_router
 from app.api.v1.locations.router import router as locations_router
 from app.api.v1.phases.router import router as phase_control_router
 from app.api.v1.plant_instances.router import router as plants_router
+from app.api.v1.planting_runs.router import router as planting_runs_router
 from app.api.v1.profiles.router import router as profiles_router
 from app.api.v1.sites.router import router as sites_router
 from app.api.v1.slots.router import router as slots_router
@@ -31,6 +32,7 @@ api_router.include_router(lifecycle_router)
 api_router.include_router(locations_router)
 api_router.include_router(phase_control_router)
 api_router.include_router(plants_router)
+api_router.include_router(planting_runs_router)
 api_router.include_router(profiles_router)
 api_router.include_router(sites_router)
 api_router.include_router(slots_router)
