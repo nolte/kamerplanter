@@ -67,23 +67,23 @@ Eine Anwendung, die nur auf dem Desktop nutzbar ist, schließt einen großen Tei
 |---|-------|-------|
 | R-007 | Layouts MÜSSEN auf einem Fluid-Grid basieren (prozentuale Breiten, nicht fixe Pixel-Werte). | MUSS |
 | R-008 | Container MÜSSEN eine Maximalbreite definieren (empfohlen: 1280px für Desktop), um auf sehr breiten Bildschirmen lesbar zu bleiben. | MUSS |
-| R-008a | Der Hauptinhaltsbereich MUSS bei ausgeklappter Sidebar direkt (ohne sichtbare Lücke) an die Navigation anschließen — der Content-Bereich DARF NICHT durch doppelte Abstände (z.B. Sidebar-Breite im Flex-Layout plus zusätzliches Margin) von der Navigation abgesetzt werden. | MUSS |
-| R-009 | Das Grid SOLL ein 12-Spalten-System verwenden mit konfigurierbarem Gutter (Standard: 16px mobile, 24px Desktop). | SOLL |
+| R-009 | Der Hauptinhaltsbereich MUSS bei ausgeklappter Sidebar direkt (ohne sichtbare Lücke) an die Navigation anschließen — der Content-Bereich DARF NICHT durch doppelte Abstände (z.B. Sidebar-Breite im Flex-Layout plus zusätzliches Margin) von der Navigation abgesetzt werden. | MUSS |
+| R-010 | Das Grid SOLL ein 12-Spalten-System verwenden mit konfigurierbarem Gutter (Standard: 16px mobile, 24px Desktop). | SOLL |
 
 ### 2.4 Touch-Targets
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-010 | Interaktive Elemente (Buttons, Links, Checkboxen) MÜSSEN eine Mindestgröße von 48×48px für Touch-Targets einhalten. | MUSS |
-| R-011 | Der Mindestabstand zwischen zwei Touch-Targets SOLL 8px betragen, um versehentliche Fehleingaben zu vermeiden. | SOLL |
-| R-012 | Auf Desktop KANN die Touch-Target-Größe auf 36×36px reduziert werden, sofern die Mausbedienung im Vordergrund steht. | KANN |
+| R-011 | Interaktive Elemente (Buttons, Links, Checkboxen) MÜSSEN eine Mindestgröße von 48×48px für Touch-Targets einhalten. | MUSS |
+| R-012 | Der Mindestabstand zwischen zwei Touch-Targets SOLL 8px betragen, um versehentliche Fehleingaben zu vermeiden. | SOLL |
+| R-013 | Auf Desktop KANN die Touch-Target-Größe auf 36×36px reduziert werden, sofern die Mausbedienung im Vordergrund steht. | KANN |
 
 ### 2.5 Bilder & Medien
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-013 | Bilder MÜSSEN responsive sein (`max-width: 100%; height: auto`) und sich an den verfügbaren Platz anpassen. | MUSS |
-| R-014 | Für verschiedene Bildschirmauflösungen SOLLEN `srcset`- oder äquivalente Mechanismen verwendet werden. | SOLL |
+| R-014 | Bilder MÜSSEN responsive sein (`max-width: 100%; height: auto`) und sich an den verfügbaren Platz anpassen. | MUSS |
+| R-015 | Für verschiedene Bildschirmauflösungen SOLLEN `srcset`- oder äquivalente Mechanismen verwendet werden. | SOLL |
 
 ---
 

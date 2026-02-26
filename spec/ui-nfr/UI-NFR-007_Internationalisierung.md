@@ -58,52 +58,52 @@ Internationalisierung von Anfang an einzuplanen ist deutlich günstiger als eine
 | # | Regel | Stufe |
 |---|-------|-------|
 | R-004 | Alle sichtbaren Texte in der Benutzeroberfläche MÜSSEN über i18n-Keys referenziert werden — keine hartcodierten Strings in Komponenten. | MUSS |
-| R-004a | Domänenwerte und Enum-Optionen in Dropdown-/Select-Feldern (z.B. Pflanzenphasen, Substrattypen, Belichtungsarten) MÜSSEN über i18n-Keys übersetzt werden. Die technischen Enum-Werte (z.B. `germination`, `vegetative`) DÜRFEN NICHT als Anzeigetext verwendet werden. | MUSS |
-| R-005 | i18n-Keys MÜSSEN hierarchisch organisiert sein (z.B. `common.save`, `errors.notFound`, `pages.dashboard.title`). | MUSS |
-| R-005a | Für Domänenwerte SOLL ein einheitlicher Key-Namespace verwendet werden (z.B. `enums.phase.germination`, `enums.substrateType.soil`), damit alle Enum-Übersetzungen zentral auffindbar sind. | SOLL |
-| R-006 | Übersetzungsdateien MÜSSEN in einem strukturierten Format vorliegen (JSON oder YAML). | MUSS |
-| R-007 | Fehlende Übersetzungen MÜSSEN im Entwicklungsmodus eine Warnung erzeugen und den Key als Fallback anzeigen. | MUSS |
+| R-005 | Domänenwerte und Enum-Optionen in Dropdown-/Select-Feldern (z.B. Pflanzenphasen, Substrattypen, Belichtungsarten) MÜSSEN über i18n-Keys übersetzt werden. Die technischen Enum-Werte (z.B. `germination`, `vegetative`) DÜRFEN NICHT als Anzeigetext verwendet werden. | MUSS |
+| R-006 | i18n-Keys MÜSSEN hierarchisch organisiert sein (z.B. `common.save`, `errors.notFound`, `pages.dashboard.title`). | MUSS |
+| R-007 | Für Domänenwerte SOLL ein einheitlicher Key-Namespace verwendet werden (z.B. `enums.phase.germination`, `enums.substrateType.soil`), damit alle Enum-Übersetzungen zentral auffindbar sind. | SOLL |
+| R-008 | Übersetzungsdateien MÜSSEN in einem strukturierten Format vorliegen (JSON oder YAML). | MUSS |
+| R-009 | Fehlende Übersetzungen MÜSSEN im Entwicklungsmodus eine Warnung erzeugen und den Key als Fallback anzeigen. | MUSS |
 
 ### 2.3 Datums- und Zeitformate
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-008 | Datumsformate MÜSSEN locale-abhängig sein (z.B. DE: `26.02.2026`, EN: `02/26/2026` oder `26 Feb 2026`). | MUSS |
-| R-009 | Zeitformate MÜSSEN locale-abhängig sein (z.B. DE: `14:30`, EN: `2:30 PM`). | MUSS |
-| R-010 | Relative Zeitangaben SOLLEN verwendet werden, wo sinnvoll (z.B. „vor 5 Minuten", „gestern"). | SOLL |
-| R-011 | Die Anwendung MUSS die Zeitzone des Nutzers berücksichtigen und Zeiten in der lokalen Zeitzone anzeigen. | MUSS |
+| R-010 | Datumsformate MÜSSEN locale-abhängig sein (z.B. DE: `26.02.2026`, EN: `02/26/2026` oder `26 Feb 2026`). | MUSS |
+| R-011 | Zeitformate MÜSSEN locale-abhängig sein (z.B. DE: `14:30`, EN: `2:30 PM`). | MUSS |
+| R-012 | Relative Zeitangaben SOLLEN verwendet werden, wo sinnvoll (z.B. „vor 5 Minuten", „gestern"). | SOLL |
+| R-013 | Die Anwendung MUSS die Zeitzone des Nutzers berücksichtigen und Zeiten in der lokalen Zeitzone anzeigen. | MUSS |
 
 ### 2.4 Zahlenformate
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-012 | Zahlenformate MÜSSEN locale-abhängig sein: Dezimaltrennzeichen (DE: Komma, EN: Punkt), Tausendertrennzeichen (DE: Punkt, EN: Komma). | MUSS |
-| R-013 | Währungs- und Einheitenformate MÜSSEN locale-abhängig formatiert werden. | MUSS |
-| R-014 | Eingabefelder für Zahlen MÜSSEN das locale-spezifische Dezimaltrennzeichen akzeptieren. | MUSS |
+| R-014 | Zahlenformate MÜSSEN locale-abhängig sein: Dezimaltrennzeichen (DE: Komma, EN: Punkt), Tausendertrennzeichen (DE: Punkt, EN: Komma). | MUSS |
+| R-015 | Währungs- und Einheitenformate MÜSSEN locale-abhängig formatiert werden. | MUSS |
+| R-016 | Eingabefelder für Zahlen MÜSSEN das locale-spezifische Dezimaltrennzeichen akzeptieren. | MUSS |
 
 ### 2.5 Sprachwechsel
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-015 | Der Nutzer MUSS die Sprache über ein UI-Element wechseln können (z.B. Dropdown im Header oder in den Einstellungen). | MUSS |
-| R-016 | Der Sprachwechsel MUSS ohne Neuladen der Seite erfolgen (dynamischer Wechsel). | MUSS |
-| R-017 | Die gewählte Sprache MUSS persistent gespeichert werden (z.B. LocalStorage, User-Preferences). | MUSS |
-| R-018 | Beim ersten Besuch SOLL die Browser-Sprache (`navigator.language`) als Voreinstellung verwendet werden, sofern die Sprache unterstützt wird. | SOLL |
+| R-017 | Der Nutzer MUSS die Sprache über ein UI-Element wechseln können (z.B. Dropdown im Header oder in den Einstellungen). | MUSS |
+| R-018 | Der Sprachwechsel MUSS ohne Neuladen der Seite erfolgen (dynamischer Wechsel). | MUSS |
+| R-019 | Die gewählte Sprache MUSS persistent gespeichert werden (z.B. LocalStorage, User-Preferences). | MUSS |
+| R-020 | Beim ersten Besuch SOLL die Browser-Sprache (`navigator.language`) als Voreinstellung verwendet werden, sofern die Sprache unterstützt wird. | SOLL |
 
 ### 2.6 Pluralisierung & dynamische Werte
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-019 | Die i18n-Bibliothek MUSS Pluralisierung unterstützen (z.B. „1 Eintrag" vs. „5 Einträge"). | MUSS |
-| R-020 | Dynamische Werte MÜSSEN über Platzhalter in Übersetzungen eingefügt werden (z.B. `{{count}} Einträge gefunden`). | MUSS |
-| R-021 | Die Satzstellung DARF NICHT durch String-Konkatenation erzwungen werden — Platzhalter erlauben flexible Wortstellung je Sprache. | MUSS |
+| R-021 | Die i18n-Bibliothek MUSS Pluralisierung unterstützen (z.B. „1 Eintrag" vs. „5 Einträge"). | MUSS |
+| R-022 | Dynamische Werte MÜSSEN über Platzhalter in Übersetzungen eingefügt werden (z.B. `{{count}} Einträge gefunden`). | MUSS |
+| R-023 | Die Satzstellung DARF NICHT durch String-Konkatenation erzwungen werden — Platzhalter erlauben flexible Wortstellung je Sprache. | MUSS |
 
 ### 2.7 RTL-Vorbereitung
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-022 | Das Layout SOLL so strukturiert sein, dass eine spätere RTL-Unterstützung (Right-to-Left für Arabisch, Hebräisch) ohne grundlegendes Refactoring möglich ist. | SOLL |
-| R-023 | CSS-Eigenschaften wie `margin-left`/`margin-right` SOLLEN durch logische Eigenschaften (`margin-inline-start`/`margin-inline-end`) ersetzt werden, wo möglich. | SOLL |
+| R-024 | Das Layout SOLL so strukturiert sein, dass eine spätere RTL-Unterstützung (Right-to-Left für Arabisch, Hebräisch) ohne grundlegendes Refactoring möglich ist. | SOLL |
+| R-025 | CSS-Eigenschaften wie `margin-left`/`margin-right` SOLLEN durch logische Eigenschaften (`margin-inline-start`/`margin-inline-end`) ersetzt werden, wo möglich. | SOLL |
 
 ---
 
