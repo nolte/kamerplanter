@@ -88,13 +88,13 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
 
     def get_entries(self, run_key: PlantingRunKey) -> list[PlantingRunEntry]:
         query = """
-        FOR v, e IN 1..1 OUTBOUND @run_id GRAPH 'kamerplanter_graph'
-          OPTIONS {edgeCollections: [@edge_col]}
-          RETURN v
+        FOR doc IN @@collection
+          FILTER doc.run_key == @run_key
+          RETURN doc
         """
         bind_vars = {
-            "run_id": f"{col.PLANTING_RUNS}/{run_key}",
-            "edge_col": col.HAS_ENTRY,
+            "@collection": col.PLANTING_RUN_ENTRIES,
+            "run_key": run_key,
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [PlantingRunEntry(**self._from_doc(doc)) for doc in cursor]
@@ -156,16 +156,16 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
     # ── Queries ───────────────────────────────────────────────────────
 
     def get_run_plants(self, run_key: PlantingRunKey, include_detached: bool = False) -> list[dict]:
-        query = """
-        FOR v, e IN 1..1 OUTBOUND @run_id GRAPH 'kamerplanter_graph'
-          OPTIONS {edgeCollections: [@edge_col]}
+        query = f"""
+        FOR e IN {col.RUN_CONTAINS}
+          FILTER e._from == @run_id
         """
         if not include_detached:
             query += "  FILTER e.detached_at == null\n"
-        query += "  RETURN MERGE(v, {_edge_detached_at: e.detached_at, _edge_detach_reason: e.detach_reason})"
+        query += """  LET v = DOCUMENT(e._to)
+          RETURN MERGE(v, {_edge_detached_at: e.detached_at, _edge_detach_reason: e.detach_reason})"""
         bind_vars = {
             "run_id": f"{col.PLANTING_RUNS}/{run_key}",
-            "edge_col": col.RUN_CONTAINS,
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [self._from_doc(doc) for doc in cursor]

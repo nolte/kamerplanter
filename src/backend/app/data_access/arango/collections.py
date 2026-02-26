@@ -263,6 +263,12 @@ def ensure_collections(db: StandardDatabase) -> None:
     runs_col = db.collection(PLANTING_RUNS)
     runs_col.add_hash_index(fields=["name"], unique=False)
 
-    # Create named graph
+    # Create or update named graph
     if not db.has_graph(GRAPH_NAME):
         db.create_graph(GRAPH_NAME, edge_definitions=GRAPH_EDGE_DEFINITIONS)
+    else:
+        graph = db.graph(GRAPH_NAME)
+        existing = {ed["edge_collection"] for ed in graph.edge_definitions()}
+        for ed in GRAPH_EDGE_DEFINITIONS:
+            if ed["edge_collection"] not in existing:
+                graph.create_edge_definition(**ed)
