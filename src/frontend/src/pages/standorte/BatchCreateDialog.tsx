@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -14,6 +14,7 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/substrates';
 import type { Batch } from '@/api/types';
+import { generateBatchId } from '@/utils/idGenerator';
 
 const schema = z.object({
   batch_id: z.string().min(1),
@@ -44,6 +45,16 @@ export default function BatchCreateDialog({ substrateKey, open, onClose, onCreat
       mixed_on: new Date().toISOString().split('T')[0],
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      reset({
+        batch_id: generateBatchId(substrateKey),
+        volume_liters: 0,
+        mixed_on: new Date().toISOString().split('T')[0],
+      });
+    }
+  }, [open, substrateKey, reset]);
 
   const onSubmit = async (data: FormData) => {
     try {

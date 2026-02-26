@@ -15,6 +15,7 @@ import { useApiError } from '@/hooks/useApiError';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import * as speciesApi from '@/api/endpoints/species';
 import type { Species, Cultivar } from '@/api/types';
+import { generateInstanceId } from '@/utils/idGenerator';
 
 const schema = z.object({
   instance_id: z.string().min(1),
@@ -42,7 +43,7 @@ export default function PlantInstanceCreateDialog({ open, onClose, onCreated }: 
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
   const [cultivarsLoading, setCultivarsLoading] = useState(false);
 
-  const { control, handleSubmit, reset, setValue } = useForm<FormData>({
+  const { control, handleSubmit, reset, setValue, getValues } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       instance_id: '',
@@ -58,9 +59,29 @@ export default function PlantInstanceCreateDialog({ open, onClose, onCreated }: 
 
   useEffect(() => {
     if (open) {
+      reset({
+        instance_id: generateInstanceId(''),
+        species_key: '',
+        cultivar_key: null,
+        plant_name: null,
+        planted_on: new Date().toISOString().split('T')[0],
+        current_phase: 'seedling',
+      });
       speciesApi.listSpecies(0, 200).then((r) => setSpeciesList(r.items)).catch(() => {});
     }
-  }, [open]);
+  }, [open, reset]);
+
+  useEffect(() => {
+    if (speciesKey) {
+      const currentId = getValues('instance_id');
+      if (currentId.startsWith('PLANT-')) {
+        const species = speciesList.find((s) => s.key === speciesKey);
+        if (species) {
+          setValue('instance_id', generateInstanceId(species.scientific_name));
+        }
+      }
+    }
+  }, [speciesKey, speciesList, getValues, setValue]);
 
   useEffect(() => {
     if (!speciesKey) {

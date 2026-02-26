@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -12,6 +12,7 @@ import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/sites';
+import { generateSlotId } from '@/utils/idGenerator';
 
 const schema = z.object({
   slot_id: z
@@ -41,6 +42,12 @@ export default function SlotCreateDialog({ locationKey, open, onClose, onCreated
     resolver: zodResolver(schema),
     defaultValues: { slot_id: '', capacity_plants: 1 },
   });
+
+  useEffect(() => {
+    if (open) {
+      reset({ slot_id: generateSlotId(locationKey), capacity_plants: 1 });
+    }
+  }, [open, locationKey, reset]);
 
   const onSubmit = async (data: FormData) => {
     try {
