@@ -22,7 +22,8 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as runApi from '@/api/endpoints/plantingRuns';
 import * as speciesApi from '@/api/endpoints/species';
-import type { Species } from '@/api/types';
+import * as sitesApi from '@/api/endpoints/sites';
+import type { Species, Site, Location } from '@/api/types';
 
 const entrySchema = z.object({
   species_key: z.string().min(1),
@@ -37,6 +38,7 @@ const entrySchema = z.object({
 const schema = z.object({
   name: z.string().min(1).max(200),
   run_type: z.enum(['monoculture', 'clone', 'mixed_culture']),
+  site_key: z.string().nullable().optional(),
   location_key: z.string().nullable().optional(),
   substrate_batch_key: z.string().nullable().optional(),
   planned_start_date: z.string().nullable().optional(),
@@ -59,12 +61,16 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
   const [speciesList, setSpeciesList] = useState<Species[]>([]);
+  const [sitesList, setSitesList] = useState<Site[]>([]);
+  const [locationsList, setLocationsList] = useState<Location[]>([]);
+  const [locationsLoading, setLocationsLoading] = useState(false);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
       run_type: 'monoculture',
+      site_key: null,
       location_key: null,
       substrate_batch_key: null,
       planned_start_date: new Date().toISOString().split('T')[0],
@@ -76,12 +82,14 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
 
   const { fields, append, remove } = useFieldArray({ control, name: 'entries' });
   const runType = useWatch({ control, name: 'run_type' });
+  const siteKey = useWatch({ control, name: 'site_key' });
 
   useEffect(() => {
     if (open) {
       reset({
         name: '',
         run_type: 'monoculture',
+        site_key: null,
         location_key: null,
         substrate_batch_key: null,
         planned_start_date: new Date().toISOString().split('T')[0],
@@ -89,9 +97,25 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
         notes: null,
         entries: [{ species_key: '', quantity: 1, role: 'primary', id_prefix: '', spacing_cm: null, notes: null }],
       });
+      setLocationsList([]);
       speciesApi.listSpecies(0, 200).then((r) => setSpeciesList(r.items)).catch(() => {});
+      sitesApi.listSites(0, 200).then(setSitesList).catch(() => {});
     }
   }, [open, reset]);
+
+  useEffect(() => {
+    if (!siteKey) {
+      setLocationsList([]);
+      return;
+    }
+    setLocationsLoading(true);
+    setValue('location_key', null);
+    sitesApi
+      .listLocations(siteKey)
+      .then(setLocationsList)
+      .catch(() => setLocationsList([]))
+      .finally(() => setLocationsLoading(false));
+  }, [siteKey, setValue]);
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -149,10 +173,24 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
             required
             options={runTypes}
           />
-          <FormTextField
+          <FormSelectField
+            name="site_key"
+            control={control}
+            label={t('entities.site')}
+            options={[
+              { value: '', label: '-' },
+              ...sitesList.map((s) => ({ value: s.key, label: s.name })),
+            ]}
+          />
+          <FormSelectField
             name="location_key"
             control={control}
             label={t('pages.plantingRuns.location')}
+            disabled={!siteKey || locationsLoading}
+            options={[
+              { value: '', label: '-' },
+              ...locationsList.map((l) => ({ value: l.key, label: l.name })),
+            ]}
           />
           <FormDateField
             name="planned_start_date"
