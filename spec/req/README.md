@@ -1,13 +1,13 @@
 # Kamerplanter - Anforderungsspezifikationen
 
 ## Übersicht
-Dieses Verzeichnis enthält **14 vollständig ausgearbeitete Anforderungsdokumente** für das Kamerplanter-System — eine Agrotech-Plattform für Pflanzen-Lebenszyklusmanagement (Cannabis, Gemüse, Kräuter) mit Python/FastAPI-Backend und ArangoDB Graph-Datenbank.
+Dieses Verzeichnis enthält **16 vollständig ausgearbeitete Anforderungsdokumente** für das Kamerplanter-System — eine Agrotech-Plattform für Pflanzen-Lebenszyklusmanagement (Cannabis, Gemüse, Kräuter) mit Python/FastAPI-Backend und ArangoDB Graph-Datenbank.
 
 ### Dokumenten-Struktur
 Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 1. **YAML-Header** — Metadaten, Kategorisierung, Technologie-Stack
 2. **Business Case** — User Stories, fachliche Beschreibung
-3. **GraphDB-Modellierung** — Nodes, Edges, AQL-/Cypher-Queries
+3. **ArangoDB-Modellierung** — Collections, Edges, AQL-Queries
 4. **Technische Umsetzung** — Python-Code, Logik, Validierung (Pydantic v2, Type Hinting)
 5. **Abhängigkeiten** — Querverweise zu anderen Modulen (bidirektional, mit Impact-Level)
 6. **Akzeptanzkriterien** — Definition of Done, Testszenarien (GIVEN/WHEN/THEN)
@@ -35,7 +35,7 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 - Rekursive Hierarchie: Site → Location (beliebig tief) → Slot
 - Indoor (Growzelte) + Outdoor (Beete) + Hydro-Systeme
 - Substrat-Recycling-Tracker mit Aufbereitungs-Anleitung
-- PostGIS-Integration für GPS-basierte Standorte
+- ArangoDB Geo-Indizes für GPS-basierte Standorte
 
 **Highlights:**
 - Hydro-spezifisches Monitoring (NFT, DWC, Aeroponik)
@@ -200,12 +200,50 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 - Pflicht-Zuordnung zu Location bei automatischer Bewässerung
 - Zustandsüberwachung (pH, EC, Temperatur, Füllstand) mit Alert-System
 - Wartungspläne mit automatischer Task-Generierung (REQ-006)
+- Ergänzende manuelle Bewässerung per Gießkanne neben automatischem System
+- 4 Applikationsmethoden: Fertigation, Drench, Foliar, Top Dress
 
 **Highlights:**
+- Lückenlose Befüllungshistorie (TankFillEvent) mit Dünger-Snapshot und Rezept-Verknüpfung
+- WateringEvent auf Slot-/Pflanzenebene — dokumentiert was die Pflanze tatsächlich bekommt
 - Tank-Kaskaden (Reservoir → Mischtank)
 - Standard-Wartungsintervalle je Tank-Typ
 - Algenrisiko-Erkennung (Temperatur + Deckel-Status)
 - Celery-Beat für tägliche Wartungs-Checks
+
+---
+
+### 📅 REQ-015: Kalenderansicht & Kalender-Integration
+**Fokus:** Zentrale Kalenderdarstellung, iCal-Export, externe Kalender-Abonnements
+- Tasks (REQ-006) als primäre Kalender-Datenquelle — kein separates Event-Modell
+- Optionale Timeline-Events: Phasentransitionen, Düngungen, Wartungen, Befüllungen
+- CalendarEvent als virtuelles Aggregat (computed at query time, nicht persistiert)
+- CalendarFeed mit Token-basiertem Zugang für externe Kalender-Apps
+- Farbkodierung pro Kategorie (11 Kategorien)
+
+**Highlights:**
+- FullCalendar React-Komponente (Monat/Woche/Tag/Agenda)
+- RFC 5545 iCalendar-Export mit VEVENT, VALARM, CATEGORIES, PRIORITY
+- webcal:// Abonnement für Thunderbird, Apple Calendar, Google Calendar
+- Feed-Management mit Token-Rotation und Filter-Konfiguration
+- Responsive: Mobile → Agenda-Liste, Desktop → Grid mit Filter-Sidebar
+- Multi-Source-AQL-Aggregation über 5+ Collections
+
+---
+
+### 🔗 REQ-016: Optionale InvenTree-Integration
+**Fokus:** Inventar-Anbindung, Verbrauchstracking, Equipment-Verwaltung
+- Optionale Anbindung an InvenTree (Open-Source-Inventarverwaltung, REST-API)
+- Bidirektionaler Sync: Stock-Pull (hourly) + Consumption-Push (5-min)
+- Equipment als First-Class-Entity (Pumpen, Sensoren, Werkzeuge, Reinigungsmittel)
+- Generische Link-Tabelle (`inventree_references`) für lose Kopplung
+- ConsumptionTracker: Automatische Verbrauchsbuchungen bei FeedingEvent, TankFillEvent, MaintenanceLog
+
+**Highlights:**
+- Graceful Degradation: Kernsystem funktioniert ohne InvenTree
+- Drift-Detection bei >20% Bestandsabweichung
+- Immutables Transaktions-Log mit Retry-Mechanismus (3× mit Backoff)
+- 18 REST-API-Endpunkte (Connection-CRUD, Equipment-CRUD, Referenz-Management, Browse, Sync)
 
 ---
 
@@ -227,7 +265,8 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 
 ### Optionale Integrationen
 - **Home Assistant** (MQTT/REST API)
-- **PostGIS** (GPS-Koordinaten)
+- **InvenTree** (Inventar & Verbrauchsmaterial, REST-API)
+- **ArangoDB Geo-Index** (GPS-Koordinaten)
 - **Flutter 3.16+** (Mobile App)
 
 ---
@@ -237,7 +276,7 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 ### Optimierungen
 - Konsistente YAML-Header für Metadaten-Extraktion
 - Fachterminologie-Dichte für präzises Retrieval
-- AQL-/Cypher-Beispiele für Graph-Query-Generation
+- AQL-Beispiele für Graph-Query-Generation
 - Python-Code-Snippets für Implementierungs-Guidance
 
 ### Empfohlene Embedding-Strategie
@@ -252,13 +291,13 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 
 | Metrik | Wert |
 |--------|------|
-| Anforderungsdokumente | 14 (REQ-001 bis REQ-014) |
-| Gesamt-Größe | ~566 KB (Markdown) |
-| Graph-Nodes definiert | ~70 |
-| Graph-Edges definiert | ~90 |
-| Python-Code-Beispiele | ~60 |
-| AQL-/Cypher-Queries | ~45 |
-| Akzeptanzkriterien | ~180 |
+| Anforderungsdokumente | 16 (REQ-001 bis REQ-016) |
+| Gesamt-Größe | ~611 KB (Markdown) |
+| Graph-Nodes definiert | ~71 |
+| Graph-Edges definiert | ~91 |
+| Python-Code-Beispiele | ~66 |
+| AQL-Queries | ~51 |
+| Akzeptanzkriterien | ~195 |
 
 **Vollständigkeits-Matrix:**
 - ✅ REQ-001: Stammdatenverwaltung (35 KB)
@@ -275,6 +314,8 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 - ✅ REQ-012: Stammdaten-Import (54 KB)
 - ✅ REQ-013: Pflanzdurchlauf (54 KB)
 - ✅ REQ-014: Tankmanagement (33 KB)
+- ✅ REQ-015: Kalenderansicht & Kalender-Integration
+- ✅ REQ-016: Optionale InvenTree-Integration
 
 ---
 
