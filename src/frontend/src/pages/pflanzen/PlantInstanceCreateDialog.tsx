@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FormTextField from '@/components/form/FormTextField';
@@ -14,11 +14,12 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import * as speciesApi from '@/api/endpoints/species';
-import type { Species } from '@/api/types';
+import type { Species, Cultivar } from '@/api/types';
 
 const schema = z.object({
   instance_id: z.string().min(1),
   species_key: z.string().min(1),
+  cultivar_key: z.string().nullable(),
   plant_name: z.string().nullable(),
   planted_on: z.string().min(1),
   current_phase: z.string(),
@@ -38,23 +39,42 @@ export default function PlantInstanceCreateDialog({ open, onClose, onCreated }: 
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
   const [speciesList, setSpeciesList] = useState<Species[]>([]);
+  const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
+  const [cultivarsLoading, setCultivarsLoading] = useState(false);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       instance_id: '',
       species_key: '',
+      cultivar_key: null,
       plant_name: null,
       planted_on: new Date().toISOString().split('T')[0],
       current_phase: 'seedling',
     },
   });
 
+  const speciesKey = useWatch({ control, name: 'species_key' });
+
   useEffect(() => {
     if (open) {
       speciesApi.listSpecies(0, 200).then((r) => setSpeciesList(r.items)).catch(() => {});
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!speciesKey) {
+      setCultivarList([]);
+      return;
+    }
+    setCultivarsLoading(true);
+    setValue('cultivar_key', null);
+    speciesApi
+      .listCultivars(speciesKey)
+      .then((cultivars) => setCultivarList(cultivars))
+      .catch(() => setCultivarList([]))
+      .finally(() => setCultivarsLoading(false));
+  }, [speciesKey, setValue]);
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -84,6 +104,17 @@ export default function PlantInstanceCreateDialog({ open, onClose, onCreated }: 
             label={t('entities.species')}
             required
             options={speciesList.map((s) => ({ value: s.key, label: s.scientific_name }))}
+          />
+          <FormSelectField
+            name="cultivar_key"
+            control={control}
+            label={t('pages.plantInstances.cultivarKey')}
+            helperText={t('pages.plantInstances.cultivarKeyHelper')}
+            disabled={!speciesKey || cultivarsLoading}
+            options={[
+              { value: '', label: '-' },
+              ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
+            ]}
           />
           <FormTextField name="plant_name" control={control} label={t('pages.plantInstances.plantName')} />
           <FormDateField name="planted_on" control={control} label={t('pages.plantInstances.plantedOn')} required />

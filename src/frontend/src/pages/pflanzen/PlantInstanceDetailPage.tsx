@@ -24,6 +24,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import FormTextField from '@/components/form/FormTextField';
+import FormSelectField from '@/components/form/FormSelectField';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import PhaseTransitionDialog from './PhaseTransitionDialog';
@@ -31,7 +32,8 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import * as phasesApi from '@/api/endpoints/phases';
-import type { PlantInstance, CurrentPhaseResponse, PhaseHistoryEntry } from '@/api/types';
+import * as speciesApi from '@/api/endpoints/species';
+import type { PlantInstance, CurrentPhaseResponse, PhaseHistoryEntry, Cultivar } from '@/api/types';
 
 const editSchema = z.object({
   plant_name: z.string().nullable(),
@@ -58,6 +60,7 @@ export default function PlantInstanceDetailPage() {
   const [transitionOpen, setTransitionOpen] = useState(false);
   const [tab, setTab] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
 
   const {
     control,
@@ -81,6 +84,9 @@ export default function PlantInstanceDetailPage() {
     try {
       const p = await plantApi.getPlantInstance(key);
       setPlant(p);
+      if (p.species_key) {
+        speciesApi.listCultivars(p.species_key).then(setCultivarList).catch(() => setCultivarList([]));
+      }
       reset({
         plant_name: p.plant_name,
         cultivar_key: p.cultivar_key,
@@ -263,7 +269,16 @@ export default function PlantInstanceDetailPage() {
             {t('pages.plantInstances.editIntro')}
           </Typography>
           <FormTextField name="plant_name" control={control} label={t('pages.plantInstances.plantName')} helperText={t('pages.plantInstances.plantNameHelper')} />
-          <FormTextField name="cultivar_key" control={control} label={t('pages.plantInstances.cultivarKey')} helperText={t('pages.plantInstances.cultivarKeyHelper')} />
+          <FormSelectField
+            name="cultivar_key"
+            control={control}
+            label={t('pages.plantInstances.cultivarKey')}
+            helperText={t('pages.plantInstances.cultivarKeyHelper')}
+            options={[
+              { value: '', label: '-' },
+              ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
+            ]}
+          />
           <FormTextField name="slot_key" control={control} label={t('pages.plantInstances.slotKey')} helperText={t('pages.plantInstances.slotKeyHelper')} />
           <FormTextField name="substrate_batch_key" control={control} label={t('pages.plantInstances.substrateBatchKey')} helperText={t('pages.plantInstances.substrateBatchKeyHelper')} />
           <FormTextField name="planted_on" control={control} label={t('pages.plantInstances.plantedOn')} helperText={t('pages.plantInstances.plantedOnHelper')} type="date" required />
