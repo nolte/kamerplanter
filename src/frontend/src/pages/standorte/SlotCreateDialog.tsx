@@ -14,7 +14,11 @@ import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/sites';
 
 const schema = z.object({
-  slot_id: z.string().min(1).transform((v) => v.toUpperCase()),
+  slot_id: z
+    .string()
+    .min(1)
+    .transform((v) => v.toUpperCase())
+    .pipe(z.string().regex(/^[A-Z0-9]+_[A-Z0-9]+$/, 'slot_id_format')),
   capacity_plants: z.number().min(1).max(20),
 });
 
@@ -57,7 +61,7 @@ export default function SlotCreateDialog({ locationKey, open, onClose, onCreated
       <DialogTitle>{t('pages.slots.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
-          <FormTextField name="slot_id" control={control} label={t('pages.slots.slotId')} required />
+          <FormTextField name="slot_id" control={control} label={t('pages.slots.slotId')} helperText={t('pages.slots.slotIdHelper')} required />
           <FormNumberField name="capacity_plants" control={control} label={t('pages.slots.capacity')} min={1} max={20} />
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
         </form>

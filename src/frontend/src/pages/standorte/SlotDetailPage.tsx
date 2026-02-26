@@ -21,7 +21,11 @@ import * as api from '@/api/endpoints/sites';
 import type { Slot } from '@/api/types';
 
 const schema = z.object({
-  slot_id: z.string().min(1).transform((v) => v.toUpperCase()),
+  slot_id: z
+    .string()
+    .min(1)
+    .transform((v) => v.toUpperCase())
+    .pipe(z.string().regex(/^[A-Z0-9]+_[A-Z0-9]+$/, 'slot_id_format')),
   location_key: z.string(),
   capacity_plants: z.number().min(1).max(20),
 });
@@ -96,7 +100,7 @@ export default function SlotDetailPage() {
       </Box>
 
       <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 600 }}>
-        <FormTextField name="slot_id" control={control} label={t('pages.slots.slotId')} required />
+        <FormTextField name="slot_id" control={control} label={t('pages.slots.slotId')} helperText={t('pages.slots.slotIdHelper')} required />
         <FormNumberField name="capacity_plants" control={control} label={t('pages.slots.capacity')} min={1} max={20} />
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
       </Box>

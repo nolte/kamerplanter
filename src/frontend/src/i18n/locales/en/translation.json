@@ -212,6 +212,7 @@
       "title": "Slots",
       "create": "Create Slot",
       "slotId": "Slot ID",
+      "slotIdHelper": "Format: LOCATION_POSITION, e.g. 'TENT01_A1' (automatically converted to uppercase)",
       "position": "Position",
       "capacity": "Capacity",
       "occupied": "Occupied"

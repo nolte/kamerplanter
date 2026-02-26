@@ -212,6 +212,7 @@
       "title": "Stellplätze",
       "create": "Stellplatz erstellen",
       "slotId": "Stellplatz-ID",
+      "slotIdHelper": "Format: BEREICH_POSITION, z.\u00a0B. 'TENT01_A1' (wird automatisch in Großbuchstaben umgewandelt)",
       "position": "Position",
       "capacity": "Kapazität",
       "occupied": "Belegt"
