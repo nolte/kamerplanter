@@ -9,7 +9,7 @@ Priorität: Hoch
 Version: 1.0
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-26
-Tags: [formulare, forms, validierung, dirty-state, autofokus, tab-order, submit, double-submit]
+Tags: [formulare, forms, validierung, dirty-state, autofokus, tab-order, submit, double-submit, fremdschlüssel, autocomplete, dropdown]
 Abhängigkeiten: [UI-NFR-002, UI-NFR-004]
 Betroffene Module: [Frontend, Mobile]
 ---
@@ -109,6 +109,18 @@ Formulare sind die primäre Datenerfassungsmethode in der Anwendung. Schlechte F
 | R-028 | Ein „Zurücksetzen"-Button KANN angeboten werden, um das Formular auf die Standardwerte zurückzusetzen. | KANN |
 | R-029 | Der Reset SOLL einen Bestätigungsdialog zeigen, wenn der Dirty-State aktiv ist. | SOLL |
 
+### 2.8 Fremdschlüssel-Felder & Referenzauswahl
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-030 | Felder, die auf eine andere Entität verweisen (Fremdschlüssel), MÜSSEN als Auswahl-Komponente (Dropdown, Autocomplete) dargestellt werden — der Nutzer DARF NICHT gezwungen sein, einen Schlüssel oder Namen manuell einzutippen. | MUSS |
+| R-031 | Die Auswahl-Komponente MUSS die verfügbaren Optionen dynamisch aus der API laden. | MUSS |
+| R-032 | Bei mehr als 20 Optionen MUSS eine durchsuchbare Auswahl (Autocomplete mit Filterfunktion) verwendet werden. Bei ≤ 20 Optionen KANN ein einfaches Dropdown (Select) verwendet werden. | MUSS |
+| R-033 | Während die Optionen geladen werden, MUSS ein Ladezustand angezeigt werden (z.B. Skeleton oder Spinner im Dropdown). | MUSS |
+| R-034 | Wenn die API keine Optionen liefert (leere Liste), MUSS ein Hinweistext angezeigt werden (z.B. „Keine Einträge vorhanden — bitte zuerst anlegen"). | MUSS |
+| R-035 | Bei Bearbeitungsformularen MUSS der aktuell zugewiesene Wert vorausgewählt sein. | MUSS |
+| R-036 | Wenn ein referenzierter Datensatz zwischenzeitlich gelöscht wurde, SOLL das Feld den Nutzer darauf hinweisen und eine Neuauswahl erzwingen. | SOLL |
+
 ---
 
 ## 3. Wireframe-Beispiele
@@ -156,7 +168,28 @@ Formulare sind die primäre Datenerfassungsmethode in der Anwendung. Schlechte F
 └──────────────────────────────────────┘
 ```
 
-### 3.2 Double-Submit-Schutz
+### 3.2 Fremdschlüssel-Feld (Autocomplete)
+
+```
+  Autocomplete (> 20 Optionen):       Dropdown (≤ 20 Optionen):
+  ┌────────────────────────────┐      ┌────────────────────────── ▾┐
+  │ 🔍 Ros...                 │      │ Solanaceae                  │
+  ├────────────────────────────┤      ├─────────────────────────────┤
+  │  Rosaceae                  │      │ Solanaceae               ✓  │
+  │  Rosmarinus                │      │ Fabaceae                    │
+  │  Roscovitine               │      │ Poaceae                     │
+  └────────────────────────────┘      └─────────────────────────────┘
+
+  Leere Optionsliste:                 Ladezustand:
+  ┌────────────────────────────┐      ┌────────────────────────────┐
+  │ 🔍                        │      │ ⏳ Wird geladen...         │
+  ├────────────────────────────┤      └────────────────────────────┘
+  │  Keine Einträge vorhanden  │
+  │  — bitte zuerst anlegen.   │
+  └────────────────────────────┘
+```
+
+### 3.4 Double-Submit-Schutz
 
 ```
   Normaler Zustand:           Ladezustand:
@@ -166,7 +199,7 @@ Formulare sind die primäre Datenerfassungsmethode in der Anwendung. Schlechte F
                               └──────────────────┘
 ```
 
-### 3.3 Dirty-State-Warnung
+### 3.5 Dirty-State-Warnung
 
 ```
 ┌──────────────────────────────────────┐
@@ -215,6 +248,13 @@ Formulare sind die primäre Datenerfassungsmethode in der Anwendung. Schlechte F
 - [ ] **Feldgruppen**
     - [ ] Zusammengehörige Felder sind mit `<fieldset>` und `<legend>` gruppiert
     - [ ] Pflichtfelder sind gekennzeichnet
+- [ ] **Fremdschlüssel-Felder**
+    - [ ] Alle Fremdschlüssel-Felder nutzen Dropdown oder Autocomplete — kein manuelles Eintippen
+    - [ ] Optionen werden dynamisch aus der API geladen
+    - [ ] Autocomplete bei > 20 Optionen
+    - [ ] Ladezustand während des Ladens der Optionen
+    - [ ] Hinweistext bei leerer Optionsliste
+    - [ ] Bestehender Wert ist bei Bearbeitung vorausgewählt
 - [ ] **Testing**
     - [ ] Alle Formulare haben Unit-Tests für Validierungsregeln
     - [ ] E2E-Tests für kritische Formulare (Submit, Validierung, Dirty-State)
@@ -231,6 +271,7 @@ Formulare sind die primäre Datenerfassungsmethode in der Anwendung. Schlechte F
 | **Schlechte Tab-Reihenfolge** | Nutzer mit Tastatur können Formular nicht effizient ausfüllen | Mittel | Tab-Reihenfolge als Teil der Barrierefreiheits-Tests |
 | **Inkonsistente Validierung** | Unterschiedliches Verhalten zwischen Formularen | Hoch | Zentrale Validierungsregeln, wiederverwendbare Formular-Komponenten |
 | **Fehlende Pflichtfeld-Kennzeichnung** | Nutzer weiß nicht, welche Felder ausgefüllt werden müssen | Mittel | Standard-Pattern für Pflichtfelder im Design-System |
+| **Freitext-Eingabe statt Auswahl bei Fremdschlüsseln** | Tippfehler, ungültige Referenzen, inkonsistente Daten | Hoch | Auswahl-Komponenten (Dropdown/Autocomplete) als verpflichtendes Pattern für alle FK-Felder |
 
 ---
 
