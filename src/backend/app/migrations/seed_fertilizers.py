@@ -1,0 +1,482 @@
+"""Seed database with Advanced Nutrients products and a cannabis nutrient plan."""
+
+import structlog
+
+from app.common.dependencies import get_fertilizer_repo, get_nutrient_plan_repo
+from app.common.enums import (
+    ApplicationMethod,
+    Bioavailability,
+    FertilizerType,
+    PhaseName,
+    PhEffect,
+    SubstrateType,
+)
+from app.domain.models.fertilizer import Fertilizer
+from app.domain.models.nutrient_plan import (
+    FertilizerDosage,
+    NutrientPlan,
+    NutrientPlanPhaseEntry,
+)
+
+logger = structlog.get_logger()
+
+# ── Advanced Nutrients Product Catalog ────────────────────────────────────────
+# Sources:
+#   https://www.advancednutrients.com/products/ph-perfect-sensi-grow-bloom/
+#   https://greenlab.ge/en/product/advanced-nutrients-ph-perfect-sensi-grow-a/
+#   https://greenlab.ge/en/product/advanced-nutrients-ph-perfect-sensi-grow-b/
+#   https://www.advancednutrients.com/products/big-bud/
+#   https://www.advancednutrients.com/products/b-52/
+#   https://www.advancednutrients.com/products/voodoo-juice/
+
+FERTILIZERS: list[Fertilizer] = [
+    # ── Base Nutrients (Grow Phase) ───────────────────────────────────────
+    Fertilizer(
+        product_name="pH Perfect Sensi Grow A",
+        brand="Advanced Nutrients",
+        fertilizer_type=FertilizerType.BASE,
+        is_organic=False,
+        tank_safe=True,
+        recommended_application=ApplicationMethod.FERTIGATION,
+        npk_ratio=(3.0, 0.0, 0.0),
+        ec_contribution_per_ml=0.15,
+        mixing_priority=10,
+        ph_effect=PhEffect.NEUTRAL,
+        bioavailability=Bioavailability.IMMEDIATE,
+        notes="CalMag-Komponente (3% Ca). Immer zuerst hinzufügen, vor Part B.",
+    ),
+    Fertilizer(
+        product_name="pH Perfect Sensi Grow B",
+        brand="Advanced Nutrients",
+        fertilizer_type=FertilizerType.BASE,
+        is_organic=False,
+        tank_safe=True,
+        recommended_application=ApplicationMethod.FERTIGATION,
+        npk_ratio=(1.0, 2.0, 6.0),
+        ec_contribution_per_ml=0.15,
+        mixing_priority=20,
+        ph_effect=PhEffect.NEUTRAL,
+        bioavailability=Bioavailability.IMMEDIATE,
+        notes="PK-Komponente mit Schwefel (1.3% S). Nach Part A hinzufügen.",
+    ),
+    # ── Base Nutrients (Bloom Phase) ──────────────────────────────────────
+    Fertilizer(
+        product_name="pH Perfect Sensi Bloom A",
+        brand="Advanced Nutrients",
+        fertilizer_type=FertilizerType.BASE,
+        is_organic=False,
+        tank_safe=True,
+        recommended_application=ApplicationMethod.FERTIGATION,
+        npk_ratio=(3.0, 0.0, 0.0),
+        ec_contribution_per_ml=0.15,
+        mixing_priority=10,
+        ph_effect=PhEffect.NEUTRAL,
+        bioavailability=Bioavailability.IMMEDIATE,
+        notes="CalMag-Komponente für Blüte. Immer zuerst hinzufügen.",
+    ),
+    Fertilizer(
+        product_name="pH Perfect Sensi Bloom B",
+        brand="Advanced Nutrients",
+        fertilizer_type=FertilizerType.BASE,
+        is_organic=False,
+        tank_safe=True,
+        recommended_application=ApplicationMethod.FERTIGATION,
+        npk_ratio=(2.0, 4.0, 8.0),
+        ec_contribution_per_ml=0.20,
+        mixing_priority=20,
+        ph_effect=PhEffect.NEUTRAL,
+        bioavailability=Bioavailability.IMMEDIATE,
+        notes="Höherer PK-Anteil für Blütebildung. Nach Part A hinzufügen.",
+    ),
+    # ── Boosters ──────────────────────────────────────────────────────────
+    Fertilizer(
+        product_name="Big Bud",
+        brand="Advanced Nutrients",
+        fertilizer_type=FertilizerType.BOOSTER,
+        is_organic=False,
+        tank_safe=True,
+        recommended_application=ApplicationMethod.FERTIGATION,
+        npk_ratio=(0.0, 1.0, 3.0),
+        ec_contribution_per_ml=0.05,
+        mixing_priority=30,
+        ph_effect=PhEffect.NEUTRAL,
+        bioavailability=Bioavailability.IMMEDIATE,
+        notes="Bloom-Booster für größere, dichtere Blüten. Woche 2-4 der Blüte.",
+    ),
+    Fertilizer(
+        product_name="Overdrive",
+        brand="Advanced Nutrients",
+        fertilizer_type=FertilizerType.BOOSTER,
+        is_organic=False,
+        tank_safe=True,
+        recommended_application=ApplicationMethod.FERTIGATION,
+        npk_ratio=(1.0, 5.0, 4.0),
+        ec_contribution_per_ml=0.10,
+        mixing_priority=30,
+        ph_effect=PhEffect.NEUTRAL,
+        bioavailability=Bioavailability.IMMEDIATE,
+        notes="Spätblüte-Booster. Letzte 3 Wochen vor dem Flush.",
+    ),
+    # ── Supplements ───────────────────────────────────────────────────────
+    Fertilizer(
+        product_name="B-52",
+        brand="Advanced Nutrients",
+        fertilizer_type=FertilizerType.SUPPLEMENT,
+        is_organic=False,
+        tank_safe=True,
+        recommended_application=ApplicationMethod.FERTIGATION,
+        npk_ratio=(2.0, 1.0, 4.0),
+        ec_contribution_per_ml=0.05,
+        mixing_priority=40,
+        ph_effect=PhEffect.NEUTRAL,
+        bioavailability=Bioavailability.IMMEDIATE,
+        notes="B-Vitamin-Komplex + Kelp. Stärkt Photosynthese und Stressresistenz.",
+    ),
+    Fertilizer(
+        product_name="Bud Candy",
+        brand="Advanced Nutrients",
+        fertilizer_type=FertilizerType.SUPPLEMENT,
+        is_organic=False,
+        tank_safe=True,
+        recommended_application=ApplicationMethod.FERTIGATION,
+        npk_ratio=(0.0, 0.0, 0.0),
+        ec_contribution_per_ml=0.0,
+        mixing_priority=40,
+        ph_effect=PhEffect.NEUTRAL,
+        bioavailability=Bioavailability.IMMEDIATE,
+        notes="Kohlenhydrat-Supplement mit Magnesium. Verbessert Aroma und Blütengewicht.",
+    ),
+    Fertilizer(
+        product_name="Nirvana",
+        brand="Advanced Nutrients",
+        fertilizer_type=FertilizerType.ORGANIC,
+        is_organic=True,
+        tank_safe=True,
+        recommended_application=ApplicationMethod.FERTIGATION,
+        npk_ratio=(0.0, 0.0, 1.0),
+        ec_contribution_per_ml=0.01,
+        mixing_priority=40,
+        ph_effect=PhEffect.NEUTRAL,
+        bioavailability=Bioavailability.SLOW_RELEASE,
+        notes="Organischer Blüte-Supplement. Enthält Guano, Alfalfa und Humate.",
+    ),
+    Fertilizer(
+        product_name="Rhino Skin",
+        brand="Advanced Nutrients",
+        fertilizer_type=FertilizerType.SUPPLEMENT,
+        is_organic=False,
+        tank_safe=True,
+        recommended_application=ApplicationMethod.FERTIGATION,
+        npk_ratio=(0.0, 0.0, 0.0),
+        ec_contribution_per_ml=0.0,
+        mixing_priority=5,
+        ph_effect=PhEffect.ALKALINE,
+        bioavailability=Bioavailability.IMMEDIATE,
+        notes="Kaliumsilikat — stärkt Zellwände. VOR allen anderen Düngern hinzufügen!",
+    ),
+    # ── Biologicals ───────────────────────────────────────────────────────
+    Fertilizer(
+        product_name="Voodoo Juice",
+        brand="Advanced Nutrients",
+        fertilizer_type=FertilizerType.BIOLOGICAL,
+        is_organic=True,
+        tank_safe=False,
+        recommended_application=ApplicationMethod.DRENCH,
+        npk_ratio=(0.0, 0.0, 0.0),
+        ec_contribution_per_ml=0.0,
+        mixing_priority=50,
+        ph_effect=PhEffect.NEUTRAL,
+        bioavailability=Bioavailability.MICROBIAL_DEPENDENT,
+        notes="4 Bacillus-Stämme für Wurzelmasse. Woche 1-2 von Wachstum und Blüte.",
+    ),
+    Fertilizer(
+        product_name="Piranha",
+        brand="Advanced Nutrients",
+        fertilizer_type=FertilizerType.BIOLOGICAL,
+        is_organic=True,
+        tank_safe=False,
+        recommended_application=ApplicationMethod.DRENCH,
+        npk_ratio=(0.0, 0.0, 0.0),
+        ec_contribution_per_ml=0.0,
+        mixing_priority=50,
+        ph_effect=PhEffect.NEUTRAL,
+        bioavailability=Bioavailability.MICROBIAL_DEPENDENT,
+        notes="Mykorrhiza-Pilze für Nährstoffaufnahme. Woche 1-2.",
+    ),
+    Fertilizer(
+        product_name="Tarantula",
+        brand="Advanced Nutrients",
+        fertilizer_type=FertilizerType.BIOLOGICAL,
+        is_organic=True,
+        tank_safe=False,
+        recommended_application=ApplicationMethod.DRENCH,
+        npk_ratio=(0.0, 0.0, 0.0),
+        ec_contribution_per_ml=0.0,
+        mixing_priority=50,
+        ph_effect=PhEffect.NEUTRAL,
+        bioavailability=Bioavailability.MICROBIAL_DEPENDENT,
+        notes="10 Mio. CFU/g Bacillus + Streptomyces. Woche 1-2.",
+    ),
+]
+
+# ── Nutrient Plan: Advanced Nutrients pH Perfect Sensi — Cannabis ─────────────
+# Based on: https://www.advancednutrients.com/feeding/
+#           https://www.growbarato.net/blog/en/advanced-nutrients-feeding-chart/
+
+PLAN = NutrientPlan(
+    name="Advanced Nutrients pH Perfect Sensi — Cannabis",
+    description=(
+        "Vollständiges Düngeprogramm für Cannabis mit der pH Perfect Sensi-Serie "
+        "von Advanced Nutrients. Enthält Basis A+B, Booster (Big Bud, Overdrive), "
+        "Supplements (B-52, Bud Candy, Nirvana, Rhino Skin) und Biologicals "
+        "(Voodoo Juice, Piranha, Tarantula). Für Coco/Hydro optimiert."
+    ),
+    recommended_substrate_type=SubstrateType.COCO,
+    author="Advanced Nutrients",
+    is_template=True,
+    version="2025.1",
+    tags=["advanced-nutrients", "ph-perfect", "sensi", "cannabis", "coco", "hydro"],
+)
+
+
+def _build_phase_entries(
+    fert_keys: dict[str, str],
+) -> list[tuple[NutrientPlanPhaseEntry, list[FertilizerDosage]]]:
+    """Build phase entries with fertilizer dosages.
+
+    Returns (entry, dosages) tuples. Dosages reference fertilizer keys
+    obtained after creating the Fertilizer records.
+    """
+    grow_a = fert_keys["pH Perfect Sensi Grow A"]
+    grow_b = fert_keys["pH Perfect Sensi Grow B"]
+    bloom_a = fert_keys["pH Perfect Sensi Bloom A"]
+    bloom_b = fert_keys["pH Perfect Sensi Bloom B"]
+    big_bud = fert_keys["Big Bud"]
+    overdrive = fert_keys["Overdrive"]
+    b52 = fert_keys["B-52"]
+    bud_candy = fert_keys["Bud Candy"]
+    nirvana = fert_keys["Nirvana"]
+    rhino = fert_keys["Rhino Skin"]
+    voodoo = fert_keys["Voodoo Juice"]
+    piranha = fert_keys["Piranha"]
+    tarantula = fert_keys["Tarantula"]
+
+    return [
+        # ── 1. Keimung (Week 0–1) ────────────────────────────────────────
+        (
+            NutrientPlanPhaseEntry(
+                plan_key="",  # filled by caller
+                phase_name=PhaseName.GERMINATION,
+                sequence_order=1,
+                week_start=0,
+                week_end=1,
+                npk_ratio=(0.0, 0.0, 0.0),
+                target_ec_ms=0.2,
+                target_ph=6.2,
+                feeding_frequency_per_week=0,
+                volume_per_feeding_liters=0.0,
+                notes="Nur Wasser. Samen keimen in feuchtem Medium, kein Dünger.",
+            ),
+            [],
+        ),
+        # ── 2. Sämling (Week 1–3) ────────────────────────────────────────
+        (
+            NutrientPlanPhaseEntry(
+                plan_key="",
+                phase_name=PhaseName.SEEDLING,
+                sequence_order=2,
+                week_start=1,
+                week_end=3,
+                npk_ratio=(2.0, 1.0, 3.0),
+                target_ec_ms=0.6,
+                target_ph=5.9,
+                feeding_frequency_per_week=2,
+                volume_per_feeding_liters=0.3,
+                notes=(
+                    "¼ Dosis Sensi Grow. Voodoo Juice + Tarantula + Piranha "
+                    "für Wurzelaufbau. B-52 gegen Umpflanz-Stress."
+                ),
+            ),
+            [
+                FertilizerDosage(fertilizer_key=rhino, ml_per_liter=0.5),
+                FertilizerDosage(fertilizer_key=grow_a, ml_per_liter=1.0),
+                FertilizerDosage(fertilizer_key=grow_b, ml_per_liter=1.0),
+                FertilizerDosage(fertilizer_key=b52, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=voodoo, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=piranha, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=tarantula, ml_per_liter=2.0),
+            ],
+        ),
+        # ── 3. Vegetativ (Week 3–7) ──────────────────────────────────────
+        (
+            NutrientPlanPhaseEntry(
+                plan_key="",
+                phase_name=PhaseName.VEGETATIVE,
+                sequence_order=3,
+                week_start=3,
+                week_end=7,
+                npk_ratio=(4.0, 2.0, 6.0),
+                target_ec_ms=1.4,
+                target_ph=5.9,
+                feeding_frequency_per_week=3,
+                volume_per_feeding_liters=0.5,
+                notes=(
+                    "Volle Dosis Sensi Grow A+B. Rhino Skin für starke Stängel. "
+                    "B-52 durchgehend. Voodoo Juice in Woche 3-4."
+                ),
+            ),
+            [
+                FertilizerDosage(fertilizer_key=rhino, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=grow_a, ml_per_liter=4.0),
+                FertilizerDosage(fertilizer_key=grow_b, ml_per_liter=4.0),
+                FertilizerDosage(fertilizer_key=b52, ml_per_liter=2.0),
+                FertilizerDosage(
+                    fertilizer_key=voodoo, ml_per_liter=2.0, optional=True,
+                ),
+            ],
+        ),
+        # ── 4. Blüte — Früh (Week 7–10) ──────────────────────────────────
+        (
+            NutrientPlanPhaseEntry(
+                plan_key="",
+                phase_name=PhaseName.FLOWERING,
+                sequence_order=4,
+                week_start=7,
+                week_end=10,
+                npk_ratio=(5.0, 4.0, 8.0),
+                target_ec_ms=1.6,
+                target_ph=5.9,
+                calcium_ppm=200.0,
+                magnesium_ppm=60.0,
+                feeding_frequency_per_week=3,
+                volume_per_feeding_liters=0.8,
+                notes=(
+                    "Umstellung auf Sensi Bloom A+B. Big Bud für Blütenbildung. "
+                    "Bud Candy + Nirvana für Aroma. Voodoo Juice in Woche 7-8."
+                ),
+            ),
+            [
+                FertilizerDosage(fertilizer_key=rhino, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=bloom_a, ml_per_liter=4.0),
+                FertilizerDosage(fertilizer_key=bloom_b, ml_per_liter=4.0),
+                FertilizerDosage(fertilizer_key=big_bud, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=b52, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=bud_candy, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=nirvana, ml_per_liter=2.0),
+                FertilizerDosage(
+                    fertilizer_key=voodoo, ml_per_liter=2.0, optional=True,
+                ),
+            ],
+        ),
+        # ── 5. Blüte — Spät (Week 10–14) ─────────────────────────────────
+        (
+            NutrientPlanPhaseEntry(
+                plan_key="",
+                phase_name=PhaseName.FLOWERING,
+                sequence_order=5,
+                week_start=10,
+                week_end=14,
+                npk_ratio=(6.0, 9.0, 12.0),
+                target_ec_ms=1.8,
+                target_ph=5.9,
+                calcium_ppm=200.0,
+                magnesium_ppm=60.0,
+                feeding_frequency_per_week=3,
+                volume_per_feeding_liters=1.0,
+                notes=(
+                    "Overdrive ersetzt Big Bud für maximale Blütendichte. "
+                    "Sensi Bloom A+B volle Dosis. Bud Candy + Nirvana weiter."
+                ),
+            ),
+            [
+                FertilizerDosage(fertilizer_key=rhino, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=bloom_a, ml_per_liter=4.0),
+                FertilizerDosage(fertilizer_key=bloom_b, ml_per_liter=4.0),
+                FertilizerDosage(fertilizer_key=overdrive, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=b52, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=bud_candy, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=nirvana, ml_per_liter=2.0),
+            ],
+        ),
+        # ── 6. Ernte / Flush (Week 14–16) ────────────────────────────────
+        (
+            NutrientPlanPhaseEntry(
+                plan_key="",
+                phase_name=PhaseName.HARVEST,
+                sequence_order=6,
+                week_start=14,
+                week_end=16,
+                npk_ratio=(0.0, 0.0, 0.0),
+                target_ec_ms=0.0,
+                target_ph=6.0,
+                feeding_frequency_per_week=7,
+                volume_per_feeding_liters=1.0,
+                notes=(
+                    "10-14 Tage Flush mit reinem Wasser (Coco). "
+                    "Kein Dünger. Ziel: EC im Ablauf < 0.3 mS."
+                ),
+            ),
+            [],
+        ),
+    ]
+
+
+def run_seed_fertilizers() -> None:
+    """Create Advanced Nutrients products and the pH Perfect Sensi plan."""
+    fert_repo = get_fertilizer_repo()
+    plan_repo = get_nutrient_plan_repo()
+
+    # ── Create fertilizers ────────────────────────────────────────────────
+    fert_keys: dict[str, str] = {}
+    for fert in FERTILIZERS:
+        existing = fert_repo.get_all(offset=0, limit=1000)
+        found = next(
+            (f for f in existing if f.product_name == fert.product_name and f.brand == fert.brand),
+            None,
+        )
+        if found:
+            fert_keys[fert.product_name] = found.key or ""
+            logger.info("fertilizer_exists", name=fert.product_name)
+        else:
+            created = fert_repo.create(fert)
+            fert_keys[fert.product_name] = created.key or ""
+            logger.info("fertilizer_created", name=fert.product_name)
+
+    # ── Create nutrient plan ──────────────────────────────────────────────
+    existing_plans = plan_repo.get_all(offset=0, limit=100)
+    existing_plan = next((p for p in existing_plans if p.name == PLAN.name), None)
+
+    if existing_plan:
+        logger.info("plan_exists", name=PLAN.name)
+        return
+
+    created_plan = plan_repo.create(PLAN)
+    plan_key = created_plan.key or ""
+    logger.info("plan_created", name=PLAN.name, key=plan_key)
+
+    # ── Create phase entries with dosages ─────────────────────────────────
+    entries = _build_phase_entries(fert_keys)
+    for entry, dosages in entries:
+        entry.plan_key = plan_key
+        entry.fertilizer_dosages = dosages
+        created_entry = plan_repo.create_phase_entry(entry)
+        logger.info(
+            "phase_entry_created",
+            plan=PLAN.name,
+            phase=entry.phase_name,
+            week=f"{entry.week_start}-{entry.week_end}",
+            dosages=len(dosages),
+            key=created_entry.key,
+        )
+
+    logger.info("seed_fertilizers_complete", fertilizers=len(fert_keys), plan=PLAN.name)
+
+
+if __name__ == "__main__":
+    from app.config.logging import setup_logging
+
+    setup_logging()
+    from app.migrations.arango_setup import run_setup
+
+    run_setup()
+    run_seed_fertilizers()
