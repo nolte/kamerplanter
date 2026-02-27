@@ -573,8 +573,10 @@ class TaskTemplate(BaseModel):
         description="Empfohlene Tageszeit für optimale Ergebnisse. "
                     "morning: Stängel turgorreich, flexibel (ideal für LST/Supercropping). "
                     "afternoon/evening: Reduzierte Transpiration, Pflanze hat Nacht zur Erholung. "
-                    "lights_off: Für Foliar-Feeding (langsamere Verdunstung = höhere Aufnahme, "
-                    "kein Phototoxizitäts-Risiko bei Öl-Produkten wie Neem)."
+                    "lights_off: Für Foliar-Feeding — Gründe: (1) Stomata vieler Arten öffnen bei "
+                    "Dunkelheit (CAM) oder schließen bei hohem VPD/Licht, (2) niedrigerer VPD verlängert "
+                    "Benetzungsdauer und damit Aufnahmezeit, (3) langsamere Verdunstung = höhere Aufnahme, "
+                    "(4) kein Phototoxizitäts-Risiko bei Öl-Produkten (Neem, Paraffinöl)."
     )
 
     @field_validator('days_offset')

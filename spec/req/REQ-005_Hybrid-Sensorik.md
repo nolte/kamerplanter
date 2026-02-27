@@ -26,7 +26,7 @@ Das System implementiert einen Hybrid-Ansatz für Datenerfassung mit nahtloser D
 
 **Klima-Monitoring:**
 - Temperatur (°C) - Lufttemperatur und Blatttemperatur-Differenz
-- Blatttemperatur (°C) - Infrarot-Messung für Leaf-VPD (Leaf-VPD = f(leaf_temp, RH) ist präziser als Air-VPD; Blätter sind typisch 1-3°C kühler als Luft durch Transpiration)
+- Blatttemperatur (°C) - Infrarot-Messung für Leaf-VPD (Leaf-VPD = f(leaf_temp, RH) ist präziser als Air-VPD; Blätter sind typisch 1-3°C kühler als Luft durch Transpiration, abhängig von Transpirationsrate, Lichtintensität und Luftbewegung). Ohne IR-Sensor: konfigurierbarer Offset `leaf_temp_offset_c` pro Lichttyp (LED: -1°C, HPS: -3°C, Sonnenlicht: -2°C, Default: -2°C)
 - Luftfeuchte (%) - Relative Luftfeuchtigkeit
 - VPD (kPa) - Vapor Pressure Deficit (berechnet oder gemessen)
 - CO2-Konzentration (ppm) - Photosynthese-Optimierung

@@ -64,9 +64,11 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
   - **Salzgehalt:** 3-5% (höher als Sauerkraut durch Gochugaru/Fischsauce)
   - **Hinweis:** Kimchi erfordert anaerobe Bedingung, anderes Temperaturprofil als Sauerkraut
   
-- **Tabak:**
-  - **Fermentation in Ballen:** 6-12 Monate
-  - **Temperatur-kontrolliert:** Nicht über 55°C
+- **Tabak** (Anbau in Deutschland genehmigungspflichtig gemäß TabStG):
+  - **Air-Curing (Lufttrocknung):** 4-8 Wochen bei 15-30°C, 65-70% RH — Burley, Orientalischer
+  - **Flue-Curing (Heißlufttrocknung):** 5-7 Tage, Temp-Rampe 35→70°C — Virginia. Nur hier gilt 55°C als kritische Schwelle für enzymatische Prozesse
+  - **Fire-Curing (Rauchtrocknung):** 3-10 Tage, 30-50°C über offenem Feuer — Latakia, Dark-Fired
+  - **Nachfermentation in Ballen:** 6-12 Monate bei kontrollierter Temperatur (max. 55°C nur bei Flue-Cured)
 
 **3. Aging/Reifung:**
 - **Kürbis/Squash:**
@@ -74,7 +76,10 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
   - **Verbessert:** Geschmack, Textur, Lagerfähigkeit
   
 - **Tomaten (grün geerntet):**
-  - **Ethylen-Management:** Mit reifen Äpfeln lagern
+  - **Ethylen-Management:**
+    - **Professionell:** Kontrollierte Ethylen-Begasung (0.1-1 ppm) bei 18-21°C, 85-90% RH
+    - **Hobby:** Mit reifen Äpfeln/Bananen in geschlossener Papiertüte lagern (unkontrolliert, aber effektiv)
+    - **ACHTUNG:** Ethylen-empfindliche Produkte (Salat, Gurke, Brokkoli, Kräuter) NICHT zusammen mit Ethylen-Produzenten (Tomate, Apfel, Banane) lagern — beschleunigt Vergilbung, Bitterkeit und Verderb
   - **Nachreife:** 1-3 Wochen bei 18-21°C
   
 - **Wein/Käse (optional):**
@@ -1309,14 +1314,25 @@ class BurpingEvent(BaseModel):
     @field_validator('jar_rh_after')
     @classmethod
     def validate_rh_change(cls, v, info):
+        """
+        RH kann nach Burping steigen ODER fallen — Richtung hängt vom
+        VPD-Gradienten zwischen Jar und Umgebung ab. Burping tauscht
+        Luft aus, die Feuchtigkeitsrichtung ist nicht vorhersagbar
+        ohne Kenntnis der Umgebungs-RH.
+        """
         rh_before = info.data.get('jar_rh_before')
         ambient = info.data.get('ambient_rh')
         if rh_before and v:
-            if v > rh_before and (ambient is None or ambient < rh_before):
-                raise ValueError(
-                    "RH-Anstieg nach Burping nur plausibel wenn Umgebungs-RH "
-                    f"höher als Jar-RH ({rh_before}%) ist"
-                )
+            if v > rh_before:
+                if ambient is not None and ambient < rh_before:
+                    import warnings
+                    warnings.warn(
+                        f"RH-Anstieg ({rh_before}% → {v}%) bei niedriger Umgebungs-RH "
+                        f"({ambient}%) — ungewöhnlich. Mögliche Ursache: Messfehler, "
+                        f"Nachverdunstung aus feuchtem Material, oder Sensor-Drift.",
+                        stacklevel=2,
+                    )
+                # Wenn ambient unbekannt: kein Fehler, da Richtung nicht vorhersagbar
         return v
 ```
 

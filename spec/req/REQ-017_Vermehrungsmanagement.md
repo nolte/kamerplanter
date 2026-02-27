@@ -29,7 +29,7 @@ Jede `PlantInstance` kann als Mutterpflanze designiert werden. Die Designation i
 - **Gesundheitsbewertung:** Periodischer Health-Score (0–100) basierend auf Vitalität, Schädlingsfreiheit und Wuchsform
 - **Stecklingshistorie:** Wann, wie viele, Erfolgsrate pro Entnahme
 - **Erholungszeit:** Mindestens N Tage zwischen Stecklingsentnahmen (spezies-abhängig, konfigurierbar)
-- **Generationszähler:** Wie viele Generationen von Klonen bereits existieren (somatische Mutationslast-Warnung ab Generation 10+, konfigurierbar)
+- **Generationszähler:** Klonale Generation — zählt vegetative Vermehrungszyklen (somatische Mutationslast-Warnung ab Generation 10+, konfigurierbar). Bei Aussaat (generative Vermehrung) wird die klonale Generation zurückgesetzt (neuer Genotyp)
 - **Retirement-Kriterien:** Automatische Warnung bei abnehmender Vitalität, hohem Alter oder sinkender Bewurzelungsrate
 - **Erhaltungsprioritäten:** Mutterpflanzen können als `critical` (einzige Quelle einer Genetik), `important` oder `standard` markiert werden
 
@@ -151,6 +151,7 @@ Das System prüft die Veredelungskompatibilität mehrstufig:
 descended_from:       plant_instances → plant_instances           // Kind → Elternteil (gerichtet)
                       {relationship: Literal['clone', 'seed_mother', 'seed_father', 'rootstock', 'scion', 'division'],
                        generation: int,
+                       generation_type: Literal['clonal', 'filial'],  // clonal = vegetativ (Mutationslast), filial = generativ (F1/F2)
                        propagation_event_key: str}
 
 # Vermehrungsevent-Verknüpfungen
@@ -561,7 +562,9 @@ class MotherPlantConfig(BaseModel):
     mother_recovery_days: int = Field(default=14, ge=1, le=90,
         description="Mindestens N Tage Erholung zwischen Stecklingsentnahmen")
     mother_generation: int = Field(default=0, ge=0,
-        description="Generation in der Klonlinie (0 = Sämling/Ur-Mutter)")
+        description="Klonale Generation (0 = Sämling/Ur-Mutter). Zählt nur vegetative "
+                    "Vermehrungszyklen. Generative Vermehrung (Aussaat) setzt auf 0 zurück "
+                    "(neuer Genotyp, keine akkumulierte somatische Mutationslast).")
     mother_designated_at: Optional[datetime] = None
     mother_retired_at: Optional[datetime] = None
     mother_retire_reason: Optional[str] = None
@@ -813,17 +816,31 @@ class PropagationEngine:
         self,
         mother_generation: int,
         method: str,
-    ) -> int:
-        """Berechnet die Generation der Nachkommen."""
+    ) -> tuple[int, str]:
+        """
+        Berechnet die Generation der Nachkommen.
+
+        Vegetative Vermehrung (clone, division, etc.): Inkrementiert die
+        Klongeneration — zählt Vermehrungszyklen für somatische Mutationslast.
+        Gleicher Genotyp wie Mutter.
+
+        Generative Vermehrung (seed_sowing): Setzt auf F1 (filial generation 1)
+        zurück — neuer Genotyp durch Rekombination. Nicht vergleichbar mit
+        klonaler Generationszählung.
+
+        Returns:
+            (generation, generation_type) — generation_type ist 'clonal' oder 'filial'
+        """
         if method in ('cutting', 'division', 'layering', 'tissue_culture'):
-            return mother_generation + 1
+            return mother_generation + 1, 'clonal'
         elif method == 'seed_sowing':
-            # Samen = neue Generation (F1, F2, ...)
-            return mother_generation + 1
+            # Generative Vermehrung: F1-Generation (neuer Genotyp)
+            # Klonale Mutationslast wird zurückgesetzt
+            return 1, 'filial'
         elif method == 'grafting':
             # Edelreis behält seine Generation, Unterlage zählt nicht
-            return mother_generation
-        return mother_generation + 1
+            return mother_generation, 'clonal'
+        return mother_generation + 1, 'clonal'
 
     def check_graft_compatibility(
         self,

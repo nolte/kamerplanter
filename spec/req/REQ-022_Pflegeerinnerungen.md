@@ -40,11 +40,11 @@ Vordefinierte Pflegeprofile für typische Zimmerpflanzen-Kategorien:
 | `tropical` | 7 Tage | 1.5× (→ 10–11 Tage) | 14 Tage (Mär–Okt) | 18 Monate | 14 Tage | Monstera, Philodendron, Ficus |
 | `succulent` | 14 Tage | 2.5× (→ 35 Tage) | 30 Tage (Apr–Sep) | 24 Monate | 21 Tage | Echeveria, Haworthia, Aloe |
 | `orchid` | 7 Tage (Tauchbad) | 1.5× (→ 10–11 Tage) | 14 Tage (Mär–Okt) | 24 Monate | 14 Tage | Phalaenopsis, Dendrobium |
-| `calathea` | 5 Tage | 1.3× (→ 6–7 Tage) | 14 Tage (Mär–Sep) | 12 Monate | 7 Tage | Calathea, Maranta, Ctenanthe |
+| `calathea` | 5 Tage | 1.3× (→ 6–7 Tage) | 14 Tage (Mär–Sep) | 18 Monate | 7 Tage | Calathea, Maranta, Ctenanthe |
 | `herb_tropical` | 3 Tage | 1.5× (→ 4–5 Tage) | 21 Tage (Mär–Okt) | 12 Monate | 14 Tage | Basilikum, Minze, Koriander |
 | `mediterranean` | 10 Tage | 2.0× (→ 20 Tage) | 30 Tage (Apr–Sep) | 24 Monate | 21 Tage | Rosmarin, Lavendel, Thymian, Salbei |
 | `fern` | 4 Tage | 1.3× (→ 5–6 Tage) | 21 Tage (Mär–Okt) | 12 Monate | 14 Tage | Nephrolepis, Adiantum, Asplenium |
-| `cactus` | 21 Tage | 3.0× (→ 63 Tage) | 30 Tage (Mai–Aug) | 36 Monate | 30 Tage | Kakteen, Lithops |
+| `cactus` | 21 Tage | 3.0× (→ 63 Tage) | 30 Tage (Mai–Aug) | 36 Monate | 30 Tage | Kakteen (Cactaceae). **Nicht** für Lithops/Mesembs (Aizoaceae) — deren Gießrhythmus erfordert gattungsspezifische Logik (Schrumpfphase Feb–Mai = 0 Wasser) |
 | `custom` | Frei konfigurierbar | Frei konfigurierbar | Frei konfigurierbar | Frei konfigurierbar | — | — |
 
 **Biologische Begründung der Preset-Werte:**
@@ -315,7 +315,7 @@ CARE_STYLE_PRESETS: dict[str, dict] = {
         'winter_watering_multiplier': 1.3,
         'fertilizing_interval_days': 14,
         'fertilizing_active_months': [3, 4, 5, 6, 7, 8, 9],
-        'repotting_interval_months': 12,
+        'repotting_interval_months': 18,  # Calathea/Maranten sind langsam wachsend und wurzelstörungsempfindlich
         'pest_check_interval_days': 7,
     },
     'herb_tropical': {
