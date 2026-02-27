@@ -2,6 +2,7 @@
 
 **Erstellt von:** Agrarbiologie-Experte (Subagent)
 **Datum:** 2026-02-27
+**Aktualisiert:** 2026-02-27 (F-003 als behoben markiert nach Konsistenz-Korrektur)
 **Fokus:** Zimmerpflanzen, Indoor-Anbau, Pflegeintervall-Biologie
 **Analysiertes Dokument:** `spec/req/REQ-022_Pflegeerinnerungen.md` (v1.0)
 **Kontext-Dokumente:** REQ-001, REQ-003, REQ-006, REQ-020
@@ -19,7 +20,7 @@
 | Praktische Umsetzbarkeit | 4/5 | Technisch solide; Adaptive Learning hat ein konzeptionelles Risiko |
 | Biologische Sicherheit | 3/5 | Adaptive Learning und fehlende Saisonanpassung beim Giessen koennen zu Pflanzenschaeden fuehren |
 
-**Gesamteinschaetzung:** REQ-022 ist eine durchdachte Spezifikation, die das komplexe Thema Zimmerpflanzenpflege auf ein benutzerfreundliches Erinnerungssystem reduziert. Die biologischen Begruendungen sind groesstenteils korrekt und zeigen echtes Domaenenwissen. Es gibt jedoch drei kritische Luecken: (1) Die festen Giessintervalle ignorieren den dominanten Einfluss von Jahreszeit, Substrat und Topfgroesse auf den tatsaechlichen Wasserbedarf. (2) Das Adaptive Learning hat keine Untergrenze, die biologisch sichere Mindest-Giessfrequenzen garantiert. (3) Die DORMANCY_PHASES sind nicht mit den in REQ-020 definierten Zimmerpflanzen-Phasen (`maintenance`, `acclimatization`, `repotting_recovery`) abgeglichen.
+**Gesamteinschaetzung:** REQ-022 ist eine durchdachte Spezifikation, die das komplexe Thema Zimmerpflanzenpflege auf ein benutzerfreundliches Erinnerungssystem reduziert. Die biologischen Begruendungen sind groesstenteils korrekt und zeigen echtes Domaenenwissen. Es gibt jedoch zwei kritische Luecken: (1) Die festen Giessintervalle ignorieren den dominanten Einfluss von Jahreszeit, Substrat und Topfgroesse auf den tatsaechlichen Wasserbedarf. (2) Das Adaptive Learning hat keine Untergrenze, die biologisch sichere Mindest-Giessfrequenzen garantiert. ~~(3) Die DORMANCY_PHASES sind nicht mit den in REQ-020 definierten Zimmerpflanzen-Phasen abgeglichen.~~ **(3) BEHOBEN:** DORMANCY_PHASES in REQ-022 enthaelt jetzt `maintenance`, `acclimatization`, `repotting_recovery`. Zusaetzlich wurde REQ-003 PhaseType um die Zimmerpflanzen-Phasen erweitert.
 
 ---
 
@@ -144,20 +145,26 @@ Die Spezifikation loest dieses Problem derzeit nur ueber Adaptive Learning, was 
 
 Die Aktivmonate sind insgesamt gut gewaehlt und zeigen eine sinnvolle Differenzierung zwischen den Presets.
 
-### 3.2 Dormanz-Phasen
+### 3.2 Dormanz-Phasen — BEHOBEN
 
-Die `DORMANCY_PHASES = frozenset(['dormancy', 'dormant', 'senescence', 'hardening_off'])` werden als Duenge-Sperre verwendet.
+~~Die `DORMANCY_PHASES = frozenset(['dormancy', 'dormant', 'senescence', 'hardening_off'])` werden als Duenge-Sperre verwendet.~~
 
-**Problem:** Die in REQ-020 definierten Zimmerpflanzen-spezifischen Phasen fehlen vollstaendig:
+**Status: BEHOBEN.** Die DORMANCY_PHASES in REQ-022 enthalten jetzt alle relevanten Phasen:
+- `dormancy` — Winterruhe (REQ-003)
+- `senescence` — Alterungsphase (REQ-003)
+- `hardening_off` — Abhaertung (REQ-003, jetzt auch im PhaseType-Literal)
+- `maintenance` — Winter-Erhaltungspflege bei Zimmerpflanzen (REQ-020)
+- `acclimatization` — Eingewoehnung nach Kauf/Transport (REQ-020)
+- `repotting_recovery` — Erholung nach Umtopfen (REQ-020)
+
+Zusaetzlich wurde REQ-003 `PhaseType` um alle Zimmerpflanzen-Phasen (`acclimatization`, `active_growth`, `maintenance`, `repotting_recovery`) und `hardening_off` erweitert.
 
 | Phase (REQ-020) | In DORMANCY_PHASES? | Sollte Duengung blockiert werden? |
 |-----------------|--------------------|---------------------------------|
-| `maintenance` | NEIN | JA -- entspricht der Winterruhe bei Zimmerpflanzen |
-| `acclimatization` | NEIN | JA -- Pflanze nach Kauf/Umtopfen nicht duengen |
-| `repotting_recovery` | NEIN | JA -- frisches Substrat enthaelt Depotduenger; zusaetzliche Duengung kann Wurzeln verbrennen |
+| `maintenance` | JA | JA -- entspricht der Winterruhe bei Zimmerpflanzen |
+| `acclimatization` | JA | JA -- Pflanze nach Kauf/Umtopfen nicht duengen |
+| `repotting_recovery` | JA | JA -- frisches Substrat enthaelt Depotduenger; zusaetzliche Duengung kann Wurzeln verbrennen |
 | `active_growth` | NEIN | NEIN -- korrekt, in dieser Phase wird geduengt |
-
-Dies ist ein funktionaler Fehler: Wenn ein Nutzer ueber das Zimmerpflanzen-Starter-Kit (REQ-020) eine Pflanze anlegt, die sich in der `maintenance`-Phase befindet (Winter-Verlangsamung), wird trotzdem eine Duenge-Erinnerung generiert -- solange der Monat innerhalb der Aktivmonate liegt.
 
 ### 3.3 Biologische Begruendung des Duenge-Guards
 
@@ -249,16 +256,9 @@ Grundsaetzlich ja, aber mit Einschraenkungen:
 **Korrekte Formulierung:** Entweder (a) Preset aufteilen in `herb_moisture` (Basilikum, Minze, Petersilie: 3 Tage) und `herb_mediterranean` / `mediterranean` (Rosmarin, Thymian, Salbei: 10 Tage) oder (b) in der Mapping-Logik `get_or_create_profile` die Species-Herkunft (native_habitat: "Mediterranean") beruecksichtigen und automatisch den korrekten Preset zuweisen.
 **Gilt fuer Anbaukontext:** Zimmerpflanzen
 
-### F-003: DORMANCY_PHASES nicht mit REQ-020 Zimmerpflanzen-Phasen abgeglichen (KRITISCH)
+### ~~F-003: DORMANCY_PHASES nicht mit REQ-020 Zimmerpflanzen-Phasen abgeglichen~~ — BEHOBEN
 
-**Anforderung:** `DORMANCY_PHASES = frozenset(['dormancy', 'dormant', 'senescence', 'hardening_off'])` (`REQ-022_Pflegeerinnerungen.md`, Zeile ~296)
-**Problem:** REQ-020 definiert fuer Zimmerpflanzen die Phasen `maintenance` (Winter-Verlangsamung), `acclimatization` (Eingewoehnung nach Kauf) und `repotting_recovery` (Erholung nach Umtopfen). In allen drei Phasen sollte NICHT geduengt werden:
-- `maintenance`: Pflanze ist im reduzierten Stoffwechsel, Duengung fuehrt zu Salzakkumulation
-- `acclimatization`: Pflanze ist gestresst, Wurzeln geschaedigt/noch nicht etabliert
-- `repotting_recovery`: Frisches Substrat enthaelt Depotduenger, Wurzeln sind beschaedigt
-**Korrekte Formulierung:** `DORMANCY_PHASES = frozenset(['dormancy', 'dormant', 'senescence', 'hardening_off', 'maintenance', 'acclimatization', 'repotting_recovery'])`
--- oder besser: Variable umbenennen in `NO_FERTILIZING_PHASES`, da es nicht nur um Dormanz geht.
-**Gilt fuer Anbaukontext:** Zimmerpflanzen
+**Status: BEHOBEN.** DORMANCY_PHASES in REQ-022 enthaelt jetzt `maintenance`, `acclimatization`, `repotting_recovery`. REQ-003 PhaseType wurde um alle Zimmerpflanzen-Phasen erweitert. Der Vorschlag zur Umbenennung in `NO_FERTILIZING_PHASES` bleibt als optionale Verbesserung bestehen.
 
 ### F-004: Lithops als Beispiel im Cactus-Preset (FEHLER)
 
@@ -417,7 +417,7 @@ Falls REQ-005 (Hybrid-Sensorik) implementiert wird, sollten Bodenfeuchte-Sensord
 
 ### Prioritaet 1 (vor Implementierung beheben)
 
-1. **F-003: DORMANCY_PHASES erweitern** um `maintenance`, `acclimatization`, `repotting_recovery` -- funktionaler Bug, der zu falschen Duenge-Erinnerungen fuehrt
+1. ~~**F-003: DORMANCY_PHASES erweitern**~~ — **BEHOBEN** (DORMANCY_PHASES und REQ-003 PhaseType korrigiert)
 2. **F-001: Saisonale Giessintervalle** einfuehren (mindestens `winter_watering_multiplier`) -- verhindert die haeufigste Zimmerpflanzen-Todesursache (Ueberwaaesserung im Winter)
 3. **F-002: Herb-Preset aufteilen** oder Mediterranean-Preset ergaenzen -- 3-Tage-Giessintervall ist fuer Rosmarin/Thymian/Salbei schaedlich
 
