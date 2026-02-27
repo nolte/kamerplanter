@@ -422,7 +422,7 @@ Nur explizit definierte Felder aus dem `ErrorResponse`-Schema (Abschnitt 2.1) d�
 
 | Verboten | Beispiel (DARF NICHT erscheinen) | Begründung |
 |---|---|---|
-| Programmiersprache / Version | `Python 3.12`, `CPython` | Ermöglicht gezielte Exploit-Suche |
+| Programmiersprache / Version | `Python 3.14`, `CPython` | Ermöglicht gezielte Exploit-Suche |
 | Framework-Name / Version | `FastAPI 0.115`, `Pydantic v2`, `uvicorn` | Bekannte CVEs gezielt ausnutzbar |
 | Library-/Paketversionen | `python-arango 8.1.0`, `celery 5.4` | Supply-Chain-Angriffe |
 | Interne Klassennamen | `ArangoSpeciesRepository`, `PhaseTransitionEngine` | Codestruktur offengelegt |

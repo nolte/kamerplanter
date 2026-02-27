@@ -3,7 +3,7 @@ ID: TECH-STACK-001
 Titel: Technologie-Stack & Architektur-Entscheidungen 
 Kategorie: Architektur / Infrastructure 
 Fokus: Beides 
-Technologie: Python 3.12, FastAPI, ArangoDB, Kubernetes, Helm
+Technologie: Python 3.14, FastAPI, ArangoDB, Kubernetes, Helm
 Status: Produktionsreif Priorität: Kritisch
 ---
 
@@ -56,7 +56,7 @@ Status: Produktionsreif Priorität: Kritisch
 #### FastAPI (Primary)
 
 - **Version**: >= 0.115.0
-- **Python Version**: >= 3.12
+- **Python Version**: >= 3.14
 - **Begründung**:
     - Automatische OpenAPI-Dokumentation
     - Native async/await Support
@@ -106,7 +106,7 @@ app.add_middleware(
 )
 ```
 
-### 2.2 Python 3.12 Features & Vorteile
+### 2.2 Python 3.14 Features & Vorteile
 
 #### Neue Features für Agrotech
 
@@ -161,17 +161,17 @@ class PlantRepository(Repository[Plant]):
 # Alte Fehlermeldung (3.11):
 # TypeError: 'int' object is not subscriptable
 
-# Neue Fehlermeldung (3.12):
+# Neue Fehlermeldung (3.14):
 # TypeError: 'int' object is not subscriptable
 #   Did you mean to use '[]' with a list or dict instead?
 #   Note: gdd_accumulated is of type int (line 42)
 ```
 
-#### Dockerfile für Python 3.12
+#### Dockerfile für Python 3.14
 
 ```dockerfile
 # backend/Dockerfile
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /build
 
@@ -187,7 +187,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Runtime Stage
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 # Non-root User
 RUN useradd -m -u 1000 -s /bin/bash appuser
@@ -1686,7 +1686,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.14'
       
       - name: Install dependencies
         run: |
@@ -2027,15 +2027,15 @@ spec:
 
 ### 8.1 Python Development
 
-#### Python 3.12 Installation
+#### Python 3.14 Installation
 
 ```bash
 # Über pyenv (empfohlen)
-pyenv install 3.12
-pyenv local 3.12
+pyenv install 3.14
+pyenv local 3.14
 
 # Oder via Docker
-docker run -it python:3.12-slim bash
+docker run -it python:3.14-slim bash
 ```
 
 #### Requirements Management
@@ -2174,7 +2174,7 @@ TOTAL: ~€40/Monat + €900 Initial
 
 |Anforderung|Technologie|Alternativen|Begründung|
 |---|---|---|---|
-|**Python Version**|3.12|3.13, 3.14|Stabil, breite Library-Kompatibilitaet|
+|**Python Version**|3.14|3.15|Stabil, breite Library-Kompatibilitaet|
 |**Backend Framework**|FastAPI|Django, Flask|Async, Auto-Docs, Type-Safety|
 |**API Standard**|REST|GraphQL|Einfachheit, Cache-freundlich|
 |**Multi-Model DB**|ArangoDB|Neo4j+Mongo|Ein System für Graphs+Docs|

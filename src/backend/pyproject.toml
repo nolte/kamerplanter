@@ -2,7 +2,7 @@
 name = "kamerplanter-backend"
 version = "1.0.0"
 description = "Kamerplanter agricultural management system backend"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
@@ -28,7 +28,7 @@ dev = [
 ]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py314"
 line-length = 120
 
 [tool.ruff.lint]
@@ -36,7 +36,7 @@ select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]
 ignore = ["B008"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
@@ -48,7 +48,7 @@ asyncio_mode = "auto"
 
 [tool.black]
 line-length = 120
-target-version = ["py312"]
+target-version = ["py314"]
 
 [build-system]
 requires = ["setuptools>=75.0"]

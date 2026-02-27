@@ -63,7 +63,7 @@ These constraints are documented across multiple files and must be respected whe
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Python 3.12+, FastAPI >= 0.115, Celery >= 5.4 |
+| Backend | Python 3.14+, FastAPI >= 0.115, Celery >= 5.4 |
 | Frontend | React 19, TypeScript 5.9, Redux Toolkit, MUI 7, Vite 6, react-router-dom v7 |
 | Mobile | Flutter 3.16+ (not yet implemented) |
 | Primary DB | ArangoDB 3.11+ (multi-model) |

@@ -8,7 +8,7 @@ Kurzreferenz der effektivsten Prompts fuer das Kamerplanter-Projekt.
 
 ### Tech-Stack Konformitaet
 
-> Stelle sicher, dass sich der Full-Stack-Entwickler Agent strikt an den in `spec/stack.md` definierten Technologie-Stack haelt (Python 3.12+, FastAPI, ArangoDB, React 18, TypeScript, MUI, Redux Toolkit).
+> Stelle sicher, dass sich der Full-Stack-Entwickler Agent strikt an den in `spec/stack.md` definierten Technologie-Stack haelt (Python 3.14+, FastAPI, ArangoDB, React 18, TypeScript, MUI, Redux Toolkit).
 
 ### Architektur-Einhaltung
 
