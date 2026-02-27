@@ -30,17 +30,23 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 
 ---
 
-### 📍 REQ-002: Standort & Substrat (41 KB)
-**Fokus:** Räumliche Verwaltung, Substrat-Management, Fruchtfolge-Engine
+### 📍 REQ-002: Standortverwaltung
+**Fokus:** Räumliche Verwaltung, Fruchtfolge-Engine, Hydro-Monitoring
 - Rekursive Hierarchie: Site → Location (beliebig tief) → Slot
 - Indoor (Growzelte) + Outdoor (Beete) + Hydro-Systeme
-- Substrat-Recycling-Tracker mit Aufbereitungs-Anleitung
+- LocationType-Stammdaten (CRUD, 10 Seed-Einträge)
 - ArangoDB Geo-Indizes für GPS-basierte Standorte
 
 **Highlights:**
 - Hydro-spezifisches Monitoring (NFT, DWC, Aeroponik)
-- Reservoir-Management mit Nährlösungs-Wechsel-Scheduler
 - Nachbarschafts-Graph für Mischkultur-Analysen
+- Lichtzeiten-Verwaltung mit SunCalculator
+
+### 🪴 REQ-019: Substratverwaltung
+**Fokus:** Substrat-Definitionen, Chargen-Tracking, Wiederverwendung
+- Substrat-Typen: Erde, Coco, Steinwolle, Living Soil, Hydro
+- Batch-Tracking mit pH/EC-Verlauf über Anbauzyklen
+- Wiederverwendbarkeits-Check und Aufbereitungs-Anleitungen
 
 ---
 
@@ -332,7 +338,8 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 
 **Vollständigkeits-Matrix:**
 - ✅ REQ-001: Stammdatenverwaltung (35 KB)
-- ✅ REQ-002: Standort & Substrat (41 KB)
+- ✅ REQ-002: Standortverwaltung
+- ✅ REQ-019: Substratverwaltung
 - ✅ REQ-003: Phasensteuerung (21 KB)
 - ✅ REQ-004: Dünge-Logik (57 KB)
 - ✅ REQ-005: Hybrid-Sensorik (45 KB)

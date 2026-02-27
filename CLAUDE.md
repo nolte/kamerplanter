@@ -22,7 +22,7 @@ Documentation is written in **German**; source code must be in **English only** 
 | REQ | Title | Category |
 |-----|-------|----------|
 | REQ-001 | Stammdatenverwaltung | Stammdaten |
-| REQ-002 | Standort & Substrat | Standorte |
+| REQ-002 | Standortverwaltung | Standorte |
 | REQ-003 | Phasensteuerung | Wachstumslogik |
 | REQ-004 | Dünge-Logik | Bewässerung & Düngung |
 | REQ-005 | Hybrid-Sensorik | Monitoring |
@@ -39,6 +39,7 @@ Documentation is written in **German**; source code must be in **English only** 
 | REQ-016 | InvenTree-Integration (optional) | Integration |
 | REQ-017 | Vermehrungsmanagement | Pflanzenvermehrung |
 | REQ-018 | Umgebungssteuerung & Aktorik | Automatisierung |
+| REQ-019 | Substratverwaltung | Infrastruktur |
 
 ## Key Architectural Decisions
 
