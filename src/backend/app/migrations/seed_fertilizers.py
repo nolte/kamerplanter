@@ -1,4 +1,4 @@
-"""Seed database with fertilizer products and a cannabis nutrient plan."""
+"""Seed database with fertilizer products and cannabis nutrient plans."""
 
 import structlog
 
@@ -540,8 +540,235 @@ def _build_phase_entries(
     ]
 
 
+# ── Nutrient Plan: Advanced Nutrients pH Perfect GMB — Cannabis ────────────────
+# Based on: https://www.advancednutrients.com/de/products/ph-perfect-grow-micro-bloom/
+#           https://www.advancednutrients.com/feeding/
+
+GMB_PLAN = NutrientPlan(
+    name="Advanced Nutrients pH Perfect GMB — Cannabis",
+    description=(
+        "Vollständiges Düngeprogramm für Cannabis mit der pH Perfect "
+        "Grow-Micro-Bloom 3-Part-Serie von Advanced Nutrients. "
+        "Enthält Basis Micro+Grow+Bloom, Booster (Big Bud, Overdrive), "
+        "Supplements (B-52, Bud Candy, Nirvana, Rhino Skin) und Biologicals "
+        "(Voodoo Juice, Piranha, Tarantula). Ergänzt durch H&G Drip Clean "
+        "(Systemreiniger) und Bio Nova Free Flow (Enzympräparat). "
+        "Für Coco/Hydro optimiert."
+    ),
+    recommended_substrate_type=SubstrateType.COCO,
+    author="Advanced Nutrients",
+    is_template=True,
+    version="2025.1",
+    tags=["advanced-nutrients", "ph-perfect", "gmb", "3-part", "cannabis", "coco", "hydro"],
+)
+
+
+def _build_gmb_phase_entries(
+    fert_keys: dict[str, str],
+) -> list[tuple[NutrientPlanPhaseEntry, list[FertilizerDosage]]]:
+    """Build phase entries for the GMB 3-part plan.
+
+    Same supplements/boosters/biologicals as the Sensi plan,
+    but with Micro → Grow → Bloom as base nutrients.
+    """
+    micro = fert_keys["pH Perfect Micro"]
+    grow = fert_keys["pH Perfect Grow"]
+    bloom = fert_keys["pH Perfect Bloom"]
+    big_bud = fert_keys["Big Bud"]
+    overdrive = fert_keys["Overdrive"]
+    b52 = fert_keys["B-52"]
+    bud_candy = fert_keys["Bud Candy"]
+    nirvana = fert_keys["Nirvana"]
+    rhino = fert_keys["Rhino Skin"]
+    voodoo = fert_keys["Voodoo Juice"]
+    piranha = fert_keys["Piranha"]
+    tarantula = fert_keys["Tarantula"]
+    drip_clean = fert_keys["Drip Clean"]
+    free_flow = fert_keys["Free Flow"]
+
+    return [
+        # ── 1. Keimung (Week 1–2) ──────────────────────────────────────────
+        (
+            NutrientPlanPhaseEntry(
+                plan_key="",
+                phase_name=PhaseName.GERMINATION,
+                sequence_order=1,
+                week_start=1,
+                week_end=2,
+                npk_ratio=(0.0, 0.0, 0.0),
+                target_ec_ms=0.2,
+                target_ph=6.2,
+                feeding_frequency_per_week=1,
+                notes="Nur Wasser. Samen keimen in feuchtem Medium, kein Dünger.",
+            ),
+            [],
+        ),
+        # ── 2. Sämling (Week 2–4) ──────────────────────────────────────────
+        (
+            NutrientPlanPhaseEntry(
+                plan_key="",
+                phase_name=PhaseName.SEEDLING,
+                sequence_order=2,
+                week_start=2,
+                week_end=4,
+                npk_ratio=(1.3, 1.0, 2.7),
+                target_ec_ms=0.6,
+                target_ph=5.9,
+                feeding_frequency_per_week=2,
+                volume_per_feeding_liters=0.3,
+                notes=(
+                    "¼ Dosis GMB (je 1 ml/L). Micro zuerst, dann Grow, dann Bloom. "
+                    "Voodoo Juice + Tarantula + Piranha für Wurzelaufbau. "
+                    "B-52 gegen Umpflanz-Stress."
+                ),
+            ),
+            [
+                FertilizerDosage(fertilizer_key=rhino, ml_per_liter=0.5),
+                FertilizerDosage(fertilizer_key=drip_clean, ml_per_liter=0.1),
+                FertilizerDosage(fertilizer_key=micro, ml_per_liter=1.0),
+                FertilizerDosage(fertilizer_key=grow, ml_per_liter=1.0),
+                FertilizerDosage(fertilizer_key=bloom, ml_per_liter=1.0),
+                FertilizerDosage(fertilizer_key=b52, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=voodoo, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=piranha, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=tarantula, ml_per_liter=2.0),
+                FertilizerDosage(
+                    fertilizer_key=free_flow, ml_per_liter=0.5, optional=True,
+                ),
+            ],
+        ),
+        # ── 3. Vegetativ (Week 4–8) ────────────────────────────────────────
+        (
+            NutrientPlanPhaseEntry(
+                plan_key="",
+                phase_name=PhaseName.VEGETATIVE,
+                sequence_order=3,
+                week_start=4,
+                week_end=8,
+                npk_ratio=(4.0, 3.0, 8.0),
+                target_ec_ms=1.4,
+                target_ph=5.9,
+                feeding_frequency_per_week=3,
+                volume_per_feeding_liters=0.5,
+                notes=(
+                    "Volle Dosis GMB (je 4 ml/L). Micro → Grow → Bloom. "
+                    "Rhino Skin für starke Stängel. B-52 durchgehend."
+                ),
+            ),
+            [
+                FertilizerDosage(fertilizer_key=rhino, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=drip_clean, ml_per_liter=0.1),
+                FertilizerDosage(fertilizer_key=micro, ml_per_liter=4.0),
+                FertilizerDosage(fertilizer_key=grow, ml_per_liter=4.0),
+                FertilizerDosage(fertilizer_key=bloom, ml_per_liter=4.0),
+                FertilizerDosage(fertilizer_key=b52, ml_per_liter=2.0),
+                FertilizerDosage(
+                    fertilizer_key=voodoo, ml_per_liter=2.0, optional=True,
+                ),
+                FertilizerDosage(fertilizer_key=free_flow, ml_per_liter=0.5),
+            ],
+        ),
+        # ── 4. Blüte — Früh (Week 8–11) ────────────────────────────────────
+        (
+            NutrientPlanPhaseEntry(
+                plan_key="",
+                phase_name=PhaseName.FLOWERING,
+                sequence_order=4,
+                week_start=8,
+                week_end=11,
+                npk_ratio=(4.0, 3.0, 8.0),
+                target_ec_ms=1.6,
+                target_ph=5.9,
+                calcium_ppm=200.0,
+                magnesium_ppm=60.0,
+                feeding_frequency_per_week=3,
+                volume_per_feeding_liters=0.8,
+                notes=(
+                    "GMB volle Dosis (je 4 ml/L). Alle drei Teile gleich dosiert. "
+                    "Big Bud für Blütenbildung. Bud Candy + Nirvana für Aroma."
+                ),
+            ),
+            [
+                FertilizerDosage(fertilizer_key=rhino, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=drip_clean, ml_per_liter=0.1),
+                FertilizerDosage(fertilizer_key=micro, ml_per_liter=4.0),
+                FertilizerDosage(fertilizer_key=grow, ml_per_liter=4.0),
+                FertilizerDosage(fertilizer_key=bloom, ml_per_liter=4.0),
+                FertilizerDosage(fertilizer_key=big_bud, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=b52, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=bud_candy, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=nirvana, ml_per_liter=2.0),
+                FertilizerDosage(
+                    fertilizer_key=voodoo, ml_per_liter=2.0, optional=True,
+                ),
+                FertilizerDosage(fertilizer_key=free_flow, ml_per_liter=0.5),
+            ],
+        ),
+        # ── 5. Blüte — Spät (Week 11–15) ───────────────────────────────────
+        (
+            NutrientPlanPhaseEntry(
+                plan_key="",
+                phase_name=PhaseName.FLOWERING,
+                sequence_order=5,
+                week_start=11,
+                week_end=15,
+                npk_ratio=(4.0, 3.0, 8.0),
+                target_ec_ms=1.8,
+                target_ph=5.9,
+                calcium_ppm=200.0,
+                magnesium_ppm=60.0,
+                feeding_frequency_per_week=3,
+                volume_per_feeding_liters=1.0,
+                notes=(
+                    "Overdrive ersetzt Big Bud für maximale Blütendichte. "
+                    "GMB volle Dosis (je 4 ml/L). Bud Candy + Nirvana weiter."
+                ),
+            ),
+            [
+                FertilizerDosage(fertilizer_key=rhino, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=drip_clean, ml_per_liter=0.1),
+                FertilizerDosage(fertilizer_key=micro, ml_per_liter=4.0),
+                FertilizerDosage(fertilizer_key=grow, ml_per_liter=4.0),
+                FertilizerDosage(fertilizer_key=bloom, ml_per_liter=4.0),
+                FertilizerDosage(fertilizer_key=overdrive, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=b52, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=bud_candy, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=nirvana, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=free_flow, ml_per_liter=0.5),
+            ],
+        ),
+        # ── 6. Ernte / Flush (Week 15–17) ──────────────────────────────────
+        (
+            NutrientPlanPhaseEntry(
+                plan_key="",
+                phase_name=PhaseName.HARVEST,
+                sequence_order=6,
+                week_start=15,
+                week_end=17,
+                npk_ratio=(0.0, 0.0, 0.0),
+                target_ec_ms=0.0,
+                target_ph=6.0,
+                feeding_frequency_per_week=7,
+                volume_per_feeding_liters=1.0,
+                notes=(
+                    "10-14 Tage Flush mit reinem Wasser (Coco). "
+                    "Drip Clean löst restliche Salzablagerungen. "
+                    "Free Flow optional für Wurzelabbau. "
+                    "Ziel: EC im Ablauf < 0.3 mS."
+                ),
+            ),
+            [
+                FertilizerDosage(fertilizer_key=drip_clean, ml_per_liter=0.1),
+                FertilizerDosage(
+                    fertilizer_key=free_flow, ml_per_liter=0.3, optional=True,
+                ),
+            ],
+        ),
+    ]
+
+
 def run_seed_fertilizers() -> None:
-    """Create fertilizer products and the pH Perfect Sensi plan."""
+    """Create fertilizer products and nutrient plans."""
     fert_repo = get_fertilizer_repo()
     plan_repo = get_nutrient_plan_repo()
 
@@ -561,34 +788,38 @@ def run_seed_fertilizers() -> None:
             fert_keys[fert.product_name] = created.key or ""
             logger.info("fertilizer_created", name=fert.product_name)
 
-    # ── Create nutrient plan ──────────────────────────────────────────────
+    # ── Create nutrient plans ─────────────────────────────────────────────
     existing_plans, _ = plan_repo.get_all(offset=0, limit=100)
-    existing_plan = next((p for p in existing_plans if p.name == PLAN.name), None)
+    existing_names = {p.name for p in existing_plans}
 
-    if existing_plan:
-        logger.info("plan_exists", name=PLAN.name)
-        return
+    plans = [
+        (PLAN, _build_phase_entries),
+        (GMB_PLAN, _build_gmb_phase_entries),
+    ]
+    for plan, builder in plans:
+        if plan.name in existing_names:
+            logger.info("plan_exists", name=plan.name)
+            continue
 
-    created_plan = plan_repo.create(PLAN)
-    plan_key = created_plan.key or ""
-    logger.info("plan_created", name=PLAN.name, key=plan_key)
+        created_plan = plan_repo.create(plan)
+        plan_key = created_plan.key or ""
+        logger.info("plan_created", name=plan.name, key=plan_key)
 
-    # ── Create phase entries with dosages ─────────────────────────────────
-    entries = _build_phase_entries(fert_keys)
-    for entry, dosages in entries:
-        entry.plan_key = plan_key
-        entry.fertilizer_dosages = dosages
-        created_entry = plan_repo.create_phase_entry(entry)
-        logger.info(
-            "phase_entry_created",
-            plan=PLAN.name,
-            phase=entry.phase_name,
-            week=f"{entry.week_start}-{entry.week_end}",
-            dosages=len(dosages),
-            key=created_entry.key,
-        )
+        entries = builder(fert_keys)
+        for entry, dosages in entries:
+            entry.plan_key = plan_key
+            entry.fertilizer_dosages = dosages
+            created_entry = plan_repo.create_phase_entry(entry)
+            logger.info(
+                "phase_entry_created",
+                plan=plan.name,
+                phase=entry.phase_name,
+                week=f"{entry.week_start}-{entry.week_end}",
+                dosages=len(dosages),
+                key=created_entry.key,
+            )
 
-    logger.info("seed_fertilizers_complete", fertilizers=len(fert_keys), plan=PLAN.name)
+    logger.info("seed_fertilizers_complete", fertilizers=len(fert_keys), plans=len(plans))
 
 
 if __name__ == "__main__":
