@@ -12,6 +12,7 @@ class FeedingEventFertilizer(BaseModel):
 
 class FeedingEvent(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    tenant_key: str = ""
     plant_key: str
     timestamp: datetime | None = None
     application_method: ApplicationMethod = ApplicationMethod.FERTIGATION

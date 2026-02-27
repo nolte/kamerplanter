@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import date, datetime
 
 from pydantic import BaseModel, Field, model_validator
@@ -12,6 +14,7 @@ from app.common.enums import (
 
 class Tank(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    tenant_key: str = ""
     name: str = Field(min_length=1, max_length=200)
     tank_type: TankType
     volume_liters: float = Field(gt=0)
@@ -77,7 +80,7 @@ class MaintenanceSchedule(BaseModel):
     model_config = {"populate_by_name": True}
 
     @model_validator(mode="after")
-    def check_reminder_before_interval(self) -> "MaintenanceSchedule":
+    def check_reminder_before_interval(self) -> MaintenanceSchedule:
         if self.reminder_days_before >= self.interval_days:
             raise ValueError(
                 f"reminder_days_before ({self.reminder_days_before}) "

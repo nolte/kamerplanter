@@ -44,6 +44,7 @@ class HarvestObservation(BaseModel):
 
 class HarvestBatch(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    tenant_key: str = ""
     batch_id: str = Field(default="", max_length=100)
     plant_key: str = ""
     harvest_date: datetime | None = None

@@ -4,6 +4,7 @@ import { SnackbarProvider } from 'notistack';
 import { ThemeContextProvider } from '@/theme';
 import { store } from '@/store/store';
 import { router } from '@/routes/AppRoutes';
+import AuthProvider from '@/auth/AuthProvider';
 
 export default function App() {
   return (
@@ -14,7 +15,9 @@ export default function App() {
           anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           autoHideDuration={5000}
         >
-          <RouterProvider router={router} />
+          <AuthProvider>
+            <RouterProvider router={router} />
+          </AuthProvider>
         </SnackbarProvider>
       </ThemeContextProvider>
     </Provider>

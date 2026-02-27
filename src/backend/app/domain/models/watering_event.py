@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 from pydantic import BaseModel, Field, model_validator
@@ -13,6 +15,7 @@ class FertilizerSnapshot(BaseModel):
 
 class WateringEvent(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    tenant_key: str = ""
     watered_at: datetime | None = None
     application_method: ApplicationMethod = ApplicationMethod.DRENCH
     is_supplemental: bool = False
@@ -35,7 +38,7 @@ class WateringEvent(BaseModel):
     model_config = {"populate_by_name": True}
 
     @model_validator(mode="after")
-    def check_supplemental_not_fertigation(self) -> "WateringEvent":
+    def check_supplemental_not_fertigation(self) -> WateringEvent:
         if self.is_supplemental and self.application_method == ApplicationMethod.FERTIGATION:
             raise ValueError(
                 "Supplemental watering cannot use fertigation application method"

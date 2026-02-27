@@ -15,6 +15,7 @@ from app.common.enums import (
 
 class WorkflowTemplate(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    tenant_key: str = ""
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
     created_by: str = Field(default="", max_length=200)
@@ -55,6 +56,7 @@ class TaskTemplate(BaseModel):
 
 class Task(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    tenant_key: str = ""
     name: str = Field(min_length=1, max_length=200)
     instruction: str = ""
     category: TaskCategory = TaskCategory.MAINTENANCE

@@ -1,6 +1,7 @@
 from arango.database import StandardDatabase
 
 from app.config.settings import settings
+from app.data_access.arango.auth_provider_repository import ArangoAuthProviderRepository
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.data_access.arango.connection import ArangoConnection
 from app.data_access.arango.enrichment_repository import (
@@ -12,31 +13,48 @@ from app.data_access.arango.feeding_repository import ArangoFeedingRepository
 from app.data_access.arango.fertilizer_repository import ArangoFertilizerRepository
 from app.data_access.arango.graph_repository import ArangoGraphRepository
 from app.data_access.arango.harvest_repository import ArangoHarvestRepository
+from app.data_access.arango.invitation_repository import ArangoInvitationRepository
 from app.data_access.arango.ipm_repository import ArangoIpmRepository
 from app.data_access.arango.lifecycle_repository import ArangoLifecycleRepository
+from app.data_access.arango.location_assignment_repository import ArangoLocationAssignmentRepository
+from app.data_access.arango.membership_repository import ArangoMembershipRepository
 from app.data_access.arango.nutrient_plan_repository import ArangoNutrientPlanRepository
+from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepository
+from app.data_access.arango.refresh_token_repository import ArangoRefreshTokenRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.species_repository import ArangoSpeciesRepository
 from app.data_access.arango.substrate_repository import ArangoSubstrateRepository
 from app.data_access.arango.tank_repository import ArangoTankRepository
 from app.data_access.arango.task_repository import ArangoTaskRepository
+from app.data_access.arango.tenant_repository import ArangoTenantRepository
+from app.data_access.arango.user_repository import ArangoUserRepository
 from app.data_access.arango.watering_repository import ArangoWateringRepository
+from app.data_access.external.console_email_adapter import ConsoleEmailAdapter
+from app.data_access.external.smtp_email_adapter import SmtpEmailAdapter
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.engines.dependency_resolver import DependencyResolver
 from app.domain.engines.enrichment_engine import EnrichmentEngine
 from app.domain.engines.hst_validator import HSTValidator
 from app.domain.engines.inspection_scheduler import InspectionScheduler
+from app.domain.engines.invitation_engine import InvitationEngine
+from app.domain.engines.login_throttle_engine import LoginThrottleEngine
+from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.nutrient_plan_engine import NutrientPlanValidator
+from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.engines.quality_scoring_engine import QualityScoringEngine
 from app.domain.engines.readiness_engine import ReadinessEngine
 from app.domain.engines.resistance_engine import ResistanceManager
 from app.domain.engines.safety_interval_engine import SafetyIntervalValidator
 from app.domain.engines.tank_engine import TankEngine
+from app.domain.engines.tenant_engine import TenantEngine
+from app.domain.engines.token_engine import TokenEngine
 from app.domain.engines.watering_engine import WateringEngine
+from app.domain.interfaces.email_service import IEmailService
+from app.domain.services.auth_service import AuthService
 from app.domain.services.enrichment_service import EnrichmentService
 from app.domain.services.feeding_service import FeedingService
 from app.domain.services.fertilizer_service import FertilizerService
@@ -51,6 +69,8 @@ from app.domain.services.species_service import SpeciesService
 from app.domain.services.substrate_service import SubstrateService
 from app.domain.services.tank_service import TankService
 from app.domain.services.task_service import TaskService
+from app.domain.services.tenant_service import TenantService
+from app.domain.services.user_service import UserService
 from app.domain.services.watering_service import WateringService
 
 _connection: ArangoConnection | None = None
@@ -224,6 +244,98 @@ def get_task_service() -> TaskService:
         get_task_repo(),
         HSTValidator(),
         DependencyResolver(),
+    )
+
+
+# ── REQ-023 Auth dependencies ───────────────────────────────────────
+
+
+def get_user_repo() -> ArangoUserRepository:
+    return ArangoUserRepository(get_db())
+
+
+def get_auth_provider_repo() -> ArangoAuthProviderRepository:
+    return ArangoAuthProviderRepository(get_db())
+
+
+def get_refresh_token_repo() -> ArangoRefreshTokenRepository:
+    return ArangoRefreshTokenRepository(get_db())
+
+
+def get_oidc_config_repo() -> ArangoOidcConfigRepository:
+    return ArangoOidcConfigRepository(get_db())
+
+
+def get_token_engine() -> TokenEngine:
+    return TokenEngine(settings.jwt_secret_key, settings.jwt_algorithm)
+
+
+def get_password_engine() -> PasswordEngine:
+    return PasswordEngine()
+
+
+def get_email_service() -> IEmailService:
+    if settings.email_adapter == "smtp":
+        return SmtpEmailAdapter(
+            host=settings.smtp_host,
+            port=settings.smtp_port,
+            username=settings.smtp_username,
+            password=settings.smtp_password,
+            from_email=settings.smtp_from_email,
+            use_tls=settings.smtp_use_tls,
+        )
+    return ConsoleEmailAdapter()
+
+
+def get_auth_service() -> AuthService:
+    return AuthService(
+        user_repo=get_user_repo(),
+        auth_provider_repo=get_auth_provider_repo(),
+        refresh_token_repo=get_refresh_token_repo(),
+        password_engine=get_password_engine(),
+        token_engine=get_token_engine(),
+        throttle_engine=LoginThrottleEngine(),
+        email_service=get_email_service(),
+        frontend_url=settings.frontend_url,
+        access_token_expire_minutes=settings.access_token_expire_minutes,
+        refresh_token_expire_days=settings.refresh_token_expire_days,
+        tenant_service=get_tenant_service(),
+        require_email_verification=settings.require_email_verification,
+    )
+
+
+def get_user_service() -> UserService:
+    return UserService(get_user_repo(), get_refresh_token_repo())
+
+
+# ── REQ-024 Tenant dependencies ──────────────────────────────────────
+
+
+def get_tenant_repo() -> ArangoTenantRepository:
+    return ArangoTenantRepository(get_db())
+
+
+def get_membership_repo() -> ArangoMembershipRepository:
+    return ArangoMembershipRepository(get_db())
+
+
+def get_invitation_repo() -> ArangoInvitationRepository:
+    return ArangoInvitationRepository(get_db())
+
+
+def get_assignment_repo() -> ArangoLocationAssignmentRepository:
+    return ArangoLocationAssignmentRepository(get_db())
+
+
+def get_tenant_service() -> TenantService:
+    return TenantService(
+        tenant_repo=get_tenant_repo(),
+        membership_repo=get_membership_repo(),
+        invitation_repo=get_invitation_repo(),
+        assignment_repo=get_assignment_repo(),
+        tenant_engine=TenantEngine(),
+        membership_engine=MembershipEngine(),
+        invitation_engine=InvitationEngine(),
     )
 
 

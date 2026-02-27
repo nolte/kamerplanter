@@ -48,3 +48,15 @@ type WorkflowTemplateKey = str
 type TaskTemplateKey = str
 type TaskKey = str
 type WorkflowExecutionKey = str
+
+# REQ-023 Auth
+type UserKey = str
+type AuthProviderKey = str
+type RefreshTokenKey = str
+type OidcProviderConfigKey = str
+
+# REQ-024 Tenants
+type TenantKey = str
+type MembershipKey = str
+type InvitationKey = str
+type LocationAssignmentKey = str

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 from pydantic import BaseModel, Field, model_validator
@@ -59,7 +61,7 @@ class Treatment(BaseModel):
     model_config = {"populate_by_name": True}
 
     @model_validator(mode="after")
-    def check_chemical_safety_interval(self) -> "Treatment":
+    def check_chemical_safety_interval(self) -> Treatment:
         if self.treatment_type == TreatmentType.CHEMICAL and self.safety_interval_days <= 0:
             raise ValueError("Chemical treatments must have a safety_interval_days > 0")
         return self
@@ -67,6 +69,7 @@ class Treatment(BaseModel):
 
 class Inspection(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    tenant_key: str = ""
     plant_key: str = ""
     inspector: str = Field(default="", max_length=200)
     inspected_at: datetime | None = None
@@ -85,6 +88,7 @@ class Inspection(BaseModel):
 
 class TreatmentApplication(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    tenant_key: str = ""
     treatment_key: str = ""
     plant_key: str = ""
     applied_at: datetime | None = None

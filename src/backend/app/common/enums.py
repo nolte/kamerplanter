@@ -403,3 +403,45 @@ class TimeOfDay(StrEnum):
     AFTERNOON = "afternoon"
     EVENING = "evening"
     LIGHTS_OFF = "lights_off"
+
+
+# ── REQ-023 Auth ──
+
+
+class AuthProviderType(StrEnum):
+    LOCAL = "local"
+    GOOGLE = "google"
+    GITHUB = "github"
+    APPLE = "apple"
+    OIDC = "oidc"
+
+
+class EmailVerificationStatus(StrEnum):
+    PENDING = "pending"
+    VERIFIED = "verified"
+
+
+# ── REQ-024 Tenants ──
+
+
+class TenantType(StrEnum):
+    PERSONAL = "personal"
+    ORGANIZATION = "organization"
+
+
+class TenantRole(StrEnum):
+    ADMIN = "admin"
+    GROWER = "grower"
+    VIEWER = "viewer"
+
+
+class InvitationStatus(StrEnum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    EXPIRED = "expired"
+    REVOKED = "revoked"
+
+
+class InvitationType(StrEnum):
+    EMAIL = "email"
+    LINK = "link"

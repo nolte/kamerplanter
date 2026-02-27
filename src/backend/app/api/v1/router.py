@@ -1,5 +1,7 @@
 from fastapi import APIRouter
 
+from app.api.v1.admin.oidc_providers.router import router as oidc_providers_router
+from app.api.v1.auth.router import router as auth_router
 from app.api.v1.botanical_families.router import router as families_router
 from app.api.v1.calculations.router import router as calculations_router
 from app.api.v1.companion_planting.router import router as companion_router
@@ -27,10 +29,16 @@ from app.api.v1.species.router import router as species_router
 from app.api.v1.substrates.router import router as substrates_router
 from app.api.v1.tanks.router import router as tanks_router
 from app.api.v1.tasks.router import router as tasks_router
+from app.api.v1.tenant_scoped.router import tenant_scoped_router
+from app.api.v1.tenants.router import router as tenants_router
+from app.api.v1.users.router import router as users_router
 from app.api.v1.watering_events.router import router as watering_events_router
 
 api_router = APIRouter(prefix="/api/v1")
 
+api_router.include_router(auth_router)
+api_router.include_router(users_router)
+api_router.include_router(oidc_providers_router)
 api_router.include_router(health_router)
 api_router.include_router(families_router)
 api_router.include_router(calculations_router)
@@ -59,3 +67,5 @@ api_router.include_router(watering_events_router)
 api_router.include_router(ipm_router)
 api_router.include_router(harvest_router)
 api_router.include_router(tasks_router)
+api_router.include_router(tenants_router)
+api_router.include_router(tenant_scoped_router)

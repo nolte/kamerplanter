@@ -1,4 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
+import authReducer from './slices/authSlice';
 import uiReducer from './slices/uiSlice';
 import botanicalFamiliesReducer from './slices/botanicalFamiliesSlice';
 import speciesReducer from './slices/speciesSlice';
@@ -14,10 +15,13 @@ import wateringEventsReducer from './slices/wateringEventsSlice';
 import ipmReducer from './slices/ipmSlice';
 import harvestReducer from './slices/harvestSlice';
 import tasksReducer from './slices/tasksSlice';
+import tenantsReducer from './slices/tenantSlice';
 
 export const store = configureStore({
   reducer: {
+    auth: authReducer,
     ui: uiReducer,
+    tenants: tenantsReducer,
     botanicalFamilies: botanicalFamiliesReducer,
     species: speciesReducer,
     sites: sitesReducer,

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import date, datetime
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -12,6 +14,7 @@ from app.common.enums import (
 
 class Fertilizer(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    tenant_key: str = ""
     product_name: str = Field(min_length=1, max_length=200)
     brand: str = Field(default="", max_length=200)
     fertilizer_type: FertilizerType
@@ -43,7 +46,7 @@ class Fertilizer(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def validate_tank_safe_application(self) -> "Fertilizer":
+    def validate_tank_safe_application(self) -> Fertilizer:
         if (
             not self.tank_safe
             and self.recommended_application == ApplicationMethod.FERTIGATION
@@ -54,7 +57,7 @@ class Fertilizer(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def validate_storage_temp(self) -> "Fertilizer":
+    def validate_storage_temp(self) -> Fertilizer:
         if (
             self.storage_temp_min is not None
             and self.storage_temp_max is not None
@@ -78,7 +81,7 @@ class FertilizerStock(BaseModel):
     model_config = {"populate_by_name": True}
 
     @model_validator(mode="after")
-    def validate_dates(self) -> "FertilizerStock":
+    def validate_dates(self) -> FertilizerStock:
         if (
             self.purchase_date is not None
             and self.expiry_date is not None

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -57,7 +59,7 @@ class BotanicalFamily(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def nitrogen_fixing_not_heavy(self) -> "BotanicalFamily":
+    def nitrogen_fixing_not_heavy(self) -> BotanicalFamily:
         if self.nitrogen_fixing and self.typical_nutrient_demand == NutrientDemand.HEAVY:
             msg = (
                 "nitrogen_fixing=true ist inkompatibel mit typical_nutrient_demand='heavy'. "

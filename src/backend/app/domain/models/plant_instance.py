@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 class PlantInstance(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    tenant_key: str = ""
     instance_id: str
     species_key: str
     cultivar_key: str | None = None

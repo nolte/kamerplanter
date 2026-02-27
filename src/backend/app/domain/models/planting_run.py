@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import date, datetime
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -31,6 +33,7 @@ class PlantingRunEntry(BaseModel):
 
 class PlantingRun(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    tenant_key: str = ""
     name: str = Field(min_length=1, max_length=200)
     run_type: PlantingRunType
     status: PlantingRunStatus = PlantingRunStatus.PLANNED
@@ -49,7 +52,7 @@ class PlantingRun(BaseModel):
     model_config = {"populate_by_name": True}
 
     @model_validator(mode="after")
-    def validate_clone_has_source(self) -> "PlantingRun":
+    def validate_clone_has_source(self) -> PlantingRun:
         if self.run_type == PlantingRunType.CLONE and not self.source_plant_key:
             raise ValueError("Clone runs require a source_plant_key.")
         return self

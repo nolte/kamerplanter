@@ -180,3 +180,58 @@ class HSTViolationError(KamerplanterError):
                 }
             ],
         )
+
+
+# ── REQ-023 Auth ──
+
+
+class UnauthorizedError(KamerplanterError):
+    def __init__(self, message: str = "Invalid or expired credentials.") -> None:
+        super().__init__(
+            message=message,
+            error_code="UNAUTHORIZED",
+            status_code=401,
+        )
+
+
+class ForbiddenError(KamerplanterError):
+    def __init__(self, message: str = "You do not have permission to perform this action.") -> None:
+        super().__init__(
+            message=message,
+            error_code="FORBIDDEN",
+            status_code=403,
+        )
+
+
+class AccountLockedError(KamerplanterError):
+    def __init__(self, retry_after_minutes: int) -> None:
+        super().__init__(
+            message=f"Account temporarily locked. Try again in {retry_after_minutes} minutes.",
+            error_code="ACCOUNT_LOCKED",
+            status_code=423,
+            details=[
+                {
+                    "field": "account",
+                    "reason": f"Too many failed login attempts. Locked for {retry_after_minutes} minutes.",
+                    "code": "ACCOUNT_LOCKED",
+                }
+            ],
+        )
+
+
+class EmailNotVerifiedError(KamerplanterError):
+    def __init__(self) -> None:
+        super().__init__(
+            message="Email address has not been verified.",
+            error_code="EMAIL_NOT_VERIFIED",
+            status_code=403,
+        )
+
+
+class InvalidTokenError(KamerplanterError):
+    def __init__(self, token_type: str = "token") -> None:
+        super().__init__(
+            message=f"Invalid or expired {token_type}.",
+            error_code="INVALID_TOKEN",
+            status_code=401,
+        )

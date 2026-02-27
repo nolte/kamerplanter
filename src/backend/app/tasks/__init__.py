@@ -20,5 +20,19 @@ celery_app.conf.update(
             "schedule": 604800,
             "kwargs": {"full_sync": True},
         },
+        # REQ-023 Auth tasks
+        "auth-cleanup-tokens-hourly": {
+            "task": "app.tasks.auth_tasks.cleanup_expired_tokens",
+            "schedule": 3600,
+        },
+        "auth-cleanup-unverified-daily": {
+            "task": "app.tasks.auth_tasks.cleanup_unverified_accounts",
+            "schedule": 86400,
+        },
+        # REQ-024 Tenant tasks
+        "tenant-cleanup-invitations-daily": {
+            "task": "app.tasks.tenant_tasks.cleanup_expired_invitations",
+            "schedule": 86400,
+        },
     },
 )

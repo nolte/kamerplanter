@@ -1823,3 +1823,140 @@ export interface HSTValidationResult {
   reason: string;
   recovery_status: string;
 }
+
+// ── REQ-023 Auth types ──────────────────────────────────────────────
+
+export type AuthProviderType = 'local' | 'google' | 'github' | 'apple' | 'oidc';
+export type TenantRole = 'admin' | 'grower' | 'viewer';
+export type TenantType = 'personal' | 'organization';
+export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked';
+export type InvitationType = 'email' | 'link';
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  display_name: string;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+}
+
+export interface UserProfile {
+  key: string;
+  email: string;
+  display_name: string;
+  email_verified: boolean;
+  is_active: boolean;
+  avatar_url: string | null;
+  locale: string;
+  last_login_at: string | null;
+  created_at: string | null;
+}
+
+export interface UserProfileUpdate {
+  display_name?: string;
+  avatar_url?: string | null;
+  locale?: string;
+}
+
+export interface AuthProviderInfo {
+  key: string;
+  provider: AuthProviderType;
+  provider_email: string | null;
+  provider_display_name: string | null;
+  linked_at: string | null;
+}
+
+export interface SessionInfo {
+  key: string;
+  user_agent: string | null;
+  ip_address: string | null;
+  created_at: string | null;
+  expires_at: string;
+  is_current: boolean;
+}
+
+export interface OAuthProviderListItem {
+  slug: string;
+  display_name: string;
+  icon_url: string | null;
+}
+
+// ── REQ-024 Tenant types ────────────────────────────────────────────
+
+export interface Tenant {
+  key: string;
+  name: string;
+  slug: string;
+  tenant_type: TenantType;
+  description: string | null;
+  avatar_url: string | null;
+  owner_key: string;
+  max_members: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface TenantWithRole extends Tenant {
+  role: TenantRole;
+}
+
+export interface TenantCreate {
+  name: string;
+  description?: string | null;
+  tenant_type?: TenantType;
+}
+
+export interface TenantUpdate {
+  name?: string;
+  description?: string | null;
+  avatar_url?: string | null;
+}
+
+export interface Membership {
+  key: string;
+  user_key: string;
+  tenant_key: string;
+  role: TenantRole;
+  display_name: string;
+  email: string;
+  joined_at: string | null;
+}
+
+export interface Invitation {
+  key: string;
+  tenant_key: string;
+  email: string | null;
+  role: TenantRole;
+  invitation_type: InvitationType;
+  status: InvitationStatus;
+  created_by: string;
+  expires_at: string;
+  created_at: string | null;
+}
+
+export interface InvitationCreate {
+  email: string;
+  role: TenantRole;
+}
+
+export interface InvitationLinkCreate {
+  role: TenantRole;
+  max_uses?: number;
+}
+
+export interface LocationAssignment {
+  key: string;
+  membership_key: string;
+  location_key: string;
+  tenant_key: string;
+  created_at: string | null;
+}

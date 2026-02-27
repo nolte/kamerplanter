@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 from pydantic import BaseModel, Field, model_validator
@@ -25,7 +27,7 @@ class RequirementProfile(BaseModel):
     model_config = {"populate_by_name": True}
 
     @model_validator(mode="after")
-    def validate_temp_night_lt_day(self) -> "RequirementProfile":
+    def validate_temp_night_lt_day(self) -> RequirementProfile:
         if self.temperature_night_c >= self.temperature_day_c:
             raise ValueError("Night temperature must be lower than day temperature")
         return self
@@ -46,7 +48,7 @@ class NutrientProfile(BaseModel):
     model_config = {"populate_by_name": True}
 
     @model_validator(mode="after")
-    def validate_npk(self) -> "NutrientProfile":
+    def validate_npk(self) -> NutrientProfile:
         total = sum(self.npk_ratio)
         # Flushing phase allows (0,0,0)
         if total < 0:

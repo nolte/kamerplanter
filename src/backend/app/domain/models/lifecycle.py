@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 from pydantic import BaseModel, Field, model_validator
@@ -37,7 +39,7 @@ class LifecycleConfig(BaseModel):
     model_config = {"populate_by_name": True}
 
     @model_validator(mode="after")
-    def validate_biennial_vernalization(self) -> "LifecycleConfig":
+    def validate_biennial_vernalization(self) -> LifecycleConfig:
         if self.cycle_type == CycleType.BIENNIAL and not self.vernalization_required:
             raise ValueError("Biennial plants must have vernalization_required=True")
         return self

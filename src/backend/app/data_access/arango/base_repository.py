@@ -38,8 +38,12 @@ class BaseArangoRepository:
             return None
         return self._from_doc(doc)
 
-    def get_all(self, offset: int = 0, limit: int = 50) -> tuple[list[dict[str, Any]], int]:
+    def get_all(
+        self, offset: int = 0, limit: int = 50, tenant_key: str | None = None,
+    ) -> tuple[list[dict[str, Any]], int]:
         builder = AQLBuilder(self._collection_name)
+        if tenant_key:
+            builder.filter("tenant_key", "==", tenant_key)
         builder.sort("_key").paginate(offset, limit)
 
         query, bind_vars = builder.build_list()

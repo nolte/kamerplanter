@@ -50,6 +50,7 @@ class NutrientPlanPhaseEntry(BaseModel):
 
 class NutrientPlan(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    tenant_key: str = ""
     name: str = Field(min_length=1, max_length=200)
     description: str = ""
     recommended_substrate_type: SubstrateType | None = None

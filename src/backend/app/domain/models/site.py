@@ -60,6 +60,7 @@ class Location(BaseModel):
 
 class Site(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    tenant_key: str = ""
     name: str
     type: SiteType = SiteType.INDOOR
     gps_coordinates: tuple[float, float] | None = None

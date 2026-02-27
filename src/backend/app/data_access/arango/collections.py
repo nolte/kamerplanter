@@ -52,6 +52,18 @@ TASK_TEMPLATES = "task_templates"
 TASKS = "tasks"
 WORKFLOW_EXECUTIONS = "workflow_executions"
 
+# REQ-023 Auth
+USERS = "users"
+AUTH_PROVIDERS = "auth_providers"
+REFRESH_TOKENS = "refresh_tokens"
+OIDC_PROVIDER_CONFIGS = "oidc_provider_configs"
+
+# REQ-024 Tenants
+TENANTS = "tenants"
+MEMBERSHIPS = "memberships"
+INVITATIONS = "invitations"
+LOCATION_ASSIGNMENTS = "location_assignments"
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -97,6 +109,14 @@ DOCUMENT_COLLECTIONS = [
     TASK_TEMPLATES,
     TASKS,
     WORKFLOW_EXECUTIONS,
+    USERS,
+    AUTH_PROVIDERS,
+    REFRESH_TOKENS,
+    OIDC_PROVIDER_CONFIGS,
+    TENANTS,
+    MEMBERSHIPS,
+    INVITATIONS,
+    LOCATION_ASSIGNMENTS,
 ]
 
 # Edge collections
@@ -174,6 +194,19 @@ WF_EXECUTING = "wf_executing"
 WF_GENERATED = "wf_generated"
 FOLLOWS_WORKFLOW = "follows_workflow"
 
+# REQ-023 Auth edges
+HAS_AUTH_PROVIDER = "has_auth_provider"
+HAS_SESSION = "has_session"
+
+# REQ-024 Tenant edges
+HAS_MEMBERSHIP = "has_membership"
+MEMBERSHIP_IN = "membership_in"
+HAS_INVITATION = "has_invitation"
+BELONGS_TO_TENANT = "belongs_to_tenant"
+ASSIGNED_TO_LOCATION = "assigned_to_location"
+ASSIGNMENT_FOR = "assignment_for"
+ASSIGNMENT_IN_TENANT = "assignment_in_tenant"
+
 EDGE_COLLECTIONS = [
     BELONGS_TO_FAMILY,
     HAS_CULTIVAR,
@@ -242,6 +275,15 @@ EDGE_COLLECTIONS = [
     WF_EXECUTING,
     WF_GENERATED,
     FOLLOWS_WORKFLOW,
+    HAS_AUTH_PROVIDER,
+    HAS_SESSION,
+    HAS_MEMBERSHIP,
+    MEMBERSHIP_IN,
+    HAS_INVITATION,
+    BELONGS_TO_TENANT,
+    ASSIGNED_TO_LOCATION,
+    ASSIGNMENT_FOR,
+    ASSIGNMENT_IN_TENANT,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -585,6 +627,53 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [PLANT_INSTANCES],
         "to_vertex_collections": [WORKFLOW_TEMPLATES],
     },
+    # REQ-023 Auth
+    {
+        "edge_collection": HAS_AUTH_PROVIDER,
+        "from_vertex_collections": [USERS],
+        "to_vertex_collections": [AUTH_PROVIDERS],
+    },
+    {
+        "edge_collection": HAS_SESSION,
+        "from_vertex_collections": [USERS],
+        "to_vertex_collections": [REFRESH_TOKENS],
+    },
+    # REQ-024 Tenants
+    {
+        "edge_collection": HAS_MEMBERSHIP,
+        "from_vertex_collections": [TENANTS],
+        "to_vertex_collections": [MEMBERSHIPS],
+    },
+    {
+        "edge_collection": MEMBERSHIP_IN,
+        "from_vertex_collections": [USERS],
+        "to_vertex_collections": [MEMBERSHIPS],
+    },
+    {
+        "edge_collection": HAS_INVITATION,
+        "from_vertex_collections": [TENANTS],
+        "to_vertex_collections": [INVITATIONS],
+    },
+    {
+        "edge_collection": BELONGS_TO_TENANT,
+        "from_vertex_collections": [SITES, PLANT_INSTANCES, PLANTING_RUNS, TANKS, FERTILIZERS, NUTRIENT_PLANS, TASKS],
+        "to_vertex_collections": [TENANTS],
+    },
+    {
+        "edge_collection": ASSIGNED_TO_LOCATION,
+        "from_vertex_collections": [LOCATION_ASSIGNMENTS],
+        "to_vertex_collections": [LOCATIONS],
+    },
+    {
+        "edge_collection": ASSIGNMENT_FOR,
+        "from_vertex_collections": [LOCATION_ASSIGNMENTS],
+        "to_vertex_collections": [MEMBERSHIPS],
+    },
+    {
+        "edge_collection": ASSIGNMENT_IN_TENANT,
+        "from_vertex_collections": [LOCATION_ASSIGNMENTS],
+        "to_vertex_collections": [TENANTS],
+    },
 ]
 
 
@@ -671,6 +760,35 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     wf_templates_col = db.collection(WORKFLOW_TEMPLATES)
     wf_templates_col.add_hash_index(fields=["name"], unique=True)
+
+    # REQ-023 Auth indexes
+    users_col = db.collection(USERS)
+    users_col.add_hash_index(fields=["email"], unique=True)
+
+    auth_providers_col = db.collection(AUTH_PROVIDERS)
+    auth_providers_col.add_hash_index(fields=["provider", "provider_user_id"], unique=True)
+    auth_providers_col.add_hash_index(fields=["user_key"], unique=False)
+
+    refresh_tokens_col = db.collection(REFRESH_TOKENS)
+    refresh_tokens_col.add_hash_index(fields=["token_hash"], unique=True)
+    refresh_tokens_col.add_hash_index(fields=["user_key"], unique=False)
+
+    oidc_configs_col = db.collection(OIDC_PROVIDER_CONFIGS)
+    oidc_configs_col.add_hash_index(fields=["slug"], unique=True)
+
+    # REQ-024 Tenant indexes
+    tenants_col = db.collection(TENANTS)
+    tenants_col.add_hash_index(fields=["slug"], unique=True)
+
+    memberships_col = db.collection(MEMBERSHIPS)
+    memberships_col.add_hash_index(fields=["user_key", "tenant_key"], unique=True)
+
+    invitations_col = db.collection(INVITATIONS)
+    invitations_col.add_hash_index(fields=["token_hash"], unique=True)
+    invitations_col.add_hash_index(fields=["tenant_key"], unique=False)
+
+    location_assignments_col = db.collection(LOCATION_ASSIGNMENTS)
+    location_assignments_col.add_hash_index(fields=["membership_key", "location_key"], unique=True)
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):
