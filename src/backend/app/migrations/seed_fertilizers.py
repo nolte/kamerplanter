@@ -1,4 +1,4 @@
-"""Seed database with Advanced Nutrients products and a cannabis nutrient plan."""
+"""Seed database with fertilizer products and a cannabis nutrient plan."""
 
 import structlog
 
@@ -20,14 +20,17 @@ from app.domain.models.nutrient_plan import (
 
 logger = structlog.get_logger()
 
-# ── Advanced Nutrients Product Catalog ────────────────────────────────────────
-# Sources:
+# ── Product Catalog ───────────────────────────────────────────────────────────
+# Sources — Advanced Nutrients:
 #   https://www.advancednutrients.com/products/ph-perfect-sensi-grow-bloom/
 #   https://greenlab.ge/en/product/advanced-nutrients-ph-perfect-sensi-grow-a/
 #   https://greenlab.ge/en/product/advanced-nutrients-ph-perfect-sensi-grow-b/
 #   https://www.advancednutrients.com/products/big-bud/
 #   https://www.advancednutrients.com/products/b-52/
 #   https://www.advancednutrients.com/products/voodoo-juice/
+# Sources — Third-Party Supplements:
+#   spec/ref/products/hg-drip-clean.md
+#   spec/ref/products/bn-free-flow.md
 
 FERTILIZERS: list[Fertilizer] = [
     # ── Base Nutrients (Grow Phase) ───────────────────────────────────────
@@ -217,6 +220,49 @@ FERTILIZERS: list[Fertilizer] = [
         bioavailability=Bioavailability.MICROBIAL_DEPENDENT,
         notes="10 Mio. CFU/g Bacillus + Streptomyces. Woche 1-2.",
     ),
+    # ── Third-Party Supplements ──────────────────────────────────────────
+    Fertilizer(
+        product_name="Drip Clean",
+        brand="House & Garden",
+        fertilizer_type=FertilizerType.SUPPLEMENT,
+        is_organic=False,
+        tank_safe=True,
+        recommended_application=ApplicationMethod.FERTIGATION,
+        npk_ratio=(0.0, 18.0, 6.0),
+        ec_contribution_per_ml=0.5,
+        mixing_priority=8,
+        ph_effect=PhEffect.ACIDIC,
+        bioavailability=Bioavailability.IMMEDIATE,
+        shelf_life_days=730,
+        storage_temp_min=5.0,
+        storage_temp_max=25.0,
+        notes=(
+            "Mineralischer Systemreiniger (P₂O₅ 18%, K₂O 6%). Löst Salzablagerungen "
+            "in Leitungen und Substrat. 0.1 ml/L bei jeder Bewässerung. "
+            "IMMER vor den Basisdüngern zugeben."
+        ),
+    ),
+    Fertilizer(
+        product_name="Free Flow",
+        brand="Bio Nova",
+        fertilizer_type=FertilizerType.BIOLOGICAL,
+        is_organic=True,
+        tank_safe=False,
+        recommended_application=ApplicationMethod.DRENCH,
+        npk_ratio=(0.0, 0.0, 0.0),
+        ec_contribution_per_ml=0.0,
+        mixing_priority=50,
+        ph_effect=PhEffect.NEUTRAL,
+        bioavailability=Bioavailability.MICROBIAL_DEPENDENT,
+        shelf_life_days=365,
+        storage_temp_min=5.0,
+        storage_temp_max=25.0,
+        notes=(
+            "Organisches Enzympräparat (Cellulasen, Proteasen, Lipasen). "
+            "Baut abgestorbene Wurzelmasse und organische Rückstände ab. "
+            "0.3-0.5 ml/L per Gießkanne, nicht im Tank (Biofilm-Gefahr)."
+        ),
+    ),
 ]
 
 # ── Nutrient Plan: Advanced Nutrients pH Perfect Sensi — Cannabis ─────────────
@@ -229,7 +275,9 @@ PLAN = NutrientPlan(
         "Vollständiges Düngeprogramm für Cannabis mit der pH Perfect Sensi-Serie "
         "von Advanced Nutrients. Enthält Basis A+B, Booster (Big Bud, Overdrive), "
         "Supplements (B-52, Bud Candy, Nirvana, Rhino Skin) und Biologicals "
-        "(Voodoo Juice, Piranha, Tarantula). Für Coco/Hydro optimiert."
+        "(Voodoo Juice, Piranha, Tarantula). Ergänzt durch H&G Drip Clean "
+        "(Systemreiniger) und Bio Nova Free Flow (Enzympräparat). "
+        "Für Coco/Hydro optimiert."
     ),
     recommended_substrate_type=SubstrateType.COCO,
     author="Advanced Nutrients",
@@ -260,6 +308,8 @@ def _build_phase_entries(
     voodoo = fert_keys["Voodoo Juice"]
     piranha = fert_keys["Piranha"]
     tarantula = fert_keys["Tarantula"]
+    drip_clean = fert_keys["Drip Clean"]
+    free_flow = fert_keys["Free Flow"]
 
     return [
         # ── 1. Keimung (Week 0–1) ────────────────────────────────────────
@@ -299,12 +349,16 @@ def _build_phase_entries(
             ),
             [
                 FertilizerDosage(fertilizer_key=rhino, ml_per_liter=0.5),
+                FertilizerDosage(fertilizer_key=drip_clean, ml_per_liter=0.1),
                 FertilizerDosage(fertilizer_key=grow_a, ml_per_liter=1.0),
                 FertilizerDosage(fertilizer_key=grow_b, ml_per_liter=1.0),
                 FertilizerDosage(fertilizer_key=b52, ml_per_liter=2.0),
                 FertilizerDosage(fertilizer_key=voodoo, ml_per_liter=2.0),
                 FertilizerDosage(fertilizer_key=piranha, ml_per_liter=2.0),
                 FertilizerDosage(fertilizer_key=tarantula, ml_per_liter=2.0),
+                FertilizerDosage(
+                    fertilizer_key=free_flow, ml_per_liter=0.5, optional=True,
+                ),
             ],
         ),
         # ── 3. Vegetativ (Week 3–7) ──────────────────────────────────────
@@ -327,12 +381,14 @@ def _build_phase_entries(
             ),
             [
                 FertilizerDosage(fertilizer_key=rhino, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=drip_clean, ml_per_liter=0.1),
                 FertilizerDosage(fertilizer_key=grow_a, ml_per_liter=4.0),
                 FertilizerDosage(fertilizer_key=grow_b, ml_per_liter=4.0),
                 FertilizerDosage(fertilizer_key=b52, ml_per_liter=2.0),
                 FertilizerDosage(
                     fertilizer_key=voodoo, ml_per_liter=2.0, optional=True,
                 ),
+                FertilizerDosage(fertilizer_key=free_flow, ml_per_liter=0.5),
             ],
         ),
         # ── 4. Blüte — Früh (Week 7–10) ──────────────────────────────────
@@ -357,6 +413,7 @@ def _build_phase_entries(
             ),
             [
                 FertilizerDosage(fertilizer_key=rhino, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=drip_clean, ml_per_liter=0.1),
                 FertilizerDosage(fertilizer_key=bloom_a, ml_per_liter=4.0),
                 FertilizerDosage(fertilizer_key=bloom_b, ml_per_liter=4.0),
                 FertilizerDosage(fertilizer_key=big_bud, ml_per_liter=2.0),
@@ -366,6 +423,7 @@ def _build_phase_entries(
                 FertilizerDosage(
                     fertilizer_key=voodoo, ml_per_liter=2.0, optional=True,
                 ),
+                FertilizerDosage(fertilizer_key=free_flow, ml_per_liter=0.5),
             ],
         ),
         # ── 5. Blüte — Spät (Week 10–14) ─────────────────────────────────
@@ -390,12 +448,14 @@ def _build_phase_entries(
             ),
             [
                 FertilizerDosage(fertilizer_key=rhino, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=drip_clean, ml_per_liter=0.1),
                 FertilizerDosage(fertilizer_key=bloom_a, ml_per_liter=4.0),
                 FertilizerDosage(fertilizer_key=bloom_b, ml_per_liter=4.0),
                 FertilizerDosage(fertilizer_key=overdrive, ml_per_liter=2.0),
                 FertilizerDosage(fertilizer_key=b52, ml_per_liter=2.0),
                 FertilizerDosage(fertilizer_key=bud_candy, ml_per_liter=2.0),
                 FertilizerDosage(fertilizer_key=nirvana, ml_per_liter=2.0),
+                FertilizerDosage(fertilizer_key=free_flow, ml_per_liter=0.5),
             ],
         ),
         # ── 6. Ernte / Flush (Week 14–16) ────────────────────────────────
@@ -413,16 +473,23 @@ def _build_phase_entries(
                 volume_per_feeding_liters=1.0,
                 notes=(
                     "10-14 Tage Flush mit reinem Wasser (Coco). "
-                    "Kein Dünger. Ziel: EC im Ablauf < 0.3 mS."
+                    "Drip Clean löst restliche Salzablagerungen. "
+                    "Free Flow optional für Wurzelabbau. "
+                    "Ziel: EC im Ablauf < 0.3 mS."
                 ),
             ),
-            [],
+            [
+                FertilizerDosage(fertilizer_key=drip_clean, ml_per_liter=0.1),
+                FertilizerDosage(
+                    fertilizer_key=free_flow, ml_per_liter=0.3, optional=True,
+                ),
+            ],
         ),
     ]
 
 
 def run_seed_fertilizers() -> None:
-    """Create Advanced Nutrients products and the pH Perfect Sensi plan."""
+    """Create fertilizer products and the pH Perfect Sensi plan."""
     fert_repo = get_fertilizer_repo()
     plan_repo = get_nutrient_plan_repo()
 

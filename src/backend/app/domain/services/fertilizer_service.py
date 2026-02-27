@@ -1,4 +1,6 @@
-from app.common.exceptions import NotFoundError
+from pydantic import ValidationError as PydanticValidationError
+
+from app.common.exceptions import NotFoundError, ValidationError
 from app.common.types import FertilizerKey, FertilizerStockKey
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
@@ -32,10 +34,21 @@ class FertilizerService:
             "mixing_priority", "ph_effect", "bioavailability", "shelf_life_days",
             "storage_temp_min", "storage_temp_max", "notes",
         }
+        merged = existing.model_dump()
         for field, value in data.items():
             if field in allowed_fields:
-                setattr(existing, field, value)
-        return self._repo.update(key, existing)
+                merged[field] = value
+        try:
+            validated = Fertilizer.model_validate(merged)
+        except PydanticValidationError as exc:
+            raise ValidationError(
+                message=str(exc.errors()[0]["msg"]),
+                details=[
+                    {"field": ".".join(str(loc) for loc in e["loc"]), "reason": e["msg"], "code": e["type"]}
+                    for e in exc.errors()
+                ],
+            ) from exc
+        return self._repo.update(key, validated)
 
     def delete_fertilizer(self, key: FertilizerKey) -> bool:
         self.get_fertilizer(key)  # ensure exists
