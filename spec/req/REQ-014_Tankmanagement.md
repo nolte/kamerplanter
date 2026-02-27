@@ -7,7 +7,7 @@ Kategorie: Bewässerung & Düngung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery
 Status: Entwurf
-Version: 1.1
+Version: 1.2 (Agrarbiologie-Review P-003)
 ```
 
 ## 1. Business Case
@@ -40,7 +40,11 @@ Die Pflege des Tanks erzeugt direkte Auswirkungen auf die Aufgabenplanung (REQ-0
 - **Wasserwechsel (water_change):** Kompletter Austausch der Nährstofflösung — Intervall abhängig vom Tank-Typ und System (z.B. alle 7 Tage bei DWC, 14 Tage bei Drip)
 - **Reinigung (cleaning):** Tankinneres + Leitungen von Algen, Biofilm und Ablagerungen befreien — z.B. bei sichtbarem Bewuchs oder nach jeder Ernte
 - **Desinfektion (sanitization):** Sterile Reinigung mit H2O2 oder Enzymen — pflichtmäßig zwischen Grow-Zyklen
-- **Kalibrierung (calibration):** EC-/pH-Sonden im Tank kalibrieren — alle 2-4 Wochen
+- **Kalibrierung (calibration):** EC-/pH-Sonden im Tank kalibrieren — Intervall abhängig von Tank-Typ und Sondenplatzierung:
+  - **Rezirkulation (inline-Sonden, Dauerkontakt):** Alle 7–14 Tage — permanenter Kontakt mit Nährlösung beschleunigt Drift und Membranverschleiß
+  - **Nährstofftank (intermittierende Messung):** Alle 14 Tage
+  - **Irrigation/Reservoir (seltene Nutzung):** Alle 21–28 Tage
+  - **Generell:** Nach jedem Wasserwechsel mit Reinigungsmitteln (H2O2, Enzyme) neu kalibrieren, da Chemikalien Sondenoberfläche angreifen
 - **Filterwechsel (filter_change):** Vorfilter, Inline-Filter, UV-Lampen austauschen
 - **Pumpeninspektion (pump_inspection):** Umwälzpumpe, Druckpumpe, Dosierperistaltik prüfen
 
@@ -1314,18 +1318,20 @@ DEFAULT_MAINTENANCE_SCHEDULES: dict[str, list[dict]] = {
         {"type": "water_change", "interval_days": 14, "priority": "medium"},
         {"type": "cleaning", "interval_days": 60, "priority": "medium"},
         {"type": "sanitization", "interval_days": 90, "priority": "medium"},
+        {"type": "calibration", "interval_days": 21, "priority": "low"},  # Seltener — intermittierende Nutzung
         {"type": "filter_change", "interval_days": 90, "priority": "medium"},
     ],
     "reservoir": [
         {"type": "cleaning", "interval_days": 90, "priority": "low"},
         {"type": "sanitization", "interval_days": 180, "priority": "low"},
+        {"type": "calibration", "interval_days": 28, "priority": "low"},  # Seltene Nutzung, kein Nährstoffkontakt
         {"type": "filter_change", "interval_days": 60, "priority": "medium"},
     ],
     "recirculation": [
         {"type": "water_change", "interval_days": 7, "priority": "critical"},
         {"type": "cleaning", "interval_days": 14, "priority": "high"},
         {"type": "sanitization", "interval_days": 14, "priority": "critical"},  # War 60d — zu lang für Rezirkulation (systemweites Pathogen-Risiko)
-        {"type": "calibration", "interval_days": 14, "priority": "high"},
+        {"type": "calibration", "interval_days": 7, "priority": "high"},  # Inline-Sonden mit Dauerkontakt driften schneller
         {"type": "pump_inspection", "interval_days": 14, "priority": "medium"},
         {"type": "filter_change", "interval_days": 30, "priority": "high"},
     ],
@@ -1615,6 +1621,7 @@ GET    /api/v1/locations/{location_key}/tanks/validation  — Prüfe ob Location
 - [ ] **Lichtdichtheit:** `is_light_proof` auf TankDefinition als primärer Faktor für Algenrisiko-Score
 - [ ] **FertilizerSnapshot Feststoffe:** `g_per_liter` für Top-Dress/Trockendünger neben `ml_per_liter`
 - [ ] **Seed-Daten CalMag:** Top-Up bei Coco/Osmose enthält CalMag (CEC-Sättigung)
+- [ ] **Differenzierte Kalibrierungsintervalle:** Kalibrierungsintervall nach Tank-Typ und Sondenplatzierung (Rezirkulation inline: 7d, Nährstoff: 14d, Irrigation: 21d, Reservoir: 28d)
 
 ### Testszenarien:
 

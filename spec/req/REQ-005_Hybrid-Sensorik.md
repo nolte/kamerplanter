@@ -7,7 +7,7 @@ Kategorie: Monitoring
 Fokus: Beides
 Technologie: Python, Home Assistant API, MQTT, TimescaleDB
 Status: Entwurf
-Version: 2.1 (Agrarbiologie-Review)
+Version: 2.2 (U/P-Findings integriert)
 ```
 
 ## 1. Business Case
@@ -85,6 +85,9 @@ Das System implementiert einen Hybrid-Ansatz für Datenerfassung mit nahtloser D
     - `last_calibration_date: Optional[date]`
     - `sensor_model: Optional[str]` (z.B. "DHT22", "SCD30")
     - `accuracy_percent: Optional[float]`
+    - `mounting_height_cm: Optional[int]` (Montagehöhe über Boden/Substrat — Qualitätsfaktor für Repräsentativität)
+    - `mounting_position: Optional[Literal['canopy_level', 'above_canopy', 'substrate_level', 'root_zone', 'reservoir', 'wall_mounted', 'freestanding']]`
+    - `representative_area_m2: Optional[float]` (Fläche, die der Sensor repräsentativ abdeckt — bei mehreren Sensoren pro Zone dient dies der gewichteten Aggregation)
 
 - **`:Observation`** - Einzelner Messwert
   - Properties:
@@ -370,7 +373,14 @@ FOR sensor IN sensors
     LET timestamp = observations[idx].timestamp
     LET z_score = ABS(value - mean) / stddev
 
-    FILTER z_score > 3.0  // 3σ statt 2σ — reduziert Fehlalarme in verrauschten Gewächshaus-Umgebungen
+    // Zweistufige Anomalie-Bewertung:
+    // Z-Score > 3.0 = warning (auffällig, prüfenswert)
+    // Z-Score > 4.0 = critical (sehr wahrscheinlich Sensor-Fehler oder echtes Extremereignis)
+    // Gleitendes Fenster: Statistik basiert auf den letzten 7 Tagen (oben definiert),
+    // kann bei stabilen Umgebungen auf 24h reduziert werden für höhere Sensitivität.
+    FILTER z_score > 3.0
+
+    LET anomaly_severity = (z_score > 4.0 ? 'critical' : 'warning')
 
     SORT z_score DESC
 
@@ -381,10 +391,12 @@ FOR sensor IN sensors
         value: value,
         z_score: z_score,
         deviation_from_mean: value - mean,
+        severity: anomaly_severity,
         is_outlier: true
       },
       mean: mean,
-      stddev: stddev
+      stddev: stddev,
+      window_days: 7
     }
 ```
 
@@ -455,7 +467,7 @@ class SensorReading(BaseModel):
         'humidity': (0, 100),
         'ec': (0, 15),          # Hydro-Stammlösungen bis 12+ mS/cm
         'ph': (0, 14),
-        'ppfd': (0, 2000),
+        'ppfd': (0, 2500),      # Gewächshäuser mit Supplemental-Beleuchtung erreichen >2000 μmol/m²/s
         'co2': (150, 10000),    # Outdoor-Minimum ~150, Anreicherung bis 10000 ppm
         'soil_moisture': (0, 100),
         'water_level': (0, 100),
@@ -465,7 +477,9 @@ class SensorReading(BaseModel):
         'do': (0, 20),          # Dissolved Oxygen mg/L
         'orp': (-500, 1000),    # Oxidation-Reduction Potential mV
         'flow_rate': (0, 1000), # L/h
-        'air_velocity': (0, 20) # m/s
+        'air_velocity': (0, 20),  # m/s
+        'r_fr_ratio': (0.1, 10.0),   # Dimensionslos — typisch 0.5-3.0 (Sonnenlicht ~1.2, LED variabel)
+        'blue_fraction': (0, 100),    # Prozent des PAR-Spektrums im Blaubereich (400-500nm)
     }
     
     def validate_plausibility(self) -> dict:
@@ -509,11 +523,16 @@ class SensorReading(BaseModel):
         score = 1.0
         
         # 1. Source-basierte Basis-Qualität
+        # Manuelle Eingaben differenziert bewerten: Ein kalibriertes Profi-Gerät
+        # (z.B. Apera pH20) liefert annähernd Auto-Qualität, während eine
+        # grobe Schätzung ohne Werkzeug deutlich weniger zuverlässig ist.
+        # Die Basisbewertung 0.85 gilt für manuelle Eingaben MIT kalibriertem
+        # Messgerät. Adjustierung erfolgt in calculate_manual_quality_score().
         source_scores = {
             'ha_auto': 1.0,
             'mqtt_auto': 0.95,
             'modbus_auto': 0.95,
-            'manual': 0.85,
+            'manual': 0.85,       # Basis — wird durch Gerätegenauigkeit/Kalibrierung adjustiert
             'interpolated': 0.6,
             'fallback': 0.4
         }
@@ -562,11 +581,15 @@ class SensorReadingValidator:
         if not max_rate_of_change:
             # Defaults: Maximale Änderungsrate pro Minute
             max_rate_of_change = {
-                'temp': 0.5,      # 0.5°C/min
-                'humidity': 2.0,   # 2%/min
-                'ec': 0.05,       # 0.05 mS/min
-                'ph': 0.1,        # 0.1 pH/min
-                'co2': 50.0       # 50 ppm/min
+                'temp': 0.5,           # 0.5°C/min
+                'humidity': 2.0,       # 2%/min
+                'ec': 0.05,           # 0.05 mS/min
+                'ph': 0.1,            # 0.1 pH/min
+                'co2': 50.0,          # 50 ppm/min
+                'ppfd': 100.0,        # 100 μmol/m²/s/min — Wolkendurchzug oder Lampen-Schaltung
+                'soil_moisture': 1.0,  # 1%/min — schnellere Änderungen deuten auf Sensorverschiebung hin
+                'water_temp': 0.3,     # 0.3°C/min
+                'leaf_temp': 0.8,      # 0.8°C/min — reagiert schneller als Lufttemperatur
             }
         
         anomalies = []
@@ -769,8 +792,17 @@ class HomeAssistantConnector:
             return []
     
     def _infer_parameter_from_entity(self, entity_id: str, unit: str) -> str:
-        """Inferiert Parameter-Typ aus Entity-ID und Unit"""
-        
+        """
+        Inferiert Parameter-Typ aus Entity-ID und Unit.
+
+        EMPFEHLUNG: Die Inferenz basierend auf Entity-Naming ist fehleranfällig —
+        z.B. kann 'sensor.garden_humidity' sowohl Luft- als auch Bodenfeuchte sein.
+        Bei der erstmaligen Zuordnung eines HA-Sensors SOLLTE das UI den inferierten
+        Typ dem Nutzer zur Bestätigung vorlegen. Das Ergebnis wird dann im
+        Sensor-Node unter `parameter` persistent gespeichert, sodass die Inferenz
+        nur beim Onboarding nötig ist.
+        """
+
         entity_lower = entity_id.lower()
         unit_lower = unit.lower()
         
@@ -821,10 +853,46 @@ from typing import Optional
 class SensorFallbackManager:
     """Erkennt Sensor-Ausfälle und orchestriert Fallback-Strategien"""
     
-    # Konfigurierbare Schwellenwerte
+    # Konfigurierbare Schwellenwerte (Defaults — parameterspezifisch überschreibbar)
     MAX_AGE_CRITICAL_HOURS = 24
     MAX_AGE_WARNING_HOURS = 6
     MAX_AGE_INTERPOLATION_HOURS = 2
+
+    # Parameterspezifische Schwellenwerte für Sensor-Ausfälle:
+    # Schnell-veränderliche Parameter (Temperatur, VPD) benötigen häufigere Updates
+    # als träge Parameter (EC im Substrat, Bodenfeuchte).
+    PARAMETER_WARNING_HOURS: dict[str, float] = {
+        'temp':           2.0,    # Temperatur ändert sich schnell — 2h Warning
+        'humidity':       2.0,    # Feuchte ebenso
+        'vpd':            2.0,    # Abgeleiteter Wert von temp+humidity
+        'co2':            3.0,    # Moderat dynamisch
+        'ppfd':           4.0,    # Relevant nur bei Licht-an — toleranter
+        'ec':             6.0,    # Ändert sich langsam im Substrat
+        'ph':             6.0,    # Ändert sich langsam
+        'soil_moisture':  8.0,    # Träge, besonders in Erde
+        'water_level':    8.0,    # Reservoir-Level ändert sich langsam
+        'leaf_temp':      2.0,    # Schnell veränderlich (Licht-/Luftbewegung)
+        'water_temp':     4.0,    # Reservoir-Temperatur ist träger
+        'do':             4.0,    # DWC-kritisch, aber nicht sekundenschnell
+    }
+
+    # Parameterspezifische maximale Interpolationsdauer:
+    # Schnell-veränderliche Parameter dürfen nur kurz interpoliert werden,
+    # da lineare Interpolation bei hoher Dynamik zu ungenauen Werten führt.
+    MAX_INTERPOLATION_HOURS: dict[str, float] = {
+        'temp':           2.0,
+        'humidity':       2.0,
+        'vpd':            1.0,    # Abgeleitet — Interpolation weniger zuverlässig
+        'co2':            1.0,    # Stark von Lüftung abhängig — nicht linear
+        'ppfd':           0.5,    # Licht ändert sich sprunghaft (Wolken, Schaltung)
+        'ec':             4.0,    # Träge im Substrat
+        'ph':             4.0,
+        'soil_moisture':  6.0,    # Sehr träge in Erde
+        'water_level':    6.0,
+        'leaf_temp':      1.0,
+        'water_temp':     3.0,
+        'do':             2.0,
+    }
     
     def __init__(self, arango_db):
         self.db = arango_db
@@ -832,7 +900,8 @@ class SensorFallbackManager:
     def check_sensor_health(
         self,
         sensor_id: str,
-        last_reading_time: Optional[datetime]
+        last_reading_time: Optional[datetime],
+        parameter: Optional[str] = None
     ) -> dict:
         """
         Überprüft Sensor-Gesundheit und empfiehlt Actions
@@ -855,7 +924,15 @@ class SensorFallbackManager:
         
         age = datetime.now() - last_reading_time
         age_hours = age.total_seconds() / 3600
-        
+
+        # Parameterspezifische Schwellenwerte verwenden, falls verfügbar
+        warning_hours = self.PARAMETER_WARNING_HOURS.get(
+            parameter, self.MAX_AGE_WARNING_HOURS
+        ) if parameter else self.MAX_AGE_WARNING_HOURS
+        interpolation_hours = self.MAX_INTERPOLATION_HOURS.get(
+            parameter, self.MAX_AGE_INTERPOLATION_HOURS
+        ) if parameter else self.MAX_AGE_INTERPOLATION_HOURS
+
         if age_hours > self.MAX_AGE_CRITICAL_HOURS:
             return {
                 'status': 'CRITICAL',
@@ -866,17 +943,18 @@ class SensorFallbackManager:
                 'suggested_measurement_frequency': 'daily'
             }
         
-        elif age_hours > self.MAX_AGE_WARNING_HOURS:
+        elif age_hours > warning_hours:
             return {
                 'status': 'WARNING',
                 'action': 'NOTIFY_USER',
                 'message': f'Sensor seit {age_hours:.1f}h ohne Update - bitte prüfen',
                 'age_hours': age_hours,
+                'threshold_hours': warning_hours,
                 'check_battery': True,
                 'check_connectivity': True
             }
-        
-        elif age_hours > self.MAX_AGE_INTERPOLATION_HOURS:
+
+        elif age_hours > interpolation_hours:
             return {
                 'status': 'OK',
                 'action': 'USE_INTERPOLATION',
@@ -1103,6 +1181,50 @@ class ManualInputValidator:
         }
     
     @staticmethod
+    def calculate_manual_quality_score(
+        user_confidence: Literal['high', 'medium', 'low'],
+        measurement_tool: Optional[str] = None,
+        tool_last_calibrated_days_ago: Optional[int] = None,
+        tool_accuracy_percent: Optional[float] = None,
+    ) -> float:
+        """
+        Differenzierter Quality-Score für manuelle Eingaben.
+        Berücksichtigt Kalibrierungsstatus und Gerätegenauigkeit statt
+        pauschalem Score.
+
+        Returns:
+            Quality-Score 0.0-1.0
+        """
+        # Basis nach User-Confidence
+        confidence_scores = {'high': 0.9, 'medium': 0.75, 'low': 0.55}
+        score = confidence_scores.get(user_confidence, 0.6)
+
+        # Bonus für bekanntes, kalibriertes Messgerät
+        if measurement_tool:
+            score += 0.05  # Gerät angegeben = leichter Bonus
+
+            # Kalibrierungsstatus
+            if tool_last_calibrated_days_ago is not None:
+                if tool_last_calibrated_days_ago <= 7:
+                    score += 0.05   # Frisch kalibriert
+                elif tool_last_calibrated_days_ago > 90:
+                    score -= 0.1    # Überfällige Kalibrierung
+                elif tool_last_calibrated_days_ago > 30:
+                    score -= 0.05   # Kalibrierung empfohlen
+
+            # Gerätegenauigkeit
+            if tool_accuracy_percent is not None:
+                if tool_accuracy_percent <= 2.0:
+                    score += 0.05   # Hochpräzises Gerät
+                elif tool_accuracy_percent > 10.0:
+                    score -= 0.1    # Geringes Präzisionsniveau
+        else:
+            # Kein Messgerät angegeben = Schätzung
+            score -= 0.15
+
+        return max(0.1, min(1.0, score))
+
+    @staticmethod
     def suggest_measurement_tool(parameter: str) -> dict:
         """Empfiehlt geeignetes Mess-Tool"""
         
@@ -1156,7 +1278,10 @@ ParameterType = Literal[
     'do',               # Dissolved Oxygen (Hydro-Systeme)
     'orp',              # Oxidation-Reduction Potential
     'flow_rate',        # Durchfluss (L/h)
-    'air_velocity'      # Luftbewegung (m/s)
+    'air_velocity',     # Luftbewegung (m/s)
+    'r_fr_ratio',       # Rot/Far-Red-Verhältnis — steuert Phytochrom-Gleichgewicht (Streckungswachstum)
+    'blue_fraction',    # Blauanteil (%) im PAR-Spektrum — beeinflusst Kompaktwuchs und Stomata-Öffnung
+    'par_spectrum'      # PAR-Spektralverteilung (JSON-kodiert: {nm_range: μmol/m²/s}) — für detaillierte Lichtanalyse
 ]
 SourceType = Literal['ha_auto', 'mqtt_auto', 'modbus_auto', 'manual', 'interpolated', 'fallback']
 AlertSeverity = Literal['info', 'warning', 'critical']
@@ -1183,6 +1308,35 @@ class SensorDefinition(BaseModel):
     # phasenspezifische Thresholds kommen aus PhaseControlProfile.
     sensor_model: Optional[str] = None
     accuracy_percent: Optional[float] = Field(None, ge=0, le=100)
+    mounting_height_cm: Optional[int] = Field(None, ge=0, le=500,
+        description="Montagehöhe über Boden/Substrat in cm. Qualitätsfaktor: "
+                    "PPFD-Sensoren sollten auf Canopy-Level sein, Temperatur-Sensoren "
+                    "nicht direkt an der Lichtquelle.")
+    mounting_position: Optional[Literal[
+        'canopy_level', 'above_canopy', 'substrate_level',
+        'root_zone', 'reservoir', 'wall_mounted', 'freestanding'
+    ]] = None
+    representative_area_m2: Optional[float] = Field(None, ge=0,
+        description="Fläche die der Sensor repräsentativ abdeckt. "
+                    "Wird bei Multi-Sensor-Aggregation zur Gewichtung genutzt.")
+
+    # Substratfeuchte-Differenzierung: Verschiedene Messprinzipien liefern
+    # unterschiedliche Werte und Einheiten. Ein kapazitiver Sensor in Coco
+    # misst anders als ein Tensiometer in Erde.
+    soil_moisture_method: Optional[Literal[
+        'capacitive',        # Kapazitiv (Standard für die meisten Hobby-Sensoren, misst Dielektrizität)
+        'resistive',         # Widerstandsmessung (günstig, korrosionsanfällig)
+        'tensiometer',       # Saugspannung in kPa/cbar (misst Pflanzenverfügbarkeit direkt)
+        'tdr',               # Time Domain Reflectometry (Profi, sehr genau)
+        'gravimetric',       # Wiegung (Labor-Referenz)
+    ]] = None  # Nur relevant für parameter='soil_moisture'
+    soil_moisture_unit: Optional[Literal[
+        'percent_vwc',       # Volumetrischer Wassergehalt (%) — Standard für kapazitiv/TDR
+        'percent_raw',       # Rohwert des Sensors (%) — oft herstellerspezifisch skaliert
+        'kpa',               # Saugspannung (Tensiometer) — 0=gesättigt, 80+=trocken
+        'cbar',              # Centibar (= kPa, alternative Einheit für Tensiometer)
+    ]] = None
+    substrate_type_key: Optional[str] = None  # Referenz auf REQ-019 Substrat — beeinflusst Interpretation der Messwerte
     
     @field_validator('calibration_factor')
     @classmethod
@@ -1197,6 +1351,53 @@ class SensorDefinition(BaseModel):
         if v and not v.startswith(('sensor.', 'binary_sensor.')):
             raise ValueError("HA Entity muss mit 'sensor.' oder 'binary_sensor.' beginnen")
         return v
+
+
+class PhaseAlertProfile(BaseModel):
+    """
+    Phasenabhängiges Alert-Profil: Verknüpft Sensorparameter mit Wachstumsphasen
+    für dynamisches Alerting. Statische Schwellenwerte auf dem Sensor-Node sind
+    Sicherheits-Maxima; die hier definierten Schwellenwerte kommen aus dem
+    PhaseControlProfile (REQ-003) und werden bei jedem Phasenwechsel aktualisiert.
+
+    Beispiel: VPD-Warnung bei 0.6 kPa in der vegetativen Phase (Ziel 0.8-1.5),
+    aber VPD-Warnung erst bei 0.3 kPa in der Blüte (Ziel 0.4-0.8).
+    """
+
+    profile_id: str
+    phase_name: str  # z.B. 'vegetative', 'flowering'
+    parameter: ParameterType
+    warning_min: Optional[float] = None
+    warning_max: Optional[float] = None
+    critical_min: Optional[float] = None
+    critical_max: Optional[float] = None
+    target_min: float  # Optimaler Bereich — untere Grenze
+    target_max: float  # Optimaler Bereich — obere Grenze
+
+    # Referenz auf REQ-003 PhaseControlProfile
+    # Bei Phasenwechsel: Engine liest PhaseControlProfile und aktualisiert
+    # aktive Alert-Schwellenwerte für alle Sensoren am Standort.
+
+    PHASE_DEFAULTS: dict[str, dict[str, tuple]] = {
+        'vegetative': {
+            'vpd':       (0.4, 0.8, 1.5, 2.0),   # (crit_min, warn_min/target_min, target_max/warn_max, crit_max)
+            'temp':      (15, 20, 30, 35),
+            'humidity':  (30, 40, 70, 85),
+            'ppfd':      (100, 200, 600, 1000),
+        },
+        'flowering': {
+            'vpd':       (0.2, 0.4, 0.8, 1.2),
+            'temp':      (18, 20, 28, 32),
+            'humidity':  (40, 45, 60, 70),
+            'ppfd':      (200, 400, 800, 1200),
+        },
+        'seedling': {
+            'vpd':       (0.2, 0.4, 0.8, 1.0),
+            'temp':      (20, 22, 28, 30),
+            'humidity':  (50, 60, 80, 90),
+            'ppfd':      (50, 100, 300, 500),
+        },
+    }
 
 class CalibrationRecord(BaseModel):
     """Kalibrierungs-Event"""
@@ -1262,6 +1463,95 @@ class CalibrationRecord(BaseModel):
             }
 ```
 
+### TimescaleDB-Downsampling-Strategie:
+
+Alle Sensor-Rohdaten werden primär in TimescaleDB als Hypertable gespeichert.
+ArangoDB-Observations bleiben als Metadaten-Graph (Sensor→Observation-Edges, Quality-Scores,
+Alerts); die eigentlichen Zeitreihenwerte liegen in TimescaleDB.
+
+```sql
+-- Hypertable für Sensor-Rohdaten
+CREATE TABLE sensor_readings (
+    time        TIMESTAMPTZ NOT NULL,
+    sensor_id   TEXT NOT NULL,
+    parameter   TEXT NOT NULL,
+    value       DOUBLE PRECISION NOT NULL,
+    quality_score DOUBLE PRECISION DEFAULT 1.0,
+    source      TEXT NOT NULL  -- 'ha_auto', 'mqtt_auto', 'manual', etc.
+);
+SELECT create_hypertable('sensor_readings', 'time');
+
+-- Index für häufige Abfragen
+CREATE INDEX idx_sensor_readings_sensor_param
+    ON sensor_readings (sensor_id, parameter, time DESC);
+
+-- Retention Policy: Rohdaten 90 Tage, danach nur Aggregate
+SELECT add_retention_policy('sensor_readings', INTERVAL '90 days');
+
+-- Continuous Aggregate: Stündliche Zusammenfassung
+CREATE MATERIALIZED VIEW sensor_hourly
+WITH (timescaledb.continuous) AS
+SELECT
+    time_bucket('1 hour', time) AS bucket,
+    sensor_id,
+    parameter,
+    AVG(value) AS avg_value,
+    MIN(value) AS min_value,
+    MAX(value) AS max_value,
+    STDDEV(value) AS stddev_value,
+    COUNT(*) AS sample_count,
+    AVG(quality_score) AS avg_quality
+FROM sensor_readings
+GROUP BY bucket, sensor_id, parameter;
+
+-- Refresh-Policy: stündlich aktualisieren
+SELECT add_continuous_aggregate_policy('sensor_hourly',
+    start_offset => INTERVAL '3 hours',
+    end_offset   => INTERVAL '1 hour',
+    schedule_interval => INTERVAL '1 hour');
+
+-- Continuous Aggregate: Tägliche Zusammenfassung (inkl. DLI-Akkumulation)
+CREATE MATERIALIZED VIEW sensor_daily
+WITH (timescaledb.continuous) AS
+SELECT
+    time_bucket('1 day', time) AS bucket,
+    sensor_id,
+    parameter,
+    AVG(value) AS avg_value,
+    MIN(value) AS min_value,
+    MAX(value) AS max_value,
+    STDDEV(value) AS stddev_value,
+    COUNT(*) AS sample_count,
+    -- DLI-Akkumulation: Summe der PPFD-Werte × Messintervall in Sekunden / 1e6
+    -- Ergibt mol/m²/d bei parameter='ppfd' und regelmäßigem Messintervall
+    SUM(CASE WHEN parameter = 'ppfd'
+        THEN value * EXTRACT(EPOCH FROM '60 seconds'::interval) / 1e6
+        ELSE 0 END) AS dli_mol_m2_d
+FROM sensor_readings
+GROUP BY bucket, sensor_id, parameter;
+
+SELECT add_continuous_aggregate_policy('sensor_daily',
+    start_offset => INTERVAL '3 days',
+    end_offset   => INTERVAL '1 day',
+    schedule_interval => INTERVAL '1 day');
+
+-- Retention für Aggregate: stündlich 1 Jahr, täglich unbegrenzt
+SELECT add_retention_policy('sensor_hourly', INTERVAL '365 days');
+-- sensor_daily: keine Retention (dauerhaft aufbewahren)
+```
+
+**Downsampling-Stufen:**
+| Datenebene | Granularität | Retention | Verwendung |
+|-----------|-------------|-----------|------------|
+| Rohdaten | Messintervall (10s-60s) | 90 Tage | Echtzeit-Dashboard, Anomalie-Erkennung |
+| Stündlich | 1h-Aggregate | 1 Jahr | Trend-Analyse, 7-Tage-Charts |
+| Täglich | 1d-Aggregate (+DLI) | Unbegrenzt | Langzeit-Vergleich, Saison-Überblick |
+
+**DLI-Berechnung:** Der Daily Light Integral wird als Continuous Aggregate über die
+tägliche PPFD-Summe berechnet (`dli_mol_m2_d`). Bei lückenhaften Daten (z.B. durch
+Interpolation) wird der DLI-Wert mit dem Anteil der verfügbaren Datenpunkte skaliert
+und ein `dli_confidence`-Flag gesetzt.
+
 ## 4. Abhängigkeiten
 
 **Erforderliche externe Systeme:**
@@ -1308,8 +1598,17 @@ class CalibrationRecord(BaseModel):
 - [ ] **Export-Funktion:** CSV-Export für externe Analysen
 - [ ] **Leaf-VPD:** Blatttemperatur-basierte VPD-Berechnung (leaf_temp ParameterType)
 - [ ] **Erweiterte ParameterTypes:** leaf_temp, substrate_temp, water_temp, do, orp, flow_rate, air_velocity
-- [ ] **3σ-Anomalie-Schwelle:** Z-Score > 3.0 für robuste Ausreißer-Erkennung
-- [ ] **Phasenabhängige Alerts:** Schwellenwerte aus REQ-003 PhaseControlProfile übernehmen
+- [ ] **Zweistufige Anomalie-Schwelle:** Z-Score > 3.0 = warning, > 4.0 = critical; gleitendes Fenster konfigurierbar
+- [ ] **Phasenabhängige Alerts:** PhaseAlertProfile mit dynamischen Schwellenwerten aus REQ-003 PhaseControlProfile
+- [ ] **Sensorplatzierung:** mounting_height_cm, mounting_position, representative_area_m2 als Qualitätsfaktoren
+- [ ] **Parameterspezifische Ausfall-Schwellen:** Schnell-veränderliche Parameter (temp, VPD: 2h) vs. träge (EC, soil_moisture: 6-8h)
+- [ ] **Parameterspezifische Interpolation:** ppfd max 0.5h, soil_moisture bis 6h, temp/humidity 2h
+- [ ] **Lichtspektrum-Parameter:** r_fr_ratio, blue_fraction, par_spectrum in ParameterType
+- [ ] **Substratfeuchte-Differenzierung:** soil_moisture_method + soil_moisture_unit pro Sensor, substrate_type_key
+- [ ] **TimescaleDB-Downsampling:** Hypertable + Continuous Aggregates (stündlich, täglich), Retention 90d/1y/unbegrenzt
+- [ ] **DLI-Akkumulation:** Daily Light Integral als Continuous Aggregate über PPFD-Summe
+- [ ] **Manual Quality-Score:** Differenziert nach Gerätekalibrierung und Gerätegenauigkeit
+- [ ] **Entity-ID-Inferenz:** Nutzerbestätigung beim erstmaligen Sensor-Onboarding empfohlen
 - [ ] **Alert-System:** Konfigurierbare Min/Max-Schwellenwerte
 - [ ] **Battery-Monitoring:** Warnung bei <20% Batterie (wenn verfügbar)
 - [ ] **Offline-Modus:** Mobile-App speichert Eingaben lokal und synct später
@@ -1406,7 +1705,8 @@ THEN:
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Sensorik, Home Assistant, MQTT, Kalibrierung, Quality-Score, Anomalie-Erkennung, Interpolation, Leaf-VPD, Blatttemperatur
-- Fachbegriffe: PPFD, DLI, Tensiometer, TDS, Z-Score, Lineare Regression, WebSocket, Leaf-VPD, R:FR-Ratio, Phytochrom, Dissolved Oxygen, ORP
-- Verknüpfung: Zentral für REQ-003 (VPD, phasenabhängige Schwellenwerte), REQ-004 (EC/pH), REQ-009 (Dashboard), REQ-010 (IPM-Risiko), REQ-018 (Aktorik-Rückkopplung), REQ-019 (Substrat-Temperatur)
+- Keywords: Sensorik, Home Assistant, MQTT, Kalibrierung, Quality-Score, Anomalie-Erkennung, Interpolation, Leaf-VPD, Blatttemperatur, TimescaleDB, Downsampling, Continuous Aggregates
+- Fachbegriffe: PPFD, DLI, Tensiometer, TDS, Z-Score, Lineare Regression, WebSocket, Leaf-VPD, R:FR-Ratio, Phytochrom, Dissolved Oxygen, ORP, Hypertable, Retention Policy, PhaseAlertProfile, VWC, TDR, Saugspannung, PAR-Spektrum
+- Verknüpfung: Zentral für REQ-003 (VPD, phasenabhängige Schwellenwerte, PhaseAlertProfile), REQ-004 (EC/pH), REQ-009 (Dashboard), REQ-010 (IPM-Risiko), REQ-018 (Aktorik-Rückkopplung), REQ-019 (Substrat-Temperatur, substrate_type_key)
 - Protokolle: REST API, MQTT, WebSocket, Modbus
+- Datenbank: TimescaleDB Hypertables (Rohdaten 90d, stündliche Aggregate 1y, tägliche Aggregate unbegrenzt)

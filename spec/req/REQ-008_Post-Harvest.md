@@ -7,7 +7,7 @@ Kategorie: Post-Harvest
 Fokus: Beides
 Technologie: Python, Umweltsensorik, TimescaleDB (Zeitreihen)
 Status: Entwurf
-Version: 2.1 (Agrarbiologie-Review)
+Version: 2.2 (U/P-Findings integriert)
 ```
 
 ## 1. Business Case
@@ -38,9 +38,13 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
   - **Dehydrator:** 35-40°C bis cracker-dry
   - **Kritisch:** Über 40°C = Wirkstoff-/Terpen-Verlust (Psilocybin, Hericenone)
   
-- **Zwiebeln/Knoblauch:**
-  - **Schalenhärtung:** 2-3 Wochen bei 25-30°C, niedrige RLF
-  - **UV-Exposition:** Fördert Schalenhärtung
+- **Zwiebeln/Knoblauch (P-004: Phasentrennung Härtung vs. Lagerung):**
+  - **Phase 1 — Schalenhärtung (Curing):** 2-3 Wochen bei 25-30°C, niedrige RLF
+    - UV-Exposition GEWÜNSCHT: Fördert Schalenhärtung und antimikrobielle Wirkung
+    - Gut belüfteter, sonniger (aber nicht heißer) Standort
+  - **Phase 2 — Langzeitlagerung:** Dunkel, 10-15°C, 60-70% RLF
+    - KEIN UV: Licht fördert Keimung und Ergrünung (Chlorophyll-Synthese)
+    - Übergang zu Phase 2 wenn Hals vollständig trocken und papierartig
 
 **2. Curing (Fermentierung/Veredelung):**
 - **Cannabis:**
@@ -151,6 +155,8 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
     - `critical_max_rh: int` (Schimmel-Schwelle)
     - `critical_min_rh: int` (Übertrocknung-Schwelle)
     - `target_water_activity: Optional[float]` (Wasseraktivität a_w — biologisch korrekter Endpunkt-Indikator: Schimmelpilze ab a_w > 0.65, Cannabis-Ziel: 0.55-0.65, Kräuter: < 0.50, Getrocknete Pilze: < 0.30)
+    - `co2_max_ppm: Optional[int]` (Maximal tolerierbare CO2-Konzentration im Trocknungsraum. Default: 1500 ppm. Über 2000 ppm → unzureichende Belüftung, beschleunigte anaerobe Prozesse, Schimmelrisiko. U-005)
+    - `max_uv_exposure: Optional[Literal['none', 'minimal', 'controlled', 'direct']]` (UV-Exposition-Toleranz. Cannabis/Hopfen: 'none' — UV degradiert THC/Terpene. Zwiebel-Härtung: 'controlled'. Langzeitlagerung: 'none'. U-008)
 
 - **`:StorageLocation`** - Physischer Lagerort
   - Properties:
@@ -172,6 +178,7 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
     - `visual_condition: Literal['excellent', 'good', 'acceptable', 'concerning', 'critical']`
     - `aroma_quality: Literal['excellent', 'good', 'acceptable', 'off', 'moldy']`
     - `water_activity: Optional[float]` (a_w-Messung — präziser als RH für Schimmelrisiko-Bewertung)
+    - `co2_ppm: Optional[int]` (CO2-Konzentration im Trocknungsraum. Über 1500 ppm → Belüftung erhöhen. U-005)
     - `defects_observed: list[str]` (z.B. ["mold_spot", "over_dry"])
     - `photo_refs: list[str]`
     - `observer: str`
@@ -186,6 +193,20 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
     - `jar_rh_after: Optional[int]`
     - `condensation_observed: bool`
     - `aroma_notes: Optional[str]`
+
+- **`:TrimProtocol`** - Trim/Maniküre-Dokumentation (U-007)
+  - Properties:
+    - `trim_id: str`
+    - `trim_type: Literal['wet_trim', 'dry_trim', 'machine_trim']` (Wet: direkt nach Ernte, Dry: nach Trocknung, Machine: automatisiert)
+    - `trim_quality: Literal['hand_premium', 'hand_standard', 'machine']` (Qualitätsstufe des Trimms)
+    - `pre_trim_weight_g: float` (Gewicht vor Trim)
+    - `post_trim_weight_g: float` (Gewicht nach Trim)
+    - `trim_waste_g: float` (Verschnitt — Sugar Leaves, kleine Blätter)
+    - `trim_usable_g: Optional[float]` (Verwertbarer Verschnitt — für Extrakte, Edibles)
+    - `trimmer: str` (User-ID)
+    - `trimmed_at: datetime`
+    - `duration_minutes: Optional[int]`
+    - `notes: Optional[str]`
 
 - **`:MoldAlert`** - Schimmel-Warnung
   - Properties:
@@ -205,9 +226,10 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
     - `target_weight_g: float`
     - `weight_loss_percent: float`
     - `dryness_progress_percent: float`
-    - `snap_test_ready: bool`
+    - `snap_test_passed: Optional[bool]` (Unabhängiger boolean-Input vom Benutzer — nicht berechnet. Snap-Test Ergebnis: True = bricht sauber, False = biegt sich noch / splittert. P-002)
     - `estimated_days_remaining: int`
     - `water_activity: Optional[float]` (a_w-Wert — objektiver Trocknungsendpunkt, ergänzt gewichtsbasierte Berechnung)
+    - `co2_ppm_current: Optional[int]` (Aktuelle CO2-Konzentration im Trocknungsraum. U-005)
 
 ### Edge Collections:
 ```aql
@@ -240,6 +262,9 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
 
 // Edge Collection: triggered
 // storage_observations -> mold_alerts  (RH-basierte Alerts)
+
+// Edge Collection: trimmed_as
+// batches -> trim_protocols  (U-007: Trim/Maniküre-Dokumentation)
 ```
 
 ### AQL-Beispiellogik:
@@ -518,13 +543,36 @@ FOR location IN storage_locations
           RETURN obs
       )
 
-      // Haltbarkeits-Schätzung (spezies-abhängig)
-      LET shelf_life_days = (
-        species.scientific_name == 'Cannabis sativa' ? 365 :   // 1 Jahr bei korrekter Lagerung
-        species.scientific_name == 'Allium cepa' ? 180 :       // Zwiebeln 6 Monate
-        species.scientific_name == 'Solanum tuberosum' ? 270 : // Kartoffeln 9 Monate
-        90
+      // Haltbarkeits-Schätzung — parametrisch statt hardcodiert (P-001):
+      // base_shelf_life kommt aus dem StorageProtocol der jeweiligen Spezies.
+      // condition_factor wird aus aktuellen IST-Bedingungen vs. SOLL berechnet.
+      LET storage_protocol = FIRST(
+        FOR p IN 1..1 OUTBOUND species GRAPH 'kamerplanter_graph'
+          OPTIONS { edgeCollections: ['requires_post_harvest'] }
+          FILTER p.protocol_type == 'storage'
+          RETURN p
       )
+      LET base_shelf_life = storage_protocol != null
+        ? storage_protocol.typical_duration_days
+        : 90  // Fallback für Arten ohne explizites Protokoll
+
+      // Condition-Factor: Abweichung von Soll-Bedingungen reduziert Haltbarkeit
+      LET condition = FIRST(
+        FOR cond IN 1..1 OUTBOUND storage_protocol GRAPH 'kamerplanter_graph'
+          OPTIONS { edgeCollections: ['requires_conditions'] }
+          RETURN cond
+      )
+      LET temp_deviation = current_condition != null AND condition != null
+        ? ABS(current_condition.temperature_c - condition.temp_target_c)
+        : 0
+      LET rh_deviation = current_condition != null AND condition != null
+        ? ABS(current_condition.rh_percent - condition.rh_target_percent)
+        : 0
+      // Einfacher Condition-Factor: 1.0 bei idealen Bedingungen, <1.0 bei Abweichung
+      LET condition_factor = MAX(0.3,
+        1.0 - (temp_deviation * 0.03) - (rh_deviation * 0.01)
+      )
+      LET shelf_life_days = ROUND(base_shelf_life * condition_factor)
 
       LET days_remaining = shelf_life_days - days_in_storage
       LET shelf_life_used_percent = (days_in_storage / shelf_life_days * 100)
@@ -607,9 +655,15 @@ class DryingProtocol(BaseModel):
         target_loss = 100 - self.target_moisture_percent
         progress = min(100, (weight_loss_pct / target_loss) * 100)
         
-        # Snap-Test-Bereitschaft (Zweige brechen aber splittern nicht)
+        # Snap-Test-Bereitschaft: Berechnet als Hinweis, wann der Test sinnvoll ist.
+        # WICHTIG (P-002): snap_test_ready ist eine Schätzung basierend auf Gewichtsverlust.
+        # Der tatsächliche Snap-Test ist ein unabhängiger boolean Input
+        # (DryingProgress.snap_test_passed), der vom Benutzer nach manuellem Test
+        # gesetzt wird. Beide Werte zusammen ergeben das Gesamtbild:
+        # - snap_test_ready (berechnet) = "Jetzt testen empfohlen"
+        # - snap_test_passed (Input) = "Benutzer hat getestet: bricht sauber"
         snap_test_ready = progress >= 70
-        
+
         # Übertrocknung-Warnung
         over_dried = weight_loss_pct > 85
         
@@ -1113,6 +1167,7 @@ class MoldPreventionMonitor:
                 'appearance': 'Schwarz, körnig/pulverig',
                 'danger': 'CRITICAL',
                 'action': 'KOMPLETTE Entsorgung - gesundheitsgefährlich!',
+                'mycotoxin': 'Ochratoxin A (möglich, aber selten bei A. niger)',
                 'prevention': 'RH <55%, Temperatur <25°C'
             },
             'aspergillus_flavus': {
@@ -1121,8 +1176,21 @@ class MoldPreventionMonitor:
                 'danger': 'CRITICAL',
                 'action': 'SOFORTIGE ENTSORGUNG - Aflatoxin ist kanzerogen! '
                           'Nicht berühren ohne Handschuhe. Lagerort desinfizieren.',
-                'mycotoxin': 'Aflatoxin B1 (kanzerogen, Klasse 1)',
-                'prevention': 'Strikte RH-Kontrolle <55%'
+                'mycotoxin': 'Aflatoxin B1 (kanzerogen, IARC Klasse 1)',
+                'prevention': 'Strikte RH-Kontrolle <55%, Temperatur <25°C'
+            },
+            'aspergillus_fumigatus': {
+                'names': ['Aspergillus fumigatus', 'Invasiver Schimmelpilz'],
+                'appearance': 'Blaugrau bis grüngrau, samtig, oft in Substrat/Kompost',
+                'danger': 'CRITICAL',
+                'action': 'SOFORTIGE ENTSORGUNG - Invasive Aspergillose bei Immungeschwächten! '
+                          'Atemschutzmaske (FFP2+) und Handschuhe tragen. '
+                          'Sporen sind thermotolerant (bis 50°C überlebensfähig).',
+                'mycotoxin': 'Gliotoxin (immunsuppressiv)',
+                'health_risk': 'Häufigster Auslöser invasiver Aspergillosen beim Menschen. '
+                               'Besonders gefährlich bei Cannabis-Konsum durch Inhalation.',
+                'prevention': 'Strikte RH-Kontrolle <55%, HEPA-Filterung im Trocknungsraum, '
+                              'Temperatur <25°C (thermotolerant, aber Wachstum verlangsamt)'
             },
             'penicillium': {
                 'names': ['Penicillium', 'Blauschimmel'],
@@ -1137,11 +1205,17 @@ class MoldPreventionMonitor:
         color_lower = color.lower()
         
         if 'grau' in color_lower or 'gray' in color_lower:
-            identified = mold_types['botrytis']
+            # Differenziere: Blaugrau → A. fumigatus, Grau → Botrytis
+            if 'blau' in color_lower or 'blue' in color_lower:
+                identified = mold_types['aspergillus_fumigatus']
+            else:
+                identified = mold_types['botrytis']
         elif 'weiß' in color_lower or 'white' in color_lower:
             identified = mold_types['powdery_mildew']
         elif 'schwarz' in color_lower or 'black' in color_lower:
-            identified = mold_types['aspergillus']
+            identified = mold_types['aspergillus_niger']
+        elif 'gelb' in color_lower or 'yellow' in color_lower:
+            identified = mold_types['aspergillus_flavus']
         elif 'blau' in color_lower or 'grün' in color_lower:
             identified = mold_types['penicillium']
         else:
@@ -1163,7 +1237,356 @@ class MoldPreventionMonitor:
         }
 ```
 
-**4. Storage Location Manager:**
+**4. Trim Protocol Manager (U-007):**
+```python
+class TrimProtocol(BaseModel):
+    """
+    Dokumentiert den Trim/Maniküre-Prozess zwischen Ernte und Trocknung/Curing.
+
+    Trim-Methoden:
+    - Wet Trim: Direkt nach Ernte, bevor Blätter antrocknen. Schnellere Trocknung,
+      bessere Optik, aber höherer Terpen-Verlust.
+    - Dry Trim: Nach 3-7 Tagen Trocknung. Langsamere Trocknung = besseres Aroma,
+      aber arbeitsintensiver.
+    - Machine Trim: Automatisiert, schnell, aber ungleichmäßig. Für große Mengen.
+    """
+
+    batch_id: str
+    trim_type: Literal['wet_trim', 'dry_trim', 'machine_trim']
+    trim_quality: Literal['hand_premium', 'hand_standard', 'machine']
+    pre_trim_weight_g: float = Field(gt=0)
+    post_trim_weight_g: float = Field(gt=0)
+    trim_waste_g: float = Field(ge=0)
+    trim_usable_g: float = Field(
+        default=0, ge=0,
+        description="Verwertbarer Verschnitt (Sugar Leaves → Extraktion, Butter, Edibles)"
+    )
+    trimmer: str
+    trimmed_at: datetime
+    duration_minutes: Optional[int] = Field(None, ge=1)
+
+    @field_validator('post_trim_weight_g')
+    @classmethod
+    def validate_post_trim(cls, v, info):
+        pre = info.data.get('pre_trim_weight_g', 0)
+        if v > pre:
+            raise ValueError("post_trim_weight darf nicht größer als pre_trim_weight sein")
+        return v
+
+    def calculate_trim_stats(self) -> Dict:
+        """Berechnet Trim-Statistiken"""
+        waste_percent = (self.trim_waste_g / self.pre_trim_weight_g) * 100
+        usable_percent = (self.trim_usable_g / self.trim_waste_g) * 100 if self.trim_waste_g > 0 else 0
+
+        return {
+            'waste_percent': round(waste_percent, 1),
+            'usable_waste_percent': round(usable_percent, 1),
+            'trim_efficiency': round((self.post_trim_weight_g / self.pre_trim_weight_g) * 100, 1),
+            'recommendation': self._get_trim_recommendation(waste_percent),
+        }
+
+    def _get_trim_recommendation(self, waste_pct: float) -> str:
+        if waste_pct > 40:
+            return 'Hoher Verschnitt — prüfe ob weniger aggressiv getrimmt werden kann.'
+        elif waste_pct > 25:
+            return 'Normaler Verschnitt für Cannabis (20-35% je nach Sorte).'
+        else:
+            return 'Niedriger Verschnitt — gut optimiert oder loose buds.'
+```
+
+**5. Shelf Life Estimator (P-001, P-004, P-005):**
+```python
+class ShelfLifeEstimator:
+    """
+    Haltbarkeitsprognose basierend auf Art und Lagerbedingungen.
+    Ersetzt hardcodierte Artenliterale durch parametrische Berechnung:
+    base_shelf_life * condition_factor.
+    """
+
+    # Basis-Haltbarkeit (Tage) unter IDEALEN Bedingungen, artspezifisch
+    BASE_SHELF_LIFE: dict[str, dict] = {
+        'Cannabis sativa':    {'days': 365, 'basis': 'dried', 'notes': 'In luftdichten Jars mit Boveda'},
+        'Allium cepa':        {'days': 180, 'basis': 'cured', 'notes': 'Schalenhärtung abgeschlossen'},
+        'Solanum tuberosum':  {
+            'days': 270, 'basis': 'cured',
+            'notes': 'Sortenabhängig: Festkochende kürzer (180-210d), Mehligkochende länger (240-300d). '
+                     'Ohne Keimhemmung (CIPC) signifikant kürzer.',
+            'variety_modifiers': {
+                'waxy':    0.7,    # Festkochend: ~189d
+                'floury':  1.1,    # Mehligkochend: ~297d
+                'default': 1.0,
+            },
+            'sprouting_inhibition': {
+                'none':   0.5,     # Ohne Keimhemmung: ~135d
+                'cold':   0.8,     # Nur Kühllagerung 3-4°C: ~216d
+                'cipc':   1.0,     # Chemisch (CIPC): volle 270d
+                'ethylene': 0.9,   # Ethylen-Begasung: ~243d
+            },
+        },
+        'Cucurbita maxima':   {'days': 180, 'basis': 'cured', 'notes': 'Nach Nachreife-Phase'},
+        'Capsicum annuum':    {'days': 365, 'basis': 'dried', 'notes': 'Komplett getrocknet'},
+        'Humulus lupulus':     {'days': 365, 'basis': 'dried', 'notes': 'Vakuumversiegelt, tiefgekühlt optimal'},
+        'Ocimum basilicum':   {'days': 180, 'basis': 'dried', 'notes': 'Luftdicht, dunkel'},
+        # Pilze
+        'Agaricus bisporus':  {'days': 365, 'basis': 'dried', 'notes': 'Cracker-dry, luftdicht'},
+        'Lentinula edodes':   {'days': 730, 'basis': 'dried', 'notes': 'Shiitake trocknet exzellent'},
+    }
+
+    # Condition-Faktoren: Wie stark weichen IST-Bedingungen von SOLL ab?
+    @classmethod
+    def calculate_condition_factor(
+        cls,
+        temp_deviation_c: float,
+        rh_deviation_percent: float,
+        light_exposure: Literal['none', 'minimal', 'indirect', 'direct'] = 'none',
+        packaging: Literal['vacuum', 'airtight', 'sealed', 'open'] = 'airtight',
+    ) -> float:
+        """
+        Berechnet Konditions-Faktor (0.1 - 1.0) basierend auf Abweichung
+        von idealen Lagerbedingungen.
+        """
+        factor = 1.0
+
+        # Temperatur-Abweichung
+        if temp_deviation_c > 10:
+            factor *= 0.4
+        elif temp_deviation_c > 5:
+            factor *= 0.7
+        elif temp_deviation_c > 2:
+            factor *= 0.9
+
+        # RH-Abweichung
+        if rh_deviation_percent > 15:
+            factor *= 0.5
+        elif rh_deviation_percent > 10:
+            factor *= 0.7
+        elif rh_deviation_percent > 5:
+            factor *= 0.85
+
+        # Licht-Exposition (U-008: UV als Degradationsfaktor)
+        light_factors = {'none': 1.0, 'minimal': 0.9, 'indirect': 0.7, 'direct': 0.4}
+        factor *= light_factors.get(light_exposure, 1.0)
+
+        # Verpackung
+        pkg_factors = {'vacuum': 1.0, 'airtight': 0.95, 'sealed': 0.8, 'open': 0.5}
+        factor *= pkg_factors.get(packaging, 0.8)
+
+        return max(0.1, round(factor, 2))
+
+    @classmethod
+    def estimate_shelf_life(
+        cls,
+        species: str,
+        condition_factor: float = 1.0,
+        variety: Optional[str] = None,
+        sprouting_inhibition: Optional[str] = None,
+    ) -> Dict:
+        """
+        Schätzt Haltbarkeit: base_shelf_life * condition_factor * variety_modifier.
+        Kein hardcodierter Artname in der Berechnung.
+        """
+        specs = cls.BASE_SHELF_LIFE.get(species, {'days': 90, 'basis': 'fresh', 'notes': 'Unbekannte Art'})
+        base_days = specs['days']
+
+        # Sortenspezifischer Modifier (P-005: Kartoffel/Zwiebel)
+        variety_mod = 1.0
+        if 'variety_modifiers' in specs and variety:
+            variety_mod = specs['variety_modifiers'].get(variety, specs['variety_modifiers'].get('default', 1.0))
+
+        # Keimhemmung (P-005: Kartoffel ohne CIPC)
+        sprout_mod = 1.0
+        if 'sprouting_inhibition' in specs and sprouting_inhibition:
+            sprout_mod = specs['sprouting_inhibition'].get(
+                sprouting_inhibition, 1.0
+            )
+
+        estimated_days = int(base_days * condition_factor * variety_mod * sprout_mod)
+
+        return {
+            'species': species,
+            'base_shelf_life_days': base_days,
+            'condition_factor': condition_factor,
+            'variety_modifier': variety_mod,
+            'sprouting_inhibition_modifier': sprout_mod,
+            'estimated_shelf_life_days': estimated_days,
+            'notes': specs.get('notes', ''),
+        }
+```
+
+**6. Growing System Modifier (U-002):**
+```python
+class GrowingSystemModifier:
+    """
+    Differenzierung der Post-Harvest-Parameter nach Anbausystem.
+    Hydro vs. Soil vs. Organisch beeinflusst:
+    - Restfeuchtigkeit und Trocknungsdauer
+    - Chlorophyll-Gehalt (und damit Curing-Dauer)
+    - Nährstoff-Rückstände und Geschmacksprofil
+    """
+
+    SYSTEM_MODIFIERS: dict[str, dict] = {
+        'hydro': {
+            'drying_duration_modifier': 0.85,    # ~15% schnellere Trocknung (weniger Zellstruktur)
+            'curing_duration_modifier': 0.9,      # Etwas kürzere Cure (weniger Chlorophyll)
+            'chlorophyll_level': 'low',
+            'residue_risk': 'medium',             # Kann Salzrückstände enthalten ohne Flushing
+            'flush_recommended': True,
+            'notes': 'Hydro-Material trocknet schneller — Übertrocknung vermeiden. '
+                     'Flushing empfohlen für saubereren Geschmack.',
+        },
+        'coco': {
+            'drying_duration_modifier': 0.9,
+            'curing_duration_modifier': 0.95,
+            'chlorophyll_level': 'medium',
+            'residue_risk': 'medium',
+            'flush_recommended': True,
+            'notes': 'Ähnlich wie Hydro, aber Coco puffert mehr Nährstoffe.',
+        },
+        'soil': {
+            'drying_duration_modifier': 1.0,     # Standard
+            'curing_duration_modifier': 1.0,
+            'chlorophyll_level': 'medium',
+            'residue_risk': 'low',
+            'flush_recommended': True,
+            'notes': 'Standard-Trocknung. Längeres Flushing nötig (höhere CEC).',
+        },
+        'living_soil': {
+            'drying_duration_modifier': 1.05,     # Etwas mehr Zellstruktur → längere Trocknung
+            'curing_duration_modifier': 1.1,       # Mehr Chlorophyll → längere Cure für Geschmack
+            'chlorophyll_level': 'high',
+            'residue_risk': 'very_low',
+            'flush_recommended': False,            # Kein Flushing — zerstört Mikrobiom
+            'notes': 'Kein Flushing nötig. Organisch gebundene Nährstoffe. '
+                     'Längere Cure empfohlen für optimalen Geschmack.',
+        },
+        'organic': {
+            'drying_duration_modifier': 1.0,
+            'curing_duration_modifier': 1.1,       # Mehr Chlorophyll
+            'chlorophyll_level': 'high',
+            'residue_risk': 'very_low',
+            'flush_recommended': False,
+            'notes': 'Organische Nährstoffe. Längere Cure für Chlorophyll-Abbau.',
+        },
+    }
+
+    @classmethod
+    def get_modifier(cls, growing_system: str) -> dict:
+        """Gibt anbausystemspezifische Post-Harvest-Modifier zurück."""
+        return cls.SYSTEM_MODIFIERS.get(growing_system, cls.SYSTEM_MODIFIERS['soil'])
+
+    @classmethod
+    def adjust_drying_duration(cls, base_days: int, growing_system: str) -> int:
+        """Passt Trocknungsdauer an Anbausystem an."""
+        mod = cls.get_modifier(growing_system)
+        return max(1, round(base_days * mod['drying_duration_modifier']))
+```
+
+**7. CO2 Monitor (U-005):**
+```python
+class CO2Monitor:
+    """
+    CO2-Überwachung im Trocknungsraum.
+    Pflanzen geben während der Trocknung CO2 ab (Zellatmung post-mortem).
+    Bei unzureichender Belüftung steigt CO2 → anaerobe Prozesse → Schimmel/Fehlgerüche.
+    """
+
+    CO2_THRESHOLDS = {
+        'optimal':  800,    # ppm — gute Belüftung
+        'elevated': 1200,   # ppm — Belüftung erhöhen
+        'warning':  1500,   # ppm — kritisch, sofort lüften
+        'critical': 2000,   # ppm — Ernte-Qualität gefährdet
+    }
+
+    @classmethod
+    def assess_co2(cls, co2_ppm: int, room_volume_m3: Optional[float] = None) -> Dict:
+        """Bewertet CO2-Konzentration und gibt Empfehlungen."""
+        if co2_ppm >= cls.CO2_THRESHOLDS['critical']:
+            return {
+                'level': 'CRITICAL',
+                'co2_ppm': co2_ppm,
+                'action': 'SOFORT lüften! CO2 > 2000 ppm fördert anaerobe Prozesse '
+                          'und Schimmelbildung. Abluftventilator aktivieren.',
+                'risk': 'Fehlgerüche (Ammoniak, Heu), beschleunigte Degradation',
+            }
+        elif co2_ppm >= cls.CO2_THRESHOLDS['warning']:
+            return {
+                'level': 'WARNING',
+                'co2_ppm': co2_ppm,
+                'action': 'Belüftung erhöhen. CO2 > 1500 ppm weist auf '
+                          'unzureichenden Luftaustausch hin.',
+            }
+        elif co2_ppm >= cls.CO2_THRESHOLDS['elevated']:
+            return {
+                'level': 'ELEVATED',
+                'co2_ppm': co2_ppm,
+                'action': 'Monitoring fortsetzen. Leicht erhöht — ggf. Belüftung anpassen.',
+            }
+        return {
+            'level': 'OK',
+            'co2_ppm': co2_ppm,
+            'action': 'Gute Belüftung. Weiter überwachen.',
+        }
+```
+
+**8. UV/Licht-Degradations-Manager (U-008):**
+```python
+class LightDegradationManager:
+    """
+    Licht (insbesondere UV) als Degradationsfaktor in Post-Harvest-Prozessen.
+
+    - THC degradiert zu CBN unter UV-Licht (Halbwertszeit ~365 Tage im Dunkeln,
+      ~90 Tage bei indirektem Licht, ~30 Tage bei direktem Sonnenlicht).
+    - Terpene verdampfen schneller bei Wärme + Licht.
+    - Chlorophyll baut bei Licht ab (erwünscht bei Curing, unerwünscht bei Lagerung).
+    - Vitamine (C, A) in Gemüse degradieren unter Lichteinfluss.
+
+    Zwiebel-Differenzierung (P-004):
+    - Härtungsphase: UV-Exposition GEWÜNSCHT (fördert Schalenhärtung, 2-3 Wochen)
+    - Langzeitlagerung: KEIN UV (fördert Keimung und Ergrünung)
+    """
+
+    SPECIES_LIGHT_SENSITIVITY: dict[str, dict] = {
+        'cannabis': {
+            'curing': 'none',        # Dunkel lagern — UV degradiert THC
+            'storage': 'none',
+            'packaging_recommendation': 'Opakes Glas (Violettglas/Miron) oder lichtdichte Behälter',
+            'degradation_rate': 'THC → CBN: ~0.5%/Monat dunkel, ~3%/Monat bei indirektem Licht',
+        },
+        'onion': {
+            'curing': 'controlled',   # UV GEWÜNSCHT für Schalenhärtung (P-004)
+            'storage': 'none',        # Dunkel für Langzeitlagerung (P-004)
+            'note': 'PHASENTRENNUNG: Härtung (2-3 Wochen UV) → Lagerung (dunkel). '
+                    'UV in der Lagerphase fördert Keimung und Ergrünung.',
+        },
+        'potato': {
+            'curing': 'none',         # KEIN Licht — Solanin-Bildung!
+            'storage': 'none',
+            'note': 'ABSOLUT DUNKEL: Licht (auch indirektes) induziert Solanin-Biosynthese. '
+                    'Grüne Stellen = Solanin = giftig.',
+        },
+        'herb': {
+            'curing': 'none',         # Dunkel trocknen — Farbe und Aroma erhalten
+            'storage': 'none',
+            'packaging_recommendation': 'Braunglas oder opake Dosen',
+        },
+    }
+
+    @classmethod
+    def get_light_protocol(cls, species_type: str, phase: Literal['curing', 'storage']) -> dict:
+        """Gibt lichtspezifisches Protokoll für Art und Phase zurück."""
+        specs = cls.SPECIES_LIGHT_SENSITIVITY.get(species_type, {
+            'curing': 'minimal', 'storage': 'none',
+        })
+        return {
+            'species': species_type,
+            'phase': phase,
+            'max_uv_exposure': specs.get(phase, 'none'),
+            'recommendation': specs.get('packaging_recommendation', 'Lichtgeschützt lagern'),
+            'note': specs.get('note', ''),
+        }
+```
+
+**9. Storage Location Manager:**
 ```python
 class StorageLocationManager(BaseModel):
     """Verwaltet Lagerorte und Inventar"""
@@ -1279,6 +1702,7 @@ class StorageObservation(BaseModel):
     rh_percent: Optional[int] = Field(None, ge=0, le=100)
     
     water_activity: Optional[float] = Field(None, ge=0, le=1, description="a_w-Messwert")
+    co2_ppm: Optional[int] = Field(None, ge=0, le=10000, description="CO2-Konzentration im Raum (U-005)")
 
     visual_condition: VisualCondition
     aroma_quality: AromaQuality
@@ -1340,9 +1764,14 @@ class BurpingEvent(BaseModel):
 
 **Erforderliche Module:**
 - REQ-007 (Ernte): Batch-Übergabe
-- REQ-005 (Sensorik): Temperatur/RLF-Monitoring
+- REQ-005 (Sensorik): Temperatur/RLF/CO2-Monitoring
 - REQ-001 (Stammdaten): Spezies-spezifische Protokolle
-- REQ-010 (IPM): **Karenz-Gate** — Batch darf nur in Post-Harvest übergehen, wenn letzte chemische Behandlung > Karenzzeit zurückliegt. Das System prüft den IPM-Treatment-Log vor Batch-Freigabe.
+- REQ-003 (Phasen): **Post-Harvest-Phasenverknüpfung (U-006)** — Der Übergang von `harvest` zu Post-Harvest (Trocknung/Curing/Lagerung) wird als formaler Phasenübergang in der REQ-003 State-Machine modelliert. Options:
+  - Option A: `post_harvest` als eigene Phase nach `harvest` in der State-Machine
+  - Option B: Post-Harvest als Unterphasen-System (`drying` → `curing` → `storage`) das parallel zur REQ-003 Phase läuft, aber über `batch_status` getrackt wird
+  - **Gewählte Option:** B — Post-Harvest hat eine eigene Zustandsmaschine pro Batch (da ein `plant_instance` mehrere Batches erzeugen kann, z.B. bei Partial Harvest). REQ-003 trackt den Plant-Lebenszyklus, REQ-008 den Batch-Lebenszyklus.
+  - **Batch-Status-Machine:** `fresh` → `drying` → `curing` → `aging` (optional) → `stored` → `consumed`/`disposed`
+- REQ-010 (IPM): **Karenz-Gate** — Batch darf nur in Post-Harvest übergehen, wenn letzte chemische Behandlung > Karenzzeit zurückliegt. Das System prüft den IPM-Treatment-Log vor Batch-Freigabe. Zusätzlich: `pesticide_residue_status` als optionales Feld auf Batch (z.B. 'clean', 'within_limits', 'residue_detected', 'untested').
 
 **Wird benötigt von:**
 - REQ-009 (Dashboard): Storage-Inventar-Widget
@@ -1381,6 +1810,17 @@ class BurpingEvent(BaseModel):
 - [ ] **Karenz-Gate:** REQ-010-Prüfung vor Batch-Übergang in Post-Harvest
 - [ ] **Phasen-Fermentation:** Separate Temperaturprofile für Leuconostoc/Lactobacillus-Phasen
 - [ ] **Pilz-Differenzierung:** Speisepilze (45-55°C) vs. Heilpilze (35-40°C) Trocknungsprofile
+- [ ] **Anbausystem-Modifier (U-002):** GrowingSystemModifier differenziert Trocknungs-/Curing-Dauer nach Hydro/Coco/Soil/Living Soil/Organisch
+- [ ] **Aspergillus-Differenzierung (U-004):** A. niger (Ochratoxin), A. flavus (Aflatoxin, kanzerogen), A. fumigatus (Aspergillose, invasiv) — jeweils mit spezifischen Maßnahmen
+- [ ] **CO2-Überwachung (U-005):** co2_ppm in StorageObservation und DryingProgress; CO2Monitor mit Schwellenwerten (800/1200/1500/2000 ppm)
+- [ ] **Batch-Status-Machine (U-006):** fresh → drying → curing → aging → stored → consumed/disposed; Verknüpfung mit REQ-003 Plant-Phase
+- [ ] **Trim-Protokoll (U-007):** TrimProtocol mit trim_type (wet/dry/machine), Gewichte vor/nach, verwertbarer Verschnitt
+- [ ] **Licht/UV-Degradation (U-008):** LightDegradationManager mit artspezifischen Licht-Protokollen; Cannabis dunkel, Zwiebel-Härtung kontrolliert UV, Kartoffel absolut dunkel
+- [ ] **Parametrische Haltbarkeitsprognose (P-001):** base_shelf_life * condition_factor statt hardcodierte Artenliterale
+- [ ] **Snap-Test als Input (P-002):** snap_test_passed als unabhängiger boolean User-Input neben berechnetem snap_test_ready
+- [ ] **Zwiebel-Phasentrennung (P-004):** Härtung (UV gewünscht) vs. Langzeitlagerung (dunkel) als separate Protokoll-Phasen
+- [ ] **Kartoffel-Keimhemmung (P-005):** Sortenspezifische (festkochend/mehlig) und keimhemmungsabhängige (CIPC/Ethylen/Kühlung/keine) Haltbarkeits-Modifier
+- [ ] **Pestizid-Rückstandsstatus:** pesticide_residue_status auf Batch-Ebene (REQ-010 Verknüpfung)
 
 ### Testszenarien:
 
@@ -1473,7 +1913,7 @@ THEN:
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Trocknung, Curing, Burping, Fermentierung, Schimmel, Lagerung, Snap-Test, Wasseraktivität, Taupunkt
-- Fachbegriffe: Chlorophyll-Abbau, Terpen-Entwicklung, Botrytis, Aspergillus niger, Aspergillus flavus, Aflatoxin, Boveda, Dehumidifier, Water Activity (a_w), Dew Point, Karenzzeit
-- Verknüpfung: Direkt nach REQ-007 (Ernte), vor Endverbrauch/Vertrieb, Karenz-Gate über REQ-010 (IPM)
-- Pflanzenwissenschaft: Nachreife, Ethylen-Management, Schalenhärtung, Fermentation, Leuconostoc, Lactobacillus, Psilocybin, Hericenone
+- Keywords: Trocknung, Curing, Burping, Fermentierung, Schimmel, Lagerung, Snap-Test, Wasseraktivität, Taupunkt, CO2-Überwachung, Trim, Maniküre, UV-Degradation, Keimhemmung, Anbausystem, Batch-Status
+- Fachbegriffe: Chlorophyll-Abbau, Terpen-Entwicklung, Botrytis, Aspergillus niger, Aspergillus flavus, Aspergillus fumigatus, Aflatoxin, Gliotoxin, Boveda, Dehumidifier, Water Activity (a_w), Dew Point, Karenzzeit, Solanin, CIPC, Ochratoxin, Aspergillose, Wet-Trim, Dry-Trim, Phasentrennung (Härtung/Lagerung)
+- Verknüpfung: Direkt nach REQ-007 (Ernte), vor Endverbrauch/Vertrieb, Karenz-Gate über REQ-010 (IPM), Batch-Status-Machine ergänzt REQ-003 Plant-Phase, CO2/RH-Monitoring über REQ-005
+- Pflanzenwissenschaft: Nachreife, Ethylen-Management, Schalenhärtung (UV-Phase vs. Lagerung), Fermentation, Leuconostoc, Lactobacillus, Psilocybin, Hericenone, Solanin-Biosynthese, CBN-Degradation unter UV, Mykotoxine (Aflatoxin B1, Ochratoxin A, Gliotoxin)

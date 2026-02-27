@@ -7,7 +7,7 @@ Kategorie: Pflanzenvermehrung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB
 Status: Entwurf
-Version: 1.1 (Agrarbiologie-Review)
+Version: 1.2 (Agrarbiologie-Review U+P-Findings)
 ```
 
 ## 1. Business Case
@@ -34,20 +34,49 @@ Jede `PlantInstance` kann als Mutterpflanze designiert werden. Die Designation i
 - **Erhaltungsprioritäten:** Mutterpflanzen können als `critical` (einzige Quelle einer Genetik), `important` oder `standard` markiert werden
 
 **Vermehrungsmethoden:**
-- **Steckling (cutting):** Vegetative Vermehrung — Triebspitze oder Stammsteckling von Mutterpflanze
+- **Steckling (cutting):** Vegetative Vermehrung — Triebspitze oder Stammsteckling von Mutterpflanze. Siehe auch `CuttingType` für Differenzierung (apikal, nodal, Fersensteckling etc.)
+- **Blattsteckling (leaf_cutting):** Vegetativ — ganzes Blatt oder Blattteil bewurzeln (Begonia, Sansevieria, Peperomia, Sukkulenten). Besonders für Zimmerpflanzen relevant.
+- **Stammstück (stem_section):** Vegetativ — stammförmige Abschnitte ohne Blätter (Dracaena, Dieffenbachia, Yucca). Horizontal oder vertikal stecken.
 - **Aussaat (seed_sowing):** Generative Vermehrung — Saatgut in Substrat/Keimmedium
-- **Teilung (division):** Vegetativ — Wurzelstock/Rhizom teilen (Stauden, Gräser)
+- **Teilung (division):** Vegetativ — Wurzelstock/Rhizom teilen (Stauden, Gräser, Calathea, Spathiphyllum)
+- **Kindel/Ableger (offset):** Vegetativ — natürliche Tochterpflanzen am Fuß der Mutterpflanze abtrennen (Aloe, Haworthia, Agave, Bromeliaceae, Pilea). Einfachste Methode mit höchster Erfolgsrate.
 - **Absenker (layering):** Vegetativ — Trieb bewurzeln lassen, dann trennen (Beerensträucher)
+- **Abmoosen (air_layering):** Vegetativ — Rinde am Stamm entfernen, mit feuchtem Moos umwickeln und in Folie einschlagen bis Wurzeln erscheinen (Ficus, Monstera, Dracaena). Ideal für große Zimmerpflanzen, die nicht einfach gesteckt werden können.
+- **Brutzwiebel/Brutknöllchen (bulbil):** Vegetativ — kleine Tochterzwiebeln oder Brutknollen abtrennen (Lilium, Allium, Chlorophytum). Natürliche asexuelle Vermehrungsorgane.
+- **Wasserbewurzelung (water_propagation):** Vegetativ — Stecklinge/Ableger in Wasser bewurzeln statt in Substrat (Pothos, Philodendron, Tradescantia, Basil). Besonders niedrigschwellig für Zimmerpflanzen-Einsteiger. Akklimatisierung beim Übergang zu Substrat beachten.
 - **Veredelung (grafting):** Vegetativ — Edelreis auf Unterlage (Obstbäume, Tomaten)
 - **Gewebekultur (tissue_culture):** In-vitro-Vermehrung — Meristemkultur (Spezial-Setup)
 
+**Stecklingstyp-Differenzierung (CuttingType):**
+Unterschiedliche Stecklingstypen haben verschiedene Bewurzelungscharakteristiken und Hormonbedarfe:
+- **Triebspitze (apical):** Oberstes Triebstück mit Vegetationspunkt — höchste natürliche Auxin-Konzentration, schnellste Bewurzelung
+- **Nodal (nodal):** Mittlerer Stammabschnitt mit Nodium — benötigt oft mehr Hormon als apikale Stecklinge
+- **Fersensteckling (heel):** Seitentrieb mit Stück des Hauptstamms abgerissen — verholzte „Ferse" fördert Kallusbildung
+- **Weichholz (softwood):** Junger, grüner Trieb der aktuellen Saison — schnelle Bewurzelung, empfindlich gegen Austrocknung
+- **Halbverholzt (semi_hardwood):** Teilweise ausgereifter Trieb — robuster als Weichholz, langsamere Bewurzelung
+- **Hartholz (hardwood):** Vollständig verholzter Trieb (Ruhephase) — langsame Bewurzelung, höhere Hormonkonzentration nötig, Long-Soak bevorzugt
+- **Blatt mit Stiel (leaf_petiole):** Einzelnes Blatt mit Blattstiel (Peperomia, Begonia Rex) — Adventivknospen bilden sich am Schnitt
+- **Blattsegment (leaf_section):** Blattstück mit Rippen (Sansevieria, Begonia) — neue Pflanze bildet sich an der Schnittkante
+
 **Bewurzelungs-Protokolle:**
 Standardisierte, wiederverwendbare Protokoll-Vorlagen für verschiedene Vermehrungsmethoden:
-- Medium (Steinwolle, Perlit, Wasser, Aeroponik-Kloner, Erde)
-- Bewurzelungshormon (IBA, NAA) mit Konzentration
-- Umgebungsbedingungen (Luftfeuchtigkeit, Temperatur, Lichtlevel)
+- Medium (Steinwolle, Perlit, Wasser, Aeroponik-Kloner, Erde) — mit optionaler Substrat-Integration (REQ-019)
+- Bewurzelungshormon (IBA, NAA) mit Konzentration und methodenspezifischen Grenzen
+- Umgebungsbedingungen:
+  - **Lufttemperatur (air_temperature_celsius):** Umgebungstemperatur um den Steckling. Differenziert von Substrattemperatur.
+  - **Substrattemperatur (heat_mat_celsius):** Wärmematte/Bottom-Heat-Temperatur. **Ideal 2–5°C über Lufttemperatur** — wärmeres Substrat fördert Wurzelbildung, während kühlere Luft die Transpiration reduziert. Delta >8°C = Warnung (Stress durch Temperaturgradient).
+  - **VPD-Ziel (target_vpd_kpa):** Niedriger VPD (0.3–0.5 kPa) für wurzellose Stecklinge unter Dome
+  - **Lichtintensität (light_ppfd):** Max. 150 PPFD unter Dome empfohlen, >150 = Warnung (Photoinhibition bei wurzellosen Stecklingen)
+  - **Lichtspektrum (light_spectrum):** Spektrum beeinflusst Bewurzelungsgeschwindigkeit. Blau-dominant fördert kompakten Wuchs, Rot-dominant fördert Streckung, Rot:Blau-Mix optimal für Bewurzelung.
 - Erwartete Timeline (Kallus-Bildung, erste Wurzeln, transplant-bereit)
 - Bewertungskriterien (Wurzelmasse, Wurzellänge, Triebvitalität)
+
+**IPM-Integration bei Vermehrung (REQ-010):**
+Vermehrung ist eine kritische Übertragungsphase für Pathogene und Schädlinge:
+- **Werkzeugsterilisation:** Dokumentation der Sterilisationsmethode (Alkohol 70%, Flamme, Bleiche, H2O2) pro Vermehrungsevent
+- **Quarantäne:** Neue Vermehrungen optional unter Quarantäne stellen (14–21 Tage) bevor sie in den Bestand integriert werden
+- **Virusstatus:** Tracking des Virusstatus der Mutterpflanze (`clean`, `untested`, `infected`, `recovered`) — Vermehrung von infizierten Pflanzen erzeugt Warnung
+- **Mutterpflanzen-Hygiene:** Gesundheitscheck (REQ-010 Inspection) vor Stecklingnahme empfohlen
 
 **Genetische Abstammung (Lineage Graph):**
 ArangoDB-Graph-Traversal ermöglicht Rückverfolgung über beliebig viele Generationen:
@@ -78,19 +107,29 @@ Das System prüft die Veredelungskompatibilität mehrstufig:
 - **`:PropagationEvent`** — Einzelne Vermehrungsaktion (immutable)
   - Collection: `propagation_events`
   - Properties:
-    - `event_type: Literal['cutting', 'seed_sowing', 'division', 'layering', 'grafting', 'tissue_culture']`
+    - `event_type: PropagationMethod` (cutting, leaf_cutting, stem_section, seed_sowing, division, offset, layering, air_layering, bulbil, water_propagation, grafting, tissue_culture)
+    - `cutting_type: Optional[CuttingType]` (apical, nodal, heel, softwood, semi_hardwood, hardwood, leaf_petiole, leaf_section — nur bei event_type='cutting')
     - `performed_at: datetime`
     - `quantity: int` (Anzahl entnommener Stecklinge / ausgesäter Samen)
     - `survived_count: Optional[int]` (Anzahl überlebender, wird nachgetragen)
     - `success_rate: Optional[float]` (0.0–1.0, berechnet aus survived/quantity)
     - `hormone_type: Optional[Literal['iba', 'naa', 'iba_naa_mix', 'honey', 'willow_water', 'none']]`
-    - `hormone_concentration_ppm: Optional[float]`
+    - `hormone_concentration_ppm: Optional[float]` (Obergrenze 10.000 ppm, validiert gegen HORMONE_RANGES)
     - `hormone_application_method: Optional[Literal['quick_dip', 'long_soak', 'powder', 'gel']]` — Applikationsmethode bestimmt Wirkung maßgeblich: Quick-Dip (5s, 1000–3000 ppm IBA für weiche Stecklinge), Long-Soak (12–24h, 50–200 ppm für verholzte Stecklinge), Powder (direkte Applikation), Gel (Kontaktzeit verlängert). Ohne Methode ist die ppm-Angabe nicht reproduzierbar.
-    - `medium: Optional[Literal['rockwool', 'perlite', 'vermiculite', 'water', 'aeroponic', 'soil', 'coco', 'peat']]`
+    - `medium: Optional[RootingMedium]`
     - `dome_humidity_percent: Optional[int]` (Ziel-Luftfeuchtigkeit unter Haube)
-    - `heat_mat_celsius: Optional[float]` (Wärmematte-Temperatur)
-    - `light_ppfd: Optional[int]` (Lichtintensität während Bewurzelung)
+    - `air_temperature_celsius: Optional[float]` (Lufttemperatur — differenziert von Substrattemperatur)
+    - `heat_mat_celsius: Optional[float]` (Substrattemperatur/Bottom Heat — ideal 2–5°C über Lufttemperatur)
+    - `target_vpd_kpa: Optional[float]` (Ziel-VPD unter Dome, typisch 0.3–0.5 kPa)
+    - `light_ppfd: Optional[int]` (Lichtintensität, max. 300 PPFD, Warnung >150 unter Dome)
+    - `light_spectrum: Optional[LightSpectrum]` (blue_dominant, red_blue_mix, full_spectrum etc.)
     - `photoperiod_hours: Optional[float]` (Beleuchtungsdauer)
+    - `substrate_batch_key: Optional[str]` (Referenz auf SubstrateBatch aus REQ-019)
+    - `medium_ph: Optional[float]` (pH des Bewurzelungsmediums)
+    - `medium_ec_ms: Optional[float]` (EC des Bewurzelungsmediums)
+    - `tool_sterilization_method: Optional[ToolSterilizationMethod]` (IPM: Werkzeugsterilisation)
+    - `quarantine_required: bool` (IPM: Quarantäne für Nachkommen)
+    - `quarantine_days: Optional[int]` (Quarantäne-Dauer)
     - `callus_observed_at: Optional[datetime]` (Erstes Kallusgewebe)
     - `roots_observed_at: Optional[datetime]` (Erste Wurzeln sichtbar)
     - `transplant_ready_at: Optional[datetime]` (Bereit zum Umtopfen)
@@ -103,7 +142,7 @@ Das System prüft die Veredelungskompatibilität mehrstufig:
   - Collection: `propagation_batches`
   - Properties:
     - `name: str` (z.B. "GSC-Klone Frühjahr 2026", "Tomaten-Aussaat März")
-    - `batch_type: Literal['cutting', 'seed_sowing', 'division', 'layering', 'grafting', 'tissue_culture']`
+    - `batch_type: PropagationMethod` (alle 12 Methoden)
     - `started_at: datetime`
     - `completed_at: Optional[datetime]`
     - `status: Literal['in_progress', 'completed', 'failed']`
@@ -117,16 +156,20 @@ Das System prüft die Veredelungskompatibilität mehrstufig:
   - Collection: `rooting_protocols`
   - Properties:
     - `name: str` (z.B. "Cannabis Steckling Standard", "Tomate Steinwolle Rapid")
-    - `method: Literal['cutting', 'seed_sowing', 'division', 'layering', 'grafting', 'tissue_culture']`
+    - `method: PropagationMethod` (alle 12 Methoden)
+    - `recommended_cutting_types: list[CuttingType]` (Empfohlene Stecklingstypen, nur bei method='cutting')
     - `recommended_species_keys: list[str]` (Empfohlene Arten)
-    - `medium: Literal['rockwool', 'perlite', 'vermiculite', 'water', 'aeroponic', 'soil', 'coco', 'peat']`
-    - `hormone_type: Optional[Literal['iba', 'naa', 'iba_naa_mix', 'honey', 'willow_water', 'none']]`
-    - `hormone_concentration_ppm: Optional[float]`
+    - `medium: RootingMedium`
+    - `substrate_batch_key: Optional[str]` (Referenz auf SubstrateBatch aus REQ-019)
+    - `hormone_type: Optional[HormoneType]`
+    - `hormone_concentration_ppm: Optional[float]` (Obergrenze 10.000 ppm)
     - `hormone_application_method: Optional[Literal['quick_dip', 'long_soak', 'powder', 'gel']]`
     - `dome_humidity_percent: int` (z.B. 85)
     - `target_vpd_kpa: Optional[float]` (z.B. 0.4 — niedriger VPD verhindert Austrocknung wurzelloser Stecklinge; REQ-005 Sensor-Feedback)
-    - `heat_mat_celsius: Optional[float]` (z.B. 22.0)
-    - `light_ppfd: int` (z.B. 100)
+    - `air_temperature_celsius: Optional[float]` (Lufttemperatur, z.B. 20.0)
+    - `heat_mat_celsius: Optional[float]` (Substrattemperatur/Bottom Heat, z.B. 22.0 — ideal 2–5°C über Lufttemperatur)
+    - `light_ppfd: int` (z.B. 100 — max. 300, Warnung >150 unter Dome)
+    - `light_spectrum: Optional[LightSpectrum]` (Empfohlenes Lichtspektrum)
     - `photoperiod_hours: float` (z.B. 18.0)
     - `expected_callus_days: Optional[int]` (z.B. 5)
     - `expected_root_days: int` (z.B. 10)
@@ -475,11 +518,58 @@ from pydantic import BaseModel, Field, model_validator
 
 class PropagationMethod(str, Enum):
     CUTTING = "cutting"
+    LEAF_CUTTING = "leaf_cutting"       # Blattsteckling (Begonia, Sansevieria, Peperomia)
+    STEM_SECTION = "stem_section"       # Stammstück ohne Blätter (Dracaena, Yucca)
     SEED_SOWING = "seed_sowing"
     DIVISION = "division"
+    OFFSET = "offset"                   # Kindel/Ableger (Aloe, Haworthia, Pilea)
     LAYERING = "layering"
+    AIR_LAYERING = "air_layering"       # Abmoosen (Ficus, Monstera)
+    BULBIL = "bulbil"                   # Brutzwiebel/Brutknöllchen (Lilium, Chlorophytum)
+    WATER_PROPAGATION = "water_propagation"  # Wasserbewurzelung (Pothos, Philodendron)
     GRAFTING = "grafting"
     TISSUE_CULTURE = "tissue_culture"
+
+
+class CuttingType(str, Enum):
+    """Differenzierung von Stecklingstypen — beeinflusst Hormonbedarf und Bewurzelungscharakteristik."""
+    APICAL = "apical"               # Triebspitze — höchste natürliche Auxin-Konzentration
+    NODAL = "nodal"                 # Mittlerer Stammabschnitt mit Nodium
+    HEEL = "heel"                   # Fersensteckling — mit Stück des Hauptstamms
+    SOFTWOOD = "softwood"           # Weichholz — junger, grüner Trieb
+    SEMI_HARDWOOD = "semi_hardwood" # Halbverholzt — teilweise ausgereift
+    HARDWOOD = "hardwood"           # Hartholz — vollständig verholzt, Ruhephase
+    LEAF_PETIOLE = "leaf_petiole"   # Blatt mit Stiel (Peperomia, Begonia Rex)
+    LEAF_SECTION = "leaf_section"   # Blattsegment (Sansevieria, Begonia)
+
+
+class LightSpectrum(str, Enum):
+    """Lichtspektrum für Bewurzelung — beeinflusst Wurzelinitiierung und Triebwachstum."""
+    BLUE_DOMINANT = "blue_dominant"        # 400–500 nm — kompakter Wuchs, Stomata-Regulation
+    RED_DOMINANT = "red_dominant"          # 600–700 nm — Streckungswachstum
+    RED_BLUE_MIX = "red_blue_mix"         # Optimal für Bewurzelung (3:1 bis 4:1 R:B)
+    FULL_SPECTRUM = "full_spectrum"        # Breitspektrum-LED/Tageslicht
+    WARM_WHITE = "warm_white"             # 2700–3000K — hoher Rotanteil
+    COOL_WHITE = "cool_white"             # 5000–6500K — hoher Blauanteil
+    FLUORESCENT = "fluorescent"           # Leuchtstoffröhre (Standard-Propagation)
+
+
+class ToolSterilizationMethod(str, Enum):
+    """Sterilisationsmethode für Vermehrungswerkzeuge (IPM-Integration)."""
+    ALCOHOL_70 = "alcohol_70"             # Isopropanol 70% — Standard
+    FLAME = "flame"                       # Abflammen — Skalpell, Messer
+    BLEACH_10 = "bleach_10"               # Natriumhypochlorit 10% — 10 Min Einwirkzeit
+    H2O2 = "h2o2"                         # Wasserstoffperoxid 3%
+    AUTOCLAVE = "autoclave"               # Autoklav — für Gewebekultur
+    NONE = "none"                         # Keine Sterilisation dokumentiert
+
+
+class VirusStatus(str, Enum):
+    """Virusstatus einer Mutterpflanze — relevant für Vermehrungsentscheidung."""
+    CLEAN = "clean"                       # Getestet und virusfrei
+    UNTESTED = "untested"                 # Nicht getestet (Default)
+    INFECTED = "infected"                 # Bekannt infiziert — Vermehrung erzeugt Warnung
+    RECOVERED = "recovered"               # Symptome abgeklungen, latente Infektion möglich
 
 
 class HormoneType(str, Enum):
@@ -568,6 +658,11 @@ class MotherPlantConfig(BaseModel):
     mother_designated_at: Optional[datetime] = None
     mother_retired_at: Optional[datetime] = None
     mother_retire_reason: Optional[str] = None
+    virus_status: VirusStatus = Field(
+        default=VirusStatus.UNTESTED,
+        description="Virusstatus der Mutterpflanze. Vermehrung von 'infected'-Pflanzen "
+                    "erzeugt Warnung. Regelmäßige Tests empfohlen für 'critical'-Mütter."
+    )
 
     @model_validator(mode='after')
     def validate_mother_fields(self):
@@ -586,6 +681,11 @@ class PropagationEvent(BaseModel):
 
     key: Optional[str] = Field(None, alias='_key')
     event_type: PropagationMethod
+    cutting_type: Optional[CuttingType] = Field(
+        None,
+        description="Stecklingstyp — nur relevant bei event_type='cutting'. "
+                    "Beeinflusst Hormonbedarf und Bewurzelungscharakteristik."
+    )
     performed_at: datetime
     quantity: int = Field(ge=1, le=1000)
     survived_count: Optional[int] = Field(None, ge=0)
@@ -593,16 +693,79 @@ class PropagationEvent(BaseModel):
 
     # Bewurzelungsparameter
     hormone_type: Optional[HormoneType] = None
-    hormone_concentration_ppm: Optional[float] = Field(None, ge=0, le=50000)
+    hormone_concentration_ppm: Optional[float] = Field(
+        None, ge=0, le=10000,
+        description="Hormon-Konzentration in ppm. Obergrenze 10.000 ppm (realistisches Maximum "
+                    "für Hartholz-Long-Soak). Methodenspezifische Richtwerte: "
+                    "Quick-Dip Weichholz: 500–1500 ppm IBA; "
+                    "Quick-Dip Halbverholzt: 1000–3000 ppm IBA; "
+                    "Long-Soak Hartholz: 50–200 ppm IBA (12–24h); "
+                    "Powder: 1000–8000 ppm IBA. "
+                    "Siehe HORMONE_RANGES in PropagationEngine für spezifische Validierung."
+    )
     hormone_application_method: Optional[Literal['quick_dip', 'long_soak', 'powder', 'gel']] = Field(
         None,
         description="Applikationsmethode — bestimmt effektive Dosis. Quick-Dip 5s (weiche Stecklinge), Long-Soak 12-24h (verholzte), Powder/Gel (direkt)."
     )
     medium: Optional[RootingMedium] = None
     dome_humidity_percent: Optional[int] = Field(None, ge=0, le=100)
-    heat_mat_celsius: Optional[float] = Field(None, ge=15, le=35)
-    light_ppfd: Optional[int] = Field(None, ge=0, le=500)
+    air_temperature_celsius: Optional[float] = Field(
+        None, ge=5, le=35,
+        description="Lufttemperatur um den Steckling. Differenziert von Substrattemperatur (heat_mat). "
+                    "Ideal: 2–5°C unter heat_mat_celsius (wärmeres Substrat fördert Wurzelbildung, "
+                    "kühlere Luft reduziert Transpiration). Delta >8°C = Warnung."
+    )
+    heat_mat_celsius: Optional[float] = Field(
+        None, ge=15, le=35,
+        description="Substrattemperatur (Bottom Heat). Ideal 2–5°C über air_temperature_celsius."
+    )
+    target_vpd_kpa: Optional[float] = Field(
+        None, ge=0.1, le=1.5,
+        description="Ziel-VPD unter Dome — niedrig (0.3–0.5 kPa) für wurzellose Stecklinge. "
+                    "Berechnet aus Temperatur + Luftfeuchtigkeit (REQ-005)."
+    )
+    light_ppfd: Optional[int] = Field(
+        None, ge=0, le=300,
+        description="Lichtintensität während Bewurzelung. Max 300 PPFD, "
+                    "Warnung >150 PPFD unter Dome (Photoinhibition bei wurzellosen Stecklingen)."
+    )
+    light_spectrum: Optional[LightSpectrum] = Field(
+        None,
+        description="Lichtspektrum — blue_dominant fördert kompakten Wuchs, "
+                    "red_blue_mix optimal für Bewurzelung."
+    )
     photoperiod_hours: Optional[float] = Field(None, ge=0, le=24)
+
+    # Substrat-Integration (REQ-019)
+    substrate_batch_key: Optional[str] = Field(
+        None,
+        description="Referenz auf SubstrateBatch (REQ-019) für Rückverfolgbarkeit des Bewurzelungsmediums."
+    )
+    medium_ph: Optional[float] = Field(
+        None, ge=3.0, le=8.0,
+        description="pH-Wert des Bewurzelungsmediums (gemessen). "
+                    "Steinwolle: 5.5–6.0 (vorgewässert), Torf: 5.5–6.5, Coco: 5.8–6.2."
+    )
+    medium_ec_ms: Optional[float] = Field(
+        None, ge=0, le=5.0,
+        description="EC des Bewurzelungsmediums in mS/cm (gemessen). "
+                    "Ideal für Stecklinge: <0.5 mS (nährstoffarm)."
+    )
+
+    # IPM-Integration (REQ-010)
+    tool_sterilization_method: Optional[ToolSterilizationMethod] = Field(
+        None,
+        description="Sterilisationsmethode der verwendeten Werkzeuge. "
+                    "Dokumentation für Pathogen-Rückverfolgbarkeit."
+    )
+    quarantine_required: bool = Field(
+        default=False,
+        description="Ob die Vermehrungen unter Quarantäne gestellt werden sollen (14–21 Tage)."
+    )
+    quarantine_days: Optional[int] = Field(
+        None, ge=1, le=90,
+        description="Quarantäne-Dauer in Tagen (wenn quarantine_required=True)."
+    )
 
     # Fortschritts-Tracking
     callus_observed_at: Optional[datetime] = None
@@ -673,18 +836,46 @@ class RootingProtocol(BaseModel):
     key: Optional[str] = Field(None, alias='_key')
     name: str = Field(min_length=1, max_length=200)
     method: PropagationMethod
+    recommended_cutting_types: list[CuttingType] = Field(
+        default_factory=list,
+        description="Empfohlene Stecklingstypen für dieses Protokoll (nur bei method='cutting')."
+    )
     recommended_species_keys: list[str] = Field(default_factory=list)
     medium: RootingMedium
+    substrate_batch_key: Optional[str] = Field(
+        None,
+        description="Referenz auf SubstrateBatch (REQ-019) für Substrat-Rückverfolgbarkeit."
+    )
     hormone_type: Optional[HormoneType] = None
-    hormone_concentration_ppm: Optional[float] = Field(None, ge=0, le=50000)
+    hormone_concentration_ppm: Optional[float] = Field(
+        None, ge=0, le=10000,
+        description="Obergrenze 10.000 ppm. Validierung gegen HORMONE_RANGES in PropagationEngine."
+    )
     hormone_application_method: Optional[Literal['quick_dip', 'long_soak', 'powder', 'gel']] = None
     dome_humidity_percent: int = Field(ge=0, le=100)
     target_vpd_kpa: Optional[float] = Field(
         None, ge=0.1, le=1.5,
-        description="Ziel-VPD unter Dome — niedrig (0.3-0.5 kPa) für Stecklinge ohne Wurzeln"
+        description="Ziel-VPD unter Dome — niedrig (0.3-0.5 kPa) für Stecklinge ohne Wurzeln. "
+                    "Berechnet aus air_temperature + dome_humidity (Tetens-Formel, REQ-005)."
     )
-    heat_mat_celsius: Optional[float] = Field(None, ge=15, le=35)
-    light_ppfd: int = Field(ge=0, le=500)
+    air_temperature_celsius: Optional[float] = Field(
+        None, ge=5, le=35,
+        description="Ziel-Lufttemperatur. Ideal: 2–5°C unter heat_mat_celsius."
+    )
+    heat_mat_celsius: Optional[float] = Field(
+        None, ge=15, le=35,
+        description="Substrattemperatur (Bottom Heat). Ideal 2–5°C über air_temperature_celsius. "
+                    "Delta >8°C = Warnung im Service."
+    )
+    light_ppfd: int = Field(
+        ge=0, le=300,
+        description="Lichtintensität. Max 300 PPFD. Warnung >150 PPFD unter Dome "
+                    "(Photoinhibition bei wurzellosen Stecklingen)."
+    )
+    light_spectrum: Optional[LightSpectrum] = Field(
+        None,
+        description="Empfohlenes Lichtspektrum. red_blue_mix optimal für Bewurzelung."
+    )
     photoperiod_hours: float = Field(ge=0, le=24)
     expected_callus_days: Optional[int] = Field(None, ge=1, le=60)
     expected_root_days: int = Field(ge=1, le=120)
@@ -704,6 +895,24 @@ class RootingProtocol(BaseModel):
             raise ValueError(
                 "expected_root_days muss vor expected_transplant_days liegen"
             )
+        return self
+
+    @model_validator(mode='after')
+    def validate_bottom_heat_delta(self):
+        """Warnung wenn Temperatur-Delta zwischen Substrat und Luft >8°C."""
+        if (self.heat_mat_celsius is not None
+                and self.air_temperature_celsius is not None):
+            delta = self.heat_mat_celsius - self.air_temperature_celsius
+            if delta > 8:
+                raise ValueError(
+                    f"Temperaturgradient Substrat→Luft {delta:.1f}°C ist >8°C — "
+                    f"Stress durch extremen Temperaturgradient. Empfohlen: 2–5°C."
+                )
+            if delta < 0:
+                raise ValueError(
+                    "Bottom Heat (heat_mat_celsius) sollte gleich oder wärmer "
+                    "als Lufttemperatur (air_temperature_celsius) sein."
+                )
         return self
 
 
@@ -728,7 +937,24 @@ class PhenotypeNote(BaseModel):
 class PropagationEngine:
     """Fachlogik für Vermehrungsaktionen."""
 
-    # Mindest-Erholungszeit nach Stecklingnahme pro Spezies (Tage)
+    # Mindest-Erholungszeit nach Stecklingnahme — methodenspezifisch (Tage)
+    # Verschiedene Entnahme-Methoden belasten die Mutterpflanze unterschiedlich stark
+    RECOVERY_DAYS_BY_METHOD: dict[str, int] = {
+        "cutting": 14,          # Steckling — moderater Stress
+        "leaf_cutting": 7,      # Blattsteckling — minimaler Stress
+        "stem_section": 21,     # Stammstück — starker Stress (Stamm wird geschnitten)
+        "division": 21,         # Teilung — starker Stress (Wurzelstörung)
+        "offset": 7,            # Kindel — minimaler Stress (natürlich abgetrennt)
+        "layering": 7,          # Absenker — minimaler Stress (an Pflanze bewurzelt)
+        "air_layering": 14,     # Abmoosen — moderater Stress (Rindenentfernung)
+        "bulbil": 7,            # Brutzwiebel — minimaler Stress
+        "water_propagation": 14, # Wasserbewurzelung — wie cutting
+        "grafting": 28,         # Veredelung — starker Stress (Wundheilung)
+        "tissue_culture": 14,   # Gewebekultur — moderater Stress
+        "seed_sowing": 0,       # Aussaat — kein Stress für Mutterpflanze
+    }
+
+    # Fallback: Spezies-spezifische Erholungszeiten (wenn method-based nicht differenziert)
     DEFAULT_RECOVERY_DAYS: dict[str, int] = {
         "cannabis": 14,
         "tomato": 10,
@@ -748,11 +974,105 @@ class PropagationEngine:
     # "genetische Drift" ist populationsgenetisch und hier fachlich inkorrekt.
     SOMATIC_MUTATION_WARNING_GENERATION = 10  # Konfigurierbar pro Spezies
 
+    # Hormon-Konzentrationsbereiche nach Methode und Stecklingstyp (ppm)
+    # Validierung: Warnung bei Überschreitung, Fehler bei extremer Überschreitung (>2x obere Grenze)
+    HORMONE_RANGES: dict[str, dict[str, tuple[float, float]]] = {
+        # method_or_cutting_type: {hormone_application_method: (min_ppm, max_ppm)}
+        "softwood": {
+            "quick_dip": (500, 1500),
+            "powder": (500, 2000),
+            "gel": (500, 2000),
+        },
+        "semi_hardwood": {
+            "quick_dip": (1000, 3000),
+            "powder": (1000, 4000),
+            "gel": (1000, 4000),
+        },
+        "hardwood": {
+            "quick_dip": (2000, 5000),
+            "long_soak": (50, 200),  # Niedrige Konzentration, lange Einwirkzeit
+            "powder": (3000, 8000),
+            "gel": (3000, 8000),
+        },
+        "apical": {
+            "quick_dip": (500, 2000),
+            "powder": (500, 2500),
+            "gel": (500, 2500),
+        },
+        "nodal": {
+            "quick_dip": (1000, 3000),
+            "powder": (1000, 3000),
+            "gel": (1000, 3000),
+        },
+        "heel": {
+            "quick_dip": (1000, 3000),
+            "powder": (1000, 4000),
+            "gel": (1000, 4000),
+        },
+        "leaf_petiole": {
+            "powder": (500, 1500),
+            "gel": (500, 1500),
+        },
+        "leaf_section": {
+            "powder": (500, 1500),
+            "gel": (500, 1500),
+        },
+        # Default-Fallback für unbekannte Typen
+        "default": {
+            "quick_dip": (500, 3000),
+            "long_soak": (50, 200),
+            "powder": (1000, 5000),
+            "gel": (1000, 5000),
+        },
+    }
+
+    def validate_hormone_concentration(
+        self,
+        concentration_ppm: float,
+        cutting_type: Optional[str],
+        application_method: Optional[str],
+    ) -> list[str]:
+        """
+        Validiert Hormon-Konzentration gegen typspezifische Bereiche.
+        Returns: Liste von Warnungen.
+        """
+        warnings: list[str] = []
+        if application_method is None:
+            return warnings
+
+        ranges = self.HORMONE_RANGES.get(
+            cutting_type or 'default',
+            self.HORMONE_RANGES['default']
+        )
+        method_range = ranges.get(application_method)
+        if method_range is None:
+            return warnings
+
+        min_ppm, max_ppm = method_range
+        if concentration_ppm < min_ppm:
+            warnings.append(
+                f"Hormon-Konzentration {concentration_ppm} ppm unter empfohlenem "
+                f"Minimum ({min_ppm} ppm) für {cutting_type or 'Standard'}/{application_method}"
+            )
+        elif concentration_ppm > max_ppm:
+            warnings.append(
+                f"Hormon-Konzentration {concentration_ppm} ppm über empfohlenem "
+                f"Maximum ({max_ppm} ppm) für {cutting_type or 'Standard'}/{application_method}. "
+                f"Toxizitätsrisiko!"
+            )
+        if concentration_ppm > max_ppm * 2:
+            warnings.append(
+                f"KRITISCH: {concentration_ppm} ppm ist >2x obere Grenze ({max_ppm} ppm) — "
+                f"extreme Toxizitätsgefahr (Kallusnekrose, Stecklingstod)"
+            )
+        return warnings
+
     def validate_cutting_from_mother(
         self,
         mother: dict,
         quantity: int,
         last_cutting_event: Optional[dict],
+        event_type: str = 'cutting',
     ) -> list[str]:
         """
         Prüft ob Stecklingsnahme von Mutterpflanze zulässig ist.
@@ -766,17 +1086,36 @@ class PropagationEngine:
                 "Stecklingsnahme trotzdem möglich, aber empfohlen zuerst zu designieren"
             )
 
-        # Erholungszeit prüfen
+        # Erholungszeit prüfen (methodenspezifisch)
         if last_cutting_event:
             from datetime import datetime
             last_date = last_cutting_event['performed_at']
-            recovery_days = mother.get('mother_recovery_days', 14)
+            # Methodenspezifische Recovery-Zeit hat Vorrang vor Mutterpflanzen-Default
+            method_recovery = self.RECOVERY_DAYS_BY_METHOD.get(event_type, 14)
+            mother_recovery = mother.get('mother_recovery_days', 14)
+            recovery_days = max(method_recovery, mother_recovery)
             days_since = (datetime.now() - last_date).days
             if days_since < recovery_days:
                 warnings.append(
                     f"Erholungszeit nicht eingehalten: {days_since} von "
-                    f"{recovery_days} Tagen seit letzter Entnahme"
+                    f"{recovery_days} Tagen seit letzter Entnahme "
+                    f"(Methode '{event_type}': {method_recovery}d, "
+                    f"Mutterpflanze: {mother_recovery}d)"
                 )
+
+        # Virusstatus prüfen (IPM-Integration)
+        virus_status = mother.get('virus_status', 'untested')
+        if virus_status == 'infected':
+            warnings.append(
+                "WARNUNG: Mutterpflanze ist als virusinfiziert markiert. "
+                "Vermehrung überträgt Viren auf alle Nachkommen. "
+                "Werkzeugsterilisation und Quarantäne dringend empfohlen."
+            )
+        elif virus_status == 'untested' and mother.get('mother_priority') == 'critical':
+            warnings.append(
+                "Mutterpflanze mit Priorität 'critical' hat Status 'untested'. "
+                "Virustest empfohlen vor weiterer Vermehrung."
+            )
 
         # Gesundheit prüfen
         health = mother.get('mother_health_score')
@@ -831,7 +1170,12 @@ class PropagationEngine:
         Returns:
             (generation, generation_type) — generation_type ist 'clonal' oder 'filial'
         """
-        if method in ('cutting', 'division', 'layering', 'tissue_culture'):
+        vegetative_methods = (
+            'cutting', 'leaf_cutting', 'stem_section', 'division',
+            'offset', 'layering', 'air_layering', 'bulbil',
+            'water_propagation', 'tissue_culture',
+        )
+        if method in vegetative_methods:
             return mother_generation + 1, 'clonal'
         elif method == 'seed_sowing':
             # Generative Vermehrung: F1-Generation (neuer Genotyp)
@@ -972,13 +1316,23 @@ class LineageEngine:
 
         return _build(target_plant_key)
 
-    def calculate_inbreeding_coefficient(
+    def calculate_relatedness_estimate(
         self,
         lineage_tree: dict,
     ) -> float:
         """
-        Vereinfachte Inzucht-Schätzung basierend auf wiederkehrenden
-        Vorfahren in der Abstammungslinie.
+        Schätzt die Verwandtschaftsnähe basierend auf wiederkehrenden
+        Vorfahren in der Abstammungslinie. Höherer Wert = mehr gemeinsame Vorfahren.
+
+        HINWEIS: Dies ist eine vereinfachte Heuristik auf Basis der Graph-Struktur,
+        KEIN biologisch korrekter Inzuchtkoeffizient (Wright's F). Ein korrekter
+        Inzuchtkoeffizient erfordert vollständige Pedigree-Daten mit bekannten
+        Allel-Segregationsmustern, die in diesem System nicht vorliegen.
+        Der Wert dient als Annäherung für Zuchtentscheidungen.
+
+        Returns:
+            float (0.0–1.0): Anteil wiederkehrender Vorfahren an Gesamtvorfahren.
+            0.0 = keine gemeinsamen Vorfahren, >0.3 = erhöhte Verwandtschaft.
         """
         ancestors: dict[str, int] = {}
 
@@ -1088,11 +1442,31 @@ GET    /api/v1/propagation/stats/by-protocol                 — Erfolgsraten gr
 
 ### Seed-Daten:
 ```json
-// rooting_protocols collection
-{ "_key": "proto_cannabis_std", "name": "Cannabis Steckling Standard", "method": "cutting", "recommended_species_keys": ["cannabis_sativa"], "medium": "rockwool", "hormone_type": "iba", "hormone_concentration_ppm": 1000, "dome_humidity_percent": 85, "heat_mat_celsius": 22.0, "light_ppfd": 100, "photoperiod_hours": 18.0, "expected_callus_days": 5, "expected_root_days": 10, "expected_transplant_days": 14, "instructions": "1. Triebspitze mit 2-3 Nodien schneiden (45° Winkel)\n2. Untere Blätter entfernen, obere halbieren\n3. Schnittstelle in IBA-Pulver tauchen\n4. In vorgewässerten Steinwollwürfel stecken\n5. Unter Dome bei 85% RLF, 22°C, 100 PPFD\n6. Täglich lüften (2 Min), ab Tag 5 Dome-Öffnung vergrößern\n7. Ab Tag 7 RLF schrittweise auf 70% senken\n8. Wurzeln sichtbar → 2 Tage akklimatisieren → transplant", "is_template": true, "author": "system" }
-{ "_key": "proto_tomato_rockwool", "name": "Tomate Steinwolle Rapid", "method": "cutting", "recommended_species_keys": ["solanum_lycopersicum"], "medium": "rockwool", "hormone_type": "none", "hormone_concentration_ppm": null, "dome_humidity_percent": 80, "heat_mat_celsius": 24.0, "light_ppfd": 150, "photoperiod_hours": 16.0, "expected_callus_days": 3, "expected_root_days": 7, "expected_transplant_days": 10, "instructions": "1. Seitentrieb (Geiztrieb) mit 10-15 cm abschneiden\n2. Untere Blätter entfernen\n3. Direkt in Steinwolle — kein Hormon nötig\n4. Unter Dome bei 80% RLF, 24°C\n5. Ab Tag 3 Dome öffnen\n6. Tag 7: Wurzeln sichtbar → transplant", "is_template": true, "author": "system" }
-{ "_key": "proto_basil_water", "name": "Basilikum Wasserglas", "method": "cutting", "recommended_species_keys": ["ocimum_basilicum"], "medium": "water", "hormone_type": "none", "hormone_concentration_ppm": null, "dome_humidity_percent": 70, "heat_mat_celsius": null, "light_ppfd": 200, "photoperiod_hours": 16.0, "expected_callus_days": null, "expected_root_days": 5, "expected_transplant_days": 10, "instructions": "1. Triebspitze oberhalb eines Nodiums schneiden\n2. Untere Blätter entfernen\n3. In Glas mit Wasser stellen (Stängel 3-4 cm unter Wasser)\n4. Wasser alle 2 Tage wechseln\n5. Bei Raumtemperatur und hellem Standort\n6. Tag 5: Wurzeln 2-3 cm → transplant in Erde", "is_template": true, "author": "system" }
-{ "_key": "proto_seed_general", "name": "Standard-Aussaat Indoor", "method": "seed_sowing", "recommended_species_keys": [], "medium": "peat", "hormone_type": "none", "hormone_concentration_ppm": null, "dome_humidity_percent": 90, "heat_mat_celsius": 22.0, "light_ppfd": 50, "photoperiod_hours": 18.0, "expected_callus_days": null, "expected_root_days": 5, "expected_transplant_days": 21, "instructions": "1. Saatgut 12h in lauwarmem Wasser vorquellen (optional)\n2. In feuchtes Anzuchtsubstrat drücken (Tiefe: 2× Samendurchmesser)\n3. Dome schließen, 90% RLF\n4. Wärmematte auf 22°C\n5. Kein direktes Licht bis Keimung\n6. Nach Keimung: Dome schrittweise öffnen, Licht auf 50 PPFD\n7. Erste echte Blätter → transplant", "is_template": true, "author": "system" }
+// rooting_protocols collection (10 Protokolle für verschiedene Pflanzenkategorien)
+
+// --- Nutzpflanzen / Grow ---
+{ "_key": "proto_cannabis_std", "name": "Cannabis Steckling Standard", "method": "cutting", "recommended_cutting_types": ["apical", "nodal"], "recommended_species_keys": ["cannabis_sativa"], "medium": "rockwool", "hormone_type": "iba", "hormone_concentration_ppm": 1000, "hormone_application_method": "powder", "dome_humidity_percent": 85, "target_vpd_kpa": 0.4, "air_temperature_celsius": 20.0, "heat_mat_celsius": 22.0, "light_ppfd": 100, "light_spectrum": "cool_white", "photoperiod_hours": 18.0, "expected_callus_days": 5, "expected_root_days": 10, "expected_transplant_days": 14, "instructions": "1. Triebspitze mit 2-3 Nodien schneiden (45° Winkel, steriles Skalpell)\n2. Untere Blätter entfernen, obere halbieren (Transpirationsreduktion)\n3. Schnittstelle in IBA-Pulver (1000 ppm) tauchen\n4. In vorgewässerten Steinwollwürfel stecken\n5. Unter Dome bei 85% RLF, 20°C Luft / 22°C Substrat, 100 PPFD\n6. Täglich lüften (2 Min), ab Tag 5 Dome-Öffnung vergrößern\n7. Ab Tag 7 RLF schrittweise auf 70% senken\n8. Wurzeln sichtbar → 2 Tage akklimatisieren → transplant", "is_template": true, "author": "system" }
+
+{ "_key": "proto_tomato_rockwool", "name": "Tomate Steinwolle Rapid", "method": "cutting", "recommended_cutting_types": ["apical", "softwood"], "recommended_species_keys": ["solanum_lycopersicum"], "medium": "rockwool", "hormone_type": "none", "hormone_concentration_ppm": null, "dome_humidity_percent": 80, "target_vpd_kpa": 0.5, "air_temperature_celsius": 22.0, "heat_mat_celsius": 24.0, "light_ppfd": 150, "light_spectrum": "full_spectrum", "photoperiod_hours": 16.0, "expected_callus_days": 3, "expected_root_days": 7, "expected_transplant_days": 10, "instructions": "1. Seitentrieb (Geiztrieb) mit 10-15 cm abschneiden\n2. Untere Blätter entfernen\n3. Direkt in Steinwolle — kein Hormon nötig (Tomaten bilden leicht Adventivwurzeln)\n4. Unter Dome bei 80% RLF, 22°C Luft / 24°C Substrat\n5. Ab Tag 3 Dome öffnen\n6. Tag 7: Wurzeln sichtbar → transplant", "is_template": true, "author": "system" }
+
+{ "_key": "proto_basil_water", "name": "Basilikum Wasserglas", "method": "water_propagation", "recommended_species_keys": ["ocimum_basilicum"], "medium": "water", "hormone_type": "none", "hormone_concentration_ppm": null, "dome_humidity_percent": 70, "air_temperature_celsius": 22.0, "heat_mat_celsius": null, "light_ppfd": 200, "light_spectrum": "full_spectrum", "photoperiod_hours": 16.0, "expected_callus_days": null, "expected_root_days": 5, "expected_transplant_days": 10, "instructions": "1. Triebspitze oberhalb eines Nodiums schneiden\n2. Untere Blätter entfernen\n3. In Glas mit Wasser stellen (Stängel 3-4 cm unter Wasser)\n4. Wasser alle 2 Tage wechseln\n5. Bei Raumtemperatur und hellem Standort\n6. Tag 5: Wurzeln 2-3 cm → 2 Tage in Erde akklimatisieren (anfangs feucht halten)", "is_template": true, "author": "system" }
+
+// --- Zimmerpflanzen ---
+{ "_key": "proto_pothos_water", "name": "Pothos/Philodendron Wasserbewurzelung", "method": "water_propagation", "recommended_species_keys": ["epipremnum_aureum", "philodendron_hederaceum"], "medium": "water", "hormone_type": "none", "hormone_concentration_ppm": null, "dome_humidity_percent": 60, "air_temperature_celsius": 22.0, "heat_mat_celsius": null, "light_ppfd": 100, "light_spectrum": "warm_white", "photoperiod_hours": 12.0, "expected_callus_days": null, "expected_root_days": 7, "expected_transplant_days": 21, "instructions": "1. Steckling mit mindestens 1 Nodium und Luftwurzel abschneiden\n2. In Glas mit Wasser stellen, Nodium unter Wasser\n3. Wasser wöchentlich wechseln, heller Standort ohne direkte Sonne\n4. Wurzeln ab ca. Tag 7, transplant wenn Wurzeln 5-8 cm lang\n5. Beim Einpflanzen: Erde anfangs feucht halten (Akklimatisierung Water→Soil)", "is_template": true, "author": "system" }
+
+{ "_key": "proto_sansevieria_leaf", "name": "Sansevieria Blattsteckling", "method": "leaf_cutting", "recommended_species_keys": ["sansevieria_trifasciata"], "medium": "perlite", "hormone_type": "iba", "hormone_concentration_ppm": 500, "hormone_application_method": "powder", "dome_humidity_percent": 50, "air_temperature_celsius": 22.0, "heat_mat_celsius": 24.0, "light_ppfd": 80, "light_spectrum": "warm_white", "photoperiod_hours": 12.0, "expected_callus_days": 14, "expected_root_days": 30, "expected_transplant_days": 60, "instructions": "1. Gesundes Blatt nahe der Basis abschneiden\n2. In 8-10 cm Segmente teilen, Polarität markieren (unten/oben)!\n3. 24h antrocknen lassen (Wundverschluss)\n4. Unteres Ende in IBA-Pulver (500 ppm) tauchen\n5. Aufrecht in feuchtes Perlit stecken (3 cm tief)\n6. Sparsam gießen — Fäulnis ist Hauptausfallursache\n7. Geduld: Wurzeln nach 4 Wochen, Baby-Pflanze nach 8-12 Wochen\nHINWEIS: Variegate Sorten verlieren bei Blattstecklingen ihre Musterung — Teilung bevorzugen!", "is_template": true, "author": "system" }
+
+{ "_key": "proto_monstera_airlayer", "name": "Monstera Abmoosen", "method": "air_layering", "recommended_species_keys": ["monstera_deliciosa"], "medium": "peat", "hormone_type": "iba", "hormone_concentration_ppm": 1000, "hormone_application_method": "powder", "dome_humidity_percent": 80, "air_temperature_celsius": 22.0, "heat_mat_celsius": null, "light_ppfd": 100, "light_spectrum": "full_spectrum", "photoperiod_hours": 12.0, "expected_callus_days": 7, "expected_root_days": 21, "expected_transplant_days": 35, "instructions": "1. Stelle mit Luftwurzel und Nodium wählen\n2. Unterhalb des Nodiums Rinde ringförmig entfernen (2 cm)\n3. Optional: IBA-Pulver auf freiliegendes Kambium auftragen\n4. Mit feuchtem Sphagnum-Moos umwickeln (Tennisball-Größe)\n5. In transparente Frischhaltefolie einwickeln, oben+unten verschließen\n6. Wöchentlich kontrollieren, Moos nachfeuchten wenn nötig\n7. Bei sichtbaren Wurzeln durch die Folie: unterhalb abschneiden und einpflanzen", "is_template": true, "author": "system" }
+
+{ "_key": "proto_aloe_offset", "name": "Aloe/Haworthia Kindel-Abtrennung", "method": "offset", "recommended_species_keys": ["aloe_vera", "haworthia_fasciata"], "medium": "soil", "hormone_type": "none", "hormone_concentration_ppm": null, "dome_humidity_percent": 40, "air_temperature_celsius": 22.0, "heat_mat_celsius": null, "light_ppfd": 150, "light_spectrum": "full_spectrum", "photoperiod_hours": 12.0, "expected_callus_days": null, "expected_root_days": 3, "expected_transplant_days": 7, "instructions": "1. Mutterpflanze austopfen und vorsichtig Erde entfernen\n2. Kindel mit eigenen Wurzeln identifizieren (mind. 3-4 cm groß)\n3. Mit sauberer Klinge abtrennen, möglichst mit eigenen Wurzeln\n4. Schnittstelle 24h antrocknen lassen\n5. In durchlässiges Substrat (50% Kakteenerde, 50% Perlit) pflanzen\n6. Erst nach 3-5 Tagen vorsichtig angießen\n7. Heller Standort ohne direkte Sonne bis etabliert", "is_template": true, "author": "system" }
+
+// --- Verholzte Pflanzen ---
+{ "_key": "proto_rose_hardwood", "name": "Rose Hartholz-Steckling Winter", "method": "cutting", "recommended_cutting_types": ["hardwood", "heel"], "recommended_species_keys": ["rosa_spp"], "medium": "soil", "hormone_type": "iba", "hormone_concentration_ppm": 3000, "hormone_application_method": "powder", "dome_humidity_percent": 70, "air_temperature_celsius": 10.0, "heat_mat_celsius": 15.0, "light_ppfd": 50, "light_spectrum": "cool_white", "photoperiod_hours": 8.0, "expected_callus_days": 30, "expected_root_days": 60, "expected_transplant_days": 90, "instructions": "1. Im Spätherbst/Winter ausgereifte, bleistiftdicke Triebe schneiden (20-25 cm)\n2. Schrägschnitt unten unter einem Auge, gerader Schnitt oben über einem Auge\n3. Unterste 3 cm in IBA-Pulver (3000 ppm) tauchen\n4. In sandige Erde stecken (2/3 unter der Oberfläche)\n5. Frostfrei, aber kühl überwintern (5-10°C)\n6. Im Frühjahr: langsam ans Licht gewöhnen\n7. Bewurzelung dauert 2-3 Monate — Geduld!", "is_template": true, "author": "system" }
+
+{ "_key": "proto_strawberry_runner", "name": "Erdbeere Ableger/Ausläufer", "method": "layering", "recommended_species_keys": ["fragaria_ananassa"], "medium": "soil", "hormone_type": "none", "hormone_concentration_ppm": null, "dome_humidity_percent": 60, "air_temperature_celsius": 20.0, "heat_mat_celsius": null, "light_ppfd": 200, "light_spectrum": "full_spectrum", "photoperiod_hours": 14.0, "expected_callus_days": null, "expected_root_days": 14, "expected_transplant_days": 21, "instructions": "1. Ausläufer (Stolon) mit Kindel-Rosette identifizieren\n2. Kleinen Topf mit feuchter Erde neben Mutterpflanze stellen\n3. Kindel auf den Topf drücken und mit Drahtbügel fixieren\n4. Nicht von Mutterpflanze trennen!\n5. Feucht halten, nach 2 Wochen Wurzeln prüfen\n6. Wenn gut bewurzelt: Ausläufer-Nabelschnur durchtrennen\n7. 1 Woche an Originalstandort akklimatisieren, dann umsetzen", "is_template": true, "author": "system" }
+
+// --- Generisch ---
+{ "_key": "proto_seed_general", "name": "Standard-Aussaat Indoor", "method": "seed_sowing", "recommended_species_keys": [], "medium": "peat", "hormone_type": "none", "hormone_concentration_ppm": null, "dome_humidity_percent": 90, "air_temperature_celsius": 22.0, "heat_mat_celsius": 22.0, "light_ppfd": 50, "light_spectrum": "warm_white", "photoperiod_hours": 18.0, "expected_callus_days": null, "expected_root_days": 5, "expected_transplant_days": 21, "instructions": "1. Saatgut 12h in lauwarmem Wasser vorquellen (optional)\n2. In feuchtes Anzuchtsubstrat drücken (Tiefe: 2x Samendurchmesser)\n3. Dome schließen, 90% RLF\n4. Wärmematte auf 22°C\n5. Kein direktes Licht bis Keimung\n6. Nach Keimung: Dome schrittweise öffnen, Licht auf 50 PPFD\n7. Erste echte Blätter → transplant", "is_template": true, "author": "system" }
 
 // propagation_batches collection
 { "_key": "batch_gsc_spring26", "name": "GSC-Klone Frühjahr 2026", "batch_type": "cutting", "started_at": "2026-02-15T10:00:00Z", "completed_at": null, "status": "in_progress", "total_quantity": 10, "total_survived": null, "overall_success_rate": null, "target_planting_run_key": null, "notes": "Elite-Phänotyp #3 vermehren für nächsten Zyklus" }
@@ -1116,7 +1490,9 @@ GET    /api/v1/propagation/stats/by-protocol                 — Erfolgsraten gr
 - REQ-001 (Stammdaten): Species, Cultivar, BotanicalFamily für Veredelungs-Kompatibilität und Spezies-spezifische Defaults
 - REQ-002 (Standort): Location/Slot für Platzierung von Stecklingen und Mutterpflanzen
 - REQ-003 (Phasensteuerung): Vermehrung erzeugt PlantInstances in `germination`-Phase; Stecklinge starten in `seedling`
+- REQ-010 (IPM): Virusstatus-Tracking, Werkzeugsterilisation, Quarantäne-Empfehlungen
 - REQ-013 (Pflanzdurchlauf): PropagationBatch übergibt Ergebnis-Pflanzen an PlantingRun
+- REQ-019 (Substratverwaltung): SubstrateBatch-Referenz für Bewurzelungsmedium-Rückverfolgbarkeit
 
 **Wird benötigt von:**
 - REQ-003 (Phasensteuerung): **MITTEL** — Phase-Start hängt von Vermehrungsmethode ab (Samen = Germination, Steckling = Seedling)
@@ -1133,13 +1509,24 @@ GET    /api/v1/propagation/stats/by-protocol                 — Erfolgsraten gr
 
 ### Definition of Done (DoD):
 
-- [ ] **PropagationEvent-CRUD:** Erstellen und Lesen von Vermehrungsaktionen (6 Methoden)
+- [ ] **PropagationEvent-CRUD:** Erstellen und Lesen von Vermehrungsaktionen (12 Methoden inkl. Zimmerpflanzen-Methoden)
+- [ ] **Zimmerpflanzen-Methoden:** leaf_cutting, stem_section, offset, air_layering, bulbil, water_propagation als PropagationMethod unterstützt
+- [ ] **Stecklingstyp-Differenzierung:** CuttingType-Enum (apical, nodal, heel, softwood, semi_hardwood, hardwood, leaf_petiole, leaf_section) auf PropagationEvent bei event_type='cutting'
 - [ ] **Ergebnis-Nachtragung:** survived_count und failure_reasons nachträglich erfassbar
 - [ ] **Fortschritts-Tracking:** callus/roots/transplant Zeitpunkte aktualisierbar
 - [ ] **PropagationBatch:** Gruppierung mehrerer Events, Batch-Finalisierung
 - [ ] **RootingProtocol:** Vorlagen-CRUD, Template-System, Erfolgsstatistiken pro Protokoll
+- [ ] **Temperaturzonen-Differenzierung:** air_temperature_celsius + heat_mat_celsius auf RootingProtocol und PropagationEvent, Bottom-Heat-Validierung (Delta 2–5°C empfohlen, >8°C = Fehler)
+- [ ] **VPD-Ziel:** target_vpd_kpa auf RootingProtocol und PropagationEvent für Dome-Bewurzelungs-Bedingungen
+- [ ] **Lichtspektrum:** LightSpectrum-Enum auf RootingProtocol und PropagationEvent
+- [ ] **PPFD-Obergrenze:** light_ppfd max. 300, Warnung >150 unter Dome (Photoinhibition)
+- [ ] **Hormon-Konzentrationsbereiche:** HORMONE_RANGES in PropagationEngine mit methoden-/typspezifischer Validierung, Obergrenze 10.000 ppm
+- [ ] **Methodenspezifische Erholungszeit:** RECOVERY_DAYS_BY_METHOD (cutting: 14d, division: 21d, offset: 7d, layering: 7d etc.)
 - [ ] **Mutterpflanzen-Designation:** PlantInstance als Mutterpflanze markieren/entmarkieren
 - [ ] **Mutterpflanzen-Monitoring:** Health-Score, Stecklingshistorie, Erholungszeit-Prüfung
+- [ ] **Virusstatus-Tracking:** virus_status auf MotherPlantConfig (clean, untested, infected, recovered), Warnung bei Vermehrung infizierter Pflanzen
+- [ ] **IPM-Integration:** tool_sterilization_method, quarantine_required, quarantine_days auf PropagationEvent
+- [ ] **Substrat-Integration:** substrate_batch_key (REQ-019), medium_ph, medium_ec_ms auf PropagationEvent
 - [ ] **Retirement-Empfehlung:** Automatische Warnung bei niedriger Gesundheit oder sinkender Erfolgsrate
 - [ ] **Genetische Abstammung:** descended_from-Graph mit beliebig tiefer Traversierung
 - [ ] **Klon-Baum:** Alle Nachkommen einer Mutterpflanze abrufbar
@@ -1147,9 +1534,10 @@ GET    /api/v1/propagation/stats/by-protocol                 — Erfolgsraten gr
 - [ ] **Veredelungs-Kompatibilität:** Mehrstufig: explizite graft_compatible_with-Edges > Taxonomie-Heuristik
 - [ ] **Phänotyp-Notizen:** CRUD für Beobachtungen pro Pflanze
 - [ ] **Somatische Mutationslast:** Warnung ab konfigurierbarer Generationsschwelle (Default: 10)
-- [ ] **VPD-Ziel im RootingProtocol:** target_vpd_kpa für Dome-Bewurzelungs-Bedingungen
+- [ ] **Verwandtschaftsschätzung:** calculate_relatedness_estimate (Heuristik, nicht Wright's F) in LineageEngine
 - [ ] **PlantingRun-Integration:** Batch-Ergebnis kann an PlantingRun (REQ-013) übergeben werden
 - [ ] **Statistiken:** Erfolgsraten pro Methode, Cultivar, Protokoll
+- [ ] **Seed-Daten:** 10 Bewurzelungsprotokolle (Nutzpflanzen, Zimmerpflanzen, verholzte Pflanzen, generisch)
 - [ ] **Celery-Beat:** `check_mother_plant_health` (wöchentlich), `check_propagation_progress` (täglich)
 
 ### Testszenarien:
@@ -1298,6 +1686,6 @@ THEN:
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Vermehrung, Steckling, Aussaat, Klon, Mutterpflanze, Bewurzelung, Veredelung, Unterlage, Edelreis, Absenker, Teilung, Gewebekultur, Hormon, IBA, Steinwolle, Perlit, Aeroponik, Kloner, Dome, Haube, Wärmematte, Kallus, Bewurzelungsrate, Erfolgsrate, Phänotyp, Selektion, Abstammung, Lineage, Generation, Somatische Mutationslast, Inzucht, Kreuzung, F1, Samen, Pheno-Hunting, VPD, Veredelungskompatibilität, graft_compatible_with
-- Technische Begriffe: PropagationEvent, PropagationBatch, RootingProtocol, PhenotypeNote, MotherPlantConfig, PropagationEngine, LineageEngine, descended_from, propagated_from, resulted_in, grafted_onto, has_phenotype, batch_feeds_run, CuttingRequestValidator, GraftRequestValidator
-- Verknüpfung: REQ-001 (Species/Cultivar/BotanicalFamily), REQ-003 (GrowthPhase — Start-Phase), REQ-013 (PlantingRun), REQ-006 (Aufgaben), REQ-007/008 (Samenernte)
+- Keywords: Vermehrung, Steckling, Blattsteckling, Stammstück, Aussaat, Klon, Mutterpflanze, Bewurzelung, Veredelung, Unterlage, Edelreis, Absenker, Abmoosen, Teilung, Kindel, Ableger, Brutzwiebel, Wasserbewurzelung, Gewebekultur, Hormon, IBA, NAA, Hormonkonzentration, Steinwolle, Perlit, Aeroponik, Kloner, Dome, Haube, Wärmematte, Bottom Heat, Lufttemperatur, Substrattemperatur, Temperaturgradient, Kallus, Bewurzelungsrate, Erfolgsrate, Phänotyp, Selektion, Abstammung, Lineage, Generation, Somatische Mutationslast, Verwandtschaft, Kreuzung, F1, Samen, Pheno-Hunting, VPD, Veredelungskompatibilität, graft_compatible_with, Stecklingstyp, Triebspitze, Fersensteckling, Weichholz, Hartholz, Halbverholzt, Lichtspektrum, Blaulicht, Rotlicht, PPFD, Photoinhibition, Quarantäne, Virusstatus, Werkzeugsterilisation, IPM, Substrat-pH, Substrat-EC, Zimmerpflanze, Pothos, Monstera, Sansevieria, Aloe, Haworthia, Begonia, Ficus, Dracaena, Pilea, Philodendron
+- Technische Begriffe: PropagationEvent, PropagationBatch, RootingProtocol, PhenotypeNote, MotherPlantConfig, PropagationEngine, LineageEngine, CuttingType, LightSpectrum, ToolSterilizationMethod, VirusStatus, HORMONE_RANGES, RECOVERY_DAYS_BY_METHOD, calculate_relatedness_estimate, descended_from, propagated_from, resulted_in, grafted_onto, has_phenotype, batch_feeds_run, CuttingRequestValidator, GraftRequestValidator, air_temperature_celsius, heat_mat_celsius, target_vpd_kpa, light_spectrum, substrate_batch_key, medium_ph, medium_ec_ms, tool_sterilization_method, quarantine_required, virus_status
+- Verknüpfung: REQ-001 (Species/Cultivar/BotanicalFamily), REQ-003 (GrowthPhase — Start-Phase), REQ-010 (IPM — Virusstatus, Werkzeugsterilisation, Quarantäne), REQ-013 (PlantingRun), REQ-006 (Aufgaben), REQ-007/008 (Samenernte), REQ-019 (Substratverwaltung — Bewurzelungsmedium)

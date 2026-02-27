@@ -7,7 +7,7 @@ Kategorie: Erntezyklus
 Fokus: Beides
 Technologie: Python, ArangoDB, Computer Vision (optional)
 Status: Entwurf
-Version: 2.1 (Agrarbiologie-Review)
+Version: 2.2 (U/P-Findings integriert)
 ```
 
 ## 1. Business Case
@@ -101,7 +101,7 @@ Single Source of Truth für substratspezifische Flush-Dauern ist `REQ-004 Flushi
 - **`harvest_indicators`** - Reife-Check-Typ
   - Properties:
     - `indicator_id: str`
-    - `indicator_type: Literal['trichome', 'foliage', 'brix', 'size', 'color', 'days_since_flowering', 'aroma', 'texture']`
+    - `indicator_type: Literal['trichome', 'foliage', 'brix', 'size', 'color', 'days_since_flowering', 'aroma', 'texture', 'mushroom', 'gdd', 'continuous_harvest']`
     - `measurement_unit: Optional[str]` (z.B. "%", "°Brix", "cm")
     - `measurement_method: str` (z.B. "60x Mikroskop", "Refraktometer")
     - `observation_frequency: Literal['daily', 'weekly', 'biweekly']`
@@ -129,9 +129,13 @@ Single Source of Truth für substratspezifische Flush-Dauern ist `REQ-004 Flushi
     - `actual_dry_weight_g: Optional[float]` (nach Trocknung)
     - `quality_grade: Literal['A+', 'A', 'B', 'C', 'D']`
     - `harvester: str` (User-ID)
-    - `weather_conditions: Optional[str]`
+    - `harvest_environment: Optional[HarvestEnvironment]` (strukturierte Umwelterfassung, siehe U-004)
+    - `harvest_tool: Optional[str]` (verwendetes Erntewerkzeug, z.B. "Fiskars micro-tip pruner", "Felco 310")
+    - `tool_sanitized: Optional[bool]` (Werkzeug vor Ernte desinfiziert? Pflicht bei Partial Harvest)
+    - `container_type: Optional[str]` (Erntebehälter, z.B. "mesh_tray", "paper_bag", "bucket")
     - `notes: Optional[str]`
     - `qr_code_url: str`
+    - `karenz_check_passed: bool` (REQ-010 Pflicht-Check)
 
 - **`quality_assessments`** - Qualitätsbewertung
   - Properties:
@@ -1260,6 +1264,385 @@ class DaysSinceFloweringIndicator(HarvestIndicator):
             ],
             'note': 'Nur als Richtwert - kombiniere mit visuellen Checks'
         }
+
+
+class MushroomIndicator(HarvestIndicator):
+    """
+    Ernte-Indikatoren für Pilzkulturen (U-005).
+    Pilze erfordern eigenständige Reife-Kriterien:
+    - Velum-Status (Schleier) bestimmt Erntezeitpunkt
+    - Flush-Nummer beeinflusst Ertrag und Biological Efficiency
+    - Hutdurchmesser ist sortenspezifisch
+    """
+
+    indicator_type: Literal['mushroom'] = 'mushroom'
+    species_name: str = Field(description="z.B. 'Pleurotus ostreatus', 'Lentinula edodes'")
+    expected_flushes: int = Field(default=3, ge=1, le=8)
+
+    # Artspezifische Ernteparameter
+    MUSHROOM_HARVEST_SPECS: dict[str, dict] = {
+        'Pleurotus ostreatus': {       # Austernpilz
+            'cap_diameter_cm': (5, 15),
+            'veil_trigger': False,       # Kein Velum — Rand-Einrollung als Indikator
+            'harvest_cue': 'Hutrand beginnt sich nach oben zu rollen (flach → aufwärts)',
+            'typical_flushes': 3,
+            'bio_efficiency_target': 100,  # % des Substratgewichts als Frischpilz
+        },
+        'Lentinula edodes': {           # Shiitake
+            'cap_diameter_cm': (5, 12),
+            'veil_trigger': True,        # Velum bricht → erntebereit
+            'harvest_cue': 'Velum (Schleier unter dem Hut) beginnt zu reißen',
+            'typical_flushes': 4,
+            'bio_efficiency_target': 75,
+        },
+        'Agaricus bisporus': {          # Champignon
+            'cap_diameter_cm': (3, 8),
+            'veil_trigger': True,
+            'harvest_cue': 'Velum geschlossen für weiße Champignons; offen für Portobello',
+            'typical_flushes': 3,
+            'bio_efficiency_target': 60,
+        },
+        'Psilocybe cubensis': {         # Psilocybin-Pilz (legal in einigen Jurisdiktionen)
+            'cap_diameter_cm': (2, 8),
+            'veil_trigger': True,
+            'harvest_cue': 'Velum reißt gerade — Ernte SOFORT für maximale Potenz',
+            'typical_flushes': 4,
+            'bio_efficiency_target': 50,
+        },
+    }
+
+    def assess_ripeness(self, observations: Dict) -> Dict:
+        """
+        observations = {
+            'cap_diameter_cm': float,
+            'veil_status': Literal['intact', 'stretching', 'torn', 'open'],
+            'flush_number': int,
+            'substrate_weight_g': float,
+            'total_harvest_g': float,  # Kumulativer Ertrag aller bisherigen Flushes
+        }
+        """
+        specs = self.MUSHROOM_HARVEST_SPECS.get(self.species_name, {})
+        cap = observations.get('cap_diameter_cm', 0)
+        veil = observations.get('veil_status', 'intact')
+        flush = observations.get('flush_number', 1)
+
+        # Biological Efficiency berechnen
+        substrate_g = observations.get('substrate_weight_g', 1)
+        total_harvest_g = observations.get('total_harvest_g', 0)
+        bio_eff = (total_harvest_g / substrate_g) * 100 if substrate_g > 0 else 0
+
+        # Velum-basierte Bewertung (primär für Arten mit Velum)
+        if specs.get('veil_trigger'):
+            if veil == 'torn' or veil == 'open':
+                return {
+                    'stage': 'peak',
+                    'recommendation': 'SOFORT ernten — Velum gerissen. Sporen-Abwurf beginnt.',
+                    'quality_impact': 100 if veil == 'torn' else 80,
+                    'days_to_harvest': 0,
+                    'flush_number': flush,
+                    'biological_efficiency': round(bio_eff, 1),
+                }
+            elif veil == 'stretching':
+                return {
+                    'stage': 'approaching',
+                    'recommendation': 'Velum dehnt sich — Ernte in 6-12 Stunden.',
+                    'quality_impact': 95,
+                    'days_to_harvest': 0,
+                    'flush_number': flush,
+                }
+        else:
+            # Hutrand-basierte Bewertung (z.B. Austernpilz)
+            cap_range = specs.get('cap_diameter_cm', (5, 15))
+            if cap >= cap_range[1]:
+                return {
+                    'stage': 'overripe',
+                    'recommendation': f'Hutrand aufgerollt, Hut > {cap_range[1]}cm — sofort ernten.',
+                    'quality_impact': -10,
+                    'days_to_harvest': 0,
+                }
+            elif cap >= cap_range[0]:
+                return {
+                    'stage': 'peak',
+                    'recommendation': specs.get('harvest_cue', 'Erntebereit'),
+                    'quality_impact': 95,
+                    'days_to_harvest': 0,
+                }
+
+        return {
+            'stage': 'immature',
+            'recommendation': 'Pilze noch in Entwicklung — täglich kontrollieren.',
+            'quality_impact': 30,
+            'days_to_harvest': 2,
+            'flush_number': flush,
+            'remaining_flushes': max(0, self.expected_flushes - flush),
+            'biological_efficiency': round(bio_eff, 1),
+            'bio_eff_target': specs.get('bio_efficiency_target', 50),
+        }
+
+    def time_to_harvest_estimate(self, observations: Dict) -> Optional[int]:
+        veil = observations.get('veil_status', 'intact')
+        if veil in ('torn', 'open'):
+            return 0
+        if veil == 'stretching':
+            return 0  # Stunden, nicht Tage
+        return 2
+
+    def get_measurement_instructions(self) -> Dict:
+        return {
+            'tool': 'Visuelle Inspektion, Lineal/Messschieber',
+            'procedure': [
+                '1. Hutdurchmesser mit Lineal messen (cm)',
+                '2. Velum-Status prüfen: intakt / dehnend / gerissen / offen',
+                '3. Flush-Nummer dokumentieren',
+                '4. Gesamtertrag wiegen (kumulativ über alle Flushes)',
+            ],
+            'frequency': 'Zweimal täglich während Fruchtungsphase',
+            'note': 'Bei Velum-tragenden Arten: "torn" = sofortige Ernte. '
+                    'Bei Austernpilzen: Hutrand-Einrollung beobachten.',
+        }
+
+
+class GDDIndicator(HarvestIndicator):
+    """
+    GDD-basierte Erntereife-Prognose (U-006).
+    Growing Degree Days (Wärmesumme) als objektive, temperaturbasierte
+    Erntereife-Metrik. Ergänzt oder ersetzt Kalendertage.
+
+    GDD_tag = max(0, (T_max + T_min) / 2 - T_base)
+
+    Artspezifische Schwellenwerte (GDD bis Ernte) sind kalibrierbar
+    und werden aus REQ-005 Sensorik-Daten akkumuliert (REQ-003 GDD-Tracking).
+    """
+
+    indicator_type: Literal['gdd'] = 'gdd'
+    target_gdd: float = Field(ge=100, le=5000, description="Art-/Sortenspezifische GDD bis Erntereife")
+    base_temp_c: float = Field(default=10.0, description="Basistemperatur für GDD-Berechnung")
+
+    # Artspezifische GDD-Schwellenwerte bis Ernte (ab Blüte/Pflanzung)
+    SPECIES_GDD_TARGETS: dict[str, dict] = {
+        'tomato':     {'gdd_to_harvest': 1200, 'base_temp': 10.0, 'from': 'transplant'},
+        'pepper':     {'gdd_to_harvest': 1400, 'base_temp': 10.0, 'from': 'transplant'},
+        'cucumber':   {'gdd_to_harvest': 800,  'base_temp': 15.5, 'from': 'transplant'},
+        'lettuce':    {'gdd_to_harvest': 600,  'base_temp': 4.4,  'from': 'sowing'},
+        'carrot':     {'gdd_to_harvest': 1000, 'base_temp': 4.4,  'from': 'sowing'},
+        'potato':     {'gdd_to_harvest': 1200, 'base_temp': 7.0,  'from': 'planting'},
+        'cannabis':   {'gdd_to_harvest': 1600, 'base_temp': 10.0, 'from': 'flowering_start'},
+        'basil':      {'gdd_to_harvest': 500,  'base_temp': 10.0, 'from': 'transplant'},
+    }
+
+    def assess_ripeness(self, observations: Dict) -> Dict:
+        """
+        observations = {
+            'accumulated_gdd': float,   # Aktuelle GDD-Summe (aus REQ-005/REQ-003)
+            'daily_gdd_avg': float,     # Durchschnittliche GDD/Tag (letzte 7 Tage)
+        }
+        """
+        accumulated = observations.get('accumulated_gdd', 0)
+        daily_avg = observations.get('daily_gdd_avg', 10)
+        progress = (accumulated / self.target_gdd) * 100 if self.target_gdd > 0 else 0
+
+        remaining_gdd = max(0, self.target_gdd - accumulated)
+        estimated_days = int(remaining_gdd / daily_avg) if daily_avg > 0 else 99
+
+        if progress >= 100:
+            return {
+                'stage': 'peak',
+                'recommendation': f'GDD-Ziel erreicht ({accumulated:.0f}/{self.target_gdd:.0f}) — '
+                                  f'Erntefenster offen. Mit visuellen Indikatoren kombinieren.',
+                'quality_impact': 95,
+                'days_to_harvest': 0,
+                'gdd_progress_percent': round(progress, 1),
+                'accumulated_gdd': round(accumulated, 1),
+            }
+        elif progress >= 85:
+            return {
+                'stage': 'approaching',
+                'recommendation': f'GDD {accumulated:.0f}/{self.target_gdd:.0f} '
+                                  f'({progress:.0f}%) — noch ~{estimated_days} Tage.',
+                'quality_impact': 80,
+                'days_to_harvest': estimated_days,
+                'gdd_progress_percent': round(progress, 1),
+            }
+        else:
+            return {
+                'stage': 'developing',
+                'recommendation': f'GDD {accumulated:.0f}/{self.target_gdd:.0f} '
+                                  f'({progress:.0f}%) — ca. {estimated_days} Tage verbleibend.',
+                'quality_impact': int(progress * 0.6),
+                'days_to_harvest': estimated_days,
+                'gdd_progress_percent': round(progress, 1),
+            }
+
+    def time_to_harvest_estimate(self, observations: Dict) -> Optional[int]:
+        accumulated = observations.get('accumulated_gdd', 0)
+        daily_avg = observations.get('daily_gdd_avg', 10)
+        remaining = max(0, self.target_gdd - accumulated)
+        return int(remaining / daily_avg) if daily_avg > 0 else None
+
+    def get_measurement_instructions(self) -> Dict:
+        return {
+            'tool': 'Automatisch via REQ-005 Sensorik + REQ-003 GDD-Tracking',
+            'procedure': [
+                '1. GDD wird automatisch aus Tagestemperaturen akkumuliert',
+                '2. Formel: GDD_tag = max(0, (T_max + T_min) / 2 - T_base)',
+                '3. GDD-Fortschritt gegen artspezifischen Zielwert prüfen',
+                '4. Mit visuellen/sensorischen Indikatoren kombinieren',
+            ],
+            'note': 'GDD ist temperaturabhängig und korreliert besser mit der physiologischen '
+                    'Reife als Kalendertage. Besonders wertvoll bei Outdoor-Anbau mit '
+                    'Temperatur-Schwankungen.',
+        }
+
+
+class ContinuousHarvestIndicator(HarvestIndicator):
+    """
+    Indikator für Cut-and-Come-Again (CACA) Kulturen (U-003).
+    Blattgemüse (Salat, Spinat, Rucola, Mangold, Kräuter) die wiederholt
+    beerntet werden können, solange die Schnittöhe eingehalten wird.
+    """
+
+    indicator_type: Literal['continuous_harvest'] = 'continuous_harvest'
+    cut_height_cm: float = Field(ge=1, le=30, description="Minimale Schnitthöhe über Boden")
+    regrowth_days: int = Field(ge=3, le=60, description="Typische Nachwachszeit zwischen Ernten")
+    max_harvests_before_replant: int = Field(ge=1, le=20, description="Max Ernten bevor Qualität nachlässt")
+
+    # Artspezifische CACA-Parameter
+    CACA_SPECIES: dict[str, dict] = {
+        'lettuce_leaf':  {'cut_height_cm': 3, 'regrowth_days': 14, 'max_harvests': 4, 'note': 'Über dem Vegetationspunkt schneiden'},
+        'spinach':       {'cut_height_cm': 3, 'regrowth_days': 21, 'max_harvests': 3, 'note': 'Äußere Blätter zuerst'},
+        'arugula':       {'cut_height_cm': 2, 'regrowth_days': 10, 'max_harvests': 5, 'note': 'Vor Blüte ernten, sonst bitter'},
+        'chard':         {'cut_height_cm': 5, 'regrowth_days': 21, 'max_harvests': 6, 'note': 'Äußere Stiele abschneiden'},
+        'basil':         {'cut_height_cm': 10, 'regrowth_days': 14, 'max_harvests': 8, 'note': 'Über einem Blattpaar schneiden — fördert Verzweigung'},
+        'cilantro':      {'cut_height_cm': 3, 'regrowth_days': 21, 'max_harvests': 2, 'note': 'Geht schnell in Blüte (Bolting)'},
+        'kale':          {'cut_height_cm': 5, 'regrowth_days': 28, 'max_harvests': 5, 'note': 'Untere Blätter zuerst, Spitze stehen lassen'},
+    }
+
+    def assess_ripeness(self, observations: Dict) -> Dict:
+        """
+        observations = {
+            'current_height_cm': float,         # Aktuelle Wuchshöhe
+            'days_since_last_harvest': int,      # Tage seit letzter Ernte
+            'harvest_count': int,                # Bisherige Anzahl Ernten
+            'bolting_signs': bool,               # Zeigt die Pflanze Blütenansätze?
+            'leaf_quality': Literal['excellent', 'good', 'declining'],
+        }
+        """
+        height = observations.get('current_height_cm', 0)
+        days_since = observations.get('days_since_last_harvest', 0)
+        count = observations.get('harvest_count', 0)
+        bolting = observations.get('bolting_signs', False)
+        quality = observations.get('leaf_quality', 'good')
+
+        if bolting:
+            return {
+                'stage': 'overripe',
+                'recommendation': 'Blütenansatz erkannt — SOFORT final ernten. '
+                                  'Blätter werden bitter nach Bolting.',
+                'quality_impact': -20,
+                'days_to_harvest': 0,
+                'harvest_count': count,
+                'action': 'final_harvest',
+            }
+
+        if count >= self.max_harvests_before_replant:
+            return {
+                'stage': 'overripe',
+                'recommendation': f'Maximum Ernten ({self.max_harvests_before_replant}) erreicht — '
+                                  f'Pflanze ersetzen für optimale Qualität.',
+                'quality_impact': -10,
+                'days_to_harvest': 0,
+                'action': 'replant',
+            }
+
+        if days_since >= self.regrowth_days and height >= self.cut_height_cm * 2:
+            return {
+                'stage': 'peak',
+                'recommendation': f'Erntebereit (Ernte #{count + 1}). '
+                                  f'Auf {self.cut_height_cm} cm schneiden.',
+                'quality_impact': 95,
+                'days_to_harvest': 0,
+                'remaining_harvests': self.max_harvests_before_replant - count,
+                'cut_height_cm': self.cut_height_cm,
+            }
+
+        remaining_days = max(0, self.regrowth_days - days_since)
+        return {
+            'stage': 'developing',
+            'recommendation': f'Nachwachsphase — noch ~{remaining_days} Tage bis nächste Ernte.',
+            'quality_impact': 50,
+            'days_to_harvest': remaining_days,
+            'harvest_count': count,
+        }
+
+    def time_to_harvest_estimate(self, observations: Dict) -> Optional[int]:
+        days_since = observations.get('days_since_last_harvest', 0)
+        return max(0, self.regrowth_days - days_since)
+
+    def get_measurement_instructions(self) -> Dict:
+        return {
+            'tool': 'Lineal, saubere Schere/Messer',
+            'procedure': [
+                f'1. Wuchshöhe messen — Ernte ab {self.cut_height_cm * 2} cm',
+                f'2. Auf {self.cut_height_cm} cm über Boden schneiden',
+                '3. Blütenansätze (Bolting) prüfen — sofortige Ernte wenn ja',
+                '4. Blattqualität bewerten (Farbe, Textur, Bitterkeit)',
+                '5. Ertrag wiegen und kumulativ dokumentieren',
+            ],
+            'frequency': f'Alle {self.regrowth_days} Tage prüfen',
+            'note': f'Maximal {self.max_harvests_before_replant} Ernten, danach Pflanze ersetzen.',
+        }
+```
+
+**Ernte-Ergonomie & Werkzeug-Dokumentation (U-007):**
+
+Die Wahl des Erntewerkzeugs und dessen Hygiene beeinflusst Kontaminationsrisiko und Wundverschluss:
+
+```python
+class HarvestToolDocumentation:
+    """
+    Dokumentation von Erntewerkzeug, Hygiene-Status und Behälter.
+    Relevant für Rückverfolgbarkeit (Kontaminations-Quelle bei Schimmelbefall)
+    und Best-Practice-Empfehlungen.
+    """
+
+    # Empfohlene Werkzeuge nach Pflanzentyp
+    RECOMMENDED_TOOLS: dict[str, dict] = {
+        'cannabis': {
+            'tools': ['Fiskars micro-tip pruner', 'Bonsai-Schere', 'Curved Trimming Scissors'],
+            'sanitization': 'Isopropanol 70% zwischen Pflanzen',
+            'container': 'Edelstahl-Tablett oder Silikon-Matte (kein Papier — klebt an Harz)',
+            'gloves': 'Nitril-Handschuhe (Latex sammelt Trichome)',
+        },
+        'tomato': {
+            'tools': ['Gartenschere', 'Tomatenmesser (gezahnt)'],
+            'sanitization': 'Reinigung bei Krankheitsverdacht',
+            'container': 'Flacher Korb/Kiste (nicht stapeln — Druckstellen)',
+        },
+        'mushroom': {
+            'tools': ['Pilzmesser (gebogen)', 'Sauberes Drehen und Abreißen'],
+            'sanitization': 'Messer zwischen Substratblöcken reinigen',
+            'container': 'Papiertüte oder offener Korb (KEIN Plastik — Kondensation)',
+        },
+        'herb': {
+            'tools': ['Kräuterschere', 'Scharfes Messer'],
+            'sanitization': 'Saubere Klingen für saubere Schnitte (kein Quetschen)',
+            'container': 'Feuchtes Tuch in Korb (frisch) oder Trocknungsgitter (Trocknung)',
+        },
+        'root_vegetable': {
+            'tools': ['Grabegabel (nicht Spaten — vermeidet Beschädigung)', 'Hand-Grabewerkzeug'],
+            'sanitization': 'Nicht erforderlich',
+            'container': 'Kiste mit Erde/Sand für Lagerung',
+        },
+    }
+
+    @classmethod
+    def get_tool_recommendation(cls, species_type: str) -> dict:
+        """Gibt artspezifische Werkzeug-Empfehlung zurück."""
+        return cls.RECOMMENDED_TOOLS.get(species_type, {
+            'tools': ['Scharfe, saubere Gartenschere'],
+            'sanitization': 'Reinigung zwischen Pflanzen empfohlen',
+            'container': 'Sauberer Behälter',
+        })
 ```
 
 **2. Harvest Batch Manager:**
@@ -1290,11 +1673,38 @@ class HarvestBatch(BaseModel):
         description="Saisonale Ernte-Nummer für Perenniale (REQ-003 Perennial-Modus). "
                     "Ermöglicht Yield-Vergleich über Saisons hinweg."
     )
+    season_year: Optional[int] = Field(
+        None, ge=2020,
+        description="Erntejahr für Perenniale. Zusammen mit harvest_season ergibt sich "
+                    "ein eindeutiger Saison-Identifier (z.B. 2026/Saison 3)."
+    )
+    thinning_performed: Optional[bool] = Field(
+        None,
+        description="Wurde Fruchtausdünnung (Thinning) vor Ernte durchgeführt? "
+                    "Relevant für Obstbäume — beeinflusst Fruchtgröße und -qualität."
+    )
+    thinning_percent: Optional[float] = Field(
+        None, ge=0, le=90,
+        description="Prozent der entfernten Früchte bei Ausdünnung (z.B. 30 = 30% entfernt)."
+    )
     wet_weight_g: float = Field(gt=0, le=100000)
     quality_grade: Literal['A+', 'A', 'B', 'C', 'D'] = 'B'
     harvester: str
     # Strukturierte Umwelterfassung statt Freitext (U-004)
     harvest_environment: Optional['HarvestEnvironment'] = None
+    # Ernte-Ergonomie & Werkzeug-Dokumentation (U-007)
+    harvest_tool: Optional[str] = Field(
+        None, max_length=100,
+        description="Verwendetes Erntewerkzeug (z.B. 'Fiskars micro-tip pruner', 'Grabegabel')"
+    )
+    tool_sanitized: Optional[bool] = Field(
+        None,
+        description="Werkzeug vor Ernte desinfiziert? Pflicht bei Partial Harvest und Cannabis."
+    )
+    container_type: Optional[Literal[
+        'mesh_tray', 'paper_bag', 'bucket', 'basket', 'crate',
+        'silicone_mat', 'stainless_tray', 'net_bag'
+    ]] = Field(None, description="Erntebehälter-Typ")
     notes: Optional[str] = Field(None, max_length=1000)
     karenz_check_passed: bool = Field(
         default=True,
@@ -1732,7 +2142,7 @@ from datetime import date, time, datetime
 HarvestType = Literal['partial', 'final', 'continuous']
 QualityGrade = Literal['A+', 'A', 'B', 'C', 'D']
 PotencyLevel = Literal['Low', 'Medium', 'High', 'Very High']
-IndicatorType = Literal['trichome', 'foliage', 'brix', 'size', 'color', 'days_since_flowering', 'aroma', 'texture', 'ethylene']
+IndicatorType = Literal['trichome', 'foliage', 'brix', 'size', 'color', 'days_since_flowering', 'aroma', 'texture', 'ethylene', 'mushroom', 'gdd', 'continuous_harvest']
 
 class HarvestObservation(BaseModel):
     """Reife-Check-Dokumentation"""
@@ -1880,6 +2290,8 @@ class YieldMetric(BaseModel):
 - [ ] **GDD-Erntereife:** GDD-basierte Reife-Prognose statt/ergänzend zu Kalendertagen
 - [ ] **Artspezifische Effizienz:** Yield-Score differenziert nach Pflanzentyp und Gewichtsbasis (nass/trocken)
 - [ ] **Strukturierte Ernteumgebung:** HarvestEnvironment statt weather_conditions-Freitext
+- [ ] **Ernte-Werkzeug-Dokumentation (U-007):** harvest_tool, tool_sanitized, container_type pro Batch; artspezifische Werkzeugempfehlungen
+- [ ] **Perennial-Ertragsentwicklung (U-002):** season_year + harvest_season für jahresübergreifende Yield-Analytics; thinning_performed/thinning_percent für Fruchtausdünnung
 
 ### Testszenarien:
 
@@ -1975,7 +2387,7 @@ THEN:
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Ernte, Trichome, Reife, Flushing, Batch, QR-Code, Yield, Traceability, Aroma, Terpen-Profil, Ethylen, Klimakterisch, Multi-Standort-Sampling, Living Soil, Partial Harvest, Karenzzeit, GDD, Perennial, CACA, Pilzernte, Velum
-- Fachbegriffe: Calyx, Pistil, Terpen, CBN, THC, Brix, Chlorophyll, Seed-to-Shelf, Myrcen, Limonen, Linalool, Pinen, Caryophyllen, Klimakterium, Breaker-Stage, Nachreifen, AromaIndicator, EthyleneRipeningClassifier, SPECIES_MOISTURE_CONTENT, WEAKLY_CLIMACTERIC, Biological Efficiency, degraded_percent, HarvestEnvironment
-- Verknüpfung: Zentral für REQ-004 (Flushing — EC relativ zu base_water_ec), REQ-006 (Karenzzeit-Validierung bei Harvest-Tasks), REQ-008 (Post-Harvest), REQ-009 (Analytics), REQ-010 (Karenz-Gate vor Batch-Erstellung), REQ-003 (GDD-Reife, Perennial-Saisons)
-- Pflanzenwissenschaft: Trichom-Entwicklung (inkl. degraded), Cannabinoid-Degradation, Chlorophyll-Abbau, Terpen-Biosynthese, Ethylen-Produktion, klimakterische/bedingt-klimakterische/nicht-klimakterische Reifung, artspezifischer Wassergehalt, Fruchtausdünnung (Thinning), Cut-and-Come-Again
+- Keywords: Ernte, Trichome, Reife, Flushing, Batch, QR-Code, Yield, Traceability, Aroma, Terpen-Profil, Ethylen, Klimakterisch, Multi-Standort-Sampling, Living Soil, Partial Harvest, Karenzzeit, GDD, Perennial, CACA, Pilzernte, Velum, Erntewerkzeug, Werkzeug-Hygiene, Behälter
+- Fachbegriffe: Calyx, Pistil, Terpen, CBN, THC, Brix, Chlorophyll, Seed-to-Shelf, Myrcen, Limonen, Linalool, Pinen, Caryophyllen, Klimakterium, Breaker-Stage, Nachreifen, AromaIndicator, EthyleneRipeningClassifier, SPECIES_MOISTURE_CONTENT, WEAKLY_CLIMACTERIC, Biological Efficiency, degraded_percent, HarvestEnvironment, MushroomIndicator, GDDIndicator, ContinuousHarvestIndicator, Wärmesumme, Velum-Status, Flush-Nummer, Bolting, Fruchtausdünnung
+- Verknüpfung: Zentral für REQ-004 (Flushing — EC relativ zu base_water_ec), REQ-005 (GDD-Akkumulation), REQ-006 (Karenzzeit-Validierung bei Harvest-Tasks), REQ-008 (Post-Harvest), REQ-009 (Analytics), REQ-010 (Karenz-Gate vor Batch-Erstellung), REQ-003 (GDD-Reife, Perennial-Saisons)
+- Pflanzenwissenschaft: Trichom-Entwicklung (inkl. degraded), Cannabinoid-Degradation, Chlorophyll-Abbau, Terpen-Biosynthese, Ethylen-Produktion, klimakterische/bedingt-klimakterische/nicht-klimakterische Reifung, artspezifischer Wassergehalt, Fruchtausdünnung (Thinning), Cut-and-Come-Again, Pilz-Biological-Efficiency, GDD-Akkumulation (Wärmesumme)

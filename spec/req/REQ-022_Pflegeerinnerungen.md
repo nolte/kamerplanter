@@ -7,7 +7,7 @@ Kategorie: Pflege & Erinnerungen
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.1 (Agrarbiologie-Review)
+Version: 2.1 (Agrarbiologie-Review v2)
 ```
 
 ## 1. Business Case
@@ -47,6 +47,39 @@ Vordefinierte Pflegeprofile für typische Zimmerpflanzen-Kategorien:
 | `cactus` | 21 Tage | 3.0× (→ 63 Tage) | 30 Tage (Mai–Aug) | 36 Monate | 30 Tage | Kakteen (Cactaceae). **Nicht** für Lithops/Mesembs (Aizoaceae) — deren Gießrhythmus erfordert gattungsspezifische Logik (Schrumpfphase Feb–Mai = 0 Wasser) |
 | `custom` | Frei konfigurierbar | Frei konfigurierbar | Frei konfigurierbar | Frei konfigurierbar | — | — |
 
+**Gießmethode pro Preset (`watering_method`):**
+
+Die Erinnerung sagt nicht nur *wann*, sondern auch *wie* gegossen werden soll. Die Gießmethode ist artspezifisch und für Einsteiger eine der häufigsten Fehlerquellen:
+
+| care_style | `watering_method` | Anleitung (i18n) |
+|------------|-------------------|------------------|
+| `tropical` | `top_water` | "Von oben gießen, bis Wasser unten herausläuft. Überschuss nach 30 Min. wegkippen." |
+| `succulent` | `drench_and_drain` | "Kräftig durchgießen, vollständig ablaufen lassen. Untersetzer nach 10 Min. leeren." |
+| `orchid` | `soak` | "Tauchbad: Topf 10–15 Minuten in zimmerwarmes Wasser stellen, dann abtropfen lassen." |
+| `calathea` | `top_water` | "Von oben mit kalkarmem Wasser gießen. Blätter nicht benetzen (Pilzgefahr)." |
+| `herb_tropical` | `top_water` | "Von oben gießen, Substrat gleichmäßig feucht halten." |
+| `mediterranean` | `drench_and_drain` | "Durchdringend gießen, dann vollständig abtrocknen lassen." |
+| `fern` | `top_water` | "Von oben gießen + regelmäßig Blätter besprühen (Luftfeuchte)." |
+| `cactus` | `drench_and_drain` | "Kräftig durchgießen, vollständig austrocknen lassen (Substrat muss trocken sein)." |
+| `custom` | Frei wählbar | — |
+
+**Wasserqualitäts-Hinweis pro Preset (`water_quality_hint`):**
+
+Bestimmte Pflanzengruppen reagieren empfindlich auf Kalk im Leitungswasser. Der Hinweis wird als optionaler Tooltip in der ReminderCard angezeigt:
+
+| care_style | `water_quality_hint` |
+|------------|---------------------|
+| `tropical` | `null` (Leitungswasser OK) |
+| `succulent` | `null` |
+| `orchid` | "Kalkarmes Wasser bevorzugt. Abgestandenes Leitungswasser oder Regenwasser." |
+| `calathea` | "Kalkempfindlich! Regenwasser, gefiltertes oder abgestandenes Wasser verwenden." |
+| `herb_tropical` | `null` |
+| `mediterranean` | `null` |
+| `fern` | "Weiches Wasser bevorzugt. Abgestandenes Leitungswasser oder Regenwasser." |
+| `cactus` | `null` |
+
+Biologische Begründung: Calatheen und Maranteen reagieren mit braunen Blattspitzen auf kalkhaltiges Wasser. Orchideen-Velamen-Wurzeln können durch Kalkablagerungen in der Wasseraufnahme blockiert werden. Farne (insbes. Adiantum) sind kalkempfindlich.
+
 **Biologische Begründung der Preset-Werte:**
 - **Tropische Grünpflanzen** stammen aus gleichmäßig feuchten Wäldern — konstante Wasserversorgung, aber keine Staunässe. Dünger nur in der lichtreichen Wachstumsphase (Mär–Okt auf der Nordhalbkugel), da bei geringer Lichtintensität im Winter die Photosynthese-Rate sinkt und Nährstoffe nicht verwertet werden können (Salzakkumulation im Substrat).
 - **Sukkulenten/Kakteen** speichern Wasser in sukkulenten Geweben (CAM-Metabolismus) — längere Trockenperioden sind physiologisch nötig, da dauerfeuchtes Substrat zu Wurzelfäule führt (Phytophthora, Pythium). Düngung nur in der kurzen Aktivphase. Im Winter nahezu komplett trocken halten (3× Multiplikator).
@@ -67,7 +100,7 @@ Ohne saisonale Anpassung ist **Überwässerung im Winter die häufigste Todesurs
 
 Der `winter_watering_multiplier` wird auf das Gießintervall angewendet, wenn der aktuelle Monat in den Winter-Monaten liegt (November–Februar auf der Nordhalbkugel, Mai–August auf der Südhalbkugel). Die Hemisphäre wird aus `Site.hemisphere` abgeleitet (Default: `'northern'`). Das effektive Intervall berechnet sich als: `effective_interval = base_interval × multiplier`.
 
-**5 Erinnerungstypen:**
+**6 Erinnerungstypen:**
 
 | Typ | Schlüssel | Auslöser | Priorität |
 |-----|-----------|----------|-----------|
@@ -75,7 +108,8 @@ Der `winter_watering_multiplier` wird auf das Gießintervall angewendet, wenn de
 | Düngen | `fertilizing` | Intervall + nur in Aktivmonaten UND Phase `active_growth` / `vegetative` | `medium` |
 | Umtopfen | `repotting` | Monate seit letztem Umtopfen | `low` |
 | Schädlingskontrolle | `pest_check` | Festes Intervall (Default 14 Tage) | `medium` |
-| Standort-Check | `location_check` | Saisonal: Oktober (Winterwarnung) + März (Frühlingswarnung) | `medium` |
+| Standort-Check | `location_check` | Saisonal: konfigurierbar (Default: Oktober + März, hemisphärenabhängig) | `medium` |
+| Luftfeuchte-Check | `humidity_check` | Saisonal: Heizperiode (Okt–Mär NH), nur für feuchtigkeitsempfindliche Presets | `medium` |
 
 **Dünge-Guard:**
 Dünge-Erinnerungen werden nur generiert, wenn **beide** Bedingungen erfüllt sind:
@@ -125,7 +159,12 @@ Care-Reminder-Tasks werden **direkt** vom `CareReminderEngine` erstellt — sie 
     - `fertilizing_active_months: list[int]` (z.B. `[3, 4, 5, 6, 7, 8, 9, 10]` für Mär–Okt)
     - `repotting_interval_months: int`
     - `pest_check_interval_days: int`
+    - `watering_method: Literal['soak', 'drench_and_drain', 'top_water', 'bottom_water']` (Default aus care_style-Preset)
+    - `water_quality_hint: Optional[str]` (Default aus care_style-Preset, z.B. "Kalkarmes Wasser bevorzugt" für Orchideen)
     - `location_check_enabled: bool` (Default: `true`)
+    - `location_check_months: Optional[dict]` (Konfigurierbare Monate für Standort-Checks, z.B. `{"winter_warning": 10, "spring_reminder": 3}`. Default: `null` = Oktober/März für NH, April/September für SH)
+    - `humidity_check_enabled: bool` (Default aus care_style-Preset — `true` für `calathea`, `fern`, `tropical`; `false` für Rest)
+    - `humidity_check_interval_days: int` (Default: 14 — nur relevant wenn `humidity_check_enabled`)
     - `adaptive_learning_enabled: bool` (Default: `true`)
     - `watering_interval_learned: Optional[float]` (Gelerntes Intervall, `null` = noch nicht adaptiert)
     - `fertilizing_interval_learned: Optional[float]`
@@ -137,7 +176,7 @@ Care-Reminder-Tasks werden **direkt** vom `CareReminderEngine` erstellt — sie 
 - **`:CareConfirmation`** — Immutables Event-Log für Bestätigungen und Snoozes
   - Collection: `care_confirmations`
   - Properties:
-    - `reminder_type: Literal['watering', 'fertilizing', 'repotting', 'pest_check', 'location_check']`
+    - `reminder_type: Literal['watering', 'fertilizing', 'repotting', 'pest_check', 'location_check', 'humidity_check']`
     - `action: Literal['confirmed', 'snoozed', 'skipped']`
     - `confirmed_at: datetime`
     - `snooze_days: Optional[int]` (Default: 2, nur bei `action='snoozed'`)
@@ -224,9 +263,14 @@ FOR plant IN plant_instances
   LET watering_base = profile.watering_interval_learned != null
     ? profile.watering_interval_learned
     : profile.watering_interval_days
-  LET watering_interval = is_winter
+  LET watering_interval_seasonal = is_winter
     ? ROUND(watering_base * profile.winter_watering_multiplier)
     : watering_base
+  // Acclimatization-Phase: Gießintervall × 1.3 (Wurzeln noch nicht etabliert)
+  LET is_acclimatization = phase != null AND phase.name == 'acclimatization'
+  LET watering_interval = is_acclimatization
+    ? ROUND(watering_interval_seasonal * 1.3)
+    : watering_interval_seasonal
   LET days_since_watering = last_watering != null
     ? DATE_DIFF(last_watering.confirmed_at, DATE_NOW(), 'day')
     : 999
@@ -245,11 +289,31 @@ FOR plant IN plant_instances
     AND fertilizing_in_season
     AND phase_allows_fertilizing
 
+  // Humidity Check: Nur in Heizperiode und nur für feuchtigkeitsempfindliche Presets
+  LET humidity_due = profile.humidity_check_enabled
+    AND is_winter
+    AND (
+      LET last_humidity = FIRST(
+        FOR cc IN care_confirmations
+          FILTER cc.reminder_type == 'humidity_check'
+          FOR edge IN care_event_for
+            FILTER edge._from == cc._id AND edge._to == plant._id
+            FILTER cc.action == 'confirmed'
+            SORT cc.confirmed_at DESC
+            LIMIT 1
+            RETURN cc
+      )
+      LET days_since_humidity = last_humidity != null
+        ? DATE_DIFF(last_humidity.confirmed_at, DATE_NOW(), 'day')
+        : 999
+      RETURN days_since_humidity >= profile.humidity_check_interval_days
+    )
+
   // Dringlichkeit: Tage überfällig
   LET watering_urgency = days_since_watering - watering_interval
   LET fertilizing_urgency = days_since_fertilizing - fertilizing_interval
 
-  FILTER watering_due OR fertilizing_due
+  FILTER watering_due OR fertilizing_due OR humidity_due
 
   LET species = FIRST(
     FOR s IN 1..1 INBOUND plant GRAPH 'kamerplanter_graph'
@@ -265,8 +329,9 @@ FOR plant IN plant_instances
     species_name: species.common_names[0],
     location: plant.location_name,
     reminders: APPEND(
-      watering_due ? [{ type: 'watering', days_overdue: watering_urgency }] : [],
-      fertilizing_due ? [{ type: 'fertilizing', days_overdue: fertilizing_urgency }] : []
+      watering_due ? [{ type: 'watering', days_overdue: watering_urgency, watering_method: profile.watering_method, water_quality_hint: profile.water_quality_hint }] : [],
+      fertilizing_due ? [{ type: 'fertilizing', days_overdue: fertilizing_urgency }] : [],
+      humidity_due ? [{ type: 'humidity_check', days_overdue: 0 }] : []
     )
   }
 ```
@@ -289,71 +354,103 @@ CARE_STYLE_PRESETS: dict[str, dict] = {
     'tropical': {
         'watering_interval_days': 7,
         'winter_watering_multiplier': 1.5,
+        'watering_method': 'top_water',
+        'water_quality_hint': None,
         'fertilizing_interval_days': 14,
         'fertilizing_active_months': [3, 4, 5, 6, 7, 8, 9, 10],
         'repotting_interval_months': 18,
         'pest_check_interval_days': 14,
+        'humidity_check_enabled': True,
+        'humidity_check_interval_days': 14,
     },
     'succulent': {
         'watering_interval_days': 14,
         'winter_watering_multiplier': 2.5,
+        'watering_method': 'drench_and_drain',
+        'water_quality_hint': None,
         'fertilizing_interval_days': 30,
         'fertilizing_active_months': [4, 5, 6, 7, 8, 9],
         'repotting_interval_months': 24,
         'pest_check_interval_days': 21,
+        'humidity_check_enabled': False,
+        'humidity_check_interval_days': 14,
     },
     'orchid': {
         'watering_interval_days': 7,
         'winter_watering_multiplier': 1.5,
+        'watering_method': 'soak',
+        'water_quality_hint': 'pages.care.waterQuality.orchid',  # i18n-Key
         'fertilizing_interval_days': 14,
         'fertilizing_active_months': [3, 4, 5, 6, 7, 8, 9, 10],
         'repotting_interval_months': 24,
         'pest_check_interval_days': 14,
+        'humidity_check_enabled': True,
+        'humidity_check_interval_days': 14,
     },
     'calathea': {
         'watering_interval_days': 5,
         'winter_watering_multiplier': 1.3,
+        'watering_method': 'top_water',
+        'water_quality_hint': 'pages.care.waterQuality.calathea',  # i18n-Key
         'fertilizing_interval_days': 14,
         'fertilizing_active_months': [3, 4, 5, 6, 7, 8, 9],
         'repotting_interval_months': 18,  # Calathea/Maranten sind langsam wachsend und wurzelstörungsempfindlich
         'pest_check_interval_days': 7,
+        'humidity_check_enabled': True,
+        'humidity_check_interval_days': 7,  # Calatheen: höchste Empfindlichkeit gegen trockene Luft
     },
     'herb_tropical': {
         'watering_interval_days': 3,
         'winter_watering_multiplier': 1.5,
+        'watering_method': 'top_water',
+        'water_quality_hint': None,
         'fertilizing_interval_days': 21,
         'fertilizing_active_months': [3, 4, 5, 6, 7, 8, 9, 10],
         'repotting_interval_months': 12,
         'pest_check_interval_days': 14,
+        'humidity_check_enabled': False,
+        'humidity_check_interval_days': 14,
     },
     'mediterranean': {
         'watering_interval_days': 10,
         'winter_watering_multiplier': 2.0,
+        'watering_method': 'drench_and_drain',
+        'water_quality_hint': None,
         'fertilizing_interval_days': 30,
         'fertilizing_active_months': [4, 5, 6, 7, 8, 9],
         'repotting_interval_months': 24,
         'pest_check_interval_days': 21,
+        'humidity_check_enabled': False,
+        'humidity_check_interval_days': 14,
     },
     'fern': {
         'watering_interval_days': 4,
         'winter_watering_multiplier': 1.3,
+        'watering_method': 'top_water',
+        'water_quality_hint': 'pages.care.waterQuality.fern',  # i18n-Key
         'fertilizing_interval_days': 21,
         'fertilizing_active_months': [3, 4, 5, 6, 7, 8, 9, 10],
         'repotting_interval_months': 12,
         'pest_check_interval_days': 14,
+        'humidity_check_enabled': True,
+        'humidity_check_interval_days': 7,  # Farne: hoher Luftfeuchtebedarf
     },
     'cactus': {
         'watering_interval_days': 21,
         'winter_watering_multiplier': 3.0,
+        'watering_method': 'drench_and_drain',
+        'water_quality_hint': None,
         'fertilizing_interval_days': 30,
         'fertilizing_active_months': [5, 6, 7, 8],
         'repotting_interval_months': 36,
         'pest_check_interval_days': 30,
+        'humidity_check_enabled': False,
+        'humidity_check_interval_days': 14,
     },
 }
 
 CareStyleType = Literal['tropical', 'succulent', 'orchid', 'calathea', 'herb_tropical', 'mediterranean', 'fern', 'cactus', 'custom']
-ReminderType = Literal['watering', 'fertilizing', 'repotting', 'pest_check', 'location_check']
+ReminderType = Literal['watering', 'fertilizing', 'repotting', 'pest_check', 'location_check', 'humidity_check']
 ConfirmAction = Literal['confirmed', 'snoozed', 'skipped']
 
 # --- Dormancy Phases (no fertilizing) ---
@@ -368,6 +465,9 @@ DORMANCY_PHASES = frozenset([
 ])
 
 
+WateringMethod = Literal['soak', 'drench_and_drain', 'top_water', 'bottom_water']
+
+
 class CareProfile(BaseModel):
     """Pflegekonfiguration für eine einzelne PlantInstance."""
 
@@ -377,6 +477,14 @@ class CareProfile(BaseModel):
         ge=1.0, le=5.0, default=1.5,
         description="Multiplikator für Gießintervall in Wintermonaten (Nov–Feb NH / Mai–Aug SH — wird aus Site.hemisphere abgeleitet)"
     )
+    watering_method: WateringMethod = Field(
+        default='top_water',
+        description="Gießmethode (aus care_style-Preset). Wird in der ReminderCard als Anleitungstext angezeigt."
+    )
+    water_quality_hint: Optional[str] = Field(
+        None,
+        description="i18n-Key für Wasserqualitäts-Hinweis (z.B. kalkarm für Calathea). None = Leitungswasser OK."
+    )
     fertilizing_interval_days: int = Field(ge=7, le=90)
     fertilizing_active_months: list[int] = Field(
         min_length=1, max_length=12,
@@ -385,6 +493,19 @@ class CareProfile(BaseModel):
     repotting_interval_months: int = Field(ge=6, le=60)
     pest_check_interval_days: int = Field(ge=3, le=90)
     location_check_enabled: bool = True
+    location_check_months: Optional[dict] = Field(
+        None,
+        description="Konfigurierbare Monate für Standort-Checks. Format: {'winter_warning': 10, 'spring_reminder': 3}. "
+                    "None = Default (Okt/Mär für NH, Apr/Sep für SH)."
+    )
+    humidity_check_enabled: bool = Field(
+        default=False,
+        description="Luftfeuchte-Erinnerungen (Default aus care_style-Preset — true für calathea, fern, tropical)"
+    )
+    humidity_check_interval_days: int = Field(
+        default=14, ge=3, le=90,
+        description="Intervall für Luftfeuchte-Checks (nur aktiv in Heizperiode Okt–Mär NH / Apr–Sep SH)"
+    )
     adaptive_learning_enabled: bool = True
     watering_interval_learned: Optional[float] = Field(
         None, ge=1.0, le=90.0,
@@ -421,11 +542,16 @@ class CareProfileUpdate(BaseModel):
     care_style: Optional[CareStyleType] = None
     watering_interval_days: Optional[int] = Field(None, ge=1, le=90)
     winter_watering_multiplier: Optional[float] = Field(None, ge=1.0, le=5.0)
+    watering_method: Optional[WateringMethod] = None
+    water_quality_hint: Optional[str] = None
     fertilizing_interval_days: Optional[int] = Field(None, ge=7, le=90)
     fertilizing_active_months: Optional[list[int]] = None
     repotting_interval_months: Optional[int] = Field(None, ge=6, le=60)
     pest_check_interval_days: Optional[int] = Field(None, ge=3, le=90)
     location_check_enabled: Optional[bool] = None
+    location_check_months: Optional[dict] = None
+    humidity_check_enabled: Optional[bool] = None
+    humidity_check_interval_days: Optional[int] = Field(None, ge=3, le=90)
     adaptive_learning_enabled: Optional[bool] = None
     notes: Optional[str] = Field(None, max_length=500)
 
@@ -469,6 +595,18 @@ class CareDashboardEntry(BaseModel):
     last_confirmed_at: Optional[datetime] = None
     instruction_i18n_key: str = Field(
         description="i18n-Schlüssel für die natürlichsprachliche Anweisung"
+    )
+    watering_method: Optional[WateringMethod] = Field(
+        None,
+        description="Gießmethode — nur bei reminder_type == 'watering' befüllt"
+    )
+    water_quality_hint: Optional[str] = Field(
+        None,
+        description="i18n-Key für Wasserqualitäts-Hinweis — nur bei 'watering' und wenn relevant"
+    )
+    repotting_hint_i18n_key: Optional[str] = Field(
+        None,
+        description="i18n-Key für Symptom-Check-Hinweis — nur bei 'repotting'"
     )
 
 
@@ -527,7 +665,9 @@ class CareReminderEngine:
         Returns:
             (is_due, days_overdue) — days_overdue kann negativ sein (noch nicht fällig)
         """
-        interval = self._get_effective_interval(reminder_type, profile)
+        interval = self._get_effective_interval(
+            reminder_type, profile, current_phase=current_phase,
+        )
         if interval is None:
             return False, 0
 
@@ -574,18 +714,34 @@ class CareReminderEngine:
             return months
         return [((m + 5) % 12) + 1 for m in months]
 
+    # Acclimatization-Faktor: Gießintervall × 1.3 während Eingewöhnung
+    ACCLIMATIZATION_WATERING_FACTOR = 1.3
+
     def _get_effective_interval(
         self,
         reminder_type: ReminderType,
         profile: CareProfile,
         hemisphere: str = 'northern',
+        current_phase: Optional[str] = None,
     ) -> Optional[int]:
-        """Gibt das effektive Intervall zurück (gelernt > konfiguriert, saisonal angepasst)."""
+        """Gibt das effektive Intervall zurück (gelernt > konfiguriert, saisonal angepasst).
+
+        Sonderbehandlung acclimatization-Phase (U-005):
+        Während der Eingewöhnung nach Kauf/Umtopfen wird das Gießintervall
+        um Faktor 1.3 verlängert. Biologische Begründung: Wurzeln sind durch
+        Transport/Umtopfen geschädigt, reduzierte Wasseraufnahmekapazität,
+        Substrat beim Kauf oft bereits durchfeuchtet.
+        """
         if reminder_type == 'watering':
             base = profile.watering_interval_learned or profile.watering_interval_days
             if date.today().month in self._get_winter_months(hemisphere):
-                return round(base * profile.winter_watering_multiplier)
-            return round(base)
+                interval = round(base * profile.winter_watering_multiplier)
+            else:
+                interval = round(base)
+            # Acclimatization: Gießintervall verlängern (Wurzeln noch nicht etabliert)
+            if current_phase == 'acclimatization':
+                interval = round(interval * self.ACCLIMATIZATION_WATERING_FACTOR)
+            return interval
         elif reminder_type == 'fertilizing':
             if profile.fertilizing_interval_learned is not None:
                 return round(profile.fertilizing_interval_learned)
@@ -594,6 +750,13 @@ class CareReminderEngine:
             return profile.repotting_interval_months * 30  # Approximation
         elif reminder_type == 'pest_check':
             return profile.pest_check_interval_days
+        elif reminder_type == 'humidity_check':
+            if not profile.humidity_check_enabled:
+                return None
+            # Nur in Heizperiode (= Winter-Monate) aktiv
+            if date.today().month not in self._get_winter_months(hemisphere):
+                return None
+            return profile.humidity_check_interval_days
         elif reminder_type == 'location_check':
             return None  # Saisonal, kein Intervall
         return None
@@ -617,15 +780,35 @@ class CareReminderEngine:
         hemisphere: str = 'northern',
     ) -> tuple[bool, int]:
         """
-        Saisonale Standort-Checks (hemisphärenabhängig):
+        Saisonale Standort-Checks (hemisphärenabhängig, konfigurierbar).
+
+        Die Monate können pro CareProfile über `location_check_months` konfiguriert
+        werden. Falls nicht gesetzt, gelten die Defaults:
         - Nordhalbkugel: Oktober → Winterquartier, März → Frühlings-Umstellung
         - Südhalbkugel: April → Winterquartier, September → Frühlings-Umstellung
+
+        Hinweis (P-001): Feste Datumswerte sind eine Vereinfachung. In Zukunft
+        könnte eine Integration mit Wetterdaten (Frost-Warnung < 3°C oder
+        7-Tage-Durchschnitt < 10°C) eine präzisere Auslösung ermöglichen.
+        Die konfigurierbaren Monate erlauben dem Nutzer, die Werte an seine
+        Klimazone anzupassen (z.B. September in Südbayern, November in Köln).
         """
         if not profile.location_check_enabled:
             return False, 0
         today = date.today()
-        winter_warning_month = 10 if hemisphere == 'northern' else 4
-        spring_reminder_month = 3 if hemisphere == 'northern' else 9
+
+        # Konfigurierbare Monate oder Default
+        if profile.location_check_months:
+            winter_warning_month = profile.location_check_months.get(
+                'winter_warning', 10 if hemisphere == 'northern' else 4
+            )
+            spring_reminder_month = profile.location_check_months.get(
+                'spring_reminder', 3 if hemisphere == 'northern' else 9
+            )
+        else:
+            winter_warning_month = 10 if hemisphere == 'northern' else 4
+            spring_reminder_month = 3 if hemisphere == 'northern' else 9
+
         if today.month == winter_warning_month and today.day <= 15:
             return True, 0
         if today.month == spring_reminder_month and today.day <= 15:
@@ -761,6 +944,7 @@ class CareReminderService:
         4. Speichere + Edge has_care_profile
 
         Mapping-Logik (Priorität von oben nach unten):
+        0. Species.care_style (wenn explizit gesetzt — bevorzugte Methode, siehe P-002)
         1. BotanicalFamily 'Cactaceae' → 'cactus'
         2. BotanicalFamily 'Orchidaceae' → 'orchid'
         3. BotanicalFamily 'Marantaceae' → 'calathea'
@@ -770,6 +954,14 @@ class CareReminderService:
         7. growth_habit == 'herb' → 'herb_tropical'
         8. native_habitat containing 'tropical'/'rainforest' → 'tropical'
         9. Fallback → 'tropical'
+
+        Empfehlung (P-002): Das Heuristik-basierte Mapping über native_habitat und
+        common_names (Stufen 6–8) ist fehleranfällig (z.B. "subtropical" enthält
+        "tropical", Sprachvarianten). Es wird empfohlen, ein optionales
+        `care_style: Optional[CareStyleType]`-Feld auf der Species-Ebene in REQ-001
+        einzuführen. Wenn dieses Feld gesetzt ist (Stufe 0), wird die Heuristik
+        übersprungen. Für existierende Species ohne explizites care_style greift
+        die Heuristik als Fallback.
 
         Hinweis: Da REQ-001 kein `growth_habit: 'succulent'` definiert, werden
         Sukkulenten über ihre BotanicalFamily erkannt (Crassulaceae, Asphodelaceae)
@@ -812,7 +1004,7 @@ class CareReminderService:
         Lädt alle fälligen Erinnerungen über alle Pflanzen.
 
         1. Iteriere über alle PlantInstances mit CareProfile
-        2. Prüfe pro Pflanze alle 5 Erinnerungstypen
+        2. Prüfe pro Pflanze alle 6 Erinnerungstypen
         3. Sortiere nach Dringlichkeit (overdue first, dann due_today)
         4. Füge natürlichsprachliche Anweisungen hinzu (i18n-Keys)
         """
@@ -976,11 +1168,14 @@ Kartenbasierte Übersicht aller fälligen Erinnerungen. Primäre Seite für Eins
 |---------|-------------|
 | Pflanzenname | Display-Name der PlantInstance |
 | Species-Name | Umgangssprachlicher Artname |
-| Erinnerungstyp-Icon | Wassertropfen (Gießen), Flasche (Düngen), Topf (Umtopfen), Lupe (Schädling), Sonne/Mond (Standort) |
+| Erinnerungstyp-Icon | Wassertropfen (Gießen), Flasche (Düngen), Topf (Umtopfen), Lupe (Schädling), Sonne/Mond (Standort), Tropfen/Nebel (Luftfeuchte) |
 | Dringlichkeits-Badge | Rot: "X Tage überfällig", Gelb: "Heute fällig", Grau: "In X Tagen" |
 | Ein-Tap-Bestätigung | Prominenter Button: "Gegossen" / "Gedüngt" / "Kontrolliert" |
 | Snooze-Link | Dezenter Link: "Später (+2 Tage)" |
 | Letzte Aktion | "Zuletzt gegossen: vor 8 Tagen" |
+| Gießmethode (nur bei `watering`) | Anleitungstext aus `watering_method` (i18n) — z.B. "Tauchbad: Topf 10–15 Min. in Wasser stellen" |
+| Wasserqualität (wenn `water_quality_hint` gesetzt) | Tooltip/Hinweis: z.B. "Kalkempfindlich! Regenwasser oder gefiltertes Wasser verwenden." |
+| Symptom-Check (nur bei `repotting`) | Hinweistext mit Prüfkriterien: Wurzeln aus Ablaufloch, schnelle Austrocknung, verlangsamtes Wachstum |
 
 **Farbcodierung:**
 - Überfällig (`days_overdue > 0`): Rot (`error.main`)
@@ -1002,7 +1197,11 @@ Vereinfachter Dialog zur Anpassung der Pflegeintervalle. Erreichbar über die Re
 | Aktive Düngemonate | Monats-Chips (Jan–Dez) | Multi-Select, visuell hervorgehoben |
 | Umtopfintervall | Slider (6–36 Monate) | Mit Monatsanzeige |
 | Schädlingskontrolle | Slider (3–30 Tage) | Mit Tagesanzeige |
+| Gießmethode | Dropdown (soak/drench_and_drain/top_water/bottom_water) | Vorbelegt aus Preset, änderbar |
 | Standort-Check | Toggle | An/Aus für saisonale Erinnerungen |
+| Standort-Check Monate | 2× Monats-Dropdown (Winter-Warnung, Frühlings-Erinnerung) | Nur sichtbar wenn Standort-Check aktiv. Default aus Hemisphäre. |
+| Luftfeuchte-Check | Toggle | An/Aus — Default aus Preset (aktiv für calathea, fern, tropical) |
+| Luftfeuchte-Intervall | Slider (3–30 Tage) | Nur sichtbar wenn Luftfeuchte-Check aktiv |
 | Adaptive Learning | Toggle | An/Aus |
 | Notizen | Textfeld | Freitext, z.B. "Mag Regenwasser" |
 
@@ -1045,17 +1244,31 @@ interface CareDashboardEntry {
   intervalDays: number;
   lastConfirmedAt: string | null;
   instructionI18nKey: string;
+  /** Gießmethode — nur bei reminderType === 'watering' befüllt */
+  wateringMethod: WateringMethod | null;
+  /** Wasserqualitäts-Hinweis (i18n-Key) — nur bei reminderType === 'watering' und wenn relevant */
+  waterQualityHint: string | null;
+  /** Symptom-Check-Hinweis (i18n-Key) — nur bei reminderType === 'repotting' */
+  repottingHintI18nKey: string | null;
 }
+
+type WateringMethod = 'soak' | 'drench_and_drain' | 'top_water' | 'bottom_water';
+type ReminderType = 'watering' | 'fertilizing' | 'repotting' | 'pest_check' | 'location_check' | 'humidity_check';
 
 interface CareProfile {
   careStyle: CareStyleType;
   wateringIntervalDays: number;
   winterWateringMultiplier: number;
+  wateringMethod: WateringMethod;
+  waterQualityHint: string | null;
   fertilizingIntervalDays: number;
   fertilizingActiveMonths: number[];
   repottingIntervalMonths: number;
   pestCheckIntervalDays: number;
   locationCheckEnabled: boolean;
+  locationCheckMonths: { winterWarning: number; springReminder: number } | null;
+  humidityCheckEnabled: boolean;
+  humidityCheckIntervalDays: number;
   adaptiveLearningEnabled: boolean;
   wateringIntervalLearned: number | null;
   fertilizingIntervalLearned: number | null;
@@ -1089,6 +1302,7 @@ pages.care.types.fertilizing                 = "Düngen" / "Fertilizing"
 pages.care.types.repotting                   = "Umtopfen" / "Repotting"
 pages.care.types.pest_check                  = "Schädlingskontrolle" / "Pest Check"
 pages.care.types.location_check              = "Standort-Check" / "Location Check"
+pages.care.types.humidity_check              = "Luftfeuchte-Check" / "Humidity Check"
 
 pages.care.actions.watered                   = "Gegossen" / "Watered"
 pages.care.actions.fertilized                = "Gedüngt" / "Fertilized"
@@ -1103,9 +1317,20 @@ pages.care.urgency.upcoming                  = "In {{days}} Tagen" / "In {{days}
 pages.care.instructions.watering             = "{{plantName}} braucht Wasser" / "{{plantName}} needs water"
 pages.care.instructions.fertilizing          = "{{plantName}} braucht Dünger" / "{{plantName}} needs fertilizer"
 pages.care.instructions.repotting            = "{{plantName}} sollte umgetopft werden" / "{{plantName}} should be repotted"
+pages.care.instructions.repotting_hint       = "Prüfen: (1) Wachsen Wurzeln aus dem Ablaufloch? (2) Trocknet das Substrat ungewöhnlich schnell? (3) Wächst die Pflanze merklich langsamer?" / "Check: (1) Are roots growing out of the drain hole? (2) Does the soil dry out unusually fast? (3) Has growth noticeably slowed down?"
 pages.care.instructions.pest_check           = "{{plantName}} auf Schädlinge kontrollieren" / "Check {{plantName}} for pests"
 pages.care.instructions.location_check_oct   = "{{plantName}} ins Winterquartier holen" / "Move {{plantName}} to winter location"
 pages.care.instructions.location_check_mar   = "{{plantName}} an helleren Standort stellen" / "Move {{plantName}} to brighter location"
+pages.care.instructions.humidity_check       = "Luftfeuchtigkeit bei {{plantName}} prüfen — ggf. Luftbefeuchter oder Kieselschale verwenden" / "Check humidity for {{plantName}} — consider using a humidifier or pebble tray"
+
+pages.care.wateringMethod.soak               = "Tauchbad: Topf 10–15 Min. in zimmerwarmes Wasser stellen, abtropfen lassen." / "Soak: Place pot in lukewarm water for 10-15 min, then drain."
+pages.care.wateringMethod.drench_and_drain   = "Kräftig durchgießen, vollständig ablaufen lassen. Überschuss wegkippen." / "Drench thoroughly, let drain completely. Discard excess water."
+pages.care.wateringMethod.top_water          = "Von oben gießen, bis Wasser unten herausläuft. Überschuss nach 30 Min. wegkippen." / "Water from top until water runs out the bottom. Discard excess after 30 min."
+pages.care.wateringMethod.bottom_water       = "Untersetzer mit Wasser füllen, 20–30 Min. saugen lassen, Rest wegkippen." / "Fill saucer with water, let absorb for 20-30 min, discard remainder."
+
+pages.care.waterQuality.orchid               = "Kalkarmes Wasser bevorzugt. Abgestandenes Leitungswasser oder Regenwasser." / "Prefers low-lime water. Use stale tap water or rainwater."
+pages.care.waterQuality.calathea             = "Kalkempfindlich! Regenwasser, gefiltertes oder abgestandenes Wasser verwenden." / "Lime-sensitive! Use rainwater, filtered, or stale tap water."
+pages.care.waterQuality.fern                 = "Weiches Wasser bevorzugt. Abgestandenes Leitungswasser oder Regenwasser." / "Prefers soft water. Use stale tap water or rainwater."
 
 pages.care.profile.title                     = "Pflegeprofil bearbeiten" / "Edit Care Profile"
 pages.care.profile.careStyle                 = "Pflegestil" / "Care Style"
@@ -1115,6 +1340,10 @@ pages.care.profile.activeMonths              = "Aktive Düngemonate" / "Active F
 pages.care.profile.repottingInterval         = "Umtopfintervall (Monate)" / "Repotting Interval (months)"
 pages.care.profile.pestCheckInterval         = "Schädlingskontrolle (Tage)" / "Pest Check Interval (days)"
 pages.care.profile.locationCheck             = "Saisonale Standort-Erinnerungen" / "Seasonal Location Reminders"
+pages.care.profile.humidityCheck             = "Luftfeuchte-Erinnerungen (Heizperiode)" / "Humidity Reminders (Heating Season)"
+pages.care.profile.humidityCheckInterval     = "Luftfeuchte-Check (Tage)" / "Humidity Check (days)"
+pages.care.profile.wateringMethod            = "Gießmethode" / "Watering Method"
+pages.care.profile.waterQuality              = "Wasserqualität" / "Water Quality"
 pages.care.profile.adaptiveLearning          = "Automatische Intervallanpassung" / "Automatic Interval Adjustment"
 pages.care.profile.notes                     = "Notizen" / "Notes"
 pages.care.profile.resetConfirm              = "Auf Standardwerte zurücksetzen?" / "Reset to defaults?"
@@ -1129,6 +1358,11 @@ enums.careStyle.mediterranean                = "Mediterrane Pflanze" / "Mediterr
 enums.careStyle.fern                         = "Farn" / "Fern"
 enums.careStyle.cactus                       = "Kaktus" / "Cactus"
 enums.careStyle.custom                       = "Benutzerdefiniert" / "Custom"
+
+enums.wateringMethod.soak                    = "Tauchbad" / "Soak"
+enums.wateringMethod.drench_and_drain        = "Durchgießen & ablaufen lassen" / "Drench & Drain"
+enums.wateringMethod.top_water               = "Von oben gießen" / "Top Watering"
+enums.wateringMethod.bottom_water            = "Von unten gießen" / "Bottom Watering"
 ```
 
 ### 5.6 Navigations-Integration (REQ-021)
@@ -1156,7 +1390,8 @@ Im Experten-Modus ist die PflegeDashboardPage eine alternative Ansicht auf diese
 - [ ] Dünge-Erinnerungen erscheinen NICHT wenn `current_phase` in DORMANCY_PHASES (inkl. `maintenance`, `acclimatization`, `repotting_recovery`)
 - [ ] Umtopf-Erinnerungen erscheinen basierend auf dem Monatsintervall seit letztem Umtopfen
 - [ ] Schädlingskontroll-Erinnerungen erscheinen im konfigurierten Intervall
-- [ ] Standort-Check-Erinnerungen erscheinen im Oktober und März (jeweils erste 15 Tage)
+- [ ] Standort-Check-Erinnerungen erscheinen in den konfigurierbaren Monaten (Default: Oktober/März NH, April/September SH, jeweils erste 15 Tage)
+- [ ] Standort-Check-Monate sind pro CareProfile über `location_check_months` konfigurierbar (Anpassung an Klimazone)
 - [ ] Ein-Tap-Bestätigung markiert den zugehörigen Task als completed
 - [ ] Snooze verschiebt das Task-due_date um die gewählte Anzahl Tage
 - [ ] Adaptive Learning passt Intervall nach 3 konsistenten Signalen um 1 Tag an
@@ -1165,6 +1400,11 @@ Im Experten-Modus ist die PflegeDashboardPage eine alternative Ansicht auf diese
 - [ ] Dashboard zeigt alle fälligen Erinnerungen, sortiert nach Dringlichkeit
 - [ ] Dashboard: Überfällige Erinnerungen haben rotes Badge, heutige gelb, kommende grau
 - [ ] Care-Style-Wechsel setzt alle Intervalle auf Preset-Werte (mit Bestätigungsdialog)
+- [ ] Gieß-Erinnerungen zeigen die artspezifische Gießmethode (`watering_method`) als Anleitungstext an
+- [ ] Gieß-Erinnerungen zeigen ggf. einen Wasserqualitäts-Hinweis (`water_quality_hint`) als Tooltip an (Calathea, Orchidee, Farn)
+- [ ] Umtopf-Erinnerungen zeigen zusätzlich einen Symptom-Check-Hinweis an (Wurzeln aus Ablaufloch, schnelle Austrocknung, verlangsamtes Wachstum)
+- [ ] Luftfeuchte-Check-Erinnerungen erscheinen saisonal (Heizperiode Okt–Mär NH) für feuchtigkeitsempfindliche Presets (calathea, fern, tropical)
+- [ ] Gießintervall wird in der `acclimatization`-Phase automatisch um Faktor 1.3 verlängert (Wurzeln nach Kauf/Umtopfen noch nicht etabliert)
 - [ ] Alle Bestätigungen werden als immutable CareConfirmation-Events gespeichert
 - [ ] Celery-Beat generiert täglich fehlende Tasks (idempotent, keine Duplikate)
 - [ ] i18n: Alle Texte in DE und EN verfügbar

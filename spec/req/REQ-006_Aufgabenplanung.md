@@ -7,7 +7,7 @@ Kategorie: Prozessmanagement
 Fokus: Beides
 Technologie: Python, ArangoDB, Celery (Task Scheduling)
 Status: Entwurf
-Version: 2.1 (Agrarbiologie-Review)
+Version: 2.2 (U/P-Findings integriert)
 ```
 
 ## 1. Business Case
@@ -32,12 +32,22 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
 - **Orchidee (Phalaenopsis):** Tauchbad wöchentlich, Orchideendünger alle 2 Wochen, Temperatur-Drop 5°C für 4 Wochen zur Blüte-Induktion
 - **Kaktus/Sukkulente:** Minimalbewässerung, Winterruhe Oktober-Februar (kalt, trocken, kein Dünger), Umtopfen alle 2-3 Jahre
 - **Calathea/Marante:** Erhöhte Luftfeuchte (>60% rH), kalkfreies Wasser, regelmäßige Schädlingskontrolle (Spinnmilben)
+- **Umtopf-Workflow (generisch):** Substratcheck alle 12-18 Monate, Wurzelschnitt bei Bedarf, schrittweise Topfgrößen-Steigerung (max. +2 cm Durchmesser), Drainage-Kontrolle, 2 Wochen reduzierte Düngung nach Umtopfen
+- **Überwinterungs-Workflow:** Saisonaler Trigger (Oktober): Dünger reduzieren/einstellen, Gießintervall verlängern, kühlen Standort beziehen (5-12°C für Kaktus, 15-18°C für Tropenpflanzen), Licht-Supplementierung bei <8h Tageslicht, Schädlingskontrolle intensivieren (Trockenstress fördert Spinnmilben)
+- **Vermehrungs-Workflow (Stecklinge):** Mutterpflanze identifizieren, Stecklingsschnitt (morgens, turgorreich), Bewurzelungshormon optional, Mini-Gewächshaus / hohe Luftfeuchte, Wurzelkontrolle nach 2-4 Wochen, Abhärtung 1 Woche, Umtopfen
+- **Saisonale Düngung:** Beginn März (Wachstumsbeginn): langsam auf Volldüngung hochfahren, Reduktion September, Einstellen November-Februar; Frequenz und Konzentration artspezifisch konfigurierbar
 
 **Hydroponik-Wartungs-Templates (Built-in):**
 - **Nährlösung-Wechsel:** Komplettwechsel alle 7-14 Tage mit EC/pH-Messung, Reservoir-Reinigung, Frisch-Ansatz (REQ-014)
 - **Sonden-Kalibrierung:** Wöchentliche pH/EC-Kalibrierung mit Referenzlösungen
 - **Wurzelinspektion:** Regelmäßige Kontrolle auf Pythium, Verfärbungen, Algenwachstum
 - **System-Reinigung:** Leitungen, Pumpen, Tropfer spülen (H₂O₂ oder enzymatisch)
+
+**Outdoor/Freiland-Templates (Built-in):**
+- **Frostschutz-Workflow:** Wetter-Trigger bei Frostwarnung (<3°C Nachttemperatur): Empfindliche Pflanzen abdecken (Vlies, Folie), Topfpflanzen einräumen, Bewässerung reduzieren (gefrorenes Substrat = Wurzelschaden), Frostschutz-Vlies-Bestand prüfen
+- **Abhärtungs-Workflow:** Schrittweise Akklimatisierung von Indoor nach Outdoor: Tag 1-3 geschützter Schatten (2-3h), Tag 4-6 halbschattig (4-5h), Tag 7-10 volle Sonne (vormittags), Tag 11-14 ganztags; Rückfall-Task bei Kälteeinbruch
+- **Obstbaum-Jahresschnitt:** Saisonaler Trigger (Februar/März für Kernobst, Juli/August für Steinobst): Totholz entfernen, Wasserschosse schneiden, Kronenform korrigieren, Wundverschluss bei Schnitten >3cm Durchmesser
+- **Saisonende-Workflow (Herbst):** Abgestorbene Pflanzen entfernen, Beete mulchen, Kompost einarbeiten, Gründüngung aussäen, Bewässerungssystem winterfest machen, Werkzeuge reinigen und ölen
 
 **User-Blueprints (Eigene Strategien):**
 - Speicherbar, editierbar, teilbar mit Community
@@ -51,6 +61,14 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
 4. **Absolute-Date:** Festes Kalenderdatum
 5. **Conditional:** Basierend auf Zustand (z.B. Höhe > 30cm)
 6. **Manual:** Nutzer initiiert
+
+> **Future Feature (niedrige Priorität):** Mondkalender / Biorhythmus-Trigger.
+> Einige Gärtner orientieren sich am Mondkalender (z.B. Maria Thun) für
+> Aussaat, Pflanzung, Schnitt und Ernte. Eine optionale Integration könnte
+> Trigger basierend auf Mondphasen (Neumond, Vollmond, auf-/absteigend) und
+> Tierkreiszeichen-Tagen (Wurzel-/Blatt-/Blüte-/Fruchttage) bieten.
+> Wissenschaftliche Evidenz ist begrenzt — daher als optionales Plugin konzipieren,
+> nicht als Kern-Feature. Datenquelle: astronomische API oder statische Tabelle.
 
 **Task-Kategorien:**
 - **Training:** Topping, FIM, LST (Low-Stress), HST (High-Stress), Supercropping
@@ -915,8 +933,14 @@ class HST_Validator:
                     '1. Identifiziere Haupttrieb / Wachstumspunkt',
                     '2. Schneide an artspezifischer Position (s.u.)',
                     '3. Sauberer 45° Schnitt',
-                    '4. Bewässerung substratabhängig: Erde/Coco normal weiter, '
-                    'Hydro-NFT/DWC NICHT stoppen (Wurzelaustrocknung!), ggf. EC -20%'
+                    '4. Bewässerung substratabhängig anpassen:\n'
+                    '   - Erde: Normal weitergießen, ggf. 24h Bewässerungspause nur bei '
+                    'sehr feuchtem Substrat (>70% VWC) — Erde hält Feuchtigkeit lange.\n'
+                    '   - Coco: NICHT austrocknen lassen (Coco hat geringe Pufferkapazität), '
+                    'Frequenz beibehalten, EC um 10-20% reduzieren.\n'
+                    '   - Hydro-NFT/DWC: NICHT stoppen (Wurzelaustrocknung!), EC um 20% reduzieren, '
+                    'pH kontrollieren (Stress kann pH-Drift verursachen).\n'
+                    '   - Perlite/Vermiculite: Frequenz beibehalten, leicht reduzierte Gabe.'
                 ],
                 'recovery': '7-10 Tage (Cannabis), 2-3 Tage (Tomaten/Kräuter)',
                 'expected_outcome': 'Laterale Verzweigung durch Auxin-Umverteilung',
@@ -1451,8 +1475,8 @@ from typing import Literal, Optional, List
 from pydantic import BaseModel, Field, field_validator
 from datetime import date, time, datetime
 
-TaskCategory = Literal['training', 'pruning', 'transplant', 'feeding', 'ipm', 'harvest', 'maintenance']
-TriggerType = Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional']
+TaskCategory = Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder']
+TriggerType = Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional', 'gdd_threshold']
 TaskStatus = Literal['pending', 'in_progress', 'completed', 'skipped', 'failed']
 TaskPriority = Literal['low', 'medium', 'high', 'critical']
 StressLevel = Literal['none', 'low', 'medium', 'high']
@@ -1544,12 +1568,15 @@ class TaskCompletion(BaseModel):
 - [ ] **Kumulativer Stress:** Stress-Score über konfigurierbares Fenster (Default 14 Tage) mit konfigurierbarem Schwellwert (Default 0.7)
 - [ ] **Ausgeizen-Kategorie:** Eigene Task-Kategorie für Geiztrieb-Entfernung (nicht unter Topping)
 - [ ] **Observation-Kategorie:** Beobachtungs-Tasks (Wachstumsmessung, pH/EC, Foto-Dokumentation)
-- [ ] **Zimmerpflanzen-Templates:** Orchidee, Kaktus/Sukkulente, tropische Grünpflanze, Calathea
+- [ ] **Zimmerpflanzen-Templates:** Orchidee, Kaktus/Sukkulente, tropische Grünpflanze, Calathea, Umtopf-Workflow, Überwinterung, Vermehrung (Stecklinge), saisonale Düngung
+- [ ] **Outdoor-Templates:** Frostschutz-Workflow, Abhärtung (Indoor→Outdoor), Obstbaum-Jahresschnitt, Saisonende-Workflow
 - [ ] **Hydroponik-Wartung:** Nährlösung-Wechsel, Sonden-Kalibrierung, System-Reinigung als System-Templates
 - [ ] **GDD-Trigger:** Task-Auslösung basierend auf akkumulierten Gradtagsummen (REQ-003)
 - [ ] **Task-Aktor-Integration:** Tasks optional mit REQ-018 Aktor-Aktionen verknüpfbar
 - [ ] **Karenzzeit-Validierung:** Harvest-Tasks werden gegen letzte IPM-Maßnahmen validiert (PHI-Einhaltung)
 - [ ] **Tageszeit-Empfehlung:** TaskTemplates können `optimal_time_of_day` empfehlen
+- [ ] **Genetik-Variable (SOG-Timing):** cultivar_timing_factor skaliert Template-Tage bei Workflow-Instantiation
+- [ ] **Substratspezifische Bewässerungs-Hinweise:** Post-HST-Bewässerung differenziert nach Erde/Coco/Hydro/Perlite
 - [ ] **Dependency-Resolution:** Korrekte Berechnung von Abhängigkeitsketten
 - [ ] **Auto-Rescheduling:** Verzögerte Tasks verschieben Nachfolger automatisch
 - [ ] **Kalender-Ansicht:** Gantt-Chart für nächste 4 Wochen
@@ -1571,17 +1598,30 @@ class TaskCompletion(BaseModel):
 **Szenario 1: Cannabis SOG Workflow-Instantiation**
 ```
 GIVEN: Cannabis-Pflanze, gepflanzt am 01.01.2025
+       Cultivar "Northern Lights" mit cultivar_timing_factor = 1.0 (Referenz-Sorte)
 WHEN: SOG-Workflow wird angewendet
 THEN:
-  - Tasks generiert:
-    1. Tag 14: Transplant zu finalen Töpfen
-    2. Tag 18: Light Defoliation (untere Blätter)
-    3. Tag 21: Switch zu 12/12 Licht (Blüte-Einleitung)
-    4. Tag 35: Lollipopping (untere 1/3 entfernen)
-    5. Tag 56: Flushing starten
-    6. Tag 70: Ernte
+  - Tasks generiert (Basis-Timing, skaliert mit cultivar_timing_factor):
+    1. Tag 14 (× factor): Transplant zu finalen Töpfen
+    2. Tag 18 (× factor): Light Defoliation (untere Blätter)
+    3. Tag 21 (× factor): Switch zu 12/12 Licht (Blüte-Einleitung)
+    4. Tag 35 (× factor): Lollipopping (untere 1/3 entfernen)
+    5. Tag 56 (× factor): Flushing starten
+    6. Tag 70 (× factor): Ernte
   - Alle Tasks haben Status 'pending'
   - Dependencies: Task 2 blockt durch Task 1, etc.
+
+  HINWEIS zu Genetik-Variablen:
+  Die Basis-Tage im SOG-Template sind Richtwerte für eine durchschnittliche
+  Indica-dominante Sorte (8-9 Wochen Blütezeit). Andere Genetiken erfordern
+  Anpassung:
+  - cultivar_timing_factor: 0.8 (schnelle Autoflower) bis 1.5 (Sativa-Haze)
+  - Dieser Faktor wird optional am Cultivar (REQ-001) hinterlegt und bei
+    Workflow-Instantiation auf alle days_offset-Werte multipliziert.
+  - Ohne Cultivar-Faktor: Basis-Timing wird unverändert verwendet.
+  - GDD-basierte Trigger (trigger_type='gdd_threshold') sind biologisch
+    präziser als fixe Kalendertage und sollten bei verfügbaren Temperaturdaten
+    bevorzugt werden.
 ```
 
 **Szenario 2a: HST-Validierung verhindert Topping in Early Flower**
@@ -1668,7 +1708,7 @@ THEN:
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Workflow, Task, HST, Training, Topping, LST, Dependency, Scheduling, Template, Ausgeizen, Observation, Zimmerpflanzen, Hydroponik-Wartung, GDD-Trigger
-- Fachbegriffe: Auxin-Dominanz, Hermaphroditismus, Mainlining, Lollipopping, SOG, SCROG, Supercropping, Karenzzeit, PHI, Kumulativer Stress, Jasmonsäure, Ethylen, Stretch-Phase, Early Flowering, Geiztrieb, Assimilat-Verteilung, Phototoxizität, Transpiration
-- Verknüpfung: Zentral für REQ-003 (Phasen-Trigger + GDD), REQ-007 (Harvest-Tasks), REQ-010 (IPM-Tasks + Karenzzeit), REQ-018 (Aktor-Verknüpfung), REQ-014 (Hydroponik-Wartung)
-- Pflanzenwissenschaft: Stress-Physiologie, Hormon-Regulation, Recovery-Zeiten, artspezifische Metabolismus-Geschwindigkeit, Tageszeit-Einfluss auf Pflanzenphysiologie, Temperatur-Recovery-Modifikation
+- Keywords: Workflow, Task, HST, Training, Topping, LST, Dependency, Scheduling, Template, Ausgeizen, Observation, Zimmerpflanzen, Hydroponik-Wartung, GDD-Trigger, Outdoor, Frostschutz, Abhärtung, Überwinterung, Umtopf, Vermehrung, Mondkalender
+- Fachbegriffe: Auxin-Dominanz, Hermaphroditismus, Mainlining, Lollipopping, SOG, SCROG, Supercropping, Karenzzeit, PHI, Kumulativer Stress, Jasmonsäure, Ethylen, Stretch-Phase, Early Flowering, Geiztrieb, Assimilat-Verteilung, Phototoxizität, Transpiration, cultivar_timing_factor, Dormanz, Akklimatisierung
+- Verknüpfung: Zentral für REQ-001 (cultivar_timing_factor), REQ-003 (Phasen-Trigger + GDD), REQ-007 (Harvest-Tasks), REQ-010 (IPM-Tasks + Karenzzeit), REQ-018 (Aktor-Verknüpfung), REQ-014 (Hydroponik-Wartung), REQ-019 (Substrat-spezifische Post-HST-Bewässerung)
+- Pflanzenwissenschaft: Stress-Physiologie, Hormon-Regulation, Recovery-Zeiten, artspezifische Metabolismus-Geschwindigkeit, Tageszeit-Einfluss auf Pflanzenphysiologie, Temperatur-Recovery-Modifikation, Dormanz-Management, Abhärtungs-Physiologie
