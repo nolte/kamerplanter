@@ -1,5 +1,5 @@
 ---
-ID: NFR-011
+ID: UI-NFR-011
 Titel: Kontextuelle Fachbegriff-Erklärungen — Pflicht-Tooltips und Glossar
 Kategorie: Usability / Barrierefreiheit
 Unterkategorie: Fachterminologie, Kontexthilfe, Onboarding
@@ -13,7 +13,7 @@ Abhängigkeiten: [NFR-010, REQ-021]
 Betroffene Module: [Frontend]
 ---
 
-# NFR-011: Kontextuelle Fachbegriff-Erklärungen — Pflicht-Tooltips und Glossar
+# UI-NFR-011: Kontextuelle Fachbegriff-Erklärungen — Pflicht-Tooltips und Glossar
 
 ## Abgrenzung zu bestehenden NFRs
 
@@ -21,9 +21,9 @@ Betroffene Module: [Frontend]
 |---|---|---|
 | NFR-010 (UI-Vollständigkeit) | CRUD-Masken, helperText auf Feldern | **Was** pro Formularfeld angezeigt wird |
 | REQ-021 (UI-Erfahrungsstufen) | Feld-Sichtbarkeit nach Erfahrungsstufe | **Welche** Felder sichtbar sind |
-| **NFR-011 (dieses Dokument)** | Fachbegriff-Erklärungen, Tooltip-System, Glossar | **Wie** Fachbegriffe im gesamten UI erklärt werden |
+| **UI-NFR-011 (dieses Dokument)** | Fachbegriff-Erklärungen, Tooltip-System, Glossar | **Wie** Fachbegriffe im gesamten UI erklärt werden |
 
-NFR-010 definiert `helperText` als kurzen Hilfetext unterhalb eines Formularfeldes. NFR-011 geht darüber hinaus: Jeder Fachbegriff im gesamten UI — in Formularen, Tabellenspalten, Chips, Dashboards und Kalkulatoren — **MUSS** kontextuell erklärt werden. Die Erklärungen sind mehrstufig (Kurztext, Langtext, Einsteiger-Tipp) und über ein zentrales Glossar verwaltet.
+NFR-010 definiert `helperText` als kurzen Hilfetext unterhalb eines Formularfeldes. UI-NFR-011 geht darüber hinaus: Jeder Fachbegriff im gesamten UI — in Formularen, Tabellenspalten, Chips, Dashboards und Kalkulatoren — **MUSS** kontextuell erklärt werden. Die Erklärungen sind mehrstufig (Kurztext, Langtext, Einsteiger-Tipp) und über ein zentrales Glossar verwaltet.
 
 ---
 
