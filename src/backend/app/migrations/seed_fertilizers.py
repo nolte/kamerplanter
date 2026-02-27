@@ -318,13 +318,12 @@ def _build_phase_entries(
                 plan_key="",  # filled by caller
                 phase_name=PhaseName.GERMINATION,
                 sequence_order=1,
-                week_start=0,
-                week_end=1,
+                week_start=1,
+                week_end=2,
                 npk_ratio=(0.0, 0.0, 0.0),
                 target_ec_ms=0.2,
                 target_ph=6.2,
-                feeding_frequency_per_week=0,
-                volume_per_feeding_liters=0.0,
+                feeding_frequency_per_week=1,
                 notes="Nur Wasser. Samen keimen in feuchtem Medium, kein Dünger.",
             ),
             [],
@@ -335,8 +334,8 @@ def _build_phase_entries(
                 plan_key="",
                 phase_name=PhaseName.SEEDLING,
                 sequence_order=2,
-                week_start=1,
-                week_end=3,
+                week_start=2,
+                week_end=4,
                 npk_ratio=(2.0, 1.0, 3.0),
                 target_ec_ms=0.6,
                 target_ph=5.9,
@@ -367,8 +366,8 @@ def _build_phase_entries(
                 plan_key="",
                 phase_name=PhaseName.VEGETATIVE,
                 sequence_order=3,
-                week_start=3,
-                week_end=7,
+                week_start=4,
+                week_end=8,
                 npk_ratio=(4.0, 2.0, 6.0),
                 target_ec_ms=1.4,
                 target_ph=5.9,
@@ -397,8 +396,8 @@ def _build_phase_entries(
                 plan_key="",
                 phase_name=PhaseName.FLOWERING,
                 sequence_order=4,
-                week_start=7,
-                week_end=10,
+                week_start=8,
+                week_end=11,
                 npk_ratio=(5.0, 4.0, 8.0),
                 target_ec_ms=1.6,
                 target_ph=5.9,
@@ -432,8 +431,8 @@ def _build_phase_entries(
                 plan_key="",
                 phase_name=PhaseName.FLOWERING,
                 sequence_order=5,
-                week_start=10,
-                week_end=14,
+                week_start=11,
+                week_end=15,
                 npk_ratio=(6.0, 9.0, 12.0),
                 target_ec_ms=1.8,
                 target_ph=5.9,
@@ -464,8 +463,8 @@ def _build_phase_entries(
                 plan_key="",
                 phase_name=PhaseName.HARVEST,
                 sequence_order=6,
-                week_start=14,
-                week_end=16,
+                week_start=15,
+                week_end=17,
                 npk_ratio=(0.0, 0.0, 0.0),
                 target_ec_ms=0.0,
                 target_ph=6.0,
@@ -496,7 +495,7 @@ def run_seed_fertilizers() -> None:
     # ── Create fertilizers ────────────────────────────────────────────────
     fert_keys: dict[str, str] = {}
     for fert in FERTILIZERS:
-        existing = fert_repo.get_all(offset=0, limit=1000)
+        existing, _ = fert_repo.get_all(offset=0, limit=1000)
         found = next(
             (f for f in existing if f.product_name == fert.product_name and f.brand == fert.brand),
             None,
@@ -510,7 +509,7 @@ def run_seed_fertilizers() -> None:
             logger.info("fertilizer_created", name=fert.product_name)
 
     # ── Create nutrient plan ──────────────────────────────────────────────
-    existing_plans = plan_repo.get_all(offset=0, limit=100)
+    existing_plans, _ = plan_repo.get_all(offset=0, limit=100)
     existing_plan = next((p for p in existing_plans if p.name == PLAN.name), None)
 
     if existing_plan:
