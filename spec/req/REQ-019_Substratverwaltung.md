@@ -7,7 +7,7 @@ Kategorie: Infrastruktur
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.0
+Version: 4.1
 ```
 
 ## 1. Business Case
@@ -19,8 +19,11 @@ Das System verwaltet Substrate als wiederverwendbare Definitionen mit konkreten 
 
 **Substrat-Typen:**
 - **Erdmischungen** (Zusammensetzung, pH-Pufferung, Nährstoff-Vorrat)
-- **Hydro/Inert-Medien** (Steinwolle, Cocos, Blähton, Perlite)
-- **Living Soil** (Mikrobiom-Tracking, No-Till-Strategien)
+- **Hydro/Inert-Medien** (Steinwolle-Slabs/-Plugs, Cocos, Blähton, Perlite, Vermiculite)
+- **Living Soil** (Mikrobiom-Tracking, No-Till-Strategien, EC-Grenzwerte 0.0–1.5 mS/cm — natürlich höher als inerte Substrate durch organische Nährstofffreisetzung)
+- **Substratlos** (`none` für DWC, Kratky, NFT — Nährlösung wird über REQ-014 verwaltet)
+
+**Scope-Hinweis:** Zimmerpflanzen-spezifische Substrate (Orchideenrinde, Sphagnum, Pon/Seramis, Akadama) sind derzeit nicht im Primärfokus. Das System kann über den Typ `soil` mit entsprechender `composition` abgebildet werden.
 
 **Kernfunktionen:**
 - Batch-Tracking mit pH/EC-Verlauf über Anbauzyklen
@@ -34,15 +37,23 @@ Das System verwaltet Substrate als wiederverwendbare Definitionen mit konkreten 
 
 - **`:Substrate`** - Substrat-Definition
   - Properties:
-    - `type: Literal['soil', 'coco', 'rockwool', 'clay_pebbles', 'perlite', 'living_soil', 'hydro_solution']`
+    - `type: Literal['soil', 'coco', 'rockwool_slab', 'rockwool_plug', 'clay_pebbles', 'perlite', 'vermiculite', 'living_soil', 'none']`
+      - `none`: Substratlose Systeme (DWC, Kratky, NFT mit nackten Wurzeln) — alle physikalischen Properties nicht anwendbar
+      - Hinweis: Nährlösung ist kein Substrat und wird in REQ-014 (Tankmanagement) als Tank mit Typ `nutrient` verwaltet
     - `brand: Optional[str]`
     - `ph_base: float`
     - `ec_base_ms: float` (Vorgedüngt oder inert)
     - `water_retention: Literal['low', 'medium', 'high']`
-    - `air_porosity_percent: float`
-    - `composition: dict[str, float]` (z.B. {"peat": 0.4, "compost": 0.3, "perlite": 0.3})
-    - `buffer_capacity: Literal['low', 'medium', 'high']`
+    - `water_holding_capacity_percent: Optional[float]` (volumetrische WHC, quantitativ: low <30%, medium 30–60%, high >60%)
+    - `easily_available_water_percent: Optional[float]` (pflanzenverfügbares Wasser, 15–55%)
+    - `air_porosity_percent: float` (bei <10% → Wiederverwendung ablehnen: Verdichtung/Erstickungsgefahr)
+    - `cec_meq_per_100g: Optional[float]` (Kationenaustauschkapazität — bestimmt Nährstoffpufferung: Steinwolle 0–2, Perlite 1–3, Blähton 2–5, Kokos 40–100, Erde 100–200, Living Soil 150–300. Beeinflusst Düngfrequenz und Spülberechnung in REQ-004)
+    - `particle_size_mm: Optional[float]` (mittlere Partikelgröße, substrattyp-abhängig)
+    - `bulk_density_g_per_l: Optional[float]` (Schüttdichte, 50–1200 g/L)
+    - `composition: dict[str, float]` (z.B. {"peat": 0.4, "compost": 0.3, "perlite": 0.3} — Summe muss 1.0 ergeben)
+    - `buffer_capacity: Literal['low', 'medium', 'high']` (beeinflusst pH-Korrektur-Effektivität in REQ-004)
     - `reusable: bool`
+    - `irrigation_strategy: Optional[Literal['infrequent', 'moderate', 'frequent', 'continuous']]` (Bewässerungs-Empfehlung: Erde→infrequent, Kokos→frequent, Blähton/Ebb&Flow→frequent, Living Soil→moderate. Wird von REQ-018 für Bewässerungsautomatik genutzt)
 
 - **`:SubstrateBatch`** - Konkrete Substrat-Charge
   - Properties:
@@ -53,6 +64,7 @@ Das System verwaltet Substrate als wiederverwendbare Definitionen mit konkreten 
     - `cycles_used: int`
     - `ph_current: Optional[float]`
     - `ec_current_ms: Optional[float]`
+    - `temperature_c: Optional[float]` (Substrattemperatur — kritisch: <12°C Wurzelaktivität stark reduziert, >28°C Pythium-Risiko, Phosphor bei <15°C schlecht verfügbar)
 
 ### Edges (ArangoDB Edge Collections):
 ```
@@ -84,19 +96,31 @@ class SubstrateLifecycleManager(BaseModel):
     def can_reuse(self) -> tuple[bool, Optional[str]]:
         """Prüft ob Substrat wiederverwendbar ist"""
 
-        # Einweg-Substrat
-        if self.substrate_type in ['rockwool', 'peat_plugs']:
-            return False, "Einweg-Substrat nicht wiederverwendbar"
+        # Einweg-Substrat (nur Plugs/Anzuchtwürfel)
+        if self.substrate_type in ['rockwool_plug', 'peat_plugs']:
+            return False, "Einweg-Substrat (Anzucht-Plug) nicht wiederverwendbar"
+
+        # Steinwolle-Slabs: max 3 Zyklen mit Aufbereitung (Dampfsterilisation/H₂O₂)
+        # Gängige Praxis in professioneller Gewächshauskultur (Tomate, Paprika, Gurke)
 
         # Max Zyklen erreicht
         if self.current_cycle >= self.max_reuse_cycles:
             return False, f"Maximale Wiederverwendung ({self.max_reuse_cycles} Zyklen) erreicht"
 
-        # pH-Drift-Check
-        if len(self.ph_history) >= 2:
-            ph_drift = abs(self.ph_history[-1] - self.ph_history[0])
-            if ph_drift > 1.5:
-                return False, f"Zu starke pH-Drift ({ph_drift:.1f} Einheiten)"
+        # pH-Stabilität-Check (Standardabweichung statt Erst-/Letztwert-Differenz)
+        # Substrattyp-spezifische Grenzwerte: Living Soil toleriert mehr Schwankung
+        if len(self.ph_history) >= 3:
+            import statistics
+            ph_stddev = statistics.stdev(self.ph_history)
+            max_stddev = {
+                'coco': 0.3, 'clay_pebbles': 0.3, 'perlite': 0.3,
+                'rockwool_slab': 0.3, 'soil': 0.5, 'living_soil': 0.7,
+            }.get(self.substrate_type, 0.5)
+            if ph_stddev > max_stddev:
+                return False, (
+                    f"pH-Instabilität zu hoch (σ={ph_stddev:.2f}, "
+                    f"max {max_stddev} für {self.substrate_type})"
+                )
 
         # Salzakkumulation-Check (EC-Anstieg)
         if len(self.ec_history) >= 2:
@@ -114,9 +138,44 @@ class SubstrateLifecycleManager(BaseModel):
 
         if self.substrate_type == 'coco':
             treatments.append({
-                'step': 'Puffern',
-                'action': 'Mit CalMag-Lösung (EC 1.2) durchspülen',
+                'step': 'CalMag-Pufferung',
+                'action': 'Mit CalMag-Lösung (Ca:Mg 3:1–5:1, EC 1.2, pH 5.8–6.2) '
+                          'durchspülen (3–5× Substratvolumen), mindestens 8h einweichen',
                 'duration_hours': 24
+            })
+
+        if self.substrate_type == 'rockwool_slab':
+            treatments.append({
+                'step': 'Sterilisation',
+                'action': 'Dampfsterilisation (70°C, 30 Minuten) oder '
+                          'chemische Desinfektion (H₂O₂ 3%, 24h einweichen)',
+                'duration_hours': 24
+            })
+            treatments.append({
+                'step': 'Entsalzung',
+                'action': 'Mit pH 5.5-Wasser durchspülen (2–3× Substratvolumen)',
+                'duration_hours': 2
+            })
+
+        if self.substrate_type == 'clay_pebbles':
+            treatments.append({
+                'step': 'Reinigung',
+                'action': 'Wurzelreste entfernen, in pH 5.5-Wasser mit H₂O₂ (3%) '
+                          'einweichen, gründlich abspülen',
+                'duration_hours': 12
+            })
+            treatments.append({
+                'step': 'Entsalzung',
+                'action': 'Mit pH-neutralem Wasser durchspülen (3× Volumen)',
+                'duration_hours': 2
+            })
+
+        if self.substrate_type == 'perlite':
+            treatments.append({
+                'step': 'Reinigung',
+                'action': 'Wurzelreste absieben, mit H₂O₂-Lösung (3%) desinfizieren, '
+                          'durchspülen (3× Volumen)',
+                'duration_hours': 4
             })
 
         if self.substrate_type in ['living_soil', 'compost_mix']:
@@ -131,10 +190,17 @@ class SubstrateLifecycleManager(BaseModel):
                 'duration_hours': 0
             })
 
+        # Entsalzung bei hohem EC — Spülmenge substrattyp-abhängig (CEC beeinflusst Bindung)
         if any(ec > 2.0 for ec in self.ec_history[-3:]):
+            flush_volumes = {
+                'rockwool_slab': '2–3', 'clay_pebbles': '3',
+                'coco': '5', 'perlite': '3',
+                'soil': '5–10', 'living_soil': '5–10',
+            }
+            vol = flush_volumes.get(self.substrate_type, '3')
             treatments.insert(0, {
                 'step': 'Entsalzung',
-                'action': 'Mit pH-neutralem Wasser durchspülen (3x Volumen)',
+                'action': f'Mit pH 5.5-Wasser durchspülen ({vol}× Substratvolumen)',
                 'duration_hours': 2
             })
 
@@ -151,12 +217,59 @@ class SubstrateLifecycleManager(BaseModel):
 
 ### Datenvalidierung:
 ```python
-from typing import Literal
+from typing import Literal, Optional
+from pydantic import BaseModel, Field, model_validator
 
 SubstrateType = Literal[
-    'soil', 'coco', 'peat', 'rockwool', 'clay_pebbles',
-    'perlite', 'vermiculite', 'living_soil', 'hydro_solution'
+    'soil', 'coco', 'peat', 'rockwool_slab', 'rockwool_plug',
+    'clay_pebbles', 'perlite', 'vermiculite', 'living_soil', 'none'
 ]
+# Hinweis: 'hydro_solution' wurde entfernt — Nährlösung ist kein Substrat
+# und wird in REQ-014 (Tankmanagement) als Tank verwaltet.
+# 'rockwool' wurde in 'rockwool_slab' (wiederverwendbar) und
+# 'rockwool_plug' (Einweg-Anzucht) differenziert.
+# 'none' für substratlose Hydroponik-Systeme (DWC, Kratky, NFT).
+
+
+class SubstrateValidator(BaseModel):
+    """Validierung der Substrat-Definition."""
+
+    substrate_type: SubstrateType
+    composition: Optional[dict[str, float]] = None
+    air_porosity_percent: Optional[float] = None
+
+    @model_validator(mode='after')
+    def validate_composition(self):
+        """Composition-Summe muss 1.0 ergeben (±0.01 Toleranz)."""
+        if self.composition:
+            total = sum(self.composition.values())
+            if abs(total - 1.0) > 0.01:
+                raise ValueError(
+                    f"Composition-Summe muss 1.0 ergeben, ist {total:.2f}"
+                )
+        return self
+
+    @model_validator(mode='after')
+    def validate_physical_properties_for_none(self):
+        """Typ 'none' darf keine physikalischen Properties haben."""
+        if self.substrate_type == 'none':
+            if self.composition:
+                raise ValueError("Substrattyp 'none' hat keine Composition")
+        return self
+
+
+# Substrattyp → Bewässerungsstrategie-Mapping (für REQ-018 Automatik)
+IRRIGATION_STRATEGY_MAP = {
+    'soil': 'infrequent',        # Alle 2–3 Tage, tiefes Gießen
+    'coco': 'frequent',          # 2–3× täglich, Drain-to-Waste 10–30%
+    'rockwool_slab': 'frequent', # 3–6× täglich, kleine Mengen
+    'rockwool_plug': 'moderate', # 1–2× täglich (Anzucht)
+    'clay_pebbles': 'frequent',  # Ebb&Flow 4–6× täglich
+    'perlite': 'frequent',       # 3–4× täglich
+    'vermiculite': 'moderate',   # 1–2× täglich
+    'living_soil': 'moderate',   # Alle 2–4 Tage, nicht überwässern
+    'none': 'continuous',        # DWC/NFT: kontinuierliche Nährlösung
+}
 ```
 
 ## 4. Abhängigkeiten
@@ -166,8 +279,9 @@ SubstrateType = Literal[
 
 **Wird benötigt von:**
 - REQ-003 (Phasen): Substrattyp beeinflusst Phasen-Parameter
-- REQ-004 (Düngung): **HOCH** — Substrat-EC/pH für Düngeberechnung, `buffer_capacity` für Spül-Empfehlungen
-- REQ-005 (Sensorik): Substrat-Messwerte (pH, EC, Feuchtigkeit)
+- REQ-004 (Düngung): **HOCH** — Substrat-EC/pH für Düngeberechnung, `buffer_capacity` und `cec_meq_per_100g` für Spül-Berechnung (FlushingProtocol benötigt CEC für korrekte Spülzeitberechnung)
+- REQ-005 (Sensorik): Substrat-Messwerte (pH, EC, Feuchtigkeit, Temperatur)
+- REQ-018 (Umgebungssteuerung): **MITTEL** — `irrigation_strategy` bestimmt Bewässerungs-Automatik (Frequenz, Volumen)
 
 ## 5. Akzeptanzkriterien
 
@@ -175,12 +289,15 @@ SubstrateType = Literal[
 
 - [ ] **Substrat-CRUD:** Substrat-Definitionen anlegen, lesen, aktualisieren, löschen
 - [ ] **Batch-Tracking:** Chargen mit pH/EC-Verlauf über Zyklen verfolgen
-- [ ] **Wiederverwendbarkeits-Check:** Automatische Prüfung auf pH-Drift, Salzakkumulation und Zyklen
-- [ ] **Aufbereitungs-Anleitung:** Substrattyp-spezifische Aufbereitungsschritte generieren
+- [ ] **Wiederverwendbarkeits-Check:** Automatische Prüfung auf pH-Stabilität (Standardabweichung), Salzakkumulation und Zyklen
+- [ ] **Aufbereitungs-Anleitung:** Substrattyp-spezifische Aufbereitungsschritte (inkl. Blähton, Perlite, Steinwolle-Slabs)
 - [ ] **Slot-Zuordnung:** Chargen können Slots zugeordnet werden (`filled_with`-Edge)
-- [ ] **Pflanzen-Zuordnung:** Pflanzen werden mit Chargen verknüpft (`grown_in`-Edge)
+- [ ] **Pflanzen-Zuordnung:** Pflanzen werden mit konkreten Chargen verknüpft (`grown_in` → `substrate_batches`, nicht `substrates`)
 - [ ] **Substrat-Recycling:** Wiederverwendbarkeits-Check mit Aufbereitungs-Anleitung
-- [ ] **Reservoir-Management:** Nährlösungs-Wechsel-Scheduler für Hydro-Substrate
+- [ ] **Composition-Validierung:** Summenprüfung (=1.0), standardisierte Komponentennamen
+- [ ] **CEC-Tracking:** Kationenaustauschkapazität pro Substrattyp für Dünge-/Spülberechnung
+- [ ] **Substrattemperatur:** Tracking über SubstrateBatch, Warnung bei <12°C oder >28°C
+- [ ] **Bewässerungs-Mapping:** Substrattyp → Bewässerungsstrategie für REQ-018 Automatik
 
 ### Testszenarien:
 
@@ -194,20 +311,30 @@ THEN:
   - Geschätzte Prep-Zeit: 26 Stunden
 ```
 
-**Szenario 2: Einweg-Substrat ablehnen**
+**Szenario 2a: Steinwolle-Plug ablehnen**
 ```
-GIVEN: Steinwolle-Substrat (rockwool), 1 Zyklus verwendet
+GIVEN: Steinwolle-Plug (rockwool_plug), 1 Zyklus verwendet
 WHEN: Nutzer prüft Wiederverwendbarkeit
 THEN:
-  - System lehnt ab: "Einweg-Substrat nicht wiederverwendbar"
+  - System lehnt ab: "Einweg-Substrat (Anzucht-Plug) nicht wiederverwendbar"
 ```
 
-**Szenario 3: pH-Drift-Grenzwert**
+**Szenario 2b: Steinwolle-Slab wiederverwenden**
 ```
-GIVEN: Coco-Substrat, pH-Historie [5.8, 7.5] (Drift = 1.7)
+GIVEN: Steinwolle-Slab (rockwool_slab), 1 Zyklus verwendet, EC ok, pH ok
 WHEN: Nutzer prüft Wiederverwendbarkeit
 THEN:
-  - System lehnt ab: "Zu starke pH-Drift (1.7 Einheiten)"
+  - System erlaubt Wiederverwendung (max 3 Zyklen)
+  - Aufbereitungs-Plan: 1) Sterilisation (Dampf 70°C oder H₂O₂ 3%), 2) Entsalzung
+  - Geschätzte Prep-Zeit: 26 Stunden
+```
+
+**Szenario 3: pH-Instabilität (Standardabweichung)**
+```
+GIVEN: Coco-Substrat, pH-Historie [5.8, 4.5, 6.5, 5.2, 7.0] (σ=0.88)
+WHEN: Nutzer prüft Wiederverwendbarkeit
+THEN:
+  - System lehnt ab: "pH-Instabilität zu hoch (σ=0.88, max 0.3 für coco)"
 ```
 
 **Szenario 4: Living Soil Aufbereitung**
@@ -224,6 +351,6 @@ THEN:
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Substrat, Charge, Batch, pH, EC, Wiederverwendung, Recycling, Aufbereitung, Coco, Living Soil, Rockwool, Perlite
-- Technische Begriffe: SubstrateLifecycleManager, pH-Drift, Salzakkumulation, CalMag-Pufferung, Mikrobiom-Reaktivierung
-- Verknüpfung: Zentral für REQ-004 (Düngung), REQ-005 (Sensorik), abhängig von REQ-002 (Standort)
+- Keywords: Substrat, Charge, Batch, pH, EC, CEC, Kationenaustauschkapazität, WHC, Wasserhaltekapazität, Wiederverwendung, Recycling, Aufbereitung, Coco, Living Soil, Steinwolle-Slab, Steinwolle-Plug, Perlite, Blähton, Vermiculite, Substrattemperatur, Bewässerungsstrategie, Composition-Validierung, pH-Standardabweichung
+- Technische Begriffe: SubstrateLifecycleManager, SubstrateValidator, pH-Stabilität, Salzakkumulation, CalMag-Pufferung, Mikrobiom-Reaktivierung, Dampfsterilisation, IRRIGATION_STRATEGY_MAP, Drain-to-Waste, Trockenlaufschutz
+- Verknüpfung: Zentral für REQ-004 (Düngung — CEC, buffer_capacity), REQ-005 (Sensorik — pH, EC, Feuchte, Temperatur), REQ-018 (Umgebungssteuerung — Bewässerungs-Mapping), abhängig von REQ-002 (Standort)

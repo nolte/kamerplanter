@@ -7,7 +7,7 @@ Kategorie: Automatisierung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, Home Assistant, MQTT
 Status: Entwurf
-Version: 1.0
+Version: 1.1
 ```
 
 ## 1. Business Case
@@ -19,7 +19,7 @@ Version: 1.0
 **User Story (Phasengebunden):** "Als Gärtner möchte ich, dass Lichtprogramme und Klimaziele automatisch angepasst werden, wenn eine Pflanze die Phase wechselt — z.B. von 18h auf 12h Licht beim Übergang in die Blüte — damit ich keine manuelle Umstellung vergesse."
 
 **Beschreibung:**
-Das System schließt den Regelkreis zwischen Sensorik (REQ-005, Input) und Aktorik (Output). Während REQ-005 die Datenerfassung abdeckt, spezifiziert REQ-017 die **Steuerungsseite**: Welche Geräte können angesprochen werden, nach welchen Regeln, und wie wird jede Aktion protokolliert.
+Das System schließt den Regelkreis zwischen Sensorik (REQ-005, Input) und Aktorik (Output). Während REQ-005 die Datenerfassung abdeckt, spezifiziert REQ-018 die **Steuerungsseite**: Welche Geräte können angesprochen werden, nach welchen Regeln, und wie wird jede Aktion protokolliert.
 
 **Kernkonzepte:**
 
@@ -66,6 +66,58 @@ Das System verknüpft REQ-003 `requirement_profiles` mit konkreten Aktor-Einstel
 - Graduelle Übergänge möglich (z.B. Photoperiode 18h → 12h über 7 Tage)
 - Nutzer kann Profile pro Location/Phase anpassen (Override auf requirement_profile-Werte)
 
+**VPD als gekoppelter Regelkreis:**
+VPD (Dampfdruckdefizit) ist eine Funktion aus Temperatur und Luftfeuchtigkeit: `VPD = SVP(T_leaf) - AVP(T_air, rH)`. Temperatur und Luftfeuchtigkeit dürfen nicht als isolierte Regelgrößen behandelt werden, da sonst Oszillation entsteht (Befeuchter → rH↑ → VPD↓ → Befeuchter aus → Abluft → rH↓ → VPD↑ → ...). Der ControlEngine implementiert einen **VPD-Controller** als übergeordneten Regelkreis, der Befeuchter, Entfeuchter, Abluft und Heizung koordiniert steuert. Aus dem Soll-VPD des PhaseControlProfile werden die optimalen Schwellwerte für alle beteiligten Aktoren abgeleitet:
+- `vpd_humidifier_on = target_vpd + 0.2 kPa`, `vpd_humidifier_off = target_vpd - 0.1 kPa`
+- Schwellwerte werden bei Phasenwechsel automatisch aktualisiert
+
+**DLI-basierte Lichtsteuerung:**
+Daily Light Integral (DLI = PPFD × Stunden × 0.0036, in mol/m²/d) ist dem reinen Zeitplan überlegen. Das System akkumuliert PPFD-Messwerte (REQ-005) über den Tag:
+- Gewächshaus (light_type: mixed): Kunstlicht ergänzt bei trüben Tagen, bis DLI-Ziel erreicht
+- Indoor: Intensität (Dimmer) anpassen statt Photoperiode ändern
+- **Kurztagspflanzen:** Photoperiode darf NICHT verlängert werden — stattdessen Intensität erhöhen
+
+**CO₂-PPFD-Kopplung:**
+CO₂-Anreicherung ist nur bei ausreichend hohem PPFD sinnvoll (Liebigs Minimumgesetz). Bei niedrigem PPFD (<200 µmol/m²/s) ist Licht der limitierende Faktor — CO₂ wird nicht genutzt. Kopplung:
+- PPFD <200 µmol/m²/s: Kein CO₂-Supplement
+- PPFD 200–600: CO₂ auf 600–800 ppm
+- PPFD >600: CO₂ auf 800–1200 ppm (je nach Art und Nährstoffversorgung)
+
+**DIF/DROP-Temperatursteuerung:**
+DIF (Differenz Tag – Nacht) steuert Streckungswachstum über Gibberellin-Synthese:
+- Positiver DIF (+2 bis +8°C): Normales Streckungswachstum
+- Negativer DIF / DROP-Technik: In den 1.5–2h vor Licht-Ein Temperatur um 5–8°C absenken, dann bei Licht-Ein schnell auf Tagesniveau → kompakter Wuchs ohne chemische Wuchshemmer
+- ControlEngine muss den Lichtplan der Location kennen, um zwischen Tag-/Nacht-/DROP-Sollwerten umzuschalten
+
+**Substratfeuchte-basierte Bewässerung:**
+Zusätzlich zu zeitbasierter Bewässerung ermöglicht das System sensorgesteuerte Bewässerung:
+- Substratfeuchte (REQ-005) < Schwellwert → Bewässerungsventil ein (mit Hysterese)
+- Tank-Füllstand (REQ-014 TankState.fill_level_percent) als Sicherheitseingang: Bei <5% → Bewässerung stoppen (Trockenlaufschutz für Pumpen)
+- Bewässerungsbedarf korreliert mit VPD, PPFD und Pflanzenphase
+
+**Konfliktgruppen:**
+Aktoren in derselben `conflict_group` können nicht gleichzeitig in entgegengesetzte Richtungen arbeiten. Der ControlEngine koordiniert solche Konflikte:
+- Gruppe `co2_ventilation`: Bei CO₂-Anreicherung läuft Abluft auf Minimum (z.B. 20%), um CO₂-Verlust zu minimieren, aber Übertemperatur zu verhindern
+- Gruppe `heat_cool`: Heizung und Kühlung nicht gleichzeitig aktiv
+
+**Fail-Safe-States & Notabschaltung:**
+Für jeden Aktor muss ein physischer Fail-Safe-Zustand definiert sein, der bei Kommunikationsverlust (HA/MQTT-Ausfall) gilt:
+
+| Aktor-Typ | Fail-Safe-State | Begründung |
+|-----------|----------------|------------|
+| Abluft | ON (100%) | Übertemperatur verhindern |
+| Heizung | OFF | Brand-/Überhitzungsschutz |
+| Bewässerung | OFF | Überflutungsschutz |
+| CO₂-Doser | OFF | Vergiftungsschutz bei Personen |
+| Licht | Letzter Zustand | Dunkelphase kritisch bei Kurztagspflanzen |
+| Dosierpumpe | OFF | Überdosierungsschutz |
+| Chiller | ON | Wurzelgesundheit schützen |
+
+**Notabschaltung (Emergency Stop):** `POST /api/v1/emergency-stop` mit vordefinierten Szenarien:
+- **Wasseraustritt:** Alle Pumpen/Ventile OFF
+- **CO₂-Leck:** CO₂-Doser OFF, Abluft 100%
+- **Brand-Alarm:** Alle Stromverbraucher OFF
+
 ## 2. ArangoDB-Modellierung
 
 ### Document-Collections:
@@ -74,12 +126,12 @@ Das System verknüpft REQ-003 `requirement_profiles` mit konkreten Aktor-Einstel
   - Collection: `actuators`
   - Properties:
     - `name: str` (z.B. "Hauptlicht Zelt 1", "Abluftventilator Zelt 2")
-    - `actuator_type: ActuatorType` (light | exhaust_fan | circulation_fan | heater | cooler | humidifier | dehumidifier | co2_doser | irrigation_valve | pump | generic_switch)
+    - `actuator_type: ActuatorType` (light | exhaust_fan | circulation_fan | heater | cooler | humidifier | dehumidifier | co2_doser | irrigation_valve | pump | dosing_pump | chiller | air_pump | uv_sterilizer | shade_screen | roof_vent | energy_screen | fogger | generic_switch)
     - `protocol: Literal['home_assistant', 'mqtt', 'manual']`
     - `ha_entity_id: Optional[str]` (Home Assistant Entity ID, z.B. `light.growzelt_1`)
     - `mqtt_command_topic: Optional[str]` (z.B. `kamerplanter/actuators/light1/set`)
     - `mqtt_state_topic: Optional[str]` (z.B. `kamerplanter/actuators/light1/state`)
-    - `capabilities: list[ActuatorCapability]` (on_off | dimmable | speed_control | temperature_setpoint | timer)
+    - `capabilities: list[ActuatorCapability]` (on_off | dimmable | speed_control | temperature_setpoint | timer | spectrum_control | volume_dosing)
     - `min_value: Optional[float]` (z.B. 0 für Dimmer)
     - `max_value: Optional[float]` (z.B. 100 für Dimmer)
     - `unit: Optional[str]` (z.B. "%", "°C")
@@ -408,16 +460,28 @@ FOR actuator IN actuators
                 SORT event.timestamp ASC
                 RETURN event
     )
-    // Vereinfachte Berechnung: Anzahl On-Stunden × Leistung
-    LET on_hours = LENGTH(on_events) > 0
-        ? DATE_DIFF(@start_date, @end_date, "hour") * 0.5  // Näherung
-        : 0
+    // Berechnung aus ControlEvent-Paaren (On/Off): exakte On-Zeiten
+    // Für dimmbare Aktoren: Leistung = Nennleistung × (Dimmer/100)
+    LET event_pairs = (
+        FOR i IN 0..LENGTH(on_events)-1
+            LET on_event = on_events[i]
+            LET off_event = i + 1 < LENGTH(on_events) ? on_events[i+1] : null
+            LET end_ts = off_event ? off_event.timestamp : @end_date
+            LET duration_h = DATE_DIFF(on_event.timestamp, end_ts, "hour")
+            LET dimmer = on_event.value != null ? on_event.value / 100 : 1.0
+            RETURN { duration_h: duration_h, dimmer: dimmer }
+    )
+    LET on_hours = SUM(event_pairs[*].duration_h)
+    LET weighted_kwh = SUM(
+        FOR ep IN event_pairs
+            RETURN (actuator.power_watts * ep.dimmer * ep.duration_h) / 1000
+    )
     RETURN {
         actuator_key: actuator._key,
         actuator_name: actuator.name,
         power_watts: actuator.power_watts,
-        estimated_on_hours: on_hours,
-        estimated_kwh: (actuator.power_watts * on_hours) / 1000
+        on_hours: on_hours,
+        estimated_kwh: weighted_kwh
     }
 ```
 
@@ -483,6 +547,14 @@ class ActuatorType(str, Enum):
     CO2_DOSER = "co2_doser"
     IRRIGATION_VALVE = "irrigation_valve"
     PUMP = "pump"
+    DOSING_PUMP = "dosing_pump"        # pH/EC-Korrektur, Nährstoff-Dosierung (Hydroponik)
+    CHILLER = "chiller"                # Nährlösungskühlung (<22°C gegen Pythium)
+    AIR_PUMP = "air_pump"              # Nährlösungsbelüftung (DWC/Hydroponik)
+    UV_STERILIZER = "uv_sterilizer"    # UV-C Sterilisation Nährlösung (Rezirkulation)
+    SHADE_SCREEN = "shade_screen"      # Gewächshaus-Schattierung (PPFD-Reduktion)
+    ROOF_VENT = "roof_vent"            # Gewächshaus-Lüftungsklappen
+    ENERGY_SCREEN = "energy_screen"    # Energieschirm (Wärmeretention nachts)
+    FOGGER = "fogger"                  # Hochdruck-Vernebelung (Kühlung + Befeuchtung)
     GENERIC_SWITCH = "generic_switch"
 
 
@@ -492,6 +564,8 @@ class ActuatorCapability(str, Enum):
     SPEED_CONTROL = "speed_control"
     TEMPERATURE_SETPOINT = "temperature_setpoint"
     TIMER = "timer"
+    SPECTRUM_CONTROL = "spectrum_control"  # Mehrkanallampen: unabhängig dimmbare Lichtkanäle
+    VOLUME_DOSING = "volume_dosing"        # Dosierpumpen: exakte Volumendosierung (ml)
 
 
 class ActuatorProtocol(str, Enum):
@@ -637,6 +711,23 @@ class Actuator(BaseModel):
     is_online: bool = True
     last_seen: Optional[datetime] = None
     power_watts: Optional[float] = Field(None, ge=0, le=100000)
+    fail_safe_state: Optional[str] = Field(
+        None,
+        description="Physischer Zustand bei Kommunikationsverlust (HA/MQTT-Ausfall). "
+                    "Empfehlungen: Abluft→'on', Heizung→'off', Bewässerung→'off', "
+                    "CO₂-Doser→'off' (Vergiftungsschutz), Licht→'last' (Dunkelphase "
+                    "kritisch bei Kurztagspflanzen)."
+    )
+    fail_safe_value: Optional[float] = Field(
+        None,
+        description="Wert für fail_safe_state, z.B. 100.0 für Abluft auf 100%."
+    )
+    conflict_group: Optional[str] = Field(
+        None, max_length=50,
+        description="Konfliktgruppe für Aktoren, die nicht gleichzeitig in "
+                    "entgegengesetzte Richtungen arbeiten sollen. "
+                    "Z.B. 'co2_ventilation': CO₂-Doser und Abluft."
+    )
     installed_on: Optional[date] = None
     notes: Optional[str] = Field(None, max_length=2000)
 
@@ -755,17 +846,84 @@ class PhaseControlProfile(BaseModel):
     target_vpd_kpa: Optional[float] = Field(None, ge=0, le=5)
     co2_enrichment_ppm: Optional[int] = Field(None, ge=0, le=2000)
     co2_only_during_lights_on: bool = True
+    co2_min_ppfd_threshold: Optional[int] = Field(
+        None, ge=0, le=2000,
+        description="Mindest-PPFD für CO₂-Dosierung (Liebigs Minimumgesetz: "
+                    "bei niedrigem PPFD ist Licht der limitierende Faktor, "
+                    "zusätzliches CO₂ wird nicht genutzt). "
+                    "Typisch: 200 µmol/m²/s"
+    )
+    target_dli_mol: Optional[float] = Field(
+        None, ge=0, le=65,
+        description="Tageslicht-Integral (DLI) in mol/m²/d. "
+                    "Salate: 12–17, Kräuter: 15–20, Cannabis: 35–45, Tomate: 20–30. "
+                    "System kann Lichtintensität anpassen, um DLI-Ziel zu erreichen. "
+                    "Achtung: Bei Kurztagspflanzen Photoperiode NICHT verlängern — "
+                    "stattdessen Intensität erhöhen."
+    )
+    target_light_spectrum: Optional[dict] = Field(
+        None,
+        description="Ziel-Lichtspektrum als Anteilswerte {blue, green, red, far_red, uv_a}. "
+                    "Analog zu REQ-003 requirement_profiles.light_spectrum. "
+                    "Ermöglicht Kanal-Steuerung bei Mehrkanallampen."
+    )
+    photoperiod_is_critical: bool = Field(
+        default=False,
+        description="Wenn True, ist die ununterbrochene Dunkelphase biologisch kritisch "
+                    "(Kurztagspflanzen wie Cannabis). Jede Lichtexposition >1 µmol/m²/s "
+                    "während der Nacht kann Blüteninduktion stören. Kein Licht-Aktor "
+                    "darf während der Dunkelphase aktiviert werden."
+    )
+    dif_target_c: Optional[float] = Field(
+        None, ge=-4, le=12,
+        description="Ziel-DIF (Tag minus Nacht Temperatur). "
+                    "Positiver DIF: Streckungswachstum. "
+                    "Negativer DIF: Kompakter Wuchs (Gibberellin-Hemmung). "
+                    "Wird aus target_temperature_day/night_c abgeleitet, wenn nicht gesetzt."
+    )
+    pre_dawn_drop_c: Optional[float] = Field(
+        None, ge=0, le=10,
+        description="DROP-Technik: Temperaturabsenkung in °C in den Stunden vor Licht-Ein. "
+                    "Hemmt Gibberellin-Synthese → kompakter Wuchs ohne chemische Wuchshemmer."
+    )
+    pre_dawn_drop_hours: Optional[float] = Field(
+        None, ge=0, le=4,
+        description="Dauer der DROP-Phase in Stunden vor Licht-Ein (typisch 1.5–2h)."
+    )
     irrigation_frequency_per_day: Optional[int] = Field(None, ge=0, le=48)
     irrigation_duration_seconds: Optional[int] = Field(None, ge=0, le=3600)
+    irrigation_volume_ml_per_event: Optional[int] = Field(
+        None, ge=0, le=100000,
+        description="Bewässerungsvolumen pro Ereignis in ml (präziser als Dauer × Druck)."
+    )
+    target_drain_percent: Optional[int] = Field(
+        None, ge=0, le=50,
+        description="Ziel-Drainageanteil bei Drain-to-Waste (typisch 10–30%). "
+                    "Hilft Salzakkumulation im Substrat zu verhindern."
+    )
     transition_days: int = Field(default=0, ge=0, le=30)
     is_template: bool = False
     notes: Optional[str] = Field(None, max_length=2000)
 
     @model_validator(mode='after')
-    def validate_temperature(self):
-        if self.target_temperature_night_c > self.target_temperature_day_c + 5:
+    def validate_temperature_differential(self):
+        """
+        DIF (Differenz Tag-Nacht) validieren:
+        - Positiver DIF (Tag > Nacht): Normal, max +12°C
+        - Negativer DIF (Nacht > Tag): Kompakter Wuchs, max -4°C
+        Extremer DIF schädigt Pflanzen durch Dunkelatmungs-Überschuss
+        oder Temperaturschock.
+        """
+        dif = self.target_temperature_day_c - self.target_temperature_night_c
+        if dif > 12:
             raise ValueError(
-                "Nachttemperatur sollte nicht deutlich über Tagestemperatur liegen"
+                f"Tag-/Nachttemperatur-Differenz zu groß ({dif:.1f}°C). "
+                f"Maximaler DIF: 12°C (empfohlen: 2–8°C)"
+            )
+        if dif < -4:
+            raise ValueError(
+                f"Negativer DIF von {dif:.1f}°C ist physiologisch extrem. "
+                f"Maximaler negativer DIF: -4°C"
             )
         return self
 ```
@@ -1242,11 +1400,12 @@ GET    /api/v1/locations/{location_key}/energy                   — Energieverb
 ### Seed-Daten:
 ```json
 // actuators collection
-{ "_key": "light_zelt1", "name": "Hauptlicht Zelt 1", "actuator_type": "light", "protocol": "home_assistant", "ha_entity_id": "light.growzelt_1", "capabilities": ["on_off", "dimmable"], "min_value": 0, "max_value": 100, "unit": "%", "current_state": "on", "current_value": 100, "is_online": true, "power_watts": 480, "installed_on": "2025-06-01", "notes": "Samsung LM301H 480W LED" }
-{ "_key": "exhaust_zelt1", "name": "Abluft Zelt 1", "actuator_type": "exhaust_fan", "protocol": "home_assistant", "ha_entity_id": "fan.abluft_zelt_1", "capabilities": ["on_off", "speed_control"], "min_value": 0, "max_value": 100, "unit": "%", "current_state": "on", "current_value": 60, "is_online": true, "power_watts": 95, "installed_on": "2025-06-01" }
-{ "_key": "humidifier_zelt1", "name": "Befeuchter Zelt 1", "actuator_type": "humidifier", "protocol": "home_assistant", "ha_entity_id": "humidifier.zelt_1", "capabilities": ["on_off"], "current_state": "off", "is_online": true, "power_watts": 30 }
-{ "_key": "heater_zelt1", "name": "Heizstrahler Zelt 1", "actuator_type": "heater", "protocol": "mqtt", "mqtt_command_topic": "kamerplanter/actuators/heater_zelt1/set", "mqtt_state_topic": "kamerplanter/actuators/heater_zelt1/state", "capabilities": ["on_off", "temperature_setpoint"], "min_value": 15, "max_value": 30, "unit": "°C", "current_state": "off", "is_online": true, "power_watts": 150 }
-{ "_key": "irrigation_zelt1", "name": "Bewässerungsventil Zelt 1", "actuator_type": "irrigation_valve", "protocol": "home_assistant", "ha_entity_id": "switch.irrigation_zelt_1", "capabilities": ["on_off", "timer"], "current_state": "off", "is_online": true, "power_watts": 5 }
+{ "_key": "light_zelt1", "name": "Hauptlicht Zelt 1", "actuator_type": "light", "protocol": "home_assistant", "ha_entity_id": "light.growzelt_1", "capabilities": ["on_off", "dimmable"], "min_value": 0, "max_value": 100, "unit": "%", "current_state": "on", "current_value": 100, "is_online": true, "power_watts": 480, "fail_safe_state": "last", "installed_on": "2025-06-01", "notes": "Samsung LM301H 480W LED" }
+{ "_key": "exhaust_zelt1", "name": "Abluft Zelt 1", "actuator_type": "exhaust_fan", "protocol": "home_assistant", "ha_entity_id": "fan.abluft_zelt_1", "capabilities": ["on_off", "speed_control"], "min_value": 0, "max_value": 100, "unit": "%", "current_state": "on", "current_value": 60, "is_online": true, "power_watts": 95, "fail_safe_state": "on", "fail_safe_value": 100, "conflict_group": "co2_ventilation", "installed_on": "2025-06-01" }
+{ "_key": "humidifier_zelt1", "name": "Befeuchter Zelt 1", "actuator_type": "humidifier", "protocol": "home_assistant", "ha_entity_id": "humidifier.zelt_1", "capabilities": ["on_off"], "current_state": "off", "is_online": true, "power_watts": 30, "fail_safe_state": "off" }
+{ "_key": "heater_zelt1", "name": "Heizstrahler Zelt 1", "actuator_type": "heater", "protocol": "mqtt", "mqtt_command_topic": "kamerplanter/actuators/heater_zelt1/set", "mqtt_state_topic": "kamerplanter/actuators/heater_zelt1/state", "capabilities": ["on_off", "temperature_setpoint"], "min_value": 15, "max_value": 30, "unit": "°C", "current_state": "off", "is_online": true, "power_watts": 150, "fail_safe_state": "off" }
+{ "_key": "co2_doser_zelt1", "name": "CO₂-Doser Zelt 1", "actuator_type": "co2_doser", "protocol": "home_assistant", "ha_entity_id": "switch.co2_zelt_1", "capabilities": ["on_off"], "current_state": "off", "is_online": true, "power_watts": 10, "fail_safe_state": "off", "conflict_group": "co2_ventilation" }
+{ "_key": "irrigation_zelt1", "name": "Bewässerungsventil Zelt 1", "actuator_type": "irrigation_valve", "protocol": "home_assistant", "ha_entity_id": "switch.irrigation_zelt_1", "capabilities": ["on_off", "timer"], "current_state": "off", "is_online": true, "power_watts": 5, "fail_safe_state": "off" }
 { "_key": "fan_outdoor", "name": "Umluft-Ventilator Garten-Setup", "actuator_type": "circulation_fan", "protocol": "manual", "capabilities": ["on_off", "speed_control"], "min_value": 1, "max_value": 3, "unit": "Stufe", "current_state": null, "is_online": false, "notes": "Manuell bedient — System erzeugt Tasks" }
 
 // has_actuator edges
@@ -1271,8 +1430,8 @@ GET    /api/v1/locations/{location_key}/energy                   — Energieverb
 { "_from": "actuators/irrigation_zelt1", "_to": "control_schedules/sched_irrigation_3x" }
 
 // control_rules collection
-{ "_key": "rule_vpd_humid", "name": "VPD-Korrektur Befeuchter", "is_active": true, "priority": 60, "rule_type": "threshold", "sensor_parameter": "vpd", "sensor_location_key": "growzelt1", "condition": {"operator": "gt", "threshold": 1.5}, "action": {"command": "turn_on"}, "hysteresis": {"on_threshold": 1.5, "off_threshold": 1.2, "min_on_duration_seconds": 120, "min_off_duration_seconds": 300, "cooldown_seconds": 60}, "is_safety_rule": false }
-{ "_key": "rule_temp_exhaust", "name": "Übertemperatur Abluft", "is_active": true, "priority": 90, "rule_type": "threshold", "sensor_parameter": "temperature", "sensor_location_key": "growzelt1", "condition": {"operator": "gt", "threshold": 32}, "action": {"command": "set_value", "value": 100}, "hysteresis": {"on_threshold": 32, "off_threshold": 28, "min_on_duration_seconds": 300, "min_off_duration_seconds": 60, "cooldown_seconds": 30}, "is_safety_rule": true, "notes": "Sicherheitsregel: Abluft auf 100% bei >32°C" }
+{ "_key": "rule_vpd_humid", "name": "VPD-Korrektur Befeuchter", "is_active": true, "priority": 60, "rule_type": "threshold", "sensor_parameter": "vpd", "sensor_location_key": "growzelt1", "condition": {"operator": "gt", "threshold": 1.2}, "action": {"command": "turn_on"}, "hysteresis": {"on_threshold": 1.2, "off_threshold": 0.9, "min_on_duration_seconds": 120, "min_off_duration_seconds": 300, "cooldown_seconds": 60}, "is_safety_rule": false, "notes": "Schwellwerte phasenabhängig: werden bei Phasenwechsel aus PhaseControlProfile.target_vpd_kpa abgeleitet (on = target + 0.2, off = target - 0.1). Veg: on=1.2/off=0.9, Bloom: on=1.5/off=1.2" }
+{ "_key": "rule_temp_exhaust", "name": "Übertemperatur Abluft", "is_active": true, "priority": 90, "rule_type": "threshold", "sensor_parameter": "temperature", "sensor_location_key": "growzelt1", "condition": {"operator": "gt", "threshold": 30}, "action": {"command": "set_value", "value": 100}, "hysteresis": {"on_threshold": 30, "off_threshold": 27, "min_on_duration_seconds": 300, "min_off_duration_seconds": 60, "cooldown_seconds": 30}, "is_safety_rule": true, "notes": "Sicherheitsregel: Abluft auf 100% bei >30°C (Cannabis: Stress ab 30°C, Tomate: Pollensterilität ab 32°C)" }
 { "_key": "rule_night_temp", "name": "Nachtabsenkung Heizung", "is_active": true, "priority": 50, "rule_type": "threshold", "sensor_parameter": "temperature", "sensor_location_key": "growzelt1", "condition": {"operator": "lt", "threshold": 18}, "action": {"command": "turn_on"}, "hysteresis": {"on_threshold": 18, "off_threshold": 21, "min_on_duration_seconds": 600, "min_off_duration_seconds": 600, "cooldown_seconds": 120}, "is_safety_rule": false }
 
 // has_rule edges
@@ -1281,8 +1440,8 @@ GET    /api/v1/locations/{location_key}/energy                   — Energieverb
 { "_from": "actuators/heater_zelt1", "_to": "control_rules/rule_night_temp" }
 
 // phase_control_profiles collection
-{ "_key": "profile_cannabis_veg", "name": "Indoor Cannabis Vegetativ", "target_photoperiod_hours": 18.0, "target_light_ppfd": 600, "target_light_dimmer_percent": 75, "target_temperature_day_c": 26, "target_temperature_night_c": 20, "target_humidity_day_percent": 65, "target_humidity_night_percent": 70, "target_vpd_kpa": 1.0, "co2_enrichment_ppm": 800, "co2_only_during_lights_on": true, "irrigation_frequency_per_day": 3, "irrigation_duration_seconds": 180, "transition_days": 0, "is_template": true }
-{ "_key": "profile_cannabis_bloom", "name": "Indoor Cannabis Blüte", "target_photoperiod_hours": 12.0, "target_light_ppfd": 800, "target_light_dimmer_percent": 100, "target_temperature_day_c": 24, "target_temperature_night_c": 18, "target_humidity_day_percent": 50, "target_humidity_night_percent": 55, "target_vpd_kpa": 1.3, "co2_enrichment_ppm": 1000, "co2_only_during_lights_on": true, "irrigation_frequency_per_day": 4, "irrigation_duration_seconds": 120, "transition_days": 7, "is_template": true, "notes": "Photoperiode gradual über 7 Tage umstellen" }
+{ "_key": "profile_cannabis_veg", "name": "Indoor Cannabis Vegetativ", "target_photoperiod_hours": 18.0, "target_light_ppfd": 600, "target_light_dimmer_percent": 75, "target_light_spectrum": {"blue": 0.30, "red": 0.50, "far_red": 0.05, "green": 0.15}, "target_temperature_day_c": 26, "target_temperature_night_c": 20, "target_humidity_day_percent": 65, "target_humidity_night_percent": 70, "target_vpd_kpa": 1.0, "co2_enrichment_ppm": 800, "co2_only_during_lights_on": true, "co2_min_ppfd_threshold": 200, "target_dli_mol": 38, "photoperiod_is_critical": false, "dif_target_c": 6, "irrigation_frequency_per_day": 3, "irrigation_duration_seconds": 180, "target_drain_percent": 20, "transition_days": 0, "is_template": true }
+{ "_key": "profile_cannabis_bloom", "name": "Indoor Cannabis Blüte", "target_photoperiod_hours": 12.0, "target_light_ppfd": 800, "target_light_dimmer_percent": 100, "target_light_spectrum": {"blue": 0.15, "red": 0.60, "far_red": 0.10, "green": 0.15}, "target_temperature_day_c": 24, "target_temperature_night_c": 18, "target_humidity_day_percent": 50, "target_humidity_night_percent": 55, "target_vpd_kpa": 1.3, "co2_enrichment_ppm": 1000, "co2_only_during_lights_on": true, "co2_min_ppfd_threshold": 300, "target_dli_mol": 40, "photoperiod_is_critical": true, "dif_target_c": 6, "pre_dawn_drop_c": 5, "pre_dawn_drop_hours": 2, "irrigation_frequency_per_day": 4, "irrigation_duration_seconds": 120, "target_drain_percent": 20, "transition_days": 7, "is_template": true, "notes": "Photoperiode gradual über 7 Tage umstellen. Dunkelphase kritisch — keine Lichtunterbrechung!" }
 
 // phase_profile edges (Phase → Profil)
 { "_from": "growth_phases/vegetative", "_to": "phase_control_profiles/profile_cannabis_veg" }
@@ -1301,20 +1460,22 @@ GET    /api/v1/locations/{location_key}/energy                   — Energieverb
 - REQ-005 (Sensorik): **HOCH** — Sensor-Werte triggern Regeln; HA-Entity-Sync bidirektional
 - REQ-006 (Aufgabenplanung): **MITTEL** — Fallback-Tasks bei manuellen Aktoren oder HA-Ausfall
 - REQ-009 (Dashboard): **HOCH** — Aktor-Status-Widget, Regel-Aktivitäten, Override-Anzeige
-- REQ-014 (Tankmanagement): **MITTEL** — Bewässerungsventile als Aktoren; Tank-Füllstand kann Bewässerung triggern
+- REQ-014 (Tankmanagement): **HOCH** — Bewässerungsventile als Aktoren; Tank-Füllstand als Sicherheitseingang (Trockenlaufschutz <5%); Dosierpumpen für pH/EC-Korrektur; Chiller für Nährlösungstemperatur
+- REQ-019 (Substratverwaltung): **MITTEL** — Substrattyp beeinflusst Bewässerungsstrategie (Frequenz, Volumen)
 
 **Celery-Tasks:**
-- `evaluate_control_rules` — Alle 30 Sekunden: Sensor-Werte gegen aktive Regeln prüfen, Aktoren steuern
+- `evaluate_control_rules` — Alle 30 Sekunden: Sensor-Werte gegen aktive Regeln prüfen, Aktoren steuern. **Hinweis:** Sicherheitsregeln sollten zusätzlich über MQTT-Subscription mit Echtzeit-Trigger reagieren, da 30s bei Übertemperatur (>35°C: Trichom-Verlust bei Cannabis) zu langsam sein kann.
 - `expire_manual_overrides` — Stündlich: Abgelaufene Overrides deaktivieren
 - `sync_actuator_states` — Alle 5 Minuten: Aktor-Zustände aus HA/MQTT aktualisieren
 - `calculate_gradual_transitions` — Stündlich: Photoperiode/Dimmer-Übergänge berechnen und anpassen
-- `check_actuator_health` — Alle 15 Minuten: Erreichbarkeit von HA/MQTT-Aktoren prüfen, Alerts bei Offline
+- `check_actuator_health` — Alle 15 Minuten: Erreichbarkeit von HA/MQTT-Aktoren prüfen, Alerts bei Offline. Bei >2h ohne State-Update: Alert „Aktor möglicherweise offline"
+- `accumulate_dli` — Stündlich: PPFD-Messwerte aufsummieren, bei DLI-Ziel-Erreichung Licht dimmen/abschalten
 
 ## 5. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 
-- [ ] **Aktor-CRUD:** Erstellen, Lesen, Aktualisieren, Löschen von Aktoren (11 Typen)
+- [ ] **Aktor-CRUD:** Erstellen, Lesen, Aktualisieren, Löschen von Aktoren (19 Typen)
 - [ ] **Location-Zuordnung:** Aktor über has_actuator-Edge einer Location zugeordnet
 - [ ] **Protokoll-Validierung:** HA-Aktoren erfordern ha_entity_id, MQTT erfordert command_topic
 - [ ] **Dimmbare Aktoren:** min_value/max_value für stufenlose Steuerung
@@ -1339,6 +1500,16 @@ GET    /api/v1/locations/{location_key}/energy                   — Energieverb
 - [ ] **Dry-Run:** Regel gegen aktuelle Sensorwerte testen ohne Ausführung
 - [ ] **Energieverbrauch:** Geschätzte kWh pro Aktor/Location
 - [ ] **Celery-Beat:** evaluate_control_rules (30s), sync_actuator_states (5min), check_actuator_health (15min)
+- [ ] **VPD-Controller:** Gekoppelter Regelkreis, Schwellwerte aus PhaseControlProfile abgeleitet
+- [ ] **DLI-Akkumulation:** PPFD-Tagesintegral berechnen, Lichtintensität anpassen
+- [ ] **CO₂-PPFD-Kopplung:** CO₂-Dosierung nur bei ausreichendem PPFD
+- [ ] **DIF/DROP:** Tag-/Nacht-Temperatur-Umschaltung basierend auf Lichtplan
+- [ ] **Substratfeuchte-Bewässerung:** Sensorgesteuerte Bewässerung mit Tank-Trockenlaufschutz
+- [ ] **Konfliktgruppen:** CO₂/Abluft-Koordination, Heizung/Kühlung-Exklusion
+- [ ] **Fail-Safe-States:** Default-Zustand pro Aktor bei Kommunikationsverlust
+- [ ] **Notabschaltung:** Emergency-Stop-Endpoint mit Szenarien
+- [ ] **Photoperiod-Schutz:** Dunkelphase bei Kurztagspflanzen nicht durch Licht-Aktoren unterbrechen
+- [ ] **Lichtspektrum-Steuerung:** Mehrkanallampen-Kanalsteuerung bei spectrum_control-Capability
 
 ### Testszenarien:
 
@@ -1373,14 +1544,14 @@ THEN:
 **Szenario 3: Sicherheitsregel übersteuert Zeitplan**
 ```
 GIVEN: Abluft-Zeitplan: "50% zwischen 06:00-00:00",
-       Sicherheitsregel: "Bei >32°C → Abluft 100%",
-       Temperatur steigt auf 33°C
+       Sicherheitsregel: "Bei >30°C → Abluft 100%",
+       Temperatur steigt auf 31°C
 WHEN: System evaluiert
 THEN:
   - Sicherheitsregel (Priorität 900) > Zeitplan (Priorität 150)
   - HA Service-Call: fan.set_percentage(100)
-  - ControlEvent: source=safety, sensor_reading=33
-  - Zeitplan-Wert wird ignoriert bis Temperatur < 28°C (off_threshold)
+  - ControlEvent: source=safety, sensor_reading=31
+  - Zeitplan-Wert wird ignoriert bis Temperatur < 27°C (off_threshold)
 ```
 
 **Szenario 4: Manueller Override mit Ablaufzeit**
@@ -1492,5 +1663,5 @@ THEN:
 
 **Hinweise für RAG-Integration:**
 - Keywords: Umgebungssteuerung, Aktorik, Aktor, Licht, Abluft, Befeuchter, Heizung, CO₂-Doser, Bewässerungsventil, Pumpe, Zeitplan, Lichtprogramm, Photoperiode, Regel, Schwellwert, Hysterese, Oszillation, Debouncing, Override, Sicherheitsregel, Phasenprofil, Gradueller Übergang, Home Assistant, MQTT, Service-Call, Entity, Fallback-Task, Energieverbrauch
-- Technische Begriffe: Actuator, ActuatorType, ActuatorCapability, ControlSchedule, ControlRule, ControlEvent, ManualOverride, PhaseControlProfile, ScheduleEntry, RuleCondition, RuleAction, HysteresisConfig, ControlEngine, HomeAssistantClient, PhaseTransitionHandler, has_actuator, has_rule, has_schedule, actuator_event, phase_profile, monitors, evaluate_control_rules, sync_actuator_states
-- Verknüpfung: REQ-002 (Location), REQ-003 (Phasensteuerung — Profil-Trigger), REQ-005 (Sensorik — Input), REQ-006 (Aufgaben — Fallback), REQ-009 (Dashboard), REQ-014 (Tankmanagement — Bewässerungsventile)
+- Technische Begriffe: Actuator, ActuatorType, ActuatorCapability, ControlSchedule, ControlRule, ControlEvent, ManualOverride, PhaseControlProfile, ScheduleEntry, RuleCondition, RuleAction, HysteresisConfig, ControlEngine, HomeAssistantClient, PhaseTransitionHandler, VPD-Controller, DLI-Akkumulation, DIF, DROP-Technik, Fail-Safe-State, Konfliktgruppe, Emergency-Stop, Dosierpumpe, Chiller, Spektrum-Steuerung, has_actuator, has_rule, has_schedule, actuator_event, phase_profile, monitors, evaluate_control_rules, sync_actuator_states, accumulate_dli
+- Verknüpfung: REQ-002 (Location), REQ-003 (Phasensteuerung — Profil-Trigger, DLI, Lichtspektrum), REQ-005 (Sensorik — Input, PPFD-Akkumulation, Substratfeuchte), REQ-006 (Aufgaben — Fallback), REQ-009 (Dashboard), REQ-014 (Tankmanagement — Bewässerungsventile, Dosierpumpen, Chiller, Trockenlaufschutz), REQ-019 (Substratverwaltung — Bewässerungsstrategie)
