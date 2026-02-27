@@ -9,6 +9,8 @@ import plantingRunsReducer from './slices/plantingRunsSlice';
 import tanksReducer from './slices/tanksSlice';
 import fertilizersReducer from './slices/fertilizersSlice';
 import nutrientPlansReducer from './slices/nutrientPlansSlice';
+import feedingEventsReducer from './slices/feedingEventsSlice';
+import wateringEventsReducer from './slices/wateringEventsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -22,6 +24,8 @@ export const store = configureStore({
     tanks: tanksReducer,
     fertilizers: fertilizersReducer,
     nutrientPlans: nutrientPlansReducer,
+    feedingEvents: feedingEventsReducer,
+    wateringEvents: wateringEventsReducer,
   },
 });
 

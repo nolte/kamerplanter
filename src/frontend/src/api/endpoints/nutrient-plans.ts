@@ -7,6 +7,7 @@ import type {
   PhaseEntryCreate,
   PhaseEntryUpdate,
   PlanValidationResult,
+  FertilizerDosage,
 } from '../types';
 
 const BASE = '/nutrient-plans';
@@ -113,4 +114,50 @@ export async function deletePhaseEntry(
   entryKey: string,
 ): Promise<void> {
   await client.delete(`${BASE}/${planKey}/entries/${entryKey}`);
+}
+
+// ── Fertilizer Dosage per Entry ───────────────────────────────────────
+
+export async function addFertilizerToEntry(
+  _planKey: string,
+  entryKey: string,
+  payload: FertilizerDosage,
+): Promise<void> {
+  await client.post(`${BASE}/entries/${entryKey}/fertilizers`, payload);
+}
+
+export async function removeFertilizerFromEntry(
+  _planKey: string,
+  entryKey: string,
+  fertilizerKey: string,
+): Promise<void> {
+  await client.delete(
+    `${BASE}/entries/${entryKey}/fertilizers/${fertilizerKey}`,
+  );
+}
+
+// ── Plant Instance Assignment ─────────────────────────────────────────
+
+export async function assignPlanToPlant(
+  plantKey: string,
+  payload: { plan_key: string; assigned_by: string },
+): Promise<void> {
+  await client.post(`/plant-instances/${plantKey}/nutrient-plan`, payload);
+}
+
+export async function getPlantPlan(
+  plantKey: string,
+): Promise<NutrientPlan | null> {
+  try {
+    const { data } = await client.get<NutrientPlan>(
+      `/plant-instances/${plantKey}/nutrient-plan`,
+    );
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+export async function removePlantPlan(plantKey: string): Promise<void> {
+  await client.delete(`/plant-instances/${plantKey}/nutrient-plan`);
 }

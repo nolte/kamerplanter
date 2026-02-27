@@ -27,3 +27,4 @@ type FertilizerStockKey = str
 type NutrientPlanKey = str
 type NutrientPlanPhaseEntryKey = str
 type FeedingEventKey = str
+type WateringEventKey = str

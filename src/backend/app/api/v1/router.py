@@ -23,6 +23,7 @@ from app.api.v1.slots.router import router as slots_router
 from app.api.v1.species.router import router as species_router
 from app.api.v1.substrates.router import router as substrates_router
 from app.api.v1.tanks.router import router as tanks_router
+from app.api.v1.watering_events.router import router as watering_events_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -49,3 +50,4 @@ api_router.include_router(fertilizers_router)
 api_router.include_router(nutrient_plans_router)
 api_router.include_router(feeding_events_router)
 api_router.include_router(nutrient_calculations_router)
+api_router.include_router(watering_events_router)

@@ -5,7 +5,7 @@ ID: REQ-005
 Titel: Hybrid-Sensorik & Home Assistant Integration
 Kategorie: Monitoring
 Fokus: Beides
-Technologie: Python, Home Assistant API, MQTT, InfluxDB/TimescaleDB
+Technologie: Python, Home Assistant API, MQTT, TimescaleDB
 Status: Entwurf
 Version: 2.0 (Maximal Erweitert)
 ```
@@ -63,7 +63,7 @@ Das System implementiert einen Hybrid-Ansatz für Datenerfassung mit nahtloser D
 - Interpolation bei kurzen Ausfällen (<2h)
 - Historische Daten-Analyse für Plausibilitätsprüfung
 
-## 2. GraphDB-Modellierung
+## 2. ArangoDB-Modellierung
 
 ### Nodes:
 - **`:Sensor`** - Physischer oder virtueller Sensor
@@ -160,231 +160,270 @@ Das System implementiert einen Hybrid-Ansatz für Datenerfassung mit nahtloser D
     - `signal_strength_dbm: Optional[int]`
 
 ### Edges:
-```cypher
-(:Sensor)-[:LOCATED_AT]->(:Slot|:Location)
-(:Sensor)-[:RECORDED]->(:Observation)
-(:Observation)-[:VALIDATES]->(:RequirementProfile)
-(:Observation)-[:TRIGGERED]->(:Alert)
-(:Sensor)-[:LAST_CALIBRATED]->(:SensorCalibration)
-(:Sensor)-[:HAS_HEALTH_STATUS]->(:SensorHealth)
-(:Observation)-[:AGGREGATED_INTO]->(:AggregatedMetric)
-(:Sensor)-[:REPLACED_BY {replacement_date: datetime}]->(:Sensor)
-(:ManualEntry)-[:CONFIRMS]->(:Observation)  // Manuelle Verifizierung von Auto-Werten
-(:Alert)-[:RESOLVED_BY_ACTION]->(:Task)
-(:Sensor)-[:PART_OF_SYSTEM]->(:MonitoringSystem)  // z.B. "Growzelt_1_Climate"
+```
+Edge Collection          _from              _to                     Attribute
+─────────────────────────────────────────────────────────────────────────────
+located_at               sensors            slots / locations
+recorded                 sensors            observations
+validates                observations       requirement_profiles
+triggered                observations       alerts
+last_calibrated          sensors            sensor_calibrations
+has_health_status        sensors            sensor_health
+aggregated_into          observations       aggregated_metrics
+replaced_by              sensors            sensors                 replacement_date: datetime
+confirms                 manual_entries     observations            // Manuelle Verifizierung von Auto-Werten
+resolved_by_action       alerts             tasks
+part_of_system           sensors            monitoring_systems      // z.B. "Growzelt_1_Climate"
 ```
 
-### Cypher-Beispiellogik:
+### AQL-Beispiellogik:
 
 **Aktuelle Werte mit Fallback-Hierarchie:**
-```cypher
-MATCH (location:Location {id: $loc_id})<-[:LOCATED_AT]-(sensor:Sensor)
-WHERE sensor.parameter = $parameter
+```aql
+LET loc_id = @loc_id
+LET parameter = @parameter
 
-// Versuche automatische Readings
-OPTIONAL MATCH (sensor)-[:RECORDED]->(auto_obs:Observation)
-WHERE auto_obs.source IN ['ha_auto', 'mqtt_auto', 'modbus_auto']
-  AND auto_obs.timestamp > datetime() - duration('PT15M')
-WITH sensor, auto_obs
-ORDER BY auto_obs.timestamp DESC
+// Finde Sensoren an diesem Standort
+FOR sensor IN sensors
+  FILTER sensor.parameter == parameter
+  FOR v, e IN 1..1 OUTBOUND sensor located_at
+    FILTER v._id == CONCAT("locations/", loc_id) OR v._id == CONCAT("slots/", loc_id)
 
-// Fallback auf manuelle Eingaben wenn kein Auto-Wert
-OPTIONAL MATCH (sensor)-[:RECORDED]->(manual_obs:Observation)
-WHERE manual_obs.source = 'manual'
-  AND manual_obs.timestamp > datetime() - duration('PT1H')
-WITH sensor, 
-     COLLECT(auto_obs)[0] AS latest_auto,
-     COLLECT(manual_obs)[0] AS latest_manual
+    // Versuche automatische Readings (letzte 15 Minuten)
+    LET auto_observations = (
+      FOR obs IN 1..1 OUTBOUND sensor GRAPH 'kamerplanter_graph'
+        FILTER IS_DOCUMENT(obs) AND IS_SAME_COLLECTION("observations", obs)
+        FILTER obs.source IN ['ha_auto', 'mqtt_auto', 'modbus_auto']
+          AND obs.timestamp > DATE_SUBTRACT(DATE_NOW(), 15, "minutes")
+        SORT obs.timestamp DESC
+        LIMIT 1
+        RETURN obs
+    )
 
-WITH sensor,
-     COALESCE(latest_auto, latest_manual) AS latest_obs
+    // Fallback auf manuelle Eingaben (letzte 1 Stunde)
+    LET manual_observations = (
+      FOR obs IN 1..1 OUTBOUND sensor GRAPH 'kamerplanter_graph'
+        FILTER IS_DOCUMENT(obs) AND IS_SAME_COLLECTION("observations", obs)
+        FILTER obs.source == 'manual'
+          AND obs.timestamp > DATE_SUBTRACT(DATE_NOW(), 1, "hours")
+        SORT obs.timestamp DESC
+        LIMIT 1
+        RETURN obs
+    )
 
-RETURN sensor.sensor_id,
-       sensor.parameter,
-       CASE 
-         WHEN latest_obs IS NULL THEN 'NO_DATA'
-         ELSE latest_obs.value
-       END AS current_value,
-       CASE
-         WHEN latest_obs IS NULL THEN null
-         ELSE latest_obs.source
-       END AS source,
-       CASE
-         WHEN latest_obs IS NULL THEN null
-         ELSE duration.between(latest_obs.timestamp, datetime()).inMinutes
-       END AS age_minutes,
-       CASE
-         WHEN latest_obs IS NULL THEN 'CRITICAL'
-         WHEN duration.between(latest_obs.timestamp, datetime()).inMinutes > 60 THEN 'WARNING'
-         ELSE 'OK'
-       END AS data_freshness
+    LET latest_auto = LENGTH(auto_observations) > 0 ? auto_observations[0] : null
+    LET latest_manual = LENGTH(manual_observations) > 0 ? manual_observations[0] : null
+    LET latest_obs = latest_auto != null ? latest_auto : latest_manual
+
+    LET age_minutes = latest_obs != null
+      ? DATE_DIFF(latest_obs.timestamp, DATE_NOW(), "minutes")
+      : null
+
+    RETURN {
+      sensor_id: sensor.sensor_id,
+      parameter: sensor.parameter,
+      current_value: latest_obs != null ? latest_obs.value : 'NO_DATA',
+      source: latest_obs != null ? latest_obs.source : null,
+      age_minutes: age_minutes,
+      data_freshness: latest_obs == null ? 'CRITICAL'
+        : (age_minutes > 60 ? 'WARNING' : 'OK')
+    }
 ```
 
 **Sensor-Health-Check mit Auto-Task-Generierung:**
-```cypher
-MATCH (sensor:Sensor)-[:HAS_HEALTH_STATUS]->(health:SensorHealth)
-WHERE health.status = 'offline' 
-  OR health.consecutive_failures > 5
-  OR duration.between(health.last_successful_reading, datetime()).inHours > 24
+```aql
+// Finde Sensoren mit Health-Problemen
+FOR sensor IN sensors
+  FOR health IN 1..1 OUTBOUND sensor has_health_status
+    FILTER health.status == 'offline'
+      OR health.consecutive_failures > 5
+      OR DATE_DIFF(health.last_successful_reading, DATE_NOW(), "hours") > 24
 
-// Prüfe ob bereits Manual-Task existiert
-OPTIONAL MATCH (sensor)-[:LOCATED_AT]->(location)-[:HAS_SLOT]->(slot)
-        <-[:PLACED_IN]-(plant:PlantInstance)-[:HAS_TASK]->(task:Task)
-WHERE task.status = 'pending' 
-  AND task.category = 'manual_measurement'
-  AND task.due_date >= date()
+    // Finde zugeordneten Standort
+    LET locations = (
+      FOR loc IN 1..1 OUTBOUND sensor located_at
+        RETURN loc
+    )
+    LET location = LENGTH(locations) > 0 ? locations[0] : null
 
-WITH sensor, health, task, location
+    // Prüfe ob bereits Manual-Task existiert
+    LET existing_tasks = (
+      FOR slot IN 1..1 OUTBOUND location has_slot
+        FOR plant IN 1..1 INBOUND slot placed_in
+          FOR task IN 1..1 OUTBOUND plant has_task
+            FILTER task.status == 'pending'
+              AND task.category == 'manual_measurement'
+              AND task.due_date >= DATE_FORMAT(DATE_NOW(), "%yyyy-%mm-%dd")
+            RETURN task
+    )
 
-// Erstelle Task nur wenn noch keiner existiert
-WHERE task IS NULL
+    // Erstelle Task nur wenn noch keiner existiert
+    FILTER LENGTH(existing_tasks) == 0
 
-// Generiere Manual-Measurement Task
-CREATE (new_task:Task {
-  task_id: randomUUID(),
-  name: 'Manual ' + sensor.parameter + ' Messung erforderlich',
-  category: 'manual_measurement',
-  instruction: 'Sensor ' + sensor.sensor_id + ' offline seit ' + 
-               duration.between(health.last_successful_reading, datetime()).inHours + 'h. ' +
-               'Bitte manuell messen.',
-  due_date: date(),
-  priority: 'high',
-  status: 'pending',
-  created_at: datetime()
-})
+    // Generiere Manual-Measurement Task
+    LET new_task_key = UUID()
+    INSERT {
+      _key: new_task_key,
+      task_id: new_task_key,
+      name: CONCAT('Manual ', sensor.parameter, ' Messung erforderlich'),
+      category: 'manual_measurement',
+      instruction: CONCAT('Sensor ', sensor.sensor_id, ' offline seit ',
+                          DATE_DIFF(health.last_successful_reading, DATE_NOW(), "hours"),
+                          'h. Bitte manuell messen.'),
+      due_date: DATE_FORMAT(DATE_NOW(), "%yyyy-%mm-%dd"),
+      priority: 'high',
+      status: 'pending',
+      created_at: DATE_NOW()
+    } INTO tasks
+    LET new_task = NEW
 
-WITH sensor, new_task, location
-MATCH (location)<-[:HAS_SLOT]-(loc_parent)
-MATCH (loc_parent)<-[:PLACED_IN]-(plant:PlantInstance)
+    // Verknüpfe Task mit Pflanzen an diesem Standort
+    LET linked_plants = (
+      FOR slot IN 1..1 OUTBOUND location has_slot
+        FOR plant IN 1..1 INBOUND slot placed_in
+          INSERT { _from: plant._id, _to: new_task._id } INTO has_task
+          RETURN plant._id
+    )
 
-CREATE (plant)-[:HAS_TASK]->(new_task)
-
-RETURN sensor.sensor_id AS failed_sensor,
-       new_task.task_id AS generated_task_id,
-       'Manual measurement task created' AS action
+    RETURN {
+      failed_sensor: sensor.sensor_id,
+      generated_task_id: new_task.task_id,
+      action: 'Manual measurement task created'
+    }
 ```
 
 **Multi-Sensor-Aggregation für Redundanz:**
-```cypher
-MATCH (location:Location {id: $loc_id})<-[:LOCATED_AT]-(sensor:Sensor {parameter: $parameter})
-      -[:RECORDED]->(obs:Observation)
-WHERE obs.timestamp > datetime() - duration('PT15M')
-  AND obs.validated = true
+```aql
+LET loc_id = @loc_id
+LET parameter = @parameter
 
-WITH sensor, obs
-ORDER BY obs.timestamp DESC
+// Sammle neueste validierte Readings pro Sensor
+LET readings = (
+  FOR sensor IN sensors
+    FILTER sensor.parameter == parameter
+    FOR loc IN 1..1 OUTBOUND sensor located_at
+      FILTER loc._key == loc_id
 
-WITH sensor, COLLECT(obs)[0] AS latest_obs
+      // Neueste validierte Observation der letzten 15 Minuten
+      LET latest_obs = FIRST(
+        FOR obs IN 1..1 OUTBOUND sensor recorded
+          FILTER obs.timestamp > DATE_SUBTRACT(DATE_NOW(), 15, "minutes")
+            AND obs.validated == true
+          SORT obs.timestamp DESC
+          LIMIT 1
+          RETURN obs
+      )
 
-WHERE latest_obs IS NOT NULL
+      FILTER latest_obs != null
 
-WITH COLLECT({
-  sensor_id: sensor.sensor_id,
-  value: latest_obs.value,
-  timestamp: latest_obs.timestamp,
-  quality: latest_obs.quality_score
-}) AS readings
+      RETURN {
+        sensor_id: sensor.sensor_id,
+        value: latest_obs.value,
+        timestamp: latest_obs.timestamp,
+        quality: latest_obs.quality_score
+      }
+)
 
 // Berechne gewichteten Durchschnitt basierend auf Quality-Score
-UNWIND readings AS reading
-WITH readings,
-     SUM(reading.value * reading.quality) AS weighted_sum,
-     SUM(reading.quality) AS total_quality
+LET weighted_sum = SUM(FOR r IN readings RETURN r.value * r.quality)
+LET total_quality = SUM(FOR r IN readings RETURN r.quality)
 
 RETURN {
   aggregated_value: weighted_sum / total_quality,
-  sensor_count: SIZE(readings),
+  sensor_count: LENGTH(readings),
   individual_readings: readings,
   aggregation_method: 'quality_weighted_average',
-  confidence: CASE
-    WHEN SIZE(readings) >= 3 THEN 'high'
-    WHEN SIZE(readings) = 2 THEN 'medium'
-    ELSE 'low'
-  END
-} AS result
+  confidence: LENGTH(readings) >= 3 ? 'high'
+    : (LENGTH(readings) == 2 ? 'medium' : 'low')
+}
 ```
 
 **Trend-Analyse und Anomalie-Erkennung:**
-```cypher
-MATCH (sensor:Sensor {sensor_id: $sensor_id})-[:RECORDED]->(obs:Observation)
-WHERE obs.timestamp > datetime() - duration('P7D')
-  AND obs.validated = true
+```aql
+LET sensor_id = @sensor_id
 
-WITH sensor, obs
-ORDER BY obs.timestamp ASC
+FOR sensor IN sensors
+  FILTER sensor.sensor_id == sensor_id
 
-WITH sensor,
-     COLLECT(obs.value) AS values,
-     COLLECT(obs.timestamp) AS timestamps
+  // Sammle validierte Observations der letzten 7 Tage
+  LET observations = (
+    FOR obs IN 1..1 OUTBOUND sensor recorded
+      FILTER obs.timestamp > DATE_SUBTRACT(DATE_NOW(), 7, "days")
+        AND obs.validated == true
+      SORT obs.timestamp ASC
+      RETURN { value: obs.value, timestamp: obs.timestamp }
+  )
 
-// Berechne statistische Metriken
-WITH sensor, values, timestamps,
-     REDUCE(s = 0.0, val IN values | s + val) / SIZE(values) AS mean,
-     SIZE(values) AS n
+  LET values = observations[*].value
+  LET n = LENGTH(values)
 
-WITH sensor, values, timestamps, mean, n,
-     SQRT(REDUCE(s = 0.0, val IN values | s + (val - mean)^2) / n) AS stddev
+  // Berechne statistische Metriken
+  LET mean = SUM(values) / n
+  LET stddev = SQRT(
+    SUM(FOR v IN values RETURN POW(v - mean, 2)) / n
+  )
 
-// Identifiziere Ausreißer (>2 Standardabweichungen)
-UNWIND RANGE(0, SIZE(values)-1) AS idx
-WITH sensor, values, timestamps, mean, stddev,
-     idx,
-     values[idx] AS value,
-     timestamps[idx] AS timestamp,
-     ABS(values[idx] - mean) / stddev AS z_score
+  // Identifiziere Ausreißer (>2 Standardabweichungen)
+  FOR idx IN 0..n-1
+    LET value = values[idx]
+    LET timestamp = observations[idx].timestamp
+    LET z_score = ABS(value - mean) / stddev
 
-WHERE z_score > 2.0
+    FILTER z_score > 2.0
 
-RETURN sensor.parameter AS parameter,
-       {
-         timestamp: timestamp,
-         value: value,
-         z_score: z_score,
-         deviation_from_mean: value - mean,
-         is_outlier: true
-       } AS outlier,
-       mean,
-       stddev
+    SORT z_score DESC
 
-ORDER BY z_score DESC
+    RETURN {
+      parameter: sensor.parameter,
+      outlier: {
+        timestamp: timestamp,
+        value: value,
+        z_score: z_score,
+        deviation_from_mean: value - mean,
+        is_outlier: true
+      },
+      mean: mean,
+      stddev: stddev
+    }
 ```
 
 **Kalibrierungs-Historie und Drift-Erkennung:**
-```cypher
-MATCH (sensor:Sensor {sensor_id: $sensor_id})-[:LAST_CALIBRATED]->(cal:SensorCalibration)
+```aql
+LET sensor_id = @sensor_id
 
-// Hole alle vorherigen Kalibrierungen
-OPTIONAL MATCH (sensor)-[:LAST_CALIBRATED*..10]->(prev_cal:SensorCalibration)
+FOR sensor IN sensors
+  FILTER sensor.sensor_id == sensor_id
 
-WITH sensor, cal, COLLECT(DISTINCT prev_cal) AS history
-ORDER BY cal.calibration_date DESC
+  // Hole alle Kalibrierungen über Graph-Traversal (bis zu 10 Stufen)
+  LET calibrations = (
+    FOR v IN 1..10 OUTBOUND sensor last_calibrated
+      SORT v.calibration_date DESC
+      RETURN v
+  )
 
-WITH sensor, cal, 
-     [c IN history | c.offset_calculated] AS offset_history,
-     [c IN history | c.calibration_date] AS date_history
+  LET cal = calibrations[0]  // Neueste Kalibrierung
 
-// Berechne Drift-Rate
-WITH sensor, cal, offset_history, date_history,
-     CASE 
-       WHEN SIZE(offset_history) >= 2 
-       THEN (offset_history[0] - offset_history[-1]) / 
-            duration.between(date_history[-1], date_history[0]).inDays
-       ELSE 0
-     END AS drift_per_day
+  LET offset_history = calibrations[*].offset_calculated
+  LET date_history = calibrations[*].calibration_date
 
-RETURN sensor.parameter,
-       cal.calibration_date AS last_calibrated,
-       duration.between(cal.calibration_date, datetime()).inDays AS days_since_calibration,
-       cal.offset_calculated AS current_offset,
-       drift_per_day,
-       CASE
-         WHEN duration.between(cal.calibration_date, datetime()).inDays > 90 
-         THEN 'OVERDUE'
-         WHEN ABS(drift_per_day) > 0.01 
-         THEN 'HIGH_DRIFT'
-         ELSE 'OK'
-       END AS calibration_status,
-       offset_history AS historical_offsets
+  // Berechne Drift-Rate
+  LET drift_per_day = LENGTH(offset_history) >= 2
+    ? (offset_history[0] - LAST(offset_history)) /
+      DATE_DIFF(LAST(date_history), date_history[0], "days")
+    : 0
+
+  LET days_since_calibration = DATE_DIFF(cal.calibration_date, DATE_NOW(), "days")
+
+  RETURN {
+    parameter: sensor.parameter,
+    last_calibrated: cal.calibration_date,
+    days_since_calibration: days_since_calibration,
+    current_offset: cal.offset_calculated,
+    drift_per_day: drift_per_day,
+    calibration_status: days_since_calibration > 90 ? 'OVERDUE'
+      : (ABS(drift_per_day) > 0.01 ? 'HIGH_DRIFT' : 'OK'),
+    historical_offsets: offset_history
+  }
 ```
 
 ## 3. Technische Umsetzung (Python)
@@ -393,7 +432,7 @@ RETURN sensor.parameter,
 
 **1. Sensor Reading mit Quality Scoring:**
 ```python
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional
 from datetime import datetime, timedelta
 import statistics
@@ -779,8 +818,8 @@ class SensorFallbackManager:
     MAX_AGE_WARNING_HOURS = 6
     MAX_AGE_INTERPOLATION_HOURS = 2
     
-    def __init__(self, neo4j_driver):
-        self.driver = neo4j_driver
+    def __init__(self, arango_db):
+        self.db = arango_db
     
     def check_sensor_health(
         self,
@@ -853,50 +892,64 @@ class SensorFallbackManager:
         Interpoliert fehlende Werte zwischen zwei bekannten Punkten
         Verwendet lineare Interpolation für kurze Lücken
         """
-        with self.driver.session() as session:
-            # Hole Wert vor und nach der Lücke
-            result = session.run("""
-                MATCH (s:Sensor {sensor_id: $sensor_id})-[:RECORDED]->(obs:Observation)
-                WHERE obs.timestamp < $gap_start OR obs.timestamp > $gap_end
-                WITH s, obs
-                ORDER BY obs.timestamp
-                WITH s,
-                     [o IN COLLECT(obs) WHERE o.timestamp < $gap_start][-1] AS before_obs,
-                     [o IN COLLECT(obs) WHERE o.timestamp > $gap_end][0] AS after_obs
-                RETURN before_obs, after_obs
-            """, sensor_id=sensor_id, gap_start=gap_start, gap_end=gap_end).single()
-            
-            if not result or not result['before_obs'] or not result['after_obs']:
-                return []
-            
-            before = result['before_obs']
-            after = result['after_obs']
-            
-            # Lineare Interpolation
-            time_span = (after['timestamp'] - before['timestamp']).total_seconds()
-            value_span = after['value'] - before['value']
-            
-            interpolated = []
-            current_time = gap_start
-            
-            # Generiere stündliche Interpolations-Punkte
-            while current_time < gap_end:
-                time_fraction = (current_time - before['timestamp']).total_seconds() / time_span
-                interpolated_value = before['value'] + (value_span * time_fraction)
-                
-                interpolated.append(SensorReading(
-                    sensor_id=sensor_id,
-                    parameter=before['parameter'],
-                    value=interpolated_value,
-                    unit=before['unit'],
-                    source='interpolated',
-                    timestamp=current_time,
-                    quality_score=0.6  # Reduzierte Qualität für interpolierte Daten
-                ))
-                
-                current_time += timedelta(hours=1)
-            
-            return interpolated
+        # Hole Wert vor und nach der Lücke via AQL
+        cursor = self.db.aql.execute("""
+            FOR sensor IN sensors
+              FILTER sensor.sensor_id == @sensor_id
+              LET before_obs = FIRST(
+                FOR obs IN 1..1 OUTBOUND sensor recorded
+                  FILTER obs.timestamp < @gap_start
+                  SORT obs.timestamp DESC
+                  LIMIT 1
+                  RETURN obs
+              )
+              LET after_obs = FIRST(
+                FOR obs IN 1..1 OUTBOUND sensor recorded
+                  FILTER obs.timestamp > @gap_end
+                  SORT obs.timestamp ASC
+                  LIMIT 1
+                  RETURN obs
+              )
+              RETURN { before_obs, after_obs }
+        """, bind_vars={
+            'sensor_id': sensor_id,
+            'gap_start': gap_start.isoformat(),
+            'gap_end': gap_end.isoformat()
+        })
+
+        result = next(cursor, None)
+
+        if not result or not result['before_obs'] or not result['after_obs']:
+            return []
+
+        before = result['before_obs']
+        after = result['after_obs']
+
+        # Lineare Interpolation
+        time_span = (after['timestamp'] - before['timestamp']).total_seconds()
+        value_span = after['value'] - before['value']
+
+        interpolated = []
+        current_time = gap_start
+
+        # Generiere stündliche Interpolations-Punkte
+        while current_time < gap_end:
+            time_fraction = (current_time - before['timestamp']).total_seconds() / time_span
+            interpolated_value = before['value'] + (value_span * time_fraction)
+
+            interpolated.append(SensorReading(
+                sensor_id=sensor_id,
+                parameter=before['parameter'],
+                value=interpolated_value,
+                unit=before['unit'],
+                source='interpolated',
+                timestamp=current_time,
+                quality_score=0.6  # Reduzierte Qualität für interpolierte Daten
+            ))
+
+            current_time += timedelta(hours=1)
+
+        return interpolated
     
     def create_manual_measurement_task(
         self,
@@ -910,33 +963,43 @@ class SensorFallbackManager:
         Returns:
             task_id
         """
-        with self.driver.session() as session:
-            result = session.run("""
-                MATCH (location:Location {id: $location_id})
-                
-                // Erstelle Task
-                CREATE (task:Task {
-                    task_id: randomUUID(),
-                    name: 'Manuelle ' + $parameter + ' Messung',
-                    category: 'manual_measurement',
-                    instruction: 'Sensor ' + $sensor_id + ' offline. Bitte ' + $parameter + ' manuell messen und eingeben.',
-                    due_date: date(),
-                    priority: 'high',
-                    status: 'pending',
-                    created_at: datetime(),
-                    requires_photo: false,
-                    estimated_duration_minutes: 5
-                })
-                
-                // Verknüpfe mit Pflanzen an diesem Standort
-                WITH task, location
-                MATCH (location)-[:HAS_SLOT]->(slot:Slot)<-[:PLACED_IN]-(plant:PlantInstance)
-                CREATE (plant)-[:HAS_TASK]->(task)
-                
-                RETURN task.task_id AS task_id
-            """, sensor_id=sensor_id, parameter=parameter, location_id=location_id).single()
-            
-            return result['task_id'] if result else None
+        # Erstelle Task und verknüpfe mit Pflanzen via AQL
+        cursor = self.db.aql.execute("""
+            // Erstelle Task
+            LET new_task_key = UUID()
+            INSERT {
+                _key: new_task_key,
+                task_id: new_task_key,
+                name: CONCAT('Manuelle ', @parameter, ' Messung'),
+                category: 'manual_measurement',
+                instruction: CONCAT('Sensor ', @sensor_id,
+                    ' offline. Bitte ', @parameter,
+                    ' manuell messen und eingeben.'),
+                due_date: DATE_FORMAT(DATE_NOW(), "%yyyy-%mm-%dd"),
+                priority: 'high',
+                status: 'pending',
+                created_at: DATE_NOW(),
+                requires_photo: false,
+                estimated_duration_minutes: 5
+            } INTO tasks
+            LET new_task = NEW
+
+            // Verknüpfe mit Pflanzen an diesem Standort
+            FOR location IN locations
+              FILTER location._key == @location_id
+              FOR slot IN 1..1 OUTBOUND location has_slot
+                FOR plant IN 1..1 INBOUND slot placed_in
+                  INSERT { _from: plant._id, _to: new_task._id } INTO has_task
+
+            RETURN new_task.task_id
+        """, bind_vars={
+            'sensor_id': sensor_id,
+            'parameter': parameter,
+            'location_id': location_id
+        })
+
+        result = next(cursor, None)
+        return result if result else None
 ```
 
 **4. Manual Input Validator:**
@@ -1073,7 +1136,7 @@ class ManualInputValidator:
 ### Datenvalidierung (Type Hinting):
 ```python
 from typing import Literal, Optional, List
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime, date
 
 SensorType = Literal['physical', 'virtual', 'calculated']
@@ -1100,13 +1163,15 @@ class SensorDefinition(BaseModel):
     sensor_model: Optional[str] = None
     accuracy_percent: Optional[float] = Field(None, ge=0, le=100)
     
-    @validator('calibration_factor')
+    @field_validator('calibration_factor')
+    @classmethod
     def validate_reasonable_calibration(cls, v):
         if not (0.5 <= v <= 2.0):
             raise ValueError("Calibration factor außerhalb vernünftigem Bereich (0.5-2.0)")
         return v
     
-    @validator('ha_entity_id')
+    @field_validator('ha_entity_id')
+    @classmethod
     def validate_ha_entity(cls, v):
         if v and not v.startswith(('sensor.', 'binary_sensor.')):
             raise ValueError("HA Entity muss mit 'sensor.' oder 'binary_sensor.' beginnen")
@@ -1124,9 +1189,10 @@ class CalibrationRecord(BaseModel):
     calibration_solution: Optional[str] = None
     notes: Optional[str] = Field(None, max_length=500)
     
-    @validator('measured_values')
-    def validate_value_count_match(cls, v, values):
-        ref_vals = values.get('reference_values', [])
+    @field_validator('measured_values')
+    @classmethod
+    def validate_value_count_match(cls, v, info):
+        ref_vals = info.data.get('reference_values', [])
         if len(v) != len(ref_vals):
             raise ValueError("Anzahl measured_values muss reference_values entsprechen")
         return v
@@ -1180,7 +1246,7 @@ class CalibrationRecord(BaseModel):
 **Erforderliche externe Systeme:**
 - Home Assistant (optional, für Auto-Mode)
 - MQTT Broker (optional, z.B. Mosquitto)
-- TimescaleDB oder InfluxDB (empfohlen für Zeitreihen)
+- TimescaleDB (empfohlen für Zeitreihen)
 
 **Erforderliche Module:**
 - REQ-003 (Phasen): RequirementProfile für Soll-Ist-Vergleich
@@ -1197,7 +1263,7 @@ class CalibrationRecord(BaseModel):
 - `requests` - HTTP für HA REST API
 - `paho-mqtt` - MQTT Client
 - `websocket-client` - HA WebSocket
-- `influxdb-client` oder `timescaledb` - Zeitreihen-DB
+- `psycopg2` / `asyncpg` - TimescaleDB-Client (PostgreSQL)
 
 ## 5. Akzeptanzkriterien
 
@@ -1233,7 +1299,7 @@ THEN:
   - SensorReading mit value=24.5°C, source='ha_auto' wird erstellt
   - timestamp = HA last_updated
   - quality_score = 1.0 (Auto-Source, aktuelle Daten)
-  - Observation wird in Neo4j gespeichert
+  - Observation wird in ArangoDB gespeichert
 ```
 
 **Szenario 2: Sensor-Ausfall mit Auto-Task**

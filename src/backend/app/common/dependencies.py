@@ -20,12 +20,14 @@ from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.species_repository import ArangoSpeciesRepository
 from app.data_access.arango.substrate_repository import ArangoSubstrateRepository
 from app.data_access.arango.tank_repository import ArangoTankRepository
+from app.data_access.arango.watering_repository import ArangoWateringRepository
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.engines.enrichment_engine import EnrichmentEngine
 from app.domain.engines.nutrient_plan_engine import NutrientPlanValidator
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.engines.tank_engine import TankEngine
+from app.domain.engines.watering_engine import WateringEngine
 from app.domain.services.enrichment_service import EnrichmentService
 from app.domain.services.feeding_service import FeedingService
 from app.domain.services.fertilizer_service import FertilizerService
@@ -37,6 +39,7 @@ from app.domain.services.site_service import SiteService
 from app.domain.services.species_service import SpeciesService
 from app.domain.services.substrate_service import SubstrateService
 from app.domain.services.tank_service import TankService
+from app.domain.services.watering_service import WateringService
 
 _connection: ArangoConnection | None = None
 
@@ -164,6 +167,14 @@ def get_nutrient_plan_service() -> NutrientPlanService:
 
 def get_feeding_service() -> FeedingService:
     return FeedingService(get_feeding_repo())
+
+
+def get_watering_repo() -> ArangoWateringRepository:
+    return ArangoWateringRepository(get_db())
+
+
+def get_watering_service() -> WateringService:
+    return WateringService(get_watering_repo(), WateringEngine(), get_site_repo())
 
 
 def close_connection() -> None:

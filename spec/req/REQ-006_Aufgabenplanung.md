@@ -5,7 +5,7 @@ ID: REQ-006
 Titel: Modulare Aufgabenplanung & Benutzerdefinierte Workflows
 Kategorie: Prozessmanagement
 Fokus: Beides
-Technologie: Python, GraphDB (Neo4j), Celery (Task Scheduling)
+Technologie: Python, ArangoDB, Celery (Task Scheduling)
 Status: Entwurf
 Version: 2.0 (Maximal Erweitert)
 ```
@@ -62,7 +62,7 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
 - **Photoperiod-Sensitivity:** Keine HST während Blüte-Transition
 - **Hermaphroditism-Risk:** Cannabis reagiert auf Stress mit Zwitter-Bildung
 
-## 2. GraphDB-Modellierung
+## 2. ArangoDB-Graph-Modellierung
 
 ### Nodes:
 - **`:WorkflowTemplate`** - Wiederverwendbarer Workflow
@@ -155,277 +155,351 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
     - `created_at: datetime`
 
 ### Edges:
-```cypher
-(:WorkflowTemplate)-[:CONTAINS {sequence: int}]->(:TaskTemplate)
-(:TaskTemplate)-[:REQUIRES_PHASE]->(:GrowthPhase)
-(:TaskTemplate)-[:DEPENDS_ON]->(:TaskDependency)->(:TaskTemplate)
-(:TaskTemplate)-[:INCOMPATIBLE_WITH]->(:TaskTemplate)  // Nicht zusammen ausführbar
-(:PlantInstance)-[:FOLLOWS]->(:WorkflowTemplate)
-(:PlantInstance)-[:EXECUTING]->(:WorkflowExecution)
-(:WorkflowExecution)-[:GENERATED]->(:Task)
-(:Task)-[:INSTANCE_OF]->(:TaskTemplate)
-(:PlantInstance)-[:HAS_TASK]->(:Task)
-(:Task)-[:BLOCKS]->(:Task)  // Konkrete Dependency-Chain
-(:Task)-[:COMPLETED_BY {timestamp: datetime}]->(:User)
-(:Task)-[:HAS_COMMENT]->(:TaskComment)-[:WRITTEN_BY]->(:User)
-(:WorkflowTemplate)-[:RATED_BY {rating: int, timestamp: datetime}]->(:User)
+```
+Edge Collections im Graph 'kamerplanter_graph':
+
+contains:          WorkflowTemplates -> TaskTemplates        {sequence: int}
+requires_phase:    TaskTemplates -> GrowthPhases
+depends_on:        TaskTemplates -> TaskDependencies -> TaskTemplates
+incompatible_with: TaskTemplates -> TaskTemplates             // Nicht zusammen ausführbar
+follows:           PlantInstances -> WorkflowTemplates
+executing:         PlantInstances -> WorkflowExecutions
+generated:         WorkflowExecutions -> Tasks
+instance_of:       Tasks -> TaskTemplates
+has_task:          PlantInstances -> Tasks
+blocks:            Tasks -> Tasks                             // Konkrete Dependency-Chain
+completed_by:      Tasks -> Users                             {timestamp: datetime}
+has_comment:       Tasks -> TaskComments
+written_by:        TaskComments -> Users
+rated_by:          WorkflowTemplates -> Users                 {rating: int, timestamp: datetime}
 ```
 
-### Cypher-Beispiellogik:
+### AQL-Beispiellogik:
 
 **Task-Queue mit Priorisierung:**
-```cypher
-MATCH (plant:PlantInstance)-[:HAS_TASK]->(task:Task)
-WHERE task.status = 'pending'
+```aql
+// Task-Queue: Alle pending Tasks mit Priorisierung
+FOR plant IN PlantInstances
+  FOR task IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['has_task'] }
+    FILTER task.status == 'pending'
 
-// Berechne Dringlichkeit
-WITH plant, task,
-     CASE
-       WHEN task.due_date < date() THEN 'OVERDUE'
-       WHEN task.due_date = date() THEN 'TODAY'
-       WHEN task.due_date <= date() + duration('P3D') THEN 'THIS_WEEK'
-       ELSE 'FUTURE'
-     END AS urgency,
-     date() - task.due_date AS days_overdue
+    // Berechne Dringlichkeit
+    LET urgency = (
+      task.due_date < DATE_NOW() ? 'OVERDUE' :
+      task.due_date == DATE_ISO8601(DATE_NOW()) ? 'TODAY' :
+      task.due_date <= DATE_ADD(DATE_NOW(), 3, 'day') ? 'THIS_WEEK' :
+      'FUTURE'
+    )
+    LET days_overdue = DATE_DIFF(task.due_date, DATE_NOW(), 'day')
 
-// Prüfe ob Task blockiert ist
-OPTIONAL MATCH (task)<-[:BLOCKS]-(blocker:Task)
-WHERE blocker.status != 'completed'
+    // Prüfe ob Task blockiert ist
+    LET blocking_tasks = (
+      FOR blocker IN 1..1 INBOUND task GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['blocks'] }
+        FILTER blocker.status != 'completed'
+        RETURN blocker
+    )
+    FILTER LENGTH(blocking_tasks) == 0  // Nur nicht-blockierte Tasks
 
-WITH plant, task, urgency, days_overdue,
-     COLLECT(blocker) AS blocking_tasks
+    // Score für Sortierung
+    LET priority_score = (
+      task.priority == 'critical' ? 100 :
+      task.priority == 'high' ? 75 :
+      task.priority == 'medium' ? 50 :
+      25
+    )
+    LET urgency_score = (
+      urgency == 'OVERDUE' ? 1000 :
+      urgency == 'TODAY' ? 500 :
+      urgency == 'THIS_WEEK' ? 100 :
+      10
+    )
+    LET total_score = priority_score + urgency_score + (days_overdue * 10)
 
-WHERE SIZE(blocking_tasks) = 0  // Nur nicht-blockierte Tasks
+    SORT total_score DESC, task.due_date ASC
+    LIMIT 20
 
-// Score für Sortierung
-WITH plant, task, urgency, days_overdue,
-     CASE task.priority
-       WHEN 'critical' THEN 100
-       WHEN 'high' THEN 75
-       WHEN 'medium' THEN 50
-       WHEN 'low' THEN 25
-     END AS priority_score,
-     CASE urgency
-       WHEN 'OVERDUE' THEN 1000
-       WHEN 'TODAY' THEN 500
-       WHEN 'THIS_WEEK' THEN 100
-       ELSE 10
-     END AS urgency_score
-
-WITH plant, task, urgency, days_overdue,
-     priority_score + urgency_score + (days_overdue * 10) AS total_score
-
-RETURN task.task_id,
-       task.name,
-       plant.instance_id AS plant,
-       task.due_date,
-       urgency,
-       days_overdue,
-       task.priority,
-       total_score,
-       task.estimated_duration_minutes
-
-ORDER BY total_score DESC, task.due_date ASC
-LIMIT 20
+    RETURN {
+      task_id: task.task_id,
+      name: task.name,
+      plant: plant.instance_id,
+      due_date: task.due_date,
+      urgency: urgency,
+      days_overdue: days_overdue,
+      priority: task.priority,
+      total_score: total_score,
+      estimated_duration_minutes: task.estimated_duration_minutes
+    }
 ```
 
 **Workflow-Instantiation mit Dependency-Resolution:**
-```cypher
-// 1. Lade Workflow-Template
-MATCH (wf:WorkflowTemplate {template_id: $template_id})
-      -[contains:CONTAINS]->(tt:TaskTemplate)
+```aql
+// 1. Lade Workflow-Template mit Tasks und Dependencies
+LET wf = DOCUMENT('WorkflowTemplates', @template_id)
 
-// 2. Sammle Dependencies
-OPTIONAL MATCH (tt)-[:DEPENDS_ON]->(dep:TaskDependency)->(dep_tt:TaskTemplate)
+LET tasks_data = (
+  FOR tt, contains_edge IN 1..1 OUTBOUND wf GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['contains'] }
+    LET dependencies = (
+      FOR dep, dep_edge IN 1..1 OUTBOUND tt GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['depends_on'] }
+        FOR dep_tt IN 1..1 OUTBOUND dep GRAPH 'kamerplanter_graph'
+          OPTIONS { edgeCollections: ['depends_on'] }
+          RETURN {
+            dep_template: dep_tt.task_template_id,
+            min_delay: dep.min_delay_days,
+            strict: dep.strict
+          }
+    )
+    SORT contains_edge.sequence ASC
+    RETURN { template: tt, seq: contains_edge.sequence, deps: dependencies }
+)
 
-WITH wf, tt, contains.sequence AS sequence,
-     COLLECT({
-       dep_template: dep_tt.task_template_id,
-       min_delay: dep.min_delay_days,
-       strict: dep.strict
-     }) AS dependencies
+// 2. Erstelle Workflow-Execution
+LET exec = FIRST(
+  INSERT {
+    execution_id: UUID(),
+    started_at: DATE_ISO8601(DATE_NOW()),
+    completion_percentage: 0,
+    on_schedule: true,
+    days_ahead_behind: 0
+  } INTO WorkflowExecutions
+  RETURN NEW
+)
 
-ORDER BY sequence
+// 3. Verknüpfe mit Plant
+LET plant = FIRST(
+  FOR p IN PlantInstances FILTER p.instance_id == @plant_id RETURN p
+)
+INSERT { _from: plant._id, _to: exec._id } INTO executing
+INSERT { _from: plant._id, _to: wf._id } INTO follows
 
-// 3. Erstelle Workflow-Execution
-CREATE (exec:WorkflowExecution {
-  execution_id: randomUUID(),
-  started_at: datetime(),
-  completion_percentage: 0,
-  on_schedule: true,
-  days_ahead_behind: 0
-})
+// 4. Erstelle Task-Instanzen
+LET created_tasks = (
+  FOR task_data IN tasks_data
+    LET tt = task_data.template
 
-// 4. Verknüpfe mit Plant
-WITH wf, exec, COLLECT({template: tt, seq: sequence, deps: dependencies}) AS tasks_data
-MATCH (plant:PlantInstance {instance_id: $plant_id})
-CREATE (plant)-[:EXECUTING]->(exec)
-CREATE (plant)-[:FOLLOWS]->(wf)
+    // Berechne Due-Date basierend auf Trigger
+    LET calculated_due_date = (
+      tt.trigger_type == 'phase_entry' ? DATE_ISO8601(DATE_NOW()) :
+      tt.trigger_type == 'days_after_planting'
+        ? DATE_ADD(plant.planted_on, tt.days_offset, 'day') :
+      tt.trigger_type == 'days_after_phase'
+        ? DATE_ADD(DATE_NOW(), tt.days_offset, 'day') :
+      DATE_ADD(DATE_NOW(), 7, 'day')
+    )
 
-// 5. Erstelle Task-Instanzen
-UNWIND tasks_data AS task_data
+    LET new_task = FIRST(
+      INSERT {
+        task_id: UUID(),
+        name: tt.name,
+        instruction: tt.instruction,
+        category: tt.category,
+        due_date: calculated_due_date,
+        status: 'pending',
+        priority: (
+          tt.stress_level == 'high' ? 'high' :
+          tt.stress_level == 'medium' ? 'medium' :
+          'low'
+        ),
+        created_at: DATE_ISO8601(DATE_NOW()),
+        estimated_duration_minutes: tt.estimated_duration_minutes,
+        requires_photo: tt.requires_photo
+      } INTO Tasks
+      RETURN NEW
+    )
 
-WITH exec, plant, task_data,
-     task_data.template AS tt
+    // Verknüpfe Task mit Execution, Template und Plant
+    INSERT { _from: exec._id, _to: new_task._id } INTO generated
+    INSERT { _from: new_task._id, _to: tt._id } INTO instance_of
+    INSERT { _from: plant._id, _to: new_task._id } INTO has_task
 
-// Berechne Due-Date basierend auf Trigger
-WITH exec, plant, task_data, tt,
-     CASE tt.trigger_type
-       WHEN 'phase_entry' THEN date()
-       WHEN 'days_after_planting' THEN date(plant.planted_on) + duration({days: tt.days_offset})
-       WHEN 'days_after_phase' THEN date() + duration({days: tt.days_offset})
-       ELSE date() + duration({days: 7})
-     END AS calculated_due_date
+    RETURN { task: new_task, template_id: tt.task_template_id, deps: task_data.deps }
+)
 
-CREATE (task:Task {
-  task_id: randomUUID(),
-  name: tt.name,
-  instruction: tt.instruction,
-  category: tt.category,
-  due_date: calculated_due_date,
-  status: 'pending',
-  priority: CASE tt.stress_level
-    WHEN 'high' THEN 'high'
-    WHEN 'medium' THEN 'medium'
-    ELSE 'low'
-  END,
-  created_at: datetime(),
-  estimated_duration_minutes: tt.estimated_duration_minutes,
-  requires_photo: tt.requires_photo
-})
-
-CREATE (exec)-[:GENERATED]->(task)
-CREATE (task)-[:INSTANCE_OF]->(tt)
-CREATE (plant)-[:HAS_TASK]->(task)
-
-// 6. Erstelle Dependency-Ketten
-WITH exec, task_data
-UNWIND task_data.deps AS dep_info
-
-MATCH (exec)-[:GENERATED]->(task:Task)-[:INSTANCE_OF]->(:TaskTemplate {task_template_id: task_data.template.task_template_id})
-MATCH (exec)-[:GENERATED]->(dep_task:Task)-[:INSTANCE_OF]->(:TaskTemplate {task_template_id: dep_info.dep_template})
-
-CREATE (dep_task)-[:BLOCKS {min_delay_days: dep_info.min_delay, strict: dep_info.strict}]->(task)
-
-RETURN exec.execution_id AS execution_id,
-       COUNT(DISTINCT task) AS tasks_created
-```
-
-**HST-Validation (High-Stress Training):**
-```cypher
-MATCH (plant:PlantInstance {instance_id: $plant_id})
-      -[:CURRENT_PHASE]->(phase:GrowthPhase)
-
-// Prüfe ob Task HST ist
-WITH plant, phase,
-     $task_name AS task_name,
-     $task_category AS task_category
-
-// HST-Tasks die in Blüte verboten sind
-WITH plant, phase, task_name, task_category,
-     ['topping', 'fim', 'supercropping', 'transplant', 'heavy_defoliation'] AS forbidden_in_flower
-
-// Prüfe ob Phase flowering/ripening ist
-WITH plant, phase, task_name, task_category, forbidden_in_flower,
-     phase.name IN ['flowering', 'early_flowering', 'late_flowering', 'ripening'] AS is_flower_phase
-
-// Prüfe ob Task in Forbidden-Liste
-WITH plant, phase, task_name, task_category, is_flower_phase,
-     ANY(forbidden IN forbidden_in_flower WHERE toLower(task_name) CONTAINS forbidden) AS is_forbidden_hst
-
-// Prüfe letzte HST-Tasks (Recovery-Zeit)
-OPTIONAL MATCH (plant)-[:HAS_TASK]->(recent_hst:Task)
-WHERE recent_hst.category = 'training'
-  AND recent_hst.status = 'completed'
-  AND recent_hst.completed_at > datetime() - duration('P7D')
-
-WITH plant, phase, task_name, is_flower_phase, is_forbidden_hst,
-     COUNT(recent_hst) AS recent_hst_count,
-     MIN(duration.between(recent_hst.completed_at, datetime()).inDays) AS days_since_last_hst
-
-RETURN {
-  can_perform: NOT (is_flower_phase AND is_forbidden_hst),
-  phase: phase.name,
-  is_flower_phase: is_flower_phase,
-  is_hst_task: is_forbidden_hst,
-  reason: CASE
-    WHEN is_flower_phase AND is_forbidden_hst 
-      THEN 'KRITISCH: ' + task_name + ' in Blüte-Phase führt zu Hermaphroditismus und Stress'
-    WHEN recent_hst_count > 0 AND days_since_last_hst < 3
-      THEN 'WARNUNG: Nur ' + toString(days_since_last_hst) + ' Tage seit letztem HST - empfohlen: 7 Tage Recovery'
-    ELSE 'OK'
-  END,
-  recovery_status: CASE
-    WHEN days_since_last_hst IS NULL THEN 'no_recent_hst'
-    WHEN days_since_last_hst < 3 THEN 'insufficient_recovery'
-    WHEN days_since_last_hst < 7 THEN 'partial_recovery'
-    ELSE 'full_recovery'
-  END
-} AS validation
-```
-
-**Dynamic Rescheduling bei Verzögerung:**
-```cypher
-MATCH (completed_task:Task {task_id: $completed_task_id})
-WHERE completed_task.status = 'completed'
-
-// Berechne Verzögerung
-WITH completed_task,
-     duration.between(date(completed_task.due_date), date(completed_task.completed_at)).days AS delay_days
-
-WHERE delay_days > 0
-
-// Finde alle abhängigen Tasks
-MATCH (completed_task)-[:BLOCKS*]->(dependent:Task)
-WHERE dependent.status = 'pending'
-
-// Verschiebe Due-Date
-SET dependent.due_date = dependent.due_date + duration({days: delay_days})
-
-// Update Workflow-Execution Status
-WITH completed_task, delay_days, COLLECT(dependent) AS dependents
-MATCH (plant:PlantInstance)-[:HAS_TASK]->(completed_task)
-MATCH (plant)-[:EXECUTING]->(exec:WorkflowExecution)
-
-SET exec.on_schedule = false,
-    exec.days_ahead_behind = exec.days_ahead_behind - delay_days
-
-RETURN {
-  delayed_by_days: delay_days,
-  rescheduled_tasks: SIZE(dependents),
-  new_execution_status: exec.on_schedule,
-  total_delay: exec.days_ahead_behind
-} AS result
-```
-
-**Workflow-Progress-Tracking:**
-```cypher
-MATCH (plant:PlantInstance {instance_id: $plant_id})
-      -[:EXECUTING]->(exec:WorkflowExecution)
-      -[:GENERATED]->(task:Task)
-
-WITH exec,
-     COUNT(task) AS total_tasks,
-     COUNT(CASE WHEN task.status = 'completed' THEN 1 END) AS completed_tasks,
-     COUNT(CASE WHEN task.status = 'pending' AND task.due_date < date() THEN 1 END) AS overdue_tasks,
-     AVG(CASE WHEN task.status = 'completed' THEN task.actual_duration_minutes ELSE null END) AS avg_duration
-
-WITH exec, total_tasks, completed_tasks, overdue_tasks, avg_duration,
-     (toFloat(completed_tasks) / total_tasks * 100) AS completion_percentage
-
-SET exec.completion_percentage = completion_percentage
+// 5. Erstelle Dependency-Ketten
+FOR ct IN created_tasks
+  FOR dep_info IN ct.deps
+    LET dep_task = FIRST(
+      FOR other IN created_tasks
+        FILTER other.template_id == dep_info.dep_template
+        RETURN other.task
+    )
+    FILTER dep_task != null
+    INSERT {
+      _from: dep_task._id,
+      _to: ct.task._id,
+      min_delay_days: dep_info.min_delay,
+      strict: dep_info.strict
+    } INTO blocks
 
 RETURN {
   execution_id: exec.execution_id,
-  total_tasks: total_tasks,
-  completed: completed_tasks,
-  pending: total_tasks - completed_tasks,
-  overdue: overdue_tasks,
-  completion_percent: round(completion_percentage, 1),
-  avg_task_duration_min: round(avg_duration, 0),
-  on_schedule: exec.on_schedule,
-  days_offset: exec.days_ahead_behind
-} AS progress
+  tasks_created: LENGTH(created_tasks)
+}
+```
+
+**HST-Validation (High-Stress Training):**
+```aql
+// HST-Validation: Prüfe ob High-Stress Training erlaubt ist
+FOR plant IN PlantInstances
+  FILTER plant.instance_id == @plant_id
+
+  // Hole aktuelle Phase
+  LET phase = FIRST(
+    FOR p IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+      OPTIONS { edgeCollections: ['current_phase'] }
+      RETURN p
+  )
+
+  LET task_name = @task_name
+  LET task_category = @task_category
+
+  // HST-Tasks die in Blüte verboten sind
+  LET forbidden_in_flower = ['topping', 'fim', 'supercropping', 'transplant', 'heavy_defoliation']
+
+  // Prüfe ob Phase flowering/ripening ist
+  LET is_flower_phase = phase.name IN ['flowering', 'early_flowering', 'late_flowering', 'ripening']
+
+  // Prüfe ob Task in Forbidden-Liste
+  LET is_forbidden_hst = LENGTH(
+    FOR forbidden IN forbidden_in_flower
+      FILTER CONTAINS(LOWER(task_name), forbidden)
+      RETURN 1
+  ) > 0
+
+  // Prüfe letzte HST-Tasks (Recovery-Zeit)
+  LET recent_hst_tasks = (
+    FOR recent_hst IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+      OPTIONS { edgeCollections: ['has_task'] }
+      FILTER recent_hst.category == 'training'
+        AND recent_hst.status == 'completed'
+        AND recent_hst.completed_at > DATE_SUBTRACT(DATE_NOW(), 7, 'day')
+      RETURN recent_hst
+  )
+  LET recent_hst_count = LENGTH(recent_hst_tasks)
+  LET days_since_last_hst = (
+    recent_hst_count > 0
+      ? MIN(FOR h IN recent_hst_tasks RETURN DATE_DIFF(h.completed_at, DATE_NOW(), 'day'))
+      : null
+  )
+
+  RETURN {
+    can_perform: NOT (is_flower_phase AND is_forbidden_hst),
+    phase: phase.name,
+    is_flower_phase: is_flower_phase,
+    is_hst_task: is_forbidden_hst,
+    reason: (
+      is_flower_phase AND is_forbidden_hst
+        ? CONCAT('KRITISCH: ', task_name, ' in Blüte-Phase führt zu Hermaphroditismus und Stress')
+        : (recent_hst_count > 0 AND days_since_last_hst < 3
+            ? CONCAT('WARNUNG: Nur ', TO_STRING(days_since_last_hst), ' Tage seit letztem HST - empfohlen: 7 Tage Recovery')
+            : 'OK')
+    ),
+    recovery_status: (
+      days_since_last_hst == null ? 'no_recent_hst' :
+      days_since_last_hst < 3 ? 'insufficient_recovery' :
+      days_since_last_hst < 7 ? 'partial_recovery' :
+      'full_recovery'
+    )
+  }
+```
+
+**Dynamic Rescheduling bei Verzögerung:**
+```aql
+// Dynamic Rescheduling: Verschiebe abhängige Tasks bei Verzögerung
+LET completed_task = FIRST(
+  FOR t IN Tasks
+    FILTER t.task_id == @completed_task_id AND t.status == 'completed'
+    RETURN t
+)
+
+// Berechne Verzögerung
+LET delay_days = DATE_DIFF(completed_task.due_date, completed_task.completed_at, 'day')
+
+// Finde alle abhängigen Tasks (transitive Traversierung)
+LET dependents = (
+  FILTER delay_days > 0
+  FOR dependent IN 1..10 OUTBOUND completed_task GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['blocks'] }
+    FILTER dependent.status == 'pending'
+
+    // Verschiebe Due-Date
+    UPDATE dependent WITH {
+      due_date: DATE_ADD(dependent.due_date, delay_days, 'day')
+    } IN Tasks
+    RETURN NEW
+)
+
+// Update Workflow-Execution Status
+LET plant = FIRST(
+  FOR p IN 1..1 INBOUND completed_task GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['has_task'] }
+    RETURN p
+)
+LET exec = FIRST(
+  FOR e IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['executing'] }
+    UPDATE e WITH {
+      on_schedule: false,
+      days_ahead_behind: e.days_ahead_behind - delay_days
+    } IN WorkflowExecutions
+    RETURN NEW
+)
+
+RETURN {
+  delayed_by_days: delay_days,
+  rescheduled_tasks: LENGTH(dependents),
+  new_execution_status: exec.on_schedule,
+  total_delay: exec.days_ahead_behind
+}
+```
+
+**Workflow-Progress-Tracking:**
+```aql
+// Workflow-Progress-Tracking
+FOR plant IN PlantInstances
+  FILTER plant.instance_id == @plant_id
+
+  FOR exec IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['executing'] }
+
+    LET tasks = (
+      FOR task IN 1..1 OUTBOUND exec GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['generated'] }
+        RETURN task
+    )
+
+    LET total_tasks = LENGTH(tasks)
+    LET completed_tasks = LENGTH(FOR t IN tasks FILTER t.status == 'completed' RETURN 1)
+    LET overdue_tasks = LENGTH(
+      FOR t IN tasks
+        FILTER t.status == 'pending' AND t.due_date < DATE_ISO8601(DATE_NOW())
+        RETURN 1
+    )
+    LET avg_duration = AVERAGE(
+      FOR t IN tasks
+        FILTER t.status == 'completed' AND t.actual_duration_minutes != null
+        RETURN t.actual_duration_minutes
+    )
+
+    LET completion_percentage = (total_tasks > 0 ? (completed_tasks / total_tasks * 100) : 0)
+
+    // Update Execution mit aktuellem Fortschritt
+    UPDATE exec WITH { completion_percentage: completion_percentage } IN WorkflowExecutions
+
+    RETURN {
+      execution_id: exec.execution_id,
+      total_tasks: total_tasks,
+      completed: completed_tasks,
+      pending: total_tasks - completed_tasks,
+      overdue: overdue_tasks,
+      completion_percent: ROUND(completion_percentage, 1),
+      avg_task_duration_min: ROUND(avg_duration, 0),
+      on_schedule: exec.on_schedule,
+      days_offset: exec.days_ahead_behind
+    }
 ```
 
 ## 3. Technische Umsetzung (Python)
@@ -434,7 +508,7 @@ RETURN {
 
 **1. Task Template System:**
 ```python
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional, List
 from datetime import date, datetime, timedelta
 
@@ -459,17 +533,19 @@ class TaskTemplate(BaseModel):
     video_tutorial_url: Optional[str] = None
     safety_notes: Optional[str] = None
     
-    @validator('days_offset')
-    def validate_days_offset_for_trigger(cls, v, values):
-        trigger = values.get('trigger_type')
+    @field_validator('days_offset')
+    @classmethod
+    def validate_days_offset_for_trigger(cls, v, info):
+        trigger = info.data.get('trigger_type')
         if trigger in ['days_after_phase', 'days_after_planting']:
             if v is None:
                 raise ValueError(f"days_offset erforderlich für {trigger}")
         return v
     
-    @validator('trigger_phase')
-    def validate_phase_for_trigger(cls, v, values):
-        trigger = values.get('trigger_type')
+    @field_validator('trigger_phase')
+    @classmethod
+    def validate_phase_for_trigger(cls, v, info):
+        trigger = info.data.get('trigger_type')
         if trigger in ['phase_entry', 'days_after_phase']:
             if not v:
                 raise ValueError(f"trigger_phase erforderlich für {trigger}")
@@ -538,14 +614,16 @@ class WorkflowTemplate(BaseModel):
     category: Literal['training', 'maintenance', 'harvest', 'custom']
     tags: List[str] = Field(default_factory=list)
     
-    @validator('version')
+    @field_validator('version')
+    @classmethod
     def validate_semver(cls, v):
         parts = v.split('.')
         if len(parts) != 3 or not all(p.isdigit() for p in parts):
             raise ValueError("Version muss Semantic Versioning folgen (X.Y.Z)")
         return v
     
-    @validator('species_compatible')
+    @field_validator('species_compatible')
+    @classmethod
     def validate_scientific_names(cls, v):
         for name in v:
             parts = name.split()
@@ -718,10 +796,10 @@ from datetime import date, datetime
 
 class WorkflowExecutor:
     """Generiert konkrete Tasks aus Templates"""
-    
-    def __init__(self, neo4j_driver):
-        self.driver = neo4j_driver
-    
+
+    def __init__(self, arango_db):
+        self.db = arango_db
+
     def instantiate_workflow(
         self,
         plant_id: str,
@@ -730,7 +808,7 @@ class WorkflowExecutor:
     ) -> dict:
         """
         Erstellt Task-Instanzen aus Workflow-Template
-        
+
         Returns:
             {
                 execution_id: str,
@@ -741,46 +819,61 @@ class WorkflowExecutor:
         """
         if not start_date:
             start_date = date.today()
-        
-        with self.driver.session() as session:
-            # Hole Plant-Info
-            plant = session.run("""
-                MATCH (p:PlantInstance {instance_id: $plant_id})
-                OPTIONAL MATCH (p)-[:CURRENT_PHASE]->(phase:GrowthPhase)
-                RETURN p.planted_on AS planted_on,
-                       p.instance_id AS instance_id,
-                       phase.name AS current_phase,
-                       datetime() AS current_phase_entered_at
-            """, plant_id=plant_id).single()
-            
-            if not plant:
-                raise ValueError(f"Plant {plant_id} nicht gefunden")
-            
-            plant_data = {
-                'planted_on': plant['planted_on'],
-                'instance_id': plant['instance_id'],
-                'current_phase': plant['current_phase'],
-                'current_phase_entered_at': plant['current_phase_entered_at']
-            }
-            
-            # Hole Workflow-Template mit Tasks
-            result = session.run("""
-                MATCH (wf:WorkflowTemplate {template_id: $wf_id})
-                      -[contains:CONTAINS]->(tt:TaskTemplate)
-                OPTIONAL MATCH (tt)-[:DEPENDS_ON]->(dep:TaskDependency)
-                      ->(dep_tt:TaskTemplate)
-                RETURN wf,
-                       COLLECT({
-                         template: tt,
-                         sequence: contains.sequence,
-                         dependencies: COLLECT({
-                           dep_template_id: dep_tt.task_template_id,
-                           min_delay_days: dep.min_delay_days,
-                           strict: dep.strict
-                         })
-                       }) AS tasks_data
-                ORDER BY contains.sequence
-            """, wf_id=workflow_template_id).single()
+
+        # Hole Plant-Info
+        plant = self.db.aql.execute("""
+            FOR p IN PlantInstances
+              FILTER p.instance_id == @plant_id
+              LET phase = FIRST(
+                FOR ph IN 1..1 OUTBOUND p GRAPH 'kamerplanter_graph'
+                  OPTIONS { edgeCollections: ['current_phase'] }
+                  RETURN ph
+              )
+              RETURN {
+                planted_on: p.planted_on,
+                instance_id: p.instance_id,
+                current_phase: phase.name,
+                current_phase_entered_at: DATE_ISO8601(DATE_NOW())
+              }
+        """, bind_vars={'plant_id': plant_id}).next()
+
+        if not plant:
+            raise ValueError(f"Plant {plant_id} nicht gefunden")
+
+        plant_data = {
+            'planted_on': plant['planted_on'],
+            'instance_id': plant['instance_id'],
+            'current_phase': plant['current_phase'],
+            'current_phase_entered_at': plant['current_phase_entered_at']
+        }
+
+        # Hole Workflow-Template mit Tasks
+        result = self.db.aql.execute("""
+            FOR wf IN WorkflowTemplates
+              FILTER wf.template_id == @wf_id
+              LET tasks_data = (
+                FOR tt, contains_edge IN 1..1 OUTBOUND wf GRAPH 'kamerplanter_graph'
+                  OPTIONS { edgeCollections: ['contains'] }
+                  LET dependencies = (
+                    FOR dep, dep_edge IN 1..1 OUTBOUND tt GRAPH 'kamerplanter_graph'
+                      OPTIONS { edgeCollections: ['depends_on'] }
+                      FOR dep_tt IN 1..1 OUTBOUND dep GRAPH 'kamerplanter_graph'
+                        OPTIONS { edgeCollections: ['depends_on'] }
+                        RETURN {
+                          dep_template_id: dep_tt.task_template_id,
+                          min_delay_days: dep.min_delay_days,
+                          strict: dep.strict
+                        }
+                  )
+                  SORT contains_edge.sequence ASC
+                  RETURN {
+                    template: tt,
+                    sequence: contains_edge.sequence,
+                    dependencies: dependencies
+                  }
+              )
+              RETURN { wf: wf, tasks_data: tasks_data }
+        """, bind_vars={'wf_id': workflow_template_id}).next()
             
             if not result:
                 raise ValueError(f"Workflow-Template {workflow_template_id} nicht gefunden")
@@ -789,7 +882,7 @@ class WorkflowExecutor:
             tasks_data = result['tasks_data']
             
             # Erstelle Workflow-Execution
-            execution_id = self._create_execution(session, plant_id, workflow_template_id)
+            execution_id = self._create_execution(plant_id, workflow_template_id)
             
             # Erstelle Tasks
             created_tasks = []
@@ -804,7 +897,6 @@ class WorkflowExecutor:
                 
                 # Erstelle Task
                 task_id = self._create_task(
-                    session=session,
                     plant_id=plant_id,
                     execution_id=execution_id,
                     template=template,
@@ -832,7 +924,6 @@ class WorkflowExecutor:
                         
                         if dep_task_id and task_id:
                             self._create_dependency(
-                                session,
                                 dep_task_id,
                                 task_id,
                                 dep['min_delay_days']
@@ -846,39 +937,44 @@ class WorkflowExecutor:
                 'dependencies_created': dependencies_count
             }
     
-    def _create_execution(self, session, plant_id: str, template_id: str) -> str:
-        """Erstellt WorkflowExecution-Node"""
-        result = session.run("""
-            CREATE (exec:WorkflowExecution {
-                execution_id: randomUUID(),
-                started_at: datetime(),
+    def _create_execution(self, plant_id: str, template_id: str) -> str:
+        """Erstellt WorkflowExecution-Dokument"""
+        result = self.db.aql.execute("""
+            LET exec = FIRST(
+              INSERT {
+                execution_id: UUID(),
+                started_at: DATE_ISO8601(DATE_NOW()),
                 completion_percentage: 0,
                 on_schedule: true,
                 days_ahead_behind: 0
-            })
-            
-            WITH exec
-            MATCH (plant:PlantInstance {instance_id: $plant_id})
-            MATCH (wf:WorkflowTemplate {template_id: $template_id})
-            
-            CREATE (plant)-[:EXECUTING]->(exec)
-            CREATE (plant)-[:FOLLOWS]->(wf)
-            
-            RETURN exec.execution_id AS execution_id
-        """, plant_id=plant_id, template_id=template_id).single()
-        
-        return result['execution_id']
+              } INTO WorkflowExecutions
+              RETURN NEW
+            )
+
+            LET plant = FIRST(
+              FOR p IN PlantInstances FILTER p.instance_id == @plant_id RETURN p
+            )
+            LET wf = FIRST(
+              FOR w IN WorkflowTemplates FILTER w.template_id == @template_id RETURN w
+            )
+
+            INSERT { _from: plant._id, _to: exec._id } INTO executing
+            INSERT { _from: plant._id, _to: wf._id } INTO follows
+
+            RETURN exec.execution_id
+        """, bind_vars={'plant_id': plant_id, 'template_id': template_id}).next()
+
+        return result
     
     def _create_task(
         self,
-        session,
         plant_id: str,
         execution_id: str,
         template: TaskTemplate,
         due_date: date
     ) -> str:
-        """Erstellt Task-Node aus Template"""
-        
+        """Erstellt Task-Dokument aus Template"""
+
         # Priority aus Stress-Level ableiten
         priority_map = {
             'none': 'low',
@@ -886,77 +982,96 @@ class WorkflowExecutor:
             'medium': 'medium',
             'high': 'high'
         }
-        
-        result = session.run("""
-            MATCH (exec:WorkflowExecution {execution_id: $exec_id})
-            MATCH (plant:PlantInstance {instance_id: $plant_id})
-            MATCH (tt:TaskTemplate {task_template_id: $template_id})
-            
-            CREATE (task:Task {
-                task_id: randomUUID(),
-                name: $name,
-                instruction: $instruction,
-                category: $category,
-                due_date: date($due_date),
+
+        result = self.db.aql.execute("""
+            LET exec = FIRST(
+              FOR e IN WorkflowExecutions FILTER e.execution_id == @exec_id RETURN e
+            )
+            LET plant = FIRST(
+              FOR p IN PlantInstances FILTER p.instance_id == @plant_id RETURN p
+            )
+            LET tt = FIRST(
+              FOR t IN TaskTemplates FILTER t.task_template_id == @template_id RETURN t
+            )
+
+            LET new_task = FIRST(
+              INSERT {
+                task_id: UUID(),
+                name: @name,
+                instruction: @instruction,
+                category: @category,
+                due_date: @due_date,
                 status: 'pending',
-                priority: $priority,
-                created_at: datetime(),
-                estimated_duration_minutes: $duration,
-                requires_photo: $requires_photo,
+                priority: @priority,
+                created_at: DATE_ISO8601(DATE_NOW()),
+                estimated_duration_minutes: @duration,
+                requires_photo: @requires_photo,
                 photo_refs: []
-            })
-            
-            CREATE (exec)-[:GENERATED]->(task)
-            CREATE (task)-[:INSTANCE_OF]->(tt)
-            CREATE (plant)-[:HAS_TASK]->(task)
-            
-            RETURN task.task_id AS task_id
-        """,
-            exec_id=execution_id,
-            plant_id=plant_id,
-            template_id=template.task_template_id,
-            name=template.name,
-            instruction=template.instruction,
-            category=template.category,
-            due_date=due_date.isoformat(),
-            priority=priority_map[template.stress_level],
-            duration=template.estimated_duration_minutes,
-            requires_photo=template.requires_photo
-        ).single()
-        
-        return result['task_id']
+              } INTO Tasks
+              RETURN NEW
+            )
+
+            INSERT { _from: exec._id, _to: new_task._id } INTO generated
+            INSERT { _from: new_task._id, _to: tt._id } INTO instance_of
+            INSERT { _from: plant._id, _to: new_task._id } INTO has_task
+
+            RETURN new_task.task_id
+        """, bind_vars={
+            'exec_id': execution_id,
+            'plant_id': plant_id,
+            'template_id': template.task_template_id,
+            'name': template.name,
+            'instruction': template.instruction,
+            'category': template.category,
+            'due_date': due_date.isoformat(),
+            'priority': priority_map[template.stress_level],
+            'duration': template.estimated_duration_minutes,
+            'requires_photo': template.requires_photo
+        }).next()
+
+        return result
     
     def _create_dependency(
         self,
-        session,
         blocker_task_id: str,
         blocked_task_id: str,
         min_delay_days: int
     ):
-        """Erstellt BLOCKS-Beziehung"""
-        session.run("""
-            MATCH (blocker:Task {task_id: $blocker_id})
-            MATCH (blocked:Task {task_id: $blocked_id})
-            
-            CREATE (blocker)-[:BLOCKS {min_delay_days: $delay}]->(blocked)
-        """, blocker_id=blocker_task_id, blocked_id=blocked_task_id, delay=min_delay_days)
+        """Erstellt blocks-Edge"""
+        self.db.aql.execute("""
+            LET blocker = FIRST(
+              FOR t IN Tasks FILTER t.task_id == @blocker_id RETURN t
+            )
+            LET blocked = FIRST(
+              FOR t IN Tasks FILTER t.task_id == @blocked_id RETURN t
+            )
+            INSERT {
+              _from: blocker._id,
+              _to: blocked._id,
+              min_delay_days: @delay
+            } INTO blocks
+        """, bind_vars={
+            'blocker_id': blocker_task_id,
+            'blocked_id': blocked_task_id,
+            'delay': min_delay_days
+        })
 ```
 
 **4. Dynamic Rescheduler:**
 ```python
 class DynamicRescheduler:
     """Verschiebt nachgelagerte Tasks bei Verzögerungen"""
-    
-    def __init__(self, neo4j_driver):
-        self.driver = neo4j_driver
-    
+
+    def __init__(self, arango_db):
+        self.db = arango_db
+
     def reschedule_dependent_tasks(
         self,
         completed_task_id: str
     ) -> dict:
         """
         Passt Due-Dates abhängiger Tasks an wenn Vorgänger verspätet
-        
+
         Returns:
             {
                 delay_days: int,
@@ -964,95 +1079,96 @@ class DynamicRescheduler:
                 affected_tasks: List[dict]
             }
         """
-        with self.driver.session() as session:
-            # Berechne Verzögerung
-            result = session.run("""
-                MATCH (task:Task {task_id: $task_id})
-                WHERE task.status = 'completed'
-                
-                WITH task,
-                     duration.between(
-                         date(task.due_date),
-                         date(task.completed_at)
-                     ).days AS delay_days
-                
-                RETURN delay_days
-            """, task_id=completed_task_id).single()
-            
-            if not result:
-                return {'delay_days': 0, 'rescheduled_count': 0, 'affected_tasks': []}
-            
-            delay_days = result['delay_days']
-            
-            if delay_days <= 0:
-                return {'delay_days': 0, 'rescheduled_count': 0, 'affected_tasks': []}
-            
-            # Verschiebe abhängige Tasks
-            affected = session.run("""
-                MATCH (completed:Task {task_id: $task_id})
-                      -[:BLOCKS*]->(dependent:Task)
-                WHERE dependent.status = 'pending'
-                
-                WITH dependent, $delay AS delay_days
-                
-                SET dependent.due_date = dependent.due_date + duration({days: delay_days})
-                
-                RETURN dependent.task_id AS task_id,
-                       dependent.name AS name,
-                       dependent.due_date AS new_due_date
-            """, task_id=completed_task_id, delay=delay_days).data()
-            
-            # Update Workflow-Execution Status
-            session.run("""
-                MATCH (task:Task {task_id: $task_id})
-                      <-[:GENERATED]-(exec:WorkflowExecution)
-                
-                SET exec.on_schedule = false,
-                    exec.days_ahead_behind = exec.days_ahead_behind - $delay
-            """, task_id=completed_task_id, delay=delay_days)
-            
-            return {
-                'delay_days': delay_days,
-                'rescheduled_count': len(affected),
-                'affected_tasks': affected
-            }
-    
+        # Berechne Verzögerung
+        result = self.db.aql.execute("""
+            FOR task IN Tasks
+              FILTER task.task_id == @task_id AND task.status == 'completed'
+              LET delay_days = DATE_DIFF(task.due_date, task.completed_at, 'day')
+              RETURN delay_days
+        """, bind_vars={'task_id': completed_task_id}).next()
+
+        if result is None:
+            return {'delay_days': 0, 'rescheduled_count': 0, 'affected_tasks': []}
+
+        delay_days = result
+
+        if delay_days <= 0:
+            return {'delay_days': 0, 'rescheduled_count': 0, 'affected_tasks': []}
+
+        # Verschiebe abhängige Tasks (transitive Traversierung)
+        affected = list(self.db.aql.execute("""
+            LET completed = FIRST(
+              FOR t IN Tasks FILTER t.task_id == @task_id RETURN t
+            )
+            FOR dependent IN 1..10 OUTBOUND completed GRAPH 'kamerplanter_graph'
+              OPTIONS { edgeCollections: ['blocks'] }
+              FILTER dependent.status == 'pending'
+              UPDATE dependent WITH {
+                due_date: DATE_ADD(dependent.due_date, @delay, 'day')
+              } IN Tasks
+              RETURN {
+                task_id: NEW.task_id,
+                name: NEW.name,
+                new_due_date: NEW.due_date
+              }
+        """, bind_vars={'task_id': completed_task_id, 'delay': delay_days}))
+
+        # Update Workflow-Execution Status
+        self.db.aql.execute("""
+            LET task = FIRST(
+              FOR t IN Tasks FILTER t.task_id == @task_id RETURN t
+            )
+            FOR exec IN 1..1 INBOUND task GRAPH 'kamerplanter_graph'
+              OPTIONS { edgeCollections: ['generated'] }
+              UPDATE exec WITH {
+                on_schedule: false,
+                days_ahead_behind: exec.days_ahead_behind - @delay
+              } IN WorkflowExecutions
+        """, bind_vars={'task_id': completed_task_id, 'delay': delay_days})
+
+        return {
+            'delay_days': delay_days,
+            'rescheduled_count': len(affected),
+            'affected_tasks': affected
+        }
+
     def check_task_readiness(self, task_id: str) -> dict:
         """
         Prüft ob Task bereit ist (alle Blocker completed)
         """
-        with self.driver.session() as session:
-            result = session.run("""
-                MATCH (task:Task {task_id: $task_id})
-                
-                OPTIONAL MATCH (task)<-[:BLOCKS]-(blocker:Task)
-                
-                WITH task,
-                     COLLECT(blocker) AS blockers,
-                     COLLECT(CASE 
-                       WHEN blocker.status = 'completed' THEN 1 
-                       ELSE 0 
-                     END) AS blocker_statuses
-                
-                WITH task, blockers,
-                     SIZE([s IN blocker_statuses WHERE s = 0]) AS incomplete_blockers
-                
-                RETURN task.task_id AS task_id,
-                       task.name AS name,
-                       task.status AS status,
-                       SIZE(blockers) AS total_blockers,
-                       incomplete_blockers,
-                       incomplete_blockers = 0 AS is_ready,
-                       [b IN blockers WHERE b.status != 'completed' | b.name] AS blocking_tasks
-            """, task_id=task_id).single()
-            
-            return dict(result) if result else {}
+        result = self.db.aql.execute("""
+            FOR task IN Tasks
+              FILTER task.task_id == @task_id
+
+              LET blockers = (
+                FOR blocker IN 1..1 INBOUND task GRAPH 'kamerplanter_graph'
+                  OPTIONS { edgeCollections: ['blocks'] }
+                  RETURN blocker
+              )
+              LET incomplete_blockers = LENGTH(
+                FOR b IN blockers FILTER b.status != 'completed' RETURN 1
+              )
+
+              RETURN {
+                task_id: task.task_id,
+                name: task.name,
+                status: task.status,
+                total_blockers: LENGTH(blockers),
+                incomplete_blockers: incomplete_blockers,
+                is_ready: incomplete_blockers == 0,
+                blocking_tasks: (
+                  FOR b IN blockers FILTER b.status != 'completed' RETURN b.name
+                )
+              }
+        """, bind_vars={'task_id': task_id}).next()
+
+        return dict(result) if result else {}
 ```
 
 ### Datenvalidierung (Type Hinting):
 ```python
 from typing import Literal, Optional, List
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from datetime import date, time, datetime
 
 TaskCategory = Literal['training', 'pruning', 'transplant', 'feeding', 'ipm', 'harvest', 'maintenance']
@@ -1078,9 +1194,10 @@ class TaskInstance(BaseModel):
     photo_refs: List[str] = Field(default_factory=list)
     completion_notes: Optional[str] = Field(None, max_length=1000)
     
-    @validator('photo_refs')
-    def validate_photos_when_required(cls, v, values):
-        if values.get('requires_photo') and values.get('status') == 'completed':
+    @field_validator('photo_refs')
+    @classmethod
+    def validate_photos_when_required(cls, v, info):
+        if info.data.get('requires_photo') and info.data.get('status') == 'completed':
             if not v:
                 raise ValueError("Foto-Upload erforderlich für diesen Task")
         return v

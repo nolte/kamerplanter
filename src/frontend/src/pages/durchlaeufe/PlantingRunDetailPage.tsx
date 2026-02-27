@@ -8,11 +8,6 @@ import Chip from '@mui/material/Chip';
 import type { ChipProps } from '@mui/material/Chip';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -25,6 +20,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import DataTable, { type Column } from '@/components/common/DataTable';
 import FormTextField from '@/components/form/FormTextField';
 import FormDateField from '@/components/form/FormDateField';
 import FormActions from '@/components/form/FormActions';
@@ -181,6 +177,31 @@ export default function PlantingRunDetailPage() {
     }
   };
 
+  const entryColumns: Column<PlantingRunEntry>[] = [
+    { id: 'species', label: t('entities.species'), render: (r) => r.species_key },
+    { id: 'cultivar', label: t('entities.cultivar'), render: (r) => r.cultivar_key ?? '-' },
+    { id: 'quantity', label: t('pages.plantingRuns.quantity'), render: (r) => r.quantity, align: 'right' },
+    { id: 'role', label: t('pages.plantingRuns.role'), render: (r) => t(`enums.entryRole.${r.role}`), searchValue: (r) => t(`enums.entryRole.${r.role}`) },
+    { id: 'idPrefix', label: t('pages.plantingRuns.idPrefix'), render: (r) => r.id_prefix },
+    { id: 'spacing', label: t('pages.plantingRuns.spacing'), render: (r) => r.spacing_cm ? `${r.spacing_cm} cm` : '-', align: 'right' },
+  ];
+
+  const plantColumns: Column<PlantInRun>[] = [
+    { id: 'instanceId', label: t('pages.plantInstances.instanceId'), render: (r) => r.instance_id },
+    { id: 'currentPhase', label: t('pages.plantInstances.currentPhase'), render: (r) => <Chip label={r.current_phase} size="small" color="primary" />, searchValue: (r) => r.current_phase },
+    { id: 'plantedOn', label: t('pages.plantInstances.plantedOn'), render: (r) => r.planted_on },
+    { id: 'removedOn', label: t('pages.plantInstances.removedOn'), render: (r) => r.removed_on ?? '-' },
+    { id: 'detached', label: t('pages.plantingRuns.detached'), render: (r) => r.detached_at ? t('common.yes') : '-' },
+    {
+      id: 'actions', label: '', width: 80, sortable: false, searchable: false,
+      render: (r) => !r.detached_at && run?.status === 'active' ? (
+        <Button size="small" onClick={(e) => { e.stopPropagation(); onDetach(r.key); }}>
+          {t('pages.plantingRuns.detach')}
+        </Button>
+      ) : null,
+    },
+  ];
+
   if (loading) return <LoadingSkeleton variant="form" />;
   if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
 
@@ -290,30 +311,13 @@ export default function PlantingRunDetailPage() {
               <Typography variant="h6" sx={{ mb: 2 }}>
                 {t('pages.plantingRuns.entries')}
               </Typography>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>{t('entities.species')}</TableCell>
-                    <TableCell>{t('entities.cultivar')}</TableCell>
-                    <TableCell>{t('pages.plantingRuns.quantity')}</TableCell>
-                    <TableCell>{t('pages.plantingRuns.role')}</TableCell>
-                    <TableCell>{t('pages.plantingRuns.idPrefix')}</TableCell>
-                    <TableCell>{t('pages.plantingRuns.spacing')}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {entries.map((e) => (
-                    <TableRow key={e.key}>
-                      <TableCell>{e.species_key}</TableCell>
-                      <TableCell>{e.cultivar_key ?? '-'}</TableCell>
-                      <TableCell>{e.quantity}</TableCell>
-                      <TableCell>{t(`enums.entryRole.${e.role}`)}</TableCell>
-                      <TableCell>{e.id_prefix}</TableCell>
-                      <TableCell>{e.spacing_cm ? `${e.spacing_cm} cm` : '-'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <DataTable
+                columns={entryColumns}
+                rows={entries}
+                getRowKey={(r) => r.key}
+                variant="simple"
+                ariaLabel={t('pages.plantingRuns.entries')}
+              />
             </Box>
           )}
         </>
@@ -327,38 +331,13 @@ export default function PlantingRunDetailPage() {
           {plants.length === 0 ? (
             <Typography color="text.secondary">{t('pages.plantingRuns.noPlantsYet')}</Typography>
           ) : (
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>{t('pages.plantInstances.instanceId')}</TableCell>
-                  <TableCell>{t('pages.plantInstances.currentPhase')}</TableCell>
-                  <TableCell>{t('pages.plantInstances.plantedOn')}</TableCell>
-                  <TableCell>{t('pages.plantInstances.removedOn')}</TableCell>
-                  <TableCell>{t('pages.plantingRuns.detached')}</TableCell>
-                  <TableCell />
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {plants.map((p) => (
-                  <TableRow key={p.key}>
-                    <TableCell>{p.instance_id}</TableCell>
-                    <TableCell>
-                      <Chip label={p.current_phase} size="small" color="primary" />
-                    </TableCell>
-                    <TableCell>{p.planted_on}</TableCell>
-                    <TableCell>{p.removed_on ?? '-'}</TableCell>
-                    <TableCell>{p.detached_at ? t('common.yes') : '-'}</TableCell>
-                    <TableCell>
-                      {!p.detached_at && run?.status === 'active' && (
-                        <Button size="small" onClick={() => onDetach(p.key)}>
-                          {t('pages.plantingRuns.detach')}
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <DataTable
+              columns={plantColumns}
+              rows={plants}
+              getRowKey={(r) => r.key}
+              variant="simple"
+              ariaLabel={t('pages.plantingRuns.tabPlants')}
+            />
           )}
         </Box>
       )}

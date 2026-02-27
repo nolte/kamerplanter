@@ -5,7 +5,7 @@ ID: REQ-007
 Titel: Gattungsspezifisches Erntemanagement & Reifegradprüfung
 Kategorie: Erntezyklus
 Fokus: Beides
-Technologie: Python, GraphDB (Neo4j), Computer Vision (optional)
+Technologie: Python, ArangoDB, Computer Vision (optional)
 Status: Entwurf
 Version: 2.0 (Maximal Erweitert)
 ```
@@ -92,10 +92,10 @@ Das System implementiert einen polymorphen, pflanzenspezifischen Ansatz zur Reif
 - QR-Code auf Jar/Verpackung
 - Scan zeigt vollständige Historie
 
-## 2. GraphDB-Modellierung
+## 2. ArangoDB-Modellierung
 
-### Nodes:
-- **`:HarvestIndicator`** - Reife-Check-Typ
+### Document Collections:
+- **`harvest_indicators`** - Reife-Check-Typ
   - Properties:
     - `indicator_id: str`
     - `indicator_type: Literal['trichome', 'foliage', 'brix', 'size', 'color', 'days_since_flowering', 'aroma', 'texture']`
@@ -104,7 +104,7 @@ Das System implementiert einen polymorphen, pflanzenspezifischen Ansatz zur Reif
     - `observation_frequency: Literal['daily', 'weekly', 'biweekly']`
     - `reliability_score: float` (0-1, wie verlässlich ist dieser Indikator)
 
-- **`:RipenessStage`** - Reifestadium
+- **`ripeness_stages`** - Reifestadium
   - Properties:
     - `stage_id: str`
     - `stage_name: str` (z.B. "immature", "approaching", "peak", "overripe")
@@ -115,7 +115,7 @@ Das System implementiert einen polymorphen, pflanzenspezifischen Ansatz zur Reif
     - `quality_impact: int` (-100 bis 100, Qualitäts-Score)
     - `potency_level: Optional[str]` (für Wirkstoff-Pflanzen)
 
-- **`:Batch`** - Ernte-Charge
+- **`batches`** - Ernte-Charge
   - Properties:
     - `batch_id: str` (Format: "PLANT_ID_YYYYMMDD_SEQ")
     - `harvest_date: date`
@@ -130,7 +130,7 @@ Das System implementiert einen polymorphen, pflanzenspezifischen Ansatz zur Reif
     - `notes: Optional[str]`
     - `qr_code_url: str`
 
-- **`:QualityAssessment`** - Qualitätsbewertung
+- **`quality_assessments`** - Qualitätsbewertung
   - Properties:
     - `assessment_id: str`
     - `assessed_at: datetime`
@@ -146,7 +146,7 @@ Das System implementiert einen polymorphen, pflanzenspezifischen Ansatz zur Reif
     - `potency_estimate: Optional[str]` (z.B. "High THC", "Balanced")
     - `terpene_profile: Optional[dict]` (Dominante Terpene)
 
-- **`:HarvestObservation`** - Reife-Check-Messung
+- **`harvest_observations`** - Reife-Check-Messung
   - Properties:
     - `observation_id: str`
     - `observed_at: datetime`
@@ -157,7 +157,7 @@ Das System implementiert einen polymorphen, pflanzenspezifischen Ansatz zur Reif
     - `ripeness_assessment: str`
     - `days_to_harvest_estimate: Optional[int]`
 
-- **`:PreHarvestProtocol`** - Vorbereitungs-Protokoll
+- **`pre_harvest_protocols`** - Vorbereitungs-Protokoll
   - Properties:
     - `protocol_id: str`
     - `protocol_type: Literal['flushing', 'dark_period', 'drought_stress', 'defoliation']`
@@ -166,7 +166,7 @@ Das System implementiert einen polymorphen, pflanzenspezifischen Ansatz zur Reif
     - `completed_at: Optional[datetime]`
     - `parameters: dict` (z.B. {"ec_start": 1.8, "ec_target": 0.0})
 
-- **`:YieldMetric`** - Ertrags-Metrik
+- **`yield_metrics`** - Ertrags-Metrik
   - Properties:
     - `metric_id: str`
     - `yield_per_plant_g: float`
@@ -175,190 +175,262 @@ Das System implementiert einen polymorphen, pflanzenspezifischen Ansatz zur Reif
     - `trim_waste_percent: float`
     - `usable_yield_g: float`
 
-### Edges:
-```cypher
-(:Species)-[:HAS_HARVEST_INDICATOR]->(:HarvestIndicator)
-(:HarvestIndicator)-[:HAS_STAGE]->(:RipenessStage)
-(:PlantInstance)-[:OBSERVED_FOR_HARVEST]->(:HarvestObservation)-[:USES_INDICATOR]->(:HarvestIndicator)
-(:PlantInstance)-[:UNDERWENT_PROTOCOL]->(:PreHarvestProtocol)
-(:PlantInstance)-[:HARVESTED_AS]->(:Batch)
-(:Batch)-[:ASSESSED_BY]->(:QualityAssessment)
-(:Batch)-[:HAS_YIELD_METRIC]->(:YieldMetric)
-(:Batch)-[:STORED_IN]->(:StorageLocation)  // Übergabe an REQ-008
-(:Batch)-[:DERIVED_FROM {portion: str}]->(:PlantInstance)  // Bei Partial Harvest
-(:PreHarvestProtocol)-[:TRIGGERED_BY]->(:HarvestObservation)
+### Edge Collections:
+```
+has_harvest_indicator:       species → harvest_indicators
+has_stage:                   harvest_indicators → ripeness_stages
+observed_for_harvest:        plant_instances → harvest_observations
+uses_indicator:              harvest_observations → harvest_indicators
+underwent_protocol:          plant_instances → pre_harvest_protocols
+harvested_as:                plant_instances → batches
+assessed_by:                 batches → quality_assessments
+has_yield_metric:            batches → yield_metrics
+stored_in:                   batches → storage_locations          // Übergabe an REQ-008
+derived_from:                batches → plant_instances             // Bei Partial Harvest (Attribut: portion)
+triggered_by:                pre_harvest_protocols → harvest_observations
 ```
 
-### Cypher-Beispiellogik:
+### AQL-Beispiellogik:
 
 **Erntebereitschaft mit Multi-Indicator-Aggregation:**
-```cypher
-MATCH (plant:PlantInstance {instance_id: $plant_id})
-      -[:BELONGS_TO_SPECIES]->(species:Species)
-      -[:HAS_HARVEST_INDICATOR]->(indicator:HarvestIndicator)
+```aql
+// Hole Pflanze und zugehörige Harvest-Indikatoren über Species
+LET plant = DOCUMENT('plant_instances', @plant_id)
+LET species = FIRST(
+  FOR v IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['belongs_to_species'] }
+    RETURN v
+)
 
-// Hole letzte Observation pro Indikator
-OPTIONAL MATCH (plant)-[:OBSERVED_FOR_HARVEST]->(obs:HarvestObservation)
-      -[:USES_INDICATOR]->(indicator)
-WHERE obs.observed_at > datetime() - duration('P7D')
+// Hole alle Indikatoren der Spezies
+LET indicators_raw = (
+  FOR indicator IN 1..1 OUTBOUND species GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['has_harvest_indicator'] }
 
-WITH plant, indicator, obs
-ORDER BY obs.observed_at DESC
+    // Hole letzte Observation pro Indikator (innerhalb 7 Tage)
+    LET observations = (
+      FOR obs IN 1..2 OUTBOUND plant GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['observed_for_harvest', 'uses_indicator'] }
+        FILTER IS_SAME_COLLECTION('harvest_observations', obs)
+        FILTER obs.observed_at > DATE_SUBTRACT(DATE_NOW(), 7, 'days')
+        // Prüfe ob Observation diesen Indikator nutzt
+        LET uses = (
+          FOR target IN 1..1 OUTBOUND obs GRAPH 'kamerplanter_graph'
+            OPTIONS { edgeCollections: ['uses_indicator'] }
+            FILTER target._id == indicator._id
+            RETURN target
+        )
+        FILTER LENGTH(uses) > 0
+        SORT obs.observed_at DESC
+        LIMIT 1
+        RETURN obs
+    )
+    LET latest_obs = FIRST(observations)
 
-WITH plant, indicator, COLLECT(obs)[0] AS latest_obs
+    // Bestimme Ripeness-Stage basierend auf Observation
+    LET stage = (latest_obs != null
+      ? FIRST(
+          FOR s IN 1..1 OUTBOUND indicator GRAPH 'kamerplanter_graph'
+            OPTIONS { edgeCollections: ['has_stage'] }
+            FILTER s.stage_name == latest_obs.ripeness_assessment
+            RETURN s
+        )
+      : null
+    )
 
-// Bestimme Ripeness-Stage basierend auf Observation
-OPTIONAL MATCH (indicator)-[:HAS_STAGE]->(stage:RipenessStage)
-WHERE latest_obs IS NOT NULL
-  AND stage.stage_name = latest_obs.ripeness_assessment
-
-// Aggregiere über alle Indikatoren
-WITH plant,
-     COLLECT({
-       indicator: indicator.indicator_type,
-       stage: stage.stage_name,
-       quality_impact: stage.quality_impact,
-       days_to_harvest: latest_obs.days_to_harvest_estimate,
-       reliability: indicator.reliability_score,
-       observation_age_days: duration.between(latest_obs.observed_at, datetime()).inDays
-     }) AS indicators
+    RETURN {
+      indicator: indicator.indicator_type,
+      stage: stage.stage_name,
+      quality_impact: stage.quality_impact,
+      days_to_harvest: latest_obs.days_to_harvest_estimate,
+      reliability: indicator.reliability_score,
+      observation_age_days: latest_obs != null
+        ? DATE_DIFF(latest_obs.observed_at, DATE_NOW(), 'days')
+        : null
+    }
+)
 
 // Berechne gewichteten Gesamt-Score
-WITH plant, indicators,
-     REDUCE(s = 0.0, ind IN indicators | 
-       s + (ind.quality_impact * ind.reliability)
-     ) / SIZE(indicators) AS weighted_score,
-     AVG([ind IN indicators WHERE ind.days_to_harvest IS NOT NULL | ind.days_to_harvest]) AS avg_days_to_harvest
+LET weighted_score = (
+  LENGTH(indicators_raw) > 0
+    ? SUM(FOR ind IN indicators_raw RETURN ind.quality_impact * ind.reliability)
+      / LENGTH(indicators_raw)
+    : 0
+)
+
+LET days_estimates = (
+  FOR ind IN indicators_raw
+    FILTER ind.days_to_harvest != null
+    RETURN ind.days_to_harvest
+)
+LET avg_days_to_harvest = LENGTH(days_estimates) > 0
+  ? AVERAGE(days_estimates)
+  : null
 
 RETURN {
   plant_id: plant.instance_id,
-  overall_readiness_score: round(weighted_score, 1),
-  estimated_days_to_harvest: round(avg_days_to_harvest, 0),
-  harvest_recommendation: CASE
-    WHEN weighted_score >= 90 THEN 'OPTIMAL - Ernten innerhalb 24-48h'
-    WHEN weighted_score >= 70 THEN 'APPROACHING - Ernten innerhalb 3-7 Tagen'
-    WHEN weighted_score >= 50 THEN 'DEVELOPING - Noch 7-14 Tage'
-    ELSE 'IMMATURE - Mindestens 14 Tage warten'
-  END,
-  indicators: indicators
-} AS harvest_status
+  overall_readiness_score: ROUND(weighted_score, 1),
+  estimated_days_to_harvest: ROUND(avg_days_to_harvest),
+  harvest_recommendation: (
+    weighted_score >= 90 ? 'OPTIMAL - Ernten innerhalb 24-48h' :
+    weighted_score >= 70 ? 'APPROACHING - Ernten innerhalb 3-7 Tagen' :
+    weighted_score >= 50 ? 'DEVELOPING - Noch 7-14 Tage' :
+    'IMMATURE - Mindestens 14 Tage warten'
+  ),
+  indicators: indicators_raw
+}
 ```
 
 **Flushing-Trigger mit automatischer Protokoll-Erstellung:**
-```cypher
-MATCH (plant:PlantInstance {instance_id: $plant_id})
-      -[:OBSERVED_FOR_HARVEST]->(obs:HarvestObservation)
-WHERE obs.observed_at > datetime() - duration('P3D')
-  AND obs.days_to_harvest_estimate <= 14
+```aql
+LET plant = DOCUMENT('plant_instances', @plant_id)
+
+// Hole letzte Observations mit days_to_harvest <= 14 (innerhalb 3 Tage)
+LET recent_obs = FIRST(
+  FOR obs IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['observed_for_harvest'] }
+    FILTER obs.observed_at > DATE_SUBTRACT(DATE_NOW(), 3, 'days')
+    FILTER obs.days_to_harvest_estimate <= 14
+    SORT obs.observed_at DESC
+    LIMIT 1
+    RETURN obs
+)
 
 // Prüfe ob Flushing bereits läuft
-OPTIONAL MATCH (plant)-[:UNDERWENT_PROTOCOL]->(existing:PreHarvestProtocol {protocol_type: 'flushing'})
-WHERE existing.completed_at IS NULL
-
-WITH plant, obs, existing,
-     obs.days_to_harvest_estimate AS days_to_harvest
-
-WHERE existing IS NULL  // Nur wenn noch kein Flushing aktiv
+LET existing_flushing = FIRST(
+  FOR proto IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['underwent_protocol'] }
+    FILTER proto.protocol_type == 'flushing'
+    FILTER proto.completed_at == null
+    RETURN proto
+)
 
 // Hole Substrat-Typ für Flushing-Dauer
-MATCH (plant)-[:GROWN_IN]->(substrate:SubstrateBatch)-[:USES_TYPE]->(type:Substrate)
+LET substrate_info = FIRST(
+  FOR sub IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['grown_in'] }
+    LET sub_type = FIRST(
+      FOR t IN 1..1 OUTBOUND sub GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['uses_type'] }
+        RETURN t
+    )
+    RETURN { substrate_type: sub_type.type }
+)
 
-WITH plant, days_to_harvest, type.type AS substrate_type,
-     CASE type.type
-       WHEN 'hydro_solution' THEN 7
-       WHEN 'coco' THEN 10
-       WHEN 'soil' THEN 14
-       ELSE 10
-     END AS required_flush_days
+LET substrate_type = substrate_info.substrate_type
+LET days_to_harvest = recent_obs.days_to_harvest_estimate
+LET required_flush_days = (
+  substrate_type == 'hydro_solution' ? 7 :
+  substrate_type == 'coco' ? 10 :
+  substrate_type == 'soil' ? 14 :
+  10
+)
 
-// Erstelle Flushing-Protokoll wenn Zeit ausreicht
-WHERE days_to_harvest >= required_flush_days
+// Nur ausführen wenn kein Flushing aktiv und Zeit ausreicht
+FILTER existing_flushing == null
+FILTER recent_obs != null
+FILTER days_to_harvest >= required_flush_days
 
-CREATE (protocol:PreHarvestProtocol {
-  protocol_id: randomUUID(),
-  protocol_type: 'flushing',
-  started_at: datetime(),
-  duration_days: required_flush_days,
-  parameters: {
-    substrate_type: substrate_type,
-    target_ec: 0.0,
-    start_ec: 1.8  // Placeholder, sollte aus letzter Messung kommen
-  }
-})
+// Erstelle Flushing-Protokoll
+LET protocol = FIRST(
+  INSERT {
+    protocol_id: UUID(),
+    protocol_type: 'flushing',
+    started_at: DATE_NOW(),
+    duration_days: required_flush_days,
+    parameters: {
+      substrate_type: substrate_type,
+      target_ec: 0.0,
+      start_ec: 1.8  // Placeholder, sollte aus letzter Messung kommen
+    }
+  } INTO pre_harvest_protocols
+  RETURN NEW
+)
 
-CREATE (plant)-[:UNDERWENT_PROTOCOL]->(protocol)
+// Verknüpfe Pflanze mit Protokoll
+INSERT { _from: plant._id, _to: protocol._id } INTO underwent_protocol
 
 // Erstelle Task für tägliche Überprüfung
-CREATE (task:Task {
-  task_id: randomUUID(),
-  name: 'Flushing - Tägliche Kontrolle',
-  category: 'harvest_prep',
-  instruction: 'Prüfe Runoff-EC (Ziel: <0.5 mS). Gieße mit pH-Wasser (6.0-6.5).',
-  due_date: date(),
-  status: 'pending',
-  priority: 'high',
-  estimated_duration_minutes: 10,
-  created_at: datetime()
-})
+LET task = FIRST(
+  INSERT {
+    task_id: UUID(),
+    name: 'Flushing - Tägliche Kontrolle',
+    category: 'harvest_prep',
+    instruction: 'Prüfe Runoff-EC (Ziel: <0.5 mS). Gieße mit pH-Wasser (6.0-6.5).',
+    due_date: DATE_FORMAT(DATE_NOW(), '%yyyy-%mm-%dd'),
+    status: 'pending',
+    priority: 'high',
+    estimated_duration_minutes: 10,
+    created_at: DATE_NOW()
+  } INTO tasks
+  RETURN NEW
+)
 
-CREATE (plant)-[:HAS_TASK]->(task)
+INSERT { _from: plant._id, _to: task._id } INTO has_task
 
 RETURN {
   flushing_started: true,
   duration_days: required_flush_days,
   substrate_type: substrate_type,
-  estimated_harvest_date: date() + duration({days: required_flush_days}),
+  estimated_harvest_date: DATE_ADD(DATE_NOW(), required_flush_days, 'days'),
   task_created: task.task_id
-} AS result
+}
 ```
 
 **Batch-Erstellung mit QR-Code-Generierung:**
-```cypher
-MATCH (plant:PlantInstance {instance_id: $plant_id})
+```aql
+LET plant = DOCUMENT('plant_instances', @plant_id)
 
 // Generiere Batch-ID
-WITH plant,
-     plant.instance_id + '_' + toString(date()) + '_001' AS batch_id
+LET batch_id = CONCAT(plant.instance_id, '_', DATE_FORMAT(DATE_NOW(), '%yyyy%mm%dd'), '_001')
 
 // Erstelle Batch
-CREATE (batch:Batch {
-  batch_id: batch_id,
-  harvest_date: date(),
-  harvest_time: time(),
-  harvest_type: $harvest_type,
-  wet_weight_g: $wet_weight,
-  quality_grade: 'B',  // Initial, wird später bewertet
-  harvester: $user_id,
-  qr_code_url: 'https://api.qrserver.com/v1/create-qr-code/?data=' + batch_id + '&size=200x200',
-  notes: $notes
-})
+LET batch = FIRST(
+  INSERT {
+    batch_id: batch_id,
+    harvest_date: DATE_FORMAT(DATE_NOW(), '%yyyy-%mm-%dd'),
+    harvest_time: DATE_FORMAT(DATE_NOW(), '%hh:%ii:%ss'),
+    harvest_type: @harvest_type,
+    wet_weight_g: @wet_weight,
+    estimated_dry_weight_g: @wet_weight * 0.25,  // 75% Wasserverlust
+    quality_grade: 'B',  // Initial, wird später bewertet
+    harvester: @user_id,
+    qr_code_url: CONCAT('https://api.qrserver.com/v1/create-qr-code/?data=', batch_id, '&size=200x200'),
+    notes: @notes
+  } INTO batches
+  RETURN NEW
+)
 
 // Verknüpfe mit Plant
-CREATE (plant)-[:HARVESTED_AS {portion: $portion}]->(batch)
-
-// Berechne geschätztes Trockengewicht (75% Wasserverlust)
-SET batch.estimated_dry_weight_g = $wet_weight * 0.25
+INSERT { _from: plant._id, _to: batch._id, portion: @portion } INTO harvested_as
 
 // Erstelle Yield-Metrik
-WITH plant, batch
-MATCH (plant)-[:PLACED_IN]->(slot:Slot)
+LET slot = FIRST(
+  FOR s IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['placed_in'] }
+    RETURN s
+)
 
-CREATE (yield:YieldMetric {
-  metric_id: randomUUID(),
-  yield_per_plant_g: batch.wet_weight_g,
-  total_yield_g: batch.wet_weight_g,
-  trim_waste_percent: 0  // Wird später aktualisiert
-})
+LET location = FIRST(
+  FOR loc IN 1..1 INBOUND slot GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['has_slot'] }
+    RETURN loc
+)
 
-CREATE (batch)-[:HAS_YIELD_METRIC]->(yield)
+LET area_m2 = location.area_m2
 
-// Hole Slot-Area für Yield/m²
-OPTIONAL MATCH (slot)<-[:HAS_SLOT]-(location:Location)
+LET yield_metric = FIRST(
+  INSERT {
+    metric_id: UUID(),
+    yield_per_plant_g: batch.wet_weight_g,
+    yield_per_m2_g: area_m2 != null ? batch.wet_weight_g / area_m2 : null,
+    total_yield_g: batch.wet_weight_g,
+    trim_waste_percent: 0  // Wird später aktualisiert
+  } INTO yield_metrics
+  RETURN NEW
+)
 
-WITH batch, yield, location.area_m2 AS area_m2
-WHERE area_m2 IS NOT NULL
-
-SET yield.yield_per_m2_g = batch.wet_weight_g / area_m2
+INSERT { _from: batch._id, _to: yield_metric._id } INTO has_yield_metric
 
 RETURN {
   batch_id: batch.batch_id,
@@ -366,121 +438,164 @@ RETURN {
   wet_weight_g: batch.wet_weight_g,
   estimated_dry_weight_g: batch.estimated_dry_weight_g,
   harvest_date: batch.harvest_date
-} AS batch_info
+}
 ```
 
 **Seed-to-Shelf Traceability:**
-```cypher
-MATCH path = (seed:Seed)-[:GREW_INTO]->(plant:PlantInstance)
-      -[:HARVESTED_AS]->(batch:Batch)
-      -[:STORED_IN]->(storage:StorageLocation)
+```aql
+// Traversiere den vollständigen Pfad: Seed → Plant → Batch → Storage
+FOR seed IN seeds
+  FOR plant IN 1..1 OUTBOUND seed GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['grew_into'] }
+    FOR batch IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+      OPTIONS { edgeCollections: ['harvested_as'] }
+      FILTER batch.batch_id == @batch_id
+      FOR storage IN 1..1 OUTBOUND batch GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['stored_in'] }
 
-// Hole alle wichtigen Ereignisse
-OPTIONAL MATCH (plant)-[:UNDERWENT_PROTOCOL]->(protocol:PreHarvestProtocol)
-OPTIONAL MATCH (batch)-[:ASSESSED_BY]->(qa:QualityAssessment)
-OPTIONAL MATCH (plant)-[:FED_BY]->(feeding:FeedingEvent)
+        // Hole alle Pre-Harvest-Protokolle
+        LET protocols = (
+          FOR proto IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+            OPTIONS { edgeCollections: ['underwent_protocol'] }
+            RETURN DISTINCT proto
+        )
 
-WITH seed, plant, batch, storage, qa,
-     COLLECT(DISTINCT protocol) AS protocols,
-     COLLECT(DISTINCT feeding)[-5..] AS recent_feedings  // Letzte 5
+        // Hole Quality-Assessment
+        LET qa = FIRST(
+          FOR assessment IN 1..1 OUTBOUND batch GRAPH 'kamerplanter_graph'
+            OPTIONS { edgeCollections: ['assessed_by'] }
+            RETURN assessment
+        )
 
-// Hole Genetik-Info
-OPTIONAL MATCH (seed)-[:FROM_STRAIN]->(strain:Strain)
+        // Hole letzte 5 Feedings
+        LET recent_feedings = (
+          FOR feeding IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+            OPTIONS { edgeCollections: ['fed_by'] }
+            SORT feeding.fed_at DESC
+            LIMIT 5
+            RETURN DISTINCT feeding
+        )
 
-RETURN {
-  seed_to_shelf_id: batch.batch_id,
-  
-  genetics: {
-    strain: strain.name,
-    breeder: strain.breeder,
-    seed_id: seed.seed_id,
-    germination_date: seed.germinated_at
-  },
-  
-  cultivation: {
-    planted_on: plant.planted_on,
-    harvest_date: batch.harvest_date,
-    total_days: duration.between(plant.planted_on, batch.harvest_date).days,
-    location: plant.location_id,
-    growth_system: plant.growth_system
-  },
-  
-  pre_harvest: [p IN protocols | {
-    type: p.protocol_type,
-    duration_days: p.duration_days,
-    started: p.started_at
-  }],
-  
-  harvest: {
-    batch_id: batch.batch_id,
-    wet_weight_g: batch.wet_weight_g,
-    dry_weight_g: batch.actual_dry_weight_g,
-    quality_grade: batch.quality_grade,
-    harvester: batch.harvester
-  },
-  
-  quality: {
-    overall_score: qa.overall_score,
-    appearance: qa.appearance_score,
-    aroma: qa.aroma_score,
-    defects: qa.defects,
-    potency: qa.potency_estimate
-  },
-  
-  storage: {
-    location: storage.location,
-    stored_since: batch.stored_at,
-    current_weight_g: storage.current_weight_g
-  },
-  
-  qr_code: batch.qr_code_url
-} AS traceability
+        // Hole Genetik-Info
+        LET strain = FIRST(
+          FOR s IN 1..1 OUTBOUND seed GRAPH 'kamerplanter_graph'
+            OPTIONS { edgeCollections: ['from_strain'] }
+            RETURN s
+        )
+
+        RETURN {
+          seed_to_shelf_id: batch.batch_id,
+
+          genetics: {
+            strain: strain.name,
+            breeder: strain.breeder,
+            seed_id: seed.seed_id,
+            germination_date: seed.germinated_at
+          },
+
+          cultivation: {
+            planted_on: plant.planted_on,
+            harvest_date: batch.harvest_date,
+            total_days: DATE_DIFF(plant.planted_on, batch.harvest_date, 'days'),
+            location: plant.location_id,
+            growth_system: plant.growth_system
+          },
+
+          pre_harvest: (
+            FOR p IN protocols
+              RETURN {
+                type: p.protocol_type,
+                duration_days: p.duration_days,
+                started: p.started_at
+              }
+          ),
+
+          harvest: {
+            batch_id: batch.batch_id,
+            wet_weight_g: batch.wet_weight_g,
+            dry_weight_g: batch.actual_dry_weight_g,
+            quality_grade: batch.quality_grade,
+            harvester: batch.harvester
+          },
+
+          quality: {
+            overall_score: qa.overall_score,
+            appearance: qa.appearance_score,
+            aroma: qa.aroma_score,
+            defects: qa.defects,
+            potency: qa.potency_estimate
+          },
+
+          storage: {
+            location: storage.location,
+            stored_since: batch.stored_at,
+            current_weight_g: storage.current_weight_g
+          },
+
+          qr_code: batch.qr_code_url
+        }
 ```
 
 **Yield-Analytics & Performance-Vergleich:**
-```cypher
+```aql
 // Vergleiche Yield über verschiedene Batches
-MATCH (species:Species {scientific_name: $species_name})
-      <-[:BELONGS_TO_SPECIES]-(plant:PlantInstance)
-      -[:HARVESTED_AS]->(batch:Batch)
-      -[:HAS_YIELD_METRIC]->(yield:YieldMetric)
+LET species = FIRST(
+  FOR s IN species
+    FILTER s.scientific_name == @species_name
+    RETURN s
+)
 
-WHERE batch.harvest_date > date() - duration('P365D')
+LET batches_raw = (
+  FOR plant IN 1..1 INBOUND species GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['belongs_to_species'] }
+    FOR batch IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+      OPTIONS { edgeCollections: ['harvested_as'] }
+      FILTER batch.harvest_date > DATE_SUBTRACT(DATE_NOW(), 365, 'days')
+      FOR yield IN 1..1 OUTBOUND batch GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['has_yield_metric'] }
 
-WITH species, plant, batch, yield,
-     duration.between(plant.planted_on, batch.harvest_date).days AS cycle_days
+        LET cycle_days = DATE_DIFF(plant.planted_on, batch.harvest_date, 'days')
 
-// Gruppiere nach Qualität
-WITH species,
-     AVG(yield.yield_per_plant_g) AS avg_yield,
-     AVG(yield.yield_per_m2_g) AS avg_yield_m2,
-     AVG(cycle_days) AS avg_cycle_days,
-     COLLECT({
-       batch_id: batch.batch_id,
-       yield_g: yield.yield_per_plant_g,
-       quality: batch.quality_grade,
-       cycle_days: cycle_days
-     }) AS batches
+        RETURN {
+          batch_id: batch.batch_id,
+          yield_g: yield.yield_per_plant_g,
+          yield_m2: yield.yield_per_m2_g,
+          quality: batch.quality_grade,
+          cycle_days: cycle_days
+        }
+)
 
-// Identifiziere Top-Performer
-WITH species, avg_yield, avg_yield_m2, avg_cycle_days, batches,
-     [b IN batches WHERE b.yield_g > avg_yield * 1.2] AS top_performers
+LET avg_yield = AVERAGE(batches_raw[*].yield_g)
+LET avg_yield_m2 = AVERAGE(batches_raw[*].yield_m2)
+LET avg_cycle_days = AVERAGE(batches_raw[*].cycle_days)
+
+// Identifiziere Top-Performer (>120% des Durchschnitts)
+LET top_performers = (
+  FOR b IN batches_raw
+    FILTER b.yield_g > avg_yield * 1.2
+    RETURN b
+)
 
 RETURN {
   species: species.scientific_name,
-  total_batches: SIZE(batches),
-  average_yield_per_plant_g: round(avg_yield, 1),
-  average_yield_per_m2_g: round(avg_yield_m2, 1),
-  average_cycle_days: round(avg_cycle_days, 0),
-  top_performers: SIZE(top_performers),
+  total_batches: LENGTH(batches_raw),
+  average_yield_per_plant_g: ROUND(avg_yield, 1),
+  average_yield_per_m2_g: ROUND(avg_yield_m2, 1),
+  average_cycle_days: ROUND(avg_cycle_days),
+  top_performers: LENGTH(top_performers),
   quality_distribution: {
-    A_plus: SIZE([b IN batches WHERE b.quality = 'A+']),
-    A: SIZE([b IN batches WHERE b.quality = 'A']),
-    B: SIZE([b IN batches WHERE b.quality = 'B']),
-    C: SIZE([b IN batches WHERE b.quality = 'C'])
+    A_plus: LENGTH(FOR b IN batches_raw FILTER b.quality == 'A+' RETURN 1),
+    A: LENGTH(FOR b IN batches_raw FILTER b.quality == 'A' RETURN 1),
+    B: LENGTH(FOR b IN batches_raw FILTER b.quality == 'B' RETURN 1),
+    C: LENGTH(FOR b IN batches_raw FILTER b.quality == 'C' RETURN 1)
   },
-  best_batch: [b IN batches | b][0]  // Höchster Yield
-} AS analytics
+  best_batch: FIRST(
+    FOR b IN batches_raw
+      SORT b.yield_g DESC
+      LIMIT 1
+      RETURN b
+  )
+}
 ```
 
 ## 3. Technische Umsetzung (Python)
@@ -1145,7 +1260,7 @@ class FlushingProtocol(BaseModel):
 ### Datenvalidierung (Type Hinting):
 ```python
 from typing import Literal, Optional, List, Dict
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from datetime import date, time, datetime
 
 HarvestType = Literal['partial', 'final', 'continuous']
@@ -1166,9 +1281,10 @@ class HarvestObservation(BaseModel):
     days_to_harvest_estimate: Optional[int] = Field(None, ge=0, le=60)
     notes: Optional[str] = Field(None, max_length=500)
     
-    @validator('measurements')
-    def validate_measurements(cls, v, values):
-        indicator = values.get('indicator_type')
+    @field_validator('measurements')
+    @classmethod
+    def validate_measurements(cls, v, info):
+        indicator = info.data.get('indicator_type')
         
         # Trichome braucht Prozent-Werte
         if indicator == 'trichome':
@@ -1193,9 +1309,10 @@ class YieldMetric(BaseModel):
     trim_waste_percent: float = Field(ge=0, le=100)
     usable_yield_g: float = Field(gt=0)
     
-    @validator('usable_yield_g')
-    def validate_usable_yield(cls, v, values):
-        total = values.get('total_yield_g', 0)
+    @field_validator('usable_yield_g')
+    @classmethod
+    def validate_usable_yield(cls, v, info):
+        total = info.data.get('total_yield_g', 0)
         if v > total:
             raise ValueError("Usable yield kann nicht größer als total yield sein")
         return v

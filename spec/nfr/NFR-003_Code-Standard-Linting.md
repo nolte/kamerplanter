@@ -1,11 +1,17 @@
 ---
-ID: NFR-003 
-Titel: Englischer Source-Code-Standard & Verpflichtende Linting-Richtlinie 
-Kategorie: Code-Qualität / Governance 
-Fokus: Beides 
-Technologie: Python 3.14, ArangoDB, Kubernetes, Ruff, mypy 
-Status: Produktionsreif 
+
+ID: NFR-003
+Titel: Englischer Source-Code-Standard & Verpflichtende Linting-Richtlinie
+Kategorie: Code-Qualität / Governance Unterkategorie: Naming, Linting, Formatting, Type Safety Fokus: Beides (Zierpflanze & Nutzpflanze)
+Technologie: Python 3.14, Ruff, mypy, ESLint, TypeScript, Prettier
+Status: Produktionsreif
 Priorität: Kritisch
+Version: 2.0
+Autor: Business Analyst - Agrotech
+Datum: 2026-02-25
+Tags: [code-quality, linting, formatting, naming-conventions, type-safety, english-code]
+Abhängigkeiten: []
+Betroffene Module: [ALL]
 ---
 
 # NFR-003: Englischer Source-Code-Standard & Linting-Richtlinie
@@ -1699,8 +1705,8 @@ mypy --html-report ./mypy-report .
 
 **Dokumenten-Ende**
 
-**Version**: 2.0 (Vollständig)  
-**Status**: Produktionsreif  
-**Letzte Aktualisierung**: 2026-02-25  
-**Review**: Pending  
+**Version**: 2.0
+**Status**: Produktionsreif
+**Letzte Aktualisierung**: 2026-02-25
+**Review**: Pending
 **Genehmigung**: Pending

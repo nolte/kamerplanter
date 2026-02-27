@@ -5,8 +5,9 @@ ID: REQ-010
 Titel: Integriertes Schädlings- und Krankheitsmanagement (IPM)
 Kategorie: Schädlingsmanagement
 Fokus: Beides
-Technologie: Python, GraphDB (Neo4j)
+Technologie: Python, ArangoDB
 Status: Entwurf
+Version: 1.0
 ```
 
 ## 1. Business Case
@@ -26,67 +27,111 @@ Das System unterscheidet zwischen:
 - **Schädlingen** (Insekten, Milben, Nematoden, Mollusken)
 - **Physiologischen Störungen** (Nährstoffmangel, abiotischer Stress)
 
-## 2. GraphDB-Modellierung
+## 2. ArangoDB-Modellierung
 
-### Nodes:
-- **`:Pest`** - Schädlingstyp (z.B. Spinnmilbe, Blattlaus, Thripse)
-  - Properties: `scientific_name`, `common_name`, `lifecycle_days`, `optimal_temp_range`, `detection_difficulty`
-- **`:Disease`** - Krankheitserreger (z.B. Echter Mehltau, Botrytis)
-  - Properties: `pathogen_type: ['fungal', 'bacterial', 'viral']`, `incubation_period`, `environmental_triggers`
-- **`:Symptom`** - Visuelles/physisches Anzeichen
-  - Properties: `description`, `severity_level`, `affected_plant_part: ['leaf', 'stem', 'root', 'flower']`
-- **`:Treatment`** - Gegenmaßnahme
-  - Properties: `type: ['cultural', 'biological', 'chemical', 'mechanical']`, `active_ingredient`, `application_method`, `safety_interval_days`
-- **`:BeneficialOrganism`** - Nützling
-  - Properties: `species`, `target_pests`, `release_rate_per_m2`, `establishment_time_days`
-- **`:Inspection`** - Befallskontrolle
-  - Properties: `timestamp`, `inspector`, `pressure_level: ['none', 'low', 'medium', 'high', 'critical']`, `photo_refs`
-- **`:TreatmentApplication`** - Durchgeführte Maßnahme
-  - Properties: `applied_at`, `dosage`, `efficacy_rating`, `weather_conditions`
+### Document Collections:
+- **`pests`** - Schädlingstyp (z.B. Spinnmilbe, Blattlaus, Thripse)
+  - Felder: `scientific_name`, `common_name`, `lifecycle_days`, `optimal_temp_range`, `detection_difficulty`
+- **`diseases`** - Krankheitserreger (z.B. Echter Mehltau, Botrytis)
+  - Felder: `pathogen_type: ['fungal', 'bacterial', 'viral']`, `incubation_period`, `environmental_triggers`
+- **`symptoms`** - Visuelles/physisches Anzeichen
+  - Felder: `description`, `severity_level`, `affected_plant_part: ['leaf', 'stem', 'root', 'flower']`
+- **`treatments`** - Gegenmaßnahme
+  - Felder: `type: ['cultural', 'biological', 'chemical', 'mechanical']`, `active_ingredient`, `application_method`, `safety_interval_days`
+- **`beneficial_organisms`** - Nützling
+  - Felder: `species`, `target_pests`, `release_rate_per_m2`, `establishment_time_days`
+- **`inspections`** - Befallskontrolle
+  - Felder: `timestamp`, `inspector`, `pressure_level: ['none', 'low', 'medium', 'high', 'critical']`, `photo_refs`
+- **`treatment_applications`** - Durchgeführte Maßnahme
+  - Felder: `applied_at`, `dosage`, `efficacy_rating`, `weather_conditions`
 
-### Edges:
-```cypher
-(:PlantInstance)-[:INSPECTED_BY]->(:Inspection)
-(:Inspection)-[:DETECTED]->(:Pest|:Disease)
-(:Pest|:Disease)-[:SHOWS_SYMPTOM]->(:Symptom)
-(:Pest|:Disease)-[:TREATED_WITH]->(:Treatment)
-(:Treatment)-[:APPLIED_AS]->(:TreatmentApplication)-[:TO_PLANT]->(:PlantInstance)
-(:BeneficialOrganism)-[:CONTROLS]->(:Pest)
-(:GrowthPhase)-[:VULNERABLE_TO]->(:Pest|:Disease)
-(:Species)-[:RESISTANT_TO]->(:Pest|:Disease)
-(:Treatment)-[:CONTRAINDICATED_WITH]->(:Treatment)  // Inkompatible Wirkstoffe
-(:TreatmentApplication)-[:REQUIRES_HARVEST_DELAY {days: int}]->(:Harvest)
+### Edge Collections:
+```aql
+// Edge Collection: inspected_by (plant_instances → inspections)
+// Edge Collection: detected (inspections → pests / diseases)
+// Edge Collection: shows_symptom (pests / diseases → symptoms)
+// Edge Collection: treated_with (pests / diseases → treatments)
+// Edge Collection: applied_as (treatments → treatment_applications)
+// Edge Collection: to_plant (treatment_applications → plant_instances)
+// Edge Collection: controls (beneficial_organisms → pests)
+// Edge Collection: vulnerable_to (growth_phases → pests / diseases)
+// Edge Collection: resistant_to (species → pests / diseases)
+// Edge Collection: contraindicated_with (treatments → treatments)  // Inkompatible Wirkstoffe
+// Edge Collection: requires_harvest_delay (treatment_applications → harvests, mit {days: int})
 ```
 
-### Cypher-Beispiellogik:
+### AQL-Beispiellogik:
 
 **Befallshistorie eines Standorts:**
-```cypher
-MATCH (s:Slot)<-[:PLACED_IN]-(p:PlantInstance)-[:INSPECTED_BY]->(i:Inspection)-[:DETECTED]->(pest:Pest)
-WHERE s.id = $slot_id AND i.timestamp > datetime() - duration('P90D')
-RETURN pest.common_name, COUNT(i) AS occurrences, AVG(i.pressure_level) AS avg_pressure
-ORDER BY occurrences DESC
+```aql
+LET cutoff = DATE_SUBTRACT(DATE_NOW(), 90, "days")
+FOR slot IN slots
+    FILTER slot._key == @slot_id
+    FOR plant IN 1..1 INBOUND slot GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['placed_in'] }
+        FOR inspection IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+            OPTIONS { edgeCollections: ['inspected_by'] }
+            FILTER inspection.timestamp > cutoff
+            FOR pest IN 1..1 OUTBOUND inspection GRAPH 'kamerplanter_graph'
+                OPTIONS { edgeCollections: ['detected'] }
+                FILTER IS_SAME_COLLECTION('pests', pest)
+                COLLECT pest_name = pest.common_name
+                    AGGREGATE occurrences = COUNT(1)
+                SORT occurrences DESC
+                RETURN { pest_name, occurrences }
 ```
 
 **Nützlings-Empfehlung basierend auf aktuellem Befall:**
-```cypher
-MATCH (p:PlantInstance)-[:INSPECTED_BY]->(i:Inspection)-[:DETECTED]->(pest:Pest)
-WHERE i.pressure_level IN ['medium', 'high'] AND i.timestamp > datetime() - duration('P7D')
-MATCH (b:BeneficialOrganism)-[:CONTROLS]->(pest)
-WHERE NOT EXISTS {
-  MATCH (p)-[:TREATED_WITH]->(:Treatment {type: 'chemical'})-[:APPLIED_AS]->(ta)
-  WHERE ta.applied_at > datetime() - duration('P14D')
-}
-RETURN DISTINCT b, COLLECT(pest.common_name) AS targets
+```aql
+LET cutoff_7d = DATE_SUBTRACT(DATE_NOW(), 7, "days")
+LET cutoff_14d = DATE_SUBTRACT(DATE_NOW(), 14, "days")
+FOR plant IN plant_instances
+    FOR inspection IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['inspected_by'] }
+        FILTER inspection.pressure_level IN ['medium', 'high']
+            AND inspection.timestamp > cutoff_7d
+        FOR pest IN 1..1 OUTBOUND inspection GRAPH 'kamerplanter_graph'
+            OPTIONS { edgeCollections: ['detected'] }
+            FILTER IS_SAME_COLLECTION('pests', pest)
+            // Ausschluss: keine chemische Behandlung in letzten 14 Tagen
+            LET recent_chemical = (
+                FOR ta IN 1..2 OUTBOUND plant GRAPH 'kamerplanter_graph'
+                    OPTIONS { edgeCollections: ['treated_with', 'applied_as'] }
+                    FILTER IS_SAME_COLLECTION('treatment_applications', ta)
+                        AND ta.applied_at > cutoff_14d
+                    FOR t IN 1..1 INBOUND ta GRAPH 'kamerplanter_graph'
+                        OPTIONS { edgeCollections: ['applied_as'] }
+                        FILTER t.type == 'chemical'
+                        RETURN t
+            )
+            FILTER LENGTH(recent_chemical) == 0
+            FOR beneficial IN 1..1 INBOUND pest GRAPH 'kamerplanter_graph'
+                OPTIONS { edgeCollections: ['controls'] }
+                COLLECT b = beneficial INTO pest_groups
+                RETURN DISTINCT {
+                    beneficial: b,
+                    targets: pest_groups[*].pest.common_name
+                }
 ```
 
 **Karenzzeit-Prüfung vor Ernte:**
-```cypher
-MATCH (p:PlantInstance)-[:TREATED_WITH]->(t:Treatment)-[:APPLIED_AS]->(ta:TreatmentApplication)
-WHERE p.id = $plant_id AND ta.applied_at > datetime() - duration({days: t.safety_interval_days})
-RETURN t.active_ingredient, t.safety_interval_days, 
-       duration.between(ta.applied_at, datetime()).days AS days_since_application,
-       t.safety_interval_days - duration.between(ta.applied_at, datetime()).days AS days_remaining
+```aql
+FOR plant IN plant_instances
+    FILTER plant._key == @plant_id
+    FOR t IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['treated_with'] }
+        FOR ta IN 1..1 OUTBOUND t GRAPH 'kamerplanter_graph'
+            OPTIONS { edgeCollections: ['applied_as'] }
+            LET safe_until = DATE_ADD(ta.applied_at, t.safety_interval_days, "days")
+            FILTER safe_until > DATE_NOW()
+            LET days_since = DATE_DIFF(ta.applied_at, DATE_NOW(), "days")
+            LET days_remaining = t.safety_interval_days - days_since
+            RETURN {
+                active_ingredient: t.active_ingredient,
+                safety_interval_days: t.safety_interval_days,
+                days_since_application: days_since,
+                days_remaining: days_remaining
+            }
 ```
 
 ## 3. Technische Umsetzung (Python)
@@ -143,12 +188,12 @@ class ResistanceManager:
     MAX_CONSECUTIVE_APPLICATIONS = 3
     ROTATION_WINDOW_DAYS = 90
     
-    def __init__(self, neo4j_driver):
-        self.driver = neo4j_driver
-    
+    def __init__(self, db):
+        self.db = db  # python-arango StandardDatabase instance
+
     def validate_treatment(
-        self, 
-        plant_id: str, 
+        self,
+        plant_id: str,
         proposed_treatment_id: str
     ) -> tuple[bool, Optional[str]]:
         """
@@ -156,24 +201,34 @@ class ResistanceManager:
         Returns: (is_valid, warning_message)
         """
         query = """
-        MATCH (p:PlantInstance {id: $plant_id})-[:TREATED_WITH]->(t:Treatment)
-              -[:APPLIED_AS]->(ta:TreatmentApplication)
-        WHERE ta.applied_at > datetime() - duration({days: $window})
-        RETURN t.active_ingredient, t.mode_of_action, COUNT(ta) AS applications
-        ORDER BY ta.applied_at DESC
+        LET cutoff = DATE_SUBTRACT(DATE_NOW(), @window, "days")
+        FOR plant IN plant_instances
+            FILTER plant._key == @plant_id
+            FOR t IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+                OPTIONS { edgeCollections: ['treated_with'] }
+                FOR ta IN 1..1 OUTBOUND t GRAPH 'kamerplanter_graph'
+                    OPTIONS { edgeCollections: ['applied_as'] }
+                    FILTER ta.applied_at > cutoff
+                    COLLECT ingredient = t.active_ingredient,
+                            mode = t.mode_of_action
+                        AGGREGATE applications = COUNT(1)
+                    SORT applications DESC
+                    RETURN { ingredient, mode, applications }
         """
-        
-        with self.driver.session() as session:
-            history = session.run(
-                query, 
-                plant_id=plant_id, 
-                window=self.ROTATION_WINDOW_DAYS
-            ).data()
+
+        cursor = self.db.aql.execute(
+            query,
+            bind_vars={
+                'plant_id': plant_id,
+                'window': self.ROTATION_WINDOW_DAYS,
+            }
+        )
+        history = list(cursor)
         
         # Prüfe auf zu häufige Wiederholung desselben Wirkstoffs
         ingredient_counts = defaultdict(int)
         for record in history:
-            ingredient_counts[record['active_ingredient']] += record['applications']
+            ingredient_counts[record['ingredient']] += record['applications']
         
         if any(count >= self.MAX_CONSECUTIVE_APPLICATIONS for count in ingredient_counts.values()):
             return False, "RESISTENZWARNUNG: Wirkstoff-Rotation erforderlich"
@@ -183,7 +238,7 @@ class ResistanceManager:
 
 **3. Nützlings-Release-Kalkulator:**
 ```python
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 
 class BeneficialReleaseCalculation(BaseModel):
     organism_species: str
@@ -191,8 +246,9 @@ class BeneficialReleaseCalculation(BaseModel):
     affected_area_m2: float
     pest_density_per_plant: int
     release_rate_base: float = Field(description="Nützlinge pro m²")
-    
-    @validator('affected_area_m2')
+
+    @field_validator('affected_area_m2')
+    @classmethod
     def validate_area(cls, v):
         if v <= 0:
             raise ValueError("Fläche muss positiv sein")
@@ -247,7 +303,7 @@ class SafetyIntervalValidator:
 ### Datenvalidierung (Type Hinting):
 ```python
 from typing import Literal, Optional
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 
 PestPressureLevel = Literal['none', 'low', 'medium', 'high', 'critical']
@@ -268,7 +324,8 @@ class InspectionRecord(BaseModel):
     photo_references: list[str] = Field(default_factory=list)
     notes: Optional[str] = None
     
-    @validator('symptoms_observed')
+    @field_validator('symptoms_observed')
+    @classmethod
     def validate_symptoms(cls, v):
         if not v:
             raise ValueError("Mindestens ein Symptom muss dokumentiert werden")
@@ -290,22 +347,23 @@ class TreatmentProtocol(BaseModel):
     )
     protective_equipment_required: list[str] = Field(default_factory=list)
     
-    @validator('safety_interval_days')
-    def validate_chemical_safety(cls, v, values):
-        if values.get('type') == 'chemical' and v == 0:
+    @field_validator('safety_interval_days')
+    @classmethod
+    def validate_chemical_safety(cls, v, info):
+        if info.data.get('type') == 'chemical' and v == 0:
             raise ValueError("Chemische Behandlungen benötigen Karenzzeit")
         return v
 ```
 
 ## 4. Abhängigkeiten
 
-**Erforderliche existierende Nodes/Beziehungen:**
-- `:PlantInstance` aus REQ-001 (Stammdatenverwaltung)
-- `:GrowthPhase` aus REQ-003 (Phasensteuerung)
-- `:Slot` / `:Location` aus REQ-002 (Standortverwaltung)
-- `:Sensor` / `:Observation` aus REQ-005 (Hybrid-Sensorik) für Umweltbedingungen
-- `:Task` aus REQ-006 (Aufgabenplanung) für automatische Inspektions-Tasks
-- `:Harvest` aus REQ-007 (Erntemanagement) für Karenzzeit-Validierung
+**Erforderliche existierende Collections/Beziehungen:**
+- `plant_instances` aus REQ-001 (Stammdatenverwaltung)
+- `growth_phases` aus REQ-003 (Phasensteuerung)
+- `slots` / `locations` aus REQ-002 (Standortverwaltung)
+- `sensors` / `observations` aus REQ-005 (Hybrid-Sensorik) für Umweltbedingungen
+- `tasks` aus REQ-006 (Aufgabenplanung) für automatische Inspektions-Tasks
+- `harvests` aus REQ-007 (Erntemanagement) für Karenzzeit-Validierung
 
 **Integrationsschnittstellen:**
 - **REQ-005 (Sensorik):** Klimadaten (Temp, RLF) als Risikoindikator für Pathogene

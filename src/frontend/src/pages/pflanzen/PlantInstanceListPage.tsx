@@ -9,6 +9,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchPlantInstances } from '@/store/slices/plantInstancesSlice';
+import { useTableUrlState } from '@/hooks/useTableState';
 import type { PlantInstance } from '@/api/types';
 import PlantInstanceCreateDialog from './PlantInstanceCreateDialog';
 
@@ -18,6 +19,7 @@ export default function PlantInstanceListPage() {
   const navigate = useNavigate();
   const { items, loading } = useAppSelector((s) => s.plantInstances);
   const [createOpen, setCreateOpen] = useState(false);
+  const tableState = useTableUrlState({ defaultSort: { column: 'plantedOn', direction: 'desc' } });
 
   useEffect(() => {
     dispatch(fetchPlantInstances({}));
@@ -31,6 +33,7 @@ export default function PlantInstanceListPage() {
       id: 'currentPhase',
       label: t('pages.plantInstances.currentPhase'),
       render: (r) => <Chip label={r.current_phase} size="small" color="primary" />,
+      searchValue: (r) => r.current_phase,
     },
     {
       id: 'removedOn',
@@ -55,6 +58,8 @@ export default function PlantInstanceListPage() {
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.plantInstances.create')}
         onEmptyAction={() => setCreateOpen(true)}
+        tableState={tableState}
+        ariaLabel={t('pages.plantInstances.title')}
       />
       <PlantInstanceCreateDialog
         open={createOpen}

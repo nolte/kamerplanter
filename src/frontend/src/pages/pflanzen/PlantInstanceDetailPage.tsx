@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -7,15 +7,18 @@ import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
+import Alert from '@mui/material/Alert';
+import Link from '@mui/material/Link';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import ScienceIcon from '@mui/icons-material/Science';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -23,17 +26,22 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import DataTable, { type Column } from '@/components/common/DataTable';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import PhaseTransitionDialog from './PhaseTransitionDialog';
+import FeedingEventCreateDialog from '@/pages/duengung/FeedingEventCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useTableLocalState } from '@/hooks/useTableState';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import * as phasesApi from '@/api/endpoints/phases';
 import * as speciesApi from '@/api/endpoints/species';
-import type { PlantInstance, CurrentPhaseResponse, PhaseHistoryEntry, Cultivar } from '@/api/types';
+import * as planApi from '@/api/endpoints/nutrient-plans';
+import * as feedingApi from '@/api/endpoints/feeding-events';
+import type { PlantInstance, CurrentPhaseResponse, PhaseHistoryEntry, Cultivar, NutrientPlan, FeedingEvent } from '@/api/types';
 
 const editSchema = z.object({
   plant_name: z.string().nullable(),
@@ -44,6 +52,13 @@ const editSchema = z.object({
 });
 
 type EditFormData = z.infer<typeof editSchema>;
+
+const assignSchema = z.object({
+  plan_key: z.string().min(1),
+  assigned_by: z.string().min(1),
+});
+
+type AssignFormData = z.infer<typeof assignSchema>;
 
 export default function PlantInstanceDetailPage() {
   const { key } = useParams<{ key: string }>();
@@ -62,6 +77,18 @@ export default function PlantInstanceDetailPage() {
   const [saving, setSaving] = useState(false);
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
 
+  // Feeding events state
+  const [feedingEvents, setFeedingEvents] = useState<FeedingEvent[]>([]);
+  const [feedingCreateOpen, setFeedingCreateOpen] = useState(false);
+  const feedingTableState = useTableLocalState({ defaultSort: { column: 'timestamp', direction: 'desc' } });
+
+  // Nutrient plan assignment state
+  const [assignedPlan, setAssignedPlan] = useState<NutrientPlan | null>(null);
+  const [availablePlans, setAvailablePlans] = useState<NutrientPlan[]>([]);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [removePlanOpen, setRemovePlanOpen] = useState(false);
+  const [assignSaving, setAssignSaving] = useState(false);
+
   const {
     control,
     handleSubmit,
@@ -76,6 +103,15 @@ export default function PlantInstanceDetailPage() {
       substrate_batch_key: null,
       planted_on: '',
     },
+  });
+
+  const {
+    control: assignControl,
+    handleSubmit: handleAssignSubmit,
+    reset: resetAssign,
+  } = useForm<AssignFormData>({
+    resolver: zodResolver(assignSchema),
+    defaultValues: { plan_key: '', assigned_by: '' },
   });
 
   const load = async () => {
@@ -106,6 +142,16 @@ export default function PlantInstanceDetailPage() {
       } catch {
         // History may be empty
       }
+      // Load feeding history
+      try {
+        const fe = await feedingApi.getPlantFeedingHistory(key);
+        setFeedingEvents(fe);
+      } catch {
+        // May not have any feeding events
+      }
+      // Load assigned nutrient plan
+      const ap = await planApi.getPlantPlan(key);
+      setAssignedPlan(ap);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -145,6 +191,52 @@ export default function PlantInstanceDetailPage() {
     }
   };
 
+  const openAssignDialog = async () => {
+    try {
+      const plans = await planApi.fetchNutrientPlans(0, 200);
+      setAvailablePlans(plans);
+      resetAssign({ plan_key: '', assigned_by: '' });
+      setAssignDialogOpen(true);
+    } catch (err) {
+      handleError(err);
+    }
+  };
+
+  const onAssignPlan = async (data: AssignFormData) => {
+    if (!key) return;
+    try {
+      setAssignSaving(true);
+      await planApi.assignPlanToPlant(key, data);
+      notification.success(t('pages.nutrientPlans.assignPlan'));
+      setAssignDialogOpen(false);
+      load();
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setAssignSaving(false);
+    }
+  };
+
+  const onRemovePlan = async () => {
+    if (!key) return;
+    try {
+      await planApi.removePlantPlan(key);
+      notification.success(t('pages.nutrientPlans.removePlan'));
+      setAssignedPlan(null);
+      setRemovePlanOpen(false);
+    } catch (err) {
+      handleError(err);
+    }
+  };
+
+  const historyColumns: Column<PhaseHistoryEntry>[] = [
+    { id: 'phase', label: t('pages.phases.current'), render: (r) => r.phase_name },
+    { id: 'enteredAt', label: t('pages.phases.enteredAt'), render: (r) => new Date(r.entered_at).toLocaleDateString() },
+    { id: 'exitedAt', label: t('pages.phases.exitedAt'), render: (r) => r.exited_at ? new Date(r.exited_at).toLocaleDateString() : '-' },
+    { id: 'duration', label: t('pages.phases.duration'), render: (r) => r.actual_duration_days ?? '-', align: 'right' },
+    { id: 'reason', label: t('pages.phases.transitionReason'), render: (r) => r.transition_reason },
+  ];
+
   if (loading) return <LoadingSkeleton variant="form" />;
   if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
 
@@ -176,6 +268,8 @@ export default function PlantInstanceDetailPage() {
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
         <Tab label={t('pages.plantInstances.info')} />
+        <Tab label={t('entities.nutrientPlan')} />
+        <Tab label={t('entities.feedingEvents')} />
         <Tab label={t('common.edit')} />
       </Tabs>
 
@@ -236,34 +330,157 @@ export default function PlantInstanceDetailPage() {
               <Typography variant="h6" sx={{ mb: 2 }}>
                 {t('pages.phases.history')}
               </Typography>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>{t('pages.phases.current')}</TableCell>
-                    <TableCell>{t('pages.phases.enteredAt')}</TableCell>
-                    <TableCell>{t('pages.phases.exitedAt')}</TableCell>
-                    <TableCell>{t('pages.phases.duration')}</TableCell>
-                    <TableCell>{t('pages.phases.transitionReason')}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {history.map((h) => (
-                    <TableRow key={h.key}>
-                      <TableCell>{h.phase_name}</TableCell>
-                      <TableCell>{new Date(h.entered_at).toLocaleDateString()}</TableCell>
-                      <TableCell>{h.exited_at ? new Date(h.exited_at).toLocaleDateString() : '-'}</TableCell>
-                      <TableCell>{h.actual_duration_days ?? '-'}</TableCell>
-                      <TableCell>{h.transition_reason}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <DataTable
+                columns={historyColumns}
+                rows={history}
+                getRowKey={(r) => r.key}
+                variant="simple"
+                ariaLabel={t('pages.phases.history')}
+              />
             </Box>
           )}
         </>
       )}
 
+      {/* Tab 1: Nutrient Plan */}
       {tab === 1 && (
+        <Box>
+          {assignedPlan ? (
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <ScienceIcon />
+                    {t('pages.nutrientPlans.assignedPlan')}
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    startIcon={<DeleteIcon />}
+                    onClick={() => setRemovePlanOpen(true)}
+                  >
+                    {t('pages.nutrientPlans.removePlan')}
+                  </Button>
+                </Box>
+                <Typography variant="h5" sx={{ mb: 1 }}>
+                  <Link component={RouterLink} to={`/duengung/plans/${assignedPlan.key}`} underline="hover">
+                    {assignedPlan.name}
+                  </Link>
+                </Typography>
+                {assignedPlan.description && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {assignedPlan.description}
+                  </Typography>
+                )}
+                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mt: 1 }}>
+                  {assignedPlan.recommended_substrate_type && (
+                    <Chip
+                      label={t(`enums.substrateType.${assignedPlan.recommended_substrate_type}`)}
+                      size="small"
+                      variant="outlined"
+                    />
+                  )}
+                  {assignedPlan.is_template && (
+                    <Chip label={t('pages.nutrientPlans.isTemplate')} size="small" color="primary" />
+                  )}
+                  <Chip label={`v${assignedPlan.version}`} size="small" variant="outlined" />
+                  {assignedPlan.author && (
+                    <Chip label={assignedPlan.author} size="small" variant="outlined" />
+                  )}
+                  {assignedPlan.tags.map((tag) => (
+                    <Chip key={tag} label={tag} size="small" />
+                  ))}
+                </Box>
+              </CardContent>
+            </Card>
+          ) : (
+            <Box>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                {t('pages.nutrientPlans.noPlanAssigned')}
+              </Alert>
+              <Button
+                variant="contained"
+                startIcon={<ScienceIcon />}
+                onClick={openAssignDialog}
+                disabled={!!plant?.removed_on}
+              >
+                {t('pages.nutrientPlans.assignPlan')}
+              </Button>
+            </Box>
+          )}
+        </Box>
+      )}
+
+      {/* Tab 2: Feeding Events */}
+      {tab === 2 && (
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">{t('entities.feedingEvents')}</Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setFeedingCreateOpen(true)}
+              disabled={!!plant?.removed_on}
+              data-testid="create-feeding-button"
+            >
+              {t('pages.feedingEvents.create')}
+            </Button>
+          </Box>
+          <DataTable<FeedingEvent>
+            columns={[
+              {
+                id: 'timestamp',
+                label: t('pages.feedingEvents.timestamp'),
+                render: (r) => r.timestamp ? new Date(r.timestamp).toLocaleString() : '—',
+                searchValue: (r) => r.timestamp ? new Date(r.timestamp).toLocaleString() : '',
+              },
+              {
+                id: 'applicationMethod',
+                label: t('pages.feedingEvents.applicationMethod'),
+                render: (r) => t(`enums.applicationMethod.${r.application_method}`),
+                searchValue: (r) => t(`enums.applicationMethod.${r.application_method}`),
+              },
+              {
+                id: 'volume',
+                label: t('pages.feedingEvents.volumeApplied'),
+                render: (r) => `${r.volume_applied_liters} L`,
+                align: 'right',
+              },
+              {
+                id: 'isSupplemental',
+                label: t('pages.feedingEvents.isSupplemental'),
+                render: (r) => r.is_supplemental ? (
+                  <Chip label={t('common.yes')} size="small" color="info" />
+                ) : null,
+              },
+              {
+                id: 'ecAfter',
+                label: t('pages.feedingEvents.ecAfter'),
+                render: (r) => r.measured_ec_after != null ? String(r.measured_ec_after) : '—',
+                align: 'right',
+              },
+            ]}
+            rows={feedingEvents}
+            getRowKey={(r) => r.key}
+            onRowClick={(r) => navigate(`/duengung/feeding-events/${r.key}`)}
+            tableState={feedingTableState}
+            ariaLabel={t('entities.feedingEvents')}
+          />
+          <FeedingEventCreateDialog
+            open={feedingCreateOpen}
+            onClose={() => setFeedingCreateOpen(false)}
+            onCreated={() => {
+              setFeedingCreateOpen(false);
+              load();
+            }}
+            plantKey={key}
+          />
+        </Box>
+      )}
+
+      {/* Tab 3: Edit */}
+      {tab === 3 && (
         <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: 600 }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {t('pages.plantInstances.editIntro')}
@@ -294,6 +511,44 @@ export default function PlantInstanceDetailPage() {
         onCancel={() => setRemoveOpen(false)}
         destructive
       />
+
+      <ConfirmDialog
+        open={removePlanOpen}
+        title={t('pages.nutrientPlans.removePlan')}
+        message={t('common.deleteConfirm', { name: assignedPlan?.name ?? '' })}
+        onConfirm={onRemovePlan}
+        onCancel={() => setRemovePlanOpen(false)}
+      />
+
+      {/* Assign Plan Dialog */}
+      <Dialog open={assignDialogOpen} onClose={() => setAssignDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('pages.nutrientPlans.assignPlan')}</DialogTitle>
+        <DialogContent>
+          <form onSubmit={handleAssignSubmit(onAssignPlan)}>
+            <FormSelectField
+              name="plan_key"
+              control={assignControl}
+              label={t('entities.nutrientPlan')}
+              options={availablePlans.map((p) => ({
+                value: p.key,
+                label: `${p.name}${p.is_template ? ` (${t('pages.nutrientPlans.isTemplate')})` : ''}`,
+              }))}
+              required
+            />
+            <FormTextField
+              name="assigned_by"
+              control={assignControl}
+              label={t('pages.nutrientPlans.assignedBy')}
+              required
+            />
+            <FormActions
+              onCancel={() => setAssignDialogOpen(false)}
+              loading={assignSaving}
+              saveLabel={t('pages.nutrientPlans.assignPlan')}
+            />
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {key && (
         <PhaseTransitionDialog

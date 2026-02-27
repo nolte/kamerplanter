@@ -322,8 +322,8 @@ def pytest_addoption(parser):
     parser.addoption(
         "--base-url",
         action="store",
-        default="http://localhost:3000",
-        help="Base-URL der Anwendung (default: http://localhost:3000)",
+        default="http://localhost:5173",
+        help="Base-URL der Anwendung (default: http://localhost:5173)",
     )
     parser.addoption(
         "--generate-protocol",
@@ -581,7 +581,7 @@ test-reports/
 | **Ausführender** | max.mustermann |
 | **Betriebssystem** | Ubuntu 22.04 |
 | **Browser** | Chrome 121.0 (headless) |
-| **Python** | 3.12.1 |
+| **Python** | 3.14.x |
 | **Node.js** | 20.11.0 |
 
 ## Zusammenfassung

@@ -101,7 +101,7 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
 - **Geruchstest:** Aroma-Entwicklung, Schimmel-Erkennung
 - **Haptik:** Trockenheit, Festigkeit
 
-## 2. GraphDB-Modellierung
+## 2. ArangoDB-Modellierung
 
 ### Nodes:
 - **`:StorageProtocol`** - Lagerungsvorschrift
@@ -190,292 +190,345 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
     - `snap_test_ready: bool`
     - `estimated_days_remaining: int`
 
-### Edges:
-```cypher
-(:Species)-[:REQUIRES_POST_HARVEST]->(:StorageProtocol)
-(:StorageProtocol)-[:HAS_PHASE {sequence: int}]->(:CuringPhase)
-(:CuringPhase)-[:REQUIRES_CONDITIONS]->(:StorageCondition)
-(:Batch)-[:UNDERGOING]->(:CuringPhase)
-(:Batch)-[:STORED_IN]->(:StorageLocation)
-(:StorageLocation)-[:MONITORED_BY]->(:StorageObservation)
-(:Batch)-[:HAS_DRYING_PROGRESS]->(:DryingProgress)
-(:Batch)-[:BURPING_EVENT]->(:BurpingEvent)
-(:StorageLocation)-[:TRIGGERED_ALERT]->(:MoldAlert)
-(:StorageObservation)-[:TRIGGERED]->(:MoldAlert)  // RH-basierte Alerts
+### Edge Collections:
+```aql
+// Edge Collection: requires_post_harvest
+// species -> storage_protocols
+
+// Edge Collection: has_phase
+// storage_protocols -> curing_phases  (edge attribute: sequence)
+
+// Edge Collection: requires_conditions
+// curing_phases -> storage_conditions
+
+// Edge Collection: undergoing
+// batches -> curing_phases
+
+// Edge Collection: stored_in
+// batches -> storage_locations
+
+// Edge Collection: monitored_by
+// storage_locations -> storage_observations
+
+// Edge Collection: has_drying_progress
+// batches -> drying_progress
+
+// Edge Collection: burping_event
+// batches -> burping_events
+
+// Edge Collection: triggered_alert
+// storage_locations -> mold_alerts
+
+// Edge Collection: triggered
+// storage_observations -> mold_alerts  (RH-basierte Alerts)
 ```
 
-### Cypher-Beispiellogik:
+### AQL-Beispiellogik:
 
 **Burping-Schedule basierend auf Cure-Dauer:**
-```cypher
-MATCH (batch:Batch {batch_id: $batch_id})-[:UNDERGOING]->(phase:CuringPhase)
-WHERE phase.phase_name = 'jar_curing'
+```aql
+// Hole Batch mit aktiver Curing-Phase
+FOR batch IN batches
+  FILTER batch.batch_id == @batch_id
+  FOR phase IN 1..1 OUTBOUND batch GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['undergoing'] }
+    FILTER phase.phase_name == 'jar_curing'
 
-// Berechne Tage in Curing
-WITH batch, phase,
-     duration.between(batch.curing_started, datetime()).days AS days_in_cure
+    // Berechne Tage in Curing
+    LET days_in_cure = DATE_DIFF(batch.curing_started, DATE_NOW(), "day")
 
-// Bestimme Burping-Frequenz
-WITH batch, phase, days_in_cure,
-     CASE
-       WHEN days_in_cure <= 7 THEN {
-         frequency: 'twice_daily',
-         duration_min: 15,
-         times: ['09:00', '21:00'],
-         reason: 'Early cure - high moisture'
-       }
-       WHEN days_in_cure <= 14 THEN {
-         frequency: 'daily',
-         duration_min: 10,
-         times: ['12:00'],
-         reason: 'Mid cure - moisture stabilizing'
-       }
-       WHEN days_in_cure <= 21 THEN {
-         frequency: 'every_2_days',
-         duration_min: 10,
-         times: ['12:00'],
-         reason: 'Late cure - low moisture'
-       }
-       ELSE {
-         frequency: 'weekly',
-         duration_min: 5,
-         times: ['12:00'],
-         reason: 'Final cure - maintenance only'
-       }
-     END AS burping_schedule
+    // Bestimme Burping-Frequenz
+    LET burping_schedule = (
+      days_in_cure <= 7 ? {
+        frequency: 'twice_daily',
+        duration_min: 15,
+        times: ['09:00', '21:00'],
+        reason: 'Early cure - high moisture'
+      } :
+      days_in_cure <= 14 ? {
+        frequency: 'daily',
+        duration_min: 10,
+        times: ['12:00'],
+        reason: 'Mid cure - moisture stabilizing'
+      } :
+      days_in_cure <= 21 ? {
+        frequency: 'every_2_days',
+        duration_min: 10,
+        times: ['12:00'],
+        reason: 'Late cure - low moisture'
+      } : {
+        frequency: 'weekly',
+        duration_min: 5,
+        times: ['12:00'],
+        reason: 'Final cure - maintenance only'
+      }
+    )
 
-// Hole letzte Burping-Events
-OPTIONAL MATCH (batch)-[:BURPING_EVENT]->(last_burp:BurpingEvent)
-WHERE last_burp.burped_at > datetime() - duration('P7D')
+    // Hole letzte Burping-Events (letzte 7 Tage)
+    LET recent_burps = (
+      FOR burp IN 1..1 OUTBOUND batch GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['burping_event'] }
+        FILTER burp.burped_at > DATE_SUBTRACT(DATE_NOW(), 7, "day")
+        SORT burp.burped_at DESC
+        RETURN burp
+    )
 
-WITH batch, burping_schedule, days_in_cure,
-     COLLECT(last_burp) AS recent_burps
-ORDER BY last_burp.burped_at DESC
+    // Berechne nächstes Burping
+    LET next_burping = (
+      LENGTH(recent_burps) == 0
+        ? DATE_ISO8601(DATE_NOW())  // Sofort wenn noch nie geburpt
+        : DATE_ADD(recent_burps[0].burped_at,
+            burping_schedule.frequency == 'twice_daily' ? 12 :
+            burping_schedule.frequency == 'daily' ? 24 :
+            burping_schedule.frequency == 'every_2_days' ? 48 :
+            168,  // weekly
+            "hour"
+          )
+    )
 
-// Berechne nächstes Burping
-WITH batch, burping_schedule, days_in_cure, recent_burps,
-     CASE SIZE(recent_burps)
-       WHEN 0 THEN datetime()  // Sofort wenn noch nie geburpt
-       ELSE recent_burps[0].burped_at + duration({
-         hours: CASE burping_schedule.frequency
-           WHEN 'twice_daily' THEN 12
-           WHEN 'daily' THEN 24
-           WHEN 'every_2_days' THEN 48
-           ELSE 168  // weekly
-         END
-       })
-     END AS next_burping
-
-RETURN {
-  batch_id: batch.batch_id,
-  days_in_cure: days_in_cure,
-  burping_schedule: burping_schedule,
-  last_burped: CASE SIZE(recent_burps) WHEN 0 THEN null ELSE recent_burps[0].burped_at END,
-  next_burping: next_burping,
-  overdue: next_burping < datetime(),
-  notes: [
-    'Prüfe auf Schimmel (weiß/grau = schlecht)',
-    'Boveda 62% Pack ab Woche 2 empfohlen',
-    'Ziel-RH im Jar: 58-62%'
-  ]
-} AS schedule
+    RETURN {
+      batch_id: batch.batch_id,
+      days_in_cure: days_in_cure,
+      burping_schedule: burping_schedule,
+      last_burped: LENGTH(recent_burps) == 0 ? null : recent_burps[0].burped_at,
+      next_burping: next_burping,
+      overdue: next_burping < DATE_ISO8601(DATE_NOW()),
+      notes: [
+        'Prüfe auf Schimmel (weiß/grau = schlecht)',
+        'Boveda 62% Pack ab Woche 2 empfohlen',
+        'Ziel-RH im Jar: 58-62%'
+      ]
+    }
 ```
 
 **Schimmel-Prävention mit RH-Monitoring:**
-```cypher
-MATCH (location:StorageLocation)-[:MONITORED_BY]->(obs:StorageObservation)
-WHERE obs.timestamp > datetime() - duration('PT6H')
+```aql
+// Aggregiere letzte 6h Messungen pro StorageLocation
+FOR location IN storage_locations
+  LET observations = (
+    FOR obs IN 1..1 OUTBOUND location GRAPH 'kamerplanter_graph'
+      OPTIONS { edgeCollections: ['monitored_by'] }
+      FILTER obs.timestamp > DATE_SUBTRACT(DATE_NOW(), 6, "hour")
+      RETURN obs
+  )
+  FILTER LENGTH(observations) > 0
 
-// Aggregiere letzte 6h Messungen
-WITH location, COLLECT(obs) AS observations,
-     AVG(obs.rh_percent) AS avg_rh_6h,
-     MAX(obs.rh_percent) AS max_rh_6h,
-     MIN(obs.temperature_c) AS min_temp_6h,
-     MAX(obs.temperature_c) AS max_temp_6h
+  LET avg_rh_6h = AVG(observations[*].rh_percent)
+  LET max_rh_6h = MAX(observations[*].rh_percent)
+  LET min_temp_6h = MIN(observations[*].temperature_c)
+  LET max_temp_6h = MAX(observations[*].temperature_c)
 
-// Bestimme Schimmel-Risiko
-WITH location, avg_rh_6h, max_rh_6h, min_temp_6h, max_temp_6h,
-     CASE
-       WHEN avg_rh_6h > 65 THEN 'CRITICAL'
-       WHEN avg_rh_6h > 62 THEN 'WARNING'
-       WHEN avg_rh_6h > 55 AND max_temp_6h > 22 THEN 'WARNING'
-       ELSE 'OK'
-     END AS risk_level
+  // Bestimme Schimmel-Risiko
+  LET risk_level = (
+    avg_rh_6h > 65 ? 'CRITICAL' :
+    avg_rh_6h > 62 ? 'WARNING' :
+    (avg_rh_6h > 55 AND max_temp_6h > 22) ? 'WARNING' :
+    'OK'
+  )
 
-WHERE risk_level IN ['WARNING', 'CRITICAL']
+  FILTER risk_level IN ['WARNING', 'CRITICAL']
 
-// Prüfe ob Alert bereits existiert
-OPTIONAL MATCH (location)-[:TRIGGERED_ALERT]->(existing:MoldAlert)
-WHERE existing.resolved_at IS NULL
+  // Prüfe ob Alert bereits existiert
+  LET existing_alerts = (
+    FOR alert IN 1..1 OUTBOUND location GRAPH 'kamerplanter_graph'
+      OPTIONS { edgeCollections: ['triggered_alert'] }
+      FILTER alert.resolved_at == null
+      RETURN alert
+  )
 
-// Erstelle neuen Alert wenn nötig
-WITH location, risk_level, avg_rh_6h, max_temp_6h, existing
-WHERE existing IS NULL AND risk_level = 'CRITICAL'
+  // Erstelle neuen Alert wenn nötig
+  FILTER LENGTH(existing_alerts) == 0 AND risk_level == 'CRITICAL'
 
-CREATE (alert:MoldAlert {
-  alert_id: randomUUID(),
-  triggered_at: datetime(),
-  severity: risk_level,
-  trigger_reason: 'RH ' + toString(round(avg_rh_6h, 1)) + '% > 65% über 6h',
-  affected_location: location.location_id,
-  action_required: CASE risk_level
-    WHEN 'CRITICAL' THEN 'SOFORT: Dehumidifier einschalten, Luftaustausch erhöhen, visuell auf Schimmel prüfen'
-    ELSE 'Überwachen: RH senken auf <60%'
-  END
-})
+  LET new_alert = FIRST(
+    INSERT {
+      alert_id: UUID(),
+      triggered_at: DATE_ISO8601(DATE_NOW()),
+      severity: risk_level,
+      trigger_reason: CONCAT('RH ', ROUND(avg_rh_6h, 1), '% > 65% über 6h'),
+      affected_location: location.location_id,
+      action_required: (
+        risk_level == 'CRITICAL'
+          ? 'SOFORT: Dehumidifier einschalten, Luftaustausch erhöhen, visuell auf Schimmel prüfen'
+          : 'Überwachen: RH senken auf <60%'
+      )
+    } INTO mold_alerts
+    RETURN NEW
+  )
 
-CREATE (location)-[:TRIGGERED_ALERT]->(alert)
+  // Erstelle Edge location -> alert
+  INSERT { _from: location._id, _to: new_alert._id }
+    INTO triggered_alert
 
-RETURN {
-  location: location.location_name,
-  risk_level: risk_level,
-  avg_rh_6h: round(avg_rh_6h, 1),
-  max_rh_6h: round(max_rh_6h, 1),
-  temp_range: [round(min_temp_6h, 1), round(max_temp_6h, 1)],
-  alert_created: true,
-  recommendations: [
-    'Öffne alle Belüftungen',
-    'Stelle Dehumidifier auf',
-    'Prüfe alle Batches visuell',
-    'Reduziere Raum-Feuchtigkeit auf <55%'
-  ]
-} AS alert_info
+  RETURN {
+    location: location.location_name,
+    risk_level: risk_level,
+    avg_rh_6h: ROUND(avg_rh_6h, 1),
+    max_rh_6h: ROUND(max_rh_6h, 1),
+    temp_range: [ROUND(min_temp_6h, 1), ROUND(max_temp_6h, 1)],
+    alert_created: true,
+    recommendations: [
+      'Öffne alle Belüftungen',
+      'Stelle Dehumidifier auf',
+      'Prüfe alle Batches visuell',
+      'Reduziere Raum-Feuchtigkeit auf <55%'
+    ]
+  }
 ```
 
 **Trocknungs-Fortschritt mit Gewichts-Tracking:**
-```cypher
-MATCH (batch:Batch {batch_id: $batch_id})-[:HAS_DRYING_PROGRESS]->(progress:DryingProgress)
+```aql
+FOR batch IN batches
+  FILTER batch.batch_id == @batch_id
 
-// Hole aktuelle und historische Gewichte
-MATCH (batch)-[:STORED_IN]->(location:StorageLocation)
-      -[:MONITORED_BY]->(obs:StorageObservation)
-WHERE obs.weight_g IS NOT NULL
-  AND obs.timestamp > datetime() - duration('P14D')
+  // Hole DryingProgress
+  FOR progress IN 1..1 OUTBOUND batch GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['has_drying_progress'] }
 
-WITH batch, progress, 
-     COLLECT({timestamp: obs.timestamp, weight: obs.weight_g}) AS weight_history
-ORDER BY obs.timestamp DESC
+    // Hole aktuelle und historische Gewichte
+    LET weight_history = (
+      FOR location IN 1..1 OUTBOUND batch GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['stored_in'] }
+        FOR obs IN 1..1 OUTBOUND location GRAPH 'kamerplanter_graph'
+          OPTIONS { edgeCollections: ['monitored_by'] }
+          FILTER obs.weight_g != null
+            AND obs.timestamp > DATE_SUBTRACT(DATE_NOW(), 14, "day")
+          SORT obs.timestamp DESC
+          RETURN { timestamp: obs.timestamp, weight: obs.weight_g }
+    )
 
-// Berechne Fortschritt
-WITH batch, progress, weight_history,
-     weight_history[0].weight AS current_weight,
-     progress.start_weight_g AS start_weight,
-     progress.target_weight_g AS target_weight
+    // Berechne Fortschritt
+    LET current_weight = weight_history[0].weight
+    LET start_weight = progress.start_weight_g
+    LET target_weight = progress.target_weight_g
 
-WITH batch, progress, weight_history, current_weight, start_weight, target_weight,
-     ((start_weight - current_weight) / (start_weight - target_weight) * 100) AS dryness_percent,
-     ((start_weight - current_weight) / start_weight * 100) AS weight_loss_percent
+    LET dryness_percent = ((start_weight - current_weight) / (start_weight - target_weight) * 100)
+    LET weight_loss_percent = ((start_weight - current_weight) / start_weight * 100)
 
-// Update Progress
-SET progress.current_weight_g = current_weight,
-    progress.weight_loss_percent = weight_loss_percent,
-    progress.dryness_progress_percent = dryness_percent
+    // Snap-Test Readiness (bei 70-80% Fortschritt)
+    LET snap_test_ready = dryness_percent >= 70
 
-// Snap-Test Readiness (bei 70-80% Fortschritt)
-WITH batch, progress, weight_history, dryness_percent, weight_loss_percent,
-     dryness_percent >= 70 AS snap_test_ready
+    // Schätze verbleibende Tage (basierend auf Verlaufskurve)
+    LET estimated_days_remaining = (
+      dryness_percent >= 95 ? 0 :
+      dryness_percent >= 80 ? 2 :
+      dryness_percent >= 60 ? 4 :
+      dryness_percent >= 40 ? 7 :
+      10
+    )
 
-SET progress.snap_test_ready = snap_test_ready
+    // Update Progress
+    UPDATE progress WITH {
+      current_weight_g: current_weight,
+      weight_loss_percent: weight_loss_percent,
+      dryness_progress_percent: dryness_percent,
+      snap_test_ready: snap_test_ready,
+      estimated_days_remaining: estimated_days_remaining
+    } IN drying_progress
 
-// Schätze verbleibende Tage (basierend auf Verlaufskurve)
-WITH batch, progress, weight_history, dryness_percent, weight_loss_percent, snap_test_ready,
-     CASE
-       WHEN dryness_percent >= 95 THEN 0
-       WHEN dryness_percent >= 80 THEN 2
-       WHEN dryness_percent >= 60 THEN 4
-       WHEN dryness_percent >= 40 THEN 7
-       ELSE 10
-     END AS estimated_days_remaining
-
-SET progress.estimated_days_remaining = estimated_days_remaining
-
-RETURN {
-  batch_id: batch.batch_id,
-  start_weight_g: start_weight,
-  current_weight_g: round(current_weight, 1),
-  target_weight_g: target_weight,
-  weight_loss_percent: round(weight_loss_percent, 1),
-  dryness_progress_percent: round(dryness_percent, 1),
-  snap_test_ready: snap_test_ready,
-  estimated_days_remaining: estimated_days_remaining,
-  ready_for_curing: dryness_percent >= 95,
-  status: CASE
-    WHEN dryness_percent >= 95 THEN 'READY - Start Jar Curing'
-    WHEN dryness_percent >= 70 THEN 'APPROACHING - Test Snap daily'
-    WHEN dryness_percent >= 40 THEN 'DRYING - On track'
-    ELSE 'EARLY - Just started'
-  END,
-  weight_history: [w IN weight_history | {
-    date: date(w.timestamp),
-    weight_g: w.weight
-  }]
-} AS drying_status
+    RETURN {
+      batch_id: batch.batch_id,
+      start_weight_g: start_weight,
+      current_weight_g: ROUND(current_weight, 1),
+      target_weight_g: target_weight,
+      weight_loss_percent: ROUND(weight_loss_percent, 1),
+      dryness_progress_percent: ROUND(dryness_percent, 1),
+      snap_test_ready: snap_test_ready,
+      estimated_days_remaining: estimated_days_remaining,
+      ready_for_curing: dryness_percent >= 95,
+      status: (
+        dryness_percent >= 95 ? 'READY - Start Jar Curing' :
+        dryness_percent >= 70 ? 'APPROACHING - Test Snap daily' :
+        dryness_percent >= 40 ? 'DRYING - On track' :
+        'EARLY - Just started'
+      ),
+      weight_history: (
+        FOR w IN weight_history
+          RETURN { date: DATE_FORMAT(w.timestamp, "%yyyy-%mm-%dd"), weight_g: w.weight }
+      )
+    }
 ```
 
 **Storage-Inventar mit Haltbarkeits-Prognose:**
-```cypher
-MATCH (location:StorageLocation)<-[:STORED_IN]-(batch:Batch)
+```aql
+FOR location IN storage_locations
+  // Hole alle Batches, die in dieser Location gelagert sind
+  LET batch_data = (
+    FOR batch IN 1..1 INBOUND location GRAPH 'kamerplanter_graph'
+      OPTIONS { edgeCollections: ['stored_in'] }
 
-// Hole Storage-Protokoll
-MATCH (batch)-[:DERIVED_FROM]->(:PlantInstance)-[:BELONGS_TO_SPECIES]->(species:Species)
-      -[:REQUIRES_POST_HARVEST]->(protocol:StorageProtocol {protocol_type: 'storage'})
+      // Hole Storage-Protokoll über Traversierung: batch -> plant_instance -> species -> protocol
+      LET species = FIRST(
+        FOR v IN 2..2 OUTBOUND batch GRAPH 'kamerplanter_graph'
+          OPTIONS { edgeCollections: ['derived_from', 'belongs_to_species'] }
+          FILTER IS_SAME_COLLECTION('species', v)
+          RETURN v
+      )
 
-// Berechne Lagerzeit
-WITH location, batch, species, protocol,
-     duration.between(batch.stored_at, datetime()).days AS days_in_storage
+      LET protocol = FIRST(
+        FOR p IN 1..1 OUTBOUND species GRAPH 'kamerplanter_graph'
+          OPTIONS { edgeCollections: ['requires_post_harvest'] }
+          FILTER p.protocol_type == 'storage'
+          RETURN p
+      )
 
-// Hole aktuelle Conditions
-OPTIONAL MATCH (location)-[:MONITORED_BY]->(latest_obs:StorageObservation)
-WHERE latest_obs.timestamp > datetime() - duration('PT24H')
+      // Berechne Lagerzeit
+      LET days_in_storage = DATE_DIFF(batch.stored_at, DATE_NOW(), "day")
 
-WITH location, batch, species, protocol, days_in_storage, latest_obs
-ORDER BY latest_obs.timestamp DESC
+      // Hole aktuelle Conditions (letzte 24h)
+      LET current_condition = FIRST(
+        FOR obs IN 1..1 OUTBOUND location GRAPH 'kamerplanter_graph'
+          OPTIONS { edgeCollections: ['monitored_by'] }
+          FILTER obs.timestamp > DATE_SUBTRACT(DATE_NOW(), 24, "hour")
+          SORT obs.timestamp DESC
+          LIMIT 1
+          RETURN obs
+      )
 
-WITH location, batch, species, protocol, days_in_storage,
-     COLLECT(latest_obs)[0] AS current_condition
+      // Haltbarkeits-Schätzung (spezies-abhängig)
+      LET shelf_life_days = (
+        species.scientific_name == 'Cannabis sativa' ? 365 :   // 1 Jahr bei korrekter Lagerung
+        species.scientific_name == 'Allium cepa' ? 180 :       // Zwiebeln 6 Monate
+        species.scientific_name == 'Solanum tuberosum' ? 270 : // Kartoffeln 9 Monate
+        90
+      )
 
-// Haltbarkeits-Schätzung (spezies-abhängig)
-WITH location, batch, species, days_in_storage, current_condition,
-     CASE species.scientific_name
-       WHEN 'Cannabis sativa' THEN 365  // 1 Jahr bei korrekter Lagerung
-       WHEN 'Allium cepa' THEN 180      // Zwiebeln 6 Monate
-       WHEN 'Solanum tuberosum' THEN 270  // Kartoffeln 9 Monate
-       ELSE 90
-     END AS shelf_life_days
+      LET days_remaining = shelf_life_days - days_in_storage
+      LET shelf_life_used_percent = (days_in_storage / shelf_life_days * 100)
 
-WITH location, batch, species, days_in_storage, current_condition, shelf_life_days,
-     shelf_life_days - days_in_storage AS days_remaining,
-     (toFloat(days_in_storage) / shelf_life_days * 100) AS shelf_life_used_percent
+      RETURN {
+        batch_id: batch.batch_id,
+        species: species.common_names[0],
+        weight_g: batch.actual_dry_weight_g,
+        days_in_storage: days_in_storage,
+        days_remaining: days_remaining,
+        shelf_life_percent: ROUND(shelf_life_used_percent, 1),
+        condition: current_condition.visual_condition,
+        quality_grade: batch.quality_grade
+      }
+  )
 
-// Aggregiere pro Location
-WITH location,
-     COUNT(batch) AS total_batches,
-     SUM(batch.actual_dry_weight_g) AS total_weight_g,
-     AVG(days_remaining) AS avg_days_remaining,
-     COLLECT({
-       batch_id: batch.batch_id,
-       species: species.common_names[0],
-       weight_g: batch.actual_dry_weight_g,
-       days_in_storage: days_in_storage,
-       days_remaining: days_remaining,
-       shelf_life_percent: round(shelf_life_used_percent, 1),
-       condition: current_condition.visual_condition,
-       quality_grade: batch.quality_grade
-     }) AS batches
+  FILTER LENGTH(batch_data) > 0
 
-RETURN {
-  location: location.location_name,
-  capacity_kg: location.capacity_kg,
-  current_stock_kg: round(total_weight_g / 1000, 2),
-  utilization_percent: round((total_weight_g / 1000) / location.capacity_kg * 100, 1),
-  total_batches: total_batches,
-  average_days_remaining: round(avg_days_remaining, 0),
-  batches: batches,
-  alerts: [b IN batches WHERE b.days_remaining < 30 | 
-    b.batch_id + ' läuft in ' + toString(b.days_remaining) + ' Tagen ab'
-  ]
-} AS inventory
-ORDER BY inventory.location
+  LET total_batches = LENGTH(batch_data)
+  LET total_weight_g = SUM(batch_data[*].weight_g)
+  LET avg_days_remaining = AVG(batch_data[*].days_remaining)
+
+  SORT location.location_name
+
+  RETURN {
+    location: location.location_name,
+    capacity_kg: location.capacity_kg,
+    current_stock_kg: ROUND(total_weight_g / 1000, 2),
+    utilization_percent: ROUND((total_weight_g / 1000) / location.capacity_kg * 100, 1),
+    total_batches: total_batches,
+    average_days_remaining: ROUND(avg_days_remaining, 0),
+    batches: batch_data,
+    alerts: (
+      FOR b IN batch_data
+        FILTER b.days_remaining < 30
+        RETURN CONCAT(b.batch_id, ' läuft in ', TO_STRING(b.days_remaining), ' Tagen ab')
+    )
+  }
 ```
 
 ## 3. Technische Umsetzung (Python)
@@ -484,7 +537,7 @@ ORDER BY inventory.location
 
 **1. Drying Protocol Manager:**
 ```python
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional, List, Dict
 from datetime import datetime, date, timedelta
 
@@ -498,9 +551,10 @@ class DryingProtocol(BaseModel):
     target_moisture_percent: float = Field(default=10, ge=5, le=15)
     drying_method: Literal['hang_dry', 'rack_dry', 'dehydrator', 'air_cure']
     
-    @validator('current_weight_g')
-    def validate_weight_reduction(cls, v, values):
-        initial = values.get('initial_weight_g', 0)
+    @field_validator('current_weight_g')
+    @classmethod
+    def validate_weight_reduction(cls, v, info):
+        initial = info.data.get('initial_weight_g', 0)
         if v > initial:
             raise ValueError("Current weight kann nicht größer als initial weight sein")
         return v
@@ -1125,7 +1179,7 @@ class StorageLocationManager(BaseModel):
 ### Datenvalidierung (Type Hinting):
 ```python
 from typing import Literal, Optional, List
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime, date
 
 ProtocolType = Literal['drying', 'curing', 'aging', 'hardening', 'storage']
@@ -1151,12 +1205,13 @@ class StorageObservation(BaseModel):
     photo_refs: List[str] = Field(default_factory=list)
     notes: Optional[str] = Field(None, max_length=1000)
     
-    @validator('defects_observed')
-    def validate_critical_defects(cls, v, values):
+    @field_validator('defects_observed')
+    @classmethod
+    def validate_critical_defects(cls, v, info):
         critical_defects = ['mold', 'mold_spot', 'moldy']
         
         if any(defect in v for defect in critical_defects):
-            if values.get('visual_condition') != 'critical':
+            if info.data.get('visual_condition') != 'critical':
                 raise ValueError("Schimmel erfordert visual_condition='critical'")
         
         return v
@@ -1172,9 +1227,10 @@ class BurpingEvent(BaseModel):
     condensation_observed: bool = False
     aroma_notes: Optional[str] = None
     
-    @validator('jar_rh_after')
-    def validate_rh_reduction(cls, v, values):
-        rh_before = values.get('jar_rh_before')
+    @field_validator('jar_rh_after')
+    @classmethod
+    def validate_rh_reduction(cls, v, info):
+        rh_before = info.data.get('jar_rh_before')
         if rh_before and v:
             if v > rh_before:
                 raise ValueError("RH nach Burping sollte nicht höher sein als vorher")

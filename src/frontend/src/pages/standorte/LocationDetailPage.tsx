@@ -14,6 +14,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import DataTable, { type Column } from '@/components/common/DataTable';
+import { useTableLocalState } from '@/hooks/useTableState';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -21,12 +22,17 @@ import FormTimeField from '@/components/form/FormTimeField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Chip from '@mui/material/Chip';
+import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import SlotCreateDialog from './SlotCreateDialog';
+import WateringEventCreateDialog from './WateringEventCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/sites';
-import type { Location, Slot } from '@/api/types';
-import Chip from '@mui/material/Chip';
+import * as wateringApi from '@/api/endpoints/watering-events';
+import type { Location, Slot, WateringEvent, WateringStats } from '@/api/types';
 
 const timeRegex = /^\d{2}:\d{2}$/;
 
@@ -35,7 +41,7 @@ const schema = z.object({
   site_key: z.string(),
   area_m2: z.number().min(0),
   light_type: z.enum(['natural', 'led', 'hps', 'cmh', 'mixed']),
-  irrigation_system: z.enum(['manual', 'drip', 'hydro', 'mist']),
+  irrigation_system: z.enum(['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow']),
   lights_on: z.string().regex(timeRegex).nullable().optional(),
   lights_off: z.string().regex(timeRegex).nullable().optional(),
   use_dynamic_sunrise: z.boolean(),
@@ -56,6 +62,11 @@ export default function LocationDetailPage() {
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [slotCreateOpen, setSlotCreateOpen] = useState(false);
+  const [wateringEvents, setWateringEvents] = useState<WateringEvent[]>([]);
+  const [wateringStats, setWateringStats] = useState<WateringStats | null>(null);
+  const [wateringCreateOpen, setWateringCreateOpen] = useState(false);
+  const slotTableState = useTableLocalState({ defaultSort: { column: 'slotId', direction: 'asc' } });
+  const wateringTableState = useTableLocalState({ defaultSort: { column: 'wateredAt', direction: 'desc' } });
 
   const { control, handleSubmit, reset, formState: { isDirty } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -93,6 +104,17 @@ export default function LocationDetailPage() {
       });
       const s = await api.listSlots(key);
       setSlots(s);
+      // Load watering events and stats
+      try {
+        const [we, ws] = await Promise.all([
+          wateringApi.getLocationWateringEvents(key),
+          wateringApi.getLocationWateringStats(key),
+        ]);
+        setWateringEvents(we);
+        setWateringStats(ws);
+      } catch {
+        // Watering data may not be available
+      }
     } catch (err) {
       setError(String(err));
     } finally {
@@ -135,7 +157,7 @@ export default function LocationDetailPage() {
   const slotColumns: Column<Slot>[] = [
     { id: 'slotId', label: t('pages.slots.slotId'), render: (r) => r.slot_id },
     { id: 'position', label: t('pages.slots.position'), render: (r) => `(${r.position[0]}, ${r.position[1]})` },
-    { id: 'capacity', label: t('pages.slots.capacity'), render: (r) => r.capacity_plants },
+    { id: 'capacity', label: t('pages.slots.capacity'), render: (r) => r.capacity_plants, align: 'right' as const },
     { id: 'occupied', label: t('pages.slots.occupied'), render: (r) => (
       <Chip label={r.currently_occupied ? t('common.yes') : t('common.no')} size="small" color={r.currently_occupied ? 'warning' : 'default'} />
     )},
@@ -169,7 +191,7 @@ export default function LocationDetailPage() {
           name="irrigation_system"
           control={control}
           label={t('pages.locations.irrigationSystem')}
-          options={['manual', 'drip', 'hydro', 'mist'].map((v) => ({
+          options={['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow'].map((v) => ({
             value: v, label: t(`enums.irrigationSystem.${v}`),
           }))}
         />
@@ -209,7 +231,104 @@ export default function LocationDetailPage() {
             {t('pages.slots.create')}
           </Button>
         </Box>
-        <DataTable columns={slotColumns} rows={slots} getRowKey={(r) => r.key} onRowClick={(r) => navigate(`/standorte/slots/${r.key}`)} />
+        <DataTable columns={slotColumns} rows={slots} getRowKey={(r) => r.key} onRowClick={(r) => navigate(`/standorte/slots/${r.key}`)} tableState={slotTableState} ariaLabel={t('pages.slots.title')} />
+      </Box>
+
+      {/* Watering Events Section */}
+      <Box sx={{ mt: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <WaterDropIcon />
+            {t('pages.wateringEvents.title')}
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setWateringCreateOpen(true)}
+            data-testid="create-watering-button"
+          >
+            {t('pages.wateringEvents.create')}
+          </Button>
+        </Box>
+
+        {wateringStats && (
+          <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+            <Card sx={{ minWidth: 150 }}>
+              <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                <Typography variant="caption" color="text.secondary">
+                  {t('pages.wateringEvents.totalEvents')}
+                </Typography>
+                <Typography variant="h6">{wateringStats.total_events}</Typography>
+              </CardContent>
+            </Card>
+            <Card sx={{ minWidth: 150 }}>
+              <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                <Typography variant="caption" color="text.secondary">
+                  {t('pages.wateringEvents.totalVolume')}
+                </Typography>
+                <Typography variant="h6">{wateringStats.total_volume} L</Typography>
+              </CardContent>
+            </Card>
+            {wateringStats.by_method.map((m) => (
+              <Card key={m.method} sx={{ minWidth: 150 }}>
+                <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {t(`enums.applicationMethod.${m.method}`)}
+                  </Typography>
+                  <Typography variant="h6">{m.count}× / {m.total_volume} L</Typography>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        )}
+
+        <DataTable<WateringEvent>
+          columns={[
+            {
+              id: 'wateredAt',
+              label: t('pages.wateringEvents.wateredAt'),
+              render: (r) => r.watered_at ? new Date(r.watered_at).toLocaleString() : '—',
+              searchValue: (r) => r.watered_at ? new Date(r.watered_at).toLocaleString() : '',
+            },
+            {
+              id: 'applicationMethod',
+              label: t('pages.wateringEvents.applicationMethod'),
+              render: (r) => t(`enums.applicationMethod.${r.application_method}`),
+              searchValue: (r) => t(`enums.applicationMethod.${r.application_method}`),
+            },
+            {
+              id: 'volume',
+              label: t('pages.wateringEvents.volumeLiters'),
+              render: (r) => `${r.volume_liters} L`,
+              align: 'right',
+            },
+            {
+              id: 'slots',
+              label: t('pages.wateringEvents.slotKeys'),
+              render: (r) => String(r.slot_keys.length),
+              align: 'right',
+            },
+            {
+              id: 'waterSource',
+              label: t('pages.wateringEvents.waterSource'),
+              render: (r) => r.water_source ? t(`enums.waterSource.${r.water_source}`) : '—',
+            },
+          ]}
+          rows={wateringEvents}
+          getRowKey={(r) => r.key}
+          tableState={wateringTableState}
+          ariaLabel={t('pages.wateringEvents.title')}
+        />
+
+        <WateringEventCreateDialog
+          open={wateringCreateOpen}
+          onClose={() => setWateringCreateOpen(false)}
+          onCreated={() => {
+            setWateringCreateOpen(false);
+            load();
+          }}
+          slotKeys={slots.map((s) => s.key)}
+        />
       </Box>
 
       {key && (

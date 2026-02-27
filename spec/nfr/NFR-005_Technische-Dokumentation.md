@@ -1,11 +1,17 @@
 ---
-ID: NFR-005 
-Titel: Technische Dokumentation mit MkDocs Material 
-Kategorie: Dokumentation / Developer Experience 
-Fokus: Beides 
-Technologie: MkDocs, Material Theme, Python, Markdown 
-Status: Produktionsreif 
+
+ID: NFR-005
+Titel: Technische Dokumentation mit MkDocs Material
+Kategorie: Dokumentation / Developer Experience Unterkategorie: API-Docs, ADR, Onboarding Fokus: Beides (Zierpflanze & Nutzpflanze)
+Technologie: MkDocs, Material Theme, Python, Markdown
+Status: Entwurf
 Priorität: Hoch
+Version: 1.0
+Autor: Business Analyst - Agrotech
+Datum: 2026-02-25
+Tags: [documentation, mkdocs, api-docs, adr, onboarding, developer-experience]
+Abhängigkeiten: [NFR-003]
+Betroffene Module: [ALL]
 ---
 
 # NFR-005: Technische Dokumentation mit MkDocs Material
@@ -1824,8 +1830,8 @@ Term
 
 **Dokumenten-Ende**
 
-**Version**: 1.0 (Vollständig)  
-**Status**: Produktionsreif  
-**Letzte Aktualisierung**: 2026-02-25  
-**Review**: Pending  
+**Version**: 1.0
+**Status**: Entwurf
+**Letzte Aktualisierung**: 2026-02-25
+**Review**: Pending
 **Genehmigung**: Pending

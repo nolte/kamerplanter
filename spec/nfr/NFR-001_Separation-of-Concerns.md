@@ -1,16 +1,16 @@
 ---
 
-ID: NFR-001 
-Titel: Strikte Trennung von Frontend und Backend (Separation of Concerns) 
-Kategorie: Architektur Unterkategorie: API-Design, Security, Deployment Fokus: Beides (Zierpflanze & Nutzpflanze) 
-Technologie: Python, FastAPI, ArangoDB, React/Vue, Docker 
-Status: Produktionsreif 
-Priorität: Kritisch 
-Version: 2.0 
-Autor: Business Analyst - Agrotech 
-Datum: 2026-02-25 
-Tags: [architecture, api-first, security, scalability, separation-of-concerns, layered-architecture] 
-Abhängigkeiten: [NFR-002, NFR-003] 
+ID: NFR-001
+Titel: Strikte Trennung von Frontend und Backend (Separation of Concerns)
+Kategorie: Architektur Unterkategorie: API-Design, Security, Deployment Fokus: Beides (Zierpflanze & Nutzpflanze)
+Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI, Docker
+Status: Produktionsreif
+Priorität: Kritisch
+Version: 2.0
+Autor: Business Analyst - Agrotech
+Datum: 2026-02-25
+Tags: [architecture, api-first, security, scalability, separation-of-concerns, layered-architecture]
+Abhängigkeiten: [NFR-002, NFR-003]
 Betroffene Module: [ALL]
 ---
 
@@ -54,7 +54,7 @@ Die strikte Trennung verhindert:
 Praktisches Beispiel:
 
 > **Szenario**: Ein Gärtner nutzt die Web-App, eine Partnerfarm verwendet die Mobile-App, und ein IoT-Bewässerungssystem sendet automatisierte Anfragen.  
-> **Anforderung**: Alle drei Clients kommunizieren über die **gleiche, versionierte REST/GraphQL-API** ohne redundante Backend-Logik.
+> **Anforderung**: Alle drei Clients kommunizieren über die **gleiche, versionierte REST-API** ohne redundante Backend-Logik.
 
 ---
 
@@ -65,15 +65,14 @@ Praktisches Beispiel:
 ```
 ┌─────────────────────────────────────────┐
 │  1. PRESENTATION LAYER (Frontend)       │
-│     - React/Vue/Flutter                 │
-│     - State Management (Redux/Pinia)    │
-│     - API Client (Axios/Apollo)         │
+│     - React/Flutter                     │
+│     - State Management (Redux Toolkit)  │
+│     - API Client (Axios)               │
 └─────────────────┬───────────────────────┘
                   │ HTTP/WebSocket
 ┌─────────────────▼───────────────────────┐
 │  2. API LAYER (FastAPI)                 │
 │     - REST Endpoints                    │
-│     - GraphQL Resolver                  │
 │     - Auth Middleware (JWT)             │
 │     - Rate Limiting                     │
 └─────────────────┬───────────────────────┘
@@ -293,7 +292,7 @@ async def create_plant(
             planted_date=plant_data.planted_date,
             user_id=current_user.id
         )
-        return PlantResponse.from_orm(plant)
+        return PlantResponse.model_validate(plant)
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
 ```
@@ -411,18 +410,19 @@ const db = new Database({
 
 ```python
 # backend/config.py
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     arangodb_url: str
     arangodb_database: str
     arangodb_user: str
     arangodb_password: str
-    
-    class Config:
-        env_file = ".env"
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
         # Credentials NIEMALS in Frontend-zugänglichen Dateien!
-        env_file_encoding = "utf-8"
+    )
 
 settings = Settings()
 ```
@@ -500,7 +500,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://app.agrotech.example.com",  # Produktions-Frontend
-        "http://localhost:3000"               # Entwicklung
+        "http://localhost:5173"               # Entwicklung (Vite)
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
@@ -539,9 +539,9 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "3000:80"
+      - "5173:80"
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
+      - VITE_API_URL=http://localhost:8000
     depends_on:
       - backend
   
@@ -786,8 +786,8 @@ async def create_plant(plant_data: PlantCreate):
 import * as Sentry from "@sentry/react";
 
 Sentry.init({
-  dsn: process.env.REACT_APP_SENTRY_DSN,
-  environment: process.env.NODE_ENV,
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+  environment: import.meta.env.MODE,
   integrations: [
     new Sentry.BrowserTracing(),
     new Sentry.Replay()
@@ -867,7 +867,7 @@ import { mockApiClient } from '@/test-utils';
 
 describe('PlantForm', () => {
   it('submits data to API and handles success', async () => {
-    const mockCreate = jest.fn().mockResolvedValue({ id: '123' });
+    const mockCreate = vi.fn().mockResolvedValue({ id: '123' });
     mockApiClient.plants.create = mockCreate;
     
     render(<PlantForm />);
@@ -887,7 +887,7 @@ describe('PlantForm', () => {
   });
   
   it('displays backend validation errors', async () => {
-    mockApiClient.plants.create = jest.fn().mockRejectedValue({
+    mockApiClient.plants.create = vi.fn().mockRejectedValue({
       status: 400,
       data: { detail: 'Incompatible substrate' }
     });
@@ -1344,8 +1344,8 @@ class WeatherStationAdapter:
 
 **Dokumenten-Ende**
 
-**Version**: 2.0 (Vollständig)  
-**Status**: Produktionsreif  
-**Letzte Aktualisierung**: 2026-02-25  
-**Review**: Pending  
+**Version**: 2.0
+**Status**: Produktionsreif
+**Letzte Aktualisierung**: 2026-02-25
+**Review**: Pending
 **Genehmigung**: Pending

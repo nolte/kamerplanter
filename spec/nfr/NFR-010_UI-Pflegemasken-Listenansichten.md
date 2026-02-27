@@ -323,6 +323,7 @@ Auch eingebettete Entitäten **MÜSSEN** vollständige CRUD-Operationen bieten:
 | **Erfolgsmeldungen** | Snackbar (unten-mittig), automatisch ausblendend |
 | **Lösch-Bestätigung** | Immer über `ConfirmDialog` mit `destructive={true}` |
 | **Lade-Indikatoren** | `LoadingSkeleton` für initiales Laden, Button-Loading für Aktionen |
+| **Numerische Felder** | `FormNumberField` verwendet `step="any"` als Default, um beliebige Dezimalwerte (z.B. EC 0.01, NPK 0.5, pH 6.2) zu akzeptieren. Ein expliziter `step`-Wert (z.B. `step={0.1}`) **SOLL** nur gesetzt werden, wenn die Pfeiltasten-Schrittweite fachlich sinnvoll definiert ist — niemals `step={1}` für Felder, die Dezimalwerte erwarten. |
 
 ### 6.2 Responsivität
 

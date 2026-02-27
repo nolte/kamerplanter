@@ -1,11 +1,17 @@
 ---
-ID: NFR-004 
-Titel: Lokale Entwicklungsumgebung mit Skaffold 
-Kategorie: Entwicklungsumgebung / Developer Experience 
-Fokus: Beides 
-Technologie: Skaffold, Kubernetes, Docker, Helm 
-Status: Produktionsreif 
+
+ID: NFR-004
+Titel: Lokale Entwicklungsumgebung mit Skaffold
+Kategorie: Entwicklungsumgebung / Developer Experience Unterkategorie: Local Development, Hot Reload, DevOps Fokus: Beides (Zierpflanze & Nutzpflanze)
+Technologie: Skaffold, Kubernetes, Docker, Helm
+Status: Entwurf
 Priorität: Hoch
+Version: 1.0
+Autor: Business Analyst - Agrotech
+Datum: 2026-02-25
+Tags: [developer-experience, local-development, skaffold, hot-reload, kubernetes-dev]
+Abhängigkeiten: [NFR-002, NFR-003]
+Betroffene Module: [ALL]
 ---
 
 # NFR-004: Lokale Entwicklungsumgebung mit Skaffold
@@ -1468,12 +1474,12 @@ skaffold dev
 curl http://localhost:8000/health/live
 
 # In neuem Terminal: Frontend öffnen
-open http://localhost:3000
+open http://localhost:5173
 ```
 
 ### 6. Verify
 - [ ] Backend erreichbar unter http://localhost:8000
-- [ ] Frontend erreichbar unter http://localhost:3000
+- [ ] Frontend erreichbar unter http://localhost:5173
 - [ ] ArangoDB UI unter http://localhost:8529
 - [ ] Code-Änderung wird automatisch deployed (< 30s)
 ```
@@ -1591,7 +1597,7 @@ echo ""
 echo "Next steps:"
 echo "  1. Start development: skaffold dev"
 echo "  2. Open backend: http://localhost:8000"
-echo "  3. Open frontend: http://localhost:3000"
+echo "  3. Open frontend: http://localhost:5173"
 echo ""
 echo "Useful commands:"
 echo "  - skaffold dev                         # Start development"
@@ -1775,7 +1781,7 @@ echo "✅ All checks passed!"
 
 - [ ] **Port-Forwarding**
   - [ ] Backend: localhost:8000
-  - [ ] Frontend: localhost:3000
+  - [ ] Frontend: localhost:5173
   - [ ] ArangoDB: localhost:8529
 
 - [ ] **Debugging**
@@ -1812,7 +1818,7 @@ time skaffold dev
 # - Setup: < 3 Minuten (Kind ist schneller als Minikube)
 # - Initial Build: < 5 Minuten
 # - Backend erreichbar: http://localhost:8000/health/live → 200 OK
-# - Frontend erreichbar: http://localhost:3000 → 200 OK
+# - Frontend erreichbar: http://localhost:5173 → 200 OK
 ```
 
 #### Szenario 2: Hot-Reload (Code-Änderung)
@@ -2074,8 +2080,8 @@ docker network connect kind kind-registry
 
 **Dokumenten-Ende**
 
-**Version**: 1.0 (Vollständig)  
-**Status**: Produktionsreif  
-**Letzte Aktualisierung**: 2026-02-25  
-**Review**: Pending  
+**Version**: 1.0
+**Status**: Entwurf
+**Letzte Aktualisierung**: 2026-02-25
+**Review**: Pending
 **Genehmigung**: Pending

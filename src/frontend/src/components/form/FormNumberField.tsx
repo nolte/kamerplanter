@@ -7,7 +7,7 @@ interface FormNumberFieldProps<T extends FieldValues> {
   label: string;
   min?: number;
   max?: number;
-  step?: number;
+  step?: number | 'any';
   required?: boolean;
   disabled?: boolean;
   helperText?: string;
@@ -43,7 +43,7 @@ export default function FormNumberField<T extends FieldValues>({
           helperText={error?.message ?? helperText}
           fullWidth
           sx={{ mb: 2 }}
-          inputProps={{ min, max, step }}
+          inputProps={{ min, max, step: step ?? 'any' }}
         />
       )}
     />

@@ -1089,6 +1089,88 @@ export interface FeedingEventCreate {
   notes?: string | null;
 }
 
+export interface FeedingEventUpdate {
+  application_method?: ApplicationMethod;
+  is_supplemental?: boolean;
+  volume_applied_liters?: number;
+  measured_ec_before?: number | null;
+  measured_ec_after?: number | null;
+  measured_ph_before?: number | null;
+  measured_ph_after?: number | null;
+  runoff_ec?: number | null;
+  runoff_ph?: number | null;
+  runoff_volume_liters?: number | null;
+  notes?: string | null;
+}
+
+// ── WateringEvent types ─────────────────────────────────────────────
+
+export type WaterSource = 'tank' | 'tap' | 'osmose' | 'rainwater' | 'distilled' | 'well';
+
+export interface FertilizerSnapshot {
+  product_key: string | null;
+  product_name: string;
+  ml_per_liter: number;
+}
+
+export interface WateringEvent {
+  key: string;
+  watered_at: string | null;
+  application_method: ApplicationMethod;
+  is_supplemental: boolean;
+  volume_liters: number;
+  slot_keys: string[];
+  tank_fill_event_key: string | null;
+  nutrient_plan_key: string | null;
+  fertilizers_used: FertilizerSnapshot[];
+  target_ec: number | null;
+  target_ph: number | null;
+  measured_ec: number | null;
+  measured_ph: number | null;
+  runoff_ec: number | null;
+  runoff_ph: number | null;
+  water_source: WaterSource | null;
+  performed_by: string | null;
+  notes: string | null;
+  created_at: string | null;
+}
+
+export interface WateringEventCreate {
+  application_method?: ApplicationMethod;
+  is_supplemental?: boolean;
+  volume_liters: number;
+  slot_keys: string[];
+  tank_fill_event_key?: string | null;
+  nutrient_plan_key?: string | null;
+  fertilizers_used?: FertilizerSnapshot[];
+  target_ec?: number | null;
+  target_ph?: number | null;
+  measured_ec?: number | null;
+  measured_ph?: number | null;
+  runoff_ec?: number | null;
+  runoff_ph?: number | null;
+  water_source?: WaterSource | null;
+  performed_by?: string | null;
+  notes?: string | null;
+}
+
+export interface WateringEventWithWarnings {
+  event: WateringEvent;
+  warnings: Array<{ type: string; message: string }>;
+}
+
+export interface WateringMethodStats {
+  method: string;
+  count: number;
+  total_volume: number;
+}
+
+export interface WateringStats {
+  total_events: number;
+  total_volume: number;
+  by_method: WateringMethodStats[];
+}
+
 // ── REQ-004 Calculation types ───────────────────────────────────────
 
 export interface MixingProtocolRequest {

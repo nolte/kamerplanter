@@ -436,7 +436,7 @@ Nur explizit definierte Felder aus dem `ErrorResponse`-Schema (Abschnitt 2.1) d√
 | Datenbankschema | Collection-/Tabellennamen, Indexnamen, `idx_1858169123378298880` | Schema-Enumeration |
 | SQL-/AQL-/Query-Fragmente | `FOR doc IN species FILTER ...` | Injection-Vorbereitung |
 | Interne IP-Adressen / Hostnames | `172.21.0.3`, `arangodb:8529`, `redis://redis:6379` | Netzwerktopologie |
-| Dateisystem-Pfade | `/app/app/data_access/arango/`, `/usr/local/lib/python3.12/` | Serverstruktur |
+| Dateisystem-Pfade | `/app/app/data_access/arango/`, `/usr/local/lib/python3.14/` | Serverstruktur |
 | Umgebungsvariablen | `ARANGODB_PASSWORD`, `REDIS_URL` | Credential Exposure |
 | Container-/Pod-Informationen | `api_1`, `celery-worker`, Kubernetes Pod-Namen | Orchestrierungsstruktur |
 | Betriebssystem-Details | Linux-Kernel-Version, OS-Distribution | Gezielte OS-Exploits |

@@ -242,6 +242,15 @@ class IncompatibilitySeverity(StrEnum):
     MINOR = "minor"
 
 
+class WaterSource(StrEnum):
+    TANK = "tank"
+    TAP = "tap"
+    OSMOSE = "osmose"
+    RAINWATER = "rainwater"
+    DISTILLED = "distilled"
+    WELL = "well"
+
+
 class PhaseName(StrEnum):
     GERMINATION = "germination"
     SEEDLING = "seedling"

@@ -22,7 +22,7 @@ const schema = z.object({
   name: z.string().min(1),
   area_m2: z.number().min(0),
   light_type: z.enum(['natural', 'led', 'hps', 'cmh', 'mixed']),
-  irrigation_system: z.enum(['manual', 'drip', 'hydro', 'mist']),
+  irrigation_system: z.enum(['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow']),
   lights_on: z.string().regex(timeRegex).nullable().optional(),
   lights_off: z.string().regex(timeRegex).nullable().optional(),
   use_dynamic_sunrise: z.boolean(),
@@ -99,7 +99,7 @@ export default function LocationCreateDialog({ siteKey, open, onClose, onCreated
             name="irrigation_system"
             control={control}
             label={t('pages.locations.irrigationSystem')}
-            options={['manual', 'drip', 'hydro', 'mist'].map((v) => ({
+            options={['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow'].map((v) => ({
               value: v,
               label: t(`enums.irrigationSystem.${v}`),
             }))}

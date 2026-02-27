@@ -5,7 +5,7 @@ ID: REQ-009
 Titel: Zentrales Monitoring-Dashboard & Analytics
 Kategorie: Visualisierung
 Fokus: Beides
-Technologie: FastAPI, React, GraphDB (Neo4j), Plotly/D3.js, WebSocket
+Technologie: FastAPI, React, ArangoDB, Plotly/D3.js, WebSocket
 Status: Entwurf
 Version: 2.0 (Maximal Erweitert)
 ```
@@ -123,7 +123,7 @@ Das System implementiert ein hochgradig konfigurierbares, Echtzeit-Dashboard mit
 - **Caching:** Redis für häufig abgerufene Metriken
 - **WebSocket:** Nur Deltas werden übertragen, nicht komplette Datasets
 
-## 2. GraphDB-Modellierung
+## 2. ArangoDB-Modellierung
 
 ### Nodes:
 - **`:Dashboard`** - Dashboard-Konfiguration
@@ -148,7 +148,7 @@ Das System implementiert ein hochgradig konfigurierbares, Echtzeit-Dashboard mit
     - `size_height: int`
     - `config: dict` (Widget-spezifische Einstellungen)
     - `refresh_interval_seconds: int`
-    - `data_source: str` (Cypher-Query oder API-Endpoint)
+    - `data_source: str` (AQL-Query oder API-Endpoint)
     - `visible: bool`
 
 - **`:WidgetTemplate`** - Vordefinierte Widget-Typen
@@ -200,83 +200,128 @@ Das System implementiert ein hochgradig konfigurierbares, Echtzeit-Dashboard mit
     - `data: dict` (Aggregierte Daten)
 
 ### Edges:
-```cypher
-(:Dashboard)-[:CONTAINS {position: int}]->(:Widget)
-(:Widget)-[:BASED_ON]->(:WidgetTemplate)
-(:Widget)-[:DISPLAYS]->(:Metric)
-(:Dashboard)-[:SHOWS_ALERTS]->(:Alert)
-(:User)-[:HAS_PREFERENCES]->(:UserPreference)
-(:User)-[:OWNS]->(:Dashboard)
-(:Dashboard)-[:USES_SNAPSHOT]->(:DataSnapshot)
-(:Alert)-[:TRIGGERED_BY]->(:PlantInstance|:StorageLocation|:Sensor)
+```aql
+// Edge collections and their from/to document collections:
+// dashboard_contains_widget:    Dashboard  → Widget
+// widget_based_on_template:     Widget     → WidgetTemplate
+// widget_displays_metric:       Widget     → Metric
+// dashboard_shows_alerts:       Dashboard  → Alert
+// user_has_preferences:         User       → UserPreference
+// user_owns_dashboard:          User       → Dashboard
+// dashboard_uses_snapshot:      Dashboard  → DataSnapshot
+// alert_triggered_by:           Alert      → PlantInstance | StorageLocation | Sensor
 ```
 
-### Cypher-Beispiellogik:
+### AQL-Beispiellogik:
 
 **Dashboard-Übersicht (Overview Widget Data):**
-```cypher
+```aql
 // Aggregiere Key-Metriken für Overview Dashboard
-MATCH (plant:PlantInstance)
-OPTIONAL MATCH (plant)-[:CURRENT_PHASE]->(phase:GrowthPhase)
-OPTIONAL MATCH (plant)-[:HAS_TASK]->(task:Task {status: 'pending'})
-WHERE task.due_date <= date()
-OPTIONAL MATCH (alert:Alert {acknowledged: false})
-      <-[:TRIGGERED]-(plant)
+LET plant_stats = (
+  FOR plant IN PlantInstance
+    LET phase = FIRST(
+      FOR v, e IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+        FILTER IS_SAME_COLLECTION('GrowthPhase', v)
+        FILTER e._id LIKE 'current_phase/%'
+        RETURN v
+    )
+    LET pending_tasks = (
+      FOR v, e IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+        FILTER IS_SAME_COLLECTION('Task', v)
+        FILTER v.status == 'pending' AND v.due_date <= DATE_NOW()
+        RETURN v
+    )
+    LET unack_alerts = (
+      FOR v, e IN 1..1 INBOUND plant GRAPH 'kamerplanter_graph'
+        FILTER IS_SAME_COLLECTION('Alert', v)
+        FILTER v.acknowledged == false
+        RETURN v
+    )
+    RETURN {
+      phase_name: phase.name,
+      allows_harvest: phase.allows_harvest,
+      tasks_due: LENGTH(pending_tasks),
+      alerts: unack_alerts
+    }
+)
 
-WITH 
-  COUNT(DISTINCT plant) AS total_plants,
-  COUNT(DISTINCT CASE WHEN phase.name IN ['flowering', 'early_flowering', 'late_flowering'] THEN plant END) AS plants_in_flower,
-  COUNT(DISTINCT CASE WHEN phase.allows_harvest = true THEN plant END) AS plants_ready_harvest,
-  COUNT(DISTINCT task) AS tasks_due,
-  COUNT(DISTINCT CASE WHEN alert.severity = 'critical' THEN alert END) AS critical_alerts,
-  COUNT(DISTINCT CASE WHEN alert.severity = 'warning' THEN alert END) AS warning_alerts
+LET total_plants = LENGTH(plant_stats)
+LET plants_in_flower = LENGTH(
+  FOR s IN plant_stats
+    FILTER s.phase_name IN ['flowering', 'early_flowering', 'late_flowering']
+    RETURN 1
+)
+LET plants_ready_harvest = LENGTH(
+  FOR s IN plant_stats FILTER s.allows_harvest == true RETURN 1
+)
+LET tasks_due = SUM(FOR s IN plant_stats RETURN s.tasks_due)
+LET all_alerts = FLATTEN(FOR s IN plant_stats RETURN s.alerts)
+LET critical_alerts = LENGTH(
+  FOR a IN all_alerts FILTER a.severity == 'critical' RETURN 1
+)
+LET warning_alerts = LENGTH(
+  FOR a IN all_alerts FILTER a.severity == 'warning' RETURN 1
+)
 
 // Berechne durchschnittliche Tage bis Ernte
-MATCH (p:PlantInstance)-[:CURRENT_PHASE]->(phase:GrowthPhase)
-WHERE phase.allows_harvest = false
-OPTIONAL MATCH (p)-[:BELONGS_TO_SPECIES]->(species:Species)
-      -[:HAS_GROWTH_PHASE]->(harvest_phase:GrowthPhase)
-WHERE harvest_phase.allows_harvest = true
-
-WITH total_plants, plants_in_flower, plants_ready_harvest, 
-     tasks_due, critical_alerts, warning_alerts,
-     AVG(harvest_phase.typical_duration_days - phase.typical_duration_days) AS avg_days_to_harvest
+LET harvest_estimates = (
+  FOR p IN PlantInstance
+    LET phase = FIRST(
+      FOR v, e IN 1..1 OUTBOUND p GRAPH 'kamerplanter_graph'
+        FILTER IS_SAME_COLLECTION('GrowthPhase', v)
+        FILTER e._id LIKE 'current_phase/%'
+        RETURN v
+    )
+    FILTER phase.allows_harvest == false
+    LET harvest_phase = FIRST(
+      FOR sp, e1 IN 1..1 OUTBOUND p GRAPH 'kamerplanter_graph'
+        FILTER IS_SAME_COLLECTION('Species', sp)
+        FOR hp, e2 IN 1..1 OUTBOUND sp GRAPH 'kamerplanter_graph'
+          FILTER IS_SAME_COLLECTION('GrowthPhase', hp)
+          FILTER hp.allows_harvest == true
+          RETURN hp
+    )
+    FILTER harvest_phase != null
+    RETURN harvest_phase.typical_duration_days - phase.typical_duration_days
+)
+LET avg_days_to_harvest = LENGTH(harvest_estimates) > 0
+  ? AVERAGE(harvest_estimates) : null
 
 // Hole aktuelle Klima-Daten
-MATCH (location:Location)-[:HAS_SLOT]->(slot:Slot)
-OPTIONAL MATCH (location)<-[:LOCATED_AT]-(sensor:Sensor {parameter: 'temp'})
-      -[:RECORDED]->(temp_obs:Observation)
-WHERE temp_obs.timestamp > datetime() - duration('PT15M')
+LET temp_readings = (
+  FOR sensor IN Sensor
+    FILTER sensor.parameter == 'temp'
+    FOR obs, e IN 1..1 OUTBOUND sensor GRAPH 'kamerplanter_graph'
+      FILTER IS_SAME_COLLECTION('Observation', obs)
+      FILTER obs.timestamp > DATE_SUBTRACT(DATE_NOW(), 15, 'minute')
+      RETURN obs.value
+)
+LET current_temp = LENGTH(temp_readings) > 0
+  ? AVERAGE(temp_readings) : null
 
-WITH total_plants, plants_in_flower, plants_ready_harvest,
-     tasks_due, critical_alerts, warning_alerts, avg_days_to_harvest,
-     AVG(temp_obs.value) AS current_temp
-
-OPTIONAL MATCH (sensor2:Sensor {parameter: 'humidity'})-[:RECORDED]->(rh_obs:Observation)
-WHERE rh_obs.timestamp > datetime() - duration('PT15M')
-
-WITH total_plants, plants_in_flower, plants_ready_harvest,
-     tasks_due, critical_alerts, warning_alerts, avg_days_to_harvest,
-     current_temp, AVG(rh_obs.value) AS current_rh
+LET rh_readings = (
+  FOR sensor IN Sensor
+    FILTER sensor.parameter == 'humidity'
+    FOR obs, e IN 1..1 OUTBOUND sensor GRAPH 'kamerplanter_graph'
+      FILTER IS_SAME_COLLECTION('Observation', obs)
+      FILTER obs.timestamp > DATE_SUBTRACT(DATE_NOW(), 15, 'minute')
+      RETURN obs.value
+)
+LET current_rh = LENGTH(rh_readings) > 0
+  ? AVERAGE(rh_readings) : null
 
 RETURN {
   plants: {
     total: total_plants,
     in_flower: plants_in_flower,
     ready_harvest: plants_ready_harvest,
-    health_status: CASE
-      WHEN critical_alerts > 0 THEN 'critical'
-      WHEN warning_alerts > 0 THEN 'warning'
-      ELSE 'healthy'
-    END
+    health_status: critical_alerts > 0 ? 'critical'
+      : (warning_alerts > 0 ? 'warning' : 'healthy')
   },
   tasks: {
     due_count: tasks_due,
-    status: CASE
-      WHEN tasks_due > 10 THEN 'overloaded'
-      WHEN tasks_due > 5 THEN 'busy'
-      ELSE 'manageable'
-    END
+    status: tasks_due > 10 ? 'overloaded'
+      : (tasks_due > 5 ? 'busy' : 'manageable')
   },
   alerts: {
     critical: critical_alerts,
@@ -284,256 +329,315 @@ RETURN {
     total: critical_alerts + warning_alerts
   },
   climate: {
-    temperature_c: round(current_temp, 1),
-    humidity_percent: round(current_rh, 0),
-    vpd_kpa: round((1 - current_rh/100) * 0.61078 * exp((17.27 * current_temp)/(current_temp + 237.3)), 2),
-    status: CASE
-      WHEN current_temp < 18 OR current_temp > 28 THEN 'warning'
-      WHEN current_rh < 40 OR current_rh > 70 THEN 'warning'
-      ELSE 'ok'
-    END
+    temperature_c: ROUND(current_temp, 1),
+    humidity_percent: ROUND(current_rh, 0),
+    vpd_kpa: ROUND(
+      (1 - current_rh / 100) * 0.61078 * EXP((17.27 * current_temp) / (current_temp + 237.3)),
+      2
+    ),
+    status: (current_temp < 18 OR current_temp > 28) ? 'warning'
+      : ((current_rh < 40 OR current_rh > 70) ? 'warning' : 'ok')
   },
   forecast: {
-    avg_days_to_harvest: round(avg_days_to_harvest, 0)
+    avg_days_to_harvest: ROUND(avg_days_to_harvest, 0)
   }
-} AS overview
+}
 ```
 
 **Plant Grid Widget (Kanban-Style):**
-```cypher
-MATCH (plant:PlantInstance)
-OPTIONAL MATCH (plant)-[:CURRENT_PHASE]->(phase:GrowthPhase)
-OPTIONAL MATCH (plant)-[:PLACED_IN]->(slot:Slot)<-[:HAS_SLOT]-(location:Location)
-OPTIONAL MATCH (plant)-[:HAS_TASK]->(task:Task {status: 'pending'})
-WHERE task.due_date <= date()
-OPTIONAL MATCH (plant)<-[:TRIGGERED]-(alert:Alert {acknowledged: false})
+```aql
+FOR plant IN PlantInstance
+  LET phase = FIRST(
+    FOR v, e IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+      FILTER IS_SAME_COLLECTION('GrowthPhase', v)
+      FILTER e._id LIKE 'current_phase/%'
+      RETURN v
+  )
+  LET slot = FIRST(
+    FOR v, e IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+      FILTER IS_SAME_COLLECTION('Slot', v)
+      FILTER e._id LIKE 'placed_in/%'
+      RETURN v
+  )
+  LET location = FIRST(
+    FOR v, e IN 1..1 INBOUND slot GRAPH 'kamerplanter_graph'
+      FILTER IS_SAME_COLLECTION('Location', v)
+      FILTER e._id LIKE 'has_slot/%'
+      RETURN v
+  )
+  LET tasks_due = LENGTH(
+    FOR v, e IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+      FILTER IS_SAME_COLLECTION('Task', v)
+      FILTER v.status == 'pending' AND v.due_date <= DATE_NOW()
+      RETURN v
+  )
+  LET alerts = (
+    FOR v, e IN 1..1 INBOUND plant GRAPH 'kamerplanter_graph'
+      FILTER IS_SAME_COLLECTION('Alert', v)
+      FILTER v.acknowledged == false
+      RETURN v.severity
+  )
+  LET highest_alert_severity = (
+    'critical' IN alerts ? 'critical'
+    : ('warning' IN alerts ? 'warning' : null)
+  )
 
-WITH plant, phase, location, slot,
-     COUNT(DISTINCT task) AS tasks_due,
-     MAX(alert.severity) AS highest_alert_severity
+  // Berechne Health-Score
+  LET health_score = (
+    highest_alert_severity == 'critical' ? 0
+    : (highest_alert_severity == 'warning' ? 50
+    : (tasks_due > 3 ? 70
+    : (tasks_due > 0 ? 85 : 100)))
+  )
 
-// Berechne Health-Score
-WITH plant, phase, location, slot, tasks_due, highest_alert_severity,
-     CASE
-       WHEN highest_alert_severity = 'critical' THEN 0
-       WHEN highest_alert_severity = 'warning' THEN 50
-       WHEN tasks_due > 3 THEN 70
-       WHEN tasks_due > 0 THEN 85
-       ELSE 100
-     END AS health_score
+  SORT health_score ASC, tasks_due DESC
 
-RETURN {
-  plant_id: plant.instance_id,
-  plant_name: plant.plant_name,
-  phase: phase.name,
-  location: location.location_name + ' - ' + slot.slot_name,
-  health_score: health_score,
-  tasks_due: tasks_due,
-  alert_severity: highest_alert_severity,
-  days_in_phase: duration.between(plant.current_phase_started_at, datetime()).inDays,
-  color: CASE phase.name
-    WHEN 'seedling' THEN 'lightgreen'
-    WHEN 'vegetative' THEN 'green'
-    WHEN 'flowering' THEN 'purple'
-    WHEN 'ripening' THEN 'orange'
-    ELSE 'gray'
-  END,
-  status_icon: CASE
-    WHEN highest_alert_severity = 'critical' THEN '🔴'
-    WHEN highest_alert_severity = 'warning' THEN '🟡'
-    WHEN tasks_due > 0 THEN '📋'
-    ELSE '✅'
-  END
-} AS plant_card
-ORDER BY health_score ASC, tasks_due DESC
+  RETURN {
+    plant_id: plant.instance_id,
+    plant_name: plant.plant_name,
+    phase: phase.name,
+    location: CONCAT(location.location_name, ' - ', slot.slot_name),
+    health_score: health_score,
+    tasks_due: tasks_due,
+    alert_severity: highest_alert_severity,
+    days_in_phase: DATE_DIFF(plant.current_phase_started_at, DATE_NOW(), 'day'),
+    color: (
+      phase.name == 'seedling' ? 'lightgreen'
+      : (phase.name == 'vegetative' ? 'green'
+      : (phase.name == 'flowering' ? 'purple'
+      : (phase.name == 'ripening' ? 'orange' : 'gray')))
+    ),
+    status_icon: (
+      highest_alert_severity == 'critical' ? '🔴'
+      : (highest_alert_severity == 'warning' ? '🟡'
+      : (tasks_due > 0 ? '📋' : '✅'))
+    )
+  }
 ```
 
 **VPD Calculator Widget:**
-```cypher
+```aql
 // Hole aktuelle Temp/RH für VPD-Berechnung
-MATCH (location:Location {id: $location_id})<-[:LOCATED_AT]-(temp_sensor:Sensor {parameter: 'temp'})
-      -[:RECORDED]->(temp_obs:Observation)
-WHERE temp_obs.timestamp > datetime() - duration('PT15M')
+LET location = DOCUMENT('Location', @location_id)
 
-WITH location, temp_obs
-ORDER BY temp_obs.timestamp DESC
-LIMIT 1
+LET temp_c = FIRST(
+  FOR sensor, e IN 1..1 INBOUND location GRAPH 'kamerplanter_graph'
+    FILTER IS_SAME_COLLECTION('Sensor', sensor)
+    FILTER sensor.parameter == 'temp'
+    FOR obs, e2 IN 1..1 OUTBOUND sensor GRAPH 'kamerplanter_graph'
+      FILTER IS_SAME_COLLECTION('Observation', obs)
+      FILTER obs.timestamp > DATE_SUBTRACT(DATE_NOW(), 15, 'minute')
+      SORT obs.timestamp DESC
+      LIMIT 1
+      RETURN obs.value
+)
 
-WITH location, temp_obs.value AS temp_c
-
-MATCH (location)<-[:LOCATED_AT]-(rh_sensor:Sensor {parameter: 'humidity'})
-      -[:RECORDED]->(rh_obs:Observation)
-WHERE rh_obs.timestamp > datetime() - duration('PT15M')
-
-WITH location, temp_c, rh_obs
-ORDER BY rh_obs.timestamp DESC
-LIMIT 1
-
-WITH location, temp_c, rh_obs.value AS rh_percent
+LET rh_percent = FIRST(
+  FOR sensor, e IN 1..1 INBOUND location GRAPH 'kamerplanter_graph'
+    FILTER IS_SAME_COLLECTION('Sensor', sensor)
+    FILTER sensor.parameter == 'humidity'
+    FOR obs, e2 IN 1..1 OUTBOUND sensor GRAPH 'kamerplanter_graph'
+      FILTER IS_SAME_COLLECTION('Observation', obs)
+      FILTER obs.timestamp > DATE_SUBTRACT(DATE_NOW(), 15, 'minute')
+      SORT obs.timestamp DESC
+      LIMIT 1
+      RETURN obs.value
+)
 
 // Hole Zielbereich aus aktueller Phase
-MATCH (location)-[:HAS_SLOT]->(slot:Slot)<-[:PLACED_IN]-(plant:PlantInstance)
-      -[:CURRENT_PHASE]->(phase:GrowthPhase)
-      -[:REQUIRES_PROFILE]->(req:RequirementProfile)
-      -[:USES_NUTRIENTS]->(nutr:NutrientProfile)
-
-WITH temp_c, rh_percent, 
-     AVG(nutr.vpd_target_kpa) AS target_vpd,
-     AVG(nutr.vpd_tolerance_kpa) AS vpd_tolerance
+LET vpd_targets = (
+  FOR slot, e1 IN 1..1 OUTBOUND location GRAPH 'kamerplanter_graph'
+    FILTER IS_SAME_COLLECTION('Slot', slot)
+    FOR plant, e2 IN 1..1 INBOUND slot GRAPH 'kamerplanter_graph'
+      FILTER IS_SAME_COLLECTION('PlantInstance', plant)
+      FOR phase, e3 IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+        FILTER IS_SAME_COLLECTION('GrowthPhase', phase)
+        FILTER e3._id LIKE 'current_phase/%'
+        FOR req, e4 IN 1..1 OUTBOUND phase GRAPH 'kamerplanter_graph'
+          FILTER IS_SAME_COLLECTION('RequirementProfile', req)
+          FOR nutr, e5 IN 1..1 OUTBOUND req GRAPH 'kamerplanter_graph'
+            FILTER IS_SAME_COLLECTION('NutrientProfile', nutr)
+            RETURN { target: nutr.vpd_target_kpa, tolerance: nutr.vpd_tolerance_kpa }
+)
+LET target_vpd = AVERAGE(FOR t IN vpd_targets RETURN t.target)
+LET vpd_tolerance = AVERAGE(FOR t IN vpd_targets RETURN t.tolerance)
 
 // Berechne VPD
 // Formel: VPD = (1 - RH/100) * SVP
 // SVP (Sättigungsdampfdruck) = 0.61078 * exp((17.27 * T) / (T + 237.3))
-WITH temp_c, rh_percent, target_vpd, vpd_tolerance,
-     0.61078 * exp((17.27 * temp_c) / (temp_c + 237.3)) AS svp_kpa
-
-WITH temp_c, rh_percent, target_vpd, vpd_tolerance, svp_kpa,
-     (1 - rh_percent/100) * svp_kpa AS current_vpd
+LET svp_kpa = 0.61078 * EXP((17.27 * temp_c) / (temp_c + 237.3))
+LET current_vpd = (1 - rh_percent / 100) * svp_kpa
 
 RETURN {
-  current_vpd_kpa: round(current_vpd, 2),
-  target_vpd_kpa: round(target_vpd, 2),
-  tolerance_kpa: round(vpd_tolerance, 2),
-  vpd_min: round(target_vpd - vpd_tolerance, 2),
-  vpd_max: round(target_vpd + vpd_tolerance, 2),
-  current_temp_c: round(temp_c, 1),
-  current_rh_percent: round(rh_percent, 0),
-  status: CASE
-    WHEN current_vpd < (target_vpd - vpd_tolerance) THEN 'LOW'
-    WHEN current_vpd > (target_vpd + vpd_tolerance) THEN 'HIGH'
-    ELSE 'OPTIMAL'
-  END,
-  status_color: CASE
-    WHEN current_vpd < (target_vpd - vpd_tolerance) THEN 'red'
-    WHEN current_vpd > (target_vpd + vpd_tolerance) THEN 'red'
-    WHEN abs(current_vpd - target_vpd) < vpd_tolerance/2 THEN 'green'
-    ELSE 'yellow'
-  END,
-  recommendation: CASE
-    WHEN current_vpd < (target_vpd - vpd_tolerance) THEN 
-      'VPD zu niedrig - Erhöhe Temp oder senke RLF'
-    WHEN current_vpd > (target_vpd + vpd_tolerance) THEN 
-      'VPD zu hoch - Senke Temp oder erhöhe RLF'
-    ELSE 'VPD optimal - Keine Änderung nötig'
-  END
-} AS vpd_data
+  current_vpd_kpa: ROUND(current_vpd, 2),
+  target_vpd_kpa: ROUND(target_vpd, 2),
+  tolerance_kpa: ROUND(vpd_tolerance, 2),
+  vpd_min: ROUND(target_vpd - vpd_tolerance, 2),
+  vpd_max: ROUND(target_vpd + vpd_tolerance, 2),
+  current_temp_c: ROUND(temp_c, 1),
+  current_rh_percent: ROUND(rh_percent, 0),
+  status: current_vpd < (target_vpd - vpd_tolerance) ? 'LOW'
+    : (current_vpd > (target_vpd + vpd_tolerance) ? 'HIGH' : 'OPTIMAL'),
+  status_color: current_vpd < (target_vpd - vpd_tolerance) ? 'red'
+    : (current_vpd > (target_vpd + vpd_tolerance) ? 'red'
+    : (ABS(current_vpd - target_vpd) < vpd_tolerance / 2 ? 'green' : 'yellow')),
+  recommendation: current_vpd < (target_vpd - vpd_tolerance)
+    ? 'VPD zu niedrig - Erhöhe Temp oder senke RLF'
+    : (current_vpd > (target_vpd + vpd_tolerance)
+    ? 'VPD zu hoch - Senke Temp oder erhöhe RLF'
+    : 'VPD optimal - Keine Änderung nötig')
+}
 ```
 
 **Harvest Calendar Widget (Nächste 4 Wochen):**
-```cypher
-MATCH (plant:PlantInstance)-[:CURRENT_PHASE]->(phase:GrowthPhase)
+```aql
+LET today = DATE_NOW()
 
-// Schätze Ernte-Datum
-WITH plant, phase,
-     CASE 
-       WHEN phase.allows_harvest = true THEN date()
-       ELSE date() + duration({days: phase.typical_duration_days})
-     END AS estimated_harvest_date
+LET harvest_entries = (
+  FOR plant IN PlantInstance
+    LET phase = FIRST(
+      FOR v, e IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+        FILTER IS_SAME_COLLECTION('GrowthPhase', v)
+        FILTER e._id LIKE 'current_phase/%'
+        RETURN v
+    )
+    FILTER phase != null
 
-WHERE estimated_harvest_date <= date() + duration('P28D')
+    // Schätze Ernte-Datum
+    LET estimated_harvest_date = (
+      phase.allows_harvest == true
+        ? today
+        : DATE_ADD(today, phase.typical_duration_days, 'day')
+    )
+    FILTER estimated_harvest_date <= DATE_ADD(today, 28, 'day')
 
-// Hole letzte Harvest-Observation für genauere Schätzung
-OPTIONAL MATCH (plant)-[:OBSERVED_FOR_HARVEST]->(obs:HarvestObservation)
-WHERE obs.observed_at > datetime() - duration('P7D')
+    // Hole letzte Harvest-Observation für genauere Schätzung
+    LET latest_obs = FIRST(
+      FOR v, e IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+        FILTER IS_SAME_COLLECTION('HarvestObservation', v)
+        FILTER v.observed_at > DATE_SUBTRACT(today, 7, 'day')
+        SORT v.observed_at DESC
+        LIMIT 1
+        RETURN v
+    )
 
-WITH plant, phase, estimated_harvest_date, obs
-ORDER BY obs.observed_at DESC
+    LET harvest_date = (
+      latest_obs != null AND latest_obs.days_to_harvest_estimate != null
+        ? DATE_ADD(today, latest_obs.days_to_harvest_estimate, 'day')
+        : estimated_harvest_date
+    )
 
-WITH plant, phase, estimated_harvest_date, COLLECT(obs)[0] AS latest_obs
+    LET days_until_harvest = DATE_DIFF(today, harvest_date, 'day')
 
-WITH plant, phase,
-     CASE 
-       WHEN latest_obs IS NOT NULL AND latest_obs.days_to_harvest_estimate IS NOT NULL
-       THEN date() + duration({days: latest_obs.days_to_harvest_estimate})
-       ELSE estimated_harvest_date
-     END AS harvest_date
+    // Gruppiere nach Woche
+    LET week_label = (
+      harvest_date <= today ? 'Overdue'
+      : (harvest_date <= DATE_ADD(today, 7, 'day') ? 'This Week'
+      : (harvest_date <= DATE_ADD(today, 14, 'day') ? 'Next Week'
+      : (harvest_date <= DATE_ADD(today, 21, 'day') ? 'Week 3' : 'Week 4')))
+    )
 
-// Gruppiere nach Woche
-WITH plant, harvest_date,
-     duration.between(date(), harvest_date).inDays AS days_until_harvest,
-     CASE
-       WHEN harvest_date <= date() THEN 'Overdue'
-       WHEN harvest_date <= date() + duration('P7D') THEN 'This Week'
-       WHEN harvest_date <= date() + duration('P14D') THEN 'Next Week'
-       WHEN harvest_date <= date() + duration('P21D') THEN 'Week 3'
-       ELSE 'Week 4'
-     END AS week_label
+    LET week_order = (
+      week_label == 'Overdue' ? 0
+      : (week_label == 'This Week' ? 1
+      : (week_label == 'Next Week' ? 2
+      : (week_label == 'Week 3' ? 3 : 4)))
+    )
 
-RETURN {
-  week: week_label,
-  harvests: COLLECT({
-    plant_id: plant.instance_id,
-    plant_name: plant.plant_name,
-    harvest_date: harvest_date,
-    days_until: days_until_harvest,
-    urgency: CASE
-      WHEN days_until_harvest < 0 THEN 'overdue'
-      WHEN days_until_harvest <= 3 THEN 'urgent'
-      WHEN days_until_harvest <= 7 THEN 'soon'
-      ELSE 'scheduled'
-    END
-  })
-} AS calendar_week
-ORDER BY 
-  CASE week_label
-    WHEN 'Overdue' THEN 0
-    WHEN 'This Week' THEN 1
-    WHEN 'Next Week' THEN 2
-    WHEN 'Week 3' THEN 3
-    WHEN 'Week 4' THEN 4
-  END
+    RETURN {
+      week_label: week_label,
+      week_order: week_order,
+      plant_id: plant.instance_id,
+      plant_name: plant.plant_name,
+      harvest_date: harvest_date,
+      days_until: days_until_harvest,
+      urgency: (
+        days_until_harvest < 0 ? 'overdue'
+        : (days_until_harvest <= 3 ? 'urgent'
+        : (days_until_harvest <= 7 ? 'soon' : 'scheduled'))
+      )
+    }
+)
+
+// Gruppiere nach Woche und sortiere
+FOR entry IN harvest_entries
+  COLLECT week = entry.week_label, order = entry.week_order INTO plants
+  SORT order ASC
+  RETURN {
+    week: week,
+    harvests: plants[*].entry
+  }
 ```
 
 **Yield Analytics Widget:**
-```cypher
+```aql
 // Analysiere Yields über letzte 6 Monate
-MATCH (batch:Batch)-[:HAS_YIELD_METRIC]->(yield:YieldMetric)
-WHERE batch.harvest_date > date() - duration('P180D')
+LET raw_data = (
+  FOR batch IN Batch
+    FILTER batch.harvest_date > DATE_SUBTRACT(DATE_NOW(), 180, 'day')
 
-// Hole zugehörige Pflanze für Cycle-Dauer
-MATCH (batch)<-[:HARVESTED_AS]-(plant:PlantInstance)
+    // Hole Yield-Metriken
+    LET yield_metric = FIRST(
+      FOR v, e IN 1..1 OUTBOUND batch GRAPH 'kamerplanter_graph'
+        FILTER IS_SAME_COLLECTION('YieldMetric', v)
+        RETURN v
+    )
+    FILTER yield_metric != null
 
-WITH batch, yield, plant,
-     duration.between(plant.planted_on, batch.harvest_date).inDays AS cycle_days
+    // Hole zugehörige Pflanze für Cycle-Dauer
+    LET plant = FIRST(
+      FOR v, e IN 1..1 INBOUND batch GRAPH 'kamerplanter_graph'
+        FILTER IS_SAME_COLLECTION('PlantInstance', v)
+        RETURN v
+    )
 
-// Gruppiere nach Monat
-WITH batch, yield, cycle_days,
-     date.truncate('month', batch.harvest_date) AS harvest_month
+    LET cycle_days = DATE_DIFF(plant.planted_on, batch.harvest_date, 'day')
 
-WITH harvest_month,
-     COUNT(batch) AS batches_this_month,
-     SUM(yield.total_yield_g) AS total_yield_g,
-     AVG(yield.yield_per_plant_g) AS avg_yield_per_plant,
-     AVG(yield.yield_per_m2_g) AS avg_yield_per_m2,
-     AVG(cycle_days) AS avg_cycle_days
+    // Gruppiere nach Monat (Truncate auf Monatsanfang)
+    LET harvest_month = DATE_FORMAT(batch.harvest_date, '%yyyy-%mm')
 
-// Berechne Effizienz-Metrik
-WITH harvest_month, batches_this_month, total_yield_g,
-     avg_yield_per_plant, avg_yield_per_m2, avg_cycle_days,
-     CASE 
-       WHEN avg_yield_per_m2 IS NOT NULL AND avg_cycle_days > 0
-       THEN avg_yield_per_m2 / avg_cycle_days
-       ELSE 0
-     END AS grams_per_m2_per_day
+    RETURN {
+      harvest_month: harvest_month,
+      total_yield_g: yield_metric.total_yield_g,
+      yield_per_plant_g: yield_metric.yield_per_plant_g,
+      yield_per_m2_g: yield_metric.yield_per_m2_g,
+      cycle_days: cycle_days
+    }
+)
 
-RETURN {
-  month: toString(harvest_month),
-  batches: batches_this_month,
-  total_yield_g: round(total_yield_g, 0),
-  avg_yield_per_plant_g: round(avg_yield_per_plant, 1),
-  avg_yield_per_m2_g: round(avg_yield_per_m2, 1),
-  avg_cycle_days: round(avg_cycle_days, 0),
-  efficiency_g_m2_day: round(grams_per_m2_per_day, 2),
-  efficiency_grade: CASE
-    WHEN grams_per_m2_per_day >= 1.5 THEN 'A+'
-    WHEN grams_per_m2_per_day >= 1.0 THEN 'A'
-    WHEN grams_per_m2_per_day >= 0.7 THEN 'B'
-    WHEN grams_per_m2_per_day >= 0.5 THEN 'C'
-    ELSE 'D'
-  END
-} AS monthly_analytics
-ORDER BY harvest_month DESC
-LIMIT 6
+FOR entry IN raw_data
+  COLLECT month = entry.harvest_month INTO grouped
+  LET batches_this_month = LENGTH(grouped)
+  LET total_yield_g = SUM(grouped[*].entry.total_yield_g)
+  LET avg_yield_per_plant = AVERAGE(grouped[*].entry.yield_per_plant_g)
+  LET avg_yield_per_m2 = AVERAGE(grouped[*].entry.yield_per_m2_g)
+  LET avg_cycle_days = AVERAGE(grouped[*].entry.cycle_days)
+
+  // Berechne Effizienz-Metrik
+  LET grams_per_m2_per_day = (
+    avg_yield_per_m2 != null AND avg_cycle_days > 0
+      ? avg_yield_per_m2 / avg_cycle_days
+      : 0
+  )
+
+  SORT month DESC
+  LIMIT 6
+
+  RETURN {
+    month: month,
+    batches: batches_this_month,
+    total_yield_g: ROUND(total_yield_g, 0),
+    avg_yield_per_plant_g: ROUND(avg_yield_per_plant, 1),
+    avg_yield_per_m2_g: ROUND(avg_yield_per_m2, 1),
+    avg_cycle_days: ROUND(avg_cycle_days, 0),
+    efficiency_g_m2_day: ROUND(grams_per_m2_per_day, 2),
+    efficiency_grade: (
+      grams_per_m2_per_day >= 1.5 ? 'A+'
+      : (grams_per_m2_per_day >= 1.0 ? 'A'
+      : (grams_per_m2_per_day >= 0.7 ? 'B'
+      : (grams_per_m2_per_day >= 0.5 ? 'C' : 'D')))
+    )
+  }
 ```
 
 ## 3. Technische Umsetzung (Python)
@@ -614,7 +718,7 @@ async def websocket_endpoint(websocket: WebSocket, dashboard_id: str):
 
 async def fetch_widget_data(widget_id: str) -> dict:
     """Holt Daten für spezifisches Widget"""
-    # Placeholder - in Produktion: Neo4j Query
+    # Placeholder - in Produktion: ArangoDB AQL Query
     return {
         'widget_id': widget_id,
         'data': {'value': 42}
@@ -803,46 +907,52 @@ class PlantHealthWidget(BaseModel):
     """Plant Health Aggregation Widget"""
     
     @staticmethod
-    async def calculate_health_scores(neo4j_session) -> List[Dict]:
+    async def calculate_health_scores(arangodb) -> List[Dict]:
         """Berechnet Health-Scores für alle Pflanzen"""
-        
-        result = neo4j_session.run("""
-            MATCH (plant:PlantInstance)
-            OPTIONAL MATCH (plant)<-[:TRIGGERED]-(alert:Alert {acknowledged: false})
-            OPTIONAL MATCH (plant)-[:HAS_TASK]->(task:Task {status: 'pending'})
-            WHERE task.due_date < date()
-            
-            WITH plant,
-                 COUNT(DISTINCT alert) AS alert_count,
-                 MAX(alert.severity) AS max_severity,
-                 COUNT(DISTINCT task) AS overdue_tasks
-            
-            // Berechne Score (0-100)
-            WITH plant, alert_count, max_severity, overdue_tasks,
-                 100 - 
-                 (CASE max_severity 
-                   WHEN 'critical' THEN 50 
-                   WHEN 'warning' THEN 25 
-                   ELSE 0 
-                 END) -
-                 (alert_count * 5) -
-                 (overdue_tasks * 10) AS health_score
-            
-            RETURN plant.instance_id AS plant_id,
-                   plant.plant_name AS name,
-                   CASE 
-                     WHEN health_score >= 80 THEN 'healthy'
-                     WHEN health_score >= 60 THEN 'attention'
-                     WHEN health_score >= 40 THEN 'warning'
-                     ELSE 'critical'
-                   END AS health_category,
-                   health_score,
-                   alert_count,
-                   overdue_tasks
-            ORDER BY health_score ASC
-        """).data()
-        
-        return result
+
+        query = """
+            FOR plant IN PlantInstance
+              LET alerts = (
+                FOR v, e IN 1..1 INBOUND plant GRAPH 'kamerplanter_graph'
+                  FILTER IS_SAME_COLLECTION('Alert', v)
+                  FILTER v.acknowledged == false
+                  RETURN v
+              )
+              LET alert_count = LENGTH(alerts)
+              LET max_severity = (
+                'critical' IN alerts[*].severity ? 'critical'
+                : ('warning' IN alerts[*].severity ? 'warning' : null)
+              )
+              LET overdue_tasks = LENGTH(
+                FOR v, e IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+                  FILTER IS_SAME_COLLECTION('Task', v)
+                  FILTER v.status == 'pending' AND v.due_date < DATE_NOW()
+                  RETURN v
+              )
+
+              // Berechne Score (0-100)
+              LET severity_penalty = (
+                max_severity == 'critical' ? 50
+                : (max_severity == 'warning' ? 25 : 0)
+              )
+              LET health_score = 100 - severity_penalty - (alert_count * 5) - (overdue_tasks * 10)
+
+              SORT health_score ASC
+              RETURN {
+                plant_id: plant.instance_id,
+                name: plant.plant_name,
+                health_category: (
+                  health_score >= 80 ? 'healthy'
+                  : (health_score >= 60 ? 'attention'
+                  : (health_score >= 40 ? 'warning' : 'critical'))
+                ),
+                health_score: health_score,
+                alert_count: alert_count,
+                overdue_tasks: overdue_tasks
+              }
+        """
+        cursor = arangodb.aql.execute(query)
+        return [doc for doc in cursor]
 
 class YieldForecast(BaseModel):
     """Yield Forecasting basierend auf Historie"""
@@ -852,52 +962,76 @@ class YieldForecast(BaseModel):
     days_in_current_phase: int
     
     @staticmethod
-    async def forecast_yield(plant_id: str, neo4j_session) -> Dict:
+    async def forecast_yield(plant_id: str, arangodb) -> Dict:
         """Prognostiziert Yield basierend auf ähnlichen Grows"""
-        
-        result = neo4j_session.run("""
+
+        query = """
             // Hole aktuelle Pflanze
-            MATCH (current:PlantInstance {instance_id: $plant_id})
-                  -[:BELONGS_TO_SPECIES]->(species:Species)
-            MATCH (current)-[:CURRENT_PHASE]->(current_phase:GrowthPhase)
-            MATCH (current)-[:GROWN_IN]->(:SubstrateBatch)-[:USES_TYPE]->(substrate:Substrate)
-            
+            LET current = FIRST(
+              FOR p IN PlantInstance FILTER p.instance_id == @plant_id RETURN p
+            )
+            LET species = FIRST(
+              FOR v, e IN 1..1 OUTBOUND current GRAPH 'kamerplanter_graph'
+                FILTER IS_SAME_COLLECTION('Species', v)
+                RETURN v
+            )
+            LET substrate = FIRST(
+              FOR sb, e1 IN 1..1 OUTBOUND current GRAPH 'kamerplanter_graph'
+                FILTER IS_SAME_COLLECTION('SubstrateBatch', sb)
+                FOR st, e2 IN 1..1 OUTBOUND sb GRAPH 'kamerplanter_graph'
+                  FILTER IS_SAME_COLLECTION('Substrate', st)
+                  RETURN st
+            )
+
             // Finde historische Batches gleicher Spezies/Substrat
-            MATCH (species)<-[:BELONGS_TO_SPECIES]-(historical:PlantInstance)
-                  -[:HARVESTED_AS]->(batch:Batch)
-                  -[:HAS_YIELD_METRIC]->(yield:YieldMetric)
-            MATCH (historical)-[:GROWN_IN]->(:SubstrateBatch)-[:USES_TYPE]->(substrate)
-            
-            WHERE historical.instance_id <> current.instance_id
-              AND batch.harvest_date > date() - duration('P365D')
-            
+            LET yields = (
+              FOR historical, e1 IN 1..1 INBOUND species GRAPH 'kamerplanter_graph'
+                FILTER IS_SAME_COLLECTION('PlantInstance', historical)
+                FILTER historical.instance_id != current.instance_id
+                // Prüfe gleiches Substrat
+                LET hist_substrate = FIRST(
+                  FOR sb, e2 IN 1..1 OUTBOUND historical GRAPH 'kamerplanter_graph'
+                    FILTER IS_SAME_COLLECTION('SubstrateBatch', sb)
+                    FOR st, e3 IN 1..1 OUTBOUND sb GRAPH 'kamerplanter_graph'
+                      FILTER IS_SAME_COLLECTION('Substrate', st)
+                      FILTER st._key == substrate._key
+                      RETURN st
+                )
+                FILTER hist_substrate != null
+                FOR batch, e4 IN 1..1 OUTBOUND historical GRAPH 'kamerplanter_graph'
+                  FILTER IS_SAME_COLLECTION('Batch', batch)
+                  FILTER batch.harvest_date > DATE_SUBTRACT(DATE_NOW(), 365, 'day')
+                  FOR ym, e5 IN 1..1 OUTBOUND batch GRAPH 'kamerplanter_graph'
+                    FILTER IS_SAME_COLLECTION('YieldMetric', ym)
+                    RETURN ym.yield_per_plant_g
+            )
+
             // Berechne Durchschnitt
-            WITH current, current_phase,
-                 AVG(yield.yield_per_plant_g) AS avg_historical_yield,
-                 STDEV(yield.yield_per_plant_g) AS yield_stddev,
-                 COUNT(batch) AS sample_size,
-                 MIN(yield.yield_per_plant_g) AS min_yield,
-                 MAX(yield.yield_per_plant_g) AS max_yield
-            
+            LET sample_size = LENGTH(yields)
+            LET avg_historical_yield = AVERAGE(yields)
+            LET yield_stddev = STDDEV(yields)
+            LET min_yield = MIN(yields)
+            LET max_yield = MAX(yields)
+
             RETURN {
-                plant_id: current.instance_id,
-                forecast_yield_g: round(avg_historical_yield, 0),
-                confidence_range: [
-                    round(avg_historical_yield - yield_stddev, 0),
-                    round(avg_historical_yield + yield_stddev, 0)
-                ],
-                min_yield_g: round(min_yield, 0),
-                max_yield_g: round(max_yield, 0),
-                sample_size: sample_size,
-                confidence: CASE
-                    WHEN sample_size >= 10 THEN 'high'
-                    WHEN sample_size >= 5 THEN 'medium'
-                    ELSE 'low'
-                END
-            } AS forecast
-        """, plant_id=plant_id).single()
-        
-        return dict(result['forecast']) if result else {}
+              plant_id: current.instance_id,
+              forecast_yield_g: ROUND(avg_historical_yield, 0),
+              confidence_range: [
+                ROUND(avg_historical_yield - yield_stddev, 0),
+                ROUND(avg_historical_yield + yield_stddev, 0)
+              ],
+              min_yield_g: ROUND(min_yield, 0),
+              max_yield_g: ROUND(max_yield, 0),
+              sample_size: sample_size,
+              confidence: (
+                sample_size >= 10 ? 'high'
+                : (sample_size >= 5 ? 'medium' : 'low')
+              )
+            }
+        """
+        cursor = arangodb.aql.execute(query, bind_vars={'plant_id': plant_id})
+        result = next(cursor, None)
+        return dict(result) if result else {}
 ```
 
 **3. Widget Configuration System:**
@@ -1047,7 +1181,7 @@ class ResponsiveLayoutEngine:
 ### Datenvalidierung (Type Hinting):
 ```python
 from typing import Literal, Optional, List, Dict, Any
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 
 DashboardType = Literal['overview', 'climate', 'plant_health', 'harvest', 'resource', 'analytics', 'custom']
@@ -1066,7 +1200,8 @@ class DashboardConfig(BaseModel):
     widgets: List[WidgetConfig] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.now)
     
-    @validator('widgets')
+    @field_validator('widgets')
+    @classmethod
     def validate_unique_widget_ids(cls, v):
         widget_ids = [w.widget_id for w in v]
         if len(widget_ids) != len(set(widget_ids)):
@@ -1079,7 +1214,7 @@ class DashboardConfig(BaseModel):
 **Erforderliche Module:**
 - REQ-001 bis REQ-008: Alle (Dashboard aggregiert Daten aus allen Modulen)
 - Redis (Caching für Performance)
-- TimescaleDB/InfluxDB (Zeitreihen für Charts)
+- TimescaleDB (Zeitreihen für Charts)
 
 **Frontend-Technologien:**
 - React 18+ mit Hooks

@@ -43,7 +43,7 @@ export const locationSchema = z.object({
   area_m2: z.number().min(0),
   orientation: z.enum(['north', 'south', 'east', 'west']).nullable().default(null),
   light_type: z.enum(['natural', 'led', 'hps', 'cmh', 'mixed']).default('natural'),
-  irrigation_system: z.enum(['manual', 'drip', 'hydro', 'mist']).default('manual'),
+  irrigation_system: z.enum(['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow']).default('manual'),
 });
 
 export const slotSchema = z.object({
@@ -118,4 +118,21 @@ export const gddSchema = z.object({
 export const slotCapacitySchema = z.object({
   area_m2: z.number().positive(),
   plant_spacing_cm: z.number().positive(),
+});
+
+export const feedingEventSchema = z.object({
+  plant_key: z.string().min(1, 'Plant key is required'),
+  application_method: z
+    .enum(['fertigation', 'drench', 'foliar', 'top_dress'])
+    .default('fertigation'),
+  is_supplemental: z.boolean().default(false),
+  volume_applied_liters: z.number().gt(0),
+  measured_ec_before: z.number().min(0).nullable().default(null),
+  measured_ec_after: z.number().min(0).nullable().default(null),
+  measured_ph_before: z.number().min(0).max(14).nullable().default(null),
+  measured_ph_after: z.number().min(0).max(14).nullable().default(null),
+  runoff_ec: z.number().min(0).nullable().default(null),
+  runoff_ph: z.number().min(0).max(14).nullable().default(null),
+  runoff_volume_liters: z.number().min(0).nullable().default(null),
+  notes: z.string().nullable().default(null),
 });

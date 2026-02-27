@@ -16,6 +16,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import DataTable, { type Column } from '@/components/common/DataTable';
+import { useTableLocalState } from '@/hooks/useTableState';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -57,6 +58,7 @@ export default function SubstrateDetailPage() {
   const [deleteBatchTarget, setDeleteBatchTarget] = useState<Batch | null>(null);
   const [batchCreateOpen, setBatchCreateOpen] = useState(false);
   const [reusability, setReusability] = useState<Record<string, ReusabilityResponse>>({});
+  const batchTableState = useTableLocalState({ defaultSort: { column: 'mixedOn', direction: 'desc' } });
 
   const {
     control,
@@ -159,12 +161,14 @@ export default function SubstrateDetailPage() {
 
   const batchColumns: Column<Batch>[] = [
     { id: 'batchId', label: t('pages.batches.batchId'), render: (r) => r.batch_id },
-    { id: 'volume', label: t('pages.batches.volume'), render: (r) => `${r.volume_liters} L` },
+    { id: 'volume', label: t('pages.batches.volume'), render: (r) => `${r.volume_liters} L`, align: 'right' as const, searchValue: (r: Batch) => String(r.volume_liters) },
     { id: 'mixedOn', label: t('pages.batches.mixedOn'), render: (r) => r.mixed_on },
-    { id: 'cycles', label: t('pages.batches.cyclesUsed'), render: (r) => r.cycles_used },
+    { id: 'cycles', label: t('pages.batches.cyclesUsed'), render: (r) => r.cycles_used, align: 'right' as const },
     {
       id: 'actions',
       label: t('common.actions'),
+      sortable: false,
+      searchable: false,
       render: (r) => (
         <Box sx={{ display: 'flex', gap: 0.5 }}>
           <Button size="small" onClick={(e) => { e.stopPropagation(); checkReusability(r.key); }}>
@@ -249,6 +253,8 @@ export default function SubstrateDetailPage() {
           rows={batches}
           getRowKey={(r) => r.key}
           onRowClick={(r) => navigate(`/standorte/substrates/batches/${r.key}`)}
+          tableState={batchTableState}
+          ariaLabel={t('pages.batches.title')}
         />
       </Box>
 

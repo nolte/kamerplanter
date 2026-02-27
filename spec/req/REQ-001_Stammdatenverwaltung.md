@@ -5,7 +5,7 @@ ID: REQ-001
 Titel: Stammdatenverwaltung von Pflanzen-Entitätszyklen
 Kategorie: Stammdaten
 Fokus: Beides
-Technologie: Python, GraphDB (ArangoDB)
+Technologie: Python, ArangoDB
 Status: Entwurf
 Version: 3.0
 ```
@@ -28,7 +28,7 @@ Zusätzlich erfasst das System:
 - **Wurzelsystem-Typen** (Flachwurzler, Tiefwurzler, Pfahlwurzel)
 - **Allelochemische Eigenschaften** (Allelopathie für Mischkultur-Planung)
 
-## 2. GraphDB-Modellierung
+## 2. ArangoDB-Modellierung
 
 ### Nodes:
 - **`:Species`** - Botanische Art
@@ -330,7 +330,7 @@ Die folgenden 9 Pflanzenfamilien bilden die initiale Datenbasis:
 ```python
 from datetime import datetime, timedelta
 from typing import Literal, Optional
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 class DormancyTrigger(BaseModel):
     """Steuerung der Winterruhe bei mehrjährigen Pflanzen"""
@@ -340,9 +340,10 @@ class DormancyTrigger(BaseModel):
     consecutive_days_required: int = Field(default=7, ge=1)
     photoperiod_threshold_hours: Optional[float] = Field(None, ge=0, le=24)
     
-    @validator('temperature_threshold_c')
-    def validate_temp_trigger(cls, v, values):
-        if values.get('trigger_type') == 'temperature' and v is None:
+    @field_validator('temperature_threshold_c')
+    @classmethod
+    def validate_temp_trigger(cls, v, info):
+        if info.data.get('trigger_type') == 'temperature' and v is None:
             raise ValueError("Temperatur-Schwelle erforderlich für temperature-Trigger")
         return v
     
@@ -495,7 +496,7 @@ class PhotoperiodCalculator:
 **4. Species-Validator:**
 ```python
 from typing import Optional
-from pydantic import BaseModel, validator, Field
+from pydantic import BaseModel, field_validator, Field
 
 class SpeciesDefinition(BaseModel):
     """Vollständige Spezies-Definition für Stammdaten"""
@@ -512,24 +513,27 @@ class SpeciesDefinition(BaseModel):
     vernalization_required: bool = False
     vernalization_days: Optional[int] = Field(None, ge=0, le=180)
     
-    @validator('scientific_name')
+    @field_validator('scientific_name')
+    @classmethod
     def validate_scientific_name(cls, v):
         parts = v.split()
         if len(parts) != 2:
             raise ValueError("Wissenschaftlicher Name muss aus Gattung und Art bestehen")
         return v
     
-    @validator('vernalization_days')
-    def validate_vernalization(cls, v, values):
-        if values.get('vernalization_required') and v is None:
+    @field_validator('vernalization_days')
+    @classmethod
+    def validate_vernalization(cls, v, info):
+        if info.data.get('vernalization_required') and v is None:
             raise ValueError("Vernalisations-Dauer erforderlich wenn vernalization_required=True")
-        if not values.get('vernalization_required') and v is not None:
+        if not info.data.get('vernalization_required') and v is not None:
             raise ValueError("Vernalisations-Dauer nur bei vernalization_required=True")
         return v
     
-    @validator('cycle_type')
-    def validate_biennial_vernalization(cls, v, values):
-        if v == 'biennial' and not values.get('vernalization_required'):
+    @field_validator('cycle_type')
+    @classmethod
+    def validate_biennial_vernalization(cls, v, info):
+        if v == 'biennial' and not info.data.get('vernalization_required'):
             raise ValueError("Zweijährige Pflanzen benötigen typischerweise Vernalisation")
         return v
 
@@ -544,7 +548,8 @@ class CultivarDefinition(BaseModel):
     days_to_maturity: Optional[int] = Field(None, ge=1, le=365)
     disease_resistances: list[str] = Field(default_factory=list)
     
-    @validator('traits')
+    @field_validator('traits')
+    @classmethod
     def validate_traits(cls, v):
         valid_traits = {
             'disease_resistant', 'pest_resistant', 'high_yield', 'compact',
@@ -611,10 +616,11 @@ class PhRange(BaseModel):
     min_ph: float = Field(ge=3.0, le=9.0, description="Minimaler pH-Wert")
     max_ph: float = Field(ge=3.0, le=9.0, description="Maximaler pH-Wert")
 
-    @validator('max_ph')
-    def validate_ph_range(cls, v, values):
-        if 'min_ph' in values and v < values['min_ph']:
-            raise ValueError(f"max_ph ({v}) muss >= min_ph ({values['min_ph']}) sein")
+    @field_validator('max_ph')
+    @classmethod
+    def validate_ph_range(cls, v, info):
+        if 'min_ph' in info.data and v < info.data['min_ph']:
+            raise ValueError(f"max_ph ({v}) muss >= min_ph ({info.data['min_ph']}) sein")
         return v
 ```
 
@@ -639,21 +645,24 @@ class BotanicalFamilyDefinition(BaseModel):
     pollination_type: list[PollinationType] = Field(min_items=1)
     rotation_category: str
 
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_family_name(cls, v):
         if not v.endswith('aceae'):
             raise ValueError(f"Familienname '{v}' muss auf '-aceae' enden")
         return v
 
-    @validator('order')
+    @field_validator('order')
+    @classmethod
     def validate_order_name(cls, v):
         if v is not None and not v.endswith('ales'):
             raise ValueError(f"Ordnungsname '{v}' muss auf '-ales' enden")
         return v
 
-    @validator('nitrogen_fixing')
-    def validate_nitrogen_fixing_demand(cls, v, values):
-        if v and values.get('typical_nutrient_demand') == 'heavy':
+    @field_validator('nitrogen_fixing')
+    @classmethod
+    def validate_nitrogen_fixing_demand(cls, v, info):
+        if v and info.data.get('typical_nutrient_demand') == 'heavy':
             raise ValueError(
                 "nitrogen_fixing=true ist inkompatibel mit typical_nutrient_demand='heavy'. "
                 "Stickstofffixierende Familien sind Schwach- oder Mittelzehrer."

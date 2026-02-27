@@ -5,9 +5,9 @@ ID: REQ-002
 Titel: Räumliche Platzierung und Substrat-Konfiguration
 Kategorie: Infrastruktur
 Fokus: Beides
-Technologie: Python, GraphDB (Neo4j), PostGIS
+Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 3.0
+Version: 3.1
 ```
 
 ## 1. Business Case
@@ -37,7 +37,7 @@ Das System verwaltet eine **rekursiv verschachtelbare** Standort-Struktur: **Sit
 - Automatische Warnung bei kritischen Wiederholungen (gleiche Pflanzenfamilie)
 - Berücksichtigung von Vor-/Nachfrucht-Effekten und Gründüngung
 
-## 2. GraphDB-Modellierung
+## 2. ArangoDB-Modellierung
 
 ### Nodes:
 - **`:Site`** - Oberste Ebene (z.B. Garten, Gewächshaus, Indoor-Facility)
@@ -54,31 +54,50 @@ Das System verwaltet eine **rekursiv verschachtelbare** Standort-Struktur: **Sit
     - `name: str` (z.B. "Beet A", "Growzelt 1")
     - `site_key: str` — Referenz auf das Root-Site (wird bei Erstellung vom Eltern-Standort geerbt)
     - `parent_location_key: Optional[str]` — Eltern-Location (`null` = direkt unter Site)
-    - `location_type: LocationType` — Art des Standorts (siehe Enum unten)
+    - `location_type_key: str` — Referenz auf `location_types._key` (nutzerpflegbare Stammdaten, siehe Collection unten)
     - `depth: int` — Tiefe in der Hierarchie (0 = direkt unter Site), berechnet
     - `path: str` — Materialisierter Pfad für Baum-Abfragen (z.B. `"haus/arbeitszimmer/growzelt1"`)
     - `area_m2: float`
     - `orientation: Optional[Literal['north', 'south', 'east', 'west']]`
     - `light_type: Literal['natural', 'led', 'hps', 'cmh', 'mixed']`
-    - `irrigation_system: Literal['manual', 'drip', 'hydro', 'mist']`
+    - `irrigation_system: Literal['manual', 'drip', 'hydro', 'mist']` (Primäres Bewässerungssystem — beschreibt die Infrastruktur. Ergänzendes manuelles Gießen per Gießkanne ist immer möglich, auch bei automatischen Systemen, z.B. für organische Dünger, die nicht über Tropfer/Pumpen appliziert werden sollten. Siehe REQ-004 Applikationsmethoden und REQ-014 WateringEvent.)
     - `dimensions: tuple[float, float, float]` (length, width, height in meters)
     - `lights_on: Optional[str]` — Uhrzeit Licht-Ein im Format HH:MM (z.B. "06:00")
     - `lights_off: Optional[str]` — Uhrzeit Licht-Aus im Format HH:MM (z.B. "22:00")
     - `use_dynamic_sunrise: bool` — Dynamische Sonnenstandberechnung aus GPS-Koordinaten aktivieren (nur bei `light_type: natural` oder `mixed`)
 
-  **LocationType-Enum:**
-  ```
-  GARDEN = "garden"           # Garten (Freiland)
-  GREENHOUSE = "greenhouse"   # Gewächshaus
-  BUILDING = "building"       # Gebäude/Haus
-  ROOM = "room"               # Zimmer
-  BALCONY = "balcony"         # Balkon
-  TERRACE = "terrace"         # Terrasse
-  TENT = "tent"               # Grow-Zelt
-  BED = "bed"                 # Beet
-  SHELF = "shelf"             # Regal/Rack-Ebene
-  CONTAINER = "container"     # Topf-/Container-Gruppe
-  ```
+  **LocationType-Collection (`location_types`):**
+
+  Nutzerpflegbare Stammdaten (CRUD) — analog zu Species/Cultivar. Der Nutzer kann eigene Standort-Typen anlegen (z.B. "Hügelbeet", "Hochbeet", "Frühbeetkasten").
+
+  Document-Collection `location_types`:
+  - `_key: str` — Slug-Identifier (z.B. `"garden"`, `"tent"`, `"hugelbeet"`)
+  - `name: str` — Anzeigename (z.B. `"Garten"`, `"Grow-Zelt"`, `"Hügelbeet"`)
+  - `name_en: Optional[str]` — Englischer Name für i18n
+  - `icon: Optional[str]` — MUI-Icon-Name für UI (z.B. `"Park"`, `"Yard"`)
+  - `is_indoor: bool` — Unterscheidung indoor/outdoor für kontextabhängige Logik (z.B. Lichtsteuerung)
+  - `is_system: bool` — System-Seed vs. nutzerdefiniert (System-Einträge können nicht gelöscht werden)
+  - `sort_order: int` — Reihenfolge in Dropdowns
+  - `description: Optional[str]` — Kurzbeschreibung
+  - `created_at: datetime`
+  - `updated_at: datetime`
+
+  **10 Default-Seed-Einträge** (werden bei Erstinstallation angelegt, `is_system: true`):
+
+  | `_key` | `name` | `name_en` | `is_indoor` | `icon` | `sort_order` |
+  |--------|--------|-----------|-------------|--------|-------------|
+  | `garden` | Garten | Garden | `false` | `Park` | 10 |
+  | `greenhouse` | Gewächshaus | Greenhouse | `false` | `Warehouse` | 20 |
+  | `building` | Gebäude | Building | `true` | `Home` | 30 |
+  | `room` | Zimmer | Room | `true` | `MeetingRoom` | 40 |
+  | `balcony` | Balkon | Balcony | `false` | `Balcony` | 50 |
+  | `terrace` | Terrasse | Terrace | `false` | `Deck` | 60 |
+  | `tent` | Grow-Zelt | Grow Tent | `true` | `Campaign` | 70 |
+  | `bed` | Beet | Bed | `false` | `Grass` | 80 |
+  | `shelf` | Regal | Shelf | `true` | `Shelves` | 90 |
+  | `container` | Topf-/Container-Gruppe | Container Group | `false` | `Inventory2` | 100 |
+
+  > **Hinweis:** `location_type_key` ist ein einfaches String-Feld (Fremdschlüssel) — keine Edge-Collection nötig, da 1:1-Beziehung ohne Graph-Traversal-Bedarf. Konsistent mit `site_key`, `species_key` etc.
 
 - **`:Slot`** - Einzelner Pflanzplatz
   - Properties:
@@ -145,17 +164,17 @@ Das System unterstützt die Verwaltung von Lichtzeiten pro Location. Das Verhalt
     - `planned_families: list[str]`
     - `optimization_goal: Literal['nutrient_balance', 'pest_control', 'soil_health']`
 
-### Edges:
-```cypher
-(:Site)-[:CONTAINS]->(:Location)
-(:Location)-[:CONTAINS]->(:Location)          // Rekursive Verschachtelung
-(:Location)-[:HAS_SLOT]->(:Slot)
-(:Slot)-[:FILLED_WITH]->(:SubstrateBatch)-[:USES_TYPE]->(:Substrate)
-(:PlantInstance)-[:PLACED_IN]->(:Slot)
-(:PlantInstance)-[:SUCCEEDS {interval_days: int}]->(:PlantInstance)  // Fruchtfolge-Kette
-(:PlantInstance)-[:GROWN_IN]->(:SubstrateBatch)
-(:Location)-[:FOLLOWS_PLAN]->(:CropRotationPlan)
-(:Slot)-[:ADJACENT_TO {distance_cm: float}]->(:Slot)  // Nachbarschafts-Beziehungen
+### Edges (ArangoDB Edge Collections):
+```
+contains:        sites/locations → locations           (Rekursive Verschachtelung)
+has_slot:        locations → slots
+filled_with:     slots → substrate_batches
+uses_type:       substrate_batches → substrates
+placed_in:       plant_instances → slots
+succeeds:        plant_instances → plant_instances     (Fruchtfolge-Kette, Attribut: interval_days)
+grown_in:        plant_instances → substrate_batches
+follows_plan:    locations → crop_rotation_plans
+adjacent_to:     slots → slots                         (Nachbarschafts-Beziehungen, Attribut: distance_cm)
 ```
 
 **ArangoDB-Graph-Definition für `contains`-Edge:**
@@ -168,61 +187,152 @@ Das System unterstützt die Verwaltung von Lichtzeiten pro Location. Das Verhalt
 ```
 > **Hinweis:** Die `contains`-Edge-Collection akzeptiert sowohl `sites` als auch `locations` als Ausgangspunkt, um die rekursive Standort-Hierarchie abzubilden.
 
-### Cypher-Beispiellogik:
+### AQL-Beispiellogik:
 
 **Fruchtfolge-Historie eines Slots (letzte 3 Jahre):**
-```cypher
-MATCH (slot:Slot {id: $slot_id})<-[:PLACED_IN]-(p:PlantInstance)
-      -[:BELONGS_TO_SPECIES]->(s:Species)-[:BELONGS_TO_FAMILY]->(f:BotanicalFamily)
-WHERE p.planted_on > date() - duration('P1095D')  // 3 Jahre
-RETURN f.name AS family, 
-       p.planted_on AS planted,
-       p.removed_on AS harvested,
-       s.scientific_name AS species
-ORDER BY p.planted_on DESC
+```aql
+// Alle Pflanzen eines Slots mit Spezies und botanischer Familie
+// Zeitfenster: letzte 3 Jahre (1095 Tage)
+LET slot = DOCUMENT(CONCAT('slots/', @slot_id))
+LET cutoff = DATE_SUBTRACT(DATE_NOW(), 1095, 'day')
+
+FOR plant IN plant_instances
+    FOR pi_edge IN placed_in
+        FILTER pi_edge._from == plant._id AND pi_edge._to == slot._id
+        FILTER plant.planted_on > cutoff
+        FOR species_edge IN belongs_to_species
+            FILTER species_edge._from == plant._id
+            LET species = DOCUMENT(species_edge._to)
+            FOR family_edge IN belongs_to_family
+                FILTER family_edge._from == species._id
+                LET family = DOCUMENT(family_edge._to)
+                SORT plant.planted_on DESC
+                RETURN {
+                    family: family.name,
+                    planted: plant.planted_on,
+                    harvested: plant.removed_on,
+                    species: species.scientific_name
+                }
 ```
 
-**Verfügbare Slots für neue Anpflanzung finden:**
-```cypher
-MATCH (l:Location)-[:HAS_SLOT]->(slot:Slot)
-WHERE NOT (slot)<-[:PLACED_IN]-(:PlantInstance {removed_on: null})
-  AND l.type = $location_type
-OPTIONAL MATCH (slot)<-[:PLACED_IN]-(last:PlantInstance)
-WHERE last.removed_on IS NOT NULL
-RETURN slot.id, slot.position, last.removed_on AS last_used,
-       duration.between(last.removed_on, date()).days AS days_fallow
-ORDER BY days_fallow DESC
+**Verfügbare Slots fur neue Anpflanzung finden:**
+```aql
+// Findet alle Slots einer Location, die nicht belegt sind
+FOR loc IN locations
+    FILTER loc.location_type_key == @location_type_key
+    FOR slot IN 1..1 OUTBOUND loc GRAPH 'kamerplanter_graph'
+        FILTER IS_SAME_COLLECTION('has_slot', CURRENT_EDGE)
+        // Pruefen ob Slot aktuell belegt ist
+        LET is_occupied = LENGTH(
+            FOR plant IN plant_instances
+                FILTER plant.removed_on == null
+                FOR pi_edge IN placed_in
+                    FILTER pi_edge._from == plant._id AND pi_edge._to == slot._id
+                    RETURN 1
+        ) > 0
+        FILTER NOT is_occupied
+        // Letzten abgeschlossenen Anbau finden
+        LET last_plant = FIRST(
+            FOR plant IN plant_instances
+                FILTER plant.removed_on != null
+                FOR pi_edge IN placed_in
+                    FILTER pi_edge._from == plant._id AND pi_edge._to == slot._id
+                    SORT plant.removed_on DESC
+                    LIMIT 1
+                    RETURN plant
+        )
+        LET days_fallow = last_plant != null
+            ? DATE_DIFF(last_plant.removed_on, DATE_ISO8601(DATE_NOW()), 'day')
+            : null
+        SORT days_fallow DESC
+        RETURN {
+            slot_id: slot._key,
+            position: slot.position,
+            last_used: last_plant.removed_on,
+            days_fallow: days_fallow
+        }
 ```
 
 **Fruchtfolge-Validierung vor Anpflanzung:**
-```cypher
-MATCH (slot:Slot {id: $slot_id})<-[:PLACED_IN]-(prev:PlantInstance)
-      -[:BELONGS_TO_SPECIES]->(:Species)-[:BELONGS_TO_FAMILY]->(prev_fam:BotanicalFamily)
-WHERE prev.planted_on > date() - duration({days: $rotation_window_days})
-MATCH (new_species:Species {scientific_name: $new_species_name})
-      -[:BELONGS_TO_FAMILY]->(new_fam:BotanicalFamily)
-RETURN prev_fam.name = new_fam.name AS same_family,
-       prev_fam.rotation_category AS previous_category,
-       new_fam.rotation_category AS planned_category,
-       CASE 
-         WHEN prev_fam.name = new_fam.name THEN 'CRITICAL'
-         WHEN prev_fam.rotation_category = new_fam.rotation_category THEN 'WARNING'
-         ELSE 'OK'
-       END AS rotation_status
+```aql
+// Prueft ob die geplante Spezies eine kritische Familien-Wiederholung darstellt
+LET slot = DOCUMENT(CONCAT('slots/', @slot_id))
+LET cutoff = DATE_SUBTRACT(DATE_NOW(), @rotation_window_days, 'day')
+
+// Vorherige Pflanzen im Rotationsfenster mit ihren Familien
+LET previous_families = (
+    FOR plant IN plant_instances
+        FOR pi_edge IN placed_in
+            FILTER pi_edge._from == plant._id AND pi_edge._to == slot._id
+            FILTER plant.planted_on > cutoff
+            FOR v, e IN 2..2 OUTBOUND plant
+                GRAPH 'kamerplanter_graph'
+                FILTER IS_SAME_COLLECTION('botanical_families', v)
+                RETURN DISTINCT {
+                    family_name: v.name,
+                    rotation_category: v.rotation_category
+                }
+)
+
+// Familie der geplanten Spezies
+LET new_species = FIRST(
+    FOR s IN species
+        FILTER s.scientific_name == @new_species_name
+        FOR family_edge IN belongs_to_family
+            FILTER family_edge._from == s._id
+            LET fam = DOCUMENT(family_edge._to)
+            RETURN { family_name: fam.name, rotation_category: fam.rotation_category }
+)
+
+FOR prev_fam IN previous_families
+    RETURN {
+        same_family: prev_fam.family_name == new_species.family_name,
+        previous_category: prev_fam.rotation_category,
+        planned_category: new_species.rotation_category,
+        rotation_status: prev_fam.family_name == new_species.family_name
+            ? 'CRITICAL'
+            : (prev_fam.rotation_category == new_species.rotation_category
+                ? 'WARNING'
+                : 'OK')
+    }
 ```
 
 **Optimale Mischkultur-Nachbarn finden:**
-```cypher
-MATCH (target_slot:Slot {id: $slot_id})-[:ADJACENT_TO]->(neighbor:Slot)
-      <-[:PLACED_IN]-(neighbor_plant:PlantInstance {removed_on: null})
-      -[:BELONGS_TO_SPECIES]->(neighbor_species:Species)
-MATCH (planned_species:Species {scientific_name: $planned_species})
-OPTIONAL MATCH (planned_species)-[compat:COMPATIBLE_WITH]->(neighbor_species)
-OPTIONAL MATCH (planned_species)-[incompat:INCOMPATIBLE_WITH]->(neighbor_species)
-RETURN neighbor_slot.id,
-       neighbor_species.common_names[0] AS neighbor_plant,
-       COALESCE(compat.compatibility_score, 0) AS compatibility,
-       incompat.reason AS incompatibility_reason
+```aql
+// Findet Nachbar-Slots und prueft Kompatibilitaet mit geplanter Spezies
+LET target_slot = DOCUMENT(CONCAT('slots/', @slot_id))
+
+FOR neighbor IN 1..1 OUTBOUND target_slot adjacent_to
+    // Aktuelle Pflanze im Nachbar-Slot
+    FOR neighbor_plant IN plant_instances
+        FILTER neighbor_plant.removed_on == null
+        FOR pi_edge IN placed_in
+            FILTER pi_edge._from == neighbor_plant._id AND pi_edge._to == neighbor._id
+            // Spezies der Nachbar-Pflanze
+            FOR ns_edge IN belongs_to_species
+                FILTER ns_edge._from == neighbor_plant._id
+                LET neighbor_species = DOCUMENT(ns_edge._to)
+                // Geplante Spezies
+                LET planned = FIRST(
+                    FOR s IN species FILTER s.scientific_name == @planned_species RETURN s
+                )
+                // Kompatibilitaet pruefen
+                LET compat = FIRST(
+                    FOR c IN compatible_with
+                        FILTER c._from == planned._id AND c._to == neighbor_species._id
+                        RETURN c
+                )
+                LET incompat = FIRST(
+                    FOR i IN incompatible_with
+                        FILTER i._from == planned._id AND i._to == neighbor_species._id
+                        RETURN i
+                )
+                RETURN {
+                    neighbor_slot_id: neighbor._key,
+                    neighbor_plant: neighbor_species.common_names[0],
+                    compatibility: compat != null ? compat.compatibility_score : 0,
+                    incompatibility_reason: incompat != null ? incompat.reason : null
+                }
 ```
 
 ### AQL-Beispielqueries (Rekursive Standort-Hierarchie):
@@ -313,49 +423,54 @@ class CropRotationValidator(BaseModel):
     nutrient_demand_balance: bool = True
     
     def validate_planting(
-        self, 
+        self,
         slot_id: str,
         planned_species: str,
         previous_crops: list[dict],  # [{family, planted_on, nutrient_demand}]
-        neo4j_session
+        db  # python-arango StandardDatabase
     ) -> tuple[bool, str, dict]:
         """
         Returns: (is_valid, message, recommendations)
         """
         window_start = datetime.now() - timedelta(days=365 * self.rotation_window_years)
-        
+
         # Prüfe auf Familien-Wiederholung
         recent_families = [
-            crop['family'] for crop in previous_crops 
+            crop['family'] for crop in previous_crops
             if crop['planted_on'] > window_start
         ]
-        
-        # Hole Familie der geplanten Spezies
-        result = neo4j_session.run("""
-            MATCH (s:Species {scientific_name: $species})
-                  -[:BELONGS_TO_FAMILY]->(f:BotanicalFamily)
-            RETURN f.name AS family, f.typical_nutrient_demand AS demand
-        """, species=planned_species).single()
-        
+
+        # Hole Familie der geplanten Spezies (AQL)
+        cursor = db.aql.execute("""
+            FOR s IN species
+                FILTER s.scientific_name == @species_name
+                FOR edge IN belongs_to_family
+                    FILTER edge._from == s._id
+                    LET f = DOCUMENT(edge._to)
+                    RETURN { family: f.name, demand: f.typical_nutrient_demand }
+        """, bind_vars={'species_name': planned_species})
+
+        result = next(cursor, None)
+
         if not result:
             return False, "Spezies nicht in Datenbank", {}
-        
+
         planned_family = result['family']
         planned_demand = result['demand']
-        
+
         # KRITISCH: Gleiche Familie in Rotation
         if planned_family in recent_families:
             last_occurrence = max([
-                crop['planted_on'] for crop in previous_crops 
+                crop['planted_on'] for crop in previous_crops
                 if crop['family'] == planned_family
             ])
             years_since = (datetime.now() - last_occurrence).days / 365
-            
+
             return False, (
                 f"KRITISCH: {planned_family} wurde vor {years_since:.1f} Jahren "
                 f"am gleichen Standort angebaut. Empfohlener Abstand: {self.rotation_window_years} Jahre."
-            ), self._get_alternative_families(planned_family, neo4j_session)
-        
+            ), self._get_alternative_families(planned_family, db)
+
         # WARNUNG: Nährstoff-Ungleichgewicht
         if self.nutrient_demand_balance:
             recent_demands = [crop['nutrient_demand'] for crop in previous_crops[-2:]]
@@ -364,26 +479,31 @@ class CropRotationValidator(BaseModel):
                     "WARNUNG: Drei aufeinanderfolgende Starkzehrer. "
                     "Erwäge Gründüngung oder Schwachzehrer."
                 ), {}
-        
+
         return True, "Fruchtfolge OK", {}
     
-    def _get_alternative_families(self, current_family: str, session) -> dict:
+    def _get_alternative_families(self, current_family: str, db) -> dict:
         """Schlägt alternative Pflanzenfamilien vor"""
-        result = session.run("""
-            MATCH (current:BotanicalFamily {name: $family})
-                  -[:ROTATION_AFTER*1..2]->(alternative:BotanicalFamily)
-            RETURN alternative.name AS family, 
-                   alternative.typical_nutrient_demand AS demand
-            LIMIT 5
-        """, family=current_family).data()
-        
-        return {'alternatives': result}
+        cursor = db.aql.execute("""
+            FOR current IN botanical_families
+                FILTER current.name == @family_name
+                FOR v, e, p IN 1..2 OUTBOUND current
+                    GRAPH 'kamerplanter_graph'
+                    FILTER IS_SAME_COLLECTION('rotation_after', e)
+                    LIMIT 5
+                    RETURN {
+                        family: v.name,
+                        demand: v.typical_nutrient_demand
+                    }
+        """, bind_vars={'family_name': current_family})
+
+        return {'alternatives': list(cursor)}
 ```
 
 **2. Slot-Kapazitäts-Manager:**
 ```python
 from typing import Optional
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 
 class SlotCapacityCalculator(BaseModel):
     """Berechnet optimale Pflanzendichte basierend on Slot-Dimensionen"""
@@ -393,9 +513,10 @@ class SlotCapacityCalculator(BaseModel):
     plant_diameter_cm: int = Field(ge=5, le=150)
     cultivation_system: Literal['soil', 'hydro', 'aeroponic', 'vertical']
     
-    @validator('plant_spacing_cm')
-    def validate_spacing(cls, v, values):
-        plant_diam = values.get('plant_diameter_cm', 0)
+    @field_validator('plant_spacing_cm')
+    @classmethod
+    def validate_spacing(cls, v, info):
+        plant_diam = info.data.get('plant_diameter_cm', 0)
         if v < plant_diam:
             raise ValueError("Pflanzabstand muss mindestens Pflanzendurchmesser entsprechen")
         return v
@@ -617,23 +738,23 @@ class HydroSystemMonitor(BaseModel):
 
 ### Datenvalidierung:
 ```python
-from enum import Enum
 from typing import Literal, Optional, Tuple
-from pydantic import BaseModel, validator, Field, model_validator
+from pydantic import BaseModel, field_validator, Field, model_validator
 from datetime import date
 
-class LocationType(str, Enum):
-    """Art des Standorts in der rekursiven Hierarchie"""
-    GARDEN = "garden"           # Garten (Freiland)
-    GREENHOUSE = "greenhouse"   # Gewächshaus
-    BUILDING = "building"       # Gebäude/Haus
-    ROOM = "room"               # Zimmer
-    BALCONY = "balcony"         # Balkon
-    TERRACE = "terrace"         # Terrasse
-    TENT = "tent"               # Grow-Zelt
-    BED = "bed"                 # Beet
-    SHELF = "shelf"             # Regal/Rack-Ebene
-    CONTAINER = "container"     # Topf-/Container-Gruppe
+class LocationTypeDefinition(BaseModel):
+    """Nutzerpflegbare Stammdaten für Standort-Typen (CRUD)"""
+
+    name: str = Field(min_length=1, max_length=100, description="Anzeigename (z.B. 'Garten', 'Hügelbeet')")
+    name_en: Optional[str] = Field(None, max_length=100, description="Englischer Name für i18n")
+    icon: Optional[str] = Field(None, max_length=50, description="MUI-Icon-Name (z.B. 'Park', 'Yard')")
+    is_indoor: bool = Field(description="Indoor/Outdoor-Unterscheidung für kontextabhängige Logik")
+    is_system: bool = Field(default=False, description="System-Seed (true) vs. nutzerdefiniert (false)")
+    sort_order: int = Field(default=0, ge=0, description="Reihenfolge in Dropdowns")
+    description: Optional[str] = Field(None, max_length=500)
+
+    # _key wird auto-generiert aus name (slugify) oder manuell gesetzt
+
 
 MAX_LOCATION_DEPTH = 5  # Empfohlene maximale Verschachtelungstiefe (konfigurierbar, kein harter Fehler)
 
@@ -645,7 +766,7 @@ class LocationDefinition(BaseModel):
     parent_location_key: Optional[str] = Field(
         None, description="Eltern-Location (null = direkt unter Site)"
     )
-    location_type: LocationType = Field(description="Art des Standorts")
+    location_type_key: str = Field(description="Referenz auf location_types._key")
     depth: int = Field(ge=0, description="Tiefe in der Hierarchie (0 = direkt unter Site), berechnet")
     path: str = Field(
         description="Materialisierter Pfad für Baum-Abfragen, z.B. 'haus/arbeitszimmer/growzelt1'"
@@ -662,7 +783,8 @@ class LocationDefinition(BaseModel):
     gps_coordinates: Optional[Tuple[float, float]] = Field(None)
     climate_zone: Optional[str] = Field(None, regex=r'^\d{1,2}[a-b]$')
 
-    @validator('gps_coordinates')
+    @field_validator('gps_coordinates')
+    @classmethod
     def validate_coordinates(cls, v):
         if v is not None:
             lat, lon = v
@@ -690,7 +812,8 @@ class SlotDefinition(BaseModel):
     capacity_plants: int = Field(ge=1, le=20)
     dimensions_cm: Optional[Tuple[int, int, int]] = None  # L, W, H
     
-    @validator('id')
+    @field_validator('id')
+    @classmethod
     def validate_slot_format(cls, v):
         if '_' not in v:
             raise ValueError("Slot-ID muss Format LOCATION_POSITION haben")
@@ -705,6 +828,34 @@ IrrigationSystem = Literal[
     'manual', 'drip', 'sprinkler', 'hydro', 'sub_irrigation',
     'ebb_flow', 'nft', 'aeroponics'
 ]
+```
+
+### API-Endpoints für LocationType-Stammdaten:
+
+```
+GET    /api/v1/location-types          — Alle Typen auflisten (sortiert nach sort_order)
+POST   /api/v1/location-types          — Neuen Typ anlegen
+GET    /api/v1/location-types/{key}    — Einzelnen Typ abrufen
+PUT    /api/v1/location-types/{key}    — Typ aktualisieren
+DELETE /api/v1/location-types/{key}    — Typ löschen (nur wenn is_system=false UND nicht in Verwendung)
+```
+
+**Lösch-Schutz-Validierung:**
+```python
+def validate_location_type_deletion(location_type_key: str, repository) -> None:
+    """Prüft ob ein LocationType gelöscht werden darf."""
+    location_type = repository.get_location_type(location_type_key)
+
+    # System-Typen sind geschützt
+    if location_type.is_system:
+        raise PermissionError("System-Typen können nicht gelöscht werden")  # HTTP 403
+
+    # Referenzielle Integrität prüfen
+    usage_count = repository.count_locations_by_type(location_type_key)
+    if usage_count > 0:
+        raise ConflictError(
+            f"Typ wird von {usage_count} Location(s) verwendet"
+        )  # HTTP 409
 ```
 
 ### Validierungsregeln (Rekursive Standort-Hierarchie):
@@ -802,18 +953,18 @@ def validate_cascading_delete(location_key: str, repository) -> list[str]:
 
 ```
 Site: "Zuhause" (indoor, Klimazone 8a, GPS: 52.52°N 13.405°E)
-├── Location: "Garten" (type=garden, depth=0, path="garten")
+├── Location: "Garten" (location_type_key=garden, depth=0, path="garten")
 │   └── Slot: GARTEN_1, GARTEN_2, ...
-└── Location: "Haus" (type=building, depth=0, path="haus")
-    ├── Location: "Wohnzimmer" (type=room, depth=1, path="haus/wohnzimmer")
-    ├── Location: "Schlafzimmer" (type=room, depth=1, path="haus/schlafzimmer")
-    └── Location: "Arbeitszimmer" (type=room, depth=1, path="haus/arbeitszimmer")
-        ├── Location: "Grow Zelt 1" (type=tent, depth=2, path="haus/arbeitszimmer/growzelt1")
+└── Location: "Haus" (location_type_key=building, depth=0, path="haus")
+    ├── Location: "Wohnzimmer" (location_type_key=room, depth=1, path="haus/wohnzimmer")
+    ├── Location: "Schlafzimmer" (location_type_key=room, depth=1, path="haus/schlafzimmer")
+    └── Location: "Arbeitszimmer" (location_type_key=room, depth=1, path="haus/arbeitszimmer")
+        ├── Location: "Grow Zelt 1" (location_type_key=tent, depth=2, path="haus/arbeitszimmer/growzelt1")
         │   dimensions: 120×120×200cm, light_type=led, irrigation_system=manual
         │   ├── Slot: GROWZELT1_1 (pos 0,0)
         │   ├── Slot: GROWZELT1_2 (pos 0,1)
         │   └── Slot: GROWZELT1_3 (pos 1,0)
-        └── Location: "Grow Zelt 2" (type=tent, depth=2, path="haus/arbeitszimmer/growzelt2")
+        └── Location: "Grow Zelt 2" (location_type_key=tent, depth=2, path="haus/arbeitszimmer/growzelt2")
             dimensions: 60×60×160cm, light_type=led, irrigation_system=manual
             ├── Slot: GROWZELT2_1 (pos 0,0)
             └── Slot: GROWZELT2_2 (pos 0,1)
@@ -824,12 +975,24 @@ Site: "Zuhause" (indoor, Klimazone 8a, GPS: 52.52°N 13.405°E)
 // sites collection
 { "_key": "zuhause", "name": "Zuhause", "type": "indoor", "climate_zone": "8a" }
 
+// location_types collection (Seed-Daten, is_system: true)
+{ "_key": "garden", "name": "Garten", "name_en": "Garden", "is_indoor": false, "is_system": true, "icon": "Park", "sort_order": 10 }
+{ "_key": "greenhouse", "name": "Gewächshaus", "name_en": "Greenhouse", "is_indoor": false, "is_system": true, "icon": "Warehouse", "sort_order": 20 }
+{ "_key": "building", "name": "Gebäude", "name_en": "Building", "is_indoor": true, "is_system": true, "icon": "Home", "sort_order": 30 }
+{ "_key": "room", "name": "Zimmer", "name_en": "Room", "is_indoor": true, "is_system": true, "icon": "MeetingRoom", "sort_order": 40 }
+{ "_key": "balcony", "name": "Balkon", "name_en": "Balcony", "is_indoor": false, "is_system": true, "icon": "Balcony", "sort_order": 50 }
+{ "_key": "terrace", "name": "Terrasse", "name_en": "Terrace", "is_indoor": false, "is_system": true, "icon": "Deck", "sort_order": 60 }
+{ "_key": "tent", "name": "Grow-Zelt", "name_en": "Grow Tent", "is_indoor": true, "is_system": true, "icon": "Campaign", "sort_order": 70 }
+{ "_key": "bed", "name": "Beet", "name_en": "Bed", "is_indoor": false, "is_system": true, "icon": "Grass", "sort_order": 80 }
+{ "_key": "shelf", "name": "Regal", "name_en": "Shelf", "is_indoor": true, "is_system": true, "icon": "Shelves", "sort_order": 90 }
+{ "_key": "container", "name": "Topf-/Container-Gruppe", "name_en": "Container Group", "is_indoor": false, "is_system": true, "icon": "Inventory2", "sort_order": 100 }
+
 // locations collection
-{ "_key": "garten", "name": "Garten", "site_key": "zuhause", "parent_location_key": null, "location_type": "garden", "depth": 0, "path": "garten" }
-{ "_key": "haus", "name": "Haus", "site_key": "zuhause", "parent_location_key": null, "location_type": "building", "depth": 0, "path": "haus" }
-{ "_key": "arbeitszimmer", "name": "Arbeitszimmer", "site_key": "zuhause", "parent_location_key": "haus", "location_type": "room", "depth": 1, "path": "haus/arbeitszimmer" }
-{ "_key": "growzelt1", "name": "Grow Zelt 1", "site_key": "zuhause", "parent_location_key": "arbeitszimmer", "location_type": "tent", "depth": 2, "path": "haus/arbeitszimmer/growzelt1", "dimensions": [1.2, 1.2, 2.0], "light_type": "led", "irrigation_system": "manual" }
-{ "_key": "growzelt2", "name": "Grow Zelt 2", "site_key": "zuhause", "parent_location_key": "arbeitszimmer", "location_type": "tent", "depth": 2, "path": "haus/arbeitszimmer/growzelt2", "dimensions": [0.6, 0.6, 1.6], "light_type": "led", "irrigation_system": "manual" }
+{ "_key": "garten", "name": "Garten", "site_key": "zuhause", "parent_location_key": null, "location_type_key": "garden", "depth": 0, "path": "garten" }
+{ "_key": "haus", "name": "Haus", "site_key": "zuhause", "parent_location_key": null, "location_type_key": "building", "depth": 0, "path": "haus" }
+{ "_key": "arbeitszimmer", "name": "Arbeitszimmer", "site_key": "zuhause", "parent_location_key": "haus", "location_type_key": "room", "depth": 1, "path": "haus/arbeitszimmer" }
+{ "_key": "growzelt1", "name": "Grow Zelt 1", "site_key": "zuhause", "parent_location_key": "arbeitszimmer", "location_type_key": "tent", "depth": 2, "path": "haus/arbeitszimmer/growzelt1", "dimensions": [1.2, 1.2, 2.0], "light_type": "led", "irrigation_system": "manual" }
+{ "_key": "growzelt2", "name": "Grow Zelt 2", "site_key": "zuhause", "parent_location_key": "arbeitszimmer", "location_type_key": "tent", "depth": 2, "path": "haus/arbeitszimmer/growzelt2", "dimensions": [0.6, 0.6, 1.6], "light_type": "led", "irrigation_system": "manual" }
 
 // contains edge collection
 { "_from": "sites/zuhause", "_to": "locations/garten" }
@@ -850,7 +1013,7 @@ Site: "Zuhause" (indoor, Klimazone 8a, GPS: 52.52°N 13.405°E)
 
 **Erforderliche Module:**
 - REQ-001 (Stammdaten): Species und BotanicalFamily für Fruchtfolge
-- PostGIS-Extension für Neo4j (räumliche Queries bei GPS-Koordinaten)
+- ArangoDB Geo-Index für räumliche Queries bei GPS-Koordinaten
 
 **Wird benötigt von:**
 - REQ-003 (Phasen): Slot-Belegung für Ressourcen-Zuweisung
@@ -871,7 +1034,12 @@ Site: "Zuhause" (indoor, Klimazone 8a, GPS: 52.52°N 13.405°E)
 - [ ] **Standort-Baum:** Vollständiger Standort-Baum per AQL-Graph-Traversal ladbar
 - [ ] **Teilbaum-Slots:** Alle Slots eines Teilbaums effizient abfragbar
 - [ ] **Breadcrumb-Pfad:** Breadcrumb-Pfad für jeden Standort generierbar
-- [ ] **LocationType-Enum:** LocationType mit mindestens 10 Typen (garden, greenhouse, building, room, balcony, terrace, tent, bed, shelf, container)
+- [ ] **LocationType-CRUD:** Nutzer kann eigene Standort-Typen anlegen, bearbeiten und löschen
+- [ ] **LocationType-System-Seed:** 10 vordefinierte Typen (garden, greenhouse, building, room, balcony, terrace, tent, bed, shelf, container) werden bei Erstinstallation als `is_system=true` angelegt
+- [ ] **LocationType-Lösch-Schutz:** System-Typen (`is_system=true`) können nicht gelöscht werden (HTTP 403)
+- [ ] **LocationType-Referenzielle Integrität:** Typen, die von Locations referenziert werden, können nicht gelöscht werden (HTTP 409)
+- [ ] **LocationType-Dropdown:** LocationType-Dropdown im Create/Edit-Dialog zeigt alle verfügbaren Typen (sortiert nach `sort_order`)
+- [ ] **LocationType-Indoor/Outdoor:** Typ-Eigenschaft `is_indoor` steuert kontextabhängige UI-Logik (z.B. Lichtsteuerung)
 - [ ] **Kaskadierendes Löschen:** Funktioniert über beliebige Verschachtelungstiefe mit Prüfung auf belegte Slots
 - [ ] **Properties-Vererbung:** `light_type`, `irrigation_system`, `orientation` werden bei Bedarf vom Eltern-Standort geerbt
 - [ ] **Slot-ID-Generierung:** Automatische Generierung eindeutiger IDs nach Schema
@@ -979,6 +1147,6 @@ THEN:
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Standort, Slot, Substrat, Fruchtfolge, Hydroponik, Kapazität, Rotation, Hierarchie, Verschachtelung, LocationType, Teilbaum, Breadcrumb
-- Technische Begriffe: PostGIS, GPS-Koordinaten, NFT, DWC, Aeroponik, EC-Drift, Graph-Traversal, AQL, materialisierter Pfad, kaskadierendes Löschen
+- Keywords: Standort, Slot, Substrat, Fruchtfolge, Hydroponik, Kapazität, Rotation, Hierarchie, Verschachtelung, LocationType, location_types, Stammdaten, CRUD, Teilbaum, Breadcrumb
+- Technische Begriffe: ArangoDB Geo-Index, GPS-Koordinaten, NFT, DWC, Aeroponik, EC-Drift, Graph-Traversal, AQL, materialisierter Pfad, kaskadierendes Löschen
 - Verknüpfung: Zentral für REQ-003, REQ-004, REQ-005, REQ-010

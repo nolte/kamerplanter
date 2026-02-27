@@ -9,6 +9,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import Chip from '@mui/material/Chip';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { useTableLocalState } from '@/hooks/useTableState';
 import GrowthPhaseDialog from './GrowthPhaseDialog';
 import ProfilesSection from './ProfilesSection';
 import { useNotification } from '@/hooks/useNotification';
@@ -30,6 +31,7 @@ export default function GrowthPhaseListSection({ lifecycleKey }: Props) {
   const [editPhase, setEditPhase] = useState<GrowthPhase | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<GrowthPhase | null>(null);
   const [selectedPhase, setSelectedPhase] = useState<GrowthPhase | null>(null);
+  const tableState = useTableLocalState({ defaultSort: { column: 'order', direction: 'asc' } });
 
   const load = async () => {
     setLoading(true);
@@ -58,13 +60,14 @@ export default function GrowthPhaseListSection({ lifecycleKey }: Props) {
   };
 
   const columns: Column<GrowthPhase>[] = [
-    { id: 'order', label: '#', width: 50, render: (r) => r.sequence_order },
+    { id: 'order', label: '#', width: 50, render: (r) => r.sequence_order, align: 'right' as const },
     { id: 'name', label: t('pages.growthPhases.name'), render: (r) => r.display_name || r.name },
-    { id: 'duration', label: t('pages.growthPhases.duration'), render: (r) => `${r.typical_duration_days}d` },
+    { id: 'duration', label: t('pages.growthPhases.duration'), render: (r) => `${r.typical_duration_days}d`, align: 'right' as const, searchValue: (r: GrowthPhase) => String(r.typical_duration_days) },
     {
       id: 'stress',
       label: t('pages.growthPhases.stressTolerance'),
       render: (r) => t(`enums.stressTolerance.${r.stress_tolerance}`),
+      searchValue: (r: GrowthPhase) => t(`enums.stressTolerance.${r.stress_tolerance}`),
     },
     {
       id: 'flags',
@@ -80,6 +83,8 @@ export default function GrowthPhaseListSection({ lifecycleKey }: Props) {
       id: 'actions',
       label: t('common.actions'),
       width: 100,
+      sortable: false,
+      searchable: false,
       render: (r) => (
         <Box>
           <Button size="small" onClick={(e) => { e.stopPropagation(); setSelectedPhase(r); }}>
@@ -108,6 +113,8 @@ export default function GrowthPhaseListSection({ lifecycleKey }: Props) {
         loading={loading}
         onRowClick={(r) => { setEditPhase(r); setDialogOpen(true); }}
         getRowKey={(r) => r.key}
+        tableState={tableState}
+        ariaLabel={t('pages.growthPhases.title')}
       />
 
       <GrowthPhaseDialog

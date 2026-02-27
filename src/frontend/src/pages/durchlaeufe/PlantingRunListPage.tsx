@@ -10,6 +10,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchPlantingRuns } from '@/store/slices/plantingRunsSlice';
+import { useTableUrlState } from '@/hooks/useTableState';
 import type { PlantingRun, PlantingRunStatus } from '@/api/types';
 import PlantingRunCreateDialog from './PlantingRunCreateDialog';
 
@@ -27,6 +28,7 @@ export default function PlantingRunListPage() {
   const navigate = useNavigate();
   const { runs, loading } = useAppSelector((s) => s.plantingRuns);
   const [createOpen, setCreateOpen] = useState(false);
+  const tableState = useTableUrlState({ defaultSort: { column: 'name', direction: 'asc' } });
 
   useEffect(() => {
     dispatch(fetchPlantingRuns({}));
@@ -49,16 +51,19 @@ export default function PlantingRunListPage() {
           color={statusColor[r.status] ?? 'default'}
         />
       ),
+      searchValue: (r) => t(`enums.plantingRunStatus.${r.status}`),
     },
     {
       id: 'plannedQty',
       label: t('pages.plantingRuns.plannedQuantity'),
       render: (r) => r.planned_quantity,
+      align: 'right',
     },
     {
       id: 'actualQty',
       label: t('pages.plantingRuns.actualQuantity'),
       render: (r) => r.actual_quantity,
+      align: 'right',
     },
     {
       id: 'startedAt',
@@ -88,6 +93,8 @@ export default function PlantingRunListPage() {
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.plantingRuns.create')}
         onEmptyAction={() => setCreateOpen(true)}
+        tableState={tableState}
+        ariaLabel={t('pages.plantingRuns.title')}
       />
       <PlantingRunCreateDialog
         open={createOpen}

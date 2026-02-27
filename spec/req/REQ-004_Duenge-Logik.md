@@ -5,7 +5,7 @@ ID: REQ-004
 Titel: Dynamische Nährstoff- und Dünge-Engine
 Kategorie: Bewässerung & Düngung
 Fokus: Nutzpflanze (Indoor/Hydro)
-Technologie: Python, GraphDB, Regelbasierte Logik
+Technologie: Python, ArangoDB, Regelbasierte Logik
 Status: Entwurf
 Version: 2.0
 ```
@@ -43,6 +43,16 @@ Das System verwaltet die gesamte Nährstoffversorgung von der Planung bis zur Do
 - **Soil:** Niedrige EC (0.8-1.4 mS), organische Zusätze bevorzugt
 - **Living Soil:** Minimale Intervention, Komposttee, Mikrobiom-Fokus
 
+**Applikationsmethoden & ergänzende Handdüngung:**
+Nicht alle Dünger eignen sich für die Ausbringung über Tank/Tropfer-Systeme. Organische Dünger (Komposttee, Fischemulsion, Wurmhumus-Extrakt, Mykorrhiza-Suspensionen) enthalten Schwebstoffe, die Tropfer verstopfen, und biologische Kulturen, die im Tank Biofilm verursachen können. Daher unterstützt das System **ergänzendes manuelles Gießen per Gießkanne** auch bei Locations mit automatischer Bewässerung:
+
+- **Fertigation (Tank/Tropfer):** Mineralische und tank-sichere Dünger über das Bewässerungssystem — automatisch oder manuell aus dem Tank
+- **Drench (Gießkanne):** Manuelle Substrat-Durchspülung — typisch für organische Flüssigdünger, Komposttee, Spezialbehandlungen
+- **Foliar (Blattdüngung):** Spray-Applikation auf Blätter — für Mikronährstoffe, Kalzium, Silikat
+- **Top Dress (Oberfläche):** Feste organische Zusätze auf die Substratoberfläche — Wurmhumus, Guano, Langzeitdünger
+
+Das `Fertilizer`-Modell enthält `tank_safe: bool` und `recommended_application`, um bei der Düngung die passende Applikationsmethode vorzuschlagen und vor Tank-Kontamination zu warnen.
+
 **Flushing-Strategien:**
 - **Pre-Harvest Flush:** 7-14 Tage vor Ernte, graduelle EC-Reduktion
 - **Mid-Cycle Flush:** Bei Salzakkumulation (EC-Runaway)
@@ -72,14 +82,17 @@ Das System ermöglicht die Erstellung und Verwaltung von Lifecycle-Nährstoffpl�
 | Zuordnung | Species → NutrientProfile | PlantInstance → NutrientPlan |
 | Zweck | "Was braucht die Pflanze?" | "Wie dünge ich konkret?" |
 
-## 2. GraphDB-Modellierung
+## 2. ArangoDB-Modellierung
 
-### Nodes:
-- **`:Fertilizer`** - Dünger-Produkt
+### Document-Collections:
+- **`Fertilizer`** - Dünger-Produkt
   - Properties:
     - `brand: str` (z.B. "General Hydroponics")
     - `product_name: str` (z.B. "FloraGro")
     - `type: Literal['base', 'supplement', 'booster', 'biological', 'ph_adjuster']`
+    - `is_organic: bool` (Organisches Produkt — z.B. Komposttee, Wurmhumus, Fischemulsion)
+    - `tank_safe: bool` (Kann sicher über Tank/Tropfer/Pumpen appliziert werden — `false` bei organischen Feststoffen, dickflüssigen Extrakten oder Produkten mit Schwebstoffen, die Tropfer verstopfen oder Biofilm im Tank verursachen)
+    - `recommended_application: Literal['fertigation', 'drench', 'foliar', 'top_dress', 'any']` (Empfohlene Applikationsmethode — Default: `'any'` für tank-sichere Produkte, `'drench'` für nicht-tanksichere Flüssigdünger, `'top_dress'` für Feststoffe)
     - `npk_ratio: tuple[float, float, float]` (Analysewerte in %)
     - `ec_contribution_per_ml: float` (mS pro ml/L)
     - `mixing_priority: int` (1=zuerst, 100=zuletzt)
@@ -87,36 +100,39 @@ Das System ermöglicht die Erstellung und Verwaltung von Lifecycle-Nährstoffpl�
     - `shelf_life_days: int`
     - `storage_temp_range: tuple[float, float]`
 
-- **`:Component`** - Einzelner Nährstoff
+- **`Component`** - Einzelner Nährstoff
   - Properties:
     - `name: str` (z.B. "Nitrogen", "Calcium", "Iron")
     - `chemical_form: str` (z.B. "NO3-", "Ca2+", "Fe-EDTA")
     - `concentration_percent: float`
     - `bioavailability: Literal['immediate', 'slow_release', 'microbial_dependent']`
 
-- **`:MixingInstruction`** - Spezifische Misch-Regel
+- **`MixingInstruction`** - Spezifische Misch-Regel
   - Properties:
     - `instruction_text: str`
     - `wait_time_minutes: Optional[int]` (Wartezeit nach Zugabe)
     - `mixing_method: Literal['stir', 'circulate', 'rest']`
     - `temperature_sensitive: bool`
 
-- **`:Incompatibility`** - Unverträglichkeiten
+- **`Incompatibility`** - Unverträglichkeiten
   - Properties:
     - `reason: str` (z.B. "Calcium-Phosphat-Ausfällung")
     - `severity: Literal['critical', 'warning', 'minor']`
     - `workaround: Optional[str]`
 
-- **`:FeedingSchedule`** - Wochenplan
+- **`FeedingSchedule`** - Wochenplan
   - Properties:
     - `week_number: int`
     - `phase: str`
     - `frequency_per_week: int`
     - `volume_per_feeding_liters: float`
 
-- **`:FeedingEvent`** - Tatsächliche Düngung
+- **`FeedingEvent`** - Tatsächliche Düngung/Bewässerung auf Pflanzenlevel
   - Properties:
     - `timestamp: datetime`
+    - `application_method: Literal['fertigation', 'drench', 'foliar', 'top_dress']` (Art der Ausbringung — `fertigation` = via Tank/Tropfer, `drench` = manuelles Gießen per Gießkanne, `foliar` = Blattdüngung per Sprüher, `top_dress` = Feststoff-Aufbringung auf Substratoberfläche)
+    - `is_supplemental: bool` (Ergänzende Handdüngung zusätzlich zur Tank-Bewässerung — z.B. organische Dünger per Gießkanne bei Pflanzen, die primär über Drip versorgt werden)
+    - `tank_fill_event_key: Optional[str]` (Referenz auf TankFillEvent aus REQ-014, wenn die Düngung aus einer dokumentierten Tankbefüllung stammt)
     - `volume_applied_liters: float`
     - `measured_ec_before: Optional[float]`
     - `measured_ec_after: Optional[float]`
@@ -125,7 +141,7 @@ Das System ermöglicht die Erstellung und Verwaltung von Lifecycle-Nährstoffpl�
     - `runoff_ec: Optional[float]` (bei Drain-to-Waste)
     - `runoff_ph: Optional[float]`
 
-- **`:NutrientPlan`** - Wiederverwendbarer Lifecycle-Nährstoffplan
+- **`NutrientPlan`** - Wiederverwendbarer Lifecycle-Nährstoffplan
   - Properties:
     - `name: str` (z.B. "Tomato Heavy Coco", "Auto Light Feed")
     - `description: Optional[str]`
@@ -135,7 +151,7 @@ Das System ermöglicht die Erstellung und Verwaltung von Lifecycle-Nährstoffpl�
     - `version: int` (Versionierung bei Änderungen)
     - `tags: list[str]` (z.B. ["organic", "autoflower", "heavy-feeder"])
 
-- **`:NutrientPlanPhaseEntry`** - Phasen-spezifische Konfiguration innerhalb eines Plans
+- **`NutrientPlanPhaseEntry`** - Phasen-spezifische Konfiguration innerhalb eines Plans
   - Properties:
     - `phase_name: Literal['germination', 'seedling', 'vegetative', 'flowering', 'harvest']`
     - `sequence_order: int` (Reihenfolge innerhalb des Plans)
@@ -150,7 +166,7 @@ Das System ermöglicht die Erstellung und Verwaltung von Lifecycle-Nährstoffpl�
     - `volume_per_feeding_liters: float`
     - `notes: Optional[str]`
 
-- **`:FertilizerStock`** - Inventar-Tracking
+- **`FertilizerStock`** - Inventar-Tracking
   - Properties:
     - `current_volume_ml: float`
     - `purchase_date: date`
@@ -158,187 +174,323 @@ Das System ermöglicht die Erstellung und Verwaltung von Lifecycle-Nährstoffpl�
     - `batch_number: str`
     - `cost_per_liter: float`
 
-### Edges:
-```cypher
-(:Fertilizer)-[:CONTAINS {amount_percent: float}]->(:Component)
-(:Fertilizer)-[:INCOMPATIBLE_WITH {severity, reason}]->(:Fertilizer)
-(:Fertilizer)-[:MIXED_AFTER {min_wait_minutes: int}]->(:Fertilizer)
-(:GrowthPhase)-[:USES_DOSAGE {ml_per_liter: float, frequency: str}]->(:Fertilizer)
-(:PlantInstance)-[:FED_BY]->(:FeedingEvent)-[:USED {ml_applied: float}]->(:Fertilizer)
-(:FeedingSchedule)-[:PRESCRIBES]->(:Fertilizer)
-(:Fertilizer)-[:HAS_STOCK]->(:FertilizerStock)
-(:MixingInstruction)-[:FOR_FERTILIZER]->(:Fertilizer)
+### Edge-Collections:
+```
+CONTAINS:              Fertilizer -> Component            {amount_percent: float}
+INCOMPATIBLE_WITH:     Fertilizer -> Fertilizer           {severity: str, reason: str}
+MIXED_AFTER:           Fertilizer -> Fertilizer           {min_wait_minutes: int}
+USES_DOSAGE:           GrowthPhase -> Fertilizer          {ml_per_liter: float, frequency: str}
+FED_BY:                PlantInstance -> FeedingEvent       {}
+USED:                  FeedingEvent -> Fertilizer          {ml_applied: float}
+PRESCRIBES:            FeedingSchedule -> Fertilizer       {}
+HAS_STOCK:             Fertilizer -> FertilizerStock       {}
+FOR_FERTILIZER:        MixingInstruction -> Fertilizer     {}
 
 // Nährstoffplan-Verwaltung
-(:NutrientPlan)-[:HAS_PHASE_ENTRY {sequence: int}]->(:NutrientPlanPhaseEntry)
-(:NutrientPlanPhaseEntry)-[:USES_FERTILIZER {ml_per_liter: float, optional: bool}]->(:Fertilizer)
-(:PlantInstance)-[:FOLLOWS_PLAN {assigned_at: datetime, assigned_by: str}]->(:NutrientPlan)
-(:NutrientPlan)-[:CLONED_FROM {cloned_at: datetime}]->(:NutrientPlan)
+HAS_PHASE_ENTRY:       NutrientPlan -> NutrientPlanPhaseEntry      {sequence: int}
+USES_FERTILIZER:       NutrientPlanPhaseEntry -> Fertilizer        {ml_per_liter: float, optional: bool}
+FOLLOWS_PLAN:          PlantInstance -> NutrientPlan               {assigned_at: datetime, assigned_by: str}
+CLONED_FROM:           NutrientPlan -> NutrientPlan                {cloned_at: datetime}
 ```
 
-### Cypher-Beispiellogik:
+### AQL-Beispiellogik:
 
 **Misch-Reihenfolge für aktuelle Phase generieren:**
-```cypher
-MATCH (plant:PlantInstance {id: $plant_id})-[:CURRENT_PHASE]->(phase:GrowthPhase)
-      -[dosage:USES_DOSAGE]->(fert:Fertilizer)
-OPTIONAL MATCH (fert)-[:MIXED_AFTER]->(before:Fertilizer)
-OPTIONAL MATCH (fert)-[:INCOMPATIBLE_WITH]->(incomp:Fertilizer)
-WHERE (incomp)-[:USES_DOSAGE]-(phase)
-RETURN fert.product_name AS fertilizer,
-       dosage.ml_per_liter AS dosage,
-       fert.mixing_priority AS priority,
-       fert.ec_contribution_per_ml AS ec_contrib,
-       COLLECT(DISTINCT incomp.product_name) AS incompatibilities,
-       COLLECT(DISTINCT before.product_name) AS mix_after
-ORDER BY fert.mixing_priority ASC
+```aql
+// Aktuelle Phase der Pflanze ermitteln
+LET plant = DOCUMENT(CONCAT("PlantInstance/", @plant_id))
+LET phase = FIRST(
+  FOR v, e IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+    FILTER IS_SAME_COLLECTION("GrowthPhase", v)
+    FILTER e._id LIKE "CURRENT_PHASE/%"
+    RETURN v
+)
+
+// Dünger mit Dosierungen für diese Phase laden
+FOR v, e IN 1..1 OUTBOUND phase GRAPH 'kamerplanter_graph'
+  FILTER IS_SAME_COLLECTION("Fertilizer", v)
+  FILTER e._id LIKE "USES_DOSAGE/%"
+  LET fert = v
+  LET dosage = e
+
+  // Misch-Reihenfolge: welche Dünger müssen vorher gemischt werden?
+  LET mix_after = (
+    FOR before IN 1..1 OUTBOUND fert GRAPH 'kamerplanter_graph'
+      FILTER IS_SAME_COLLECTION("Fertilizer", before)
+      FILTER before._id LIKE "MIXED_AFTER/%"
+      RETURN DISTINCT before.product_name
+  )
+
+  // Inkompatible Dünger, die ebenfalls in dieser Phase verwendet werden
+  LET incompatibilities = (
+    FOR incomp IN 1..1 OUTBOUND fert GRAPH 'kamerplanter_graph'
+      FILTER IS_SAME_COLLECTION("Fertilizer", incomp)
+      FILTER incomp._id LIKE "INCOMPATIBLE_WITH/%"
+      FILTER LENGTH(
+        FOR v2, e2 IN 1..1 OUTBOUND phase GRAPH 'kamerplanter_graph'
+          FILTER v2._id == incomp._id
+          FILTER e2._id LIKE "USES_DOSAGE/%"
+          RETURN 1
+      ) > 0
+      RETURN DISTINCT incomp.product_name
+  )
+
+  SORT fert.mixing_priority ASC
+  RETURN {
+    fertilizer: fert.product_name,
+    dosage: dosage.ml_per_liter,
+    priority: fert.mixing_priority,
+    ec_contrib: fert.ec_contribution_per_ml,
+    incompatibilities: incompatibilities,
+    mix_after: mix_after
+  }
 ```
 
 **EC-Budget-Aufteilung berechnen:**
-```cypher
-MATCH (phase:GrowthPhase {name: $phase_name})-[:REQUIRES_PROFILE]->(req:RequirementProfile)
-      -[:USES_NUTRIENTS]->(nutr:NutrientProfile)
-MATCH (phase)-[dosage:USES_DOSAGE]->(fert:Fertilizer)
-WITH nutr.target_ec_ms AS target_ec,
-     SUM(fert.ec_contribution_per_ml * dosage.ml_per_liter) AS total_ec_contribution,
-     COLLECT({
-       fert: fert.product_name,
-       ec_per_ml: fert.ec_contribution_per_ml,
-       dosage: dosage.ml_per_liter
-     }) AS fertilizers
-RETURN target_ec,
-       total_ec_contribution,
-       abs(target_ec - total_ec_contribution) AS ec_deviation,
-       CASE 
-         WHEN abs(target_ec - total_ec_contribution) > 0.2 THEN 'ADJUST_DOSAGES'
-         ELSE 'OK'
-       END AS status,
-       fertilizers
+```aql
+// Phase mit NutrientProfile laden
+LET phase = FIRST(
+  FOR doc IN GrowthPhase FILTER doc.name == @phase_name RETURN doc
+)
+LET nutr = FIRST(
+  FOR v, e IN 2..2 OUTBOUND phase REQUIRES_PROFILE, USES_NUTRIENTS
+    FILTER IS_SAME_COLLECTION("NutrientProfile", v)
+    RETURN v
+)
+
+// Dünger mit Dosierungen für diese Phase
+LET fertilizers = (
+  FOR fert, dosage IN 1..1 OUTBOUND phase USES_DOSAGE
+    RETURN {
+      fert: fert.product_name,
+      ec_per_ml: fert.ec_contribution_per_ml,
+      dosage: dosage.ml_per_liter
+    }
+)
+
+LET target_ec = nutr.target_ec_ms
+LET total_ec_contribution = SUM(
+  FOR f IN fertilizers RETURN f.ec_per_ml * f.dosage
+)
+LET ec_deviation = ABS(target_ec - total_ec_contribution)
+
+RETURN {
+  target_ec: target_ec,
+  total_ec_contribution: total_ec_contribution,
+  ec_deviation: ec_deviation,
+  status: ec_deviation > 0.2 ? 'ADJUST_DOSAGES' : 'OK',
+  fertilizers: fertilizers
+}
 ```
 
 **Flushing-Schedule für Ernte:**
-```cypher
-MATCH (plant:PlantInstance {id: $plant_id})-[:CURRENT_PHASE]->(phase:GrowthPhase)
-WHERE phase.allows_harvest = true
-MATCH (plant)-[:GROWN_IN]->(substrate:SubstrateBatch)-[:USES_TYPE]->(type:Substrate)
-WITH plant, type.type AS substrate_type,
-     CASE type.type
-       WHEN 'hydro_solution' THEN 7
-       WHEN 'coco' THEN 10
-       WHEN 'soil' THEN 14
-       ELSE 10
-     END AS flush_duration_days
-MATCH (plant)-[:FED_BY]->(last_feeding:FeedingEvent)
-WHERE last_feeding.timestamp = 
-      (SELECT MAX(f.timestamp) FROM (plant)-[:FED_BY]->(f:FeedingEvent))
-WITH plant, substrate_type, flush_duration_days, last_feeding.measured_ec_after AS current_ec
-RETURN flush_duration_days,
-       [day IN range(0, flush_duration_days) | 
-         {day: day, 
-          target_ec: current_ec * (1 - day / flush_duration_days),
-          action: CASE WHEN day < flush_duration_days/2 THEN 'Reduced dose' ELSE 'Water only' END
-         }
-       ] AS flush_schedule
+```aql
+LET plant = DOCUMENT(CONCAT("PlantInstance/", @plant_id))
+
+// Aktuelle Phase prüfen (muss Ernte erlauben)
+LET phase = FIRST(
+  FOR v IN 1..1 OUTBOUND plant CURRENT_PHASE
+    FILTER v.allows_harvest == true
+    RETURN v
+)
+
+// Substrattyp ermitteln
+LET substrate_info = FIRST(
+  FOR sb IN 1..1 OUTBOUND plant GROWN_IN
+    FOR st IN 1..1 OUTBOUND sb USES_TYPE
+      RETURN st
+)
+LET substrate_type = substrate_info.type
+
+LET flush_duration_days = (
+  substrate_type == 'hydro_solution' ? 7 :
+  substrate_type == 'coco' ? 10 :
+  substrate_type == 'soil' ? 14 :
+  10
+)
+
+// Letzte Düngung ermitteln (höchster Timestamp)
+LET last_feeding = FIRST(
+  FOR fe IN 1..1 OUTBOUND plant FED_BY
+    SORT fe.timestamp DESC
+    LIMIT 1
+    RETURN fe
+)
+LET current_ec = last_feeding.measured_ec_after
+
+RETURN {
+  flush_duration_days: flush_duration_days,
+  flush_schedule: (
+    FOR day IN 0..flush_duration_days
+      RETURN {
+        day: day,
+        target_ec: current_ec * (1 - day / flush_duration_days),
+        action: day < flush_duration_days / 2 ? 'Reduced dose' : 'Water only'
+      }
+  )
+}
 ```
 
 **Inventar-Warnung bei niedrigem Stock:**
-```cypher
-MATCH (fert:Fertilizer)-[:HAS_STOCK]->(stock:FertilizerStock)
-WHERE stock.current_volume_ml < 500 OR stock.expiry_date < date() + duration('P30D')
-MATCH (fert)<-[dosage:USES_DOSAGE]-(:GrowthPhase)
-WITH fert, stock,
-     AVG(dosage.ml_per_liter) AS avg_dosage_per_liter,
-     COUNT(DISTINCT (fert)<-[:FED_BY]-(:FeedingEvent)) AS feeding_frequency_per_week
-WITH fert, stock,
-     stock.current_volume_ml / (avg_dosage_per_liter * feeding_frequency_per_week * 10) AS weeks_remaining
-WHERE weeks_remaining < 2
-RETURN fert.product_name,
-       stock.current_volume_ml AS remaining_ml,
-       stock.expiry_date,
-       weeks_remaining,
-       'REORDER_NEEDED' AS alert
-ORDER BY weeks_remaining ASC
+```aql
+FOR fert IN Fertilizer
+  FOR stock IN 1..1 OUTBOUND fert HAS_STOCK
+    FILTER stock.current_volume_ml < 500
+       OR stock.expiry_date < DATE_ADD(DATE_NOW(), 30, "day")
+
+    // Durchschnittliche Dosierung über alle Phasen
+    LET dosages = (
+      FOR phase, dosage IN 1..1 INBOUND fert USES_DOSAGE
+        RETURN dosage.ml_per_liter
+    )
+    LET avg_dosage_per_liter = AVERAGE(dosages)
+
+    // Anzahl Feeding-Events für diesen Dünger
+    LET feeding_count = LENGTH(
+      FOR fe, e IN 1..1 INBOUND fert USED
+        RETURN 1
+    )
+
+    LET weeks_remaining = (
+      avg_dosage_per_liter > 0 AND feeding_count > 0
+        ? stock.current_volume_ml / (avg_dosage_per_liter * feeding_count * 10)
+        : null
+    )
+
+    FILTER weeks_remaining != null AND weeks_remaining < 2
+
+    SORT weeks_remaining ASC
+    RETURN {
+      product_name: fert.product_name,
+      remaining_ml: stock.current_volume_ml,
+      expiry_date: stock.expiry_date,
+      weeks_remaining: weeks_remaining,
+      alert: 'REORDER_NEEDED'
+    }
 ```
 
 **Nährstoffplan mit allen Phasen und Düngern laden:**
-```cypher
-MATCH (plan:NutrientPlan {_key: $plan_key})
-      -[he:HAS_PHASE_ENTRY]->(entry:NutrientPlanPhaseEntry)
-OPTIONAL MATCH (entry)-[uf:USES_FERTILIZER]->(fert:Fertilizer)
-WITH plan, entry, he.sequence AS seq,
-     COLLECT({
-       fertilizer: fert.product_name,
-       brand: fert.brand,
-       ml_per_liter: uf.ml_per_liter,
-       optional: uf.optional
-     }) AS fertilizers
-ORDER BY seq ASC
-RETURN plan.name AS plan_name,
-       plan.recommended_substrate_type AS substrate,
-       plan.tags AS tags,
-       COLLECT({
-         phase: entry.phase_name,
-         weeks: [entry.week_start, entry.week_end],
-         target_ec: entry.target_ec_ms,
-         target_ph: entry.target_ph,
-         npk_ratio: entry.npk_ratio,
-         feeding_frequency: entry.feeding_frequency_per_week,
-         fertilizers: fertilizers
-       }) AS phase_entries
+```aql
+LET plan = DOCUMENT(CONCAT("NutrientPlan/", @plan_key))
+
+LET phase_entries = (
+  FOR entry, he IN 1..1 OUTBOUND plan HAS_PHASE_ENTRY
+    LET fertilizers = (
+      FOR fert, uf IN 1..1 OUTBOUND entry USES_FERTILIZER
+        RETURN {
+          fertilizer: fert.product_name,
+          brand: fert.brand,
+          ml_per_liter: uf.ml_per_liter,
+          optional: uf.optional
+        }
+    )
+    SORT he.sequence ASC
+    RETURN {
+      phase: entry.phase_name,
+      weeks: [entry.week_start, entry.week_end],
+      target_ec: entry.target_ec_ms,
+      target_ph: entry.target_ph,
+      npk_ratio: entry.npk_ratio,
+      feeding_frequency: entry.feeding_frequency_per_week,
+      fertilizers: fertilizers
+    }
+)
+
+RETURN {
+  plan_name: plan.name,
+  substrate: plan.recommended_substrate_type,
+  tags: plan.tags,
+  phase_entries: phase_entries
+}
 ```
 
 **Aktuelle Dosierungen für PlantInstance aus zugewiesenem Plan ableiten:**
-```cypher
-MATCH (plant:PlantInstance {_key: $plant_key})-[:FOLLOWS_PLAN]->(plan:NutrientPlan)
-MATCH (plant)-[:CURRENT_PHASE]->(phase:GrowthPhase)
-MATCH (plan)-[:HAS_PHASE_ENTRY]->(entry:NutrientPlanPhaseEntry)
-WHERE entry.phase_name = phase.name
-OPTIONAL MATCH (entry)-[uf:USES_FERTILIZER]->(fert:Fertilizer)
-RETURN plant._key AS plant_key,
-       plan.name AS plan_name,
-       entry.phase_name AS current_phase,
-       entry.target_ec_ms AS target_ec,
-       entry.target_ph AS target_ph,
-       entry.feeding_frequency_per_week AS frequency,
-       entry.volume_per_feeding_liters AS volume,
-       COLLECT({
-         fertilizer: fert.product_name,
-         ml_per_liter: uf.ml_per_liter,
-         optional: uf.optional,
-         mixing_priority: fert.mixing_priority
-       }) AS dosages
-ORDER BY fert.mixing_priority ASC
+```aql
+LET plant = DOCUMENT(CONCAT("PlantInstance/", @plant_key))
+
+// Zugewiesenen Plan laden
+LET plan = FIRST(
+  FOR v IN 1..1 OUTBOUND plant FOLLOWS_PLAN
+    RETURN v
+)
+
+// Aktuelle Phase der Pflanze
+LET phase = FIRST(
+  FOR v IN 1..1 OUTBOUND plant CURRENT_PHASE
+    RETURN v
+)
+
+// Phase-Entry des Plans passend zur aktuellen Phase
+LET entry = FIRST(
+  FOR v IN 1..1 OUTBOUND plan HAS_PHASE_ENTRY
+    FILTER v.phase_name == phase.name
+    RETURN v
+)
+
+// Dünger-Dosierungen für diese Phase-Entry
+LET dosages = (
+  FOR fert, uf IN 1..1 OUTBOUND entry USES_FERTILIZER
+    SORT fert.mixing_priority ASC
+    RETURN {
+      fertilizer: fert.product_name,
+      ml_per_liter: uf.ml_per_liter,
+      optional: uf.optional,
+      mixing_priority: fert.mixing_priority
+    }
+)
+
+RETURN {
+  plant_key: plant._key,
+  plan_name: plan.name,
+  current_phase: entry.phase_name,
+  target_ec: entry.target_ec_ms,
+  target_ph: entry.target_ph,
+  frequency: entry.feeding_frequency_per_week,
+  volume: entry.volume_per_feeding_liters,
+  dosages: dosages
+}
 ```
 
 **Plan klonen (Deep Copy):**
-```cypher
+```aql
+LET source_plan = DOCUMENT(CONCAT("NutrientPlan/", @source_plan_key))
+
 // 1. Neuen Plan erstellen
-LET new_plan = (
+LET new_plan = FIRST(
   INSERT {
-    name: CONCAT($source_plan.name, " (Kopie)"),
-    description: $source_plan.description,
-    recommended_substrate_type: $source_plan.recommended_substrate_type,
-    author: $current_user,
+    name: CONCAT(source_plan.name, " (Kopie)"),
+    description: source_plan.description,
+    recommended_substrate_type: source_plan.recommended_substrate_type,
+    author: @current_user,
     is_template: false,
     version: 1,
-    tags: $source_plan.tags,
-    created_at: DATE_NOW()
+    tags: source_plan.tags,
+    created_at: DATE_ISO8601(DATE_NOW())
   } INTO NutrientPlan RETURN NEW
 )
 
-// 2. Phase-Entries kopieren
-FOR entry IN NutrientPlanPhaseEntry
-  FILTER entry._id IN (
-    FOR v, e IN 1..1 OUTBOUND $source_plan_id HAS_PHASE_ENTRY RETURN v._id
-  )
-  LET new_entry = (
-    INSERT UNSET(entry, "_key", "_id", "_rev") INTO NutrientPlanPhaseEntry RETURN NEW
-  )
-  INSERT { _from: new_plan._id, _to: new_entry._id, sequence: entry.sequence_order }
-    INTO HAS_PHASE_ENTRY
+// 2. Phase-Entries kopieren und Edges erstellen
+LET copied_entries = (
+  FOR entry, he IN 1..1 OUTBOUND source_plan HAS_PHASE_ENTRY
+    LET new_entry = FIRST(
+      INSERT UNSET(entry, "_key", "_id", "_rev") INTO NutrientPlanPhaseEntry RETURN NEW
+    )
+    // HAS_PHASE_ENTRY-Edge zum neuen Plan
+    LET edge = FIRST(
+      INSERT { _from: new_plan._id, _to: new_entry._id, sequence: entry.sequence_order }
+        INTO HAS_PHASE_ENTRY RETURN NEW
+    )
+    // Dünger-Zuweisungen kopieren
+    LET fert_edges = (
+      FOR fert, uf IN 1..1 OUTBOUND entry USES_FERTILIZER
+        INSERT { _from: new_entry._id, _to: fert._id, ml_per_liter: uf.ml_per_liter, optional: uf.optional }
+          INTO USES_FERTILIZER RETURN NEW
+    )
+    RETURN new_entry
+)
 
 // 3. CLONED_FROM-Edge setzen
-INSERT { _from: new_plan._id, _to: $source_plan_id, cloned_at: DATE_NOW() }
+INSERT { _from: new_plan._id, _to: source_plan._id, cloned_at: DATE_ISO8601(DATE_NOW()) }
   INTO CLONED_FROM
 
 RETURN new_plan
@@ -350,7 +502,7 @@ RETURN new_plan
 
 **1. Nutrient Solution Calculator:**
 ```python
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional, Tuple
 from datetime import datetime
 
@@ -367,7 +519,8 @@ class FertilizerComponent(BaseModel):
     ph_effect: Literal['acidic', 'alkaline', 'neutral'] = 'neutral'
     type: Literal['base', 'supplement', 'booster', 'biological', 'ph_adjuster']
     
-    @validator('npk')
+    @field_validator('npk')
+    @classmethod
     def validate_npk_sum(cls, v):
         n, p, k = v
         total = n + p + k
@@ -386,9 +539,10 @@ class NutrientSolutionCalculator(BaseModel):
     fertilizers: list[FertilizerComponent]
     substrate_type: Literal['hydro', 'coco', 'soil', 'living_soil']
     
-    @validator('target_ec_ms')
-    def validate_ec_for_substrate(cls, v, values):
-        substrate = values.get('substrate_type')
+    @field_validator('target_ec_ms')
+    @classmethod
+    def validate_ec_for_substrate(cls, v, info):
+        substrate = info.data.get('substrate_type')
         ec_limits = {
             'hydro': (0.8, 3.0),
             'coco': (0.8, 2.2),
@@ -902,7 +1056,7 @@ class RunoffAnalyzer(BaseModel):
 
 **4. Nutrient Plan Management:**
 ```python
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional, Tuple
 from datetime import datetime
 
@@ -932,14 +1086,16 @@ class NutrientPlanPhaseEntry(BaseModel):
     notes: Optional[str] = Field(None, max_length=2000)
     fertilizer_dosages: list[FertilizerDosage] = Field(default_factory=list)
 
-    @validator('week_end')
-    def validate_week_range(cls, v, values):
-        week_start = values.get('week_start', 0)
+    @field_validator('week_end')
+    @classmethod
+    def validate_week_range(cls, v, info):
+        week_start = info.data.get('week_start', 0)
         if v <= week_start:
             raise ValueError(f"week_end ({v}) muss größer als week_start ({week_start}) sein")
         return v
 
-    @validator('npk_ratio')
+    @field_validator('npk_ratio')
+    @classmethod
     def validate_npk_ratio(cls, v):
         n, p, k = v
         if any(x < 0 for x in v):
@@ -960,11 +1116,14 @@ class NutrientPlan(BaseModel):
     tags: list[str] = Field(default_factory=list, max_length=20)
     phase_entries: list[NutrientPlanPhaseEntry] = Field(default_factory=list)
 
-    @validator('tags', each_item=True)
+    @field_validator('tags')
+    @classmethod
     def validate_tag_format(cls, v):
-        if len(v) > 50:
-            raise ValueError("Tag darf maximal 50 Zeichen lang sein")
-        return v.lower().strip()
+        # Pydantic v2: each_item entfernt, Validierung über gesamte Liste
+        for tag in v:
+            if len(tag) > 50:
+                raise ValueError("Tag darf maximal 50 Zeichen lang sein")
+        return [tag.lower().strip() for tag in v]
 
 class NutrientPlanService:
     """Service für CRUD und Geschäftslogik rund um Nährstoffpläne"""
@@ -1255,7 +1414,7 @@ GET    /api/v1/nutrient-plans/{key}/validate               # Vollständigkeits- 
 ### Datenvalidierung (Type Hinting):
 ```python
 from typing import Literal, Optional, Tuple
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from datetime import date, datetime
 
 FertilizerType = Literal['base', 'supplement', 'booster', 'biological', 'ph_adjuster', 'organic']
@@ -1274,7 +1433,8 @@ class FertilizerDefinition(BaseModel):
     shelf_life_months: int = Field(ge=1, le=60)
     organic_certified: bool = False
     
-    @validator('npk')
+    @field_validator('npk')
+    @classmethod
     def validate_npk_realistic(cls, v):
         n, p, k = v
         if n > 50 or p > 50 or k > 50:
@@ -1283,19 +1443,40 @@ class FertilizerDefinition(BaseModel):
             raise ValueError("NPK-Summe über 80% unrealistisch")
         return v
     
-    @validator('ec_contribution_per_ml')
-    def validate_ec_contribution(cls, v, values):
-        npk_sum = sum(values.get('npk', (0, 0, 0)))
+    @field_validator('ec_contribution_per_ml')
+    @classmethod
+    def validate_ec_contribution(cls, v, info):
+        npk_sum = sum(info.data.get('npk', (0, 0, 0)))
         # Höheres NPK sollte höheren EC-Beitrag haben
         if npk_sum > 20 and v < 0.01:
             raise ValueError("EC-Beitrag zu niedrig für NPK-Konzentration")
         return v
 
+class ApplicationMethod(str, Enum):
+    FERTIGATION = "fertigation"   # Über Tank/Tropfer/Pumpe (automatisch oder manuell aus Tank)
+    DRENCH = "drench"             # Manuelles Gießen per Gießkanne (Substrat-Durchspülung)
+    FOLIAR = "foliar"             # Blattdüngung per Sprüher
+    TOP_DRESS = "top_dress"       # Feststoff auf Substratoberfläche (z.B. Wurmhumus, Guano)
+
 class FeedingEventRecord(BaseModel):
-    """Dokumentation einer Düngung"""
-    
+    """Dokumentation einer Düngung/Bewässerung auf Pflanzenlevel"""
+
     plant_id: str
     timestamp: datetime
+    application_method: ApplicationMethod = Field(
+        description="Art der Ausbringung — fertigation (Tank/Tropfer), "
+                    "drench (Gießkanne), foliar (Sprüher), top_dress (Feststoff)"
+    )
+    is_supplemental: bool = Field(
+        default=False,
+        description="Ergänzende Handdüngung zusätzlich zur Tank-Bewässerung — "
+                    "z.B. Komposttee per Gießkanne bei Drip-versorgten Pflanzen"
+    )
+    tank_fill_event_key: Optional[str] = Field(
+        None,
+        description="Referenz auf TankFillEvent (REQ-014), "
+                    "wenn Düngung aus dokumentierter Tankbefüllung stammt"
+    )
     volume_applied_liters: float = Field(gt=0, le=1000)
     fertilizers_used: list[dict]  # [{fertilizer_id, ml_applied}]
     measured_ec_before: Optional[float] = Field(None, ge=0, le=5)
@@ -1306,14 +1487,23 @@ class FeedingEventRecord(BaseModel):
     runoff_ec: Optional[float] = None
     runoff_ph: Optional[float] = None
     notes: Optional[str] = Field(None, max_length=1000)
-    
-    @validator('measured_ec_after')
-    def validate_ec_increase(cls, v, values):
-        ec_before = values.get('measured_ec_before')
+
+    @field_validator('measured_ec_after')
+    @classmethod
+    def validate_ec_increase(cls, v, info):
+        ec_before = info.data.get('measured_ec_before')
         if ec_before and v:
-            if v < ec_before:
-                raise ValueError("EC nach Düngung sollte nicht niedriger sein")
+            if v < ec_before and info.data.get('application_method') != ApplicationMethod.FOLIAR:
+                raise ValueError("EC nach Düngung sollte nicht niedriger sein (außer bei Blattdüngung)")
         return v
+
+    @model_validator(mode='after')
+    def validate_tank_safe_consistency(self):
+        """Bei fertigation muss tank_fill_event_key oder Notiz vorhanden sein."""
+        if self.application_method == ApplicationMethod.FERTIGATION and not self.tank_fill_event_key:
+            # Kein harter Fehler — Fertigation kann auch ohne dokumentiertes TankFillEvent stattfinden
+            pass
+        return self
 ```
 
 ## 4. Abhängigkeiten

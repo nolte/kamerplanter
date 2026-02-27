@@ -70,7 +70,7 @@ PlantingRun: "Mischkultur Beet B Sommer 2025"
   Plants: BEETB_TOM_01…08, BEETB_BAS_01…12, BEETB_TAG_01…06 (auto-generiert)
 ```
 
-## 2. GraphDB-Modellierung
+## 2. ArangoDB-Modellierung
 
 ### Nodes:
 

@@ -46,6 +46,15 @@ const NutrientPlanDetailPage = lazy(() => import('@/pages/duengung/NutrientPlanD
 const NutrientCalculationsPage = lazy(
   () => import('@/pages/duengung/NutrientCalculationsPage'),
 );
+const FeedingEventListPage = lazy(
+  () => import('@/pages/duengung/FeedingEventListPage'),
+);
+const FeedingEventDetailPage = lazy(
+  () => import('@/pages/duengung/FeedingEventDetailPage'),
+);
+const WateringEventListPage = lazy(
+  () => import('@/pages/standorte/WateringEventListPage'),
+);
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 export const router = createBrowserRouter(
@@ -178,6 +187,16 @@ export const router = createBrowserRouter(
         }
       />
 
+      {/* REQ-014 Watering Events */}
+      <Route
+        path="standorte/watering-events"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="table" />}>
+            <WateringEventListPage />
+          </Suspense>
+        }
+      />
+
       {/* REQ-014 Tanks */}
       <Route
         path="standorte/tanks"
@@ -260,6 +279,24 @@ export const router = createBrowserRouter(
         element={
           <Suspense fallback={<LoadingSkeleton variant="card" />}>
             <NutrientCalculationsPage />
+          </Suspense>
+        }
+      />
+
+      {/* REQ-004 Feeding Events */}
+      <Route
+        path="duengung/feeding-events"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="table" />}>
+            <FeedingEventListPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="duengung/feeding-events/:key"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="form" />}>
+            <FeedingEventDetailPage />
           </Suspense>
         }
       />

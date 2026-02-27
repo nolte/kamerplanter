@@ -30,6 +30,7 @@ FERTILIZER_STOCKS = "fertilizer_stocks"
 NUTRIENT_PLANS = "nutrient_plans"
 NUTRIENT_PLAN_PHASE_ENTRIES = "nutrient_plan_phase_entries"
 FEEDING_EVENTS = "feeding_events"
+WATERING_EVENTS = "watering_events"
 
 DOCUMENT_COLLECTIONS = [
     SPECIES,
@@ -61,6 +62,7 @@ DOCUMENT_COLLECTIONS = [
     NUTRIENT_PLANS,
     NUTRIENT_PLAN_PHASE_ENTRIES,
     FEEDING_EVENTS,
+    WATERING_EVENTS,
 ]
 
 # Edge collections
@@ -104,6 +106,7 @@ HAS_PHASE_ENTRY = "has_phase_entry"
 PLAN_USES_FERTILIZER = "plan_uses_fertilizer"
 FOLLOWS_PLAN = "follows_plan"
 CLONED_FROM = "cloned_from"
+WATERED_SLOT = "watered_slot"
 
 EDGE_COLLECTIONS = [
     BELONGS_TO_FAMILY,
@@ -146,6 +149,7 @@ EDGE_COLLECTIONS = [
     PLAN_USES_FERTILIZER,
     FOLLOWS_PLAN,
     CLONED_FROM,
+    WATERED_SLOT,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -351,6 +355,11 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [NUTRIENT_PLANS],
         "to_vertex_collections": [NUTRIENT_PLANS],
     },
+    {
+        "edge_collection": WATERED_SLOT,
+        "from_vertex_collections": [WATERING_EVENTS],
+        "to_vertex_collections": [SLOTS],
+    },
 ]
 
 
@@ -401,6 +410,9 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     plan_entries_col = db.collection(NUTRIENT_PLAN_PHASE_ENTRIES)
     plan_entries_col.add_hash_index(fields=["plan_key"], unique=False)
+
+    watering_events_col = db.collection(WATERING_EVENTS)
+    watering_events_col.add_hash_index(fields=["watered_at"], unique=False)
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):

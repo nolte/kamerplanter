@@ -10,6 +10,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import Chip from '@mui/material/Chip';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { useTableLocalState } from '@/hooks/useTableState';
 import CultivarCreateDialog from './CultivarCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -29,6 +30,7 @@ export default function CultivarListSection({ speciesKey }: Props) {
   const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Cultivar | null>(null);
+  const tableState = useTableLocalState({ defaultSort: { column: 'name', direction: 'asc' } });
 
   const load = async () => {
     setLoading(true);
@@ -75,11 +77,14 @@ export default function CultivarListSection({ speciesKey }: Props) {
       id: 'maturity',
       label: t('pages.cultivars.daysToMaturity'),
       render: (r) => r.days_to_maturity ?? '-',
+      align: 'right',
     },
     {
       id: 'actions',
       label: t('common.actions'),
       width: 60,
+      sortable: false,
+      searchable: false,
       render: (r) => (
         <IconButton size="small" onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}>
           <DeleteIcon fontSize="small" />
@@ -97,7 +102,7 @@ export default function CultivarListSection({ speciesKey }: Props) {
         </Button>
       </Box>
 
-      <DataTable columns={columns} rows={cultivars} loading={loading} getRowKey={(r) => r.key} onRowClick={(r) => navigate(`/stammdaten/species/${speciesKey}/cultivars/${r.key}`)} />
+      <DataTable columns={columns} rows={cultivars} loading={loading} getRowKey={(r) => r.key} onRowClick={(r) => navigate(`/stammdaten/species/${speciesKey}/cultivars/${r.key}`)} tableState={tableState} ariaLabel={t('pages.cultivars.title')} />
 
       <CultivarCreateDialog
         speciesKey={speciesKey}

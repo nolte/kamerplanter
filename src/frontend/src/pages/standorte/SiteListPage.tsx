@@ -8,6 +8,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSites } from '@/store/slices/sitesSlice';
+import { useTableUrlState } from '@/hooks/useTableState';
 import type { Site } from '@/api/types';
 import SiteCreateDialog from './SiteCreateDialog';
 
@@ -17,6 +18,7 @@ export default function SiteListPage() {
   const navigate = useNavigate();
   const { sites, loading } = useAppSelector((s) => s.sites);
   const [createOpen, setCreateOpen] = useState(false);
+  const tableState = useTableUrlState({ defaultSort: { column: 'name', direction: 'asc' } });
 
   useEffect(() => {
     dispatch(fetchSites({}));
@@ -24,8 +26,8 @@ export default function SiteListPage() {
 
   const columns: Column<Site>[] = [
     { id: 'name', label: t('pages.sites.name'), render: (r) => r.name },
-    { id: 'type', label: t('pages.sites.type'), render: (r) => t(`enums.siteType.${r.type}`) },
-    { id: 'area', label: t('pages.sites.totalArea'), render: (r) => `${r.total_area_m2} m²` },
+    { id: 'type', label: t('pages.sites.type'), render: (r) => t(`enums.siteType.${r.type}`), searchValue: (r) => t(`enums.siteType.${r.type}`) },
+    { id: 'area', label: t('pages.sites.totalArea'), render: (r) => `${r.total_area_m2} m²`, align: 'right', searchValue: (r) => String(r.total_area_m2) },
     { id: 'climate', label: t('pages.sites.climateZone'), render: (r) => r.climate_zone },
   ];
 
@@ -45,6 +47,8 @@ export default function SiteListPage() {
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.sites.create')}
         onEmptyAction={() => setCreateOpen(true)}
+        tableState={tableState}
+        ariaLabel={t('pages.sites.title')}
       />
       <SiteCreateDialog
         open={createOpen}

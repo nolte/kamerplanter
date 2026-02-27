@@ -8,6 +8,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import LocationCreateDialog from './LocationCreateDialog';
 import { useApiError } from '@/hooks/useApiError';
+import { useTableLocalState } from '@/hooks/useTableState';
 import * as api from '@/api/endpoints/sites';
 import type { Location } from '@/api/types';
 
@@ -22,6 +23,7 @@ export default function LocationListSection({ siteKey }: Props) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const tableState = useTableLocalState({ defaultSort: { column: 'name', direction: 'asc' } });
 
   const load = async () => {
     setLoading(true);
@@ -38,9 +40,9 @@ export default function LocationListSection({ siteKey }: Props) {
 
   const columns: Column<Location>[] = [
     { id: 'name', label: t('pages.locations.name'), render: (r) => r.name },
-    { id: 'area', label: t('pages.locations.area'), render: (r) => `${r.area_m2} m²` },
-    { id: 'light', label: t('pages.locations.lightType'), render: (r) => t(`enums.lightType.${r.light_type}`) },
-    { id: 'irrigation', label: t('pages.locations.irrigationSystem'), render: (r) => t(`enums.irrigationSystem.${r.irrigation_system}`) },
+    { id: 'area', label: t('pages.locations.area'), render: (r) => `${r.area_m2} m²`, align: 'right', searchValue: (r) => String(r.area_m2) },
+    { id: 'light', label: t('pages.locations.lightType'), render: (r) => t(`enums.lightType.${r.light_type}`), searchValue: (r) => t(`enums.lightType.${r.light_type}`) },
+    { id: 'irrigation', label: t('pages.locations.irrigationSystem'), render: (r) => t(`enums.irrigationSystem.${r.irrigation_system}`), searchValue: (r) => t(`enums.irrigationSystem.${r.irrigation_system}`) },
   ];
 
   return (
@@ -57,6 +59,8 @@ export default function LocationListSection({ siteKey }: Props) {
         loading={loading}
         onRowClick={(r) => navigate(`/standorte/locations/${r.key}`)}
         getRowKey={(r) => r.key}
+        tableState={tableState}
+        ariaLabel={t('pages.locations.title')}
       />
       <LocationCreateDialog
         siteKey={siteKey}

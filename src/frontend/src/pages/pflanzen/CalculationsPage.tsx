@@ -8,12 +8,8 @@ import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import Grid from '@mui/material/Grid';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
 import PageTitle from '@/components/layout/PageTitle';
+import DataTable, { type Column } from '@/components/common/DataTable';
 import { useApiError } from '@/hooks/useApiError';
 import * as calcApi from '@/api/endpoints/calculations';
 import type { VPDResponse, GDDResponse, PhotoperiodScheduleEntry, SlotCapacityResponse, SunTimesResponse } from '@/api/types';
@@ -102,6 +98,14 @@ export default function CalculationsPage() {
       setSunResult(result);
     } catch (err) { handleError(err); }
   };
+
+  const ppColumns: Column<PhotoperiodScheduleEntry>[] = [
+    { id: 'day', label: 'Day', render: (s) => s.day, align: 'right' },
+    { id: 'hours', label: 'Hours', render: (s) => s.photoperiod_hours.toFixed(1), align: 'right' },
+    { id: 'on', label: 'On', render: (s) => s.lights_on },
+    { id: 'off', label: 'Off', render: (s) => s.lights_off },
+    { id: 'dli', label: 'DLI', render: (s) => s.dli.toFixed(2), align: 'right' },
+  ];
 
   return (
     <>
@@ -199,28 +203,15 @@ export default function CalculationsPage() {
                 {t('pages.calculations.calculate')}
               </Button>
               {ppSchedule.length > 0 && (
-                <Table size="small" sx={{ mt: 2 }}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Day</TableCell>
-                      <TableCell>Hours</TableCell>
-                      <TableCell>On</TableCell>
-                      <TableCell>Off</TableCell>
-                      <TableCell>DLI</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {ppSchedule.map((s) => (
-                      <TableRow key={s.day}>
-                        <TableCell>{s.day}</TableCell>
-                        <TableCell>{s.photoperiod_hours.toFixed(1)}</TableCell>
-                        <TableCell>{s.lights_on}</TableCell>
-                        <TableCell>{s.lights_off}</TableCell>
-                        <TableCell>{s.dli.toFixed(2)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <Box sx={{ mt: 2 }}>
+                  <DataTable
+                    columns={ppColumns}
+                    rows={ppSchedule}
+                    getRowKey={(s) => String(s.day)}
+                    variant="simple"
+                    ariaLabel={t('pages.calculations.photoperiod')}
+                  />
+                </Box>
               )}
             </CardContent>
           </Card>

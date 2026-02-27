@@ -89,7 +89,7 @@ Das Projekt folgt den Grundsätzen des [Semantic Versioning 2.0.0](https://semve
 **MUSS**: Alle Dependencies verwenden Version-Pinning mit Kompatibilitätsbereich:
 - Python (`pyproject.toml`): `>=`-Pinning mit oberer Grenze, z.B. `fastapi>=0.115.0,<1.0.0`
 - Node.js (`package.json`): Caret-Notation `^`, z.B. `"react": "^19.0.0"`
-- Docker: Spezifische Tags mit Minor-Version, z.B. `python:3.12-slim` (nicht `latest`)
+- Docker: Spezifische Tags mit Minor-Version, z.B. `python:3.14-slim` (nicht `latest`)
 - Helm Charts: Version-Range in `Chart.yaml`
 
 ### 2.2 Update-Frequenz
@@ -490,7 +490,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
       - run: pip install pip-audit
       - run: pip install -r requirements.txt
       - run: pip-audit --strict --desc
@@ -570,7 +570,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
       - run: pip install -r requirements-dev.txt
       - run: ruff check .
       - run: ruff format --check .
@@ -697,7 +697,7 @@ dependencies = [
 
 ```dockerfile
 # Backend
-FROM python:3.12-slim AS base
+FROM python:3.14-slim AS base
 
 # Frontend Build
 FROM node:22-alpine AS build
