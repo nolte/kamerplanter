@@ -7,7 +7,7 @@ Kategorie: Prozessmanagement
 Fokus: Beides
 Technologie: Python, ArangoDB, Celery (Task Scheduling)
 Status: Entwurf
-Version: 2.0 (Maximal Erweitert)
+Version: 2.1 (Agrarbiologie-Review)
 ```
 
 ## 1. Business Case
@@ -27,6 +27,18 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
 - **Kartoffel-Häufeln:** Mehrmaliges Anhäufeln für höhere Erträge
 - **Beerensträucher-Schnitt:** Jahreszeitlicher Rückschnitt
 
+**Zimmerpflanzen-Templates (Built-in):**
+- **Tropische Grünpflanze (Standard):** Gießen nach Substratfeuchte, monatlich düngen März-Oktober, Blattreinigung quartalsweise
+- **Orchidee (Phalaenopsis):** Tauchbad wöchentlich, Orchideendünger alle 2 Wochen, Temperatur-Drop 5°C für 4 Wochen zur Blüte-Induktion
+- **Kaktus/Sukkulente:** Minimalbewässerung, Winterruhe Oktober-Februar (kalt, trocken, kein Dünger), Umtopfen alle 2-3 Jahre
+- **Calathea/Marante:** Erhöhte Luftfeuchte (>60% rH), kalkfreies Wasser, regelmäßige Schädlingskontrolle (Spinnmilben)
+
+**Hydroponik-Wartungs-Templates (Built-in):**
+- **Nährlösung-Wechsel:** Komplettwechsel alle 7-14 Tage mit EC/pH-Messung, Reservoir-Reinigung, Frisch-Ansatz (REQ-014)
+- **Sonden-Kalibrierung:** Wöchentliche pH/EC-Kalibrierung mit Referenzlösungen
+- **Wurzelinspektion:** Regelmäßige Kontrolle auf Pythium, Verfärbungen, Algenwachstum
+- **System-Reinigung:** Leitungen, Pumpen, Tropfer spülen (H₂O₂ oder enzymatisch)
+
 **User-Blueprints (Eigene Strategien):**
 - Speicherbar, editierbar, teilbar mit Community
 - Versionierung von Template-Änderungen
@@ -43,10 +55,12 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
 **Task-Kategorien:**
 - **Training:** Topping, FIM, LST (Low-Stress), HST (High-Stress), Supercropping
 - **Pruning:** Defoliation, Lollipopping, Sucker-Removal, Thinning
+- **Ausgeizen:** Geiztrieb-Entfernung (Stabtomaten, Aubergine) — eigene Kategorie, nicht HST
 - **Transplanting:** Up-Potting, Umsetzen in Beet
 - **Feeding:** Spezialdünger-Gaben, Foliar-Feeding
 - **IPM:** Präventives Spraying, Nützlings-Ausbringung
 - **Harvest:** Partial-Harvest, Final-Harvest, Flushing-Start
+- **Observation:** Wachstumsmessung, Blattkontrolle, pH/EC-Ablesung, Foto-Fortschrittsdokumentation, Symptom-Check
 - **Maintenance:** Substrat-Check, Reinigung, Equipment-Wartung
 
 **Intelligente Features:**
@@ -58,9 +72,12 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
 
 **Hormon-Verständnis (Plant Stress Physiology):**
 - **Auxin-Dominanz:** Topping erhöht laterales Wachstum
-- **Stress-Recovery:** Mindestens 3-7 Tage zwischen HST-Events
-- **Photoperiod-Sensitivity:** Keine HST während Blüte-Transition
+- **Stress-Recovery:** Artspezifische Recovery-Zeiten (Cannabis 7d, Tomaten 2-3d, Paprika 5d)
+- **Kumulativer Stress:** Stress-Hormone (Jasmonsäure, Ethylen) akkumulieren — mehrere HST-Events im 14-Tage-Fenster haben additive Effekte
+- **Photoperiod-Sensitivity:** Kein Topping/FIM/Mainlining während Blüte; Supercropping im Stretch (Early Flowering) noch erlaubt
 - **Hermaphroditism-Risk:** Cannabis reagiert auf Stress mit Zwitter-Bildung
+- **Karenzzeit (PHI):** Wartezeit zwischen Pflanzenschutz (REQ-010) und Ernte — Lebensmittelsicherheits-Validierung
+- **Tageszeit-Empfehlung:** Transplanting abends/Lights-Off (reduzierte Transpiration minimiert Welkestress; volle Dunkelperiode für Wurzel-Substrat-Kontakt), Training morgens (turgorreicher Stängel), Foliar bei Lights-Off (langsamere Verdunstung erhöht Kontaktzeit, kein Phototoxizitäts-Risiko bei Öl-Produkten)
 
 ## 2. ArangoDB-Graph-Modellierung
 
@@ -89,9 +106,11 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
     - `name: str`
     - `instruction: str` (Detaillierte Anleitung)
     - `category: str`
-    - `trigger_type: Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional']`
+    - `trigger_type: Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional', 'gdd_threshold']`
     - `trigger_phase: Optional[str]` (z.B. "vegetative")
     - `days_offset: Optional[int]` (Für zeitbasierte Trigger)
+    - `gdd_threshold: Optional[float]` (Gradtagsumme ab Pflanzung/Phasenstart — biologisch genauer als Kalendertage, REQ-003)
+    - `gdd_base_temperature_c: Optional[float]` (Basistemperatur für GDD, artspezifisch — z.B. 10°C für Mais, 5°C für Weizen)
     - `conditional_expression: Optional[str]` (z.B. "plant.height_cm > 30")
     - `requires_photo: bool`
     - `requires_confirmation: bool`
@@ -102,6 +121,7 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
     - `skill_level: Literal['beginner', 'intermediate', 'advanced']`
     - `video_tutorial_url: Optional[str]`
     - `safety_notes: Optional[str]`
+    - `optimal_time_of_day: Optional[Literal['morning', 'afternoon', 'evening', 'lights_off']]` (Tageszeit-Empfehlung)
 
 - **`:Task`** - Konkrete Aufgaben-Instanz
   - Properties:
@@ -356,18 +376,29 @@ FOR plant IN PlantInstances
   LET task_name = @task_name
   LET task_category = @task_category
 
-  // HST-Tasks die in Blüte verboten sind
-  LET forbidden_in_flower = ['topping', 'fim', 'supercropping', 'transplant', 'heavy_defoliation']
+  // HST-Tasks: differenziert nach Phase (Early Flower erlaubt Supercropping/Transplant)
+  LET forbidden_all_flower = ['topping', 'fim', 'mainlining', 'heavy_defoliation']
+  LET forbidden_mid_flower = ['supercropping', 'transplant']
 
-  // Prüfe ob Phase flowering/ripening ist
-  LET is_flower_phase = phase.name IN ['flowering', 'early_flowering', 'late_flowering', 'ripening']
+  // Prüfe Phase
+  LET is_early_flower = phase.name IN ['early_flowering']
+  LET is_mid_late_flower = phase.name IN ['flowering', 'late_flowering', 'ripening', 'fruiting']
 
-  // Prüfe ob Task in Forbidden-Liste
-  LET is_forbidden_hst = LENGTH(
-    FOR forbidden IN forbidden_in_flower
+  // Prüfe welche Verbotsliste greift
+  LET is_all_flower_forbidden = LENGTH(
+    FOR forbidden IN forbidden_all_flower
       FILTER CONTAINS(LOWER(task_name), forbidden)
       RETURN 1
   ) > 0
+  LET is_mid_flower_forbidden = LENGTH(
+    FOR forbidden IN forbidden_mid_flower
+      FILTER CONTAINS(LOWER(task_name), forbidden)
+      RETURN 1
+  ) > 0
+  LET is_forbidden_hst = (
+    (is_mid_late_flower AND (is_all_flower_forbidden OR is_mid_flower_forbidden))
+    OR (is_early_flower AND is_all_flower_forbidden)
+  )
 
   // Prüfe letzte HST-Tasks (Recovery-Zeit)
   LET recent_hst_tasks = (
@@ -386,16 +417,19 @@ FOR plant IN PlantInstances
   )
 
   RETURN {
-    can_perform: NOT (is_flower_phase AND is_forbidden_hst),
+    can_perform: NOT is_forbidden_hst,
     phase: phase.name,
-    is_flower_phase: is_flower_phase,
-    is_hst_task: is_forbidden_hst,
+    is_early_flower: is_early_flower,
+    is_mid_late_flower: is_mid_late_flower,
+    is_hst_task: is_all_flower_forbidden OR is_mid_flower_forbidden,
     reason: (
-      is_flower_phase AND is_forbidden_hst
-        ? CONCAT('KRITISCH: ', task_name, ' in Blüte-Phase führt zu Hermaphroditismus und Stress')
-        : (recent_hst_count > 0 AND days_since_last_hst < 3
-            ? CONCAT('WARNUNG: Nur ', TO_STRING(days_since_last_hst), ' Tage seit letztem HST - empfohlen: 7 Tage Recovery')
-            : 'OK')
+      is_forbidden_hst
+        ? CONCAT('KRITISCH: ', task_name, ' in ', phase.name, '-Phase führt zu Hermaphroditismus und Stress')
+        : (is_early_flower AND is_mid_flower_forbidden
+            ? CONCAT('ERLAUBT: ', task_name, ' im Stretch (Early Flowering) noch möglich')
+            : (recent_hst_count > 0 AND days_since_last_hst < 3
+                ? CONCAT('WARNUNG: Nur ', TO_STRING(days_since_last_hst), ' Tage seit letztem HST')
+                : 'OK'))
     ),
     recovery_status: (
       days_since_last_hst == null ? 'no_recent_hst' :
@@ -532,7 +566,15 @@ class TaskTemplate(BaseModel):
     skill_level: Literal['beginner', 'intermediate', 'advanced'] = 'beginner'
     video_tutorial_url: Optional[str] = None
     safety_notes: Optional[str] = None
-    
+    optimal_time_of_day: Optional[Literal['morning', 'afternoon', 'evening', 'lights_off']] = Field(
+        None,
+        description="Empfohlene Tageszeit für optimale Ergebnisse. "
+                    "morning: Stängel turgorreich, flexibel (ideal für LST/Supercropping). "
+                    "afternoon/evening: Reduzierte Transpiration, Pflanze hat Nacht zur Erholung. "
+                    "lights_off: Für Foliar-Feeding (langsamere Verdunstung = höhere Aufnahme, "
+                    "kein Phototoxizitäts-Risiko bei Öl-Produkten wie Neem)."
+    )
+
     @field_validator('days_offset')
     @classmethod
     def validate_days_offset_for_trigger(cls, v, info):
@@ -638,61 +680,98 @@ class HST_Validator:
     """Verhindert High-Stress Training in kritischen Phasen"""
     
     # HST-Tasks die in Blüte/Fruchtbildung verboten sind
-    FORBIDDEN_IN_FLOWER = [
+    # Differenziert nach Phase: early_flowering erlaubt Supercropping/Transplant
+    # (Stretch-Phase = letztes vegetatives Internodienwachstum)
+    FORBIDDEN_IN_ALL_FLOWER = [
         'topping',
         'fim',
-        'supercropping',
-        'transplant',
+        'mainlining',
         'heavy_defoliation',
-        'mainlining'
     ]
-    
-    # Phasen in denen HST kritisch ist
+    FORBIDDEN_FROM_MID_FLOWER = [
+        'supercropping',    # Erlaubt in early_flowering (Canopy-Höhenkontrolle im Stretch)
+        'transplant',       # Erlaubt in early_flowering bei rootbound-Pflanzen
+    ]
+
+    # Phasen-Einteilung für HST-Validierung
+    EARLY_FLOWER_PHASES = ['early_flowering']  # Stretch — einige HST noch erlaubt
     CRITICAL_PHASES = [
-        'flowering',
-        'early_flowering',
+        'flowering',        # Mitte Blüte — nur FORBIDDEN_IN_ALL_FLOWER
         'late_flowering',
         'ripening',
         'fruiting'
     ]
-    
-    # Mindest-Recovery-Zeit zwischen HST-Events
-    MIN_RECOVERY_DAYS = {
+
+    # Mindest-Recovery-Zeit zwischen HST-Events — artspezifisch
+    # Standard-Recovery (Cannabis). Andere Arten über species_recovery_factors skaliert.
+    BASE_RECOVERY_DAYS = {
         'topping': 7,
         'supercropping': 5,
         'transplant': 10,
         'heavy_defoliation': 7,
         'fim': 7
     }
-    
+
+    # Skalierungsfaktoren für Recovery-Zeiten nach Pflanzentyp
+    # Faktor < 1.0 = schnellere Erholung, > 1.0 = langsamere Erholung
+    SPECIES_RECOVERY_FACTORS: dict[str, float] = {
+        'cannabis':     1.0,    # Basis (Cannabis ist der Referenz-Organismus)
+        'tomato':       0.4,    # Schneller Metabolismus, hohe Auxin-Produktion (2-3 Tage statt 7)
+        'pepper':       0.7,    # Empfindlicher als Tomaten, aber schneller als Cannabis
+        'cucumber':     0.5,    # Schnell wachsend
+        'herb_annual':          0.4,    # Basilikum, Koriander — krautig-einjährig, schnelle Regeneration
+        'herb_perennial_soft':  0.6,    # Minze, Oregano — krautig-mehrjährig
+        'herb_perennial_woody': 0.9,    # Rosmarin, Lavendel — verholzend, langsame Kallusbildung
+        'potato':       0.6,    # Langsamer als andere Solanaceae (Tomate, Paprika),
+                                #   da Assimilat-Priorisierung auf Knollenbildung liegt
+        'berry':        0.8,    # Holzige Stängel = langsamere Kallusbildung
+        'default':      1.0,
+    }
+
+    # Temperatur-Modifikator für Recovery-Zeit:
+    # Bei höheren Temperaturen läuft der Metabolismus schneller (Kallusbildung beschleunigt).
+    # Bei Hitzestress (>32°C) wird Recovery durch Stress-Überlagerung wieder verlangsamt.
+    TEMPERATURE_RECOVERY_MODIFIERS: dict[tuple, float] = {
+        (15, 20): 1.5,   # Kühle Bedingungen: 50% längere Recovery
+        (20, 25): 1.2,   # Unter Optimum
+        (25, 28): 1.0,   # Optimal
+        (28, 32): 1.1,   # Leichter Hitzestress
+        (32, 40): 1.4,   # Hitzestress: 40% länger
+    }
+
     @classmethod
     def can_perform_hst(
         cls,
         task_name: str,
         current_phase: str,
-        recent_hst_tasks: List[dict]
+        recent_hst_tasks: List[dict],
+        species_type: str = 'cannabis',
     ) -> tuple[bool, str, dict]:
         """
-        Validiert ob HST durchgeführt werden kann
-        
+        Validiert ob HST durchgeführt werden kann.
+        Berücksichtigt Phase, artspezifische Recovery und kumulativen Stress.
+
         Args:
             task_name: Name des geplanten Tasks
             current_phase: Aktuelle Wachstumsphase
             recent_hst_tasks: Liste von {task_name, completed_at}
-        
+            species_type: Pflanzentyp für Recovery-Skalierung
+
         Returns:
             (can_perform, reason, additional_info)
         """
         task_lower = task_name.lower()
-        
-        # 1. Prüfe ob Task HST ist
-        is_hst = any(hst in task_lower for hst in cls.FORBIDDEN_IN_FLOWER)
-        
+
+        # 1. Prüfe ob Task in den Verbotslisten steht
+        is_all_flower_forbidden = any(hst in task_lower for hst in cls.FORBIDDEN_IN_ALL_FLOWER)
+        is_mid_flower_forbidden = any(hst in task_lower for hst in cls.FORBIDDEN_FROM_MID_FLOWER)
+        is_hst = is_all_flower_forbidden or is_mid_flower_forbidden
+
         if not is_hst:
             return True, "Kein HST-Task", {}
-        
-        # 2. Prüfe kritische Phase
-        if current_phase in cls.CRITICAL_PHASES:
+
+        # 2. Prüfe Phase — differenziert nach Early vs. Mid/Late Flower
+        if current_phase in cls.CRITICAL_PHASES and (is_all_flower_forbidden or is_mid_flower_forbidden):
             return False, (
                 f"KRITISCH: {task_name} in {current_phase}-Phase führt zu:\n"
                 f"- Hermaphroditismus (Zwitter-Bildung bei Cannabis)\n"
@@ -700,23 +779,31 @@ class HST_Validator:
                 f"- Verzögerte Reife\n"
                 f"- Erhöhtes Krankheitsrisiko"
             ), {'severity': 'critical', 'phase': current_phase}
-        
-        # 3. Prüfe Recovery-Zeit
+
+        if current_phase in cls.EARLY_FLOWER_PHASES and is_all_flower_forbidden:
+            return False, (
+                f"KRITISCH: {task_name} in Early-Flowering (Stretch) verboten.\n"
+                f"Supercropping und Transplant sind im Stretch noch erlaubt — "
+                f"aber Topping, FIM, Mainlining und Heavy Defoliation nicht."
+            ), {'severity': 'critical', 'phase': current_phase}
+
+        # 3. Artspezifische Recovery-Zeit prüfen
+        recovery_factor = cls.SPECIES_RECOVERY_FACTORS.get(species_type, 1.0)
+
         if recent_hst_tasks:
-            # Finde letzten HST-Task
             latest_hst = max(recent_hst_tasks, key=lambda x: x['completed_at'])
             days_since = (datetime.now() - latest_hst['completed_at']).days
-            
-            # Bestimme benötigte Recovery-Zeit
-            required_recovery = cls.MIN_RECOVERY_DAYS.get(
-                latest_hst['task_name'].lower().split()[0],
-                7
+
+            base_recovery = cls.BASE_RECOVERY_DAYS.get(
+                latest_hst['task_name'].lower().split()[0], 7
             )
-            
+            required_recovery = max(1, int(base_recovery * recovery_factor))
+
             if days_since < required_recovery:
                 return False, (
                     f"WARNUNG: Nur {days_since} Tage seit letztem HST ({latest_hst['task_name']}).\n"
-                    f"Empfohlene Recovery-Zeit: {required_recovery} Tage.\n"
+                    f"Empfohlene Recovery-Zeit für {species_type}: {required_recovery} Tage "
+                    f"(Basis {base_recovery}d × Faktor {recovery_factor}).\n"
                     f"Zu kurze Recovery kann führen zu:\n"
                     f"- Reduziertes Wachstum\n"
                     f"- Erhöhte Krankheitsanfälligkeit\n"
@@ -725,34 +812,123 @@ class HST_Validator:
                     'severity': 'warning',
                     'days_since_last_hst': days_since,
                     'required_recovery': required_recovery,
+                    'species_type': species_type,
                     'can_override': True
                 }
-        
+
+        # 4. Kumulativen Stress prüfen (rollendes Fenster)
+        # Schwellwert und Fenster sind konfigurierbar — initiale Schätzwerte,
+        # nicht literaturbasiert. Kalibrierung über Nutzerfeedback empfohlen.
+        CUMULATIVE_STRESS_THRESHOLD = 0.7  # Konfigurierbar pro Nutzerprofil
+        STRESS_WINDOW_DAYS = 14            # Konfigurierbar
+        cumulative = cls.calculate_cumulative_stress(recent_hst_tasks, species_type)
+        if cumulative['stress_score'] > CUMULATIVE_STRESS_THRESHOLD:
+            return False, (
+                f"WARNUNG: Kumulativer Stress-Score {cumulative['stress_score']:.1f}/1.0 "
+                f"(max. empfohlen: 0.7).\n"
+                f"{cumulative['event_count']} HST-Events in den letzten 14 Tagen.\n"
+                f"Stress-Hormone (Jasmonsäure, Ethylen) akkumulieren — "
+                f"weitere HST kann Auxin/Cytokinin-Balance dauerhaft stören."
+            ), {
+                'severity': 'warning',
+                'cumulative_stress': cumulative,
+                'can_override': True
+            }
+
         return True, "HST kann sicher durchgeführt werden", {
             'severity': 'ok',
-            'recommendation': 'Nach HST 7 Tage kein weiteres Training'
+            'species_type': species_type,
+            'recovery_factor': recovery_factor,
+            'recommendation': f'Nach HST {int(7 * recovery_factor)} Tage kein weiteres Training'
+        }
+
+    @classmethod
+    def calculate_cumulative_stress(
+        cls,
+        recent_hst_tasks: List[dict],
+        species_type: str = 'cannabis',
+        window_days: int = 14,
+    ) -> dict:
+        """
+        Berechnet kumulativen Stress-Score über ein rollendes Zeitfenster.
+        Jedes HST-Event trägt proportional zu seinem Stress-Level bei,
+        gewichtet nach Aktualität (neuere Events zählen stärker).
+
+        Returns:
+            {stress_score: float (0-1+), event_count: int, events: list}
+        """
+        # Initiale Schätzwerte — konfigurierbar pro Nutzerprofil,
+        # empirisch zu verfeinern über Ergebnisdaten und Nutzerfeedback.
+        stress_weights = {
+            'topping': 0.3,
+            'fim': 0.25,
+            'supercropping': 0.2,
+            'transplant': 0.35,
+            'heavy_defoliation': 0.3,
+            'mainlining': 0.35,
+            'lollipopping': 0.1,
+            'light_defoliation': 0.05,
+            'ausgeizen': 0.05,  # Niedriger Stress — Routine-Kulturmaßnahme
+        }
+
+        recovery_factor = cls.SPECIES_RECOVERY_FACTORS.get(species_type, 1.0)
+        cutoff = datetime.now() - timedelta(days=window_days)
+
+        score = 0.0
+        counted_events = []
+        for task in (recent_hst_tasks or []):
+            completed = task.get('completed_at')
+            if completed and completed > cutoff:
+                task_key = task['task_name'].lower().split()[0]
+                weight = stress_weights.get(task_key, 0.15)
+                # Neuere Events zählen stärker (lineare Abnahme über Fenster)
+                days_ago = (datetime.now() - completed).days
+                recency = 1.0 - (days_ago / window_days)
+                score += weight * recency * recovery_factor
+                counted_events.append({
+                    'task': task['task_name'],
+                    'days_ago': days_ago,
+                    'contribution': round(weight * recency * recovery_factor, 3),
+                })
+
+        return {
+            'stress_score': round(score, 2),
+            'event_count': len(counted_events),
+            'window_days': window_days,
+            'events': counted_events,
         }
     
     @staticmethod
     def get_hst_best_practices(task_name: str) -> dict:
         """Gibt Best-Practices für spezifische HST-Techniken"""
         
+        # Artspezifische Best-Practices. Cannabis ist Referenz, andere Arten ergänzen.
         practices = {
             'topping': {
-                'best_timing': 'Vegetative Phase, min. 4-6 Nodien',
+                'best_timing': 'Vegetative Phase, artabhängig (siehe species_notes)',
                 'tools': ['Scharfe, sterilisierte Schere'],
                 'steps': [
-                    '1. Identifiziere Haupttrieb',
-                    '2. Schneide oberhalb 3.-4. Nodium',
+                    '1. Identifiziere Haupttrieb / Wachstumspunkt',
+                    '2. Schneide an artspezifischer Position (s.u.)',
                     '3. Sauberer 45° Schnitt',
-                    '4. Keine Bewässerung für 24h'
+                    '4. Bewässerung substratabhängig: Erde/Coco normal weiter, '
+                    'Hydro-NFT/DWC NICHT stoppen (Wurzelaustrocknung!), ggf. EC -20%'
                 ],
-                'recovery': '7-10 Tage',
-                'expected_outcome': '2 Haupttriebe, buschigeres Wachstum',
-                'risks': ['Stress', 'Verlangsamtes Wachstum', 'Infektion an Schnittstelle']
+                'recovery': '7-10 Tage (Cannabis), 2-3 Tage (Tomaten/Kräuter)',
+                'expected_outcome': 'Laterale Verzweigung durch Auxin-Umverteilung',
+                'risks': ['Stress', 'Verlangsamtes Wachstum', 'Infektion an Schnittstelle'],
+                'species_notes': {
+                    'cannabis': 'Ab 4.-6. Nodium, oberhalb 3.-4. Node schneiden',
+                    'tomato': 'Für Stabtomaten NICHT Topping, sondern Ausgeizen verwenden '
+                              '(eigene Kategorie). Topping nur bei Busch-Tomaten (determinate).',
+                    'pepper': 'Am "V" (erste Gabelung) toppen für buschigeres Wachstum. '
+                              'Recovery 5+ Tage.',
+                    'basil': 'Ab 3. Nodium pinchen — fördert Verzweigung, Recovery 1-2 Tage.',
+                    'default': 'Fachliteratur konsultieren für artspezifisches Topping.',
+                }
             },
             'supercropping': {
-                'best_timing': 'Späte Vegetative Phase, 2-3 Wochen vor Blüte',
+                'best_timing': 'Späte Vegi bis früher Stretch (Early Flowering Woche 1-3)',
                 'tools': ['Nur Hände'],
                 'steps': [
                     '1. Wähle Zweig der dominiert',
@@ -761,8 +937,10 @@ class HST_Validator:
                     '4. Fixiere mit Pflanzenbinder wenn nötig'
                 ],
                 'recovery': '5-7 Tage (Kallus-Bildung)',
-                'expected_outcome': 'Stärkerer Zweig, mehr Seitentriebe',
-                'risks': ['Kompletter Bruch', 'Infektion', 'Wachstumsstillstand']
+                'expected_outcome': 'Stärkerer Zweig, gleichmäßige Canopy-Höhe',
+                'risks': ['Kompletter Bruch', 'Infektion', 'Wachstumsstillstand'],
+                'note': 'Im Stretch (Early Flowering) erlaubt zur Höhenkontrolle — '
+                        'ab Mitte Blüte verboten (Blütencluster-Schaden).'
             },
             'lollipopping': {
                 'best_timing': 'Frühe Blüte (Woche 1-2)',
@@ -775,6 +953,27 @@ class HST_Validator:
                 'recovery': '3-5 Tage',
                 'expected_outcome': 'Energie-Fokus auf Top-Colas, bessere Luftzirkulation',
                 'risks': ['Zu viel Laub entfernt = Stress', 'Reduzierte Photosynthese']
+            },
+            'ausgeizen': {
+                'best_timing': 'Vegetative Phase, wöchentlich ab 3. Rispe (Stabtomaten)',
+                'tools': ['Hände (bei < 5 cm)', 'Schere (bei > 5 cm)'],
+                'steps': [
+                    '1. Identifiziere Geiztriebe in Blattachseln',
+                    '2. Bei < 5 cm Länge: Handabbruch (sauberer, weniger Infektionsrisiko)',
+                    '3. Bei > 5 cm: Sauberer Scherenschnitt',
+                ],
+                'recovery': '0-1 Tag (sehr niedriger Stress)',
+                'stress_level': 'low',  # Kein HST — Routine-Kulturmaßnahme
+                'expected_outcome': 'Assimilat-Fokus auf Fruchtstände statt vegetatives Wachstum',
+                'risks': ['Versehentliches Entfernen des Haupttriebs'],
+                'note': 'Hormonphysiologisch NICHT identisch mit Topping: Ausgeizen entfernt '
+                        'Auxin-Senken (Seitenmeristeme), Topping entfernt die Auxin-Quelle (Apex). '
+                        'Die Wuchsreaktion ist gegensätzlich.',
+                'species_notes': {
+                    'tomato_indeterminate': 'Standard-Pflegemaßnahme, kein HST',
+                    'tomato_determinate': 'NICHT ausgeizen — Buschtomaten brauchen Seitentriebe für Ertrag',
+                    'eggplant': 'Geiztriebe unterhalb erster Gabelung entfernen',
+                }
             }
         }
         
@@ -789,7 +988,84 @@ class HST_Validator:
         })
 ```
 
-**3. Workflow Executor:**
+**3. Karenzzeit-Validator (PHI — Pre-Harvest Interval):**
+```python
+class KarenzzeitValidator:
+    """
+    Validiert die Einhaltung von Wartezeiten zwischen IPM-Maßnahmen (REQ-010)
+    und Ernte-Tasks. Kritisch für Lebensmittelsicherheit — besonders bei
+    Cannabis (Inhalation verschärft Toxizitätsrisiko).
+    """
+
+    # Standard-Karenzzeiten in Tagen (konservativ, aus Produktzulassungen)
+    DEFAULT_PHI_DAYS: dict[str, int] = {
+        'neem_oil':             7,
+        'pyrethrin':            1,
+        'spinosad':             3,
+        'bacillus_thuringiensis': 0,   # BT — biologisch, keine Wartezeit
+        'potassium_bicarbonate': 0,
+        'sulfur':               14,
+        'copper_fungicide':     14,
+        'systemic_fungicide':   21,
+        'hydrogen_peroxide':    0,     # Zerfällt schnell
+        'insecticidal_soap':    1,
+        'diatomaceous_earth':   0,
+        'beneficial_insects':   0,     # Nützlinge — keine Wartezeit
+        'default':              14,    # Unbekanntes Produkt → konservativ
+    }
+
+    @classmethod
+    def validate_harvest_safe(
+        cls,
+        plant_id: str,
+        planned_harvest_date: date,
+        recent_ipm_tasks: List[dict],
+    ) -> tuple[bool, list[str]]:
+        """
+        Prüft ob Ernte sicher ist unter Einhaltung aller Karenzzeiten.
+
+        Args:
+            plant_id: Pflanze die geerntet werden soll
+            planned_harvest_date: Geplantes Erntedatum
+            recent_ipm_tasks: Liste von {task_name, completed_at, product_used, phi_days}
+
+        Returns:
+            (is_safe, warnings)
+        """
+        warnings = []
+        is_safe = True
+
+        for ipm_task in recent_ipm_tasks:
+            completed = ipm_task.get('completed_at')
+            if not completed:
+                continue
+
+            if isinstance(completed, str):
+                completed = datetime.fromisoformat(completed).date()
+            elif isinstance(completed, datetime):
+                completed = completed.date()
+
+            product = ipm_task.get('product_used', 'default')
+            phi_days = ipm_task.get('phi_days') or cls.DEFAULT_PHI_DAYS.get(
+                product.lower().replace(' ', '_').replace('-', '_'),
+                cls.DEFAULT_PHI_DAYS['default']
+            )
+
+            safe_date = completed + timedelta(days=phi_days)
+            if planned_harvest_date < safe_date:
+                days_remaining = (safe_date - planned_harvest_date).days
+                is_safe = False
+                warnings.append(
+                    f"KARENZZEIT NICHT EINGEHALTEN: '{ipm_task.get('task_name', product)}' "
+                    f"am {completed.isoformat()} angewendet — Karenzzeit {phi_days} Tage. "
+                    f"Früheste sichere Ernte: {safe_date.isoformat()} "
+                    f"(noch {days_remaining} Tage warten)."
+                )
+
+        return is_safe, warnings
+```
+
+**4. Workflow Executor:**
 ```python
 from typing import Dict, List
 from datetime import date, datetime
@@ -1234,9 +1510,11 @@ class TaskCompletion(BaseModel):
 ## 4. Abhängigkeiten
 
 **Erforderliche Module:**
-- REQ-001 (Stammdaten): Species für Template-Kompatibilität
-- REQ-003 (Phasen): GrowthPhase für Phase-Trigger
+- REQ-001 (Stammdaten): Species für Template-Kompatibilität + `species_type` für artspezifische Recovery-Zeiten
+- REQ-003 (Phasen): GrowthPhase für Phase-Trigger (inkl. `early_flowering` Differenzierung), GDD-Daten für `gdd_threshold`-Trigger
 - REQ-002 (Standort): Location für Multi-Plant-Workflows
+- REQ-010 (IPM): IPM-Task-Historie für Karenzzeit-Validierung bei Harvest-Tasks
+- REQ-018 (Umgebungssteuerung): **Task-Aktor-Integration** — Tasks wie "Licht umstellen auf 12/12" können optional mit Aktor-Aktionen verknüpft werden. Bei automatischer Aktor-Ausführung: Task auto-completed. Bei manueller Steuerung: Task als Reminder. Konflikterkennung: Task "Licht 18/6" + Phase-Profil "12/12" = Warnung.
 
 **Wird benötigt von:**
 - REQ-007 (Ernte): Harvest-Tasks als Teil von Workflows
@@ -1256,7 +1534,18 @@ class TaskCompletion(BaseModel):
 - [ ] **Template-Bibliothek:** 15+ System-Workflows (Cannabis, Tomaten, Kartoffeln, etc.)
 - [ ] **User-Workflows:** Nutzer können eigene Templates erstellen/editieren
 - [ ] **Foto-Upload-Enforcement:** Tasks mit requires_photo=true blockieren ohne Foto
-- [ ] **HST-Validierung:** System verhindert Topping/Supercropping in Blüte
+- [ ] **HST-Validierung:** System verhindert Topping/FIM/Mainlining in Blüte; Supercropping/Transplant im Stretch (Early Flowering) erlaubt
+- [ ] **Artspezifische Recovery:** Recovery-Zeiten nach species_type skaliert (Cannabis 1.0x, Tomaten 0.4x, Paprika 0.7x), Kräuter differenziert (annual/perennial_soft/perennial_woody)
+- [ ] **Temperatur-Modifikator:** Recovery-Zeiten temperaturabhängig skaliert (optimal 25-28°C)
+- [ ] **Kumulativer Stress:** Stress-Score über konfigurierbares Fenster (Default 14 Tage) mit konfigurierbarem Schwellwert (Default 0.7)
+- [ ] **Ausgeizen-Kategorie:** Eigene Task-Kategorie für Geiztrieb-Entfernung (nicht unter Topping)
+- [ ] **Observation-Kategorie:** Beobachtungs-Tasks (Wachstumsmessung, pH/EC, Foto-Dokumentation)
+- [ ] **Zimmerpflanzen-Templates:** Orchidee, Kaktus/Sukkulente, tropische Grünpflanze, Calathea
+- [ ] **Hydroponik-Wartung:** Nährlösung-Wechsel, Sonden-Kalibrierung, System-Reinigung als System-Templates
+- [ ] **GDD-Trigger:** Task-Auslösung basierend auf akkumulierten Gradtagsummen (REQ-003)
+- [ ] **Task-Aktor-Integration:** Tasks optional mit REQ-018 Aktor-Aktionen verknüpfbar
+- [ ] **Karenzzeit-Validierung:** Harvest-Tasks werden gegen letzte IPM-Maßnahmen validiert (PHI-Einhaltung)
+- [ ] **Tageszeit-Empfehlung:** TaskTemplates können `optimal_time_of_day` empfehlen
 - [ ] **Dependency-Resolution:** Korrekte Berechnung von Abhängigkeitsketten
 - [ ] **Auto-Rescheduling:** Verzögerte Tasks verschieben Nachfolger automatisch
 - [ ] **Kalender-Ansicht:** Gantt-Chart für nächste 4 Wochen
@@ -1291,15 +1580,26 @@ THEN:
   - Dependencies: Task 2 blockt durch Task 1, etc.
 ```
 
-**Szenario 2: HST-Validierung verhindert Topping**
+**Szenario 2a: HST-Validierung verhindert Topping in Early Flower**
 ```
-GIVEN: Cannabis in Early-Flowering-Phase
+GIVEN: Cannabis in Early-Flowering-Phase (Stretch)
 WHEN: Nutzer versucht "Topping" Task zu erstellen
 THEN:
   - HST_Validator.can_perform_hst() → False
-  - Error-Message: "KRITISCH: Topping in flowering-Phase führt zu Hermaphroditismus"
+  - Error-Message: "KRITISCH: Topping in Early-Flowering verboten.
+    Supercropping und Transplant sind im Stretch noch möglich."
   - UI blockiert Task-Erstellung
-  - Vorschlag: "LST (Low-Stress) ist noch möglich"
+  - Vorschlag: "Supercropping zur Höhenkontrolle im Stretch"
+```
+
+**Szenario 2b: Supercropping im Stretch erlaubt**
+```
+GIVEN: Cannabis in Early-Flowering-Phase (Stretch, Woche 2)
+WHEN: Nutzer erstellt "Supercropping" Task
+THEN:
+  - HST_Validator.can_perform_hst() → True
+  - Message: "ERLAUBT: Supercropping im Stretch (Early Flowering) noch möglich"
+  - Task wird erstellt mit Hinweis: "Ab Mitte Blüte nicht mehr möglich"
 ```
 
 **Szenario 3: Dynamic Rescheduling**
@@ -1364,7 +1664,7 @@ THEN:
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Workflow, Task, HST, Training, Topping, LST, Dependency, Scheduling, Template
-- Fachbegriffe: Auxin-Dominanz, Hermaphroditismus, Mainlining, Lollipopping, SOG, SCROG, Supercropping
-- Verknüpfung: Zentral für REQ-003 (Phasen-Trigger), REQ-007 (Harvest-Tasks), REQ-010 (IPM-Tasks)
-- Pflanzenwissenschaft: Stress-Physiologie, Hormon-Regulation, Recovery-Zeiten
+- Keywords: Workflow, Task, HST, Training, Topping, LST, Dependency, Scheduling, Template, Ausgeizen, Observation, Zimmerpflanzen, Hydroponik-Wartung, GDD-Trigger
+- Fachbegriffe: Auxin-Dominanz, Hermaphroditismus, Mainlining, Lollipopping, SOG, SCROG, Supercropping, Karenzzeit, PHI, Kumulativer Stress, Jasmonsäure, Ethylen, Stretch-Phase, Early Flowering, Geiztrieb, Assimilat-Verteilung, Phototoxizität, Transpiration
+- Verknüpfung: Zentral für REQ-003 (Phasen-Trigger + GDD), REQ-007 (Harvest-Tasks), REQ-010 (IPM-Tasks + Karenzzeit), REQ-018 (Aktor-Verknüpfung), REQ-014 (Hydroponik-Wartung)
+- Pflanzenwissenschaft: Stress-Physiologie, Hormon-Regulation, Recovery-Zeiten, artspezifische Metabolismus-Geschwindigkeit, Tageszeit-Einfluss auf Pflanzenphysiologie, Temperatur-Recovery-Modifikation
