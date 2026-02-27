@@ -86,6 +86,13 @@ PlantingRun: "Mischkultur Beet B Sommer 2025"
     - `started_at: Optional[datetime]` (Tatsächlicher Start)
     - `completed_at: Optional[datetime]` (Abschluss-Zeitpunkt)
     - `source_plant_key: Optional[str]` (Nur bei `clone`: Key der Mutterpflanze)
+    - `clone_generation: Optional[int]` (Nur bei `clone`: 1 = direkt von Saat-Pflanze, 2+ = Klon vom Klon. Vigor kann über Generationen nachlassen.)
+    - `propagation_method: Optional[Literal['seed', 'cutting', 'tissue_culture', 'air_layer', 'division']]` (Vermehrungsmethode — beeinflusst Wurzelsystem-Qualität und Erfolgsrate)
+    - `clone_from_run_key: Optional[str]` (Key eines bestehenden Runs als Vorlage — für Staffelanbau/Succession Planting: nur Konfiguration wird kopiert, nicht die Pflanzen)
+    - `germination_count: Optional[int]` (Bei Saat: Anzahl tatsächlich gekeimter Samen — nachträglich erfasst)
+    - `rooting_count: Optional[int]` (Bei Klonen: Anzahl erfolgreich bewurzelter Stecklinge)
+    - `survival_rate: Optional[float]` (actual_quantity / planned_quantity — berechnet nach Run-Abschluss)
+    - `primary_loss_reason: Optional[str]` (Häufigste Ausfallursache — für Planung zukünftiger Runs)
     - `notes: Optional[str]`
     - `created_at: datetime`
     - `updated_at: datetime`
@@ -96,7 +103,7 @@ PlantingRun: "Mischkultur Beet B Sommer 2025"
     - `species_key: str` (Referenz auf Species)
     - `cultivar_key: Optional[str]` (Referenz auf Cultivar, optional)
     - `quantity: int` (Geplante Anzahl für diese Art)
-    - `role: Literal['primary', 'companion', 'trap_crop']`
+    - `role: Literal['primary', 'companion', 'trap_crop', 'nurse_crop', 'cover_crop', 'pollinator']`
     - `id_prefix: Optional[str]` (Präfix für auto-generierte Pflanzen-IDs, z.B. "TOM", "BAS")
     - `spacing_cm: Optional[int]` (Empfohlener Pflanzabstand)
     - `notes: Optional[str]`
@@ -107,7 +114,7 @@ PlantingRun: "Mischkultur Beet B Sommer 2025"
 |----------|---------|------------|
 | `monoculture` | Genau 1 | `role` muss `primary` sein |
 | `clone` | Genau 1 | `role` muss `primary` sein; `source_plant_key` auf PlantingRun erforderlich |
-| `mixed_culture` | ≥ 2 | Mindestens 1 `primary`; mindestens 1 `companion` oder `trap_crop` |
+| `mixed_culture` | ≥ 2 | Mindestens 1 `primary`; mindestens 1 sekundäre Rolle (`companion`, `trap_crop`, `nurse_crop`, `cover_crop`, `pollinator`) |
 
 ### Edges (ArangoDB Edge Collections):
 
@@ -117,11 +124,14 @@ PlantingRun: "Mischkultur Beet B Sommer 2025"
   - Properties:
     - `added_at: datetime` (Wann wurde die Pflanze dem Run zugeordnet)
     - `detached_at: Optional[datetime]` (Wann wurde die Pflanze abgetrennt; `null` = aktiv)
-    - `detach_reason: Optional[str]` (z.B. "Krankheit", "Selektion", "Umtopfung")
+    - `detach_category: Optional[Literal['disease', 'pest', 'stunted', 'male_plant', 'selection', 'transplant', 'death', 'other']]` (Strukturierte Kategorie für Auswertung — `male_plant` ist bei diözischen Arten wie Cannabis der häufigste Detach-Grund: reguläre Seeds haben ~50% Männchen)
+    - `detach_reason: Optional[str]` (Freitext-Details, z.B. "Braunfäule an Stängelbasis")
 
-- **`run_at_location`**: `PlantingRun → Location`
+- **`run_at_location`**: `PlantingRun → Location` (Multi-Edge möglich: Anzuchtort → Endstandort)
   - Properties:
     - `assigned_at: datetime`
+    - `removed_at: Optional[datetime]` (Wann der Run diesen Standort verlassen hat; `null` = aktuell)
+    - `location_role: Literal['propagation', 'final', 'temporary']` (Standort-Zweck: `propagation` = Aussaat/Bewurzelung, `final` = Endstandort, `temporary` = Zwischenlager bei Transplantation)
     - `notes: Optional[str]`
 
 - **`run_uses_substrate`**: `PlantingRun → SubstrateBatch`
@@ -618,6 +628,15 @@ class EntryRole(StrEnum):
     PRIMARY = "primary"          # Hauptkultur (Ernte-Ziel)
     COMPANION = "companion"      # Begleitpflanze (Nützlingsförderung, Düngung)
     TRAP_CROP = "trap_crop"      # Fangpflanze (lenkt Schädlinge ab)
+    NURSE_CROP = "nurse_crop"    # Ammenpflanze (Windschutz, Schatten für junge Hauptkultur)
+    COVER_CROP = "cover_crop"    # Gründüngung/Bodendecke (nicht für Ernte, Bodenverbesserung)
+    POLLINATOR = "pollinator"    # Bestäuberanlockung (z.B. Phacelia bei Kürbis, Borretsch bei Erdbeeren)
+
+# Sekundäre Rollen: alle Rollen außer PRIMARY, für Mischkultur-Validierung
+SECONDARY_ROLES = {
+    EntryRole.COMPANION, EntryRole.TRAP_CROP,
+    EntryRole.NURSE_CROP, EntryRole.COVER_CROP, EntryRole.POLLINATOR,
+}
 ```
 
 ### Status-Transitions:
@@ -682,6 +701,20 @@ class PlantingRunCreate(BaseModel):
     source_plant_key: Optional[str] = Field(
         None, description="Mutterpflanze (nur bei clone-Typ)"
     )
+    clone_generation: Optional[int] = Field(
+        None, ge=1, le=50,
+        description="Klon-Generation (1 = direkt von Saat-Pflanze, 2+ = Klon vom Klon). "
+                    "Vigor kann über Generationen nachlassen."
+    )
+    propagation_method: Optional[str] = Field(
+        None,
+        description="Vermehrungsmethode: 'seed', 'cutting', 'tissue_culture', 'air_layer', 'division'"
+    )
+    clone_from_run_key: Optional[str] = Field(
+        None,
+        description="Key eines bestehenden Runs als Vorlage (Staffelanbau/Succession Planting). "
+                    "Nur Konfiguration (Entries, Location, Substrate) wird kopiert, nicht die Pflanzen."
+    )
     location_key: Optional[str] = Field(None, description="Standort-Zuordnung")
     substrate_batch_key: Optional[str] = Field(None, description="Substrat-Charge")
     substrate_volume_liters: Optional[float] = Field(None, gt=0, description="Verbrauchte Substrat-Menge")
@@ -716,14 +749,15 @@ class PlantingRunCreate(BaseModel):
                 )
             has_primary = any(e.role == EntryRole.PRIMARY for e in self.entries)
             has_secondary = any(
-                e.role in (EntryRole.COMPANION, EntryRole.TRAP_CROP)
+                e.role in SECONDARY_ROLES
                 for e in self.entries
             )
             if not has_primary:
                 raise ValueError("Mindestens ein Entry muss die Rolle 'primary' haben")
             if not has_secondary:
                 raise ValueError(
-                    "Mindestens ein Entry muss die Rolle 'companion' oder 'trap_crop' haben"
+                    "Mindestens ein Entry muss eine sekundäre Rolle haben "
+                    "(companion, trap_crop, nurse_crop, cover_crop, pollinator)"
                 )
 
         # Quantity-Konsistenz
@@ -789,9 +823,23 @@ class BatchCreatePlantsResponse(BaseModel):
     warnings: list[str]
 
 class BatchTransitionRequest(BaseModel):
-    """Batch-Phasenübergang für alle berechtigten Pflanzen"""
+    """Batch-Phasenübergang für alle berechtigten Pflanzen.
+
+    Für Mischkulturen: `entry_key` setzen, um nur Pflanzen eines bestimmten
+    Entries (= einer Art) zu transitieren. Ohne `entry_key` werden alle Pflanzen
+    im Run geprüft — sinnvoll für Monokultur/Klon-Runs.
+
+    In Mischkulturen haben verschiedene Arten unterschiedliche Phasen-Sequenzen
+    und -Zeitpläne (z.B. Tomate → flowering, Basilikum soll vegetativ bleiben).
+    Ohne Entry-Filter würden die meisten Pflanzen übersprungen.
+    """
 
     target_phase: str = Field(description="Ziel-Phase (z.B. 'flowering')")
+    entry_key: Optional[str] = Field(
+        None,
+        description="Nur Pflanzen dieses Entries transitieren (für Mischkulturen). "
+                    "Wenn None, werden alle Pflanzen im Run geprüft."
+    )
     override_reason: Optional[str] = Field(
         None,
         description="Grund für manuellen Override (überspringt Regel-Prüfung)"
@@ -818,6 +866,12 @@ class BatchHarvestRequest(BaseModel):
         description="Ernte-Typ: 'partial' | 'final'"
     )
     wet_weight_g: float = Field(gt=0)
+    per_plant_weights_g: Optional[dict[str, float]] = Field(
+        None,
+        description="Optionale Einzelgewichte pro Pflanze (plant_key → Gewicht in g). "
+                    "Für Selektionsdaten, Ertragsverteilung und Standorteffekt-Analyse. "
+                    "Summe muss wet_weight_g entsprechen wenn angegeben."
+    )
     quality_grade: Optional[str] = Field(
         None,
         pattern=r'^(A\+|A|B|C|D)$',
@@ -840,6 +894,11 @@ class BatchHarvestResponse(BaseModel):
     harvested_plant_count: int
     wet_weight_g: float
     quality_grade: Optional[str]
+    yield_statistics: Optional[dict] = Field(
+        None,
+        description="Ertragsverteilung wenn per_plant_weights angegeben: "
+                    "{avg_g, min_g, max_g, median_g, stddev_g}"
+    )
     run_status_after: PlantingRunStatus
 
 class BatchRemoveRequest(BaseModel):
@@ -865,9 +924,15 @@ class BatchRemoveResponse(BaseModel):
 class DetachPlantRequest(BaseModel):
     """Trennt eine einzelne Pflanze vom Run ab"""
 
+    category: str = Field(
+        description="Strukturierte Detach-Kategorie: 'disease', 'pest', 'stunted', "
+                    "'male_plant', 'selection', 'transplant', 'death', 'other'. "
+                    "'male_plant' ist bei diözischen Arten (Cannabis) der häufigste Grund: "
+                    "reguläre Seeds haben ~50% Männchen."
+    )
     reason: str = Field(
         min_length=1,
-        description="Grund für die Abtrennung"
+        description="Freitext-Details zum Abtrennen (z.B. 'Braunfäule am Stängel')"
     )
 ```
 
@@ -1082,6 +1147,13 @@ class PlantingRunDocument(BaseModel):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     source_plant_key: Optional[str] = None
+    clone_generation: Optional[int] = Field(None, ge=1, le=50)
+    propagation_method: Optional[str] = None  # 'seed', 'cutting', 'tissue_culture', 'air_layer', 'division'
+    clone_from_run_key: Optional[str] = None
+    germination_count: Optional[int] = Field(None, ge=0)
+    rooting_count: Optional[int] = Field(None, ge=0)
+    survival_rate: Optional[float] = Field(None, ge=0.0, le=1.0)
+    primary_loss_reason: Optional[str] = Field(None, max_length=200)
     notes: Optional[str] = Field(None, max_length=2000)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -1092,6 +1164,8 @@ class PlantingRunDocument(BaseModel):
             raise ValueError("Clone-Durchläufe erfordern source_plant_key")
         if self.run_type != PlantingRunType.CLONE and self.source_plant_key:
             raise ValueError("source_plant_key nur bei Clone-Durchläufen erlaubt")
+        if self.clone_generation and self.run_type != PlantingRunType.CLONE:
+            raise ValueError("clone_generation nur bei Clone-Durchläufen sinnvoll")
         return self
 
     @model_validator(mode='after')
@@ -1117,6 +1191,11 @@ class PlantingRunEntryDocument(BaseModel):
     notes: Optional[str] = Field(None, max_length=500)
 
 
+DetachCategory = Literal[
+    'disease', 'pest', 'stunted', 'male_plant',
+    'selection', 'transplant', 'death', 'other'
+]
+
 class RunContainsEdge(BaseModel):
     """ArangoDB-Edge-Schema für run_contains"""
 
@@ -1124,10 +1203,13 @@ class RunContainsEdge(BaseModel):
     to_id: str = Field(alias='_to')
     added_at: datetime = Field(default_factory=datetime.utcnow)
     detached_at: Optional[datetime] = None
+    detach_category: Optional[DetachCategory] = None
     detach_reason: Optional[str] = Field(None, max_length=200)
 
     @model_validator(mode='after')
     def validate_detach(self):
+        if self.detached_at and not self.detach_category:
+            raise ValueError("detach_category erforderlich wenn detached_at gesetzt")
         if self.detached_at and not self.detach_reason:
             raise ValueError("detach_reason erforderlich wenn detached_at gesetzt")
         return self
@@ -1408,6 +1490,14 @@ class RunContainsEdge(BaseModel):
 - [ ] **Seed-to-Shelf:** Von Batch über `run_produced` → PlantingRun → Entries → Species/Cultivar lückenlos navigierbar
 - [ ] **Graph-Integration:** Alle 7 neuen Edge Collections korrekt im Named Graph `kamerplanter_graph` registriert
 - [ ] **NFR-006-Fehlerbehandlung:** Aussagekräftige Fehlermeldungen bei Validierungsfehlern und Konfliktzuständen
+- [ ] **Entry-Rollen erweitert:** Neben primary/companion/trap_crop auch nurse_crop, cover_crop und pollinator als Rollen verfügbar
+- [ ] **Mischkultur-Batch-Transition:** `entry_key`-Filter in BatchTransitionRequest ermöglicht art-spezifische Phasenübergänge
+- [ ] **Klon-Metadaten:** clone_generation, propagation_method und rooting_count werden bei Clone-Runs erfasst
+- [ ] **Detach-Kategorien:** Strukturierte Kategorie (disease, pest, stunted, male_plant, selection, transplant, death, other) neben Freitext-Begründung
+- [ ] **Multi-Location:** run_at_location unterstützt Standortwechsel (propagation → final) mit Zeitstempeln
+- [ ] **Ausfallrate-Tracking:** germination_count/rooting_count und survival_rate werden pro Run erfasst
+- [ ] **Per-Plant-Harvest:** Optional pro-Pflanze-Gewichte in Batch-Ernte für Ertragsverteilungs-Analyse
+- [ ] **Run-Klonen:** clone_from_run_key ermöglicht Staffelanbau durch Kopieren der Run-Konfiguration
 
 ### Testszenarien:
 
@@ -1480,9 +1570,9 @@ THEN:
 **Szenario 6: Individuelle Pflanze vom Run abtrennen**
 ```
 GIVEN: PlantingRun mit 20 Pflanzen, Pflanze HOCHBEETA_TOM_05 zeigt Krankheitssymptome
-WHEN: Nutzer ruft detach (plant_key: "HOCHBEETA_TOM_05", reason: "Braunfäule-Verdacht") auf
+WHEN: Nutzer ruft detach (plant_key: "HOCHBEETA_TOM_05", category: "disease", reason: "Braunfäule-Verdacht") auf
 THEN:
-  - run_contains-Edge wird mit detached_at und detach_reason aktualisiert
+  - run_contains-Edge wird mit detached_at, detach_category und detach_reason aktualisiert
   - Pflanze HOCHBEETA_TOM_05 bleibt als PlantInstance bestehen (nicht gelöscht)
   - Pflanze kann weiterhin individuell verwaltet werden (IPM-Behandlung, etc.)
   - Run zeigt active_plant_count: 19
@@ -1512,5 +1602,5 @@ THEN:
 
 **Hinweise für RAG-Integration:**
 - Keywords: Pflanzdurchlauf, Planting Run, Batch-Operation, Gruppenmanagement, Monokultur, Klon, Mischkultur, Batch-Erstellung, Batch-Phasenübergang, Batch-Ernte, Batch-Entfernung, Seed-to-Shelf, Traceability
-- Fachbegriffe: PlantingRun, PlantingRunEntry, Mutterpflanze, Steckling, Companion Planting, Trap Crop, HarvestBatch, State Machine, Detach, ID-Generierung
+- Fachbegriffe: PlantingRun, PlantingRunEntry, Mutterpflanze, Steckling, Companion Planting, Trap Crop, Nurse Crop, Cover Crop, Gründüngung, Klon-Generation, Staffelanbau, Succession Planting, Detach-Kategorie, Male Plant, Bewurzelungsrate, Keimrate, HarvestBatch, State Machine, Detach, ID-Generierung
 - Verknüpfung: Baut auf REQ-001 (Species/Cultivar), REQ-002 (Location/Substrate), REQ-003 (Phasensteuerung) auf; liefert an REQ-007 (Batch-Ernte), REQ-006 (Run-Tasks), REQ-009 (Dashboard), REQ-010 (IPM)
