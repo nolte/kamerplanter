@@ -273,12 +273,12 @@ export default function NutrientPlanDetailPage() {
       {/* Tab 1: Validation */}
       {tab === 1 && (
         <Box>
-          {validating && (
+          {validating && !validation && (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
               <CircularProgress />
             </Box>
           )}
-          {!validating && validation && (
+          {validation && (
             <>
               <Card sx={{ mb: 2 }}>
                 <CardContent>
