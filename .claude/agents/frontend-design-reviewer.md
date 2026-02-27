@@ -242,7 +242,7 @@ Der Kiosk-Modus ist die kritischste Design-Anforderung für den Einsatz in landw
 
 ## Phase 3: Report erstellen
 
-Erstelle `test-reports/frontend-design-review.md`:
+Erstelle `spec/requirements-analysis/frontend-design-review.md`:
 
 ```markdown
 # Frontend-Design-Review

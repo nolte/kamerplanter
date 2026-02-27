@@ -126,7 +126,7 @@ Bewerte jeden gefundenen Widerspruch:
 
 ### Report-Format
 
-Erstelle die Datei `test-reports/contradiction-report.md`:
+Erstelle die Datei `spec/requirements-analysis/contradiction-report.md`:
 
 ```markdown
 # Anforderungs-Widerspruchsanalyse
@@ -208,8 +208,8 @@ Folgende Bereiche sind in den Dokumenten nicht abgedeckt:
 
 ## Phase 4: Ausgabe
 
-1. Speichere den Report als `test-reports/contradiction-report.md`
-2. Erstelle zusätzlich `test-reports/requirements-index.json` mit dem maschinenlesbaren Index aller Anforderungen:
+1. Speichere den Report als `spec/requirements-analysis/contradiction-report.md`
+2. Erstelle zusätzlich `spec/requirements-analysis/requirements-index.json` mit dem maschinenlesbaren Index aller Anforderungen:
 
 ```json
 {

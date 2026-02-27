@@ -291,7 +291,7 @@ Prüfe ob vage Angaben in messbare Parameter übersetzt wurden:
 
 ## Phase 3: Report erstellen
 
-Erstelle `test-reports/agrobiology-review.md`:
+Erstelle `spec/requirements-analysis/agrobiology-review.md`:
 
 ```markdown
 # Agrarbiologisches Anforderungsreview
