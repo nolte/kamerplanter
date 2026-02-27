@@ -28,3 +28,23 @@ type NutrientPlanKey = str
 type NutrientPlanPhaseEntryKey = str
 type FeedingEventKey = str
 type WateringEventKey = str
+
+# REQ-010 IPM
+type PestKey = str
+type DiseaseKey = str
+type TreatmentKey = str
+type InspectionKey = str
+type TreatmentApplicationKey = str
+
+# REQ-007 Harvest
+type HarvestIndicatorKey = str
+type HarvestObservationKey = str
+type HarvestBatchKey = str
+type QualityAssessmentKey = str
+type YieldMetricKey = str
+
+# REQ-006 Tasks
+type WorkflowTemplateKey = str
+type TaskTemplateKey = str
+type TaskKey = str
+type WorkflowExecutionKey = str

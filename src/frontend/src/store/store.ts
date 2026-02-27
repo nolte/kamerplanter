@@ -11,6 +11,9 @@ import fertilizersReducer from './slices/fertilizersSlice';
 import nutrientPlansReducer from './slices/nutrientPlansSlice';
 import feedingEventsReducer from './slices/feedingEventsSlice';
 import wateringEventsReducer from './slices/wateringEventsSlice';
+import ipmReducer from './slices/ipmSlice';
+import harvestReducer from './slices/harvestSlice';
+import tasksReducer from './slices/tasksSlice';
 
 export const store = configureStore({
   reducer: {
@@ -26,6 +29,9 @@ export const store = configureStore({
     nutrientPlans: nutrientPlansReducer,
     feedingEvents: feedingEventsReducer,
     wateringEvents: wateringEventsReducer,
+    ipm: ipmReducer,
+    harvest: harvestReducer,
+    tasks: tasksReducer,
   },
 });
 

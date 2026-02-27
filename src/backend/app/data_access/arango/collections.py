@@ -32,6 +32,26 @@ NUTRIENT_PLAN_PHASE_ENTRIES = "nutrient_plan_phase_entries"
 FEEDING_EVENTS = "feeding_events"
 WATERING_EVENTS = "watering_events"
 
+# REQ-010 IPM
+PESTS = "pests"
+DISEASES = "diseases"
+TREATMENTS = "treatments"
+INSPECTIONS = "inspections"
+TREATMENT_APPLICATIONS = "treatment_applications"
+
+# REQ-007 Harvest
+HARVEST_INDICATORS = "harvest_indicators"
+HARVEST_OBSERVATIONS = "harvest_observations"
+HARVEST_BATCHES = "harvest_batches"
+QUALITY_ASSESSMENTS = "quality_assessments"
+YIELD_METRICS = "yield_metrics"
+
+# REQ-006 Tasks
+WORKFLOW_TEMPLATES = "workflow_templates"
+TASK_TEMPLATES = "task_templates"
+TASKS = "tasks"
+WORKFLOW_EXECUTIONS = "workflow_executions"
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -63,6 +83,20 @@ DOCUMENT_COLLECTIONS = [
     NUTRIENT_PLAN_PHASE_ENTRIES,
     FEEDING_EVENTS,
     WATERING_EVENTS,
+    PESTS,
+    DISEASES,
+    TREATMENTS,
+    INSPECTIONS,
+    TREATMENT_APPLICATIONS,
+    HARVEST_INDICATORS,
+    HARVEST_OBSERVATIONS,
+    HARVEST_BATCHES,
+    QUALITY_ASSESSMENTS,
+    YIELD_METRICS,
+    WORKFLOW_TEMPLATES,
+    TASK_TEMPLATES,
+    TASKS,
+    WORKFLOW_EXECUTIONS,
 ]
 
 # Edge collections
@@ -111,6 +145,35 @@ SHARES_PEST_RISK = "shares_pest_risk"
 FAMILY_COMPATIBLE_WITH = "family_compatible_with"
 FAMILY_INCOMPATIBLE_WITH = "family_incompatible_with"
 
+# REQ-010 IPM edges
+INSPECTED_BY = "inspected_by"
+DETECTED_PEST = "detected_pest"
+DETECTED_DISEASE = "detected_disease"
+APPLIED_TO_PLANT = "applied_to_plant"
+TREATMENT_USES = "treatment_uses"
+TARGETS_PEST = "targets_pest"
+TARGETS_DISEASE = "targets_disease"
+CONTRAINDICATED_WITH = "contraindicated_with"
+VULNERABLE_IN_PHASE = "vulnerable_in_phase"
+
+# REQ-007 Harvest edges
+HAS_HARVEST_INDICATOR = "has_harvest_indicator"
+OBSERVED_FOR_HARVEST = "observed_for_harvest"
+USES_INDICATOR = "uses_indicator"
+HARVESTED_AS = "harvested_as"
+ASSESSED_BY_QUALITY = "assessed_by_quality"
+HAS_YIELD_METRIC = "has_yield_metric"
+
+# REQ-006 Task edges
+WF_CONTAINS = "wf_contains"
+REQUIRES_PHASE = "requires_phase"
+HAS_TASK = "has_task"
+TASK_BLOCKS = "task_blocks"
+INSTANCE_OF = "instance_of"
+WF_EXECUTING = "wf_executing"
+WF_GENERATED = "wf_generated"
+FOLLOWS_WORKFLOW = "follows_workflow"
+
 EDGE_COLLECTIONS = [
     BELONGS_TO_FAMILY,
     HAS_CULTIVAR,
@@ -156,6 +219,29 @@ EDGE_COLLECTIONS = [
     SHARES_PEST_RISK,
     FAMILY_COMPATIBLE_WITH,
     FAMILY_INCOMPATIBLE_WITH,
+    INSPECTED_BY,
+    DETECTED_PEST,
+    DETECTED_DISEASE,
+    APPLIED_TO_PLANT,
+    TREATMENT_USES,
+    TARGETS_PEST,
+    TARGETS_DISEASE,
+    CONTRAINDICATED_WITH,
+    VULNERABLE_IN_PHASE,
+    HAS_HARVEST_INDICATOR,
+    OBSERVED_FOR_HARVEST,
+    USES_INDICATOR,
+    HARVESTED_AS,
+    ASSESSED_BY_QUALITY,
+    HAS_YIELD_METRIC,
+    WF_CONTAINS,
+    REQUIRES_PHASE,
+    HAS_TASK,
+    TASK_BLOCKS,
+    INSTANCE_OF,
+    WF_EXECUTING,
+    WF_GENERATED,
+    FOLLOWS_WORKFLOW,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -381,6 +467,124 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [BOTANICAL_FAMILIES],
         "to_vertex_collections": [BOTANICAL_FAMILIES],
     },
+    # REQ-010 IPM
+    {
+        "edge_collection": INSPECTED_BY,
+        "from_vertex_collections": [PLANT_INSTANCES],
+        "to_vertex_collections": [INSPECTIONS],
+    },
+    {
+        "edge_collection": DETECTED_PEST,
+        "from_vertex_collections": [INSPECTIONS],
+        "to_vertex_collections": [PESTS],
+    },
+    {
+        "edge_collection": DETECTED_DISEASE,
+        "from_vertex_collections": [INSPECTIONS],
+        "to_vertex_collections": [DISEASES],
+    },
+    {
+        "edge_collection": APPLIED_TO_PLANT,
+        "from_vertex_collections": [TREATMENT_APPLICATIONS],
+        "to_vertex_collections": [PLANT_INSTANCES],
+    },
+    {
+        "edge_collection": TREATMENT_USES,
+        "from_vertex_collections": [TREATMENT_APPLICATIONS],
+        "to_vertex_collections": [TREATMENTS],
+    },
+    {
+        "edge_collection": TARGETS_PEST,
+        "from_vertex_collections": [TREATMENTS],
+        "to_vertex_collections": [PESTS],
+    },
+    {
+        "edge_collection": TARGETS_DISEASE,
+        "from_vertex_collections": [TREATMENTS],
+        "to_vertex_collections": [DISEASES],
+    },
+    {
+        "edge_collection": CONTRAINDICATED_WITH,
+        "from_vertex_collections": [TREATMENTS],
+        "to_vertex_collections": [TREATMENTS],
+    },
+    {
+        "edge_collection": VULNERABLE_IN_PHASE,
+        "from_vertex_collections": [GROWTH_PHASES],
+        "to_vertex_collections": [PESTS, DISEASES],
+    },
+    # REQ-007 Harvest
+    {
+        "edge_collection": HAS_HARVEST_INDICATOR,
+        "from_vertex_collections": [SPECIES],
+        "to_vertex_collections": [HARVEST_INDICATORS],
+    },
+    {
+        "edge_collection": OBSERVED_FOR_HARVEST,
+        "from_vertex_collections": [PLANT_INSTANCES],
+        "to_vertex_collections": [HARVEST_OBSERVATIONS],
+    },
+    {
+        "edge_collection": USES_INDICATOR,
+        "from_vertex_collections": [HARVEST_OBSERVATIONS],
+        "to_vertex_collections": [HARVEST_INDICATORS],
+    },
+    {
+        "edge_collection": HARVESTED_AS,
+        "from_vertex_collections": [PLANT_INSTANCES],
+        "to_vertex_collections": [HARVEST_BATCHES],
+    },
+    {
+        "edge_collection": ASSESSED_BY_QUALITY,
+        "from_vertex_collections": [HARVEST_BATCHES],
+        "to_vertex_collections": [QUALITY_ASSESSMENTS],
+    },
+    {
+        "edge_collection": HAS_YIELD_METRIC,
+        "from_vertex_collections": [HARVEST_BATCHES],
+        "to_vertex_collections": [YIELD_METRICS],
+    },
+    # REQ-006 Tasks
+    {
+        "edge_collection": WF_CONTAINS,
+        "from_vertex_collections": [WORKFLOW_TEMPLATES],
+        "to_vertex_collections": [TASK_TEMPLATES],
+    },
+    {
+        "edge_collection": REQUIRES_PHASE,
+        "from_vertex_collections": [TASK_TEMPLATES],
+        "to_vertex_collections": [GROWTH_PHASES],
+    },
+    {
+        "edge_collection": HAS_TASK,
+        "from_vertex_collections": [PLANT_INSTANCES],
+        "to_vertex_collections": [TASKS],
+    },
+    {
+        "edge_collection": TASK_BLOCKS,
+        "from_vertex_collections": [TASKS],
+        "to_vertex_collections": [TASKS],
+    },
+    {
+        "edge_collection": INSTANCE_OF,
+        "from_vertex_collections": [TASKS],
+        "to_vertex_collections": [TASK_TEMPLATES],
+    },
+    {
+        "edge_collection": WF_EXECUTING,
+        "from_vertex_collections": [PLANT_INSTANCES],
+        "to_vertex_collections": [WORKFLOW_EXECUTIONS],
+    },
+    {
+        "edge_collection": WF_GENERATED,
+        "from_vertex_collections": [WORKFLOW_EXECUTIONS],
+        "to_vertex_collections": [TASKS],
+    },
+    {
+        "edge_collection": FOLLOWS_WORKFLOW,
+        "from_vertex_collections": [PLANT_INSTANCES],
+        "to_vertex_collections": [WORKFLOW_TEMPLATES],
+    },
 ]
 
 
@@ -434,6 +638,39 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     watering_events_col = db.collection(WATERING_EVENTS)
     watering_events_col.add_hash_index(fields=["watered_at"], unique=False)
+
+    # REQ-010 IPM indexes
+    pests_col = db.collection(PESTS)
+    pests_col.add_hash_index(fields=["scientific_name"], unique=True)
+
+    diseases_col = db.collection(DISEASES)
+    diseases_col.add_hash_index(fields=["scientific_name"], unique=True)
+
+    treatments_col = db.collection(TREATMENTS)
+    treatments_col.add_hash_index(fields=["name"], unique=True)
+
+    inspections_col = db.collection(INSPECTIONS)
+    inspections_col.add_hash_index(fields=["plant_key"], unique=False)
+
+    treatment_apps_col = db.collection(TREATMENT_APPLICATIONS)
+    treatment_apps_col.add_hash_index(fields=["plant_key"], unique=False)
+    treatment_apps_col.add_hash_index(fields=["treatment_key"], unique=False)
+
+    # REQ-007 Harvest indexes
+    harvest_obs_col = db.collection(HARVEST_OBSERVATIONS)
+    harvest_obs_col.add_hash_index(fields=["plant_key"], unique=False)
+
+    harvest_batches_col = db.collection(HARVEST_BATCHES)
+    harvest_batches_col.add_hash_index(fields=["plant_key"], unique=False)
+    harvest_batches_col.add_hash_index(fields=["batch_id"], unique=True)
+
+    # REQ-006 Task indexes
+    tasks_col = db.collection(TASKS)
+    tasks_col.add_hash_index(fields=["plant_key"], unique=False)
+    tasks_col.add_hash_index(fields=["status"], unique=False)
+
+    wf_templates_col = db.collection(WORKFLOW_TEMPLATES)
+    wf_templates_col.add_hash_index(fields=["name"], unique=True)
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):

@@ -1322,3 +1322,504 @@ export interface PlanValidationResult {
   }>;
   valid: boolean;
 }
+
+// ── REQ-010 IPM types ─────────────────────────────────────────────────
+
+export type PestType = 'insect' | 'mite' | 'nematode' | 'mollusk';
+export type PathogenType = 'fungal' | 'bacterial' | 'viral' | 'physiological';
+export type TreatmentType = 'cultural' | 'biological' | 'chemical' | 'mechanical';
+export type IpmApplicationMethod = 'spray' | 'drench' | 'granular' | 'release' | 'cultural';
+export type DetectionDifficulty = 'easy' | 'medium' | 'hard';
+export type PressureLevel = 'none' | 'low' | 'medium' | 'high' | 'critical';
+
+export interface Pest {
+  key: string;
+  scientific_name: string;
+  common_name: string;
+  pest_type: string;
+  lifecycle_days: number | null;
+  optimal_temp_min: number | null;
+  optimal_temp_max: number | null;
+  detection_difficulty: string;
+  description: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface PestCreate {
+  scientific_name: string;
+  common_name: string;
+  pest_type?: string;
+  lifecycle_days?: number | null;
+  optimal_temp_min?: number | null;
+  optimal_temp_max?: number | null;
+  detection_difficulty?: string;
+  description?: string | null;
+}
+
+export interface PestUpdate {
+  scientific_name?: string;
+  common_name?: string;
+  pest_type?: string;
+  lifecycle_days?: number | null;
+  optimal_temp_min?: number | null;
+  optimal_temp_max?: number | null;
+  detection_difficulty?: string;
+  description?: string | null;
+}
+
+export interface Disease {
+  key: string;
+  scientific_name: string;
+  common_name: string;
+  pathogen_type: string;
+  incubation_period_days: number | null;
+  environmental_triggers: string[];
+  affected_plant_parts: string[];
+  description: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface DiseaseCreate {
+  scientific_name: string;
+  common_name: string;
+  pathogen_type: string;
+  incubation_period_days?: number | null;
+  environmental_triggers?: string[];
+  affected_plant_parts?: string[];
+  description?: string | null;
+}
+
+export interface DiseaseUpdate {
+  scientific_name?: string;
+  common_name?: string;
+  pathogen_type?: string;
+  incubation_period_days?: number | null;
+  environmental_triggers?: string[];
+  affected_plant_parts?: string[];
+  description?: string | null;
+}
+
+export interface Treatment {
+  key: string;
+  name: string;
+  treatment_type: string;
+  active_ingredient: string | null;
+  application_method: string;
+  safety_interval_days: number;
+  dosage_per_liter: number | null;
+  protective_equipment: string[];
+  description: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface TreatmentCreate {
+  name: string;
+  treatment_type: string;
+  active_ingredient?: string | null;
+  application_method?: string;
+  safety_interval_days?: number;
+  dosage_per_liter?: number | null;
+  protective_equipment?: string[];
+  description?: string | null;
+}
+
+export interface TreatmentUpdate {
+  name?: string;
+  treatment_type?: string;
+  active_ingredient?: string | null;
+  application_method?: string;
+  safety_interval_days?: number;
+  dosage_per_liter?: number | null;
+  protective_equipment?: string[];
+  description?: string | null;
+}
+
+export interface Inspection {
+  key: string;
+  plant_key: string;
+  inspector: string;
+  inspected_at: string | null;
+  pressure_level: string;
+  detected_pest_keys: string[];
+  detected_disease_keys: string[];
+  symptoms_observed: string[];
+  environmental_conditions: Record<string, number> | null;
+  photo_refs: string[];
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface InspectionCreate {
+  inspector?: string;
+  pressure_level?: string;
+  detected_pest_keys?: string[];
+  detected_disease_keys?: string[];
+  symptoms_observed?: string[];
+  environmental_conditions?: Record<string, number> | null;
+  photo_refs?: string[];
+  notes?: string | null;
+}
+
+export interface TreatmentApplication {
+  key: string;
+  treatment_key: string;
+  plant_key: string;
+  applied_at: string | null;
+  dosage: number | null;
+  water_volume_liters: number | null;
+  efficacy_rating: string | null;
+  applied_by: string;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface TreatmentApplicationCreate {
+  treatment_key: string;
+  dosage?: number | null;
+  water_volume_liters?: number | null;
+  efficacy_rating?: string | null;
+  applied_by?: string;
+  notes?: string | null;
+}
+
+export interface KarenzPeriod {
+  active_ingredient: string | null;
+  treatment_name: string | null;
+  applied_at: string | null;
+  safety_interval_days: number | null;
+  safe_date: string | null;
+}
+
+export interface HarvestSafety {
+  can_harvest: boolean;
+  blocking_treatments: Array<Record<string, unknown>>;
+}
+
+// ── REQ-007 Harvest enums ─────────────────────────────────────────────
+
+export type HarvestType = 'partial' | 'final' | 'continuous';
+export type QualityGrade = 'a_plus' | 'a' | 'b' | 'c' | 'd';
+export type HarvestIndicatorType =
+  | 'trichome'
+  | 'color'
+  | 'brix'
+  | 'size'
+  | 'days_since_flowering'
+  | 'aroma'
+  | 'texture'
+  | 'foliage';
+export type RipenessStage = 'immature' | 'approaching' | 'peak' | 'overripe';
+
+// ── REQ-007 Harvest types ─────────────────────────────────────────────
+
+export interface HarvestIndicator {
+  key: string;
+  indicator_type: HarvestIndicatorType;
+  measurement_unit: string;
+  measurement_method: string;
+  observation_frequency: string;
+  reliability_score: number;
+  species_key: string | null;
+  description: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface HarvestIndicatorCreate {
+  indicator_type: HarvestIndicatorType;
+  measurement_unit?: string;
+  measurement_method?: string;
+  observation_frequency?: string;
+  reliability_score?: number;
+  species_key?: string | null;
+  description?: string | null;
+}
+
+export interface HarvestObservation {
+  key: string;
+  plant_key: string;
+  observed_at: string | null;
+  observer: string;
+  indicator_key: string;
+  measurements: Record<string, unknown>;
+  ripeness_assessment: RipenessStage;
+  days_to_harvest_estimate: number | null;
+  photo_refs: string[];
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface HarvestObservationCreate {
+  indicator_key?: string;
+  observer?: string;
+  measurements?: Record<string, unknown>;
+  ripeness_assessment?: RipenessStage;
+  days_to_harvest_estimate?: number | null;
+  photo_refs?: string[];
+  notes?: string | null;
+}
+
+export interface HarvestBatch {
+  key: string;
+  batch_id: string;
+  plant_key: string;
+  harvest_date: string | null;
+  harvest_type: HarvestType;
+  wet_weight_g: number | null;
+  estimated_dry_weight_g: number | null;
+  actual_dry_weight_g: number | null;
+  quality_grade: QualityGrade | null;
+  harvester: string;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface HarvestBatchCreate {
+  batch_id?: string;
+  harvest_type?: HarvestType;
+  wet_weight_g?: number | null;
+  estimated_dry_weight_g?: number | null;
+  harvester?: string;
+  notes?: string | null;
+}
+
+export interface HarvestBatchUpdate {
+  harvest_type?: HarvestType;
+  wet_weight_g?: number | null;
+  estimated_dry_weight_g?: number | null;
+  actual_dry_weight_g?: number | null;
+  quality_grade?: QualityGrade | null;
+  harvester?: string;
+  notes?: string | null;
+}
+
+export interface QualityAssessment {
+  key: string;
+  batch_key: string;
+  assessed_at: string | null;
+  assessed_by: string;
+  appearance_score: number;
+  aroma_score: number;
+  color_score: number;
+  defects: string[];
+  overall_score: number;
+  grade: QualityGrade | null;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface QualityAssessmentCreate {
+  assessed_by?: string;
+  appearance_score?: number;
+  aroma_score?: number;
+  color_score?: number;
+  defects?: string[];
+  notes?: string | null;
+}
+
+export interface YieldMetric {
+  key: string;
+  batch_key: string;
+  yield_per_plant_g: number;
+  yield_per_m2_g: number;
+  total_yield_g: number;
+  trim_waste_percent: number;
+  usable_yield_g: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface YieldMetricCreate {
+  yield_per_plant_g?: number;
+  yield_per_m2_g?: number;
+  total_yield_g?: number;
+  trim_waste_percent?: number;
+  usable_yield_g?: number;
+}
+
+export interface ReadinessIndicatorBreakdown {
+  indicator_key: string;
+  stage: string;
+  score: number;
+  reliability: number;
+  weighted_contribution: number;
+}
+
+export interface ReadinessAssessment {
+  overall_score: number;
+  recommendation: string;
+  estimated_days: number | null;
+  indicators: ReadinessIndicatorBreakdown[];
+}
+
+export interface YieldStats {
+  species_key: string;
+  total_batches: number;
+  avg_yield_per_plant_g: number;
+  avg_yield_per_m2_g: number;
+  total_yield_g: number;
+  avg_trim_waste_percent: number;
+}
+
+// ── REQ-006 Task & Workflow types ─────────────────────────────────────
+
+export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'skipped' | 'cancelled';
+export type TaskPriority = 'low' | 'medium' | 'high' | 'critical';
+export type TaskCategory =
+  | 'maintenance'
+  | 'watering'
+  | 'feeding'
+  | 'training'
+  | 'pest_control'
+  | 'harvest'
+  | 'pruning'
+  | 'transplant'
+  | 'monitoring'
+  | 'cleaning';
+export type TriggerType = 'manual' | 'time_based' | 'event_based' | 'conditional';
+export type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
+export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
+
+export interface WorkflowTemplate {
+  key: string;
+  name: string;
+  description: string | null;
+  created_by: string;
+  version: string;
+  species_compatible: string[];
+  growth_system: string | null;
+  difficulty_level: string;
+  category: string;
+  tags: string[];
+  is_system: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface WorkflowTemplateCreate {
+  name: string;
+  description?: string | null;
+  created_by?: string;
+  version?: string;
+  species_compatible?: string[];
+  growth_system?: string | null;
+  difficulty_level?: string;
+  category?: string;
+  tags?: string[];
+  is_system?: boolean;
+}
+
+export interface TaskTemplate {
+  key: string;
+  name: string;
+  instruction: string;
+  category: string;
+  trigger_type: string;
+  trigger_phase: string | null;
+  days_offset: number;
+  stress_level: string;
+  estimated_duration_minutes: number | null;
+  requires_photo: boolean;
+  tools_required: string[];
+  skill_level: string;
+  optimal_time_of_day: string | null;
+  workflow_template_key: string | null;
+  sequence_order: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface TaskTemplateCreate {
+  name: string;
+  instruction?: string;
+  category?: string;
+  trigger_type?: string;
+  trigger_phase?: string | null;
+  days_offset?: number;
+  stress_level?: string;
+  estimated_duration_minutes?: number | null;
+  requires_photo?: boolean;
+  tools_required?: string[];
+  skill_level?: string;
+  optimal_time_of_day?: string | null;
+  workflow_template_key?: string | null;
+  sequence_order?: number;
+}
+
+export interface TaskItem {
+  key: string;
+  name: string;
+  instruction: string;
+  category: string;
+  plant_key: string | null;
+  due_date: string | null;
+  status: string;
+  priority: string;
+  estimated_duration_minutes: number | null;
+  actual_duration_minutes: number | null;
+  requires_photo: boolean;
+  photo_refs: string[];
+  completion_notes: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  template_key: string | null;
+  workflow_execution_key: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface TaskItemCreate {
+  name: string;
+  instruction?: string;
+  category?: string;
+  plant_key?: string | null;
+  due_date?: string | null;
+  priority?: string;
+  estimated_duration_minutes?: number | null;
+  requires_photo?: boolean;
+}
+
+export interface TaskItemUpdate {
+  name?: string;
+  instruction?: string;
+  category?: string;
+  due_date?: string | null;
+  priority?: string;
+  estimated_duration_minutes?: number | null;
+  requires_photo?: boolean;
+}
+
+export interface TaskCompleteRequest {
+  completion_notes?: string | null;
+  actual_duration_minutes?: number | null;
+}
+
+export interface WorkflowExecution {
+  key: string;
+  workflow_template_key: string;
+  plant_key: string;
+  started_at: string | null;
+  completed_at: string | null;
+  completion_percentage: number;
+  on_schedule: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface WorkflowInstantiateRequest {
+  plant_key: string;
+}
+
+export interface HSTValidationResult {
+  can_perform: boolean;
+  reason: string;
+  recovery_status: string;
+}

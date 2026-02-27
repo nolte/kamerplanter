@@ -25,6 +25,12 @@ import ListAltIcon from '@mui/icons-material/ListAlt';
 import BiotechIcon from '@mui/icons-material/Biotech';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import WaterIcon from '@mui/icons-material/Water';
+import BugReportIcon from '@mui/icons-material/BugReport';
+import CoronavirusIcon from '@mui/icons-material/Coronavirus';
+import MedicationIcon from '@mui/icons-material/Medication';
+import AgricultureIcon from '@mui/icons-material/Agriculture';
+import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import { sidebarWidth } from '@/theme/tokens';
 
 interface SidebarProps {
@@ -121,6 +127,51 @@ export default function Sidebar({ open }: SidebarProps) {
           label: t('nav.nutrientCalculations'),
           path: '/duengung/calculations',
           icon: <BiotechIcon />,
+        },
+      ],
+    },
+    {
+      header: t('nav.pflanzenschutz'),
+      items: [
+        {
+          label: t('nav.pests'),
+          path: '/pflanzenschutz/pests',
+          icon: <BugReportIcon />,
+        },
+        {
+          label: t('nav.diseases'),
+          path: '/pflanzenschutz/diseases',
+          icon: <CoronavirusIcon />,
+        },
+        {
+          label: t('nav.treatments'),
+          path: '/pflanzenschutz/treatments',
+          icon: <MedicationIcon />,
+        },
+      ],
+    },
+    {
+      header: t('nav.ernte'),
+      items: [
+        {
+          label: t('nav.harvestBatches'),
+          path: '/ernte/batches',
+          icon: <AgricultureIcon />,
+        },
+      ],
+    },
+    {
+      header: t('nav.aufgaben'),
+      items: [
+        {
+          label: t('nav.taskQueue'),
+          path: '/aufgaben/queue',
+          icon: <TaskAltIcon />,
+        },
+        {
+          label: t('nav.workflows'),
+          path: '/aufgaben/workflows',
+          icon: <AccountTreeIcon />,
         },
       ],
     },

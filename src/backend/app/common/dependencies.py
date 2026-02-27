@@ -1,4 +1,3 @@
-
 from arango.database import StandardDatabase
 
 from app.config.settings import settings
@@ -12,6 +11,8 @@ from app.data_access.arango.enrichment_repository import (
 from app.data_access.arango.feeding_repository import ArangoFeedingRepository
 from app.data_access.arango.fertilizer_repository import ArangoFertilizerRepository
 from app.data_access.arango.graph_repository import ArangoGraphRepository
+from app.data_access.arango.harvest_repository import ArangoHarvestRepository
+from app.data_access.arango.ipm_repository import ArangoIpmRepository
 from app.data_access.arango.lifecycle_repository import ArangoLifecycleRepository
 from app.data_access.arango.nutrient_plan_repository import ArangoNutrientPlanRepository
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
@@ -20,17 +21,27 @@ from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.species_repository import ArangoSpeciesRepository
 from app.data_access.arango.substrate_repository import ArangoSubstrateRepository
 from app.data_access.arango.tank_repository import ArangoTankRepository
+from app.data_access.arango.task_repository import ArangoTaskRepository
 from app.data_access.arango.watering_repository import ArangoWateringRepository
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
+from app.domain.engines.dependency_resolver import DependencyResolver
 from app.domain.engines.enrichment_engine import EnrichmentEngine
+from app.domain.engines.hst_validator import HSTValidator
+from app.domain.engines.inspection_scheduler import InspectionScheduler
 from app.domain.engines.nutrient_plan_engine import NutrientPlanValidator
 from app.domain.engines.planting_run_engine import PlantingRunEngine
+from app.domain.engines.quality_scoring_engine import QualityScoringEngine
+from app.domain.engines.readiness_engine import ReadinessEngine
+from app.domain.engines.resistance_engine import ResistanceManager
+from app.domain.engines.safety_interval_engine import SafetyIntervalValidator
 from app.domain.engines.tank_engine import TankEngine
 from app.domain.engines.watering_engine import WateringEngine
 from app.domain.services.enrichment_service import EnrichmentService
 from app.domain.services.feeding_service import FeedingService
 from app.domain.services.fertilizer_service import FertilizerService
+from app.domain.services.harvest_service import HarvestService
+from app.domain.services.ipm_service import IpmService
 from app.domain.services.nutrient_plan_service import NutrientPlanService
 from app.domain.services.phase_service import PhaseService
 from app.domain.services.plant_instance_service import PlantInstanceService
@@ -39,6 +50,7 @@ from app.domain.services.site_service import SiteService
 from app.domain.services.species_service import SpeciesService
 from app.domain.services.substrate_service import SubstrateService
 from app.domain.services.tank_service import TankService
+from app.domain.services.task_service import TaskService
 from app.domain.services.watering_service import WateringService
 
 _connection: ArangoConnection | None = None
@@ -175,6 +187,44 @@ def get_watering_repo() -> ArangoWateringRepository:
 
 def get_watering_service() -> WateringService:
     return WateringService(get_watering_repo(), WateringEngine(), get_site_repo())
+
+
+def get_ipm_repo() -> ArangoIpmRepository:
+    return ArangoIpmRepository(get_db())
+
+
+def get_ipm_service() -> IpmService:
+    return IpmService(
+        get_ipm_repo(),
+        SafetyIntervalValidator(),
+        ResistanceManager(),
+        InspectionScheduler(),
+    )
+
+
+def get_harvest_repo() -> ArangoHarvestRepository:
+    return ArangoHarvestRepository(get_db())
+
+
+def get_harvest_service() -> HarvestService:
+    return HarvestService(
+        get_harvest_repo(),
+        get_ipm_service(),
+        ReadinessEngine(),
+        QualityScoringEngine(),
+    )
+
+
+def get_task_repo() -> ArangoTaskRepository:
+    return ArangoTaskRepository(get_db())
+
+
+def get_task_service() -> TaskService:
+    return TaskService(
+        get_task_repo(),
+        HSTValidator(),
+        DependencyResolver(),
+    )
 
 
 def close_connection() -> None:

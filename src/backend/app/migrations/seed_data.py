@@ -2,7 +2,15 @@
 
 import structlog
 
-from app.common.dependencies import get_family_repo, get_graph_repo, get_lifecycle_repo, get_species_repo
+from app.common.dependencies import (
+    get_family_repo,
+    get_graph_repo,
+    get_harvest_repo,
+    get_ipm_repo,
+    get_lifecycle_repo,
+    get_species_repo,
+    get_task_repo,
+)
 from app.common.enums import (
     CycleType,
     FrostTolerance,
@@ -542,6 +550,217 @@ DEFAULT_PHASES = [
     ("ripening", "Ripening", 14, 3, False, True, StressTolerance.HIGH),
 ]
 
+# ── REQ-010 IPM Seed Data ───────────────────────────────────────────
+from app.domain.models.ipm import Disease, Pest, Treatment  # noqa: E402
+
+IPM_PESTS = [
+    Pest(scientific_name="Tetranychus urticae", common_name="Spider Mites", pest_type="arachnid",
+         lifecycle_days=21, optimal_temp_min=25.0, optimal_temp_max=30.0, detection_difficulty="medium"),
+    Pest(scientific_name="Aphis gossypii", common_name="Aphids", pest_type="insect",
+         lifecycle_days=14, optimal_temp_min=20.0, optimal_temp_max=25.0, detection_difficulty="easy"),
+    Pest(scientific_name="Frankliniella occidentalis", common_name="Thrips", pest_type="insect",
+         lifecycle_days=18, optimal_temp_min=20.0, optimal_temp_max=28.0, detection_difficulty="hard"),
+    Pest(scientific_name="Bradysia spp.", common_name="Fungus Gnats", pest_type="insect",
+         lifecycle_days=28, optimal_temp_min=20.0, optimal_temp_max=25.0, detection_difficulty="easy"),
+    Pest(scientific_name="Trialeurodes vaporariorum", common_name="Whitefly", pest_type="insect",
+         lifecycle_days=30, optimal_temp_min=22.0, optimal_temp_max=28.0, detection_difficulty="easy"),
+    Pest(scientific_name="Trichoplusia ni", common_name="Caterpillar", pest_type="insect",
+         lifecycle_days=35, optimal_temp_min=20.0, optimal_temp_max=28.0, detection_difficulty="medium"),
+    Pest(scientific_name="Pseudococcus longispinus", common_name="Mealybug", pest_type="insect",
+         lifecycle_days=40, optimal_temp_min=22.0, optimal_temp_max=30.0, detection_difficulty="medium"),
+    Pest(scientific_name="Phyllotreta spp.", common_name="Flea Beetle", pest_type="insect",
+         lifecycle_days=45, optimal_temp_min=20.0, optimal_temp_max=27.0, detection_difficulty="easy"),
+    Pest(scientific_name="Arion vulgaris", common_name="Slug", pest_type="gastropod",
+         lifecycle_days=365, optimal_temp_min=10.0, optimal_temp_max=20.0, detection_difficulty="easy"),
+    Pest(scientific_name="Meloidogyne spp.", common_name="Nematode", pest_type="nematode",
+         lifecycle_days=30, optimal_temp_min=20.0, optimal_temp_max=30.0, detection_difficulty="hard"),
+]
+
+IPM_DISEASES = [
+    Disease(scientific_name="Erysiphe spp.", common_name="Powdery Mildew", pathogen_type="fungal",
+            incubation_period_days=5, environmental_triggers=["high_humidity", "poor_ventilation"],
+            affected_plant_parts=["leaf", "stem"]),
+    Disease(scientific_name="Botrytis cinerea", common_name="Botrytis (Grey Mold)", pathogen_type="fungal",
+            incubation_period_days=3, environmental_triggers=["high_humidity", "low_temperature"],
+            affected_plant_parts=["flower", "fruit", "leaf"]),
+    Disease(scientific_name="Fusarium oxysporum", common_name="Fusarium Wilt", pathogen_type="fungal",
+            incubation_period_days=14, environmental_triggers=["warm_soil", "overwatering"],
+            affected_plant_parts=["root", "stem"]),
+    Disease(scientific_name="Peronospora spp.", common_name="Downy Mildew", pathogen_type="fungal",
+            incubation_period_days=7, environmental_triggers=["cool_wet", "poor_ventilation"],
+            affected_plant_parts=["leaf"]),
+    Disease(scientific_name="Pythium spp.", common_name="Root Rot", pathogen_type="fungal",
+            incubation_period_days=5, environmental_triggers=["overwatering", "poor_drainage"],
+            affected_plant_parts=["root"]),
+    Disease(scientific_name="Xanthomonas campestris", common_name="Bacterial Spot", pathogen_type="bacterial",
+            incubation_period_days=5, environmental_triggers=["high_humidity", "warm_temperature"],
+            affected_plant_parts=["leaf", "fruit"]),
+    Disease(scientific_name="Tobacco mosaic virus", common_name="Tobacco Mosaic Virus", pathogen_type="viral",
+            incubation_period_days=14, environmental_triggers=["mechanical_transmission"],
+            affected_plant_parts=["leaf", "stem"]),
+    Disease(scientific_name="Phytophthora infestans", common_name="Late Blight", pathogen_type="fungal",
+            incubation_period_days=7, environmental_triggers=["cool_wet", "prolonged_moisture"],
+            affected_plant_parts=["leaf", "stem", "fruit"]),
+]
+
+IPM_TREATMENTS = [
+    # Cultural (4)
+    Treatment(name="Crop Rotation", treatment_type="cultural", application_method="cultural",
+              description="Rotate plant families to break pest/disease cycles"),
+    Treatment(name="Sanitation", treatment_type="cultural", application_method="cultural",
+              description="Remove dead plant material and debris"),
+    Treatment(name="Resistant Varieties", treatment_type="cultural", application_method="cultural",
+              description="Use disease-resistant cultivars"),
+    Treatment(name="Environmental Control", treatment_type="cultural", application_method="cultural",
+              description="Adjust temperature, humidity, and ventilation"),
+    # Biological (3)
+    Treatment(name="Phytoseiulus persimilis", treatment_type="biological", application_method="release",
+              description="Predatory mite for spider mite control"),
+    Treatment(name="Encarsia formosa", treatment_type="biological", application_method="release",
+              description="Parasitic wasp for whitefly control"),
+    Treatment(name="Bacillus thuringiensis (Bt)", treatment_type="biological", application_method="spray",
+              description="Biological insecticide for caterpillar control"),
+    # Mechanical (2)
+    Treatment(name="Sticky Traps", treatment_type="mechanical", application_method="cultural",
+              description="Yellow/blue sticky traps for flying insects"),
+    Treatment(name="Hand Removal", treatment_type="mechanical", application_method="cultural",
+              description="Manual removal of pests"),
+    # Chemical (3)
+    Treatment(name="Pyrethrin", treatment_type="chemical", active_ingredient="pyrethrin",
+              application_method="spray", safety_interval_days=7, dosage_per_liter=1.0,
+              protective_equipment=["gloves", "mask"]),
+    Treatment(name="Neem Oil", treatment_type="chemical", active_ingredient="azadirachtin",
+              application_method="spray", safety_interval_days=3, dosage_per_liter=5.0,
+              protective_equipment=["gloves"]),
+    Treatment(name="Spinosad", treatment_type="chemical", active_ingredient="spinosad",
+              application_method="spray", safety_interval_days=14, dosage_per_liter=0.5,
+              protective_equipment=["gloves", "mask", "goggles"]),
+]
+
+# Treatment → Pest targeting (treatment_name, pest_common_name)
+IPM_TARGETS_PEST = [
+    ("Phytoseiulus persimilis", "Spider Mites"),
+    ("Pyrethrin", "Spider Mites"),
+    ("Neem Oil", "Spider Mites"),
+    ("Neem Oil", "Aphids"),
+    ("Pyrethrin", "Aphids"),
+    ("Sticky Traps", "Thrips"),
+    ("Spinosad", "Thrips"),
+    ("Sticky Traps", "Fungus Gnats"),
+    ("Encarsia formosa", "Whitefly"),
+    ("Sticky Traps", "Whitefly"),
+    ("Bacillus thuringiensis (Bt)", "Caterpillar"),
+    ("Neem Oil", "Mealybug"),
+    ("Hand Removal", "Slug"),
+]
+
+# Treatment → Disease targeting (treatment_name, disease_common_name)
+IPM_TARGETS_DISEASE = [
+    ("Environmental Control", "Powdery Mildew"),
+    ("Environmental Control", "Botrytis (Grey Mold)"),
+    ("Environmental Control", "Downy Mildew"),
+    ("Sanitation", "Botrytis (Grey Mold)"),
+    ("Sanitation", "Fusarium Wilt"),
+    ("Resistant Varieties", "Fusarium Wilt"),
+    ("Resistant Varieties", "Tobacco Mosaic Virus"),
+    ("Crop Rotation", "Late Blight"),
+]
+
+# Contraindicated pairs (treatment_a, treatment_b)
+IPM_CONTRAINDICATED = [
+    ("Phytoseiulus persimilis", "Pyrethrin"),
+    ("Encarsia formosa", "Pyrethrin"),
+    ("Phytoseiulus persimilis", "Spinosad"),
+]
+
+# ── REQ-007 Harvest Seed Data ───────────────────────────────────────
+from app.domain.models.harvest import HarvestIndicator  # noqa: E402
+
+# (indicator_type, measurement_unit, measurement_method, observation_frequency, reliability_score, species_group)
+HARVEST_INDICATORS = [
+    # Cannabis
+    ("trichome", "percentage_milky", "magnification_60x", "daily", 0.9, "Cannabis sativa"),
+    ("color", "pistil_brown_percent", "visual", "daily", 0.7, "Cannabis sativa"),
+    ("aroma", "terpene_intensity", "olfactory", "daily", 0.5, "Cannabis sativa"),
+    # Solanaceae
+    ("color", "color_change_percent", "visual", "daily", 0.85, "Solanum lycopersicum"),
+    ("brix", "brix_degrees", "refractometer", "weekly", 0.8, "Solanum lycopersicum"),
+    ("size", "diameter_cm", "caliper", "weekly", 0.7, "Solanum lycopersicum"),
+    ("texture", "firmness_kg", "penetrometer", "weekly", 0.6, "Solanum lycopersicum"),
+    # Brassicaceae
+    ("size", "head_diameter_cm", "caliper", "weekly", 0.8, "Brassica oleracea var. italica"),
+    ("texture", "compactness_score", "manual", "weekly", 0.75, "Brassica oleracea var. italica"),
+    ("days_since_flowering", "days", "calendar", "daily", 0.7, "Brassica oleracea var. italica"),
+    # Asteraceae
+    ("texture", "leaf_crispness", "manual", "daily", 0.8, "Lactuca sativa"),
+    ("size", "head_weight_g", "scale", "weekly", 0.75, "Lactuca sativa"),
+    ("color", "green_intensity", "visual", "daily", 0.6, "Lactuca sativa"),
+]
+
+# ── REQ-006 Task Seed Data ──────────────────────────────────────────
+from app.domain.models.task import TaskTemplate, WorkflowTemplate  # noqa: E402
+
+WORKFLOW_TEMPLATES = [
+    WorkflowTemplate(
+        name="Cannabis SOG", description="Sea of Green workflow for cannabis",
+        created_by="system", version="1.0", species_compatible=["Cannabis sativa"],
+        growth_system="indoor", difficulty_level="intermediate", category="harvest",
+        tags=["cannabis", "sog", "indoor"], is_system=True,
+    ),
+    WorkflowTemplate(
+        name="Tomato Standard", description="Standard tomato growing workflow",
+        created_by="system", version="1.0", species_compatible=["Solanum lycopersicum"],
+        growth_system="greenhouse", difficulty_level="beginner", category="maintenance",
+        tags=["tomato", "standard"], is_system=True,
+    ),
+    WorkflowTemplate(
+        name="General Maintenance", description="General recurring maintenance tasks",
+        created_by="system", version="1.0", species_compatible=[],
+        difficulty_level="beginner", category="maintenance",
+        tags=["general", "maintenance"], is_system=True,
+    ),
+]
+
+# (name, instruction, category, trigger_type, trigger_phase, days_offset, stress_level,
+#  duration_min, requires_photo, skill_level, workflow_name, sequence_order)
+TASK_TEMPLATES = [
+    # Cannabis SOG
+    ("Transplant to SOG", "Transplant rooted clones to SOG positions", "transplant",
+     "days_after_planting", "vegetative", 14, "medium", 30, False, "beginner", "Cannabis SOG", 0),
+    ("Defoliation", "Remove large fan leaves to improve light penetration", "pruning",
+     "days_after_planting", "vegetative", 18, "high", 45, True, "intermediate", "Cannabis SOG", 1),
+    ("Flip to 12/12", "Switch lighting to 12/12 to initiate flowering", "maintenance",
+     "days_after_planting", "vegetative", 21, "none", 15, False, "beginner", "Cannabis SOG", 2),
+    ("Lollipopping", "Remove lower growth for upper canopy focus", "pruning",
+     "days_after_planting", "flowering", 35, "high", 60, True, "advanced", "Cannabis SOG", 3),
+    ("Flushing", "Begin plain water flushing before harvest", "feeding",
+     "days_after_planting", "flowering", 56, "none", 20, False, "beginner", "Cannabis SOG", 4),
+    ("Harvest", "Harvest mature plants", "harvest",
+     "days_after_planting", "flowering", 70, "none", 120, True, "intermediate", "Cannabis SOG", 5),
+    # Tomato Standard
+    ("Transplant Seedlings", "Move seedlings to final containers", "transplant",
+     "phase_entry", "vegetative", 0, "medium", 30, False, "beginner", "Tomato Standard", 0),
+    ("Install Stakes", "Set up stakes or cages for support", "maintenance",
+     "days_after_phase", "vegetative", 7, "none", 20, False, "beginner", "Tomato Standard", 1),
+    ("Prune Suckers", "Remove side shoots to maintain single stem", "pruning",
+     "days_after_phase", "vegetative", 14, "medium", 30, True, "intermediate", "Tomato Standard", 2),
+    ("Weekly Feeding", "Apply balanced fertilizer per nutrient plan", "feeding",
+     "manual", None, 0, "none", 15, False, "beginner", "Tomato Standard", 3),
+    ("Fruit Observation", "Check fruit development and ripeness indicators", "observation",
+     "phase_entry", "flowering", 0, "none", 15, True, "beginner", "Tomato Standard", 4),
+    ("Harvest Ripe Fruit", "Pick ripe tomatoes as they reach maturity", "harvest",
+     "manual", None, 0, "none", 30, True, "beginner", "Tomato Standard", 5),
+    # General Maintenance
+    ("Weekly Inspection", "Perform general plant health inspection", "observation",
+     "manual", None, 0, "none", 30, True, "beginner", "General Maintenance", 0),
+    ("Monthly Feeding Review", "Review and adjust feeding schedule", "feeding",
+     "manual", None, 0, "none", 20, False, "intermediate", "General Maintenance", 1),
+    ("Substrate Check", "Check substrate pH, EC and moisture levels", "maintenance",
+     "manual", None, 0, "none", 15, False, "beginner", "General Maintenance", 2),
+    ("Equipment Maintenance", "Clean and check growing equipment", "maintenance",
+     "manual", None, 0, "none", 45, False, "beginner", "General Maintenance", 3),
+]
+
 
 def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
     family_repo = get_family_repo()
@@ -762,6 +981,126 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
                 logger.info("companion_incompatible_created", a=a_sci, b=b_sci)
             except Exception:
                 logger.info("companion_incompatible_exists", a=a_sci, b=b_sci)
+
+    # ── Seed IPM data (REQ-010) ─────────────────────────────────────
+    ipm_repo = get_ipm_repo()
+    pest_key_map: dict[str, str] = {}
+    for pest in IPM_PESTS:
+        existing_pests, _ = ipm_repo.get_all_pests(0, 200)
+        if any(p.scientific_name == pest.scientific_name for p in existing_pests):
+            for p in existing_pests:
+                if p.scientific_name == pest.scientific_name:
+                    pest_key_map[pest.common_name] = p.key or ""
+            logger.info("pest_exists", name=pest.common_name)
+            continue
+        created = ipm_repo.create_pest(pest)
+        pest_key_map[pest.common_name] = created.key or ""
+        logger.info("pest_created", name=pest.common_name)
+
+    disease_key_map: dict[str, str] = {}
+    for disease in IPM_DISEASES:
+        existing_diseases, _ = ipm_repo.get_all_diseases(0, 200)
+        if any(d.scientific_name == disease.scientific_name for d in existing_diseases):
+            for d in existing_diseases:
+                if d.scientific_name == disease.scientific_name:
+                    disease_key_map[d.common_name] = d.key or ""
+            logger.info("disease_exists", name=disease.common_name)
+            continue
+        created = ipm_repo.create_disease(disease)
+        disease_key_map[disease.common_name] = created.key or ""
+        logger.info("disease_created", name=disease.common_name)
+
+    treatment_key_map: dict[str, str] = {}
+    for treatment in IPM_TREATMENTS:
+        existing_treatments, _ = ipm_repo.get_all_treatments(0, 200)
+        if any(t.name == treatment.name for t in existing_treatments):
+            for t in existing_treatments:
+                if t.name == treatment.name:
+                    treatment_key_map[t.name] = t.key or ""
+            logger.info("treatment_exists", name=treatment.name)
+            continue
+        created = ipm_repo.create_treatment(treatment)
+        treatment_key_map[treatment.name] = created.key or ""
+        logger.info("treatment_created", name=treatment.name)
+
+    for treat_name, pest_name in IPM_TARGETS_PEST:
+        t_key = treatment_key_map.get(treat_name, "")
+        p_key = pest_key_map.get(pest_name, "")
+        if t_key and p_key:
+            try:
+                ipm_repo.create_targets_pest_edge(t_key, p_key)
+                logger.info("targets_pest_edge", treatment=treat_name, pest=pest_name)
+            except Exception:
+                logger.info("targets_pest_edge_exists", treatment=treat_name, pest=pest_name)
+
+    for treat_name, disease_name in IPM_TARGETS_DISEASE:
+        t_key = treatment_key_map.get(treat_name, "")
+        d_key = disease_key_map.get(disease_name, "")
+        if t_key and d_key:
+            try:
+                ipm_repo.create_targets_disease_edge(t_key, d_key)
+                logger.info("targets_disease_edge", treatment=treat_name, disease=disease_name)
+            except Exception:
+                logger.info("targets_disease_edge_exists", treatment=treat_name, disease=disease_name)
+
+    for a_name, b_name in IPM_CONTRAINDICATED:
+        a_key = treatment_key_map.get(a_name, "")
+        b_key = treatment_key_map.get(b_name, "")
+        if a_key and b_key:
+            try:
+                ipm_repo.create_contraindicated_edge(a_key, b_key)
+                logger.info("contraindicated_edge", a=a_name, b=b_name)
+            except Exception:
+                logger.info("contraindicated_edge_exists", a=a_name, b=b_name)
+
+    # ── Seed Harvest indicators (REQ-007) ───────────────────────────
+    harvest_repo = get_harvest_repo()
+    for ind_type, unit, method, freq, reliability, sci_name in HARVEST_INDICATORS:
+        sp_key = species_key_map.get(sci_name, "")
+        indicator = HarvestIndicator(
+            indicator_type=ind_type, measurement_unit=unit,
+            measurement_method=method, observation_frequency=freq,
+            reliability_score=reliability, species_key=sp_key or None,
+        )
+        try:
+            harvest_repo.create_indicator(indicator)
+            logger.info("harvest_indicator_created", type=ind_type, species=sci_name)
+        except Exception:
+            logger.info("harvest_indicator_exists", type=ind_type, species=sci_name)
+
+    # ── Seed Workflow templates + Task templates (REQ-006) ──────────
+    task_repo = get_task_repo()
+    wf_key_map: dict[str, str] = {}
+    for wt in WORKFLOW_TEMPLATES:
+        existing_wfs, _ = task_repo.get_all_workflow_templates(0, 200)
+        if any(w.name == wt.name for w in existing_wfs):
+            for w in existing_wfs:
+                if w.name == wt.name:
+                    wf_key_map[w.name] = w.key or ""
+            logger.info("workflow_template_exists", name=wt.name)
+            continue
+        created = task_repo.create_workflow_template(wt)
+        wf_key_map[wt.name] = created.key or ""
+        logger.info("workflow_template_created", name=wt.name)
+
+    for (name, instruction, category, trigger_type, trigger_phase, days_offset,
+         stress_level, duration_min, requires_photo, skill_level, wf_name, seq_order) in TASK_TEMPLATES:
+        wf_key = wf_key_map.get(wf_name, "")
+        if not wf_key:
+            continue
+        tt = TaskTemplate(
+            name=name, instruction=instruction, category=category,
+            trigger_type=trigger_type, trigger_phase=trigger_phase,
+            days_offset=days_offset, stress_level=stress_level,
+            estimated_duration_minutes=duration_min,
+            requires_photo=requires_photo, skill_level=skill_level,
+            workflow_template_key=wf_key, sequence_order=seq_order,
+        )
+        try:
+            task_repo.create_task_template(tt)
+            logger.info("task_template_created", name=name, workflow=wf_name)
+        except Exception:
+            logger.info("task_template_exists", name=name, workflow=wf_name)
 
     logger.info("seed_complete")
 

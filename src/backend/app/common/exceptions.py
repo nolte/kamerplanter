@@ -132,3 +132,51 @@ class ValidationError(KamerplanterError):
             status_code=422,
             details=details,
         )
+
+
+class KarenzViolationError(KamerplanterError):
+    def __init__(self, active_ingredient: str, days_remaining: int) -> None:
+        super().__init__(
+            message=f"Cannot harvest: safety interval for '{active_ingredient}' has {days_remaining} days remaining.",
+            error_code="KARENZ_VIOLATION",
+            status_code=422,
+            details=[
+                {
+                    "field": "active_ingredient",
+                    "reason": f"Safety interval not elapsed: {days_remaining} days remaining.",
+                    "code": "KARENZ_VIOLATION",
+                }
+            ],
+        )
+
+
+class ResistanceWarningError(KamerplanterError):
+    def __init__(self, active_ingredient: str, application_count: int) -> None:
+        super().__init__(
+            message=f"Resistance risk: '{active_ingredient}' applied {application_count} times in rotation window.",
+            error_code="RESISTANCE_WARNING",
+            status_code=422,
+            details=[
+                {
+                    "field": "active_ingredient",
+                    "reason": f"Applied {application_count} times, exceeds maximum consecutive applications.",
+                    "code": "RESISTANCE_WARNING",
+                }
+            ],
+        )
+
+
+class HSTViolationError(KamerplanterError):
+    def __init__(self, task_name: str, phase: str, reason: str) -> None:
+        super().__init__(
+            message=f"HST violation: '{task_name}' not allowed in phase '{phase}'. {reason}",
+            error_code="HST_VIOLATION",
+            status_code=422,
+            details=[
+                {
+                    "field": "task_name",
+                    "reason": reason,
+                    "code": "HST_VIOLATION",
+                }
+            ],
+        )

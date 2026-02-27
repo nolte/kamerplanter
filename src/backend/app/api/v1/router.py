@@ -10,7 +10,9 @@ from app.api.v1.family_relationships.router import router as family_relationship
 from app.api.v1.feeding_events.router import router as feeding_events_router
 from app.api.v1.fertilizers.router import router as fertilizers_router
 from app.api.v1.growth_phases.router import router as phases_router
+from app.api.v1.harvest.router import router as harvest_router
 from app.api.v1.health.router import router as health_router
+from app.api.v1.ipm.router import router as ipm_router
 from app.api.v1.lifecycle_configs.router import router as lifecycle_router
 from app.api.v1.locations.router import router as locations_router
 from app.api.v1.nutrient_calculations.router import router as nutrient_calculations_router
@@ -24,6 +26,7 @@ from app.api.v1.slots.router import router as slots_router
 from app.api.v1.species.router import router as species_router
 from app.api.v1.substrates.router import router as substrates_router
 from app.api.v1.tanks.router import router as tanks_router
+from app.api.v1.tasks.router import router as tasks_router
 from app.api.v1.watering_events.router import router as watering_events_router
 
 api_router = APIRouter(prefix="/api/v1")
@@ -53,3 +56,6 @@ api_router.include_router(nutrient_plans_router)
 api_router.include_router(feeding_events_router)
 api_router.include_router(nutrient_calculations_router)
 api_router.include_router(watering_events_router)
+api_router.include_router(ipm_router)
+api_router.include_router(harvest_router)
+api_router.include_router(tasks_router)

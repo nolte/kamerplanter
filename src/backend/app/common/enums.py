@@ -257,3 +257,149 @@ class PhaseName(StrEnum):
     VEGETATIVE = "vegetative"
     FLOWERING = "flowering"
     HARVEST = "harvest"
+
+
+# ── REQ-010 IPM ──
+
+
+class PestPressureLevel(StrEnum):
+    NONE = "none"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class TreatmentType(StrEnum):
+    CULTURAL = "cultural"
+    BIOLOGICAL = "biological"
+    CHEMICAL = "chemical"
+    MECHANICAL = "mechanical"
+
+
+class PathogenType(StrEnum):
+    FUNGAL = "fungal"
+    BACTERIAL = "bacterial"
+    VIRAL = "viral"
+    PHYSIOLOGICAL = "physiological"
+
+
+class PlantPart(StrEnum):
+    LEAF = "leaf"
+    STEM = "stem"
+    ROOT = "root"
+    FLOWER = "flower"
+    FRUIT = "fruit"
+
+
+class TreatmentApplicationMethod(StrEnum):
+    SPRAY = "spray"
+    DRENCH = "drench"
+    GRANULAR = "granular"
+    RELEASE = "release"
+    CULTURAL = "cultural"
+
+
+class EfficacyRating(StrEnum):
+    EFFECTIVE = "effective"
+    PARTIAL = "partial"
+    INEFFECTIVE = "ineffective"
+
+
+# ── REQ-007 Harvest ──
+
+
+class HarvestType(StrEnum):
+    PARTIAL = "partial"
+    FINAL = "final"
+    CONTINUOUS = "continuous"
+
+
+class QualityGrade(StrEnum):
+    A_PLUS = "a_plus"
+    A = "a"
+    B = "b"
+    C = "c"
+    D = "d"
+
+
+class HarvestIndicatorType(StrEnum):
+    TRICHOME = "trichome"
+    COLOR = "color"
+    BRIX = "brix"
+    SIZE = "size"
+    DAYS_SINCE_FLOWERING = "days_since_flowering"
+    AROMA = "aroma"
+    TEXTURE = "texture"
+    FOLIAGE = "foliage"
+
+
+class RipenessStage(StrEnum):
+    IMMATURE = "immature"
+    APPROACHING = "approaching"
+    PEAK = "peak"
+    OVERRIPE = "overripe"
+
+
+# ── REQ-006 Tasks ──
+
+
+class TaskStatus(StrEnum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    SKIPPED = "skipped"
+    FAILED = "failed"
+
+
+class TaskPriority(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class TaskCategory(StrEnum):
+    TRAINING = "training"
+    PRUNING = "pruning"
+    TRANSPLANT = "transplant"
+    FEEDING = "feeding"
+    IPM = "ipm"
+    HARVEST = "harvest"
+    OBSERVATION = "observation"
+    MAINTENANCE = "maintenance"
+
+
+class TaskTriggerType(StrEnum):
+    PHASE_ENTRY = "phase_entry"
+    DAYS_AFTER_PHASE = "days_after_phase"
+    DAYS_AFTER_PLANTING = "days_after_planting"
+    ABSOLUTE_DATE = "absolute_date"
+    MANUAL = "manual"
+    CONDITIONAL = "conditional"
+
+
+class StressLevel(StrEnum):
+    NONE = "none"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class DependencyType(StrEnum):
+    BLOCKS = "blocks"
+    REQUIRES = "requires"
+    RECOMMENDED_AFTER = "recommended_after"
+
+
+class SkillLevel(StrEnum):
+    BEGINNER = "beginner"
+    INTERMEDIATE = "intermediate"
+    ADVANCED = "advanced"
+
+
+class TimeOfDay(StrEnum):
+    MORNING = "morning"
+    AFTERNOON = "afternoon"
+    EVENING = "evening"
+    LIGHTS_OFF = "lights_off"

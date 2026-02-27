@@ -55,6 +55,26 @@ const FeedingEventDetailPage = lazy(
 const WateringEventListPage = lazy(
   () => import('@/pages/standorte/WateringEventListPage'),
 );
+// REQ-010 IPM
+const PestListPage = lazy(() => import('@/pages/pflanzenschutz/PestListPage'));
+const DiseaseListPage = lazy(() => import('@/pages/pflanzenschutz/DiseaseListPage'));
+const TreatmentListPage = lazy(
+  () => import('@/pages/pflanzenschutz/TreatmentListPage'),
+);
+// REQ-007 Harvest
+const HarvestBatchListPage = lazy(
+  () => import('@/pages/ernte/HarvestBatchListPage'),
+);
+const HarvestBatchDetailPage = lazy(
+  () => import('@/pages/ernte/HarvestBatchDetailPage'),
+);
+// REQ-006 Tasks
+const TaskQueuePage = lazy(() => import('@/pages/aufgaben/TaskQueuePage'));
+const TaskDetailPage = lazy(() => import('@/pages/aufgaben/TaskDetailPage'));
+const WorkflowTemplateListPage = lazy(
+  () => import('@/pages/aufgaben/WorkflowTemplateListPage'),
+);
+
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 export const router = createBrowserRouter(
@@ -297,6 +317,76 @@ export const router = createBrowserRouter(
         element={
           <Suspense fallback={<LoadingSkeleton variant="form" />}>
             <FeedingEventDetailPage />
+          </Suspense>
+        }
+      />
+
+      {/* REQ-010 Pflanzenschutz */}
+      <Route
+        path="pflanzenschutz/pests"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="table" />}>
+            <PestListPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="pflanzenschutz/diseases"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="table" />}>
+            <DiseaseListPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="pflanzenschutz/treatments"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="table" />}>
+            <TreatmentListPage />
+          </Suspense>
+        }
+      />
+
+      {/* REQ-007 Ernte */}
+      <Route
+        path="ernte/batches"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="table" />}>
+            <HarvestBatchListPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="ernte/batches/:key"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="form" />}>
+            <HarvestBatchDetailPage />
+          </Suspense>
+        }
+      />
+
+      {/* REQ-006 Aufgaben */}
+      <Route
+        path="aufgaben/queue"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="card" />}>
+            <TaskQueuePage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="aufgaben/tasks/:key"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="form" />}>
+            <TaskDetailPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="aufgaben/workflows"
+        element={
+          <Suspense fallback={<LoadingSkeleton variant="table" />}>
+            <WorkflowTemplateListPage />
           </Suspense>
         }
       />
