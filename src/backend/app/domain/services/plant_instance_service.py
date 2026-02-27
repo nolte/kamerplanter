@@ -80,7 +80,9 @@ class PlantInstanceService:
         return self._repo.get_history_by_slot(slot_key, years)
 
     def validate_planting(self, slot_key: SlotKey, species_key: SpeciesKey) -> dict:
-        rotation_valid, rotation_warnings = self._rotation.validate_planting(slot_key, species_key)
+        rotation_results = self._rotation.validate_planting(slot_key, species_key)
+        rotation_valid = all(r.severity != "CRITICAL" for r in rotation_results)
+        rotation_warnings = [r.message for r in rotation_results if r.severity in ("CRITICAL", "WARNING")]
         companion_ok, companion_warnings, companion_benefits = self._companion.check_compatibility(
             species_key, slot_key
         )

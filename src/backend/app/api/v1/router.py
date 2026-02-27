@@ -6,6 +6,7 @@ from app.api.v1.companion_planting.router import router as companion_router
 from app.api.v1.crop_rotation.router import router as rotation_router
 from app.api.v1.cultivars.router import router as cultivars_router
 from app.api.v1.enrichment.router import router as enrichment_router
+from app.api.v1.family_relationships.router import router as family_relationships_router
 from app.api.v1.feeding_events.router import router as feeding_events_router
 from app.api.v1.fertilizers.router import router as fertilizers_router
 from app.api.v1.growth_phases.router import router as phases_router
@@ -45,6 +46,7 @@ api_router.include_router(slots_router)
 api_router.include_router(species_router)
 api_router.include_router(substrates_router)
 api_router.include_router(enrichment_router)
+api_router.include_router(family_relationships_router)
 api_router.include_router(tanks_router)
 api_router.include_router(fertilizers_router)
 api_router.include_router(nutrient_plans_router)

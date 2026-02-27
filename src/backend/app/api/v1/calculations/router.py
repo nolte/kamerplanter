@@ -9,6 +9,8 @@ from app.api.v1.calculations.schemas import (
     SunTimesRangeRequest,
     SunTimesRequest,
     SunTimesResponse,
+    VernalizationRequest,
+    VernalizationResponse,
     VPDRequest,
     VPDResponse,
 )
@@ -60,3 +62,15 @@ def calc_slot_capacity(body: SlotCapacityRequest):
     opt_range = calculate_optimal_range(body.area_m2, body.plant_spacing_cm)
     ppm2 = calculate_plants_per_m2(body.plant_spacing_cm)
     return SlotCapacityResponse(max_capacity=max_cap, optimal_range=opt_range, plants_per_m2=round(ppm2, 2))
+
+@router.post("/vernalization", response_model=VernalizationResponse)
+def calc_vernalization(body: VernalizationRequest):
+    from app.domain.engines.vernalization_tracker import VernalizationTracker
+
+    tracker = VernalizationTracker()
+    result = tracker.calculate_vernalization_progress(body.cold_days_accumulated, body.required_min_days)
+    return VernalizationResponse(
+        progress_percent=result["progress_percent"],
+        days_remaining=result["days_remaining"],
+        is_complete=result["is_complete"],
+    )

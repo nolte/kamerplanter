@@ -57,3 +57,12 @@ class SlotCapacityResponse(BaseModel):
     max_capacity: int
     optimal_range: tuple[int, int]
     plants_per_m2: float
+
+class VernalizationRequest(BaseModel):
+    cold_days_accumulated: int = Field(ge=0)
+    required_min_days: int = Field(ge=0)
+
+class VernalizationResponse(BaseModel):
+    progress_percent: float
+    days_remaining: int
+    is_complete: bool

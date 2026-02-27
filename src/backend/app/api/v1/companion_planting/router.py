@@ -17,15 +17,17 @@ def get_incompatible(species_key: str, service: SpeciesService = Depends(get_spe
 @router.post("/compatible", status_code=201)
 def set_compatible(body: CompatibilitySet, service: SpeciesService = Depends(get_species_service)):
     from app.common.dependencies import get_graph_repo
-    from app.data_access.arango.collections import SPECIES
     graph = get_graph_repo()
-    graph.set_compatibility(f"{SPECIES}/{body.from_species_key}", f"{SPECIES}/{body.to_species_key}", body.score)
+    graph.set_compatibility(body.from_species_key, body.to_species_key, body.score)
     return {"status": "created"}
 
 @router.post("/incompatible", status_code=201)
 def set_incompatible(body: IncompatibilitySet, service: SpeciesService = Depends(get_species_service)):
     from app.common.dependencies import get_graph_repo
-    from app.data_access.arango.collections import SPECIES
     graph = get_graph_repo()
-    graph.set_incompatibility(f"{SPECIES}/{body.from_species_key}", f"{SPECIES}/{body.to_species_key}", body.reason)
+    graph.set_incompatibility(body.from_species_key, body.to_species_key, body.reason)
     return {"status": "created"}
+
+@router.get("/species/{species_key}/recommendations")
+def get_companion_recommendations(species_key: str, service: SpeciesService = Depends(get_species_service)):
+    return service.get_companion_recommendations(species_key)

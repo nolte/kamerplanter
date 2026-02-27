@@ -525,12 +525,69 @@ export interface RotationSuccessor {
   family_key: string;
   name: string | null;
   wait_years: number;
+  benefit_score: number;
+  benefit_reason: string;
 }
 
 export interface RotationSuccessorSet {
   from_family_key: string;
   to_family_key: string;
   wait_years?: number;
+  benefit_score?: number;
+  benefit_reason?: string;
+}
+
+// Family Relationships
+
+export interface PestRisk {
+  family_key: string;
+  name: string | null;
+  shared_pests: string[];
+  shared_diseases: string[];
+  risk_level: string;
+}
+
+export interface FamilyCompatible {
+  family_key: string;
+  name: string | null;
+  benefit_type: string;
+  compatibility_score: number;
+  notes: string;
+}
+
+export interface FamilyIncompatible {
+  family_key: string;
+  name: string | null;
+  reason: string;
+  severity: string;
+}
+
+// Companion Planting Recommendations
+
+export interface CompanionRecommendation {
+  species_key: string;
+  scientific_name: string | null;
+  score: number;
+  match_level: 'species' | 'family';
+  benefit_type?: string;
+}
+
+export interface CompanionRecommendationResponse {
+  matches: CompanionRecommendation[];
+  match_level: 'species' | 'family';
+}
+
+// Vernalization
+
+export interface VernalizationRequest {
+  cold_days_accumulated: number;
+  required_min_days: number;
+}
+
+export interface VernalizationResponse {
+  progress_percent: number;
+  days_remaining: number;
+  is_complete: boolean;
 }
 
 // Calculations

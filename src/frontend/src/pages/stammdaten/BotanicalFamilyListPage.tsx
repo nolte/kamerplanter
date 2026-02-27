@@ -14,7 +14,7 @@ import type { BotanicalFamily } from '@/api/types';
 import BotanicalFamilyCreateDialog from './BotanicalFamilyCreateDialog';
 
 export default function BotanicalFamilyListPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { items, loading } = useAppSelector((s) => s.botanicalFamilies);
@@ -28,9 +28,13 @@ export default function BotanicalFamilyListPage() {
   const columns: Column<BotanicalFamily>[] = [
     { id: 'name', label: t('pages.botanicalFamilies.name'), render: (r) => r.name },
     {
-      id: 'commonNameDe',
-      label: t('pages.botanicalFamilies.commonNameDe'),
-      render: (r) => r.common_name_de,
+      id: 'commonName',
+      label: t('pages.botanicalFamilies.commonName'),
+      render: (r) =>
+        i18n.language === 'en'
+          ? r.common_name_en || r.common_name_de
+          : r.common_name_de || r.common_name_en,
+      searchValue: (r) => `${r.common_name_de} ${r.common_name_en}`,
     },
     {
       id: 'nutrientDemand',

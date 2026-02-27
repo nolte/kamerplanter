@@ -107,6 +107,9 @@ PLAN_USES_FERTILIZER = "plan_uses_fertilizer"
 FOLLOWS_PLAN = "follows_plan"
 CLONED_FROM = "cloned_from"
 WATERED_SLOT = "watered_slot"
+SHARES_PEST_RISK = "shares_pest_risk"
+FAMILY_COMPATIBLE_WITH = "family_compatible_with"
+FAMILY_INCOMPATIBLE_WITH = "family_incompatible_with"
 
 EDGE_COLLECTIONS = [
     BELONGS_TO_FAMILY,
@@ -150,6 +153,9 @@ EDGE_COLLECTIONS = [
     FOLLOWS_PLAN,
     CLONED_FROM,
     WATERED_SLOT,
+    SHARES_PEST_RISK,
+    FAMILY_COMPATIBLE_WITH,
+    FAMILY_INCOMPATIBLE_WITH,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -359,6 +365,21 @@ GRAPH_EDGE_DEFINITIONS = [
         "edge_collection": WATERED_SLOT,
         "from_vertex_collections": [WATERING_EVENTS],
         "to_vertex_collections": [SLOTS],
+    },
+    {
+        "edge_collection": SHARES_PEST_RISK,
+        "from_vertex_collections": [BOTANICAL_FAMILIES],
+        "to_vertex_collections": [BOTANICAL_FAMILIES],
+    },
+    {
+        "edge_collection": FAMILY_COMPATIBLE_WITH,
+        "from_vertex_collections": [BOTANICAL_FAMILIES],
+        "to_vertex_collections": [BOTANICAL_FAMILIES],
+    },
+    {
+        "edge_collection": FAMILY_INCOMPATIBLE_WITH,
+        "from_vertex_collections": [BOTANICAL_FAMILIES],
+        "to_vertex_collections": [BOTANICAL_FAMILIES],
     },
 ]
 

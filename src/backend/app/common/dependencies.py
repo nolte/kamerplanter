@@ -96,7 +96,7 @@ def get_substrate_service() -> SubstrateService:
 
 
 def get_plant_instance_service() -> PlantInstanceService:
-    rotation_validator = CropRotationValidator(get_plant_repo(), get_species_repo())
+    rotation_validator = CropRotationValidator(get_plant_repo(), get_species_repo(), get_graph_repo())
     companion_engine = CompanionPlantingEngine(get_graph_repo(), get_plant_repo(), get_species_repo())
     return PlantInstanceService(get_plant_repo(), get_site_repo(), rotation_validator, companion_engine)
 

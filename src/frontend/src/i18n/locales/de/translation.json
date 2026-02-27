@@ -115,6 +115,7 @@
       "create": "Familie erstellen",
       "name": "Name",
       "nameHelper": "Botanischer Familienname, muss auf '-aceae' enden (z.\u00a0B. 'Solanaceae')",
+      "commonName": "Gebräuchlicher Name",
       "commonNameDe": "Deutscher Name",
       "commonNameDeHelper": "Deutscher Anzeigename (z.\u00a0B. 'Nachtschattengewächse')",
       "commonNameEn": "Englischer Name",

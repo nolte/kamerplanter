@@ -92,7 +92,8 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
         query = """
         FOR v, e IN 1..1 OUTBOUND @start GRAPH 'kamerplanter_graph'
           OPTIONS {edgeCollections: [@edge_col]}
-          RETURN {family: v, wait_years: e.wait_years}
+          RETURN {family: v, wait_years: e.wait_years,
+                  benefit_score: e.benefit_score, benefit_reason: e.benefit_reason}
         """
         bind_vars = {
             "start": f"{col.BOTANICAL_FAMILIES}/{family_key}",
@@ -103,15 +104,24 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
             {
                 "family": self._from_doc(r["family"]),
                 "wait_years": r.get("wait_years", 1),
+                "benefit_score": r.get("benefit_score", 0.0),
+                "benefit_reason": r.get("benefit_reason", ""),
             }
             for r in cursor
         ]
 
-    def set_rotation_successor(self, from_family_key: str, to_family_key: str, wait_years: int) -> None:
+    def set_rotation_successor(
+        self, from_family_key: str, to_family_key: str, wait_years: int,
+        benefit_score: float = 0.0, benefit_reason: str = "",
+    ) -> None:
         from_id = f"{col.BOTANICAL_FAMILIES}/{from_family_key}"
         to_id = f"{col.BOTANICAL_FAMILIES}/{to_family_key}"
         self.delete_edges(col.ROTATION_AFTER, from_id, to_id)
-        self.create_edge(col.ROTATION_AFTER, from_id, to_id, data={"wait_years": wait_years})
+        self.create_edge(col.ROTATION_AFTER, from_id, to_id, data={
+            "wait_years": wait_years,
+            "benefit_score": benefit_score,
+            "benefit_reason": benefit_reason,
+        })
 
     # ── Slot Adjacency ────────────────────────────────────────────────
 
@@ -136,3 +146,120 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
         self.delete_edges(col.ADJACENT_TO, b_id, a_id)
         self.create_edge(col.ADJACENT_TO, a_id, b_id)
         self.create_edge(col.ADJACENT_TO, b_id, a_id)
+
+    # ── Family-level edges ─────────────────────────────────────────────
+
+    def get_pest_risks(self, family_key: str) -> list[dict[str, Any]]:
+        query = """
+        FOR v, e IN 1..1 ANY @start GRAPH 'kamerplanter_graph'
+          OPTIONS {edgeCollections: [@edge_col]}
+          RETURN DISTINCT {family: v, shared_pests: e.shared_pests,
+                  shared_diseases: e.shared_diseases, risk_level: e.risk_level}
+        """
+        bind_vars = {
+            "start": f"{col.BOTANICAL_FAMILIES}/{family_key}",
+            "edge_col": col.SHARES_PEST_RISK,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return [
+            {
+                "family": self._from_doc(r["family"]),
+                "shared_pests": r.get("shared_pests", []),
+                "shared_diseases": r.get("shared_diseases", []),
+                "risk_level": r.get("risk_level", "low"),
+            }
+            for r in cursor
+        ]
+
+    def set_pest_risk(
+        self, a_key: str, b_key: str,
+        shared_pests: list[str], shared_diseases: list[str], risk_level: str,
+    ) -> None:
+        a_id = f"{col.BOTANICAL_FAMILIES}/{a_key}"
+        b_id = f"{col.BOTANICAL_FAMILIES}/{b_key}"
+        data = {"shared_pests": shared_pests, "shared_diseases": shared_diseases, "risk_level": risk_level}
+        self.delete_edges(col.SHARES_PEST_RISK, a_id, b_id)
+        self.create_edge(col.SHARES_PEST_RISK, a_id, b_id, data=data)
+        if a_key != b_key:
+            self.delete_edges(col.SHARES_PEST_RISK, b_id, a_id)
+            self.create_edge(col.SHARES_PEST_RISK, b_id, a_id, data=data)
+
+    def get_family_compatible(self, family_key: str) -> list[dict[str, Any]]:
+        query = """
+        FOR v, e IN 1..1 ANY @start GRAPH 'kamerplanter_graph'
+          OPTIONS {edgeCollections: [@edge_col]}
+          RETURN DISTINCT {family: v, benefit_type: e.benefit_type,
+                  compatibility_score: e.compatibility_score, notes: e.notes}
+        """
+        bind_vars = {
+            "start": f"{col.BOTANICAL_FAMILIES}/{family_key}",
+            "edge_col": col.FAMILY_COMPATIBLE_WITH,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return [
+            {
+                "family": self._from_doc(r["family"]),
+                "benefit_type": r.get("benefit_type", ""),
+                "compatibility_score": r.get("compatibility_score", 0.0),
+                "notes": r.get("notes", ""),
+            }
+            for r in cursor
+        ]
+
+    def set_family_compatible(
+        self, a_key: str, b_key: str,
+        benefit_type: str, compatibility_score: float, notes: str,
+    ) -> None:
+        a_id = f"{col.BOTANICAL_FAMILIES}/{a_key}"
+        b_id = f"{col.BOTANICAL_FAMILIES}/{b_key}"
+        data = {"benefit_type": benefit_type, "compatibility_score": compatibility_score, "notes": notes}
+        self.delete_edges(col.FAMILY_COMPATIBLE_WITH, a_id, b_id)
+        self.create_edge(col.FAMILY_COMPATIBLE_WITH, a_id, b_id, data=data)
+        if a_key != b_key:
+            self.delete_edges(col.FAMILY_COMPATIBLE_WITH, b_id, a_id)
+            self.create_edge(col.FAMILY_COMPATIBLE_WITH, b_id, a_id, data=data)
+
+    def get_family_incompatible(self, family_key: str) -> list[dict[str, Any]]:
+        query = """
+        FOR v, e IN 1..1 ANY @start GRAPH 'kamerplanter_graph'
+          OPTIONS {edgeCollections: [@edge_col]}
+          RETURN DISTINCT {family: v, reason: e.reason, severity: e.severity}
+        """
+        bind_vars = {
+            "start": f"{col.BOTANICAL_FAMILIES}/{family_key}",
+            "edge_col": col.FAMILY_INCOMPATIBLE_WITH,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return [
+            {
+                "family": self._from_doc(r["family"]),
+                "reason": r.get("reason", ""),
+                "severity": r.get("severity", "moderate"),
+            }
+            for r in cursor
+        ]
+
+    def set_family_incompatible(
+        self, a_key: str, b_key: str, reason: str, severity: str,
+    ) -> None:
+        a_id = f"{col.BOTANICAL_FAMILIES}/{a_key}"
+        b_id = f"{col.BOTANICAL_FAMILIES}/{b_key}"
+        data = {"reason": reason, "severity": severity}
+        self.delete_edges(col.FAMILY_INCOMPATIBLE_WITH, a_id, b_id)
+        self.create_edge(col.FAMILY_INCOMPATIBLE_WITH, a_id, b_id, data=data)
+        if a_key != b_key:
+            self.delete_edges(col.FAMILY_INCOMPATIBLE_WITH, b_id, a_id)
+            self.create_edge(col.FAMILY_INCOMPATIBLE_WITH, b_id, a_id, data=data)
+
+    def get_species_by_family(self, family_key: str) -> list[dict[str, Any]]:
+        query = """
+        FOR v, e IN 1..1 INBOUND @start GRAPH 'kamerplanter_graph'
+          OPTIONS {edgeCollections: [@edge_col]}
+          RETURN v
+        """
+        bind_vars = {
+            "start": f"{col.BOTANICAL_FAMILIES}/{family_key}",
+            "edge_col": col.BELONGS_TO_FAMILY,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return [self._from_doc(r) for r in cursor]

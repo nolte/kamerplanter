@@ -1,5 +1,6 @@
 from app.common.exceptions import DuplicateError, NotFoundError
 from app.common.types import CultivarKey, FamilyKey, SpeciesKey
+from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.interfaces.graph_repository import IGraphRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.species import Cultivar, Species
@@ -60,14 +61,29 @@ class SpeciesService:
 
     def get_compatible_species(self, species_key: SpeciesKey) -> list[dict]:
         self.get_species(species_key)
-        from app.data_access.arango.collections import SPECIES
-
-        vertex_id = f"{SPECIES}/{species_key}"
-        return self._graph.get_compatible_species(vertex_id)
+        raw = self._graph.get_compatible_species(species_key)
+        return [
+            {
+                "species_key": item["species"].get("_key", ""),
+                "scientific_name": item["species"].get("scientific_name"),
+                "score": item.get("score", 0.0),
+            }
+            for item in raw
+        ]
 
     def get_incompatible_species(self, species_key: SpeciesKey) -> list[dict]:
         self.get_species(species_key)
-        from app.data_access.arango.collections import SPECIES
+        raw = self._graph.get_incompatible_species(species_key)
+        return [
+            {
+                "species_key": item["species"].get("_key", ""),
+                "scientific_name": item["species"].get("scientific_name"),
+                "reason": item.get("reason", ""),
+            }
+            for item in raw
+        ]
 
-        vertex_id = f"{SPECIES}/{species_key}"
-        return self._graph.get_incompatible_species(vertex_id)
+    def get_companion_recommendations(self, species_key: SpeciesKey) -> dict:
+        self.get_species(species_key)
+        engine = CompanionPlantingEngine(self._graph, None, self._repo)  # type: ignore[arg-type]
+        return engine.get_companion_recommendations(species_key)
