@@ -34,6 +34,10 @@ Kurzreferenz der effektivsten Prompts fuer das Kamerplanter-Projekt.
 
 > Pruefe REQ-XXX auf Konsistenz mit allen referenzierten Anforderungen. Identifiziere fehlende Schnittstellen oder widerspruechliche Definitionen.
 
+### Zielgruppenanalyse
+
+> Analysiere alle Anforderungsdokumente unter `spec/req/` und `spec/nfr/` auf implizite und explizite Zielgruppen. Identifiziere unterversorgte Nutzergruppen, neue Anwendungsgebiete und erstelle ein Prioritaets-Ranking mit Marktpotenzial-Bewertung.
+
 ---
 
 ## Implementierung
@@ -95,6 +99,22 @@ Kurzreferenz der effektivsten Prompts fuer das Kamerplanter-Projekt.
 > 2. Reviewe alle neuen Selenium-Tests auf NFR-008-Konformitaet
 > 3. Pruefe Tech-Stack-Konformitaet der neuen Implementierungen
 > 4. Aktualisiere den Agent-Katalog und die Dokumentation
+
+---
+
+## Agent-Pflege
+
+### Fullstack-Entwickler aktualisieren
+
+> Aktualisiere die Agent-Definition des Fullstack-Entwicklers unter `.claude/agents/fullstack-developer.md` anhand des aktuellen Implementierungsstands, Tech-Stacks (`spec/stack.md`) und der MEMORY.md. Pruefe insbesondere Versionsangaben, referenzierte Patterns und Architekturvorgaben auf Aktualitaet.
+
+### Agent-Katalog aktualisieren
+
+> Lies alle Agent-Definitionen unter `.claude/agents/` und aktualisiere den Agent-Katalog unter `docs/agent-catalog.md` mit Uebersicht, Aufgabenbeschreibungen, Workflow-Phasen und Einsatzempfehlungen.
+
+### Frontend-Design-Review
+
+> Pruefe die UI-Anforderungen in REQ-XXX und `spec/ui-nfr/` auf Responsive Design (Mobile/Tablet/Desktop), Kiosk-Modus-Tauglichkeit (Bedienung mit verschmutzten Haenden), Barrierefreiheit und praxisgerechte Oberflaechen fuer Gewaechshaus- und Growraum-Umgebungen.
 
 ---
 
