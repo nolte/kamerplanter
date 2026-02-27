@@ -60,3 +60,18 @@ type TenantKey = str
 type MembershipKey = str
 type InvitationKey = str
 type LocationAssignmentKey = str
+
+# REQ-022 Care Reminders
+type CareProfileKey = str
+type CareConfirmationKey = str
+
+# REQ-020 Onboarding
+type StarterKitKey = str
+type OnboardingStateKey = str
+type UserPreferenceKey = str
+
+# REQ-012 Import
+type ImportJobKey = str
+
+# REQ-015 Calendar
+type CalendarFeedKey = str

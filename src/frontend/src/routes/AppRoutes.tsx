@@ -36,6 +36,8 @@ const CompanionPlantingPage = lazy(
   () => import('@/pages/stammdaten/CompanionPlantingPage'),
 );
 const CropRotationPage = lazy(() => import('@/pages/stammdaten/CropRotationPage'));
+// REQ-012 Import
+const ImportPage = lazy(() => import('@/pages/stammdaten/ImportPage'));
 const SiteListPage = lazy(() => import('@/pages/standorte/SiteListPage'));
 const SiteDetailPage = lazy(() => import('@/pages/standorte/SiteDetailPage'));
 const LocationDetailPage = lazy(() => import('@/pages/standorte/LocationDetailPage'));
@@ -93,6 +95,13 @@ const TaskDetailPage = lazy(() => import('@/pages/aufgaben/TaskDetailPage'));
 const WorkflowTemplateListPage = lazy(
   () => import('@/pages/aufgaben/WorkflowTemplateListPage'),
 );
+
+// REQ-022 Pflege
+const PflegeDashboardPage = lazy(() => import('@/pages/pflege/PflegeDashboardPage'));
+// REQ-015 Kalender
+const CalendarPage = lazy(() => import('@/pages/kalender/CalendarPage'));
+// REQ-020 Onboarding
+const OnboardingWizard = lazy(() => import('@/pages/onboarding/OnboardingWizard'));
 
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
@@ -192,6 +201,36 @@ export const router = createBrowserRouter(
             }
           />
 
+          {/* REQ-022 Pflege */}
+          <Route
+            path="pflege"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <PflegeDashboardPage />
+              </Suspense>
+            }
+          />
+
+          {/* REQ-015 Kalender */}
+          <Route
+            path="kalender"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                <CalendarPage />
+              </Suspense>
+            }
+          />
+
+          {/* REQ-020 Onboarding */}
+          <Route
+            path="onboarding"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <OnboardingWizard />
+              </Suspense>
+            }
+          />
+
           {/* REQ-001 Stammdaten */}
           <Route
             path="stammdaten/botanical-families"
@@ -246,6 +285,15 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="table" />}>
                 <CropRotationPage />
+              </Suspense>
+            }
+          />
+          {/* REQ-012 Import */}
+          <Route
+            path="stammdaten/import"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                <ImportPage />
               </Suspense>
             }
           />

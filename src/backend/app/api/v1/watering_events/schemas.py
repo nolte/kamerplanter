@@ -68,3 +68,26 @@ class WateringStatsResponse(BaseModel):
     total_events: int
     total_volume: float
     by_method: list[MethodStats]
+
+
+# ── Confirm schemas ──────────────────────────────────────────────────
+
+class WateringConfirmRequest(BaseModel):
+    run_key: str
+    task_key: str
+    measured_ec: float | None = Field(default=None, ge=0)
+    measured_ph: float | None = Field(default=None, ge=0, le=14)
+    volume_liters: float | None = Field(default=None, gt=0)
+    overrides: dict | None = None
+
+
+class WateringQuickConfirmRequest(BaseModel):
+    run_key: str
+    task_key: str
+
+
+class WateringConfirmResponse(BaseModel):
+    watering_event_key: str
+    feeding_events_created: int
+    task_completed: bool
+    warnings: list[dict] = Field(default_factory=list)

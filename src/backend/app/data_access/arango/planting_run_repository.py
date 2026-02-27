@@ -199,3 +199,100 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return {doc for doc in cursor if doc}
+
+    # ── Nutrient plan assignment ───────────────────────────────────────
+
+    def assign_nutrient_plan(self, run_key: PlantingRunKey, plan_key: str, assigned_by: str) -> dict:
+        # Remove existing assignment if any
+        self.remove_nutrient_plan(run_key)
+        # Create edge
+        from_id = f"{col.PLANTING_RUNS}/{run_key}"
+        to_id = f"{col.NUTRIENT_PLANS}/{plan_key}"
+        edge = self.create_edge(col.RUN_FOLLOWS_PLAN, from_id, to_id, {"assigned_by": assigned_by})
+        # Update run doc
+        now = datetime.now(UTC).isoformat()
+        self._db.collection(col.PLANTING_RUNS).update({
+            "_key": run_key,
+            "nutrient_plan_key": plan_key,
+            "updated_at": now,
+        })
+        # Cascade FOLLOWS_PLAN edges for plants in the run
+        plants = self.get_run_plants(run_key, include_detached=False)
+        for plant in plants:
+            plant_key = plant.get("_key", "")
+            if plant_key:
+                plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
+                # Remove existing FOLLOWS_PLAN
+                self.delete_edges(col.FOLLOWS_PLAN, from_id=plant_id, to_id=to_id)
+                self.create_edge(col.FOLLOWS_PLAN, plant_id, to_id)
+        return {"run_key": run_key, "plan_key": plan_key, "edge_key": edge.get("_key", "")}
+
+    def get_run_nutrient_plan_key(self, run_key: PlantingRunKey) -> str | None:
+        query = f"""
+        FOR e IN {col.RUN_FOLLOWS_PLAN}
+          FILTER e._from == @run_id
+          LIMIT 1
+          RETURN PARSE_IDENTIFIER(e._to).key
+        """
+        cursor = self._db.aql.execute(query, bind_vars={
+            "run_id": f"{col.PLANTING_RUNS}/{run_key}",
+        })
+        return next(cursor, None)
+
+    def remove_nutrient_plan(self, run_key: PlantingRunKey) -> bool:
+        run_id = f"{col.PLANTING_RUNS}/{run_key}"
+        # Get existing plan key before removing
+        existing_plan_key = self.get_run_nutrient_plan_key(run_key)
+        if existing_plan_key is None:
+            return False
+        # Remove RUN_FOLLOWS_PLAN edge
+        self.delete_edges(col.RUN_FOLLOWS_PLAN, from_id=run_id)
+        # Remove FOLLOWS_PLAN edges from plants to this plan
+        plan_id = f"{col.NUTRIENT_PLANS}/{existing_plan_key}"
+        plants = self.get_run_plants(run_key, include_detached=False)
+        for plant in plants:
+            plant_key = plant.get("_key", "")
+            if plant_key:
+                plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
+                self.delete_edges(col.FOLLOWS_PLAN, from_id=plant_id, to_id=plan_id)
+        # Clear run field
+        self._db.collection(col.PLANTING_RUNS).update({
+            "_key": run_key,
+            "nutrient_plan_key": None,
+            "updated_at": datetime.now(UTC).isoformat(),
+        })
+        return True
+
+    def get_active_runs_with_schedule(self) -> list[dict]:
+        query = f"""
+        FOR run IN {col.PLANTING_RUNS}
+          FILTER run.status == 'active'
+          FILTER run.nutrient_plan_key != null
+          LET plan = DOCUMENT(CONCAT('{col.NUTRIENT_PLANS}/', run.nutrient_plan_key))
+          FILTER plan != null
+          FILTER plan.watering_schedule != null
+          RETURN {{
+            run_key: run._key,
+            run_name: run.name,
+            plan_key: run.nutrient_plan_key,
+            watering_schedule: plan.watering_schedule
+          }}
+        """
+        cursor = self._db.aql.execute(query)
+        return list(cursor)
+
+    def get_plant_keys_with_active_schedule(self) -> set[str]:
+        query = f"""
+        FOR run IN {col.PLANTING_RUNS}
+          FILTER run.status == 'active'
+          FILTER run.nutrient_plan_key != null
+          LET plan = DOCUMENT(CONCAT('{col.NUTRIENT_PLANS}/', run.nutrient_plan_key))
+          FILTER plan != null
+          FILTER plan.watering_schedule != null
+          FOR e IN {col.RUN_CONTAINS}
+            FILTER e._from == CONCAT('{col.PLANTING_RUNS}/', run._key)
+            FILTER e.detached_at == null
+            RETURN PARSE_IDENTIFIER(e._to).key
+        """
+        cursor = self._db.aql.execute(query)
+        return {key for key in cursor if key}

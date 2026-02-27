@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.watering_events.schemas import (
+    WateringConfirmRequest,
+    WateringConfirmResponse,
     WateringEventCreate,
     WateringEventResponse,
     WateringEventWithWarnings,
+    WateringQuickConfirmRequest,
     WateringStatsResponse,
 )
 from app.common.dependencies import get_watering_service
@@ -82,3 +85,30 @@ def get_location_stats(
 ):
     stats = service.get_stats(location_key)
     return WateringStatsResponse(**stats)
+
+
+# ── Confirm / Quick-confirm ──────────────────────────────────────────
+
+@router.post("/watering-events/confirm", response_model=WateringConfirmResponse, status_code=201)
+def confirm_watering(
+    body: WateringConfirmRequest,
+    service: WateringService = Depends(get_watering_service),
+):
+    result = service.confirm_watering(
+        run_key=body.run_key,
+        task_key=body.task_key,
+        measured_ec=body.measured_ec,
+        measured_ph=body.measured_ph,
+        volume_liters=body.volume_liters,
+        overrides=body.overrides,
+    )
+    return WateringConfirmResponse(**result)
+
+
+@router.post("/watering-events/quick-confirm", response_model=WateringConfirmResponse, status_code=201)
+def quick_confirm_watering(
+    body: WateringQuickConfirmRequest,
+    service: WateringService = Depends(get_watering_service),
+):
+    result = service.quick_confirm_watering(body.run_key, body.task_key)
+    return WateringConfirmResponse(**result)

@@ -31,7 +31,28 @@ import MedicationIcon from '@mui/icons-material/Medication';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import SettingsIcon from '@mui/icons-material/Settings';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
 import { sidebarWidth } from '@/theme/tokens';
+import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
+import { navItemConfig, navSectionConfig } from '@/config/fieldConfigs';
+import type { ExperienceLevel } from '@/api/types';
+
+interface NavItem {
+  label: string;
+  path: string;
+  icon: React.ReactNode;
+}
+
+interface NavSection {
+  header: string;
+  sectionKey: string;
+  items: NavItem[];
+}
+
+type NavEntry = NavItem | NavSection;
 
 interface SidebarProps {
   open: boolean;
@@ -41,11 +62,67 @@ export default function Sidebar({ open }: SidebarProps) {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
+  const { isNavVisible } = useExpertiseLevel();
 
-  const navItems = [
+  const isItemVisible = (path: string): boolean => {
+    const minLevel = navItemConfig[path];
+    if (!minLevel) return true;
+    return isNavVisible(minLevel);
+  };
+
+  const isSectionVisible = (sectionKey: string): boolean => {
+    const minLevel = navSectionConfig[sectionKey];
+    if (!minLevel) return true;
+    return isNavVisible(minLevel as ExperienceLevel);
+  };
+
+  const navItems: NavEntry[] = [
     { label: t('nav.dashboard'), path: '/dashboard', icon: <DashboardIcon /> },
     {
+      label: t('nav.pflege'),
+      path: '/pflege',
+      icon: <NotificationsActiveIcon />,
+    },
+    {
+      label: t('nav.calendar'),
+      path: '/kalender',
+      icon: <CalendarMonthIcon />,
+    },
+    {
+      header: t('nav.pflanzen'),
+      sectionKey: 'pflanzen',
+      items: [
+        {
+          label: t('nav.plantInstances'),
+          path: '/pflanzen/plant-instances',
+          icon: <LocalFloristIcon />,
+        },
+        {
+          label: t('nav.calculations'),
+          path: '/pflanzen/calculations',
+          icon: <CalculateIcon />,
+        },
+      ],
+    },
+    {
+      header: t('nav.aufgaben'),
+      sectionKey: 'aufgaben',
+      items: [
+        {
+          label: t('nav.taskQueue'),
+          path: '/aufgaben/queue',
+          icon: <TaskAltIcon />,
+        },
+        {
+          label: t('nav.workflows'),
+          path: '/aufgaben/workflows',
+          icon: <AccountTreeIcon />,
+        },
+      ],
+    },
+    {
       header: t('nav.stammdaten'),
+      sectionKey: 'stammdaten',
       items: [
         {
           label: t('nav.botanicalFamilies'),
@@ -67,10 +144,16 @@ export default function Sidebar({ open }: SidebarProps) {
           path: '/stammdaten/crop-rotation',
           icon: <LoopIcon />,
         },
+        {
+          label: t('nav.import'),
+          path: '/stammdaten/import',
+          icon: <FileUploadIcon />,
+        },
       ],
     },
     {
       header: t('nav.standorte'),
+      sectionKey: 'standorte',
       items: [
         { label: t('nav.sites'), path: '/standorte/sites', icon: <PlaceIcon /> },
         {
@@ -91,22 +174,8 @@ export default function Sidebar({ open }: SidebarProps) {
       ],
     },
     {
-      header: t('nav.pflanzen'),
-      items: [
-        {
-          label: t('nav.plantInstances'),
-          path: '/pflanzen/plant-instances',
-          icon: <LocalFloristIcon />,
-        },
-        {
-          label: t('nav.calculations'),
-          path: '/pflanzen/calculations',
-          icon: <CalculateIcon />,
-        },
-      ],
-    },
-    {
       header: t('nav.duengung'),
+      sectionKey: 'duengung',
       items: [
         {
           label: t('nav.fertilizers'),
@@ -132,6 +201,7 @@ export default function Sidebar({ open }: SidebarProps) {
     },
     {
       header: t('nav.pflanzenschutz'),
+      sectionKey: 'pflanzenschutz',
       items: [
         {
           label: t('nav.pests'),
@@ -152,6 +222,7 @@ export default function Sidebar({ open }: SidebarProps) {
     },
     {
       header: t('nav.ernte'),
+      sectionKey: 'ernte',
       items: [
         {
           label: t('nav.harvestBatches'),
@@ -161,22 +232,8 @@ export default function Sidebar({ open }: SidebarProps) {
       ],
     },
     {
-      header: t('nav.aufgaben'),
-      items: [
-        {
-          label: t('nav.taskQueue'),
-          path: '/aufgaben/queue',
-          icon: <TaskAltIcon />,
-        },
-        {
-          label: t('nav.workflows'),
-          path: '/aufgaben/workflows',
-          icon: <AccountTreeIcon />,
-        },
-      ],
-    },
-    {
       header: t('nav.durchlaeufe'),
+      sectionKey: 'durchlaeufe',
       items: [
         {
           label: t('nav.plantingRuns'),
@@ -206,10 +263,11 @@ export default function Sidebar({ open }: SidebarProps) {
           Kamerplanter
         </Typography>
       </Toolbar>
-      <Box component="nav" aria-label={t('nav.mainNavigation')} sx={{ overflow: 'auto' }}>
+      <Box component="nav" aria-label={t('nav.mainNavigation')} sx={{ overflow: 'auto', flex: 1 }}>
         <List>
           {navItems.map((section) => {
             if ('path' in section && typeof section.path === 'string') {
+              if (!isItemVisible(section.path)) return null;
               const { path } = section;
               const isActive = location.pathname === path;
               return (
@@ -225,10 +283,14 @@ export default function Sidebar({ open }: SidebarProps) {
                 </ListItemButton>
               );
             }
+            const navSection = section as NavSection;
+            if (!isSectionVisible(navSection.sectionKey)) return null;
+            const visibleItems = navSection.items.filter((item) => isItemVisible(item.path));
+            if (visibleItems.length === 0) return null;
             return (
-              <Box key={section.header}>
-                <ListSubheader>{section.header}</ListSubheader>
-                {section.items.map((item) => {
+              <Box key={navSection.header}>
+                <ListSubheader>{navSection.header}</ListSubheader>
+                {visibleItems.map((item) => {
                   const isActive = location.pathname.startsWith(item.path);
                   return (
                     <ListItemButton
@@ -248,6 +310,16 @@ export default function Sidebar({ open }: SidebarProps) {
           })}
         </List>
       </Box>
+      <List>
+        <ListItemButton
+          selected={location.pathname === '/auth/settings'}
+          onClick={() => navigate('/auth/settings')}
+          data-testid="nav-settings"
+        >
+          <ListItemIcon><SettingsIcon /></ListItemIcon>
+          <ListItemText primary={t('nav.settings')} />
+        </ListItemButton>
+      </List>
     </Drawer>
   );
 }

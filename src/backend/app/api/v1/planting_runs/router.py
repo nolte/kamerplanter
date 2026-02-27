@@ -10,10 +10,13 @@ from app.api.v1.planting_runs.schemas import (
     EntryCreate,
     EntryResponse,
     EntryUpdate,
+    NutrientPlanAssignRequest,
+    NutrientPlanAssignResponse,
     PlantingRunCreate,
     PlantingRunResponse,
     PlantingRunUpdate,
     PlantInRunResponse,
+    WateringScheduleCalendarResponse,
 )
 from app.common.dependencies import get_planting_run_service
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
@@ -196,3 +199,44 @@ def detach_plant(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     service.detach_plant(key, plant_key, body.reason)
+
+
+# ── Nutrient plan assignment ─────────────────────────────────────────
+
+@router.post("/{key}/nutrient-plan", response_model=NutrientPlanAssignResponse, status_code=201)
+def assign_nutrient_plan(
+    key: str,
+    body: NutrientPlanAssignRequest,
+    service: PlantingRunService = Depends(get_planting_run_service),
+):
+    result = service.assign_nutrient_plan(key, body.plan_key, body.assigned_by)
+    return NutrientPlanAssignResponse(**result)
+
+
+@router.get("/{key}/nutrient-plan")
+def get_nutrient_plan(
+    key: str,
+    service: PlantingRunService = Depends(get_planting_run_service),
+):
+    plan = service.get_nutrient_plan(key)
+    if plan is None:
+        return {"plan": None}
+    return {"plan": plan}
+
+
+@router.delete("/{key}/nutrient-plan", status_code=204)
+def remove_nutrient_plan(
+    key: str,
+    service: PlantingRunService = Depends(get_planting_run_service),
+):
+    service.remove_nutrient_plan(key)
+
+
+@router.get("/{key}/watering-schedule", response_model=WateringScheduleCalendarResponse)
+def get_watering_schedule(
+    key: str,
+    days_ahead: int = Query(14, ge=1, le=90),
+    service: PlantingRunService = Depends(get_planting_run_service),
+):
+    result = service.get_watering_schedule(key, days_ahead)
+    return WateringScheduleCalendarResponse(**result)

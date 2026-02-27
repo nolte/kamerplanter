@@ -3,6 +3,7 @@ from arango.database import StandardDatabase
 from app.config.settings import settings
 from app.data_access.arango.auth_provider_repository import ArangoAuthProviderRepository
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
+from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
 from app.data_access.arango.connection import ArangoConnection
 from app.data_access.arango.enrichment_repository import (
     ArangoExternalMappingRepository,
@@ -33,6 +34,7 @@ from app.data_access.arango.user_repository import ArangoUserRepository
 from app.data_access.arango.watering_repository import ArangoWateringRepository
 from app.data_access.external.console_email_adapter import ConsoleEmailAdapter
 from app.data_access.external.smtp_email_adapter import SmtpEmailAdapter
+from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.engines.dependency_resolver import DependencyResolver
@@ -55,6 +57,7 @@ from app.domain.engines.token_engine import TokenEngine
 from app.domain.engines.watering_engine import WateringEngine
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.services.auth_service import AuthService
+from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.enrichment_service import EnrichmentService
 from app.domain.services.feeding_service import FeedingService
 from app.domain.services.fertilizer_service import FertilizerService
@@ -162,7 +165,15 @@ def get_planting_run_repo() -> ArangoPlantingRunRepository:
 
 
 def get_planting_run_service() -> PlantingRunService:
-    return PlantingRunService(get_planting_run_repo(), get_plant_repo(), PlantingRunEngine())
+    from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
+    return PlantingRunService(
+        get_planting_run_repo(),
+        get_plant_repo(),
+        PlantingRunEngine(),
+        watering_schedule_engine=WateringScheduleEngine(),
+        nutrient_plan_repo=get_nutrient_plan_repo(),
+        watering_repo=get_watering_repo(),
+    )
 
 
 def get_tank_repo() -> ArangoTankRepository:
@@ -206,7 +217,16 @@ def get_watering_repo() -> ArangoWateringRepository:
 
 
 def get_watering_service() -> WateringService:
-    return WateringService(get_watering_repo(), WateringEngine(), get_site_repo())
+    return WateringService(
+        get_watering_repo(),
+        WateringEngine(),
+        get_site_repo(),
+        run_repo=get_planting_run_repo(),
+        task_repo=get_task_repo(),
+        feeding_repo=get_feeding_repo(),
+        nutrient_plan_repo=get_nutrient_plan_repo(),
+        care_repo=get_care_reminder_repo(),
+    )
 
 
 def get_ipm_repo() -> ArangoIpmRepository:
@@ -299,6 +319,7 @@ def get_auth_service() -> AuthService:
         frontend_url=settings.frontend_url,
         access_token_expire_minutes=settings.access_token_expire_minutes,
         refresh_token_expire_days=settings.refresh_token_expire_days,
+        session_token_expire_hours=settings.session_token_expire_hours,
         tenant_service=get_tenant_service(),
         require_email_verification=settings.require_email_verification,
     )
@@ -337,6 +358,66 @@ def get_tenant_service() -> TenantService:
         membership_engine=MembershipEngine(),
         invitation_engine=InvitationEngine(),
     )
+
+
+# ── REQ-022 Care Reminder dependencies ─────────────────────────────
+
+
+# ── REQ-020 Onboarding dependencies ────────────────────────────────
+
+
+def get_starter_kit_service():
+    from app.domain.services.starter_kit_service import StarterKitService
+    return StarterKitService(get_db())
+
+
+def get_onboarding_service():
+    from app.domain.services.onboarding_service import OnboardingService
+    return OnboardingService(get_db(), get_starter_kit_service())
+
+
+def get_user_preference_service():
+    from app.domain.services.user_preference_service import UserPreferenceService
+    return UserPreferenceService(get_db())
+
+
+def get_care_reminder_repo() -> ArangoCareReminderRepository:
+    return ArangoCareReminderRepository(get_db())
+
+
+def get_care_reminder_service() -> CareReminderService:
+    return CareReminderService(get_care_reminder_repo(), CareReminderEngine())
+
+
+# ── REQ-012 Import dependencies ──────────────────────────────────────
+
+
+def get_import_job_repo():
+    from app.data_access.arango.import_job_repository import ArangoImportJobRepository
+    return ArangoImportJobRepository(get_db())
+
+
+def get_import_service():
+    from app.domain.services.import_service import ImportService
+    return ImportService(get_import_job_repo(), get_species_repo(), get_family_repo())
+
+
+# ── REQ-015 Calendar dependencies ───────────────────────────────────
+
+
+def get_calendar_feed_repo():
+    from app.data_access.arango.calendar_feed_repository import ArangoCalendarFeedRepository
+    return ArangoCalendarFeedRepository(get_db())
+
+
+def get_calendar_aggregation_engine():
+    from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine
+    return CalendarAggregationEngine(get_db())
+
+
+def get_calendar_service():
+    from app.domain.services.calendar_service import CalendarService
+    return CalendarService(get_calendar_feed_repo(), get_calendar_aggregation_engine())
 
 
 def close_connection() -> None:

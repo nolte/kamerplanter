@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -10,9 +10,19 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import ListItemSecondaryAction from '@mui/material/ListItemSecondaryAction';
+import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteIcon from '@mui/icons-material/Delete';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -25,14 +35,19 @@ import FormTextField from '@/components/form/FormTextField';
 import FormDateField from '@/components/form/FormDateField';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import WateringConfirmDialog from './WateringConfirmDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as runApi from '@/api/endpoints/plantingRuns';
+import * as planApi from '@/api/endpoints/nutrient-plans';
+import { quickConfirmWatering } from '@/api/endpoints/wateringConfirm';
 import type {
+  NutrientPlan,
   PlantingRun,
   PlantingRunEntry,
   PlantInRun,
   PlantingRunStatus,
+  WateringScheduleCalendarResponse,
 } from '@/api/types';
 
 const statusColor: Record<PlantingRunStatus, ChipProps['color']> = {
@@ -67,6 +82,18 @@ export default function PlantingRunDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [createPlantsOpen, setCreatePlantsOpen] = useState(false);
   const [batchRemoveOpen, setBatchRemoveOpen] = useState(false);
+
+  // Watering tab state
+  const [nutrientPlans, setNutrientPlans] = useState<NutrientPlan[]>([]);
+  const [assignedPlan, setAssignedPlan] = useState<Record<string, unknown> | null>(null);
+  const [selectedPlanKey, setSelectedPlanKey] = useState('');
+  const [assigning, setAssigning] = useState(false);
+  const [wateringCalendar, setWateringCalendar] = useState<WateringScheduleCalendarResponse | null>(null);
+  const [wateringLoading, setWateringLoading] = useState(false);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmDate, setConfirmDate] = useState('');
+  const [quickConfirming, setQuickConfirming] = useState<string | null>(null);
+  const [removePlanOpen, setRemovePlanOpen] = useState(false);
 
   const {
     control,
@@ -107,6 +134,34 @@ export default function PlantingRunDetailPage() {
   useEffect(() => {
     load();
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadWateringData = useCallback(async () => {
+    if (!key) return;
+    setWateringLoading(true);
+    try {
+      const [plans, planResult, calendar] = await Promise.all([
+        planApi.fetchNutrientPlans(0, 200),
+        runApi.getRunNutrientPlan(key).catch(() => ({ plan: null })),
+        runApi.getWateringSchedule(key, 14).catch(() => null),
+      ]);
+      setNutrientPlans(plans);
+      setAssignedPlan(planResult.plan);
+      setWateringCalendar(calendar);
+      if (planResult.plan) {
+        setSelectedPlanKey((planResult.plan as { key?: string }).key ?? '');
+      }
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setWateringLoading(false);
+    }
+  }, [key, handleError]);
+
+  useEffect(() => {
+    if (tab === 2) {
+      loadWateringData();
+    }
+  }, [tab, loadWateringData]);
 
   const onEditSubmit = async (data: EditFormData) => {
     if (!key) return;
@@ -175,6 +230,66 @@ export default function PlantingRunDetailPage() {
     } catch (err) {
       handleError(err);
     }
+  };
+
+  const onAssignPlan = async () => {
+    if (!key || !selectedPlanKey) return;
+    try {
+      setAssigning(true);
+      await runApi.assignNutrientPlan(key, selectedPlanKey);
+      notification.success(t('pages.wateringSchedule.assignPlan'));
+      loadWateringData();
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const onRemovePlan = async () => {
+    if (!key) return;
+    try {
+      await runApi.removeRunNutrientPlan(key);
+      notification.success(t('pages.wateringSchedule.removePlan'));
+      setAssignedPlan(null);
+      setSelectedPlanKey('');
+      setWateringCalendar(null);
+      loadWateringData();
+    } catch (err) {
+      handleError(err);
+    }
+    setRemovePlanOpen(false);
+  };
+
+  const onQuickConfirm = async (date: string) => {
+    if (!key) return;
+    try {
+      setQuickConfirming(date);
+      const result = await quickConfirmWatering({
+        run_key: key,
+        task_key: date,
+      });
+      notification.success(
+        t('pages.wateringSchedule.feedingEventsCreated', {
+          count: result.feeding_events_created,
+        }),
+      );
+      loadWateringData();
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setQuickConfirming(null);
+    }
+  };
+
+  const isToday = (dateStr: string): boolean => {
+    const today = new Date().toISOString().slice(0, 10);
+    return dateStr === today;
+  };
+
+  const isPast = (dateStr: string): boolean => {
+    const today = new Date().toISOString().slice(0, 10);
+    return dateStr < today;
   };
 
   const entryColumns: Column<PlantingRunEntry>[] = [
@@ -256,6 +371,7 @@ export default function PlantingRunDetailPage() {
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
         <Tab label={t('pages.plantingRuns.tabDetails')} />
         <Tab label={t('pages.plantingRuns.tabPlants')} />
+        <Tab label={t('pages.wateringSchedule.title')} data-testid="watering-tab" />
         <Tab label={t('common.edit')} />
       </Tabs>
 
@@ -342,7 +458,162 @@ export default function PlantingRunDetailPage() {
         </Box>
       )}
 
+      {/* Tab 2: Watering Schedule */}
       {tab === 2 && (
+        <Box data-testid="watering-schedule-tab">
+          {wateringLoading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          )}
+
+          {!wateringLoading && (
+            <>
+              {/* Plan Assignment */}
+              <Card sx={{ mb: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    {t('pages.nutrientPlans.assignPlan')}
+                  </Typography>
+
+                  {assignedPlan ? (
+                    <Box>
+                      <Alert severity="success" sx={{ mb: 2 }}>
+                        {t('pages.nutrientPlans.assignedPlan')}:{' '}
+                        <strong>{(assignedPlan as { name?: string }).name ?? t('pages.wateringSchedule.noPlan')}</strong>
+                      </Alert>
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        startIcon={<DeleteIcon />}
+                        onClick={() => setRemovePlanOpen(true)}
+                        data-testid="remove-plan-button"
+                      >
+                        {t('pages.wateringSchedule.removePlan')}
+                      </Button>
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+                      <TextField
+                        select
+                        label={t('pages.wateringSchedule.assignPlan')}
+                        value={selectedPlanKey}
+                        onChange={(e) => setSelectedPlanKey(e.target.value)}
+                        fullWidth
+                        sx={{ maxWidth: 400 }}
+                        data-testid="plan-select"
+                      >
+                        {nutrientPlans.map((plan) => (
+                          <MenuItem key={plan.key} value={plan.key}>
+                            {plan.name}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                      <Button
+                        variant="contained"
+                        onClick={onAssignPlan}
+                        disabled={!selectedPlanKey || assigning}
+                        data-testid="assign-plan-button"
+                      >
+                        {assigning ? <CircularProgress size={20} /> : t('pages.wateringSchedule.assignPlan')}
+                      </Button>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Watering Calendar */}
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                    <WaterDropIcon color="primary" />
+                    <Typography variant="h6">
+                      {t('pages.wateringSchedule.upcomingDates')}
+                    </Typography>
+                  </Box>
+
+                  {!wateringCalendar || !wateringCalendar.has_schedule ? (
+                    <Alert severity="info">
+                      {t('pages.wateringSchedule.noPlan')}
+                    </Alert>
+                  ) : wateringCalendar.dates.length === 0 ? (
+                    <Alert severity="info">
+                      {t('pages.wateringSchedule.noDates')}
+                    </Alert>
+                  ) : (
+                    <List data-testid="watering-dates-list">
+                      {wateringCalendar.dates.map((date) => {
+                        const today = isToday(date);
+                        const past = isPast(date);
+                        return (
+                          <ListItem
+                            key={date}
+                            sx={{
+                              bgcolor: today ? 'action.selected' : 'transparent',
+                              borderRadius: 1,
+                              mb: 0.5,
+                              opacity: past ? 0.6 : 1,
+                            }}
+                            data-testid={`watering-date-${date}`}
+                          >
+                            <ListItemText
+                              primary={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Typography>
+                                    {new Date(date).toLocaleDateString()}
+                                  </Typography>
+                                  {today && (
+                                    <Chip
+                                      label={t('pages.wateringSchedule.dueToday')}
+                                      size="small"
+                                      color="warning"
+                                    />
+                                  )}
+                                </Box>
+                              }
+                            />
+                            <ListItemSecondaryAction>
+                              <Box sx={{ display: 'flex', gap: 1 }}>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<CheckCircleIcon />}
+                                  disabled={quickConfirming === date}
+                                  onClick={() => onQuickConfirm(date)}
+                                  data-testid={`quick-confirm-${date}`}
+                                >
+                                  {quickConfirming === date ? (
+                                    <CircularProgress size={16} />
+                                  ) : (
+                                    t('pages.wateringSchedule.quickConfirm')
+                                  )}
+                                </Button>
+                                <Button
+                                  size="small"
+                                  variant="contained"
+                                  onClick={() => {
+                                    setConfirmDate(date);
+                                    setConfirmDialogOpen(true);
+                                  }}
+                                  data-testid={`confirm-${date}`}
+                                >
+                                  {t('pages.wateringSchedule.confirm')}
+                                </Button>
+                              </Box>
+                            </ListItemSecondaryAction>
+                          </ListItem>
+                        );
+                      })}
+                    </List>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </Box>
+      )}
+
+      {tab === 3 && (
         <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: 600 }}>
           <FormTextField name="name" control={control} label={t('pages.plantingRuns.name')} required />
           <FormDateField
@@ -382,6 +653,28 @@ export default function PlantingRunDetailPage() {
         onCancel={() => setBatchRemoveOpen(false)}
         destructive
       />
+
+      <ConfirmDialog
+        open={removePlanOpen}
+        title={t('pages.wateringSchedule.removePlan')}
+        message={t('pages.wateringSchedule.removePlanConfirm')}
+        onConfirm={onRemovePlan}
+        onCancel={() => setRemovePlanOpen(false)}
+        destructive
+      />
+
+      {key && (
+        <WateringConfirmDialog
+          open={confirmDialogOpen}
+          onClose={() => setConfirmDialogOpen(false)}
+          runKey={key}
+          taskKey={confirmDate}
+          onConfirmed={() => {
+            setConfirmDialogOpen(false);
+            loadWateringData();
+          }}
+        />
+      )}
     </Box>
   );
 }

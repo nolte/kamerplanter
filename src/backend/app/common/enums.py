@@ -45,6 +45,9 @@ class SiteType(StrEnum):
     OUTDOOR = "outdoor"
     GREENHOUSE = "greenhouse"
     INDOOR = "indoor"
+    WINDOWSILL = "windowsill"
+    BALCONY = "balcony"
+    GROW_TENT = "grow_tent"
 
 
 class LightType(StrEnum):
@@ -67,11 +70,25 @@ class IrrigationSystem(StrEnum):
 class SubstrateType(StrEnum):
     SOIL = "soil"
     COCO = "coco"
-    ROCKWOOL = "rockwool"
     CLAY_PEBBLES = "clay_pebbles"
     PERLITE = "perlite"
     LIVING_SOIL = "living_soil"
+    PEAT = "peat"
+    ROCKWOOL_SLAB = "rockwool_slab"
+    ROCKWOOL_PLUG = "rockwool_plug"
+    VERMICULITE = "vermiculite"
+    NONE = "none"
+    ORCHID_BARK = "orchid_bark"
+    PON_MINERAL = "pon_mineral"
+    SPHAGNUM = "sphagnum"
     HYDRO_SOLUTION = "hydro_solution"
+
+
+class IrrigationStrategy(StrEnum):
+    INFREQUENT = "infrequent"
+    MODERATE = "moderate"
+    FREQUENT = "frequent"
+    CONTINUOUS = "continuous"
 
 
 class NutrientDemand(StrEnum):
@@ -368,6 +385,7 @@ class TaskCategory(StrEnum):
     HARVEST = "harvest"
     OBSERVATION = "observation"
     MAINTENANCE = "maintenance"
+    CARE_REMINDER = "care_reminder"
 
 
 class TaskTriggerType(StrEnum):
@@ -445,3 +463,131 @@ class InvitationStatus(StrEnum):
 class InvitationType(StrEnum):
     EMAIL = "email"
     LINK = "link"
+
+
+# ── REQ-022 Care Reminders ──
+
+
+class CareStyleType(StrEnum):
+    TROPICAL = "tropical"
+    SUCCULENT = "succulent"
+    ORCHID = "orchid"
+    CALATHEA = "calathea"
+    HERB_TROPICAL = "herb_tropical"
+    MEDITERRANEAN = "mediterranean"
+    FERN = "fern"
+    CACTUS = "cactus"
+    CUSTOM = "custom"
+
+
+class ReminderType(StrEnum):
+    WATERING = "watering"
+    FERTILIZING = "fertilizing"
+    REPOTTING = "repotting"
+    PEST_CHECK = "pest_check"
+    LOCATION_CHECK = "location_check"
+    HUMIDITY_CHECK = "humidity_check"
+
+
+class ConfirmAction(StrEnum):
+    CONFIRMED = "confirmed"
+    SNOOZED = "snoozed"
+    SKIPPED = "skipped"
+
+
+class WateringMethod(StrEnum):
+    SOAK = "soak"
+    DRENCH_AND_DRAIN = "drench_and_drain"
+    TOP_WATER = "top_water"
+    BOTTOM_WATER = "bottom_water"
+
+
+# ── REQ-020 Onboarding ──
+
+
+class ExperienceLevel(StrEnum):
+    BEGINNER = "beginner"
+    INTERMEDIATE = "intermediate"
+    EXPERT = "expert"
+
+
+class StarterKitDifficulty(StrEnum):
+    BEGINNER = "beginner"
+    INTERMEDIATE = "intermediate"
+    ADVANCED = "advanced"
+
+
+# ── Watering Schedule ──
+
+
+class ScheduleMode(StrEnum):
+    WEEKDAYS = "weekdays"
+    INTERVAL = "interval"
+
+
+# ── REQ-012 Import ──
+
+
+class EntityType(StrEnum):
+    SPECIES = "species"
+    CULTIVAR = "cultivar"
+    BOTANICAL_FAMILY = "botanical_family"
+
+
+class DuplicateStrategy(StrEnum):
+    SKIP = "skip"
+    UPDATE = "update"
+    FAIL = "fail"
+
+
+class ImportJobStatus(StrEnum):
+    UPLOADED = "uploaded"
+    VALIDATING = "validating"
+    PREVIEW_READY = "preview_ready"
+    CONFIRMED = "confirmed"
+    IMPORTING = "importing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class RowStatus(StrEnum):
+    VALID = "valid"
+    INVALID = "invalid"
+    DUPLICATE = "duplicate"
+
+
+# ── REQ-015 Calendar ──
+
+
+class CalendarEventCategory(StrEnum):
+    TRAINING = "training"
+    PRUNING = "pruning"
+    TRANSPLANTING = "transplanting"
+    FEEDING = "feeding"
+    IPM = "ipm"
+    HARVEST = "harvest"
+    MAINTENANCE = "maintenance"
+    PHASE_TRANSITION = "phase_transition"
+    TANK_MAINTENANCE = "tank_maintenance"
+    CUSTOM = "custom"
+
+
+class CalendarEventSource(StrEnum):
+    TASK = "task"
+    PHASE_TRANSITION = "phase_transition"
+    MAINTENANCE_LOG = "maintenance_log"
+    WATERING = "watering"
+
+
+CATEGORY_COLORS: dict[CalendarEventCategory, str] = {
+    CalendarEventCategory.TRAINING: "#4CAF50",
+    CalendarEventCategory.PRUNING: "#8BC34A",
+    CalendarEventCategory.TRANSPLANTING: "#795548",
+    CalendarEventCategory.FEEDING: "#2196F3",
+    CalendarEventCategory.IPM: "#FF9800",
+    CalendarEventCategory.HARVEST: "#F44336",
+    CalendarEventCategory.MAINTENANCE: "#9E9E9E",
+    CalendarEventCategory.PHASE_TRANSITION: "#9C27B0",
+    CalendarEventCategory.TANK_MAINTENANCE: "#00BCD4",
+    CalendarEventCategory.CUSTOM: "#607D8B",
+}

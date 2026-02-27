@@ -32,6 +32,7 @@ class WateringEvent(BaseModel):
     runoff_ph: float | None = Field(default=None, ge=0, le=14)
     water_source: WaterSource | None = None
     performed_by: str | None = None
+    task_key: str | None = None
     notes: str | None = None
     created_at: datetime | None = None
 

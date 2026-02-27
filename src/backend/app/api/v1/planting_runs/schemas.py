@@ -126,3 +126,25 @@ class PlantInRunResponse(BaseModel):
     current_phase: str
     detached_at: str | None = None
     detach_reason: str | None = None
+
+
+# ── Nutrient plan assignment schemas ─────────────────────────────────
+
+class NutrientPlanAssignRequest(BaseModel):
+    plan_key: str
+    assigned_by: str = ""
+
+
+class NutrientPlanAssignResponse(BaseModel):
+    run_key: str
+    plan_key: str
+    edge_key: str
+
+
+class WateringScheduleCalendarResponse(BaseModel):
+    run_key: str
+    has_schedule: bool
+    plan_key: str | None = None
+    plan_name: str | None = None
+    schedule: dict | None = None
+    dates: list[str] = Field(default_factory=list)

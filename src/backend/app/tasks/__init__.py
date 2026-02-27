@@ -34,5 +34,15 @@ celery_app.conf.update(
             "task": "app.tasks.tenant_tasks.cleanup_expired_invitations",
             "schedule": 86400,
         },
+        # REQ-022 Care Reminder tasks
+        "care-generate-reminders-daily": {
+            "task": "app.tasks.care_tasks.generate_due_care_reminders",
+            "schedule": 86400,
+        },
+        # Watering schedule tasks
+        "watering-generate-tasks-daily": {
+            "task": "app.tasks.watering_tasks.generate_watering_tasks",
+            "schedule": 86400,
+        },
     },
 )

@@ -45,6 +45,7 @@ class PlantingRun(BaseModel):
     started_at: datetime | None = None
     completed_at: datetime | None = None
     source_plant_key: str | None = None
+    nutrient_plan_key: str | None = None
     notes: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

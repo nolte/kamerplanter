@@ -4,6 +4,7 @@ from app.common.enums import PlantingRunStatus
 from app.common.exceptions import InvalidRunStateError, NotFoundError
 from app.common.types import PlantID, PlantingRunKey
 from app.domain.engines.planting_run_engine import PlantingRunEngine
+from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.models.plant_instance import PlantInstance
@@ -16,10 +17,16 @@ class PlantingRunService:
         run_repo: IPlantingRunRepository,
         plant_repo: IPlantInstanceRepository,
         engine: PlantingRunEngine,
+        watering_schedule_engine: WateringScheduleEngine | None = None,
+        nutrient_plan_repo=None,
+        watering_repo=None,
     ) -> None:
         self._repo = run_repo
         self._plant_repo = plant_repo
         self._engine = engine
+        self._schedule_engine = watering_schedule_engine or WateringScheduleEngine()
+        self._nutrient_plan_repo = nutrient_plan_repo
+        self._watering_repo = watering_repo
 
     # ── Run CRUD ──────────────────────────────────────────────────────
 
@@ -255,3 +262,56 @@ class PlantingRunService:
     def detach_plant(self, run_key: PlantingRunKey, plant_key: PlantID, reason: str) -> None:
         self.get_run(run_key)
         self._repo.detach_plant(run_key, plant_key, reason)
+
+    # ── Nutrient plan assignment ───────────────────────────────────────
+
+    def assign_nutrient_plan(self, run_key: PlantingRunKey, plan_key: str, assigned_by: str = "") -> dict:
+        self.get_run(run_key)
+        return self._repo.assign_nutrient_plan(run_key, plan_key, assigned_by)
+
+    def get_nutrient_plan(self, run_key: PlantingRunKey) -> dict | None:
+        self.get_run(run_key)
+        plan_key = self._repo.get_run_nutrient_plan_key(run_key)
+        if plan_key is None:
+            return None
+        if self._nutrient_plan_repo is not None:
+            plan = self._nutrient_plan_repo.get_by_key(plan_key)
+            if plan:
+                return plan.model_dump(mode="json") if hasattr(plan, "model_dump") else plan
+        return {"key": plan_key}
+
+    def remove_nutrient_plan(self, run_key: PlantingRunKey) -> bool:
+        self.get_run(run_key)
+        return self._repo.remove_nutrient_plan(run_key)
+
+    def get_watering_schedule(self, run_key: PlantingRunKey, days_ahead: int = 14) -> dict:
+        """Get watering schedule calendar for the next N days."""
+        run = self.get_run(run_key)
+        plan_key = self._repo.get_run_nutrient_plan_key(run_key)
+        if plan_key is None:
+            return {"run_key": run_key, "has_schedule": False, "dates": []}
+
+        plan = None
+        if self._nutrient_plan_repo is not None:
+            plan = self._nutrient_plan_repo.get_by_key(plan_key)
+
+        if plan is None or not hasattr(plan, "watering_schedule") or plan.watering_schedule is None:
+            return {"run_key": run_key, "has_schedule": False, "dates": []}
+
+        # Get last watering date for the run
+        last_watering_date = None
+        if self._watering_repo is not None:
+            last_watering_date = self._watering_repo.get_last_watering_date_for_run(run_key)
+
+        today = date.today()
+        dates = self._schedule_engine.get_next_watering_dates(
+            plan.watering_schedule, today, days_ahead, last_watering_date,
+        )
+        return {
+            "run_key": run_key,
+            "has_schedule": True,
+            "plan_key": plan_key,
+            "plan_name": plan.name if plan else "",
+            "schedule": plan.watering_schedule.model_dump(mode="json"),
+            "dates": [d.isoformat() for d in dates],
+        }

@@ -86,3 +86,25 @@ class IPlantingRunRepository(ABC):
     @abstractmethod
     def get_existing_ids_at_location(self, location_key: LocationKey) -> set[str]:
         ...
+
+    # ── Nutrient plan assignment ───────────────────────────────────────
+
+    @abstractmethod
+    def assign_nutrient_plan(self, run_key: PlantingRunKey, plan_key: str, assigned_by: str) -> dict:
+        ...
+
+    @abstractmethod
+    def get_run_nutrient_plan_key(self, run_key: PlantingRunKey) -> str | None:
+        ...
+
+    @abstractmethod
+    def remove_nutrient_plan(self, run_key: PlantingRunKey) -> bool:
+        ...
+
+    @abstractmethod
+    def get_active_runs_with_schedule(self) -> list[dict]:
+        ...
+
+    @abstractmethod
+    def get_plant_keys_with_active_schedule(self) -> set[str]:
+        ...

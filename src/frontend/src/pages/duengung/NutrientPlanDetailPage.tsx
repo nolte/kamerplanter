@@ -44,15 +44,22 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 import * as fertApi from '@/api/endpoints/fertilizers';
-import type { NutrientPlan, NutrientPlanPhaseEntry, PlanValidationResult, Fertilizer } from '@/api/types';
+import type { NutrientPlan, NutrientPlanPhaseEntry, PlanValidationResult, Fertilizer, WateringSchedule } from '@/api/types';
 
 const substrateTypes = [
   'soil',
   'coco',
-  'rockwool',
   'clay_pebbles',
   'perlite',
   'living_soil',
+  'peat',
+  'rockwool_slab',
+  'rockwool_plug',
+  'vermiculite',
+  'none',
+  'orchid_bark',
+  'pon_mineral',
+  'sphagnum',
   'hydro_solution',
 ] as const;
 
@@ -67,6 +74,109 @@ const editSchema = z.object({
 });
 
 type EditFormData = z.infer<typeof editSchema>;
+
+const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
+
+function WateringScheduleTabContent({ plan }: { plan: NutrientPlan }) {
+  const { t } = useTranslation();
+
+  // The watering_schedule may exist on the plan as an extra field from the backend
+  const schedule = (plan as NutrientPlan & { watering_schedule?: WateringSchedule }).watering_schedule;
+
+  if (!schedule) {
+    return (
+      <Card>
+        <CardContent>
+          <Alert severity="info">
+            {t('pages.wateringSchedule.noSchedule')}
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card data-testid="watering-schedule-tab">
+      <CardContent>
+        <Typography variant="h6" gutterBottom>
+          {t('pages.wateringSchedule.title')}
+        </Typography>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {/* Mode */}
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary">
+              {t('pages.wateringSchedule.mode')}
+            </Typography>
+            <Typography>
+              {schedule.schedule_mode === 'weekdays'
+                ? t('pages.wateringSchedule.weekdays')
+                : t('pages.wateringSchedule.interval')}
+            </Typography>
+          </Box>
+
+          {/* Weekdays */}
+          {schedule.schedule_mode === 'weekdays' && schedule.weekday_schedule.length > 0 && (
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary">
+                {t('pages.wateringSchedule.weekdays')}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+                {schedule.weekday_schedule.map((dayIndex) => (
+                  <Chip
+                    key={dayIndex}
+                    label={t(`pages.wateringSchedule.${WEEKDAY_KEYS[dayIndex]}`)}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                  />
+                ))}
+              </Box>
+            </Box>
+          )}
+
+          {/* Interval */}
+          {schedule.schedule_mode === 'interval' && schedule.interval_days != null && (
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary">
+                {t('pages.wateringSchedule.intervalDays')}
+              </Typography>
+              <Typography>{schedule.interval_days}</Typography>
+            </Box>
+          )}
+
+          {/* Preferred Time */}
+          {schedule.preferred_time && (
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary">
+                {t('pages.wateringSchedule.preferredTime')}
+              </Typography>
+              <Typography>{schedule.preferred_time}</Typography>
+            </Box>
+          )}
+
+          {/* Application Method */}
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary">
+              {t('pages.wateringSchedule.applicationMethod')}
+            </Typography>
+            <Typography>
+              {t(`enums.applicationMethod.${schedule.application_method}`)}
+            </Typography>
+          </Box>
+
+          {/* Reminder Hours Before */}
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary">
+              {t('pages.wateringSchedule.reminderHoursBefore')}
+            </Typography>
+            <Typography>{schedule.reminder_hours_before}h</Typography>
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function NutrientPlanDetailPage() {
   const { key } = useParams<{ key: string }>();
@@ -278,6 +388,7 @@ export default function NutrientPlanDetailPage() {
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab label={t('pages.nutrientPlans.tabPhaseEntries')} />
         <Tab label={t('pages.nutrientPlans.tabValidation')} />
+        <Tab label={t('pages.wateringSchedule.title')} />
         <Tab label={t('common.edit')} />
       </Tabs>
 
@@ -533,8 +644,13 @@ export default function NutrientPlanDetailPage() {
         </Box>
       )}
 
-      {/* Tab 2: Edit */}
+      {/* Tab 2: Watering Schedule */}
       {tab === 2 && (
+        <WateringScheduleTabContent plan={plan} />
+      )}
+
+      {/* Tab 3: Edit */}
+      {tab === 3 && (
         <Card>
           <CardContent>
             <form onSubmit={handleSubmit(onSave)}>

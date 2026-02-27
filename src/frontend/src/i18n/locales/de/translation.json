@@ -23,7 +23,10 @@
     "createdAt": "Erstellt am",
     "updatedAt": "Aktualisiert am",
     "skipToContent": "Zum Inhalt springen",
-    "toggleSidebar": "Seitenleiste umschalten"
+    "toggleSidebar": "Seitenleiste umschalten",
+    "showAllFields": "Alle Felder anzeigen",
+    "showFewerFields": "Weniger Felder anzeigen",
+    "saved": "Gespeichert"
   },
   "table": {
     "showing": "Zeigt {{from}}–{{to}} von {{total}} Einträgen",
@@ -63,7 +66,12 @@
     "aufgaben": "Aufgaben",
     "taskQueue": "Aufgabenwarteschlange",
     "workflows": "Workflows",
-    "mainNavigation": "Hauptnavigation"
+    "mainNavigation": "Hauptnavigation",
+    "pflege": "Pflege",
+    "onboarding": "Einrichtung",
+    "settings": "Einstellungen",
+    "import": "Import",
+    "calendar": "Kalender"
   },
   "errors": {
     "network": "Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung.",
@@ -154,7 +162,16 @@
       "tabProfile": "Profil",
       "tabSecurity": "Sicherheit",
       "tabSessions": "Sitzungen",
+      "tabExperience": "Erfahrungsstufe",
       "tabAccount": "Konto",
+      "experienceLevelTitle": "Erfahrungsstufe",
+      "experienceLevelSubtitle": "Passen Sie die angezeigte Komplexität der Benutzeroberfläche an Ihre Erfahrung an.",
+      "experienceLevelDowngradeWarning": "Beim Herunterstufen werden einige Felder und Navigationseinträge ausgeblendet. Ihre Daten bleiben erhalten. Fortfahren?",
+      "experienceLevel": {
+        "beginnerDescription": "Einfache Ansicht mit den wichtigsten Feldern",
+        "intermediateDescription": "Erweiterte Optionen für erfahrene Nutzer",
+        "expertDescription": "Alle Felder und Funktionen sichtbar"
+      },
       "changePassword": "Passwort ändern",
       "currentPassword": "Aktuelles Passwort",
       "newPasswordField": "Neues Passwort",
@@ -170,7 +187,11 @@
       "deleteAccount": "Konto löschen",
       "deleteAccountConfirm": "Sind Sie sicher, dass Sie Ihr Konto löschen möchten? Dies kann nicht rückgängig gemacht werden.",
       "logout": "Abmelden",
-      "accountMenu": "Konto-Menü"
+      "accountMenu": "Konto-Menü",
+      "rememberMe": "Angemeldet bleiben",
+      "rememberMeTooltip": "Aktivieren Sie diese Option nur auf privaten Geräten. Ihre Sitzung bleibt bis zu 30 Tage aktiv.",
+      "sessionPersistent": "Persistent",
+      "sessionTemporary": "Sitzung"
     },
     "tenants": {
       "selectTenant": "Garten wählen",
@@ -910,6 +931,127 @@
       "title": "Seite nicht gefunden",
       "message": "Die angeforderte Seite existiert nicht.",
       "backHome": "Zurück zum Dashboard"
+    },
+    "pflege": {
+      "title": "Pflege-Dashboard",
+      "noReminders": "Keine Pflegeerinnerungen fällig",
+      "confirmAction": "Erledigt",
+      "snoozeAction": "Später",
+      "overdue": "Überfällig",
+      "dueToday": "Heute fällig",
+      "upcoming": "Demnächst",
+      "editProfile": "Pflegeprofil bearbeiten",
+      "resetProfile": "Auf Standard zurücksetzen",
+      "wateringInterval": "Gießintervall (Tage)",
+      "fertilizingInterval": "Düngeintervall (Tage)",
+      "repottingInterval": "Umtopfintervall (Monate)",
+      "pestCheckInterval": "Schädlingskontrolle (Tage)",
+      "adaptiveLearning": "Adaptives Lernen",
+      "humidityCheck": "Luftfeuchte-Check",
+      "careStyle": "Pflegestil"
+    },
+    "onboarding": {
+      "title": "Willkommen bei Kamerplanter",
+      "subtitle": "Richte dein Pflanzenprofil in wenigen Schritten ein",
+      "step1": "Willkommen",
+      "step2": "Szenario wählen",
+      "step3": "Standort einrichten",
+      "step4": "Pflanzen auswählen",
+      "step5": "Fertig",
+      "experienceLevel": "Erfahrungsstufe",
+      "selectKit": "Starter-Kit wählen",
+      "siteName": "Standortname",
+      "plantCount": "Anzahl Pflanzen",
+      "complete": "Einrichtung abschließen",
+      "skip": "Überspringen"
+    },
+    "wateringSchedule": {
+      "title": "Gießplan",
+      "mode": "Modus",
+      "weekdays": "Wochentage",
+      "interval": "Intervall",
+      "intervalDays": "Intervall (Tage)",
+      "preferredTime": "Bevorzugte Uhrzeit",
+      "applicationMethod": "Ausbringungsmethode",
+      "reminderHoursBefore": "Erinnerung (Stunden vorher)",
+      "assignPlan": "Plan zuweisen",
+      "removePlan": "Plan entfernen",
+      "removePlanConfirm": "Sind Sie sicher, dass Sie den zugewiesenen Plan entfernen möchten?",
+      "noPlan": "Kein Plan zugewiesen",
+      "noSchedule": "Kein Gießplan konfiguriert. Bearbeiten Sie den Nährstoffplan, um einen Gießplan hinzuzufügen.",
+      "noDates": "Keine kommenden Termine im Zeitraum.",
+      "confirm": "Gießen bestätigen",
+      "confirmDescription": "Optional können Sie Messwerte zum Gießvorgang erfassen.",
+      "quickConfirm": "Schnell bestätigen",
+      "upcomingDates": "Kommende Termine",
+      "dueToday": "Heute fällig",
+      "feedingEventsCreated": "{{count}} Fütterungsereignisse erstellt",
+      "wateringEventKey": "Gießvorgang-ID",
+      "measuredEc": "Gemessener EC",
+      "measuredPh": "Gemessener pH",
+      "volumeLiters": "Volumen (L)",
+      "mon": "Mo",
+      "tue": "Di",
+      "wed": "Mi",
+      "thu": "Do",
+      "fri": "Fr",
+      "sat": "Sa",
+      "sun": "So"
+    },
+    "import": {
+      "title": "Stammdaten-Import",
+      "description": "Importieren Sie Stammdaten aus CSV-Dateien. Laden Sie eine Vorlage herunter, f\u00fcllen Sie diese aus und laden Sie die Datei hoch.",
+      "stepUpload": "Datei hochladen",
+      "stepPreview": "Vorschau",
+      "stepResult": "Ergebnis",
+      "entityType": "Datentyp",
+      "entitySpecies": "Pflanzenarten",
+      "entityCultivar": "Sorten",
+      "entityFamily": "Pflanzenfamilien",
+      "duplicateStrategy": "Duplikat-Behandlung",
+      "strategySkip": "\u00dcberspringen",
+      "strategyUpdate": "Aktualisieren",
+      "strategyFail": "Fehler melden",
+      "selectFile": "CSV-Datei ausw\u00e4hlen",
+      "downloadTemplate": "Vorlage herunterladen",
+      "upload": "Hochladen",
+      "file": "Datei",
+      "rows": "Zeilen",
+      "data": "Daten",
+      "status": "Status",
+      "errors": "Fehler",
+      "confirm": "Import best\u00e4tigen",
+      "resultTitle": "Import abgeschlossen",
+      "created": "Erstellt",
+      "updated": "Aktualisiert",
+      "skipped": "\u00dcbersprungen",
+      "failed": "Fehlgeschlagen",
+      "newImport": "Neuer Import"
+    },
+    "calendar": {
+      "title": "Kalender",
+      "monthView": "Monatsansicht",
+      "listView": "Listenansicht",
+      "today": "Heute",
+      "noEvents": "Keine Ereignisse",
+      "feeds": "iCal-Feeds",
+      "createFeed": "Feed erstellen",
+      "feedName": "Feed-Name",
+      "copyUrl": "URL kopieren",
+      "regenerateToken": "Token erneuern",
+      "deleteFeed": "Feed löschen",
+      "urlCopied": "URL kopiert",
+      "categories": "Kategorien",
+      "training": "Training",
+      "pruning": "Schnitt",
+      "transplanting": "Umtopfen",
+      "feeding": "Düngung",
+      "ipm": "Pflanzenschutz",
+      "harvest": "Ernte",
+      "maintenance": "Wartung",
+      "phaseTransition": "Phasenwechsel",
+      "tankMaintenance": "Tankwartung",
+      "custom": "Sonstiges"
     }
   },
   "enums": {
@@ -944,7 +1086,10 @@
     "siteType": {
       "outdoor": "Außenbereich",
       "greenhouse": "Gewächshaus",
-      "indoor": "Innenbereich"
+      "indoor": "Innenbereich",
+      "windowsill": "Fensterbrett",
+      "balcony": "Balkon",
+      "grow_tent": "Growzelt"
     },
     "lightType": {
       "natural": "Natürlich",
@@ -964,10 +1109,17 @@
     "substrateType": {
       "soil": "Erde",
       "coco": "Kokos",
-      "rockwool": "Steinwolle",
       "clay_pebbles": "Blähton",
       "perlite": "Perlit",
       "living_soil": "Lebende Erde",
+      "peat": "Torf",
+      "rockwool_slab": "Steinwollmatte",
+      "rockwool_plug": "Steinwollwürfel",
+      "vermiculite": "Vermiculit",
+      "none": "Kein Substrat",
+      "orchid_bark": "Orchideenrinde",
+      "pon_mineral": "PON-Mineralsubstrat",
+      "sphagnum": "Sphagnum-Moos",
       "hydro_solution": "Hydrolösung"
     },
     "nutrientDemand": {
@@ -1215,7 +1367,8 @@
       "pruning": "Schnitt",
       "transplant": "Umtopfen",
       "monitoring": "Überwachung",
-      "cleaning": "Reinigung"
+      "cleaning": "Reinigung",
+      "care_reminder": "Pflegeerinnerung"
     },
     "triggerType": {
       "manual": "Manuell",
@@ -1249,6 +1402,42 @@
       "accepted": "Angenommen",
       "expired": "Abgelaufen",
       "revoked": "Widerrufen"
+    },
+    "irrigationStrategy": {
+      "infrequent": "Selten",
+      "moderate": "Moderat",
+      "frequent": "Häufig",
+      "continuous": "Kontinuierlich"
+    },
+    "careStyle": {
+      "tropical": "Tropisch",
+      "succulent": "Sukkulente",
+      "orchid": "Orchidee",
+      "calathea": "Calathea",
+      "herb_tropical": "Tropische Kräuter",
+      "mediterranean": "Mediterran",
+      "fern": "Farn",
+      "cactus": "Kaktus",
+      "custom": "Benutzerdefiniert"
+    },
+    "reminderType": {
+      "watering": "Gießen",
+      "fertilizing": "Düngen",
+      "repotting": "Umtopfen",
+      "pest_check": "Schädlingskontrolle",
+      "location_check": "Standort-Check",
+      "humidity_check": "Luftfeuchte-Check"
+    },
+    "wateringMethod": {
+      "soak": "Tauchen",
+      "drench_and_drain": "Durchgießen",
+      "top_water": "Von oben gießen",
+      "bottom_water": "Von unten gießen"
+    },
+    "experienceLevel": {
+      "beginner": "Anfänger",
+      "intermediate": "Fortgeschritten",
+      "expert": "Experte"
     }
   }
 }

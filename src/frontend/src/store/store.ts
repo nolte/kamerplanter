@@ -16,6 +16,11 @@ import ipmReducer from './slices/ipmSlice';
 import harvestReducer from './slices/harvestSlice';
 import tasksReducer from './slices/tasksSlice';
 import tenantsReducer from './slices/tenantSlice';
+import careRemindersReducer from './slices/careRemindersSlice';
+import onboardingReducer from './slices/onboardingSlice';
+import userPreferencesReducer from './slices/userPreferencesSlice';
+import importReducer from './slices/importSlice';
+import calendarReducer from './slices/calendarSlice';
 
 export const store = configureStore({
   reducer: {
@@ -36,6 +41,11 @@ export const store = configureStore({
     ipm: ipmReducer,
     harvest: harvestReducer,
     tasks: tasksReducer,
+    careReminders: careRemindersReducer,
+    onboarding: onboardingReducer,
+    userPreferences: userPreferencesReducer,
+    import: importReducer,
+    calendar: calendarReducer,
   },
 });
 

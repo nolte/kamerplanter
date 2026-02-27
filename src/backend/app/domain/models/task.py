@@ -73,6 +73,8 @@ class Task(BaseModel):
     completed_at: datetime | None = None
     template_key: str | None = None
     workflow_execution_key: str | None = None
+    planting_run_key: str | None = None
+    watering_event_key: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

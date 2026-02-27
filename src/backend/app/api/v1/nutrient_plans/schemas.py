@@ -2,6 +2,17 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+# ── WateringSchedule schema ─────────────────────────────────────────
+
+class WateringScheduleSchema(BaseModel):
+    schedule_mode: str
+    weekday_schedule: list[int] = Field(default_factory=list)
+    interval_days: int | None = Field(default=None, ge=1, le=90)
+    preferred_time: str | None = None
+    application_method: str = "drench"
+    reminder_hours_before: int = Field(default=2, ge=0, le=24)
+
+
 # ── NutrientPlan schemas ────────────────────────────────────────────
 
 class NutrientPlanCreate(BaseModel):
@@ -12,6 +23,7 @@ class NutrientPlanCreate(BaseModel):
     is_template: bool = False
     version: str = "1.0"
     tags: list[str] = Field(default_factory=list)
+    watering_schedule: WateringScheduleSchema | None = None
 
 
 class NutrientPlanUpdate(BaseModel):
@@ -22,6 +34,7 @@ class NutrientPlanUpdate(BaseModel):
     is_template: bool | None = None
     version: str | None = None
     tags: list[str] | None = None
+    watering_schedule: WateringScheduleSchema | None = None
 
 
 class NutrientPlanResponse(BaseModel):
@@ -34,6 +47,7 @@ class NutrientPlanResponse(BaseModel):
     version: str
     tags: list[str]
     cloned_from_key: str | None
+    watering_schedule: WateringScheduleSchema | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

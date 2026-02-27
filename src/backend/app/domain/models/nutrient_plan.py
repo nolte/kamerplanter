@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
-from app.common.enums import PhaseName, SubstrateType
+from app.common.enums import ApplicationMethod, PhaseName, ScheduleMode, SubstrateType
 
 
 class FertilizerDosage(BaseModel):
@@ -48,6 +50,29 @@ class NutrientPlanPhaseEntry(BaseModel):
         return v
 
 
+class WateringSchedule(BaseModel):
+    schedule_mode: ScheduleMode
+    weekday_schedule: list[int] = Field(default_factory=list)  # 0=Mo..6=Su
+    interval_days: int | None = Field(default=None, ge=1, le=90)
+    preferred_time: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    application_method: ApplicationMethod = ApplicationMethod.DRENCH
+    reminder_hours_before: int = Field(default=2, ge=0, le=24)
+
+    @model_validator(mode="after")
+    def validate_schedule_mode(self) -> WateringSchedule:
+        if self.schedule_mode == ScheduleMode.WEEKDAYS:
+            if not self.weekday_schedule:
+                raise ValueError("weekday_schedule required for WEEKDAYS mode")
+            if any(d < 0 or d > 6 for d in self.weekday_schedule):
+                raise ValueError("weekday_schedule values must be 0-6")
+        if self.schedule_mode == ScheduleMode.INTERVAL:
+            if self.interval_days is None:
+                raise ValueError("interval_days required for INTERVAL mode")
+        if self.application_method == ApplicationMethod.FERTIGATION:
+            raise ValueError("FERTIGATION not allowed for watering schedule")
+        return self
+
+
 class NutrientPlan(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     tenant_key: str = ""
@@ -59,6 +84,7 @@ class NutrientPlan(BaseModel):
     version: str = "1.0"
     tags: list[str] = Field(default_factory=list)
     cloned_from_key: str | None = None
+    watering_schedule: WateringSchedule | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

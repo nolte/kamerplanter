@@ -6,16 +6,23 @@ export type PhotoperiodType = 'short_day' | 'long_day' | 'day_neutral';
 export type CycleType = 'annual' | 'biennial' | 'perennial';
 export type StressTolerance = 'low' | 'medium' | 'high';
 export type TransitionTriggerType = 'time_based' | 'manual' | 'event_based' | 'conditional';
-export type SiteType = 'outdoor' | 'greenhouse' | 'indoor';
+export type SiteType = 'outdoor' | 'greenhouse' | 'indoor' | 'windowsill' | 'balcony' | 'grow_tent';
 export type LightType = 'natural' | 'led' | 'hps' | 'cmh' | 'mixed';
 export type IrrigationSystem = 'manual' | 'drip' | 'hydro' | 'mist' | 'nft' | 'ebb_flow';
 export type SubstrateType =
   | 'soil'
   | 'coco'
-  | 'rockwool'
   | 'clay_pebbles'
   | 'perlite'
   | 'living_soil'
+  | 'peat'
+  | 'rockwool_slab'
+  | 'rockwool_plug'
+  | 'vermiculite'
+  | 'none'
+  | 'orchid_bark'
+  | 'pon_mineral'
+  | 'sphagnum'
   | 'hydro_solution';
 export type NutrientDemand = 'light' | 'medium' | 'heavy';
 export type RootDepth = 'shallow' | 'medium' | 'deep';
@@ -276,6 +283,12 @@ export interface Substrate {
   buffer_capacity: BufferCapacity;
   reusable: boolean;
   max_reuse_cycles: number;
+  water_holding_capacity_percent: number | null;
+  easily_available_water_percent: number | null;
+  cec_meq_per_100g: number | null;
+  particle_size_mm: number | null;
+  bulk_density_g_per_l: number | null;
+  irrigation_strategy: IrrigationStrategy | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -305,6 +318,9 @@ export interface Batch {
   cycles_used: number;
   ph_current: number | null;
   ec_current_ms: number | null;
+  temperature_c: number | null;
+  ph_history: number[];
+  ec_history: number[];
   created_at: string | null;
   updated_at: string | null;
 }
@@ -1683,7 +1699,8 @@ export type TaskCategory =
   | 'pruning'
   | 'transplant'
   | 'monitoring'
-  | 'cleaning';
+  | 'cleaning'
+  | 'care_reminder';
 export type TriggerType = 'manual' | 'time_based' | 'event_based' | 'conditional';
 export type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
@@ -1835,6 +1852,7 @@ export type InvitationType = 'email' | 'link';
 export interface LoginRequest {
   email: string;
   password: string;
+  remember_me?: boolean;
 }
 
 export interface RegisterRequest {
@@ -1882,6 +1900,7 @@ export interface SessionInfo {
   created_at: string | null;
   expires_at: string;
   is_current: boolean;
+  is_persistent: boolean;
 }
 
 export interface OAuthProviderListItem {
@@ -1958,5 +1977,282 @@ export interface LocationAssignment {
   membership_key: string;
   location_key: string;
   tenant_key: string;
+  created_at: string | null;
+}
+
+// ── REQ-019 Substrate extensions ────────────────────────────────────
+
+export type IrrigationStrategy = 'infrequent' | 'moderate' | 'frequent' | 'continuous';
+
+// ── REQ-022 Care Reminders ──────────────────────────────────────────
+
+export type CareStyleType =
+  | 'tropical'
+  | 'succulent'
+  | 'orchid'
+  | 'calathea'
+  | 'herb_tropical'
+  | 'mediterranean'
+  | 'fern'
+  | 'cactus'
+  | 'custom';
+export type ReminderType =
+  | 'watering'
+  | 'fertilizing'
+  | 'repotting'
+  | 'pest_check'
+  | 'location_check'
+  | 'humidity_check';
+export type ConfirmAction = 'confirmed' | 'snoozed' | 'skipped';
+export type WateringMethod = 'soak' | 'drench_and_drain' | 'top_water' | 'bottom_water';
+
+export interface CareProfile {
+  key: string;
+  care_style: CareStyleType;
+  watering_interval_days: number;
+  winter_watering_multiplier: number;
+  watering_method: WateringMethod;
+  water_quality_hint: string | null;
+  fertilizing_interval_days: number;
+  fertilizing_active_months: number[];
+  repotting_interval_months: number;
+  pest_check_interval_days: number;
+  location_check_enabled: boolean;
+  location_check_months: number[];
+  humidity_check_enabled: boolean;
+  humidity_check_interval_days: number;
+  adaptive_learning_enabled: boolean;
+  watering_interval_learned: number | null;
+  fertilizing_interval_learned: number | null;
+  notes: string | null;
+  auto_generated: boolean;
+  plant_key: string;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface CareConfirmation {
+  key: string;
+  plant_key: string;
+  care_profile_key: string;
+  reminder_type: ReminderType;
+  action: ConfirmAction;
+  confirmed_at: string;
+  snooze_days: number | null;
+  notes: string | null;
+  interval_at_time: number | null;
+}
+
+export interface CareDashboardEntry {
+  plant_key: string;
+  plant_name: string;
+  species_name: string | null;
+  reminder_type: ReminderType;
+  urgency: 'overdue' | 'due_today' | 'upcoming' | 'not_due';
+  due_date: string | null;
+  care_profile_key: string;
+  task_key: string | null;
+}
+
+// ── REQ-020 Onboarding ──────────────────────────────────────────────
+
+export type ExperienceLevel = 'beginner' | 'intermediate' | 'expert';
+export type StarterKitDifficulty = 'beginner' | 'intermediate' | 'advanced';
+
+export interface StarterKit {
+  key: string;
+  kit_id: string;
+  name_i18n: Record<string, string>;
+  description_i18n: Record<string, string>;
+  difficulty: StarterKitDifficulty;
+  icon: string;
+  plant_count_suggestion: number;
+  site_type: SiteType;
+  species_keys: string[];
+  cultivar_keys: string[];
+  toxicity_warning: boolean;
+  workflow_template_keys: string[];
+  includes_nutrient_plan: boolean;
+  tags: string[];
+  sort_order: number;
+}
+
+export interface OnboardingState {
+  key: string;
+  user_key: string;
+  completed: boolean;
+  skipped: boolean;
+  completed_at: string | null;
+  selected_kit_id: string | null;
+  selected_experience_level: ExperienceLevel | null;
+  wizard_step: number;
+  created_entities: Record<string, string[]>;
+}
+
+// ── REQ-021 User Preferences ────────────────────────────────────────
+
+export interface UserPreference {
+  key: string;
+  user_key: string;
+  experience_level: ExperienceLevel;
+  onboarding_completed: boolean;
+  locale: string;
+  theme: string;
+}
+
+// ── Watering Schedule types ──────────────────────────────────────────
+
+export type ScheduleMode = 'weekdays' | 'interval';
+
+export interface WateringSchedule {
+  schedule_mode: ScheduleMode;
+  weekday_schedule: number[];
+  interval_days: number | null;
+  preferred_time: string | null;
+  application_method: string;
+  reminder_hours_before: number;
+}
+
+export interface WateringScheduleCalendarResponse {
+  run_key: string;
+  has_schedule: boolean;
+  plan_key?: string;
+  plan_name?: string;
+  schedule?: WateringSchedule;
+  dates: string[];
+}
+
+export interface NutrientPlanAssignRequest {
+  plan_key: string;
+  assigned_by?: string;
+}
+
+export interface NutrientPlanAssignResponse {
+  run_key: string;
+  plan_key: string;
+  edge_key: string;
+}
+
+// ── REQ-015 Calendar Types ───────────────────────────────────────────
+
+export type CalendarEventCategory =
+  | 'training'
+  | 'pruning'
+  | 'transplanting'
+  | 'feeding'
+  | 'ipm'
+  | 'harvest'
+  | 'maintenance'
+  | 'phase_transition'
+  | 'tank_maintenance'
+  | 'custom';
+export type CalendarEventSource = 'task' | 'phase_transition' | 'maintenance_log' | 'watering';
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description: string;
+  category: CalendarEventCategory;
+  source: CalendarEventSource;
+  color: string;
+  start: string | null;
+  end: string | null;
+  all_day: boolean;
+  plant_key: string | null;
+  task_key: string | null;
+  site_key: string | null;
+  location_key: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface CalendarEventsResponse {
+  events: CalendarEvent[];
+  total: number;
+}
+
+export interface CalendarFeedFilters {
+  categories: string[];
+  site_key: string | null;
+}
+
+export interface CalendarFeed {
+  key: string;
+  name: string;
+  token: string;
+  user_key: string;
+  filters: CalendarFeedFilters;
+  is_active: boolean;
+  ical_url: string;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface WateringConfirmRequest {
+  run_key: string;
+  task_key: string;
+  measured_ec?: number;
+  measured_ph?: number;
+  volume_liters?: number;
+  overrides?: Record<string, unknown>;
+}
+
+export interface WateringQuickConfirmRequest {
+  run_key: string;
+  task_key: string;
+}
+
+export interface WateringConfirmResponse {
+  watering_event_key: string;
+  feeding_events_created: number;
+  task_completed: boolean;
+  warnings: Record<string, unknown>[];
+}
+
+// ── REQ-012 Import Types ─────────────────────────────────────────────
+
+export type EntityType = 'species' | 'cultivar' | 'botanical_family';
+export type DuplicateStrategy = 'skip' | 'update' | 'fail';
+export type ImportJobStatus =
+  | 'uploaded'
+  | 'validating'
+  | 'preview_ready'
+  | 'confirmed'
+  | 'importing'
+  | 'completed'
+  | 'failed';
+export type RowStatus = 'valid' | 'invalid' | 'duplicate';
+
+export interface RowValidationError {
+  field: string;
+  message: string;
+  value: string;
+}
+
+export interface PreviewRow {
+  row_number: number;
+  data: Record<string, string>;
+  status: RowStatus;
+  errors: RowValidationError[];
+  duplicate_key: string | null;
+}
+
+export interface ImportResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  failed: number;
+  errors: string[];
+}
+
+export interface ImportJob {
+  key: string;
+  entity_type: EntityType;
+  status: ImportJobStatus;
+  filename: string;
+  row_count: number;
+  duplicate_strategy: DuplicateStrategy;
+  preview_rows: PreviewRow[];
+  result: ImportResult | null;
+  error_message: string | null;
   created_at: string | null;
 }

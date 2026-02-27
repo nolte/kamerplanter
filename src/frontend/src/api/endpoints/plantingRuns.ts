@@ -5,12 +5,14 @@ import type {
   BatchRemoveResponse,
   BatchTransitionRequest,
   BatchTransitionResponse,
+  NutrientPlanAssignResponse,
   PlantInRun,
   PlantingRun,
   PlantingRunCreate,
   PlantingRunEntry,
   PlantingRunEntryCreate,
   PlantingRunUpdate,
+  WateringScheduleCalendarResponse,
 } from '../types';
 
 const BASE = '/planting-runs';
@@ -147,4 +149,46 @@ export async function detachPlant(
   reason: string,
 ): Promise<void> {
   await client.post(`${BASE}/${runKey}/plants/${plantKey}/detach`, { reason });
+}
+
+// ── Nutrient plan assignment ─────────────────────────────────────────
+
+export async function assignNutrientPlan(
+  runKey: string,
+  planKey: string,
+  assignedBy?: string,
+): Promise<NutrientPlanAssignResponse> {
+  const { data } = await client.post<NutrientPlanAssignResponse>(
+    `${BASE}/${runKey}/nutrient-plan`,
+    { plan_key: planKey, assigned_by: assignedBy ?? '' },
+  );
+  return data;
+}
+
+export async function getRunNutrientPlan(
+  runKey: string,
+): Promise<{ plan: Record<string, unknown> | null }> {
+  const { data } = await client.get<{ plan: Record<string, unknown> | null }>(
+    `${BASE}/${runKey}/nutrient-plan`,
+  );
+  return data;
+}
+
+export async function removeRunNutrientPlan(
+  runKey: string,
+): Promise<void> {
+  await client.delete(`${BASE}/${runKey}/nutrient-plan`);
+}
+
+// ── Watering schedule ────────────────────────────────────────────────
+
+export async function getWateringSchedule(
+  runKey: string,
+  daysAhead = 14,
+): Promise<WateringScheduleCalendarResponse> {
+  const { data } = await client.get<WateringScheduleCalendarResponse>(
+    `${BASE}/${runKey}/watering-schedule`,
+    { params: { days_ahead: daysAhead } },
+  );
+  return data;
 }

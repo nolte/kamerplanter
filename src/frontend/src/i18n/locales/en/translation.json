@@ -23,7 +23,10 @@
     "createdAt": "Created at",
     "updatedAt": "Updated at",
     "skipToContent": "Skip to content",
-    "toggleSidebar": "Toggle sidebar"
+    "toggleSidebar": "Toggle sidebar",
+    "showAllFields": "Show all fields",
+    "showFewerFields": "Show fewer fields",
+    "saved": "Saved"
   },
   "table": {
     "showing": "Showing {{from}}–{{to}} of {{total}} entries",
@@ -63,7 +66,12 @@
     "aufgaben": "Tasks",
     "taskQueue": "Task Queue",
     "workflows": "Workflows",
-    "mainNavigation": "Main navigation"
+    "mainNavigation": "Main navigation",
+    "pflege": "Care",
+    "onboarding": "Setup",
+    "settings": "Settings",
+    "import": "Import",
+    "calendar": "Calendar"
   },
   "errors": {
     "network": "Network error. Please check your connection.",
@@ -154,7 +162,16 @@
       "tabProfile": "Profile",
       "tabSecurity": "Security",
       "tabSessions": "Sessions",
+      "tabExperience": "Experience",
       "tabAccount": "Account",
+      "experienceLevelTitle": "Experience Level",
+      "experienceLevelSubtitle": "Adjust the displayed UI complexity to match your experience.",
+      "experienceLevelDowngradeWarning": "Downgrading will hide some fields and navigation entries. Your data will be preserved. Continue?",
+      "experienceLevel": {
+        "beginnerDescription": "Simple view with essential fields only",
+        "intermediateDescription": "Extended options for experienced users",
+        "expertDescription": "All fields and features visible"
+      },
       "changePassword": "Change Password",
       "currentPassword": "Current Password",
       "newPasswordField": "New Password",
@@ -170,7 +187,11 @@
       "deleteAccount": "Delete Account",
       "deleteAccountConfirm": "Are you sure you want to delete your account? This cannot be undone.",
       "logout": "Log out",
-      "accountMenu": "Account Menu"
+      "accountMenu": "Account Menu",
+      "rememberMe": "Remember me",
+      "rememberMeTooltip": "Only enable on private devices. Your session will stay active for up to 30 days.",
+      "sessionPersistent": "Persistent",
+      "sessionTemporary": "Session"
     },
     "tenants": {
       "selectTenant": "Select Garden",
@@ -910,6 +931,127 @@
       "title": "Page Not Found",
       "message": "The requested page does not exist.",
       "backHome": "Back to Dashboard"
+    },
+    "pflege": {
+      "title": "Care Dashboard",
+      "noReminders": "No care reminders due",
+      "confirmAction": "Done",
+      "snoozeAction": "Later",
+      "overdue": "Overdue",
+      "dueToday": "Due Today",
+      "upcoming": "Upcoming",
+      "editProfile": "Edit Care Profile",
+      "resetProfile": "Reset to Default",
+      "wateringInterval": "Watering Interval (days)",
+      "fertilizingInterval": "Fertilizing Interval (days)",
+      "repottingInterval": "Repotting Interval (months)",
+      "pestCheckInterval": "Pest Check Interval (days)",
+      "adaptiveLearning": "Adaptive Learning",
+      "humidityCheck": "Humidity Check",
+      "careStyle": "Care Style"
+    },
+    "onboarding": {
+      "title": "Welcome to Kamerplanter",
+      "subtitle": "Set up your plant profile in just a few steps",
+      "step1": "Welcome",
+      "step2": "Choose Scenario",
+      "step3": "Set Up Location",
+      "step4": "Choose Plants",
+      "step5": "Done",
+      "experienceLevel": "Experience Level",
+      "selectKit": "Select Starter Kit",
+      "siteName": "Location Name",
+      "plantCount": "Number of Plants",
+      "complete": "Complete Setup",
+      "skip": "Skip"
+    },
+    "wateringSchedule": {
+      "title": "Watering Schedule",
+      "mode": "Mode",
+      "weekdays": "Weekdays",
+      "interval": "Interval",
+      "intervalDays": "Interval (Days)",
+      "preferredTime": "Preferred Time",
+      "applicationMethod": "Application Method",
+      "reminderHoursBefore": "Reminder (Hours Before)",
+      "assignPlan": "Assign Plan",
+      "removePlan": "Remove Plan",
+      "removePlanConfirm": "Are you sure you want to remove the assigned plan?",
+      "noPlan": "No plan assigned",
+      "noSchedule": "No watering schedule configured. Edit the nutrient plan to add a watering schedule.",
+      "noDates": "No upcoming dates in the selected period.",
+      "confirm": "Confirm Watering",
+      "confirmDescription": "Optionally record measurements for this watering event.",
+      "quickConfirm": "Quick Confirm",
+      "upcomingDates": "Upcoming Dates",
+      "dueToday": "Due Today",
+      "feedingEventsCreated": "{{count}} feeding events created",
+      "wateringEventKey": "Watering Event ID",
+      "measuredEc": "Measured EC",
+      "measuredPh": "Measured pH",
+      "volumeLiters": "Volume (L)",
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    },
+    "import": {
+      "title": "Master Data Import",
+      "description": "Import master data from CSV files. Download a template, fill it out and upload the file.",
+      "stepUpload": "Upload File",
+      "stepPreview": "Preview",
+      "stepResult": "Result",
+      "entityType": "Data Type",
+      "entitySpecies": "Species",
+      "entityCultivar": "Cultivars",
+      "entityFamily": "Botanical Families",
+      "duplicateStrategy": "Duplicate Handling",
+      "strategySkip": "Skip",
+      "strategyUpdate": "Update",
+      "strategyFail": "Report Error",
+      "selectFile": "Select CSV File",
+      "downloadTemplate": "Download Template",
+      "upload": "Upload",
+      "file": "File",
+      "rows": "Rows",
+      "data": "Data",
+      "status": "Status",
+      "errors": "Errors",
+      "confirm": "Confirm Import",
+      "resultTitle": "Import Complete",
+      "created": "Created",
+      "updated": "Updated",
+      "skipped": "Skipped",
+      "failed": "Failed",
+      "newImport": "New Import"
+    },
+    "calendar": {
+      "title": "Calendar",
+      "monthView": "Month View",
+      "listView": "List View",
+      "today": "Today",
+      "noEvents": "No events",
+      "feeds": "iCal Feeds",
+      "createFeed": "Create Feed",
+      "feedName": "Feed Name",
+      "copyUrl": "Copy URL",
+      "regenerateToken": "Regenerate Token",
+      "deleteFeed": "Delete Feed",
+      "urlCopied": "URL copied",
+      "categories": "Categories",
+      "training": "Training",
+      "pruning": "Pruning",
+      "transplanting": "Transplanting",
+      "feeding": "Feeding",
+      "ipm": "Pest Management",
+      "harvest": "Harvest",
+      "maintenance": "Maintenance",
+      "phaseTransition": "Phase Transition",
+      "tankMaintenance": "Tank Maintenance",
+      "custom": "Other"
     }
   },
   "enums": {
@@ -944,7 +1086,10 @@
     "siteType": {
       "outdoor": "Outdoor",
       "greenhouse": "Greenhouse",
-      "indoor": "Indoor"
+      "indoor": "Indoor",
+      "windowsill": "Windowsill",
+      "balcony": "Balcony",
+      "grow_tent": "Grow Tent"
     },
     "lightType": {
       "natural": "Natural",
@@ -964,10 +1109,17 @@
     "substrateType": {
       "soil": "Soil",
       "coco": "Coco",
-      "rockwool": "Rockwool",
       "clay_pebbles": "Clay Pebbles",
       "perlite": "Perlite",
       "living_soil": "Living Soil",
+      "peat": "Peat",
+      "rockwool_slab": "Rockwool Slab",
+      "rockwool_plug": "Rockwool Plug",
+      "vermiculite": "Vermiculite",
+      "none": "No Substrate",
+      "orchid_bark": "Orchid Bark",
+      "pon_mineral": "PON Mineral Substrate",
+      "sphagnum": "Sphagnum Moss",
       "hydro_solution": "Hydro Solution"
     },
     "nutrientDemand": {
@@ -1215,7 +1367,8 @@
       "pruning": "Pruning",
       "transplant": "Transplant",
       "monitoring": "Monitoring",
-      "cleaning": "Cleaning"
+      "cleaning": "Cleaning",
+      "care_reminder": "Care Reminder"
     },
     "triggerType": {
       "manual": "Manual",
@@ -1249,6 +1402,42 @@
       "accepted": "Accepted",
       "expired": "Expired",
       "revoked": "Revoked"
+    },
+    "irrigationStrategy": {
+      "infrequent": "Infrequent",
+      "moderate": "Moderate",
+      "frequent": "Frequent",
+      "continuous": "Continuous"
+    },
+    "careStyle": {
+      "tropical": "Tropical",
+      "succulent": "Succulent",
+      "orchid": "Orchid",
+      "calathea": "Calathea",
+      "herb_tropical": "Tropical Herbs",
+      "mediterranean": "Mediterranean",
+      "fern": "Fern",
+      "cactus": "Cactus",
+      "custom": "Custom"
+    },
+    "reminderType": {
+      "watering": "Watering",
+      "fertilizing": "Fertilizing",
+      "repotting": "Repotting",
+      "pest_check": "Pest Check",
+      "location_check": "Location Check",
+      "humidity_check": "Humidity Check"
+    },
+    "wateringMethod": {
+      "soak": "Soak",
+      "drench_and_drain": "Drench & Drain",
+      "top_water": "Top Watering",
+      "bottom_water": "Bottom Watering"
+    },
+    "experienceLevel": {
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "expert": "Expert"
     }
   }
 }

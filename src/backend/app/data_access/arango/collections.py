@@ -64,6 +64,21 @@ MEMBERSHIPS = "memberships"
 INVITATIONS = "invitations"
 LOCATION_ASSIGNMENTS = "location_assignments"
 
+# REQ-022 Care Reminders
+CARE_PROFILES = "care_profiles"
+CARE_CONFIRMATIONS = "care_confirmations"
+
+# REQ-020 Onboarding
+STARTER_KITS = "starter_kits"
+ONBOARDING_STATES = "onboarding_states"
+USER_PREFERENCES = "user_preferences"
+
+# REQ-012 Import
+IMPORT_JOBS = "import_jobs"
+
+# REQ-015 Calendar
+CALENDAR_FEEDS = "calendar_feeds"
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -117,6 +132,13 @@ DOCUMENT_COLLECTIONS = [
     MEMBERSHIPS,
     INVITATIONS,
     LOCATION_ASSIGNMENTS,
+    CARE_PROFILES,
+    CARE_CONFIRMATIONS,
+    STARTER_KITS,
+    ONBOARDING_STATES,
+    USER_PREFERENCES,
+    IMPORT_JOBS,
+    CALENDAR_FEEDS,
 ]
 
 # Edge collections
@@ -207,6 +229,23 @@ ASSIGNED_TO_LOCATION = "assigned_to_location"
 ASSIGNMENT_FOR = "assignment_for"
 ASSIGNMENT_IN_TENANT = "assignment_in_tenant"
 
+# REQ-019 Substrate edges
+USES_TYPE = "uses_type"
+
+# REQ-022 Care Reminder edges
+HAS_CARE_PROFILE = "has_care_profile"
+CONFIRMS_CARE = "confirms_care"
+CARE_EVENT_FOR = "care_event_for"
+
+# Watering Schedule edges
+RUN_FOLLOWS_PLAN = "run_follows_plan"
+
+# REQ-020 Onboarding edges
+INCLUDES_SPECIES = "includes_species"
+INCLUDES_CULTIVAR = "includes_cultivar"
+INCLUDES_TEMPLATE = "includes_template"
+CREATED_BY_WIZARD = "created_by_wizard"
+
 EDGE_COLLECTIONS = [
     BELONGS_TO_FAMILY,
     HAS_CULTIVAR,
@@ -284,6 +323,15 @@ EDGE_COLLECTIONS = [
     ASSIGNED_TO_LOCATION,
     ASSIGNMENT_FOR,
     ASSIGNMENT_IN_TENANT,
+    USES_TYPE,
+    HAS_CARE_PROFILE,
+    CONFIRMS_CARE,
+    CARE_EVENT_FOR,
+    INCLUDES_SPECIES,
+    INCLUDES_CULTIVAR,
+    INCLUDES_TEMPLATE,
+    CREATED_BY_WIZARD,
+    RUN_FOLLOWS_PLAN,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -347,7 +395,7 @@ GRAPH_EDGE_DEFINITIONS = [
     {
         "edge_collection": GROWN_IN,
         "from_vertex_collections": [PLANT_INSTANCES],
-        "to_vertex_collections": [SUBSTRATES],
+        "to_vertex_collections": [SUBSTRATE_BATCHES],
     },
     {
         "edge_collection": ADJACENT_TO,
@@ -674,6 +722,55 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [LOCATION_ASSIGNMENTS],
         "to_vertex_collections": [TENANTS],
     },
+    # REQ-019 Substrate
+    {
+        "edge_collection": USES_TYPE,
+        "from_vertex_collections": [SUBSTRATE_BATCHES],
+        "to_vertex_collections": [SUBSTRATES],
+    },
+    # REQ-022 Care Reminders
+    {
+        "edge_collection": HAS_CARE_PROFILE,
+        "from_vertex_collections": [PLANT_INSTANCES],
+        "to_vertex_collections": [CARE_PROFILES],
+    },
+    {
+        "edge_collection": CONFIRMS_CARE,
+        "from_vertex_collections": [CARE_CONFIRMATIONS],
+        "to_vertex_collections": [CARE_PROFILES],
+    },
+    {
+        "edge_collection": CARE_EVENT_FOR,
+        "from_vertex_collections": [CARE_CONFIRMATIONS],
+        "to_vertex_collections": [PLANT_INSTANCES],
+    },
+    # REQ-020 Onboarding
+    {
+        "edge_collection": INCLUDES_SPECIES,
+        "from_vertex_collections": [STARTER_KITS],
+        "to_vertex_collections": [SPECIES],
+    },
+    {
+        "edge_collection": INCLUDES_CULTIVAR,
+        "from_vertex_collections": [STARTER_KITS],
+        "to_vertex_collections": [CULTIVARS],
+    },
+    {
+        "edge_collection": INCLUDES_TEMPLATE,
+        "from_vertex_collections": [STARTER_KITS],
+        "to_vertex_collections": [WORKFLOW_TEMPLATES],
+    },
+    {
+        "edge_collection": CREATED_BY_WIZARD,
+        "from_vertex_collections": [ONBOARDING_STATES],
+        "to_vertex_collections": [PLANT_INSTANCES],
+    },
+    # Watering Schedule
+    {
+        "edge_collection": RUN_FOLLOWS_PLAN,
+        "from_vertex_collections": [PLANTING_RUNS],
+        "to_vertex_collections": [NUTRIENT_PLANS],
+    },
 ]
 
 
@@ -757,6 +854,7 @@ def ensure_collections(db: StandardDatabase) -> None:
     tasks_col = db.collection(TASKS)
     tasks_col.add_hash_index(fields=["plant_key"], unique=False)
     tasks_col.add_hash_index(fields=["status"], unique=False)
+    tasks_col.add_hash_index(fields=["planting_run_key"], unique=False)
 
     wf_templates_col = db.collection(WORKFLOW_TEMPLATES)
     wf_templates_col.add_hash_index(fields=["name"], unique=True)
@@ -789,6 +887,27 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     location_assignments_col = db.collection(LOCATION_ASSIGNMENTS)
     location_assignments_col.add_hash_index(fields=["membership_key", "location_key"], unique=True)
+
+    # REQ-022 Care Reminder indexes
+    care_confirmations_col = db.collection(CARE_CONFIRMATIONS)
+    care_confirmations_col.add_hash_index(fields=["reminder_type", "confirmed_at"], unique=False)
+
+    has_care_profile_col = db.collection(HAS_CARE_PROFILE)
+    has_care_profile_col.add_hash_index(fields=["_from"], unique=True)
+
+    # REQ-020 Onboarding indexes
+    starter_kits_col = db.collection(STARTER_KITS)
+    starter_kits_col.add_hash_index(fields=["kit_id"], unique=True)
+    starter_kits_col.add_hash_index(fields=["difficulty", "sort_order"], unique=False)
+
+    # REQ-012 Import indexes
+    import_jobs_col = db.collection(IMPORT_JOBS)
+    import_jobs_col.add_hash_index(fields=["entity_type"], unique=False)
+    import_jobs_col.add_hash_index(fields=["status"], unique=False)
+
+    # REQ-015 Calendar indexes
+    calendar_feeds_col = db.collection(CALENDAR_FEEDS)
+    calendar_feeds_col.add_hash_index(fields=["token"], unique=True)
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):
