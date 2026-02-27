@@ -7,7 +7,7 @@ Kategorie: Pflanzenvermehrung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB
 Status: Entwurf
-Version: 1.0
+Version: 1.1 (Agrarbiologie-Review)
 ```
 
 ## 1. Business Case
@@ -29,7 +29,7 @@ Jede `PlantInstance` kann als Mutterpflanze designiert werden. Die Designation i
 - **Gesundheitsbewertung:** Periodischer Health-Score (0–100) basierend auf Vitalität, Schädlingsfreiheit und Wuchsform
 - **Stecklingshistorie:** Wann, wie viele, Erfolgsrate pro Entnahme
 - **Erholungszeit:** Mindestens N Tage zwischen Stecklingsentnahmen (spezies-abhängig, konfigurierbar)
-- **Generationszähler:** Wie viele Generationen von Klonen bereits existieren (genetische Drift-Warnung ab Generation 10+)
+- **Generationszähler:** Wie viele Generationen von Klonen bereits existieren (somatische Mutationslast-Warnung ab Generation 10+, konfigurierbar)
 - **Retirement-Kriterien:** Automatische Warnung bei abnehmender Vitalität, hohem Alter oder sinkender Bewurzelungsrate
 - **Erhaltungsprioritäten:** Mutterpflanzen können als `critical` (einzige Quelle einer Genetik), `important` oder `standard` markiert werden
 
@@ -63,10 +63,13 @@ Mehrere Stecklinge/Samen aus einer Entnahme werden als `PropagationBatch` gruppi
 - Ausfälle werden dokumentiert (Gründe: Fäulnis, Austrocknung, kein Wurzelwachstum)
 
 **Veredelungs-Kompatibilität:**
-Das System prüft die Veredelungskompatibilität anhand der botanischen Familie (REQ-001):
-- Innerhalb derselben Gattung: kompatibel (z.B. Solanum lycopersicum auf S. lycopersicum Unterlage)
-- Innerhalb derselben Familie: möglicherweise kompatibel (z.B. Tomate auf Kartoffel-Unterlage)
-- Verschiedene Familien: inkompatibel → System blockiert
+Das System prüft die Veredelungskompatibilität mehrstufig:
+1. **Explizite Graph-Edges (Vorrang):** `graft_compatible_with`-Edges zwischen Species-Knoten für bekannte, praxisbewährte Kombinationen (z.B. Tomate auf Beaufort-Unterlage). Diese Edges haben Attribute wie `success_rate`, `notes`, `source` (Literatur/Erfahrung).
+2. **Taxonomie-Heuristik (Fallback):** Nur wenn keine expliziten Edges existieren:
+   - Innerhalb derselben Gattung: wahrscheinlich kompatibel (z.B. Solanum lycopersicum auf S. lycopersicum Unterlage)
+   - Innerhalb derselben Familie: möglicherweise kompatibel (z.B. Tomate auf Kartoffel-Unterlage)
+   - Verschiedene Familien: inkompatibel → System blockiert
+3. **Hinweis:** Taxonomische Nähe ist ein Indikator, aber kein Garant — z.B. sind nicht alle Cucurbitaceae als Unterlage füreinander geeignet. Explizite Edges aus der Praxis sind immer vorzuziehen.
 
 ## 2. ArangoDB-Modellierung
 
@@ -119,6 +122,7 @@ Das System prüft die Veredelungskompatibilität anhand der botanischen Familie 
     - `hormone_type: Optional[Literal['iba', 'naa', 'iba_naa_mix', 'honey', 'willow_water', 'none']]`
     - `hormone_concentration_ppm: Optional[float]`
     - `dome_humidity_percent: int` (z.B. 85)
+    - `target_vpd_kpa: Optional[float]` (z.B. 0.4 — niedriger VPD verhindert Austrocknung wurzelloser Stecklinge; REQ-005 Sensor-Feedback)
     - `heat_mat_celsius: Optional[float]` (z.B. 22.0)
     - `light_ppfd: int` (z.B. 100)
     - `photoperiod_hours: float` (z.B. 18.0)
@@ -160,6 +164,12 @@ has_phenotype:        plant_instances → phenotype_notes           // Pflanze h
 # Veredelung (spezielle Abstammung)
 grafted_onto:         plant_instances → plant_instances           // Edelreis → Unterlage
                       {grafted_at: datetime, graft_type: Literal['whip', 'cleft', 'approach', 'bud']}
+
+# Veredelungskompatibilität (explizite Erfahrungsdaten — Vorrang vor Taxonomie-Heuristik)
+graft_compatible_with: species → species                          // Bekannte Edelreis-Unterlage-Kombinationen
+                       {success_rate: float,                      // 0.0-1.0
+                        notes: Optional[str],                     // z.B. "Beaufort F1 als Standard-Unterlage"
+                        source: Literal['literature', 'experience', 'trial']}
 ```
 
 **ArangoDB-Graph-Definition:**
@@ -659,6 +669,10 @@ class RootingProtocol(BaseModel):
     hormone_type: Optional[HormoneType] = None
     hormone_concentration_ppm: Optional[float] = Field(None, ge=0, le=50000)
     dome_humidity_percent: int = Field(ge=0, le=100)
+    target_vpd_kpa: Optional[float] = Field(
+        None, ge=0.1, le=1.5,
+        description="Ziel-VPD unter Dome — niedrig (0.3-0.5 kPa) für Stecklinge ohne Wurzeln"
+    )
     heat_mat_celsius: Optional[float] = Field(None, ge=15, le=35)
     light_ppfd: int = Field(ge=0, le=500)
     photoperiod_hours: float = Field(ge=0, le=24)
@@ -720,7 +734,9 @@ class PropagationEngine:
         "default": 6,
     }
 
-    GENETIC_DRIFT_WARNING_GENERATION = 10
+    # Somatische Mutationen akkumulieren bei vegetativer Vermehrung —
+    # "genetische Drift" ist populationsgenetisch und hier fachlich inkorrekt.
+    SOMATIC_MUTATION_WARNING_GENERATION = 10  # Konfigurierbar pro Spezies
 
     def validate_cutting_from_mother(
         self,
@@ -762,9 +778,9 @@ class PropagationEngine:
 
         # Generationswarnung
         generation = mother.get('mother_generation', 0)
-        if generation >= self.GENETIC_DRIFT_WARNING_GENERATION:
+        if generation >= self.SOMATIC_MUTATION_WARNING_GENERATION:
             warnings.append(
-                f"Generation {generation} — genetische Drift möglich. "
+                f"Generation {generation} — somatische Mutationslast erhöht. "
                 f"Empfehlung: Neue Mutterpflanze aus Samen ziehen"
             )
 
@@ -808,11 +824,28 @@ class PropagationEngine:
         rootstock_species: dict,
         scion_family_key: str,
         rootstock_family_key: str,
+        explicit_edge: Optional[dict] = None,
     ) -> dict:
         """
         Prüft Veredelungskompatibilität.
-        Returns: {compatible: bool, level: str, message: str}
+        1. Explizite graft_compatible_with-Edge (Vorrang)
+        2. Taxonomie-Heuristik (Fallback)
+        Returns: {compatible: bool, level: str, message: str, source: str}
         """
+        # 1. Explizite Graph-Edge prüfen (praxisbewährte Kombination)
+        if explicit_edge is not None:
+            success_rate = explicit_edge.get('success_rate', 0)
+            return {
+                'compatible': success_rate > 0.5,
+                'level': 'proven' if success_rate > 0.8 else 'experimental',
+                'message': (
+                    f"Bekannte Kombination — Erfolgsrate: {success_rate*100:.0f}%. "
+                    f"{explicit_edge.get('notes', '')}"
+                ),
+                'source': 'explicit_edge',
+            }
+
+        # 2. Taxonomie-Heuristik (Fallback)
         same_genus = scion_species.get('genus') == rootstock_species.get('genus')
         same_family = scion_family_key == rootstock_family_key
 
@@ -822,8 +855,9 @@ class PropagationEngine:
                 'level': 'compatible',
                 'message': (
                     f"Gleiche Gattung ({scion_species['genus']}) — "
-                    f"Veredelung empfohlen"
+                    f"Veredelung wahrscheinlich kompatibel (taxonomische Heuristik)"
                 ),
+                'source': 'taxonomy_heuristic',
             }
         elif same_family:
             return {
@@ -831,8 +865,9 @@ class PropagationEngine:
                 'level': 'possibly_compatible',
                 'message': (
                     f"Gleiche Familie — Veredelung möglich, "
-                    f"aber Abstoßungsrisiko erhöht"
+                    f"aber Abstoßungsrisiko erhöht (keine explizite Erfahrungsdaten)"
                 ),
+                'source': 'taxonomy_heuristic',
             }
         else:
             return {
@@ -843,6 +878,7 @@ class PropagationEngine:
                     f"({scion_family_key} vs. {rootstock_family_key}) — "
                     f"Veredelung nicht empfohlen"
                 ),
+                'source': 'taxonomy_heuristic',
             }
 
     def suggest_retirement(
@@ -871,7 +907,7 @@ class PropagationEngine:
         generation = mother.get('mother_generation', 0)
         if generation >= 15:
             return (
-                f"Generation {generation} — hohes Risiko für genetische Drift. "
+                f"Generation {generation} — hohes Risiko für somatische Mutationslast. "
                 f"Neue Mutterpflanze aus Samen empfohlen"
             )
 
@@ -1084,8 +1120,10 @@ GET    /api/v1/propagation/stats/by-protocol                 — Erfolgsraten gr
 - [ ] **Genetische Abstammung:** descended_from-Graph mit beliebig tiefer Traversierung
 - [ ] **Klon-Baum:** Alle Nachkommen einer Mutterpflanze abrufbar
 - [ ] **Generationszählung:** Automatisch berechnet aus Graph-Tiefe
-- [ ] **Veredelungs-Kompatibilität:** Prüfung auf Gattungs-/Familienebene (REQ-001)
+- [ ] **Veredelungs-Kompatibilität:** Mehrstufig: explizite graft_compatible_with-Edges > Taxonomie-Heuristik
 - [ ] **Phänotyp-Notizen:** CRUD für Beobachtungen pro Pflanze
+- [ ] **Somatische Mutationslast:** Warnung ab konfigurierbarer Generationsschwelle (Default: 10)
+- [ ] **VPD-Ziel im RootingProtocol:** target_vpd_kpa für Dome-Bewurzelungs-Bedingungen
 - [ ] **PlantingRun-Integration:** Batch-Ergebnis kann an PlantingRun (REQ-013) übergeben werden
 - [ ] **Statistiken:** Erfolgsraten pro Methode, Cultivar, Protokoll
 - [ ] **Celery-Beat:** `check_mother_plant_health` (wöchentlich), `check_propagation_progress` (täglich)
@@ -1161,7 +1199,7 @@ GIVEN: Mutterpflanze "Old Mother" (Cannabis, health_score=35, generation=12),
 WHEN: GET /api/v1/propagation/mothers/old_mother
 THEN:
   - retirement_suggestion: "Gesundheit kritisch (35/100) — Ablösung dringend empfohlen"
-  - Zusätzlich: "Generation 12 — hohes Risiko für genetische Drift"
+  - Zusätzlich: "Generation 12 — hohes Risiko für somatische Mutationslast"
   - avg_success_rate der letzten 3: 48%
 ```
 
@@ -1217,7 +1255,7 @@ GIVEN: Pflanze "Clone-Gen-11" ist Generation 11 in einer Klonlinie
 WHEN: POST /api/v1/propagation/events
       Body: { event_type: "cutting", quantity: 5, mother_plant_key: "clone_gen_11" }
 THEN:
-  - Warnung: "Generation 11 — genetische Drift möglich. Empfehlung: Neue Mutterpflanze aus Samen ziehen"
+  - Warnung: "Generation 11 — somatische Mutationslast erhöht. Empfehlung: Neue Mutterpflanze aus Samen ziehen"
   - Ergebnis-Pflanzen erhalten generation: 12
 ```
 
@@ -1236,6 +1274,6 @@ THEN:
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Vermehrung, Steckling, Aussaat, Klon, Mutterpflanze, Bewurzelung, Veredelung, Unterlage, Edelreis, Absenker, Teilung, Gewebekultur, Hormon, IBA, Steinwolle, Perlit, Aeroponik, Kloner, Dome, Haube, Wärmematte, Kallus, Bewurzelungsrate, Erfolgsrate, Phänotyp, Selektion, Abstammung, Lineage, Generation, Genetische Drift, Inzucht, Kreuzung, F1, Samen, Pheno-Hunting
+- Keywords: Vermehrung, Steckling, Aussaat, Klon, Mutterpflanze, Bewurzelung, Veredelung, Unterlage, Edelreis, Absenker, Teilung, Gewebekultur, Hormon, IBA, Steinwolle, Perlit, Aeroponik, Kloner, Dome, Haube, Wärmematte, Kallus, Bewurzelungsrate, Erfolgsrate, Phänotyp, Selektion, Abstammung, Lineage, Generation, Somatische Mutationslast, Inzucht, Kreuzung, F1, Samen, Pheno-Hunting, VPD, Veredelungskompatibilität, graft_compatible_with
 - Technische Begriffe: PropagationEvent, PropagationBatch, RootingProtocol, PhenotypeNote, MotherPlantConfig, PropagationEngine, LineageEngine, descended_from, propagated_from, resulted_in, grafted_onto, has_phenotype, batch_feeds_run, CuttingRequestValidator, GraftRequestValidator
 - Verknüpfung: REQ-001 (Species/Cultivar/BotanicalFamily), REQ-003 (GrowthPhase — Start-Phase), REQ-013 (PlantingRun), REQ-006 (Aufgaben), REQ-007/008 (Samenernte)

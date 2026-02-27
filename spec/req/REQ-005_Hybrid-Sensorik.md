@@ -7,7 +7,7 @@ Kategorie: Monitoring
 Fokus: Beides
 Technologie: Python, Home Assistant API, MQTT, TimescaleDB
 Status: Entwurf
-Version: 2.0 (Maximal Erweitert)
+Version: 2.1 (Agrarbiologie-Review)
 ```
 
 ## 1. Business Case
@@ -26,6 +26,7 @@ Das System implementiert einen Hybrid-Ansatz für Datenerfassung mit nahtloser D
 
 **Klima-Monitoring:**
 - Temperatur (°C) - Lufttemperatur und Blatttemperatur-Differenz
+- Blatttemperatur (°C) - Infrarot-Messung für Leaf-VPD (Leaf-VPD = f(leaf_temp, RH) ist präziser als Air-VPD; Blätter sind typisch 1-3°C kühler als Luft durch Transpiration)
 - Luftfeuchte (%) - Relative Luftfeuchtigkeit
 - VPD (kPa) - Vapor Pressure Deficit (berechnet oder gemessen)
 - CO2-Konzentration (ppm) - Photosynthese-Optimierung
@@ -41,7 +42,7 @@ Das System implementiert einen Hybrid-Ansatz für Datenerfassung mit nahtloser D
 **Licht-Monitoring:**
 - PPFD (μmol/m²/s) - Photosynthetic Photon Flux Density
 - DLI (mol/m²/d) - Daily Light Integral (akkumuliert)
-- Spektrum-Analyse - Rot/Blau/Far-Red-Verhältnis
+- Spektrum-Analyse - Rot/Blau/Far-Red-Verhältnis (R:FR-Ratio steuert Phytochrom-Gleichgewicht und damit Streckungswachstum; relevant für REQ-018 `target_light_spectrum`)
 - Fotoperiode - Tatsächliche Beleuchtungsdauer
 
 **Hydro-Systeme:**
@@ -369,7 +370,7 @@ FOR sensor IN sensors
     LET timestamp = observations[idx].timestamp
     LET z_score = ABS(value - mean) / stddev
 
-    FILTER z_score > 2.0
+    FILTER z_score > 3.0  // 3σ statt 2σ — reduziert Fehlalarme in verrauschten Gewächshaus-Umgebungen
 
     SORT z_score DESC
 
@@ -452,12 +453,19 @@ class SensorReading(BaseModel):
     VALID_RANGES = {
         'temp': (-10, 50),
         'humidity': (0, 100),
-        'ec': (0, 5),
+        'ec': (0, 15),          # Hydro-Stammlösungen bis 12+ mS/cm
         'ph': (0, 14),
         'ppfd': (0, 2000),
-        'co2': (200, 5000),
+        'co2': (150, 10000),    # Outdoor-Minimum ~150, Anreicherung bis 10000 ppm
         'soil_moisture': (0, 100),
-        'water_level': (0, 100)
+        'water_level': (0, 100),
+        'leaf_temp': (-5, 50),
+        'substrate_temp': (-5, 45),
+        'water_temp': (0, 40),
+        'do': (0, 20),          # Dissolved Oxygen mg/L
+        'orp': (-500, 1000),    # Oxidation-Reduction Potential mV
+        'flow_rate': (0, 1000), # L/h
+        'air_velocity': (0, 20) # m/s
     }
     
     def validate_plausibility(self) -> dict:
@@ -1140,7 +1148,16 @@ from pydantic import BaseModel, Field, field_validator
 from datetime import datetime, date
 
 SensorType = Literal['physical', 'virtual', 'calculated']
-ParameterType = Literal['temp', 'humidity', 'ec', 'ph', 'ppfd', 'co2', 'soil_moisture', 'water_level', 'vpd']
+ParameterType = Literal[
+    'temp', 'humidity', 'ec', 'ph', 'ppfd', 'co2', 'soil_moisture', 'water_level', 'vpd',
+    'leaf_temp',        # Blatttemperatur für Leaf-VPD-Berechnung
+    'substrate_temp',   # Wurzelzonen-Temperatur (REQ-019)
+    'water_temp',       # Reservoir/Nährlösung
+    'do',               # Dissolved Oxygen (Hydro-Systeme)
+    'orp',              # Oxidation-Reduction Potential
+    'flow_rate',        # Durchfluss (L/h)
+    'air_velocity'      # Luftbewegung (m/s)
+]
 SourceType = Literal['ha_auto', 'mqtt_auto', 'modbus_auto', 'manual', 'interpolated', 'fallback']
 AlertSeverity = Literal['info', 'warning', 'critical']
 SensorStatus = Literal['online', 'degraded', 'offline', 'maintenance']
@@ -1160,6 +1177,10 @@ class SensorDefinition(BaseModel):
     measurement_interval_seconds: int = Field(ge=10, le=3600)
     alert_threshold_min: Optional[float] = None
     alert_threshold_max: Optional[float] = None
+    # Hinweis: Alert-Schwellenwerte sind phasenabhängig (REQ-003).
+    # VPD-Ziel vegetativ: 0.8-1.5 kPa, Blüte: 0.4-0.8 kPa.
+    # Statische Schwellenwerte hier sind Sicherheits-Maxima;
+    # phasenspezifische Thresholds kommen aus PhaseControlProfile.
     sensor_model: Optional[str] = None
     accuracy_percent: Optional[float] = Field(None, ge=0, le=100)
     
@@ -1285,6 +1306,10 @@ class CalibrationRecord(BaseModel):
 - [ ] **Anomalie-Erkennung:** Statistische Ausreißer-Erkennung (Z-Score)
 - [ ] **Rate-of-Change-Validierung:** Warnung bei unplausiblen Sprüngen
 - [ ] **Export-Funktion:** CSV-Export für externe Analysen
+- [ ] **Leaf-VPD:** Blatttemperatur-basierte VPD-Berechnung (leaf_temp ParameterType)
+- [ ] **Erweiterte ParameterTypes:** leaf_temp, substrate_temp, water_temp, do, orp, flow_rate, air_velocity
+- [ ] **3σ-Anomalie-Schwelle:** Z-Score > 3.0 für robuste Ausreißer-Erkennung
+- [ ] **Phasenabhängige Alerts:** Schwellenwerte aus REQ-003 PhaseControlProfile übernehmen
 - [ ] **Alert-System:** Konfigurierbare Min/Max-Schwellenwerte
 - [ ] **Battery-Monitoring:** Warnung bei <20% Batterie (wenn verfügbar)
 - [ ] **Offline-Modus:** Mobile-App speichert Eingaben lokal und synct später
@@ -1381,7 +1406,7 @@ THEN:
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Sensorik, Home Assistant, MQTT, Kalibrierung, Quality-Score, Anomalie-Erkennung, Interpolation
-- Fachbegriffe: PPFD, DLI, Tensiometer, TDS, Z-Score, Lineare Regression, WebSocket
-- Verknüpfung: Zentral für REQ-003 (VPD), REQ-004 (EC/pH), REQ-009 (Dashboard), REQ-010 (IPM-Risiko)
+- Keywords: Sensorik, Home Assistant, MQTT, Kalibrierung, Quality-Score, Anomalie-Erkennung, Interpolation, Leaf-VPD, Blatttemperatur
+- Fachbegriffe: PPFD, DLI, Tensiometer, TDS, Z-Score, Lineare Regression, WebSocket, Leaf-VPD, R:FR-Ratio, Phytochrom, Dissolved Oxygen, ORP
+- Verknüpfung: Zentral für REQ-003 (VPD, phasenabhängige Schwellenwerte), REQ-004 (EC/pH), REQ-009 (Dashboard), REQ-010 (IPM-Risiko), REQ-018 (Aktorik-Rückkopplung), REQ-019 (Substrat-Temperatur)
 - Protokolle: REST API, MQTT, WebSocket, Modbus

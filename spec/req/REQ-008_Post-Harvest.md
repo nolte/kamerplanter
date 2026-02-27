@@ -7,7 +7,7 @@ Kategorie: Post-Harvest
 Fokus: Beides
 Technologie: Python, Umweltsensorik, TimescaleDB (Zeitreihen)
 Status: Entwurf
-Version: 2.0 (Maximal Erweitert)
+Version: 2.1 (Agrarbiologie-Review)
 ```
 
 ## 1. Business Case
@@ -22,7 +22,7 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
 **1. Trocknung (Drying):**
 - **Cannabis/Hopfen/Kräuter:**
   - **Slow-Dry-Methode:** 7-14 Tage bei 15-21°C, 45-55% RLF
-  - **Ziel:** 60-65% Gewichtsverlust (von Nass zu Trocken)
+  - **Ziel:** 75-80% Gewichtsverlust (von Nass zu Trocken, ca. 10-12% Restfeuchte)
   - **Snap-Test:** Zweige brechen aber splittern nicht
   - **Qualitätskriterien:** Langsame Trocknung = besseres Aroma
   
@@ -30,9 +30,13 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
   - **Lufttrocknung:** 2-4 Wochen bei Raumtemperatur
   - **Dörrgerät:** 50-60°C für 6-12h (schneller aber weniger Aroma)
   
-- **Pilze:**
+- **Speisepilze** (Champignon, Shiitake, Austernpilz):
+  - **Dehydrator:** 45-55°C bis cracker-dry (Speisepilze vertragen höhere Temperaturen)
+  - **Kritisch:** Über 60°C = Aromaverlust und Texturschäden
+
+- **Heilpilze / empfindliche Pilze** (z.B. Psilocybe, Löwenmähne):
   - **Dehydrator:** 35-40°C bis cracker-dry
-  - **Kritisch:** Über 40°C = Wirkstoffverlust
+  - **Kritisch:** Über 40°C = Wirkstoff-/Terpen-Verlust (Psilocybin, Hericenone)
   
 - **Zwiebeln/Knoblauch:**
   - **Schalenhärtung:** 2-3 Wochen bei 25-30°C, niedrige RLF
@@ -48,10 +52,17 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
   - **Ziel-RH im Jar:** 58-62% (Boveda-Packs)
   - **Prozesse:** Chlorophyll-Abbau, Terpen-Entwicklung
   
-- **Sauerkraut/Kimchi:**
-  - **Fermentation:** 3-6 Wochen bei 18-22°C
-  - **Täglich Gasen ablassen**
-  - **Salzlake:** 2-3% Salzgehalt
+- **Sauerkraut:**
+  - **Phase 1 (Leuconostoc, Tag 1-3):** 18-22°C, schnelle CO₂-Bildung, täglich Gasen ablassen
+  - **Phase 2 (Lactobacillus, Tag 4-21):** 15-18°C für langsamere, aromatischere Fermentation
+  - **Salzlake:** 2-2.5% Salzgehalt, Gemüse muss vollständig unter Lake sein
+  - **Fertig:** pH < 4.0, milchsauer, keine Gasbildung mehr
+
+- **Kimchi:**
+  - **Phase 1 (Raumtemperatur, 1-3 Tage):** 18-22°C für Initialfermentation
+  - **Phase 2 (Kaltfermentation):** 2-5°C im Kühlschrank für 2-4 Wochen
+  - **Salzgehalt:** 3-5% (höher als Sauerkraut durch Gochugaru/Fischsauce)
+  - **Hinweis:** Kimchi erfordert anaerobe Bedingung, anderes Temperaturprofil als Sauerkraut
   
 - **Tabak:**
   - **Fermentation in Ballen:** 6-12 Monate
@@ -134,6 +145,7 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
     - `light_exposure: Literal['none', 'minimal', 'indirect', 'direct']`
     - `critical_max_rh: int` (Schimmel-Schwelle)
     - `critical_min_rh: int` (Übertrocknung-Schwelle)
+    - `target_water_activity: Optional[float]` (Wasseraktivität a_w — biologisch korrekter Endpunkt-Indikator: Schimmelpilze ab a_w > 0.65, Cannabis-Ziel: 0.55-0.65, Kräuter: < 0.50, Getrocknete Pilze: < 0.30)
 
 - **`:StorageLocation`** - Physischer Lagerort
   - Properties:
@@ -154,6 +166,7 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
     - `rh_percent: Optional[float]`
     - `visual_condition: Literal['excellent', 'good', 'acceptable', 'concerning', 'critical']`
     - `aroma_quality: Literal['excellent', 'good', 'acceptable', 'off', 'moldy']`
+    - `water_activity: Optional[float]` (a_w-Messung — präziser als RH für Schimmelrisiko-Bewertung)
     - `defects_observed: list[str]` (z.B. ["mold_spot", "over_dry"])
     - `photo_refs: list[str]`
     - `observer: str`
@@ -189,6 +202,7 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
     - `dryness_progress_percent: float`
     - `snap_test_ready: bool`
     - `estimated_days_remaining: int`
+    - `water_activity: Optional[float]` (a_w-Wert — objektiver Trocknungsendpunkt, ergänzt gewichtsbasierte Berechnung)
 
 ### Edge Collections:
 ```aql
@@ -701,16 +715,18 @@ class SpeciesSpecificDrying:
                 'Laub muss komplett trocken sein'
             ]
         },
-        'Agaricus bisporus': {  # Pilze
+        'Agaricus bisporus': {  # Speisepilze
             'method': 'dehydrator',
-            'temp_range': (35, 40),
+            'temp_range': (45, 55),
             'rh_range': (10, 20),
             'duration_days': (0.25, 0.5),  # 6-12h
             'target_moisture': 5,
             'critical_notes': [
-                'NICHT über 40°C (Wirkstoffverlust)',
-                'Cracker-dry = vollständig trocken',
-                'In luftdichten Behältern mit Silica lagern'
+                'Speisepilze vertragen 45-55°C (NICHT über 60°C = Aromaverlust)',
+                'Cracker-dry = vollständig trocken (a_w < 0.30)',
+                'In luftdichten Behältern mit Silica lagern',
+                'Hinweis: Für empfindliche Pilzarten (Psilocybe, Löwenmähne) '
+                'max 40°C verwenden (Wirkstoffverlust bei höheren Temperaturen)'
             ]
         }
     }
@@ -917,24 +933,42 @@ class MoldPreventionMonitor:
         {'temp_min': 15, 'temp_max': 20, 'rh_min': 65},
     ]
     
+    @staticmethod
+    def calculate_dew_point(temp_c: float, rh_percent: float) -> float:
+        """
+        Taupunkt-Berechnung nach Magnus-Formel.
+        Kondensation auf Pflanzenoberflächen ist der primäre Schimmel-Auslöser.
+        """
+        import math
+        a, b = 17.27, 237.7
+        gamma = (a * temp_c) / (b + temp_c) + math.log(rh_percent / 100.0)
+        return (b * gamma) / (a - gamma)
+
     @classmethod
     def assess_mold_risk(
         cls,
         temp_c: float,
         rh_percent: float,
         air_exchange_per_hour: float,
-        duration_hours: float = 1.0
+        duration_hours: float = 1.0,
+        surface_temp_c: Optional[float] = None
     ) -> Dict:
         """
-        Bewertet Schimmel-Risiko basierend auf Umgebungsbedingungen
-        
+        Bewertet Schimmel-Risiko basierend auf Umgebungsbedingungen.
+        Berücksichtigt Taupunkt-Nähe als primären Kondensations-Indikator.
+
+        Args:
+            surface_temp_c: Oberflächentemperatur des Lagerguts (wenn verfügbar).
+                           Kondensation tritt auf wenn surface_temp <= dew_point.
+
         Returns:
             Risiko-Assessment mit Empfehlungen
         """
-        
+
         risk_factors = []
         risk_score = 0
-        
+        dew_point = cls.calculate_dew_point(temp_c, rh_percent)
+
         # 1. RH-basiertes Risiko
         if rh_percent > cls.CRITICAL_RH:
             risk_factors.append(f"RH {rh_percent}% über kritischem Schwellenwert ({cls.CRITICAL_RH}%)")
@@ -942,22 +976,37 @@ class MoldPreventionMonitor:
         elif rh_percent > cls.WARNING_RH:
             risk_factors.append(f"RH {rh_percent}% im Warn-Bereich")
             risk_score += 25
-        
-        # 2. Temp-RH Kombination
+
+        # 2. Taupunkt-Nähe (Kondensationsrisiko)
+        dew_margin = temp_c - dew_point
+        check_temp = surface_temp_c if surface_temp_c is not None else temp_c
+        surface_margin = check_temp - dew_point
+        if surface_margin <= 0:
+            risk_factors.append(
+                f"KONDENSATION: Oberfläche ({check_temp:.1f}°C) ≤ Taupunkt ({dew_point:.1f}°C)"
+            )
+            risk_score += 60
+        elif surface_margin <= 2:
+            risk_factors.append(
+                f"Taupunkt-Nähe: nur {surface_margin:.1f}°C Abstand — Kondensationsrisiko"
+            )
+            risk_score += 35
+
+        # 3. Temp-RH Kombination
         for combo in cls.HIGH_RISK_COMBOS:
-            if (combo['temp_min'] <= temp_c <= combo['temp_max'] and 
+            if (combo['temp_min'] <= temp_c <= combo['temp_max'] and
                 rh_percent >= combo['rh_min']):
                 risk_factors.append(
                     f"Kritische Temp-RH Kombination: {temp_c}°C + {rh_percent}%"
                 )
                 risk_score += 30
-        
-        # 3. Luftaustausch
+
+        # 4. Luftaustausch
         if air_exchange_per_hour < 1:
             risk_factors.append("Unzureichender Luftaustausch (<1x/h)")
             risk_score += 20
-        
-        # 4. Dauer der Exposition
+
+        # 5. Dauer der Exposition
         if duration_hours > 6 and rh_percent > cls.WARNING_RH:
             risk_factors.append(f"Erhöhte RH über {duration_hours}h")
             risk_score += 15
@@ -1004,6 +1053,8 @@ class MoldPreventionMonitor:
             'current_conditions': {
                 'temperature_c': temp_c,
                 'rh_percent': rh_percent,
+                'dew_point_c': round(dew_point, 1),
+                'dew_margin_c': round(dew_margin, 1),
                 'air_exchange_h': air_exchange_per_hour,
                 'duration_hours': duration_hours
             },
@@ -1037,11 +1088,20 @@ class MoldPreventionMonitor:
                 'action': 'Betroffene Blätter entfernen, Fungizid erwägen',
                 'prevention': 'RH <60%, Luftbewegung'
             },
-            'aspergillus': {
-                'names': ['Aspergillus', 'Schwarzschimmel'],
-                'appearance': 'Schwarz/dunkelgrün, körnig',
+            'aspergillus_niger': {
+                'names': ['Aspergillus niger', 'Schwarzschimmel'],
+                'appearance': 'Schwarz, körnig/pulverig',
                 'danger': 'CRITICAL',
                 'action': 'KOMPLETTE Entsorgung - gesundheitsgefährlich!',
+                'prevention': 'RH <55%, Temperatur <25°C'
+            },
+            'aspergillus_flavus': {
+                'names': ['Aspergillus flavus', 'Aflatoxin-Produzent'],
+                'appearance': 'Grün-gelb, körnig/pudrig',
+                'danger': 'CRITICAL',
+                'action': 'SOFORTIGE ENTSORGUNG - Aflatoxin ist kanzerogen! '
+                          'Nicht berühren ohne Handschuhe. Lagerort desinfizieren.',
+                'mycotoxin': 'Aflatoxin B1 (kanzerogen, Klasse 1)',
                 'prevention': 'Strikte RH-Kontrolle <55%'
             },
             'penicillium': {
@@ -1198,9 +1258,11 @@ class StorageObservation(BaseModel):
     temperature_c: Optional[float] = Field(None, ge=-10, le=50)
     rh_percent: Optional[int] = Field(None, ge=0, le=100)
     
+    water_activity: Optional[float] = Field(None, ge=0, le=1, description="a_w-Messwert")
+
     visual_condition: VisualCondition
     aroma_quality: AromaQuality
-    
+
     defects_observed: List[str] = Field(default_factory=list)
     photo_refs: List[str] = Field(default_factory=list)
     notes: Optional[str] = Field(None, max_length=1000)
@@ -1227,13 +1289,19 @@ class BurpingEvent(BaseModel):
     condensation_observed: bool = False
     aroma_notes: Optional[str] = None
     
+    ambient_rh: Optional[int] = Field(None, ge=0, le=100)
+
     @field_validator('jar_rh_after')
     @classmethod
-    def validate_rh_reduction(cls, v, info):
+    def validate_rh_change(cls, v, info):
         rh_before = info.data.get('jar_rh_before')
+        ambient = info.data.get('ambient_rh')
         if rh_before and v:
-            if v > rh_before:
-                raise ValueError("RH nach Burping sollte nicht höher sein als vorher")
+            if v > rh_before and (ambient is None or ambient < rh_before):
+                raise ValueError(
+                    "RH-Anstieg nach Burping nur plausibel wenn Umgebungs-RH "
+                    f"höher als Jar-RH ({rh_before}%) ist"
+                )
         return v
 ```
 
@@ -1243,6 +1311,7 @@ class BurpingEvent(BaseModel):
 - REQ-007 (Ernte): Batch-Übergabe
 - REQ-005 (Sensorik): Temperatur/RLF-Monitoring
 - REQ-001 (Stammdaten): Spezies-spezifische Protokolle
+- REQ-010 (IPM): **Karenz-Gate** — Batch darf nur in Post-Harvest übergehen, wenn letzte chemische Behandlung > Karenzzeit zurückliegt. Das System prüft den IPM-Treatment-Log vor Batch-Freigabe.
 
 **Wird benötigt von:**
 - REQ-009 (Dashboard): Storage-Inventar-Widget
@@ -1276,6 +1345,11 @@ class BurpingEvent(BaseModel):
 - [ ] **Curing-Quality-Timeline:** Was passiert in Woche 1, 2, 3, etc.
 - [ ] **Emergency-Protocols:** Schimmel-Fund, Übertrocknung, etc.
 - [ ] **Photo-Comparison:** Before/After während Cure
+- [ ] **Water-Activity-Tracking:** a_w-Messung in DryingProgress und StorageObservation
+- [ ] **Taupunkt-Berechnung:** Dew-Point-basierte Kondensations-Warnung im Mold-Risk-Assessment
+- [ ] **Karenz-Gate:** REQ-010-Prüfung vor Batch-Übergang in Post-Harvest
+- [ ] **Phasen-Fermentation:** Separate Temperaturprofile für Leuconostoc/Lactobacillus-Phasen
+- [ ] **Pilz-Differenzierung:** Speisepilze (45-55°C) vs. Heilpilze (35-40°C) Trocknungsprofile
 
 ### Testszenarien:
 
@@ -1368,7 +1442,7 @@ THEN:
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Trocknung, Curing, Burping, Fermentierung, Schimmel, Lagerung, Snap-Test
-- Fachbegriffe: Chlorophyll-Abbau, Terpen-Entwicklung, Botrytis, Aspergillus, Boveda, Dehumidifier
-- Verknüpfung: Direkt nach REQ-007 (Ernte), vor Endverbrauch/Vertrieb
-- Pflanzenwissenschaft: Nachreife, Ethylen-Management, Schalenhärtung, Fermentation
+- Keywords: Trocknung, Curing, Burping, Fermentierung, Schimmel, Lagerung, Snap-Test, Wasseraktivität, Taupunkt
+- Fachbegriffe: Chlorophyll-Abbau, Terpen-Entwicklung, Botrytis, Aspergillus niger, Aspergillus flavus, Aflatoxin, Boveda, Dehumidifier, Water Activity (a_w), Dew Point, Karenzzeit
+- Verknüpfung: Direkt nach REQ-007 (Ernte), vor Endverbrauch/Vertrieb, Karenz-Gate über REQ-010 (IPM)
+- Pflanzenwissenschaft: Nachreife, Ethylen-Management, Schalenhärtung, Fermentation, Leuconostoc, Lactobacillus, Psilocybin, Hericenone
