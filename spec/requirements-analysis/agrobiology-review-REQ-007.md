@@ -25,42 +25,42 @@ REQ-007 ist ein fachlich solides und ambitioniertes Dokument, das die Ernteplanu
 
 ## Rot -- Fachlich Falsch -- Sofortiger Korrekturbedarf
 
-### F-001: Paprika als nicht-klimakterisch klassifiziert -- nur teilweise korrekt
+### F-001: Paprika als nicht-klimakterisch klassifiziert -- nur teilweise korrekt [BEHOBEN]
 
 **Anforderung:** `EthyleneRipeningClassifier.NON_CLIMACTERIC_SPECIES` enthaelt `'pepper'` (Zeile ~1008-1011)
 **Problem:** Paprika (*Capsicum annuum*) ist ein biologischer Grenzfall. Reife Paprika zeigen klimakterisches Verhalten -- sie produzieren Ethylen waehrend der Farbumfaerbung (Breaker-Stage) und koennen in begrenztem Mass nachreifen, insbesondere wenn sie bereits den Farbumschlag begonnen haben. Unreife gruene Paprika sind dagegen praktisch nicht-klimakterisch. Die pauschale Klassifikation als "nicht-klimakterisch" ist daher fuer Paprika im Farbumschlag falsch und fuehrt zu suboptimalen Ernteempfehlungen: Paprika im Breaker-Stadium koennen durchaus geerntet und nachgereift werden (gaengige Praxis im kommerziellen Anbau).
 **Korrekte Formulierung:** Paprika sollte als "bedingt klimakterisch" oder "schwach klimakterisch" gefuehrt werden. Empfehlung: Eine dritte Kategorie `WEAKLY_CLIMACTERIC` einfuehren, oder die `classify()`-Methode um einen Reifegrad-Parameter erweitern, der den aktuellen Farbumschlag-Status beruecksichtigt.
 **Gilt fuer Anbaukontext:** Indoor, Gewaechshaus, Outdoor
 
-### F-002: Feige als klimakterisch -- korrekt, aber Ananas als nicht-klimakterisch ist falsch
+### F-002: Feige als klimakterisch -- korrekt, aber Ananas als nicht-klimakterisch ist falsch [BEHOBEN]
 
 **Anforderung:** `NON_CLIMACTERIC_SPECIES` enthaelt `'pineapple'` (Zeile ~1011)
 **Problem:** Die Ananas (*Ananas comosus*) wird in der Literatur je nach Quelle unterschiedlich klassifiziert. Die International Society for Horticultural Science und neuere Studien (z.B. Paull & Chen, 2003) klassifizieren Ananas als nicht-klimakterisch, allerdings zeigt sie unter bestimmten Bedingungen schwache klimakterische Muster (endogene Ethylen-Produktion bei Reife). In der Praxis ist die Klassifikation als nicht-klimakterisch vertretbar, sollte aber mit einem Hinweis versehen werden, dass Ananas auf exogenes Ethylen reagiert (Ethylen-Begasung wird kommerziell zur Blueteninduktion verwendet -- nicht zur Nachreifung, aber der Mechanismus existiert).
 **Korrekte Formulierung:** Ananas in `NON_CLIMACTERIC_SPECIES` belassen, aber in der `classify()`-Rueckgabe einen Hinweis ergaenzen: "Reagiert auf exogenes Ethylen (Blueteninduktion), reift aber nach Ernte nicht signifikant nach."
 **Gilt fuer Anbaukontext:** Gewaechshaus, Indoor (tropisch)
 
-### F-003: Melone als klimakterisch -- differenzierungspflichtig
+### F-003: Melone als klimakterisch -- differenzierungspflichtig [BEHOBEN]
 
 **Anforderung:** `CLIMACTERIC_SPECIES` enthaelt `'melon'` (Zeile ~1006)
 **Problem:** Nicht alle Melonen sind klimakterisch. Wassermelonen (*Citrullus lanatus*) sind nicht-klimakterisch und reifen nach der Ernte nicht nach. Nur Cantaloupe-Typ-Melonen (*Cucumis melo* var. *cantalupensis*) und Honigmelonen sind klimakterisch. Die pauschale Klassifikation "melon = klimakterisch" fuehrt bei Wassermelonen zu falschen Ernteempfehlungen ("kann im Breaker-Stadium geerntet werden" -- falsch fuer Wassermelone).
 **Korrekte Formulierung:** Melonen muessen auf Species-Ebene differenziert werden. Vorschlag: `'cantaloupe'` und `'honeydew'` in `CLIMACTERIC_SPECIES`, `'watermelon'` in `NON_CLIMACTERIC_SPECIES`. Alternativ: Die Klassifikation nicht ueber generische Strings sondern ueber die Species-ID aus REQ-001 steuern.
 **Gilt fuer Anbaukontext:** Gewaechshaus, Outdoor
 
-### F-004: Trichom-Prozent-Validierung erlaubt unrealistische Werte
+### F-004: Trichom-Prozent-Validierung erlaubt unrealistische Werte [BEHOBEN]
 
 **Anforderung:** `if abs(total - 100) > 5:` -- Toleranz von 5% (Zeile ~678)
 **Problem:** Eine Toleranz von 5 Prozentpunkten ist biologisch und messtechnisch sinnvoll (Trichome sind nicht immer eindeutig kategorisierbar). Allerdings fehlt eine Validierung der Einzelwerte: Negative Prozentwerte oder Werte ueber 100% pro Kategorie werden nicht abgefangen. Zudem fehlt die vierte Kategorie "degradiert/braun/abgebrochen" (dead/degraded trichomes), die bei ueberreifen oder mechanisch beschaedigten Pflanzen relevant ist und als separate Kategorie von "amber" unterschieden werden sollte.
 **Korrekte Formulierung:** Einzelwert-Validierung hinzufuegen (`0 <= value <= 100` fuer jede Kategorie). Optional: Eine vierte Kategorie `'degraded_percent'` fuer abgestorbene/abgebrochene Trichome einfuehren, die bei der Qualitaetsbewertung als negativer Faktor einfliesst.
 **Gilt fuer Anbaukontext:** Indoor
 
-### F-005: Brix-Messung "Mittags (hoechster Zuckergehalt)" -- biologisch ungenau
+### F-005: Brix-Messung "Mittags (hoechster Zuckergehalt)" -- biologisch ungenau [BEHOBEN]
 
 **Anforderung:** `'best_time': 'Mittags (hoechster Zuckergehalt)'` (Zeile ~975)
 **Problem:** Der Zuckergehalt in Fruechten schwankt tageszeitlich nur geringfuegig und ist primaer vom Reifegrad, nicht von der Tageszeit abhaengig. Was tatsaechlich tageszeitlich schwankt, ist der Wassergehalt der Frucht: Morgens nach der Nacht haben Fruechte den hoechsten Turgor (Wasserdruck), was den Brix-Wert leicht verduennt. Mittags bei hoeherer Transpiration ist der Wassergehalt etwas niedriger, was den Brix-Wert leicht konzentriert -- aber dies ist ein Messartefakt, kein hoeherer Zuckergehalt. Fuer reproduzierbare Ergebnisse ist eine konsistente Messzeit wichtiger als die spezifische Uhrzeit.
 **Korrekte Formulierung:** `'best_time': 'Immer zur gleichen Tageszeit messen fuer Vergleichbarkeit. Morgens vor Bewaesserung liefert den repraesentativsten Wert (hoechster Turgor, weniger Varianz durch Transpiration).'`
 **Gilt fuer Anbaukontext:** Indoor, Gewaechshaus, Outdoor
 
-### F-006: Rack-Dry-Korrektur "3-5% weniger Verlust" ist biologisch fragwuerdig
+### F-006: Rack-Dry-Korrektur "3-5% weniger Verlust" ist biologisch fragwuerdig [BEHOBEN]
 
 **Anforderung:** `moisture_loss_percent = max(0, moisture_loss_percent - 4)` (Zeile ~1297)
 **Problem:** Die Begruendung "Wet Trim entfernt Blattmaterial mit hoeherem Wasseranteil vor der Trocknung" ist nur halb korrekt. Wet Trim entfernt Blattmaterial, was das Nassgewicht VOR der Trocknung reduziert -- nicht den prozentualen Wasserverlust des verbleibenden Materials. Der prozentuale Feuchtegehalt der Blueten aendert sich durch das Entfernen von Blaettern nicht. Was sich aendert, ist die absolute Menge des Nassgewichts (trim_weight wird separat erfasst). Die Korrektur von -4% auf den moisture_loss_percent fuehrt zu einer systematischen Ueberschaetzung des Trockengewichts.
@@ -71,7 +71,7 @@ REQ-007 ist ein fachlich solides und ambitioniertes Dokument, das die Ernteplanu
 
 ## Orange -- Unvollstaendig -- Wichtige Aspekte fehlen
 
-### U-001: Karenzzeit-Pruefung fehlt im Ernte-Workflow
+### U-001: Karenzzeit-Pruefung fehlt im Ernte-Workflow [BEHOBEN]
 
 **Anbaukontext:** Indoor, Gewaechshaus, Outdoor
 **Fehlende Parameter:** Karenzzeit-Validierung als Pflicht-Schritt vor Batch-Erstellung
@@ -81,7 +81,7 @@ REQ-007 ist ein fachlich solides und ambitioniertes Dokument, das die Ernteplanu
 - Wenn `DATE_NOW() < applied_at + safety_interval_days`: Batch-Erstellung blockieren mit Fehlermeldung
 - Optional: "Force Override" mit expliziter Bestaetigung und Dokumentation (fuer Zierpflanzen / nicht-essbare Kulturen)
 
-### U-002: Dauerkulturen (Perenniale) und wiederholte Ernte nicht modelliert
+### U-002: Dauerkulturen (Perenniale) und wiederholte Ernte nicht modelliert [BEHOBEN]
 
 **Anbaukontext:** Gewaechshaus, Outdoor, Indoor (Kraeuter)
 **Fehlende Parameter:** Ernte-Logik fuer mehrjaehrige Pflanzen mit jaehrlich wiederkehrender Ernte
@@ -92,7 +92,7 @@ REQ-007 ist ein fachlich solides und ambitioniertes Dokument, das die Ernteplanu
 - Fruchtausduernnnung (Thinning) als Pre-Harvest-Massnahme (Aepfel, Pfirsiche)
 **Formulierungsvorschlag:** Ein `season_id` oder `harvest_season: int` Feld in der Batch-Collection einfuehren. Yield-Metriken muessen saisonal aggregierbar sein. Ein neues Pre-Harvest-Protokoll `thinning` (Fruchtausduernnnung) ergaenzen.
 
-### U-003: Cut-and-Come-Again-Kulturen (CACA) nur erwaehnt, nicht modelliert
+### U-003: Cut-and-Come-Again-Kulturen (CACA) nur erwaehnt, nicht modelliert [BEHOBEN]
 
 **Anbaukontext:** Indoor, Gewaechshaus
 **Fehlende Parameter:** Erntelogik fuer kontinuierliche Ernte bei Blattgemuese und Kraeutern
@@ -104,7 +104,7 @@ REQ-007 ist ein fachlich solides und ambitioniertes Dokument, das die Ernteplanu
 - Kumulative Yield-Metriken ueber die gesamte Ernteperiode
 **Formulierungsvorschlag:** Einen eigenen `ContinuousHarvestIndicator` erstellen, der folgende Parameter modelliert: `cut_height_cm`, `regrowth_days`, `max_harvests_before_replant`, `cumulative_yield_g`. Der Batch-Status darf bei `harvest_type == 'continuous'` die Pflanze nicht auf 'harvested' setzen.
 
-### U-004: Umweltbedingungen bei Ernte nicht strukturiert erfasst
+### U-004: Umweltbedingungen bei Ernte nicht strukturiert erfasst [BEHOBEN]
 
 **Anbaukontext:** Indoor, Gewaechshaus, Outdoor
 **Fehlende Parameter:** Strukturierte Erfassung von Umweltdaten zum Erntezeitpunkt
@@ -124,7 +124,7 @@ class HarvestEnvironment(BaseModel):
     light_status: Optional[Literal['dark_period', 'lights_on', 'natural_light']]
 ```
 
-### U-005: Pilzkulturen (Fungi) als Erntekategorie fehlen
+### U-005: Pilzkulturen (Fungi) als Erntekategorie fehlen [BEHOBEN]
 
 **Anbaukontext:** Indoor, Gewaechshaus
 **Fehlende Parameter:** Pilzspezifische Ernteindikatoren
@@ -136,7 +136,7 @@ class HarvestEnvironment(BaseModel):
 - Substrat-Erschoepfung (Biological Efficiency = Frischgewicht / Substrat-Trockengewicht)
 **Formulierungsvorschlag:** Einen `MushroomIndicator(HarvestIndicator)` erstellen mit Feldern fuer `cap_diameter_cm`, `veil_status: Literal['intact', 'partial', 'broken']`, `spore_drop: bool`, `flush_number: int`, `biological_efficiency_percent: float`.
 
-### U-006: GDD-Integration in Ernteprognose fehlt
+### U-006: GDD-Integration in Ernteprognose fehlt [BEHOBEN]
 
 **Anbaukontext:** Gewaechshaus, Outdoor
 **Fehlende Parameter:** Growing Degree Days als Reife-Indikator
@@ -146,7 +146,7 @@ class HarvestEnvironment(BaseModel):
 - Cannabis: 700-1000 GDD (abhaengig von Sorte)
 **Formulierungsvorschlag:** Einen `GDDIndicator(HarvestIndicator)` erstellen oder den `DaysSinceFloweringIndicator` um ein GDD-basiertes Assessment erweitern: `gdd_accumulated` und `gdd_target` als Felder, Berechnung ueber REQ-003/REQ-005 Sensordaten.
 
-### U-007: Ernte-Ergonomie und Werkzeug-Dokumentation fehlt
+### U-007: Ernte-Ergonomie und Werkzeug-Dokumentation fehlt [BEHOBEN]
 
 **Anbaukontext:** Indoor, Gewaechshaus
 **Fehlende Parameter:** Erntewerkzeug und Hygiene-Protokoll
@@ -161,13 +161,13 @@ class HarvestEnvironment(BaseModel):
 
 ## Gelb -- Zu Ungenau -- Praezisierung noetig
 
-### P-001: Effekt-Profile sind keine Ernte-Indikatoren
+### P-001: Effekt-Profile sind keine Ernte-Indikatoren [BEHOBEN]
 
 **Vage Anforderung:** `'effect_profile': 'Balanced - Peak THC, ausgewogene Effekte'` (Zeile ~705)
 **Problem:** Die Effekt-Beschreibungen in TrichomeIndicator (`'Sehr sedierend, Couch-Lock'`, `'Eher zerebral, energetisch'`) sind Konsumenten-orientierte Marketingbegriffe, keine agrarbiologischen Parameter. Sie gehoeren nicht in einen Ernteindikator, sondern in die Produktbeschreibung (Post-Harvest/Lagerung). Zudem sind Effekte primaer vom Cannabinoid- und Terpen-Profil der Sorte abhaengig, nicht vom Erntezeitpunkt allein. Ein Indica-dominanter Strain mit 70% milchigen Trichomen hat andere Effekte als ein Sativa-dominanter Strain mit identischem Trichom-Profil.
 **Messbare Alternative:** Effekt-Profile entfernen oder als separate, optionale Metadaten in die QualityAssessment-Collection verschieben. Im Indikator auf messbare Cannabinoid-Zustands-Beschreibungen beschraenken: `'cannabinoid_status': 'Peak THC concentration, minimal CBN degradation'`.
 
-### P-002: Aroma-Intensitaet auf subjektiver 0-10-Skala
+### P-002: Aroma-Intensitaet auf subjektiver 0-10-Skala [BEHOBEN]
 
 **Vage Anforderung:** `'intensity': float (0-10, subjektive Skala)` (Zeile ~1082)
 **Problem:** Eine subjektive 0-10-Skala ohne Kalibrierung ist nicht reproduzierbar und zwischen verschiedenen Beobachtern nicht vergleichbar. Zwei Beobachter koennten die gleiche Pflanze mit 5 bzw. 8 bewerten.
@@ -180,19 +180,19 @@ class HarvestEnvironment(BaseModel):
 
 Oder idealerweise auf GC/MS-Analyse verweisen (Terpen-Konzentration in mg/g) mit einer Fallback-Ordinalskala fuer Hobby-Gaertner.
 
-### P-003: Qualitaets-Scoring-Gewichtung ist Cannabis-zentriert als Default
+### P-003: Qualitaets-Scoring-Gewichtung ist Cannabis-zentriert als Default [BEHOBEN]
 
 **Vage Anforderung:** Default-Gewichtung: `appearance: 0.25, aroma: 0.25, trichome: 0.20, density: 0.15, color: 0.15` (Zeile ~1361-1367)
 **Problem:** Obwohl artspezifische Profile existieren (Zeile 1429-1474), ist der Fallback in `calculate_overall_score()` Cannabis-zentriert. Fuer nicht-Cannabis-Pflanzen ohne Trichome oder Bud-Density wird `self.trichome_coverage_score or 50` verwendet (Zeile 1372) -- ein neutraler Default von 50 Punkten fuer eine nicht-existierende Dimension verzerrt den Score.
 **Messbare Alternative:** `calculate_overall_score()` muss den `species_type` als Parameter akzeptieren und die Gewichtung aus `SPECIES_QUALITY_PROFILES` ziehen. Dimensionen die fuer eine Art nicht relevant sind, muessen mit Gewicht 0 bewertet werden (nicht mit Default 50).
 
-### P-004: Flushing EC-Zielwert 0.0 ist unrealistisch
+### P-004: Flushing EC-Zielwert 0.0 ist unrealistisch [BEHOBEN]
 
 **Vage Anforderung:** `'target_ec': 0.0` und `'ec_target': 0.0` (Zeile ~169, 345)
 **Problem:** Ein EC-Wert von 0.0 mS/cm entspricht reinem destilliertem Wasser und ist in der Praxis nicht erreichbar. Leitungswasser hat typisch 0.2-0.8 mS/cm, Brunnenwasser oft 0.5-1.5 mS/cm. Das Ziel beim Flushing ist nicht EC 0.0 am Eingang, sondern ein Runoff-EC nahe dem Input-EC (was signalisiert, dass keine Salze mehr ausgewaschen werden). REQ-004 definiert `ec_net = target_ec - base_water_ec`, was bei target_ec 0.0 negativ waere.
 **Messbare Alternative:** Flushing-Ziel als `target_ec: 'base_water_ec'` oder `target_ec_additional: 0.0` (additiv zum Basis-EC) formulieren. Runoff-Ziel: `runoff_ec_target: base_water_ec + 0.3` (max. 0.3 mS/cm ueber Input).
 
-### P-005: Ertrags-Effizienz-Score ohne Artdifferenzierung
+### P-005: Ertrags-Effizienz-Score ohne Artdifferenzierung [BEHOBEN]
 
 **Vage Anforderung:** Score-Schwellwerte: `>= 1.5 g/m2/Tag = Excellent`, `>= 1.0 = Good`, `>= 0.7 = Average` (Zeile ~1716-1723)
 **Problem:** Diese Schwellwerte sind Cannabis-spezifisch und fuer andere Kulturen nicht anwendbar:
@@ -203,7 +203,7 @@ Oder idealerweise auf GC/MS-Analyse verweisen (Terpen-Konzentration in mg/g) mit
 Die Metriken vergleichen zudem Nassgewicht (Tomate) mit Trockengewicht (Cannabis) -- ein fundamentaler Aepfel-mit-Birnen-Vergleich.
 **Messbare Alternative:** Effizienz-Score muss artspezifisch kalibriert werden und zwischen Nass- und Trockengewicht-Basis unterscheiden. Vorschlag: `SPECIES_EFFICIENCY_BENCHMARKS: dict[str, dict[str, float]]` mit `{'cannabis': {'excellent': 1.5, 'good': 1.0, 'weight_basis': 'dry'}, 'tomato': {'excellent': 5.0, 'good': 3.0, 'weight_basis': 'wet'}, ...}`.
 
-### P-006: Trichom-Pruef-Frequenz "taeglich ab Woche 7" zu starr
+### P-006: Trichom-Pruef-Frequenz "taeglich ab Woche 7" zu starr [BEHOBEN]
 
 **Vage Anforderung:** `'frequency': 'Taeglich ab Woche 7 der Bluete'` (Zeile ~834)
 **Problem:** Cannabis-Sorten haben stark variierende Bluetezeiten: Autoflower 5-8 Wochen, Indica 7-9 Wochen, Sativa 10-16 Wochen. "Ab Woche 7" ist fuer Autoflower-Sorten viel zu spaet (dann ist die Ernte laengst ueberfaellig) und fuer Sativa-Sorten unnoetig frueh. Die Pruef-Frequenz muss sortenbezogen sein.

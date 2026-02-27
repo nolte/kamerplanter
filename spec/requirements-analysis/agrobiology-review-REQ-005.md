@@ -34,7 +34,7 @@ Verbesserungspotenzial besteht bei der biologischen Praezision einzelner Validie
 
 ## Rot: Fachlich Falsch -- Sofortiger Korrekturbedarf
 
-### F-001: EC-Validierungsbereich zu eng -- verhindert valide Hydroponik-Messungen
+### F-001: EC-Validierungsbereich zu eng -- verhindert valide Hydroponik-Messungen [BEHOBEN]
 **Anforderung:** `VALID_RANGES = { ... 'ec': (0, 5) ... }` (`REQ-005_Hybrid-Sensorik.md`, ~Zeile 460)
 **Problem:** Der obere Validierungsbereich von 5 mS/cm ist fuer die Plausibilitaetspruefung zu niedrig. Im Drain-to-Waste-Hydroponik-Betrieb und bei Runoff-Messungen sind EC-Werte bis 8-10 mS/cm keine Seltenheit -- insbesondere bei:
 - Runoff-Messungen nach Trockenphasen (Salzakkumulation im Substrat)
@@ -47,7 +47,7 @@ Ein Wert von 6.5 mS/cm in der Naehloesung ist zwar problematisch und sollte eine
 **Korrekte Formulierung:** `'ec': (0, 15)` -- physikalischer Plausibilitaetsbereich. Der agronomisch sinnvolle Bereich (0.5-3.5 mS/cm je nach Kultur und Phase) wird ueber die Alert-Schwellwerte (`alert_threshold_min`/`alert_threshold_max`) abgebildet, nicht ueber die Plausibilitaetspruefung.
 **Gilt fuer Anbaukontext:** Indoor, Hydroponik/Soilless, Gewaechshaus
 
-### F-002: Blatttemperatur-Differenz als feste Konstante ist biologisch ungenau
+### F-002: Blatttemperatur-Differenz als feste Konstante ist biologisch ungenau [BEHOBEN]
 **Anforderung:** `LET leaf_temp = temp - 2.0` (REQ-003, Zeile ~189, referenziert durch REQ-005 VPD-Berechnung)
 **Problem:** Die Annahme "Blatttemperatur = Lufttemperatur - 2 Grad C" ist eine haeufig verwendete, aber fachlich problematische Vereinfachung. Die tatsaechliche Blatttemperatur-Differenz (Delta-T_leaf) haengt ab von:
 - **Transpirationsrate** (hoch bei niedrigem VPD, niedrig bei Trockenstress): Unter gut transpirierenden Bedingungen kann Delta-T_leaf -3 bis -5 Grad C betragen
@@ -63,7 +63,7 @@ REQ-005 definiert die Blatttemperatur-Differenz als Sensorparameter (Zeile 28: "
 3. **Berechnet:** Modellbasiert aus PPFD, Lufttemperatur, rH und Luftbewegung (fortgeschritten)
 **Gilt fuer Anbaukontext:** Indoor, Gewaechshaus
 
-### F-003: CO2-Validierungsbereich-Untergrenze physikalisch falsch
+### F-003: CO2-Validierungsbereich-Untergrenze physikalisch falsch [BEHOBEN]
 **Anforderung:** `VALID_RANGES = { ... 'co2': (200, 5000) ... }` (`REQ-005_Hybrid-Sensorik.md`, ~Zeile 460)
 **Problem:** Die Untergrenze von 200 ppm ist physikalisch unrealistisch fuer erdnahe Messungen. Der atmosphaerische CO2-Gehalt liegt aktuell bei ca. 420 ppm (2026, Mauna Loa). Werte unter 300 ppm treten nur unter extremen Umstaenden auf (z.B. stark photosynthetisch aktiver, geschlossener Gewaechshausraum ohne Belueftung am Ende der Lichtperiode -- selbst dann selten unter 250 ppm). Ein Messwert von 220 ppm bei einem Indoor-Grow deutet fast sicher auf einen defekten Sensor hin.
 
@@ -79,7 +79,7 @@ Gleichzeitig sollte die Obergrenze hoeher sein: CO2-Dosierungsanlagen koennen be
 
 ## Orange: Unvollstaendig -- Wichtige Aspekte fehlen
 
-### U-001: Fehlender Sensorparameter "Blatttemperatur" (leaf_temp)
+### U-001: Fehlender Sensorparameter "Blatttemperatur" (leaf_temp) [BEHOBEN]
 **Anbaukontext:** Indoor, Gewaechshaus
 **Fehlende Parameter:** `leaf_temp` als eigenstaendiger `ParameterType` in der Sensor-Enum
 **Begruendung:** REQ-005 erwaehnt in Zeile 28 ausdruecklich "Blatttemperatur-Differenz" als ueberwachten Klimaparameter. Jedoch fehlt `leaf_temp` in der `ParameterType`-Enum (Zeile 1143): `Literal['temp', 'humidity', 'ec', 'ph', 'ppfd', 'co2', 'soil_moisture', 'water_level', 'vpd']`. Ohne diesen Parameter kann kein dedizierter Blatttemperatur-Sensor (z.B. Apogee SI-131, Melexis MLX90614) korrekt erfasst werden.
@@ -96,7 +96,7 @@ ParameterType = Literal[
 ]
 ```
 
-### U-002: Fehlende Sensorparameter fuer Hydroponik-Wasserqualitaet
+### U-002: Fehlende Sensorparameter fuer Hydroponik-Wasserqualitaet [BEHOBEN]
 **Anbaukontext:** Hydroponik/Soilless
 **Fehlende Parameter:**
 - `do` (Dissolved Oxygen / Geloester Sauerstoff, mg/L) -- erwaehnt in Business Case Zeile 52 ("Geloester Sauerstoff"), aber nicht in `ParameterType` oder `VALID_RANGES`
@@ -118,7 +118,7 @@ VALID_RANGES = {
 }
 ```
 
-### U-003: Fehlende Sensorplatzierung als Qualitaetsfaktor
+### U-003: Fehlende Sensorplatzierung als Qualitaetsfaktor [BEHOBEN]
 **Anbaukontext:** Indoor, Gewaechshaus
 **Fehlende Parameter:** Sensorposition relativ zur Pflanzenzone (Canopy-Level, Substrat-Level, Raumdecke)
 **Begruendung:** Die Messposition hat enormen Einfluss auf die agronomische Relevanz der Daten. Ein Temperatursensor an der Zeltwand misst systematisch andere Werte als einer auf Canopy-Hoehe (Pflanzenspitzen-Niveau). Relevante Probleme:
@@ -141,7 +141,7 @@ mounting_position: Optional[Literal[
 representative_area_m2: Optional[float]  # Repraesentative Flaeche
 ```
 
-### U-004: Fehlende Rate-of-Change-Validierung fuer PPFD und Substratfeuchte
+### U-004: Fehlende Rate-of-Change-Validierung fuer PPFD und Substratfeuchte [BEHOBEN]
 **Anbaukontext:** Indoor, Gewaechshaus
 **Fehlende Parameter:** `max_rate_of_change` fuer `ppfd` und `soil_moisture` (Zeile 554-562)
 **Begruendung:** Die `SensorReadingValidator.validate_reading_sequence()` definiert `max_rate_of_change`-Defaults nur fuer `temp`, `humidity`, `ec`, `ph` und `co2`. PPFD und Bodenfeuchte fehlen:
@@ -160,7 +160,7 @@ max_rate_of_change = {
 }
 ```
 
-### U-005: Fehlende Verknuepfung Sensorwert -> Wachstumsphase fuer dynamische Alerting
+### U-005: Fehlende Verknuepfung Sensorwert -> Wachstumsphase fuer dynamische Alerting [BEHOBEN]
 **Anbaukontext:** Indoor, Hydroponik
 **Fehlende Logik:** Phasenabhaengige Alert-Schwellwerte
 **Begruendung:** Die Alert-Schwellwerte (`alert_threshold_min`, `alert_threshold_max`) im Sensor-Modell sind statische Werte. In der Realitaet aendern sich optimale Bereiche mit der Wachstumsphase erheblich:
@@ -185,7 +185,7 @@ phase_alert_profile: growth_phases -> alert_profiles  // Phase bestimmt Alerting
 ```
 Oder alternativ: Alert-Schwellwerte direkt aus `requirement_profiles` ableiten, mit konfigurierbarer Toleranz (z.B. Alert bei >15% Abweichung vom Soll-VPD).
 
-### U-006: Fehlender Parameter Lichtspektrum (PAR-Spektralverhaeltnis)
+### U-006: Fehlender Parameter Lichtspektrum (PAR-Spektralverhaeltnis) [BEHOBEN]
 **Anbaukontext:** Indoor
 **Fehlende Parameter:** `par_spectrum` -- Rot/Blau/Fernrot-Verhaeltnis
 **Begruendung:** REQ-005 erwaehnt in Zeile 44 ausdruecklich "Spektrum-Analyse - Rot/Blau/Far-Red-Verhaeltnis" als ueberwachten Lichtparameter. REQ-003 definiert in `requirement_profiles` ein `light_spectrum`-Dict mit Blau/Gruen/Rot/Far-Red-Anteilen. Jedoch fehlt jegliche technische Modellierung in REQ-005:
@@ -201,7 +201,7 @@ Das Rot/Fernrot-Verhaeltnis (R:FR) ist pflanzenphysiologisch hochrelevant: Es st
 'blue_fraction': (0.0, 1.0), # Blauanteil 400-500nm (%)
 ```
 
-### U-007: TimescaleDB-Downsampling-Strategie nicht spezifiziert
+### U-007: TimescaleDB-Downsampling-Strategie nicht spezifiziert [BEHOBEN]
 **Anbaukontext:** Alle
 **Fehlende Logik:** Aggregationsintervalle und Retention-Policy fuer Zeitreihendaten
 **Begruendung:** REQ-005 erwaehnt TimescaleDB als empfohlene Technologie (Zeile 8, 1249) und definiert `AggregatedMetric` mit Typen `hourly`, `daily`, `weekly` (Zeile 131). Was fehlt:
@@ -224,7 +224,7 @@ Das Rot/Fernrot-Verhaeltnis (R:FR) ist pflanzenphysiologisch hochrelevant: Es st
 | Woechentlich | 1w | Unbegrenzt | ArangoDB AggregatedMetric |
 ```
 
-### U-008: Fehlende Substratfeuchte-Differenzierung nach Messprinzip
+### U-008: Fehlende Substratfeuchte-Differenzierung nach Messprinzip [BEHOBEN]
 **Anbaukontext:** Indoor, Hydroponik
 **Fehlende Information:** Substratfeuchte-Sensortypen messen grundverschiedene physikalische Groessen
 **Begruendung:** REQ-005 definiert `soil_moisture` als Prozent (0-100%) (Zeile 459). In der Praxis gibt es drei fundamental verschiedene Messprinzipien, die nicht direkt vergleichbar sind:
@@ -249,12 +249,12 @@ substrate_type_key: Optional[str]  # Verweis auf REQ-019 Substrat -- fuer korrek
 
 ## Gelb: Zu Ungenau -- Praezisierung noetig
 
-### P-001: PPFD-Validierungsbereich zu eng fuer Gewaechshaeuser
+### P-001: PPFD-Validierungsbereich zu eng fuer Gewaechshaeuser [BEHOBEN]
 **Vage Anforderung:** `'ppfd': (0, 2000)` (~Zeile 460)
 **Problem:** 2000 umol/m2/s ist als Obergrenze physikalisch korrekt fuer Kunstlicht, aber im Gewaechshaus bei direkter Sonneneinstrahlung werden 2200+ umol/m2/s gemessen (Sommer, Suedeuropa). Zudem koennen Vollsonnewerte im Hochsommer durch Reflexion/Diffusion sogar kurzfristig 2500 umol/m2/s erreichen.
 **Messbare Alternative:** `'ppfd': (0, 2500)` -- erlaubt Gewaechshaus-Szenarien. Alert-Schwellwert kulturspezifisch (z.B. Salat: Warnung ab 500, Cannabis: Warnung ab 1500 bei normalem CO2).
 
-### P-002: Interpolations-Schwellwert von 2h zu pauschal
+### P-002: Interpolations-Schwellwert von 2h zu pauschal [BEHOBEN]
 **Vage Anforderung:** "Interpolation bei kurzen Ausfaellen (<2h)" (~Zeile 63)
 **Problem:** Ob 2 Stunden "kurz" sind, haengt vom Parameter und Kontext ab:
 - **Temperatur, Luftfeuchtigkeit, VPD:** 2h Interpolation ist bei stabilen Indoor-Bedingungen vertretbar.
@@ -277,7 +277,7 @@ MAX_INTERPOLATION_HOURS = {
 }
 ```
 
-### P-003: Quality-Score fuer manuelle Eingaben pauschal zu niedrig
+### P-003: Quality-Score fuer manuelle Eingaben pauschal zu niedrig [BEHOBEN]
 **Vage Anforderung:** `'manual': 0.85` (Zeile 508)
 **Problem:** Ein manueller Messwert von einem kalibrierten Apera pH20 (Genauigkeit +/-0.01 pH) ist qualitativ hoeher als ein Auto-Wert von einem unkalibriertem kapazitiven China-Sensor. Der Quality-Score basiert ausschliesslich auf der Datenquelle (Auto vs. Manual), nicht auf der Messgeraete-Qualitaet oder dem Kalibrierungsstatus des Sensors.
 **Messbare Alternative:** Quality-Score-Berechnung erweitern:
@@ -298,7 +298,7 @@ if source == 'manual' and measurement_tool_accuracy < 2.0:
     manual_quality = 0.95  # statt pauschal 0.85
 ```
 
-### P-004: Anomalieerkennung -- Z-Score >2 als Ausreisser-Schwelle zu sensitiv
+### P-004: Anomalieerkennung -- Z-Score >2 als Ausreisser-Schwelle zu sensitiv [BEHOBEN]
 **Vage Anforderung:** `FILTER z_score > 2.0` und Observation als Ausreisser markieren (Zeile 372)
 **Problem:** Bei einer Normalverteilung liegen 4.6% aller Werte ausserhalb von +/-2 Standardabweichungen. Bei einem Sensor mit 60 Messwerten pro Stunde (1/min) wuerden rein statistisch fast 3 "Ausreisser" pro Stunde gemeldet -- das erzeugt Alert-Fatigue. Zudem sind viele Umweltparameter nicht normalverteilt:
 - CO2 hat bei aktiver Dosierung eine bimodale Verteilung (Licht an/aus)
@@ -310,7 +310,7 @@ if source == 'manual' and measurement_tool_accuracy < 2.0:
 - Verwendung eines gleitenden Fensters (z.B. letzte 4h statt 7 Tage) fuer Paramater mit Tagesgang (CO2, VPD, PPFD)
 - Alternativ: Modified Z-Score basierend auf Median/MAD (robuster gegen Ausreisser)
 
-### P-005: Sensor-Ausfall-Erkennung -- 6h Warning-Schwelle zu pauschal
+### P-005: Sensor-Ausfall-Erkennung -- 6h Warning-Schwelle zu pauschal [BEHOBEN]
 **Vage Anforderung:** `MAX_AGE_WARNING_HOURS = 6` (Zeile 819)
 **Problem:** 6 Stunden ohne Sensorupdate sind fuer verschiedene Parameter unterschiedlich kritisch:
 - **EC/pH in Hydroponik:** 6h ohne Messung bei Rezirkulation kann bedeuten, dass EC um 1+ mS/cm gedriftet ist -- eine "Warning" ist hier zu spaet, das sollte bereits nach 2h "Critical" sein
@@ -318,7 +318,7 @@ if source == 'manual' and measurement_tool_accuracy < 2.0:
 - **Substratfeuchte:** In Erde kaum kritisch (aendert sich langsam), in Steinwolle/Kokos bei hohem VPD kann die Pflanze in 6h sichtbar welken
 **Messbare Alternative:** Parameterspezifische Warning-Schwellen definieren, analog zu P-002.
 
-### P-006: Entity-ID-Inferenz basierend auf Naming ist fragil
+### P-006: Entity-ID-Inferenz basierend auf Naming ist fragil [BEHOBEN]
 **Vage Anforderung:** `_infer_parameter_from_entity()` Methode (Zeile 763-797)
 **Problem:** Die Methode inferiert den Parametertyp aus dem Entity-ID-Namen und der Unit. Diese Heuristik hat biologisch relevante Schwaechen:
 - `'hum' in entity_lower or unit_lower == '%'` -- Substratfeuchte hat auch die Unit "%" und koennte "moisture" im Namen haben. Verwechslungsgefahr zwischen Luftfeuchtigkeit und Substratfeuchte.

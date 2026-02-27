@@ -24,35 +24,35 @@ Die Spezifikation ist fachlich auf einem bemerkenswert hohen Niveau. Der Schwerp
 
 ## Fachlich Falsch — Sofortiger Korrekturbedarf
 
-### F-001: Basilikum ist keine Kurztagspflanze
+### F-001: Basilikum ist keine Kurztagspflanze [BEHOBEN]
 
 **Anforderung:** "GIVEN: Basilikum (Ocimum basilicum) als einjaehrige Kurztagspflanze" (`REQ-001_Stammdatenverwaltung.md`, Zeile ~726, Szenario 1)
 **Problem:** Basilikum (*Ocimum basilicum*) ist eine quantitative Langtagspflanze, keine Kurztagspflanze. Langtagsbedingungen (>14h Licht) foerdern die Bluetenbildung und damit das Schossen. Unter Kurztagsbedingungen bleibt Basilikum laenger vegetativ — das Gegenteil einer Kurztagspflanze. In der Praxis will man bei Basilikum das Schossen verhindern, nicht ausloesen.
 **Korrekte Formulierung:** "GIVEN: Basilikum (Ocimum basilicum) als einjaehrige Langtagspflanze (bzw. tagneutral mit Langtagstendenz)"
 **Gilt fuer Anbaukontext:** Indoor, Outdoor
 
-### F-002: Cannabis-Photoperiodismus-Vereinfachung
+### F-002: Cannabis-Photoperiodismus-Vereinfachung [BEHOBEN]
 
 **Anforderung:** "Cannabis (Cannabis sativa) als Kurztagspflanze, kritische Tageslaenge: 14h" (`REQ-001`, Zeile ~755, Szenario 4)
 **Problem:** Die kritische Tageslaenge von 14h ist fuer viele photoperiodische Cannabis-Sorten zu hoch angesetzt. Die meisten Indica-dominanten Sorten beginnen die Bluetenbildung erst bei 12-13h Licht (bzw. 11-12h ununterbrochener Dunkelheit). Die Angabe von 14h wuerde bedeuten, dass Pflanzen bereits im Juli in Bluete gehen, was in der Praxis nicht beobachtet wird. Zudem gibt es tagneutrale Autoflower-Sorten (*Cannabis sativa* var. *ruderalis*-Hybriden), die hier nicht erwaehnt werden.
 **Korrekte Formulierung:** "Cannabis sativa (photoperiodische Sorten) als Kurztagspflanze, kritische Tageslaenge: 12-13h. Autoflowering-Sorten (ruderalis-Hybriden): tagneutral, bluetenunabhaengig von Photoperiode."
 **Gilt fuer Anbaukontext:** Indoor (Growbox), Gewaechshaus
 
-### F-003: Vernalisation bei Zweijahrigen zu pauschal
+### F-003: Vernalisation bei Zweijahrigen zu pauschal [BEHOBEN]
 
 **Anforderung:** "Zweijaehrige Pflanzen benoetigen typischerweise Vernalisation" (`REQ-001`, Zeile ~537, Validator)
 **Problem:** Die Validierungsregel `biennial + !vernalization_required = Fehler` ist biologisch zu streng. Nicht alle Zweijahrigen benoetigen Vernalisation. Beispiele: *Beta vulgaris* (Mangold/Rote Bete) kann unter Langtagsbedingungen auch ohne Kaelteperiode schossen. Manche Zweijahrige (z.B. Petersilie) benoetigen nur eine moderate Kaelteperiode, aber nicht alle Cultivare gleich stark. Die Validierung sollte eine Warnung statt eines Fehlers erzeugen.
 **Korrekte Formulierung:** "Zweijahrige Pflanzen benoetigen HAEUFIG Vernalisation. Wenn `vernalization_required=false` bei `cycle_type='biennial'`, Warnung ausgeben ('Zweijahrige ohne Vernalisation — bitte pruefen'), aber nicht blockieren."
 **Gilt fuer Anbaukontext:** Outdoor, Gewaechshaus
 
-### F-004: VPD-Wertebereiche fuer Cannabis-Bluetephase
+### F-004: VPD-Wertebereiche fuer Cannabis-Bluetephase [BEHOBEN]
 
 **Anforderung:** CLAUDE.md gibt an: "VPD 0.4-0.8 kPa flowering"
 **Problem:** Ein VPD von 0.4 kPa waehrend der Bluetephase ist fuer Cannabis zu niedrig und wuerde das Botrytis-Risiko erheblich erhoehen — dichtes Bluetenmaterial bei hoher Luftfeuchtigkeit ist die Hauptursache fuer Schimmelbefall. Der empfohlene Bereich fuer Cannabis-Bluete liegt bei 0.8-1.2 kPa (spaete Bluete eher 1.0-1.4 kPa). Der Wert 0.4-0.8 kPa waere eher fuer Stecklinge/Saemling-Phase korrekt.
 **Korrekte Formulierung:** "VPD Keimung/Stecklinge: 0.4-0.8 kPa; Vegetativ: 0.8-1.2 kPa; Fruehe Bluete: 0.8-1.2 kPa; Spaete Bluete: 1.0-1.4 kPa"
 **Gilt fuer Anbaukontext:** Indoor (Growbox)
 
-### F-005: Dracaena trifasciata Toxizitaet fuer Kinder
+### F-005: Dracaena trifasciata Toxizitaet fuer Kinder [BEHOBEN]
 
 **Anforderung:** Starter-Kit `zimmerpflanzen` enthaelt `toxicity_warning: {"children": "caution"}` (`REQ-020`, Zeile ~263)
 **Problem:** *Dracaena trifasciata* (Bogenhanf) enthaelt Saponine, die bei Verschlucken zu Uebelkeit und Erbrechen fuehren koennen. *Monstera deliciosa* und *Epipremnum aureum* enthalten Calciumoxalat-Raphide, die Schleimhautschwellungen verursachen. Fuer Kleinkinder (orale Explorationsphase) waere `"warning"` die angemessenere Einstufung statt `"caution"`, da Vergiftungszentralen regelmaessig Anfragen zu diesen Pflanzen erhalten.
@@ -63,7 +63,7 @@ Die Spezifikation ist fachlich auf einem bemerkenswert hohen Niveau. Der Schwerp
 
 ## Unvollstaendig — Wichtige Aspekte fehlen
 
-### U-001: Toxizitaetsdaten fehlen auf Species-Ebene
+### U-001: Toxizitaetsdaten fehlen auf Species-Ebene [BEHOBEN]
 
 **Anbaukontext:** Zimmerpflanzen
 **Fehlende Parameter:**
@@ -86,7 +86,7 @@ class ToxicityInfo(BaseModel):
     source: str = ''  # z.B. "ASPCA", "Giftnotruf"
 ```
 
-### U-002: Hemisphaerenabhaengigkeit saisonaler Parameter
+### U-002: Hemisphaerenabhaengigkeit saisonaler Parameter [BEHOBEN]
 
 **Anbaukontext:** Indoor, Zimmerpflanzen
 **Fehlende Parameter:** Referenz-Hemishaere und automatische Monatsumrechnung
@@ -95,7 +95,7 @@ class ToxicityInfo(BaseModel):
 
 **Formulierungsvorschlag:** Site-Modell in REQ-002 um `hemisphere: Literal['northern', 'southern']` erweitern (ableitbar aus GPS-Breitengrad). CareReminderEngine muss bei `hemisphere='southern'` alle Monatslisten um 6 Monate verschieben. Alternative: Nutzer konfiguriert `winter_months` explizit.
 
-### U-003: DLI-Berechnung fuer Zimmerpflanzen fehlt
+### U-003: DLI-Berechnung fuer Zimmerpflanzen fehlt [BEHOBEN]
 
 **Anbaukontext:** Zimmerpflanzen
 **Fehlende Parameter:**
@@ -113,7 +113,7 @@ Ein Nordfenster in Deutschland liefert im Winter nur ca. 1-2 mol/m2/d — unter 
 
 **Formulierungsvorschlag:** RequirementProfile in REQ-003 um `dli_min_mol` und `dli_optimal_mol` erweitern. REQ-002 Location um `window_orientation` und `glazing_transmission_factor` ergaenzen. Berechnung: `estimated_dli = outdoor_dli * transmission_factor * orientation_factor`.
 
-### U-004: Zimmerpflanzen-Substrattypen unzureichend
+### U-004: Zimmerpflanzen-Substrattypen unzureichend [BEHOBEN]
 
 **Anbaukontext:** Zimmerpflanzen
 **Fehlende Substrattypen in REQ-019:**
@@ -127,7 +127,7 @@ Ein Nordfenster in Deutschland liefert im Winter nur ca. 1-2 mol/m2/d — unter 
 
 **Formulierungsvorschlag:** SubstrateType-Enum um mindestens `orchid_bark`, `pon_mineral` und `sphagnum` erweitern. IRRIGATION_STRATEGY_MAP entsprechend ergaenzen: `orchid_bark: 'infrequent'` (Tauchbad-Methode, komplett abtrocknen lassen), `pon_mineral: 'moderate'`, `sphagnum: 'frequent'`.
 
-### U-005: Fehlende Lichtspektrum-Empfehlungen fuer Zimmerpflanzen
+### U-005: Fehlende Lichtspektrum-Empfehlungen fuer Zimmerpflanzen [BEHOBEN]
 
 **Anbaukontext:** Indoor, Zimmerpflanzen
 **Fehlende Parameter:**
@@ -141,7 +141,7 @@ Ein Nordfenster in Deutschland liefert im Winter nur ca. 1-2 mol/m2/d — unter 
 
 Fuer Zimmerpflanzenbesitzer, die LED-Pflanzenlampen kaufen moechten, sind diese Informationen kaufentscheidend.
 
-### U-006: Luftreinigungseigenschaften fehlen
+### U-006: Luftreinigungseigenschaften fehlen [BEHOBEN]
 
 **Anbaukontext:** Zimmerpflanzen
 **Fehlende Parameter auf Species-Ebene:**
@@ -151,7 +151,7 @@ Fuer Zimmerpflanzenbesitzer, die LED-Pflanzenlampen kaufen moechten, sind diese 
 
 **Begruendung:** Luftreinigung ist einer der haeufigsten Kaufgruende fuer Zimmerpflanzen. Die NASA Clean Air Study (1989) hat zwar spezifische Arten identifiziert (z.B. *Spathiphyllum*, *Dracaena*, *Chlorophytum*), aber die Effekte sind bei realistischen Pflanzendichten in Wohnraeumen vernachlaessigbar (Cummings & Waring, 2020). Das System sollte diese Eigenschaft erfassen, aber mit einem klaren Caveat versehen, um falsche Erwartungen zu vermeiden.
 
-### U-007: Allergenpotenzial fehlt
+### U-007: Allergenpotenzial fehlt [BEHOBEN]
 
 **Anbaukontext:** Zimmerpflanzen
 **Fehlende Parameter:**
@@ -161,7 +161,7 @@ Fuer Zimmerpflanzenbesitzer, die LED-Pflanzenlampen kaufen moechten, sind diese 
 
 **Begruendung:** Latexallergie betrifft ca. 1-3% der Bevoelkerung. *Ficus benjamina* setzt nachweislich Latexproteine in die Raumluft frei, die Kreuzreaktionen bei Latexallergikern ausloesen koennen. *Ficus lyrata* (im Starter-Kit enthalten) gehoert zur selben Gattung. Ein Allergiehinweis waere medizinisch sinnvoll.
 
-### U-008: Vegetative Vermehrung von Zimmerpflanzen
+### U-008: Vegetative Vermehrung von Zimmerpflanzen [BEHOBEN]
 
 **Anbaukontext:** Zimmerpflanzen
 **Fehlende Informationen:**
@@ -174,31 +174,31 @@ Fuer Zimmerpflanzenbesitzer, die LED-Pflanzenlampen kaufen moechten, sind diese 
 
 ## Zu Ungenau — Praezisierung noetig
 
-### P-001: Allelopathie-Score ohne Referenzrahmen
+### P-001: Allelopathie-Score ohne Referenzrahmen [BEHOBEN]
 
 **Vage Anforderung:** "allelopathy_score: float (-1.0 = stark hemmend, 0 = neutral, 1.0 = foerdernd)" (`REQ-001`)
 **Problem:** Ein Allelopathie-Score auf Species-Ebene ist wissenschaftlich problematisch, da allelopathische Wirkungen stark partner- und konzentrationsabhaengig sind. *Juglans nigra* (Schwarznuss) hemmt *Solanum lycopersicum* (Tomate) stark, hat aber kaum Wirkung auf *Phaseolus vulgaris* (Bohne). Ein skalarer Wert kann diese Paarungsabhaengigkeit nicht abbilden.
 **Messbare Alternative:** Allelopathie als Graph-Eigenschaft modellieren (analog zu `compatible_with`/`incompatible_with`), nicht als skalaren Score auf Species-Ebene. Der bestehende Score koennte als "generelle allelopathische Tendenz" beibehalten werden, aber mit dem Hinweis, dass die paarspezifischen Edges die autoritativen Daten sind.
 
-### P-002: Bewurzelungshormon-Konzentrationen unspezifisch
+### P-002: Bewurzelungshormon-Konzentrationen unspezifisch [BEHOBEN]
 
 **Vage Anforderung:** "hormone_concentration_ppm: Optional[float]" (`REQ-017`)
 **Problem:** Die Konzentration allein genuegt nicht — die Applikationsmethode (Quick-Dip, Powder, Long-Soak) bestimmt massgeblich den Effekt. 1000 ppm IBA als Quick-Dip (5 Sekunden) ist Standard fuer weiche Stecklinge, waehrend 3000-5000 ppm fuer verholzte Stecklinge noetig sein kann. Ohne Applikationsmethode ist die ppm-Angabe nicht reproduzierbar.
 **Messbare Alternative:** PropagationEvent um `hormone_application_method: Literal['quick_dip', 'long_soak', 'powder', 'gel']` erweitern und Konzentrationsempfehlungen an die Methode koppeln.
 
-### P-003: Flushing-Dauer in REQ-007 inkonsistent
+### P-003: Flushing-Dauer in REQ-007 inkonsistent [BEHOBEN]
 
 **Vage Anforderung:** Hydro: "7-14 Tage nur pH-Wasser" vs. AQL: `substrate_type == 'hydro_solution' ? 10` (`REQ-007`, Zeile ~66 vs. ~326)
 **Problem:** Der Fliesstext nennt "7-14 Tage" fuer Hydro-Flushing, der AQL-Code setzt fest 10 Tage. Fuer Coco gibt der Fliesstext "10-14 Tage", der Code setzt 14 Tage. Fuer Soil gibt der Fliesstext "21-28 Tage", der Code setzt 28 Tage. Die Code-Werte nehmen systematisch die Obergrenze oder darueber.
 **Messbare Alternative:** Einheitlich die Referenzwerte aus REQ-004 FlushingProtocol als Single Source of Truth verwenden und in REQ-007 per Verweis referenzieren, nicht duplizieren. Die substrattyp-spezifischen Flush-Dauern sollten an genau einer Stelle definiert sein.
 
-### P-004: Schimmel-Schwelle bei Post-Harvest zu pauschal
+### P-004: Schimmel-Schwelle bei Post-Harvest zu pauschal [BEHOBEN]
 
 **Vage Anforderung:** "RH >65% for 6h" als Schimmel-Alarm (`REQ-008`, AQL Zeile ~359)
 **Problem:** Die Wasseraktivitaet (a_w) waere der praezisere Indikator. REQ-008 erwaehnt a_w korrekt in den StorageCondition-Properties, verwendet im Schimmel-Alarm-AQL aber nur RH. Schimmelpilze (*Aspergillus*, *Penicillium*) wachsen ab a_w > 0.65, unabhaengig von der Raumluftfeuchte. Ein Jar bei 62% RH kann intern trotzdem a_w > 0.65 aufweisen, wenn feuchte Stellen vorhanden sind.
 **Messbare Alternative:** Wenn a_w-Sensor vorhanden: Alarm auf `a_w > 0.65` (CRITICAL) und `a_w > 0.60` (WARNING) umstellen. RH-basierter Alarm als Fallback beibehalten, wenn kein a_w-Sensor.
 
-### P-005: Wurzeltypen-Enum zu eingeschraenkt
+### P-005: Wurzeltypen-Enum zu eingeschraenkt [BEHOBEN]
 
 **Vage Anforderung:** "root_type: Literal['fibrous', 'taproot', 'tuberous', 'bulbous']" (`REQ-001`)
 **Problem:** Wichtige Wurzeltypen fuer Indoor-relevante Pflanzen fehlen:
@@ -207,7 +207,7 @@ Fuer Zimmerpflanzenbesitzer, die LED-Pflanzenlampen kaufen moechten, sind diese 
 - `stoloniferous` — Auslaeufer-bildend (Erdbeere, Chlorophytum)
 **Messbare Alternative:** Enum um mindestens `rhizomatous` und `aerial` erweitern. Optional: `root_adaptations: list[str]` fuer Mehrfachzuweisungen (z.B. Monstera hat Faserwurzeln UND Luftwurzeln).
 
-### P-006: Fruchtfolge-Konzept nur fuer Outdoor relevant
+### P-006: Fruchtfolge-Konzept nur fuer Outdoor relevant [BEHOBEN]
 
 **Vage Anforderung:** Umfangreiche Fruchtfolge-Engine mit 3-Jahres-Planung (`REQ-001`, `REQ-002`)
 **Problem:** Die Fruchtfolge-Logik ist exzellent fuer Outdoor/Freiland-Anbau, aber fuer Indoor-Hydroponik und Zimmerpflanzen nicht anwendbar. In Hydroponik-Systemen gibt es keinen "Boden", der eine Fruchtfolge erfordert — das Substrat wird zwischen den Zyklen gewechselt oder sterilisiert (korrekt in REQ-019 beschrieben). Fuer Zimmerpflanzen steht die Pflanze dauerhaft im selben Topf. Die Fruchtfolge-Warnungen sollten kontextabhaengig nur bei Outdoor-/Soil-Locations angezeigt werden.
@@ -278,7 +278,7 @@ Die mehrstufige Kompatibilitaetspruefung in REQ-017 (explizite Graph-Edges vor T
 
 ## Konsistenz zwischen Dokumenten
 
-### K-001: VPD-Bereiche inkonsistent
+### K-001: VPD-Bereiche inkonsistent [BEHOBEN]
 
 | Quelle | VPD-Bereich Bluete | Bewertung |
 |--------|-------------------|-----------|
@@ -288,7 +288,7 @@ Die mehrstufige Kompatibilitaetspruefung in REQ-017 (explizite Graph-Edges vor T
 
 **Empfehlung:** CLAUDE.md korrigieren. Die REQ-Dokumente selbst sind korrekt, da sie artspezifische/phasenspezifische Werte verwenden.
 
-### K-002: Substrat-Flushing-Dauern mehrfach definiert
+### K-002: Substrat-Flushing-Dauern mehrfach definiert [BEHOBEN]
 
 | Quelle | Hydro | Coco | Soil | Bewertung |
 |--------|-------|------|------|-----------|
@@ -298,7 +298,7 @@ Die mehrstufige Kompatibilitaetspruefung in REQ-017 (explizite Graph-Edges vor T
 
 **Empfehlung:** REQ-007 AQL sollte aus REQ-004 FlushingProtocol lesen statt eigene Konstanten zu definieren.
 
-### K-003: WateringEvent doppelt definiert
+### K-003: WateringEvent doppelt definiert [BEHOBEN]
 
 REQ-014 (Tankmanagement) definiert `WateringEvent` als Node mit umfangreichen Properties. REQ-004 definiert `FeedingEvent` fuer denselben Zweck (Duengung/Bewaesserung auf Pflanzenebene). Die beiden Konzepte ueberlappen:
 - `WateringEvent.application_method` = `FeedingEvent.application_method`

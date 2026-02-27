@@ -59,7 +59,7 @@ Lichtunterbrechungen in der Nacht koennen die Bluete verhindern."
 
 ---
 
-### F-003 [KEIN HANDLUNGSBEDARF IN DIESEN DOCS]: Basilikum-Photoperiodismus
+### F-003 [KEIN HANDLUNGSBEDARF IN DIESEN DOCS] [BEHOBEN]: Basilikum-Photoperiodismus
 
 **v1-Befund:** REQ-001 Testszenario beschreibt Basilikum falsch als Kurztagspflanze.
 **Status:** Dieser Befund betrifft REQ-001, nicht die hier geprueften Dokumente. Die Seed-Daten (`seed_data.py`, Zeile 169) setzen bereits korrekt `PhotoperiodType.DAY_NEUTRAL` fuer alle Species. Fuer REQ-020 ist dies kein Problem, da die Starter-Kits die Seed-Daten referenzieren.
@@ -113,7 +113,7 @@ Der beginnerTip ist praxisnah: "Betrifft v.a. Petersilie und Kohl im zweiten Jah
 
 ---
 
-### U-002 [OFFEN -- kein Korrekturbedarf im v1-Report]: Zimmerpflanzen-Lifecycle-Phasen
+### U-002 [OFFEN -- kein Korrekturbedarf im v1-Report] [BEHOBEN]: Zimmerpflanzen-Lifecycle-Phasen
 
 **v1-Befund:** Zimmerpflanzen benoetigen andere GrowthPhases als Nutzpflanzen.
 **Status:** Dieser Befund wurde im v1-Report als Strukturhinweis formuliert, nicht als konkreter Korrekturbedarf an REQ-020/021/NFR-011. REQ-020 Zeile 263 spezifiziert "Mindestens 3 vorkonfigurierte GrowthPhases mit Dauern" und "GrowthPhases werden automatisch aus den Species-Seed-Daten konfiguriert" (Zeile 495). Die Implementierung der zimmerpflanzenspezifischen Phasen (acclimatization, active_growth, maintenance, repotting_recovery) ist damit eine Seed-Daten-Aufgabe, keine Spec-Luecke.
@@ -393,7 +393,7 @@ Die Korrekturen haben keine neuen biologischen Fehler eingefuehrt. Alle Glossar-
 
 ## Verbleibende Unvollstaendigkeiten (v2)
 
-### U-001-RESIDUAL: Seed-Daten-Delta -- 7 Familien und 18+ Species fehlen in Implementierung
+### U-001-RESIDUAL: Seed-Daten-Delta -- 7 Familien und 18+ Species fehlen in Implementierung [BEHOBEN]
 
 **Anbaukontext:** Alle Starter-Kits
 **Status:** Spezifikation korrekt (Akzeptanzkriterium vorhanden), Implementierung ausstehend
@@ -439,7 +439,7 @@ Die Korrekturen haben keine neuen biologischen Fehler eingefuehrt. Alle Glossar-
 
 ---
 
-### U-009 (NEU): Haustierfreundliches Kit fehlt `toxicity_warning` mit `safe`-Werten
+### U-009 (NEU): Haustierfreundliches Kit fehlt `toxicity_warning` mit `safe`-Werten [BEHOBEN]
 
 **Anbaukontext:** Zimmerpflanzen
 **Problem:** Das Kit `zimmerpflanzen-haustierfreundlich` (Zeile 252) definiert bewusst ungiftige Pflanzen. Es wird jedoch kein expliziter `toxicity_warning`-Wert angegeben. Fuer Konsistenz und um in der UI das Kit als "sicher" kennzeichnen zu koennen, sollte ein explizites Safety-Label gesetzt werden.
@@ -454,7 +454,7 @@ Dies ermoeglicht im Frontend eine positive Kennzeichnung ("Haustierfreundlich") 
 
 ---
 
-### U-010 (NEU): Kit-spezifische `toxicity_warning` fehlt im normalen Zimmerpflanzen-Kit
+### U-010 (NEU): Kit-spezifische `toxicity_warning` fehlt im normalen Zimmerpflanzen-Kit [BEHOBEN]
 
 **Anbaukontext:** Zimmerpflanzen
 **Problem:** Das Kit `zimmerpflanzen` (Zeile 251) enthaelt vier Pflanzen, die alle fuer Haustiere toxisch sind (siehe v1-Report U-004). Das `toxicity_warning`-Feld wurde zwar als Property definiert (Zeile 59) und als Akzeptanzkriterium aufgenommen (Zeile 504), aber die Seed-Daten-Tabelle (Zeile 248-256) enthaelt keine konkreten `toxicity_warning`-Werte pro Kit.
@@ -475,7 +475,7 @@ Hinweis: Tomatengruenpflanze (*Solanum lycopersicum*) enthaelt Solanin/Tomatidin
 
 ---
 
-### U-011 (NEU): Zimmerpflanzen-Lifecycle-Phasen nicht spezifiziert
+### U-011 (NEU): Zimmerpflanzen-Lifecycle-Phasen nicht spezifiziert [BEHOBEN]
 
 **Anbaukontext:** Zimmerpflanzen
 **Problem:** REQ-020 Zeile 263 spezifiziert "Mindestens 3 vorkonfigurierte GrowthPhases mit Dauern". Die bestehenden DEFAULT_PHASES (seedling, vegetative, flowering, ripening) in `seed_data.py` sind fuer einjahrige Nutzpflanzen konzipiert und biologisch unpassend fuer Zimmerpflanzen wie *Monstera deliciosa* oder *Dracaena trifasciata*. Es fehlt eine Spezifikation, welche Phasen fuer Zimmerpflanzen-Kits genutzt werden sollen.
@@ -495,7 +495,7 @@ Hinweis: Tomatengruenpflanze (*Solanum lycopersicum*) enthaelt Solanin/Tomatidin
 
 ## Zu Ungenau -- Verbleibende Praezisierungen (v2)
 
-### P-009 (NEU): DIF-Glossar fehlt in UI-NFR-011 Beispiel-JSON
+### P-009 (NEU): DIF-Glossar fehlt in UI-NFR-011 Beispiel-JSON [BEHOBEN]
 
 **Problem:** In der Pflicht-Begriffe-Tabelle (Zeile 313) wird DIF (Temperatur-Differenzial Tag/Nacht) als Pflicht-Begriff unter "Klima" aufgefuehrt. Im ausfuehrlichen Glossar-Beispiel-JSON (Zeile 143-303) fehlt jedoch ein DIF-Eintrag. Im Kontrast dazu sind VPD, rH und Hysterese als Klima-Begriffe in der Pflicht-Tabelle gelistet, aber ebenfalls nicht alle im Beispiel-JSON enthalten.
 
@@ -517,7 +517,7 @@ Hinweis: Tomatengruenpflanze (*Solanum lycopersicum*) enthaelt Solanin/Tomatidin
 
 ---
 
-### P-010 (NEU): Hysterese-Glossar fehlt im Beispiel-JSON
+### P-010 (NEU): Hysterese-Glossar fehlt im Beispiel-JSON [BEHOBEN]
 
 **Problem:** Wie DIF ist Hysterese als Pflicht-Begriff (Zeile 313, Kategorie "Klima") aufgefuehrt, aber nicht im Beispiel-JSON enthalten.
 
@@ -537,7 +537,7 @@ Hinweis: Tomatengruenpflanze (*Solanum lycopersicum*) enthaelt Solanin/Tomatidin
 
 ---
 
-### P-011 (NEU): Mixing Priority als Pflicht-Begriff gelistet, aber nicht im JSON
+### P-011 (NEU): Mixing Priority als Pflicht-Begriff gelistet, aber nicht im JSON [BEHOBEN]
 
 **Problem:** "Mixing Priority" steht in der Pflicht-Begriffe-Tabelle (Zeile 315, Naehrstoffe), fehlt aber im Beispiel-JSON. Fuer Einsteiger, die den Experten-Modus aktivieren und den Mixing-Kalkulator nutzen, ist das ein relevanter Begriff.
 

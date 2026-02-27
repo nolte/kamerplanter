@@ -31,7 +31,7 @@ REQ-014 ist ein fachlich sehr ausgereiftes Dokument, das die Tankinfrastruktur m
 
 ## ROT -- Fachlich Falsch -- Sofortiger Korrekturbedarf
 
-### F-001: DO-Saettigungswerte in TankStateRecord-Beschreibung sind ungenau
+### F-001: DO-Saettigungswerte in TankStateRecord-Beschreibung sind ungenau [BEHOBEN]
 
 **Anforderung:** "optimal >6 mg/L, kritisch <4 mg/L. Sinkt mit steigender Temperatur (20 Grad C: max ~9.1; 30 Grad C: max ~7.5)." (`REQ-014_Tankmanagement.md`, ~Zeile 477)
 
@@ -48,7 +48,7 @@ Nährlösung EC 2.0 bei 25°C: ~7.2-7.5 mg/L."
 **Gilt fuer Anbaukontext:** Hydroponik/Soilless, Indoor
 
 
-### F-002: Organik-Erkennung ueber fehlenden product_key ist ein Fehlschluss
+### F-002: Organik-Erkennung ueber fehlenden product_key ist ein Fehlschluss [BEHOBEN]
 
 **Anforderung:** Loesungsalter-Check im `check_alerts`: `has_organics = any(not f.get('product_key') for f in ...)` (`REQ-014_Tankmanagement.md`, ~Zeile 906-908)
 
@@ -72,7 +72,7 @@ has_organics = any(
 **Gilt fuer Anbaukontext:** Alle Kontexte mit Tank-Nutzung
 
 
-### F-003: Chloramin wird nicht ausreichend von Chlor unterschieden
+### F-003: Chloramin wird nicht ausreichend von Chlor unterschieden [BEHOBEN]
 
 **Anforderung:** "Chlor/Chloramin im Ausgangswasser (ppm). >0.5 ppm toetet Mykorrhiza und Nuetzlinge ab." (`REQ-014_Tankmanagement.md`, ~Zeile 530-536)
 
@@ -100,7 +100,7 @@ Die Warnung muss differenzierte Entchlorungsempfehlungen geben:
 
 ## ORANGE -- Unvollstaendig -- Wichtige Aspekte fehlen
 
-### U-001: Rezirkulierende Systeme -- EC-Drift-Richtung als diagnostisches Signal fehlt
+### U-001: Rezirkulierende Systeme -- EC-Drift-Richtung als diagnostisches Signal fehlt [BEHOBEN]
 
 **Anbaukontext:** Hydroponik/Soilless (Rezirkulation)
 
@@ -138,7 +138,7 @@ if tank_type == 'recirculation' and len(recent_states) >= 3:
 ```
 
 
-### U-002: Wassertemperatur-Korrektur -- Zusammenhang mit DO fehlt im Alert-System
+### U-002: Wassertemperatur-Korrektur -- Zusammenhang mit DO fehlt im Alert-System [BEHOBEN]
 
 **Anbaukontext:** Hydroponik/Soilless
 
@@ -163,7 +163,7 @@ if (current_state.get('water_temp_celsius', 0) > 22
 ```
 
 
-### U-003: Biofilm-Risiko bei Rezirkulationssystemen nicht als eigenstaendiger Alert
+### U-003: Biofilm-Risiko bei Rezirkulationssystemen nicht als eigenstaendiger Alert [BEHOBEN]
 
 **Anbaukontext:** Hydroponik/Soilless (Rezirkulation)
 
@@ -200,7 +200,7 @@ if tank_type == 'recirculation':
 ```
 
 
-### U-004: Fehlende Unterstuetzung fuer Stammloesung-Tanks (Concentrated Stock Solutions)
+### U-004: Fehlende Unterstuetzung fuer Stammloesung-Tanks (Concentrated Stock Solutions) [BEHOBEN]
 
 **Anbaukontext:** Hydroponik/Soilless, Indoor
 
@@ -229,7 +229,7 @@ Mit angepassten Validierungsgrenzen (EC bis 250 mS/cm, pH 1.0-14.0) und einem Al
 **Hinweis:** Dies kann auch als zukuenftiges Feature behandelt werden, sollte aber im Datenmodell bereits vorgesehen sein (erweiterbare TankType-Enum). Falls nicht im aktuellen Scope: Mindestens einen Hinweis im Dokument, dass konzentrierte Stammloesungen ausser Scope sind.
 
 
-### U-005: WateringEvent fehlt Substrattyp-Kontext fuer sinnvolle Drain-Bewertung
+### U-005: WateringEvent fehlt Substrattyp-Kontext fuer sinnvolle Drain-Bewertung [BEHOBEN]
 
 **Anbaukontext:** Indoor, Hydroponik/Soilless
 
@@ -256,7 +256,7 @@ if runoff_ec > input_ec + 0.5 and substrate_type in ('coco', 'rockwool_slab'):
 ```
 
 
-### U-006: Fehlende Beruecksichtigung der Wassertemperatur bei Top-Up
+### U-006: Fehlende Beruecksichtigung der Wassertemperatur bei Top-Up [BEHOBEN]
 
 **Anbaukontext:** Hydroponik/Soilless
 
@@ -283,7 +283,7 @@ if (fill_event.water_temperature_celsius is not None
 
 ## GELB -- Zu Ungenau -- Praezisierung noetig
 
-### P-001: Loesungsalter-Schwellenwerte zu vereinfacht
+### P-001: Loesungsalter-Schwellenwerte zu vereinfacht [BEHOBEN]
 
 **Vage Anforderung:** "Automatische Warnung nach 5 Tagen (mit Organik) / 10 Tagen (mineralisch) -- Chelat-Degradation" (`REQ-014_Tankmanagement.md`, ~Zeile 81)
 
@@ -306,7 +306,7 @@ if effective_age_hours > base_warning_hours:
 ```
 
 
-### P-002: pH-Bereich fuer Irrigation-Tank zu weit gefasst
+### P-002: pH-Bereich fuer Irrigation-Tank zu weit gefasst [BEHOBEN]
 
 **Vage Anforderung:** `'irrigation': (5.8, 6.8)` als pH-Bereich fuer Giesswasser-Tanks (`REQ-014_Tankmanagement.md`, ~Zeile 684)
 
@@ -326,7 +326,7 @@ PH_RANGES_BY_SUBSTRATE = {
 ```
 
 
-### P-003: Kalibrierungsintervall "alle 2-4 Wochen" zu pauschal
+### P-003: Kalibrierungsintervall "alle 2-4 Wochen" zu pauschal [BEHOBEN]
 
 **Vage Anforderung:** "Kalibrierung (calibration): EC-/pH-Sonden im Tank kalibrieren -- alle 2-4 Wochen" (`REQ-014_Tankmanagement.md`, ~Zeile 42)
 
@@ -339,7 +339,7 @@ PH_RANGES_BY_SUBSTRATE = {
 **Messbare Alternative:** Die Default-Wartungsintervalle fuer Kalibrierung sollten Tank-Typ-abhaengig sein (was teilweise bereits geschieht -- nutrient 14d, recirculation 14d). Zusaetzlich sollte die Sondenplatzierung (dauerhaft vs. punktuell) als Faktor beruecksichtigt werden.
 
 
-### P-004: Algen-Risikowarnung nur bei Temperatur+Deckel, ignoriert Naehrstoffe und Licht
+### P-004: Algen-Risikowarnung nur bei Temperatur+Deckel, ignoriert Naehrstoffe und Licht [BEHOBEN]
 
 **Vage Anforderung:** Algenwarnug bei "Tank ohne Deckel >22 Grad C" (`REQ-014_Tankmanagement.md`, ~Zeile 886-893)
 
@@ -369,7 +369,7 @@ if tank_type in ('nutrient', 'recirculation'):
 Zusaetzliche Empfehlung: Im Tank-Modell ein optionales Feld `is_light_proof: bool` (lichtdicht) ergaenzen, das praeziser als `has_lid` ist.
 
 
-### P-005: Seed-Daten -- Top-Up ohne CalMag bei Osmosewasser in Coco ist ein Praxisfehler
+### P-005: Seed-Daten -- Top-Up ohne CalMag bei Osmosewasser in Coco ist ein Praxisfehler [BEHOBEN]
 
 **Vage Anforderung:** Seed-Daten `fill_zelt1_002` zeigt Top-Up mit Flora Micro + Flora Bloom, aber ohne CalMag (`REQ-014_Tankmanagement.md`, ~Zeile 1342)
 

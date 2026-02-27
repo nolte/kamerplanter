@@ -240,7 +240,7 @@ Grundsaetzlich ja, aber mit Einschraenkungen:
 
 ## Befund-Register
 
-### F-001: Feste Giessintervalle ohne saisonale Differenzierung (KRITISCH)
+### F-001: Feste Giessintervalle ohne saisonale Differenzierung (KRITISCH) [BEHOBEN]
 
 **Anforderung:** `watering_interval_days: int` als einziger Giesswert im CareProfile (`REQ-022_Pflegeerinnerungen.md`, Zeile ~95)
 **Problem:** Der Wasserbedarf von Zimmerpflanzen schwankt zwischen Sommer und Winter um den Faktor 1,5 bis 3. Ein einziger Intervall-Wert fuehrt im Winter zu Ueberwaaesserung (Wurzelfaeule) oder im Sommer zu Unterwaaesserung (Trockenstress). Dies ist der haeufigste Pflegefehler bei Zimmerpflanzen.
@@ -249,7 +249,7 @@ Grundsaetzlich ja, aber mit Einschraenkungen:
 
 **Alternative (einfacher):** Falls zwei Felder die Komplexitaet zu stark erhoehen: Ein `winter_watering_multiplier: float = 1.5` im Preset, der den Intervall automatisch im Zeitraum November-Februar verlaengert. Beispiel: Tropical Sommer 7 Tage, Winter 7 * 1.5 = 10.5 Tage, gerundet 11 Tage.
 
-### F-002: Preset "herb" fasst inkompatible Pflegegruppen zusammen (KRITISCH)
+### F-002: Preset "herb" fasst inkompatible Pflegegruppen zusammen (KRITISCH) [BEHOBEN]
 
 **Anforderung:** `herb` Preset mit `watering_interval_days: 3` (`REQ-022_Pflegeerinnerungen.md`, Zeile ~44)
 **Problem:** Mediterrane Kraeuter (Rosmarin, Thymian, Salbei, Oregano) benoetigen 7-10 Tage Giessintervall und durchlaessiges, mineralisches Substrat. Ein 3-Tage-Intervall fuehrt bei diesen Arten zuverlaessig zu Wurzelfaeule. Basilikum und Minze hingegen benoetigen tatsaechlich 2-3 Tage.
@@ -260,14 +260,14 @@ Grundsaetzlich ja, aber mit Einschraenkungen:
 
 **Status: BEHOBEN.** DORMANCY_PHASES in REQ-022 enthaelt jetzt `maintenance`, `acclimatization`, `repotting_recovery`. REQ-003 PhaseType wurde um alle Zimmerpflanzen-Phasen erweitert. Der Vorschlag zur Umbenennung in `NO_FERTILIZING_PHASES` bleibt als optionale Verbesserung bestehen.
 
-### F-004: Lithops als Beispiel im Cactus-Preset (FEHLER)
+### F-004: Lithops als Beispiel im Cactus-Preset (FEHLER) [BEHOBEN]
 
 **Anforderung:** Cactus-Preset mit Lithops als typische Pflanze (`REQ-022_Pflegeerinnerungen.md`, Zeile ~45)
 **Problem:** Lithops (Lebende Steine) sind taxonomisch keine Kakteen (Familie Aizoaceae, nicht Cactaceae) und haben einen voellig anderen Giesszyklus. Waehrend der Hautungsphase (typisch Februar-Mai) duerfen Lithops UEBERHAUPT NICHT gegossen werden -- jedes Giessen kann die Pflanze toeten. Ein 21-Tage-Intervall waere in dieser Phase fatal.
 **Korrekte Formulierung:** Lithops aus der Beispielliste entfernen und durch tatsaechliche Kakteen ersetzen (z.B. Mammillaria, Echinocactus, Gymnocalycium). Lithops benoetigen ein eigenes Preset oder mindestens einen Warnhinweis.
 **Gilt fuer Anbaukontext:** Zimmerpflanzen
 
-### F-005: Calathea Umtopfintervall zu kurz (HINWEIS)
+### F-005: Calathea Umtopfintervall zu kurz (HINWEIS) [BEHOBEN]
 
 **Anforderung:** `calathea` Preset mit `repotting_interval_months: 12` (`REQ-022_Pflegeerinnerungen.md`, Zeile ~43)
 **Problem:** Calatheen wachsen relativ langsam und reagieren empfindlich auf Stoerungen des Wurzelbereichs. Ein jaehrliches Umtopfen ist fuer die meisten Calathea-Arten unnoetig und kann Stress verursachen. 18-24 Monate ist praxisnaeh.
@@ -278,7 +278,7 @@ Grundsaetzlich ja, aber mit Einschraenkungen:
 
 ## Unvollstaendig -- Wichtige Aspekte fehlen
 
-### U-001: Saisonale Giessintervall-Anpassung fehlt
+### U-001: Saisonale Giessintervall-Anpassung fehlt [BEHOBEN]
 
 **Anbaukontext:** Zimmerpflanzen
 **Fehlender Parameter:** `watering_interval_winter_days` oder `winter_watering_multiplier`
@@ -299,7 +299,7 @@ CARE_STYLE_PRESETS = {
 }
 ```
 
-### U-002: Giessmethode fehlt im Erinnerungssystem
+### U-002: Giessmethode fehlt im Erinnerungssystem [BEHOBEN]
 
 **Anbaukontext:** Zimmerpflanzen
 **Fehlende Information:** Die Erinnerung sagt nur "Pflanze braucht Wasser", aber nicht WIE gegossen werden soll.
@@ -310,7 +310,7 @@ CARE_STYLE_PRESETS = {
 - Farne: Einspreuhen + Giessen
 **Formulierungsvorschlag:** `watering_method: Literal['soak', 'drench_and_drain', 'top_water', 'bottom_water']` im CareProfile, mit i18n-Anleitungstext in der ReminderCard.
 
-### U-003: Wasserqualitaets-Hinweis fehlt
+### U-003: Wasserqualitaets-Hinweis fehlt [BEHOBEN]
 
 **Anbaukontext:** Zimmerpflanzen
 **Fehlende Information:** `water_quality_note` im CareProfile
@@ -321,14 +321,14 @@ CARE_STYLE_PRESETS = {
 - Karnivoren: Nur destilliertes Wasser oder Regenwasser
 **Formulierungsvorschlag:** Ein optionaler `water_quality_hint: Optional[str]` im Preset, der als Tooltip in der ReminderCard angezeigt wird. Alternativ ein i18n-Key pro Preset.
 
-### U-004: Luftfeuchtigkeits-Erinnerung fehlt
+### U-004: Luftfeuchtigkeits-Erinnerung fehlt [BEHOBEN]
 
 **Anbaukontext:** Zimmerpflanzen (speziell Calathea, Farne, tropische Pflanzen)
 **Fehlende Funktionalitaet:** Kein Erinnerungstyp fuer Luftfeuchtigkeits-Management
 **Begruendung:** Heizungsperiode (Oktober-April) reduziert die relative Luftfeuchtigkeit in Wohnungen auf 20-35% rH. Tropische Pflanzen benoetigen 50-70% rH. Die Symptome (braune Blattspitzen, Spinnmilbenbefall) entwickeln sich schleichend und werden von Einsteigern nicht mit Luftfeuchtigkeit in Verbindung gebracht.
 **Formulierungsvorschlag:** Ein saisonaler `humidity_check`-Erinnerungstyp fuer Presets `calathea` und `tropical`, aktiv Oktober-Maerz. Anweisungstext: "Luftfeuchtigkeit pruefen -- ggf. Luftbefeuchter aufstellen oder Kiesschale verwenden."
 
-### U-005: Giess-Erinnerung fuer `acclimatization`-Phase fehlt Sonderbehandlung
+### U-005: Giess-Erinnerung fuer `acclimatization`-Phase fehlt Sonderbehandlung [BEHOBEN]
 
 **Anbaukontext:** Zimmerpflanzen
 **Fehlende Logik:** Waehrend der `acclimatization`-Phase (14-28 Tage nach Kauf/Umtopfen, definiert in REQ-020) sollte das Giessintervall automatisch verlaengert werden (Faktor 1.3-1.5), da:
@@ -341,19 +341,19 @@ CARE_STYLE_PRESETS = {
 
 ## Zu Ungenau -- Praezisierung noetig
 
-### P-001: Vage Standort-Check-Logik
+### P-001: Vage Standort-Check-Logik [BEHOBEN]
 
 **Vage Anforderung:** "Oktober: Pflanzen vom Balkon holen / Winterquartier vorbereiten" (fest codiert auf 1.-15. Oktober)
 **Problem:** Der optimale Zeitpunkt haengt von der Klimazone und dem aktuellen Wetter ab. In Suedbayern koennen erste Froeste bereits Mitte September auftreten; in milden Lagen (Koeln, Rheinland) koennen Pflanzen bis Ende Oktober draussen bleiben. Ein festes Datum ist fuer eine App mit potenziell internationaler Nutzerbasis ungeeignet.
 **Messbare Alternative:** Standort-Check triggern wenn (a) Wettervorhersage am Standort Frost (<3 Grad C) ankuendigt oder (b) Durchschnittstemperatur der letzten 7 Tage unter 10 Grad C faellt. Falls keine Wetterdaten verfuegbar: Konfigurierbare Monate im CareProfile statt hardcodierter Oktober/Maerz.
 
-### P-002: care_style-Mapping zu vage
+### P-002: care_style-Mapping zu vage [BEHOBEN]
 
 **Vage Anforderung:** "Species mit native_habitat containing 'tropical' -> 'tropical'" und "Species mit common_names containing 'Orchid*' -> 'orchid'"
 **Problem:** String-Matching auf `native_habitat` und `common_names` ist fehleranfaellig. "Tropical" koennte auch in "subtropical" oder in Beschreibungstexten vorkommen. Common-Name-Matching scheitert an Sprachvarianten (Orchidee/Orchid/Orquidea).
 **Messbare Alternative:** Ein explizites `care_style: CareStyleType`-Feld auf der Species-Ebene (REQ-001) oder auf der BotanicalFamily-Ebene waere zuverlaessiger als Heuristiken ueber Textfelder.
 
-### P-003: Repotting-Intervall als reine Zeitangabe
+### P-003: Repotting-Intervall als reine Zeitangabe [BEHOBEN]
 
 **Vage Anforderung:** `repotting_interval_months: int` (z.B. 18 Monate)
 **Problem:** Der Umtopfbedarf wird nicht primaer durch Zeit bestimmt, sondern durch Wurzelwachstum (Pflanze ist "potbound"), Substratabbau und Nahrstofferschoepfung. Eine Pflanze in einem grossen Topf braucht seltener umgetopft zu werden als dieselbe Pflanze in einem kleinen Topf.

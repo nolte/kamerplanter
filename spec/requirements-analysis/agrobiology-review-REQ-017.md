@@ -33,7 +33,7 @@ REQ-017 ist ein fachlich fundiertes und technisch gut durchdachtes Dokument fuer
 
 ## Fachlich Falsch -- Sofortiger Korrekturbedarf
 
-### F-001: "Genetische Drift" bei klonaler Vermehrung ist ein terminologischer Fehler
+### F-001: "Genetische Drift" bei klonaler Vermehrung ist ein terminologischer Fehler [BEHOBEN]
 
 **Anforderung:** "Generationszaehler: Wie viele Generationen von Klonen bereits existieren (genetische Drift-Warnung ab Generation 10+)" (`REQ-017`, ~Zeile 32)
 **Problem:** Genetische Drift (genetic drift) ist ein populationsgenetisches Phaenomen -- die zufaellige Verschiebung von Allelfrequenzen in kleinen Populationen ueber sexuelle Generationen hinweg. Bei klonaler (vegetativer) Vermehrung gibt es definitionsgemaess keine Rekombination und damit keine genetische Drift im populationsgenetischen Sinne.
@@ -59,7 +59,7 @@ Die Warnschwelle "Generation 10+" ist zudem willkuerlich und nicht durch Literat
 
 ---
 
-### F-002: Veredelungs-Kompatibilitaet "gleiche Familie = moeglicherweise kompatibel" ist zu vereinfacht
+### F-002: Veredelungs-Kompatibilitaet "gleiche Familie = moeglicherweise kompatibel" ist zu vereinfacht [BEHOBEN]
 
 **Anforderung:** "Innerhalb derselben Familie: moeglicherweise kompatibel (z.B. Tomate auf Kartoffel-Unterlage)" (`REQ-017`, ~Zeile 68)
 **Problem:** Die Kompatibilitaet innerhalb einer Pflanzenfamilie variiert drastisch und ist auf taxonomischer Ebene nicht zuverlaessig vorhersagbar. Beispiele:
@@ -95,7 +95,7 @@ Veredelungs-Kompatibilitaet sollte als Graph-Edge modelliert werden:
 
 ---
 
-### F-003: Basilikum (*Ocimum basilicum*) ist keine Kurztagspflanze
+### F-003: Basilikum (*Ocimum basilicum*) ist keine Kurztagspflanze [BEHOBEN]
 
 **Anforderung:** "GIVEN: Basilikum (Ocimum basilicum) als einjaehrige Kurztagspflanze" (`REQ-001`, Testszenario 1, referenziert in REQ-017 Kontext)
 **Problem:** *Ocimum basilicum* ist fakultativ tagneutral (quantitative long-day plant in manchen Quellen). Die Bluete wird nicht primaer durch Taglaenge gesteuert, sondern durch Temperatur und Alter. Unter Indoor-Bedingungen blueht Basilikum bei jeder Photoperiode, wenn die Pflanze genuegend entwickelt ist. Die Einstufung als "Kurztagspflanze" ist botanisch falsch.
@@ -112,7 +112,7 @@ Bluetenbildung primaer abhaengig von:
 
 ---
 
-### F-004: Generationsberechnung bei Aussaat (seed_sowing) ist konzeptionell inkorrekt
+### F-004: Generationsberechnung bei Aussaat (seed_sowing) ist konzeptionell inkorrekt [BEHOBEN]
 
 **Anforderung:** `calculate_generation()` gibt fuer `seed_sowing` denselben Wert wie fuer `cutting` zurueck: `mother_generation + 1` (`REQ-017`, ~Zeile 797-799)
 **Problem:** Die Generationszaehlung bei sexueller vs. vegetativer Vermehrung folgt unterschiedlichen Konventionen:
@@ -158,7 +158,7 @@ def calculate_generation(
 
 ## Unvollstaendig -- Wichtige Aspekte fehlen
 
-### U-001: VPD (Vapor Pressure Deficit) fehlt als Bewurzelungsparameter
+### U-001: VPD (Vapor Pressure Deficit) fehlt als Bewurzelungsparameter [BEHOBEN]
 
 **Anbaukontext:** Indoor
 **Fehlende Parameter:** VPD (kPa) im `PropagationEvent` und `RootingProtocol`
@@ -192,7 +192,7 @@ def validate_vpd_consistency(self):
 
 ---
 
-### U-002: Temperaturzonen-Differenzierung bei Bewurzelung fehlt
+### U-002: Temperaturzonen-Differenzierung bei Bewurzelung fehlt [BEHOBEN]
 
 **Anbaukontext:** Indoor
 **Fehlende Parameter:** Differenzierung Luft- vs. Substrat-/Wurzelzonentemperatur
@@ -226,7 +226,7 @@ def validate_bottom_heat(self):
 
 ---
 
-### U-003: Zimmerpflanzen-Vermehrungsmethoden fehlen weitgehend
+### U-003: Zimmerpflanzen-Vermehrungsmethoden fehlen weitgehend [BEHOBEN]
 
 **Anbaukontext:** Zimmerpflanzen
 **Fehlende Parameter:** Zahlreiche Vermehrungsmethoden, die im Zimmerpflanzenbereich standard sind
@@ -264,7 +264,7 @@ Insbesondere **Abmoosen (air_layering)** ist eine der wichtigsten Indoor-Vermehr
 
 ---
 
-### U-004: Bewurzelungshormon-Konzentrationsbereiche sind nicht spezies-/methodenspezifisch validiert
+### U-004: Bewurzelungshormon-Konzentrationsbereiche sind nicht spezies-/methodenspezifisch validiert [BEHOBEN]
 
 **Anbaukontext:** Indoor, Gewaechshaus
 **Fehlende Parameter:** Spezies-spezifische Hormonkonzentrations-Empfehlungen und Warnungen
@@ -300,7 +300,7 @@ HORMONE_RANGES: dict[str, dict[str, tuple[float, float]]] = {
 
 ---
 
-### U-005: IPM-Integration bei Vermehrung fehlt
+### U-005: IPM-Integration bei Vermehrung fehlt [BEHOBEN]
 
 **Anbaukontext:** Indoor, Gewaechshaus
 **Fehlende Parameter:** Verbindung zwischen PropagationEvent und IPM-System (REQ-010)
@@ -335,7 +335,7 @@ last_virus_test_date: Optional[datetime] = None
 
 ---
 
-### U-006: Stecklingstyp-Differenzierung fehlt
+### U-006: Stecklingstyp-Differenzierung fehlt [BEHOBEN]
 
 **Anbaukontext:** Indoor, Gewaechshaus
 **Fehlende Parameter:** Stecklingstyp (apikal, nodal, internodal, Fersensteckling, etc.)
@@ -368,7 +368,7 @@ cutting_length_cm: Optional[float] = Field(None, ge=1, le=50,
 
 ---
 
-### U-007: Substrat-Integration bei Vermehrung fehlt
+### U-007: Substrat-Integration bei Vermehrung fehlt [BEHOBEN]
 
 **Anbaukontext:** Indoor, Hydroponik
 **Fehlende Parameter:** Verknuepfung zwischen `PropagationEvent.medium` und REQ-019 (Substratverwaltung)
@@ -392,7 +392,7 @@ medium_ec_ms: Optional[float] = Field(None, ge=0.0, le=3.0,
 
 ---
 
-### U-008: Lichtspektrum-Angaben fuer Bewurzelung fehlen
+### U-008: Lichtspektrum-Angaben fuer Bewurzelung fehlen [BEHOBEN]
 
 **Anbaukontext:** Indoor
 **Fehlende Parameter:** Lichtspektrum (Blau-/Rot-Anteil) waehrend Bewurzelung
@@ -418,7 +418,7 @@ light_spectrum: Optional[Literal[
 
 ## Zu Ungenau -- Praezisierung noetig
 
-### P-001: RootingProtocol `light_ppfd` ohne obere Grenzwertwarnung
+### P-001: RootingProtocol `light_ppfd` ohne obere Grenzwertwarnung [BEHOBEN]
 
 **Vage Anforderung:** `light_ppfd: int = Field(ge=0, le=500)` (`REQ-017`, ~Zeile 663)
 **Problem:** 500 umol/m2/s ist fuer unbewurzelte Stecklinge viel zu hoch. Stecklinge ohne funktionales Wurzelsystem koennen die Transpiration bei hoher Lichtintensitaet nicht ausgleichen und welken. Die obere Grenze sollte differenziert sein:
@@ -441,7 +441,7 @@ if protocol.dome_humidity_percent and protocol.dome_humidity_percent > 70:
 
 ---
 
-### P-002: `mother_recovery_days` pauschal fuer alle Vermehrungsmethoden
+### P-002: `mother_recovery_days` pauschal fuer alle Vermehrungsmethoden [BEHOBEN]
 
 **Vage Anforderung:** `mother_recovery_days: int = Field(default=14, ge=1, le=90)` (`REQ-017`, ~Zeile 549)
 **Problem:** Die Erholungszeit haengt nicht nur von der Spezies ab, sondern auch von der Art und Intensitaet der Entnahme:
@@ -465,7 +465,7 @@ mother_recovery_days: dict[str, int] = Field(
 
 ---
 
-### P-003: Seed-Daten Bewurzelungsprotokolle nur fuer 3 Spezies
+### P-003: Seed-Daten Bewurzelungsprotokolle nur fuer 3 Spezies [BEHOBEN]
 
 **Vage Anforderung:** 4 Seed-Protokolle: Cannabis, Tomate, Basilikum, generische Aussaat (`REQ-017`, ~Zeile 1030-1036)
 **Problem:** Das System deklariert "Fokus: Beides" (Indoor + Outdoor), aber die Seed-Protokolle decken nur Cannabis, Tomate und Basilikum ab. Fuer ein Vermehrungsmanagement fehlen mindestens:
@@ -479,7 +479,7 @@ mother_recovery_days: dict[str, int] = Field(
 
 ---
 
-### P-004: Inzuchtkoeffizient-Berechnung (`calculate_inbreeding_coefficient`) biologisch vereinfacht
+### P-004: Inzuchtkoeffizient-Berechnung (`calculate_inbreeding_coefficient`) biologisch vereinfacht [BEHOBEN]
 
 **Vage Anforderung:** Inzuchtkoeffizient basierend auf wiederkehrenden Vorfahren (`REQ-017`, ~Zeile 915-936)
 **Problem:** Die Berechnung `repeated_ancestors / total_ancestors` ist keine anerkannte Methode zur Inzuchtschaetzung. Der Standard ist Wrights Inzuchtkoeffizient (F), der auf der Wahrscheinlichkeit basiert, dass zwei Allele an einem Locus von demselben Vorfahren stammen (Identity by Descent). Die vereinfachte Methode liefert keine vergleichbaren Werte und kann zu Fehl-Interpretationen fuehren.

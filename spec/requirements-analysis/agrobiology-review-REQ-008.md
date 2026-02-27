@@ -28,42 +28,42 @@ REQ-008 ist ein solide strukturiertes Dokument mit starkem Fokus auf Cannabis-Po
 
 ## Fachlich Falsch -- Sofortiger Korrekturbedarf
 
-### F-001: Pilz-Trocknung -- Wirkstoffverlust-Schwelle bei Agaricus bisporus falsch kontextualisiert
+### F-001: Pilz-Trocknung -- Wirkstoffverlust-Schwelle bei Agaricus bisporus falsch kontextualisiert [BEHOBEN]
 
 **Anforderung:** "Pilze: Dehydrator: 35-40 Grad C bis cracker-dry. Kritisch: Ueber 40 Grad C = Wirkstoffverlust" (`REQ-008_Post-Harvest.md`, Zeile 35-36)
 **Problem:** *Agaricus bisporus* (Champignon) ist ein Speisepilz ohne pharmakologisch relevante "Wirkstoffe" im engeren Sinne. Die 40-Grad-C-Grenze ist spezifisch fuer *Psilocybe*-Arten relevant (Psilocybin-Degradation beginnt ab ca. 50-60 Grad C, nicht 40 Grad C -- die Literatur zeigt signifikante Verluste erst ab 60 Grad C). Fuer Speisepilze (Shiitake, Champignon) sind 50-60 Grad C gaengig und unproblematisch. Die Zuordnung von *Agaricus bisporus* als Referenzart im `DRYING_SPECS`-Dict (Zeile 704) mit der "Wirkstoffverlust"-Warnung ist taxonomisch und biochemisch falsch.
 **Korrekte Formulierung:** Speisepilze (*Agaricus bisporus*, *Lentinula edodes*) separat von Funktionspilzen fuehren. Trocknungstemperatur speziesspezifisch: Champignon 50-60 Grad C, Shiitake 40-50 Grad C (Lentinan-Erhalt), *Psilocybe* spp. max. 40 Grad C (Alkaloid-Erhalt, wobei auch hier neuere Studien hoehere Toleranz zeigen). "Wirkstoffverlust" nur bei Arten mit definierten Wirkstoffen verwenden.
 **Gilt fuer Anbaukontext:** Indoor (Pilzzucht), Gewaeechshaus
 
-### F-002: Fermentation Sauerkraut/Kimchi -- Temperaturbereich und Prozess falsch beschrieben
+### F-002: Fermentation Sauerkraut/Kimchi -- Temperaturbereich und Prozess falsch beschrieben [BEHOBEN]
 
 **Anforderung:** "Fermentation: 3-6 Wochen bei 18-22 Grad C. Taeglich Gasen ablassen." (`REQ-008_Post-Harvest.md`, Zeile 52-53)
 **Problem:** Milchsaeurefermentation (Sauerkraut) laeuft optimal bei 18-20 Grad C in den ersten 3 Tagen und sollte dann bei 15-18 Grad C fortgefuehrt werden. Die Aussage "3-6 Wochen" bei konstantem Temperaturbereich ist ungenuegend differenziert. Wichtiger: "Taeglich Gasen ablassen" ist fachlich missverstaendlich -- bei klassischer Gaertopf-Fermentation mit Wasserrinne entweicht CO2 selbsttaetig. Bei Schraubglaesern muss das Gas zwar abgelassen werden, aber die Formulierung suggeriert, dass dies eine inhaerent notwendige Pflegemassnahme ist, anstatt ein Artefakt des Behaeltertyps. Kimchi hat zudem voellig andere Temperaturprofile (initial bei Raumtemperatur 1-3 Tage, dann Kuehlschrank 4 Grad C fuer Wochen bis Monate).
 **Korrekte Formulierung:** Sauerkraut: Phase 1 (heterofermentativ, Tag 1-3): 18-20 Grad C; Phase 2 (homofermentativ, Tag 4-28): 15-18 Grad C. Gasmanagement behaelterabhaengig (Gaertopf: automatisch; Schraubglas: taeglich entlueften). Kimchi: Separat fuehren mit eigenem Temperaturprofil. pH-Monitoring als Fermentationskontrolle ergaenzen (Ziel: pH < 4,6 fuer Lebensmittelsicherheit).
 **Gilt fuer Anbaukontext:** Indoor (Verarbeitung), alle Kontexte
 
-### F-003: Tabak-Fermentation -- Temperaturgrenze und Prozess stark vereinfacht
+### F-003: Tabak-Fermentation -- Temperaturgrenze und Prozess stark vereinfacht [BEHOBEN]
 
 **Anforderung:** "Tabak: Fermentation in Ballen: 6-12 Monate. Temperatur-kontrolliert: Nicht ueber 55 Grad C" (`REQ-008_Post-Harvest.md`, Zeile 57-58)
 **Problem:** Tabakfermentation ist ein hochkomplexer Prozess mit mindestens drei unterschiedlichen Methoden (Air-Curing, Flue-Curing, Fire-Curing, Sun-Curing), die jeweils voellig andere Parameter haben. "Fermentation in Ballen" beschreibt nur die Bulk-Curing-Phase, die nach dem initialen Trocknen/Curing stattfindet. Die 55-Grad-C-Grenze bezieht sich auf Flue-Curing und ist kein allgemeines Maximum. Fuer ein System das primaer auf Indoor-Anbau und Hobbygaertner zielt, ist die Einbindung von Tabak-Fermentation fraglich, da der Anbau in Deutschland genehmigungspflichtig ist (TabStG) und die Fermentation professionelles Equipment erfordert.
 **Korrekte Formulierung:** Entweder Tabak aus dem Scope entfernen oder deutlich differenzierter beschreiben mit Curing-Typ-Unterscheidung. Mindestens einen Rechtshinweis zum Tabaksteuergesetz ergaenzen.
 **Gilt fuer Anbaukontext:** Outdoor (Tabakanbau ist primaer Freiland)
 
-### F-004: Cannabis Slow-Dry Gewichtsverlust-Zielwert fehlerhaft
+### F-004: Cannabis Slow-Dry Gewichtsverlust-Zielwert fehlerhaft [BEHOBEN]
 
 **Anforderung:** "Ziel: 60-65% Gewichtsverlust (von Nass zu Trocken)" (`REQ-008_Post-Harvest.md`, Zeile 25)
 **Problem:** Der Gewichtsverlust bei der Trocknung von Cannabis betraegt typischerweise 75-80%, nicht 60-65%. Frisches Cannabis hat einen Wassergehalt von ca. 75-80%. Das Ziel-Trockengewicht liegt bei 10-12% Restfeuchte, was einem Gewichtsverlust von ca. 75-80% entspricht. Die 60-65% wuerden eine Restfeuchte von 20-25% bedeuten -- das ist deutlich zu feucht und ein Schimmelrisiko. Widerspruch: Im Python-Code (`calculate_dryness_progress`, Zeile 572-573) wird korrekt von "75-80% Gewichtsverlust fuer ~10% Restfeuchte" gesprochen, und im Testszenario 1 wird bei 450g -> 112g Zielgewicht (75% Verlust) gerechnet. Die Business-Case-Beschreibung widerspricht also dem eigenen Code.
 **Korrekte Formulierung:** "Ziel: 75-80% Gewichtsverlust (von Nassgewicht zu Trockengewicht), entsprechend 10-12% Restfeuchte. Bei 450g Nassgewicht ergibt sich ein Ziel-Trockengewicht von 90-112g."
 **Gilt fuer Anbaukontext:** Indoor (Growbox, Growzelt)
 
-### F-005: BurpingEvent-Validator -- RH nach Burping KANN hoeher sein
+### F-005: BurpingEvent-Validator -- RH nach Burping KANN hoeher sein [BEHOBEN]
 
 **Anforderung:** "RH nach Burping sollte nicht hoeher sein als vorher" -- `field_validator` in `BurpingEvent` (`REQ-008_Post-Harvest.md`, Zeile 1230-1237)
 **Problem:** Diese Validierungsregel ist biologisch falsch. Wenn die Umgebungsluft eine hoehere Luftfeuchtigkeit hat als das Jar-Innere (z.B. im Sommer oder in feuchten Raeumen), KANN die RH im Jar nach dem Burping steigen. Das Burping tauscht Luft aus -- die Richtung des Feuchtigkeitsausgleichs haengt vom VPD-Gradienten zwischen Jar und Umgebung ab. Diese Validierungsregel wuerde korrekte Messwerte ablehnen.
 **Korrekte Formulierung:** Validator entfernen oder in eine Warnung umwandeln: "WARNUNG: RH nach Burping hoeher als vorher -- Umgebungsluft pruefen. Burping ist nur sinnvoll wenn Umgebungs-RH < Jar-RH."
 **Gilt fuer Anbaukontext:** Indoor
 
-### F-006: Ethylen-Management bei Tomaten -- vereinfachte Darstellung
+### F-006: Ethylen-Management bei Tomaten -- vereinfachte Darstellung [BEHOBEN]
 
 **Anforderung:** "Ethylen-Management: Mit reifen Aepfeln lagern" (`REQ-008_Post-Harvest.md`, Zeile 66)
 **Problem:** Die Empfehlung "mit reifen Aepfeln lagern" ist eine starke Vereinfachung. Ethylen-empfindliche Produkte (z.B. Salat, Gurken, Brokkoli) duerfen NICHT zusammen mit Ethylen-produzierenden Fruechten gelagert werden. Das System muss Ethylen-Kompatibilitaetsgruppen fuehren, nicht nur eine pauschale Empfehlung. Zudem: Exogenes Ethylen (Ethrel/Ethephon) ist die professionelle Methode, nicht Aepfel-Beilagerung. Fuer Indoor-Nachreife ist kontrollierte Ethylen-Exposition (0,1-1 ppm) bei 18-21 Grad C der Fachstandard.
@@ -74,7 +74,7 @@ REQ-008 ist ein solide strukturiertes Dokument mit starkem Fokus auf Cannabis-Po
 
 ## Unvollstaendig -- Wichtige Aspekte fehlen
 
-### U-001: Wasseraktivitaet (aw) als primaerer Sicherheitsparameter fehlt
+### U-001: Wasseraktivitaet (aw) als primaerer Sicherheitsparameter fehlt [BEHOBEN]
 
 **Anbaukontext:** Indoor, Gewaeechshaus, alle Kontexte
 **Fehlende Parameter:** Wasseraktivitaet (aw) als messbare Groesse in `StorageCondition`, `DryingProgress` und `StorageObservation`
@@ -97,7 +97,7 @@ Spezies-spezifische aw-Zielwerte:
 - Pilze getrocknet: aw < 0.50
 ```
 
-### U-002: Differenzierung nach Anbausystem (Hydro vs. Soil vs. Organisch) fehlt
+### U-002: Differenzierung nach Anbausystem (Hydro vs. Soil vs. Organisch) fehlt [BEHOBEN]
 
 **Anbaukontext:** Hydroponik, Indoor
 **Fehlende Parameter:** Post-Harvest-Qualitaetsunterschiede nach Anbausystem
@@ -109,7 +109,7 @@ Spezies-spezifische aw-Zielwerte:
 Das Dokument behandelt alle Produkte gleich unabhaengig vom Anbausystem.
 **Formulierungsvorschlag:** `StorageProtocol` um `growing_system_modifier: Optional[dict]` ergaenzen mit angepassten Trocknungszeiten und Curing-Empfehlungen pro Anbausystem.
 
-### U-003: Keine Verknuepfung zwischen IPM-Karenzzeiten (REQ-010) und Post-Harvest-Sicherheit
+### U-003: Keine Verknuepfung zwischen IPM-Karenzzeiten (REQ-010) und Post-Harvest-Sicherheit [BEHOBEN]
 
 **Anbaukontext:** Indoor, Gewaeechshaus
 **Fehlende Parameter:** Karenzzeit-Status als Eingangsbedingung fuer Post-Harvest-Prozesse
@@ -127,14 +127,14 @@ Geschaeftslogik: Batch darf Post-Harvest nur starten wenn:
 2. ODER expliziter Override mit Dokumentation
 ```
 
-### U-004: Schimmelidentifikation -- Aspergillus-Mykotoxin-Warnung fehlt
+### U-004: Schimmelidentifikation -- Aspergillus-Mykotoxin-Warnung fehlt [BEHOBEN]
 
 **Anbaukontext:** Indoor, alle Kontexte
 **Fehlende Parameter:** Mykotoxin-Risikobewertung, insbesondere Aflatoxine (Aspergillus flavus/parasiticus) und Ochratoxin A (Aspergillus ochraceus)
 **Begruendung:** Die `identify_mold_type`-Methode identifiziert Aspergillus nur als "Schwarzschimmel", was zu kurz greift. *Aspergillus niger* (schwarz) ist vergleichsweise harmlos, waehrend *Aspergillus flavus* (gruen-gelb) Aflatoxine produziert -- eines der staerksten natuerlichen Karzinogene. Die Farbzuordnung "schwarz/dunkelgruen = Aspergillus" ist taxonomisch ungenau und fuehrt zu falschen Risikoeinschaetzungen. Bei Cannabis ist Aspergillus-Kontamination ein ernstes Gesundheitsrisiko, insbesondere fuer Immunsupprimierte.
 **Formulierungsvorschlag:** Aspergillus in Untergruppen differenzieren (*A. niger*, *A. flavus*, *A. fumigatus*). Generelle Empfehlung bei jedem Schimmelfund auf Cannabis: "Kontaminiertes Material NICHT konsumieren. Bei Verdacht auf Aspergillus: Laboranalyse empfohlen."
 
-### U-005: Fehlende CO2-Ueberwachung im Trocknungsraum
+### U-005: Fehlende CO2-Ueberwachung im Trocknungsraum [BEHOBEN]
 
 **Anbaukontext:** Indoor
 **Fehlende Parameter:** CO2-Konzentration in `StorageCondition` und `StorageObservation`
@@ -148,14 +148,14 @@ StorageObservation ergaenzen:
 - co2_ppm: Optional[int]  # Gemessene CO2-Konzentration
 ```
 
-### U-006: Fehlende Verknuepfung zu REQ-003 Phasen-State-Machine
+### U-006: Fehlende Verknuepfung zu REQ-003 Phasen-State-Machine [BEHOBEN]
 
 **Anbaukontext:** alle Kontexte
 **Fehlende Parameter:** Post-Harvest als explizite Phase in der State-Machine
 **Begruendung:** REQ-003 definiert die Phasen-Sequenz als "Keimung -> Saemling -> Vegetativ -> Bluete -> Fruchtreife -> Seneszenz". Post-Harvest-Prozesse sind hier nicht abgebildet. Die Schnittstelle zwischen REQ-003 (Phase `is_terminal: true`) und REQ-008 (Post-Harvest-Start) ist nicht formal definiert. Wann genau endet die REQ-003-Zustaendigkeit und wann beginnt REQ-008? Die `batches`-Collection in REQ-007 stellt die Bruecke dar, aber der Uebergang ist nicht als State-Transition modelliert.
 **Formulierungsvorschlag:** Eine explizite `post_harvest`-Phase in REQ-003 ergaenzen oder alternativ einen formalen State-Uebergang "Phase terminal -> Batch erstellt -> Post-Harvest-Protokoll gestartet" definieren. Das wuerde auch die Abfolge Flushing (REQ-007) -> Ernte (REQ-007) -> Trocknung (REQ-008) -> Curing (REQ-008) -> Storage (REQ-008) als zusammenhaengende Pipeline sichtbar machen.
 
-### U-007: Trim/Manikuere-Prozess fehlt vollstaendig
+### U-007: Trim/Manikuere-Prozess fehlt vollstaendig [BEHOBEN]
 
 **Anbaukontext:** Indoor (Cannabis)
 **Fehlende Parameter:** Trim-Phase zwischen Ernte und Trocknung/Curing
@@ -166,7 +166,7 @@ StorageObservation ergaenzen:
 - **Sugar-Leaves vs. Fan-Leaves:** Unterschiedliche Verwertung (Hash/Extrakt vs. Kompost)
 **Formulierungsvorschlag:** `TrimProtocol`-Node ergaenzen mit: `trim_type: Literal['wet', 'dry', 'mixed']`, `trim_quality: Literal['machine', 'hand', 'combination']`, `trim_weight_g: float`, `usable_trim_g: float`. Als Phase zwischen Ernte und Trocknung/Curing einordnen.
 
-### U-008: Fehlende Beruecksichtigung von Licht als Degradationsfaktor
+### U-008: Fehlende Beruecksichtigung von Licht als Degradationsfaktor [BEHOBEN]
 
 **Anbaukontext:** Indoor, alle Kontexte
 **Fehlende Parameter:** UV-Exposition und Licht-Degradation im Monitoring
@@ -181,7 +181,7 @@ StorageObservation ergaenzen:
 
 ## Zu Ungenau -- Praezisierung noetig
 
-### P-001: Haltbarkeitsprognose mit hardcodierten Artenliteralen
+### P-001: Haltbarkeitsprognose mit hardcodierten Artenliteralen [BEHOBEN]
 
 **Vage Anforderung:** `shelf_life_days = (species.scientific_name == 'Cannabis sativa' ? 365 : ...)` (`REQ-008_Post-Harvest.md`, AQL-Abschnitt, Zeile 488-493)
 **Problem:** Die Haltbarkeit wird als statische Zuordnung zum wissenschaftlichen Namen modelliert. Das ist aus mehreren Gruenden ungenau:
@@ -191,7 +191,7 @@ StorageObservation ergaenzen:
 4. Der Default von 90 Tagen ist fuer getrocknete Kraeuterprodukte zu kurz (12+ Monate moeglich) und fuer frisches Blattgemuese viel zu lang
 **Messbare Alternative:** Haltbarkeit als Funktion modellieren: `estimated_shelf_life = base_shelf_life * condition_factor(actual_temp, actual_rh, light_exposure)`. Alternativ: Haltbarkeit ueber aw-Wert + Temperatur dynamisch berechnen (Arrhenius-Kinetik fuer Qualitaetsverlust).
 
-### P-002: Snap-Test als binaerer Readiness-Indikator unzureichend
+### P-002: Snap-Test als binaerer Readiness-Indikator unzureichend [BEHOBEN]
 
 **Vage Anforderung:** "snap_test_ready = progress >= 70" (`REQ-008_Post-Harvest.md`, Python-Code, Zeile 577)
 **Problem:** Der Snap-Test wird hier am Gewichtsverlust-Fortschritt festgemacht, nicht am tatsaechlichen Test-Ergebnis. 70% Fortschritt korreliert nicht zuverlaessig mit der physikalischen Eigenschaft "Zweig bricht sauber". Die Trocknungsgeschwindigkeit variiert stark mit:
@@ -201,7 +201,7 @@ StorageObservation ergaenzen:
 - Ausgangswassergehalt (vorgetrocknete vs. frisch geerntete Pflanzen)
 **Messbare Alternative:** Snap-Test als unabhaengigen booleschen Input modellieren, NICHT aus dem Gewichtsverlust ableiten. Die `perform_snap_test()`-Methode existiert bereits korrekt -- sie sollte der primaere Trigger sein, nicht `progress >= 70`.
 
-### P-003: Schimmelrisiko-Score-Berechnung zu vereinfacht
+### P-003: Schimmelrisiko-Score-Berechnung zu vereinfacht [BEHOBEN]
 
 **Vage Anforderung:** MoldPreventionMonitor.assess_mold_risk mit linearem Scoring (Zeile 906-1015)
 **Problem:** Das Schimmelrisiko wird als additive Summe von Risikofaktoren modelliert. Biologisch ist das nicht korrekt:
@@ -210,13 +210,13 @@ StorageObservation ergaenzen:
 3. **Temperatur-RH-Interaktion:** Die Kombinations-Tabelle (HIGH_RISK_COMBOS) ist zu grob. VPD waere der korrektere zusammengesetzte Parameter.
 **Messbare Alternative:** VPD-basierte Risikobewertung statt isolierter Temp/RH-Schwellen. Taupunktberechnung (`dew_point = temp - ((100 - rh) / 5)` als Naeherung) als zusaetzlichen Risikofaktor. Expositionsdauer gewichtet (quadratisch statt linear).
 
-### P-004: Zwiebel/Knoblauch-Lagerung -- UV-Exposition als Empfehlung problematisch
+### P-004: Zwiebel/Knoblauch-Lagerung -- UV-Exposition als Empfehlung problematisch [BEHOBEN]
 
 **Vage Anforderung:** "UV-Exposition: Foerdert Schalenhaeertung" (`REQ-008_Post-Harvest.md`, Zeile 39)
 **Problem:** UV-Licht foerdert zwar die Schalenhaeertung bei Zwiebeln waehrend der Feldtrocknung (Curing), aber bei Langzeitlagerung ist Dunkelheit essentiell. Kartoffeln bilden unter Licht Solanin (korrekt erwaehnt bei Lagerhinweisen, Zeile 1172), aber auch bei Zwiebeln foerdert Licht Austrieb und Qualitaetsverlust. Die Formulierung unterscheidet nicht klar zwischen der kurzen Haertungsphase (2-3 Wochen mit Licht) und der anschliessenden Lagerung (dunkel).
 **Messbare Alternative:** Phasen trennen: "Schalenhaeertung (Phase 1): 2-3 Wochen, 25-30 Grad C, niedrige RH, indirekte Sonneneinstrahlung tolerabel. Langzeitlagerung (Phase 2): dunkel, 10-15 Grad C, 60-70% RH."
 
-### P-005: Kartoffel-Haltbarkeit ohne Keimhemmung unrealistisch
+### P-005: Kartoffel-Haltbarkeit ohne Keimhemmung unrealistisch [BEHOBEN]
 
 **Vage Anforderung:** `'Solanum tuberosum' ? 270` (270 Tage Haltbarkeit) (`REQ-008_Post-Harvest.md`, Zeile 491)
 **Problem:** 270 Tage (9 Monate) Haltbarkeit fuer Kartoffeln ist nur mit professioneller Kuehlung (2-4 Grad C) und/oder Keimhemmungsmitteln (CIPC, Ethylen, UV-C) erreichbar. Fuer den Hobbygaertner mit Kellerlagerung (8-12 Grad C) sind 3-5 Monate realistisch, abhaengig von der Sorte (fruehe Sorten: 2-3 Monate, spaete Sorten: 5-6 Monate). Zudem ist die Temperaturangabe im Speicher-Abschnitt (10-15 Grad C fuer Kartoffeln) zu hoch -- professionelle Kartoffellagerung erfolgt bei 4-8 Grad C, Hobby-Kellerlagerung bei 6-10 Grad C.

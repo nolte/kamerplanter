@@ -25,7 +25,7 @@ REQ-006 ist ein bemerkenswert durchdachtes Dokument, das pflanzenphysiologische 
 
 ## F -- Fachlich Falsch: Sofortiger Korrekturbedarf
 
-### F-001: Foliar-Feeding-Tageszeit-Empfehlung "lights_off" ist fachlich uebersimplifiziert
+### F-001: Foliar-Feeding-Tageszeit-Empfehlung "lights_off" ist fachlich uebersimplifiziert [BEHOBEN]
 
 **Anforderung:** "lights_off: Fuer Foliar-Feeding (UV + nasses Blatt = Verbrennungen)." (`REQ-006_Aufgabenplanung.md`, Zeile 558)
 **Problem:** Die Begruendung ist pflanzenphysiologisch unvollstaendig und teilweise irrelevant. Der Hauptgrund fuer Foliar-Feeding bei ausgeschaltetem Licht ist nicht UV-Verbrennung (die meisten Indoor-LED-Lampen emittieren kaum UV), sondern:
@@ -43,7 +43,7 @@ Bei C3-Pflanzen alternativ: fruehe Morgenstunden (Stomata maximal geoeffnet)."
 ```
 **Gilt fuer Anbaukontext:** Indoor / Gewaechshaus
 
-### F-002: Kartoffel als "Nachtschattengewaechs" im Recovery-Faktor falsch kategorisiert
+### F-002: Kartoffel als "Nachtschattengewaechs" im Recovery-Faktor falsch kategorisiert [BEHOBEN]
 
 **Anforderung:** "potato: 0.6 -- Robust, aber langsamer als Nachtschattengewaechse" (`REQ-006_Aufgabenplanung.md`, Zeile 708)
 **Problem:** Kartoffel (Solanum tuberosum) IST ein Nachtschattengewaechs (Solanaceae). Die Formulierung "langsamer als Nachtschattengewaechse" impliziert, dass Kartoffel kein Nachtschattengewaechs sei. Korrekt ist: Kartoffel regeneriert langsamer als andere Solanaceae-Kulturpflanzen (Tomate, Paprika), da der Fokus auf unterirdischem Knollenwachstum liegt und oberirdisches HST die Assimilat-Verteilung stoert.
@@ -54,7 +54,7 @@ Bei C3-Pflanzen alternativ: fruehe Morgenstunden (Stomata maximal geoeffnet)."
 ```
 **Gilt fuer Anbaukontext:** Outdoor / Indoor
 
-### F-003: Transplanting "abends (niedrige VPD)" ist pflanzenphysiologisch ungenau
+### F-003: Transplanting "abends (niedrige VPD)" ist pflanzenphysiologisch ungenau [BEHOBEN]
 
 **Anforderung:** "Tageszeit-Empfehlung: Transplanting abends (niedrige VPD)" (`REQ-006_Aufgabenplanung.md`, Zeile 66)
 **Problem:** VPD ist abends nicht zwingend niedrig -- es haengt von Temperatur und Luftfeuchtigkeit ab. In vielen Indoor-Setups ist VPD bei Lights-Off sogar HOEHER, wenn die Temperatur faellt und Luftfeuchtigkeit nicht aktiv gesteigert wird (VPD haengt ueberproportional von Blatttemperatur ab). Der korrekte Grund fuer abendliches Transplanting ist:
@@ -70,7 +70,7 @@ Wurzel-Substrat-Kontakt, bevor Licht die Transpiration antreibt."
 ```
 **Gilt fuer Anbaukontext:** Indoor / Gewaechshaus
 
-### F-004: Tomate wird als "Topping"-Kandidat gefuehrt, obwohl Ausgeizen die korrekte Technik ist
+### F-004: Tomate wird als "Topping"-Kandidat gefuehrt, obwohl Ausgeizen die korrekte Technik ist [BEHOBEN]
 
 **Anforderung:** Topping-species_notes: "ACHTUNG: Tomaten werden AUSGEGEIZT (Seitentriebe entfernen), nicht getoppt." (`REQ-006_Aufgabenplanung.md`, Zeile 883-884)
 **Problem:** Die Warnung selbst ist korrekt und wertvoll, aber sie steht im Widerspruch zur Platzierung: Tomaten befinden sich unter den Best-Practices fuer "Topping" und haben einen Recovery-Faktor fuer Topping (0.4). Wenn Tomaten praxisrelevant NICHT getoppt werden sollen (ausser Buschtomaten), sollte das System fuer Stabtomaten (indeterminate types) gar kein Topping-Task anbieten, sondern "Ausgeizen" als eigene Task-Kategorie fuehren. Ausgeizen ist biologisch fundamental anders als Topping: Topping entfernt die Apikaldominanz (Auxin-Quelle), Ausgeizen entfernt Seitenmeristeme (Auxin-Senken). Die Hormonreaktion ist gegensaetzlich.
@@ -98,7 +98,7 @@ Wurzel-Substrat-Kontakt, bevor Licht die Transpiration antreibt."
 
 ## U -- Unvollstaendig: Wichtige Aspekte fehlen
 
-### U-001: Keine System-Templates fuer Zimmerpflanzen-Pflege
+### U-001: Keine System-Templates fuer Zimmerpflanzen-Pflege [BEHOBEN]
 
 **Anbaukontext:** Zimmerpflanzen (dekorative Innenraumbegruenung)
 **Fehlende Templates:**
@@ -123,7 +123,7 @@ Wurzel-Substrat-Kontakt, bevor Licht die Transpiration antreibt."
   Wasser, regelmaessige Schaedlingskontrolle (Spinnmilben)
 ```
 
-### U-002: Hydroponik-spezifische Wartungs-Workflows fehlen als System-Templates
+### U-002: Hydroponik-spezifische Wartungs-Workflows fehlen als System-Templates [BEHOBEN]
 
 **Anbaukontext:** Hydroponik/Soilless
 **Fehlende Workflows:**
@@ -135,7 +135,7 @@ Wurzel-Substrat-Kontakt, bevor Licht die Transpiration antreibt."
 
 **Begruendung:** REQ-014 (Tankmanagement) wird in den Abhaengigkeiten als "HOCH" fuer automatische Wartungs-Tasks referenziert (Zeile 1462), aber kein konkretes Hydroponik-Wartungs-Template ist definiert. In der Hydroponik ist regelmaessige Systemwartung ueberlebenswichtig fuer die Pflanzen -- ein vergessener Naehrloesung-Wechsel kann innerhalb von Tagen zu Totalverlust fuehren.
 
-### U-003: Trigger-Typ "GDD-based" (Growing Degree Days) fehlt
+### U-003: Trigger-Typ "GDD-based" (Growing Degree Days) fehlt [BEHOBEN]
 
 **Anbaukontext:** Indoor / Outdoor
 **Fehlender Trigger:** REQ-003 definiert GDD (Gradtagsummen) als zentralen Parameter fuer Phasenuebergaenge. REQ-006 bietet jedoch keinen Trigger-Typ `gdd_threshold`, der Tasks basierend auf akkumulierten Waermeeinheiten ausloest.
@@ -154,7 +154,7 @@ gdd_threshold: Optional[float]  # Gradtagsumme ab Pflanzung/Phasenstart
 gdd_base_temperature: Optional[float]  # Basistemperatur (artspezifisch, z.B. 10 Grad C fuer Mais)
 ```
 
-### U-004: Keine Beruecksichtigung von Mondkalender/Biorhythmus (optional, aber relevant fuer Zielgruppe)
+### U-004: Keine Beruecksichtigung von Mondkalender/Biorhythmus (optional, aber relevant fuer Zielgruppe) [BEHOBEN]
 
 **Anbaukontext:** Outdoor / Zimmerpflanzen
 **Fehlend:** Viele Gaertner (insbesondere im biologisch-dynamischen Anbau und bei Zimmerpflanzen-Enthusiasten) planen nach Mondphasen:
@@ -173,7 +173,7 @@ lunar_phase: Optional[Literal['new_moon', 'waxing', 'full_moon', 'waning']]
 lunar_element: Optional[Literal['fire', 'earth', 'air', 'water']]
 ```
 
-### U-005: Fehlende Task-Kategorie "Observation/Monitoring" (Beobachtungs-Tasks)
+### U-005: Fehlende Task-Kategorie "Observation/Monitoring" (Beobachtungs-Tasks) [BEHOBEN]
 
 **Anbaukontext:** Alle
 **Fehlende Kategorie:** Die Task-Kategorien (Zeile 43-51) umfassen Training, Pruning, Transplanting, Feeding, IPM, Harvest, Maintenance -- aber keine dedizierten **Beobachtungs-Tasks**. Regelmaessige Pflanzenkontrolle (Blattkontrolle, Wachstumsmessung, Fotodokumentation des Fortschritts, pH/EC-Ablesung) ist eine der wichtigsten Taetigkeiten, die oft vergessen wird.
@@ -186,7 +186,7 @@ lunar_element: Optional[Literal['fire', 'earth', 'air', 'water']]
 ```
 Dies verbindet sich mit REQ-010 (IPM-Inspektionen), geht aber darueber hinaus: Nicht jede Beobachtung ist ein IPM-Event.
 
-### U-006: Outdoor-spezifische Workflows unterrepraesentiert
+### U-006: Outdoor-spezifische Workflows unterrepraesentiert [BEHOBEN]
 
 **Anbaukontext:** Outdoor
 **Fehlende Templates:**
@@ -198,7 +198,7 @@ Dies verbindet sich mit REQ-010 (IPM-Inspektionen), geht aber darueber hinaus: N
 
 **Begruendung:** REQ-006 definiert nur "Kartoffel-Haeufelung" und "Beerensstraeucher-Schnitt" als Outdoor-Templates. Der Bereich ist stark unterrepraesentiert gegenueber dem umfangreichen Indoor/Cannabis-Fokus.
 
-### U-007: Fehlende Wechselwirkung zwischen Task-Planung und Umgebungssteuerung (REQ-018)
+### U-007: Fehlende Wechselwirkung zwischen Task-Planung und Umgebungssteuerung (REQ-018) [BEHOBEN]
 
 **Anbaukontext:** Indoor
 **Fehlend:** REQ-018 definiert phasengebundene Aktor-Profile und VPD-Steuerung. REQ-006 definiert Tasks wie "Switch zu 12/12 Licht" (Zeile 1507), die de facto eine Aktorsteuerung-Aktion sind. Es fehlt eine klare Schnittstelle:
@@ -215,7 +215,7 @@ Task-Aktor-Integration:
 - Konflikterkennung: Task "Licht 18/6" + Phase-Profil "12/12" = Warnung
 ```
 
-### U-008: Stress-Recovery ist nicht temperaturabhaengig modelliert
+### U-008: Stress-Recovery ist nicht temperaturabhaengig modelliert [BEHOBEN]
 
 **Anbaukontext:** Indoor / Gewaechshaus
 **Fehlend:** Die Recovery-Zeiten nach HST sind temperaturabhaengig. Bei hoeheren Temperaturen laeuft der Metabolismus schneller, die Kallusbildung ist beschleunigt:
@@ -239,7 +239,7 @@ TEMPERATURE_RECOVERY_MODIFIERS = {
 
 ## P -- Zu Ungenau: Praezisierung noetig
 
-### P-001: Recovery-Zeiten "Cannabis 7d, Tomaten 2-3d, Paprika 5d" ohne Differenzierung nach HST-Typ
+### P-001: Recovery-Zeiten "Cannabis 7d, Tomaten 2-3d, Paprika 5d" ohne Differenzierung nach HST-Typ [BEHOBEN]
 
 **Vage Anforderung:** "Stress-Recovery: Artspezifische Recovery-Zeiten (Cannabis 7d, Tomaten 2-3d, Paprika 5d)" (Zeile 61)
 **Problem:** Die Freitext-Angabe im Business Case suggeriert eine flat Recovery-Zeit pro Art, waehrend der Code (BASE_RECOVERY_DAYS + SPECIES_RECOVERY_FACTORS) dies differenziert modelliert. Die Textbeschreibung sollte mit dem Code konsistent sein.
@@ -251,7 +251,7 @@ Beispiel: Topping Tomate = 7 * 0.4 = 2.8 Tage (gerundet: 3 Tage)
 Beispiel: Supercropping Cannabis = 5 * 1.0 = 5 Tage
 ```
 
-### P-002: "herb: 0.5 -- Basilikum, Minze" als Kategorie ist taxonomisch unscharf
+### P-002: "herb: 0.5 -- Basilikum, Minze" als Kategorie ist taxonomisch unscharf [BEHOBEN]
 
 **Vage Anforderung:** "herb: 0.5 -- Basilikum, Minze -- schnelle Regeneration" (Zeile 705)
 **Problem:** "herb" ist keine taxonomisch sinnvolle Gruppierung fuer Recovery-Faktoren. Basilikum (Ocimum basilicum, Lamiaceae) und Minze (Mentha spp., Lamiaceae) gehoeren zur selben Familie, aber ein "herb" wie Rosmarin (Rosmarinus officinalis, verholzend) regeneriert deutlich langsamer als kraetiges Basilikum. Die Kategorie sollte entweder auf Familienebene (Lamiaceae) oder auf Wuchsform (krautig-einjaerig vs. verholzend-mehrjaehrig) differenzieren.
@@ -271,7 +271,7 @@ SPECIES_RECOVERY_FACTORS = {
 }
 ```
 
-### P-003: Kumulativer Stress-Score Schwellwert 0.7 ohne wissenschaftliche Begruendung
+### P-003: Kumulativer Stress-Score Schwellwert 0.7 ohne wissenschaftliche Begruendung [BEHOBEN]
 
 **Vage Anforderung:** "Kumulativer Stress-Score ueber 14-Tage-Fenster mit Warnung ab Score >0.7" (Zeile 790-796)
 **Problem:** Der Schwellwert 0.7 und das 14-Tage-Fenster sind plausible Schaetzwerte, aber nicht literaturbasiert. Die Stress-Weights (topping: 0.3, transplant: 0.35, etc.) sind ebenso geschaetzt. Dies ist akzeptabel fuer einen ersten Entwurf, sollte aber als konfigurierbar und empirisch zu verfeinern markiert werden.
@@ -284,7 +284,7 @@ CUMULATIVE_STRESS_THRESHOLD: float = 0.7  # Konfigurierbar pro Nutzerprofil
 STRESS_WINDOW_DAYS: int = 14              # Konfigurierbar
 ```
 
-### P-004: SOG-Workflow-Timing (Szenario 1) ohne Sorten-/Genetik-Beruecksichtigung
+### P-004: SOG-Workflow-Timing (Szenario 1) ohne Sorten-/Genetik-Beruecksichtigung [BEHOBEN]
 
 **Vage Anforderung:** "Tag 21: Switch zu 12/12 Licht, Tag 70: Ernte" (Zeilen 1507, 1510)
 **Problem:** Die Tage sind stark sortenabhaengig:
@@ -300,7 +300,7 @@ Tag ${VEGI_DAYS + FLOWER_DAYS - 14}: Flushing starten
 Tag ${VEGI_DAYS + FLOWER_DAYS}: Ernte
 ```
 
-### P-005: "No watering for 24h" nach Topping ist pauschal und teilweise kontraproduktiv
+### P-005: "No watering for 24h" nach Topping ist pauschal und teilweise kontraproduktiv [BEHOBEN]
 
 **Vage Anforderung:** "Keine Bewaesserung fuer 24h (Cannabis/Kraeuter)" (Zeile 877)
 **Problem:** Diese Empfehlung ist in der Cannabis-Community verbreitet, aber pflanzenphysiologisch nicht generell korrekt:
