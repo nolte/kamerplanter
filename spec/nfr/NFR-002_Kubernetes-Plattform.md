@@ -6,10 +6,10 @@ Kategorie: Infrastruktur / Deployment Unterkategorie: Container-Orchestrierung, 
 Technologie: Python 3.14, ArangoDB, Kubernetes 1.28+, Helm, Docker, Traefik
 Status: Entwurf
 Priorität: Kritisch
-Version: 2.0
+Version: 2.1
 Autor: Business Analyst - Agrotech
-Datum: 2026-02-25
-Tags: [kubernetes, helm, docker, deployment, scaling, high-availability, ci-cd]
+Datum: 2026-02-27
+Tags: [kubernetes, helm, docker, deployment, scaling, high-availability, ci-cd, network-policies, seccomp, container-security]
 Abhängigkeiten: [NFR-001]
 Betroffene Module: [ALL]
 ---
@@ -283,10 +283,12 @@ spec:
             cpu: 1000m     # 1 CPU core
             memory: 1Gi
         
-        # Security Context (Container-Level)
+        # Security Context (Container-Level) — SEC-M-004
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
+          seccompProfile:
+            type: RuntimeDefault
           capabilities:
             drop:
               - ALL
@@ -1080,6 +1082,28 @@ async def get_plant(plant_id: str):
 
 ### 7.1 Network Policies
 
+> **Referenz:** SEC-M-004 (IT-Security-Review)
+
+**Default-Deny-Policy (Namespace-Level):**
+
+Alle Pods im Namespace starten ohne jegliche Netzwerkverbindung. Erlaubte Verbindungen werden explizit durch die nachfolgenden Policies freigeschaltet.
+
+```yaml
+# k8s/network-policies/default-deny.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: agrotech-prod
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+```
+
+**Backend Network Policy:**
+
 ```yaml
 # k8s/network-policies/backend-policy.yaml
 apiVersion: networking.k8s.io/v1
@@ -1094,7 +1118,7 @@ spec:
   policyTypes:
   - Ingress
   - Egress
-  
+
   ingress:
   # Nur Traefik darf auf Backend zugreifen
   - from:
@@ -1107,9 +1131,9 @@ spec:
     ports:
     - protocol: TCP
       port: 8000
-  
+
   egress:
-  # Backend darf nur auf ArangoDB, Redis, DNS zugreifen
+  # Backend → ArangoDB
   - to:
     - podSelector:
         matchLabels:
@@ -1117,6 +1141,7 @@ spec:
     ports:
     - protocol: TCP
       port: 8529
+  # Backend → Redis
   - to:
     - podSelector:
         matchLabels:
@@ -1124,7 +1149,80 @@ spec:
     ports:
     - protocol: TCP
       port: 6379
-  # DNS
+  # Backend → TimescaleDB
+  - to:
+    - podSelector:
+        matchLabels:
+          app: timescaledb
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Backend → MQTT-Broker
+  - to:
+    - podSelector:
+        matchLabels:
+          app: mqtt
+    ports:
+    - protocol: TCP
+      port: 8883
+  # Backend → DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+  # Backend → Externe APIs (GBIF, Perenual, OIDC-Provider, Sentry, HIBP)
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+    ports:
+    - protocol: TCP
+      port: 443
+```
+
+**Frontend Network Policy:**
+
+```yaml
+# k8s/network-policies/frontend-policy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-policy
+  namespace: agrotech-prod
+spec:
+  podSelector:
+    matchLabels:
+      app: frontend
+  policyTypes:
+  - Ingress
+  - Egress
+
+  ingress:
+  # Nur Traefik darf auf Frontend zugreifen
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+      podSelector:
+        matchLabels:
+          app: traefik
+    ports:
+    - protocol: TCP
+      port: 80
+
+  egress:
+  # Frontend (Nginx) braucht keine Egress-Verbindungen
+  # Statische Assets werden direkt ausgeliefert
+  # DNS für Health-Checks
   - to:
     - namespaceSelector:
         matchLabels:
@@ -1136,6 +1234,8 @@ spec:
     - protocol: UDP
       port: 53
 ```
+
+**Hinweis:** Die Egress-Regel für externe APIs (`0.0.0.0/0:443`) erlaubt dem Backend HTTPS-Verbindungen zu Diensten wie GBIF, Perenual (REQ-011), OIDC-Providern (REQ-023), HaveIBeenPwned (REQ-023), und Sentry (NFR-001 §8.3). Private IP-Bereiche werden explizit ausgeschlossen, um Lateral Movement zu verhindern.
 
 ### 7.2 Pod Security Standards
 
@@ -1576,9 +1676,12 @@ spec:
     - [ ] PDB verhindert kompletten Ausfall
     - [ ] Resource Limits gesetzt
 - [ ] **Security**
-    
-    - [ ] Network Policies aktiv
-    - [ ] Pod Security Standards enforced
+
+    - [ ] Default-Deny Network Policy aktiv im Namespace
+    - [ ] Backend Network Policy aktiv (Ingress: nur Traefik, Egress: nur DB/Redis/MQTT/DNS/externe HTTPS)
+    - [ ] Frontend Network Policy aktiv (Ingress: nur Traefik, Egress: nur DNS)
+    - [ ] `seccompProfile: RuntimeDefault` in allen Container-Security-Contexts
+    - [ ] Pod Security Standards enforced (`restricted` Profile)
     - [ ] RBAC konfiguriert
     - [ ] Secrets nicht in Git
 - [ ] **Observability**
@@ -1843,8 +1946,15 @@ helm dependency build <chart-path>
 
 **Dokumenten-Ende**
 
-**Version**: 2.0
+**Version**: 2.1
 **Status**: Entwurf
-**Letzte Aktualisierung**: 2026-02-25
+**Letzte Aktualisierung**: 2026-02-27
 **Review**: Pending
 **Genehmigung**: Pending
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 2.1 | 2026-02-27 | IT-Security-Review-Findings eingearbeitet: §3.2 `seccompProfile: RuntimeDefault` ergänzt (SEC-M-004), §7.1 Default-Deny-Policy + Frontend-Network-Policy + Egress für externe APIs hinzugefügt (SEC-M-004), §11 Security-Akzeptanzkriterien erweitert |
+| 2.0 | 2026-02-25 | Initiale produktionsreife Spezifikation |

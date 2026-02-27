@@ -6,10 +6,10 @@ Kategorie: Architektur Unterkategorie: API-Design, Security, Deployment Fokus: B
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI, Docker
 Status: Produktionsreif
 Priorität: Kritisch
-Version: 2.0
+Version: 2.1
 Autor: Business Analyst - Agrotech
-Datum: 2026-02-25
-Tags: [architecture, api-first, security, scalability, separation-of-concerns, layered-architecture]
+Datum: 2026-02-27
+Tags: [architecture, api-first, security, scalability, separation-of-concerns, layered-architecture, rate-limiting, csp, mqtt-security, audit-trail, dsgvo]
 Abhängigkeiten: [NFR-002, NFR-003]
 Betroffene Module: [ALL]
 ---
@@ -449,7 +449,17 @@ data:
 
 ### 6.1 Authentifizierung & Autorisierung
 
+> **⚠ ABGELÖST:** Diese Sektion wird durch **REQ-023 (Benutzerverwaltung & Authentifizierung)** vollständig ersetzt. REQ-023 spezifiziert:
+> - **Authlib** anstelle von `python-jose` (aktiv maintained, OIDC/PKCE built-in)
+> - **15-Minuten-Access-Tokens** (statt 1h) mit Refresh-Token-Rotation (30 Tage)
+> - Lokale Accounts (E-Mail + Passwort) + OAuth2/OIDC (Google, GitHub, Apple, generische OIDC-Provider)
+> - Mandantenspezifische Rollen im JWT-Payload (`tenant_roles`)
+> - Vollständige Spezifikation: Engines, Services, API-Endpoints, Frontend, Abnahmekriterien
+>
+> Das nachfolgende Code-Beispiel dient nur noch als historische Referenz.
+
 ```python
+# DEPRECATED — siehe REQ-023 für aktuelle Spezifikation
 # backend/auth/jwt.py
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
@@ -461,7 +471,7 @@ class JWTAuthService:
     SECRET_KEY = settings.jwt_secret
     ALGORITHM = "HS256"
     ACCESS_TOKEN_EXPIRE = timedelta(hours=1)
-    
+
     def create_access_token(self, user_id: str) -> str:
         expire = datetime.utcnow() + self.ACCESS_TOKEN_EXPIRE
         payload = {
@@ -470,7 +480,7 @@ class JWTAuthService:
             "type": "access"
         }
         return jwt.encode(payload, self.SECRET_KEY, self.ALGORITHM)
-    
+
     def verify_token(self, token: str) -> str:
         """Returns user_id if valid, raises HTTPException otherwise"""
         try:
@@ -511,19 +521,152 @@ app.add_middleware(
 
 ### 6.3 Rate Limiting
 
+> **Referenz:** SEC-H-002 (IT-Security-Review)
+
+Rate Limiting ist eine **verbindliche Anforderung** für alle API-Endpunkte. Die Implementierung erfolgt über `slowapi` mit Redis-Backend zur cluster-weiten Synchronisierung.
+
+**Differenzierte Rate-Limiting-Tiers:**
+
+| Tier | Limit | Scope | Beschreibung |
+|------|-------|-------|-------------|
+| **Anonym** | 30 req/min | pro IP | Unauthentifizierte Requests (Health, Login, Register, Public Seed-Daten) |
+| **Authentifiziert (Read)** | 200 req/min | pro User | GET-Requests auf geschützte Endpunkte |
+| **Authentifiziert (Write)** | 30 req/min | pro User | POST/PUT/PATCH/DELETE-Requests |
+| **Login/Register** | 5 req/15 min | pro IP | Schutz gegen Brute-Force (siehe REQ-023 Login-Throttle) |
+| **CSV-Upload** | 5 req/h + max 10 MB | pro User | REQ-012 Stammdaten-Import |
+| **Datenexport** | 3 req/h | pro User | REQ-025 DSGVO-Datenexport |
+
+**Anforderungen:**
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| RL-001 | Alle API-Endpunkte MÜSSEN einem Rate-Limiting-Tier zugeordnet sein. | MUSS |
+| RL-002 | Rate-Limits MÜSSEN über Redis cluster-weit synchronisiert werden (kein In-Memory-Limiting). | MUSS |
+| RL-003 | Bei Überschreitung MUSS HTTP 429 (Too Many Requests) mit `Retry-After`-Header zurückgegeben werden. | MUSS |
+| RL-004 | Login-Endpunkte MÜSSEN dem Login-Tier folgen (5 Versuche/15 Min pro IP). Dies ist ein Spezialfall des allgemeinen Rate Limitings; die detaillierte Account-Lockout-Logik ist in REQ-023 spezifiziert. | MUSS |
+| RL-005 | CSV-Upload MUSS zusätzlich eine maximale Dateigröße von 10 MB erzwingen. | MUSS |
+
+**Technologie:** `slowapi` (FastAPI-kompatibel) + Redis-Backend
+
 ```python
-# backend/middleware/rate_limit.py
+# Beispiel: Tier-Konfiguration (illustrativ)
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-limiter = Limiter(key_func=get_remote_address)
-
-@app.get("/api/v1/plants")
-@limiter.limit("100/minute")
-async def list_plants(request: Request):
-    """Maximal 100 Requests pro Minute pro IP"""
-    pass
+limiter = Limiter(
+    key_func=get_remote_address,
+    storage_uri="redis://redis:6379/1"
+)
 ```
+
+### 6.4 HTTP Security Headers
+
+> **Referenz:** SEC-M-003 (IT-Security-Review)
+
+Alle HTTP-Responses MÜSSEN die folgenden Security Headers enthalten. Die Header werden als Traefik-Middleware (siehe NFR-002 §3.5, `default-security-headers@kubernetescrd`) konfiguriert und gelten für alle Routen.
+
+| Header | Wert | Begründung |
+|--------|------|-----------|
+| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload` | HSTS — erzwingt HTTPS für 2 Jahre, Preload-Liste |
+| `Content-Security-Policy` | siehe unten | XSS-Schutz durch Allowlisting |
+| `X-Content-Type-Options` | `nosniff` | Verhindert MIME-Sniffing |
+| `X-Frame-Options` | `DENY` | Clickjacking-Schutz |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Referrer-Leakage minimieren |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=()` | Ungenutzte Browser-APIs deaktivieren |
+
+**Content-Security-Policy (CSP):**
+
+```
+default-src 'self';
+script-src 'self' 'nonce-{random}';
+style-src 'self' 'unsafe-inline';
+img-src 'self' data: blob:;
+font-src 'self';
+connect-src 'self' https://sentry.io;
+frame-ancestors 'none';
+base-uri 'self';
+form-action 'self';
+```
+
+- `'nonce-{random}'` für Inline-Scripts: Vite und MUI generieren zur Laufzeit Inline-Skripte. Die Nonce wird pro Request serverseitig erzeugt und als Meta-Tag im HTML-Template eingebettet.
+- `'unsafe-inline'` für Styles: MUI 7 verwendet Emotion (CSS-in-JS), das Inline-Styles injiziert. Langfristig SOLL auf Nonce-basierte Styles migriert werden.
+- `connect-src` erlaubt Sentry **nur nach Einwilligung** (siehe UI-NFR-013). Die CSP-Direktive ist präventiv gesetzt; die tatsächliche Initialisierung erfolgt consent-gesteuert.
+
+**Anforderungen:**
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| SH-001 | Alle HTTP-Responses MÜSSEN die oben definierten Security Headers enthalten. | MUSS |
+| SH-002 | CSP MUSS Nonces für Inline-Scripts verwenden (keine `'unsafe-inline'` für Scripts). | MUSS |
+| SH-003 | Die Header-Konfiguration MUSS zentral in der Traefik-Middleware erfolgen (NFR-002). | MUSS |
+| SH-004 | In der Entwicklungsumgebung DARF HSTS deaktiviert werden (kein `preload`). | DARF |
+
+### 6.5 Globale Eingabevalidierung
+
+> **Referenz:** SEC-H-003 (IT-Security-Review)
+
+Alle API-Endpunkte MÜSSEN maximale Feldlängen erzwingen. Die folgende Tabelle definiert die **zentrale Feldlängen-Policy**, die für alle REQs gilt, sofern nicht explizit abweichend spezifiziert.
+
+**Zentrale Feldlängen-Policy:**
+
+| Feldtyp | Max. Länge | Pydantic-Enforcement | Beispielfelder |
+|---------|-----------|---------------------|---------------|
+| `name` / `title` | 200 Zeichen | `Field(max_length=200)` | `scientific_name`, `common_name`, `display_name`, Tenant-Name |
+| `description` | 5.000 Zeichen | `Field(max_length=5000)` | Beschreibungsfelder aller Entitäten |
+| `notes` | 10.000 Zeichen | `Field(max_length=10000)` | Freitext-Notizen (FeedingEvent, Inspection, etc.) |
+| `url` | 2.083 Zeichen | `Field(max_length=2083)` | `avatar_url`, `callback_url`, externe Links |
+| `email` | 254 Zeichen | `Field(max_length=254)` | E-Mail-Adressen (RFC 5321) |
+| `slug` | 63 Zeichen | `Field(max_length=63)` | `tenant_slug` (DNS-kompatibel) |
+| `list` (Einträge) | 100 Einträge | `Field(max_length=100)` | `common_names`, `photo_refs`, `tags` |
+| `file_upload` | 10 MB | Middleware / `UploadFile` | CSV-Import (REQ-012) |
+
+**Anforderungen:**
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| EV-001 | Alle String-Felder in Pydantic-Modellen MÜSSEN `max_length` definieren. | MUSS |
+| EV-002 | Alle Listen-Felder MÜSSEN eine maximale Anzahl an Einträgen definieren. | MUSS |
+| EV-003 | Abweichungen von der zentralen Policy MÜSSEN im jeweiligen REQ-Dokument dokumentiert und begründet werden. | MUSS |
+| EV-004 | File-Uploads MÜSSEN MIME-Type-Validierung und Größenbegrenzung durchsetzen. | MUSS |
+
+### 6.6 MQTT-Security
+
+> **Referenz:** SEC-H-006 (IT-Security-Review)
+
+MQTT wird für die Kommunikation mit Sensoren (REQ-005) und Aktoren (REQ-018) eingesetzt. Da kompromittierte MQTT-Clients physische Schäden verursachen können (unkontrollierte Bewässerung, CO2-Zufuhr, Beleuchtung), gelten strenge Sicherheitsanforderungen.
+
+**Anforderungen:**
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| MQ-001 | MQTT-Kommunikation MUSS über TLS verschlüsselt erfolgen (Port 8883). Unverschlüsselte Verbindungen (Port 1883) DÜRFEN NICHT akzeptiert werden. | MUSS |
+| MQ-002 | Alle MQTT-Clients MÜSSEN sich authentifizieren: Username/Password ODER Client-Zertifikate. Anonyme Verbindungen DÜRFEN NICHT akzeptiert werden. | MUSS |
+| MQ-003 | Topic-ACLs MÜSSEN pro Device konfiguriert werden. | MUSS |
+| MQ-004 | Wildcard-Subscriptions (`#`, `+`) auf Steuerungstopics (`actuators/…`) DÜRFEN NICHT erlaubt werden. | MUSS |
+| MQ-005 | Der MQTT-Broker MUSS Verbindungsversuche mit ungültigen Credentials loggen (Security-Audit-Log, siehe §10.2). | MUSS |
+
+**Topic-ACL-Schema:**
+
+| Client-Typ | Publish | Subscribe |
+|------------|---------|-----------|
+| Sensor-Device | `sensors/{device_id}/+` | — |
+| Aktor-Device | `actuators/{device_id}/status` | `actuators/{device_id}/command` |
+| Backend-Service | `actuators/{device_id}/command` | `sensors/#`, `actuators/+/status` |
+
+### 6.7 Datenschutz-Folgenabschätzung (DSFA)
+
+> **Referenz:** SEC-K-005 (IT-Security-Review)
+
+Sensordaten (CO2-Konzentration, Temperatur, Luftbewegung, manuelle Aktor-Overrides) können Rückschlüsse auf Anwesenheit und Verhalten von Personen ermöglichen — insbesondere in kleinen Räumen wie Growzelten oder Kellerräumen. Dies betrifft primär REQ-005 (Hybrid-Sensorik) und REQ-018 (Umgebungssteuerung/Aktorik).
+
+Vor Inbetriebnahme der Sensorerfassung MUSS eine **Datenschutz-Folgenabschätzung (DSFA)** nach Art. 35 DSGVO durchgeführt werden. Die DSFA MUSS mindestens die folgenden Risiken bewerten:
+
+- CO2-Kurven als Proxy für Anwesenheitserkennung
+- Temperatur-Anomalien durch Körperwärme in kleinen Räumen
+- Manuelle Aktor-Overrides als Nachweis von Anwesenheitszeiten
+- Langzeitspeicherung von Zeitreihen in TimescaleDB
+
+Technische Maßnahmen zur Risikominimierung: Downsampling-Policy (NFR-011: 90 Tage Rohdaten → 2 Jahre Stundenmittel → 5 Jahre Tagesmittel), Einwilligung für Sensorerfassung (REQ-025 ConsentEngine, Consent-Kategorie `sensor_data_collection`).
 
 ---
 
@@ -806,11 +949,11 @@ export async function apiCall<T>(
       `${API_BASE_URL}${endpoint}`,
       options
     );
-    
+
     if (!response.ok) {
       throw new ApiError(response.status, await response.text());
     }
-    
+
     return await response.json();
   } catch (error) {
     Sentry.captureException(error, {
@@ -821,6 +964,20 @@ export async function apiCall<T>(
   }
 }
 ```
+
+> **Referenz:** SEC-M-005 (IT-Security-Review)
+
+**DSGVO-Konformität für Sentry:**
+
+Sentry überträgt bei Fehler-Reports potenziell personenbezogene Daten (IP-Adressen, URLs mit Tenant-Slugs, User-Agent, Session-Replay). Die folgenden Anforderungen gelten:
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| SE-001 | Sentry DARF ERST nach expliziter Einwilligung des Nutzers initialisiert werden (Consent-Kategorie `error_tracking`, siehe UI-NFR-013). | MUSS |
+| SE-002 | PII-Scrubbing MUSS aktiviert sein: `beforeSend`-Hook MUSS IP-Adressen, E-Mail-Adressen und User-Namen aus Events entfernen. | MUSS |
+| SE-003 | Session-Replay DARF NUR mit separater expliziter Einwilligung aktiviert werden (Consent-Kategorie `error_tracking` mit Sub-Option `session_replay`). | MUSS |
+| SE-004 | Sentry MUSS entweder als Self-Hosted-Instanz ODER über ein EU-Rechenzentrum betrieben werden. Bei Nutzung von Sentry SaaS (US) MUSS ein Auftragsverarbeitungsvertrag (AVV) nach Art. 28 DSGVO abgeschlossen und das EU-US Data Privacy Framework als Rechtsgrundlage dokumentiert werden. | MUSS |
+| SE-005 | Bei Widerruf der Einwilligung MUSS Sentry sofort deaktiviert werden (kein Nachladen, kein Tracking bis zum nächsten Seitenaufruf). | MUSS |
 
 ---
 
@@ -973,6 +1130,33 @@ db.provides_endpoint.save({
 
 ### 10.2 Audit-Trail für API-Zugriffe
 
+> **Referenz:** SEC-H-007 (IT-Security-Review)
+
+Der Audit-Trail ist eine **verbindliche Anforderung**, kein optionales Feature. Alle sicherheitsrelevanten Ereignisse MÜSSEN in der `audit_logs`-Collection (mit `performed_by`- und `affected`-Edge-Collections) protokolliert werden.
+
+**Pflicht-Events:**
+
+| Kategorie | Events | Beispiel |
+|-----------|--------|---------|
+| **Authentifizierung** | Login (Erfolg/Fehlschlag), Logout, Account-Lockout, Passwort-Änderung, Passwort-Reset | `AUTH_LOGIN_SUCCESS`, `AUTH_LOGIN_FAILURE`, `AUTH_LOCKOUT` |
+| **Autorisierung** | Rollen-/Membership-Änderungen, Tenant-Zuordnung | `AUTHZ_ROLE_CHANGED`, `AUTHZ_MEMBERSHIP_CREATED` |
+| **Datenmanipulation** | Löschungen (Soft/Hard), Tenant-Löschung mit Kaskade | `DATA_ENTITY_DELETED`, `DATA_TENANT_DELETED` |
+| **Admin-Aktionen** | OIDC-Provider-Konfiguration, Account-Linking/-Unlinking, User-Administration | `ADMIN_OIDC_PROVIDER_CREATED`, `ADMIN_ACCOUNT_LINKED` |
+| **DSGVO-Aktionen** | Datenexport-Anfrage, Löschantrag, Consent-Änderung, Daten-Anonymisierung | `DSGVO_EXPORT_REQUESTED`, `DSGVO_ERASURE_EXECUTED` |
+| **Security** | Token-Revocation, MQTT-Auth-Failure, Rate-Limit-Überschreitung | `SEC_TOKEN_REVOKED`, `SEC_RATE_LIMIT_EXCEEDED` |
+
+**Anforderungen:**
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| AL-001 | Alle oben genannten Pflicht-Events MÜSSEN im Audit-Log erfasst werden. | MUSS |
+| AL-002 | Audit-Log-Einträge DÜRFEN NICHT nachträglich verändert oder gelöscht werden (append-only). | MUSS |
+| AL-003 | Retention: Audit-Logs MÜSSEN mindestens 2 Jahre aufbewahrt werden (BSI IT-Grundschutz). Danach MUSS die IP-Adresse anonymisiert werden; der restliche Eintrag bleibt erhalten. | MUSS |
+| AL-004 | Ein Prometheus-Counter `audit_events_total{event_type, result}` MUSS für Monitoring und Alerting exportiert werden. | MUSS |
+| AL-005 | Jeder Audit-Log-Eintrag MUSS mindestens enthalten: `timestamp` (ISO 8601), `event_type`, `actor` (User-Key oder `system`), `ip_address`, `result` (success/failure), `details` (Event-spezifisch). | MUSS |
+
+**Referenz-Implementierung** (Collections und AQL-Beispiel):
+
 ```javascript
 // ArangoDB - Jede relevante Mutation wird geloggt
 db._create("audit_logs");
@@ -1055,12 +1239,18 @@ const aql = `
     - [ ] API-Versionierung implementiert (`/api/v1/`)
     - [ ] Request/Response-Schemas mit Pydantic validiert
 - [ ] **Sicherheit**
-    
+
     - [ ] JWT-Authentifizierung aktiv
     - [ ] CORS korrekt konfiguriert
-    - [ ] Rate Limiting implementiert (100 req/min)
+    - [ ] Globale Rate-Limiting-Policy aktiv (differenzierte Tiers: Anonym/Auth-Read/Auth-Write/Login/Upload)
     - [ ] DB-Credentials in Kubernetes Secrets
     - [ ] Keine Credentials in Frontend-Code oder ENV-Variablen
+    - [ ] HTTP Security Headers konfiguriert (CSP mit Nonces, HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy)
+    - [ ] Maximale Feldlängen in allen Pydantic-Modellen definiert (gemäß §6.5 Feldlängen-Policy)
+    - [ ] Security-Audit-Log für alle Pflicht-Events aktiv (§10.2)
+    - [ ] MQTT-Kommunikation TLS-verschlüsselt mit Authentifizierung und Topic-ACLs (§6.6)
+    - [ ] Sentry erst nach Einwilligung initialisiert, PII-Scrubbing aktiv (§8.3)
+    - [ ] DSFA für Sensordaten vor Inbetriebnahme durchgeführt (§6.7)
 - [ ] **Deployment**
     
     - [ ] Frontend und Backend getrennt deploybar
@@ -1344,8 +1534,15 @@ class WeatherStationAdapter:
 
 **Dokumenten-Ende**
 
-**Version**: 2.0
+**Version**: 2.1
 **Status**: Produktionsreif
-**Letzte Aktualisierung**: 2026-02-25
+**Letzte Aktualisierung**: 2026-02-27
 **Review**: Pending
 **Genehmigung**: Pending
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 2.1 | 2026-02-27 | IT-Security-Review-Findings eingearbeitet: §6.3 Rate Limiting formalisiert (SEC-H-002), §6.4 HTTP Security Headers (SEC-M-003), §6.5 Globale Eingabevalidierung (SEC-H-003), §6.6 MQTT-Security (SEC-H-006), §6.7 DSFA-Pflicht (SEC-K-005), §8.3 Sentry DSGVO-Konformität (SEC-M-005), §10.2 Audit-Trail verbindlich (SEC-H-007), §12 Akzeptanzkriterien erweitert |
+| 2.0 | 2026-02-25 | Produktionsreife Version, §6.1 Auth an REQ-023 delegiert |
