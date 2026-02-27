@@ -255,12 +255,39 @@ class StarterKitService:
 | `superhot-chili` | Superhot-Chili | *Capsicum chinense*, *Capsicum annuum* | Habanero Orange, Carolina Reaper, Trinidad Scorpion | `advanced` |
 | `microgreens` | Microgreens | *Brassica oleracea* var. *italica*, *Raphanus sativus*, *Helianthus annuus* | Brokkoli-Microgreens 'Calabrese', Radieschen-Microgreens 'China Rose', Sonnenblumen-Microgreens | `beginner` |
 
+**Toxizitätswarnungen pro Kit:**
+
+| Kit-ID | `toxicity_warning` |
+|--------|-------------------|
+| `fensterbank-kraeuter` | `{"cats": "safe", "dogs": "safe", "children": "safe"}` |
+| `balkon-tomaten` | `{"cats": "caution", "dogs": "caution", "children": "safe"}` |
+| `kleines-gemusebeet` | `{"cats": "caution", "dogs": "caution", "children": "safe"}` |
+| `zimmerpflanzen` | `{"cats": "warning", "dogs": "warning", "children": "caution"}` |
+| `zimmerpflanzen-haustierfreundlich` | `{"cats": "safe", "dogs": "safe", "children": "safe"}` |
+| `indoor-growzelt` | `{"cats": "caution", "dogs": "caution", "children": "danger"}` |
+| `chili-zucht` | `{"cats": "safe", "dogs": "safe", "children": "safe"}` |
+| `superhot-chili` | `{"cats": "safe", "dogs": "safe", "children": "caution"}` |
+| `microgreens` | `{"cats": "safe", "dogs": "safe", "children": "safe"}` |
+
+Hinweis: Tomate (*Solanum lycopersicum*) enthält Solanin/Tomatidin in Blättern und unreifen Früchten — milde Toxizität für Haustiere. Alle vier Zimmerpflanzen-Kit-Species sind für Haustiere toxisch (Calciumoxalat-Raphide bzw. Saponine).
+
 Jedes Kit liefert für jede enthaltene Species:
 - Vollständige BotanicalFamily-Referenz (aus bestehenden Seed-Daten)
-- Mindestens 3 vorkonfigurierte GrowthPhases mit Dauern
+- Mindestens 3 vorkonfigurierte GrowthPhases mit Dauern (artspezifisch, siehe unten)
 - RequirementProfiles mit Anfänger-tauglichen Werten
 - Deutsche und englische Trivialnamen
 - 1 WorkflowTemplate mit Einsteiger-Tasks (REQ-006, `difficulty_level: 'beginner'`)
+
+**Zimmerpflanzen-spezifische GrowthPhases:**
+
+Dekorative Zimmerpflanzen (Kits `zimmerpflanzen` und `zimmerpflanzen-haustierfreundlich`) verwenden einen eigenen Phasen-Satz, da die Standard-Phasen (seedling → vegetative → flowering → ripening) auf einjährige Nutzpflanzen zugeschnitten sind und für mehrjährige Zimmerpflanzen biologisch nicht sinnvoll sind:
+
+| Phase | Dauer | Beschreibung |
+|-------|-------|-------------|
+| `acclimatization` | 14–28 Tage | Eingewöhnung nach Kauf oder Umtopfen. Reduziertes Gießen, kein Dünger, kein Umstellen. |
+| `active_growth` | Ganzjährig (bei Kunstlicht) oder saisonal (Frühling–Herbst) | Aktives Wachstum. Regelmäßig gießen und düngen. |
+| `maintenance` | An Jahreszeit gekoppelt (Winter) | Erhaltungspflege / Winter-Verlangsamung. Weniger gießen, nicht düngen, kühlere Temperaturen tolerieren. |
+| `repotting_recovery` | 7–14 Tage (event-triggered) | Erholungsphase nach Umtopfen. Ähnlich wie acclimatization, aber kürzer. |
 
 ## 4. API-Endpunkte
 

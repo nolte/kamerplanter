@@ -299,6 +299,24 @@ Beispiel (`de.json`):
       "long": "Umtopfen ist nötig, wenn die Wurzeln den Topf komplett ausfüllen (Wurzeln wachsen aus dem Abzugsloch). Beste Zeit: Frühling. Neuer Topf sollte 2–4 cm größer sein als der alte.",
       "beginnerTip": "Zeichen zum Umtopfen: Wurzeln wachsen unten raus, Wasser läuft sofort durch, Pflanze wächst nicht mehr.",
       "category": "allgemein"
+    },
+    "dif": {
+      "short": "Temperatur-Unterschied zwischen Tag und Nacht",
+      "long": "DIF beschreibt die Differenz zwischen Tag- und Nachttemperatur. Positiver DIF (Tag wärmer als Nacht) fördert Streckungswachstum. Negativer DIF (Nacht wärmer) hält Pflanzen kompakt. In professionellen Gewächshäusern wird DIF gezielt zur Wuchssteuerung eingesetzt.",
+      "beginnerTip": "Für Zimmerpflanzen: Nachts darf es 3–5°C kühler sein als tagsüber — das ist natürlich und gut für die Pflanze.",
+      "category": "klima"
+    },
+    "hysterese": {
+      "short": "Schaltschwellen-Abstand, der Gerätependeln verhindert",
+      "long": "Hysterese bedeutet, dass ein Gerät bei einem höheren Wert einschaltet als es ausschaltet. Beispiel: Befeuchter AN bei 50% rH, AUS erst bei 60% rH. Ohne Hysterese würde das Gerät im Sekundentakt ein- und ausschalten.",
+      "beginnerTip": "Wird automatisch vom System gesteuert. Nur relevant, wenn du eigene Automatisierungsregeln erstellst.",
+      "category": "klima"
+    },
+    "mixing_priority": {
+      "short": "Reihenfolge, in der Dünger ins Wasser gerührt wird",
+      "long": "Beim Anmischen einer Nährlösung ist die Reihenfolge wichtig: Erst CalMag, dann Basisdünger, zuletzt Additive. Falsche Reihenfolge kann zu Ausfällungen führen (sichtbar als Trübung oder Bodensatz).",
+      "beginnerTip": "Nur bei Hydroponik relevant. Bei Flüssigdünger für Zimmerpflanzen einfach ins Wasser geben.",
+      "category": "naehrstoffe"
     }
   }
 }
