@@ -7,7 +7,7 @@ Kategorie: Bewässerung & Düngung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery
 Status: Entwurf
-Version: 1.0
+Version: 1.1
 ```
 
 ## 1. Business Case
@@ -32,6 +32,7 @@ Das System führt den **Tank (Reservoir)** als zentrale Infrastruktur-Entität e
 - **Gießwasser (irrigation):** Aufbereitetes Wasser (ggf. mit pH-Korrektur) für Erde/Coco
 - **Reservoir (reservoir):** Vorratstank für Rohwasser (Regenwasser, Osmose, Leitungswasser)
 - **Rezirkulation (recirculation):** Rücklauftank bei geschlossenen Hydro-Systemen (NFT, Ebb&Flow)
+- **Stammlösung (stock_solution):** Konzentrierte A/B-Tanks (100x–200x) für automatisierte Dosierung (REQ-018). EC 50–200+ mS/cm, extrem niedriger pH. A+B niemals im Konzentrat mischen! Muss über `feeds_from`-Kaskade in Mischtank dosiert werden.
 
 **Tankpflege & Wartungsaufgaben:**
 Die Pflege des Tanks erzeugt direkte Auswirkungen auf die Aufgabenplanung (REQ-006):
@@ -71,10 +72,17 @@ Auch bei Locations mit automatischer Bewässerung (`irrigation_system != 'manual
 - **Tank-Safety-Warnung:** Wenn ein Nutzer einen Dünger mit `tank_safe=false` (REQ-004) in ein TankFillEvent einfügen möchte, warnt das System und schlägt manuelles Gießen per WateringEvent vor
 
 **Zustandsüberwachung:**
-- Kontinuierliches Tracking von pH, EC, Wassertemperatur und Füllstand (manuell oder via REQ-005 Sensorik)
-- Automatische Alerts bei Grenzwert-Überschreitung (pH-Drift > 0.5, EC-Abweichung > 20%, Temperatur > 25°C)
+- Kontinuierliches Tracking von pH, EC, Wassertemperatur, Gelöstsauerstoff (DO), ORP und Füllstand (manuell oder via REQ-005 Sensorik)
+- Automatische Alerts bei Grenzwert-Überschreitung — Schwellenwerte nach Tank-Typ differenziert:
+  - **pH:** Tank-Typ-abhängig (Hydroponik: 5.5–6.5, Rezirkulation: 5.5–6.3, Bewässerung: 5.8–6.8), pH-Drift relativ zum letzten Wasserwechsel (>0.5, Rezirkulation >0.3)
+  - **EC:** Relativ zum Ziel-EC des aktiven NutrientPlans (Warnung >20%, Alarm >30%), Fallback auf absolute Obergrenze ohne Plan
+  - **Temperatur:** Differenziert nach Tank-Typ — Nährstoff/Rezirkulation: Warnung >22°C (Pythium), kritisch >25–26°C; Kälte-Warnung <15°C, kritisch <10–12°C (Wurzelschock)
+  - **Gelöstsauerstoff (DO):** Kritisch <4 mg/L (anaerob), suboptimal <6 mg/L (Hydroponik-Pflicht)
+  - **ORP:** Für Rezirkulation mit Sterilisation — <250 mV = Pathogen-Risiko, <650 mV = Sterilisation unzureichend
+  - **Lösungsalter:** Temperaturkorrigierte Warnung (Q10-Regel: 5 Tage organisch / 10 Tage mineralisch bei 20°C Referenz; bei 30°C halbe Haltbarkeit) — Chelat-Degradation
 - Füllstandswarnung bei < 20% Restvolumen
-- Algenrisiko-Warnung bei Wassertemperatur > 22°C (Nährlösungstanks)
+- Algenrisiko-Score (multifaktoriell: Lichteinfall als Primärtreiber, Temperatur, Nährstoffgehalt)
+- Chlor/Chloramin-Warnung bei >0.5 ppm im Ausgangswasser + biologischen Additiven — differenzierte Entchlorungsempfehlung (freies Chlor: Abstehen reicht; Chloramin: Ascorbinsäure/Aktivkohle zwingend)
 
 ## 2. ArangoDB-Modellierung
 
@@ -88,9 +96,12 @@ Auch bei Locations mit automatischer Bewässerung (`irrigation_system != 'manual
     - `volume_liters: float` (Nennvolumen)
     - `material: Optional[Literal['plastic', 'stainless_steel', 'glass', 'ibc']]`
     - `has_lid: bool` (Deckel vorhanden — Algenrisiko ohne Deckel)
+    - `is_light_proof: bool` (Lichtdicht — primärer Algenrisikofaktor; transparente Materialien sind NICHT lichtdicht)
     - `has_air_pump: bool` (Belüftung — wichtig für DWC)
     - `has_circulation_pump: bool` (Umwälzpumpe)
     - `has_heater: bool` (Heizstab für Winterbetrieb)
+    - `has_uv_sterilizer: bool` (UV-C Entkeimung — relevant für Rezirkulation)
+    - `has_ozone_generator: bool` (Ozon-Desinfektion — effektiv gegen Pythium/Fusarium)
     - `installed_on: date` (Installationsdatum)
     - `notes: Optional[str]`
 
@@ -103,6 +114,8 @@ Auch bei Locations mit automatischer Bewässerung (`irrigation_system != 'manual
     - `ph: Optional[float]`
     - `ec_ms: Optional[float]`
     - `water_temp_celsius: Optional[float]`
+    - `dissolved_oxygen_mgl: Optional[float]` (Gelöstsauerstoff — kritisch für Hydroponik: >6 mg/L optimal, <4 mg/L kritisch)
+    - `orp_mv: Optional[int]` (Oxidation-Reduction-Potential — Rezirkulation: >700 mV steril, <250 mV Pathogen-Risiko)
     - `tds_ppm: Optional[int]`
     - `source: Literal['manual', 'sensor', 'home_assistant']` (Datenherkunft analog REQ-005)
 
@@ -122,6 +135,10 @@ Auch bei Locations mit automatischer Bewässerung (`irrigation_system != 'manual
     - `source_tank_key: Optional[str]` (Quell-Tank bei Kaskade, z.B. Reservoir)
     - `fertilizers_used: Optional[list[FertilizerSnapshot]]` (Dünger-Snapshot: [{name, ml_per_liter, product_key}])
     - `base_water_ec_ms: Optional[float]` (EC des Ausgangswassers)
+    - `chlorine_ppm: Optional[float]` (Freies Chlor im Ausgangswasser — verflüchtigt sich durch 24h Abstehen)
+    - `chloramine_ppm: Optional[float]` (Chloramin im Ausgangswasser — erfordert Ascorbinsäure/Aktivkohle, NICHT flüchtig)
+    - `is_organic_fertilizers: bool` (Enthält organische Dünger — kürzeres Lösungsalter)
+    - `alkalinity_ppm: Optional[float]` (Karbonathärte CaCO₃-Äquivalent — bestimmt pH-Drift)
     - `performed_by: Optional[str]` (Benutzer)
     - `notes: Optional[str]`
 
@@ -424,6 +441,9 @@ class TankType(str, Enum):
     IRRIGATION = "irrigation"       # Gießwasser
     RESERVOIR = "reservoir"         # Vorratstank (Regen/Osmose/Leitung)
     RECIRCULATION = "recirculation" # Rücklauftank (geschlossene Systeme)
+    STOCK_SOLUTION = "stock_solution"  # Konzentrierte Stammlösung (A/B-Tanks, 100x-200x)
+    # stock_solution: EC 50-200+ mS/cm, pH extrem (A: 2-3, B: 4-5), typisch 5-25L.
+    # A+B NIEMALS im Konzentrat mischen (Ausfällung)! Muss über feeds_from-Kaskade laufen.
 
 class MaintenanceType(str, Enum):
     WATER_CHANGE = "water_change"
@@ -441,9 +461,12 @@ class TankDefinition(BaseModel):
     volume_liters: float = Field(gt=0, le=10000)
     material: Optional[Literal['plastic', 'stainless_steel', 'glass', 'ibc']] = None
     has_lid: bool = Field(default=True)
+    is_light_proof: bool = Field(default=True, description="Lichtdicht — primärer Treiber für Algenrisiko. Transparente/transluzente Materialien (weißes Plastik, Glas) sind NICHT lichtdicht.")
     has_air_pump: bool = Field(default=False)
     has_circulation_pump: bool = Field(default=False)
     has_heater: bool = Field(default=False)
+    has_uv_sterilizer: bool = Field(default=False, description="UV-C Entkeimung inline — relevant für Rezirkulation")
+    has_ozone_generator: bool = Field(default=False, description="Ozon-Desinfektion — effektiv gegen Pythium/Fusarium")
     installed_on: date = Field(default_factory=date.today)
     notes: Optional[str] = Field(None, max_length=1000)
 
@@ -454,8 +477,22 @@ class TankStateRecord(BaseModel):
     fill_level_liters: Optional[float] = Field(None, ge=0)
     fill_level_percent: Optional[float] = Field(None, ge=0, le=100)
     ph: Optional[float] = Field(None, ge=0, le=14)
-    ec_ms: Optional[float] = Field(None, ge=0, le=10)
+    ec_ms: Optional[float] = Field(None, ge=0, le=250, description="Bis 10 mS für Gebrauchslösung, bis 250 mS für stock_solution")
     water_temp_celsius: Optional[float] = Field(None, ge=0, le=50)
+    dissolved_oxygen_mgl: Optional[float] = Field(
+        None, ge=0, le=20,
+        description="Gelöstsauerstoff in mg/L. Kritisch für Hydroponik: "
+                    "optimal >6 mg/L (>75% Sättigung), kritisch <4 mg/L (anaerobe Bedingungen). "
+                    "Sättigung sinkt mit steigender Temperatur UND steigendem EC "
+                    "(Salting-Out-Effekt): Reinwasser 20°C: ~9.1 mg/L; "
+                    "Nährlösung EC 2.0 bei 25°C: ~7.2–7.5 mg/L."
+    )
+    orp_mv: Optional[int] = Field(
+        None, ge=-500, le=1000,
+        description="Oxidation-Reduction-Potential in mV. "
+                    "Relevant für Rezirkulation: >700 mV = effektive Sterilisation, "
+                    "<250 mV = reduzierende Bedingungen (Pathogen-Risiko)."
+    )
     tds_ppm: Optional[int] = Field(None, ge=0)
     source: Literal['manual', 'sensor', 'home_assistant'] = 'manual'
 
@@ -477,7 +514,9 @@ class FertilizerSnapshot(BaseModel):
 
     product_key: Optional[str] = Field(None, description="ArangoDB _key des Fertilizer-Dokuments")
     product_name: str = Field(min_length=1, max_length=200)
-    ml_per_liter: float = Field(gt=0, le=50.0)
+    ml_per_liter: Optional[float] = Field(None, gt=0, le=50.0, description="Flüssigdünger-Dosierung")
+    g_per_liter: Optional[float] = Field(None, gt=0, le=100.0, description="Feststoff-Dosierung (Top-Dress, Trockendünger)")
+    is_organic: bool = Field(default=False, description="Konsistent mit REQ-004 Fertilizer.is_organic")
 
 class TankFillEvent(BaseModel):
     """Einzelne Tankbefüllung (immutable) — historisiert Rezept, Menge und Messwerte"""
@@ -500,6 +539,32 @@ class TankFillEvent(BaseModel):
     water_source: Optional[Literal['tap', 'osmose', 'rainwater', 'distilled', 'well']] = None
     source_tank_key: Optional[str] = Field(None, description="Quell-Tank bei Kaskade")
     base_water_ec_ms: Optional[float] = Field(None, ge=0, le=5, description="EC des Ausgangswassers")
+    chlorine_ppm: Optional[float] = Field(
+        None, ge=0, le=10,
+        description="Freies Chlor (Cl₂/HOCl) im Ausgangswasser (ppm). "
+                    "Verflüchtigt sich durch 24h Abstehen oder Belüftung. "
+                    "Alternativ: Ascorbinsäure (1g pro 400L bei 1 ppm Cl). "
+                    "Leitungswasser: typisch 0.2–2.0 ppm."
+    )
+    chloramine_ppm: Optional[float] = Field(
+        None, ge=0, le=10,
+        description="Gebundenes Chlor/Chloramin (NH₂Cl) im Ausgangswasser (ppm). "
+                    "NICHT flüchtig — Abstehen ist NICHT ausreichend! "
+                    "Entfernung: Ascorbinsäure (1g pro 400L bei 1 ppm) oder Aktivkohle-Filter. "
+                    ">0.5 ppm tötet Mykorrhiza und Nützlinge ab (REQ-004 Inkompatibilitäten)."
+    )
+    alkalinity_ppm: Optional[float] = Field(
+        None, ge=0, le=500,
+        description="Karbonathärte/Alkalinität (CaCO₃-Äquivalent) in ppm. "
+                    "Bestimmt pH-Pufferkapazität und pH-Drift-Geschwindigkeit. "
+                    "Konsistent mit REQ-004 base_water_alkalinity_ppm."
+    )
+
+    # Nachfüllwasser-Temperatur (Wurzelschock-Prävention)
+    water_temperature_celsius: Optional[float] = Field(
+        None, ge=0, le=50,
+        description="Temperatur des Nachfüllwassers. Delta >5°C zur Tanklösung = Wurzelschock-Risiko."
+    )
 
     # Dünger-Snapshot (unveränderliche Kopie)
     fertilizers_used: list[FertilizerSnapshot] = Field(default_factory=list)
@@ -559,7 +624,15 @@ class WateringEvent(BaseModel):
     target_ph: Optional[float] = Field(None, ge=0, le=14)
     measured_ec_ms: Optional[float] = Field(None, ge=0, le=10)
     measured_ph: Optional[float] = Field(None, ge=0, le=14)
-    runoff_ec_ms: Optional[float] = Field(None, ge=0, le=10)
+    runoff_ec_ms: Optional[float] = Field(
+        None, ge=0, le=10,
+        description="Drain-Messung. Interpretation substrat-abhängig: "
+                    "Coco: Runoff-EC sollte <0.5 mS über Input liegen; "
+                    "Steinwolle: Schwankt im Tagesverlauf; "
+                    "Erde: Stark gepuffert durch CEC; "
+                    "Hydro (NFT/DWC): Kein Drain-Konzept. "
+                    "Substrattyp wird über Slot → SubstrateBatch → Substrate aufgelöst."
+    )
     runoff_ph: Optional[float] = Field(None, ge=0, le=14)
 
     # Wasserherkunft
@@ -637,31 +710,120 @@ class TankService:
             )
         return True, None
 
+    # pH-Grenzen nach Tank-Typ (engere Bereiche als das universelle 5.0–7.0)
+    PH_RANGES: dict[str, tuple[float, float]] = {
+        'nutrient':      (5.5, 6.5),   # Hydroponik-Standard; >6.5 = Fe-Lockout, <5.5 = Ca/Mg-Lockout
+        'recirculation': (5.5, 6.3),   # Enger, da pH-Drift in Rezirkulation schneller
+        'irrigation':    (5.8, 6.8),   # Default für Erde/Coco — kann substratspezifisch überschrieben werden
+        'reservoir':     (5.0, 8.0),   # Rohwasser — weiter Bereich akzeptabel
+        'stock_solution': (1.0, 14.0), # Keine pH-Limits für Konzentrate
+    }
+
+    # Substratspezifische pH-Bereiche für Irrigation-Tanks
+    # Wird verwendet wenn die versorgte Location einen bekannten Substrattyp hat
+    PH_RANGES_BY_SUBSTRATE: dict[str, tuple[float, float]] = {
+        'coco':         (5.8, 6.2),   # Engerer Bereich — pH 6.8 führt zu Fe/Mn-Lockout bei Coco
+        'soil':         (6.0, 6.8),   # Standard-Erde
+        'living_soil':  (6.2, 6.8),   # Zu sauer (<6.0) schädigt Mikrobiom
+        'perlite':      (5.5, 6.3),   # Wie Hydroponik
+        'rockwool_slab': (5.5, 6.3),  # Wie Hydroponik
+    }
+
+    # Temperatur-Schwellenwerte nach Tank-Typ
+    TEMP_THRESHOLDS: dict[str, dict] = {
+        'nutrient': {
+            'cold_warning': 15.0,      # Nährstoffaufnahme verlangsamt sich
+            'cold_critical': 10.0,     # Wurzelschock
+            'warm_warning': 22.0,      # DO sinkt, Pythium-Risiko steigt
+            'warm_critical': 26.0,     # Akute Wurzelfäule-Gefahr
+        },
+        'recirculation': {
+            'cold_warning': 16.0,
+            'cold_critical': 12.0,
+            'warm_warning': 22.0,      # Wie nutrient — Pathogen-Ausbreitung über Kreislauf
+            'warm_critical': 25.0,     # Strenger wegen systemweitem Infektionsrisiko
+        },
+        'irrigation': {
+            'cold_warning': 10.0,
+            'cold_critical': 5.0,
+            'warm_warning': 28.0,      # Weniger kritisch (kein Dauerkontakt mit Wurzeln)
+            'warm_critical': 35.0,
+        },
+        'reservoir': {
+            'cold_warning': 5.0,       # Frost-Risiko
+            'cold_critical': 1.0,
+            'warm_warning': 30.0,      # Algenrisiko, aber nicht wurzelkritisch
+            'warm_critical': 40.0,
+        },
+    }
+
     def check_alerts(
         self,
         tank: dict,
         current_state: dict,
+        last_fill_event: Optional[dict] = None,
     ) -> list[dict]:
         """
         Prüft Tank-Zustand gegen Grenzwerte und erzeugt Alerts.
+        Schwellenwerte sind nach tank_type differenziert.
+        last_fill_event: Letzter Vollwechsel für EC-Zielvergleich und Lösungsalter.
         """
         alerts = []
+        tank_type = tank.get('tank_type', 'nutrient')
 
+        # --- pH: Tank-Typ-abhängige Grenzen ---
         if current_state.get('ph') is not None:
-            # pH-Drift-Check: Vergleich zum letzten Wasserwechsel
-            # (vereinfacht: absolute Grenzen)
             ph = current_state['ph']
-            if ph < 5.0 or ph > 7.0:
+            ph_min, ph_max = self.PH_RANGES.get(tank_type, (5.0, 7.0))
+            if ph < ph_min or ph > ph_max:
+                severity = 'critical' if (ph < ph_min - 0.5 or ph > ph_max + 0.5) else 'high'
                 alerts.append({
                     'type': 'ph_out_of_range',
-                    'severity': 'high',
-                    'message': f"pH {ph:.1f} außerhalb Zielbereich (5.0–7.0)",
+                    'severity': severity,
+                    'message': f"pH {ph:.1f} außerhalb Zielbereich ({ph_min}–{ph_max}) "
+                               f"für Tank-Typ '{tank_type}'",
                     'value': ph,
                 })
 
+            # pH-Drift relativ zum letzten Wasserwechsel
+            if last_fill_event and last_fill_event.get('measured_ph') is not None:
+                drift = abs(ph - last_fill_event['measured_ph'])
+                drift_threshold = 0.3 if tank_type == 'recirculation' else 0.5
+                if drift > drift_threshold:
+                    alerts.append({
+                        'type': 'ph_drift',
+                        'severity': 'medium',
+                        'message': f"pH-Drift {drift:.1f} seit letzter Befüllung "
+                                   f"(war {last_fill_event['measured_ph']:.1f}, jetzt {ph:.1f})",
+                        'value': drift,
+                    })
+
+        # --- EC: Relativ zum Ziel-EC des letzten Fill-Events ---
         if current_state.get('ec_ms') is not None:
             ec = current_state['ec_ms']
-            if tank['tank_type'] == 'nutrient' and ec > 3.0:
+            target_ec = (last_fill_event or {}).get('target_ec_ms')
+
+            if target_ec is not None and target_ec > 0:
+                deviation_pct = abs(ec - target_ec) / target_ec * 100
+                if deviation_pct > 30:
+                    direction = "gestiegen" if ec > target_ec else "gefallen"
+                    alerts.append({
+                        'type': 'ec_deviation_critical',
+                        'severity': 'high',
+                        'message': f"EC {ec:.2f} mS — {deviation_pct:.0f}% vom Ziel "
+                                   f"({target_ec:.2f} mS) abgewichen ({direction}). "
+                                   f"{'Salzakkumulation?' if ec > target_ec else 'Pflanzen nehmen mehr auf als verfügbar.'}",
+                        'value': ec,
+                    })
+                elif deviation_pct > 20:
+                    alerts.append({
+                        'type': 'ec_deviation_warning',
+                        'severity': 'medium',
+                        'message': f"EC {ec:.2f} mS — {deviation_pct:.0f}% Abweichung vom Ziel ({target_ec:.2f} mS)",
+                        'value': ec,
+                    })
+            elif tank_type in ('nutrient', 'recirculation') and ec > 3.5:
+                # Fallback ohne Ziel-EC: absolute Obergrenze
                 alerts.append({
                     'type': 'ec_too_high',
                     'severity': 'high',
@@ -669,22 +831,127 @@ class TankService:
                     'value': ec,
                 })
 
+        # --- EC-Trend bei Rezirkulation (letzten 3+ Messungen) ---
+        # EC-Drift-Richtung ist diagnostisches Signal für Korrekturmaßnahme:
+        # Steigend = mehr Wasser nachfüllen, Fallend = Nährstoffe nachdosieren
+        if (tank_type == 'recirculation'
+                and hasattr(self, '_recent_states') and len(self._recent_states) >= 3):
+            ec_values = [s['ec_ms'] for s in self._recent_states if s.get('ec_ms')]
+            if len(ec_values) >= 3:
+                ec_trend = ec_values[-1] - ec_values[0]
+                if ec_trend > 0.3:
+                    alerts.append({
+                        'type': 'ec_trend_rising',
+                        'severity': 'medium',
+                        'message': "EC steigt — Pflanzen nehmen mehr Wasser als Nährstoffe auf. "
+                                   "Mit Reinstwasser auffüllen, NICHT mit Nährlösung.",
+                    })
+                elif ec_trend < -0.3:
+                    alerts.append({
+                        'type': 'ec_trend_falling',
+                        'severity': 'medium',
+                        'message': "EC sinkt — Pflanzen nehmen mehr Nährstoffe als Wasser auf. "
+                                   "Konzentrierte Stammlösung nachdosieren.",
+                    })
+
+        # --- Temperatur: Tank-Typ-differenzierte Schwellenwerte ---
         if current_state.get('water_temp_celsius') is not None:
             temp = current_state['water_temp_celsius']
-            if temp > 25.0:
+            thresholds = self.TEMP_THRESHOLDS.get(tank_type, self.TEMP_THRESHOLDS['nutrient'])
+
+            if temp <= thresholds['cold_critical']:
                 alerts.append({
-                    'type': 'temperature_high',
-                    'severity': 'medium',
-                    'message': f"Wassertemperatur {temp:.1f}°C — erhöhtes Algenrisiko",
+                    'type': 'temperature_cold_critical',
+                    'severity': 'critical',
+                    'message': f"Wassertemperatur {temp:.1f}°C — kritisch kalt! "
+                               f"Wurzelschock, Nährstoffaufnahme blockiert.",
                     'value': temp,
                 })
-            if temp > 28.0:
-                alerts[-1]['severity'] = 'critical'
-                alerts[-1]['message'] = (
-                    f"Wassertemperatur {temp:.1f}°C — kritisch! "
-                    f"Gelöster Sauerstoff sinkt, Wurzelfäule-Gefahr."
-                )
+            elif temp <= thresholds['cold_warning']:
+                alerts.append({
+                    'type': 'temperature_cold_warning',
+                    'severity': 'medium',
+                    'message': f"Wassertemperatur {temp:.1f}°C — zu kalt. "
+                               f"Nährstoffaufnahme verlangsamt sich.",
+                    'value': temp,
+                })
+            elif temp >= thresholds['warm_critical']:
+                alerts.append({
+                    'type': 'temperature_high_critical',
+                    'severity': 'critical',
+                    'message': f"Wassertemperatur {temp:.1f}°C — kritisch! "
+                               f"Gelöster Sauerstoff minimal, akute Wurzelfäule-Gefahr.",
+                    'value': temp,
+                })
+            elif temp >= thresholds['warm_warning']:
+                alerts.append({
+                    'type': 'temperature_high_warning',
+                    'severity': 'medium' if tank_type == 'reservoir' else 'high',
+                    'message': f"Wassertemperatur {temp:.1f}°C — "
+                               f"{'Algenrisiko' if tank_type == 'reservoir' else 'DO sinkt, Pythium-Risiko steigt'}.",
+                    'value': temp,
+                })
 
+        # --- Gelöstsauerstoff (DO): Kritisch für Hydroponik ---
+        if current_state.get('dissolved_oxygen_mgl') is not None:
+            do = current_state['dissolved_oxygen_mgl']
+            if tank_type in ('nutrient', 'recirculation'):
+                if do < 4.0:
+                    alerts.append({
+                        'type': 'dissolved_oxygen_critical',
+                        'severity': 'critical',
+                        'message': f"Gelöstsauerstoff {do:.1f} mg/L — kritisch niedrig! "
+                                   f"Anaerobe Bedingungen, akute Pythium-Gefahr. "
+                                   f"Belüftung prüfen.",
+                        'value': do,
+                    })
+                elif do < 6.0:
+                    alerts.append({
+                        'type': 'dissolved_oxygen_low',
+                        'severity': 'high',
+                        'message': f"Gelöstsauerstoff {do:.1f} mg/L — suboptimal "
+                                   f"(Ziel: >6 mg/L, ideal >8 mg/L). "
+                                   f"Belüftung erhöhen oder Temperatur senken.",
+                        'value': do,
+                    })
+
+        # --- Kreuz-Alert: Hohe Temperatur + niedriger DO (Ursache statt Symptom) ---
+        if (current_state.get('water_temp_celsius', 0) > 22
+                and current_state.get('dissolved_oxygen_mgl', 99) < 6
+                and tank_type in ('nutrient', 'recirculation')):
+            alerts.append({
+                'type': 'temp_do_compound',
+                'severity': 'critical',
+                'message': "Hohe Temperatur UND niedriger DO — Wassertemperatur senken "
+                           "ist effektiver als Belüftung erhöhen. Ursache (Temperatur) "
+                           "statt Symptom (DO) beheben. Optionen: Wasserkühler, "
+                           "Eisflaschen, Nacht-Wasserwechsel.",
+            })
+
+        # --- ORP: Relevant für Rezirkulation mit Sterilisation ---
+        if current_state.get('orp_mv') is not None:
+            orp = current_state['orp_mv']
+            if tank_type == 'recirculation':
+                if orp < 250:
+                    alerts.append({
+                        'type': 'orp_reducing',
+                        'severity': 'high',
+                        'message': f"ORP {orp} mV — reduzierende Bedingungen. "
+                                   f"Anaerobe Pathogene möglich. Desinfektion prüfen.",
+                        'value': orp,
+                    })
+                if tank.get('has_uv_sterilizer') or tank.get('has_ozone_generator'):
+                    if orp < 650:
+                        alerts.append({
+                            'type': 'orp_sterilization_insufficient',
+                            'severity': 'medium',
+                            'message': f"ORP {orp} mV — Sterilisation möglicherweise "
+                                       f"nicht effektiv (Ziel: >700 mV). "
+                                       f"UV-Lampe/Ozon-Generator prüfen.",
+                            'value': orp,
+                        })
+
+        # --- Füllstand ---
         if current_state.get('fill_level_percent') is not None:
             fill = current_state['fill_level_percent']
             if fill < 20:
@@ -695,13 +962,85 @@ class TankService:
                     'value': fill,
                 })
 
-        if not tank.get('has_lid', True):
+        # --- Algenrisiko (Licht + Temperatur + Nährstoffe) ---
+        # Licht ist der primäre Treiber — ohne Photosynthese keine Algen
+        algae_risk_score = 0
+        if not tank.get('is_light_proof', tank.get('has_lid', True)):
+            algae_risk_score += 2  # Nicht lichtdicht
+        elif not tank.get('has_lid', True):
+            algae_risk_score += 1  # Deckel, aber möglicherweise transluzent
+        water_temp = current_state.get('water_temp_celsius', 0)
+        if water_temp > 22:
+            algae_risk_score += 1
+        if water_temp > 28:
+            algae_risk_score += 1
+        if tank_type in ('nutrient', 'recirculation'):
+            algae_risk_score += 1  # Nährstoffe immer vorhanden
+        if algae_risk_score >= 3:
+            alerts.append({
+                'type': 'algae_risk',
+                'severity': 'medium',
+                'message': "Erhöhtes Algenrisiko — Kombination aus Lichteinfall, "
+                           "Temperatur und Nährstoffen. Lichtdichten Deckel anbringen "
+                           "und/oder Temperatur senken.",
+            })
+
+        # --- Biofilm-Risiko bei Rezirkulation (multifaktoriell) ---
+        if tank_type == 'recirculation':
+            biofilm_risk = 0
             if current_state.get('water_temp_celsius', 0) > 22:
+                biofilm_risk += 1
+            if not tank.get('has_uv_sterilizer') and not tank.get('has_ozone_generator'):
+                biofilm_risk += 1
+            if has_organics if 'has_organics' in dir() else False:
+                biofilm_risk += 2  # Organische Additive erhöhen Biofilm-Risiko stark
+            if 'age_hours' in dir() and age_hours > 120:
+                biofilm_risk += 1
+            if biofilm_risk >= 3:
                 alerts.append({
-                    'type': 'algae_risk',
-                    'severity': 'medium',
-                    'message': "Tank ohne Deckel bei >22°C — hohes Algenrisiko",
+                    'type': 'biofilm_risk',
+                    'severity': 'high',
+                    'message': "Erhöhtes Biofilm-Risiko in Rezirkulationssystem. "
+                               "Enzymatischen Reiniger einsetzen oder "
+                               "Wasserwechsel-Intervall verkürzen.",
                 })
+
+        # --- Lösungsalter (temperaturkorrigiert, Q10-Regel) ---
+        # Chelat-Degradation beschleunigt sich exponentiell mit Temperatur:
+        # Q10 = 2 → Degradation verdoppelt sich pro 10°C über Referenz (20°C)
+        if (tank_type in ('nutrient', 'recirculation')
+                and last_fill_event
+                and last_fill_event.get('fill_type') == 'full_change'):
+            from datetime import datetime
+            filled_at = last_fill_event.get('filled_at')
+            if isinstance(filled_at, str):
+                filled_at = datetime.fromisoformat(filled_at)
+            if filled_at is not None:
+                age_hours = (datetime.now() - filled_at).total_seconds() / 3600
+                has_organics = any(
+                    f.get('is_organic', False)  # Explizites Flag, konsistent mit REQ-004
+                    for f in (last_fill_event.get('fertilizers_used') or [])
+                )
+
+                # Q10-Korrektur: Temperatur-gewichtetes Alter (Referenz 20°C)
+                avg_temp = current_state.get('water_temp_celsius', 20)
+                temp_factor = 2 ** ((avg_temp - 20) / 10)  # Q10-Regel
+                effective_age_hours = age_hours * temp_factor
+
+                base_warning_hours = 120 if has_organics else 240  # 5 bzw. 10 Tage bei 20°C
+                if effective_age_hours > base_warning_hours:
+                    actual_days = age_hours / 24
+                    effective_days = effective_age_hours / 24
+                    temp_note = (f" (temperaturkorrigiert: {effective_days:.0f} Tage Äquivalent bei {avg_temp:.0f}°C)"
+                                 if abs(temp_factor - 1.0) > 0.1 else "")
+                    alerts.append({
+                        'type': 'solution_age',
+                        'severity': 'medium',
+                        'message': f"Nährstofflösung ist {actual_days:.0f} Tage alt{temp_note}. "
+                                   f"Eisenchelate und {'organische Additive degradieren' if has_organics else 'Mikronährstoffe können degradiert sein'}. "
+                                   f"Wasserwechsel empfohlen.",
+                        'value': round(age_hours),
+                    })
 
         return alerts
 
@@ -709,9 +1048,11 @@ class TankService:
         self,
         tank: dict,
         fill_event: 'TankFillEvent',
+        current_state: Optional[dict] = None,
     ) -> dict:
         """
         Erfasst eine Tankbefüllung und erzeugt automatisch einen TankState-Record.
+        current_state: Aktueller Tankzustand für Temperatur-Delta-Prüfung bei Top-Up.
 
         Returns: {fill_event: dict, tank_state: dict, warnings: list}
         """
@@ -751,6 +1092,48 @@ class TankService:
                     f"gemessen {fill_event.measured_ph} "
                     f"(Δ {ph_deviation:.1f})"
                 )
+
+        # Temperatur-Delta bei Nachfüllung (Wurzelschock-Prävention)
+        if (fill_event.water_temperature_celsius is not None
+                and current_state is not None
+                and current_state.get('water_temp_celsius') is not None):
+            temp_diff = abs(fill_event.water_temperature_celsius - current_state['water_temp_celsius'])
+            if temp_diff > 5:
+                warnings.append(
+                    f"Temperaturdifferenz {temp_diff:.1f}°C zwischen Nachfüllwasser "
+                    f"({fill_event.water_temperature_celsius}°C) und Tanklösung "
+                    f"({current_state['water_temp_celsius']}°C). Wurzelschock möglich."
+                )
+
+        # Chlor/Chloramin-Warnung bei biologischen Additiven (REQ-004 Inkompatibilität)
+        total_chlorine = (fill_event.chlorine_ppm or 0) + (fill_event.chloramine_ppm or 0)
+        if total_chlorine > 0.5:
+            has_biologicals = any(
+                'myko' in (f.product_name or '').lower()
+                or 'tricho' in (f.product_name or '').lower()
+                or 'bacillus' in (f.product_name or '').lower()
+                or 'kompost' in (f.product_name or '').lower()
+                for f in fill_event.fertilizers_used
+            )
+            if has_biologicals:
+                if fill_event.chloramine_ppm and fill_event.chloramine_ppm > 0.5:
+                    warnings.append(
+                        f"Chloramin {fill_event.chloramine_ppm:.1f} ppm im Wasser — "
+                        f"biologische Additive werden geschädigt. "
+                        f"Ascorbinsäure (1g/400L bei 1 ppm) oder Aktivkohle-Filter "
+                        f"zwingend erforderlich. Abstehen ist NICHT ausreichend!"
+                    )
+                elif fill_event.chlorine_ppm and fill_event.chlorine_ppm > 0.5:
+                    warnings.append(
+                        f"Freies Chlor {fill_event.chlorine_ppm:.1f} ppm im Wasser — "
+                        f"biologische Additive werden geschädigt. "
+                        f"24h Abstehen lassen ODER Ascorbinsäure (1g/400L bei 1 ppm)."
+                    )
+                else:
+                    warnings.append(
+                        f"Gesamtchlor {total_chlorine:.1f} ppm im Wasser — "
+                        f"biologische Additive werden geschädigt. Wasser entchloren."
+                    )
 
         # Automatisch TankState-Record erzeugen (wenn Messwerte vorhanden)
         tank_state = None
@@ -819,9 +1202,18 @@ class TankService:
                 "is_supplemental=true empfohlen für korrekte Dokumentation."
             )
 
-        # Volumen-Plausibilität pro Slot
+        # Volumen-Plausibilität pro Slot (substrat-relativ wenn verfügbar)
         volume_per_slot = watering.volume_liters / len(watering.slot_keys)
-        if volume_per_slot > 20:
+
+        if watering.application_method == ApplicationMethod.FOLIAR:
+            # Blattdüngung: typisch 0.05–0.2L pro Pflanze, >0.5L ist fast sicher ein Fehler
+            if volume_per_slot > 0.5:
+                warnings.append(
+                    f"Foliar: {volume_per_slot:.2f}L pro Slot ist sehr hoch — "
+                    f"typisch sind 0.05–0.2L pro Pflanze bei Blattdüngung."
+                )
+        elif volume_per_slot > 20:
+            # Absoluter Fallback wenn kein Slot-Volumen bekannt
             warnings.append(
                 f"Hohe Gießmenge ({volume_per_slot:.1f}L pro Slot) — "
                 f"Substratüberschwemmung möglich."
@@ -831,6 +1223,31 @@ class TankService:
             'watering_event': watering.model_dump(),
             'warnings': warnings,
         }
+
+    def validate_volume_per_slot(
+        self,
+        volume_per_slot: float,
+        slot_substrate_volume_liters: Optional[float],
+        application_method: str,
+    ) -> Optional[str]:
+        """
+        Substrat-relative Volumen-Plausibilität (wenn Slot-Daten aus REQ-002 verfügbar).
+        Ziel: ~30% Drain bei Drain-to-Waste, ~10% bei Rezirkulation.
+
+        Returns: Warnung als String oder None.
+        """
+        if application_method == 'foliar':
+            return None  # Foliar wird separat geprüft (siehe oben)
+
+        if slot_substrate_volume_liters is not None and slot_substrate_volume_liters > 0:
+            ratio = volume_per_slot / slot_substrate_volume_liters
+            if ratio > 0.5:
+                return (
+                    f"Gießmenge ({volume_per_slot:.1f}L) ist {ratio:.0%} des "
+                    f"Substratvolumens ({slot_substrate_volume_liters:.0f}L) — "
+                    f"Überwässerung wahrscheinlich. Ziel: 20–30% für Drain-to-Waste."
+                )
+        return None
 
     def calculate_next_maintenance(
         self,
@@ -903,7 +1320,7 @@ DEFAULT_MAINTENANCE_SCHEDULES: dict[str, list[dict]] = {
     "recirculation": [
         {"type": "water_change", "interval_days": 7, "priority": "critical"},
         {"type": "cleaning", "interval_days": 14, "priority": "high"},
-        {"type": "sanitization", "interval_days": 60, "priority": "high"},
+        {"type": "sanitization", "interval_days": 14, "priority": "critical"},  # War 60d — zu lang für Rezirkulation (systemweites Pathogen-Risiko)
         {"type": "calibration", "interval_days": 14, "priority": "high"},
         {"type": "pump_inspection", "interval_days": 14, "priority": "medium"},
         {"type": "filter_change", "interval_days": 30, "priority": "high"},
@@ -974,6 +1391,7 @@ class TankAssignmentValidator(BaseModel):
     def validate_type_compatibility(self):
         """
         Recirculation-Tanks nur bei geschlossenen Systemen (hydro, nft, ebb_flow).
+        Stock-Solution-Tanks dürfen nicht direkt einer Location zugeordnet werden.
         """
         closed_systems = {'hydro', 'nft', 'ebb_flow'}
         if self.tank_type == TankType.RECIRCULATION:
@@ -983,6 +1401,11 @@ class TankAssignmentValidator(BaseModel):
                     f"({', '.join(closed_systems)}), nicht bei "
                     f"'{self.location_irrigation_system}'"
                 )
+        if self.tank_type == TankType.STOCK_SOLUTION:
+            raise ValueError(
+                "Stammlösungs-Tanks dürfen nicht direkt einer Location zugeordnet werden — "
+                "sie müssen über feeds_from-Kaskade in einen Mischtank dosiert werden."
+            )
         return self
 
 class FillLevelValidator(BaseModel):
@@ -1057,7 +1480,7 @@ GET    /api/v1/locations/{location_key}/tanks/validation  — Prüfe ob Location
 // tanks collection
 { "_key": "tank_zelt1", "name": "Haupttank Grow Zelt 1", "tank_type": "nutrient", "volume_liters": 50, "material": "plastic", "has_lid": true, "has_air_pump": true, "has_circulation_pump": true, "has_heater": false, "installed_on": "2025-06-01" }
 { "_key": "tank_regenwasser", "name": "Regenwassertonne Garten", "tank_type": "reservoir", "volume_liters": 300, "material": "plastic", "has_lid": true, "has_air_pump": false, "has_circulation_pump": false, "has_heater": false, "installed_on": "2024-03-15" }
-{ "_key": "tank_recirc_nft", "name": "NFT-Rücklauf Zelt 2", "tank_type": "recirculation", "volume_liters": 20, "material": "plastic", "has_lid": true, "has_air_pump": true, "has_circulation_pump": true, "has_heater": false, "installed_on": "2025-09-10" }
+{ "_key": "tank_recirc_nft", "name": "NFT-Rücklauf Zelt 2", "tank_type": "recirculation", "volume_liters": 20, "material": "plastic", "has_lid": true, "has_air_pump": true, "has_circulation_pump": true, "has_heater": false, "has_uv_sterilizer": true, "has_ozone_generator": false, "installed_on": "2025-09-10" }
 
 // has_tank edge collection
 { "_from": "locations/growzelt1", "_to": "tanks/tank_zelt1" }
@@ -1074,7 +1497,7 @@ GET    /api/v1/locations/{location_key}/tanks/validation  — Prüfe ob Location
 
 // tank_fill_events collection
 { "_key": "fill_zelt1_001", "filled_at": "2026-02-19T10:00:00Z", "fill_type": "full_change", "volume_liters": 48, "mixing_result_key": null, "nutrient_plan_key": "plan_tomato_coco", "target_ec_ms": 1.8, "target_ph": 5.8, "measured_ec_ms": 1.75, "measured_ph": 5.9, "water_source": "osmose", "source_tank_key": "tank_regenwasser", "base_water_ec_ms": 0.05, "fertilizers_used": [{"product_name": "CalMag", "ml_per_liter": 1.0, "product_key": "fert_calmag"}, {"product_name": "Flora Micro", "ml_per_liter": 1.5, "product_key": "fert_micro"}, {"product_name": "Flora Bloom", "ml_per_liter": 2.0, "product_key": "fert_bloom"}], "performed_by": "admin", "notes": "Wöchentlicher Vollwechsel" }
-{ "_key": "fill_zelt1_002", "filled_at": "2026-02-22T08:30:00Z", "fill_type": "top_up", "volume_liters": 12, "mixing_result_key": null, "nutrient_plan_key": "plan_tomato_coco", "target_ec_ms": 1.8, "target_ph": null, "measured_ec_ms": 1.7, "measured_ph": 6.0, "water_source": "osmose", "source_tank_key": null, "base_water_ec_ms": 0.05, "fertilizers_used": [{"product_name": "Flora Micro", "ml_per_liter": 1.5, "product_key": "fert_micro"}, {"product_name": "Flora Bloom", "ml_per_liter": 2.0, "product_key": "fert_bloom"}], "performed_by": "admin", "notes": "Verdunstung ausgeglichen" }
+{ "_key": "fill_zelt1_002", "filled_at": "2026-02-22T08:30:00Z", "fill_type": "top_up", "volume_liters": 12, "mixing_result_key": null, "nutrient_plan_key": "plan_tomato_coco", "target_ec_ms": 1.8, "target_ph": null, "measured_ec_ms": 1.7, "measured_ph": 6.0, "water_source": "osmose", "source_tank_key": null, "base_water_ec_ms": 0.05, "fertilizers_used": [{"product_name": "CalMag", "ml_per_liter": 0.5, "product_key": "fert_calmag"}, {"product_name": "Flora Micro", "ml_per_liter": 1.5, "product_key": "fert_micro"}, {"product_name": "Flora Bloom", "ml_per_liter": 2.0, "product_key": "fert_bloom"}], "performed_by": "admin", "notes": "Verdunstung ausgeglichen — CalMag auch bei Top-Up essenziell bei Coco/Osmose (CEC bindet Ca/Mg)" }
 { "_key": "fill_zelt1_003", "filled_at": "2026-02-24T14:00:00Z", "fill_type": "adjustment", "volume_liters": 2, "mixing_result_key": null, "nutrient_plan_key": null, "target_ec_ms": null, "target_ph": 5.8, "measured_ec_ms": 1.85, "measured_ph": 5.7, "water_source": null, "source_tank_key": null, "base_water_ec_ms": null, "fertilizers_used": [], "performed_by": "admin", "notes": "pH-Down Korrektur (pH war auf 6.5 gedriftet)" }
 
 // has_fill_event edge collection
@@ -1124,6 +1547,7 @@ GET    /api/v1/locations/{location_key}/tanks/validation  — Prüfe ob Location
 - REQ-006 (Aufgabenplanung): **HOCH** — Wartungs-Tasks werden automatisch aus MaintenanceSchedule generiert
 - REQ-009 (Dashboard): **MITTEL** — Tank-Status-Widget, Alert-Anzeige, fällige Wartungen
 - REQ-013 (Pflanzdurchlauf): **NIEDRIG** — PlantingRun referenziert Tank als Versorgungsquelle
+- REQ-018 (Aktorik): **MITTEL** — Stock-Solution-Tanks als Quelle für automatisierte Dosierpumpen
 
 **Celery-Tasks:**
 - `check_maintenance_due` — Täglich: Prüft alle Tanks auf fällige Wartungen, erzeugt Tasks (REQ-006)
@@ -1138,14 +1562,25 @@ GET    /api/v1/locations/{location_key}/tanks/validation  — Prüfe ob Location
 - [ ] **Pflicht-Validierung:** Bei `irrigation_system != 'manual'` wird ein zugeordneter Tank erzwungen
 - [ ] **Tank-Typen:** Alle 4 Typen (nutrient, irrigation, reservoir, recirculation) unterstützt
 - [ ] **Typ-Kompatibilität:** Recirculation-Tank nur bei geschlossenen Systemen erlaubt
-- [ ] **Zustandserfassung:** Manuelle und automatische (REQ-005) Messungen für pH, EC, Temperatur, Füllstand
+- [ ] **Zustandserfassung:** Manuelle und automatische (REQ-005) Messungen für pH, EC, Temperatur, DO, ORP, Füllstand
 - [ ] **Zustandshistorie:** Zeitserie von TankState-Records mit Pagination und Zeitraum-Filter
-- [ ] **Alert-System:** Automatische Grenzwert-Prüfung (pH, EC, Temperatur, Füllstand, Algenrisiko)
+- [ ] **Alert-System (differenziert):** Tank-Typ-abhängige Grenzwert-Prüfung:
+  - pH-Grenzen nach Tank-Typ (nutrient: 5.5–6.5, recirculation: 5.5–6.3, irrigation: 5.8–6.8)
+  - EC relativ zum Ziel-EC des letzten Fill-Events (Warnung >20%, Alarm >30%)
+  - Temperatur differenziert (Wärme UND Kälte, nach Tank-Typ)
+  - DO-Alerts für Hydroponik (<4 mg/L kritisch, <6 mg/L suboptimal)
+  - ORP-Alerts für Rezirkulation (<250 mV Pathogen-Risiko, <650 mV Sterilisation unzureichend)
+  - Lösungsalter-Warnung (5d mit Organik / 10d mineralisch)
+  - pH-Drift relativ zum letzten Wasserwechsel
 - [ ] **Befüllungshistorie:** Jede Tankbefüllung wird als immutables TankFillEvent dokumentiert
 - [ ] **Befüllungstypen:** Vollwechsel, Auffüllen und Korrektur werden unterschieden
 - [ ] **Rezept-Verknüpfung:** TankFillEvent kann optional auf MixingResult und NutrientPlan (REQ-004) referenzieren
 - [ ] **Dünger-Snapshot:** Verwendete Dünger + Dosierungen werden als unveränderliche Kopie im Event gespeichert
 - [ ] **Soll/Ist-Vergleich:** Ziel-EC/pH und gemessene Werte nach Befüllung werden erfasst
+- [ ] **Wasserquellen-Qualität:** Chlor/Chloramin (ppm) und Alkalinität (ppm) optional erfassbar auf TankFillEvent
+- [ ] **Chlor-Warnung:** Bei Chlor >0.5 ppm + biologischen Additiven (Mykorrhiza, Trichoderma, Bacillus) wird Entchlorung empfohlen
+- [ ] **Desinfektions-Infrastruktur:** TankDefinition unterstützt `has_uv_sterilizer` und `has_ozone_generator`
+- [ ] **Volumen-Plausibilität:** Foliar-spezifische Grenzwerte (>0.5L/Slot = Warnung), substrat-relative Prüfung wenn Slot-Volumen verfügbar
 - [ ] **Automatischer TankState:** Bei Befüllung mit Messwerten wird automatisch ein TankState-Record erzeugt
 - [ ] **Befüllungsstatistik:** Aggregierte Auswertung über Zeiträume (Anzahl, Volumen, EC-Abweichung)
 - [ ] **WateringEvent:** Gießvorgänge auf Slot-/Pflanzenebene werden als immutable Events dokumentiert
@@ -1162,6 +1597,20 @@ GET    /api/v1/locations/{location_key}/tanks/validation  — Prüfe ob Location
 - [ ] **Lösch-Schutz:** Tank kann nicht gelöscht werden, wenn er aktive Location versorgt
 - [ ] **Füllstand-Plausibilität:** Füllstand kann Tank-Volumen nicht signifikant übersteigen
 - [ ] **Celery-Beat:** `check_maintenance_due` (täglich) und `check_tank_alerts` (stündlich) registriert
+- [ ] **Salting-Out-Effekt:** DO-Sättigungsbeschreibung berücksichtigt EC-Einfluss auf Gasloeslichkeit
+- [ ] **Organik-Erkennung:** Lösungsalter-Check basiert auf `is_organic`-Flag (FertilizerSnapshot), nicht auf fehlendem `product_key`
+- [ ] **Chlor/Chloramin-Differenzierung:** Separate Felder `chlorine_ppm` und `chloramine_ppm` mit differenzierten Entchlorungsempfehlungen
+- [ ] **EC-Drift-Trend:** Rezirkulation erkennt steigende/fallende EC-Trends über letzte 3+ Messungen mit diagnostischer Empfehlung
+- [ ] **Compound-Alert Temperatur×DO:** Kreuz-Validierung priorisiert Ursachenbehebung (Temperatur senken) über Symptombekämpfung (Belüftung)
+- [ ] **Biofilm-Risiko:** Multifaktorieller Alert (Temperatur, Organik, UV/Ozon, Lösungsalter) für Rezirkulation
+- [ ] **Stock-Solution Tank-Typ:** `stock_solution` in TankType mit angepassten Grenzwerten (EC bis 250 mS) und Direktzuordnungs-Sperre
+- [ ] **Runoff-Interpretation:** Substratabhängige Interpretation von Drain-EC über Slot→Substrat-Kette dokumentiert
+- [ ] **Nachfüllwasser-Temperatur:** `water_temperature_celsius` auf TankFillEvent mit Wurzelschock-Warnung bei Delta >5°C
+- [ ] **Q10-Lösungsalter:** Temperaturkorrigiertes Lösungsalter (Degradation verdoppelt sich pro 10°C über 20°C-Referenz)
+- [ ] **Substratspezifische pH-Bereiche:** `PH_RANGES_BY_SUBSTRATE` für Irrigation-Tanks (Coco: 5.8–6.2, Erde: 6.0–6.8, Living Soil: 6.2–6.8)
+- [ ] **Lichtdichtheit:** `is_light_proof` auf TankDefinition als primärer Faktor für Algenrisiko-Score
+- [ ] **FertilizerSnapshot Feststoffe:** `g_per_liter` für Top-Dress/Trockendünger neben `ml_per_liter`
+- [ ] **Seed-Daten CalMag:** Top-Up bei Coco/Osmose enthält CalMag (CEC-Sättigung)
 
 ### Testszenarien:
 
@@ -1190,14 +1639,17 @@ THEN:
 
 **Szenario 3: Tank-Alerts bei kritischen Werten**
 ```
-GIVEN: Nährstofftank mit Zustand: pH=7.5, EC=3.2, Wassertemp=29°C, Füllstand=15%
+GIVEN: Nährstofftank mit Zustand: pH=7.0, EC=2.8, Wassertemp=27°C, DO=3.5, Füllstand=15%
+       Letzter Vollwechsel mit target_ec_ms=1.8, measured_ph=5.8
 WHEN: System prüft Grenzwerte
 THEN:
-  - 4 Alerts erzeugt:
-    1. "pH 7.5 außerhalb Zielbereich (5.0–7.0)" — severity: high
-    2. "EC 3.2 mS zu hoch — Salzakkumulation?" — severity: high
-    3. "Wassertemperatur 29.0°C — kritisch! Wurzelfäule-Gefahr." — severity: critical
-    4. "Füllstand 15% — Nachfüllen erforderlich" — severity: high
+  - 6 Alerts erzeugt:
+    1. "pH 7.0 außerhalb Zielbereich (5.5–6.5) für Tank-Typ 'nutrient'" — severity: critical (>0.5 über Grenze)
+    2. "pH-Drift 1.2 seit letzter Befüllung (war 5.8, jetzt 7.0)" — severity: medium
+    3. "EC 2.80 mS — 56% vom Ziel (1.80 mS) abgewichen (gestiegen). Salzakkumulation?" — severity: high
+    4. "Wassertemperatur 27.0°C — kritisch! DO sinkt, Pythium-Risiko steigt." — severity: critical
+    5. "Gelöstsauerstoff 3.5 mg/L — kritisch niedrig! Anaerobe Bedingungen." — severity: critical
+    6. "Füllstand 15% — Nachfüllen erforderlich" — severity: high
 ```
 
 **Szenario 4: Recirculation-Tank nur bei geschlossenem System**
@@ -1226,7 +1678,7 @@ WHEN: Tank wird gespeichert
 THEN:
   - 6 Wartungspläne automatisch angelegt:
     water_change (7d, critical), cleaning (14d, high),
-    sanitization (60d, high), calibration (14d, high),
+    sanitization (14d, critical), calibration (14d, high),
     pump_inspection (14d, medium), filter_change (30d, high)
   - Alle Pläne mit auto_create_task=true
   - Nutzer kann Intervalle individuell anpassen
@@ -1390,6 +1842,6 @@ THEN:
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Tank, Reservoir, Bewässerung, Nährstofflösung, Wasserwechsel, Reinigung, Desinfektion, Kalibrierung, Wartungsplan, Wartungshistorie, Befüllungshistorie, Tankbefüllung, Vollwechsel, Auffüllung, Korrektur, Dünger-Snapshot, Rezept-Verknüpfung, Füllstand, Algenrisiko, Rezirkulation, Tankkaskade, Gießkanne, Gießvorgang, manuelle Bewässerung, ergänzende Handdüngung, Blattdüngung, Komposttee, organischer Dünger, Applikationsmethode, Fertigation, Drench, Foliar, Top Dress
-- Technische Begriffe: MaintenanceSchedule, TankState, TankFillEvent, WateringEvent, ApplicationMethod, FillType, FertilizerSnapshot, TankType, MaintenanceType, feeds_from, has_tank, has_fill_event, watered_slot, watering_from, supplies, mixed_into, auto_create_task, tank_safe, is_organic, is_supplemental, Celery-Beat
+- Keywords: Tank, Reservoir, Bewässerung, Nährstofflösung, Wasserwechsel, Reinigung, Desinfektion, Kalibrierung, Wartungsplan, Wartungshistorie, Befüllungshistorie, Tankbefüllung, Vollwechsel, Auffüllung, Korrektur, Dünger-Snapshot, Rezept-Verknüpfung, Füllstand, Algenrisiko, Rezirkulation, Tankkaskade, Gießkanne, Gießvorgang, manuelle Bewässerung, ergänzende Handdüngung, Blattdüngung, Komposttee, organischer Dünger, Applikationsmethode, Fertigation, Drench, Foliar, Top Dress, Gelöstsauerstoff, Sauerstoff, Pythium, Wurzelfäule, ORP, Sterilisation, UV-C, Ozon, Chlor, Chloramin, Alkalinität, Karbonathärte, Lösungsalter, Chelat-Degradation, pH-Drift, EC-Abweichung, Wurzelschock, Kälte, Salting-Out-Effekt, Q10-Regel, Biofilm, EC-Drift, EC-Trend, Stammlösung, Stock Solution, A/B-Tank, Compound-Alert, Lichtdichtheit, Substrat-pH, CalMag-Pufferung, Nachfüllwasser-Temperatur, Temperaturschock, Drain-to-Waste, Runoff-Interpretation
+- Technische Begriffe: MaintenanceSchedule, TankState, TankFillEvent, WateringEvent, ApplicationMethod, FillType, FertilizerSnapshot, TankType, MaintenanceType, feeds_from, has_tank, has_fill_event, watered_slot, watering_from, supplies, mixed_into, auto_create_task, tank_safe, is_organic, is_supplemental, Celery-Beat, dissolved_oxygen_mgl, orp_mv, chlorine_ppm, chloramine_ppm, alkalinity_ppm, has_uv_sterilizer, has_ozone_generator, is_light_proof, solution_age, ph_drift, ec_deviation, ec_trend_rising, ec_trend_falling, temp_do_compound, biofilm_risk, algae_risk, stock_solution, water_temperature_celsius, g_per_liter, PH_RANGES_BY_SUBSTRATE, Q10
 - Verknüpfung: Zentral für REQ-002 (Standort — irrigation_system), REQ-004 (Düngung — MixingResult, NutrientPlan, FeedingEvent, ApplicationMethod, Fertilizer.tank_safe), REQ-005 (Sensorik), REQ-006 (Aufgabenplanung)
