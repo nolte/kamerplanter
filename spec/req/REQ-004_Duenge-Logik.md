@@ -130,8 +130,10 @@ Das System ermöglicht die Erstellung und Verwaltung von Lifecycle-Nährstoffpl�
     - `volume_per_feeding_liters: float`
 
 - **`FeedingEvent`** - Tatsächliche Düngung/Bewässerung auf Pflanzenlevel
+  - **Abgrenzung zu WateringEvent (REQ-014):** Ein `FeedingEvent` dokumentiert die Nährstoffaufnahme pro **einzelner Pflanze** (für Bilanzierung und NutrientPlan-Tracking). Ein `WateringEvent` (REQ-014) dokumentiert den physischen **Gießvorgang** auf Slot-Ebene (kann mehrere Pflanzen umfassen). Ein WateringEvent erzeugt automatisch FeedingEvents für jede betroffene PlantInstance.
   - Properties:
     - `timestamp: datetime`
+    - `watering_event_key: Optional[str]` (Referenz auf WateringEvent aus REQ-014, wenn das FeedingEvent automatisch aus einem Gießvorgang erzeugt wurde)
     - `application_method: Literal['fertigation', 'drench', 'foliar', 'top_dress']` (Art der Ausbringung — `fertigation` = via Tank/Tropfer, `drench` = manuelles Gießen per Gießkanne, `foliar` = Blattdüngung per Sprüher, `top_dress` = Feststoff-Aufbringung auf Substratoberfläche)
     - `is_supplemental: bool` (Ergänzende Handdüngung zusätzlich zur Tank-Bewässerung — z.B. organische Dünger per Gießkanne bei Pflanzen, die primär über Drip versorgt werden)
     - `tank_fill_event_key: Optional[str]` (Referenz auf TankFillEvent aus REQ-014, wenn die Düngung aus einer dokumentierten Tankbefüllung stammt)
@@ -187,6 +189,7 @@ MIXED_AFTER:           Fertilizer -> Fertilizer           {min_wait_minutes: int
 USES_DOSAGE:           GrowthPhase -> Fertilizer          {ml_per_liter: float, frequency: str}
 FED_BY:                PlantInstance -> FeedingEvent       {}
 USED:                  FeedingEvent -> Fertilizer          {ml_applied: float}
+TRIGGERED_BY:          FeedingEvent -> WateringEvent       {}  // REQ-014 — FeedingEvent wurde aus WateringEvent erzeugt
 PRESCRIBES:            FeedingSchedule -> Fertilizer       {}
 HAS_STOCK:             Fertilizer -> FertilizerStock       {}
 FOR_FERTILIZER:        MixingInstruction -> Fertilizer     {}

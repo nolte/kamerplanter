@@ -62,9 +62,10 @@ Das System implementiert einen polymorphen, pflanzenspezifischen Ansatz zur Reif
 **Pre-Harvest-Protokolle:**
 
 **Flushing (Nährstoffreduktion) — OPTIONAL, wissenschaftlich umstritten:**
-- **Hydro:** 7–14 Tage nur pH-Wasser
-- **Coco:** 10–14 Tage gradueller EC-Abbau
-- **Soil:** 21–28 Tage gradueller EC-Abbau (konsistent mit REQ-004 FlushingProtocol)
+Single Source of Truth für substratspezifische Flush-Dauern ist `REQ-004 FlushingProtocol.FLUSH_DURATIONS`. Die folgenden Bereiche dienen als Orientierung:
+- **Hydro:** 7–14 Tage nur pH-Wasser (optimal: 10 Tage)
+- **Coco:** 10–21 Tage gradueller EC-Abbau (optimal: 14 Tage)
+- **Soil:** 21–42 Tage gradueller EC-Abbau (optimal: 28 Tage, CEC-abhängig — siehe REQ-019)
 - **Living Soil:** Kein Flushing empfohlen (zerstört Mikrobiom)
 - **Kein Flushing (none):** Valide Option — Studie der University of Guelph (2020) fand keinen signifikanten Unterschied in Mineralgehalt, Rauchqualität oder Geschmack zwischen geflushten und ungeflushten Cannabis-Proben. Blindverkostung bevorzugte leicht die ungeflushte Variante.
 - **Empfehlung:** System bietet Flushing als optionales Protokoll an. Bei Living Soil oder organischer Düngung wird explizit davon abgeraten.

@@ -58,14 +58,18 @@ Jede Tankbefüllung — ob Vollwechsel, Auffüllen oder Korrektur — wird als e
 **Ergänzende manuelle Bewässerung (WateringEvent):**
 Auch bei Locations mit automatischer Bewässerung (`irrigation_system != 'manual'`) kann es notwendig sein, einzelne Pflanzen oder Slots **zusätzlich per Hand** zu gießen — z.B. um organische Dünger auszubringen, die Tropfer verstopfen oder Biofilm im Tank verursachen würden. Das System modelliert dies über **WateringEvents** auf Slot-/Pflanzenebene:
 
-- **Abgrenzung TankFillEvent vs. WateringEvent:**
+- **Abgrenzung TankFillEvent vs. WateringEvent vs. FeedingEvent (REQ-004):**
 
-| Aspekt | TankFillEvent | WateringEvent |
-|--------|--------------|---------------|
-| Ebene | Tank (Infrastruktur) | Slot/Pflanze (Pflanzenpflege) |
-| Was wird dokumentiert? | Was geht IN den Tank | Was bekommt die PFLANZE tatsächlich |
-| Typischer Anlass | Wasserwechsel, Auffüllung | Gießen, Blattdüngung, Top-Dressing |
-| Verknüpfung | → MixingResult, NutrientPlan | → FeedingEvent (REQ-004), optional → TankFillEvent |
+| Aspekt | TankFillEvent | WateringEvent (REQ-014) | FeedingEvent (REQ-004) |
+|--------|--------------|---------------|---------------|
+| Ebene | Tank (Infrastruktur) | Slot(s) (Gießvorgang) | PlantInstance (Pflanzenlevel) |
+| Was wird dokumentiert? | Was geht IN den Tank | Was wird auf Slot(s) ausgebracht | Was bekommt die EINZELNE Pflanze |
+| Granularität | 1 pro Tankbefüllung | 1 pro Gießvorgang (kann mehrere Slots umfassen) | 1 pro Pflanze pro Düngung |
+| Typischer Anlass | Wasserwechsel, Auffüllung | Gießen, Blattdüngung, Top-Dressing | Automatisch aus WateringEvent abgeleitet |
+| Verknüpfung | → MixingResult, NutrientPlan | → FeedingEvent (REQ-004), optional → TankFillEvent | ← WateringEvent, → Fertilizer |
+| Erstellt durch | Nutzer (manuell/API) | Nutzer (manuell/API) | System (automatisch pro betroffener Pflanze im Slot) |
+
+**Beziehung WateringEvent → FeedingEvent:** Ein `WateringEvent` erzeugt automatisch `FeedingEvents` (REQ-004) für jede `PlantInstance` in den betroffenen Slots. Das WateringEvent dokumentiert den physischen Gießvorgang (Volumen, EC, Methode), das FeedingEvent dokumentiert die Düngeraufnahme pro Pflanze (für Nährstoffbilanzierung und NutrientPlan-Tracking). Bei `application_method='fertigation'` und Tank-Verknüpfung werden die Dünger-Daten aus dem `TankFillEvent.mixing_result` übernommen.
 
 - **Applikationsmethoden:** Fertigation (Tank/Tropfer), Drench (Gießkanne), Foliar (Blattdüngung), Top Dress (Feststoffe auf Substrat) — siehe REQ-004 ApplicationMethod
 - **Hybride Versorgung:** Eine Location kann gleichzeitig Tank-basiert (mineralisch via Drip) UND manuell (organisch via Gießkanne) versorgt werden. Das `irrigation_system` in REQ-002 beschreibt das primäre System, nicht die einzige Methode.
