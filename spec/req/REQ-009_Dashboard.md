@@ -1209,7 +1209,21 @@ class DashboardConfig(BaseModel):
         return v
 ```
 
-## 4. Abhängigkeiten
+## 4. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| Dashboard-Daten (Tenant-scoped) | Mitglied | — | — |
+| Dashboard-Konfiguration | Mitglied | Mitglied | Mitglied |
+| Widget-Einstellungen | Mitglied | Mitglied | Mitglied |
+
+## 5. Abhängigkeiten
 
 **Erforderliche Module:**
 - REQ-001 bis REQ-008: Alle (Dashboard aggregiert Daten aus allen Modulen)
@@ -1230,7 +1244,7 @@ class DashboardConfig(BaseModel):
 - `redis` - Caching
 - `pydantic` - Validierung
 
-## 5. Akzeptanzkriterien
+## 6. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 

@@ -1448,7 +1448,24 @@ GET    /api/v1/locations/{location_key}/energy                   — Energieverb
 { "_from": "growth_phases/flowering", "_to": "phase_control_profiles/profile_cannabis_bloom" }
 ```
 
-## 4. Abhängigkeiten
+## 4. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| Actuators | Mitglied | Mitglied | Admin |
+| Schedules | Mitglied | Mitglied | Mitglied |
+| Rules | Mitglied | Mitglied | Mitglied |
+| Command & Override | — | Mitglied | — |
+| HA-Integration | Admin | Admin | Admin |
+| Emergency-Stop | — | Mitglied | — |
+
+## 5. Abhängigkeiten
 
 **Erforderliche Module:**
 - REQ-002 (Standort): Location für Aktor-Zuordnung, Location-Typ (indoor/outdoor) für Validierung
@@ -1471,7 +1488,7 @@ GET    /api/v1/locations/{location_key}/energy                   — Energieverb
 - `check_actuator_health` — Alle 15 Minuten: Erreichbarkeit von HA/MQTT-Aktoren prüfen, Alerts bei Offline. Bei >2h ohne State-Update: Alert „Aktor möglicherweise offline"
 - `accumulate_dli` — Stündlich: PPFD-Messwerte aufsummieren, bei DLI-Ziel-Erreichung Licht dimmen/abschalten
 
-## 5. Akzeptanzkriterien
+## 6. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 

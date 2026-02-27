@@ -1314,28 +1314,42 @@ async def equipment_by_location(
 
 **Zusammenfassung API-Endpunkte:**
 
-| # | Methode | Pfad | Beschreibung |
-|---|---------|------|-------------|
-| 1 | GET | `/api/v1/inventree/connections` | Alle Verbindungen |
-| 2 | POST | `/api/v1/inventree/connections` | Verbindung anlegen |
-| 3 | GET | `/api/v1/inventree/connections/{key}` | Verbindung laden |
-| 4 | PUT | `/api/v1/inventree/connections/{key}` | Verbindung aktualisieren |
-| 5 | POST | `/api/v1/inventree/connections/{key}/health-check` | Health-Check |
-| 6 | POST | `/api/v1/inventree/references/link` | Entität verknüpfen |
-| 7 | GET | `/api/v1/inventree/references` | Referenzen auflisten |
-| 8 | DELETE | `/api/v1/inventree/references/{key}` | Verknüpfung lösen |
-| 9 | POST | `/api/v1/inventree/references/{key}/sync` | Einzelne Referenz synchronisieren |
-| 10 | GET | `/api/v1/inventree/browse/parts` | Parts suchen |
-| 11 | GET | `/api/v1/inventree/browse/categories` | Kategorien laden |
-| 12 | POST | `/api/v1/inventree/sync/trigger` | Manueller Full-Sync |
-| 13 | GET | `/api/v1/inventree/transactions` | Transaktions-Log |
-| 14 | GET | `/api/v1/equipment/` | Equipment auflisten |
-| 15 | POST | `/api/v1/equipment/` | Equipment anlegen |
-| 16 | GET | `/api/v1/equipment/{key}` | Equipment laden |
-| 17 | PUT | `/api/v1/equipment/{key}` | Equipment aktualisieren |
-| 18 | GET | `/api/v1/equipment/by-location/{key}` | Equipment pro Location |
+| # | Methode | Pfad | Beschreibung | Auth |
+|---|---------|------|-------------|------|
+| 1 | GET | `/api/v1/inventree/connections` | Alle Verbindungen | Admin |
+| 2 | POST | `/api/v1/inventree/connections` | Verbindung anlegen | Admin |
+| 3 | GET | `/api/v1/inventree/connections/{key}` | Verbindung laden | Admin |
+| 4 | PUT | `/api/v1/inventree/connections/{key}` | Verbindung aktualisieren | Admin |
+| 5 | POST | `/api/v1/inventree/connections/{key}/health-check` | Health-Check | Admin |
+| 6 | POST | `/api/v1/inventree/references/link` | Entität verknüpfen | Mitglied |
+| 7 | GET | `/api/v1/inventree/references` | Referenzen auflisten | Mitglied |
+| 8 | DELETE | `/api/v1/inventree/references/{key}` | Verknüpfung lösen | Mitglied |
+| 9 | POST | `/api/v1/inventree/references/{key}/sync` | Einzelne Referenz synchronisieren | Mitglied |
+| 10 | GET | `/api/v1/inventree/browse/parts` | Parts suchen | Mitglied |
+| 11 | GET | `/api/v1/inventree/browse/categories` | Kategorien laden | Mitglied |
+| 12 | POST | `/api/v1/inventree/sync/trigger` | Manueller Full-Sync | Mitglied |
+| 13 | GET | `/api/v1/inventree/transactions` | Transaktions-Log | Mitglied |
+| 14 | GET | `/api/v1/equipment/` | Equipment auflisten | Mitglied |
+| 15 | POST | `/api/v1/equipment/` | Equipment anlegen | Mitglied |
+| 16 | GET | `/api/v1/equipment/{key}` | Equipment laden | Mitglied |
+| 17 | PUT | `/api/v1/equipment/{key}` | Equipment aktualisieren | Mitglied |
+| 18 | GET | `/api/v1/equipment/by-location/{key}` | Equipment pro Location | Mitglied |
 
-## 4. Abhängigkeiten
+## 4. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| Connection-Config | Admin | Admin | Admin |
+| References & Sync | Mitglied | Mitglied | — |
+| Equipment | Mitglied | Mitglied | Admin |
+
+## 5. Abhängigkeiten
 
 **Benötigt:**
 - **REQ-002** (Standort & Substrat) — Location-Entität für Equipment-Zuordnung (`equipment_at` Edge)
@@ -1354,7 +1368,7 @@ async def equipment_by_location(
 - **REQ-009** (Dashboard) — NIEDRIG: Optionales Dashboard-Widget "Lagerbestand kritisch"
 - **REQ-014** (Tankmanagement) — NIEDRIG: InvenTree-Bestand in Tank-Detail-Ansicht, Verbrauchstracking bei Wartung
 
-## 5. Akzeptanzkriterien
+## 6. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 

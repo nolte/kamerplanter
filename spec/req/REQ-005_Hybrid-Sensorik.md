@@ -1552,7 +1552,22 @@ tägliche PPFD-Summe berechnet (`dli_mol_m2_d`). Bei lückenhaften Daten (z.B. d
 Interpolation) wird der DLI-Wert mit dem Anteil der verfügbaren Datenpunkte skaliert
 und ein `dli_confidence`-Flag gesetzt.
 
-## 4. Abhängigkeiten
+## 4. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| Sensor-Daten (Tenant-scoped) | Mitglied | Mitglied | Admin |
+| Sensor-Konfiguration | Mitglied | Admin | Admin |
+| HA-Integration-Config | Admin | Admin | Admin |
+| Manuelle Messwert-Eingabe | — | Mitglied | — |
+
+## 5. Abhängigkeiten
 
 **Erforderliche externe Systeme:**
 - Home Assistant (optional, für Auto-Mode)
@@ -1576,7 +1591,7 @@ und ein `dli_confidence`-Flag gesetzt.
 - `websocket-client` - HA WebSocket
 - `psycopg2` / `asyncpg` - TimescaleDB-Client (PostgreSQL)
 
-## 5. Akzeptanzkriterien
+## 6. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 

@@ -355,7 +355,24 @@ class TreatmentProtocol(BaseModel):
         return v
 ```
 
-## 4. Abhängigkeiten
+## 4. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| Pests (globale Stammdaten) | Nein | Ja | Ja |
+| Diseases (globale Stammdaten) | Nein | Ja | Ja |
+| Treatments (globale Stammdaten) | Nein | Ja | Ja |
+| Inspections (Tenant-scoped) | Mitglied | Mitglied | Admin |
+| TreatmentApplications (Tenant-scoped) | Mitglied | Mitglied | Admin |
+| Karenz-Status (Tenant-scoped) | Mitglied | — | — |
+
+## 5. Abhängigkeiten
 
 **Erforderliche existierende Collections/Beziehungen:**
 - `plant_instances` aus REQ-001 (Stammdatenverwaltung)
@@ -375,7 +392,7 @@ class TreatmentProtocol(BaseModel):
 - Pflanzenschutzmittel-Datenbank (BVL/EPA) für Zulassungsstatus
 - Schädlings-Phänologie-Modelle (Gradtagsummen)
 
-## 5. Akzeptanzkriterien
+## 6. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 

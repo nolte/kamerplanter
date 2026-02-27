@@ -1007,9 +1007,9 @@ class ICalendarFeedRepository(ABC):
 
 ### 4.1 Kalender-Events (Aggregation)
 
-| Methode | Pfad | Beschreibung |
-|---------|------|-------------|
-| `GET` | `/api/v1/calendar/events` | Aggregierte Events mit Filtern |
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `GET` | `/api/v1/calendar/events` | Aggregierte Events mit Filtern | Mitglied |
 
 **Query-Parameter:**
 
@@ -1053,9 +1053,9 @@ class ICalendarFeedRepository(ABC):
 
 ### 4.2 iCal-Feed (Read-Only Export)
 
-| Methode | Pfad | Beschreibung |
-|---------|------|-------------|
-| `GET` | `/api/v1/calendar/feeds/{feed_id}/feed.ics` | iCal-Feed abrufen |
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `GET` | `/api/v1/calendar/feeds/{feed_id}/feed.ics` | iCal-Feed abrufen | Nein (Feed-Token) |
 
 **Query-Parameter:**
 
@@ -1106,14 +1106,14 @@ webcal://kamerplanter.local/api/v1/calendar/feeds/{feed_id}/feed.ics?token={toke
 
 ### 4.3 Feed-Management (CRUD)
 
-| Methode | Pfad | Beschreibung |
-|---------|------|-------------|
-| `POST` | `/api/v1/calendar/feeds` | Neuen Feed erstellen |
-| `GET` | `/api/v1/calendar/feeds` | Alle Feeds auflisten |
-| `GET` | `/api/v1/calendar/feeds/{feed_id}` | Feed-Details abrufen |
-| `PUT` | `/api/v1/calendar/feeds/{feed_id}` | Feed aktualisieren |
-| `DELETE` | `/api/v1/calendar/feeds/{feed_id}` | Feed löschen |
-| `POST` | `/api/v1/calendar/feeds/{feed_id}/regenerate-token` | Token erneuern |
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `POST` | `/api/v1/calendar/feeds` | Neuen Feed erstellen | Mitglied |
+| `GET` | `/api/v1/calendar/feeds` | Alle Feeds auflisten | Mitglied |
+| `GET` | `/api/v1/calendar/feeds/{feed_id}` | Feed-Details abrufen | Mitglied |
+| `PUT` | `/api/v1/calendar/feeds/{feed_id}` | Feed aktualisieren | Mitglied |
+| `DELETE` | `/api/v1/calendar/feeds/{feed_id}` | Feed löschen | Mitglied |
+| `POST` | `/api/v1/calendar/feeds/{feed_id}/regenerate-token` | Token erneuern | Mitglied |
 
 **POST /api/v1/calendar/feeds — Request:**
 ```json
@@ -1162,7 +1162,21 @@ webcal://kamerplanter.local/api/v1/calendar/feeds/{feed_id}/feed.ics?token={toke
 
 > **Sicherheitshinweis:** Nach Token-Rotation müssen alle externen Kalender-Apps die URL aktualisieren. Das alte Token wird sofort ungültig.
 
-## 5. Abhängigkeiten
+## 5. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| Kalender-Events | Mitglied | Mitglied | Mitglied |
+| iCal-Feed (`feed.ics`) | Nein (Feed-Token) | — | — |
+| Feed-Verwaltung | Mitglied | Mitglied | Mitglied |
+
+## 6. Abhängigkeiten
 
 ### Hard Dependencies (funktional notwendig)
 
@@ -1189,7 +1203,7 @@ webcal://kamerplanter.local/api/v1/calendar/feeds/{feed_id}/feed.ics?token={toke
 |-----|---------|
 | REQ-009 | Dashboard könnte Kalender-Widget einbetten |
 
-## 6. Akzeptanzkriterien
+## 7. Akzeptanzkriterien
 
 ### Definition of Done
 

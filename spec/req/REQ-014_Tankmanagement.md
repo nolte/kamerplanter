@@ -1544,7 +1544,22 @@ GET    /api/v1/locations/{location_key}/tanks/validation  — Prüfe ob Location
 { "_from": "tanks/tank_zelt1", "_to": "maintenance_schedules/sched_zelt1_cal" }
 ```
 
-## 4. Abhängigkeiten
+## 4. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| Tanks | Mitglied | Mitglied | Admin |
+| Tank-States | Mitglied | Mitglied | — |
+| Tank-Fills | Mitglied | Mitglied | — |
+| Watering-Events | Mitglied | Mitglied | Admin |
+
+## 5. Abhängigkeiten
 
 **Erforderliche Module:**
 - REQ-002 (Standort): Location für Tank-Zuordnung, `irrigation_system` für Pflicht-Validierung
@@ -1563,7 +1578,7 @@ GET    /api/v1/locations/{location_key}/tanks/validation  — Prüfe ob Location
 - `check_maintenance_due` — Täglich: Prüft alle Tanks auf fällige Wartungen, erzeugt Tasks (REQ-006)
 - `check_tank_alerts` — Stündlich: Prüft Tank-Zustände gegen Grenzwerte, erzeugt Alerts
 
-## 5. Akzeptanzkriterien
+## 6. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 

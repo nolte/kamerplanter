@@ -894,7 +894,23 @@ Site: "Zuhause" (indoor, Klimazone 8a, GPS: 52.52°N 13.405°E)
 { "_from": "locations/growzelt2", "_to": "slots/GROWZELT2_2" }
 ```
 
-## 4. Abhängigkeiten
+## 4. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| Sites | Mitglied | Mitglied | Admin |
+| Locations | Mitglied | Mitglied | Admin |
+| Slots | Mitglied | Mitglied | Admin |
+| Substrates | Mitglied | Mitglied | Admin |
+| LocationTypes (System-Stammdaten) | Nein | Admin | Admin |
+
+## 5. Abhängigkeiten
 
 **Erforderliche Module:**
 - REQ-001 (Stammdaten): Species und BotanicalFamily für Fruchtfolge
@@ -909,7 +925,7 @@ Site: "Zuhause" (indoor, Klimazone 8a, GPS: 52.52°N 13.405°E)
 - REQ-010 (IPM): Standort-Historie für Schädlings-Muster
 - REQ-014 (Tankmanagement): **HOCH** — Location für Tank-Zuordnung, `irrigation_system` für Pflicht-Validierung
 
-## 5. Akzeptanzkriterien
+## 6. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 

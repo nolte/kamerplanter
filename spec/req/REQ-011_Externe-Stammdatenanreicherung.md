@@ -836,7 +836,23 @@ async def search_external(
     return results
 ```
 
-## 4. Abhängigkeiten
+## 4. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| Enrichment Sources | Ja | Admin | — |
+| Enrichment History | Ja | — | — |
+| Species-Enrichments | Ja | Admin (Accept) | — |
+| Sync-Trigger | — | Admin | — |
+| External Search | Ja | — | — |
+
+## 5. Abhängigkeiten
 
 **Benötigt:**
 - **REQ-001** (Stammdatenverwaltung) — Ziel-Entitäten (Species, Cultivar, BotanicalFamily)
@@ -857,7 +873,7 @@ async def search_external(
 - API-Keys: Perenual (erforderlich), Trefle (erforderlich)
 - Netzwerkzugang zu externen APIs
 
-## 5. Akzeptanzkriterien
+## 6. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 

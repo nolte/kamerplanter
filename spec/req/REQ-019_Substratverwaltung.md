@@ -282,7 +282,22 @@ IRRIGATION_STRATEGY_MAP = {
 }
 ```
 
-## 4. Abhängigkeiten
+## 4. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft. Alle Substrat-Daten sind Tenant-scoped.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| Substrat-Typen (Tenant-scoped) | Mitglied | Mitglied | Admin |
+| Substrat-Chargen (Tenant-scoped) | Mitglied | Mitglied | Admin |
+| Substrat-Analysen (Tenant-scoped) | Mitglied | Mitglied | Admin |
+| Wiederverwendungszyklen | Mitglied | Mitglied | — |
+
+## 5. Abhängigkeiten
 
 **Erforderliche Module:**
 - REQ-002 (Standort): Slot-Zuordnung via `filled_with`-Edge
@@ -293,7 +308,7 @@ IRRIGATION_STRATEGY_MAP = {
 - REQ-005 (Sensorik): Substrat-Messwerte (pH, EC, Feuchtigkeit, Temperatur)
 - REQ-018 (Umgebungssteuerung): **MITTEL** — `irrigation_strategy` bestimmt Bewässerungs-Automatik (Frequenz, Volumen)
 
-## 5. Akzeptanzkriterien
+## 6. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 

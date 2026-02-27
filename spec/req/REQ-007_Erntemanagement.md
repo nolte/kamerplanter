@@ -2237,7 +2237,23 @@ class YieldMetric(BaseModel):
             return 'Below Average'
 ```
 
-## 4. Abhängigkeiten
+## 4. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| HarvestIndicators (globale Stammdaten) | Nein | Ja | Ja |
+| HarvestBatches (Tenant-scoped) | Mitglied | Mitglied | Admin |
+| HarvestObservations (Tenant-scoped) | Mitglied | Mitglied | Admin |
+| QualityAssessments (Tenant-scoped) | Mitglied | Mitglied | Admin |
+| YieldMetrics (Tenant-scoped) | Mitglied | Mitglied | Admin |
+
+## 5. Abhängigkeiten
 
 **Erforderliche Module:**
 - REQ-001 (Stammdaten): Species für Harvest-Indicators, Ethylen-Klassifikation
@@ -2257,7 +2273,7 @@ class YieldMetric(BaseModel):
 - Computer Vision (optional) für Trichom-Analyse
 - Refraktometer (Hardware) für Brix-Messung
 
-## 5. Akzeptanzkriterien
+## 6. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 

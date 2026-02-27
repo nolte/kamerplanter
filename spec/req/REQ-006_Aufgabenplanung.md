@@ -1535,7 +1535,22 @@ class TaskCompletion(BaseModel):
         return round(time_score + quality_score, 1)
 ```
 
-## 4. Abhängigkeiten
+## 4. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| Tasks (Tenant-scoped) | Mitglied | Mitglied | Admin |
+| Task-Statusübergänge | — | Mitglied | — |
+| WorkflowTemplates | Mitglied | Admin | Admin |
+| Workflow-Instanziierung | — | Mitglied | — |
+
+## 5. Abhängigkeiten
 
 **Erforderliche Module:**
 - REQ-001 (Stammdaten): Species für Template-Kompatibilität + `species_type` für artspezifische Recovery-Zeiten
@@ -1555,7 +1570,7 @@ class TaskCompletion(BaseModel):
 - `croniter` - Cron-Expression-Parsing für Recurring Tasks
 - `jsonschema` - Validierung von Workflow-JSON-Importen
 
-## 5. Akzeptanzkriterien
+## 6. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 

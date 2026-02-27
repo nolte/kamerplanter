@@ -293,27 +293,27 @@ Dekorative Zimmerpflanzen (Kits `zimmerpflanzen` und `zimmerpflanzen-haustierfre
 
 ### Router: `/api/v1/onboarding`
 
-| Methode | Pfad | Beschreibung |
-|---------|------|-------------|
-| `GET` | `/api/v1/onboarding/state` | Onboarding-Status abfragen (completed/skipped/step) |
-| `POST` | `/api/v1/onboarding/complete` | Wizard abschließen — erstellt alle Entitäten |
-| `POST` | `/api/v1/onboarding/skip` | Wizard überspringen |
-| `PATCH` | `/api/v1/onboarding/state` | Wizard-Fortschritt speichern (für Resume) |
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `GET` | `/api/v1/onboarding/state` | Onboarding-Status abfragen (completed/skipped/step) | Ja |
+| `POST` | `/api/v1/onboarding/complete` | Wizard abschließen — erstellt alle Entitäten | Ja |
+| `POST` | `/api/v1/onboarding/skip` | Wizard überspringen | Ja |
+| `PATCH` | `/api/v1/onboarding/state` | Wizard-Fortschritt speichern (für Resume) | Ja |
 
 ### Router: `/api/v1/starter-kits`
 
-| Methode | Pfad | Beschreibung |
-|---------|------|-------------|
-| `GET` | `/api/v1/starter-kits` | Alle Kits auflisten (mit `?difficulty=beginner`-Filter) |
-| `GET` | `/api/v1/starter-kits/{kit_id}` | Kit-Detail mit aufgelösten Species/Cultivars |
-| `POST` | `/api/v1/starter-kits/{kit_id}/apply` | Kit nachträglich anwenden (ohne Wizard) |
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `GET` | `/api/v1/starter-kits` | Alle Kits auflisten (mit `?difficulty=beginner`-Filter) | Nein |
+| `GET` | `/api/v1/starter-kits/{kit_id}` | Kit-Detail mit aufgelösten Species/Cultivars | Nein |
+| `POST` | `/api/v1/starter-kits/{kit_id}/apply` | Kit nachträglich anwenden (ohne Wizard) | Ja |
 
 ### Router: `/api/v1/user-preferences`
 
-| Methode | Pfad | Beschreibung |
-|---------|------|-------------|
-| `GET` | `/api/v1/user-preferences` | Aktuelle Präferenzen abfragen |
-| `PATCH` | `/api/v1/user-preferences` | Präferenzen aktualisieren (experience_level, locale, theme) |
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `GET` | `/api/v1/user-preferences` | Aktuelle Präferenzen abfragen | Ja |
+| `PATCH` | `/api/v1/user-preferences` | Präferenzen aktualisieren (experience_level, locale, theme) | Ja |
 
 ### Response-Beispiele:
 
@@ -538,7 +538,22 @@ interface OnboardingState {
 - [ ] Frontend-Komponenten haben vitest-Tests
 - [ ] Responsive Design für Desktop, Tablet und Mobile
 
-## 7. Abhängigkeiten
+## 7. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| Onboarding-Status | Ja | Ja | — |
+| Starter-Kits (Katalog) | Nein | — | — |
+| Starter-Kits (Anwenden) | — | Ja | — |
+| User Preferences | Ja | Ja | Ja |
+
+## 8. Abhängigkeiten
 
 | REQ/NFR | Art | Beschreibung |
 |---------|-----|-------------|

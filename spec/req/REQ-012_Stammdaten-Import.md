@@ -1239,7 +1239,22 @@ Alle Eingabefelder im Upload-Dialog müssen mit einem erklärenden Hinweistext v
   - `import.duplicate.update` → "Aktualisieren" / "Update"
   - `import.duplicate.fail` → "Abbrechen bei Duplikat" / "Fail on Duplicate"
 
-## 5. Abhängigkeiten
+## 5. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| CSV-Import (Upload & Ausführung) | — | Admin | — |
+| Import-Validierung (Dry-Run) | — | Admin | — |
+| Import-History | Admin | — | — |
+| Template-Download | Ja | — | — |
+
+## 6. Abhängigkeiten
 
 **Benötigt:**
 - **REQ-001** (Stammdatenverwaltung) — Ziel-Entitäten (Species, Cultivar, BotanicalFamily), Validierungsregeln, Datenmodell
@@ -1255,7 +1270,7 @@ Alle Eingabefelder im Upload-Dialog müssen mit einem erklärenden Hinweistext v
 - REQ-001 (Stammdaten) — Bulk-Import als Alternative zur Einzelanlage
 - REQ-011 (Anreicherung) — Importierte Stammdaten als Sync-Kandidaten
 
-## 6. Akzeptanzkriterien
+## 7. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 

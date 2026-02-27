@@ -1575,7 +1575,23 @@ class FeedingEventRecord(BaseModel):
         return self
 ```
 
-## 4. Abhängigkeiten
+## 4. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| Fertilizers (globale Stammdaten) | Nein | Ja | Ja |
+| NutrientPlans (Tenant-scoped) | Mitglied | Mitglied | Mitglied |
+| FeedingEvents (Tenant-scoped) | Mitglied | Mitglied | Admin |
+| WateringEvents (Tenant-scoped) | Mitglied | Mitglied | Admin |
+| NutrientCalculations (zustandslos) | Nein | — | — |
+
+## 5. Abhängigkeiten
 
 **Erforderliche Module:**
 - REQ-001 (Stammdaten): Species für substrat-spezifische Empfehlungen
@@ -1593,7 +1609,7 @@ class FeedingEventRecord(BaseModel):
 - Dünger-Datenbanken (NPK-Werte, Preise)
 - Inventar-Management-Systeme
 
-## 5. Akzeptanzkriterien
+## 6. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 

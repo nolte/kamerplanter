@@ -1760,7 +1760,22 @@ class BurpingEvent(BaseModel):
         return v
 ```
 
-## 4. Abhängigkeiten
+## 4. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft. Alle Post-Harvest-Daten sind Tenant-scoped.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| Trocknungsprozesse (Tenant-scoped) | Mitglied | Mitglied | Admin |
+| Aushärtung/Curing (Tenant-scoped) | Mitglied | Mitglied | Admin |
+| Qualitätsprüfungen (Tenant-scoped) | Mitglied | Mitglied | Admin |
+| Lagerbestände (Tenant-scoped) | Mitglied | Mitglied | Admin |
+
+## 5. Abhängigkeiten
 
 **Erforderliche Module:**
 - REQ-007 (Ernte): Batch-Übergabe
@@ -1786,7 +1801,7 @@ class BurpingEvent(BaseModel):
 **Python-Bibliotheken:**
 - `timescaledb` oder `influxdb` - Zeitreihen für Gewichts-Tracking
 
-## 5. Akzeptanzkriterien
+## 6. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 

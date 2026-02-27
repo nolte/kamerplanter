@@ -855,7 +855,25 @@ class BotanicalFamilyDefinition(BaseModel):
         return v
 ```
 
-## 4. Abhängigkeiten
+## 4. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+Stammdaten sind globale Referenzdaten und nicht Tenant-scoped. Lesezugriff ist öffentlich (kein Token erforderlich). Schreiboperationen erfordern einen authentifizierten Benutzer.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| BotanicalFamilies (globale Referenzdaten) | Nein | Ja | Ja |
+| Species (globale Referenzdaten) | Nein | Ja | Ja |
+| Cultivars (globale Referenzdaten) | Nein | Ja | Ja |
+| CompanionPlanting (Graph-Beziehungen) | Nein | Ja | Ja |
+| CropRotation (Graph-Beziehungen) | Nein | Ja | Ja |
+
+## 5. Abhängigkeiten
 
 **Erforderliche externe Datenquellen:**
 - USDA Plant Database (Hardiness Zones, native Habitats)
@@ -874,7 +892,7 @@ class BotanicalFamilyDefinition(BaseModel):
 - REQ-011 (Externe Enrichment) - **MITTEL:** GBIF-Adapter: `order`-Feld mappen
 - REQ-012 (CSV-Import) - **NIEDRIG:** Neue BotanicalFamily-Felder im Import unterstützen
 
-## 5. Akzeptanzkriterien
+## 6. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 

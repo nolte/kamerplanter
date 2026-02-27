@@ -1484,7 +1484,22 @@ GET    /api/v1/propagation/stats/by-protocol                 — Erfolgsraten gr
 { "_from": "propagation_events/prop_evt_001", "_to": "rooting_protocols/proto_cannabis_std" }
 ```
 
-## 4. Abhängigkeiten
+## 4. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| Propagation-Batches | Mitglied | Mitglied | Mitglied |
+| Propagation-Entries | Mitglied | Mitglied | Mitglied |
+| Lineage-Graph | Mitglied | — | — |
+| Mother-Plants | Mitglied | Mitglied | Admin |
+
+## 5. Abhängigkeiten
 
 **Erforderliche Module:**
 - REQ-001 (Stammdaten): Species, Cultivar, BotanicalFamily für Veredelungs-Kompatibilität und Spezies-spezifische Defaults
@@ -1505,7 +1520,7 @@ GET    /api/v1/propagation/stats/by-protocol                 — Erfolgsraten gr
 - `check_mother_plant_health` — Wöchentlich: Prüft alle Mutterpflanzen auf Retirement-Kriterien
 - `check_propagation_progress` — Täglich: Prüft aktive Events auf überfällige Bewurzelungs-Meilensteine
 
-## 5. Akzeptanzkriterien
+## 6. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 

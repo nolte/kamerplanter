@@ -918,7 +918,24 @@ Transition `senescence → dormancy` hat `is_cycle_restart: true` und startet ei
 
 Für immergrüne Dauerkulturen (z.B. Zitrus) entfällt `senescence`; `dormancy` kann optional sein.
 
-## 4. Abhängigkeiten
+## 4. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+Zustandslose Berechnungsendpunkte (VPD, GDD, Photoperiode) sind öffentlich zugänglich, da sie keine persistierten Daten lesen oder schreiben.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| PlantInstances (Tenant-scoped) | Mitglied | Mitglied | Admin |
+| GrowthPhases (Tenant-scoped) | Mitglied | Mitglied | Admin |
+| Phase-Transitions (Tenant-scoped) | — | Mitglied | — |
+| Berechnungen (VPD, GDD, Photoperiode) | Nein | — | — |
+
+## 5. Abhängigkeiten
 
 **Erforderliche Module:**
 - REQ-001 (Stammdaten): LifecycleConfig (`cycle_type`, `dormancy_required`, `vernalization_required`),
@@ -933,7 +950,7 @@ Für immergrüne Dauerkulturen (z.B. Zitrus) entfällt `senescence`; `dormancy` 
 - REQ-007 (Ernte): Harvest-Permission nur in finalen Phasen
 - REQ-010 (IPM): Phasenspezifische Vulnerabilitäten
 
-## 5. Akzeptanzkriterien
+## 6. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 

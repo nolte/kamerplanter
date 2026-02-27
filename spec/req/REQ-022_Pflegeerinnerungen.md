@@ -1132,15 +1132,15 @@ class CareReminderRepository:
 
 Router: `/api/v1/care-reminders`
 
-| Methode | Pfad | Beschreibung | Request | Response |
-|---------|------|-------------|---------|----------|
-| `GET` | `/dashboard` | Alle fälligen Erinnerungen, sortiert nach Dringlichkeit | Query: `?include_upcoming=true` | `list[CareDashboardEntry]` |
-| `GET` | `/plants/{plant_key}/profile` | CareProfile abrufen (auto-erstellt falls nicht vorhanden) | — | `CareProfile` |
-| `PATCH` | `/plants/{plant_key}/profile` | Intervalle anpassen | `CareProfileUpdate` | `CareProfile` |
-| `POST` | `/plants/{plant_key}/confirm` | Ein-Tap-Bestätigung einer Pflegeaktion | `CareConfirmRequest` | `CareConfirmation` |
-| `POST` | `/plants/{plant_key}/snooze` | Erinnerung um N Tage verschieben | `CareSnoozeRequest` | `CareConfirmation` |
-| `GET` | `/plants/{plant_key}/history` | Bestätigungshistorie | Query: `?limit=50&reminder_type=watering` | `list[CareConfirmation]` |
-| `POST` | `/plants/{plant_key}/reset-profile` | CareProfile auf Species-Defaults zurücksetzen | — | `CareProfile` |
+| Methode | Pfad | Beschreibung | Request | Response | Auth |
+|---------|------|-------------|---------|----------|------|
+| `GET` | `/dashboard` | Alle fälligen Erinnerungen, sortiert nach Dringlichkeit | Query: `?include_upcoming=true` | `list[CareDashboardEntry]` | Ja |
+| `GET` | `/plants/{plant_key}/profile` | CareProfile abrufen (auto-erstellt falls nicht vorhanden) | — | `CareProfile` | Mitglied |
+| `PATCH` | `/plants/{plant_key}/profile` | Intervalle anpassen | `CareProfileUpdate` | `CareProfile` | Mitglied |
+| `POST` | `/plants/{plant_key}/confirm` | Ein-Tap-Bestätigung einer Pflegeaktion | `CareConfirmRequest` | `CareConfirmation` | Mitglied |
+| `POST` | `/plants/{plant_key}/snooze` | Erinnerung um N Tage verschieben | `CareSnoozeRequest` | `CareConfirmation` | Mitglied |
+| `GET` | `/plants/{plant_key}/history` | Bestätigungshistorie | Query: `?limit=50&reminder_type=watering` | `list[CareConfirmation]` | Mitglied |
+| `POST` | `/plants/{plant_key}/reset-profile` | CareProfile auf Species-Defaults zurücksetzen | — | `CareProfile` | Mitglied |
 
 **Fehlerbehandlung (NFR-006):**
 
@@ -1422,7 +1422,21 @@ Im Experten-Modus ist die PflegeDashboardPage eine alternative Ansicht auf diese
 - [ ] Celery-Beat Task ist idempotent (Duplikat-Prüfung vor Task-Erstellung)
 - [ ] Alle neuen Collections/Edges sind im `kamerplanter_graph` registriert
 
-## 7. Abhängigkeiten
+## 7. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| Pflege-Dashboard | Ja | — | — |
+| Pflegepläne (pro Pflanze) | Mitglied | Mitglied | Mitglied |
+| Erinnerungen (pro Pflanze) | Mitglied | Mitglied | Mitglied |
+
+## 8. Abhängigkeiten
 
 | REQ/NFR | Art | Beschreibung |
 |---------|-----|-------------|

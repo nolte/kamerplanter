@@ -326,7 +326,20 @@ Für bestehende Formulare:
 
 Diese Phasen können inkrementell umgesetzt werden — jede Phase ist unabhängig deploybar.
 
-## 6. Abhängigkeiten
+## 6. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Hinweis:** REQ-021 definiert keine eigenen API-Endpunkte. Die Erfahrungsstufe wird als
+User-Preference über die Endpunkte von REQ-020 (Onboarding-Wizard) gespeichert.
+
+| Ressource/Endpoint-Gruppe | Auth | Referenz |
+|---------------------------|------|----------|
+| `GET /api/v1/user-preferences` | Ja | REQ-020 |
+| `PUT /api/v1/user-preferences` | Ja | REQ-020 |
+
+## 7. Abhängigkeiten
 
 | REQ/NFR | Art | Beschreibung |
 |---------|-----|-------------|

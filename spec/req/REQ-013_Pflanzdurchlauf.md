@@ -1219,44 +1219,44 @@ class RunContainsEdge(BaseModel):
 
 ### 4.1 CRUD — Pflanzdurchläufe (5 Endpunkte)
 
-| Methode | Pfad | Beschreibung |
-|---------|------|-------------|
-| `GET` | `/api/v1/planting-runs` | Alle Durchläufe auflisten (Filter: status, run_type, location_key) |
-| `POST` | `/api/v1/planting-runs` | Neuen Durchlauf anlegen (inkl. Entries) |
-| `GET` | `/api/v1/planting-runs/{key}` | Einzelnen Durchlauf mit Entries, Pflanzen, Standort laden |
-| `PUT` | `/api/v1/planting-runs/{key}` | Durchlauf-Metadaten aktualisieren (Name, Notizen, Startdatum) |
-| `DELETE` | `/api/v1/planting-runs/{key}` | Durchlauf löschen (nur Status `planned`, sonst 409 Conflict) |
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `GET` | `/api/v1/planting-runs` | Alle Durchläufe auflisten (Filter: status, run_type, location_key) | Mitglied |
+| `POST` | `/api/v1/planting-runs` | Neuen Durchlauf anlegen (inkl. Entries) | Mitglied |
+| `GET` | `/api/v1/planting-runs/{key}` | Einzelnen Durchlauf mit Entries, Pflanzen, Standort laden | Mitglied |
+| `PUT` | `/api/v1/planting-runs/{key}` | Durchlauf-Metadaten aktualisieren (Name, Notizen, Startdatum) | Mitglied |
+| `DELETE` | `/api/v1/planting-runs/{key}` | Durchlauf löschen (nur Status `planned`, sonst 409 Conflict) | Admin |
 
 ### 4.2 Entries — Artenzusammensetzung (4 Endpunkte)
 
-| Methode | Pfad | Beschreibung |
-|---------|------|-------------|
-| `GET` | `/api/v1/planting-runs/{key}/entries` | Alle Entries eines Durchlaufs |
-| `POST` | `/api/v1/planting-runs/{key}/entries` | Entry hinzufügen (nur Status `planned`) |
-| `PUT` | `/api/v1/planting-runs/{key}/entries/{entry_key}` | Entry aktualisieren (nur Status `planned`) |
-| `DELETE` | `/api/v1/planting-runs/{key}/entries/{entry_key}` | Entry entfernen (nur Status `planned`, Constraint-Prüfung) |
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `GET` | `/api/v1/planting-runs/{key}/entries` | Alle Entries eines Durchlaufs | Mitglied |
+| `POST` | `/api/v1/planting-runs/{key}/entries` | Entry hinzufügen (nur Status `planned`) | Mitglied |
+| `PUT` | `/api/v1/planting-runs/{key}/entries/{entry_key}` | Entry aktualisieren (nur Status `planned`) | Mitglied |
+| `DELETE` | `/api/v1/planting-runs/{key}/entries/{entry_key}` | Entry entfernen (nur Status `planned`, Constraint-Prüfung) | Mitglied |
 
 ### 4.3 Batch-Operationen (4 Endpunkte)
 
-| Methode | Pfad | Beschreibung | Request-Body |
-|---------|------|-------------|-------------|
-| `POST` | `/api/v1/planting-runs/{key}/create-plants` | N Pflanzen aus Entries erzeugen | `BatchCreatePlantsRequest` |
-| `POST` | `/api/v1/planting-runs/{key}/batch-transition` | Batch-Phasenübergang | `BatchTransitionRequest` |
-| `POST` | `/api/v1/planting-runs/{key}/batch-harvest` | HarvestBatch erstellen | `BatchHarvestRequest` |
-| `POST` | `/api/v1/planting-runs/{key}/batch-remove` | Alle Pflanzen entfernen, Run abschließen | `BatchRemoveRequest` |
+| Methode | Pfad | Beschreibung | Request-Body | Auth |
+|---------|------|-------------|-------------|------|
+| `POST` | `/api/v1/planting-runs/{key}/create-plants` | N Pflanzen aus Entries erzeugen | `BatchCreatePlantsRequest` | Mitglied |
+| `POST` | `/api/v1/planting-runs/{key}/batch-transition` | Batch-Phasenübergang | `BatchTransitionRequest` | Mitglied |
+| `POST` | `/api/v1/planting-runs/{key}/batch-harvest` | HarvestBatch erstellen | `BatchHarvestRequest` | Mitglied |
+| `POST` | `/api/v1/planting-runs/{key}/batch-remove` | Alle Pflanzen entfernen, Run abschließen | `BatchRemoveRequest` | Mitglied |
 
 ### 4.4 Pflanzen im Run (2 Endpunkte)
 
-| Methode | Pfad | Beschreibung |
-|---------|------|-------------|
-| `GET` | `/api/v1/planting-runs/{key}/plants` | Alle Pflanzen im Run (Filter: detached=true/false, phase) |
-| `POST` | `/api/v1/planting-runs/{key}/plants/{plant_key}/detach` | Einzelne Pflanze vom Run abtrennen |
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `GET` | `/api/v1/planting-runs/{key}/plants` | Alle Pflanzen im Run (Filter: detached=true/false, phase) | Mitglied |
+| `POST` | `/api/v1/planting-runs/{key}/plants/{plant_key}/detach` | Einzelne Pflanze vom Run abtrennen | Mitglied |
 
 ### 4.5 Validierung (1 Endpunkt)
 
-| Methode | Pfad | Beschreibung |
-|---------|------|-------------|
-| `POST` | `/api/v1/planting-runs/{key}/validate-compatibility` | Mischkultur-Kompatibilitäts-Check |
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `POST` | `/api/v1/planting-runs/{key}/validate-compatibility` | Mischkultur-Kompatibilitäts-Check | Mitglied |
 
 ### Request/Response-Beispiele:
 
@@ -1405,7 +1405,21 @@ class RunContainsEdge(BaseModel):
 | `409` | Konfliktzustand | DELETE auf aktiven Run; Pflanze gehört bereits zu anderem Run |
 | `422` | Geschäftslogik-Fehler | Clone-Run ohne source_plant_key; Monokultur mit 2 Entries |
 
-## 5. Abhängigkeiten
+## 5. Authentifizierung & Autorisierung
+
+> **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
+> gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
+
+**Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
+und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
+
+| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+|---------------------------|-------|-----------|---------|
+| PlantingRuns | Mitglied | Mitglied | Admin |
+| PlantingRun-Einträge | Mitglied | Mitglied | Mitglied |
+| Batch-Operationen | — | Mitglied | — |
+
+## 6. Abhängigkeiten
 
 ### Erforderliche Module:
 
@@ -1469,7 +1483,7 @@ class RunContainsEdge(BaseModel):
 }
 ```
 
-## 6. Akzeptanzkriterien
+## 7. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 
