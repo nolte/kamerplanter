@@ -11,8 +11,8 @@ Documentation is written in **German**; source code must be in **English only** 
 ## Repository Structure
 
 - `spec/` — Specification documents
-  - `spec/req/` — 18 functional requirements (REQ-001 through REQ-018)
-  - `spec/nfr/` — 10 non-functional requirements (NFR-001 through NFR-010)
+  - `spec/req/` — 25 functional requirements (REQ-001 through REQ-025)
+  - `spec/nfr/` — 11 non-functional requirements (NFR-001 through NFR-011)
   - `spec/stack.md` — Complete technology stack specification
 - `src/backend/` — Python/FastAPI backend (implemented)
 - `src/frontend/` — React/TypeScript frontend (implemented)
@@ -40,6 +40,12 @@ Documentation is written in **German**; source code must be in **English only** 
 | REQ-017 | Vermehrungsmanagement | Pflanzenvermehrung |
 | REQ-018 | Umgebungssteuerung & Aktorik | Automatisierung |
 | REQ-019 | Substratverwaltung | Infrastruktur |
+| REQ-020 | Onboarding-Wizard | Benutzerführung |
+| REQ-021 | UI-Erfahrungsstufen | Benutzerführung |
+| REQ-022 | Pflegeerinnerungen | Pflege & Erinnerungen |
+| REQ-023 | Benutzerverwaltung & Authentifizierung | Plattform & Sicherheit |
+| REQ-024 | Mandantenverwaltung & Gemeinschaftsgärten | Plattform & Kollaboration |
+| REQ-025 | Datenschutz & Betroffenenrechte (DSGVO) | Plattform & Datenschutz |
 
 ## Key Architectural Decisions
 
@@ -59,11 +65,17 @@ These constraints are documented across multiple files and must be respected whe
 
 7. **Actuator control loop** (REQ-018): Closes the sensor→actuator loop. Home Assistant/MQTT/manual protocols. Rule-based control with hysteresis. Priority system: manual override > safety rules > sensor rules > schedules. Graceful degradation to fallback tasks on HA outage.
 
+8. **Dual authentication** (REQ-023): Local accounts (email + bcrypt password) and federated accounts (Google, GitHub, Apple + generic OIDC providers via Authlib). JWT access tokens (15 min) + refresh tokens (30 days, HttpOnly cookie, rotation). Supersedes NFR-001 §6.1.
+
+9. **Multi-tenancy with tenant-scoped roles** (REQ-024): Tenant is the isolation container — all resources belong to exactly one tenant. Users can be members of multiple tenants with different roles per tenant (admin/grower/viewer). URL-based routing: `/api/v1/t/{tenant_slug}/...` for tenant-scoped endpoints. Global resources (species, cultivars, IPM data) remain at `/api/v1/...`. Personal tenant auto-created at registration.
+
+10. **DSGVO by Design** (REQ-025, NFR-011): All personal data has defined retention periods enforced by Celery. DSGVO subject rights (Art. 15–21) as self-service API at `/api/v1/privacy/`. IP addresses anonymized after 7 days. Sensor data downsampled in 3 stages (90d raw → 2y hourly → 5y daily). Consent-checking middleware for optional processing. Harvest/treatment data anonymized (not deleted) when retention laws (CanG, PflSchG) apply.
+
 ## Tech Stack Summary
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Python 3.14+, FastAPI >= 0.115, Celery >= 5.4 |
+| Backend | Python 3.14+, FastAPI >= 0.115, Celery >= 5.4, Authlib (JWT/OAuth2/OIDC) |
 | Frontend | React 19, TypeScript 5.9, Redux Toolkit, MUI 7, Vite 6, react-router-dom v7 |
 | Mobile | Flutter 3.16+ (not yet implemented) |
 | Primary DB | ArangoDB 3.11+ (multi-model) |
@@ -84,3 +96,8 @@ These constraints are documented across multiple files and must be respected whe
 - **Karenz period** — mandatory waiting time between chemical treatment and harvest
 - **Lineage** — genetic ancestry graph (clone chains, seed crosses, grafts)
 - **Hysteresis** — on/off threshold separation preventing actuator oscillation
+- **Tenant** — isolation container for multi-user: personal garden, community garden, or commercial operation. All resources scoped to exactly one tenant.
+- **Membership** — user-to-tenant relationship with role (admin/grower/viewer). One user can have different roles in different tenants.
+- **Retention Policy** — defined data lifecycle per category (NFR-011). Celery master task enforces deletion/anonymization daily. Configurable via environment variables with legal minimum floors.
+- **Consent Record** — tracked per user and processing purpose. Required consents (core functionality) cannot be revoked. Optional consents (Sentry, HIBP, enrichment) gate feature access via middleware.
+- **DSFA** — Datenschutz-Folgenabschätzung (Data Protection Impact Assessment): required for sensor data that may reveal personal presence patterns (CO2, motion, manual overrides).
