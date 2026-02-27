@@ -870,7 +870,10 @@ class NutrientProfileDefinition(BaseModel):
 
 TransitionTriggerType = Literal['time_based', 'manual', 'event_based', 'conditional', 'gdd_based']
 PhaseType = Literal['seedling', 'vegetative', 'flowering', 'ripening', 'dormancy', 'flushing',
-                    'bud_break', 'fruit_development', 'senescence']
+                    'bud_break', 'fruit_development', 'senescence', 'hardening_off',
+                    'acclimatization', 'active_growth', 'maintenance', 'repotting_recovery']
+# hardening_off: Abhärtungsphase (Stress-Phase, s. Abschnitt "Stress-Phasen")
+# acclimatization, active_growth, maintenance, repotting_recovery: Zimmerpflanzen-Phasen (REQ-020)
 
 class SeasonalCycleDefinition(BaseModel):
     """Saisonaler Zyklus einer Dauerkultur"""

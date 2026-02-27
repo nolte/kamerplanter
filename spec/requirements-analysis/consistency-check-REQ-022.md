@@ -1,17 +1,26 @@
 # Konsistenzpruefung: REQ-022 (Pflegeerinnerungen) gegen referenzierte Anforderungen
 
 **Erstellt:** 2026-02-27
+**Aktualisiert:** 2026-02-27 (alle Inkonsistenzen behoben)
 **Analysierte Dokumente:** 10 (REQ-022, REQ-006, REQ-001, REQ-003, REQ-020, REQ-021, REQ-014, NFR-001, NFR-003, NFR-006, NFR-010)
 **Analysierte Anforderungen:** ~45 funktionale, ~30 non-funktionale
-**Widersprueche/Inkonsistenzen gesamt:** 9
+**Widersprueche/Inkonsistenzen gesamt:** 9 (alle behoben)
 
 ---
 
 ## Executive Summary
 
-REQ-022 ist insgesamt gut strukturiert und integriert sich weitgehend konsistent in die bestehende Spezifikationslandschaft. Es gibt jedoch **3 mittlere und 6 niedrige Inkonsistenzen**, die vor der Implementierung geklaert werden sollten. Die kritischsten Probleme betreffen: (1) die `category`-Erweiterung des Task-Modells in REQ-006, die dort explizit als Literal definiert ist und `care_reminder` nicht enthaelt, (2) das Dormanz-Phasen-Mapping, bei dem REQ-022 Phasennamen referenziert, die in REQ-003 nicht alle definiert sind, und (3) das `growth_habit`-Mapping, das einen Wert `succulent` referenziert, der in REQ-001 nicht existiert.
+REQ-022 ist insgesamt gut strukturiert und integriert sich konsistent in die bestehende Spezifikationslandschaft. Die urspruenglich identifizierten **3 mittleren und 6 niedrigen Inkonsistenzen** wurden alle behoben:
 
-**Keine kritischen Widersprueche gefunden.** Alle gefundenen Inkonsistenzen sind durch Ergaenzungen oder Praezisierungen loesbar, ohne architektonische Aenderungen.
+- **W-001 (BEHOBEN):** REQ-006 `TaskTemplate.category` Literal um `care_reminder`, `observation`, `ausgeizen` erweitert
+- **W-002 (BEHOBEN):** REQ-006 `:Task`-Node um `skill_level` und `stress_level` erweitert
+- **W-005 (BEHOBEN):** REQ-022 nutzt bereits BotanicalFamily-basierte Sukkulenten-Erkennung (kein `growth_habit: 'succulent'` noetig)
+- **W-006 (BEHOBEN):** REQ-022 Abhaengigkeitstabelle korrigiert (RequirementProfile → REQ-003)
+- **W-007 (BEHOBEN):** REQ-003 PhaseType um `hardening_off`, `acclimatization`, `active_growth`, `maintenance`, `repotting_recovery` erweitert
+- **W-008 (BEHOBEN):** REQ-022 Abhaengigkeitstabelle praezisiert (REQ-020 nur fuer Zimmerpflanzen-Phasen)
+- **W-009 (BEHOBEN):** CRUD-Ausnahmen in REQ-022 und NFR-010 dokumentiert
+
+**Keine offenen Widersprueche.** Alle Anforderungen sind implementierungsbereit.
 
 ---
 
@@ -274,33 +283,36 @@ Fuer `CareConfirmation` fehlen CRUD-Masken komplett -- allerdings ist CareConfir
 
 ## Zusammenfassung der Inkonsistenzen
 
-| ID | Schweregrad | Typ | Kurztext | Betroffene REQs |
-|----|-------------|-----|----------|-----------------|
-| W-001 | MITTEL | Scope | `care_reminder` nicht in REQ-006 TaskTemplate Literal | REQ-022, REQ-006 |
-| W-002 | NIEDRIG | Redaktionell | `skill_level`/`stress_level` nur auf TaskTemplate, nicht Task | REQ-022, REQ-006 |
-| W-003 | NIEDRIG | Kompatibel | `priority: critical` nicht genutzt | REQ-022, REQ-006 |
-| W-004 | NIEDRIG | Kompatibel | `status: completed` passt | REQ-022, REQ-006 |
-| W-005 | MITTEL | Referenz | `growth_habit: 'succulent'` existiert nicht in REQ-001 | REQ-022, REQ-001 |
-| W-006 | NIEDRIG | Redaktionell | RequirementProfile ist in REQ-003, nicht REQ-001 | REQ-022 |
-| W-007 | MITTEL | Implizit | Phasennamen `dormant`, `hardening_off` nicht in REQ-003; `maintenance` fehlt | REQ-022, REQ-003, REQ-020 |
-| W-008 | NIEDRIG | Luecke | UserPreference-Abhaengigkeit unpraezise | REQ-022, REQ-020 |
-| W-009 | NIEDRIG | Luecke | CareProfile/CareConfirmation CRUD-Ausnahmen undokumentiert | REQ-022, NFR-010 |
+| ID | Schweregrad | Typ | Kurztext | Betroffene REQs | Status |
+|----|-------------|-----|----------|-----------------|--------|
+| W-001 | MITTEL | Scope | `care_reminder` nicht in REQ-006 TaskTemplate Literal | REQ-022, REQ-006 | BEHOBEN — REQ-006 Literal erweitert |
+| W-002 | NIEDRIG | Redaktionell | `skill_level`/`stress_level` nur auf TaskTemplate, nicht Task | REQ-022, REQ-006 | BEHOBEN — `:Task`-Node erweitert |
+| W-003 | NIEDRIG | Kompatibel | `priority: critical` nicht genutzt | REQ-022, REQ-006 | AKZEPTIERT — Teilmenge ist valide |
+| W-004 | NIEDRIG | Kompatibel | `status: completed` passt | REQ-022, REQ-006 | AKZEPTIERT — kein Widerspruch |
+| W-005 | MITTEL | Referenz | `growth_habit: 'succulent'` existiert nicht in REQ-001 | REQ-022, REQ-001 | BEHOBEN — REQ-022 nutzt BotanicalFamily-Mapping |
+| W-006 | NIEDRIG | Redaktionell | RequirementProfile ist in REQ-003, nicht REQ-001 | REQ-022 | BEHOBEN — Abhaengigkeitstabelle korrigiert |
+| W-007 | MITTEL | Implizit | Phasennamen `dormant`, `hardening_off` nicht in REQ-003; `maintenance` fehlt | REQ-022, REQ-003, REQ-020 | BEHOBEN — REQ-003 PhaseType erweitert |
+| W-008 | NIEDRIG | Luecke | UserPreference-Abhaengigkeit unpraezise | REQ-022, REQ-020 | BEHOBEN — Abhaengigkeit praezisiert |
+| W-009 | NIEDRIG | Luecke | CareProfile/CareConfirmation CRUD-Ausnahmen undokumentiert | REQ-022, NFR-010 | BEHOBEN — Ausnahmen in REQ-022 + NFR-010 dokumentiert |
 
 ---
 
-## Empfehlungen
+## Empfehlungen — Umsetzungsstatus
 
-### Sofortiger Klaerungsbedarf (vor Implementierungsstart):
+Alle Empfehlungen wurden umgesetzt:
 
-1. **W-005 (growth_habit):** Entscheidung treffen, wie Sukkulenten erkannt werden (neuer Enum-Wert vs. alternatives Mapping). Dies beeinflusst sowohl REQ-001 als auch REQ-022.
+### Umgesetzte Korrekturen:
 
-2. **W-007 (Dormanz-Phasen):** Die Zimmerpflanzen-Phasen aus REQ-020 (`acclimatization`, `active_growth`, `maintenance`, `repotting_recovery`) muessen in REQ-003 als offizielle PhaseType-Werte aufgenommen werden. Ohne diese Aenderung gibt es keine valide Phase fuer Zimmerpflanzen. Gleichzeitig DORMANCY_PHASES in REQ-022 um `maintenance` erweitern und `dormant` entfernen.
+1. **W-005 (growth_habit) — ERLEDIGT:** REQ-022 nutzt BotanicalFamily-basierte Erkennung (Crassulaceae, Asphodelaceae → succulent). Kein neuer GrowthHabit-Enum-Wert in REQ-001 noetig.
 
-3. **W-001 (care_reminder category):** Klarstellen, dass REQ-022 Tasks direkt erstellt (ohne TaskTemplate), sodass die TaskTemplate Literal-Beschraenkung irrelevant ist. Falls doch TaskTemplates genutzt werden sollen, REQ-006 Literal erweitern.
+2. **W-007 (Dormanz-Phasen) — ERLEDIGT:** REQ-003 PhaseType um `hardening_off`, `acclimatization`, `active_growth`, `maintenance`, `repotting_recovery` erweitert. REQ-022 DORMANCY_PHASES enthielt bereits `maintenance`, `acclimatization`, `repotting_recovery` und nicht `dormant`.
 
-### Redaktionelle Korrekturen (kann parallel zur Implementierung):
+3. **W-001 (care_reminder category) — ERLEDIGT:** REQ-006 `TaskTemplate.category` Literal um `care_reminder`, `observation`, `ausgeizen` erweitert. Zusaetzlich dokumentiert REQ-022 explizit die direkte Task-Erstellung ohne TaskTemplate (Abschnitt "Abgrenzung zu TaskTemplate").
 
-4. W-002: Dokumentieren, ob `skill_level`/`stress_level` auf Task-Ebene propagiert werden
-5. W-006: Abhaengigkeitstabelle korrigieren (RequirementProfile → REQ-003)
-6. W-008: UserPreference-Abhaengigkeit praezisieren
-7. W-009: NFR-010 Vollstaendigkeitsmatrix aktualisieren
+4. **W-002 (skill_level/stress_level) — ERLEDIGT:** REQ-006 `:Task`-Node um `skill_level` und `stress_level` erweitert (von TaskTemplate propagiert oder direkt gesetzt).
+
+5. **W-006 (Abhaengigkeitstabelle) — ERLEDIGT:** REQ-022 referenziert RequirementProfile jetzt unter REQ-003 statt REQ-001.
+
+6. **W-008 (UserPreference) — ERLEDIGT:** REQ-020-Abhaengigkeit praezisiert: nur Zimmerpflanzen-Phasen, nicht UserPreference (die laeuft indirekt ueber REQ-021).
+
+7. **W-009 (CRUD-Ausnahmen) — ERLEDIGT:** Ausnahmen fuer CareProfile und CareConfirmation in REQ-022 und NFR-010 (neuer Abschnitt 5.4) dokumentiert.

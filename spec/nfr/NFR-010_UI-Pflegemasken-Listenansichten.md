@@ -305,6 +305,15 @@ Auch eingebettete Entitäten **MÜSSEN** vollständige CRUD-Operationen bieten:
 - **Update**: Edit-Dialog (Modal) mit vorausgefüllten Werten
 - **Delete**: `ConfirmDialog` mit Bestätigungsabfrage
 
+### 5.4 CRUD-reduzierte Entitäten
+
+Entitäten, die aufgrund ihres fachlichen Charakters nicht alle CRUD-Operationen benötigen, **MÜSSEN** hier mit Begründung dokumentiert werden. Dies sind begründete Ausnahmen von der Regel "Jede Domänenentität MUSS Delete unterstützen":
+
+| Entität | REQ | C | R | U | D | Begründung für fehlende Operationen |
+|---------|-----|---|---|---|---|--------------------------------------|
+| CareProfile | REQ-022 | Auto | Ja | Ja | Nein | 1:1-Beziehung zu PlantInstance. Löschen würde sofort Neuanlage erzwingen. `reset-profile` (auf Species-Defaults) ist die fachlich korrekte Alternative. |
+| CareConfirmation | REQ-022 | Ja | Ja | Nein | Nein | Immutables Event-Log (Audit-Trail). Nachträgliche Änderung würde Adaptive-Learning-Integrität gefährden. |
+
 ---
 
 ## 6. Konsistenzregeln

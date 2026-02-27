@@ -138,6 +138,8 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
     - `completed_at: Optional[datetime]`
     - `estimated_duration_minutes: int`
     - `actual_duration_minutes: Optional[int]`
+    - `skill_level: Literal['beginner', 'intermediate', 'advanced'] = 'beginner'` (von TaskTemplate propagiert oder direkt gesetzt)
+    - `stress_level: Literal['none', 'low', 'medium', 'high'] = 'none'` (von TaskTemplate propagiert oder direkt gesetzt)
     - `requires_photo: bool`
     - `photo_refs: list[str]` (S3 URLs oder Base64)
     - `completion_notes: Optional[str]`
@@ -552,7 +554,7 @@ class TaskTemplate(BaseModel):
     task_template_id: str
     name: str = Field(min_length=3, max_length=200)
     instruction: str = Field(min_length=10, max_length=2000)
-    category: Literal['training', 'pruning', 'transplant', 'feeding', 'ipm', 'harvest', 'maintenance']
+    category: Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder']
     trigger_type: Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional']
     trigger_phase: Optional[str] = None
     days_offset: Optional[int] = Field(None, ge=0, le=365)

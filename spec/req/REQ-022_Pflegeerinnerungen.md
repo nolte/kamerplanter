@@ -1152,12 +1152,21 @@ Im Experten-Modus ist die PflegeDashboardPage eine alternative Ansicht auf diese
 | REQ/NFR | Art | Beschreibung |
 |---------|-----|-------------|
 | REQ-006 | Nutzt | Task/TaskService/TaskRepository — alle Erinnerungen als Tasks gespeichert |
-| REQ-001 | Liest | Species + RequirementProfile für CareProfile-Auto-Generierung |
-| REQ-003 | Liest | PlantInstance.current_phase für Dünge-Guard (Dormanz-Check) |
-| REQ-020 | Liest | Zimmerpflanzen-Phasen + UserPreference für Erfahrungsstufe |
+| REQ-001 | Liest | Species + BotanicalFamily für CareProfile-Auto-Generierung (care_style-Mapping) |
+| REQ-003 | Liest | PlantInstance.current_phase für Dünge-Guard (Dormanz-Check) + RequirementProfile für Species-Defaults |
+| REQ-020 | Liest | Zimmerpflanzen-Phasen (acclimatization, active_growth, maintenance, repotting_recovery) für DORMANCY_PHASES |
 | REQ-021 | Erweitert | Einsteiger-Pflegekarte: "Nächste Aktion"-Zeile + Navigations-Tiering |
 | REQ-014 | Muster | Celery-Beat-Pattern (tägliche Task-Generierung analog `tank_maintenance_check`) |
 | NFR-001 | Einhält | 5-Layer-Architektur (API → Service → Engine → Repository → ArangoDB) |
 | NFR-003 | Einhält | Source Code in English, Dokumentation in German |
 | NFR-006 | Einhält | Fehlerbehandlung mit strukturierten HTTP-Statuscodes |
-| NFR-010 | Erweitert | CRUD-Masken für CareProfile mit Validierung |
+| NFR-010 | Erweitert | CRUD-Masken für CareProfile mit Validierung (siehe CRUD-Ausnahmen unten) |
+
+### NFR-010 CRUD-Ausnahmen
+
+Die folgenden Entitäten weichen begründet von der NFR-010-Vorgabe "Jede Domänenentität MUSS Delete unterstützen" ab:
+
+| Entität | Create | Read | Update | Delete | Begründung |
+|---------|--------|------|--------|--------|------------|
+| CareProfile | Auto (get_or_create) | GET `/plants/{key}/profile` | PATCH `/plants/{key}/profile` | Nein — `reset-profile` stattdessen | 1:1-Beziehung zu PlantInstance; Löschen würde sofort Neuanlage erzwingen. Reset auf Species-Defaults ist die fachlich korrekte Alternative. |
+| CareConfirmation | POST `/plants/{key}/confirm` | GET (via Dashboard-Aggregation) | Nein | Nein | Immutables Event-Log (Audit-Trail). Nachträgliche Änderung würde Adaptive-Learning-Integrität gefährden. |
