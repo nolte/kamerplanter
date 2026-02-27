@@ -28,12 +28,65 @@ logger = structlog.get_logger()
 #   https://www.advancednutrients.com/products/big-bud/
 #   https://www.advancednutrients.com/products/b-52/
 #   https://www.advancednutrients.com/products/voodoo-juice/
+#   https://www.advancednutrients.com/de/products/ph-perfect-grow-micro-bloom/
 # Sources — Third-Party Supplements:
 #   spec/ref/products/hg-drip-clean.md
 #   spec/ref/products/bn-free-flow.md
 
 FERTILIZERS: list[Fertilizer] = [
-    # ── Base Nutrients (Grow Phase) ───────────────────────────────────────
+    # ── Base Nutrients (GMB 3-Part) ──────────────────────────────────────
+    Fertilizer(
+        product_name="pH Perfect Grow",
+        brand="Advanced Nutrients",
+        fertilizer_type=FertilizerType.BASE,
+        is_organic=False,
+        tank_safe=True,
+        recommended_application=ApplicationMethod.FERTIGATION,
+        npk_ratio=(1.0, 0.0, 4.0),
+        ec_contribution_per_ml=0.10,
+        mixing_priority=15,
+        ph_effect=PhEffect.NEUTRAL,
+        bioavailability=Bioavailability.IMMEDIATE,
+        notes=(
+            "3-Part-System: Stickstoff + Kalium. "
+            "Nach Micro hinzufügen. 1-4 ml/L je nach Phase."
+        ),
+    ),
+    Fertilizer(
+        product_name="pH Perfect Micro",
+        brand="Advanced Nutrients",
+        fertilizer_type=FertilizerType.BASE,
+        is_organic=False,
+        tank_safe=True,
+        recommended_application=ApplicationMethod.FERTIGATION,
+        npk_ratio=(2.0, 0.0, 0.0),
+        ec_contribution_per_ml=0.15,
+        mixing_priority=10,
+        ph_effect=PhEffect.NEUTRAL,
+        bioavailability=Bioavailability.IMMEDIATE,
+        notes=(
+            "3-Part-System: CalMag-Komponente. "
+            "IMMER zuerst hinzufügen (vor Grow und Bloom). 1-4 ml/L je nach Phase."
+        ),
+    ),
+    Fertilizer(
+        product_name="pH Perfect Bloom",
+        brand="Advanced Nutrients",
+        fertilizer_type=FertilizerType.BASE,
+        is_organic=False,
+        tank_safe=True,
+        recommended_application=ApplicationMethod.FERTIGATION,
+        npk_ratio=(1.0, 3.0, 4.0),
+        ec_contribution_per_ml=0.10,
+        mixing_priority=20,
+        ph_effect=PhEffect.NEUTRAL,
+        bioavailability=Bioavailability.IMMEDIATE,
+        notes=(
+            "3-Part-System: Phosphor + Kalium für Blüte. "
+            "Nach Micro und Grow hinzufügen. 1-4 ml/L je nach Phase."
+        ),
+    ),
+    # ── Base Nutrients (Sensi 2-Part, Grow Phase) ────────────────────────
     Fertilizer(
         product_name="pH Perfect Sensi Grow A",
         brand="Advanced Nutrients",
@@ -62,7 +115,7 @@ FERTILIZERS: list[Fertilizer] = [
         bioavailability=Bioavailability.IMMEDIATE,
         notes="PK-Komponente mit Schwefel (1.3% S). Nach Part A hinzufügen.",
     ),
-    # ── Base Nutrients (Bloom Phase) ──────────────────────────────────────
+    # ── Base Nutrients (Sensi 2-Part, Bloom Phase) ─────────────────────────
     Fertilizer(
         product_name="pH Perfect Sensi Bloom A",
         brand="Advanced Nutrients",
