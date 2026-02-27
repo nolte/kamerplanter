@@ -3,7 +3,7 @@ ID: TECH-STACK-001
 Titel: Technologie-Stack & Architektur-Entscheidungen 
 Kategorie: Architektur / Infrastructure 
 Fokus: Beides 
-Technologie: Python 3.14, FastAPI, ArangoDB, Kubernetes, Helm 
+Technologie: Python 3.12, FastAPI, ArangoDB, Kubernetes, Helm
 Status: Produktionsreif Priorität: Kritisch
 ---
 
@@ -55,8 +55,8 @@ Status: Produktionsreif Priorität: Kritisch
 
 #### FastAPI (Primary)
 
-- **Version**: >= 0.109.0
-- **Python Version**: >= 3.14
+- **Version**: >= 0.115.0
+- **Python Version**: >= 3.12
 - **Begründung**:
     - Automatische OpenAPI-Dokumentation
     - Native async/await Support
@@ -106,7 +106,7 @@ app.add_middleware(
 )
 ```
 
-### 2.2 Python 3.14 Features & Vorteile
+### 2.2 Python 3.12 Features & Vorteile
 
 #### Neue Features für Agrotech
 
@@ -161,17 +161,17 @@ class PlantRepository(Repository[Plant]):
 # Alte Fehlermeldung (3.11):
 # TypeError: 'int' object is not subscriptable
 
-# Neue Fehlermeldung (3.14):
+# Neue Fehlermeldung (3.12):
 # TypeError: 'int' object is not subscriptable
 #   Did you mean to use '[]' with a list or dict instead?
 #   Note: gdd_accumulated is of type int (line 42)
 ```
 
-#### Dockerfile für Python 3.14
+#### Dockerfile für Python 3.12
 
 ```dockerfile
 # backend/Dockerfile
-FROM python:3.14-slim-bookworm AS builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /build
 
@@ -187,7 +187,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Runtime Stage
-FROM python:3.14-slim-bookworm
+FROM python:3.12-slim
 
 # Non-root User
 RUN useradd -m -u 1000 -s /bin/bash appuser
@@ -255,8 +255,8 @@ class PlantResponse(BaseModel):
 
 #### Celery + Redis
 
-- **Celery**: >= 5.3.0
-- **Redis**: >= 5.0.0 (als Broker & Result Backend)
+- **Celery**: >= 5.4.0
+- **Redis**: >= 5.2.0 (als Broker & Result Backend)
 
 **Use Cases**:
 
@@ -594,11 +594,11 @@ class RedisCache:
 
 ### 4.1 Web-Application
 
-#### React 18 + TypeScript
+#### React 19 + TypeScript
 
-- **React**: >= 18.2.0
-- **TypeScript**: >= 5.0
-- **Build Tool**: Vite >= 5.0
+- **React**: >= 19.0.0
+- **TypeScript**: >= 5.9
+- **Build Tool**: Vite >= 6.4
 
 **Projektstruktur**:
 
@@ -1686,7 +1686,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          python-version: '3.12'
       
       - name: Install dependencies
         run: |
@@ -2027,26 +2027,26 @@ spec:
 
 ### 8.1 Python Development
 
-#### Python 3.14 Installation
+#### Python 3.12 Installation
 
 ```bash
 # Über pyenv (empfohlen)
-pyenv install 3.14.0
-pyenv local 3.14.0
+pyenv install 3.12
+pyenv local 3.12
 
 # Oder via Docker
-docker run -it python:3.14-slim bash
+docker run -it python:3.12-slim bash
 ```
 
 #### Requirements Management
 
 ```txt
 # requirements.txt
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-pydantic==2.5.0
-pyarango==2.0.2
-redis==5.0.1
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.10.0
+python-arango>=8.1.0
+redis>=5.2.0
 celery==5.3.4
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
@@ -2096,26 +2096,26 @@ mypy==1.8.0
     "test": "vitest"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "@reduxjs/toolkit": "^2.0.1",
-    "react-redux": "^9.0.4",
-    "@mui/material": "^5.15.0",
-    "axios": "^1.6.5",
-    "react-router-dom": "^6.21.1"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@reduxjs/toolkit": "^2.5.0",
+    "react-redux": "^9.2.0",
+    "@mui/material": "^7.0.0",
+    "axios": "^1.9.0",
+    "react-router-dom": "^7.0.0",
+    "react-i18next": "^16.0.0",
+    "zod": "^3.25.0"
   },
   "devDependencies": {
-    "@types/react": "^18.2.48",
-    "@types/react-dom": "^18.2.18",
-    "@typescript-eslint/eslint-plugin": "^6.18.1",
-    "@typescript-eslint/parser": "^6.18.1",
-    "@vitejs/plugin-react": "^4.2.1",
-    "eslint": "^8.56.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.5",
-    "typescript": "^5.3.3",
-    "vite": "^5.0.11",
-    "vitest": "^1.1.3"
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript-eslint": "^8.30.0",
+    "@vitejs/plugin-react": "^4.5.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "typescript": "~5.9.0",
+    "vite": "^6.4.0",
+    "vitest": "^3.0.0"
   }
 }
 ```
@@ -2174,7 +2174,7 @@ TOTAL: ~€40/Monat + €900 Initial
 
 |Anforderung|Technologie|Alternativen|Begründung|
 |---|---|---|---|
-|**Python Version**|3.14|3.13, 3.12|Latest features, Performance|
+|**Python Version**|3.12|3.13, 3.14|Stabil, breite Library-Kompatibilitaet|
 |**Backend Framework**|FastAPI|Django, Flask|Async, Auto-Docs, Type-Safety|
 |**API Standard**|REST|GraphQL|Einfachheit, Cache-freundlich|
 |**Multi-Model DB**|ArangoDB|Neo4j+Mongo|Ein System für Graphs+Docs|

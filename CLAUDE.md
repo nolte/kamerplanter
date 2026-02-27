@@ -63,8 +63,8 @@ These constraints are documented across multiple files and must be respected whe
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Python 3.12+, FastAPI, Celery |
-| Frontend | React 18, TypeScript, Redux Toolkit, MUI, Vite |
+| Backend | Python 3.12+, FastAPI >= 0.115, Celery >= 5.4 |
+| Frontend | React 19, TypeScript 5.9, Redux Toolkit, MUI 7, Vite 6, react-router-dom v7 |
 | Mobile | Flutter 3.16+ (not yet implemented) |
 | Primary DB | ArangoDB 3.11+ (multi-model) |
 | Time-Series DB | TimescaleDB 2.13+ |
@@ -77,7 +77,7 @@ These constraints are documented across multiple files and must be respected whe
 ## Domain Concepts
 
 - **GDD** — Growing Degree Days: accumulated heat units tracking plant maturity
-- **VPD** — Vapor Pressure Deficit: key environmental metric (0.8–1.5 kPa vegetative, 0.4–0.8 kPa flowering)
+- **VPD** — Vapor Pressure Deficit: key environmental metric (0.8–1.5 kPa vegetative, 0.8–1.2 kPa flowering)
 - **PPFD** — Photosynthetic Photon Flux Density: light intensity measurement
 - **EC** — Electrical Conductivity: nutrient solution concentration
 - **IPM** — Integrated Pest Management: 3-tier approach (prevention → monitoring → intervention)
