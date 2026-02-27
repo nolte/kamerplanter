@@ -52,8 +52,9 @@ Zyklen statt eines einmaligen linearen Durchlaufs. Das System unterstützt:
 - **`requirement_profiles`** - Ressourcen-Anforderungen
   - Properties:
     - `light_ppfd_target: int` (μmol/m²/s)
+    - `dli_target_mol: Optional[float]` (Daily Light Integral in mol/m²/Tag — DLI = PPFD × h × 3600 / 1.000.000; Salate: 12-17, Kräuter: 15-20, Tomaten: 20-30, Cannabis: 35-45)
     - `photoperiod_hours: float`
-    - `light_spectrum: dict` (z.B. {"red": 0.6, "blue": 0.3, "far_red": 0.1})
+    - `light_spectrum: dict` (z.B. {"blue": 0.25, "green": 0.20, "red": 0.45, "far_red": 0.10})
     - `temperature_day_c: float`
     - `temperature_night_c: float`
     - `humidity_day_percent: int`
@@ -74,8 +75,10 @@ Zyklen statt eines einmaligen linearen Durchlaufs. Das System unterstützt:
 
 - **`phase_transition_rules`** - Übergangslogik
   - Properties:
-    - `trigger_type: Literal['time_based', 'manual', 'event_based', 'conditional']`
+    - `trigger_type: Literal['time_based', 'manual', 'event_based', 'conditional', 'gdd_based']`
     - `auto_transition_after_days: Optional[int]`
+    - `gdd_threshold: Optional[float]` — Growing Degree Days bis Transition (z.B. Tomate Transplant→Blüte: ~300 GDD). Biologisch akkurater als Kalendertage, da temperaturabhängig.
+    - `gdd_base_temp_c: Optional[float]` — Basistemperatur für GDD-Berechnung (Tomate: 10°C, Mais: 10°C, Weizen: 0°C). GDD_tag = max(0, (T_max + T_min) / 2 - T_base)
     - `required_conditions: Optional[dict]` (z.B. {"min_height_cm": 30})
     - `notification_before_days: int` (Warnung vor Auto-Transition)
     - `is_cycle_restart: bool` — Transition startet einen neuen saisonalen Zyklus
@@ -182,7 +185,11 @@ FOR phase IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
                         FILTER obs.timestamp > one_hour_ago
                         LET temp = obs.temperature_c
                         LET rh = obs.humidity_percent
-                        LET current_vpd = (610.7 * POW(10, (7.5 * temp / (237.3 + temp))) * (1 - rh / 100)) / 1000
+                        // Leaf-VPD: Blatttemperatur typisch 2°C unter Lufttemperatur
+                        LET leaf_temp = temp - 2.0
+                        LET svp_leaf = 610.7 * POW(10, (7.5 * leaf_temp / (237.3 + leaf_temp)))
+                        LET avp = 610.7 * POW(10, (7.5 * temp / (237.3 + temp))) * (rh / 100)
+                        LET current_vpd = (svp_leaf - avp) / 1000
                         RETURN {
                             target_vpd: req.vpd_target_kpa,
                             current_vpd_kpa: current_vpd,
@@ -231,6 +238,7 @@ class TransitionTrigger(str, Enum):
     MANUAL = "manual"
     EVENT_BASED = "event_based"
     CONDITIONAL = "conditional"
+    GDD_BASED = "gdd_based"  # Growing Degree Days — biologisch akkurater als Kalendertage
 
 class PhaseTransitionEngine(BaseModel):
     """Steuert Übergänge zwischen Wachstumsphasen"""
@@ -239,6 +247,9 @@ class PhaseTransitionEngine(BaseModel):
     current_phase: str
     phase_entered_at: datetime
     auto_transition_days: Optional[int] = None
+    gdd_threshold: Optional[float] = None
+    gdd_base_temp_c: Optional[float] = None
+    accumulated_gdd: float = 0.0
     transition_trigger: TransitionTrigger
     
     def check_transition_due(self) -> tuple[bool, str, Optional[str]]:
@@ -259,10 +270,45 @@ class PhaseTransitionEngine(BaseModel):
             if days_remaining <= 3 and days_remaining > 0:
                 return False, f"WARNUNG: Automatische Transition in {days_remaining} Tagen", None
         
+        if self.transition_trigger == TransitionTrigger.GDD_BASED:
+            if self.gdd_threshold is None:
+                return False, "Kein GDD-Schwellenwert konfiguriert", None
+
+            if self.accumulated_gdd >= self.gdd_threshold:
+                return True, (
+                    f"GDD-Schwellenwert erreicht ({self.accumulated_gdd:.0f} "
+                    f"von {self.gdd_threshold:.0f} GDD)"
+                ), "next_phase"
+
+            gdd_remaining = self.gdd_threshold - self.accumulated_gdd
+            # Grobe Warnung bei ~20% verbleibendem GDD
+            if gdd_remaining <= self.gdd_threshold * 0.2:
+                return False, (
+                    f"GDD-Transition nähert sich: {self.accumulated_gdd:.0f}"
+                    f"/{self.gdd_threshold:.0f} GDD"
+                ), None
+
         if self.transition_trigger == TransitionTrigger.MANUAL:
             return False, "Manuelle Steuerung aktiv", None
-        
+
         return False, "Transition-Bedingungen nicht erfüllt", None
+
+    @staticmethod
+    def calculate_daily_gdd(
+        temp_max_c: float,
+        temp_min_c: float,
+        base_temp_c: float = 10.0
+    ) -> float:
+        """
+        Berechnet Growing Degree Days für einen Tag.
+        GDD = max(0, (T_max + T_min) / 2 - T_base)
+
+        Typische Basistemperaturen:
+        - Tomate, Paprika, Mais: 10°C
+        - Weizen, Gerste: 0°C
+        - Cannabis: 10°C (geschätzt)
+        """
+        return max(0.0, (temp_max_c + temp_min_c) / 2 - base_temp_c)
     
     def execute_transition(
         self,
@@ -368,17 +414,31 @@ class VPDCalculator:
     def calculate_vpd(
         temperature_c: float,
         relative_humidity_percent: float,
-        leaf_temperature_offset_c: float = -2.0
+        leaf_temperature_offset_c: float = -2.0,
+        ppfd: Optional[int] = None
     ) -> float:
         """
-        Berechnet VPD in kPa
+        Berechnet Leaf-to-Air VPD in kPa
+
         Args:
             temperature_c: Lufttemperatur
             relative_humidity_percent: Relative Luftfeuchte
-            leaf_temperature_offset_c: Blatt ist typischerweise 2°C kühler
+            leaf_temperature_offset_c: Blatt-Luft-Differenz (Default: -2°C)
+            ppfd: Aktuelle Lichtintensität (µmol/m²/s). Wenn angegeben,
+                  wird der Blatttemperatur-Offset dynamisch angepasst:
+                  - <200 PPFD: -1°C (wenig Strahlungsabsorption)
+                  - 200-600 PPFD: -2°C (Standard)
+                  - >800 PPFD: +1°C (starke Strahlungserwärmung)
         Returns:
-            VPD in kPa
+            VPD in kPa (Leaf-to-Air, pflanzenwissenschaftlich relevant)
         """
+        # Dynamischer Blatttemperatur-Offset bei bekannter PPFD
+        if ppfd is not None:
+            if ppfd < 200:
+                leaf_temperature_offset_c = -1.0
+            elif ppfd > 800:
+                leaf_temperature_offset_c = 1.0
+            # 200-800: Default -2.0 beibehalten
         # Sättigungsdampfdruck bei Lufttemperatur (in Pa)
         svp_air = 610.7 * (10 ** ((7.5 * temperature_c) / (237.3 + temperature_c)))
         
@@ -397,21 +457,38 @@ class VPDCalculator:
     @staticmethod
     def get_vpd_recommendation(
         phase: str,
-        current_vpd_kpa: float
+        current_vpd_kpa: float,
+        species_type: str = 'default'
     ) -> tuple[str, str]:
         """
-        Gibt Empfehlungen basierend auf Phase und aktuellem VPD
+        Gibt Empfehlungen basierend auf Phase, Spezies-Typ und aktuellem VPD.
+        species_type: 'default' (Cannabis/Nachtschatten), 'leafy', 'fruiting'
         Returns: (status, recommendation)
         """
-        # Ziel-VPD nach Phase
-        target_ranges = {
-            'seedling': (0.4, 0.8),
-            'vegetative': (0.8, 1.2),
-            'flowering': (1.0, 1.5),
-            'late_flowering': (1.2, 1.6)
+        # Ziel-VPD nach Phase und Spezies-Typ
+        # Cannabis/Nachtschatten (Default), Leafy Greens, Tropische Pflanzen
+        target_ranges_by_type = {
+            'default': {
+                'seedling': (0.4, 0.8),
+                'vegetative': (0.8, 1.2),
+                'flowering': (1.0, 1.5),
+                'late_flowering': (1.2, 1.6),
+            },
+            'leafy': {
+                'seedling': (0.3, 0.6),
+                'vegetative': (0.5, 1.0),
+                'flowering': (0.5, 1.0),
+                'late_flowering': (0.5, 1.0),
+            },
+            'fruiting': {
+                'seedling': (0.4, 0.8),
+                'vegetative': (0.8, 1.2),
+                'flowering': (0.8, 1.3),
+                'late_flowering': (1.0, 1.4),
+            },
         }
-        
-        target_min, target_max = target_ranges.get(phase, (0.8, 1.2))
+        ranges = target_ranges_by_type.get(species_type, target_ranges_by_type['default'])
+        target_min, target_max = ranges.get(phase, (0.8, 1.2))
         
         if current_vpd_kpa < target_min:
             return "ZU NIEDRIG", f"Erhöhe Temperatur oder senke Luftfeuchte. Ziel: {target_min}-{target_max} kPa"
@@ -427,42 +504,122 @@ from pydantic import BaseModel, Field
 
 class ResourceProfileGenerator(BaseModel):
     """Generiert automatische Ressourcen-Profile wenn nicht manuell definiert"""
-    
+
     phase_name: str
     species_type: Literal['leafy', 'fruiting', 'flowering', 'root']
-    
+    photoperiod_response: Literal['short_day', 'long_day', 'day_neutral'] = 'short_day'
+    substrate_type: Literal['hydro', 'coco', 'soil', 'living_soil'] = 'coco'
+
     def generate_light_profile(self) -> dict:
-        """Generiert Lichtprofil basierend auf Phase und Typ"""
-        
-        base_profiles = {
-            'seedling': {'ppfd': 200, 'photoperiod': 18, 'spectrum': {'blue': 0.6, 'red': 0.4}},
-            'vegetative': {'ppfd': 400, 'photoperiod': 18, 'spectrum': {'blue': 0.4, 'red': 0.5, 'far_red': 0.1}},
-            'flowering': {'ppfd': 600, 'photoperiod': 12, 'spectrum': {'blue': 0.2, 'red': 0.6, 'far_red': 0.2}},
-            'ripening': {'ppfd': 400, 'photoperiod': 12, 'spectrum': {'blue': 0.1, 'red': 0.7, 'far_red': 0.2}}
+        """
+        Generiert Lichtprofil basierend auf Phase, Typ und Photoperiod-Response.
+
+        Photoperiod-Response bestimmt die Blüte-Tageslänge:
+        - short_day: Blüte bei <12h (Cannabis, Chrysanthemen, Poinsettia)
+        - long_day: Blüte bei >14h (Salat, Spinat, Radieschen)
+        - day_neutral: Blüte unabhängig von Tageslänge (viele Tomaten, Erdbeeren)
+
+        Spektrum enthält Grünlicht-Anteil: Grün (500-600nm) penetriert 50% tiefer
+        in den Bestand und trägt bei dichten Pflanzungen 20-30% zur Photosynthese bei.
+        """
+
+        # PPFD-Basiswerte nach species_type (nicht nur Skalierungsfaktor)
+        ppfd_by_type = {
+            'leafy':     {'seedling':  80, 'vegetative': 250, 'flowering': 300, 'ripening': 200},
+            'fruiting':  {'seedling': 200, 'vegetative': 500, 'flowering': 700, 'ripening': 500},
+            'flowering': {'seedling': 200, 'vegetative': 400, 'flowering': 600, 'ripening': 400},
+            'root':      {'seedling': 100, 'vegetative': 300, 'flowering': 400, 'ripening': 250},
         }
-        
-        profile = base_profiles.get(self.phase_name, base_profiles['vegetative'])
-        
-        # Anpassung nach Pflanzentyp
-        if self.species_type == 'leafy':
-            profile['ppfd'] = int(profile['ppfd'] * 0.8)  # Salate brauchen weniger Licht
-        elif self.species_type == 'fruiting':
-            profile['ppfd'] = int(profile['ppfd'] * 1.2)  # Tomaten, Paprika brauchen mehr
-        
-        return profile
-    
+
+        ppfd = ppfd_by_type.get(self.species_type, ppfd_by_type['flowering']).get(
+            self.phase_name, 400
+        )
+
+        # Photoperiode nach Phase und Photoperiod-Response
+        if self.phase_name in ('flowering', 'ripening'):
+            photoperiod = {
+                'short_day': 12,     # Cannabis, Chrysanthemen
+                'long_day': 16,      # Salat, Spinat — Blüte unter Langtag
+                'day_neutral': 18,   # Keine Änderung nötig (Tomaten, Erdbeeren)
+            }[self.photoperiod_response]
+        else:
+            photoperiod = 18  # Vegi/Seedling: immer Langtag
+
+        # Spektrum mit Grünlicht-Anteil (Vollspektrum-Ansatz)
+        spectra = {
+            'seedling':    {'blue': 0.35, 'green': 0.20, 'red': 0.40, 'far_red': 0.05},
+            'vegetative':  {'blue': 0.25, 'green': 0.20, 'red': 0.45, 'far_red': 0.10},
+            'flowering':   {'blue': 0.15, 'green': 0.15, 'red': 0.50, 'far_red': 0.20},
+            'ripening':    {'blue': 0.10, 'green': 0.15, 'red': 0.55, 'far_red': 0.20},
+        }
+        spectrum = spectra.get(self.phase_name, spectra['vegetative'])
+
+        # DLI berechnen (Daily Light Integral)
+        dli = round(ppfd * photoperiod * 3600 / 1_000_000, 1)
+
+        return {
+            'ppfd': ppfd,
+            'photoperiod': photoperiod,
+            'spectrum': spectrum,
+            'dli_mol_per_m2_day': dli,
+        }
+
     def generate_nutrient_profile(self) -> dict:
-        """Generiert NPK-Verhältnis nach Phase"""
-        
-        phase_nutrients = {
-            'seedling': {'npk': (1, 1, 1), 'ec': 0.8, 'ph': 6.0},
-            'vegetative': {'npk': (3, 1, 2), 'ec': 1.4, 'ph': 5.8},
-            'flowering': {'npk': (1, 3, 3), 'ec': 1.8, 'ph': 6.0},
-            'ripening': {'npk': (0, 2, 4), 'ec': 1.2, 'ph': 6.2},
-            'flushing': {'npk': (0, 0, 0), 'ec': 0.0, 'ph': 6.5}
+        """
+        Generiert NPK-Verhältnis nach Phase und species_type.
+        pH-Zielwerte sind substrat-abhängig.
+        """
+
+        # NPK nach species_type: Fruchtpflanzen brauchen auch in Reife N für
+        # Blatterhalt und Zuckerproduktion; Blütenpflanzen (Cannabis) können auf 0 N gehen
+        phase_nutrients_by_type = {
+            'flowering': {  # Cannabis-like: aggressiver N-Abbau in Reife
+                'seedling':   {'npk': (1, 1, 1), 'ec': 0.8},
+                'vegetative': {'npk': (3, 1, 2), 'ec': 1.4},
+                'flowering':  {'npk': (1, 3, 3), 'ec': 1.8},
+                'ripening':   {'npk': (0, 2, 4), 'ec': 1.2},
+                'flushing':   {'npk': (0, 0, 0), 'ec': 0.0},
+            },
+            'fruiting': {  # Tomate/Paprika: N weiterhin nötig für Fruchtentwicklung
+                'seedling':   {'npk': (1, 1, 1), 'ec': 0.8},
+                'vegetative': {'npk': (3, 1, 2), 'ec': 1.6},
+                'flowering':  {'npk': (2, 3, 3), 'ec': 2.0},
+                'ripening':   {'npk': (1, 2, 4), 'ec': 1.6},
+                'flushing':   {'npk': (0, 0, 0), 'ec': 0.0},
+            },
+            'leafy': {  # Salat/Kräuter: gleichmäßig N-betont
+                'seedling':   {'npk': (1, 1, 1), 'ec': 0.6},
+                'vegetative': {'npk': (4, 1, 3), 'ec': 1.2},
+                'flowering':  {'npk': (3, 1, 2), 'ec': 1.0},
+                'ripening':   {'npk': (2, 1, 2), 'ec': 0.8},
+                'flushing':   {'npk': (0, 0, 0), 'ec': 0.0},
+            },
+            'root': {  # Karotten/Radieschen: K-betont für Wurzelentwicklung
+                'seedling':   {'npk': (1, 1, 1), 'ec': 0.6},
+                'vegetative': {'npk': (2, 1, 3), 'ec': 1.2},
+                'flowering':  {'npk': (1, 2, 4), 'ec': 1.4},
+                'ripening':   {'npk': (1, 1, 4), 'ec': 1.0},
+                'flushing':   {'npk': (0, 0, 0), 'ec': 0.0},
+            },
         }
-        
-        return phase_nutrients.get(self.phase_name, phase_nutrients['vegetative'])
+
+        nutrients = phase_nutrients_by_type.get(
+            self.species_type, phase_nutrients_by_type['flowering']
+        ).get(self.phase_name, {'npk': (3, 1, 2), 'ec': 1.4})
+
+        # pH-Zielwerte substrat-abhängig
+        ph_by_substrate = {
+            'hydro':       {'seedling': 5.8, 'vegetative': 5.8, 'flowering': 5.9, 'ripening': 6.0, 'flushing': 5.8},
+            'coco':        {'seedling': 6.0, 'vegetative': 5.8, 'flowering': 6.0, 'ripening': 6.2, 'flushing': 6.0},
+            'soil':        {'seedling': 6.3, 'vegetative': 6.2, 'flowering': 6.3, 'ripening': 6.5, 'flushing': 6.5},
+            'living_soil': {'seedling': 6.5, 'vegetative': 6.4, 'flowering': 6.5, 'ripening': 6.8, 'flushing': 6.5},
+        }
+
+        ph = ph_by_substrate.get(
+            self.substrate_type, ph_by_substrate['coco']
+        ).get(self.phase_name, 6.0)
+
+        return {**nutrients, 'ph': ph}
 ```
 
 **4. Photoperioden-Manager:**
@@ -679,8 +836,20 @@ class RequirementProfileDefinition(BaseModel):
     @field_validator('photoperiod_hours')
     @classmethod
     def validate_photoperiod(cls, v):
+        """
+        Photoperioden unter 8h sind kein Fehler — sie werden verwendet für:
+        - Kurztagbehandlung bei Chrysanthemen (8-10h)
+        - Vernalisierungs-Lichtregime (6-8h)
+        - Forcing-Dunkelperioden (Rhabarber, Chicorée)
+        Nur als Warnung loggen, nicht als Validierungsfehler.
+        """
+        import warnings
         if v < 8 and v > 0:
-            raise ValueError("Photoperiode unter 8h kritisch für Photosynthese")
+            warnings.warn(
+                f"Photoperiode {v}h ist ungewöhnlich kurz. Normal für "
+                f"Kurztagbehandlung oder Vernalisierung, kritisch für "
+                f"reguläres Wachstum.", stacklevel=2
+            )
         return v
 
 class NutrientProfileDefinition(BaseModel):
@@ -699,7 +868,7 @@ class NutrientProfileDefinition(BaseModel):
             raise ValueError("NPK-Werte können nicht negativ sein")
         return v
 
-TransitionTriggerType = Literal['time_based', 'manual', 'event_based', 'conditional']
+TransitionTriggerType = Literal['time_based', 'manual', 'event_based', 'conditional', 'gdd_based']
 PhaseType = Literal['seedling', 'vegetative', 'flowering', 'ripening', 'dormancy', 'flushing',
                     'bud_break', 'fruit_development', 'senescence']
 
@@ -767,6 +936,10 @@ Für immergrüne Dauerkulturen (z.B. Zitrus) entfällt `senescence`; `dormancy` 
 - [ ] **Notification-System:** Push bei anstehenden Auto-Transitions
 - [ ] **Profile-Versionierung:** Änderungen an Standard-Profilen historisiert
 - [ ] **Species-Override:** Spezies-spezifische Profile überschreiben Defaults
+- [ ] **DLI-Berechnung:** Daily Light Integral (mol/m²/Tag) als Zielmetrik neben PPFD
+- [ ] **GDD-Transition:** Growing Degree Days als biologisch akkurater Transition-Trigger neben Kalendertagen
+- [ ] **Photoperiod-Response:** short_day/long_day/day_neutral bestimmt Blüte-Photoperiode pro Species
+- [ ] **Spezies-VPD:** VPD-Zielbereiche nach species_type differenziert (leafy, fruiting, flowering)
 - [ ] **Dauerkulturen-Zyklus:** Perenniale Pflanzen durchlaufen jährlich wiederkehrende Phasenzyklen
 - [ ] **Zyklische Transition:** `is_cycle_restart`-Flag erlaubt kontrollierten Rückwärts-Übergang (Seneszenz → Dormanz)
 - [ ] **Saisonales Tracking:** Jede Saison wird als `seasonal_cycles`-Dokument mit Jahr, Ertrag und Reifegrad erfasst
@@ -789,20 +962,23 @@ THEN:
   - Alert: "Blütephase gestartet - Überwache VPD (Ziel: 1.0-1.5 kPa)"
 ```
 
-**Szenario 2: VPD außerhalb Zielbereich**
+**Szenario 2: VPD außerhalb Zielbereich (Leaf-VPD)**
 ```
-GIVEN: Pflanze in Blüte, Ziel-VPD: 1.2 kPa, aktuell: Temp 28°C, RLF 70%
-WHEN: System berechnet aktuellen VPD
+GIVEN: Pflanze in Blüte (species_type: flowering), Ziel-VPD: 1.0-1.5 kPa,
+       aktuell: Temp 28°C, RLF 55%, Blatttemp-Offset -2°C
+WHEN: System berechnet aktuellen Leaf-VPD
 THEN:
-  - Errechneter VPD: 1.12 kPa (OPTIMAL)
+  - SVP_leaf(26°C) = 3362 Pa, AVP(28°C, 55%) = 2081 Pa
+  - Leaf-VPD: (3362 - 2081) / 1000 = 1.28 kPa (OPTIMAL)
   - Status: GRÜN
   - Keine Anpassungen erforderlich
-  
-WHEN: RLF steigt auf 85%
+
+WHEN: RLF steigt auf 80%
 THEN:
-  - Neuer VPD: 0.56 kPa (ZU NIEDRIG)
+  - AVP(28°C, 80%) = 3026 Pa
+  - Neuer Leaf-VPD: (3362 - 3026) / 1000 = 0.34 kPa (ZU NIEDRIG)
   - Status: ROT
-  - Empfehlung: "Senke RLF auf 60-65% oder erhöhe Temp auf 30°C"
+  - Empfehlung: "Senke RLF auf 55-60% oder erhöhe Temp auf 30°C"
 ```
 
 **Szenario 3: Manuelle Blüte-Einleitung bei Photoperiod-neutraler Pflanze**
@@ -870,5 +1046,5 @@ THEN:
 
 **Hinweise für RAG-Integration:**
 - Keywords: Phasensteuerung, State-Machine, VPD, Photoperiode, NPK-Profil, Ressourcen, Dauerkultur, Perennial, Saisonzyklus, Reifegrad, Kältestunden, Obstbaum, Juvenil
-- Fachbegriffe: Phänologie, Transpiration, Vapor Pressure Deficit, PPFD, Spektrum, Vernalisierung, Seneszenz, Austrieb, Chill-Hours, Fruchtentwicklung
+- Fachbegriffe: Phänologie, Transpiration, Vapor Pressure Deficit, PPFD, DLI (Daily Light Integral), GDD (Growing Degree Days), Spektrum, Vernalisierung, Seneszenz, Austrieb, Chill-Hours, Fruchtentwicklung, Photoperiod-Response (short_day, long_day, day_neutral), Leaf-VPD
 - Verknüpfung: Zentral für REQ-004 (Düngung), REQ-005 (Sensorik), REQ-006 (Tasks)
