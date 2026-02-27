@@ -23,7 +23,7 @@ Das System verwaltet Substrate als wiederverwendbare Definitionen mit konkreten 
 - **Living Soil** (Mikrobiom-Tracking, No-Till-Strategien, EC-Grenzwerte 0.0–1.5 mS/cm — natürlich höher als inerte Substrate durch organische Nährstofffreisetzung)
 - **Substratlos** (`none` für DWC, Kratky, NFT — Nährlösung wird über REQ-014 verwaltet)
 
-**Scope-Hinweis:** Zimmerpflanzen-spezifische Substrate (Orchideenrinde, Sphagnum, Pon/Seramis, Akadama) sind derzeit nicht im Primärfokus. Das System kann über den Typ `soil` mit entsprechender `composition` abgebildet werden.
+**Zimmerpflanzen-Substrate:** Orchideenrinde (`orchid_bark`), Sphagnum-Moos (`sphagnum`) und mineralische Substrate wie Pon/Seramis (`pon_mineral`) werden als eigenständige Substrattypen unterstützt. Diese verhalten sich fundamental anders als Erde — Gießhäufigkeit, pH-Bereich und EC-Toleranz unterscheiden sich massiv (z.B. Orchideen in Rinde: Tauchbad alle 7–14 Tage, komplett abtrocknen lassen; vs. Erde: gleichmäßig feucht halten).
 
 **Kernfunktionen:**
 - Batch-Tracking mit pH/EC-Verlauf über Anbauzyklen
@@ -37,8 +37,11 @@ Das System verwaltet Substrate als wiederverwendbare Definitionen mit konkreten 
 
 - **`:Substrate`** - Substrat-Definition
   - Properties:
-    - `type: Literal['soil', 'coco', 'rockwool_slab', 'rockwool_plug', 'clay_pebbles', 'perlite', 'vermiculite', 'living_soil', 'none']`
+    - `type: Literal['soil', 'coco', 'rockwool_slab', 'rockwool_plug', 'clay_pebbles', 'perlite', 'vermiculite', 'living_soil', 'none', 'orchid_bark', 'pon_mineral', 'sphagnum']`
       - `none`: Substratlose Systeme (DWC, Kratky, NFT mit nackten Wurzeln) — alle physikalischen Properties nicht anwendbar
+      - `orchid_bark`: Rindenmulch-Mischung für Epiphyten (Orchideen, Bromeliaden) — hohe Luftdurchlässigkeit, `air_porosity_percent` typisch 50–70%, `water_retention: low`, pH 5.5–6.5
+      - `pon_mineral`: Anorganisches Mineralsubstrat (Lechuza Pon, Seramis) — strukturstabil, semi-hydroponisch, pH-neutral (6.0–7.0), speichert Nährlösung im Porenraum
+      - `sphagnum`: Torfmoos für feuchtigkeitsliebende Epiphyten und Karnivoren — `water_retention: high`, pH 3.5–4.5, EC-sensitiv (< 0.5 mS/cm für Karnivoren)
       - Hinweis: Nährlösung ist kein Substrat und wird in REQ-014 (Tankmanagement) als Tank mit Typ `nutrient` verwaltet
     - `brand: Optional[str]`
     - `ph_base: float`
@@ -222,13 +225,17 @@ from pydantic import BaseModel, Field, model_validator
 
 SubstrateType = Literal[
     'soil', 'coco', 'peat', 'rockwool_slab', 'rockwool_plug',
-    'clay_pebbles', 'perlite', 'vermiculite', 'living_soil', 'none'
+    'clay_pebbles', 'perlite', 'vermiculite', 'living_soil', 'none',
+    'orchid_bark', 'pon_mineral', 'sphagnum'
 ]
 # Hinweis: 'hydro_solution' wurde entfernt — Nährlösung ist kein Substrat
 # und wird in REQ-014 (Tankmanagement) als Tank verwaltet.
 # 'rockwool' wurde in 'rockwool_slab' (wiederverwendbar) und
 # 'rockwool_plug' (Einweg-Anzucht) differenziert.
 # 'none' für substratlose Hydroponik-Systeme (DWC, Kratky, NFT).
+# 'orchid_bark': Pinienrinde für Epiphyten — Tauchbad-Methode, komplett abtrocknen lassen.
+# 'pon_mineral': Lechuza Pon / Seramis — mineralisch, semi-hydroponisch, Wasserstandsanzeiger.
+# 'sphagnum': Torfmoos — hohe Wasserhaltung, pH 3.5–4.5, für Orchideen und Karnivoren.
 
 
 class SubstrateValidator(BaseModel):
@@ -269,6 +276,9 @@ IRRIGATION_STRATEGY_MAP = {
     'vermiculite': 'moderate',   # 1–2× täglich
     'living_soil': 'moderate',   # Alle 2–4 Tage, nicht überwässern
     'none': 'continuous',        # DWC/NFT: kontinuierliche Nährlösung
+    'orchid_bark': 'infrequent',  # Tauchbad alle 7–14 Tage, komplett abtrocknen lassen
+    'pon_mineral': 'moderate',    # Wasserstandsanzeiger-basiert, Reservoir ~2cm, wöchentlich nachfüllen
+    'sphagnum': 'moderate',       # Gleichmäßig feucht halten, nie ganz austrocknen, Sprühen ergänzend
 }
 ```
 

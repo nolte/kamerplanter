@@ -85,6 +85,7 @@ Das System prüft die Veredelungskompatibilität mehrstufig:
     - `success_rate: Optional[float]` (0.0–1.0, berechnet aus survived/quantity)
     - `hormone_type: Optional[Literal['iba', 'naa', 'iba_naa_mix', 'honey', 'willow_water', 'none']]`
     - `hormone_concentration_ppm: Optional[float]`
+    - `hormone_application_method: Optional[Literal['quick_dip', 'long_soak', 'powder', 'gel']]` — Applikationsmethode bestimmt Wirkung maßgeblich: Quick-Dip (5s, 1000–3000 ppm IBA für weiche Stecklinge), Long-Soak (12–24h, 50–200 ppm für verholzte Stecklinge), Powder (direkte Applikation), Gel (Kontaktzeit verlängert). Ohne Methode ist die ppm-Angabe nicht reproduzierbar.
     - `medium: Optional[Literal['rockwool', 'perlite', 'vermiculite', 'water', 'aeroponic', 'soil', 'coco', 'peat']]`
     - `dome_humidity_percent: Optional[int]` (Ziel-Luftfeuchtigkeit unter Haube)
     - `heat_mat_celsius: Optional[float]` (Wärmematte-Temperatur)
@@ -121,6 +122,7 @@ Das System prüft die Veredelungskompatibilität mehrstufig:
     - `medium: Literal['rockwool', 'perlite', 'vermiculite', 'water', 'aeroponic', 'soil', 'coco', 'peat']`
     - `hormone_type: Optional[Literal['iba', 'naa', 'iba_naa_mix', 'honey', 'willow_water', 'none']]`
     - `hormone_concentration_ppm: Optional[float]`
+    - `hormone_application_method: Optional[Literal['quick_dip', 'long_soak', 'powder', 'gel']]`
     - `dome_humidity_percent: int` (z.B. 85)
     - `target_vpd_kpa: Optional[float]` (z.B. 0.4 — niedriger VPD verhindert Austrocknung wurzelloser Stecklinge; REQ-005 Sensor-Feedback)
     - `heat_mat_celsius: Optional[float]` (z.B. 22.0)
@@ -589,6 +591,10 @@ class PropagationEvent(BaseModel):
     # Bewurzelungsparameter
     hormone_type: Optional[HormoneType] = None
     hormone_concentration_ppm: Optional[float] = Field(None, ge=0, le=50000)
+    hormone_application_method: Optional[Literal['quick_dip', 'long_soak', 'powder', 'gel']] = Field(
+        None,
+        description="Applikationsmethode — bestimmt effektive Dosis. Quick-Dip 5s (weiche Stecklinge), Long-Soak 12-24h (verholzte), Powder/Gel (direkt)."
+    )
     medium: Optional[RootingMedium] = None
     dome_humidity_percent: Optional[int] = Field(None, ge=0, le=100)
     heat_mat_celsius: Optional[float] = Field(None, ge=15, le=35)
@@ -668,6 +674,7 @@ class RootingProtocol(BaseModel):
     medium: RootingMedium
     hormone_type: Optional[HormoneType] = None
     hormone_concentration_ppm: Optional[float] = Field(None, ge=0, le=50000)
+    hormone_application_method: Optional[Literal['quick_dip', 'long_soak', 'powder', 'gel']] = None
     dome_humidity_percent: int = Field(ge=0, le=100)
     target_vpd_kpa: Optional[float] = Field(
         None, ge=0.1, le=1.5,

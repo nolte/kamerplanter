@@ -52,9 +52,10 @@ Zyklen statt eines einmaligen linearen Durchlaufs. Das System unterstützt:
 - **`requirement_profiles`** - Ressourcen-Anforderungen
   - Properties:
     - `light_ppfd_target: int` (μmol/m²/s)
-    - `dli_target_mol: Optional[float]` (Daily Light Integral in mol/m²/Tag — DLI = PPFD × h × 3600 / 1.000.000; Salate: 12-17, Kräuter: 15-20, Tomaten: 20-30, Cannabis: 35-45)
+    - `dli_target_mol: Optional[float]` (Daily Light Integral in mol/m²/Tag — DLI = PPFD × h × 3600 / 1.000.000; Zimmerpflanzen Niedriglicht: 2-5, Zimmerpflanzen Mittellicht: 5-12, Zimmerpflanzen Hochlicht: 12-20, Salate: 12-17, Kräuter: 15-20, Tomaten: 20-30, Cannabis: 35-45. Hinweis: Nordfenster Deutschland Winter ≈ 1-2 mol/m²/d — unter Minimum für fast alle Zimmerpflanzen.)
+    - `dli_min_mol: Optional[float]` (Minimaler DLI unter dem die Pflanze langfristig Schaden nimmt. Zimmerpflanzen: Schattentolerante 1.5, Halbschatten 3.0, Helles Licht 5.0, Volle Sonne 10.0)
     - `photoperiod_hours: float`
-    - `light_spectrum: dict` (z.B. {"blue": 0.25, "green": 0.20, "red": 0.45, "far_red": 0.10})
+    - `light_spectrum: dict` (z.B. {"blue": 0.25, "green": 0.20, "red": 0.45, "far_red": 0.10}. Zimmerpflanzen: Breitbandiges Weißlicht (2700–6500K CCT) empfohlen. Tropische Grünpflanzen: hoher Blauanteil (400–500nm) für kompakten Wuchs. Sukkulenten: hoher Rotanteil + UV für Stressfärbung. Kurztagspflanzen (Kalanchoe, Schlumbergera): R:FR > 1.5 für Kompaktheit, Far-Red (730nm) für Blüteninduktion.)
     - `temperature_day_c: float`
     - `temperature_night_c: float`
     - `humidity_day_percent: int`
@@ -818,6 +819,18 @@ class RequirementProfileDefinition(BaseModel):
     """Ressourcen-Anforderungen einer Phase"""
     
     light_ppfd_target: int = Field(ge=0, le=2000, description="μmol/m²/s")
+    dli_target_mol: Optional[float] = Field(
+        None, ge=0.0, le=80.0,
+        description="Daily Light Integral mol/m²/Tag. Zimmerpflanzen Niedriglicht: 2–5, Mittellicht: 5–12, Hochlicht: 12–20, Nutzpflanzen: 12–45"
+    )
+    dli_min_mol: Optional[float] = Field(
+        None, ge=0.0, le=40.0,
+        description="Minimaler DLI — unter diesem Wert nimmt die Pflanze langfristig Schaden"
+    )
+    light_spectrum: Optional[dict[str, float]] = Field(
+        None,
+        description="Spektrum-Anteile (Summe ≈ 1.0). Keys: blue, green, red, far_red. Zimmerpflanzen: Breitband-Weiß empfohlen."
+    )
     photoperiod_hours: float = Field(ge=0, le=24)
     temperature_day_c: float = Field(ge=10, le=40)
     temperature_night_c: float = Field(ge=5, le=35)

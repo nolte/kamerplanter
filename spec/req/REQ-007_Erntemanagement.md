@@ -321,12 +321,14 @@ LET substrate_info = FIRST(
 
 LET substrate_type = substrate_info.substrate_type
 LET days_to_harvest = recent_obs.days_to_harvest_estimate
+// Flush-Dauern: Single Source of Truth ist REQ-004 FlushingProtocol.FLUSH_DURATIONS
+// Hier werden die 'optimal'-Werte verwendet. Bereiche siehe REQ-004.
 LET required_flush_days = (
   substrate_type == 'living_soil' ? 0 :       // Kein Flushing — Mikrobiom schützen
-  substrate_type == 'hydro_solution' ? 10 :   // Konsistent mit Python FLUSH_DURATIONS
-  substrate_type == 'coco' ? 14 :
-  substrate_type == 'soil' ? 28 :             // Korrigiert: Soil-CEC erfordert längere Flush (REQ-004)
-  14
+  substrate_type IN ['none', 'clay_pebbles'] ? 10 :  // Hydro: optimal 10 (Bereich 7–14, REQ-004)
+  substrate_type == 'coco' ? 14 :             // Coco: optimal 14 (Bereich 10–21, REQ-004)
+  substrate_type == 'soil' ? 28 :             // Soil: optimal 28 (Bereich 21–42, REQ-004, CEC-abhängig)
+  14                                          // Fallback für sonstige Substrate
 )
 
 // Nur ausführen wenn kein Flushing aktiv und Zeit ausreicht

@@ -40,8 +40,15 @@ Zusätzlich erfasst das System:
     - `hardiness_zones: list[str]` (z.B. ["7a", "7b", "8a"])
     - `native_habitat: str`
     - `growth_habit: Literal['herb', 'shrub', 'tree', 'vine', 'groundcover']`
-    - `root_type: Literal['fibrous', 'taproot', 'tuberous', 'bulbous']`
-    - `allelopathy_score: float` (-1.0 = stark hemmend, 0 = neutral, 1.0 = fördernd)
+    - `root_type: Literal['fibrous', 'taproot', 'tuberous', 'bulbous', 'rhizomatous', 'aerial']` — `rhizomatous`: Rhizom-bildend (Calathea, Ingwer, Iris, viele Farne); `aerial`: Luftwurzeln/hemiepiphytisch (Monstera, Philodendron, Orchideen). Optional ergänzend: `root_adaptations: list[str]` für Arten mit Mehrfachzuweisung (z.B. Monstera hat Faserwurzeln UND Luftwurzeln).
+    - `root_adaptations: list[str]` (z.B. `["aerial", "epiphytic", "stoloniferous"]` — ergänzende Wurzelanpassungen über den Primärtyp hinaus)
+    - `allelopathy_score: float` (-1.0 = stark hemmend, 0 = neutral, 1.0 = fördernd) — generelle allelopathische Tendenz der Art. Hinweis: Allelopathische Wirkungen sind stark partnerabhängig (z.B. *Juglans nigra* hemmt *Solanum lycopersicum*, aber kaum *Phaseolus vulgaris*). Die paarspezifischen `compatible_with`/`incompatible_with`-Edges sind die autoritativen Daten; dieser Score dient nur als Erstindikator.
+    - `toxicity: Optional[ToxicityInfo]` — Embedded-Objekt, siehe ToxicityInfo-Definition (U-001)
+    - `air_purification_score: Optional[float]` (0.0–1.0; basiert auf NASA Clean Air Study / Wolverton 1989. 0.0 = keine nachgewiesene Wirkung, 1.0 = stark luftreinigend. Caveat: Bei realistischen Pflanzendichten in Wohnräumen vernachlässigbar — Cummings & Waring 2020.)
+    - `removes_compounds: list[str]` (Schadstoffe die die Art nachweislich filtert, z.B. `["formaldehyde", "benzene", "trichloroethylene", "xylene", "toluene", "ammonia"]`)
+    - `allergen_info: Optional[AllergenInfo]` — Embedded-Objekt mit Pollen-, Kontakt- und VOC-Allergenrisiko (siehe AllergenInfo-Definition)
+    - `propagation_methods: list[str]` (Unterstützte Vermehrungsmethoden: `'seed'`, `'cutting_stem'`, `'cutting_leaf'`, `'division'`, `'offset'`, `'layering'`, `'grafting'`, `'spore'`)
+    - `propagation_difficulty: Optional[Literal['easy', 'moderate', 'difficult']]` (Schwierigkeit für Einsteiger — wird im Beginner-Modus REQ-021 angezeigt)
 
 - **`:Cultivar`** - Sorte/Zuchtform
   - Properties:
@@ -158,7 +165,24 @@ RETURN MERGE(family, {
 ```
 
 **2. Erweiterte Fruchtfolge-Validierung (mit Pest-Risiko):**
+
+Hinweis: Fruchtfolge-Warnungen werden nur bei Outdoor-/Boden-basierten Standorten erzeugt. Bei Indoor-Hydroponik (Substrattyp `none`, `clay_pebbles`, `rockwool_slab`) und Zimmerpflanzen ist Fruchtfolge nicht anwendbar — das Substrat wird zwischen Zyklen gewechselt oder sterilisiert (siehe REQ-019). Die Validierung wird übersprungen wenn `site.type == 'indoor'` UND `substrate.type NOT IN ['soil', 'living_soil', 'coco']`.
+
 ```aql
+// Guard: Fruchtfolge nur für bodenbasierte Standorte relevant
+LET slot_substrate = FIRST(
+    FOR sub IN 1..1 OUTBOUND DOCUMENT('slots', @slot_key) GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['filled_with'] }
+        RETURN sub.type
+)
+LET slot_site = FIRST(
+    FOR site IN sites FILTER site._key == @site_key RETURN site
+)
+
+// Überspringe Validierung bei Indoor-Hydroponik und Zimmerpflanzen
+FILTER slot_site.type IN ['outdoor', 'greenhouse']
+    OR slot_substrate IN ['soil', 'living_soil', 'coco']
+
 LET current_species = FIRST(FOR s IN species FILTER s.scientific_name == @planned_species RETURN s)
 LET previous_species = FIRST(FOR s IN species FILTER s.scientific_name == @last_species RETURN s)
 
@@ -321,6 +345,108 @@ Die folgenden 9 Pflanzenfamilien bilden die initiale Datenbasis:
 | Solanaceae | Solanaceae | Selbstinkompatibilität: gemeinsame Krankheiten und Schädlinge | severe |
 | Brassicaceae | Brassicaceae | Kohlhernie-Risiko bei wiederholtem Anbau | severe |
 | Cucurbitaceae | Cucurbitaceae | Fusarium-Akkumulation im Boden | moderate |
+
+### Seed-Daten: Species-Toxizität
+
+Die folgenden Toxizitätsdaten werden als `ToxicityInfo`-Objekt im jeweiligen Species-Dokument gespeichert. Primärquellen: ASPCA Animal Poison Control (aspca.org), Giftinformationszentrale Bonn (gizbonn.de).
+
+**Zimmerpflanzen (aus Starter-Kit `zimmerpflanzen` und `zimmerpflanzen-haustierfreundlich`):**
+
+| Species | is_toxic_cats | is_toxic_dogs | is_toxic_children | toxic_compounds | toxic_parts | severity | source |
+|---------|:---:|:---:|:---:|---------|---------|----------|--------|
+| *Monstera deliciosa* | true | true | true | calcium_oxalate_raphides | leaves, stems | moderate | ASPCA |
+| *Ficus lyrata* | true | true | true | ficin, furocoumarins | leaves, stems, sap | moderate | ASPCA |
+| *Epipremnum aureum* | true | true | true | calcium_oxalate_raphides | leaves, stems | moderate | ASPCA |
+| *Dracaena trifasciata* | true | true | true | saponins | leaves | mild | ASPCA |
+| *Chlorophytum comosum* | false | false | false | – | – | none | ASPCA |
+| *Chamaedorea elegans* | false | false | false | – | – | none | ASPCA |
+| *Pilea peperomioides* | false | false | false | – | – | none | ASPCA |
+| *Maranta leuconeura* | false | false | false | – | – | none | ASPCA |
+
+**Nutzpflanzen (aus Starter-Kits):**
+
+| Species | is_toxic_cats | is_toxic_dogs | is_toxic_children | toxic_compounds | toxic_parts | severity | source |
+|---------|:---:|:---:|:---:|---------|---------|----------|--------|
+| *Solanum lycopersicum* | true | true | false | solanin, tomatidin | leaves, stems, unripe_fruits | mild | ASPCA |
+| *Cannabis sativa* | true | true | true | THC, CBD | flowers, leaves | moderate | ASPCA |
+| *Capsicum chinense* | false | false | false | capsaicin | fruits | none | Giftnotruf Bonn |
+| *Ocimum basilicum* | false | false | false | – | – | none | ASPCA |
+| *Mentha spicata* | false | false | false | – | – | none | ASPCA |
+| *Lactuca sativa* | false | false | false | – | – | none | ASPCA |
+
+**Weitere häufige Zimmerpflanzen (nicht in Starter-Kits, aber oft manuell angelegt):**
+
+| Species | is_toxic_cats | is_toxic_dogs | is_toxic_children | toxic_compounds | toxic_parts | severity | source |
+|---------|:---:|:---:|:---:|---------|---------|----------|--------|
+| *Dieffenbachia seguine* | true | true | true | calcium_oxalate_raphides, proteolytic_enzymes | leaves, stems, sap | severe | ASPCA |
+| *Spathiphyllum wallisii* | true | true | true | calcium_oxalate_raphides | leaves, stems | moderate | ASPCA |
+| *Zamioculcas zamiifolia* | true | true | true | calcium_oxalate_raphides | all | moderate | ASPCA |
+| *Euphorbia pulcherrima* | true | true | true | diterpen_esters | sap, leaves | mild | Giftnotruf Bonn |
+| *Aloe vera* | true | true | false | anthraquinones, saponins | gel, sap | mild | ASPCA |
+| *Philodendron hederaceum* | true | true | true | calcium_oxalate_raphides | leaves, stems | moderate | ASPCA |
+| *Nerium oleander* | true | true | true | oleandrin, neriine | all | severe | Giftnotruf Bonn |
+
+Hinweis: Bei manuell angelegten Species ohne Toxizitätsdaten zeigt das System den Hinweis: „Toxizitätsdaten unbekannt — Vorsicht bei Haustieren und Kleinkindern." Die externe Stammdatenanreicherung (REQ-011) kann Toxizitätsdaten automatisch über die ASPCA-API oder ähnliche Quellen nacherfassen.
+
+### Seed-Daten: Luftreinigungseigenschaften (U-006)
+
+Basierend auf der NASA Clean Air Study (Wolverton et al. 1989). Caveat: Bei realistischen Pflanzendichten in Wohnräumen (< 1 Pflanze/m²) ist der Luftreinigungseffekt vernachlässigbar (Cummings & Waring, 2020). Die Daten dienen primär als Zusatzinformation, nicht als Gesundheitsversprechen.
+
+| Species | air_purification_score | removes_compounds |
+|---------|:---:|---------|
+| *Spathiphyllum wallisii* | 0.9 | formaldehyde, benzene, trichloroethylene, xylene, ammonia |
+| *Chlorophytum comosum* | 0.8 | formaldehyde, xylene, toluene |
+| *Epipremnum aureum* | 0.8 | formaldehyde, benzene, xylene |
+| *Dracaena trifasciata* | 0.7 | formaldehyde, benzene, trichloroethylene, xylene, toluene |
+| *Ficus lyrata* | 0.5 | formaldehyde |
+| *Monstera deliciosa* | 0.3 | – (keine NASA-Studie, geringe Evidenz) |
+| *Chamaedorea elegans* | 0.7 | formaldehyde, xylene |
+| *Philodendron hederaceum* | 0.7 | formaldehyde |
+| *Aloe vera* | 0.5 | formaldehyde, benzene |
+| *Maranta leuconeura* | 0.2 | – (keine belastbare Evidenz) |
+
+### Seed-Daten: Allergenpotenzial (U-007)
+
+Primärquellen: European Aeroallergen Network (EAN), ECHA-Datenbank, Fachpublikationen zu Indoor-Allergenen.
+
+| Species | latex_sap | contact_allergen | pollen_allergen | allergenic_compounds | cross_reactive_with |
+|---------|:---:|:---:|:---:|---------|---------|
+| *Ficus lyrata* | true | false | false | latex_proteins, furocoumarins | latex (Latex-Frucht-Syndrom) |
+| *Ficus benjamina* | true | false | true | latex_proteins (Raumluft-Emission!) | latex |
+| *Euphorbia pulcherrima* | true | true | false | diterpen_esters | latex |
+| *Monstera deliciosa* | false | true | false | calcium_oxalate_raphides | – |
+| *Dieffenbachia seguine* | false | true | false | calcium_oxalate_raphides, proteolytic_enzymes | – |
+| *Epipremnum aureum* | false | true | false | calcium_oxalate_raphides | – |
+| *Philodendron hederaceum* | false | true | false | calcium_oxalate_raphides | – |
+| *Chlorophytum comosum* | false | false | false | – | – |
+| *Chamaedorea elegans* | false | false | false | – | – |
+| *Dracaena trifasciata* | false | false | false | – | – |
+
+Hinweis: *Ficus benjamina* emittiert nachweislich Latexproteine in die Raumluft — bei Latexallergikern (1–3% der Bevölkerung) können Kreuzreaktionen auftreten. Das System zeigt bei `latex_sap: true` den Hinweis: „Enthält Milchsaft — Vorsicht bei Latexallergie."
+
+### Seed-Daten: Vermehrungsmethoden (U-008)
+
+| Species | propagation_methods | propagation_difficulty |
+|---------|---------|:---:|
+| *Monstera deliciosa* | cutting_stem, layering | easy |
+| *Epipremnum aureum* | cutting_stem | easy |
+| *Chlorophytum comosum* | offset, division | easy |
+| *Ficus lyrata* | cutting_stem | moderate |
+| *Dracaena trifasciata* | cutting_leaf, division | easy |
+| *Pilea peperomioides* | offset | easy |
+| *Maranta leuconeura* | division | easy |
+| *Chamaedorea elegans* | seed | difficult |
+| *Philodendron hederaceum* | cutting_stem, layering | easy |
+| *Spathiphyllum wallisii* | division | easy |
+| *Zamioculcas zamiifolia* | cutting_leaf, division | moderate |
+| *Aloe vera* | offset | easy |
+| *Dieffenbachia seguine* | cutting_stem | moderate |
+| *Nerium oleander* | cutting_stem | moderate |
+| *Solanum lycopersicum* | seed, cutting_stem, grafting | easy |
+| *Cannabis sativa* | seed, cutting_stem | easy |
+| *Ocimum basilicum* | seed, cutting_stem | easy |
+
+Hinweis: Im Einsteiger-Modus (REQ-021) werden nur Arten mit `propagation_difficulty: 'easy'` als Vermehrungskandidaten vorgeschlagen. Detaillierte Vermehrungsanleitungen werden über REQ-017 (Vermehrungsmanagement) abgebildet.
 
 ## 3. Technische Umsetzung (Python)
 
@@ -498,9 +624,36 @@ class PhotoperiodCalculator:
 from typing import Optional
 from pydantic import BaseModel, field_validator, Field
 
+class ToxicityInfo(BaseModel):
+    """Toxizitätsdaten auf Species-Ebene für Haustier-/Kindersicherheit.
+
+    Primärquellen: ASPCA Animal Poison Control (aspca.org),
+    Giftinformationszentrale Bonn (gizbonn.de).
+    """
+    is_toxic_cats: bool = False
+    is_toxic_dogs: bool = False
+    is_toxic_children: bool = False
+    toxic_compounds: list[str] = Field(default_factory=list, description="z.B. ['calcium_oxalate_raphides', 'saponins']")
+    toxic_parts: list[str] = Field(default_factory=list, description="z.B. ['leaves', 'stems', 'sap', 'roots', 'seeds', 'flowers']")
+    severity: Literal['none', 'mild', 'moderate', 'severe'] = 'none'
+    source: str = Field('', description="Datenquelle, z.B. 'ASPCA', 'Giftnotruf Bonn'")
+
+class AllergenInfo(BaseModel):
+    """Allergen-Potenzial einer Spezies.
+
+    Primärquellen: ARIA (Allergic Rhinitis and its Impact on Asthma),
+    European Aeroallergen Network (EAN), ECHA-Datenbank für Kontaktallergene.
+    """
+    latex_sap: bool = Field(False, description="Milchsaft vorhanden — Kontaktdermatitis-Risiko (z.B. Ficus, Euphorbia)")
+    contact_allergen: bool = Field(False, description="Kontaktallergen, z.B. Calciumoxalat-Raphide (Dieffenbachia, Monstera)")
+    pollen_allergen: bool = Field(False, description="Pollenallergen — relevant für blühende Zimmerpflanzen im Innenraum")
+    allergenic_compounds: list[str] = Field(default_factory=list, description="z.B. ['latex_proteins', 'furocoumarins', 'linalool']")
+    cross_reactive_with: list[str] = Field(default_factory=list, description="Kreuzreaktionen, z.B. ['latex'] bei Ficus (Latex-Frucht-Syndrom)")
+    source: str = Field('', description="Datenquelle, z.B. 'EAN', 'ECHA'")
+
 class SpeciesDefinition(BaseModel):
     """Vollständige Spezies-Definition für Stammdaten"""
-    
+
     scientific_name: str = Field(regex=r'^[A-Z][a-z]+ [a-z]+$', description="Binomiale Nomenklatur")
     common_names: list[str] = Field(min_items=1)
     family: str
@@ -509,7 +662,32 @@ class SpeciesDefinition(BaseModel):
     photoperiod_type: Literal['short_day', 'long_day', 'day_neutral']
     hardiness_zones: list[str] = Field(min_items=1)
     growth_habit: Literal['herb', 'shrub', 'tree', 'vine', 'groundcover']
-    root_type: Literal['fibrous', 'taproot', 'tuberous', 'bulbous']
+    root_type: Literal['fibrous', 'taproot', 'tuberous', 'bulbous', 'rhizomatous', 'aerial']
+    root_adaptations: list[str] = Field(
+        default_factory=list,
+        description="Ergänzende Wurzelanpassungen, z.B. ['aerial', 'epiphytic', 'stoloniferous']"
+    )
+    toxicity: ToxicityInfo = Field(default_factory=ToxicityInfo, description="Toxizitätsdaten für Haustiere und Kinder")
+    air_purification_score: Optional[float] = Field(
+        None, ge=0.0, le=1.0,
+        description="NASA Clean Air Study Bewertung (0=keine Wirkung, 1=stark luftreinigend). Caveat: Effekt bei realistischen Pflanzendichten vernachlässigbar."
+    )
+    removes_compounds: list[str] = Field(
+        default_factory=list,
+        description="Gefilterte Schadstoffe, z.B. ['formaldehyde', 'benzene', 'toluene']"
+    )
+    allergen_info: Optional[AllergenInfo] = Field(
+        None,
+        description="Allergenpotenzial — Pollen, Kontaktallergene, VOC-Emissionen"
+    )
+    propagation_methods: list[Literal[
+        'seed', 'cutting_stem', 'cutting_leaf', 'division',
+        'offset', 'layering', 'grafting', 'spore'
+    ]] = Field(default_factory=list, description="Unterstützte Vermehrungsmethoden (REQ-017)")
+    propagation_difficulty: Optional[Literal['easy', 'moderate', 'difficult']] = Field(
+        None,
+        description="Schwierigkeitsgrad für Einsteiger — wird im Beginner-Modus (REQ-021) angezeigt"
+    )
     vernalization_required: bool = False
     vernalization_days: Optional[int] = Field(None, ge=0, le=180)
     
@@ -534,7 +712,12 @@ class SpeciesDefinition(BaseModel):
     @classmethod
     def validate_biennial_vernalization(cls, v, info):
         if v == 'biennial' and not info.data.get('vernalization_required'):
-            raise ValueError("Zweijährige Pflanzen benötigen typischerweise Vernalisation")
+            import warnings
+            warnings.warn(
+                "Zweijährige ohne Vernalisation — bitte prüfen. "
+                "Die meisten Zweijährigen benötigen Vernalisation, aber nicht alle "
+                "(z.B. Beta vulgaris kann unter Langtagsbedingungen auch ohne Kälteperiode schossen)."
+            )
         return v
 
 class CultivarDefinition(BaseModel):
@@ -579,6 +762,8 @@ class RootType(str, Enum):
     TAPROOT = "taproot"
     TUBEROUS = "tuberous"
     BULBOUS = "bulbous"
+    RHIZOMATOUS = "rhizomatous"  # Rhizom-bildend (Calathea, Ingwer, Farne)
+    AERIAL = "aerial"            # Luftwurzeln/hemiepiphytisch (Monstera, Orchideen)
 
 class PhotoperiodType(str, Enum):
     SHORT_DAY = "short_day"
@@ -722,7 +907,7 @@ class BotanicalFamilyDefinition(BaseModel):
 
 **Szenario 1: Einjährige Pflanze - Vollständiger Zyklus**
 ```
-GIVEN: Basilikum (Ocimum basilicum) als einjährige Kurztagspflanze
+GIVEN: Basilikum (Ocimum basilicum) als einjährige Langtagspflanze
 WHEN: Alle Phasen durchlaufen (Keimung → Vegi → Blüte → Samen)
 THEN: 
   - System markiert Pflanze nach Samenernte als "Lifecycle Complete"
@@ -752,12 +937,16 @@ THEN:
 
 **Szenario 4: Photoperiod-Blüte**
 ```
-GIVEN: Cannabis (Cannabis sativa) als Kurztagspflanze, kritische Tageslänge: 14h
-WHEN: Natürliche Tageslänge fällt unter 14h (Ende August, 50°N)
+GIVEN: Cannabis (Cannabis sativa) als photoperiodische Kurztagspflanze, kritische Tageslänge: 12-13h
+  - Vegetative Phase: ≥18h Licht / ≤6h Dunkelheit (Indoor-Standard 18/6)
+  - Blüte-Phase: ≤12h Licht / ≥12h ununterbrochene Dunkelheit (Indoor-Standard 12/12)
+  - Autoflowering-Sorten (ruderalis-Hybriden): tagneutral, blühen unabhängig von Photoperiode
+WHEN: Tageslänge fällt unter 13h (Outdoor: ca. Mitte September, 50°N) ODER Indoor-Lichtzyklus wird auf 12/12 umgestellt
 THEN:
   - System erkennt Blüten-Trigger
   - Automatischer Übergang von Vegi → Blüte-Phase
   - Düngeprofil wechselt zu Blüte-NPK
+  - Bei Autoflowering: Phasenübergang nach konfigurierten GDD oder Kalendertagen
 ```
 
 **Szenario 5: Fruchtfolge-Validierung**

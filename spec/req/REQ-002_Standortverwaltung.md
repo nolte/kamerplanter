@@ -43,6 +43,7 @@ Das System verwaltet eine **rekursiv verschachtelbare** Standort-Struktur: **Sit
     - `climate_zone: str` (USDA Hardiness Zone)
     - `total_area_m2: float`
     - `timezone: str` — IANA-Zeitzone (z.B. "Europe/Berlin"), Default: "UTC"
+    - `hemisphere: Literal['northern', 'southern']` — Default: `'northern'`. Automatisch ableitbar aus `gps_coordinates` (Breitengrad ≥ 0 → northern). Bestimmt saisonale Monatszuordnung: Wintermonate Nov–Feb (northern) bzw. Mai–Aug (southern). Wird von REQ-022 CareReminderEngine für `WINTER_MONTHS` und `fertilizing_active_months` genutzt.
 
 - **`:Location`** - Räumlicher Container (Beet, Zelt, Raum) — rekursiv verschachtelbar
   - Properties:
@@ -53,7 +54,9 @@ Das System verwaltet eine **rekursiv verschachtelbare** Standort-Struktur: **Sit
     - `depth: int` — Tiefe in der Hierarchie (0 = direkt unter Site), berechnet
     - `path: str` — Materialisierter Pfad für Baum-Abfragen (z.B. `"haus/arbeitszimmer/growzelt1"`)
     - `area_m2: float`
-    - `orientation: Optional[Literal['north', 'south', 'east', 'west']]`
+    - `orientation: Optional[Literal['north', 'south', 'east', 'west']]` — Ausrichtung bei Outdoor-Beeten
+    - `window_orientation: Optional[Literal['north', 'south', 'east', 'west', 'northeast', 'northwest', 'southeast', 'southwest']]` — Himmelsrichtung des Fensters bei Indoor-Locations. Relevant für Zimmerpflanzen-Lichtberechnung: Südfenster ≈ 4–6h direkte Sonne, Nordfenster ≈ nur diffuses Licht. Wird mit `glazing_transmission_factor` kombiniert für DLI-Schätzung (REQ-003).
+    - `glazing_transmission_factor: Optional[float]` — Lichttransmission der Verglasung (0.0–1.0). Typisch: Einfachglas 0.85, Doppelverglasung 0.70, Dreifachverglasung 0.60, verschmutztes Fenster 0.50. Default: 0.70 (Standard-Isolierverglasung).
     - `light_type: Literal['natural', 'led', 'hps', 'cmh', 'mixed']`
     - `irrigation_system: Literal['manual', 'drip', 'hydro', 'mist']` (Primäres Bewässerungssystem — beschreibt die Infrastruktur. Ergänzendes manuelles Gießen per Gießkanne ist immer möglich, auch bei automatischen Systemen, z.B. für organische Dünger, die nicht über Tropfer/Pumpen appliziert werden sollten. Siehe REQ-004 Applikationsmethoden und REQ-014 WateringEvent.)
     - `dimensions: tuple[float, float, float]` (length, width, height in meters)

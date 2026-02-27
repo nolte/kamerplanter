@@ -56,7 +56,7 @@ Der Wizard erstellt auf Basis der Nutzer-Eingaben automatisch alle benötigten E
     - `site_type: Literal['indoor', 'outdoor', 'windowsill', 'balcony', 'greenhouse', 'grow_tent']`
     - `species_keys: list[str]` (Referenzen auf Species-Dokumente)
     - `cultivar_keys: list[str]` (Optionale Cultivar-Referenzen)
-    - `toxicity_warning: Optional[dict]` (Toxizitätshinweis, z.B. `{"cats": "warning", "dogs": "warning", "children": "caution"}`. Werte: `"safe"`, `"caution"`, `"warning"`, `"danger"`)
+    - `toxicity_warning: Optional[dict]` (Toxizitätshinweis, z.B. `{"cats": "warning", "dogs": "warning", "children": "warning"}`. Werte: `"safe"`, `"caution"`, `"warning"`, `"danger"`. Wird aus dem höchsten `ToxicityInfo.severity`-Wert der enthaltenen Species abgeleitet — siehe REQ-001 Species-Toxizität.)
     - `workflow_template_keys: list[str]` (Optionale WorkflowTemplate-Referenzen aus REQ-006)
     - `includes_nutrient_plan: bool` (Ob ein vereinfachter Düngeplan mitgeliefert wird)
     - `tags: list[str]` (z.B. `["indoor", "anfaenger", "essbar"]`)
@@ -262,7 +262,7 @@ class StarterKitService:
 | `fensterbank-kraeuter` | `{"cats": "safe", "dogs": "safe", "children": "safe"}` |
 | `balkon-tomaten` | `{"cats": "caution", "dogs": "caution", "children": "safe"}` |
 | `kleines-gemusebeet` | `{"cats": "caution", "dogs": "caution", "children": "safe"}` |
-| `zimmerpflanzen` | `{"cats": "warning", "dogs": "warning", "children": "caution"}` |
+| `zimmerpflanzen` | `{"cats": "warning", "dogs": "warning", "children": "warning"}` |
 | `zimmerpflanzen-haustierfreundlich` | `{"cats": "safe", "dogs": "safe", "children": "safe"}` |
 | `indoor-growzelt` | `{"cats": "caution", "dogs": "caution", "children": "danger"}` |
 | `chili-zucht` | `{"cats": "safe", "dogs": "safe", "children": "safe"}` |

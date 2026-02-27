@@ -65,7 +65,7 @@ Der Wasserbedarf von Zimmerpflanzen schwankt zwischen Sommer und Winter um den F
 
 Ohne saisonale Anpassung ist **Überwässerung im Winter die häufigste Todesursache** bei Zimmerpflanzen (Wurzelfäule durch Phytophthora, Pythium).
 
-Der `winter_watering_multiplier` wird auf das Gießintervall angewendet, wenn der aktuelle Monat in den Winter-Monaten liegt (November–Februar auf der Nordhalbkugel). Das effektive Intervall berechnet sich als: `effective_interval = base_interval × multiplier`.
+Der `winter_watering_multiplier` wird auf das Gießintervall angewendet, wenn der aktuelle Monat in den Winter-Monaten liegt (November–Februar auf der Nordhalbkugel, Mai–August auf der Südhalbkugel). Die Hemisphäre wird aus `Site.hemisphere` abgeleitet (Default: `'northern'`). Das effektive Intervall berechnet sich als: `effective_interval = base_interval × multiplier`.
 
 **5 Erinnerungstypen:**
 
@@ -212,8 +212,15 @@ FOR plant IN plant_instances
         RETURN cc
   )
 
-  // Berechne Fälligkeit (mit saisonaler Anpassung)
-  LET is_winter = current_month IN [11, 12, 1, 2]
+  // Berechne Fälligkeit (mit saisonaler Anpassung, hemisphärenabhängig)
+  LET site_hemisphere = FIRST(
+    FOR s IN sites
+      FOR loc IN locations FILTER loc._key == plant.location_key
+        FILTER s._key == loc.site_key
+        RETURN s.hemisphere
+  ) ?? 'northern'
+  LET winter_months = site_hemisphere == 'southern' ? [5, 6, 7, 8] : [11, 12, 1, 2]
+  LET is_winter = current_month IN winter_months
   LET watering_base = profile.watering_interval_learned != null
     ? profile.watering_interval_learned
     : profile.watering_interval_days
@@ -274,6 +281,9 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 # --- Care Style Presets ---
+# Alle Presets definieren Monate für die Nordhalbkugel.
+# Bei Site.hemisphere == 'southern' verschiebt CareReminderEngine._adjust_months_for_hemisphere()
+# alle fertilizing_active_months um +6 Monate (z.B. Mär(3)→Sep(9), Mai(5)→Nov(11)).
 
 CARE_STYLE_PRESETS: dict[str, dict] = {
     'tropical': {
@@ -365,7 +375,7 @@ class CareProfile(BaseModel):
     watering_interval_days: int = Field(ge=1, le=90)
     winter_watering_multiplier: float = Field(
         ge=1.0, le=5.0, default=1.5,
-        description="Multiplikator für Gießintervall in Wintermonaten (Nov–Feb)"
+        description="Multiplikator für Gießintervall in Wintermonaten (Nov–Feb NH / Mai–Aug SH — wird aus Site.hemisphere abgeleitet)"
     )
     fertilizing_interval_days: int = Field(ge=7, le=90)
     fertilizing_active_months: list[int] = Field(
@@ -540,18 +550,40 @@ class CareReminderEngine:
 
         return is_due, days_overdue
 
-    # Winter-Monate (Nordhalbkugel) für saisonale Gießintervall-Anpassung
-    WINTER_MONTHS = frozenset([11, 12, 1, 2])
+    # Winter-Monate nach Hemisphäre (aus Site.hemisphere abgeleitet)
+    WINTER_MONTHS_NORTHERN = frozenset([11, 12, 1, 2])
+    WINTER_MONTHS_SOUTHERN = frozenset([5, 6, 7, 8])
+    # Offset für fertilizing_active_months bei Südhalbkugel: +6 Monate (mod 12)
+    HEMISPHERE_MONTH_OFFSET = 6
+
+    @staticmethod
+    def _get_winter_months(hemisphere: str = 'northern') -> frozenset[int]:
+        """Gibt Winter-Monate basierend auf Hemisphäre zurück."""
+        if hemisphere == 'southern':
+            return CareReminderEngine.WINTER_MONTHS_SOUTHERN
+        return CareReminderEngine.WINTER_MONTHS_NORTHERN
+
+    @staticmethod
+    def _adjust_months_for_hemisphere(months: list[int], hemisphere: str) -> list[int]:
+        """Verschiebt Monatslisten um 6 Monate für Südhalbkugel.
+
+        Presets werden für Nordhalbkugel definiert. Bei hemisphere='southern'
+        werden alle Monate um +6 (mod 12) verschoben, z.B. März(3) → September(9).
+        """
+        if hemisphere == 'northern':
+            return months
+        return [((m + 5) % 12) + 1 for m in months]
 
     def _get_effective_interval(
         self,
         reminder_type: ReminderType,
         profile: CareProfile,
+        hemisphere: str = 'northern',
     ) -> Optional[int]:
         """Gibt das effektive Intervall zurück (gelernt > konfiguriert, saisonal angepasst)."""
         if reminder_type == 'watering':
             base = profile.watering_interval_learned or profile.watering_interval_days
-            if date.today().month in self.WINTER_MONTHS:
+            if date.today().month in self._get_winter_months(hemisphere):
                 return round(base * profile.winter_watering_multiplier)
             return round(base)
         elif reminder_type == 'fertilizing':
@@ -582,18 +614,21 @@ class CareReminderEngine:
     def _check_location_reminder(
         self,
         profile: CareProfile,
+        hemisphere: str = 'northern',
     ) -> tuple[bool, int]:
         """
-        Saisonale Standort-Checks:
-        - Oktober: "Pflanzen vom Balkon holen / Winterquartier vorbereiten"
-        - März: "Helleren Standort suchen / Umstellen für Frühling"
+        Saisonale Standort-Checks (hemisphärenabhängig):
+        - Nordhalbkugel: Oktober → Winterquartier, März → Frühlings-Umstellung
+        - Südhalbkugel: April → Winterquartier, September → Frühlings-Umstellung
         """
         if not profile.location_check_enabled:
             return False, 0
         today = date.today()
-        if today.month == 10 and today.day <= 15:
+        winter_warning_month = 10 if hemisphere == 'northern' else 4
+        spring_reminder_month = 3 if hemisphere == 'northern' else 9
+        if today.month == winter_warning_month and today.day <= 15:
             return True, 0
-        if today.month == 3 and today.day <= 15:
+        if today.month == spring_reminder_month and today.day <= 15:
             return True, 0
         return False, 0
 

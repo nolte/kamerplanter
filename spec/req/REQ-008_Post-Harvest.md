@@ -333,10 +333,21 @@ FOR location IN storage_locations
   LET max_temp_6h = MAX(observations[*].temperature_c)
 
   // Bestimme Schimmel-Risiko
+  // Primär: a_w-Sensor (biologisch präziser — Schimmelpilze wachsen ab a_w > 0.65,
+  // unabhängig von Raumluftfeuchte). Fallback: RH-basiert wenn kein a_w-Sensor.
+  LET has_aw_sensor = LENGTH(observations[* FILTER CURRENT.water_activity != null]) > 0
+  LET avg_aw_6h = has_aw_sensor
+    ? AVG(observations[* FILTER CURRENT.water_activity != null].water_activity)
+    : null
+
   LET risk_level = (
-    avg_rh_6h > 65 ? 'CRITICAL' :
-    avg_rh_6h > 62 ? 'WARNING' :
-    (avg_rh_6h > 55 AND max_temp_6h > 22) ? 'WARNING' :
+    // a_w-basierte Bewertung (bevorzugt, wenn Sensor vorhanden)
+    has_aw_sensor AND avg_aw_6h > 0.65 ? 'CRITICAL' :
+    has_aw_sensor AND avg_aw_6h > 0.60 ? 'WARNING' :
+    // RH-basierte Bewertung (Fallback ohne a_w-Sensor)
+    !has_aw_sensor AND avg_rh_6h > 65 ? 'CRITICAL' :
+    !has_aw_sensor AND avg_rh_6h > 62 ? 'WARNING' :
+    !has_aw_sensor AND (avg_rh_6h > 55 AND max_temp_6h > 22) ? 'WARNING' :
     'OK'
   )
 
@@ -353,17 +364,21 @@ FOR location IN storage_locations
   // Erstelle neuen Alert wenn nötig
   FILTER LENGTH(existing_alerts) == 0 AND risk_level == 'CRITICAL'
 
+  LET trigger = has_aw_sensor
+    ? CONCAT('a_w ', ROUND(avg_aw_6h, 3), ' > 0.65 über 6h')
+    : CONCAT('RH ', ROUND(avg_rh_6h, 1), '% > 65% über 6h (kein a_w-Sensor)')
+
   LET new_alert = FIRST(
     INSERT {
       alert_id: UUID(),
       triggered_at: DATE_ISO8601(DATE_NOW()),
       severity: risk_level,
-      trigger_reason: CONCAT('RH ', ROUND(avg_rh_6h, 1), '% > 65% über 6h'),
+      trigger_reason: trigger,
       affected_location: location.location_id,
       action_required: (
         risk_level == 'CRITICAL'
           ? 'SOFORT: Dehumidifier einschalten, Luftaustausch erhöhen, visuell auf Schimmel prüfen'
-          : 'Überwachen: RH senken auf <60%'
+          : 'Überwachen: RH senken auf <60%, a_w-Ziel < 0.60'
       )
     } INTO mold_alerts
     RETURN NEW
