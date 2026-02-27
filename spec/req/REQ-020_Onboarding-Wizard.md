@@ -56,6 +56,7 @@ Der Wizard erstellt auf Basis der Nutzer-Eingaben automatisch alle benötigten E
     - `site_type: Literal['indoor', 'outdoor', 'windowsill', 'balcony', 'greenhouse', 'grow_tent']`
     - `species_keys: list[str]` (Referenzen auf Species-Dokumente)
     - `cultivar_keys: list[str]` (Optionale Cultivar-Referenzen)
+    - `toxicity_warning: Optional[dict]` (Toxizitätshinweis, z.B. `{"cats": "warning", "dogs": "warning", "children": "caution"}`. Werte: `"safe"`, `"caution"`, `"warning"`, `"danger"`)
     - `workflow_template_keys: list[str]` (Optionale WorkflowTemplate-Referenzen aus REQ-006)
     - `includes_nutrient_plan: bool` (Ob ein vereinfachter Düngeplan mitgeliefert wird)
     - `tags: list[str]` (z.B. `["indoor", "anfaenger", "essbar"]`)
@@ -247,10 +248,12 @@ class StarterKitService:
 | `fensterbank-kraeuter` | Fensterbank-Kräuter | *Ocimum basilicum*, *Mentha spicata*, *Petroselinum crispum*, *Allium schoenoprasum*, *Anethum graveolens* | Genovese-Basilikum, Krause Petersilie, Schnittlauch | `beginner` |
 | `balkon-tomaten` | Balkon-Tomaten | *Solanum lycopersicum* | Tiny Tim, Balkonstar, Tumbling Tom Red | `beginner` |
 | `kleines-gemusebeet` | Kleines Gemüsebeet | *Solanum lycopersicum*, *Ocimum basilicum*, *Lactuca sativa*, *Phaseolus vulgaris*, *Daucus carota* | Cherry-Tomate, Kopfsalat Maikönig, Buschbohne Saxa | `beginner` |
-| `zimmerpflanzen` | Zimmerpflanzen | *Monstera deliciosa*, *Ficus lyrata*, *Epipremnum aureum*, *Sansevieria trifasciata* | — | `beginner` |
+| `zimmerpflanzen` | Zimmerpflanzen | *Monstera deliciosa*, *Ficus lyrata*, *Epipremnum aureum*, *Dracaena trifasciata* (syn. *Sansevieria trifasciata*) | Golden Pothos, Ficus lyrata 'Bambino' | `beginner` |
+| `zimmerpflanzen-haustierfreundlich` | Zimmerpflanzen (haustierfreundlich) | *Chlorophytum comosum*, *Chamaedorea elegans*, *Pilea peperomioides*, *Maranta leuconeura* | Grünlilie, Bergpalme, Glückstaler, Pfeilwurz | `beginner` |
 | `indoor-growzelt` | Indoor Growzelt | *Cannabis sativa* | Northern Lights Auto, White Widow, Critical Mass | `intermediate` |
-| `chili-zucht` | Chili-Zucht | *Capsicum annuum*, *Capsicum chinense* | Jalapeño, Habanero Orange, Carolina Reaper | `intermediate` |
-| `microgreens` | Microgreens & Sprossen | *Brassica oleracea*, *Raphanus sativus*, *Helianthus annuus* | Brokkoli-Sprossen, Radieschen-Microgreens, Sonnenblumen-Microgreens | `beginner` |
+| `chili-zucht` | Chili-Zucht (Einsteiger) | *Capsicum annuum* | Jalapeño, Cayenne, Hungarian Wax | `beginner` |
+| `superhot-chili` | Superhot-Chili | *Capsicum chinense*, *Capsicum annuum* | Habanero Orange, Carolina Reaper, Trinidad Scorpion | `advanced` |
+| `microgreens` | Microgreens | *Brassica oleracea* var. *italica*, *Raphanus sativus*, *Helianthus annuus* | Brokkoli-Microgreens 'Calabrese', Radieschen-Microgreens 'China Rose', Sonnenblumen-Microgreens | `beginner` |
 
 Jedes Kit liefert für jede enthaltene Species:
 - Vollständige BotanicalFamily-Referenz (aus bestehenden Seed-Daten)
@@ -497,6 +500,8 @@ interface OnboardingState {
 - [ ] Wizard kann jederzeit über Einstellungen erneut aufgerufen werden
 - [ ] "Überspringen" setzt `experience_level` auf `beginner` und markiert Onboarding als übersprungen
 - [ ] Mindestens 5 Starter-Kits mit vollständigen Seed-Daten vorhanden
+- [ ] Alle in Starter-Kits referenzierten Species existieren als vollständige Seed-Daten (BotanicalFamily, Species, LifecycleConfig, GrowthPhases, RequirementProfiles)
+- [ ] Starter-Kits mit toxischen Pflanzen zeigen `toxicity_warning` an (Haustier-Hinweis)
 
 ### Technisch:
 - [ ] Alle Entitäts-Erzeugungen in einer ArangoDB-Transaktion

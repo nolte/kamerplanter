@@ -37,7 +37,7 @@ Ausgeblendete Felder verschwinden nicht endgültig — ein "Mehr anzeigen"-Link 
 Die Seitenleisten-Navigation wird abhängig vom Modus reduziert. Einsteiger sehen nur 5 Kernmenüpunkte, Fortgeschrittene 8, Experten alle.
 
 **Intelligente Defaults:**
-Im Einsteiger-Modus werden ausgeblendete Felder mit sinnvollen Standardwerten befüllt (aus Species-Seed-Daten oder berechneten Defaults), sodass keine Information verloren geht.
+Im Einsteiger-Modus werden ausgeblendete Felder mit sinnvollen Standardwerten befüllt (aus Species-Seed-Daten oder berechneten Defaults), sodass keine Information verloren geht. Species-abhängige Felder (z.B. `root_type`, `base_temp`, `allelopathy_score`) werden per Lookup aus den Species-Seed-Daten befüllt; statische Fallbacks greifen nur, wenn keine Species ausgewählt ist.
 
 **Abgrenzung:**
 - Keine Backend-Änderung an bestehenden APIs — reines Frontend-Feature
@@ -96,11 +96,11 @@ type FieldConfig<T extends string> = Record<T, FieldMeta>;
 | `scientific_name` | — | Sichtbar | Sichtbar | Aus Stammdaten-Suche |
 | `family_key` | — | Sichtbar | Sichtbar | Aus Species-Lookup |
 | `genus` | — | Sichtbar | Sichtbar | Aus scientific_name |
-| `root_type` | — | — | Sichtbar | `'fibrous'` |
+| `root_type` | — | — | Sichtbar | Aus Species-Seed-Daten (Fallback: `'fibrous'`) |
 | `hardiness_zones` | — | — | Sichtbar | `[]` |
 | `native_habitat` | — | — | Sichtbar | `null` |
-| `allelopathy_score` | — | — | Sichtbar | `0` |
-| `base_temp` | — | — | Sichtbar | `10.0` |
+| `allelopathy_score` | — | — | Sichtbar | Aus Species-Seed-Daten (Fallback: `0`) |
+| `base_temp` | — | — | Sichtbar | Aus Species-Seed-Daten (Fallback: `10.0`) |
 | `synonyms` | — | — | Sichtbar | `[]` |
 | `taxonomic_authority` | — | — | Sichtbar | `null` |
 | `taxonomic_status` | — | — | Sichtbar | `'accepted'` |
@@ -240,6 +240,18 @@ Im Einsteiger-Modus wird die gesamte Dünge-Logik auf eine vereinfachte Ansicht 
 | Fertilizer-Produkt mit mixing_priority und ec_contribution | Produktname + "Dosierung: 5ml pro Liter Wasser" |
 
 Diese Ansicht nutzt Daten aus den bestehenden APIs, präsentiert sie aber in Alltagssprache.
+
+**Einsteiger-Pflegekarte (PlantInstance-Detail):**
+
+Im Einsteiger-Modus wird auf der PlantInstance-Detailseite eine vereinfachte Pflegekarte prominent angezeigt. Die Daten werden aus den Species-Stammdaten und RequirementProfiles abgeleitet:
+
+| Information | Quelle | Darstellung |
+|------------|--------|-------------|
+| Lichtbedarf | `requirement_profile.ppfd` | Natürlichsprachlich: "Helles indirektes Licht", "Volle Sonne" |
+| Gießen | `irrigation_strategy` / Species-Defaults | "Wenn obere 2cm trocken sind", "Täglich gießen" |
+| Substrat | Species-Defaults / REQ-019 | "Normale Blumenerde", "Kakteenerde" |
+| Nächste Aktion | Task-System (REQ-006) | "Morgen gießen", "Heute düngen" |
+| Standort | Location-Name | "Fensterbank Süd" |
 
 ### 3.6 Redux-State
 

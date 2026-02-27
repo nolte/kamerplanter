@@ -144,22 +144,22 @@ Beispiel (`de.json`):
   "glossary": {
     "vpd": {
       "short": "Dampfdruckdefizit — wie „durstig" die Luft ist",
-      "long": "Das VPD misst, wie stark die Luft Feuchtigkeit aufnehmen kann. Hoher VPD = trockene Luft = Pflanze verdunstet mehr. Für die meisten Pflanzen ist 0,8–1,2 kPa ideal. Zu hoch: Blätter welken. Zu niedrig: Schimmelgefahr.",
+      "long": "Das VPD misst, wie stark die Luft Feuchtigkeit aufnehmen kann. Hoher VPD = trockene Luft = Pflanze verdunstet mehr. Optimale Werte sind artabhängig: Tropische Pflanzen mögen 0,4–0,8 kPa, Nutzpflanzen im Wachstum 0,8–1,2 kPa, Kakteen tolerieren über 1,5 kPa. Zu hoch: Blätter welken. Zu niedrig: Schimmelgefahr.",
       "beginnerTip": "Im Zimmer normalerweise kein Problem. Nur bei geschlossenen Growzelten relevant.",
       "unit": "kPa (Kilopascal)",
-      "typicalRange": "0,4–1,6 kPa"
+      "typicalRange": "0,4–1,6 kPa (artabhängig)"
     },
     "ec": {
       "short": "Leitfähigkeit — wie viel Dünger im Wasser ist",
-      "long": "EC misst die Nährstoffkonzentration in der Gießlösung. Höherer EC = mehr Dünger. Leitungswasser hat ca. 0,3–0,5 mS/cm. Für die meisten Topfpflanzen: 1,0–1,5 mS/cm.",
-      "beginnerTip": "Ohne EC-Messgerät: Halte dich einfach an die Dosierungsempfehlung auf der Dünger-Flasche.",
+      "long": "EC misst die Nährstoffkonzentration im Gießwasser. Gesamt-EC = Leitungswasser-EC + Dünger-EC. Deutsches Leitungswasser hat ca. 0,3–0,8 mS/cm. Für Topfpflanzen Gesamt-EC 1,0–2,0 mS/cm anstreben. Hydroponik präziser: Netto-EC (nur Dünger) nach Pflanzenart einstellen.",
+      "beginnerTip": "Ohne EC-Messgerät: Halte dich an die Dosierungsempfehlung auf der Dünger-Flasche. Lieber etwas weniger als zu viel.",
       "unit": "mS/cm (Millisiemens pro Zentimeter)",
       "typicalRange": "0,5–3,5 mS/cm"
     },
     "ppfd": {
       "short": "Lichtmenge für Pflanzen — wie hell es wirklich ist",
       "long": "PPFD misst die Lichtintensität, die Pflanzen tatsächlich nutzen können. Anders als Lux (für menschliche Augen) erfasst PPFD nur das pflanzenrelevante Lichtspektrum.",
-      "beginnerTip": "Faustregel: Sonnige Fensterbank ≈ 200–400, Growlampe ≈ 400–800.",
+      "beginnerTip": "Faustregel: Südfenster mit Direktsonne im Sommer ≈ 200–400 (wenige Stunden). Ost-/Westfenster: 100–200. Nordfenster: unter 50. Für Tomaten und Chili oft zu wenig — Growlampe empfehlenswert.",
       "unit": "µmol/m²/s",
       "typicalRange": "100–1500 µmol/m²/s"
     },
@@ -187,13 +187,13 @@ Beispiel (`de.json`):
     },
     "vernalisation": {
       "short": "Kältereiz — eine Pflanze braucht Kälte, um zu blühen",
-      "long": "Viele zweijährige Pflanzen (Petersilie, Zwiebel) und Obstbäume brauchen eine mehrwöchige Kälteperiode unter 5–10°C, bevor sie Blüten bilden.",
-      "beginnerTip": "Betrifft z.B. Tulpen und Obstbäume. Die meisten Zimmerpflanzen brauchen das nicht."
+      "long": "Zweijährige Pflanzen (z.B. Petersilie, Kohl, Sellerie) und Wintergetreide brauchen mehrere Wochen Kälte (0–7°C), bevor sie im Frühling Blüten bilden können. Obstbäume brauchen ähnlich eine Kälteperiode (Chill-Hours), um die Knospenruhe zu brechen.",
+      "beginnerTip": "Betrifft v.a. Petersilie und Kohl im zweiten Jahr. Die meisten Zimmerpflanzen und einjährige Gemüse brauchen das nicht."
     },
     "dormanz": {
       "short": "Winterruhe — die Pflanze macht Pause",
       "long": "Viele mehrjährige Pflanzen reduzieren im Winter ihr Wachstum auf ein Minimum. In dieser Phase brauchen sie weniger Wasser, keinen Dünger und kühlere Temperaturen.",
-      "beginnerTip": "Betrifft vor allem Kakteen und Sukkulenten im Winter. Tropische Zimmerpflanzen machen keine echte Dormanz."
+      "beginnerTip": "Kakteen und Sukkulenten brauchen eine kühle Winterruhe (10–15°C, kaum gießen). Tropische Zimmerpflanzen haben keine echte Dormanz, wachsen aber im Winter langsamer wegen weniger Licht — dann weniger gießen und nicht düngen."
     },
     "seneszenz": {
       "short": "Alterungsphase — die Pflanze stirbt natürlich ab",
@@ -202,8 +202,8 @@ Beispiel (`de.json`):
     },
     "photoperiodismus": {
       "short": "Reaktion der Pflanze auf die Tageslänge",
-      "long": "Manche Pflanzen blühen nur bei bestimmten Tageslängen. Kurztagspflanzen (z.B. Cannabis, Weihnachtsstern) brauchen >12h Dunkelheit. Langtagspflanzen (z.B. Spinat) brauchen >14h Licht.",
-      "beginnerTip": "Wichtig bei Cannabis-Anbau (Blüte durch Lichtumstellung) und Weihnachtssternen."
+      "long": "Manche Pflanzen blühen nur bei bestimmten Tageslängen. Kurztagspflanzen (z.B. Cannabis, Weihnachtsstern) brauchen eine ununterbrochene Dunkelperiode über einer kritischen Schwelle (oft 12–14h). Selbst kurze Lichtunterbrechungen in der Nacht können die Blüte verhindern. Langtagspflanzen (z.B. Spinat) brauchen >14h Licht.",
+      "beginnerTip": "Wichtig bei Cannabis-Anbau (Blüte durch 12/12 Lichtumstellung). Achtung: Kein Licht während der Dunkelphase!"
     },
     "hardiness_zones": {
       "short": "Winterhärtezonen — wie viel Frost hält die Pflanze aus?",
@@ -227,13 +227,78 @@ Beispiel (`de.json`):
     },
     "cec": {
       "short": "Speicherkapazität — wie viel Nährstoffe das Substrat halten kann",
-      "long": "CEC (Kationenaustauschkapazität) misst, wie gut ein Substrat Nährstoffe binden und wieder abgeben kann. Hohe CEC = länger düngewirksam. Erde ≈ 100–200, Blähton ≈ 2–5.",
+      "long": "CEC (Kationenaustauschkapazität) misst, wie gut ein Substrat Nährstoffe binden und wieder abgeben kann. Hohe CEC = länger düngewirksam. Blähton ≈ 2–5, Kokos ≈ 40–100, Erde ≈ 100–200 meq/100g.",
       "beginnerTip": "Gute Blumenerde hat eine hohe CEC — du musst seltener düngen."
     },
     "ipm": {
       "short": "Integrierter Pflanzenschutz — Vorbeugung vor Chemie",
       "long": "Dreistufiger Ansatz: 1) Vorbeugen (gesunde Pflanzen, Hygiene), 2) Beobachten (regelmäßig kontrollieren), 3) Eingreifen (Nützlinge vor Spritzmitteln).",
       "beginnerTip": "Gesunde Pflanzen werden seltener krank. Regelmäßig nach Schädlingen schauen reicht für den Anfang."
+    },
+    "lux_vs_ppfd": {
+      "short": "Lux = für menschliche Augen, PPFD = für Pflanzen",
+      "long": "Lux misst die Helligkeit für das menschliche Auge und gewichtet Grünlicht am stärksten. Pflanzen nutzen vor allem Rot- und Blaulicht. Eine Natriumdampflampe und eine LED können identische Lux-Werte haben, aber völlig unterschiedliche PPFD-Werte liefern. Faustformel für weißes LED-Licht: PPFD ≈ Lux / 70.",
+      "beginnerTip": "Smartphone-Lux-Apps geben nur einen groben Anhaltspunkt. Für präzise Pflanzenbeleuchtung ist ein PPFD-Messgerät nötig — oder verlass dich auf die Herstellerangaben deiner Growlampe."
+    },
+    "substrat": {
+      "short": "Das Material, in dem die Pflanze wurzelt",
+      "long": "Substrat ist der Oberbegriff für alles, worin Pflanzen wachsen: Blumenerde, Kokos, Perlite, Blähton, Steinwolle. Verschiedene Substrate speichern Wasser und Nährstoffe unterschiedlich gut.",
+      "beginnerTip": "Für die meisten Zimmerpflanzen reicht normale Blumenerde. Kakteen brauchen durchlässigere Erde (Kakteenerde).",
+      "category": "substrat"
+    },
+    "cultivar_sorte": {
+      "short": "Eine gezüchtete Sorte innerhalb einer Pflanzenart",
+      "long": "Ein Cultivar (= Sorte) ist eine vom Menschen gezüchtete Variante einer Art. Beispiel: 'Tiny Tim' ist ein Cultivar von Solanum lycopersicum (Tomate). Cultivars haben spezifische Eigenschaften wie Fruchtgröße, Farbe oder Wuchsform.",
+      "beginnerTip": "Beim Samenkauf steht die Sorte meist auf der Tüte — z.B. 'Cherry-Tomate Tiny Tim'.",
+      "category": "taxonomie"
+    },
+    "standort_location_slot": {
+      "short": "Drei-Ebenen-System: Standort → Bereich → Stellplatz",
+      "long": "Standort = der Gesamtort (z.B. 'Meine Wohnung'). Location = ein Bereich am Standort (z.B. 'Fensterbank Süd'). Slot = ein einzelner Stellplatz für eine Pflanze innerhalb einer Location.",
+      "beginnerTip": "Für den Anfang reicht ein Standort mit einer Location. Slots brauchst du nur bei vielen Pflanzen.",
+      "category": "allgemein"
+    },
+    "pflanzdurchlauf": {
+      "short": "Eine Gruppe von Pflanzen, die zusammen angebaut werden",
+      "long": "Ein Pflanzdurchlauf (PlantingRun) fasst Pflanzen zusammen, die zur gleichen Zeit am gleichen Ort angebaut werden. Beispiel: '5 Tomaten auf dem Balkon, Sommer 2026'.",
+      "beginnerTip": "Stell dir einen Durchlauf wie ein Projekt vor: Alle Pflanzen, die du zusammen betreust.",
+      "category": "allgemein"
+    },
+    "mischkultur": {
+      "short": "Verschiedene Pflanzenarten zusammen anbauen",
+      "long": "Mischkultur (Companion Planting) nutzt positive Wechselwirkungen zwischen Pflanzenarten. Klassiker: Tomaten + Basilikum (Basilikum hält Schädlinge fern). Manche Kombinationen schaden sich gegenseitig.",
+      "beginnerTip": "Tomate + Basilikum ist ein guter Start. Tomate + Fenchel vermeiden.",
+      "category": "wachstum"
+    },
+    "fruchtfolge": {
+      "short": "Jedes Jahr andere Pflanzen am selben Platz anbauen",
+      "long": "Fruchtfolge (Crop Rotation) bedeutet, dass auf einer Fläche jährlich die Pflanzenfamilie wechselt. Das beugt Bodenmüdigkeit und Krankheiten vor. Faustregel: Gleiche Familie frühestens nach 3 Jahren am selben Platz.",
+      "beginnerTip": "Ab dem zweiten Gartenjahr relevant. Tomaten nicht dort pflanzen, wo letztes Jahr Tomaten oder Kartoffeln standen.",
+      "category": "wachstum"
+    },
+    "ph_wert": {
+      "short": "Säuregrad des Bodens oder Gießwassers",
+      "long": "Der pH-Wert gibt an, wie sauer oder basisch ein Medium ist. Skala 0–14: unter 7 = sauer, 7 = neutral, über 7 = basisch. Die meisten Pflanzen mögen leicht sauren bis neutralen Boden (pH 5,5–7,0). Heidelbeeren brauchen sauren Boden (pH 4,0–5,0).",
+      "beginnerTip": "Normale Blumenerde hat meist den richtigen pH-Wert. Erst bei Problemen (gelbe Blätter trotz Düngung) den pH prüfen.",
+      "category": "substrat"
+    },
+    "staunaesse": {
+      "short": "Zu viel Wasser im Topf — Wurzeln ertrinken",
+      "long": "Staunässe entsteht, wenn überschüssiges Gießwasser nicht abfließen kann. Die Wurzeln bekommen keinen Sauerstoff und faulen. Häufigste Ursache für Pflanzentod bei Zimmerpflanzen.",
+      "beginnerTip": "Immer Töpfe mit Abzugsloch verwenden. Überschüssiges Wasser aus dem Untersetzer nach 30 Minuten wegkippen.",
+      "category": "allgemein"
+    },
+    "drainage": {
+      "short": "System zum Abführen von überschüssigem Wasser",
+      "long": "Drainage sorgt dafür, dass Gießwasser durch das Substrat abfließen kann. Besteht aus: Abzugsloch im Topf + durchlässiges Substrat + optional Blähton-Schicht am Topfboden.",
+      "beginnerTip": "Loch im Topf = wichtigste Drainage. Ohne Loch besteht Staunässe-Gefahr.",
+      "category": "substrat"
+    },
+    "umtopfen": {
+      "short": "Pflanze in einen größeren Topf mit frischer Erde setzen",
+      "long": "Umtopfen ist nötig, wenn die Wurzeln den Topf komplett ausfüllen (Wurzeln wachsen aus dem Abzugsloch). Beste Zeit: Frühling. Neuer Topf sollte 2–4 cm größer sein als der alte.",
+      "beginnerTip": "Zeichen zum Umtopfen: Wurzeln wachsen unten raus, Wasser läuft sofort durch, Pflanze wächst nicht mehr.",
+      "category": "allgemein"
     }
   }
 }
@@ -248,11 +313,14 @@ Das System **MUSS** beim Release mindestens folgende Fachbegriffe in DE und EN e
 | Klima | VPD, rH, DIF, Hysterese | 4 |
 | Licht | PPFD, DLI, Photoperiodismus, Lux vs. PPFD | 4 |
 | Nährstoffe | EC, NPK, CalMag, Flushing, Runoff, Mixing Priority, Starkzehrer/Mittelzehrer/Schwachzehrer | 7 |
-| Substrat | CEC, pH, Drainage, Air Porosity | 4 |
-| Wachstum | GDD, Vernalisation, Dormanz, Seneszenz, Allelopathie | 5 |
+| Substrat | CEC, pH, Drainage, Air Porosity, Substrat, Staunässe | 6 |
+| Wachstum | GDD, Vernalisation, Dormanz, Seneszenz, Allelopathie, Mischkultur, Fruchtfolge | 7 |
 | Pflanzenschutz | IPM, Karenzzeit, Nützlinge | 3 |
 | Taxonomie | Binomialnomenklatur, Cultivar vs. Varietät, Hardiness Zones | 3 |
-| **Gesamt** | | **30** |
+| Allgemein | Standort/Location/Slot, Pflanzdurchlauf, Umtopfen, pH-Wert | 4 |
+| **Gesamt** | | **38** |
+
+Darüber hinaus **SOLL** das System weitere Begriffe erklären, darunter: Perlite/Vermiculite, Vollspektrum-Licht, Überwinterung, Abhärtung/Hardening Off, Steckling/Cutting, Wurzelballen.
 
 ---
 
@@ -376,7 +444,7 @@ Jeder neue Glossareintrag **MUSS** mindestens `short` und `long` in DE und EN ha
 ## 7. Akzeptanzkriterien
 
 ### Funktional:
-- [ ] Mindestens 30 Fachbegriffe mit `short` und `long`-Erklärung in DE und EN vorhanden
+- [ ] Mindestens 38 Fachbegriffe mit `short` und `long`-Erklärung in DE und EN vorhanden
 - [ ] `HelpTooltip`-Komponente ist als Shared Component unter `src/frontend/src/components/shared/` verfügbar
 - [ ] Info-Icon (?) neben **allen** Feldern mit Fachbegriffen in Create-/Edit-Dialogen
 - [ ] Info-Icon (?) in **allen** Tabellenspalten-Headern mit Fachbegriffen
