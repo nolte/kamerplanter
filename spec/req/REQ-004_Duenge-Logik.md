@@ -27,10 +27,12 @@ Das System verwaltet die gesamte Nährstoffversorgung von der Planung bis zur Do
 1. Wasser mit Basistemperatur (18-22°C)
 2. Silizium-Zusätze (pH-instabil, zuerst!)
 3. CalMag (verhindert Ca-P-Ausfällung)
-4. Base A (Mikronährstoffe)
-5. Base B (Makronährstoffe)
+4. Base A (typisch: Calcium + Mikronährstoffe)
+5. Base B (typisch: Phosphor + Schwefel + Magnesium)
 6. Weitere Zusätze nach Priorität
 7. pH-Korrektur (pH Down/Up) als letzter Schritt
+
+**Hinweis:** Die Zuordnung A/B variiert je nach Hersteller. Die tatsächliche Reihenfolge wird über das `mixing_priority`-Feld des Fertilizer-Modells gesteuert, nicht über eine feste A/B-Konvention.
 
 **EC-Budget-Management:**
 - Gesamtziel-EC (z.B. 1.8 mS) minus Wasser-Basis-EC
@@ -162,6 +164,9 @@ Das System ermöglicht die Erstellung und Verwaltung von Lifecycle-Nährstoffpl�
     - `target_ph: float` (Ziel-pH für diese Phase)
     - `calcium_ppm: Optional[float]`
     - `magnesium_ppm: Optional[float]`
+    - `sulfur_ppm: Optional[float]`
+    - `iron_ppm: Optional[float]` (Fe-Mangel = häufigste Mikronährstoff-Chlorose in Hydro/Coco)
+    - `boron_ppm: Optional[float]` (B-Mangel = Wachstumsstörungen, besonders bei Ca-reicher Düngung)
     - `feeding_frequency_per_week: int`
     - `volume_per_feeding_liters: float`
     - `notes: Optional[str]`
@@ -303,10 +308,10 @@ LET substrate_info = FIRST(
 LET substrate_type = substrate_info.type
 
 LET flush_duration_days = (
-  substrate_type == 'hydro_solution' ? 7 :
-  substrate_type == 'coco' ? 10 :
-  substrate_type == 'soil' ? 14 :
-  10
+  substrate_type == 'hydro_solution' ? 10 :
+  substrate_type == 'coco' ? 14 :
+  substrate_type == 'soil' ? 28 :
+  14
 )
 
 // Letzte Düngung ermitteln (höchster Timestamp)
@@ -536,6 +541,13 @@ class NutrientSolutionCalculator(BaseModel):
     target_ph: float = Field(ge=4.0, le=8.0)
     base_water_ec_ms: float = Field(default=0.0, ge=0, le=1.0)
     base_water_ph: float = Field(default=7.0, ge=4.0, le=9.0)
+    base_water_alkalinity_ppm: Optional[float] = Field(
+        default=None, ge=0, le=500,
+        description="Karbonat-Alkalinität (CaCO₃-Äquivalent) in ppm. "
+                    "Bestimmt die Pufferkapazität des Wassers und damit die "
+                    "benötigte Menge pH-Korrektur. Weiches Wasser ~30 ppm, "
+                    "hartes Wasser ~250 ppm."
+    )
     fertilizers: list[FertilizerComponent]
     substrate_type: Literal['hydro', 'coco', 'soil', 'living_soil']
     
@@ -547,7 +559,7 @@ class NutrientSolutionCalculator(BaseModel):
             'hydro': (0.8, 3.0),
             'coco': (0.8, 2.2),
             'soil': (0.4, 1.6),
-            'living_soil': (0.0, 0.8)
+            'living_soil': (0.0, 1.5)  # Komposttee/Wurmhumus-Drench kann 1.0-1.5 erreichen
         }
         min_ec, max_ec = ec_limits.get(substrate, (0.5, 3.0))
         if not (min_ec <= v <= max_ec):
@@ -574,9 +586,10 @@ class NutrientSolutionCalculator(BaseModel):
         # 4. Berechne Dosierungen
         dosages = []
         accumulated_ec = self.base_water_ec_ms
-        
+
         for fert in sorted_ferts:
-            # Überspringe pH-Adjuster in dieser Phase
+            # pH-Adjuster werden separat in _estimate_ph_adjustment behandelt,
+            # aber ihr EC-Beitrag wird dort geschätzt und im Ergebnis ausgewiesen
             if fert.type == 'ph_adjuster':
                 continue
             
@@ -621,13 +634,19 @@ class NutrientSolutionCalculator(BaseModel):
             dosages
         )
         
+        # EC-Beitrag der pH-Korrektur einrechnen (typisch 0.02-0.05 mS/ml)
+        ph_ec = ph_adjustment.get('estimated_ec_contribution', 0.0)
+        total_ec = accumulated_ec + ph_ec
+
         return {
             'dosages': dosages,
             'water_volume_liters': self.target_volume_liters,
             'base_water_ec': self.base_water_ec_ms,
             'target_ec': self.target_ec_ms,
-            'calculated_ec': round(accumulated_ec, 2),
-            'ec_deviation': round(abs(self.target_ec_ms - accumulated_ec), 3),
+            'calculated_ec': round(total_ec, 2),
+            'calculated_ec_without_ph': round(accumulated_ec, 2),
+            'ph_ec_contribution': round(ph_ec, 3),
+            'ec_deviation': round(abs(self.target_ec_ms - total_ec), 3),
             'ph_adjustment': ph_adjustment,
             'incompatibility_warnings': incompatibility_warnings,
             'mixing_instructions': self._generate_step_by_step(dosages, ph_adjustment),
@@ -657,33 +676,59 @@ class NutrientSolutionCalculator(BaseModel):
         fertilizers: list[FertilizerComponent],
         dosages: list[dict]
     ) -> dict:
-        """Schätzt benötigte pH-Korrektur"""
-        
-        # Berechne pH-Shift durch Dünger
+        """
+        Schätzt benötigte pH-Korrektur.
+
+        ACHTUNG: pH-Verschiebungen sind logarithmisch, nicht linear.
+        Die Pufferkapazität (Alkalinität/KH) des Wassers bestimmt maßgeblich,
+        wie stark eine Säure/Base den pH verschiebt:
+        - Weiches Wasser (30 ppm CaCO₃): 1ml pH-Down → pH-Shift 1.0-2.0
+        - Hartes Wasser (300 ppm CaCO₃): 1ml pH-Down → pH-Shift 0.1-0.2
+
+        Diese Schätzung ist daher nur eine Grob-Orientierung.
+        Messung nach Zugabe ist OBLIGATORISCH.
+        """
+
+        # Berechne pH-Shift durch Dünger (grobe Näherung)
         ph_shift = 0
         for fert, dosage in zip(fertilizers, dosages):
             if fert.ph_effect == 'acidic':
-                ph_shift -= dosage['ml_per_liter'] * 0.05  # Näherung
+                ph_shift -= dosage['ml_per_liter'] * 0.05
             elif fert.ph_effect == 'alkaline':
                 ph_shift += dosage['ml_per_liter'] * 0.05
-        
+
         estimated_ph = base_ph + ph_shift
         ph_difference = target_ph - estimated_ph
-        
-        # Grobe Schätzung: 1ml pH Down/Up pro 10L für 0.5 pH-Änderung
+
+        # Alkalinität-basierte Skalierung der benötigten pH-Korrektur
+        alkalinity = self.base_water_alkalinity_ppm
+        if alkalinity is not None and alkalinity > 0:
+            # Höhere Alkalinität → mehr Säure/Base nötig
+            buffer_factor = alkalinity / 100  # Normalisiert auf ~1.0 bei 100 ppm
+        else:
+            buffer_factor = 1.0  # Default ohne Alkalinitätsdaten
+
         if abs(ph_difference) > 0.1:
             adjuster_type = 'pH Down' if ph_difference < 0 else 'pH Up'
-            ml_needed = abs(ph_difference) * 2 * self.target_volume_liters / 10
-            
+            ml_needed = abs(ph_difference) * 2 * self.target_volume_liters / 10 * buffer_factor
+
+            # Geschätzter EC-Beitrag der pH-Korrektur (typisch 0.02-0.05 mS/ml)
+            ph_ec_contribution = ml_needed / self.target_volume_liters * 0.03
+
             return {
                 'needed': True,
                 'type': adjuster_type,
                 'estimated_ml': round(ml_needed, 1),
+                'estimated_ec_contribution': round(ph_ec_contribution, 3),
                 'current_ph_estimate': round(estimated_ph, 2),
                 'target_ph': target_ph,
-                'note': 'WICHTIG: Nach Zugabe messen und nachjustieren!'
+                'alkalinity_known': alkalinity is not None,
+                'confidence': 'low' if alkalinity is None else 'medium',
+                'note': 'GROB-SCHÄTZUNG: pH-Korrektur schrittweise zugeben und nach '
+                        'jeder Zugabe messen! Die tatsächliche Menge hängt stark von '
+                        'der Wasserhärte/Alkalinität ab.'
             }
-        
+
         return {
             'needed': False,
             'current_ph_estimate': round(estimated_ph, 2),
@@ -746,7 +791,7 @@ class FlushingProtocol(BaseModel):
         durations = {
             'hydro': {'min': 7, 'optimal': 10, 'max': 14},
             'coco': {'min': 10, 'optimal': 14, 'max': 21},
-            'soil': {'min': 14, 'optimal': 21, 'max': 30}
+            'soil': {'min': 21, 'optimal': 28, 'max': 42}  # Hohe CEC bindet Salze stärker
         }
         
         duration_map = durations[self.substrate_type]
@@ -882,7 +927,10 @@ class MixingSafetyValidator:
         ('calcium', 'sulfate'): 'Gips-Ausfällung (CaSO4)',
         ('calcium', 'phosphate'): 'Calcium-Phosphat-Ausfällung',
         ('iron_chelate', 'high_ph'): 'Eisen-Chelat zerfällt bei pH > 7',
-        ('silicate', 'acidic'): 'Siliziumdioxid fällt aus bei niedrigem pH'
+        ('silicate', 'acidic'): 'Siliziumdioxid fällt aus bei niedrigem pH',
+        ('mycorrhiza', 'high_phosphate'): 'Hohe P-Konzentration (>20 ppm verfügbar) unterdrückt Mykorrhiza-Symbiose',
+        ('trichoderma', 'peroxide'): 'H₂O₂-Produkte töten Trichoderma-Kulturen ab',
+        ('beneficial_bacteria', 'chlorine'): 'Chlor/Chloramin im Wasser tötet Mikrobiom ab'
     }
     
     @staticmethod
@@ -1081,6 +1129,9 @@ class NutrientPlanPhaseEntry(BaseModel):
     target_ph: float = Field(ge=4.0, le=8.0)
     calcium_ppm: Optional[float] = Field(None, ge=0, le=500)
     magnesium_ppm: Optional[float] = Field(None, ge=0, le=200)
+    sulfur_ppm: Optional[float] = Field(None, ge=0, le=300)
+    iron_ppm: Optional[float] = Field(None, ge=0, le=20)  # Fe-Mangel = häufigste Chlorose in Hydro/Coco
+    boron_ppm: Optional[float] = Field(None, ge=0, le=5)   # B-Mangel bei Ca-reicher Düngung
     feeding_frequency_per_week: int = Field(ge=1, le=14)
     volume_per_feeding_liters: float = Field(gt=0, le=1000)
     notes: Optional[str] = Field(None, max_length=2000)
@@ -1437,8 +1488,9 @@ class FertilizerDefinition(BaseModel):
     @classmethod
     def validate_npk_realistic(cls, v):
         n, p, k = v
-        if n > 50 or p > 50 or k > 50:
-            raise ValueError("Einzelne NPK-Werte über 50% unrealistisch")
+        if n > 65 or p > 65 or k > 65:
+            raise ValueError("Einzelne NPK-Werte über 65% unrealistisch")
+            # K₂O bei KCl erreicht 60%, reine Salze können über 50% liegen
         if sum(v) > 80:
             raise ValueError("NPK-Summe über 80% unrealistisch")
         return v
@@ -1490,11 +1542,25 @@ class FeedingEventRecord(BaseModel):
 
     @field_validator('measured_ec_after')
     @classmethod
-    def validate_ec_increase(cls, v, info):
+    def validate_ec_change(cls, v, info):
+        """
+        EC-Abnahme nach Düngung ist kein Fehler — sie tritt auf bei:
+        - Flushing (gewollt: EC soll sinken)
+        - Verdünnter Lösung durch versalztes Substrat
+        - Stark puffernden Substraten (Living Soil)
+        Nur als Warnung loggen, nicht als Validierungsfehler.
+        """
+        import warnings
         ec_before = info.data.get('measured_ec_before')
         if ec_before and v:
-            if v < ec_before and info.data.get('application_method') != ApplicationMethod.FOLIAR:
-                raise ValueError("EC nach Düngung sollte nicht niedriger sein (außer bei Blattdüngung)")
+            if v < ec_before and info.data.get('application_method') not in (
+                ApplicationMethod.FOLIAR, ApplicationMethod.TOP_DRESS
+            ):
+                warnings.warn(
+                    f"EC nach Applikation ({v}) niedriger als vorher ({ec_before}). "
+                    f"Normal bei Flushing oder verdünnter Lösung.",
+                    stacklevel=2
+                )
         return v
 
     @model_validator(mode='after')
