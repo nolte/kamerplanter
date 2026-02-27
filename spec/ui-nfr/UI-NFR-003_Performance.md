@@ -90,12 +90,26 @@ Performance hat direkten Einfluss auf Nutzerzufriedenheit und Konversion:
 | R-019 | API-Responses SOLLEN clientseitig gecacht werden, wenn die Daten sich selten ändern (Stale-While-Revalidate-Strategie). | SOLL |
 | R-020 | Doppelte API-Aufrufe bei schnellen Navigation-Wechseln MÜSSEN durch Request-Deduplizierung oder Abbruch (AbortController) verhindert werden. | MUSS |
 
-### 2.6 Caching
+### 2.6 Rendering-Stabilität (React Hooks)
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-021 | Statische Assets (JS, CSS, Bilder) MÜSSEN mit Content-Hash im Dateinamen und langen Cache-Headern (≥1 Jahr) ausgeliefert werden. | MUSS |
-| R-022 | Die `index.html` MUSS mit `Cache-Control: no-cache` ausgeliefert werden, um stets die aktuelle Version zu laden. | MUSS |
+| R-023 | Custom Hooks, die Objekte oder Arrays zurückgeben, MÜSSEN den Rückgabewert mit `useMemo` stabilisieren, um kaskadierende Referenzinstabilität zu verhindern. | MUSS |
+| R-024 | Primitive Rückgabewerte (`string`, `number`, `boolean`) sind von R-023 ausgenommen, da sie per Wert verglichen werden. | INFO |
+| R-025 | Wird ein instabiler Hook-Rückgabewert als Dependency in `useCallback`, `useEffect` oder `useMemo` verwendet, MUSS die gesamte Abhängigkeitskette auf Stabilität geprüft werden. | MUSS |
+
+> **Hintergrund:** Ein instabiler Rückgabewert (z.B. `return { success: ..., error: ... }` ohne `useMemo`) erzeugt bei jedem Render eine neue Referenz. Jeder Consumer, der diesen Wert als Dependency nutzt, wird dadurch ebenfalls instabil — mit potentiellen Endlos-Render-Schleifen:
+>
+> ```
+> unstabiler Hook-Return → useCallback neu erstellt → useEffect feuert → setState → Re-Render → ∞
+> ```
+
+### 2.7 Caching
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-026 | Statische Assets (JS, CSS, Bilder) MÜSSEN mit Content-Hash im Dateinamen und langen Cache-Headern (≥1 Jahr) ausgeliefert werden. | MUSS |
+| R-027 | Die `index.html` MUSS mit `Cache-Control: no-cache` ausgeliefert werden, um stets die aktuelle Version zu laden. | MUSS |
 
 ---
 
@@ -156,6 +170,9 @@ Performance hat direkten Einfluss auf Nutzerzufriedenheit und Konversion:
     - [ ] Initiales JS-Bundle < 200KB gzipped
     - [ ] Bundle-Size-Check in CI-Pipeline integriert
     - [ ] Kein ungenutzter Code im Bundle (Tree-Shaking aktiv)
+- [ ] **Rendering-Stabilität**
+    - [ ] Alle Custom Hooks mit Objekt-/Array-Rückgabe verwenden `useMemo`
+    - [ ] Keine instabilen Referenzketten in `useEffect`-Dependencies
 - [ ] **Listen & Suche**
     - [ ] Sucheingaben sind mit Debouncing versehen
     - [ ] Lange Listen verwenden Pagination oder Virtual Scrolling
