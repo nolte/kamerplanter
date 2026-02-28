@@ -7,7 +7,7 @@ Kategorie: Bewässerung & Düngung
 Fokus: Nutzpflanze (Indoor/Hydro)
 Technologie: Python, ArangoDB, Regelbasierte Logik
 Status: Entwurf
-Version: 3.0 (Multi-Channel Delivery)
+Version: 3.1 (Wasserquellen-Integration & WaterMixCalculator)
 ```
 
 ## 1. Business Case
@@ -34,8 +34,18 @@ Das System verwaltet die gesamte Nährstoffversorgung von der Planung bis zur Do
 
 **Hinweis:** Die Zuordnung A/B variiert je nach Hersteller. Die tatsächliche Reihenfolge wird über das `mixing_priority`-Feld des Fertilizer-Modells gesteuert, nicht über eine feste A/B-Konvention.
 
+**CalMag-Korrektur aus Wasserquelle:**
+
+Bei Nutzung von Osmosewasser oder weichem Leitungswasser (Ca <40 ppm, Mg <10 ppm) fehlen dem Gießwasser die natürlichen Calcium- und Magnesium-Ionen, die Pflanzen über die Wurzeln aufnehmen. CalMag-Supplemente (z.B. Canna CalMag Agent, GHE CalMag) gleichen dieses Defizit aus. Der benötigte CalMag-Anteil hängt direkt vom Mischverhältnis Osmose/Leitungswasser ab:
+
+- **100% Osmose:** Volles CalMag-Supplement nötig (typisch 0.5–1.5 ml/L je nach Substrat und Phase)
+- **50/50 Mischung:** Ca/Mg im Mischwasser = ~50% des Leitungswasser-Gehalts → CalMag-Bedarf reduziert sich entsprechend
+- **100% Leitungswasser (hart):** Oft kein CalMag nötig — das Leitungswasser liefert bereits 80–200 ppm Ca
+
+Das System berechnet den effektiven Ca/Mg-Gehalt des Mischwassers automatisch aus dem `TapWaterProfile` (REQ-002) und dem gewählten Mischverhältnis. Wenn der effektive Ca-Gehalt unter dem Zielwert der aktuellen Phase liegt, wird eine CalMag-Dosierungsempfehlung ausgegeben.
+
 **EC-Budget-Management:**
-- Gesamtziel-EC (z.B. 1.8 mS) minus Wasser-Basis-EC
+- Gesamtziel-EC (z.B. 1.8 mS) minus Wasser-Basis-EC (automatisch berechnet aus Mischverhältnis Osmose/Leitungswasser, wenn `WaterSource` auf der Site hinterlegt ist — siehe REQ-002)
 - Proportionale Verteilung auf Komponenten basierend auf NPK-Beitrag
 - Berücksichtigung von EC-Beiträgen durch pH-Korrekturen
 
@@ -251,6 +261,7 @@ Das Gantt-Diagramm wird als zusätzlicher Tab „Zeitplan" (Timeline) auf der Nu
     - `is_template: bool` (als Vorlage für andere nutzbar)
     - `version: int` (Versionierung bei Änderungen)
     - `tags: list[str]` (z.B. ["organic", "autoflower", "heavy-feeder"])
+    - `water_mix_ratio_ro_percent: Optional[int]` (ge=0, le=100) — Default-Mischverhältnis Osmose/Leitungswasser in Prozent Osmoseanteil (0 = reines Leitungswasser, 100 = reines Osmosewasser, 50 = 50/50-Mischung). Wird vom `WaterMixCalculator` zusammen mit dem `TapWaterProfile` der Site (REQ-002) für die automatische Basis-EC-Berechnung genutzt. `null` = kein Mischverhältnis definiert (manuelle Eingabe pro Befüllung). Nur relevant wenn die Site `water_source.has_ro_system=true` hat.
     - `watering_schedule: Optional[WateringSchedule]` (Gießplan-Konfiguration für manuelle Bewässerung — siehe eingebettetes Modell unten; `null` = Plan ohne Terminplanung, rein als Dosierungsvorlage nutzbar)
 
 - **`WateringSchedule`** - Eingebettetes Modell (kein eigenes Dokument) innerhalb von `NutrientPlan`
@@ -727,14 +738,23 @@ class NutrientSolutionCalculator(BaseModel):
     target_volume_liters: float = Field(gt=0, le=10000)
     target_ec_ms: float = Field(ge=0.5, le=4.0)
     target_ph: float = Field(ge=4.0, le=8.0)
-    base_water_ec_ms: float = Field(default=0.0, ge=0, le=1.0)
+    base_water_ec_ms: float = Field(
+        default=0.0, ge=0, le=1.5,
+        description="EC des Ausgangswassers in mS/cm. Kann manuell eingegeben "
+                    "oder automatisch aus dem Site-WaterSource-Profil (REQ-002) "
+                    "berechnet werden, wenn ein Osmose/Leitungswasser-Mischverhältnis "
+                    "definiert ist (siehe WaterMixCalculator). "
+                    "Hartes Leitungswasser kann >1.0 mS erreichen."
+    )
     base_water_ph: float = Field(default=7.0, ge=4.0, le=9.0)
     base_water_alkalinity_ppm: Optional[float] = Field(
         default=None, ge=0, le=500,
         description="Karbonat-Alkalinität (CaCO₃-Äquivalent) in ppm. "
                     "Bestimmt die Pufferkapazität des Wassers und damit die "
                     "benötigte Menge pH-Korrektur. Weiches Wasser ~30 ppm, "
-                    "hartes Wasser ~250 ppm."
+                    "hartes Wasser ~250 ppm. "
+                    "Kann automatisch aus dem Site-WaterSource-Profil (REQ-002) "
+                    "und dem Mischverhältnis vorbelegt werden."
     )
     fertilizers: list[FertilizerComponent]
     substrate_type: Literal['hydro', 'coco', 'soil', 'living_soil']
@@ -963,6 +983,102 @@ class NutrientSolutionCalculator(BaseModel):
         """Berechnet Kosten pro Düngung (wenn Preise hinterlegt)"""
         # Placeholder für Kostenberechnung
         return 0.0
+
+class WaterMixCalculator:
+    """
+    Berechnet die effektiven Wasserparameter aus einem Osmose/Leitungswasser-Mischverhältnis.
+    Nutzt das TapWaterProfile und RoWaterProfile der Site (REQ-002).
+    """
+
+    @staticmethod
+    def calculate_effective_water(
+        tap_profile: dict,
+        ro_profile: dict,
+        ro_percent: int,
+    ) -> dict:
+        """
+        Berechnet gewichteten Durchschnitt aller Wasserparameter.
+
+        Args:
+            tap_profile: TapWaterProfile-Daten der Site (REQ-002)
+            ro_profile: RoWaterProfile-Daten der Site (REQ-002), mit Defaults {ec_ms: 0.02, ph: 6.5}
+            ro_percent: Osmose-Anteil in Prozent (0-100)
+
+        Returns:
+            dict mit effektiven Wasserparametern:
+            - effective_ec_ms: float
+            - effective_ph: float (Hinweis: pH-Mischung ist nicht linear, grobe Näherung)
+            - effective_alkalinity_ppm: float
+            - effective_calcium_ppm: float
+            - effective_magnesium_ppm: float
+            - effective_chlorine_ppm: float
+            - effective_chloramine_ppm: float
+            - effective_gh_ppm: float
+
+        Formel (pro Parameter):
+            effective = (ro_value × ro_ratio) + (tap_value × (1 − ro_ratio))
+
+        Beispiel: 70% Osmose, Leitungswasser EC 0.5 mS, RO EC 0.02 mS
+            effective_ec = (0.02 × 0.7) + (0.5 × 0.3) = 0.164 mS
+        """
+        ro_ratio = ro_percent / 100.0
+        tap_ratio = 1.0 - ro_ratio
+
+        # RO-Defaults
+        ro_ec = ro_profile.get('ec_ms', 0.02)
+        ro_ph = ro_profile.get('ph', 6.5)
+
+        # Lineare Mischung für alle Parameter (pH ist eine Näherung)
+        def mix(tap_val, ro_val=0.0):
+            if tap_val is None:
+                return None
+            return round(tap_val * tap_ratio + ro_val * ro_ratio, 4)
+
+        return {
+            'effective_ec_ms': mix(tap_profile.get('ec_ms'), ro_ec),
+            'effective_ph': mix(tap_profile.get('ph'), ro_ph),
+            'effective_alkalinity_ppm': mix(tap_profile.get('alkalinity_ppm')),
+            'effective_calcium_ppm': mix(tap_profile.get('calcium_ppm')),
+            'effective_magnesium_ppm': mix(tap_profile.get('magnesium_ppm')),
+            'effective_chlorine_ppm': mix(tap_profile.get('chlorine_ppm')),
+            'effective_chloramine_ppm': mix(tap_profile.get('chloramine_ppm')),
+            'effective_gh_ppm': mix(tap_profile.get('gh_ppm')),
+            'ro_percent': ro_percent,
+            'note': 'pH-Mischberechnung ist eine lineare Näherung. '
+                    'pH ist logarithmisch — bei extremen Verhältnissen '
+                    'nach Mischung nachmessen.',
+        }
+
+    @staticmethod
+    def suggest_calmag_correction(
+        effective_calcium_ppm: Optional[float],
+        effective_magnesium_ppm: Optional[float],
+        target_calcium_ppm: float = 150.0,
+        target_magnesium_ppm: float = 50.0,
+    ) -> dict:
+        """
+        Empfiehlt CalMag-Supplement-Dosierung basierend auf der Differenz
+        zwischen effektivem Wassergehalt und Phasen-Zielwert.
+
+        Returns:
+            dict mit:
+            - calcium_deficit_ppm: float (0 = kein Defizit)
+            - magnesium_deficit_ppm: float
+            - calmag_needed: bool
+            - note: str
+        """
+        ca_deficit = max(0, target_calcium_ppm - (effective_calcium_ppm or 0))
+        mg_deficit = max(0, target_magnesium_ppm - (effective_magnesium_ppm or 0))
+
+        return {
+            'calcium_deficit_ppm': round(ca_deficit, 1),
+            'magnesium_deficit_ppm': round(mg_deficit, 1),
+            'calmag_needed': ca_deficit > 10 or mg_deficit > 5,
+            'note': (
+                'CalMag-Supplement empfohlen' if (ca_deficit > 10 or mg_deficit > 5)
+                else 'Wasser enthält ausreichend Ca/Mg'
+            ),
+        }
 
 class FlushingProtocol(BaseModel):
     """Nährstoffreduktion vor Ernte"""
@@ -2650,7 +2766,7 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 
 **Erforderliche Module:**
 - REQ-001 (Stammdaten): Species für substrat-spezifische Empfehlungen
-- REQ-002 (Standort): SubstrateBatch für EC/pH-Historie
+- REQ-002 (Standort): SubstrateBatch für EC/pH-Historie; **HOCH** — `Site.water_source` (TapWaterProfile, RoWaterProfile) als Basis-Datenquelle für `WaterMixCalculator` und automatische `base_water_ec_ms`-Berechnung
 - REQ-003 (Phasen): GrowthPhase für NPK-Profile, Flushing-Trigger
 - REQ-005 (Sensorik): EC/pH-Messungen zur Validierung
 
@@ -2736,6 +2852,12 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Max Channels (MCD-V12):** Maximal 10 Channels pro NutrientPlanPhaseEntry
 - [ ] **Fertigation Schedule-Erlaubnis:** In Channel-Level WateringSchedule ist `application_method='fertigation'` erlaubt (Abweichung von Plan-Level)
 - [ ] **Fertigation Intra-Day:** `runs_per_day` + `duration_minutes` ergänzen den Tages-Schedule für Fertigation-Channels
+- [ ] **NutrientPlan water_mix_ratio_ro_percent:** Optionales Feld (0–100) auf NutrientPlan speicher-/lesbar
+- [ ] **WaterMixCalculator.calculate_effective_water:** Gewichteter Durchschnitt aller 8 Wasserparameter aus Mischverhältnis korrekt berechnet
+- [ ] **WaterMixCalculator.suggest_calmag_correction:** CalMag-Defizit basierend auf effektivem Ca/Mg vs. Phasen-Zielwert berechnet
+- [ ] **Auto-Default base_water_ec_ms:** Wenn NutrientPlan `water_mix_ratio_ro_percent` gesetzt und Site `water_source` vorhanden, wird `base_water_ec_ms` automatisch berechnet
+- [ ] **CalMag-Empfehlung:** Bei Osmose-Anteil >50% und Ca <40 ppm wird CalMag-Supplement empfohlen
+- [ ] **base_water_ec_ms Range:** Obergrenze 1.5 mS (statt 1.0) für hartes Leitungswasser
 
 ### Testszenarien:
 

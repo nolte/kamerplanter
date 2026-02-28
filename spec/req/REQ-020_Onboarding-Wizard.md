@@ -7,7 +7,7 @@ Kategorie: Benutzerführung
 Fokus: Frontend (Backend-Unterstützung für Starter-Kits und Präferenzen)
 Technologie: React, TypeScript, MUI, Redux Toolkit, FastAPI, ArangoDB
 Status: Entwurf
-Version: 1.0
+Version: 1.1 (Optionale Wasserquellen-Konfiguration im Wizard)
 ```
 
 ## 1. Business Case
@@ -150,6 +150,21 @@ class OnboardingWizardRequest(BaseModel):
     plant_count: int = Field(ge=1, le=50)
     selected_species_keys: list[str] = Field(min_length=1)
     selected_cultivar_keys: list[str] = Field(default_factory=list)
+    # Optionale Wasserquellen-Konfiguration (ab Erfahrungsstufe 'intermediate')
+    has_ro_system: Optional[bool] = Field(
+        None,
+        description="Osmoseanlage vorhanden? Wird in Site.water_source.has_ro_system übernommen. "
+                    "null = nicht angegeben (Beginner überspringt diesen Abschnitt)."
+    )
+    tap_water_ec_ms: Optional[float] = Field(
+        None, ge=0, le=2.0,
+        description="EC des Leitungswassers in mS/cm. Schnelleingabe für Wizard — "
+                    "detaillierte Analyse kann später in den Site-Einstellungen ergänzt werden."
+    )
+    tap_water_ph: Optional[float] = Field(
+        None, ge=4.0, le=9.5,
+        description="pH des Leitungswassers. Schnelleingabe für Wizard."
+    )
 
 class OnboardingWizardResponse(BaseModel):
     """Ergebnis des Wizard-Abschlusses."""
@@ -439,6 +454,12 @@ src/frontend/src/pages/onboarding/
   - Gewächshaus (Icon: Greenhouse)
   - Innenraum (Icon: Room)
 - Optionaler Freitext für Notizen
+- **Optionaler Abschnitt "Dein Wasser"** (nur ab Erfahrungsstufe `intermediate`, bei `beginner` ausgeblendet gemäß REQ-021):
+  - Toggle: "Osmoseanlage vorhanden?" (Switch, Default: aus)
+  - Schnelleingabe: EC-Wert des Leitungswassers (Textfeld, Einheit: mS/cm, Placeholder: "z.B. 0.4")
+  - Schnelleingabe: pH-Wert des Leitungswassers (Textfeld, Placeholder: "z.B. 7.2")
+  - Hinweistext: "Du kannst dein Wasserprofil später in den Standort-Einstellungen erweitern."
+  - Die eingegebenen Werte werden beim Wizard-Abschluss in `Site.water_source` übernommen (TapWaterProfile mit `ec_ms` und `ph`, WaterSource mit `has_ro_system`)
 
 **Schritt 4 — Pflanzen auswählen:**
 - Liste der im Kit enthaltenen Species mit Checkbox (alle vorausgewählt)
@@ -485,6 +506,13 @@ pages.onboarding.scenario.subtitle
 pages.onboarding.scenario.customSetup
 pages.onboarding.site.title
 pages.onboarding.site.namePlaceholder
+pages.onboarding.site.water.title
+pages.onboarding.site.water.roToggle
+pages.onboarding.site.water.ecLabel
+pages.onboarding.site.water.ecPlaceholder
+pages.onboarding.site.water.phLabel
+pages.onboarding.site.water.phPlaceholder
+pages.onboarding.site.water.hint
 pages.onboarding.plants.title
 pages.onboarding.plants.countLabel
 pages.onboarding.plants.addLaterHint
@@ -530,6 +558,9 @@ interface OnboardingState {
 - [ ] "Überspringen" setzt `experience_level` auf `beginner` und markiert Onboarding als übersprungen
 - [ ] Mindestens 5 Starter-Kits mit vollständigen Seed-Daten vorhanden
 - [ ] Alle in Starter-Kits referenzierten Species existieren als vollständige Seed-Daten (BotanicalFamily, Species, LifecycleConfig, GrowthPhases, RequirementProfiles)
+- [ ] Optionaler "Dein Wasser"-Abschnitt in Schritt 3 wird ab Erfahrungsstufe `intermediate` angezeigt, bei `beginner` ausgeblendet (REQ-021)
+- [ ] Wizard-Abschluss mit `has_ro_system`, `tap_water_ec_ms` und `tap_water_ph` erstellt `Site.water_source` mit TapWaterProfile
+- [ ] Wizard-Abschluss ohne Wasserquellen-Daten erstellt Site mit `water_source=null` (Abwärtskompatibilität)
 - [ ] Starter-Kits mit toxischen Pflanzen zeigen `toxicity_warning` an (Haustier-Hinweis)
 
 ### Technisch:
@@ -560,7 +591,7 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 | REQ/NFR | Art | Beschreibung |
 |---------|-----|-------------|
 | REQ-001 | Liest/Erzeugt | BotanicalFamily, Species, Cultivar aus Starter-Kit-Daten |
-| REQ-002 | Erzeugt | Site und Location im Wizard |
+| REQ-002 | Erzeugt | Site und Location im Wizard; optional `Site.water_source` mit TapWaterProfile aus Wizard-Eingaben |
 | REQ-003 | Erzeugt | GrowthPhases und RequirementProfiles aus Seed-Daten |
 | REQ-006 | Erzeugt | Initiale Tasks aus WorkflowTemplates des Kits |
 | REQ-013 | Erzeugt | PlantingRun mit Entries für die angelegten PlantInstances |

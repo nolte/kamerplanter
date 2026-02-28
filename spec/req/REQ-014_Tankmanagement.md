@@ -7,7 +7,7 @@ Kategorie: Bewässerung & Düngung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery
 Status: Entwurf
-Version: 1.3 (Gießplan-Workflow)
+Version: 1.4 (Wasserquellen-Defaults & Kaskade)
 ```
 
 ## 1. Business Case
@@ -57,6 +57,18 @@ Jede Tankbefüllung — ob Vollwechsel, Auffüllen oder Korrektur — wird als e
 - **Soll/Ist-Vergleich:** Ziel-EC/pH aus dem Plan vs. gemessene Werte nach Befüllung
 - **Dünger-Snapshot:** Kopie der verwendeten Dünger + Dosierungen (unveränderlich, auch wenn das Quell-Rezept später geändert wird)
 - **Wasserquelle:** Herkunft des Wassers (Osmose, Leitungswasser, Regenwasser) oder Referenz auf einen Quell-Tank bei Kaskaden
+
+**Wasserquellen-Defaults (Kaskade):**
+
+Beim Erfassen eines TankFillEvent müssen `base_water_ec_ms`, `alkalinity_ppm`, `chlorine_ppm`, `chloramine_ppm` und das Mischverhältnis Osmose/Leitungswasser nicht jedes Mal manuell eingegeben werden. Das System löst fehlende Felder über eine 4-stufige Kaskade auf:
+
+1. **Explizit im TankFillEvent** (höchste Priorität) — vom Nutzer direkt eingegebene Werte überschreiben alle Defaults
+2. **NutrientPlan-Default** — wenn ein `nutrient_plan_key` auf dem Fill-Event gesetzt ist, wird `water_mix_ratio_ro_percent` des Plans als Default verwendet; die effektiven Wasserparameter werden daraus per `WaterMixCalculator` (REQ-004) berechnet
+3. **Site-WaterSource-Profil** — wenn die Location des Tanks einer Site mit `water_source` (REQ-002) zugeordnet ist, werden die `TapWaterProfile`-Daten als Fallback genutzt; bei gesetztem `has_ro_system` und bekanntem Mischverhältnis (aus NutrientPlan oder Default) wird der `WaterMixCalculator` angewendet
+4. **Manuelle Eingabe** (Fallback) — wenn keine der obigen Quellen Daten liefert, muss der Nutzer die Werte manuell eingeben (wie bisher)
+
+Die Kaskade ist transparent: In der API-Response wird ein `water_defaults_source`-Feld mitgeliefert, das angibt, woher die Werte stammen (`'explicit'`, `'nutrient_plan'`, `'site_profile'`, `'manual'`).
+
 - **Automatische TankState-Erstellung:** Nach Erfassung eines Fill-Events wird ein TankState-Record mit den gemessenen Werten erzeugt
 
 **Ergänzende manuelle Bewässerung (WateringEvent):**
@@ -139,10 +151,11 @@ Auch bei Locations mit automatischer Bewässerung (`irrigation_system != 'manual
     - `target_ph: Optional[float]` (Ziel-pH laut Plan/Rezept)
     - `measured_ec_ms: Optional[float]` (gemessen nach Befüllung)
     - `measured_ph: Optional[float]` (gemessen nach Befüllung)
-    - `water_source: Optional[Literal['tap', 'osmose', 'rainwater', 'distilled', 'well']]` (Wasserherkunft)
+    - `water_source: Optional[Literal['tap', 'osmose', 'rainwater', 'distilled', 'well', 'mixed']]` (Wasserherkunft; `'mixed'` = Osmose/Leitungswasser-Mischung mit definierbarem Verhältnis)
+    - `water_mix_ratio_ro_percent: Optional[int]` (ge=0, le=100) — Osmose-Anteil in Prozent bei `water_source='mixed'`. Überschreibt den NutrientPlan-Default (REQ-004) und den Site-Default (REQ-002) für diese einzelne Befüllung. `null` = Default aus Kaskade (NutrientPlan → Site).
     - `source_tank_key: Optional[str]` (Quell-Tank bei Kaskade, z.B. Reservoir)
     - `fertilizers_used: Optional[list[FertilizerSnapshot]]` (Dünger-Snapshot: [{name, ml_per_liter, product_key}])
-    - `base_water_ec_ms: Optional[float]` (EC des Ausgangswassers)
+    - `base_water_ec_ms: Optional[float]` (EC des Ausgangswassers — kann automatisch aus Mischverhältnis und Site-WaterSource-Profil berechnet werden, siehe Wasserquellen-Kaskade)
     - `chlorine_ppm: Optional[float]` (Freies Chlor im Ausgangswasser — verflüchtigt sich durch 24h Abstehen)
     - `chloramine_ppm: Optional[float]` (Chloramin im Ausgangswasser — erfordert Ascorbinsäure/Aktivkohle, NICHT flüchtig)
     - `is_organic_fertilizers: bool` (Enthält organische Dünger — kürzeres Lösungsalter)
@@ -545,9 +558,20 @@ class TankFillEvent(BaseModel):
     measured_ph: Optional[float] = Field(None, ge=0, le=14)
 
     # Wasserherkunft
-    water_source: Optional[Literal['tap', 'osmose', 'rainwater', 'distilled', 'well']] = None
+    water_source: Optional[Literal['tap', 'osmose', 'rainwater', 'distilled', 'well', 'mixed']] = None
+    water_mix_ratio_ro_percent: Optional[int] = Field(
+        None, ge=0, le=100,
+        description="Osmose-Anteil bei 'mixed' water_source (0-100%). "
+                    "Überschreibt NutrientPlan- und Site-Defaults für diese Befüllung. "
+                    "null = Default aus Kaskade (NutrientPlan → Site)."
+    )
     source_tank_key: Optional[str] = Field(None, description="Quell-Tank bei Kaskade")
-    base_water_ec_ms: Optional[float] = Field(None, ge=0, le=5, description="EC des Ausgangswassers")
+    base_water_ec_ms: Optional[float] = Field(
+        None, ge=0, le=5,
+        description="EC des Ausgangswassers. Kann automatisch aus Mischverhältnis "
+                    "und Site-WaterSource-Profil (REQ-002) berechnet werden — "
+                    "siehe Wasserquellen-Kaskade."
+    )
     chlorine_ppm: Optional[float] = Field(
         None, ge=0, le=10,
         description="Freies Chlor (Cl₂/HOCl) im Ausgangswasser (ppm). "
@@ -1059,6 +1083,31 @@ class TankService:
                     })
 
         return alerts
+
+    def resolve_water_defaults(
+        self,
+        fill_event: 'TankFillEvent',
+        tank: dict,
+        nutrient_plan: Optional[dict] = None,
+        site_water_source: Optional[dict] = None,
+    ) -> dict:
+        """
+        Füllt fehlende Wasserquellen-Felder auf dem TankFillEvent über die
+        4-stufige Kaskade auf:
+          1. Explizit im TankFillEvent (höchste Prio)
+          2. NutrientPlan-Default (water_mix_ratio_ro_percent)
+          3. Site-WaterSource-Profil (TapWaterProfile + RoWaterProfile)
+          4. Manuelle Eingabe (Fallback — keine Defaults)
+
+        Gibt ein dict mit aufgelösten Feldern und `water_defaults_source` zurück:
+        - 'explicit': Werte direkt vom Nutzer eingegeben
+        - 'nutrient_plan': Mischverhältnis aus NutrientPlan, Parameter aus Site
+        - 'site_profile': Parameter direkt aus Site-Profil (ohne Mischverhältnis)
+        - 'manual': Keine Defaults verfügbar, manuelle Eingabe nötig
+
+        Nutzt WaterMixCalculator (REQ-004) für Mischverhältnis-Berechnung.
+        """
+        ...
 
     def record_fill_event(
         self,
@@ -1678,7 +1727,7 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 ## 5. Abhängigkeiten
 
 **Erforderliche Module:**
-- REQ-002 (Standort): Location für Tank-Zuordnung, `irrigation_system` für Pflicht-Validierung
+- REQ-002 (Standort): Location für Tank-Zuordnung, `irrigation_system` für Pflicht-Validierung; **HOCH** — `Site.water_source` (TapWaterProfile, RoWaterProfile) als Default-Quelle in der Wasserquellen-Kaskade für TankFillEvent-Felder
 - REQ-004 (Düngung): **HOCH** — MixingResult als Input für Tank-Befüllung; NutrientPlan + WateringScheduleEngine für Bestätigungsflow (Dosierungs-Auflösung pro Phase); FeedingEvent-Erzeugung bei Gießplan-Bestätigung
 - REQ-005 (Sensorik): Sensor-Daten für automatische Zustandserfassung (pH, EC, Füllstand, Temperatur)
 - REQ-006 (Aufgabenplanung): **HOCH** — Task-Completion bei Gießplan-Bestätigung; `planting_run_key` und `watering_event_key` auf Task
@@ -1763,6 +1812,12 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Task-Rückreferenz:** WateringEvent.task_key verlinkt zurück auf den bestätigten Gießplan-Task
 - [ ] **Duplikat-Schutz:** Bereits bestätigte Tasks (status='completed') werden mit 409 Conflict abgelehnt
 - [ ] **CareConfirmation-Interop:** Bei Gießplan-Bestätigung wird automatisch CareConfirmation (REQ-022) erzeugt
+- [ ] **TankFillEvent water_mix_ratio_ro_percent:** Optionales Feld (0–100) auf TankFillEvent speicher-/lesbar
+- [ ] **TankFillEvent water_source 'mixed':** Neuer Enum-Wert `'mixed'` für Osmose/Leitungswasser-Mischungen
+- [ ] **resolve_water_defaults Kaskade:** Fehlende Wasserquellen-Felder werden über die 4-stufige Kaskade (explizit → NutrientPlan → Site → manuell) aufgelöst
+- [ ] **water_defaults_source:** API-Response enthält `water_defaults_source`-Feld mit der Quelle der aufgelösten Defaults
+- [ ] **Kaskade-Transparenz:** Nutzer sieht im UI, ob `base_water_ec_ms` manuell eingegeben oder aus Site/Plan berechnet wurde
+- [ ] **WaterMixCalculator-Integration:** Bei bekanntem Mischverhältnis wird `base_water_ec_ms` automatisch via WaterMixCalculator (REQ-004) berechnet
 
 ### Testszenarien:
 

@@ -7,7 +7,7 @@ Kategorie: Infrastruktur
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.1 (Beetplanung & Fruchtfolge-Erweiterung)
+Version: 4.2 (Wasserquellen-Konfiguration)
 ```
 
 ## 1. Business Case
@@ -31,6 +31,15 @@ Das System verwaltet eine **rekursiv verschachtelbare** Standort-Struktur: **Sit
 - Tracking der letzten 3-5 Jahre Kulturhistorie pro Standort
 - Automatische Warnung bei kritischen Wiederholungen (gleiche Pflanzenfamilie)
 - Berücksichtigung von Vor-/Nachfrucht-Effekten und Gründüngung
+
+**Wasserquellen-Konfiguration (Site-Ebene):**
+
+Ein Haushalt hat in der Regel eine Wasserleitung und optional eine Osmoseanlage. Die Wasserquelle bestimmt die Basis-EC, den pH-Wert und die Mineralzusammensetzung des Gießwassers — und damit das verfügbare EC-Budget für Dünger (REQ-004) sowie den CalMag-Korrekturbedarf.
+
+- **Leitungswasser-Profil:** 8 Parameter (EC, pH, Alkalinität/KH, GH, Calcium, Magnesium, Chlor, Chloramin) werden einmalig pro Site hinterlegt und dienen als Default-Grundlage für alle EC-Budget-Berechnungen (REQ-004) und Tankbefüllungen (REQ-014)
+- **Osmoseanlage als optionale Ausstattung:** Toggle `has_ro_system` bestimmt, ob Osmosewasser als Mischkomponente verfügbar ist. Wenn aktiviert, kann pro Nährstoffplan (REQ-004) und pro Tankbefüllung (REQ-014) ein Osmose/Leitungswasser-Verhältnis gewählt werden
+- **Automatische Basis-Berechnung:** Der `WaterMixCalculator` (REQ-004) berechnet aus dem Mischverhältnis den gewichteten Durchschnitt aller Wasserparameter — das erspart dem Nutzer die manuelle Eingabe pro Mischung
+- **Messalter-Tracking:** Das Datum der letzten Wasseranalyse wird erfasst, um veraltete Werte zu erkennen (Soft-Warnung nach 12 Monaten)
 
 <!-- Quelle: Outdoor-Garden-Planner Review G-003, G-004 -->
 **Visuelle Beetplanung (Outdoor-Modus):**
@@ -61,6 +70,36 @@ Das bestehende 3-5-Jahres-Fruchtfolge-Tracking wird um einen expliziten Rotation
     - `total_area_m2: float`
     - `timezone: str` — IANA-Zeitzone (z.B. "Europe/Berlin"), Default: "UTC"
     - `hemisphere: Literal['northern', 'southern']` — Default: `'northern'`. Automatisch ableitbar aus `gps_coordinates` (Breitengrad ≥ 0 → northern). Bestimmt saisonale Monatszuordnung: Wintermonate Nov–Feb (northern) bzw. Mai–Aug (southern). Wird von REQ-022 CareReminderEngine für `WINTER_MONTHS` und `fertilizing_active_months` genutzt.
+    - `water_source: Optional[WaterSource]` — Wasserquellen-Konfiguration (eingebettetes Submodell, siehe unten). Definiert Leitungswasser-Profil und Osmoseanlage für diese Site. Wird von REQ-004 (EC-Budget-Berechnung, CalMag-Korrektur) und REQ-014 (Tankbefüllungs-Defaults) als Basis-Datenquelle referenziert. `null` = keine Wasserquellen-Daten hinterlegt (manuelle Eingabe pro Befüllung).
+
+  **Eingebettete Submodelle für `water_source`:**
+
+  **`WaterSource`** — Container für Wasserquellen-Konfiguration (eingebettet in Site-Dokument, keine eigene Collection):
+  - `has_ro_system: bool` (Default: `false`) — Osmoseanlage vorhanden. Wenn `true`, kann pro NutrientPlan (REQ-004) und TankFillEvent (REQ-014) ein Osmose/Leitungswasser-Mischverhältnis gewählt werden.
+  - `tap_water_profile: Optional[TapWaterProfile]` — Leitungswasser-Analyse. `null` = noch keine Analyse hinterlegt.
+  - `ro_water_profile: Optional[RoWaterProfile]` — Osmosewasser-Restmineralisation. Nur relevant wenn `has_ro_system=true`. `null` = Standard-Defaults (EC 0.02, pH 6.5).
+
+  **`TapWaterProfile`** — Leitungswasser-Analysedaten (eingebettet in WaterSource):
+  - `ec_ms: Optional[float]` (ge=0, le=2.0) — Elektrische Leitfähigkeit in mS/cm. Typisch: 0.2–0.8 mS für weiches bis mittleres Wasser, >1.0 mS für sehr hartes Wasser.
+  - `ph: Optional[float]` (ge=4.0, le=9.5) — pH-Wert. Typisch: 6.8–8.2 für kommunales Trinkwasser.
+  - `alkalinity_ppm: Optional[float]` (ge=0, le=500) — Karbonathärte/Alkalinität (CaCO₃-Äquivalent) in ppm. Bestimmt die pH-Pufferkapazität: weiches Wasser ~30 ppm, hartes Wasser ~250 ppm. Konsistent mit REQ-004 `base_water_alkalinity_ppm` und REQ-014 `alkalinity_ppm`.
+  - `gh_ppm: Optional[float]` (ge=0, le=1000) — Gesamthärte in ppm CaCO₃-Äquivalent. Typisch: 0–60 (weich), 60–120 (mittel), 120–180 (hart), >180 (sehr hart). Plausibilitätsprüfung gegen `calcium_ppm` + `magnesium_ppm` (siehe Validierung).
+  - `calcium_ppm: Optional[float]` (ge=0, le=500) — Calcium-Konzentration in ppm. Relevant für CalMag-Korrektur (REQ-004): Bereits im Wasser vorhandenes Ca reduziert den CalMag-Supplement-Bedarf.
+  - `magnesium_ppm: Optional[float]` (ge=0, le=200) — Magnesium-Konzentration in ppm. Analog zu Calcium für CalMag-Korrektur.
+  - `chlorine_ppm: Optional[float]` (ge=0, le=5) — Freies Chlor im Leitungswasser (ppm). Typisch: 0.1–1.0 ppm. Verflüchtigt durch 24h Abstehen. Konsistent mit REQ-014 TankFillEvent `chlorine_ppm` (der dort 0–10 ppm erlaubt, da auch Brunnenwasser etc. abgedeckt wird).
+  - `chloramine_ppm: Optional[float]` (ge=0, le=5) — Gebundenes Chlor/Chloramin (ppm). NICHT flüchtig — Ascorbinsäure oder Aktivkohle-Filter nötig. >0.5 ppm tötet Mykorrhiza ab.
+  - `measurement_date: Optional[date]` — Datum der letzten Wasseranalyse. Für Messalter-Warnung (>12 Monate).
+  - `source_note: Optional[str]` (max_length=500) — Freitext: Herkunft der Daten (z.B. "Stadtwerke München Jahresanalyse 2025", "Eigenmessung API Testsatz").
+
+  **`RoWaterProfile`** — Osmosewasser-Restmineralisation (eingebettet in WaterSource):
+  - `ec_ms: float` (ge=0, le=0.2, Default: 0.02) — Rest-EC nach Membran. Typisch: 0.01–0.05 mS bei intakter Membran. >0.05 mS deutet auf Membranverschleiß hin (Soft-Warnung).
+  - `ph: float` (ge=3.0, le=8.0, Default: 6.5) — pH des Osmosewassers. Typisch: 5.5–7.0, kann stark schwanken (wenig Pufferkapazität).
+
+  **Validierungsregeln (WaterSource):**
+  - **GH-Plausibilitäts-Check:** Wenn `calcium_ppm` und `magnesium_ppm` gesetzt sind, wird die berechnete Gesamthärte (`Ca * 2.497 + Mg * 4.116`) gegen den angegebenen `gh_ppm`-Wert geprüft. Bei >30% Abweichung: Soft-Warnung (kein Hardblock) — "GH-Wert weicht von Ca+Mg-Berechnung ab. Daten prüfen."
+  - **Messalter-Warnung:** Wenn `measurement_date` gesetzt und >12 Monate alt: Soft-Warnung — "Wasseranalyse ist über ein Jahr alt. Erneute Messung empfohlen."
+  - **RO-Membran-Warnung:** Wenn `has_ro_system=true` und `ro_water_profile.ec_ms > 0.05`: Soft-Warnung — "RO-Membran-EC über 0.05 mS — Membranverschleiß prüfen."
+  - **Konsistenz:** `ro_water_profile` wird ignoriert wenn `has_ro_system=false`.
 
 - **`:Location`** - Räumlicher Container (Beet, Zelt, Raum) — rekursiv verschachtelbar
   - Properties:
@@ -961,7 +1000,8 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - REQ-005 (Sensorik): Slot-Position für Sensor-Zuordnung
 - REQ-006 (Tasks): Standort-spezifische Aufgaben
 - REQ-010 (IPM): Standort-Historie für Schädlings-Muster
-- REQ-014 (Tankmanagement): **HOCH** — Location für Tank-Zuordnung, `irrigation_system` für Pflicht-Validierung
+- REQ-004 (Düngung): **HOCH** — `WaterSource.tap_water_profile` als Default-Basis für `base_water_ec_ms`, `base_water_alkalinity_ppm` und CalMag-Korrektur im `WaterMixCalculator`
+- REQ-014 (Tankmanagement): **HOCH** — Location für Tank-Zuordnung, `irrigation_system` für Pflicht-Validierung; `WaterSource` als Default-Quelle in der Wasserquellen-Kaskade für TankFillEvent-Felder
 
 ## 6. Akzeptanzkriterien
 
@@ -993,6 +1033,13 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Mischkultur-Planer:** Kompatibilitäts-Check mit benachbarten Slots
 - [ ] **Vertical-Farming:** Support für mehrere Ebenen (z-Koordinate)
 - [ ] **Mobile-Erfassung:** QR-Codes für Slots zur schnellen Identifikation
+- [ ] **WaterSource auf Site:** `water_source` als optionales eingebettetes Submodell auf Site-Dokument speicher-/lesbar
+- [ ] **TapWaterProfile:** 8 Wasserparameter (EC, pH, Alkalinität, GH, Ca, Mg, Chlor, Chloramin) + Messdatum + Freitext speicher-/lesbar
+- [ ] **RoWaterProfile:** Rest-EC und pH des Osmosewassers speicher-/lesbar, Defaults (0.02 mS, pH 6.5) bei Nicht-Angabe
+- [ ] **GH-Plausibilitäts-Check:** Soft-Warnung bei >30% Abweichung zwischen angegebenem GH und berechnetem GH (Ca*2.497 + Mg*4.116)
+- [ ] **Messalter-Warnung:** Soft-Warnung wenn `measurement_date` >12 Monate alt
+- [ ] **RO-Membran-Warnung:** Soft-Warnung wenn `ro_water_profile.ec_ms > 0.05 mS`
+- [ ] **has_ro_system Toggle:** Boolean-Flag steuert Sichtbarkeit des RO-Profils und Verfügbarkeit des Mischverhältnisses in REQ-004/REQ-014
 
 ### Testszenarien:
 
