@@ -284,9 +284,41 @@ class PlantingRunService:
         self.get_run(run_key)
         return self._repo.remove_nutrient_plan(run_key)
 
+    def _build_channel_calendars(
+        self, plan_key: str, run_key: PlantingRunKey, days_ahead: int,
+    ) -> list[dict]:
+        """Build per-channel watering calendars from phase entry schedules."""
+        if self._nutrient_plan_repo is None:
+            return []
+        phase_entries = self._nutrient_plan_repo.get_phase_entries(plan_key)
+        today = date.today()
+        calendars: list[dict] = []
+        for entry in phase_entries:
+            for ch in entry.delivery_channels:
+                if not ch.enabled or ch.schedule is None:
+                    continue
+                last_date = None
+                if self._watering_repo is not None:
+                    last_date = self._watering_repo.get_last_watering_date_for_run(run_key)
+                ch_dates = self._schedule_engine.get_next_watering_dates(
+                    ch.schedule, today, days_ahead, last_date,
+                )
+                method = ch.application_method
+                method_str = method.value if hasattr(method, "value") else str(method)
+                phase = entry.phase_name
+                phase_str = phase.value if hasattr(phase, "value") else str(phase)
+                calendars.append({
+                    "channel_id": ch.channel_id,
+                    "label": ch.label or ch.channel_id,
+                    "application_method": method_str,
+                    "phase_name": phase_str,
+                    "dates": [d.isoformat() for d in ch_dates],
+                })
+        return calendars
+
     def get_watering_schedule(self, run_key: PlantingRunKey, days_ahead: int = 14) -> dict:
         """Get watering schedule calendar for the next N days."""
-        run = self.get_run(run_key)
+        self.get_run(run_key)
         plan_key = self._repo.get_run_nutrient_plan_key(run_key)
         if plan_key is None:
             return {"run_key": run_key, "has_schedule": False, "dates": []}
@@ -295,23 +327,39 @@ class PlantingRunService:
         if self._nutrient_plan_repo is not None:
             plan = self._nutrient_plan_repo.get_by_key(plan_key)
 
-        if plan is None or not hasattr(plan, "watering_schedule") or plan.watering_schedule is None:
+        has_plan_schedule = (
+            plan is not None
+            and hasattr(plan, "watering_schedule")
+            and plan.watering_schedule is not None
+        )
+
+        channel_calendars = self._build_channel_calendars(plan_key, run_key, days_ahead)
+
+        if not has_plan_schedule and not channel_calendars:
             return {"run_key": run_key, "has_schedule": False, "dates": []}
 
-        # Get last watering date for the run
-        last_watering_date = None
-        if self._watering_repo is not None:
-            last_watering_date = self._watering_repo.get_last_watering_date_for_run(run_key)
+        # Plan-level dates (only when no channel-specific schedules override)
+        plan_dates: list[str] = []
+        if has_plan_schedule and not channel_calendars:
+            last_watering_date = None
+            if self._watering_repo is not None:
+                last_watering_date = self._watering_repo.get_last_watering_date_for_run(run_key)
+            today = date.today()
+            dates = self._schedule_engine.get_next_watering_dates(
+                plan.watering_schedule, today, days_ahead, last_watering_date,
+            )
+            plan_dates = [d.isoformat() for d in dates]
 
-        today = date.today()
-        dates = self._schedule_engine.get_next_watering_dates(
-            plan.watering_schedule, today, days_ahead, last_watering_date,
-        )
+        schedule_dump = None
+        if has_plan_schedule:
+            schedule_dump = plan.watering_schedule.model_dump(mode="json")
+
         return {
             "run_key": run_key,
             "has_schedule": True,
             "plan_key": plan_key,
             "plan_name": plan.name if plan else "",
-            "schedule": plan.watering_schedule.model_dump(mode="json"),
-            "dates": [d.isoformat() for d in dates],
+            "schedule": schedule_dump,
+            "dates": plan_dates,
+            "channel_calendars": channel_calendars,
         }

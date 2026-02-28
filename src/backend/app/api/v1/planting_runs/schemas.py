@@ -141,6 +141,14 @@ class NutrientPlanAssignResponse(BaseModel):
     edge_key: str
 
 
+class ChannelCalendarEntry(BaseModel):
+    channel_id: str
+    label: str
+    application_method: str
+    phase_name: str
+    dates: list[str] = Field(default_factory=list)
+
+
 class WateringScheduleCalendarResponse(BaseModel):
     run_key: str
     has_schedule: bool
@@ -148,3 +156,4 @@ class WateringScheduleCalendarResponse(BaseModel):
     plan_name: str | None = None
     schedule: dict | None = None
     dates: list[str] = Field(default_factory=list)
+    channel_calendars: list[ChannelCalendarEntry] = Field(default_factory=list)

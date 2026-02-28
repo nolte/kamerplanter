@@ -29,6 +29,7 @@ interface Props {
   onClose: () => void;
   runKey: string;
   taskKey: string;
+  channelId?: string;
   onConfirmed: () => void;
 }
 
@@ -37,6 +38,7 @@ export default function WateringConfirmDialog({
   onClose,
   runKey,
   taskKey,
+  channelId,
   onConfirmed,
 }: Props) {
   const { t } = useTranslation();
@@ -66,6 +68,7 @@ export default function WateringConfirmDialog({
       const response = await confirmWatering({
         run_key: runKey,
         task_key: taskKey,
+        channel_id: channelId,
         measured_ec: data.measured_ec ?? undefined,
         measured_ph: data.measured_ph ?? undefined,
         volume_liters: data.volume_liters ?? undefined,

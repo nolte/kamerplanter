@@ -42,6 +42,7 @@ import * as runApi from '@/api/endpoints/plantingRuns';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 import { quickConfirmWatering } from '@/api/endpoints/wateringConfirm';
 import type {
+  ChannelCalendarEntry,
   NutrientPlan,
   PlantingRun,
   PlantingRunEntry,
@@ -92,6 +93,7 @@ export default function PlantingRunDetailPage() {
   const [wateringLoading, setWateringLoading] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmDate, setConfirmDate] = useState('');
+  const [confirmChannelId, setConfirmChannelId] = useState<string | undefined>(undefined);
   const [quickConfirming, setQuickConfirming] = useState<string | null>(null);
   const [removePlanOpen, setRemovePlanOpen] = useState(false);
 
@@ -261,13 +263,15 @@ export default function PlantingRunDetailPage() {
     setRemovePlanOpen(false);
   };
 
-  const onQuickConfirm = async (date: string) => {
+  const onQuickConfirm = async (date: string, channelId?: string, stateKey?: string) => {
     if (!key) return;
+    const confirmKey = stateKey ?? date;
     try {
-      setQuickConfirming(date);
+      setQuickConfirming(confirmKey);
       const result = await quickConfirmWatering({
         run_key: key,
         task_key: date,
+        channel_id: channelId,
       });
       notification.success(
         t('pages.wateringSchedule.feedingEventsCreated', {
@@ -536,11 +540,102 @@ export default function PlantingRunDetailPage() {
                     <Alert severity="info">
                       {t('pages.wateringSchedule.noPlan')}
                     </Alert>
+                  ) : wateringCalendar.channel_calendars && wateringCalendar.channel_calendars.length > 0 ? (
+                    /* Per-channel calendar view */
+                    <Box data-testid="channel-calendars">
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                        {t('pages.wateringSchedule.channelCalendar')}
+                      </Typography>
+                      {wateringCalendar.channel_calendars.map((ch: ChannelCalendarEntry) => (
+                        <Box key={`${ch.channel_id}-${ch.phase_name}`} sx={{ mb: 3 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Typography variant="subtitle1" fontWeight="bold">
+                              {ch.label}
+                            </Typography>
+                            <Chip label={t(`enums.applicationMethod.${ch.application_method}`)} size="small" variant="outlined" />
+                            <Chip label={ch.phase_name} size="small" color="info" variant="outlined" />
+                          </Box>
+                          {ch.dates.length === 0 ? (
+                            <Alert severity="info" sx={{ mb: 1 }}>
+                              {t('pages.wateringSchedule.noDates')}
+                            </Alert>
+                          ) : (
+                            <List dense data-testid={`channel-dates-${ch.channel_id}`}>
+                              {ch.dates.map((dateStr) => {
+                                const today = isToday(dateStr);
+                                const past = isPast(dateStr);
+                                const itemKey = `${ch.channel_id}-${dateStr}`;
+                                return (
+                                  <ListItem
+                                    key={itemKey}
+                                    sx={{
+                                      bgcolor: today ? 'action.selected' : 'transparent',
+                                      borderRadius: 1,
+                                      mb: 0.5,
+                                      opacity: past ? 0.6 : 1,
+                                    }}
+                                    data-testid={`watering-date-${itemKey}`}
+                                  >
+                                    <ListItemText
+                                      primary={
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                          <Typography variant="body2">
+                                            {new Date(dateStr).toLocaleDateString()}
+                                          </Typography>
+                                          {today && (
+                                            <Chip
+                                              label={t('pages.wateringSchedule.dueToday')}
+                                              size="small"
+                                              color="warning"
+                                            />
+                                          )}
+                                        </Box>
+                                      }
+                                    />
+                                    <ListItemSecondaryAction>
+                                      <Box sx={{ display: 'flex', gap: 1 }}>
+                                        <Button
+                                          size="small"
+                                          variant="outlined"
+                                          startIcon={<CheckCircleIcon />}
+                                          disabled={quickConfirming === itemKey}
+                                          onClick={() => onQuickConfirm(dateStr, ch.channel_id, itemKey)}
+                                          data-testid={`quick-confirm-${itemKey}`}
+                                        >
+                                          {quickConfirming === itemKey ? (
+                                            <CircularProgress size={16} />
+                                          ) : (
+                                            t('pages.wateringSchedule.quickConfirm')
+                                          )}
+                                        </Button>
+                                        <Button
+                                          size="small"
+                                          variant="contained"
+                                          onClick={() => {
+                                            setConfirmDate(dateStr);
+                                            setConfirmChannelId(ch.channel_id);
+                                            setConfirmDialogOpen(true);
+                                          }}
+                                          data-testid={`confirm-${itemKey}`}
+                                        >
+                                          {t('pages.wateringSchedule.confirm')}
+                                        </Button>
+                                      </Box>
+                                    </ListItemSecondaryAction>
+                                  </ListItem>
+                                );
+                              })}
+                            </List>
+                          )}
+                        </Box>
+                      ))}
+                    </Box>
                   ) : wateringCalendar.dates.length === 0 ? (
                     <Alert severity="info">
                       {t('pages.wateringSchedule.noDates')}
                     </Alert>
                   ) : (
+                    /* Fallback: plan-level flat date list */
                     <List data-testid="watering-dates-list">
                       {wateringCalendar.dates.map((date) => {
                         const today = isToday(date);
@@ -593,6 +688,7 @@ export default function PlantingRunDetailPage() {
                                   variant="contained"
                                   onClick={() => {
                                     setConfirmDate(date);
+                                    setConfirmChannelId(undefined);
                                     setConfirmDialogOpen(true);
                                   }}
                                   data-testid={`confirm-${date}`}
@@ -669,6 +765,7 @@ export default function PlantingRunDetailPage() {
           onClose={() => setConfirmDialogOpen(false)}
           runKey={key}
           taskKey={confirmDate}
+          channelId={confirmChannelId}
           onConfirmed={() => {
             setConfirmDialogOpen(false);
             loadWateringData();

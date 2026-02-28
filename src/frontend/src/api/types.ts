@@ -2200,6 +2200,14 @@ export interface WateringSchedule {
   reminder_hours_before: number;
 }
 
+export interface ChannelCalendarEntry {
+  channel_id: string;
+  label: string;
+  application_method: string;
+  phase_name: string;
+  dates: string[];
+}
+
 export interface WateringScheduleCalendarResponse {
   run_key: string;
   has_schedule: boolean;
@@ -2207,6 +2215,7 @@ export interface WateringScheduleCalendarResponse {
   plan_name?: string;
   schedule?: WateringSchedule;
   dates: string[];
+  channel_calendars?: ChannelCalendarEntry[];
 }
 
 export interface NutrientPlanAssignRequest {
@@ -2277,6 +2286,7 @@ export interface CalendarFeed {
 export interface WateringConfirmRequest {
   run_key: string;
   task_key: string;
+  channel_id?: string;
   measured_ec?: number;
   measured_ph?: number;
   volume_liters?: number;
@@ -2286,6 +2296,7 @@ export interface WateringConfirmRequest {
 export interface WateringQuickConfirmRequest {
   run_key: string;
   task_key: string;
+  channel_id?: string;
 }
 
 export interface WateringConfirmResponse {

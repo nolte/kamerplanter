@@ -28,7 +28,8 @@
     "showAllFields": "Alle Felder anzeigen",
     "showFewerFields": "Weniger Felder anzeigen",
     "saved": "Gespeichert",
-    "lightModeWarning": "Kamerplanter laeuft im Light-Modus ohne Authentifizierung. Dieser Modus ist nur fuer geschlossene Netzwerke gedacht."
+    "lightModeWarning": "Kamerplanter laeuft im Light-Modus ohne Authentifizierung. Dieser Modus ist nur fuer geschlossene Netzwerke gedacht.",
+    "all": "Alle"
   },
   "table": {
     "showing": "Zeigt {{from}}–{{to}} von {{total}} Einträgen",
@@ -1006,6 +1007,8 @@
       "confirmDescription": "Optional können Sie Messwerte zum Gießvorgang erfassen.",
       "quickConfirm": "Schnell bestätigen",
       "upcomingDates": "Kommende Termine",
+      "channelCalendar": "Termine pro Kanal",
+      "phase": "Phase",
       "dueToday": "Heute fällig",
       "feedingEventsCreated": "{{count}} Fütterungsereignisse erstellt",
       "wateringEventKey": "Gießvorgang-ID",
@@ -1044,9 +1047,11 @@
       "migrateConfirm": "Legacy-Einstellungen in einen Standard-Ausbringungskanal konvertieren? Dies kann nicht rückgängig gemacht werden.",
       "migrateSuccess": "Erfolgreich zu Multi-Kanal konvertiert",
       "channelCount": "{{count}} Kanal(e)",
+      "scheduleEnabled": "Eigener Gießplan",
+      "scheduleHint": "Ohne eigenen Gießplan gilt der Plan-Standard",
       "stepMethod": "Methode",
       "stepParams": "Parameter",
-      "stepSchedule": "Zeitplan",
+      "stepSchedule": "Gießplan",
       "stepFertilizers": "Düngemittel",
       "fertigation": {
         "title": "Fertigation",

@@ -28,7 +28,8 @@
     "showAllFields": "Show all fields",
     "showFewerFields": "Show fewer fields",
     "saved": "Saved",
-    "lightModeWarning": "Kamerplanter is running in light mode without authentication. This mode is intended for closed networks only."
+    "lightModeWarning": "Kamerplanter is running in light mode without authentication. This mode is intended for closed networks only.",
+    "all": "All"
   },
   "table": {
     "showing": "Showing {{from}}–{{to}} of {{total}} entries",
@@ -1006,6 +1007,8 @@
       "confirmDescription": "Optionally record measurements for this watering event.",
       "quickConfirm": "Quick Confirm",
       "upcomingDates": "Upcoming Dates",
+      "channelCalendar": "Dates per channel",
+      "phase": "Phase",
       "dueToday": "Due Today",
       "feedingEventsCreated": "{{count}} feeding events created",
       "wateringEventKey": "Watering Event ID",
@@ -1044,6 +1047,8 @@
       "migrateConfirm": "Convert legacy settings to a default delivery channel? This cannot be undone.",
       "migrateSuccess": "Successfully converted to multi-channel",
       "channelCount": "{{count}} channel(s)",
+      "scheduleEnabled": "Custom schedule",
+      "scheduleHint": "Without custom schedule, the plan default applies",
       "stepMethod": "Method",
       "stepParams": "Parameters",
       "stepSchedule": "Schedule",

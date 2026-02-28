@@ -14,9 +14,15 @@ import MenuItem from '@mui/material/MenuItem';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Autocomplete from '@mui/material/Autocomplete';
-import type { DeliveryChannel, DeliveryChannelCreate, ApplicationMethod, Tank } from '@/api/types';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Checkbox from '@mui/material/Checkbox';
+import Typography from '@mui/material/Typography';
+import type { DeliveryChannel, DeliveryChannelCreate, ApplicationMethod, ScheduleMode, Tank, WateringSchedule } from '@/api/types';
 
 const APPLICATION_METHODS: ApplicationMethod[] = ['fertigation', 'drench', 'foliar', 'top_dress'];
+
+const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
 interface Props {
   open: boolean;
@@ -56,6 +62,14 @@ export default function DeliveryChannelDialog({
   const [gramsPerM2, setGramsPerM2] = useState<string>('');
   const [tankKey, setTankKey] = useState<string | null>(null);
 
+  // Schedule state
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('weekdays');
+  const [weekdaySchedule, setWeekdaySchedule] = useState<number[]>([]);
+  const [intervalDays, setIntervalDays] = useState<number>(3);
+  const [preferredTime, setPreferredTime] = useState<string>('08:00');
+  const [reminderHoursBefore, setReminderHoursBefore] = useState<number>(2);
+
   useEffect(() => {
     if (open) {
       if (existingChannel) {
@@ -81,6 +95,22 @@ export default function DeliveryChannelDialog({
             setGramsPerM2(mp.grams_per_m2?.toString() ?? '');
           }
         }
+        // Initialize schedule state from existing channel
+        if (existingChannel.schedule) {
+          setScheduleEnabled(true);
+          setScheduleMode(existingChannel.schedule.schedule_mode);
+          setWeekdaySchedule(existingChannel.schedule.weekday_schedule);
+          setIntervalDays(existingChannel.schedule.interval_days ?? 3);
+          setPreferredTime(existingChannel.schedule.preferred_time ?? '08:00');
+          setReminderHoursBefore(existingChannel.schedule.reminder_hours_before);
+        } else {
+          setScheduleEnabled(false);
+          setScheduleMode('weekdays');
+          setWeekdaySchedule([]);
+          setIntervalDays(3);
+          setPreferredTime('08:00');
+          setReminderHoursBefore(2);
+        }
       } else {
         setChannelId('');
         setLabel('');
@@ -96,6 +126,12 @@ export default function DeliveryChannelDialog({
         setGramsPerPlant('');
         setGramsPerM2('');
         setTankKey(null);
+        setScheduleEnabled(false);
+        setScheduleMode('weekdays');
+        setWeekdaySchedule([]);
+        setIntervalDays(3);
+        setPreferredTime('08:00');
+        setReminderHoursBefore(2);
       }
       setActiveStep(0);
     }
@@ -104,6 +140,7 @@ export default function DeliveryChannelDialog({
   const steps = [
     t('pages.deliveryChannels.stepMethod'),
     t('pages.deliveryChannels.stepParams'),
+    t('pages.deliveryChannels.stepSchedule'),
   ];
 
   const idError =
@@ -114,6 +151,26 @@ export default function DeliveryChannelDialog({
       : '';
 
   const canSave = channelId.length > 0 && !idError;
+
+  const handleWeekdayToggle = (dayIndex: number) => {
+    setWeekdaySchedule((prev) =>
+      prev.includes(dayIndex)
+        ? prev.filter((d) => d !== dayIndex)
+        : [...prev, dayIndex].sort(),
+    );
+  };
+
+  const buildSchedule = (): WateringSchedule | null => {
+    if (!scheduleEnabled) return null;
+    return {
+      schedule_mode: scheduleMode,
+      weekday_schedule: scheduleMode === 'weekdays' ? weekdaySchedule : [],
+      interval_days: scheduleMode === 'interval' ? intervalDays : null,
+      preferred_time: preferredTime || null,
+      application_method: method,
+      reminder_hours_before: reminderHoursBefore,
+    };
+  };
 
   const handleSave = () => {
     const methodParams = (() => {
@@ -144,6 +201,7 @@ export default function DeliveryChannelDialog({
       target_ec_ms: targetEc ? parseFloat(targetEc) : null,
       target_ph: targetPh ? parseFloat(targetPh) : null,
       method_params: methodParams,
+      schedule: buildSchedule(),
     };
     onSave(channel);
   };
@@ -300,6 +358,110 @@ export default function DeliveryChannelDialog({
                   onChange={(e) => setGramsPerM2(e.target.value)}
                   size="small"
                   inputProps={{ min: 0, step: 0.5 }}
+                />
+              </>
+            )}
+          </Box>
+        )}
+
+        {activeStep === 2 && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={scheduleEnabled}
+                  onChange={(e) => setScheduleEnabled(e.target.checked)}
+                />
+              }
+              label={t('pages.deliveryChannels.scheduleEnabled')}
+            />
+            <Typography variant="body2" color="text.secondary">
+              {t('pages.deliveryChannels.scheduleHint')}
+            </Typography>
+
+            {scheduleEnabled && (
+              <>
+                <Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {t('pages.wateringSchedule.mode')}
+                  </Typography>
+                  <ToggleButtonGroup
+                    value={scheduleMode}
+                    exclusive
+                    onChange={(_, value: ScheduleMode | null) => {
+                      if (value) setScheduleMode(value);
+                    }}
+                    size="small"
+                    fullWidth
+                  >
+                    <ToggleButton value="weekdays">
+                      {t('pages.wateringSchedule.weekdays')}
+                    </ToggleButton>
+                    <ToggleButton value="interval">
+                      {t('pages.wateringSchedule.interval')}
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                </Box>
+
+                {scheduleMode === 'weekdays' && (
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      {t('pages.wateringSchedule.weekdays')}
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {WEEKDAY_KEYS.map((dayKey, index) => (
+                        <FormControlLabel
+                          key={dayKey}
+                          control={
+                            <Checkbox
+                              checked={weekdaySchedule.includes(index)}
+                              onChange={() => handleWeekdayToggle(index)}
+                              size="small"
+                            />
+                          }
+                          label={t(`pages.wateringSchedule.${dayKey}`)}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+
+                {scheduleMode === 'interval' && (
+                  <TextField
+                    label={t('pages.wateringSchedule.intervalDays')}
+                    type="number"
+                    value={intervalDays}
+                    onChange={(e) => setIntervalDays(parseInt(e.target.value) || 3)}
+                    size="small"
+                    inputProps={{ min: 1, max: 90, step: 1 }}
+                  />
+                )}
+
+                <Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    {t('pages.wateringSchedule.preferredTime')}
+                  </Typography>
+                  <input
+                    type="time"
+                    value={preferredTime}
+                    onChange={(e) => setPreferredTime(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      fontSize: '1rem',
+                      border: '1px solid rgba(0,0,0,0.23)',
+                      borderRadius: '4px',
+                    }}
+                  />
+                </Box>
+
+                <TextField
+                  label={t('pages.wateringSchedule.reminderHoursBefore')}
+                  type="number"
+                  value={reminderHoursBefore}
+                  onChange={(e) => setReminderHoursBefore(parseInt(e.target.value) || 0)}
+                  size="small"
+                  inputProps={{ min: 0, max: 24, step: 1 }}
                 />
               </>
             )}
