@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import date
 
 from app.common.types import LocationKey, SlotKey, WateringEventKey
 from app.domain.models.watering_event import WateringEvent
@@ -37,4 +38,8 @@ class IWateringRepository(ABC):
 
     @abstractmethod
     def get_stats_by_location(self, location_key: LocationKey) -> dict:
+        ...
+
+    @abstractmethod
+    def get_last_watering_date_for_run(self, run_key: str) -> date | None:
         ...

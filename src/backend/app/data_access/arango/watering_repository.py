@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from arango.database import StandardDatabase
 
@@ -119,3 +119,35 @@ class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
         })
         result = next(cursor, None)
         return result or {"total_events": 0, "total_volume": 0.0, "by_method": []}
+
+    def get_last_watering_date_for_run(self, run_key: str) -> date | None:
+        query = """
+        LET slot_keys = (
+          FOR rc IN @@run_contains
+            FILTER rc._from == @run_id
+            FILTER rc.detached_at == null
+            FOR pi IN @@placed_in
+              FILTER pi._from == rc._to
+              RETURN PARSE_IDENTIFIER(pi._to).key
+        )
+        FOR we IN @@watering_events
+          FILTER LENGTH(INTERSECTION(we.slot_keys, slot_keys)) > 0
+          SORT we.watered_at DESC
+          LIMIT 1
+          RETURN we.watered_at
+        """
+        run_id = f"{col.PLANTING_RUNS}/{run_key}"
+        cursor = self._db.aql.execute(query, bind_vars={
+            "@run_contains": col.RUN_CONTAINS,
+            "@placed_in": col.PLACED_IN,
+            "@watering_events": col.WATERING_EVENTS,
+            "run_id": run_id,
+        })
+        result = next(cursor, None)
+        if result is None:
+            return None
+        if isinstance(result, str):
+            return datetime.fromisoformat(result).date()
+        if isinstance(result, datetime):
+            return result.date()
+        return None
