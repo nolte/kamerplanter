@@ -1023,6 +1023,14 @@
       "sat": "Sat",
       "sun": "Sun"
     },
+    "gantt": {
+      "title": "Phase Timeline",
+      "week": "W",
+      "channels": "{{count}} channel",
+      "channels_other": "{{count}} channels",
+      "expandPhase": "Show channels",
+      "collapsePhase": "Hide channels"
+    },
     "deliveryChannels": {
       "title": "Delivery Channels",
       "addChannel": "Add Channel",

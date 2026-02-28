@@ -1023,6 +1023,14 @@
       "sat": "Sa",
       "sun": "So"
     },
+    "gantt": {
+      "title": "Phasen-Zeitplan",
+      "week": "W",
+      "channels": "{{count}} Kanal",
+      "channels_other": "{{count}} Kanäle",
+      "expandPhase": "Kanäle anzeigen",
+      "collapsePhase": "Kanäle ausblenden"
+    },
     "deliveryChannels": {
       "title": "Ausbringungskanäle",
       "addChannel": "Kanal hinzufügen",

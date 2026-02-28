@@ -41,6 +41,7 @@ import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import PhaseEntryDialog from './PhaseEntryDialog';
 import DeliveryChannelChips from './DeliveryChannelChips';
 import DeliveryChannelAccordion from './DeliveryChannelAccordion';
+import PhaseGanttChart from './PhaseGanttChart';
 import DeliveryChannelDialog from './DeliveryChannelDialog';
 import ChannelFertilizerDialog from './ChannelFertilizerDialog';
 import type { DosageEntry } from './ChannelFertilizerDialog';
@@ -102,7 +103,15 @@ type EditFormData = z.infer<typeof editSchema>;
 
 const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
-function WateringScheduleTabContent({ plan }: { plan: NutrientPlan }) {
+function WateringScheduleTabContent({
+  plan,
+  entries,
+  fertilizers,
+}: {
+  plan: NutrientPlan;
+  entries: NutrientPlanPhaseEntry[];
+  fertilizers: Fertilizer[];
+}) {
   const { t } = useTranslation();
 
   const schedule = plan.watering_schedule;
@@ -119,86 +128,129 @@ function WateringScheduleTabContent({ plan }: { plan: NutrientPlan }) {
     );
   }
 
+  const entriesWithChannels = entries
+    .filter((e) => e.delivery_channels.length > 0)
+    .sort((a, b) => a.sequence_order - b.sequence_order);
+
   return (
-    <Card data-testid="watering-schedule-tab">
-      <CardContent>
-        <Typography variant="h6" gutterBottom>
-          {t('pages.wateringSchedule.title')}
-        </Typography>
+    <Box data-testid="watering-schedule-tab" sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            {t('pages.wateringSchedule.title')}
+          </Typography>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {/* Mode */}
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              {t('pages.wateringSchedule.mode')}
-            </Typography>
-            <Typography>
-              {schedule.schedule_mode === 'weekdays'
-                ? t('pages.wateringSchedule.weekdays')
-                : t('pages.wateringSchedule.interval')}
-            </Typography>
-          </Box>
-
-          {/* Weekdays */}
-          {schedule.schedule_mode === 'weekdays' && schedule.weekday_schedule.length > 0 && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* Mode */}
             <Box>
               <Typography variant="subtitle2" color="text.secondary">
-                {t('pages.wateringSchedule.weekdays')}
+                {t('pages.wateringSchedule.mode')}
               </Typography>
-              <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                {schedule.weekday_schedule.map((dayIndex) => (
+              <Typography>
+                {schedule.schedule_mode === 'weekdays'
+                  ? t('pages.wateringSchedule.weekdays')
+                  : t('pages.wateringSchedule.interval')}
+              </Typography>
+            </Box>
+
+            {/* Weekdays */}
+            {schedule.schedule_mode === 'weekdays' && schedule.weekday_schedule.length > 0 && (
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary">
+                  {t('pages.wateringSchedule.weekdays')}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+                  {schedule.weekday_schedule.map((dayIndex) => (
+                    <Chip
+                      key={dayIndex}
+                      label={t(`pages.wateringSchedule.${WEEKDAY_KEYS[dayIndex]}`)}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
+
+            {/* Interval */}
+            {schedule.schedule_mode === 'interval' && schedule.interval_days != null && (
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary">
+                  {t('pages.wateringSchedule.intervalDays')}
+                </Typography>
+                <Typography>{schedule.interval_days}</Typography>
+              </Box>
+            )}
+
+            {/* Preferred Time */}
+            {schedule.preferred_time && (
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary">
+                  {t('pages.wateringSchedule.preferredTime')}
+                </Typography>
+                <Typography>{schedule.preferred_time}</Typography>
+              </Box>
+            )}
+
+            {/* Application Method */}
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary">
+                {t('pages.wateringSchedule.applicationMethod')}
+              </Typography>
+              <Typography>
+                {t(`enums.applicationMethod.${schedule.application_method}`)}
+              </Typography>
+            </Box>
+
+            {/* Reminder Hours Before */}
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary">
+                {t('pages.wateringSchedule.reminderHoursBefore')}
+              </Typography>
+              <Typography>{schedule.reminder_hours_before}h</Typography>
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
+
+      {/* Phase Gantt Chart */}
+      {entries.length > 0 && <PhaseGanttChart entries={entries} fertilizers={fertilizers} />}
+
+      {/* Delivery Channels per Phase */}
+      {entriesWithChannels.length > 0 && (
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              {t('pages.deliveryChannels.title')}
+            </Typography>
+            {entriesWithChannels.map((entry) => (
+              <Box key={entry.key} sx={{ mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                   <Chip
-                    key={dayIndex}
-                    label={t(`pages.wateringSchedule.${WEEKDAY_KEYS[dayIndex]}`)}
+                    label={`#${entry.sequence_order}`}
                     size="small"
-                    color="primary"
                     variant="outlined"
                   />
-                ))}
+                  <Chip
+                    label={t(`enums.phaseName.${entry.phase_name}`)}
+                    size="small"
+                    color="primary"
+                  />
+                  <Typography variant="body2" color="text.secondary">
+                    {t('pages.nutrientPlans.weeks')}: {entry.week_start}–{entry.week_end}
+                  </Typography>
+                </Box>
+                <DeliveryChannelAccordion
+                  channels={entry.delivery_channels}
+                  fertilizers={fertilizers}
+                />
               </Box>
-            </Box>
-          )}
-
-          {/* Interval */}
-          {schedule.schedule_mode === 'interval' && schedule.interval_days != null && (
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary">
-                {t('pages.wateringSchedule.intervalDays')}
-              </Typography>
-              <Typography>{schedule.interval_days}</Typography>
-            </Box>
-          )}
-
-          {/* Preferred Time */}
-          {schedule.preferred_time && (
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary">
-                {t('pages.wateringSchedule.preferredTime')}
-              </Typography>
-              <Typography>{schedule.preferred_time}</Typography>
-            </Box>
-          )}
-
-          {/* Application Method */}
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              {t('pages.wateringSchedule.applicationMethod')}
-            </Typography>
-            <Typography>
-              {t(`enums.applicationMethod.${schedule.application_method}`)}
-            </Typography>
-          </Box>
-
-          {/* Reminder Hours Before */}
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              {t('pages.wateringSchedule.reminderHoursBefore')}
-            </Typography>
-            <Typography>{schedule.reminder_hours_before}h</Typography>
-          </Box>
-        </Box>
-      </CardContent>
-    </Card>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+    </Box>
   );
 }
 
@@ -838,7 +890,7 @@ export default function NutrientPlanDetailPage() {
 
       {/* Tab 2: Watering Schedule */}
       {tab === 2 && (
-        <WateringScheduleTabContent plan={plan} />
+        <WateringScheduleTabContent plan={plan} entries={entries} fertilizers={fertilizers} />
       )}
 
       {/* Tab 3: Edit */}
