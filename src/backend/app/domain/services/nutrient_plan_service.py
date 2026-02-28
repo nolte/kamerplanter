@@ -145,30 +145,65 @@ class NutrientPlanService:
         channel_validations: list[dict] = []
         all_channels_valid = True
 
+        # EC budget per entry — aggregate from channel dosages
+        ec_budgets: list[dict] = []
+
         for entry in entries:
-            if not entry.delivery_channels:
-                continue
-            # Load fertilizers for all channels
+            # Load fertilizers for all channels in this entry
             ferts: dict[str, object] = {}
-            for ch in entry.delivery_channels:
+            if entry.delivery_channels:
+                for ch in entry.delivery_channels:
+                    for dosage in ch.fertilizer_dosages:
+                        if dosage.fertilizer_key not in ferts:
+                            fert = self._fert_repo.get_by_key(dosage.fertilizer_key)
+                            if fert is not None:
+                                ferts[dosage.fertilizer_key] = fert
+
+            # Calculate EC budget for this entry
+            calculated_ec = 0.0
+            for ch in (entry.delivery_channels or []):
+                target = ch.target_ec_ms or 0.0
                 for dosage in ch.fertilizer_dosages:
-                    if dosage.fertilizer_key not in ferts:
-                        fert = self._fert_repo.get_by_key(dosage.fertilizer_key)
-                        if fert is not None:
-                            ferts[dosage.fertilizer_key] = fert
-            ch_result = channel_validator.validate_channels(
-                entry.delivery_channels, ferts,  # type: ignore[arg-type]
-            )
-            if not ch_result["valid"]:
-                all_channels_valid = False
-            channel_validations.append({
+                    fert = ferts.get(dosage.fertilizer_key)
+                    if fert is not None:
+                        ec_per_ml = getattr(fert, "ec_contribution_per_ml", 0.0)
+                        calculated_ec += dosage.ml_per_liter * ec_per_ml
+
+            # Use the first channel's target_ec as reference, or 0
+            target_ec = 0.0
+            for ch in (entry.delivery_channels or []):
+                if ch.target_ec_ms is not None:
+                    target_ec = ch.target_ec_ms
+                    break
+
+            delta = calculated_ec - target_ec
+            ec_valid = target_ec == 0 or abs(delta) < 0.5
+            ec_budgets.append({
                 "entry_key": entry.key,
                 "phase_name": entry.phase_name.value,
-                **ch_result,
+                "valid": ec_valid,
+                "target_ec": target_ec,
+                "calculated_ec": round(calculated_ec, 3),
+                "delta": round(delta, 3),
+                "message": "OK" if ec_valid else f"EC delta {delta:+.2f} exceeds tolerance",
             })
+
+            # Channel validation
+            if entry.delivery_channels:
+                ch_result = channel_validator.validate_channels(
+                    entry.delivery_channels, ferts,  # type: ignore[arg-type]
+                )
+                if not ch_result["valid"]:
+                    all_channels_valid = False
+                channel_validations.append({
+                    "entry_key": entry.key,
+                    "phase_name": entry.phase_name.value,
+                    **ch_result,
+                })
 
         return {
             "completeness": completeness,
+            "ec_budgets": ec_budgets,
             "channel_validations": channel_validations,
             "valid": completeness["complete"] and all_channels_valid,
         }

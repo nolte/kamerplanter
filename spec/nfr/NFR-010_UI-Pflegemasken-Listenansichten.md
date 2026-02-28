@@ -111,7 +111,7 @@ Jede Domänenentität **MUSS** folgende UI-Operationen unterstützen:
 
 **MUSS**:
 - Alle Felder der Entität werden angezeigt (read-only)
-- Navigation zurück zur Listenansicht (Breadcrumbs via `src/frontend/src/components/layout/Breadcrumbs.tsx`)
+- Breadcrumb-Navigation vorhanden (gemäß UI-NFR-005 R-014: Breadcrumbs auf **allen** Seiten Pflicht, via `src/frontend/src/components/layout/Breadcrumbs.tsx`)
 - Seitentitel via `PageTitle`-Komponente (`src/frontend/src/components/layout/PageTitle.tsx`)
 - Aktionsleiste mit Buttons für „Bearbeiten" und „Löschen"
 - Eingebettete Kind-Entitäten als Sections anzeigen (z.B. Cultivars in Species-Detail)

@@ -771,7 +771,7 @@ export default function NutrientPlanDetailPage() {
                       ? t('pages.nutrientPlans.planComplete')
                       : t('pages.nutrientPlans.planIncomplete')}
                   </Alert>
-                  {validation.completeness.issues.map((issue, i) => (
+                  {(validation.completeness.issues ?? []).map((issue, i) => (
                     <Alert key={i} severity="warning" sx={{ mb: 0.5 }}>
                       {issue}
                     </Alert>
@@ -784,7 +784,7 @@ export default function NutrientPlanDetailPage() {
                   <Typography variant="h6" gutterBottom>
                     {t('pages.nutrientPlans.ecBudgets')}
                   </Typography>
-                  {validation.ec_budgets.map((budget, i) => (
+                  {(validation.ec_budgets ?? []).map((budget, i) => (
                     <Alert
                       key={i}
                       severity={budget.valid ? 'success' : 'error'}
@@ -800,18 +800,18 @@ export default function NutrientPlanDetailPage() {
               </Card>
 
               {/* Channel Validations */}
-              {validation.channel_validations.length > 0 && (
+              {(validation.channel_validations ?? []).length > 0 && (
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
                       {t('pages.deliveryChannels.validation.title')}
                     </Typography>
-                    {validation.channel_validations.map((cv, i) => (
+                    {(validation.channel_validations ?? []).map((cv, i) => (
                       <Box key={i} sx={{ mb: 1 }}>
                         <Typography variant="subtitle2">
                           {t(`enums.phaseName.${cv.phase_name}`)}
                         </Typography>
-                        {cv.channel_results.map((cr, j) => (
+                        {(cv.channel_results ?? []).map((cr, j) => (
                           <Alert
                             key={j}
                             severity={cr.issues.length === 0 ? 'success' : 'error'}

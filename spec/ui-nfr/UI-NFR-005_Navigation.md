@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Navigation, Routing, URL-Design
 Technologie: React, TypeScript, React Router, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.0
+Version: 1.1
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-26
 Tags: [navigation, routing, breadcrumb, deep-linking, browser-history, url-design]
@@ -77,10 +77,11 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-014 | Seiten mit mehr als einer Hierarchieebene MÜSSEN Breadcrumbs anzeigen. | MUSS |
+| R-014 | **Alle** Seiten MÜSSEN eine Breadcrumb-Navigation anzeigen — unabhängig von der Hierarchieebene. Top-Level-Seiten (z.B. Dashboard, Listen) zeigen eine einstufige Breadcrumb mit dem Seitennamen. | MUSS |
 | R-015 | Jede Breadcrumb-Stufe MUSS ein klickbarer Link zur entsprechenden Ebene sein. | MUSS |
 | R-016 | Die aktuelle Seite MUSS als letzte Breadcrumb-Stufe angezeigt werden, aber NICHT klickbar sein. | MUSS |
 | R-017 | Breadcrumbs MÜSSEN semantisch korrekt als `<nav aria-label="Breadcrumb">` mit einer geordneten Liste markiert werden. | MUSS |
+| R-017a | Die Breadcrumb-Komponente (`Breadcrumbs.tsx`) MUSS als zentraler Layout-Bestandteil in das Seitenlayout eingebunden sein, sodass neue Seiten automatisch eine Breadcrumb erhalten. | MUSS |
 
 ### 2.5 Fehlerseiten
 
@@ -103,6 +104,21 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 
 ### 3.1 Desktop-Navigation mit Breadcrumbs
 
+**Top-Level-Seite (einstufige Breadcrumb):**
+```
+┌──────────────────────────────────────────────────┐
+│  Logo   Dashboard   Listen   Einstellungen  👤  │
+│         ↑ aktiv (hervorgehoben)                  │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  Dashboard                                       │  ← Breadcrumb (1 Stufe, nicht klickbar)
+│                                                  │
+│  Dashboard — Inhalt                              │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+**Detail-Seite (mehrstufige Breadcrumb):**
 ```
 ┌──────────────────────────────────────────────────┐
 │  Logo   Dashboard   Listen   Einstellungen  👤  │
@@ -173,9 +189,11 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
     - [ ] Aktiver Menüpunkt ist hervorgehoben
     - [ ] Navigationsstruktur ist konsistent
 - [ ] **Breadcrumbs**
-    - [ ] Breadcrumbs sind auf allen Seiten mit Hierarchie vorhanden
+    - [ ] Breadcrumbs sind auf **allen** Seiten vorhanden (inkl. Top-Level-Seiten)
+    - [ ] Top-Level-Seiten zeigen einstufige Breadcrumb (nur Seitenname)
     - [ ] Alle Stufen sind klickbar (außer aktuelle Seite)
     - [ ] Semantisch korrekt als `<nav>` ausgezeichnet
+    - [ ] Breadcrumb-Komponente ist zentral im Layout eingebunden
 - [ ] **Fehlerseiten**
     - [ ] 404-Seite ist vorhanden und gestaltet
     - [ ] 404-Seite bietet Navigation zur Startseite
@@ -195,7 +213,7 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 |---|---|---|---|
 | **Fehlende Deep-Links** | Seiten können nicht geteilt oder als Lesezeichen gespeichert werden | Hoch | URL-Design als Teil des Feature-Designs |
 | **Kaputte Zurück-Taste** | Nutzer verliert Orientierung, unerwartetes Verhalten | Hoch | Browser-History-Tests bei jedem Feature |
-| **Fehlende Breadcrumbs** | Orientierungsverlust bei tiefen Hierarchien | Mittel | Breadcrumbs als Standard-Komponente |
+| **Fehlende Breadcrumbs** | Orientierungsverlust und inkonsistentes Erscheinungsbild | Hoch | Breadcrumbs zentral im Layout eingebunden, automatisch auf allen Seiten |
 | **Generische 404-Seite** | Unprofessioneller Eindruck, keine Hilfe für den Nutzer | Niedrig | Eigene 404-Seite im Design-System |
 | **Fehlende Seitentitel** | Screenreader-Nutzer wissen nicht, wo sie sind; Lesezeichen unbrauchbar | Mittel | Titel-Setzen als Teil der Route-Definition |
 
@@ -203,7 +221,7 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 
 **Dokumenten-Ende**
 
-**Version**: 1.0
+**Version**: 1.1
 **Status**: Entwurf
 **Letzte Aktualisierung**: 2026-02-26
 **Review**: Pending
