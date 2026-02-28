@@ -69,6 +69,7 @@ export default function DeliveryChannelDialog({
   const [intervalDays, setIntervalDays] = useState<number>(3);
   const [preferredTime, setPreferredTime] = useState<string>('08:00');
   const [reminderHoursBefore, setReminderHoursBefore] = useState<number>(2);
+  const [timesPerDay, setTimesPerDay] = useState<number>(1);
 
   useEffect(() => {
     if (open) {
@@ -103,6 +104,7 @@ export default function DeliveryChannelDialog({
           setIntervalDays(existingChannel.schedule.interval_days ?? 3);
           setPreferredTime(existingChannel.schedule.preferred_time ?? '08:00');
           setReminderHoursBefore(existingChannel.schedule.reminder_hours_before);
+          setTimesPerDay(existingChannel.schedule.times_per_day ?? 1);
         } else {
           setScheduleEnabled(false);
           setScheduleMode('weekdays');
@@ -110,6 +112,7 @@ export default function DeliveryChannelDialog({
           setIntervalDays(3);
           setPreferredTime('08:00');
           setReminderHoursBefore(2);
+          setTimesPerDay(1);
         }
       } else {
         setChannelId('');
@@ -132,6 +135,7 @@ export default function DeliveryChannelDialog({
         setIntervalDays(3);
         setPreferredTime('08:00');
         setReminderHoursBefore(2);
+        setTimesPerDay(1);
       }
       setActiveStep(0);
     }
@@ -169,6 +173,7 @@ export default function DeliveryChannelDialog({
       preferred_time: preferredTime || null,
       application_method: method,
       reminder_hours_before: reminderHoursBefore,
+      times_per_day: timesPerDay,
     };
   };
 
@@ -462,6 +467,15 @@ export default function DeliveryChannelDialog({
                   onChange={(e) => setReminderHoursBefore(parseInt(e.target.value) || 0)}
                   size="small"
                   inputProps={{ min: 0, max: 24, step: 1 }}
+                />
+
+                <TextField
+                  label={t('pages.wateringSchedule.timesPerDay')}
+                  type="number"
+                  value={timesPerDay}
+                  onChange={(e) => setTimesPerDay(Math.max(1, Math.min(6, parseInt(e.target.value) || 1)))}
+                  size="small"
+                  inputProps={{ min: 1, max: 6, step: 1 }}
                 />
               </>
             )}

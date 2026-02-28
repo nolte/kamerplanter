@@ -132,6 +132,7 @@ export default function NutrientPlanCreateDialog({ open, onClose, onCreated }: P
           preferred_time: data.preferred_time || null,
           application_method: data.application_method,
           reminder_hours_before: data.reminder_hours_before,
+          times_per_day: 1,
         };
       }
       await api.createNutrientPlan(basePayload);

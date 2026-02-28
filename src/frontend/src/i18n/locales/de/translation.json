@@ -1021,7 +1021,9 @@
       "thu": "Do",
       "fri": "Fr",
       "sat": "Sa",
-      "sun": "So"
+      "sun": "So",
+      "timesPerDay": "Gießvorgänge pro Tag",
+      "timesPerDayOccurrence": "{{label}} ({{current}}/{{total}})"
     },
     "gantt": {
       "title": "Phasen-Zeitplan",
@@ -1030,6 +1032,10 @@
       "channels_other": "{{count}} Kanäle",
       "expandPhase": "Kanäle anzeigen",
       "collapsePhase": "Kanäle ausblenden"
+    },
+    "fertilizerGantt": {
+      "title": "Dünger-Zeitplan",
+      "dosage": "{{ml}} ml/L"
     },
     "deliveryChannels": {
       "title": "Ausbringungskanäle",

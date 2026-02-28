@@ -2198,6 +2198,7 @@ export interface WateringSchedule {
   preferred_time: string | null;
   application_method: string;
   reminder_hours_before: number;
+  times_per_day: number;
 }
 
 export interface ChannelCalendarEntry {
@@ -2206,6 +2207,7 @@ export interface ChannelCalendarEntry {
   application_method: string;
   phase_name: string;
   dates: string[];
+  times_per_day: number;
 }
 
 export interface WateringScheduleCalendarResponse {
@@ -2216,6 +2218,7 @@ export interface WateringScheduleCalendarResponse {
   schedule?: WateringSchedule;
   dates: string[];
   channel_calendars?: ChannelCalendarEntry[];
+  times_per_day?: number;
 }
 
 export interface NutrientPlanAssignRequest {

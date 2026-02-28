@@ -332,6 +332,8 @@ function ChannelSubRow({
     .filter(Boolean)
     .join('\n');
 
+  const weekCells = Array.from({ length: totalWeeks }, (_, i) => i + 1);
+
   return (
     <>
       {/* Channel label */}
@@ -361,7 +363,7 @@ function ChannelSubRow({
       </Box>
 
       {/* Channel bar cells */}
-      {Array.from({ length: totalWeeks }, (_, i) => i + 1).map((w) => {
+      {weekCells.map((w) => {
         const inRange = w >= entry.week_start && w <= entry.week_end;
         const isStart = w === entry.week_start;
         const isEnd = w === entry.week_end;
@@ -399,6 +401,7 @@ function ChannelSubRow({
           </Box>
         );
       })}
+
     </>
   );
 }

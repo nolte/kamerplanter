@@ -12,16 +12,11 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemText from '@mui/material/ListItemText';
-import ListItemSecondaryAction from '@mui/material/ListItemSecondaryAction';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteIcon from '@mui/icons-material/Delete';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -36,13 +31,13 @@ import FormDateField from '@/components/form/FormDateField';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import WateringConfirmDialog from './WateringConfirmDialog';
+import WateringCalendarView from './WateringCalendarView';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as runApi from '@/api/endpoints/plantingRuns';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 import { quickConfirmWatering } from '@/api/endpoints/wateringConfirm';
 import type {
-  ChannelCalendarEntry,
   NutrientPlan,
   PlantingRun,
   PlantingRunEntry,
@@ -284,16 +279,6 @@ export default function PlantingRunDetailPage() {
     } finally {
       setQuickConfirming(null);
     }
-  };
-
-  const isToday = (dateStr: string): boolean => {
-    const today = new Date().toISOString().slice(0, 10);
-    return dateStr === today;
-  };
-
-  const isPast = (dateStr: string): boolean => {
-    const today = new Date().toISOString().slice(0, 10);
-    return dateStr < today;
   };
 
   const entryColumns: Column<PlantingRunEntry>[] = [
@@ -540,167 +525,18 @@ export default function PlantingRunDetailPage() {
                     <Alert severity="info">
                       {t('pages.wateringSchedule.noPlan')}
                     </Alert>
-                  ) : wateringCalendar.channel_calendars && wateringCalendar.channel_calendars.length > 0 ? (
-                    /* Per-channel calendar view */
-                    <Box data-testid="channel-calendars">
-                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                        {t('pages.wateringSchedule.channelCalendar')}
-                      </Typography>
-                      {wateringCalendar.channel_calendars.map((ch: ChannelCalendarEntry) => (
-                        <Box key={`${ch.channel_id}-${ch.phase_name}`} sx={{ mb: 3 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <Typography variant="subtitle1" fontWeight="bold">
-                              {ch.label}
-                            </Typography>
-                            <Chip label={t(`enums.applicationMethod.${ch.application_method}`)} size="small" variant="outlined" />
-                            <Chip label={ch.phase_name} size="small" color="info" variant="outlined" />
-                          </Box>
-                          {ch.dates.length === 0 ? (
-                            <Alert severity="info" sx={{ mb: 1 }}>
-                              {t('pages.wateringSchedule.noDates')}
-                            </Alert>
-                          ) : (
-                            <List dense data-testid={`channel-dates-${ch.channel_id}`}>
-                              {ch.dates.map((dateStr) => {
-                                const today = isToday(dateStr);
-                                const past = isPast(dateStr);
-                                const itemKey = `${ch.channel_id}-${dateStr}`;
-                                return (
-                                  <ListItem
-                                    key={itemKey}
-                                    sx={{
-                                      bgcolor: today ? 'action.selected' : 'transparent',
-                                      borderRadius: 1,
-                                      mb: 0.5,
-                                      opacity: past ? 0.6 : 1,
-                                    }}
-                                    data-testid={`watering-date-${itemKey}`}
-                                  >
-                                    <ListItemText
-                                      primary={
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                          <Typography variant="body2">
-                                            {new Date(dateStr).toLocaleDateString()}
-                                          </Typography>
-                                          {today && (
-                                            <Chip
-                                              label={t('pages.wateringSchedule.dueToday')}
-                                              size="small"
-                                              color="warning"
-                                            />
-                                          )}
-                                        </Box>
-                                      }
-                                    />
-                                    <ListItemSecondaryAction>
-                                      <Box sx={{ display: 'flex', gap: 1 }}>
-                                        <Button
-                                          size="small"
-                                          variant="outlined"
-                                          startIcon={<CheckCircleIcon />}
-                                          disabled={quickConfirming === itemKey}
-                                          onClick={() => onQuickConfirm(dateStr, ch.channel_id, itemKey)}
-                                          data-testid={`quick-confirm-${itemKey}`}
-                                        >
-                                          {quickConfirming === itemKey ? (
-                                            <CircularProgress size={16} />
-                                          ) : (
-                                            t('pages.wateringSchedule.quickConfirm')
-                                          )}
-                                        </Button>
-                                        <Button
-                                          size="small"
-                                          variant="contained"
-                                          onClick={() => {
-                                            setConfirmDate(dateStr);
-                                            setConfirmChannelId(ch.channel_id);
-                                            setConfirmDialogOpen(true);
-                                          }}
-                                          data-testid={`confirm-${itemKey}`}
-                                        >
-                                          {t('pages.wateringSchedule.confirm')}
-                                        </Button>
-                                      </Box>
-                                    </ListItemSecondaryAction>
-                                  </ListItem>
-                                );
-                              })}
-                            </List>
-                          )}
-                        </Box>
-                      ))}
-                    </Box>
-                  ) : wateringCalendar.dates.length === 0 ? (
-                    <Alert severity="info">
-                      {t('pages.wateringSchedule.noDates')}
-                    </Alert>
                   ) : (
-                    /* Fallback: plan-level flat date list */
-                    <List data-testid="watering-dates-list">
-                      {wateringCalendar.dates.map((date) => {
-                        const today = isToday(date);
-                        const past = isPast(date);
-                        return (
-                          <ListItem
-                            key={date}
-                            sx={{
-                              bgcolor: today ? 'action.selected' : 'transparent',
-                              borderRadius: 1,
-                              mb: 0.5,
-                              opacity: past ? 0.6 : 1,
-                            }}
-                            data-testid={`watering-date-${date}`}
-                          >
-                            <ListItemText
-                              primary={
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <Typography>
-                                    {new Date(date).toLocaleDateString()}
-                                  </Typography>
-                                  {today && (
-                                    <Chip
-                                      label={t('pages.wateringSchedule.dueToday')}
-                                      size="small"
-                                      color="warning"
-                                    />
-                                  )}
-                                </Box>
-                              }
-                            />
-                            <ListItemSecondaryAction>
-                              <Box sx={{ display: 'flex', gap: 1 }}>
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  startIcon={<CheckCircleIcon />}
-                                  disabled={quickConfirming === date}
-                                  onClick={() => onQuickConfirm(date)}
-                                  data-testid={`quick-confirm-${date}`}
-                                >
-                                  {quickConfirming === date ? (
-                                    <CircularProgress size={16} />
-                                  ) : (
-                                    t('pages.wateringSchedule.quickConfirm')
-                                  )}
-                                </Button>
-                                <Button
-                                  size="small"
-                                  variant="contained"
-                                  onClick={() => {
-                                    setConfirmDate(date);
-                                    setConfirmChannelId(undefined);
-                                    setConfirmDialogOpen(true);
-                                  }}
-                                  data-testid={`confirm-${date}`}
-                                >
-                                  {t('pages.wateringSchedule.confirm')}
-                                </Button>
-                              </Box>
-                            </ListItemSecondaryAction>
-                          </ListItem>
-                        );
-                      })}
-                    </List>
+                    <WateringCalendarView
+                      dates={wateringCalendar.dates}
+                      channelCalendars={wateringCalendar.channel_calendars ?? []}
+                      quickConfirming={quickConfirming}
+                      onQuickConfirm={onQuickConfirm}
+                      onConfirm={(dateStr, channelId) => {
+                        setConfirmDate(dateStr);
+                        setConfirmChannelId(channelId);
+                        setConfirmDialogOpen(true);
+                      }}
+                    />
                   )}
                 </CardContent>
               </Card>

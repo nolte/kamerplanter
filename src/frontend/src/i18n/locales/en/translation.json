@@ -1021,7 +1021,9 @@
       "thu": "Thu",
       "fri": "Fri",
       "sat": "Sat",
-      "sun": "Sun"
+      "sun": "Sun",
+      "timesPerDay": "Waterings per day",
+      "timesPerDayOccurrence": "{{label}} ({{current}}/{{total}})"
     },
     "gantt": {
       "title": "Phase Timeline",
@@ -1030,6 +1032,10 @@
       "channels_other": "{{count}} channels",
       "expandPhase": "Show channels",
       "collapsePhase": "Hide channels"
+    },
+    "fertilizerGantt": {
+      "title": "Fertilizer Timeline",
+      "dosage": "{{ml}} ml/L"
     },
     "deliveryChannels": {
       "title": "Delivery Channels",

@@ -42,6 +42,7 @@ import PhaseEntryDialog from './PhaseEntryDialog';
 import DeliveryChannelChips from './DeliveryChannelChips';
 import DeliveryChannelAccordion from './DeliveryChannelAccordion';
 import PhaseGanttChart from './PhaseGanttChart';
+import FertilizerGanttChart from './FertilizerGanttChart';
 import DeliveryChannelDialog from './DeliveryChannelDialog';
 import ChannelFertilizerDialog from './ChannelFertilizerDialog';
 import type { DosageEntry } from './ChannelFertilizerDialog';
@@ -97,6 +98,7 @@ const editSchema = z.object({
   preferred_time: z.string().max(5),
   application_method: z.enum(applicationMethods),
   reminder_hours_before: z.number().min(0).max(24),
+  times_per_day: z.number().min(1).max(6),
 });
 
 type EditFormData = z.infer<typeof editSchema>;
@@ -217,6 +219,9 @@ function WateringScheduleTabContent({
       {/* Phase Gantt Chart */}
       {entries.length > 0 && <PhaseGanttChart entries={entries} fertilizers={fertilizers} />}
 
+      {/* Fertilizer Gantt Chart */}
+      {entries.length > 0 && <FertilizerGanttChart entries={entries} fertilizers={fertilizers} />}
+
       {/* Delivery Channels per Phase */}
       {entriesWithChannels.length > 0 && (
         <Card>
@@ -324,6 +329,7 @@ export default function NutrientPlanDetailPage() {
       preferred_time: '',
       application_method: 'drench',
       reminder_hours_before: 2,
+      times_per_day: 1,
     },
   });
 
@@ -370,6 +376,7 @@ export default function NutrientPlanDetailPage() {
         preferred_time: ws?.preferred_time ?? '',
         application_method: (ws?.application_method ?? 'drench') as typeof applicationMethods[number],
         reminder_hours_before: ws?.reminder_hours_before ?? 2,
+        times_per_day: ws?.times_per_day ?? 1,
       });
       setError(null);
     } catch (err) {
@@ -425,6 +432,7 @@ export default function NutrientPlanDetailPage() {
           preferred_time: data.preferred_time || null,
           application_method: data.application_method,
           reminder_hours_before: data.reminder_hours_before,
+          times_per_day: data.times_per_day,
         } : null,
       });
       notification.success(t('common.save'));
@@ -1066,6 +1074,16 @@ export default function NutrientPlanDetailPage() {
                       label={t('pages.wateringSchedule.reminderHoursBefore')}
                       min={0}
                       max={24}
+                      step={1}
+                    />
+
+                    {/* Times Per Day */}
+                    <FormNumberField
+                      name="times_per_day"
+                      control={control}
+                      label={t('pages.wateringSchedule.timesPerDay')}
+                      min={1}
+                      max={6}
                       step={1}
                     />
                   </Box>

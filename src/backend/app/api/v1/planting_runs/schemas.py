@@ -147,6 +147,7 @@ class ChannelCalendarEntry(BaseModel):
     application_method: str
     phase_name: str
     dates: list[str] = Field(default_factory=list)
+    times_per_day: int = 1
 
 
 class WateringScheduleCalendarResponse(BaseModel):
@@ -157,3 +158,4 @@ class WateringScheduleCalendarResponse(BaseModel):
     schedule: dict | None = None
     dates: list[str] = Field(default_factory=list)
     channel_calendars: list[ChannelCalendarEntry] = Field(default_factory=list)
+    times_per_day: int = 1

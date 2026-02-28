@@ -57,6 +57,7 @@ class WateringSchedule(BaseModel):
     preferred_time: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     application_method: ApplicationMethod = ApplicationMethod.DRENCH
     reminder_hours_before: int = Field(default=2, ge=0, le=24)
+    times_per_day: int = Field(default=1, ge=1, le=6)
 
     @model_validator(mode="after")
     def validate_schedule_mode(self) -> WateringSchedule:

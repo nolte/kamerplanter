@@ -313,6 +313,7 @@ class PlantingRunService:
                     "application_method": method_str,
                     "phase_name": phase_str,
                     "dates": [d.isoformat() for d in ch_dates],
+                    "times_per_day": ch.schedule.times_per_day,
                 })
         return calendars
 
@@ -354,6 +355,10 @@ class PlantingRunService:
         if has_plan_schedule:
             schedule_dump = plan.watering_schedule.model_dump(mode="json")
 
+        plan_times_per_day = 1
+        if has_plan_schedule:
+            plan_times_per_day = plan.watering_schedule.times_per_day
+
         return {
             "run_key": run_key,
             "has_schedule": True,
@@ -362,4 +367,5 @@ class PlantingRunService:
             "schedule": schedule_dump,
             "dates": plan_dates,
             "channel_calendars": channel_calendars,
+            "times_per_day": plan_times_per_day,
         }
