@@ -26,12 +26,14 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
-import DataTable, { type Column } from '@/components/common/DataTable';
+import DataTable from '@/components/common/DataTable';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import PhaseTransitionDialog from './PhaseTransitionDialog';
+import PlantPhaseTimeline from './PlantPhaseTimeline';
+import PhaseHistoryTable from '@/pages/durchlaeufe/PhaseHistoryTable';
 import FeedingEventCreateDialog from '@/pages/duengung/FeedingEventCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -229,14 +231,6 @@ export default function PlantInstanceDetailPage() {
     }
   };
 
-  const historyColumns: Column<PhaseHistoryEntry>[] = [
-    { id: 'phase', label: t('pages.phases.current'), render: (r) => r.phase_name },
-    { id: 'enteredAt', label: t('pages.phases.enteredAt'), render: (r) => new Date(r.entered_at).toLocaleDateString() },
-    { id: 'exitedAt', label: t('pages.phases.exitedAt'), render: (r) => r.exited_at ? new Date(r.exited_at).toLocaleDateString() : '-' },
-    { id: 'duration', label: t('pages.phases.duration'), render: (r) => r.actual_duration_days ?? '-', align: 'right' },
-    { id: 'reason', label: t('pages.phases.transitionReason'), render: (r) => r.transition_reason },
-  ];
-
   if (loading) return <LoadingSkeleton variant="form" />;
   if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
 
@@ -268,6 +262,7 @@ export default function PlantInstanceDetailPage() {
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
         <Tab label={t('pages.plantInstances.info')} />
+        <Tab label={t('pages.plantingRuns.tabPhases')} data-testid="phases-tab" />
         <Tab label={t('entities.nutrientPlan')} />
         <Tab label={t('entities.feedingEvents')} />
         <Tab label={t('common.edit')} />
@@ -325,25 +320,26 @@ export default function PlantInstanceDetailPage() {
             </Box>
           )}
 
-          {history.length > 0 && (
-            <Box data-testid="phase-history">
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                {t('pages.phases.history')}
-              </Typography>
-              <DataTable
-                columns={historyColumns}
-                rows={history}
-                getRowKey={(r) => r.key}
-                variant="simple"
-                ariaLabel={t('pages.phases.history')}
-              />
-            </Box>
-          )}
         </>
       )}
 
-      {/* Tab 1: Nutrient Plan */}
-      {tab === 1 && (
+      {/* Tab 1: Phases */}
+      {tab === 1 && plant && key && (
+        <Box data-testid="phases-tab-content">
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            {t('pages.plantingRuns.phaseTimeline')}
+          </Typography>
+          <PlantPhaseTimeline plant={plant} history={history} />
+
+          <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
+            {t('pages.phases.history')}
+          </Typography>
+          <PhaseHistoryTable plantKey={key} />
+        </Box>
+      )}
+
+      {/* Tab 2: Nutrient Plan */}
+      {tab === 2 && (
         <Box>
           {assignedPlan ? (
             <Card>
@@ -412,8 +408,8 @@ export default function PlantInstanceDetailPage() {
         </Box>
       )}
 
-      {/* Tab 2: Feeding Events */}
-      {tab === 2 && (
+      {/* Tab 3: Feeding Events */}
+      {tab === 3 && (
         <Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6">{t('entities.feedingEvents')}</Typography>
@@ -479,8 +475,8 @@ export default function PlantInstanceDetailPage() {
         </Box>
       )}
 
-      {/* Tab 3: Edit */}
-      {tab === 3 && (
+      {/* Tab 4: Edit */}
+      {tab === 4 && (
         <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: 600 }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {t('pages.plantInstances.editIntro')}
