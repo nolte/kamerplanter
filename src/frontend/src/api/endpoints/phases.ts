@@ -1,6 +1,7 @@
 import client from '../client';
 import type {
   CurrentPhaseResponse,
+  PhaseHistoryDateUpdate,
   PhaseHistoryEntry,
   TransitionRequest,
   PlantInstance,
@@ -37,6 +38,18 @@ export async function transitionPhase(
 export async function getPhaseHistory(plantKey: string): Promise<PhaseHistoryEntry[]> {
   const { data } = await client.get<PhaseHistoryEntry[]>(
     `/plant-instances/${plantKey}/phases/history`,
+  );
+  return data;
+}
+
+export async function updatePhaseHistoryDates(
+  plantKey: string,
+  historyKey: string,
+  payload: PhaseHistoryDateUpdate,
+): Promise<PhaseHistoryEntry> {
+  const { data } = await client.patch<PhaseHistoryEntry>(
+    `/plant-instances/${plantKey}/phases/history/${historyKey}`,
+    payload,
   );
   return data;
 }

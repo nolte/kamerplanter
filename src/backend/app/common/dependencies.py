@@ -173,6 +173,7 @@ def get_planting_run_service() -> PlantingRunService:
         watering_schedule_engine=WateringScheduleEngine(),
         nutrient_plan_repo=get_nutrient_plan_repo(),
         watering_repo=get_watering_repo(),
+        phase_repo=get_lifecycle_repo(),
     )
 
 

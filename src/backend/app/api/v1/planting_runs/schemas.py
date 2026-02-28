@@ -2,6 +2,41 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
+# ── Phase summary ────────────────────────────────────────────────────
+
+
+class PhaseSummary(BaseModel):
+    dominant_phase: str | None = None
+    dominant_phase_count: int = 0
+    total_plant_count: int = 0
+    all_phases: dict[str, int] = Field(default_factory=dict)
+
+
+# ── Phase timeline ───────────────────────────────────────────────────
+
+
+class PhaseTimelineEntry(BaseModel):
+    phase_key: str
+    phase_name: str
+    display_name: str
+    sequence_order: int
+    typical_duration_days: int
+    status: str  # "completed" | "current" | "projected"
+    actual_entered_at: datetime | None = None
+    actual_exited_at: datetime | None = None
+    actual_duration_days: int | None = None
+    projected_start: datetime | None = None
+    projected_end: datetime | None = None
+
+
+class SpeciesPhaseTimeline(BaseModel):
+    species_key: str
+    species_name: str | None = None
+    lifecycle_key: str
+    plant_count: int
+    phases: list[PhaseTimelineEntry]
+
+
 # ── Entry schemas ────────────────────────────────────────────────────
 
 class EntryCreate(BaseModel):
@@ -71,6 +106,7 @@ class PlantingRunResponse(BaseModel):
     completed_at: datetime | None
     source_plant_key: str | None
     notes: str | None
+    phase_summary: PhaseSummary | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

@@ -281,6 +281,28 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
         cursor = self._db.aql.execute(query)
         return list(cursor)
 
+    def get_batch_phase_summaries(self, run_keys: list[str]) -> dict[str, list[dict]]:
+        if not run_keys:
+            return {}
+        query = f"""
+        FOR run_key IN @run_keys
+          LET run_id = CONCAT('{col.PLANTING_RUNS}/', run_key)
+          LET phases = (
+            FOR e IN {col.RUN_CONTAINS}
+              FILTER e._from == run_id AND e.detached_at == null
+              LET plant = DOCUMENT(e._to)
+              FILTER plant != null AND plant.removed_on == null
+              COLLECT phase = plant.current_phase WITH COUNT INTO cnt
+              RETURN {{ phase: phase, cnt: cnt }}
+          )
+          RETURN {{ run_key: run_key, phases: phases }}
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"run_keys": run_keys})
+        result: dict[str, list[dict]] = {}
+        for row in cursor:
+            result[row["run_key"]] = row["phases"]
+        return result
+
     def get_plant_keys_with_active_schedule(self) -> set[str]:
         query = f"""
         FOR run IN {col.PLANTING_RUNS}

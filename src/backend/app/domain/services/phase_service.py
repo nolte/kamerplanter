@@ -1,4 +1,4 @@
-from datetime import UTC
+from datetime import UTC, datetime
 
 from app.common.exceptions import NotFoundError
 from app.common.types import PhaseKey, PlantID
@@ -137,3 +137,49 @@ class PhaseService:
 
     def get_phase_history(self, plant_key: PlantID) -> list[PhaseHistory]:
         return self._repo.get_phase_history(plant_key)
+
+    def update_phase_history_dates(
+        self,
+        plant_key: PlantID,
+        history_key: str,
+        entered_at: datetime | None = None,
+        exited_at: datetime | None = None,
+    ) -> PhaseHistory:
+        plant = self._plant_repo.get_by_key(plant_key)
+        if plant is None:
+            raise NotFoundError("PlantInstance", plant_key)
+
+        # Find the history entry
+        all_history = self._repo.get_phase_history(plant_key)
+        history = None
+        for h in all_history:
+            if h.key == history_key:
+                history = h
+                break
+        if history is None:
+            raise NotFoundError("PhaseHistory", history_key)
+
+        if entered_at is not None:
+            history.entered_at = entered_at
+        if exited_at is not None:
+            history.exited_at = exited_at
+
+        # Validate: entered_at < exited_at
+        if history.exited_at is not None and history.entered_at >= history.exited_at:
+            raise ValueError("entered_at must be before exited_at")
+
+        # Recalculate actual_duration_days
+        if history.exited_at is not None:
+            delta = history.exited_at - history.entered_at
+            history.actual_duration_days = delta.days
+        else:
+            history.actual_duration_days = None
+
+        updated = self._repo.update_phase_history(history_key, history)
+
+        # If this is the current (open) phase entry, update plant's current_phase_started_at
+        if history.exited_at is None and entered_at is not None:
+            plant.current_phase_started_at = entered_at
+            self._plant_repo.update(plant_key, plant)
+
+        return updated

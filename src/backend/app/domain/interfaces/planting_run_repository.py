@@ -102,6 +102,10 @@ class IPlantingRunRepository(ABC):
         ...
 
     @abstractmethod
+    def get_batch_phase_summaries(self, run_keys: list[str]) -> dict[str, list[dict]]:
+        ...
+
+    @abstractmethod
     def get_active_runs_with_schedule(self) -> list[dict]:
         ...
 

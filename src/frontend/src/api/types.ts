@@ -699,6 +699,40 @@ export interface PlantingRunEntryCreate {
   notes?: string | null;
 }
 
+export interface PhaseSummary {
+  dominant_phase: string | null;
+  dominant_phase_count: number;
+  total_plant_count: number;
+  all_phases: Record<string, number>;
+}
+
+export interface PhaseTimelineEntry {
+  phase_key: string;
+  phase_name: string;
+  display_name: string;
+  sequence_order: number;
+  typical_duration_days: number;
+  status: 'completed' | 'current' | 'projected';
+  actual_entered_at: string | null;
+  actual_exited_at: string | null;
+  actual_duration_days: number | null;
+  projected_start: string | null;
+  projected_end: string | null;
+}
+
+export interface SpeciesPhaseTimeline {
+  species_key: string;
+  species_name: string | null;
+  lifecycle_key: string;
+  plant_count: number;
+  phases: PhaseTimelineEntry[];
+}
+
+export interface PhaseHistoryDateUpdate {
+  entered_at?: string;
+  exited_at?: string;
+}
+
 export interface PlantingRun {
   key: string;
   name: string;
@@ -713,6 +747,7 @@ export interface PlantingRun {
   completed_at: string | null;
   source_plant_key: string | null;
   notes: string | null;
+  phase_summary?: PhaseSummary | null;
   created_at: string | null;
   updated_at: string | null;
 }

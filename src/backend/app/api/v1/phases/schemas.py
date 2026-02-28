@@ -21,3 +21,8 @@ class PhaseHistoryResponse(BaseModel):
     actual_duration_days: int | None
     transition_reason: str
     performance_score: float | None
+
+
+class PhaseHistoryDateUpdate(BaseModel):
+    entered_at: datetime | None = None
+    exited_at: datetime | None = None

@@ -12,21 +12,25 @@ from app.api.v1.planting_runs.schemas import (
     EntryUpdate,
     NutrientPlanAssignRequest,
     NutrientPlanAssignResponse,
+    PhaseSummary,
     PlantingRunCreate,
     PlantingRunResponse,
     PlantingRunUpdate,
     PlantInRunResponse,
+    SpeciesPhaseTimeline,
     WateringScheduleCalendarResponse,
 )
 from app.common.dependencies import get_planting_run_service
+from app.common.enums import PlantingRunStatus
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 from app.domain.services.planting_run_service import PlantingRunService
 
 router = APIRouter(prefix="/planting-runs", tags=["planting-runs"])
 
 
-def _run_response(r: PlantingRun) -> PlantingRunResponse:
-    return PlantingRunResponse(key=r.key or "", **r.model_dump(exclude={"key"}))
+def _run_response(r: PlantingRun, phase_summary: dict | None = None) -> PlantingRunResponse:
+    ps = PhaseSummary(**phase_summary) if phase_summary else None
+    return PlantingRunResponse(key=r.key or "", phase_summary=ps, **r.model_dump(exclude={"key"}))
 
 
 def _entry_response(e: PlantingRunEntry) -> EntryResponse:
@@ -49,7 +53,9 @@ def list_runs(
     if run_type:
         filters["run_type"] = run_type
     items, _total = service.list_runs(offset, limit, filters or None)
-    return [_run_response(r) for r in items]
+    active_keys = [r.key for r in items if r.key and r.status != PlantingRunStatus.PLANNED]
+    summaries = service.get_batch_phase_summaries(active_keys) if active_keys else {}
+    return [_run_response(r, summaries.get(r.key)) for r in items]
 
 
 @router.post("", response_model=PlantingRunResponse, status_code=201)
@@ -68,7 +74,8 @@ def create_run(
 @router.get("/{key}", response_model=PlantingRunResponse)
 def get_run(key: str, service: PlantingRunService = Depends(get_planting_run_service)):
     r = service.get_run(key)
-    return _run_response(r)
+    ps = service.get_phase_summary(key) if r.status != PlantingRunStatus.PLANNED else None
+    return _run_response(r, ps)
 
 
 @router.put("/{key}", response_model=PlantingRunResponse)
@@ -142,6 +149,11 @@ def batch_create_plants(
 ):
     result = service.create_plants(key)
     return BatchCreatePlantsResponse(**result)
+
+
+@router.get("/{key}/phase-timeline", response_model=list[SpeciesPhaseTimeline])
+def get_phase_timeline(key: str, service: PlantingRunService = Depends(get_planting_run_service)):
+    return service.get_phase_timeline(key)
 
 
 @router.post("/{key}/batch-transition", response_model=BatchTransitionResponse)

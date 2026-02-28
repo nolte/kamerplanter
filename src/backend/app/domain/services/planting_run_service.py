@@ -1,10 +1,11 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from app.common.enums import PlantingRunStatus
 from app.common.exceptions import InvalidRunStateError, NotFoundError
 from app.common.types import PlantID, PlantingRunKey
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
+from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.models.plant_instance import PlantInstance
@@ -20,6 +21,7 @@ class PlantingRunService:
         watering_schedule_engine: WateringScheduleEngine | None = None,
         nutrient_plan_repo=None,
         watering_repo=None,
+        phase_repo: IPhaseRepository | None = None,
     ) -> None:
         self._repo = run_repo
         self._plant_repo = plant_repo
@@ -27,6 +29,7 @@ class PlantingRunService:
         self._schedule_engine = watering_schedule_engine or WateringScheduleEngine()
         self._nutrient_plan_repo = nutrient_plan_repo
         self._watering_repo = watering_repo
+        self._phase_repo = phase_repo
 
     # ── Run CRUD ──────────────────────────────────────────────────────
 
@@ -252,6 +255,161 @@ class PlantingRunService:
             "removed_count": len(removed),
             "removed_keys": removed,
         }
+
+    # ── Phase summaries ─────────────────────────────────────────────
+
+    def get_phase_summary(self, run_key: PlantingRunKey) -> dict:
+        summaries = self._repo.get_batch_phase_summaries([run_key])
+        return self._build_phase_summary(summaries.get(run_key, []))
+
+    def get_batch_phase_summaries(self, run_keys: list[str]) -> dict[str, dict]:
+        raw = self._repo.get_batch_phase_summaries(run_keys)
+        return {k: self._build_phase_summary(v) for k, v in raw.items()}
+
+    @staticmethod
+    def _build_phase_summary(phases: list[dict]) -> dict:
+        all_phases = {p["phase"]: p["cnt"] for p in phases if p.get("phase")}
+        total = sum(all_phases.values())
+        dominant_phase = None
+        dominant_count = 0
+        for phase, cnt in all_phases.items():
+            if cnt > dominant_count:
+                dominant_phase = phase
+                dominant_count = cnt
+        return {
+            "dominant_phase": dominant_phase,
+            "dominant_phase_count": dominant_count,
+            "total_plant_count": total,
+            "all_phases": all_phases,
+        }
+
+    # ── Phase timeline ─────────────────────────────────────────────────
+
+    def get_phase_timeline(self, run_key: PlantingRunKey) -> list[dict]:
+        """Build per-species phase timeline with completed/current/projected phases."""
+        self.get_run(run_key)
+        if self._phase_repo is None:
+            return []
+
+        entries = self._repo.get_entries(run_key)
+        plants_raw = self._repo.get_run_plants(run_key, include_detached=False)
+
+        # Group plants by species_key
+        species_plants: dict[str, list[dict]] = {}
+        for p in plants_raw:
+            sk = p.get("species_key", "")
+            species_plants.setdefault(sk, []).append(p)
+
+        # Unique species from entries
+        species_keys = list({e.species_key for e in entries})
+
+        timelines = []
+        for species_key in species_keys:
+            sp_plants = species_plants.get(species_key, [])
+            if not sp_plants:
+                continue
+
+            # Get lifecycle + phases for this species
+            lifecycle = self._phase_repo.get_lifecycle_by_species(species_key)
+            if lifecycle is None or lifecycle.key is None:
+                continue
+
+            growth_phases = self._phase_repo.get_phases_by_lifecycle(lifecycle.key)
+            growth_phases.sort(key=lambda gp: gp.sequence_order)
+            if not growth_phases:
+                continue
+
+            # Pick representative plant (first one)
+            rep_plant = sp_plants[0]
+            rep_key = rep_plant.get("_key", "")
+            rep_current_phase = rep_plant.get("current_phase", "")
+
+            # Load phase history for representative plant
+            history = self._phase_repo.get_phase_history(rep_key)
+            history_by_phase: dict[str, dict] = {}
+            for h in history:
+                history_by_phase[h.phase_name] = {
+                    "entered_at": h.entered_at,
+                    "exited_at": h.exited_at,
+                    "actual_duration_days": h.actual_duration_days,
+                }
+
+            # Build timeline entries
+            phase_entries = []
+            last_end: datetime | None = None
+            for gp in growth_phases:
+                h = history_by_phase.get(gp.name)
+                if h and h.get("exited_at"):
+                    # Completed phase
+                    phase_entries.append({
+                        "phase_key": gp.key or "",
+                        "phase_name": gp.name,
+                        "display_name": gp.display_name or gp.name,
+                        "sequence_order": gp.sequence_order,
+                        "typical_duration_days": gp.typical_duration_days,
+                        "status": "completed",
+                        "actual_entered_at": h["entered_at"],
+                        "actual_exited_at": h["exited_at"],
+                        "actual_duration_days": h.get("actual_duration_days"),
+                        "projected_start": None,
+                        "projected_end": None,
+                    })
+                    last_end = h["exited_at"]
+                elif gp.name == rep_current_phase:
+                    # Current phase
+                    entered = h["entered_at"] if h else None
+                    if entered is None:
+                        # Fallback: use current_phase_started_at from plant
+                        started_str = rep_plant.get("current_phase_started_at")
+                        if started_str:
+                            if isinstance(started_str, str):
+                                entered = datetime.fromisoformat(started_str)
+                            else:
+                                entered = started_str
+                    phase_entries.append({
+                        "phase_key": gp.key or "",
+                        "phase_name": gp.name,
+                        "display_name": gp.display_name or gp.name,
+                        "sequence_order": gp.sequence_order,
+                        "typical_duration_days": gp.typical_duration_days,
+                        "status": "current",
+                        "actual_entered_at": entered,
+                        "actual_exited_at": None,
+                        "actual_duration_days": None,
+                        "projected_start": None,
+                        "projected_end": (entered + timedelta(days=gp.typical_duration_days)) if entered else None,
+                    })
+                    if entered:
+                        last_end = entered + timedelta(days=gp.typical_duration_days)
+                else:
+                    # Projected phase (future)
+                    proj_start = last_end
+                    proj_end = (proj_start + timedelta(days=gp.typical_duration_days)) if proj_start else None
+                    phase_entries.append({
+                        "phase_key": gp.key or "",
+                        "phase_name": gp.name,
+                        "display_name": gp.display_name or gp.name,
+                        "sequence_order": gp.sequence_order,
+                        "typical_duration_days": gp.typical_duration_days,
+                        "status": "projected",
+                        "actual_entered_at": None,
+                        "actual_exited_at": None,
+                        "actual_duration_days": None,
+                        "projected_start": proj_start,
+                        "projected_end": proj_end,
+                    })
+                    if proj_end:
+                        last_end = proj_end
+
+            timelines.append({
+                "species_key": species_key,
+                "species_name": None,
+                "lifecycle_key": lifecycle.key,
+                "plant_count": len(sp_plants),
+                "phases": phase_entries,
+            })
+
+        return timelines
 
     # ── Plant management ──────────────────────────────────────────────
 

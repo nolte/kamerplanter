@@ -54,6 +54,23 @@ export default function PlantingRunListPage() {
       searchValue: (r) => t(`enums.plantingRunStatus.${r.status}`),
     },
     {
+      id: 'phase',
+      label: t('pages.plantingRuns.currentPhase'),
+      render: (r) => {
+        if (!r.phase_summary || r.status === 'planned') return '-';
+        const { dominant_phase, dominant_phase_count, total_plant_count } = r.phase_summary;
+        if (!dominant_phase) return '-';
+        return (
+          <Chip
+            label={`${dominant_phase} (${dominant_phase_count}/${total_plant_count})`}
+            size="small"
+            color="info"
+          />
+        );
+      },
+      searchValue: (r) => r.phase_summary?.dominant_phase ?? '',
+    },
+    {
       id: 'plannedQty',
       label: t('pages.plantingRuns.plannedQuantity'),
       render: (r) => r.planned_quantity,

@@ -12,6 +12,7 @@ import type {
   PlantingRunEntry,
   PlantingRunEntryCreate,
   PlantingRunUpdate,
+  SpeciesPhaseTimeline,
   WateringScheduleCalendarResponse,
 } from '../types';
 
@@ -178,6 +179,17 @@ export async function removeRunNutrientPlan(
   runKey: string,
 ): Promise<void> {
   await client.delete(`${BASE}/${runKey}/nutrient-plan`);
+}
+
+// ── Phase timeline ──────────────────────────────────────────────────
+
+export async function getPhaseTimeline(
+  runKey: string,
+): Promise<SpeciesPhaseTimeline[]> {
+  const { data } = await client.get<SpeciesPhaseTimeline[]>(
+    `${BASE}/${runKey}/phase-timeline`,
+  );
+  return data;
 }
 
 // ── Watering schedule ────────────────────────────────────────────────

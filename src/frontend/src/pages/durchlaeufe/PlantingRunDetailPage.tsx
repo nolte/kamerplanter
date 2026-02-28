@@ -17,6 +17,7 @@ import TextField from '@mui/material/TextField';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteIcon from '@mui/icons-material/Delete';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -30,6 +31,9 @@ import FormTextField from '@/components/form/FormTextField';
 import FormDateField from '@/components/form/FormDateField';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import BatchPhaseTransitionDialog from './BatchPhaseTransitionDialog';
+import PhaseTimelineStepper from './PhaseTimelineStepper';
+import PhaseHistoryTable from './PhaseHistoryTable';
 import WateringConfirmDialog from './WateringConfirmDialog';
 import WateringCalendarView from './WateringCalendarView';
 import { useNotification } from '@/hooks/useNotification';
@@ -78,6 +82,8 @@ export default function PlantingRunDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [createPlantsOpen, setCreatePlantsOpen] = useState(false);
   const [batchRemoveOpen, setBatchRemoveOpen] = useState(false);
+  const [batchTransitionOpen, setBatchTransitionOpen] = useState(false);
+  const [selectedPlantKey, setSelectedPlantKey] = useState('');
 
   // Watering tab state
   const [nutrientPlans, setNutrientPlans] = useState<NutrientPlan[]>([]);
@@ -155,7 +161,7 @@ export default function PlantingRunDetailPage() {
   }, [key, handleError]);
 
   useEffect(() => {
-    if (tab === 2) {
+    if (tab === 3) {
       loadWateringData();
     }
   }, [tab, loadWateringData]);
@@ -345,14 +351,24 @@ export default function PlantingRunDetailPage() {
             </>
           )}
           {(run?.status === 'active' || run?.status === 'harvesting') && (
-            <Button
-              color="error"
-              startIcon={<RemoveCircleIcon />}
-              onClick={() => setBatchRemoveOpen(true)}
-              data-testid="batch-remove-button"
-            >
-              {t('pages.plantingRuns.batchRemove')}
-            </Button>
+            <>
+              <Button
+                variant="outlined"
+                startIcon={<SwapHorizIcon />}
+                onClick={() => setBatchTransitionOpen(true)}
+                data-testid="batch-transition-button"
+              >
+                {t('pages.plantingRuns.batchTransition')}
+              </Button>
+              <Button
+                color="error"
+                startIcon={<RemoveCircleIcon />}
+                onClick={() => setBatchRemoveOpen(true)}
+                data-testid="batch-remove-button"
+              >
+                {t('pages.plantingRuns.batchRemove')}
+              </Button>
+            </>
           )}
         </Box>
       </Box>
@@ -360,6 +376,7 @@ export default function PlantingRunDetailPage() {
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
         <Tab label={t('pages.plantingRuns.tabDetails')} />
         <Tab label={t('pages.plantingRuns.tabPlants')} />
+        <Tab label={t('pages.plantingRuns.tabPhases')} data-testid="phases-tab" />
         <Tab label={t('pages.wateringSchedule.title')} data-testid="watering-tab" />
         <Tab label={t('common.edit')} />
       </Tabs>
@@ -447,8 +464,44 @@ export default function PlantingRunDetailPage() {
         </Box>
       )}
 
-      {/* Tab 2: Watering Schedule */}
-      {tab === 2 && (
+      {/* Tab 2: Phases */}
+      {tab === 2 && key && (
+        <Box data-testid="phases-tab-content">
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            {t('pages.plantingRuns.phaseTimeline')}
+          </Typography>
+          <PhaseTimelineStepper runKey={key} />
+
+          {plants.length > 0 && (
+            <Box sx={{ mt: 4 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                {t('pages.plantingRuns.editPhaseDate')}
+              </Typography>
+              <TextField
+                select
+                label={t('pages.plantingRuns.selectPlant')}
+                value={selectedPlantKey}
+                onChange={(e) => setSelectedPlantKey(e.target.value)}
+                fullWidth
+                sx={{ maxWidth: 400, mb: 2 }}
+                data-testid="plant-select"
+              >
+                {plants
+                  .filter((p) => !p.detached_at)
+                  .map((p) => (
+                    <MenuItem key={p.key} value={p.key}>
+                      {p.instance_id} ({p.current_phase})
+                    </MenuItem>
+                  ))}
+              </TextField>
+              {selectedPlantKey && <PhaseHistoryTable plantKey={selectedPlantKey} />}
+            </Box>
+          )}
+        </Box>
+      )}
+
+      {/* Tab 3: Watering Schedule */}
+      {tab === 3 && (
         <Box data-testid="watering-schedule-tab">
           {wateringLoading && (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -545,7 +598,7 @@ export default function PlantingRunDetailPage() {
         </Box>
       )}
 
-      {tab === 3 && (
+      {tab === 4 && (
         <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: 600 }}>
           <FormTextField name="name" control={control} label={t('pages.plantingRuns.name')} required />
           <FormDateField
@@ -594,6 +647,20 @@ export default function PlantingRunDetailPage() {
         onCancel={() => setRemovePlanOpen(false)}
         destructive
       />
+
+      {key && run && (run.status === 'active' || run.status === 'harvesting') && (
+        <BatchPhaseTransitionDialog
+          open={batchTransitionOpen}
+          runKey={key}
+          entries={entries}
+          plants={plants}
+          onClose={() => setBatchTransitionOpen(false)}
+          onTransitioned={() => {
+            setBatchTransitionOpen(false);
+            load();
+          }}
+        />
+      )}
 
       {key && (
         <WateringConfirmDialog
