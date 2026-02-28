@@ -325,16 +325,22 @@ export default function PlantInstanceDetailPage() {
 
       {/* Tab 1: Phases */}
       {tab === 1 && plant && key && (
-        <Box data-testid="phases-tab-content">
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            {t('pages.plantingRuns.phaseTimeline')}
-          </Typography>
-          <PlantPhaseTimeline plant={plant} history={history} />
-
-          <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
-            {t('pages.phases.history')}
-          </Typography>
-          <PhaseHistoryTable plantKey={key} />
+        <Box
+          data-testid="phases-tab-content"
+          sx={{ display: 'flex', gap: 4, flexWrap: { xs: 'wrap', md: 'nowrap' } }}
+        >
+          <Box sx={{ flex: '0 0 auto', minWidth: 260 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              {t('pages.plantingRuns.phaseTimeline')}
+            </Typography>
+            <PlantPhaseTimeline plant={plant} history={history} />
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              {t('pages.phases.history')}
+            </Typography>
+            <PhaseHistoryTable plantKey={key} />
+          </Box>
         </Box>
       )}
 
