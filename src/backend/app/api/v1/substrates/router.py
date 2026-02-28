@@ -3,6 +3,8 @@ from fastapi import APIRouter, Depends, Query
 from app.api.v1.substrates.schemas import (
     BatchCreate,
     BatchResponse,
+    PreparationResponse,
+    PreparationStep,
     ReusabilityResponse,
     SubstrateCreate,
     SubstrateResponse,
@@ -71,5 +73,31 @@ def delete_batch(key: str, service: SubstrateService = Depends(get_substrate_ser
 
 @router.post("/batches/{key}/check-reusability", response_model=ReusabilityResponse)
 def check_reusability(key: str, service: SubstrateService = Depends(get_substrate_service)):
-    can_reuse, treatments = service.check_reusability(key)
-    return ReusabilityResponse(can_reuse=can_reuse, treatments=treatments)
+    can_reuse, issues, prep_steps, prep_time, ready_date = service.check_reusability(key)
+    return ReusabilityResponse(
+        can_reuse=can_reuse,
+        treatments=issues,
+        preparation_steps=[PreparationStep(**s) for s in prep_steps],
+        estimated_prep_time_hours=prep_time,
+        ready_date=ready_date,
+    )
+
+@router.post("/batches/{key}/prepare-reuse", response_model=PreparationResponse)
+def prepare_reuse(key: str, service: SubstrateService = Depends(get_substrate_service)):
+    result = service.prepare_reuse(key)
+    return PreparationResponse(
+        can_reuse=result["can_reuse"],
+        issues=result["issues"],
+        preparation_steps=[PreparationStep(**s) for s in result["preparation_steps"]],
+        estimated_prep_time_hours=result["estimated_prep_time_hours"],
+        ready_date=result["ready_date"],
+    )
+
+@router.post("/batches/{batch_key}/assign-slot/{slot_key}", status_code=201)
+def assign_batch_to_slot(
+    batch_key: str,
+    slot_key: str,
+    service: SubstrateService = Depends(get_substrate_service),
+):
+    service.assign_batch_to_slot(batch_key, slot_key)
+    return {"status": "assigned", "batch_key": batch_key, "slot_key": slot_key}

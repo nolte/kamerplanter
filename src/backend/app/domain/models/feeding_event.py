@@ -28,6 +28,7 @@ class FeedingEvent(BaseModel):
     runoff_ph: float | None = Field(default=None, ge=0, le=14)
     runoff_volume_liters: float | None = Field(default=None, ge=0)
     watering_event_key: str | None = None
+    channel_id: str | None = None
     notes: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

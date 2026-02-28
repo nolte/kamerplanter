@@ -90,7 +90,7 @@ export default function GrowthPhaseListSection({ lifecycleKey }: Props) {
           <Button size="small" onClick={(e) => { e.stopPropagation(); setSelectedPhase(r); }}>
             Profiles
           </Button>
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}>
+          <IconButton size="small" aria-label={t('common.delete')} onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}>
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Box>

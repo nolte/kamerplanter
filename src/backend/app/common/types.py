@@ -54,6 +54,7 @@ type UserKey = str
 type AuthProviderKey = str
 type RefreshTokenKey = str
 type OidcProviderConfigKey = str
+type ApiKeyKey = str
 
 # REQ-024 Tenants
 type TenantKey = str

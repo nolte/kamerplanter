@@ -30,7 +30,7 @@ import * as api from '@/api/endpoints/substrates';
 import type { Substrate, Batch, ReusabilityResponse } from '@/api/types';
 
 const schema = z.object({
-  type: z.enum(['soil', 'coco', 'rockwool', 'clay_pebbles', 'perlite', 'living_soil', 'hydro_solution']),
+  type: z.enum(['soil', 'coco', 'clay_pebbles', 'perlite', 'living_soil', 'peat', 'rockwool_slab', 'rockwool_plug', 'vermiculite', 'none', 'orchid_bark', 'pon_mineral', 'sphagnum', 'hydro_solution']),
   brand: z.string().nullable(),
   ph_base: z.number().min(0).max(14),
   ec_base_ms: z.number().min(0),
@@ -204,7 +204,7 @@ export default function SubstrateDetailPage() {
           control={control}
           label={t('pages.substrates.type')}
           helperText={t('pages.substrates.typeHelper')}
-          options={['soil', 'coco', 'rockwool', 'clay_pebbles', 'perlite', 'living_soil', 'hydro_solution'].map((v) => ({
+          options={['soil', 'coco', 'clay_pebbles', 'perlite', 'living_soil', 'peat', 'rockwool_slab', 'rockwool_plug', 'vermiculite', 'none', 'orchid_bark', 'pon_mineral', 'sphagnum', 'hydro_solution'].map((v) => ({
             value: v, label: t(`enums.substrateType.${v}`),
           }))}
         />

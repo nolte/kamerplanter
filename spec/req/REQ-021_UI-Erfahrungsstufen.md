@@ -7,8 +7,15 @@ Kategorie: Benutzerführung
 Fokus: Frontend
 Technologie: React, TypeScript, MUI, Redux Toolkit
 Status: Entwurf
-Version: 1.0
+Version: 1.1 (Quick-Add-Plant & fieldConfig-Korrektur)
 ```
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 1.1 | 2026-02-27 | F-004 (Casual-Houseplant-Review): `description` und `growth_habit` von beginner → intermediate verschoben. Neuer Abschnitt 3.8 "Quick-Add-Plant (Beginner-Flow)" — Pflanze per Common-Name-Suche anlegen statt Stammdaten-CRUD. Neuer `quickAddPlantFieldConfig`. Akzeptanzkriterien ergänzt. |
+| 1.0 | 2026-02-24 | Erstversion |
 
 ## 1. Business Case
 
@@ -23,7 +30,7 @@ Version: 1.0
 **Beschreibung:**
 Die UI-Analyse identifiziert 43 konkrete Hürden für Hobby-Gärtner im aktuellen System. Das Kernproblem ist fehlende Abstufung: Alle Formulare zeigen alle Felder auf dem gleichen Komplexitätsniveau — unabhängig davon, ob der Nutzer 3 Tomaten auf dem Balkon oder 100 Cannabis-Pflanzen im Hydroponik-Setup betreut.
 
-Der dreistufige UI-Modus löst dieses Problem durch eine persistierte Nutzerpräferenz, die die Sichtbarkeit von Feldern, Menüpunkten und Funktionen steuert. Die Unterscheidung erfolgt **ausschließlich im Frontend** — alle drei Modi nutzen dieselben Backend-APIs. Das Backend liefert immer alle Daten; das Frontend filtert die Darstellung.
+Der dreistufige UI-Modus löst dieses Problem durch eine **serverseitig persistierte** Nutzerpräferenz, die die Sichtbarkeit von Feldern, Menüpunkten und Funktionen steuert. Die Erfahrungsstufe wird in der ArangoDB-Collection `user_preferences` gespeichert (via REQ-020 UserPreference-API) und beim Login automatisch geladen — der Nutzer muss seine Stufe nicht erneut wählen, wenn er sich auf einem anderen Gerät oder in einer neuen Sitzung anmeldet. Die Unterscheidung erfolgt **ausschließlich im Frontend** — alle drei Modi nutzen dieselben Backend-APIs. Das Backend liefert immer alle Daten; das Frontend filtert die Darstellung.
 
 **Kernkonzepte:**
 
@@ -48,7 +55,7 @@ Im Einsteiger-Modus werden ausgeblendete Felder mit sinnvollen Standardwerten be
 
 ### Nutzerpräferenz (via REQ-020 UserPreference):
 
-Die `experience_level`-Präferenz wird in REQ-020 als `UserPreference` definiert. REQ-021 nutzt diesen Wert als Grundlage für alle UI-Entscheidungen.
+Die `experience_level`-Präferenz wird in REQ-020 als `UserPreference` definiert und **serverseitig in ArangoDB persistiert** (Collection: `user_preferences`, 1:1 pro User). REQ-021 nutzt diesen Wert als Grundlage für alle UI-Entscheidungen. Das Frontend lädt die Präferenz beim Login über `GET /api/v1/user-preferences` und hält sie im Redux-State. Änderungen werden sofort über `PATCH /api/v1/user-preferences` an den Server gesendet, sodass die Einstellung geräte- und sitzungsübergreifend erhalten bleibt.
 
 Zusätzlich wird im Frontend ein lokaler Zustand für temporäre Einblendungen gehalten:
 
@@ -88,12 +95,14 @@ type FieldConfig<T extends string> = Record<T, FieldMeta>;
 
 **SpeciesCreateDialog:**
 
+> **Hinweis (v1.1 / F-004):** `description` und `growth_habit` wurden von _Einsteiger_ nach _Fortgeschritten_ verschoben. Einsteiger sollen nicht über Species-CRUD Pflanzen anlegen, sondern über den Quick-Add-Plant-Flow (§ 3.8). Der SpeciesCreateDialog bleibt den Stufen _Fortgeschritten_ und _Experte_ vorbehalten (die Stammdaten-Navigation ist ohnehin erst ab `intermediate` sichtbar).
+
 | Feld | Einsteiger | Fortgeschritten | Experte | Auto-Fill (wenn verborgen) |
 |------|:----------:|:---------------:|:-------:|---------------------------|
-| `common_names` | Sichtbar | Sichtbar | Sichtbar | — |
-| `description` | Sichtbar | Sichtbar | Sichtbar | — |
-| `growth_habit` | Sichtbar (Icons) | Sichtbar | Sichtbar | — |
-| `scientific_name` | — | Sichtbar | Sichtbar | Aus Stammdaten-Suche |
+| `common_names` | — | Sichtbar | Sichtbar | — |
+| `description` | — | Sichtbar | Sichtbar | `""` |
+| `growth_habit` | — | Sichtbar (Icons) | Sichtbar | `'herb'` |
+| `scientific_name` | — | Sichtbar | Sichtbar | — |
 | `family_key` | — | Sichtbar | Sichtbar | Aus Species-Lookup |
 | `genus` | — | Sichtbar | Sichtbar | Aus scientific_name |
 | `root_type` | — | — | Sichtbar | Aus Species-Seed-Daten (Fallback: `'fibrous'`) |
@@ -290,10 +299,114 @@ pages.nutrient.beginner.simpleDosage
 pages.nutrient.beginner.confirmFertilized
 ```
 
+### 3.8 Quick-Add-Plant (Beginner-Flow)
+
+> **Adressiert Finding:** F-004 aus dem Casual-Houseplant-User-Review — "Zu viele Pflichtfelder bei manueller Pflanzenanlage".
+
+**Problem:** Im aktuellen System muss ein Einsteiger, der außerhalb des Onboarding-Wizards (REQ-020) eine Pflanze hinzufügen will, den SpeciesCreateDialog verwenden — ein Stammdaten-Formular mit Feldern wie `growth_habit`, `description` und der Pflicht-Referenz auf `scientific_name`. Dieser Dialog ist für Stammdaten-Verwaltung konzipiert, nicht für "Ich will meine neue Monstera eintragen".
+
+**Lösung:** Ein dedizierter **Quick-Add-Plant-Dialog**, der über die Beginner-Navigation ("Meine Pflanzen") erreichbar ist. Statt neue Species anzulegen, wird in den **bestehenden Stammdaten** (Seed-Daten, GBIF/Perenual-Anreicherung) per Common Name gesucht.
+
+**Flow:**
+
+```
+1. Nutzer klickt "Pflanze hinzufügen" auf "Meine Pflanzen"-Seite
+2. Autocomplete-Suchfeld: "Wie heißt deine Pflanze?"
+   → Sucht in species.common_names UND species.scientific_name
+   → Zeigt Treffer mit Common Name (Deutsch) + kleiner Illustration/Icon
+   → Minimum 2 Zeichen, debounced (300ms)
+3. Nutzer wählt z.B. "Monstera (Monstera deliciosa)" aus
+4. Optional: Spitzname eingeben ("Meine große Monstera")
+5. Optional: Standort wählen (Dropdown bestehender Sites/Locations)
+6. Klick "Hinzufügen"
+   → PlantInstance wird erstellt (species_key aus Auswahl)
+   → CareProfile wird auto-generiert (REQ-022, care_style aus Species/Family)
+   → Erfolgs-Feedback: "Monstera wurde hinzugefügt!"
+```
+
+**Kein Treffer — Freitext-Fallback:**
+
+```
+1. Nutzer tippt "Komische Rankepflanze" → keine Treffer
+2. System zeigt: "Keine passende Pflanze gefunden"
+3. Option A: "Pflanze trotzdem anlegen" (Freitext als common_name)
+   → Species wird mit common_names=["Komische Rankepflanze"] erstellt
+   → scientific_name wird leer gelassen (Zod: optional im Quick-Add)
+   → Hinweis: "Du kannst den botanischen Namen später ergänzen"
+4. Option B: "Hilfe — ich kenne den Namen nicht"
+   → Link zu externem Tool (z.B. PlantNet) oder Hinweis:
+     "Mach ein Foto und nutze eine Pflanzenerkennungs-App"
+   → Zukünftig: Foto-Upload + KI-Erkennung (N-001)
+```
+
+**Quick-Add-Plant FieldConfig:**
+
+| Feld | Pflicht | Beschreibung |
+|------|:-------:|-------------|
+| `species_search` | Ja (oder Freitext) | Autocomplete-Suche in bestehenden Species |
+| `nickname` | Nein | Spitzname für die Pflanze ("Meine Monstera") |
+| `site_key` | Nein | Standort-Auswahl (Dropdown) |
+| `location_key` | Nein | Unter-Standort (nur wenn Site gewählt, Dropdown) |
+| `notes` | Nein | Optionale Notiz |
+
+Keine weiteren Felder. Alles andere wird aus den Species-Stammdaten abgeleitet.
+
+**Backend-Unterstützung:**
+
+```
+GET /api/v1/species/search?q=monstera&limit=10
+```
+
+Bestehender Endpunkt (REQ-001) — sucht in `common_names` (Array-Suche) und `scientific_name` (Prefix-Match). Keine Backend-Änderung nötig, falls der Endpunkt bereits Common-Name-Suche unterstützt. Andernfalls muss der Such-Endpunkt um `common_names`-Suche erweitert werden.
+
+**Frontend-Komponente:**
+
+```typescript
+/**
+ * QuickAddPlantDialog — Beginner-optimierter Pflanzen-Hinzufüge-Dialog.
+ *
+ * Wird über "Pflanze hinzufügen"-FAB auf "Meine Pflanzen"-Seite geöffnet.
+ * Für Intermediate/Expert wird stattdessen der bestehende Workflow
+ * (Species auswählen → PlantInstance erstellen) angeboten.
+ */
+interface QuickAddPlantDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onPlantAdded: () => void;
+}
+```
+
+**Sichtbarkeit nach Expertise-Level:**
+
+| Level | "Pflanze hinzufügen"-Button öffnet... |
+|-------|--------------------------------------|
+| Beginner | `QuickAddPlantDialog` (Suche → 1 Schritt) |
+| Intermediate | `QuickAddPlantDialog` (gleicher Flow, mehr optionale Felder) |
+| Expert | Bestehender Workflow (Species → PlantInstance → Phase) |
+
+**i18n-Schlüssel:**
+
+```
+pages.quickAdd.title                    → "Pflanze hinzufügen"
+pages.quickAdd.searchLabel              → "Wie heißt deine Pflanze?"
+pages.quickAdd.searchPlaceholder        → "z.B. Monstera, Basilikum, Ficus..."
+pages.quickAdd.nicknameLabel            → "Spitzname (optional)"
+pages.quickAdd.nicknamePlaceholder      → "z.B. Meine große Monstera"
+pages.quickAdd.siteLabel                → "Standort (optional)"
+pages.quickAdd.noResults                → "Keine passende Pflanze gefunden"
+pages.quickAdd.addAnyway                → "Trotzdem hinzufügen"
+pages.quickAdd.helpUnknown              → "Ich kenne den Namen nicht"
+pages.quickAdd.helpUnknownHint          → "Nutze eine Pflanzenerkennungs-App (z.B. PlantNet) oder beschreibe die Pflanze — du kannst den Namen später ergänzen."
+pages.quickAdd.success                  → "{{name}} wurde hinzugefügt!"
+pages.quickAdd.laterHint                → "Du kannst den botanischen Namen später ergänzen."
+```
+
 ## 4. Akzeptanzkriterien
 
 ### Funktional:
 - [ ] Nutzerpräferenz `experience_level` mit Werten `beginner`, `intermediate`, `expert` existiert
+- [ ] Die Erfahrungsstufe wird **serverseitig** in der `user_preferences`-Collection gespeichert (nicht nur im Browser-LocalStorage)
+- [ ] Nach erneutem Login oder Gerätewechsel ist die zuletzt gewählte Erfahrungsstufe sofort aktiv — kein erneutes Umschalten nötig
 - [ ] Default für neue Nutzer: `beginner`
 - [ ] Umschaltung jederzeit möglich über Einstellungen-Seite
 - [ ] Im `beginner`-Modus werden maximal 5 Felder pro Create-Dialog angezeigt
@@ -307,13 +420,24 @@ pages.nutrient.beginner.confirmFertilized
 - [ ] Bestehende Daten in ausgeblendeten Feldern bleiben erhalten (kein Datenverlust bei Modus-Wechsel)
 - [ ] Alle drei Modi sind in DE und EN verfügbar
 
+### Quick-Add-Plant (v1.1 / F-004):
+- [ ] `QuickAddPlantDialog` ist über "Pflanze hinzufügen"-Button auf "Meine Pflanzen"-Seite erreichbar
+- [ ] Autocomplete-Suchfeld durchsucht bestehende Species nach `common_names` und `scientific_name`
+- [ ] Suche ab 2 Zeichen, debounced (300ms), max. 10 Ergebnisse
+- [ ] Bei Auswahl einer Species: PlantInstance wird mit 1 Klick erstellt (species_key, optionaler Nickname, optionaler Standort)
+- [ ] CareProfile wird automatisch generiert (REQ-022) basierend auf Species/Family
+- [ ] Freitext-Fallback: Wenn keine Species gefunden, kann Nutzer mit Freitext-Common-Name anlegen (`scientific_name` leer)
+- [ ] SpeciesCreateDialog zeigt `description` und `growth_habit` erst ab `intermediate` (nicht mehr `beginner`)
+- [ ] Beginner sehen `QuickAddPlantDialog`; Intermediate/Expert sehen `QuickAddPlantDialog` mit optionalen Zusatzfeldern; Expert kann alternativ den vollen Workflow nutzen
+
 ### Technisch:
-- [ ] Keine Backend-Änderung an bestehenden REQ-APIs erforderlich
+- [ ] Keine Backend-Änderung an bestehenden REQ-APIs erforderlich (Species-Such-Endpunkt muss `common_names` durchsuchen)
 - [ ] `useExpertiseLevel` Hook als zentrale Quelle der Wahrheit
 - [ ] `ExpertiseFieldWrapper` als wiederverwendbare Shared Component
 - [ ] Feld-Konfigurationen sind deklarativ (JSON/Object), nicht imperativ (if/else in JSX)
 - [ ] Alle drei Modi haben vitest-Tests (Feld-Sichtbarkeit, Navigation, Auto-Fill)
 - [ ] Kein Performance-Impact: Unsichtbare Felder werden nicht gerendert (kein `display: none`)
+- [ ] `QuickAddPlantDialog` hat vitest-Tests (Suche, Auswahl, Freitext-Fallback, PlantInstance-Erstellung)
 
 ## 5. Migrationsstrategie
 
@@ -351,4 +475,5 @@ User-Preference über die Endpunkte von REQ-020 (Onboarding-Wizard) gespeichert.
 | REQ-006 | Nutzt | `difficulty_level` auf WorkflowTemplates für Filterung nach Modus |
 | REQ-009 | Erweitert | Dashboard Role-Based Views werden durch systemweiten Modus gesteuert |
 | REQ-013 | Modifiziert UI | PlantingRunCreateDialog — Feld-Sichtbarkeit |
+| REQ-022 | Nutzt | Quick-Add-Plant erzeugt automatisch CareProfile für neue PlantInstance |
 | NFR-010 | Erweitert | CRUD-Masken werden um Expertise-Level-Steuerung ergänzt |

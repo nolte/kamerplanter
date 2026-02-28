@@ -6,7 +6,7 @@ Kategorie: Architektur Unterkategorie: API-Design, Security, Deployment Fokus: B
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI, Docker
 Status: Produktionsreif
 Priorität: Kritisch
-Version: 2.1
+Version: 2.2
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-27
 Tags: [architecture, api-first, security, scalability, separation-of-concerns, layered-architecture, rate-limiting, csp, mqtt-security, audit-trail, dsgvo]
@@ -335,6 +335,36 @@ paths:
 /api/v1/plants          ← Aktuelle Version
 /api/v2/plants          ← Breaking Changes
 /api/v1/plants/archive  ← Deprecated, wird entfernt
+```
+
+<!-- Quelle: Smart-Home-HA-Integration Review A-001 -->
+#### API-Stabilität für M2M-Consumer
+
+Die REST API bedient nicht nur Browser-Clients (React-Frontend), sondern auch **Machine-to-Machine-Consumer**:
+
+- **Home Assistant Custom Integration** (`kamerplanter-ha`) — pollt Pflanzen-, Tank- und Aufgabendaten
+- **IoT-Gateways** — schreiben Sensordaten via `POST /api/v1/t/{slug}/observations`
+- **CI/CD-Pipelines** — automatisierte Seed-Daten-Imports, Health-Checks
+- **Monitoring-Systeme** — Dashboard-Daten, Metriken
+
+**Stabilitätsgarantien für `/api/v1/`:**
+
+| Regel | Beschreibung |
+|-------|-------------|
+| **12-Monats-Garantie** | Alle v1-Endpoints bleiben mindestens 12 Monate nach Release stabil. Breaking Changes nur in `/api/v2/`. |
+| **Additive Änderungen erlaubt** | Neue Felder in Response-Objekten sind erlaubt (M2M-Clients MÜSSEN unbekannte Felder ignorieren). |
+| **Immutable Identifiers** | `_key`-Werte in ArangoDB sind stabil und dürfen nicht geändert werden. M2M-Clients verwenden `_key` als persistente Referenz. |
+| **OpenAPI-Pflicht** | Alle Response-Properties MÜSSEN im OpenAPI-Schema dokumentiert sein (siehe NFR-005 §2.4). Undokumentierte Felder sind nicht Teil des API-Kontrakts. |
+| **Deprecation-Vorlauf** | Vor Entfernung eines Endpoints: mindestens 3 Monate `Sunset`-Header + Deprecation-Hinweis in OpenAPI-Spec. |
+
+**Versionierungsstrategie für Breaking Changes:**
+
+```
+v1 (stabil)      v2 (Breaking Changes)
+────────────     ──────────────────────
+GET /api/v1/plants  →  GET /api/v2/plants (neues Schema)
+                        ↑ Parallelbetrieb für 6 Monate
+                        ↓ v1 wird mit Sunset-Header markiert
 ```
 
 ### 4.3 Verbotene Praktiken

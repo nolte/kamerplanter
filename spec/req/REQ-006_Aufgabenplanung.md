@@ -7,7 +7,7 @@ Kategorie: Prozessmanagement
 Fokus: Beides
 Technologie: Python, ArangoDB, Celery (Task Scheduling)
 Status: Entwurf
-Version: 2.2 (U/P-Findings integriert)
+Version: 2.7 (Saisonaler Gartenkalender & Phänologie)
 ```
 
 ## 1. Business Case
@@ -49,6 +49,17 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
 - **Obstbaum-Jahresschnitt:** Saisonaler Trigger (Februar/März für Kernobst, Juli/August für Steinobst): Totholz entfernen, Wasserschosse schneiden, Kronenform korrigieren, Wundverschluss bei Schnitten >3cm Durchmesser
 - **Saisonende-Workflow (Herbst):** Abgestorbene Pflanzen entfernen, Beete mulchen, Kompost einarbeiten, Gründüngung aussäen, Bewässerungssystem winterfest machen, Werkzeuge reinigen und ölen
 
+<!-- Quelle: Outdoor-Garden-Planner Review G-005 -->
+**Erweiterte Outdoor/Freiland-Templates:**
+- **Frühjahrs-Beetvorbereitung:** Saisonaler Trigger (März): Kompost ausbringen (3-4 L/m² für Starkzehrer-Beete), Boden lockern (nicht umgraben — Bodenlebewesen schonen!), Mulch entfernen, Bodentemperatur prüfen (>8°C für Direktsaat)
+- **Voranzucht-Workflow (Indoor→Outdoor):** Start ab Februar: Aussaat nach Aussaatkalender (REQ-001 `sowing_indoor_weeks_before_last_frost`), Pikieren nach Keimblattstadium, Abhärtung 10-14 Tage vor Auspflanzen, Auspflanzen nach Eisheiligen (REQ-001 `frost_sensitivity` prüfen!)
+- **Gründüngung-Workflow:** Trigger nach Ernte eines Beets: Gründüngung aussäen (Phacelia Aug-Sep, Senf bis Okt, Inkarnatklee Sep-Okt), einarbeiten vor Blüte oder Frost absterben lassen, Beet für Frühjahr vorbereiten
+- **Überwinterungs-Checklist:** Saisonaler Trigger (Oktober): Generiert pro Pflanze basierend auf `OverwinteringProfile` (REQ-022) eine Aufgabenliste — Knollen ausgraben, Kübelpflanzen einräumen, Rosen anhäufeln, Vlies anbringen, Wasserleitungen entleeren
+- **Frühlings-Auswinterungs-Checklist:** Saisonaler Trigger (März/April): Winterschutz entfernen, Rosen abhäufeln, Obstbäume schneiden, Kübelpflanzen schrittweise rausstellen, eingelagerte Knollen vorziehen
+- **Sukzessions-Aussaat:** Recurring-Template: "Alle 3 Wochen Salat nachsäen" von April bis August, "Alle 4 Wochen Radieschen" von März bis September — konfigurierbare Abstände und Zeiträume pro Species (REQ-013 `clone_from_run_key`)
+- **Staudenteilung-Workflow:** Saisonaler Trigger (Frühjahr oder Herbst, artspezifisch): Staude ausgraben, teilen (Messer/Spaten), Teilstücke neu einpflanzen, gut wässern, 2 Wochen schonen
+- **Rosen-Jahrespflege:** Zusammengesetzter Workflow über das ganze Jahr: Frühjahrsschnitt (bei Forsythienblüte!), Sommerblüte ausputzen, Herbst-Anhäufeln, Winterschutz
+
 **User-Blueprints (Eigene Strategien):**
 - Speicherbar, editierbar, teilbar mit Community
 - Versionierung von Template-Änderungen
@@ -61,6 +72,9 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
 4. **Absolute-Date:** Festes Kalenderdatum
 5. **Conditional:** Basierend auf Zustand (z.B. Höhe > 30cm)
 6. **Manual:** Nutzer initiiert
+<!-- Quelle: Outdoor-Garden-Planner Review G-005 -->
+7. **Seasonal-Month:** Fester Kalendermonat (z.B. "Jedes Jahr im Oktober" — für saisonale Gartenaufgaben)
+8. **Phenological:** Basierend auf phänologischen Zeigerpflanzen (z.B. "Wenn Forsythie blüht" = Rosen schneiden; "Wenn Holunder blüht" = Bohnen säen; "Wenn Apfel blüht" = Kartoffeln legen). Der Nutzer dokumentiert das Eintreten des phänologischen Ereignisses, das System löst dann die verknüpften Tasks aus.
 
 > **Future Feature (niedrige Priorität):** Mondkalender / Biorhythmus-Trigger.
 > Einige Gärtner orientieren sich am Mondkalender (z.B. Maria Thun) für
@@ -80,6 +94,9 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
 - **Harvest:** Partial-Harvest, Final-Harvest, Flushing-Start
 - **Observation:** Wachstumsmessung, Blattkontrolle, pH/EC-Ablesung, Foto-Fortschrittsdokumentation, Symptom-Check
 - **Maintenance:** Substrat-Check, Reinigung, Equipment-Wartung
+<!-- Quelle: Outdoor-Garden-Planner Review G-005 -->
+- **Seasonal:** Saisonale Gartenaufgaben (Beetvorbereitung, Winterschutz, Gründüngung)
+- **Phenological:** Durch phänologische Beobachtungen ausgelöste Tasks
 
 **Intelligente Features:**
 - **HST-Validation:** Verhindert High-Stress-Training in kritischen Phasen
@@ -87,6 +104,34 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
 - **Resource-Conflicts:** Warnung bei gleichzeitigen Tasks an verschiedenen Pflanzen
 - **Completion-Verification:** Foto-Upload-Pflicht bei kritischen Eingriffen
 - **Learning-Mode:** System lernt durchschnittliche Completion-Times
+
+<!-- Quelle: Cannabis Indoor Grower Review W-006 -->
+**Task-Timer & Countdown-Integration:**
+
+Timer sind kein eigenständiges Modul, sondern eine optionale Eigenschaft einzelner Task-Schritte. Beim Starten einer Aufgabe (Status-Übergang `pending` → `in_progress`) kann ein zugehöriger Countdown-Timer mitlaufen, der den Nutzer bei zeitkritischen Arbeitsschritten unterstützt.
+
+- **Vordefinierte Timer-Dauer:** Jedes `TaskTemplate` kann eine optionale `timer_duration_seconds: Optional[int]` tragen. Bei Workflow-Instantiation wird dieser Wert auf die Task-Instanz propagiert. Beispiele:
+  - Nährlösung mischen — CalMag umrühren: 120 s (2 min)
+  - Einwirkzeit Foliar-Spray vor Lights-Off: 1800 s (30 min)
+  - Burping (Gläser öffnen nach Trocknung): 900 s (15 min)
+  - Einwirkzeit IPM-Behandlung (z.B. Neemöl-Kontaktzeit): 600 s (10 min)
+  - Wurzelbad beim Umtopfen: 300 s (5 min)
+- **Timer-Label:** Optionaler `timer_label: Optional[str]` beschreibt den Zweck des Countdowns in der UI (z.B. "Umrühren", "Einwirkzeit", "Belüftung"). Wird am TaskTemplate definiert und auf die Instanz propagiert.
+- **Manuelle Timer:** Nutzer können bei Tasks ohne vordefinierte Dauer ad-hoc einen Timer starten und die Dauer frei wählen. Der Wert wird auf der Task-Instanz als `timer_duration_seconds` gespeichert.
+- **Benachrichtigung bei Ablauf:** Bei Timer-Ende wird eine akustische und/oder haptische Benachrichtigung (Ton, Vibration) ausgelöst. Die Benachrichtigungsart ist in den User-Preferences konfigurierbar (REQ-020/REQ-021). Auf mobilen Geräten wird eine Push-Notification erzeugt, falls die App im Hintergrund ist.
+- **Timer-Zustand:** Der Timer läuft clientseitig (Frontend/Flutter). Pause/Resume wird unterstützt. Der Timer-Zustand wird nicht serverseitig persistiert — bei App-Neustart geht ein laufender Timer verloren. Die tatsächliche Aufgabendauer (`actual_duration_minutes`) wird unabhängig vom Timer erfasst.
+- **Kein Blockieren:** Der Timer-Ablauf blockiert nicht den Task-Abschluss. Der Nutzer kann einen Task jederzeit abschließen, unabhängig vom Timer-Stand. Der Timer dient als Orientierungshilfe, nicht als Pflicht.
+
+**Anwendungsfälle (Querbezüge):**
+| Anwendungsfall | Timer-Dauer | Querbezug |
+|----------------|-------------|-----------|
+| CalMag umrühren vor Base-A-Zugabe | 2 min | REQ-004 (Mischsequenz-Validierung) |
+| Einwirkzeit Foliar-Spray vor Lights-Off | 30 min | REQ-006 (Feeding-Tasks, `optimal_time_of_day: lights_off`) |
+| Burping-Reminder (Gläser öffnen, belüften) | 15 min | REQ-008 (Post-Harvest Curing) |
+| Einwirkzeit IPM-Behandlung | 10–30 min | REQ-010 (Treatment-Tasks) |
+| Substrat-Einweichen vor Transplant | 5–15 min | REQ-019 (Substratvorbereitung) |
+
+> **Implementierungshinweis:** Die Timer-Felder (`timer_duration_seconds`, `timer_label`) werden am `:TaskTemplate`-Node und am `:Task`-Node als optionale Properties ergänzt (siehe Abschnitt 2 und 3). Die Frontend-Komponente rendert einen visuellen Countdown (Kreisdiagramm oder Balken) mit Start/Pause/Reset-Buttons. Akustische Signale nutzen die Web Audio API (Desktop) bzw. lokale Notifications (Mobile/PWA, UI-NFR-012).
 
 **Hormon-Verständnis (Plant Stress Physiology):**
 - **Auxin-Dominanz:** Topping erhöht laterales Wachstum
@@ -96,6 +141,91 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
 - **Hermaphroditism-Risk:** Cannabis reagiert auf Stress mit Zwitter-Bildung
 - **Karenzzeit (PHI):** Wartezeit zwischen Pflanzenschutz (REQ-010) und Ernte — Lebensmittelsicherheits-Validierung
 - **Tageszeit-Empfehlung:** Transplanting abends/Lights-Off (reduzierte Transpiration minimiert Welkestress; volle Dunkelperiode für Wurzel-Substrat-Kontakt), Training morgens (turgorreicher Stängel), Foliar bei Lights-Off (langsamere Verdunstung erhöht Kontaktzeit, kein Phototoxizitäts-Risiko bei Öl-Produkten)
+
+<!-- Quelle: Cannabis Indoor Grower Review G-004 -->
+**Training-Plan (Canopy Management):**
+
+Training ist kein loser Haufen Einzeltasks, sondern ein zusammenhängender Plan mit messbaren Canopy-Zielen, Recovery-Tracking und Equipment-Verwaltung. Das System bildet Training-Strategien als dediziertes Subsystem ab, das auf dem bestehenden HST-Validator aufsetzt und ihn um Planungslogik, Canopy-Metriken und Autoflower-Schutz erweitert.
+
+**Training-Strategien als Workflow-Templates:**
+- **LST-Only:** Nur Low-Stress-Training (Biegen, Binden). Für Autoflower geeignet. Kein Recovery-Timer erforderlich.
+- **Top+SCROG (Screen of Green):** Topping ab 4.-6. Node, dann SCROG-Netz für gleichmäßige Canopy. Equipment: SCROG-Netz mit konfigurierbarer Netz-Höhe.
+- **Mainlining/Manifolding:** Symmetrisches Topping zu einem definierten Zeitplan — z.B. "Node 3 toppen, dann symmetrisch 8 Haupttriebe aufbauen". Mehrstufiger Workflow mit strikten Dependencies und Foto-Pflicht pro Schritt.
+- **SOG (Sea of Green):** Keine HST-Events, hohe Pflanzendichte, kurze Vegetationsphase. Canopy-Gleichmäßigkeit durch Genetik-Selektion statt Training.
+- **Defoliation-Schedule:** Geplante Entlaubung in Phasen (leicht in Vegi, strategisch in Early Flower, Lollipopping vor Mitte Blüte).
+
+**Training-Event-Modell:**
+Jedes Training-Event wird als `:TrainingEvent`-Dokument erfasst (ergänzt den bestehenden `:Task`-Node):
+- `event_type: Literal['topping', 'fim', 'lst_bend', 'lst_tie', 'scrog_tuck', 'lollipop', 'defoliation', 'supercrop', 'mainline_cut']`
+- `performed_at: datetime` — Zeitpunkt der Durchführung
+- `affected_nodes: list[int]` — Betroffene Node-Positionen (z.B. `[3, 4]` bei Mainlining)
+- `affected_branches: Optional[list[str]]` — Betroffene Triebe (z.B. `["main_left_1", "main_right_2"]`)
+- `recovery_days: int` — Erwartete Erholungsdauer (aus HST_Validator.BASE_RECOVERY_DAYS)
+- `recovery_end_date: date` — Berechnet: `performed_at + recovery_days`
+- `notes: Optional[str]` — Freitext für Beobachtungen
+- `photo_ref: Optional[str]` — Foto-Dokumentation (Pflicht bei HST-Events)
+
+**Canopy-Metriken:**
+Messbare Parameter zur Bewertung des Training-Fortschritts:
+- `canopy_height_min_cm: float` — Niedrigster Trieb
+- `canopy_height_max_cm: float` — Höchster Trieb
+- `canopy_height_avg_cm: float` — Durchschnittshöhe (berechnet)
+- `canopy_evenness_score: float` — Gleichmäßigkeits-Score: `1.0 - (max - min) / max`. Werte nahe 1.0 = perfekt eben, < 0.7 = ungleichmäßig, Intervention empfohlen (LST/Supercropping zur Höhenkorrektur)
+- `scrog_fill_percentage: Optional[float]` — Prozentualer Anteil der belegten Netzfläche (0-100%). Ziel: 80-95% vor Blüte-Switch. Nur relevant wenn SCROG-Equipment zugewiesen.
+- `branch_count: int` — Anzahl aktiver Triebe/Colas
+- `measured_at: date` — Messzeitpunkt
+
+Canopy-Metriken werden als `:CanopyMeasurement`-Dokumente gespeichert und über `has_canopy_measurement`-Edges mit der PlantInstance verknüpft. Zeitreihen ermöglichen Trend-Analyse (Wachstumskurve, Canopy-Entwicklung).
+
+**SCROG-Equipment:**
+- SCROG-Netz als Equipment-Typ auf dem `:Slot` (REQ-002)
+- Properties: `net_height_cm: float` (Netz-Höhe über Topfrand), `net_grid_size_cm: float` (Maschenweite, typisch 5-10 cm), `net_area_cm2: float` (Gesamtfläche)
+- `scrog_tuck`-Events tracken das Durchfädeln von Trieben durch das Netz
+- Canopy-Observation-Task ("SCROG-Füllgrad messen") als Recurring-Task im Workflow
+
+**Recovery-Timer:**
+Nach jedem HST-Event wird automatisch eine Erholungsphase angezeigt:
+- Recovery-Dauer aus `HST_Validator.BASE_RECOVERY_DAYS` (artspezifisch skaliert via `SPECIES_RECOVERY_FACTORS`)
+- Status-Anzeige: "Tag 2/7 Erholung nach Topping" mit Fortschrittsbalken
+- **Warnung bei Überlappung:** Wenn ein nächstes HST-Event geplant ist und die Recovery-Phase noch läuft, wird eine Warnung ausgegeben: "Erholungsphase endet am {recovery_end_date}, geplantes {next_event} am {next_date} liegt {n} Tage vor Ablauf"
+- Der HST-Validator nutzt `recovery_end_date` aus dem TrainingEvent statt nur die generische 7-Tage-Prüfung aus der Task-Historie
+- Recovery-Timer berücksichtigt den Temperatur-Modifikator (`TEMPERATURE_RECOVERY_MODIFIERS`) bei verfügbaren Umgebungsdaten (REQ-005)
+
+**Autoflower-Guard:**
+Automatische Warnung bei HST-Events für Autoflower-Cultivars:
+- Cross-Reference zu REQ-001: `Cultivar.flowering_type == 'autoflower'` (vgl. G-009 Autoflower-Erkennung)
+- **Verboten (mit Override):** Topping, FIM, Supercropping, Mainlining — "HST nicht empfohlen bei Autoflower-Sorten. Autoflower haben eine fixe Lebenszeit; Stress-Recovery reduziert die produktive Wachstumsphase überproportional."
+- **Erlaubt:** LST (Biegen, Binden), leichte Defoliation, SCROG-Tucking — diese Low-Stress-Maßnahmen beeinträchtigen das Wachstum nicht signifikant
+- Severity: `warning` mit `can_override: true` — erfahrene Grower können HST an robusten Autoflower-Genetiken bewusst durchführen
+- Prüfung erfolgt im `HST_Validator.can_perform_hst()` als zusätzlicher Check vor der Phasen-Prüfung
+
+**Integration mit bestehenden Modulen:**
+- **PlantInstance (REQ-013):** TrainingEvents und CanopyMeasurements werden über Edges mit der PlantInstance verknüpft. Ein aktiver Training-Plan referenziert den zugewiesenen WorkflowTemplate.
+- **HST-Validator:** Nutzt `recovery_end_date` aus TrainingEvents für präzisere Recovery-Prüfung. Autoflower-Guard als vorgelagerter Check.
+- **Canopy-Height als Sensorwert (REQ-005):** `canopy_height_max_cm` kann als manueller oder semi-automatischer Messwert (Kamera + Bildverarbeitung) in die Sensor-Pipeline einfließen.
+- **Task-System:** Training-Events erzeugen automatisch Observation-Follow-up-Tasks ("Recovery prüfen nach Topping", "Canopy-Höhe messen", "SCROG-Füllgrad dokumentieren").
+
+<!-- Quelle: Outdoor-Garden-Planner Review G-005 -->
+**12-Monats-Gartenkalender-Template (Freiland, Mitteleuropa):**
+
+Das System bietet ein Jahreskalender-Template, das für jeden Monat die wichtigsten Gartenaufgaben als `seasonal_month`-Tasks generiert. Der Kalender ist als WorkflowTemplate gespeichert und wird bei Aktivierung für das aktuelle Jahr instanziiert.
+
+| Monat | Generierte Tasks | Trigger |
+|-------|-----------------|---------|
+| Jan | Saatgut-Inventur, Gartenplan erstellen, Obstbaumschnitt (frostfrei) | `seasonal_month: 1` |
+| Feb | Voranzucht starten (Paprika, Chili, Aubergine), Beerensträucher schneiden | `seasonal_month: 2` |
+| Mär | Beetvorbereitung (Kompost), Rosen abhäufeln, Frühkartoffeln vorkeimen | `seasonal_month: 3` + `phenological: forsythia_bloom` |
+| Apr | Direktsaat (Möhren, Radieschen, Erbsen), Staudenteilung, Kartoffeln legen | `seasonal_month: 4` + `phenological: apple_bloom` |
+| Mai | Frostempfindliches auspflanzen (nach Eisheiligen!), Kübelpflanzen raus | `seasonal_month: 5` + `phenological: elderberry_bloom` |
+| Jun | Erdbeerernte, Tomaten ausgeizen, Sukzessions-Aussaat Salat/Bohnen | `seasonal_month: 6` |
+| Jul | Haupternte, Steinobstschnitt, Stecklinge schneiden, Bewässerung intensiv | `seasonal_month: 7` |
+| Aug | Herbstgemüse säen (Feldsalat, Spinat), Gründüngung auf leere Beete | `seasonal_month: 8` |
+| Sep | Äpfel/Birnen ernten, Herbstpflanzungen, Frühblüher-Zwiebeln stecken | `seasonal_month: 9` |
+| Okt | Winterschutz-Checklist (REQ-022), Dahlien ausgraben, Kübelpflanzen rein | `seasonal_month: 10` |
+| Nov | Rosen anhäufeln, Beete mulchen, Kompost umsetzen, Laub kompostieren | `seasonal_month: 11` |
+| Dez | Gartenruhe, Jahresrückblick, Saatgutkataloge studieren, Planung nächstes Jahr | `seasonal_month: 12` |
+
+**Regionale Anpassung:** Der Kalender verschiebt sich um ±2-4 Wochen basierend auf der `climate_zone` der Site (REQ-002). In USDA 6b (Mittelgebirge) beginnt die Voranzucht 2-3 Wochen später als in USDA 8a (Rheingraben).
 
 ## 2. ArangoDB-Graph-Modellierung
 
@@ -113,7 +243,7 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
     - `growth_system: Literal['soil', 'hydro', 'coco', 'any']`
     - `difficulty_level: Literal['beginner', 'intermediate', 'advanced']`
     - `estimated_total_hours: float`
-    - `category: Literal['training', 'maintenance', 'harvest', 'custom']`
+    - `category: Literal['training', 'maintenance', 'harvest', 'seasonal', 'custom']`
     - `tags: list[str]`
     - `usage_count: int` (Wie oft verwendet)
     - `average_rating: Optional[float]`
@@ -124,7 +254,7 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
     - `name: str`
     - `instruction: str` (Detaillierte Anleitung)
     - `category: str`
-    - `trigger_type: Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional', 'gdd_threshold']`
+    - `trigger_type: Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional', 'gdd_threshold', 'seasonal_month', 'phenological']`
     - `trigger_phase: Optional[str]` (z.B. "vegetative")
     - `days_offset: Optional[int]` (Für zeitbasierte Trigger)
     - `gdd_threshold: Optional[float]` (Gradtagsumme ab Pflanzung/Phasenstart — biologisch genauer als Kalendertage, REQ-003)
@@ -140,6 +270,11 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
     - `video_tutorial_url: Optional[str]`
     - `safety_notes: Optional[str]`
     - `optimal_time_of_day: Optional[Literal['morning', 'afternoon', 'evening', 'lights_off']]` (Tageszeit-Empfehlung)
+    - `timer_duration_seconds: Optional[int]` (Countdown-Dauer in Sekunden, z.B. 120 für "2 min umrühren") <!-- W-006 -->
+    - `timer_label: Optional[str]` (Beschriftung des Timers in der UI, z.B. "Umrühren", "Einwirkzeit") <!-- W-006 -->
+    <!-- Quelle: Outdoor-Garden-Planner Review G-005 -->
+    - `trigger_month: Optional[int]` (Für seasonal_month-Trigger, z.B. 10 für Oktober)
+    - `phenological_event: Optional[str]` (Phänologisches Ereignis, z.B. "forsythia_bloom", "elderberry_bloom", "apple_bloom")
 
 - **`:Task`** - Konkrete Aufgaben-Instanz
   - Properties:
@@ -163,6 +298,10 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
     - `completion_notes: Optional[str]`
     - `difficulty_rating: Optional[int]` (1-5, nachträglich)
     - `quality_rating: Optional[int]` (1-5, Ergebnis-Qualität)
+    - `planting_run_key: Optional[str]` (Referenz auf PlantingRun — für Run-basierte Tasks wie Gießplan-Tasks. Ermöglicht Gruppierung nach Run und Duplikat-Prüfung)
+    - `watering_event_key: Optional[str]` (Referenz auf WateringEvent — nach Bestätigung des Gießvorgangs gefüllt. Verknüpft Task mit dem erzeugten Event für Rückverfolgbarkeit)
+    - `timer_duration_seconds: Optional[int]` (von TaskTemplate propagiert oder manuell gesetzt) <!-- W-006 -->
+    - `timer_label: Optional[str]` (von TaskTemplate propagiert oder manuell gesetzt) <!-- W-006 -->
 
 - **`:TaskDependency`** - Abhängigkeits-Regel
   - Properties:
@@ -194,6 +333,51 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
     - `created_by: str`
     - `created_at: datetime`
 
+<!-- Quelle: Cannabis Indoor Grower Review G-004 -->
+- **`:TrainingEvent`** - Einzelnes Training-Ereignis mit Recovery-Tracking
+  - Properties:
+    - `training_event_id: str`
+    - `event_type: Literal['topping', 'fim', 'lst_bend', 'lst_tie', 'scrog_tuck', 'lollipop', 'defoliation', 'supercrop', 'mainline_cut']`
+    - `performed_at: datetime`
+    - `affected_nodes: list[int]` (Node-Positionen, z.B. `[3, 4]`)
+    - `affected_branches: Optional[list[str]]` (Trieb-Bezeichnungen, z.B. `["main_left_1"]`)
+    - `recovery_days: int` (aus HST_Validator.BASE_RECOVERY_DAYS × SPECIES_RECOVERY_FACTORS)
+    - `recovery_end_date: date` (berechnet: performed_at + recovery_days)
+    - `photo_ref: Optional[str]` (Pflicht bei HST-Events)
+    - `notes: Optional[str]`
+
+- **`:CanopyMeasurement`** - Zeitpunkt-bezogene Canopy-Messung
+  - Properties:
+    - `measurement_id: str`
+    - `measured_at: date`
+    - `canopy_height_min_cm: float`
+    - `canopy_height_max_cm: float`
+    - `canopy_height_avg_cm: float` (berechnet)
+    - `canopy_evenness_score: float` (berechnet: `1.0 - (max - min) / max`)
+    - `scrog_fill_percentage: Optional[float]` (0-100%, nur bei SCROG-Equipment)
+    - `branch_count: int`
+    - `notes: Optional[str]`
+
+<!-- Quelle: Outdoor-Garden-Planner Review G-005 -->
+- **`:PhenologicalEvent`** — Dokumentiertes phänologisches Ereignis
+  - Properties:
+    - `event_type: str` (z.B. "forsythia_bloom", "elderberry_bloom", "apple_bloom", "first_frost", "last_frost")
+    - `observed_date: date` (Beobachtungsdatum)
+    - `year: int`
+    - `notes: Optional[str]`
+    - `photo_ref: Optional[str]`
+    - `created_at: datetime`
+
+Vordefinierte phänologische Zeiger (Mitteleuropa):
+| Phänologisches Ereignis | Zeigerpflanze | Garten-Aktion |
+|------------------------|---------------|---------------|
+| `hazel_bloom` | Haselblüte (Feb) | Vorfrühling — erste Aussaaten im Kalthaus |
+| `forsythia_bloom` | Forsythienblüte (Mär/Apr) | Rosen schneiden, Stauden teilen |
+| `apple_bloom` | Apfelblüte (Apr/Mai) | Kartoffeln legen, frostempfindliche Direktsaat |
+| `elderberry_bloom` | Holunderblüte (Mai/Jun) | Bohnen säen, alles auspflanzen (Frost vorbei) |
+| `linden_bloom` | Lindenblüte (Jun/Jul) | Hochsommer — Ernte beginnt |
+| `first_frost` | Erster Frost (Okt/Nov) | Winterschutz! Knollen ausgraben! |
+
 ### Edges:
 ```
 Edge Collections im Graph 'kamerplanter_graph':
@@ -212,6 +396,16 @@ completed_by:      Tasks -> Users                             {timestamp: dateti
 has_comment:       Tasks -> TaskComments
 written_by:        TaskComments -> Users
 rated_by:          WorkflowTemplates -> Users                 {rating: int, timestamp: datetime}
+
+// Training-Plan (Canopy Management) — G-004:
+has_training_event:       Tasks -> TrainingEvents                // Task erzeugt TrainingEvent bei Completion
+training_on:              TrainingEvents -> PlantInstances       // An welcher Pflanze trainiert wurde
+has_canopy_measurement:   PlantInstances -> CanopyMeasurements   // Canopy-Messwert-Zeitreihe
+triggered_by_training:    Tasks -> TrainingEvents                // Follow-up-Task referenziert auslösendes Event
+
+// Phänologische Trigger — G-005:
+triggered_by_phenology:   Tasks -> PhenologicalEvents            // Task wurde durch phänologisches Ereignis ausgelöst
+observed_at_site:         PhenologicalEvents -> Sites            // An welchem Standort beobachtet
 ```
 
 ### AQL-Beispiellogik:
@@ -572,8 +766,8 @@ class TaskTemplate(BaseModel):
     task_template_id: str
     name: str = Field(min_length=3, max_length=200)
     instruction: str = Field(min_length=10, max_length=2000)
-    category: Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder']
-    trigger_type: Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional']
+    category: Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological']
+    trigger_type: Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional', 'seasonal_month', 'phenological']
     trigger_phase: Optional[str] = None
     days_offset: Optional[int] = Field(None, ge=0, le=365)
     conditional_expression: Optional[str] = None
@@ -586,6 +780,15 @@ class TaskTemplate(BaseModel):
     skill_level: Literal['beginner', 'intermediate', 'advanced'] = 'beginner'
     video_tutorial_url: Optional[str] = None
     safety_notes: Optional[str] = None
+    timer_duration_seconds: Optional[int] = Field(
+        None, ge=1, le=7200,
+        description="Optionaler Countdown-Timer in Sekunden. Wird bei Workflow-Instantiation "
+                    "auf die Task-Instanz propagiert. Max. 2 Stunden (7200s)."
+    )  # W-006
+    timer_label: Optional[str] = Field(
+        None, max_length=100,
+        description="Beschriftung des Timers in der UI, z.B. 'Umrühren', 'Einwirkzeit', 'Belüftung'."
+    )  # W-006
     optimal_time_of_day: Optional[Literal['morning', 'afternoon', 'evening', 'lights_off']] = Field(
         None,
         description="Empfohlene Tageszeit für optimale Ergebnisse. "
@@ -595,6 +798,16 @@ class TaskTemplate(BaseModel):
                     "Dunkelheit (CAM) oder schließen bei hohem VPD/Licht, (2) niedrigerer VPD verlängert "
                     "Benetzungsdauer und damit Aufnahmezeit, (3) langsamere Verdunstung = höhere Aufnahme, "
                     "(4) kein Phototoxizitäts-Risiko bei Öl-Produkten (Neem, Paraffinöl)."
+    )
+    # Saisonale/Phänologische Trigger (Quelle: Outdoor-Garden-Planner Review G-005)
+    trigger_month: Optional[int] = Field(
+        None, ge=1, le=12,
+        description="Für seasonal_month-Trigger: Kalendermonat (1-12), z.B. 10 für Oktober."
+    )
+    phenological_event: Optional[str] = Field(
+        None, max_length=100,
+        description="Phänologisches Ereignis, z.B. 'forsythia_bloom', 'elderberry_bloom', 'apple_bloom'. "
+                    "Task wird ausgelöst wenn der Nutzer das Eintreten dieses Ereignisses dokumentiert."
     )
 
     @field_validator('days_offset')
@@ -614,7 +827,24 @@ class TaskTemplate(BaseModel):
             if not v:
                 raise ValueError(f"trigger_phase erforderlich für {trigger}")
         return v
-    
+
+    # G-005: Validierung für saisonale/phänologische Trigger
+    @field_validator('trigger_month')
+    @classmethod
+    def validate_trigger_month(cls, v, info):
+        trigger = info.data.get('trigger_type')
+        if trigger == 'seasonal_month' and v is None:
+            raise ValueError("trigger_month erforderlich für seasonal_month-Trigger")
+        return v
+
+    @field_validator('phenological_event')
+    @classmethod
+    def validate_phenological_event(cls, v, info):
+        trigger = info.data.get('trigger_type')
+        if trigger == 'phenological' and not v:
+            raise ValueError("phenological_event erforderlich für phenological-Trigger")
+        return v
+
     def calculate_due_date(
         self,
         plant_instance: dict,
@@ -659,7 +889,20 @@ class TaskTemplate(BaseModel):
         elif self.trigger_type == 'conditional':
             # Wird ausgelöst wenn Bedingung erfüllt
             return today
-        
+
+        # G-005: Saisonale/Phänologische Trigger
+        elif self.trigger_type == 'seasonal_month':
+            # Nächstes Auftreten des konfigurierten Monats
+            if self.trigger_month:
+                year = today.year if today.month <= self.trigger_month else today.year + 1
+                return date(year, self.trigger_month, 1)
+            return today
+
+        elif self.trigger_type == 'phenological':
+            # Wird ausgelöst wenn phänologisches Ereignis dokumentiert wird
+            # Due-Date = Beobachtungsdatum des Ereignisses
+            return today
+
         return today
 
 class WorkflowTemplate(BaseModel):
@@ -675,7 +918,7 @@ class WorkflowTemplate(BaseModel):
     growth_system: Literal['soil', 'hydro', 'coco', 'any'] = 'any'
     difficulty_level: Literal['beginner', 'intermediate', 'advanced']
     estimated_total_hours: float = Field(ge=0, le=1000)
-    category: Literal['training', 'maintenance', 'harvest', 'custom']
+    category: Literal['training', 'maintenance', 'harvest', 'seasonal', 'custom']
     tags: List[str] = Field(default_factory=list)
     
     @field_validator('version')
@@ -1014,6 +1257,249 @@ class HST_Validator:
             'expected_outcome': '',
             'risks': ['Unbekannte Technik']
         })
+```
+
+<!-- Quelle: Cannabis Indoor Grower Review G-004 -->
+**2b. Training-Plan-Modelle & Autoflower-Guard:**
+```python
+from pydantic import BaseModel, Field, computed_field
+from typing import Literal, Optional
+from datetime import date, datetime, timedelta
+
+
+# --- Training-Event-Typen ---
+TrainingEventType = Literal[
+    'topping', 'fim', 'lst_bend', 'lst_tie', 'scrog_tuck',
+    'lollipop', 'defoliation', 'supercrop', 'mainline_cut'
+]
+
+# HST-Typen die den Recovery-Timer auslösen
+HST_EVENT_TYPES: set[str] = {
+    'topping', 'fim', 'supercrop', 'mainline_cut'
+}
+
+# HST-Typen die bei Autoflower verboten sind (mit Override)
+AUTOFLOWER_FORBIDDEN_HST: set[str] = {
+    'topping', 'fim', 'supercrop', 'mainline_cut'
+}
+
+
+class TrainingEvent(BaseModel):
+    """Einzelnes Training-Ereignis mit Recovery-Tracking"""
+
+    training_event_id: str
+    event_type: TrainingEventType
+    performed_at: datetime
+    affected_nodes: list[int] = Field(
+        default_factory=list,
+        description="Betroffene Node-Positionen (z.B. [3, 4] bei Mainlining)"
+    )
+    affected_branches: Optional[list[str]] = Field(
+        None,
+        description="Betroffene Triebe (z.B. ['main_left_1', 'main_right_2'])"
+    )
+    recovery_days: int = Field(
+        ge=0,
+        description="Erwartete Erholungsdauer in Tagen (aus HST_Validator)"
+    )
+    photo_ref: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+    @computed_field
+    @property
+    def recovery_end_date(self) -> date:
+        """Berechnet Ende der Erholungsphase"""
+        return (self.performed_at + timedelta(days=self.recovery_days)).date()
+
+    @computed_field
+    @property
+    def is_hst(self) -> bool:
+        """Ist dieses Event ein High-Stress-Training?"""
+        return self.event_type in HST_EVENT_TYPES
+
+    def recovery_status(self, current_date: date | None = None) -> dict:
+        """
+        Berechnet den aktuellen Recovery-Status.
+
+        Returns:
+            {
+                days_elapsed: int,
+                days_remaining: int,
+                is_recovered: bool,
+                progress_percent: float,
+                label: str  # z.B. "Tag 2/7 Erholung nach Topping"
+            }
+        """
+        today = current_date or date.today()
+        days_elapsed = (today - self.performed_at.date()).days
+        days_remaining = max(0, self.recovery_days - days_elapsed)
+        is_recovered = days_remaining == 0
+
+        progress = min(1.0, days_elapsed / self.recovery_days) if self.recovery_days > 0 else 1.0
+
+        return {
+            'days_elapsed': days_elapsed,
+            'days_remaining': days_remaining,
+            'is_recovered': is_recovered,
+            'progress_percent': round(progress * 100, 1),
+            'label': (
+                f"Erholung abgeschlossen ({self.event_type})"
+                if is_recovered
+                else f"Tag {days_elapsed}/{self.recovery_days} Erholung nach {self.event_type}"
+            ),
+        }
+
+
+class CanopyMeasurement(BaseModel):
+    """Zeitpunkt-bezogene Canopy-Messung"""
+
+    measurement_id: str
+    measured_at: date
+    canopy_height_min_cm: float = Field(ge=0)
+    canopy_height_max_cm: float = Field(ge=0)
+    branch_count: int = Field(ge=1)
+    scrog_fill_percentage: Optional[float] = Field(
+        None, ge=0, le=100,
+        description="Belegter Anteil der SCROG-Netzfläche (%). Nur bei SCROG-Equipment."
+    )
+    notes: Optional[str] = Field(None, max_length=500)
+
+    @computed_field
+    @property
+    def canopy_height_avg_cm(self) -> float:
+        """Durchschnittliche Canopy-Höhe"""
+        return round((self.canopy_height_min_cm + self.canopy_height_max_cm) / 2, 1)
+
+    @computed_field
+    @property
+    def canopy_evenness_score(self) -> float:
+        """
+        Gleichmäßigkeits-Score: 1.0 - (max - min) / max
+        Werte nahe 1.0 = perfekt eben
+        < 0.7 = ungleichmäßig, Intervention empfohlen
+        """
+        if self.canopy_height_max_cm == 0:
+            return 1.0
+        return round(
+            1.0 - (self.canopy_height_max_cm - self.canopy_height_min_cm)
+            / self.canopy_height_max_cm,
+            3
+        )
+
+
+# Quelle: Outdoor-Garden-Planner Review G-005
+class PhenologicalEvent(BaseModel):
+    """Dokumentiertes phänologisches Ereignis (Zeigerpflanze)"""
+
+    event_type: str = Field(
+        min_length=3, max_length=100,
+        description="z.B. 'forsythia_bloom', 'elderberry_bloom', 'apple_bloom', 'first_frost', 'last_frost'"
+    )
+    observed_date: date
+    year: int = Field(ge=2000, le=2100)
+    notes: Optional[str] = Field(None, max_length=500)
+    photo_ref: Optional[str] = None
+    created_at: datetime
+
+    # Vordefinierte phänologische Zeiger (Mitteleuropa)
+    PHENOLOGICAL_INDICATORS: dict[str, dict] = {
+        'hazel_bloom':      {'name': 'Haselblüte',      'typical_month': 2,  'action': 'Vorfrühling — erste Aussaaten im Kalthaus'},
+        'forsythia_bloom':  {'name': 'Forsythienblüte',  'typical_month': 3,  'action': 'Rosen schneiden, Stauden teilen'},
+        'apple_bloom':      {'name': 'Apfelblüte',       'typical_month': 4,  'action': 'Kartoffeln legen, frostempfindliche Direktsaat'},
+        'elderberry_bloom': {'name': 'Holunderblüte',    'typical_month': 5,  'action': 'Bohnen säen, alles auspflanzen (Frost vorbei)'},
+        'linden_bloom':     {'name': 'Lindenblüte',      'typical_month': 6,  'action': 'Hochsommer — Ernte beginnt'},
+        'first_frost':      {'name': 'Erster Frost',     'typical_month': 10, 'action': 'Winterschutz! Knollen ausgraben!'},
+    }
+
+
+class AutoflowerGuard:
+    """
+    Prüft ob HST-Events für Autoflower-Cultivars erlaubt sind.
+    Cross-Reference: REQ-001 Cultivar.flowering_type, G-009 Autoflower-Erkennung.
+
+    Autoflower haben eine genetisch fixierte Lebenszeit. Stress-Recovery
+    nach HST reduziert die produktive Wachstumsphase überproportional,
+    da die Pflanze nicht einfach länger in Vegi bleiben kann.
+    """
+
+    @classmethod
+    def check(
+        cls,
+        event_type: str,
+        flowering_type: str,
+    ) -> tuple[bool, str, dict]:
+        """
+        Prüft ob ein Training-Event für den gegebenen Cultivar-Typ erlaubt ist.
+
+        Args:
+            event_type: Typ des geplanten Training-Events
+            flowering_type: 'autoflower', 'photoperiod', 'fast_version', etc.
+
+        Returns:
+            (can_perform, reason, additional_info)
+        """
+        if flowering_type != 'autoflower':
+            return True, "Kein Autoflower — keine Einschränkung", {}
+
+        if event_type in AUTOFLOWER_FORBIDDEN_HST:
+            return False, (
+                f"WARNUNG: {event_type} nicht empfohlen bei Autoflower-Sorten. "
+                f"Autoflower haben eine fixe Lebenszeit; Stress-Recovery nach HST "
+                f"reduziert die produktive Wachstumsphase überproportional. "
+                f"Alternative: LST, leichte Defoliation oder SCROG-Tucking."
+            ), {
+                'severity': 'warning',
+                'can_override': True,
+                'suggested_alternatives': ['lst_bend', 'lst_tie', 'defoliation', 'scrog_tuck'],
+            }
+
+        # LST, Defoliation, SCROG-Tucking sind erlaubt
+        return True, (
+            f"{event_type} ist Low-Stress und für Autoflower geeignet."
+        ), {'severity': 'ok'}
+
+
+class RecoveryTimerChecker:
+    """
+    Prüft Recovery-Überlappungen bei geplanten Training-Events.
+    Nutzt TrainingEvent.recovery_end_date statt generische Task-Historie.
+    """
+
+    @classmethod
+    def check_overlap(
+        cls,
+        planned_event_date: date,
+        planned_event_type: str,
+        recent_training_events: list[TrainingEvent],
+    ) -> tuple[bool, str, dict]:
+        """
+        Prüft ob ein geplantes Training-Event in eine laufende Recovery-Phase fällt.
+
+        Returns:
+            (can_perform, reason, additional_info)
+        """
+        for event in recent_training_events:
+            if not event.is_hst:
+                continue
+
+            if planned_event_date < event.recovery_end_date:
+                days_before = (event.recovery_end_date - planned_event_date).days
+                status = event.recovery_status(planned_event_date)
+                return False, (
+                    f"WARNUNG: Erholungsphase nach {event.event_type} "
+                    f"(am {event.performed_at.date().isoformat()}) endet am "
+                    f"{event.recovery_end_date.isoformat()}. "
+                    f"Geplantes {planned_event_type} liegt {days_before} Tage vor Ablauf. "
+                    f"Aktueller Status: {status['label']}"
+                ), {
+                    'severity': 'warning',
+                    'can_override': True,
+                    'recovery_status': status,
+                    'blocking_event': event.training_event_id,
+                    'days_before_recovery_end': days_before,
+                }
+
+        return True, "Keine Recovery-Überlappung", {'severity': 'ok'}
 ```
 
 **3. Karenzzeit-Validator (PHI — Pre-Harvest Interval):**
@@ -1475,8 +1961,8 @@ from typing import Literal, Optional, List
 from pydantic import BaseModel, Field, field_validator
 from datetime import date, time, datetime
 
-TaskCategory = Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder']
-TriggerType = Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional', 'gdd_threshold']
+TaskCategory = Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological']
+TriggerType = Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional', 'gdd_threshold', 'seasonal_month', 'phenological']
 TaskStatus = Literal['pending', 'in_progress', 'completed', 'skipped', 'failed']
 TaskPriority = Literal['low', 'medium', 'high', 'critical']
 StressLevel = Literal['none', 'low', 'medium', 'high']
@@ -1484,7 +1970,7 @@ SkillLevel = Literal['beginner', 'intermediate', 'advanced']
 
 class TaskInstance(BaseModel):
     """Konkrete Task-Instanz"""
-    
+
     task_id: str
     name: str = Field(min_length=3, max_length=200)
     instruction: str = Field(min_length=10)
@@ -1497,7 +1983,23 @@ class TaskInstance(BaseModel):
     requires_photo: bool = False
     photo_refs: List[str] = Field(default_factory=list)
     completion_notes: Optional[str] = Field(None, max_length=1000)
-    
+    planting_run_key: Optional[str] = Field(
+        None,
+        description="Referenz auf PlantingRun — für Run-basierte Tasks (Gießplan-Workflow)"
+    )
+    watering_event_key: Optional[str] = Field(
+        None,
+        description="Referenz auf WateringEvent — nach Gießplan-Bestätigung gefüllt"
+    )
+    timer_duration_seconds: Optional[int] = Field(
+        None, ge=1, le=7200,
+        description="Countdown-Timer in Sekunden — von TaskTemplate propagiert oder manuell gesetzt"
+    )  # W-006
+    timer_label: Optional[str] = Field(
+        None, max_length=100,
+        description="Beschriftung des Timers, z.B. 'Umrühren', 'Einwirkzeit'"
+    )  # W-006
+
     @field_validator('photo_refs')
     @classmethod
     def validate_photos_when_required(cls, v, info):
@@ -1535,6 +2037,64 @@ class TaskCompletion(BaseModel):
         return round(time_score + quality_score, 1)
 ```
 
+### Celery-Beat: Gießplan-Task-Generierung
+
+**Task: `generate_watering_tasks`**
+- **Schedule:** Täglich 05:00 UTC
+- **Beschreibung:** Scannt alle aktiven PlantingRuns mit zugewiesenem NutrientPlan + WateringSchedule und erzeugt Gießplan-Tasks für den aktuellen Tag.
+
+```python
+from celery import shared_task
+from datetime import date, time
+
+@shared_task(name='generate_watering_tasks')
+def generate_watering_tasks():
+    """
+    Täglicher Celery-Beat Task: Erzeugt Gießplan-Tasks für alle aktiven Runs.
+
+    Ablauf:
+    1. Lade alle PlantingRuns mit status='active' und nutrient_plan_key != null
+    2. Für jeden Run: Lade den NutrientPlan und prüfe ob watering_schedule vorhanden
+    3. Prüfe ob heute ein Gießtag ist (via WateringScheduleEngine.is_watering_due):
+       - mode='weekdays': heute.weekday() in weekday_schedule?
+       - mode='interval': Tage seit letztem Gießen >= interval_days?
+    4. Idempotenz-Check: Existiert bereits ein Task mit
+       category='feeding' AND planting_run_key=run_key AND due_date=heute?
+       → Skip (kein Duplikat)
+    5. Erzeuge Task:
+       - task_id: f"feeding:watering:{run_key}:{today.isoformat()}"
+       - name: f"Gießen: {run.name}" (i18n-Key: tasks.watering.name)
+       - instruction: Generiert aus NutrientPlan + Phasengruppen
+       - category: 'feeding'
+       - due_date: heute
+       - scheduled_time: WateringSchedule.preferred_time (falls gesetzt)
+       - priority: 'high'
+       - skill_level: 'beginner'
+       - stress_level: 'none'
+       - requires_photo: false
+       - requires_confirmation: false
+       - planting_run_key: run._key
+       - estimated_duration_minutes: 15 (Default für manuelles Gießen)
+    6. Erzeuge has_task-Edges zu allen aktiven Pflanzen im Run
+
+    Idempotenz: Kein Duplikat wenn Task für Run+Datum schon existiert.
+    Tenant-Scope: Task erbt tenant_key vom PlantingRun.
+    """
+    today = date.today()
+    # ... Implementation
+```
+
+**Celery-Beat-Konfiguration:**
+```python
+CELERY_BEAT_SCHEDULE = {
+    # ... bestehende Tasks ...
+    'generate-watering-tasks': {
+        'task': 'generate_watering_tasks',
+        'schedule': crontab(hour=5, minute=0),  # Täglich 05:00 UTC
+    },
+}
+```
+
 ## 4. Authentifizierung & Autorisierung
 
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
@@ -1553,17 +2113,20 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 ## 5. Abhängigkeiten
 
 **Erforderliche Module:**
-- REQ-001 (Stammdaten): Species für Template-Kompatibilität + `species_type` für artspezifische Recovery-Zeiten
+- REQ-001 (Stammdaten): Species für Template-Kompatibilität + `species_type` für artspezifische Recovery-Zeiten + `Cultivar.flowering_type` für Autoflower-Guard (G-004)
 - REQ-003 (Phasen): GrowthPhase für Phase-Trigger (inkl. `early_flowering` Differenzierung), GDD-Daten für `gdd_threshold`-Trigger
 - REQ-002 (Standort): Location für Multi-Plant-Workflows
+- REQ-004 (Dünge-Logik): **HOCH** — NutrientPlan + WateringSchedule + WateringScheduleEngine für `generate_watering_tasks` Celery-Beat; Phasen-Dosierungsauflösung
 - REQ-010 (IPM): IPM-Task-Historie für Karenzzeit-Validierung bei Harvest-Tasks
+- REQ-013 (Pflanzdurchlauf): **HOCH** — PlantingRun als Gruppierungs-Container für Gießplan-Tasks; `nutrient_plan_key` auf Run/Entry für Plan-Auflösung; PlantInstance für TrainingEvent- und CanopyMeasurement-Verknüpfung (G-004)
+- REQ-005 (Sensorik): `canopy_height_max_cm` als manueller/semi-automatischer Messwert in die Sensor-Pipeline (G-004)
 - REQ-018 (Umgebungssteuerung): **Task-Aktor-Integration** — Tasks wie "Licht umstellen auf 12/12" können optional mit Aktor-Aktionen verknüpft werden. Bei automatischer Aktor-Ausführung: Task auto-completed. Bei manueller Steuerung: Task als Reminder. Konflikterkennung: Task "Licht 18/6" + Phase-Profil "12/12" = Warnung.
 
 **Wird benötigt von:**
 - REQ-007 (Ernte): Harvest-Tasks als Teil von Workflows
 - REQ-010 (IPM): IPM-Tasks (Spraying, Inspection)
 - REQ-009 (Dashboard): Task-Queue-Widget
-- REQ-014 (Tankmanagement): **HOCH** — Automatische Wartungs-Tasks aus MaintenanceSchedule (Wasserwechsel, Reinigung, Kalibrierung etc.)
+- REQ-014 (Tankmanagement): **HOCH** — Automatische Wartungs-Tasks aus MaintenanceSchedule; Gießplan-Bestätigungsflow (`confirm`/`quick-confirm`) nutzt Task-Key für Completion + WateringEvent-Erzeugung
 
 **Python-Bibliotheken:**
 - `celery` - Zeitgesteuerte Task-Erinnerungen
@@ -1607,6 +2170,36 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Time-Estimates:** System lernt durchschnittliche Completion-Times pro Task-Typ
 - [ ] **Skill-Level-Filter:** Anfänger sehen nur Beginner-Templates
 - [ ] **Video-Tutorials:** Links zu Anleitungsvideos in Templates
+- [ ] **Gießplan-Task-Generierung:** `generate_watering_tasks` Celery-Beat erzeugt tägliche Gieß-Tasks für aktive Runs mit NutrientPlan+WateringSchedule
+- [ ] **Gießplan-Idempotenz:** Kein Duplikat wenn Task für Run+Datum bereits existiert
+- [ ] **Gießplan-Weekday-Modus:** Tasks werden nur an konfigurierten Wochentagen erzeugt
+- [ ] **Gießplan-Interval-Modus:** Tasks werden im konfigurierten Intervall ab letztem Gießen erzeugt
+- [ ] **Gießplan-Task-Felder:** `planting_run_key` und `watering_event_key` auf Task korrekt gesetzt
+- [ ] **Gießplan-Tenant-Scope:** Tasks erben `tenant_key` vom PlantingRun
+- [ ] **Task-Timer (W-006):** TaskTemplates und Task-Instanzen unterstützen optionale `timer_duration_seconds` und `timer_label`
+- [ ] **Timer-Propagation (W-006):** Timer-Werte werden bei Workflow-Instantiation vom Template auf die Task-Instanz übertragen
+- [ ] **Timer-UI (W-006):** Visueller Countdown (Kreis/Balken) mit Start/Pause/Reset bei Tasks mit Timer-Dauer
+- [ ] **Timer-Benachrichtigung (W-006):** Akustische/haptische Benachrichtigung bei Timer-Ablauf (konfigurierbar in User-Preferences)
+- [ ] **Timer-Ad-hoc (W-006):** Nutzer können bei Tasks ohne vordefinierte Dauer manuell einen Timer starten
+- [ ] **Timer nicht-blockierend (W-006):** Timer-Ablauf blockiert nicht den Task-Abschluss — Orientierungshilfe, keine Pflicht
+- [ ] **Training-Event-Modell (G-004):** TrainingEvent-Dokumente mit event_type, affected_nodes, recovery_days, recovery_end_date korrekt erstellt bei Training-Task-Completion
+- [ ] **Canopy-Metriken (G-004):** CanopyMeasurement mit canopy_height_min/max/avg, canopy_evenness_score, branch_count; Zeitreihen-Trend pro PlantInstance
+- [ ] **SCROG-Füllgrad (G-004):** scrog_fill_percentage nur bei zugewiesenem SCROG-Equipment erfassbar; Zielwert 80-95% vor Blüte-Switch
+- [ ] **Recovery-Timer (G-004):** Nach HST-Events automatische Erholungsphase mit Fortschrittsbalken ("Tag 2/7 Erholung nach Topping")
+- [ ] **Recovery-Überlappungswarnung (G-004):** Warnung wenn nächstes HST-Event vor Ablauf der Recovery-Phase geplant wird (can_override: true)
+- [ ] **Autoflower-Guard (G-004):** Warnung bei Topping/FIM/Supercropping/Mainlining für Autoflower-Cultivars; LST/Defoliation/SCROG-Tucking bleiben erlaubt
+- [ ] **Training-Strategie-Templates (G-004):** System-Templates für LST-Only, Top+SCROG, Mainlining/Manifolding, SOG, Defoliation-Schedule
+- [ ] **Training-Follow-up-Tasks (G-004):** Automatische Observation-Tasks nach HST-Events (Recovery prüfen, Canopy messen, SCROG-Füllgrad dokumentieren)
+- [ ] **Canopy-Evenness-Score (G-004):** Score-Berechnung `1.0 - (max-min)/max`; Intervention-Empfehlung bei Score < 0.7
+<!-- Quelle: Outdoor-Garden-Planner Review G-005 -->
+- [ ] **Erweiterte Outdoor-Templates (G-005):** Frühjahrs-Beetvorbereitung, Voranzucht-Workflow, Gründüngung, Überwinterungs-Checklist, Frühlings-Auswinterungs-Checklist, Sukzessions-Aussaat, Staudenteilung, Rosen-Jahrespflege
+- [ ] **Seasonal-Month-Trigger (G-005):** Tasks können an feste Kalendermonate gebunden werden (trigger_type='seasonal_month', trigger_month=1-12)
+- [ ] **Phenological-Trigger (G-005):** Tasks werden durch phänologische Beobachtungen ausgelöst (trigger_type='phenological', phenological_event='forsythia_bloom' etc.)
+- [ ] **PhenologicalEvent-Dokumentation (G-005):** Nutzer können phänologische Ereignisse mit Datum, Foto und Notizen dokumentieren; System löst verknüpfte Tasks aus
+- [ ] **12-Monats-Gartenkalender (G-005):** Jahreskalender-Template für Freiland (Mitteleuropa) mit monatsspezifischen Tasks; instanziierbar pro Jahr
+- [ ] **Regionale Kalender-Anpassung (G-005):** Gartenkalender verschiebt sich basierend auf climate_zone der Site (REQ-002) um ±2-4 Wochen
+- [ ] **Seasonal/Phenological-Kategorien (G-005):** Neue Task-Kategorien 'seasonal' und 'phenological' für saisonale und phänologische Aufgaben
+- [ ] **Phänologische Zeigerpflanzen (G-005):** 6 vordefinierte Zeiger für Mitteleuropa (Hasel, Forsythie, Apfel, Holunder, Linde, Erster Frost) mit verknüpften Gartenaktionen
 
 ### Testszenarien:
 
@@ -1720,10 +2313,224 @@ THEN:
   - Success: "Workflow 'Advanced SCROG' importiert (Version 1.2.0)"
 ```
 
+**Szenario 8: Gießplan-Task-Generierung (Celery-Beat)**
+```
+GIVEN: PlantingRun "Tomaten Hochbeet A" (status: active, 20 Pflanzen),
+       NutrientPlan "Tomato Heavy Coco" mit WateringSchedule (weekdays: [0, 2, 4], preferred_time: "08:00")
+       Heute ist Montag (weekday=0)
+WHEN: Celery-Task `generate_watering_tasks` läuft um 05:00 UTC
+THEN:
+  - WateringScheduleEngine.is_watering_due → True (Montag in weekday_schedule)
+  - Idempotenz-Check: Kein existierender Task für Run+heute
+  - Neuer Task erzeugt:
+    task_id: "feeding:watering:tomaten_hochbeet_a_2025:2026-02-27"
+    name: "Gießen: Tomaten Hochbeet A 2025"
+    category: "feeding"
+    due_date: 2026-02-27
+    scheduled_time: 08:00
+    priority: "high"
+    planting_run_key: "tomaten_hochbeet_a_2025"
+  - has_task-Edges zu allen 20 aktiven Pflanzen
+```
+
+**Szenario 9: Gießplan-Idempotenz**
+```
+GIVEN: Gießplan-Task für Run "Tomaten Hochbeet A" und Datum 2026-02-27 existiert bereits
+WHEN: Celery-Task `generate_watering_tasks` läuft erneut (z.B. bei Restart)
+THEN:
+  - Idempotenz-Check erkennt existierenden Task
+  - Kein Duplikat erzeugt
+  - Log: "Skipping: Task for run 'tomaten_hochbeet_a_2025' on 2026-02-27 already exists"
+```
+
+**Szenario 10: Gießplan-Interval-Modus**
+```
+GIVEN: PlantingRun mit NutrientPlan, WateringSchedule (interval: 3 Tage),
+       Letztes Gießen vor 2 Tagen
+WHEN: Celery-Task `generate_watering_tasks` läuft
+THEN:
+  - WateringScheduleEngine.is_watering_due → False (2 < 3 Tage)
+  - Kein Task erzeugt
+NEXT DAY: Celery-Task läuft erneut (3 Tage seit letztem Gießen)
+  - WateringScheduleEngine.is_watering_due → True
+  - Task wird erzeugt
+```
+
+<!-- Quelle: Cannabis Indoor Grower Review W-006 -->
+**Szenario 11: Task-Timer bei Nährlösung-Mischvorgang**
+```
+GIVEN: Workflow "Nährlösung-Wechsel" mit Task "CalMag einrühren"
+       TaskTemplate hat timer_duration_seconds=120, timer_label="Umrühren"
+WHEN: Workflow wird instanziiert und Task generiert
+THEN:
+  - Task-Instanz hat timer_duration_seconds=120, timer_label="Umrühren"
+  - Beim Starten des Tasks (pending → in_progress): UI zeigt 2-min-Countdown
+  - Nutzer kann Timer starten/pausieren/zurücksetzen
+  - Bei Ablauf: akustisches Signal (Ton) + Vibration (mobil)
+  - Task kann vor, während oder nach Timer-Ablauf als 'completed' markiert werden
+  - actual_duration_minutes wird unabhängig vom Timer erfasst
+```
+
+**Szenario 12: Ad-hoc-Timer ohne Template-Vorgabe**
+```
+GIVEN: Manuell erstellter Task "Foliar-Spray auftragen" ohne timer_duration_seconds
+WHEN: Nutzer startet den Task und wählt "Timer starten" → gibt 30 min ein
+THEN:
+  - timer_duration_seconds=1800 wird auf Task-Instanz gespeichert
+  - Countdown läuft im Frontend (30:00 → 00:00)
+  - Benachrichtigung bei Ablauf
+  - Bei App-Neustart: Timer-Zustand ist verloren (kein Server-State)
+```
+
+<!-- Quelle: Cannabis Indoor Grower Review G-004 -->
+**Szenario 13: Autoflower-Guard verhindert Topping**
+```
+GIVEN: Cannabis-Pflanze, Cultivar "Auto Northern Lights" mit flowering_type='autoflower'
+       Pflanze in vegetativer Phase, 4 Nodes entwickelt
+WHEN: Nutzer versucht "Topping" Task zu erstellen
+THEN:
+  - AutoflowerGuard.check('topping', 'autoflower') → False
+  - Warnung: "HST nicht empfohlen bei Autoflower-Sorten. Autoflower haben
+    eine fixe Lebenszeit; Stress-Recovery reduziert die produktive
+    Wachstumsphase überproportional."
+  - Severity: 'warning', can_override: true
+  - Vorgeschlagene Alternativen: ['lst_bend', 'lst_tie', 'defoliation', 'scrog_tuck']
+  - UI: "Trotzdem fortfahren" Button für erfahrene Grower
+```
+
+**Szenario 14: LST bei Autoflower erlaubt**
+```
+GIVEN: Cannabis-Pflanze, Cultivar "Auto Gorilla Glue" mit flowering_type='autoflower'
+WHEN: Nutzer erstellt "LST Bend" Task
+THEN:
+  - AutoflowerGuard.check('lst_bend', 'autoflower') → True
+  - Message: "lst_bend ist Low-Stress und für Autoflower geeignet."
+  - Task wird ohne Warnung erstellt
+```
+
+**Szenario 15: Recovery-Timer nach Topping**
+```
+GIVEN: Cannabis-Pflanze (photoperiod), Topping durchgeführt am 01.03.2026
+       TrainingEvent erstellt: event_type='topping', recovery_days=7,
+       recovery_end_date=08.03.2026
+WHEN: Nutzer öffnet Pflanzen-Detail am 03.03.2026
+THEN:
+  - Recovery-Timer angezeigt: "Tag 2/7 Erholung nach Topping"
+  - Fortschrittsbalken: 28.6%
+  - Geplantes nächstes Training erst ab 08.03.2026 möglich ohne Warnung
+```
+
+**Szenario 16: Recovery-Überlappungswarnung**
+```
+GIVEN: Topping am 01.03.2026, recovery_end_date=08.03.2026
+       Nutzer plant Supercropping für 05.03.2026
+WHEN: RecoveryTimerChecker.check_overlap() aufgerufen
+THEN:
+  - Warnung: "Erholungsphase nach topping (am 2026-03-01) endet am 2026-03-08.
+    Geplantes supercrop liegt 3 Tage vor Ablauf.
+    Aktueller Status: Tag 4/7 Erholung nach topping"
+  - can_override: true
+  - UI: Warnung mit "Trotzdem fortfahren" Option
+```
+
+**Szenario 17: Canopy-Evenness-Score und SCROG-Füllgrad**
+```
+GIVEN: Cannabis-Pflanze mit SCROG-Netz, 6 Haupttriebe,
+       Canopy-Höhen: Min 28 cm, Max 35 cm
+       Netz belegt: 65% der Fläche
+WHEN: CanopyMeasurement erstellt
+THEN:
+  - canopy_height_avg_cm: 31.5
+  - canopy_evenness_score: 0.8 (1.0 - 7/35)
+  - scrog_fill_percentage: 65
+  - Score 0.8 > 0.7: keine Intervention nötig
+  - SCROG-Füllgrad 65 < 80: Hinweis "SCROG-Netz noch nicht bereit für Blüte-Switch,
+    Ziel: 80-95% Füllgrad"
+```
+
+**Szenario 18: Mainlining-Workflow als Training-Plan**
+```
+GIVEN: Cannabis-Pflanze (photoperiod), 4 Nodes entwickelt
+WHEN: Workflow "Mainlining/Manifolding" instanziiert
+THEN:
+  - Tasks generiert (mit strikten Dependencies):
+    1. "Erstes Topping an Node 3" (requires_photo=true, stress_level='high')
+    2. "Recovery prüfen" (7 Tage nach Task 1, category='observation')
+    3. "Canopy-Höhe messen" (category='observation')
+    4. "Zweites Topping — symmetrisch 4 Triebe" (abhängig von Task 2)
+    5. "Recovery prüfen" (7 Tage nach Task 4)
+    6. "Drittes Topping — 8 Haupttriebe" (abhängig von Task 5)
+    7. "Canopy-Evenness messen" (abhängig von Task 6)
+  - Jede Topping-Task erzeugt bei Completion ein TrainingEvent
+  - TrainingEvent.affected_nodes = [3] bei Task 1
+  - Jede Recovery-Prüfung referenziert das auslösende TrainingEvent
+```
+
+<!-- Quelle: Outdoor-Garden-Planner Review G-005 -->
+**Szenario 19: Seasonal-Month-Trigger generiert Oktober-Tasks**
+```
+GIVEN: Nutzer hat 12-Monats-Gartenkalender-Template aktiviert
+       Site "Gemüsegarten" mit climate_zone USDA 7b
+       Heutiges Datum: 01.10.2026
+WHEN: System prüft seasonal_month-Tasks für Oktober (trigger_month=10)
+THEN:
+  - Tasks generiert (Kategorie 'seasonal'):
+    1. "Winterschutz-Checklist durchgehen" (priority: high)
+    2. "Dahlien-Knollen ausgraben und einlagern"
+    3. "Kübelpflanzen ins Winterquartier räumen"
+  - Alle Tasks haben due_date im Oktober 2026
+  - Tasks erhalten has_task-Edges zu betroffenen PlantInstances
+  - Überwinterungs-Checklist referenziert OverwinteringProfile (REQ-022) pro Pflanze
+```
+
+**Szenario 20: Phänologischer Trigger — Forsythienblüte löst Rosenschnitt aus**
+```
+GIVEN: Nutzer hat Rosen-Jahrespflege-Workflow aktiviert
+       TaskTemplate "Frühjahrsschnitt Rosen" mit:
+         trigger_type='phenological', phenological_event='forsythia_bloom'
+WHEN: Nutzer dokumentiert PhenologicalEvent:
+        event_type='forsythia_bloom', observed_date=2026-03-15,
+        photo_ref='img/forsythia_2026.jpg'
+THEN:
+  - System erkennt Ereignis und sucht verknüpfte TaskTemplates
+  - Task "Frühjahrsschnitt Rosen" wird generiert:
+    category: 'phenological'
+    due_date: 2026-03-15 (= observed_date)
+    priority: 'high'
+    instruction: "Rosen auf 3-5 Augen zurückschneiden, Totholz entfernen..."
+  - triggered_by_phenology-Edge: Task → PhenologicalEvent
+  - Notification: "Forsythienblüte beobachtet — Rosenschnitt fällig!"
+```
+
+**Szenario 21: 12-Monats-Gartenkalender-Instanziierung**
+```
+GIVEN: Nutzer aktiviert "12-Monats-Gartenkalender (Mitteleuropa)" für Jahr 2026
+       Site hat climate_zone USDA 8a (Rheingraben, mild)
+WHEN: Workflow wird für das Jahr instanziiert
+THEN:
+  - 12 Monats-Gruppen mit je 2-4 Tasks erzeugt (ca. 30-40 Tasks gesamt)
+  - März-Tasks haben Dual-Trigger: seasonal_month=3 UND phenological=forsythia_bloom
+  - Regionale Anpassung: Voranzucht (Feb) startet 2 Wochen früher als Standard
+  - Alle Tasks haben category='seasonal' oder 'phenological'
+  - WorkflowExecution trackt Fortschritt über das gesamte Jahr
+```
+
+**Szenario 22: Sukzessions-Aussaat als Recurring-Template**
+```
+GIVEN: Nutzer konfiguriert "Sukzessions-Aussaat Salat"
+       interval: 3 Wochen, Zeitraum: April bis August
+WHEN: Recurring-Template instanziiert
+THEN:
+  - Tasks generiert: 01.04, 22.04, 13.05, 03.06, 24.06, 15.07, 05.08, 26.08
+  - Jeder Task: category='seasonal', priority='medium'
+  - Instruction: "Salat nachsäen — Sorten abwechseln für kontinuierliche Ernte"
+  - Tasks nur für konfigurierte Species generiert
+```
+
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Workflow, Task, HST, Training, Topping, LST, Dependency, Scheduling, Template, Ausgeizen, Observation, Zimmerpflanzen, Hydroponik-Wartung, GDD-Trigger, Outdoor, Frostschutz, Abhärtung, Überwinterung, Umtopf, Vermehrung, Mondkalender
-- Fachbegriffe: Auxin-Dominanz, Hermaphroditismus, Mainlining, Lollipopping, SOG, SCROG, Supercropping, Karenzzeit, PHI, Kumulativer Stress, Jasmonsäure, Ethylen, Stretch-Phase, Early Flowering, Geiztrieb, Assimilat-Verteilung, Phototoxizität, Transpiration, cultivar_timing_factor, Dormanz, Akklimatisierung
-- Verknüpfung: Zentral für REQ-001 (cultivar_timing_factor), REQ-003 (Phasen-Trigger + GDD), REQ-007 (Harvest-Tasks), REQ-010 (IPM-Tasks + Karenzzeit), REQ-018 (Aktor-Verknüpfung), REQ-014 (Hydroponik-Wartung), REQ-019 (Substrat-spezifische Post-HST-Bewässerung)
+- Keywords: Workflow, Task, HST, Training, Topping, LST, Dependency, Scheduling, Template, Ausgeizen, Observation, Zimmerpflanzen, Hydroponik-Wartung, GDD-Trigger, Outdoor, Frostschutz, Abhärtung, Überwinterung, Umtopf, Vermehrung, Mondkalender, Gießplan, generate_watering_tasks, Celery-Beat, planting_run_key, watering_event_key, WateringSchedule, Gießplan-Task, Task-Timer, Countdown, timer_duration_seconds, timer_label, Mischvorgang, Einwirkzeit, Burping, Training-Plan, Canopy-Management, TrainingEvent, CanopyMeasurement, Recovery-Timer, Autoflower-Guard, SCROG-Füllgrad, Canopy-Evenness-Score, Mainlining-Workflow, Defoliation-Schedule, Gartenkalender, Seasonal-Month, Phenological, PhenologicalEvent, Forsythienblüte, Holunderblüte, Apfelblüte, Zeigerpflanze, Beetvorbereitung, Gründüngung, Sukzessions-Aussaat, Staudenteilung, Überwinterungs-Checklist, Auswinterung, Rosen-Jahrespflege
+- Fachbegriffe: Auxin-Dominanz, Hermaphroditismus, Mainlining, Lollipopping, SOG, SCROG, Supercropping, Karenzzeit, PHI, Kumulativer Stress, Jasmonsäure, Ethylen, Stretch-Phase, Early Flowering, Geiztrieb, Assimilat-Verteilung, Phototoxizität, Transpiration, cultivar_timing_factor, Dormanz, Akklimatisierung, Canopy-Gleichmäßigkeit, Recovery-Phase, Autoflower, Manifolding, SCROG-Tucking, Netz-Höhe, Netz-Füllgrad, Phänologie, Phänologische Jahreszeiten, Vorfrühling, Erstfrühling, Vollfrühling, Frühsommer, Hochsommer, Sukzessions-Anbau, Gründüngung, Bodenlebewesen, Eisheilige, Starkzehrer, Schwachzehrer
+- Verknüpfung: Zentral für REQ-001 (cultivar_timing_factor + Cultivar.flowering_type für Autoflower-Guard + sowing_indoor_weeks_before_last_frost + frost_sensitivity), REQ-002 (climate_zone für regionale Kalender-Anpassung), REQ-003 (Phasen-Trigger + GDD), REQ-005 (canopy_height als Sensorwert), REQ-007 (Harvest-Tasks), REQ-010 (IPM-Tasks + Karenzzeit), REQ-013 (PlantInstance für TrainingEvent/CanopyMeasurement + clone_from_run_key für Sukzession), REQ-018 (Aktor-Verknüpfung), REQ-014 (Hydroponik-Wartung), REQ-019 (Substrat-spezifische Post-HST-Bewässerung), REQ-022 (OverwinteringProfile für Überwinterungs-Checklist)
 - Pflanzenwissenschaft: Stress-Physiologie, Hormon-Regulation, Recovery-Zeiten, artspezifische Metabolismus-Geschwindigkeit, Tageszeit-Einfluss auf Pflanzenphysiologie, Temperatur-Recovery-Modifikation, Dormanz-Management, Abhärtungs-Physiologie

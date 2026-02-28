@@ -73,8 +73,10 @@ Der Wizard erstellt auf Basis der Nutzer-Eingaben automatisch alle benötigten E
     - `created_entities: OnboardingCreatedEntities` (embedded, siehe unten)
     - `wizard_step: int` (Aktueller Schritt für Resume-Funktion)
 
-- **`:UserPreference`** — Nutzerpräferenzen (erweitert bestehende Collection, falls vorhanden)
+- **`:UserPreference`** — Nutzerpräferenzen (**serverseitig persistiert** in ArangoDB, geräte- und sitzungsübergreifend verfügbar)
   - Collection: `user_preferences`
+  - Zuordnung: Jeder User hat genau ein UserPreference-Dokument (1:1-Beziehung über `user_key`)
+  - Speicherung: Serverseitig in ArangoDB — beim Login werden die Präferenzen vom Server geladen, sodass Einstellungen (z.B. Erfahrungsstufe, Theme, Locale) auf jedem Gerät und in jeder Session sofort verfügbar sind
   - Properties:
     - `experience_level: Literal['beginner', 'intermediate', 'expert']` (Default: `'beginner'`)
     - `onboarding_completed: bool`

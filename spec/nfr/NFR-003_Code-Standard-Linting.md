@@ -6,7 +6,7 @@ Kategorie: Code-Qualität / Governance Unterkategorie: Naming, Linting, Formatti
 Technologie: Python 3.14, Ruff, mypy, ESLint, TypeScript, Prettier
 Status: Produktionsreif
 Priorität: Kritisch
-Version: 2.0
+Version: 2.1
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-25
 Tags: [code-quality, linting, formatting, naming-conventions, type-safety, english-code]
@@ -211,7 +211,38 @@ def calc_gdd(plant_id: str) -> float:  # calc, vpd, gdd sind OK
     ...
 ```
 
-### 2.4 ArangoDB-Namenskonventionen
+<!-- Quelle: Smart-Home-HA-Integration Review A-006 -->
+### 2.4 API-Response-Konsistenz
+
+Externe Consumer (Home Assistant Custom Integration, IoT-Gateways, Monitoring) benötigen vorhersagbare JSON-Strukturen. Die folgenden Regeln gelten für alle REST-API-Endpoints:
+
+| Regel | Beschreibung | Beispiel |
+|-------|-------------|---------|
+| **Pydantic `response_model`** | Alle Endpoints MÜSSEN ein Pydantic `response_model` deklarieren. Keine rohen `dict`- oder `list`-Rückgaben. | `@router.get("/plants", response_model=list[PlantResponse])` |
+| **Fehler-Responses** | Strukturiertes JSON mit `detail`-Feld (FastAPI `HTTPException`). Kein Freitext, keine HTML-Fehlerseiten. | `{"detail": "Plant not found"}` |
+| **Datumsformat** | ISO 8601 mit UTC und Z-Suffix. Pydantic serialisiert `datetime` automatisch korrekt. | `"2026-02-27T14:30:00Z"` |
+| **Pagination** | Konsistente Felder: `items`, `total`, `page`, `page_size`. | `{"items": [...], "total": 42, "page": 1, "page_size": 20}` |
+| **Optionale Felder** | `null` statt fehlende Keys. Pydantic `Optional`-Felder werden immer serialisiert. | `{"ha_entity_id": null}` |
+| **Enum-Werte** | Als String serialisiert (nicht als Integer). Pydantic `use_enum_values=True`. | `"phase": "vegetative"` |
+
+```python
+# ✅ Korrekt: response_model mit Pydantic
+@router.get("/plants", response_model=list[PlantResponse])
+async def list_plants(page: int = 1, page_size: int = 20):
+    ...
+
+# ❌ Verboten: rohe dict-Rückgabe
+@router.get("/plants")
+async def list_plants():
+    return {"data": [{"name": "Tomate"}]}  # Kein response_model!
+
+# ❌ Verboten: inkonsistente Pagination
+@router.get("/plants")
+async def list_plants():
+    return {"results": [...], "count": 42}  # "results" statt "items", "count" statt "total"
+```
+
+### 2.5 ArangoDB-Namenskonventionen
 
 **Collections, Edges, Attributes**:
 

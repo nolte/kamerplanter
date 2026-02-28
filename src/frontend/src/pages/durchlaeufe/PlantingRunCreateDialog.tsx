@@ -19,8 +19,12 @@ import FormSelectField from '@/components/form/FormSelectField';
 import FormDateField from '@/components/form/FormDateField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
+import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
+import ShowAllFieldsToggle from '@/components/common/ShowAllFieldsToggle';
+import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { plantingRunFieldConfig } from '@/config/fieldConfigs';
 import * as runApi from '@/api/endpoints/plantingRuns';
 import * as speciesApi from '@/api/endpoints/species';
 import * as sitesApi from '@/api/endpoints/sites';
@@ -183,6 +187,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
   const [sitesList, setSitesList] = useState<Site[]>([]);
   const [locationsList, setLocationsList] = useState<Location[]>([]);
   const [locationsLoading, setLocationsLoading] = useState(false);
+  const { showAllOverride, toggleShowAll, level } = useExpertiseLevel();
 
   const { control, handleSubmit, reset, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -279,52 +284,76 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
     { value: 'trap_crop', label: t('enums.entryRole.trap_crop') },
   ];
 
+  const fc = plantingRunFieldConfig;
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>{t('pages.plantingRuns.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
+          {/* beginner */}
           <FormTextField name="name" control={control} label={t('pages.plantingRuns.name')} required />
-          <FormSelectField
-            name="run_type"
-            control={control}
-            label={t('pages.plantingRuns.runType')}
-            required
-            options={runTypes}
-          />
-          <FormSelectField
-            name="site_key"
-            control={control}
-            label={t('entities.site')}
-            options={[
-              { value: '', label: '-' },
-              ...sitesList.map((s) => ({ value: s.key, label: s.name })),
-            ]}
-          />
-          <FormSelectField
-            name="location_key"
-            control={control}
-            label={t('pages.plantingRuns.location')}
-            disabled={!siteKey || locationsLoading}
-            options={[
-              { value: '', label: '-' },
-              ...locationsList.map((l) => ({ value: l.key, label: l.name })),
-            ]}
-          />
           <FormDateField
             name="planned_start_date"
             control={control}
             label={t('pages.plantingRuns.plannedStartDate')}
           />
-          {runType === 'clone' && (
-            <FormTextField
-              name="source_plant_key"
+
+          {/* intermediate */}
+          <ExpertiseFieldWrapper minLevel={fc.run_type.level}>
+            <FormSelectField
+              name="run_type"
               control={control}
-              label={t('pages.plantingRuns.sourcePlantKey')}
+              label={t('pages.plantingRuns.runType')}
               required
+              options={runTypes}
             />
+          </ExpertiseFieldWrapper>
+          <ExpertiseFieldWrapper minLevel={fc.site_key.level}>
+            <FormSelectField
+              name="site_key"
+              control={control}
+              label={t('entities.site')}
+              options={[
+                { value: '', label: '-' },
+                ...sitesList.map((s) => ({ value: s.key, label: s.name })),
+              ]}
+            />
+          </ExpertiseFieldWrapper>
+          <ExpertiseFieldWrapper minLevel={fc.location_key.level}>
+            <FormSelectField
+              name="location_key"
+              control={control}
+              label={t('pages.plantingRuns.location')}
+              disabled={!siteKey || locationsLoading}
+              options={[
+                { value: '', label: '-' },
+                ...locationsList.map((l) => ({ value: l.key, label: l.name })),
+              ]}
+            />
+          </ExpertiseFieldWrapper>
+          <ExpertiseFieldWrapper minLevel={fc.notes.level}>
+            <FormTextField name="notes" control={control} label={t('pages.plantingRuns.notes')} />
+          </ExpertiseFieldWrapper>
+
+          {/* expert */}
+          <ExpertiseFieldWrapper minLevel={fc.substrate_batch_key.level}>
+            <FormTextField
+              name="substrate_batch_key"
+              control={control}
+              label={t('pages.plantingRuns.substrateBatch')}
+            />
+          </ExpertiseFieldWrapper>
+          {runType === 'clone' && (
+            <ExpertiseFieldWrapper minLevel={fc.source_plant_key.level}>
+              <FormTextField
+                name="source_plant_key"
+                control={control}
+                label={t('pages.plantingRuns.sourcePlantKey')}
+                required
+              />
+            </ExpertiseFieldWrapper>
           )}
-          <FormTextField name="notes" control={control} label={t('pages.plantingRuns.notes')} />
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
@@ -354,6 +383,9 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
             {t('pages.plantingRuns.addEntry')}
           </Button>
 
+          {level !== 'expert' && (
+            <ShowAllFieldsToggle showAll={showAllOverride} onToggle={toggleShowAll} />
+          )}
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
         </form>
       </DialogContent>

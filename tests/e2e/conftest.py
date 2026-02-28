@@ -1,12 +1,11 @@
-"""E2E test configuration — browser fixtures, screenshots, CLI options."""
+"""E2E test configuration — browser fixtures, screenshots, CLI options (NFR-008 §3.1, §3.4)."""
 
 from __future__ import annotations
 
 import os
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-
-import shutil
 
 import pytest
 from selenium import webdriver
@@ -22,7 +21,7 @@ except ImportError:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    """Register custom CLI options for E2E tests."""
+    """Register custom CLI options for E2E tests (NFR-008 §3.1)."""
     parser.addoption(
         "--browser",
         default="chrome",
@@ -31,8 +30,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
     parser.addoption(
         "--base-url",
-        default="http://localhost:8080",
-        help="Base URL of the running application (default: http://localhost:8080)",
+        default="http://localhost:5173",
+        help="Base URL of the running application (default: http://localhost:5173)",
     )
     parser.addoption(
         "--generate-protocol",
@@ -50,7 +49,7 @@ def base_url(request: pytest.FixtureRequest) -> str:
 
 @pytest.fixture(scope="session")
 def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
-    """Create a headless browser session for the entire test run."""
+    """Create a headless browser session for the entire test run (NFR-008 §3.1)."""
     browser_name = request.config.getoption("--browser")
 
     if browser_name == "firefox":
@@ -71,10 +70,19 @@ def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
         options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--remote-debugging-port=0")
         options.add_argument("--window-size=1920,1080")
-        chrome_path = shutil.which("chromedriver")
-        if chrome_path:
-            service = ChromeService(chrome_path)
+        # Support snap-installed Chromium (Ubuntu)
+        chromium_snap = shutil.which("chromium-browser") or shutil.which("chromium")
+        if chromium_snap and not shutil.which("google-chrome"):
+            options.binary_location = chromium_snap
+        chromedriver_path = (
+            shutil.which("chromedriver")
+            or shutil.which("chromium.chromedriver")
+        )
+        if chromedriver_path:
+            service = ChromeService(chromedriver_path)
         elif ChromeDriverManager is not None:
             service = ChromeService(ChromeDriverManager().install())
         else:
@@ -88,7 +96,7 @@ def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
 
 @pytest.fixture(scope="session")
 def screenshot_dir() -> Path:
-    """Create and return the screenshot output directory for this run."""
+    """Create and return the screenshot output directory for this run (NFR-008 §4.2)."""
     timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
     path = Path("test-reports") / timestamp / "screenshots"
     path.mkdir(parents=True, exist_ok=True)
@@ -101,7 +109,7 @@ def screenshot(
     browser: webdriver.Remote,
     screenshot_dir: Path,
 ) -> None:  # noqa: PT004 — yield fixture without value is intentional
-    """Auto-capture a screenshot on test failure."""
+    """Auto-capture a screenshot on test failure (NFR-008 §3.4 checkpoint 4 & 5)."""
 
     def _capture(name: str) -> Path:
         filename = f"{name}.png"
@@ -120,7 +128,7 @@ def screenshot(
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item: pytest.Item) -> None:
-    """Attach the test report to the item node for the screenshot fixture."""
+    """Attach the test report to the item node for the screenshot fixture (NFR-008 §3.4)."""
     outcome = yield
     report = outcome.get_result()
     if report.when == "call":

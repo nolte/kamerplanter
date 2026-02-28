@@ -10,7 +10,10 @@ import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import Link from '@mui/material/Link';
 import Divider from '@mui/material/Divider';
+import Checkbox from '@mui/material/Checkbox';
 import CircularProgress from '@mui/material/CircularProgress';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Tooltip from '@mui/material/Tooltip';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { loginLocal, clearError } from '@/store/slices/authSlice';
 import { getOAuthProviders } from '@/api/endpoints/auth';
@@ -24,6 +27,7 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [oauthProviders, setOauthProviders] = useState<OAuthProviderListItem[]>([]);
 
   useEffect(() => {
@@ -39,7 +43,7 @@ export default function LoginPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    dispatch(loginLocal({ email, password }));
+    dispatch(loginLocal({ email, password, remember_me: rememberMe }));
   };
 
   return (
@@ -70,9 +74,21 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              sx={{ mb: 2 }}
+              sx={{ mb: 1 }}
               autoComplete="current-password"
             />
+            <Tooltip title={t('pages.auth.rememberMeTooltip')} placement="right">
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  />
+                }
+                label={t('pages.auth.rememberMe')}
+                sx={{ mb: 1 }}
+              />
+            </Tooltip>
             <Button
               type="submit"
               variant="contained"
@@ -102,7 +118,9 @@ export default function LoginPage() {
                   variant="outlined"
                   fullWidth
                   sx={{ mb: 1 }}
-                  disabled
+                  onClick={() => {
+                    window.location.href = `/api/v1/auth/oauth/${p.slug}`;
+                  }}
                 >
                   {t('pages.auth.loginWith', { provider: p.display_name })}
                 </Button>

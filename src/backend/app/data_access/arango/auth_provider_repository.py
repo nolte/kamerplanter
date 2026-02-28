@@ -38,6 +38,10 @@ class ArangoAuthProviderRepository(IAuthProviderRepository, BaseArangoRepository
         self.create_edge(col.HAS_AUTH_PROVIDER, user_id, provider_id)
         return created
 
+    def update(self, key: AuthProviderKey, auth_provider: AuthProvider) -> AuthProvider:
+        doc = BaseArangoRepository.update(self, key, auth_provider)
+        return AuthProvider(**doc)
+
     def delete(self, key: AuthProviderKey) -> bool:
         provider_id = f"{col.AUTH_PROVIDERS}/{key}"
         # Delete inbound edges

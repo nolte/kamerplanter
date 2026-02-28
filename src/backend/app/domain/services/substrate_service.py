@@ -1,5 +1,8 @@
+from datetime import date
+
+from app.common.enums import IrrigationStrategy, SubstrateType
 from app.common.exceptions import NotFoundError
-from app.common.types import BatchKey, SubstrateKey
+from app.common.types import BatchKey, SlotKey, SubstrateKey
 from app.domain.engines.substrate_lifecycle_manager import SubstrateLifecycleManager
 from app.domain.interfaces.substrate_repository import ISubstrateRepository
 from app.domain.models.substrate import Substrate, SubstrateBatch
@@ -52,6 +55,36 @@ class SubstrateService:
         self.get_batch(key)
         return self._repo.delete_batch(key)
 
-    def check_reusability(self, batch_key: BatchKey) -> tuple[bool, list[str]]:
+    def check_reusability(
+        self, batch_key: BatchKey,
+    ) -> tuple[bool, list[str], list[dict[str, str | float]], float, date | None]:
         self.get_batch(batch_key)
         return self._lifecycle_mgr.check_reusability(batch_key)
+
+    def prepare_reuse(self, batch_key: BatchKey) -> dict:
+        batch = self.get_batch(batch_key)
+        substrate = self.get_substrate(batch.substrate_key)
+        can_reuse, issues, prep_steps, prep_time, ready_date = self._lifecycle_mgr.check_reusability(batch_key)
+        if not can_reuse:
+            return {
+                "can_reuse": False,
+                "issues": issues,
+                "preparation_steps": [],
+                "estimated_prep_time_hours": 0,
+                "ready_date": None,
+            }
+        return {
+            "can_reuse": True,
+            "issues": [],
+            "preparation_steps": prep_steps,
+            "estimated_prep_time_hours": prep_time,
+            "ready_date": ready_date,
+        }
+
+    def assign_batch_to_slot(self, batch_key: BatchKey, slot_key: SlotKey) -> dict:
+        self.get_batch(batch_key)
+        return self._repo.assign_batch_to_slot(batch_key, slot_key)
+
+    @staticmethod
+    def get_irrigation_strategy(substrate_type: SubstrateType) -> IrrigationStrategy:
+        return SubstrateLifecycleManager.get_irrigation_strategy(substrate_type)

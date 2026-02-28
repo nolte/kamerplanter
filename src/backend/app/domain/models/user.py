@@ -19,6 +19,7 @@ class User(BaseModel):
     last_login_at: datetime | None = None
     avatar_url: str | None = None
     locale: str = "de"
+    timezone: str = "Europe/Berlin"
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -33,6 +34,7 @@ class UserProfile(BaseModel):
     is_active: bool
     avatar_url: str | None
     locale: str
+    timezone: str = "Europe/Berlin"
     last_login_at: datetime | None
     created_at: datetime | None
 
@@ -41,3 +43,4 @@ class UserProfileUpdate(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=200)
     avatar_url: str | None = None
     locale: str | None = None
+    timezone: str | None = None

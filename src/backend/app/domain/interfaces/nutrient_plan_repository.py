@@ -53,21 +53,6 @@ class INutrientPlanRepository(ABC):
     def delete_phase_entry(self, key: NutrientPlanPhaseEntryKey) -> bool:
         ...
 
-    # ── Fertilizer edges ─────────────────────────────────────────────
-
-    @abstractmethod
-    def add_fertilizer_to_entry(
-        self, entry_key: NutrientPlanPhaseEntryKey, fertilizer_key: FertilizerKey,
-        ml_per_liter: float, optional: bool = False,
-    ) -> dict:
-        ...
-
-    @abstractmethod
-    def remove_fertilizer_from_entry(
-        self, entry_key: NutrientPlanPhaseEntryKey, fertilizer_key: FertilizerKey,
-    ) -> bool:
-        ...
-
     # ── Plant assignment ─────────────────────────────────────────────
 
     @abstractmethod
@@ -80,6 +65,28 @@ class INutrientPlanRepository(ABC):
 
     @abstractmethod
     def remove_plant_plan(self, plant_key: str) -> bool:
+        ...
+
+    # ── Channel fertilizer edges ────────────────────────────────────
+
+    @abstractmethod
+    def add_fertilizer_to_channel(
+        self,
+        entry_key: NutrientPlanPhaseEntryKey,
+        channel_id: str,
+        fertilizer_key: FertilizerKey,
+        ml_per_liter: float,
+        optional: bool = False,
+    ) -> dict:
+        ...
+
+    @abstractmethod
+    def remove_fertilizer_from_channel(
+        self,
+        entry_key: NutrientPlanPhaseEntryKey,
+        channel_id: str,
+        fertilizer_key: FertilizerKey,
+    ) -> bool:
         ...
 
     # ── Clone ────────────────────────────────────────────────────────

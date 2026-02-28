@@ -100,7 +100,7 @@ export default function GrowthPhaseDialog({ lifecycleKey, phase, open, onClose, 
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="create-dialog">
       <DialogTitle>
         {isEdit ? t('common.edit') : t('pages.growthPhases.create')}
       </DialogTitle>

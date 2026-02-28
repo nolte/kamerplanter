@@ -32,7 +32,7 @@ export const cultivarSchema = z.object({
 
 export const siteSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  type: z.enum(['outdoor', 'greenhouse', 'indoor']).default('indoor'),
+  type: z.enum(['outdoor', 'greenhouse', 'indoor', 'windowsill', 'balcony', 'grow_tent']).default('indoor'),
   climate_zone: z.string().default(''),
   total_area_m2: z.number().min(0).default(0),
 });
@@ -54,7 +54,7 @@ export const slotSchema = z.object({
 
 export const substrateSchema = z.object({
   type: z
-    .enum(['soil', 'coco', 'rockwool', 'clay_pebbles', 'perlite', 'living_soil', 'hydro_solution'])
+    .enum(['soil', 'coco', 'clay_pebbles', 'perlite', 'living_soil', 'peat', 'rockwool_slab', 'rockwool_plug', 'vermiculite', 'none', 'orchid_bark', 'pon_mineral', 'sphagnum', 'hydro_solution'])
     .default('soil'),
   brand: z.string().nullable().default(null),
   ph_base: z.number().min(0).max(14).default(6.5),
@@ -118,6 +118,48 @@ export const gddSchema = z.object({
 export const slotCapacitySchema = z.object({
   area_m2: z.number().positive(),
   plant_spacing_cm: z.number().positive(),
+});
+
+export const fertigationParamsSchema = z.object({
+  method: z.literal('fertigation'),
+  runs_per_day: z.number().int().min(1).max(24).default(1),
+  duration_minutes: z.number().min(1).max(120).default(5),
+  flow_rate_ml_min: z.number().positive().nullable().default(null),
+  tank_key: z.string().nullable().default(null),
+});
+
+export const drenchParamsSchema = z.object({
+  method: z.literal('drench'),
+  volume_per_feeding_liters: z.number().positive().max(100).default(1.0),
+});
+
+export const foliarParamsSchema = z.object({
+  method: z.literal('foliar'),
+  volume_per_spray_liters: z.number().positive().max(10).default(0.5),
+});
+
+export const topDressParamsSchema = z.object({
+  method: z.literal('top_dress'),
+  grams_per_plant: z.number().positive().nullable().default(null),
+  grams_per_m2: z.number().positive().nullable().default(null),
+});
+
+export const methodParamsSchema = z.discriminatedUnion('method', [
+  fertigationParamsSchema,
+  drenchParamsSchema,
+  foliarParamsSchema,
+  topDressParamsSchema,
+]);
+
+export const deliveryChannelSchema = z.object({
+  channel_id: z.string().min(1).max(50),
+  label: z.string().max(200).default(''),
+  application_method: z.enum(['fertigation', 'drench', 'foliar', 'top_dress']),
+  enabled: z.boolean().default(true),
+  notes: z.string().nullable().default(null),
+  target_ec_ms: z.number().min(0).max(10).nullable().default(null),
+  target_ph: z.number().min(0).max(14).nullable().default(null),
+  method_params: methodParamsSchema.nullable().default(null),
 });
 
 export const feedingEventSchema = z.object({

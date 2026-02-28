@@ -7,7 +7,7 @@ Kategorie: Infrastruktur
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.0
+Version: 4.1 (Beetplanung & Fruchtfolge-Erweiterung)
 ```
 
 ## 1. Business Case
@@ -31,6 +31,23 @@ Das System verwaltet eine **rekursiv verschachtelbare** Standort-Struktur: **Sit
 - Tracking der letzten 3-5 Jahre Kulturhistorie pro Standort
 - Automatische Warnung bei kritischen Wiederholungen (gleiche Pflanzenfamilie)
 - Berücksichtigung von Vor-/Nachfrucht-Effekten und Gründüngung
+
+<!-- Quelle: Outdoor-Garden-Planner Review G-003, G-004 -->
+**Visuelle Beetplanung (Outdoor-Modus):**
+Freilandgärtner benötigen eine einfache 2D-Darstellung ihrer Beete, um Pflanzen visuell anzuordnen:
+- **Beet-Layout:** Rechteckige Beete mit konfigurierbaren Maßen (z.B. 3,0 × 1,2 m)
+- **Reihen-Ansicht:** Pflanzen in Reihen mit empfohlenen Pflanzabständen (aus Species-Daten)
+- **Mischkultur-Overlay:** Farbliche Markierung guter/schlechter Nachbarn (basierend auf `compatible_with`/`incompatible_with`-Edges, REQ-001)
+- **Historische Ansicht:** "Was stand 2024 auf Beet B3?" — Fruchtfolge-Visualisierung pro Beet über mehrere Jahre
+- **Drag & Drop:** Pflanzen auf Beete ziehen, System zeigt Mischkultur-Kompatibilität und Pflanzabstände an
+
+**Erweiterter 4-Jahres-Fruchtfolgeplan:**
+Das bestehende 3-5-Jahres-Fruchtfolge-Tracking wird um einen expliziten Rotationsplaner erweitert:
+- **Nährstoffbedarfs-Rotation:** Starkzehrer → Mittelzehrer → Schwachzehrer → Gründüngung (4-Jahres-Zyklus)
+- **Visuelle Rotationsmatrix:** Tabellarische Übersicht pro Beet × Jahr mit Farbcode (rot = Starkzehrer, gelb = Mittelzehrer, grün = Schwachzehrer, blau = Gründüngung)
+- **Planungsvorschläge:** "Beet B3 hatte 2024 Tomaten (Starkzehrer) → 2025: Möhren/Salat (Mittelzehrer) empfohlen"
+- **Gründüngung als Fruchtfolge-Glied:** Phacelia, Senf, Lupine, Inkarnatklee als eigenständige Phase im Rotationsplan (Verknüpfung mit REQ-001 `green_manure_suitable`)
+- **Vor-/Nachfrucht-Kompatibilität:** Kartoffeln nach Kohl = schlecht; Bohnen vor Kohl = gut (Stickstoff-Fixierung)
 
 ## 2. ArangoDB-Modellierung
 
@@ -63,6 +80,14 @@ Das System verwaltet eine **rekursiv verschachtelbare** Standort-Struktur: **Sit
     - `lights_on: Optional[str]` — Uhrzeit Licht-Ein im Format HH:MM (z.B. "06:00")
     - `lights_off: Optional[str]` — Uhrzeit Licht-Aus im Format HH:MM (z.B. "22:00")
     - `use_dynamic_sunrise: bool` — Dynamische Sonnenstandberechnung aus GPS-Koordinaten aktivieren (nur bei `light_type: natural` oder `mixed`)
+    <!-- Quelle: Outdoor-Garden-Planner Review G-003 -->
+    # Visuelle Beetplanung
+    - `bed_width_cm: Optional[int]` (Beetbreite in cm, z.B. 120 für Standard-Beet)
+    - `bed_length_cm: Optional[int]` (Beetlänge in cm)
+    - `bed_orientation: Optional[Literal['north_south', 'east_west', 'diagonal']]` (Ausrichtung)
+    - `bed_type: Optional[Literal['ground_bed', 'raised_bed', 'container', 'cold_frame', 'polytunnel']]`
+    - `bed_rows: Optional[int]` (Anzahl Pflanzenreihen im Beet)
+    - `row_spacing_cm: Optional[int]` (Reihenabstand)
 
   **LocationType-Collection (`location_types`):**
 
@@ -139,6 +164,18 @@ Das System unterstützt die Verwaltung von Lichtzeiten pro Location. Das Verhalt
     - `season: str` (z.B. "2025_Spring")
     - `planned_families: list[str]`
     - `optimization_goal: Literal['nutrient_balance', 'pest_control', 'soil_health']`
+    <!-- Quelle: Outdoor-Garden-Planner Review G-004 -->
+    # Erweiterter 4-Jahres-Fruchtfolgeplan
+    - `year: int` (Planjahr, z.B. 2026)
+    - `season_period: Literal['spring', 'summer', 'autumn', 'winter', 'full_year']`
+    - `demand_level: Literal['heavy_feeder', 'medium_feeder', 'light_feeder', 'green_manure', 'fallow']`
+      (Geplante Nährstoffbedarfs-Stufe für dieses Jahr)
+    - `planned_species_keys: list[str]` (Geplante Pflanzenarten)
+    - `actual_species_keys: Optional[list[str]]` (Tatsächlich angebaut — nachträglich erfasst)
+    - `notes: Optional[str]`
+    - `created_at: datetime`
+
+- **Edge:** `rotation_for_location`: `CropRotationPlan → Location` (N:1, Rotationsplan für Beet)
 
 ### Edges (ArangoDB Edge Collections):
 ```
@@ -147,6 +184,7 @@ has_slot:        locations → slots
 placed_in:       plant_instances → slots
 succeeds:        plant_instances → plant_instances     (Fruchtfolge-Kette, Attribut: interval_days)
 follows_plan:    locations → crop_rotation_plans
+rotation_for_location: crop_rotation_plans → locations  (N:1, Rotationsplan für Beet — Quelle: G-004)
 adjacent_to:     slots → slots                         (Nachbarschafts-Beziehungen, Attribut: distance_cm)
 ```
 

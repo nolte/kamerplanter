@@ -1,9 +1,8 @@
 import pytest
 
-from app.common.enums import FertilizerType, PhaseName
+from app.common.enums import PhaseName
 from app.domain.engines.nutrient_plan_engine import NutrientPlanValidator
-from app.domain.models.fertilizer import Fertilizer
-from app.domain.models.nutrient_plan import FertilizerDosage, NutrientPlanPhaseEntry
+from app.domain.models.nutrient_plan import NutrientPlanPhaseEntry
 
 
 @pytest.fixture
@@ -18,20 +17,9 @@ def _make_entry(**kwargs) -> NutrientPlanPhaseEntry:
         "sequence_order": 1,
         "week_start": 1,
         "week_end": 4,
-        "target_ec_ms": 1.5,
     }
     defaults.update(kwargs)
     return NutrientPlanPhaseEntry(**defaults)
-
-
-def _make_fert(**kwargs) -> Fertilizer:
-    defaults = {
-        "product_name": "Test Fert",
-        "fertilizer_type": FertilizerType.BASE,
-        "ec_contribution_per_ml": 0.5,
-    }
-    defaults.update(kwargs)
-    return Fertilizer(**defaults)
 
 
 class TestValidateCompleteness:
@@ -71,71 +59,3 @@ class TestValidateCompleteness:
         assert len(result["issues"]) == 5  # all phases missing
 
 
-class TestValidateEcBudget:
-    def test_ec_within_tolerance(self, validator):
-        fert = _make_fert(ec_contribution_per_ml=0.5)
-        entry = _make_entry(
-            target_ec_ms=1.5,
-            fertilizer_dosages=[
-                FertilizerDosage(fertilizer_key="f1", ml_per_liter=3.0),
-            ],
-        )
-        result = validator.validate_ec_budget(entry, {"f1": fert})
-        assert result["valid"] is True
-        assert result["calculated_ec"] == 1.5
-
-    def test_ec_exceeds_tolerance(self, validator):
-        fert = _make_fert(ec_contribution_per_ml=0.5)
-        entry = _make_entry(
-            target_ec_ms=1.0,
-            fertilizer_dosages=[
-                FertilizerDosage(fertilizer_key="f1", ml_per_liter=5.0),
-            ],
-        )
-        result = validator.validate_ec_budget(entry, {"f1": fert})
-        assert result["valid"] is False
-        assert "mismatch" in result["message"].lower()
-
-    def test_missing_fertilizer(self, validator):
-        entry = _make_entry(
-            target_ec_ms=1.5,
-            fertilizer_dosages=[
-                FertilizerDosage(fertilizer_key="f_missing", ml_per_liter=3.0),
-            ],
-        )
-        result = validator.validate_ec_budget(entry, {})
-        assert result["valid"] is False
-        assert "missing" in result["message"].lower()
-
-    def test_no_dosages(self, validator):
-        entry = _make_entry(target_ec_ms=1.5, fertilizer_dosages=[])
-        result = validator.validate_ec_budget(entry, {})
-        assert result["valid"] is True
-        assert result["calculated_ec"] == 0.0
-
-    def test_multiple_fertilizers(self, validator):
-        fert_a = _make_fert(ec_contribution_per_ml=0.3)
-        fert_b = _make_fert(ec_contribution_per_ml=0.2)
-        entry = _make_entry(
-            target_ec_ms=1.1,
-            fertilizer_dosages=[
-                FertilizerDosage(fertilizer_key="fa", ml_per_liter=2.0),
-                FertilizerDosage(fertilizer_key="fb", ml_per_liter=2.5),
-            ],
-        )
-        # 2.0*0.3 + 2.5*0.2 = 0.6 + 0.5 = 1.1
-        result = validator.validate_ec_budget(entry, {"fa": fert_a, "fb": fert_b})
-        assert result["valid"] is True
-        assert result["calculated_ec"] == 1.1
-
-    def test_ec_tolerance_boundary(self, validator):
-        fert = _make_fert(ec_contribution_per_ml=0.5)
-        entry = _make_entry(
-            target_ec_ms=1.5,
-            fertilizer_dosages=[
-                FertilizerDosage(fertilizer_key="f1", ml_per_liter=2.4),
-            ],
-        )
-        # 2.4 * 0.5 = 1.2, delta = 0.3 (exactly at tolerance)
-        result = validator.validate_ec_budget(entry, {"f1": fert})
-        assert result["valid"] is True

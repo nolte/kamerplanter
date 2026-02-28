@@ -38,13 +38,20 @@ Extrahiere aus dem Markdown-Body:
 
 ## Schritt 2: Katalogdokument erstellen
 
-Erstelle die Datei `.claude/agents/CATALOG.md` mit folgendem Aufbau:
+Erstelle die Datei `docs/agent-catalog.md` im MkDocs-Material-kompatiblen Format mit folgendem Aufbau:
 
 ```markdown
+---
+title: Agent-Katalog
+description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Projekt
+---
+
 # Agent-Katalog
 
-> Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Projekt.
-> Generiert am [Datum] — [Anzahl] Agents registriert.
+Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Projekt.
+
+!!! info "Stand: [Datum] — [Anzahl] Agents registriert"
+    Dieser Katalog wird vom `agent-catalog-generator` Agent automatisch erstellt.
 
 ---
 
@@ -59,17 +66,25 @@ Erstelle die Datei `.claude/agents/CATALOG.md` mit folgendem Aufbau:
 
 ## Agents nach Kategorie
 
-### Analyse & Review
-- [`agent-name`](#agent-name) — Einzeiler
+Verwende MkDocs-Material Content-Tabs (`=== "Tabname"`) für die Kategorien:
 
-### Entwicklung
-- [`agent-name`](#agent-name) — Einzeiler
+=== "Analyse & Review"
 
-### Testing & QA
-- [`agent-name`](#agent-name) — Einzeiler
+    | Agent | Fokus |
+    |-------|-------|
+    | [`agent-name`](#agent-name) | Einzeiler |
 
-### Dokumentation
-- [`agent-name`](#agent-name) — Einzeiler
+=== "Entwicklung"
+
+    ...
+
+=== "Testing & QA"
+
+    ...
+
+=== "Dokumentation"
+
+    ...
 
 ---
 
@@ -81,9 +96,9 @@ Erstelle die Datei `.claude/agents/CATALOG.md` mit folgendem Aufbau:
 
 **Rolle:** [1 Satz: Wer ist dieser Agent? Welche Expertise?]
 
-**Wann einsetzen?**
-- [Anwendungsfall 1]
-- [Anwendungsfall 2]
+??? example "Wann einsetzen?"
+    - [Anwendungsfall 1]
+    - [Anwendungsfall 2]
 
 **Workflow:**
 1. [Phase/Schritt 1 — Kurzbeschreibung]
@@ -101,11 +116,13 @@ Erstelle die Datei `.claude/agents/CATALOG.md` mit folgendem Aufbau:
 
 ## Einsatz-Entscheidungshilfe
 
-> Welchen Agent brauche ich?
+Verwende MkDocs-Material Admonition (`!!! tip`):
 
-| Ich möchte... | Agent |
-|----------------|-------|
-| ...den Tech-Stack gegen Anforderungen prüfen | `tech-stack-architect` |
+!!! tip "Welchen Agent brauche ich?"
+
+    | Ich möchte... | Agent |
+    |----------------|-------|
+    | ...den Tech-Stack gegen Anforderungen prüfen | `tech-stack-architect` |
 | ...Anforderungen auf Widersprüche prüfen | `requirements-contradiction-analyzer` |
 | ...E2E-Testfälle aus Specs ableiten | `e2e-testcase-extractor` |
 | ...Selenium-Tests generieren | `selenium-test-generator` |
@@ -121,10 +138,12 @@ Erstelle die Datei `.claude/agents/CATALOG.md` mit folgendem Aufbau:
 
 ## Hinweise für Entwickler
 
-- **Agent starten:** Verwende `/agent <name>` oder lasse Claude den passenden Agent automatisch auswählen
-- **Reports:** Analyse-Agents schreiben ihre Ergebnisse nach `spec/requirements-analysis/`, Selenium-Test-Reports nach `test-reports/`
-- **Modellwahl:** `opus` = höchste Qualität (Implementierung, komplexe Analyse), `sonnet` = gutes Preis-Leistungs-Verhältnis (Reviews, Reports), `haiku` = schnell & günstig (einfache Aufgaben)
-- **Tools:** Agents mit `Bash` können Shell-Befehle ausführen; Agents mit nur `Read`/`Write`/`Glob`/`Grep` arbeiten rein lesend/schreibend
+- **Agent starten:** `/agent <name>` im Claude Code Chat
+- **Reports:** Analyse-Agents → `spec/requirements-analysis/`, Selenium-Reports → `test-reports/`, Testfälle → `spec/test-cases/`, Doku → `docs/`
+- **Modellwahl:** `opus` = höchste Qualität, `sonnet` = Preis-Leistung, `haiku` = schnell & günstig
+
+Verwende ein **Mermaid-Diagramm** für die Agenten-Abhängigkeiten (statt ASCII-Art) — MkDocs-Material rendert Mermaid nativ.
+
 ```
 
 ---

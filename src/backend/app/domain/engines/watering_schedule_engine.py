@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from app.common.enums import ScheduleMode
-from app.domain.models.nutrient_plan import WateringSchedule
+from app.domain.models.nutrient_plan import DeliveryChannel, NutrientPlanPhaseEntry, WateringSchedule
 
 
 class WateringScheduleEngine:
@@ -62,22 +62,49 @@ class WateringScheduleEngine:
         return dates
 
     @staticmethod
+    def get_due_channels(
+        entry: NutrientPlanPhaseEntry,
+        check_date: date,
+        last_dates_per_channel: dict[str, date | None] | None = None,
+    ) -> list[DeliveryChannel]:
+        """Return channels that are due on check_date.
+
+        Channels with no schedule are always returned (defers to caller).
+        Disabled channels are skipped.
+        """
+        if last_dates_per_channel is None:
+            last_dates_per_channel = {}
+
+        channels = entry.delivery_channels
+        due: list[DeliveryChannel] = []
+
+        for ch in channels:
+            if not ch.enabled:
+                continue
+            if ch.schedule is None:
+                due.append(ch)
+                continue
+            last_date = last_dates_per_channel.get(ch.channel_id)
+            if WateringScheduleEngine.is_watering_due(ch.schedule, check_date, last_date):
+                due.append(ch)
+
+        return due
+
+    @staticmethod
     def resolve_dosages_for_run(
         plan_entries: list[dict],
         plants_by_phase: dict[str, list[str]],
     ) -> dict[str, dict]:
-        """Map phase → dosages + plant_keys from plan entries and plant phases.
+        """Map phase → channels + plant_keys from plan entries and plant phases.
 
-        Returns: {phase_name: {"dosages": [...], "plant_keys": [...]}}
+        Returns: {phase_name: {"channels": [...], "plant_keys": [...]}}
         """
         result: dict[str, dict] = {}
         for entry in plan_entries:
             phase = entry.get("phase_name", "")
             if phase in plants_by_phase:
                 result[phase] = {
-                    "dosages": entry.get("fertilizer_dosages", []),
-                    "target_ec_ms": entry.get("target_ec_ms", 1.0),
-                    "target_ph": entry.get("target_ph", 6.0),
+                    "channels": entry.get("delivery_channels", []),
                     "plant_keys": plants_by_phase[phase],
                 }
         return result

@@ -81,8 +81,18 @@ class TestGetNextWateringDates:
 class TestResolveDosages:
     def test_resolve_matching_phases(self):
         entries = [
-            {"phase_name": "vegetative", "fertilizer_dosages": [{"fertilizer_key": "f1", "ml_per_liter": 2.0}]},
-            {"phase_name": "flowering", "fertilizer_dosages": [{"fertilizer_key": "f2", "ml_per_liter": 3.0}]},
+            {
+                "phase_name": "vegetative",
+                "delivery_channels": [
+                    {"channel_id": "ch1", "fertilizer_dosages": [{"fertilizer_key": "f1", "ml_per_liter": 2.0}]},
+                ],
+            },
+            {
+                "phase_name": "flowering",
+                "delivery_channels": [
+                    {"channel_id": "ch1", "fertilizer_dosages": [{"fertilizer_key": "f2", "ml_per_liter": 3.0}]},
+                ],
+            },
         ]
         plants_by_phase = {
             "vegetative": ["plant1", "plant2"],
@@ -91,10 +101,11 @@ class TestResolveDosages:
         result = WateringScheduleEngine.resolve_dosages_for_run(entries, plants_by_phase)
         assert "vegetative" in result
         assert result["vegetative"]["plant_keys"] == ["plant1", "plant2"]
+        assert len(result["vegetative"]["channels"]) == 1
         assert "flowering" in result
 
     def test_resolve_no_matching_phase(self):
-        entries = [{"phase_name": "flowering", "fertilizer_dosages": []}]
+        entries = [{"phase_name": "flowering", "delivery_channels": []}]
         plants_by_phase = {"vegetative": ["plant1"]}
         result = WateringScheduleEngine.resolve_dosages_for_run(entries, plants_by_phase)
         assert "flowering" not in result
@@ -109,12 +120,27 @@ class TestWateringScheduleValidation:
         with pytest.raises(ValueError, match="interval_days required"):
             WateringSchedule(schedule_mode=ScheduleMode.INTERVAL)
 
-    def test_fertigation_not_allowed(self):
+    def test_fertigation_allowed_on_schedule(self):
+        """FERTIGATION is now allowed on WateringSchedule (check moved to NutrientPlan)."""
+        schedule = WateringSchedule(
+            schedule_mode=ScheduleMode.WEEKDAYS,
+            weekday_schedule=[0],
+            application_method=ApplicationMethod.FERTIGATION,
+        )
+        assert schedule.application_method == ApplicationMethod.FERTIGATION
+
+    def test_fertigation_rejected_on_plan_level(self):
+        """Plan-level watering schedule still rejects FERTIGATION."""
+        from app.domain.models.nutrient_plan import NutrientPlan
+
         with pytest.raises(ValueError, match="FERTIGATION not allowed"):
-            WateringSchedule(
-                schedule_mode=ScheduleMode.WEEKDAYS,
-                weekday_schedule=[0],
-                application_method=ApplicationMethod.FERTIGATION,
+            NutrientPlan(
+                name="Test",
+                watering_schedule=WateringSchedule(
+                    schedule_mode=ScheduleMode.WEEKDAYS,
+                    weekday_schedule=[0],
+                    application_method=ApplicationMethod.FERTIGATION,
+                ),
             )
 
     def test_valid_weekday_schedule(self):

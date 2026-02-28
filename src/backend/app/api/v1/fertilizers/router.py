@@ -28,6 +28,7 @@ def list_fertilizers(
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     fertilizer_type: str | None = None,
+    brand: str | None = None,
     is_organic: bool | None = None,
     tank_safe: bool | None = None,
     service: FertilizerService = Depends(get_fertilizer_service),
@@ -35,6 +36,8 @@ def list_fertilizers(
     filters: dict = {}
     if fertilizer_type:
         filters["fertilizer_type"] = fertilizer_type
+    if brand:
+        filters["brand"] = brand
     if is_organic is not None:
         filters["is_organic"] = is_organic
     if tank_safe is not None:

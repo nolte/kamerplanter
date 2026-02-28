@@ -1036,6 +1036,7 @@ export interface NutrientPlan {
   version: string;
   tags: string[];
   cloned_from_key: string | null;
+  watering_schedule: WateringSchedule | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -1048,6 +1049,7 @@ export interface NutrientPlanCreate {
   is_template?: boolean;
   version?: string;
   tags?: string[];
+  watering_schedule?: WateringSchedule | null;
 }
 
 export interface NutrientPlanUpdate {
@@ -1058,12 +1060,74 @@ export interface NutrientPlanUpdate {
   is_template?: boolean;
   version?: string;
   tags?: string[];
+  watering_schedule?: WateringSchedule | null;
 }
 
 export interface FertilizerDosage {
   fertilizer_key: string;
   ml_per_liter: number;
   optional: boolean;
+}
+
+// ── REQ-004 Multi-Channel Delivery types ──────────────────────────────
+
+export interface FertigationParams {
+  method: 'fertigation';
+  runs_per_day: number;
+  duration_seconds: number;
+  flow_rate_ml_min: number | null;
+  tank_key: string | null;
+}
+
+export interface DrenchParams {
+  method: 'drench';
+  volume_per_feeding_liters: number;
+}
+
+export interface FoliarParams {
+  method: 'foliar';
+  volume_per_spray_liters: number;
+}
+
+export interface TopDressParams {
+  method: 'top_dress';
+  grams_per_plant: number | null;
+  grams_per_m2: number | null;
+}
+
+export type MethodParams = FertigationParams | DrenchParams | FoliarParams | TopDressParams;
+
+export interface DeliveryChannel {
+  channel_id: string;
+  label: string;
+  application_method: ApplicationMethod;
+  enabled: boolean;
+  notes: string | null;
+  schedule: WateringSchedule | null;
+  target_ec_ms: number | null;
+  target_ph: number | null;
+  fertilizer_dosages: FertilizerDosage[];
+  method_params: MethodParams | null;
+}
+
+export interface DeliveryChannelCreate {
+  channel_id: string;
+  label?: string;
+  application_method: ApplicationMethod;
+  enabled?: boolean;
+  notes?: string | null;
+  schedule?: WateringSchedule | null;
+  target_ec_ms?: number | null;
+  target_ph?: number | null;
+  fertilizer_dosages?: FertilizerDosage[];
+  method_params?: MethodParams | null;
+}
+
+export interface ChannelValidation {
+  channel_id: string;
+  label: string;
+  issues: string[];
+  ec_budget: { target: number; calculated: number; delta: number } | null;
 }
 
 export interface NutrientPlanPhaseEntry {
@@ -1074,14 +1138,10 @@ export interface NutrientPlanPhaseEntry {
   week_start: number;
   week_end: number;
   npk_ratio: [number, number, number];
-  target_ec_ms: number;
-  target_ph: number;
   calcium_ppm: number | null;
   magnesium_ppm: number | null;
-  feeding_frequency_per_week: number;
-  volume_per_feeding_liters: number | null;
   notes: string | null;
-  fertilizer_dosages: FertilizerDosage[];
+  delivery_channels: DeliveryChannel[];
   created_at: string | null;
   updated_at: string | null;
 }
@@ -1092,14 +1152,10 @@ export interface PhaseEntryCreate {
   week_start: number;
   week_end: number;
   npk_ratio?: [number, number, number];
-  target_ec_ms?: number;
-  target_ph?: number;
   calcium_ppm?: number | null;
   magnesium_ppm?: number | null;
-  feeding_frequency_per_week?: number;
-  volume_per_feeding_liters?: number | null;
   notes?: string | null;
-  fertilizer_dosages?: FertilizerDosage[];
+  delivery_channels?: DeliveryChannelCreate[];
 }
 
 export interface PhaseEntryUpdate {
@@ -1108,14 +1164,10 @@ export interface PhaseEntryUpdate {
   week_start?: number;
   week_end?: number;
   npk_ratio?: [number, number, number];
-  target_ec_ms?: number;
-  target_ph?: number;
   calcium_ppm?: number | null;
   magnesium_ppm?: number | null;
-  feeding_frequency_per_week?: number;
-  volume_per_feeding_liters?: number | null;
   notes?: string | null;
-  fertilizer_dosages?: FertilizerDosage[];
+  delivery_channels?: DeliveryChannelCreate[];
 }
 
 // ── REQ-004 Feeding Event types ─────────────────────────────────────
@@ -1141,6 +1193,7 @@ export interface FeedingEvent {
   runoff_ec: number | null;
   runoff_ph: number | null;
   runoff_volume_liters: number | null;
+  channel_id: string | null;
   notes: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -1204,6 +1257,7 @@ export interface WateringEvent {
   runoff_ph: number | null;
   water_source: WaterSource | null;
   performed_by: string | null;
+  channel_id: string | null;
   notes: string | null;
   created_at: string | null;
 }
@@ -1335,6 +1389,12 @@ export interface PlanValidationResult {
     calculated_ec: number;
     delta: number;
     message: string;
+  }>;
+  channel_validations: Array<{
+    entry_key: string;
+    phase_name: string;
+    valid: boolean;
+    channel_results: ChannelValidation[];
   }>;
   valid: boolean;
 }
@@ -1875,6 +1935,7 @@ export interface UserProfile {
   is_active: boolean;
   avatar_url: string | null;
   locale: string;
+  timezone: string;
   last_login_at: string | null;
   created_at: string | null;
 }
@@ -1883,6 +1944,7 @@ export interface UserProfileUpdate {
   display_name?: string;
   avatar_url?: string | null;
   locale?: string;
+  timezone?: string;
 }
 
 export interface AuthProviderInfo {
@@ -1891,6 +1953,7 @@ export interface AuthProviderInfo {
   provider_email: string | null;
   provider_display_name: string | null;
   linked_at: string | null;
+  last_used_at: string | null;
 }
 
 export interface SessionInfo {
@@ -1907,6 +1970,30 @@ export interface OAuthProviderListItem {
   slug: string;
   display_name: string;
   icon_url: string | null;
+}
+
+export interface ApiKeyCreate {
+  label: string;
+  tenant_scope?: string | null;
+}
+
+export interface ApiKeyCreated {
+  key: string;
+  label: string;
+  raw_key: string;
+  key_prefix: string;
+  tenant_scope: string | null;
+  created_at: string | null;
+}
+
+export interface ApiKeySummary {
+  key: string;
+  label: string;
+  key_prefix: string;
+  tenant_scope: string | null;
+  revoked: boolean;
+  last_used_at: string | null;
+  created_at: string | null;
 }
 
 // ── REQ-024 Tenant types ────────────────────────────────────────────

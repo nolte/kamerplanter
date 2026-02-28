@@ -84,6 +84,7 @@ class WateringService:
         measured_ph: float | None = None,
         volume_liters: float | None = None,
         overrides: dict | None = None,
+        channel_id: str | None = None,
     ) -> dict:
         """Confirm a scheduled watering task: create WateringEvent + FeedingEvents, complete task."""
         if self._run_repo is None or self._task_repo is None:
@@ -115,6 +116,7 @@ class WateringService:
             measured_ec=measured_ec,
             measured_ph=measured_ph,
             task_key=task_key,
+            channel_id=channel_id,
         )
         created_event = self._repo.create(event)
 
@@ -136,6 +138,7 @@ class WateringService:
                         application_method=method,
                         volume_applied_liters=volume_liters or 1.0,
                         watering_event_key=event_key,
+                        channel_id=channel_id,
                     )
                     self._feeding_repo.create(feeding)
                     feeding_events_created += 1

@@ -1,5 +1,8 @@
 import client from '../client';
 import type {
+  ApiKeyCreate,
+  ApiKeyCreated,
+  ApiKeySummary,
   AuthProviderInfo,
   LoginRequest,
   LoginResponse,
@@ -12,6 +15,16 @@ import type {
 
 const BASE = '/auth';
 const USERS = '/users';
+
+function getCsrfToken(): string | null {
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function csrfHeaders(): Record<string, string> {
+  const token = getCsrfToken();
+  return token ? { 'X-CSRF-Token': token } : {};
+}
 
 // ── Auth endpoints ────────────────────────────────────────────────
 
@@ -26,16 +39,18 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
 }
 
 export async function refresh(): Promise<LoginResponse> {
-  const res = await client.post<LoginResponse>(`${BASE}/refresh`);
+  const res = await client.post<LoginResponse>(`${BASE}/refresh`, null, {
+    headers: csrfHeaders(),
+  });
   return res.data;
 }
 
 export async function logout(): Promise<void> {
-  await client.post(`${BASE}/logout`);
+  await client.post(`${BASE}/logout`, null, { headers: csrfHeaders() });
 }
 
 export async function logoutAll(): Promise<void> {
-  await client.post(`${BASE}/logout-all`);
+  await client.post(`${BASE}/logout-all`, null, { headers: csrfHeaders() });
 }
 
 export async function verifyEmail(token: string): Promise<UserProfile> {
@@ -77,7 +92,10 @@ export async function unlinkProvider(providerKey: string): Promise<void> {
   await client.delete(`${USERS}/me/providers/${providerKey}`);
 }
 
-export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+export async function changePassword(
+  currentPassword: string | null,
+  newPassword: string,
+): Promise<void> {
   await client.post(`${USERS}/me/password`, {
     current_password: currentPassword,
     new_password: newPassword,
@@ -95,4 +113,20 @@ export async function revokeSession(sessionKey: string): Promise<void> {
 
 export async function deleteAccount(): Promise<void> {
   await client.delete(`${USERS}/me`);
+}
+
+// ── API Keys ──────────────────────────────────────────────────────
+
+export async function createApiKey(data: ApiKeyCreate): Promise<ApiKeyCreated> {
+  const res = await client.post<ApiKeyCreated>(`${BASE}/api-keys`, data);
+  return res.data;
+}
+
+export async function listApiKeys(): Promise<ApiKeySummary[]> {
+  const res = await client.get<ApiKeySummary[]>(`${BASE}/api-keys`);
+  return res.data;
+}
+
+export async function revokeApiKey(keyId: string): Promise<void> {
+  await client.delete(`${BASE}/api-keys/${keyId}`);
 }

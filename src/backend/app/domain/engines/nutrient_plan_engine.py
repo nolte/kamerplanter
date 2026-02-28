@@ -1,13 +1,11 @@
 from app.common.enums import PhaseName
-from app.domain.models.fertilizer import Fertilizer
 from app.domain.models.nutrient_plan import NutrientPlanPhaseEntry
 
 ALL_PHASES = [p for p in PhaseName]
-EC_TOLERANCE = 0.3  # mS
 
 
 class NutrientPlanValidator:
-    """Validates nutrient plan completeness and EC budgets."""
+    """Validates nutrient plan completeness."""
 
     def validate_completeness(self, entries: list[NutrientPlanPhaseEntry]) -> dict:
         """Check if all growth phases are covered and weeks are contiguous."""
@@ -40,48 +38,3 @@ class NutrientPlanValidator:
 
         complete = len(issues) == 0
         return {"complete": complete, "issues": issues}
-
-    def validate_ec_budget(
-        self,
-        entry: NutrientPlanPhaseEntry,
-        fertilizers: dict[str, Fertilizer],
-    ) -> dict:
-        """Check if dosage EC matches target EC within tolerance."""
-        if not entry.fertilizer_dosages:
-            return {
-                "valid": True,
-                "target_ec": entry.target_ec_ms,
-                "calculated_ec": 0.0,
-                "delta": entry.target_ec_ms,
-                "message": "No dosages defined — cannot verify EC",
-            }
-
-        calculated_ec = 0.0
-        missing_ferts: list[str] = []
-
-        for dosage in entry.fertilizer_dosages:
-            fert = fertilizers.get(dosage.fertilizer_key)
-            if fert is None:
-                missing_ferts.append(dosage.fertilizer_key)
-                continue
-            calculated_ec += dosage.ml_per_liter * fert.ec_contribution_per_ml
-
-        delta = abs(entry.target_ec_ms - calculated_ec)
-        valid = round(delta, 10) <= EC_TOLERANCE and not missing_ferts
-
-        messages = []
-        if missing_ferts:
-            messages.append(f"Missing fertilizers: {', '.join(missing_ferts)}")
-        if delta > EC_TOLERANCE:
-            messages.append(
-                f"EC mismatch: target {entry.target_ec_ms} mS, calculated {calculated_ec:.2f} mS "
-                f"(delta {delta:.2f}, tolerance {EC_TOLERANCE})"
-            )
-
-        return {
-            "valid": valid,
-            "target_ec": entry.target_ec_ms,
-            "calculated_ec": round(calculated_ec, 2),
-            "delta": round(delta, 2),
-            "message": "; ".join(messages) if messages else "EC budget within tolerance",
-        }

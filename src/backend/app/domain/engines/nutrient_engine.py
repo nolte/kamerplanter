@@ -1,5 +1,6 @@
 from app.common.enums import ApplicationMethod, FertilizerType, PhEffect, SubstrateType
 from app.domain.models.fertilizer import Fertilizer
+from app.domain.models.nutrient_plan import DeliveryChannel
 
 
 class NutrientSolutionCalculator:
@@ -88,7 +89,7 @@ class FlushingProtocol:
     FLUSH_DURATIONS: dict[SubstrateType, tuple[int, int]] = {
         SubstrateType.HYDRO_SOLUTION: (7, 14),
         SubstrateType.COCO: (10, 21),
-        SubstrateType.ROCKWOOL: (7, 14),
+        SubstrateType.ROCKWOOL_SLAB: (7, 14),
         SubstrateType.CLAY_PEBBLES: (7, 14),
         SubstrateType.PERLITE: (7, 14),
         SubstrateType.SOIL: (14, 30),
@@ -292,6 +293,24 @@ class MixingSafetyValidator:
 
         safe = len(warnings) == 0
         return {"safe": safe, "warnings": warnings}
+
+    def validate_channel(
+        self, channel: DeliveryChannel, fertilizers: list[Fertilizer],
+    ) -> dict:
+        """Validate fertilizer combination within a specific delivery channel."""
+        result = self.validate_combination(fertilizers)
+
+        # Additional tank-safe check for fertigation channels
+        if channel.application_method == ApplicationMethod.FERTIGATION:
+            for fert in fertilizers:
+                if not fert.tank_safe:
+                    result["warnings"].append(
+                        f"{fert.product_name} is not tank-safe — "
+                        f"incompatible with fertigation channel '{channel.channel_id}'"
+                    )
+                    result["safe"] = False
+
+        return result
 
     def validate_temperature(self, water_temp_celsius: float, fertilizer_type: FertilizerType) -> dict:
         """Validate water temperature for fertilizer mixing."""

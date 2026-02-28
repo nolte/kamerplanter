@@ -7,7 +7,7 @@ Kategorie: Gruppenmanagement
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB
 Status: Entwurf
-Version: 1.0
+Version: 1.2 (Mischkultur-Berater & Sukzessions-Aussaat)
 ```
 
 ## 1. Business Case
@@ -70,6 +70,46 @@ PlantingRun: "Mischkultur Beet B Sommer 2025"
   Plants: BEETB_TOM_01…08, BEETB_BAS_01…12, BEETB_TAG_01…06 (auto-generiert)
 ```
 
+<!-- Quelle: Outdoor-Garden-Planner Review G-008, G-009 -->
+**Szenario 4: Sukzessions-Aussaat — "Alle 3 Wochen Salat nachsäen"**
+```
+1. Gärtnerin Lisa erstellt einen Succession-Plan:
+   name: "Salat-Staffel Beet C 2026"
+   base_species: Lactuca sativa
+   cultivar: "Lollo Rosso"
+   interval_days: 21
+   start_date: 2026-04-01
+   end_date: 2026-08-31
+   plants_per_batch: 12
+   location: Beet C
+
+2. System generiert automatisch 8 PlantingRuns:
+   - "Salat-Staffel 1/8" (01.04.) → status: planned
+   - "Salat-Staffel 2/8" (22.04.) → status: planned
+   - "Salat-Staffel 3/8" (13.05.) → status: planned
+   - ... bis "Salat-Staffel 8/8" (20.08.)
+
+3. Jeder Run wird mit Erinnerung "Nächste Salat-Aussaat in 3 Tagen" angekündigt
+4. Lisa bestätigt → Run-Status wechselt zu active
+5. Ernte-Überlappung: Während Staffel 1 geerntet wird, wächst Staffel 3
+```
+
+**Szenario 5: Mischkultur-Berater — "Tomate + was passt dazu?"**
+```
+1. Gärtnerin Lisa erstellt einen mixed_culture-Run für Beet B:
+   primary: Tomate (Solanum lycopersicum)
+
+2. System schlägt aktiv Mischkultur-Partner vor (basierend auf compatible_with-Edges):
+   ✅ Empfohlen: Basilikum (Ocimum basilicum) — "Hält Weiße Fliege fern"
+   ✅ Empfohlen: Tagetes (Tagetes patula) — "Nematoden-Abwehr"
+   ✅ Möglich: Petersilie, Salat, Spinat
+   ❌ Vermeiden: Fenchel — "Hemmt Tomatenwachstum (Allelopathie)"
+   ❌ Vermeiden: Kartoffel — "Gleiche Familie (Solanaceae), Krankheitsübertragung"
+
+3. Lisa wählt Basilikum (companion) + Tagetes (trap_crop)
+4. System zeigt im Beetplan-Overlay die Anordnung mit Pflanzabständen
+```
+
 ## 2. ArangoDB-Modellierung
 
 ### Nodes:
@@ -93,7 +133,12 @@ PlantingRun: "Mischkultur Beet B Sommer 2025"
     - `rooting_count: Optional[int]` (Bei Klonen: Anzahl erfolgreich bewurzelter Stecklinge)
     - `survival_rate: Optional[float]` (actual_quantity / planned_quantity — berechnet nach Run-Abschluss)
     - `primary_loss_reason: Optional[str]` (Häufigste Ausfallursache — für Planung zukünftiger Runs)
+    - `nutrient_plan_key: Optional[str]` (Denormalisierte Referenz auf NutrientPlan aus REQ-004; Default-Plan für alle Pflanzen im Run. Wird über `RUN_FOLLOWS_PLAN`-Edge normalisiert in der Graph-Schicht, hier denormalisiert für performante Abfrage)
     - `notes: Optional[str]`
+    <!-- Quelle: Outdoor-Garden-Planner Review G-009 -->
+    - `succession_plan_key: Optional[str]` (Referenz auf übergeordneten Succession-Plan)
+    - `succession_sequence: Optional[int]` (Laufende Nummer in der Staffel, z.B. 3 von 8)
+    - `succession_total: Optional[int]` (Gesamtanzahl Staffeln)
     - `created_at: datetime`
     - `updated_at: datetime`
 
@@ -106,7 +151,27 @@ PlantingRun: "Mischkultur Beet B Sommer 2025"
     - `role: Literal['primary', 'companion', 'trap_crop', 'nurse_crop', 'cover_crop', 'pollinator']`
     - `id_prefix: Optional[str]` (Präfix für auto-generierte Pflanzen-IDs, z.B. "TOM", "BAS")
     - `spacing_cm: Optional[int]` (Empfohlener Pflanzabstand)
+    - `nutrient_plan_key: Optional[str]` (Entry-Level-Override für NutrientPlan — ermöglicht artspezifische Düngung bei Mischkulturen. **Auflösungsreihenfolge:** Entry-Level > Run-Level > kein Plan)
     - `notes: Optional[str]`
+
+<!-- Quelle: Outdoor-Garden-Planner Review G-009 -->
+- **`:SuccessionPlan`** — Staffelanbau-Plan (generiert automatisch PlantingRuns)
+  - Collection: `succession_plans`
+  - Properties:
+    - `name: str` (z.B. "Salat-Staffel Beet C 2026")
+    - `species_key: str` (Referenz auf Species)
+    - `cultivar_key: Optional[str]` (Referenz auf Cultivar)
+    - `interval_days: int` (Tage zwischen Staffeln, z.B. 21 für Salat)
+    - `start_date: date` (Erste Aussaat)
+    - `end_date: date` (Letzte Aussaat)
+    - `plants_per_batch: int` (Pflanzen pro Staffel)
+    - `total_batches: int` (Berechnet: ceil((end_date - start_date) / interval_days))
+    - `completed_batches: int` (Abgeschlossene Staffeln)
+    - `status: Literal['planned', 'active', 'completed', 'cancelled']`
+    - `reminder_days_before: int` (Erinnerung N Tage vor nächster Aussaat, Default: 3)
+    - `notes: Optional[str]`
+    - `created_at: datetime`
+    - `updated_at: datetime`
 
 ### Konfigurationsregeln:
 
@@ -152,6 +217,13 @@ PlantingRun: "Mischkultur Beet B Sommer 2025"
   - Properties: (keine)
 
 - **`entry_for_cultivar`**: `PlantingRunEntry → Cultivar` (optional)
+  - Properties: (keine)
+
+<!-- Quelle: Outdoor-Garden-Planner Review G-009 -->
+- **`has_succession_plan`**: `SuccessionPlan → PlantingRun` (1:N, Plan generiert Runs)
+  - Properties: (keine)
+
+- **`succession_at`**: `SuccessionPlan → Location` (N:1, Staffelanbau an Standort)
   - Properties: (keine)
 
 ### AQL-Beispielqueries (ArangoDB 3.11+):
@@ -601,6 +673,41 @@ RETURN {
 { "_from": "planting_runs/mischkultur_beet_b_2025", "_to": "plant_instances/BEETB_TAG_01", "added_at": "2025-05-15T10:00:00Z", "detached_at": null }
 // … bis BEETB_TOM_08, BEETB_BAS_12, BEETB_TAG_06
 ```
+
+<!-- Quelle: Outdoor-Garden-Planner Review G-008 -->
+### Mischkultur-Berater (Companion Planting Advisor)
+
+Bei Erstellung eines `mixed_culture`-Runs (oder bei Hinzufügen einer `primary`-Pflanze zu einem beliebigen Run) generiert das System aktive Mischkultur-Empfehlungen:
+
+**Empfehlungs-Engine:**
+1. Lade alle `compatible_with`-Edges der primary Species (REQ-001)
+2. Lade alle `incompatible_with`-Edges der primary Species
+3. Filtere nach Species, die für den Standort und die Saison geeignet sind
+4. Sortiere nach Companion-Effekt-Typ:
+   - `pest_repellent` → "Hält [Schädling] fern" (höchste Priorität)
+   - `growth_enhancer` → "Fördert Wachstum von [Pflanze]"
+   - `soil_improver` → "Verbessert Bodenstruktur/Stickstoff"
+   - `pollinator_attractor` → "Lockt Bestäuber an"
+
+**API-Response:**
+```json
+{
+  "primary_species": "Solanum lycopersicum",
+  "recommended_companions": [
+    {"species_key": "...", "common_name": "Basilikum", "role": "companion", "effect": "pest_repellent", "description": "Hält Weiße Fliege fern"},
+    {"species_key": "...", "common_name": "Tagetes", "role": "trap_crop", "effect": "pest_repellent", "description": "Nematoden-Abwehr"}
+  ],
+  "incompatible_species": [
+    {"species_key": "...", "common_name": "Fenchel", "reason": "Hemmt Tomatenwachstum (Allelopathie)"},
+    {"species_key": "...", "common_name": "Kartoffel", "reason": "Gleiche Familie (Solanaceae), Krankheitsübertragung"}
+  ]
+}
+```
+
+**UI-Integration:**
+- Im PlantingRun-Create-Dialog: Nach Auswahl der Primary-Pflanze erscheint ein "Mischkultur-Partner"-Panel mit Empfehlungen
+- Im Beetplan (REQ-002): Farbliche Markierung von Kompatibilitäten wenn Pflanzen nebeneinander platziert werden
+- Quick-Add: "Empfohlenen Partner hinzufügen" mit 1-Klick
 
 ## 3. Technische Umsetzung (Python)
 
@@ -1252,7 +1359,103 @@ class RunContainsEdge(BaseModel):
 | `GET` | `/api/v1/planting-runs/{key}/plants` | Alle Pflanzen im Run (Filter: detached=true/false, phase) | Mitglied |
 | `POST` | `/api/v1/planting-runs/{key}/plants/{plant_key}/detach` | Einzelne Pflanze vom Run abtrennen | Mitglied |
 
-### 4.5 Validierung (1 Endpunkt)
+### 4.5 Nährstoffplan-Zuweisung (4 Endpunkte)
+
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `POST` | `/api/v1/planting-runs/{key}/nutrient-plan` | NutrientPlan dem Run zuweisen (erzeugt `RUN_FOLLOWS_PLAN`-Edge + Cascade auf bestehende Pflanzen) | Mitglied |
+| `GET` | `/api/v1/planting-runs/{key}/nutrient-plan` | Zugewiesenen NutrientPlan abrufen (inkl. WateringSchedule falls vorhanden) | Mitglied |
+| `DELETE` | `/api/v1/planting-runs/{key}/nutrient-plan` | NutrientPlan-Zuweisung entfernen (entfernt `RUN_FOLLOWS_PLAN`-Edge + FOLLOWS_PLAN-Edges der Pflanzen) | Mitglied |
+| `GET` | `/api/v1/planting-runs/{key}/watering-schedule` | Aufgelöster Gießkalender: nächste 14 Tage mit Dosierungen pro Phasengruppe | Mitglied |
+
+**POST `/api/v1/planting-runs/{key}/nutrient-plan` — NutrientPlan zuweisen:**
+```json
+// Request
+{
+    "nutrient_plan_key": "plan_tomato_coco",
+    "cascade_to_plants": true
+}
+
+// Response (200 OK)
+{
+    "run_key": "tomaten_hochbeet_a_2025",
+    "nutrient_plan_key": "plan_tomato_coco",
+    "nutrient_plan_name": "Tomato Heavy Coco",
+    "assigned_at": "2026-02-27T10:00:00Z",
+    "cascade_result": {
+        "plants_updated": 18,
+        "plants_skipped": 2,
+        "skipped_reasons": [
+            {"plant_key": "HOCHBEETA_TOM_05", "reason": "Pflanze hat Entry-Level-Override"},
+            {"plant_key": "HOCHBEETA_TOM_12", "reason": "Pflanze vom Run abgetrennt"}
+        ]
+    }
+}
+```
+
+**GET `/api/v1/planting-runs/{key}/watering-schedule` — Gießkalender:**
+```json
+// Response (200 OK)
+{
+    "run_key": "tomaten_hochbeet_a_2025",
+    "nutrient_plan_name": "Tomato Heavy Coco",
+    "schedule": {
+        "schedule_mode": "weekdays",
+        "weekday_schedule": [0, 2, 4],
+        "preferred_time": "08:00",
+        "application_method": "drench"
+    },
+    "upcoming_dates": [
+        {
+            "date": "2026-02-27",
+            "weekday": "Freitag",
+            "is_today": true,
+            "phase_groups": [
+                {
+                    "phase": "vegetative",
+                    "plant_count": 15,
+                    "target_ec_ms": 1.4,
+                    "target_ph": 5.8,
+                    "volume_per_feeding_liters": 2.0,
+                    "fertilizer_dosages": [
+                        {"fertilizer_name": "CalMag", "ml_per_liter": 1.5, "mixing_priority": 3},
+                        {"fertilizer_name": "FloraGro", "ml_per_liter": 2.0, "mixing_priority": 5}
+                    ]
+                },
+                {
+                    "phase": "flowering",
+                    "plant_count": 3,
+                    "target_ec_ms": 1.8,
+                    "target_ph": 6.0,
+                    "volume_per_feeding_liters": 2.5,
+                    "fertilizer_dosages": [
+                        {"fertilizer_name": "CalMag", "ml_per_liter": 1.0, "mixing_priority": 3},
+                        {"fertilizer_name": "FloraBloom", "ml_per_liter": 3.0, "mixing_priority": 5}
+                    ]
+                }
+            ]
+        },
+        {
+            "date": "2026-03-02",
+            "weekday": "Montag",
+            "is_today": false,
+            "phase_groups": ["..."]
+        }
+    ],
+    "last_watering_date": "2026-02-25"
+}
+```
+
+**Erweiterung `create-plants`-Logik:**
+Nach der Pflanzen-Erstellung werden zusätzlich NutrientPlan-Zuweisungen kaskadiert:
+1. Prüfe ob der Run einen `nutrient_plan_key` hat
+2. Für jede erzeugte PlantInstance:
+   a. Prüfe ob der Entry einen `nutrient_plan_key`-Override hat → nutze diesen
+   b. Sonst: nutze den Run-Level `nutrient_plan_key`
+   c. Falls ein Plan existiert: Erzeuge `FOLLOWS_PLAN`-Edge (PlantInstance → NutrientPlan)
+3. Ergebnis wird im Response unter `nutrient_plan_assignments` dokumentiert
+
+### 4.6 Validierung (1 Endpunkt)
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
@@ -1428,21 +1631,27 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 | **REQ-001** (Stammdaten) | Species, Cultivar für Entry-Zuordnung; BotanicalFamily für Kompatibilitäts-Check | **HOCH** |
 | **REQ-002** (Standort/Substrat) | Location für `run_at_location`; SubstrateBatch für `run_uses_substrate`; Slot für Pflanzen-Platzierung | **HOCH** |
 | **REQ-003** (Phasensteuerung) | GrowthPhase, PhaseTransitionRule für Batch-Phasenübergänge; `current_phase`-Edge | **HOCH** |
+| **REQ-004** (Dünge-Logik) | NutrientPlan für `nutrient_plan_key`-Zuweisung; WateringSchedule + WateringScheduleEngine für Gießkalender-Endpoint; `RUN_FOLLOWS_PLAN`-Edge; `FOLLOWS_PLAN`-Cascade bei create-plants | **HOCH** |
 
 ### Wird benötigt von:
 
 | Modul | Nutzung | Priorität |
 |-------|---------|-----------|
-| **REQ-006** (Aufgabenplanung) | Run-basierte Task-Generierung (z.B. "Alle Tomaten im Run gießen") | **MITTEL** |
+| **REQ-006** (Aufgabenplanung) | **HOCH** — `generate_watering_tasks` Celery-Task scannt aktive Runs mit NutrientPlan+WateringSchedule; Run-basierte Task-Generierung (z.B. "Alle Tomaten im Run gießen") |
 | **REQ-007** (Erntemanagement) | `run_produced`-Edge für Batch-Ernte; Seed-to-Shelf-Traceability via PlantingRun | **HOCH** |
 | **REQ-009** (Dashboard) | Run-Übersicht als Dashboard-Widget; Phasen-Verteilung pro Run visualisieren | **MITTEL** |
 | **REQ-010** (IPM) | Run-weite IPM-Inspektionen; Befallsausbreitung innerhalb eines Runs tracken | **NIEDRIG** |
+| **REQ-014** (Tankmanagement) | **HOCH** — Gießplan-Bestätigungsflow nutzt Run + NutrientPlan für Dosierungsauflösung |
 
 ### Grapherweiterungen am Named Graph `kamerplanter_graph`:
 
 ```json
 {
-    "new_document_collections": ["planting_runs", "planting_run_entries"],
+    "new_document_collections": ["planting_runs", "planting_run_entries", "succession_plans"],
+    "modified_collections_with_new_fields": {
+        "planting_runs": ["nutrient_plan_key", "succession_plan_key", "succession_sequence", "succession_total"],
+        "planting_run_entries": ["nutrient_plan_key"]
+    },
     "new_edge_collections": [
         {
             "name": "run_contains",
@@ -1478,6 +1687,25 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
             "name": "entry_for_cultivar",
             "from": ["planting_run_entries"],
             "to": ["cultivars"]
+        },
+        {
+            "name": "run_follows_plan",
+            "from": ["planting_runs"],
+            "to": ["nutrient_plans"],
+            "properties": {"assigned_at": "datetime", "assigned_by": "str"},
+            "note": "NutrientPlan-Zuweisung auf Run-Ebene (REQ-004 Gießplan-Workflow)"
+        },
+        {
+            "name": "has_succession_plan",
+            "from": ["succession_plans"],
+            "to": ["planting_runs"],
+            "note": "Sukzessions-Plan generiert PlantingRuns (Outdoor-Garden-Planner Review G-009)"
+        },
+        {
+            "name": "succession_at",
+            "from": ["succession_plans"],
+            "to": ["locations"],
+            "note": "Staffelanbau an Standort (Outdoor-Garden-Planner Review G-009)"
         }
     ]
 }
@@ -1512,6 +1740,24 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Ausfallrate-Tracking:** germination_count/rooting_count und survival_rate werden pro Run erfasst
 - [ ] **Per-Plant-Harvest:** Optional pro-Pflanze-Gewichte in Batch-Ernte für Ertragsverteilungs-Analyse
 - [ ] **Run-Klonen:** clone_from_run_key ermöglicht Staffelanbau durch Kopieren der Run-Konfiguration
+- [ ] **NutrientPlan-Zuweisung:** NutrientPlan kann einem PlantingRun zugewiesen werden (`RUN_FOLLOWS_PLAN`-Edge)
+- [ ] **NutrientPlan-Cascade:** Bei Zuweisung werden bestehende Pflanzen im Run automatisch mit `FOLLOWS_PLAN`-Edges verknüpft (sofern kein Entry-Level-Override)
+- [ ] **NutrientPlan-Entfernung:** Entfernung der Run-Zuweisung entfernt auch die kaskadierten `FOLLOWS_PLAN`-Edges
+- [ ] **Entry-Level-Override:** PlantingRunEntry.nutrient_plan_key überschreibt den Run-Level-Plan für die jeweilige Art (Mischkultur-Support)
+- [ ] **create-plants-Cascade:** Bei Pflanzen-Erstellung werden automatisch `FOLLOWS_PLAN`-Edges erzeugt (Entry-Override > Run-Level)
+- [ ] **Gießkalender-Endpoint:** GET watering-schedule liefert nächste 14 Tage mit Phasengruppen und Dosierungen
+- [ ] **Gießkalender ohne Schedule:** Endpoint liefert 404 wenn kein NutrientPlan oder kein WateringSchedule zugewiesen
+<!-- Quelle: Outdoor-Garden-Planner Review G-008, G-009 -->
+- [ ] **Sukzessions-Plan CRUD:** Erstellen, Lesen, Aktualisieren, Löschen von SuccessionPlans funktioniert
+- [ ] **Sukzessions-Run-Generierung:** System generiert automatisch N PlantingRuns basierend auf interval_days, start_date, end_date
+- [ ] **Sukzessions-Verknüpfung:** Generierte Runs haben succession_plan_key, succession_sequence und succession_total korrekt gesetzt
+- [ ] **Sukzessions-Erinnerung:** reminder_days_before Tage vor nächster Aussaat wird eine Erinnerung erzeugt
+- [ ] **Sukzessions-Status:** SuccessionPlan-Status wechselt automatisch zu completed wenn alle Batches abgeschlossen
+- [ ] **Mischkultur-Berater:** Bei Auswahl einer primary Species werden compatible_with- und incompatible_with-Edges geladen und als Empfehlungen zurückgegeben
+- [ ] **Companion-Effekt-Typen:** Empfehlungen werden nach Effekt-Typ sortiert (pest_repellent > growth_enhancer > soil_improver > pollinator_attractor)
+- [ ] **Mischkultur-UI:** Im PlantingRun-Create-Dialog erscheint nach Primary-Auswahl ein Mischkultur-Partner-Panel
+- [ ] **Quick-Add Companion:** Empfohlener Partner kann mit 1-Klick als Entry hinzugefügt werden
+- [ ] **Graph-Integration (Sukzession):** has_succession_plan und succession_at Edge Collections korrekt im Named Graph registriert
 
 ### Testszenarien:
 
@@ -1612,9 +1858,47 @@ THEN:
   - Validierungsfehler 422: "Summe der Entry-Quantities (20) muss planned_quantity (25) entsprechen"
 ```
 
+**Szenario 8: NutrientPlan einem Run zuweisen mit Cascade**
+```
+GIVEN: PlantingRun "Tomaten Hochbeet A" mit 20 aktiven Pflanzen (alle in Phase vegetative),
+       NutrientPlan "Tomato Heavy Coco" mit WateringSchedule (Mo/Mi/Fr, 08:00, drench)
+WHEN: POST /api/v1/planting-runs/{key}/nutrient-plan
+      Body: { nutrient_plan_key: "plan_tomato_coco", cascade_to_plants: true }
+THEN:
+  - RUN_FOLLOWS_PLAN-Edge: PlantingRun → NutrientPlan erstellt
+  - 20 FOLLOWS_PLAN-Edges: PlantInstance → NutrientPlan erstellt
+  - PlantingRun.nutrient_plan_key = "plan_tomato_coco" (denormalisiert)
+  - Response: cascade_result.plants_updated = 20
+```
+
+**Szenario 9: Mischkultur mit Entry-Level-Override**
+```
+GIVEN: PlantingRun (mixed_culture) mit 2 Entries:
+       - Entry A: Tomaten (primary, 8 Pflanzen)
+       - Entry B: Basilikum (companion, 12 Pflanzen), nutrient_plan_key = "herb_light"
+       Run-Level nutrient_plan_key = "tomato_heavy_coco"
+WHEN: POST /api/v1/planting-runs/{key}/create-plants
+THEN:
+  - 8 Tomaten-Pflanzen erhalten FOLLOWS_PLAN → "tomato_heavy_coco" (Run-Level)
+  - 12 Basilikum-Pflanzen erhalten FOLLOWS_PLAN → "herb_light" (Entry-Level-Override)
+  - Response: nutrient_plan_assignments = {run_level: 8, entry_override: 12}
+```
+
+**Szenario 10: Gießkalender abrufen**
+```
+GIVEN: PlantingRun mit NutrientPlan "Tomato Heavy Coco" (WateringSchedule: Mo/Mi/Fr),
+       15 Pflanzen in vegetative, 3 in flowering, 2 in seedling
+WHEN: GET /api/v1/planting-runs/{key}/watering-schedule
+THEN:
+  - upcoming_dates enthält alle Mo/Mi/Fr der nächsten 14 Tage
+  - Jedes Datum enthält 3 phase_groups (vegetative, flowering, seedling)
+  - Jede Gruppe enthält phasen-spezifische Dosierungen aus dem NutrientPlan
+  - last_watering_date wird aus letztem WateringEvent/FeedingEvent des Runs abgeleitet
+```
+
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Pflanzdurchlauf, Planting Run, Batch-Operation, Gruppenmanagement, Monokultur, Klon, Mischkultur, Batch-Erstellung, Batch-Phasenübergang, Batch-Ernte, Batch-Entfernung, Seed-to-Shelf, Traceability
-- Fachbegriffe: PlantingRun, PlantingRunEntry, Mutterpflanze, Steckling, Companion Planting, Trap Crop, Nurse Crop, Cover Crop, Gründüngung, Klon-Generation, Staffelanbau, Succession Planting, Detach-Kategorie, Male Plant, Bewurzelungsrate, Keimrate, HarvestBatch, State Machine, Detach, ID-Generierung
-- Verknüpfung: Baut auf REQ-001 (Species/Cultivar), REQ-002 (Location/Substrate), REQ-003 (Phasensteuerung) auf; liefert an REQ-007 (Batch-Ernte), REQ-006 (Run-Tasks), REQ-009 (Dashboard), REQ-010 (IPM)
+- Keywords: Pflanzdurchlauf, Planting Run, Batch-Operation, Gruppenmanagement, Monokultur, Klon, Mischkultur, Batch-Erstellung, Batch-Phasenübergang, Batch-Ernte, Batch-Entfernung, Seed-to-Shelf, Traceability, Sukzessions-Aussaat, Staffelanbau, Mischkultur-Berater, Companion Planting Advisor
+- Fachbegriffe: PlantingRun, PlantingRunEntry, SuccessionPlan, Mutterpflanze, Steckling, Companion Planting, Trap Crop, Nurse Crop, Cover Crop, Gründüngung, Klon-Generation, Staffelanbau, Succession Planting, Detach-Kategorie, Male Plant, Bewurzelungsrate, Keimrate, HarvestBatch, State Machine, Detach, ID-Generierung, NutrientPlan-Zuweisung, Gießkalender, Entry-Level-Override, RUN_FOLLOWS_PLAN, Cascade, Phasengruppe, pest_repellent, growth_enhancer, soil_improver, pollinator_attractor, Empfehlungs-Engine, has_succession_plan, succession_at
+- Verknüpfung: Baut auf REQ-001 (Species/Cultivar + compatible_with/incompatible_with-Edges), REQ-002 (Location/Substrate), REQ-003 (Phasensteuerung), REQ-004 (NutrientPlan/WateringSchedule) auf; liefert an REQ-007 (Batch-Ernte), REQ-006 (Run-Tasks + Gießplan-Tasks), REQ-009 (Dashboard), REQ-010 (IPM), REQ-014 (Gießplan-Bestätigung), REQ-022 (Sukzessions-Erinnerungen)

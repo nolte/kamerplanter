@@ -86,7 +86,7 @@ export default function CultivarListSection({ speciesKey }: Props) {
       sortable: false,
       searchable: false,
       render: (r) => (
-        <IconButton size="small" onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}>
+        <IconButton size="small" aria-label={t('common.delete')} onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}>
           <DeleteIcon fontSize="small" />
         </IconButton>
       ),
@@ -97,7 +97,7 @@ export default function CultivarListSection({ speciesKey }: Props) {
     <Box sx={{ mt: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">{t('pages.cultivars.title')}</Typography>
-        <Button startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+        <Button startIcon={<AddIcon />} onClick={() => setCreateOpen(true)} data-testid="create-button">
           {t('pages.cultivars.create')}
         </Button>
       </Box>

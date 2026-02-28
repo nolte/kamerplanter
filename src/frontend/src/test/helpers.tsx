@@ -11,6 +11,7 @@ import speciesReducer from '@/store/slices/speciesSlice';
 import sitesReducer from '@/store/slices/sitesSlice';
 import substratesReducer from '@/store/slices/substratesSlice';
 import plantInstancesReducer from '@/store/slices/plantInstancesSlice';
+import userPreferencesReducer from '@/store/slices/userPreferencesSlice';
 
 export function createTestStore() {
   return configureStore({
@@ -21,6 +22,7 @@ export function createTestStore() {
       sites: sitesReducer,
       substrates: substratesReducer,
       plantInstances: plantInstancesReducer,
+      userPreferences: userPreferencesReducer,
     },
   });
 }

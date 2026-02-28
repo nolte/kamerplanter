@@ -7,7 +7,7 @@ Kategorie: Bewässerung & Düngung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery
 Status: Entwurf
-Version: 1.2 (Agrarbiologie-Review P-003)
+Version: 1.3 (Gießplan-Workflow)
 ```
 
 ## 1. Business Case
@@ -158,6 +158,7 @@ Auch bei Locations mit automatischer Bewässerung (`irrigation_system != 'manual
     - `is_supplemental: bool` (Ergänzend zur automatischen Bewässerung — z.B. organische Düngung per Gießkanne bei Drip-versorgten Pflanzen)
     - `volume_liters: float` (Gesamtvolumen)
     - `slot_keys: list[str]` (Betroffene Slots — mindestens 1)
+    - `task_key: Optional[str]` (Rückreferenz auf den Gießplan-Task aus REQ-006, wenn das WateringEvent aus einem bestätigten Task erzeugt wurde. Ermöglicht Rückverfolgbarkeit: Task → WateringEvent → FeedingEvents)
     - `tank_fill_event_key: Optional[str]` (Referenz auf TankFillEvent, wenn aus dokumentierter Tankbefüllung)
     - `nutrient_plan_key: Optional[str]` (Referenz auf NutrientPlan aus REQ-004)
     - `fertilizers_used: Optional[list[FertilizerSnapshot]]` (Dünger-Snapshot mit Dosierungen)
@@ -615,6 +616,13 @@ class WateringEvent(BaseModel):
     )
     volume_liters: float = Field(gt=0, le=1000, description="Gesamtvolumen in Litern")
     slot_keys: list[str] = Field(min_length=1, description="Betroffene Slot-Keys")
+
+    # Rückreferenz auf Gießplan-Task (REQ-006)
+    task_key: Optional[str] = Field(
+        None,
+        description="Referenz auf den Gießplan-Task, wenn WateringEvent aus "
+                    "Bestätigungsflow (confirm/quick-confirm) erzeugt wurde"
+    )
 
     # Verknüpfung zu Tank/Rezept
     tank_fill_event_key: Optional[str] = Field(
@@ -1469,6 +1477,10 @@ GET    /api/v1/slots/{slot_key}/watering-events           — Gießhistorie eine
 GET    /api/v1/locations/{location_key}/watering-events   — Gießhistorie aller Slots einer Location
 GET    /api/v1/locations/{location_key}/watering-stats    — Statistik: Fertigation vs. manuelle Ergänzung
 
+# Gießplan-Bestätigungsflow (REQ-006 Task → WateringEvent → FeedingEvents)
+POST   /api/v1/watering-events/confirm                   — Vollständige Bestätigung mit Details (Volumen, Methode, EC/pH-Messungen)
+POST   /api/v1/watering-events/quick-confirm             — Ein-Tap-Bestätigung mit Plan-Defaults (Kiosk/Mobile-optimiert)
+
 # Wartung
 POST   /api/v1/tanks/{tank_key}/maintenance              — Wartung dokumentieren
 GET    /api/v1/tanks/{tank_key}/maintenance               — Wartungshistorie
@@ -1544,6 +1556,110 @@ GET    /api/v1/locations/{location_key}/tanks/validation  — Prüfe ob Location
 { "_from": "tanks/tank_zelt1", "_to": "maintenance_schedules/sched_zelt1_cal" }
 ```
 
+### Gießplan-Bestätigungsflow
+
+Der Bestätigungsflow verbindet REQ-006 (Task) mit REQ-014 (WateringEvent) und REQ-004 (FeedingEvent). Ein Gießplan-Task (erzeugt von `generate_watering_tasks`) wird bestätigt und erzeugt dabei die zugehörigen Events.
+
+**`POST /api/v1/watering-events/confirm` — Vollständige Bestätigung:**
+
+Für erfahrene Nutzer, die Details anpassen möchten (Volumen, EC/pH-Messungen, Dünger-Override).
+
+```json
+// Request
+{
+    "task_key": "feeding:watering:tomaten_hochbeet_a_2025:2026-02-27",
+    "application_method": "drench",
+    "volume_liters": 10.0,
+    "use_plan_dosages": true,
+    "fertilizers_override": null,
+    "measured_ec_ms": 1.75,
+    "measured_ph": 5.9,
+    "runoff_ec_ms": 2.1,
+    "runoff_ph": 6.2,
+    "water_source": "osmose",
+    "notes": "Leichte Welke an TOM-03 beobachtet"
+}
+
+// Response (201 Created)
+{
+    "watering_event_key": "watering_evt_20260227_001",
+    "task_key": "feeding:watering:tomaten_hochbeet_a_2025:2026-02-27",
+    "task_status": "completed",
+    "watering_event": {
+        "watered_at": "2026-02-27T08:15:00Z",
+        "application_method": "drench",
+        "volume_liters": 10.0,
+        "slot_keys": ["HOCHBEETA_1", "HOCHBEETA_2", "..."],
+        "measured_ec_ms": 1.75,
+        "measured_ph": 5.9,
+        "nutrient_plan_key": "plan_tomato_coco",
+        "task_key": "feeding:watering:tomaten_hochbeet_a_2025:2026-02-27"
+    },
+    "feeding_events_created": 18,
+    "phase_summary": [
+        {"phase": "vegetative", "plant_count": 15, "target_ec_ms": 1.4},
+        {"phase": "flowering", "plant_count": 3, "target_ec_ms": 1.8}
+    ]
+}
+```
+
+**Ablauf (confirm):**
+1. Task validieren: existiert, status='pending' oder 'in_progress', hat planting_run_key
+2. PlantingRun laden + NutrientPlan auflösen
+3. Slots aller aktiven Pflanzen im Run ermitteln
+4. WateringEvent erstellen (mit task_key als Rückreferenz)
+5. `watered_slot`-Edges für alle betroffenen Slots erzeugen
+6. Wenn `use_plan_dosages=true`:
+   - Pflanzen nach Phase gruppieren (via WateringScheduleEngine.resolve_dosages_for_run)
+   - Für jede Pflanze: FeedingEvent (REQ-004) mit phasen-spezifischen Dosierungen erstellen
+   - FED_BY-Edge (PlantInstance → FeedingEvent) + TRIGGERED_BY-Edge (FeedingEvent → WateringEvent)
+7. Wenn `fertilizers_override` gesetzt: Override-Dosierungen statt Plan-Dosierungen verwenden
+8. Task als 'completed' markieren + watering_event_key setzen
+9. CareConfirmation (REQ-022) erzeugen für adaptive Learning (sofern CareProfile existiert)
+
+**`POST /api/v1/watering-events/quick-confirm` — Ein-Tap-Bestätigung:**
+
+Für Einsteiger, Kiosk-Modus und Mobile. Nutzt alle Defaults aus dem NutrientPlan.
+
+```json
+// Request (minimal)
+{
+    "task_key": "feeding:watering:tomaten_hochbeet_a_2025:2026-02-27",
+    "notes": null
+}
+
+// Response (201 Created)
+{
+    "watering_event_key": "watering_evt_20260227_002",
+    "task_key": "feeding:watering:tomaten_hochbeet_a_2025:2026-02-27",
+    "task_status": "completed",
+    "defaults_used": {
+        "application_method": "drench",
+        "volume_liters": 2.0,
+        "from_plan": "Tomato Heavy Coco"
+    },
+    "feeding_events_created": 18
+}
+```
+
+**Ablauf (quick-confirm):**
+1. Task validieren (wie confirm)
+2. PlantingRun + NutrientPlan laden
+3. Defaults aus WateringSchedule (application_method) und NutrientPlanPhaseEntry (volume_per_feeding_liters) übernehmen
+4. WateringEvent erstellen mit Defaults
+5. FeedingEvents erstellen (wie confirm, mit Plan-Dosierungen)
+6. Task als 'completed' markieren
+7. CareConfirmation (REQ-022) erzeugen
+
+**Fehlerbehandlung:**
+
+| HTTP-Status | Fehlerfall |
+|-------------|-----------|
+| `400` | task_key fehlt oder ungültiges Format |
+| `404` | Task nicht gefunden oder kein PlantingRun zugeordnet |
+| `409` | Task bereits completed (Duplikat-Schutz) |
+| `422` | PlantingRun hat keinen NutrientPlan; Run ist nicht aktiv |
+
 ## 4. Authentifizierung & Autorisierung
 
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
@@ -1563,15 +1679,18 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 
 **Erforderliche Module:**
 - REQ-002 (Standort): Location für Tank-Zuordnung, `irrigation_system` für Pflicht-Validierung
-- REQ-004 (Düngung): MixingResult als Input für Tank-Befüllung (Nährstofflösung)
+- REQ-004 (Düngung): **HOCH** — MixingResult als Input für Tank-Befüllung; NutrientPlan + WateringScheduleEngine für Bestätigungsflow (Dosierungs-Auflösung pro Phase); FeedingEvent-Erzeugung bei Gießplan-Bestätigung
 - REQ-005 (Sensorik): Sensor-Daten für automatische Zustandserfassung (pH, EC, Füllstand, Temperatur)
+- REQ-006 (Aufgabenplanung): **HOCH** — Task-Completion bei Gießplan-Bestätigung; `planting_run_key` und `watering_event_key` auf Task
+- REQ-013 (Pflanzdurchlauf): **HOCH** — PlantingRun als Gruppierungs-Container für Bestätigungsflow; Pflanzen-Phasen-Gruppierung; Slot-Ermittlung
 
 **Wird benötigt von:**
 - REQ-004 (Düngung): **HOCH** — Tank als Zielgefäß für MixingResult; EC-Budget basiert auf Tank-Volumen
 - REQ-005 (Sensorik): **MITTEL** — Tank-Sensoren als zusätzliche Sensor-Locations (Füllstand, Wassertemperatur)
 - REQ-006 (Aufgabenplanung): **HOCH** — Wartungs-Tasks werden automatisch aus MaintenanceSchedule generiert
 - REQ-009 (Dashboard): **MITTEL** — Tank-Status-Widget, Alert-Anzeige, fällige Wartungen
-- REQ-013 (Pflanzdurchlauf): **NIEDRIG** — PlantingRun referenziert Tank als Versorgungsquelle
+- REQ-013 (Pflanzdurchlauf): **MITTEL** — PlantingRun referenziert Tank als Versorgungsquelle; Gießkalender-Endpoint nutzt WateringEvent-Historie
+- REQ-022 (Pflegeerinnerungen): **NIEDRIG** — CareConfirmation-Interop bei Gießplan-Bestätigung (Adaptive Learning)
 - REQ-018 (Aktorik): **MITTEL** — Stock-Solution-Tanks als Quelle für automatisierte Dosierpumpen
 
 **Celery-Tasks:**
@@ -1637,6 +1756,13 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **FertilizerSnapshot Feststoffe:** `g_per_liter` für Top-Dress/Trockendünger neben `ml_per_liter`
 - [ ] **Seed-Daten CalMag:** Top-Up bei Coco/Osmose enthält CalMag (CEC-Sättigung)
 - [ ] **Differenzierte Kalibrierungsintervalle:** Kalibrierungsintervall nach Tank-Typ und Sondenplatzierung (Rezirkulation inline: 7d, Nährstoff: 14d, Irrigation: 21d, Reservoir: 28d)
+- [ ] **Gießplan-Confirm:** POST /watering-events/confirm erzeugt WateringEvent + FeedingEvents + Task-Completion in einer Transaktion
+- [ ] **Gießplan-Quick-Confirm:** POST /watering-events/quick-confirm nutzt Plan-Defaults (Volumen, Methode, Dosierungen)
+- [ ] **Phasen-Dosierung:** Bei `use_plan_dosages=true` werden Dosierungen automatisch pro Phase aus NutrientPlan aufgelöst
+- [ ] **Fertilizer-Override:** Bei Angabe von `fertilizers_override` werden Override-Dosierungen statt Plan-Dosierungen verwendet
+- [ ] **Task-Rückreferenz:** WateringEvent.task_key verlinkt zurück auf den bestätigten Gießplan-Task
+- [ ] **Duplikat-Schutz:** Bereits bestätigte Tasks (status='completed') werden mit 409 Conflict abgelehnt
+- [ ] **CareConfirmation-Interop:** Bei Gießplan-Bestätigung wird automatisch CareConfirmation (REQ-022) erzeugt
 
 ### Testszenarien:
 
@@ -1865,9 +1991,48 @@ THEN:
   - Messung in Zustandsverlauf sichtbar
 ```
 
+**Szenario 19: Gießplan-Bestätigung (vollständig)**
+```
+GIVEN: Gießplan-Task für Run "Tomaten Hochbeet A" (18 Pflanzen: 15 vegetative, 3 flowering),
+       NutrientPlan "Tomato Heavy Coco" zugewiesen
+WHEN: POST /api/v1/watering-events/confirm
+      Body: { task_key: "feeding:watering:tomaten_hochbeet_a_2025:2026-02-27",
+              application_method: "drench", volume_liters: 10.0,
+              use_plan_dosages: true, measured_ec_ms: 1.75, measured_ph: 5.9,
+              water_source: "osmose" }
+THEN:
+  - 1 WateringEvent erstellt (task_key gesetzt, slot_keys = alle Run-Slots)
+  - 18 FeedingEvents erstellt (15× vegetative Dosierung, 3× flowering Dosierung)
+  - 18 FED_BY-Edges + 18 TRIGGERED_BY-Edges
+  - Task status → 'completed', watering_event_key gesetzt
+  - CareConfirmation erzeugt (reminder_type: 'watering', action: 'confirmed')
+```
+
+**Szenario 20: Gießplan-Quick-Confirm (Ein-Tap)**
+```
+GIVEN: Gießplan-Task für Run "Orchideen Fensterbank" (5 Pflanzen, alle vegetative),
+       NutrientPlan "Orchid Soak Weekly" (volume: 0.5L, method: drench)
+WHEN: POST /api/v1/watering-events/quick-confirm
+      Body: { task_key: "feeding:watering:orchideen_fenster:2026-02-27" }
+THEN:
+  - WateringEvent mit Defaults: application_method=drench, volume=0.5L
+  - 5 FeedingEvents mit vegetative-Dosierungen
+  - Task completed
+  - Response: defaults_used zeigt verwendeten Plan und Werte
+```
+
+**Szenario 21: Bestätigung eines bereits erledigten Tasks**
+```
+GIVEN: Gießplan-Task mit status='completed' (bereits bestätigt)
+WHEN: POST /api/v1/watering-events/confirm mit gleichem task_key
+THEN:
+  - HTTP 409 Conflict
+  - Message: "Task bereits abgeschlossen — WateringEvent existiert bereits"
+```
+
 ---
 
 **Hinweise für RAG-Integration:**
 - Keywords: Tank, Reservoir, Bewässerung, Nährstofflösung, Wasserwechsel, Reinigung, Desinfektion, Kalibrierung, Wartungsplan, Wartungshistorie, Befüllungshistorie, Tankbefüllung, Vollwechsel, Auffüllung, Korrektur, Dünger-Snapshot, Rezept-Verknüpfung, Füllstand, Algenrisiko, Rezirkulation, Tankkaskade, Gießkanne, Gießvorgang, manuelle Bewässerung, ergänzende Handdüngung, Blattdüngung, Komposttee, organischer Dünger, Applikationsmethode, Fertigation, Drench, Foliar, Top Dress, Gelöstsauerstoff, Sauerstoff, Pythium, Wurzelfäule, ORP, Sterilisation, UV-C, Ozon, Chlor, Chloramin, Alkalinität, Karbonathärte, Lösungsalter, Chelat-Degradation, pH-Drift, EC-Abweichung, Wurzelschock, Kälte, Salting-Out-Effekt, Q10-Regel, Biofilm, EC-Drift, EC-Trend, Stammlösung, Stock Solution, A/B-Tank, Compound-Alert, Lichtdichtheit, Substrat-pH, CalMag-Pufferung, Nachfüllwasser-Temperatur, Temperaturschock, Drain-to-Waste, Runoff-Interpretation
 - Technische Begriffe: MaintenanceSchedule, TankState, TankFillEvent, WateringEvent, ApplicationMethod, FillType, FertilizerSnapshot, TankType, MaintenanceType, feeds_from, has_tank, has_fill_event, watered_slot, watering_from, supplies, mixed_into, auto_create_task, tank_safe, is_organic, is_supplemental, Celery-Beat, dissolved_oxygen_mgl, orp_mv, chlorine_ppm, chloramine_ppm, alkalinity_ppm, has_uv_sterilizer, has_ozone_generator, is_light_proof, solution_age, ph_drift, ec_deviation, ec_trend_rising, ec_trend_falling, temp_do_compound, biofilm_risk, algae_risk, stock_solution, water_temperature_celsius, g_per_liter, PH_RANGES_BY_SUBSTRATE, Q10
-- Verknüpfung: Zentral für REQ-002 (Standort — irrigation_system), REQ-004 (Düngung — MixingResult, NutrientPlan, FeedingEvent, ApplicationMethod, Fertilizer.tank_safe), REQ-005 (Sensorik), REQ-006 (Aufgabenplanung)
+- Verknüpfung: Zentral für REQ-002 (Standort — irrigation_system), REQ-004 (Düngung — MixingResult, NutrientPlan, FeedingEvent, ApplicationMethod, Fertilizer.tank_safe, WateringScheduleEngine), REQ-005 (Sensorik), REQ-006 (Aufgabenplanung — Gießplan-Tasks, Task-Completion), REQ-013 (Pflanzdurchlauf — Run-basierter Bestätigungsflow), REQ-022 (Pflegeerinnerungen — CareConfirmation-Interop)

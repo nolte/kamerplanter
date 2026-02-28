@@ -7,7 +7,7 @@ Kategorie: Monitoring
 Fokus: Beides
 Technologie: Python, Home Assistant API, MQTT, TimescaleDB
 Status: Entwurf
-Version: 2.2 (U/P-Findings integriert)
+Version: 2.3 (Wetter-Integration)
 ```
 
 ## 1. Business Case
@@ -64,6 +64,58 @@ Das System implementiert einen Hybrid-Ansatz für Datenerfassung mit nahtloser D
 - Interpolation bei kurzen Ausfällen (<2h)
 - Historische Daten-Analyse für Plausibilitätsprüfung
 
+<!-- Quelle: Outdoor-Garden-Planner Review G-010 -->
+### Wetter-Integration (Freiland)
+
+**Wetter-Integration für Freilandgärten:**
+
+Neben den Indoor-Sensoren (Home Assistant, MQTT) unterstützt das System eine **Wetter-API-Anbindung** als zusätzliche Datenquelle für Freiland-Standorte. Die Wetterdaten ergänzen die Sensor-Fallback-Kette (automatisch → semi-automatisch → manuell) um eine vierte Stufe: **extern (Wetter-API)**.
+
+**Datenquellen (Adapter-Pattern, wie REQ-011):**
+- **DWD Open Data** (Deutscher Wetterdienst) — kostenlos, DACH-Region, offizielle Daten
+- **OpenWeatherMap** — global, Freemium (1000 Calls/Tag gratis)
+- **Open-Meteo** — kostenlos, Open Source, keine API-Key nötig
+- Erweiterbar über Adapter-Registry (REQ-011 Pattern)
+
+**Wetter-basierte Benachrichtigungen:**
+
+| Warnung | Trigger | Aktion | Verknüpfung |
+|---------|---------|--------|-------------|
+| **Frostwarnung** | Nachttemperatur < 2°C vorhergesagt | Push: "Frost heute Nacht! 7 frostempfindliche Pflanzen schützen!" | REQ-022 OverwinteringProfile, REQ-001 `frost_sensitivity` |
+| **Hitzewellenwarnung** | Tagesmax > 35°C für ≥3 Tage | Push: "Hitzewelle! Morgens/abends gießen, Salat schattieren" | REQ-022 Gießerinnerungen |
+| **Regenvorhersage** | >5mm Regen in nächsten 24h | Gieß-Erinnerung verschieben/unterdrücken | REQ-022 Adaptive Watering |
+| **Trockenperiode** | <2mm Regen in letzten 7 Tagen | Push: "Trockenperiode — Gießbedarf erhöht" | REQ-022 |
+| **Starkwind** | Böen >60 km/h | Push: "Sturm erwartet — Tomaten-Stützen prüfen, Folien sichern" | REQ-006 Tasks |
+| **Hagel** | Hagelwarnung | Push: "Hagel möglich — Schutznetze über empfindliche Kulturen" | REQ-006 Tasks |
+
+**Wetter-Datenmodell:**
+
+- **`:WeatherForecast`** — Zwischengespeicherte Wettervorhersage pro Site
+  - Collection: `weather_forecasts`
+  - Properties:
+    - `site_key: str` (Referenz auf Site)
+    - `forecast_date: date`
+    - `temp_min_c: float`
+    - `temp_max_c: float`
+    - `precipitation_mm: float`
+    - `wind_speed_kmh: float`
+    - `wind_gust_kmh: Optional[float]`
+    - `humidity_percent: float`
+    - `weather_code: str` (WMO-Code)
+    - `source: str` (z.B. "openweathermap", "dwd", "open-meteo")
+    - `fetched_at: datetime`
+
+**Celery-Tasks:**
+- `fetch_weather_forecasts`: Täglich um 06:00 für alle Outdoor-Sites mit GPS-Koordinaten
+- `check_frost_warnings`: Nach Wetter-Update — prüft alle Sites auf Frost und generiert Warnungen
+- `adjust_watering_reminders`: Nach Wetter-Update — verschiebt Gieß-Erinnerungen bei Regen
+
+**Integration mit bestehenden Modulen:**
+- **REQ-002 (Sites):** Nur Sites mit `type: 'outdoor'` oder `type: 'greenhouse'` erhalten Wetterdaten. GPS-Koordinaten (`gps_coordinates`) werden für den API-Call verwendet.
+- **REQ-022 (Pflegeerinnerungen):** `CareReminderEngine` prüft vor Gieß-Erinnerung die Wettervorhersage. Bei >5mm Regen in den nächsten 24h wird die Erinnerung unterdrückt oder mit Hinweis "Es regnet — Gießen wahrscheinlich nicht nötig" angezeigt.
+- **REQ-006 (Aufgaben):** Frostwarnung generiert automatisch einen Task "Frostschutz anbringen" mit hoher Priorität.
+- **Dashboard (REQ-009):** Wetter-Widget zeigt 3-Tages-Vorhersage für aktive Outdoor-Sites.
+
 ## 2. ArangoDB-Modellierung
 
 ### Nodes:
@@ -95,7 +147,7 @@ Das System implementiert einen Hybrid-Ansatz für Datenerfassung mit nahtloser D
     - `timestamp: datetime`
     - `value: float`
     - `raw_value: Optional[float]` (Vor Kalibrierung)
-    - `source: Literal['ha_auto', 'mqtt_auto', 'modbus_auto', 'manual', 'interpolated', 'fallback']`
+    - `source: Literal['ha_auto', 'mqtt_auto', 'modbus_auto', 'manual', 'interpolated', 'fallback', 'weather_api']`
     - `quality_score: float` (0-1, Vertrauenswürdigkeit)
     - `validated: bool`
     - `outlier: bool` (Statistischer Ausreißer)
@@ -152,6 +204,23 @@ Das System implementiert einen Hybrid-Ansatz für Datenerfassung mit nahtloser D
     - `notes: Optional[str]`
     - `photo_reference: Optional[str]`
 
+<!-- Quelle: Outdoor-Garden-Planner Review G-010 -->
+- **`:WeatherForecast`** - Zwischengespeicherte Wettervorhersage pro Site
+  - Collection: `weather_forecasts`
+  - Properties:
+    - `forecast_id: str`
+    - `site_key: str` (Referenz auf Site)
+    - `forecast_date: date`
+    - `temp_min_c: float`
+    - `temp_max_c: float`
+    - `precipitation_mm: float`
+    - `wind_speed_kmh: float`
+    - `wind_gust_kmh: Optional[float]`
+    - `humidity_percent: float`
+    - `weather_code: str` (WMO-Code)
+    - `source: str` (z.B. "openweathermap", "dwd", "open-meteo")
+    - `fetched_at: datetime`
+
 - **`:SensorHealth`** - Sensor-Status-Tracking
   - Properties:
     - `health_id: str`
@@ -178,6 +247,7 @@ replaced_by              sensors            sensors                 replacement_
 confirms                 manual_entries     observations            // Manuelle Verifizierung von Auto-Werten
 resolved_by_action       alerts             tasks
 part_of_system           sensors            monitoring_systems      // z.B. "Growzelt_1_Climate"
+has_forecast             sites              weather_forecasts       // Wetter-Integration (G-010)
 ```
 
 ### AQL-Beispiellogik:
@@ -457,7 +527,7 @@ class SensorReading(BaseModel):
     parameter: Literal['temp', 'humidity', 'ec', 'ph', 'ppfd', 'co2', 'soil_moisture', 'water_level']
     value: float
     unit: str
-    source: Literal['ha_auto', 'mqtt_auto', 'modbus_auto', 'manual', 'interpolated', 'fallback']
+    source: Literal['ha_auto', 'mqtt_auto', 'modbus_auto', 'manual', 'interpolated', 'fallback', 'weather_api']
     timestamp: datetime = Field(default_factory=datetime.now)
     quality_score: float = Field(default=1.0, ge=0, le=1.0)
     
@@ -533,6 +603,7 @@ class SensorReading(BaseModel):
             'mqtt_auto': 0.95,
             'modbus_auto': 0.95,
             'manual': 0.85,       # Basis — wird durch Gerätegenauigkeit/Kalibrierung adjustiert
+            'weather_api': 0.7,   # Wetter-API — ortsbezogene Vorhersage, nicht standortexakt (G-010)
             'interpolated': 0.6,
             'fallback': 0.4
         }
@@ -1283,7 +1354,7 @@ ParameterType = Literal[
     'blue_fraction',    # Blauanteil (%) im PAR-Spektrum — beeinflusst Kompaktwuchs und Stomata-Öffnung
     'par_spectrum'      # PAR-Spektralverteilung (JSON-kodiert: {nm_range: μmol/m²/s}) — für detaillierte Lichtanalyse
 ]
-SourceType = Literal['ha_auto', 'mqtt_auto', 'modbus_auto', 'manual', 'interpolated', 'fallback']
+SourceType = Literal['ha_auto', 'mqtt_auto', 'modbus_auto', 'manual', 'interpolated', 'fallback', 'weather_api']
 AlertSeverity = Literal['info', 'warning', 'critical']
 SensorStatus = Literal['online', 'degraded', 'offline', 'maintenance']
 
@@ -1573,17 +1644,21 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - Home Assistant (optional, für Auto-Mode)
 - MQTT Broker (optional, z.B. Mosquitto)
 - TimescaleDB (empfohlen für Zeitreihen)
+- Wetter-API (optional, für Freiland): DWD Open Data, OpenWeatherMap oder Open-Meteo <!-- G-010 -->
 
 **Erforderliche Module:**
 - REQ-003 (Phasen): RequirementProfile für Soll-Ist-Vergleich
-- REQ-002 (Standort): Location für Sensor-Zuordnung
+- REQ-002 (Standort): Location für Sensor-Zuordnung, GPS-Koordinaten für Wetter-API <!-- G-010 -->
+- REQ-011 (Externe Anreicherung): Adapter-Registry-Pattern für Wetter-Adapter <!-- G-010 -->
 
 **Wird benötigt von:**
 - REQ-003 (Phasen): VPD-Berechnung, Klima-Validierung
 - REQ-004 (Düngung): EC/pH für Nährlösungs-Kontrolle
-- REQ-009 (Dashboard): Real-Time-Daten für Widgets
+- REQ-006 (Aufgaben): Wetter-basierte Task-Generierung (Frostschutz, Sturmsicherung) <!-- G-010 -->
+- REQ-009 (Dashboard): Real-Time-Daten für Widgets, Wetter-Widget für Outdoor-Sites <!-- G-010 -->
 - REQ-010 (IPM): Klimadaten für Schädlings-Risiko-Modelle
 - REQ-014 (Tankmanagement): **MITTEL** — Tank-Sensoren für automatische Zustandserfassung (pH, EC, Füllstand, Wassertemperatur)
+- REQ-022 (Pflegeerinnerungen): Wetter-Daten für adaptive Gieß-Erinnerungen <!-- G-010 -->
 
 **Python-Bibliotheken:**
 - `requests` - HTTP für HA REST API
@@ -1627,6 +1702,13 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Alert-System:** Konfigurierbare Min/Max-Schwellenwerte
 - [ ] **Battery-Monitoring:** Warnung bei <20% Batterie (wenn verfügbar)
 - [ ] **Offline-Modus:** Mobile-App speichert Eingaben lokal und synct später
+- [ ] **Wetter-API-Anbindung:** Mindestens ein Wetter-Adapter (DWD/OpenWeatherMap/Open-Meteo) implementiert <!-- G-010 -->
+- [ ] **Wetter-Adapter-Registry:** Erweiterbar über Adapter-Pattern analog REQ-011 <!-- G-010 -->
+- [ ] **WeatherForecast-Collection:** `weather_forecasts` mit täglicher Aktualisierung für Outdoor/Greenhouse-Sites <!-- G-010 -->
+- [ ] **Frostwarnung:** Automatische Push-Benachrichtigung bei Nachttemperatur < 2°C <!-- G-010 -->
+- [ ] **Regen-adaptive Gieß-Erinnerungen:** REQ-022-Integration unterdrückt/verschiebt Gießen bei >5mm Regen <!-- G-010 -->
+- [ ] **Wetter-basierte Task-Generierung:** Frost → "Frostschutz anbringen", Sturm → "Stützen prüfen" (REQ-006) <!-- G-010 -->
+- [ ] **Wetter-Widget:** 3-Tages-Vorhersage für Outdoor-Sites im Dashboard (REQ-009) <!-- G-010 -->
 
 ### Testszenarien:
 
@@ -1717,11 +1799,38 @@ THEN:
   - Dashboard zeigt roten Marker
 ```
 
+<!-- Quelle: Outdoor-Garden-Planner Review G-010 -->
+**Szenario 8: Frostwarnung mit automatischem Task**
+```
+GIVEN: Site "Gemüsebeet" (type='outdoor', GPS: 52.52°N 13.41°E)
+  - 5 frostempfindliche Pflanzen (Tomaten, Basilikum, Paprika, Zucchini, Gurke)
+  - Wettervorhersage: Nachttemperatur 1°C
+WHEN: fetch_weather_forecasts + check_frost_warnings läuft
+THEN:
+  - WeatherForecast-Dokument gespeichert (temp_min_c=1.0, source='dwd')
+  - Push-Benachrichtigung: "Frost heute Nacht! 5 frostempfindliche Pflanzen schützen!"
+  - Task "Frostschutz anbringen" generiert (priority='high', REQ-006)
+  - Betroffene Pflanzen im Task verknüpft
+```
+
+**Szenario 9: Regen unterdrückt Gieß-Erinnerung**
+```
+GIVEN: Site "Balkonkasten" (type='outdoor')
+  - CareReminder "Gießen" fällig morgen 08:00
+  - Wettervorhersage: 12mm Regen morgen
+WHEN: adjust_watering_reminders läuft nach Wetter-Update
+THEN:
+  - Gieß-Erinnerung wird NICHT unterdrückt, sondern mit Hinweis ergänzt:
+    "Es regnet — Gießen wahrscheinlich nicht nötig"
+  - Nutzer entscheidet selbst (kein automatisches Löschen von Erinnerungen)
+  - quality_score der Wetter-Daten: 0.7 (weather_api, nicht standortexakt)
+```
+
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Sensorik, Home Assistant, MQTT, Kalibrierung, Quality-Score, Anomalie-Erkennung, Interpolation, Leaf-VPD, Blatttemperatur, TimescaleDB, Downsampling, Continuous Aggregates
-- Fachbegriffe: PPFD, DLI, Tensiometer, TDS, Z-Score, Lineare Regression, WebSocket, Leaf-VPD, R:FR-Ratio, Phytochrom, Dissolved Oxygen, ORP, Hypertable, Retention Policy, PhaseAlertProfile, VWC, TDR, Saugspannung, PAR-Spektrum
-- Verknüpfung: Zentral für REQ-003 (VPD, phasenabhängige Schwellenwerte, PhaseAlertProfile), REQ-004 (EC/pH), REQ-009 (Dashboard), REQ-010 (IPM-Risiko), REQ-018 (Aktorik-Rückkopplung), REQ-019 (Substrat-Temperatur, substrate_type_key)
-- Protokolle: REST API, MQTT, WebSocket, Modbus
-- Datenbank: TimescaleDB Hypertables (Rohdaten 90d, stündliche Aggregate 1y, tägliche Aggregate unbegrenzt)
+- Keywords: Sensorik, Home Assistant, MQTT, Kalibrierung, Quality-Score, Anomalie-Erkennung, Interpolation, Leaf-VPD, Blatttemperatur, TimescaleDB, Downsampling, Continuous Aggregates, Wetter-Integration, Wettervorhersage, Frostwarnung, Regenvorhersage, Freiland
+- Fachbegriffe: PPFD, DLI, Tensiometer, TDS, Z-Score, Lineare Regression, WebSocket, Leaf-VPD, R:FR-Ratio, Phytochrom, Dissolved Oxygen, ORP, Hypertable, Retention Policy, PhaseAlertProfile, VWC, TDR, Saugspannung, PAR-Spektrum, WMO-Code, DWD Open Data, Open-Meteo
+- Verknüpfung: Zentral für REQ-003 (VPD, phasenabhängige Schwellenwerte, PhaseAlertProfile), REQ-004 (EC/pH), REQ-006 (Wetter-Tasks: Frost, Sturm), REQ-009 (Dashboard, Wetter-Widget), REQ-010 (IPM-Risiko), REQ-018 (Aktorik-Rückkopplung), REQ-019 (Substrat-Temperatur, substrate_type_key), REQ-022 (Regen-adaptive Gieß-Erinnerungen)
+- Protokolle: REST API, MQTT, WebSocket, Modbus, Wetter-API (DWD, OpenWeatherMap, Open-Meteo)
+- Datenbank: TimescaleDB Hypertables (Rohdaten 90d, stündliche Aggregate 1y, tägliche Aggregate unbegrenzt), ArangoDB `weather_forecasts` Collection

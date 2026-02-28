@@ -33,6 +33,7 @@ class WateringEvent(BaseModel):
     water_source: WaterSource | None = None
     performed_by: str | None = None
     task_key: str | None = None
+    channel_id: str | None = None
     notes: str | None = None
     created_at: datetime | None = None
 

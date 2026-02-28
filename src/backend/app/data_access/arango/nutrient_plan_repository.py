@@ -125,61 +125,6 @@ class ArangoNutrientPlanRepository(INutrientPlanRepository, BaseArangoRepository
         except Exception:
             return False
 
-    # ── Fertilizer edges ─────────────────────────────────────────────
-
-    def add_fertilizer_to_entry(
-        self, entry_key: NutrientPlanPhaseEntryKey, fertilizer_key: FertilizerKey,
-        ml_per_liter: float, optional: bool = False,
-    ) -> dict:
-        from_id = f"{col.NUTRIENT_PLAN_PHASE_ENTRIES}/{entry_key}"
-        to_id = f"{col.FERTILIZERS}/{fertilizer_key}"
-        edge_data = {"ml_per_liter": ml_per_liter, "optional": optional}
-        edge = self.create_edge(col.PLAN_USES_FERTILIZER, from_id, to_id, edge_data)
-        # Sync document: append dosage to fertilizer_dosages list
-        dosage = {"fertilizer_key": fertilizer_key, "ml_per_liter": ml_per_liter, "optional": optional}
-        query = """
-        FOR doc IN @@collection
-          FILTER doc._key == @key
-          UPDATE doc WITH {
-            fertilizer_dosages: APPEND(doc.fertilizer_dosages || [], [@dosage]),
-            updated_at: @now
-          } IN @@collection
-        """
-        self._db.aql.execute(query, bind_vars={
-            "@collection": col.NUTRIENT_PLAN_PHASE_ENTRIES,
-            "key": entry_key,
-            "dosage": dosage,
-            "now": datetime.now(UTC).isoformat(),
-        })
-        return edge
-
-    def remove_fertilizer_from_entry(
-        self, entry_key: NutrientPlanPhaseEntryKey, fertilizer_key: FertilizerKey,
-    ) -> bool:
-        from_id = f"{col.NUTRIENT_PLAN_PHASE_ENTRIES}/{entry_key}"
-        to_id = f"{col.FERTILIZERS}/{fertilizer_key}"
-        self.delete_edges(col.PLAN_USES_FERTILIZER, from_id, to_id)
-        # Sync document: remove dosage from fertilizer_dosages list
-        query = """
-        FOR doc IN @@collection
-          FILTER doc._key == @key
-          UPDATE doc WITH {
-            fertilizer_dosages: (
-              FOR d IN (doc.fertilizer_dosages || [])
-                FILTER d.fertilizer_key != @fk
-                RETURN d
-            ),
-            updated_at: @now
-          } IN @@collection
-        """
-        self._db.aql.execute(query, bind_vars={
-            "@collection": col.NUTRIENT_PLAN_PHASE_ENTRIES,
-            "key": entry_key,
-            "fk": fertilizer_key,
-            "now": datetime.now(UTC).isoformat(),
-        })
-        return True
-
     # ── Plant assignment ─────────────────────────────────────────────
 
     def assign_to_plant(self, plant_key: str, plan_key: NutrientPlanKey, assigned_by: str = "") -> dict:
@@ -208,6 +153,102 @@ class ArangoNutrientPlanRepository(INutrientPlanRepository, BaseArangoRepository
     def remove_plant_plan(self, plant_key: str) -> bool:
         plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
         self.delete_edges(col.FOLLOWS_PLAN, plant_id)
+        return True
+
+    # ── Channel fertilizer edges ────────────────────────────────────
+
+    def add_fertilizer_to_channel(
+        self,
+        entry_key: NutrientPlanPhaseEntryKey,
+        channel_id: str,
+        fertilizer_key: FertilizerKey,
+        ml_per_liter: float,
+        optional: bool = False,
+    ) -> dict:
+        from_id = f"{col.NUTRIENT_PLAN_PHASE_ENTRIES}/{entry_key}"
+        to_id = f"{col.FERTILIZERS}/{fertilizer_key}"
+        edge_data = {
+            "ml_per_liter": ml_per_liter,
+            "optional": optional,
+            "channel_id": channel_id,
+        }
+        edge = self.create_edge(col.PLAN_USES_FERTILIZER, from_id, to_id, edge_data)
+
+        # Update embedded delivery_channels[].fertilizer_dosages[]
+        dosage = {
+            "fertilizer_key": fertilizer_key,
+            "ml_per_liter": ml_per_liter,
+            "optional": optional,
+        }
+        query = """
+        FOR doc IN @@collection
+          FILTER doc._key == @key
+          UPDATE doc WITH {
+            delivery_channels: (
+              FOR ch IN (doc.delivery_channels || [])
+                RETURN ch.channel_id == @cid
+                  ? MERGE(ch, {fertilizer_dosages: APPEND(ch.fertilizer_dosages || [], [@dosage])})
+                  : ch
+            ),
+            updated_at: @now
+          } IN @@collection
+        """
+        self._db.aql.execute(query, bind_vars={
+            "@collection": col.NUTRIENT_PLAN_PHASE_ENTRIES,
+            "key": entry_key,
+            "cid": channel_id,
+            "dosage": dosage,
+            "now": datetime.now(UTC).isoformat(),
+        })
+        return edge
+
+    def remove_fertilizer_from_channel(
+        self,
+        entry_key: NutrientPlanPhaseEntryKey,
+        channel_id: str,
+        fertilizer_key: FertilizerKey,
+    ) -> bool:
+        # Delete edge filtered by channel_id
+        from_id = f"{col.NUTRIENT_PLAN_PHASE_ENTRIES}/{entry_key}"
+        to_id = f"{col.FERTILIZERS}/{fertilizer_key}"
+        query = f"""
+        FOR e IN {col.PLAN_USES_FERTILIZER}
+          FILTER e._from == @from_id AND e._to == @to_id AND e.channel_id == @cid
+          REMOVE e IN {col.PLAN_USES_FERTILIZER}
+        """
+        self._db.aql.execute(query, bind_vars={
+            "from_id": from_id,
+            "to_id": to_id,
+            "cid": channel_id,
+        })
+
+        # Update embedded delivery_channels[].fertilizer_dosages[]
+        query = """
+        FOR doc IN @@collection
+          FILTER doc._key == @key
+          UPDATE doc WITH {
+            delivery_channels: (
+              FOR ch IN (doc.delivery_channels || [])
+                RETURN ch.channel_id == @cid
+                  ? MERGE(ch, {
+                      fertilizer_dosages: (
+                        FOR d IN (ch.fertilizer_dosages || [])
+                          FILTER d.fertilizer_key != @fk
+                          RETURN d
+                      )
+                    })
+                  : ch
+            ),
+            updated_at: @now
+          } IN @@collection
+        """
+        self._db.aql.execute(query, bind_vars={
+            "@collection": col.NUTRIENT_PLAN_PHASE_ENTRIES,
+            "key": entry_key,
+            "cid": channel_id,
+            "fk": fertilizer_key,
+            "now": datetime.now(UTC).isoformat(),
+        })
         return True
 
     # ── Clone ────────────────────────────────────────────────────────
@@ -245,14 +286,12 @@ class ArangoNutrientPlanRepository(INutrientPlanRepository, BaseArangoRepository
                 week_start=entry.week_start,
                 week_end=entry.week_end,
                 npk_ratio=entry.npk_ratio,
-                target_ec_ms=entry.target_ec_ms,
-                target_ph=entry.target_ph,
                 calcium_ppm=entry.calcium_ppm,
                 magnesium_ppm=entry.magnesium_ppm,
-                feeding_frequency_per_week=entry.feeding_frequency_per_week,
-                volume_per_feeding_liters=entry.volume_per_feeding_liters,
                 notes=entry.notes,
-                fertilizer_dosages=list(entry.fertilizer_dosages),
+                delivery_channels=[
+                    ch.model_copy(deep=True) for ch in entry.delivery_channels
+                ],
             )
             self.create_phase_entry(new_entry)
 

@@ -6,9 +6,9 @@ Kategorie: Dokumentation / Developer Experience Unterkategorie: API-Docs, ADR, O
 Technologie: MkDocs, Material Theme, Python, Markdown
 Status: Entwurf
 Priorität: Hoch
-Version: 1.0
+Version: 1.1
 Autor: Business Analyst - Agrotech
-Datum: 2026-02-25
+Datum: 2026-02-27
 Tags: [documentation, mkdocs, api-docs, adr, onboarding, developer-experience]
 Abhängigkeiten: [NFR-003]
 Betroffene Module: [ALL]
@@ -107,6 +107,7 @@ docs/
 ├── api/
 │   ├── overview.md
 │   ├── authentication.md
+│   ├── openapi-v1.json          # Exportiertes OpenAPI-Schema (versioniert)
 │   ├── plants.md
 │   ├── irrigation.md
 │   └── harvest.md
@@ -187,6 +188,56 @@ docs/
           │  docs.agrotech.local │
           └──────────────────────┘
 ```
+
+<!-- Quelle: Smart-Home-HA-Integration Review A-007 -->
+### 2.4 OpenAPI-Schema-Versionierung
+
+FastAPI generiert automatisch die Endpunkte `/openapi.json`, `/docs` (Swagger UI) und `/redoc` (ReDoc). Für externe API-Consumer (Home Assistant Custom Integration, IoT-Gateways) muss das OpenAPI-Schema zusätzlich als **versioniertes Artefakt** im Repository verfügbar sein.
+
+**Pflicht:** Das OpenAPI-Schema wird als `docs/api/openapi-v1.json` im Repository versioniert.
+
+#### Export-Workflow
+
+```
+FastAPI-App
+    │
+    ▼
+GET /openapi.json ──► docs/api/openapi-v1.json (Git-versioniert)
+                            │
+                            ▼
+                      Schema-Diff zwischen Releases
+                            │
+                            ▼
+                      Client-Code-Generierung (HA Custom Integration, SDKs)
+```
+
+#### CI-Integration
+
+```yaml
+# GitHub Actions: OpenAPI-Schema exportieren
+- name: Export OpenAPI Schema
+  run: |
+    python -c "
+    from app.main import app
+    import json
+    schema = app.openapi()
+    with open('docs/api/openapi-v1.json', 'w') as f:
+        json.dump(schema, f, indent=2, ensure_ascii=False)
+    "
+- name: Check for schema changes
+  run: git diff --exit-code docs/api/openapi-v1.json || echo "OpenAPI schema changed"
+```
+
+#### Nutzen für externe Consumer
+
+| Consumer | Nutzen |
+|----------|--------|
+| HA Custom Integration | Client-Code-Generierung aus Schema, Kompatibilitätscheck bei Updates |
+| IoT-Gateways | Automatische SDK-Generierung (OpenAPI Generator) |
+| Entwickler | Schema-Diff zwischen Releases zeigt Breaking Changes |
+| CI/CD | Automatische Erkennung von API-Änderungen |
+
+**Querverweis:** NFR-001 §4.2 (REST API Konventionen, API-Stabilität für M2M-Consumer)
 
 ---
 

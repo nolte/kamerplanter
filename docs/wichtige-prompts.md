@@ -6,10 +6,6 @@ Kurzreferenz der effektivsten Prompts fuer das Kamerplanter-Projekt.
 
 ## Qualitaetssicherung
 
-### Tech-Stack Konformitaet
-
-> Stelle sicher, dass sich der Full-Stack-Entwickler Agent strikt an den in `spec/stack.md` definierten Technologie-Stack haelt (Python 3.14+, FastAPI, ArangoDB, React 18, TypeScript, MUI, Redux Toolkit).
-
 ### Architektur-Einhaltung
 
 > Pruefe, ob die Implementierung die 5-Schichten-Architektur (NFR-001) einha: Presentation → API → Business Logic → Data Access → Persistence. Kein direkter DB-Zugriff aus dem Frontend.

@@ -13,6 +13,9 @@ class IAuthProviderRepository(ABC):
     def create(self, auth_provider: AuthProvider) -> AuthProvider: ...
 
     @abstractmethod
+    def update(self, key: AuthProviderKey, auth_provider: AuthProvider) -> AuthProvider: ...
+
+    @abstractmethod
     def delete(self, key: AuthProviderKey) -> bool: ...
 
     @abstractmethod

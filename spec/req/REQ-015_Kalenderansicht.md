@@ -7,7 +7,7 @@ Kategorie: Visualisierung & Integration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React (FullCalendar), iCalendar (RFC 5545)
 Status: Entwurf
-Version: 1.0
+Version: 1.2 (HA Calendar-Entity)
 ```
 
 ## 1. Business Case
@@ -17,6 +17,13 @@ Version: 1.0
 **User Story (Filterung):** "Als Gärtner möchte ich den Kalender nach Kategorie, Standort, Pflanze, Priorität und Status filtern können — damit ich gezielt die für mich relevanten Termine sehe, z.B. nur die kritischen Aufgaben für Zelt 1 oder alle IPM-Inspektionen im nächsten Monat."
 
 **User Story (Externe Integration):** "Als Gärtner möchte ich meinen Kamerplanter-Kalender in Thunderbird, Apple Calendar oder Google Calendar abonnieren können — damit ich Push-Benachrichtigungen auf allen Geräten erhalte und meine Gartenarbeit zusammen mit privaten Terminen sehen kann, ohne die Kamerplanter-App öffnen zu müssen."
+
+<!-- Quelle: Outdoor-Garden-Planner Review G-001, G-005 -->
+**User Story (Aussaatkalender):** "Als Freilandgärtnerin möchte ich einen Aussaatkalender sehen, der mir pro Pflanze zeigt: wann Voranzucht starten, wann Direktsaat möglich, wann Ernte erwartet — alles angepasst an meinen letzten Frosttermin und meine Klimazone."
+
+**User Story (Saisonübersicht):** "Als Gartenplanerin möchte ich eine Jahresübersicht sehen, die mir Monat für Monat zeigt, welche Pflanzen gesät, gepflanzt, gepflegt und geerntet werden — damit ich den Überblick über meinen Garten behalte."
+
+**User Story (Frostkalender):** "Als Gärtnerin möchte ich den letzten und ersten Frosttermin für meinen Standort einstellen können, damit alle Aussaat- und Pflanztermine automatisch darauf berechnet werden."
 
 **Beschreibung:**
 Events und geplante Tätigkeiten entstehen in zahlreichen Modulen: Tasks (REQ-006), Phasentransitionen (REQ-003), Düngung (REQ-004), Ernte (REQ-007), Post-Harvest (REQ-008), IPM-Inspektionen (REQ-010), Tankwartung (REQ-014) und Pflanzdurchlauf-Meilensteine (REQ-013). Aktuell fehlt eine zentrale Kalenderdarstellung sowie die Möglichkeit, diese Termine in externe Kalender-Apps zu exportieren.
@@ -1002,6 +1009,426 @@ class ICalendarFeedRepository(ABC):
 - `calendar.filter.*` / `calendar.filter.*`
 - `calendar.feeds.*` / `calendar.feeds.*`
 - `calendar.categories.*` für alle `CalendarEventCategory`-Werte
+- `calendar.sowingCalendar.*` / `calendar.sowingCalendar.*` (Aussaatkalender)
+- `calendar.seasonOverview.*` / `calendar.seasonOverview.*` (Saisonübersicht)
+- `calendar.frost.*` / `calendar.frost.*` (Frosttermin-Labels)
+
+<!-- Quelle: Outdoor-Garden-Planner Review G-001, G-005 -->
+### 3.8 Aussaatkalender-Modus (Sowing Calendar View)
+
+Der Aussaatkalender ist eine spezialisierte Ansicht, die den gesamten Anbauzyklus pro Pflanze als horizontale Zeitbalken darstellt. Er ergänzt die bestehenden Kalender-Ansichten (Monat/Woche/Tag/Agenda) als fünfter Ansichtsmodus.
+
+**Darstellung:**
+- **X-Achse:** Monate (Januar–Dezember)
+- **Y-Achse:** Pflanzen (sortiert nach Aussaat-Zeitpunkt)
+- **Balken pro Pflanze:**
+  - Voranzucht (Indoor): Berechnet aus `sowing_indoor_weeks_before_last_frost` (REQ-001) rückwärts vom konfigurierten letzten Frosttermin
+  - Direktsaat/Auspflanzen: Berechnet aus `sowing_outdoor_after_last_frost_days` oder `direct_sow_months`
+  - Wachstum: Zeitraum zwischen Auspflanzen und Ernte
+  - Ernte: Aus `harvest_months` (REQ-001)
+
+**Farbkodierung der Balken:**
+
+| Phase | Farbe | Hex |
+|-------|-------|-----|
+| Voranzucht (Indoor) | Gelb | `#FDD835` |
+| Direktsaat/Auspflanzen | Grün | `#66BB6A` |
+| Wachstum | Blau | `#42A5F5` |
+| Ernte | Orange | `#FFA726` |
+
+**Frosttermin-Konfiguration (auf Site-Level, Verweis auf REQ-002):**
+
+Die Frosttermine werden auf der `:Site`-Node in REQ-002 konfiguriert und hier referenziert:
+
+- `last_frost_date_avg: Optional[date]` (Durchschnittlicher letzter Frost, z.B. "2026-05-15")
+- `first_frost_date_avg: Optional[date]` (Durchschnittlicher erster Frost, z.B. "2026-10-05")
+- `eisheilige_date: Optional[date]` (Eisheilige, Default: "YYYY-05-15" — konfigurierbar für Süddeutschland/Alpenregion)
+
+> **Hinweis:** Diese Felder gehören auf die `:Site`-Node in REQ-002. REQ-015 liest sie nur.
+
+**Defaults basierend auf Klimazone (USDA Hardiness Zone):**
+
+| Klimazone | Letzter Frost | Erster Frost |
+|-----------|---------------|-------------|
+| USDA 6b | ~15. Mai | ~5. Oktober |
+| USDA 7a | ~1. Mai | ~20. Oktober |
+| USDA 7b | ~15. April | ~1. November |
+| USDA 8a | ~1. April | ~15. November |
+
+**Eisheiligen-Markierung:**
+Eine vertikale Linie bei den Eisheiligen (11.–15. Mai, konfigurierbar) markiert den sicheren Zeitpunkt für frostempfindliche Pflanzen. Pflanzen mit `frost_sensitivity: 'tender'` werden erst NACH dieser Linie zum Auspflanzen vorgeschlagen.
+
+**Beispiel-Darstellung (vereinfacht):**
+```
+Pflanze          Jan  Feb  Mär  Apr  Mai  Jun  Jul  Aug  Sep  Okt  Nov  Dez
+                                       |← Eisheilige
+Paprika          ·····🟡🟡🟡🟡·····🟢🟢🔵🔵🔵🔵🟠🟠🟠·····
+Tomate           ··········🟡🟡🟡···🟢🔵🔵🔵🔵🟠🟠🟠🟠····
+Möhre            ·············🟢🟢🟢🔵🔵🔵🔵🟠🟠🟠🟠·······
+Salat            ········🟢🟢🟢🔵🟠🟢🟢🔵🟠🟢🟢🔵🟠·······  (Sukzession!)
+Radieschen       ·······🟢🔵🟠🟢🔵🟠🟢🔵🟠🟢🔵🟠···········
+Grünkohl         ···············🟡🟡🟢🟢🔵🔵🔵🔵🔵🟠🟠🟠🟠  (Wintergemüse)
+```
+Legende: 🟡 Voranzucht | 🟢 Direktsaat/Auspflanzen | 🔵 Wachstum | 🟠 Ernte
+
+**Interaktion:**
+- Klick auf einen Balken öffnet Detail-Panel mit konkreten Terminen
+- Hover zeigt Tooltip: "Tomate San Marzano: Voranzucht ab 1. März, Auspflanzen ab 15. Mai, Ernte Juli–Oktober"
+- Filter: Nur meine geplanten Pflanzen / Alle verfügbaren Pflanzen
+- Druckversion für Aushang im Gewächshaus/Gartenhäuschen
+
+**Kalenderseite — Aussaatkalender-Tab (`/calendar?view=sowing`):**
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Kalender  [Monat] [Woche] [Tag] [Agenda] [🌱 Aussaat] [📊 Saison] │
+├──────────┬───────────────────────────────────────────────────────┤
+│ Standort │  Aussaatkalender 2026                                │
+│ [Garten▾]│  Letzter Frost: 15. Mai · Eisheilige: 11.–15. Mai   │
+│          │                                                       │
+│ Filter   │  Pflanze    J  F  M  A  M  J  J  A  S  O  N  D      │
+│ □ Geplant│             ─────────────|──────────────────          │
+│ □ Alle   │  Paprika    ···🟡🟡🟡🟡··🟢🟢🔵🔵🔵🔵🟠🟠🟠···  │
+│          │  Tomate     ·····🟡🟡🟡··🟢🔵🔵🔵🔵🟠🟠🟠🟠··   │
+│ Kategorie│  Möhre      ········🟢🟢🟢🔵🔵🔵🔵🟠🟠🟠🟠···   │
+│ □ Gemüse │  Salat      ·····🟢🟢🟢🔵🟠🟢🟢🔵🟠🟢🟢🔵🟠·   │
+│ □ Kräuter│  Radieschen ····🟢🔵🟠🟢🔵🟠🟢🔵🟠🟢🔵🟠·····   │
+│ □ Blumen │  Grünkohl   ···········🟡🟡🟢🟢🔵🔵🔵🔵🔵🟠🟠🟠 │
+│          │                                                       │
+│ [🖨 Druck]│  Legende: 🟡 Voranzucht 🟢 Auspflanzen 🔵 Wachstum 🟠 Ernte│
+└──────────┴───────────────────────────────────────────────────────┘
+```
+
+**SowingCalendarEngine:**
+
+```python
+from datetime import date, timedelta
+from typing import Optional
+
+from pydantic import BaseModel, Field
+
+
+class FrostConfig(BaseModel):
+    """Frosttermin-Konfiguration einer Site."""
+    last_frost_date_avg: Optional[date] = None
+    first_frost_date_avg: Optional[date] = None
+    eisheilige_date: Optional[date] = None  # Default: YYYY-05-15
+
+
+class SowingBar(BaseModel):
+    """Einzelner Zeitbalken im Aussaatkalender."""
+    phase: str  # "indoor_sowing" | "outdoor_planting" | "growth" | "harvest"
+    start_date: date
+    end_date: date
+    color: str
+
+
+class SowingCalendarEntry(BaseModel):
+    """Ein Eintrag im Aussaatkalender (eine Pflanze/Sorte)."""
+    species_key: str
+    species_name: str
+    cultivar_key: Optional[str] = None
+    cultivar_name: Optional[str] = None
+    frost_sensitive: bool = False
+    bars: list[SowingBar] = Field(default_factory=list)
+
+
+class SowingCalendarEngine:
+    """Berechnet Aussaat-Zeitbalken basierend auf Pflanzen-Stammdaten
+    und Frosttermin-Konfiguration.
+
+    Liest Stammdaten aus REQ-001 (Species/Cultivar):
+    - sowing_indoor_weeks_before_last_frost
+    - sowing_outdoor_after_last_frost_days
+    - direct_sow_months
+    - harvest_months
+    - frost_sensitivity
+
+    Liest Frosttermine aus REQ-002 (Site):
+    - last_frost_date_avg
+    - first_frost_date_avg
+    - eisheilige_date
+    """
+
+    PHASE_COLORS = {
+        "indoor_sowing": "#FDD835",    # Gelb
+        "outdoor_planting": "#66BB6A",  # Grün
+        "growth": "#42A5F5",            # Blau
+        "harvest": "#FFA726",           # Orange
+    }
+
+    def calculate_bars(
+        self,
+        species: dict,
+        frost_config: FrostConfig,
+        year: int,
+    ) -> list[SowingBar]:
+        """Berechnet die Zeitbalken für eine Pflanze/Sorte.
+
+        Args:
+            species: Stammdaten-Dict mit Aussaat-Feldern aus REQ-001
+            frost_config: Frosttermin-Konfiguration der Site
+            year: Bezugsjahr für die Berechnung
+
+        Returns:
+            Liste von SowingBar mit Phase, Start/End-Datum und Farbe
+        """
+        bars: list[SowingBar] = []
+        last_frost = frost_config.last_frost_date_avg or date(year, 5, 15)
+        eisheilige = frost_config.eisheilige_date or date(year, 5, 15)
+
+        # 1. Voranzucht (Indoor)
+        weeks_before = species.get("sowing_indoor_weeks_before_last_frost")
+        if weeks_before:
+            indoor_start = last_frost - timedelta(weeks=weeks_before)
+            indoor_end = last_frost - timedelta(days=1)
+            bars.append(SowingBar(
+                phase="indoor_sowing",
+                start_date=indoor_start,
+                end_date=indoor_end,
+                color=self.PHASE_COLORS["indoor_sowing"],
+            ))
+
+        # 2. Auspflanzen / Direktsaat
+        days_after = species.get("sowing_outdoor_after_last_frost_days", 0)
+        frost_sensitive = species.get("frost_sensitivity") == "tender"
+        if frost_sensitive:
+            outdoor_start = max(
+                last_frost + timedelta(days=days_after),
+                eisheilige + timedelta(days=1),
+            )
+        else:
+            outdoor_start = last_frost + timedelta(days=days_after)
+
+        # Auspflanzen-Phase: ca. 2 Wochen Eingewöhnung
+        outdoor_end = outdoor_start + timedelta(days=14)
+        bars.append(SowingBar(
+            phase="outdoor_planting",
+            start_date=outdoor_start,
+            end_date=outdoor_end,
+            color=self.PHASE_COLORS["outdoor_planting"],
+        ))
+
+        # 3. Wachstum (bis Erntebeginn)
+        harvest_months = species.get("harvest_months", [])
+        if harvest_months:
+            harvest_start = date(year, min(harvest_months), 1)
+            growth_start = outdoor_end + timedelta(days=1)
+            if growth_start < harvest_start:
+                bars.append(SowingBar(
+                    phase="growth",
+                    start_date=growth_start,
+                    end_date=harvest_start - timedelta(days=1),
+                    color=self.PHASE_COLORS["growth"],
+                ))
+
+            # 4. Ernte
+            harvest_end_month = max(harvest_months)
+            # Letzter Tag des letzten Erntemonats
+            if harvest_end_month == 12:
+                harvest_end = date(year, 12, 31)
+            else:
+                harvest_end = date(year, harvest_end_month + 1, 1) - timedelta(days=1)
+            bars.append(SowingBar(
+                phase="harvest",
+                start_date=harvest_start,
+                end_date=harvest_end,
+                color=self.PHASE_COLORS["harvest"],
+            ))
+
+        return bars
+
+    def build_calendar(
+        self,
+        species_list: list[dict],
+        frost_config: FrostConfig,
+        year: int,
+    ) -> list[SowingCalendarEntry]:
+        """Erstellt den kompletten Aussaatkalender für alle Pflanzen.
+
+        Sortiert nach frühestem Aussaat-Zeitpunkt.
+        """
+        entries = []
+        for sp in species_list:
+            bars = self.calculate_bars(sp, frost_config, year)
+            entries.append(SowingCalendarEntry(
+                species_key=sp["_key"],
+                species_name=sp["common_name"],
+                cultivar_key=sp.get("cultivar_key"),
+                cultivar_name=sp.get("cultivar_name"),
+                frost_sensitive=sp.get("frost_sensitivity") == "tender",
+                bars=bars,
+            ))
+        # Sortierung: frühester Balken-Start zuerst
+        entries.sort(
+            key=lambda e: min(b.start_date for b in e.bars) if e.bars else date.max
+        )
+        return entries
+```
+
+<!-- Quelle: Outdoor-Garden-Planner Review G-001, G-005 -->
+### 3.9 Saisonübersicht-Modus (Monthly Overview)
+
+Ergänzend zum detaillierten Aussaatkalender eine kompakte Monatsübersicht als sechster Ansichtsmodus:
+
+**Darstellung:**
+- **12 Monatskarten** (Grid-Layout, 3x4 oder 4x3)
+- Jede Karte zeigt:
+  - Anzahl fälliger Tasks (aus REQ-006)
+  - Anzahl zu säender/pflanzender Pflanzen (aus Aussaatkalender-Daten)
+  - Anzahl erwarteter Ernten (aus Aussaatkalender-Daten)
+  - Wetter-Trend (wenn REQ-005 Wetter-Integration aktiv)
+  - Top-3 wichtigste Aufgaben des Monats
+
+**Aktueller-Monat-Highlight:** Der aktuelle Monat ist visuell hervorgehoben und expandiert (mehr Details sichtbar).
+
+**Kalenderseite — Saisonübersicht-Tab (`/calendar?view=season`):**
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Kalender  [Monat] [Woche] [Tag] [Agenda] [🌱 Aussaat] [📊 Saison] │
+├──────────────────────────────────────────────────────────────────┤
+│  Saisonübersicht 2026 — Standort: Garten                        │
+│                                                                  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
+│  │ Januar   │  │ Februar  │  │ März     │  │ April    │        │
+│  │ 0 Saat   │  │ 0 Saat   │  │ 3 Saat   │  │ 5 Saat   │        │
+│  │ 0 Ernte  │  │ 0 Ernte  │  │ 0 Ernte  │  │ 0 Ernte  │        │
+│  │ 2 Tasks  │  │ 1 Task   │  │ 8 Tasks  │  │ 12 Tasks │        │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
+│                                                                  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
+│  │ Mai      │  │ Juni     │  │ Juli     │  │ August   │        │
+│  │ 8 Saat   │  │ 2 Saat   │  │ 0 Saat   │  │ 0 Saat   │        │
+│  │ 2 Ernte  │  │ 5 Ernte  │  │ 8 Ernte  │  │ 10 Ernte │        │
+│  │ 18 Tasks │  │ 15 Tasks │  │ 12 Tasks │  │ 14 Tasks │        │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
+│                                                                  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
+│  │September │  │ Oktober  │  │ November │  │ Dezember │        │
+│  │ 0 Saat   │  │ 0 Saat   │  │ 0 Saat   │  │ 0 Saat   │        │
+│  │ 12 Ernte │  │ 6 Ernte  │  │ 2 Ernte  │  │ 0 Ernte  │        │
+│  │ 10 Tasks │  │ 8 Tasks  │  │ 3 Tasks  │  │ 1 Task   │        │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
+│                                                                  │
+│  ██ = Aktueller Monat (expandiert mit Top-3 Aufgaben)           │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Klick auf Monatskarte:** Wechselt zur Monatsansicht des gewählten Monats (bestehende Ansicht aus §3.7).
+
+**SeasonOverviewEngine:**
+
+```python
+from datetime import date
+
+from pydantic import BaseModel, Field
+
+
+class MonthSummary(BaseModel):
+    """Zusammenfassung eines Monats für die Saisonübersicht."""
+    month: int  # 1–12
+    month_name: str
+    sowing_count: int = 0       # Pflanzen, die in diesem Monat gesät/gepflanzt werden
+    harvest_count: int = 0      # Pflanzen, die in diesem Monat geerntet werden
+    task_count: int = 0         # Fällige Tasks (aus REQ-006)
+    top_tasks: list[dict] = Field(default_factory=list)  # Top-3 Tasks des Monats
+    is_current: bool = False    # Aktueller Monat?
+
+
+class SeasonOverview(BaseModel):
+    """Jahres-Saisonübersicht mit 12 Monatskarten."""
+    year: int
+    site_key: str
+    site_name: str
+    months: list[MonthSummary] = Field(default_factory=list)
+
+
+class SeasonOverviewEngine:
+    """Aggregiert Saisonübersicht-Daten aus Aussaatkalender und Tasks.
+
+    Kombiniert:
+    - SowingCalendarEngine-Ergebnisse für Saat-/Erntezahlen
+    - CalendarAggregationEngine-Ergebnisse für Task-Zahlen
+    """
+
+    MONTH_NAMES_DE = [
+        "Januar", "Februar", "März", "April", "Mai", "Juni",
+        "Juli", "August", "September", "Oktober", "November", "Dezember",
+    ]
+
+    def build_overview(
+        self,
+        sowing_entries: list,
+        task_events: list,
+        site_key: str,
+        site_name: str,
+        year: int,
+    ) -> SeasonOverview:
+        """Erstellt die Saisonübersicht aus Aussaatkalender-Einträgen und Tasks.
+
+        Args:
+            sowing_entries: Liste von SowingCalendarEntry
+            task_events: Liste von CalendarEvent (Tasks für das gesamte Jahr)
+            site_key: Key der Site
+            site_name: Name der Site
+            year: Bezugsjahr
+        """
+        today = date.today()
+        months = []
+
+        for m in range(1, 13):
+            # Saat-/Pflanz-Zählung: Pflanzen mit outdoor_planting-Balken in diesem Monat
+            sowing_count = sum(
+                1 for entry in sowing_entries
+                for bar in entry.bars
+                if bar.phase in ("indoor_sowing", "outdoor_planting")
+                and bar.start_date.month <= m <= bar.end_date.month
+            )
+
+            # Ernte-Zählung: Pflanzen mit harvest-Balken in diesem Monat
+            harvest_count = sum(
+                1 for entry in sowing_entries
+                for bar in entry.bars
+                if bar.phase == "harvest"
+                and bar.start_date.month <= m <= bar.end_date.month
+            )
+
+            # Task-Zählung
+            month_tasks = [
+                e for e in task_events
+                if e.start.month == m and e.start.year == year
+            ]
+            task_count = len(month_tasks)
+
+            # Top-3 nach Priorität
+            priority_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+            sorted_tasks = sorted(
+                month_tasks,
+                key=lambda t: priority_order.get(t.priority, 2),
+            )
+            top_tasks = [
+                {"title": t.title, "priority": t.priority, "date": t.start.isoformat()}
+                for t in sorted_tasks[:3]
+            ]
+
+            months.append(MonthSummary(
+                month=m,
+                month_name=self.MONTH_NAMES_DE[m - 1],
+                sowing_count=sowing_count,
+                harvest_count=harvest_count,
+                task_count=task_count,
+                top_tasks=top_tasks,
+                is_current=(today.year == year and today.month == m),
+            ))
+
+        return SeasonOverview(
+            year=year,
+            site_key=site_key,
+            site_name=site_name,
+            months=months,
+        )
+```
 
 ## 4. API-Endpunkte
 
@@ -1104,6 +1531,55 @@ webcal://kamerplanter.local/api/v1/calendar/feeds/{feed_id}/feed.ics?token={toke
 - **Apple Calendar:** Kalender → Abonnements → URL einfügen
 - **Google Calendar:** Andere Kalender → Per URL → URL einfügen (nur https://, webcal:// manuell ersetzen)
 
+<!-- Quelle: Smart-Home-HA-Integration Review A-008 -->
+**Einrichtung in Home Assistant:**
+
+- **HA Custom Integration (`kamerplanter-ha`):** Der `CalendarCoordinator` pollt den iCal-Feed-Endpoint (`GET /api/v1/calendar/feeds/{feed_id}/feed.ics?token={token}`) und erstellt eine native HA `calendar`-Entity. Konfiguration erfolgt automatisch im Config Flow (Feed-Auswahl in Step 4).
+
+- **HA Generic Calendar Platform (ohne Custom Integration):** Alternativ kann der iCal-Feed direkt in der HA `configuration.yaml` eingebunden werden:
+
+```yaml
+# configuration.yaml
+calendar:
+  - platform: generic
+    name: "Kamerplanter Aufgaben"
+    url: "webcal://kamerplanter.local/api/v1/calendar/feeds/{feed_id}/feed.ics?token={token}"
+```
+
+**HA Calendar-Entity Attribute:**
+
+| Attribut | Kamerplanter-Quelle | Beschreibung |
+|----------|---------------------|-------------|
+| `event.start` | `DTSTART` (iCal) | Beginn des Kalender-Events |
+| `event.end` | `DTEND` (iCal) | Ende des Kalender-Events |
+| `event.summary` | `SUMMARY` (iCal) | Event-Titel (z.B. "FEEDING — Northern Lights #3") |
+| `event.description` | `DESCRIPTION` (iCal) | Details (Düngerrezept, Aufgabenbeschreibung) |
+
+**HA-Automation-Beispiel — Kalender-Event als Trigger:**
+
+```yaml
+# Trigger: Kamerplanter-Calendar-Event startet → Aktion auslösen
+alias: "KP: Düngetermin → Pumpe einschalten"
+description: "Bei FEEDING-Event im Kamerplanter-Kalender die Dosierpumpe starten"
+trigger:
+  - platform: calendar
+    entity_id: calendar.kamerplanter_aufgaben
+    event: start
+    offset: "0:0:0"
+condition:
+  - condition: template
+    value_template: "{{ 'FEEDING' in trigger.calendar_event.summary }}"
+action:
+  - service: switch.turn_on
+    target:
+      entity_id: switch.dosierpumpe_zelt1
+  - delay: "00:00:30"
+  - service: switch.turn_off
+    target:
+      entity_id: switch.dosierpumpe_zelt1
+mode: single
+```
+
 ### 4.3 Feed-Management (CRUD)
 
 | Methode | Pfad | Beschreibung | Auth |
@@ -1162,6 +1638,107 @@ webcal://kamerplanter.local/api/v1/calendar/feeds/{feed_id}/feed.ics?token={toke
 
 > **Sicherheitshinweis:** Nach Token-Rotation müssen alle externen Kalender-Apps die URL aktualisieren. Das alte Token wird sofort ungültig.
 
+<!-- Quelle: Outdoor-Garden-Planner Review G-001, G-005 -->
+### 4.4 Aussaatkalender (Sowing Calendar)
+
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `GET` | `/api/v1/calendar/sowing` | Aussaatkalender für ein Jahr und eine Site | Mitglied |
+
+**Query-Parameter:**
+
+| Parameter | Typ | Pflicht | Beschreibung |
+|-----------|-----|---------|-------------|
+| `year` | `int` | ❌ | Bezugsjahr (Default: aktuelles Jahr) |
+| `site_id` | `str` | ✅ | Site-ID für Frosttermin-Lookup |
+| `planned_only` | `bool` | ❌ | Nur geplante Pflanzen (Default: false) |
+
+**Response:** `200 OK`
+```json
+{
+  "year": 2026,
+  "site_id": "site_garten1",
+  "frost_config": {
+    "last_frost_date_avg": "2026-05-15",
+    "first_frost_date_avg": "2026-10-05",
+    "eisheilige_date": "2026-05-15"
+  },
+  "entries": [
+    {
+      "species_key": "sp_paprika",
+      "species_name": "Paprika",
+      "cultivar_key": "cv_california_wonder",
+      "cultivar_name": "California Wonder",
+      "frost_sensitive": true,
+      "bars": [
+        {
+          "phase": "indoor_sowing",
+          "start_date": "2026-02-15",
+          "end_date": "2026-04-30",
+          "color": "#FDD835"
+        },
+        {
+          "phase": "outdoor_planting",
+          "start_date": "2026-05-16",
+          "end_date": "2026-05-30",
+          "color": "#66BB6A"
+        },
+        {
+          "phase": "growth",
+          "start_date": "2026-05-31",
+          "end_date": "2026-07-14",
+          "color": "#42A5F5"
+        },
+        {
+          "phase": "harvest",
+          "start_date": "2026-07-15",
+          "end_date": "2026-09-30",
+          "color": "#FFA726"
+        }
+      ]
+    }
+  ],
+  "total": 12
+}
+```
+
+### 4.5 Saisonübersicht (Season Overview)
+
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `GET` | `/api/v1/calendar/season-overview` | Saisonübersicht (12 Monatskarten) | Mitglied |
+
+**Query-Parameter:**
+
+| Parameter | Typ | Pflicht | Beschreibung |
+|-----------|-----|---------|-------------|
+| `year` | `int` | ❌ | Bezugsjahr (Default: aktuelles Jahr) |
+| `site_id` | `str` | ✅ | Site-ID für Standort-Kontext |
+
+**Response:** `200 OK`
+```json
+{
+  "year": 2026,
+  "site_key": "site_garten1",
+  "site_name": "Garten Süd",
+  "months": [
+    {
+      "month": 3,
+      "month_name": "März",
+      "sowing_count": 3,
+      "harvest_count": 0,
+      "task_count": 8,
+      "top_tasks": [
+        {"title": "Paprika Voranzucht starten", "priority": "high", "date": "2026-03-01"},
+        {"title": "Tomate Voranzucht starten", "priority": "high", "date": "2026-03-15"},
+        {"title": "Kompost umsetzen", "priority": "medium", "date": "2026-03-20"}
+      ],
+      "is_current": false
+    }
+  ]
+}
+```
+
 ## 5. Authentifizierung & Autorisierung
 
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
@@ -1175,6 +1752,8 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 | Kalender-Events | Mitglied | Mitglied | Mitglied |
 | iCal-Feed (`feed.ics`) | Nein (Feed-Token) | — | — |
 | Feed-Verwaltung | Mitglied | Mitglied | Mitglied |
+| Aussaatkalender | Mitglied | — | — |
+| Saisonübersicht | Mitglied | — | — |
 
 ## 6. Abhängigkeiten
 
@@ -1188,7 +1767,8 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 
 | REQ | Zugriff | Beschreibung |
 |-----|---------|-------------|
-| REQ-002 | `locations` Collection | Location-Namen für Event-Kontext und Filter |
+| REQ-001 | `species`, `cultivars` Collections | Aussaat-Stammdaten (sowing_indoor_weeks_before_last_frost, harvest_months, frost_sensitivity) für Aussaatkalender |
+| REQ-002 | `locations`, `sites` Collections | Location-Namen für Event-Kontext und Filter; Frosttermin-Konfiguration (last_frost_date_avg, first_frost_date_avg, eisheilige_date) auf Site-Level für Aussaatkalender |
 | REQ-003 | `phase_histories` Collection | Phasentransitionen als Timeline-Events |
 | REQ-004 | `mixing_results`, `nutrient_plans` | Dünge-Events als Timeline-Kontext |
 | REQ-007 | Tasks mit Kategorie `harvest` | Ernte-Tasks im Kalender |
@@ -1222,6 +1802,16 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] i18n: Alle Labels in DE und EN vorhanden
 - [ ] Performance: Aggregations-Query liefert ≤500 Events in <200ms
 - [ ] Keine neue ArangoDB-Collection für Events — nur `calendar_feeds` für Feed-Konfiguration
+- [ ] Aussaatkalender zeigt horizontale Zeitbalken pro Pflanze (Voranzucht, Direktsaat, Wachstum, Ernte)
+- [ ] Frosttermine (letzter/erster Frost, Eisheilige) sind pro Site konfigurierbar
+- [ ] Eisheiligen-Markierung ist als vertikale Linie sichtbar
+- [ ] Frostempfindliche Pflanzen (`frost_sensitivity: tender`) werden erst nach Eisheiligen zum Auspflanzen vorgeschlagen
+- [ ] Aussaatkalender unterstützt Filter: geplante Pflanzen vs. alle verfügbaren
+- [ ] Druckversion des Aussaatkalenders ist abrufbar
+- [ ] Saisonübersicht zeigt 12 Monatskarten mit Saat-/Ernte-/Task-Zählern
+- [ ] Aktueller Monat ist in der Saisonübersicht visuell hervorgehoben
+- [ ] Klick auf Monatskarte wechselt zur Monatsansicht des gewählten Monats
+- [ ] Aussaatkalender-API liefert korrekte Zeitbalken basierend auf Frosttermin und Stammdaten
 
 ### Testszenarien
 
@@ -1270,4 +1860,48 @@ THEN wird die Agenda-Listenansicht angezeigt (nicht das Grid)
 AND Events sind chronologisch sortiert mit Datum-Gruppierung
 AND jedes Event zeigt Farb-Indikator, Titel, Uhrzeit und Priorität
 AND Tap auf Event öffnet Bottom-Sheet mit Details
+```
+
+<!-- Quelle: Outdoor-Garden-Planner Review G-001, G-005 -->
+**Szenario 6: Aussaatkalender mit Frosttermin**
+```
+GIVEN eine Site "Garten Süd" hat last_frost_date_avg = 15. Mai
+AND Paprika hat sowing_indoor_weeks_before_last_frost = 10, frost_sensitivity = "tender"
+AND Möhre hat direct_sow_months = [3,4,5,6,7], frost_sensitivity = "hardy"
+WHEN ich den Aussaatkalender für 2026 und Site "Garten Süd" öffne
+THEN zeigt Paprika einen gelben Voranzucht-Balken ab ca. Anfang März
+AND Paprika zeigt einen grünen Auspflanzen-Balken NACH den Eisheiligen (nach 15. Mai)
+AND Möhre zeigt einen grünen Direktsaat-Balken ab März (vor Eisheiligen, da "hardy")
+AND eine vertikale Linie markiert die Eisheiligen (11.–15. Mai)
+```
+
+**Szenario 7: Aussaatkalender — Filter geplante Pflanzen**
+```
+GIVEN 20 Pflanzen existieren in den Stammdaten
+AND 5 davon sind in einem aktiven Pflanzdurchlauf (REQ-013) für Site "Garten Süd"
+WHEN ich den Filter "Nur meine geplanten Pflanzen" aktiviere
+THEN sehe ich nur die 5 geplanten Pflanzen im Aussaatkalender
+WHEN ich den Filter deaktiviere
+THEN sehe ich alle 20 verfügbaren Pflanzen
+```
+
+**Szenario 8: Saisonübersicht**
+```
+GIVEN Aussaatkalender-Daten existieren für 12 Pflanzen im Jahr 2026
+AND 45 Tasks existieren verteilt über das Jahr
+WHEN ich die Saisonübersicht für 2026 öffne
+THEN sehe ich 12 Monatskarten mit je Saat-/Ernte-/Task-Zählern
+AND der aktuelle Monat ist visuell hervorgehoben
+AND jede Monatskarte zeigt die Top-3 wichtigsten Tasks
+WHEN ich auf die Karte "Mai" klicke
+THEN wechselt die Ansicht zur Monatsansicht Mai 2026
+```
+
+**Szenario 9: Aussaatkalender — Druckversion**
+```
+GIVEN der Aussaatkalender zeigt 8 Pflanzen mit Zeitbalken
+WHEN ich auf "Drucken" klicke
+THEN wird eine druckoptimierte Version des Aussaatkalenders generiert
+AND die Legende (Voranzucht/Auspflanzen/Wachstum/Ernte) ist auf dem Ausdruck sichtbar
+AND die Eisheiligen-Markierung ist auf dem Ausdruck sichtbar
 ```

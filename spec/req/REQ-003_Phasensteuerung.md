@@ -25,6 +25,9 @@ Typische Phasen-Sequenzen:
 - **Annuelle:** Keimung → Sämling → Vegetativ → Blüte → Fruchtreife → Seneszenz
 - **Perenniale:** [Keimung → ...] → Dormanz → Neuaustrieb → [Wiederholt Vegetativ/Blüte]
 - **Bienniale:** Jahr 1: Keimung → Vegetativ → Dormanz | Jahr 2: Neuaustrieb → Blüte → Samenreife
+<!-- Quelle: Cannabis Indoor Grower Review G-009 -->
+- **Autoflower (Cultivar-Level):** Keimung (3–5d) → Sämling (7–10d) → Vegetativ (14–21d) → Blüte (35–56d) → Ernte. Verkürzte Gesamtdauer (60–90 Tage). Übergang Vegi→Blüte ist zeitgesteuert (nach `autoflower_days_to_flower` Tagen), kein manueller/photoperiodischer Trigger. Lichtprofil bleibt durchgehend bei 20/4 oder 18/6 (kein Wechsel auf 12/12).
+<!-- /Quelle: G-009 -->
 
 **Dauerkulturen-Modus (Perennial):**
 Mehrjährige Pflanzen (Obstbäume, Beerensträucher, Stauden) durchlaufen jährlich wiederkehrende
@@ -403,6 +406,150 @@ class PhaseTransitionEngine(BaseModel):
         }
 ```
 
+<!-- Quelle: Cannabis Indoor Grower Review G-009 -->
+**1a. Autoflower-Transition-Logik:**
+
+Autoflower-Cultivare (Cannabis-ruderalis-Hybriden) unterscheiden sich fundamental von
+photoperiodischen Sorten in der Phasensteuerung. Das System erkennt den Cultivar-Level
+`photoperiod_type='autoflower'` und passt die Transition-Logik entsprechend an:
+
+```python
+class AutoflowerTransitionPreset(BaseModel):
+    """
+    Vorgefertigte Phasendauern für Autoflower-Cultivare.
+
+    Autoflower blühen altersbasiert (nicht lichtabhängig). Der Übergang
+    Vegi → Blüte erfolgt automatisch nach `days_to_flower` Tagen ab Keimung.
+    Es gibt keinen manuellen Blüte-Trigger und keinen Photoperioden-Wechsel.
+
+    Typische Gesamtzyklen: 60–90 Tage (vs. 120–180 Tage photoperiodisch).
+    """
+
+    days_to_flower: int = Field(ge=14, le=45, description="Tage ab Keimung bis Auto-Blüte")
+    total_cycle_days: int = Field(ge=45, le=120, description="Gesamtdauer Keimung→Ernte")
+    photoperiod_hours: float = Field(default=20.0, ge=18.0, le=24.0,
+        description="Durchgehende Photoperiode (Standard: 20/4, alternativ 18/6)")
+
+    # Standard-Preset für typische Autoflower
+    PRESET_FAST: ClassVar[dict] = {
+        'germination_days': 3,
+        'seedling_days': 7,
+        'vegetative_days': 14,
+        'flowering_days': 42,   # 6 Wochen
+        'total_days': 66,
+    }
+    PRESET_STANDARD: ClassVar[dict] = {
+        'germination_days': 5,
+        'seedling_days': 10,
+        'vegetative_days': 21,
+        'flowering_days': 49,   # 7 Wochen
+        'total_days': 85,
+    }
+    PRESET_LONG: ClassVar[dict] = {
+        'germination_days': 5,
+        'seedling_days': 10,
+        'vegetative_days': 28,
+        'flowering_days': 56,   # 8 Wochen
+        'total_days': 99,
+    }
+
+    def get_phase_durations(self) -> dict[str, int]:
+        """Berechnet Phasendauern aus Gesamtzyklus und days_to_flower"""
+        flowering_days = self.total_cycle_days - self.days_to_flower
+        return {
+            'germination': 5,
+            'seedling': max(7, self.days_to_flower - 18),
+            'vegetative': self.days_to_flower - 12,  # Abzügl. Keimung+Sämling
+            'flowering': flowering_days,
+        }
+
+    def get_transition_rules(self) -> list[dict]:
+        """
+        Alle Transitionen sind TIME_BASED — kein manueller Blüte-Trigger.
+
+        Unterschiede zu photoperiodischen Sorten:
+        1. Vegi→Blüte ist TIME_BASED (nicht MANUAL/EVENT_BASED)
+        2. Photoperiode bleibt konstant (kein PhotoperiodManager-Aufruf)
+        3. Kürzere Phasendauern insgesamt
+        """
+        durations = self.get_phase_durations()
+        return [
+            {
+                'from_phase': 'germination',
+                'to_phase': 'seedling',
+                'trigger_type': 'time_based',
+                'auto_transition_after_days': durations['germination'],
+            },
+            {
+                'from_phase': 'seedling',
+                'to_phase': 'vegetative',
+                'trigger_type': 'time_based',
+                'auto_transition_after_days': durations['seedling'],
+            },
+            {
+                'from_phase': 'vegetative',
+                'to_phase': 'flowering',
+                'trigger_type': 'time_based',  # KEIN manueller Trigger!
+                'auto_transition_after_days': durations['vegetative'],
+                'notification_before_days': 2,
+                '_note': 'Autoflower: Blüte wird NICHT durch Lichtwechsel ausgelöst',
+            },
+            {
+                'from_phase': 'flowering',
+                'to_phase': 'ripening',
+                'trigger_type': 'time_based',
+                'auto_transition_after_days': durations['flowering'],
+            },
+        ]
+
+
+class AutoflowerTrainingGuard:
+    """
+    Warnung bei High-Stress-Training (HST) für Autoflower-Cultivare.
+
+    Autoflower haben eine fest begrenzte vegetative Phase (14–28 Tage).
+    HST-Techniken (Topping, FIM, Supercropping) benötigen 7–14 Tage
+    Erholungszeit, die bei Autoflowern nicht zur Verfügung steht.
+
+    - LST (Low-Stress-Training) bleibt ohne Einschränkung erlaubt.
+    - HST wird nicht blockiert, aber mit deutlicher Warnung versehen.
+
+    Cross-Ref: REQ-006 (Aufgabenplanung) — HSTValidator
+    """
+
+    HST_METHODS = {'topping', 'fim', 'supercropping', 'mainlining', 'manifolding'}
+    LST_METHODS = {'lst', 'scrog', 'sog', 'bending', 'defoliation'}
+
+    @staticmethod
+    def check_training_allowed(
+        training_method: str,
+        cultivar_photoperiod_type: Optional[str],
+        current_phase: str,
+        days_in_veg: int,
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Returns: (is_allowed, warning_message)
+        - HST bei Autoflower: allowed=True, aber Warnung
+        - HST bei Autoflower in Blüte: allowed=False (wie bei allen Sorten)
+        """
+        if training_method.lower() in AutoflowerTrainingGuard.LST_METHODS:
+            return True, None
+
+        if current_phase != 'vegetative':
+            return False, f"HST-Methode '{training_method}' nur in vegetativer Phase erlaubt"
+
+        if cultivar_photoperiod_type == 'autoflower':
+            return True, (
+                f"WARNUNG: HST-Methode '{training_method}' bei Autoflower nicht empfohlen. "
+                f"Autoflower haben eine begrenzte vegetative Phase ({days_in_veg} Tage bisher). "
+                f"Erholungszeit nach {training_method} beträgt 7–14 Tage, was bei Autoflowern "
+                f"den Ertrag reduzieren kann. LST (Low-Stress-Training) wird stattdessen empfohlen."
+            )
+
+        return True, None
+```
+<!-- /Quelle: G-009 -->
+
 **2. VPD-Calculator:**
 ```python
 import math
@@ -510,6 +657,9 @@ class ResourceProfileGenerator(BaseModel):
     species_type: Literal['leafy', 'fruiting', 'flowering', 'root']
     photoperiod_response: Literal['short_day', 'long_day', 'day_neutral'] = 'short_day'
     substrate_type: Literal['hydro', 'coco', 'soil', 'living_soil'] = 'coco'
+    # Quelle: Cannabis Indoor Grower Review G-009
+    cultivar_photoperiod_type: Optional[Literal['photoperiodic', 'autoflower', 'day_neutral']] = None
+    # /Quelle: G-009
 
     def generate_light_profile(self) -> dict:
         """
@@ -519,6 +669,9 @@ class ResourceProfileGenerator(BaseModel):
         - short_day: Blüte bei <12h (Cannabis, Chrysanthemen, Poinsettia)
         - long_day: Blüte bei >14h (Salat, Spinat, Radieschen)
         - day_neutral: Blüte unabhängig von Tageslänge (viele Tomaten, Erdbeeren)
+
+        Bei Autoflower-Cultivaren (G-009) wird die Photoperiode durchgehend auf
+        20h oder 18h gehalten — kein Wechsel auf 12/12 in der Blütephase.
 
         Spektrum enthält Grünlicht-Anteil: Grün (500-600nm) penetriert 50% tiefer
         in den Bestand und trägt bei dichten Pflanzungen 20-30% zur Photosynthese bei.
@@ -536,8 +689,13 @@ class ResourceProfileGenerator(BaseModel):
             self.phase_name, 400
         )
 
+        # Quelle: Cannabis Indoor Grower Review G-009
+        # Autoflower-Cultivare: Durchgehend 20/4 oder 18/6, kein Photoperioden-Wechsel
+        if self.cultivar_photoperiod_type == 'autoflower':
+            photoperiod = 20  # 20/4 Standard für Autoflower (alternativ 18/6)
+        # /Quelle: G-009
         # Photoperiode nach Phase und Photoperiod-Response
-        if self.phase_name in ('flowering', 'ripening'):
+        elif self.phase_name in ('flowering', 'ripening'):
             photoperiod = {
                 'short_day': 12,     # Cannabis, Chrysanthemen
                 'long_day': 16,      # Salat, Spinat — Blüte unter Langtag
@@ -940,7 +1098,7 @@ Zustandslose Berechnungsendpunkte (VPD, GDD, Photoperiode) sind öffentlich zug�
 **Erforderliche Module:**
 - REQ-001 (Stammdaten): LifecycleConfig (`cycle_type`, `dormancy_required`, `vernalization_required`),
   DormancyTrigger (Dormanz-Auslösung), VernalizationTracker (Kältestunden-Tracking),
-  GrowthPhase-Definitionen
+  GrowthPhase-Definitionen, Cultivar `photoperiod_type` (photoperiodic/autoflower/day_neutral — G-009)
 - REQ-002 (Standort): Slot-Zuordnung für Ressourcen-Steuerung
 - REQ-005 (Sensorik): Klimadaten für VPD-Berechnung und Feedback-Loop
 
@@ -980,6 +1138,13 @@ Zustandslose Berechnungsendpunkte (VPD, GDD, Photoperiode) sind öffentlich zug�
 - [ ] **Saison-Vergleich:** Ertrag und Phasen-Dauern sind über mehrere Jahre vergleichbar
 - [ ] **Perennial-Phasen-Template:** Standard-Phasensequenz für Dauerkulturen (dormancy → bud_break → vegetative → flowering → fruit_development → ripening → senescence)
 - [ ] **Kältestunden-Integration:** Chill-Hours pro Saison aus VernalizationTracker (REQ-001) übernommen
+<!-- Quelle: Cannabis Indoor Grower Review G-009 -->
+- [ ] **Autoflower-Transition:** Bei `cultivar_photoperiod_type='autoflower'` ist Vegi→Blüte automatisch zeitbasiert (kein manueller Trigger, keine Photoperioden-Änderung)
+- [ ] **Autoflower-Lichtprofil:** Autoflower-Cultivare erhalten durchgehend 20/4 oder 18/6 Photoperiode — kein Wechsel auf 12/12 bei Blüte
+- [ ] **Autoflower-Presets:** Drei Standard-Presets (Fast/Standard/Long) mit vorgefertigten Phasendauern verfügbar
+- [ ] **Autoflower-HST-Warnung:** HST-Methoden (Topping/FIM/Supercropping) bei Autoflower-Cultivaren erzeugen Warnung (nicht Blockade) — cross-ref REQ-006
+- [ ] **Autoflower-LST-Erlaubt:** LST-Methoden bei Autoflower ohne Einschränkung erlaubt
+<!-- /Quelle: G-009 -->
 
 ### Testszenarien:
 
@@ -1024,6 +1189,48 @@ THEN:
   - Phase-History dokumentiert: "Manual override by user"
   - Nächste Auto-Transition geplant für: +56 Tage (typische Blütedauer)
 ```
+
+<!-- Quelle: Cannabis Indoor Grower Review G-009 -->
+**Szenario 3a: Autoflower — Automatischer Vegi→Blüte Übergang**
+```
+GIVEN: Cannabis Cultivar "Northern Lights Auto" mit photoperiod_type='autoflower',
+       autoflower_days_to_flower=25, autoflower_total_cycle_days=75
+  - Aktuell in vegetativer Phase seit 25 Tagen
+  - Lichtprofil: 20/4 durchgehend
+WHEN: Täglicher Scheduler läuft
+THEN:
+  - System erkennt: days_in_veg (25) >= autoflower_days_to_flower (25)
+  - Automatischer Übergang Vegi → Blüte (TIME_BASED, nicht MANUAL)
+  - Lichtprofil bleibt bei 20/4 (KEIN Wechsel auf 12/12!)
+  - NPK-Wechsel zu Blüte-Profil (N↓, P↑, K↑)
+  - Nächste Auto-Transition: +50 Tage (75 - 25 = Blütephase)
+  - Phase-History: "Autoflower auto-transition (25 Tage ab Keimung)"
+```
+
+**Szenario 3b: Autoflower — HST-Training-Warnung**
+```
+GIVEN: Cannabis Cultivar mit photoperiod_type='autoflower', aktuell Vegi seit 10 Tagen
+WHEN: Nutzer erstellt Task "Topping" (HST-Methode) für diesen Cultivar
+THEN:
+  - System zeigt Warnung: "HST-Methode 'Topping' bei Autoflower nicht empfohlen.
+    Autoflower haben eine begrenzte vegetative Phase (10 Tage bisher).
+    Erholungszeit nach Topping beträgt 7–14 Tage, was bei Autoflowern den
+    Ertrag reduzieren kann. LST (Low-Stress-Training) wird stattdessen empfohlen."
+  - Task wird NICHT blockiert (Nutzer kann Warnung überstimmen)
+  - Bei LST-Task ("Bending", "ScrOG"): Keine Warnung, direkt erlaubt
+```
+
+**Szenario 3c: Autoflower — Photoperiode bleibt konstant**
+```
+GIVEN: Cannabis Cultivar mit photoperiod_type='autoflower', Transition Vegi → Blüte steht an
+WHEN: System führt Phasenwechsel durch
+THEN:
+  - PhotoperiodManager wird NICHT aufgerufen (kein gradueller Wechsel)
+  - Photoperiode bleibt bei 20h (oder konfiguriertem Wert 18–24h)
+  - ResourceProfileGenerator liefert photoperiod=20 für alle Phasen
+  - DLI wird mit 20h berechnet (nicht 12h wie bei photoperiodischen Sorten)
+```
+<!-- /Quelle: G-009 -->
 
 **Szenario 4: Gradueller Photoperioden-Wechsel**
 ```
@@ -1078,6 +1285,6 @@ THEN:
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Phasensteuerung, State-Machine, VPD, Photoperiode, NPK-Profil, Ressourcen, Dauerkultur, Perennial, Saisonzyklus, Reifegrad, Kältestunden, Obstbaum, Juvenil
-- Fachbegriffe: Phänologie, Transpiration, Vapor Pressure Deficit, PPFD, DLI (Daily Light Integral), GDD (Growing Degree Days), Spektrum, Vernalisierung, Seneszenz, Austrieb, Chill-Hours, Fruchtentwicklung, Photoperiod-Response (short_day, long_day, day_neutral), Leaf-VPD
+- Keywords: Phasensteuerung, State-Machine, VPD, Photoperiode, NPK-Profil, Ressourcen, Dauerkultur, Perennial, Saisonzyklus, Reifegrad, Kältestunden, Obstbaum, Juvenil, Autoflower, HST-Warnung, Cultivar-Photoperiod-Type
+- Fachbegriffe: Phänologie, Transpiration, Vapor Pressure Deficit, PPFD, DLI (Daily Light Integral), GDD (Growing Degree Days), Spektrum, Vernalisierung, Seneszenz, Austrieb, Chill-Hours, Fruchtentwicklung, Photoperiod-Response (short_day, long_day, day_neutral), Leaf-VPD, Autoflower (Cannabis ruderalis), HST (High-Stress-Training), LST (Low-Stress-Training)
 - Verknüpfung: Zentral für REQ-004 (Düngung), REQ-005 (Sensorik), REQ-006 (Tasks)

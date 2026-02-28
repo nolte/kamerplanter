@@ -46,6 +46,7 @@ Documentation is written in **German**; source code must be in **English only** 
 | REQ-023 | Benutzerverwaltung & Authentifizierung | Plattform & Sicherheit |
 | REQ-024 | Mandantenverwaltung & Gemeinschaftsgärten | Plattform & Kollaboration |
 | REQ-025 | Datenschutz & Betroffenenrechte (DSGVO) | Plattform & Datenschutz |
+| REQ-027 | Light-Modus (Anonymer Zugang) | Plattform & Deployment |
 
 ## Key Architectural Decisions
 
@@ -55,11 +56,11 @@ These constraints are documented across multiple files and must be respected whe
 
 2. **Polyglot persistence**: ArangoDB (primary — documents + graph queries for species relationships, companion planting), TimescaleDB (time-series sensor data with automatic downsampling), Redis (cache + Celery broker).
 
-3. **Hybrid sensor data model** (REQ-005): Three data sources with fallback chain — automatic (IoT/MQTT) → semi-automatic (Home Assistant REST API) → manual entry. Data provenance is always tracked.
+3. **Hybrid sensor data model** (REQ-005): Four data sources with fallback chain — automatic (IoT/MQTT) → semi-automatic (Home Assistant REST API) → weather API (DWD/OpenWeatherMap/Open-Meteo for outdoor) → manual entry. Data provenance is always tracked.
 
 4. **Plant phase state machine** (REQ-003): Germination → Seedling → Vegetative → Flowering → Harvest. Transitions can be time-based or event-triggered. Each phase has distinct VPD targets, photoperiod settings, and NPK profiles. Perennial mode with seasonal cycles.
 
-5. **Fertilizer mixing order matters** (REQ-004): CalMag before sulfates to prevent precipitation. EC-net = target EC minus base water EC. Pydantic models enforce mixing sequence validation.
+5. **Fertilizer mixing order matters** (REQ-004): CalMag before sulfates to prevent precipitation. EC-net = target EC minus base water EC. Pydantic models enforce mixing sequence validation. Organic outdoor fertilization with area-based dosing (g/m², L/m²) and soil analysis integration.
 
 6. **Genetic lineage graph** (REQ-017): `descended_from` edges track parent-child relationships across generations. Supports clones, seed crosses, grafting, division. Graft compatibility checked at genus/family level.
 
@@ -101,3 +102,9 @@ These constraints are documented across multiple files and must be respected whe
 - **Retention Policy** — defined data lifecycle per category (NFR-011). Celery master task enforces deletion/anonymization daily. Configurable via environment variables with legal minimum floors.
 - **Consent Record** — tracked per user and processing purpose. Required consents (core functionality) cannot be revoked. Optional consents (Sentry, HIBP, enrichment) gate feature access via middleware.
 - **DSFA** — Datenschutz-Folgenabschätzung (Data Protection Impact Assessment): required for sensor data that may reveal personal presence patterns (CO2, motion, manual overrides).
+- **Fruchtfolge** — Crop rotation: 4-year cycle (Starkzehrer → Mittelzehrer → Schwachzehrer → Gründüngung) tracked per bed location via CropRotationPlan nodes.
+- **Mischkultur** — Companion planting: graph-based compatibility engine recommending beneficial plant combinations for outdoor beds.
+- **Sukzession** — Succession sowing: staggered plantings at intervals to extend harvest window, tracked via SuccessionPlan nodes.
+- **Winterhärte-Ampel** — Winter hardiness traffic light: 3-tier rating (green=hardy, yellow=needs protection, red=must overwinter indoors) based on frost_sensitivity + climate_zone.
+- **Phänologie** — Phenological indicators: natural events (Forsythienblüte, Holunderblüte, Apfelblüte) used as task triggers instead of fixed calendar dates.
+- **Überwinterung** — Overwintering management: OverwinteringProfile nodes tracking protection methods, storage conditions, and spring uncovering schedules for perennial and frost-tender plants.

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Cookie, Depends
+from fastapi import APIRouter, Cookie, Depends, Query
 
 from app.api.v1.auth.schemas import (
     AuthProviderResponse,
@@ -54,6 +54,19 @@ def unlink_provider(
 ):
     auth_service.unlink_provider(current_user.key or "", provider_key)
     return MessageResponse(message="Provider unlinked.")
+
+
+@router.post("/me/providers/{provider_slug}/link", response_model=AuthProviderResponse)
+def link_provider(
+    provider_slug: str,
+    code: str = Query(...),
+    state: str = Query(...),
+    current_user: User = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    """Link an OAuth provider to the current user's account."""
+    info = auth_service.link_provider(current_user.key or "", provider_slug, code, state)
+    return AuthProviderResponse(**info.model_dump())
 
 
 @router.post("/me/password", response_model=MessageResponse)

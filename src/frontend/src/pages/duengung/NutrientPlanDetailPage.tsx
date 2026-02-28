@@ -14,37 +14,53 @@ import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Collapse from '@mui/material/Collapse';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ScienceIcon from '@mui/icons-material/Science';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
+import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormChipInput from '@/components/form/FormChipInput';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import PhaseEntryDialog from './PhaseEntryDialog';
-import FertilizerDosageDialog from './FertilizerDosageDialog';
+import DeliveryChannelChips from './DeliveryChannelChips';
+import DeliveryChannelAccordion from './DeliveryChannelAccordion';
+import DeliveryChannelDialog from './DeliveryChannelDialog';
+import ChannelFertilizerDialog from './ChannelFertilizerDialog';
+import type { DosageEntry } from './ChannelFertilizerDialog';
+import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 import * as fertApi from '@/api/endpoints/fertilizers';
-import type { NutrientPlan, NutrientPlanPhaseEntry, PlanValidationResult, Fertilizer, WateringSchedule } from '@/api/types';
+import * as tankApi from '@/api/endpoints/tanks';
+import type {
+  NutrientPlan,
+  NutrientPlanPhaseEntry,
+  PlanValidationResult,
+  Fertilizer,
+  Tank,
+  ScheduleMode,
+  DeliveryChannel,
+  DeliveryChannelCreate,
+  FertilizerDosage,
+} from '@/api/types';
 
 const substrateTypes = [
   'soil',
@@ -63,6 +79,8 @@ const substrateTypes = [
   'hydro_solution',
 ] as const;
 
+const applicationMethods = ['drench', 'foliar', 'top_dress'] as const;
+
 const editSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().max(2000),
@@ -71,6 +89,13 @@ const editSchema = z.object({
   is_template: z.boolean(),
   version: z.string().max(50),
   tags: z.array(z.string()),
+  schedule_enabled: z.boolean(),
+  schedule_mode: z.enum(['weekdays', 'interval']),
+  weekday_schedule: z.array(z.number()),
+  interval_days: z.number().min(1).max(90).nullable(),
+  preferred_time: z.string().max(5),
+  application_method: z.enum(applicationMethods),
+  reminder_hours_before: z.number().min(0).max(24),
 });
 
 type EditFormData = z.infer<typeof editSchema>;
@@ -80,8 +105,7 @@ const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 function WateringScheduleTabContent({ plan }: { plan: NutrientPlan }) {
   const { t } = useTranslation();
 
-  // The watering_schedule may exist on the plan as an extra field from the backend
-  const schedule = (plan as NutrientPlan & { watering_schedule?: WateringSchedule }).watering_schedule;
+  const schedule = plan.watering_schedule;
 
   if (!schedule) {
     return (
@@ -188,6 +212,7 @@ export default function NutrientPlanDetailPage() {
   const [plan, setPlan] = useState<NutrientPlan | null>(null);
   const [entries, setEntries] = useState<NutrientPlanPhaseEntry[]>([]);
   const [fertilizers, setFertilizers] = useState<Fertilizer[]>([]);
+  const [tanks, setTanks] = useState<Tank[]>([]);
   const [validation, setValidation] = useState<PlanValidationResult | null>(null);
   const [validating, setValidating] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -202,10 +227,23 @@ export default function NutrientPlanDetailPage() {
   const [deleteEntryOpen, setDeleteEntryOpen] = useState(false);
   const [deletingEntry, setDeletingEntry] = useState<NutrientPlanPhaseEntry | null>(null);
 
-  // Fertilizer dosage dialog state
-  const [dosageDialogOpen, setDosageDialogOpen] = useState(false);
-  const [dosageEntryKey, setDosageEntryKey] = useState<string>('');
-  const [dosageExisting, setDosageExisting] = useState<NutrientPlanPhaseEntry['fertilizer_dosages']>([]);
+  // DeliveryChannel dialog state
+  const [channelDialogOpen, setChannelDialogOpen] = useState(false);
+  const [channelDialogEntryKey, setChannelDialogEntryKey] = useState<string>('');
+  const [channelDialogExistingIds, setChannelDialogExistingIds] = useState<string[]>([]);
+  const [editingChannel, setEditingChannel] = useState<DeliveryChannel | null>(null);
+
+  // Channel fertilizer dialog state
+  const [fertDialogOpen, setFertDialogOpen] = useState(false);
+  const [fertDialogEntryKey, setFertDialogEntryKey] = useState<string>('');
+  const [fertDialogChannelId, setFertDialogChannelId] = useState<string>('');
+  const [fertDialogExistingKeys, setFertDialogExistingKeys] = useState<string[]>([]);
+  const [editingFertDosage, setEditingFertDosage] = useState<FertilizerDosage | null>(null);
+
+  // Channel delete confirm
+  const [deleteChannelOpen, setDeleteChannelOpen] = useState(false);
+  const [deletingChannelEntryKey, setDeletingChannelEntryKey] = useState<string>('');
+  const [deletingChannelId, setDeletingChannelId] = useState<string>('');
 
   // Expanded rows for fertilizer dosages
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
@@ -214,6 +252,8 @@ export default function NutrientPlanDetailPage() {
     control,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { isDirty },
   } = useForm<EditFormData>({
     resolver: zodResolver(editSchema),
@@ -225,21 +265,44 @@ export default function NutrientPlanDetailPage() {
       is_template: false,
       version: '',
       tags: [],
+      schedule_enabled: false,
+      schedule_mode: 'weekdays',
+      weekday_schedule: [],
+      interval_days: null,
+      preferred_time: '',
+      application_method: 'drench',
+      reminder_hours_before: 2,
     },
   });
+
+  const editScheduleMode = watch('schedule_mode');
+  const editWeekdaySchedule = watch('weekday_schedule');
+  const editScheduleEnabled = watch('schedule_enabled');
+
+  const handleEditWeekdayToggle = (dayIndex: number) => {
+    const current = editWeekdaySchedule;
+    if (current.includes(dayIndex)) {
+      setValue('weekday_schedule', current.filter((d) => d !== dayIndex), { shouldDirty: true });
+    } else {
+      setValue('weekday_schedule', [...current, dayIndex].sort(), { shouldDirty: true });
+    }
+  };
 
   const load = useCallback(async () => {
     if (!key) return;
     setLoading(true);
     try {
-      const [p, e, f] = await Promise.all([
+      const [p, e, f, tk] = await Promise.all([
         planApi.fetchNutrientPlan(key),
         planApi.fetchPhaseEntries(key),
         fertApi.fetchFertilizers(0, 200),
+        tankApi.listTanks(0, 200),
       ]);
       setPlan(p);
       setEntries(e);
       setFertilizers(f);
+      setTanks(tk);
+      const ws = p.watering_schedule;
       reset({
         name: p.name,
         description: p.description,
@@ -248,6 +311,13 @@ export default function NutrientPlanDetailPage() {
         is_template: p.is_template,
         version: p.version,
         tags: p.tags,
+        schedule_enabled: ws != null,
+        schedule_mode: ws?.schedule_mode ?? 'weekdays',
+        weekday_schedule: ws?.weekday_schedule ?? [],
+        interval_days: ws?.interval_days ?? null,
+        preferred_time: ws?.preferred_time ?? '',
+        application_method: (ws?.application_method ?? 'drench') as typeof applicationMethods[number],
+        reminder_hours_before: ws?.reminder_hours_before ?? 2,
       });
       setError(null);
     } catch (err) {
@@ -284,6 +354,10 @@ export default function NutrientPlanDetailPage() {
     if (!key) return;
     try {
       setSaving(true);
+      const hasSchedule = data.schedule_enabled && (
+        (data.schedule_mode === 'weekdays' && data.weekday_schedule.length > 0) ||
+        (data.schedule_mode === 'interval' && data.interval_days != null && data.interval_days > 0)
+      );
       await planApi.updateNutrientPlan(key, {
         name: data.name,
         description: data.description,
@@ -292,6 +366,14 @@ export default function NutrientPlanDetailPage() {
         is_template: data.is_template,
         version: data.version,
         tags: data.tags,
+        watering_schedule: hasSchedule ? {
+          schedule_mode: data.schedule_mode,
+          weekday_schedule: data.weekday_schedule,
+          interval_days: data.interval_days,
+          preferred_time: data.preferred_time || null,
+          application_method: data.application_method,
+          reminder_hours_before: data.reminder_hours_before,
+        } : null,
       });
       notification.success(t('common.save'));
       load();
@@ -326,17 +408,6 @@ export default function NutrientPlanDetailPage() {
     }
   };
 
-  const onRemoveFertilizer = async (entryKey: string, fertilizerKey: string) => {
-    if (!key) return;
-    try {
-      await planApi.removeFertilizerFromEntry(key, entryKey, fertilizerKey);
-      notification.success(t('common.delete'));
-      load();
-    } catch (err) {
-      handleError(err);
-    }
-  };
-
   const toggleExpanded = (entryKey: string) => {
     setExpandedEntries((prev) => {
       const next = new Set(prev);
@@ -349,9 +420,113 @@ export default function NutrientPlanDetailPage() {
     });
   };
 
-  const getFertilizerName = (fertKey: string): string => {
-    const f = fertilizers.find((fert) => fert.key === fertKey);
-    return f ? `${f.product_name} (${f.brand})` : fertKey;
+  const onRemoveChannelFertilizer = async (entryKey: string, channelId: string, fertilizerKey: string) => {
+    try {
+      await planApi.removeFertilizerFromChannel(entryKey, channelId, fertilizerKey);
+      notification.success(t('common.delete'));
+      load();
+    } catch (err) {
+      handleError(err);
+    }
+  };
+
+  const onSaveChannel = async (channel: DeliveryChannelCreate) => {
+    if (!key || !channelDialogEntryKey) return;
+    try {
+      const entry = entries.find((e) => e.key === channelDialogEntryKey);
+      if (!entry) return;
+      const updatedChannels = [
+        ...entry.delivery_channels.filter((ch) => ch.channel_id !== channel.channel_id),
+        channel,
+      ];
+      await planApi.updatePhaseEntry(key, channelDialogEntryKey, {
+        delivery_channels: updatedChannels,
+      });
+      notification.success(t('common.save'));
+      setChannelDialogOpen(false);
+      setEditingChannel(null);
+      load();
+    } catch (err) {
+      handleError(err);
+    }
+  };
+
+  const onEditChannel = (entryKey: string, channel: DeliveryChannel) => {
+    setChannelDialogEntryKey(entryKey);
+    const entry = entries.find((e) => e.key === entryKey);
+    setChannelDialogExistingIds(
+      entry?.delivery_channels
+        .filter((ch) => ch.channel_id !== channel.channel_id)
+        .map((ch) => ch.channel_id) ?? [],
+    );
+    setEditingChannel(channel);
+    setChannelDialogOpen(true);
+  };
+
+  const onDeleteChannel = async () => {
+    if (!key || !deletingChannelEntryKey || !deletingChannelId) return;
+    try {
+      const entry = entries.find((e) => e.key === deletingChannelEntryKey);
+      if (!entry) return;
+      const updatedChannels = entry.delivery_channels.filter(
+        (ch) => ch.channel_id !== deletingChannelId,
+      );
+      await planApi.updatePhaseEntry(key, deletingChannelEntryKey, {
+        delivery_channels: updatedChannels,
+      });
+      notification.success(t('common.delete'));
+      setDeleteChannelOpen(false);
+      setDeletingChannelId('');
+      setDeletingChannelEntryKey('');
+      load();
+    } catch (err) {
+      handleError(err);
+    }
+  };
+
+  const onAddChannelFertilizer = (entryKey: string, channelId: string) => {
+    const entry = entries.find((e) => e.key === entryKey);
+    const channel = entry?.delivery_channels.find((ch) => ch.channel_id === channelId);
+    setFertDialogEntryKey(entryKey);
+    setFertDialogChannelId(channelId);
+    setFertDialogExistingKeys(
+      channel?.fertilizer_dosages.map((d) => d.fertilizer_key) ?? [],
+    );
+    setEditingFertDosage(null);
+    setFertDialogOpen(true);
+  };
+
+  const onEditChannelFertilizer = (entryKey: string, channelId: string, dosage: FertilizerDosage) => {
+    const entry = entries.find((e) => e.key === entryKey);
+    const channel = entry?.delivery_channels.find((ch) => ch.channel_id === channelId);
+    setFertDialogEntryKey(entryKey);
+    setFertDialogChannelId(channelId);
+    setFertDialogExistingKeys(
+      channel?.fertilizer_dosages.map((d) => d.fertilizer_key) ?? [],
+    );
+    setEditingFertDosage(dosage);
+    setFertDialogOpen(true);
+  };
+
+  const onSaveChannelFertilizer = async (items: DosageEntry[]) => {
+    try {
+      if (editingFertDosage) {
+        await planApi.removeFertilizerFromChannel(
+          fertDialogEntryKey,
+          fertDialogChannelId,
+          editingFertDosage.fertilizer_key,
+        );
+      }
+      for (const item of items) {
+        await planApi.addFertilizerToChannel(fertDialogEntryKey, fertDialogChannelId, item);
+      }
+      notification.success(t('common.save'));
+      setFertDialogOpen(false);
+      setEditingFertDosage(null);
+      load();
+    } catch (err) {
+      handleError(err);
+    }
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
@@ -441,15 +616,6 @@ export default function NutrientPlanDetailPage() {
                         <Typography variant="body2" color="text.secondary">
                           NPK: {entry.npk_ratio[0]}-{entry.npk_ratio[1]}-{entry.npk_ratio[2]}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          EC: {entry.target_ec_ms} mS
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          pH: {entry.target_ph.toFixed(1)}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {entry.feeding_frequency_per_week}x / {t('pages.nutrientPlans.week')}
-                        </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
                         <Tooltip title={t('pages.nutrientPlans.showFertilizers')}>
@@ -486,8 +652,15 @@ export default function NutrientPlanDetailPage() {
                       </Box>
                     </Box>
 
+                    {/* Delivery channel chips */}
+                    {entry.delivery_channels.length > 0 && (
+                      <ExpertiseFieldWrapper minLevel="intermediate">
+                        <DeliveryChannelChips channels={entry.delivery_channels} />
+                      </ExpertiseFieldWrapper>
+                    )}
+
                     {/* Additional details row */}
-                    {(entry.calcium_ppm != null || entry.magnesium_ppm != null || entry.volume_per_feeding_liters != null || entry.notes) && (
+                    {(entry.calcium_ppm != null || entry.magnesium_ppm != null || entry.notes) && (
                       <Box sx={{ display: 'flex', gap: 1.5, mt: 1, flexWrap: 'wrap' }}>
                         {entry.calcium_ppm != null && (
                           <Typography variant="body2" color="text.secondary">
@@ -499,11 +672,6 @@ export default function NutrientPlanDetailPage() {
                             Mg: {entry.magnesium_ppm} ppm
                           </Typography>
                         )}
-                        {entry.volume_per_feeding_liters != null && (
-                          <Typography variant="body2" color="text.secondary">
-                            {t('pages.nutrientPlans.volumePerFeeding')}: {entry.volume_per_feeding_liters} L
-                          </Typography>
-                        )}
                         {entry.notes && (
                           <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                             {entry.notes}
@@ -512,74 +680,65 @@ export default function NutrientPlanDetailPage() {
                       </Box>
                     )}
 
-                    {/* Expandable fertilizer dosages */}
+                    {/* Expandable delivery channels */}
                     <Collapse in={expandedEntries.has(entry.key)}>
                       <Box sx={{ mt: 2 }}>
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            mb: 1,
-                          }}
-                        >
-                          <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <ScienceIcon fontSize="small" />
-                            {t('pages.nutrientPlans.fertilizerDosages')}
-                          </Typography>
-                          <Button
-                            size="small"
-                            startIcon={<AddIcon />}
-                            onClick={() => {
-                              setDosageEntryKey(entry.key);
-                              setDosageExisting(entry.fertilizer_dosages);
-                              setDosageDialogOpen(true);
+                        <ExpertiseFieldWrapper minLevel="intermediate">
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              mb: 1,
                             }}
                           >
-                            {t('pages.nutrientPlans.addFertilizer')}
-                          </Button>
-                        </Box>
-
-                        {entry.fertilizer_dosages.length === 0 ? (
-                          <Alert severity="info" variant="outlined" sx={{ py: 0.5 }}>
-                            {t('pages.nutrientPlans.noFertilizers')}
-                          </Alert>
-                        ) : (
-                          <Table size="small">
-                            <TableHead>
-                              <TableRow>
-                                <TableCell>{t('entities.fertilizer')}</TableCell>
-                                <TableCell align="right">{t('pages.nutrientPlans.mlPerLiter')}</TableCell>
-                                <TableCell align="center">{t('common.optional')}</TableCell>
-                                <TableCell align="right">{t('common.actions')}</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {entry.fertilizer_dosages.map((dosage) => (
-                                <TableRow key={dosage.fertilizer_key}>
-                                  <TableCell>{getFertilizerName(dosage.fertilizer_key)}</TableCell>
-                                  <TableCell align="right">{dosage.ml_per_liter} ml/L</TableCell>
-                                  <TableCell align="center">
-                                    {dosage.optional ? (
-                                      <Chip label={t('common.yes')} size="small" variant="outlined" />
-                                    ) : (
-                                      <Chip label={t('common.no')} size="small" />
-                                    )}
-                                  </TableCell>
-                                  <TableCell align="right">
-                                    <IconButton
-                                      size="small"
-                                      color="error"
-                                      onClick={() => onRemoveFertilizer(entry.key, dosage.fertilizer_key)}
-                                    >
-                                      <DeleteIcon fontSize="small" />
-                                    </IconButton>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
+                            <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <ScienceIcon fontSize="small" />
+                              {t('pages.deliveryChannels.title')}
+                            </Typography>
+                            <Button
+                              size="small"
+                              startIcon={<AddIcon />}
+                              onClick={() => {
+                                setChannelDialogEntryKey(entry.key);
+                                setChannelDialogExistingIds(
+                                  entry.delivery_channels.map((ch) => ch.channel_id),
+                                );
+                                setEditingChannel(null);
+                                setChannelDialogOpen(true);
+                              }}
+                            >
+                              {t('pages.deliveryChannels.addChannel')}
+                            </Button>
+                          </Box>
+                          {entry.delivery_channels.length === 0 ? (
+                            <Alert severity="info" variant="outlined" sx={{ py: 0.5 }}>
+                              {t('pages.deliveryChannels.noChannels')}
+                            </Alert>
+                          ) : (
+                            <DeliveryChannelAccordion
+                              channels={entry.delivery_channels}
+                              fertilizers={fertilizers}
+                              onEditChannel={(ch) =>
+                                onEditChannel(entry.key, ch)
+                              }
+                              onDeleteChannel={(cid) => {
+                                setDeletingChannelEntryKey(entry.key);
+                                setDeletingChannelId(cid);
+                                setDeleteChannelOpen(true);
+                              }}
+                              onAddFertilizer={(cid) =>
+                                onAddChannelFertilizer(entry.key, cid)
+                              }
+                              onEditFertilizer={(cid, dosage) =>
+                                onEditChannelFertilizer(entry.key, cid, dosage)
+                              }
+                              onRemoveFertilizer={(cid, fk) =>
+                                onRemoveChannelFertilizer(entry.key, cid, fk)
+                              }
+                            />
+                          )}
+                        </ExpertiseFieldWrapper>
                       </Box>
                     </Collapse>
                   </CardContent>
@@ -620,7 +779,7 @@ export default function NutrientPlanDetailPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card sx={{ mb: 2 }}>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
                     {t('pages.nutrientPlans.ecBudgets')}
@@ -639,6 +798,39 @@ export default function NutrientPlanDetailPage() {
                   ))}
                 </CardContent>
               </Card>
+
+              {/* Channel Validations */}
+              {validation.channel_validations.length > 0 && (
+                <Card>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      {t('pages.deliveryChannels.validation.title')}
+                    </Typography>
+                    {validation.channel_validations.map((cv, i) => (
+                      <Box key={i} sx={{ mb: 1 }}>
+                        <Typography variant="subtitle2">
+                          {t(`enums.phaseName.${cv.phase_name}`)}
+                        </Typography>
+                        {cv.channel_results.map((cr, j) => (
+                          <Alert
+                            key={j}
+                            severity={cr.issues.length === 0 ? 'success' : 'error'}
+                            sx={{ mb: 0.5 }}
+                          >
+                            <strong>{cr.label || cr.channel_id}</strong>:{' '}
+                            {cr.issues.length === 0
+                              ? t('pages.deliveryChannels.validation.noIssues')
+                              : cr.issues.join('; ')}
+                            {cr.ec_budget && (
+                              <> ({t('pages.deliveryChannels.validation.ecBudget')}: {cr.ec_budget.target} / {cr.ec_budget.calculated})</>
+                            )}
+                          </Alert>
+                        ))}
+                      </Box>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
             </>
           )}
         </Box>
@@ -697,6 +889,137 @@ export default function NutrientPlanDetailPage() {
                 label={t('pages.nutrientPlans.tags')}
                 placeholder={t('pages.nutrientPlans.tagsPlaceholder')}
               />
+
+              {/* Watering Schedule Section */}
+              <Box sx={{ mt: 3, mb: 2 }}>
+                <FormSwitchField
+                  name="schedule_enabled"
+                  control={control}
+                  label={t('pages.wateringSchedule.title')}
+                />
+
+                <Collapse in={editScheduleEnabled}>
+                  <Box sx={{ pl: 1, pt: 1 }}>
+                    {/* Schedule Mode Toggle */}
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        {t('pages.wateringSchedule.mode')}
+                      </Typography>
+                      <Controller
+                        name="schedule_mode"
+                        control={control}
+                        render={({ field }) => (
+                          <ToggleButtonGroup
+                            value={field.value}
+                            exclusive
+                            onChange={(_, value: ScheduleMode | null) => {
+                              if (value) field.onChange(value);
+                            }}
+                            size="small"
+                            fullWidth
+                          >
+                            <ToggleButton value="weekdays">
+                              {t('pages.wateringSchedule.weekdays')}
+                            </ToggleButton>
+                            <ToggleButton value="interval">
+                              {t('pages.wateringSchedule.interval')}
+                            </ToggleButton>
+                          </ToggleButtonGroup>
+                        )}
+                      />
+                    </Box>
+
+                    {/* Weekday Checkboxes */}
+                    {editScheduleMode === 'weekdays' && (
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                          {t('pages.wateringSchedule.weekdays')}
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {WEEKDAY_KEYS.map((dayKey, index) => (
+                            <FormControlLabel
+                              key={dayKey}
+                              control={
+                                <Checkbox
+                                  checked={editWeekdaySchedule.includes(index)}
+                                  onChange={() => handleEditWeekdayToggle(index)}
+                                  size="small"
+                                />
+                              }
+                              label={t(`pages.wateringSchedule.${dayKey}`)}
+                            />
+                          ))}
+                        </Box>
+                      </Box>
+                    )}
+
+                    {/* Interval Days */}
+                    {editScheduleMode === 'interval' && (
+                      <FormNumberField
+                        name="interval_days"
+                        control={control}
+                        label={t('pages.wateringSchedule.intervalDays')}
+                        min={1}
+                        max={90}
+                        step={1}
+                      />
+                    )}
+
+                    {/* Preferred Time */}
+                    <Controller
+                      name="preferred_time"
+                      control={control}
+                      render={({ field, fieldState: { error } }) => (
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                            {t('pages.wateringSchedule.preferredTime')}
+                          </Typography>
+                          <input
+                            type="time"
+                            value={field.value}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem',
+                              fontSize: '1rem',
+                              border: error ? '1px solid red' : '1px solid rgba(0,0,0,0.23)',
+                              borderRadius: '4px',
+                            }}
+                          />
+                          {error?.message && (
+                            <Typography variant="caption" color="error">
+                              {error.message}
+                            </Typography>
+                          )}
+                        </Box>
+                      )}
+                    />
+
+                    {/* Application Method */}
+                    <FormSelectField
+                      name="application_method"
+                      control={control}
+                      label={t('pages.wateringSchedule.applicationMethod')}
+                      options={applicationMethods.map((v) => ({
+                        value: v,
+                        label: t(`enums.applicationMethod.${v}`),
+                      }))}
+                    />
+
+                    {/* Reminder Hours Before */}
+                    <FormNumberField
+                      name="reminder_hours_before"
+                      control={control}
+                      label={t('pages.wateringSchedule.reminderHoursBefore')}
+                      min={0}
+                      max={24}
+                      step={1}
+                    />
+                  </Box>
+                </Collapse>
+              </Box>
+
               <FormActions
                 onCancel={() => reset()}
                 loading={saving}
@@ -729,6 +1052,20 @@ export default function NutrientPlanDetailPage() {
         }}
       />
 
+      <ConfirmDialog
+        open={deleteChannelOpen}
+        title={t('pages.deliveryChannels.deleteChannel')}
+        message={t('pages.deliveryChannels.deleteChannelConfirm', {
+          label: deletingChannelId,
+        })}
+        onConfirm={onDeleteChannel}
+        onCancel={() => {
+          setDeleteChannelOpen(false);
+          setDeletingChannelId('');
+          setDeletingChannelEntryKey('');
+        }}
+      />
+
       {key && (
         <PhaseEntryDialog
           open={entryDialogOpen}
@@ -746,19 +1083,29 @@ export default function NutrientPlanDetailPage() {
         />
       )}
 
-      {key && (
-        <FertilizerDosageDialog
-          open={dosageDialogOpen}
-          onClose={() => setDosageDialogOpen(false)}
-          planKey={key}
-          entryKey={dosageEntryKey}
-          existingDosages={dosageExisting}
-          onSaved={() => {
-            setDosageDialogOpen(false);
-            load();
-          }}
-        />
-      )}
+      <DeliveryChannelDialog
+        open={channelDialogOpen}
+        onClose={() => {
+          setChannelDialogOpen(false);
+          setEditingChannel(null);
+        }}
+        onSave={onSaveChannel}
+        existingChannel={editingChannel}
+        existingIds={channelDialogExistingIds}
+        tanks={tanks}
+      />
+
+      <ChannelFertilizerDialog
+        open={fertDialogOpen}
+        onClose={() => {
+          setFertDialogOpen(false);
+          setEditingFertDosage(null);
+        }}
+        onSave={onSaveChannelFertilizer}
+        fertilizers={fertilizers}
+        existingFertilizerKeys={fertDialogExistingKeys}
+        existingDosage={editingFertDosage}
+      />
     </Box>
   );
 }

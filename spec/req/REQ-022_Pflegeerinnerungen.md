@@ -1,13 +1,13 @@
-# Spezifikation: REQ-022 - Einfache Pflegeerinnerungen für Zimmerpflanzen
+# Spezifikation: REQ-022 - Einfache Pflegeerinnerungen für Zimmerpflanzen & Überwinterungsmanagement
 
 ```yaml
 ID: REQ-022
-Titel: Einfache Pflegeerinnerungen für Zimmerpflanzen
+Titel: Einfache Pflegeerinnerungen für Zimmerpflanzen & Überwinterungsmanagement
 Kategorie: Pflege & Erinnerungen
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 2.1 (Agrarbiologie-Review v2)
+Version: 2.3 (Überwinterungsmanagement)
 ```
 
 ## 1. Business Case
@@ -21,6 +21,18 @@ Version: 2.1 (Agrarbiologie-Review v2)
 **User Story (Saisonale Erinnerungen):** "Als Zimmerpflanzen-Besitzer möchte ich im Oktober daran erinnert werden, meine Pflanzen vom Balkon zu holen und im März daran, sie an hellere Standorte umzuziehen — ohne diese Termine selbst im Kalender pflegen zu müssen."
 
 **User Story (Dünge-Saison):** "Als Pflanzenbesitzer möchte ich, dass Dünge-Erinnerungen nur während der Wachstumssaison (März–Oktober) erscheinen — weil Zimmerpflanzen im Winter nicht gedüngt werden sollen."
+
+<!-- Quelle: Outdoor-Garden-Planner Review G-002 -->
+**User Story (Überwinterung):** "Als Gartenbesitzerin möchte ich im Oktober automatisch daran erinnert werden, welche meiner Pflanzen Winterschutz brauchen, welche ich ausgraben muss und welche ins Haus müssen — damit mir kein einziger Dahlienknolle erfriert."
+
+<!-- Quelle: Outdoor-Garden-Planner Review G-002 -->
+**User Story (Winterhärte-Ampel):** "Als Gärtnerin möchte ich auf einen Blick sehen, welche meiner 120 Pflanzen den Winter draußen überstehen (grün), welche Schutz brauchen (gelb) und welche unbedingt frostfrei überwintert werden müssen (rot) — abgestimmt auf MEINE Klimazone."
+
+<!-- Quelle: Outdoor-Garden-Planner Review G-002 -->
+**User Story (Frühlings-Erinnerung):** "Als Gartenbesitzerin möchte ich im März/April daran erinnert werden, dass ich die Dahlienknollen vorziehen, die Rosen abhäufeln und die Kübelpflanzen schrittweise wieder rausstellen muss."
+
+<!-- Quelle: Outdoor-Garden-Planner Review G-002 -->
+**User Story (Knollen-Zyklus):** "Als Gärtnerin möchte ich den kompletten Jahreszyklus meiner Dahlien, Gladiolen und Canna dokumentieren: Auspflanzen → Blühen → Ausgraben → Trocknen → Einlagern → Kontrollieren → Vorziehen → wieder Auspflanzen."
 
 **Beschreibung:**
 Zimmerpflanzen-Enthusiasten (5–50 Pflanzen) brauchen ein einfaches, verlässliches Erinnerungssystem für wiederkehrende Pflegeaufgaben. Das professionelle Workflow-System (REQ-006) mit seinen Templates, Dependency-Chains, HST-Validierung und Workflow-Executions ist für diesen Anwendungsfall überdimensioniert und einschüchternd.
@@ -100,7 +112,24 @@ Ohne saisonale Anpassung ist **Überwässerung im Winter die häufigste Todesurs
 
 Der `winter_watering_multiplier` wird auf das Gießintervall angewendet, wenn der aktuelle Monat in den Winter-Monaten liegt (November–Februar auf der Nordhalbkugel, Mai–August auf der Südhalbkugel). Die Hemisphäre wird aus `Site.hemisphere` abgeleitet (Default: `'northern'`). Das effektive Intervall berechnet sich als: `effective_interval = base_interval × multiplier`.
 
-**6 Erinnerungstypen:**
+<!-- Quelle: Outdoor-Garden-Planner Review G-002 -->
+**Outdoor-/Freiland-Care-Style-Presets:**
+
+Ergänzende Presets für Freilandpflanzen, die nicht unter die Zimmerpflanzen-Presets fallen:
+
+| care_style | Gießen (Sommer) | Winter-Aktion | Schnitt | Typische Pflanzen |
+|------------|----------------|---------------|---------|-------------------|
+| `outdoor_perennial` | Witterungsabhängig | Winterschutz prüfen (Mulch, Vlies) | Rückschnitt Frühjahr | Stauden (Rittersporn, Phlox, Astilbe) |
+| `outdoor_annual_veg` | 2-3 Tage (Hochbeet: täglich) | Abräumen, Gründüngung | Ausgeizen (Tomate) | Tomaten, Zucchini, Gurken, Paprika |
+| `fruit_tree` | Bei Trockenheit (Jungbäume regelmäßig) | Kalkanstrich, Stammschutz | Winter-/Sommerschnitt | Apfel, Birne, Kirsche, Pflaume |
+| `berry_shrub` | Regelmäßig bei Trockenheit | Mulchen | Sortenabhängig | Himbeere, Johannisbeere, Stachelbeere |
+| `rose` | 1x pro Woche tief | Anhäufeln + Vlies | Frühjahrsschnitt (Forsythienblüte!) | Beet-, Strauch-, Kletterrosen |
+| `frost_tender_tuber` | Normal | AUSGRABEN + frostfrei lagern | Laub nach Frost abschneiden | Dahlie, Gladiole, Canna, Knollenbegonie |
+| `frost_tender_container` | Normal (wenig im Winter) | Ins Winterquartier (5-12°C, hell) | Vor Einräumen | Oleander, Zitrus, Olive, Schmucklilie |
+| `winter_vegetable` | Reduziert | Vlies bei Kahlfrost, draußen lassen | — | Grünkohl, Feldsalat, Winterpostelein |
+| `spring_bulb` | — (Ruhe im Sommer) | Winterhart (im Boden lassen) | Laub einziehen lassen! | Tulpe, Narzisse, Krokus, Hyazinthe |
+
+**10 Erinnerungstypen:**
 
 | Typ | Schlüssel | Auslöser | Priorität |
 |-----|-----------|----------|-----------|
@@ -110,6 +139,10 @@ Der `winter_watering_multiplier` wird auf das Gießintervall angewendet, wenn de
 | Schädlingskontrolle | `pest_check` | Festes Intervall (Default 14 Tage) | `medium` |
 | Standort-Check | `location_check` | Saisonal: konfigurierbar (Default: Oktober + März, hemisphärenabhängig) | `medium` |
 | Luftfeuchte-Check | `humidity_check` | Saisonal: Heizperiode (Okt–Mär NH), nur für feuchtigkeitsempfindliche Presets | `medium` |
+| Winterschutz | `winter_protection` | Saisonal: konfigurierbar (Default: Oktober NH / April SH) | `high` (Pflanze erfriert!) |
+| Frühlings-Auspacken | `spring_uncover` | Saisonal: konfigurierbar (Default: März NH / September SH) | `high` |
+| Knollen ausgraben | `tuber_dig` | Saisonal: Vor erstem Frost (Oktober NH) | `critical` (Knollen erfrieren!) |
+| Knollen-Kontrolle | `storage_check` | Intervall während Lagerung (Default: 30 Tage, Nov–Mär) | `medium` |
 
 **Dünge-Guard:**
 Dünge-Erinnerungen werden nur generiert, wenn **beide** Bedingungen erfüllt sind:
@@ -184,12 +217,47 @@ Care-Reminder-Tasks werden **direkt** vom `CareReminderEngine` erstellt — sie 
     - `notes: Optional[str]` (Optionale Notiz, z.B. "Blätter leicht welk")
     - `interval_at_time: int` (Gültiges Intervall zum Zeitpunkt der Bestätigung — für Adaptive Learning)
 
+<!-- Quelle: Outdoor-Garden-Planner Review G-002 -->
+- **`:OverwinteringProfile`** — Überwinterungs-Konfiguration pro PlantInstance
+  - Collection: `overwintering_profiles`
+  - Properties:
+    - `hardiness_zone_min: Optional[str]` (Mindest-Winterhärtezone der Pflanze, z.B. "7b")
+    - `hardiness_rating: Literal['hardy', 'needs_protection', 'frost_free', 'dig_and_store']`
+      (hardy = draußen ohne Schutz, needs_protection = Vlies/Mulch/Anhäufeln,
+       frost_free = ins Winterquartier (5-12°C), dig_and_store = Knollen ausgraben + einlagern)
+    - `winter_action: Literal['none', 'mulch', 'fleece', 'earth_up', 'move_indoors', 'dig_store', 'wrap']`
+      (Konkrete Schutzmaßnahme)
+    - `winter_action_month: int` (Monat der Winterschutz-Aktion, z.B. 10 für Oktober)
+    - `spring_action: Optional[Literal['uncover', 'move_outdoors', 'replant', 'prune', 'harden_off']]`
+      (Frühlings-Aktion: Abdeckung entfernen / rausstellen / neu pflanzen / schneiden / abhärten)
+    - `spring_action_month: Optional[int]` (Monat der Frühlings-Aktion, z.B. 3 für März)
+    - `winter_quarter_key: Optional[str]` (Referenz auf Location = Winterquartier)
+    - `winter_quarter_temp_min: Optional[float]` (Mindesttemperatur Winterquartier in °C)
+    - `winter_quarter_temp_max: Optional[float]` (Maximaltemperatur Winterquartier)
+    - `winter_quarter_light: Optional[Literal['bright', 'semi_bright', 'dark']]`
+    - `winter_watering: Optional[Literal['none', 'minimal', 'reduced', 'normal']]`
+      (Gießverhalten im Winter: none = Knollen trocken lagern, minimal = alle 4-6 Wochen, etc.)
+    - `storage_medium: Optional[str]` (Lagermedium für Knollen: "Sand", "Torf", "Zeitungspapier", "luftig aufgehängt")
+    - `storage_check_interval_days: Optional[int]` (Kontrollintervall für eingelagerte Knollen, z.B. 30)
+    - `tuber_status: Optional[Literal['planted', 'growing', 'dig_pending', 'drying', 'stored', 'pre_sprouting']]`
+      (Aktueller Status im Knollen-/Zwiebel-Jahreszyklus — nur für `hardiness_rating == 'dig_and_store'`)
+    - `notes: Optional[str]`
+    - `auto_generated: bool` (True wenn automatisch aus Species-Defaults erstellt)
+    - `created_at: datetime`
+    - `updated_at: datetime`
+
 ### Edges:
 
 ```
 has_care_profile:  plant_instances → care_profiles       (1:1, PlantInstance hat CareProfile)
 confirms_care:     care_confirmations → care_profiles    (N:1, Bestätigung gehört zu Profil)
 care_event_for:    care_confirmations → plant_instances   (N:1, Bestätigung bezieht sich auf Pflanze)
+```
+
+<!-- Quelle: Outdoor-Garden-Planner Review G-002 -->
+```
+has_overwintering_profile:  plant_instances → overwintering_profiles  (1:1)
+overwinters_at:             overwintering_profiles → locations         (N:1, Winterquartier)
 ```
 
 ### Indizes:
@@ -335,6 +403,43 @@ FOR plant IN plant_instances
     )
   }
 ```
+
+<!-- Quelle: Outdoor-Garden-Planner Review G-002 -->
+### Winterhärte-Ampel (Hardiness Traffic Light)
+
+Das System berechnet pro PlantInstance eine Winterhärte-Ampel basierend auf:
+1. `Species.frost_sensitivity` (REQ-001)
+2. `Site.climate_zone` (REQ-002)
+3. `OverwinteringProfile.hardiness_zone_min`
+
+**Ampel-Logik:**
+- **Winterhart (grün):** `frost_sensitivity == 'hardy'` UND `species.hardiness_zone_min <= site.climate_zone` — Kein Handlungsbedarf
+- **Schutz nötig (gelb):** `frost_sensitivity == 'half_hardy'` ODER Hardiness-Zone knapp (Differenz <= 1 Zone) — Mulch/Vlies/Anhäufeln empfohlen
+- **Muss rein (rot):** `frost_sensitivity == 'tender'` ODER Hardiness-Zone deutlich zu niedrig (Differenz > 1) — Winterquartier oder Ausgraben
+
+**Dashboard-Widget "Winterschutz-Übersicht":**
+Ab September zeigt das Dashboard ein Widget mit:
+- Anzahl Pflanzen pro Ampelfarbe (z.B. "42 grün / 18 gelb / 7 rot")
+- Liste der rot-Pflanzen mit konkreter Handlungsanweisung
+- Countdown "Tage bis erster Frost" (basierend auf historischem Durchschnitt der Klimazone oder Wetter-API wenn verfügbar, REQ-005)
+- Checkliste der erledigten/offenen Winterschutz-Maßnahmen
+
+**Knollen-/Zwiebel-Zyklus:**
+Für `hardiness_rating == 'dig_and_store'` (Dahlien, Gladiolen, Canna) bildet das System den kompletten Jahreszyklus ab:
+
+| Monat (NH) | Status | Aktion | Erinnerung |
+|-----------|--------|--------|------------|
+| Mai | `planted` | Auspflanzen nach Eisheiligen | "Dahlienknollen einpflanzen" |
+| Jun–Sep | `growing` | Normale Pflege | Standard Care-Reminders |
+| Okt | `dig_pending` | Vor erstem Frost ausgraben | "3 Dahlien ausgraben! Frost in 5 Tagen" |
+| Okt | `drying` | 1-2 Wochen kopfüber trocknen | "Dahlien sind trocken — einlagern" |
+| Nov | `stored` | Frostfrei einlagern (5-10°C, Sand/Torf) | — |
+| Nov–Mär | `stored` | Regelmäßig kontrollieren | "Knollen kontrollieren (Fäulnis, Austrocknung)" |
+| Apr | `pre_sprouting` | Optional: Vorziehen bei 15-18°C | "Dahlienknollen vorziehen" |
+| Mai | `planted` (Zyklus wiederholt) | Zyklus wiederholt sich | — |
+
+Status-Feld auf OverwinteringProfile:
+- `tuber_status: Optional[Literal['planted', 'growing', 'dig_pending', 'drying', 'stored', 'pre_sprouting']]`
 
 ## 3. Technische Umsetzung (Python)
 
@@ -1042,15 +1147,34 @@ def generate_due_care_reminders():
     Täglicher Celery-Beat Task (06:00 UTC):
 
     1. Iteriere über alle PlantInstances mit CareProfile
-    2. Prüfe pro Pflanze alle Erinnerungstypen via CareReminderEngine
-    3. Für fällige Erinnerungen: Erstelle Task (REQ-006) falls noch kein
+    2. **Gießplan-Guard (NEU):** Prüfe ob die Pflanze in einem aktiven
+       PlantingRun mit NutrientPlan + WateringSchedule ist:
+       - Wenn ja: Unterdrücke WATERING und FERTILIZING Erinnerungen
+         (diese werden über den Gießplan-Workflow REQ-006/REQ-014 gesteuert)
+       - Andere Erinnerungstypen (repotting, pest_check, location_check,
+         humidity_check) bleiben AKTIV — der Gießplan ersetzt nur die
+         Bewässerungs-/Düngungsplanung, nicht die allgemeine Pflanzenpflege
+    3. Prüfe pro Pflanze alle (nicht-unterdrückten) Erinnerungstypen via CareReminderEngine
+    4. Für fällige Erinnerungen: Erstelle Task (REQ-006) falls noch kein
        offener Task für diesen Typ + Pflanze existiert
-    4. Task-Properties:
+    5. Task-Properties:
        - category: 'care_reminder'
        - skill_level: 'beginner'
        - priority: basierend auf Erinnerungstyp (watering→high, rest→medium/low)
        - due_date: heute
        - stress_level: 'none'
+
+    Gießplan-Guard-Logik:
+    ```python
+    def has_active_watering_schedule(plant_key: str) -> bool:
+        # 1. Prüfe ob Pflanze in aktivem PlantingRun ist (run_contains-Edge, detached_at=null)
+        # 2. Prüfe ob Run einen NutrientPlan hat (run_follows_plan-Edge oder nutrient_plan_key)
+        # 3. Prüfe ob NutrientPlan ein watering_schedule hat (nicht null)
+        # → Alle 3 Bedingungen müssen erfüllt sein
+        ...
+
+    SUPPRESSED_TYPES_WITH_SCHEDULE = {'watering', 'fertilizing'}
+    ```
 
     Idempotenz: Erstellt keine Duplikate — prüft ob bereits ein pending
     Task für [plant_key, reminder_type] existiert.
@@ -1119,6 +1243,16 @@ class CareReminderRepository:
         """Alle PlantInstances mit CareProfile (für Dashboard/Celery)."""
         ...
 
+    async def has_active_watering_schedule(self, plant_key: str) -> bool:
+        """
+        Prüft ob eine Pflanze in einem aktiven PlantingRun mit NutrientPlan
+        + WateringSchedule ist (Gießplan-Guard für Duplikat-Vermeidung).
+
+        AQL: plant → run_contains (detached_at null) → planting_run (status active)
+             → run_follows_plan → nutrient_plan (watering_schedule != null)
+        """
+        ...
+
     async def get_confirmation_history(
         self,
         plant_key: str,
@@ -1127,6 +1261,38 @@ class CareReminderRepository:
         """Vollständige Bestätigungshistorie einer Pflanze."""
         ...
 ```
+
+**5. CareConfirmation-Interop mit Gießplan-Workflow (REQ-014):**
+
+Wenn eine Gießplan-basierte Bewässerung über den Bestätigungsflow (`POST /watering-events/confirm` oder `POST /watering-events/quick-confirm`) bestätigt wird, muss **zusätzlich** eine `CareConfirmation` erzeugt werden — damit die Adaptive-Learning-Daten fließen und die Fälligkeitsberechnung korrekt bleibt.
+
+```python
+def create_watering_plan_confirmation(
+    plant_key: str,
+    profile_key: str,
+    task_key: str,
+) -> CareConfirmation:
+    """
+    Wird von WateringEventService (REQ-014) aufgerufen, wenn ein
+    Gießplan-Task bestätigt wird.
+
+    Erzeugt CareConfirmation mit:
+    - reminder_type: 'watering'
+    - action: 'confirmed'
+    - task_key: Referenz auf den bestätigten Gießplan-Task
+    - interval_at_time: aktuelles Gieß-Intervall aus CareProfile
+      (für Adaptive Learning — auch wenn das Gieß-Intervall vom
+      WateringSchedule gesteuert wird, fließen die Daten als
+      Feedback für das CareProfile)
+
+    Damit bleibt die CareConfirmation-Timeline lückenlos — auch für
+    Pflanzen, die sowohl über den Gießplan als auch über Care-Reminders
+    versorgt werden (z.B. bei temporärer Deaktivierung des Gießplans).
+    """
+    ...
+```
+
+**Wichtig:** Die CareConfirmation wird **nur für Pflanzen mit bestehendem CareProfile** erzeugt. Pflanzen ohne CareProfile (z.B. reine Nutzpflanzen ohne Zimmerpflanzen-Pflege) erhalten keine CareConfirmation.
 
 ## 4. API-Endpunkte
 
@@ -1407,6 +1573,10 @@ Im Experten-Modus ist die PflegeDashboardPage eine alternative Ansicht auf diese
 - [ ] Gießintervall wird in der `acclimatization`-Phase automatisch um Faktor 1.3 verlängert (Wurzeln nach Kauf/Umtopfen noch nicht etabliert)
 - [ ] Alle Bestätigungen werden als immutable CareConfirmation-Events gespeichert
 - [ ] Celery-Beat generiert täglich fehlende Tasks (idempotent, keine Duplikate)
+- [ ] **Gießplan-Guard:** WATERING und FERTILIZING Erinnerungen werden unterdrückt für Pflanzen in aktivem Run mit NutrientPlan+WateringSchedule
+- [ ] **Gießplan-Guard Granularität:** Nur WATERING und FERTILIZING werden unterdrückt — repotting, pest_check, location_check, humidity_check bleiben aktiv
+- [ ] **CareConfirmation-Interop:** Gießplan-Bestätigung (REQ-014 confirm/quick-confirm) erzeugt CareConfirmation für adaptive Learning
+- [ ] **CareConfirmation-Interop nur bei CareProfile:** CareConfirmation wird nur erzeugt wenn die Pflanze ein bestehendes CareProfile hat
 - [ ] i18n: Alle Texte in DE und EN verfügbar
 
 ### Technisch:
@@ -1445,7 +1615,9 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 | REQ-003 | Liest | PlantInstance.current_phase für Dünge-Guard (Dormanz-Check) + RequirementProfile für Species-Defaults |
 | REQ-020 | Liest | Zimmerpflanzen-Phasen (acclimatization, active_growth, maintenance, repotting_recovery) für DORMANCY_PHASES |
 | REQ-021 | Erweitert | Einsteiger-Pflegekarte: "Nächste Aktion"-Zeile + Navigations-Tiering |
-| REQ-014 | Muster | Celery-Beat-Pattern (tägliche Task-Generierung analog `tank_maintenance_check`) |
+| REQ-004 | Liest | NutrientPlan.watering_schedule für Gießplan-Guard (Duplikat-Vermeidung: Pflanzen mit aktivem Schedule erhalten keine WATERING/FERTILIZING Reminders) |
+| REQ-013 | Liest | PlantingRun + run_contains-Edge für Gießplan-Guard (Prüfung ob Pflanze in aktivem Run mit NutrientPlan ist) |
+| REQ-014 | Muster + Aufrufer | Celery-Beat-Pattern (tägliche Task-Generierung analog `tank_maintenance_check`); **Aufrufer:** WateringEventService ruft `create_watering_plan_confirmation` auf bei Gießplan-Bestätigung |
 | NFR-001 | Einhält | 5-Layer-Architektur (API → Service → Engine → Repository → ArangoDB) |
 | NFR-003 | Einhält | Source Code in English, Dokumentation in German |
 | NFR-006 | Einhält | Fehlerbehandlung mit strukturierten HTTP-Statuscodes |

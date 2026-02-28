@@ -72,7 +72,7 @@ export default function CultivarCreateDialog({ speciesKey, open, onClose, onCrea
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="create-dialog">
       <DialogTitle>{t('pages.cultivars.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>

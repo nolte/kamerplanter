@@ -7,13 +7,15 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.2 (Security-Review)
+Version: 1.4 (M2M API-Keys)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.4 | 2026-02-27 | M2M-Authentifizierung: API-Key-Modell (`kp_`-Prefix, SHA-256-Hash), `api_keys` Collection, `has_api_key` Edge, 3 Endpoints (erstellen/auflisten/revoken), Bearer-Erkennung neben JWT, Rate Limit 1000 req/min. |
+| 1.3 | 2026-02-27 | „Angemeldet bleiben"-Option: Session-Cookie (Browser-Session) vs. persistentes Cookie (30 Tage) via `remember_me`-Flag. Neue User Story, Login-Checkbox, `is_persistent`-Feld auf RefreshToken, differenzierte Cookie-Strategie. |
 | 1.2 | 2026-02-27 | SEC-K-002: IP-Anonymisierung nach 7 Tagen, `ip_anonymized_at` Feld. SEC-K-004: CSRF-Strategie — `SameSite=Lax` (statt Strict) + Double-Submit Cookie für zustandsändernde Cookie-Endpunkte. |
 | 1.1 | 2026-02-25 | Tech-Stack-Review: Authlib statt python-jose, Token-TTL-Anpassungen |
 | 1.0 | 2026-02-24 | Erstversion |
@@ -27,6 +29,8 @@ Version: 1.2 (Security-Review)
 **User Story (Account-Verknüpfung):** "Als Nutzer, der sich initial mit Google angemeldet hat, möchte ich nachträglich ein lokales Passwort setzen können — damit ich auch ohne Google-Verfügbarkeit auf meine Pflanzen zugreifen kann."
 
 **User Story (Profilpflege):** "Als registrierter Nutzer möchte ich meinen Anzeigenamen, mein Profilbild und meine Sprach-/Zeitzoneneinstellungen verwalten können — damit andere Gartenmitglieder mich erkennen und das System in meiner Zeitzone arbeitet."
+
+**User Story (Angemeldet bleiben):** "Als Gärtner möchte ich auf meinem privaten Gerät angemeldet bleiben können, damit ich nicht bei jedem Besuch erneut E-Mail und Passwort eingeben muss — auf öffentlichen Geräten möchte ich aber bewusst darauf verzichten können."
 
 **User Story (Passwort-Reset):** "Als Nutzer, der sein Passwort vergessen hat, möchte ich über meine E-Mail-Adresse ein neues Passwort setzen können — ohne den Support kontaktieren zu müssen."
 
@@ -47,7 +51,7 @@ Diese Spezifikation verwendet **Authlib** (aktiv maintained) anstelle von `pytho
 |--------|--------------------|--------------|-----------|
 | Library | `python-jose` + `passlib` | `authlib` + `passlib` | `python-jose` unmaintained seit 2022; Authlib bietet OIDC/PKCE built-in |
 | Access Token TTL | 1 Stunde | **15 Minuten** | Kürzeres Fenster bei Token-Kompromittierung; Refresh-Token-Mechanismus kompensiert UX |
-| Refresh Token | Nicht spezifiziert | 30 Tage, HttpOnly Cookie, Rotation | Erforderlich für 15-Min-Access-Tokens ohne ständige Neuanmeldung |
+| Refresh Token | Nicht spezifiziert | 30 Tage (persistent) oder 24h (Session), HttpOnly Cookie, Rotation, steuerbar via „Angemeldet bleiben" | Erforderlich für 15-Min-Access-Tokens ohne ständige Neuanmeldung; Session-Cookie als sicherer Standard für geteilte Geräte |
 | Token Payload | `sub`, `exp`, `type` | `sub`, `email`, `display_name`, `tenant_roles`, `exp`, `iat`, `type` | Mandanten-Rollen für REQ-024 im Token; reduziert DB-Lookups |
 
 **Kernkonzepte:**
@@ -88,11 +92,26 @@ oidc_providers:
 | Token | Lebensdauer | Speicherort | Refresh-Mechanismus |
 |-------|-------------|-------------|---------------------|
 | Access Token | 15 Minuten | Memory (Frontend) | Automatisch via Refresh Token |
-| Refresh Token | 30 Tage | HttpOnly Secure Cookie | Rotation bei Nutzung (altes Token wird invalidiert) |
+| Refresh Token (persistent) | 30 Tage | HttpOnly Secure Cookie (`Expires` gesetzt) | Rotation bei Nutzung (altes Token wird invalidiert) |
+| Refresh Token (Session) | Browser-Session | HttpOnly Secure Session-Cookie (kein `Expires`/`Max-Age`) | Rotation bei Nutzung |
 
 - **Access Token:** Enthält `sub` (user_key), `email`, `display_name`, `tenant_roles` (Mapping tenant_key → role). Kurzlebig, wird bei jedem API-Request als `Authorization: Bearer <token>` mitgesendet.
-- **Refresh Token:** Langlebig, wird als HttpOnly/Secure/SameSite=Lax Cookie gespeichert. Bei Nutzung wird ein neues Refresh-Token-Paar ausgestellt und das alte invalidiert (Token-Rotation verhindert Token-Diebstahl).
+- **Refresh Token:** Wird als HttpOnly/Secure/SameSite=Lax Cookie gespeichert. Bei Nutzung wird ein neues Refresh-Token-Paar ausgestellt und das alte invalidiert (Token-Rotation verhindert Token-Diebstahl).
 - **Token-Revocation:** Logout invalidiert alle Refresh Tokens des Nutzers. Optional: "Von allen Geräten abmelden" invalidiert alle Sessions.
+
+**„Angemeldet bleiben"-Strategie:**
+
+Das Login-Formular bietet eine Checkbox „Angemeldet bleiben" (`remember_me`). Diese steuert die **Cookie-Persistenz** des Refresh Tokens:
+
+| `remember_me` | Cookie-Typ | Verhalten | Serverseitige TTL |
+|----------------|------------|-----------|-------------------|
+| `true` (aktiviert) | **Persistentes Cookie** — `Max-Age: 30 Tage` | Cookie überlebt Browser-Neustart. Nutzer bleibt bis zu 30 Tage angemeldet (sliding window durch Token-Rotation). | 30 Tage |
+| `false` (Standard) | **Session-Cookie** — kein `Expires`/`Max-Age` | Cookie wird gelöscht, wenn der Browser geschlossen wird. Nutzer muss sich nach Browser-Neustart erneut anmelden. | 24 Stunden |
+
+- **Standard:** `remember_me = false` — sicherere Standardeinstellung, besonders relevant für öffentliche/geteilte Geräte
+- **Session-TTL bei `remember_me=false`:** Das Refresh Token hat serverseitig eine verkürzte Lebensdauer von 24 Stunden (statt 30 Tage). Selbst wenn der Browser die Session wider Erwarten beibehält (z.B. Session-Restore-Feature), läuft das Token nach 24h ab.
+- **SSO-Logins:** OAuth/OIDC-Logins setzen `remember_me` implizit auf `true`, da der Nutzer bereits einen bewussten Redirect-Flow durchlaufen hat. Der Nutzer kann dies über die Session-Verwaltung (`AccountSettingsPage → Sessions`) jederzeit widerrufen.
+- **Token-Rotation:** Bei jedem Refresh wird der Cookie-Typ (persistent vs. Session) des ursprünglichen Tokens beibehalten. Ein Session-Token wird nicht durch Rotation zu einem persistenten Token.
 
 **CSRF-Schutz-Strategie (SEC-K-004):**
 
@@ -178,7 +197,31 @@ Ein User kann mehrere Auth-Provider verknüpfen:
 5. Nutzer kann sich jetzt wahlweise mit Google ODER E-Mail/Passwort anmelden
 ```
 
-**Szenario 5: Passwort-Reset**
+**Szenario 5: Angemeldet bleiben — Privates Gerät**
+```
+1. Nutzer öffnet /login
+2. Gibt E-Mail und Passwort ein
+3. Aktiviert Checkbox "Angemeldet bleiben"
+4. POST /auth/login mit { email, password, remember_me: true }
+5. Server erstellt RefreshToken (is_persistent: true, expires_at: +30 Tage)
+6. Set-Cookie: refresh_token=...; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000
+7. Nutzer schließt Browser und öffnet die App am nächsten Tag
+8. Browser sendet persistenten Cookie → automatischer Token-Refresh → Nutzer ist eingeloggt
+```
+
+**Szenario 6: Ohne "Angemeldet bleiben" — Öffentliches Gerät**
+```
+1. Nutzer öffnet /login auf einem geteilten Gerät
+2. Gibt E-Mail und Passwort ein, lässt Checkbox "Angemeldet bleiben" deaktiviert
+3. POST /auth/login mit { email, password, remember_me: false }
+4. Server erstellt RefreshToken (is_persistent: false, expires_at: +24 Stunden)
+5. Set-Cookie: refresh_token=...; HttpOnly; Secure; SameSite=Lax  (KEIN Max-Age/Expires)
+6. Nutzer arbeitet normal — Token-Refresh funktioniert transparent
+7. Nutzer schließt Browser → Session-Cookie wird gelöscht
+8. Nutzer öffnet Browser erneut → kein Cookie → Redirect zu /login
+```
+
+**Szenario 7: Passwort-Reset**
 ```
 1. Nutzer klickt "Passwort vergessen" auf /login
 2. Gibt E-Mail ein → System sendet Reset-Link (Token: 1h gültig, einmalig verwendbar)
@@ -234,6 +277,7 @@ Ein User kann mehrere Auth-Provider verknüpfen:
     - `ip_anonymized_at: Optional[datetime]` (Zeitpunkt der IP-Anonymisierung; `null` = noch nicht anonymisiert)
     - `issued_at: datetime`
     - `expires_at: datetime`
+    - `is_persistent: bool` (Default: `false` — `true` wenn Login mit „Angemeldet bleiben", steuert Cookie-Typ bei Rotation)
     - `revoked: bool` (Default: `false`)
     - `replaced_by: Optional[str]` (Token-Hash des Nachfolgers bei Rotation)
   - **IP-Anonymisierung (SEC-K-002):** Nach 7 Tagen wird `ip_address` automatisch anonymisiert (Celery-Task, NFR-011 R-03):
@@ -445,12 +489,14 @@ class AuthService:
         # 4. Sendet Verifizierungs-E-Mail
         # 5. Erstellt persönlichen Default-Tenant (REQ-024)
 
-    async def login_local(self, email: str, password: str) -> TokenPair: ...
+    async def login_local(self, email: str, password: str, remember_me: bool = False) -> TokenPair: ...
         # 1. Prüft Throttle (LoginThrottleEngine)
         # 2. Findet User per E-Mail
         # 3. Verifiziert Passwort (PasswordEngine)
-        # 4. Erstellt Token-Paar (TokenEngine)
-        # 5. Speichert RefreshToken
+        # 4. Erstellt Token-Paar (TokenEngine), TTL abhängig von remember_me:
+        #    - remember_me=True:  Refresh Token 30 Tage, persistentes Cookie
+        #    - remember_me=False: Refresh Token 24 Stunden, Session-Cookie
+        # 5. Speichert RefreshToken mit is_persistent=remember_me
         # 6. Aktualisiert last_login_at
 
     async def verify_email(self, token: str) -> User: ...
@@ -477,6 +523,7 @@ class AuthService:
     # --- Token-Management ---
     async def refresh_tokens(self, refresh_token: str) -> TokenPair: ...
         # Token-Rotation: altes Token wird invalidiert, neues Paar wird erstellt
+        # is_persistent wird vom alten Token übernommen (Session bleibt Session, persistent bleibt persistent)
 
     async def logout(self, refresh_token: str) -> None: ...
         # Invalidiert das aktuelle Refresh Token
@@ -491,7 +538,97 @@ class AuthService:
 
     async def add_local_password(self, user_key: str, password: str) -> None: ...
         # Für SSO-Only-User die ein lokales Passwort setzen wollen
+
+    # --- M2M API-Key-Management ---
+    async def create_api_key(self, user_key: str, label: str) -> ApiKeyCreated: ...
+        # Generiert kryptografisch sicheren Key (kp_ + 48 Hex-Zeichen)
+        # Speichert SHA-256-Hash in DB, gibt Klartext einmalig zurück
+    async def list_api_keys(self, user_key: str) -> list[ApiKeySummary]: ...
+        # Gibt alle aktiven Keys des Users zurück (ohne Hash, mit Prefix-Preview)
+    async def revoke_api_key(self, user_key: str, key_id: str) -> None: ...
+        # Setzt revoked_at, Key ist sofort ungültig
 ```
+
+<!-- Quelle: Smart-Home-HA-Integration Review A-003 -->
+### 3.7 M2M-Authentifizierung (API-Keys)
+
+Neben der JWT-basierten Browser-Authentifizierung unterstützt Kamerplanter **langlebige API-Keys** für Machine-to-Machine-Zugriff. Hauptanwendungsfälle: Home Assistant Custom Integration, CI/CD-Pipelines, Monitoring-Systeme.
+
+#### Datenmodell
+
+**`ApiKey`** — ArangoDB Document Collection `api_keys`:
+
+```python
+class ApiKey(BaseModel):
+    _key: str                          # Auto-generiert
+    user_key: str                      # Besitzer
+    label: str                         # Vom User vergebener Name (z.B. "Home Assistant")
+    key_prefix: str                    # Erste 8 Zeichen des Keys (für Anzeige: "kp_a3f8...")
+    key_hash: str                      # SHA-256-Hash des vollständigen Keys
+    created_at: datetime
+    last_used_at: datetime | None = None
+    revoked_at: datetime | None = None
+    tenant_scope: str | None = None    # Optional: Key auf einen Tenant beschränken
+```
+
+**Edge:** `has_api_key` (User → ApiKey)
+
+#### Key-Format
+
+```
+kp_<48 hex characters>
+```
+
+- Prefix `kp_` identifiziert Kamerplanter-Keys (unterscheidbar von JWTs)
+- 48 Hex-Zeichen = 192 Bit Entropie (kryptografisch sicher via `secrets.token_hex(24)`)
+- Speicherung in DB: **nur SHA-256-Hash** — Klartext wird bei Erstellung einmalig angezeigt
+
+#### Middleware-Erkennung
+
+```python
+# Authorization-Header-Auswertung:
+# Bearer kp_...  → API-Key-Lookup (SHA-256-Hash vergleichen)
+# Bearer eyJ...  → JWT-Validierung (bestehender Flow)
+```
+
+Die Middleware erkennt anhand des `kp_`-Prefix automatisch, ob ein API-Key oder JWT vorliegt. API-Keys werden gegen den gespeicherten Hash validiert und `last_used_at` wird aktualisiert.
+
+#### Rate Limiting
+
+| Auth-Methode | Rate Limit | Begründung |
+|-------------|-----------|-----------|
+| JWT (Browser) | 100 req/min | Interaktive Nutzung, geringere Last |
+| API-Key (M2M) | 1000 req/min | Coordinator-Polling, Batch-Operationen |
+
+#### API-Endpoints
+
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `POST` | `/api/v1/auth/api-keys` | Neuen API-Key erstellen | JWT (nur authentifizierte User) |
+| `GET` | `/api/v1/auth/api-keys` | Alle eigenen Keys auflisten | JWT |
+| `DELETE` | `/api/v1/auth/api-keys/{key_id}` | Key revoken | JWT |
+
+**POST /api/v1/auth/api-keys — Request:**
+```json
+{
+  "label": "Home Assistant",
+  "tenant_scope": "mein-garten"
+}
+```
+
+**POST /api/v1/auth/api-keys — Response (einmalig mit Klartext):**
+```json
+{
+  "_key": "ak_001",
+  "label": "Home Assistant",
+  "api_key": "kp_a3f8e7b2c9d4f1a6e8b3c5d7f9a2b4c6d8e0f1a3b5c7d9e1f3",
+  "key_prefix": "kp_a3f8...",
+  "created_at": "2026-02-27T14:30:00Z",
+  "tenant_scope": "mein-garten"
+}
+```
+
+> **Hinweis:** Der vollständige Key wird nur bei der Erstellung angezeigt. Nach dem Schließen des Dialogs ist er nicht mehr abrufbar. Bei Verlust muss ein neuer Key erstellt werden.
 
 **`UserService`** — Benutzerprofil-Verwaltung:
 
@@ -517,7 +654,7 @@ class UserService:
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
 | POST | `/auth/register` | Lokale Registrierung | Nein |
-| POST | `/auth/login` | Lokaler Login | Nein |
+| POST | `/auth/login` | Lokaler Login (Body: `email`, `password`, `remember_me: bool = false`) | Nein |
 | POST | `/auth/logout` | Logout (aktuelles Gerät) | Ja |
 | POST | `/auth/logout-all` | Logout (alle Geräte) | Ja |
 | POST | `/auth/refresh` | Token-Refresh | Nein (Cookie) |
@@ -607,6 +744,7 @@ def require_role(role: str):
 
 **`LoginPage`:**
 - E-Mail + Passwort-Formular
+- **Checkbox „Angemeldet bleiben"** (`remember_me`) — unterhalb des Passwort-Felds, vor dem Login-Button. Standard: nicht aktiviert. Tooltip: „Aktivieren Sie diese Option nur auf privaten Geräten. Ihre Sitzung bleibt bis zu 30 Tage aktiv."
 - Divider "oder"
 - SSO-Buttons (dynamisch aus `/api/v1/auth/oauth/providers`):
   - Google: Offizielles Google-Sign-In-Branding
@@ -619,8 +757,40 @@ def require_role(role: str):
 **`AccountSettingsPage`:**
 - **Tab "Profil":** Anzeigename, Avatar (URL-Eingabe), Sprache (DE/EN), Zeitzone
 - **Tab "Sicherheit":** Passwort ändern/setzen, Verknüpfte Provider (Google ✓, GitHub ✓, etc.), Provider entfernen
-- **Tab "Sessions":** Liste aktiver Sessions (Gerät, IP, Zeitpunkt), "Andere Sessions beenden"-Button
+- **Tab "Sessions":** Liste aktiver Sessions (Gerät, IP, Zeitpunkt, „Angemeldet bleiben" Ja/Nein), "Andere Sessions beenden"-Button
+- **Tab "API-Keys":** Verwaltung von M2M-API-Keys (siehe §3.7)
 - **Tab "Account":** Account löschen (Bestätigungs-Dialog mit Passworteingabe)
+
+<!-- Quelle: Smart-Home-HA-Integration Review A-003 -->
+**Tab "API-Keys" — Detailbeschreibung:**
+
+Ermöglicht dem Nutzer, beliebig viele personalisierte API-Keys zu erstellen und zu verwalten — für Home Assistant, Monitoring, CI/CD oder andere M2M-Consumer.
+
+**Ansicht: Key-Liste (Tabelle)**
+
+| Spalte | Beschreibung |
+|--------|-------------|
+| Label | Vom User vergebener Name (z.B. "Home Assistant Zelt 1") |
+| Key-Prefix | Erste 8 Zeichen (`kp_a3f8...`) — zur Identifikation |
+| Tenant-Scope | Eingeschränkter Tenant oder "Alle" |
+| Erstellt | Erstelldatum (relativ, z.B. "vor 3 Tagen") |
+| Letzter Zugriff | Zeitpunkt der letzten Nutzung oder "Nie verwendet" |
+| Aktion | Revoke-Button (Mülleimer-Icon) |
+
+**Aktion: Neuen Key erstellen (Dialog)**
+
+- **Label** (Pflicht): Freitext-Eingabe, z.B. "Home Assistant", "Grafana", "CI/CD Pipeline"
+- **Tenant-Scope** (Optional): Dropdown mit eigenen Tenants + Option "Alle Tenants"
+- **Erstellen-Button** → `POST /api/v1/auth/api-keys`
+- **Ergebnis-Dialog (einmalig):** Zeigt den vollständigen Key im Klartext in einem read-only Textfeld mit Copy-Button. **Warnhinweis:** "Dieser Key wird nur einmal angezeigt. Kopieren Sie ihn jetzt und speichern Sie ihn sicher. Nach dem Schließen dieses Dialogs ist der Klartext-Key nicht mehr abrufbar."
+
+**Aktion: Key revoken (Bestätigung)**
+
+- Klick auf Revoke-Button → Bestätigungs-Dialog: "API-Key '{label}' wirklich widerrufen? Alle Anwendungen die diesen Key verwenden verlieren sofort den Zugriff."
+- Bestätigen → `DELETE /api/v1/auth/api-keys/{key_id}`
+- Key verschwindet aus der Liste (oder wird als "Widerrufen" markiert)
+
+**Leerzustand:** "Keine API-Keys vorhanden. Erstellen Sie einen Key für Home Assistant, Monitoring oder andere Anwendungen."
 
 ### 4.3 Auth-State-Management (Redux)
 
@@ -634,7 +804,7 @@ interface AuthState {
 }
 
 // Thunks:
-// loginLocal(email, password) → setzt user + accessToken
+// loginLocal(email, password, rememberMe) → setzt user + accessToken
 // loginOAuth(providerSlug) → Redirect zu OAuth-Provider
 // oauthCallback(providerSlug, code, state) → setzt user + accessToken
 // refreshToken() → nutzt Cookie, aktualisiert accessToken
@@ -723,8 +893,10 @@ interface AuthState {
 |---|-----------|-------------|
 | AK-01 | Lokale Registrierung erstellt User mit `status: unverified` und sendet Verifizierungs-E-Mail | Integration |
 | AK-02 | Verifizierungs-Link setzt `status: active` und `email_verified: true` | Integration |
-| AK-03 | Lokaler Login gibt Access Token (15 Min) + Refresh Token (30 Tage, HttpOnly Cookie) zurück | Integration |
-| AK-04 | Token-Refresh erstellt neues Token-Paar und invalidiert altes Refresh Token (Rotation) | Integration |
+| AK-03 | Lokaler Login mit `remember_me=true` gibt Access Token (15 Min) + persistentes Refresh Token (30 Tage, HttpOnly Cookie mit `Max-Age`) zurück | Integration |
+| AK-03a | Lokaler Login mit `remember_me=false` (Standard) gibt Access Token (15 Min) + Session-Refresh-Token (24h TTL, HttpOnly Session-Cookie ohne `Max-Age`/`Expires`) zurück | Integration |
+| AK-03b | SSO-Login setzt `is_persistent=true` (persistentes Cookie, 30 Tage) | Integration |
+| AK-04 | Token-Refresh erstellt neues Token-Paar und invalidiert altes Refresh Token (Rotation); `is_persistent` wird vom Vorgänger-Token übernommen | Integration |
 | AK-05 | Nach 5 Fehlversuchen wird Account 15 Minuten gesperrt (`locked_until` gesetzt) | Unit + Integration |
 | AK-06 | Passwort-Reset-Token ist 1 Stunde gültig und einmalig verwendbar | Integration |
 | AK-07 | Nach Passwort-Reset sind alle bestehenden Refresh Tokens invalidiert | Integration |
@@ -757,10 +929,14 @@ interface AuthState {
 | # | Kriterium | Prüfmethode |
 |---|-----------|-------------|
 | FK-01 | Login-Seite zeigt dynamisch alle aktivierten SSO-Provider als Buttons | E2E |
+| FK-01a | Login-Seite zeigt Checkbox „Angemeldet bleiben" unterhalb des Passwort-Felds, Standard: nicht aktiviert | E2E |
 | FK-02 | Nach erfolgreichem Login wird User zum Dashboard redirected | E2E |
 | FK-03 | 401-Response löst automatischen Token-Refresh aus; bei Refresh-Fehler → Redirect zu /login | Integration |
 | FK-04 | AccountSettingsPage zeigt verknüpfte Provider und aktive Sessions korrekt an | E2E |
 | FK-05 | Account-Löschung erfordert Passwort-Bestätigung im Dialog | E2E |
+| FK-06 | Tab "API-Keys" zeigt Liste aller eigenen Keys mit Label, Prefix, Tenant-Scope, Erstellt, Letzter Zugriff | E2E |
+| FK-07 | Neuen API-Key erstellen zeigt Klartext-Key einmalig im Dialog mit Copy-Button und Warnhinweis | E2E |
+| FK-08 | Key revoken erfordert Bestätigungs-Dialog und entfernt Key aus der Liste | E2E |
 
 ## 7. Abhängigkeiten
 

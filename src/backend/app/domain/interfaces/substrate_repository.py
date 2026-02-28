@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from app.common.types import BatchKey, SubstrateKey
+from app.common.types import BatchKey, SlotKey, SubstrateKey
 from app.domain.models.substrate import Substrate, SubstrateBatch
 
 
@@ -43,4 +43,8 @@ class ISubstrateRepository(ABC):
 
     @abstractmethod
     def delete_batch(self, key: BatchKey) -> bool:
+        ...
+
+    @abstractmethod
+    def assign_batch_to_slot(self, batch_key: BatchKey, slot_key: SlotKey) -> dict:
         ...

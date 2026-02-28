@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
+import Alert from '@mui/material/Alert';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -25,12 +26,8 @@ const schema = z.object({
   npk_n: z.number().min(0),
   npk_p: z.number().min(0),
   npk_k: z.number().min(0),
-  target_ec_ms: z.number().min(0).max(10),
-  target_ph: z.number().min(0).max(14),
   calcium_ppm: z.number().min(0).nullable(),
   magnesium_ppm: z.number().min(0).nullable(),
-  feeding_frequency_per_week: z.number().min(1).max(14),
-  volume_per_feeding_liters: z.number().min(0).nullable(),
   notes: z.string().nullable(),
 }).refine((data) => data.week_end >= data.week_start, {
   message: 'week_end_before_start',
@@ -64,12 +61,8 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
       npk_n: 0,
       npk_p: 0,
       npk_k: 0,
-      target_ec_ms: 1.0,
-      target_ph: 6.0,
       calcium_ppm: null,
       magnesium_ppm: null,
-      feeding_frequency_per_week: 1,
-      volume_per_feeding_liters: null,
       notes: null,
     },
   });
@@ -85,12 +78,8 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
           npk_n: entry.npk_ratio[0],
           npk_p: entry.npk_ratio[1],
           npk_k: entry.npk_ratio[2],
-          target_ec_ms: entry.target_ec_ms,
-          target_ph: entry.target_ph,
           calcium_ppm: entry.calcium_ppm,
           magnesium_ppm: entry.magnesium_ppm,
-          feeding_frequency_per_week: entry.feeding_frequency_per_week,
-          volume_per_feeding_liters: entry.volume_per_feeding_liters,
           notes: entry.notes,
         });
       } else {
@@ -102,12 +91,8 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
           npk_n: 0,
           npk_p: 0,
           npk_k: 0,
-          target_ec_ms: 1.0,
-          target_ph: 6.0,
           calcium_ppm: null,
           magnesium_ppm: null,
-          feeding_frequency_per_week: 1,
-          volume_per_feeding_liters: null,
           notes: null,
         });
       }
@@ -123,12 +108,8 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
         week_start: data.week_start,
         week_end: data.week_end,
         npk_ratio: [data.npk_n, data.npk_p, data.npk_k] as [number, number, number],
-        target_ec_ms: data.target_ec_ms,
-        target_ph: data.target_ph,
         calcium_ppm: data.calcium_ppm,
         magnesium_ppm: data.magnesium_ppm,
-        feeding_frequency_per_week: data.feeding_frequency_per_week,
-        volume_per_feeding_liters: data.volume_per_feeding_liters,
         notes: data.notes,
       };
       if (isEdit && entry) {
@@ -153,6 +134,11 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
           : t('pages.nutrientPlans.addEntry')}
       </DialogTitle>
       <DialogContent>
+        {isEdit && entry && entry.delivery_channels && entry.delivery_channels.length > 0 && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            {t('pages.deliveryChannels.multiChannelActive')}
+          </Alert>
+        )}
         <form onSubmit={handleSubmit(onSubmit)}>
           <FormSelectField
             name="phase_name"
@@ -207,24 +193,6 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
 
           />
           <FormNumberField
-            name="target_ec_ms"
-            control={control}
-            label={t('pages.nutrientPlans.targetEc')}
-            min={0}
-            max={10}
-
-            required
-          />
-          <FormNumberField
-            name="target_ph"
-            control={control}
-            label={t('pages.nutrientPlans.targetPh')}
-            min={0}
-            max={14}
-
-            required
-          />
-          <FormNumberField
             name="calcium_ppm"
             control={control}
             label={t('pages.nutrientPlans.calciumPpm')}
@@ -235,21 +203,6 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
             control={control}
             label={t('pages.nutrientPlans.magnesiumPpm')}
             min={0}
-          />
-          <FormNumberField
-            name="feeding_frequency_per_week"
-            control={control}
-            label={t('pages.nutrientPlans.feedingFrequency')}
-            min={1}
-            max={14}
-            required
-          />
-          <FormNumberField
-            name="volume_per_feeding_liters"
-            control={control}
-            label={t('pages.nutrientPlans.volumePerFeeding')}
-            min={0}
-
           />
           <FormTextField
             name="notes"

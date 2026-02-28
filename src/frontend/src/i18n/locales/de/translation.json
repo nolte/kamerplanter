@@ -12,6 +12,7 @@
     "noData": "Keine Daten vorhanden",
     "actions": "Aktionen",
     "back": "Zurück",
+    "next": "Weiter",
     "yes": "Ja",
     "no": "Nein",
     "optional": "Optional",
@@ -669,6 +670,9 @@
       "notes": "Notizen",
       "fertilizerDosages": "Dünger-Dosierungen",
       "addFertilizer": "Dünger hinzufügen",
+      "editFertilizer": "Dünger bearbeiten",
+      "selectFertilizers": "Dünger auswählen...",
+      "selectedFertilizers": "{{count}} Dünger ausgewählt",
       "noFertilizers": "Keine Dünger zugewiesen. Fügen Sie Dünger mit Dosierung hinzu.",
       "mlPerLiter": "ml/L",
       "optionalDosage": "Optional",
@@ -1047,9 +1051,10 @@
       "fertigation": {
         "title": "Fertigation",
         "runsPerDay": "Durchläufe pro Tag",
-        "durationMinutes": "Dauer (min)",
+        "durationSeconds": "Pumpendauer (Sekunden)",
         "flowRateMlMin": "Durchfluss (ml/min)",
-        "tankKey": "Tank"
+        "tankKey": "Tank (optional)",
+        "noTank": "Kein Tank zugewiesen"
       },
       "drench": {
         "title": "Gießen (Drench)",
@@ -1317,8 +1322,8 @@
       "neutral": "Neutral"
     },
     "applicationMethod": {
-      "fertigation": "Fertigation",
-      "drench": "Gießen",
+      "fertigation": "Fertigation (Tank/automatisch)",
+      "drench": "Gießen (Gießkanne/manuell)",
       "foliar": "Blattdüngung",
       "top_dress": "Aufstreuen",
       "any": "Beliebig"

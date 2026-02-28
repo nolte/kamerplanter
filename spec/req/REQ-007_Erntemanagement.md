@@ -7,7 +7,7 @@ Kategorie: Erntezyklus
 Fokus: Beides
 Technologie: Python, ArangoDB, Computer Vision (optional)
 Status: Entwurf
-Version: 2.2 (U/P-Findings integriert)
+Version: 2.3 (W-007 Ernte-Fenster-Vorhersage integriert)
 ```
 
 ## 1. Business Case
@@ -1593,6 +1593,236 @@ class ContinuousHarvestIndicator(HarvestIndicator):
         }
 ```
 
+<!-- Quelle: Cannabis Indoor Grower Review W-007 -->
+**Ernte-Fenster-Vorhersage (Harvest Window Prediction):**
+
+Das System kombiniert drei bereits vorhandene Datenquellen, um ein geschätztes Erntefenster vorherzusagen und dieses mit jeder neuen Beobachtung adaptiv zu verfeinern.
+
+**Eingabedaten:**
+
+| Datenquelle | Herkunft | Beschreibung |
+|-------------|----------|--------------|
+| Cultivar-Blütezeit | REQ-001 (Stammdaten) | Sortenspezifische Blütedauer in Wochen (z.B. 8–10 Wochen), hinterlegt am Cultivar |
+| Phase-Start-Datum | REQ-003 (Phasensteuerung) | Zeitpunkt des Übergangs in die Flowering-Phase (Blüte-Einleitung) |
+| Trichom-Beobachtungen | REQ-007 (harvest_observations) | Laufende Trichom-Messungen (clear/cloudy/amber %) mit Zeitstempel |
+
+**Berechnungslogik:**
+
+1. **Basis-Fenster aus Cultivar-Daten:**
+   Das initiale Erntefenster ergibt sich aus dem Phase-Start-Datum und der sortenspezifischen Blütedauer:
+   ```
+   basis_start = flowering_start + (cultivar.min_flowering_weeks × 7)
+   basis_end   = flowering_start + (cultivar.max_flowering_weeks × 7)
+   ```
+   Beispiel: Sorte mit 8–10 Wochen Blüte, Blüte-Start am 01.01. → Basis-Fenster Tag 56–70.
+
+2. **Verfeinerung durch Trichom-Beobachtungen:**
+   Sobald Trichom-Observations vorliegen, wird das Fenster eingegrenzt:
+   - **cloudy ≥ 50%, amber < 5%:** Fenster verschiebt sich auf 3–7 Tage ab Beobachtung
+   - **cloudy ≥ 70%, amber 5–15%:** Fenster engt sich auf 0–2 Tage ein (Peak)
+   - **amber > 15%:** Fenster = sofort (0 Tage), Warnung vor Überreife
+   - **clear > 50%:** Fenster bleibt beim Basis-Fenster, frühestens 10–14 Tage
+
+3. **Adaptive Verfeinerung (Konfidenz-Modell):**
+   Die Konfidenz der Vorhersage steigt mit der Datenlage:
+
+   | Datenlage | Konfidenz | Fensterbreite |
+   |-----------|-----------|---------------|
+   | Nur Cultivar-Daten (keine Observations) | Niedrig | ±14 Tage (breites Fenster) |
+   | Cultivar + 1–2 Trichom-Observations | Mittel | ±7 Tage |
+   | Cultivar + 3+ Trichom-Observations mit Trend | Hoch | ±3 Tage |
+   | Cultivar + Trichom + Aroma (stable/peak) | Sehr hoch | ±1–2 Tage |
+
+   Mit jeder neuen Trichom-Beobachtung wird der Trend (Amber-Zunahme-Rate pro Tag) berechnet und das Fenster entsprechend enger gesetzt.
+
+4. **Trend-Extrapolation:**
+   Bei ≥ 2 Trichom-Observations wird die tägliche Amber-Zunahme-Rate berechnet:
+   ```
+   amber_rate = (amber_current - amber_previous) / days_between_observations
+   days_to_target = (target_amber - amber_current) / amber_rate
+   ```
+   Ziel-Amber: 10–15% für Peak-Ernte (gemäß TrichomeIndicator-Logik).
+
+**Ausgabe:**
+```
+Geschätztes Erntefenster: Tag 62–68 (4–10 Tage)
+Konfidenz: Hoch (3 Trichom-Observations, steigender Amber-Trend)
+Nächste empfohlene Prüfung: Morgen (tägliche Trichom-Kontrolle ab 75% der Blütezeit)
+```
+
+**Implementierung:**
+```python
+class HarvestWindowPredictor:
+    """
+    Kombiniert Cultivar-Blütezeit (REQ-001), Phase-Start-Datum (REQ-003)
+    und Trichom-Observations (REQ-007) zu einer adaptiven Erntefenster-Vorhersage.
+    """
+
+    # Ziel-Amber-Bereich für Peak-Ernte (konsistent mit TrichomeIndicator)
+    TARGET_AMBER_MIN: float = 10.0
+    TARGET_AMBER_MAX: float = 15.0
+
+    # Konfidenz-Stufen
+    CONFIDENCE_LEVELS: dict[str, dict] = {
+        'low':       {'label': 'Niedrig',    'window_margin_days': 14},
+        'medium':    {'label': 'Mittel',      'window_margin_days': 7},
+        'high':      {'label': 'Hoch',        'window_margin_days': 3},
+        'very_high': {'label': 'Sehr hoch',   'window_margin_days': 1},
+    }
+
+    def predict_harvest_window(
+        self,
+        flowering_start_date: date,
+        min_flowering_weeks: int,
+        max_flowering_weeks: int,
+        trichome_observations: list[dict] | None = None,
+        aroma_observations: list[dict] | None = None,
+    ) -> dict:
+        """
+        Berechnet das geschätzte Erntefenster.
+
+        Args:
+            flowering_start_date: Datum des Blüte-Starts (REQ-003 Phase-Übergang)
+            min_flowering_weeks: Minimale Blütedauer laut Cultivar (REQ-001)
+            max_flowering_weeks: Maximale Blütedauer laut Cultivar (REQ-001)
+            trichome_observations: Sortierte Liste von Trichom-Observations (älteste zuerst)
+            aroma_observations: Optionale Aroma-Observations zur Konfidenz-Erhöhung
+
+        Returns:
+            {
+                'window_start': date,
+                'window_end': date,
+                'window_start_day': int,  # Tage seit Blüte-Start
+                'window_end_day': int,
+                'days_remaining': tuple[int, int],  # (min, max) Tage ab heute
+                'confidence': str,
+                'confidence_label': str,
+                'basis': str,  # 'cultivar_only' | 'cultivar_plus_observations' | 'trend_extrapolation'
+                'recommendation': str,
+            }
+        """
+        today = date.today()
+        days_in_flower = (today - flowering_start_date).days
+
+        # 1. Basis-Fenster aus Cultivar-Daten
+        basis_start_day = min_flowering_weeks * 7
+        basis_end_day = max_flowering_weeks * 7
+        window_start = flowering_start_date + timedelta(days=basis_start_day)
+        window_end = flowering_start_date + timedelta(days=basis_end_day)
+
+        confidence = 'low'
+        basis = 'cultivar_only'
+
+        # 2. Verfeinerung durch Trichom-Observations
+        obs = trichome_observations or []
+        if len(obs) >= 1:
+            latest = obs[-1]
+            amber = latest.get('amber_percent', 0)
+            cloudy = latest.get('cloudy_percent', 0)
+
+            confidence = 'medium'
+            basis = 'cultivar_plus_observations'
+
+            if amber > 15:
+                # Überreife — sofort ernten
+                window_start = today
+                window_end = today
+                confidence = 'very_high'
+            elif cloudy >= 70 and 5 <= amber <= 15:
+                # Peak — 0-2 Tage
+                window_start = today
+                window_end = today + timedelta(days=2)
+                confidence = 'very_high'
+            elif cloudy >= 50 and amber < 5:
+                # Approaching — 3-7 Tage
+                window_start = today + timedelta(days=3)
+                window_end = today + timedelta(days=7)
+                confidence = 'high' if len(obs) >= 3 else 'medium'
+
+        # 3. Trend-Extrapolation bei >= 2 Observations
+        if len(obs) >= 2:
+            amber_rate = self._calculate_amber_rate(obs)
+            if amber_rate and amber_rate > 0:
+                current_amber = obs[-1].get('amber_percent', 0)
+                days_to_target_min = max(0, (self.TARGET_AMBER_MIN - current_amber) / amber_rate)
+                days_to_target_max = max(0, (self.TARGET_AMBER_MAX - current_amber) / amber_rate)
+                window_start = today + timedelta(days=int(days_to_target_min))
+                window_end = today + timedelta(days=int(days_to_target_max))
+                confidence = 'high'
+                basis = 'trend_extrapolation'
+
+        # 4. Konfidenz-Boost durch Aroma-Observations
+        if aroma_observations:
+            latest_aroma = aroma_observations[-1]
+            if latest_aroma.get('consistency') in ('stable', 'fading') and latest_aroma.get('intensity', 0) >= 7:
+                if confidence == 'high':
+                    confidence = 'very_high'
+
+        margin = self.CONFIDENCE_LEVELS[confidence]['window_margin_days']
+
+        window_start_day = (window_start - flowering_start_date).days
+        window_end_day = (window_end - flowering_start_date).days
+        days_remaining_min = max(0, (window_start - today).days)
+        days_remaining_max = max(0, (window_end - today).days)
+
+        return {
+            'window_start': window_start,
+            'window_end': window_end,
+            'window_start_day': window_start_day,
+            'window_end_day': window_end_day,
+            'days_remaining': (days_remaining_min, days_remaining_max),
+            'confidence': confidence,
+            'confidence_label': self.CONFIDENCE_LEVELS[confidence]['label'],
+            'margin_days': margin,
+            'basis': basis,
+            'recommendation': self._build_recommendation(
+                days_remaining_min, days_remaining_max, confidence, days_in_flower,
+                basis_start_day,
+            ),
+        }
+
+    def _calculate_amber_rate(self, observations: list[dict]) -> float | None:
+        """Berechnet die durchschnittliche Amber-Zunahme pro Tag."""
+        if len(observations) < 2:
+            return None
+
+        first = observations[0]
+        last = observations[-1]
+        days_between = (last['observed_at'] - first['observed_at']).days
+        if days_between <= 0:
+            return None
+
+        amber_delta = last.get('amber_percent', 0) - first.get('amber_percent', 0)
+        return amber_delta / days_between
+
+    def _build_recommendation(
+        self,
+        days_min: int,
+        days_max: int,
+        confidence: str,
+        days_in_flower: int,
+        basis_start_day: int,
+    ) -> str:
+        """Erzeugt eine menschenlesbare Empfehlung."""
+        if days_max == 0:
+            return 'Erntefenster erreicht — Ernte innerhalb 24-48h empfohlen.'
+        if days_min <= 2:
+            return f'Erntefenster beginnt in Kürze ({days_min}-{days_max} Tage). Tägliche Trichom-Kontrolle.'
+
+        # Empfehlung zur Beobachtungsfrequenz
+        if days_in_flower >= basis_start_day * 0.75:
+            return (
+                f'Geschätztes Erntefenster: Tag {days_in_flower + days_min}-'
+                f'{days_in_flower + days_max} ({days_min}-{days_max} Tage). '
+                f'Tägliche Trichom-Kontrolle empfohlen (>75% der Blütezeit erreicht).'
+            )
+
+        return (
+            f'Geschätztes Erntefenster in {days_min}-{days_max} Tagen. '
+            f'Wöchentliche Kontrolle bis 75% der Blütezeit, dann täglich.'
+        )
+```
+
 **Ernte-Ergonomie & Werkzeug-Dokumentation (U-007):**
 
 Die Wahl des Erntewerkzeugs und dessen Hygiene beeinflusst Kontaminationsrisiko und Wundverschluss:
@@ -2308,6 +2538,7 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Strukturierte Ernteumgebung:** HarvestEnvironment statt weather_conditions-Freitext
 - [ ] **Ernte-Werkzeug-Dokumentation (U-007):** harvest_tool, tool_sanitized, container_type pro Batch; artspezifische Werkzeugempfehlungen
 - [ ] **Perennial-Ertragsentwicklung (U-002):** season_year + harvest_season für jahresübergreifende Yield-Analytics; thinning_performed/thinning_percent für Fruchtausdünnung
+- [ ] **Ernte-Fenster-Vorhersage (W-007):** HarvestWindowPredictor kombiniert Cultivar-Blütezeit (REQ-001), Phase-Start-Datum (REQ-003) und Trichom-Observations zu adaptivem Erntefenster mit Konfidenz-Stufen (niedrig/mittel/hoch/sehr hoch); Trend-Extrapolation über Amber-Zunahme-Rate; Fenster verengt sich mit jeder Beobachtung
 
 ### Testszenarien:
 
@@ -2400,10 +2631,36 @@ THEN:
   - Empfehlung: "Repliziere Bedingungen von Top-Batch"
 ```
 
+**Szenario 8: Ernte-Fenster-Vorhersage mit adaptiver Verfeinerung (W-007)**
+```
+GIVEN: Cannabis-Cultivar "Gorilla Glue #4" mit Blütezeit 8-10 Wochen
+      Blüte-Start: 01.01.2026
+      Trichom-Observations:
+        - Tag 42: clear 60%, cloudy 35%, amber 5%
+        - Tag 49: clear 40%, cloudy 52%, amber 8%
+        - Tag 54: clear 20%, cloudy 68%, amber 12%
+WHEN: HarvestWindowPredictor.predict_harvest_window()
+THEN:
+  - Basis-Fenster (nur Cultivar): Tag 56-70
+  - Nach 3 Observations: Amber-Rate = 0.58%/Tag
+  - Trend-Extrapolation: Target 10-15% amber
+  - window_start_day ≈ 54 (amber bereits bei 12%)
+  - window_end_day ≈ 59 (15% amber in ~5 Tagen)
+  - confidence = 'high' (3+ Observations mit Trend)
+  - recommendation enthält "Tägliche Trichom-Kontrolle"
+
+GIVEN: Gleiche Pflanze, zusätzlich Aroma-Observation:
+      - Tag 54: intensity 8/10, consistency 'stable', dominant 'myrcene'
+WHEN: HarvestWindowPredictor.predict_harvest_window() mit aroma_observations
+THEN:
+  - confidence = 'very_high' (Trichom-Trend + stabiles Peak-Aroma)
+  - margin_days = 1
+```
+
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Ernte, Trichome, Reife, Flushing, Batch, QR-Code, Yield, Traceability, Aroma, Terpen-Profil, Ethylen, Klimakterisch, Multi-Standort-Sampling, Living Soil, Partial Harvest, Karenzzeit, GDD, Perennial, CACA, Pilzernte, Velum, Erntewerkzeug, Werkzeug-Hygiene, Behälter
-- Fachbegriffe: Calyx, Pistil, Terpen, CBN, THC, Brix, Chlorophyll, Seed-to-Shelf, Myrcen, Limonen, Linalool, Pinen, Caryophyllen, Klimakterium, Breaker-Stage, Nachreifen, AromaIndicator, EthyleneRipeningClassifier, SPECIES_MOISTURE_CONTENT, WEAKLY_CLIMACTERIC, Biological Efficiency, degraded_percent, HarvestEnvironment, MushroomIndicator, GDDIndicator, ContinuousHarvestIndicator, Wärmesumme, Velum-Status, Flush-Nummer, Bolting, Fruchtausdünnung
-- Verknüpfung: Zentral für REQ-004 (Flushing — EC relativ zu base_water_ec), REQ-005 (GDD-Akkumulation), REQ-006 (Karenzzeit-Validierung bei Harvest-Tasks), REQ-008 (Post-Harvest), REQ-009 (Analytics), REQ-010 (Karenz-Gate vor Batch-Erstellung), REQ-003 (GDD-Reife, Perennial-Saisons)
+- Keywords: Ernte, Trichome, Reife, Flushing, Batch, QR-Code, Yield, Traceability, Aroma, Terpen-Profil, Ethylen, Klimakterisch, Multi-Standort-Sampling, Living Soil, Partial Harvest, Karenzzeit, GDD, Perennial, CACA, Pilzernte, Velum, Erntewerkzeug, Werkzeug-Hygiene, Behälter, Erntefenster, Harvest Window Prediction, Amber-Rate, Trend-Extrapolation, Konfidenz
+- Fachbegriffe: Calyx, Pistil, Terpen, CBN, THC, Brix, Chlorophyll, Seed-to-Shelf, Myrcen, Limonen, Linalool, Pinen, Caryophyllen, Klimakterium, Breaker-Stage, Nachreifen, AromaIndicator, EthyleneRipeningClassifier, SPECIES_MOISTURE_CONTENT, WEAKLY_CLIMACTERIC, Biological Efficiency, degraded_percent, HarvestEnvironment, MushroomIndicator, GDDIndicator, ContinuousHarvestIndicator, Wärmesumme, Velum-Status, Flush-Nummer, Bolting, Fruchtausdünnung, HarvestWindowPredictor
+- Verknüpfung: Zentral für REQ-004 (Flushing — EC relativ zu base_water_ec), REQ-005 (GDD-Akkumulation), REQ-006 (Karenzzeit-Validierung bei Harvest-Tasks), REQ-008 (Post-Harvest), REQ-009 (Analytics), REQ-010 (Karenz-Gate vor Batch-Erstellung), REQ-003 (GDD-Reife, Perennial-Saisons, Phase-Start-Datum für Erntefenster), REQ-001 (Cultivar-Blütezeit für Erntefenster-Basis)
 - Pflanzenwissenschaft: Trichom-Entwicklung (inkl. degraded), Cannabinoid-Degradation, Chlorophyll-Abbau, Terpen-Biosynthese, Ethylen-Produktion, klimakterische/bedingt-klimakterische/nicht-klimakterische Reifung, artspezifischer Wassergehalt, Fruchtausdünnung (Thinning), Cut-and-Come-Again, Pilz-Biological-Efficiency, GDD-Akkumulation (Wärmesumme)

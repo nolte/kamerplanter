@@ -999,7 +999,7 @@ controllers:
           - name: REDIS_URL
             value: "redis://redis:6379/0"
           
-          # JWT Configuration
+          # JWT Configuration (REQ-023: Authlib)
           - name: JWT_SECRET
             valueFrom:
               secretKeyRef:
@@ -1007,7 +1007,22 @@ controllers:
                 key: jwt-secret
           - name: JWT_ALGORITHM
             value: "HS256"
-          
+          - name: JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+            value: "15"
+          - name: JWT_REFRESH_TOKEN_EXPIRE_DAYS
+            value: "30"
+
+          # Encryption Key for Provider Secrets (REQ-023)
+          - name: FERNET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: backend-secrets
+                key: fernet-key
+
+          # Email Adapter (REQ-023: console | smtp | resend)
+          - name: EMAIL_ADAPTER
+            value: "console"
+
           # Application Settings
           - name: LOG_LEVEL
             value: "INFO"
@@ -2021,6 +2036,42 @@ spec:
       port: 6379
 ```
 
+### 7.3 Authentifizierung & Autorisierung (REQ-023 / REQ-024)
+
+> **Vollständige Spezifikation:** Siehe REQ-023 (Benutzerverwaltung & Authentifizierung) und REQ-024 (Mandantenverwaltung & Gemeinschaftsgärten). Diese Sektion gibt nur den Stack-Überblick.
+
+**Library-Stack:**
+
+| Paket | Version | Zweck |
+|-------|---------|-------|
+| `authlib` | >= 1.3.0 | JWT (HS256), OAuth2 Client, OIDC Discovery, PKCE |
+| `passlib[bcrypt]` | >= 1.7.4 | Passwort-Hashing (Bcrypt, Cost Factor 12) |
+| `slowapi` | >= 0.1.9 | Rate Limiting (IP-basiert, nutzt Redis) |
+| `cryptography` | >= 42.0 | Fernet/AES-256 für Provider-Secret-Verschlüsselung |
+
+> **Hinweis:** `authlib` ersetzt `python-jose` (letztes Release 2022, unmaintained). Authlib bietet JWT + OAuth2/OIDC in einer Library und wird aktiv gewartet. NFR-001 §6.1 wurde entsprechend als abgelöst markiert.
+
+**Token-Architektur:**
+
+| Token | TTL | Speicherort | Library |
+|-------|-----|-------------|---------|
+| Access Token (JWT) | 15 Min | Memory (Frontend) | `authlib.jose.jwt` |
+| Refresh Token | 30 Tage | HttpOnly Secure Cookie | `secrets.token_urlsafe` + SHA-256 Hash in ArangoDB |
+| OAuth State | 5 Min | Redis | `secrets.token_urlsafe` |
+
+**Unterstützte Auth-Provider:**
+- Lokal (E-Mail + Passwort)
+- Google OAuth2 + OIDC
+- GitHub OAuth2
+- Apple Sign-In (OAuth2 + OIDC)
+- Generische OIDC-Provider (Keycloak, Authentik, Azure AD, Okta — per Konfiguration)
+
+**E-Mail-Service (Adapter-Pattern):**
+Abstraktes `IEmailService`-Interface (analog GBIF/Perenual-Adapter in REQ-011). Konkrete Implementierung per Konfiguration (`EMAIL_ADAPTER`):
+- `console` — Entwicklungsumgebung (stdout)
+- `smtp` — Direkter SMTP-Versand (`aiosmtplib`)
+- `resend` — Transactional API
+
 ---
 
 ## 8. Entwicklungs-Tools
@@ -2047,11 +2098,16 @@ uvicorn[standard]>=0.32.0
 pydantic>=2.10.0
 python-arango>=8.1.0
 redis>=5.2.0
-celery==5.3.4
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-prometheus-client==0.19.0
-structlog==24.1.0
+celery>=5.4.0
+httpx>=0.28.0
+structlog>=24.4.0
+prometheus-client>=0.19.0
+
+# Auth & Security (REQ-023)
+authlib>=1.3.0                    # JWT (HS256), OAuth2 Client, OIDC Discovery, PKCE — ersetzt python-jose
+passlib[bcrypt]>=1.7.4            # Passwort-Hashing (Bcrypt, Cost 12)
+slowapi>=0.1.9                    # Rate Limiting (nutzt Redis als Backend)
+cryptography>=42.0                # Fernet/AES-256 für Provider-Secret-Verschlüsselung
 
 # requirements-dev.txt
 pytest==7.4.3

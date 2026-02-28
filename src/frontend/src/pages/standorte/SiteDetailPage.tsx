@@ -25,7 +25,7 @@ import * as api from '@/api/endpoints/sites';
 
 const schema = z.object({
   name: z.string().min(1),
-  type: z.enum(['outdoor', 'greenhouse', 'indoor']),
+  type: z.enum(['outdoor', 'greenhouse', 'indoor', 'windowsill', 'balcony', 'grow_tent']),
   climate_zone: z.string(),
   total_area_m2: z.number().min(0),
   timezone: z.string(),
@@ -105,7 +105,7 @@ export default function SiteDetailPage() {
           name="type"
           control={control}
           label={t('pages.sites.type')}
-          options={['outdoor', 'greenhouse', 'indoor'].map((v) => ({
+          options={['outdoor', 'greenhouse', 'indoor', 'windowsill', 'balcony', 'grow_tent'].map((v) => ({
             value: v,
             label: t(`enums.siteType.${v}`),
           }))}

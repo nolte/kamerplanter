@@ -26,6 +26,7 @@ Das System unterscheidet zwischen:
 - **Pathogenen** (Pilze, Bakterien, Viren)
 - **Schädlingen** (Insekten, Milben, Nematoden, Mollusken)
 - **Physiologischen Störungen** (Nährstoffmangel, abiotischer Stress)
+- **Hermaphrodismus** (Nanners, Pollensäcke, gemischte Formen) — mit Sofortmaßnahmen-Protokoll und genetischer Rückverfolgung <!-- Quelle: Cannabis Indoor Grower Review G-010 -->
 
 ## 2. ArangoDB-Modellierung
 
@@ -44,6 +45,11 @@ Das System unterscheidet zwischen:
   - Felder: `timestamp`, `inspector`, `pressure_level: ['none', 'low', 'medium', 'high', 'critical']`, `photo_refs`
 - **`treatment_applications`** - Durchgeführte Maßnahme
   - Felder: `applied_at`, `dosage`, `efficacy_rating`, `weather_conditions`
+<!-- Quelle: Cannabis Indoor Grower Review G-010 -->
+- **`hermaphroditism_findings`** - Hermaphrodismus-Befund
+  - Felder: `finding_type: ['nanners', 'pollen_sacs', 'mixed']`, `severity: ['isolated', 'spreading', 'critical']`, `location_on_plant` (z.B. obere Cola, untere Seitentriebe), `estimated_pollen_release: bool`, `stress_correlation: ['light_leak', 'heat_stress', 'overfeeding', 'training_stress', 'genetic', 'unknown']`, `immediate_action_taken: ['nanners_removed', 'plant_isolated', 'plant_removed', 'monitoring_increased']`, `photo_refs`, `notes`
+- **`pollination_checks`** - Bestäubungs-Check nach Hermie-Befund
+  - Felder: `timestamp`, `inspector`, `check_type: ['visual', 'calyx_squeeze', 'seed_search']`, `pollination_detected: bool`, `affected_plants: list[str]`, `seed_count_estimate: int`, `calyx_swelling_without_trichome_maturity: bool`, `notes`
 
 ### Edge Collections:
 ```aql
@@ -58,6 +64,13 @@ Das System unterscheidet zwischen:
 // Edge Collection: resistant_to (species → pests / diseases)
 // Edge Collection: contraindicated_with (treatments → treatments)  // Inkompatible Wirkstoffe
 // Edge Collection: requires_harvest_delay (treatment_applications → harvests, mit {days: int})
+// --- Hermaphrodismus-Edges (Quelle: Cannabis Indoor Grower Review G-010) ---
+// Edge Collection: hermaphroditism_found_at (inspections → hermaphroditism_findings)
+// Edge Collection: hermie_on_plant (hermaphroditism_findings → plant_instances)
+// Edge Collection: stress_caused_by (hermaphroditism_findings → sensor_observations / manual_events)  // Korrelation zu Stress-Events
+// Edge Collection: hermie_prone_cultivar (hermaphroditism_findings → cultivars, mit {confirmed_at, stress_context})  // Genetische Markierung
+// Edge Collection: pollination_check_for (pollination_checks → hermaphroditism_findings)  // Nachkontrolle
+// Edge Collection: pollination_affected (pollination_checks → plant_instances)  // Betroffene Nachbarpflanzen
 ```
 
 ### AQL-Beispiellogik:
@@ -111,6 +124,55 @@ FOR plant IN plant_instances
                 RETURN DISTINCT {
                     beneficial: b,
                     targets: pest_groups[*].pest.common_name
+                }
+```
+
+<!-- Quelle: Cannabis Indoor Grower Review G-010 -->
+**Hermaphrodismus-Historie eines Cultivars (Hermie-Prone-Check):**
+```aql
+FOR cultivar IN cultivars
+    FILTER cultivar._key == @cultivar_id
+    FOR finding IN 1..1 INBOUND cultivar GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['hermie_prone_cultivar'] }
+        FOR plant IN 1..1 OUTBOUND finding GRAPH 'kamerplanter_graph'
+            OPTIONS { edgeCollections: ['hermie_on_plant'] }
+            FOR run IN 1..1 INBOUND plant GRAPH 'kamerplanter_graph'
+                OPTIONS { edgeCollections: ['contains_plant'] }
+                COLLECT severity = finding.severity,
+                        stress = finding.stress_correlation
+                    AGGREGATE occurrences = COUNT(1)
+                SORT occurrences DESC
+                RETURN {
+                    severity,
+                    stress_correlation: stress,
+                    occurrences,
+                    recommendation: severity == 'critical'
+                        ? "WARNUNG: Cultivar zeigt wiederholten schweren Hermaphrodismus"
+                        : "Erhöhte Überwachung empfohlen"
+                }
+```
+
+**Bestäubungs-Risiko nach Hermie-Befund (Nachbarpflanzen im selben Slot/Location):**
+```aql
+FOR finding IN hermaphroditism_findings
+    FILTER finding._key == @finding_id
+    FOR plant IN 1..1 OUTBOUND finding GRAPH 'kamerplanter_graph'
+        OPTIONS { edgeCollections: ['hermie_on_plant'] }
+        FOR slot IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+            OPTIONS { edgeCollections: ['placed_in'] }
+            FOR neighbor IN 1..1 INBOUND slot GRAPH 'kamerplanter_graph'
+                OPTIONS { edgeCollections: ['placed_in'] }
+                FILTER neighbor._key != plant._key
+                LET has_check = (
+                    FOR check IN 1..1 INBOUND neighbor GRAPH 'kamerplanter_graph'
+                        OPTIONS { edgeCollections: ['pollination_affected'] }
+                        RETURN check
+                )
+                RETURN {
+                    plant_id: neighbor._key,
+                    plant_name: neighbor.name,
+                    pollination_check_done: LENGTH(has_check) > 0,
+                    needs_inspection: LENGTH(has_check) == 0
                 }
 ```
 
@@ -269,7 +331,189 @@ class BeneficialReleaseCalculation(BaseModel):
         }
 ```
 
-**4. Karenzzeit-Validator:**
+<!-- Quelle: Cannabis Indoor Grower Review G-010 -->
+**4. Hermaphrodismus-Protokoll-Engine:**
+```python
+from typing import Literal, Optional
+from pydantic import BaseModel, Field
+from datetime import datetime
+
+HermieFindingType = Literal['nanners', 'pollen_sacs', 'mixed']
+HermieSeverity = Literal['isolated', 'spreading', 'critical']
+HermieStressCorrelation = Literal[
+    'light_leak', 'heat_stress', 'overfeeding', 'training_stress', 'genetic', 'unknown'
+]
+HermieImmediateAction = Literal[
+    'nanners_removed', 'plant_isolated', 'plant_removed', 'monitoring_increased'
+]
+
+class HermaphroditismFinding(BaseModel):
+    """Befund-Modell für Hermaphrodismus-Erkennung"""
+    plant_id: str
+    inspection_id: str
+    finding_type: HermieFindingType
+    severity: HermieSeverity
+    location_on_plant: str = Field(description="z.B. 'obere Cola', 'untere Seitentriebe'")
+    estimated_pollen_release: bool = False
+    stress_correlation: HermieStressCorrelation = 'unknown'
+    immediate_action_taken: HermieImmediateAction
+    photo_references: list[str] = Field(default_factory=list)
+    notes: Optional[str] = None
+
+class PollinationCheck(BaseModel):
+    """Bestäubungs-Check für Nachbarpflanzen nach Hermie-Befund"""
+    hermaphroditism_finding_id: str
+    inspector_id: str
+    timestamp: datetime
+    check_type: Literal['visual', 'calyx_squeeze', 'seed_search']
+    pollination_detected: bool = False
+    affected_plant_ids: list[str] = Field(default_factory=list)
+    seed_count_estimate: int = Field(default=0, ge=0)
+    calyx_swelling_without_trichome_maturity: bool = False
+    notes: Optional[str] = None
+
+
+# Sofortmaßnahmen-Protokoll nach Schweregrad
+HERMIE_RESPONSE_PROTOCOL: dict[HermieSeverity, dict] = {
+    'isolated': {
+        'description': 'Einzelne Nanners, lokal entfernbar',
+        'immediate_actions': [
+            'Nanners vorsichtig mit Pinzette entfernen (nicht schütteln!)',
+            'Betroffene Stelle mit Wasser besprühen (Pollen deaktivieren)',
+            'Foto-Dokumentation der Stelle',
+        ],
+        'follow_up': [
+            'Tägliche Kontrolle der betroffenen Pflanze für 7 Tage',
+            'Inspektionsintervall für gesamten Run auf 1 Tag reduzieren',
+            'Stress-Ursache identifizieren und beheben',
+        ],
+        'plant_action': 'keep_with_monitoring',
+        'inspection_interval_days': 1,
+    },
+    'spreading': {
+        'description': 'Mehrere Stellen betroffen, Pflanze gefährdet',
+        'immediate_actions': [
+            'Pflanze sofort isolieren (separater Raum/Zelt)',
+            'Alle sichtbaren Nanners/Pollensäcke entfernen',
+            'Nachbarpflanzen auf Pollenspuren untersuchen',
+            'Foto-Dokumentation aller betroffenen Stellen',
+        ],
+        'follow_up': [
+            'Tägliche Kontrolle der isolierten Pflanze',
+            'Bestäubungs-Check aller Pflanzen im selben Raum',
+            'Entscheidung: Pflanze behalten (isoliert) oder entfernen',
+            'Cultivar als hermie_prone markieren',
+        ],
+        'plant_action': 'isolate',
+        'inspection_interval_days': 1,
+    },
+    'critical': {
+        'description': 'Massive Bestäubungsgefahr, Pflanze sofort entfernen',
+        'immediate_actions': [
+            'Pflanze SOFORT und VORSICHTIG aus dem Grow entfernen',
+            'Nicht schütteln — Pollen verbreitet sich über Luft',
+            'In Müllsack einpacken bevor Transport',
+            'Alle Nachbarpflanzen auf Bestäubung prüfen',
+        ],
+        'follow_up': [
+            'Bestäubungs-Check aller Pflanzen (Calyx-Schwellung, Samenbildung)',
+            'Wiederholter Check nach 7 und 14 Tagen',
+            'Cultivar als hermie_prone markieren (kritisch)',
+            'Genetische Linie dokumentieren (Cross-Ref REQ-017)',
+            'Stress-Analyse: Lichtleck, Temperatur >30°C, Überdüngung prüfen',
+        ],
+        'plant_action': 'remove_immediately',
+        'inspection_interval_days': 1,
+    },
+}
+
+
+class HermaphrodismProtocolEngine:
+    """Engine für Hermaphrodismus-Erkennung, Sofortmaßnahmen und genetische Markierung"""
+
+    def __init__(self, db):
+        self.db = db
+
+    def get_response_protocol(self, severity: HermieSeverity) -> dict:
+        """Gibt das Sofortmaßnahmen-Protokoll für den gegebenen Schweregrad zurück"""
+        return HERMIE_RESPONSE_PROTOCOL[severity]
+
+    def check_cultivar_hermie_history(self, cultivar_id: str) -> dict:
+        """
+        Prüft ob ein Cultivar bereits Hermaphrodismus-Vorfälle hatte.
+        Gibt Warnung zurück für zukünftige Runs.
+        """
+        query = """
+        FOR edge IN hermie_prone_cultivar
+            FILTER edge._to == CONCAT('cultivars/', @cultivar_id)
+            FOR finding IN hermaphroditism_findings
+                FILTER finding._id == edge._from
+                COLLECT severity = finding.severity
+                    AGGREGATE count = COUNT(1)
+                RETURN { severity, count }
+        """
+        cursor = self.db.aql.execute(query, bind_vars={'cultivar_id': cultivar_id})
+        history = list(cursor)
+
+        if not history:
+            return {'hermie_prone': False, 'warning': None}
+
+        total = sum(h['count'] for h in history)
+        max_severity = max(history, key=lambda h:
+            ['isolated', 'spreading', 'critical'].index(h['severity'])
+        )['severity']
+
+        return {
+            'hermie_prone': True,
+            'total_incidents': total,
+            'max_severity': max_severity,
+            'warning': (
+                f"WARNUNG: Cultivar hat {total} Hermaphrodismus-Vorfall/-fälle. "
+                f"Höchster Schweregrad: {max_severity}. "
+                "Erhöhte Überwachung ab Blütewoche 3 empfohlen."
+            ),
+        }
+
+    def flag_cultivar_hermie_prone(
+        self, cultivar_id: str, finding_id: str, stress_context: str
+    ) -> None:
+        """Markiert einen Cultivar als hermie_prone nach bestätigtem Befall"""
+        self.db.collection('hermie_prone_cultivar').insert({
+            '_from': f'hermaphroditism_findings/{finding_id}',
+            '_to': f'cultivars/{cultivar_id}',
+            'confirmed_at': datetime.utcnow().isoformat(),
+            'stress_context': stress_context,
+        })
+
+    def get_neighboring_plants_for_check(
+        self, plant_id: str, location_id: str
+    ) -> list[dict]:
+        """
+        Ermittelt alle Pflanzen im selben Standort/Slot die nach einem
+        Hermie-Befund auf Bestäubung geprüft werden müssen.
+        """
+        query = """
+        FOR plant IN plant_instances
+            FILTER plant._key == @plant_id
+            FOR slot IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+                OPTIONS { edgeCollections: ['placed_in'] }
+                FOR neighbor IN 1..1 INBOUND slot GRAPH 'kamerplanter_graph'
+                    OPTIONS { edgeCollections: ['placed_in'] }
+                    FILTER neighbor._key != @plant_id
+                    RETURN {
+                        plant_id: neighbor._key,
+                        plant_name: neighbor.name,
+                        current_phase: neighbor.current_phase,
+                        cultivar: neighbor.cultivar_name
+                    }
+        """
+        cursor = self.db.aql.execute(
+            query, bind_vars={'plant_id': plant_id}
+        )
+        return list(cursor)
+```
+
+**5. Karenzzeit-Validator:**
 ```python
 from datetime import datetime, timedelta
 
@@ -309,6 +553,12 @@ from datetime import datetime
 PestPressureLevel = Literal['none', 'low', 'medium', 'high', 'critical']
 TreatmentType = Literal['cultural', 'biological', 'chemical', 'mechanical']
 PathogenType = Literal['fungal', 'bacterial', 'viral', 'physiological']
+# Hermaphrodismus-Typen (Quelle: Cannabis Indoor Grower Review G-010)
+HermieFindingType = Literal['nanners', 'pollen_sacs', 'mixed']
+HermieSeverity = Literal['isolated', 'spreading', 'critical']
+HermieStressCorrelation = Literal[
+    'light_leak', 'heat_stress', 'overfeeding', 'training_stress', 'genetic', 'unknown'
+]
 
 class InspectionRecord(BaseModel):
     plant_id: str
@@ -323,7 +573,12 @@ class InspectionRecord(BaseModel):
     )
     photo_references: list[str] = Field(default_factory=list)
     notes: Optional[str] = None
-    
+    # Hermaphrodismus-Felder (Quelle: Cannabis Indoor Grower Review G-010)
+    hermaphroditism_detected: bool = False
+    hermaphroditism_finding_type: Optional[HermieFindingType] = None
+    hermaphroditism_severity: Optional[HermieSeverity] = None
+    hermaphroditism_stress_correlation: Optional[HermieStressCorrelation] = None
+
     @field_validator('symptoms_observed')
     @classmethod
     def validate_symptoms(cls, v):
@@ -371,6 +626,8 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 | Inspections (Tenant-scoped) | Mitglied | Mitglied | Admin |
 | TreatmentApplications (Tenant-scoped) | Mitglied | Mitglied | Admin |
 | Karenz-Status (Tenant-scoped) | Mitglied | — | — |
+| HermaphroditismFindings (Tenant-scoped) | Mitglied | Mitglied | Admin | <!-- Quelle: Cannabis Indoor Grower Review G-010 -->
+| PollinationChecks (Tenant-scoped) | Mitglied | Mitglied | Admin | <!-- Quelle: Cannabis Indoor Grower Review G-010 -->
 
 ## 5. Abhängigkeiten
 
@@ -381,12 +638,17 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - `sensors` / `observations` aus REQ-005 (Hybrid-Sensorik) für Umweltbedingungen
 - `tasks` aus REQ-006 (Aufgabenplanung) für automatische Inspektions-Tasks
 - `harvests` aus REQ-007 (Erntemanagement) für Karenzzeit-Validierung
+- `cultivars` aus REQ-001 (Stammdatenverwaltung) für genetische Hermie-Prone-Markierung <!-- Quelle: Cannabis Indoor Grower Review G-010 -->
 
 **Integrationsschnittstellen:**
 - **REQ-005 (Sensorik):** Klimadaten (Temp, RLF) als Risikoindikator für Pathogene
 - **REQ-003 (Phasen):** Phasenspezifische Vulnerabilitäten (z.B. Blüte anfällig für Botrytis)
 - **REQ-006 (Tasks):** Automatische Generierung von Inspektions- und Behandlungs-Tasks
 - **REQ-009 (Dashboard):** Alert-Integration bei kritischem Befallsdruck
+<!-- Quelle: Cannabis Indoor Grower Review G-010 -->
+- **REQ-001 (Stammdaten):** Cultivar-Flag `hermie_prone` nach bestätigtem Hermaphrodismus-Befall. Warnung bei zukünftigen Runs mit diesem Cultivar.
+- **REQ-017 (Vermehrung):** Genetische Linie dokumentieren — Hermie-Disposition über `descended_from`-Kanten an Nachkommen weitergeben. Mutterpflanzen mit Hermie-Historie kennzeichnen.
+- **REQ-013 (Pflanzdurchlauf):** Bestäubungs-Check-Protokoll bei allen Pflanzen im selben PlantingRun nach Hermie-Befund.
 
 **Externe Datenquellen (optional):**
 - Pflanzenschutzmittel-Datenbank (BVL/EPA) für Zulassungsstatus
@@ -411,6 +673,14 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Behandlungs-Tracking:** Efficacy-Rating kann nach Behandlung erfasst werden (Wirksam/Teilweise/Unwirksam)
 - [ ] **Batch-Traceability:** Alle Behandlungen sind mit erntefähigen Batches verknüpft (für Seed-to-Shelf-Tracking aus REQ-008)
 - [ ] **Prävention-Score:** Dashboard zeigt präventive Gesundheits-Indikatoren (z.B. "Letzte Inspektion vor 5 Tagen, Risiko: Mittel")
+<!-- Quelle: Cannabis Indoor Grower Review G-010 -->
+- [ ] **Hermaphrodismus-Erkennung:** Befund-Typ `hermaphroditism` mit Subtypen (`nanners`, `pollen_sacs`, `mixed`) ist als Inspektions-Befund dokumentierbar
+- [ ] **Hermaphrodismus-Schweregrad:** Drei Stufen (`isolated`, `spreading`, `critical`) mit jeweils spezifischem Sofortmaßnahmen-Protokoll
+- [ ] **Sofortmaßnahmen-Protokoll:** System zeigt bei Hermie-Befund automatisch die schweregraddabhängigen Sofortmaßnahmen an (Entfernung, Isolierung, Monitoring)
+- [ ] **Stress-Korrelation:** Hermaphrodismus-Befund kann mit dokumentierten Stress-Events verknüpft werden (Lichtleck, Hitzestress >30°C, Überdüngung, extremer Training-Stress)
+- [ ] **Genetische Markierung:** Cultivar wird nach bestätigtem Befall als `hermie_prone` markiert. Bei zukünftigen Runs mit diesem Cultivar wird eine Warnung angezeigt (Cross-Ref REQ-001/REQ-017).
+- [ ] **Bestäubungs-Check:** Nach Hermie-Befund generiert das System automatisch Inspektions-Tasks für alle Nachbarpflanzen im selben Slot/Location (Samen in Buds? Calyx-Schwellung ohne Trichom-Reife?)
+- [ ] **Hermie-Historie:** Befallsmuster pro Cultivar können über mehrere Runs hinweg analysiert werden (genetische Disposition vs. Stress-bedingt)
 
 ### Testszenarien:
 
@@ -445,9 +715,66 @@ THEN:
   - Dokumentiert Rotations-Historie
 ```
 
+<!-- Quelle: Cannabis Indoor Grower Review G-010 -->
+**Szenario 4: Hermaphrodismus — Isolated (Einzelne Nanners)**
+```
+GIVEN: PlantInstance "White Widow #3" in Blütephase Woche 5
+  AND: Letzte Inspektion vor 2 Tagen ohne Befund
+WHEN: Neue Inspektion erkennt einzelne gelbe "Banane" (Nanner) in oberer Cola
+  AND: Inspector dokumentiert finding_type = 'nanners', severity = 'isolated'
+  AND: Stress-Korrelation: Lichtleck am Zelt-Reißverschluss entdeckt
+THEN:
+  - System zeigt Sofortmaßnahmen-Protokoll für 'isolated':
+    "Nanners vorsichtig mit Pinzette entfernen, Stelle mit Wasser besprühen"
+  - Inspektionsintervall wird auf 1 Tag reduziert (für gesamten Run)
+  - Stress-Ursache "light_leak" wird am Befund dokumentiert
+  - System generiert Empfehlung: "Lichtleck beheben"
+  - Pflanze bleibt im Grow (plant_action = 'keep_with_monitoring')
+```
+
+**Szenario 5: Hermaphrodismus — Critical (Massive Bestäubungsgefahr)**
+```
+GIVEN: PlantInstance "Bagseed #1" in Blütephase Woche 6
+  AND: 5 weitere Pflanzen im selben Location/Slot
+  AND: Mehrere vollständige Pollensäcke an verschiedenen Colas gefunden
+WHEN: Inspector dokumentiert finding_type = 'pollen_sacs', severity = 'critical'
+  AND: estimated_pollen_release = true
+THEN:
+  - System zeigt Sofortmaßnahmen-Protokoll für 'critical':
+    "Pflanze SOFORT und VORSICHTIG entfernen, in Müllsack einpacken"
+  - System generiert automatisch Bestäubungs-Check-Tasks für alle 5 Nachbarpflanzen
+  - Bestäubungs-Check beinhaltet: Calyx-Schwellung ohne Trichom-Reife, Samenbildung
+  - Cultivar wird als hermie_prone markiert (Cross-Ref REQ-001)
+  - Warnung wird für alle zukünftigen Runs mit diesem Cultivar hinterlegt
+```
+
+**Szenario 6: Hermie-Prone-Cultivar-Warnung bei neuem Run**
+```
+GIVEN: Cultivar "Bagseed #1" ist als hermie_prone markiert (1 critical-Vorfall)
+WHEN: Nutzer erstellt neuen PlantingRun mit diesem Cultivar
+THEN:
+  - System zeigt Warnung: "ACHTUNG: Cultivar hat 1 Hermaphrodismus-Vorfall
+    (Schweregrad: critical). Erhöhte Überwachung ab Blütewoche 3 empfohlen."
+  - Inspektions-Scheduler erhöht automatisch die Frequenz ab Blütephase
+  - System schlägt vor: Stress-Faktoren minimieren (kein Lichtleck, Temperatur <28°C)
+```
+
+**Szenario 7: Bestäubungs-Check nach Hermie-Befund**
+```
+GIVEN: Hermie-Befund (severity = 'spreading') wurde vor 7 Tagen dokumentiert
+  AND: Pflanze wurde isoliert, 4 Nachbarpflanzen befinden sich weiter im Run
+WHEN: Inspector führt Bestäubungs-Check an Nachbarpflanze durch
+  AND: check_type = 'calyx_squeeze', calyx_swelling_without_trichome_maturity = true
+THEN:
+  - System markiert Pflanze als potenziell bestäubt
+  - Warnung: "Calyx-Schwellung ohne Trichom-Reife deutet auf Bestäubung hin"
+  - System empfiehlt Nachkontrolle in 7 Tagen (Samen werden nach 2-3 Wochen sichtbar)
+  - Ernte-Qualitätsprognose wird nach unten korrigiert
+```
+
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: IPM, Schädling, Krankheit, Nützling, Karenzzeit, Resistenz, Inspektion, Behandlung
-- Verknüpfung: Alle REQ-001 bis REQ-009, besonders REQ-003 (Phasen), REQ-005 (Sensorik), REQ-007 (Ernte)
-- Botanische Fachbegriffe: Phytopathologie, Entomologie, Akarizide, Fungizide, Predatoren, Parasitismus
+- Keywords: IPM, Schädling, Krankheit, Nützling, Karenzzeit, Resistenz, Inspektion, Behandlung, Hermaphrodismus, Nanners, Pollensäcke, Hermie, Bestäubung, hermie_prone <!-- Quelle: Cannabis Indoor Grower Review G-010 -->
+- Verknüpfung: Alle REQ-001 bis REQ-009, besonders REQ-003 (Phasen), REQ-005 (Sensorik), REQ-007 (Ernte), REQ-013 (Pflanzdurchlauf), REQ-017 (Vermehrung) <!-- Quelle: Cannabis Indoor Grower Review G-010 -->
+- Botanische Fachbegriffe: Phytopathologie, Entomologie, Akarizide, Fungizide, Predatoren, Parasitismus, Hermaphrodismus, Monözie, Bestäubung, Samenbildung <!-- Quelle: Cannabis Indoor Grower Review G-010 -->

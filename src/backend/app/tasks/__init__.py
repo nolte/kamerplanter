@@ -29,6 +29,14 @@ celery_app.conf.update(
             "task": "app.tasks.auth_tasks.cleanup_unverified_accounts",
             "schedule": 86400,
         },
+        "auth-anonymize-ips-daily": {
+            "task": "app.tasks.auth_tasks.anonymize_old_ips",
+            "schedule": 86400,
+        },
+        "auth-rotate-oidc-discovery": {
+            "task": "app.tasks.auth_tasks.rotate_oidc_discovery",
+            "schedule": 21600,  # 6 hours
+        },
         # REQ-024 Tenant tasks
         "tenant-cleanup-invitations-daily": {
             "task": "app.tasks.tenant_tasks.cleanup_expired_invitations",

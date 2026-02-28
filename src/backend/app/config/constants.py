@@ -34,7 +34,8 @@ EC_LIMITS: dict[str, tuple[float, float]] = {
     "coco": (0.8, 2.2),
     "soil": (0.4, 1.6),
     "living_soil": (0.0, 0.8),
-    "rockwool": (0.5, 2.5),
+    "rockwool_slab": (0.5, 2.5),
+    "rockwool_plug": (0.5, 2.5),
     "clay_pebbles": (0.5, 2.5),
     "perlite": (0.5, 2.5),
 }

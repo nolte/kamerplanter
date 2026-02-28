@@ -25,7 +25,7 @@ import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/nutrient-plans';
-import type { NutrientPlanCreate, ScheduleMode, WateringSchedule } from '@/api/types';
+import type { NutrientPlanCreate, ScheduleMode } from '@/api/types';
 
 const substrateTypes = [
   'soil',
@@ -125,7 +125,7 @@ export default function NutrientPlanCreateDialog({ open, onClose, onCreated }: P
       };
 
       if (hasSchedule) {
-        const schedule: WateringSchedule = {
+        basePayload.watering_schedule = {
           schedule_mode: data.schedule_mode,
           weekday_schedule: data.weekday_schedule,
           interval_days: data.interval_days,
@@ -133,11 +133,8 @@ export default function NutrientPlanCreateDialog({ open, onClose, onCreated }: P
           application_method: data.application_method,
           reminder_hours_before: data.reminder_hours_before,
         };
-        const payload = { ...basePayload, watering_schedule: schedule } as NutrientPlanCreate & { watering_schedule: WateringSchedule };
-        await api.createNutrientPlan(payload as unknown as NutrientPlanCreate);
-      } else {
-        await api.createNutrientPlan(basePayload);
       }
+      await api.createNutrientPlan(basePayload);
       notification.success(t('common.create'));
       reset();
       onCreated();

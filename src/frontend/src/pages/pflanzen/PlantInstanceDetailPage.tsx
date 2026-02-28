@@ -388,7 +388,7 @@ export default function PlantInstanceDetailPage() {
                   {assignedPlan.author && (
                     <Chip label={assignedPlan.author} size="small" variant="outlined" />
                   )}
-                  {assignedPlan.tags.map((tag) => (
+                  {assignedPlan.tags?.map((tag) => (
                     <Chip key={tag} label={tag} size="small" />
                   ))}
                 </Box>

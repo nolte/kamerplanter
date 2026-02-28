@@ -25,7 +25,10 @@ class ArangoFertilizerRepository(IFertilizerRepository, BaseArangoRepository):
             filter_clauses = []
             for i, (field, value) in enumerate(filters.items()):
                 bind_vars[f"val{i}"] = value
-                filter_clauses.append(f"doc.{field} == @val{i}")
+                if field == "brand":
+                    filter_clauses.append(f"CONTAINS(LOWER(doc.{field}), LOWER(@val{i}))")
+                else:
+                    filter_clauses.append(f"doc.{field} == @val{i}")
             query += " FILTER " + " AND ".join(filter_clauses)
             count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
             query += f" SORT doc.product_name LIMIT {offset}, {limit} RETURN doc"

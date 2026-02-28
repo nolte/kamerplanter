@@ -1,9 +1,10 @@
 from app.common.exceptions import NotFoundError
 from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
+from app.domain.engines.delivery_channel_engine import DeliveryChannelValidator
 from app.domain.engines.nutrient_plan_engine import NutrientPlanValidator
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
-from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
+from app.domain.models.nutrient_plan import DeliveryChannel, NutrientPlan, NutrientPlanPhaseEntry
 
 
 class NutrientPlanService:
@@ -65,9 +66,8 @@ class NutrientPlanService:
             raise NotFoundError("NutrientPlanPhaseEntry", key)
         allowed_fields = {
             "phase_name", "sequence_order", "week_start", "week_end",
-            "npk_ratio", "target_ec_ms", "target_ph", "calcium_ppm",
-            "magnesium_ppm", "feeding_frequency_per_week",
-            "volume_per_feeding_liters", "notes", "fertilizer_dosages",
+            "npk_ratio", "calcium_ppm", "magnesium_ppm", "notes",
+            "delivery_channels",
         }
         for field, value in data.items():
             if field in allowed_fields:
@@ -80,24 +80,39 @@ class NutrientPlanService:
             raise NotFoundError("NutrientPlanPhaseEntry", key)
         return self._repo.delete_phase_entry(key)
 
-    # ── Fertilizer assignment ────────────────────────────────────────
+    # ── Channel fertilizer assignment ─────────────────────────────────
 
-    def add_fertilizer_to_entry(
-        self, entry_key: NutrientPlanPhaseEntryKey, fertilizer_key: FertilizerKey,
-        ml_per_liter: float, optional: bool = False,
+    def add_fertilizer_to_channel(
+        self,
+        entry_key: NutrientPlanPhaseEntryKey,
+        channel_id: str,
+        fertilizer_key: FertilizerKey,
+        ml_per_liter: float,
+        optional: bool = False,
     ) -> dict:
         entry = self._repo.get_phase_entry_by_key(entry_key)
         if entry is None:
             raise NotFoundError("NutrientPlanPhaseEntry", entry_key)
+        # Validate channel exists
+        channel_ids = [ch.channel_id for ch in entry.delivery_channels]
+        if channel_id not in channel_ids:
+            raise NotFoundError("DeliveryChannel", channel_id)
         fert = self._fert_repo.get_by_key(fertilizer_key)
         if fert is None:
             raise NotFoundError("Fertilizer", fertilizer_key)
-        return self._repo.add_fertilizer_to_entry(entry_key, fertilizer_key, ml_per_liter, optional)
+        return self._repo.add_fertilizer_to_channel(
+            entry_key, channel_id, fertilizer_key, ml_per_liter, optional,
+        )
 
-    def remove_fertilizer_from_entry(
-        self, entry_key: NutrientPlanPhaseEntryKey, fertilizer_key: FertilizerKey,
+    def remove_fertilizer_from_channel(
+        self,
+        entry_key: NutrientPlanPhaseEntryKey,
+        channel_id: str,
+        fertilizer_key: FertilizerKey,
     ) -> bool:
-        return self._repo.remove_fertilizer_from_entry(entry_key, fertilizer_key)
+        return self._repo.remove_fertilizer_from_channel(
+            entry_key, channel_id, fertilizer_key,
+        )
 
     # ── Plant assignment ─────────────────────────────────────────────
 
@@ -125,26 +140,37 @@ class NutrientPlanService:
 
         completeness = self._validator.validate_completeness(entries)
 
-        # EC budget check per entry
-        ec_results = []
-        for entry in entries:
-            # Load fertilizers referenced in dosages
-            ferts: dict[str, object] = {}
-            for dosage in entry.fertilizer_dosages:
-                fert = self._fert_repo.get_by_key(dosage.fertilizer_key)
-                if fert is not None:
-                    ferts[dosage.fertilizer_key] = fert
-            ec_result = self._validator.validate_ec_budget(entry, ferts)  # type: ignore[arg-type]
-            ec_result["entry_key"] = entry.key
-            ec_result["phase_name"] = entry.phase_name.value
-            ec_results.append(ec_result)
+        # Channel validation for entries with delivery channels
+        channel_validator = DeliveryChannelValidator()
+        channel_validations: list[dict] = []
+        all_channels_valid = True
 
-        all_ec_valid = all(r["valid"] for r in ec_results)
+        for entry in entries:
+            if not entry.delivery_channels:
+                continue
+            # Load fertilizers for all channels
+            ferts: dict[str, object] = {}
+            for ch in entry.delivery_channels:
+                for dosage in ch.fertilizer_dosages:
+                    if dosage.fertilizer_key not in ferts:
+                        fert = self._fert_repo.get_by_key(dosage.fertilizer_key)
+                        if fert is not None:
+                            ferts[dosage.fertilizer_key] = fert
+            ch_result = channel_validator.validate_channels(
+                entry.delivery_channels, ferts,  # type: ignore[arg-type]
+            )
+            if not ch_result["valid"]:
+                all_channels_valid = False
+            channel_validations.append({
+                "entry_key": entry.key,
+                "phase_name": entry.phase_name.value,
+                **ch_result,
+            })
 
         return {
             "completeness": completeness,
-            "ec_budgets": ec_results,
-            "valid": completeness["complete"] and all_ec_valid,
+            "channel_validations": channel_validations,
+            "valid": completeness["complete"] and all_channels_valid,
         }
 
     # ── Current dosages ──────────────────────────────────────────────
@@ -163,28 +189,39 @@ class NutrientPlanService:
                 entry.phase_name.value == current_phase
                 and entry.week_start <= current_week <= entry.week_end
             ):
-                # Sort dosages by fertilizer mixing priority
-                dosages_with_priority = []
-                for dosage in entry.fertilizer_dosages:
-                    fert = self._fert_repo.get_by_key(dosage.fertilizer_key)
-                    priority = fert.mixing_priority if fert else 50
-                    dosages_with_priority.append({
-                        "fertilizer_key": dosage.fertilizer_key,
-                        "product_name": fert.product_name if fert else "Unknown",
-                        "ml_per_liter": dosage.ml_per_liter,
-                        "optional": dosage.optional,
-                        "mixing_priority": priority,
-                    })
-                dosages_with_priority.sort(key=lambda d: d["mixing_priority"])
-
+                channels_data = self._build_channels_data(entry.delivery_channels)
                 return {
                     "plan_key": plan.key,
                     "plan_name": plan.name,
                     "entry_key": entry.key,
                     "phase_name": entry.phase_name.value,
-                    "target_ec_ms": entry.target_ec_ms,
-                    "target_ph": entry.target_ph,
-                    "dosages": dosages_with_priority,
+                    "channels": channels_data,
                 }
 
         return None
+
+    def _build_channels_data(self, channels: list[DeliveryChannel]) -> list[dict]:
+        """Build enriched channel data with fertilizer names and mixing priorities."""
+        result = []
+        for ch in channels:
+            dosages_with_priority = []
+            for dosage in ch.fertilizer_dosages:
+                fert = self._fert_repo.get_by_key(dosage.fertilizer_key)
+                priority = fert.mixing_priority if fert else 50
+                dosages_with_priority.append({
+                    "fertilizer_key": dosage.fertilizer_key,
+                    "product_name": fert.product_name if fert else "Unknown",
+                    "ml_per_liter": dosage.ml_per_liter,
+                    "optional": dosage.optional,
+                    "mixing_priority": priority,
+                })
+            dosages_with_priority.sort(key=lambda d: d["mixing_priority"])
+            result.append({
+                "channel_id": ch.channel_id,
+                "label": ch.label,
+                "application_method": ch.application_method.value,
+                "target_ec_ms": ch.target_ec_ms,
+                "target_ph": ch.target_ph,
+                "dosages": dosages_with_priority,
+            })
+        return result

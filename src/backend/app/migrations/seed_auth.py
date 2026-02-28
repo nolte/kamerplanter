@@ -12,7 +12,7 @@ from app.domain.models.user import User
 
 logger = structlog.get_logger()
 
-DEMO_EMAIL = "demo@kamerplanter.local"
+DEMO_EMAIL = "demo@kamerplanter.example"
 DEMO_PASSWORD = "demo-passwort-2024"
 DEMO_DISPLAY_NAME = "Demo Admin"
 

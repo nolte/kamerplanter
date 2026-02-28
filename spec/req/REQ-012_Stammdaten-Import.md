@@ -32,6 +32,9 @@ Das System ermöglicht den Bulk-Import von Stammdaten über CSV-Dateien. Der Imp
 | **Species** | `scientific_name` | Erstbefüllung botanischer Arten |
 | **Cultivar** | `name` + `parent_species` | Sortenkatalogeinfuhr, Züchterlisten |
 | **BotanicalFamily** | `name` | Pflanzenfamilien mit Fruchtfolge-Kategorien |
+| **NutrientPlan** | `name` + `source_chart` | Hersteller-Feeding-Charts (Canna, BioBizz, etc.) |
+
+<!-- Quelle: Cannabis Indoor Grower Review G-005 -->
 
 ### 1.2 Duplikatbehandlung
 
@@ -1064,6 +1067,175 @@ async def download_csv_template(
 | Header-Spalten | Pflichtspalten fehlen in CSV-Header | `MISSING_COLUMNS` |
 | Dateistruktur | Leere Datei oder fehlender Header | `EMPTY_FILE` / `NO_HEADER` |
 
+### 3.8 Nährstoffplan-Import (Feeding-Chart-Import)
+
+<!-- Quelle: Cannabis Indoor Grower Review G-005 -->
+
+**User Story:** "Als Grower möchte ich Hersteller-Feeding-Charts (z.B. Canna Coco, BioBizz) per CSV oder JSON importieren können, damit ich nicht jede Dosierung manuell abtippen muss und sofort mit einem erprobten Düngeplan starten kann."
+
+**Motivation:** Jeder etablierte Düngerhersteller publiziert einen wochenbasierten Nährstoffplan, den Tausende Grower verwenden. Manuelles Abtippen ist fehleranfällig und unzumutbar. Eine Import-Schnittstelle senkt die Einstiegshürde erheblich und fördert die Nutzung der NutrientPlan-Funktionalität (REQ-004).
+
+#### 3.8.1 Unterstützte Formate
+
+| Format | MIME-Type | Besonderheiten |
+|--------|-----------|----------------|
+| CSV | `text/csv` | Gleiche Encoding-/Delimiter-Erkennung wie Stammdaten-Import (§3.3) |
+| JSON | `application/json` | Array von Objekten, identisches Spalten-Schema als Keys |
+
+#### 3.8.2 Spalten-Schema (Feeding-Chart)
+
+| Spalte | Pflicht | Typ | Beispiel | Hinweis |
+|--------|---------|-----|---------|---------|
+| `week` | ✓ | int | `3` | Woche im Plan (1-basiert), muss aufsteigend sein |
+| `phase` | ✓ | string (enum) | `vegetative` | Gültige Wachstumsphase (REQ-003): `germination`, `seedling`, `vegetative`, `flowering`, `harvest` |
+| `product_name` | ✓ | string | `Canna Coco A` | Produktname des Düngers, wird gegen Fertilizer-Katalog gematcht |
+| `dosage_ml_per_l` | ✓ | float | `4.0` | Dosierung in ml pro Liter Nährlösung, Bereich 0.01–100.0 |
+| `target_ec` | | float | `1.8` | Ziel-EC-Wert der Gesamtlösung in mS/cm, Bereich 0.1–5.0 |
+| `target_ph` | | float | `5.9` | Ziel-pH-Wert der Nährlösung, Bereich 3.5–8.0 |
+
+**CSV-Beispiel (Canna Coco A+B, Auszug):**
+```csv
+week,phase,product_name,dosage_ml_per_l,target_ec,target_ph
+1,seedling,Canna Coco A,1.0,0.6,5.8
+1,seedling,Canna Coco B,1.0,0.6,5.8
+2,seedling,Canna Coco A,2.0,0.8,5.8
+2,seedling,Canna Coco B,2.0,0.8,5.8
+3,vegetative,Canna Coco A,3.0,1.2,5.9
+3,vegetative,Canna Coco B,3.0,1.2,5.9
+3,vegetative,Cannazym,2.5,1.2,5.9
+4,vegetative,Canna Coco A,4.0,1.6,5.9
+4,vegetative,Canna Coco B,4.0,1.6,5.9
+5,flowering,Canna Coco A,4.0,1.8,6.0
+5,flowering,Canna Coco B,4.0,1.8,6.0
+5,flowering,Canna PK 13/14,0.5,1.8,6.0
+```
+
+**JSON-Beispiel (äquivalent):**
+```json
+[
+  {"week": 1, "phase": "seedling", "product_name": "Canna Coco A", "dosage_ml_per_l": 1.0, "target_ec": 0.6, "target_ph": 5.8},
+  {"week": 1, "phase": "seedling", "product_name": "Canna Coco B", "dosage_ml_per_l": 1.0, "target_ec": 0.6, "target_ph": 5.8}
+]
+```
+
+#### 3.8.3 Produkt-Matching (Fertilizer-Zuordnung)
+
+Beim Import wird jeder `product_name` gegen den vorhandenen Fertilizer-Katalog (REQ-004) abgeglichen:
+
+| Schritt | Beschreibung |
+|---------|-------------|
+| 1. Exaktes Matching | `product_name` wird case-insensitiv gegen `Fertilizer.product_name` geprüft |
+| 2. Fuzzy-Matching | Bei keinem exakten Treffer: Levenshtein-Distanz ≤ 3 oder Teilstring-Matching (`brand` + `product_name`) |
+| 3. Vorschlag in Preview | Nicht-gematchte Produkte werden in der Preview als `UNRESOLVED_PRODUCT` markiert |
+| 4. Nutzer-Entscheidung | Der Nutzer kann in der Preview pro unbekanntem Produkt wählen: (a) vorhandenen Fertilizer zuordnen, (b) als neuen Fertilizer anlegen, (c) Zeile überspringen |
+
+**Validierungsfehler:**
+
+| Code | Beschreibung |
+|------|-------------|
+| `UNRESOLVED_PRODUCT` | `product_name` konnte keinem Fertilizer zugeordnet werden (Warnung, nicht blockierend) |
+| `INVALID_PHASE` | `phase` ist keine gültige Wachstumsphase |
+| `INVALID_DOSAGE` | `dosage_ml_per_l` außerhalb des gültigen Bereichs (0.01–100.0) |
+| `INVALID_EC` | `target_ec` außerhalb des gültigen Bereichs (0.1–5.0) |
+| `INVALID_PH` | `target_ph` außerhalb des gültigen Bereichs (3.5–8.0) |
+| `WEEK_NOT_ASCENDING` | Wochennummern sind nicht aufsteigend |
+| `DUPLICATE_WEEK_PRODUCT` | Gleicher `product_name` in gleicher `week` mehrfach definiert |
+
+#### 3.8.4 Import-Ergebnis
+
+Ein bestätigter Feeding-Chart-Import erzeugt folgende Entitäten:
+
+1. **Ein `NutrientPlan`** (REQ-004) mit:
+   - `name`: aus Dateiname oder Nutzerangabe (z.B. "Canna Coco Complete")
+   - `source_chart`: Herstellername (z.B. "Canna Coco")
+   - `is_template: true` — kennzeichnet importierte Community-Templates
+   - `created_via: "import"` — Herkunft des Plans
+
+2. **Mehrere `NutrientPlanPhaseEntry`** (REQ-004) — eine pro Phase/Wochen-Kombination, mit:
+   - Zuordnung zur Wachstumsphase
+   - Wochennummer innerhalb der Phase
+   - Ziel-EC und Ziel-pH (falls angegeben)
+
+3. **`USES_DOSAGE`-Edges** — Fertilizer-Zuordnungen mit `ml_per_liter` pro Phase-Entry
+
+4. **Neue `Fertilizer`-Einträge** — nur für Produkte, die der Nutzer in der Preview als "neu anlegen" markiert hat (Schritt 4c in §3.8.3)
+
+#### 3.8.5 Vorinstallierte Community-Templates (Seed-Daten)
+
+Fünf der meistgenutzten Hersteller-Feeding-Charts werden als Seed-Daten mit dem System ausgeliefert:
+
+| # | Template-Name | Hersteller | Substrat/Anwendung | Phasen | Wochen |
+|---|--------------|------------|-------------------|--------|--------|
+| 1 | Canna Coco A+B Complete | Canna | Coco | Seedling → Flush | 10 |
+| 2 | BioBizz Organic Indoor | BioBizz | Erde (biologisch) | Seedling → Flush | 12 |
+| 3 | AN pH Perfect Sensi | Advanced Nutrients | Hydro/Coco (pH-stabil) | Seedling → Flush | 10 |
+| 4 | Athena Pro Line | Athena | Coco/Hydro (Profi) | Veg → Flush | 9 |
+| 5 | GHE Flora Series Expert | GHE / Terra Aquatica | Universal (3-Part) | Seedling → Flush | 12 |
+
+**Eigenschaften der Seed-Templates:**
+- `is_template: true`, `is_seed_data: true` — unveränderbar, aber klonbar
+- Enthalten alle Additive des jeweiligen Herstellers (z.B. Cannazym, PK 13/14, Rhizotonic bei Canna)
+- Ziel-EC- und Ziel-pH-Werte pro Woche gemäß offizieller Hersteller-Empfehlung
+- Zugehörige `Fertilizer`-Einträge werden als Seed-Daten mitgeliefert
+
+#### 3.8.6 Klonfunktion
+
+Importierte und vorinstallierte Feeding-Charts können als Ausgangsbasis für individuelle Anpassungen geklont werden (analog REQ-004 Klonfunktion):
+
+- **Klonen:** Erzeugt eine editierbare Kopie des gesamten NutrientPlan inkl. aller Phase-Entries und Fertilizer-Zuordnungen
+- **Anpassungen:** Dosierungen, Ziel-EC/pH, Additive pro Woche individuell ändern
+- **Herkunft:** Geklonte Pläne behalten `source_chart` als Referenz, erhalten aber `is_template: false`
+- **Edge:** `CLONED_FROM`-Edge vom Klon zum Ursprungsplan für Nachvollziehbarkeit
+
+#### 3.8.7 API-Endpunkte (Feeding-Chart-Import)
+
+```python
+@router.post("/upload/nutrient-plan", response_model=ImportJob)
+async def upload_feeding_chart(
+    file: UploadFile = File(...),
+    plan_name: str = Query(..., description="Name des Nährstoffplans"),
+    source_chart: str | None = Query(None, description="Herstellername (z.B. 'Canna Coco')"),
+    duplicate_strategy: DuplicateStrategy = Query(
+        DuplicateStrategy.SKIP, description="Duplikatbehandlung für Fertilizer-Matching"
+    ),
+) -> ImportJob:
+    """
+    Phase 1: Feeding-Chart (CSV/JSON) hochladen und validieren.
+    Gibt Import-Job mit Vorschau zurück, inkl. Fertilizer-Matching-Status.
+    Akzeptiert .csv und .json Dateien.
+    """
+    ...
+
+
+@router.get("/templates/nutrient-plan")
+async def download_feeding_chart_template() -> dict:
+    """
+    Gibt CSV-Template-Header und Beispielzeilen für einen Feeding-Chart-Import zurück.
+    """
+    ...
+
+
+@router.get("/community-templates", response_model=list[dict])
+async def list_community_templates() -> list[dict]:
+    """
+    Listet die vorinstallierten Community-Feeding-Chart-Templates.
+    Gibt Name, Hersteller, Substrat und Wochen-Anzahl zurück.
+    """
+    ...
+
+
+@router.post("/community-templates/{template_key}/clone", response_model=dict)
+async def clone_community_template(
+    template_key: str,
+    new_name: str = Query(..., description="Name des geklonten Plans"),
+) -> dict:
+    """
+    Klont ein Community-Template als editierbaren NutrientPlan.
+    Erzeugt Kopie aller Phase-Entries und Fertilizer-Zuordnungen.
+    """
+    ...
+```
+
 ## 4. Frontend-Spezifikation
 
 ### 4.1 Upload-Dialog
@@ -1258,6 +1430,8 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 
 **Benötigt:**
 - **REQ-001** (Stammdatenverwaltung) — Ziel-Entitäten (Species, Cultivar, BotanicalFamily), Validierungsregeln, Datenmodell
+- **REQ-003** (Phasensteuerung) — Gültige Wachstumsphasen für Feeding-Chart-Import (Phase-Validierung)
+- **REQ-004** (Dünge-Logik) — NutrientPlan, NutrientPlanPhaseEntry, Fertilizer-Katalog, Klonfunktion, USES_DOSAGE-Edges <!-- Quelle: Cannabis Indoor Grower Review G-005 -->
 - **REQ-011** (Externe Stammdatenanreicherung) — Importierte Datensätze können anschließend extern angereichert werden
 - **NFR-006** (API-Fehlerbehandlung) — Einheitliche Fehlerbehandlung und Error-Codes
 
@@ -1289,6 +1463,10 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Abbruch:** Import-Jobs im Status preview_ready können abgebrochen werden
 - [ ] **i18n:** Alle UI-Texte in DE/EN über react-i18next
 - [ ] **Testabdeckung:** Unit-Tests für Parser, Validator und Engine; Integration-Tests für API-Endpoints
+- [ ] **Feeding-Chart-Import:** CSV/JSON-Upload für NutrientPlan mit Produkt-Matching gegen Fertilizer-Katalog <!-- Quelle: Cannabis Indoor Grower Review G-005 -->
+- [ ] **Produkt-Matching:** Exaktes und Fuzzy-Matching von product_name, Nutzer-Entscheidung bei Nicht-Treffern
+- [ ] **Community-Templates:** 5 vorinstallierte Feeding-Charts als Seed-Daten (Canna, BioBizz, AN, Athena, GHE)
+- [ ] **Template-Klonen:** Community-Templates und importierte Pläne können als editierbare Kopie geklont werden
 
 ### Testszenarien:
 
@@ -1371,9 +1549,56 @@ THEN:
   - Zeile wird als 'invalid' markiert
 ```
 
+<!-- Quelle: Cannabis Indoor Grower Review G-005 -->
+
+**Szenario 9: Erfolgreicher Feeding-Chart-Import (CSV)**
+```
+GIVEN: CSV-Datei mit Canna Coco A+B Feeding-Chart (10 Wochen, 3 Produkte)
+  AND: Fertilizer-Einträge "Canna Coco A", "Canna Coco B" existieren im Katalog
+  AND: "Cannazym" existiert NICHT im Katalog
+WHEN: Upload als NutrientPlan mit plan_name="Canna Coco Test"
+THEN:
+  - Preview zeigt alle Zeilen als 'valid'
+  - "Cannazym" wird als UNRESOLVED_PRODUCT markiert
+  - Nutzer wählt "als neuen Fertilizer anlegen" für Cannazym
+  - Nach Bestätigung: 1 NutrientPlan, 10 NutrientPlanPhaseEntries, 1 neuer Fertilizer erstellt
+  - USES_DOSAGE-Edges verknüpfen Phase-Entries mit Fertilizern
+```
+
+**Szenario 10: Feeding-Chart-Import mit Validierungsfehlern**
+```
+GIVEN: CSV mit phase="blüte" (ungültig, muss "flowering" sein) und dosage_ml_per_l=200.0 (über Maximum)
+WHEN: Upload als NutrientPlan
+THEN:
+  - Preview markiert Zeilen als 'invalid'
+  - Fehler: INVALID_PHASE ("blüte" ist keine gültige Phase), INVALID_DOSAGE (> 100.0)
+  - Import kann mit verbleibenden gültigen Zeilen bestätigt werden
+```
+
+**Szenario 11: Community-Template klonen und anpassen**
+```
+GIVEN: Seed-Template "Canna Coco A+B Complete" existiert (is_template=true, is_seed_data=true)
+WHEN: Klonen mit new_name="Mein Canna Plan"
+THEN:
+  - Neuer NutrientPlan mit is_template=false, source_chart="Canna Coco"
+  - Alle Phase-Entries und Fertilizer-Zuordnungen kopiert
+  - CLONED_FROM-Edge zum Ursprungsplan
+  - Geklonter Plan ist editierbar (Dosierungen, EC, pH änderbar)
+```
+
+**Szenario 12: Feeding-Chart-Import (JSON-Format)**
+```
+GIVEN: JSON-Datei mit BioBizz Organic Feeding-Chart
+WHEN: Upload als NutrientPlan (Content-Type: application/json)
+THEN:
+  - Identisches Verhalten wie CSV-Import
+  - Preview und Fertilizer-Matching funktionieren analog
+  - Ergebnis: Vollständiger NutrientPlan mit Phase-Entries
+```
+
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: CSV-Import, Bulk-Import, Stammdaten, Upload, Vorschau, Duplikatbehandlung
-- Fachbegriffe: Zwei-Phasen-Import, Preview, Duplikatstrategie, Zeilen-Validierung, Cross-Field-Validierung
-- Verknüpfung: Erweitert REQ-001, komplementär zu REQ-011, nutzt NFR-006
+- Keywords: CSV-Import, Bulk-Import, Stammdaten, Upload, Vorschau, Duplikatbehandlung, Feeding-Chart, Nährstoffplan-Import, Community-Template
+- Fachbegriffe: Zwei-Phasen-Import, Preview, Duplikatstrategie, Zeilen-Validierung, Cross-Field-Validierung, Produkt-Matching, Fertilizer-Zuordnung, Template-Klonen
+- Verknüpfung: Erweitert REQ-001, komplementär zu REQ-011, nutzt NFR-006, erzeugt NutrientPlan/NutrientPlanPhaseEntry (REQ-004)

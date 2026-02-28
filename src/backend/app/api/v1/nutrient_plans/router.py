@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.nutrient_plans.schemas import (
+    ChannelFertilizerAssignRequest,
     CloneRequest,
-    FertilizerAssignRequest,
     NutrientPlanCreate,
     NutrientPlanResponse,
     NutrientPlanUpdate,
@@ -133,22 +133,28 @@ def delete_entry(
     service.delete_phase_entry(ek)
 
 
-# ── Fertilizer assignment on entries ─────────────────────────────────
+# ── Channel fertilizer assignment ─────────────────────────────────────
 
-@router.post("/entries/{ek}/fertilizers", status_code=201)
-def assign_fertilizer(
+@router.post("/entries/{ek}/channels/{cid}/fertilizers", status_code=201)
+def assign_channel_fertilizer(
     ek: str,
-    body: FertilizerAssignRequest,
+    cid: str,
+    body: ChannelFertilizerAssignRequest,
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
-    service.add_fertilizer_to_entry(ek, body.fertilizer_key, body.ml_per_liter, body.optional)
+    service.add_fertilizer_to_channel(
+        ek, cid, body.fertilizer_key, body.ml_per_liter, body.optional,
+    )
     return {"status": "assigned"}
 
 
-@router.delete("/entries/{ek}/fertilizers/{fk}", status_code=204)
-def remove_fertilizer(
+@router.delete("/entries/{ek}/channels/{cid}/fertilizers/{fk}", status_code=204)
+def remove_channel_fertilizer(
     ek: str,
+    cid: str,
     fk: str,
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
-    service.remove_fertilizer_from_entry(ek, fk)
+    service.remove_fertilizer_from_channel(ek, cid, fk)
+
+

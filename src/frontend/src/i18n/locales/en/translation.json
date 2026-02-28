@@ -12,6 +12,7 @@
     "noData": "No data available",
     "actions": "Actions",
     "back": "Back",
+    "next": "Next",
     "yes": "Yes",
     "no": "No",
     "optional": "Optional",
@@ -669,6 +670,9 @@
       "notes": "Notes",
       "fertilizerDosages": "Fertilizer Dosages",
       "addFertilizer": "Add Fertilizer",
+      "editFertilizer": "Edit Fertilizer",
+      "selectFertilizers": "Select fertilizers...",
+      "selectedFertilizers": "{{count}} fertilizer(s) selected",
       "noFertilizers": "No fertilizers assigned. Add fertilizers with dosages.",
       "mlPerLiter": "ml/L",
       "optionalDosage": "Optional",
@@ -1047,9 +1051,10 @@
       "fertigation": {
         "title": "Fertigation",
         "runsPerDay": "Runs per Day",
-        "durationMinutes": "Duration (min)",
+        "durationSeconds": "Pump Duration (seconds)",
         "flowRateMlMin": "Flow Rate (ml/min)",
-        "tankKey": "Tank"
+        "tankKey": "Tank (optional)",
+        "noTank": "No tank assigned"
       },
       "drench": {
         "title": "Drench",
@@ -1317,8 +1322,8 @@
       "neutral": "Neutral"
     },
     "applicationMethod": {
-      "fertigation": "Fertigation",
-      "drench": "Drench",
+      "fertigation": "Fertigation (tank/automatic)",
+      "drench": "Drench (watering can/manual)",
       "foliar": "Foliar",
       "top_dress": "Top Dress",
       "any": "Any"

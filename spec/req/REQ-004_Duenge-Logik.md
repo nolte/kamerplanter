@@ -7,7 +7,7 @@ Kategorie: Bewässerung & Düngung
 Fokus: Nutzpflanze (Indoor/Hydro)
 Technologie: Python, ArangoDB, Regelbasierte Logik
 Status: Entwurf
-Version: 2.0
+Version: 3.0 (Multi-Channel Delivery)
 ```
 
 ## 1. Business Case
@@ -45,6 +45,48 @@ Das System verwaltet die gesamte Nährstoffversorgung von der Planung bis zur Do
 - **Soil:** Niedrige EC (0.8-1.4 mS), organische Zusätze bevorzugt
 - **Living Soil:** Minimale Intervention, Komposttee, Mikrobiom-Fokus
 
+<!-- Quelle: Outdoor-Garden-Planner Review G-007 -->
+**Organische Freiland-Düngung:**
+
+Freilandgärtner arbeiten primär mit organischen Düngern und Bodenverbesserern. Im Gegensatz zur Hydroponik-Kalkulation (EC-Budget, ml/L) wird im Freiland nach **Ausbringungsmenge pro Flächeneinheit** (g/m² oder L/m²) dosiert. Das System unterstützt beide Paradigmen parallel:
+
+**Organische Dünger-Kategorien:**
+- **Kompost:** Reifkompost (2-4 L/m² im Frühjahr), Halbkompost (nur im Herbst als Mulch)
+- **Pflanzenjauchen:** Brennnesseljauche (1:10 verdünnt, alle 2 Wochen Mai-August), Beinwell-Jauche (kaliumreich, ideal für Fruchtgemüse)
+- **Hornprodukte:** Hornspäne (langsame N-Freisetzung, 50-80 g/m²), Hornmehl (schnellere Freisetzung, 30-50 g/m²), Horngrieß (mittel)
+- **Guano/Tierdünger:** Schafwollpellets, Hühnertrockenmist (vorsichtig dosieren — Verbrennung!)
+- **Bokashi/EM:** Fermentierte Küchenabfälle, Effektive Mikroorganismen — Bodenlebens-Aktivierung
+- **Gründüngung:** Phacelia, Senf, Inkarnatklee, Lupine — Nährstoff-Fixierung durch Pflanzenanbau (Verknüpfung mit REQ-001 `green_manure_suitable` und REQ-002 Fruchtfolge)
+- **Gesteinsmehl:** Urgesteinsmehl (Spurenelemente, Bodenstruktur), Algenkalk (pH-Anhebung)
+
+**Ausbringungs-Modell (Freiland):**
+Für organische Feststoff-Dünger und Bodenhilfsstoffe wird die Dosierung **pro Fläche** statt pro Volumen berechnet:
+- `application_rate_g_per_m2: Optional[float]` — Gramm pro Quadratmeter (Feststoffe)
+- `application_rate_l_per_m2: Optional[float]` — Liter pro Quadratmeter (Kompost, Mulch)
+- `dilution_ratio: Optional[str]` — Verdünnungsverhältnis für Jauchen/Brühen (z.B. "1:10", "1:20")
+- `application_season: Optional[list[Literal['spring', 'summer', 'autumn', 'winter']]]` — Empfohlene Ausbringungszeit
+- `nutrient_release_speed: Literal['immediate', 'weeks', 'months', 'season_long']` — Freisetzungsgeschwindigkeit
+
+**Nährstoffbedarfs-Empfehlung nach Pflanzenkategorie:**
+Statt EC-Zielwerte empfiehlt das System für Freilandpflanzen eine vereinfachte Düngestrategie basierend auf dem `nutrient_demand_level` (REQ-001):
+
+| Nährstoffbedarf | Typische Pflanzen | Empfehlung |
+|----------------|-------------------|------------|
+| `heavy_feeder` (Starkzehrer) | Tomate, Kürbis, Kohl, Zucchini, Mais | Kompost (3-4 L/m²) + Hornspäne (80 g/m²) + Jauche alle 2 Wo |
+| `medium_feeder` (Mittelzehrer) | Möhre, Fenchel, Salat, Zwiebel, Kohlrabi | Kompost (2-3 L/m²) + Hornspäne (40 g/m²), Jauche optional |
+| `light_feeder` (Schwachzehrer) | Bohne, Erbse, Radieschen, Kräuter (mediterran) | Kompost (1-2 L/m²), kein weiterer Dünger nötig |
+| `nitrogen_fixer` (N-Fixierer) | Bohne, Erbse, Lupine, Klee | Kein N-Dünger! Nur Kalium/Phosphor bei Bedarf |
+
+**Bodenanalyse als Ausgangspunkt:**
+Für Freilandgärten empfiehlt das System eine optionale Bodenanalyse als Startpunkt:
+- `soil_ph: Optional[float]` — pH-Wert des Gartenbodens (Ziel: 6.0-7.0 für Gemüse)
+- `soil_type: Optional[Literal['sandy', 'loamy', 'clay', 'silty', 'humus_rich', 'raised_bed_mix']]`
+- `soil_analysis_date: Optional[date]` — Datum der letzten Bodenanalyse
+- `soil_notes: Optional[str]` — Freitext für Besonderheiten
+
+**Abgrenzung Hydro/Freiland:**
+Die bestehende EC-Budget-Kalkulation und Mischsequenz-Validierung gelten weiterhin für `substrate_type IN ('hydro', 'coco', 'dwc', 'aeroponics')`. Für `substrate_type IN ('soil', 'living_soil', 'raised_bed_mix')` wird die organische Freiland-Düngung empfohlen. Das UI blendet im Anfänger-/Fortgeschrittenen-Modus (REQ-021) die EC/pH-Mischlogik aus und zeigt stattdessen die vereinfachte Düngeempfehlung.
+
 **Applikationsmethoden & ergänzende Handdüngung:**
 Nicht alle Dünger eignen sich für die Ausbringung über Tank/Tropfer-Systeme. Organische Dünger (Komposttee, Fischemulsion, Wurmhumus-Extrakt, Mykorrhiza-Suspensionen) enthalten Schwebstoffe, die Tropfer verstopfen, und biologische Kulturen, die im Tank Biofilm verursachen können. Daher unterstützt das System **ergänzendes manuelles Gießen per Gießkanne** auch bei Locations mit automatischer Bewässerung:
 
@@ -54,6 +96,19 @@ Nicht alle Dünger eignen sich für die Ausbringung über Tank/Tropfer-Systeme. 
 - **Top Dress (Oberfläche):** Feste organische Zusätze auf die Substratoberfläche — Wurmhumus, Guano, Langzeitdünger
 
 Das `Fertilizer`-Modell enthält `tank_safe: bool` und `recommended_application`, um bei der Düngung die passende Applikationsmethode vorzuschlagen und vor Tank-Kontamination zu warnen.
+
+<!-- Quelle: Cannabis Indoor Grower Review G-013 -->
+**Phasenbasierte Foliar-Warnung (Blüte):**
+Blattdüngung (`foliar`) in der Blütephase ab Woche 2 ist fachlich kritisch: Sprühnebel auf Blütenständen (Buds) fördert **Schimmelbildung** (Botrytis, Mehltau), verursacht **Geschmacksverunreinigung** und hinterlässt bei Räuchergut **Rückstände auf dem Erntegut**. Das System implementiert daher eine **phasenbasierte Soft-Warnung** für Foliar-Applikation:
+
+- **Regellogik:** Wenn `application_method = 'foliar'` UND aktuelle Phase = `flowering` UND Blütewoche ≥ 2 → Soft-Warnung anzeigen
+- **Warnstufe:** `WARNING` (kein Hardblock) — die Aktion bleibt ausführbar, wird aber mit deutlichem Warnhinweis versehen
+- **Warntext:** _„Foliar-Feeding in der Blüte (ab Woche 2) vermeiden! Schimmelrisiko auf Buds, Geschmacksverunreinigung und Rückstände auf Erntegut. Blattdüngung nur in Vegetationsphase oder maximal Blütewoche 1."_
+- **Kein Hardblock**, weil IPM-Notfallbehandlungen (z.B. Kaliumbicarbonat gegen Echten Mehltau) auch in der Blüte per Spray appliziert werden müssen. Solche Behandlungen werden über REQ-010 (IPM-System) als `emergency_treatment` gekennzeichnet und sind von der Warnung ausgenommen
+- **Ausnahmeregel:** Wenn das FeedingEvent mit einem `TreatmentApplication` (REQ-010) verknüpft ist und `is_emergency: true` gesetzt ist, wird die Warnung unterdrückt
+- **Phasen-Erlaubnis:** In `germination`, `seedling` und `vegetative` ist Foliar uneingeschränkt erlaubt. In `flowering` Woche 1 wird ein informativer Hinweis angezeigt (Severity: `INFO`), ab Woche 2 die volle Warnung (Severity: `WARNING`)
+- **UI-Darstellung:** Gelbes Warnsymbol (⚠) neben dem Applikationsmethoden-Dropdown, wenn `foliar` in der Blütephase ab Woche 2 ausgewählt wird. Der Warntext wird als expandierbarer Alert-Banner über dem Formular angezeigt
+- **API-Response:** Bei Erstellung eines FeedingEvent mit `application_method='foliar'` in der Blütephase ab Woche 2 enthält die Response ein `warnings`-Array mit dem Warnhinweis (HTTP 201, nicht 422)
 
 **Flushing-Strategien:**
 - **Pre-Harvest Flush:** 7-14 Tage vor Ernte, graduelle EC-Reduktion
@@ -73,6 +128,39 @@ Das System ermöglicht die Erstellung und Verwaltung von Lifecycle-Nährstoffpl�
 - **Klonen/Varianten-Funktion:** Bestehende Pläne können als Deep-Copy geklont und unabhängig angepasst werden
 - **Zuweisung zu PlantInstance:** Ein Plan wird 1:1 einer PlantInstance zugewiesen (wechselbar). Das System leitet daraus die aktuellen Dosierungen für die jeweilige Phase ab
 - **Template-System:** Pläne können als Template markiert werden, um als Vorlage für andere Nutzer zu dienen
+
+**Gantt-Diagramm-Visualisierung (Nährstoffplan-Timeline):**
+
+**User Story:** "Als Gärtner möchte ich meinen Nährstoffplan als Gantt-Diagramm sehen, damit ich auf einen Blick erkenne, welche Dünger in welcher Phase über welchen Zeitraum eingesetzt werden — und bei Hover auf eine Phase die vollständigen Details erhalte."
+
+**Beschreibung:**
+Das System stellt jeden Nährstoffplan als interaktives Gantt-Diagramm dar. Die X-Achse bildet den Wochen-Zeitstrahl des gesamten Plans ab (`week_start` bis `week_end` über alle Phase-Entries), die Y-Achse listet alle im Plan genutzten Dünger auf.
+
+**Diagramm-Aufbau:**
+- **X-Achse (Zeitstrahl):** Wochen von `min(week_start)` bis `max(week_end)` aller Phase-Entries. Jede Woche ist eine Spalte. Phasengrenzen werden durch vertikale Trennlinien oder Farbwechsel im Hintergrund visualisiert
+- **Y-Achse (Dünger-Zeilen):** Jeder im Plan genutzte Dünger (`FertilizerDosage.fertilizer_key`) erhält eine eigene Zeile. Der Düngername wird aus dem Fertilizer-Katalog aufgelöst (`brand` + `product_name`)
+- **Balken:** Pro Dünger und Phase-Entry ein horizontaler Balken von `week_start` bis `week_end`. Die Balkenbeschriftung zeigt die Dosierung (`ml_per_liter`). Optionale Dünger (`optional: true`) werden mit gestricheltem Rahmen oder reduzierter Opazität dargestellt
+- **Phasen-Farbcodierung:** Jeder Balken erhält die Farbe der zugehörigen Wachstumsphase (z.B. Germination=grün, Seedling=hellgrün, Vegetative=blau, Flowering=lila, Harvest=orange). Die Phasennamen werden als Legende und optional als Hintergrund-Bänder über dem Zeitstrahl angezeigt
+- **Phasen-Header-Zeile:** Über den Dünger-Zeilen wird eine zusammenfassende Zeile dargestellt, die jede Phase als durchgehenden Balken über ihren Wochenzeitraum zeigt — mit Phasenname, Ziel-EC und Ziel-pH als Beschriftung
+
+**Hover-Tooltip (Phase-Detail):**
+Wenn der Nutzer mit der Maus über einen Phasen-Balken (Header-Zeile) oder einen Dünger-Balken fährt, erscheint ein Tooltip mit den vollständigen Details des zugehörigen Phase-Entry:
+- **Phasenname** (übersetzt) und Wochenzeitraum (`Woche X–Y`)
+- **Zielwerte:** EC (mS), pH, NPK-Ratio (N-P-K)
+- **Optionale Nährstoffe:** Calcium (ppm), Magnesium (ppm) — sofern definiert
+- **Fütterungsplan:** Frequenz pro Woche, Volumen pro Fütterung (Liter) — sofern definiert
+- **Alle Dünger der Phase:** Tabellarische Auflistung aller `fertilizer_dosages` mit Düngername, Dosierung (ml/L), optional-Flag und `mixing_priority` (Reihenfolge)
+- **Notizen:** Phase-Entry-Notizen — sofern vorhanden
+- **EC-Budget-Status:** Wenn Validierungsdaten vorliegen (`PlanValidationResult.ec_budgets`), wird der EC-Budget-Status angezeigt (✓ gültig / ✗ Abweichung mit Delta)
+
+**Interaktion:**
+- **Responsive:** Das Diagramm passt sich der verfügbaren Breite an. Bei vielen Wochen (>16) wird horizontal gescrollt
+- **Legende:** Unterhalb oder seitlich des Diagramms wird eine Phasen-Farbcodierungs-Legende angezeigt
+- **Lücken-Erkennung:** Wochen ohne Phase-Entry werden als leere Spalten (grauer Hintergrund) dargestellt, um fehlende Phasenabdeckung visuell hervorzuheben
+- **Überlappungs-Erkennung:** Überlappende Phase-Entries werden als gestapelte Balken dargestellt, mit visueller Warnung (roter Rahmen)
+
+**Integration in NutrientPlanDetailPage:**
+Das Gantt-Diagramm wird als zusätzlicher Tab „Zeitplan" (Timeline) auf der NutrientPlanDetailPage dargestellt — neben den bestehenden Tabs für Phase-Entries, Validierung und Bearbeitung. Alternativ kann das Diagramm über einen Toggle-Button (Listenansicht ↔ Gantt-Ansicht) im Phase-Entries-Tab eingeblendet werden.
 
 **Abgrenzung NutrientProfile vs. NutrientPlan:**
 
@@ -101,6 +189,15 @@ Das System ermöglicht die Erstellung und Verwaltung von Lifecycle-Nährstoffpl�
     - `ph_effect: Literal['acidic', 'alkaline', 'neutral']`
     - `shelf_life_days: int`
     - `storage_temp_range: tuple[float, float]`
+    <!-- Quelle: Outdoor-Garden-Planner Review G-007 -->
+    - `application_rate_g_per_m2: Optional[float]` (Gramm pro m² für Feststoff-Dünger)
+    - `application_rate_l_per_m2: Optional[float]` (Liter pro m² für Kompost/Mulch)
+    - `dilution_ratio: Optional[str]` (Verdünnungsverhältnis für Jauchen, z.B. "1:10")
+    - `application_season: Optional[list[Literal['spring', 'summer', 'autumn', 'winter']]]`
+    - `nutrient_release_speed: Literal['immediate', 'weeks', 'months', 'season_long'] = 'immediate'`
+    - `suitable_for_demand_level: Optional[list[Literal['heavy_feeder', 'medium_feeder', 'light_feeder']]]` (Für welche Nährstoffbedarfs-Stufe geeignet)
+    - `homemade: bool = False` (Selbst hergestellt — Brennnesseljauche, Kompost, Bokashi)
+    - `homemade_recipe: Optional[str]` (Herstellungsanleitung für homemade Dünger)
 
 - **`Component`** - Einzelner Nährstoff
   - Properties:
@@ -154,6 +251,22 @@ Das System ermöglicht die Erstellung und Verwaltung von Lifecycle-Nährstoffpl�
     - `is_template: bool` (als Vorlage für andere nutzbar)
     - `version: int` (Versionierung bei Änderungen)
     - `tags: list[str]` (z.B. ["organic", "autoflower", "heavy-feeder"])
+    - `watering_schedule: Optional[WateringSchedule]` (Gießplan-Konfiguration für manuelle Bewässerung — siehe eingebettetes Modell unten; `null` = Plan ohne Terminplanung, rein als Dosierungsvorlage nutzbar)
+
+- **`WateringSchedule`** - Eingebettetes Modell (kein eigenes Dokument) innerhalb von `NutrientPlan`
+  - Beschreibung: Definiert *wann* und *wie* manuell gegossen wird. Unterstützt zwei Modi: feste Wochentage (z.B. Mo/Mi/Fr) oder Intervall-basiert (z.B. alle 3 Tage). Die Kombination aus NutrientPlan (was/wieviel) und WateringSchedule (wann/wie) ergibt einen vollständigen Gießplan.
+  - Properties:
+    - `schedule_mode: Literal['weekdays', 'interval']` (Terminplanungs-Modus)
+    - `weekday_schedule: Optional[list[int]]` (0=Montag..6=Sonntag; Pflicht bei `mode='weekdays'`, ignoriert bei `mode='interval'`; 1–7 Tage wählbar, keine Duplikate)
+    - `interval_days: Optional[int]` (1–90 Tage; Pflicht bei `mode='interval'`, ignoriert bei `mode='weekdays'`)
+    - `preferred_time: Optional[str]` (HH:MM Format, z.B. "08:00"; für Erinnerungs-Timing und Task-`scheduled_time`)
+    - `application_method: Literal['drench', 'foliar', 'top_dress']` (Default: `'drench'`; `'fertigation'` ist bewusst ausgeschlossen — Tank-Bewässerung wird über REQ-014 TankFillEvent gesteuert, nicht über den manuellen Gießplan)
+    - `reminder_hours_before: int` (0–24, Default: 2; Stunden vor `preferred_time`, zu der die Erinnerung/Task erscheinen soll; 0 = Erinnerung zum Gießzeitpunkt)
+  - Validatoren:
+    - `mode='weekdays'` → `weekday_schedule` muss nicht-leer sein, alle Werte 0–6, keine Duplikate
+    - `mode='interval'` → `interval_days` muss gesetzt sein, 1–90
+    - `preferred_time` → Format-Validierung HH:MM (00:00–23:59)
+    - `application_method` → darf NICHT `'fertigation'` sein (Geschäftsregel: Fertigation = Tank-basiert, nicht manuell schedulbar)
 
 - **`NutrientPlanPhaseEntry`** - Phasen-spezifische Konfiguration innerhalb eines Plans
   - Properties:
@@ -199,6 +312,13 @@ HAS_PHASE_ENTRY:       NutrientPlan -> NutrientPlanPhaseEntry      {sequence: in
 USES_FERTILIZER:       NutrientPlanPhaseEntry -> Fertilizer        {ml_per_liter: float, optional: bool}
 FOLLOWS_PLAN:          PlantInstance -> NutrientPlan               {assigned_at: datetime, assigned_by: str}
 CLONED_FROM:           NutrientPlan -> NutrientPlan                {cloned_at: datetime}
+
+// Gießplan-Workflow: PlantingRun → NutrientPlan Zuweisung (REQ-013 Integration)
+RUN_FOLLOWS_PLAN:      PlantingRun -> NutrientPlan                 {assigned_at: datetime, assigned_by: str}
+// Abgrenzung zu FOLLOWS_PLAN: FOLLOWS_PLAN ist die 1:1-Zuweisung einer einzelnen
+// PlantInstance zu einem NutrientPlan. RUN_FOLLOWS_PLAN ist die Run-weite Zuweisung,
+// die als Default für alle Pflanzen im Run gilt. Bei create_plants (REQ-013) werden
+// automatisch FOLLOWS_PLAN-Edges für die einzelnen Pflanzen erzeugt.
 ```
 
 ### AQL-Beispiellogik:
@@ -507,6 +627,71 @@ RETURN new_plan
 ## 3. Technische Umsetzung (Python)
 
 ### Logik-Anforderungen:
+
+**0. Gießplan-Scheduling (WateringSchedule):**
+```python
+from enum import StrEnum
+from pydantic import BaseModel, Field, field_validator, model_validator
+from typing import Literal, Optional
+from datetime import date, time
+
+class ScheduleMode(StrEnum):
+    """Terminplanungs-Modus für Gießpläne"""
+    WEEKDAYS = "weekdays"   # Feste Wochentage (z.B. Mo/Mi/Fr)
+    INTERVAL = "interval"   # Intervall-basiert (z.B. alle 3 Tage)
+
+class ApplicationMethod(StrEnum):
+    """Applikationsmethode (Subset für manuelles Gießen)"""
+    DRENCH = "drench"       # Gießkanne — Substrat-Durchspülung
+    FOLIAR = "foliar"       # Blattdüngung per Sprüher
+    TOP_DRESS = "top_dress" # Feststoff-Aufbringung auf Substrat
+
+class WateringSchedule(BaseModel):
+    """
+    Gießplan-Konfiguration: Wann und wie manuell gegossen wird.
+    Eingebettetes Modell innerhalb von NutrientPlan.
+    """
+
+    schedule_mode: ScheduleMode
+    weekday_schedule: Optional[list[int]] = Field(
+        None,
+        description="Wochentage (0=Mo..6=So). Pflicht bei mode='weekdays'."
+    )
+    interval_days: Optional[int] = Field(
+        None, ge=1, le=90,
+        description="Gieß-Intervall in Tagen. Pflicht bei mode='interval'."
+    )
+    preferred_time: Optional[str] = Field(
+        None,
+        pattern=r"^([01]\d|2[0-3]):[0-5]\d$",
+        description="Bevorzugte Gießzeit im Format HH:MM"
+    )
+    application_method: ApplicationMethod = Field(
+        default=ApplicationMethod.DRENCH,
+        description="Applikationsmethode für manuelle Bewässerung"
+    )
+    reminder_hours_before: int = Field(
+        default=2, ge=0, le=24,
+        description="Stunden vor preferred_time für Erinnerung"
+    )
+
+    @model_validator(mode='after')
+    def validate_mode_fields(self):
+        """Mode-abhängige Pflichtfelder prüfen"""
+        if self.schedule_mode == ScheduleMode.WEEKDAYS:
+            if not self.weekday_schedule:
+                raise ValueError("weekday_schedule ist Pflicht bei mode='weekdays'")
+            if len(self.weekday_schedule) < 1 or len(self.weekday_schedule) > 7:
+                raise ValueError("weekday_schedule muss 1–7 Tage enthalten")
+            if len(set(self.weekday_schedule)) != len(self.weekday_schedule):
+                raise ValueError("weekday_schedule darf keine Duplikate enthalten")
+            if not all(0 <= d <= 6 for d in self.weekday_schedule):
+                raise ValueError("Wochentage müssen 0–6 sein (Mo–So)")
+        elif self.schedule_mode == ScheduleMode.INTERVAL:
+            if self.interval_days is None:
+                raise ValueError("interval_days ist Pflicht bei mode='interval'")
+        return self
+```
 
 **1. Nutrient Solution Calculator:**
 ```python
@@ -1169,6 +1354,11 @@ class NutrientPlan(BaseModel):
     version: int = Field(default=1, ge=1)
     tags: list[str] = Field(default_factory=list, max_length=20)
     phase_entries: list[NutrientPlanPhaseEntry] = Field(default_factory=list)
+    watering_schedule: Optional[WateringSchedule] = Field(
+        None,
+        description="Gießplan-Konfiguration für manuelle Bewässerung. "
+                    "null = Plan ohne Terminplanung (rein als Dosierungsvorlage)."
+    )
 
     @field_validator('tags')
     @classmethod
@@ -1329,6 +1519,125 @@ class NutrientPlanValidator:
         }
 ```
 
+**5. WateringScheduleEngine (Gießplan-Terminierung):**
+```python
+from datetime import date, timedelta
+from typing import Optional
+
+class WateringScheduleEngine:
+    """
+    Berechnet Gießtermine aus WateringSchedule-Konfiguration.
+    Reine Logik ohne DB-Zugriff — wird von Services und Celery-Tasks genutzt.
+    """
+
+    @staticmethod
+    def is_watering_due(
+        schedule: WateringSchedule,
+        check_date: date,
+        last_watering_date: Optional[date] = None
+    ) -> bool:
+        """
+        Prüft ob am check_date gegossen werden soll.
+
+        Bei mode='weekdays': check_date.weekday() muss in weekday_schedule sein.
+        Bei mode='interval': Differenz seit last_watering_date muss >= interval_days sein.
+            Wenn last_watering_date None: immer True (erster Gießtermin).
+        """
+        if schedule.schedule_mode == ScheduleMode.WEEKDAYS:
+            return check_date.weekday() in schedule.weekday_schedule
+        elif schedule.schedule_mode == ScheduleMode.INTERVAL:
+            if last_watering_date is None:
+                return True
+            days_since = (check_date - last_watering_date).days
+            return days_since >= schedule.interval_days
+        return False
+
+    @staticmethod
+    def get_next_watering_dates(
+        schedule: WateringSchedule,
+        from_date: date,
+        days_ahead: int = 14,
+        last_watering_date: Optional[date] = None
+    ) -> list[date]:
+        """
+        Berechnet die nächsten Gießtermine innerhalb eines Zeitfensters.
+        Returns: Liste von Datumswerten, sortiert aufsteigend.
+
+        Bei mode='weekdays': Alle Tage im Fenster die in weekday_schedule liegen.
+        Bei mode='interval': Jeder interval_days-te Tag ab last_watering_date
+            (oder ab from_date wenn kein letztes Gießdatum).
+        """
+        dates = []
+        if schedule.schedule_mode == ScheduleMode.WEEKDAYS:
+            for offset in range(days_ahead):
+                check = from_date + timedelta(days=offset)
+                if check.weekday() in schedule.weekday_schedule:
+                    dates.append(check)
+        elif schedule.schedule_mode == ScheduleMode.INTERVAL:
+            anchor = last_watering_date or from_date
+            # Nächster Termin nach anchor
+            next_date = anchor + timedelta(days=schedule.interval_days)
+            while next_date < from_date:
+                next_date += timedelta(days=schedule.interval_days)
+            while next_date < from_date + timedelta(days=days_ahead):
+                dates.append(next_date)
+                next_date += timedelta(days=schedule.interval_days)
+        return dates
+
+    @staticmethod
+    def resolve_dosages_for_run(
+        plan: 'NutrientPlan',
+        entries: list['NutrientPlanPhaseEntry'],
+        plants_by_phase: dict[str, list[str]]
+    ) -> dict:
+        """
+        Gruppiert Pflanzen nach Phase und liefert phasen-spezifische Dosierungen.
+
+        Args:
+            plan: Der zugewiesene NutrientPlan
+            entries: Phase-Entries des Plans (vorgeladen)
+            plants_by_phase: {phase_name: [plant_key, ...]} — aktuelle Phasenzuordnung
+
+        Returns: {
+            phase_name: {
+                'plant_keys': [...],
+                'target_ec_ms': float,
+                'target_ph': float,
+                'volume_per_feeding_liters': float,
+                'fertilizer_dosages': [{fertilizer_key, ml_per_liter, optional, mixing_priority}]
+            }
+        }
+
+        Pflanzen in Phasen ohne Phase-Entry im Plan werden unter 'unmatched' gruppiert.
+        """
+        entry_map = {e.phase_name: e for e in entries}
+        result = {}
+
+        for phase_name, plant_keys in plants_by_phase.items():
+            entry = entry_map.get(phase_name)
+            if entry:
+                result[phase_name] = {
+                    'plant_keys': plant_keys,
+                    'target_ec_ms': entry.target_ec_ms,
+                    'target_ph': entry.target_ph,
+                    'volume_per_feeding_liters': entry.volume_per_feeding_liters,
+                    'fertilizer_dosages': [
+                        {
+                            'fertilizer_key': d.fertilizer_key,
+                            'ml_per_liter': d.ml_per_liter,
+                            'optional': d.optional,
+                            'mixing_priority': d.mixing_priority
+                        }
+                        for d in entry.fertilizer_dosages
+                    ]
+                }
+            else:
+                unmatched = result.setdefault('unmatched', {'plant_keys': []})
+                unmatched['plant_keys'].extend(plant_keys)
+
+        return result
+```
+
 **API-Schemas für Nährstoffplan-Verwaltung:**
 ```python
 from pydantic import BaseModel, Field
@@ -1433,6 +1742,43 @@ class ValidationResponse(BaseModel):
 
 **REST-Endpoints:**
 ```python
+# Router: /api/v1/fertilizers
+
+# Dünger-CRUD
+GET    /api/v1/fertilizers                                  # List (Filter: fertilizer_type, brand, tank_safe, is_organic)
+POST   /api/v1/fertilizers                                  # Create
+GET    /api/v1/fertilizers/{key}                            # Detail
+PUT    /api/v1/fertilizers/{key}                            # Update
+DELETE /api/v1/fertilizers/{key}                            # Delete
+
+# Stock-Verwaltung
+GET    /api/v1/fertilizers/{key}/stocks                    # List Stocks
+POST   /api/v1/fertilizers/{key}/stocks                    # Create Stock
+PUT    /api/v1/fertilizers/{key}/stocks/{sk}               # Update Stock
+DELETE /api/v1/fertilizers/{key}/stocks/{sk}               # Delete Stock
+
+# Inkompatibilitäten
+GET    /api/v1/fertilizers/{key}/incompatibilities         # List
+POST   /api/v1/fertilizers/{key}/incompatibilities         # Add
+DELETE /api/v1/fertilizers/{key}/incompatibilities/{other}  # Remove
+```
+
+**Düngemittel-Listenansicht — Filterung:**
+
+Die Düngemittel-Tabelle (`GET /api/v1/fertilizers`) unterstützt folgende Query-Parameter zur serverseitigen Filterung:
+
+| Query-Parameter | Typ | Beschreibung |
+|----------------|-----|-------------|
+| `fertilizer_type` | `string` | Filter nach Dünger-Typ (`base`, `supplement`, `booster`, `biological`, `ph_adjuster`, `organic`) |
+| `brand` | `string` | Filter nach Hersteller/Marke (case-insensitive Teilstring-Suche, z.B. `?brand=hydro` findet "General Hydroponics") |
+| `tank_safe` | `bool` | Filter nach Tank-Sicherheit (`true` = nur tanksichere Dünger, `false` = nur nicht-tanksichere) |
+| `is_organic` | `bool` | Filter nach Bio-Zertifizierung (`true` = nur organische Dünger, `false` = nur konventionelle) |
+| `offset` | `int` | Pagination-Offset (Default: 0) |
+| `limit` | `int` | Pagination-Limit (Default: 50, Max: 200) |
+
+Alle Filter sind optional und kombinierbar (AND-Verknüpfung). Ohne Filter wird die vollständige Düngerliste zurückgegeben.
+
+```python
 # Router: /api/v1/nutrient-plans
 
 # Plan-CRUD
@@ -1527,6 +1873,11 @@ class FeedingEventRecord(BaseModel):
         description="Ergänzende Handdüngung zusätzlich zur Tank-Bewässerung — "
                     "z.B. Komposttee per Gießkanne bei Drip-versorgten Pflanzen"
     )
+    watering_event_key: Optional[str] = Field(
+        None,
+        description="Referenz auf WateringEvent (REQ-014), "
+                    "wenn FeedingEvent automatisch aus Gießvorgang erzeugt wurde"
+    )
     tank_fill_event_key: Optional[str] = Field(
         None,
         description="Referenz auf TankFillEvent (REQ-014), "
@@ -1575,7 +1926,711 @@ class FeedingEventRecord(BaseModel):
         return self
 ```
 
-## 4. Authentifizierung & Autorisierung
+## 4. Multi-Channel Delivery (Ausbringungskanäle)
+
+### 4.1 Motivation & User Story
+
+**User Story:** "Als Gärtner möchte ich pro Wachstumsphase mehrere parallele Ausbringungskanäle definieren — z.B. Tropfer für Base-Nährstoffe (3x/Tag), Gießkanne für Komposttee (1x/Woche) und Blattdüngung für Mikronährstoffe (alle 2 Wochen) — damit ich komplexe Düngeprogramme mit unterschiedlichen Methoden, Intervallen und Düngerlisten in einem einzigen Nährstoffplan abbilden kann."
+
+**Problemstellung:**
+Der aktuelle `NutrientPlanPhaseEntry` unterstützt pro Phase nur **eine** Kombination aus Ausbringungsmethode, Frequenz, Volumen und Düngerliste. In der Praxis verwenden Grower jedoch mehrere parallele Kanäle:
+
+| Kanal | Methode | Frequenz | Dünger |
+|---|---|---|---|
+| Tropfer (Base) | Fertigation | 3x/Tag | FloraGro, FloraMicro, CalMag |
+| Komposttee | Drench | 1x/Woche | Komposttee, Wurmhumus-Extrakt |
+| Mikronährstoffe | Foliar | alle 14 Tage | Eisen-Chelat, Kalzium-Spray |
+| Mykorrhiza | Top Dress | monatlich | Mykorrhiza-Granulat |
+
+**Vergleich: Aktueller Stand vs. Zielzustand:**
+
+| Aspekt | Aktuell (Single-Channel) | Ziel (Multi-Channel) |
+|---|---|---|
+| Ausbringungskanäle pro Phase | 1 | 1–n |
+| Separate Schedules | Nein (Plan-Level) | Ja (pro Channel) |
+| Eigene Düngerliste pro Kanal | Nein | Ja |
+| Eigene EC/pH-Ziele pro Kanal | Nein | Ja (optional, Override) |
+| Tank-Verknüpfung (REQ-014) | Nein | Ja (optional, Fertigation) |
+| Legacy-Kompatibilität | — | Ja (`delivery_channels=[]`) |
+
+### 4.2 Datenmodell
+
+#### Neues Embedded Model: `DeliveryChannel`
+
+`DeliveryChannel` wird als eingebettetes Modell (kein eigenes ArangoDB-Dokument) innerhalb von `NutrientPlanPhaseEntry` gespeichert. Jeder Channel beschreibt einen unabhängigen Ausbringungskanal mit eigener Methode, eigenem Schedule und eigenen Düngern.
+
+**Gemeinsame Felder (alle Methoden):**
+
+| Feld | Typ | Constraints | Beschreibung |
+|---|---|---|---|
+| `channel_id` | `str` | max 50, unique innerhalb Entry | Eindeutiger Bezeichner (z.B. `"dripper-base"`, `"compost-tea"`) |
+| `label` | `str` | max 100 | Anzeigename (z.B. "Tropfer (Base Nutrients)") |
+| `application_method` | `ApplicationMethod` | `fertigation\|drench\|foliar\|top_dress` | Ausbringungsmethode |
+| `enabled` | `bool` | Default: `true` | Channel aktiv/deaktiviert (ohne Löschung) |
+| `notes` | `Optional[str]` | max 500 | Freitext-Notizen |
+
+**Methoden-spezifische Parameter (Discriminated Union per `application_method`):**
+
+Jede Ausbringungsmethode besitzt spezifische Parameter, die nur für diese Methode gelten. Das Modell nutzt eine Discriminated Union (`fertigation_params`, `drench_params`, `foliar_params`, `top_dress_params`), wobei exakt das zur `application_method` passende Params-Objekt gesetzt sein muss.
+
+**`FertigationParams`:**
+
+| Feld | Typ | Constraints | Default | Beschreibung |
+|---|---|---|---|---|
+| `runs_per_day` | `int` | 1–24 | 1 | Anzahl Bewässerungszyklen pro Tag |
+| `duration_minutes` | `float` | >0, ≤120 | 5.0 | Dauer pro Zyklus in Minuten |
+| `flow_rate_ml_min` | `Optional[float]` | >0 | — | Durchflussrate (für Volumenberechnung) |
+| `tank_key` | `Optional[str]` | — | — | Verknüpfung zu Tank (REQ-014) |
+
+**`DrenchParams`:**
+
+| Feld | Typ | Constraints | Default | Beschreibung |
+|---|---|---|---|---|
+| `volume_per_feeding_liters` | `float` | >0, ≤100 | — | Volumen pro Gießvorgang |
+
+**`FoliarParams`:**
+
+| Feld | Typ | Constraints | Default | Beschreibung |
+|---|---|---|---|---|
+| `volume_per_spray_liters` | `float` | >0, ≤10 | — | Sprühvolumen pro Anwendung |
+
+**`TopDressParams`:**
+
+| Feld | Typ | Constraints | Default | Beschreibung |
+|---|---|---|---|---|
+| `grams_per_plant` | `Optional[float]` | >0, ≤5000 | — | Gramm pro Pflanze |
+| `grams_per_m2` | `Optional[float]` | >0, ≤10000 | — | Gramm pro Quadratmeter (Freiland) |
+
+**Channel-Level Scheduling:**
+
+| Feld | Typ | Constraints | Beschreibung |
+|---|---|---|---|
+| `schedule` | `Optional[WateringSchedule]` | — | Eigener Zeitplan (wiederverwendetes Modell). `null` = kein automatisches Scheduling. Bei Multi-Channel ist `fertigation` als `application_method` im Schedule **erlaubt** (Abweichung von Plan-Level WateringSchedule, wo Fertigation ausgeschlossen ist). Für Fertigation-Channels bestimmt der Schedule die **Gießtage**, wahrend `runs_per_day` + `duration_minutes` die Intra-Day-Frequenz steuern. |
+
+**Channel-Level Targets & Dosierungen:**
+
+| Feld | Typ | Constraints | Beschreibung |
+|---|---|---|---|
+| `target_ec_ms` | `Optional[float]` | 0.0–4.0 | Override für Phase-Level EC. `null` = Phase-EC gilt. |
+| `target_ph` | `Optional[float]` | 4.0–8.0 | Override für Phase-Level pH. `null` = Phase-pH gilt. |
+| `fertilizer_dosages` | `list[FertilizerDosage]` | — | Channel-eigene Düngerliste mit Dosierungen. Verwendet das bestehende `FertilizerDosage`-Modell. |
+
+#### Modifiziert: `NutrientPlanPhaseEntry`
+
+Erweiterung um ein neues Feld:
+
+| Feld | Typ | Constraints | Default | Beschreibung |
+|---|---|---|---|---|
+| `delivery_channels` | `list[DeliveryChannel]` | max 10 Channels pro Entry | `[]` | Liste der Ausbringungskanäle |
+
+**Legacy-Kompatibilität:** Die bestehenden Felder `feeding_frequency_per_week`, `volume_per_feeding_liters` und `fertilizer_dosages` (Phase-Level) bleiben erhalten.
+
+**Geschäftsregel:** Wenn `delivery_channels` nicht leer ist (`len > 0`), werden die Legacy-Felder (`feeding_frequency_per_week`, `volume_per_feeding_liters`, Phase-Level `fertilizer_dosages`) **ignoriert**. Die Kanäle sind dann die alleinige Quelle für Scheduling, Volumina und Dosierungen.
+
+**Mehrere Kanäle gleichen Typs:** Erlaubt — z.B. zwei `drench`-Kanäle mit unterschiedlichen Düngern (ein Kanal für Base-Nährstoffe, ein anderer für Komposttee).
+
+#### Pydantic-Modell
+
+```python
+from pydantic import BaseModel, Field, model_validator
+from typing import Optional, Literal
+
+class FertigationParams(BaseModel):
+    """Parameter für Tank/Tropfer-basierte Ausbringung"""
+    runs_per_day: int = Field(default=1, ge=1, le=24)
+    duration_minutes: float = Field(default=5.0, gt=0, le=120)
+    flow_rate_ml_min: Optional[float] = Field(None, gt=0)
+    tank_key: Optional[str] = Field(
+        None,
+        description="Verknüpfung zu Tank (REQ-014). Aktiviert Tank-Safe-Prüfung."
+    )
+
+class DrenchParams(BaseModel):
+    """Parameter für manuelles Gießen per Gießkanne"""
+    volume_per_feeding_liters: float = Field(gt=0, le=100)
+
+class FoliarParams(BaseModel):
+    """Parameter für Blattdüngung per Sprüher"""
+    volume_per_spray_liters: float = Field(gt=0, le=10)
+
+class TopDressParams(BaseModel):
+    """Parameter für Feststoff-Aufbringung auf Substratoberfläche"""
+    grams_per_plant: Optional[float] = Field(None, gt=0, le=5000)
+    grams_per_m2: Optional[float] = Field(None, gt=0, le=10000)
+
+    @model_validator(mode='after')
+    def at_least_one_dosage(self):
+        if self.grams_per_plant is None and self.grams_per_m2 is None:
+            raise ValueError(
+                "Mindestens grams_per_plant oder grams_per_m2 muss gesetzt sein"
+            )
+        return self
+
+class DeliveryChannel(BaseModel):
+    """
+    Ausbringungskanal innerhalb einer NutrientPlanPhaseEntry.
+    Eingebettetes Modell — kein eigenes ArangoDB-Dokument.
+    """
+    channel_id: str = Field(max_length=50)
+    label: str = Field(max_length=100)
+    application_method: Literal['fertigation', 'drench', 'foliar', 'top_dress']
+    enabled: bool = Field(default=True)
+    notes: Optional[str] = Field(None, max_length=500)
+
+    # Methoden-spezifische Parameter (Discriminated Union)
+    fertigation_params: Optional[FertigationParams] = None
+    drench_params: Optional[DrenchParams] = None
+    foliar_params: Optional[FoliarParams] = None
+    top_dress_params: Optional[TopDressParams] = None
+
+    # Channel-Level Scheduling
+    schedule: Optional[WateringSchedule] = Field(
+        None,
+        description="Eigener Zeitplan. Bei Fertigation bestimmt der Schedule die "
+                    "Gießtage, runs_per_day die Intra-Day-Frequenz."
+    )
+
+    # Channel-Level Targets (Overrides)
+    target_ec_ms: Optional[float] = Field(None, ge=0.0, le=4.0)
+    target_ph: Optional[float] = Field(None, ge=4.0, le=8.0)
+
+    # Channel-Level Dosierungen
+    fertilizer_dosages: list[FertilizerDosage] = Field(default_factory=list)
+
+    @model_validator(mode='after')
+    def validate_params_match_method(self):
+        """Stellt sicher, dass exakt das passende Params-Objekt gesetzt ist."""
+        method = self.application_method
+        params_map = {
+            'fertigation': self.fertigation_params,
+            'drench': self.drench_params,
+            'foliar': self.foliar_params,
+            'top_dress': self.top_dress_params,
+        }
+        active = params_map.get(method)
+        if active is None:
+            raise ValueError(
+                f"{method}_params ist erforderlich für application_method='{method}'"
+            )
+        # Alle anderen Params müssen None sein
+        for other_method, other_params in params_map.items():
+            if other_method != method and other_params is not None:
+                raise ValueError(
+                    f"{other_method}_params darf nicht gesetzt sein bei "
+                    f"application_method='{method}'"
+                )
+        return self
+```
+
+### 4.3 Validierungsregeln (per Channel)
+
+| Regel-ID | Regel | Channel-Typ | Severity | Beschreibung |
+|---|---|---|---|---|
+| MCD-V01 | Tank-Safe-Prüfung | fertigation | CRITICAL | Nur Dünger mit `tank_safe=true` erlaubt. Dünger mit `tank_safe=false` (organische Feststoffe, Schwebstoff-haltige Extrakte) verstopfen Tropfer und verursachen Biofilm im Tank. |
+| MCD-V02 | EC-Budget | fertigation, drench | WARNING | Summe der Dünger-EC-Beiträge soll `target_ec +/- 0.3 mS` entsprechen. Überschreitung = Warnung "EC-Budget überschritten". |
+| MCD-V03 | EC nicht anwendbar | top_dress | INFO | Kein EC-Budget für Feststoff-Dünger. Infohinweis: "EC-Budget-Prüfung nicht anwendbar für Top-Dress-Kanäle." |
+| MCD-V04 | EC-Limit Foliar | foliar | INFO | Warnung bei `target_ec > 1.0 mS`: "Foliar-Lösungen über 1.0 mS können Blattverbrennungen verursachen." |
+| MCD-V05 | Foliar Blüte-Warnung | foliar | WARNING | Phase=`flowering`, Woche >= 2: Schimmelrisiko (bestehende G-013-Regel, siehe Business Case). |
+| MCD-V06 | IPM-Ausnahme Foliar | foliar | — | Wenn `is_emergency=true` auf verknüpftem TreatmentApplication (REQ-010) -> Blüte-Warnung (MCD-V05) wird unterdrückt. |
+| MCD-V07 | Params-Match | alle | ERROR | `application_method='fertigation'` -> `fertigation_params` muss gesetzt sein; analog für drench, foliar, top_dress. Fehlende oder falsche Params -> Validierungsfehler 422. |
+| MCD-V08 | Channel-ID unique | alle | ERROR | `channel_id` muss innerhalb eines `NutrientPlanPhaseEntry` eindeutig sein. Duplikate -> Validierungsfehler 422. |
+| MCD-V09 | Schedule empfohlen | alle | WARNING | Channel ohne `schedule` (`null`) erzeugt keine automatischen Celery-Tasks. Warnung: "Channel ohne Schedule — keine automatische Task-Generierung." |
+| MCD-V10 | `recommended_application` Match | alle | WARNING | Wenn ein Dünger `recommended_application` definiert hat und diese nicht zur Channel-Methode passt -> Warnung. Z.B. Dünger mit `recommended_application='top_dress'` in einem Fertigation-Channel. |
+| MCD-V11 | Tank existiert | fertigation | ERROR | Wenn `tank_key` gesetzt ist, muss ein Tank-Dokument mit diesem Key in der `Tank`-Collection existieren (REQ-014). Nicht existierender Tank -> Validierungsfehler. |
+| MCD-V12 | Max Channels | alle | ERROR | Maximal 10 Channels pro `NutrientPlanPhaseEntry`. Überschreitung -> Validierungsfehler 422. |
+
+**Cross-Channel-Validierungen:**
+
+| Regel-ID | Regel | Severity | Beschreibung |
+|---|---|---|---|
+| MCD-V20 | Dünger-Duplikat-Warnung | WARNING | Gleicher Dünger in mehreren Channels derselben Phase -> Warnung "Dünger {name} ist in {n} Channels zugewiesen — Gesamt-EC-Beitrag prüfen." |
+| MCD-V21 | Gesamt-EC-Plausibilität | WARNING | Summe aller Channel-EC-Beiträge über alle Channels hinweg > Phase-Level `target_ec_ms` x 1.5 -> Warnung "Kumulierter EC-Beitrag aller Channels überschreitet Phase-Ziel deutlich." |
+| MCD-V22 | Fertigation-Tank-Konflikt | WARNING | Mehrere Fertigation-Channels mit unterschiedlichen `tank_key`-Werten -> Warnung "Mehrere Tanks pro Phase — sicherstellen, dass Tropfer-Zonen korrekt zugeordnet sind." |
+
+### 4.4 Edge-Collection Erweiterung
+
+**Modifizierte Edge-Collection `USES_FERTILIZER`:**
+
+```
+USES_FERTILIZER: NutrientPlanPhaseEntry -> Fertilizer
+  Bestehende Attribute:
+    ml_per_liter: float
+    optional: bool
+  Neues Attribut:
+    channel_id: Optional[str]  (null = Legacy / Phase-Level-Dosierung)
+```
+
+Wenn `channel_id` gesetzt ist, gehört diese Dünger-Zuweisung zum angegebenen Channel. Bei `channel_id=null` handelt es sich um eine Legacy-Zuweisung auf Phase-Level.
+
+**Modifizierte Event-Dokumente:**
+
+`WateringEvent` (REQ-014) und `FeedingEvent` erhalten ein neues optionales Feld:
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `channel_id` | `Optional[str]` | Referenz auf den `DeliveryChannel.channel_id`, aus dem dieses Event erzeugt wurde. `null` = Legacy-Event ohne Channel-Zuordnung. |
+
+### 4.5 Engine-Änderungen
+
+**WateringScheduleEngine (Erweiterung):**
+
+Neue Methode `get_due_channels()`:
+
+```python
+@staticmethod
+def get_due_channels(
+    entry: NutrientPlanPhaseEntry,
+    check_date: date,
+    last_dates: dict[str, Optional[date]]
+) -> list[DeliveryChannel]:
+    """
+    Ermittelt alle Channels einer Phase-Entry, die am check_date fällig sind.
+
+    Args:
+        entry: Phase-Entry mit delivery_channels
+        check_date: Zu prüfendes Datum
+        last_dates: {channel_id: letztes Ausführungsdatum} — None = noch nie ausgeführt
+
+    Returns:
+        Liste fälliger DeliveryChannels (nur enabled Channels mit Schedule).
+        Leere Liste wenn delivery_channels leer (Legacy-Modus).
+    """
+    if not entry.delivery_channels:
+        return []  # Legacy-Modus — Fallback auf bestehende Logik
+
+    due = []
+    for channel in entry.delivery_channels:
+        if not channel.enabled or channel.schedule is None:
+            continue
+        last = last_dates.get(channel.channel_id)
+        if WateringScheduleEngine.is_watering_due(channel.schedule, check_date, last):
+            due.append(channel)
+    return due
+```
+
+**NutrientPlanValidator (Erweiterung):**
+
+- `validate_ec_budget()`: Unterstützt Channel-Level-Validierung. Wenn `delivery_channels` vorhanden, wird EC-Budget **pro Channel** geprüft (nur für Channels mit `application_method in ('fertigation', 'drench')`).
+- Neue Methode `validate_channels()`: Cross-Channel-Validierung (MCD-V20 bis MCD-V22).
+
+**MixingSafetyValidator (Erweiterung):**
+
+Neue Methode `validate_channel()`:
+
+```python
+@staticmethod
+def validate_channel(
+    channel: DeliveryChannel,
+    fertilizer_catalog: dict[str, FertilizerComponent]
+) -> list[dict]:
+    """
+    Validiert einen einzelnen Channel auf Misch-Sicherheit.
+
+    Prüfungen:
+    - Tank-Safe: Fertigation-Channel -> alle Dünger müssen tank_safe=true sein (MCD-V01)
+    - recommended_application Match (MCD-V10)
+    - Bestehende Inkompatibilitats-Prüfungen innerhalb der Channel-Dünger
+
+    Returns: Liste von Validierungs-Warnungen/Fehlern
+    """
+    ...
+```
+
+**NutrientSolutionCalculator (Anpassung):**
+
+`calculate_dosages()` akzeptiert optional Channel-Dosierungen statt Phase-Entry-Level-Dosierungen. Neue Signatur:
+
+```python
+def calculate_dosages(
+    self,
+    dosages_override: Optional[list[FertilizerDosage]] = None
+) -> dict:
+    """
+    Berechnet Mischprotokoll.
+    Wenn dosages_override gesetzt: verwendet Channel-Dosierungen
+    statt self.fertilizers.
+    """
+    ...
+```
+
+**Neuer Helper: `get_effective_channels()`**
+
+```python
+def get_effective_channels(entry: NutrientPlanPhaseEntry) -> list[DeliveryChannel]:
+    """
+    Gibt die effektiven Channels zurück:
+    - Wenn delivery_channels nicht leer -> direkt zurückgeben
+    - Wenn delivery_channels leer -> Legacy-Felder zu synthetischem Channel konvertieren
+
+    Synthetischer Legacy-Channel:
+    - channel_id: "__legacy__"
+    - label: "Standard"
+    - application_method: "drench"
+    - drench_params: DrenchParams(volume_per_feeding_liters=entry.volume_per_feeding_liters)
+    - schedule: None (Legacy nutzt Plan-Level WateringSchedule)
+    - fertilizer_dosages: entry.fertilizer_dosages (Phase-Level)
+    - target_ec_ms: None (Phase-Level EC gilt)
+    - target_ph: None (Phase-Level pH gilt)
+    """
+    ...
+```
+
+**Neuer: DeliveryChannelValidator:**
+
+```python
+class DeliveryChannelValidator:
+    """
+    Kanal-übergreifende Validierungen für Multi-Channel Delivery.
+    Pruft Regeln MCD-V20 bis MCD-V22.
+    """
+
+    @staticmethod
+    def validate_cross_channel(
+        channels: list[DeliveryChannel],
+        fertilizer_catalog: dict[str, FertilizerComponent],
+        phase_target_ec: float
+    ) -> list[dict]:
+        """
+        Cross-Channel-Validierungen:
+        - MCD-V20: Dünger-Duplikat-Warnung
+        - MCD-V21: Gesamt-EC-Plausibilität
+        - MCD-V22: Fertigation-Tank-Konflikt
+
+        Returns: Liste von {rule_id, severity, message}
+        """
+        ...
+```
+
+### 4.6 API-Endpunkte
+
+**Neue Endpunkte:**
+
+```
+POST   /api/v1/nutrient-plans/{key}/entries/{ek}/channels
+         -> Channel zu Phase-Entry hinzufügen
+         Request: DeliveryChannelCreateRequest
+         Response: 201 DeliveryChannelResponse
+
+PUT    /api/v1/nutrient-plans/{key}/entries/{ek}/channels/{cid}
+         -> Channel aktualisieren
+         Request: DeliveryChannelUpdateRequest
+         Response: 200 DeliveryChannelResponse
+
+DELETE /api/v1/nutrient-plans/{key}/entries/{ek}/channels/{cid}
+         -> Channel entfernen (inkl. zugehöriger USES_FERTILIZER-Edges mit channel_id)
+         Response: 204 No Content
+
+POST   /api/v1/nutrient-plans/entries/{ek}/channels/{cid}/fertilizers
+         -> Dünger einem Channel zuweisen
+         Request: FertilizerDosageRequest (bestehendes Schema)
+         Response: 201 FertilizerDosageResponse
+
+DELETE /api/v1/nutrient-plans/entries/{ek}/channels/{cid}/fertilizers/{fk}
+         -> Dünger-Zuweisung von Channel entfernen
+         Response: 204 No Content
+
+POST   /api/v1/nutrient-plans/{key}/migrate-to-channels
+         -> Legacy-Felder -> Channel-Konvertierung
+         Request: {} (keine Parameter)
+         Response: 200 {migrated_entries: int, channels_created: int}
+         Logik: Für jede Phase-Entry mit delivery_channels=[] wird ein synthetischer
+                Channel aus den Legacy-Feldern erstellt (method=drench, Schedule vom Plan).
+                Legacy-Felder bleiben unverändert (Rollback möglich).
+```
+
+**Modifizierte Endpunkte:**
+
+| Endpunkt | Änderung |
+|---|---|
+| `POST /api/v1/nutrient-plans/{plan_key}/entries` | Request akzeptiert optionales `delivery_channels[]` |
+| `PUT /api/v1/nutrient-plans/{plan_key}/entries/{ek}` | Request akzeptiert optionales `delivery_channels[]` |
+| `GET /api/v1/nutrient-plans/{key}/validate` | Response enthält zusätzliches `channel_validations: list[ChannelValidation]` mit per-Channel und Cross-Channel Validierungsergebnissen |
+| `POST /api/v1/watering-events/confirm` | Request akzeptiert optionales `channel_id: str` zur Zuordnung des Events zu einem Channel |
+| `POST /api/v1/watering-events/quick-confirm` | Request akzeptiert optionales `channel_id: str` |
+
+**API-Schemas:**
+
+```python
+class DeliveryChannelCreateRequest(BaseModel):
+    """Request-Schema für Channel-Erstellung"""
+    channel_id: str = Field(max_length=50)
+    label: str = Field(max_length=100)
+    application_method: Literal['fertigation', 'drench', 'foliar', 'top_dress']
+    enabled: bool = True
+    notes: Optional[str] = Field(None, max_length=500)
+    fertigation_params: Optional[FertigationParams] = None
+    drench_params: Optional[DrenchParams] = None
+    foliar_params: Optional[FoliarParams] = None
+    top_dress_params: Optional[TopDressParams] = None
+    schedule: Optional[WateringScheduleRequest] = None
+    target_ec_ms: Optional[float] = Field(None, ge=0.0, le=4.0)
+    target_ph: Optional[float] = Field(None, ge=4.0, le=8.0)
+    fertilizer_dosages: list[FertilizerDosageRequest] = Field(default_factory=list)
+
+class DeliveryChannelUpdateRequest(BaseModel):
+    """Request-Schema für Channel-Aktualisierung (alle Felder optional)"""
+    label: Optional[str] = Field(None, max_length=100)
+    enabled: Optional[bool] = None
+    notes: Optional[str] = Field(None, max_length=500)
+    fertigation_params: Optional[FertigationParams] = None
+    drench_params: Optional[DrenchParams] = None
+    foliar_params: Optional[FoliarParams] = None
+    top_dress_params: Optional[TopDressParams] = None
+    schedule: Optional[WateringScheduleRequest] = None
+    target_ec_ms: Optional[float] = Field(None, ge=0.0, le=4.0)
+    target_ph: Optional[float] = Field(None, ge=4.0, le=8.0)
+
+class DeliveryChannelResponse(BaseModel):
+    """Response-Schema für Channel"""
+    channel_id: str
+    label: str
+    application_method: str
+    enabled: bool
+    notes: Optional[str]
+    fertigation_params: Optional[dict]
+    drench_params: Optional[dict]
+    foliar_params: Optional[dict]
+    top_dress_params: Optional[dict]
+    schedule: Optional[dict]
+    target_ec_ms: Optional[float]
+    target_ph: Optional[float]
+    fertilizer_dosages: list[dict]
+
+class ChannelValidation(BaseModel):
+    """Validierungsergebnis für einen Channel"""
+    channel_id: str
+    label: str
+    application_method: str
+    issues: list[dict]  # [{rule_id, severity, message}]
+    ec_budget: Optional[dict]  # {valid, target_ec, calculated_ec, deviation}
+
+class MigrationResponse(BaseModel):
+    """Response-Schema für Legacy-zu-Channel-Migration"""
+    migrated_entries: int
+    channels_created: int
+```
+
+### 4.7 Celery-Task Änderungen
+
+**`generate_watering_tasks` (Anpassung):**
+
+Der bestehende Celery-Beat-Task `watering-generate-tasks-daily` wird erweitert:
+
+- **Legacy-Modus** (`delivery_channels=[]`): Verhalten bleibt unverändert — ein Task pro Run und Tag.
+- **Multi-Channel-Modus** (`delivery_channels` nicht leer): Pro fälligem Channel ein separater Task.
+
+**Task-Generierung im Multi-Channel-Modus:**
+
+```
+Für jeden PlantingRun mit zugewiesenem NutrientPlan:
+  Für jede Phase-Entry passend zur aktuellen Phase:
+    due_channels = WateringScheduleEngine.get_due_channels(entry, today, last_dates)
+    Für jeden due_channel:
+      -> Task erstellen mit:
+        task_name: "watering:{run_key}:{channel_id}:{date}"
+        description: "{label} — {application_method}"
+        metadata: {
+          channel_id: channel.channel_id,
+          application_method: channel.application_method,
+          target_ec_ms: channel.target_ec_ms or entry.target_ec_ms,
+          fertilizer_count: len(channel.fertilizer_dosages)
+        }
+```
+
+**Task-Metadaten:** `channel_id` und `application_method` werden als Metadaten am Task gespeichert, damit die UI den Task dem richtigen Channel zuordnen und kontextspezifische Aktionen anbieten kann (z.B. "Tank prüfen" für Fertigation, "Sprühflasche vorbereiten" für Foliar).
+
+### 4.8 UI-Konzept
+
+**PhaseEntry-Card (Zusammenfassung):**
+
+- Bei Multi-Channel: Channel-Chips unterhalb der Phase-Zielwerte
+- Jeder Chip zeigt: Icon (Fertigation/Drench/Foliar/Top Dress) + Label + Kurzinfo (z.B. "3x/Tag" für Fertigation, "Mo/Mi/Fr" für Drench)
+- Deaktivierte Channels werden ausgegraut dargestellt
+
+**Expandierte Ansicht (PhaseEntry-Detail):**
+
+- Channel-Cards als MUI Accordion
+- Jede Card enthält:
+  - Header: Icon + Label + Application Method Badge + Enabled-Toggle
+  - Schedule-Zusammenfassung (Wochentage oder Intervall)
+  - Dünger-Tabelle mit Dosierungen und mixing_priority
+  - EC/pH-Override-Anzeige (falls gesetzt, mit "Override"-Badge)
+  - Tank-Verknüpfung (bei Fertigation, klickbar zu REQ-014 Tank-Detail)
+
+**PhaseEntryDialog (Bearbeitung):**
+
+- Neuer Accordion-Abschnitt "Ausbringungskanäle" unterhalb der bestehenden Phase-Felder
+- Add-Button: "+ Channel hinzufügen" -> ChannelCreateDialog
+- Pro Channel: Edit/Delete/Toggle-Enabled Aktionen
+- ChannelCreateDialog: Step 1 (Methode wählen) -> Step 2 (Parameter) -> Step 3 (Schedule) -> Step 4 (Dünger)
+
+**Legacy-Toggle:**
+
+- Bei Phase-Entries mit `delivery_channels=[]`: Button "Zu Multi-Channel konvertieren"
+- Klick ruft `POST .../migrate-to-channels` auf
+- Erstellt einen synthetischen Channel aus den Legacy-Feldern
+- Rückkonvertierung: Nicht vorgesehen (Legacy-Felder bleiben erhalten, werden nur ignoriert)
+
+**Erfahrungsstufen (REQ-021):**
+
+| Stufe | Sichtbarkeit |
+|---|---|
+| Beginner | Multi-Channel ausgeblendet — nur Legacy-Felder sichtbar |
+| Intermediate | Multi-Channel verfügbar, aber als "Erweitert" markiert |
+| Expert | Multi-Channel prominent, alle Parameter sichtbar |
+
+### 4.9 Migrationsstrategie
+
+Die Einführung von Multi-Channel Delivery erfolgt in 4 Phasen, um maximale Rückwärtskompatibilität sicherzustellen:
+
+**Phase 1 — Additive Erweiterung (Initial-Release):**
+
+- `delivery_channels` wird als neues Feld mit Default `[]` hinzugefügt
+- Alle bestehenden Phase-Entries behalten `delivery_channels=[]`
+- Legacy-Felder (`feeding_frequency_per_week`, `volume_per_feeding_liters`, Phase-Level `fertilizer_dosages`) funktionieren unverändert
+- Engines prüfen `if entry.delivery_channels:` und verwenden Channel-Logik, sonst Legacy
+
+**Phase 2 — Dual-Mode-Betrieb:**
+
+- `get_effective_channels()` Helper verfügbar
+- Services und Celery-Tasks nutzen `get_effective_channels()` als einheitlichen Einstiegspunkt
+- Legacy-Felder werden intern zu synthetischem Channel konvertiert (ID: `__legacy__`)
+- Keine Datenbank-Migration erforderlich
+
+**Phase 3 — Optionale Migration:**
+
+- Migrations-Endpoint `POST .../migrate-to-channels` verfügbar
+- Nutzer können bestehende Pläne explizit konvertieren
+- Legacy-Felder bleiben unverändert (kein Datenverlust)
+- UI bietet "Konvertieren"-Button an
+
+**Phase 4 — Deprecation (zukünftig):**
+
+- Legacy-Felder werden als `deprecated` markiert (Pydantic `deprecated=True`)
+- Neue Pläne werden standardmäßig mit einem Channel erstellt
+- Bestehende Pläne mit `delivery_channels=[]` funktionieren weiterhin
+- Kein harter Breaking Change — Legacy bleibt unbegrenzt unterstützt
+
+### 4.10 AQL-Beispielabfragen
+
+**Channel-spezifische Dosierungen für eine Pflanze:**
+
+```aql
+LET plant = DOCUMENT(CONCAT("PlantInstance/", @plant_key))
+
+// Zugewiesenen Plan laden
+LET plan = FIRST(
+  FOR v IN 1..1 OUTBOUND plant FOLLOWS_PLAN
+    RETURN v
+)
+
+// Aktuelle Phase
+LET phase = FIRST(
+  FOR v IN 1..1 OUTBOUND plant CURRENT_PHASE
+    RETURN v
+)
+
+// Phase-Entry passend zur Phase
+LET entry = FIRST(
+  FOR v IN 1..1 OUTBOUND plan HAS_PHASE_ENTRY
+    FILTER v.phase_name == phase.name
+    RETURN v
+)
+
+// Channel-spezifische Dünger laden
+LET channels = (
+  FOR channel IN entry.delivery_channels
+    FILTER channel.enabled == true
+    LET ferts = (
+      FOR fert, uf IN 1..1 OUTBOUND entry USES_FERTILIZER
+        FILTER uf.channel_id == channel.channel_id
+        SORT fert.mixing_priority ASC
+        RETURN {
+          fertilizer: fert.product_name,
+          brand: fert.brand,
+          ml_per_liter: uf.ml_per_liter,
+          optional: uf.optional,
+          tank_safe: fert.tank_safe
+        }
+    )
+    RETURN {
+      channel_id: channel.channel_id,
+      label: channel.label,
+      method: channel.application_method,
+      target_ec: channel.target_ec_ms != null
+        ? channel.target_ec_ms
+        : entry.target_ec_ms,
+      schedule: channel.schedule,
+      fertilizers: ferts
+    }
+)
+
+RETURN {
+  plant_key: plant._key,
+  plan_name: plan.name,
+  phase: entry.phase_name,
+  channels: channels
+}
+```
+
+**Alle fälligen Channels für heute (Celery-Task Input):**
+
+```aql
+LET today = DATE_ISO8601(DATE_NOW())
+LET today_weekday = DATE_DAYOFWEEK(DATE_NOW())
+// DATE_DAYOFWEEK: 0=Sonntag..6=Samstag -> Konvertierung zu 0=Montag nötig
+
+FOR run IN PlantingRun
+  FILTER run.status == 'active'
+
+  // NutrientPlan des Runs
+  LET plan = FIRST(
+    FOR v IN 1..1 OUTBOUND run RUN_FOLLOWS_PLAN
+      RETURN v
+  )
+  FILTER plan != null
+
+  // Phase-Entries mit Channels
+  FOR entry, he IN 1..1 OUTBOUND plan HAS_PHASE_ENTRY
+    FOR channel IN entry.delivery_channels
+      FILTER channel.enabled == true
+      FILTER channel.schedule != null
+      FILTER (
+        channel.schedule.schedule_mode == 'weekdays'
+          // Konvertierung: DATE_DAYOFWEEK (0=So) -> weekday_schedule (0=Mo)
+          ? ((today_weekday + 6) % 7) IN channel.schedule.weekday_schedule
+          : true  // Intervall-Modus erfordert last_date — Prüfung in Python
+      )
+      RETURN {
+        run_key: run._key,
+        entry_key: entry._key,
+        channel_id: channel.channel_id,
+        channel_label: channel.label,
+        method: channel.application_method,
+        schedule: channel.schedule
+      }
+```
+
+**Feeding-History gefiltert nach Channel:**
+
+```aql
+FOR event, fe IN 1..1 OUTBOUND DOCUMENT(CONCAT("PlantInstance/", @plant_key)) FED_BY
+  FILTER event.channel_id == @channel_id
+  SORT event.timestamp DESC
+  LIMIT @limit
+  RETURN {
+    timestamp: event.timestamp,
+    channel_id: event.channel_id,
+    method: event.application_method,
+    volume: event.volume_applied_liters,
+    ec_before: event.measured_ec_before,
+    ec_after: event.measured_ec_after,
+    ph_before: event.measured_ph_before,
+    ph_after: event.measured_ph_after
+  }
+```
+
+## 5. Authentifizierung & Autorisierung
 
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
 > gemäß REQ-023 (Authentifizierung) und REQ-024 (Mandantenverwaltung) zu dokumentieren.
@@ -1591,7 +2646,7 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 | WateringEvents (Tenant-scoped) | Mitglied | Mitglied | Admin |
 | NutrientCalculations (zustandslos) | Nein | — | — |
 
-## 5. Abhängigkeiten
+## 6. Abhängigkeiten
 
 **Erforderliche Module:**
 - REQ-001 (Stammdaten): Species für substrat-spezifische Empfehlungen
@@ -1600,16 +2655,18 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - REQ-005 (Sensorik): EC/pH-Messungen zur Validierung
 
 **Wird benötigt von:**
-- REQ-006 (Tasks): Automatische Feeding-Tasks
+- REQ-006 (Tasks): Automatische Feeding-Tasks; **HOCH** — `generate_watering_tasks` Celery-Task nutzt WateringSchedule + WateringScheduleEngine zur täglichen Gießplan-Task-Generierung
 - REQ-007 (Ernte): Flushing-Protokoll vor Ernte
 - REQ-009 (Dashboard): EC/pH-Ampeln, Kosten-Tracking
-- REQ-014 (Tankmanagement): **HOCH** — MixingResult als Input für Tank-Befüllung; EC-Budget basiert auf Tank-Volumen
+- REQ-013 (Pflanzdurchlauf): **HOCH** — NutrientPlan-Zuweisung an PlantingRun via `RUN_FOLLOWS_PLAN`-Edge; Cascade auf PlantInstances via `FOLLOWS_PLAN`
+- REQ-014 (Tankmanagement): **HOCH** — MixingResult als Input für Tank-Befüllung; EC-Budget basiert auf Tank-Volumen; Gießplan-Bestätigungsflow (confirm/quick-confirm) nutzt NutrientPlan-Dosierungen
+- REQ-022 (Pflegeerinnerungen): **MITTEL** — Duplikat-Vermeidung: Pflanzen mit aktivem NutrientPlan+WateringSchedule erhalten keine WATERING/FERTILIZING Care-Reminders
 
 **Externe Integrationen:**
 - Dünger-Datenbanken (NPK-Werte, Preise)
 - Inventar-Management-Systeme
 
-## 6. Akzeptanzkriterien
+## 7. Akzeptanzkriterien
 
 ### Definition of Done (DoD):
 
@@ -1626,6 +2683,7 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Multi-Part-Support:** A+B-Dünger mit korrekter Reihenfolge
 - [ ] **Biologische Zusätze:** Temperatur-Validierung für lebende Organismen
 - [ ] **NPK-Balance:** Automatische Warnung bei Ungleichgewicht (z.B. zu viel N in Blüte)
+- [ ] **Foliar-Warnung Blüte (G-013):** Soft-Warnung bei `application_method='foliar'` in Blütephase ab Woche 2 (Schimmelrisiko, Geschmacksverunreinigung). Kein Hardblock — IPM-Notfallbehandlungen (REQ-010, `is_emergency: true`) sind ausgenommen
 - [ ] **Dosierungs-Historie:** Tracking aller Feedings mit EC/pH-Messungen
 - [ ] **Recipe-Templates:** Speicherbare Dünge-Rezepte für wiederkehrende Setups
 - [ ] **Nährstoffplan-CRUD:** Erstellen, Lesen, Aktualisieren, Löschen von Lifecycle-Nährstoffplänen
@@ -1636,6 +2694,48 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Vollständigkeits-Validierung:** Warnung bei fehlenden Pflichtphasen (seedling, vegetative, flowering)
 - [ ] **EC-Budget-Validierung:** Abgleich Dünger-EC-Summe vs. Ziel-EC pro Phase-Entry (Toleranz ±0.3 mS)
 - [ ] **Plan-Filterung:** Filter nach Substrattyp, Tags und Template-Status
+- [ ] **Düngemittel-Filterung:** Düngemittel-Tabelle filterbar nach Dünger-Typ (`fertilizer_type`), Hersteller (`brand`, Teilstring-Suche), Tank-Sicherheit (`tank_safe`) und Bio-Zertifizierung (`is_organic`). Alle Filter optional und kombinierbar (AND-Verknüpfung).
+- [ ] **Gantt-Diagramm:** Nährstoffplan als interaktives Gantt-Diagramm mit Wochen-Zeitachse und Dünger-Zeilen
+- [ ] **Gantt-Phasen-Header:** Zusammenfassende Phasenbalken über den Dünger-Zeilen mit EC/pH-Beschriftung
+- [ ] **Gantt-Phasenfarben:** Farbcodierung nach Wachstumsphase (Germination, Seedling, Vegetative, Flowering, Harvest)
+- [ ] **Gantt-Hover-Tooltip:** Vollständige Phase-Details bei Maus-Hover (Zielwerte, Dünger-Tabelle, EC-Budget-Status, Notizen)
+- [ ] **Gantt-Dünger-Zeilen:** Alle im Plan genutzten Dünger als eigene Zeilen mit Dosierungs-Beschriftung auf den Balken
+- [ ] **Gantt-Optionale-Dünger:** Optionale Dünger visuell unterscheidbar (gestrichelt/reduzierte Opazität)
+- [ ] **Gantt-Lücken-Erkennung:** Wochen ohne Phase-Entry als leere Spalten (grauer Hintergrund) hervorgehoben
+- [ ] **Gantt-Überlappung:** Überlappende Phase-Entries als gestapelte Balken mit Warnung dargestellt
+- [ ] **WateringSchedule-Validierung:** Mode-abhängige Pflichtfelder werden korrekt enforced (weekdays → weekday_schedule, interval → interval_days)
+- [ ] **WateringSchedule-Modus Weekdays:** Feste Wochentage (0–6) werden akzeptiert, Duplikate abgelehnt
+- [ ] **WateringSchedule-Modus Interval:** Intervall 1–90 Tage wird akzeptiert, 0 oder >90 abgelehnt
+- [ ] **WateringSchedule auf NutrientPlan:** Plan mit `watering_schedule=null` funktioniert wie bisher (Abwärtskompatibilität)
+- [ ] **WateringScheduleEngine.is_watering_due:** Korrekte Prüfung für beide Modi (weekdays + interval)
+- [ ] **WateringScheduleEngine.get_next_watering_dates:** Liefert korrekte Datumsliste für 14-Tage-Fenster
+- [ ] **WateringScheduleEngine.resolve_dosages_for_run:** Pflanzen werden korrekt nach Phase gruppiert, unmatched-Phasen erkannt
+- [ ] **RUN_FOLLOWS_PLAN-Edge:** PlantingRun → NutrientPlan Zuweisung wird als Edge mit assigned_at/assigned_by gespeichert
+- [ ] **Fertigation-Ausschluss:** `application_method='fertigation'` wird in WateringSchedule abgelehnt (Tank-basiert, nicht manuell schedulbar)
+- [ ] **Multi-Channel DeliveryChannel-Modell:** Embedded Model mit channel_id, application_method, methoden-spezifischen Params (FertigationParams/DrenchParams/FoliarParams/TopDressParams), Channel-Level Schedule, EC/pH-Override und eigener Düngerliste
+- [ ] **Multi-Channel Legacy-Kompatibilität:** `delivery_channels=[]` -> Legacy-Felder aktiv; `delivery_channels` nicht leer -> Legacy-Felder ignoriert
+- [ ] **Channel-ID Eindeutigkeit (MCD-V08):** channel_id muss innerhalb Phase-Entry eindeutig sein
+- [ ] **Params-Match-Validierung (MCD-V07):** fertigation_params Pflicht bei method=fertigation, analog für alle Methoden
+- [ ] **Tank-Safe-Prüfung (MCD-V01):** Fertigation-Channels erlauben nur Dünger mit `tank_safe=true`
+- [ ] **EC-Budget per Channel (MCD-V02):** EC-Budget-Validierung pro Channel (fertigation, drench)
+- [ ] **EC nicht anwendbar Top-Dress (MCD-V03):** Info-Hinweis bei Top-Dress-Channels
+- [ ] **Foliar EC-Limit (MCD-V04):** Warnung bei target_ec > 1.0 mS auf Foliar-Channels
+- [ ] **Cross-Channel-Validierung (MCD-V20-V22):** Dünger-Duplikat-Warnung, Gesamt-EC-Plausibilität, Tank-Konflikt
+- [ ] **USES_FERTILIZER channel_id:** Edge-Attribut channel_id für Channel-spezifische Dünger-Zuweisungen (`null` = Legacy)
+- [ ] **FeedingEvent/WateringEvent channel_id:** Optionales channel_id-Feld für Channel-Zuordnung
+- [ ] **WateringScheduleEngine.get_due_channels:** Ermittelt fällige Channels am Prüfdatum, leere Liste bei Legacy-Modus
+- [ ] **get_effective_channels() Helper:** Legacy-zu-Channel-Konvertierung (synthetischer `__legacy__` Channel) für einheitliche Verarbeitung
+- [ ] **DeliveryChannelValidator:** Kanal-übergreifende Regeln (MCD-V20 bis MCD-V22)
+- [ ] **Channel CRUD-Endpoints:** POST/PUT/DELETE für Channels und Channel-Dünger (6 neue Endpoints)
+- [ ] **Migrations-Endpoint:** POST .../migrate-to-channels für Legacy-Konvertierung
+- [ ] **Celery Multi-Channel Tasks:** Pro fälligem Channel ein separater Task mit channel_id und application_method in Metadaten
+- [ ] **UI Channel-Chips:** Phase-Entry-Cards zeigen Channel-Zusammenfassung als Chips mit Icon und Kurzinfo
+- [ ] **UI Channel-Accordion:** Expandierbare Channel-Cards mit Schedule, Dosierungen, EC/pH-Override und Tank-Link
+- [ ] **UI Channel-Dialog:** ChannelCreateDialog mit 4-Step Wizard (Methode -> Parameter -> Schedule -> Dünger)
+- [ ] **REQ-021 Stufen-Integration:** Multi-Channel ausgeblendet bei Beginner, "Erweitert" bei Intermediate, voll sichtbar bei Expert
+- [ ] **Max Channels (MCD-V12):** Maximal 10 Channels pro NutrientPlanPhaseEntry
+- [ ] **Fertigation Schedule-Erlaubnis:** In Channel-Level WateringSchedule ist `application_method='fertigation'` erlaubt (Abweichung von Plan-Level)
+- [ ] **Fertigation Intra-Day:** `runs_per_day` + `duration_minutes` ergänzen den Tages-Schedule für Fertigation-Channels
 
 ### Testszenarien:
 
@@ -1739,7 +2839,52 @@ THEN:
   - Aktuelle Dosierungen basieren jetzt auf "Auto Light Feed"
 ```
 
-**Szenario 10: Vollständigkeits-Warnung bei fehlenden Pflichtphasen**
+**Szenario 10: Gantt-Diagramm — Vollständiger 4-Phasen-Plan**
+```
+GIVEN: NutrientPlan "Tomato Heavy Coco" mit 4 Phase-Entries:
+       - Seedling:   Woche 1–2,  EC 0.8, CalMag (1ml/L) + FloraGro (0.5ml/L)
+       - Vegetative:  Woche 3–6,  EC 1.4, CalMag (1.5ml/L) + FloraGro (2ml/L) + FloraMicro (2ml/L)
+       - Flowering:   Woche 7–12, EC 1.8, CalMag (1ml/L) + FloraBloom (3ml/L) + PK 13-14 (0.5ml/L, optional)
+       - Harvest:     Woche 13–14, EC 0.0, keine Dünger (Flush)
+WHEN: Nutzer öffnet den Tab "Zeitplan" auf der NutrientPlanDetailPage
+THEN:
+  - X-Achse zeigt Wochen 1–14
+  - Phasen-Header-Zeile: 4 farbcodierte Balken (Seedling W1–2, Vegetative W3–6, Flowering W7–12, Harvest W13–14)
+  - Y-Achse zeigt 4 Dünger-Zeilen: CalMag, FloraGro, FloraMicro, FloraBloom, PK 13-14
+  - CalMag-Zeile: 3 Balken (Seedling W1–2, Vegetative W3–6, Flowering W7–12) mit jeweiliger ml/L-Beschriftung
+  - PK 13-14-Zeile: 1 gestrichelter Balken (Flowering W7–12, optional) mit 0.5ml/L
+  - Harvest-Wochen (13–14): Keine Dünger-Balken, Phasen-Header zeigt "Harvest" in Orange
+```
+
+**Szenario 11: Gantt-Diagramm — Hover-Tooltip zeigt Phase-Details**
+```
+GIVEN: Gantt-Diagramm des Plans "Tomato Heavy Coco" ist gerendert
+WHEN: Nutzer fährt mit Maus über den Flowering-Phasen-Header-Balken (Woche 7–12)
+THEN: Tooltip zeigt:
+  - "Flowering — Woche 7–12"
+  - Zielwerte: EC 1.8 mS, pH 6.0, NPK 1-3-3
+  - Dünger-Tabelle:
+    | Dünger       | ml/L | Optional | Reihenfolge |
+    | CalMag       | 1.0  | Nein     | 3           |
+    | FloraBloom   | 3.0  | Nein     | 5           |
+    | PK 13-14     | 0.5  | Ja       | 6           |
+  - Fütterung: 2× pro Woche
+  - EC-Budget: ✓ gültig (falls Validierungsdaten geladen)
+```
+
+**Szenario 12: Gantt-Diagramm — Lücken-Erkennung**
+```
+GIVEN: NutrientPlan "Quick Veg Only" mit nur 2 Phase-Entries:
+       - Seedling:   Woche 1–2
+       - Vegetative:  Woche 5–8  (Lücke: Woche 3–4 fehlt)
+WHEN: Gantt-Diagramm wird gerendert
+THEN:
+  - Wochen 3–4 werden als leere Spalten mit grauem Hintergrund angezeigt
+  - Kein Dünger-Balken in Woche 3–4
+  - Visuell erkennbar, dass eine Lücke im Plan existiert
+```
+
+**Szenario 13: Vollständigkeits-Warnung bei fehlenden Pflichtphasen**
 ```
 GIVEN: Plan "Quick Veg Only" mit nur 1 Phase-Entry (vegetative)
 WHEN: GET /api/v1/nutrient-plans/{key}/validate
@@ -1750,7 +2895,7 @@ THEN:
   - overall_valid: false
 ```
 
-**Szenario 11: EC-Budget-Abweichung erkennen**
+**Szenario 14: EC-Budget-Abweichung erkennen**
 ```
 GIVEN: Phase-Entry "flowering" mit target_ec 1.8 mS
        Dünger: FloraBloom (0.15 mS/ml × 3ml/L = 0.45) + PK 13-14 (0.2 mS/ml × 0.5ml/L = 0.1)
@@ -1762,11 +2907,188 @@ THEN:
   - recommendation: "Dosierungen anpassen: Ziel 1.8 mS, berechnet 0.55 mS (Abweichung 1.25)"
 ```
 
+**Szenario 15: Gießplan mit Wochentags-Modus erstellen**
+```
+GIVEN: NutrientPlan "Tomato Heavy Coco" mit 4 Phase-Entries
+WHEN: PUT /api/v1/nutrient-plans/{key} mit watering_schedule:
+      { schedule_mode: "weekdays", weekday_schedule: [0, 2, 4],
+        preferred_time: "08:00", application_method: "drench",
+        reminder_hours_before: 2 }
+THEN:
+  - Plan wird aktualisiert mit watering_schedule
+  - Gießtermine: jeden Montag, Mittwoch, Freitag um 08:00
+  - Erinnerungen um 06:00 (2h vorher)
+  - Version wird inkrementiert
+```
+
+**Szenario 16: Gießplan mit Intervall-Modus**
+```
+GIVEN: NutrientPlan "Orchid Soak Weekly" für Orchideen
+WHEN: PUT /api/v1/nutrient-plans/{key} mit watering_schedule:
+      { schedule_mode: "interval", interval_days: 7,
+        preferred_time: "10:00", application_method: "drench" }
+THEN:
+  - Plan wird aktualisiert mit 7-Tage-Intervall
+  - WateringScheduleEngine.get_next_watering_dates liefert [Tag 7, Tag 14] ab letztem Gießen
+```
+
+**Szenario 17: WateringSchedule-Validierungsfehler**
+```
+GIVEN: NutrientPlan
+WHEN: Nutzer setzt schedule_mode="weekdays" ohne weekday_schedule
+THEN: Validierungsfehler 422: "weekday_schedule ist Pflicht bei mode='weekdays'"
+
+WHEN: Nutzer setzt schedule_mode="interval" mit interval_days=0
+THEN: Validierungsfehler 422: "interval_days muss >= 1 sein"
+
+WHEN: Nutzer setzt application_method="fertigation" in WateringSchedule
+THEN: Validierungsfehler 422: "Fertigation wird über Tankmanagement (REQ-014) gesteuert"
+```
+
+<!-- Quelle: Cannabis Indoor Grower Review G-013 -->
+**Szenario 18: Foliar-Warnung in der Blütephase**
+```
+GIVEN: PlantInstance "Cannabis-001" in Phase "flowering", Blütewoche 3
+WHEN: POST /api/v1/feeding-events mit application_method="foliar", volume_applied_liters=0.5
+THEN:
+  - HTTP 201 Created (kein Block)
+  - Response enthält warnings: ["Foliar-Feeding in der Blüte (ab Woche 2) vermeiden! Schimmelrisiko auf Buds, Geschmacksverunreinigung und Rückstände auf Erntegut."]
+  - FeedingEvent wird trotz Warnung erstellt
+
+GIVEN: PlantInstance "Cannabis-001" in Phase "flowering", Blütewoche 3
+WHEN: POST /api/v1/feeding-events mit application_method="foliar", verknüpft mit TreatmentApplication (is_emergency=true)
+THEN:
+  - HTTP 201 Created
+  - Response enthält KEINE Foliar-Warnung (IPM-Notfallbehandlung ausgenommen)
+
+GIVEN: PlantInstance "Cannabis-001" in Phase "flowering", Blütewoche 1
+WHEN: POST /api/v1/feeding-events mit application_method="foliar"
+THEN:
+  - HTTP 201 Created
+  - Response enthält info: ["Blüte Woche 1: Foliar-Feeding noch möglich, ab Woche 2 nicht mehr empfohlen."]
+
+GIVEN: PlantInstance "Cannabis-001" in Phase "vegetative"
+WHEN: POST /api/v1/feeding-events mit application_method="foliar"
+THEN:
+  - HTTP 201 Created
+  - Keine Warnung (Foliar in Vegetationsphase uneingeschränkt erlaubt)
+```
+
+**Szenario 19: Multi-Channel — Fertigation + Drench + Foliar in einer Phase**
+```
+GIVEN: NutrientPlan "Pro Hydro" mit Phase-Entry "vegetative" und 3 Channels:
+       - Channel "dripper-base" (fertigation, 3x/Tag, 5min, Tank "main-tank"):
+         CalMag 1.5ml/L, FloraGro 2ml/L, FloraMicro 2ml/L (alle tank_safe=true)
+       - Channel "compost-tea" (drench, 0.5L/Feeding, Intervall 7 Tage):
+         Komposttee 50ml/L (tank_safe=false)
+       - Channel "micro-foliar" (foliar, 0.2L/Spray, Intervall 14 Tage):
+         Eisen-Chelat 0.5ml/L, Kalzium-Spray 1ml/L
+WHEN: GET /api/v1/nutrient-plans/{key}/validate
+THEN:
+  - channel_validations enthält 3 Einträge
+  - "dripper-base": EC-Budget geprüft, Tank-Safe OK (alle Dünger tank_safe=true)
+  - "compost-tea": EC-Budget geprüft, Komposttee tank_safe=false -> kein Fehler (Drench, nicht Fertigation)
+  - "micro-foliar": EC-Budget INFO (Foliar), keine Blüte-Warnung (Phase=vegetative)
+  - Cross-Channel: Keine Dünger-Duplikate, Gesamt-EC plausibel
+```
+
+**Szenario 20: Multi-Channel — Legacy-Kompatibilität bei leeren delivery_channels**
+```
+GIVEN: Bestehender Plan "Old Plan" mit Phase-Entry:
+       feeding_frequency_per_week=3, volume_per_feeding_liters=2.0,
+       fertilizer_dosages=[CalMag 1ml/L], delivery_channels=[]
+WHEN: GET /api/v1/plant-instances/{key}/current-dosages
+THEN:
+  - Legacy-Felder werden verwendet (feeding_frequency=3, volume=2.0)
+  - CalMag 1ml/L aus Phase-Level fertilizer_dosages
+  - Keine Channels in Response
+  - Verhalten identisch zu vor der Multi-Channel-Erweiterung
+```
+
+**Szenario 21: Tank-Safe-Validierung für Fertigation-Channel (MCD-V01)**
+```
+GIVEN: Phase-Entry mit Fertigation-Channel "dripper-main", Tank "main-tank"
+WHEN: Dünger "Komposttee" (tank_safe=false) wird dem Channel zugewiesen
+       POST /api/v1/nutrient-plans/entries/{ek}/channels/dripper-main/fertilizers
+THEN:
+  - Zuweisung wird gespeichert (kein Hardblock bei Zuweisung)
+  - GET /api/v1/nutrient-plans/{key}/validate liefert:
+    channel_validations: [{
+      channel_id: "dripper-main",
+      issues: [{rule_id: "MCD-V01", severity: "CRITICAL",
+        message: "Komposttee ist nicht tank-safe — nicht für Fertigation geeignet.
+                  Schwebstoffe verstopfen Tropfer und verursachen Biofilm im Tank."}]
+    }]
+```
+
+**Szenario 22: Legacy-zu-Multi-Channel-Migration**
+```
+GIVEN: Plan "Tomato Heavy Coco" mit 4 Phase-Entries, alle mit delivery_channels=[],
+       Plan-Level watering_schedule: {mode: "weekdays", weekday_schedule: [0,2,4]}
+WHEN: POST /api/v1/nutrient-plans/{key}/migrate-to-channels
+THEN:
+  - 4 Phase-Entries erhalten je einen synthetischen Channel:
+    channel_id="__legacy__", label="Standard", method="drench",
+    drench_params={volume_per_feeding_liters: entry.volume_per_feeding_liters},
+    schedule: kopiert von Plan-Level watering_schedule
+  - Response: {migrated_entries: 4, channels_created: 4}
+  - Legacy-Felder bleiben unverändert (Rollback durch Leeren von delivery_channels möglich)
+```
+
+**Szenario 23: Celery Task-Generierung mit Multi-Channel**
+```
+GIVEN: PlantingRun "run-001" folgt Plan mit Phase-Entry "vegetative":
+       - Channel "dripper-base" (fertigation, Schedule: weekdays [0,2,4])
+       - Channel "foliar-micro" (foliar, Schedule: interval 14, letztes Datum vor 14 Tagen)
+       - Channel "top-dress" (top_dress, kein Schedule)
+WHEN: Celery-Task "watering-generate-tasks-daily" läuft am Montag (weekday=0)
+THEN:
+  - 2 Tasks generiert:
+    1. "watering:run-001:dripper-base:2026-02-27" (Fertigation fällig: Montag in weekday_schedule)
+    2. "watering:run-001:foliar-micro:2026-02-27" (Foliar fällig: 14 Tage seit letztem)
+  - Kein Task für "top-dress" (kein Schedule -> keine automatische Generierung, MCD-V09)
+  - Task-Metadaten enthalten channel_id und application_method
+```
+
+**Szenario 24: Params-Match-Validierung (MCD-V07)**
+```
+GIVEN: Channel-Erstellung mit application_method="fertigation"
+WHEN: POST mit drench_params statt fertigation_params:
+      {channel_id: "test", label: "Test", application_method: "fertigation",
+       drench_params: {volume_per_feeding_liters: 2.0}}
+THEN:
+  - Validierungsfehler 422: "fertigation_params ist erforderlich für application_method='fertigation'"
+  - Zusätzlich: "drench_params darf nicht gesetzt sein bei application_method='fertigation'"
+```
+
+**Szenario 25: Cross-Channel Dünger-Duplikat-Warnung (MCD-V20)**
+```
+GIVEN: Phase-Entry "vegetative" mit 2 Channels:
+       - Channel "dripper-base" (fertigation): CalMag 1.5ml/L
+       - Channel "supplement" (drench): CalMag 2.0ml/L
+WHEN: GET /api/v1/nutrient-plans/{key}/validate
+THEN:
+  - Cross-Channel-Warnung: "CalMag ist in 2 Channels zugewiesen — Gesamt-EC-Beitrag prüfen."
+  - Severity: WARNING (kein Block)
+```
+
+**Szenario 26: Channel-Level EC/pH Override**
+```
+GIVEN: Phase-Entry "vegetative" mit target_ec=1.4 mS, target_ph=5.8
+       - Channel "dripper-base" (fertigation): target_ec_ms=1.2 (Override)
+       - Channel "foliar-micro" (foliar): target_ec_ms=null (Phase-Level gilt)
+WHEN: GET /api/v1/nutrient-plans/{key}/validate
+THEN:
+  - "dripper-base" EC-Budget geprüft gegen target_ec=1.2 (Override)
+  - "foliar-micro" EC-Budget geprüft gegen target_ec=1.4 (Phase-Level)
+  - Override-Werte werden in Response als "Override" gekennzeichnet
+```
+
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Düngung, NPK, EC, pH, Misch-Reihenfolge, Flushing, Runoff, Salzakkumulation, Nährstoffplan, NutrientPlan, Lifecycle-Plan, Phase-Entry, Dosierung, Plan-Zuweisung, Klonen, Deep-Copy, EC-Budget, Vollständigkeits-Validierung
+- Keywords: Düngung, NPK, EC, pH, Misch-Reihenfolge, Flushing, Runoff, Salzakkumulation, Nährstoffplan, NutrientPlan, Lifecycle-Plan, Phase-Entry, Dosierung, Plan-Zuweisung, Klonen, Deep-Copy, EC-Budget, Vollständigkeits-Validierung, Gantt-Diagramm, Gantt-Chart, Timeline, Zeitplan, Dünge-Timeline, Hover-Tooltip, Phasen-Farbcodierung, Dünger-Zeilen, Gießplan, WateringSchedule, Gießtermin, Wochentag, Intervall, ScheduleMode, WateringScheduleEngine, RUN_FOLLOWS_PLAN, Gießplan-Workflow, Foliar-Warnung, Blattdüngung-Blüte, Schimmelrisiko, Multi-Channel, DeliveryChannel, Ausbringungskanal, Fertigation, Drench, Foliar, TopDress, FertigationParams, DrenchParams, FoliarParams, TopDressParams, Channel-Schedule, Channel-EC-Override, Tank-Safe, get_due_channels, get_effective_channels, DeliveryChannelValidator, migrate-to-channels, channel_id
 - Fachbegriffe: Elektrische Leitfähigkeit, Ausfällung, Chelat, Huminsäure, Osmose, Feeding-Schedule, Nutrient-Profile
 - Verknüpfung: Zentral für REQ-003 (Phasen-NPK, NutrientProfile vs. NutrientPlan), REQ-005 (EC-Sensorik), REQ-007 (Pre-Harvest)
 - Chemische Formeln: CaSO4, NO3-, Ca2+, Fe-EDTA
-- API-Pfade: /nutrient-plans, /nutrient-plans/{key}/clone, /nutrient-plans/{plan_key}/entries, /plant-instances/{plant_key}/nutrient-plan, /plant-instances/{plant_key}/current-dosages
+- API-Pfade: /nutrient-plans, /nutrient-plans/{key}/clone, /nutrient-plans/{plan_key}/entries, /nutrient-plans/{key}/entries/{ek}/channels, /nutrient-plans/{key}/entries/{ek}/channels/{cid}, /nutrient-plans/entries/{ek}/channels/{cid}/fertilizers, /nutrient-plans/{key}/migrate-to-channels, /plant-instances/{plant_key}/nutrient-plan, /plant-instances/{plant_key}/current-dosages

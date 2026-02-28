@@ -7,7 +7,6 @@ import type {
   PhaseEntryCreate,
   PhaseEntryUpdate,
   PlanValidationResult,
-  FertilizerDosage,
 } from '../types';
 
 const BASE = '/nutrient-plans';
@@ -116,23 +115,26 @@ export async function deletePhaseEntry(
   await client.delete(`${BASE}/${planKey}/entries/${entryKey}`);
 }
 
-// ── Fertilizer Dosage per Entry ───────────────────────────────────────
+// ── Channel Fertilizer Assignment ─────────────────────────────────────
 
-export async function addFertilizerToEntry(
-  _planKey: string,
+export async function addFertilizerToChannel(
   entryKey: string,
-  payload: FertilizerDosage,
+  channelId: string,
+  data: { fertilizer_key: string; ml_per_liter: number; optional?: boolean },
 ): Promise<void> {
-  await client.post(`${BASE}/entries/${entryKey}/fertilizers`, payload);
+  await client.post(
+    `${BASE}/entries/${entryKey}/channels/${channelId}/fertilizers`,
+    data,
+  );
 }
 
-export async function removeFertilizerFromEntry(
-  _planKey: string,
+export async function removeFertilizerFromChannel(
   entryKey: string,
+  channelId: string,
   fertilizerKey: string,
 ): Promise<void> {
   await client.delete(
-    `${BASE}/entries/${entryKey}/fertilizers/${fertilizerKey}`,
+    `${BASE}/entries/${entryKey}/channels/${channelId}/fertilizers/${fertilizerKey}`,
   );
 }
 

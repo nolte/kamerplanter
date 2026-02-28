@@ -34,7 +34,6 @@ class TestNutrientPlanPhaseEntry:
             week_end=4,
         )
         assert entry.phase_name == PhaseName.VEGETATIVE
-        assert entry.target_ec_ms == 1.0
 
     def test_week_end_before_start_raises(self):
         with pytest.raises(ValidationError, match="week_end"):
@@ -66,36 +65,6 @@ class TestNutrientPlanPhaseEntry:
                 week_end=4,
                 npk_ratio=(-1.0, 0.0, 0.0),
             )
-
-    def test_target_ec_bounds(self):
-        NutrientPlanPhaseEntry(
-            plan_key="p1", phase_name=PhaseName.SEEDLING,
-            sequence_order=1, week_start=1, week_end=2, target_ec_ms=0.0,
-        )
-        NutrientPlanPhaseEntry(
-            plan_key="p1", phase_name=PhaseName.FLOWERING,
-            sequence_order=1, week_start=1, week_end=2, target_ec_ms=10.0,
-        )
-        with pytest.raises(ValidationError):
-            NutrientPlanPhaseEntry(
-                plan_key="p1", phase_name=PhaseName.VEGETATIVE,
-                sequence_order=1, week_start=1, week_end=2, target_ec_ms=10.1,
-            )
-
-    def test_with_dosages(self):
-        entry = NutrientPlanPhaseEntry(
-            plan_key="p1",
-            phase_name=PhaseName.FLOWERING,
-            sequence_order=2,
-            week_start=5,
-            week_end=10,
-            fertilizer_dosages=[
-                FertilizerDosage(fertilizer_key="f1", ml_per_liter=2.0),
-                FertilizerDosage(fertilizer_key="f2", ml_per_liter=1.5, optional=True),
-            ],
-        )
-        assert len(entry.fertilizer_dosages) == 2
-        assert entry.fertilizer_dosages[1].optional is True
 
     def test_all_phase_names(self):
         for phase in PhaseName:

@@ -57,6 +57,7 @@ USERS = "users"
 AUTH_PROVIDERS = "auth_providers"
 REFRESH_TOKENS = "refresh_tokens"
 OIDC_PROVIDER_CONFIGS = "oidc_provider_configs"
+API_KEYS = "api_keys"
 
 # REQ-024 Tenants
 TENANTS = "tenants"
@@ -139,6 +140,7 @@ DOCUMENT_COLLECTIONS = [
     USER_PREFERENCES,
     IMPORT_JOBS,
     CALENDAR_FEEDS,
+    API_KEYS,
 ]
 
 # Edge collections
@@ -219,6 +221,7 @@ FOLLOWS_WORKFLOW = "follows_workflow"
 # REQ-023 Auth edges
 HAS_AUTH_PROVIDER = "has_auth_provider"
 HAS_SESSION = "has_session"
+HAS_API_KEY = "has_api_key"
 
 # REQ-024 Tenant edges
 HAS_MEMBERSHIP = "has_membership"
@@ -316,6 +319,7 @@ EDGE_COLLECTIONS = [
     FOLLOWS_WORKFLOW,
     HAS_AUTH_PROVIDER,
     HAS_SESSION,
+    HAS_API_KEY,
     HAS_MEMBERSHIP,
     MEMBERSHIP_IN,
     HAS_INVITATION,
@@ -686,6 +690,11 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [USERS],
         "to_vertex_collections": [REFRESH_TOKENS],
     },
+    {
+        "edge_collection": HAS_API_KEY,
+        "from_vertex_collections": [USERS],
+        "to_vertex_collections": [API_KEYS],
+    },
     # REQ-024 Tenants
     {
         "edge_collection": HAS_MEMBERSHIP,
@@ -873,6 +882,10 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     oidc_configs_col = db.collection(OIDC_PROVIDER_CONFIGS)
     oidc_configs_col.add_hash_index(fields=["slug"], unique=True)
+
+    api_keys_col = db.collection(API_KEYS)
+    api_keys_col.add_hash_index(fields=["key_hash"], unique=True)
+    api_keys_col.add_hash_index(fields=["user_key"], unique=False)
 
     # REQ-024 Tenant indexes
     tenants_col = db.collection(TENANTS)

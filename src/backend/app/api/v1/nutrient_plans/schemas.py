@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -11,6 +14,55 @@ class WateringScheduleSchema(BaseModel):
     preferred_time: str | None = None
     application_method: str = "drench"
     reminder_hours_before: int = Field(default=2, ge=0, le=24)
+
+
+# ── Method-specific parameter schemas ───────────────────────────────
+
+class FertigationParamsSchema(BaseModel):
+    method: Literal["fertigation"] = "fertigation"
+    runs_per_day: int = Field(default=1, ge=1, le=24)
+    duration_seconds: int = Field(default=300, ge=1, le=7200)
+    flow_rate_ml_min: float | None = Field(default=None, gt=0)
+    tank_key: str | None = None
+
+
+class DrenchParamsSchema(BaseModel):
+    method: Literal["drench"] = "drench"
+    volume_per_feeding_liters: float = Field(default=1.0, gt=0, le=100)
+
+
+class FoliarParamsSchema(BaseModel):
+    method: Literal["foliar"] = "foliar"
+    volume_per_spray_liters: float = Field(default=0.5, gt=0, le=10)
+
+
+class TopDressParamsSchema(BaseModel):
+    method: Literal["top_dress"] = "top_dress"
+    grams_per_plant: float | None = Field(default=None, gt=0)
+    grams_per_m2: float | None = Field(default=None, gt=0)
+
+
+# ── DeliveryChannel schema ──────────────────────────────────────────
+
+class DeliveryChannelSchema(BaseModel):
+    channel_id: str = Field(min_length=1, max_length=50)
+    label: str = Field(default="", max_length=200)
+    application_method: str
+    enabled: bool = True
+    notes: str | None = None
+    schedule: WateringScheduleSchema | None = None
+    target_ec_ms: float | None = Field(default=None, ge=0, le=10)
+    target_ph: float | None = Field(default=None, ge=0, le=14)
+    fertilizer_dosages: list[FertilizerDosageSchema] = Field(default_factory=list)
+    method_params: (
+        FertigationParamsSchema | DrenchParamsSchema | FoliarParamsSchema | TopDressParamsSchema | None
+    ) = None
+
+
+class ChannelFertilizerAssignRequest(BaseModel):
+    fertilizer_key: str
+    ml_per_liter: float = Field(gt=0, le=50)
+    optional: bool = False
 
 
 # ── NutrientPlan schemas ────────────────────────────────────────────
@@ -66,14 +118,10 @@ class PhaseEntryCreate(BaseModel):
     week_start: int = Field(ge=1)
     week_end: int = Field(ge=1)
     npk_ratio: tuple[float, float, float] = (0.0, 0.0, 0.0)
-    target_ec_ms: float = Field(default=1.0, ge=0, le=10)
-    target_ph: float = Field(default=6.0, ge=0, le=14)
     calcium_ppm: float | None = Field(default=None, ge=0)
     magnesium_ppm: float | None = Field(default=None, ge=0)
-    feeding_frequency_per_week: int = Field(default=1, ge=1, le=14)
-    volume_per_feeding_liters: float | None = Field(default=None, gt=0)
     notes: str | None = None
-    fertilizer_dosages: list[FertilizerDosageSchema] = Field(default_factory=list)
+    delivery_channels: list[DeliveryChannelSchema] = Field(default_factory=list)
 
 
 class PhaseEntryUpdate(BaseModel):
@@ -82,14 +130,10 @@ class PhaseEntryUpdate(BaseModel):
     week_start: int | None = Field(default=None, ge=1)
     week_end: int | None = Field(default=None, ge=1)
     npk_ratio: tuple[float, float, float] | None = None
-    target_ec_ms: float | None = Field(default=None, ge=0, le=10)
-    target_ph: float | None = Field(default=None, ge=0, le=14)
     calcium_ppm: float | None = Field(default=None, ge=0)
     magnesium_ppm: float | None = Field(default=None, ge=0)
-    feeding_frequency_per_week: int | None = Field(default=None, ge=1, le=14)
-    volume_per_feeding_liters: float | None = Field(default=None, gt=0)
     notes: str | None = None
-    fertilizer_dosages: list[FertilizerDosageSchema] | None = None
+    delivery_channels: list[DeliveryChannelSchema] | None = None
 
 
 class PhaseEntryResponse(BaseModel):
@@ -100,14 +144,10 @@ class PhaseEntryResponse(BaseModel):
     week_start: int
     week_end: int
     npk_ratio: tuple[float, float, float]
-    target_ec_ms: float
-    target_ph: float
     calcium_ppm: float | None
     magnesium_ppm: float | None
-    feeding_frequency_per_week: int
-    volume_per_feeding_liters: float | None
     notes: str | None
-    fertilizer_dosages: list[FertilizerDosageSchema]
+    delivery_channels: list[DeliveryChannelSchema] = Field(default_factory=list)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -124,7 +164,3 @@ class AssignPlanRequest(BaseModel):
     assigned_by: str = ""
 
 
-class FertilizerAssignRequest(BaseModel):
-    fertilizer_key: str
-    ml_per_liter: float = Field(gt=0, le=50)
-    optional: bool = False
