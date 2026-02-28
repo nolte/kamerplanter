@@ -12,6 +12,7 @@ import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
+import Alert from '@mui/material/Alert';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
@@ -23,6 +24,16 @@ import ThemeToggle from '@/components/layout/ThemeToggle';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleSidebar } from '@/store/slices/uiSlice';
 import { logoutUser } from '@/store/slices/authSlice';
+import { isLightMode } from '@/config/mode';
+
+function isPrivateNetwork(): boolean {
+  const { hostname } = window.location;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
+  if (hostname.startsWith('10.')) return true;
+  if (hostname.startsWith('192.168.')) return true;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return true;
+  return false;
+}
 
 export default function MainLayout() {
   const { t } = useTranslation();
@@ -32,6 +43,9 @@ export default function MainLayout() {
   const user = useAppSelector((s) => s.auth.user);
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [lightModeWarningDismissed, setLightModeWarningDismissed] = useState(false);
+
+  const showLightModeWarning = isLightMode && !isPrivateNetwork() && !lightModeWarningDismissed;
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -101,46 +115,59 @@ export default function MainLayout() {
             <MenuIcon />
           </IconButton>
           <Box sx={{ flexGrow: 1 }} />
-          <TenantSwitcher />
+          {!isLightMode && <TenantSwitcher />}
           <LanguageSelector />
           <ThemeToggle />
 
-          {/* User menu */}
-          <IconButton
-            onClick={handleMenuOpen}
-            sx={{ ml: 1 }}
-            aria-label={t('pages.auth.accountMenu')}
-          >
-            <Avatar
-              sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}
-              src={user?.avatar_url || undefined}
+          {/* User menu — full mode: avatar + dropdown; light mode: settings icon only */}
+          {isLightMode ? (
+            <IconButton
+              color="inherit"
+              onClick={() => navigate('/settings')}
+              sx={{ ml: 1 }}
+              aria-label={t('pages.auth.accountSettings')}
             >
-              {user?.display_name?.[0]?.toUpperCase() || <PersonIcon />}
-            </Avatar>
-          </IconButton>
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleMenuClose}
-            transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-            anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-          >
-            <Box sx={{ px: 2, py: 1 }}>
-              <Typography variant="subtitle2">{user?.display_name}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                {user?.email}
-              </Typography>
-            </Box>
-            <Divider />
-            <MenuItem onClick={handleSettings}>
-              <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
-              {t('pages.auth.accountSettings')}
-            </MenuItem>
-            <MenuItem onClick={handleLogout}>
-              <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
-              {t('pages.auth.logout')}
-            </MenuItem>
-          </Menu>
+              <SettingsIcon />
+            </IconButton>
+          ) : (
+            <>
+              <IconButton
+                onClick={handleMenuOpen}
+                sx={{ ml: 1 }}
+                aria-label={t('pages.auth.accountMenu')}
+              >
+                <Avatar
+                  sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}
+                  src={user?.avatar_url || undefined}
+                >
+                  {user?.display_name?.[0]?.toUpperCase() || <PersonIcon />}
+                </Avatar>
+              </IconButton>
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleMenuClose}
+                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+              >
+                <Box sx={{ px: 2, py: 1 }}>
+                  <Typography variant="subtitle2">{user?.display_name}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {user?.email}
+                  </Typography>
+                </Box>
+                <Divider />
+                <MenuItem onClick={handleSettings}>
+                  <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
+                  {t('pages.auth.accountSettings')}
+                </MenuItem>
+                <MenuItem onClick={handleLogout}>
+                  <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
+                  {t('pages.auth.logout')}
+                </MenuItem>
+              </Menu>
+            </>
+          )}
         </Toolbar>
       </AppBar>
 
@@ -160,6 +187,15 @@ export default function MainLayout() {
         }}
       >
         <Toolbar />
+        {showLightModeWarning && (
+          <Alert
+            severity="warning"
+            onClose={() => setLightModeWarningDismissed(true)}
+            sx={{ mb: 2 }}
+          >
+            {t('common.lightModeWarning')}
+          </Alert>
+        )}
         <Breadcrumbs />
         <Outlet />
       </Box>

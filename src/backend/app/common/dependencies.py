@@ -307,6 +307,34 @@ def get_email_service() -> IEmailService:
     return ConsoleEmailAdapter()
 
 
+def get_oauth_engine():
+    from app.domain.engines.oauth_engine import OAuthEngine
+    return OAuthEngine()
+
+
+def get_encryption_engine():
+    from app.domain.engines.encryption_engine import EncryptionEngine
+    return EncryptionEngine(settings.fernet_key)
+
+
+def get_oauth_state_store():
+    from app.data_access.external.redis_oauth_state import RedisOAuthStateStore
+    return RedisOAuthStateStore(settings.redis_url)
+
+
+def get_api_key_repo():
+    from app.data_access.arango.api_key_repository import ArangoApiKeyRepository
+    return ArangoApiKeyRepository(get_db())
+
+
+def get_auth_provider():
+    if settings.kamerplanter_mode == "light":
+        from app.domain.engines.light_auth_provider import LightAuthProvider
+        return LightAuthProvider(get_user_repo())
+    from app.domain.engines.full_auth_provider import FullAuthProvider
+    return FullAuthProvider(get_token_engine(), get_user_repo(), get_auth_service())
+
+
 def get_auth_service() -> AuthService:
     return AuthService(
         user_repo=get_user_repo(),
@@ -322,6 +350,11 @@ def get_auth_service() -> AuthService:
         session_token_expire_hours=settings.session_token_expire_hours,
         tenant_service=get_tenant_service(),
         require_email_verification=settings.require_email_verification,
+        oauth_engine=get_oauth_engine(),
+        oauth_state_store=get_oauth_state_store(),
+        api_key_repo=get_api_key_repo(),
+        oidc_config_repo=get_oidc_config_repo(),
+        encryption_engine=get_encryption_engine(),
     )
 
 

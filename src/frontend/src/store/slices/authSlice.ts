@@ -21,7 +21,7 @@ const initialState: AuthState = {
 
 export const loginLocal = createAsyncThunk(
   'auth/loginLocal',
-  async (data: { email: string; password: string }) => {
+  async (data: { email: string; password: string; remember_me?: boolean }) => {
     const response = await authApi.login(data);
     return response;
   },
@@ -105,6 +105,7 @@ const authSlice = createSlice({
     builder.addCase(fetchProfile.fulfilled, (state, action) => {
       state.isLoading = false;
       state.user = action.payload;
+      state.isAuthenticated = true;
     });
     builder.addCase(fetchProfile.rejected, (state) => {
       state.isLoading = false;

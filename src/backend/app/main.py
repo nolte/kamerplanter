@@ -33,6 +33,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     ensure_collections(db)
     logger.info("database_ready")
 
+    if settings.kamerplanter_mode == "light":
+        from app.migrations.seed_light_mode import run_seed_light_mode
+        run_seed_light_mode()
+        logger.info("light_mode_active")
+
     yield
 
     close_connection()

@@ -31,6 +31,11 @@ export function parseApiError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
+  // Handle Redux Toolkit serialized errors (plain objects with message)
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const msg = (error as { message: unknown }).message;
+    if (typeof msg === 'string' && msg.length > 0) return msg;
+  }
   return 'An unknown error occurred.';
 }
 

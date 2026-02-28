@@ -4,6 +4,7 @@ import MainLayout from '@/layouts/MainLayout';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ProtectedRoute from '@/auth/ProtectedRoute';
 import PublicOnlyRoute from '@/auth/PublicOnlyRoute';
+import { isLightMode } from '@/config/mode';
 
 // Auth pages
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
@@ -16,6 +17,7 @@ const PasswordResetConfirmPage = lazy(
   () => import('@/pages/auth/PasswordResetConfirmPage'),
 );
 const AccountSettingsPage = lazy(() => import('@/pages/auth/AccountSettingsPage'));
+const OAuthCallbackPage = lazy(() => import('@/pages/auth/OAuthCallbackPage'));
 
 // Tenant pages
 const TenantCreatePage = lazy(() => import('@/pages/tenants/TenantCreatePage'));
@@ -108,49 +110,63 @@ const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 export const router = createBrowserRouter(
   createRoutesFromElements(
     <>
-      {/* Public-only routes (redirect to dashboard when authenticated) */}
-      <Route element={<PublicOnlyRoute />}>
+      {/* OAuth callback — full mode only */}
+      {!isLightMode && (
         <Route
-          path="login"
+          path="auth/callback"
           element={
             <Suspense fallback={<LoadingSkeleton variant="card" />}>
-              <LoginPage />
+              <OAuthCallbackPage />
             </Suspense>
           }
         />
-        <Route
-          path="register"
-          element={
-            <Suspense fallback={<LoadingSkeleton variant="card" />}>
-              <RegisterPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="verify-email/:token"
-          element={
-            <Suspense fallback={<LoadingSkeleton variant="card" />}>
-              <EmailVerificationPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="password-reset"
-          element={
-            <Suspense fallback={<LoadingSkeleton variant="card" />}>
-              <PasswordResetRequestPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="password-reset/:token"
-          element={
-            <Suspense fallback={<LoadingSkeleton variant="card" />}>
-              <PasswordResetConfirmPage />
-            </Suspense>
-          }
-        />
-      </Route>
+      )}
+
+      {/* Public-only routes (redirect to dashboard when authenticated) — full mode only */}
+      {!isLightMode && (
+        <Route element={<PublicOnlyRoute />}>
+          <Route
+            path="login"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <LoginPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="register"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <RegisterPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="verify-email/:token"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <EmailVerificationPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="password-reset"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <PasswordResetRequestPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="password-reset/:token"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <PasswordResetConfirmPage />
+              </Suspense>
+            }
+          />
+        </Route>
+      )}
 
       {/* Protected routes (require authentication) */}
       <Route element={<ProtectedRoute />}>
@@ -175,31 +191,35 @@ export const router = createBrowserRouter(
             }
           />
 
-          {/* REQ-024 Tenants */}
-          <Route
-            path="tenants/create"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <TenantCreatePage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="tenants/settings"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <TenantSettingsPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="invitations/accept"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <InvitationAcceptPage />
-              </Suspense>
-            }
-          />
+          {/* REQ-024 Tenants — full mode only */}
+          {!isLightMode && (
+            <>
+              <Route
+                path="tenants/create"
+                element={
+                  <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                    <TenantCreatePage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="tenants/settings"
+                element={
+                  <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                    <TenantSettingsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="invitations/accept"
+                element={
+                  <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                    <InvitationAcceptPage />
+                  </Suspense>
+                }
+              />
+            </>
+          )}
 
           {/* REQ-022 Pflege */}
           <Route

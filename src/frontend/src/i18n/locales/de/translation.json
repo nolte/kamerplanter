@@ -26,7 +26,8 @@
     "toggleSidebar": "Seitenleiste umschalten",
     "showAllFields": "Alle Felder anzeigen",
     "showFewerFields": "Weniger Felder anzeigen",
-    "saved": "Gespeichert"
+    "saved": "Gespeichert",
+    "lightModeWarning": "Kamerplanter laeuft im Light-Modus ohne Authentifizierung. Dieser Modus ist nur fuer geschlossene Netzwerke gedacht."
   },
   "table": {
     "showing": "Zeigt {{from}}–{{to}} von {{total}} Einträgen",
@@ -162,6 +163,7 @@
       "tabProfile": "Profil",
       "tabSecurity": "Sicherheit",
       "tabSessions": "Sitzungen",
+      "tabApiKeys": "API-Schlüssel",
       "tabExperience": "Erfahrungsstufe",
       "tabAccount": "Konto",
       "experienceLevelTitle": "Erfahrungsstufe",
@@ -191,7 +193,23 @@
       "rememberMe": "Angemeldet bleiben",
       "rememberMeTooltip": "Aktivieren Sie diese Option nur auf privaten Geräten. Ihre Sitzung bleibt bis zu 30 Tage aktiv.",
       "sessionPersistent": "Persistent",
-      "sessionTemporary": "Sitzung"
+      "sessionTemporary": "Sitzung",
+      "timezone": "Zeitzone",
+      "setPassword": "Lokales Passwort festlegen",
+      "setPasswordButton": "Passwort festlegen",
+      "apiKeysTitle": "API-Schlüssel",
+      "createApiKey": "API-Schlüssel erstellen",
+      "apiKeyLabel": "Bezeichnung",
+      "apiKeyCreatedWarning": "Kopieren Sie diesen Schlüssel jetzt — er wird nicht erneut angezeigt!",
+      "apiKeyCopied": "API-Schlüssel kopiert",
+      "apiKeyRevoked": "API-Schlüssel widerrufen",
+      "noApiKeys": "Keine API-Schlüssel vorhanden.",
+      "lastUsed": "Zuletzt verwendet",
+      "neverUsed": "Noch nie verwendet",
+      "revoked": "Widerrufen",
+      "oauthNoToken": "Kein Zugriffstoken erhalten.",
+      "oauthProfileError": "Profil konnte nicht geladen werden.",
+      "oauthProcessing": "Anmeldung wird verarbeitet..."
     },
     "tenants": {
       "selectTenant": "Garten wählen",
@@ -997,6 +1015,63 @@
       "fri": "Fr",
       "sat": "Sa",
       "sun": "So"
+    },
+    "deliveryChannels": {
+      "title": "Ausbringungskanäle",
+      "addChannel": "Kanal hinzufügen",
+      "editChannel": "Kanal bearbeiten",
+      "deleteChannel": "Kanal löschen",
+      "deleteChannelConfirm": "Kanal '{{label}}' wirklich löschen?",
+      "channelId": "Kanal-ID",
+      "label": "Bezeichnung",
+      "applicationMethod": "Ausbringungsmethode",
+      "enabled": "Aktiv",
+      "disabled": "Deaktiviert",
+      "notes": "Notizen",
+      "schedule": "Zeitplan",
+      "targetEc": "Ziel-EC (mS)",
+      "targetPh": "Ziel-pH",
+      "fertilizers": "Düngemittel",
+      "methodParams": "Methodenparameter",
+      "noChannels": "Keine Ausbringungskanäle konfiguriert",
+      "legacyMode": "Legacy-Modus (Einzelkanal)",
+      "channelMode": "Multi-Kanal-Modus",
+      "migrateToChannels": "Zu Multi-Kanal konvertieren",
+      "migrateConfirm": "Legacy-Einstellungen in einen Standard-Ausbringungskanal konvertieren? Dies kann nicht rückgängig gemacht werden.",
+      "migrateSuccess": "Erfolgreich zu Multi-Kanal konvertiert",
+      "channelCount": "{{count}} Kanal(e)",
+      "stepMethod": "Methode",
+      "stepParams": "Parameter",
+      "stepSchedule": "Zeitplan",
+      "stepFertilizers": "Düngemittel",
+      "fertigation": {
+        "title": "Fertigation",
+        "runsPerDay": "Durchläufe pro Tag",
+        "durationMinutes": "Dauer (min)",
+        "flowRateMlMin": "Durchfluss (ml/min)",
+        "tankKey": "Tank"
+      },
+      "drench": {
+        "title": "Gießen (Drench)",
+        "volumePerFeeding": "Volumen pro Gießvorgang (L)"
+      },
+      "foliar": {
+        "title": "Blattsprühung",
+        "volumePerSpray": "Volumen pro Sprühvorgang (L)"
+      },
+      "topDress": {
+        "title": "Oberflächendüngung",
+        "gramsPerPlant": "Gramm pro Pflanze",
+        "gramsPerM2": "Gramm pro m²"
+      },
+      "validation": {
+        "title": "Kanal-Validierung",
+        "valid": "Alle Kanäle gültig",
+        "invalid": "Kanalprobleme gefunden",
+        "ecBudget": "EC-Budget",
+        "noIssues": "Keine Probleme"
+      },
+      "multiChannelActive": "Multi-Kanal-Modus aktiv — Kanäle über die Detailseite verwalten"
     },
     "import": {
       "title": "Stammdaten-Import",

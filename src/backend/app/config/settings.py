@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
@@ -32,6 +34,9 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
+    # REQ-027 Light-Modus
+    kamerplanter_mode: Literal["light", "full"] = "full"
+
     perenual_api_key: str = ""
     trefle_api_key: str = ""
     enrichment_http_timeout: int = 30
@@ -43,6 +48,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
+    session_token_expire_hours: int = 24
     fernet_key: str = ""  # For encrypting OIDC provider secrets
     frontend_url: str = "http://localhost:5173"
     hibp_enabled: bool = False
@@ -54,7 +60,7 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_username: str = ""
     smtp_password: str = ""
-    smtp_from_email: str = "noreply@kamerplanter.local"
+    smtp_from_email: str = "noreply@kamerplanter.example"
     smtp_use_tls: bool = True
 
     # Rate limiting

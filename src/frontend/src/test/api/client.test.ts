@@ -46,6 +46,15 @@ describe('ApiError', () => {
     expect(parseApiError('string error')).toBe('An unknown error occurred.');
   });
 
+  it('parseApiError handles Redux serialized error (plain object with message)', () => {
+    const serialized = { name: 'ApiError', message: 'Invalid email or password.' };
+    expect(parseApiError(serialized)).toBe('Invalid email or password.');
+  });
+
+  it('parseApiError rejects empty message in plain object', () => {
+    expect(parseApiError({ message: '' })).toBe('An unknown error occurred.');
+  });
+
   it('getFieldErrors maps body. fields correctly', () => {
     const err = new ApiError(errorResponse, 422);
     const fields = getFieldErrors(err);

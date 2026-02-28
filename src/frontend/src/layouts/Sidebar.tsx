@@ -312,8 +312,8 @@ export default function Sidebar({ open }: SidebarProps) {
       </Box>
       <List>
         <ListItemButton
-          selected={location.pathname === '/auth/settings'}
-          onClick={() => navigate('/auth/settings')}
+          selected={location.pathname === '/settings'}
+          onClick={() => navigate('/settings')}
           data-testid="nav-settings"
         >
           <ListItemIcon><SettingsIcon /></ListItemIcon>

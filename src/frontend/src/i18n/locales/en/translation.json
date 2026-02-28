@@ -26,7 +26,8 @@
     "toggleSidebar": "Toggle sidebar",
     "showAllFields": "Show all fields",
     "showFewerFields": "Show fewer fields",
-    "saved": "Saved"
+    "saved": "Saved",
+    "lightModeWarning": "Kamerplanter is running in light mode without authentication. This mode is intended for closed networks only."
   },
   "table": {
     "showing": "Showing {{from}}–{{to}} of {{total}} entries",
@@ -191,7 +192,24 @@
       "rememberMe": "Remember me",
       "rememberMeTooltip": "Only enable on private devices. Your session will stay active for up to 30 days.",
       "sessionPersistent": "Persistent",
-      "sessionTemporary": "Session"
+      "sessionTemporary": "Session",
+      "tabApiKeys": "API Keys",
+      "timezone": "Timezone",
+      "setPassword": "Set Password",
+      "setPasswordButton": "Set Password",
+      "apiKeysTitle": "API Keys",
+      "createApiKey": "Create API Key",
+      "apiKeyLabel": "Label",
+      "apiKeyCreatedWarning": "Copy the key now — it will not be shown again!",
+      "apiKeyCopied": "API key copied to clipboard",
+      "apiKeyRevoked": "API key revoked",
+      "noApiKeys": "No API keys yet.",
+      "lastUsed": "Last used",
+      "neverUsed": "Never used",
+      "revoked": "Revoked",
+      "oauthNoToken": "No access token received.",
+      "oauthProfileError": "Could not load user profile.",
+      "oauthProcessing": "Processing login…"
     },
     "tenants": {
       "selectTenant": "Select Garden",
@@ -997,6 +1015,63 @@
       "fri": "Fri",
       "sat": "Sat",
       "sun": "Sun"
+    },
+    "deliveryChannels": {
+      "title": "Delivery Channels",
+      "addChannel": "Add Channel",
+      "editChannel": "Edit Channel",
+      "deleteChannel": "Delete Channel",
+      "deleteChannelConfirm": "Really delete channel '{{label}}'?",
+      "channelId": "Channel ID",
+      "label": "Label",
+      "applicationMethod": "Application Method",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "notes": "Notes",
+      "schedule": "Schedule",
+      "targetEc": "Target EC (mS)",
+      "targetPh": "Target pH",
+      "fertilizers": "Fertilizers",
+      "methodParams": "Method Parameters",
+      "noChannels": "No delivery channels configured",
+      "legacyMode": "Legacy mode (single channel)",
+      "channelMode": "Multi-channel mode",
+      "migrateToChannels": "Convert to Multi-Channel",
+      "migrateConfirm": "Convert legacy settings to a default delivery channel? This cannot be undone.",
+      "migrateSuccess": "Successfully converted to multi-channel",
+      "channelCount": "{{count}} channel(s)",
+      "stepMethod": "Method",
+      "stepParams": "Parameters",
+      "stepSchedule": "Schedule",
+      "stepFertilizers": "Fertilizers",
+      "fertigation": {
+        "title": "Fertigation",
+        "runsPerDay": "Runs per Day",
+        "durationMinutes": "Duration (min)",
+        "flowRateMlMin": "Flow Rate (ml/min)",
+        "tankKey": "Tank"
+      },
+      "drench": {
+        "title": "Drench",
+        "volumePerFeeding": "Volume per Feeding (L)"
+      },
+      "foliar": {
+        "title": "Foliar Spray",
+        "volumePerSpray": "Volume per Spray (L)"
+      },
+      "topDress": {
+        "title": "Top Dress",
+        "gramsPerPlant": "Grams per Plant",
+        "gramsPerM2": "Grams per m²"
+      },
+      "validation": {
+        "title": "Channel Validation",
+        "valid": "All channels valid",
+        "invalid": "Channel issues found",
+        "ecBudget": "EC Budget",
+        "noIssues": "No issues"
+      },
+      "multiChannelActive": "Multi-channel mode active — manage channels from the detail page"
     },
     "import": {
       "title": "Master Data Import",

@@ -1,7 +1,5 @@
 from fastapi import APIRouter
 
-from app.api.v1.admin.oidc_providers.router import router as oidc_providers_router
-from app.api.v1.auth.router import router as auth_router
 from app.api.v1.botanical_families.router import router as families_router
 from app.api.v1.calculations.router import router as calculations_router
 from app.api.v1.calendar.router import router as calendar_router
@@ -39,12 +37,40 @@ from app.api.v1.tenants.router import router as tenants_router
 from app.api.v1.user_preferences.router import router as user_preferences_router
 from app.api.v1.users.router import router as users_router
 from app.api.v1.watering_events.router import router as watering_events_router
+from app.config.settings import settings
 
 api_router = APIRouter(prefix="/api/v1")
 
-api_router.include_router(auth_router)
+
+# ── REQ-027 Mode endpoint ───────────────────────────────────────────
+mode_router = APIRouter(tags=["mode"])
+
+
+@mode_router.get("/mode")
+def get_mode():
+    """Return current deployment mode and feature flags."""
+    is_full = settings.kamerplanter_mode == "full"
+    return {
+        "mode": settings.kamerplanter_mode,
+        "features": {
+            "auth": is_full,
+            "multi_tenant": is_full,
+            "privacy_consent": is_full,
+        },
+    }
+
+
+api_router.include_router(mode_router)
+
+# Auth-related routers: only in full mode
+if settings.kamerplanter_mode == "full":
+    from app.api.v1.admin.oidc_providers.router import router as oidc_providers_router
+    from app.api.v1.auth.router import router as auth_router
+
+    api_router.include_router(auth_router)
+    api_router.include_router(oidc_providers_router)
+
 api_router.include_router(users_router)
-api_router.include_router(oidc_providers_router)
 api_router.include_router(health_router)
 api_router.include_router(families_router)
 api_router.include_router(calculations_router)

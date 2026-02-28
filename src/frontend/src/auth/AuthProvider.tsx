@@ -7,6 +7,8 @@ import {
   setAccessToken,
 } from '@/store/slices/authSlice';
 import { loadMyTenants } from '@/store/slices/tenantSlice';
+import { fetchPreferences } from '@/store/slices/userPreferencesSlice';
+import { isLightMode } from '@/config/mode';
 import client from '@/api/client';
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
@@ -40,8 +42,10 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     tokenRef.current = accessToken;
   }, [accessToken]);
 
-  // Request interceptor: attach Bearer token
+  // Request interceptor: attach Bearer token (skip in light mode)
   useEffect(() => {
+    if (isLightMode) return;
+
     const requestInterceptor = client.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
         if (tokenRef.current && config.headers) {
@@ -56,8 +60,10 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     };
   }, []);
 
-  // Response interceptor: auto-refresh on 401
+  // Response interceptor: auto-refresh on 401 (skip in light mode)
   useEffect(() => {
+    if (isLightMode) return;
+
     const responseInterceptor = client.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
@@ -112,13 +118,26 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     };
   }, [dispatch]);
 
-  // On mount: try to refresh and load profile
+  // On mount: try to refresh and load profile + preferences
   const initAuth = useCallback(async () => {
+    if (isLightMode) {
+      // Light mode: skip JWT refresh, just fetch profile directly
+      try {
+        await dispatch(fetchProfile()).unwrap();
+        dispatch(loadMyTenants());
+        dispatch(fetchPreferences());
+      } catch {
+        // System user should always exist in light mode
+      }
+      return;
+    }
+
     try {
       const result = await dispatch(refreshAccessToken()).unwrap();
       dispatch(setAccessToken(result.access_token));
       await dispatch(fetchProfile());
       dispatch(loadMyTenants());
+      dispatch(fetchPreferences());
     } catch {
       // Not authenticated — that's fine
     }
@@ -128,11 +147,12 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     initAuth();
   }, [initAuth]);
 
-  // Fetch profile and tenants after login
+  // Fetch profile, tenants and preferences after login
   useEffect(() => {
     if (isAuthenticated && !isRefreshing) {
       dispatch(fetchProfile());
       dispatch(loadMyTenants());
+      dispatch(fetchPreferences());
     }
   }, [isAuthenticated, dispatch]);
 

@@ -2,12 +2,10 @@ from collections.abc import Callable
 
 from fastapi import Cookie, Depends, Header, Path
 
-from app.common.dependencies import get_tenant_service, get_token_engine, get_user_repo
+from app.common.dependencies import get_auth_provider, get_tenant_service
 from app.common.enums import TenantRole
 from app.common.exceptions import ForbiddenError, UnauthorizedError
-from app.domain.engines.token_engine import TokenEngine
-from app.domain.interfaces.user_repository import IUserRepository
-from app.domain.models.auth import TokenPayload
+from app.domain.interfaces.auth_provider import IAuthProvider
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.user import User
 from app.domain.services.tenant_service import TenantService
@@ -15,45 +13,18 @@ from app.domain.services.tenant_service import TenantService
 
 def get_current_user(
     authorization: str | None = Header(default=None),
-    token_engine: TokenEngine = Depends(get_token_engine),
-    user_repo: IUserRepository = Depends(get_user_repo),
+    auth_provider: IAuthProvider = Depends(get_auth_provider),
 ) -> User:
-    """Extract and validate user from Bearer token."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise UnauthorizedError("Missing or invalid authorization header.")
-
-    token = authorization[7:]
-    try:
-        payload: TokenPayload = token_engine.decode_access_token(token)
-    except ValueError as e:
-        raise UnauthorizedError(str(e)) from e
-
-    user = user_repo.get_by_key(payload.sub)
-    if user is None or not user.is_active:
-        raise UnauthorizedError("User not found or inactive.")
-
-    return user
+    """Extract and validate user from Bearer token, API key, or system user."""
+    return auth_provider.resolve_user(authorization)
 
 
 def get_current_user_optional(
     authorization: str | None = Header(default=None),
-    token_engine: TokenEngine = Depends(get_token_engine),
-    user_repo: IUserRepository = Depends(get_user_repo),
+    auth_provider: IAuthProvider = Depends(get_auth_provider),
 ) -> User | None:
     """Extract user from Bearer token, or return None if no token."""
-    if not authorization or not authorization.startswith("Bearer "):
-        return None
-
-    token = authorization[7:]
-    try:
-        payload: TokenPayload = token_engine.decode_access_token(token)
-    except ValueError:
-        return None
-
-    user = user_repo.get_by_key(payload.sub)
-    if user is None or not user.is_active:
-        return None
-    return user
+    return auth_provider.resolve_user_optional(authorization)
 
 
 def get_refresh_token_from_cookie(

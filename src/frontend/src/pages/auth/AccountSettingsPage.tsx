@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -14,10 +14,21 @@ import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import IconButton from '@mui/material/IconButton';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import Chip from '@mui/material/Chip';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import EmojiNatureIcon from '@mui/icons-material/EmojiNature';
+import SchoolIcon from '@mui/icons-material/School';
+import ScienceIcon from '@mui/icons-material/Science';
 import { useSnackbar } from 'notistack';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchProfile } from '@/store/slices/authSlice';
+import { updateUserPreferences, fetchPreferences } from '@/store/slices/userPreferencesSlice';
 import {
   updateProfile,
   changePassword,
@@ -26,31 +37,79 @@ import {
   listSessions,
   revokeSession,
   deleteAccount,
+  createApiKey,
+  listApiKeys,
+  revokeApiKey,
 } from '@/api/endpoints/auth';
 import { parseApiError } from '@/api/errors';
-import type { AuthProviderInfo, SessionInfo } from '@/api/types';
+import { isLightMode } from '@/config/mode';
+import type { AuthProviderInfo, SessionInfo, ExperienceLevel, ApiKeySummary } from '@/api/types';
+
+const EXPERIENCE_LEVELS: { level: ExperienceLevel; icon: React.ReactNode }[] = [
+  { level: 'beginner', icon: <EmojiNatureIcon /> },
+  { level: 'intermediate', icon: <SchoolIcon /> },
+  { level: 'expert', icon: <ScienceIcon /> },
+];
+
+// Tab definitions: in light mode only show Profile and Experience
+interface TabDef {
+  key: string;
+  label: string;
+}
 
 export default function AccountSettingsPage() {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const { enqueueSnackbar } = useSnackbar();
   const user = useAppSelector((s) => s.auth.user);
+  const preferences = useAppSelector((s) => s.userPreferences.preferences);
 
-  const [tab, setTab] = useState(0);
+  const tabs: TabDef[] = useMemo(() => {
+    if (isLightMode) {
+      return [
+        { key: 'profile', label: t('pages.auth.tabProfile') },
+        { key: 'experience', label: t('pages.auth.tabExperience') },
+      ];
+    }
+    return [
+      { key: 'profile', label: t('pages.auth.tabProfile') },
+      { key: 'security', label: t('pages.auth.tabSecurity') },
+      { key: 'sessions', label: t('pages.auth.tabSessions') },
+      { key: 'apikeys', label: t('pages.auth.tabApiKeys') },
+      { key: 'experience', label: t('pages.auth.tabExperience') },
+      { key: 'account', label: t('pages.auth.tabAccount') },
+    ];
+  }, [t]);
+
+  const [tabIndex, setTabIndex] = useState(0);
+  const activeTab = tabs[tabIndex]?.key ?? 'profile';
+
   const [displayName, setDisplayName] = useState('');
   const [locale, setLocale] = useState('de');
+  const [timezone, setTimezone] = useState('Europe/Berlin');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [providers, setProviders] = useState<AuthProviderInfo[]>([]);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
+  const [apiKeys, setApiKeys] = useState<ApiKeySummary[]>([]);
+  const [newKeyLabel, setNewKeyLabel] = useState('');
+  const [newKeyDialogOpen, setNewKeyDialogOpen] = useState(false);
+  const [createdKeyRaw, setCreatedKeyRaw] = useState<string | null>(null);
   const [error, setError] = useState('');
+
+  const hasLocalProvider = providers.some((p) => p.provider === 'local');
 
   useEffect(() => {
     if (user) {
       setDisplayName(user.display_name);
       setLocale(user.locale);
+      setTimezone(user.timezone || 'Europe/Berlin');
     }
   }, [user]);
+
+  useEffect(() => {
+    dispatch(fetchPreferences());
+  }, [dispatch]);
 
   const loadProviders = useCallback(() => {
     listProviders().then(setProviders).catch(() => {});
@@ -60,15 +119,21 @@ export default function AccountSettingsPage() {
     listSessions().then(setSessions).catch(() => {});
   }, []);
 
+  const loadApiKeys = useCallback(() => {
+    listApiKeys().then(setApiKeys).catch(() => {});
+  }, []);
+
   useEffect(() => {
+    if (isLightMode) return;
     loadProviders();
     loadSessions();
-  }, [loadProviders, loadSessions]);
+    loadApiKeys();
+  }, [loadProviders, loadSessions, loadApiKeys]);
 
   const handleProfileSave = async () => {
     setError('');
     try {
-      await updateProfile({ display_name: displayName, locale });
+      await updateProfile({ display_name: displayName, locale, timezone });
       dispatch(fetchProfile());
       enqueueSnackbar(t('common.saved'), { variant: 'success' });
     } catch (err) {
@@ -79,10 +144,11 @@ export default function AccountSettingsPage() {
   const handlePasswordChange = async () => {
     setError('');
     try {
-      await changePassword(currentPassword, newPassword);
+      await changePassword(hasLocalProvider ? currentPassword : null, newPassword);
       setCurrentPassword('');
       setNewPassword('');
       enqueueSnackbar(t('pages.auth.passwordChanged'), { variant: 'success' });
+      loadProviders();
     } catch (err) {
       setError(parseApiError(err));
     }
@@ -106,6 +172,39 @@ export default function AccountSettingsPage() {
     }
   };
 
+  const handleCreateApiKey = async () => {
+    try {
+      const result = await createApiKey({ label: newKeyLabel });
+      setCreatedKeyRaw(result.raw_key);
+      setNewKeyLabel('');
+      setNewKeyDialogOpen(false);
+      loadApiKeys();
+    } catch (err) {
+      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+    }
+  };
+
+  const handleRevokeApiKey = async (keyId: string) => {
+    try {
+      await revokeApiKey(keyId);
+      loadApiKeys();
+      enqueueSnackbar(t('pages.auth.apiKeyRevoked'), { variant: 'success' });
+    } catch (err) {
+      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+    }
+  };
+
+  const handleExperienceLevelChange = (_: React.MouseEvent<HTMLElement>, newLevel: ExperienceLevel | null) => {
+    if (!newLevel) return;
+    const currentLevel = preferences?.experience_level ?? 'beginner';
+    const order: Record<ExperienceLevel, number> = { beginner: 0, intermediate: 1, expert: 2 };
+    if (order[newLevel] < order[currentLevel]) {
+      if (!window.confirm(t('pages.auth.experienceLevelDowngradeWarning'))) return;
+    }
+    dispatch(updateUserPreferences({ experience_level: newLevel }));
+    enqueueSnackbar(t('common.saved'), { variant: 'success' });
+  };
+
   const handleDeleteAccount = async () => {
     if (!window.confirm(t('pages.auth.deleteAccountConfirm'))) return;
     try {
@@ -124,14 +223,13 @@ export default function AccountSettingsPage() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
-        <Tab label={t('pages.auth.tabProfile')} />
-        <Tab label={t('pages.auth.tabSecurity')} />
-        <Tab label={t('pages.auth.tabSessions')} />
-        <Tab label={t('pages.auth.tabAccount')} />
+      <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)} sx={{ mb: 2 }} variant="scrollable" scrollButtons="auto">
+        {tabs.map((tab) => (
+          <Tab key={tab.key} label={tab.label} />
+        ))}
       </Tabs>
 
-      {tab === 0 && (
+      {activeTab === 'profile' && (
         <Card>
           <CardContent>
             <TextField
@@ -148,6 +246,14 @@ export default function AccountSettingsPage() {
               disabled
               sx={{ mb: 2 }}
             />
+            <TextField
+              label={t('pages.auth.timezone')}
+              fullWidth
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              helperText="e.g. Europe/Berlin, America/New_York"
+              sx={{ mb: 2 }}
+            />
             <Button variant="contained" onClick={handleProfileSave}>
               {t('common.save')}
             </Button>
@@ -155,20 +261,22 @@ export default function AccountSettingsPage() {
         </Card>
       )}
 
-      {tab === 1 && (
+      {activeTab === 'security' && (
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              {t('pages.auth.changePassword')}
+              {hasLocalProvider ? t('pages.auth.changePassword') : t('pages.auth.setPassword')}
             </Typography>
-            <TextField
-              label={t('pages.auth.currentPassword')}
-              type="password"
-              fullWidth
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              sx={{ mb: 2 }}
-            />
+            {hasLocalProvider && (
+              <TextField
+                label={t('pages.auth.currentPassword')}
+                type="password"
+                fullWidth
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                sx={{ mb: 2 }}
+              />
+            )}
             <TextField
               label={t('pages.auth.newPassword')}
               type="password"
@@ -178,7 +286,7 @@ export default function AccountSettingsPage() {
               sx={{ mb: 2 }}
             />
             <Button variant="contained" onClick={handlePasswordChange} sx={{ mb: 3 }}>
-              {t('pages.auth.changePasswordButton')}
+              {hasLocalProvider ? t('pages.auth.changePasswordButton') : t('pages.auth.setPasswordButton')}
             </Button>
 
             <Typography variant="h6" gutterBottom>
@@ -207,7 +315,7 @@ export default function AccountSettingsPage() {
         </Card>
       )}
 
-      {tab === 2 && (
+      {activeTab === 'sessions' && (
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom>
@@ -230,6 +338,12 @@ export default function AccountSettingsPage() {
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {s.user_agent?.substring(0, 60) || t('pages.auth.unknownDevice')}
                         {s.is_current && <Chip label={t('pages.auth.currentSession')} size="small" color="primary" />}
+                        <Chip
+                          label={s.is_persistent ? t('pages.auth.sessionPersistent') : t('pages.auth.sessionTemporary')}
+                          size="small"
+                          variant="outlined"
+                          color={s.is_persistent ? 'success' : 'default'}
+                        />
                       </Box>
                     }
                     secondary={`IP: ${s.ip_address || '-'} | ${t('pages.auth.expires')}: ${new Date(s.expires_at).toLocaleDateString()}`}
@@ -241,7 +355,121 @@ export default function AccountSettingsPage() {
         </Card>
       )}
 
-      {tab === 3 && (
+      {activeTab === 'apikeys' && (
+        <Card>
+          <CardContent>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">
+                {t('pages.auth.apiKeysTitle')}
+              </Typography>
+              <Button variant="contained" size="small" onClick={() => setNewKeyDialogOpen(true)}>
+                {t('pages.auth.createApiKey')}
+              </Button>
+            </Box>
+
+            {createdKeyRaw && (
+              <Alert
+                severity="warning"
+                sx={{ mb: 2 }}
+                action={
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      navigator.clipboard.writeText(createdKeyRaw);
+                      enqueueSnackbar(t('pages.auth.apiKeyCopied'), { variant: 'success' });
+                    }}
+                  >
+                    <ContentCopyIcon fontSize="small" />
+                  </IconButton>
+                }
+                onClose={() => setCreatedKeyRaw(null)}
+              >
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                  {t('pages.auth.apiKeyCreatedWarning')}
+                </Typography>
+                <Typography variant="body2" fontFamily="monospace" sx={{ wordBreak: 'break-all' }}>
+                  {createdKeyRaw}
+                </Typography>
+              </Alert>
+            )}
+
+            <List>
+              {apiKeys.map((k) => (
+                <ListItem
+                  key={k.key}
+                  secondaryAction={
+                    !k.revoked && (
+                      <IconButton edge="end" onClick={() => handleRevokeApiKey(k.key)}>
+                        <DeleteIcon />
+                      </IconButton>
+                    )
+                  }
+                >
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {k.label}
+                        <Chip
+                          label={k.key_prefix + '...'}
+                          size="small"
+                          variant="outlined"
+                          sx={{ fontFamily: 'monospace' }}
+                        />
+                        {k.revoked && <Chip label={t('pages.auth.revoked')} size="small" color="error" />}
+                      </Box>
+                    }
+                    secondary={
+                      k.last_used_at
+                        ? `${t('pages.auth.lastUsed')}: ${new Date(k.last_used_at).toLocaleDateString()}`
+                        : t('pages.auth.neverUsed')
+                    }
+                  />
+                </ListItem>
+              ))}
+              {apiKeys.length === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+                  {t('pages.auth.noApiKeys')}
+                </Typography>
+              )}
+            </List>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'experience' && (
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              {t('pages.auth.experienceLevelTitle')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              {t('pages.auth.experienceLevelSubtitle')}
+            </Typography>
+
+            <ToggleButtonGroup
+              value={preferences?.experience_level ?? 'beginner'}
+              exclusive
+              onChange={handleExperienceLevelChange}
+              fullWidth
+              sx={{ mb: 3 }}
+            >
+              {EXPERIENCE_LEVELS.map(({ level, icon }) => (
+                <ToggleButton key={level} value={level} sx={{ flexDirection: 'column', py: 2 }}>
+                  {icon}
+                  <Typography variant="subtitle2" sx={{ mt: 0.5 }}>
+                    {t(`enums.experienceLevel.${level}`)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {t(`pages.auth.experienceLevel.${level}Description`)}
+                  </Typography>
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'account' && (
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom color="error">
@@ -256,6 +484,27 @@ export default function AccountSettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Create API Key Dialog */}
+      <Dialog open={newKeyDialogOpen} onClose={() => setNewKeyDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('pages.auth.createApiKey')}</DialogTitle>
+        <DialogContent>
+          <TextField
+            label={t('pages.auth.apiKeyLabel')}
+            fullWidth
+            value={newKeyLabel}
+            onChange={(e) => setNewKeyLabel(e.target.value)}
+            sx={{ mt: 1 }}
+            autoFocus
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNewKeyDialogOpen(false)}>{t('common.cancel')}</Button>
+          <Button variant="contained" onClick={handleCreateApiKey} disabled={!newKeyLabel.trim()}>
+            {t('common.create')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
