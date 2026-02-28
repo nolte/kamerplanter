@@ -39,6 +39,7 @@ class NutrientPlanService:
         allowed_fields = {
             "name", "description", "recommended_substrate_type",
             "author", "is_template", "version", "tags",
+            "watering_schedule",
         }
         for field, value in data.items():
             if field in allowed_fields:
