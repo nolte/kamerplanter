@@ -15,7 +15,7 @@ const initialState: AuthState = {
   user: null,
   accessToken: null,
   isAuthenticated: false,
-  isLoading: false,
+  isLoading: true,
   error: null,
 };
 
@@ -127,6 +127,7 @@ const authSlice = createSlice({
       state.isAuthenticated = true;
     });
     builder.addCase(refreshAccessToken.rejected, (state) => {
+      state.isLoading = false;
       state.user = null;
       state.accessToken = null;
       state.isAuthenticated = false;
