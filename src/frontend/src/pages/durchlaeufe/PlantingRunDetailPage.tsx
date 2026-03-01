@@ -34,6 +34,7 @@ import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormDateField from '@/components/form/FormDateField';
 import FormActions from '@/components/form/FormActions';
+import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import BatchPhaseTransitionDialog from './BatchPhaseTransitionDialog';
 import PhaseTimelineStepper from './PhaseTimelineStepper';
@@ -44,6 +45,7 @@ import FertilizerGanttChart from '@/pages/duengung/FertilizerGanttChart';
 import type { PhaseTransition } from '@/pages/duengung/FertilizerGanttChart';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { MS_PER_WEEK, computeCurrentWeek } from '@/utils/weekCalculation';
 import * as runApi from '@/api/endpoints/plantingRuns';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 import * as fertApi from '@/api/endpoints/fertilizers';
@@ -74,8 +76,6 @@ const statusColor: Record<PlantingRunStatus, ChipProps['color']> = {
 
 // ── Gantt adaptation helpers ──────────────────────────────────────────
 
-const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
-
 /**
  * Find the epoch for week-1: the actual_entered_at of the first timeline phase
  * that also exists in the nutrient plan entries.  Falls back to run.started_at.
@@ -95,18 +95,6 @@ function findGanttEpoch(
     }
   }
   return runStartedAt;
-}
-
-/** Calculate the current plan week relative to the epoch date. */
-function computeCurrentWeek(epoch: string): number | undefined {
-  const start = new Date(epoch);
-  if (isNaN(start.getTime())) return undefined;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  start.setHours(0, 0, 0, 0);
-  const diffMs = now.getTime() - start.getTime();
-  if (diffMs < 0) return undefined;
-  return Math.floor(diffMs / MS_PER_WEEK) + 1;
 }
 
 /**
@@ -532,19 +520,19 @@ export default function PlantingRunDetailPage() {
 
   const entryColumns: Column<PlantingRunEntry>[] = [
     { id: 'species', label: t('entities.species'), render: (r) => r.species_key },
-    { id: 'cultivar', label: t('entities.cultivar'), render: (r) => r.cultivar_key ?? '-' },
+    { id: 'cultivar', label: t('entities.cultivar'), render: (r) => r.cultivar_key ?? '\u2014' },
     { id: 'quantity', label: t('pages.plantingRuns.quantity'), render: (r) => r.quantity, align: 'right' },
     { id: 'role', label: t('pages.plantingRuns.role'), render: (r) => t(`enums.entryRole.${r.role}`), searchValue: (r) => t(`enums.entryRole.${r.role}`) },
     { id: 'idPrefix', label: t('pages.plantingRuns.idPrefix'), render: (r) => r.id_prefix },
-    { id: 'spacing', label: t('pages.plantingRuns.spacing'), render: (r) => r.spacing_cm ? `${r.spacing_cm} cm` : '-', align: 'right' },
+    { id: 'spacing', label: t('pages.plantingRuns.spacing'), render: (r) => r.spacing_cm ? `${r.spacing_cm} cm` : '\u2014', align: 'right' },
   ];
 
   const plantColumns: Column<PlantInRun>[] = [
     { id: 'instanceId', label: t('pages.plantInstances.instanceId'), render: (r) => r.instance_id },
     { id: 'currentPhase', label: t('pages.plantInstances.currentPhase'), render: (r) => <Chip label={r.current_phase} size="small" color="primary" />, searchValue: (r) => r.current_phase },
     { id: 'plantedOn', label: t('pages.plantInstances.plantedOn'), render: (r) => r.planted_on },
-    { id: 'removedOn', label: t('pages.plantInstances.removedOn'), render: (r) => r.removed_on ?? '-' },
-    { id: 'detached', label: t('pages.plantingRuns.detached'), render: (r) => r.detached_at ? t('common.yes') : '-' },
+    { id: 'removedOn', label: t('pages.plantInstances.removedOn'), render: (r) => r.removed_on ?? '\u2014' },
+    { id: 'detached', label: t('pages.plantingRuns.detached'), render: (r) => r.detached_at ? t('common.yes') : '\u2014' },
     {
       id: 'open', label: '', width: 48, sortable: false, searchable: false,
       render: (r) => (
@@ -869,32 +857,36 @@ export default function PlantingRunDetailPage() {
       )}
 
       {tab === 4 && (
-        <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: 600 }}>
-          <FormTextField name="name" control={control} label={t('pages.plantingRuns.name')} required />
-          <FormDateField
-            name="planned_start_date"
-            control={control}
-            label={t('pages.plantingRuns.plannedStartDate')}
-          />
-          <FormSelectField
-            name="site_key"
-            control={control}
-            label={t('entities.site')}
-            options={[
-              { value: '', label: '-' },
-              ...sitesList.map((s) => ({ value: s.key, label: s.name })),
-            ]}
-          />
-          <FormSelectField
-            name="location_key"
-            control={control}
-            label={t('pages.plantingRuns.location')}
-            disabled={!editSiteKey || locationsLoading}
-            options={[
-              { value: '', label: '-' },
-              ...locationsList.map((l) => ({ value: l.key, label: l.name })),
-            ]}
-          />
+        <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: 900 }}>
+          <FormRow>
+            <FormTextField name="name" control={control} label={t('pages.plantingRuns.name')} required />
+            <FormDateField
+              name="planned_start_date"
+              control={control}
+              label={t('pages.plantingRuns.plannedStartDate')}
+            />
+          </FormRow>
+          <FormRow>
+            <FormSelectField
+              name="site_key"
+              control={control}
+              label={t('entities.site')}
+              options={[
+                { value: '', label: '\u2014' },
+                ...sitesList.map((s) => ({ value: s.key, label: s.name })),
+              ]}
+            />
+            <FormSelectField
+              name="location_key"
+              control={control}
+              label={t('pages.plantingRuns.location')}
+              disabled={!editSiteKey || locationsLoading}
+              options={[
+                { value: '', label: '\u2014' },
+                ...locationsList.map((l) => ({ value: l.key, label: l.name })),
+              ]}
+            />
+          </FormRow>
           <FormTextField name="notes" control={control} label={t('pages.plantingRuns.notes')} />
           <FormActions onCancel={() => setTab(0)} loading={saving} />
         </Box>

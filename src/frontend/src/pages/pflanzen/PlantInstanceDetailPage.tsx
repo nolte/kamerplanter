@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -30,11 +30,15 @@ import DataTable from '@/components/common/DataTable';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormActions from '@/components/form/FormActions';
+import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import PhaseTransitionDialog from './PhaseTransitionDialog';
 import PlantPhaseTimeline from './PlantPhaseTimeline';
 import PhaseHistoryTable from '@/pages/durchlaeufe/PhaseHistoryTable';
 import FeedingEventCreateDialog from '@/pages/duengung/FeedingEventCreateDialog';
+import FertilizerGanttChart from '@/pages/duengung/FertilizerGanttChart';
+import type { PhaseTransition } from '@/pages/duengung/FertilizerGanttChart';
+import { computeCurrentWeek } from '@/utils/weekCalculation';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useTableLocalState } from '@/hooks/useTableState';
@@ -42,8 +46,9 @@ import * as plantApi from '@/api/endpoints/plantInstances';
 import * as phasesApi from '@/api/endpoints/phases';
 import * as speciesApi from '@/api/endpoints/species';
 import * as planApi from '@/api/endpoints/nutrient-plans';
+import * as fertApi from '@/api/endpoints/fertilizers';
 import * as feedingApi from '@/api/endpoints/feeding-events';
-import type { PlantInstance, CurrentPhaseResponse, PhaseHistoryEntry, Cultivar, NutrientPlan, FeedingEvent } from '@/api/types';
+import type { PlantInstance, CurrentPhaseResponse, PhaseHistoryEntry, Cultivar, NutrientPlan, NutrientPlanPhaseEntry, Fertilizer, FeedingEvent } from '@/api/types';
 
 const editSchema = z.object({
   plant_name: z.string().nullable(),
@@ -90,6 +95,10 @@ export default function PlantInstanceDetailPage() {
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [removePlanOpen, setRemovePlanOpen] = useState(false);
   const [assignSaving, setAssignSaving] = useState(false);
+
+  // Gantt chart state
+  const [planEntries, setPlanEntries] = useState<NutrientPlanPhaseEntry[]>([]);
+  const [fertilizers, setFertilizers] = useState<Fertilizer[]>([]);
 
   const {
     control,
@@ -151,9 +160,20 @@ export default function PlantInstanceDetailPage() {
       } catch {
         // May not have any feeding events
       }
-      // Load assigned nutrient plan
+      // Load assigned nutrient plan + Gantt data
       const ap = await planApi.getPlantPlan(key);
       setAssignedPlan(ap);
+      if (ap) {
+        const [pe, f] = await Promise.all([
+          planApi.fetchPhaseEntries(ap.key),
+          fertApi.fetchFertilizers(0, 200),
+        ]);
+        setPlanEntries(pe);
+        setFertilizers(f);
+      } else {
+        setPlanEntries([]);
+        setFertilizers([]);
+      }
     } catch (err) {
       setError(String(err));
     } finally {
@@ -230,6 +250,27 @@ export default function PlantInstanceDetailPage() {
       handleError(err);
     }
   };
+
+  const currentWeek = useMemo(
+    () => plant?.planted_on ? computeCurrentWeek(plant.planted_on) : undefined,
+    [plant?.planted_on],
+  );
+
+  const phaseTransitions = useMemo((): PhaseTransition[] => {
+    if (!plant?.planted_on || history.length === 0) return [];
+    const epoch = new Date(plant.planted_on);
+    epoch.setHours(0, 0, 0, 0);
+    if (isNaN(epoch.getTime())) return [];
+    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+    return history
+      .filter((h) => h.entered_at)
+      .map((h) => {
+        const d = new Date(h.entered_at);
+        d.setHours(0, 0, 0, 0);
+        const week = Math.max(1, Math.floor((d.getTime() - epoch.getTime()) / msPerWeek) + 1);
+        return { week, date: h.entered_at, phaseName: h.phase_name };
+      });
+  }, [plant?.planted_on, history]);
 
   if (loading) return <LoadingSkeleton variant="form" />;
   if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
@@ -411,6 +452,18 @@ export default function PlantInstanceDetailPage() {
               </Button>
             </Box>
           )}
+
+          {/* Fertilizer Gantt Chart */}
+          {planEntries.length > 0 && (
+            <Box sx={{ mt: 3 }}>
+              <FertilizerGanttChart
+                entries={planEntries}
+                fertilizers={fertilizers}
+                currentWeek={currentWeek}
+                phaseTransitions={phaseTransitions}
+              />
+            </Box>
+          )}
         </Box>
       )}
 
@@ -483,23 +536,27 @@ export default function PlantInstanceDetailPage() {
 
       {/* Tab 4: Edit */}
       {tab === 4 && (
-        <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: 600 }}>
+        <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: 900 }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {t('pages.plantInstances.editIntro')}
           </Typography>
-          <FormTextField name="plant_name" control={control} label={t('pages.plantInstances.plantName')} helperText={t('pages.plantInstances.plantNameHelper')} />
-          <FormSelectField
-            name="cultivar_key"
-            control={control}
-            label={t('pages.plantInstances.cultivarKey')}
-            helperText={t('pages.plantInstances.cultivarKeyHelper')}
-            options={[
-              { value: '', label: '-' },
-              ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
-            ]}
-          />
-          <FormTextField name="slot_key" control={control} label={t('pages.plantInstances.slotKey')} helperText={t('pages.plantInstances.slotKeyHelper')} />
-          <FormTextField name="substrate_batch_key" control={control} label={t('pages.plantInstances.substrateBatchKey')} helperText={t('pages.plantInstances.substrateBatchKeyHelper')} />
+          <FormRow>
+            <FormTextField name="plant_name" control={control} label={t('pages.plantInstances.plantName')} helperText={t('pages.plantInstances.plantNameHelper')} />
+            <FormSelectField
+              name="cultivar_key"
+              control={control}
+              label={t('pages.plantInstances.cultivarKey')}
+              helperText={t('pages.plantInstances.cultivarKeyHelper')}
+              options={[
+                { value: '', label: '\u2014' },
+                ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
+              ]}
+            />
+          </FormRow>
+          <FormRow>
+            <FormTextField name="slot_key" control={control} label={t('pages.plantInstances.slotKey')} helperText={t('pages.plantInstances.slotKeyHelper')} />
+            <FormTextField name="substrate_batch_key" control={control} label={t('pages.plantInstances.substrateBatchKey')} helperText={t('pages.plantInstances.substrateBatchKeyHelper')} />
+          </FormRow>
           <FormTextField name="planted_on" control={control} label={t('pages.plantInstances.plantedOn')} helperText={t('pages.plantInstances.plantedOnHelper')} type="date" required />
           <FormActions onCancel={() => setTab(0)} loading={saving} />
         </Box>
@@ -520,6 +577,7 @@ export default function PlantInstanceDetailPage() {
         message={t('common.deleteConfirm', { name: assignedPlan?.name ?? '' })}
         onConfirm={onRemovePlan}
         onCancel={() => setRemovePlanOpen(false)}
+        destructive
       />
 
       {/* Assign Plan Dialog */}
