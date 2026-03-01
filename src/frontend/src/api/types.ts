@@ -53,7 +53,7 @@ export type PhEffect = 'acidic' | 'alkaline' | 'neutral';
 export type ApplicationMethod = 'fertigation' | 'drench' | 'foliar' | 'top_dress' | 'any';
 export type Bioavailability = 'immediate' | 'slow_release' | 'microbial_dependent';
 export type IncompatibilitySeverity = 'critical' | 'warning' | 'minor';
-export type PhaseName = 'germination' | 'seedling' | 'vegetative' | 'flowering' | 'flushing' | 'harvest';
+export type PhaseName = 'germination' | 'seedling' | 'vegetative' | 'flowering' | 'flushing' | 'dormancy' | 'harvest';
 
 // Pagination
 
@@ -856,7 +856,8 @@ export interface PlantInRun {
 
 // Tank enums (REQ-014)
 
-export type TankType = 'nutrient' | 'irrigation' | 'reservoir' | 'recirculation';
+export type TankType = 'nutrient' | 'irrigation' | 'reservoir' | 'recirculation' | 'stock_solution';
+export type FillType = 'full_change' | 'top_up' | 'adjustment';
 export type TankMaterial = 'plastic' | 'stainless_steel' | 'glass' | 'ibc';
 export type MaintenanceType =
   | 'water_change'
@@ -880,6 +881,9 @@ export interface Tank {
   has_air_pump: boolean;
   has_circulation_pump: boolean;
   has_heater: boolean;
+  is_light_proof: boolean;
+  has_uv_sterilizer: boolean;
+  has_ozone_generator: boolean;
   installed_on: string | null;
   location_key: string | null;
   notes: string | null;
@@ -896,6 +900,9 @@ export interface TankCreate {
   has_air_pump?: boolean;
   has_circulation_pump?: boolean;
   has_heater?: boolean;
+  is_light_proof?: boolean;
+  has_uv_sterilizer?: boolean;
+  has_ozone_generator?: boolean;
   installed_on?: string | null;
   location_key?: string | null;
   notes?: string | null;
@@ -910,6 +917,9 @@ export interface TankUpdate {
   has_air_pump?: boolean;
   has_circulation_pump?: boolean;
   has_heater?: boolean;
+  is_light_proof?: boolean;
+  has_uv_sterilizer?: boolean;
+  has_ozone_generator?: boolean;
   installed_on?: string | null;
   location_key?: string | null;
   notes?: string | null;
@@ -925,6 +935,8 @@ export interface TankState {
   ec_ms: number | null;
   water_temp_celsius: number | null;
   tds_ppm: number | null;
+  dissolved_oxygen_mgl: number | null;
+  orp_mv: number | null;
   source: string;
   created_at: string | null;
   updated_at: string | null;
@@ -937,6 +949,8 @@ export interface TankStateCreate {
   ec_ms?: number | null;
   water_temp_celsius?: number | null;
   tds_ppm?: number | null;
+  dissolved_oxygen_mgl?: number | null;
+  orp_mv?: number | null;
   source?: string;
 }
 
@@ -1001,6 +1015,78 @@ export interface TankAlert {
   value: number;
 }
 
+// ── TankFillEvent types ──────────────────────────────────────────────
+
+export interface FertilizerSnapshotData {
+  product_key?: string | null;
+  product_name: string;
+  ml_per_liter: number;
+}
+
+export interface TankFillEvent {
+  key: string;
+  tank_key: string;
+  filled_at: string | null;
+  fill_type: FillType;
+  volume_liters: number;
+  mixing_result_key: string | null;
+  nutrient_plan_key: string | null;
+  target_ec_ms: number | null;
+  target_ph: number | null;
+  measured_ec_ms: number | null;
+  measured_ph: number | null;
+  water_source: string | null;
+  water_mix_ratio_ro_percent: number | null;
+  source_tank_key: string | null;
+  fertilizers_used: FertilizerSnapshotData[];
+  base_water_ec_ms: number | null;
+  chlorine_ppm: number | null;
+  chloramine_ppm: number | null;
+  alkalinity_ppm: number | null;
+  is_organic_fertilizers: boolean;
+  performed_by: string | null;
+  notes: string | null;
+  water_defaults_source: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface TankFillEventCreate {
+  fill_type: FillType;
+  volume_liters: number;
+  mixing_result_key?: string | null;
+  nutrient_plan_key?: string | null;
+  target_ec_ms?: number | null;
+  target_ph?: number | null;
+  measured_ec_ms?: number | null;
+  measured_ph?: number | null;
+  water_source?: string | null;
+  water_mix_ratio_ro_percent?: number | null;
+  source_tank_key?: string | null;
+  fertilizers_used?: FertilizerSnapshotData[];
+  base_water_ec_ms?: number | null;
+  chlorine_ppm?: number | null;
+  chloramine_ppm?: number | null;
+  alkalinity_ppm?: number | null;
+  is_organic_fertilizers?: boolean;
+  performed_by?: string | null;
+  notes?: string | null;
+}
+
+export interface TankFillEventStats {
+  fill_type_counts: Record<string, number>;
+  total_volume_liters: number;
+  total_count: number;
+  avg_ec_deviation_ms: number | null;
+}
+
+export interface FillEventResult {
+  fill_event: TankFillEvent;
+  tank_state: TankState | null;
+  warnings: string[];
+  water_defaults_source: string | null;
+}
+
 export interface DueMaintenance {
   tank_key: string;
   tank_name: string | null;
@@ -1010,6 +1096,48 @@ export interface DueMaintenance {
   days_until: number;
   status: MaintenanceStatus;
   priority: MaintenancePriority;
+}
+
+// ── REQ-005 Sensor types ────────────────────────────────────────────
+
+export interface Sensor {
+  key: string;
+  name: string;
+  metric_type: string;
+  ha_entity_id: string | null;
+  mqtt_topic: string | null;
+  tank_key: string | null;
+  is_active: boolean;
+}
+
+export interface SensorCreate {
+  name: string;
+  metric_type: string;
+  ha_entity_id?: string | null;
+  mqtt_topic?: string | null;
+  tank_key: string;
+}
+
+export interface SensorUpdate {
+  name?: string;
+  metric_type?: string;
+  ha_entity_id?: string | null;
+  mqtt_topic?: string | null;
+  is_active?: boolean;
+}
+
+export interface LiveValueEntry {
+  value: number;
+  last_changed: string | null;
+  entity_id: string | null;
+  unit: string | null;
+}
+
+export interface LiveStateResponse {
+  values: Record<string, LiveValueEntry>;
+  errors: Array<{ entity_id: string; error: string }>;
+  source: string;
+  message?: string | null;
 }
 
 // ── REQ-004 Fertilizer types ────────────────────────────────────────
@@ -1098,6 +1226,26 @@ export interface Incompatibility {
   severity: IncompatibilitySeverity;
 }
 
+export interface FertilizerChannelUsage {
+  channel_id: string;
+  label: string;
+  application_method: string;
+  ml_per_liter: number;
+}
+
+export interface FertilizerPhaseUsage {
+  phase_name: string;
+  week_start: number;
+  week_end: number;
+  channels: FertilizerChannelUsage[];
+}
+
+export interface NutrientPlanUsage {
+  key: string;
+  name: string;
+  phase_entries: FertilizerPhaseUsage[];
+}
+
 // ── REQ-004 Nutrient Plan types ─────────────────────────────────────
 
 export interface NutrientPlan {
@@ -1112,6 +1260,7 @@ export interface NutrientPlan {
   cloned_from_key: string | null;
   watering_schedule: WateringSchedule | null;
   water_mix_ratio_ro_percent: number | null;
+  cycle_restart_from_sequence: number | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -1126,6 +1275,7 @@ export interface NutrientPlanCreate {
   tags?: string[];
   watering_schedule?: WateringSchedule | null;
   water_mix_ratio_ro_percent?: number | null;
+  cycle_restart_from_sequence?: number | null;
 }
 
 export interface NutrientPlanUpdate {
@@ -1138,6 +1288,7 @@ export interface NutrientPlanUpdate {
   tags?: string[];
   watering_schedule?: WateringSchedule | null;
   water_mix_ratio_ro_percent?: number | null;
+  cycle_restart_from_sequence?: number | null;
 }
 
 export interface FertilizerDosage {
@@ -1213,11 +1364,13 @@ export interface NutrientPlanPhaseEntry {
   sequence_order: number;
   week_start: number;
   week_end: number;
+  is_recurring: boolean;
   npk_ratio: [number, number, number];
   calcium_ppm: number | null;
   magnesium_ppm: number | null;
   notes: string | null;
   delivery_channels: DeliveryChannel[];
+  watering_schedule_override: WateringSchedule | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -1227,11 +1380,13 @@ export interface PhaseEntryCreate {
   sequence_order: number;
   week_start: number;
   week_end: number;
+  is_recurring?: boolean;
   npk_ratio?: [number, number, number];
   calcium_ppm?: number | null;
   magnesium_ppm?: number | null;
   notes?: string | null;
   delivery_channels?: DeliveryChannelCreate[];
+  watering_schedule_override?: WateringSchedule | null;
 }
 
 export interface PhaseEntryUpdate {
@@ -1239,11 +1394,13 @@ export interface PhaseEntryUpdate {
   sequence_order?: number;
   week_start?: number;
   week_end?: number;
+  is_recurring?: boolean;
   npk_ratio?: [number, number, number];
   calcium_ppm?: number | null;
   magnesium_ppm?: number | null;
   notes?: string | null;
   delivery_channels?: DeliveryChannelCreate[];
+  watering_schedule_override?: WateringSchedule | null;
 }
 
 // ── REQ-004 Feeding Event types ─────────────────────────────────────

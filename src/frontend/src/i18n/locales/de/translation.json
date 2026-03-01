@@ -36,7 +36,7 @@
   "table": {
     "showing": "Zeigt {{from}}–{{to}} von {{total}} Einträgen",
     "noSearchResults": "Keine Ergebnisse für Ihre Suche gefunden",
-    "resetFilters": "Alle Filter zurücksetzen",
+    "resetFilters": "Filter zurücksetzen",
     "sortedBy": "Sortiert nach",
     "searchPlaceholder": "Tabelle durchsuchen..."
   },
@@ -75,8 +75,10 @@
     "pflege": "Pflege",
     "onboarding": "Einrichtung",
     "settings": "Einstellungen",
+    "adminSettings": "Administration",
     "import": "Import",
-    "calendar": "Kalender"
+    "calendar": "Kalender",
+    "detail": "Details"
   },
   "errors": {
     "network": "Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung.",
@@ -135,6 +137,27 @@
     "harvestBatches": "Erntechargen"
   },
   "pages": {
+    "admin": {
+      "title": "Administration",
+      "haSection": "Home Assistant Integration",
+      "haUrl": "Home Assistant URL",
+      "haUrlHelper": "z.B. http://homeassistant.local:8123",
+      "haAccessToken": "Zugangs-Token",
+      "haAccessTokenHelper": "Aktuell",
+      "haAccessTokenPlaceholder": "Neuen Token eingeben",
+      "haTimeout": "Timeout (Sekunden)",
+      "testConnection": "Verbindung testen",
+      "resetToDefaults": "Auf Umgebungsvariablen zurücksetzen",
+      "resetConfirm": "Alle gespeicherten HA-Einstellungen werden gelöscht. Die Werte aus den Umgebungsvariablen werden wieder verwendet.",
+      "testSuccess": "Verbindung erfolgreich",
+      "testFailed": "Verbindung fehlgeschlagen",
+      "sourceDb": "Datenbank",
+      "sourceEnv": "Umgebungsvariable",
+      "sourceDefault": "Standard",
+      "saved": "Einstellungen gespeichert",
+      "resetDone": "Einstellungen zurückgesetzt auf Umgebungsvariablen",
+      "notConfigured": "Nicht konfiguriert"
+    },
     "auth": {
       "login": "Anmelden",
       "register": "Registrieren",
@@ -282,7 +305,12 @@
       "pollinationType": "Bestäubungstypen",
       "pollinationTypeHelper": "Bestäubungsarten dieser Familie, mindestens eine auswählen",
       "rotationCategory": "Fruchtfolgekategorie",
-      "rotationCategoryHelper": "Kategorie für Fruchtfolge-Planung (z.\u00a0B. 'solanaceae', 'legume')"
+      "rotationCategoryHelper": "Kategorie für Fruchtfolge-Planung (z.\u00a0B. 'solanaceae', 'legume')",
+      "sectionTaxonomy": "Taxonomie",
+      "sectionGrowth": "Wachstum & Nährstoffe",
+      "sectionEnvironment": "Umgebung & Boden",
+      "sectionPestsAndDiseases": "Schädlinge & Krankheiten",
+      "sectionReproduction": "Bestäubung & Fruchtfolge"
     },
     "species": {
       "title": "Arten",
@@ -317,7 +345,11 @@
       "taxonomicAuthority": "Taxonomische Autorität",
       "taxonomicAuthorityHelper": "Erstbeschreiber der Art nach ICZN/ICN (z.\u00a0B. 'L.' für Linné)",
       "taxonomicStatus": "Taxonomischer Status",
-      "taxonomicStatusHelper": "Aktueller Status: accepted, synonym, doubtful, misapplied"
+      "taxonomicStatusHelper": "Aktueller Status: accepted, synonym, doubtful, misapplied",
+      "sectionTaxonomy": "Taxonomie",
+      "sectionGrowth": "Wachstum",
+      "sectionEnvironment": "Umgebung",
+      "sectionClassification": "Klassifikation"
     },
     "cultivars": {
       "title": "Sorten",
@@ -363,6 +395,7 @@
       "type": "Typ",
       "climateZone": "Klimazone",
       "totalArea": "Gesamtfläche (m²)",
+      "totalAreaHelper": "Gesamte Anbaufläche in Quadratmetern",
       "gpsCoordinates": "GPS-Koordinaten",
       "timezone": "Zeitzone",
       "timezoneHelper": "IANA-Zeitzone, z.\u00a0B. 'Europe/Berlin'",
@@ -392,6 +425,7 @@
       "create": "Bereich erstellen",
       "name": "Name",
       "area": "Fläche (m²)",
+      "areaHelper": "Nutzbare Fläche des Bereichs in Quadratmetern",
       "orientation": "Ausrichtung",
       "lightType": "Beleuchtung",
       "irrigationSystem": "Bewässerungssystem",
@@ -412,6 +446,7 @@
       "slotIdHelper": "Format: BEREICH_POSITION, z.\u00a0B. 'TENT01_A1' (wird automatisch in Großbuchstaben umgewandelt)",
       "position": "Position",
       "capacity": "Kapazität",
+      "capacityHelper": "Maximale Anzahl Pflanzen pro Stellplatz (1–20)",
       "occupied": "Belegt"
     },
     "substrates": {
@@ -436,7 +471,11 @@
       "reusableHelper": "Ob das Substrat nach Aufbereitung wiederverwendet werden kann",
       "maxReuseCycles": "Max. Wiederverwendungszyklen",
       "maxReuseCyclesHelper": "Maximale Anzahl von Wiederverwendungen vor Entsorgung",
-      "checkReusability": "Wiederverwendbarkeit prüfen"
+      "checkReusability": "Wiederverwendbarkeit prüfen",
+      "sectionIdentification": "Identifikation",
+      "sectionChemistry": "Chemische Eigenschaften",
+      "sectionPhysical": "Physikalische Eigenschaften",
+      "sectionReuse": "Wiederverwendung"
     },
     "batches": {
       "title": "Chargen",
@@ -506,7 +545,9 @@
       "sequenceOrder": "Reihenfolge",
       "isTerminal": "Endphase",
       "allowsHarvest": "Ernte erlaubt",
-      "stressTolerance": "Stresstoleranz"
+      "stressTolerance": "Stresstoleranz",
+      "durationHelper": "Typische Dauer dieser Phase in Tagen",
+      "sequenceOrderHelper": "Position in der Phasenreihenfolge (0 = erste Phase)"
     },
     "profiles": {
       "requirements": "Anforderungsprofil",
@@ -601,7 +642,9 @@
       "selectPlant": "Pflanze auswählen",
       "editPhaseDate": "Phasendatum bearbeiten",
       "phaseDateUpdated": "Phasendatum aktualisiert",
-      "daysOfTypical": "Tag {{current}} von {{typical}}"
+      "daysOfTypical": "Tag {{current}} von {{typical}}",
+      "sectionBasics": "Basis",
+      "substrateBatch": "Substratcharge"
     },
     "tanks": {
       "title": "Tanks",
@@ -615,6 +658,11 @@
       "hasAirPump": "Luftpumpe",
       "hasCirculationPump": "Umwälzpumpe",
       "hasHeater": "Heizung",
+      "isLightProof": "Lichtdicht",
+      "hasUvSterilizer": "UV-Sterilisator",
+      "hasOzoneGenerator": "Ozongenerator",
+      "dissolvedOxygen": "Gelöster Sauerstoff (mg/L)",
+      "orp": "ORP (mV)",
       "notes": "Notizen",
       "tabDetails": "Details",
       "tabStates": "Messungen",
@@ -650,9 +698,84 @@
       "instructions": "Anweisungen",
       "autoCreateTask": "Aufgabe automatisch erstellen",
       "reminderDaysBefore": "Erinnerung (Tage vorher)",
+      "tabFills": "Befüllungen",
+      "recordFill": "Befüllung erfassen",
+      "fillRecorded": "Befüllung erfasst.",
+      "fillType": "Befüllungsart",
+      "filledAt": "Befüllt am",
+      "waterSource": "Wasserquelle",
+      "roPercent": "RO-Anteil (%)",
+      "targetEc": "Ziel-EC (mS/cm)",
+      "targetPh": "Ziel-pH",
+      "measuredEc": "Gemessen EC (mS/cm)",
+      "measuredPh": "Gemessen pH",
+      "organicFertilizers": "Biologische/Organische Dünger",
       "site": "Standort",
       "location": "Bereich",
-      "noLocation": "Kein Bereich"
+      "noLocation": "Kein Bereich",
+      "sectionIdentification": "Identifikation",
+      "sectionLocation": "Standort & Bereich",
+      "sectionNotes": "Notizen",
+      "sectionWaterQuality": "Wasserqualität",
+      "sectionFillLevel": "Füllstand",
+      "sectionAdvanced": "Erweiterte Messwerte",
+      "sectionFillBasics": "Befüllung",
+      "sectionTargetValues": "Zielwerte",
+      "sectionMeasuredValues": "Messwerte",
+      "volumeLitersHelper": "Gesamtvolumen des Tanks in Litern",
+      "phHelper": "Optimaler Bereich: 5.5\u20136.5",
+      "ecHelper": "Typisch: 0.5\u20133.0 mS/cm",
+      "tdsHelper": "Typisch: 250\u20131500 ppm",
+      "waterTempHelper": "Optimal: 18\u201322 °C",
+      "fillLevelPercentHelper": "0% = leer, 100% = voll",
+      "dissolvedOxygenHelper": "Optimal: 5\u20138 mg/L",
+      "orpHelper": "Optimal: 300\u2013500 mV",
+      "roPercentHelper": "Anteil Osmosewasser in der Mischung",
+      "targetEcHelper": "Gewünschter EC nach Befüllung",
+      "targetPhHelper": "Gewünschter pH nach Befüllung",
+      "durationMinutesHelper": "Geschätzte Dauer der Wartungsarbeit",
+      "productsUsedHelper": "Kommagetrennte Liste verwendeter Produkte",
+      "sectionScheduleType": "Wartungstyp & Priorität",
+      "sectionTiming": "Zeitplanung",
+      "sectionAutomation": "Automatisierung",
+      "intervalDaysHelper": "Tage zwischen Wartungsdurchführungen",
+      "reminderDaysBeforeHelper": "Tage vor Fälligkeit für Erinnerung",
+      "liveQuery": "Live abrufen",
+      "adoptReading": "Messung übernehmen",
+      "adoptAllReadings": "Alle Werte als Messung übernehmen",
+      "sourceManual": "Manuell",
+      "sourceHaAuto": "Home Assistant",
+      "sourceHaLive": "HA Live",
+      "sourceMqttAuto": "MQTT",
+      "freshLive": "Aktuell",
+      "freshRecent": "Vor {{minutes}} Min",
+      "freshStale": "Veraltet",
+      "freshOffline": "Offline",
+      "noHaConfigured": "Home Assistant nicht konfiguriert",
+      "noSensors": "Keine Sensoren zugeordnet",
+      "sensors": "Sensoren",
+      "addSensor": "Sensor hinzufügen",
+      "sensorName": "Sensorname",
+      "sensorMetricType": "Messgröße",
+      "sensorHaEntityId": "HA Entity-ID",
+      "sensorHaEntityIdHelper": "z.B. sensor.tank_ec",
+      "haEntitySelect": "HA-Sensor auswählen",
+      "haEntitySelectHelper": "Sensor aus Home Assistant übernehmen — Name und Messgröße werden automatisch vorgeschlagen",
+      "sensorMqttTopic": "MQTT-Topic",
+      "editSensor": "Sensor bearbeiten",
+      "sensorCreated": "Sensor erstellt",
+      "sensorDeleted": "Sensor gelöscht",
+      "deleteSensorConfirm": "Sensor \"{{name}}\" wirklich löschen?",
+      "liveValues": "Live-Werte",
+      "adopted": "Messung übernommen",
+      "stateRecorded": "Messung erfasst.",
+      "waterTempShort": "Wassertemperatur",
+      "dissolvedOxygenShort": "Gelöster Sauerstoff",
+      "fillVolume": "Befüllmenge",
+      "fillVolumeHelper": "Menge des eingefüllten Wassers",
+      "measuredEcHelper": "EC-Wert nach Befüllung gemessen",
+      "measuredPhHelper": "pH-Wert nach Befüllung gemessen",
+      "organicFertilizersHelper": "Wurden biologische/organische Dünger hinzugefügt?"
     },
     "fertilizers": {
       "title": "Düngemittel",
@@ -687,7 +810,20 @@
       "currentVolume": "Aktuelles Volumen",
       "addStock": "Bestand hinzufügen",
       "badges": "Eigenschaften",
-      "incompatibilities": "Unverträglichkeiten"
+      "incompatibilities": "Unverträglichkeiten",
+      "usedInPlans": "Verwendet in Nährstoffplänen",
+      "notUsedInAnyPlan": "Dieser Dünger wird in keinem Nährstoffplan verwendet.",
+      "sectionIdentification": "Identifikation",
+      "sectionNutrients": "NPK & Nährstoff-Profil",
+      "sectionMixing": "Misch- & Anwendungseigenschaften",
+      "sectionProperties": "Eigenschaften",
+      "sectionStorage": "Lagerung",
+      "mixingPriorityHelper": "1 = wird zuerst gemischt (CalMag vor Sulfaten)",
+      "ecContributionHelper": "EC-Erhöhung pro ml Dünger in 1 L Wasser",
+      "tankSafeHelper": "Kann im Tank vorgemischt gelagert werden",
+      "isOrganicHelper": "Zertifiziert biologisch / nicht-synthetisch",
+      "shelfLifeHelper": "Ab Kaufdatum",
+      "noProperties": "Keine besonderen Eigenschaften"
     },
     "nutrientPlans": {
       "title": "Nährstoffpläne",
@@ -746,7 +882,16 @@
       "planIncomplete": "Der Plan ist unvollständig.",
       "ecBudgets": "EC-Budgets",
       "tagsPlaceholder": "Tags eingeben (Enter zum Hinzufügen)",
-      "waterMixRatio": "Osmosewasser-Anteil (%)"
+      "waterMixRatio": "Osmosewasser-Anteil (%)",
+      "cycleRestartFromSequence": "Zyklus-Neustart ab Phase",
+      "cycleRestartHelper": "Ab dieser Phase wiederholt sich der Zyklus (z.B. 3 = ab VEGETATIVE)",
+      "isRecurring": "Wiederkehrend",
+      "isRecurringHelper": "Phase wiederholt sich jährlich im saisonalen Zyklus",
+      "wateringScheduleOverride": "Gießplan-Override",
+      "wateringOverrideActive": "Eigener Gießplan für diese Phase",
+      "overrideIntervalDays": "Intervall (Tage)",
+      "ppmHelper": "Parts per million",
+      "mlPerLiterHelper": "Dosierung in Milliliter pro Liter Wasser"
     },
     "feedingEvents": {
       "title": "Düngeereignisse",
@@ -756,10 +901,13 @@
       "applicationMethod": "Anwendungsart",
       "isSupplemental": "Ergänzend",
       "volumeApplied": "Volumen (L)",
+      "volumeAppliedHelper": "Gesamtvolumen der ausgebrachten Lösung in Litern",
       "ecBefore": "EC vorher",
       "ecAfter": "EC nachher",
+      "ecHelper": "mS/cm",
       "phBefore": "pH vorher",
       "phAfter": "pH nachher",
+      "phHelper": "0\u201314",
       "runoffEc": "Ablauf-EC",
       "runoffPh": "Ablauf-pH",
       "runoffVolume": "Ablaufvolumen (L)",
@@ -769,7 +917,10 @@
       "mlApplied": "ml angewendet",
       "analyzeRunoff": "Ablauf analysieren",
       "tabDetails": "Details",
-      "notes": "Notizen"
+      "notes": "Notizen",
+      "sectionApplication": "Anwendung",
+      "sectionMeasurements": "Messwerte",
+      "sectionRunoff": "Ablauf"
     },
     "wateringEvents": {
       "title": "Gießvorgänge",
@@ -794,7 +945,16 @@
       "stats": "Statistiken",
       "totalEvents": "Gesamt-Ereignisse",
       "totalVolume": "Gesamtvolumen",
-      "notes": "Notizen"
+      "notes": "Notizen",
+      "sectionBasics": "Grunddaten",
+      "sectionTarget": "Zielwerte",
+      "sectionMeasured": "Messwerte",
+      "sectionRunoff": "Ablaufwerte",
+      "slotKeysHelper": "Kommagetrennte Stellplatz-Keys",
+      "volumeLitersHelper": "Gesamtes Gießvolumen in Litern",
+      "targetEcHelper": "Gewünschter EC-Wert der Nährlösung (mS/cm)",
+      "targetPhHelper": "Gewünschter pH-Wert der Nährlösung (0–14)",
+      "runoffEcHelper": "EC des Ablaufwassers — Abweichung zum Eingang zeigt Nährstoffaufnahme"
     },
     "nutrientCalc": {
       "title": "Nährstoff-Berechnungen",
@@ -840,7 +1000,10 @@
       "fertilizerKeys": "Düngemittel-Keys",
       "fertilizerKeysHelp": "Kommagetrennte Düngemittel-Keys",
       "recommendedFlushDays": "Empfohlene Spültage",
-      "flushStartDay": "Spülbeginn (Tag)"
+      "flushStartDay": "Spülbeginn (Tag)",
+      "targetVolumeHelper": "Gesamtvolumen der zu mischenden Lösung in Litern",
+      "ecUnitHelper": "mS/cm",
+      "phUnitHelper": "0\u201314"
     },
     "tasks": {
       "title": "Aufgaben",
@@ -930,7 +1093,15 @@
       "optimalTimeOfDay": "Optimale Tageszeit",
       "systemTemplateDeleteDisabled": "System-Vorlagen können nicht gelöscht werden.",
       "description": "Beschreibung",
-      "tags": "Tags"
+      "tags": "Tags",
+      "tagsHelper": "Kommagetrennte Liste",
+      "sectionTask": "Aufgabe",
+      "sectionScheduling": "Zeitplanung",
+      "sectionAssignment": "Zuordnung",
+      "sectionRequirements": "Anforderungen",
+      "priorityHelper": "low = niedrig, critical = sofort bearbeiten",
+      "requiresPhoto": "Foto erforderlich",
+      "createWorkflowIntro": "Erstellen Sie einen neuen Workflow, um wiederverwendbare Aufgabensequenzen zu definieren."
     },
     "ipm": {
       "title": "Pflanzenschutz",
@@ -1044,7 +1215,12 @@
       "observationCreated": "Beobachtung erfolgreich erstellt.",
       "observer": "Beobachter",
       "ripenessAssessment": "Reifebeurteilung",
-      "daysToHarvestEstimate": "Geschätzte Tage bis Ernte"
+      "daysToHarvestEstimate": "Geschätzte Tage bis Ernte",
+      "daysToHarvestHelper": "Geschätzte verbleibende Tage bis zur Erntereife",
+      "sectionWeights": "Gewichte",
+      "weightHelper": "Gewicht in Gramm (g)",
+      "scoreHelper": "Bewertung 0\u2013100 Punkte",
+      "trimWasteHelper": "Prozentualer Anteil Verschnitt am Gesamtertrag"
     },
     "notFound": {
       "title": "Seite nicht gefunden",
@@ -1076,7 +1252,11 @@
       "confirmationHistory": "Bestätigungsverlauf",
       "profileReset": "Profil zurückgesetzt.",
       "wateringIntervalLearned": "Gelerntes Gießintervall",
-      "fertilizingIntervalLearned": "Gelerntes Düngeintervall"
+      "fertilizingIntervalLearned": "Gelerntes Düngeintervall",
+      "sectionWatering": "Gieß- & Pflegeintervalle",
+      "sectionAdvanced": "Erweitert",
+      "winterWateringMultiplierHelper": "1.0 = normal, 0.5 = halbe Häufigkeit im Winter",
+      "notes": "Notizen"
     },
     "onboarding": {
       "title": "Willkommen bei Kamerplanter",
@@ -1148,7 +1328,10 @@
       "title": "Dünger-Zeitplan",
       "dosage": "{{ml}} ml/L",
       "extrapolated": "extrapoliert",
-      "totalMode": "Gesamtmenge berechnen"
+      "totalMode": "Gesamtmenge berechnen",
+      "legendTitle": "Legende",
+      "legendDefined": "Im Plan definierte Dosierung",
+      "legendExtrapolated": "Fortgeschriebene Dosierung (gleiche Phase, kein expliziter Plan-Eintrag)"
     },
     "deliveryChannels": {
       "title": "Ausbringungskanäle",
@@ -1165,6 +1348,8 @@
       "schedule": "Zeitplan",
       "targetEc": "Ziel-EC (mS)",
       "targetPh": "Ziel-pH",
+      "targetEcHelper": "Gewünschter EC-Wert (mS/cm)",
+      "targetPhHelper": "Gewünschter pH-Wert (0\u201314)",
       "fertilizers": "Düngemittel",
       "methodParams": "Methodenparameter",
       "noChannels": "Keine Ausbringungskanäle konfiguriert",
@@ -1265,6 +1450,28 @@
       "tankMaintenance": "Tankwartung",
       "custom": "Sonstiges"
     }
+  },
+  "tankAlerts": {
+    "ph_out_of_range": "pH {{value}} außerhalb des zulässigen Bereichs",
+    "ph_drift": "pH-Drift von {{value}} seit letztem Wasserwechsel",
+    "ec_high": "EC {{value}} mS/cm überschreitet den Grenzwert",
+    "ec_deviation_alarm": "EC {{value}} mS/cm weicht stark vom Zielwert ab",
+    "ec_deviation_warning": "EC {{value}} mS/cm weicht vom Zielwert ab",
+    "temperature_warm_critical": "Wassertemperatur {{value}}°C — kritisch warm",
+    "temperature_warm_warning": "Wassertemperatur {{value}}°C — zu warm",
+    "temperature_cold_critical": "Wassertemperatur {{value}}°C — kritisch kalt",
+    "temperature_cold_warning": "Wassertemperatur {{value}}°C — zu kalt",
+    "do_critical": "Gelöstsauerstoff {{value}} mg/L — kritisch niedrig",
+    "do_suboptimal": "Gelöstsauerstoff {{value}} mg/L — suboptimal",
+    "compound_temp_do": "Warmes Wasser ({{value}}°C) + niedriger Sauerstoff — Wurzelfäule-Risiko",
+    "orp_pathogen_risk": "ORP {{value}} mV — Krankheitserreger-Risiko",
+    "orp_sterilization_low": "ORP {{value}} mV — Sterilisation unzureichend",
+    "fill_level_low": "Füllstand {{value}}% — Nachfüllen erforderlich",
+    "algae_risk": "Algenrisiko ({{value}} Risikofaktoren)",
+    "solution_age": "Lösungsalter {{value}} Tage — Wasserwechsel empfohlen",
+    "chlorine_warning": "Chlor {{value}} ppm — kann Mikroorganismen schädigen",
+    "chloramine_warning": "Chloramin {{value}} ppm — Aktivkohle-Behandlung erforderlich",
+    "biofilm_risk": "Biofilm-Risiko — Lösung seit {{value}} Tagen ohne Sterilisation"
   },
   "enums": {
     "growthHabit": {
@@ -1413,7 +1620,8 @@
       "nutrient": "Nährstoff",
       "irrigation": "Bewässerung",
       "reservoir": "Reservoir",
-      "recirculation": "Rezirkulation"
+      "recirculation": "Rezirkulation",
+      "stock_solution": "Stammlösung"
     },
     "tankMaterial": {
       "plastic": "Kunststoff",
@@ -1439,6 +1647,11 @@
       "ok": "OK",
       "due_soon": "Bald fällig",
       "overdue": "Überfällig"
+    },
+    "fillType": {
+      "full_change": "Komplettwechsel",
+      "top_up": "Nachfüllen",
+      "adjustment": "Korrektur"
     },
     "fertilizerType": {
       "base": "Basisdünger",
@@ -1476,6 +1689,7 @@
       "vegetative": "Vegetativ",
       "flowering": "Blüte",
       "flushing": "Spülung",
+      "dormancy": "Ruhephase",
       "ripening": "Reife",
       "harvest": "Ernte"
     },

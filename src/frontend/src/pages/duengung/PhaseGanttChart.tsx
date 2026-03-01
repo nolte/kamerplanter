@@ -16,15 +16,18 @@ const PHASE_COLORS: Record<PhaseName, string> = {
   seedling: '#66BB6A',
   vegetative: '#2E7D32',
   flowering: '#AB47BC',
+  flushing: '#26C6DA',
+  dormancy: '#78909C',
   harvest: '#FF8F00',
 };
 
 interface PhaseGanttChartProps {
   entries: NutrientPlanPhaseEntry[];
   fertilizers: Fertilizer[];
+  currentWeek?: number;
 }
 
-export default function PhaseGanttChart({ entries, fertilizers }: PhaseGanttChartProps) {
+export default function PhaseGanttChart({ entries, fertilizers, currentWeek }: PhaseGanttChartProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -102,9 +105,16 @@ export default function PhaseGanttChart({ entries, fertilizers }: PhaseGanttChar
                   borderBottom: 1,
                   borderColor: 'divider',
                   py: 0.5,
+                  ...(w === currentWeek && {
+                    bgcolor: alpha(theme.palette.primary.main, 0.10),
+                  }),
                 }}
               >
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  color={w === currentWeek ? 'primary' : 'text.secondary'}
+                  sx={w === currentWeek ? { fontWeight: 700 } : undefined}
+                >
                   {t('pages.gantt.week')}{w}
                 </Typography>
               </Box>
@@ -131,6 +141,7 @@ export default function PhaseGanttChart({ entries, fertilizers }: PhaseGanttChar
                   getFertilizerName={getFertilizerName}
                   t={t}
                   theme={theme}
+                  currentWeek={currentWeek}
                 />
               );
             })}
@@ -153,6 +164,7 @@ function PhaseRow({
   getFertilizerName,
   t,
   theme,
+  currentWeek,
 }: {
   entry: NutrientPlanPhaseEntry;
   color: string;
@@ -165,6 +177,7 @@ function PhaseRow({
   getFertilizerName: (key: string) => string;
   t: (key: string, opts?: Record<string, unknown>) => string;
   theme: Theme;
+  currentWeek?: number;
 }) {
   const phaseLabel = t(`enums.phaseName.${entry.phase_name}`);
   const npkStr = entry.npk_ratio.join('-');
@@ -254,6 +267,9 @@ function PhaseRow({
               borderColor: 'divider',
               display: 'flex',
               alignItems: 'center',
+              ...(w === currentWeek && {
+                bgcolor: alpha(theme.palette.primary.main, 0.10),
+              }),
             }}
           >
             {inRange && (
@@ -292,6 +308,7 @@ function PhaseRow({
             getFertilizerName={getFertilizerName}
             t={t}
             theme={theme}
+            currentWeek={currentWeek}
           />
         ))}
     </>
@@ -307,6 +324,7 @@ function ChannelSubRow({
   getFertilizerName,
   t,
   theme,
+  currentWeek,
 }: {
   channel: NutrientPlanPhaseEntry['delivery_channels'][number];
   entry: NutrientPlanPhaseEntry;
@@ -316,6 +334,7 @@ function ChannelSubRow({
   getFertilizerName: (key: string) => string;
   t: (key: string, opts?: Record<string, unknown>) => string;
   theme: Theme;
+  currentWeek?: number;
 }) {
   const methodLabel = t(`enums.applicationMethod.${channel.application_method}`);
   const fertList = channel.fertilizer_dosages
@@ -377,6 +396,9 @@ function ChannelSubRow({
               borderColor: theme.palette.divider,
               display: 'flex',
               alignItems: 'center',
+              ...(w === currentWeek && {
+                bgcolor: alpha(theme.palette.primary.main, 0.10),
+              }),
             }}
           >
             {inRange && (

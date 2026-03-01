@@ -39,7 +39,8 @@ class NutrientPlanService:
         allowed_fields = {
             "name", "description", "recommended_substrate_type",
             "author", "is_template", "version", "tags",
-            "watering_schedule",
+            "watering_schedule", "water_mix_ratio_ro_percent",
+            "cycle_restart_from_sequence",
         }
         for field, value in data.items():
             if field in allowed_fields:
@@ -68,7 +69,7 @@ class NutrientPlanService:
         allowed_fields = {
             "phase_name", "sequence_order", "week_start", "week_end",
             "npk_ratio", "calcium_ppm", "magnesium_ppm", "notes",
-            "delivery_channels",
+            "delivery_channels", "is_recurring", "watering_schedule_override",
         }
         for field, value in data.items():
             if field in allowed_fields:

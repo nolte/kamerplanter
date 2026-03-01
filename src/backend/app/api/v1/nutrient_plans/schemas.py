@@ -77,6 +77,7 @@ class NutrientPlanCreate(BaseModel):
     tags: list[str] = Field(default_factory=list)
     watering_schedule: WateringScheduleSchema | None = None
     water_mix_ratio_ro_percent: int | None = Field(default=None, ge=0, le=100)
+    cycle_restart_from_sequence: int | None = Field(default=None, ge=1)
 
 
 class NutrientPlanUpdate(BaseModel):
@@ -89,6 +90,7 @@ class NutrientPlanUpdate(BaseModel):
     tags: list[str] | None = None
     watering_schedule: WateringScheduleSchema | None = None
     water_mix_ratio_ro_percent: int | None = Field(default=None, ge=0, le=100)
+    cycle_restart_from_sequence: int | None = Field(default=None, ge=1)
 
 
 class NutrientPlanResponse(BaseModel):
@@ -103,6 +105,7 @@ class NutrientPlanResponse(BaseModel):
     cloned_from_key: str | None
     watering_schedule: WateringScheduleSchema | None = None
     water_mix_ratio_ro_percent: int | None = None
+    cycle_restart_from_sequence: int | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -120,11 +123,13 @@ class PhaseEntryCreate(BaseModel):
     sequence_order: int = Field(ge=1)
     week_start: int = Field(ge=1)
     week_end: int = Field(ge=1)
+    is_recurring: bool = False
     npk_ratio: tuple[float, float, float] = (0.0, 0.0, 0.0)
     calcium_ppm: float | None = Field(default=None, ge=0)
     magnesium_ppm: float | None = Field(default=None, ge=0)
     notes: str | None = None
     delivery_channels: list[DeliveryChannelSchema] = Field(default_factory=list)
+    watering_schedule_override: WateringScheduleSchema | None = None
 
 
 class PhaseEntryUpdate(BaseModel):
@@ -132,11 +137,13 @@ class PhaseEntryUpdate(BaseModel):
     sequence_order: int | None = Field(default=None, ge=1)
     week_start: int | None = Field(default=None, ge=1)
     week_end: int | None = Field(default=None, ge=1)
+    is_recurring: bool | None = None
     npk_ratio: tuple[float, float, float] | None = None
     calcium_ppm: float | None = Field(default=None, ge=0)
     magnesium_ppm: float | None = Field(default=None, ge=0)
     notes: str | None = None
     delivery_channels: list[DeliveryChannelSchema] | None = None
+    watering_schedule_override: WateringScheduleSchema | None = None
 
 
 class PhaseEntryResponse(BaseModel):
@@ -146,11 +153,13 @@ class PhaseEntryResponse(BaseModel):
     sequence_order: int
     week_start: int
     week_end: int
+    is_recurring: bool = False
     npk_ratio: tuple[float, float, float]
     calcium_ppm: float | None
     magnesium_ppm: float | None
     notes: str | None
     delivery_channels: list[DeliveryChannelSchema] = Field(default_factory=list)
+    watering_schedule_override: WateringScheduleSchema | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

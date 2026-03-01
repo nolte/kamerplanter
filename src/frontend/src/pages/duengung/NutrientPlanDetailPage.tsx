@@ -21,6 +21,8 @@ import AddIcon from '@mui/icons-material/Add';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ScienceIcon from '@mui/icons-material/Science';
+import RepeatIcon from '@mui/icons-material/Repeat';
+import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -99,6 +101,7 @@ const editSchema = z.object({
   reminder_hours_before: z.number().min(0).max(24),
   times_per_day: z.number().min(1).max(6),
   water_mix_ratio_ro_percent: z.number().min(0).max(100).nullable(),
+  cycle_restart_from_sequence: z.number().min(1).nullable(),
 });
 
 type EditFormData = z.infer<typeof editSchema>;
@@ -330,6 +333,7 @@ export default function NutrientPlanDetailPage() {
       reminder_hours_before: 2,
       times_per_day: 1,
       water_mix_ratio_ro_percent: null,
+      cycle_restart_from_sequence: null,
     },
   });
 
@@ -376,6 +380,7 @@ export default function NutrientPlanDetailPage() {
         reminder_hours_before: ws?.reminder_hours_before ?? 2,
         times_per_day: ws?.times_per_day ?? 1,
         water_mix_ratio_ro_percent: p.water_mix_ratio_ro_percent ?? null,
+        cycle_restart_from_sequence: p.cycle_restart_from_sequence ?? null,
       });
       setError(null);
     } catch (err) {
@@ -434,6 +439,7 @@ export default function NutrientPlanDetailPage() {
           times_per_day: data.times_per_day,
         } : null,
         water_mix_ratio_ro_percent: data.water_mix_ratio_ro_percent,
+        cycle_restart_from_sequence: data.cycle_restart_from_sequence,
       });
       notification.success(t('common.save'));
       load(true);
@@ -614,6 +620,14 @@ export default function NutrientPlanDetailPage() {
           {plan.is_template && (
             <Chip label={t('pages.nutrientPlans.isTemplate')} size="small" color="primary" />
           )}
+          {plan.cycle_restart_from_sequence != null && (
+            <Chip
+              icon={<RepeatIcon />}
+              label={`${t('pages.nutrientPlans.cycleRestartFromSequence')}: #${plan.cycle_restart_from_sequence}`}
+              size="small"
+              variant="outlined"
+            />
+          )}
         </Box>
         <Button
           variant="outlined"
@@ -681,6 +695,24 @@ export default function NutrientPlanDetailPage() {
                         <Typography variant="body2" color="text.secondary">
                           NPK: {entry.npk_ratio[0]}-{entry.npk_ratio[1]}-{entry.npk_ratio[2]}
                         </Typography>
+                        {entry.is_recurring && (
+                          <Chip
+                            icon={<RepeatIcon />}
+                            label={t('pages.nutrientPlans.isRecurring')}
+                            size="small"
+                            variant="outlined"
+                            color="secondary"
+                          />
+                        )}
+                        {entry.watering_schedule_override && (
+                          <Chip
+                            icon={<WaterDropIcon />}
+                            label={`${t('pages.nutrientPlans.wateringScheduleOverride')}: ${entry.watering_schedule_override.interval_days ?? '?'}d`}
+                            size="small"
+                            variant="outlined"
+                            color="info"
+                          />
+                        )}
                       </Box>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
                         <Tooltip title={t('pages.nutrientPlans.showFertilizers')}>
@@ -1023,6 +1055,17 @@ export default function NutrientPlanDetailPage() {
                 </Box>
               </ExpertiseFieldWrapper>
 
+              {/* Cycle Restart */}
+              <ExpertiseFieldWrapper minLevel="intermediate">
+                <FormNumberField
+                  name="cycle_restart_from_sequence"
+                  control={control}
+                  label={t('pages.nutrientPlans.cycleRestartFromSequence')}
+                  min={1}
+                  helperText={t('pages.nutrientPlans.cycleRestartHelper')}
+                />
+              </ExpertiseFieldWrapper>
+
               {/* Watering Schedule Section */}
               <Box sx={{ mt: 3, mb: 2 }}>
                 <FormSwitchField
@@ -1180,6 +1223,7 @@ export default function NutrientPlanDetailPage() {
         message={t('common.deleteConfirm', { name: plan.name })}
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
+        destructive
       />
 
       <ConfirmDialog
@@ -1193,6 +1237,7 @@ export default function NutrientPlanDetailPage() {
           setDeleteEntryOpen(false);
           setDeletingEntry(null);
         }}
+        destructive
       />
 
       <ConfirmDialog
@@ -1207,6 +1252,7 @@ export default function NutrientPlanDetailPage() {
           setDeletingChannelId('');
           setDeletingChannelEntryKey('');
         }}
+        destructive
       />
 
       {key && (

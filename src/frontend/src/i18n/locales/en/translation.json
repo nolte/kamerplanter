@@ -36,7 +36,7 @@
   "table": {
     "showing": "Showing {{from}}–{{to}} of {{total}} entries",
     "noSearchResults": "No results found for your search",
-    "resetFilters": "Reset all filters",
+    "resetFilters": "Reset filters",
     "sortedBy": "Sorted by",
     "searchPlaceholder": "Search table..."
   },
@@ -75,8 +75,10 @@
     "pflege": "Care",
     "onboarding": "Setup",
     "settings": "Settings",
+    "adminSettings": "Administration",
     "import": "Import",
-    "calendar": "Calendar"
+    "calendar": "Calendar",
+    "detail": "Details"
   },
   "errors": {
     "network": "Network error. Please check your connection.",
@@ -135,6 +137,27 @@
     "harvestBatches": "Harvest Batches"
   },
   "pages": {
+    "admin": {
+      "title": "Administration",
+      "haSection": "Home Assistant Integration",
+      "haUrl": "Home Assistant URL",
+      "haUrlHelper": "e.g. http://homeassistant.local:8123",
+      "haAccessToken": "Access Token",
+      "haAccessTokenHelper": "Current",
+      "haAccessTokenPlaceholder": "Enter new token",
+      "haTimeout": "Timeout (seconds)",
+      "testConnection": "Test Connection",
+      "resetToDefaults": "Reset to environment variables",
+      "resetConfirm": "All stored HA settings will be deleted. Values from environment variables will be used again.",
+      "testSuccess": "Connection successful",
+      "testFailed": "Connection failed",
+      "sourceDb": "Database",
+      "sourceEnv": "Environment variable",
+      "sourceDefault": "Default",
+      "saved": "Settings saved",
+      "resetDone": "Settings reset to environment variables",
+      "notConfigured": "Not configured"
+    },
     "auth": {
       "login": "Log in",
       "register": "Register",
@@ -282,7 +305,12 @@
       "pollinationType": "Pollination Types",
       "pollinationTypeHelper": "Pollination types for this family, select at least one",
       "rotationCategory": "Rotation Category",
-      "rotationCategoryHelper": "Category for crop rotation planning (e.g. 'solanaceae', 'legume')"
+      "rotationCategoryHelper": "Category for crop rotation planning (e.g. 'solanaceae', 'legume')",
+      "sectionTaxonomy": "Taxonomy",
+      "sectionGrowth": "Growth & Nutrients",
+      "sectionEnvironment": "Environment & Soil",
+      "sectionPestsAndDiseases": "Pests & Diseases",
+      "sectionReproduction": "Pollination & Crop Rotation"
     },
     "species": {
       "title": "Species",
@@ -317,7 +345,11 @@
       "taxonomicAuthority": "Taxonomic Authority",
       "taxonomicAuthorityHelper": "Original describer of the species per ICZN/ICN (e.g. 'L.' for Linnaeus)",
       "taxonomicStatus": "Taxonomic Status",
-      "taxonomicStatusHelper": "Current status: accepted, synonym, doubtful, misapplied"
+      "taxonomicStatusHelper": "Current status: accepted, synonym, doubtful, misapplied",
+      "sectionTaxonomy": "Taxonomy",
+      "sectionGrowth": "Growth",
+      "sectionEnvironment": "Environment",
+      "sectionClassification": "Classification"
     },
     "cultivars": {
       "title": "Cultivars",
@@ -363,6 +395,7 @@
       "type": "Type",
       "climateZone": "Climate Zone",
       "totalArea": "Total Area (m²)",
+      "totalAreaHelper": "Total growing area in square meters",
       "gpsCoordinates": "GPS Coordinates",
       "timezone": "Timezone",
       "timezoneHelper": "IANA timezone, e.g. 'Europe/Berlin'",
@@ -392,6 +425,7 @@
       "create": "Create Location",
       "name": "Name",
       "area": "Area (m²)",
+      "areaHelper": "Usable area of the location in square meters",
       "orientation": "Orientation",
       "lightType": "Light Type",
       "irrigationSystem": "Irrigation System",
@@ -412,6 +446,7 @@
       "slotIdHelper": "Format: LOCATION_POSITION, e.g. 'TENT01_A1' (automatically converted to uppercase)",
       "position": "Position",
       "capacity": "Capacity",
+      "capacityHelper": "Maximum number of plants per slot (1–20)",
       "occupied": "Occupied"
     },
     "substrates": {
@@ -436,7 +471,11 @@
       "reusableHelper": "Whether the substrate can be reused after treatment",
       "maxReuseCycles": "Max Reuse Cycles",
       "maxReuseCyclesHelper": "Maximum number of reuses before disposal",
-      "checkReusability": "Check Reusability"
+      "checkReusability": "Check Reusability",
+      "sectionIdentification": "Identification",
+      "sectionChemistry": "Chemical Properties",
+      "sectionPhysical": "Physical Properties",
+      "sectionReuse": "Reuse"
     },
     "batches": {
       "title": "Batches",
@@ -506,7 +545,9 @@
       "sequenceOrder": "Sequence Order",
       "isTerminal": "Terminal Phase",
       "allowsHarvest": "Allows Harvest",
-      "stressTolerance": "Stress Tolerance"
+      "stressTolerance": "Stress Tolerance",
+      "durationHelper": "Typical duration of this phase in days",
+      "sequenceOrderHelper": "Position in the phase sequence (0 = first phase)"
     },
     "profiles": {
       "requirements": "Requirement Profile",
@@ -601,7 +642,9 @@
       "selectPlant": "Select Plant",
       "editPhaseDate": "Edit Phase Date",
       "phaseDateUpdated": "Phase date updated",
-      "daysOfTypical": "Day {{current}} of {{typical}}"
+      "daysOfTypical": "Day {{current}} of {{typical}}",
+      "sectionBasics": "Basics",
+      "substrateBatch": "Substrate Batch"
     },
     "tanks": {
       "title": "Tanks",
@@ -615,6 +658,11 @@
       "hasAirPump": "Air Pump",
       "hasCirculationPump": "Circulation Pump",
       "hasHeater": "Heater",
+      "isLightProof": "Light-proof",
+      "hasUvSterilizer": "UV Sterilizer",
+      "hasOzoneGenerator": "Ozone Generator",
+      "dissolvedOxygen": "Dissolved Oxygen (mg/L)",
+      "orp": "ORP (mV)",
       "notes": "Notes",
       "tabDetails": "Details",
       "tabStates": "Measurements",
@@ -652,7 +700,82 @@
       "reminderDaysBefore": "Reminder (Days Before)",
       "site": "Site",
       "location": "Location",
-      "noLocation": "No location"
+      "tabFills": "Fills",
+      "recordFill": "Record Fill",
+      "fillRecorded": "Fill recorded.",
+      "fillType": "Fill Type",
+      "filledAt": "Filled At",
+      "waterSource": "Water Source",
+      "roPercent": "RO Ratio (%)",
+      "targetEc": "Target EC (mS/cm)",
+      "targetPh": "Target pH",
+      "measuredEc": "Measured EC (mS/cm)",
+      "measuredPh": "Measured pH",
+      "organicFertilizers": "Organic/Biological Fertilizers",
+      "noLocation": "No location",
+      "sectionIdentification": "Identification",
+      "sectionLocation": "Site & Location",
+      "sectionNotes": "Notes",
+      "sectionWaterQuality": "Water Quality",
+      "sectionFillLevel": "Fill Level",
+      "sectionAdvanced": "Advanced Readings",
+      "sectionFillBasics": "Fill Details",
+      "sectionTargetValues": "Target Values",
+      "sectionMeasuredValues": "Measured Values",
+      "volumeLitersHelper": "Total tank volume in liters",
+      "phHelper": "Optimal range: 5.5\u20136.5",
+      "ecHelper": "Typical: 0.5\u20133.0 mS/cm",
+      "tdsHelper": "Typical: 250\u20131500 ppm",
+      "waterTempHelper": "Optimal: 18\u201322 °C",
+      "fillLevelPercentHelper": "0% = empty, 100% = full",
+      "dissolvedOxygenHelper": "Optimal: 5\u20138 mg/L",
+      "orpHelper": "Optimal: 300\u2013500 mV",
+      "roPercentHelper": "Percentage of RO water in the mix",
+      "targetEcHelper": "Desired EC after filling",
+      "targetPhHelper": "Desired pH after filling",
+      "durationMinutesHelper": "Estimated duration of the maintenance work",
+      "productsUsedHelper": "Comma-separated list of products used",
+      "sectionScheduleType": "Maintenance Type & Priority",
+      "sectionTiming": "Timing",
+      "sectionAutomation": "Automation",
+      "intervalDaysHelper": "Days between maintenance runs",
+      "reminderDaysBeforeHelper": "Days before due date to send reminder",
+      "liveQuery": "Query live",
+      "adoptReading": "Adopt reading",
+      "adoptAllReadings": "Adopt all values as measurement",
+      "sourceManual": "Manual",
+      "sourceHaAuto": "Home Assistant",
+      "sourceHaLive": "HA Live",
+      "sourceMqttAuto": "MQTT",
+      "freshLive": "Live",
+      "freshRecent": "{{minutes}} min ago",
+      "freshStale": "Stale",
+      "freshOffline": "Offline",
+      "noHaConfigured": "Home Assistant not configured",
+      "noSensors": "No sensors assigned",
+      "sensors": "Sensors",
+      "addSensor": "Add sensor",
+      "sensorName": "Sensor name",
+      "sensorMetricType": "Metric type",
+      "sensorHaEntityId": "HA Entity ID",
+      "sensorHaEntityIdHelper": "e.g. sensor.tank_ec",
+      "haEntitySelect": "Select HA sensor",
+      "haEntitySelectHelper": "Import sensor from Home Assistant — name and metric type are suggested automatically",
+      "sensorMqttTopic": "MQTT topic",
+      "editSensor": "Edit sensor",
+      "sensorCreated": "Sensor created",
+      "sensorDeleted": "Sensor deleted",
+      "deleteSensorConfirm": "Delete sensor \"{{name}}\"?",
+      "liveValues": "Live Values",
+      "adopted": "Reading adopted",
+      "stateRecorded": "Measurement recorded.",
+      "waterTempShort": "Water Temperature",
+      "dissolvedOxygenShort": "Dissolved Oxygen",
+      "fillVolume": "Fill Volume",
+      "fillVolumeHelper": "Amount of water filled in",
+      "measuredEcHelper": "EC value measured after filling",
+      "measuredPhHelper": "pH value measured after filling",
+      "organicFertilizersHelper": "Were organic/biological fertilizers added?"
     },
     "fertilizers": {
       "title": "Fertilizers",
@@ -687,7 +810,20 @@
       "costPerLiter": "Cost/Liter (€)",
       "addStock": "Add Stock",
       "badges": "Properties",
-      "incompatibilities": "Incompatibilities"
+      "incompatibilities": "Incompatibilities",
+      "usedInPlans": "Used in nutrient plans",
+      "notUsedInAnyPlan": "This fertilizer is not used in any nutrient plan.",
+      "sectionIdentification": "Identification",
+      "sectionNutrients": "NPK & Nutrient Profile",
+      "sectionMixing": "Mixing & Application",
+      "sectionProperties": "Properties",
+      "sectionStorage": "Storage",
+      "mixingPriorityHelper": "1 = mixed first (CalMag before sulfates)",
+      "ecContributionHelper": "EC increase per ml fertilizer in 1 L water",
+      "tankSafeHelper": "Can be pre-mixed and stored in tank",
+      "isOrganicHelper": "Certified organic / non-synthetic",
+      "shelfLifeHelper": "From purchase date",
+      "noProperties": "No special properties"
     },
     "nutrientPlans": {
       "title": "Nutrient Plans",
@@ -746,7 +882,16 @@
       "planIncomplete": "The plan is incomplete.",
       "ecBudgets": "EC Budgets",
       "tagsPlaceholder": "Enter tags (press Enter to add)",
-      "waterMixRatio": "RO Water Ratio (%)"
+      "waterMixRatio": "RO Water Ratio (%)",
+      "cycleRestartFromSequence": "Cycle Restart from Phase",
+      "cycleRestartHelper": "Cycle repeats from this phase (e.g. 3 = from VEGETATIVE)",
+      "isRecurring": "Recurring",
+      "isRecurringHelper": "Phase repeats annually in the seasonal cycle",
+      "wateringScheduleOverride": "Watering Schedule Override",
+      "wateringOverrideActive": "Custom watering schedule for this phase",
+      "overrideIntervalDays": "Interval (days)",
+      "ppmHelper": "Parts per million",
+      "mlPerLiterHelper": "Dosage in milliliters per liter of water"
     },
     "feedingEvents": {
       "title": "Feeding Events",
@@ -756,10 +901,13 @@
       "applicationMethod": "Application Method",
       "isSupplemental": "Supplemental",
       "volumeApplied": "Volume (L)",
+      "volumeAppliedHelper": "Total volume of solution applied in liters",
       "ecBefore": "EC Before",
       "ecAfter": "EC After",
+      "ecHelper": "mS/cm",
       "phBefore": "pH Before",
       "phAfter": "pH After",
+      "phHelper": "0\u201314",
       "runoffEc": "Runoff EC",
       "runoffPh": "Runoff pH",
       "runoffVolume": "Runoff Volume (L)",
@@ -769,7 +917,10 @@
       "mlApplied": "ml Applied",
       "analyzeRunoff": "Analyze Runoff",
       "tabDetails": "Details",
-      "notes": "Notes"
+      "notes": "Notes",
+      "sectionApplication": "Application",
+      "sectionMeasurements": "Measurements",
+      "sectionRunoff": "Runoff"
     },
     "wateringEvents": {
       "title": "Watering Events",
@@ -794,7 +945,16 @@
       "stats": "Statistics",
       "totalEvents": "Total Events",
       "totalVolume": "Total Volume",
-      "notes": "Notes"
+      "notes": "Notes",
+      "sectionBasics": "Basics",
+      "sectionTarget": "Target Values",
+      "sectionMeasured": "Measured Values",
+      "sectionRunoff": "Runoff Values",
+      "slotKeysHelper": "Comma-separated slot keys",
+      "volumeLitersHelper": "Total watering volume in liters",
+      "targetEcHelper": "Desired EC of the nutrient solution (mS/cm)",
+      "targetPhHelper": "Desired pH of the nutrient solution (0–14)",
+      "runoffEcHelper": "EC of runoff water — deviation from input indicates nutrient uptake"
     },
     "nutrientCalc": {
       "title": "Nutrient Calculations",
@@ -840,7 +1000,10 @@
       "fertilizerKeys": "Fertilizer Keys",
       "fertilizerKeysHelp": "Comma-separated fertilizer keys",
       "recommendedFlushDays": "Recommended Flush Days",
-      "flushStartDay": "Flush Start Day"
+      "flushStartDay": "Flush Start Day",
+      "targetVolumeHelper": "Total volume of solution to mix in liters",
+      "ecUnitHelper": "mS/cm",
+      "phUnitHelper": "0\u201314"
     },
     "tasks": {
       "title": "Tasks",
@@ -930,7 +1093,15 @@
       "optimalTimeOfDay": "Optimal Time of Day",
       "systemTemplateDeleteDisabled": "System templates cannot be deleted.",
       "description": "Description",
-      "tags": "Tags"
+      "tags": "Tags",
+      "tagsHelper": "Comma-separated list",
+      "sectionTask": "Task",
+      "sectionScheduling": "Scheduling",
+      "sectionAssignment": "Assignment",
+      "sectionRequirements": "Requirements",
+      "priorityHelper": "low = not urgent, critical = handle immediately",
+      "requiresPhoto": "Requires Photo",
+      "createWorkflowIntro": "Create a new workflow to define reusable task sequences."
     },
     "ipm": {
       "title": "Plant Protection",
@@ -1044,7 +1215,12 @@
       "observationCreated": "Observation created successfully.",
       "observer": "Observer",
       "ripenessAssessment": "Ripeness Assessment",
-      "daysToHarvestEstimate": "Estimated Days to Harvest"
+      "daysToHarvestEstimate": "Estimated Days to Harvest",
+      "daysToHarvestHelper": "Estimated remaining days until harvest readiness",
+      "sectionWeights": "Weights",
+      "weightHelper": "Weight in grams (g)",
+      "scoreHelper": "Score 0\u2013100 points",
+      "trimWasteHelper": "Percentage of total yield lost to trimming"
     },
     "notFound": {
       "title": "Page Not Found",
@@ -1076,7 +1252,11 @@
       "confirmationHistory": "Confirmation History",
       "profileReset": "Profile reset.",
       "wateringIntervalLearned": "Learned Watering Interval",
-      "fertilizingIntervalLearned": "Learned Fertilizing Interval"
+      "fertilizingIntervalLearned": "Learned Fertilizing Interval",
+      "sectionWatering": "Watering & Care Intervals",
+      "sectionAdvanced": "Advanced",
+      "winterWateringMultiplierHelper": "1.0 = normal, 0.5 = half frequency in winter",
+      "notes": "Notes"
     },
     "onboarding": {
       "title": "Welcome to Kamerplanter",
@@ -1148,7 +1328,10 @@
       "title": "Fertilizer Timeline",
       "dosage": "{{ml}} ml/L",
       "extrapolated": "extrapolated",
-      "totalMode": "Calculate total amount"
+      "totalMode": "Calculate total amount",
+      "legendTitle": "Legend",
+      "legendDefined": "Dosage defined in plan",
+      "legendExtrapolated": "Extrapolated dosage (same phase, no explicit plan entry)"
     },
     "deliveryChannels": {
       "title": "Delivery Channels",
@@ -1165,6 +1348,8 @@
       "schedule": "Schedule",
       "targetEc": "Target EC (mS)",
       "targetPh": "Target pH",
+      "targetEcHelper": "Target EC value (mS/cm)",
+      "targetPhHelper": "Target pH value (0\u201314)",
       "fertilizers": "Fertilizers",
       "methodParams": "Method Parameters",
       "noChannels": "No delivery channels configured",
@@ -1265,6 +1450,28 @@
       "tankMaintenance": "Tank Maintenance",
       "custom": "Other"
     }
+  },
+  "tankAlerts": {
+    "ph_out_of_range": "pH {{value}} out of acceptable range",
+    "ph_drift": "pH drift of {{value}} since last water change",
+    "ec_high": "EC {{value}} mS/cm exceeds limit",
+    "ec_deviation_alarm": "EC {{value}} mS/cm deviates significantly from target",
+    "ec_deviation_warning": "EC {{value}} mS/cm deviates from target",
+    "temperature_warm_critical": "Water temp {{value}}°C — critically warm",
+    "temperature_warm_warning": "Water temp {{value}}°C — too warm",
+    "temperature_cold_critical": "Water temp {{value}}°C — critically cold",
+    "temperature_cold_warning": "Water temp {{value}}°C — too cold",
+    "do_critical": "Dissolved oxygen {{value}} mg/L — critically low",
+    "do_suboptimal": "Dissolved oxygen {{value}} mg/L — suboptimal",
+    "compound_temp_do": "Warm water ({{value}}°C) + low oxygen — root rot risk",
+    "orp_pathogen_risk": "ORP {{value}} mV — pathogen risk",
+    "orp_sterilization_low": "ORP {{value}} mV — sterilization insufficient",
+    "fill_level_low": "Fill level {{value}}% — refill needed",
+    "algae_risk": "Algae risk ({{value}} risk factors)",
+    "solution_age": "Solution age {{value}} days — water change recommended",
+    "chlorine_warning": "Chlorine {{value}} ppm — may harm microorganisms",
+    "chloramine_warning": "Chloramine {{value}} ppm — activated carbon treatment required",
+    "biofilm_risk": "Biofilm risk — solution {{value}} days old without sterilization"
   },
   "enums": {
     "growthHabit": {
@@ -1413,7 +1620,8 @@
       "nutrient": "Nutrient",
       "irrigation": "Irrigation",
       "reservoir": "Reservoir",
-      "recirculation": "Recirculation"
+      "recirculation": "Recirculation",
+      "stock_solution": "Stock Solution"
     },
     "tankMaterial": {
       "plastic": "Plastic",
@@ -1434,6 +1642,11 @@
       "medium": "Medium",
       "high": "High",
       "critical": "Critical"
+    },
+    "fillType": {
+      "full_change": "Full Change",
+      "top_up": "Top Up",
+      "adjustment": "Adjustment"
     },
     "maintenanceStatus": {
       "ok": "OK",
@@ -1476,6 +1689,7 @@
       "vegetative": "Vegetative",
       "flowering": "Flowering",
       "flushing": "Flushing",
+      "dormancy": "Dormancy",
       "ripening": "Ripening",
       "harvest": "Harvest"
     },
