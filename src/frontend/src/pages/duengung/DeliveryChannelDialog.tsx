@@ -13,12 +13,12 @@ import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import Autocomplete from '@mui/material/Autocomplete';
+
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Checkbox from '@mui/material/Checkbox';
 import Typography from '@mui/material/Typography';
-import type { DeliveryChannel, DeliveryChannelCreate, ApplicationMethod, ScheduleMode, Tank, WateringSchedule } from '@/api/types';
+import type { DeliveryChannel, DeliveryChannelCreate, ApplicationMethod, ScheduleMode, WateringSchedule } from '@/api/types';
 
 const APPLICATION_METHODS: ApplicationMethod[] = ['fertigation', 'drench', 'foliar', 'top_dress'];
 
@@ -30,7 +30,6 @@ interface Props {
   onSave: (channel: DeliveryChannelCreate) => void;
   existingChannel?: DeliveryChannel | null;
   existingIds?: string[];
-  tanks?: Tank[];
 }
 
 export default function DeliveryChannelDialog({
@@ -39,7 +38,6 @@ export default function DeliveryChannelDialog({
   onSave,
   existingChannel,
   existingIds = [],
-  tanks = [],
 }: Props) {
   const { t } = useTranslation();
   const [activeStep, setActiveStep] = useState(0);
@@ -60,7 +58,7 @@ export default function DeliveryChannelDialog({
   const [volumePerSpray, setVolumePerSpray] = useState(0.5);
   const [gramsPerPlant, setGramsPerPlant] = useState<string>('');
   const [gramsPerM2, setGramsPerM2] = useState<string>('');
-  const [tankKey, setTankKey] = useState<string | null>(null);
+
 
   // Schedule state
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
@@ -86,7 +84,6 @@ export default function DeliveryChannelDialog({
           if (mp.method === 'fertigation') {
             setRunsPerDay(mp.runs_per_day);
             setDurationSeconds(mp.duration_seconds);
-            setTankKey(mp.tank_key ?? null);
           } else if (mp.method === 'drench') {
             setVolumePerFeeding(mp.volume_per_feeding_liters);
           } else if (mp.method === 'foliar') {
@@ -128,7 +125,6 @@ export default function DeliveryChannelDialog({
         setVolumePerSpray(0.5);
         setGramsPerPlant('');
         setGramsPerM2('');
-        setTankKey(null);
         setScheduleEnabled(false);
         setScheduleMode('weekdays');
         setWeekdaySchedule([]);
@@ -181,7 +177,7 @@ export default function DeliveryChannelDialog({
     const methodParams = (() => {
       switch (method) {
         case 'fertigation':
-          return { method: 'fertigation' as const, runs_per_day: runsPerDay, duration_seconds: durationSeconds, flow_rate_ml_min: null, tank_key: tankKey };
+          return { method: 'fertigation' as const, runs_per_day: runsPerDay, duration_seconds: durationSeconds, flow_rate_ml_min: null };
         case 'drench':
           return { method: 'drench' as const, volume_per_feeding_liters: volumePerFeeding };
         case 'foliar':
@@ -308,21 +304,6 @@ export default function DeliveryChannelDialog({
                   onChange={(e) => setDurationSeconds(parseInt(e.target.value) || 300)}
                   size="small"
                   inputProps={{ min: 1, max: 7200, step: 1 }}
-                />
-                <Autocomplete
-                  options={tanks}
-                  value={tanks.find((tk) => tk.key === tankKey) ?? null}
-                  onChange={(_, value) => setTankKey(value?.key ?? null)}
-                  getOptionLabel={(tk) => `${tk.name} (${tk.volume_liters} L)`}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label={t('pages.deliveryChannels.fertigation.tankKey')}
-                      size="small"
-                      placeholder={t('pages.deliveryChannels.fertigation.noTank')}
-                    />
-                  )}
-                  isOptionEqualToValue={(option, value) => option.key === value.key}
                 />
               </>
             )}

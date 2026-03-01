@@ -14,6 +14,7 @@ class WateringScheduleSchema(BaseModel):
     preferred_time: str | None = None
     application_method: str = "drench"
     reminder_hours_before: int = Field(default=2, ge=0, le=24)
+    times_per_day: int = Field(default=1, ge=1, le=6)
 
 
 # ── Method-specific parameter schemas ───────────────────────────────
@@ -23,7 +24,6 @@ class FertigationParamsSchema(BaseModel):
     runs_per_day: int = Field(default=1, ge=1, le=24)
     duration_seconds: int = Field(default=300, ge=1, le=7200)
     flow_rate_ml_min: float | None = Field(default=None, gt=0)
-    tank_key: str | None = None
 
 
 class DrenchParamsSchema(BaseModel):
@@ -76,6 +76,7 @@ class NutrientPlanCreate(BaseModel):
     version: str = "1.0"
     tags: list[str] = Field(default_factory=list)
     watering_schedule: WateringScheduleSchema | None = None
+    water_mix_ratio_ro_percent: int | None = Field(default=None, ge=0, le=100)
 
 
 class NutrientPlanUpdate(BaseModel):
@@ -87,6 +88,7 @@ class NutrientPlanUpdate(BaseModel):
     version: str | None = None
     tags: list[str] | None = None
     watering_schedule: WateringScheduleSchema | None = None
+    water_mix_ratio_ro_percent: int | None = Field(default=None, ge=0, le=100)
 
 
 class NutrientPlanResponse(BaseModel):
@@ -100,6 +102,7 @@ class NutrientPlanResponse(BaseModel):
     tags: list[str]
     cloned_from_key: str | None
     watering_schedule: WateringScheduleSchema | None = None
+    water_mix_ratio_ro_percent: int | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

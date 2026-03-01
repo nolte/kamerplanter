@@ -88,6 +88,7 @@ class PlantingRunCreate(BaseModel):
 
 class PlantingRunUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
+    location_key: str | None = None
     notes: str | None = None
     planned_start_date: date | None = None
 

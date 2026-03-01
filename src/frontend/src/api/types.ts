@@ -53,7 +53,7 @@ export type PhEffect = 'acidic' | 'alkaline' | 'neutral';
 export type ApplicationMethod = 'fertigation' | 'drench' | 'foliar' | 'top_dress' | 'any';
 export type Bioavailability = 'immediate' | 'slow_release' | 'microbial_dependent';
 export type IncompatibilitySeverity = 'critical' | 'warning' | 'minor';
-export type PhaseName = 'germination' | 'seedling' | 'vegetative' | 'flowering' | 'harvest';
+export type PhaseName = 'germination' | 'seedling' | 'vegetative' | 'flowering' | 'flushing' | 'harvest';
 
 // Pagination
 
@@ -196,6 +196,38 @@ export interface CultivarCreate {
 
 // Sites
 
+// Water config types
+
+export interface TapWaterProfile {
+  ec_ms: number;
+  ph: number;
+  alkalinity_ppm: number;
+  gh_ppm: number;
+  calcium_ppm: number;
+  magnesium_ppm: number;
+  chlorine_ppm: number;
+  chloramine_ppm: number;
+  measurement_date: string | null;
+  source_note: string | null;
+}
+
+export interface RoWaterProfile {
+  ec_ms: number;
+  ph: number;
+}
+
+export interface SiteWaterConfig {
+  has_ro_system: boolean;
+  tap_water_profile?: TapWaterProfile | null;
+  ro_water_profile?: RoWaterProfile | null;
+}
+
+export interface WaterSourceWarning {
+  code: string;
+  message: string;
+  severity: string;
+}
+
 export interface Site {
   key: string;
   name: string;
@@ -204,6 +236,8 @@ export interface Site {
   climate_zone: string;
   total_area_m2: number;
   timezone: string;
+  water_config?: SiteWaterConfig | null;
+  water_config_warnings?: WaterSourceWarning[];
   created_at: string | null;
   updated_at: string | null;
 }
@@ -215,6 +249,7 @@ export interface SiteCreate {
   climate_zone?: string;
   total_area_m2?: number;
   timezone?: string;
+  water_config?: SiteWaterConfig | null;
 }
 
 // Locations
@@ -231,6 +266,7 @@ export interface Location {
   lights_on: string | null;
   lights_off: string | null;
   use_dynamic_sunrise: boolean;
+  tank_key: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -246,6 +282,7 @@ export interface LocationCreate {
   lights_on?: string | null;
   lights_off?: string | null;
   use_dynamic_sunrise?: boolean;
+  tank_key?: string | null;
 }
 
 // Slots
@@ -765,6 +802,7 @@ export interface PlantingRunCreate {
 
 export interface PlantingRunUpdate {
   name?: string;
+  location_key?: string | null;
   notes?: string | null;
   planned_start_date?: string | null;
 }
@@ -873,6 +911,7 @@ export interface TankUpdate {
   has_circulation_pump?: boolean;
   has_heater?: boolean;
   installed_on?: string | null;
+  location_key?: string | null;
   notes?: string | null;
 }
 
@@ -1072,6 +1111,7 @@ export interface NutrientPlan {
   tags: string[];
   cloned_from_key: string | null;
   watering_schedule: WateringSchedule | null;
+  water_mix_ratio_ro_percent: number | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -1085,6 +1125,7 @@ export interface NutrientPlanCreate {
   version?: string;
   tags?: string[];
   watering_schedule?: WateringSchedule | null;
+  water_mix_ratio_ro_percent?: number | null;
 }
 
 export interface NutrientPlanUpdate {
@@ -1096,6 +1137,7 @@ export interface NutrientPlanUpdate {
   version?: string;
   tags?: string[];
   watering_schedule?: WateringSchedule | null;
+  water_mix_ratio_ro_percent?: number | null;
 }
 
 export interface FertilizerDosage {
@@ -1111,7 +1153,6 @@ export interface FertigationParams {
   runs_per_day: number;
   duration_seconds: number;
   flow_rate_ml_min: number | null;
-  tank_key: string | null;
 }
 
 export interface DrenchParams {
@@ -1266,7 +1307,7 @@ export interface FeedingEventUpdate {
 
 // ── WateringEvent types ─────────────────────────────────────────────
 
-export type WaterSource = 'tank' | 'tap' | 'osmose' | 'rainwater' | 'distilled' | 'well';
+export type WaterSource = 'tank' | 'tap' | 'osmose' | 'rainwater' | 'distilled' | 'well' | 'mixed';
 
 export interface FertilizerSnapshot {
   product_key: string | null;
@@ -1829,6 +1870,17 @@ export interface WorkflowTemplateCreate {
   is_system?: boolean;
 }
 
+export interface WorkflowTemplateUpdate {
+  name?: string;
+  description?: string | null;
+  version?: string;
+  species_compatible?: string[];
+  growth_system?: string | null;
+  difficulty_level?: string;
+  category?: string;
+  tags?: string[];
+}
+
 export interface TaskTemplate {
   key: string;
   name: string;
@@ -1840,6 +1892,8 @@ export interface TaskTemplate {
   stress_level: string;
   estimated_duration_minutes: number | null;
   requires_photo: boolean;
+  timer_duration_seconds: number | null;
+  timer_label: string | null;
   tools_required: string[];
   skill_level: string;
   optimal_time_of_day: string | null;
@@ -1859,10 +1913,30 @@ export interface TaskTemplateCreate {
   stress_level?: string;
   estimated_duration_minutes?: number | null;
   requires_photo?: boolean;
+  timer_duration_seconds?: number | null;
+  timer_label?: string | null;
   tools_required?: string[];
   skill_level?: string;
   optimal_time_of_day?: string | null;
   workflow_template_key?: string | null;
+  sequence_order?: number;
+}
+
+export interface TaskTemplateUpdate {
+  name?: string;
+  instruction?: string;
+  category?: string;
+  trigger_type?: string;
+  trigger_phase?: string | null;
+  days_offset?: number;
+  stress_level?: string;
+  estimated_duration_minutes?: number | null;
+  requires_photo?: boolean;
+  timer_duration_seconds?: number | null;
+  timer_label?: string | null;
+  tools_required?: string[];
+  skill_level?: string;
+  optimal_time_of_day?: string | null;
   sequence_order?: number;
 }
 
@@ -1879,6 +1953,8 @@ export interface TaskItem {
   actual_duration_minutes: number | null;
   requires_photo: boolean;
   photo_refs: string[];
+  timer_duration_seconds: number | null;
+  timer_label: string | null;
   completion_notes: string | null;
   started_at: string | null;
   completed_at: string | null;
@@ -1897,6 +1973,8 @@ export interface TaskItemCreate {
   priority?: string;
   estimated_duration_minutes?: number | null;
   requires_photo?: boolean;
+  timer_duration_seconds?: number | null;
+  timer_label?: string | null;
 }
 
 export interface TaskItemUpdate {
@@ -1907,11 +1985,20 @@ export interface TaskItemUpdate {
   priority?: string;
   estimated_duration_minutes?: number | null;
   requires_photo?: boolean;
+  timer_duration_seconds?: number | null;
+  timer_label?: string | null;
+}
+
+export interface PhotoUploadResponse {
+  url: string;
+  filename: string;
+  size_bytes: number;
 }
 
 export interface TaskCompleteRequest {
   completion_notes?: string | null;
   actual_duration_minutes?: number | null;
+  photo_refs?: string[];
 }
 
 export interface WorkflowExecution {

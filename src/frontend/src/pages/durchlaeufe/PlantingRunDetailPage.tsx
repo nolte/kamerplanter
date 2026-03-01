@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -15,11 +15,14 @@ import CircularProgress from '@mui/material/CircularProgress';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import DeleteIcon from '@mui/icons-material/Delete';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import PageTitle from '@/components/layout/PageTitle';
@@ -28,6 +31,7 @@ import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import FormTextField from '@/components/form/FormTextField';
+import FormSelectField from '@/components/form/FormSelectField';
 import FormDateField from '@/components/form/FormDateField';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
@@ -36,18 +40,28 @@ import PhaseTimelineStepper from './PhaseTimelineStepper';
 import PhaseHistoryTable from './PhaseHistoryTable';
 import WateringConfirmDialog from './WateringConfirmDialog';
 import WateringCalendarView from './WateringCalendarView';
+import FertilizerGanttChart from '@/pages/duengung/FertilizerGanttChart';
+import type { PhaseTransition } from '@/pages/duengung/FertilizerGanttChart';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as runApi from '@/api/endpoints/plantingRuns';
 import * as planApi from '@/api/endpoints/nutrient-plans';
+import * as fertApi from '@/api/endpoints/fertilizers';
+import * as siteApi from '@/api/endpoints/sites';
+import * as tankApi from '@/api/endpoints/tanks';
 import { quickConfirmWatering } from '@/api/endpoints/wateringConfirm';
 import type {
   NutrientPlan,
+  NutrientPlanPhaseEntry,
+  Fertilizer,
+  SpeciesPhaseTimeline,
   PlantingRun,
   PlantingRunEntry,
   PlantInRun,
   PlantingRunStatus,
   WateringScheduleCalendarResponse,
+  Site,
+  Location,
 } from '@/api/types';
 
 const statusColor: Record<PlantingRunStatus, ChipProps['color']> = {
@@ -58,8 +72,111 @@ const statusColor: Record<PlantingRunStatus, ChipProps['color']> = {
   cancelled: 'error',
 };
 
+// ── Gantt adaptation helpers ──────────────────────────────────────────
+
+const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Find the epoch for week-1: the actual_entered_at of the first timeline phase
+ * that also exists in the nutrient plan entries.  Falls back to run.started_at.
+ */
+function findGanttEpoch(
+  planEntries: NutrientPlanPhaseEntry[],
+  timelines: SpeciesPhaseTimeline[],
+  runStartedAt: string | null,
+): string | null {
+  if (timelines.length > 0 && planEntries.length > 0) {
+    const planPhaseNames = new Set<string>(planEntries.map((e) => e.phase_name));
+    const phases = timelines[0].phases;
+    for (const phase of phases) {
+      if (planPhaseNames.has(phase.phase_name) && phase.actual_entered_at) {
+        return phase.actual_entered_at;
+      }
+    }
+  }
+  return runStartedAt;
+}
+
+/** Calculate the current plan week relative to the epoch date. */
+function computeCurrentWeek(epoch: string): number | undefined {
+  const start = new Date(epoch);
+  if (isNaN(start.getTime())) return undefined;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  start.setHours(0, 0, 0, 0);
+  const diffMs = now.getTime() - start.getTime();
+  if (diffMs < 0) return undefined;
+  return Math.floor(diffMs / MS_PER_WEEK) + 1;
+}
+
+/**
+ * Adapt nutrient plan phase entries to actual run durations.
+ *
+ * Uses a shift-based approach: for each plan phase, compute the offset between
+ * the plan's phase start week and the actual phase start week. Apply that shift
+ * to every entry, preserving relative positions within the phase (e.g. flushing
+ * products stay at the end of flowering, not the beginning).
+ *
+ * Phases that don't exist in the timeline (e.g. "flushing") inherit the
+ * cumulative shift from the previous matched phase.
+ */
+function adaptEntriesToRun(
+  planEntries: NutrientPlanPhaseEntry[],
+  timelines: SpeciesPhaseTimeline[],
+  epoch: string,
+): NutrientPlanPhaseEntry[] {
+  if (timelines.length === 0) return planEntries;
+  const phases = timelines[0].phases;
+  if (phases.length === 0) return planEntries;
+
+  const epochDate = new Date(epoch);
+  epochDate.setHours(0, 0, 0, 0);
+  if (isNaN(epochDate.getTime())) return planEntries;
+
+  // 1. Actual phase start weeks from timeline
+  const actualStartWeek = new Map<string, number>();
+  for (const phase of phases) {
+    const enteredAt = phase.actual_entered_at ?? phase.projected_start;
+    if (!enteredAt) continue;
+    const d = new Date(enteredAt);
+    d.setHours(0, 0, 0, 0);
+    actualStartWeek.set(phase.phase_name, Math.max(1, Math.floor((d.getTime() - epochDate.getTime()) / MS_PER_WEEK) + 1));
+  }
+
+  // 2. Plan phase start weeks from entries (min week_start per phase)
+  const planStartWeek = new Map<string, number>();
+  for (const entry of planEntries) {
+    const cur = planStartWeek.get(entry.phase_name);
+    if (cur === undefined || entry.week_start < cur) {
+      planStartWeek.set(entry.phase_name, entry.week_start);
+    }
+  }
+
+  // 3. Compute shift per plan phase, sorted by plan start week.
+  //    Unmatched phases (e.g. "flushing" not in timeline) inherit the last shift.
+  const sortedPhases = [...planStartWeek.entries()].sort((a, b) => a[1] - b[1]);
+  const shiftMap = new Map<string, number>();
+  let cumulativeShift = 0;
+  for (const [phaseName, planStart] of sortedPhases) {
+    const actualStart = actualStartWeek.get(phaseName);
+    if (actualStart !== undefined) {
+      cumulativeShift = actualStart - planStart;
+    }
+    shiftMap.set(phaseName, cumulativeShift);
+  }
+
+  // 4. Apply shift — preserves relative position within each phase
+  return planEntries.map((entry) => {
+    const shift = shiftMap.get(entry.phase_name) ?? 0;
+    if (shift === 0) return entry;
+    return { ...entry, week_start: entry.week_start + shift, week_end: entry.week_end + shift };
+  });
+}
+
 const editSchema = z.object({
   name: z.string().min(1).max(200),
+  site_key: z.string().nullable(),
+  location_key: z.string().nullable(),
   notes: z.string().nullable(),
   planned_start_date: z.string().nullable(),
 });
@@ -98,27 +215,75 @@ export default function PlantingRunDetailPage() {
   const [quickConfirming, setQuickConfirming] = useState<string | null>(null);
   const [removePlanOpen, setRemovePlanOpen] = useState(false);
 
+  // Gantt chart state
+  const [planEntries, setPlanEntries] = useState<NutrientPlanPhaseEntry[]>([]);
+  const [fertilizers, setFertilizers] = useState<Fertilizer[]>([]);
+  const [resolvedTank, setResolvedTank] = useState<{ key: string; name: string; volumeLiters: number } | null>(null);
+  const [phaseTimelines, setPhaseTimelines] = useState<SpeciesPhaseTimeline[]>([]);
+
+  // Edit tab: site → location cascade
+  const [sitesList, setSitesList] = useState<Site[]>([]);
+  const [locationsList, setLocationsList] = useState<Location[]>([]);
+  const [locationsLoading, setLocationsLoading] = useState(false);
+
   const {
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { isDirty },
   } = useForm<EditFormData>({
     resolver: zodResolver(editSchema),
-    defaultValues: { name: '', notes: null, planned_start_date: null },
+    defaultValues: { name: '', site_key: null, location_key: null, notes: null, planned_start_date: null },
   });
+
+  const editSiteKey = useWatch({ control, name: 'site_key' });
 
   const load = async () => {
     if (!key) return;
     setLoading(true);
+    skipLocationReset.current = true;
     try {
       const r = await runApi.getPlantingRun(key);
       setRun(r);
+      let siteKeyFromLocation: string | null = null;
+      // Resolve tank from run's location:
+      // Primary: Location.tank_key (denormalized).
+      // Fallback: find tank whose location_key matches the run's location.
+      if (r.location_key) {
+        try {
+          const loc = await siteApi.getLocation(r.location_key);
+          siteKeyFromLocation = loc.site_key;
+          if (loc.tank_key) {
+            const t = await tankApi.getTank(loc.tank_key);
+            setResolvedTank({ key: t.key, name: t.name, volumeLiters: t.volume_liters });
+          } else {
+            // Fallback: find tank assigned to this location via Tank.location_key
+            const allTanks = await tankApi.listTanks(0, 200);
+            const match = allTanks.find((t) => t.location_key === r.location_key);
+            if (match) {
+              setResolvedTank({ key: match.key, name: match.name, volumeLiters: match.volume_liters });
+            } else {
+              setResolvedTank(null);
+            }
+          }
+        } catch {
+          setResolvedTank(null);
+        }
+      } else {
+        setResolvedTank(null);
+      }
       reset({
         name: r.name,
+        site_key: siteKeyFromLocation,
+        location_key: r.location_key ?? null,
         notes: r.notes,
         planned_start_date: r.planned_start_date,
       });
+      // Pre-load locations for the resolved site
+      if (siteKeyFromLocation) {
+        siteApi.listLocations(siteKeyFromLocation).then(setLocationsList).catch(() => {});
+      }
       const e = await runApi.listEntries(key);
       setEntries(e);
       try {
@@ -136,22 +301,61 @@ export default function PlantingRunDetailPage() {
 
   useEffect(() => {
     load();
+    siteApi.listSites(0, 200).then(setSitesList).catch(() => {});
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Site → Location cascade for edit tab.
+  // skipLocationReset prevents clearing location_key on the initial load
+  // (load() pre-sets both site_key and location_key via reset()).
+  const skipLocationReset = useRef(true);
+  useEffect(() => {
+    if (skipLocationReset.current) {
+      skipLocationReset.current = false;
+      return;
+    }
+    if (!editSiteKey) {
+      setLocationsList([]);
+      setValue('location_key', null);
+      return;
+    }
+    setLocationsLoading(true);
+    setValue('location_key', null);
+    siteApi
+      .listLocations(editSiteKey)
+      .then(setLocationsList)
+      .catch(() => setLocationsList([]))
+      .finally(() => setLocationsLoading(false));
+  }, [editSiteKey, setValue]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadWateringData = useCallback(async () => {
     if (!key) return;
     setWateringLoading(true);
     try {
-      const [plans, planResult, calendar] = await Promise.all([
+      const [plans, planResult, calendar, timelines] = await Promise.all([
         planApi.fetchNutrientPlans(0, 200),
         runApi.getRunNutrientPlan(key).catch(() => ({ plan: null })),
         runApi.getWateringSchedule(key, 14).catch(() => null),
+        runApi.getPhaseTimeline(key).catch(() => [] as SpeciesPhaseTimeline[]),
       ]);
       setNutrientPlans(plans);
       setAssignedPlan(planResult.plan);
       setWateringCalendar(calendar);
+      setPhaseTimelines(timelines);
       if (planResult.plan) {
-        setSelectedPlanKey((planResult.plan as { key?: string }).key ?? '');
+        const planKey = (planResult.plan as { key?: string }).key ?? '';
+        setSelectedPlanKey(planKey);
+        // Load plan entries + fertilizers for Gantt charts
+        if (planKey) {
+          const [entries, ferts] = await Promise.all([
+            planApi.fetchPhaseEntries(planKey),
+            fertApi.fetchFertilizers(0, 200),
+          ]);
+          setPlanEntries(entries);
+          setFertilizers(ferts);
+        }
+      } else {
+        setPlanEntries([]);
+        setFertilizers([]);
       }
     } catch (err) {
       handleError(err);
@@ -159,6 +363,42 @@ export default function PlantingRunDetailPage() {
       setWateringLoading(false);
     }
   }, [key, handleError]);
+
+  const ganttEpoch = useMemo(
+    () => findGanttEpoch(planEntries, phaseTimelines, run?.started_at ?? null),
+    [planEntries, phaseTimelines, run?.started_at],
+  );
+
+  const currentWeek = useMemo(
+    () => (ganttEpoch ? computeCurrentWeek(ganttEpoch) : undefined),
+    [ganttEpoch],
+  );
+
+  const adaptedEntries = useMemo(
+    () =>
+      ganttEpoch && planEntries.length > 0
+        ? adaptEntriesToRun(planEntries, phaseTimelines, ganttEpoch)
+        : planEntries,
+    [planEntries, phaseTimelines, ganttEpoch],
+  );
+
+  const phaseTransitions = useMemo((): PhaseTransition[] => {
+    if (phaseTimelines.length === 0 || !ganttEpoch) return [];
+    const epochDate = new Date(ganttEpoch);
+    epochDate.setHours(0, 0, 0, 0);
+    const timeline = phaseTimelines[0].phases;
+    const result: PhaseTransition[] = [];
+    for (const phase of timeline) {
+      const date = phase.actual_entered_at ?? phase.projected_start;
+      if (!date) continue;
+      const enteredDate = new Date(date);
+      enteredDate.setHours(0, 0, 0, 0);
+      const week = Math.floor((enteredDate.getTime() - epochDate.getTime()) / MS_PER_WEEK) + 1;
+      if (week < 1) continue; // before epoch — skip phases before the plan starts
+      result.push({ week, date, phaseName: phase.phase_name });
+    }
+    return result;
+  }, [phaseTimelines, ganttEpoch]);
 
   useEffect(() => {
     if (tab === 3) {
@@ -172,11 +412,14 @@ export default function PlantingRunDetailPage() {
       setSaving(true);
       const updated = await runApi.updatePlantingRun(key, {
         name: data.name,
+        location_key: data.location_key,
         notes: data.notes,
         planned_start_date: data.planned_start_date,
       });
       setRun(updated);
       notification.success(t('common.save'));
+      // Re-resolve tank after location change
+      load();
     } catch (err) {
       handleError(err);
     } finally {
@@ -302,6 +545,20 @@ export default function PlantingRunDetailPage() {
     { id: 'plantedOn', label: t('pages.plantInstances.plantedOn'), render: (r) => r.planted_on },
     { id: 'removedOn', label: t('pages.plantInstances.removedOn'), render: (r) => r.removed_on ?? '-' },
     { id: 'detached', label: t('pages.plantingRuns.detached'), render: (r) => r.detached_at ? t('common.yes') : '-' },
+    {
+      id: 'open', label: '', width: 48, sortable: false, searchable: false,
+      render: (r) => (
+        <Tooltip title={t('pages.plantInstances.title')}>
+          <IconButton
+            size="small"
+            onClick={(e) => { e.stopPropagation(); navigate(`/pflanzen/plant-instances/${r.key}`); }}
+            data-testid={`open-plant-${r.key}`}
+          >
+            <OpenInNewIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      ),
+    },
     {
       id: 'actions', label: '', width: 80, sortable: false, searchable: false,
       render: (r) => !r.detached_at && run?.status === 'active' ? (
@@ -593,6 +850,19 @@ export default function PlantingRunDetailPage() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Gantt Charts from assigned nutrient plan */}
+              {adaptedEntries.length > 0 && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 3 }}>
+                  <FertilizerGanttChart
+                    entries={adaptedEntries}
+                    fertilizers={fertilizers}
+                    currentWeek={currentWeek}
+                    phaseTransitions={phaseTransitions}
+                    tank={resolvedTank}
+                  />
+                </Box>
+              )}
             </>
           )}
         </Box>
@@ -605,6 +875,25 @@ export default function PlantingRunDetailPage() {
             name="planned_start_date"
             control={control}
             label={t('pages.plantingRuns.plannedStartDate')}
+          />
+          <FormSelectField
+            name="site_key"
+            control={control}
+            label={t('entities.site')}
+            options={[
+              { value: '', label: '-' },
+              ...sitesList.map((s) => ({ value: s.key, label: s.name })),
+            ]}
+          />
+          <FormSelectField
+            name="location_key"
+            control={control}
+            label={t('pages.plantingRuns.location')}
+            disabled={!editSiteKey || locationsLoading}
+            options={[
+              { value: '', label: '-' },
+              ...locationsList.map((l) => ({ value: l.key, label: l.name })),
+            ]}
           />
           <FormTextField name="notes" control={control} label={t('pages.plantingRuns.notes')} />
           <FormActions onCancel={() => setTab(0)} loading={saving} />

@@ -24,13 +24,11 @@ class TestMethodParams:
         assert p.runs_per_day == 1
         assert p.duration_seconds == 300
         assert p.flow_rate_ml_min is None
-        assert p.tank_key is None
 
     def test_fertigation_params_custom(self):
-        p = FertigationParams(runs_per_day=4, duration_seconds=600, tank_key="tank1")
+        p = FertigationParams(runs_per_day=4, duration_seconds=600)
         assert p.runs_per_day == 4
         assert p.duration_seconds == 600
-        assert p.tank_key == "tank1"
 
     def test_fertigation_params_bounds(self):
         with pytest.raises(ValidationError):

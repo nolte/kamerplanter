@@ -125,7 +125,6 @@ export const fertigationParamsSchema = z.object({
   runs_per_day: z.number().int().min(1).max(24).default(1),
   duration_minutes: z.number().min(1).max(120).default(5),
   flow_rate_ml_min: z.number().positive().nullable().default(null),
-  tank_key: z.string().nullable().default(null),
 });
 
 export const drenchParamsSchema = z.object({

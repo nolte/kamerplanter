@@ -62,7 +62,7 @@ class PlantingRunService:
 
     def update_run(self, key: PlantingRunKey, data: dict) -> PlantingRun:
         run = self.get_run(key)
-        allowed_fields = {"name", "notes", "planned_start_date"}
+        allowed_fields = {"name", "notes", "planned_start_date", "location_key"}
         for field, value in data.items():
             if field in allowed_fields:
                 setattr(run, field, value)

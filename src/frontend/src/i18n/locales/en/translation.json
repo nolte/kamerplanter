@@ -29,7 +29,9 @@
     "showFewerFields": "Show fewer fields",
     "saved": "Saved",
     "lightModeWarning": "Kamerplanter is running in light mode without authentication. This mode is intended for closed networks only.",
-    "all": "All"
+    "all": "All",
+    "clearFilters": "Clear Filters",
+    "retry": "Retry"
   },
   "table": {
     "showing": "Showing {{from}}–{{to}} of {{total}} entries",
@@ -363,7 +365,27 @@
       "totalArea": "Total Area (m²)",
       "gpsCoordinates": "GPS Coordinates",
       "timezone": "Timezone",
-      "timezoneHelper": "IANA timezone, e.g. 'Europe/Berlin'"
+      "timezoneHelper": "IANA timezone, e.g. 'Europe/Berlin'",
+      "water": {
+        "waterConfig": "Water Source",
+        "hasRoSystem": "RO system available",
+        "tapWaterProfile": "Tap Water Profile",
+        "roWaterProfile": "RO Water Profile",
+        "ecMs": "EC (mS/cm)",
+        "ph": "pH",
+        "alkalinity": "Alkalinity (ppm CaCO₃)",
+        "ghPpm": "General Hardness (ppm CaCO₃)",
+        "calciumPpm": "Calcium (ppm)",
+        "magnesiumPpm": "Magnesium (ppm)",
+        "chlorinePpm": "Chlorine (ppm)",
+        "chloraminePpm": "Chloramine (ppm)",
+        "measurementDate": "Measurement Date",
+        "sourceNote": "Source / Note",
+        "ghPlausibilityWarning": "General hardness deviates from Ca/Mg values",
+        "measurementAgeWarning": "Water measurement is older than 12 months",
+        "roMembraneWarning": "RO membrane may need replacement (EC too high)",
+        "noWaterConfig": "No water source configured"
+      }
     },
     "locations": {
       "title": "Locations",
@@ -378,7 +400,10 @@
       "lightsOnHelper": "Lights-on time (HH:MM)",
       "lightsOff": "Lights Off",
       "lightsOffHelper": "Lights-off time (HH:MM)",
-      "useDynamicSunrise": "Dynamic sunrise calculation"
+      "useDynamicSunrise": "Dynamic sunrise calculation",
+      "tank": "Tank",
+      "assignedTank": "Assigned Tank",
+      "noTank": "No tank assigned"
     },
     "slots": {
       "title": "Slots",
@@ -616,7 +641,18 @@
       "logMaintenance": "Log Maintenance",
       "intervalDays": "Interval (Days)",
       "reminderDays": "Reminder (Days Before)",
-      "active": "Active"
+      "active": "Active",
+      "createSchedule": "Create Schedule",
+      "editSchedule": "Edit Schedule",
+      "scheduleCreated": "Schedule created.",
+      "scheduleUpdated": "Schedule updated.",
+      "scheduleDeleted": "Schedule deleted.",
+      "instructions": "Instructions",
+      "autoCreateTask": "Auto-create Task",
+      "reminderDaysBefore": "Reminder (Days Before)",
+      "site": "Site",
+      "location": "Location",
+      "noLocation": "No location"
     },
     "fertilizers": {
       "title": "Fertilizers",
@@ -709,7 +745,8 @@
       "planComplete": "The plan is complete and covers all phases.",
       "planIncomplete": "The plan is incomplete.",
       "ecBudgets": "EC Budgets",
-      "tagsPlaceholder": "Enter tags (press Enter to add)"
+      "tagsPlaceholder": "Enter tags (press Enter to add)",
+      "waterMixRatio": "RO Water Ratio (%)"
     },
     "feedingEvents": {
       "title": "Feeding Events",
@@ -841,6 +878,7 @@
       "plant": "Plant",
       "startedAt": "Started At",
       "completedAt": "Completed At",
+      "taskTemplates": "Task Templates",
       "tabDetails": "Details",
       "tabComplete": "Complete",
       "completeIntro": "Enter optional notes and actual duration to complete the task.",
@@ -853,7 +891,46 @@
       "instantiateIntro": "Select a plant to create the tasks from this workflow.",
       "instantiate": "Instantiate",
       "workflowInstantiated": "Workflow instantiated successfully. Tasks have been created.",
-      "taskPreview": "Task Preview"
+      "taskPreview": "Task Preview",
+      "taskDeleted": "Task deleted.",
+      "photoUpload": "Photos",
+      "photoUploaded": "Photo uploaded.",
+      "photoUploading": "Uploading…",
+      "photoRequired": "Photo required",
+      "noPhotos": "No photos available.",
+      "photos": "Photos",
+      "timerDuration": "Timer Duration (sec)",
+      "timerDurationHelper": "Countdown duration in seconds",
+      "timerLabel": "Timer Label",
+      "timerExpired": "Timer expired!",
+      "timerStart": "Start timer",
+      "timerPause": "Pause timer",
+      "timerReset": "Reset timer",
+      "filterByCategory": "Filter by Category",
+      "filterByPlant": "Filter by Plant",
+      "createWorkflow": "Create Workflow",
+      "editWorkflow": "Edit Workflow",
+      "deleteWorkflow": "Delete Workflow",
+      "workflowDeleted": "Workflow deleted.",
+      "workflowCreated": "Workflow created.",
+      "workflowUpdated": "Workflow updated.",
+      "addTaskTemplate": "Add Task Template",
+      "editTaskTemplate": "Edit Task Template",
+      "deleteTaskTemplate": "Delete Task Template",
+      "taskTemplateCreated": "Task template created.",
+      "taskTemplateUpdated": "Task template updated.",
+      "taskTemplateDeleted": "Task template deleted.",
+      "sequenceOrder": "Sequence Order",
+      "triggerType": "Trigger Type",
+      "triggerPhase": "Trigger Phase",
+      "daysOffset": "Days Offset",
+      "stressLevel": "Stress Level",
+      "toolsRequired": "Tools Required",
+      "skillLevel": "Skill Level",
+      "optimalTimeOfDay": "Optimal Time of Day",
+      "systemTemplateDeleteDisabled": "System templates cannot be deleted.",
+      "description": "Description",
+      "tags": "Tags"
     },
     "ipm": {
       "title": "Plant Protection",
@@ -990,7 +1067,16 @@
       "pestCheckInterval": "Pest Check Interval (days)",
       "adaptiveLearning": "Adaptive Learning",
       "humidityCheck": "Humidity Check",
-      "careStyle": "Care Style"
+      "careStyle": "Care Style",
+      "winterWateringMultiplier": "Winter Watering Multiplier",
+      "waterQualityHint": "Water Quality Hint",
+      "fertilizingActiveMonths": "Fertilizing Months",
+      "locationCheck": "Location Check",
+      "locationCheckMonths": "Location Check Months",
+      "confirmationHistory": "Confirmation History",
+      "profileReset": "Profile reset.",
+      "wateringIntervalLearned": "Learned Watering Interval",
+      "fertilizingIntervalLearned": "Learned Fertilizing Interval"
     },
     "onboarding": {
       "title": "Welcome to Kamerplanter",
@@ -1005,7 +1091,11 @@
       "siteName": "Location Name",
       "plantCount": "Number of Plants",
       "complete": "Complete Setup",
-      "skip": "Skip"
+      "skip": "Skip",
+      "waterSection": "Your Water",
+      "tapWaterEc": "Tap Water EC (mS/cm)",
+      "tapWaterPh": "Tap Water pH",
+      "hasRoSystemToggle": "I have an RO system"
     },
     "wateringSchedule": {
       "title": "Watering Schedule",
@@ -1050,11 +1140,15 @@
       "channels": "{{count}} channel",
       "channels_other": "{{count}} channels",
       "expandPhase": "Show channels",
-      "collapsePhase": "Hide channels"
+      "collapsePhase": "Hide channels",
+      "startDate": "Plan Start",
+      "currentWeek": "Current Week"
     },
     "fertilizerGantt": {
       "title": "Fertilizer Timeline",
-      "dosage": "{{ml}} ml/L"
+      "dosage": "{{ml}} ml/L",
+      "extrapolated": "extrapolated",
+      "totalMode": "Calculate total amount"
     },
     "deliveryChannels": {
       "title": "Delivery Channels",
@@ -1381,6 +1475,8 @@
       "seedling": "Seedling",
       "vegetative": "Vegetative",
       "flowering": "Flowering",
+      "flushing": "Flushing",
+      "ripening": "Ripening",
       "harvest": "Harvest"
     },
     "waterSource": {

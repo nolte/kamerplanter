@@ -14,6 +14,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Collapse from '@mui/material/Collapse';
+import Slider from '@mui/material/Slider';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
@@ -51,13 +52,11 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 import * as fertApi from '@/api/endpoints/fertilizers';
-import * as tankApi from '@/api/endpoints/tanks';
 import type {
   NutrientPlan,
   NutrientPlanPhaseEntry,
   PlanValidationResult,
   Fertilizer,
-  Tank,
   ScheduleMode,
   DeliveryChannel,
   DeliveryChannelCreate,
@@ -99,6 +98,7 @@ const editSchema = z.object({
   application_method: z.enum(applicationMethods),
   reminder_hours_before: z.number().min(0).max(24),
   times_per_day: z.number().min(1).max(6),
+  water_mix_ratio_ro_percent: z.number().min(0).max(100).nullable(),
 });
 
 type EditFormData = z.infer<typeof editSchema>;
@@ -269,7 +269,6 @@ export default function NutrientPlanDetailPage() {
   const [plan, setPlan] = useState<NutrientPlan | null>(null);
   const [entries, setEntries] = useState<NutrientPlanPhaseEntry[]>([]);
   const [fertilizers, setFertilizers] = useState<Fertilizer[]>([]);
-  const [tanks, setTanks] = useState<Tank[]>([]);
   const [validation, setValidation] = useState<PlanValidationResult | null>(null);
   const [validating, setValidating] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -330,6 +329,7 @@ export default function NutrientPlanDetailPage() {
       application_method: 'drench',
       reminder_hours_before: 2,
       times_per_day: 1,
+      water_mix_ratio_ro_percent: null,
     },
   });
 
@@ -346,20 +346,18 @@ export default function NutrientPlanDetailPage() {
     }
   };
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     if (!key) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
-      const [p, e, f, tk] = await Promise.all([
+      const [p, e, f] = await Promise.all([
         planApi.fetchNutrientPlan(key),
         planApi.fetchPhaseEntries(key),
         fertApi.fetchFertilizers(0, 200),
-        tankApi.listTanks(0, 200),
       ]);
       setPlan(p);
       setEntries(e);
       setFertilizers(f);
-      setTanks(tk);
       const ws = p.watering_schedule;
       reset({
         name: p.name,
@@ -377,12 +375,13 @@ export default function NutrientPlanDetailPage() {
         application_method: (ws?.application_method ?? 'drench') as typeof applicationMethods[number],
         reminder_hours_before: ws?.reminder_hours_before ?? 2,
         times_per_day: ws?.times_per_day ?? 1,
+        water_mix_ratio_ro_percent: p.water_mix_ratio_ro_percent ?? null,
       });
       setError(null);
     } catch (err) {
       setError(String(err));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [key, reset]);
 
@@ -434,9 +433,10 @@ export default function NutrientPlanDetailPage() {
           reminder_hours_before: data.reminder_hours_before,
           times_per_day: data.times_per_day,
         } : null,
+        water_mix_ratio_ro_percent: data.water_mix_ratio_ro_percent,
       });
       notification.success(t('common.save'));
-      load();
+      load(true);
     } catch (err) {
       handleError(err);
     } finally {
@@ -462,7 +462,7 @@ export default function NutrientPlanDetailPage() {
       notification.success(t('common.delete'));
       setDeleteEntryOpen(false);
       setDeletingEntry(null);
-      load();
+      load(true);
     } catch (err) {
       handleError(err);
     }
@@ -484,7 +484,7 @@ export default function NutrientPlanDetailPage() {
     try {
       await planApi.removeFertilizerFromChannel(entryKey, channelId, fertilizerKey);
       notification.success(t('common.delete'));
-      load();
+      load(true);
     } catch (err) {
       handleError(err);
     }
@@ -495,9 +495,14 @@ export default function NutrientPlanDetailPage() {
     try {
       const entry = entries.find((e) => e.key === channelDialogEntryKey);
       if (!entry) return;
+      const existing = entry.delivery_channels.find((ch) => ch.channel_id === channel.channel_id);
+      const merged = {
+        ...channel,
+        fertilizer_dosages: channel.fertilizer_dosages ?? existing?.fertilizer_dosages ?? [],
+      };
       const updatedChannels = [
         ...entry.delivery_channels.filter((ch) => ch.channel_id !== channel.channel_id),
-        channel,
+        merged,
       ];
       await planApi.updatePhaseEntry(key, channelDialogEntryKey, {
         delivery_channels: updatedChannels,
@@ -505,7 +510,7 @@ export default function NutrientPlanDetailPage() {
       notification.success(t('common.save'));
       setChannelDialogOpen(false);
       setEditingChannel(null);
-      load();
+      load(true);
     } catch (err) {
       handleError(err);
     }
@@ -538,7 +543,7 @@ export default function NutrientPlanDetailPage() {
       setDeleteChannelOpen(false);
       setDeletingChannelId('');
       setDeletingChannelEntryKey('');
-      load();
+      load(true);
     } catch (err) {
       handleError(err);
     }
@@ -583,7 +588,7 @@ export default function NutrientPlanDetailPage() {
       notification.success(t('common.save'));
       setFertDialogOpen(false);
       setEditingFertDosage(null);
-      load();
+      load(true);
     } catch (err) {
       handleError(err);
     }
@@ -849,6 +854,23 @@ export default function NutrientPlanDetailPage() {
                       key={i}
                       severity={budget.valid ? 'success' : 'error'}
                       sx={{ mb: 0.5 }}
+                      action={
+                        <Tooltip title={t('common.edit')}>
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              const entry = entries.find((e) => e.key === budget.entry_key);
+                              if (!entry) return;
+                              setTab(0);
+                              setExpandedEntries((prev) => new Set(prev).add(entry.key));
+                              setEditingEntry(entry);
+                              setEntryDialogOpen(true);
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      }
                     >
                       <strong>{t(`enums.phaseName.${budget.phase_name}`)}</strong>:{' '}
                       {budget.message} ({t('pages.nutrientPlans.targetEc')}: {budget.target_ec},{' '}
@@ -876,6 +898,27 @@ export default function NutrientPlanDetailPage() {
                             key={j}
                             severity={cr.issues.length === 0 ? 'success' : 'error'}
                             sx={{ mb: 0.5 }}
+                            action={
+                              <Tooltip title={t('common.edit')}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => {
+                                    const entry = entries.find((e) => e.key === cv.entry_key);
+                                    if (!entry) return;
+                                    const channel = entry.delivery_channels.find(
+                                      (ch) => ch.channel_id === cr.channel_id,
+                                    );
+                                    setTab(0);
+                                    setExpandedEntries((prev) => new Set(prev).add(entry.key));
+                                    if (channel) {
+                                      onEditChannel(entry.key, channel);
+                                    }
+                                  }}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            }
                           >
                             <strong>{cr.label || cr.channel_id}</strong>:{' '}
                             {cr.issues.length === 0
@@ -949,6 +992,36 @@ export default function NutrientPlanDetailPage() {
                 label={t('pages.nutrientPlans.tags')}
                 placeholder={t('pages.nutrientPlans.tagsPlaceholder')}
               />
+
+              {/* Water Mix Ratio */}
+              <ExpertiseFieldWrapper minLevel="intermediate">
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {t('pages.nutrientPlans.waterMixRatio')}
+                  </Typography>
+                  <Controller
+                    name="water_mix_ratio_ro_percent"
+                    control={control}
+                    render={({ field }) => (
+                      <Slider
+                        value={field.value ?? 0}
+                        onChange={(_, val) => field.onChange(val as number || null)}
+                        min={0}
+                        max={100}
+                        step={5}
+                        valueLabelDisplay="auto"
+                        valueLabelFormat={(v) => `${v}%`}
+                        marks={[
+                          { value: 0, label: '0%' },
+                          { value: 50, label: '50%' },
+                          { value: 100, label: '100%' },
+                        ]}
+                        data-testid="water-mix-slider"
+                      />
+                    )}
+                  />
+                </Box>
+              </ExpertiseFieldWrapper>
 
               {/* Watering Schedule Section */}
               <Box sx={{ mt: 3, mb: 2 }}>
@@ -1148,7 +1221,7 @@ export default function NutrientPlanDetailPage() {
           onSaved={() => {
             setEntryDialogOpen(false);
             setEditingEntry(null);
-            load();
+            load(true);
           }}
         />
       )}
@@ -1162,7 +1235,6 @@ export default function NutrientPlanDetailPage() {
         onSave={onSaveChannel}
         existingChannel={editingChannel}
         existingIds={channelDialogExistingIds}
-        tanks={tanks}
       />
 
       <ChannelFertilizerDialog

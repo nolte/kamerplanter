@@ -1,9 +1,33 @@
 import re
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field, field_validator
 
 from app.common.enums import IrrigationSystem, LightType, Orientation, SiteType
+
+
+class TapWaterProfile(BaseModel):
+    ec_ms: float = Field(ge=0, le=2.0)
+    ph: float = Field(ge=3.0, le=10.0)
+    alkalinity_ppm: float = Field(default=0, ge=0, le=500)
+    gh_ppm: float = Field(default=0, ge=0, le=1000)
+    calcium_ppm: float = Field(default=0, ge=0, le=500)
+    magnesium_ppm: float = Field(default=0, ge=0, le=200)
+    chlorine_ppm: float = Field(default=0, ge=0, le=5)
+    chloramine_ppm: float = Field(default=0, ge=0, le=5)
+    measurement_date: date | None = None
+    source_note: str | None = None
+
+
+class RoWaterProfile(BaseModel):
+    ec_ms: float = Field(default=0.02, ge=0, le=0.5)
+    ph: float = Field(default=6.5, ge=3.0, le=10.0)
+
+
+class SiteWaterConfig(BaseModel):
+    has_ro_system: bool = False
+    tap_water_profile: TapWaterProfile | None = None
+    ro_water_profile: RoWaterProfile | None = None
 
 
 class Slot(BaseModel):
@@ -41,6 +65,7 @@ class Location(BaseModel):
     lights_on: str | None = None
     lights_off: str | None = None
     use_dynamic_sunrise: bool = False
+    tank_key: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -67,6 +92,7 @@ class Site(BaseModel):
     climate_zone: str = ""
     total_area_m2: float = Field(default=0.0, ge=0)
     timezone: str = "UTC"
+    water_config: SiteWaterConfig | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

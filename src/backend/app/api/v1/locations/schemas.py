@@ -16,6 +16,7 @@ class LocationCreate(BaseModel):
     lights_on: str | None = None
     lights_off: str | None = None
     use_dynamic_sunrise: bool = False
+    tank_key: str | None = None
 
 class LocationResponse(BaseModel):
     key: str
@@ -29,5 +30,6 @@ class LocationResponse(BaseModel):
     lights_on: str | None = None
     lights_off: str | None = None
     use_dynamic_sunrise: bool = False
+    tank_key: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

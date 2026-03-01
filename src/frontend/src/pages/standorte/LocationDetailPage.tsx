@@ -31,8 +31,9 @@ import WateringEventCreateDialog from './WateringEventCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/sites';
+import * as tankApi from '@/api/endpoints/tanks';
 import * as wateringApi from '@/api/endpoints/watering-events';
-import type { Location, Slot, WateringEvent, WateringStats } from '@/api/types';
+import type { Location, Slot, Tank, WateringEvent, WateringStats } from '@/api/types';
 
 const timeRegex = /^\d{2}:\d{2}$/;
 
@@ -65,6 +66,7 @@ export default function LocationDetailPage() {
   const [wateringEvents, setWateringEvents] = useState<WateringEvent[]>([]);
   const [wateringStats, setWateringStats] = useState<WateringStats | null>(null);
   const [wateringCreateOpen, setWateringCreateOpen] = useState(false);
+  const [assignedTank, setAssignedTank] = useState<Tank | null>(null);
   const slotTableState = useTableLocalState({ defaultSort: { column: 'slotId', direction: 'asc' } });
   const wateringTableState = useTableLocalState({ defaultSort: { column: 'wateredAt', direction: 'desc' } });
 
@@ -104,6 +106,25 @@ export default function LocationDetailPage() {
       });
       const s = await api.listSlots(key);
       setSlots(s);
+      // Load assigned tank:
+      // Primary: Location.tank_key (denormalized).
+      // Fallback: find tank whose location_key matches this location.
+      if (loc.tank_key) {
+        try {
+          const t = await tankApi.getTank(loc.tank_key);
+          setAssignedTank(t);
+        } catch {
+          setAssignedTank(null);
+        }
+      } else {
+        try {
+          const allTanks = await tankApi.listTanks(0, 200);
+          const match = allTanks.find((t) => t.location_key === key);
+          setAssignedTank(match ?? null);
+        } catch {
+          setAssignedTank(null);
+        }
+      }
       // Load watering events and stats
       try {
         const [we, ws] = await Promise.all([
@@ -222,6 +243,27 @@ export default function LocationDetailPage() {
         )}
 
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
+      </Box>
+
+      {/* Assigned Tank */}
+      <Box sx={{ mt: 3, maxWidth: 600 }}>
+        <Typography variant="subtitle2" color="text.secondary">
+          {t('pages.locations.assignedTank')}
+        </Typography>
+        {assignedTank ? (
+          <Chip
+            label={`${assignedTank.name} (${assignedTank.volume_liters} L)`}
+            size="small"
+            color="primary"
+            variant="outlined"
+            onClick={() => navigate(`/standorte/tanks/${assignedTank.key}`)}
+            sx={{ mt: 0.5 }}
+          />
+        ) : (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            {t('pages.locations.noTank')}
+          </Typography>
+        )}
       </Box>
 
       <Box sx={{ mt: 4 }}>

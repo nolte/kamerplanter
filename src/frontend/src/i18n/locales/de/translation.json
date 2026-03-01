@@ -29,7 +29,9 @@
     "showFewerFields": "Weniger Felder anzeigen",
     "saved": "Gespeichert",
     "lightModeWarning": "Kamerplanter laeuft im Light-Modus ohne Authentifizierung. Dieser Modus ist nur fuer geschlossene Netzwerke gedacht.",
-    "all": "Alle"
+    "all": "Alle",
+    "clearFilters": "Filter löschen",
+    "retry": "Erneut versuchen"
   },
   "table": {
     "showing": "Zeigt {{from}}–{{to}} von {{total}} Einträgen",
@@ -363,7 +365,27 @@
       "totalArea": "Gesamtfläche (m²)",
       "gpsCoordinates": "GPS-Koordinaten",
       "timezone": "Zeitzone",
-      "timezoneHelper": "IANA-Zeitzone, z.\u00a0B. 'Europe/Berlin'"
+      "timezoneHelper": "IANA-Zeitzone, z.\u00a0B. 'Europe/Berlin'",
+      "water": {
+        "waterConfig": "Wasserquelle",
+        "hasRoSystem": "Osmoseanlage vorhanden",
+        "tapWaterProfile": "Leitungswasser-Profil",
+        "roWaterProfile": "Osmosewasser-Profil",
+        "ecMs": "EC (mS/cm)",
+        "ph": "pH-Wert",
+        "alkalinity": "Alkalinität (ppm CaCO₃)",
+        "ghPpm": "Gesamthärte (ppm CaCO₃)",
+        "calciumPpm": "Calcium (ppm)",
+        "magnesiumPpm": "Magnesium (ppm)",
+        "chlorinePpm": "Chlor (ppm)",
+        "chloraminePpm": "Chloramin (ppm)",
+        "measurementDate": "Messdatum",
+        "sourceNote": "Quelle / Bemerkung",
+        "ghPlausibilityWarning": "Gesamthärte weicht von Ca/Mg-Werten ab",
+        "measurementAgeWarning": "Wassermessung ist älter als 12 Monate",
+        "roMembraneWarning": "RO-Membran möglicherweise verschlissen (EC zu hoch)",
+        "noWaterConfig": "Keine Wasserquelle konfiguriert"
+      }
     },
     "locations": {
       "title": "Bereiche",
@@ -378,7 +400,10 @@
       "lightsOnHelper": "Uhrzeit Licht-Ein (HH:MM)",
       "lightsOff": "Licht Aus",
       "lightsOffHelper": "Uhrzeit Licht-Aus (HH:MM)",
-      "useDynamicSunrise": "Dynamische Sonnenstandberechnung"
+      "useDynamicSunrise": "Dynamische Sonnenstandberechnung",
+      "tank": "Tank",
+      "assignedTank": "Zugewiesener Tank",
+      "noTank": "Kein Tank zugewiesen"
     },
     "slots": {
       "title": "Stellplätze",
@@ -616,7 +641,18 @@
       "logMaintenance": "Wartung dokumentieren",
       "intervalDays": "Intervall (Tage)",
       "reminderDays": "Erinnerung (Tage vorher)",
-      "active": "Aktiv"
+      "active": "Aktiv",
+      "createSchedule": "Wartungsplan erstellen",
+      "editSchedule": "Wartungsplan bearbeiten",
+      "scheduleCreated": "Wartungsplan erstellt.",
+      "scheduleUpdated": "Wartungsplan aktualisiert.",
+      "scheduleDeleted": "Wartungsplan gelöscht.",
+      "instructions": "Anweisungen",
+      "autoCreateTask": "Aufgabe automatisch erstellen",
+      "reminderDaysBefore": "Erinnerung (Tage vorher)",
+      "site": "Standort",
+      "location": "Bereich",
+      "noLocation": "Kein Bereich"
     },
     "fertilizers": {
       "title": "Düngemittel",
@@ -709,7 +745,8 @@
       "planComplete": "Der Plan ist vollständig und deckt alle Phasen ab.",
       "planIncomplete": "Der Plan ist unvollständig.",
       "ecBudgets": "EC-Budgets",
-      "tagsPlaceholder": "Tags eingeben (Enter zum Hinzufügen)"
+      "tagsPlaceholder": "Tags eingeben (Enter zum Hinzufügen)",
+      "waterMixRatio": "Osmosewasser-Anteil (%)"
     },
     "feedingEvents": {
       "title": "Düngeereignisse",
@@ -841,6 +878,7 @@
       "plant": "Pflanze",
       "startedAt": "Gestartet am",
       "completedAt": "Abgeschlossen am",
+      "taskTemplates": "Aufgabenvorlagen",
       "tabDetails": "Details",
       "tabComplete": "Abschließen",
       "completeIntro": "Geben Sie optionale Notizen und die tatsächliche Dauer ein, um die Aufgabe abzuschließen.",
@@ -853,7 +891,46 @@
       "instantiateIntro": "Wählen Sie eine Pflanze, um die Aufgaben dieses Workflows zu erstellen.",
       "instantiate": "Instanziieren",
       "workflowInstantiated": "Workflow erfolgreich instanziiert. Aufgaben wurden erstellt.",
-      "taskPreview": "Aufgabenvorschau"
+      "taskPreview": "Aufgabenvorschau",
+      "taskDeleted": "Aufgabe gelöscht.",
+      "photoUpload": "Fotos",
+      "photoUploaded": "Foto hochgeladen.",
+      "photoUploading": "Wird hochgeladen…",
+      "photoRequired": "Foto erforderlich",
+      "noPhotos": "Keine Fotos vorhanden.",
+      "photos": "Fotos",
+      "timerDuration": "Timer-Dauer (Sek.)",
+      "timerDurationHelper": "Countdown-Dauer in Sekunden",
+      "timerLabel": "Timer-Bezeichnung",
+      "timerExpired": "Timer abgelaufen!",
+      "timerStart": "Timer starten",
+      "timerPause": "Timer pausieren",
+      "timerReset": "Timer zurücksetzen",
+      "filterByCategory": "Nach Kategorie filtern",
+      "filterByPlant": "Nach Pflanze filtern",
+      "createWorkflow": "Workflow erstellen",
+      "editWorkflow": "Workflow bearbeiten",
+      "deleteWorkflow": "Workflow löschen",
+      "workflowDeleted": "Workflow gelöscht.",
+      "workflowCreated": "Workflow erstellt.",
+      "workflowUpdated": "Workflow aktualisiert.",
+      "addTaskTemplate": "Aufgabenvorlage hinzufügen",
+      "editTaskTemplate": "Aufgabenvorlage bearbeiten",
+      "deleteTaskTemplate": "Aufgabenvorlage löschen",
+      "taskTemplateCreated": "Aufgabenvorlage erstellt.",
+      "taskTemplateUpdated": "Aufgabenvorlage aktualisiert.",
+      "taskTemplateDeleted": "Aufgabenvorlage gelöscht.",
+      "sequenceOrder": "Reihenfolge",
+      "triggerType": "Auslöser-Typ",
+      "triggerPhase": "Auslöser-Phase",
+      "daysOffset": "Tage-Offset",
+      "stressLevel": "Stresslevel",
+      "toolsRequired": "Benötigte Werkzeuge",
+      "skillLevel": "Erfahrungsstufe",
+      "optimalTimeOfDay": "Optimale Tageszeit",
+      "systemTemplateDeleteDisabled": "System-Vorlagen können nicht gelöscht werden.",
+      "description": "Beschreibung",
+      "tags": "Tags"
     },
     "ipm": {
       "title": "Pflanzenschutz",
@@ -990,7 +1067,16 @@
       "pestCheckInterval": "Schädlingskontrolle (Tage)",
       "adaptiveLearning": "Adaptives Lernen",
       "humidityCheck": "Luftfeuchte-Check",
-      "careStyle": "Pflegestil"
+      "careStyle": "Pflegestil",
+      "winterWateringMultiplier": "Winter-Gießfaktor",
+      "waterQualityHint": "Wasserqualitäts-Hinweis",
+      "fertilizingActiveMonths": "Dünge-Monate",
+      "locationCheck": "Standort-Check",
+      "locationCheckMonths": "Standort-Check-Monate",
+      "confirmationHistory": "Bestätigungsverlauf",
+      "profileReset": "Profil zurückgesetzt.",
+      "wateringIntervalLearned": "Gelerntes Gießintervall",
+      "fertilizingIntervalLearned": "Gelerntes Düngeintervall"
     },
     "onboarding": {
       "title": "Willkommen bei Kamerplanter",
@@ -1005,7 +1091,11 @@
       "siteName": "Standortname",
       "plantCount": "Anzahl Pflanzen",
       "complete": "Einrichtung abschließen",
-      "skip": "Überspringen"
+      "skip": "Überspringen",
+      "waterSection": "Dein Wasser",
+      "tapWaterEc": "Leitungswasser EC (mS/cm)",
+      "tapWaterPh": "Leitungswasser pH",
+      "hasRoSystemToggle": "Ich habe eine Osmoseanlage"
     },
     "wateringSchedule": {
       "title": "Gießplan",
@@ -1050,11 +1140,15 @@
       "channels": "{{count}} Kanal",
       "channels_other": "{{count}} Kanäle",
       "expandPhase": "Kanäle anzeigen",
-      "collapsePhase": "Kanäle ausblenden"
+      "collapsePhase": "Kanäle ausblenden",
+      "startDate": "Plan-Start",
+      "currentWeek": "Aktuelle Woche"
     },
     "fertilizerGantt": {
       "title": "Dünger-Zeitplan",
-      "dosage": "{{ml}} ml/L"
+      "dosage": "{{ml}} ml/L",
+      "extrapolated": "extrapoliert",
+      "totalMode": "Gesamtmenge berechnen"
     },
     "deliveryChannels": {
       "title": "Ausbringungskanäle",
@@ -1381,6 +1475,8 @@
       "seedling": "Sämling",
       "vegetative": "Vegetativ",
       "flowering": "Blüte",
+      "flushing": "Spülung",
+      "ripening": "Reife",
       "harvest": "Ernte"
     },
     "waterSource": {

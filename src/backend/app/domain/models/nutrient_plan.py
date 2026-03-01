@@ -22,7 +22,6 @@ class FertigationParams(BaseModel):
     runs_per_day: int = Field(default=1, ge=1, le=24)
     duration_seconds: int = Field(default=300, ge=1, le=7200)
     flow_rate_ml_min: float | None = Field(default=None, gt=0)
-    tank_key: str | None = None
 
 
 class DrenchParams(BaseModel):
@@ -145,6 +144,7 @@ class NutrientPlan(BaseModel):
     tags: list[str] = Field(default_factory=list)
     cloned_from_key: str | None = None
     watering_schedule: WateringSchedule | None = None
+    water_mix_ratio_ro_percent: int | None = Field(default=None, ge=0, le=100)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
