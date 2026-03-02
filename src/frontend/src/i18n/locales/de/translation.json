@@ -437,7 +437,20 @@
       "useDynamicSunrise": "Dynamische Sonnenstandberechnung",
       "tank": "Tank",
       "assignedTank": "Zugewiesener Tank",
-      "noTank": "Kein Tank zugewiesen"
+      "noTank": "Kein Tank zugewiesen",
+      "addSublocation": "Unterlocation hinzufügen",
+      "locationType": "Standort-Typ",
+      "depth": "Ebene",
+      "sublocations": "Unterlocations",
+      "noSublocations": "Keine Unterlocations"
+    },
+    "locationTypes": {
+      "title": "Standort-Typen",
+      "name": "Name",
+      "icon": "Icon",
+      "isIndoor": "Indoor",
+      "sortOrder": "Reihenfolge",
+      "cannotDeleteSystem": "System-Standort-Typen können nicht gelöscht werden"
     },
     "slots": {
       "title": "Stellplätze",
@@ -891,7 +904,11 @@
       "wateringOverrideActive": "Eigener Gießplan für diese Phase",
       "overrideIntervalDays": "Intervall (Tage)",
       "ppmHelper": "Parts per million",
-      "mlPerLiterHelper": "Dosierung in Milliliter pro Liter Wasser"
+      "mlPerLiterHelper": "Dosierung in Milliliter pro Liter Wasser",
+      "initialRunSection": "Erstdurchlauf",
+      "initialRunDescription": "Einmalige Etablierungsphasen",
+      "seasonalCycleSection": "Saisonaler Zyklus",
+      "seasonalCycleDescription": "Jährlich wiederkehrende Phasen"
     },
     "feedingEvents": {
       "title": "Düngeereignisse",
@@ -1003,7 +1020,37 @@
       "flushStartDay": "Spülbeginn (Tag)",
       "targetVolumeHelper": "Gesamtvolumen der zu mischenden Lösung in Litern",
       "ecUnitHelper": "mS/cm",
-      "phUnitHelper": "0\u201314"
+      "phUnitHelper": "0\u201314",
+      "ecBudget": "EC-Budget",
+      "ecBudgetTitle": "EC-Budget-Kalkulation",
+      "ecMix": "Basiswasser-EC",
+      "ecNet": "Verfügbares EC-Budget",
+      "ecSilicate": "Silikat-EC",
+      "ecCalmag": "CalMag-EC",
+      "ecFertilizers": "Dünger-EC",
+      "ecPhReserve": "pH-Reserve",
+      "ecFinal": "End-EC",
+      "ecMax": "EC-Obergrenze",
+      "ecTarget": "Ziel-EC",
+      "ecBudgetValid": "EC-Budget gültig",
+      "ecBudgetInvalid": "EC-Budget ungültig",
+      "livingsoilBypass": "Living Soil: EC-Dosierung nicht anwendbar",
+      "waterMixer": "Wasser-Mischer",
+      "targetBaseEc": "Ziel-Basiswasser-EC (mS)",
+      "suggestedRoPercent": "Empfohlener RO-Anteil",
+      "alkalinity": "Alkalinität (ppm CaCO₃)",
+      "calmagKey": "CalMag-Dünger (Key)",
+      "calmagDose": "CalMag-Dosis (ml/L)",
+      "silicateKey": "Silikat-Dünger (Key)",
+      "silicateDose": "Silikat-Dosis (ml/L)",
+      "tempCorrection": "Temperaturkorrektur",
+      "measuredEcAtTemp": "Gemessener EC bei Temperatur",
+      "measuredTemp": "Wassertemperatur (°C)",
+      "ecAt25": "EC @25°C (korrigiert)",
+      "dosageInstructions": "Mischprotokoll",
+      "substrateCycles": "Substrat-Zyklen",
+      "phase": "Phase",
+      "substrate": "Substrat"
     },
     "tasks": {
       "title": "Aufgaben",
@@ -1317,12 +1364,14 @@
     "gantt": {
       "title": "Phasen-Zeitplan",
       "week": "W",
+      "calendarWeek": "KW",
       "channels": "{{count}} Kanal",
       "channels_other": "{{count}} Kanäle",
       "expandPhase": "Kanäle anzeigen",
       "collapsePhase": "Kanäle ausblenden",
       "startDate": "Plan-Start",
-      "currentWeek": "Aktuelle Woche"
+      "currentWeek": "Aktuelle Woche",
+      "previewWeek": "Wochen-Vorschau"
     },
     "fertilizerGantt": {
       "title": "Dünger-Zeitplan",
@@ -1448,7 +1497,25 @@
       "maintenance": "Wartung",
       "phaseTransition": "Phasenwechsel",
       "tankMaintenance": "Tankwartung",
-      "custom": "Sonstiges"
+      "custom": "Sonstiges",
+      "sowingCalendar": {
+        "title": "Aussaatkalender",
+        "noData": "Keine Pflanzen mit Aussaatdaten vorhanden. Tragen Sie Aussaat- und Erntedaten bei den Arten ein.",
+        "lastFrost": "Letzter Frost",
+        "eisheilige": "Eisheilige",
+        "indoorSowing": "Voranzucht",
+        "outdoorPlanting": "Auspflanzen",
+        "growth": "Wachstum",
+        "harvestPhase": "Ernte",
+        "flowering": "Blüte"
+      },
+      "seasonOverview": {
+        "title": "Saisonübersicht",
+        "noData": "Keine Saisondaten verfügbar",
+        "sowing": "Aussaat",
+        "harvestLabel": "Ernte",
+        "tasks": "Aufgaben"
+      }
     }
   },
   "tankAlerts": {
@@ -1659,7 +1726,8 @@
       "booster": "Booster",
       "biological": "Biologisch",
       "ph_adjuster": "pH-Korrektur",
-      "organic": "Organisch"
+      "organic": "Organisch",
+      "silicate": "Silikat"
     },
     "phEffect": {
       "acidic": "Sauer",

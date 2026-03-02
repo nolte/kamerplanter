@@ -437,7 +437,20 @@
       "useDynamicSunrise": "Dynamic sunrise calculation",
       "tank": "Tank",
       "assignedTank": "Assigned Tank",
-      "noTank": "No tank assigned"
+      "noTank": "No tank assigned",
+      "addSublocation": "Add Sub-Location",
+      "locationType": "Location Type",
+      "depth": "Level",
+      "sublocations": "Sub-Locations",
+      "noSublocations": "No sub-locations"
+    },
+    "locationTypes": {
+      "title": "Location Types",
+      "name": "Name",
+      "icon": "Icon",
+      "isIndoor": "Indoor",
+      "sortOrder": "Sort Order",
+      "cannotDeleteSystem": "System location types cannot be deleted"
     },
     "slots": {
       "title": "Slots",
@@ -891,7 +904,11 @@
       "wateringOverrideActive": "Custom watering schedule for this phase",
       "overrideIntervalDays": "Interval (days)",
       "ppmHelper": "Parts per million",
-      "mlPerLiterHelper": "Dosage in milliliters per liter of water"
+      "mlPerLiterHelper": "Dosage in milliliters per liter of water",
+      "initialRunSection": "Initial Run",
+      "initialRunDescription": "One-time establishment phases",
+      "seasonalCycleSection": "Seasonal Cycle",
+      "seasonalCycleDescription": "Annually recurring phases"
     },
     "feedingEvents": {
       "title": "Feeding Events",
@@ -1003,7 +1020,37 @@
       "flushStartDay": "Flush Start Day",
       "targetVolumeHelper": "Total volume of solution to mix in liters",
       "ecUnitHelper": "mS/cm",
-      "phUnitHelper": "0\u201314"
+      "phUnitHelper": "0\u201314",
+      "ecBudget": "EC Budget",
+      "ecBudgetTitle": "EC Budget Calculation",
+      "ecMix": "Base Water EC",
+      "ecNet": "Available EC Budget",
+      "ecSilicate": "Silicate EC",
+      "ecCalmag": "CalMag EC",
+      "ecFertilizers": "Fertilizer EC",
+      "ecPhReserve": "pH Reserve",
+      "ecFinal": "Final EC",
+      "ecMax": "EC Maximum",
+      "ecTarget": "Target EC",
+      "ecBudgetValid": "EC budget valid",
+      "ecBudgetInvalid": "EC budget invalid",
+      "livingsoilBypass": "Living Soil: EC-based dosing not applicable",
+      "waterMixer": "Water Mixer",
+      "targetBaseEc": "Target Base Water EC (mS)",
+      "suggestedRoPercent": "Suggested RO Percentage",
+      "alkalinity": "Alkalinity (ppm CaCO\u2083)",
+      "calmagKey": "CalMag Fertilizer (Key)",
+      "calmagDose": "CalMag Dose (ml/L)",
+      "silicateKey": "Silicate Fertilizer (Key)",
+      "silicateDose": "Silicate Dose (ml/L)",
+      "tempCorrection": "Temperature Correction",
+      "measuredEcAtTemp": "Measured EC at Temperature",
+      "measuredTemp": "Water Temperature (\u00b0C)",
+      "ecAt25": "EC @25\u00b0C (corrected)",
+      "dosageInstructions": "Mixing Protocol",
+      "substrateCycles": "Substrate Cycles",
+      "phase": "Phase",
+      "substrate": "Substrate"
     },
     "tasks": {
       "title": "Tasks",
@@ -1317,12 +1364,14 @@
     "gantt": {
       "title": "Phase Timeline",
       "week": "W",
+      "calendarWeek": "CW",
       "channels": "{{count}} channel",
       "channels_other": "{{count}} channels",
       "expandPhase": "Show channels",
       "collapsePhase": "Hide channels",
       "startDate": "Plan Start",
-      "currentWeek": "Current Week"
+      "currentWeek": "Current Week",
+      "previewWeek": "Week Preview"
     },
     "fertilizerGantt": {
       "title": "Fertilizer Timeline",
@@ -1448,7 +1497,25 @@
       "maintenance": "Maintenance",
       "phaseTransition": "Phase Transition",
       "tankMaintenance": "Tank Maintenance",
-      "custom": "Other"
+      "custom": "Other",
+      "sowingCalendar": {
+        "title": "Sowing Calendar",
+        "noData": "No plants with sowing data. Add sowing and harvest dates to your species.",
+        "lastFrost": "Last Frost",
+        "eisheilige": "Ice Saints",
+        "indoorSowing": "Indoor Sowing",
+        "outdoorPlanting": "Outdoor Planting",
+        "growth": "Growth",
+        "harvestPhase": "Harvest",
+        "flowering": "Flowering"
+      },
+      "seasonOverview": {
+        "title": "Season Overview",
+        "noData": "No season data available",
+        "sowing": "Sowing",
+        "harvestLabel": "Harvest",
+        "tasks": "Tasks"
+      }
     }
   },
   "tankAlerts": {
@@ -1659,7 +1726,8 @@
       "booster": "Booster",
       "biological": "Biological",
       "ph_adjuster": "pH Adjuster",
-      "organic": "Organic"
+      "organic": "Organic",
+      "silicate": "Silicate"
     },
     "phEffect": {
       "acidic": "Acidic",

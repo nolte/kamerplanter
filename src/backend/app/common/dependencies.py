@@ -451,7 +451,66 @@ def get_calendar_aggregation_engine():
 
 def get_calendar_service():
     from app.domain.services.calendar_service import CalendarService
-    return CalendarService(get_calendar_feed_repo(), get_calendar_aggregation_engine())
+    return CalendarService(
+        get_calendar_feed_repo(),
+        get_calendar_aggregation_engine(),
+        species_repo=get_species_repo(),
+        site_repo=get_site_repo(),
+    )
+
+
+# ── REQ-005 Sensor dependencies ───────────────────────────────────
+
+
+def get_sensor_repo():
+    from app.data_access.arango.sensor_repository import ArangoSensorRepository
+    return ArangoSensorRepository(get_db())
+
+
+def get_system_settings_repo():
+    from app.data_access.arango.system_settings_repository import ArangoSystemSettingsRepository
+    return ArangoSystemSettingsRepository(get_db())
+
+
+def get_system_settings_service():
+    from app.domain.services.system_settings_service import SystemSettingsService
+    return SystemSettingsService(get_system_settings_repo())
+
+
+def get_ha_client():
+    from app.data_access.external.ha_client import HomeAssistantClient
+    try:
+        svc = get_system_settings_service()
+        effective = svc.get_effective_ha_settings()
+    except Exception:
+        # Collection may not exist yet — fall back to env
+        effective = {
+            "ha_url": settings.ha_url,
+            "ha_access_token": settings.ha_access_token,
+            "ha_timeout": settings.ha_timeout,
+        }
+    url = effective["ha_url"]
+    if not url:
+        return None
+    return HomeAssistantClient(str(url), str(effective["ha_access_token"]), int(effective["ha_timeout"]))
+
+
+def get_sensor_service():
+    from app.domain.services.sensor_service import SensorService
+    return SensorService(get_sensor_repo(), get_ha_client())
+
+
+# ── REQ-002 LocationType dependencies ───────────────────────────────
+
+
+def get_location_type_repo():
+    from app.data_access.arango.location_type_repository import ArangoLocationTypeRepository
+    return ArangoLocationTypeRepository(get_db())
+
+
+def get_location_type_service():
+    from app.domain.services.location_type_service import LocationTypeService
+    return LocationTypeService(get_location_type_repo())
 
 
 def close_connection() -> None:

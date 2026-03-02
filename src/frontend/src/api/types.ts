@@ -48,7 +48,7 @@ export type PlantTrait =
 export type PlantingRunType = 'monoculture' | 'clone' | 'mixed_culture';
 export type PlantingRunStatus = 'planned' | 'active' | 'harvesting' | 'completed' | 'cancelled';
 export type EntryRole = 'primary' | 'companion' | 'trap_crop';
-export type FertilizerType = 'base' | 'supplement' | 'booster' | 'biological' | 'ph_adjuster' | 'organic';
+export type FertilizerType = 'base' | 'supplement' | 'booster' | 'biological' | 'ph_adjuster' | 'organic' | 'silicate';
 export type PhEffect = 'acidic' | 'alkaline' | 'neutral';
 export type ApplicationMethod = 'fertigation' | 'drench' | 'foliar' | 'top_dress' | 'any';
 export type Bioavailability = 'immediate' | 'slow_release' | 'microbial_dependent';
@@ -146,6 +146,13 @@ export interface Species {
   taxonomic_authority: string;
   taxonomic_status: string;
   description: string;
+  sowing_indoor_weeks_before_last_frost: number | null;
+  sowing_outdoor_after_last_frost_days: number | null;
+  direct_sow_months: number[];
+  harvest_months: number[];
+  bloom_months: number[];
+  frost_sensitivity: FrostTolerance | null;
+  allows_harvest: boolean;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -165,6 +172,13 @@ export interface SpeciesCreate {
   taxonomic_authority?: string;
   taxonomic_status?: string;
   description?: string;
+  sowing_indoor_weeks_before_last_frost?: number | null;
+  sowing_outdoor_after_last_frost_days?: number | null;
+  direct_sow_months?: number[];
+  harvest_months?: number[];
+  bloom_months?: number[];
+  frost_sensitivity?: FrostTolerance | null;
+  allows_harvest?: boolean;
 }
 
 // Cultivars
@@ -238,6 +252,9 @@ export interface Site {
   timezone: string;
   water_config?: SiteWaterConfig | null;
   water_config_warnings?: WaterSourceWarning[];
+  last_frost_date_avg: string | null;
+  first_frost_date_avg: string | null;
+  eisheilige_date: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -250,6 +267,9 @@ export interface SiteCreate {
   total_area_m2?: number;
   timezone?: string;
   water_config?: SiteWaterConfig | null;
+  last_frost_date_avg?: string | null;
+  first_frost_date_avg?: string | null;
+  eisheilige_date?: string | null;
 }
 
 // Locations
@@ -258,6 +278,10 @@ export interface Location {
   key: string;
   name: string;
   site_key: string;
+  parent_location_key: string | null;
+  location_type_key: string;
+  depth: number;
+  path: string;
   area_m2: number;
   orientation: Orientation | null;
   light_type: LightType;
@@ -274,6 +298,8 @@ export interface Location {
 export interface LocationCreate {
   name: string;
   site_key: string;
+  parent_location_key?: string | null;
+  location_type_key?: string;
   area_m2: number;
   orientation?: Orientation | null;
   light_type?: LightType;
@@ -283,6 +309,27 @@ export interface LocationCreate {
   lights_off?: string | null;
   use_dynamic_sunrise?: boolean;
   tank_key?: string | null;
+}
+
+export interface LocationTreeNode {
+  key: string;
+  name: string;
+  location_type_key: string;
+  depth: number;
+  parent_location_key: string | null;
+  slot_count: number;
+  children: LocationTreeNode[];
+}
+
+export interface LocationType {
+  key: string;
+  name: string;
+  name_en: string | null;
+  icon: string | null;
+  is_indoor: boolean;
+  is_system: boolean;
+  sort_order: number;
+  description: string | null;
 }
 
 // Slots
@@ -1152,6 +1199,8 @@ export interface Fertilizer {
   recommended_application: ApplicationMethod;
   npk_ratio: [number, number, number];
   ec_contribution_per_ml: number;
+  ec_contribution_uncertain: boolean;
+  max_dose_ml_per_liter: number | null;
   mixing_priority: number;
   ph_effect: PhEffect;
   bioavailability: Bioavailability;
@@ -1172,6 +1221,8 @@ export interface FertilizerCreate {
   recommended_application?: ApplicationMethod;
   npk_ratio?: [number, number, number];
   ec_contribution_per_ml?: number;
+  ec_contribution_uncertain?: boolean;
+  max_dose_ml_per_liter?: number | null;
   mixing_priority?: number;
   ph_effect?: PhEffect;
   bioavailability?: Bioavailability;
@@ -1190,6 +1241,8 @@ export interface FertilizerUpdate {
   recommended_application?: ApplicationMethod;
   npk_ratio?: [number, number, number];
   ec_contribution_per_ml?: number;
+  ec_contribution_uncertain?: boolean;
+  max_dose_ml_per_liter?: number | null;
   mixing_priority?: number;
   ph_effect?: PhEffect;
   bioavailability?: Bioavailability;
@@ -1610,6 +1663,93 @@ export interface MixingSafetyRequest {
 export interface MixingSafetyResponse {
   safe: boolean;
   warnings: string[];
+}
+
+// ── REQ-004-A Water mix reverse + EC budget ─────────────────────────
+
+export interface WaterMixReverseRequest {
+  tap_profile: {
+    ec_ms: number;
+    ph: number;
+    alkalinity_ppm?: number;
+    gh_ppm?: number;
+    calcium_ppm?: number;
+    magnesium_ppm?: number;
+    chlorine_ppm?: number;
+    chloramine_ppm?: number;
+  };
+  ro_profile?: { ec_ms?: number; ph?: number };
+  target_base_ec_ms: number;
+}
+
+export interface WaterMixReverseResponse {
+  ro_percent: number;
+  effective_profile: {
+    ec_ms: number;
+    ph: number;
+    alkalinity_ppm: number;
+    calcium_ppm: number;
+    magnesium_ppm: number;
+    chlorine_ppm: number;
+    chloramine_ppm: number;
+  };
+}
+
+export interface EcBudgetFertilizerRequest {
+  key: string;
+  recipe_ml_per_liter?: number;
+}
+
+export interface EcBudgetRequest {
+  base_water_ec: number;
+  alkalinity_ppm?: number;
+  target_ec: number;
+  substrate: SubstrateType;
+  phase: PhaseName;
+  volume_liters: number;
+  fertilizer_keys: EcBudgetFertilizerRequest[];
+  calmag_key?: string;
+  calmag_dose_ml_per_liter?: number;
+  silicate_key?: string;
+  silicate_dose_ml_per_liter?: number;
+  substrate_cycles_used?: number;
+  measured_ec?: number;
+  measured_temp_celsius?: number;
+}
+
+export interface EcSegment {
+  label: string;
+  ec_contribution: number;
+  color_hint: string;
+  ml_per_liter: number;
+  total_ml: number;
+  warning: string | null;
+}
+
+export interface EcBudgetResponse {
+  ec_mix: number;
+  ec_net: number;
+  ec_silicate: number;
+  ec_calmag: number;
+  ec_fertilizers: number;
+  ec_ph_reserve: number;
+  ec_final: number;
+  ec_max: number;
+  ec_target: number;
+  ec_at_25_corrected: number | null;
+  tolerance: number;
+  valid: boolean;
+  living_soil_bypass: boolean;
+  segments: EcSegment[];
+  warnings: string[];
+  dosage_table: Array<{
+    key: string;
+    product_name: string;
+    ml_per_liter: number;
+    total_ml: number;
+    ec_contribution: number;
+  }>;
+  dosage_instructions: string[];
 }
 
 export interface PlanValidationResult {
@@ -2563,6 +2703,57 @@ export interface CalendarFeed {
   ical_url: string;
   created_at: string | null;
   updated_at: string | null;
+}
+
+// Sowing Calendar (REQ-015 §3.8)
+
+export type SowingPhase = 'indoor_sowing' | 'outdoor_planting' | 'growth' | 'harvest' | 'flowering';
+
+export interface SowingBar {
+  phase: SowingPhase;
+  color: string;
+  start_date: string;
+  end_date: string;
+  label: string;
+}
+
+export interface SowingCalendarEntry {
+  species_key: string;
+  species_name: string;
+  common_name: string;
+  bars: SowingBar[];
+}
+
+export interface FrostConfig {
+  last_frost_date: string;
+  first_frost_date: string | null;
+  eisheilige_date: string;
+}
+
+export interface SowingCalendarResponse {
+  entries: SowingCalendarEntry[];
+  frost_config: FrostConfig;
+  year: number;
+  total: number;
+}
+
+// Season Overview (REQ-015 §3.9)
+
+export interface MonthSummary {
+  month: number;
+  month_name: string;
+  sowing_count: number;
+  harvest_count: number;
+  task_count: number;
+  top_tasks: string[];
+  is_current: boolean;
+}
+
+export interface SeasonOverviewResponse {
+  site_key: string;
+  site_name: string;
+  year: number;
+  months: MonthSummary[];
 }
 
 export interface WateringConfirmRequest {

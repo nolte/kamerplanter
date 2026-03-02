@@ -55,9 +55,12 @@ class ArangoSiteRepository(ISiteRepository, BaseArangoRepository):
     def create_location(self, location: Location) -> Location:
         repo = BaseArangoRepository(self._db, col.LOCATIONS)
         doc = repo.create(location)
-        if location.site_key:
+        location_id = f"{col.LOCATIONS}/{doc['_key']}"
+        if location.parent_location_key:
+            parent_id = f"{col.LOCATIONS}/{location.parent_location_key}"
+            self.create_edge(col.CONTAINS, parent_id, location_id)
+        elif location.site_key:
             site_id = f"{col.SITES}/{location.site_key}"
-            location_id = f"{col.LOCATIONS}/{doc['_key']}"
             self.create_edge(col.CONTAINS, site_id, location_id)
         return Location(**doc)
 
@@ -68,14 +71,53 @@ class ArangoSiteRepository(ISiteRepository, BaseArangoRepository):
 
     def delete_location(self, key: LocationKey) -> bool:
         location_id = f"{col.LOCATIONS}/{key}"
+        # Recursively delete child locations
+        child_results = self.get_edges(col.CONTAINS, location_id, direction="outbound")
+        for result in child_results:
+            vertex = result["vertex"]
+            if vertex["_id"].startswith(f"{col.LOCATIONS}/"):
+                child_key = vertex.get("_key", vertex["_id"].split("/")[-1])
+                self.delete_location(child_key)
         # Remove associated HAS_SLOT edges and cascade to slots
-        results = self.get_edges(col.HAS_SLOT, location_id, direction="outbound")
-        for result in results:
+        slot_results = self.get_edges(col.HAS_SLOT, location_id, direction="outbound")
+        for result in slot_results:
             slot_doc = result["vertex"]
             slot_key = slot_doc.get("_key", slot_doc.get("_id", "").split("/")[-1])
             self._delete_slot_internal(slot_key)
         self.delete_edges(col.HAS_SLOT, from_id=location_id)
+        # Remove outbound CONTAINS edges (to children, already deleted)
+        self.delete_edges(col.CONTAINS, from_id=location_id)
+        # Remove inbound CONTAINS edge (from parent site or parent location)
+        self._delete_inbound_contains(location_id)
         return BaseArangoRepository(self._db, col.LOCATIONS).delete(key)
+
+    def _delete_inbound_contains(self, location_id: str) -> None:
+        query = f"FOR e IN {col.CONTAINS} FILTER e._to == @to REMOVE e IN {col.CONTAINS}"
+        self._db.aql.execute(query, bind_vars={"to": location_id})
+
+    def get_location_children(self, parent_key: LocationKey) -> list[Location]:
+        parent_id = f"{col.LOCATIONS}/{parent_key}"
+        results = self.get_edges(col.CONTAINS, parent_id, direction="outbound")
+        return [
+            Location(**self._from_doc(r["vertex"]))
+            for r in results
+            if r["vertex"]["_id"].startswith(f"{col.LOCATIONS}/")
+        ]
+
+    def get_location_tree(self, site_key: SiteKey) -> list[Location]:
+        aql = """
+        FOR v IN 1..10 OUTBOUND @start_id GRAPH @graph
+            OPTIONS {edgeCollections: [@contains_col]}
+            FILTER IS_SAME_COLLECTION(@locations_col, v)
+            RETURN v
+        """
+        cursor = self._db.aql.execute(aql, bind_vars={
+            "start_id": f"{col.SITES}/{site_key}",
+            "graph": col.GRAPH_NAME,
+            "contains_col": col.CONTAINS,
+            "locations_col": col.LOCATIONS,
+        })
+        return [Location(**self._from_doc(doc)) for doc in cursor]
 
     # ── Slot CRUD ─────────────────────────────────────────────────────
 

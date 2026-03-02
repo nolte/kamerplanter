@@ -547,7 +547,8 @@ DEFAULT_PHASES = [
     ("seedling", "Seedling", 14, 0, False, False, StressTolerance.LOW),
     ("vegetative", "Vegetative", 28, 1, False, False, StressTolerance.MEDIUM),
     ("flowering", "Flowering", 56, 2, False, False, StressTolerance.MEDIUM),
-    ("ripening", "Ripening", 14, 3, False, True, StressTolerance.HIGH),
+    ("flushing", "Flushing", 14, 3, False, False, StressTolerance.HIGH),
+    ("ripening", "Ripening", 14, 4, False, True, StressTolerance.HIGH),
 ]
 
 # ── REQ-010 IPM Seed Data ───────────────────────────────────────────
@@ -719,50 +720,153 @@ WORKFLOW_TEMPLATES = [
         difficulty_level="beginner", category="maintenance",
         tags=["general", "maintenance"], is_system=True,
     ),
+    WorkflowTemplate(
+        name="Tank Anmischen",
+        description="Schritt-für-Schritt Mischprotokoll für Nährstofflösungen. "
+                    "Dünger werden in der korrekten Reihenfolge zugegeben, "
+                    "mit Pausen zum gründlichen Einrühren.",
+        created_by="system", version="1.0", species_compatible=[],
+        growth_system=None, difficulty_level="beginner", category="feeding",
+        tags=["tank", "mixing", "nutrient-solution", "protocol"], is_system=True,
+    ),
 ]
 
 # (name, instruction, category, trigger_type, trigger_phase, days_offset, stress_level,
-#  duration_min, requires_photo, skill_level, workflow_name, sequence_order)
+#  duration_min, requires_photo, skill_level, workflow_name, sequence_order,
+#  timer_duration_seconds, timer_label)
 TASK_TEMPLATES = [
     # Cannabis SOG
     ("Transplant to SOG", "Transplant rooted clones to SOG positions", "transplant",
-     "days_after_planting", "vegetative", 14, "medium", 30, False, "beginner", "Cannabis SOG", 0),
+     "days_after_planting", "vegetative", 14, "medium", 30, False, "beginner",
+     "Cannabis SOG", 0, None, None),
     ("Defoliation", "Remove large fan leaves to improve light penetration", "pruning",
-     "days_after_planting", "vegetative", 18, "high", 45, True, "intermediate", "Cannabis SOG", 1),
+     "days_after_planting", "vegetative", 18, "high", 45, True, "intermediate",
+     "Cannabis SOG", 1, None, None),
     ("Flip to 12/12", "Switch lighting to 12/12 to initiate flowering", "maintenance",
-     "days_after_planting", "vegetative", 21, "none", 15, False, "beginner", "Cannabis SOG", 2),
+     "days_after_planting", "vegetative", 21, "none", 15, False, "beginner",
+     "Cannabis SOG", 2, None, None),
     ("Lollipopping", "Remove lower growth for upper canopy focus", "pruning",
-     "days_after_planting", "flowering", 35, "high", 60, True, "advanced", "Cannabis SOG", 3),
+     "days_after_planting", "flowering", 35, "high", 60, True, "advanced",
+     "Cannabis SOG", 3, None, None),
     ("Flushing", "Begin plain water flushing before harvest", "feeding",
-     "days_after_planting", "flowering", 56, "none", 20, False, "beginner", "Cannabis SOG", 4),
+     "days_after_planting", "flowering", 56, "none", 20, False, "beginner",
+     "Cannabis SOG", 4, None, None),
     ("Harvest", "Harvest mature plants", "harvest",
-     "days_after_planting", "flowering", 70, "none", 120, True, "intermediate", "Cannabis SOG", 5),
+     "days_after_planting", "flowering", 70, "none", 120, True, "intermediate",
+     "Cannabis SOG", 5, None, None),
     # Tomato Standard
     ("Transplant Seedlings", "Move seedlings to final containers", "transplant",
-     "phase_entry", "vegetative", 0, "medium", 30, False, "beginner", "Tomato Standard", 0),
+     "phase_entry", "vegetative", 0, "medium", 30, False, "beginner",
+     "Tomato Standard", 0, None, None),
     ("Install Stakes", "Set up stakes or cages for support", "maintenance",
-     "days_after_phase", "vegetative", 7, "none", 20, False, "beginner", "Tomato Standard", 1),
+     "days_after_phase", "vegetative", 7, "none", 20, False, "beginner",
+     "Tomato Standard", 1, None, None),
     ("Prune Suckers", "Remove side shoots to maintain single stem", "pruning",
-     "days_after_phase", "vegetative", 14, "medium", 30, True, "intermediate", "Tomato Standard", 2),
+     "days_after_phase", "vegetative", 14, "medium", 30, True, "intermediate",
+     "Tomato Standard", 2, None, None),
     ("Weekly Feeding", "Apply balanced fertilizer per nutrient plan", "feeding",
-     "manual", None, 0, "none", 15, False, "beginner", "Tomato Standard", 3),
+     "manual", None, 0, "none", 15, False, "beginner",
+     "Tomato Standard", 3, None, None),
     ("Fruit Observation", "Check fruit development and ripeness indicators", "observation",
-     "phase_entry", "flowering", 0, "none", 15, True, "beginner", "Tomato Standard", 4),
+     "phase_entry", "flowering", 0, "none", 15, True, "beginner",
+     "Tomato Standard", 4, None, None),
     ("Harvest Ripe Fruit", "Pick ripe tomatoes as they reach maturity", "harvest",
-     "manual", None, 0, "none", 30, True, "beginner", "Tomato Standard", 5),
+     "manual", None, 0, "none", 30, True, "beginner",
+     "Tomato Standard", 5, None, None),
     # General Maintenance
     ("Weekly Inspection", "Perform general plant health inspection", "observation",
-     "manual", None, 0, "none", 30, True, "beginner", "General Maintenance", 0),
+     "manual", None, 0, "none", 30, True, "beginner",
+     "General Maintenance", 0, None, None),
     ("Monthly Feeding Review", "Review and adjust feeding schedule", "feeding",
-     "manual", None, 0, "none", 20, False, "intermediate", "General Maintenance", 1),
+     "manual", None, 0, "none", 20, False, "intermediate",
+     "General Maintenance", 1, None, None),
     ("Substrate Check", "Check substrate pH, EC and moisture levels", "maintenance",
-     "manual", None, 0, "none", 15, False, "beginner", "General Maintenance", 2),
+     "manual", None, 0, "none", 15, False, "beginner",
+     "General Maintenance", 2, None, None),
     ("Equipment Maintenance", "Clean and check growing equipment", "maintenance",
-     "manual", None, 0, "none", 45, False, "beginner", "General Maintenance", 3),
+     "manual", None, 0, "none", 45, False, "beginner",
+     "General Maintenance", 3, None, None),
+    # Tank Anmischen (Mischprotokoll)
+    ("Wasser einfüllen",
+     "Tank mit Zielvolumen befüllen. Bei RO/Leitungswasser-Mischung zuerst RO-Wasser, "
+     "dann Leitungswasser zugeben.",
+     "feeding", "manual", None, 0, "none", 5, False, "beginner",
+     "Tank Anmischen", 0, None, None),
+    ("EC & pH Ausgangswasser messen",
+     "EC und pH des Ausgangswassers messen und notieren. EC-Wert bestimmt den "
+     "verfügbaren EC-Spielraum (Ziel-EC minus Basis-EC).",
+     "feeding", "manual", None, 0, "none", 5, False, "beginner",
+     "Tank Anmischen", 1, None, None),
+    ("Silikat / Systemreiniger zugeben",
+     "Silikat-Produkte (z.B. Rhino Skin) oder Systemreiniger (z.B. Drip Clean) als "
+     "erstes zugeben — diese haben die höchste Mischpriorität. Gründlich einrühren.",
+     "feeding", "manual", None, 0, "none", 5, False, "beginner",
+     "Tank Anmischen", 2, 60, "Rühren & warten"),
+    ("CalMag / Basisdünger A zugeben",
+     "CalMag oder den A-Teil des Basisdüngers zugeben (z.B. Micro, Sensi A, Cocos A). "
+     "IMMER vor dem B-Teil und vor Sulfat-haltigen Düngern! Gut umrühren und Pause einhalten.",
+     "feeding", "manual", None, 0, "none", 5, False, "beginner",
+     "Tank Anmischen", 3, 60, "Rühren & warten"),
+    ("Basisdünger B / Grow / Bloom zugeben",
+     "Den B-Teil, Grow- oder Bloom-Dünger zugeben (z.B. Sensi B, Cocos B, Terra Bloom). "
+     "Gut einrühren und auflösen lassen.",
+     "feeding", "manual", None, 0, "none", 5, False, "beginner",
+     "Tank Anmischen", 4, 60, "Rühren & warten"),
+    ("PK-Booster zugeben",
+     "Falls im aktuellen Nährstoffplan vorgesehen: PK-Booster zugeben "
+     "(z.B. Green Sensation, Big Bud, Overdrive). Gründlich einrühren.",
+     "feeding", "manual", None, 0, "none", 5, False, "beginner",
+     "Tank Anmischen", 5, 60, "Rühren & warten"),
+    ("Zusätze & Supplements zugeben",
+     "Wurzelstimulatoren, Enzyme, Aminosäuren oder Vitamine zugeben "
+     "(z.B. Power Roots, Pure Zym, B-52, Sugar Royal). Einrühren.",
+     "feeding", "manual", None, 0, "none", 5, False, "beginner",
+     "Tank Anmischen", 6, 60, "Rühren & warten"),
+    ("EC & pH Endwert messen und korrigieren",
+     "EC und pH der fertigen Lösung messen. Bei Bedarf pH mit pH-Up oder pH-Down "
+     "korrigieren. Ziel-EC und Ziel-pH gemäß Nährstoffplan einhalten.",
+     "feeding", "manual", None, 0, "none", 5, False, "beginner",
+     "Tank Anmischen", 7, None, None),
+    ("Biologicals zugeben (optional)",
+     "Falls verwendet: Biologische Zusätze als letztes zugeben (z.B. Voodoo Juice, "
+     "Piranha, Tarantula). Diese sind oft nicht tanksicher — ggf. direkt bei der "
+     "Anwendung zugeben.",
+     "feeding", "manual", None, 0, "none", 5, False, "beginner",
+     "Tank Anmischen", 8, None, None),
+]
+
+
+LOCATION_TYPES = [
+    {"_key": "garden", "name": "Garten", "name_en": "Garden", "is_indoor": False, "icon": "Park", "sort_order": 10, "is_system": True},
+    {"_key": "greenhouse", "name": "Gewächshaus", "name_en": "Greenhouse", "is_indoor": False, "icon": "Warehouse", "sort_order": 20, "is_system": True},
+    {"_key": "building", "name": "Gebäude", "name_en": "Building", "is_indoor": True, "icon": "Home", "sort_order": 30, "is_system": True},
+    {"_key": "room", "name": "Zimmer", "name_en": "Room", "is_indoor": True, "icon": "MeetingRoom", "sort_order": 40, "is_system": True},
+    {"_key": "balcony", "name": "Balkon", "name_en": "Balcony", "is_indoor": False, "icon": "Balcony", "sort_order": 50, "is_system": True},
+    {"_key": "terrace", "name": "Terrasse", "name_en": "Terrace", "is_indoor": False, "icon": "Deck", "sort_order": 60, "is_system": True},
+    {"_key": "tent", "name": "Grow-Zelt", "name_en": "Grow Tent", "is_indoor": True, "icon": "Campaign", "sort_order": 70, "is_system": True},
+    {"_key": "bed", "name": "Beet", "name_en": "Bed", "is_indoor": False, "icon": "Grass", "sort_order": 80, "is_system": True},
+    {"_key": "shelf", "name": "Regal", "name_en": "Shelf", "is_indoor": True, "icon": "Shelves", "sort_order": 90, "is_system": True},
+    {"_key": "container", "name": "Topf-/Container-Gruppe", "name_en": "Container Group", "is_indoor": False, "icon": "Inventory2", "sort_order": 100, "is_system": True},
 ]
 
 
 def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
+    # ── Seed location types (REQ-002) ────────────────────────────────
+    from app.data_access.arango import collections as seed_col
+    db = get_family_repo()._db  # reuse connection
+    if not db.has_collection(seed_col.LOCATION_TYPES):
+        db.create_collection(seed_col.LOCATION_TYPES)
+    lt_col = db.collection(seed_col.LOCATION_TYPES)
+    for lt_data in LOCATION_TYPES:
+        if not lt_col.has(lt_data["_key"]):
+            from datetime import UTC, datetime
+            lt_data["created_at"] = datetime.now(UTC).isoformat()
+            lt_data["updated_at"] = datetime.now(UTC).isoformat()
+            lt_col.insert(lt_data)
+            logger.info("location_type_created", key=lt_data["_key"], name=lt_data["name"])
+        else:
+            logger.info("location_type_exists", key=lt_data["_key"])
+
     family_repo = get_family_repo()
     species_repo = get_species_repo()
     lifecycle_repo = get_lifecycle_repo()
@@ -1084,7 +1188,8 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
         logger.info("workflow_template_created", name=wt.name)
 
     for (name, instruction, category, trigger_type, trigger_phase, days_offset,
-         stress_level, duration_min, requires_photo, skill_level, wf_name, seq_order) in TASK_TEMPLATES:
+         stress_level, duration_min, requires_photo, skill_level, wf_name, seq_order,
+         timer_seconds, timer_lbl) in TASK_TEMPLATES:
         wf_key = wf_key_map.get(wf_name, "")
         if not wf_key:
             continue
@@ -1095,6 +1200,7 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
             estimated_duration_minutes=duration_min,
             requires_photo=requires_photo, skill_level=skill_level,
             workflow_template_key=wf_key, sequence_order=seq_order,
+            timer_duration_seconds=timer_seconds, timer_label=timer_lbl,
         )
         try:
             task_repo.create_task_template(tt)

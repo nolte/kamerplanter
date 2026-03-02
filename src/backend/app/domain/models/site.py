@@ -57,6 +57,10 @@ class Location(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     name: str
     site_key: str = ""
+    parent_location_key: str | None = None
+    location_type_key: str = ""
+    depth: int = 0
+    path: str = ""
     area_m2: float = Field(ge=0)
     orientation: Orientation | None = None
     light_type: LightType = LightType.NATURAL
@@ -93,6 +97,10 @@ class Site(BaseModel):
     total_area_m2: float = Field(default=0.0, ge=0)
     timezone: str = "UTC"
     water_config: SiteWaterConfig | None = None
+    # ── Frost dates (REQ-015 §3.8) ──
+    last_frost_date_avg: date | None = None
+    first_frost_date_avg: date | None = None
+    eisheilige_date: date | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

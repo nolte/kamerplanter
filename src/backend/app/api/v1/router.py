@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.v1.admin.settings.router import router as admin_settings_router
 from app.api.v1.botanical_families.router import router as families_router
 from app.api.v1.calculations.router import router as calculations_router
 from app.api.v1.calendar.router import router as calendar_router
@@ -17,6 +18,7 @@ from app.api.v1.health.router import router as health_router
 from app.api.v1.imports.router import router as imports_router
 from app.api.v1.ipm.router import router as ipm_router
 from app.api.v1.lifecycle_configs.router import router as lifecycle_router
+from app.api.v1.location_types.router import router as location_types_router
 from app.api.v1.locations.router import router as locations_router
 from app.api.v1.nutrient_calculations.router import router as nutrient_calculations_router
 from app.api.v1.nutrient_plans.router import router as nutrient_plans_router
@@ -62,6 +64,9 @@ def get_mode():
 
 api_router.include_router(mode_router)
 
+# Admin settings — available in both modes
+api_router.include_router(admin_settings_router)
+
 # Auth-related routers: only in full mode
 if settings.kamerplanter_mode == "full":
     from app.api.v1.admin.oidc_providers.router import router as oidc_providers_router
@@ -79,6 +84,7 @@ api_router.include_router(rotation_router)
 api_router.include_router(cultivars_router)
 api_router.include_router(phases_router)
 api_router.include_router(lifecycle_router)
+api_router.include_router(location_types_router)
 api_router.include_router(locations_router)
 api_router.include_router(phase_control_router)
 api_router.include_router(plants_router)

@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,8 +18,10 @@ import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
+import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
-import LocationListSection from './LocationListSection';
+import LocationTreeSection from './LocationTreeSection';
+import SiteRunsSection from './SiteRunsSection';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -99,24 +104,68 @@ export default function SiteDetailPage() {
         </Button>
       </Box>
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 600 }}>
-        <FormTextField name="name" control={control} label={t('pages.sites.name')} required />
-        <FormSelectField
-          name="type"
-          control={control}
-          label={t('pages.sites.type')}
-          options={['outdoor', 'greenhouse', 'indoor', 'windowsill', 'balcony', 'grow_tent'].map((v) => ({
-            value: v,
-            label: t(`enums.siteType.${v}`),
-          }))}
-        />
-        <FormTextField name="climate_zone" control={control} label={t('pages.sites.climateZone')} />
-        <FormNumberField name="total_area_m2" control={control} label={t('pages.sites.totalArea')} min={0} />
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
+        <FormRow>
+          <FormTextField name="name" control={control} label={t('pages.sites.name')} required />
+          <FormSelectField
+            name="type"
+            control={control}
+            label={t('pages.sites.type')}
+            options={['outdoor', 'greenhouse', 'indoor', 'windowsill', 'balcony', 'grow_tent'].map((v) => ({
+              value: v,
+              label: t(`enums.siteType.${v}`),
+            }))}
+          />
+        </FormRow>
+        <FormRow>
+          <FormTextField name="climate_zone" control={control} label={t('pages.sites.climateZone')} />
+          <FormNumberField name="total_area_m2" control={control} label={t('pages.sites.totalArea')} helperText={t('pages.sites.totalAreaHelper')} min={0} />
+        </FormRow>
         <FormTextField name="timezone" control={control} label={t('pages.sites.timezone')} helperText={t('pages.sites.timezoneHelper')} />
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
       </Box>
 
-      {key && <LocationListSection siteKey={key} />}
+      {/* Water config read-only display */}
+      {current?.water_config?.tap_water_profile && (
+        <Box sx={{ mt: 3, maxWidth: 600 }}>
+          <Typography variant="h6" gutterBottom>
+            {t('pages.sites.water.waterConfig')}
+          </Typography>
+
+          {/* Warnings */}
+          {(current.water_config_warnings ?? []).map((w) => (
+            <Alert
+              key={w.code}
+              severity={w.severity === 'warning' ? 'warning' : 'info'}
+              sx={{ mb: 1 }}
+            >
+              {w.message}
+            </Alert>
+          ))}
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              {t('pages.sites.water.ecMs')}:
+            </Typography>
+            <Typography variant="body2">
+              {current.water_config.tap_water_profile.ec_ms}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t('pages.sites.water.ph')}:
+            </Typography>
+            <Typography variant="body2">
+              {current.water_config.tap_water_profile.ph}
+            </Typography>
+          </Box>
+
+          {current.water_config.has_ro_system && (
+            <Chip label={t('pages.sites.water.hasRoSystem')} size="small" color="primary" sx={{ mt: 1 }} />
+          )}
+        </Box>
+      )}
+
+      {key && <LocationTreeSection siteKey={key} />}
+      {key && <SiteRunsSection siteKey={key} />}
 
       <ConfirmDialog
         open={deleteOpen}

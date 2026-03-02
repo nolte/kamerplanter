@@ -4,6 +4,8 @@ import type {
   SiteCreate,
   Location,
   LocationCreate,
+  LocationTreeNode,
+  LocationType,
   Slot,
   SlotCreate,
 } from '../types';
@@ -62,6 +64,24 @@ export async function updateLocation(key: string, payload: LocationCreate): Prom
 
 export async function deleteLocation(key: string): Promise<void> {
   await client.delete(`${LOCATIONS}/${key}`);
+}
+
+export async function listLocationChildren(parentKey: string): Promise<Location[]> {
+  const { data } = await client.get<Location[]>(`${LOCATIONS}/${parentKey}/children`);
+  return data;
+}
+
+export async function getLocationTree(siteKey: string): Promise<LocationTreeNode[]> {
+  const { data } = await client.get<LocationTreeNode[]>(`${SITES}/${siteKey}/location-tree`);
+  return data;
+}
+
+// Location Types
+const LOCATION_TYPES = '/location-types';
+
+export async function listLocationTypes(): Promise<LocationType[]> {
+  const { data } = await client.get<LocationType[]>(LOCATION_TYPES);
+  return data;
 }
 
 // Slots

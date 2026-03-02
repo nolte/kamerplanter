@@ -31,6 +31,7 @@ NUTRIENT_PLANS = "nutrient_plans"
 NUTRIENT_PLAN_PHASE_ENTRIES = "nutrient_plan_phase_entries"
 FEEDING_EVENTS = "feeding_events"
 WATERING_EVENTS = "watering_events"
+TANK_FILL_EVENTS = "tank_fill_events"
 
 # REQ-010 IPM
 PESTS = "pests"
@@ -79,6 +80,15 @@ IMPORT_JOBS = "import_jobs"
 
 # REQ-015 Calendar
 CALENDAR_FEEDS = "calendar_feeds"
+
+# REQ-005 Sensors
+SENSORS = "sensors"
+
+# REQ-002 Location Types
+LOCATION_TYPES = "location_types"
+
+# System Settings (singleton)
+SYSTEM_SETTINGS = "system_settings"
 
 DOCUMENT_COLLECTIONS = [
     SPECIES,
@@ -141,6 +151,10 @@ DOCUMENT_COLLECTIONS = [
     IMPORT_JOBS,
     CALENDAR_FEEDS,
     API_KEYS,
+    TANK_FILL_EVENTS,
+    SENSORS,
+    SYSTEM_SETTINGS,
+    LOCATION_TYPES,
 ]
 
 # Edge collections
@@ -240,6 +254,15 @@ HAS_CARE_PROFILE = "has_care_profile"
 CONFIRMS_CARE = "confirms_care"
 CARE_EVENT_FOR = "care_event_for"
 
+# REQ-014 Tank Fill edges
+HAS_FILL_EVENT = "has_fill_event"
+MIXED_INTO = "mixed_into"
+WATERING_FROM = "watering_from"
+GENERATED_TASK = "generated_task"
+
+# REQ-005 Sensor edges
+MONITORS_TANK = "monitors_tank"
+
 # Watering Schedule edges
 RUN_FOLLOWS_PLAN = "run_follows_plan"
 
@@ -336,6 +359,11 @@ EDGE_COLLECTIONS = [
     INCLUDES_TEMPLATE,
     CREATED_BY_WIZARD,
     RUN_FOLLOWS_PLAN,
+    MONITORS_TANK,
+    HAS_FILL_EVENT,
+    MIXED_INTO,
+    WATERING_FROM,
+    GENERATED_TASK,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -378,7 +406,7 @@ GRAPH_EDGE_DEFINITIONS = [
     },
     {
         "edge_collection": CONTAINS,
-        "from_vertex_collections": [SITES],
+        "from_vertex_collections": [SITES, LOCATIONS],
         "to_vertex_collections": [LOCATIONS],
     },
     {
@@ -780,6 +808,33 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [PLANTING_RUNS],
         "to_vertex_collections": [NUTRIENT_PLANS],
     },
+    # REQ-005 Sensors
+    {
+        "edge_collection": MONITORS_TANK,
+        "from_vertex_collections": [SENSORS],
+        "to_vertex_collections": [TANKS],
+    },
+    # REQ-014 Tank Fill
+    {
+        "edge_collection": HAS_FILL_EVENT,
+        "from_vertex_collections": [TANKS],
+        "to_vertex_collections": [TANK_FILL_EVENTS],
+    },
+    {
+        "edge_collection": MIXED_INTO,
+        "from_vertex_collections": [NUTRIENT_PLANS],
+        "to_vertex_collections": [TANK_FILL_EVENTS],
+    },
+    {
+        "edge_collection": WATERING_FROM,
+        "from_vertex_collections": [WATERING_EVENTS],
+        "to_vertex_collections": [TANK_FILL_EVENTS],
+    },
+    {
+        "edge_collection": GENERATED_TASK,
+        "from_vertex_collections": [MAINTENANCE_SCHEDULES],
+        "to_vertex_collections": [TASKS],
+    },
 ]
 
 
@@ -918,6 +973,14 @@ def ensure_collections(db: StandardDatabase) -> None:
     import_jobs_col.add_hash_index(fields=["entity_type"], unique=False)
     import_jobs_col.add_hash_index(fields=["status"], unique=False)
 
+    # REQ-014 Tank Fill indexes
+    tank_fill_events_col = db.collection(TANK_FILL_EVENTS)
+    tank_fill_events_col.add_hash_index(fields=["tank_key", "filled_at"], unique=False)
+
+    # REQ-005 Sensor indexes
+    sensors_col = db.collection(SENSORS)
+    sensors_col.add_hash_index(fields=["tank_key"], unique=False)
+
     # REQ-015 Calendar indexes
     calendar_feeds_col = db.collection(CALENDAR_FEEDS)
     calendar_feeds_col.add_hash_index(fields=["token"], unique=True)
@@ -927,7 +990,16 @@ def ensure_collections(db: StandardDatabase) -> None:
         db.create_graph(GRAPH_NAME, edge_definitions=GRAPH_EDGE_DEFINITIONS)
     else:
         graph = db.graph(GRAPH_NAME)
-        existing = {ed["edge_collection"] for ed in graph.edge_definitions()}
+        existing_defs = {ed["edge_collection"]: ed for ed in graph.edge_definitions()}
         for ed in GRAPH_EDGE_DEFINITIONS:
-            if ed["edge_collection"] not in existing:
+            edge_col = ed["edge_collection"]
+            if edge_col not in existing_defs:
                 graph.create_edge_definition(**ed)
+            else:
+                # Update if from/to vertex collections changed
+                old = existing_defs[edge_col]
+                if (
+                    set(old.get("from_vertex_collections", [])) != set(ed["from_vertex_collections"])
+                    or set(old.get("to_vertex_collections", [])) != set(ed["to_vertex_collections"])
+                ):
+                    graph.replace_edge_definition(**ed)

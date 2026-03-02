@@ -46,6 +46,14 @@ class ISiteRepository(ABC):
         ...
 
     @abstractmethod
+    def get_location_children(self, parent_key: LocationKey) -> list[Location]:
+        ...
+
+    @abstractmethod
+    def get_location_tree(self, site_key: SiteKey) -> list[Location]:
+        ...
+
+    @abstractmethod
     def get_slots_by_location(self, location_key: LocationKey) -> list[Slot]:
         ...
 

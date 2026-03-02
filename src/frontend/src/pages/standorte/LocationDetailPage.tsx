@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -21,11 +21,15 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormTimeField from '@/components/form/FormTimeField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
+import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import MuiBreadcrumbs from '@mui/material/Breadcrumbs';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
+import Link from '@mui/material/Link';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
+import LocationCreateDialog from './LocationCreateDialog';
 import SlotCreateDialog from './SlotCreateDialog';
 import WateringEventCreateDialog from './WateringEventCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
@@ -67,7 +71,12 @@ export default function LocationDetailPage() {
   const [wateringStats, setWateringStats] = useState<WateringStats | null>(null);
   const [wateringCreateOpen, setWateringCreateOpen] = useState(false);
   const [assignedTank, setAssignedTank] = useState<Tank | null>(null);
+  const [childLocations, setChildLocations] = useState<Location[]>([]);
+  const [sublocationCreateOpen, setSublocationCreateOpen] = useState(false);
+  const [ancestorChain, setAncestorChain] = useState<{ key: string; name: string }[]>([]);
+  const [siteName, setSiteName] = useState<string>('');
   const slotTableState = useTableLocalState({ defaultSort: { column: 'slotId', direction: 'asc' } });
+  const childTableState = useTableLocalState({ defaultSort: { column: 'name', direction: 'asc' } });
   const wateringTableState = useTableLocalState({ defaultSort: { column: 'wateredAt', direction: 'desc' } });
 
   const { control, handleSubmit, reset, formState: { isDirty } } = useForm<FormData>({
@@ -94,6 +103,26 @@ export default function LocationDetailPage() {
     try {
       const loc = await api.getLocation(key);
       setLocation(loc);
+      // Build ancestor breadcrumb chain
+      const ancestors: { key: string; name: string }[] = [];
+      let current = loc;
+      while (current.parent_location_key) {
+        try {
+          const parent = await api.getLocation(current.parent_location_key);
+          ancestors.unshift({ key: parent.key, name: parent.name });
+          current = parent;
+        } catch {
+          break;
+        }
+      }
+      setAncestorChain(ancestors);
+      // Fetch site name for breadcrumb
+      try {
+        const site = await api.getSite(loc.site_key);
+        setSiteName(site.name);
+      } catch {
+        setSiteName('');
+      }
       reset({
         name: loc.name,
         site_key: loc.site_key,
@@ -104,8 +133,12 @@ export default function LocationDetailPage() {
         lights_off: loc.lights_off,
         use_dynamic_sunrise: loc.use_dynamic_sunrise,
       });
-      const s = await api.listSlots(key);
+      const [s, children] = await Promise.all([
+        api.listSlots(key),
+        api.listLocationChildren(key),
+      ]);
       setSlots(s);
+      setChildLocations(children);
       // Load assigned tank:
       // Primary: Location.tank_key (denormalized).
       // Fallback: find tank whose location_key matches this location.
@@ -190,6 +223,24 @@ export default function LocationDetailPage() {
   return (
     <>
       <UnsavedChangesGuard dirty={isDirty} />
+
+      {/* Dynamic hierarchy breadcrumb */}
+      {location && (ancestorChain.length > 0 || location.parent_location_key) && (
+        <MuiBreadcrumbs aria-label="location-hierarchy" sx={{ mb: 1 }}>
+          {siteName && (
+            <Link component={RouterLink} to={`/standorte/sites/${location.site_key}`} underline="hover" color="inherit">
+              {siteName}
+            </Link>
+          )}
+          {ancestorChain.map((a) => (
+            <Link key={a.key} component={RouterLink} to={`/standorte/locations/${a.key}`} underline="hover" color="inherit">
+              {a.name}
+            </Link>
+          ))}
+          <Typography color="text.primary">{location.name}</Typography>
+        </MuiBreadcrumbs>
+      )}
+
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <PageTitle title={location?.name ?? t('entities.location')} />
         <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
@@ -197,28 +248,32 @@ export default function LocationDetailPage() {
         </Button>
       </Box>
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 600 }}>
-        <FormTextField name="name" control={control} label={t('pages.locations.name')} required />
-        <FormNumberField name="area_m2" control={control} label={t('pages.locations.area')} min={0} />
-        <FormSelectField
-          name="light_type"
-          control={control}
-          label={t('pages.locations.lightType')}
-          options={['natural', 'led', 'hps', 'cmh', 'mixed'].map((v) => ({
-            value: v, label: t(`enums.lightType.${v}`),
-          }))}
-        />
-        <FormSelectField
-          name="irrigation_system"
-          control={control}
-          label={t('pages.locations.irrigationSystem')}
-          options={['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow'].map((v) => ({
-            value: v, label: t(`enums.irrigationSystem.${v}`),
-          }))}
-        />
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
+        <FormRow>
+          <FormTextField name="name" control={control} label={t('pages.locations.name')} required />
+          <FormNumberField name="area_m2" control={control} label={t('pages.locations.area')} helperText={t('pages.locations.areaHelper')} min={0} />
+        </FormRow>
+        <FormRow>
+          <FormSelectField
+            name="light_type"
+            control={control}
+            label={t('pages.locations.lightType')}
+            options={['natural', 'led', 'hps', 'cmh', 'mixed'].map((v) => ({
+              value: v, label: t(`enums.lightType.${v}`),
+            }))}
+          />
+          <FormSelectField
+            name="irrigation_system"
+            control={control}
+            label={t('pages.locations.irrigationSystem')}
+            options={['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow'].map((v) => ({
+              value: v, label: t(`enums.irrigationSystem.${v}`),
+            }))}
+          />
+        </FormRow>
 
         {(isArtificial || isNaturalOrMixed) && (
-          <>
+          <Box sx={{ display: 'flex', gap: 2 }}>
             <FormTimeField
               name="lights_on"
               control={control}
@@ -231,7 +286,7 @@ export default function LocationDetailPage() {
               label={t('pages.locations.lightsOff')}
               helperText={t('pages.locations.lightsOffHelper')}
             />
-          </>
+          </Box>
         )}
 
         {isNaturalOrMixed && (
@@ -263,6 +318,34 @@ export default function LocationDetailPage() {
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             {t('pages.locations.noTank')}
           </Typography>
+        )}
+      </Box>
+
+      {/* Sub-Locations */}
+      <Box sx={{ mt: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6">{t('pages.locations.sublocations')}</Typography>
+          <Button startIcon={<AddIcon />} onClick={() => setSublocationCreateOpen(true)}>
+            {t('pages.locations.addSublocation')}
+          </Button>
+        </Box>
+        {childLocations.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            {t('pages.locations.noSublocations')}
+          </Typography>
+        ) : (
+          <DataTable<Location>
+            columns={[
+              { id: 'name', label: t('pages.locations.name'), render: (r) => r.name },
+              { id: 'locationType', label: t('pages.locations.locationType'), render: (r) => r.location_type_key || '—' },
+              { id: 'area', label: t('pages.locations.area'), render: (r) => `${r.area_m2} m²`, align: 'right', searchValue: (r) => String(r.area_m2) },
+            ]}
+            rows={childLocations}
+            getRowKey={(r) => r.key}
+            onRowClick={(r) => navigate(`/standorte/locations/${r.key}`)}
+            tableState={childTableState}
+            ariaLabel={t('pages.locations.sublocations')}
+          />
         )}
       </Box>
 
@@ -379,6 +462,16 @@ export default function LocationDetailPage() {
           open={slotCreateOpen}
           onClose={() => setSlotCreateOpen(false)}
           onCreated={() => { setSlotCreateOpen(false); load(); }}
+        />
+      )}
+
+      {key && location && (
+        <LocationCreateDialog
+          siteKey={location.site_key}
+          parentLocationKey={key}
+          open={sublocationCreateOpen}
+          onClose={() => setSublocationCreateOpen(false)}
+          onCreated={() => { setSublocationCreateOpen(false); load(); }}
         />
       )}
 
