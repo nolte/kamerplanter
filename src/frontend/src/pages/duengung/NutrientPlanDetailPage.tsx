@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useTabUrl } from '@/hooks/useTabUrl';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -14,7 +15,9 @@ import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Collapse from '@mui/material/Collapse';
+import Divider from '@mui/material/Divider';
 import Slider from '@mui/material/Slider';
+import { alpha, useTheme } from '@mui/material/styles';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
@@ -44,14 +47,19 @@ import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import PhaseEntryDialog from './PhaseEntryDialog';
 import DeliveryChannelChips from './DeliveryChannelChips';
 import DeliveryChannelAccordion from './DeliveryChannelAccordion';
-import PhaseGanttChart from './PhaseGanttChart';
-import FertilizerGanttChart from './FertilizerGanttChart';
+import PhaseGanttChart, { PHASE_COLORS } from './PhaseGanttChart';
+import {
+  type FertilizerRemoveAllPayload,
+} from './FertilizerGanttChart';
 import DeliveryChannelDialog from './DeliveryChannelDialog';
 import ChannelFertilizerDialog from './ChannelFertilizerDialog';
 import type { DosageEntry } from './ChannelFertilizerDialog';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useLocalFavorites } from '@/hooks/useLocalFavorites';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 import * as fertApi from '@/api/endpoints/fertilizers';
 import type {
@@ -108,155 +116,408 @@ type EditFormData = z.infer<typeof editSchema>;
 
 const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
-function WateringScheduleTabContent({
+/** ISO week number (1-based). */
+function PhaseTimelineTab({
   plan,
   entries,
   fertilizers,
+  expandedEntries,
+  toggleExpanded,
+  onAddEntry,
+  onEditEntry,
+  onDeleteEntry,
+  onAddChannel,
+  onEditChannel,
+  onDeleteChannel,
+  onAddChannelFertilizer,
+  onEditChannelFertilizer,
+  onRemoveChannelFertilizer,
 }: {
   plan: NutrientPlan;
   entries: NutrientPlanPhaseEntry[];
   fertilizers: Fertilizer[];
+  expandedEntries: Set<string>;
+  toggleExpanded: (key: string) => void;
+  onAddEntry: () => void;
+  onEditEntry: (entry: NutrientPlanPhaseEntry) => void;
+  onDeleteEntry: (entry: NutrientPlanPhaseEntry) => void;
+  onAddChannel: (entryKey: string, existingIds: string[]) => void;
+  onEditChannel: (entryKey: string, channel: DeliveryChannel) => void;
+  onDeleteChannel: (entryKey: string, channelId: string) => void;
+  onAddChannelFertilizer: (entryKey: string, channelId: string) => void;
+  onEditChannelFertilizer: (entryKey: string, channelId: string, dosage: FertilizerDosage) => void;
+  onRemoveChannelFertilizer: (entryKey: string, channelId: string, fertKey: string) => void;
 }) {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const [selectedPhaseKey, setSelectedPhaseKey] = useState<string | null>(null);
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const schedule = plan.watering_schedule;
+  const isPerennial = plan.cycle_restart_from_sequence != null;
+  const sorted = [...entries].sort((a, b) => a.sequence_order - b.sequence_order);
+  const initialEntries = isPerennial ? sorted.filter((e) => !e.is_recurring) : sorted;
+  const seasonalEntries = isPerennial ? sorted.filter((e) => e.is_recurring) : [];
 
-  if (!schedule) {
+  // Current ISO week number for highlighting "today" in the calendar Gantt
+  const currentIsoWeek = (() => {
+    const now = new Date();
+    const jan4 = new Date(now.getFullYear(), 0, 4);
+    const dayOfYear = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / 86400000) + 1;
+    const jan4DayOfWeek = jan4.getDay() || 7; // Mon=1..Sun=7
+    return Math.ceil((dayOfYear + jan4DayOfWeek - 1) / 7);
+  })();
+
+  // Map seasonal cycle into a 52-week calendar year with month headers.
+  // Entries that cross the year boundary (week_end > 52) are kept as-is;
+  // PhaseGanttChart and FertilizerGanttChart handle wrap-around rendering
+  // so that e.g. dormancy W49-W66 appears as one row with bars at W49-52 + W1-14.
+  const calendarSeasonalEntries = (() => {
+    if (seasonalEntries.length === 0) return [];
+    const cycleStart = seasonalEntries[0].week_start;
+    const cycleEnd = seasonalEntries[seasonalEntries.length - 1].week_end;
+    const cycleLen = cycleEnd - cycleStart + 1;
+    // No mapping needed if cycle fits in 52 weeks starting at W1
+    if (cycleLen <= 52 && cycleStart <= 52 && cycleEnd <= 52) {
+      return seasonalEntries;
+    }
+    const result: NutrientPlanPhaseEntry[] = [];
+    for (const e of seasonalEntries) {
+      if (e.week_end <= 52) {
+        result.push(e);
+      } else if (e.week_start <= 52) {
+        // Crosses year boundary — keep as single entry (week_end > 52)
+        result.push(e);
+      } else {
+        // Entirely past 52 — shift to start of year
+        result.push({
+          ...e,
+          week_start: e.week_start - 52,
+          week_end: e.week_end - 52,
+        });
+      }
+    }
+    return result.sort((a, b) => a.week_start - b.week_start);
+  })();
+  const seasonalCycleLen = seasonalEntries.length > 0
+    ? seasonalEntries[seasonalEntries.length - 1].week_end - seasonalEntries[0].week_start + 1
+    : 0;
+
+  const renderEntryCard = (entry: NutrientPlanPhaseEntry) => {
+    const phaseColor = PHASE_COLORS[entry.phase_name] ?? theme.palette.grey[600];
+    const isSelected = selectedPhaseKey === entry.key;
+    const duration = entry.week_end - entry.week_start + 1;
+
     return (
-      <Card>
-        <CardContent>
-          <Alert severity="info">
-            {t('pages.wateringSchedule.noSchedule')}
-          </Alert>
+      <Card
+        key={entry.key}
+        ref={(el: HTMLDivElement | null) => { cardRefs.current[entry.key] = el; }}
+        onClick={() => setSelectedPhaseKey(entry.key)}
+        sx={{
+          mb: 0,
+          borderLeft: `4px solid ${phaseColor}`,
+          transition: 'box-shadow 0.2s, background-color 0.2s',
+          ...(isSelected && {
+            boxShadow: `0 0 0 1px ${alpha(phaseColor, 0.4)}, ${theme.shadows[4]}`,
+            bgcolor: alpha(phaseColor, 0.03),
+          }),
+          cursor: 'pointer',
+          '&:hover': {
+            bgcolor: alpha(phaseColor, 0.05),
+          },
+        }}
+      >
+        <CardContent sx={{ pb: 1, '&:last-child': { pb: 1.5 } }}>
+          {/* Phase header bar */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              mb: 1,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  bgcolor: alpha(phaseColor, 0.12),
+                  borderRadius: 1,
+                  px: 1.5,
+                  py: 0.5,
+                }}
+              >
+                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: phaseColor, flexShrink: 0 }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: phaseColor }}>
+                  {t(`enums.phaseName.${entry.phase_name}`)}
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                {t('pages.gantt.week')}{entry.week_start}–{entry.week_end} ({duration} {t('pages.nutrientPlans.weeks')})
+              </Typography>
+              <Chip
+                label={`NPK ${entry.npk_ratio[0]}-${entry.npk_ratio[1]}-${entry.npk_ratio[2]}`}
+                size="small"
+                variant="outlined"
+                sx={{ fontWeight: 600 }}
+              />
+              {(() => {
+                const ecValues = entry.delivery_channels
+                  .filter((ch) => ch.target_ec_ms != null)
+                  .map((ch) => ch.target_ec_ms!);
+                if (ecValues.length === 0) return null;
+                const unique = [...new Set(ecValues)];
+                const label = unique.length === 1
+                  ? `EC ${unique[0]} mS/cm`
+                  : `EC ${Math.min(...unique)}–${Math.max(...unique)} mS/cm`;
+                return (
+                  <Chip
+                    label={label}
+                    size="small"
+                    variant="outlined"
+                    color="info"
+                    sx={{ fontWeight: 600 }}
+                  />
+                );
+              })()}
+              {entry.is_recurring && (
+                <Chip
+                  icon={<RepeatIcon />}
+                  label={t('pages.nutrientPlans.isRecurring')}
+                  size="small"
+                  variant="outlined"
+                  color="secondary"
+                />
+              )}
+              {entry.watering_schedule_override && (
+                <Chip
+                  icon={<WaterDropIcon />}
+                  label={`${t('pages.nutrientPlans.wateringScheduleOverride')}: ${entry.watering_schedule_override.interval_days ?? '?'}d`}
+                  size="small"
+                  variant="outlined"
+                  color="info"
+                />
+              )}
+            </Box>
+            <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+              <Tooltip title={t('pages.nutrientPlans.showFertilizers')}>
+                <IconButton
+                  size="small"
+                  onClick={(e) => { e.stopPropagation(); toggleExpanded(entry.key); }}
+                >
+                  {expandedEntries.has(entry.key) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={t('common.edit')}>
+                <IconButton
+                  size="small"
+                  onClick={(e) => { e.stopPropagation(); onEditEntry(entry); }}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={t('common.delete')}>
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={(e) => { e.stopPropagation(); onDeleteEntry(entry); }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+
+          {/* Delivery channel chips */}
+          {entry.delivery_channels.length > 0 && (
+            <ExpertiseFieldWrapper minLevel="intermediate">
+              <DeliveryChannelChips channels={entry.delivery_channels} />
+            </ExpertiseFieldWrapper>
+          )}
+
+          {/* Additional details row */}
+          {(entry.calcium_ppm != null || entry.magnesium_ppm != null || entry.notes) && (
+            <Box sx={{ display: 'flex', gap: 1.5, mt: 1, flexWrap: 'wrap' }}>
+              {entry.calcium_ppm != null && (
+                <Typography variant="body2" color="text.secondary">
+                  Ca: {entry.calcium_ppm} ppm
+                </Typography>
+              )}
+              {entry.magnesium_ppm != null && (
+                <Typography variant="body2" color="text.secondary">
+                  Mg: {entry.magnesium_ppm} ppm
+                </Typography>
+              )}
+              {entry.notes && (
+                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                  {entry.notes}
+                </Typography>
+              )}
+            </Box>
+          )}
+
+          {/* Expandable delivery channels */}
+          <Collapse in={expandedEntries.has(entry.key)}>
+            <Box sx={{ mt: 2 }}>
+              <ExpertiseFieldWrapper minLevel="intermediate">
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    mb: 1,
+                  }}
+                >
+                  <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <ScienceIcon fontSize="small" />
+                    {t('pages.deliveryChannels.title')}
+                  </Typography>
+                  <Button
+                    size="small"
+                    startIcon={<AddIcon />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddChannel(entry.key, entry.delivery_channels.map((ch) => ch.channel_id));
+                    }}
+                  >
+                    {t('pages.deliveryChannels.addChannel')}
+                  </Button>
+                </Box>
+                {entry.delivery_channels.length === 0 ? (
+                  <Alert severity="info" variant="outlined" sx={{ py: 0.5 }}>
+                    {t('pages.deliveryChannels.noChannels')}
+                  </Alert>
+                ) : (
+                  <DeliveryChannelAccordion
+                    channels={entry.delivery_channels}
+                    fertilizers={fertilizers}
+                    onEditChannel={(ch) => onEditChannel(entry.key, ch)}
+                    onDeleteChannel={(cid) => onDeleteChannel(entry.key, cid)}
+                    onAddFertilizer={(cid) => onAddChannelFertilizer(entry.key, cid)}
+                    onEditFertilizer={(cid, dosage) => onEditChannelFertilizer(entry.key, cid, dosage)}
+                    onRemoveFertilizer={(cid, fk) => onRemoveChannelFertilizer(entry.key, cid, fk)}
+                  />
+                )}
+              </ExpertiseFieldWrapper>
+            </Box>
+          </Collapse>
         </CardContent>
       </Card>
     );
-  }
-
-  const entriesWithChannels = entries
-    .filter((e) => e.delivery_channels.length > 0)
-    .sort((a, b) => a.sequence_order - b.sequence_order);
+  };
 
   return (
-    <Box data-testid="watering-schedule-tab" sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            {t('pages.wateringSchedule.title')}
-          </Typography>
+    <Box>
+      {/* Add Entry button */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={onAddEntry}
+        >
+          {t('pages.nutrientPlans.addEntry')}
+        </Button>
+      </Box>
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {/* Mode */}
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary">
-                {t('pages.wateringSchedule.mode')}
-              </Typography>
-              <Typography>
-                {schedule.schedule_mode === 'weekdays'
-                  ? t('pages.wateringSchedule.weekdays')
-                  : t('pages.wateringSchedule.interval')}
-              </Typography>
-            </Box>
-
-            {/* Weekdays */}
-            {schedule.schedule_mode === 'weekdays' && schedule.weekday_schedule.length > 0 && (
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">
-                  {t('pages.wateringSchedule.weekdays')}
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                  {schedule.weekday_schedule.map((dayIndex) => (
-                    <Chip
-                      key={dayIndex}
-                      label={t(`pages.wateringSchedule.${WEEKDAY_KEYS[dayIndex]}`)}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
+      {entries.length === 0 ? (
+        <Alert severity="info">{t('pages.nutrientPlans.noEntries')}</Alert>
+      ) : (
+        <>
+          {/* Gantt timeline hero */}
+          {isPerennial ? (
+            <>
+              {initialEntries.length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                  <PhaseGanttChart
+                    entries={initialEntries}
+                    fertilizers={fertilizers}
+                    title={t('pages.nutrientPlans.initialRunSection')}
+                    onEditEntry={onEditEntry}
+                  />
+                </Box>
+              )}
+              {calendarSeasonalEntries.length > 0 && (
+                <>
+                  {initialEntries.length > 0 && <Divider sx={{ my: 2 }} />}
+                  <Box sx={{ mb: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <RepeatIcon fontSize="small" color="action" />
+                      <Typography variant="h6">
+                        {t('pages.nutrientPlans.seasonalCycleSection')}
+                      </Typography>
+                      <Chip
+                        label={`${seasonalCycleLen} ${t('pages.nutrientPlans.weeksPerCycle')}`}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      {seasonalEntries.map((e) => t(`enums.phaseName.${e.phase_name}`)).join(' → ')}
+                    </Typography>
+                    <PhaseGanttChart
+                      entries={calendarSeasonalEntries}
+                      fertilizers={fertilizers}
+                      title=""
+                      currentWeek={currentIsoWeek}
+                      totalWeeksOverride={52}
+                      showMonthHeaders
+                      onEditEntry={onEditEntry}
                     />
-                  ))}
-                </Box>
-              </Box>
+                  </Box>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <PhaseGanttChart
+                entries={sorted}
+                fertilizers={fertilizers}
+                title={t('pages.gantt.title')}
+                onEditEntry={onEditEntry}
+              />
+            </>
+          )}
+
+          {/* Phase detail cards */}
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1.5,
+              mt: 3,
+            }}
+          >
+            {isPerennial ? (
+              <>
+                {initialEntries.length > 0 && (
+                  <>
+                    <Box sx={{ mb: 0.5 }}>
+                      <Typography variant="overline" color="text.secondary">
+                        {t('pages.nutrientPlans.initialRunSection')}
+                      </Typography>
+                    </Box>
+                    {initialEntries.map(renderEntryCard)}
+                  </>
+                )}
+                {seasonalEntries.length > 0 && (
+                  <>
+                    <Divider sx={{ my: 1 }} />
+                    <Box sx={{ mb: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <RepeatIcon color="secondary" fontSize="small" />
+                      <Typography variant="overline" color="text.secondary">
+                        {t('pages.nutrientPlans.seasonalCycleSection')}
+                      </Typography>
+                    </Box>
+                    {seasonalEntries.map(renderEntryCard)}
+                  </>
+                )}
+              </>
+            ) : (
+              sorted.map(renderEntryCard)
             )}
-
-            {/* Interval */}
-            {schedule.schedule_mode === 'interval' && schedule.interval_days != null && (
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">
-                  {t('pages.wateringSchedule.intervalDays')}
-                </Typography>
-                <Typography>{schedule.interval_days}</Typography>
-              </Box>
-            )}
-
-            {/* Preferred Time */}
-            {schedule.preferred_time && (
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">
-                  {t('pages.wateringSchedule.preferredTime')}
-                </Typography>
-                <Typography>{schedule.preferred_time}</Typography>
-              </Box>
-            )}
-
-            {/* Application Method */}
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary">
-                {t('pages.wateringSchedule.applicationMethod')}
-              </Typography>
-              <Typography>
-                {t(`enums.applicationMethod.${schedule.application_method}`)}
-              </Typography>
-            </Box>
-
-            {/* Reminder Hours Before */}
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary">
-                {t('pages.wateringSchedule.reminderHoursBefore')}
-              </Typography>
-              <Typography>{schedule.reminder_hours_before}h</Typography>
-            </Box>
           </Box>
-        </CardContent>
-      </Card>
-
-      {/* Phase Gantt Chart */}
-      {entries.length > 0 && <PhaseGanttChart entries={entries} fertilizers={fertilizers} />}
-
-      {/* Fertilizer Gantt Chart */}
-      {entries.length > 0 && <FertilizerGanttChart entries={entries} fertilizers={fertilizers} />}
-
-      {/* Delivery Channels per Phase */}
-      {entriesWithChannels.length > 0 && (
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              {t('pages.deliveryChannels.title')}
-            </Typography>
-            {entriesWithChannels.map((entry) => (
-              <Box key={entry.key} sx={{ mb: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                  <Chip
-                    label={`#${entry.sequence_order}`}
-                    size="small"
-                    variant="outlined"
-                  />
-                  <Chip
-                    label={t(`enums.phaseName.${entry.phase_name}`)}
-                    size="small"
-                    color="primary"
-                  />
-                  <Typography variant="body2" color="text.secondary">
-                    {t('pages.nutrientPlans.weeks')}: {entry.week_start}–{entry.week_end}
-                  </Typography>
-                </Box>
-                <DeliveryChannelAccordion
-                  channels={entry.delivery_channels}
-                  fertilizers={fertilizers}
-                />
-              </Box>
-            ))}
-          </CardContent>
-        </Card>
+        </>
       )}
     </Box>
   );
@@ -269,6 +530,8 @@ export default function NutrientPlanDetailPage() {
   const notification = useNotification();
   const { handleError } = useApiError();
 
+  const { isFavorite, toggleFavorite } = useLocalFavorites('kamerplanter-nutrient-plan-favorites');
+
   const [plan, setPlan] = useState<NutrientPlan | null>(null);
   const [entries, setEntries] = useState<NutrientPlanPhaseEntry[]>([]);
   const [fertilizers, setFertilizers] = useState<Fertilizer[]>([]);
@@ -276,7 +539,7 @@ export default function NutrientPlanDetailPage() {
   const [validating, setValidating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useTabUrl(['phases', 'validation', 'edit']);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -303,6 +566,10 @@ export default function NutrientPlanDetailPage() {
   const [deleteChannelOpen, setDeleteChannelOpen] = useState(false);
   const [deletingChannelEntryKey, setDeletingChannelEntryKey] = useState<string>('');
   const [deletingChannelId, setDeletingChannelId] = useState<string>('');
+
+  // Remove fertilizer from all entries/channels confirm
+  const [removeFertAllOpen, setRemoveFertAllOpen] = useState(false);
+  const [removeFertAllPayload, setRemoveFertAllPayload] = useState<FertilizerRemoveAllPayload | null>(null);
 
   // Expanded rows for fertilizer dosages
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
@@ -496,6 +763,24 @@ export default function NutrientPlanDetailPage() {
     }
   };
 
+  const onConfirmRemoveFertilizerFromAll = async () => {
+    if (!removeFertAllPayload) return;
+    try {
+      await Promise.all(
+        removeFertAllPayload.targets.map((t) =>
+          planApi.removeFertilizerFromChannel(t.entryKey, t.channelId, removeFertAllPayload.fertilizerKey),
+        ),
+      );
+      notification.success(t('common.delete'));
+      load(true);
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setRemoveFertAllOpen(false);
+      setRemoveFertAllPayload(null);
+    }
+  };
+
   const onSaveChannel = async (channel: DeliveryChannelCreate) => {
     if (!key || !channelDialogEntryKey) return;
     try {
@@ -617,6 +902,16 @@ export default function NutrientPlanDetailPage() {
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <PageTitle title={plan.name} />
+          {key && (
+            <Tooltip title={t('pages.nutrientPlans.favToggle')}>
+              <IconButton
+                onClick={() => toggleFavorite(key)}
+                sx={{ color: isFavorite(key) ? 'warning.main' : 'action.disabled' }}
+              >
+                {isFavorite(key) ? <StarIcon /> : <StarBorderIcon />}
+              </IconButton>
+            </Tooltip>
+          )}
           {plan.is_template && (
             <Chip label={t('pages.nutrientPlans.isTemplate')} size="small" color="primary" />
           )}
@@ -642,208 +937,44 @@ export default function NutrientPlanDetailPage() {
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab label={t('pages.nutrientPlans.tabPhaseEntries')} />
         <Tab label={t('pages.nutrientPlans.tabValidation')} />
-        <Tab label={t('pages.wateringSchedule.title')} />
         <Tab label={t('common.edit')} />
       </Tabs>
 
-      {/* Tab 0: Phase Entries with CRUD */}
-      {tab === 0 && (
-        <Box>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => {
-                setEditingEntry(null);
-                setEntryDialogOpen(true);
-              }}
-            >
-              {t('pages.nutrientPlans.addEntry')}
-            </Button>
-          </Box>
-
-          {entries.length === 0 ? (
-            <Alert severity="info">{t('pages.nutrientPlans.noEntries')}</Alert>
-          ) : (
-            entries
-              .sort((a, b) => a.sequence_order - b.sequence_order)
-              .map((entry) => (
-                <Card key={entry.key} sx={{ mb: 2 }}>
-                  <CardContent sx={{ pb: 1 }}>
-                    {/* Entry header row */}
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                        <Chip
-                          label={`#${entry.sequence_order}`}
-                          size="small"
-                          variant="outlined"
-                        />
-                        <Chip
-                          label={t(`enums.phaseName.${entry.phase_name}`)}
-                          size="small"
-                          color="primary"
-                        />
-                        <Typography variant="body2" color="text.secondary">
-                          {t('pages.nutrientPlans.weeks')}: {entry.week_start}–{entry.week_end}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          NPK: {entry.npk_ratio[0]}-{entry.npk_ratio[1]}-{entry.npk_ratio[2]}
-                        </Typography>
-                        {entry.is_recurring && (
-                          <Chip
-                            icon={<RepeatIcon />}
-                            label={t('pages.nutrientPlans.isRecurring')}
-                            size="small"
-                            variant="outlined"
-                            color="secondary"
-                          />
-                        )}
-                        {entry.watering_schedule_override && (
-                          <Chip
-                            icon={<WaterDropIcon />}
-                            label={`${t('pages.nutrientPlans.wateringScheduleOverride')}: ${entry.watering_schedule_override.interval_days ?? '?'}d`}
-                            size="small"
-                            variant="outlined"
-                            color="info"
-                          />
-                        )}
-                      </Box>
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Tooltip title={t('pages.nutrientPlans.showFertilizers')}>
-                          <IconButton
-                            size="small"
-                            onClick={() => toggleExpanded(entry.key)}
-                          >
-                            {expandedEntries.has(entry.key) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('common.edit')}>
-                          <IconButton
-                            size="small"
-                            onClick={() => {
-                              setEditingEntry(entry);
-                              setEntryDialogOpen(true);
-                            }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('common.delete')}>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => {
-                              setDeletingEntry(entry);
-                              setDeleteEntryOpen(true);
-                            }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </Box>
-
-                    {/* Delivery channel chips */}
-                    {entry.delivery_channels.length > 0 && (
-                      <ExpertiseFieldWrapper minLevel="intermediate">
-                        <DeliveryChannelChips channels={entry.delivery_channels} />
-                      </ExpertiseFieldWrapper>
-                    )}
-
-                    {/* Additional details row */}
-                    {(entry.calcium_ppm != null || entry.magnesium_ppm != null || entry.notes) && (
-                      <Box sx={{ display: 'flex', gap: 1.5, mt: 1, flexWrap: 'wrap' }}>
-                        {entry.calcium_ppm != null && (
-                          <Typography variant="body2" color="text.secondary">
-                            Ca: {entry.calcium_ppm} ppm
-                          </Typography>
-                        )}
-                        {entry.magnesium_ppm != null && (
-                          <Typography variant="body2" color="text.secondary">
-                            Mg: {entry.magnesium_ppm} ppm
-                          </Typography>
-                        )}
-                        {entry.notes && (
-                          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                            {entry.notes}
-                          </Typography>
-                        )}
-                      </Box>
-                    )}
-
-                    {/* Expandable delivery channels */}
-                    <Collapse in={expandedEntries.has(entry.key)}>
-                      <Box sx={{ mt: 2 }}>
-                        <ExpertiseFieldWrapper minLevel="intermediate">
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              mb: 1,
-                            }}
-                          >
-                            <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <ScienceIcon fontSize="small" />
-                              {t('pages.deliveryChannels.title')}
-                            </Typography>
-                            <Button
-                              size="small"
-                              startIcon={<AddIcon />}
-                              onClick={() => {
-                                setChannelDialogEntryKey(entry.key);
-                                setChannelDialogExistingIds(
-                                  entry.delivery_channels.map((ch) => ch.channel_id),
-                                );
-                                setEditingChannel(null);
-                                setChannelDialogOpen(true);
-                              }}
-                            >
-                              {t('pages.deliveryChannels.addChannel')}
-                            </Button>
-                          </Box>
-                          {entry.delivery_channels.length === 0 ? (
-                            <Alert severity="info" variant="outlined" sx={{ py: 0.5 }}>
-                              {t('pages.deliveryChannels.noChannels')}
-                            </Alert>
-                          ) : (
-                            <DeliveryChannelAccordion
-                              channels={entry.delivery_channels}
-                              fertilizers={fertilizers}
-                              onEditChannel={(ch) =>
-                                onEditChannel(entry.key, ch)
-                              }
-                              onDeleteChannel={(cid) => {
-                                setDeletingChannelEntryKey(entry.key);
-                                setDeletingChannelId(cid);
-                                setDeleteChannelOpen(true);
-                              }}
-                              onAddFertilizer={(cid) =>
-                                onAddChannelFertilizer(entry.key, cid)
-                              }
-                              onEditFertilizer={(cid, dosage) =>
-                                onEditChannelFertilizer(entry.key, cid, dosage)
-                              }
-                              onRemoveFertilizer={(cid, fk) =>
-                                onRemoveChannelFertilizer(entry.key, cid, fk)
-                              }
-                            />
-                          )}
-                        </ExpertiseFieldWrapper>
-                      </Box>
-                    </Collapse>
-                  </CardContent>
-                </Card>
-              ))
-          )}
-        </Box>
-      )}
+      {/* Tab 0: Phase Entries — Timeline-first with Gantt hero */}
+      {tab === 0 && <PhaseTimelineTab
+        plan={plan}
+        entries={entries}
+        fertilizers={fertilizers}
+        expandedEntries={expandedEntries}
+        toggleExpanded={toggleExpanded}
+        onAddEntry={() => {
+          setEditingEntry(null);
+          setEntryDialogOpen(true);
+        }}
+        onEditEntry={(entry) => {
+          setEditingEntry(entry);
+          setEntryDialogOpen(true);
+        }}
+        onDeleteEntry={(entry) => {
+          setDeletingEntry(entry);
+          setDeleteEntryOpen(true);
+        }}
+        onAddChannel={(entryKey, existingIds) => {
+          setChannelDialogEntryKey(entryKey);
+          setChannelDialogExistingIds(existingIds);
+          setEditingChannel(null);
+          setChannelDialogOpen(true);
+        }}
+        onEditChannel={onEditChannel}
+        onDeleteChannel={(entryKey, channelId) => {
+          setDeletingChannelEntryKey(entryKey);
+          setDeletingChannelId(channelId);
+          setDeleteChannelOpen(true);
+        }}
+        onAddChannelFertilizer={onAddChannelFertilizer}
+        onEditChannelFertilizer={onEditChannelFertilizer}
+        onRemoveChannelFertilizer={onRemoveChannelFertilizer}
+      />}
 
       {/* Tab 1: Validation */}
       {tab === 1 && (
@@ -971,13 +1102,8 @@ export default function NutrientPlanDetailPage() {
         </Box>
       )}
 
-      {/* Tab 2: Watering Schedule */}
+      {/* Tab 2: Edit */}
       {tab === 2 && (
-        <WateringScheduleTabContent plan={plan} entries={entries} fertilizers={fertilizers} />
-      )}
-
-      {/* Tab 3: Edit */}
-      {tab === 3 && (
         <Card>
           <CardContent>
             <form onSubmit={handleSubmit(onSave)}>
@@ -1251,6 +1377,20 @@ export default function NutrientPlanDetailPage() {
           setDeleteChannelOpen(false);
           setDeletingChannelId('');
           setDeletingChannelEntryKey('');
+        }}
+        destructive
+      />
+
+      <ConfirmDialog
+        open={removeFertAllOpen}
+        title={t('common.delete')}
+        message={t('pages.fertilizerGantt.removeFertilizerConfirm', {
+          name: removeFertAllPayload?.fertilizerName ?? '',
+        })}
+        onConfirm={onConfirmRemoveFertilizerFromAll}
+        onCancel={() => {
+          setRemoveFertAllOpen(false);
+          setRemoveFertAllPayload(null);
         }}
         destructive
       />
