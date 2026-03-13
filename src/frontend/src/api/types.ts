@@ -27,6 +27,7 @@ export type SubstrateType =
 export type NutrientDemand = 'light' | 'medium' | 'heavy';
 export type RootDepth = 'shallow' | 'medium' | 'deep';
 export type FrostTolerance = 'sensitive' | 'moderate' | 'hardy' | 'very_hardy';
+export type Suitability = 'yes' | 'limited' | 'no';
 export type PollinationType = 'insect' | 'wind' | 'self';
 export type WaterRetention = 'low' | 'medium' | 'high';
 export type BufferCapacity = 'low' | 'medium' | 'high';
@@ -54,6 +55,8 @@ export type ApplicationMethod = 'fertigation' | 'drench' | 'foliar' | 'top_dress
 export type Bioavailability = 'immediate' | 'slow_release' | 'microbial_dependent';
 export type IncompatibilitySeverity = 'critical' | 'warning' | 'minor';
 export type PhaseName = 'germination' | 'seedling' | 'vegetative' | 'flowering' | 'flushing' | 'dormancy' | 'harvest';
+export type ActivityCategory = 'training_hst' | 'training_lst' | 'pruning' | 'ausgeizen' | 'transplant' | 'harvest_prep' | 'propagation' | 'general';
+export type StressLevel = 'none' | 'low' | 'medium' | 'high';
 
 // Pagination
 
@@ -106,6 +109,7 @@ export interface BotanicalFamily {
   common_diseases: string[];
   pollination_type: PollinationType[];
   rotation_category: string;
+  species_count: number;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -128,13 +132,46 @@ export interface BotanicalFamilyCreate {
   rotation_category?: string;
 }
 
+// Watering Guide (embedded on Species/Cultivar)
+
+export interface SeasonalWateringAdjustment {
+  months: number[];
+  interval_days: number;
+  volume_ml_min: number;
+  volume_ml_max: number;
+  label: string;
+}
+
+export interface WateringGuide {
+  interval_days: number;
+  volume_ml_min: number;
+  volume_ml_max: number;
+  watering_method: WateringMethod;
+  water_quality_hint: string | null;
+  practical_tip: string | null;
+  seasonal_adjustments: SeasonalWateringAdjustment[];
+}
+
 // Species
+
+export interface GrowingPeriod {
+  label: string;
+  sowing_indoor_weeks_before_last_frost: number | null;
+  sowing_outdoor_after_last_frost_days: number | null;
+  direct_sow_months: number[];
+  growth_months: number[];
+  harvest_months: number[];
+  bloom_months: number[];
+  harvest_from_year: number | null;
+  bloom_from_year: number | null;
+}
 
 export interface Species {
   key: string;
   scientific_name: string;
   common_names: string[];
   family_key: string | null;
+  family_name: string | null;
   genus: string;
   hardiness_zones: string[];
   native_habitat: string;
@@ -151,8 +188,23 @@ export interface Species {
   direct_sow_months: number[];
   harvest_months: number[];
   bloom_months: number[];
+  harvest_from_year: number | null;
+  bloom_from_year: number | null;
   frost_sensitivity: FrostTolerance | null;
   allows_harvest: boolean;
+  growing_periods: GrowingPeriod[];
+  container_suitable: Suitability | null;
+  recommended_container_volume_l: string | null;
+  min_container_depth_cm: number | null;
+  mature_height_cm: string | null;
+  mature_width_cm: string | null;
+  spacing_cm: string | null;
+  indoor_suitable: Suitability | null;
+  balcony_suitable: Suitability | null;
+  greenhouse_recommended: boolean;
+  support_required: boolean;
+  watering_guide: WateringGuide | null;
+  default_nutrient_plan_key: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -177,8 +229,23 @@ export interface SpeciesCreate {
   direct_sow_months?: number[];
   harvest_months?: number[];
   bloom_months?: number[];
+  harvest_from_year?: number | null;
+  bloom_from_year?: number | null;
   frost_sensitivity?: FrostTolerance | null;
   allows_harvest?: boolean;
+  growing_periods?: GrowingPeriod[];
+  container_suitable?: Suitability | null;
+  recommended_container_volume_l?: string | null;
+  min_container_depth_cm?: number | null;
+  mature_height_cm?: string | null;
+  mature_width_cm?: string | null;
+  spacing_cm?: string | null;
+  indoor_suitable?: Suitability | null;
+  balcony_suitable?: Suitability | null;
+  greenhouse_recommended?: boolean;
+  support_required?: boolean;
+  watering_guide?: WateringGuide | null;
+  default_nutrient_plan_key?: string | null;
 }
 
 // Cultivars
@@ -193,6 +260,7 @@ export interface Cultivar {
   patent_status: string;
   days_to_maturity: number | null;
   disease_resistances: string[];
+  phase_watering_overrides: Record<string, number> | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -206,6 +274,7 @@ export interface CultivarCreate {
   patent_status?: string;
   days_to_maturity?: number | null;
   disease_resistances?: string[];
+  phase_watering_overrides?: Record<string, number> | null;
 }
 
 // Sites
@@ -355,10 +424,19 @@ export interface SlotCreate {
 
 // Substrates
 
+export interface MixComponent {
+  substrate_key: string;
+  fraction: number;
+}
+
 export interface Substrate {
   key: string;
   type: SubstrateType;
   brand: string | null;
+  name_de: string;
+  name_en: string;
+  is_mix: boolean;
+  mix_components: MixComponent[];
   ph_base: number;
   ec_base_ms: number;
   water_retention: WaterRetention;
@@ -377,9 +455,17 @@ export interface Substrate {
   updated_at: string | null;
 }
 
+export interface SubstrateMixRequest {
+  name_de: string;
+  name_en: string;
+  components: MixComponent[];
+}
+
 export interface SubstrateCreate {
   type?: SubstrateType;
   brand?: string | null;
+  name_de?: string;
+  name_en?: string;
   ph_base?: number;
   ec_base_ms?: number;
   water_retention?: WaterRetention;
@@ -428,14 +514,18 @@ export interface PlantInstance {
   instance_id: string;
   species_key: string;
   cultivar_key: string | null;
+  location_key: string | null;
   slot_key: string | null;
   substrate_batch_key: string | null;
+  substrate_key: string | null;
   plant_name: string | null;
   planted_on: string;
   removed_on: string | null;
   current_phase: string;
   current_phase_key: string | null;
   current_phase_started_at: string | null;
+  container_volume_liters: number | null;
+  substrate_type_override: SubstrateType | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -444,11 +534,15 @@ export interface PlantInstanceCreate {
   instance_id: string;
   species_key: string;
   cultivar_key?: string | null;
+  location_key?: string | null;
   slot_key?: string | null;
   substrate_batch_key?: string | null;
+  substrate_key?: string | null;
   plant_name?: string | null;
   planted_on: string;
   current_phase?: string;
+  container_volume_liters?: number | null;
+  substrate_type_override?: SubstrateType | null;
 }
 
 export interface ValidatePlantingResponse {
@@ -479,6 +573,7 @@ export interface PhaseHistoryEntry {
 export interface TransitionRequest {
   target_phase_key: string;
   reason?: string;
+  force?: boolean;
 }
 
 // Growth Phases
@@ -487,12 +582,14 @@ export interface GrowthPhase {
   key: string;
   name: string;
   display_name: string;
+  description: string;
   lifecycle_key: string;
   typical_duration_days: number;
   sequence_order: number;
   is_terminal: boolean;
   allows_harvest: boolean;
   stress_tolerance: StressTolerance;
+  watering_interval_days: number | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -500,12 +597,14 @@ export interface GrowthPhase {
 export interface GrowthPhaseCreate {
   name: string;
   display_name?: string;
+  description?: string;
   lifecycle_key: string;
   typical_duration_days: number;
   sequence_order: number;
   is_terminal?: boolean;
   allows_harvest?: boolean;
   stress_tolerance?: StressTolerance;
+  watering_interval_days?: number | null;
 }
 
 // Lifecycle Config
@@ -794,6 +893,7 @@ export interface PhaseTimelineEntry {
   phase_key: string;
   phase_name: string;
   display_name: string;
+  description?: string;
   sequence_order: number;
   typical_duration_days: number;
   status: 'completed' | 'current' | 'projected';
@@ -859,6 +959,7 @@ export interface BatchCreatePlantsResponse {
   created_count: number;
   plant_keys: string[];
   instance_ids: string[];
+  slots_assigned: number;
 }
 
 export interface BatchTransitionRequest {
@@ -880,12 +981,14 @@ export interface BatchTransitionResponse {
 
 export interface BatchRemoveRequest {
   reason?: string;
+  target_status?: 'completed' | 'cancelled';
 }
 
 export interface BatchRemoveResponse {
   run_key: string;
   removed_count: number;
   removed_keys: string[];
+  final_status: string;
 }
 
 export interface PlantInRun {
@@ -1154,6 +1257,8 @@ export interface Sensor {
   ha_entity_id: string | null;
   mqtt_topic: string | null;
   tank_key: string | null;
+  site_key: string | null;
+  location_key: string | null;
   is_active: boolean;
 }
 
@@ -1162,7 +1267,7 @@ export interface SensorCreate {
   metric_type: string;
   ha_entity_id?: string | null;
   mqtt_topic?: string | null;
-  tank_key: string;
+  tank_key?: string | null;
 }
 
 export interface SensorUpdate {
@@ -1348,6 +1453,7 @@ export interface FertilizerDosage {
   fertilizer_key: string;
   ml_per_liter: number;
   optional: boolean;
+  mixing_order: number;
 }
 
 // ── REQ-004 Multi-Channel Delivery types ──────────────────────────────
@@ -1424,6 +1530,7 @@ export interface NutrientPlanPhaseEntry {
   notes: string | null;
   delivery_channels: DeliveryChannel[];
   watering_schedule_override: WateringSchedule | null;
+  water_mix_ratio_ro_percent: number | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -1440,6 +1547,7 @@ export interface PhaseEntryCreate {
   notes?: string | null;
   delivery_channels?: DeliveryChannelCreate[];
   watering_schedule_override?: WateringSchedule | null;
+  water_mix_ratio_ro_percent?: number | null;
 }
 
 export interface PhaseEntryUpdate {
@@ -1454,15 +1562,18 @@ export interface PhaseEntryUpdate {
   notes?: string | null;
   delivery_channels?: DeliveryChannelCreate[];
   watering_schedule_override?: WateringSchedule | null;
+  water_mix_ratio_ro_percent?: number | null;
 }
 
 // ── REQ-004 Feeding Event types ─────────────────────────────────────
 
+// @deprecated — use WateringLogFertilizer
 export interface FeedingEventFertilizer {
   fertilizer_key: string;
   ml_applied: number;
 }
 
+// @deprecated — use WateringLog
 export interface FeedingEvent {
   key: string;
   plant_key: string;
@@ -1485,6 +1596,7 @@ export interface FeedingEvent {
   updated_at: string | null;
 }
 
+// @deprecated — use WateringLogCreate
 export interface FeedingEventCreate {
   plant_key: string;
   application_method?: ApplicationMethod;
@@ -1501,6 +1613,7 @@ export interface FeedingEventCreate {
   notes?: string | null;
 }
 
+// @deprecated — use WateringLogUpdate
 export interface FeedingEventUpdate {
   application_method?: ApplicationMethod;
   is_supplemental?: boolean;
@@ -1515,23 +1628,111 @@ export interface FeedingEventUpdate {
   notes?: string | null;
 }
 
-// ── WateringEvent types ─────────────────────────────────────────────
+// ── WateringLog types (unified, replaces WateringEvent + FeedingEvent) ──
 
 export type WaterSource = 'tank' | 'tap' | 'osmose' | 'rainwater' | 'distilled' | 'well' | 'mixed';
 
+export interface WateringLogFertilizer {
+  fertilizer_key: string;
+  ml_per_liter: number;
+}
+
+export interface ResolvedPlant {
+  key: string;
+  name: string;
+}
+
+export interface ResolvedFertilizer {
+  key: string;
+  name: string;
+  ml_per_liter: number;
+}
+
+export interface WateringLog {
+  key: string;
+  logged_at: string | null;
+  application_method: ApplicationMethod;
+  is_supplemental: boolean;
+  volume_liters: number;
+  plant_keys: string[];
+  slot_keys: string[];
+  tank_fill_event_key: string | null;
+  nutrient_plan_key: string | null;
+  task_key: string | null;
+  channel_id: string | null;
+  fertilizers_used: WateringLogFertilizer[];
+  ec_before: number | null;
+  ec_after: number | null;
+  ph_before: number | null;
+  ph_after: number | null;
+  runoff_ec: number | null;
+  runoff_ph: number | null;
+  runoff_volume_liters: number | null;
+  water_source: WaterSource | null;
+  performed_by: string | null;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  resolved_plants: ResolvedPlant[];
+  resolved_fertilizers: ResolvedFertilizer[];
+}
+
+export interface WateringLogCreate {
+  application_method?: ApplicationMethod;
+  is_supplemental?: boolean;
+  volume_liters: number;
+  plant_keys?: string[];
+  slot_keys?: string[];
+  tank_fill_event_key?: string | null;
+  nutrient_plan_key?: string | null;
+  channel_id?: string | null;
+  fertilizers_used?: WateringLogFertilizer[];
+  ec_before?: number | null;
+  ec_after?: number | null;
+  ph_before?: number | null;
+  ph_after?: number | null;
+  runoff_ec?: number | null;
+  runoff_ph?: number | null;
+  runoff_volume_liters?: number | null;
+  water_source?: WaterSource | null;
+  performed_by?: string | null;
+  notes?: string | null;
+}
+
+export interface WateringLogUpdate {
+  application_method?: ApplicationMethod;
+  is_supplemental?: boolean;
+  volume_liters?: number;
+  ec_before?: number | null;
+  ec_after?: number | null;
+  ph_before?: number | null;
+  ph_after?: number | null;
+  runoff_ec?: number | null;
+  runoff_ph?: number | null;
+  runoff_volume_liters?: number | null;
+  water_source?: WaterSource | null;
+  performed_by?: string | null;
+  notes?: string | null;
+}
+
+// ── WateringEvent types (deprecated) ────────────────────────────────
+// @deprecated — use WateringLog
+
+// @deprecated — use WateringLogFertilizer
 export interface FertilizerSnapshot {
   product_key: string | null;
   product_name: string;
   ml_per_liter: number;
 }
 
+// @deprecated — use WateringLog
 export interface WateringEvent {
   key: string;
   watered_at: string | null;
   application_method: ApplicationMethod;
   is_supplemental: boolean;
   volume_liters: number;
-  slot_keys: string[];
+  plant_keys: string[];
   tank_fill_event_key: string | null;
   nutrient_plan_key: string | null;
   fertilizers_used: FertilizerSnapshot[];
@@ -1548,11 +1749,12 @@ export interface WateringEvent {
   created_at: string | null;
 }
 
+// @deprecated — use WateringLogCreate
 export interface WateringEventCreate {
   application_method?: ApplicationMethod;
   is_supplemental?: boolean;
   volume_liters: number;
-  slot_keys: string[];
+  plant_keys: string[];
   tank_fill_event_key?: string | null;
   nutrient_plan_key?: string | null;
   fertilizers_used?: FertilizerSnapshot[];
@@ -2178,6 +2380,12 @@ export interface WorkflowTemplateUpdate {
   tags?: string[];
 }
 
+export interface ChecklistItem {
+  text: string;
+  done: boolean;
+  order: number;
+}
+
 export interface TaskTemplate {
   key: string;
   name: string;
@@ -2196,6 +2404,8 @@ export interface TaskTemplate {
   optimal_time_of_day: string | null;
   workflow_template_key: string | null;
   sequence_order: number;
+  default_checklist: ChecklistItem[];
+  require_all_checklist_items: boolean;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -2217,6 +2427,8 @@ export interface TaskTemplateCreate {
   optimal_time_of_day?: string | null;
   workflow_template_key?: string | null;
   sequence_order?: number;
+  default_checklist?: ChecklistItem[];
+  require_all_checklist_items?: boolean;
 }
 
 export interface TaskTemplateUpdate {
@@ -2235,6 +2447,8 @@ export interface TaskTemplateUpdate {
   skill_level?: string;
   optimal_time_of_day?: string | null;
   sequence_order?: number;
+  default_checklist?: ChecklistItem[];
+  require_all_checklist_items?: boolean;
 }
 
 export interface TaskItem {
@@ -2244,8 +2458,11 @@ export interface TaskItem {
   category: string;
   plant_key: string | null;
   due_date: string | null;
+  scheduled_time: string | null;
   status: string;
   priority: string;
+  skill_level: string;
+  stress_level: string;
   estimated_duration_minutes: number | null;
   actual_duration_minutes: number | null;
   requires_photo: boolean;
@@ -2253,10 +2470,24 @@ export interface TaskItem {
   timer_duration_seconds: number | null;
   timer_label: string | null;
   completion_notes: string | null;
+  difficulty_rating: number | null;
+  quality_rating: number | null;
+  tags: string[];
+  checklist: ChecklistItem[];
+  assigned_to_user_key: string | null;
+  recurrence_rule: string | null;
+  recurrence_end_date: string | null;
+  parent_recurring_task_key: string | null;
+  trigger_phase: string | null;
+  trigger_phase_override: string | null;
+  reopened_at: string | null;
+  reopened_from_status: string | null;
   started_at: string | null;
   completed_at: string | null;
   template_key: string | null;
   workflow_execution_key: string | null;
+  planting_run_key: string | null;
+  watering_event_key: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -2267,23 +2498,42 @@ export interface TaskItemCreate {
   category?: string;
   plant_key?: string | null;
   due_date?: string | null;
+  scheduled_time?: string | null;
   priority?: string;
+  skill_level?: string;
+  stress_level?: string;
   estimated_duration_minutes?: number | null;
   requires_photo?: boolean;
   timer_duration_seconds?: number | null;
   timer_label?: string | null;
+  tags?: string[];
+  checklist?: ChecklistItem[];
+  assigned_to_user_key?: string | null;
+  recurrence_rule?: string | null;
+  recurrence_end_date?: string | null;
+  trigger_phase?: string | null;
 }
 
 export interface TaskItemUpdate {
   name?: string;
   instruction?: string;
   category?: string;
+  plant_key?: string | null;
   due_date?: string | null;
+  scheduled_time?: string | null;
   priority?: string;
+  skill_level?: string;
+  stress_level?: string;
   estimated_duration_minutes?: number | null;
   requires_photo?: boolean;
   timer_duration_seconds?: number | null;
   timer_label?: string | null;
+  tags?: string[];
+  checklist?: ChecklistItem[];
+  assigned_to_user_key?: string | null;
+  recurrence_rule?: string | null;
+  recurrence_end_date?: string | null;
+  trigger_phase_override?: string | null;
 }
 
 export interface PhotoUploadResponse {
@@ -2296,6 +2546,50 @@ export interface TaskCompleteRequest {
   completion_notes?: string | null;
   actual_duration_minutes?: number | null;
   photo_refs?: string[];
+  difficulty_rating?: number | null;
+  quality_rating?: number | null;
+}
+
+export interface TaskCloneRequest {
+  target_plant_key?: string | null;
+  due_date_offset_days?: number | null;
+}
+
+export interface TaskComment {
+  key: string;
+  task_key: string;
+  comment_text: string;
+  created_by: string;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface TaskAuditEntry {
+  key: string;
+  task_key: string;
+  changed_at: string | null;
+  changed_by: string;
+  action: string;
+  field: string | null;
+  old_value: string | null;
+  new_value: string | null;
+}
+
+export interface BatchResponse {
+  succeeded: string[];
+  failed: { key: string; error: string }[];
+}
+
+export interface WorkflowAddTaskRequest {
+  name: string;
+  instruction?: string;
+  category?: string;
+  due_date?: string | null;
+  priority?: string;
+  trigger_phase?: string | null;
+  estimated_duration_minutes?: number | null;
+  tags?: string[];
+  checklist?: ChecklistItem[];
 }
 
 export interface WorkflowExecution {
@@ -2528,6 +2822,10 @@ export interface CareProfile {
   humidity_check_enabled: boolean;
   humidity_check_interval_days: number;
   adaptive_learning_enabled: boolean;
+  auto_create_watering_task: boolean;
+  auto_create_fertilizing_task: boolean;
+  auto_create_repotting_task: boolean;
+  auto_create_pest_check_task: boolean;
   watering_interval_learned: number | null;
   fertilizing_interval_learned: number | null;
   notes: string | null;
@@ -2545,6 +2843,7 @@ export interface CareConfirmation {
   action: ConfirmAction;
   confirmed_at: string;
   snooze_days: number | null;
+  watering_log_key: string | null;
   notes: string | null;
   interval_at_time: number | null;
 }
@@ -2604,6 +2903,7 @@ export interface UserPreference {
   onboarding_completed: boolean;
   locale: string;
   theme: string;
+  watering_can_liters: number;
 }
 
 // ── Watering Schedule types ──────────────────────────────────────────
@@ -2663,8 +2963,9 @@ export type CalendarEventCategory =
   | 'maintenance'
   | 'phase_transition'
   | 'tank_maintenance'
+  | 'watering_forecast'
   | 'custom';
-export type CalendarEventSource = 'task' | 'phase_transition' | 'maintenance_log' | 'watering';
+export type CalendarEventSource = 'task' | 'phase_transition' | 'maintenance_log' | 'watering' | 'watering_forecast';
 
 export interface CalendarEvent {
   id: string;
@@ -2707,7 +3008,9 @@ export interface CalendarFeed {
 
 // Sowing Calendar (REQ-015 §3.8)
 
-export type SowingPhase = 'indoor_sowing' | 'outdoor_planting' | 'growth' | 'harvest' | 'flowering';
+export type SowingPhase =
+  | 'indoor_sowing' | 'outdoor_planting' | 'growth' | 'harvest' | 'flowering'
+  | 'germination' | 'seedling' | 'vegetative' | 'flushing' | 'ripening';
 
 export interface SowingBar {
   phase: SowingPhase;
@@ -2721,6 +3024,7 @@ export interface SowingCalendarEntry {
   species_key: string;
   species_name: string;
   common_name: string;
+  link_species_key: string;
   bars: SowingBar[];
 }
 
@@ -2744,6 +3048,7 @@ export interface MonthSummary {
   month_name: string;
   sowing_count: number;
   harvest_count: number;
+  bloom_count: number;
   task_count: number;
   top_tasks: string[];
   is_current: boolean;
@@ -2826,4 +3131,121 @@ export interface ImportJob {
   result: ImportResult | null;
   error_message: string | null;
   created_at: string | null;
+}
+
+// Activities (Stammdaten)
+
+export interface Activity {
+  key: string;
+  tenant_key: string;
+  name: string;
+  name_de: string;
+  description: string;
+  description_de: string;
+  category: ActivityCategory;
+  stress_level: StressLevel;
+  skill_level: SkillLevel;
+  recovery_days_default: number;
+  recovery_days_by_species: Record<string, number>;
+  forbidden_phases: string[];
+  restricted_sub_phases: string[];
+  tools_required: string[];
+  estimated_duration_minutes: number | null;
+  requires_photo: boolean;
+  species_compatible: string[];
+  is_system: boolean;
+  sort_order: number;
+  tags: string[];
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface ActivityCreate {
+  name: string;
+  name_de?: string;
+  description?: string;
+  description_de?: string;
+  category?: ActivityCategory;
+  stress_level?: StressLevel;
+  skill_level?: SkillLevel;
+  recovery_days_default?: number;
+  recovery_days_by_species?: Record<string, number>;
+  forbidden_phases?: string[];
+  restricted_sub_phases?: string[];
+  tools_required?: string[];
+  estimated_duration_minutes?: number | null;
+  requires_photo?: boolean;
+  species_compatible?: string[];
+  sort_order?: number;
+  tags?: string[];
+}
+
+// ── Activity Plans ──
+
+export interface PlannedActivity {
+  activity_key: string;
+  activity_name: string;
+  phase_name: string;
+  phase_sequence_order: number;
+  suggested_day_offset: number;
+  rationale: string;
+  category: string;
+  stress_level: string;
+  skill_level: string;
+  estimated_duration_minutes: number | null;
+  tools_required: string[];
+  recovery_days: number;
+  is_optional: boolean;
+  enabled: boolean;
+}
+
+export interface ActivityPlanPhase {
+  phase_name: string;
+  phase_display_name: string;
+  phase_duration_days: number;
+  sequence_order: number;
+  stress_tolerance: string;
+  activities: PlannedActivity[];
+}
+
+export interface ActivityPlanResponse {
+  species_name: string;
+  growth_system: string | null;
+  skill_level_filter: string | null;
+  phases: ActivityPlanPhase[];
+  total_activities: number;
+  total_duration_days: number;
+}
+
+export interface ActivityPlanGenerateRequest {
+  species_key: string;
+  lifecycle_key?: string | null;
+  growth_system?: string | null;
+  skill_level?: string | null;
+}
+
+export interface ActivityPlanApplyRequest {
+  plan: ActivityPlanResponse;
+  plant_key?: string | null;
+  run_key?: string | null;
+  tenant_key?: string;
+}
+
+export interface ActivityPlanApplyResponse {
+  created_count: number;
+  task_keys: string[];
+  plant_count: number | null;
+  total_tasks: number | null;
+}
+
+export interface ActivityPlanToWorkflowRequest {
+  plan: ActivityPlanResponse;
+  name: string;
+  tenant_key?: string;
+}
+
+export interface WorkflowTemplateBasicResponse {
+  key: string;
+  name: string;
+  description: string | null;
 }
