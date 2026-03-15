@@ -331,16 +331,6 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
   /** Cancel editing */
   const cancelEdit = useCallback(() => setEditing(null), []);
 
-  if (sorted.length === 0 || channelGroups.length === 0) return null;
-
-  const globalStart = Math.min(...sorted.map((e) => e.week_start));
-  const globalEnd = Math.max(...sorted.map((e) => e.week_end));
-  const totalWeeks = globalEnd - globalStart + 1;
-  const weeks = Array.from({ length: totalWeeks }, (_, i) => globalStart + i);
-  const labelWidth = isMobile ? 110 : 150;
-
-  const phaseColor = PHASE_COLORS[sorted[0].phase_name] ?? theme.palette.grey[600];
-
   const weekPhaseMap = useMemo(() => {
     const map = new Map<number, { phase: string; color: string }>();
     for (const entry of sorted) {
@@ -351,6 +341,16 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
     }
     return map;
   }, [sorted, theme]);
+
+  if (sorted.length === 0 || channelGroups.length === 0) return null;
+
+  const globalStart = Math.min(...sorted.map((e) => e.week_start));
+  const globalEnd = Math.max(...sorted.map((e) => e.week_end));
+  const totalWeeks = globalEnd - globalStart + 1;
+  const weeks = Array.from({ length: totalWeeks }, (_, i) => globalStart + i);
+  const labelWidth = isMobile ? 110 : 150;
+
+  const phaseColor = PHASE_COLORS[sorted[0].phase_name] ?? theme.palette.grey[600];
 
   const isEditing = (w: number, groupKey: string, type: string, fertKey?: string) =>
     editing?.week === w && editing.groupKey === groupKey && editing.type === type && editing.fertKey === fertKey;

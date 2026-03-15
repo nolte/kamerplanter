@@ -225,7 +225,7 @@ export default function PlantInstanceCreateDialog({ open, onClose, onCreated, in
   const onSubmit = async (data: FormData) => {
     try {
       setSaving(true);
-      const { substrate_key: rawSubstrateKey, site_key: _site, ...rest } = data;
+      const { substrate_key: rawSubstrateKey, site_key: _, ...rest } = data;
       // Type-only fallback keys start with '_type_' — don't send as substrate_key
       const isTypeOnly = rawSubstrateKey?.startsWith('_type_');
       const substrateKey = isTypeOnly ? null : (rawSubstrateKey || null);
