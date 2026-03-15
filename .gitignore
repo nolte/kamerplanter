@@ -28,3 +28,9 @@ coverage/
 
 # Skaffold
 .skaffold/
+
+# MkDocs build output
+site/
+
+# TypeScript build info
+*.tsbuildinfo
