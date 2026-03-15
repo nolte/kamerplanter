@@ -82,9 +82,7 @@ def _build_families(data: dict[str, Any]) -> list[BotanicalFamily]:
                 typical_nutrient_demand=entry.get("typical_nutrient_demand", "medium"),
                 frost_tolerance=FrostTolerance(entry.get("frost_tolerance", "moderate")),
                 typical_root_depth=entry.get("typical_root_depth", "medium"),
-                typical_growth_forms=[
-                    GrowthHabit(g) for g in entry.get("typical_growth_forms", ["herb"])
-                ],
+                typical_growth_forms=[GrowthHabit(g) for g in entry.get("typical_growth_forms", ["herb"])],
                 common_pests=entry.get("common_pests", []),
                 common_diseases=entry.get("common_diseases", []),
                 pollination_type=entry.get("pollination_type", ["insect"]),
@@ -114,35 +112,21 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
                 base_temp=entry.get("base_temp", 10.0),
                 frost_sensitivity=FrostTolerance(frost) if frost else None,
                 allows_harvest=entry.get("allows_harvest", True),
-                sowing_indoor_weeks_before_last_frost=entry.get(
-                    "sowing_indoor_weeks_before_last_frost"
-                ),
-                sowing_outdoor_after_last_frost_days=entry.get(
-                    "sowing_outdoor_after_last_frost_days"
-                ),
+                sowing_indoor_weeks_before_last_frost=entry.get("sowing_indoor_weeks_before_last_frost"),
+                sowing_outdoor_after_last_frost_days=entry.get("sowing_outdoor_after_last_frost_days"),
                 direct_sow_months=entry.get("direct_sow_months", []),
                 harvest_months=entry.get("harvest_months", []),
                 bloom_months=entry.get("bloom_months", []),
                 container_suitable=(
-                    Suitability(entry["container_suitable"])
-                    if entry.get("container_suitable")
-                    else None
+                    Suitability(entry["container_suitable"]) if entry.get("container_suitable") else None
                 ),
                 recommended_container_volume_l=entry.get("recommended_container_volume_l"),
                 min_container_depth_cm=entry.get("min_container_depth_cm"),
                 mature_height_cm=entry.get("mature_height_cm"),
                 mature_width_cm=entry.get("mature_width_cm"),
                 spacing_cm=entry.get("spacing_cm"),
-                indoor_suitable=(
-                    Suitability(entry["indoor_suitable"])
-                    if entry.get("indoor_suitable")
-                    else None
-                ),
-                balcony_suitable=(
-                    Suitability(entry["balcony_suitable"])
-                    if entry.get("balcony_suitable")
-                    else None
-                ),
+                indoor_suitable=(Suitability(entry["indoor_suitable"]) if entry.get("indoor_suitable") else None),
+                balcony_suitable=(Suitability(entry["balcony_suitable"]) if entry.get("balcony_suitable") else None),
                 greenhouse_recommended=entry.get("greenhouse_recommended", False),
                 support_required=entry.get("support_required", False),
             )
@@ -175,10 +159,7 @@ def _build_enrichment(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 def _build_watering_guide(data: dict[str, Any]) -> WateringGuide:
     """Construct a WateringGuide from YAML data."""
-    adjustments = [
-        SeasonalWateringAdjustment(**adj)
-        for adj in data.get("seasonal_adjustments", [])
-    ]
+    adjustments = [SeasonalWateringAdjustment(**adj) for adj in data.get("seasonal_adjustments", [])]
     return WateringGuide(
         interval_days=data.get("interval_days", 7),
         volume_ml_min=data.get("volume_ml_min", 100),
@@ -216,11 +197,13 @@ def _build_phase_data(
     for sci_name, phases in data.get("growth_phases", {}).items():
         result[sci_name] = []
         for phase in phases:
-            result[sci_name].append({
-                "phase": phase,
-                "requirement": phase["requirement_profile"],
-                "nutrient": phase["nutrient_profile"],
-            })
+            result[sci_name].append(
+                {
+                    "phase": phase,
+                    "requirement": phase["requirement_profile"],
+                    "nutrient": phase["nutrient_profile"],
+                }
+            )
     return result
 
 
@@ -246,12 +229,8 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
     lifecycle_configs = _build_lifecycle_configs(yaml_data)
     phase_data = _build_phase_data(yaml_data)
     cultivar_data: dict[str, list[dict[str, Any]]] = yaml_data.get("cultivars", {})
-    companion_compatible: list[dict[str, Any]] = (
-        yaml_data.get("companion_planting", {}).get("compatible", [])
-    )
-    companion_incompatible: list[dict[str, Any]] = (
-        yaml_data.get("companion_planting", {}).get("incompatible", [])
-    )
+    companion_compatible: list[dict[str, Any]] = yaml_data.get("companion_planting", {}).get("compatible", [])
+    companion_incompatible: list[dict[str, Any]] = yaml_data.get("companion_planting", {}).get("incompatible", [])
     ipm_pests_data: list[dict[str, Any]] = yaml_data.get("pests", [])
     ipm_diseases_data: list[dict[str, Any]] = yaml_data.get("diseases", [])
     ipm_treatments_data: list[dict[str, Any]] = yaml_data.get("treatments", [])
@@ -274,8 +253,14 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
 
     # Also load existing families needed for species creation
     for name in (
-        "Asteraceae", "Solanaceae", "Apiaceae", "Rosaceae",
-        "Asparagaceae", "Araceae", "Bromeliaceae", "Violaceae",
+        "Asteraceae",
+        "Solanaceae",
+        "Apiaceae",
+        "Rosaceae",
+        "Asparagaceae",
+        "Araceae",
+        "Bromeliaceae",
+        "Violaceae",
     ):
         existing = family_repo.get_by_name(name)
         if existing:
@@ -424,11 +409,18 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
                         req_profile = lifecycle_repo.get_requirement_profile(existing.key or "")
                         if req_profile and req_profile.key:
                             req_changed = False
-                            for field in ("light_ppfd_target", "temperature_day_c", "temperature_night_c",
-                                          "humidity_day_percent", "humidity_night_percent",
-                                          "vpd_target_kpa", "photoperiod_hours",
-                                          "co2_ppm", "irrigation_frequency_days",
-                                          "irrigation_volume_ml_per_plant"):
+                            for field in (
+                                "light_ppfd_target",
+                                "temperature_day_c",
+                                "temperature_night_c",
+                                "humidity_day_percent",
+                                "humidity_night_percent",
+                                "vpd_target_kpa",
+                                "photoperiod_hours",
+                                "co2_ppm",
+                                "irrigation_frequency_days",
+                                "irrigation_volume_ml_per_plant",
+                            ):
                                 if field not in req or not hasattr(req_profile, field):
                                     continue
                                 if getattr(req_profile, field) != req[field]:
@@ -441,8 +433,7 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
                         nut_profile = lifecycle_repo.get_nutrient_profile(existing.key or "")
                         if nut_profile and nut_profile.key:
                             nut_changed = False
-                            for field in ("target_ec_ms", "target_ph",
-                                          "calcium_ppm", "magnesium_ppm"):
+                            for field in ("target_ec_ms", "target_ph", "calcium_ppm", "magnesium_ppm"):
                                 if field not in nut or not hasattr(nut_profile, field):
                                     continue
                                 if getattr(nut_profile, field) != nut[field]:
@@ -568,10 +559,7 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
                 species_key=sp_key,
                 breeder=cv_entry.get("breeder"),
                 days_to_maturity=cv_entry.get("days_to_maturity"),
-                traits=[
-                    PlantTrait(t) for t in trait_strings
-                    if t in PlantTrait.__members__.values()
-                ],
+                traits=[PlantTrait(t) for t in trait_strings if t in PlantTrait.__members__.values()],
                 seed_type=cv_entry.get("seed_type", ""),
             )
             species_repo.create_cultivar(cultivar)
@@ -648,9 +636,7 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
             name=t["name"],
             treatment_type=TreatmentType(t["treatment_type"]),
             active_ingredient=t.get("active_ingredient"),
-            application_method=TreatmentApplicationMethod(
-                t.get("application_method", "spray")
-            ),
+            application_method=TreatmentApplicationMethod(t.get("application_method", "spray")),
             safety_interval_days=t.get("safety_interval_days", 0),
             dosage_per_liter=t.get("dosage_per_liter"),
             description=t.get("description"),
@@ -722,7 +708,9 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
             try:
                 ipm_repo.create_targets_disease_edge(t_key, d_key)
                 logger.info(
-                    "targets_disease_edge", treatment=treat_name, disease=disease_name,
+                    "targets_disease_edge",
+                    treatment=treat_name,
+                    disease=disease_name,
                 )
             except Exception:
                 logger.info(

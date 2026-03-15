@@ -117,15 +117,9 @@ class WaterMixCalculator:
         if target_mg_ppm > 0:
             ca_mg_ratio = round(target_ca_ppm / target_mg_ppm, 2)
             if ca_mg_ratio < 2.0:
-                ca_mg_warning = (
-                    f"Ca:Mg ratio {ca_mg_ratio:.1f}:1 is low (ideal 3:1–4:1). "
-                    "Risk of calcium deficiency."
-                )
+                ca_mg_warning = f"Ca:Mg ratio {ca_mg_ratio:.1f}:1 is low (ideal 3:1–4:1). Risk of calcium deficiency."
             elif ca_mg_ratio > 5.0:
-                ca_mg_warning = (
-                    f"Ca:Mg ratio {ca_mg_ratio:.1f}:1 is high (ideal 3:1–4:1). "
-                    "Risk of magnesium lockout."
-                )
+                ca_mg_warning = f"Ca:Mg ratio {ca_mg_ratio:.1f}:1 is high (ideal 3:1–4:1). Risk of magnesium lockout."
 
         return CalMagCorrection(
             calcium_deficit_ppm=round(ca_deficit, 2),
@@ -157,31 +151,36 @@ class WaterSourceValidator:
         expected_gh = profile.calcium_ppm * 2.497 + profile.magnesium_ppm * 4.116
 
         if expected_gh == 0 and profile.gh_ppm > 0:
-            warnings.append(WaterSourceWarning(
-                code="gh_plausibility",
-                message=(
-                    f"GH is {profile.gh_ppm:.0f} ppm but Ca and Mg are both 0. "
-                    "Check your water report values."
-                ),
-                severity="warning",
-            ))
+            warnings.append(
+                WaterSourceWarning(
+                    code="gh_plausibility",
+                    message=(
+                        f"GH is {profile.gh_ppm:.0f} ppm but Ca and Mg are both 0. Check your water report values."
+                    ),
+                    severity="warning",
+                )
+            )
         elif expected_gh > 0:
             deviation = abs(profile.gh_ppm - expected_gh) / expected_gh
             if deviation > self.GH_TOLERANCE:
-                warnings.append(WaterSourceWarning(
-                    code="gh_plausibility",
-                    message=(
-                        f"GH ({profile.gh_ppm:.0f} ppm) deviates {deviation:.0%} from "
-                        f"expected value ({expected_gh:.0f} ppm based on Ca/Mg). "
-                        "Check your water report."
-                    ),
-                    severity="warning",
-                ))
+                warnings.append(
+                    WaterSourceWarning(
+                        code="gh_plausibility",
+                        message=(
+                            f"GH ({profile.gh_ppm:.0f} ppm) deviates {deviation:.0%} from "
+                            f"expected value ({expected_gh:.0f} ppm based on Ca/Mg). "
+                            "Check your water report."
+                        ),
+                        severity="warning",
+                    )
+                )
 
         return warnings
 
     def validate_measurement_age(
-        self, profile: TapWaterProfile, today: date | None = None,
+        self,
+        profile: TapWaterProfile,
+        today: date | None = None,
     ) -> list[WaterSourceWarning]:
         """Warn if measurement_date is older than 12 months."""
         warnings: list[WaterSourceWarning] = []
@@ -192,14 +191,13 @@ class WaterSourceValidator:
         age_days = (reference - profile.measurement_date).days
         if age_days > 365:
             months = age_days // 30
-            warnings.append(WaterSourceWarning(
-                code="measurement_age",
-                message=(
-                    f"Water measurement is {months} months old. "
-                    "Consider getting a fresh water report."
-                ),
-                severity="info",
-            ))
+            warnings.append(
+                WaterSourceWarning(
+                    code="measurement_age",
+                    message=(f"Water measurement is {months} months old. Consider getting a fresh water report."),
+                    severity="info",
+                )
+            )
 
         return warnings
 
@@ -207,14 +205,13 @@ class WaterSourceValidator:
         """Warn if RO water EC suggests membrane degradation."""
         warnings: list[WaterSourceWarning] = []
         if ro.ec_ms > 0.05:
-            warnings.append(WaterSourceWarning(
-                code="ro_membrane",
-                message=(
-                    f"RO water EC ({ro.ec_ms} mS/cm) is above 0.05. "
-                    "Your RO membrane may need replacement."
-                ),
-                severity="warning",
-            ))
+            warnings.append(
+                WaterSourceWarning(
+                    code="ro_membrane",
+                    message=(f"RO water EC ({ro.ec_ms} mS/cm) is above 0.05. Your RO membrane may need replacement."),
+                    severity="warning",
+                )
+            )
         return warnings
 
     def validate_all(

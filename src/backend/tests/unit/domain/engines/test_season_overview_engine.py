@@ -36,21 +36,29 @@ class TestBuildOverview:
         assert overview.months[11].month == 12
 
     def test_counts_sowing_entries(self, engine):
-        entry = _make_entry("sp1", [
-            SowingBar(
-                phase="outdoor_planting", color="#66BB6A",
-                start_date=date(2026, 3, 1), end_date=date(2026, 4, 30),
-            ),
-        ])
+        entry = _make_entry(
+            "sp1",
+            [
+                SowingBar(
+                    phase="outdoor_planting",
+                    color="#66BB6A",
+                    start_date=date(2026, 3, 1),
+                    end_date=date(2026, 4, 30),
+                ),
+            ],
+        )
         overview = engine.build_overview([entry], [], "s1", "G", 2026)
         assert overview.months[2].sowing_count == 1  # March
         assert overview.months[3].sowing_count == 1  # April
         assert overview.months[4].sowing_count == 0  # May
 
     def test_counts_harvest_entries(self, engine):
-        entry = _make_entry("sp1", [
-            SowingBar(phase="harvest", color="#FFA726", start_date=date(2026, 7, 1), end_date=date(2026, 9, 30)),
-        ])
+        entry = _make_entry(
+            "sp1",
+            [
+                SowingBar(phase="harvest", color="#FFA726", start_date=date(2026, 7, 1), end_date=date(2026, 9, 30)),
+            ],
+        )
         overview = engine.build_overview([entry], [], "s1", "G", 2026)
         assert overview.months[6].harvest_count == 1  # July
         assert overview.months[7].harvest_count == 1  # August
@@ -84,9 +92,12 @@ class TestBuildOverview:
         assert overview.year == 2026
 
     def test_counts_bloom_entries_separately(self, engine):
-        entry = _make_entry("sp1", [
-            SowingBar(phase="flowering", color="#EC407A", start_date=date(2026, 3, 1), end_date=date(2026, 5, 31)),
-        ])
+        entry = _make_entry(
+            "sp1",
+            [
+                SowingBar(phase="flowering", color="#EC407A", start_date=date(2026, 3, 1), end_date=date(2026, 5, 31)),
+            ],
+        )
         overview = engine.build_overview([entry], [], "s1", "G", 2026)
         # Bloom should NOT count as harvest
         assert overview.months[2].harvest_count == 0  # March
@@ -103,27 +114,35 @@ class TestBuildOverview:
         assert all(m.bloom_count == 0 for m in overview.months)
 
     def test_counts_lifecycle_germination_as_sowing(self, engine):
-        entry = _make_entry("run1", [
-            SowingBar(phase="germination", color="#FDD835",
-                      start_date=date(2026, 2, 1), end_date=date(2026, 2, 28)),
-        ])
+        entry = _make_entry(
+            "run1",
+            [
+                SowingBar(
+                    phase="germination", color="#FDD835", start_date=date(2026, 2, 1), end_date=date(2026, 2, 28)
+                ),
+            ],
+        )
         overview = engine.build_overview([entry], [], "s1", "G", 2026)
         assert overview.months[1].sowing_count == 1  # Feb
         assert overview.months[1].harvest_count == 0
 
     def test_counts_lifecycle_seedling_as_sowing(self, engine):
-        entry = _make_entry("run1", [
-            SowingBar(phase="seedling", color="#66BB6A",
-                      start_date=date(2026, 3, 1), end_date=date(2026, 3, 31)),
-        ])
+        entry = _make_entry(
+            "run1",
+            [
+                SowingBar(phase="seedling", color="#66BB6A", start_date=date(2026, 3, 1), end_date=date(2026, 3, 31)),
+            ],
+        )
         overview = engine.build_overview([entry], [], "s1", "G", 2026)
         assert overview.months[2].sowing_count == 1  # March
 
     def test_lifecycle_vegetative_not_counted(self, engine):
-        entry = _make_entry("run1", [
-            SowingBar(phase="vegetative", color="#42A5F5",
-                      start_date=date(2026, 4, 1), end_date=date(2026, 6, 30)),
-        ])
+        entry = _make_entry(
+            "run1",
+            [
+                SowingBar(phase="vegetative", color="#42A5F5", start_date=date(2026, 4, 1), end_date=date(2026, 6, 30)),
+            ],
+        )
         overview = engine.build_overview([entry], [], "s1", "G", 2026)
         assert overview.months[3].sowing_count == 0  # April
         assert overview.months[3].harvest_count == 0
@@ -131,18 +150,20 @@ class TestBuildOverview:
 
     def test_full_lifecycle_run(self, engine):
         """A complete PlantingRun lifecycle should count correctly."""
-        entry = _make_entry("run1", [
-            SowingBar(phase="germination", color="#FDD835",
-                      start_date=date(2026, 2, 1), end_date=date(2026, 2, 14)),
-            SowingBar(phase="seedling", color="#66BB6A",
-                      start_date=date(2026, 2, 15), end_date=date(2026, 3, 15)),
-            SowingBar(phase="vegetative", color="#42A5F5",
-                      start_date=date(2026, 3, 16), end_date=date(2026, 5, 31)),
-            SowingBar(phase="flowering", color="#EC407A",
-                      start_date=date(2026, 6, 1), end_date=date(2026, 7, 31)),
-            SowingBar(phase="harvest", color="#FFA726",
-                      start_date=date(2026, 8, 1), end_date=date(2026, 9, 30)),
-        ])
+        entry = _make_entry(
+            "run1",
+            [
+                SowingBar(
+                    phase="germination", color="#FDD835", start_date=date(2026, 2, 1), end_date=date(2026, 2, 14)
+                ),
+                SowingBar(phase="seedling", color="#66BB6A", start_date=date(2026, 2, 15), end_date=date(2026, 3, 15)),
+                SowingBar(
+                    phase="vegetative", color="#42A5F5", start_date=date(2026, 3, 16), end_date=date(2026, 5, 31)
+                ),
+                SowingBar(phase="flowering", color="#EC407A", start_date=date(2026, 6, 1), end_date=date(2026, 7, 31)),
+                SowingBar(phase="harvest", color="#FFA726", start_date=date(2026, 8, 1), end_date=date(2026, 9, 30)),
+            ],
+        )
         overview = engine.build_overview([entry], [], "s1", "G", 2026)
         # Feb: germination + seedling
         assert overview.months[1].sowing_count == 2

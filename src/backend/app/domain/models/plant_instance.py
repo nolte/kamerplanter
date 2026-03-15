@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -28,7 +27,9 @@ class PlantInstance(BaseModel):
     current_phase_key: str | None = None
     current_phase_started_at: datetime | None = None
     container_volume_liters: float | None = Field(
-        default=None, ge=0.1, le=500,
+        default=None,
+        ge=0.1,
+        le=500,
         description="Actual container/pot volume in liters for this plant instance",
     )
     substrate_type_override: SubstrateType | None = Field(

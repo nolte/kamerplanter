@@ -38,7 +38,10 @@ class CalendarAggregationEngine:
         return events
 
     def _task_events(
-        self, start: datetime, end: datetime, query: CalendarEventsQuery,
+        self,
+        start: datetime,
+        end: datetime,
+        query: CalendarEventsQuery,
     ) -> list[CalendarEvent]:
         aql = f"""
         FOR t IN {col.TASKS}
@@ -56,22 +59,27 @@ class CalendarAggregationEngine:
         events = []
         for doc in cursor:
             category = self._task_category_map(doc.get("category", ""))
-            events.append(CalendarEvent(
-                id=f"task:{doc['_key']}",
-                title=doc.get("name", ""),
-                description=doc.get("instruction", ""),
-                category=category,
-                source=CalendarEventSource.TASK,
-                color=CATEGORY_COLORS.get(category, "#607D8B"),
-                start=self._parse_dt(doc.get("due_date")),
-                all_day=True,
-                plant_key=doc.get("plant_key"),
-                task_key=doc.get("_key"),
-            ))
+            events.append(
+                CalendarEvent(
+                    id=f"task:{doc['_key']}",
+                    title=doc.get("name", ""),
+                    description=doc.get("instruction", ""),
+                    category=category,
+                    source=CalendarEventSource.TASK,
+                    color=CATEGORY_COLORS.get(category, "#607D8B"),
+                    start=self._parse_dt(doc.get("due_date")),
+                    all_day=True,
+                    plant_key=doc.get("plant_key"),
+                    task_key=doc.get("_key"),
+                )
+            )
         return events
 
     def _phase_transition_events(
-        self, start: datetime, end: datetime, query: CalendarEventsQuery,
+        self,
+        start: datetime,
+        end: datetime,
+        query: CalendarEventsQuery,
     ) -> list[CalendarEvent]:
         """Return phase spans (actual + projected) that overlap the requested date range.
 
@@ -200,24 +208,29 @@ class CalendarAggregationEngine:
                 meta = {**base_meta, "phase_name": gp_name, "status": status}
 
                 ev_id = f"phase:{plant_key}:{gp_key}" if status != "completed" else f"phase:{h['_key']}"
-                events.append(CalendarEvent(
-                    id=ev_id,
-                    title=title,
-                    description="",
-                    category=cat,
-                    source=CalendarEventSource.PHASE_TRANSITION,
-                    color=color,
-                    start=phase_start,
-                    end=phase_end,
-                    all_day=True,
-                    plant_key=plant_key,
-                    metadata=meta,
-                ))
+                events.append(
+                    CalendarEvent(
+                        id=ev_id,
+                        title=title,
+                        description="",
+                        category=cat,
+                        source=CalendarEventSource.PHASE_TRANSITION,
+                        color=color,
+                        start=phase_start,
+                        end=phase_end,
+                        all_day=True,
+                        plant_key=plant_key,
+                        metadata=meta,
+                    )
+                )
 
         return events
 
     def _maintenance_events(
-        self, start: datetime, end: datetime, query: CalendarEventsQuery,
+        self,
+        start: datetime,
+        end: datetime,
+        query: CalendarEventsQuery,
     ) -> list[CalendarEvent]:
         aql = f"""
         FOR m IN {col.MAINTENANCE_LOGS}
@@ -230,20 +243,25 @@ class CalendarAggregationEngine:
         events = []
         for doc in cursor:
             cat = CalendarEventCategory.TANK_MAINTENANCE
-            events.append(CalendarEvent(
-                id=f"maint:{doc['_key']}",
-                title=doc.get("action", "Maintenance"),
-                description=doc.get("notes", ""),
-                category=cat,
-                source=CalendarEventSource.MAINTENANCE_LOG,
-                color=CATEGORY_COLORS.get(cat, "#00BCD4"),
-                start=self._parse_dt(doc.get("performed_at")),
-                all_day=False,
-            ))
+            events.append(
+                CalendarEvent(
+                    id=f"maint:{doc['_key']}",
+                    title=doc.get("action", "Maintenance"),
+                    description=doc.get("notes", ""),
+                    category=cat,
+                    source=CalendarEventSource.MAINTENANCE_LOG,
+                    color=CATEGORY_COLORS.get(cat, "#00BCD4"),
+                    start=self._parse_dt(doc.get("performed_at")),
+                    all_day=False,
+                )
+            )
         return events
 
     def _watering_events(
-        self, start: datetime, end: datetime, query: CalendarEventsQuery,
+        self,
+        start: datetime,
+        end: datetime,
+        query: CalendarEventsQuery,
     ) -> list[CalendarEvent]:
         aql = f"""
         FOR w IN {col.WATERING_LOGS}
@@ -268,26 +286,29 @@ class CalendarAggregationEngine:
             action = "Feeding" if has_ferts else "Watering"
             title = f"{plant_label}: {action}" if plant_label else action
             plant_keys = doc.get("plant_keys", [])
-            events.append(CalendarEvent(
-                id=f"water:{doc['_key']}",
-                title=title,
-                description=doc.get("notes", ""),
-                category=cat,
-                source=CalendarEventSource.WATERING,
-                color=CATEGORY_COLORS.get(cat, "#2196F3"),
-                start=self._parse_dt(doc.get("logged_at")),
-                all_day=False,
-                plant_key=plant_keys[0] if plant_keys else None,
-                metadata={
-                    "volume_liters": doc.get("volume_liters"),
-                    "application_method": doc.get("application_method"),
-                    "plant_names": plant_names,
-                },
-            ))
+            events.append(
+                CalendarEvent(
+                    id=f"water:{doc['_key']}",
+                    title=title,
+                    description=doc.get("notes", ""),
+                    category=cat,
+                    source=CalendarEventSource.WATERING,
+                    color=CATEGORY_COLORS.get(cat, "#2196F3"),
+                    start=self._parse_dt(doc.get("logged_at")),
+                    all_day=False,
+                    plant_key=plant_keys[0] if plant_keys else None,
+                    metadata={
+                        "volume_liters": doc.get("volume_liters"),
+                        "application_method": doc.get("application_method"),
+                        "plant_names": plant_names,
+                    },
+                )
+            )
         return events
 
     def _watering_forecast_events(
-        self, query: CalendarEventsQuery,
+        self,
+        query: CalendarEventsQuery,
     ) -> list[CalendarEvent]:
         """Project future watering dates from CareProfiles of active plant instances.
 
@@ -390,10 +411,7 @@ class CalendarAggregationEngine:
                 continue
 
             try:
-                profile = CareProfile(**{
-                    k: v for k, v in cp_data.items()
-                    if not k.startswith("_") or k == "_key"
-                })
+                profile = CareProfile(**{k: v for k, v in cp_data.items() if not k.startswith("_") or k == "_key"})
             except Exception:
                 continue
 
@@ -435,25 +453,27 @@ class CalendarAggregationEngine:
             dosage_meta = self._resolve_dosage_metadata(doc, now)
 
             for d in forecast_dates:
-                events.append(CalendarEvent(
-                    id=f"wf:{doc['plant_key']}:{d.isoformat()}",
-                    title=f"{plant_label}: Watering",
-                    description="",
-                    category=cat,
-                    source=CalendarEventSource.WATERING_FORECAST,
-                    color=color,
-                    start=datetime.combine(d, time(9, 0), tzinfo=UTC),
-                    all_day=True,
-                    plant_key=doc.get("plant_key"),
-                    metadata={
-                        "plant_instance_key": doc.get("plant_key", ""),
-                        "instance_id": doc.get("instance_id", ""),
-                        "plant_name": plant_label,
-                        "species_key": doc.get("species_key", ""),
-                        "interval_days": current_interval,
-                        **dosage_meta,
-                    },
-                ))
+                events.append(
+                    CalendarEvent(
+                        id=f"wf:{doc['plant_key']}:{d.isoformat()}",
+                        title=f"{plant_label}: Watering",
+                        description="",
+                        category=cat,
+                        source=CalendarEventSource.WATERING_FORECAST,
+                        color=color,
+                        start=datetime.combine(d, time(9, 0), tzinfo=UTC),
+                        all_day=True,
+                        plant_key=doc.get("plant_key"),
+                        metadata={
+                            "plant_instance_key": doc.get("plant_key", ""),
+                            "instance_id": doc.get("instance_id", ""),
+                            "plant_name": plant_label,
+                            "species_key": doc.get("species_key", ""),
+                            "interval_days": current_interval,
+                            **dosage_meta,
+                        },
+                    )
+                )
 
         return events
 
@@ -475,7 +495,7 @@ class CalendarAggregationEngine:
                     planted_date = planted_on_raw
                 diff_days = (now.date() - planted_date).days
                 current_week = diff_days // 7 + 1 if diff_days >= 0 else None
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 current_week = None
         else:
             current_week = None
@@ -541,10 +561,12 @@ class CalendarAggregationEngine:
                 target_ph = ch["target_ph"]
             for d in ch.get("fertilizer_dosages", []):
                 if not d.get("optional", False):
-                    dosages.append({
-                        "fertilizer_key": d.get("fertilizer_key", ""),
-                        "ml_per_liter": d.get("ml_per_liter", 0),
-                    })
+                    dosages.append(
+                        {
+                            "fertilizer_key": d.get("fertilizer_key", ""),
+                            "ml_per_liter": d.get("ml_per_liter", 0),
+                        }
+                    )
 
         # Resolve fertilizer names
         if dosages:
@@ -643,12 +665,14 @@ class CalendarAggregationEngine:
             if interval is None:
                 continue
 
-            intervals.append(PhaseInterval(
-                phase_name=gp_name,
-                start_date=phase_start.date() if isinstance(phase_start, datetime) else phase_start,
-                end_date=phase_end.date() if isinstance(phase_end, datetime) else phase_end,
-                interval_days=interval,
-            ))
+            intervals.append(
+                PhaseInterval(
+                    phase_name=gp_name,
+                    start_date=phase_start.date() if isinstance(phase_start, datetime) else phase_start,
+                    end_date=phase_end.date() if isinstance(phase_end, datetime) else phase_end,
+                    interval_days=interval,
+                )
+            )
 
         return intervals
 
@@ -674,7 +698,7 @@ class CalendarAggregationEngine:
         else:
             try:
                 dt = datetime.fromisoformat(value)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 return None
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC)

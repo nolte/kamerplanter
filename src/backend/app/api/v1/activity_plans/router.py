@@ -101,7 +101,9 @@ def apply_plan(
 ) -> ActivityPlanApplyResponse:
     if body.run_key:
         result = service.apply_plan_to_run(
-            body.workflow_template_key, body.run_key, body.tenant_key,
+            body.workflow_template_key,
+            body.run_key,
+            body.tenant_key,
         )
         return ActivityPlanApplyResponse(
             created_count=result["total_tasks"],
@@ -112,7 +114,9 @@ def apply_plan(
 
     if body.plant_key:
         result = service.apply_plan_to_plant(
-            body.workflow_template_key, body.plant_key, body.tenant_key,
+            body.workflow_template_key,
+            body.plant_key,
+            body.tenant_key,
         )
         return ActivityPlanApplyResponse(
             created_count=result["created_count"],
@@ -156,8 +160,7 @@ def update_task_template(
         rationale_de=updated.rationale_de,
         category=updated.category.value if hasattr(updated.category, "value") else str(updated.category),
         stress_level=(
-            updated.stress_level.value if hasattr(updated.stress_level, "value")
-            else str(updated.stress_level)
+            updated.stress_level.value if hasattr(updated.stress_level, "value") else str(updated.stress_level)
         ),
         skill_level=updated.skill_level.value if hasattr(updated.skill_level, "value") else str(updated.skill_level),
         estimated_duration_minutes=updated.estimated_duration_minutes,

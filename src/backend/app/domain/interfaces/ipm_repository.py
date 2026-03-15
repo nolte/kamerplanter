@@ -71,7 +71,10 @@ class IIpmRepository(ABC):
 
     @abstractmethod
     def get_inspections_for_plant(
-        self, plant_key: str, offset: int = 0, limit: int = 50,
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
     ) -> tuple[list[Inspection], int]: ...
 
     # ── TreatmentApplication CRUD ──
@@ -80,7 +83,10 @@ class IIpmRepository(ABC):
 
     @abstractmethod
     def get_applications_for_plant(
-        self, plant_key: str, offset: int = 0, limit: int = 50,
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
     ) -> tuple[list[TreatmentApplication], int]: ...
 
     # ── Edges ──

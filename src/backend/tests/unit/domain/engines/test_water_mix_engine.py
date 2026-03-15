@@ -51,7 +51,7 @@ class TestCalculateEffectiveWater:
 
         # pH: logarithmic mixing (H⁺ space) — NOT linear!
         # -log10(10^(-6.5)*0.5 + 10^(-7.5)*0.5) ≈ 6.76
-        expected_ph = -math.log10(10**(-6.5) * 0.5 + 10**(-7.5) * 0.5)
+        expected_ph = -math.log10(10 ** (-6.5) * 0.5 + 10 ** (-7.5) * 0.5)
         assert result.ph == pytest.approx(expected_ph, abs=0.01)
 
     def test_100_percent_ro(self):

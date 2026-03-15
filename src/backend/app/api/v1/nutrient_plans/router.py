@@ -31,6 +31,7 @@ def _entry_response(e: NutrientPlanPhaseEntry) -> PhaseEntryResponse:
 
 # ── Plan CRUD ────────────────────────────────────────────────────────
 
+
 @router.get("", response_model=list[NutrientPlanResponse])
 def list_plans(
     offset: int = Query(0, ge=0),
@@ -82,6 +83,7 @@ def delete_plan(key: str, service: NutrientPlanService = Depends(get_nutrient_pl
 
 # ── Clone + Validate ─────────────────────────────────────────────────
 
+
 @router.post("/{key}/clone", response_model=NutrientPlanResponse, status_code=201)
 def clone_plan(
     key: str,
@@ -98,6 +100,7 @@ def validate_plan(key: str, service: NutrientPlanService = Depends(get_nutrient_
 
 
 # ── Phase entries ────────────────────────────────────────────────────
+
 
 @router.get("/{key}/entries", response_model=list[PhaseEntryResponse])
 def list_entries(key: str, service: NutrientPlanService = Depends(get_nutrient_plan_service)):
@@ -139,6 +142,7 @@ def delete_entry(
 
 # ── Channel fertilizer assignment ─────────────────────────────────────
 
+
 @router.post("/entries/{ek}/channels/{cid}/fertilizers", status_code=201)
 def assign_channel_fertilizer(
     ek: str,
@@ -147,7 +151,11 @@ def assign_channel_fertilizer(
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     service.add_fertilizer_to_channel(
-        ek, cid, body.fertilizer_key, body.ml_per_liter, body.optional,
+        ek,
+        cid,
+        body.fertilizer_key,
+        body.ml_per_liter,
+        body.optional,
     )
     return {"status": "assigned"}
 
@@ -160,5 +168,3 @@ def remove_channel_fertilizer(
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     service.remove_fertilizer_from_channel(ek, cid, fk)
-
-

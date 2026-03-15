@@ -1,5 +1,3 @@
-
-
 def calculate_transition_schedule(
     current_hours: float,
     target_hours: float,
@@ -26,12 +24,14 @@ def calculate_transition_schedule(
         lights_off_minutes = lights_on_minutes + int(hours * 60)
         if lights_off_minutes >= 24 * 60:
             lights_off_minutes = 24 * 60 - 1
-        schedule.append({
-            "day": day,
-            "photoperiod_hours": hours,
-            "lights_on": _minutes_to_time_str(lights_on_minutes),
-            "lights_off": _minutes_to_time_str(lights_off_minutes),
-        })
+        schedule.append(
+            {
+                "day": day,
+                "photoperiod_hours": hours,
+                "lights_on": _minutes_to_time_str(lights_on_minutes),
+                "lights_off": _minutes_to_time_str(lights_off_minutes),
+            }
+        )
     return schedule
 
 

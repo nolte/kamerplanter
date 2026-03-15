@@ -29,6 +29,7 @@ def _make_fert(**kwargs) -> Fertilizer:
 
 # ── NutrientSolutionCalculator ───────────────────────────────────────
 
+
 class TestNutrientSolutionCalculator:
     @pytest.fixture
     def calculator(self):
@@ -76,12 +77,18 @@ class TestNutrientSolutionCalculator:
         """Without recipe, equal EC share: each gets 50% of available EC."""
         ferts = [
             _make_fert(
-                key="a", product_name="A", npk_ratio=(10.0, 0.0, 0.0),
-                ec_contribution_per_ml=0.1, mixing_priority=10,
+                key="a",
+                product_name="A",
+                npk_ratio=(10.0, 0.0, 0.0),
+                ec_contribution_per_ml=0.1,
+                mixing_priority=10,
             ),
             _make_fert(
-                key="b", product_name="B", npk_ratio=(0.0, 10.0, 0.0),
-                ec_contribution_per_ml=0.1, mixing_priority=20,
+                key="b",
+                product_name="B",
+                npk_ratio=(0.0, 10.0, 0.0),
+                ec_contribution_per_ml=0.1,
+                mixing_priority=20,
             ),
         ]
         result = calculator.calculate(
@@ -96,7 +103,8 @@ class TestNutrientSolutionCalculator:
         assert result["dosages"][0]["product_name"] == "A"
         # Equal share: each contributes 0.85 mS → 8.5 ml/L
         assert result["dosages"][0]["ml_per_liter"] == pytest.approx(
-            result["dosages"][1]["ml_per_liter"], abs=0.01,
+            result["dosages"][1]["ml_per_liter"],
+            abs=0.01,
         )
 
     def test_recipe_scaling(self, calculator):
@@ -170,6 +178,7 @@ class TestNutrientSolutionCalculator:
 
 # ── FlushingProtocol ─────────────────────────────────────────────────
 
+
 class TestFlushingProtocol:
     @pytest.fixture
     def protocol(self):
@@ -224,6 +233,7 @@ class TestFlushingProtocol:
 
 # ── RunoffAnalyzer ───────────────────────────────────────────────────
 
+
 class TestRunoffAnalyzer:
     @pytest.fixture
     def analyzer(self):
@@ -231,80 +241,108 @@ class TestRunoffAnalyzer:
 
     def test_salt_buildup(self, analyzer):
         result = analyzer.analyze(
-            input_ec_ms=1.5, runoff_ec_ms=2.5,
-            input_ph=6.0, runoff_ph=6.2,
-            input_volume_liters=2.0, runoff_volume_liters=0.4,
+            input_ec_ms=1.5,
+            runoff_ec_ms=2.5,
+            input_ph=6.0,
+            runoff_ph=6.2,
+            input_volume_liters=2.0,
+            runoff_volume_liters=0.4,
         )
         assert result["ec_status"] == "SALT_BUILDUP"
         assert result["overall_health"] == "POOR"
 
     def test_ec_warning(self, analyzer):
         result = analyzer.analyze(
-            input_ec_ms=1.5, runoff_ec_ms=1.9,
-            input_ph=6.0, runoff_ph=6.1,
-            input_volume_liters=2.0, runoff_volume_liters=0.4,
+            input_ec_ms=1.5,
+            runoff_ec_ms=1.9,
+            input_ph=6.0,
+            runoff_ph=6.1,
+            input_volume_liters=2.0,
+            runoff_volume_liters=0.4,
         )
         assert result["ec_status"] == "WARNING"
 
     def test_ec_ok(self, analyzer):
         result = analyzer.analyze(
-            input_ec_ms=1.5, runoff_ec_ms=1.6,
-            input_ph=6.0, runoff_ph=6.1,
-            input_volume_liters=2.0, runoff_volume_liters=0.4,
+            input_ec_ms=1.5,
+            runoff_ec_ms=1.6,
+            input_ph=6.0,
+            runoff_ph=6.1,
+            input_volume_liters=2.0,
+            runoff_volume_liters=0.4,
         )
         assert result["ec_status"] == "OK"
 
     def test_underfed(self, analyzer):
         result = analyzer.analyze(
-            input_ec_ms=1.5, runoff_ec_ms=1.0,
-            input_ph=6.0, runoff_ph=6.1,
-            input_volume_liters=2.0, runoff_volume_liters=0.4,
+            input_ec_ms=1.5,
+            runoff_ec_ms=1.0,
+            input_ph=6.0,
+            runoff_ph=6.1,
+            input_volume_liters=2.0,
+            runoff_volume_liters=0.4,
         )
         assert result["ec_status"] == "UNDERFED"
 
     def test_ph_drift(self, analyzer):
         result = analyzer.analyze(
-            input_ec_ms=1.5, runoff_ec_ms=1.6,
-            input_ph=6.0, runoff_ph=7.0,
-            input_volume_liters=2.0, runoff_volume_liters=0.4,
+            input_ec_ms=1.5,
+            runoff_ec_ms=1.6,
+            input_ph=6.0,
+            runoff_ph=7.0,
+            input_volume_liters=2.0,
+            runoff_volume_liters=0.4,
         )
         assert result["ph_status"] == "DRIFT"
 
     def test_low_runoff_volume(self, analyzer):
         result = analyzer.analyze(
-            input_ec_ms=1.5, runoff_ec_ms=1.6,
-            input_ph=6.0, runoff_ph=6.1,
-            input_volume_liters=2.0, runoff_volume_liters=0.1,
+            input_ec_ms=1.5,
+            runoff_ec_ms=1.6,
+            input_ph=6.0,
+            runoff_ph=6.1,
+            input_volume_liters=2.0,
+            runoff_volume_liters=0.1,
         )
         assert result["volume_status"] == "LOW"
 
     def test_high_runoff_volume(self, analyzer):
         result = analyzer.analyze(
-            input_ec_ms=1.5, runoff_ec_ms=1.6,
-            input_ph=6.0, runoff_ph=6.1,
-            input_volume_liters=2.0, runoff_volume_liters=1.0,
+            input_ec_ms=1.5,
+            runoff_ec_ms=1.6,
+            input_ph=6.0,
+            runoff_ph=6.1,
+            input_volume_liters=2.0,
+            runoff_volume_liters=1.0,
         )
         assert result["volume_status"] == "HIGH"
 
     def test_ideal_runoff(self, analyzer):
         result = analyzer.analyze(
-            input_ec_ms=1.5, runoff_ec_ms=1.6,
-            input_ph=6.0, runoff_ph=6.1,
-            input_volume_liters=2.0, runoff_volume_liters=0.4,
+            input_ec_ms=1.5,
+            runoff_ec_ms=1.6,
+            input_ph=6.0,
+            runoff_ph=6.1,
+            input_volume_liters=2.0,
+            runoff_volume_liters=0.4,
         )
         assert result["volume_status"] == "OK"
         assert result["overall_health"] == "GOOD"
 
     def test_runoff_percent_calculation(self, analyzer):
         result = analyzer.analyze(
-            input_ec_ms=1.5, runoff_ec_ms=1.6,
-            input_ph=6.0, runoff_ph=6.1,
-            input_volume_liters=10.0, runoff_volume_liters=2.0,
+            input_ec_ms=1.5,
+            runoff_ec_ms=1.6,
+            input_ph=6.0,
+            runoff_ph=6.1,
+            input_volume_liters=10.0,
+            runoff_volume_liters=2.0,
         )
         assert result["runoff_percent"] == 20.0
 
 
 # ── MixingSafetyValidator ────────────────────────────────────────────
+
 
 class TestMixingSafetyValidator:
     @pytest.fixture

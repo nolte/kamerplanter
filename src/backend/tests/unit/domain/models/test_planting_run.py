@@ -17,7 +17,9 @@ class TestPlantingRun:
 
     def test_clone_with_source(self):
         run = PlantingRun(
-            name="Clones", run_type=PlantingRunType.CLONE, source_plant_key="plant_123",
+            name="Clones",
+            run_type=PlantingRunType.CLONE,
+            source_plant_key="plant_123",
         )
         assert run.source_plant_key == "plant_123"
 
@@ -66,13 +68,19 @@ class TestPlantingRunEntry:
 
     def test_companion_role(self):
         entry = PlantingRunEntry(
-            species_key="sp1", quantity=3, id_prefix="BAS", role=EntryRole.COMPANION,
+            species_key="sp1",
+            quantity=3,
+            id_prefix="BAS",
+            role=EntryRole.COMPANION,
         )
         assert entry.role == EntryRole.COMPANION
 
     def test_trap_crop_role(self):
         entry = PlantingRunEntry(
-            species_key="sp1", quantity=2, id_prefix="NAS", role=EntryRole.TRAP_CROP,
+            species_key="sp1",
+            quantity=2,
+            id_prefix="NAS",
+            role=EntryRole.TRAP_CROP,
         )
         assert entry.role == EntryRole.TRAP_CROP
 

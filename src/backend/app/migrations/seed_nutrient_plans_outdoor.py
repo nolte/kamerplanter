@@ -178,10 +178,7 @@ def run_seed_nutrient_plans_outdoor() -> None:
                     continue
                 for entry in missing:
                     entry.plan_key = plan_key
-                    dosage_count = sum(
-                        len(ch.fertilizer_dosages)
-                        for ch in entry.delivery_channels
-                    )
+                    dosage_count = sum(len(ch.fertilizer_dosages) for ch in entry.delivery_channels)
                     created_entry = plan_repo.create_phase_entry(entry)
                     logger.info(
                         "phase_entry_backfilled",
@@ -219,10 +216,7 @@ def run_seed_nutrient_plans_outdoor() -> None:
         )
         for entry in entries:
             entry.plan_key = plan_key
-            dosage_count = sum(
-                len(ch.fertilizer_dosages)
-                for ch in entry.delivery_channels
-            )
+            dosage_count = sum(len(ch.fertilizer_dosages) for ch in entry.delivery_channels)
             created_entry = plan_repo.create_phase_entry(entry)
             logger.info(
                 "phase_entry_created",

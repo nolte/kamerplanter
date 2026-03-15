@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from app.config.settings import settings
@@ -141,7 +140,10 @@ def get_plant_instance_service() -> PlantInstanceService:
     rotation_validator = CropRotationValidator(get_plant_repo(), get_species_repo(), get_graph_repo())
     companion_engine = CompanionPlantingEngine(get_graph_repo(), get_plant_repo(), get_species_repo())
     return PlantInstanceService(
-        get_plant_repo(), get_site_repo(), rotation_validator, companion_engine,
+        get_plant_repo(),
+        get_site_repo(),
+        rotation_validator,
+        companion_engine,
         phase_repo=get_lifecycle_repo(),
     )
 
@@ -180,6 +182,7 @@ def get_planting_run_repo() -> ArangoPlantingRunRepository:
 
 def get_planting_run_service() -> PlantingRunService:
     from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
+
     return PlantingRunService(
         get_planting_run_repo(),
         get_plant_repo(),
@@ -345,29 +348,35 @@ def get_email_service() -> IEmailService:
 
 def get_oauth_engine():
     from app.domain.engines.oauth_engine import OAuthEngine
+
     return OAuthEngine()
 
 
 def get_encryption_engine():
     from app.domain.engines.encryption_engine import EncryptionEngine
+
     return EncryptionEngine(settings.fernet_key)
 
 
 def get_oauth_state_store():
     from app.data_access.external.redis_oauth_state import RedisOAuthStateStore
+
     return RedisOAuthStateStore(settings.redis_url)
 
 
 def get_api_key_repo():
     from app.data_access.arango.api_key_repository import ArangoApiKeyRepository
+
     return ArangoApiKeyRepository(get_db())
 
 
 def get_auth_provider():
     if settings.kamerplanter_mode == "light":
         from app.domain.engines.light_auth_provider import LightAuthProvider
+
         return LightAuthProvider(get_user_repo())
     from app.domain.engines.full_auth_provider import FullAuthProvider
+
     return FullAuthProvider(get_token_engine(), get_user_repo(), get_auth_service())
 
 
@@ -437,16 +446,19 @@ def get_tenant_service() -> TenantService:
 
 def get_starter_kit_service():
     from app.domain.services.starter_kit_service import StarterKitService
+
     return StarterKitService(get_db())
 
 
 def get_onboarding_service():
     from app.domain.services.onboarding_service import OnboardingService
+
     return OnboardingService(get_db(), get_starter_kit_service())
 
 
 def get_user_preference_service():
     from app.domain.services.user_preference_service import UserPreferenceService
+
     return UserPreferenceService(get_db())
 
 
@@ -469,11 +481,13 @@ def get_care_reminder_service() -> CareReminderService:
 
 def get_import_job_repo():
     from app.data_access.arango.import_job_repository import ArangoImportJobRepository
+
     return ArangoImportJobRepository(get_db())
 
 
 def get_import_service():
     from app.domain.services.import_service import ImportService
+
     return ImportService(get_import_job_repo(), get_species_repo(), get_family_repo())
 
 
@@ -482,16 +496,19 @@ def get_import_service():
 
 def get_calendar_feed_repo():
     from app.data_access.arango.calendar_feed_repository import ArangoCalendarFeedRepository
+
     return ArangoCalendarFeedRepository(get_db())
 
 
 def get_calendar_aggregation_engine():
     from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine
+
     return CalendarAggregationEngine(get_db())
 
 
 def get_calendar_service():
     from app.domain.services.calendar_service import CalendarService
+
     return CalendarService(
         get_calendar_feed_repo(),
         get_calendar_aggregation_engine(),
@@ -506,21 +523,25 @@ def get_calendar_service():
 
 def get_sensor_repo():
     from app.data_access.arango.sensor_repository import ArangoSensorRepository
+
     return ArangoSensorRepository(get_db())
 
 
 def get_system_settings_repo():
     from app.data_access.arango.system_settings_repository import ArangoSystemSettingsRepository
+
     return ArangoSystemSettingsRepository(get_db())
 
 
 def get_system_settings_service():
     from app.domain.services.system_settings_service import SystemSettingsService
+
     return SystemSettingsService(get_system_settings_repo())
 
 
 def get_ha_client():
     from app.data_access.external.ha_client import HomeAssistantClient
+
     try:
         svc = get_system_settings_service()
         effective = svc.get_effective_ha_settings()
@@ -539,6 +560,7 @@ def get_ha_client():
 
 def get_sensor_service():
     from app.domain.services.sensor_service import SensorService
+
     return SensorService(get_sensor_repo(), get_ha_client())
 
 
@@ -547,11 +569,13 @@ def get_sensor_service():
 
 def get_location_type_repo():
     from app.data_access.arango.location_type_repository import ArangoLocationTypeRepository
+
     return ArangoLocationTypeRepository(get_db())
 
 
 def get_location_type_service():
     from app.domain.services.location_type_service import LocationTypeService
+
     return LocationTypeService(get_location_type_repo())
 
 
@@ -560,17 +584,20 @@ def get_location_type_service():
 
 def get_activity_repo():
     from app.data_access.arango.activity_repository import ArangoActivityRepository
+
     return ArangoActivityRepository(get_db())
 
 
 def get_activity_service():
     from app.domain.services.activity_service import ActivityService
+
     return ActivityService(get_activity_repo())
 
 
 def get_activity_plan_service():
     from app.domain.engines.activity_plan_engine import ActivityPlanEngine
     from app.domain.services.activity_plan_service import ActivityPlanService
+
     return ActivityPlanService(
         engine=ActivityPlanEngine(),
         activity_repo=get_activity_repo(),

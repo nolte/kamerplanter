@@ -1101,8 +1101,7 @@ def ensure_collections(db: StandardDatabase) -> None:
             else:
                 # Update if from/to vertex collections changed
                 old = existing_defs[edge_col]
-                if (
-                    set(old.get("from_vertex_collections", [])) != set(ed["from_vertex_collections"])
-                    or set(old.get("to_vertex_collections", [])) != set(ed["to_vertex_collections"])
-                ):
+                if set(old.get("from_vertex_collections", [])) != set(ed["from_vertex_collections"]) or set(
+                    old.get("to_vertex_collections", [])
+                ) != set(ed["to_vertex_collections"]):
                     graph.replace_edge_definition(**ed)

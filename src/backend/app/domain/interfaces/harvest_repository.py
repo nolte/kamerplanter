@@ -27,7 +27,10 @@ class IHarvestRepository(ABC):
 
     @abstractmethod
     def get_observations_for_plant(
-        self, plant_key: str, offset: int = 0, limit: int = 50,
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
     ) -> tuple[list[HarvestObservation], int]: ...
 
     @abstractmethod

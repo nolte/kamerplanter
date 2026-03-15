@@ -120,74 +120,80 @@ class TankEngine:
             ph_min, ph_max = PH_RANGES.get(tt, (5.0, 7.0))
             if state.ph < ph_min:
                 severity = "critical" if state.ph < ph_min - 0.5 else "high"
-                alerts.append({
-                    "type": "ph_out_of_range",
-                    "severity": severity,
-                    "message": f"pH {state.ph:.1f} below range [{ph_min}–{ph_max}] for {tt.value}",
-                    "value": state.ph,
-                })
+                alerts.append(
+                    {
+                        "type": "ph_out_of_range",
+                        "severity": severity,
+                        "message": f"pH {state.ph:.1f} below range [{ph_min}–{ph_max}] for {tt.value}",
+                        "value": state.ph,
+                    }
+                )
             elif state.ph > ph_max:
                 severity = "critical" if state.ph > ph_max + 0.5 else "high"
-                alerts.append({
-                    "type": "ph_out_of_range",
-                    "severity": severity,
-                    "message": f"pH {state.ph:.1f} above range [{ph_min}–{ph_max}] for {tt.value}",
-                    "value": state.ph,
-                })
+                alerts.append(
+                    {
+                        "type": "ph_out_of_range",
+                        "severity": severity,
+                        "message": f"pH {state.ph:.1f} above range [{ph_min}–{ph_max}] for {tt.value}",
+                        "value": state.ph,
+                    }
+                )
 
         # ── pH drift (vs last fill) ──────────────────────────────────
-        if (
-            state.ph is not None
-            and last_fill_event is not None
-            and last_fill_event.measured_ph is not None
-        ):
+        if state.ph is not None and last_fill_event is not None and last_fill_event.measured_ph is not None:
             drift = abs(state.ph - last_fill_event.measured_ph)
             threshold = PH_DRIFT_THRESHOLD.get(tt, PH_DRIFT_DEFAULT)
             if drift > threshold:
                 severity = "high" if drift > threshold * 2 else "medium"
-                alerts.append({
-                    "type": "ph_drift",
-                    "severity": severity,
-                    "message": (
-                        f"pH drift {drift:.2f} since last fill "
-                        f"(was {last_fill_event.measured_ph:.1f}, now {state.ph:.1f})"
-                    ),
-                    "value": drift,
-                })
+                alerts.append(
+                    {
+                        "type": "ph_drift",
+                        "severity": severity,
+                        "message": (
+                            f"pH drift {drift:.2f} since last fill "
+                            f"(was {last_fill_event.measured_ph:.1f}, now {state.ph:.1f})"
+                        ),
+                        "value": drift,
+                    }
+                )
 
         # ── EC alerts (absolute + plan-relative) ─────────────────────
         if state.ec_ms is not None:
             ec_limit = EC_MAX.get(tt)
             if ec_limit is not None and state.ec_ms > ec_limit:
-                alerts.append({
-                    "type": "ec_high",
-                    "severity": "high",
-                    "message": f"EC {state.ec_ms:.1f} mS exceeds limit {ec_limit} for {tt.value}",
-                    "value": state.ec_ms,
-                })
+                alerts.append(
+                    {
+                        "type": "ec_high",
+                        "severity": "high",
+                        "message": f"EC {state.ec_ms:.1f} mS exceeds limit {ec_limit} for {tt.value}",
+                        "value": state.ec_ms,
+                    }
+                )
 
             if target_ec_ms is not None and target_ec_ms > 0:
                 deviation_pct = abs(state.ec_ms - target_ec_ms) / target_ec_ms * 100
                 if deviation_pct > 30:
-                    alerts.append({
-                        "type": "ec_deviation_alarm",
-                        "severity": "high",
-                        "message": (
-                            f"EC {state.ec_ms:.1f} deviates {deviation_pct:.0f}% "
-                            f"from target {target_ec_ms:.1f}"
-                        ),
-                        "value": state.ec_ms,
-                    })
+                    alerts.append(
+                        {
+                            "type": "ec_deviation_alarm",
+                            "severity": "high",
+                            "message": (
+                                f"EC {state.ec_ms:.1f} deviates {deviation_pct:.0f}% from target {target_ec_ms:.1f}"
+                            ),
+                            "value": state.ec_ms,
+                        }
+                    )
                 elif deviation_pct > 20:
-                    alerts.append({
-                        "type": "ec_deviation_warning",
-                        "severity": "medium",
-                        "message": (
-                            f"EC {state.ec_ms:.1f} deviates {deviation_pct:.0f}% "
-                            f"from target {target_ec_ms:.1f}"
-                        ),
-                        "value": state.ec_ms,
-                    })
+                    alerts.append(
+                        {
+                            "type": "ec_deviation_warning",
+                            "severity": "medium",
+                            "message": (
+                                f"EC {state.ec_ms:.1f} deviates {deviation_pct:.0f}% from target {target_ec_ms:.1f}"
+                            ),
+                            "value": state.ec_ms,
+                        }
+                    )
 
         # ── Temperature alerts (tank-type-specific) ──────────────────
         if state.water_temp_celsius is not None:
@@ -195,52 +201,64 @@ class TankEngine:
             thresholds = TEMP_THRESHOLDS.get(tt, TEMP_THRESHOLDS[TankType.RESERVOIR])
 
             if temp >= thresholds["warm_crit"]:
-                alerts.append({
-                    "type": "temperature_warm_critical",
-                    "severity": "critical",
-                    "message": f"Water temp {temp:.1f}°C — critical for {tt.value}",
-                    "value": temp,
-                })
+                alerts.append(
+                    {
+                        "type": "temperature_warm_critical",
+                        "severity": "critical",
+                        "message": f"Water temp {temp:.1f}°C — critical for {tt.value}",
+                        "value": temp,
+                    }
+                )
             elif temp >= thresholds["warm_warn"]:
-                alerts.append({
-                    "type": "temperature_warm_warning",
-                    "severity": "medium",
-                    "message": f"Water temp {temp:.1f}°C — warm for {tt.value}",
-                    "value": temp,
-                })
+                alerts.append(
+                    {
+                        "type": "temperature_warm_warning",
+                        "severity": "medium",
+                        "message": f"Water temp {temp:.1f}°C — warm for {tt.value}",
+                        "value": temp,
+                    }
+                )
 
             if temp <= thresholds["cold_crit"]:
-                alerts.append({
-                    "type": "temperature_cold_critical",
-                    "severity": "critical",
-                    "message": f"Water temp {temp:.1f}°C — critically cold for {tt.value}",
-                    "value": temp,
-                })
+                alerts.append(
+                    {
+                        "type": "temperature_cold_critical",
+                        "severity": "critical",
+                        "message": f"Water temp {temp:.1f}°C — critically cold for {tt.value}",
+                        "value": temp,
+                    }
+                )
             elif temp <= thresholds["cold_warn"]:
-                alerts.append({
-                    "type": "temperature_cold_warning",
-                    "severity": "medium",
-                    "message": f"Water temp {temp:.1f}°C — cold for {tt.value}",
-                    "value": temp,
-                })
+                alerts.append(
+                    {
+                        "type": "temperature_cold_warning",
+                        "severity": "medium",
+                        "message": f"Water temp {temp:.1f}°C — cold for {tt.value}",
+                        "value": temp,
+                    }
+                )
 
         # ── Dissolved Oxygen alerts ──────────────────────────────────
         if state.dissolved_oxygen_mgl is not None and tt in (TankType.NUTRIENT, TankType.RECIRCULATION):
             do = state.dissolved_oxygen_mgl
             if do < 4:
-                alerts.append({
-                    "type": "do_critical",
-                    "severity": "critical",
-                    "message": f"Dissolved oxygen {do:.1f} mg/L — critically low",
-                    "value": do,
-                })
+                alerts.append(
+                    {
+                        "type": "do_critical",
+                        "severity": "critical",
+                        "message": f"Dissolved oxygen {do:.1f} mg/L — critically low",
+                        "value": do,
+                    }
+                )
             elif do < 6:
-                alerts.append({
-                    "type": "do_suboptimal",
-                    "severity": "medium",
-                    "message": f"Dissolved oxygen {do:.1f} mg/L — suboptimal",
-                    "value": do,
-                })
+                alerts.append(
+                    {
+                        "type": "do_suboptimal",
+                        "severity": "medium",
+                        "message": f"Dissolved oxygen {do:.1f} mg/L — suboptimal",
+                        "value": do,
+                    }
+                )
 
         # ── Compound: temp + DO ──────────────────────────────────────
         if (
@@ -250,15 +268,17 @@ class TankEngine:
             and state.water_temp_celsius > 22
             and state.dissolved_oxygen_mgl < 6
         ):
-            alerts.append({
-                "type": "compound_temp_do",
-                "severity": "critical",
-                "message": (
-                    f"Warm water ({state.water_temp_celsius:.1f}°C) + low DO "
-                    f"({state.dissolved_oxygen_mgl:.1f} mg/L) — root rot risk"
-                ),
-                "value": state.water_temp_celsius,
-            })
+            alerts.append(
+                {
+                    "type": "compound_temp_do",
+                    "severity": "critical",
+                    "message": (
+                        f"Warm water ({state.water_temp_celsius:.1f}°C) + low DO "
+                        f"({state.dissolved_oxygen_mgl:.1f} mg/L) — root rot risk"
+                    ),
+                    "value": state.water_temp_celsius,
+                }
+            )
 
         # ── ORP alerts (recirculation with UV/ozone only) ────────────
         if (
@@ -267,31 +287,34 @@ class TankEngine:
             and (tank.has_uv_sterilizer or tank.has_ozone_generator)
         ):
             if state.orp_mv < 250:
-                alerts.append({
-                    "type": "orp_pathogen_risk",
-                    "severity": "critical",
-                    "message": f"ORP {state.orp_mv} mV — pathogen risk (< 250 mV)",
-                    "value": state.orp_mv,
-                })
+                alerts.append(
+                    {
+                        "type": "orp_pathogen_risk",
+                        "severity": "critical",
+                        "message": f"ORP {state.orp_mv} mV — pathogen risk (< 250 mV)",
+                        "value": state.orp_mv,
+                    }
+                )
             elif state.orp_mv < 650:
-                alerts.append({
-                    "type": "orp_sterilization_low",
-                    "severity": "medium",
-                    "message": f"ORP {state.orp_mv} mV — sterilization suboptimal (< 650 mV)",
-                    "value": state.orp_mv,
-                })
+                alerts.append(
+                    {
+                        "type": "orp_sterilization_low",
+                        "severity": "medium",
+                        "message": f"ORP {state.orp_mv} mV — sterilization suboptimal (< 650 mV)",
+                        "value": state.orp_mv,
+                    }
+                )
 
         # ── Fill level ───────────────────────────────────────────────
-        if (
-            state.fill_level_percent is not None
-            and state.fill_level_percent < FILL_LEVEL_LOW_PERCENT
-        ):
-            alerts.append({
-                "type": "fill_level_low",
-                "severity": "medium",
-                "message": f"Fill level {state.fill_level_percent:.0f}% — refill needed",
-                "value": state.fill_level_percent,
-            })
+        if state.fill_level_percent is not None and state.fill_level_percent < FILL_LEVEL_LOW_PERCENT:
+            alerts.append(
+                {
+                    "type": "fill_level_low",
+                    "severity": "medium",
+                    "message": f"Fill level {state.fill_level_percent:.0f}% — refill needed",
+                    "value": state.fill_level_percent,
+                }
+            )
 
         # ── Algae risk (multi-factor) ────────────────────────────────
         alerts.extend(self._check_algae_risk(tank, state))
@@ -325,21 +348,26 @@ class TankEngine:
 
         if risk_factors >= 2:
             severity = "high" if risk_factors >= 3 else "medium"
-            return [{
-                "type": "algae_risk",
-                "severity": severity,
-                "message": (
-                    f"Algae risk ({risk_factors} factors: not light-proof, "
-                    f"{'no lid, ' if not tank.has_lid else ''}"
-                    f"{'warm water, ' if state.water_temp_celsius and state.water_temp_celsius > 22 else ''}"
-                    f"{'nutrient-rich' if tank.tank_type in (TankType.NUTRIENT, TankType.RECIRCULATION) else ''})"
-                ),
-                "value": risk_factors,
-            }]
+            return [
+                {
+                    "type": "algae_risk",
+                    "severity": severity,
+                    "message": (
+                        f"Algae risk ({risk_factors} factors: not light-proof, "
+                        f"{'no lid, ' if not tank.has_lid else ''}"
+                        f"{'warm water, ' if state.water_temp_celsius and state.water_temp_celsius > 22 else ''}"
+                        f"{'nutrient-rich' if tank.tank_type in (TankType.NUTRIENT, TankType.RECIRCULATION) else ''})"
+                    ),
+                    "value": risk_factors,
+                }
+            ]
         return []
 
     def _check_solution_age(
-        self, tank: Tank, state: TankState, last_fill: TankFillEvent,
+        self,
+        tank: Tank,
+        state: TankState,
+        last_fill: TankFillEvent,
     ) -> list[dict]:
         """Q10-corrected solution age alert."""
         if last_fill.filled_at is None:
@@ -348,6 +376,7 @@ class TankEngine:
             return []
 
         from datetime import UTC
+
         now = datetime.now(UTC)
         age_days = (now - last_fill.filled_at).total_seconds() / 86400
 
@@ -361,44 +390,52 @@ class TankEngine:
 
         if age_days > adjusted_max:
             severity = "high" if age_days > adjusted_max * 1.5 else "medium"
-            return [{
-                "type": "solution_age",
-                "severity": severity,
-                "message": (
-                    f"Solution age {age_days:.1f}d exceeds {kind} limit "
-                    f"{adjusted_max:.1f}d (Q10-adjusted at {avg_temp:.0f}°C)"
-                ),
-                "value": age_days,
-            }]
+            return [
+                {
+                    "type": "solution_age",
+                    "severity": severity,
+                    "message": (
+                        f"Solution age {age_days:.1f}d exceeds {kind} limit "
+                        f"{adjusted_max:.1f}d (Q10-adjusted at {avg_temp:.0f}°C)"
+                    ),
+                    "value": age_days,
+                }
+            ]
         return []
 
     def _check_water_chemistry(self, last_fill: TankFillEvent) -> list[dict]:
         """Chlorine/chloramine alerts from last fill event."""
         alerts: list[dict] = []
         if last_fill.chlorine_ppm is not None and last_fill.chlorine_ppm > 0.5 and last_fill.is_organic_fertilizers:
-            alerts.append({
+            alerts.append(
+                {
                     "type": "chlorine_warning",
                     "severity": "medium",
                     "message": (
-                        f"Chlorine {last_fill.chlorine_ppm:.1f} ppm "
-                        "with biological additives — may harm microbes"
+                        f"Chlorine {last_fill.chlorine_ppm:.1f} ppm with biological additives — may harm microbes"
                     ),
                     "value": last_fill.chlorine_ppm,
-                })
+                }
+            )
         if last_fill.chloramine_ppm is not None and last_fill.chloramine_ppm > 0.5:
-            alerts.append({
-                "type": "chloramine_warning",
-                "severity": "high",
-                "message": (
-                    f"Chloramine {last_fill.chloramine_ppm:.1f} ppm — "
-                    "requires activated carbon or ascorbic acid treatment"
-                ),
-                "value": last_fill.chloramine_ppm,
-            })
+            alerts.append(
+                {
+                    "type": "chloramine_warning",
+                    "severity": "high",
+                    "message": (
+                        f"Chloramine {last_fill.chloramine_ppm:.1f} ppm — "
+                        "requires activated carbon or ascorbic acid treatment"
+                    ),
+                    "value": last_fill.chloramine_ppm,
+                }
+            )
         return alerts
 
     def _check_biofilm_risk(
-        self, tank: Tank, state: TankState, last_fill: TankFillEvent,
+        self,
+        tank: Tank,
+        state: TankState,
+        last_fill: TankFillEvent,
     ) -> list[dict]:
         """Biofilm risk for recirculation tanks."""
         if tank.tank_type != TankType.RECIRCULATION:
@@ -413,19 +450,22 @@ class TankEngine:
             return []
 
         from datetime import UTC
+
         age_days = (datetime.now(UTC) - last_fill.filled_at).total_seconds() / 86400
         if age_days <= 3:
             return []
 
-        return [{
-            "type": "biofilm_risk",
-            "severity": "medium",
-            "message": (
-                f"Biofilm risk: recirculation, warm ({state.water_temp_celsius:.0f}°C), "
-                f"organic, no UV/ozone, age {age_days:.0f}d"
-            ),
-            "value": age_days,
-        }]
+        return [
+            {
+                "type": "biofilm_risk",
+                "severity": "medium",
+                "message": (
+                    f"Biofilm risk: recirculation, warm ({state.water_temp_celsius:.0f}°C), "
+                    f"organic, no UV/ozone, age {age_days:.0f}d"
+                ),
+                "value": age_days,
+            }
+        ]
 
     def calculate_next_maintenance(
         self,
@@ -436,6 +476,7 @@ class TankEngine:
         """Calculate next due date and status for a maintenance schedule."""
         if now is None:
             from datetime import UTC
+
             now = datetime.now(UTC)
 
         if last_log and last_log.performed_at:
@@ -478,14 +519,12 @@ class TankEngine:
                 "Stock solution tanks cannot be assigned directly to a location. "
                 "Use feeds_from to connect them to other tanks."
             )
-        if (
-            tank_type == TankType.RECIRCULATION
-            and (irrigation_system is None or irrigation_system not in HYDRO_SYSTEMS)
+        if tank_type == TankType.RECIRCULATION and (
+            irrigation_system is None or irrigation_system not in HYDRO_SYSTEMS
         ):
             allowed = ", ".join(s.value for s in HYDRO_SYSTEMS)
             raise ValueError(
-                f"Recirculation tanks require a hydro irrigation system ({allowed}), "
-                f"got: {irrigation_system}"
+                f"Recirculation tanks require a hydro irrigation system ({allowed}), got: {irrigation_system}"
             )
 
     def validate_fill_level(
@@ -519,16 +558,16 @@ class TankEngine:
     # ── Fill Event Logic ────────────────────────────────────────────────
 
     def validate_fill_event(
-        self, tank: Tank, event: TankFillEvent,
+        self,
+        tank: Tank,
+        event: TankFillEvent,
     ) -> list[str]:
         """Validate a fill event and return warnings (not errors)."""
         warnings: list[str] = []
 
         # Volume > capacity for full_change
         if event.fill_type == FillType.FULL_CHANGE and event.volume_liters > tank.volume_liters:
-            warnings.append(
-                f"Volume {event.volume_liters}L exceeds tank capacity {tank.volume_liters}L"
-            )
+            warnings.append(f"Volume {event.volume_liters}L exceeds tank capacity {tank.volume_liters}L")
 
         # EC deviation target vs measured
         if event.target_ec_ms is not None and event.measured_ec_ms is not None:
@@ -544,8 +583,7 @@ class TankEngine:
             dev = abs(event.measured_ph - event.target_ph)
             if dev > 0.3:
                 warnings.append(
-                    f"pH deviation: target {event.target_ph} vs measured {event.measured_ph} "
-                    f"(diff {dev:.2f})"
+                    f"pH deviation: target {event.target_ph} vs measured {event.measured_ph} (diff {dev:.2f})"
                 )
 
         # Chlorine/chloramine warning with biological fertilizers
@@ -557,8 +595,7 @@ class TankEngine:
                 )
             if event.chloramine_ppm is not None and event.chloramine_ppm > 0.5:
                 warnings.append(
-                    f"Chloramine {event.chloramine_ppm} ppm — "
-                    "requires activated carbon or ascorbic acid treatment"
+                    f"Chloramine {event.chloramine_ppm} ppm — requires activated carbon or ascorbic acid treatment"
                 )
 
         return warnings
@@ -578,7 +615,8 @@ class TankEngine:
 
         # Fields to cascade
         cascade_fields = [
-            "water_source", "water_mix_ratio_ro_percent",
+            "water_source",
+            "water_mix_ratio_ro_percent",
             "base_water_ec_ms",
         ]
 

@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from app.common.exceptions import NotFoundError, ValidationError
@@ -62,7 +61,8 @@ class SubstrateService:
         return self._repo.delete_batch(key)
 
     def check_reusability(
-        self, batch_key: BatchKey,
+        self,
+        batch_key: BatchKey,
     ) -> tuple[bool, list[str], list[dict[str, str | float]], float, date | None]:
         self.get_batch(batch_key)
         return self._lifecycle_mgr.check_reusability(batch_key)

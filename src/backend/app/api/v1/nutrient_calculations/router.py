@@ -122,7 +122,9 @@ def water_mix(body: WaterMixRequest):
     calmag = None
     if body.target_ca_ppm > 0 or body.target_mg_ppm > 0:
         correction = calculator.suggest_calmag_correction(
-            effective, body.target_ca_ppm, body.target_mg_ppm,
+            effective,
+            body.target_ca_ppm,
+            body.target_mg_ppm,
         )
         calmag = CalMagCorrectionResponse(
             calcium_deficit_ppm=correction.calcium_deficit_ppm,
@@ -138,10 +140,7 @@ def water_mix(body: WaterMixRequest):
     return WaterMixResponse(
         effective_profile=EffectiveWaterProfileResponse(**effective.model_dump()),
         calmag_correction=calmag,
-        warnings=[
-            WaterSourceWarningResponse(code=w.code, message=w.message, severity=w.severity)
-            for w in warnings
-        ],
+        warnings=[WaterSourceWarningResponse(code=w.code, message=w.message, severity=w.severity) for w in warnings],
     )
 
 
@@ -184,14 +183,16 @@ def ec_budget(
 
     for fert_req in body.fertilizer_keys:
         fert = service.get_fertilizer(fert_req.key)
-        fert_inputs.append(EcBudgetFertilizerInput(
-            key=fert_req.key,
-            product_name=fert.product_name,
-            ec_contribution_per_ml=fert.ec_contribution_per_ml,
-            ec_contribution_uncertain=fert.ec_contribution_uncertain,
-            max_dose_ml_per_liter=fert.max_dose_ml_per_liter,
-            fertilizer_type=fert.fertilizer_type,
-        ))
+        fert_inputs.append(
+            EcBudgetFertilizerInput(
+                key=fert_req.key,
+                product_name=fert.product_name,
+                ec_contribution_per_ml=fert.ec_contribution_per_ml,
+                ec_contribution_uncertain=fert.ec_contribution_uncertain,
+                max_dose_ml_per_liter=fert.max_dose_ml_per_liter,
+                fertilizer_type=fert.fertilizer_type,
+            )
+        )
         if fert_req.recipe_ml_per_liter is not None:
             recipe_map[fert_req.key] = fert_req.recipe_ml_per_liter
 
@@ -244,9 +245,7 @@ def ec_budget(
         tolerance=result.tolerance,
         valid=result.valid,
         living_soil_bypass=result.living_soil_bypass,
-        segments=[
-            EcSegmentResponse(**s.model_dump()) for s in result.segments
-        ],
+        segments=[EcSegmentResponse(**s.model_dump()) for s in result.segments],
         warnings=result.warnings,
         dosage_table=result.dosage_table,
         dosage_instructions=result.dosage_instructions,

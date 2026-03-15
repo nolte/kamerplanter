@@ -72,13 +72,15 @@ class CropRotationValidator:
 
             # CRITICAL: Same family planted within rotation window
             if past_family_key == planned_family_key:
-                results.append(RotationValidationResult(
-                    severity="CRITICAL",
-                    message=(
-                        f"Same family '{planned_family_key}' was planted in this slot"
-                        f" within the last {rotation_window_years} years"
-                    ),
-                ))
+                results.append(
+                    RotationValidationResult(
+                        severity="CRITICAL",
+                        message=(
+                            f"Same family '{planned_family_key}' was planted in this slot"
+                            f" within the last {rotation_window_years} years"
+                        ),
+                    )
+                )
                 continue
 
             # WARNING: shared pest risk (high)
@@ -87,18 +89,20 @@ class CropRotationValidator:
                 for pr in pest_risks:
                     pr_family_key = pr["family"].get("_key", "")
                     if pr_family_key == past_family_key and pr.get("risk_level") == "high":
-                        results.append(RotationValidationResult(
-                            severity="WARNING",
-                            message=(
-                                f"High pest risk between family '{planned_family_key}'"
-                                f" and previously planted '{past_family_key}'"
-                            ),
-                            pest_risk={
-                                "shared_pests": pr.get("shared_pests", []),
-                                "shared_diseases": pr.get("shared_diseases", []),
-                                "risk_level": pr.get("risk_level"),
-                            },
-                        ))
+                        results.append(
+                            RotationValidationResult(
+                                severity="WARNING",
+                                message=(
+                                    f"High pest risk between family '{planned_family_key}'"
+                                    f" and previously planted '{past_family_key}'"
+                                ),
+                                pest_risk={
+                                    "shared_pests": pr.get("shared_pests", []),
+                                    "shared_diseases": pr.get("shared_diseases", []),
+                                    "risk_level": pr.get("risk_level"),
+                                },
+                            )
+                        )
 
             # OK: good rotation (benefit edge exists)
             if self._graph_repo:
@@ -106,17 +110,19 @@ class CropRotationValidator:
                 for succ in successors:
                     succ_family_key = succ["family"].get("_key", "")
                     if succ_family_key == planned_family_key:
-                        results.append(RotationValidationResult(
-                            severity="OK",
-                            message=(
-                                f"Good rotation: '{planned_family_key}' is a recommended"
-                                f" successor for '{past_family_key}'"
-                            ),
-                            rotation_benefit={
-                                "benefit_score": succ.get("benefit_score", 0.0),
-                                "benefit_reason": succ.get("benefit_reason", ""),
-                            },
-                        ))
+                        results.append(
+                            RotationValidationResult(
+                                severity="OK",
+                                message=(
+                                    f"Good rotation: '{planned_family_key}' is a recommended"
+                                    f" successor for '{past_family_key}'"
+                                ),
+                                rotation_benefit={
+                                    "benefit_score": succ.get("benefit_score", 0.0),
+                                    "benefit_reason": succ.get("benefit_reason", ""),
+                                },
+                            )
+                        )
 
         # Nitrogen benefit note
         if planned_family and getattr(planned_family, "nitrogen_fixing", False):
@@ -124,10 +130,12 @@ class CropRotationValidator:
                 r.nitrogen_benefit = "Nitrogen-fixing species improves soil for subsequent crops"
 
         if not results:
-            results.append(RotationValidationResult(
-                severity="INFO",
-                message="No specific rotation recommendation for this combination",
-            ))
+            results.append(
+                RotationValidationResult(
+                    severity="INFO",
+                    message="No specific rotation recommendation for this combination",
+                )
+            )
 
         # Legacy compat: return highest severity first
         severity_order = {"CRITICAL": 0, "WARNING": 1, "INFO": 2, "OK": 3}
@@ -136,7 +144,10 @@ class CropRotationValidator:
         return results
 
     def validate_or_raise(
-        self, slot_key: str, species_key: str, rotation_window_years: int = DEFAULT_ROTATION_WINDOW_YEARS,
+        self,
+        slot_key: str,
+        species_key: str,
+        rotation_window_years: int = DEFAULT_ROTATION_WINDOW_YEARS,
     ) -> None:
         results = self.validate_planting(slot_key, species_key, rotation_window_years)
         for r in results:

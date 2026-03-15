@@ -22,8 +22,7 @@ def _site_response(site: Site, service: SiteService) -> SiteResponse:
         key=site.key or "",
         **site.model_dump(exclude={"key"}),
         water_config_warnings=[
-            WaterSourceWarningSchema(code=w.code, message=w.message, severity=w.severity)
-            for w in warnings
+            WaterSourceWarningSchema(code=w.code, message=w.message, severity=w.severity) for w in warnings
         ],
     )
 
@@ -37,10 +36,12 @@ def list_sites(
     items, total = service.list_sites(offset, limit)
     return [_site_response(s, service) for s in items]
 
+
 @router.get("/{key}", response_model=SiteResponse)
 def get_site(key: str, service: SiteService = Depends(get_site_service)):
     s = service.get_site(key)
     return _site_response(s, service)
+
 
 @router.post("", response_model=SiteResponse, status_code=201)
 def create_site(body: SiteCreate, service: SiteService = Depends(get_site_service)):
@@ -48,11 +49,13 @@ def create_site(body: SiteCreate, service: SiteService = Depends(get_site_servic
     created = service.create_site(site)
     return _site_response(created, service)
 
+
 @router.put("/{key}", response_model=SiteResponse)
 def update_site(key: str, body: SiteCreate, service: SiteService = Depends(get_site_service)):
     site = Site(**body.model_dump())
     updated = service.update_site(key, site)
     return _site_response(updated, service)
+
 
 @router.get("/{key}/location-tree", response_model=list[LocationTreeNode])
 def get_location_tree(key: str, service: SiteService = Depends(get_site_service)):
@@ -105,10 +108,7 @@ def get_site_sensors(
     sensor_service: SensorService = Depends(get_sensor_service),
 ):
     sensors = sensor_service.get_sensors_for_site(key)
-    return [
-        SensorResponse(key=s.key or "", **s.model_dump(exclude={"key"}))
-        for s in sensors
-    ]
+    return [SensorResponse(key=s.key or "", **s.model_dump(exclude={"key"})) for s in sensors]
 
 
 @router.post("/{key}/sensors", response_model=SensorResponse, status_code=201)

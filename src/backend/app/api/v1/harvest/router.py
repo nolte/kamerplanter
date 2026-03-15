@@ -81,7 +81,9 @@ def get_indicators_for_species(species_key: str, service: HarvestService = Depen
 
 @router.post("/plants/{plant_key}/observations", response_model=ObservationResponse, status_code=201)
 def create_observation(
-    plant_key: str, body: ObservationCreate, service: HarvestService = Depends(get_harvest_service),
+    plant_key: str,
+    body: ObservationCreate,
+    service: HarvestService = Depends(get_harvest_service),
 ):
     observation = HarvestObservation(**body.model_dump())
     created = service.record_observation(plant_key, observation)
@@ -122,7 +124,9 @@ def list_batches(
 
 @router.post("/plants/{plant_key}/batches", response_model=HarvestBatchResponse, status_code=201)
 def create_batch(
-    plant_key: str, body: HarvestBatchCreate, service: HarvestService = Depends(get_harvest_service),
+    plant_key: str,
+    body: HarvestBatchCreate,
+    service: HarvestService = Depends(get_harvest_service),
 ):
     batch = HarvestBatch(**body.model_dump())
     created = service.create_harvest_batch(plant_key, batch)
@@ -146,7 +150,9 @@ def update_batch(key: str, body: HarvestBatchUpdate, service: HarvestService = D
 
 @router.post("/batches/{batch_key}/quality", response_model=QualityAssessmentResponse, status_code=201)
 def create_quality_assessment(
-    batch_key: str, body: QualityAssessmentCreate, service: HarvestService = Depends(get_harvest_service),
+    batch_key: str,
+    body: QualityAssessmentCreate,
+    service: HarvestService = Depends(get_harvest_service),
 ):
     assessment = QualityAssessment(**body.model_dump())
     created = service.create_quality_assessment(batch_key, assessment)
@@ -164,7 +170,9 @@ def get_quality(batch_key: str, service: HarvestService = Depends(get_harvest_se
 
 @router.post("/batches/{batch_key}/yield", response_model=YieldMetricResponse, status_code=201)
 def create_yield_metric(
-    batch_key: str, body: YieldMetricCreate, service: HarvestService = Depends(get_harvest_service),
+    batch_key: str,
+    body: YieldMetricCreate,
+    service: HarvestService = Depends(get_harvest_service),
 ):
     metric = YieldMetric(**body.model_dump())
     created = service.create_yield_metric(batch_key, metric)

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 class OnboardingService:
     def __init__(self, db, starter_kit_service: StarterKitService) -> None:
         from app.data_access.arango import collections as col
+
         self._repo = BaseArangoRepository(db, col.ONBOARDING_STATES)
         self._db = db
         self._kit_service = starter_kit_service
@@ -55,11 +56,14 @@ class OnboardingService:
             kit = self._kit_service.get_kit_by_id(kit_id)
             errors = self._engine.validate_kit_application(kit, site_name, plant_count)
             if errors:
-                raise ValidationError("Invalid kit application", [
-                    {"field": "kit", "reason": e, "code": "VALIDATION_ERROR"} for e in errors
-                ])
+                raise ValidationError(
+                    "Invalid kit application",
+                    [{"field": "kit", "reason": e, "code": "VALIDATION_ERROR"} for e in errors],
+                )
             entity_plan = self._engine.build_entity_plan(
-                kit, site_name, plant_count,
+                kit,
+                site_name,
+                plant_count,
                 has_ro_system=has_ro_system,
                 tap_water_ec_ms=tap_water_ec_ms,
                 tap_water_ph=tap_water_ph,
@@ -67,14 +71,16 @@ class OnboardingService:
             created_entities["plan"] = [str(entity_plan)]
 
         state_data = state.model_dump()
-        state_data.update({
-            "completed": True,
-            "completed_at": datetime.now(UTC).isoformat(),
-            "selected_kit_id": kit_id,
-            "selected_experience_level": experience_level,
-            "wizard_step": 5,
-            "created_entities": created_entities,
-        })
+        state_data.update(
+            {
+                "completed": True,
+                "completed_at": datetime.now(UTC).isoformat(),
+                "selected_kit_id": kit_id,
+                "selected_experience_level": experience_level,
+                "wizard_step": 5,
+                "created_entities": created_entities,
+            }
+        )
         updated = OnboardingState(**state_data)
         self._repo.update(state.key or "", updated)
 

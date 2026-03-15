@@ -118,7 +118,9 @@ def duplicate_workflow(
 
 @router.post("/workflows/{key}/instantiate", response_model=WorkflowExecutionResponse, status_code=201)
 def instantiate_workflow(
-    key: str, body: WorkflowInstantiateRequest, service: TaskService = Depends(get_task_service),
+    key: str,
+    body: WorkflowInstantiateRequest,
+    service: TaskService = Depends(get_task_service),
 ):
     execution = service.instantiate_workflow(key, body.plant_key)
     return _we_response(execution)
@@ -318,8 +320,12 @@ async def upload_task_photo(key: str, file: UploadFile, service: TaskService = D
 @router.post("/{key}/complete", response_model=TaskResponse)
 def complete_task(key: str, body: TaskCompleteRequest, service: TaskService = Depends(get_task_service)):
     completed = service.complete_task(
-        key, body.completion_notes, body.actual_duration_minutes,
-        body.photo_refs or None, body.difficulty_rating, body.quality_rating,
+        key,
+        body.completion_notes,
+        body.actual_duration_minutes,
+        body.photo_refs or None,
+        body.difficulty_rating,
+        body.quality_rating,
     )
 
     # Auto-create next watering task if this was a care:watering task
@@ -373,7 +379,9 @@ def skip_task(key: str, service: TaskService = Depends(get_task_service)):
                 created_conf = care_service._repo.create_confirmation(confirmation)
                 if created_conf.key and profile.key:
                     care_service._repo.create_confirmation_edges(
-                        created_conf.key, profile.key, skipped.plant_key,
+                        created_conf.key,
+                        profile.key,
+                        skipped.plant_key,
                     )
 
     return _task_response(skipped)
@@ -396,15 +404,14 @@ def reopen_task(key: str, body: TaskReopenRequest | None = None, service: TaskSe
 @router.get("/{task_key}/comments", response_model=list[TaskCommentResponse])
 def list_task_comments(task_key: str, service: TaskService = Depends(get_task_service)):
     comments = service.list_comments(task_key)
-    return [
-        TaskCommentResponse(key=c.key or "", **c.model_dump(exclude={"key"}))
-        for c in comments
-    ]
+    return [TaskCommentResponse(key=c.key or "", **c.model_dump(exclude={"key"})) for c in comments]
 
 
 @router.post("/{task_key}/comments", response_model=TaskCommentResponse, status_code=201)
 def create_task_comment(
-    task_key: str, body: TaskCommentCreate, service: TaskService = Depends(get_task_service),
+    task_key: str,
+    body: TaskCommentCreate,
+    service: TaskService = Depends(get_task_service),
 ):
     comment = service.create_comment(task_key, body.comment_text, created_by="system")
     return TaskCommentResponse(key=comment.key or "", **comment.model_dump(exclude={"key"}))
@@ -412,7 +419,9 @@ def create_task_comment(
 
 @router.put("/{task_key}/comments/{comment_key}", response_model=TaskCommentResponse)
 def update_task_comment(
-    task_key: str, comment_key: str, body: TaskCommentUpdate,
+    task_key: str,
+    comment_key: str,
+    body: TaskCommentUpdate,
     service: TaskService = Depends(get_task_service),
 ):
     comment = service.update_comment(task_key, comment_key, body.comment_text)
@@ -421,7 +430,9 @@ def update_task_comment(
 
 @router.delete("/{task_key}/comments/{comment_key}", status_code=204)
 def delete_task_comment(
-    task_key: str, comment_key: str, service: TaskService = Depends(get_task_service),
+    task_key: str,
+    comment_key: str,
+    service: TaskService = Depends(get_task_service),
 ):
     service.delete_comment(task_key, comment_key)
     return Response(status_code=204)
@@ -433,10 +444,7 @@ def delete_task_comment(
 @router.get("/{task_key}/history", response_model=list[TaskAuditEntryResponse])
 def get_task_history(task_key: str, service: TaskService = Depends(get_task_service)):
     entries = service.get_task_history(task_key)
-    return [
-        TaskAuditEntryResponse(key=e.key or "", **e.model_dump(exclude={"key"}))
-        for e in entries
-    ]
+    return [TaskAuditEntryResponse(key=e.key or "", **e.model_dump(exclude={"key"})) for e in entries]
 
 
 # ── Workflow Executions ──
@@ -449,7 +457,9 @@ def get_workflow_execution(key: str, service: TaskService = Depends(get_task_ser
 
 @router.post("/executions/{key}/tasks", response_model=TaskResponse, status_code=201)
 def add_task_to_workflow(
-    key: str, body: WorkflowAddTaskRequest, service: TaskService = Depends(get_task_service),
+    key: str,
+    body: WorkflowAddTaskRequest,
+    service: TaskService = Depends(get_task_service),
 ):
     task = Task(**body.model_dump())
     created = service.add_task_to_workflow_execution(key, task)

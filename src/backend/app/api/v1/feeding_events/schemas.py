@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -7,6 +6,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 # ── FeedingEvent schemas ────────────────────────────────────────────
+
 
 class FeedingFertilizerSchema(BaseModel):
     fertilizer_key: str

@@ -69,15 +69,21 @@ class TestNutrientPlanPhaseEntry:
     def test_all_phase_names(self):
         for phase in PhaseName:
             entry = NutrientPlanPhaseEntry(
-                plan_key="p1", phase_name=phase,
-                sequence_order=1, week_start=1, week_end=2,
+                plan_key="p1",
+                phase_name=phase,
+                sequence_order=1,
+                week_start=1,
+                week_end=2,
             )
             assert entry.phase_name == phase
 
     def test_key_alias(self):
         entry = NutrientPlanPhaseEntry(
-            plan_key="p1", phase_name=PhaseName.VEGETATIVE,
-            sequence_order=1, week_start=1, week_end=2,
+            plan_key="p1",
+            phase_name=PhaseName.VEGETATIVE,
+            sequence_order=1,
+            week_start=1,
+            week_end=2,
             **{"_key": "e1"},
         )
         assert entry.key == "e1"

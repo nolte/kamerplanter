@@ -127,19 +127,22 @@ class CareReminderService:
             learned = self._engine.apply_adaptive_learning(profile, reminder_type, history)
             if learned is not None:
                 if reminder_type == ReminderType.WATERING:
-                    self._repo.update_profile(profile.key or "", CareProfile(
-                        **{**profile.model_dump(), "watering_interval_learned": learned},
-                    ))
+                    self._repo.update_profile(
+                        profile.key or "",
+                        CareProfile(
+                            **{**profile.model_dump(), "watering_interval_learned": learned},
+                        ),
+                    )
                 elif reminder_type == ReminderType.FERTILIZING:
-                    self._repo.update_profile(profile.key or "", CareProfile(
-                        **{**profile.model_dump(), "fertilizing_interval_learned": learned},
-                    ))
+                    self._repo.update_profile(
+                        profile.key or "",
+                        CareProfile(
+                            **{**profile.model_dump(), "fertilizing_interval_learned": learned},
+                        ),
+                    )
 
         # Auto-create next watering task if opted in
-        if (
-            reminder_type == ReminderType.WATERING
-            and profile.auto_create_watering_task
-        ):
+        if reminder_type == ReminderType.WATERING and profile.auto_create_watering_task:
             self.ensure_next_watering_task(profile, created)
 
         return created
@@ -198,27 +201,36 @@ class CareReminderService:
 
             for rt in ReminderType:
                 if not self._engine.should_generate_reminder(
-                    profile, rt, plant.get("current_phase"), hemisphere,
+                    profile,
+                    rt,
+                    plant.get("current_phase"),
+                    hemisphere,
                     has_nutrient_plan=plant.get("has_nutrient_plan", False),
                 ):
                     continue
 
                 last = self._repo.get_last_confirmation(plant_key, rt)
                 due_date = self._engine.calculate_due_date(
-                    profile, rt, last, plant.get("current_phase"), hemisphere,
+                    profile,
+                    rt,
+                    last,
+                    plant.get("current_phase"),
+                    hemisphere,
                 )
                 urgency = self._engine.calculate_urgency(due_date)
 
                 if urgency in ("overdue", "due_today", "upcoming"):
-                    entries.append(CareDashboardEntry(
-                        plant_key=plant_key,
-                        plant_name=plant.get("plant_name", ""),
-                        species_name=plant.get("species_name"),
-                        reminder_type=rt,
-                        urgency=urgency,
-                        due_date=due_date.isoformat() if due_date else None,
-                        care_profile_key=profile.key or "",
-                    ))
+                    entries.append(
+                        CareDashboardEntry(
+                            plant_key=plant_key,
+                            plant_name=plant.get("plant_name", ""),
+                            species_name=plant.get("species_name"),
+                            reminder_type=rt,
+                            urgency=urgency,
+                            due_date=due_date.isoformat() if due_date else None,
+                            care_profile_key=profile.key or "",
+                        )
+                    )
 
         # Sort: overdue first, then due_today, then upcoming
         urgency_order = {"overdue": 0, "due_today": 1, "upcoming": 2}
@@ -285,11 +297,14 @@ class CareReminderService:
         # Calculate next due date
         if last_confirmation is None:
             last_confirmation = self._repo.get_last_confirmation(
-                plant_key, ReminderType.WATERING,
+                plant_key,
+                ReminderType.WATERING,
             )
 
         due_date = self._engine.calculate_due_date(
-            profile, ReminderType.WATERING, last_confirmation,
+            profile,
+            ReminderType.WATERING,
+            last_confirmation,
             hemisphere=hemisphere,
         )
         if due_date is None:

@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -49,6 +48,7 @@ class SpeciesCreate(BaseModel):
     watering_guide: WateringGuide | None = None
     default_nutrient_plan_key: str | None = None
 
+
 class SpeciesResponse(BaseModel):
     key: str
     scientific_name: str
@@ -90,6 +90,7 @@ class SpeciesResponse(BaseModel):
     default_nutrient_plan_key: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
 
 class SpeciesListResponse(BaseModel):
     items: list[SpeciesResponse]

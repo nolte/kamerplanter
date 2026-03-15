@@ -22,7 +22,8 @@ class TestFertilizer:
 
     def test_key_alias(self):
         fert = Fertilizer(
-            product_name="Test", fertilizer_type=FertilizerType.BASE,
+            product_name="Test",
+            fertilizer_type=FertilizerType.BASE,
             **{"_key": "abc123"},
         )
         assert fert.key == "abc123"
@@ -34,20 +35,23 @@ class TestFertilizer:
     def test_npk_negative_raises(self):
         with pytest.raises(ValidationError, match="non-negative"):
             Fertilizer(
-                product_name="Test", fertilizer_type=FertilizerType.BASE,
+                product_name="Test",
+                fertilizer_type=FertilizerType.BASE,
                 npk_ratio=(-1.0, 5.0, 5.0),
             )
 
     def test_npk_sum_exceeds_100(self):
         with pytest.raises(ValidationError, match="exceeds 100"):
             Fertilizer(
-                product_name="Test", fertilizer_type=FertilizerType.BASE,
+                product_name="Test",
+                fertilizer_type=FertilizerType.BASE,
                 npk_ratio=(40.0, 40.0, 30.0),
             )
 
     def test_npk_sum_exactly_100(self):
         fert = Fertilizer(
-            product_name="Test", fertilizer_type=FertilizerType.BASE,
+            product_name="Test",
+            fertilizer_type=FertilizerType.BASE,
             npk_ratio=(30.0, 30.0, 40.0),
         )
         assert sum(fert.npk_ratio) == 100.0
@@ -55,7 +59,8 @@ class TestFertilizer:
     def test_ec_contribution_negative_raises(self):
         with pytest.raises(ValidationError):
             Fertilizer(
-                product_name="Test", fertilizer_type=FertilizerType.BASE,
+                product_name="Test",
+                fertilizer_type=FertilizerType.BASE,
                 ec_contribution_per_ml=-0.1,
             )
 
@@ -70,28 +75,36 @@ class TestFertilizer:
     def test_tank_safe_fertigation_conflict(self):
         with pytest.raises(ValidationError, match="tank-safe"):
             Fertilizer(
-                product_name="Test", fertilizer_type=FertilizerType.BASE,
-                tank_safe=False, recommended_application=ApplicationMethod.FERTIGATION,
+                product_name="Test",
+                fertilizer_type=FertilizerType.BASE,
+                tank_safe=False,
+                recommended_application=ApplicationMethod.FERTIGATION,
             )
 
     def test_tank_safe_non_fertigation_ok(self):
         fert = Fertilizer(
-            product_name="Test", fertilizer_type=FertilizerType.BASE,
-            tank_safe=False, recommended_application=ApplicationMethod.FOLIAR,
+            product_name="Test",
+            fertilizer_type=FertilizerType.BASE,
+            tank_safe=False,
+            recommended_application=ApplicationMethod.FOLIAR,
         )
         assert fert.tank_safe is False
 
     def test_storage_temp_invalid_range(self):
         with pytest.raises(ValidationError, match="storage_temp_min"):
             Fertilizer(
-                product_name="Test", fertilizer_type=FertilizerType.BASE,
-                storage_temp_min=30.0, storage_temp_max=20.0,
+                product_name="Test",
+                fertilizer_type=FertilizerType.BASE,
+                storage_temp_min=30.0,
+                storage_temp_max=20.0,
             )
 
     def test_storage_temp_valid_range(self):
         fert = Fertilizer(
-            product_name="Test", fertilizer_type=FertilizerType.BASE,
-            storage_temp_min=5.0, storage_temp_max=30.0,
+            product_name="Test",
+            fertilizer_type=FertilizerType.BASE,
+            storage_temp_min=5.0,
+            storage_temp_max=30.0,
         )
         assert fert.storage_temp_min == 5.0
         assert fert.storage_temp_max == 30.0
@@ -112,7 +125,8 @@ class TestFertilizer:
     def test_shelf_life_positive(self):
         with pytest.raises(ValidationError):
             Fertilizer(
-                product_name="Test", fertilizer_type=FertilizerType.BASE,
+                product_name="Test",
+                fertilizer_type=FertilizerType.BASE,
                 shelf_life_days=0,
             )
 
@@ -156,7 +170,8 @@ class TestFertilizerStock:
     def test_cost_per_liter_negative_raises(self):
         with pytest.raises(ValidationError):
             FertilizerStock(
-                fertilizer_key="f1", current_volume_ml=100.0,
+                fertilizer_key="f1",
+                current_volume_ml=100.0,
                 cost_per_liter=-5.0,
             )
 

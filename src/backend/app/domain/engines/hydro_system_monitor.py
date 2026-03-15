@@ -48,15 +48,23 @@ class HydroSystemMonitor:
 
         return {
             "ec_analysis": {
-                "status": ec_status, "input_ec": input_ec, "runoff_ec": runoff_ec,
-                "difference": round(ec_diff, 2), "action": ec_action,
+                "status": ec_status,
+                "input_ec": input_ec,
+                "runoff_ec": runoff_ec,
+                "difference": round(ec_diff, 2),
+                "action": ec_action,
             },
             "ph_analysis": {
-                "status": ph_status, "input_ph": input_ph, "runoff_ph": runoff_ph,
-                "difference": round(ph_diff, 2), "action": ph_action,
+                "status": ph_status,
+                "input_ph": input_ph,
+                "runoff_ph": runoff_ph,
+                "difference": round(ph_diff, 2),
+                "action": ph_action,
             },
             "runoff_volume": {
-                "status": runoff_status, "percent": round(runoff_percent, 1), "action": runoff_action,
+                "status": runoff_status,
+                "percent": round(runoff_percent, 1),
+                "action": runoff_action,
             },
             "overall_health": overall,
         }

@@ -106,16 +106,19 @@ class TestExtractFromIdToken:
     engine = OAuthEngine()
 
     def test_google_id_token(self):
-        id_token = _make_id_token({
-            "sub": "google-uid-123",
-            "email": "user@gmail.com",
-            "name": "Test User",
-            "picture": "https://lh3.googleusercontent.com/photo.jpg",
-        })
+        id_token = _make_id_token(
+            {
+                "sub": "google-uid-123",
+                "email": "user@gmail.com",
+                "name": "Test User",
+                "picture": "https://lh3.googleusercontent.com/photo.jpg",
+            }
+        )
         _make_config(provider_type="google", userinfo_url=None)
         # Force id_token path by not providing userinfo_url
         result = self.engine._extract_from_id_token(
-            {"id_token": id_token}, "google",
+            {"id_token": id_token},
+            "google",
         )
         assert result.email == "user@gmail.com"
         assert result.provider_user_id == "google-uid-123"
@@ -123,12 +126,15 @@ class TestExtractFromIdToken:
         assert result.provider == AuthProviderType.GOOGLE
 
     def test_apple_id_token(self):
-        id_token = _make_id_token({
-            "sub": "apple-uid-456",
-            "email": "user@privaterelay.appleid.com",
-        })
+        id_token = _make_id_token(
+            {
+                "sub": "apple-uid-456",
+                "email": "user@privaterelay.appleid.com",
+            }
+        )
         result = self.engine._extract_from_id_token(
-            {"id_token": id_token}, "apple",
+            {"id_token": id_token},
+            "apple",
         )
         assert result.email == "user@privaterelay.appleid.com"
         assert result.provider == AuthProviderType.APPLE

@@ -31,7 +31,8 @@ class ActivityPlanService:
         self._family_repo = family_repo
 
     def _resolve_species_info(
-        self, species_key: str,
+        self,
+        species_key: str,
     ) -> tuple:
         """Resolve species, species_name, and family_name from species_key."""
         species = None
@@ -40,10 +41,7 @@ class ActivityPlanService:
         if self._species_repo:
             species = self._species_repo.get_by_key(species_key)
             if species:
-                species_name = (
-                    (species.common_names[0] if species.common_names else "")
-                    or species.scientific_name
-                )
+                species_name = (species.common_names[0] if species.common_names else "") or species.scientific_name
                 if species.family_key and self._family_repo:
                     family = self._family_repo.get_by_key(species.family_key)
                     if family:
@@ -53,7 +51,9 @@ class ActivityPlanService:
         return species, species_name, family_name
 
     def _resolve_lifecycle_key(
-        self, species_key: str, lifecycle_key: str | None,
+        self,
+        species_key: str,
+        lifecycle_key: str | None,
     ) -> str:
         """Resolve lifecycle key, falling back to species default."""
         if lifecycle_key:
@@ -182,7 +182,8 @@ class ActivityPlanService:
             created = self._task_repo.create_task(task)
             if created.key and tt.activity_key:
                 self._task_repo.create_task_activity_edge(
-                    created.key, tt.activity_key,
+                    created.key,
+                    tt.activity_key,
                 )
             created_keys.append(created.key or "")
 
@@ -207,7 +208,9 @@ class ActivityPlanService:
         for pd in plant_dicts:
             plant_key = pd.get("key", pd.get("_key", ""))
             result = self.apply_plan_to_plant(
-                workflow_template_key, plant_key, tenant_key,
+                workflow_template_key,
+                plant_key,
+                tenant_key,
             )
             total_keys.extend(result["task_keys"])
 

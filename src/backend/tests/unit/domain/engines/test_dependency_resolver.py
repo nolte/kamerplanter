@@ -229,9 +229,7 @@ class TestRescheduleDependents:
             _make_task("t2", due_date=datetime(2026, 3, 15, 12, 0, 0)),
         ]
         deps = [_make_dep("t1", "t2")]
-        result = engine.reschedule_dependents(
-            "t1", datetime(2026, 3, 13, 12, 0, 0), None, tasks, deps
-        )
+        result = engine.reschedule_dependents("t1", datetime(2026, 3, 13, 12, 0, 0), None, tasks, deps)
         assert result == []
 
     def test_dependent_without_due_date_skipped(self, engine):

@@ -64,7 +64,8 @@ class TestFeedingEvent:
 
     def test_key_alias(self):
         event = FeedingEvent(
-            plant_key="p1", volume_applied_liters=1.0,
+            plant_key="p1",
+            volume_applied_liters=1.0,
             **{"_key": "fe1"},
         )
         assert event.key == "fe1"
@@ -72,7 +73,8 @@ class TestFeedingEvent:
     def test_all_application_methods(self):
         for method in ApplicationMethod:
             event = FeedingEvent(
-                plant_key="p1", volume_applied_liters=1.0,
+                plant_key="p1",
+                volume_applied_liters=1.0,
                 application_method=method,
             )
             assert event.application_method == method

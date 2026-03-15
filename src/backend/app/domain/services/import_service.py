@@ -35,7 +35,11 @@ class ImportService:
     ) -> ImportJob:
         existing_keys = self._get_existing_keys(entity_type)
         job = self._engine.upload_and_validate(
-            file_bytes, entity_type, filename, duplicate_strategy, existing_keys,
+            file_bytes,
+            entity_type,
+            filename,
+            duplicate_strategy,
+            existing_keys,
         )
         job.uploaded_by = uploaded_by
         return self._repo.save(job)
@@ -70,7 +74,8 @@ class ImportService:
             docs, _ = self._species_repo.get_all(0, 10000)
             return {
                 d.get("scientific_name", d.get("_key", ""))
-                if isinstance(d, dict) else getattr(d, "scientific_name", "")
+                if isinstance(d, dict)
+                else getattr(d, "scientific_name", "")
                 for d in docs
             }
         if entity_type == EntityType.BOTANICAL_FAMILY and self._family_repo:
@@ -81,6 +86,7 @@ class ImportService:
     def _get_create_fn(self, entity_type: EntityType):
         if entity_type == EntityType.SPECIES and self._species_repo:
             from app.domain.models.species import Species
+
             def create_species(data: dict):
                 species = Species(
                     scientific_name=data["scientific_name"],
@@ -88,10 +94,12 @@ class ImportService:
                     description=data.get("description", ""),
                 )
                 self._species_repo.create(species)
+
             return create_species
 
         if entity_type == EntityType.BOTANICAL_FAMILY and self._family_repo:
             from app.domain.models.botanical_family import BotanicalFamily
+
             def create_family(data: dict):
                 family = BotanicalFamily(
                     name=data["name"],
@@ -100,8 +108,10 @@ class ImportService:
                     description=data.get("description", ""),
                 )
                 self._family_repo.create(family)
+
             return create_family
 
         def noop(data: dict):
             pass
+
         return noop

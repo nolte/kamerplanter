@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -18,6 +17,7 @@ class LifecycleCreate(BaseModel):
     vernalization_min_days: int | None = Field(default=None, ge=1)
     photoperiod_type: PhotoperiodType = PhotoperiodType.DAY_NEUTRAL
     critical_day_length_hours: float | None = Field(default=None, ge=0, le=24)
+
 
 class LifecycleResponse(BaseModel):
     key: str

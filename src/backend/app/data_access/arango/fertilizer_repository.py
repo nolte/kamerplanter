@@ -19,7 +19,10 @@ class ArangoFertilizerRepository(IFertilizerRepository, BaseArangoRepository):
     # ── Fertilizer CRUD ──────────────────────────────────────────────
 
     def get_all(
-        self, offset: int = 0, limit: int = 50, filters: dict | None = None,
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict | None = None,
     ) -> tuple[list[Fertilizer], int]:
         if filters:
             query = f"FOR doc IN {col.FERTILIZERS}"
@@ -95,10 +98,13 @@ class ArangoFertilizerRepository(IFertilizerRepository, BaseArangoRepository):
           SORT doc.purchase_date DESC
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.FERTILIZER_STOCKS,
-            "fert_key": fertilizer_key,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.FERTILIZER_STOCKS,
+                "fert_key": fertilizer_key,
+            },
+        )
         return [FertilizerStock(**self._from_doc(doc)) for doc in cursor]
 
     def update_stock(self, key: FertilizerStockKey, stock: FertilizerStock) -> FertilizerStock:
@@ -106,7 +112,8 @@ class ArangoFertilizerRepository(IFertilizerRepository, BaseArangoRepository):
         data.pop("_key", None)
         data["updated_at"] = datetime.now(UTC).isoformat()
         result = self._db.collection(col.FERTILIZER_STOCKS).update(
-            {"_key": key, **data}, return_new=True,
+            {"_key": key, **data},
+            return_new=True,
         )
         return FertilizerStock(**self._from_doc(result["new"]))
 
@@ -123,7 +130,11 @@ class ArangoFertilizerRepository(IFertilizerRepository, BaseArangoRepository):
     # ── Incompatibility ──────────────────────────────────────────────
 
     def add_incompatibility(
-        self, key_a: FertilizerKey, key_b: FertilizerKey, reason: str, severity: str,
+        self,
+        key_a: FertilizerKey,
+        key_b: FertilizerKey,
+        reason: str,
+        severity: str,
     ) -> dict:
         from_id = f"{col.FERTILIZERS}/{key_a}"
         to_id = f"{col.FERTILIZERS}/{key_b}"

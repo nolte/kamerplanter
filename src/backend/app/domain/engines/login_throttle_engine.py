@@ -18,7 +18,7 @@ class LoginThrottleEngine:
             return None
         # Exponential backoff: 15min, 30min, 60min, 120min, 240min (cap)
         exponent = failed_attempts - MAX_ATTEMPTS
-        minutes = min(BASE_LOCKOUT_MINUTES * (2 ** exponent), MAX_LOCKOUT_MINUTES)
+        minutes = min(BASE_LOCKOUT_MINUTES * (2**exponent), MAX_LOCKOUT_MINUTES)
         return datetime.now(UTC) + timedelta(minutes=minutes)
 
     def get_lockout_minutes(self, locked_until: datetime | None) -> int:

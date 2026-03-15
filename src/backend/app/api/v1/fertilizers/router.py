@@ -28,6 +28,7 @@ def _fert_response(f: Fertilizer) -> FertilizerResponse:
 
 # ── Fertilizer CRUD ──────────────────────────────────────────────────
 
+
 @router.get("", response_model=list[FertilizerResponse])
 def list_fertilizers(
     offset: int = Query(0, ge=0),
@@ -85,6 +86,7 @@ def delete_fertilizer(key: str, service: FertilizerService = Depends(get_fertili
 
 # ── Stock CRUD ───────────────────────────────────────────────────────
 
+
 @router.get("/{key}/stocks", response_model=list[StockResponse])
 def list_stocks(key: str, service: FertilizerService = Depends(get_fertilizer_service)):
     stocks = service.get_stocks(key)
@@ -125,6 +127,7 @@ def delete_stock(
 
 # ── Incompatibilities ────────────────────────────────────────────────
 
+
 @router.get("/{key}/incompatibilities", response_model=list[IncompatibilityResponse])
 def list_incompatibilities(
     key: str,
@@ -158,6 +161,7 @@ def remove_incompatibility(
 
 
 # ── Nutrient plan usage ─────────────────────────────────────────────
+
 
 @router.get("/{key}/nutrient-plans", response_model=list[NutrientPlanUsageResponse])
 def list_nutrient_plan_usage(

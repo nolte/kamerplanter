@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from fastapi import Cookie, Depends, Header, Path

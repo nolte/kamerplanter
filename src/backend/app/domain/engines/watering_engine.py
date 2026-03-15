@@ -21,14 +21,13 @@ class WateringEngine:
         warnings: list[dict] = []
 
         # Fertigation on manual system
-        if (
-            event.application_method == ApplicationMethod.FERTIGATION
-            and irrigation_system == IrrigationSystem.MANUAL
-        ):
-            warnings.append({
-                "type": "fertigation_on_manual",
-                "message": "Fertigation selected but location uses manual irrigation",
-            })
+        if event.application_method == ApplicationMethod.FERTIGATION and irrigation_system == IrrigationSystem.MANUAL:
+            warnings.append(
+                {
+                    "type": "fertigation_on_manual",
+                    "message": "Fertigation selected but location uses manual irrigation",
+                }
+            )
 
         # Drench on automated system without is_supplemental
         if (
@@ -37,20 +36,23 @@ class WateringEngine:
             and irrigation_system in HYDRO_SYSTEMS
             and not event.is_supplemental
         ):
-            warnings.append({
-                "type": "drench_on_auto",
-                "message": "Drench on automated system without supplemental flag",
-            })
+            warnings.append(
+                {
+                    "type": "drench_on_auto",
+                    "message": "Drench on automated system without supplemental flag",
+                }
+            )
 
         # Volume exceeds threshold per plant
         volume_per_plant = event.volume_liters / len(event.plant_keys)
         if volume_per_plant > MAX_VOLUME_PER_SLOT:
-            warnings.append({
-                "type": "high_volume",
-                "message": (
-                    f"Volume per plant ({volume_per_plant:.1f} L) "
-                    f"exceeds {MAX_VOLUME_PER_SLOT} L threshold"
-                ),
-            })
+            warnings.append(
+                {
+                    "type": "high_volume",
+                    "message": (
+                        f"Volume per plant ({volume_per_plant:.1f} L) exceeds {MAX_VOLUME_PER_SLOT} L threshold"
+                    ),
+                }
+            )
 
         return warnings

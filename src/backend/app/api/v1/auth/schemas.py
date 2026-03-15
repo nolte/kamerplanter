@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, EmailStr, Field
@@ -36,6 +35,7 @@ class PasswordResetConfirm(BaseModel):
 
 class RefreshRequest(BaseModel):
     """Body-based refresh as fallback (primary is HttpOnly cookie)."""
+
     refresh_token: str | None = None
 
 

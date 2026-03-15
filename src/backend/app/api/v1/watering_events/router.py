@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, Query
@@ -29,6 +28,7 @@ def _event_response(e: WateringEvent) -> WateringEventResponse:
 
 
 # ── CRUD ─────────────────────────────────────────────────────────────
+
 
 @router.post("/watering-events", response_model=WateringEventWithWarnings, status_code=201)
 def create_event(
@@ -62,6 +62,7 @@ def get_event(
 
 
 # ── Queries ──────────────────────────────────────────────────────────
+
 
 @router.get(
     "/plant-instances/{plant_key}/watering-events",
@@ -105,6 +106,7 @@ def get_location_stats(
 
 # ── Confirm / Quick-confirm ──────────────────────────────────────────
 
+
 @router.post("/watering-events/confirm", response_model=WateringConfirmResponse, status_code=201)
 def confirm_watering(
     body: WateringConfirmRequest,
@@ -131,6 +133,7 @@ def quick_confirm_watering(
 
 
 # ── Volume suggestion ─────────────────────────────────────────────
+
 
 @router.get(
     "/plant-instances/{plant_key}/watering-volume-suggestion",

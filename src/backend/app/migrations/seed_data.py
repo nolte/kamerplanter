@@ -41,10 +41,7 @@ def _load_families() -> list[BotanicalFamily]:
 def _load_rotation_edges() -> list[tuple[str, str, int, float, str]]:
     """Load rotation edges from YAML."""
     data = load_yaml("botanical_families.yaml")
-    return [
-        (e[0], e[1], e[2], e[3], e[4])
-        for e in data["rotation_edges"]
-    ]
+    return [(e[0], e[1], e[2], e[3], e[4]) for e in data["rotation_edges"]]
 
 
 def _load_species() -> list[Species]:
@@ -102,6 +99,7 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
     """Seed all reference data into the database. Idempotent (upsert behavior)."""
     # ── Seed location types (REQ-002) — delegated to startup module ──
     from app.migrations.seed_location_types import seed_location_types
+
     db = get_family_repo()._db  # reuse connection
     seed_location_types(db)
 
@@ -144,8 +142,11 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
         if from_key and to_key:
             try:
                 graph_repo.set_rotation_successor(
-                    from_key, to_key, wait_years,
-                    benefit_score=benefit_score, benefit_reason=benefit_reason,
+                    from_key,
+                    to_key,
+                    wait_years,
+                    benefit_score=benefit_score,
+                    benefit_reason=benefit_reason,
                 )
                 logger.info("rotation_edge_created", from_family=from_name, to_family=to_name)
             except Exception:
@@ -158,8 +159,10 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
         if a_key and b_key:
             try:
                 graph_repo.set_pest_risk(
-                    a_key, b_key,
-                    edge["shared_pests"], edge["shared_diseases"],
+                    a_key,
+                    b_key,
+                    edge["shared_pests"],
+                    edge["shared_diseases"],
                     edge["risk_level"],
                 )
                 logger.info("pest_risk_edge_created", a=edge["family_a"], b=edge["family_b"])
@@ -172,8 +175,11 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
         if a_key and b_key:
             try:
                 graph_repo.set_family_compatible(
-                    a_key, b_key,
-                    edge["benefit_type"], edge["score"], edge["notes"],
+                    a_key,
+                    b_key,
+                    edge["benefit_type"],
+                    edge["score"],
+                    edge["notes"],
                 )
                 logger.info("family_compatible_edge_created", a=edge["family_a"], b=edge["family_b"])
             except Exception:
@@ -185,7 +191,10 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
         if a_key and b_key:
             try:
                 graph_repo.set_family_incompatible(
-                    a_key, b_key, edge["reason"], edge["severity"],
+                    a_key,
+                    b_key,
+                    edge["reason"],
+                    edge["severity"],
                 )
                 logger.info("family_incompatible_edge_created", a=edge["family_a"], b=edge["family_b"])
             except Exception:
@@ -193,12 +202,24 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
 
     # ── Seed species ─────────────────────────────────────────────────
     seed_update_fields = (
-        "sowing_indoor_weeks_before_last_frost", "sowing_outdoor_after_last_frost_days",
-        "direct_sow_months", "harvest_months", "bloom_months", "frost_sensitivity",
-        "allows_harvest", "growing_periods",
-        "container_suitable", "recommended_container_volume_l", "min_container_depth_cm",
-        "mature_height_cm", "mature_width_cm", "spacing_cm",
-        "indoor_suitable", "balcony_suitable", "greenhouse_recommended", "support_required",
+        "sowing_indoor_weeks_before_last_frost",
+        "sowing_outdoor_after_last_frost_days",
+        "direct_sow_months",
+        "harvest_months",
+        "bloom_months",
+        "frost_sensitivity",
+        "allows_harvest",
+        "growing_periods",
+        "container_suitable",
+        "recommended_container_volume_l",
+        "min_container_depth_cm",
+        "mature_height_cm",
+        "mature_width_cm",
+        "spacing_cm",
+        "indoor_suitable",
+        "balcony_suitable",
+        "greenhouse_recommended",
+        "support_required",
     )
 
     species_key_map: dict[str, str] = {}
@@ -230,10 +251,7 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
         logger.info("species_created", name=sp.scientific_name, key=species_key)
 
         # Create lifecycle — perennials get PERENNIAL cycle type
-        cycle = (
-            CycleType.PERENNIAL if sp.scientific_name in perennial_species
-            else CycleType.ANNUAL
-        )
+        cycle = CycleType.PERENNIAL if sp.scientific_name in perennial_species else CycleType.ANNUAL
         lc = LifecycleConfig(
             species_key=species_key,
             cycle_type=cycle,
@@ -410,6 +428,7 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
 
     # ── Deduplicate task templates (one-time cleanup) ────────────────
     from app.data_access.arango import collections as seed_col
+
     tt_col = db.collection(seed_col.TASK_TEMPLATES)
     dedup_query = (
         f"FOR doc IN {seed_col.TASK_TEMPLATES} "

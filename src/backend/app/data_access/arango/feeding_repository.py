@@ -19,7 +19,9 @@ class ArangoFeedingRepository(IFeedingRepository, BaseArangoRepository):
     # ── CRUD ─────────────────────────────────────────────────────────
 
     def get_all(
-        self, offset: int = 0, limit: int = 50,
+        self,
+        offset: int = 0,
+        limit: int = 50,
     ) -> tuple[list[FeedingEvent], int]:
         docs, total = BaseArangoRepository.get_all(self, offset, limit)
         return [FeedingEvent(**doc) for doc in docs], total
@@ -49,7 +51,9 @@ class ArangoFeedingRepository(IFeedingRepository, BaseArangoRepository):
         for fert_used in event.fertilizers_used:
             fert_id = f"{col.FERTILIZERS}/{fert_used.fertilizer_key}"
             self.create_edge(
-                col.FEEDING_USED, event_id, fert_id,
+                col.FEEDING_USED,
+                event_id,
+                fert_id,
                 {"ml_applied": fert_used.ml_applied},
             )
 
@@ -60,7 +64,8 @@ class ArangoFeedingRepository(IFeedingRepository, BaseArangoRepository):
         data.pop("_key", None)
         data["updated_at"] = datetime.now(UTC).isoformat()
         result = self._db.collection(col.FEEDING_EVENTS).update(
-            {"_key": key, **data}, return_new=True,
+            {"_key": key, **data},
+            return_new=True,
         )
         return FeedingEvent(**self._from_doc(result["new"]))
 
@@ -83,12 +88,15 @@ class ArangoFeedingRepository(IFeedingRepository, BaseArangoRepository):
           LIMIT @offset, @limit
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.FEEDING_EVENTS,
-            "plant_key": plant_key,
-            "offset": offset,
-            "limit": limit,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.FEEDING_EVENTS,
+                "plant_key": plant_key,
+                "offset": offset,
+                "limit": limit,
+            },
+        )
         return [FeedingEvent(**self._from_doc(doc)) for doc in cursor]
 
     def get_latest_by_plant(self, plant_key: str) -> FeedingEvent | None:
@@ -104,9 +112,12 @@ class ArangoFeedingRepository(IFeedingRepository, BaseArangoRepository):
           LIMIT @limit
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.FEEDING_EVENTS,
-            "plant_key": plant_key,
-            "limit": limit,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.FEEDING_EVENTS,
+                "plant_key": plant_key,
+                "limit": limit,
+            },
+        )
         return [FeedingEvent(**self._from_doc(doc)) for doc in cursor]

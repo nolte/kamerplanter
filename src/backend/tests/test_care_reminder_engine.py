@@ -142,98 +142,173 @@ class TestShouldGenerateReminder:
 
     def test_dormancy_suppresses_watering(self):
         profile = _make_profile()
-        assert self.engine.should_generate_reminder(
-            profile, ReminderType.WATERING, "dormancy",
-        ) is False
+        assert (
+            self.engine.should_generate_reminder(
+                profile,
+                ReminderType.WATERING,
+                "dormancy",
+            )
+            is False
+        )
 
     def test_dormancy_allows_pest_check(self):
         profile = _make_profile()
-        assert self.engine.should_generate_reminder(
-            profile, ReminderType.PEST_CHECK, "dormancy",
-        ) is True
+        assert (
+            self.engine.should_generate_reminder(
+                profile,
+                ReminderType.PEST_CHECK,
+                "dormancy",
+            )
+            is True
+        )
 
     def test_fertilizing_guard_inactive_month(self):
         profile = _make_profile(fertilizing_active_months=[4, 5, 6, 7, 8])
-        assert self.engine.should_generate_reminder(
-            profile, ReminderType.FERTILIZING, None, "north", month=1,
-            has_nutrient_plan=True,
-        ) is False
+        assert (
+            self.engine.should_generate_reminder(
+                profile,
+                ReminderType.FERTILIZING,
+                None,
+                "north",
+                month=1,
+                has_nutrient_plan=True,
+            )
+            is False
+        )
 
     def test_fertilizing_guard_active_month(self):
         profile = _make_profile(fertilizing_active_months=[4, 5, 6, 7, 8])
-        assert self.engine.should_generate_reminder(
-            profile, ReminderType.FERTILIZING, None, "north", month=6,
-            has_nutrient_plan=True,
-        ) is True
+        assert (
+            self.engine.should_generate_reminder(
+                profile,
+                ReminderType.FERTILIZING,
+                None,
+                "north",
+                month=6,
+                has_nutrient_plan=True,
+            )
+            is True
+        )
 
     def test_fertilizing_suppressed_without_nutrient_plan(self):
         profile = _make_profile()
-        assert self.engine.should_generate_reminder(
-            profile, ReminderType.FERTILIZING, month=6,
-            has_nutrient_plan=False,
-        ) is False
+        assert (
+            self.engine.should_generate_reminder(
+                profile,
+                ReminderType.FERTILIZING,
+                month=6,
+                has_nutrient_plan=False,
+            )
+            is False
+        )
 
     def test_fertilizing_toggle_disabled(self):
         profile = _make_profile(auto_create_fertilizing_task=False)
-        assert self.engine.should_generate_reminder(
-            profile, ReminderType.FERTILIZING, month=6,
-            has_nutrient_plan=True,
-        ) is False
+        assert (
+            self.engine.should_generate_reminder(
+                profile,
+                ReminderType.FERTILIZING,
+                month=6,
+                has_nutrient_plan=True,
+            )
+            is False
+        )
 
     def test_repotting_toggle_disabled(self):
         profile = _make_profile(auto_create_repotting_task=False)
-        assert self.engine.should_generate_reminder(
-            profile, ReminderType.REPOTTING,
-        ) is False
+        assert (
+            self.engine.should_generate_reminder(
+                profile,
+                ReminderType.REPOTTING,
+            )
+            is False
+        )
 
     def test_pest_check_toggle_disabled(self):
         profile = _make_profile(auto_create_pest_check_task=False)
-        assert self.engine.should_generate_reminder(
-            profile, ReminderType.PEST_CHECK,
-        ) is False
+        assert (
+            self.engine.should_generate_reminder(
+                profile,
+                ReminderType.PEST_CHECK,
+            )
+            is False
+        )
 
     def test_humidity_disabled(self):
         profile = _make_profile(humidity_check_enabled=False)
-        assert self.engine.should_generate_reminder(
-            profile, ReminderType.HUMIDITY_CHECK,
-        ) is False
+        assert (
+            self.engine.should_generate_reminder(
+                profile,
+                ReminderType.HUMIDITY_CHECK,
+            )
+            is False
+        )
 
     def test_humidity_enabled(self):
         profile = _make_profile(humidity_check_enabled=True)
-        assert self.engine.should_generate_reminder(
-            profile, ReminderType.HUMIDITY_CHECK,
-        ) is True
+        assert (
+            self.engine.should_generate_reminder(
+                profile,
+                ReminderType.HUMIDITY_CHECK,
+            )
+            is True
+        )
 
     def test_location_check_disabled(self):
         profile = _make_profile(location_check_enabled=False)
-        assert self.engine.should_generate_reminder(
-            profile, ReminderType.LOCATION_CHECK,
-        ) is False
+        assert (
+            self.engine.should_generate_reminder(
+                profile,
+                ReminderType.LOCATION_CHECK,
+            )
+            is False
+        )
 
     def test_watering_normal_phase(self):
         profile = _make_profile()
-        assert self.engine.should_generate_reminder(
-            profile, ReminderType.WATERING, "vegetative",
-        ) is True
+        assert (
+            self.engine.should_generate_reminder(
+                profile,
+                ReminderType.WATERING,
+                "vegetative",
+            )
+            is True
+        )
 
     def test_watering_suppressed_by_active_plan(self):
         profile = _make_profile()
-        assert self.engine.should_generate_reminder(
-            profile, ReminderType.WATERING, has_active_watering_plan=True,
-        ) is False
+        assert (
+            self.engine.should_generate_reminder(
+                profile,
+                ReminderType.WATERING,
+                has_active_watering_plan=True,
+            )
+            is False
+        )
 
     def test_fertilizing_suppressed_by_active_plan(self):
         profile = _make_profile()
-        assert self.engine.should_generate_reminder(
-            profile, ReminderType.FERTILIZING, has_active_watering_plan=True, month=6,
-            has_nutrient_plan=True,
-        ) is False
+        assert (
+            self.engine.should_generate_reminder(
+                profile,
+                ReminderType.FERTILIZING,
+                has_active_watering_plan=True,
+                month=6,
+                has_nutrient_plan=True,
+            )
+            is False
+        )
 
     def test_pest_check_not_suppressed_by_active_plan(self):
         profile = _make_profile()
-        assert self.engine.should_generate_reminder(
-            profile, ReminderType.PEST_CHECK, has_active_watering_plan=True,
-        ) is True
+        assert (
+            self.engine.should_generate_reminder(
+                profile,
+                ReminderType.PEST_CHECK,
+                has_active_watering_plan=True,
+            )
+            is True
+        )
 
 
 class TestAdaptiveLearning:
@@ -258,10 +333,7 @@ class TestAdaptiveLearning:
     def test_consistent_8_day_pattern_adjusts_up(self):
         profile = _make_profile(watering_interval_days=7)
         base = datetime(2024, 6, 1, tzinfo=UTC)
-        confirmations = [
-            _make_confirmation(confirmed_at=base + timedelta(days=i * 8))
-            for i in range(5)
-        ]
+        confirmations = [_make_confirmation(confirmed_at=base + timedelta(days=i * 8)) for i in range(5)]
         result = self.engine.apply_adaptive_learning(profile, ReminderType.WATERING, confirmations)
         assert result is not None
         assert result == 8  # +1 from default 7
@@ -269,10 +341,7 @@ class TestAdaptiveLearning:
     def test_consistent_5_day_pattern_adjusts_down(self):
         profile = _make_profile(watering_interval_days=7)
         base = datetime(2024, 6, 1, tzinfo=UTC)
-        confirmations = [
-            _make_confirmation(confirmed_at=base + timedelta(days=i * 5))
-            for i in range(5)
-        ]
+        confirmations = [_make_confirmation(confirmed_at=base + timedelta(days=i * 5)) for i in range(5)]
         result = self.engine.apply_adaptive_learning(profile, ReminderType.WATERING, confirmations)
         assert result is not None
         assert result == 6  # -1 from default 7
@@ -281,10 +350,7 @@ class TestAdaptiveLearning:
         profile = _make_profile(watering_interval_days=10)
         base = datetime(2024, 6, 1, tzinfo=UTC)
         # Very long intervals (20 days) — should be capped at 10*1.3=13
-        confirmations = [
-            _make_confirmation(confirmed_at=base + timedelta(days=i * 20))
-            for i in range(5)
-        ]
+        confirmations = [_make_confirmation(confirmed_at=base + timedelta(days=i * 20)) for i in range(5)]
         result = self.engine.apply_adaptive_learning(profile, ReminderType.WATERING, confirmations)
         assert result is not None
         assert result <= 11  # only +1 step from default 10
@@ -295,21 +361,24 @@ class TestAutoGenerateProfile:
 
     def test_araceae_generates_tropical(self):
         profile = self.engine.auto_generate_profile(
-            botanical_family="Araceae", plant_key="p1",
+            botanical_family="Araceae",
+            plant_key="p1",
         )
         assert profile.care_style == CareStyleType.TROPICAL
         assert profile.auto_generated is True
 
     def test_cactaceae_generates_cactus(self):
         profile = self.engine.auto_generate_profile(
-            botanical_family="Cactaceae", plant_key="p1",
+            botanical_family="Cactaceae",
+            plant_key="p1",
         )
         assert profile.care_style == CareStyleType.CACTUS
         assert profile.watering_interval_days >= 14
 
     def test_unknown_family_defaults_to_tropical(self):
         profile = self.engine.auto_generate_profile(
-            botanical_family="UnknownFamily", plant_key="p1",
+            botanical_family="UnknownFamily",
+            plant_key="p1",
         )
         assert profile.care_style == CareStyleType.TROPICAL
 

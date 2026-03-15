@@ -10,7 +10,6 @@ if TYPE_CHECKING:
 
 
 class IWateringLogRepository(ABC):
-
     @abstractmethod
     def create(self, log: WateringLog) -> WateringLog: ...
 

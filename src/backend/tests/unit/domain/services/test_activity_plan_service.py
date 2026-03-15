@@ -49,8 +49,11 @@ def _make_activity(name="Topping", key="act1"):
 
 
 def _make_task_template(
-    name="Topping", key="tt1", activity_key="act1",
-    enabled=True, trigger_phase="vegetative",
+    name="Topping",
+    key="tt1",
+    activity_key="act1",
+    enabled=True,
+    trigger_phase="vegetative",
 ):
     return TaskTemplate(
         _key=key,
@@ -223,7 +226,8 @@ class TestApplyPlanToRun:
         run.key = "run1"
         service._run_repo.get_by_key.return_value = run
         service._run_repo.get_run_plants.return_value = [
-            {"key": "p1"}, {"key": "p2"},
+            {"key": "p1"},
+            {"key": "p2"},
         ]
         created_task = MagicMock()
         created_task.key = "t1"

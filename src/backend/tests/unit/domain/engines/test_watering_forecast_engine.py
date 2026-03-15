@@ -35,7 +35,8 @@ def test_basic_forecast(engine: WateringForecastEngine, profile: CareProfile) ->
 
 
 def test_winter_interval_adjustment(
-    engine: WateringForecastEngine, profile: CareProfile,
+    engine: WateringForecastEngine,
+    profile: CareProfile,
 ) -> None:
     dates = engine.generate_forecast(
         profile=profile,
@@ -91,7 +92,8 @@ def test_southern_hemisphere(engine: WateringForecastEngine, profile: CareProfil
 
 
 def test_phase_intervals_override_profile(
-    engine: WateringForecastEngine, profile: CareProfile,
+    engine: WateringForecastEngine,
+    profile: CareProfile,
 ) -> None:
     """Phase-specific interval overrides CareProfile base."""
     phase_intervals = [
@@ -129,7 +131,8 @@ def test_phase_intervals_override_profile(
 
 
 def test_phase_intervals_fallback_to_profile(
-    engine: WateringForecastEngine, profile: CareProfile,
+    engine: WateringForecastEngine,
+    profile: CareProfile,
 ) -> None:
     """Dates outside any phase interval fall back to CareProfile."""
     phase_intervals = [

@@ -48,7 +48,10 @@ class HarvestService:
         return self._repo.create_observation(observation)
 
     def get_observations(
-        self, plant_key: str, offset: int = 0, limit: int = 50,
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
     ) -> tuple[list[HarvestObservation], int]:
         return self._repo.get_observations_for_plant(plant_key, offset, limit)
 
@@ -117,8 +120,15 @@ class HarvestService:
 
     def update_batch(self, key: str, data: dict) -> HarvestBatch:
         existing = self.get_batch(key)
-        allowed = {"harvest_type", "wet_weight_g", "estimated_dry_weight_g",
-                    "actual_dry_weight_g", "quality_grade", "harvester", "notes"}
+        allowed = {
+            "harvest_type",
+            "wet_weight_g",
+            "estimated_dry_weight_g",
+            "actual_dry_weight_g",
+            "quality_grade",
+            "harvester",
+            "notes",
+        }
         for field, value in data.items():
             if field in allowed:
                 setattr(existing, field, value)

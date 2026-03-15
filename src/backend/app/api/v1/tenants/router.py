@@ -111,9 +111,7 @@ def delete_tenant(
 # ── Members ──────────────────────────────────────────────────────────
 
 
-@router.get(
-    "/{tenant_slug}/members", response_model=list[MemberInfoResponse]
-)
+@router.get("/{tenant_slug}/members", response_model=list[MemberInfoResponse])
 def list_members(
     ctx: TenantContext = Depends(get_current_tenant),
     service: TenantService = Depends(get_tenant_service),
@@ -134,9 +132,7 @@ def change_member_role(
     service: TenantService = Depends(get_tenant_service),
 ):
     """Change a member's role. Admin only."""
-    service.change_member_role(
-        ctx.tenant_key, membership_key, body.role, ctx.role
-    )
+    service.change_member_role(ctx.tenant_key, membership_key, body.role, ctx.role)
     return MessageResponse(message="Role updated")
 
 
@@ -154,9 +150,7 @@ def remove_member(
     return MessageResponse(message="Member removed")
 
 
-@router.post(
-    "/{tenant_slug}/leave", response_model=MessageResponse
-)
+@router.post("/{tenant_slug}/leave", response_model=MessageResponse)
 def leave_tenant(
     ctx: TenantContext = Depends(get_current_tenant),
     service: TenantService = Depends(get_tenant_service),
@@ -255,9 +249,7 @@ def revoke_invitation(
     return MessageResponse(message="Invitation revoked")
 
 
-@router.post(
-    "/invitations/accept", response_model=MessageResponse
-)
+@router.post("/invitations/accept", response_model=MessageResponse)
 def accept_invitation(
     body: AcceptInvitationRequest,
     user: User = Depends(get_current_user),

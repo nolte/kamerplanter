@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from app.common.enums import TenantRole
@@ -19,9 +18,7 @@ class ArangoMembershipRepository(IMembershipRepository, BaseArangoRepository):
         doc = BaseArangoRepository.get_by_key(self, key)
         return Membership(**doc) if doc else None
 
-    def get_by_user_and_tenant(
-        self, user_key: str, tenant_key: str
-    ) -> Membership | None:
+    def get_by_user_and_tenant(self, user_key: str, tenant_key: str) -> Membership | None:
         query = """
         FOR doc IN @@collection
           FILTER doc.user_key == @user_key AND doc.tenant_key == @tenant_key
@@ -154,7 +151,5 @@ class ArangoMembershipRepository(IMembershipRepository, BaseArangoRepository):
           REMOVE m IN {col.MEMBERSHIPS}
           RETURN 1
         """
-        cursor = self._db.aql.execute(
-            query, bind_vars={"tenant_key": tenant_key}
-        )
+        cursor = self._db.aql.execute(query, bind_vars={"tenant_key": tenant_key})
         return sum(1 for _ in cursor)

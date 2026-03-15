@@ -81,9 +81,7 @@ def _build_families(data: dict[str, Any]) -> list[BotanicalFamily]:
                 typical_nutrient_demand=entry.get("typical_nutrient_demand", "medium"),
                 frost_tolerance=FrostTolerance(entry.get("frost_tolerance", "moderate")),
                 typical_root_depth=entry.get("typical_root_depth", "medium"),
-                typical_growth_forms=[
-                    GrowthHabit(g) for g in entry.get("typical_growth_forms", ["herb"])
-                ],
+                typical_growth_forms=[GrowthHabit(g) for g in entry.get("typical_growth_forms", ["herb"])],
                 common_pests=entry.get("common_pests", []),
                 common_diseases=entry.get("common_diseases", []),
                 pollination_type=entry.get("pollination_type", ["insect"]),
@@ -122,35 +120,21 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
                 frost_sensitivity=FrostTolerance(frost) if frost else None,
                 nutrient_demand_level=NutrientDemandLevel(ndl) if ndl else None,
                 allows_harvest=entry.get("allows_harvest", True),
-                sowing_indoor_weeks_before_last_frost=entry.get(
-                    "sowing_indoor_weeks_before_last_frost"
-                ),
-                sowing_outdoor_after_last_frost_days=entry.get(
-                    "sowing_outdoor_after_last_frost_days"
-                ),
+                sowing_indoor_weeks_before_last_frost=entry.get("sowing_indoor_weeks_before_last_frost"),
+                sowing_outdoor_after_last_frost_days=entry.get("sowing_outdoor_after_last_frost_days"),
                 direct_sow_months=entry.get("direct_sow_months", []),
                 harvest_months=entry.get("harvest_months", []),
                 bloom_months=entry.get("bloom_months", []),
                 container_suitable=(
-                    Suitability(entry["container_suitable"])
-                    if entry.get("container_suitable")
-                    else None
+                    Suitability(entry["container_suitable"]) if entry.get("container_suitable") else None
                 ),
                 recommended_container_volume_l=entry.get("recommended_container_volume_l"),
                 min_container_depth_cm=entry.get("min_container_depth_cm"),
                 mature_height_cm=entry.get("mature_height_cm"),
                 mature_width_cm=entry.get("mature_width_cm"),
                 spacing_cm=entry.get("spacing_cm"),
-                indoor_suitable=(
-                    Suitability(entry["indoor_suitable"])
-                    if entry.get("indoor_suitable")
-                    else None
-                ),
-                balcony_suitable=(
-                    Suitability(entry["balcony_suitable"])
-                    if entry.get("balcony_suitable")
-                    else None
-                ),
+                indoor_suitable=(Suitability(entry["indoor_suitable"]) if entry.get("indoor_suitable") else None),
+                balcony_suitable=(Suitability(entry["balcony_suitable"]) if entry.get("balcony_suitable") else None),
                 green_manure_suitable=entry.get("green_manure_suitable", False),
                 pruning_months=entry.get("pruning_months", []),
                 greenhouse_recommended=entry.get("greenhouse_recommended", False),
@@ -186,10 +170,7 @@ def _build_enrichment(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 def _build_watering_guide(data: dict[str, Any]) -> WateringGuide:
     """Construct a WateringGuide from YAML data."""
-    adjustments = [
-        SeasonalWateringAdjustment(**adj)
-        for adj in data.get("seasonal_adjustments", [])
-    ]
+    adjustments = [SeasonalWateringAdjustment(**adj) for adj in data.get("seasonal_adjustments", [])]
     return WateringGuide(
         interval_days=data.get("interval_days", 7),
         volume_ml_min=data.get("volume_ml_min", 100),
@@ -227,11 +208,13 @@ def _build_phase_data(
     for sci_name, phases in data.get("growth_phases", {}).items():
         result[sci_name] = []
         for phase in phases:
-            result[sci_name].append({
-                "phase": phase,
-                "requirement": phase.get("requirement_profile", {}),
-                "nutrient": phase.get("nutrient_profile", {}),
-            })
+            result[sci_name].append(
+                {
+                    "phase": phase,
+                    "requirement": phase.get("requirement_profile", {}),
+                    "nutrient": phase.get("nutrient_profile", {}),
+                }
+            )
     return result
 
 
@@ -257,12 +240,8 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
     lifecycle_configs = _build_lifecycle_configs(yaml_data)
     phase_data = _build_phase_data(yaml_data)
     cultivar_data: dict[str, list[dict[str, Any]]] = yaml_data.get("cultivars", {})
-    companion_compatible: list[dict[str, Any]] = (
-        yaml_data.get("companion_planting", {}).get("compatible", [])
-    )
-    companion_incompatible: list[dict[str, Any]] = (
-        yaml_data.get("companion_planting", {}).get("incompatible", [])
-    )
+    companion_compatible: list[dict[str, Any]] = yaml_data.get("companion_planting", {}).get("compatible", [])
+    companion_incompatible: list[dict[str, Any]] = yaml_data.get("companion_planting", {}).get("incompatible", [])
 
     # ── S1: Seed new families ────────────────────────────────────────────
     family_map: dict[str, str] = {}
@@ -431,10 +410,14 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
                         if req_profile and req_profile.key:
                             req_changed = False
                             for field in (
-                                "light_ppfd_target", "temperature_day_c",
-                                "temperature_night_c", "humidity_day_percent",
-                                "humidity_night_percent", "vpd_target_kpa",
-                                "photoperiod_hours", "co2_ppm",
+                                "light_ppfd_target",
+                                "temperature_day_c",
+                                "temperature_night_c",
+                                "humidity_day_percent",
+                                "humidity_night_percent",
+                                "vpd_target_kpa",
+                                "photoperiod_hours",
+                                "co2_ppm",
                                 "irrigation_frequency_days",
                                 "irrigation_volume_ml_per_plant",
                             ):
@@ -444,17 +427,14 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
                                     setattr(req_profile, field, req[field])
                                     req_changed = True
                             if req_changed:
-                                lifecycle_repo.update_requirement_profile(
-                                    req_profile.key, req_profile
-                                )
+                                lifecycle_repo.update_requirement_profile(req_profile.key, req_profile)
                                 updated_count += 1
 
                         # Patch nutrient profile
                         nut_profile = lifecycle_repo.get_nutrient_profile(ep.key or "")
                         if nut_profile and nut_profile.key:
                             nut_changed = False
-                            for field in ("target_ec_ms", "target_ph",
-                                          "calcium_ppm", "magnesium_ppm"):
+                            for field in ("target_ec_ms", "target_ph", "calcium_ppm", "magnesium_ppm"):
                                 if field not in nut or not hasattr(nut_profile, field):
                                     continue
                                 if getattr(nut_profile, field) != nut[field]:
@@ -471,15 +451,11 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
                                     nut_profile.npk_ratio = yaml_npk
                                     nut_changed = True
                             if nut_changed:
-                                lifecycle_repo.update_nutrient_profile(
-                                    nut_profile.key, nut_profile
-                                )
+                                lifecycle_repo.update_nutrient_profile(nut_profile.key, nut_profile)
                                 updated_count += 1
 
                     if updated_count:
-                        logger.info(
-                            "phases_updated", species=sci_name, count=updated_count
-                        )
+                        logger.info("phases_updated", species=sci_name, count=updated_count)
                     continue
 
             # Delete generic phases (retry on write-write conflict)
@@ -592,10 +568,7 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
                 species_key=sp_key,
                 breeder=cv_entry.get("breeder"),
                 days_to_maturity=cv_entry.get("days_to_maturity"),
-                traits=[
-                    PlantTrait(t) for t in trait_strings
-                    if t in PlantTrait.__members__.values()
-                ],
+                traits=[PlantTrait(t) for t in trait_strings if t in PlantTrait.__members__.values()],
                 seed_type=cv_entry.get("seed_type", ""),
             )
             species_repo.create_cultivar(cultivar)
@@ -612,18 +585,14 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
         b_key = species_key_map.get(edge.get("species_b") or edge.get("target", ""), "")
         if a_key and b_key:
             with contextlib.suppress(Exception):
-                graph_repo.set_compatibility(
-                    a_key, b_key, edge.get("score", 0.5)
-                )
+                graph_repo.set_compatibility(a_key, b_key, edge.get("score", 0.5))
 
     for edge in companion_incompatible:
         a_key = species_key_map.get(edge.get("species_a") or edge.get("source", ""), "")
         b_key = species_key_map.get(edge.get("species_b") or edge.get("target", ""), "")
         if a_key and b_key:
             with contextlib.suppress(Exception):
-                graph_repo.set_incompatibility(
-                    a_key, b_key, edge.get("reason", "")
-                )
+                graph_repo.set_incompatibility(a_key, b_key, edge.get("reason", ""))
 
     logger.info("yaml_seed_complete", source=yaml_filename)
 

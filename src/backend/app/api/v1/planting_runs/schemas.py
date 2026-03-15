@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -43,6 +42,7 @@ class SpeciesPhaseTimeline(BaseModel):
 
 # ── Entry schemas ────────────────────────────────────────────────────
 
+
 class EntryCreate(BaseModel):
     species_key: str
     cultivar_key: str | None = None
@@ -78,6 +78,7 @@ class EntryResponse(BaseModel):
 
 
 # ── Run schemas ──────────────────────────────────────────────────────
+
 
 class PlantingRunCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
@@ -117,6 +118,7 @@ class PlantingRunResponse(BaseModel):
 
 
 # ── Batch operation schemas ──────────────────────────────────────────
+
 
 class BatchCreatePlantsResponse(BaseModel):
     run_key: str
@@ -186,6 +188,7 @@ class PlantInRunResponse(BaseModel):
 
 
 # ── Nutrient plan assignment schemas ─────────────────────────────────
+
 
 class NutrientPlanAssignRequest(BaseModel):
     plan_key: str

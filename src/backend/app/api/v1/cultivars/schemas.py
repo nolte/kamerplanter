@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -19,6 +18,7 @@ class CultivarCreate(BaseModel):
     days_to_maturity: int | None = Field(default=None, ge=1, le=365)
     disease_resistances: list[str] = Field(default_factory=list)
     phase_watering_overrides: dict[str, int] | None = None
+
 
 class CultivarResponse(BaseModel):
     key: str

@@ -6,7 +6,6 @@ if TYPE_CHECKING:
 
 
 class ITenantRepository(ABC):
-
     @abstractmethod
     def get_by_key(self, key: str) -> Tenant | None: ...
 

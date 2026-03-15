@@ -184,10 +184,12 @@ class TestSearchSpecies:
         assert results == []
 
     def test_search_filters_no_scientific_name(self, adapter):
-        adapter._client.get.return_value = _mock_response({
-            "results": [{"key": 1}, {"key": 2, "scientificName": "Valid sp"}],
-            "count": 2,
-        })
+        adapter._client.get.return_value = _mock_response(
+            {
+                "results": [{"key": 1}, {"key": 2, "scientificName": "Valid sp"}],
+                "count": 2,
+            }
+        )
 
         results = adapter.search_species("test")
 
@@ -198,9 +200,7 @@ class TestSearchSpecies:
 
         error_response = Response(status_code=500, request=Request("GET", "http://test"))
         error = HTTPStatusError("Server Error", request=error_response.request, response=error_response)
-        adapter._client.get.return_value = MagicMock(
-            raise_for_status=MagicMock(side_effect=error)
-        )
+        adapter._client.get.return_value = MagicMock(raise_for_status=MagicMock(side_effect=error))
 
         with pytest.raises(ExternalSourceError):
             adapter.search_species("Rosa")
@@ -395,11 +395,13 @@ class TestGetDescriptions:
         assert "South Asia" in native_habitat
 
     def test_html_to_markdown(self, adapter):
-        adapter._client.get.return_value = _mock_response({
-            "results": [
-                {"type": "", "description": "<p>A <strong>tall</strong> herb.</p>"},
-            ]
-        })
+        adapter._client.get.return_value = _mock_response(
+            {
+                "results": [
+                    {"type": "", "description": "<p>A <strong>tall</strong> herb.</p>"},
+                ]
+            }
+        )
 
         description, _ = adapter.get_descriptions(5361880)
 
@@ -408,11 +410,13 @@ class TestGetDescriptions:
 
     def test_length_limit(self, adapter):
         long_text = "A" * 3000
-        adapter._client.get.return_value = _mock_response({
-            "results": [
-                {"type": "", "description": long_text},
-            ]
-        })
+        adapter._client.get.return_value = _mock_response(
+            {
+                "results": [
+                    {"type": "", "description": long_text},
+                ]
+            }
+        )
 
         description, _ = adapter.get_descriptions(5361880)
 

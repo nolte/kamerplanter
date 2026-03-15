@@ -51,12 +51,14 @@ class DeliveryChannelValidator:
         if len(ids) != len(set(ids)):
             return {
                 "valid": False,
-                "channel_results": [{
-                    "channel_id": "global",
-                    "label": "",
-                    "issues": ["Duplicate channel_id values found"],
-                    "ec_budget": None,
-                }],
+                "channel_results": [
+                    {
+                        "channel_id": "global",
+                        "label": "",
+                        "issues": ["Duplicate channel_id values found"],
+                        "ec_budget": None,
+                    }
+                ],
             }
 
         for channel in channels:
@@ -69,9 +71,7 @@ class DeliveryChannelValidator:
                 for dosage in channel.fertilizer_dosages:
                     fert = fertilizers.get(dosage.fertilizer_key)
                     if fert is None:
-                        issues.append(
-                            f"Unknown fertilizer: {dosage.fertilizer_key}"
-                        )
+                        issues.append(f"Unknown fertilizer: {dosage.fertilizer_key}")
                         continue
                     calculated_ec += dosage.ml_per_liter * fert.ec_contribution_per_ml
 
@@ -118,11 +118,13 @@ class DeliveryChannelValidator:
             if issues:
                 all_valid = False
 
-            channel_results.append({
-                "channel_id": channel.channel_id,
-                "label": channel.label,
-                "issues": issues,
-                "ec_budget": ec_budget,
-            })
+            channel_results.append(
+                {
+                    "channel_id": channel.channel_id,
+                    "label": channel.label,
+                    "issues": issues,
+                    "ec_budget": ec_budget,
+                }
+            )
 
         return {"valid": all_valid, "channel_results": channel_results}

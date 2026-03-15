@@ -68,10 +68,7 @@ def get_location_sensors(
     sensor_service: SensorService = Depends(get_sensor_service),
 ):
     sensors = sensor_service.get_sensors_for_location(key)
-    return [
-        SensorResponse(key=s.key or "", **s.model_dump(exclude={"key"}))
-        for s in sensors
-    ]
+    return [SensorResponse(key=s.key or "", **s.model_dump(exclude={"key"})) for s in sensors]
 
 
 @router.post("/{key}/sensors", response_model=SensorResponse, status_code=201)

@@ -120,9 +120,7 @@ class AuthService:
             password_hash=self._password_engine.hash_password(password),
             email_verified=skip_verification,
             email_verification_token=verification_token,
-            email_verification_expires=(
-                None if skip_verification else datetime.now(UTC) + timedelta(hours=24)
-            ),
+            email_verification_expires=(None if skip_verification else datetime.now(UTC) + timedelta(hours=24)),
         )
         created = self._user_repo.create(user)
 
@@ -389,16 +387,23 @@ class AuthService:
     # ── Change password ─────────────────────────────────────────────────
 
     def change_password(
-        self, user_key: UserKey, current_password: str | None, new_password: str,
+        self,
+        user_key: UserKey,
+        current_password: str | None,
+        new_password: str,
     ) -> None:
         user = self._user_repo.get_by_key(user_key)
         if user is None:
             raise NotFoundError("User", user_key)
 
         # SSO-only users (no password_hash) can set initial password without current_password
-        if user.password_hash and (not current_password or not self._password_engine.verify_password(
-            current_password, user.password_hash,
-        )):
+        if user.password_hash and (
+            not current_password
+            or not self._password_engine.verify_password(
+                current_password,
+                user.password_hash,
+            )
+        ):
             raise UnauthorizedError("Current password is incorrect.")
 
         errors = self._password_engine.validate_password_policy(new_password)
@@ -428,7 +433,9 @@ class AuthService:
     # ── OAuth/OIDC ───────────────────────────────────────────────────
 
     def initiate_oauth(
-        self, provider_slug: str, redirect_uri: str,
+        self,
+        provider_slug: str,
+        redirect_uri: str,
     ) -> OAuthRedirect:
         """Build authorization URL and store state in Redis."""
         if not self._oauth_engine or not self._oauth_state_store or not self._oidc_config_repo:
@@ -441,11 +448,14 @@ class AuthService:
         redirect = self._oauth_engine.build_authorization_url(config, redirect_uri)
 
         # Store state -> { code_verifier, nonce, provider_slug } in Redis
-        self._oauth_state_store.save_state(redirect.state, {
-            "code_verifier": redirect.code_verifier,
-            "nonce": redirect.nonce,
-            "provider_slug": provider_slug,
-        })
+        self._oauth_state_store.save_state(
+            redirect.state,
+            {
+                "code_verifier": redirect.code_verifier,
+                "nonce": redirect.nonce,
+                "provider_slug": provider_slug,
+            },
+        )
 
         return redirect
 
@@ -481,7 +491,11 @@ class AuthService:
 
         # Exchange code for tokens
         token_response = self._oauth_engine.exchange_code_for_tokens(
-            config, code, state_data["code_verifier"], redirect_uri, client_secret,
+            config,
+            code,
+            state_data["code_verifier"],
+            redirect_uri,
+            client_secret,
         )
 
         access_token = token_response.get("access_token", "")
@@ -489,7 +503,8 @@ class AuthService:
 
         # Find existing auth provider link
         existing_provider = self._auth_provider_repo.get_by_provider(
-            oauth_user.provider, oauth_user.provider_user_id,
+            oauth_user.provider,
+            oauth_user.provider_user_id,
         )
 
         if existing_provider:
@@ -527,7 +542,11 @@ class AuthService:
         return self._create_tokens(user, user_agent, ip_address, is_persistent=True)
 
     def link_provider(
-        self, user_key: UserKey, provider_slug: str, code: str, state: str,
+        self,
+        user_key: UserKey,
+        provider_slug: str,
+        code: str,
+        state: str,
     ) -> AuthProviderInfo:
         """Link an OAuth provider to an existing user account."""
         if not self._oauth_engine or not self._oauth_state_store or not self._oidc_config_repo:
@@ -547,14 +566,19 @@ class AuthService:
 
         redirect_uri = f"{self._frontend_url}/auth/callback"
         token_response = self._oauth_engine.exchange_code_for_tokens(
-            config, code, state_data["code_verifier"], redirect_uri, client_secret,
+            config,
+            code,
+            state_data["code_verifier"],
+            redirect_uri,
+            client_secret,
         )
         access_token = token_response.get("access_token", "")
         oauth_user = self._oauth_engine.extract_user_info(config, token_response, access_token)
 
         # Check not already linked to another user
         existing = self._auth_provider_repo.get_by_provider(
-            oauth_user.provider, oauth_user.provider_user_id,
+            oauth_user.provider,
+            oauth_user.provider_user_id,
         )
         if existing:
             raise ValidationError("This provider account is already linked to another user.")
@@ -585,7 +609,10 @@ class AuthService:
         return created
 
     def _create_oauth_provider(
-        self, user_key: str, oauth_user: OAuthUserInfo, token_response: dict,
+        self,
+        user_key: str,
+        oauth_user: OAuthUserInfo,
+        token_response: dict,
     ) -> AuthProvider:
         """Create an AuthProvider record for an OAuth login."""
 
@@ -614,7 +641,10 @@ class AuthService:
     # ── M2M API Keys ─────────────────────────────────────────────────
 
     def create_api_key(
-        self, user_key: UserKey, label: str, tenant_scope: str | None = None,
+        self,
+        user_key: UserKey,
+        label: str,
+        tenant_scope: str | None = None,
     ) -> ApiKeyCreated:
         if not self._api_key_repo:
             raise ValidationError("API keys are not configured.")

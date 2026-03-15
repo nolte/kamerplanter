@@ -11,14 +11,16 @@ if TYPE_CHECKING:
 
 # ── Dormancy-aware phases ──────────────────────────────────────────────
 
-DORMANCY_PHASES: frozenset[str] = frozenset({
-    "dormancy",
-    "senescence",
-    "hardening_off",
-    "maintenance",
-    "acclimatization",
-    "repotting_recovery",
-})
+DORMANCY_PHASES: frozenset[str] = frozenset(
+    {
+        "dormancy",
+        "senescence",
+        "hardening_off",
+        "maintenance",
+        "acclimatization",
+        "repotting_recovery",
+    }
+)
 
 # ── Care style presets ─────────────────────────────────────────────────
 
@@ -279,8 +281,7 @@ class CareReminderEngine:
 
         # Need at least 3 confirmed (not snoozed/skipped) entries
         confirmed = [
-            c for c in confirmations
-            if c.action == ConfirmAction.CONFIRMED and c.reminder_type == reminder_type
+            c for c in confirmations if c.action == ConfirmAction.CONFIRMED and c.reminder_type == reminder_type
         ]
         if len(confirmed) < 3:
             return None
@@ -348,7 +349,8 @@ class CareReminderEngine:
             winter_adj = self._find_winter_adjustment(watering_guide)
             if winter_adj is not None and watering_guide.interval_days > 0:
                 preset["winter_watering_multiplier"] = round(
-                    winter_adj.interval_days / watering_guide.interval_days, 2,
+                    winter_adj.interval_days / watering_guide.interval_days,
+                    2,
                 )
 
         return CareProfile(

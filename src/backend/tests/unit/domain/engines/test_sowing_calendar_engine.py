@@ -327,12 +327,16 @@ class TestCalculateBars:
 class TestBuildCalendar:
     def test_sorts_by_earliest_bar(self, engine, frost_config):
         sp_late = _make_species(
-            key="late", scientific_name="Beta vulgaris",
-            common_names=["Rote Bete"], harvest_months=[9, 10],
+            key="late",
+            scientific_name="Beta vulgaris",
+            common_names=["Rote Bete"],
+            harvest_months=[9, 10],
         )
         sp_early = _make_species(
-            key="early", scientific_name="Lactuca sativa",
-            common_names=["Salat"], direct_sow_months=[3, 4],
+            key="early",
+            scientific_name="Lactuca sativa",
+            common_names=["Salat"],
+            direct_sow_months=[3, 4],
         )
         entries = engine.build_calendar([sp_late, sp_early], frost_config, 2026)
         assert len(entries) == 2
@@ -494,11 +498,13 @@ class TestBuildCalendar:
     def test_from_year_on_harvest_bar(self, engine, frost_config):
         """Harvest bars carry from_year when set on the period."""
         sp = _make_species(
-            growing_periods=[GrowingPeriodData(
-                direct_sow_months=[3, 4, 5],
-                harvest_months=[7, 8, 9],
-                harvest_from_year=2,
-            )],
+            growing_periods=[
+                GrowingPeriodData(
+                    direct_sow_months=[3, 4, 5],
+                    harvest_months=[7, 8, 9],
+                    harvest_from_year=2,
+                )
+            ],
         )
         entries = engine.build_calendar([sp], frost_config, 2026)
         harvest_bars = [b for b in entries[0].bars if b.phase == "harvest"]
@@ -509,11 +515,13 @@ class TestBuildCalendar:
         """Bloom bars for ornamentals carry from_year."""
         sp = _make_species(
             allows_harvest=False,
-            growing_periods=[GrowingPeriodData(
-                direct_sow_months=[3, 4],
-                bloom_months=[6, 7],
-                bloom_from_year=2,
-            )],
+            growing_periods=[
+                GrowingPeriodData(
+                    direct_sow_months=[3, 4],
+                    bloom_months=[6, 7],
+                    bloom_from_year=2,
+                )
+            ],
         )
         entries = engine.build_calendar([sp], frost_config, 2026)
         bloom_bars = [b for b in entries[0].bars if b.phase == "flowering"]
@@ -523,10 +531,12 @@ class TestBuildCalendar:
     def test_from_year_none_by_default(self, engine, frost_config):
         """Bars have from_year=None when not set."""
         sp = _make_species(
-            growing_periods=[GrowingPeriodData(
-                direct_sow_months=[3, 4],
-                harvest_months=[7, 8],
-            )],
+            growing_periods=[
+                GrowingPeriodData(
+                    direct_sow_months=[3, 4],
+                    harvest_months=[7, 8],
+                )
+            ],
         )
         entries = engine.build_calendar([sp], frost_config, 2026)
         for b in entries[0].bars:

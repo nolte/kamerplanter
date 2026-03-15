@@ -117,7 +117,9 @@ class CalendarService:
                         bloom_from_year=gp.bloom_from_year,
                     )
                     for gp in sp.growing_periods
-                ] if sp.growing_periods else [],
+                ]
+                if sp.growing_periods
+                else [],
                 sowing_indoor_weeks_before_last_frost=sp.sowing_indoor_weeks_before_last_frost,
                 sowing_outdoor_after_last_frost_days=sp.sowing_outdoor_after_last_frost_days,
                 direct_sow_months=sp.direct_sow_months,
@@ -171,12 +173,14 @@ class CalendarService:
 
             if not bars:
                 continue
-            entries.append(SowingCalendarEntry(
-                species_key=run.key,
-                species_name=run.name,
-                common_name=run.name,
-                bars=bars,
-            ))
+            entries.append(
+                SowingCalendarEntry(
+                    species_key=run.key,
+                    species_name=run.name,
+                    common_name=run.name,
+                    bars=bars,
+                )
+            )
 
         entries.sort(key=lambda e: min(b.start_date for b in e.bars) if e.bars else date.max)
         return entries
@@ -193,22 +197,26 @@ class CalendarService:
         is_ornamental = not sp.allows_harvest
         if is_ornamental and sp.bloom_months:
             for ps, pe in _split_months(sp.bloom_months):
-                bars.append(SowingBar(
-                    phase="flowering",
-                    color=LIFECYCLE_PHASE_COLORS.get("flowering", "#EC407A"),
-                    start_date=date(year, ps, 1),
-                    end_date=_month_end(year, pe),
-                    label="flowering",
-                ))
+                bars.append(
+                    SowingBar(
+                        phase="flowering",
+                        color=LIFECYCLE_PHASE_COLORS.get("flowering", "#EC407A"),
+                        start_date=date(year, ps, 1),
+                        end_date=_month_end(year, pe),
+                        label="flowering",
+                    )
+                )
         elif sp.harvest_months:
             for ps, pe in _split_months(sp.harvest_months):
-                bars.append(SowingBar(
-                    phase="harvest",
-                    color=LIFECYCLE_PHASE_COLORS.get("harvest", "#FFA726"),
-                    start_date=date(year, ps, 1),
-                    end_date=_month_end(year, pe),
-                    label="harvest",
-                ))
+                bars.append(
+                    SowingBar(
+                        phase="harvest",
+                        color=LIFECYCLE_PHASE_COLORS.get("harvest", "#FFA726"),
+                        start_date=date(year, ps, 1),
+                        end_date=_month_end(year, pe),
+                        label="harvest",
+                    )
+                )
         return bars
 
     @staticmethod
@@ -239,13 +247,15 @@ class CalendarService:
                 phase_name = phase.get("phase_name", "")
                 color = LIFECYCLE_PHASE_COLORS.get(phase_name, "#9E9E9E")
 
-                bars.append(SowingBar(
-                    phase=phase_name,
-                    color=color,
-                    start_date=start_d,
-                    end_date=end_d,
-                    label=phase.get("display_name", phase_name),
-                ))
+                bars.append(
+                    SowingBar(
+                        phase=phase_name,
+                        color=color,
+                        start_date=start_d,
+                        end_date=end_d,
+                        label=phase.get("display_name", phase_name),
+                    )
+                )
         return bars
 
     def get_season_overview(
@@ -263,7 +273,11 @@ class CalendarService:
         # For now, task_events is empty — can be expanded with AQL aggregation
         task_events: list[TaskEvent] = []
         return self._season_engine.build_overview(
-            entries, task_events, site_key or "", site_name, year,
+            entries,
+            task_events,
+            site_key or "",
+            site_name,
+            year,
         )
 
     def _build_frost_config(self, site_key: str | None, year: int) -> FrostConfig:

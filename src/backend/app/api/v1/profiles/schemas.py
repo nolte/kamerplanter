@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -21,10 +20,12 @@ class RequirementProfileCreate(BaseModel):
     irrigation_frequency_days: float = Field(default=1.0, gt=0)
     irrigation_volume_ml_per_plant: int = Field(default=250, ge=0)
 
+
 class RequirementProfileResponse(RequirementProfileCreate):
     key: str
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
 
 class NutrientProfileCreate(BaseModel):
     phase_key: str
@@ -34,6 +35,7 @@ class NutrientProfileCreate(BaseModel):
     calcium_ppm: int | None = Field(default=None, ge=0)
     magnesium_ppm: int | None = Field(default=None, ge=0)
     micro_nutrients: dict[str, int] = Field(default_factory=dict)
+
 
 class NutrientProfileResponse(NutrientProfileCreate):
     key: str

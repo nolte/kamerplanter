@@ -46,8 +46,16 @@ class IpmService:
 
     def update_pest(self, key: str, data: dict) -> Pest:
         existing = self.get_pest(key)
-        allowed = {"scientific_name", "common_name", "pest_type", "lifecycle_days",
-                    "optimal_temp_min", "optimal_temp_max", "detection_difficulty", "description"}
+        allowed = {
+            "scientific_name",
+            "common_name",
+            "pest_type",
+            "lifecycle_days",
+            "optimal_temp_min",
+            "optimal_temp_max",
+            "detection_difficulty",
+            "description",
+        }
         for field, value in data.items():
             if field in allowed:
                 setattr(existing, field, value)
@@ -73,8 +81,15 @@ class IpmService:
 
     def update_disease(self, key: str, data: dict) -> Disease:
         existing = self.get_disease(key)
-        allowed = {"scientific_name", "common_name", "pathogen_type", "incubation_period_days",
-                    "environmental_triggers", "affected_plant_parts", "description"}
+        allowed = {
+            "scientific_name",
+            "common_name",
+            "pathogen_type",
+            "incubation_period_days",
+            "environmental_triggers",
+            "affected_plant_parts",
+            "description",
+        }
         for field, value in data.items():
             if field in allowed:
                 setattr(existing, field, value)
@@ -100,8 +115,16 @@ class IpmService:
 
     def update_treatment(self, key: str, data: dict) -> Treatment:
         existing = self.get_treatment(key)
-        allowed = {"name", "treatment_type", "active_ingredient", "application_method",
-                    "safety_interval_days", "dosage_per_liter", "protective_equipment", "description"}
+        allowed = {
+            "name",
+            "treatment_type",
+            "active_ingredient",
+            "application_method",
+            "safety_interval_days",
+            "dosage_per_liter",
+            "protective_equipment",
+            "description",
+        }
         for field, value in data.items():
             if field in allowed:
                 setattr(existing, field, value)
@@ -123,7 +146,9 @@ class IpmService:
     # ── Treatment Application ──
 
     def create_treatment_application(
-        self, plant_key: str, application: TreatmentApplication,
+        self,
+        plant_key: str,
+        application: TreatmentApplication,
     ) -> TreatmentApplication:
         application.plant_key = plant_key
 
@@ -132,7 +157,8 @@ class IpmService:
         if treatment.active_ingredient:
             recent = self._repo.get_recent_applications(plant_key)
             is_safe, warning = self._resistance.validate_treatment(
-                recent, treatment.active_ingredient,
+                recent,
+                treatment.active_ingredient,
             )
             if not is_safe:
                 raise ResistanceWarningError(
@@ -143,7 +169,10 @@ class IpmService:
         return self._repo.create_treatment_application(application)
 
     def get_applications(
-        self, plant_key: str, offset: int = 0, limit: int = 50,
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
     ) -> tuple[list[TreatmentApplication], int]:
         return self._repo.get_applications_for_plant(plant_key, offset, limit)
 
@@ -167,8 +196,7 @@ class IpmService:
         treatments = self._repo.get_treatments_for_pest(pest_key)
         recent = self._repo.get_recent_applications(plant_key)
         available = [
-            {"name": t.name, "treatment_type": t.treatment_type,
-             "active_ingredient": t.active_ingredient, "key": t.key}
+            {"name": t.name, "treatment_type": t.treatment_type, "active_ingredient": t.active_ingredient, "key": t.key}
             for t in treatments
         ]
         return self._resistance.suggest_alternatives(recent, available)

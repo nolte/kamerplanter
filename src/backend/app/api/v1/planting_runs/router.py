@@ -49,6 +49,7 @@ def _entry_response(e: PlantingRunEntry) -> EntryResponse:
 
 # ── Run CRUD ──────────────────────────────────────────────────────────
 
+
 @router.get("", response_model=list[PlantingRunResponse])
 def list_runs(
     offset: int = Query(0, ge=0),
@@ -109,6 +110,7 @@ def delete_run(key: str, service: PlantingRunService = Depends(get_planting_run_
 
 # ── Entry management ──────────────────────────────────────────────────
 
+
 @router.get("/{key}/entries", response_model=list[EntryResponse])
 def list_entries(key: str, service: PlantingRunService = Depends(get_planting_run_service)):
     entries = service.list_entries(key)
@@ -154,6 +156,7 @@ def delete_entry(
 
 
 # ── Batch operations ──────────────────────────────────────────────────
+
 
 @router.post("/{key}/create-plants", response_model=BatchCreatePlantsResponse, status_code=201)
 def batch_create_plants(
@@ -216,6 +219,7 @@ def batch_remove(
 
 # ── Plant management ──────────────────────────────────────────────────
 
+
 @router.get("/{key}/plants", response_model=list[PlantInRunResponse])
 def list_plants(
     key: str,
@@ -251,6 +255,7 @@ def detach_plant(
 
 
 # ── Nutrient plan assignment ─────────────────────────────────────────
+
 
 @router.post("/{key}/nutrient-plan", response_model=NutrientPlanAssignResponse, status_code=201)
 def assign_nutrient_plan(
@@ -306,6 +311,7 @@ def get_active_channels(
     # Calculate current_week from run start if not provided
     if current_week is None:
         from datetime import date, datetime
+
         started = run.started_at
         if started is None:
             current_week = 1
@@ -318,7 +324,9 @@ def get_active_channels(
             current_week = max(1, delta_days // 7 + 1)
 
     channels = plan_service.get_active_channels_for_plan(
-        plan_key, dominant_phase, current_week,
+        plan_key,
+        dominant_phase,
+        current_week,
     )
     return channels
 

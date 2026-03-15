@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -20,6 +19,7 @@ class PhaseCreate(BaseModel):
     allows_harvest: bool = False
     stress_tolerance: StressTolerance = StressTolerance.MEDIUM
     watering_interval_days: int | None = Field(default=None, ge=1, le=90)
+
 
 class PhaseResponse(BaseModel):
     key: str

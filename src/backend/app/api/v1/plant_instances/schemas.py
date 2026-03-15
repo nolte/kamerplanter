@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -23,6 +22,7 @@ class PlantCreate(BaseModel):
     container_volume_liters: float | None = Field(default=None, ge=0.1, le=500)
     substrate_type_override: SubstrateType | None = None
 
+
 class PlantResponse(BaseModel):
     key: str
     instance_id: str
@@ -43,8 +43,10 @@ class PlantResponse(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
+
 class ValidatePlantingRequest(BaseModel):
     species_key: str
+
 
 class ValidatePlantingResponse(BaseModel):
     valid: bool

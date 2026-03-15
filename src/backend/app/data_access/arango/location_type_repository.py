@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from app.data_access.arango import collections as col

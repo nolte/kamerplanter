@@ -1,4 +1,3 @@
-
 from app.common.enums import TenantRole
 from app.domain.engines.membership_engine import MembershipEngine
 

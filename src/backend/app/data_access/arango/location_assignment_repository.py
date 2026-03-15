@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from app.data_access.arango import collections as col
@@ -12,9 +11,7 @@ if TYPE_CHECKING:
     from arango.database import StandardDatabase
 
 
-class ArangoLocationAssignmentRepository(
-    ILocationAssignmentRepository, BaseArangoRepository
-):
+class ArangoLocationAssignmentRepository(ILocationAssignmentRepository, BaseArangoRepository):
     def __init__(self, db: StandardDatabase) -> None:
         BaseArangoRepository.__init__(self, db, col.LOCATION_ASSIGNMENTS)
 
@@ -75,9 +72,7 @@ class ArangoLocationAssignmentRepository(
         )
         return [LocationAssignment(**self._from_doc(doc)) for doc in cursor]
 
-    def list_by_membership(
-        self, membership_key: str
-    ) -> list[LocationAssignment]:
+    def list_by_membership(self, membership_key: str) -> list[LocationAssignment]:
         query = """
         FOR doc IN @@collection
           FILTER doc.membership_key == @membership_key
@@ -93,9 +88,7 @@ class ArangoLocationAssignmentRepository(
         )
         return [LocationAssignment(**self._from_doc(doc)) for doc in cursor]
 
-    def get_by_membership_and_location(
-        self, membership_key: str, location_key: str
-    ) -> LocationAssignment | None:
+    def get_by_membership_and_location(self, membership_key: str, location_key: str) -> LocationAssignment | None:
         query = """
         FOR doc IN @@collection
           FILTER doc.membership_key == @membership_key
@@ -127,7 +120,5 @@ class ArangoLocationAssignmentRepository(
           REMOVE doc IN {col.LOCATION_ASSIGNMENTS}
           RETURN 1
         """
-        cursor = self._db.aql.execute(
-            query, bind_vars={"tenant_key": tenant_key}
-        )
+        cursor = self._db.aql.execute(query, bind_vars={"tenant_key": tenant_key})
         return sum(1 for _ in cursor)

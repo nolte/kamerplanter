@@ -19,7 +19,10 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
     # ── Run CRUD ──────────────────────────────────────────────────────
 
     def get_all(
-        self, offset: int = 0, limit: int = 50, filters: dict | None = None,
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict | None = None,
     ) -> tuple[list[PlantingRun], int]:
         if filters:
             query = f"FOR doc IN {col.PLANTING_RUNS}"
@@ -112,7 +115,8 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
         data.pop("_key", None)
         data["updated_at"] = datetime.now(UTC).isoformat()
         result = self._db.collection(col.PLANTING_RUN_ENTRIES).update(
-            {"_key": entry_key, **data}, return_new=True,
+            {"_key": entry_key, **data},
+            return_new=True,
         )
         return PlantingRunEntry(**self._from_doc(result["new"]))
 
@@ -184,12 +188,15 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
           FILTER e._from == @from_id AND e._to == @to_id
           UPDATE e WITH {{detached_at: @now, detach_reason: @reason}} IN {col.RUN_CONTAINS}
         """
-        self._db.aql.execute(query, bind_vars={
-            "from_id": f"{col.PLANTING_RUNS}/{run_key}",
-            "to_id": f"{col.PLANT_INSTANCES}/{plant_key}",
-            "now": now,
-            "reason": reason,
-        })
+        self._db.aql.execute(
+            query,
+            bind_vars={
+                "from_id": f"{col.PLANTING_RUNS}/{run_key}",
+                "to_id": f"{col.PLANT_INSTANCES}/{plant_key}",
+                "now": now,
+                "reason": reason,
+            },
+        )
 
     def get_existing_ids_at_location(self, location_key: LocationKey) -> set[str]:
         query = """
@@ -244,11 +251,13 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
         edge = self.create_edge(col.RUN_FOLLOWS_PLAN, from_id, to_id, {"assigned_by": assigned_by})
         # Update run doc
         now = datetime.now(UTC).isoformat()
-        self._db.collection(col.PLANTING_RUNS).update({
-            "_key": run_key,
-            "nutrient_plan_key": plan_key,
-            "updated_at": now,
-        })
+        self._db.collection(col.PLANTING_RUNS).update(
+            {
+                "_key": run_key,
+                "nutrient_plan_key": plan_key,
+                "updated_at": now,
+            }
+        )
         # Cascade FOLLOWS_PLAN edges for plants in the run
         plants = self.get_run_plants(run_key, include_detached=False)
         for plant in plants:
@@ -267,9 +276,12 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
           LIMIT 1
           RETURN PARSE_IDENTIFIER(e._to).key
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "run_id": f"{col.PLANTING_RUNS}/{run_key}",
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "run_id": f"{col.PLANTING_RUNS}/{run_key}",
+            },
+        )
         return next(cursor, None)
 
     def remove_nutrient_plan(self, run_key: PlantingRunKey) -> bool:
@@ -289,11 +301,13 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
                 plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
                 self.delete_edges(col.FOLLOWS_PLAN, from_id=plant_id, to_id=plan_id)
         # Clear run field
-        self._db.collection(col.PLANTING_RUNS).update({
-            "_key": run_key,
-            "nutrient_plan_key": None,
-            "updated_at": datetime.now(UTC).isoformat(),
-        })
+        self._db.collection(col.PLANTING_RUNS).update(
+            {
+                "_key": run_key,
+                "nutrient_plan_key": None,
+                "updated_at": datetime.now(UTC).isoformat(),
+            }
+        )
         return True
 
     def get_active_runs_with_schedule(self) -> list[dict]:

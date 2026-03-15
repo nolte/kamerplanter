@@ -116,7 +116,10 @@ class TestCreateSensor:
     def test_create(self, service, mock_repo):
         sensor = Sensor(name="EC", metric_type="ec_ms", tank_key="t1")
         mock_repo.create.return_value = Sensor(
-            _key="s1", name="EC", metric_type="ec_ms", tank_key="t1",
+            _key="s1",
+            name="EC",
+            metric_type="ec_ms",
+            tank_key="t1",
         )
         result = service.create_sensor(sensor)
         assert result.key == "s1"

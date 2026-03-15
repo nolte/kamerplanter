@@ -64,7 +64,10 @@ class TestGetNextWateringDates:
     def test_interval_dates(self, engine, interval_schedule):
         from_date = date(2026, 2, 1)
         dates = engine.get_next_watering_dates(
-            interval_schedule, from_date, days_ahead=10, last_watering_date=date(2026, 2, 1),
+            interval_schedule,
+            from_date,
+            days_ahead=10,
+            last_watering_date=date(2026, 2, 1),
         )
         # Every 3 days: Feb 4, Feb 7, Feb 10
         assert len(dates) == 3

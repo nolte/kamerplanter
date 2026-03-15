@@ -6,6 +6,7 @@ from app.domain.models.starter_kit import StarterKit
 class StarterKitService:
     def __init__(self, db) -> None:
         from app.data_access.arango import collections as col
+
         self._repo = BaseArangoRepository(db, col.STARTER_KITS)
         self._db = db
 

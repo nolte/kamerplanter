@@ -38,9 +38,7 @@ class PhaseTransitionEngine:
         if current_phase is not None:
             if target_phase.sequence_order < current_phase.sequence_order:
                 if force:
-                    warnings.append(
-                        f"Forced backward transition: {current_phase.name} → {target_phase.name}"
-                    )
+                    warnings.append(f"Forced backward transition: {current_phase.name} → {target_phase.name}")
                 else:
                     raise PhaseTransitionError(
                         f"Backward transition not allowed: {current_phase.name} (order {current_phase.sequence_order}) "
@@ -59,7 +57,12 @@ class PhaseTransitionEngine:
         return warnings
 
     def execute_transition(
-        self, plant_key: str, target_phase_key: str, reason: str = "manual", *, force: bool = False,
+        self,
+        plant_key: str,
+        target_phase_key: str,
+        reason: str = "manual",
+        *,
+        force: bool = False,
     ) -> PlantInstance:
         """Execute a phase transition."""
 

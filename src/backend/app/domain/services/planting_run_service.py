@@ -41,7 +41,10 @@ class PlantingRunService:
     # ── Run CRUD ──────────────────────────────────────────────────────
 
     def list_runs(
-        self, offset: int = 0, limit: int = 50, filters: dict | None = None,
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict | None = None,
     ) -> tuple[list[PlantingRun], int]:
         return self._repo.get_all(offset, limit, filters)
 
@@ -56,7 +59,9 @@ class PlantingRunService:
         total_qty = 0
         if entries:
             self._engine.validate_run_type_constraints(
-                run.run_type, entries, run.source_plant_key,
+                run.run_type,
+                entries,
+                run.source_plant_key,
             )
             total_qty = sum(e.quantity for e in entries)
         run.planned_quantity = total_qty
@@ -78,9 +83,9 @@ class PlantingRunService:
 
         # When location changes on an active run, reassign plants to new slots
         new_location_key = updated.location_key
-        if (
-            old_location_key != new_location_key
-            and updated.status in (PlantingRunStatus.ACTIVE, PlantingRunStatus.HARVESTING)
+        if old_location_key != new_location_key and updated.status in (
+            PlantingRunStatus.ACTIVE,
+            PlantingRunStatus.HARVESTING,
         ):
             self._reassign_plant_slots(key, old_location_key, new_location_key)
 
@@ -124,7 +129,10 @@ class PlantingRunService:
         return created
 
     def update_entry(
-        self, run_key: PlantingRunKey, entry_key: str, entry: PlantingRunEntry,
+        self,
+        run_key: PlantingRunKey,
+        entry_key: str,
+        entry: PlantingRunEntry,
     ) -> PlantingRunEntry:
         run = self.get_run(run_key)
         if run.status != PlantingRunStatus.PLANNED:
@@ -166,7 +174,9 @@ class PlantingRunService:
             raise ValueError("Run has no entries.")
 
         self._engine.validate_run_type_constraints(
-            run.run_type, entries, run.source_plant_key,
+            run.run_type,
+            entries,
+            run.source_plant_key,
         )
 
         location_key = run.location_key or "LOC"
@@ -291,7 +301,10 @@ class PlantingRunService:
                 self._site_repo.update_slot(available_slots[i].key, available_slots[i])
 
     def batch_transition(
-        self, run_key: PlantingRunKey, target_phase_key: str, target_phase_name: str,
+        self,
+        run_key: PlantingRunKey,
+        target_phase_key: str,
+        target_phase_name: str,
         exclude_keys: set[str] | None = None,
     ) -> dict:
         """Batch phase transition for all eligible plants in the run."""
@@ -301,7 +314,9 @@ class PlantingRunService:
 
         plants = self._repo.get_run_plants(run_key, include_detached=False)
         eligible, skipped = self._engine.filter_transition_eligible(
-            plants, target_phase_name, exclude_keys,
+            plants,
+            target_phase_name,
+            exclude_keys,
         )
 
         transitioned = []
@@ -466,26 +481,25 @@ class PlantingRunService:
             for gp in growth_phases:
                 h = history_by_phase.get(gp.name)
                 exited = h.get("exited_at") if h else None
-                exited_in_past = (
-                    exited is not None
-                    and (exited if exited.tzinfo else exited.replace(tzinfo=UTC)) <= now
-                )
+                exited_in_past = exited is not None and (exited if exited.tzinfo else exited.replace(tzinfo=UTC)) <= now
                 if h and exited_in_past:
                     # Completed phase (exited_at is in the past)
-                    phase_entries.append({
-                        "phase_key": gp.key or "",
-                        "phase_name": gp.name,
-                        "display_name": gp.display_name or gp.name,
-                        "description": gp.description or "",
-                        "sequence_order": gp.sequence_order,
-                        "typical_duration_days": gp.typical_duration_days,
-                        "status": "completed",
-                        "actual_entered_at": h["entered_at"],
-                        "actual_exited_at": h["exited_at"],
-                        "actual_duration_days": h.get("actual_duration_days"),
-                        "projected_start": None,
-                        "projected_end": None,
-                    })
+                    phase_entries.append(
+                        {
+                            "phase_key": gp.key or "",
+                            "phase_name": gp.name,
+                            "display_name": gp.display_name or gp.name,
+                            "description": gp.description or "",
+                            "sequence_order": gp.sequence_order,
+                            "typical_duration_days": gp.typical_duration_days,
+                            "status": "completed",
+                            "actual_entered_at": h["entered_at"],
+                            "actual_exited_at": h["exited_at"],
+                            "actual_duration_days": h.get("actual_duration_days"),
+                            "projected_start": None,
+                            "projected_end": None,
+                        }
+                    )
                     last_end = h["exited_at"]
                 elif gp.name == rep_current_phase or (h and h.get("entered_at") and not exited_in_past):
                     # Current phase (either matches plant's current_phase, or has
@@ -500,23 +514,27 @@ class PlantingRunService:
                             else:
                                 entered = started_str
                     # Use future exited_at as projected end, otherwise compute from typical duration
-                    proj_end_dt = exited if (exited and not exited_in_past) else (
-                        (entered + timedelta(days=gp.typical_duration_days)) if entered else None
+                    proj_end_dt = (
+                        exited
+                        if (exited and not exited_in_past)
+                        else ((entered + timedelta(days=gp.typical_duration_days)) if entered else None)
                     )
-                    phase_entries.append({
-                        "phase_key": gp.key or "",
-                        "phase_name": gp.name,
-                        "display_name": gp.display_name or gp.name,
-                        "description": gp.description or "",
-                        "sequence_order": gp.sequence_order,
-                        "typical_duration_days": gp.typical_duration_days,
-                        "status": "current",
-                        "actual_entered_at": entered,
-                        "actual_exited_at": exited if (exited and not exited_in_past) else None,
-                        "actual_duration_days": None,
-                        "projected_start": None,
-                        "projected_end": proj_end_dt,
-                    })
+                    phase_entries.append(
+                        {
+                            "phase_key": gp.key or "",
+                            "phase_name": gp.name,
+                            "display_name": gp.display_name or gp.name,
+                            "description": gp.description or "",
+                            "sequence_order": gp.sequence_order,
+                            "typical_duration_days": gp.typical_duration_days,
+                            "status": "current",
+                            "actual_entered_at": entered,
+                            "actual_exited_at": exited if (exited and not exited_in_past) else None,
+                            "actual_duration_days": None,
+                            "projected_start": None,
+                            "projected_end": proj_end_dt,
+                        }
+                    )
                     if proj_end_dt:
                         last_end = proj_end_dt
                     elif entered:
@@ -525,30 +543,34 @@ class PlantingRunService:
                     # Projected phase (future)
                     proj_start = last_end
                     proj_end = (proj_start + timedelta(days=gp.typical_duration_days)) if proj_start else None
-                    phase_entries.append({
-                        "phase_key": gp.key or "",
-                        "phase_name": gp.name,
-                        "display_name": gp.display_name or gp.name,
-                        "description": gp.description or "",
-                        "sequence_order": gp.sequence_order,
-                        "typical_duration_days": gp.typical_duration_days,
-                        "status": "projected",
-                        "actual_entered_at": None,
-                        "actual_exited_at": None,
-                        "actual_duration_days": None,
-                        "projected_start": proj_start,
-                        "projected_end": proj_end,
-                    })
+                    phase_entries.append(
+                        {
+                            "phase_key": gp.key or "",
+                            "phase_name": gp.name,
+                            "display_name": gp.display_name or gp.name,
+                            "description": gp.description or "",
+                            "sequence_order": gp.sequence_order,
+                            "typical_duration_days": gp.typical_duration_days,
+                            "status": "projected",
+                            "actual_entered_at": None,
+                            "actual_exited_at": None,
+                            "actual_duration_days": None,
+                            "projected_start": proj_start,
+                            "projected_end": proj_end,
+                        }
+                    )
                     if proj_end:
                         last_end = proj_end
 
-            timelines.append({
-                "species_key": species_key,
-                "species_name": None,
-                "lifecycle_key": lifecycle.key,
-                "plant_count": len(sp_plants),
-                "phases": phase_entries,
-            })
+            timelines.append(
+                {
+                    "species_key": species_key,
+                    "species_name": None,
+                    "lifecycle_key": lifecycle.key,
+                    "plant_count": len(sp_plants),
+                    "phases": phase_entries,
+                }
+            )
 
         return timelines
 
@@ -658,7 +680,10 @@ class PlantingRunService:
         return self._repo.remove_nutrient_plan(run_key)
 
     def _build_channel_calendars(
-        self, plan_key: str, run_key: PlantingRunKey, days_ahead: int,
+        self,
+        plan_key: str,
+        run_key: PlantingRunKey,
+        days_ahead: int,
     ) -> list[dict]:
         """Build per-channel watering calendars from phase entry schedules.
 
@@ -679,7 +704,10 @@ class PlantingRunService:
                 if self._watering_repo is not None:
                     last_date = self._watering_repo.get_last_watering_date_for_run(run_key)
                 ch_dates = self._schedule_engine.get_next_watering_dates(
-                    ch.schedule, today, days_ahead, last_date,
+                    ch.schedule,
+                    today,
+                    days_ahead,
+                    last_date,
                 )
                 method = ch.application_method
                 method_str = method.value if hasattr(method, "value") else str(method)
@@ -713,9 +741,7 @@ class PlantingRunService:
             plan = self._nutrient_plan_repo.get_by_key(plan_key)
 
         has_plan_schedule = (
-            plan is not None
-            and hasattr(plan, "watering_schedule")
-            and plan.watering_schedule is not None
+            plan is not None and hasattr(plan, "watering_schedule") and plan.watering_schedule is not None
         )
 
         channel_calendars = self._build_channel_calendars(plan_key, run_key, days_ahead)
@@ -731,7 +757,10 @@ class PlantingRunService:
                 last_watering_date = self._watering_repo.get_last_watering_date_for_run(run_key)
             today = date.today()
             dates = self._schedule_engine.get_next_watering_dates(
-                plan.watering_schedule, today, days_ahead, last_watering_date,
+                plan.watering_schedule,
+                today,
+                days_ahead,
+                last_watering_date,
             )
             plan_dates = [d.isoformat() for d in dates]
 

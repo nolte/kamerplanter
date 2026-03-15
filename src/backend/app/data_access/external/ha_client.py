@@ -23,13 +23,15 @@ class HomeAssistantClient:
             if not eid.startswith("sensor."):
                 continue
             attrs = entity.get("attributes", {})
-            results.append({
-                "entity_id": eid,
-                "friendly_name": attrs.get("friendly_name", eid),
-                "unit_of_measurement": attrs.get("unit_of_measurement"),
-                "device_class": attrs.get("device_class"),
-                "state": entity.get("state"),
-            })
+            results.append(
+                {
+                    "entity_id": eid,
+                    "friendly_name": attrs.get("friendly_name", eid),
+                    "unit_of_measurement": attrs.get("unit_of_measurement"),
+                    "device_class": attrs.get("device_class"),
+                    "state": entity.get("state"),
+                }
+            )
         return results
 
     def get_state(self, entity_id: str) -> dict | None:
@@ -45,7 +47,7 @@ class HomeAssistantClient:
         if state_str not in ("unavailable", "unknown", ""):
             try:
                 value = float(state_str)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 value = None
         return {
             "value": value,

@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -7,6 +6,7 @@ if TYPE_CHECKING:
     from datetime import date, datetime
 
 # ── Tank schemas ────────────────────────────────────────────────────
+
 
 class TankCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
@@ -64,6 +64,7 @@ class TankResponse(BaseModel):
 
 # ── TankState schemas ───────────────────────────────────────────────
 
+
 class TankStateCreate(BaseModel):
     fill_level_liters: float | None = Field(default=None, ge=0)
     fill_level_percent: float | None = Field(default=None, ge=0, le=100)
@@ -95,6 +96,7 @@ class TankStateResponse(BaseModel):
 
 # ── MaintenanceLog schemas ──────────────────────────────────────────
 
+
 class MaintenanceLogCreate(BaseModel):
     maintenance_type: str
     performed_by: str = ""
@@ -117,6 +119,7 @@ class MaintenanceLogResponse(BaseModel):
 
 
 # ── MaintenanceSchedule schemas ─────────────────────────────────────
+
 
 class MaintenanceScheduleCreate(BaseModel):
     maintenance_type: str
@@ -153,6 +156,7 @@ class MaintenanceScheduleResponse(BaseModel):
 
 # ── Alert & Due Maintenance schemas ─────────────────────────────────
 
+
 class AlertResponse(BaseModel):
     type: str
     severity: str
@@ -172,6 +176,7 @@ class DueMaintenanceResponse(BaseModel):
 
 
 # ── TankFillEvent schemas ──────────────────────────────────────────
+
 
 class FertilizerSnapshotSchema(BaseModel):
     product_key: str | None = None
@@ -245,6 +250,7 @@ class FillEventResultResponse(BaseModel):
 
 # ── Relationship schemas ────────────────────────────────────────────
 
+
 class FeedsFromRequest(BaseModel):
     source_tank_key: str
 
@@ -255,6 +261,7 @@ class LocationTankValidationResponse(BaseModel):
 
 
 # ── Sensor schemas ─────────────────────────────────────────────────
+
 
 class SensorCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)

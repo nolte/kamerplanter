@@ -24,9 +24,7 @@ def mock_mapping_repo():
 def mock_sync_run_repo():
     repo = MagicMock()
     # Make create return a SyncRun with a key
-    repo.create.side_effect = lambda run: SyncRun(
-        **{**run.model_dump(), "_key": "run_1"}
-    )
+    repo.create.side_effect = lambda run: SyncRun(**{**run.model_dump(), "_key": "run_1"})
     # Make update return whatever was passed
     repo.update.side_effect = lambda key, run: run
     return repo
@@ -86,11 +84,15 @@ def sample_species():
 
 class TestIncrementalSync:
     def test_sync_unmapped_species(
-        self, engine, mock_adapter, mock_mapping_repo, sample_external_data, mock_species_repo, sample_species,
+        self,
+        engine,
+        mock_adapter,
+        mock_mapping_repo,
+        sample_external_data,
+        mock_species_repo,
+        sample_species,
     ):
-        mock_mapping_repo.find_unmapped_species.return_value = [
-            {"_key": "sp_1", "scientific_name": "Rosa canina"}
-        ]
+        mock_mapping_repo.find_unmapped_species.return_value = [{"_key": "sp_1", "scientific_name": "Rosa canina"}]
         mock_adapter.enrich_species.return_value = sample_external_data
         mock_species_repo.get_by_key.return_value = sample_species
         mock_mapping_repo.get_by_internal.return_value = None
@@ -103,9 +105,7 @@ class TestIncrementalSync:
         assert run.new_mappings == 1
 
     def test_sync_no_results(self, engine, mock_adapter, mock_mapping_repo):
-        mock_mapping_repo.find_unmapped_species.return_value = [
-            {"_key": "sp_1", "scientific_name": "Unknown plantae"}
-        ]
+        mock_mapping_repo.find_unmapped_species.return_value = [{"_key": "sp_1", "scientific_name": "Unknown plantae"}]
         mock_adapter.enrich_species.return_value = None
 
         run = engine.sync_source(mock_adapter, full_sync=False)
@@ -114,9 +114,7 @@ class TestIncrementalSync:
         assert run.new_mappings == 0
 
     def test_sync_with_error(self, engine, mock_adapter, mock_mapping_repo):
-        mock_mapping_repo.find_unmapped_species.return_value = [
-            {"_key": "sp_1", "scientific_name": "Rosa canina"}
-        ]
+        mock_mapping_repo.find_unmapped_species.return_value = [{"_key": "sp_1", "scientific_name": "Rosa canina"}]
         mock_adapter.enrich_species.side_effect = Exception("API timeout")
 
         run = engine.sync_source(mock_adapter, full_sync=False)
@@ -127,7 +125,13 @@ class TestIncrementalSync:
 
 class TestFullSync:
     def test_full_sync_new_mapping(
-        self, engine, mock_adapter, mock_species_repo, mock_mapping_repo, sample_external_data, sample_species,
+        self,
+        engine,
+        mock_adapter,
+        mock_species_repo,
+        mock_mapping_repo,
+        sample_external_data,
+        sample_species,
     ):
         mock_species_repo.get_all.return_value = ([sample_species], 1)
         mock_adapter.enrich_species.return_value = sample_external_data
@@ -140,7 +144,13 @@ class TestFullSync:
         assert run.new_mappings == 1
 
     def test_full_sync_existing_unchanged(
-        self, engine, mock_adapter, mock_species_repo, mock_mapping_repo, sample_external_data, sample_species,
+        self,
+        engine,
+        mock_adapter,
+        mock_species_repo,
+        mock_mapping_repo,
+        sample_external_data,
+        sample_species,
     ):
         existing_mapping = ExternalMapping(
             _key="em_1",
@@ -161,7 +171,12 @@ class TestFullSync:
 
 class TestApplyEnrichment:
     def test_auto_accept_empty_fields(
-        self, engine, mock_species_repo, mock_mapping_repo, sample_species, sample_external_data,
+        self,
+        engine,
+        mock_species_repo,
+        mock_mapping_repo,
+        sample_species,
+        sample_external_data,
     ):
         mock_species_repo.get_by_key.return_value = sample_species
         mock_mapping_repo.get_by_internal.return_value = None
@@ -205,7 +220,12 @@ class TestApplyEnrichment:
             assert fm.confidence == 0.7
 
     def test_new_fields_enrichment(
-        self, engine, mock_species_repo, mock_mapping_repo, sample_species, sample_external_data,
+        self,
+        engine,
+        mock_species_repo,
+        mock_mapping_repo,
+        sample_species,
+        sample_external_data,
     ):
         mock_species_repo.get_by_key.return_value = sample_species
         mock_mapping_repo.get_by_internal.return_value = None
@@ -229,7 +249,12 @@ class TestApplyEnrichment:
         assert mapping.field_mappings["taxonomic_status"].accepted is True
 
     def test_family_key_lookup(
-        self, engine_with_family, mock_species_repo, mock_mapping_repo, mock_family_repo, sample_external_data,
+        self,
+        engine_with_family,
+        mock_species_repo,
+        mock_mapping_repo,
+        mock_family_repo,
+        sample_external_data,
     ):
         species_no_family = Species(
             _key="sp_1",
@@ -255,7 +280,12 @@ class TestApplyEnrichment:
         assert "family_key" in mapping.field_mappings
 
     def test_family_key_not_found(
-        self, engine_with_family, mock_species_repo, mock_mapping_repo, mock_family_repo, sample_external_data,
+        self,
+        engine_with_family,
+        mock_species_repo,
+        mock_mapping_repo,
+        mock_family_repo,
+        sample_external_data,
     ):
         species_no_family = Species(
             _key="sp_1",

@@ -184,7 +184,9 @@ class TestSpeciesRecovery:
         phases = [_phase(duration=30)]
         activities = [
             _activity(
-                name="Topping", key="a1", recovery=3,
+                name="Topping",
+                key="a1",
+                recovery=3,
                 recovery_by_species={"Cannabis": 7},
                 sort_order=0,
             ),
@@ -201,14 +203,18 @@ class TestCategoryOrdering:
         phases = [_phase(duration=30)]
         activities = [
             _activity(
-                name="LST", key="a1",
+                name="LST",
+                key="a1",
                 category=ActivityCategory.TRAINING_LST,
-                stress=StressLevel.LOW, sort_order=0,
+                stress=StressLevel.LOW,
+                sort_order=0,
             ),
             _activity(
-                name="HST", key="a2",
+                name="HST",
+                key="a2",
                 category=ActivityCategory.TRAINING_HST,
-                stress=StressLevel.MEDIUM, sort_order=0,
+                stress=StressLevel.MEDIUM,
+                sort_order=0,
             ),
         ]
         _wt, templates = engine.generate_plan("P", phases, activities)
@@ -223,9 +229,11 @@ class TestHarvestPrepAtEnd:
         phases = [_phase(duration=30)]
         activities = [
             _activity(
-                name="Flush", key="a1",
+                name="Flush",
+                key="a1",
                 category=ActivityCategory.HARVEST_PREP,
-                stress=StressLevel.NONE, sort_order=0,
+                stress=StressLevel.NONE,
+                sort_order=0,
             ),
         ]
         _wt, templates = engine.generate_plan("P", phases, activities)
@@ -239,9 +247,11 @@ class TestTransplantAtStart:
         phases = [_phase(duration=30)]
         activities = [
             _activity(
-                name="Transplant", key="a1",
+                name="Transplant",
+                key="a1",
                 category=ActivityCategory.TRANSPLANT,
-                stress=StressLevel.MEDIUM, sort_order=0,
+                stress=StressLevel.MEDIUM,
+                sort_order=0,
                 recovery=2,
             ),
         ]

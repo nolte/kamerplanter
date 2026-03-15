@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from app.data_access.arango import collections as col
@@ -153,9 +152,14 @@ class ArangoLifecycleRepository(IPhaseRepository, BaseArangoRepository):
         if rule.from_phase_key and rule.to_phase_key:
             from_phase_id = f"{col.GROWTH_PHASES}/{rule.from_phase_key}"
             to_phase_id = f"{col.GROWTH_PHASES}/{rule.to_phase_key}"
-            self.create_edge(col.NEXT_PHASE, from_phase_id, to_phase_id, data={
-                "transition_rule_key": doc["_key"],
-            })
+            self.create_edge(
+                col.NEXT_PHASE,
+                from_phase_id,
+                to_phase_id,
+                data={
+                    "transition_rule_key": doc["_key"],
+                },
+            )
 
         return created_rule
 

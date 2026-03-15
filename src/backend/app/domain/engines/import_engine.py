@@ -68,11 +68,13 @@ class ImportEngine:
             if preview.status == RowStatus.DUPLICATE:
                 if job.duplicate_strategy == DuplicateStrategy.FAIL:
                     result.failed += 1
-                    result.errors.append(RowValidationError(
-                        row=preview.row_number,
-                        field="",
-                        message=f"Duplicate: {preview.duplicate_key}",
-                    ))
+                    result.errors.append(
+                        RowValidationError(
+                            row=preview.row_number,
+                            field="",
+                            message=f"Duplicate: {preview.duplicate_key}",
+                        )
+                    )
                     continue
                 if job.duplicate_strategy == DuplicateStrategy.SKIP:
                     result.skipped += 1
@@ -83,11 +85,13 @@ class ImportEngine:
                         result.updated += 1
                     except Exception as e:
                         result.failed += 1
-                        result.errors.append(RowValidationError(
-                            row=preview.row_number,
-                            field="",
-                            message=str(e),
-                        ))
+                        result.errors.append(
+                            RowValidationError(
+                                row=preview.row_number,
+                                field="",
+                                message=str(e),
+                            )
+                        )
                     continue
 
             # VALID row — create
@@ -96,11 +100,13 @@ class ImportEngine:
                 result.created += 1
             except Exception as e:
                 result.failed += 1
-                result.errors.append(RowValidationError(
-                    row=preview.row_number,
-                    field="",
-                    message=str(e),
-                ))
+                result.errors.append(
+                    RowValidationError(
+                        row=preview.row_number,
+                        field="",
+                        message=str(e),
+                    )
+                )
 
         job.result = result
         job.status = ImportJobStatus.COMPLETED

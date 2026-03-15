@@ -9,7 +9,9 @@ class ICalGenerator:
     """Generate RFC 5545 iCalendar output from CalendarEvents."""
 
     def generate(
-        self, events: list[CalendarEvent], feed_name: str = "Kamerplanter",
+        self,
+        events: list[CalendarEvent],
+        feed_name: str = "Kamerplanter",
     ) -> str:
         lines = [
             "BEGIN:VCALENDAR",
@@ -71,9 +73,4 @@ class ICalGenerator:
 
     @staticmethod
     def _escape(text: str) -> str:
-        return (
-            text.replace("\\", "\\\\")
-            .replace(";", "\\;")
-            .replace(",", "\\,")
-            .replace("\n", "\\n")
-        )
+        return text.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")

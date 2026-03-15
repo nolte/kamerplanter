@@ -1,6 +1,5 @@
 """Tests for DeliveryChannelValidator engine."""
 
-
 from app.common.enums import ApplicationMethod, FertilizerType
 from app.domain.engines.delivery_channel_engine import DeliveryChannelValidator
 from app.domain.engines.nutrient_engine import MixingSafetyValidator
@@ -99,7 +98,9 @@ class TestDeliveryChannelValidator:
     def test_recommended_application_mismatch(self):
         ferts = {
             "f1": _make_fert(
-                key="f1", recommended=ApplicationMethod.FOLIAR, name="FoliarOnly",
+                key="f1",
+                recommended=ApplicationMethod.FOLIAR,
+                name="FoliarOnly",
             ),
         }
         channels = [
@@ -127,11 +128,7 @@ class TestDeliveryChannelValidator:
             ),
         ]
         result = self.validator.validate_channels(channels, ferts)
-        assert all(
-            "recommended for" not in i
-            for r in result["channel_results"]
-            for i in r["issues"]
-        )
+        assert all("recommended for" not in i for r in result["channel_results"] for i in r["issues"])
 
     def test_unknown_fertilizer(self):
         channels = [

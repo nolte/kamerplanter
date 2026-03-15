@@ -62,29 +62,21 @@ class TestIsExpired:
 
 class TestCanAccept:
     def test_valid_acceptance(self):
-        ok, reason = InvitationEngine.can_accept(
-            is_expired=False, is_pending=True, is_already_member=False
-        )
+        ok, reason = InvitationEngine.can_accept(is_expired=False, is_pending=True, is_already_member=False)
         assert ok is True
         assert reason == ""
 
     def test_expired(self):
-        ok, reason = InvitationEngine.can_accept(
-            is_expired=True, is_pending=True, is_already_member=False
-        )
+        ok, reason = InvitationEngine.can_accept(is_expired=True, is_pending=True, is_already_member=False)
         assert ok is False
         assert "expired" in reason.lower()
 
     def test_not_pending(self):
-        ok, reason = InvitationEngine.can_accept(
-            is_expired=False, is_pending=False, is_already_member=False
-        )
+        ok, reason = InvitationEngine.can_accept(is_expired=False, is_pending=False, is_already_member=False)
         assert ok is False
         assert "pending" in reason.lower()
 
     def test_already_member(self):
-        ok, reason = InvitationEngine.can_accept(
-            is_expired=False, is_pending=True, is_already_member=True
-        )
+        ok, reason = InvitationEngine.can_accept(is_expired=False, is_pending=True, is_already_member=True)
         assert ok is False
         assert "member" in reason.lower()

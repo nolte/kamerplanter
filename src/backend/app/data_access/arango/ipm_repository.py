@@ -158,7 +158,10 @@ class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):
         return insp
 
     def get_inspections_for_plant(
-        self, plant_key: str, offset: int = 0, limit: int = 50,
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
     ) -> tuple[list[Inspection], int]:
         query = (
             f"FOR doc IN {col.INSPECTIONS} "
@@ -198,7 +201,10 @@ class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):
         return ta
 
     def get_applications_for_plant(
-        self, plant_key: str, offset: int = 0, limit: int = 50,
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
     ) -> tuple[list[TreatmentApplication], int]:
         query = (
             f"FOR doc IN {col.TREATMENT_APPLICATIONS} "

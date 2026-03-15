@@ -54,11 +54,9 @@ class OAuthEngine:
         code_verifier = secrets.token_urlsafe(64)
 
         # S256 code challenge
-        code_challenge = (
-            hashlib.sha256(code_verifier.encode())
-            .digest()
-        )
+        code_challenge = hashlib.sha256(code_verifier.encode()).digest()
         import base64
+
         code_challenge_b64 = base64.urlsafe_b64encode(code_challenge).rstrip(b"=").decode()
 
         auth_url = self._resolve_authorization_url(config)
@@ -131,7 +129,9 @@ class OAuthEngine:
             userinfo_url = self._resolve_userinfo_url(config)
             if userinfo_url:
                 return self._fetch_userinfo_endpoint(
-                    userinfo_url, access_token, config.provider_type,
+                    userinfo_url,
+                    access_token,
+                    config.provider_type,
                 )
             # Fallback: parse id_token claims
             return self._extract_from_id_token(token_response, config.provider_type)
@@ -170,7 +170,10 @@ class OAuthEngine:
         return self._extract_from_id_token(token_response, "apple")
 
     def _fetch_userinfo_endpoint(
-        self, userinfo_url: str, access_token: str, provider_type: str,
+        self,
+        userinfo_url: str,
+        access_token: str,
+        provider_type: str,
     ) -> OAuthUserInfo:
         headers = {"Authorization": f"Bearer {access_token}"}
         with httpx.Client(timeout=15) as client:
@@ -194,6 +197,7 @@ class OAuthEngine:
 
         import base64
         import json
+
         # Decode payload (middle part) — we trust it since we just got it from the IdP
         parts = id_token.split(".")
         if len(parts) != 3:

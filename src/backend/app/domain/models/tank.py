@@ -139,7 +139,5 @@ class TankFillEvent(BaseModel):
     @model_validator(mode="after")
     def check_adjustment_requires_target(self) -> TankFillEvent:
         if self.fill_type == FillType.ADJUSTMENT and self.target_ec_ms is None and self.target_ph is None:
-            raise ValueError(
-                "Adjustment fill type requires at least target_ec_ms or target_ph"
-            )
+            raise ValueError("Adjustment fill type requires at least target_ec_ms or target_ph")
         return self

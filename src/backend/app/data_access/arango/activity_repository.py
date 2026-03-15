@@ -16,7 +16,10 @@ class ArangoActivityRepository(IActivityRepository, BaseArangoRepository):
         BaseArangoRepository.__init__(self, db, col.ACTIVITIES)
 
     def get_all(
-        self, offset: int = 0, limit: int = 50, filters: dict | None = None,
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict | None = None,
     ) -> tuple[list[Activity], int]:
         if filters:
             query = f"FOR doc IN {col.ACTIVITIES}"
@@ -26,13 +29,9 @@ class ArangoActivityRepository(IActivityRepository, BaseArangoRepository):
             for field, value in filters.items():
                 if field == "scope":
                     if value == "universal":
-                        filter_clauses.append(
-                            "(doc.species_compatible == null OR LENGTH(doc.species_compatible) == 0)"
-                        )
+                        filter_clauses.append("(doc.species_compatible == null OR LENGTH(doc.species_compatible) == 0)")
                     elif value == "restricted":
-                        filter_clauses.append(
-                            "doc.species_compatible != null AND LENGTH(doc.species_compatible) > 0"
-                        )
+                        filter_clauses.append("doc.species_compatible != null AND LENGTH(doc.species_compatible) > 0")
                 elif field == "species":
                     bind_vars[f"val{idx}"] = value.lower()
                     filter_clauses.append(

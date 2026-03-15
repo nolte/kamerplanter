@@ -71,7 +71,9 @@ def service(user_repo, auth_provider_repo, refresh_token_repo, email_service):
 class TestLoginRememberMe:
     def test_remember_me_true_returns_persistent(self, service):
         token_pair, raw_refresh, is_persistent = service.login_local(
-            "test@example.com", "secure-password-123", remember_me=True,
+            "test@example.com",
+            "secure-password-123",
+            remember_me=True,
         )
         assert is_persistent is True
         assert token_pair.access_token
@@ -79,19 +81,24 @@ class TestLoginRememberMe:
 
     def test_remember_me_false_returns_not_persistent(self, service):
         token_pair, raw_refresh, is_persistent = service.login_local(
-            "test@example.com", "secure-password-123", remember_me=False,
+            "test@example.com",
+            "secure-password-123",
+            remember_me=False,
         )
         assert is_persistent is False
 
     def test_remember_me_default_is_false(self, service):
         _, _, is_persistent = service.login_local(
-            "test@example.com", "secure-password-123",
+            "test@example.com",
+            "secure-password-123",
         )
         assert is_persistent is False
 
     def test_persistent_token_expires_in_30_days(self, service, refresh_token_repo):
         service.login_local(
-            "test@example.com", "secure-password-123", remember_me=True,
+            "test@example.com",
+            "secure-password-123",
+            remember_me=True,
         )
         created_token = refresh_token_repo.create.call_args[0][0]
         assert created_token.is_persistent is True
@@ -101,7 +108,9 @@ class TestLoginRememberMe:
 
     def test_session_token_expires_in_24_hours(self, service, refresh_token_repo):
         service.login_local(
-            "test@example.com", "secure-password-123", remember_me=False,
+            "test@example.com",
+            "secure-password-123",
+            remember_me=False,
         )
         created_token = refresh_token_repo.create.call_args[0][0]
         assert created_token.is_persistent is False

@@ -64,11 +64,7 @@ def _build_families(data: dict[str, Any]) -> list[BotanicalFamily]:
                 common_pests=entry["common_pests"],
                 common_diseases=entry["common_diseases"],
                 pollination_type=entry["pollination_type"],
-                soil_ph_preference=PhRange(
-                    min_ph=ph_pref["min_ph"], max_ph=ph_pref["max_ph"]
-                )
-                if ph_pref
-                else None,
+                soil_ph_preference=PhRange(min_ph=ph_pref["min_ph"], max_ph=ph_pref["max_ph"]) if ph_pref else None,
                 description=entry.get("description", ""),
                 rotation_category=entry.get("rotation_category"),
             )
@@ -97,17 +93,32 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
         }
         # Optional fields — only set if present and not None
         optional_fields = [
-            "common_names", "genus", "growth_habit", "root_type",
-            "hardiness_zones", "native_habitat", "allelopathy_score",
-            "base_temp", "frost_sensitivity", "allows_harvest",
+            "common_names",
+            "genus",
+            "growth_habit",
+            "root_type",
+            "hardiness_zones",
+            "native_habitat",
+            "allelopathy_score",
+            "base_temp",
+            "frost_sensitivity",
+            "allows_harvest",
             "sowing_indoor_weeks_before_last_frost",
             "sowing_outdoor_after_last_frost_days",
-            "direct_sow_months", "harvest_months", "bloom_months",
-            "bloom_from_year", "container_suitable",
-            "recommended_container_volume_l", "min_container_depth_cm",
-            "mature_height_cm", "mature_width_cm", "spacing_cm",
-            "indoor_suitable", "balcony_suitable",
-            "greenhouse_recommended", "support_required",
+            "direct_sow_months",
+            "harvest_months",
+            "bloom_months",
+            "bloom_from_year",
+            "container_suitable",
+            "recommended_container_volume_l",
+            "min_container_depth_cm",
+            "mature_height_cm",
+            "mature_width_cm",
+            "spacing_cm",
+            "indoor_suitable",
+            "balcony_suitable",
+            "greenhouse_recommended",
+            "support_required",
         ]
         for field in optional_fields:
             if field in entry and entry[field] is not None:
@@ -152,13 +163,9 @@ def _build_lifecycle_configs(
             "photoperiod_type": PhotoperiodType(entry["photoperiod_type"]),
             "lifespan_years": entry.get("lifespan_years"),
             "dormancy_required": entry.get("dormancy_required", False),
-            "vernalization_required": entry.get(
-                "vernalization_required", False
-            ),
+            "vernalization_required": entry.get("vernalization_required", False),
             "vernalization_min_days": entry.get("vernalization_min_days"),
-            "critical_day_length_hours": entry.get(
-                "critical_day_length_hours"
-            ),
+            "critical_day_length_hours": entry.get("critical_day_length_hours"),
         }
     return configs
 
@@ -195,12 +202,8 @@ def _build_companion_planting(
     """Build companion planting edge lists from YAML data."""
     cp_data = data.get("companion_planting", {})
 
-    compatible: list[tuple[str, str, float]] = [
-        (e[0], e[1], float(e[2])) for e in cp_data.get("compatible", [])
-    ]
-    incompatible: list[tuple[str, str, str]] = [
-        (e[0], e[1], str(e[2])) for e in cp_data.get("incompatible", [])
-    ]
+    compatible: list[tuple[str, str, float]] = [(e[0], e[1], float(e[2])) for e in cp_data.get("compatible", [])]
+    incompatible: list[tuple[str, str, str]] = [(e[0], e[1], str(e[2])) for e in cp_data.get("incompatible", [])]
     return compatible, incompatible
 
 
@@ -211,31 +214,20 @@ def _build_ipm_pests(data: dict[str, Any]) -> list[Pest]:
 
 def _build_ipm_diseases(data: dict[str, Any]) -> list[Disease]:
     """Construct Disease models from YAML data."""
-    return [
-        Disease.model_validate(entry) for entry in data.get("diseases", [])
-    ]
+    return [Disease.model_validate(entry) for entry in data.get("diseases", [])]
 
 
 def _build_ipm_treatments(data: dict[str, Any]) -> list[Treatment]:
     """Construct Treatment models from YAML data."""
-    return [
-        Treatment.model_validate(entry)
-        for entry in data.get("treatments", [])
-    ]
+    return [Treatment.model_validate(entry) for entry in data.get("treatments", [])]
 
 
 def _build_ipm_target_edges(
     data: dict[str, Any],
-) -> tuple[
-    list[tuple[str, str]], list[tuple[str, str]]
-]:
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
     """Build IPM targeting edge lists from YAML data."""
-    pest_targets: list[tuple[str, str]] = [
-        (e[0], e[1]) for e in data.get("pest_treatments", [])
-    ]
-    disease_targets: list[tuple[str, str]] = [
-        (e[0], e[1]) for e in data.get("disease_treatments", [])
-    ]
+    pest_targets: list[tuple[str, str]] = [(e[0], e[1]) for e in data.get("pest_treatments", [])]
+    disease_targets: list[tuple[str, str]] = [(e[0], e[1]) for e in data.get("disease_treatments", [])]
     return pest_targets, disease_targets
 
 
@@ -256,23 +248,17 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
     data = _load_data()
     new_families = _build_families(data)
     new_species = _build_species(data)
-    new_species_family_map: dict[str, str] = data.get(
-        "new_species_family_map", {}
-    )
+    new_species_family_map: dict[str, str] = data.get("new_species_family_map", {})
     species_enrichment = _build_enrichment(data)
     lifecycle_configs = _build_lifecycle_configs(data)
     phase_data = _build_phase_data(data)
     cultivar_data = _build_cultivars(data)
-    companion_compatible, companion_incompatible = _build_companion_planting(
-        data
-    )
+    companion_compatible, companion_incompatible = _build_companion_planting(data)
     ipm_pests = _build_ipm_pests(data)
     ipm_diseases = _build_ipm_diseases(data)
     ipm_treatments = _build_ipm_treatments(data)
     ipm_targets_pest, ipm_targets_disease = _build_ipm_target_edges(data)
-    existing_families_needed: list[str] = data.get(
-        "existing_families_needed", []
-    )
+    existing_families_needed: list[str] = data.get("existing_families_needed", [])
 
     # ── §1: Seed new families ────────────────────────────────────────────
     family_map: dict[str, str] = {}
@@ -302,10 +288,7 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
         if existing:
             species_key_map[sp.scientific_name] = existing.key or ""
             # Update growing_periods if changed (GrowingPeriod model migration)
-            if (
-                sp.growing_periods
-                and sp.growing_periods != existing.growing_periods
-            ):
+            if sp.growing_periods and sp.growing_periods != existing.growing_periods:
                 existing.growing_periods = sp.growing_periods
                 species_repo.update(existing.key or "", existing)
                 logger.info(
@@ -390,13 +373,9 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
 
             # Check if phases are already art-specific
             existing_phases = lifecycle_repo.get_phases_by_lifecycle(lc_key)
-            has_germination = any(
-                p.name == "germination" for p in existing_phases
-            )
+            has_germination = any(p.name == "germination" for p in existing_phases)
             if has_germination:
-                logger.info(
-                    "phases_already_artspezifisch", species=sci_name
-                )
+                logger.info("phases_already_artspezifisch", species=sci_name)
                 continue
 
             # Delete generic phases
@@ -421,9 +400,7 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
             )
             created_lc = lifecycle_repo.create_lifecycle(new_lc)
             lc_key = created_lc.key or ""
-            logger.info(
-                "lifecycle_created", species=sci_name, cycle=cycle.value
-            )
+            logger.info("lifecycle_created", species=sci_name, cycle=cycle.value)
 
         # Create art-specific phases with profiles
         if sci_name not in phase_data:
@@ -473,9 +450,7 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
             )
             lifecycle_repo.create_nutrient_profile(nut_profile)
 
-            logger.info(
-                "phase_created", species=sci_name, phase=p["name"]
-            )
+            logger.info("phase_created", species=sci_name, phase=p["name"])
 
     # ── §5: Seed cultivars ───────────────────────────────────────────────
     for sci_name, cultivar_list in cultivar_data.items():
@@ -490,9 +465,7 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
         for cv_entry in cultivar_list:
             cv_name = cv_entry["name"]
             if cv_name in existing_names:
-                logger.info(
-                    "cultivar_exists", species=sci_name, cultivar=cv_name
-                )
+                logger.info("cultivar_exists", species=sci_name, cultivar=cv_name)
                 continue
 
             cultivar = Cultivar(
@@ -500,14 +473,10 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
                 species_key=sp_key,
                 breeder=cv_entry.get("breeder"),
                 days_to_maturity=cv_entry["days_to_maturity"],
-                traits=[
-                    PlantTrait(t) for t in cv_entry.get("traits", [])
-                ],
+                traits=[PlantTrait(t) for t in cv_entry.get("traits", [])],
             )
             species_repo.create_cultivar(cultivar)
-            logger.info(
-                "cultivar_created", species=sci_name, cultivar=cv_name
-            )
+            logger.info("cultivar_created", species=sci_name, cultivar=cv_name)
 
     # ── §6: Companion planting edges ─────────────────────────────────────
     for a_sci, b_sci, score in companion_compatible:
@@ -516,13 +485,9 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
         if a_key and b_key:
             try:
                 graph_repo.set_compatibility(a_key, b_key, score)
-                logger.info(
-                    "companion_compatible_created", a=a_sci, b=b_sci
-                )
+                logger.info("companion_compatible_created", a=a_sci, b=b_sci)
             except Exception:
-                logger.info(
-                    "companion_compatible_exists", a=a_sci, b=b_sci
-                )
+                logger.info("companion_compatible_exists", a=a_sci, b=b_sci)
 
     for a_sci, b_sci, reason in companion_incompatible:
         a_key = species_key_map.get(a_sci, "")
@@ -530,13 +495,9 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
         if a_key and b_key:
             try:
                 graph_repo.set_incompatibility(a_key, b_key, reason)
-                logger.info(
-                    "companion_incompatible_created", a=a_sci, b=b_sci
-                )
+                logger.info("companion_incompatible_created", a=a_sci, b=b_sci)
             except Exception:
-                logger.info(
-                    "companion_incompatible_exists", a=a_sci, b=b_sci
-                )
+                logger.info("companion_incompatible_exists", a=a_sci, b=b_sci)
 
     # ── §7: IPM data ─────────────────────────────────────────────────────
     pest_key_map: dict[str, str] = {}

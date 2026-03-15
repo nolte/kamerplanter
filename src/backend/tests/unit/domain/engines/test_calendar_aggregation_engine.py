@@ -248,13 +248,7 @@ class TestGetEvents:
 
 class TestTaskCategoryMap:
     def test_known_category(self):
-        assert (
-            CalendarAggregationEngine._task_category_map("training")
-            == CalendarEventCategory.TRAINING
-        )
+        assert CalendarAggregationEngine._task_category_map("training") == CalendarEventCategory.TRAINING
 
     def test_unknown_category(self):
-        assert (
-            CalendarAggregationEngine._task_category_map("unknown")
-            == CalendarEventCategory.CUSTOM
-        )
+        assert CalendarAggregationEngine._task_category_map("unknown") == CalendarEventCategory.CUSTOM

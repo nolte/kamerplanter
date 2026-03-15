@@ -88,8 +88,12 @@ class ActivityPlanEngine:
 
         for phase in sorted_phases:
             eligible = self._filter_activities(
-                activities, phase, species_name, skill_max,
-                species=species, family_name=family_name,
+                activities,
+                phase,
+                species_name,
+                skill_max,
+                species=species,
+                family_name=family_name,
             )
             templates = self._schedule_activities(eligible, phase, species_name)
 
@@ -129,9 +133,10 @@ class ActivityPlanEngine:
         growth_habit = species.growth_habit.value if species else ""
         support_required = species.support_required if species else False
         container_suitable = (
-            species.container_suitable is not None
-            and species.container_suitable.value != "unsuitable"
-        ) if species else True
+            (species.container_suitable is not None and species.container_suitable.value != "unsuitable")
+            if species
+            else True
+        )
 
         # Build name match set: scientific name, common names, genus
         name_tokens: set[str] = set()
@@ -230,7 +235,8 @@ class ActivityPlanEngine:
 
             # Resolve species-specific recovery days
             recovery = act.recovery_days_by_species.get(
-                species_name, act.recovery_days_default,
+                species_name,
+                act.recovery_days_default,
             )
 
             # Update recovery calendar
@@ -242,31 +248,33 @@ class ActivityPlanEngine:
             # Build rationale (EN + DE)
             rationale, rationale_de = self._build_rationale(act, category, day_offset, recovery, phase)
 
-            templates.append(TaskTemplate(
-                name=act.name,
-                name_de=act.name_de,
-                instruction=act.description or rationale,
-                instruction_de=act.description_de or rationale_de,
-                description=act.description,
-                description_de=act.description_de,
-                category=_ACTIVITY_TO_TASK_CATEGORY.get(category, "maintenance"),
-                trigger_type="phase_entry",
-                trigger_phase=phase.name,
-                days_offset=day_offset,
-                stress_level=act.stress_level,
-                skill_level=act.skill_level,
-                estimated_duration_minutes=act.estimated_duration_minutes,
-                tools_required=list(act.tools_required),
-                activity_key=act.key or "",
-                rationale=rationale,
-                rationale_de=rationale_de,
-                recovery_days=recovery,
-                is_optional=is_optional,
-                enabled=not is_optional,
-                phase_display_name=phase.display_name or phase.name,
-                phase_duration_days=phase.typical_duration_days,
-                phase_stress_tolerance=phase.stress_tolerance.value,
-            ))
+            templates.append(
+                TaskTemplate(
+                    name=act.name,
+                    name_de=act.name_de,
+                    instruction=act.description or rationale,
+                    instruction_de=act.description_de or rationale_de,
+                    description=act.description,
+                    description_de=act.description_de,
+                    category=_ACTIVITY_TO_TASK_CATEGORY.get(category, "maintenance"),
+                    trigger_type="phase_entry",
+                    trigger_phase=phase.name,
+                    days_offset=day_offset,
+                    stress_level=act.stress_level,
+                    skill_level=act.skill_level,
+                    estimated_duration_minutes=act.estimated_duration_minutes,
+                    tools_required=list(act.tools_required),
+                    activity_key=act.key or "",
+                    rationale=rationale,
+                    rationale_de=rationale_de,
+                    recovery_days=recovery,
+                    is_optional=is_optional,
+                    enabled=not is_optional,
+                    phase_display_name=phase.display_name or phase.name,
+                    phase_duration_days=phase.typical_duration_days,
+                    phase_stress_tolerance=phase.stress_tolerance.value,
+                )
+            )
 
         return templates
 

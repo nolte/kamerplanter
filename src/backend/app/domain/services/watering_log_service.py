@@ -54,6 +54,7 @@ class WateringLogService:
         # Reuse WateringEngine for validation
         plant_keys = log.plant_keys if log.plant_keys else ["_compat"]
         from app.domain.models.watering_event import WateringEvent
+
         compat_event = WateringEvent(
             watered_at=log.logged_at,
             application_method=log.application_method,
@@ -94,16 +95,26 @@ class WateringLogService:
         return log
 
     def list_logs(
-        self, offset: int = 0, limit: int = 50,
+        self,
+        offset: int = 0,
+        limit: int = 50,
     ) -> tuple[list[WateringLog], int]:
         return self._repo.get_all(offset, limit)
 
     def update_log(self, key: str, data: dict) -> WateringLog:
         existing = self.get_log(key)
         allowed_fields = {
-            "application_method", "is_supplemental", "volume_liters",
-            "ec_before", "ec_after", "ph_before", "ph_after",
-            "runoff_ec", "runoff_ph", "runoff_volume_liters", "notes",
+            "application_method",
+            "is_supplemental",
+            "volume_liters",
+            "ec_before",
+            "ec_after",
+            "ph_before",
+            "ph_after",
+            "runoff_ec",
+            "runoff_ph",
+            "runoff_volume_liters",
+            "notes",
         }
         update_fields = {k: v for k, v in data.items() if k in allowed_fields and v is not None}
         if update_fields:
@@ -117,17 +128,26 @@ class WateringLogService:
     # ── Queries ──────────────────────────────────────────────────────────
 
     def get_by_plant(
-        self, plant_key: str, offset: int = 0, limit: int = 50,
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[WateringLog]:
         return self._repo.get_by_plant(plant_key, offset, limit)
 
     def get_by_slot(
-        self, slot_key: str, offset: int = 0, limit: int = 50,
+        self,
+        slot_key: str,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[WateringLog]:
         return self._repo.get_by_slot(slot_key, offset, limit)
 
     def get_by_location(
-        self, location_key: str, offset: int = 0, limit: int = 50,
+        self,
+        location_key: str,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[WateringLog]:
         return self._repo.get_by_location(location_key, offset, limit)
 
@@ -201,17 +221,15 @@ class WateringLogService:
         fertilizers_used: list[WateringLogFertilizer] = []
         if overrides and "fertilizers" in overrides:
             for f in overrides["fertilizers"]:
-                fertilizers_used.append(WateringLogFertilizer(
-                    fertilizer_key=f["fertilizer_key"],
-                    ml_per_liter=f["ml_per_liter"],
-                ))
+                fertilizers_used.append(
+                    WateringLogFertilizer(
+                        fertilizer_key=f["fertilizer_key"],
+                        ml_per_liter=f["ml_per_liter"],
+                    )
+                )
 
         now = datetime.now(UTC)
-        application_method = (
-            watering_schedule.application_method
-            if watering_schedule
-            else ApplicationMethod.DRENCH
-        )
+        application_method = watering_schedule.application_method if watering_schedule else ApplicationMethod.DRENCH
 
         watering_log = WateringLog(
             logged_at=now,
@@ -232,10 +250,13 @@ class WateringLogService:
         task_completed = False
         task_doc = self._task_repo.get_by_key(task_key)
         if task_doc:
-            self._task_repo.update_fields(task_key, {
-                "status": TaskStatus.COMPLETED.value,
-                "completed_at": now.isoformat(),
-            })
+            self._task_repo.update_fields(
+                task_key,
+                {
+                    "status": TaskStatus.COMPLETED.value,
+                    "completed_at": now.isoformat(),
+                },
+            )
             task_completed = True
 
         # Create care confirmation for each plant

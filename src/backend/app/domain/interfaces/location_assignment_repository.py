@@ -6,7 +6,6 @@ if TYPE_CHECKING:
 
 
 class ILocationAssignmentRepository(ABC):
-
     @abstractmethod
     def get_by_key(self, key: str) -> LocationAssignment | None: ...
 
@@ -23,14 +22,10 @@ class ILocationAssignmentRepository(ABC):
     def list_by_tenant(self, tenant_key: str) -> list[LocationAssignment]: ...
 
     @abstractmethod
-    def list_by_membership(
-        self, membership_key: str
-    ) -> list[LocationAssignment]: ...
+    def list_by_membership(self, membership_key: str) -> list[LocationAssignment]: ...
 
     @abstractmethod
-    def get_by_membership_and_location(
-        self, membership_key: str, location_key: str
-    ) -> LocationAssignment | None: ...
+    def get_by_membership_and_location(self, membership_key: str, location_key: str) -> LocationAssignment | None: ...
 
     @abstractmethod
     def delete_all_for_tenant(self, tenant_key: str) -> int: ...

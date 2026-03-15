@@ -52,13 +52,8 @@ class Fertilizer(BaseModel):
 
     @model_validator(mode="after")
     def validate_tank_safe_application(self) -> Fertilizer:
-        if (
-            not self.tank_safe
-            and self.recommended_application == ApplicationMethod.FERTIGATION
-        ):
-            raise ValueError(
-                "Fertilizer marked as not tank-safe cannot have fertigation as recommended application"
-            )
+        if not self.tank_safe and self.recommended_application == ApplicationMethod.FERTIGATION:
+            raise ValueError("Fertilizer marked as not tank-safe cannot have fertigation as recommended application")
         return self
 
     @model_validator(mode="after")
@@ -87,10 +82,6 @@ class FertilizerStock(BaseModel):
 
     @model_validator(mode="after")
     def validate_dates(self) -> FertilizerStock:
-        if (
-            self.purchase_date is not None
-            and self.expiry_date is not None
-            and self.expiry_date <= self.purchase_date
-        ):
+        if self.purchase_date is not None and self.expiry_date is not None and self.expiry_date <= self.purchase_date:
             raise ValueError("expiry_date must be after purchase_date")
         return self

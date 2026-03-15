@@ -17,14 +17,9 @@ class MembershipEngine:
         return role == TenantRole.ADMIN
 
     @staticmethod
-    def can_assign_role(
-        assigner_role: TenantRole, target_role: TenantRole
-    ) -> bool:
+    def can_assign_role(assigner_role: TenantRole, target_role: TenantRole) -> bool:
         """Assigner can only assign roles at or below their own level."""
-        return (
-            assigner_role == TenantRole.ADMIN
-            and ROLE_HIERARCHY[assigner_role] >= ROLE_HIERARCHY[target_role]
-        )
+        return assigner_role == TenantRole.ADMIN and ROLE_HIERARCHY[assigner_role] >= ROLE_HIERARCHY[target_role]
 
     @staticmethod
     def can_edit_resource(role: TenantRole) -> bool:
@@ -37,9 +32,7 @@ class MembershipEngine:
         return role in (TenantRole.ADMIN, TenantRole.GROWER, TenantRole.VIEWER)
 
     @staticmethod
-    def validate_not_last_admin(
-        admin_count: int, is_target_admin: bool
-    ) -> bool:
+    def validate_not_last_admin(admin_count: int, is_target_admin: bool) -> bool:
         """Returns True if safe to remove/demote. False if would leave no admins."""
         if not is_target_admin:
             return True

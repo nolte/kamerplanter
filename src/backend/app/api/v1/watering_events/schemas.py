@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -8,6 +7,7 @@ if TYPE_CHECKING:
 
 # ── Snapshot ────────────────────────────────────────────────────────
 
+
 class FertilizerSnapshotSchema(BaseModel):
     product_key: str | None = None
     product_name: str
@@ -15,6 +15,7 @@ class FertilizerSnapshotSchema(BaseModel):
 
 
 # ── WateringEvent schemas ──────────────────────────────────────────
+
 
 class WateringEventCreate(BaseModel):
     application_method: str = "drench"
@@ -76,6 +77,7 @@ class WateringStatsResponse(BaseModel):
 
 # ── Confirm schemas ──────────────────────────────────────────────────
 
+
 class WateringConfirmRequest(BaseModel):
     run_key: str
     task_key: str
@@ -98,6 +100,7 @@ class WateringConfirmResponse(BaseModel):
 
 
 # ── Volume suggestion schemas ─────────────────────────────────────
+
 
 class VolumeSuggestionRequest(BaseModel):
     plant_key: str

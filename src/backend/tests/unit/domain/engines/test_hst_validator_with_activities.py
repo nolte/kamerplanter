@@ -28,7 +28,10 @@ class TestHSTValidatorWithActivities:
             recovery_days_default=5,
         )
         result = self.validator.validate(
-            "Topping", "flowering", [], activities=[topping],
+            "Topping",
+            "flowering",
+            [],
+            activities=[topping],
         )
         assert result["can_perform"] is False
         assert "forbidden" in result["reason"]
@@ -40,7 +43,10 @@ class TestHSTValidatorWithActivities:
             recovery_days_default=5,
         )
         result = self.validator.validate(
-            "Supercropping", "mid_flower", [], activities=[sc],
+            "Supercropping",
+            "mid_flower",
+            [],
+            activities=[sc],
         )
         assert result["can_perform"] is False
 
@@ -51,7 +57,10 @@ class TestHSTValidatorWithActivities:
             recovery_days_default=5,
         )
         result = self.validator.validate(
-            "Topping", "vegetative", [], activities=[topping],
+            "Topping",
+            "vegetative",
+            [],
+            activities=[topping],
         )
         assert result["can_perform"] is True
 
@@ -63,7 +72,11 @@ class TestHSTValidatorWithActivities:
         )
         recent = [{"name": "Topping", "completed_at": (datetime.now() - timedelta(days=3)).isoformat()}]
         result = self.validator.validate(
-            "Topping", "vegetative", recent, species_name="Cannabis Sativa", activities=[topping],
+            "Topping",
+            "vegetative",
+            recent,
+            species_name="Cannabis Sativa",
+            activities=[topping],
         )
         assert result["can_perform"] is False
         assert result["recovery_status"]["days_remaining"] > 0
@@ -75,7 +88,10 @@ class TestHSTValidatorWithActivities:
         )
         recent = [{"name": "Topping", "completed_at": (datetime.now() - timedelta(days=10)).isoformat()}]
         result = self.validator.validate(
-            "Topping", "vegetative", recent, activities=[topping],
+            "Topping",
+            "vegetative",
+            recent,
+            activities=[topping],
         )
         assert result["can_perform"] is True
 
@@ -83,7 +99,10 @@ class TestHSTValidatorWithActivities:
         # Activity list provided but doesn't contain matching activity
         other = _make_activity(name="LST", recovery_days_default=0)
         result = self.validator.validate(
-            "Topping", "flowering", [], activities=[other],
+            "Topping",
+            "flowering",
+            [],
+            activities=[other],
         )
         # Falls back to constants — Topping is in FORBIDDEN_ALL_FLOWER
         assert result["can_perform"] is False
@@ -99,6 +118,9 @@ class TestHSTValidatorWithActivities:
             forbidden_phases=["flowering"],
         )
         result = self.validator.validate(
-            "topping", "flowering", [], activities=[topping],
+            "topping",
+            "flowering",
+            [],
+            activities=[topping],
         )
         assert result["can_perform"] is False

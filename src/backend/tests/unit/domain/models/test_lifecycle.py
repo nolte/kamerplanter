@@ -34,7 +34,11 @@ class TestGrowthPhase:
 
     def test_terminal_phase(self):
         p = GrowthPhase(
-            name="harvest", typical_duration_days=7, sequence_order=5, is_terminal=True, allows_harvest=True,
+            name="harvest",
+            typical_duration_days=7,
+            sequence_order=5,
+            is_terminal=True,
+            allows_harvest=True,
         )
         assert p.is_terminal is True
         assert p.allows_harvest is True

@@ -100,8 +100,8 @@ class TestAssessReadiness:
     def test_reliability_weighting(self, engine):
         """Higher reliability indicators have more weight."""
         observations = [
-            _make_observation("trichome", "peak"),      # score 100, reliability 0.9
-            _make_observation("pistil", "immature"),     # score 0, reliability 0.1
+            _make_observation("trichome", "peak"),  # score 100, reliability 0.9
+            _make_observation("pistil", "immature"),  # score 0, reliability 0.1
         ]
         reliabilities = {
             "trichome": 0.9,

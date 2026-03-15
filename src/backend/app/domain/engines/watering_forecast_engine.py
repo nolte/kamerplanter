@@ -53,7 +53,10 @@ class WateringForecastEngine:
         max_iterations = 500  # safety cap
         for _ in range(max_iterations):
             interval = self._interval_for_date(
-                profile, current, hemisphere, phase_intervals,
+                profile,
+                current,
+                hemisphere,
+                phase_intervals,
             )
             current = current + timedelta(days=interval)
 
@@ -87,9 +90,7 @@ class WateringForecastEngine:
         base = phase_base or profile.watering_interval_learned or profile.watering_interval_days
         month = ref_date.month
 
-        is_winter = (
-            month in (6, 7, 8) if hemisphere == "south" else month in (12, 1, 2)
-        )
+        is_winter = month in (6, 7, 8) if hemisphere == "south" else month in (12, 1, 2)
         if is_winter:
             return max(1, int(base * profile.winter_watering_multiplier))
         return base

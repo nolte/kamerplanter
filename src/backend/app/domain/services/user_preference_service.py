@@ -5,6 +5,7 @@ from app.domain.models.user_preference import UserPreference
 class UserPreferenceService:
     def __init__(self, db) -> None:
         from app.data_access.arango import collections as col
+
         self._repo = BaseArangoRepository(db, col.USER_PREFERENCES)
 
     def get_preferences(self, user_key: str) -> UserPreference:

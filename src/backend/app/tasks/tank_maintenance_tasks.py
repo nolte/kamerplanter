@@ -49,12 +49,15 @@ def generate_tank_maintenance_tasks() -> dict:
 
         # Idempotency: check if pending/in_progress task already exists
         task_name = f"maintenance:{schedule.maintenance_type}:{tank_key}"
-        existing, _ = task_repo.get_all_tasks(0, 200, {
-            "category": TaskCategory.MAINTENANCE.value,
-        })
+        existing, _ = task_repo.get_all_tasks(
+            0,
+            200,
+            {
+                "category": TaskCategory.MAINTENANCE.value,
+            },
+        )
         already_exists = any(
-            t.name == task_name and t.status in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS)
-            for t in existing
+            t.name == task_name and t.status in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS) for t in existing
         )
         if already_exists:
             skipped_count += 1
@@ -74,8 +77,7 @@ def generate_tank_maintenance_tasks() -> dict:
         task = Task(
             name=task_name,
             instruction=(
-                schedule.instructions
-                or f"Scheduled maintenance ({schedule.maintenance_type}) for tank '{tank_label}'"
+                schedule.instructions or f"Scheduled maintenance ({schedule.maintenance_type}) for tank '{tank_label}'"
             ),
             category=TaskCategory.MAINTENANCE,
             due_date=due_date,
@@ -176,9 +178,12 @@ def check_runoff_trends() -> dict:
     from app.common.dependencies import get_db
 
     db = get_db()
-    cursor = db.aql.execute(query, bind_vars={
-        "phases": [PhaseName.VEGETATIVE.value, PhaseName.FLOWERING.value],
-    })
+    cursor = db.aql.execute(
+        query,
+        bind_vars={
+            "phases": [PhaseName.VEGETATIVE.value, PhaseName.FLOWERING.value],
+        },
+    )
     plant_keys = list(cursor)
 
     created = 0
@@ -202,12 +207,15 @@ def check_runoff_trends() -> dict:
 
         # Idempotency: check if flush task already exists
         task_name = f"flush:runoff_trend:{plant_key}"
-        existing, _ = task_repo.get_all_tasks(0, 200, {
-            "category": TaskCategory.MAINTENANCE.value,
-        })
+        existing, _ = task_repo.get_all_tasks(
+            0,
+            200,
+            {
+                "category": TaskCategory.MAINTENANCE.value,
+            },
+        )
         already_exists = any(
-            t.name == task_name and t.status in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS)
-            for t in existing
+            t.name == task_name and t.status in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS) for t in existing
         )
         if already_exists:
             skipped += 1

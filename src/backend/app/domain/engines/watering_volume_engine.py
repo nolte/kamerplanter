@@ -56,17 +56,17 @@ SUBSTRATE_WATERING_RATIO: dict[str, float] = {
 
 # ── Water retention modifier: adjusts base ratio up/down ──
 _RETENTION_MODIFIER: dict[str, float] = {
-    "low": 1.20,     # low retention → more water needed per event
+    "low": 1.20,  # low retention → more water needed per event
     "medium": 1.00,
-    "high": 0.80,    # high retention → less water needed per event
+    "high": 0.80,  # high retention → less water needed per event
 }
 
 # ── Irrigation strategy modifier ──
 _STRATEGY_MODIFIER: dict[str, float] = {
-    "infrequent": 1.30,   # larger volume per event (less frequent)
+    "infrequent": 1.30,  # larger volume per event (less frequent)
     "moderate": 1.00,
-    "frequent": 0.70,     # smaller volume per event (more frequent)
-    "continuous": 0.50,   # minimal per event (always running)
+    "frequent": 0.70,  # smaller volume per event (more frequent)
+    "continuous": 0.50,  # minimal per event (always running)
 }
 
 # ── Phase factor: multiplier relative to vegetative baseline ──
@@ -159,10 +159,15 @@ class WateringVolumeEngine:
 
         # ── Apply substrate modifiers (retention + strategy) ───────────
         volume_ml = self._apply_retention_modifier(
-            volume_ml, water_retention, water_holding_capacity_percent, adjustments,
+            volume_ml,
+            water_retention,
+            water_holding_capacity_percent,
+            adjustments,
         )
         volume_ml = self._apply_strategy_modifier(
-            volume_ml, irrigation_strategy, adjustments,
+            volume_ml,
+            irrigation_strategy,
+            adjustments,
         )
 
         # ── Apply phase factor (if not already from RequirementProfile) ─
@@ -284,6 +289,6 @@ class WateringVolumeEngine:
         # Dampen scaling: sqrt to prevent linear blow-up for large containers
         # e.g. 20L pot → scale = sqrt(4) = 2.0x, not 4.0x
         if raw_scale > 1.0:
-            return raw_scale ** 0.5
+            return raw_scale**0.5
         # For small pots, scale linearly (already < 1.0)
         return max(0.2, raw_scale)

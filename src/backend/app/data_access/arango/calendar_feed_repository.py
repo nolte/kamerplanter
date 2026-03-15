@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from app.data_access.arango import collections as col
@@ -40,7 +39,9 @@ class ArangoCalendarFeedRepository(BaseArangoRepository, ICalendarFeedRepository
         return self._to_model(doc)
 
     def list_by_user(
-        self, user_key: str, tenant_key: str,
+        self,
+        user_key: str,
+        tenant_key: str,
     ) -> list[CalendarFeed]:
         query = """
         FOR f IN @@col

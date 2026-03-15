@@ -6,14 +6,11 @@ if TYPE_CHECKING:
 
 
 class IMembershipRepository(ABC):
-
     @abstractmethod
     def get_by_key(self, key: str) -> Membership | None: ...
 
     @abstractmethod
-    def get_by_user_and_tenant(
-        self, user_key: str, tenant_key: str
-    ) -> Membership | None: ...
+    def get_by_user_and_tenant(self, user_key: str, tenant_key: str) -> Membership | None: ...
 
     @abstractmethod
     def create(self, membership: Membership) -> Membership: ...

@@ -15,7 +15,10 @@ class ActivityService:
         self._repo = repo
 
     def list_activities(
-        self, offset: int = 0, limit: int = 50, filters: dict | None = None,
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict | None = None,
     ) -> tuple[list[Activity], int]:
         return self._repo.get_all(offset, limit, filters)
 
@@ -31,11 +34,23 @@ class ActivityService:
     def update_activity(self, key: ActivityKey, data: dict) -> Activity:
         existing = self.get_activity(key)
         allowed_fields = {
-            "name", "name_de", "description", "description_de", "category",
-            "stress_level", "skill_level", "recovery_days_default",
-            "recovery_days_by_species", "forbidden_phases", "restricted_sub_phases",
-            "tools_required", "estimated_duration_minutes", "requires_photo",
-            "species_compatible", "sort_order", "tags",
+            "name",
+            "name_de",
+            "description",
+            "description_de",
+            "category",
+            "stress_level",
+            "skill_level",
+            "recovery_days_default",
+            "recovery_days_by_species",
+            "forbidden_phases",
+            "restricted_sub_phases",
+            "tools_required",
+            "estimated_duration_minutes",
+            "requires_photo",
+            "species_compatible",
+            "sort_order",
+            "tags",
         }
         merged = existing.model_dump()
         for field, value in data.items():

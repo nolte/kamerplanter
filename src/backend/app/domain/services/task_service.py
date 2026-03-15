@@ -32,7 +32,10 @@ class TaskService:
     # ── Workflow Templates ──
 
     def list_workflow_templates(
-        self, offset: int = 0, limit: int = 50, species_key: str | None = None,
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        species_key: str | None = None,
     ) -> tuple[list[WorkflowTemplate], int]:
         return self._repo.get_all_workflow_templates(offset, limit, species_key=species_key)
 
@@ -137,10 +140,7 @@ class TaskService:
         now = datetime.now(UTC)
         for tt in templates:
             # Propagate checklist from template
-            checklist = [
-                ChecklistItem(text=item.text, done=False, order=item.order)
-                for item in tt.default_checklist
-            ]
+            checklist = [ChecklistItem(text=item.text, done=False, order=item.order) for item in tt.default_checklist]
 
             # Determine if task should be dormant (phase not yet active)
             status = "pending"
@@ -177,7 +177,8 @@ class TaskService:
             # Ansatz A: Link task to activity if template has activity_key
             if tt.activity_key and created_task.key:
                 self._repo.create_task_activity_edge(
-                    created_task.key, tt.activity_key,
+                    created_task.key,
+                    tt.activity_key,
                 )
 
         return execution
@@ -265,12 +266,15 @@ class TaskService:
         all_tasks = self._repo.get_tasks_for_plant(task.plant_key or "")
         deps = self._repo.get_blocking_tasks(key)
         task_dicts = [
-            {"key": t.key, "status": t.status, "priority": t.priority, "due_date": t.due_date}
-            for t in all_tasks
+            {"key": t.key, "status": t.status, "priority": t.priority, "due_date": t.due_date} for t in all_tasks
         ]
         dep_dicts = [{"from_key": key, "to_key": d["key"]} for d in deps]
         rescheduled = self._deps.reschedule_dependents(
-            key, task.completed_at, task.due_date, task_dicts, dep_dicts,
+            key,
+            task.completed_at,
+            task.due_date,
+            task_dicts,
+            dep_dicts,
         )
         for r in rescheduled:
             dep_task = self._repo.get_task_by_key(r["task_key"])
@@ -290,6 +294,7 @@ class TaskService:
         # Parse cron and compute next due date
         try:
             from croniter import croniter
+
             cron = croniter(completed_task.recurrence_rule, datetime.now(UTC))
             next_dt = cron.get_next(datetime)
         except Exception:
@@ -313,8 +318,7 @@ class TaskService:
             timer_label=completed_task.timer_label,
             tags=list(completed_task.tags),
             checklist=[
-                ChecklistItem(text=item.text, done=False, order=item.order)
-                for item in completed_task.checklist
+                ChecklistItem(text=item.text, done=False, order=item.order) for item in completed_task.checklist
             ],
             assigned_to_user_key=completed_task.assigned_to_user_key,
             recurrence_rule=completed_task.recurrence_rule,
@@ -360,10 +364,7 @@ class TaskService:
             timer_duration_seconds=source.timer_duration_seconds,
             timer_label=source.timer_label,
             tags=list(source.tags),
-            checklist=[
-                ChecklistItem(text=item.text, done=False, order=item.order)
-                for item in source.checklist
-            ],
+            checklist=[ChecklistItem(text=item.text, done=False, order=item.order) for item in source.checklist],
         )
         return self._repo.create_task(new_task)
 
@@ -373,8 +374,7 @@ class TaskService:
         task = self.get_task(key)
         if task.status not in ("completed", "skipped"):
             raise ValidationError(
-                f"Cannot reopen task in status '{task.status}'. "
-                "Only completed or skipped tasks can be reopened.",
+                f"Cannot reopen task in status '{task.status}'. Only completed or skipped tasks can be reopened.",
             )
         task.reopened_from_status = task.status
         task.reopened_at = datetime.now(UTC)
@@ -424,7 +424,9 @@ class TaskService:
         return succeeded, failed
 
     def batch_assign(
-        self, task_keys: list[str], assigned_to_user_key: str,
+        self,
+        task_keys: list[str],
+        assigned_to_user_key: str,
     ) -> tuple[list[str], list[dict]]:
         succeeded: list[str] = []
         failed: list[dict] = []
@@ -541,7 +543,9 @@ class TaskService:
 
         task_dicts = [
             {
-                "key": t.key, "status": t.status, "priority": t.priority,
+                "key": t.key,
+                "status": t.status,
+                "priority": t.priority,
                 "due_date": t.due_date.isoformat() if t.due_date else None,
             }
             for t in tasks
@@ -565,11 +569,17 @@ class TaskService:
     # ── HST Validation ──
 
     def validate_hst(
-        self, task_name: str, current_phase: str,
-        recent_hst_tasks: list[dict], species_name: str = "",
+        self,
+        task_name: str,
+        current_phase: str,
+        recent_hst_tasks: list[dict],
+        species_name: str = "",
     ) -> dict:
         return self._hst.validate(
-            task_name, current_phase, recent_hst_tasks, species_name,
+            task_name,
+            current_phase,
+            recent_hst_tasks,
+            species_name,
         )
 
     # ── Workflow Execution ──

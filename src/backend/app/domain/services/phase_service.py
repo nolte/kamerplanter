@@ -148,7 +148,12 @@ class PhaseService:
         }
 
     def transition_phase(
-        self, plant_key: PlantID, target_phase_key: PhaseKey, reason: str = "manual", *, force: bool = False,
+        self,
+        plant_key: PlantID,
+        target_phase_key: PhaseKey,
+        reason: str = "manual",
+        *,
+        force: bool = False,
     ) -> PlantInstance:
         plant = self._transition_engine.execute_transition(plant_key, target_phase_key, reason, force=force)
 

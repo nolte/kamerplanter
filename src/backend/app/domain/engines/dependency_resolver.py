@@ -33,10 +33,7 @@ class DependencyResolver:
         Returns:
             List of unblocked pending tasks sorted by priority and urgency.
         """
-        completed_keys = {
-            t["key"] for t in tasks
-            if t.get("status") in ("completed", "skipped")
-        }
+        completed_keys = {t["key"] for t in tasks if t.get("status") in ("completed", "skipped")}
 
         blocked_by: dict[str, set[str]] = {}
         for dep in dependencies:
@@ -68,10 +65,7 @@ class DependencyResolver:
             ready.append({**t, "_sort_priority": priority_score, "_sort_urgency": urgency})
 
         ready.sort(key=lambda x: (x["_sort_priority"], -x["_sort_urgency"]))
-        return [
-            {k: v for k, v in item.items() if not k.startswith("_")}
-            for item in ready
-        ]
+        return [{k: v for k, v in item.items() if not k.startswith("_")} for item in ready]
 
     def reschedule_dependents(
         self,
@@ -127,10 +121,12 @@ class DependencyResolver:
                 if isinstance(due, str):
                     due = datetime.fromisoformat(due)
                 new_due = due + delay
-                rescheduled.append({
-                    "task_key": task_key,
-                    "new_due_date": new_due.isoformat(),
-                })
+                rescheduled.append(
+                    {
+                        "task_key": task_key,
+                        "new_due_date": new_due.isoformat(),
+                    }
+                )
 
             for downstream in adjacency.get(task_key, []):
                 queue.append(downstream)

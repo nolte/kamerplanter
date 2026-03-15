@@ -7,7 +7,9 @@ class PlantingRunEngine:
     """Pure logic for planting run operations — no DB access."""
 
     def validate_status_transition(
-        self, current: PlantingRunStatus, target: PlantingRunStatus,
+        self,
+        current: PlantingRunStatus,
+        target: PlantingRunStatus,
     ) -> None:
         allowed = ALLOWED_STATUS_TRANSITIONS.get(current, [])
         if target not in allowed:
@@ -34,12 +36,14 @@ class PlantingRunEngine:
                         break
                     seq += 1
                 existing_ids.add(instance_id)
-                result.append({
-                    "entry_key": entry.key,
-                    "instance_id": instance_id,
-                    "species_key": entry.species_key,
-                    "cultivar_key": entry.cultivar_key,
-                })
+                result.append(
+                    {
+                        "entry_key": entry.key,
+                        "instance_id": instance_id,
+                        "species_key": entry.species_key,
+                        "cultivar_key": entry.cultivar_key,
+                    }
+                )
                 seq += 1
         return result
 

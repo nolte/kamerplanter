@@ -22,9 +22,13 @@ class TestSensor:
 
     def test_sensor_metric_type_examples(self):
         metric_types = [
-            "ec_ms", "ph", "water_temp_celsius",
-            "fill_level_percent", "tds_ppm",
-            "dissolved_oxygen_mgl", "orp_mv",
+            "ec_ms",
+            "ph",
+            "water_temp_celsius",
+            "fill_level_percent",
+            "tds_ppm",
+            "dissolved_oxygen_mgl",
+            "orp_mv",
         ]
         for mt in metric_types:
             sensor = Sensor(name=f"Sensor {mt}", metric_type=mt)

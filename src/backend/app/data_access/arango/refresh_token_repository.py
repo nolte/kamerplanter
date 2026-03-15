@@ -32,10 +32,13 @@ class ArangoRefreshTokenRepository(IRefreshTokenRepository, BaseArangoRepository
           LIMIT 1
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.REFRESH_TOKENS,
-            "hash": token_hash,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.REFRESH_TOKENS,
+                "hash": token_hash,
+            },
+        )
         docs = list(cursor)
         if not docs:
             return None
@@ -57,11 +60,14 @@ class ArangoRefreshTokenRepository(IRefreshTokenRepository, BaseArangoRepository
           UPDATE doc WITH { revoked: true, updated_at: @now } IN @@collection
           RETURN 1
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.REFRESH_TOKENS,
-            "user_key": user_key,
-            "now": self._now(),
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.REFRESH_TOKENS,
+                "user_key": user_key,
+                "now": self._now(),
+            },
+        )
         return sum(1 for _ in cursor)
 
     def cleanup_expired(self) -> int:
@@ -72,10 +78,13 @@ class ArangoRefreshTokenRepository(IRefreshTokenRepository, BaseArangoRepository
           REMOVE doc IN @@collection
           RETURN 1
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.REFRESH_TOKENS,
-            "now": now,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.REFRESH_TOKENS,
+                "now": now,
+            },
+        )
         count = sum(1 for _ in cursor)
         # Also clean up orphaned edges
         query2 = f"""
@@ -95,9 +104,12 @@ class ArangoRefreshTokenRepository(IRefreshTokenRepository, BaseArangoRepository
           SORT doc.created_at DESC
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.REFRESH_TOKENS,
-            "user_key": user_key,
-            "now": now,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.REFRESH_TOKENS,
+                "user_key": user_key,
+                "now": now,
+            },
+        )
         return [RefreshToken(**self._from_doc(doc)) for doc in cursor]

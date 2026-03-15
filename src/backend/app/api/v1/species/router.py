@@ -46,8 +46,11 @@ def list_species(
             )
             for s in items
         ],
-        total=total, offset=offset, limit=limit,
+        total=total,
+        offset=offset,
+        limit=limit,
     )
+
 
 @router.get("/{key}", response_model=SpeciesResponse)
 def get_species(
@@ -57,6 +60,7 @@ def get_species(
 ):
     s = service.get_species(key)
     return _species_response(s, family_repo)
+
 
 @router.post("", response_model=SpeciesResponse, status_code=201)
 def create_species(
@@ -68,6 +72,7 @@ def create_species(
     created = service.create_species(species)
     return _species_response(created, family_repo)
 
+
 @router.put("/{key}", response_model=SpeciesResponse)
 def update_species(
     key: str,
@@ -78,6 +83,7 @@ def update_species(
     species = Species(**body.model_dump())
     updated = service.update_species(key, species)
     return _species_response(updated, family_repo)
+
 
 @router.delete("/{key}", status_code=204)
 def delete_species(key: str, service: SpeciesService = Depends(get_species_service)):

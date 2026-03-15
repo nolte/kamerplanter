@@ -297,21 +297,28 @@ class TestTankFillEvent:
 
     def test_ro_percent_bounds(self):
         TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, water_mix_ratio_ro_percent=0.0,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            water_mix_ratio_ro_percent=0.0,
         )
         TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, water_mix_ratio_ro_percent=100.0,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            water_mix_ratio_ro_percent=100.0,
         )
         with pytest.raises(ValidationError):
             TankFillEvent(
-                tank_key="t1", fill_type=FillType.FULL_CHANGE,
-                volume_liters=50.0, water_mix_ratio_ro_percent=101.0,
+                tank_key="t1",
+                fill_type=FillType.FULL_CHANGE,
+                volume_liters=50.0,
+                water_mix_ratio_ro_percent=101.0,
             )
 
     def test_fertilizers_used(self):
         from app.domain.models.tank import FertilizerSnapshot
+
         event = TankFillEvent(
             tank_key="t1",
             fill_type=FillType.FULL_CHANGE,

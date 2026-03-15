@@ -89,15 +89,17 @@ class SpeciesData(BaseModel):
             or self.bloom_months
         )
         if has_data:
-            self.growing_periods = [GrowingPeriodData(
-                sowing_indoor_weeks_before_last_frost=self.sowing_indoor_weeks_before_last_frost,
-                sowing_outdoor_after_last_frost_days=self.sowing_outdoor_after_last_frost_days,
-                direct_sow_months=self.direct_sow_months,
-                harvest_months=self.harvest_months,
-                bloom_months=self.bloom_months,
-                harvest_from_year=self.harvest_from_year,
-                bloom_from_year=self.bloom_from_year,
-            )]
+            self.growing_periods = [
+                GrowingPeriodData(
+                    sowing_indoor_weeks_before_last_frost=self.sowing_indoor_weeks_before_last_frost,
+                    sowing_outdoor_after_last_frost_days=self.sowing_outdoor_after_last_frost_days,
+                    direct_sow_months=self.direct_sow_months,
+                    harvest_months=self.harvest_months,
+                    bloom_months=self.bloom_months,
+                    harvest_from_year=self.harvest_from_year,
+                    bloom_from_year=self.bloom_from_year,
+                )
+            ]
         return self
 
 
@@ -137,7 +139,9 @@ class SowingCalendarEngine:
         if not sp.growing_periods:
             return []
         return self._calculate_period_bars(
-            sp.growing_periods[0], frost_config, year,
+            sp.growing_periods[0],
+            frost_config,
+            year,
             is_ornamental=PlantTrait.ORNAMENTAL in sp.traits or not sp.allows_harvest,
             frost_sensitivity=sp.frost_sensitivity,
         )
@@ -160,13 +164,15 @@ class SowingCalendarEngine:
             indoor_start = last_frost - timedelta(weeks=period.sowing_indoor_weeks_before_last_frost)
             indoor_end = last_frost - timedelta(days=1)
             if indoor_start.year == year or indoor_end.year == year:
-                bars.append(SowingBar(
-                    phase="indoor_sowing",
-                    color=PHASE_COLORS["indoor_sowing"],
-                    start_date=max(indoor_start, date(year, 1, 1)),
-                    end_date=indoor_end,
-                    label="indoor_sowing",
-                ))
+                bars.append(
+                    SowingBar(
+                        phase="indoor_sowing",
+                        color=PHASE_COLORS["indoor_sowing"],
+                        start_date=max(indoor_start, date(year, 1, 1)),
+                        end_date=indoor_end,
+                        label="indoor_sowing",
+                    )
+                )
 
         # 2. Outdoor planting — direct_sow_months preferred, fallback to days-after-frost.
         #    When indoor sowing exists, clip outdoor start to after indoor end (§5.1).
@@ -178,25 +184,29 @@ class SowingCalendarEngine:
                     ds = indoor_end_date + timedelta(days=1)
                 if ds > de:
                     continue
-                bars.append(SowingBar(
-                    phase="outdoor_planting",
-                    color=PHASE_COLORS["outdoor_planting"],
-                    start_date=ds,
-                    end_date=de,
-                    label="direct_sow",
-                ))
+                bars.append(
+                    SowingBar(
+                        phase="outdoor_planting",
+                        color=PHASE_COLORS["outdoor_planting"],
+                        start_date=ds,
+                        end_date=de,
+                        label="direct_sow",
+                    )
+                )
         elif period.sowing_outdoor_after_last_frost_days is not None:
             outdoor_start = last_frost + timedelta(days=period.sowing_outdoor_after_last_frost_days)
             if frost_sensitivity == FrostTolerance.SENSITIVE:
                 outdoor_start = max(outdoor_start, eisheilige + timedelta(days=1))
             outdoor_planting_end = outdoor_start + timedelta(days=13)
-            bars.append(SowingBar(
-                phase="outdoor_planting",
-                color=PHASE_COLORS["outdoor_planting"],
-                start_date=outdoor_start,
-                end_date=outdoor_planting_end,
-                label="outdoor_planting",
-            ))
+            bars.append(
+                SowingBar(
+                    phase="outdoor_planting",
+                    color=PHASE_COLORS["outdoor_planting"],
+                    start_date=outdoor_start,
+                    end_date=outdoor_planting_end,
+                    label="outdoor_planting",
+                )
+            )
 
         # 3. Harvest or Flowering months
         #    Clip terminal bars: harvest/bloom cannot start before planting/indoor ends (§5.3).
@@ -207,8 +217,7 @@ class SowingCalendarEngine:
         terminal_months = period.bloom_months if (is_ornamental and period.bloom_months) else period.harvest_months
         terminal_phase = "flowering" if (is_ornamental and period.bloom_months) else "harvest"
         terminal_from_year = (
-            period.bloom_from_year if (is_ornamental and period.bloom_months)
-            else period.harvest_from_year
+            period.bloom_from_year if (is_ornamental and period.bloom_months) else period.harvest_from_year
         )
 
         if terminal_months:
@@ -224,27 +233,31 @@ class SowingCalendarEngine:
                         ds = latest_sowing_end + timedelta(days=1)
                 if ds > de:
                     continue
-                bars.append(SowingBar(
-                    phase=terminal_phase,
-                    color=PHASE_COLORS[terminal_phase],
-                    start_date=ds,
-                    end_date=de,
-                    label=terminal_phase,
-                    from_year=terminal_from_year,
-                ))
+                bars.append(
+                    SowingBar(
+                        phase=terminal_phase,
+                        color=PHASE_COLORS[terminal_phase],
+                        start_date=ds,
+                        end_date=de,
+                        label=terminal_phase,
+                        from_year=terminal_from_year,
+                    )
+                )
 
         # 4. Growth bars — explicit growth_months preferred, otherwise gap-fill (§5.2)
         if period.growth_months:
             # 4-explicit: user-defined growth months
             for period_start, period_end in _split_into_periods(period.growth_months):
                 ds, de = _period_dates(year, period_start, period_end)
-                bars.append(SowingBar(
-                    phase="growth",
-                    color=PHASE_COLORS["growth"],
-                    start_date=ds,
-                    end_date=de,
-                    label="growth",
-                ))
+                bars.append(
+                    SowingBar(
+                        phase="growth",
+                        color=PHASE_COLORS["growth"],
+                        start_date=ds,
+                        end_date=de,
+                        label="growth",
+                    )
+                )
         else:
             # 4-auto: fill ALL gaps to ensure a contiguous timeline
             indoor_bars = [b for b in bars if b.phase == "indoor_sowing"]
@@ -256,13 +269,15 @@ class SowingCalendarEngine:
                 indoor_end = max(b.end_date for b in indoor_bars)
                 outdoor_start = min(b.start_date for b in planting_bars)
                 if outdoor_start > indoor_end + timedelta(days=1):
-                    bars.append(SowingBar(
-                        phase="growth",
-                        color=PHASE_COLORS["growth"],
-                        start_date=indoor_end + timedelta(days=1),
-                        end_date=outdoor_start - timedelta(days=1),
-                        label="growth",
-                    ))
+                    bars.append(
+                        SowingBar(
+                            phase="growth",
+                            color=PHASE_COLORS["growth"],
+                            start_date=indoor_end + timedelta(days=1),
+                            end_date=outdoor_start - timedelta(days=1),
+                            label="growth",
+                        )
+                    )
 
             # 4b. Gap between planting end (or indoor end) and harvest/bloom start
             source_bars = planting_bars or indoor_bars
@@ -274,13 +289,15 @@ class SowingCalendarEngine:
                     growth_start = latest_source_end + timedelta(days=1)
                     growth_end = earliest_future - timedelta(days=1)
                     if growth_start < growth_end:
-                        bars.append(SowingBar(
-                            phase="growth",
-                            color=PHASE_COLORS["growth"],
-                            start_date=growth_start,
-                            end_date=growth_end,
-                            label="growth",
-                        ))
+                        bars.append(
+                            SowingBar(
+                                phase="growth",
+                                color=PHASE_COLORS["growth"],
+                                start_date=growth_start,
+                                end_date=growth_end,
+                                label="growth",
+                            )
+                        )
 
             # 4c. Year-crossing period: harvest/bloom BEFORE planting in the calendar
             #     (e.g. Winterweizen: sow Oct/Nov, harvest Jul/Aug next year).
@@ -291,13 +308,15 @@ class SowingCalendarEngine:
                 if prior_terminals:
                     earliest_terminal = min(b.start_date for b in prior_terminals)
                     if earliest_terminal > date(year, 1, 1):
-                        bars.append(SowingBar(
-                            phase="growth",
-                            color=PHASE_COLORS["growth"],
-                            start_date=date(year, 1, 1),
-                            end_date=earliest_terminal - timedelta(days=1),
-                            label="growth",
-                        ))
+                        bars.append(
+                            SowingBar(
+                                phase="growth",
+                                color=PHASE_COLORS["growth"],
+                                start_date=date(year, 1, 1),
+                                end_date=earliest_terminal - timedelta(days=1),
+                                label="growth",
+                            )
+                        )
 
         return bars
 
@@ -316,7 +335,9 @@ class SowingCalendarEngine:
 
             for i, period in enumerate(sp.growing_periods):
                 bars = self._calculate_period_bars(
-                    period, frost_config, year,
+                    period,
+                    frost_config,
+                    year,
                     is_ornamental=is_ornamental,
                     frost_sensitivity=sp.frost_sensitivity,
                 )
@@ -331,13 +352,15 @@ class SowingCalendarEngine:
                     label = common
                     species_key = sp.key
 
-                entries.append(SowingCalendarEntry(
-                    species_key=species_key,
-                    species_name=sp.scientific_name,
-                    common_name=label,
-                    link_species_key=sp.key,
-                    bars=bars,
-                ))
+                entries.append(
+                    SowingCalendarEntry(
+                        species_key=species_key,
+                        species_name=sp.scientific_name,
+                        common_name=label,
+                        link_species_key=sp.key,
+                        bars=bars,
+                    )
+                )
 
         entries.sort(key=lambda e: min(b.start_date for b in e.bars) if e.bars else date.max)
         return entries

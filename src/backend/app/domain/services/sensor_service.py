@@ -70,10 +70,12 @@ class SensorService:
                     entity_id=sensor.ha_entity_id,
                     error=str(exc),
                 )
-                errors.append({
-                    "entity_id": sensor.ha_entity_id,
-                    "error": str(exc),
-                })
+                errors.append(
+                    {
+                        "entity_id": sensor.ha_entity_id,
+                        "error": str(exc),
+                    }
+                )
 
         return {"values": values, "errors": errors, "source": "ha_live"}
 

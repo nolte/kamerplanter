@@ -45,7 +45,5 @@ class WateringEvent(BaseModel):
     @model_validator(mode="after")
     def check_valid(self) -> WateringEvent:
         if self.is_supplemental and self.application_method == ApplicationMethod.FERTIGATION:
-            raise ValueError(
-                "Supplemental watering cannot use fertigation application method"
-            )
+            raise ValueError("Supplemental watering cannot use fertigation application method")
         return self

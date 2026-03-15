@@ -79,7 +79,11 @@ def login(
     user_agent = request.headers.get("user-agent")
     ip_address = request.client.host if request.client else None
     token_pair, raw_refresh, is_persistent = service.login_local(
-        body.email, body.password, user_agent, ip_address, remember_me=body.remember_me,
+        body.email,
+        body.password,
+        user_agent,
+        ip_address,
+        remember_me=body.remember_me,
     )
     _set_refresh_cookie(response, raw_refresh, is_persistent=is_persistent)
     set_csrf_cookie(response)
@@ -176,10 +180,7 @@ def list_oauth_providers(
     oidc_repo: ArangoOidcConfigRepository = Depends(get_oidc_config_repo),
 ):
     configs = oidc_repo.list_enabled()
-    return [
-        OAuthProviderListItem(slug=c.slug, display_name=c.display_name, icon_url=c.icon_url)
-        for c in configs
-    ]
+    return [OAuthProviderListItem(slug=c.slug, display_name=c.display_name, icon_url=c.icon_url) for c in configs]
 
 
 @router.get("/oauth/{slug}")
@@ -210,7 +211,11 @@ def oauth_callback(
     ip_address = request.client.host if request.client else None
 
     token_pair, raw_refresh, is_persistent = service.complete_oauth(
-        slug, code, state, user_agent, ip_address,
+        slug,
+        code,
+        state,
+        user_agent,
+        ip_address,
     )
 
     # We redirect to the frontend with the access token as a query param.

@@ -32,6 +32,7 @@ FORBIDDEN_PATTERNS = [
 def _get_client():
     with patch("app.main.get_connection"), patch("app.main.ensure_collections"):
         from app.main import app
+
         return TestClient(app, raise_server_exceptions=False)
 
 
@@ -69,10 +70,13 @@ class TestValidationErrorFormat:
 
     def test_invalid_field_type(self):
         client = _get_client()
-        response = client.post("/api/v1/calculations/vpd", json={
-            "temp_c": "not_a_number",
-            "humidity_percent": 60.0,
-        })
+        response = client.post(
+            "/api/v1/calculations/vpd",
+            json={
+                "temp_c": "not_a_number",
+                "humidity_percent": 60.0,
+            },
+        )
         assert response.status_code == 422
         body = response.json()
         _assert_error_schema(body)
@@ -96,11 +100,14 @@ class TestUnhandledErrorFormat:
             "app.api.v1.calculations.router.calculate_vpd",
             side_effect=RuntimeError("DB connection pool exhausted on 172.21.0.3"),
         ):
-            response = client.post("/api/v1/calculations/vpd", json={
-                "temp_c": 25.0,
-                "humidity_percent": 60.0,
-                "phase": "vegetative",
-            })
+            response = client.post(
+                "/api/v1/calculations/vpd",
+                json={
+                    "temp_c": 25.0,
+                    "humidity_percent": 60.0,
+                    "phase": "vegetative",
+                },
+            )
         assert response.status_code == 500
         body = response.json()
         _assert_error_schema(body)

@@ -195,5 +195,3 @@ class TestResolveEffectiveEntry:
         result = resolve_effective_entry(perennial_entries, "vegetative", 53, cycle_restart_from_sequence=3)
         assert result is not None
         assert result.phase_name == PhaseName.VEGETATIVE
-
-

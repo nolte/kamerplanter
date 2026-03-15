@@ -23,7 +23,10 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
     # ── Tank CRUD ──────────────────────────────────────────────────────
 
     def get_all(
-        self, offset: int = 0, limit: int = 50, filters: dict | None = None,
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict | None = None,
     ) -> tuple[list[Tank], int]:
         if filters:
             query = f"FOR doc IN {col.TANKS}"
@@ -131,7 +134,10 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
         return created
 
     def get_states(
-        self, tank_key: TankKey, offset: int = 0, limit: int = 50,
+        self,
+        tank_key: TankKey,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[TankState]:
         query = """
         FOR doc IN @@collection
@@ -140,12 +146,15 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
           LIMIT @offset, @limit
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.TANK_STATES,
-            "tank_key": tank_key,
-            "offset": offset,
-            "limit": limit,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.TANK_STATES,
+                "tank_key": tank_key,
+                "offset": offset,
+                "limit": limit,
+            },
+        )
         return [TankState(**self._from_doc(doc)) for doc in cursor]
 
     def get_latest_state(self, tank_key: TankKey) -> TankState | None:
@@ -172,7 +181,10 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
         return created
 
     def get_maintenance_logs(
-        self, tank_key: TankKey, offset: int = 0, limit: int = 50,
+        self,
+        tank_key: TankKey,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[MaintenanceLog]:
         query = """
         FOR doc IN @@collection
@@ -181,16 +193,21 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
           LIMIT @offset, @limit
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.MAINTENANCE_LOGS,
-            "tank_key": tank_key,
-            "offset": offset,
-            "limit": limit,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.MAINTENANCE_LOGS,
+                "tank_key": tank_key,
+                "offset": offset,
+                "limit": limit,
+            },
+        )
         return [MaintenanceLog(**self._from_doc(doc)) for doc in cursor]
 
     def get_last_maintenance_by_type(
-        self, tank_key: TankKey, maintenance_type: str,
+        self,
+        tank_key: TankKey,
+        maintenance_type: str,
     ) -> MaintenanceLog | None:
         query = """
         FOR doc IN @@collection
@@ -199,11 +216,14 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
           LIMIT 1
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.MAINTENANCE_LOGS,
-            "tank_key": tank_key,
-            "mtype": maintenance_type,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.MAINTENANCE_LOGS,
+                "tank_key": tank_key,
+                "mtype": maintenance_type,
+            },
+        )
         docs = list(cursor)
         if not docs:
             return None
@@ -232,10 +252,13 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
           FILTER doc.tank_key == @tank_key
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.MAINTENANCE_SCHEDULES,
-            "tank_key": tank_key,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.MAINTENANCE_SCHEDULES,
+                "tank_key": tank_key,
+            },
+        )
         return [MaintenanceSchedule(**self._from_doc(doc)) for doc in cursor]
 
     def get_schedule_by_key(self, key: MaintenanceScheduleKey) -> MaintenanceSchedule | None:
@@ -245,13 +268,16 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
         return MaintenanceSchedule(**self._from_doc(doc))
 
     def update_schedule(
-        self, key: MaintenanceScheduleKey, schedule: MaintenanceSchedule,
+        self,
+        key: MaintenanceScheduleKey,
+        schedule: MaintenanceSchedule,
     ) -> MaintenanceSchedule:
         data = schedule.model_dump(by_alias=True, exclude_none=True, mode="json")
         data.pop("_key", None)
         data["updated_at"] = datetime.now(UTC).isoformat()
         result = self._db.collection(col.MAINTENANCE_SCHEDULES).update(
-            {"_key": key, **data}, return_new=True,
+            {"_key": key, **data},
+            return_new=True,
         )
         return MaintenanceSchedule(**self._from_doc(result["new"]))
 
@@ -291,7 +317,10 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
         return created
 
     def get_fill_events(
-        self, tank_key: TankKey, offset: int = 0, limit: int = 50,
+        self,
+        tank_key: TankKey,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[TankFillEvent]:
         query = """
         FOR doc IN @@collection
@@ -300,12 +329,15 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
           LIMIT @offset, @limit
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.TANK_FILL_EVENTS,
-            "tank_key": tank_key,
-            "offset": offset,
-            "limit": limit,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.TANK_FILL_EVENTS,
+                "tank_key": tank_key,
+                "offset": offset,
+                "limit": limit,
+            },
+        )
         return [TankFillEvent(**self._from_doc(doc)) for doc in cursor]
 
     def get_latest_fill_event(self, tank_key: TankKey) -> TankFillEvent | None:
@@ -320,17 +352,23 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
           LIMIT 1
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.TANK_FILL_EVENTS,
-            "tank_key": tank_key,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.TANK_FILL_EVENTS,
+                "tank_key": tank_key,
+            },
+        )
         docs = list(cursor)
         if not docs:
             return None
         return TankFillEvent(**self._from_doc(docs[0]))
 
     def get_fill_event_stats(
-        self, tank_key: TankKey, start_date: str | None = None, end_date: str | None = None,
+        self,
+        tank_key: TankKey,
+        start_date: str | None = None,
+        end_date: str | None = None,
     ) -> dict:
         filters = ["doc.tank_key == @tank_key"]
         bind_vars: dict[str, Any] = {
@@ -385,9 +423,12 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
           FILTER doc.auto_create_task == true AND doc.is_active == true
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.MAINTENANCE_SCHEDULES,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.MAINTENANCE_SCHEDULES,
+            },
+        )
         return [MaintenanceSchedule(**self._from_doc(doc)) for doc in cursor]
 
     def get_tanks_for_location(self, location_key: LocationKey) -> list[Tank]:
@@ -396,10 +437,13 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
           FILTER doc.location_key == @location_key
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.TANKS,
-            "location_key": location_key,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.TANKS,
+                "location_key": location_key,
+            },
+        )
         return [Tank(**self._from_doc(doc)) for doc in cursor]
 
     def get_active_nutrient_plans(self, tank_key: TankKey) -> list[dict]:
@@ -478,14 +522,17 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
             water_mix_ratio_ro_percent: plan.water_mix_ratio_ro_percent
           }
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "tank_key": tank_key,
-            "tanks": col.TANKS,
-            "nutrient_plans": col.NUTRIENT_PLANS,
-            "plant_instances": col.PLANT_INSTANCES,
-            "fertilizers": col.FERTILIZERS,
-            "@planting_runs": col.PLANTING_RUNS,
-            "@planting_run_entries": col.PLANTING_RUN_ENTRIES,
-            "@phase_entries": col.NUTRIENT_PLAN_PHASE_ENTRIES,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "tank_key": tank_key,
+                "tanks": col.TANKS,
+                "nutrient_plans": col.NUTRIENT_PLANS,
+                "plant_instances": col.PLANT_INSTANCES,
+                "fertilizers": col.FERTILIZERS,
+                "@planting_runs": col.PLANTING_RUNS,
+                "@planting_run_entries": col.PLANTING_RUN_ENTRIES,
+                "@phase_entries": col.NUTRIENT_PLAN_PHASE_ENTRIES,
+            },
+        )
         return list(cursor)

@@ -1,6 +1,5 @@
 """ArangoDB implementation of the API key repository."""
 
-
 from typing import TYPE_CHECKING
 
 from app.data_access.arango import collections as col
@@ -40,10 +39,13 @@ class ArangoApiKeyRepository(IApiKeyRepository, BaseArangoRepository):
           LIMIT 1
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.API_KEYS,
-            "hash": key_hash,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.API_KEYS,
+                "hash": key_hash,
+            },
+        )
         docs = list(cursor)
         if not docs:
             return None
@@ -56,10 +58,13 @@ class ArangoApiKeyRepository(IApiKeyRepository, BaseArangoRepository):
           SORT doc.created_at DESC
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.API_KEYS,
-            "user_key": user_key,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.API_KEYS,
+                "user_key": user_key,
+            },
+        )
         return [ApiKey(**self._from_doc(doc)) for doc in cursor]
 
     def update_last_used(self, key: ApiKeyKey) -> None:

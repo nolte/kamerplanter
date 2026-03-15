@@ -27,8 +27,7 @@ router = APIRouter(prefix="/enrichment", tags=["enrichment"])
 def list_sources(service: EnrichmentService = Depends(get_enrichment_service)):
     sources = service.list_sources()
     return [
-        SourceResponse(key=s.key or "", **s.model_dump(exclude={"key", "created_at", "updated_at"}))
-        for s in sources
+        SourceResponse(key=s.key or "", **s.model_dump(exclude={"key", "created_at", "updated_at"})) for s in sources
     ]
 
 
@@ -63,10 +62,7 @@ def get_sync_history(
     service: EnrichmentService = Depends(get_enrichment_service),
 ):
     runs = service.get_sync_history(source_key, limit=limit)
-    return [
-        SyncRunResponse(key=r.key or "", **r.model_dump(exclude={"key", "created_at", "updated_at"}))
-        for r in runs
-    ]
+    return [SyncRunResponse(key=r.key or "", **r.model_dump(exclude={"key", "created_at", "updated_at"})) for r in runs]
 
 
 @router.get("/species/{species_key}/enrichments", response_model=list[EnrichmentResponse])
@@ -79,9 +75,7 @@ def get_species_enrichments(species_key: str, service: EnrichmentService = Depen
             internal_key=m.internal_key,
             source_key=m.source_key,
             external_id=m.external_id,
-            field_mappings={
-                k: FieldMappingResponse(**v.model_dump()) for k, v in m.field_mappings.items()
-            },
+            field_mappings={k: FieldMappingResponse(**v.model_dump()) for k, v in m.field_mappings.items()},
         )
         for m in mappings
     ]
@@ -126,10 +120,7 @@ def reject_enrichment(
 @router.post("/search", response_model=list[ExternalSpeciesResponse])
 def search_external(body: ExternalSearchRequest, service: EnrichmentService = Depends(get_enrichment_service)):
     results = service.search_external(body.source_key, body.query)
-    return [
-        ExternalSpeciesResponse(**r.model_dump(exclude={"sunlight", "watering", "cycle"}))
-        for r in results
-    ]
+    return [ExternalSpeciesResponse(**r.model_dump(exclude={"sunlight", "watering", "cycle"})) for r in results]
 
 
 @router.get("/health", response_model=list[SourceHealthResponse])

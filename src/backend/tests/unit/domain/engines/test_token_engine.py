@@ -23,7 +23,9 @@ class TestCreateAccessToken:
 
     def test_tenant_roles_in_token(self, engine):
         pair = engine.create_access_token(
-            "user123", "test@example.com", "Test",
+            "user123",
+            "test@example.com",
+            "Test",
             tenant_roles={"garden-1": "admin", "garden-2": "viewer"},
         )
         payload = engine.decode_access_token(pair.access_token)

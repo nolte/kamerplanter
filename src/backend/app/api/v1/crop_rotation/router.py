@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 
 router = APIRouter(prefix="/crop-rotation", tags=["crop-rotation"])
 
+
 @router.get("/families/{family_key}/successors")
 def get_rotation_successors(family_key: str, graph: ArangoGraphRepository = Depends(get_graph_repo)):
     raw = graph.get_rotation_successors(family_key)
@@ -24,10 +25,14 @@ def get_rotation_successors(family_key: str, graph: ArangoGraphRepository = Depe
         for item in raw
     ]
 
+
 @router.post("/successors", status_code=201)
 def set_rotation_successor(body: RotationSuccessorSet, graph: ArangoGraphRepository = Depends(get_graph_repo)):
     graph.set_rotation_successor(
-        body.from_family_key, body.to_family_key, body.wait_years,
-        benefit_score=body.benefit_score, benefit_reason=body.benefit_reason,
+        body.from_family_key,
+        body.to_family_key,
+        body.wait_years,
+        benefit_score=body.benefit_score,
+        benefit_reason=body.benefit_reason,
     )
     return {"status": "created"}

@@ -55,20 +55,18 @@ class ReadinessEngine:
             if est_days is not None:
                 day_estimates.append(est_days)
 
-            indicators.append({
-                "indicator_key": indicator_key,
-                "stage": stage,
-                "score": score,
-                "reliability": reliability,
-                "weighted_contribution": score * reliability,
-            })
+            indicators.append(
+                {
+                    "indicator_key": indicator_key,
+                    "stage": stage,
+                    "score": score,
+                    "reliability": reliability,
+                    "weighted_contribution": score * reliability,
+                }
+            )
 
         overall = weighted_score / total_weight if total_weight > 0 else 0
-        estimated_days = (
-            round(sum(day_estimates) / len(day_estimates))
-            if day_estimates
-            else None
-        )
+        estimated_days = round(sum(day_estimates) / len(day_estimates)) if day_estimates else None
 
         if overall >= 90:
             recommendation = "optimal"

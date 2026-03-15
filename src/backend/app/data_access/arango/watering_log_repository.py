@@ -49,7 +49,9 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
         for fert in log.fertilizers_used:
             fert_id = f"{col.FERTILIZERS}/{fert.fertilizer_key}"
             self.create_edge(
-                col.LOG_FERTILIZER, log_id, fert_id,
+                col.LOG_FERTILIZER,
+                log_id,
+                fert_id,
                 {"ml_per_liter": fert.ml_per_liter},
             )
 
@@ -62,7 +64,9 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
         return WateringLog(**doc) if doc else None
 
     def get_all(
-        self, offset: int = 0, limit: int = 50,
+        self,
+        offset: int = 0,
+        limit: int = 50,
     ) -> tuple[list[WateringLog], int]:
         docs, total = BaseArangoRepository.get_all(self, offset, limit)
         return [WateringLog(**doc) for doc in docs], total
@@ -77,10 +81,13 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
           FILTER pi != null
           RETURN { key: pk, name: pi.plant_name || pi.instance_id || pk }
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "plant_keys": plant_keys,
-            "col": col.PLANT_INSTANCES,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "plant_keys": plant_keys,
+                "col": col.PLANT_INSTANCES,
+            },
+        )
         return {r["key"]: r["name"] for r in cursor}
 
     def resolve_fertilizer_names(self, fert_keys: list[str]) -> dict[str, str]:
@@ -93,10 +100,13 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
           FILTER f != null
           RETURN { key: fk, name: CONCAT(f.product_name, " (", f.brand, ")") }
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "fert_keys": fert_keys,
-            "col": col.FERTILIZERS,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "fert_keys": fert_keys,
+                "col": col.FERTILIZERS,
+            },
+        )
         return {r["key"]: r["name"] for r in cursor}
 
     # ── Update ──────────────────────────────────────────────────────────
@@ -106,14 +116,16 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
         data.pop("_key", None)
         data["updated_at"] = datetime.now(UTC).isoformat()
         result = self._db.collection(col.WATERING_LOGS).update(
-            {"_key": key, **data}, return_new=True,
+            {"_key": key, **data},
+            return_new=True,
         )
         return WateringLog(**self._from_doc(result["new"]))
 
     def update_fields(self, key: str, fields: dict) -> WateringLog:
         fields["updated_at"] = datetime.now(UTC).isoformat()
         result = self._db.collection(col.WATERING_LOGS).update(
-            {"_key": key, **fields}, return_new=True,
+            {"_key": key, **fields},
+            return_new=True,
         )
         return WateringLog(**self._from_doc(result["new"]))
 
@@ -130,7 +142,10 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
     # ── Queries ─────────────────────────────────────────────────────────
 
     def get_by_slot(
-        self, slot_key: str, offset: int = 0, limit: int = 50,
+        self,
+        slot_key: str,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[WateringLog]:
         query = """
         FOR e IN @@edge_col
@@ -141,16 +156,22 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
           RETURN doc
         """
         slot_id = f"{col.SLOTS}/{slot_key}"
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@edge_col": col.LOG_SLOT,
-            "slot_id": slot_id,
-            "offset": offset,
-            "limit": limit,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@edge_col": col.LOG_SLOT,
+                "slot_id": slot_id,
+                "offset": offset,
+                "limit": limit,
+            },
+        )
         return [self._to_model(doc) for doc in cursor]
 
     def get_by_location(
-        self, location_key: str, offset: int = 0, limit: int = 50,
+        self,
+        location_key: str,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[WateringLog]:
         query = """
         FOR slot_edge IN @@has_slot
@@ -163,13 +184,16 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
             RETURN DISTINCT doc
         """
         location_id = f"{col.LOCATIONS}/{location_key}"
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@has_slot": col.HAS_SLOT,
-            "@log_slot": col.LOG_SLOT,
-            "location_id": location_id,
-            "offset": offset,
-            "limit": limit,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@has_slot": col.HAS_SLOT,
+                "@log_slot": col.LOG_SLOT,
+                "location_id": location_id,
+                "offset": offset,
+                "limit": limit,
+            },
+        )
         return [self._to_model(doc) for doc in cursor]
 
     def get_stats_by_location(self, location_key: str) -> dict:
@@ -195,11 +219,14 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
         }
         """
         location_id = f"{col.LOCATIONS}/{location_key}"
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@has_slot": col.HAS_SLOT,
-            "@log_slot": col.LOG_SLOT,
-            "location_id": location_id,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@has_slot": col.HAS_SLOT,
+                "@log_slot": col.LOG_SLOT,
+                "location_id": location_id,
+            },
+        )
         result = next(cursor, None)
         return result or {"total_events": 0, "total_volume": 0.0, "by_method": []}
 
@@ -220,12 +247,15 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
           RETURN wl.logged_at
         """
         run_id = f"{col.PLANTING_RUNS}/{run_key}"
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@run_contains": col.RUN_CONTAINS,
-            "@placed_in": col.PLACED_IN,
-            "@watering_logs": col.WATERING_LOGS,
-            "run_id": run_id,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@run_contains": col.RUN_CONTAINS,
+                "@placed_in": col.PLACED_IN,
+                "@watering_logs": col.WATERING_LOGS,
+                "run_id": run_id,
+            },
+        )
         result = next(cursor, None)
         if result is None:
             return None
@@ -236,7 +266,10 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
         return None
 
     def get_by_plant(
-        self, plant_key: str, offset: int = 0, limit: int = 50,
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[WateringLog]:
         query = """
         FOR doc IN @@collection
@@ -245,12 +278,15 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
           LIMIT @offset, @limit
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.WATERING_LOGS,
-            "plant_key": plant_key,
-            "offset": offset,
-            "limit": limit,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.WATERING_LOGS,
+                "plant_key": plant_key,
+                "offset": offset,
+                "limit": limit,
+            },
+        )
         return [self._to_model(doc) for doc in cursor]
 
     def get_latest_by_plant(self, plant_key: str) -> WateringLog | None:
@@ -258,7 +294,9 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
         return results[0] if results else None
 
     def get_recent_runoff_logs(
-        self, plant_key: str, limit: int = 5,
+        self,
+        plant_key: str,
+        limit: int = 5,
     ) -> list[WateringLog]:
         query = """
         FOR doc IN @@collection
@@ -268,9 +306,12 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
           LIMIT @limit
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.WATERING_LOGS,
-            "plant_key": plant_key,
-            "limit": limit,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.WATERING_LOGS,
+                "plant_key": plant_key,
+                "limit": limit,
+            },
+        )
         return [self._to_model(doc) for doc in cursor]

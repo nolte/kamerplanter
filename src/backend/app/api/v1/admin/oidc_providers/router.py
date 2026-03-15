@@ -152,6 +152,7 @@ def test_provider(
     # Save discovery document
     config.discovery_document = discovery
     from datetime import UTC, datetime
+
     config.discovery_refreshed_at = datetime.now(UTC)
     repo.update(key, config)
 

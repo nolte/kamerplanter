@@ -51,11 +51,7 @@ class ArangoHarvestRepository(IHarvestRepository, BaseArangoRepository):
         return ind
 
     def get_indicators_for_species(self, species_key: str) -> list[HarvestIndicator]:
-        query = (
-            f"FOR doc IN {col.HARVEST_INDICATORS} "
-            f"FILTER doc.species_key == @species_key "
-            f"RETURN doc"
-        )
+        query = f"FOR doc IN {col.HARVEST_INDICATORS} FILTER doc.species_key == @species_key RETURN doc"
         cursor = self._db.aql.execute(query, bind_vars={"species_key": species_key})
         return [HarvestIndicator(**self._from_doc(doc)) for doc in cursor]
 
@@ -80,7 +76,10 @@ class ArangoHarvestRepository(IHarvestRepository, BaseArangoRepository):
         return obs
 
     def get_observations_for_plant(
-        self, plant_key: str, offset: int = 0, limit: int = 50,
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
     ) -> tuple[list[HarvestObservation], int]:
         query = (
             f"FOR doc IN {col.HARVEST_OBSERVATIONS} "
@@ -187,11 +186,7 @@ class ArangoHarvestRepository(IHarvestRepository, BaseArangoRepository):
         return ym
 
     def get_yield_for_batch(self, batch_key: HarvestBatchKey) -> YieldMetric | None:
-        query = (
-            f"FOR doc IN {col.YIELD_METRICS} "
-            f"FILTER doc.batch_key == @batch_key "
-            f"LIMIT 1 RETURN doc"
-        )
+        query = f"FOR doc IN {col.YIELD_METRICS} FILTER doc.batch_key == @batch_key LIMIT 1 RETURN doc"
         cursor = self._db.aql.execute(query, bind_vars={"batch_key": batch_key})
         doc = next(cursor, None)
         return YieldMetric(**self._from_doc(doc)) if doc else None

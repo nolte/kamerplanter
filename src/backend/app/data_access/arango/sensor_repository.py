@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from app.data_access.arango import collections as col
@@ -45,10 +44,13 @@ class ArangoSensorRepository(ISensorRepository, BaseArangoRepository):
           FILTER s.tank_key == @tank_key AND s.is_active == true
           RETURN s
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.SENSORS,
-            "tank_key": tank_key,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.SENSORS,
+                "tank_key": tank_key,
+            },
+        )
         return [Sensor(**self._from_doc(doc)) for doc in cursor]
 
     def find_by_site(self, site_key: str) -> list[Sensor]:
@@ -57,10 +59,13 @@ class ArangoSensorRepository(ISensorRepository, BaseArangoRepository):
           FILTER s.site_key == @site_key AND s.is_active == true
           RETURN s
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.SENSORS,
-            "site_key": site_key,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.SENSORS,
+                "site_key": site_key,
+            },
+        )
         return [Sensor(**self._from_doc(doc)) for doc in cursor]
 
     def find_by_location(self, location_key: str) -> list[Sensor]:
@@ -69,10 +74,13 @@ class ArangoSensorRepository(ISensorRepository, BaseArangoRepository):
           FILTER s.location_key == @location_key AND s.is_active == true
           RETURN s
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.SENSORS,
-            "location_key": location_key,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.SENSORS,
+                "location_key": location_key,
+            },
+        )
         return [Sensor(**self._from_doc(doc)) for doc in cursor]
 
     def delete(self, key: str) -> bool:

@@ -12,37 +12,38 @@ class IWateringRepository(ABC):
     # ── Create & Read ──────────────────────────────────────────────────
 
     @abstractmethod
-    def create(self, event: WateringEvent) -> WateringEvent:
-        ...
+    def create(self, event: WateringEvent) -> WateringEvent: ...
 
     @abstractmethod
-    def get_by_key(self, key: WateringEventKey) -> WateringEvent | None:
-        ...
+    def get_by_key(self, key: WateringEventKey) -> WateringEvent | None: ...
 
     @abstractmethod
     def get_all(
-        self, offset: int = 0, limit: int = 50,
-    ) -> tuple[list[WateringEvent], int]:
-        ...
+        self,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> tuple[list[WateringEvent], int]: ...
 
     # ── Queries ────────────────────────────────────────────────────────
 
     @abstractmethod
     def get_by_plant(
-        self, plant_key: PlantInstanceKey, offset: int = 0, limit: int = 50,
-    ) -> list[WateringEvent]:
-        ...
+        self,
+        plant_key: PlantInstanceKey,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[WateringEvent]: ...
 
     @abstractmethod
     def get_by_location(
-        self, location_key: LocationKey, offset: int = 0, limit: int = 50,
-    ) -> list[WateringEvent]:
-        ...
+        self,
+        location_key: LocationKey,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[WateringEvent]: ...
 
     @abstractmethod
-    def get_stats_by_location(self, location_key: LocationKey) -> dict:
-        ...
+    def get_stats_by_location(self, location_key: LocationKey) -> dict: ...
 
     @abstractmethod
-    def get_last_watering_date_for_run(self, run_key: str) -> date | None:
-        ...
+    def get_last_watering_date_for_run(self, run_key: str) -> date | None: ...

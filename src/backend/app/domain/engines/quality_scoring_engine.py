@@ -48,16 +48,9 @@ class QualityScoringEngine:
         Returns:
             (overall_score, quality_grade) where grade is a_plus/a/b/c/d
         """
-        weighted = (
-            appearance * APPEARANCE_WEIGHT
-            + aroma * AROMA_WEIGHT
-            + color * COLOR_WEIGHT
-            + 100 * BASE_WEIGHT
-        )
+        weighted = appearance * APPEARANCE_WEIGHT + aroma * AROMA_WEIGHT + color * COLOR_WEIGHT + 100 * BASE_WEIGHT
 
-        total_penalty = sum(
-            DEFECT_PENALTIES.get(d, 5) for d in defects
-        )
+        total_penalty = sum(DEFECT_PENALTIES.get(d, 5) for d in defects)
 
         score = max(0, min(100, weighted - total_penalty))
 

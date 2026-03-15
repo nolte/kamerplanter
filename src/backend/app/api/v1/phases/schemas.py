@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
@@ -12,11 +11,13 @@ class TransitionRequest(BaseModel):
     reason: str = "manual"
     force: bool = False
 
+
 class CurrentPhaseResponse(BaseModel):
     phase: str
     phase_key: str | None
     days_in_phase: int
     next_phase: str | None
+
 
 class PhaseHistoryResponse(BaseModel):
     key: str

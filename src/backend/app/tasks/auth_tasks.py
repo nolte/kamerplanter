@@ -70,19 +70,24 @@ def anonymize_old_ips() -> dict:
         AND doc.created_at < @cutoff
       RETURN { _key: doc._key, ip_address: doc.ip_address }
     """
-    cursor = db.aql.execute(query, bind_vars={
-        "@collection": col.REFRESH_TOKENS,
-        "cutoff": cutoff,
-    })
+    cursor = db.aql.execute(
+        query,
+        bind_vars={
+            "@collection": col.REFRESH_TOKENS,
+            "cutoff": cutoff,
+        },
+    )
     tokens = list(cursor)
     count = 0
     for token in tokens:
         anonymized = _anonymize_ip(token["ip_address"])
-        db.collection(col.REFRESH_TOKENS).update({
-            "_key": token["_key"],
-            "ip_address": anonymized,
-            "ip_anonymized_at": now,
-        })
+        db.collection(col.REFRESH_TOKENS).update(
+            {
+                "_key": token["_key"],
+                "ip_address": anonymized,
+                "ip_anonymized_at": now,
+            }
+        )
         count += 1
 
     logger.info("anonymize_old_ips", anonymized=count)

@@ -67,20 +67,14 @@ class TestSouthernHemisphere:
 
 class TestSunTimesRange:
     def test_range_returns_correct_count(self):
-        results = calculate_sun_times_range(
-            BERLIN_LAT, BERLIN_LON, date(2025, 6, 1), date(2025, 6, 7), BERLIN_TZ
-        )
+        results = calculate_sun_times_range(BERLIN_LAT, BERLIN_LON, date(2025, 6, 1), date(2025, 6, 7), BERLIN_TZ)
         assert len(results) == 7
 
     def test_range_single_day(self):
-        results = calculate_sun_times_range(
-            BERLIN_LAT, BERLIN_LON, date(2025, 6, 1), date(2025, 6, 1), BERLIN_TZ
-        )
+        results = calculate_sun_times_range(BERLIN_LAT, BERLIN_LON, date(2025, 6, 1), date(2025, 6, 1), BERLIN_TZ)
         assert len(results) == 1
 
     def test_range_dates_are_sequential(self):
-        results = calculate_sun_times_range(
-            BERLIN_LAT, BERLIN_LON, date(2025, 1, 1), date(2025, 1, 5), BERLIN_TZ
-        )
+        results = calculate_sun_times_range(BERLIN_LAT, BERLIN_LON, date(2025, 1, 1), date(2025, 1, 5), BERLIN_TZ)
         dates = [r["date"] for r in results]
         assert dates == ["2025-01-01", "2025-01-02", "2025-01-03", "2025-01-04", "2025-01-05"]

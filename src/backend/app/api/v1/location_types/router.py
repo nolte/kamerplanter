@@ -37,7 +37,9 @@ def create_location_type(body: LocationTypeCreate, service: LocationTypeService 
 
 @router.put("/{key}", response_model=LocationTypeResponse)
 def update_location_type(
-    key: str, body: LocationTypeUpdate, service: LocationTypeService = Depends(get_location_type_service),
+    key: str,
+    body: LocationTypeUpdate,
+    service: LocationTypeService = Depends(get_location_type_service),
 ):
     lt = LocationType(**body.model_dump())
     updated = service.update(key, lt)

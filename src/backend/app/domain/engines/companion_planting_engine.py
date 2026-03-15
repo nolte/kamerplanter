@@ -36,10 +36,7 @@ class CompanionPlantingEngine:
         incompatible_keys = {item["species"].get("_key", "") for item in incompatible}
 
         compatible = self._graph_repo.get_compatible_species(species_key)
-        compatible_map = {
-            item["species"].get("_key", ""): item.get("score", 0)
-            for item in compatible
-        }
+        compatible_map = {item["species"].get("_key", ""): item.get("score", 0) for item in compatible}
 
         for adj in adjacent:
             adj_slot = adj.get("slot", adj.get("vertex", {}))
@@ -100,12 +97,14 @@ class CompanionPlantingEngine:
             fam_species = self._graph_repo.get_species_by_family(fam_key)
             for s in fam_species:
                 if s.get("_key") != species_key:
-                    matches.append({
-                        "species_key": s["_key"],
-                        "scientific_name": s.get("scientific_name"),
-                        "score": round(fc.get("compatibility_score", 0) * 0.8, 2),
-                        "match_level": "family",
-                        "benefit_type": fc.get("benefit_type", ""),
-                    })
+                    matches.append(
+                        {
+                            "species_key": s["_key"],
+                            "scientific_name": s.get("scientific_name"),
+                            "score": round(fc.get("compatibility_score", 0) * 0.8, 2),
+                            "match_level": "family",
+                            "benefit_type": fc.get("benefit_type", ""),
+                        }
+                    )
 
         return {"matches": matches, "match_level": "family" if matches else "species"}

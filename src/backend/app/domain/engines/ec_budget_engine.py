@@ -38,9 +38,9 @@ EC_MAX_TABLE: dict[SubstrateType, dict[PhaseName, tuple[float, float]]] = {
 
 # Alkalinity-based pH reserve (mS/cm)
 PH_RESERVE: dict[str, float] = {
-    "soft": 0.02,    # < 50 ppm alkalinity
+    "soft": 0.02,  # < 50 ppm alkalinity
     "medium": 0.03,  # 50–150 ppm
-    "hard": 0.05,    # > 150 ppm
+    "hard": 0.05,  # > 150 ppm
 }
 
 # Extra EC reserve per uncertain fertilizer
@@ -182,11 +182,13 @@ class EcBudgetCalculator:
 
         # ── Base water segment ────────────────────────────────────
         ec_mix = inp.base_water_ec
-        segments.append(EcSegment(
-            label="Base water",
-            ec_contribution=ec_mix,
-            color_hint="bluegrey",
-        ))
+        segments.append(
+            EcSegment(
+                label="Base water",
+                ec_contribution=ec_mix,
+                color_hint="bluegrey",
+            )
+        )
         instructions.append(f"1. Fill container with {inp.volume_liters}L of blended water (EC {ec_mix} mS)")
 
         # ── EC net ────────────────────────────────────────────────
@@ -227,20 +229,24 @@ class EcBudgetCalculator:
                     f"Extra {UNCERTAIN_EC_RESERVE} mS reserve applied. Measure EC after adding."
                 )
 
-            segments.append(EcSegment(
-                label="Silicate",
-                ec_contribution=ec_silicate,
-                color_hint="teal",
-                ml_per_liter=dose,
-                total_ml=round(dose * inp.volume_liters, 1),
-            ))
-            dosage_table.append({
-                "key": inp.silicate_key,
-                "product_name": inp.silicate_key,
-                "ml_per_liter": round(dose, 2),
-                "total_ml": round(dose * inp.volume_liters, 1),
-                "ec_contribution": round(ec_silicate, 3),
-            })
+            segments.append(
+                EcSegment(
+                    label="Silicate",
+                    ec_contribution=ec_silicate,
+                    color_hint="teal",
+                    ml_per_liter=dose,
+                    total_ml=round(dose * inp.volume_liters, 1),
+                )
+            )
+            dosage_table.append(
+                {
+                    "key": inp.silicate_key,
+                    "product_name": inp.silicate_key,
+                    "ml_per_liter": round(dose, 2),
+                    "total_ml": round(dose * inp.volume_liters, 1),
+                    "ec_contribution": round(ec_silicate, 3),
+                }
+            )
             instructions.append(
                 f"{step}. Add silicate ({inp.silicate_key}): "
                 f"{round(dose * inp.volume_liters, 1)}ml ({dose} ml/L) — stir well, wait 5 min"
@@ -260,27 +266,30 @@ class EcBudgetCalculator:
             ):
                 dose = round(dose * (1 + FRESH_COCO_CALMAG_BOOST), 2)
                 warnings.append(
-                    f"Fresh coco (first use): CalMag dose increased by "
-                    f"{FRESH_COCO_CALMAG_BOOST:.0%} to {dose} ml/L"
+                    f"Fresh coco (first use): CalMag dose increased by {FRESH_COCO_CALMAG_BOOST:.0%} to {dose} ml/L"
                 )
 
             ec_calmag = dose * inp.calmag_ec_per_ml
             remaining -= ec_calmag
 
-            segments.append(EcSegment(
-                label="CalMag",
-                ec_contribution=ec_calmag,
-                color_hint="orange",
-                ml_per_liter=dose,
-                total_ml=round(dose * inp.volume_liters, 1),
-            ))
-            dosage_table.append({
-                "key": inp.calmag_key,
-                "product_name": inp.calmag_key,
-                "ml_per_liter": round(dose, 2),
-                "total_ml": round(dose * inp.volume_liters, 1),
-                "ec_contribution": round(ec_calmag, 3),
-            })
+            segments.append(
+                EcSegment(
+                    label="CalMag",
+                    ec_contribution=ec_calmag,
+                    color_hint="orange",
+                    ml_per_liter=dose,
+                    total_ml=round(dose * inp.volume_liters, 1),
+                )
+            )
+            dosage_table.append(
+                {
+                    "key": inp.calmag_key,
+                    "product_name": inp.calmag_key,
+                    "ml_per_liter": round(dose, 2),
+                    "total_ml": round(dose * inp.volume_liters, 1),
+                    "ec_contribution": round(ec_calmag, 3),
+                }
+            )
             instructions.append(
                 f"{step}. Add CalMag ({inp.calmag_key}): "
                 f"{round(dose * inp.volume_liters, 1)}ml ({dose} ml/L) — mix thoroughly"
@@ -309,10 +318,7 @@ class EcBudgetCalculator:
         if remaining > 0 and ferts:
             # Try recipe scaling first
             recipe = inp.recipe_ml_per_liter
-            ec_recipe = sum(
-                recipe.get(f.key, 0.0) * f.ec_contribution_per_ml
-                for f in ferts
-            )
+            ec_recipe = sum(recipe.get(f.key, 0.0) * f.ec_contribution_per_ml for f in ferts)
 
             use_recipe_scaling = ec_recipe > 0
 
@@ -326,8 +332,7 @@ class EcBudgetCalculator:
                     max_dose = f.max_dose_ml_per_liter or SYSTEM_MAX_ML_PER_LITER
                     if ml_per_liter > max_dose:
                         warnings.append(
-                            f"{f.product_name}: dose capped at {max_dose} ml/L "
-                            f"(calculated {ml_per_liter:.2f} ml/L)"
+                            f"{f.product_name}: dose capped at {max_dose} ml/L (calculated {ml_per_liter:.2f} ml/L)"
                         )
                         ml_per_liter = max_dose
 
@@ -335,20 +340,24 @@ class EcBudgetCalculator:
                     ec_fertilizers += ec_contrib
                     total_ml = ml_per_liter * inp.volume_liters
 
-                    segments.append(EcSegment(
-                        label=f.product_name,
-                        ec_contribution=round(ec_contrib, 3),
-                        color_hint="green",
-                        ml_per_liter=round(ml_per_liter, 2),
-                        total_ml=round(total_ml, 1),
-                    ))
-                    dosage_table.append({
-                        "key": f.key,
-                        "product_name": f.product_name,
-                        "ml_per_liter": round(ml_per_liter, 2),
-                        "total_ml": round(total_ml, 1),
-                        "ec_contribution": round(ec_contrib, 3),
-                    })
+                    segments.append(
+                        EcSegment(
+                            label=f.product_name,
+                            ec_contribution=round(ec_contrib, 3),
+                            color_hint="green",
+                            ml_per_liter=round(ml_per_liter, 2),
+                            total_ml=round(total_ml, 1),
+                        )
+                    )
+                    dosage_table.append(
+                        {
+                            "key": f.key,
+                            "product_name": f.product_name,
+                            "ml_per_liter": round(ml_per_liter, 2),
+                            "total_ml": round(total_ml, 1),
+                            "ec_contribution": round(ec_contrib, 3),
+                        }
+                    )
                     instructions.append(
                         f"{step}. Add {f.product_name}: "
                         f"{round(total_ml, 1)}ml ({round(ml_per_liter, 2)} ml/L) — mix thoroughly"
@@ -363,8 +372,7 @@ class EcBudgetCalculator:
                     max_dose = f.max_dose_ml_per_liter or SYSTEM_MAX_ML_PER_LITER
                     if ml_per_liter > max_dose:
                         warnings.append(
-                            f"{f.product_name}: dose capped at {max_dose} ml/L "
-                            f"(calculated {ml_per_liter:.2f} ml/L)"
+                            f"{f.product_name}: dose capped at {max_dose} ml/L (calculated {ml_per_liter:.2f} ml/L)"
                         )
                         ml_per_liter = max_dose
 
@@ -372,20 +380,24 @@ class EcBudgetCalculator:
                     ec_fertilizers += ec_contrib
                     total_ml = ml_per_liter * inp.volume_liters
 
-                    segments.append(EcSegment(
-                        label=f.product_name,
-                        ec_contribution=round(ec_contrib, 3),
-                        color_hint="green",
-                        ml_per_liter=round(ml_per_liter, 2),
-                        total_ml=round(total_ml, 1),
-                    ))
-                    dosage_table.append({
-                        "key": f.key,
-                        "product_name": f.product_name,
-                        "ml_per_liter": round(ml_per_liter, 2),
-                        "total_ml": round(total_ml, 1),
-                        "ec_contribution": round(ec_contrib, 3),
-                    })
+                    segments.append(
+                        EcSegment(
+                            label=f.product_name,
+                            ec_contribution=round(ec_contrib, 3),
+                            color_hint="green",
+                            ml_per_liter=round(ml_per_liter, 2),
+                            total_ml=round(total_ml, 1),
+                        )
+                    )
+                    dosage_table.append(
+                        {
+                            "key": f.key,
+                            "product_name": f.product_name,
+                            "ml_per_liter": round(ml_per_liter, 2),
+                            "total_ml": round(total_ml, 1),
+                            "ec_contribution": round(ec_contrib, 3),
+                        }
+                    )
                     instructions.append(
                         f"{step}. Add {f.product_name}: "
                         f"{round(total_ml, 1)}ml ({round(ml_per_liter, 2)} ml/L) — mix thoroughly"
@@ -393,11 +405,13 @@ class EcBudgetCalculator:
                     step += 1
 
         # ── pH reserve segment ────────────────────────────────────
-        segments.append(EcSegment(
-            label="pH reserve",
-            ec_contribution=ph_reserve,
-            color_hint="grey",
-        ))
+        segments.append(
+            EcSegment(
+                label="pH reserve",
+                ec_contribution=ph_reserve,
+                color_hint="grey",
+            )
+        )
         instructions.append(f"{step}. Adjust pH to target — stir and wait 5 min")
         step += 1
         instructions.append(f"{step}. Verify final EC reading")

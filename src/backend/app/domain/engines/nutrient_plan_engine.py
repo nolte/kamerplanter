@@ -26,10 +26,7 @@ def resolve_effective_entry(
 
     # 1. Direct match (works for linear plans and first cycle of perennials)
     for entry in sorted_entries:
-        if (
-            entry.phase_name.value == current_phase
-            and entry.week_start <= current_week <= entry.week_end
-        ):
+        if entry.phase_name.value == current_phase and entry.week_start <= current_week <= entry.week_end:
             return entry
 
     # Fallback without phase name constraint (week range only)
@@ -60,10 +57,7 @@ def resolve_effective_entry(
 
     # Match by phase name first, then by week range
     for entry in recurring:
-        if (
-            entry.phase_name.value == current_phase
-            and entry.week_start <= effective_week <= entry.week_end
-        ):
+        if entry.phase_name.value == current_phase and entry.week_start <= effective_week <= entry.week_end:
             return entry
 
     for entry in recurring:
@@ -99,9 +93,7 @@ class NutrientPlanValidator:
                 prev = sorted_entries[i - 1]
                 curr = sorted_entries[i]
                 if curr.week_start > prev.week_end + 1:
-                    issues.append(
-                        f"Week gap: week {prev.week_end} to {curr.week_start}"
-                    )
+                    issues.append(f"Week gap: week {prev.week_end} to {curr.week_start}")
                 if curr.week_start <= prev.week_end:
                     issues.append(
                         f"Overlapping weeks: {prev.phase_name.value} (W{prev.week_start}-{prev.week_end}) "

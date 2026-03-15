@@ -86,9 +86,7 @@ class TestSearchSpecies:
 
         error_response = Response(status_code=429, request=Request("GET", "http://test"))
         error = HTTPStatusError("Rate limited", request=error_response.request, response=error_response)
-        adapter._client.get.return_value = MagicMock(
-            raise_for_status=MagicMock(side_effect=error)
-        )
+        adapter._client.get.return_value = MagicMock(raise_for_status=MagicMock(side_effect=error))
 
         with pytest.raises(ExternalSourceError):
             adapter.search_species("Rosa")

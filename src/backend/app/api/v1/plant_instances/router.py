@@ -40,10 +40,12 @@ def list_plants(
     items, total = service.list_plants(offset, limit)
     return [_to_response(p, service) for p in items]
 
+
 @router.get("/{key}", response_model=PlantResponse)
 def get_plant(key: str, service: PlantInstanceService = Depends(get_plant_instance_service)):
     p = service.get_plant(key)
     return _to_response(p, service)
+
 
 @router.post("", response_model=PlantResponse, status_code=201)
 def create_plant(body: PlantCreate, service: PlantInstanceService = Depends(get_plant_instance_service)):
@@ -51,26 +53,32 @@ def create_plant(body: PlantCreate, service: PlantInstanceService = Depends(get_
     created = service.create_plant(plant)
     return _to_response(created, service)
 
+
 @router.put("/{key}", response_model=PlantResponse)
 def update_plant(key: str, body: PlantCreate, service: PlantInstanceService = Depends(get_plant_instance_service)):
     plant = PlantInstance(**body.model_dump())
     updated = service.update_plant(key, plant)
     return _to_response(updated, service)
 
+
 @router.post("/{key}/remove", response_model=PlantResponse)
 def remove_plant(key: str, service: PlantInstanceService = Depends(get_plant_instance_service)):
     removed = service.remove_plant(key)
     return _to_response(removed, service)
 
+
 @router.post("/slots/{slot_key}/validate-planting", response_model=ValidatePlantingResponse)
 def validate_planting(
-    slot_key: str, body: ValidatePlantingRequest, service: PlantInstanceService = Depends(get_plant_instance_service),
+    slot_key: str,
+    body: ValidatePlantingRequest,
+    service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
     result = service.validate_planting(slot_key, body.species_key)
     return ValidatePlantingResponse(**result)
 
 
 # ── Nutrient Plan assignment ─────────────────────────────────────────
+
 
 @router.post("/{key}/nutrient-plan", status_code=201)
 def assign_nutrient_plan(
@@ -136,12 +144,15 @@ def get_active_channels(
         return []
     phase_name = plant_service.resolve_phase_name(plant.current_phase_key or "")
     channels = plan_service.get_active_channels_for_plan(
-        plan.key, phase_name, current_week,
+        plan.key,
+        phase_name,
+        current_week,
     )
     return channels
 
 
 # ── Planting Run lookup ──────────────────────────────────────────────
+
 
 @router.get("/{key}/planting-runs")
 def get_plant_runs(

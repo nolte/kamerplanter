@@ -19,10 +19,7 @@ class LightAuthProvider(IAuthProvider):
             return self._cached_user
         user = self._user_repo.get_by_key(_SYSTEM_USER_KEY)
         if user is None:
-            msg = (
-                "System user not found. "
-                "Run seed_light_mode to create the system user."
-            )
+            msg = "System user not found. Run seed_light_mode to create the system user."
             raise RuntimeError(msg)
         self._cached_user = user
         return user

@@ -105,7 +105,5 @@ class ArangoInvitationRepository(IInvitationRepository, BaseArangoRepository):
           REMOVE doc IN {col.INVITATIONS}
           RETURN 1
         """
-        cursor = self._db.aql.execute(
-            query, bind_vars={"tenant_key": tenant_key}
-        )
+        cursor = self._db.aql.execute(query, bind_vars={"tenant_key": tenant_key})
         return sum(1 for _ in cursor)

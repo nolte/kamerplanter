@@ -17,7 +17,10 @@ class FertilizerService:
     # ── Fertilizer CRUD ──────────────────────────────────────────────
 
     def list_fertilizers(
-        self, offset: int = 0, limit: int = 50, filters: dict | None = None,
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict | None = None,
     ) -> tuple[list[Fertilizer], int]:
         return self._repo.get_all(offset, limit, filters)
 
@@ -33,10 +36,21 @@ class FertilizerService:
     def update_fertilizer(self, key: FertilizerKey, data: dict) -> Fertilizer:
         existing = self.get_fertilizer(key)
         allowed_fields = {
-            "product_name", "brand", "fertilizer_type", "is_organic", "tank_safe",
-            "recommended_application", "npk_ratio", "ec_contribution_per_ml",
-            "mixing_priority", "ph_effect", "bioavailability", "shelf_life_days",
-            "storage_temp_min", "storage_temp_max", "notes",
+            "product_name",
+            "brand",
+            "fertilizer_type",
+            "is_organic",
+            "tank_safe",
+            "recommended_application",
+            "npk_ratio",
+            "ec_contribution_per_ml",
+            "mixing_priority",
+            "ph_effect",
+            "bioavailability",
+            "shelf_life_days",
+            "storage_temp_min",
+            "storage_temp_max",
+            "notes",
         }
         merged = existing.model_dump()
         for field, value in data.items():
@@ -88,7 +102,11 @@ class FertilizerService:
     # ── Incompatibility ──────────────────────────────────────────────
 
     def add_incompatibility(
-        self, key_a: FertilizerKey, key_b: FertilizerKey, reason: str, severity: str,
+        self,
+        key_a: FertilizerKey,
+        key_b: FertilizerKey,
+        reason: str,
+        severity: str,
     ) -> dict:
         self.get_fertilizer(key_a)
         self.get_fertilizer(key_b)

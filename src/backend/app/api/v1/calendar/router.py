@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Query, Request
@@ -36,13 +35,11 @@ router = APIRouter(prefix="/calendar", tags=["calendar"])
 
 
 def _feed_response(
-    feed: CalendarFeed, request: Request,
+    feed: CalendarFeed,
+    request: Request,
 ) -> CalendarFeedResponse:
     base_url = str(request.base_url).rstrip("/")
-    ical_url = (
-        f"{base_url}/api/v1/calendar/feeds/{feed.key}/feed.ics"
-        f"?token={feed.token}"
-    )
+    ical_url = f"{base_url}/api/v1/calendar/feeds/{feed.key}/feed.ics?token={feed.token}"
     return CalendarFeedResponse(
         key=feed.key or "",
         name=feed.name,
@@ -111,6 +108,7 @@ def get_sowing_calendar(
     year: int = Query(default=None),
 ) -> SowingCalendarResponse:
     from datetime import date as _date
+
     svc: CalendarService = get_calendar_service()
     effective_year = year if year else _date.today().year
     entries, frost_config = svc.get_sowing_calendar(site_id, effective_year)
@@ -149,6 +147,7 @@ def get_season_overview(
     year: int = Query(default=None),
 ) -> SeasonOverviewResponse:
     from datetime import date as _date
+
     svc: CalendarService = get_calendar_service()
     effective_year = year if year else _date.today().year
     overview = svc.get_season_overview(site_id, effective_year)
@@ -174,7 +173,8 @@ def get_season_overview(
 
 @router.post("/feeds", status_code=201)
 def create_feed(
-    body: CalendarFeedCreateRequest, request: Request,
+    body: CalendarFeedCreateRequest,
+    request: Request,
 ) -> CalendarFeedResponse:
     svc: CalendarService = get_calendar_service()
     cats = [CalendarEventCategory(c) for c in body.filters.categories]
@@ -211,7 +211,9 @@ def get_feed(key: str, request: Request) -> CalendarFeedResponse:
 
 @router.put("/feeds/{key}")
 def update_feed(
-    key: str, body: CalendarFeedUpdateRequest, request: Request,
+    key: str,
+    body: CalendarFeedUpdateRequest,
+    request: Request,
 ) -> CalendarFeedResponse:
     svc: CalendarService = get_calendar_service()
     cats = [CalendarEventCategory(c) for c in body.filters.categories]

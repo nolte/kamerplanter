@@ -44,6 +44,7 @@ class TestConfirmImport:
         job = engine.upload_and_validate(csv, EntityType.SPECIES, "test.csv", DuplicateStrategy.SKIP)
 
         created = []
+
         def mock_create(data):
             created.append(data)
 

@@ -17,7 +17,9 @@ class FeedingService:
     # ── CRUD ─────────────────────────────────────────────────────────
 
     def list_events(
-        self, offset: int = 0, limit: int = 50,
+        self,
+        offset: int = 0,
+        limit: int = 50,
     ) -> tuple[list[FeedingEvent], int]:
         return self._repo.get_all(offset, limit)
 
@@ -33,10 +35,17 @@ class FeedingService:
     def update_event(self, key: FeedingEventKey, data: dict) -> FeedingEvent:
         existing = self.get_event(key)
         allowed_fields = {
-            "application_method", "is_supplemental", "volume_applied_liters",
-            "measured_ec_before", "measured_ec_after",
-            "measured_ph_before", "measured_ph_after",
-            "runoff_ec", "runoff_ph", "runoff_volume_liters", "notes",
+            "application_method",
+            "is_supplemental",
+            "volume_applied_liters",
+            "measured_ec_before",
+            "measured_ec_after",
+            "measured_ph_before",
+            "measured_ph_after",
+            "runoff_ec",
+            "runoff_ph",
+            "runoff_volume_liters",
+            "notes",
         }
         for field, value in data.items():
             if field in allowed_fields:

@@ -42,7 +42,9 @@ class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
         return WateringEvent(**doc) if doc else None
 
     def get_all(
-        self, offset: int = 0, limit: int = 50,
+        self,
+        offset: int = 0,
+        limit: int = 50,
     ) -> tuple[list[WateringEvent], int]:
         docs, total = BaseArangoRepository.get_all(self, offset, limit)
         return [WateringEvent(**doc) for doc in docs], total
@@ -50,7 +52,10 @@ class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
     # ── Queries ────────────────────────────────────────────────────────
 
     def get_by_plant(
-        self, plant_key: PlantInstanceKey, offset: int = 0, limit: int = 50,
+        self,
+        plant_key: PlantInstanceKey,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[WateringEvent]:
         query = """
         FOR e IN @@edge_col
@@ -61,16 +66,22 @@ class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
           RETURN doc
         """
         plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@edge_col": col.WATERED_PLANT,
-            "plant_id": plant_id,
-            "offset": offset,
-            "limit": limit,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@edge_col": col.WATERED_PLANT,
+                "plant_id": plant_id,
+                "offset": offset,
+                "limit": limit,
+            },
+        )
         return [WateringEvent(**self._from_doc(doc)) for doc in cursor]
 
     def get_by_location(
-        self, location_key: LocationKey, offset: int = 0, limit: int = 50,
+        self,
+        location_key: LocationKey,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[WateringEvent]:
         query = """
         FOR slot_edge IN @@has_slot
@@ -85,14 +96,17 @@ class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
               RETURN DISTINCT doc
         """
         location_id = f"{col.LOCATIONS}/{location_key}"
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@has_slot": col.HAS_SLOT,
-            "@placed_in": col.PLACED_IN,
-            "@watered_plant": col.WATERED_PLANT,
-            "location_id": location_id,
-            "offset": offset,
-            "limit": limit,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@has_slot": col.HAS_SLOT,
+                "@placed_in": col.PLACED_IN,
+                "@watered_plant": col.WATERED_PLANT,
+                "location_id": location_id,
+                "offset": offset,
+                "limit": limit,
+            },
+        )
         return [WateringEvent(**self._from_doc(doc)) for doc in cursor]
 
     def get_stats_by_location(self, location_key: LocationKey) -> dict:
@@ -120,12 +134,15 @@ class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
         }
         """
         location_id = f"{col.LOCATIONS}/{location_key}"
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@has_slot": col.HAS_SLOT,
-            "@placed_in": col.PLACED_IN,
-            "@watered_plant": col.WATERED_PLANT,
-            "location_id": location_id,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@has_slot": col.HAS_SLOT,
+                "@placed_in": col.PLACED_IN,
+                "@watered_plant": col.WATERED_PLANT,
+                "location_id": location_id,
+            },
+        )
         result = next(cursor, None)
         return result or {"total_events": 0, "total_volume": 0.0, "by_method": []}
 
@@ -144,11 +161,14 @@ class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
           RETURN we.watered_at
         """
         run_id = f"{col.PLANTING_RUNS}/{run_key}"
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@run_contains": col.RUN_CONTAINS,
-            "@watering_events": col.WATERING_EVENTS,
-            "run_id": run_id,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@run_contains": col.RUN_CONTAINS,
+                "@watering_events": col.WATERING_EVENTS,
+                "run_id": run_id,
+            },
+        )
         result = next(cursor, None)
         if result is None:
             return None

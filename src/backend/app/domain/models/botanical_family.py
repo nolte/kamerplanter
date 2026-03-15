@@ -36,9 +36,7 @@ class BotanicalFamily(BaseModel):
     typical_growth_forms: list[GrowthHabit] = Field(default_factory=lambda: [GrowthHabit.HERB])
     common_pests: list[str] = Field(default_factory=list)
     common_diseases: list[str] = Field(default_factory=list)
-    pollination_type: list[PollinationType] = Field(
-        default_factory=lambda: [PollinationType.INSECT]
-    )
+    pollination_type: list[PollinationType] = Field(default_factory=lambda: [PollinationType.INSECT])
     rotation_category: str = ""
     created_at: datetime | None = None
     updated_at: datetime | None = None

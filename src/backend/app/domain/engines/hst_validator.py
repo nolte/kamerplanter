@@ -58,14 +58,23 @@ class HSTValidator:
         # Try activity-driven validation first
         if activities:
             result = self._validate_from_activity(
-                task_name, task_lower, phase_lower, recent_hst_tasks, species_name, activities,
+                task_name,
+                task_lower,
+                phase_lower,
+                recent_hst_tasks,
+                species_name,
+                activities,
             )
             if result is not None:
                 return result
 
         # Fallback: hardcoded constants
         return self._validate_from_constants(
-            task_name, task_lower, phase_lower, recent_hst_tasks, species_name,
+            task_name,
+            task_lower,
+            phase_lower,
+            recent_hst_tasks,
+            species_name,
         )
 
     def _validate_from_activity(

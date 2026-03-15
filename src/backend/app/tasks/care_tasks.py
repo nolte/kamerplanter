@@ -64,7 +64,9 @@ def generate_due_care_reminders() -> dict:
                 continue
 
             if not care_service._engine.should_generate_reminder(
-                profile, rt, has_active_watering_plan=has_plan,
+                profile,
+                rt,
+                has_active_watering_plan=has_plan,
                 has_nutrient_plan=has_nutrient_plan,
             ):
                 continue

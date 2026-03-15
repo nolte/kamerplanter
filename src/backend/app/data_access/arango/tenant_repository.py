@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from app.common.enums import TenantType
@@ -21,9 +20,7 @@ class ArangoTenantRepository(ITenantRepository, BaseArangoRepository):
 
     def get_by_slug(self, slug: str) -> Tenant | None:
         query = "FOR doc IN @@collection FILTER doc.slug == @slug LIMIT 1 RETURN doc"
-        cursor = self._db.aql.execute(
-            query, bind_vars={"@collection": col.TENANTS, "slug": slug}
-        )
+        cursor = self._db.aql.execute(query, bind_vars={"@collection": col.TENANTS, "slug": slug})
         docs = list(cursor)
         if not docs:
             return None

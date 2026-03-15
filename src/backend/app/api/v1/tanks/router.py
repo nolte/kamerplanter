@@ -56,6 +56,7 @@ def _tank_response(t: Tank) -> TankResponse:
 
 # ── Global maintenance overview (before /{key} to avoid route conflict) ──
 
+
 @router.get("/maintenance/due", response_model=list[DueMaintenanceResponse])
 def get_all_due_maintenances(
     service: TankService = Depends(get_tank_service),
@@ -65,6 +66,7 @@ def get_all_due_maintenances(
 
 
 # ── Location validation ──────────────────────────────────────────────
+
 
 @router.get(
     "/validate-location/{location_key}",
@@ -81,18 +83,20 @@ def validate_location_tank(
 
     if site.irrigation_system != IrrigationSystem.MANUAL:
         tanks, _total = tank_service.list_tanks(
-            offset=0, limit=1, filters={"location_key": location_key},
+            offset=0,
+            limit=1,
+            filters={"location_key": location_key},
         )
         if not tanks:
             warnings.append(
-                f"Location '{site.name}' uses {site.irrigation_system.value} irrigation "
-                "but has no tank assigned"
+                f"Location '{site.name}' uses {site.irrigation_system.value} irrigation but has no tank assigned"
             )
 
     return LocationTankValidationResponse(valid=len(warnings) == 0, warnings=warnings)
 
 
 # ── Sensor CRUD (before /{key} to avoid route conflict) ─────────────
+
 
 @router.put("/sensors/{sensor_key}", response_model=SensorResponse)
 def update_sensor(
@@ -101,6 +105,7 @@ def update_sensor(
     sensor_service: SensorService = Depends(get_sensor_service),
 ):
     from app.common.exceptions import NotFoundError
+
     existing = sensor_service.get_sensor(sensor_key)
     if existing is None:
         raise NotFoundError("Sensor", sensor_key)
@@ -189,19 +194,22 @@ def list_ha_entities(
     results = []
     for e in entities:
         metric = _suggest_metric_type(e)
-        results.append(HAEntitySuggestion(
-            entity_id=e["entity_id"],
-            friendly_name=e["friendly_name"],
-            unit_of_measurement=e.get("unit_of_measurement"),
-            device_class=e.get("device_class"),
-            state=e.get("state"),
-            suggested_metric_type=metric,
-            suggested_name=e["friendly_name"],
-        ))
+        results.append(
+            HAEntitySuggestion(
+                entity_id=e["entity_id"],
+                friendly_name=e["friendly_name"],
+                unit_of_measurement=e.get("unit_of_measurement"),
+                device_class=e.get("device_class"),
+                state=e.get("state"),
+                suggested_metric_type=metric,
+                suggested_name=e["friendly_name"],
+            )
+        )
     return results
 
 
 # ── Tank CRUD ──────────────────────────────────────────────────────────
+
 
 @router.get("", response_model=list[TankResponse])
 def list_tanks(
@@ -251,6 +259,7 @@ def delete_tank(key: str, service: TankService = Depends(get_tank_service)):
 
 # ── States ─────────────────────────────────────────────────────────────
 
+
 @router.post("/{key}/states", response_model=TankStateResponse, status_code=201)
 def record_state(
     key: str,
@@ -270,10 +279,7 @@ def get_states(
     service: TankService = Depends(get_tank_service),
 ):
     states = service.get_states(key, offset, limit)
-    return [
-        TankStateResponse(key=s.key or "", **s.model_dump(exclude={"key"}))
-        for s in states
-    ]
+    return [TankStateResponse(key=s.key or "", **s.model_dump(exclude={"key"})) for s in states]
 
 
 @router.get("/{key}/states/latest", response_model=TankStateResponse | None)
@@ -289,6 +295,7 @@ def get_latest_state(
 
 # ── Alerts ─────────────────────────────────────────────────────────────
 
+
 @router.get("/{key}/alerts", response_model=list[AlertResponse])
 def get_alerts(key: str, service: TankService = Depends(get_tank_service)):
     alerts = service.get_alerts(key)
@@ -296,6 +303,7 @@ def get_alerts(key: str, service: TankService = Depends(get_tank_service)):
 
 
 # ── Maintenance logs ───────────────────────────────────────────────────
+
 
 @router.post("/{key}/maintenance", response_model=MaintenanceLogResponse, status_code=201)
 def log_maintenance(
@@ -316,10 +324,7 @@ def get_maintenance_history(
     service: TankService = Depends(get_tank_service),
 ):
     logs = service.get_maintenance_history(key, offset, limit)
-    return [
-        MaintenanceLogResponse(key=log.key or "", **log.model_dump(exclude={"key"}))
-        for log in logs
-    ]
+    return [MaintenanceLogResponse(key=log.key or "", **log.model_dump(exclude={"key"})) for log in logs]
 
 
 @router.get("/{key}/maintenance/due", response_model=list[DueMaintenanceResponse])
@@ -333,6 +338,7 @@ def get_due_maintenances(
 
 # ── Schedules ──────────────────────────────────────────────────────────
 
+
 @router.post("/{key}/schedules", response_model=MaintenanceScheduleResponse, status_code=201)
 def create_schedule(
     key: str,
@@ -342,7 +348,8 @@ def create_schedule(
     schedule = MaintenanceSchedule(**body.model_dump())
     created = service.create_schedule(key, schedule)
     return MaintenanceScheduleResponse(
-        key=created.key or "", **created.model_dump(exclude={"key"}),
+        key=created.key or "",
+        **created.model_dump(exclude={"key"}),
     )
 
 
@@ -352,10 +359,7 @@ def get_schedules(
     service: TankService = Depends(get_tank_service),
 ):
     schedules = service.get_schedules(key)
-    return [
-        MaintenanceScheduleResponse(key=s.key or "", **s.model_dump(exclude={"key"}))
-        for s in schedules
-    ]
+    return [MaintenanceScheduleResponse(key=s.key or "", **s.model_dump(exclude={"key"})) for s in schedules]
 
 
 @router.put("/{key}/schedules/{skey}", response_model=MaintenanceScheduleResponse)
@@ -368,7 +372,8 @@ def update_schedule(
     data = body.model_dump(exclude_none=True)
     updated = service.update_schedule(skey, data)
     return MaintenanceScheduleResponse(
-        key=updated.key or "", **updated.model_dump(exclude={"key"}),
+        key=updated.key or "",
+        **updated.model_dump(exclude={"key"}),
     )
 
 
@@ -383,6 +388,7 @@ def delete_schedule(
 
 # ── Fill Events ────────────────────────────────────────────────────────
 
+
 def _fill_event_response(e: TankFillEvent) -> TankFillEventResponse:
     return TankFillEventResponse(key=e.key or "", **e.model_dump(exclude={"key"}))
 
@@ -393,10 +399,7 @@ def record_fill_event(
     body: TankFillEventCreate,
     service: TankService = Depends(get_tank_service),
 ):
-    ferts = [
-        FertilizerSnapshot(**f.model_dump())
-        for f in body.fertilizers_used
-    ]
+    ferts = [FertilizerSnapshot(**f.model_dump()) for f in body.fertilizers_used]
     event = TankFillEvent(
         **body.model_dump(exclude={"fertilizers_used"}),
         fertilizers_used=ferts,
@@ -406,7 +409,8 @@ def record_fill_event(
         fill_event=_fill_event_response(result["fill_event"]),
         tank_state=(
             TankStateResponse(key=result["tank_state"].key or "", **result["tank_state"].model_dump(exclude={"key"}))
-            if result["tank_state"] else None
+            if result["tank_state"]
+            else None
         ),
         warnings=result["warnings"],
         water_defaults_source=result["water_defaults_source"],
@@ -448,6 +452,7 @@ def get_fill_stats(
 
 # ── Active Nutrient Plans ─────────────────────────────────────────────
 
+
 @router.get("/{key}/active-nutrient-plans", response_model=list[ActiveNutrientPlanResponse])
 def get_active_nutrient_plans(
     key: str,
@@ -466,9 +471,7 @@ def get_active_nutrient_plans(
             plant_count=r.get("plant_count", 0),
             current_phase_entry=r.get("current_phase_entry"),
             all_phase_entries=r.get("all_phase_entries", []),
-            fertilizers=[
-                ActivePlanFertilizerInfo(**f) for f in r.get("fertilizers", [])
-            ],
+            fertilizers=[ActivePlanFertilizerInfo(**f) for f in r.get("fertilizers", [])],
             watering_schedule=r.get("watering_schedule"),
             water_mix_ratio_ro_percent=r.get("water_mix_ratio_ro_percent"),
         )
@@ -477,6 +480,7 @@ def get_active_nutrient_plans(
 
 
 # ── Relationships ──────────────────────────────────────────────────────
+
 
 @router.post("/{key}/feeds-from", status_code=201)
 def link_feeds_from(
@@ -489,6 +493,7 @@ def link_feeds_from(
 
 
 # ── Sensors & Live Query ──────────────────────────────────────────────
+
 
 @router.get("/{key}/states/live", response_model=LiveStateResponse)
 def get_live_state(
@@ -506,10 +511,7 @@ def get_sensors(
     sensor_service: SensorService = Depends(get_sensor_service),
 ):
     sensors = sensor_service.get_sensors_for_tank(key)
-    return [
-        SensorResponse(key=s.key or "", **s.model_dump(exclude={"key"}))
-        for s in sensors
-    ]
+    return [SensorResponse(key=s.key or "", **s.model_dump(exclude={"key"})) for s in sensors]
 
 
 @router.post("/{key}/sensors", response_model=SensorResponse, status_code=201)
@@ -521,5 +523,3 @@ def create_sensor(
     sensor = Sensor(**body.model_dump(exclude={"tank_key"}), tank_key=key)
     created = sensor_service.create_sensor(sensor)
     return SensorResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
-
-

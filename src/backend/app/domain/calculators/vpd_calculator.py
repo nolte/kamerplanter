@@ -19,6 +19,7 @@ def classify_vpd(vpd_kpa: float, phase: str) -> tuple[str, str]:
     status: 'low', 'optimal', 'high'
     """
     from app.config.constants import VPD_RANGES
+
     ranges = VPD_RANGES.get(phase, (0.8, 1.2))
     low, high = ranges
     if vpd_kpa < low:

@@ -1,5 +1,3 @@
-
-
 from app.domain.calculators.vpd_calculator import (
     calculate_leaf_vpd,
     calculate_svp,

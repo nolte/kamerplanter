@@ -41,21 +41,25 @@ class RowValidator:
         # Required field validation
         for field, required in col_defs.items():
             if required and not row.get(field, "").strip():
-                errors.append(RowValidationError(
-                    row=row_number,
-                    field=field,
-                    message=f"Required field '{field}' is empty",
-                ))
+                errors.append(
+                    RowValidationError(
+                        row=row_number,
+                        field=field,
+                        message=f"Required field '{field}' is empty",
+                    )
+                )
 
         # Scientific name pattern for species
         if entity_type == EntityType.SPECIES:
             name = row.get("scientific_name", "").strip()
             if name and not SCIENTIFIC_NAME_PATTERN.match(name):
-                errors.append(RowValidationError(
-                    row=row_number,
-                    field="scientific_name",
-                    message="Scientific name must match 'Genus species' format",
-                ))
+                errors.append(
+                    RowValidationError(
+                        row=row_number,
+                        field="scientific_name",
+                        message="Scientific name must match 'Genus species' format",
+                    )
+                )
 
         # Enum validation
         for field, enum_cls in ENUM_VALIDATORS.items():
@@ -63,11 +67,13 @@ class RowValidator:
             if value:
                 valid_values = {e.value for e in enum_cls}
                 if value.lower() not in valid_values:
-                    errors.append(RowValidationError(
-                        row=row_number,
-                        field=field,
-                        message=f"Invalid value '{value}'. Must be one of: {', '.join(sorted(valid_values))}",
-                    ))
+                    errors.append(
+                        RowValidationError(
+                            row=row_number,
+                            field=field,
+                            message=f"Invalid value '{value}'. Must be one of: {', '.join(sorted(valid_values))}",
+                        )
+                    )
 
         # Duplicate check
         status = RowStatus.VALID

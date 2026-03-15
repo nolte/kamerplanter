@@ -44,8 +44,7 @@ class NutrientSolutionCalculator:
                 "calculated_ec": base_water_ec,
                 "ph_adjustment": _ph_adjustment(base_water_ph, target_ph),
                 "warnings": (
-                    [] if available_ec > 0
-                    else ["No EC budget available — base water EC meets or exceeds target"]
+                    [] if available_ec > 0 else ["No EC budget available — base water EC meets or exceeds target"]
                 ),
                 "instructions": [],
             }
@@ -77,13 +76,15 @@ class NutrientSolutionCalculator:
 
         for fert in sorted_ferts:
             if fert.ec_contribution_per_ml <= 0:
-                dosages.append({
-                    "fertilizer_key": fert.key,
-                    "product_name": fert.product_name,
-                    "ml_per_liter": 0,
-                    "total_ml": 0,
-                    "ec_contribution": 0,
-                })
+                dosages.append(
+                    {
+                        "fertilizer_key": fert.key,
+                        "product_name": fert.product_name,
+                        "ml_per_liter": 0,
+                        "total_ml": 0,
+                        "ec_contribution": 0,
+                    }
+                )
                 continue
 
             if use_recipe_scaling:
@@ -97,8 +98,7 @@ class NutrientSolutionCalculator:
             max_dose = getattr(fert, "max_dose_ml_per_liter", None)
             if max_dose is not None and ml_per_liter > max_dose:
                 warnings.append(
-                    f"{fert.product_name}: dose capped at {max_dose} ml/L "
-                    f"(calculated {ml_per_liter:.2f} ml/L)"
+                    f"{fert.product_name}: dose capped at {max_dose} ml/L (calculated {ml_per_liter:.2f} ml/L)"
                 )
                 ml_per_liter = max_dose
 
@@ -106,18 +106,18 @@ class NutrientSolutionCalculator:
             total_ml = ml_per_liter * target_volume_liters
             total_calculated_ec += ec_contribution
 
-            dosages.append({
-                "fertilizer_key": fert.key,
-                "product_name": fert.product_name,
-                "ml_per_liter": round(ml_per_liter, 2),
-                "total_ml": round(total_ml, 1),
-                "ec_contribution": round(ec_contribution, 3),
-            })
+            dosages.append(
+                {
+                    "fertilizer_key": fert.key,
+                    "product_name": fert.product_name,
+                    "ml_per_liter": round(ml_per_liter, 2),
+                    "total_ml": round(total_ml, 1),
+                    "ec_contribution": round(ec_contribution, 3),
+                }
+            )
 
             if not fert.tank_safe and substrate_type in (SubstrateType.HYDRO_SOLUTION,):
-                warnings.append(
-                    f"{fert.product_name} is not tank-safe — do not pre-mix in reservoir"
-                )
+                warnings.append(f"{fert.product_name} is not tank-safe — do not pre-mix in reservoir")
 
         # Mixing instructions
         instructions = _build_instructions(sorted_ferts, dosages, target_volume_liters)
@@ -171,13 +171,15 @@ class FlushingProtocol:
                 action = "Plain water flush"
                 dosage_percent = 0
 
-            schedule.append({
-                "day": day + 1,
-                "absolute_day": flush_start_day + day + 1,
-                "target_ec_ms": round(target_ec, 2),
-                "action": action,
-                "dosage_percent": dosage_percent,
-            })
+            schedule.append(
+                {
+                    "day": day + 1,
+                    "absolute_day": flush_start_day + day + 1,
+                    "target_ec_ms": round(target_ec, 2),
+                    "action": action,
+                    "dosage_percent": dosage_percent,
+                }
+            )
 
         return {
             "substrate_type": substrate_type.value,
@@ -293,12 +295,10 @@ class MixingSafetyValidator:
         warnings: list[str] = []
 
         # Check for CalMag before sulfate rule
-        has_calmag = any(
-            "calcium" in f.product_name.lower() or "calmag" in f.product_name.lower()
-            for f in fertilizers
-        )
+        has_calmag = any("calcium" in f.product_name.lower() or "calmag" in f.product_name.lower() for f in fertilizers)
         has_sulfate = any(
-            "sulfat" in f.product_name.lower() or "sulfate" in f.product_name.lower()
+            "sulfat" in f.product_name.lower()
+            or "sulfate" in f.product_name.lower()
             or "epsom" in f.product_name.lower()
             for f in fertilizers
         )
@@ -306,11 +306,11 @@ class MixingSafetyValidator:
         if has_calmag and has_sulfate:
             # Check mixing order
             calmag_ferts = [
-                f for f in fertilizers
-                if "calcium" in f.product_name.lower() or "calmag" in f.product_name.lower()
+                f for f in fertilizers if "calcium" in f.product_name.lower() or "calmag" in f.product_name.lower()
             ]
             sulfate_ferts = [
-                f for f in fertilizers
+                f
+                for f in fertilizers
                 if "sulfat" in f.product_name.lower()
                 or "sulfate" in f.product_name.lower()
                 or "epsom" in f.product_name.lower()
@@ -327,8 +327,7 @@ class MixingSafetyValidator:
         # Check silicate-before-CalMag order (CaSiO₃ precipitation risk)
         silicate_ferts = [f for f in fertilizers if f.fertilizer_type == FertilizerType.SILICATE]
         calmag_ferts_all = [
-            f for f in fertilizers
-            if "calcium" in f.product_name.lower() or "calmag" in f.product_name.lower()
+            f for f in fertilizers if "calcium" in f.product_name.lower() or "calmag" in f.product_name.lower()
         ]
         if silicate_ferts and calmag_ferts_all:
             for sf in silicate_ferts:
@@ -344,23 +343,21 @@ class MixingSafetyValidator:
         foliar_only = [f for f in fertilizers if f.recommended_application == ApplicationMethod.FOLIAR]
         fertigation = [f for f in fertilizers if f.recommended_application == ApplicationMethod.FERTIGATION]
         if foliar_only and fertigation:
-            warnings.append(
-                "Mixing foliar-only and fertigation products — verify application method"
-            )
+            warnings.append("Mixing foliar-only and fertigation products — verify application method")
 
         # Check pH conflict
         acidic = [f for f in fertilizers if f.ph_effect == PhEffect.ACIDIC]
         alkaline = [f for f in fertilizers if f.ph_effect == PhEffect.ALKALINE]
         if acidic and alkaline:
-            warnings.append(
-                "Mixing acidic and alkaline fertilizers — may cause pH instability"
-            )
+            warnings.append("Mixing acidic and alkaline fertilizers — may cause pH instability")
 
         safe = len(warnings) == 0
         return {"safe": safe, "warnings": warnings}
 
     def validate_channel(
-        self, channel: DeliveryChannel, fertilizers: list[Fertilizer],
+        self,
+        channel: DeliveryChannel,
+        fertilizers: list[Fertilizer],
     ) -> dict:
         """Validate fertilizer combination within a specific delivery channel."""
         result = self.validate_combination(fertilizers)
@@ -410,7 +407,9 @@ def _ph_adjustment(current_ph: float, target_ph: float) -> dict:
 
 
 def _build_instructions(
-    sorted_ferts: list[Fertilizer], dosages: list[dict], target_volume: float,
+    sorted_ferts: list[Fertilizer],
+    dosages: list[dict],
+    target_volume: float,
 ) -> list[str]:
     """Build step-by-step mixing instructions."""
     instructions = [f"1. Fill container with {target_volume}L of water"]

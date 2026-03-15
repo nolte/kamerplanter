@@ -64,7 +64,9 @@ class CsvParser:
         return ",".join(columns) + "\n"
 
     def parse(
-        self, file_bytes: bytes, entity_type: EntityType,
+        self,
+        file_bytes: bytes,
+        entity_type: EntityType,
     ) -> tuple[list[dict], str]:
         encoding = self.detect_encoding(file_bytes)
         text = file_bytes.decode(encoding)

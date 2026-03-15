@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from app.data_access.arango import collections as col
@@ -52,7 +51,10 @@ class ArangoCareReminderRepository(ICareReminderRepository, BaseArangoRepository
         return CareConfirmation(**doc)
 
     def get_confirmations_by_plant(
-        self, plant_key: str, reminder_type: ReminderType | None = None, limit: int = 50,
+        self,
+        plant_key: str,
+        reminder_type: ReminderType | None = None,
+        limit: int = 50,
     ) -> list[CareConfirmation]:
         repo = BaseArangoRepository(self._db, col.CARE_CONFIRMATIONS)
         if reminder_type:
@@ -78,7 +80,9 @@ class ArangoCareReminderRepository(ICareReminderRepository, BaseArangoRepository
         return [CareConfirmation(**repo._from_doc(doc)) for doc in cursor]
 
     def get_last_confirmation(
-        self, plant_key: str, reminder_type: ReminderType,
+        self,
+        plant_key: str,
+        reminder_type: ReminderType,
     ) -> CareConfirmation | None:
         results = self.get_confirmations_by_plant(plant_key, reminder_type, limit=1)
         return results[0] if results else None
@@ -91,7 +95,10 @@ class ArangoCareReminderRepository(ICareReminderRepository, BaseArangoRepository
         self.create_edge(col.HAS_CARE_PROFILE, plant_id, profile_id)
 
     def create_confirmation_edges(
-        self, confirmation_key: str, profile_key: str, plant_key: str,
+        self,
+        confirmation_key: str,
+        profile_key: str,
+        plant_key: str,
     ) -> None:
         confirmation_id = f"{col.CARE_CONFIRMATIONS}/{confirmation_key}"
         profile_id = f"{col.CARE_PROFILES}/{profile_key}"

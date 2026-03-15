@@ -33,8 +33,11 @@ def get_pest_risks(family_key: str, graph: ArangoGraphRepository = Depends(get_g
 @router.post("/pest-risk", status_code=201)
 def set_pest_risk(body: PestRiskSet, graph: ArangoGraphRepository = Depends(get_graph_repo)):
     graph.set_pest_risk(
-        body.a_family_key, body.b_family_key,
-        body.shared_pests, body.shared_diseases, body.risk_level,
+        body.a_family_key,
+        body.b_family_key,
+        body.shared_pests,
+        body.shared_diseases,
+        body.risk_level,
     )
     return {"status": "created"}
 
@@ -57,8 +60,11 @@ def get_family_compatible(family_key: str, graph: ArangoGraphRepository = Depend
 @router.post("/compatible", status_code=201)
 def set_family_compatible(body: FamilyCompatibleSet, graph: ArangoGraphRepository = Depends(get_graph_repo)):
     graph.set_family_compatible(
-        body.a_family_key, body.b_family_key,
-        body.benefit_type, body.compatibility_score, body.notes,
+        body.a_family_key,
+        body.b_family_key,
+        body.benefit_type,
+        body.compatibility_score,
+        body.notes,
     )
     return {"status": "created"}
 
@@ -80,7 +86,9 @@ def get_family_incompatible(family_key: str, graph: ArangoGraphRepository = Depe
 @router.post("/incompatible", status_code=201)
 def set_family_incompatible(body: FamilyIncompatibleSet, graph: ArangoGraphRepository = Depends(get_graph_repo)):
     graph.set_family_incompatible(
-        body.a_family_key, body.b_family_key,
-        body.reason, body.severity,
+        body.a_family_key,
+        body.b_family_key,
+        body.reason,
+        body.severity,
     )
     return {"status": "created"}

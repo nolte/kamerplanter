@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from app.data_access.arango import collections as col
@@ -24,11 +23,14 @@ class ArangoAuthProviderRepository(IAuthProviderRepository, BaseArangoRepository
           LIMIT 1
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.AUTH_PROVIDERS,
-            "provider": provider.value,
-            "pid": provider_user_id,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.AUTH_PROVIDERS,
+                "provider": provider.value,
+                "pid": provider_user_id,
+            },
+        )
         docs = list(cursor)
         if not docs:
             return None
@@ -56,8 +58,11 @@ class ArangoAuthProviderRepository(IAuthProviderRepository, BaseArangoRepository
 
     def list_by_user(self, user_key: UserKey) -> list[AuthProvider]:
         query = "FOR doc IN @@collection FILTER doc.user_key == @user_key RETURN doc"
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.AUTH_PROVIDERS,
-            "user_key": user_key,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.AUTH_PROVIDERS,
+                "user_key": user_key,
+            },
+        )
         return [AuthProvider(**self._from_doc(doc)) for doc in cursor]

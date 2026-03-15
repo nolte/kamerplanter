@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from app.data_access.arango import collections as col
@@ -116,12 +115,15 @@ class ArangoSiteRepository(ISiteRepository, BaseArangoRepository):
             FILTER IS_SAME_COLLECTION(@locations_col, v)
             RETURN v
         """
-        cursor = self._db.aql.execute(aql, bind_vars={
-            "start_id": f"{col.SITES}/{site_key}",
-            "graph": col.GRAPH_NAME,
-            "contains_col": col.CONTAINS,
-            "locations_col": col.LOCATIONS,
-        })
+        cursor = self._db.aql.execute(
+            aql,
+            bind_vars={
+                "start_id": f"{col.SITES}/{site_key}",
+                "graph": col.GRAPH_NAME,
+                "contains_col": col.CONTAINS,
+                "locations_col": col.LOCATIONS,
+            },
+        )
         return [Location(**self._from_doc(doc)) for doc in cursor]
 
     # ── Slot CRUD ─────────────────────────────────────────────────────
@@ -169,10 +171,13 @@ class ArangoSiteRepository(ISiteRepository, BaseArangoRepository):
           RETURN slot
         """
         plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@placed_in": col.PLACED_IN,
-            "plant_id": plant_id,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@placed_in": col.PLACED_IN,
+                "plant_id": plant_id,
+            },
+        )
         doc = next(cursor, None)
         if doc is None:
             return None

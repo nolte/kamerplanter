@@ -41,7 +41,10 @@ class BaseArangoRepository:
         return self._from_doc(doc)
 
     def get_all(
-        self, offset: int = 0, limit: int = 50, tenant_key: str | None = None,
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        tenant_key: str | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
         builder = AQLBuilder(self._collection_name)
         if tenant_key:
@@ -96,7 +99,11 @@ class BaseArangoRepository:
         return [self._from_doc(doc) for doc in cursor]
 
     def create_edge(
-        self, edge_collection: str, from_id: str, to_id: str, data: dict[str, Any] | None = None,
+        self,
+        edge_collection: str,
+        from_id: str,
+        to_id: str,
+        data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         edge_data = {
             "_from": from_id,

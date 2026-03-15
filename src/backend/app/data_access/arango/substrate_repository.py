@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from app.data_access.arango import collections as col
@@ -55,9 +54,14 @@ class ArangoSubstrateRepository(ISubstrateRepository, BaseArangoRepository):
         if batch.substrate_key:
             batch_id_full = f"{col.SUBSTRATE_BATCHES}/{doc['_key']}"
             substrate_id = f"{col.SUBSTRATES}/{batch.substrate_key}"
-            self.create_edge(col.USES_TYPE, batch_id_full, substrate_id, data={
-                "batch_id": batch.batch_id,
-            })
+            self.create_edge(
+                col.USES_TYPE,
+                batch_id_full,
+                substrate_id,
+                data={
+                    "batch_id": batch.batch_id,
+                },
+            )
         return SubstrateBatch(**doc)
 
     def update_batch(self, key: BatchKey, batch: SubstrateBatch) -> SubstrateBatch:

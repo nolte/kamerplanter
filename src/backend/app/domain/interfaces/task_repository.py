@@ -17,7 +17,10 @@ class ITaskRepository(ABC):
     # ── WorkflowTemplate CRUD ──
     @abstractmethod
     def get_all_workflow_templates(
-        self, offset: int = 0, limit: int = 50, species_key: str | None = None,
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        species_key: str | None = None,
     ) -> tuple[list[WorkflowTemplate], int]: ...
 
     @abstractmethod
@@ -51,7 +54,10 @@ class ITaskRepository(ABC):
     # ── Task CRUD ──
     @abstractmethod
     def get_all_tasks(
-        self, offset: int = 0, limit: int = 50, filters: dict | None = None,
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict | None = None,
     ) -> tuple[list[Task], int]: ...
 
     @abstractmethod
@@ -87,7 +93,9 @@ class ITaskRepository(ABC):
 
     @abstractmethod
     def update_workflow_execution(
-        self, key: WorkflowExecutionKey, execution: WorkflowExecution,
+        self,
+        key: WorkflowExecutionKey,
+        execution: WorkflowExecution,
     ) -> WorkflowExecution: ...
 
     # ── Comments ──

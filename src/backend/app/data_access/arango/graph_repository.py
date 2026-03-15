@@ -113,17 +113,26 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
         ]
 
     def set_rotation_successor(
-        self, from_family_key: str, to_family_key: str, wait_years: int,
-        benefit_score: float = 0.0, benefit_reason: str = "",
+        self,
+        from_family_key: str,
+        to_family_key: str,
+        wait_years: int,
+        benefit_score: float = 0.0,
+        benefit_reason: str = "",
     ) -> None:
         from_id = f"{col.BOTANICAL_FAMILIES}/{from_family_key}"
         to_id = f"{col.BOTANICAL_FAMILIES}/{to_family_key}"
         self.delete_edges(col.ROTATION_AFTER, from_id, to_id)
-        self.create_edge(col.ROTATION_AFTER, from_id, to_id, data={
-            "wait_years": wait_years,
-            "benefit_score": benefit_score,
-            "benefit_reason": benefit_reason,
-        })
+        self.create_edge(
+            col.ROTATION_AFTER,
+            from_id,
+            to_id,
+            data={
+                "wait_years": wait_years,
+                "benefit_score": benefit_score,
+                "benefit_reason": benefit_reason,
+            },
+        )
 
     # ── Slot Adjacency ────────────────────────────────────────────────
 
@@ -174,8 +183,12 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
         ]
 
     def set_pest_risk(
-        self, a_key: str, b_key: str,
-        shared_pests: list[str], shared_diseases: list[str], risk_level: str,
+        self,
+        a_key: str,
+        b_key: str,
+        shared_pests: list[str],
+        shared_diseases: list[str],
+        risk_level: str,
     ) -> None:
         a_id = f"{col.BOTANICAL_FAMILIES}/{a_key}"
         b_id = f"{col.BOTANICAL_FAMILIES}/{b_key}"
@@ -209,8 +222,12 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
         ]
 
     def set_family_compatible(
-        self, a_key: str, b_key: str,
-        benefit_type: str, compatibility_score: float, notes: str,
+        self,
+        a_key: str,
+        b_key: str,
+        benefit_type: str,
+        compatibility_score: float,
+        notes: str,
     ) -> None:
         a_id = f"{col.BOTANICAL_FAMILIES}/{a_key}"
         b_id = f"{col.BOTANICAL_FAMILIES}/{b_key}"
@@ -242,7 +259,11 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
         ]
 
     def set_family_incompatible(
-        self, a_key: str, b_key: str, reason: str, severity: str,
+        self,
+        a_key: str,
+        b_key: str,
+        reason: str,
+        severity: str,
     ) -> None:
         a_id = f"{col.BOTANICAL_FAMILIES}/{a_key}"
         b_id = f"{col.BOTANICAL_FAMILIES}/{b_key}"

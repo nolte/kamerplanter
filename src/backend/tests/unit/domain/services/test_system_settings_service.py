@@ -34,7 +34,9 @@ class TestUpdateHaSettings:
         mock_repo.get.return_value = None
         mock_repo.upsert.return_value = SystemSettings(
             home_assistant=HomeAssistantSettings(
-                ha_url="http://ha:8123", ha_access_token="tok", ha_timeout=20,
+                ha_url="http://ha:8123",
+                ha_access_token="tok",
+                ha_timeout=20,
             ),
         )
         result = service.update_ha_settings("http://ha:8123", "tok", 20)
@@ -93,7 +95,9 @@ class TestGetEffectiveHaSettings:
 
         stored = SystemSettings(
             home_assistant=HomeAssistantSettings(
-                ha_url="http://db:8123", ha_access_token="db-token", ha_timeout=30,
+                ha_url="http://db:8123",
+                ha_access_token="db-token",
+                ha_timeout=30,
             ),
         )
         mock_repo.get.return_value = stored

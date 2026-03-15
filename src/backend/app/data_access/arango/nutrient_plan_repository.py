@@ -19,7 +19,10 @@ class ArangoNutrientPlanRepository(INutrientPlanRepository, BaseArangoRepository
     # ── Plan CRUD ────────────────────────────────────────────────────
 
     def get_all(
-        self, offset: int = 0, limit: int = 50, filters: dict | None = None,
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict | None = None,
     ) -> tuple[list[NutrientPlan], int]:
         if filters:
             query = f"FOR doc IN {col.NUTRIENT_PLANS}"
@@ -91,10 +94,13 @@ class ArangoNutrientPlanRepository(INutrientPlanRepository, BaseArangoRepository
           SORT doc.sequence_order ASC
           RETURN doc
         """
-        cursor = self._db.aql.execute(query, bind_vars={
-            "@collection": col.NUTRIENT_PLAN_PHASE_ENTRIES,
-            "plan_key": plan_key,
-        })
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.NUTRIENT_PLAN_PHASE_ENTRIES,
+                "plan_key": plan_key,
+            },
+        )
         return [NutrientPlanPhaseEntry(**self._from_doc(doc)) for doc in cursor]
 
     def get_phase_entry_by_key(self, key: NutrientPlanPhaseEntryKey) -> NutrientPlanPhaseEntry | None:
@@ -104,13 +110,16 @@ class ArangoNutrientPlanRepository(INutrientPlanRepository, BaseArangoRepository
         return NutrientPlanPhaseEntry(**self._from_doc(doc))
 
     def update_phase_entry(
-        self, key: NutrientPlanPhaseEntryKey, entry: NutrientPlanPhaseEntry,
+        self,
+        key: NutrientPlanPhaseEntryKey,
+        entry: NutrientPlanPhaseEntry,
     ) -> NutrientPlanPhaseEntry:
         data = entry.model_dump(by_alias=True, exclude_none=True, mode="json")
         data.pop("_key", None)
         data["updated_at"] = datetime.now(UTC).isoformat()
         result = self._db.collection(col.NUTRIENT_PLAN_PHASE_ENTRIES).update(
-            {"_key": key, **data}, return_new=True,
+            {"_key": key, **data},
+            return_new=True,
         )
         return NutrientPlanPhaseEntry(**self._from_doc(result["new"]))
 
@@ -195,13 +204,16 @@ class ArangoNutrientPlanRepository(INutrientPlanRepository, BaseArangoRepository
             updated_at: @now
           } IN @@collection
         """
-        self._db.aql.execute(query, bind_vars={
-            "@collection": col.NUTRIENT_PLAN_PHASE_ENTRIES,
-            "key": entry_key,
-            "cid": channel_id,
-            "dosage": dosage,
-            "now": datetime.now(UTC).isoformat(),
-        })
+        self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.NUTRIENT_PLAN_PHASE_ENTRIES,
+                "key": entry_key,
+                "cid": channel_id,
+                "dosage": dosage,
+                "now": datetime.now(UTC).isoformat(),
+            },
+        )
         return edge
 
     def remove_fertilizer_from_channel(
@@ -218,11 +230,14 @@ class ArangoNutrientPlanRepository(INutrientPlanRepository, BaseArangoRepository
           FILTER e._from == @from_id AND e._to == @to_id AND e.channel_id == @cid
           REMOVE e IN {col.PLAN_USES_FERTILIZER}
         """
-        self._db.aql.execute(query, bind_vars={
-            "from_id": from_id,
-            "to_id": to_id,
-            "cid": channel_id,
-        })
+        self._db.aql.execute(
+            query,
+            bind_vars={
+                "from_id": from_id,
+                "to_id": to_id,
+                "cid": channel_id,
+            },
+        )
 
         # Update embedded delivery_channels[].fertilizer_dosages[]
         query = """
@@ -244,13 +259,16 @@ class ArangoNutrientPlanRepository(INutrientPlanRepository, BaseArangoRepository
             updated_at: @now
           } IN @@collection
         """
-        self._db.aql.execute(query, bind_vars={
-            "@collection": col.NUTRIENT_PLAN_PHASE_ENTRIES,
-            "key": entry_key,
-            "cid": channel_id,
-            "fk": fertilizer_key,
-            "now": datetime.now(UTC).isoformat(),
-        })
+        self._db.aql.execute(
+            query,
+            bind_vars={
+                "@collection": col.NUTRIENT_PLAN_PHASE_ENTRIES,
+                "key": entry_key,
+                "cid": channel_id,
+                "fk": fertilizer_key,
+                "now": datetime.now(UTC).isoformat(),
+            },
+        )
         return True
 
     # ── Clone ────────────────────────────────────────────────────────
@@ -291,9 +309,7 @@ class ArangoNutrientPlanRepository(INutrientPlanRepository, BaseArangoRepository
                 calcium_ppm=entry.calcium_ppm,
                 magnesium_ppm=entry.magnesium_ppm,
                 notes=entry.notes,
-                delivery_channels=[
-                    ch.model_copy(deep=True) for ch in entry.delivery_channels
-                ],
+                delivery_channels=[ch.model_copy(deep=True) for ch in entry.delivery_channels],
             )
             self.create_phase_entry(new_entry)
 

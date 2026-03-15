@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
 # ── WateringSchedule schema ─────────────────────────────────────────
 
+
 class WateringScheduleSchema(BaseModel):
     schedule_mode: str
     weekday_schedule: list[int] = Field(default_factory=list)
@@ -20,6 +21,7 @@ class WateringScheduleSchema(BaseModel):
 
 
 # ── Method-specific parameter schemas ───────────────────────────────
+
 
 class FertigationParamsSchema(BaseModel):
     method: Literal["fertigation"] = "fertigation"
@@ -46,6 +48,7 @@ class TopDressParamsSchema(BaseModel):
 
 # ── DeliveryChannel schema ──────────────────────────────────────────
 
+
 class DeliveryChannelSchema(BaseModel):
     channel_id: str = Field(min_length=1, max_length=50)
     label: str = Field(default="", max_length=200)
@@ -56,9 +59,9 @@ class DeliveryChannelSchema(BaseModel):
     target_ec_ms: float | None = Field(default=None, ge=0, le=10)
     target_ph: float | None = Field(default=None, ge=0, le=14)
     fertilizer_dosages: list[FertilizerDosageSchema] = Field(default_factory=list)
-    method_params: (
-        FertigationParamsSchema | DrenchParamsSchema | FoliarParamsSchema | TopDressParamsSchema | None
-    ) = None
+    method_params: FertigationParamsSchema | DrenchParamsSchema | FoliarParamsSchema | TopDressParamsSchema | None = (
+        None
+    )
 
 
 class ChannelFertilizerAssignRequest(BaseModel):
@@ -69,6 +72,7 @@ class ChannelFertilizerAssignRequest(BaseModel):
 
 
 # ── NutrientPlan schemas ────────────────────────────────────────────
+
 
 class NutrientPlanCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
@@ -114,6 +118,7 @@ class NutrientPlanResponse(BaseModel):
 
 
 # ── PhaseEntry schemas ──────────────────────────────────────────────
+
 
 class FertilizerDosageSchema(BaseModel):
     fertilizer_key: str
@@ -173,6 +178,7 @@ class PhaseEntryResponse(BaseModel):
 
 # ── Clone / Assign schemas ──────────────────────────────────────────
 
+
 class CloneRequest(BaseModel):
     new_name: str = Field(min_length=1, max_length=200)
     author: str = ""
@@ -181,5 +187,3 @@ class CloneRequest(BaseModel):
 class AssignPlanRequest(BaseModel):
     plan_key: str
     assigned_by: str = ""
-
-

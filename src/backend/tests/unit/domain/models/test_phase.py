@@ -19,7 +19,8 @@ class TestRequirementProfile:
 
     def test_photoperiod_range(self):
         p = RequirementProfile(
-            temperature_day_c=25.0, temperature_night_c=20.0,
+            temperature_day_c=25.0,
+            temperature_night_c=20.0,
             photoperiod_hours=12.0,
         )
         assert p.photoperiod_hours == 12.0
@@ -27,7 +28,8 @@ class TestRequirementProfile:
     def test_photoperiod_too_high(self):
         with pytest.raises(ValidationError):
             RequirementProfile(
-                temperature_day_c=25.0, temperature_night_c=20.0,
+                temperature_day_c=25.0,
+                temperature_night_c=20.0,
                 photoperiod_hours=25.0,
             )
 

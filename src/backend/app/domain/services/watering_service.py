@@ -73,17 +73,25 @@ class WateringService:
         return event
 
     def list_events(
-        self, offset: int = 0, limit: int = 50,
+        self,
+        offset: int = 0,
+        limit: int = 50,
     ) -> tuple[list[WateringEvent], int]:
         return self._repo.get_all(offset, limit)
 
     def get_by_plant(
-        self, plant_key: PlantInstanceKey, offset: int = 0, limit: int = 50,
+        self,
+        plant_key: PlantInstanceKey,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[WateringEvent]:
         return self._repo.get_by_plant(plant_key, offset, limit)
 
     def get_by_location(
-        self, location_key: LocationKey, offset: int = 0, limit: int = 50,
+        self,
+        location_key: LocationKey,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[WateringEvent]:
         return self._repo.get_by_location(location_key, offset, limit)
 
@@ -142,11 +150,7 @@ class WateringService:
             for plant in plants:
                 plant_key = plant.get("_key", "")
                 if plant_key:
-                    method = (
-                        watering_schedule.application_method
-                        if watering_schedule
-                        else ApplicationMethod.DRENCH
-                    )
+                    method = watering_schedule.application_method if watering_schedule else ApplicationMethod.DRENCH
                     event_key = created_event.key if hasattr(created_event, "key") else None
                     feeding = FeedingEvent(
                         plant_key=plant_key,
@@ -163,10 +167,13 @@ class WateringService:
         task_completed = False
         task_doc = self._task_repo.get_by_key(task_key)
         if task_doc:
-            self._task_repo.update_fields(task_key, {
-                "status": TaskStatus.COMPLETED.value,
-                "completed_at": now.isoformat(),
-            })
+            self._task_repo.update_fields(
+                task_key,
+                {
+                    "status": TaskStatus.COMPLETED.value,
+                    "completed_at": now.isoformat(),
+                },
+            )
             task_completed = True
 
         # Create care confirmation for each plant
@@ -228,9 +235,9 @@ class WateringService:
                 if guide:
                     species_vol_min = guide.volume_ml_min
                     species_vol_max = guide.volume_ml_max
-                    species_seasonal = [
-                        adj.model_dump() for adj in guide.seasonal_adjustments
-                    ] if guide.seasonal_adjustments else None
+                    species_seasonal = (
+                        [adj.model_dump() for adj in guide.seasonal_adjustments] if guide.seasonal_adjustments else None
+                    )
 
         # Gather substrate properties
         water_retention = None

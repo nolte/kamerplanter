@@ -31,11 +31,13 @@ class SafetyIntervalValidator:
             safe_date = applied_at + timedelta(days=safety_days)
             if safe_date > planned_harvest_date:
                 days_remaining = (safe_date - planned_harvest_date).days
-                blocking.append({
-                    "active_ingredient": period["active_ingredient"],
-                    "safe_date": safe_date.isoformat(),
-                    "days_remaining": days_remaining,
-                })
+                blocking.append(
+                    {
+                        "active_ingredient": period["active_ingredient"],
+                        "safe_date": safe_date.isoformat(),
+                        "days_remaining": days_remaining,
+                    }
+                )
         return len(blocking) == 0, blocking
 
     def earliest_safe_harvest_date(

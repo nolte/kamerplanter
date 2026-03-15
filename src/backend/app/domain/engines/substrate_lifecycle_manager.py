@@ -10,10 +10,12 @@ if TYPE_CHECKING:
     from app.domain.models.substrate import Substrate, SubstrateBatch
 
 # Substrate types that cannot be reused (disposable)
-DISPOSABLE_TYPES: frozenset[SubstrateType] = frozenset({
-    SubstrateType.ROCKWOOL_PLUG,
-    SubstrateType.PEAT,
-})
+DISPOSABLE_TYPES: frozenset[SubstrateType] = frozenset(
+    {
+        SubstrateType.ROCKWOOL_PLUG,
+        SubstrateType.PEAT,
+    }
+)
 
 # pH standard deviation thresholds per substrate type
 PH_STDDEV_THRESHOLDS: dict[SubstrateType, float] = {
@@ -110,7 +112,8 @@ class SubstrateLifecycleManager:
         self._substrate_repo = substrate_repo
 
     def check_reusability(
-        self, batch_key: str,
+        self,
+        batch_key: str,
     ) -> tuple[bool, list[str], list[dict[str, str | float]], float, date | None]:
         """Check if a substrate batch can be reused.
 
@@ -147,17 +150,13 @@ class SubstrateLifecycleManager:
             ph_stddev = statistics.stdev(batch.ph_history)
             threshold = PH_STDDEV_THRESHOLDS.get(substrate.type, 0.5)
             if ph_stddev > threshold:
-                issues.append(
-                    f"pH instability detected (stddev: {ph_stddev:.2f}, threshold: {threshold})"
-                )
+                issues.append(f"pH instability detected (stddev: {ph_stddev:.2f}, threshold: {threshold})")
 
         # EC delta check
         if batch.ec_current_ms is not None:
             ec_delta = abs(batch.ec_current_ms - substrate.ec_base_ms)
             if ec_delta > EC_DELTA_THRESHOLD_MS:
-                issues.append(
-                    f"EC drift too high (delta: {ec_delta:.2f} mS, threshold: {EC_DELTA_THRESHOLD_MS} mS)"
-                )
+                issues.append(f"EC drift too high (delta: {ec_delta:.2f} mS, threshold: {EC_DELTA_THRESHOLD_MS} mS)")
 
         if issues:
             return False, issues, [], 0, None
@@ -169,15 +168,20 @@ class SubstrateLifecycleManager:
         return True, [], prep_steps, prep_time, ready
 
     def prepare_for_reuse(
-        self, substrate: Substrate, batch: SubstrateBatch,
+        self,
+        substrate: Substrate,
+        batch: SubstrateBatch,
     ) -> tuple[list[dict[str, str | float]], float]:
         """Get type-specific preparation steps for substrate reuse.
 
         Returns (preparation_steps, estimated_prep_time_hours).
         """
-        steps = _PREPARATION_STEPS.get(substrate.type, [
-            {"step": "Sanitize before reuse", "hours": 2},
-        ])
+        steps = _PREPARATION_STEPS.get(
+            substrate.type,
+            [
+                {"step": "Sanitize before reuse", "hours": 2},
+            ],
+        )
         total_hours = sum(float(s["hours"]) for s in steps)
         return list(steps), total_hours
 

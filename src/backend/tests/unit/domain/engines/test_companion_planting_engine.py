@@ -33,8 +33,12 @@ class TestCompanionPlantingRecommendations:
         self.graph_repo.get_compatible_species.return_value = []
         self.species_repo.get_by_key.return_value = _make_species("sp1", "fam_a")
         self.graph_repo.get_family_compatible.return_value = [
-            {"family": {"_key": "fam_b"}, "compatibility_score": 0.85,
-             "benefit_type": "nitrogen_fixation", "notes": ""},
+            {
+                "family": {"_key": "fam_b"},
+                "compatibility_score": 0.85,
+                "benefit_type": "nitrogen_fixation",
+                "notes": "",
+            },
         ]
         self.graph_repo.get_species_by_family.return_value = [
             {"_key": "sp3", "scientific_name": "Bean"},

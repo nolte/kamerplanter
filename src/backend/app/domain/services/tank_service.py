@@ -18,7 +18,10 @@ class TankService:
     # ── Tank CRUD ──────────────────────────────────────────────────────
 
     def list_tanks(
-        self, offset: int = 0, limit: int = 50, filters: dict | None = None,
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict | None = None,
     ) -> tuple[list[Tank], int]:
         return self._repo.get_all(offset, limit, filters)
 
@@ -58,10 +61,20 @@ class TankService:
     def update_tank(self, key: TankKey, data: dict) -> Tank:
         tank = self.get_tank(key)
         allowed_fields = {
-            "name", "tank_type", "volume_liters", "material",
-            "has_lid", "has_air_pump", "has_circulation_pump",
-            "has_heater", "is_light_proof", "has_uv_sterilizer",
-            "has_ozone_generator", "installed_on", "notes", "location_key",
+            "name",
+            "tank_type",
+            "volume_liters",
+            "material",
+            "has_lid",
+            "has_air_pump",
+            "has_circulation_pump",
+            "has_heater",
+            "is_light_proof",
+            "has_uv_sterilizer",
+            "has_ozone_generator",
+            "installed_on",
+            "notes",
+            "location_key",
         }
         old_location = tank.location_key
         for field, value in data.items():
@@ -85,7 +98,9 @@ class TankService:
 
         # Validate and auto-calculate fill level
         fill_liters, fill_percent = self._engine.validate_fill_level(
-            tank.volume_liters, state.fill_level_liters, state.fill_level_percent,
+            tank.volume_liters,
+            state.fill_level_liters,
+            state.fill_level_percent,
         )
         state.fill_level_liters = fill_liters
         state.fill_level_percent = fill_percent
@@ -93,7 +108,10 @@ class TankService:
         return self._repo.create_state(state)
 
     def get_states(
-        self, tank_key: TankKey, offset: int = 0, limit: int = 50,
+        self,
+        tank_key: TankKey,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[TankState]:
         self.get_tank(tank_key)
         return self._repo.get_states(tank_key, offset, limit)
@@ -120,7 +138,10 @@ class TankService:
         return self._repo.create_maintenance_log(log)
 
     def get_maintenance_history(
-        self, tank_key: TankKey, offset: int = 0, limit: int = 50,
+        self,
+        tank_key: TankKey,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[MaintenanceLog]:
         self.get_tank(tank_key)
         return self._repo.get_maintenance_logs(tank_key, offset, limit)
@@ -135,7 +156,8 @@ class TankService:
             if not schedule.is_active:
                 continue
             last_log = self._repo.get_last_maintenance_by_type(
-                tank_key, schedule.maintenance_type.value,
+                tank_key,
+                schedule.maintenance_type.value,
             )
             info = self._engine.calculate_next_maintenance(schedule, last_log)
             info["tank_key"] = tank_key
@@ -170,8 +192,12 @@ class TankService:
         if existing is None:
             raise NotFoundError("MaintenanceSchedule", key)
         allowed_fields = {
-            "interval_days", "reminder_days_before", "is_active",
-            "priority", "auto_create_task", "instructions",
+            "interval_days",
+            "reminder_days_before",
+            "is_active",
+            "priority",
+            "auto_create_task",
+            "instructions",
         }
         for field, value in data.items():
             if field in allowed_fields:
@@ -208,7 +234,9 @@ class TankService:
         # Resolve water defaults via cascade
         event_data = event.model_dump(exclude_none=True)
         resolved = self._engine.resolve_water_defaults(
-            event_data, nutrient_plan, site_water_config,
+            event_data,
+            nutrient_plan,
+            site_water_config,
         )
         event.water_defaults_source = resolved.get("water_defaults_source")
         for field in ("water_source", "water_mix_ratio_ro_percent", "base_water_ec_ms"):
@@ -233,7 +261,9 @@ class TankService:
             )
             # Validate fill level
             fill_liters, fill_percent = self._engine.validate_fill_level(
-                tank.volume_liters, state.fill_level_liters, state.fill_level_percent,
+                tank.volume_liters,
+                state.fill_level_liters,
+                state.fill_level_percent,
             )
             state.fill_level_liters = fill_liters
             state.fill_level_percent = fill_percent
@@ -247,7 +277,10 @@ class TankService:
         }
 
     def get_fill_history(
-        self, tank_key: TankKey, offset: int = 0, limit: int = 50,
+        self,
+        tank_key: TankKey,
+        offset: int = 0,
+        limit: int = 50,
     ) -> list[TankFillEvent]:
         self.get_tank(tank_key)
         return self._repo.get_fill_events(tank_key, offset, limit)
@@ -257,7 +290,10 @@ class TankService:
         return self._repo.get_latest_fill_event(tank_key)
 
     def get_fill_stats(
-        self, tank_key: TankKey, start_date: str | None = None, end_date: str | None = None,
+        self,
+        tank_key: TankKey,
+        start_date: str | None = None,
+        end_date: str | None = None,
     ) -> dict:
         self.get_tank(tank_key)
         return self._repo.get_fill_event_stats(tank_key, start_date, end_date)

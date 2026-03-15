@@ -1,4 +1,3 @@
-
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -7,6 +6,7 @@ if TYPE_CHECKING:
     from datetime import date, datetime
 
 # ── Fertilizer schemas ──────────────────────────────────────────────
+
 
 class FertilizerCreate(BaseModel):
     product_name: str = Field(min_length=1, max_length=200)
@@ -73,6 +73,7 @@ class FertilizerResponse(BaseModel):
 
 # ── Stock schemas ───────────────────────────────────────────────────
 
+
 class StockCreate(BaseModel):
     current_volume_ml: float = Field(ge=0)
     purchase_date: date | None = None
@@ -102,6 +103,7 @@ class StockResponse(BaseModel):
 
 # ── Incompatibility schemas ─────────────────────────────────────────
 
+
 class IncompatibilityCreate(BaseModel):
     other_key: str
     reason: str = ""
@@ -116,6 +118,7 @@ class IncompatibilityResponse(BaseModel):
 
 
 # ── Nutrient plan usage ────────────────────────────────────────────
+
 
 class FertilizerChannelUsage(BaseModel):
     channel_id: str

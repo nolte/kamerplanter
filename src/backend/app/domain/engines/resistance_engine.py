@@ -90,14 +90,13 @@ class ResistanceManager:
             hierarchy = IPM_HIERARCHY.get(t.get("treatment_type", "chemical"), 3)
             if usage >= MAX_CONSECUTIVE:
                 continue
-            scored.append({
-                **t,
-                "_hierarchy_score": hierarchy,
-                "_usage_count": usage,
-            })
+            scored.append(
+                {
+                    **t,
+                    "_hierarchy_score": hierarchy,
+                    "_usage_count": usage,
+                }
+            )
 
         scored.sort(key=lambda x: (x["_hierarchy_score"], x["_usage_count"]))
-        return [
-            {k: v for k, v in item.items() if not k.startswith("_")}
-            for item in scored
-        ]
+        return [{k: v for k, v in item.items() if not k.startswith("_")} for item in scored]

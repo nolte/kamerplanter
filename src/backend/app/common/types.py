@@ -1,4 +1,3 @@
-
 type PlantID = str
 type PlantInstanceKey = str
 type SpeciesKey = str

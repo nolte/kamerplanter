@@ -33,18 +33,18 @@ def check_auto_transitions() -> dict:
                     and rule.auto_transition_after_days
                     and days_in_phase >= rule.auto_transition_after_days
                 ):
-                        phase_service.transition_phase(
-                            plant.key or "",
-                            rule.to_phase_key,
-                            reason="auto_time_based",
-                        )
-                        transitioned += 1
-                        logger.info(
-                            "auto_transition",
-                            plant_key=plant.key,
-                            to_phase=rule.to_phase_key,
-                        )
-                        break
+                    phase_service.transition_phase(
+                        plant.key or "",
+                        rule.to_phase_key,
+                        reason="auto_time_based",
+                    )
+                    transitioned += 1
+                    logger.info(
+                        "auto_transition",
+                        plant_key=plant.key,
+                        to_phase=rule.to_phase_key,
+                    )
+                    break
         except Exception as e:
             errors += 1
             logger.error("auto_transition_error", plant_key=plant.key, error=str(e))

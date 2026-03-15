@@ -202,9 +202,7 @@ class TenantService:
             raise NotFoundError("memberships", membership_key)
         return result
 
-    def remove_member(
-        self, tenant_key: str, membership_key: str, actor_role: TenantRole
-    ) -> bool:
+    def remove_member(self, tenant_key: str, membership_key: str, actor_role: TenantRole) -> bool:
         if not self._membership_engine.can_manage_members(actor_role):
             raise ForbiddenError("Only admins can remove members")
 
@@ -295,9 +293,7 @@ class TenantService:
         if not invitation or invitation.tenant_key != tenant_key:
             raise NotFoundError("invitations", invitation_key)
 
-        result = self._invitation_repo.update(
-            invitation_key, {"status": InvitationStatus.REVOKED}
-        )
+        result = self._invitation_repo.update(invitation_key, {"status": InvitationStatus.REVOKED})
         if not result:
             raise NotFoundError("invitations", invitation_key)
         return result
@@ -310,9 +306,7 @@ class TenantService:
 
         is_expired = self._invitation_engine.is_expired(invitation.expires_at)
         is_pending = invitation.status == InvitationStatus.PENDING
-        existing = self._membership_repo.get_by_user_and_tenant(
-            user_key, invitation.tenant_key
-        )
+        existing = self._membership_repo.get_by_user_and_tenant(user_key, invitation.tenant_key)
 
         can_accept, reason = self._invitation_engine.can_accept(
             is_expired=is_expired,
@@ -368,9 +362,7 @@ class TenantService:
             raise NotFoundError("memberships", membership_key)
 
         # Check for duplicate
-        existing = self._assignment_repo.get_by_membership_and_location(
-            membership_key, location_key
-        )
+        existing = self._assignment_repo.get_by_membership_and_location(membership_key, location_key)
         if existing:
             raise ValidationError("Assignment already exists")
 
@@ -383,9 +375,7 @@ class TenantService:
         )
         return self._assignment_repo.create(assignment)
 
-    def update_assignment(
-        self, tenant_key: str, assignment_key: str, data: dict
-    ) -> LocationAssignment:
+    def update_assignment(self, tenant_key: str, assignment_key: str, data: dict) -> LocationAssignment:
         assignment = self._assignment_repo.get_by_key(assignment_key)
         if not assignment or assignment.tenant_key != tenant_key:
             raise NotFoundError("location_assignments", assignment_key)

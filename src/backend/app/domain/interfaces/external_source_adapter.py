@@ -10,16 +10,13 @@ class ExternalSourceAdapter(ABC):
     rate_limit_per_minute: int = 60
 
     @abstractmethod
-    def search_species(self, query: str) -> list[ExternalSpeciesData]:
-        ...
+    def search_species(self, query: str) -> list[ExternalSpeciesData]: ...
 
     @abstractmethod
-    def get_species_by_id(self, external_id: str) -> ExternalSpeciesData | None:
-        ...
+    def get_species_by_id(self, external_id: str) -> ExternalSpeciesData | None: ...
 
     @abstractmethod
-    def get_species_list(self, page: int = 1, per_page: int = 30) -> tuple[list[ExternalSpeciesData], int]:
-        ...
+    def get_species_list(self, page: int = 1, per_page: int = 30) -> tuple[list[ExternalSpeciesData], int]: ...
 
     def enrich_species(self, scientific_name: str, full_sync: bool = False) -> ExternalSpeciesData | None:
         results = self.search_species(scientific_name)

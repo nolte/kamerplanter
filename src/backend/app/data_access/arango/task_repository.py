@@ -19,7 +19,10 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
     # ── WorkflowTemplate ──
 
     def get_all_workflow_templates(
-        self, offset: int = 0, limit: int = 50, species_key: str | None = None,
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        species_key: str | None = None,
     ) -> tuple[list[WorkflowTemplate], int]:
         filt = f"FILTER doc.species_key == '{species_key}'" if species_key else ""
         query = f"FOR doc IN {col.WORKFLOW_TEMPLATES} {filt} SORT doc.name LIMIT {offset}, {limit} RETURN doc"
@@ -268,12 +271,7 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
         return tc
 
     def get_comments_for_task(self, task_key: str) -> list[TaskComment]:
-        query = (
-            f"FOR doc IN {col.TASK_COMMENTS} "
-            f"FILTER doc.task_key == @task_key "
-            f"SORT doc.created_at ASC "
-            f"RETURN doc"
-        )
+        query = f"FOR doc IN {col.TASK_COMMENTS} FILTER doc.task_key == @task_key SORT doc.created_at ASC RETURN doc"
         cursor = self._db.aql.execute(query, bind_vars={"task_key": task_key})
         return [TaskComment(**self._from_doc(doc)) for doc in cursor]
 
@@ -314,9 +312,7 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
         count_cursor = self._db.aql.execute(count_query, bind_vars={"task_key": task_key})
         count = next(count_cursor, 0)
         delete_query = (
-            f"FOR doc IN {col.TASK_COMMENTS} "
-            f"FILTER doc.task_key == @task_key "
-            f"REMOVE doc IN {col.TASK_COMMENTS}"
+            f"FOR doc IN {col.TASK_COMMENTS} FILTER doc.task_key == @task_key REMOVE doc IN {col.TASK_COMMENTS}"
         )
         self._db.aql.execute(delete_query, bind_vars={"task_key": task_key})
         return count
@@ -340,10 +336,7 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
 
     def get_audit_entries_for_task(self, task_key: str) -> list[TaskAuditEntry]:
         query = (
-            f"FOR doc IN {col.TASK_AUDIT_ENTRIES} "
-            f"FILTER doc.task_key == @task_key "
-            f"SORT doc.changed_at DESC "
-            f"RETURN doc"
+            f"FOR doc IN {col.TASK_AUDIT_ENTRIES} FILTER doc.task_key == @task_key SORT doc.changed_at DESC RETURN doc"
         )
         cursor = self._db.aql.execute(query, bind_vars={"task_key": task_key})
         return [TaskAuditEntry(**self._from_doc(doc)) for doc in cursor]
@@ -372,7 +365,8 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
             f"RETURN t"
         )
         cursor = self._db.aql.execute(
-            query, bind_vars={"plant_key": plant_key, "phase": phase_name},
+            query,
+            bind_vars={"plant_key": plant_key, "phase": phase_name},
         )
         return [Task(**self._from_doc(doc)) for doc in cursor]
 
@@ -457,10 +451,6 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
     def batch_get_tasks(self, task_keys: list[str]) -> list[Task]:
         if not task_keys:
             return []
-        query = (
-            f"FOR t IN {col.TASKS} "
-            f"FILTER t._key IN @keys "
-            f"RETURN t"
-        )
+        query = f"FOR t IN {col.TASKS} FILTER t._key IN @keys RETURN t"
         cursor = self._db.aql.execute(query, bind_vars={"keys": task_keys})
         return [Task(**self._from_doc(doc)) for doc in cursor]

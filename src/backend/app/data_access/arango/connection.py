@@ -18,9 +18,7 @@ class ArangoConnection:
         if self._db is not None:
             return self._db
 
-        self._client = ArangoClient(
-            hosts=f"http://{self._settings.arangodb_host}:{self._settings.arangodb_port}"
-        )
+        self._client = ArangoClient(hosts=f"http://{self._settings.arangodb_host}:{self._settings.arangodb_port}")
 
         sys_db = self._client.db(
             "_system",

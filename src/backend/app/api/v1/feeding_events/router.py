@@ -22,6 +22,7 @@ def _event_response(e: FeedingEvent) -> FeedingEventResponse:
 
 # ── CRUD ─────────────────────────────────────────────────────────────
 
+
 @router.get("", response_model=list[FeedingEventResponse])
 def list_events(
     offset: int = Query(0, ge=0),
@@ -65,6 +66,7 @@ def delete_event(key: str, service: FeedingService = Depends(get_feeding_service
 
 
 # ── Queries ──────────────────────────────────────────────────────────
+
 
 @router.get("/{key}/runoff")
 def analyze_runoff(key: str, service: FeedingService = Depends(get_feeding_service)):

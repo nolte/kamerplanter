@@ -59,7 +59,9 @@ def generate_watering_tasks() -> dict:
                             # Get last channel date
                             ch_task_prefix = f"watering:{run_key}:{ch.channel_id}:"
                             last_ch_date = _find_last_completed_date(
-                                task_repo, run_key, ch_task_prefix,
+                                task_repo,
+                                run_key,
+                                ch_task_prefix,
                             )
                             if not engine.is_watering_due(ch.schedule, today, last_ch_date):
                                 continue
@@ -76,8 +78,7 @@ def generate_watering_tasks() -> dict:
                                 else str(ch.application_method)
                             )
                             instruction = (
-                                f"Scheduled {method_label} for run {run_name}"
-                                f" — channel '{ch.label or ch.channel_id}'"
+                                f"Scheduled {method_label} for run {run_name} — channel '{ch.label or ch.channel_id}'"
                             )
                             task = Task(
                                 name=task_name,
@@ -98,7 +99,9 @@ def generate_watering_tasks() -> dict:
 
         # Legacy mode: single plan-level schedule
         last_watering_date = _find_last_completed_date(
-            task_repo, run_key, f"watering:{run_key}:",
+            task_repo,
+            run_key,
+            f"watering:{run_key}:",
         )
         if not engine.is_watering_due(schedule, today, last_watering_date):
             continue
@@ -149,7 +152,7 @@ def _find_last_completed_date(task_repo, run_key: str, task_prefix: str):
             try:
                 completed = datetime.fromisoformat(t["completed_at"])
                 return completed.date()
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 pass
             break
     return None

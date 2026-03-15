@@ -148,8 +148,10 @@ class TestPHDriftAlerts:
     def test_drift_above_threshold(self, engine):
         tank = _make_tank()
         fill = TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, measured_ph=6.0,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            measured_ph=6.0,
         )
         state = _make_state(ph=6.6)  # drift 0.6 > 0.5 default
         alerts = engine.check_alerts(tank, state, last_fill_event=fill)
@@ -158,8 +160,10 @@ class TestPHDriftAlerts:
     def test_no_drift_within_threshold(self, engine):
         tank = _make_tank()
         fill = TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, measured_ph=6.0,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            measured_ph=6.0,
         )
         state = _make_state(ph=6.4)  # drift 0.4 < 0.5
         alerts = engine.check_alerts(tank, state, last_fill_event=fill)
@@ -168,8 +172,10 @@ class TestPHDriftAlerts:
     def test_recirc_stricter_threshold(self, engine):
         tank = _make_tank(tank_type=TankType.RECIRCULATION, is_light_proof=True)
         fill = TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, measured_ph=6.0,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            measured_ph=6.0,
         )
         state = _make_state(ph=6.35)  # drift 0.35 > 0.3 recirc threshold
         alerts = engine.check_alerts(tank, state, last_fill_event=fill)
@@ -178,8 +184,10 @@ class TestPHDriftAlerts:
     def test_drift_high_severity_large_drift(self, engine):
         tank = _make_tank()
         fill = TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, measured_ph=6.0,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            measured_ph=6.0,
         )
         state = _make_state(ph=7.2)  # drift 1.2 > 0.5*2 → high
         alerts = engine.check_alerts(tank, state, last_fill_event=fill)
@@ -298,7 +306,9 @@ class TestDOAlerts:
 class TestORPAlerts:
     def test_orp_pathogen_risk(self, engine):
         tank = _make_tank(
-            tank_type=TankType.RECIRCULATION, has_uv_sterilizer=True, is_light_proof=True,
+            tank_type=TankType.RECIRCULATION,
+            has_uv_sterilizer=True,
+            is_light_proof=True,
         )
         state = _make_state(orp_mv=200)
         alerts = engine.check_alerts(tank, state)
@@ -306,7 +316,9 @@ class TestORPAlerts:
 
     def test_orp_sterilization_low(self, engine):
         tank = _make_tank(
-            tank_type=TankType.RECIRCULATION, has_ozone_generator=True, is_light_proof=True,
+            tank_type=TankType.RECIRCULATION,
+            has_ozone_generator=True,
+            is_light_proof=True,
         )
         state = _make_state(orp_mv=500)
         alerts = engine.check_alerts(tank, state)
@@ -314,7 +326,9 @@ class TestORPAlerts:
 
     def test_orp_ok_above_650(self, engine):
         tank = _make_tank(
-            tank_type=TankType.RECIRCULATION, has_uv_sterilizer=True, is_light_proof=True,
+            tank_type=TankType.RECIRCULATION,
+            has_uv_sterilizer=True,
+            is_light_proof=True,
         )
         state = _make_state(orp_mv=700)
         alerts = engine.check_alerts(tank, state)
@@ -328,7 +342,9 @@ class TestORPAlerts:
 
     def test_orp_ignored_for_nutrient_tank(self, engine):
         tank = _make_tank(
-            tank_type=TankType.NUTRIENT, has_uv_sterilizer=True, is_light_proof=True,
+            tank_type=TankType.NUTRIENT,
+            has_uv_sterilizer=True,
+            is_light_proof=True,
         )
         state = _make_state(orp_mv=100)
         alerts = engine.check_alerts(tank, state)
@@ -369,8 +385,10 @@ class TestSolutionAge:
         now = datetime.now(UTC)
         tank = _make_tank(tank_type=TankType.NUTRIENT, is_light_proof=True)
         fill = TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, is_organic_fertilizers=False,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            is_organic_fertilizers=False,
             filled_at=now - timedelta(days=12),
         )
         state = _make_state(water_temp_celsius=20.0)
@@ -381,8 +399,10 @@ class TestSolutionAge:
         now = datetime.now(UTC)
         tank = _make_tank(tank_type=TankType.NUTRIENT, is_light_proof=True)
         fill = TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, is_organic_fertilizers=False,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            is_organic_fertilizers=False,
             filled_at=now - timedelta(days=5),
         )
         state = _make_state(water_temp_celsius=20.0)
@@ -393,8 +413,10 @@ class TestSolutionAge:
         now = datetime.now(UTC)
         tank = _make_tank(tank_type=TankType.NUTRIENT, is_light_proof=True)
         fill = TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, is_organic_fertilizers=True,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            is_organic_fertilizers=True,
             filled_at=now - timedelta(days=6),
         )
         state = _make_state(water_temp_celsius=20.0)
@@ -406,8 +428,10 @@ class TestSolutionAge:
         tank = _make_tank(tank_type=TankType.NUTRIENT, is_light_proof=True)
         # Mineral at 30°C: base 10d / Q10^1.0 = 10/2 = 5d effective max
         fill = TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, is_organic_fertilizers=False,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            is_organic_fertilizers=False,
             filled_at=now - timedelta(days=6),
         )
         state = _make_state(water_temp_celsius=30.0)
@@ -418,8 +442,10 @@ class TestSolutionAge:
         now = datetime.now(UTC)
         tank = _make_tank(tank_type=TankType.IRRIGATION, is_light_proof=True)
         fill = TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, is_organic_fertilizers=True,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            is_organic_fertilizers=True,
             filled_at=now - timedelta(days=30),
         )
         state = _make_state(water_temp_celsius=20.0)
@@ -431,8 +457,10 @@ class TestWaterChemistryAlerts:
     def test_chlorine_warning_with_organic(self, engine):
         tank = _make_tank(is_light_proof=True)
         fill = TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, is_organic_fertilizers=True,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            is_organic_fertilizers=True,
             chlorine_ppm=1.0,
         )
         state = _make_state()
@@ -442,8 +470,10 @@ class TestWaterChemistryAlerts:
     def test_no_chlorine_warning_without_organic(self, engine):
         tank = _make_tank(is_light_proof=True)
         fill = TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, is_organic_fertilizers=False,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            is_organic_fertilizers=False,
             chlorine_ppm=1.0,
         )
         state = _make_state()
@@ -453,8 +483,10 @@ class TestWaterChemistryAlerts:
     def test_chloramine_warning_always(self, engine):
         tank = _make_tank(is_light_proof=True)
         fill = TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, chloramine_ppm=0.8,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            chloramine_ppm=0.8,
         )
         state = _make_state()
         alerts = engine.check_alerts(tank, state, last_fill_event=fill)
@@ -466,8 +498,10 @@ class TestBiofilmRisk:
         now = datetime.now(UTC)
         tank = _make_tank(tank_type=TankType.RECIRCULATION, is_light_proof=True)
         fill = TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, is_organic_fertilizers=True,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            is_organic_fertilizers=True,
             filled_at=now - timedelta(days=5),
         )
         state = _make_state(water_temp_celsius=24.0)
@@ -477,11 +511,15 @@ class TestBiofilmRisk:
     def test_no_biofilm_with_uv(self, engine):
         now = datetime.now(UTC)
         tank = _make_tank(
-            tank_type=TankType.RECIRCULATION, has_uv_sterilizer=True, is_light_proof=True,
+            tank_type=TankType.RECIRCULATION,
+            has_uv_sterilizer=True,
+            is_light_proof=True,
         )
         fill = TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, is_organic_fertilizers=True,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            is_organic_fertilizers=True,
             filled_at=now - timedelta(days=5),
         )
         state = _make_state(water_temp_celsius=24.0)
@@ -492,8 +530,10 @@ class TestBiofilmRisk:
         now = datetime.now(UTC)
         tank = _make_tank(tank_type=TankType.RECIRCULATION, is_light_proof=True)
         fill = TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, is_organic_fertilizers=False,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            is_organic_fertilizers=False,
             filled_at=now - timedelta(days=5),
         )
         state = _make_state(water_temp_celsius=24.0)
@@ -504,8 +544,10 @@ class TestBiofilmRisk:
         now = datetime.now(UTC)
         tank = _make_tank(tank_type=TankType.RECIRCULATION, is_light_proof=True)
         fill = TankFillEvent(
-            tank_key="t1", fill_type=FillType.FULL_CHANGE,
-            volume_liters=50.0, is_organic_fertilizers=True,
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            is_organic_fertilizers=True,
             filled_at=now - timedelta(days=5),
         )
         state = _make_state(water_temp_celsius=20.0)
@@ -516,8 +558,10 @@ class TestBiofilmRisk:
 class TestCalculateNextMaintenance:
     def test_never_performed_due_soon(self, engine):
         schedule = MaintenanceSchedule(
-            tank_key="t1", maintenance_type=MaintenanceType.WATER_CHANGE,
-            interval_days=7, reminder_days_before=2,
+            tank_key="t1",
+            maintenance_type=MaintenanceType.WATER_CHANGE,
+            interval_days=7,
+            reminder_days_before=2,
         )
         now = datetime.now(UTC)
         result = engine.calculate_next_maintenance(schedule, None, now)
@@ -527,12 +571,15 @@ class TestCalculateNextMaintenance:
 
     def test_recently_performed_ok(self, engine):
         schedule = MaintenanceSchedule(
-            tank_key="t1", maintenance_type=MaintenanceType.WATER_CHANGE,
-            interval_days=7, reminder_days_before=2,
+            tank_key="t1",
+            maintenance_type=MaintenanceType.WATER_CHANGE,
+            interval_days=7,
+            reminder_days_before=2,
         )
         now = datetime.now(UTC)
         last_log = MaintenanceLog(
-            tank_key="t1", maintenance_type=MaintenanceType.WATER_CHANGE,
+            tank_key="t1",
+            maintenance_type=MaintenanceType.WATER_CHANGE,
             performed_at=now - timedelta(days=1),
         )
         result = engine.calculate_next_maintenance(schedule, last_log, now)
@@ -541,12 +588,15 @@ class TestCalculateNextMaintenance:
 
     def test_due_soon(self, engine):
         schedule = MaintenanceSchedule(
-            tank_key="t1", maintenance_type=MaintenanceType.CLEANING,
-            interval_days=7, reminder_days_before=3,
+            tank_key="t1",
+            maintenance_type=MaintenanceType.CLEANING,
+            interval_days=7,
+            reminder_days_before=3,
         )
         now = datetime.now(UTC)
         last_log = MaintenanceLog(
-            tank_key="t1", maintenance_type=MaintenanceType.CLEANING,
+            tank_key="t1",
+            maintenance_type=MaintenanceType.CLEANING,
             performed_at=now - timedelta(days=5),
         )
         result = engine.calculate_next_maintenance(schedule, last_log, now)
@@ -554,12 +604,15 @@ class TestCalculateNextMaintenance:
 
     def test_overdue(self, engine):
         schedule = MaintenanceSchedule(
-            tank_key="t1", maintenance_type=MaintenanceType.SANITIZATION,
-            interval_days=30, reminder_days_before=5,
+            tank_key="t1",
+            maintenance_type=MaintenanceType.SANITIZATION,
+            interval_days=30,
+            reminder_days_before=5,
         )
         now = datetime.now(UTC)
         last_log = MaintenanceLog(
-            tank_key="t1", maintenance_type=MaintenanceType.SANITIZATION,
+            tank_key="t1",
+            maintenance_type=MaintenanceType.SANITIZATION,
             performed_at=now - timedelta(days=35),
         )
         result = engine.calculate_next_maintenance(schedule, last_log, now)

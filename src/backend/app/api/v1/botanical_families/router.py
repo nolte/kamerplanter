@@ -27,22 +27,27 @@ def list_families(
     families, total = repo.get_all_families(offset, limit)
     return [_family_response(f, repo) for f in families]
 
+
 @router.get("/{key}", response_model=FamilyResponse)
 def get_family(key: str, repo: ArangoBotanicalFamilyRepository = Depends(get_family_repo)):
     f = repo.get_by_key(key)
     if f is None:
         from app.common.exceptions import NotFoundError
+
         raise NotFoundError("BotanicalFamily", key)
     return _family_response(f, repo)
+
 
 @router.get("/{key}/species", response_model=list[SpeciesResponse])
 def get_family_species(key: str, repo: ArangoBotanicalFamilyRepository = Depends(get_family_repo)):
     f = repo.get_by_key(key)
     if f is None:
         from app.common.exceptions import NotFoundError
+
         raise NotFoundError("BotanicalFamily", key)
     species_list = repo.get_species_by_family(key)
     return [SpeciesResponse(key=s.key or "", **s.model_dump(exclude={"key"})) for s in species_list]
+
 
 @router.post("", response_model=FamilyResponse, status_code=201)
 def create_family(body: FamilyCreate, repo: ArangoBotanicalFamilyRepository = Depends(get_family_repo)):
@@ -50,11 +55,13 @@ def create_family(body: FamilyCreate, repo: ArangoBotanicalFamilyRepository = De
     created = repo.create_family(family)
     return _family_response(created, repo)
 
+
 @router.put("/{key}", response_model=FamilyResponse)
 def update_family(key: str, body: FamilyCreate, repo: ArangoBotanicalFamilyRepository = Depends(get_family_repo)):
     family = BotanicalFamily(**body.model_dump())
     updated = repo.update_family(key, family)
     return _family_response(updated, repo)
+
 
 @router.delete("/{key}", status_code=204)
 def delete_family(key: str, repo: ArangoBotanicalFamilyRepository = Depends(get_family_repo)):

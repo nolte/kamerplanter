@@ -31,6 +31,7 @@ class SeasonOverview(BaseModel):
 
 class TaskEvent(BaseModel):
     """Minimal task info for aggregation."""
+
     month: int  # 1-12
     title: str = ""
     priority: int = 0  # higher = more important
@@ -67,8 +68,10 @@ class SeasonOverviewEngine:
                     bar_end_month = bar.end_date.month
                     if bar_start_month <= m <= bar_end_month:
                         if bar.phase in (
-                            "indoor_sowing", "outdoor_planting",
-                            "germination", "seedling",
+                            "indoor_sowing",
+                            "outdoor_planting",
+                            "germination",
+                            "seedling",
                         ):
                             sowing_count += 1
                         elif bar.phase in ("harvest", "ripening"):
@@ -80,15 +83,17 @@ class SeasonOverviewEngine:
             top_sorted = sorted(month_tasks, key=lambda t: t.priority, reverse=True)
             top_tasks = [t.title for t in top_sorted[:3]]
 
-            months.append(MonthSummary(
-                month=m,
-                sowing_count=sowing_count,
-                harvest_count=harvest_count,
-                bloom_count=bloom_count,
-                task_count=len(month_tasks),
-                top_tasks=top_tasks,
-                is_current=(m == current_month),
-            ))
+            months.append(
+                MonthSummary(
+                    month=m,
+                    sowing_count=sowing_count,
+                    harvest_count=harvest_count,
+                    bloom_count=bloom_count,
+                    task_count=len(month_tasks),
+                    top_tasks=top_tasks,
+                    is_current=(m == current_month),
+                )
+            )
 
         return SeasonOverview(
             site_key=site_key,

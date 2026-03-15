@@ -20,9 +20,7 @@ class OnboardingEngine:
         if plant_count < 1:
             errors.append("At least one plant must be created")
         if plant_count > kit.plant_count_suggestion * 3:
-            errors.append(
-                f"Plant count ({plant_count}) exceeds 3x the suggestion ({kit.plant_count_suggestion})"
-            )
+            errors.append(f"Plant count ({plant_count}) exceeds 3x the suggestion ({kit.plant_count_suggestion})")
         if not kit.species_keys:
             errors.append("Kit has no species configured")
         return errors
