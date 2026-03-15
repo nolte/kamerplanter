@@ -119,6 +119,7 @@ class BatchCreatePlantsResponse(BaseModel):
     created_count: int
     plant_keys: list[str]
     instance_ids: list[str]
+    slots_assigned: int = 0
 
 
 class BatchTransitionRequest(BaseModel):
@@ -140,12 +141,27 @@ class BatchTransitionResponse(BaseModel):
 
 class BatchRemoveRequest(BaseModel):
     reason: str = "batch_remove"
+    target_status: str | None = None  # "completed" or "cancelled"; None = auto
 
 
 class BatchRemoveResponse(BaseModel):
     run_key: str
     removed_count: int
     removed_keys: list[str]
+    final_status: str
+
+
+class BatchUpdatePhaseDatesRequest(BaseModel):
+    phase_key: str
+    entered_at: datetime | None = None
+    exited_at: datetime | None = None
+
+
+class BatchUpdatePhaseDatesResponse(BaseModel):
+    run_key: str
+    phase_key: str
+    updated_count: int
+    skipped_count: int
 
 
 class DetachPlantRequest(BaseModel):

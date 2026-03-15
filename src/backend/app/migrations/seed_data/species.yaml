@@ -1,0 +1,1421 @@
+species:
+  # -- Solanaceae (6) --
+  - scientific_name: Solanum lycopersicum
+    common_names: [Tomato, Tomate]
+    family: Solanaceae
+    genus: Solanum
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 10.0
+    hardiness_zones: ["9a", "10a", "11a"]
+    native_habitat: South America
+    allelopathy_score: 0.1
+    sowing_indoor_weeks_before_last_frost: 8
+    sowing_outdoor_after_last_frost_days: 0
+    harvest_months: [7, 8, 9, 10]
+    frost_sensitivity: sensitive
+    container_suitable: limited
+    recommended_container_volume_l: "10--20"
+    min_container_depth_cm: 30
+    mature_height_cm: "50--200"
+    mature_width_cm: "40--60"
+    spacing_cm: "50--80"
+    indoor_suitable: limited
+    balcony_suitable: limited
+    greenhouse_recommended: true
+    support_required: true
+
+  - scientific_name: Capsicum annuum
+    common_names: [Pepper, Paprika, Chili]
+    family: Solanaceae
+    genus: Capsicum
+    growth_habit: herb
+    root_type: taproot
+    base_temp: 12.0
+    hardiness_zones: ["9a", "10a", "11a"]
+    native_habitat: Central America
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 10
+    sowing_outdoor_after_last_frost_days: 0
+    harvest_months: [7, 8, 9, 10]
+    frost_sensitivity: sensitive
+    container_suitable: "yes"
+    recommended_container_volume_l: "5--15"
+    min_container_depth_cm: 25
+    mature_height_cm: "30--80"
+    mature_width_cm: "30--50"
+    spacing_cm: "40--50"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: true
+
+  - scientific_name: Solanum melongena
+    common_names: [Eggplant, Aubergine]
+    family: Solanaceae
+    genus: Solanum
+    growth_habit: herb
+    root_type: taproot
+    base_temp: 12.0
+    hardiness_zones: ["9a", "10a"]
+    native_habitat: South Asia
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 10
+    sowing_outdoor_after_last_frost_days: 0
+    harvest_months: [7, 8, 9]
+    frost_sensitivity: sensitive
+    container_suitable: limited
+    recommended_container_volume_l: "15--25"
+    min_container_depth_cm: 30
+    mature_height_cm: "50--100"
+    mature_width_cm: "40--60"
+    spacing_cm: "50--60"
+    indoor_suitable: limited
+    balcony_suitable: limited
+    greenhouse_recommended: true
+
+  - scientific_name: Solanum tuberosum
+    common_names: [Potato, Kartoffel]
+    family: Solanaceae
+    genus: Solanum
+    growth_habit: herb
+    root_type: tuberous
+    base_temp: 7.0
+    hardiness_zones: ["3a", "10a"]
+    native_habitat: South America
+    allelopathy_score: 0.1
+    direct_sow_months: [4, 5]
+    harvest_months: [6, 7, 8, 9, 10]
+    frost_sensitivity: moderate
+    container_suitable: limited
+    recommended_container_volume_l: "30--50"
+    min_container_depth_cm: 40
+    mature_height_cm: "40--80"
+    mature_width_cm: "30--50"
+    spacing_cm: "30--40"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+
+  - scientific_name: Physalis peruviana
+    common_names: [Cape Gooseberry, Physalis, Andenbeere]
+    family: Solanaceae
+    genus: Physalis
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 10.0
+    hardiness_zones: ["8a", "11a"]
+    native_habitat: South America
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 10
+    sowing_outdoor_after_last_frost_days: 0
+    harvest_months: [8, 9, 10]
+    frost_sensitivity: sensitive
+    container_suitable: "yes"
+    recommended_container_volume_l: "10--20"
+    min_container_depth_cm: 25
+    mature_height_cm: "60--120"
+    mature_width_cm: "40--60"
+    spacing_cm: "50--60"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: true
+    support_required: true
+
+  - scientific_name: Nicotiana tabacum
+    common_names: [Tobacco, Tabak]
+    family: Solanaceae
+    genus: Nicotiana
+    growth_habit: herb
+    root_type: taproot
+    base_temp: 13.0
+    hardiness_zones: ["8a", "11a"]
+    native_habitat: Americas
+    allelopathy_score: 0.3
+    sowing_indoor_weeks_before_last_frost: 8
+    sowing_outdoor_after_last_frost_days: 0
+    harvest_months: [8, 9]
+    frost_sensitivity: sensitive
+    container_suitable: limited
+    recommended_container_volume_l: "15--25"
+    min_container_depth_cm: 30
+    mature_height_cm: "100--200"
+    mature_width_cm: "40--60"
+    spacing_cm: "50--80"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+
+  # -- Cannabaceae (2) --
+  - scientific_name: Cannabis sativa
+    common_names: [Hemp, Cannabis, Hanf]
+    family: Cannabaceae
+    genus: Cannabis
+    growth_habit: herb
+    root_type: taproot
+    base_temp: 12.0
+    hardiness_zones: ["6a", "10a"]
+    native_habitat: Central Asia
+    allelopathy_score: 0.2
+    sowing_indoor_weeks_before_last_frost: 4
+    sowing_outdoor_after_last_frost_days: 0
+    harvest_months: [9, 10]
+    frost_sensitivity: sensitive
+    container_suitable: "yes"
+    recommended_container_volume_l: "10--25"
+    min_container_depth_cm: 25
+    mature_height_cm: "60--200"
+    mature_width_cm: "30--100"
+    spacing_cm: "30--60"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: true
+    support_required: false
+
+  - scientific_name: Humulus lupulus
+    common_names: [Hops, Hopfen]
+    family: Cannabaceae
+    genus: Humulus
+    growth_habit: vine
+    root_type: fibrous
+    base_temp: 6.0
+    hardiness_zones: ["3a", "8a"]
+    native_habitat: Europe
+    allelopathy_score: 0.1
+    direct_sow_months: [3, 4]
+    harvest_months: [8, 9]
+    frost_sensitivity: hardy
+    container_suitable: limited
+    recommended_container_volume_l: "30--50"
+    min_container_depth_cm: 40
+    mature_height_cm: "300--700"
+    mature_width_cm: "100--200"
+    spacing_cm: "100--150"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    support_required: true
+
+  # -- Lamiaceae (6) --
+  - scientific_name: Ocimum basilicum
+    common_names: [Basil, Basilikum]
+    family: Lamiaceae
+    genus: Ocimum
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 10.0
+    hardiness_zones: ["10a", "11a"]
+    native_habitat: South Asia
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 6
+    sowing_outdoor_after_last_frost_days: 0
+    harvest_months: [6, 7, 8, 9, 10]
+    frost_sensitivity: sensitive
+    container_suitable: "yes"
+    recommended_container_volume_l: "3--5"
+    min_container_depth_cm: 15
+    mature_height_cm: "30--60"
+    mature_width_cm: "20--35"
+    spacing_cm: "25--30"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: true
+
+  - scientific_name: Mentha piperita
+    common_names: [Peppermint, Pfefferminze]
+    family: Lamiaceae
+    genus: Mentha
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 5.0
+    hardiness_zones: ["3a", "9a"]
+    native_habitat: Europe
+    allelopathy_score: 0.3
+    direct_sow_months: [3, 4, 5]
+    harvest_months: [6, 7, 8, 9]
+    frost_sensitivity: very_hardy
+    container_suitable: "yes"
+    recommended_container_volume_l: "3--5"
+    min_container_depth_cm: 15
+    mature_height_cm: "30--60"
+    mature_width_cm: "30--60"
+    spacing_cm: "30--45"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+
+  - scientific_name: Thymus vulgaris
+    common_names: [Thyme, Thymian]
+    family: Lamiaceae
+    genus: Thymus
+    growth_habit: shrub
+    root_type: fibrous
+    base_temp: 5.0
+    hardiness_zones: ["5a", "9a"]
+    native_habitat: Mediterranean
+    allelopathy_score: 0.1
+    direct_sow_months: [4, 5]
+    harvest_months: [6, 7, 8, 9]
+    frost_sensitivity: hardy
+    container_suitable: "yes"
+    recommended_container_volume_l: "2--5"
+    min_container_depth_cm: 15
+    mature_height_cm: "15--30"
+    mature_width_cm: "20--30"
+    spacing_cm: "20--30"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+
+  - scientific_name: Salvia rosmarinus
+    common_names: [Rosemary, Rosmarin]
+    family: Lamiaceae
+    genus: Salvia
+    growth_habit: shrub
+    root_type: taproot
+    base_temp: 5.0
+    hardiness_zones: ["7a", "10a"]
+    native_habitat: Mediterranean
+    allelopathy_score: 0.2
+    sowing_indoor_weeks_before_last_frost: 8
+    sowing_outdoor_after_last_frost_days: 14
+    harvest_months: [6, 7, 8, 9, 10]
+    frost_sensitivity: moderate
+    container_suitable: "yes"
+    recommended_container_volume_l: "5--10"
+    min_container_depth_cm: 20
+    mature_height_cm: "50--150"
+    mature_width_cm: "40--80"
+    spacing_cm: "60--90"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+
+  - scientific_name: Salvia officinalis
+    common_names: [Sage, Salbei]
+    family: Lamiaceae
+    genus: Salvia
+    growth_habit: shrub
+    root_type: taproot
+    base_temp: 5.0
+    hardiness_zones: ["4a", "9a"]
+    native_habitat: Mediterranean
+    allelopathy_score: 0.1
+    direct_sow_months: [4, 5]
+    harvest_months: [6, 7, 8, 9]
+    frost_sensitivity: hardy
+    container_suitable: "yes"
+    recommended_container_volume_l: "5--10"
+    min_container_depth_cm: 20
+    mature_height_cm: "30--60"
+    mature_width_cm: "30--50"
+    spacing_cm: "40--50"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+
+  - scientific_name: Lavandula angustifolia
+    common_names: [Lavender, Lavendel]
+    family: Lamiaceae
+    genus: Lavandula
+    growth_habit: shrub
+    root_type: taproot
+    base_temp: 5.0
+    hardiness_zones: ["5a", "9a"]
+    native_habitat: Mediterranean
+    allelopathy_score: 0.2
+    sowing_indoor_weeks_before_last_frost: 8
+    sowing_outdoor_after_last_frost_days: 14
+    bloom_months: [6, 7, 8]
+    allows_harvest: false
+    frost_sensitivity: hardy
+    container_suitable: "yes"
+    recommended_container_volume_l: "5--10"
+    min_container_depth_cm: 20
+    mature_height_cm: "30--60"
+    mature_width_cm: "30--50"
+    spacing_cm: "30--45"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+
+  # -- Apiaceae (6) --
+  - scientific_name: Daucus carota
+    common_names: [Carrot, Karotte, "Möhre"]
+    family: Apiaceae
+    genus: Daucus
+    growth_habit: herb
+    root_type: taproot
+    base_temp: 4.0
+    hardiness_zones: ["3a", "10a"]
+    native_habitat: Europe
+    allelopathy_score: 0.0
+    direct_sow_months: [3, 4, 5, 6, 7]
+    harvest_months: [6, 7, 8, 9, 10]
+    frost_sensitivity: moderate
+    container_suitable: "yes"
+    recommended_container_volume_l: "10--20"
+    min_container_depth_cm: 30
+    mature_height_cm: "20--30"
+    mature_width_cm: "10--15"
+    spacing_cm: "5--8"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+
+  - scientific_name: Foeniculum vulgare
+    common_names: [Fennel, Fenchel]
+    family: Apiaceae
+    genus: Foeniculum
+    growth_habit: herb
+    root_type: taproot
+    base_temp: 8.0
+    hardiness_zones: ["6a", "10a"]
+    native_habitat: Mediterranean
+    allelopathy_score: 0.5
+    sowing_indoor_weeks_before_last_frost: 4
+    direct_sow_months: [5, 6]
+    harvest_months: [8, 9, 10]
+    frost_sensitivity: moderate
+    container_suitable: limited
+    recommended_container_volume_l: "10--20"
+    min_container_depth_cm: 30
+    mature_height_cm: "60--150"
+    mature_width_cm: "30--50"
+    spacing_cm: "30--40"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+
+  - scientific_name: Anethum graveolens
+    common_names: [Dill]
+    family: Apiaceae
+    genus: Anethum
+    growth_habit: herb
+    root_type: taproot
+    base_temp: 7.0
+    hardiness_zones: ["3a", "9a"]
+    native_habitat: Mediterranean
+    allelopathy_score: 0.0
+    direct_sow_months: [4, 5, 6, 7]
+    harvest_months: [6, 7, 8, 9]
+    frost_sensitivity: moderate
+    container_suitable: "yes"
+    recommended_container_volume_l: "3--5"
+    min_container_depth_cm: 20
+    mature_height_cm: "40--80"
+    mature_width_cm: "20--30"
+    spacing_cm: "15--25"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+
+  - scientific_name: Coriandrum sativum
+    common_names: [Coriander, Koriander]
+    family: Apiaceae
+    genus: Coriandrum
+    growth_habit: herb
+    root_type: taproot
+    base_temp: 7.0
+    hardiness_zones: ["3a", "10a"]
+    native_habitat: Mediterranean
+    allelopathy_score: 0.0
+    direct_sow_months: [4, 5, 6, 7, 8]
+    harvest_months: [6, 7, 8, 9, 10]
+    frost_sensitivity: moderate
+    container_suitable: "yes"
+    recommended_container_volume_l: "3--5"
+    min_container_depth_cm: 15
+    mature_height_cm: "30--60"
+    mature_width_cm: "15--25"
+    spacing_cm: "10--20"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+
+  - scientific_name: Apium graveolens
+    common_names: [Celery, Sellerie]
+    family: Apiaceae
+    genus: Apium
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 7.0
+    hardiness_zones: ["2a", "10a"]
+    native_habitat: Mediterranean
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 10
+    sowing_outdoor_after_last_frost_days: 0
+    harvest_months: [8, 9, 10, 11]
+    frost_sensitivity: moderate
+    container_suitable: limited
+    recommended_container_volume_l: "10--15"
+    min_container_depth_cm: 25
+    mature_height_cm: "30--60"
+    mature_width_cm: "20--30"
+    spacing_cm: "25--30"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+
+  - scientific_name: Petroselinum crispum
+    common_names: [Parsley, Petersilie]
+    family: Apiaceae
+    genus: Petroselinum
+    growth_habit: herb
+    root_type: taproot
+    base_temp: 5.0
+    hardiness_zones: ["5a", "9a"]
+    native_habitat: Mediterranean
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 9
+    direct_sow_months: [3, 4, 5, 6, 7]
+    harvest_months: [5, 6, 7, 8, 9, 10, 11]
+    frost_sensitivity: moderate
+    container_suitable: "yes"
+    recommended_container_volume_l: "3--5"
+    min_container_depth_cm: 20
+    mature_height_cm: "20--40"
+    mature_width_cm: "15--25"
+    spacing_cm: "15--20"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+
+  # -- Brassicaceae (6) --
+  - scientific_name: Brassica oleracea var. italica
+    common_names: [Broccoli, Brokkoli]
+    family: Brassicaceae
+    genus: Brassica
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 5.0
+    hardiness_zones: ["3a", "10a"]
+    native_habitat: Mediterranean
+    allelopathy_score: 0.1
+    sowing_indoor_weeks_before_last_frost: 6
+    direct_sow_months: [4, 5, 6]
+    harvest_months: [6, 7, 8, 9, 10]
+    frost_sensitivity: moderate
+    container_suitable: limited
+    recommended_container_volume_l: "15--25"
+    min_container_depth_cm: 30
+    mature_height_cm: "40--70"
+    mature_width_cm: "40--60"
+    spacing_cm: "40--50"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+
+  - scientific_name: Brassica oleracea var. botrytis
+    common_names: [Cauliflower, Blumenkohl]
+    family: Brassicaceae
+    genus: Brassica
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 5.0
+    hardiness_zones: ["3a", "10a"]
+    native_habitat: Mediterranean
+    allelopathy_score: 0.1
+    sowing_indoor_weeks_before_last_frost: 6
+    direct_sow_months: [4, 5, 6]
+    harvest_months: [7, 8, 9, 10]
+    frost_sensitivity: moderate
+    container_suitable: limited
+    recommended_container_volume_l: "15--25"
+    min_container_depth_cm: 30
+    mature_height_cm: "40--70"
+    mature_width_cm: "40--60"
+    spacing_cm: "50--60"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+
+  - scientific_name: Brassica oleracea var. gongylodes
+    common_names: [Kohlrabi]
+    family: Brassicaceae
+    genus: Brassica
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 5.0
+    hardiness_zones: ["3a", "10a"]
+    native_habitat: Europe
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 6
+    direct_sow_months: [3, 4, 5, 6, 7]
+    harvest_months: [5, 6, 7, 8, 9, 10]
+    frost_sensitivity: moderate
+    container_suitable: "yes"
+    recommended_container_volume_l: "5--10"
+    min_container_depth_cm: 20
+    mature_height_cm: "20--30"
+    mature_width_cm: "20--30"
+    spacing_cm: "20--25"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+
+  - scientific_name: Raphanus sativus
+    common_names: [Radish, Rettich, Radieschen]
+    family: Brassicaceae
+    genus: Raphanus
+    growth_habit: herb
+    root_type: taproot
+    base_temp: 4.0
+    hardiness_zones: ["2a", "10a"]
+    native_habitat: Asia
+    allelopathy_score: 0.1
+    direct_sow_months: [3, 4, 5, 6, 7, 8, 9]
+    harvest_months: [4, 5, 6, 7, 8, 9, 10]
+    frost_sensitivity: hardy
+    container_suitable: "yes"
+    recommended_container_volume_l: "3--5"
+    min_container_depth_cm: 15
+    mature_height_cm: "10--20"
+    mature_width_cm: "5--10"
+    spacing_cm: "3--5"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+
+  - scientific_name: Eruca vesicaria
+    common_names: [Arugula, Rucola]
+    family: Brassicaceae
+    genus: Eruca
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 5.0
+    hardiness_zones: ["3a", "10a"]
+    native_habitat: Mediterranean
+    allelopathy_score: 0.0
+    direct_sow_months: [3, 4, 5, 6, 7, 8, 9]
+    harvest_months: [4, 5, 6, 7, 8, 9, 10]
+    frost_sensitivity: moderate
+    container_suitable: "yes"
+    recommended_container_volume_l: "3--5"
+    min_container_depth_cm: 15
+    mature_height_cm: "15--30"
+    mature_width_cm: "10--20"
+    spacing_cm: "10--15"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+
+  - scientific_name: Brassica oleracea var. capitata
+    common_names: [Cabbage, "Weißkohl"]
+    family: Brassicaceae
+    genus: Brassica
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 5.0
+    hardiness_zones: ["2a", "10a"]
+    native_habitat: Europe
+    allelopathy_score: 0.1
+    sowing_indoor_weeks_before_last_frost: 6
+    direct_sow_months: [4, 5, 6]
+    harvest_months: [7, 8, 9, 10, 11]
+    frost_sensitivity: hardy
+    container_suitable: limited
+    recommended_container_volume_l: "15--25"
+    min_container_depth_cm: 25
+    mature_height_cm: "30--50"
+    mature_width_cm: "40--60"
+    spacing_cm: "40--50"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+
+  # -- Fabaceae (6) --
+  - scientific_name: Phaseolus vulgaris
+    common_names: [Common Bean, Buschbohne, Gartenbohne]
+    family: Fabaceae
+    genus: Phaseolus
+    growth_habit: herb
+    root_type: taproot
+    base_temp: 10.0
+    hardiness_zones: ["3a", "10a"]
+    native_habitat: Central America
+    allelopathy_score: 0.0
+    direct_sow_months: [5, 6, 7]
+    harvest_months: [7, 8, 9, 10]
+    frost_sensitivity: sensitive
+    container_suitable: "yes"
+    recommended_container_volume_l: "5--10"
+    min_container_depth_cm: 20
+    mature_height_cm: "30--60"
+    mature_width_cm: "20--30"
+    spacing_cm: "10--15"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+
+  - scientific_name: Pisum sativum
+    common_names: [Pea, Erbse]
+    family: Fabaceae
+    genus: Pisum
+    growth_habit: vine
+    root_type: taproot
+    base_temp: 4.0
+    hardiness_zones: ["3a", "10a"]
+    native_habitat: Mediterranean
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 5
+    direct_sow_months: [3, 4, 5, 6]
+    harvest_months: [5, 6, 7, 8, 9]
+    frost_sensitivity: moderate
+    container_suitable: "yes"
+    recommended_container_volume_l: "5--10"
+    min_container_depth_cm: 20
+    mature_height_cm: "40--150"
+    mature_width_cm: "20--30"
+    spacing_cm: "5--10"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+    support_required: true
+
+  - scientific_name: Vicia faba
+    common_names: [Broad Bean, Ackerbohne, Dicke Bohne]
+    family: Fabaceae
+    genus: Vicia
+    growth_habit: herb
+    root_type: taproot
+    base_temp: 3.0
+    hardiness_zones: ["2a", "9a"]
+    native_habitat: Mediterranean
+    allelopathy_score: 0.0
+    direct_sow_months: [2, 3, 4]
+    harvest_months: [6, 7]
+    frost_sensitivity: very_hardy
+    container_suitable: limited
+    recommended_container_volume_l: "10--20"
+    min_container_depth_cm: 25
+    mature_height_cm: "60--120"
+    mature_width_cm: "20--30"
+    spacing_cm: "15--20"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    support_required: true
+
+  - scientific_name: Glycine max
+    common_names: [Soybean, Sojabohne]
+    family: Fabaceae
+    genus: Glycine
+    growth_habit: herb
+    root_type: taproot
+    base_temp: 10.0
+    hardiness_zones: ["3a", "9a"]
+    native_habitat: East Asia
+    allelopathy_score: 0.0
+    direct_sow_months: [5, 6]
+    harvest_months: [9, 10]
+    frost_sensitivity: sensitive
+    container_suitable: limited
+    recommended_container_volume_l: "10--15"
+    min_container_depth_cm: 20
+    mature_height_cm: "40--80"
+    mature_width_cm: "20--30"
+    spacing_cm: "10--15"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+
+  - scientific_name: Lens culinaris
+    common_names: [Lentil, Linse]
+    family: Fabaceae
+    genus: Lens
+    growth_habit: herb
+    root_type: taproot
+    base_temp: 5.0
+    hardiness_zones: ["4a", "9a"]
+    native_habitat: Near East
+    allelopathy_score: 0.0
+    direct_sow_months: [4, 5]
+    harvest_months: [7, 8]
+    frost_sensitivity: moderate
+    container_suitable: "no"
+    mature_height_cm: "20--40"
+    mature_width_cm: "15--25"
+    spacing_cm: "5--10"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+
+  - scientific_name: Trifolium pratense
+    common_names: [Red Clover, Rotklee]
+    family: Fabaceae
+    genus: Trifolium
+    growth_habit: herb
+    root_type: taproot
+    base_temp: 4.0
+    hardiness_zones: ["3a", "8a"]
+    native_habitat: Europe
+    allelopathy_score: 0.0
+    direct_sow_months: [3, 4, 5]
+    bloom_months: [6, 7, 8, 9]
+    allows_harvest: false
+    frost_sensitivity: very_hardy
+    container_suitable: "no"
+    mature_height_cm: "20--40"
+    mature_width_cm: "20--30"
+    spacing_cm: "10--15"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+
+  # -- Cucurbitaceae (6) --
+  - scientific_name: Cucumis sativus
+    common_names: [Cucumber, Gurke]
+    family: Cucurbitaceae
+    genus: Cucumis
+    growth_habit: vine
+    root_type: fibrous
+    base_temp: 12.0
+    hardiness_zones: ["4a", "11a"]
+    native_habitat: South Asia
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 4
+    sowing_outdoor_after_last_frost_days: 0
+    harvest_months: [7, 8, 9]
+    frost_sensitivity: sensitive
+    container_suitable: limited
+    recommended_container_volume_l: "15--25"
+    min_container_depth_cm: 25
+    mature_height_cm: "100--200"
+    mature_width_cm: "40--60"
+    spacing_cm: "30--50"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: true
+    support_required: true
+
+  - scientific_name: Cucumis melo
+    common_names: [Melon, Melone, Honigmelone]
+    family: Cucurbitaceae
+    genus: Cucumis
+    growth_habit: vine
+    root_type: fibrous
+    base_temp: 12.0
+    hardiness_zones: ["4a", "11a"]
+    native_habitat: Africa
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 4
+    sowing_outdoor_after_last_frost_days: 0
+    harvest_months: [8, 9]
+    frost_sensitivity: sensitive
+    container_suitable: limited
+    recommended_container_volume_l: "20--30"
+    min_container_depth_cm: 30
+    mature_height_cm: "30--50"
+    mature_width_cm: "100--200"
+    spacing_cm: "60--90"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: true
+
+  - scientific_name: Cucurbita pepo
+    common_names: [Zucchini, Squash]
+    family: Cucurbitaceae
+    genus: Cucurbita
+    growth_habit: vine
+    root_type: fibrous
+    base_temp: 10.0
+    hardiness_zones: ["3a", "10a"]
+    native_habitat: Americas
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 4
+    sowing_outdoor_after_last_frost_days: 0
+    harvest_months: [7, 8, 9, 10]
+    frost_sensitivity: sensitive
+    container_suitable: limited
+    recommended_container_volume_l: "20--40"
+    min_container_depth_cm: 30
+    mature_height_cm: "40--60"
+    mature_width_cm: "100--200"
+    spacing_cm: "60--100"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+
+  - scientific_name: Cucurbita maxima
+    common_names: [Pumpkin, "Kürbis", "Riesenkürbis"]
+    family: Cucurbitaceae
+    genus: Cucurbita
+    growth_habit: vine
+    root_type: fibrous
+    base_temp: 10.0
+    hardiness_zones: ["3a", "10a"]
+    native_habitat: South America
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 4
+    sowing_outdoor_after_last_frost_days: 0
+    harvest_months: [9, 10]
+    frost_sensitivity: sensitive
+    container_suitable: "no"
+    mature_height_cm: "40--60"
+    mature_width_cm: "200--400"
+    spacing_cm: "100--200"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+
+  - scientific_name: Citrullus lanatus
+    common_names: [Watermelon, Wassermelone]
+    family: Cucurbitaceae
+    genus: Citrullus
+    growth_habit: vine
+    root_type: taproot
+    base_temp: 15.0
+    hardiness_zones: ["5a", "11a"]
+    native_habitat: Africa
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 4
+    sowing_outdoor_after_last_frost_days: 0
+    harvest_months: [8, 9]
+    frost_sensitivity: sensitive
+    container_suitable: "no"
+    mature_height_cm: "30--50"
+    mature_width_cm: "200--400"
+    spacing_cm: "100--200"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: true
+
+  - scientific_name: Luffa aegyptiaca
+    common_names: [Luffa, Schwammgurke]
+    family: Cucurbitaceae
+    genus: Luffa
+    growth_habit: vine
+    root_type: fibrous
+    base_temp: 15.0
+    hardiness_zones: ["7a", "11a"]
+    native_habitat: South Asia
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 6
+    sowing_outdoor_after_last_frost_days: 0
+    harvest_months: [9, 10]
+    frost_sensitivity: sensitive
+    container_suitable: "no"
+    mature_height_cm: "300--500"
+    mature_width_cm: "100--200"
+    spacing_cm: "60--100"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: true
+    support_required: true
+
+  # -- Asteraceae (6) --
+  - scientific_name: Lactuca sativa
+    common_names: [Lettuce, Salat]
+    family: Asteraceae
+    genus: Lactuca
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 4.0
+    hardiness_zones: ["2a", "10a"]
+    native_habitat: Mediterranean
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 4
+    direct_sow_months: [3, 4, 5, 6, 7, 8]
+    harvest_months: [5, 6, 7, 8, 9, 10]
+    frost_sensitivity: moderate
+    container_suitable: "yes"
+    recommended_container_volume_l: "3--5"
+    min_container_depth_cm: 15
+    mature_height_cm: "15--30"
+    mature_width_cm: "15--30"
+    spacing_cm: "20--30"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+
+  - scientific_name: Cichorium intybus
+    common_names: [Chicory, "Chicorée", Wegwarte]
+    family: Asteraceae
+    genus: Cichorium
+    growth_habit: herb
+    root_type: taproot
+    base_temp: 5.0
+    hardiness_zones: ["3a", "9a"]
+    native_habitat: Europe
+    allelopathy_score: 0.1
+    direct_sow_months: [5, 6, 7]
+    harvest_months: [10, 11, 12]
+    frost_sensitivity: hardy
+    container_suitable: limited
+    recommended_container_volume_l: "10--15"
+    min_container_depth_cm: 25
+    mature_height_cm: "30--50"
+    mature_width_cm: "20--30"
+    spacing_cm: "20--30"
+    indoor_suitable: limited
+    balcony_suitable: limited
+
+  - scientific_name: Helianthus annuus
+    common_names: [Sunflower, Sonnenblume]
+    family: Asteraceae
+    genus: Helianthus
+    growth_habit: herb
+    root_type: taproot
+    base_temp: 8.0
+    hardiness_zones: ["2a", "11a"]
+    native_habitat: North America
+    allelopathy_score: 0.4
+    sowing_indoor_weeks_before_last_frost: 3
+    direct_sow_months: [4, 5]
+    harvest_months: [9, 10]
+    bloom_months: [7, 8, 9]
+    frost_sensitivity: sensitive
+    container_suitable: limited
+    recommended_container_volume_l: "10--20"
+    min_container_depth_cm: 25
+    mature_height_cm: "30--300"
+    mature_width_cm: "30--60"
+    spacing_cm: "30--60"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    support_required: true
+
+  - scientific_name: Tagetes erecta
+    common_names: [Marigold, Tagetes, Studentenblume]
+    family: Asteraceae
+    genus: Tagetes
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 10.0
+    hardiness_zones: ["2a", "11a"]
+    native_habitat: Americas
+    allelopathy_score: 0.3
+    sowing_indoor_weeks_before_last_frost: 6
+    sowing_outdoor_after_last_frost_days: 0
+    bloom_months: [6, 7, 8, 9, 10]
+    allows_harvest: false
+    frost_sensitivity: sensitive
+    container_suitable: "yes"
+    recommended_container_volume_l: "2--5"
+    min_container_depth_cm: 15
+    mature_height_cm: "30--80"
+    mature_width_cm: "20--40"
+    spacing_cm: "20--30"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+
+  - scientific_name: Matricaria chamomilla
+    common_names: [Chamomile, Kamille]
+    family: Asteraceae
+    genus: Matricaria
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 5.0
+    hardiness_zones: ["3a", "9a"]
+    native_habitat: Europe
+    allelopathy_score: 0.0
+    direct_sow_months: [3, 4, 5]
+    harvest_months: [6, 7, 8]
+    frost_sensitivity: hardy
+    container_suitable: "yes"
+    recommended_container_volume_l: "3--5"
+    min_container_depth_cm: 15
+    mature_height_cm: "20--50"
+    mature_width_cm: "15--25"
+    spacing_cm: "15--20"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+
+  - scientific_name: Artemisia dracunculus
+    common_names: [Tarragon, Estragon]
+    family: Asteraceae
+    genus: Artemisia
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 5.0
+    hardiness_zones: ["4a", "8a"]
+    native_habitat: Central Asia
+    allelopathy_score: 0.2
+    direct_sow_months: [4, 5]
+    harvest_months: [6, 7, 8, 9]
+    frost_sensitivity: moderate
+    container_suitable: "yes"
+    recommended_container_volume_l: "5--10"
+    min_container_depth_cm: 20
+    mature_height_cm: "40--80"
+    mature_width_cm: "20--30"
+    spacing_cm: "30--40"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+
+  # -- Poaceae (6) --
+  - scientific_name: Zea mays
+    common_names: [Corn, Mais]
+    family: Poaceae
+    genus: Zea
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 10.0
+    hardiness_zones: ["3a", "10a"]
+    native_habitat: Central America
+    allelopathy_score: 0.1
+    sowing_indoor_weeks_before_last_frost: 3
+    direct_sow_months: [5, 6]
+    harvest_months: [8, 9, 10]
+    frost_sensitivity: sensitive
+    container_suitable: "no"
+    mature_height_cm: "150--300"
+    mature_width_cm: "40--60"
+    spacing_cm: "20--30"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+
+  - scientific_name: Triticum aestivum
+    common_names: [Wheat, Weizen]
+    family: Poaceae
+    genus: Triticum
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 4.0
+    hardiness_zones: ["3a", "9a"]
+    native_habitat: Near East
+    allelopathy_score: 0.1
+    growing_periods:
+      - label: Sommerweizen
+        direct_sow_months: [3, 4]
+        harvest_months: [7, 8]
+      - label: Winterweizen
+        direct_sow_months: [10, 11]
+        harvest_months: [6, 7]
+    frost_sensitivity: very_hardy
+    container_suitable: "no"
+    mature_height_cm: "60--120"
+    mature_width_cm: "5--10"
+    spacing_cm: "3--5"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+
+  - scientific_name: Hordeum vulgare
+    common_names: [Barley, Gerste]
+    family: Poaceae
+    genus: Hordeum
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 3.0
+    hardiness_zones: ["3a", "9a"]
+    native_habitat: Near East
+    allelopathy_score: 0.1
+    direct_sow_months: [3, 4]
+    harvest_months: [7, 8]
+    frost_sensitivity: hardy
+    container_suitable: "no"
+    mature_height_cm: "60--100"
+    mature_width_cm: "5--10"
+    spacing_cm: "3--5"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+
+  - scientific_name: Avena sativa
+    common_names: [Oat, Hafer]
+    family: Poaceae
+    genus: Avena
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 3.0
+    hardiness_zones: ["3a", "9a"]
+    native_habitat: Near East
+    allelopathy_score: 0.1
+    direct_sow_months: [3, 4]
+    harvest_months: [7, 8]
+    frost_sensitivity: hardy
+    container_suitable: "no"
+    mature_height_cm: "60--120"
+    mature_width_cm: "5--10"
+    spacing_cm: "3--5"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+
+  - scientific_name: Oryza sativa
+    common_names: [Rice, Reis]
+    family: Poaceae
+    genus: Oryza
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 12.0
+    hardiness_zones: ["8a", "11a"]
+    native_habitat: East Asia
+    allelopathy_score: 0.1
+    sowing_indoor_weeks_before_last_frost: 8
+    sowing_outdoor_after_last_frost_days: 0
+    harvest_months: [9, 10]
+    frost_sensitivity: sensitive
+    container_suitable: "no"
+    mature_height_cm: "80--120"
+    mature_width_cm: "10--15"
+    spacing_cm: "15--20"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+
+  - scientific_name: Sorghum bicolor
+    common_names: [Sorghum, Hirse]
+    family: Poaceae
+    genus: Sorghum
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 10.0
+    hardiness_zones: ["5a", "10a"]
+    native_habitat: Africa
+    allelopathy_score: 0.3
+    direct_sow_months: [5, 6]
+    harvest_months: [9, 10]
+    frost_sensitivity: sensitive
+    container_suitable: "no"
+    mature_height_cm: "100--300"
+    mature_width_cm: "20--40"
+    spacing_cm: "15--20"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+
+  # -- Araceae (2) --
+  - scientific_name: Monstera deliciosa
+    common_names: [Monstera, Fensterblatt]
+    family: Araceae
+    genus: Monstera
+    growth_habit: vine
+    root_type: fibrous
+    base_temp: 15.0
+    hardiness_zones: ["10b", "11a"]
+    native_habitat: Central America
+    allelopathy_score: 0.0
+    container_suitable: "yes"
+    recommended_container_volume_l: "10--20"
+    min_container_depth_cm: 25
+    mature_height_cm: "100--300"
+    mature_width_cm: "80--150"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: true
+    support_required: true
+
+  - scientific_name: Spathiphyllum wallisii
+    common_names: [Peace Lily, Einblatt]
+    family: Araceae
+    genus: Spathiphyllum
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 15.0
+    hardiness_zones: ["10b", "11a"]
+    native_habitat: Central America
+    allelopathy_score: 0.0
+    container_suitable: "yes"
+    recommended_container_volume_l: "2--5"
+    min_container_depth_cm: 15
+    mature_height_cm: "30--60"
+    mature_width_cm: "30--50"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: true
+
+  # -- Asparagaceae (1) --
+  - scientific_name: Chlorophytum comosum
+    common_names: [Spider Plant, "Grünlilie"]
+    family: Asparagaceae
+    genus: Chlorophytum
+    growth_habit: herb
+    root_type: tuberous
+    base_temp: 12.0
+    hardiness_zones: ["9b", "11a"]
+    native_habitat: Southern Africa
+    allelopathy_score: 0.0
+    container_suitable: "yes"
+    recommended_container_volume_l: "2--5"
+    min_container_depth_cm: 15
+    mature_height_cm: "30--60"
+    mature_width_cm: "30--60"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+
+  # -- Bromeliaceae (1) --
+  - scientific_name: Guzmania lingulata
+    common_names: [Scarlet Star, Guzmania]
+    family: Bromeliaceae
+    genus: Guzmania
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 18.0
+    hardiness_zones: ["10b", "11a"]
+    native_habitat: Central America
+    allelopathy_score: 0.0
+    container_suitable: "yes"
+    recommended_container_volume_l: "1--2"
+    min_container_depth_cm: 10
+    mature_height_cm: "30--50"
+    mature_width_cm: "30--40"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: true
+
+  # -- Rosaceae (1) --
+  - scientific_name: Fragaria x ananassa
+    common_names: [Strawberry, Erdbeere]
+    family: Rosaceae
+    genus: Fragaria
+    growth_habit: groundcover
+    root_type: fibrous
+    base_temp: 5.0
+    hardiness_zones: ["3a", "10a"]
+    native_habitat: Europe (hybrid)
+    allelopathy_score: 0.1
+    sowing_indoor_weeks_before_last_frost: 8
+    sowing_outdoor_after_last_frost_days: 0
+    harvest_months: [5, 6, 7, 8, 9]
+    frost_sensitivity: moderate
+    container_suitable: "yes"
+    recommended_container_volume_l: "3--5"
+    min_container_depth_cm: 20
+    mature_height_cm: "15--30"
+    mature_width_cm: "30--45"
+    spacing_cm: "25--35"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: true
+
+  # -- Violaceae (1) --
+  - scientific_name: Viola x wittrockiana
+    common_names: [Pansy, "Stiefmütterchen"]
+    family: Violaceae
+    genus: Viola
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 5.0
+    hardiness_zones: ["4a", "8a"]
+    native_habitat: Europe (hybrid)
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 8
+    direct_sow_months: [3, 4, 5]
+    bloom_months: [3, 4, 5, 6, 7, 8, 9, 10]
+    allows_harvest: false
+    frost_sensitivity: hardy
+    container_suitable: "yes"
+    recommended_container_volume_l: "1--3"
+    min_container_depth_cm: 15
+    mature_height_cm: "15--25"
+    mature_width_cm: "15--25"
+    spacing_cm: "20--25"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+
+cultivars:
+  Solanum lycopersicum:
+    - name: San Marzano
+      days_to_maturity: 80
+      traits: [heirloom]
+    - name: Cherry Tomato Sweet 100
+      days_to_maturity: 65
+      traits: [high_yield]
+    - name: Beefsteak
+      days_to_maturity: 85
+      traits: [heirloom, high_yield]
+
+  Capsicum annuum:
+    - name: California Wonder
+      days_to_maturity: 75
+      traits: [high_yield]
+    - name: "Jalapeño"
+      days_to_maturity: 70
+      traits: [heat_tolerant]
+    - name: Habanero
+      days_to_maturity: 90
+      traits: [heat_tolerant]
+
+  Lactuca sativa:
+    - name: Butterhead
+      days_to_maturity: 55
+      traits: [early_maturing]
+    - name: Romaine
+      days_to_maturity: 70
+      traits: []
+    - name: Lollo Rossa
+      days_to_maturity: 50
+      traits: [ornamental]
+
+  Cannabis sativa:
+    - name: Northern Lights
+      breeder: Sensi Seeds
+      days_to_maturity: 65
+      traits: [compact]
+    - name: White Widow
+      breeder: Green House Seeds
+      days_to_maturity: 60
+      traits: [high_yield]
+    - name: OG Kush
+      days_to_maturity: 56
+      traits: [high_yield]
+
+  Cucumis sativus:
+    - name: Marketmore 76
+      days_to_maturity: 65
+      traits: [disease_resistant]
+    - name: Lemon Cucumber
+      days_to_maturity: 60
+      traits: [heirloom]
+    - name: Persian
+      days_to_maturity: 55
+      traits: [compact]
+
+  Brassica oleracea var. italica:
+    - name: Calabrese
+      days_to_maturity: 65
+      traits: [high_yield]
+    - name: Marathon
+      days_to_maturity: 70
+      traits: [disease_resistant]
+    - name: De Cicco
+      days_to_maturity: 50
+      traits: [heirloom, early_maturing]
+
+  Daucus carota:
+    - name: Nantes
+      days_to_maturity: 70
+      traits: []
+    - name: Danvers 126
+      days_to_maturity: 75
+      traits: [drought_tolerant]
+    - name: Purple Haze
+      days_to_maturity: 70
+      traits: [ornamental]
+
+  Phaseolus vulgaris:
+    - name: Provider
+      days_to_maturity: 50
+      traits: [early_maturing, cold_hardy]
+    - name: Blue Lake 274
+      days_to_maturity: 58
+      traits: [high_yield]
+    - name: Kentucky Wonder
+      days_to_maturity: 65
+      traits: [heirloom]
+
+perennial_species:
+  - Monstera deliciosa
+  - Spathiphyllum wallisii
+  - Chlorophytum comosum
+  - Fragaria x ananassa
+  - Humulus lupulus
+  - Mentha piperita
+  - Thymus vulgaris
+  - Salvia rosmarinus
+  - Salvia officinalis
+  - Lavandula angustifolia
+
+default_phases:
+  - name: seedling
+    display_name: Seedling
+    typical_duration_days: 14
+    sequence_order: 0
+    is_terminal: false
+    allows_harvest: false
+    stress_tolerance: low
+    watering_interval_days: 2
+
+  - name: vegetative
+    display_name: Vegetative
+    typical_duration_days: 28
+    sequence_order: 1
+    is_terminal: false
+    allows_harvest: false
+    stress_tolerance: medium
+    watering_interval_days: 3
+
+  - name: flowering
+    display_name: Flowering
+    typical_duration_days: 56
+    sequence_order: 2
+    is_terminal: false
+    allows_harvest: false
+    stress_tolerance: medium
+    watering_interval_days: 2
+
+  - name: flushing
+    display_name: Flushing
+    typical_duration_days: 14
+    sequence_order: 3
+    is_terminal: false
+    allows_harvest: false
+    stress_tolerance: high
+    watering_interval_days: 1
+
+  - name: ripening
+    display_name: Ripening
+    typical_duration_days: 14
+    sequence_order: 4
+    is_terminal: false
+    allows_harvest: true
+    stress_tolerance: high
+    watering_interval_days: 2

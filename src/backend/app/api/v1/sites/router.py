@@ -2,8 +2,11 @@ from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.locations.schemas import LocationTreeNode
 from app.api.v1.sites.schemas import SiteCreate, SiteResponse, WaterSourceWarningSchema
-from app.common.dependencies import get_site_service
+from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse
+from app.common.dependencies import get_sensor_service, get_site_service
+from app.domain.models.sensor import Sensor
 from app.domain.models.site import Location, Site
+from app.domain.services.sensor_service import SensorService
 from app.domain.services.site_service import SiteService
 
 router = APIRouter(prefix="/sites", tags=["sites"])
@@ -87,3 +90,45 @@ def _build_tree(
 @router.delete("/{key}", status_code=204)
 def delete_site(key: str, service: SiteService = Depends(get_site_service)):
     service.delete_site(key)
+
+
+# ── Sensors ──────────────────────────────────────────────────────────
+
+
+@router.get("/{key}/sensors", response_model=list[SensorResponse])
+def get_site_sensors(
+    key: str,
+    sensor_service: SensorService = Depends(get_sensor_service),
+):
+    sensors = sensor_service.get_sensors_for_site(key)
+    return [
+        SensorResponse(key=s.key or "", **s.model_dump(exclude={"key"}))
+        for s in sensors
+    ]
+
+
+@router.post("/{key}/sensors", response_model=SensorResponse, status_code=201)
+def create_site_sensor(
+    key: str,
+    body: SensorCreate,
+    sensor_service: SensorService = Depends(get_sensor_service),
+):
+    sensor = Sensor(
+        name=body.name,
+        metric_type=body.metric_type,
+        ha_entity_id=body.ha_entity_id,
+        mqtt_topic=body.mqtt_topic,
+        site_key=key,
+    )
+    created = sensor_service.create_sensor(sensor)
+    return SensorResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
+
+
+@router.get("/{key}/sensors/live", response_model=LiveStateResponse)
+def get_site_sensors_live(
+    key: str,
+    sensor_service: SensorService = Depends(get_sensor_service),
+):
+    sensors = sensor_service.get_sensors_for_site(key)
+    result = sensor_service.get_live_state_for_sensors(sensors)
+    return LiveStateResponse(**result)

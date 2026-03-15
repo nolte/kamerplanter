@@ -17,6 +17,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
+import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import type { DeliveryChannel, Fertilizer, FertilizerDosage } from '@/api/types';
 
 interface Props {
@@ -27,6 +28,7 @@ interface Props {
   onAddFertilizer?: (channelId: string) => void;
   onEditFertilizer?: (channelId: string, dosage: FertilizerDosage) => void;
   onRemoveFertilizer?: (channelId: string, fertilizerKey: string) => void;
+  onLogWatering?: (channel: DeliveryChannel) => void;
 }
 
 export default function DeliveryChannelAccordion({
@@ -37,6 +39,7 @@ export default function DeliveryChannelAccordion({
   onAddFertilizer,
   onEditFertilizer,
   onRemoveFertilizer,
+  onLogWatering,
 }: Props) {
   const { t } = useTranslation();
 
@@ -76,6 +79,22 @@ export default function DeliveryChannelAccordion({
         <Accordion key={ch.channel_id} variant="outlined" disableGutters>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', width: '100%' }}>
+              {onLogWatering && ch.enabled && (
+                <Tooltip title={t('pages.deliveryChannels.logWatering')}>
+                  <IconButton
+                    size="small"
+                    color="success"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onLogWatering(ch);
+                    }}
+                    data-testid={`log-watering-${ch.channel_id}`}
+                    sx={{ p: 0.25 }}
+                  >
+                    <PlaylistAddCheckIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
               <Chip
                 label={ch.label || ch.channel_id}
                 size="small"

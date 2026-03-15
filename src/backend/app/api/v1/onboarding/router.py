@@ -35,6 +35,9 @@ def complete_onboarding(
         experience_level=body.experience_level.value if body.experience_level else None,
         site_name=body.site_name,
         plant_count=body.plant_count,
+        has_ro_system=body.has_ro_system,
+        tap_water_ec_ms=body.tap_water_ec_ms,
+        tap_water_ph=body.tap_water_ph,
     )
     return result
 

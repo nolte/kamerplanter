@@ -7,7 +7,7 @@ Fokus: Frontend
 Technologie: React 18, TypeScript, MUI, react-i18next
 Status: Entwurf
 Priorität: Hoch
-Version: 1.0
+Version: 1.1
 Tags: [ui, tooltips, glossar, fachbegriffe, usability, i18n, barrierefreiheit]
 Abhängigkeiten: [NFR-010, REQ-021]
 Betroffene Module: [Frontend]
@@ -489,7 +489,31 @@ Jeder neue Glossareintrag **MUSS** mindestens `short` und `long` in DE und EN ha
 
 ---
 
-## 8. Abhängigkeiten
+<!-- Quelle: Frontend-Design-Review K-004 (Massentauglichkeit 2026-02-28) -->
+## 8. Implementierungspriorität & MVP-Scope
+
+**Begründung:** Keine `HelpTooltip`-Komponente existiert in der Codebasis (Stand 2026-02-28). Felder wie "EC (mS/cm)", "VPD (kPa)", "PPFD", "NPK-Ratio" werden ohne jede Erklärung angezeigt. Das betrifft sämtliche Düngungs-, Sensorik- und Kultivierungsseiten. 16 unerklärte Fachbegriffe wurden im Frontend-Design-Review identifiziert — das ist eine kritische Barriere für Massentauglichkeit. Hobby-Gärtner und Einsteiger (die größte potenzielle Zielgruppe) scheitern an den ersten Formularen.
+
+| Phase | Umfang | Begriffe | Betroffene Seiten | Begründung |
+|-------|--------|----------|-------------------|------------|
+| **Phase 1 — MVP** | `HelpTooltip`-Skeleton-Komponente, Glossar-i18n-Struktur, 8 kritischste Fachbegriffe | EC, pH, VPD, PPFD, NPK, CalMag, GDD, DLI | Düngungsseiten (NutrientPlanDetail, FertilizerDetail, NutrientCalculations), Phasen-Detail | Diese 8 Begriffe erscheinen auf den meistgenutzten Seiten und sind für Einsteiger völlig unverständlich. HelpTooltip als Komponente ist Voraussetzung für alle weiteren Phasen. |
+| **Phase 2 — Nährstoffe & Klima** | Erweiterte Tooltips, alle Nährstoff- + Klima-Begriffe | Flushing, Runoff, Mixing Priority, CEC, rH, DIF, Hysterese, Starkzehrer/Mittelzehrer/Schwachzehrer (15 Begriffe kumulativ) | Sensor-Seiten, Tank-Detail, Substrat-Detail | Komplettiert die Abdeckung der häufigsten Workflow-Seiten. |
+| **Phase 3 — Glossar-Seite & Taxonomie** | Glossar-Route (`/glossar`), Suchfeld, Kategoriefilter, verbleibende 23 Begriffe | Allelopathie, Vernalisation, Dormanz, Seneszenz, Photoperiodismus, IPM, Hardiness Zones, Fruchtfolge, Mischkultur, Substrat, Cultivar, Standort/Location/Slot, Pflanzdurchlauf, Drainage, Staunässe, Umtopfen, Lux vs. PPFD, Binomialnomenklatur + weitere | Glossar-Seite, Stammdaten, IPM, Companion Planting | Eigenständige Glossar-Seite als Nachschlagewerk. Alle 38 Pflicht-Begriffe vollständig abgedeckt. |
+| **Phase 4 — Code-Review-Automatisierung** | ESLint-Regel (Warnung bei `<TextField label="...">` ohne `<HelpTooltip>`), CI-Integration, Auto-Open-Logik für Einsteiger-Modus | — | Alle Seiten | Stellt sicher, dass zukünftige Formularfelder nicht ohne Erklärung hinzugefügt werden. |
+
+**MVP-Definition (Mindestumfang für erste nutzbare Version):**
+
+| Komponente | Beschreibung |
+|-----------|-------------|
+| `HelpTooltip.tsx` | Shared Component unter `src/frontend/src/components/shared/`. Props: `term`, `children`, `placement`, `iconOnly`. Liest Glossar-Daten aus i18n. Icon-Größe und Verhalten nach Erfahrungsstufe (REQ-021). |
+| `glossary.de.json` | i18n-Namespace `glossary` mit mindestens 8 Einträgen (EC, pH, VPD, PPFD, NPK, CalMag, GDD, DLI). Jeder Eintrag mit `short`, `long`, `beginnerTip`, `unit`, `typicalRange`. |
+| `glossary.en.json` | Englische Übersetzung der 8 MVP-Einträge. |
+| `useGlossary` | Hook: Lädt Glossar-Daten einmalig beim App-Start (kein erneuter Fetch pro Tooltip). Stellt `getEntry(term)` bereit. |
+| Integration | `HelpTooltip` in NutrientPlanDetailPage (EC, pH, NPK), FertilizerDetailPage (NPK), NutrientCalculationsPage (EC, CalMag, VPD) einbauen. |
+
+---
+
+## 9. Abhängigkeiten
 
 | REQ/NFR | Art | Beschreibung |
 |---------|-----|-------------|

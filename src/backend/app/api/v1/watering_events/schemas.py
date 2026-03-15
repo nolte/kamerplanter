@@ -16,7 +16,7 @@ class WateringEventCreate(BaseModel):
     application_method: str = "drench"
     is_supplemental: bool = False
     volume_liters: float = Field(gt=0)
-    slot_keys: list[str] = Field(min_length=1)
+    plant_keys: list[str] = Field(min_length=1)
     tank_fill_event_key: str | None = None
     nutrient_plan_key: str | None = None
     fertilizers_used: list[FertilizerSnapshotSchema] = Field(default_factory=list)
@@ -37,7 +37,7 @@ class WateringEventResponse(BaseModel):
     application_method: str
     is_supplemental: bool
     volume_liters: float
-    slot_keys: list[str]
+    plant_keys: list[str]
     tank_fill_event_key: str | None
     nutrient_plan_key: str | None
     fertilizers_used: list[FertilizerSnapshotSchema]
@@ -91,3 +91,22 @@ class WateringConfirmResponse(BaseModel):
     feeding_events_created: int
     task_completed: bool
     warnings: list[dict] = Field(default_factory=list)
+
+
+# ── Volume suggestion schemas ─────────────────────────────────────
+
+class VolumeSuggestionRequest(BaseModel):
+    plant_key: str
+    reference_date: str | None = Field(
+        default=None,
+        description="ISO date for seasonal adjustment (defaults to today)",
+    )
+    hemisphere: str = Field(default="north", pattern="^(north|south)$")
+
+
+class VolumeSuggestionResponse(BaseModel):
+    volume_ml: int = Field(description="Recommended volume in milliliters")
+    volume_ml_min: int = Field(description="Lower bound of recommended range")
+    volume_ml_max: int = Field(description="Upper bound of recommended range")
+    source: str = Field(description="Which data source determined the volume")
+    adjustments: list[str] = Field(default_factory=list, description="Applied adjustments")

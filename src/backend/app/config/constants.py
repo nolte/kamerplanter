@@ -53,6 +53,7 @@ PHOTOPERIOD_DEFAULTS: dict[str, float] = {
 INSPECTION_PHASE_MULTIPLIERS: dict[str, float] = {
     "vegetative": 1.0,
     "flowering": 0.5,
+    "flushing": 0.33,
     "harvest": 0.33,
 }
 

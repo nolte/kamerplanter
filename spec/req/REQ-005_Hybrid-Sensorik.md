@@ -7,7 +7,7 @@ Kategorie: Monitoring
 Fokus: Beides
 Technologie: Python, Home Assistant API, MQTT, TimescaleDB
 Status: Entwurf
-Version: 2.3 (Wetter-Integration)
+Version: 2.5 (HA-Integration vollständig optional, UI-Visibility)
 ```
 
 ## 1. Business Case
@@ -25,7 +25,7 @@ Das System implementiert einen Hybrid-Ansatz für Datenerfassung mit nahtloser D
 **Überwachte Parameter:**
 
 **Klima-Monitoring:**
-- Temperatur (°C) - Lufttemperatur und Blatttemperatur-Differenz
+- Temperatur (intern °C, Anzeige gemäß `temperature_unit`-Präferenz °C/°F, siehe REQ-020 v1.2) - Lufttemperatur und Blatttemperatur-Differenz
 - Blatttemperatur (°C) - Infrarot-Messung für Leaf-VPD (Leaf-VPD = f(leaf_temp, RH) ist präziser als Air-VPD; Blätter sind typisch 1-3°C kühler als Luft durch Transpiration, abhängig von Transpirationsrate, Lichtintensität und Luftbewegung). Ohne IR-Sensor: konfigurierbarer Offset `leaf_temp_offset_c` pro Lichttyp (LED: -1°C, HPS: -3°C, Sonnenlicht: -2°C, Default: -2°C)
 - Luftfeuchte (%) - Relative Luftfeuchtigkeit
 - VPD (kPa) - Vapor Pressure Deficit (berechnet oder gemessen)
@@ -247,6 +247,7 @@ replaced_by              sensors            sensors                 replacement_
 confirms                 manual_entries     observations            // Manuelle Verifizierung von Auto-Werten
 resolved_by_action       alerts             tasks
 part_of_system           sensors            monitoring_systems      // z.B. "Growzelt_1_Climate"
+monitors_tank            sensors            tanks                   // Sensor überwacht Tank-Parameter (REQ-014). Sensor.parameter bestimmt TankState-Feld.
 has_forecast             sites              weather_forecasts       // Wetter-Integration (G-010)
 ```
 
@@ -709,8 +710,18 @@ from typing import Optional, Dict
 import json
 
 class HomeAssistantConnector:
-    """Integration mit Home Assistant für automatische Sensor-Daten"""
-    
+    """Integration mit Home Assistant für automatische Sensor-Daten.
+
+    Credentials-Herkunft: ha_url und ha_token werden aus dem User-Profil
+    geladen (REQ-023 §2 User-Modell: ha_url, ha_token_encrypted).
+    Der Token wird serverseitig AES-256-entschlüsselt bevor er hier
+    als Bearer-Token verwendet wird.
+
+    Temperatureinheit: Alle von HA empfangenen Temperaturwerte werden
+    intern in °C gespeichert. Die Anzeige-Konvertierung nach °F erfolgt
+    gemäß UserPreference.temperature_unit (REQ-020 v1.2) im Frontend.
+    """
+
     def __init__(self, ha_url: str, ha_token: str, verify_ssl: bool = True):
         self.base_url = ha_url.rstrip('/')
         self.headers = {
@@ -1638,10 +1649,34 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 | HA-Integration-Config | Admin | Admin | Admin |
 | Manuelle Messwert-Eingabe | — | Mitglied | — |
 
+## 4a. Home Assistant — Optionalitätsprinzip
+
+**Home Assistant ist eine vollständig optionale Integration.** Kamerplanter ist ohne Home Assistant uneingeschränkt nutzbar — alle Funktionen (Phasensteuerung, Düngung, Aufgaben, Ernte, IPM, etc.) arbeiten unabhängig von HA.
+
+### Aktivierungsbedingung
+
+Die HA-Integration gilt als **aktiviert**, wenn der Nutzer in seinen Kontoeinstellungen (REQ-023 Tab „Integrationen") eine `ha_url` und einen `ha_token` hinterlegt hat UND der Verbindungstest erfolgreich war (`ha_token_set == true`).
+
+### UI-Visibility-Regel (systemweit)
+
+Wenn die HA-Integration **nicht aktiviert** ist (`ha_token_set == false` oder `ha_url` nicht gesetzt), werden folgende UI-Elemente **ausgeblendet** (nicht deaktiviert, sondern vollständig nicht gerendert):
+
+| Bereich | Ausgeblendete Elemente |
+|---------|----------------------|
+| **Sensor-Konfiguration** (REQ-005) | `ha_entity_id`-Feld, HA-Verbindungsstatus-Chip, Auto-Mode-Auswahl |
+| **Aktorik** (REQ-018) | `ha_entity_id`-Feld auf Actuator, Protocol-Option `home_assistant`, HA-Service-Call-Logs |
+| **Tankmanagement** (REQ-014) | HA-Entity-Zuordnung für Tank-Sensoren |
+| **AccountSettingsPage** (REQ-023) | Tab „Integrationen" bleibt sichtbar (dort erfolgt die Aktivierung) |
+| **Dashboard** (REQ-009) | HA-Verbindungsstatus-Widget |
+
+**Implementierungshinweis:** Das Frontend prüft `user.ha_token_set` (aus `GET /api/v1/users/me`) und steuert die Sichtbarkeit über einen zentralen `useHaIntegration()`-Hook, der einen Boolean `isHaEnabled` bereitstellt. Komponenten verwenden diesen Hook, um HA-spezifische Felder und Panels bedingt zu rendern.
+
+**Backend-Verhalten ohne HA:** Sensoren und Aktoren können weiterhin angelegt werden — `ha_entity_id` bleibt `Optional[str]` und wird einfach nicht gesetzt. Die Fallback-Kette (Auto → Semi-Auto → Wetter-API → Manual) übergeht die HA-Stufe automatisch, wenn keine HA-Credentials hinterlegt sind.
+
 ## 5. Abhängigkeiten
 
 **Erforderliche externe Systeme:**
-- Home Assistant (optional, für Auto-Mode)
+- Home Assistant (optional, für Auto-Mode — siehe §4a Optionalitätsprinzip)
 - MQTT Broker (optional, z.B. Mosquitto)
 - TimescaleDB (empfohlen für Zeitreihen)
 - Wetter-API (optional, für Freiland): DWD Open Data, OpenWeatherMap oder Open-Meteo <!-- G-010 -->

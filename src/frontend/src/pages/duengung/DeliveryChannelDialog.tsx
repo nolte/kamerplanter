@@ -147,7 +147,7 @@ export default function DeliveryChannelDialog({
     !isEdit &&
     channelId.length > 0 &&
     existingIds.includes(channelId)
-      ? 'Channel ID already exists'
+      ? t('pages.deliveryChannels.channelIdExists')
       : '';
 
   const canSave = channelId.length > 0 && !idError;
@@ -264,7 +264,13 @@ export default function DeliveryChannelDialog({
               value={targetEc}
               onChange={(e) => setTargetEc(e.target.value)}
               size="small"
-              inputProps={{ min: 0, max: 10, step: 0.1 }}
+              inputProps={{ min: 0, max: 10, step: 0.1, inputMode: 'decimal' }}
+              slotProps={{
+                input: {
+                  endAdornment: <Typography variant="caption" sx={{ whiteSpace: 'nowrap', ml: 0.5 }}>mS/cm</Typography>,
+                },
+              }}
+              helperText={t('pages.deliveryChannels.targetEcHelper')}
             />
             <TextField
               label={t('pages.deliveryChannels.targetPh')}
@@ -272,7 +278,8 @@ export default function DeliveryChannelDialog({
               value={targetPh}
               onChange={(e) => setTargetPh(e.target.value)}
               size="small"
-              inputProps={{ min: 0, max: 14, step: 0.1 }}
+              inputProps={{ min: 0, max: 14, step: 0.1, inputMode: 'decimal' }}
+              helperText={t('pages.deliveryChannels.targetPhHelper')}
             />
             <TextField
               label={t('pages.deliveryChannels.notes')}
@@ -295,7 +302,8 @@ export default function DeliveryChannelDialog({
                   value={runsPerDay}
                   onChange={(e) => setRunsPerDay(parseInt(e.target.value) || 1)}
                   size="small"
-                  inputProps={{ min: 1, max: 24 }}
+                  inputProps={{ min: 1, max: 24, inputMode: 'numeric' }}
+                  helperText={t('pages.deliveryChannels.runsPerDayHelper')}
                 />
                 <TextField
                   label={t('pages.deliveryChannels.fertigation.durationSeconds')}
@@ -303,7 +311,8 @@ export default function DeliveryChannelDialog({
                   value={durationSeconds}
                   onChange={(e) => setDurationSeconds(parseInt(e.target.value) || 300)}
                   size="small"
-                  inputProps={{ min: 1, max: 7200, step: 1 }}
+                  inputProps={{ min: 1, max: 7200, step: 1, inputMode: 'numeric' }}
+                  helperText={t('pages.deliveryChannels.durationSecondsHelper')}
                 />
               </>
             )}
@@ -314,7 +323,12 @@ export default function DeliveryChannelDialog({
                 value={volumePerFeeding}
                 onChange={(e) => setVolumePerFeeding(parseFloat(e.target.value) || 1)}
                 size="small"
-                inputProps={{ min: 0.1, max: 100, step: 0.1 }}
+                inputProps={{ min: 0.1, max: 100, step: 0.1, inputMode: 'decimal' }}
+                slotProps={{
+                  input: {
+                    endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>L</Typography>,
+                  },
+                }}
               />
             )}
             {method === 'foliar' && (
@@ -324,7 +338,12 @@ export default function DeliveryChannelDialog({
                 value={volumePerSpray}
                 onChange={(e) => setVolumePerSpray(parseFloat(e.target.value) || 0.5)}
                 size="small"
-                inputProps={{ min: 0.1, max: 10, step: 0.1 }}
+                inputProps={{ min: 0.1, max: 10, step: 0.1, inputMode: 'decimal' }}
+                slotProps={{
+                  input: {
+                    endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>L</Typography>,
+                  },
+                }}
               />
             )}
             {method === 'top_dress' && (
@@ -335,7 +354,12 @@ export default function DeliveryChannelDialog({
                   value={gramsPerPlant}
                   onChange={(e) => setGramsPerPlant(e.target.value)}
                   size="small"
-                  inputProps={{ min: 0, step: 0.5 }}
+                  inputProps={{ min: 0, step: 0.5, inputMode: 'decimal' }}
+                  slotProps={{
+                    input: {
+                      endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>g</Typography>,
+                    },
+                  }}
                 />
                 <TextField
                   label={t('pages.deliveryChannels.topDress.gramsPerM2')}
@@ -343,7 +367,12 @@ export default function DeliveryChannelDialog({
                   value={gramsPerM2}
                   onChange={(e) => setGramsPerM2(e.target.value)}
                   size="small"
-                  inputProps={{ min: 0, step: 0.5 }}
+                  inputProps={{ min: 0, step: 0.5, inputMode: 'decimal' }}
+                  slotProps={{
+                    input: {
+                      endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>g/m\u00B2</Typography>,
+                    },
+                  }}
                 />
               </>
             )}
@@ -423,23 +452,15 @@ export default function DeliveryChannelDialog({
                   />
                 )}
 
-                <Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                    {t('pages.wateringSchedule.preferredTime')}
-                  </Typography>
-                  <input
-                    type="time"
-                    value={preferredTime}
-                    onChange={(e) => setPreferredTime(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      fontSize: '1rem',
-                      border: '1px solid rgba(0,0,0,0.23)',
-                      borderRadius: '4px',
-                    }}
-                  />
-                </Box>
+                <TextField
+                  label={t('pages.wateringSchedule.preferredTime')}
+                  type="time"
+                  value={preferredTime}
+                  onChange={(e) => setPreferredTime(e.target.value)}
+                  size="small"
+                  fullWidth
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
 
                 <TextField
                   label={t('pages.wateringSchedule.reminderHoursBefore')}

@@ -2,7 +2,7 @@ from datetime import UTC, date, datetime
 
 from arango.database import StandardDatabase
 
-from app.common.types import LocationKey, SlotKey, WateringEventKey
+from app.common.types import LocationKey, PlantInstanceKey, WateringEventKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.watering_repository import IWateringRepository
@@ -26,11 +26,11 @@ class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
         doc = self._from_doc(result["new"])
         created = WateringEvent(**doc)
 
-        # Create WATERED_SLOT edges (WateringEvent → Slot)
+        # Create WATERED_PLANT edges (WateringEvent → PlantInstance)
         event_id = f"{col.WATERING_EVENTS}/{doc['_key']}"
-        for slot_key in event.slot_keys:
-            slot_id = f"{col.SLOTS}/{slot_key}"
-            self.create_edge(col.WATERED_SLOT, event_id, slot_id)
+        for plant_key in event.plant_keys:
+            plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
+            self.create_edge(col.WATERED_PLANT, event_id, plant_id)
 
         return created
 
@@ -46,21 +46,21 @@ class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
 
     # ── Queries ────────────────────────────────────────────────────────
 
-    def get_by_slot(
-        self, slot_key: SlotKey, offset: int = 0, limit: int = 50,
+    def get_by_plant(
+        self, plant_key: PlantInstanceKey, offset: int = 0, limit: int = 50,
     ) -> list[WateringEvent]:
         query = """
         FOR e IN @@edge_col
-          FILTER e._to == @slot_id
+          FILTER e._to == @plant_id
           LET doc = DOCUMENT(e._from)
           SORT doc.watered_at DESC
           LIMIT @offset, @limit
           RETURN doc
         """
-        slot_id = f"{col.SLOTS}/{slot_key}"
+        plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
         cursor = self._db.aql.execute(query, bind_vars={
-            "@edge_col": col.WATERED_SLOT,
-            "slot_id": slot_id,
+            "@edge_col": col.WATERED_PLANT,
+            "plant_id": plant_id,
             "offset": offset,
             "limit": limit,
         })
@@ -72,17 +72,20 @@ class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
         query = """
         FOR slot_edge IN @@has_slot
           FILTER slot_edge._from == @location_id
-          FOR water_edge IN @@watered_slot
-            FILTER water_edge._to == slot_edge._to
-            LET doc = DOCUMENT(water_edge._from)
-            SORT doc.watered_at DESC
-            LIMIT @offset, @limit
-            RETURN DISTINCT doc
+          FOR placed_edge IN @@placed_in
+            FILTER placed_edge._to == slot_edge._to
+            FOR water_edge IN @@watered_plant
+              FILTER water_edge._to == placed_edge._from
+              LET doc = DOCUMENT(water_edge._from)
+              SORT doc.watered_at DESC
+              LIMIT @offset, @limit
+              RETURN DISTINCT doc
         """
         location_id = f"{col.LOCATIONS}/{location_key}"
         cursor = self._db.aql.execute(query, bind_vars={
             "@has_slot": col.HAS_SLOT,
-            "@watered_slot": col.WATERED_SLOT,
+            "@placed_in": col.PLACED_IN,
+            "@watered_plant": col.WATERED_PLANT,
             "location_id": location_id,
             "offset": offset,
             "limit": limit,
@@ -94,10 +97,12 @@ class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
         LET events = (
           FOR slot_edge IN @@has_slot
             FILTER slot_edge._from == @location_id
-            FOR water_edge IN @@watered_slot
-              FILTER water_edge._to == slot_edge._to
-              LET doc = DOCUMENT(water_edge._from)
-              RETURN DISTINCT doc
+            FOR placed_edge IN @@placed_in
+              FILTER placed_edge._to == slot_edge._to
+              FOR water_edge IN @@watered_plant
+                FILTER water_edge._to == placed_edge._from
+                LET doc = DOCUMENT(water_edge._from)
+                RETURN DISTINCT doc
         )
         LET by_method = (
           FOR e IN events
@@ -114,7 +119,8 @@ class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
         location_id = f"{col.LOCATIONS}/{location_key}"
         cursor = self._db.aql.execute(query, bind_vars={
             "@has_slot": col.HAS_SLOT,
-            "@watered_slot": col.WATERED_SLOT,
+            "@placed_in": col.PLACED_IN,
+            "@watered_plant": col.WATERED_PLANT,
             "location_id": location_id,
         })
         result = next(cursor, None)
@@ -122,16 +128,14 @@ class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
 
     def get_last_watering_date_for_run(self, run_key: str) -> date | None:
         query = """
-        LET slot_keys = (
+        LET plant_keys = (
           FOR rc IN @@run_contains
             FILTER rc._from == @run_id
             FILTER rc.detached_at == null
-            FOR pi IN @@placed_in
-              FILTER pi._from == rc._to
-              RETURN PARSE_IDENTIFIER(pi._to).key
+            RETURN PARSE_IDENTIFIER(rc._to).key
         )
         FOR we IN @@watering_events
-          FILTER LENGTH(INTERSECTION(we.slot_keys, slot_keys)) > 0
+          FILTER LENGTH(INTERSECTION(we.plant_keys, plant_keys)) > 0
           SORT we.watered_at DESC
           LIMIT 1
           RETURN we.watered_at
@@ -139,7 +143,6 @@ class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
         run_id = f"{col.PLANTING_RUNS}/{run_key}"
         cursor = self._db.aql.execute(query, bind_vars={
             "@run_contains": col.RUN_CONTAINS,
-            "@placed_in": col.PLACED_IN,
             "@watering_events": col.WATERING_EVENTS,
             "run_id": run_id,
         })

@@ -13,7 +13,7 @@ def engine():
 def _make_event(**kwargs) -> WateringEvent:
     defaults = {
         "volume_liters": 5.0,
-        "slot_keys": ["TENT01_A1"],
+        "plant_keys": ["plant01"],
         "application_method": ApplicationMethod.DRENCH,
     }
     defaults.update(kwargs)
@@ -92,20 +92,20 @@ class TestValidateAndWarn:
         assert not any(w["type"] == "drench_on_auto" for w in warnings)
 
     def test_high_volume_warns(self, engine):
-        event = _make_event(volume_liters=25.0, slot_keys=["TENT01_A1"])
+        event = _make_event(volume_liters=25.0, plant_keys=["plant01"])
         warnings = engine.validate_and_warn(event, IrrigationSystem.MANUAL)
         assert any(w["type"] == "high_volume" for w in warnings)
 
     def test_volume_at_threshold_no_warning(self, engine):
-        event = _make_event(volume_liters=20.0, slot_keys=["TENT01_A1"])
+        event = _make_event(volume_liters=20.0, plant_keys=["plant01"])
         warnings = engine.validate_and_warn(event, IrrigationSystem.MANUAL)
         assert not any(w["type"] == "high_volume" for w in warnings)
 
     def test_high_volume_distributed_no_warning(self, engine):
-        # 40L across 3 slots = 13.3 L/slot → under threshold
+        # 40L across 3 plants = 13.3 L/plant → under threshold
         event = _make_event(
             volume_liters=40.0,
-            slot_keys=["TENT01_A1", "TENT01_A2", "TENT01_A3"],
+            plant_keys=["plant01", "plant02", "plant03"],
         )
         warnings = engine.validate_and_warn(event, IrrigationSystem.MANUAL)
         assert not any(w["type"] == "high_volume" for w in warnings)
@@ -115,7 +115,7 @@ class TestValidateAndWarn:
         event = _make_event(
             application_method=ApplicationMethod.FERTIGATION,
             volume_liters=25.0,
-            slot_keys=["TENT01_A1"],
+            plant_keys=["plant01"],
         )
         warnings = engine.validate_and_warn(event, IrrigationSystem.MANUAL)
         types = {w["type"] for w in warnings}

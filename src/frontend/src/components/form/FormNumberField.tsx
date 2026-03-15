@@ -1,4 +1,6 @@
+import type { ReactNode } from 'react';
 import TextField from '@mui/material/TextField';
+import InputAdornment from '@mui/material/InputAdornment';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
 
 interface FormNumberFieldProps<T extends FieldValues> {
@@ -11,6 +13,12 @@ interface FormNumberFieldProps<T extends FieldValues> {
   required?: boolean;
   disabled?: boolean;
   helperText?: string;
+  /** Short unit label rendered as end adornment (e.g. "L", "mS/cm", "°C"). */
+  suffix?: string;
+  /** Custom end adornment node. Takes precedence over suffix when both are provided. */
+  endAdornment?: ReactNode;
+  autoFocus?: boolean;
+  inputMode?: 'numeric' | 'decimal';
 }
 
 export default function FormNumberField<T extends FieldValues>({
@@ -23,7 +31,15 @@ export default function FormNumberField<T extends FieldValues>({
   required,
   disabled,
   helperText,
+  suffix,
+  endAdornment,
+  autoFocus,
+  inputMode,
 }: FormNumberFieldProps<T>) {
+  const adornment = endAdornment ?? (suffix ? (
+    <InputAdornment position="end">{suffix}</InputAdornment>
+  ) : undefined);
+
   return (
     <Controller
       name={name}
@@ -42,8 +58,11 @@ export default function FormNumberField<T extends FieldValues>({
           error={!!error}
           helperText={error?.message ?? helperText}
           fullWidth
+          autoFocus={autoFocus}
           sx={{ mb: 2 }}
-          inputProps={{ min, max, step: step ?? 'any' }}
+          inputProps={{ min, max, step: step ?? 'any', inputMode: inputMode ?? 'decimal' }}
+          InputProps={adornment ? { endAdornment: adornment } : undefined}
+          data-testid={`form-field-${name}`}
         />
       )}
     />

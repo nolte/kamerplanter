@@ -1,0 +1,229 @@
+families:
+  - name: Solanaceae
+    common_name_de: "Nachtschattengewächse"
+    common_name_en: Nightshade family
+    order: Solanales
+    typical_nutrient_demand: heavy
+    frost_tolerance: sensitive
+    typical_root_depth: medium
+    typical_growth_forms: [herb, shrub]
+    common_pests: [aphids, whitefly, hornworm]
+    common_diseases: ["Kraut- und Braunfäule", Fusarium, Verticillium]
+    pollination_type: [insect, self]
+    soil_ph_preference: {min_ph: 5.5, max_ph: 7.0}
+    description: "Große Familie mit vielen Nutzpflanzen wie Tomate, Paprika, Kartoffel und Aubergine."
+    rotation_category: fruit
+
+  - name: Cannabaceae
+    common_name_de: "Hanfgewächse"
+    common_name_en: Hemp family
+    order: Rosales
+    typical_nutrient_demand: heavy
+    frost_tolerance: sensitive
+    typical_root_depth: deep
+    typical_growth_forms: [herb, vine]
+    common_pests: [spider_mites, fungus_gnats, thrips]
+    common_diseases: [Botrytis, Mehltau, Fusarium]
+    pollination_type: [wind]
+    soil_ph_preference: {min_ph: 6.0, max_ph: 7.0}
+    description: "Enthält Cannabis und Hopfen. Meist windbestäubt, hoher Nährstoffbedarf."
+    rotation_category: fiber
+
+  - name: Lamiaceae
+    common_name_de: "Lippenblütler"
+    common_name_en: Mint family
+    order: Lamiales
+    typical_nutrient_demand: light
+    frost_tolerance: moderate
+    typical_root_depth: shallow
+    typical_growth_forms: [herb, shrub]
+    common_pests: [aphids, spider_mites]
+    common_diseases: [Mehltau, Rost]
+    pollination_type: [insect]
+    soil_ph_preference: {min_ph: 6.0, max_ph: 7.5}
+    description: "Aromatische Kräuter wie Basilikum, Minze, Thymian und Rosmarin. Ätherische Öle."
+    rotation_category: herb
+
+  - name: Apiaceae
+    common_name_de: "Doldenblütler"
+    common_name_en: Carrot family
+    order: Apiales
+    typical_nutrient_demand: medium
+    frost_tolerance: moderate
+    typical_root_depth: deep
+    typical_growth_forms: [herb]
+    common_pests: [carrot_fly, aphids]
+    common_diseases: [Mehltau, Alternaria]
+    pollination_type: [insect]
+    soil_ph_preference: {min_ph: 6.0, max_ph: 7.0}
+    description: "Doldenblütler mit Karotten, Fenchel, Dill, Petersilie und Sellerie."
+    rotation_category: root
+
+  - name: Brassicaceae
+    common_name_de: "Kreuzblütler"
+    common_name_en: Cabbage family
+    order: Brassicales
+    typical_nutrient_demand: heavy
+    frost_tolerance: hardy
+    typical_root_depth: medium
+    typical_growth_forms: [herb]
+    common_pests: [cabbage_white, flea_beetle, clubroot]
+    common_diseases: [Kohlhernie, Mehltau, Schwarzbeinigkeit]
+    pollination_type: [insect, self]
+    soil_ph_preference: {min_ph: 6.0, max_ph: 7.5}
+    description: "Kreuzblütler mit Kohl, Brokkoli, Rettich und Rucola. Biofumigations-Potential."
+    rotation_category: brassica
+
+  - name: Fabaceae
+    common_name_de: "Hülsenfrüchtler"
+    common_name_en: Legume family
+    order: Fabales
+    typical_nutrient_demand: light
+    nitrogen_fixing: true
+    frost_tolerance: moderate
+    typical_root_depth: deep
+    typical_growth_forms: [herb, vine]
+    common_pests: [aphids, bean_beetle]
+    common_diseases: [Rost, Fusarium, Botrytis]
+    pollination_type: [insect, self]
+    soil_ph_preference: {min_ph: 6.0, max_ph: 7.5}
+    description: "Stickstofffixierende Hülsenfrüchtler. Wichtige Gründünger und Vorfrüchte."
+    rotation_category: legume
+
+  - name: Cucurbitaceae
+    common_name_de: "Kürbisgewächse"
+    common_name_en: Gourd family
+    order: Cucurbitales
+    typical_nutrient_demand: heavy
+    frost_tolerance: sensitive
+    typical_root_depth: medium
+    typical_growth_forms: [vine]
+    common_pests: [powdery_mildew, cucumber_beetle, squash_bug]
+    common_diseases: [Mehltau, Falscher Mehltau, Fusarium]
+    pollination_type: [insect]
+    soil_ph_preference: {min_ph: 6.0, max_ph: 7.0}
+    description: "Kürbisgewächse wie Gurke, Zucchini, Kürbis und Melone. Insektenbestäubt."
+    rotation_category: cucurbit
+
+  - name: Asteraceae
+    common_name_de: "Korbblütler"
+    common_name_en: Daisy family
+    order: Asterales
+    typical_nutrient_demand: medium
+    frost_tolerance: moderate
+    typical_root_depth: shallow
+    typical_growth_forms: [herb]
+    common_pests: [aphids, slugs]
+    common_diseases: [Mehltau, Grauschimmel, Rost]
+    pollination_type: [insect, self]
+    soil_ph_preference: {min_ph: 6.0, max_ph: 7.0}
+    description: "Größte Pflanzenfamilie. Salat, Sonnenblume, Tagetes und Kamille."
+    rotation_category: composite
+
+  - name: Poaceae
+    common_name_de: "Süßgräser"
+    common_name_en: Grass family
+    order: Poales
+    typical_nutrient_demand: medium
+    frost_tolerance: hardy
+    typical_root_depth: deep
+    typical_growth_forms: [herb]
+    common_pests: [aphids, rust, stem_borer]
+    common_diseases: [Rost, Fusarium, Brandkrankheiten]
+    pollination_type: [wind]
+    soil_ph_preference: {min_ph: 5.5, max_ph: 7.0}
+    description: "Gräser und Getreide wie Mais, Weizen und Reis. Windbestäubt, tiefwurzelnd."
+    rotation_category: grain
+
+  - name: Araceae
+    common_name_de: "Aronstabgewächse"
+    common_name_en: Arum family
+    order: Alismatales
+    typical_nutrient_demand: medium
+    frost_tolerance: sensitive
+    typical_root_depth: shallow
+    typical_growth_forms: [herb, vine]
+    common_pests: [spider_mites, mealybug, thrips]
+    common_diseases: ["Wurzelfäule", "Blattfleckenkrankheit"]
+    pollination_type: [insect]
+    soil_ph_preference: {min_ph: 5.5, max_ph: 6.5}
+    description: "Tropische Zimmerpflanzen wie Monstera, Philodendron, Spathiphyllum. Oft Calciumoxalat-haltig."
+    rotation_category: ornamental
+
+  - name: Asparagaceae
+    common_name_de: "Spargelgewächse"
+    common_name_en: Asparagus family
+    order: Asparagales
+    typical_nutrient_demand: light
+    frost_tolerance: moderate
+    typical_root_depth: shallow
+    typical_growth_forms: [herb]
+    common_pests: [spider_mites, mealybug]
+    common_diseases: ["Wurzelfäule"]
+    pollination_type: [insect, self]
+    soil_ph_preference: {min_ph: 6.0, max_ph: 7.0}
+    description: "Diverse Familie mit Grünlilie, Dracaena, Agave, Spargel und Hyazinthe."
+    rotation_category: ornamental
+
+  - name: Bromeliaceae
+    common_name_de: "Bromeliengewächse"
+    common_name_en: Bromeliad family
+    order: Poales
+    typical_nutrient_demand: light
+    frost_tolerance: sensitive
+    typical_root_depth: shallow
+    typical_growth_forms: [herb]
+    common_pests: [mealybug, scale]
+    common_diseases: ["Trichterfäule"]
+    pollination_type: [insect]
+    soil_ph_preference: {min_ph: 5.0, max_ph: 6.0}
+    description: "Tropische Epiphyten wie Guzmania, Tillandsia, Ananas. Trichterrosette, extreme Schwachzehrer."
+    rotation_category: ornamental
+
+  - name: Rosaceae
+    common_name_de: "Rosengewächse"
+    common_name_en: Rose family
+    order: Rosales
+    typical_nutrient_demand: medium
+    frost_tolerance: hardy
+    typical_root_depth: medium
+    typical_growth_forms: [herb, shrub]
+    common_pests: [aphids, spider_mites, sawfly]
+    common_diseases: [Mehltau, Grauschimmel, Rost]
+    pollination_type: [insect, self]
+    soil_ph_preference: {min_ph: 5.5, max_ph: 7.0}
+    description: "Große Familie mit Erdbeere, Rose, Apfel, Kirsche, Himbeere. Viele Obst- und Zierpflanzen."
+    rotation_category: fruit
+
+  - name: Violaceae
+    common_name_de: "Veilchengewächse"
+    common_name_en: Violet family
+    order: Malpighiales
+    typical_nutrient_demand: light
+    frost_tolerance: hardy
+    typical_root_depth: shallow
+    typical_growth_forms: [herb]
+    common_pests: [aphids, slugs]
+    common_diseases: [Mehltau, Grauschimmel]
+    pollination_type: [insect, self]
+    soil_ph_preference: {min_ph: 5.5, max_ph: 6.5}
+    description: "Veilchen und Stiefmütterchen. Kühleliebend, essbare Blüten, Schwachzehrer."
+    rotation_category: ornamental
+
+rotation_edges:
+  - [Fabaceae, Solanaceae, 2, 0.95, nitrogen_fixation]
+  - [Fabaceae, Brassicaceae, 2, 0.90, nitrogen_fixation]
+  - [Fabaceae, Cucurbitaceae, 2, 0.90, nitrogen_fixation]
+  - [Fabaceae, Cannabaceae, 2, 0.90, nitrogen_fixation]
+  - [Brassicaceae, Fabaceae, 2, 0.85, soil_structure]
+  - [Apiaceae, Brassicaceae, 2, 0.80, pest_break]
+  - [Solanaceae, Fabaceae, 3, 0.85, nitrogen_fixation]
+  - [Cucurbitaceae, Fabaceae, 3, 0.85, nitrogen_fixation]
+  - [Cannabaceae, Fabaceae, 3, 0.85, nitrogen_fixation]
+  - [Asteraceae, Solanaceae, 2, 0.75, pest_break]
+  - [Lamiaceae, Solanaceae, 2, 0.70, pest_break]
+  - [Poaceae, Brassicaceae, 2, 0.80, soil_structure]
+  - [Brassicaceae, Poaceae, 2, 0.75, biofumigation]
+  - [Apiaceae, Cucurbitaceae, 2, 0.70, pest_break]
+  - [Cucurbitaceae, Poaceae, 2, 0.75, soil_structure]
+  - [Asteraceae, Cucurbitaceae, 2, 0.70, pest_break]

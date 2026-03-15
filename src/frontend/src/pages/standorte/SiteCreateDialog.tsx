@@ -7,20 +7,20 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FormTextField from '@/components/form/FormTextField';
-import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import ShowAllFieldsToggle from '@/components/common/ShowAllFieldsToggle';
+import WaterSourceSection from '@/components/water/WaterSourceSection';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { siteFieldConfig } from '@/config/fieldConfigs';
 import * as api from '@/api/endpoints/sites';
+import type { SiteWaterConfig } from '@/api/types';
 
 const schema = z.object({
   name: z.string().min(1),
-  type: z.enum(['outdoor', 'greenhouse', 'indoor', 'windowsill', 'balcony', 'grow_tent']),
   climate_zone: z.string(),
   total_area_m2: z.number().min(0),
   timezone: z.string(),
@@ -40,18 +40,28 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
   const { showAllOverride, toggleShowAll, level } = useExpertiseLevel();
+  const [waterConfig, setWaterConfig] = useState<SiteWaterConfig>({
+    has_ro_system: false,
+    tap_water_profile: null,
+    ro_water_profile: null,
+  });
 
   const { control, handleSubmit, reset } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', type: 'indoor', climate_zone: '', total_area_m2: 0, timezone: 'UTC' },
+    defaultValues: { name: '', climate_zone: '', total_area_m2: 0, timezone: 'UTC' },
   });
 
   const onSubmit = async (data: FormData) => {
     try {
       setSaving(true);
-      await api.createSite(data);
+      const hasWaterData = waterConfig.tap_water_profile || waterConfig.has_ro_system;
+      await api.createSite({
+        ...data,
+        water_config: hasWaterData ? waterConfig : undefined,
+      });
       notification.success(t('common.create'));
       reset();
+      setWaterConfig({ has_ro_system: false, tap_water_profile: null, ro_water_profile: null });
       onCreated();
     } catch (err) {
       handleError(err);
@@ -69,21 +79,16 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
         <form onSubmit={handleSubmit(onSubmit)}>
           {/* beginner */}
           <FormTextField name="name" control={control} label={t('pages.sites.name')} required />
-          <FormSelectField
-            name="type"
-            control={control}
-            label={t('pages.sites.type')}
-            options={['outdoor', 'greenhouse', 'indoor', 'windowsill', 'balcony', 'grow_tent'].map((v) => ({
-              value: v,
-              label: t(`enums.siteType.${v}`),
-            }))}
-          />
           {/* intermediate */}
           <ExpertiseFieldWrapper minLevel={fc.climate_zone.level}>
             <FormTextField name="climate_zone" control={control} label={t('pages.sites.climateZone')} />
           </ExpertiseFieldWrapper>
           <ExpertiseFieldWrapper minLevel={fc.total_area_m2.level}>
-            <FormNumberField name="total_area_m2" control={control} label={t('pages.sites.totalArea')} min={0} />
+            <FormNumberField name="total_area_m2" control={control} label={t('pages.sites.totalArea')} helperText={t('pages.sites.totalAreaHelper')} min={0} />
+          </ExpertiseFieldWrapper>
+          {/* water config (intermediate+) */}
+          <ExpertiseFieldWrapper minLevel={fc.water_config.level}>
+            <WaterSourceSection value={waterConfig} onChange={setWaterConfig} />
           </ExpertiseFieldWrapper>
           {/* expert */}
           <ExpertiseFieldWrapper minLevel={fc.timezone.level}>

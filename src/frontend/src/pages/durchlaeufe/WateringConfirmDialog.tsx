@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -10,6 +10,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FormNumberField from '@/components/form/FormNumberField';
+import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -31,6 +32,10 @@ interface Props {
   taskKey: string;
   channelId?: string;
   onConfirmed: () => void;
+  /** Pre-calculated suggested volume in liters. */
+  suggestedVolumeLiters?: number;
+  /** Human-readable explanation of how the volume was calculated. */
+  volumeHint?: string;
 }
 
 export default function WateringConfirmDialog({
@@ -40,6 +45,8 @@ export default function WateringConfirmDialog({
   taskKey,
   channelId,
   onConfirmed,
+  suggestedVolumeLiters,
+  volumeHint,
 }: Props) {
   const { t } = useTranslation();
   const notification = useNotification();
@@ -52,9 +59,21 @@ export default function WateringConfirmDialog({
     defaultValues: {
       measured_ec: null,
       measured_ph: null,
-      volume_liters: null,
+      volume_liters: suggestedVolumeLiters ?? null,
     },
   });
+
+  // Reset form with suggested volume when dialog opens
+  useEffect(() => {
+    if (open) {
+      reset({
+        measured_ec: null,
+        measured_ph: null,
+        volume_liters: suggestedVolumeLiters ?? null,
+      });
+      setResult(null);
+    }
+  }, [open, suggestedVolumeLiters, reset]);
 
   const handleClose = () => {
     reset();
@@ -125,29 +144,33 @@ export default function WateringConfirmDialog({
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {t('pages.wateringSchedule.confirmDescription')}
             </Typography>
-            <FormNumberField
-              name="measured_ec"
-              control={control}
-              label={t('pages.wateringSchedule.measuredEc')}
-              min={0}
-              max={20}
-              helperText={t('common.optional')}
-            />
-            <FormNumberField
-              name="measured_ph"
-              control={control}
-              label={t('pages.wateringSchedule.measuredPh')}
-              min={0}
-              max={14}
-              helperText={t('common.optional')}
-            />
+            <FormRow>
+              <FormNumberField
+                name="measured_ec"
+                control={control}
+                label={t('pages.wateringSchedule.measuredEc')}
+                min={0}
+                max={20}
+                helperText={t('pages.wateringSchedule.measuredEcHelper')}
+                suffix="mS/cm"
+              />
+              <FormNumberField
+                name="measured_ph"
+                control={control}
+                label={t('pages.wateringSchedule.measuredPh')}
+                min={0}
+                max={14}
+                helperText={t('pages.wateringSchedule.measuredPhHelper')}
+              />
+            </FormRow>
             <FormNumberField
               name="volume_liters"
               control={control}
               label={t('pages.wateringSchedule.volumeLiters')}
               min={0}
               max={10000}
-              helperText={t('common.optional')}
+              helperText={volumeHint ?? t('common.optional')}
+              suffix="L"
             />
             <FormActions
               onCancel={handleClose}

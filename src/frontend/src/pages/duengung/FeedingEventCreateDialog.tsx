@@ -16,6 +16,7 @@ import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
+import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -133,51 +134,82 @@ export default function FeedingEventCreateDialog({
             control={control}
             label={t('pages.feedingEvents.volumeApplied')}
             min={0.01}
+            suffix="L"
+            inputMode="decimal"
+            helperText={t('pages.feedingEvents.volumeAppliedHelper')}
           />
-          <FormNumberField
-            name="measured_ec_before"
-            control={control}
-            label={t('pages.feedingEvents.ecBefore')}
-            min={0}
-          />
-          <FormNumberField
-            name="measured_ec_after"
-            control={control}
-            label={t('pages.feedingEvents.ecAfter')}
-            min={0}
-          />
-          <FormNumberField
-            name="measured_ph_before"
-            control={control}
-            label={t('pages.feedingEvents.phBefore')}
-            min={0}
-            max={14}
-          />
-          <FormNumberField
-            name="measured_ph_after"
-            control={control}
-            label={t('pages.feedingEvents.phAfter')}
-            min={0}
-            max={14}
-          />
-          <FormNumberField
-            name="runoff_ec"
-            control={control}
-            label={t('pages.feedingEvents.runoffEc')}
-            min={0}
-          />
-          <FormNumberField
-            name="runoff_ph"
-            control={control}
-            label={t('pages.feedingEvents.runoffPh')}
-            min={0}
-            max={14}
-          />
+
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.feedingEvents.sectionMeasurements')}
+          </Typography>
+          <FormRow>
+            <FormNumberField
+              name="measured_ec_before"
+              control={control}
+              label={t('pages.feedingEvents.ecBefore')}
+              min={0}
+              suffix="mS/cm"
+              inputMode="decimal"
+              helperText={t('pages.feedingEvents.ecHelper')}
+            />
+            <FormNumberField
+              name="measured_ec_after"
+              control={control}
+              label={t('pages.feedingEvents.ecAfter')}
+              min={0}
+              suffix="mS/cm"
+              inputMode="decimal"
+            />
+          </FormRow>
+          <FormRow>
+            <FormNumberField
+              name="measured_ph_before"
+              control={control}
+              label={t('pages.feedingEvents.phBefore')}
+              min={0}
+              max={14}
+              inputMode="decimal"
+              helperText={t('pages.feedingEvents.phHelper')}
+            />
+            <FormNumberField
+              name="measured_ph_after"
+              control={control}
+              label={t('pages.feedingEvents.phAfter')}
+              min={0}
+              max={14}
+              inputMode="decimal"
+            />
+          </FormRow>
+
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.feedingEvents.sectionRunoff')}
+          </Typography>
+          <FormRow>
+            <FormNumberField
+              name="runoff_ec"
+              control={control}
+              label={t('pages.feedingEvents.runoffEc')}
+              min={0}
+              suffix="mS/cm"
+              inputMode="decimal"
+              helperText={t('pages.feedingEvents.ecHelper')}
+            />
+            <FormNumberField
+              name="runoff_ph"
+              control={control}
+              label={t('pages.feedingEvents.runoffPh')}
+              min={0}
+              max={14}
+              inputMode="decimal"
+            />
+          </FormRow>
           <FormNumberField
             name="runoff_volume_liters"
             control={control}
             label={t('pages.feedingEvents.runoffVolume')}
             min={0}
+            suffix="L"
+            inputMode="decimal"
           />
 
           <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>

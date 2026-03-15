@@ -3,7 +3,7 @@ from app.common.exceptions import NotFoundError, ValidationError
 from app.common.types import MaintenanceScheduleKey, TankKey
 from app.domain.engines.tank_engine import TankEngine
 from app.domain.interfaces.tank_repository import ITankRepository
-from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankState
+from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState
 
 
 class TankService:
@@ -56,12 +56,18 @@ class TankService:
         allowed_fields = {
             "name", "tank_type", "volume_liters", "material",
             "has_lid", "has_air_pump", "has_circulation_pump",
-            "has_heater", "installed_on", "notes",
+            "has_heater", "is_light_proof", "has_uv_sterilizer",
+            "has_ozone_generator", "installed_on", "notes", "location_key",
         }
+        old_location = tank.location_key
         for field, value in data.items():
             if field in allowed_fields:
                 setattr(tank, field, value)
-        return self._repo.update(key, tank)
+        updated = self._repo.update(key, tank)
+        # Update location edge when location_key changed
+        if tank.location_key != old_location:
+            self._repo.update_location(key, old_location, tank.location_key)
+        return updated
 
     def delete_tank(self, key: TankKey) -> bool:
         self.get_tank(key)  # ensure exists
@@ -94,12 +100,13 @@ class TankService:
 
     # ── Alerts ─────────────────────────────────────────────────────────
 
-    def get_alerts(self, tank_key: TankKey) -> list[dict]:
+    def get_alerts(self, tank_key: TankKey, target_ec_ms: float | None = None) -> list[dict]:
         tank = self.get_tank(tank_key)
         state = self._repo.get_latest_state(tank_key)
         if state is None:
             return []
-        return self._engine.check_alerts(tank, state)
+        last_fill = self._repo.get_latest_full_change(tank_key)
+        return self._engine.check_alerts(tank, state, last_fill, target_ec_ms)
 
     # ── Maintenance logging ────────────────────────────────────────────
 
@@ -181,7 +188,84 @@ class TankService:
             raise NotFoundError("MaintenanceSchedule", key)
         return self._repo.delete_schedule(key)
 
+    # ── Fill Events ──────────────────────────────────────────────────────
+
+    def record_fill_event(
+        self,
+        tank_key: TankKey,
+        event: TankFillEvent,
+        nutrient_plan: dict | None = None,
+        site_water_config: dict | None = None,
+    ) -> dict:
+        """Record a fill event, auto-create TankState from measured values."""
+        tank = self.get_tank(tank_key)
+        event.tank_key = tank_key
+
+        # Resolve water defaults via cascade
+        event_data = event.model_dump(exclude_none=True)
+        resolved = self._engine.resolve_water_defaults(
+            event_data, nutrient_plan, site_water_config,
+        )
+        event.water_defaults_source = resolved.get("water_defaults_source")
+        for field in ("water_source", "water_mix_ratio_ro_percent", "base_water_ec_ms"):
+            if field in resolved and getattr(event, field) is None:
+                setattr(event, field, resolved[field])
+
+        # Engine validation (warnings only)
+        warnings = self._engine.validate_fill_event(tank, event)
+
+        # Persist fill event
+        created = self._repo.create_fill_event(event)
+
+        # Auto-create TankState from measured values
+        tank_state = None
+        if event.measured_ec_ms is not None or event.measured_ph is not None:
+            state = TankState(
+                tank_key=tank_key,
+                ph=event.measured_ph,
+                ec_ms=event.measured_ec_ms,
+                fill_level_liters=event.volume_liters if event.fill_type.value == "full_change" else None,
+                source="fill_event",
+            )
+            # Validate fill level
+            fill_liters, fill_percent = self._engine.validate_fill_level(
+                tank.volume_liters, state.fill_level_liters, state.fill_level_percent,
+            )
+            state.fill_level_liters = fill_liters
+            state.fill_level_percent = fill_percent
+            tank_state = self._repo.create_state(state)
+
+        return {
+            "fill_event": created,
+            "tank_state": tank_state,
+            "warnings": warnings,
+            "water_defaults_source": event.water_defaults_source,
+        }
+
+    def get_fill_history(
+        self, tank_key: TankKey, offset: int = 0, limit: int = 50,
+    ) -> list[TankFillEvent]:
+        self.get_tank(tank_key)
+        return self._repo.get_fill_events(tank_key, offset, limit)
+
+    def get_latest_fill(self, tank_key: TankKey) -> TankFillEvent | None:
+        self.get_tank(tank_key)
+        return self._repo.get_latest_fill_event(tank_key)
+
+    def get_fill_stats(
+        self, tank_key: TankKey, start_date: str | None = None, end_date: str | None = None,
+    ) -> dict:
+        self.get_tank(tank_key)
+        return self._repo.get_fill_event_stats(tank_key, start_date, end_date)
+
     # ── Relationships ──────────────────────────────────────────────────
+
+    # ── Active Nutrient Plans ─────────────────────────────────────────
+
+    def get_active_nutrient_plans(self, tank_key: TankKey) -> list[dict]:
+        """Resolve nutrient plans for active planting runs at this tank's location."""
+        self.get_tank(tank_key)
+        return self._repo.get_active_nutrient_plans(tank_key)
 
     def link_feeds_from(self, tank_key: TankKey, source_tank_key: TankKey) -> None:
         self.get_tank(tank_key)

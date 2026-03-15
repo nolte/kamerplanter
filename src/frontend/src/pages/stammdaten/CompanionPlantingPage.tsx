@@ -7,6 +7,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
+import CardHeader from '@mui/material/CardHeader';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
@@ -14,7 +15,11 @@ import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
+import AddIcon from '@mui/icons-material/Add';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
@@ -23,6 +28,7 @@ import { useApiError } from '@/hooks/useApiError';
 import * as companionApi from '@/api/endpoints/companionPlanting';
 import * as speciesApi from '@/api/endpoints/species';
 import type { Species, CompatibleSpecies, IncompatibleSpecies } from '@/api/types';
+import { kamiMasterdata } from '@/assets/brand/illustrations';
 
 export default function CompanionPlantingPage() {
   const { t } = useTranslation();
@@ -83,12 +89,18 @@ export default function CompanionPlantingPage() {
     <>
       <PageTitle title={t('pages.companionPlanting.title')} />
 
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        {t('pages.companionPlanting.intro')}
+      </Typography>
+
       <TextField
         select
         label={t('pages.companionPlanting.selectSpecies')}
         value={selectedKey}
         onChange={(e) => setSelectedKey(e.target.value)}
+        helperText={t('pages.companionPlanting.selectSpeciesHelper')}
         sx={{ minWidth: 300, mb: 3 }}
+        data-testid="species-select"
       >
         {speciesList.map((s) => (
           <MenuItem key={s.key} value={s.key}>{s.scientific_name}</MenuItem>
@@ -97,24 +109,60 @@ export default function CompanionPlantingPage() {
 
       {loading && <LoadingSkeleton variant="card" />}
 
+      {!selectedKey && !loading && (
+        <EmptyState
+          illustration={kamiMasterdata}
+          message={t('pages.companionPlanting.selectSpeciesHint')}
+        />
+      )}
+
       {selectedKey && !loading && (
         <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-          <Card sx={{ flex: 1, minWidth: 300 }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="h6">{t('pages.companionPlanting.compatible')}</Typography>
-                <Button size="small" onClick={() => setDialogType('compatible')}>
+          <Card sx={{ flex: 1, minWidth: 300 }} variant="outlined">
+            <CardHeader
+              title={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CheckCircleIcon fontSize="small" color="success" />
+                  <Typography variant="subtitle1">
+                    {t('pages.companionPlanting.compatible')}
+                  </Typography>
+                  {compatible.length > 0 && (
+                    <Chip label={compatible.length} size="small" color="success" variant="outlined" />
+                  )}
+                </Box>
+              }
+              action={
+                <Button
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => setDialogType('compatible')}
+                  data-testid="add-compatible-button"
+                >
                   {t('pages.companionPlanting.addCompatible')}
                 </Button>
-              </Box>
+              }
+              sx={{ pb: 0 }}
+            />
+            <CardContent>
               {compatible.length === 0 ? (
-                <EmptyState />
+                <EmptyState
+                  illustration={kamiMasterdata}
+                  message={t('pages.companionPlanting.noCompatible')}
+                />
               ) : (
-                <List dense>
+                <List dense disablePadding>
                   {compatible.map((c) => (
-                    <ListItem key={c.species_key}>
-                      <ListItemText primary={c.scientific_name ?? c.species_key} />
-                      <Chip label={`${c.score}`} size="small" color="success" />
+                    <ListItem key={c.species_key} divider>
+                      <ListItemText
+                        primary={c.scientific_name ?? c.species_key}
+                        primaryTypographyProps={{ variant: 'body2' }}
+                      />
+                      <Chip
+                        label={`${t('pages.companionPlanting.score')}: ${c.score}`}
+                        size="small"
+                        color="success"
+                        variant="outlined"
+                      />
                     </ListItem>
                   ))}
                 </List>
@@ -122,21 +170,47 @@ export default function CompanionPlantingPage() {
             </CardContent>
           </Card>
 
-          <Card sx={{ flex: 1, minWidth: 300 }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="h6">{t('pages.companionPlanting.incompatible')}</Typography>
-                <Button size="small" onClick={() => setDialogType('incompatible')}>
+          <Card sx={{ flex: 1, minWidth: 300 }} variant="outlined">
+            <CardHeader
+              title={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CancelIcon fontSize="small" color="error" />
+                  <Typography variant="subtitle1">
+                    {t('pages.companionPlanting.incompatible')}
+                  </Typography>
+                  {incompatible.length > 0 && (
+                    <Chip label={incompatible.length} size="small" color="error" variant="outlined" />
+                  )}
+                </Box>
+              }
+              action={
+                <Button
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => setDialogType('incompatible')}
+                  data-testid="add-incompatible-button"
+                >
                   {t('pages.companionPlanting.addIncompatible')}
                 </Button>
-              </Box>
+              }
+              sx={{ pb: 0 }}
+            />
+            <CardContent>
               {incompatible.length === 0 ? (
-                <EmptyState />
+                <EmptyState
+                  illustration={kamiMasterdata}
+                  message={t('pages.companionPlanting.noIncompatible')}
+                />
               ) : (
-                <List dense>
+                <List dense disablePadding>
                   {incompatible.map((c) => (
-                    <ListItem key={c.species_key}>
-                      <ListItemText primary={c.scientific_name ?? c.species_key} secondary={c.reason} />
+                    <ListItem key={c.species_key} divider>
+                      <ListItemText
+                        primary={c.scientific_name ?? c.species_key}
+                        secondary={c.reason || undefined}
+                        primaryTypographyProps={{ variant: 'body2' }}
+                        secondaryTypographyProps={{ variant: 'caption' }}
+                      />
                     </ListItem>
                   ))}
                 </List>
@@ -153,13 +227,20 @@ export default function CompanionPlantingPage() {
             : t('pages.companionPlanting.addIncompatible')}
         </DialogTitle>
         <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            {dialogType === 'compatible'
+              ? t('pages.companionPlanting.addCompatibleHint')
+              : t('pages.companionPlanting.addIncompatibleHint')}
+          </DialogContentText>
           <TextField
             select
             fullWidth
             label={t('pages.companionPlanting.selectSpecies')}
             value={targetKey}
             onChange={(e) => setTargetKey(e.target.value)}
+            helperText={t('pages.companionPlanting.targetSpeciesHelper')}
             sx={{ mt: 1, mb: 2 }}
+            data-testid="target-species-select"
           >
             {speciesList.filter((s) => s.key !== selectedKey).map((s) => (
               <MenuItem key={s.key} value={s.key}>{s.scientific_name}</MenuItem>
@@ -172,7 +253,9 @@ export default function CompanionPlantingPage() {
               value={score}
               onChange={(e) => setScore(Number(e.target.value))}
               fullWidth
+              helperText={t('pages.companionPlanting.scoreHelper')}
               inputProps={{ min: 0, max: 1, step: 0.1 }}
+              data-testid="score-input"
             />
           )}
           {dialogType === 'incompatible' && (
@@ -181,6 +264,10 @@ export default function CompanionPlantingPage() {
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               fullWidth
+              helperText={t('pages.companionPlanting.reasonHelper')}
+              multiline
+              rows={2}
+              data-testid="reason-input"
             />
           )}
         </DialogContent>

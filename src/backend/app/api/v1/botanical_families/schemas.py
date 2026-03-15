@@ -49,5 +49,6 @@ class FamilyResponse(BaseModel):
     common_diseases: list[str]
     pollination_type: list[PollinationType]
     rotation_category: str
+    species_count: int = 0
     created_at: datetime | None = None
     updated_at: datetime | None = None

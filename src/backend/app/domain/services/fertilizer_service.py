@@ -96,3 +96,9 @@ class FertilizerService:
 
     def remove_incompatibility(self, key_a: FertilizerKey, key_b: FertilizerKey) -> bool:
         return self._repo.remove_incompatibility(key_a, key_b)
+
+    # ── Reverse lookup ─────────────────────────────────────────────────
+
+    def get_nutrient_plan_usage(self, key: FertilizerKey) -> list[dict]:
+        self.get_fertilizer(key)  # ensure exists
+        return self._repo.get_nutrient_plan_usage(key)

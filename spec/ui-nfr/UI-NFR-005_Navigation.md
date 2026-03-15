@@ -6,9 +6,9 @@ Kategorie: UI-Verhalten Unterkategorie: Navigation, Routing, URL-Design
 Technologie: React, TypeScript, React Router, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.1
+Version: 1.3
 Autor: Business Analyst - Agrotech
-Datum: 2026-02-26
+Datum: 2026-02-28
 Tags: [navigation, routing, breadcrumb, deep-linking, browser-history, url-design]
 Abhängigkeiten: [UI-NFR-001, UI-NFR-002]
 Betroffene Module: [Frontend, Mobile]
@@ -68,10 +68,28 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-010 | Die Hauptnavigation MUSS auf allen Seiten persistent sichtbar sein (Desktop: Sidebar oder Top-Navigation, Mobile: Bottom-Navigation oder Hamburger-Menü). | MUSS |
+| R-010 | Die Hauptnavigation MUSS auf allen Seiten persistent sichtbar sein (Desktop: Sidebar, Mobile: Bottom-Navigation). | MUSS |
 | R-011 | Der aktuell aktive Menüpunkt MUSS visuell hervorgehoben sein (z.B. farbliche Markierung, fetter Text, Indikator-Leiste). | MUSS |
 | R-012 | Die Navigation MUSS maximal zwei Hierarchieebenen direkt zugänglich machen — tiefere Ebenen über Breadcrumbs oder Sub-Navigation. | MUSS |
 | R-013 | Die Navigationsstruktur MUSS konsistent bleiben — die Reihenfolge und Gruppierung der Menüpunkte DARF NICHT kontextabhängig wechseln. | MUSS |
+| R-013a | Alle Navigations-Links (Sidebar, Breadcrumbs, In-Content-Links) MÜSSEN als native `<a>`-Elemente gerendert werden (z.B. via react-router-dom `<Link>` bzw. MUI `component={Link}`), damit Standard-Browser-Interaktionen funktionieren: Ctrl+Klick / Cmd+Klick (neuer Tab), Mittelklick (neuer Tab), Rechtsklick → „Link in neuem Tab öffnen". `onClick` + `navigate()` ohne zugrunde liegendes `<a>`-Element ist NICHT zulässig. | MUSS |
+
+<!-- Quelle: Frontend-Design-Review K-001 (Massentauglichkeit 2026-02-28) -->
+### 2.3.1 Bottom-Navigation (Mobile)
+
+**Begründung:** Im Gewächshaus oder am Balkon ist die Daumen-Zone am unteren Bildschirmrand die einzige ergonomisch erreichbare Zone bei Einhand-Bedienung eines Smartphones. Der Hamburger-Toggle oben links ist die am schlechtesten erreichbare Zone — insbesondere mit nassen oder erdigen Händen. Eine Bottom-Navigation ersetzt das Hamburger-Menü auf Mobile vollständig und macht die wichtigsten Bereiche per Daumen-Tap erreichbar.
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-023 | Auf Viewports ≤ 768px MUSS eine fixierte Bottom-Navigation (`MuiBottomNavigation`) angezeigt werden. Die Desktop-Sidebar MUSS auf diesem Breakpoint ausgeblendet sein. | MUSS |
+| R-024 | Die Bottom-Navigation MUSS erfahrungsstufenabhängig sein (REQ-021): **Einsteiger** 4 Tabs, **Fortgeschritten** 4 Tabs + Overflow-Menü, **Experte** 5 Tabs. | MUSS |
+| R-025 | Einsteiger-Tabs (4): Start (Dashboard), Pflanzen (Instanzen-Liste), Aufgaben (Task-Queue), Einstellungen (Account). | MUSS |
+| R-026 | Experten-Tabs (5): Start, Pflanzen, Aufgaben, Düngung, Mehr (Overflow mit allen weiteren Bereichen). | MUSS |
+| R-027 | Touch-Targets in der Bottom-Navigation MÜSSEN mindestens 48×48px betragen, empfohlen 56×48px. | MUSS |
+| R-028 | Die Bottom-Navigation MUSS den aktuell aktiven Tab visuell hervorheben (Icon-Farbe + Label). | MUSS |
+| R-029 | Doppel-Tap auf den aktiven Tab SOLL zum Seitenanfang scrollen (Scroll-to-Top). | SOLL |
+| R-030 | Die Bottom-Navigation DARF NICHT bei Scroll-Down ausgeblendet werden — sie MUSS permanent fixiert bleiben (`position: fixed; bottom: 0`). | MUSS |
+| R-031 | Der Seiteninhalt MUSS ausreichend Bottom-Padding erhalten, damit der letzte Inhalt nicht von der Bottom-Navigation verdeckt wird (mindestens Höhe der Navigation + 8px). | MUSS |
 
 ### 2.4 Breadcrumb-Navigation
 
@@ -133,22 +151,39 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 └──────────────────────────────────────────────────┘
 ```
 
-### 3.2 Mobile-Navigation
+<!-- Quelle: Frontend-Design-Review K-001 (Massentauglichkeit 2026-02-28) -->
+### 3.2 Mobile-Navigation (Bottom-Navigation, R-023 bis R-031)
 
+**Einsteiger-Modus (4 Tabs):**
 ```
-┌──────────────────────┐
-│  ☰  Seitentitel      │  ← Hamburger-Menü
-├──────────────────────┤
-│                      │
-│  Dashboard > Detail  │  ← Breadcrumbs
-│                      │
-│  Inhalt              │
-│                      │
-│                      │
-├──────────────────────┤
-│  🏠   📋   📊   ⚙  │  ← Bottom Navigation
-│  ↑ aktiv             │
-└──────────────────────┘
+┌──────────────────────────────────────┐
+│  Kamerplanter          Seitentitel   │  ← AppBar (kein Hamburger)
+├──────────────────────────────────────┤
+│                                      │
+│  Dashboard > Detail                  │  ← Breadcrumbs
+│                                      │
+│  Inhalt                              │
+│                                      │
+│                                      │
+│                   padding-bottom: 64px│
+├──────────────────────────────────────┤
+│  🏠       🌱       ✅       ⚙      │  ← Bottom Navigation (fixiert)
+│  Start   Pflanzen  Aufgaben  Einst.  │
+│  ↑ aktiv                             │
+│       min. 48×48px Touch-Target      │
+└──────────────────────────────────────┘
+```
+
+**Experten-Modus (5 Tabs):**
+```
+┌──────────────────────────────────────┐
+│  Kamerplanter          Seitentitel   │
+├──────────────────────────────────────┤
+│  ...                                 │
+├──────────────────────────────────────┤
+│  🏠     🌱     ✅     🧪     ⋯    │
+│  Start Pflanzen Aufg. Düngung Mehr   │
+└──────────────────────────────────────┘
 ```
 
 ### 3.3 404-Fehlerseite
@@ -188,6 +223,15 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
     - [ ] Navigation ist auf allen Seiten sichtbar
     - [ ] Aktiver Menüpunkt ist hervorgehoben
     - [ ] Navigationsstruktur ist konsistent
+    - [ ] Alle Navigations-Links rendern native `<a>`-Elemente (Ctrl+Klick, Mittelklick, Rechtsklick → neuer Tab funktionieren)
+- [ ] **Bottom-Navigation (Mobile)**
+    - [ ] Bottom-Navigation ist auf Viewports ≤ 768px sichtbar und fixiert
+    - [ ] Desktop-Sidebar ist auf ≤ 768px ausgeblendet
+    - [ ] Einsteiger: 4 Tabs (Start, Pflanzen, Aufgaben, Einstellungen)
+    - [ ] Experte: 5 Tabs (Start, Pflanzen, Aufgaben, Düngung, Mehr)
+    - [ ] Touch-Targets ≥ 48×48px
+    - [ ] Aktiver Tab visuell hervorgehoben
+    - [ ] Seiteninhalt hat ausreichend Bottom-Padding
 - [ ] **Breadcrumbs**
     - [ ] Breadcrumbs sind auf **allen** Seiten vorhanden (inkl. Top-Level-Seiten)
     - [ ] Top-Level-Seiten zeigen einstufige Breadcrumb (nur Seitenname)
@@ -221,8 +265,8 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 
 **Dokumenten-Ende**
 
-**Version**: 1.1
+**Version**: 1.3
 **Status**: Entwurf
-**Letzte Aktualisierung**: 2026-02-26
+**Letzte Aktualisierung**: 2026-02-28
 **Review**: Pending
 **Genehmigung**: Pending

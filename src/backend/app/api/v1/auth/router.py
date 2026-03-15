@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Cookie, Depends, Query, Request, Response
 from fastapi.responses import RedirectResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.api.v1.auth.csrf import set_csrf_cookie, verify_csrf
 from app.api.v1.auth.schemas import (
@@ -18,10 +20,12 @@ from app.api.v1.auth.schemas import (
 )
 from app.common.auth import get_current_user, get_refresh_token_from_cookie
 from app.common.dependencies import get_auth_service, get_oidc_config_repo
+from app.config.settings import settings
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
 from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
 
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
@@ -50,7 +54,9 @@ def _clear_refresh_cookie(response: Response) -> None:
 
 
 @router.post("/register", response_model=UserProfileResponse, status_code=201)
+@limiter.limit(settings.rate_limit_auth)
 def register(
+    request: Request,
     body: RegisterRequest,
     service: AuthService = Depends(get_auth_service),
 ):
@@ -59,6 +65,7 @@ def register(
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit(settings.rate_limit_auth)
 def login(
     body: LoginRequest,
     request: Request,
@@ -136,7 +143,9 @@ def verify_email(
 
 
 @router.post("/password-reset/request", response_model=MessageResponse)
+@limiter.limit(settings.rate_limit_auth)
 def request_password_reset(
+    request: Request,
     body: PasswordResetRequest,
     service: AuthService = Depends(get_auth_service),
 ):
@@ -145,7 +154,9 @@ def request_password_reset(
 
 
 @router.post("/password-reset/confirm", response_model=MessageResponse)
+@limiter.limit(settings.rate_limit_auth)
 def confirm_password_reset(
+    request: Request,
     body: PasswordResetConfirm,
     service: AuthService = Depends(get_auth_service),
 ):

@@ -48,6 +48,7 @@ import PhaseEntryDialog from './PhaseEntryDialog';
 import DeliveryChannelChips from './DeliveryChannelChips';
 import DeliveryChannelAccordion from './DeliveryChannelAccordion';
 import PhaseGanttChart, { PHASE_COLORS } from './PhaseGanttChart';
+import PhaseDetailGantt from './PhaseDetailGantt';
 import {
   type FertilizerRemoveAllPayload,
 } from './FertilizerGanttChart';
@@ -60,6 +61,7 @@ import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useLocalFavorites } from '@/hooks/useLocalFavorites';
+import WateringLogCreateDialog from '@/pages/giessprotokoll/WateringLogCreateDialog';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 import * as fertApi from '@/api/endpoints/fertilizers';
 import type {
@@ -132,6 +134,8 @@ function PhaseTimelineTab({
   onAddChannelFertilizer,
   onEditChannelFertilizer,
   onRemoveChannelFertilizer,
+  onEntriesChange,
+  onLogWatering,
 }: {
   plan: NutrientPlan;
   entries: NutrientPlanPhaseEntry[];
@@ -147,6 +151,8 @@ function PhaseTimelineTab({
   onAddChannelFertilizer: (entryKey: string, channelId: string) => void;
   onEditChannelFertilizer: (entryKey: string, channelId: string, dosage: FertilizerDosage) => void;
   onRemoveChannelFertilizer: (entryKey: string, channelId: string, fertKey: string) => void;
+  onEntriesChange?: (updatedEntries: NutrientPlanPhaseEntry[]) => void;
+  onLogWatering?: (channel: DeliveryChannel) => void;
 }) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -397,6 +403,7 @@ function PhaseTimelineTab({
                     onAddFertilizer={(cid) => onAddChannelFertilizer(entry.key, cid)}
                     onEditFertilizer={(cid, dosage) => onEditChannelFertilizer(entry.key, cid, dosage)}
                     onRemoveFertilizer={(cid, fk) => onRemoveChannelFertilizer(entry.key, cid, fk)}
+                    onLogWatering={onLogWatering}
                   />
                 )}
               </ExpertiseFieldWrapper>
@@ -476,6 +483,34 @@ function PhaseTimelineTab({
                 title={t('pages.gantt.title')}
                 onEditEntry={onEditEntry}
               />
+              {(() => {
+                const vegEntries = sorted.filter((e) =>
+                  e.phase_name === 'vegetative' || e.phase_name === 'seedling' || e.phase_name === 'germination',
+                );
+                const flowerEntries = sorted.filter((e) =>
+                  e.phase_name === 'flowering' || e.phase_name === 'flushing' || e.phase_name === 'harvest',
+                );
+                return (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                    {vegEntries.length > 0 && (
+                      <PhaseDetailGantt
+                        entries={vegEntries}
+                        fertilizers={fertilizers}
+                        title={t('pages.gantt.vegetativeDetail')}
+                        onEntriesChange={onEntriesChange}
+                      />
+                    )}
+                    {flowerEntries.length > 0 && (
+                      <PhaseDetailGantt
+                        entries={flowerEntries}
+                        fertilizers={fertilizers}
+                        title={t('pages.gantt.floweringDetail')}
+                        onEntriesChange={onEntriesChange}
+                      />
+                    )}
+                  </Box>
+                );
+              })()}
             </>
           )}
 
@@ -570,6 +605,10 @@ export default function NutrientPlanDetailPage() {
   // Remove fertilizer from all entries/channels confirm
   const [removeFertAllOpen, setRemoveFertAllOpen] = useState(false);
   const [removeFertAllPayload, setRemoveFertAllPayload] = useState<FertilizerRemoveAllPayload | null>(null);
+
+  // Watering log dialog state
+  const [wateringLogOpen, setWateringLogOpen] = useState(false);
+  const [wateringLogChannel, setWateringLogChannel] = useState<import('@/pages/giessprotokoll/WateringLogCreateDialog').ChannelPreset | undefined>(undefined);
 
   // Expanded rows for fertilizer dosages
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
@@ -840,6 +879,32 @@ export default function NutrientPlanDetailPage() {
     }
   };
 
+  const handleEntriesChange = useCallback(
+    async (updatedEntries: NutrientPlanPhaseEntry[]) => {
+      if (!key) return;
+      try {
+        const promises = updatedEntries
+          .filter((updated) => {
+            const original = entries.find((e) => e.key === updated.key);
+            if (!original) return false;
+            return JSON.stringify(original.delivery_channels) !== JSON.stringify(updated.delivery_channels);
+          })
+          .map((e) =>
+            planApi.updatePhaseEntry(key, e.key, {
+              delivery_channels: e.delivery_channels,
+            }),
+          );
+        if (promises.length > 0) {
+          await Promise.all(promises);
+          load(true);
+        }
+      } catch (err) {
+        handleError(err);
+      }
+    },
+    [key, entries, load, handleError],
+  );
+
   const onAddChannelFertilizer = (entryKey: string, channelId: string) => {
     const entry = entries.find((e) => e.key === entryKey);
     const channel = entry?.delivery_channels.find((ch) => ch.channel_id === channelId);
@@ -974,6 +1039,30 @@ export default function NutrientPlanDetailPage() {
         onAddChannelFertilizer={onAddChannelFertilizer}
         onEditChannelFertilizer={onEditChannelFertilizer}
         onRemoveChannelFertilizer={onRemoveChannelFertilizer}
+        onEntriesChange={handleEntriesChange}
+        onLogWatering={(ch) => {
+          const volumeLiters = ch.method_params
+            ? ch.method_params.method === 'drench'
+              ? ch.method_params.volume_per_feeding_liters
+              : ch.method_params.method === 'foliar'
+                ? ch.method_params.volume_per_spray_liters
+                : null
+            : null;
+          setWateringLogChannel({
+            channelId: ch.channel_id,
+            channelLabel: ch.label || ch.channel_id,
+            nutrientPlanKey: plan!.key,
+            applicationMethod: ch.application_method as 'fertigation' | 'drench' | 'foliar' | 'top_dress',
+            targetEcMs: ch.target_ec_ms,
+            targetPh: ch.target_ph,
+            fertilizers: ch.fertilizer_dosages
+              .filter((d) => !d.optional)
+              .sort((a, b) => a.mixing_order - b.mixing_order)
+              .map((d) => ({ fertilizer_key: d.fertilizer_key, ml_per_liter: d.ml_per_liter })),
+            volumeLiters,
+          });
+          setWateringLogOpen(true);
+        }}
       />}
 
       {/* Tab 1: Validation */}
@@ -1433,6 +1522,21 @@ export default function NutrientPlanDetailPage() {
         fertilizers={fertilizers}
         existingFertilizerKeys={fertDialogExistingKeys}
         existingDosage={editingFertDosage}
+      />
+
+      <WateringLogCreateDialog
+        open={wateringLogOpen}
+        onClose={() => {
+          setWateringLogOpen(false);
+          setWateringLogChannel(undefined);
+        }}
+        onCreated={() => {
+          setWateringLogOpen(false);
+          setWateringLogChannel(undefined);
+          notification.success(t('pages.wateringLogs.logged'));
+        }}
+        channelPreset={wateringLogChannel}
+        availableFertilizers={fertilizers}
       />
     </Box>
   );

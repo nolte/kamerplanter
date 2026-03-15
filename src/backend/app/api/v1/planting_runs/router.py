@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.v1.planting_runs.schemas import (
     BatchCreatePlantsResponse,
@@ -6,6 +6,8 @@ from app.api.v1.planting_runs.schemas import (
     BatchRemoveResponse,
     BatchTransitionRequest,
     BatchTransitionResponse,
+    BatchUpdatePhaseDatesRequest,
+    BatchUpdatePhaseDatesResponse,
     DetachPlantRequest,
     EntryCreate,
     EntryResponse,
@@ -20,9 +22,12 @@ from app.api.v1.planting_runs.schemas import (
     SpeciesPhaseTimeline,
     WateringScheduleCalendarResponse,
 )
-from app.common.dependencies import get_planting_run_service
+from app.api.v1.plant_instances.schemas import ActiveChannelResponse
+from app.common.dependencies import get_nutrient_plan_service, get_planting_run_service, get_species_repo
 from app.common.enums import PlantingRunStatus
+from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
+from app.domain.services.nutrient_plan_service import NutrientPlanService
 from app.domain.services.planting_run_service import PlantingRunService
 
 router = APIRouter(prefix="/planting-runs", tags=["planting-runs"])
@@ -45,6 +50,7 @@ def list_runs(
     limit: int = Query(50, ge=1, le=200),
     status: str | None = None,
     run_type: str | None = None,
+    location_key: str | None = None,
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     filters: dict[str, str] = {}
@@ -52,6 +58,8 @@ def list_runs(
         filters["status"] = status
     if run_type:
         filters["run_type"] = run_type
+    if location_key:
+        filters["location_key"] = location_key
     items, _total = service.list_runs(offset, limit, filters or None)
     active_keys = [r.key for r in items if r.key and r.status != PlantingRunStatus.PLANNED]
     summaries = service.get_batch_phase_summaries(active_keys) if active_keys else {}
@@ -152,8 +160,17 @@ def batch_create_plants(
 
 
 @router.get("/{key}/phase-timeline", response_model=list[SpeciesPhaseTimeline])
-def get_phase_timeline(key: str, service: PlantingRunService = Depends(get_planting_run_service)):
-    return service.get_phase_timeline(key)
+def get_phase_timeline(
+    key: str,
+    service: PlantingRunService = Depends(get_planting_run_service),
+    species_repo: ISpeciesRepository = Depends(get_species_repo),
+):
+    timelines = service.get_phase_timeline(key)
+    for tl in timelines:
+        sp = species_repo.get_by_key(tl["species_key"])
+        if sp:
+            tl["species_name"] = sp.scientific_name
+    return timelines
 
 
 @router.post("/{key}/batch-transition", response_model=BatchTransitionResponse)
@@ -167,13 +184,28 @@ def batch_transition(
     return BatchTransitionResponse(**result)
 
 
+@router.patch("/{key}/batch-update-phase-dates", response_model=BatchUpdatePhaseDatesResponse)
+def batch_update_phase_dates(
+    key: str,
+    body: BatchUpdatePhaseDatesRequest,
+    service: PlantingRunService = Depends(get_planting_run_service),
+):
+    if body.entered_at is None and body.exited_at is None:
+        raise HTTPException(status_code=422, detail="At least one of entered_at or exited_at must be provided")
+    try:
+        result = service.batch_update_phase_dates(key, body.phase_key, body.entered_at, body.exited_at)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    return BatchUpdatePhaseDatesResponse(**result)
+
+
 @router.post("/{key}/batch-remove", response_model=BatchRemoveResponse)
 def batch_remove(
     key: str,
     body: BatchRemoveRequest,
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
-    result = service.batch_remove(key, body.reason)
+    result = service.batch_remove(key, body.reason, body.target_status)
     return BatchRemoveResponse(**result)
 
 
@@ -242,6 +274,48 @@ def remove_nutrient_plan(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     service.remove_nutrient_plan(key)
+
+
+@router.get("/{key}/active-channels", response_model=list[ActiveChannelResponse])
+def get_active_channels(
+    key: str,
+    current_week: int | None = Query(default=None, ge=1),
+    service: PlantingRunService = Depends(get_planting_run_service),
+    plan_service: NutrientPlanService = Depends(get_nutrient_plan_service),
+):
+    """Return active delivery channels for a planting run's dominant phase.
+
+    If current_week is omitted, it is calculated from the run's start date.
+    """
+    run = service.get_run(key)
+    plan_key = service._repo.get_run_nutrient_plan_key(key)
+    if plan_key is None:
+        return []
+
+    # Determine dominant phase from phase summary
+    summary = service.get_phase_summary(key)
+    dominant_phase = summary.get("dominant_phase")
+    if not dominant_phase:
+        return []
+
+    # Calculate current_week from run start if not provided
+    if current_week is None:
+        from datetime import date, datetime, timezone
+        started = run.started_at
+        if started is None:
+            current_week = 1
+        else:
+            if isinstance(started, datetime):
+                started_date = started.date() if started.tzinfo else started.replace(tzinfo=timezone.utc).date()
+            else:
+                started_date = started
+            delta_days = (date.today() - started_date).days
+            current_week = max(1, delta_days // 7 + 1)
+
+    channels = plan_service.get_active_channels_for_plan(
+        plan_key, dominant_phase, current_week,
+    )
+    return channels
 
 
 @router.get("/{key}/watering-schedule", response_model=WateringScheduleCalendarResponse)

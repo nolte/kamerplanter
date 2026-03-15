@@ -1,0 +1,126 @@
+compatible:
+  - [Solanum lycopersicum, Ocimum basilicum, 0.9]
+  - [Solanum lycopersicum, Daucus carota, 0.75]
+  - [Solanum lycopersicum, Tagetes erecta, 0.8]
+  - [Capsicum annuum, Ocimum basilicum, 0.85]
+  - [Cucumis sativus, Anethum graveolens, 0.8]
+  - [Cucumis sativus, Phaseolus vulgaris, 0.75]
+  - [Lactuca sativa, Raphanus sativus, 0.8]
+  - [Zea mays, Phaseolus vulgaris, 0.9]
+  - [Zea mays, Cucurbita pepo, 0.85]
+  - [Phaseolus vulgaris, Cucurbita pepo, 0.8]
+  - [Cannabis sativa, Ocimum basilicum, 0.8]
+  - [Cannabis sativa, Lavandula angustifolia, 0.75]
+  - [Mentha piperita, Brassica oleracea var. capitata, 0.7]
+  - [Thymus vulgaris, Brassica oleracea var. capitata, 0.7]
+  - [Daucus carota, Pisum sativum, 0.8]
+
+incompatible:
+  - species_a: Foeniculum vulgare
+    species_b: Solanum lycopersicum
+    reason: "Strong allelopathy — fennel inhibits nightshades"
+  - species_a: Foeniculum vulgare
+    species_b: Phaseolus vulgaris
+    reason: "Allelopathy — fennel inhibits legumes"
+  - species_a: Solanum lycopersicum
+    species_b: Brassica oleracea var. capitata
+    reason: "Nutrient competition — both heavy feeders"
+  - species_a: Cannabis sativa
+    species_b: Cucumis sativus
+    reason: "Shared pests (spider mites)"
+  - species_a: Solanum lycopersicum
+    species_b: Solanum tuberosum
+    reason: "Same family, shared diseases (Phytophthora)"
+
+family_pest_risk:
+  - family_a: Solanaceae
+    family_b: Cucurbitaceae
+    shared_pests: ["Blattläuse", "Weiße Fliege"]
+    shared_diseases: []
+    risk_level: medium
+  - family_a: Solanaceae
+    family_b: Solanaceae
+    shared_pests: ["Kartoffelkäfer", "Blattläuse"]
+    shared_diseases: ["Kraut- und Braunfäule", Fusarium]
+    risk_level: high
+  - family_a: Brassicaceae
+    family_b: Brassicaceae
+    shared_pests: ["Kohlweißling", "Erdflöhe"]
+    shared_diseases: [Kohlhernie, Mehltau]
+    risk_level: high
+  - family_a: Cucurbitaceae
+    family_b: Cucurbitaceae
+    shared_pests: [Spinnmilben, "Blattläuse"]
+    shared_diseases: [Mehltau, Falscher Mehltau]
+    risk_level: high
+  - family_a: Brassicaceae
+    family_b: Apiaceae
+    shared_pests: ["Blattläuse"]
+    shared_diseases: [Mehltau]
+    risk_level: low
+  - family_a: Cannabaceae
+    family_b: Cannabaceae
+    shared_pests: [Spinnmilben, Thripse, "Trauermücken"]
+    shared_diseases: [Botrytis, Mehltau, Fusarium]
+    risk_level: high
+  - family_a: Cannabaceae
+    family_b: Cucurbitaceae
+    shared_pests: [Spinnmilben, "Blattläuse"]
+    shared_diseases: [Mehltau]
+    risk_level: medium
+
+family_compatible:
+  - family_a: Fabaceae
+    family_b: Solanaceae
+    benefit_type: nitrogen_fixation
+    score: 0.85
+    notes: "N-Fixierung verbessert Starkzehrer-Versorgung"
+  - family_a: Fabaceae
+    family_b: Brassicaceae
+    benefit_type: nitrogen_fixation
+    score: 0.80
+    notes: "N-Fixierung nach Starkzehrer"
+  - family_a: Fabaceae
+    family_b: Cannabaceae
+    benefit_type: nitrogen_fixation
+    score: 0.85
+    notes: "N-Fixierung verbessert Starkzehrer-Versorgung"
+  - family_a: Lamiaceae
+    family_b: Solanaceae
+    benefit_type: pest_deterrent
+    score: 0.75
+    notes: "Ätherische Öle wirken abschreckend"
+  - family_a: Lamiaceae
+    family_b: Brassicaceae
+    benefit_type: pest_deterrent
+    score: 0.70
+    notes: "Basilikum/Minze gegen Kohlweißling"
+  - family_a: Lamiaceae
+    family_b: Cannabaceae
+    benefit_type: pest_deterrent
+    score: 0.70
+    notes: "Ätherische Öle gegen Spinnmilben und Thripse"
+  - family_a: Asteraceae
+    family_b: Cucurbitaceae
+    benefit_type: pollinator_attraction
+    score: 0.65
+    notes: "Blüten locken Bestäuber an"
+  - family_a: Apiaceae
+    family_b: Asteraceae
+    benefit_type: pollinator_attraction
+    score: 0.60
+    notes: "Komplementäre Blütenbesucher"
+
+family_incompatible:
+  - family_a: Solanaceae
+    family_b: Solanaceae
+    reason: "Selbstinkompatibilität: gemeinsame Krankheiten und Schädlinge"
+    severity: severe
+  - family_a: Brassicaceae
+    family_b: Brassicaceae
+    reason: "Kohlhernie-Risiko bei wiederholtem Anbau"
+    severity: severe
+  - family_a: Cucurbitaceae
+    family_b: Cucurbitaceae
+    reason: "Fusarium-Akkumulation im Boden"
+    severity: moderate

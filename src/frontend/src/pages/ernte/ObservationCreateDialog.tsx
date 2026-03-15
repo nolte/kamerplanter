@@ -116,10 +116,11 @@ export default function ObservationCreateDialog({
             control={control}
             label={t('pages.harvest.indicator')}
             required
+            autoFocus
             disabled={loadingIndicators}
             options={indicators.map((i) => ({
               value: i.key,
-              label: `${t(`enums.harvestIndicatorType.${i.indicator_type}`)} (${i.measurement_unit || '-'})`,
+              label: `${t(`enums.harvestIndicatorType.${i.indicator_type}`)} (${i.measurement_unit || '\u2014'})`,
             }))}
           />
           <FormTextField
@@ -141,7 +142,9 @@ export default function ObservationCreateDialog({
             control={control}
             label={t('pages.harvest.daysToHarvestEstimate')}
             min={0}
-            step={1}
+            inputMode="numeric"
+            suffix={t('pages.harvest.days')}
+            helperText={t('pages.harvest.daysToHarvestHelper')}
           />
           <FormTextField
             name="notes"

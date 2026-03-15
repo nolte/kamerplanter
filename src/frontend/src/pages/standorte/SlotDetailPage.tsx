@@ -14,6 +14,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
+import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -99,9 +100,11 @@ export default function SlotDetailPage() {
         </Button>
       </Box>
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 600 }}>
-        <FormTextField name="slot_id" control={control} label={t('pages.slots.slotId')} helperText={t('pages.slots.slotIdHelper')} required />
-        <FormNumberField name="capacity_plants" control={control} label={t('pages.slots.capacity')} min={1} max={20} />
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
+        <FormRow>
+          <FormTextField name="slot_id" control={control} label={t('pages.slots.slotId')} helperText={t('pages.slots.slotIdHelper')} required />
+          <FormNumberField name="capacity_plants" control={control} label={t('pages.slots.capacity')} helperText={t('pages.slots.capacityHelper')} min={1} max={20} />
+        </FormRow>
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
       </Box>
 

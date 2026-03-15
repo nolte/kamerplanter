@@ -47,7 +47,7 @@ class ArangoLifecycleRepository(IPhaseRepository, BaseArangoRepository):
     def get_phases_by_lifecycle(self, lifecycle_key: str) -> list[GrowthPhase]:
         lifecycle_id = f"{col.LIFECYCLE_CONFIGS}/{lifecycle_key}"
         results = self.get_edges(col.CONSISTS_OF, lifecycle_id, direction="outbound")
-        phases = [GrowthPhase(**self._from_doc(r["vertex"])) for r in results]
+        phases = [GrowthPhase(**self._from_doc(r["vertex"])) for r in results if r["vertex"] is not None]
         return sorted(phases, key=lambda p: p.sequence_order)
 
     def get_phase_by_key(self, key: PhaseKey) -> GrowthPhase | None:
@@ -72,7 +72,10 @@ class ArangoLifecycleRepository(IPhaseRepository, BaseArangoRepository):
 
     def delete_phase(self, key: PhaseKey) -> bool:
         phase_id = f"{col.GROWTH_PHASES}/{key}"
-        self.delete_edges(col.CONSISTS_OF, from_id=f"{col.LIFECYCLE_CONFIGS}/%", to_id=phase_id)
+        self._db.aql.execute(
+            f"FOR e IN {col.CONSISTS_OF} FILTER e._to == @to REMOVE e IN {col.CONSISTS_OF}",
+            bind_vars={"to": phase_id},
+        )
         self.delete_edges(col.NEXT_PHASE, from_id=phase_id)
         self.delete_edges(col.REQUIRES_PROFILE, from_id=phase_id)
         self.delete_edges(col.USES_NUTRIENTS, from_id=phase_id)
@@ -172,3 +175,9 @@ class ArangoLifecycleRepository(IPhaseRepository, BaseArangoRepository):
         repo = BaseArangoRepository(self._db, col.PHASE_HISTORIES)
         doc = repo.update(key, history)
         return PhaseHistory(**doc)
+
+    def delete_phase_history(self, key: str) -> bool:
+        history_id = f"{col.PHASE_HISTORIES}/{key}"
+        self.delete_edges(col.PHASE_HISTORY_EDGE, to_id=history_id)
+        repo = BaseArangoRepository(self._db, col.PHASE_HISTORIES)
+        return repo.delete(key)

@@ -63,6 +63,14 @@ class Settings(BaseSettings):
     smtp_from_email: str = "noreply@kamerplanter.example"
     smtp_use_tls: bool = True
 
+    # File uploads
+    upload_dir: str = "uploads/tasks"
+
+    # Home Assistant (optional — for sensor live-query)
+    ha_url: str = ""  # e.g. "http://homeassistant.local:8123"
+    ha_access_token: str = ""  # Long-Lived Access Token
+    ha_timeout: int = 10  # HTTP timeout in seconds
+
     # Rate limiting
     rate_limit_auth: str = "20/minute"
     rate_limit_general: str = "100/minute"

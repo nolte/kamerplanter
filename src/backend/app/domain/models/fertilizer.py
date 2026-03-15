@@ -23,6 +23,8 @@ class Fertilizer(BaseModel):
     recommended_application: ApplicationMethod = ApplicationMethod.ANY
     npk_ratio: tuple[float, float, float] = (0.0, 0.0, 0.0)
     ec_contribution_per_ml: float = Field(default=0.0, ge=0)
+    ec_contribution_uncertain: bool = False
+    max_dose_ml_per_liter: float | None = Field(default=None, ge=0.1)
     mixing_priority: int = Field(default=50, ge=1, le=100)
     ph_effect: PhEffect = PhEffect.NEUTRAL
     bioavailability: Bioavailability = Bioavailability.IMMEDIATE

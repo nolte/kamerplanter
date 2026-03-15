@@ -34,6 +34,7 @@ class TestGetEvents:
             iter([]),  # phase_histories
             iter([]),  # maintenance_logs
             iter([]),  # watering_events
+            iter([]),  # watering_forecast
         ]
 
         query = CalendarEventsQuery(
@@ -50,18 +51,53 @@ class TestGetEvents:
         assert events[0].source == CalendarEventSource.TASK
 
     def test_returns_phase_transition_events(self, engine, mock_db):
-        phase_doc = {
-            "_key": "ph1",
-            "to_phase": "flowering",
-            "notes": "Switched",
-            "transitioned_at": "2026-03-10T08:00:00+00:00",
+        plant_doc = {
             "plant_key": "p2",
+            "instance_id": "monstera-1",
+            "plant_name": "My Monstera",
+            "species_key": "sp1",
+            "current_phase": "flowering",
+            "run_key": None,
+            "run_name": None,
+            "growth_phases": [
+                {
+                    "_key": "gp1",
+                    "_id": "growth_phases/gp1",
+                    "name": "vegetative",
+                    "sequence_order": 1,
+                    "typical_duration_days": 30,
+                },
+                {
+                    "_key": "gp2",
+                    "_id": "growth_phases/gp2",
+                    "name": "flowering",
+                    "sequence_order": 2,
+                    "typical_duration_days": 60,
+                },
+            ],
+            "phase_histories": [
+                {
+                    "_key": "ph0",
+                    "phase_name": "vegetative",
+                    "entered_at": "2026-02-01T00:00:00+00:00",
+                    "exited_at": "2026-03-01T00:00:00+00:00",
+                    "plant_instance_key": "p2",
+                },
+                {
+                    "_key": "ph1",
+                    "phase_name": "flowering",
+                    "entered_at": "2026-03-01T00:00:00+00:00",
+                    "exited_at": None,
+                    "plant_instance_key": "p2",
+                },
+            ],
         }
         mock_db.aql.execute.side_effect = [
             iter([]),  # tasks
-            iter([phase_doc]),
-            iter([]),
-            iter([]),
+            iter([plant_doc]),  # phase_transitions (complex join)
+            iter([]),  # maintenance_logs
+            iter([]),  # watering_events
+            iter([]),  # watering_forecast
         ]
 
         query = CalendarEventsQuery(
@@ -71,9 +107,9 @@ class TestGetEvents:
         )
         events = engine.get_events(query)
 
-        assert len(events) == 1
-        assert events[0].category == CalendarEventCategory.PHASE_TRANSITION
-        assert events[0].source == CalendarEventSource.PHASE_TRANSITION
+        phase_events = [e for e in events if e.category == CalendarEventCategory.PHASE_TRANSITION]
+        assert len(phase_events) >= 1
+        assert phase_events[0].source == CalendarEventSource.PHASE_TRANSITION
 
     def test_returns_maintenance_events(self, engine, mock_db):
         maint_doc = {
@@ -87,6 +123,7 @@ class TestGetEvents:
             iter([]),
             iter([maint_doc]),
             iter([]),
+            iter([]),  # watering_forecast
         ]
 
         query = CalendarEventsQuery(
@@ -110,6 +147,7 @@ class TestGetEvents:
             iter([]),
             iter([]),
             iter([water_doc]),
+            iter([]),  # watering_forecast
         ]
 
         query = CalendarEventsQuery(
@@ -143,6 +181,7 @@ class TestGetEvents:
             iter([]),
             iter([]),
             iter([]),
+            iter([]),  # watering_forecast
         ]
 
         query = CalendarEventsQuery(
@@ -162,6 +201,7 @@ class TestGetEvents:
             iter([]),
             iter([]),
             iter([]),
+            iter([]),  # watering_forecast
         ]
 
         query = CalendarEventsQuery(
@@ -192,6 +232,7 @@ class TestGetEvents:
             iter([]),
             iter([]),
             iter([]),
+            iter([]),  # watering_forecast
         ]
 
         query = CalendarEventsQuery(

@@ -1,0 +1,1236 @@
+# Adventskalender 2025 (Historische Sorten) — Seed Data
+# Sources: spec/ref/plant-info/*.md (18 plant-info documents)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §1 New Botanical Families (2)
+# ══════════════════════════════════════════════════════════════════════════════
+
+new_families:
+  - name: Amaryllidaceae
+    common_name_de: "Amaryllisgewächse"
+    common_name_en: "Amaryllis family"
+    order: Asparagales
+    typical_nutrient_demand: medium
+    frost_tolerance: hardy
+    typical_root_depth: medium
+    typical_growth_forms: [herb]
+    common_pests: [leek_moth, allium_leafminer, onion_thrips]
+    common_diseases: ["Porreerost", "Falscher Mehltau", "Zwiebelfäule"]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
+    description: >-
+      Amaryllisgewächse mit vielen Zierblumen und Nutzpflanzen.
+      Umfasst alle Allium-Arten (Lauch, Schnittlauch, Zwiebel, Knoblauch).
+      Schwefelhaltige Aromastoffe (Allicin). Giftig für Katzen und Hunde.
+    rotation_category: allium
+
+  - name: Amaranthaceae
+    common_name_de: "Fuchsschwanzgewächse"
+    common_name_en: "Amaranth family"
+    order: Caryophyllales
+    typical_nutrient_demand: medium
+    frost_tolerance: moderate
+    typical_root_depth: medium
+    typical_growth_forms: [herb]
+    common_pests: [aphids, flea_beetle, beet_fly]
+    common_diseases: ["Cercospora", "Ramularia", "Falscher Mehltau"]
+    pollination_type: [wind]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
+    description: >-
+      Fuchsschwanzgewächse (ehem. Chenopodiaceae). Enthält Rote Bete, Mangold,
+      Spinat und Amaranth. Windbestäubt, oft hoher Oxalsäuregehalt in Blättern.
+    rotation_category: root
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §2 New Species (4)
+# ══════════════════════════════════════════════════════════════════════════════
+
+new_species_family_map:
+  "Allium porrum": Amaryllidaceae
+  "Allium schoenoprasum": Amaryllidaceae
+  "Beta vulgaris subsp. vulgaris": Amaranthaceae
+  "Brassica oleracea var. gemmifera": Brassicaceae
+
+new_species:
+  - scientific_name: "Allium porrum"
+    common_names: ["Porree", "Lauch", "Winterlauch", "Leek", "Garden Leek"]
+    genus: Allium
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: ["5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b"]
+    native_habitat: "Mittelmeerraum, Vorderasien"
+    allelopathy_score: 0.2
+    base_temp: 5.0
+    frost_sensitivity: hardy
+    allows_harvest: true
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    growing_periods:
+      - label: Sommerporree
+        direct_sow_months: [2, 3]
+        harvest_months: [8, 9, 10, 11]
+      - label: Winterporree
+        direct_sow_months: [5, 6]
+        harvest_months: [12, 1, 2, 3]
+    bloom_months: [6, 7]
+    container_suitable: limited
+    recommended_container_volume_l: "10-15"
+    min_container_depth_cm: 30
+    mature_height_cm: "40-80"
+    mature_width_cm: "5-10"
+    spacing_cm: "15-20"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Allium schoenoprasum"
+    common_names: ["Schnittlauch", "Feinröhriger Schnittlauch", "Chives", "Ciboulette"]
+    genus: Allium
+    growth_habit: herb
+    root_type: bulbous
+    hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b"]
+    native_habitat: "Europa, Asien, Nordamerika"
+    allelopathy_score: 0.2
+    base_temp: 5.0
+    frost_sensitivity: very_hardy
+    allows_harvest: true
+    sowing_indoor_weeks_before_last_frost: 8
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [3, 4, 5, 6, 7]
+    harvest_months: [3, 4, 5, 6, 7, 8, 9, 10]
+    bloom_months: [5, 6, 7]
+    bloom_from_year: 2
+    container_suitable: "yes"
+    recommended_container_volume_l: "3-5"
+    min_container_depth_cm: 15
+    mature_height_cm: "20-40"
+    mature_width_cm: "20-30"
+    spacing_cm: "20-25"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Beta vulgaris subsp. vulgaris"
+    common_names: ["Rote Bete", "Rote Rübe", "Rote Beete", "Rahne", "Beetroot", "Red Beet", "Table Beet"]
+    genus: Beta
+    growth_habit: herb
+    root_type: taproot
+    hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b", "10a", "10b"]
+    native_habitat: "Mittelmeerraum, Westasien"
+    allelopathy_score: 0.0
+    base_temp: 5.0
+    frost_sensitivity: moderate
+    allows_harvest: true
+    sowing_indoor_weeks_before_last_frost: 4
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [4, 5, 6, 7]
+    harvest_months: [7, 8, 9, 10, 11]
+    bloom_months: [6, 7]
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-10"
+    min_container_depth_cm: 25
+    mature_height_cm: "30-40"
+    mature_width_cm: "15-25"
+    spacing_cm: "10-15"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Brassica oleracea var. gemmifera"
+    common_names: ["Rosenkohl", "Kohlsprossen", "Brüsseler Kohl", "Brussels Sprouts", "Sprouts"]
+    genus: Brassica
+    growth_habit: herb
+    root_type: taproot
+    hardiness_zones: ["2a", "2b", "3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b"]
+    native_habitat: "Nordwesteuropa (Belgien)"
+    allelopathy_score: 0.0
+    base_temp: 5.0
+    frost_sensitivity: very_hardy
+    allows_harvest: true
+    sowing_indoor_weeks_before_last_frost: 6
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [4, 5]
+    harvest_months: [10, 11, 12, 1, 2, 3]
+    bloom_months: []
+    container_suitable: limited
+    recommended_container_volume_l: "20-30"
+    min_container_depth_cm: 30
+    mature_height_cm: "60-100"
+    mature_width_cm: "50-60"
+    spacing_cm: "50-70"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: true
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §3 Species Enrichment (14 existing species — fill None/empty fields)
+# ══════════════════════════════════════════════════════════════════════════════
+
+species_enrichment:
+  "Capsicum annuum":
+    container_suitable: "yes"
+    recommended_container_volume_l: "10-20"
+    min_container_depth_cm: 25
+    mature_height_cm: "40-80"
+    mature_width_cm: "30-60"
+    spacing_cm: "40-50"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: true
+    support_required: true
+
+  "Daucus carota":
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-10"
+    min_container_depth_cm: 25
+    mature_height_cm: "20-30"
+    mature_width_cm: "15-20"
+    spacing_cm: "5-8"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+
+  "Anethum graveolens":
+    container_suitable: limited
+    recommended_container_volume_l: "5-10"
+    min_container_depth_cm: 25
+    mature_height_cm: "60-120"
+    mature_width_cm: "20-30"
+    spacing_cm: "20-25"
+    indoor_suitable: limited
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+
+  "Cucumis sativus":
+    container_suitable: "yes"
+    recommended_container_volume_l: "15-25"
+    min_container_depth_cm: 30
+    mature_height_cm: "150-300"
+    mature_width_cm: "60-80"
+    spacing_cm: "40-60"
+    indoor_suitable: limited
+    balcony_suitable: limited
+    greenhouse_recommended: true
+    support_required: true
+
+  "Phaseolus vulgaris":
+    container_suitable: "yes"
+    recommended_container_volume_l: "10-15"
+    min_container_depth_cm: 25
+    mature_height_cm: "30-300"
+    mature_width_cm: "20-30"
+    spacing_cm: "25-40"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: true
+
+  "Pisum sativum":
+    container_suitable: "yes"
+    recommended_container_volume_l: "10-15"
+    min_container_depth_cm: 25
+    mature_height_cm: "40-200"
+    mature_width_cm: "20-30"
+    spacing_cm: "5-10"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: true
+
+  "Petroselinum crispum":
+    container_suitable: "yes"
+    recommended_container_volume_l: "3-5"
+    min_container_depth_cm: 20
+    mature_height_cm: "25-40"
+    mature_width_cm: "20-30"
+    spacing_cm: "15-20"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+
+  "Lactuca sativa":
+    container_suitable: "yes"
+    recommended_container_volume_l: "3-5"
+    min_container_depth_cm: 15
+    mature_height_cm: "15-30"
+    mature_width_cm: "20-30"
+    spacing_cm: "25-30"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: true
+    support_required: false
+
+  "Cichorium intybus":
+    container_suitable: limited
+    recommended_container_volume_l: "10-15"
+    min_container_depth_cm: 25
+    mature_height_cm: "30-100"
+    mature_width_cm: "30-40"
+    spacing_cm: "25-30"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+
+  "Cucurbita pepo":
+    container_suitable: limited
+    recommended_container_volume_l: "30-50"
+    min_container_depth_cm: 30
+    mature_height_cm: "50-100"
+    mature_width_cm: "100-200"
+    spacing_cm: "80-120"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+
+  "Apium graveolens":
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-10"
+    min_container_depth_cm: 25
+    mature_height_cm: "30-50"
+    mature_width_cm: "20-30"
+    spacing_cm: "25-30"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: true
+    support_required: false
+
+  "Solanum lycopersicum":
+    container_suitable: "yes"
+    recommended_container_volume_l: "15-25"
+    min_container_depth_cm: 30
+    mature_height_cm: "100-200"
+    mature_width_cm: "40-60"
+    spacing_cm: "50-70"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: true
+    support_required: true
+
+  "Ocimum basilicum":
+    container_suitable: "yes"
+    recommended_container_volume_l: "3-5"
+    min_container_depth_cm: 15
+    mature_height_cm: "30-60"
+    mature_width_cm: "20-30"
+    spacing_cm: "20-25"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+
+  "Raphanus sativus":
+    container_suitable: "yes"
+    recommended_container_volume_l: "3-5"
+    min_container_depth_cm: 15
+    mature_height_cm: "15-25"
+    mature_width_cm: "10-15"
+    spacing_cm: "5-10"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §4 Lifecycle Configs (18 species)
+# Fields: cycle_type, photoperiod_type, lifespan_years,
+#         dormancy_required, vernalization_required, vernalization_min_days,
+#         critical_day_length_hours
+# ══════════════════════════════════════════════════════════════════════════════
+
+lifecycle_configs:
+  # ANNUAL species
+  "Capsicum annuum":
+    cycle_type: annual
+    photoperiod_type: day_neutral
+    lifespan_years: null
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Cucumis sativus":
+    cycle_type: annual
+    photoperiod_type: day_neutral
+    lifespan_years: null
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Phaseolus vulgaris":
+    cycle_type: annual
+    photoperiod_type: day_neutral
+    lifespan_years: null
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Pisum sativum":
+    cycle_type: annual
+    photoperiod_type: long_day
+    lifespan_years: null
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: 14.0
+
+  "Cucurbita pepo":
+    cycle_type: annual
+    photoperiod_type: day_neutral
+    lifespan_years: null
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Solanum lycopersicum":
+    cycle_type: annual
+    photoperiod_type: day_neutral
+    lifespan_years: null
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Ocimum basilicum":
+    cycle_type: annual
+    photoperiod_type: short_day
+    lifespan_years: null
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: 12.0
+
+  "Lactuca sativa":
+    cycle_type: annual
+    photoperiod_type: long_day
+    lifespan_years: null
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: 14.0
+
+  "Raphanus sativus":
+    cycle_type: annual
+    photoperiod_type: long_day
+    lifespan_years: null
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: 14.0
+
+  "Anethum graveolens":
+    cycle_type: annual
+    photoperiod_type: long_day
+    lifespan_years: null
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: 14.0
+
+  # BIENNIAL species (vernalization_required=True!)
+  "Allium porrum":
+    cycle_type: biennial
+    photoperiod_type: long_day
+    lifespan_years: null
+    dormancy_required: false
+    vernalization_required: true
+    vernalization_min_days: 42
+    critical_day_length_hours: 14.0
+
+  "Beta vulgaris subsp. vulgaris":
+    cycle_type: biennial
+    photoperiod_type: long_day
+    lifespan_years: null
+    dormancy_required: false
+    vernalization_required: true
+    vernalization_min_days: 42
+    critical_day_length_hours: 14.0
+
+  "Brassica oleracea var. gemmifera":
+    cycle_type: biennial
+    photoperiod_type: long_day
+    lifespan_years: null
+    dormancy_required: false
+    vernalization_required: true
+    vernalization_min_days: 42
+    critical_day_length_hours: 14.0
+
+  "Daucus carota":
+    cycle_type: biennial
+    photoperiod_type: long_day
+    lifespan_years: null
+    dormancy_required: false
+    vernalization_required: true
+    vernalization_min_days: 42
+    critical_day_length_hours: 14.0
+
+  "Petroselinum crispum":
+    cycle_type: biennial
+    photoperiod_type: long_day
+    lifespan_years: null
+    dormancy_required: false
+    vernalization_required: true
+    vernalization_min_days: 42
+    critical_day_length_hours: 14.0
+
+  "Apium graveolens":
+    cycle_type: biennial
+    photoperiod_type: long_day
+    lifespan_years: null
+    dormancy_required: false
+    vernalization_required: true
+    vernalization_min_days: 42
+    critical_day_length_hours: 14.0
+
+  # PERENNIAL species (dormancy + vernalization)
+  "Allium schoenoprasum":
+    cycle_type: perennial
+    photoperiod_type: long_day
+    lifespan_years: 10
+    dormancy_required: true
+    vernalization_required: true
+    vernalization_min_days: 42
+    critical_day_length_hours: 14.0
+
+  "Cichorium intybus":
+    cycle_type: perennial
+    photoperiod_type: long_day
+    lifespan_years: 5
+    dormancy_required: true
+    vernalization_required: true
+    vernalization_min_days: 42
+    critical_day_length_hours: 14.0
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §5 Art-Specific Growth Phases (18 species x 4-6 phases)
+# Each phase entry:
+#   phase: {name, display_name, duration, order, terminal, harvest, stress}
+#   requirements: {ppfd, photoperiod, temp_day, temp_night, hum_day, hum_night,
+#                  vpd, co2, irrigation_freq, irrigation_vol}
+#   nutrients: {npk: [N,P,K], ec, ph, ca, mg}
+# ══════════════════════════════════════════════════════════════════════════════
+
+growth_phases:
+  "Allium porrum":
+    - phase: {name: germination, display_name: Keimung, duration: 15, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 0, photoperiod: 14.0, temp_day: 18.0, temp_night: 14.0, hum_day: 80, hum_night: 85, vpd: 0.5, co2: 400, irrigation_freq: 1.0, irrigation_vol: 10}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.5, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 49, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 200, photoperiod: 15.0, temp_day: 17.0, temp_night: 12.0, hum_day: 62, hum_night: 68, vpd: 0.7, co2: 400, irrigation_freq: 1.5, irrigation_vol: 25}
+      nutrients: {npk: [1, 1, 1], ec: 0.8, ph: 6.5, ca: 80, mg: 30}
+    - phase: {name: vegetative, display_name: Etablierung, duration: 30, order: 3, terminal: false, harvest: false, stress: medium}
+      requirements: {ppfd: 300, photoperiod: 15.0, temp_day: 20.0, temp_night: 13.0, hum_day: 60, hum_night: 65, vpd: 0.9, co2: 400, irrigation_freq: 2.0, irrigation_vol: 200}
+      nutrients: {npk: [2, 1, 2], ec: 1.2, ph: 6.5, ca: 100, mg: 40}
+    - phase: {name: shaft_growth, display_name: Schaftbildung, duration: 90, order: 4, terminal: false, harvest: true, stress: medium}
+      requirements: {ppfd: 300, photoperiod: 15.0, temp_day: 20.0, temp_night: 12.0, hum_day: 62, hum_night: 68, vpd: 1.0, co2: 400, irrigation_freq: 3.0, irrigation_vol: 400}
+      nutrients: {npk: [3, 1, 4], ec: 1.8, ph: 6.5, ca: 130, mg: 55}
+    - phase: {name: harvest, display_name: Ernte, duration: 60, order: 5, terminal: true, harvest: true, stress: high}
+      requirements: {ppfd: 100, photoperiod: 10.0, temp_day: 8.0, temp_night: 2.0, hum_day: 70, hum_night: 75, vpd: 0.4, co2: 400, irrigation_freq: 7.0, irrigation_vol: 100}
+      nutrients: {npk: [1, 1, 2], ec: 1.0, ph: 6.5, ca: 80, mg: 30}
+
+  "Allium schoenoprasum":
+    - phase: {name: germination, display_name: Keimung, duration: 18, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 0, photoperiod: 0.0, temp_day: 22.0, temp_night: 16.0, hum_day: 80, hum_night: 85, vpd: 0.6, co2: 400, irrigation_freq: 1.5, irrigation_vol: 10}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.2, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 28, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 150, photoperiod: 15.0, temp_day: 19.0, temp_night: 14.0, hum_day: 65, hum_night: 70, vpd: 0.6, co2: 400, irrigation_freq: 2.5, irrigation_vol: 20}
+      nutrients: {npk: [1, 1, 1], ec: 0.6, ph: 6.2, ca: 60, mg: 30}
+    - phase: {name: vegetative, display_name: Vegetativ, duration: 90, order: 3, terminal: false, harvest: true, stress: high}
+      requirements: {ppfd: 250, photoperiod: 15.0, temp_day: 21.0, temp_night: 14.0, hum_day: 58, hum_night: 62, vpd: 1.0, co2: 500, irrigation_freq: 2.5, irrigation_vol: 60}
+      nutrients: {npk: [3, 1, 2], ec: 1.5, ph: 6.2, ca: 100, mg: 40}
+    - phase: {name: flowering, display_name: Blüte, duration: 28, order: 4, terminal: false, harvest: true, stress: medium}
+      requirements: {ppfd: 300, photoperiod: 16.0, temp_day: 21.0, temp_night: 14.0, hum_day: 55, hum_night: 60, vpd: 1.0, co2: 400, irrigation_freq: 2.5, irrigation_vol: 50}
+      nutrients: {npk: [2, 2, 2], ec: 1.2, ph: 6.2, ca: 80, mg: 35}
+    - phase: {name: dormancy, display_name: Dormanz, duration: 105, order: 5, terminal: false, harvest: false, stress: high}
+      requirements: {ppfd: 0, photoperiod: 8.0, temp_day: 5.0, temp_night: 0.0, hum_day: 80, hum_night: 85, vpd: 0.2, co2: 400, irrigation_freq: 14.0, irrigation_vol: 10}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.2, ca: null, mg: null}
+
+  "Beta vulgaris subsp. vulgaris":
+    - phase: {name: germination, display_name: Keimung, duration: 12, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 0, photoperiod: 14.0, temp_day: 16.0, temp_night: 11.0, hum_day: 72, hum_night: 78, vpd: 0.5, co2: 400, irrigation_freq: 2.5, irrigation_vol: 15}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.5, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 18, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 200, photoperiod: 14.0, temp_day: 18.0, temp_night: 13.0, hum_day: 62, hum_night: 68, vpd: 0.7, co2: 400, irrigation_freq: 2.5, irrigation_vol: 35}
+      nutrients: {npk: [1, 1, 1], ec: 0.6, ph: 6.5, ca: 60, mg: 30}
+    - phase: {name: vegetative, display_name: Vegetativ, duration: 48, order: 3, terminal: false, harvest: true, stress: medium}
+      requirements: {ppfd: 350, photoperiod: 14.0, temp_day: 22.0, temp_night: 14.0, hum_day: 55, hum_night: 60, vpd: 1.0, co2: 400, irrigation_freq: 3.0, irrigation_vol: 200}
+      nutrients: {npk: [2, 1, 3], ec: 1.3, ph: 6.5, ca: 100, mg: 50}
+    - phase: {name: harvest, display_name: Ernte, duration: 21, order: 4, terminal: true, harvest: true, stress: medium}
+      requirements: {ppfd: 300, photoperiod: 12.0, temp_day: 18.0, temp_night: 12.0, hum_day: 55, hum_night: 60, vpd: 0.9, co2: 400, irrigation_freq: 3.0, irrigation_vol: 150}
+      nutrients: {npk: [1, 1, 2], ec: 0.8, ph: 6.5, ca: 80, mg: 30}
+
+  "Brassica oleracea var. gemmifera":
+    - phase: {name: germination, display_name: Keimung, duration: 10, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 0, photoperiod: 0.0, temp_day: 20.0, temp_night: 16.0, hum_day: 80, hum_night: 85, vpd: 0.6, co2: 400, irrigation_freq: 1.5, irrigation_vol: 10}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.8, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 35, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 200, photoperiod: 15.0, temp_day: 18.0, temp_night: 14.0, hum_day: 65, hum_night: 70, vpd: 0.6, co2: 400, irrigation_freq: 2.0, irrigation_vol: 30}
+      nutrients: {npk: [1, 1, 1], ec: 0.6, ph: 6.5, ca: 80, mg: 30}
+    - phase: {name: vegetative, display_name: Vegetativ, duration: 75, order: 3, terminal: false, harvest: false, stress: medium}
+      requirements: {ppfd: 350, photoperiod: 14.0, temp_day: 18.0, temp_night: 12.0, hum_day: 60, hum_night: 65, vpd: 0.9, co2: 400, irrigation_freq: 2.5, irrigation_vol: 300}
+      nutrients: {npk: [3, 1, 2], ec: 1.7, ph: 6.5, ca: 150, mg: 50}
+    - phase: {name: sprout_formation, display_name: Röschenbildung, duration: 75, order: 4, terminal: false, harvest: true, stress: high}
+      requirements: {ppfd: 300, photoperiod: 12.0, temp_day: 12.0, temp_night: 5.0, hum_day: 65, hum_night: 70, vpd: 0.8, co2: 400, irrigation_freq: 3.0, irrigation_vol: 300}
+      nutrients: {npk: [2, 2, 3], ec: 1.9, ph: 6.5, ca: 180, mg: 60}
+    - phase: {name: harvest, display_name: Ernte, duration: 60, order: 5, terminal: true, harvest: true, stress: high}
+      requirements: {ppfd: 150, photoperiod: 9.0, temp_day: 8.0, temp_night: 2.0, hum_day: 70, hum_night: 75, vpd: 0.4, co2: 400, irrigation_freq: 5.0, irrigation_vol: 200}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.5, ca: null, mg: null}
+
+  "Capsicum annuum":
+    - phase: {name: germination, display_name: Keimung, duration: 10, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 0, photoperiod: 14.0, temp_day: 27.0, temp_night: 22.0, hum_day: 80, hum_night: 85, vpd: 0.5, co2: 400, irrigation_freq: 1.0, irrigation_vol: 10}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.0, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 28, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 250, photoperiod: 16.0, temp_day: 24.0, temp_night: 18.0, hum_day: 65, hum_night: 70, vpd: 0.8, co2: 400, irrigation_freq: 1.5, irrigation_vol: 30}
+      nutrients: {npk: [1, 1, 1], ec: 0.8, ph: 6.0, ca: 80, mg: 30}
+    - phase: {name: vegetative, display_name: Vegetativ, duration: 35, order: 3, terminal: false, harvest: false, stress: medium}
+      requirements: {ppfd: 400, photoperiod: 16.0, temp_day: 25.0, temp_night: 18.0, hum_day: 60, hum_night: 65, vpd: 1.0, co2: 400, irrigation_freq: 2.0, irrigation_vol: 200}
+      nutrients: {npk: [3, 1, 2], ec: 1.6, ph: 6.0, ca: 120, mg: 50}
+    - phase: {name: flowering, display_name: Blüte, duration: 35, order: 4, terminal: false, harvest: false, stress: medium}
+      requirements: {ppfd: 500, photoperiod: 14.0, temp_day: 26.0, temp_night: 19.0, hum_day: 55, hum_night: 60, vpd: 1.2, co2: 400, irrigation_freq: 1.5, irrigation_vol: 300}
+      nutrients: {npk: [2, 2, 3], ec: 2.0, ph: 6.0, ca: 150, mg: 50}
+    - phase: {name: harvest, display_name: Ernte, duration: 42, order: 5, terminal: true, harvest: true, stress: medium}
+      requirements: {ppfd: 400, photoperiod: 14.0, temp_day: 24.0, temp_night: 18.0, hum_day: 55, hum_night: 60, vpd: 1.0, co2: 400, irrigation_freq: 2.0, irrigation_vol: 250}
+      nutrients: {npk: [1, 2, 3], ec: 2.2, ph: 6.0, ca: 180, mg: 60}
+
+  "Daucus carota":
+    - phase: {name: germination, display_name: Keimung, duration: 14, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 0, photoperiod: 14.0, temp_day: 18.0, temp_night: 12.0, hum_day: 75, hum_night: 80, vpd: 0.5, co2: 400, irrigation_freq: 2.0, irrigation_vol: 15}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.5, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 21, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 200, photoperiod: 14.0, temp_day: 18.0, temp_night: 12.0, hum_day: 60, hum_night: 65, vpd: 0.7, co2: 400, irrigation_freq: 2.0, irrigation_vol: 30}
+      nutrients: {npk: [1, 1, 1], ec: 0.5, ph: 6.4, ca: 60, mg: 25}
+    - phase: {name: vegetative, display_name: Vegetativ, duration: 42, order: 3, terminal: false, harvest: false, stress: medium}
+      requirements: {ppfd: 300, photoperiod: 14.0, temp_day: 20.0, temp_night: 14.0, hum_day: 60, hum_night: 65, vpd: 0.9, co2: 400, irrigation_freq: 2.5, irrigation_vol: 100}
+      nutrients: {npk: [1, 1, 2], ec: 1.1, ph: 6.4, ca: 100, mg: 40}
+    - phase: {name: harvest, display_name: Ernte, duration: 21, order: 4, terminal: true, harvest: true, stress: medium}
+      requirements: {ppfd: 300, photoperiod: 12.0, temp_day: 18.0, temp_night: 12.0, hum_day: 55, hum_night: 60, vpd: 0.9, co2: 400, irrigation_freq: 3.0, irrigation_vol: 100}
+      nutrients: {npk: [0, 1, 2], ec: 0.8, ph: 6.4, ca: 80, mg: 35}
+
+  "Anethum graveolens":
+    - phase: {name: germination, display_name: Keimung, duration: 12, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 0, photoperiod: 14.0, temp_day: 20.0, temp_night: 14.0, hum_day: 75, hum_night: 80, vpd: 0.5, co2: 400, irrigation_freq: 2.0, irrigation_vol: 10}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.0, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 21, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 200, photoperiod: 14.0, temp_day: 18.0, temp_night: 12.0, hum_day: 60, hum_night: 65, vpd: 0.7, co2: 400, irrigation_freq: 2.0, irrigation_vol: 20}
+      nutrients: {npk: [1, 1, 1], ec: 0.5, ph: 6.2, ca: 50, mg: 25}
+    - phase: {name: vegetative, display_name: Vegetativ, duration: 35, order: 3, terminal: false, harvest: true, stress: medium}
+      requirements: {ppfd: 350, photoperiod: 16.0, temp_day: 22.0, temp_night: 14.0, hum_day: 55, hum_night: 60, vpd: 1.0, co2: 400, irrigation_freq: 2.5, irrigation_vol: 100}
+      nutrients: {npk: [2, 1, 2], ec: 0.8, ph: 6.2, ca: 80, mg: 35}
+    - phase: {name: flowering, display_name: Blüte, duration: 21, order: 4, terminal: false, harvest: true, stress: medium}
+      requirements: {ppfd: 400, photoperiod: 16.0, temp_day: 22.0, temp_night: 14.0, hum_day: 50, hum_night: 55, vpd: 1.0, co2: 400, irrigation_freq: 2.5, irrigation_vol: 80}
+      nutrients: {npk: [1, 1, 2], ec: 0.7, ph: 6.2, ca: 60, mg: 30}
+    - phase: {name: senescence, display_name: Seneszenz, duration: 14, order: 5, terminal: true, harvest: true, stress: high}
+      requirements: {ppfd: 300, photoperiod: 14.0, temp_day: 20.0, temp_night: 14.0, hum_day: 50, hum_night: 55, vpd: 0.9, co2: 400, irrigation_freq: 3.0, irrigation_vol: 50}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.0, ca: null, mg: null}
+
+  "Cucumis sativus":
+    - phase: {name: germination, display_name: Keimung, duration: 7, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 0, photoperiod: 14.0, temp_day: 27.0, temp_night: 22.0, hum_day: 80, hum_night: 85, vpd: 0.5, co2: 400, irrigation_freq: 1.0, irrigation_vol: 15}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 5.8, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 21, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 300, photoperiod: 16.0, temp_day: 25.0, temp_night: 19.0, hum_day: 70, hum_night: 75, vpd: 0.7, co2: 400, irrigation_freq: 1.0, irrigation_vol: 40}
+      nutrients: {npk: [1, 1, 1], ec: 0.8, ph: 5.8, ca: 80, mg: 30}
+    - phase: {name: vegetative, display_name: Vegetativ, duration: 28, order: 3, terminal: false, harvest: false, stress: medium}
+      requirements: {ppfd: 500, photoperiod: 16.0, temp_day: 26.0, temp_night: 19.0, hum_day: 65, hum_night: 70, vpd: 1.0, co2: 600, irrigation_freq: 1.0, irrigation_vol: 300}
+      nutrients: {npk: [3, 1, 2], ec: 1.8, ph: 5.8, ca: 150, mg: 50}
+    - phase: {name: flowering, display_name: Blüte, duration: 21, order: 4, terminal: false, harvest: true, stress: medium}
+      requirements: {ppfd: 500, photoperiod: 14.0, temp_day: 26.0, temp_night: 19.0, hum_day: 60, hum_night: 65, vpd: 1.2, co2: 600, irrigation_freq: 1.0, irrigation_vol: 400}
+      nutrients: {npk: [2, 2, 3], ec: 2.0, ph: 5.8, ca: 180, mg: 60}
+    - phase: {name: harvest, display_name: Ernte, duration: 42, order: 5, terminal: true, harvest: true, stress: medium}
+      requirements: {ppfd: 450, photoperiod: 14.0, temp_day: 25.0, temp_night: 18.0, hum_day: 60, hum_night: 65, vpd: 1.0, co2: 400, irrigation_freq: 1.0, irrigation_vol: 400}
+      nutrients: {npk: [1, 2, 3], ec: 2.1, ph: 5.8, ca: 200, mg: 60}
+
+  "Phaseolus vulgaris":
+    - phase: {name: germination, display_name: Keimung, duration: 8, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 0, photoperiod: 14.0, temp_day: 24.0, temp_night: 18.0, hum_day: 75, hum_night: 80, vpd: 0.5, co2: 400, irrigation_freq: 2.0, irrigation_vol: 20}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.4, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 14, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 250, photoperiod: 14.0, temp_day: 22.0, temp_night: 16.0, hum_day: 65, hum_night: 70, vpd: 0.8, co2: 400, irrigation_freq: 2.0, irrigation_vol: 40}
+      nutrients: {npk: [0, 1, 1], ec: 0.4, ph: 6.2, ca: 50, mg: 25}
+    - phase: {name: vegetative, display_name: Vegetativ, duration: 28, order: 3, terminal: false, harvest: false, stress: medium}
+      requirements: {ppfd: 400, photoperiod: 14.0, temp_day: 24.0, temp_night: 16.0, hum_day: 60, hum_night: 65, vpd: 1.0, co2: 400, irrigation_freq: 2.0, irrigation_vol: 200}
+      nutrients: {npk: [0, 1, 2], ec: 0.6, ph: 6.2, ca: 80, mg: 35}
+    - phase: {name: flowering, display_name: Blüte, duration: 21, order: 4, terminal: false, harvest: false, stress: medium}
+      requirements: {ppfd: 400, photoperiod: 14.0, temp_day: 24.0, temp_night: 16.0, hum_day: 55, hum_night: 60, vpd: 1.0, co2: 400, irrigation_freq: 2.0, irrigation_vol: 250}
+      nutrients: {npk: [0, 2, 3], ec: 0.8, ph: 6.2, ca: 100, mg: 40}
+    - phase: {name: harvest, display_name: Ernte, duration: 28, order: 5, terminal: true, harvest: true, stress: medium}
+      requirements: {ppfd: 400, photoperiod: 14.0, temp_day: 22.0, temp_night: 16.0, hum_day: 55, hum_night: 60, vpd: 1.0, co2: 400, irrigation_freq: 2.0, irrigation_vol: 200}
+      nutrients: {npk: [0, 1, 2], ec: 0.6, ph: 6.2, ca: 80, mg: 35}
+
+  "Pisum sativum":
+    - phase: {name: germination, display_name: Keimung, duration: 10, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 0, photoperiod: 14.0, temp_day: 18.0, temp_night: 10.0, hum_day: 75, hum_night: 80, vpd: 0.5, co2: 400, irrigation_freq: 2.0, irrigation_vol: 20}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.5, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 14, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 200, photoperiod: 14.0, temp_day: 16.0, temp_night: 10.0, hum_day: 65, hum_night: 70, vpd: 0.7, co2: 400, irrigation_freq: 2.0, irrigation_vol: 30}
+      nutrients: {npk: [0, 1, 1], ec: 0.6, ph: 6.5, ca: 40, mg: 20}
+    - phase: {name: vegetative, display_name: Vegetativ, duration: 28, order: 3, terminal: false, harvest: false, stress: medium}
+      requirements: {ppfd: 350, photoperiod: 16.0, temp_day: 18.0, temp_night: 10.0, hum_day: 60, hum_night: 65, vpd: 0.9, co2: 400, irrigation_freq: 2.5, irrigation_vol: 150}
+      nutrients: {npk: [0, 1, 2], ec: 0.8, ph: 6.5, ca: 60, mg: 30}
+    - phase: {name: flowering, display_name: Blüte, duration: 21, order: 4, terminal: false, harvest: false, stress: medium}
+      requirements: {ppfd: 400, photoperiod: 16.0, temp_day: 18.0, temp_night: 10.0, hum_day: 55, hum_night: 60, vpd: 1.0, co2: 400, irrigation_freq: 2.0, irrigation_vol: 200}
+      nutrients: {npk: [0, 2, 3], ec: 1.0, ph: 6.5, ca: 80, mg: 40}
+    - phase: {name: harvest, display_name: Ernte, duration: 21, order: 5, terminal: true, harvest: true, stress: medium}
+      requirements: {ppfd: 350, photoperiod: 14.0, temp_day: 18.0, temp_night: 10.0, hum_day: 55, hum_night: 60, vpd: 0.9, co2: 400, irrigation_freq: 2.5, irrigation_vol: 150}
+      nutrients: {npk: [0, 1, 2], ec: 0.8, ph: 6.5, ca: 60, mg: 30}
+
+  "Petroselinum crispum":
+    - phase: {name: germination, display_name: Keimung, duration: 21, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 0, photoperiod: 14.0, temp_day: 20.0, temp_night: 14.0, hum_day: 80, hum_night: 85, vpd: 0.5, co2: 400, irrigation_freq: 1.5, irrigation_vol: 10}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.2, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 28, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 200, photoperiod: 14.0, temp_day: 18.0, temp_night: 12.0, hum_day: 65, hum_night: 70, vpd: 0.7, co2: 400, irrigation_freq: 2.0, irrigation_vol: 20}
+      nutrients: {npk: [1, 1, 1], ec: 0.6, ph: 6.0, ca: 60, mg: 30}
+    - phase: {name: vegetative, display_name: Vegetativ, duration: 60, order: 3, terminal: false, harvest: true, stress: medium}
+      requirements: {ppfd: 350, photoperiod: 14.0, temp_day: 20.0, temp_night: 14.0, hum_day: 55, hum_night: 60, vpd: 1.0, co2: 400, irrigation_freq: 2.0, irrigation_vol: 100}
+      nutrients: {npk: [3, 1, 2], ec: 1.5, ph: 6.0, ca: 100, mg: 50}
+    - phase: {name: dormancy, display_name: Winterruhe, duration: 90, order: 4, terminal: false, harvest: false, stress: high}
+      requirements: {ppfd: 50, photoperiod: 8.0, temp_day: 5.0, temp_night: 0.0, hum_day: 75, hum_night: 80, vpd: 0.2, co2: 400, irrigation_freq: 7.0, irrigation_vol: 20}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.0, ca: null, mg: null}
+    - phase: {name: flowering, display_name: "Blüte (2. Jahr)", duration: 35, order: 5, terminal: true, harvest: true, stress: medium}
+      requirements: {ppfd: 350, photoperiod: 16.0, temp_day: 22.0, temp_night: 14.0, hum_day: 50, hum_night: 55, vpd: 1.0, co2: 400, irrigation_freq: 2.0, irrigation_vol: 80}
+      nutrients: {npk: [1, 2, 2], ec: 1.2, ph: 6.0, ca: 80, mg: 40}
+
+  "Lactuca sativa":
+    - phase: {name: germination, display_name: Keimung, duration: 7, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 100, photoperiod: 14.0, temp_day: 18.0, temp_night: 12.0, hum_day: 75, hum_night: 80, vpd: 0.5, co2: 400, irrigation_freq: 1.0, irrigation_vol: 10}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.2, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 21, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 250, photoperiod: 14.0, temp_day: 18.0, temp_night: 12.0, hum_day: 65, hum_night: 70, vpd: 0.7, co2: 400, irrigation_freq: 1.5, irrigation_vol: 25}
+      nutrients: {npk: [1, 1, 1], ec: 0.6, ph: 6.2, ca: 60, mg: 25}
+    - phase: {name: vegetative, display_name: Vegetativ, duration: 35, order: 3, terminal: false, harvest: true, stress: low}
+      requirements: {ppfd: 350, photoperiod: 14.0, temp_day: 20.0, temp_night: 12.0, hum_day: 60, hum_night: 65, vpd: 0.9, co2: 400, irrigation_freq: 1.5, irrigation_vol: 150}
+      nutrients: {npk: [3, 1, 2], ec: 1.3, ph: 6.2, ca: 120, mg: 40}
+    - phase: {name: harvest, display_name: Ernte, duration: 14, order: 4, terminal: true, harvest: true, stress: low}
+      requirements: {ppfd: 300, photoperiod: 12.0, temp_day: 18.0, temp_night: 12.0, hum_day: 60, hum_night: 65, vpd: 0.8, co2: 400, irrigation_freq: 1.5, irrigation_vol: 100}
+      nutrients: {npk: [2, 1, 2], ec: 1.0, ph: 6.2, ca: 100, mg: 35}
+
+  "Cichorium intybus":
+    - phase: {name: germination, display_name: Keimung, duration: 10, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 100, photoperiod: 14.0, temp_day: 20.0, temp_night: 14.0, hum_day: 75, hum_night: 80, vpd: 0.5, co2: 400, irrigation_freq: 2.0, irrigation_vol: 10}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.2, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 21, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 200, photoperiod: 14.0, temp_day: 18.0, temp_night: 12.0, hum_day: 65, hum_night: 70, vpd: 0.7, co2: 400, irrigation_freq: 2.0, irrigation_vol: 25}
+      nutrients: {npk: [1, 1, 1], ec: 0.6, ph: 6.2, ca: 60, mg: 30}
+    - phase: {name: vegetative, display_name: Vegetativ, duration: 60, order: 3, terminal: false, harvest: true, stress: medium}
+      requirements: {ppfd: 350, photoperiod: 14.0, temp_day: 20.0, temp_night: 14.0, hum_day: 55, hum_night: 60, vpd: 1.0, co2: 400, irrigation_freq: 2.5, irrigation_vol: 200}
+      nutrients: {npk: [3, 1, 2], ec: 1.7, ph: 6.5, ca: 120, mg: 40}
+    - phase: {name: flowering, display_name: Blüte, duration: 28, order: 4, terminal: false, harvest: false, stress: medium}
+      requirements: {ppfd: 400, photoperiod: 16.0, temp_day: 22.0, temp_night: 14.0, hum_day: 50, hum_night: 55, vpd: 1.0, co2: 400, irrigation_freq: 2.5, irrigation_vol: 150}
+      nutrients: {npk: [2, 2, 3], ec: 1.4, ph: 6.5, ca: 100, mg: 40}
+    - phase: {name: dormancy, display_name: Dormanz, duration: 105, order: 5, terminal: false, harvest: false, stress: high}
+      requirements: {ppfd: 0, photoperiod: 8.0, temp_day: 5.0, temp_night: 0.0, hum_day: 80, hum_night: 85, vpd: 0.2, co2: 400, irrigation_freq: 14.0, irrigation_vol: 20}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.5, ca: null, mg: null}
+
+  "Cucurbita pepo":
+    - phase: {name: germination, display_name: Keimung, duration: 7, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 0, photoperiod: 14.0, temp_day: 25.0, temp_night: 20.0, hum_day: 80, hum_night: 85, vpd: 0.5, co2: 400, irrigation_freq: 1.0, irrigation_vol: 15}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.2, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 14, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 300, photoperiod: 16.0, temp_day: 24.0, temp_night: 18.0, hum_day: 70, hum_night: 75, vpd: 0.8, co2: 400, irrigation_freq: 1.0, irrigation_vol: 40}
+      nutrients: {npk: [1, 1, 1], ec: 0.8, ph: 6.2, ca: 80, mg: 30}
+    - phase: {name: vegetative, display_name: Vegetativ, duration: 28, order: 3, terminal: false, harvest: false, stress: medium}
+      requirements: {ppfd: 500, photoperiod: 16.0, temp_day: 25.0, temp_night: 18.0, hum_day: 60, hum_night: 65, vpd: 1.0, co2: 600, irrigation_freq: 1.0, irrigation_vol: 400}
+      nutrients: {npk: [3, 1, 2], ec: 1.9, ph: 6.2, ca: 150, mg: 50}
+    - phase: {name: flowering_fruit, display_name: "Blüte & Fruchtansatz", duration: 42, order: 4, terminal: false, harvest: true, stress: medium}
+      requirements: {ppfd: 500, photoperiod: 14.0, temp_day: 26.0, temp_night: 18.0, hum_day: 55, hum_night: 60, vpd: 1.2, co2: 600, irrigation_freq: 1.0, irrigation_vol: 500}
+      nutrients: {npk: [2, 3, 4], ec: 2.4, ph: 6.2, ca: 180, mg: 60}
+    - phase: {name: senescence, display_name: Seneszenz, duration: 14, order: 5, terminal: true, harvest: true, stress: high}
+      requirements: {ppfd: 300, photoperiod: 12.0, temp_day: 22.0, temp_night: 16.0, hum_day: 55, hum_night: 60, vpd: 0.9, co2: 400, irrigation_freq: 2.0, irrigation_vol: 200}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.2, ca: null, mg: null}
+
+  "Apium graveolens":
+    - phase: {name: germination, display_name: Keimung, duration: 18, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 100, photoperiod: 14.0, temp_day: 20.0, temp_night: 14.0, hum_day: 80, hum_night: 85, vpd: 0.5, co2: 400, irrigation_freq: 1.0, irrigation_vol: 10}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.2, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 42, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 200, photoperiod: 14.0, temp_day: 18.0, temp_night: 12.0, hum_day: 70, hum_night: 75, vpd: 0.6, co2: 400, irrigation_freq: 1.5, irrigation_vol: 25}
+      nutrients: {npk: [1, 1, 1], ec: 0.6, ph: 6.2, ca: 80, mg: 30}
+    - phase: {name: vegetative, display_name: Vegetativ, duration: 60, order: 3, terminal: false, harvest: false, stress: medium}
+      requirements: {ppfd: 350, photoperiod: 14.0, temp_day: 20.0, temp_night: 14.0, hum_day: 60, hum_night: 65, vpd: 1.0, co2: 400, irrigation_freq: 1.5, irrigation_vol: 250}
+      nutrients: {npk: [3, 1, 2], ec: 1.7, ph: 6.2, ca: 150, mg: 50}
+    - phase: {name: tuber_formation, display_name: Knollenbildung, duration: 60, order: 4, terminal: false, harvest: true, stress: medium}
+      requirements: {ppfd: 350, photoperiod: 14.0, temp_day: 18.0, temp_night: 12.0, hum_day: 55, hum_night: 60, vpd: 1.0, co2: 400, irrigation_freq: 2.0, irrigation_vol: 300}
+      nutrients: {npk: [2, 1, 4], ec: 2.1, ph: 6.2, ca: 180, mg: 60}
+    - phase: {name: harvest, display_name: Ernte, duration: 21, order: 5, terminal: true, harvest: true, stress: medium}
+      requirements: {ppfd: 250, photoperiod: 12.0, temp_day: 16.0, temp_night: 10.0, hum_day: 60, hum_night: 65, vpd: 0.8, co2: 400, irrigation_freq: 3.0, irrigation_vol: 150}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.2, ca: null, mg: null}
+
+  "Solanum lycopersicum":
+    - phase: {name: germination, display_name: Keimung, duration: 8, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 0, photoperiod: 14.0, temp_day: 25.0, temp_night: 20.0, hum_day: 80, hum_night: 85, vpd: 0.5, co2: 400, irrigation_freq: 1.0, irrigation_vol: 10}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.0, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 28, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 300, photoperiod: 16.0, temp_day: 24.0, temp_night: 17.0, hum_day: 65, hum_night: 70, vpd: 0.8, co2: 400, irrigation_freq: 1.5, irrigation_vol: 35}
+      nutrients: {npk: [1, 1, 1], ec: 0.6, ph: 6.0, ca: 80, mg: 40}
+    - phase: {name: vegetative, display_name: Vegetativ, duration: 35, order: 3, terminal: false, harvest: false, stress: medium}
+      requirements: {ppfd: 500, photoperiod: 16.0, temp_day: 25.0, temp_night: 17.0, hum_day: 60, hum_night: 65, vpd: 1.0, co2: 600, irrigation_freq: 1.5, irrigation_vol: 300}
+      nutrients: {npk: [3, 1, 2], ec: 1.5, ph: 6.0, ca: 150, mg: 50}
+    - phase: {name: flowering, display_name: Blüte, duration: 28, order: 4, terminal: false, harvest: false, stress: medium}
+      requirements: {ppfd: 600, photoperiod: 14.0, temp_day: 25.0, temp_night: 17.0, hum_day: 55, hum_night: 60, vpd: 1.2, co2: 600, irrigation_freq: 1.0, irrigation_vol: 400}
+      nutrients: {npk: [2, 3, 3], ec: 1.9, ph: 6.2, ca: 180, mg: 60}
+    - phase: {name: fruiting, display_name: Fruchtreife, duration: 42, order: 5, terminal: false, harvest: true, stress: medium}
+      requirements: {ppfd: 500, photoperiod: 14.0, temp_day: 24.0, temp_night: 17.0, hum_day: 55, hum_night: 60, vpd: 1.0, co2: 400, irrigation_freq: 1.0, irrigation_vol: 400}
+      nutrients: {npk: [1, 2, 4], ec: 2.2, ph: 6.2, ca: 200, mg: 60}
+    - phase: {name: senescence, display_name: Seneszenz, duration: 14, order: 6, terminal: true, harvest: true, stress: high}
+      requirements: {ppfd: 300, photoperiod: 12.0, temp_day: 22.0, temp_night: 16.0, hum_day: 55, hum_night: 60, vpd: 0.9, co2: 400, irrigation_freq: 2.0, irrigation_vol: 200}
+      nutrients: {npk: [0, 0, 0], ec: 0.2, ph: 6.2, ca: null, mg: null}
+
+  "Ocimum basilicum":
+    - phase: {name: germination, display_name: Keimung, duration: 7, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 100, photoperiod: 14.0, temp_day: 24.0, temp_night: 18.0, hum_day: 80, hum_night: 85, vpd: 0.5, co2: 400, irrigation_freq: 1.0, irrigation_vol: 10}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.0, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 21, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 250, photoperiod: 16.0, temp_day: 24.0, temp_night: 18.0, hum_day: 65, hum_night: 70, vpd: 0.8, co2: 400, irrigation_freq: 1.5, irrigation_vol: 25}
+      nutrients: {npk: [1, 1, 1], ec: 0.6, ph: 6.0, ca: 60, mg: 30}
+    - phase: {name: vegetative, display_name: Vegetativ, duration: 42, order: 3, terminal: false, harvest: true, stress: medium}
+      requirements: {ppfd: 400, photoperiod: 14.0, temp_day: 25.0, temp_night: 18.0, hum_day: 55, hum_night: 60, vpd: 1.0, co2: 400, irrigation_freq: 1.5, irrigation_vol: 150}
+      nutrients: {npk: [3, 1, 2], ec: 1.2, ph: 6.0, ca: 100, mg: 40}
+    - phase: {name: flowering, display_name: Blüte, duration: 21, order: 4, terminal: false, harvest: true, stress: medium}
+      requirements: {ppfd: 400, photoperiod: 12.0, temp_day: 25.0, temp_night: 18.0, hum_day: 50, hum_night: 55, vpd: 1.0, co2: 400, irrigation_freq: 1.5, irrigation_vol: 120}
+      nutrients: {npk: [2, 2, 2], ec: 1.2, ph: 6.0, ca: 80, mg: 40}
+    - phase: {name: senescence, display_name: Seneszenz, duration: 14, order: 5, terminal: true, harvest: false, stress: high}
+      requirements: {ppfd: 300, photoperiod: 12.0, temp_day: 22.0, temp_night: 16.0, hum_day: 55, hum_night: 60, vpd: 0.9, co2: 400, irrigation_freq: 2.0, irrigation_vol: 80}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.0, ca: null, mg: null}
+
+  "Raphanus sativus":
+    - phase: {name: germination, display_name: Keimung, duration: 5, order: 1, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 0, photoperiod: 14.0, temp_day: 18.0, temp_night: 10.0, hum_day: 75, hum_night: 80, vpd: 0.5, co2: 400, irrigation_freq: 2.0, irrigation_vol: 10}
+      nutrients: {npk: [0, 0, 0], ec: 0.0, ph: 6.5, ca: null, mg: null}
+    - phase: {name: seedling, display_name: Sämling, duration: 7, order: 2, terminal: false, harvest: false, stress: low}
+      requirements: {ppfd: 200, photoperiod: 14.0, temp_day: 16.0, temp_night: 10.0, hum_day: 65, hum_night: 70, vpd: 0.7, co2: 400, irrigation_freq: 2.0, irrigation_vol: 15}
+      nutrients: {npk: [1, 1, 1], ec: 0.5, ph: 6.4, ca: 60, mg: 30}
+    - phase: {name: tuber_formation, display_name: Knollenbildung, duration: 14, order: 3, terminal: false, harvest: true, stress: medium}
+      requirements: {ppfd: 350, photoperiod: 14.0, temp_day: 18.0, temp_night: 10.0, hum_day: 55, hum_night: 60, vpd: 0.9, co2: 400, irrigation_freq: 2.0, irrigation_vol: 50}
+      nutrients: {npk: [1, 2, 3], ec: 1.0, ph: 6.4, ca: 80, mg: 40}
+    - phase: {name: harvest, display_name: Erntereife, duration: 7, order: 4, terminal: true, harvest: true, stress: medium}
+      requirements: {ppfd: 300, photoperiod: 12.0, temp_day: 16.0, temp_night: 10.0, hum_day: 55, hum_night: 60, vpd: 0.8, co2: 400, irrigation_freq: 2.0, irrigation_vol: 40}
+      nutrients: {npk: [0, 1, 2], ec: 0.7, ph: 6.4, ca: 60, mg: 30}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §6 Cultivars (~120)
+# Format: species -> list of {name, breeder, days_to_maturity, traits}
+# ══════════════════════════════════════════════════════════════════════════════
+
+cultivars:
+  "Allium porrum":
+    - {name: "Blaugrüner Winter", breeder: null, days_to_maturity: 180, traits: [cold_hardy, long_season]}
+    - {name: "Carentan 2", breeder: null, days_to_maturity: 170, traits: [cold_hardy, heirloom]}
+    - {name: "Herbstriesen 2", breeder: null, days_to_maturity: 140, traits: [high_yield]}
+    - {name: "Hannibal", breeder: null, days_to_maturity: 100, traits: [early_maturing, high_yield]}
+    - {name: "De Solaise", breeder: null, days_to_maturity: 160, traits: [cold_hardy, heirloom]}
+    - {name: "Lancelot", breeder: null, days_to_maturity: 95, traits: [early_maturing, high_yield]}
+
+  "Allium schoenoprasum":
+    - {name: "Staro", breeder: null, days_to_maturity: 75, traits: [compact]}
+    - {name: "Gonzales", breeder: null, days_to_maturity: 80, traits: [compact]}
+    - {name: "Polyvert", breeder: null, days_to_maturity: 60, traits: [high_yield]}
+    - {name: "Middleman", breeder: null, days_to_maturity: 70, traits: []}
+    - {name: "Feinröhriger (Pötschke Historisch)", breeder: null, days_to_maturity: 75, traits: [heirloom]}
+
+  "Beta vulgaris subsp. vulgaris":
+    - {name: "Boro F1", breeder: null, days_to_maturity: 55, traits: [high_yield, disease_resistant, f1]}
+    - {name: "Pablo F1", breeder: null, days_to_maturity: 58, traits: [high_yield, disease_resistant, f1]}
+    - {name: "Chioggia", breeder: null, days_to_maturity: 55, traits: [ornamental, heirloom]}
+    - {name: "Detroit Dark Red", breeder: null, days_to_maturity: 60, traits: [heirloom, high_yield]}
+    - {name: "Rote Kugel 2", breeder: null, days_to_maturity: 60, traits: [compact, heirloom]}
+    - {name: "Cylindra", breeder: null, days_to_maturity: 60, traits: [high_yield, heirloom]}
+    - {name: "Burpees Golden", breeder: null, days_to_maturity: 55, traits: [ornamental, heirloom]}
+
+  "Brassica oleracea var. gemmifera":
+    - {name: "Groninger", breeder: null, days_to_maturity: 180, traits: [heirloom, long_season]}
+    - {name: "Roodnerf", breeder: null, days_to_maturity: 180, traits: [heirloom, long_season]}
+    - {name: "Crispus F1", breeder: null, days_to_maturity: 150, traits: [disease_resistant, compact, early_maturing, f1]}
+    - {name: "Nautic F1", breeder: null, days_to_maturity: 160, traits: [disease_resistant, high_yield, f1]}
+    - {name: "Igor F1", breeder: null, days_to_maturity: 165, traits: [compact, high_yield, cold_hardy, f1]}
+    - {name: "Hilds Ideal", breeder: null, days_to_maturity: 175, traits: [heirloom]}
+
+  "Capsicum annuum":
+    - {name: "Yolo Wonder", breeder: null, days_to_maturity: 75, traits: [high_yield, disease_resistant]}
+    - {name: "California Wonder", breeder: null, days_to_maturity: 75, traits: [high_yield, heirloom]}
+    - {name: "Hungarian Wax", breeder: null, days_to_maturity: 65, traits: [heat_tolerant, early_maturing]}
+    - {name: "Palermo F1", breeder: null, days_to_maturity: 85, traits: [high_yield, disease_resistant, f1]}
+    - {name: "Cayenne", breeder: null, days_to_maturity: 90, traits: [heat_tolerant, long_season]}
+    - {name: "Snackpaprika Mini", breeder: null, days_to_maturity: 60, traits: [compact, high_yield, early_maturing]}
+
+  "Daucus carota":
+    - {name: "Nantes 2", breeder: null, days_to_maturity: 80, traits: [high_yield, heirloom]}
+    - {name: "Flakkee", breeder: null, days_to_maturity: 130, traits: [high_yield, long_season]}
+    - {name: "Pariser Markt", breeder: null, days_to_maturity: 65, traits: [compact, early_maturing]}
+    - {name: "Bolero", breeder: null, days_to_maturity: 75, traits: [disease_resistant, high_yield]}
+    - {name: "Flyaway", breeder: null, days_to_maturity: 85, traits: [pest_resistant]}
+    - {name: "Rodelika", breeder: null, days_to_maturity: 100, traits: [high_yield, heirloom]}
+
+  "Anethum graveolens":
+    - {name: "Tetra-Dill", breeder: null, days_to_maturity: 55, traits: [high_yield, heirloom]}
+    - {name: "Fernleaf", breeder: null, days_to_maturity: 45, traits: [compact, early_maturing]}
+    - {name: "Dukat", breeder: null, days_to_maturity: 50, traits: [high_yield, long_season]}
+    - {name: "Mammut", breeder: null, days_to_maturity: 65, traits: [high_yield, long_season]}
+    - {name: "Hera", breeder: null, days_to_maturity: 55, traits: [long_season]}
+    - {name: "Bouquet", breeder: null, days_to_maturity: 45, traits: [compact, early_maturing]}
+
+  "Cucumis sativus":
+    - {name: "Marketmore 76", breeder: null, days_to_maturity: 65, traits: [disease_resistant, high_yield, heirloom]}
+    - {name: "Picolino F1", breeder: null, days_to_maturity: 50, traits: [compact, disease_resistant, high_yield, f1]}
+    - {name: "Vorgebirgstraube", breeder: null, days_to_maturity: 55, traits: [heirloom, high_yield]}
+    - {name: "Diamant F1", breeder: null, days_to_maturity: 58, traits: [disease_resistant, high_yield, f1]}
+    - {name: "Chinese Slangen", breeder: null, days_to_maturity: 65, traits: [long_season, heirloom]}
+
+  "Phaseolus vulgaris":
+    - {name: "Provider", breeder: null, days_to_maturity: 50, traits: [disease_resistant, early_maturing, compact]}
+    - {name: "Contender", breeder: null, days_to_maturity: 55, traits: [disease_resistant, high_yield, compact]}
+    - {name: "Blauhilde", breeder: null, days_to_maturity: 65, traits: [ornamental, high_yield, heirloom]}
+    - {name: "Neckarkönigin", breeder: null, days_to_maturity: 65, traits: [high_yield, heirloom]}
+    - {name: "Saxa", breeder: null, days_to_maturity: 50, traits: [early_maturing, compact, heirloom]}
+    - {name: "Kentucky Blue Pole", breeder: null, days_to_maturity: 65, traits: [disease_resistant, high_yield]}
+
+  "Pisum sativum":
+    - {name: "Kelvedon Wonder", breeder: null, days_to_maturity: 65, traits: [early_maturing, compact, heirloom]}
+    - {name: "Ambassador", breeder: null, days_to_maturity: 75, traits: [high_yield]}
+    - {name: "Norli", breeder: null, days_to_maturity: 55, traits: [early_maturing, compact]}
+    - {name: "Oregon Sugar Pod", breeder: null, days_to_maturity: 65, traits: [high_yield]}
+    - {name: "Sugar Snap", breeder: null, days_to_maturity: 70, traits: [high_yield]}
+    - {name: "Ambrosia", breeder: null, days_to_maturity: 60, traits: [early_maturing, high_yield]}
+
+  "Petroselinum crispum":
+    - {name: "Gigante d'Italia", breeder: null, days_to_maturity: 75, traits: [high_yield]}
+    - {name: "Einfache Schnitt", breeder: null, days_to_maturity: 70, traits: [heirloom]}
+    - {name: "Grüne Perle", breeder: null, days_to_maturity: 75, traits: [compact, ornamental]}
+    - {name: "Mooskrause 2", breeder: null, days_to_maturity: 75, traits: [compact, ornamental]}
+    - {name: "Halblange Wurzelpetersilie", breeder: null, days_to_maturity: 90, traits: [heirloom]}
+    - {name: "Festival 68", breeder: null, days_to_maturity: 70, traits: [high_yield, disease_resistant]}
+
+  "Lactuca sativa":
+    - {name: "Maikönig", breeder: null, days_to_maturity: 55, traits: [early_maturing, heirloom]}
+    - {name: "Attractie", breeder: null, days_to_maturity: 60, traits: [high_yield]}
+    - {name: "Kagraner Sommer", breeder: null, days_to_maturity: 65, traits: [heat_tolerant, heirloom]}
+    - {name: "Lollo Rossa", breeder: null, days_to_maturity: 50, traits: [ornamental, heirloom]}
+    - {name: "Lollo Bionda", breeder: null, days_to_maturity: 50, traits: [ornamental, heirloom]}
+    - {name: "Salad Bowl", breeder: null, days_to_maturity: 45, traits: [high_yield, heat_tolerant]}
+    - {name: "Eisberg", breeder: null, days_to_maturity: 70, traits: [compact, high_yield]}
+    - {name: "Grazer Krauthäuptel", breeder: null, days_to_maturity: 60, traits: [heat_tolerant, heirloom]}
+
+  "Cichorium intybus":
+    - {name: "Catalogna", breeder: null, days_to_maturity: 60, traits: []}
+    - {name: "Zuckerhut", breeder: null, days_to_maturity: 90, traits: []}
+    - {name: "Rossa di Treviso", breeder: null, days_to_maturity: 85, traits: [ornamental]}
+    - {name: "Palla Rossa", breeder: null, days_to_maturity: 80, traits: []}
+    - {name: "Witloof", breeder: null, days_to_maturity: 120, traits: []}
+    - {name: "Wegwarte (Pötschke Historisch)", breeder: null, days_to_maturity: 90, traits: [heirloom]}
+
+  "Cucurbita pepo":
+    - {name: "Black Beauty", breeder: null, days_to_maturity: 50, traits: [high_yield, compact]}
+    - {name: "Defender F1", breeder: null, days_to_maturity: 47, traits: [disease_resistant, early_maturing, f1]}
+    - {name: "Partenon F1", breeder: null, days_to_maturity: 47, traits: [disease_resistant, f1]}
+    - {name: "Ismalia F1", breeder: null, days_to_maturity: 50, traits: [disease_resistant, high_yield, f1]}
+    - {name: "Romanesco", breeder: null, days_to_maturity: 55, traits: [ornamental]}
+    - {name: "Tondo di Nizza", breeder: null, days_to_maturity: 45, traits: [compact]}
+    - {name: "Zuboda (Pötschke Historisch)", breeder: null, days_to_maturity: 55, traits: [heirloom, high_yield]}
+
+  "Apium graveolens":
+    - {name: "Prager Riesen", breeder: null, days_to_maturity: 180, traits: []}
+    - {name: "Monarch", breeder: null, days_to_maturity: 190, traits: [disease_resistant]}
+    - {name: "Mars", breeder: null, days_to_maturity: 185, traits: []}
+    - {name: "President", breeder: null, days_to_maturity: 190, traits: [disease_resistant, f1]}
+    - {name: "Diamant", breeder: null, days_to_maturity: 185, traits: []}
+
+  "Solanum lycopersicum":
+    - {name: "San Marzano", breeder: null, days_to_maturity: 75, traits: [heirloom]}
+    - {name: "Moneymaker", breeder: null, days_to_maturity: 80, traits: [high_yield]}
+    - {name: "Harzfeuer", breeder: null, days_to_maturity: 65, traits: [early_maturing, cold_hardy]}
+    - {name: "Philovita F1", breeder: null, days_to_maturity: 60, traits: [disease_resistant, f1]}
+    - {name: "Ochsenherz", breeder: null, days_to_maturity: 80, traits: [heirloom]}
+    - {name: "Roma VF", breeder: null, days_to_maturity: 75, traits: [disease_resistant]}
+
+  "Ocimum basilicum":
+    - {name: "Genovese", breeder: null, days_to_maturity: 70, traits: []}
+    - {name: "Nufar F1", breeder: null, days_to_maturity: 72, traits: [disease_resistant, f1]}
+    - {name: "Siam Queen", breeder: null, days_to_maturity: 60, traits: []}
+    - {name: "Dark Opal", breeder: null, days_to_maturity: 65, traits: [ornamental]}
+    - {name: "Prospera", breeder: null, days_to_maturity: 75, traits: [disease_resistant, f1]}
+    - {name: "Griechisches Strauchbasilikum", breeder: null, days_to_maturity: 55, traits: [compact]}
+
+  "Raphanus sativus":
+    - {name: "Cherry Belle", breeder: null, days_to_maturity: 22, traits: [early_maturing]}
+    - {name: "Saxa 3", breeder: null, days_to_maturity: 25, traits: [early_maturing, compact]}
+    - {name: "Riesenbutter", breeder: null, days_to_maturity: 30, traits: []}
+    - {name: "French Breakfast 3", breeder: null, days_to_maturity: 28, traits: []}
+    - {name: "Eiszapfen", breeder: null, days_to_maturity: 35, traits: []}
+    - {name: "Pernot", breeder: null, days_to_maturity: 25, traits: []}
+    - {name: "Sora", breeder: null, days_to_maturity: 24, traits: []}
+    - {name: "Viola", breeder: null, days_to_maturity: 28, traits: [ornamental]}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §7 Companion Planting Edges
+# ══════════════════════════════════════════════════════════════════════════════
+
+companion_planting:
+  compatible:
+    # Allium + Daucus: mutual pest repelling (Moehrenfliege / Lauchmotte)
+    - [Allium porrum, Daucus carota, 0.9]
+    - [Allium schoenoprasum, Daucus carota, 0.8]
+    # Allium + Solanaceae: aphid/thrips repellent
+    - [Allium schoenoprasum, Solanum lycopersicum, 0.7]
+    - [Allium schoenoprasum, Capsicum annuum, 0.6]
+    # Allium + Salat: different root depths
+    - [Allium porrum, Lactuca sativa, 0.7]
+    - [Allium schoenoprasum, Lactuca sativa, 0.7]
+    # Allium + Sellerie: mutual benefit
+    - [Allium porrum, Apium graveolens, 0.7]
+    # Allium + Beta: good companion
+    - [Allium porrum, "Beta vulgaris subsp. vulgaris", 0.6]
+    - [Allium schoenoprasum, "Beta vulgaris subsp. vulgaris", 0.6]
+    # Solanaceae + herbs
+    - [Solanum lycopersicum, Ocimum basilicum, 0.9]
+    - [Solanum lycopersicum, Petroselinum crispum, 0.7]
+    - [Capsicum annuum, Ocimum basilicum, 0.7]
+    - [Capsicum annuum, Petroselinum crispum, 0.6]
+    # Cucurbitaceae + Fabaceae
+    - [Cucumis sativus, Phaseolus vulgaris, 0.8]
+    - [Cucumis sativus, Pisum sativum, 0.7]
+    - [Cucurbita pepo, Phaseolus vulgaris, 0.8]
+    - [Cucurbita pepo, Pisum sativum, 0.7]
+    # Cucurbitaceae + herbs/salad
+    - [Cucumis sativus, Anethum graveolens, 0.7]
+    - [Cucumis sativus, Lactuca sativa, 0.7]
+    # Fabaceae + root vegetables
+    - [Pisum sativum, Daucus carota, 0.7]
+    - [Pisum sativum, Raphanus sativus, 0.7]
+    - [Pisum sativum, Lactuca sativa, 0.7]
+    - [Phaseolus vulgaris, Daucus carota, 0.6]
+    # Salat combinations
+    - [Lactuca sativa, Raphanus sativus, 0.7]
+    - [Lactuca sativa, Daucus carota, 0.7]
+    - [Lactuca sativa, Anethum graveolens, 0.6]
+    # Brassica companion planting
+    - ["Brassica oleracea var. gemmifera", Apium graveolens, 0.7]
+    - ["Brassica oleracea var. gemmifera", Pisum sativum, 0.7]
+    - ["Brassica oleracea var. gemmifera", Phaseolus vulgaris, 0.6]
+    # Beta + Salat
+    - ["Beta vulgaris subsp. vulgaris", Lactuca sativa, 0.7]
+    - ["Beta vulgaris subsp. vulgaris", Daucus carota, 0.6]
+    # Sellerie combinations
+    - [Apium graveolens, Daucus carota, 0.6]
+    - [Apium graveolens, Pisum sativum, 0.6]
+    - [Apium graveolens, Phaseolus vulgaris, 0.6]
+    # Cichorium
+    - [Cichorium intybus, Phaseolus vulgaris, 0.6]
+    - [Cichorium intybus, Daucus carota, 0.6]
+    # Tomate + Daucus
+    - [Solanum lycopersicum, Daucus carota, 0.6]
+    - [Capsicum annuum, Daucus carota, 0.6]
+    # Petersilie + Daucus (same family but compatible in moderation)
+    - [Petroselinum crispum, Daucus carota, 0.5]
+    # Tagetes (existing species) as universal companion
+    - [Tagetes erecta, Solanum lycopersicum, 0.8]
+    - [Tagetes erecta, Capsicum annuum, 0.7]
+    - [Tagetes erecta, Cucumis sativus, 0.7]
+    - [Tagetes erecta, Phaseolus vulgaris, 0.7]
+    # Phaseolus + Solanaceae
+    - [Phaseolus vulgaris, Solanum lycopersicum, 0.6]
+    # Fragaria (existing species)
+    - [Fragaria x ananassa, Allium schoenoprasum, 0.7]
+    - [Fragaria x ananassa, Lactuca sativa, 0.7]
+    - [Fragaria x ananassa, Phaseolus vulgaris, 0.6]
+
+  incompatible:
+    # Allium hemmt Leguminosen
+    - [Allium porrum, Phaseolus vulgaris, "Allicin-Verbindungen hemmen Knöllchenbakterien"]
+    - [Allium porrum, Pisum sativum, "Allicin hemmt Rhizobien-Symbiose"]
+    - [Allium schoenoprasum, Phaseolus vulgaris, "Allicin hemmt Knöllchenbakterien"]
+    - [Allium schoenoprasum, Pisum sativum, "Allicin hemmt Rhizobien-Symbiose"]
+    # Apiaceae untereinander: gleiche Schaedlinge (Moehrenfliege)
+    - [Anethum graveolens, Daucus carota, "Gleiche Familie, Möhrenfliegen-Anziehung"]
+    - [Anethum graveolens, Petroselinum crispum, "Gleiche Familie, Schädlingsübertragung"]
+    - [Anethum graveolens, Apium graveolens, "Gleiche Familie, Schädlingsübertragung"]
+    - [Daucus carota, Apium graveolens, "Gleiche Familie, Möhrenfliegen-Risiko"]
+    # Cucurbitaceae + Solanaceae: Krankheitsuebertragung
+    - [Cucumis sativus, Solanum lycopersicum, "Virusübertragung über gemeinsame Vektoren"]
+    - [Cucurbita pepo, Solanum lycopersicum, "Wurzelkonkurrenz, Krankheitsübertragung"]
+    - [Cucurbita pepo, Capsicum annuum, "Wurzelkonkurrenz, Nährstoffwettbewerb"]
+    # Brassicaceae + Solanaceae
+    - ["Brassica oleracea var. gemmifera", Solanum lycopersicum, "Nährstoffkonkurrenz"]
+    # Beta + Phaseolus
+    - ["Beta vulgaris subsp. vulgaris", Phaseolus vulgaris, "Wuchshemmung dokumentiert"]
+    # Foeniculum (existing species) ist Einzelgaenger
+    - [Foeniculum vulgare, Solanum lycopersicum, "Fenchel hemmt Tomatenwachstum"]
+    - [Foeniculum vulgare, Phaseolus vulgaris, "Fenchel hemmt Bohnenwachstum"]
+    - [Foeniculum vulgare, Pisum sativum, "Fenchel hemmt Erbsenwachstum"]
+    # Salat + Petersilie (umstritten, aber in manchen Quellen)
+    - [Lactuca sativa, Petroselinum crispum, "Wuchshemmung bei engem Stand"]
+
+# ══════════════════════════════════════════════════════════════════════════════
+# §8 IPM Data (new pests, diseases, treatments for Allium/Beta/Brassica)
+# ══════════════════════════════════════════════════════════════════════════════
+
+pests:
+  - scientific_name: "Acrolepiopsis assectella"
+    common_name: "Leek Moth"
+    pest_type: insect
+    lifecycle_days: 35
+    optimal_temp_min: 15.0
+    optimal_temp_max: 28.0
+    detection_difficulty: medium
+    description: "Lauchmotte. Raupen fressen Gänge in Blätter und Schäfte von Allium-Arten."
+
+  - scientific_name: "Phytomyza gymnostoma"
+    common_name: "Allium Leafminer"
+    pest_type: insect
+    lifecycle_days: 42
+    optimal_temp_min: 10.0
+    optimal_temp_max: 25.0
+    detection_difficulty: medium
+    description: "Lauchminierfliege. Einstichlöcher und Miniergänge in Blättern, Maden an Schaftbasis."
+
+  - scientific_name: "Thrips tabaci"
+    common_name: "Onion Thrips"
+    pest_type: insect
+    lifecycle_days: 21
+    optimal_temp_min: 18.0
+    optimal_temp_max: 30.0
+    detection_difficulty: medium
+    description: "Zwiebelthrips. Silbrige Saugflecken auf Blättern von Allium- und Brassica-Arten."
+
+  - scientific_name: "Pieris brassicae"
+    common_name: "Cabbage White Butterfly"
+    pest_type: insect
+    lifecycle_days: 35
+    optimal_temp_min: 15.0
+    optimal_temp_max: 30.0
+    detection_difficulty: easy
+    description: "Kohlweißling. Raupen fressen Blätter von Brassica-Arten. Gelege auf Blattunterseiten."
+
+  - scientific_name: "Delia radicum"
+    common_name: "Cabbage Root Fly"
+    pest_type: insect
+    lifecycle_days: 42
+    optimal_temp_min: 12.0
+    optimal_temp_max: 25.0
+    detection_difficulty: hard
+    description: "Kohlfliege. Maden fressen an Wurzeln von Brassica-Arten. Pflanze welkt trotz Wasser."
+
+  - scientific_name: "Psila rosae"
+    common_name: "Carrot Fly"
+    pest_type: insect
+    lifecycle_days: 60
+    optimal_temp_min: 12.0
+    optimal_temp_max: 25.0
+    detection_difficulty: hard
+    description: "Möhrenfliege. Maden fressen Gänge in Karotten und andere Apiaceae-Wurzeln."
+
+diseases:
+  - scientific_name: "Puccinia allii"
+    common_name: "Leek Rust"
+    pathogen_type: fungal
+    incubation_period_days: 10
+    environmental_triggers: [warm_humid_conditions, poor_airflow]
+    affected_plant_parts: [leaf]
+    description: "Porreerost. Orangerote Pusteln auf Blättern von Allium-Arten."
+
+  - scientific_name: "Alternaria dauci"
+    common_name: "Alternaria Leaf Blight"
+    pathogen_type: fungal
+    incubation_period_days: 8
+    environmental_triggers: [warm_humid_conditions, rain_splash]
+    affected_plant_parts: [leaf]
+    description: "Alternaria-Blattfleckenkrankheit. Braune Flecken mit konzentrischen Ringen auf Blättern."
+
+  - scientific_name: "Sclerotium cepivorum"
+    common_name: "White Rot"
+    pathogen_type: fungal
+    incubation_period_days: 21
+    environmental_triggers: [cool_wet_soil, soil_contamination]
+    affected_plant_parts: [root, stem]
+    description: "Weißfäule. Weißer Mycelbelag an Zwiebelbasis, Pflanze vergilbt und stirbt ab."
+
+  - scientific_name: "Cercospora beticola"
+    common_name: "Cercospora Leaf Spot"
+    pathogen_type: fungal
+    incubation_period_days: 10
+    environmental_triggers: [warm_humid_conditions, rain_splash]
+    affected_plant_parts: [leaf]
+    description: "Cercospora-Blattfleckenkrankheit an Beta vulgaris. Runde graue Flecken mit rotem Rand."
+
+treatments:
+  - name: "Insect Protection Net"
+    treatment_type: mechanical
+    application_method: cultural
+    safety_interval_days: 0
+    description: >-
+      Kulturschutznetz (< 0.8mm Maschenweite).
+      Wichtigste Maßnahme gegen Lauchmotte, Minierfliege, Kohlfliege und Kohlweißling.
+
+  - name: "Potassium Soap"
+    treatment_type: biological
+    active_ingredient: "potassium salts of fatty acids"
+    application_method: spray
+    safety_interval_days: 0
+    dosage_per_liter: 15.0
+    description: "Kaliseife 1-2%. Gegen Blattläuse, Thripse und weiche Insekten."
+
+  - name: "Potassium Bicarbonate"
+    treatment_type: biological
+    active_ingredient: "potassium bicarbonate"
+    application_method: spray
+    safety_interval_days: 0
+    dosage_per_liter: 5.0
+    description: "Kaliumbicarbonat. Gegen Echten Mehltau und Rostpilze. Vorbeugend und kurativ."
+
+  - name: "Ferramol"
+    treatment_type: biological
+    active_ingredient: "iron(III) phosphate"
+    application_method: cultural
+    safety_interval_days: 0
+    dosage_per_liter: null
+    description: "Schneckenkorn auf Basis Eisen-III-Phosphat. Gegen Nacktschnecken."
+    protective_equipment: [gloves]
+
+# Treatment -> Pest targeting edges
+pest_treatments:
+  - [Insect Protection Net, Leek Moth]
+  - [Insect Protection Net, Allium Leafminer]
+  - [Insect Protection Net, Cabbage White Butterfly]
+  - [Insect Protection Net, Cabbage Root Fly]
+  - [Insect Protection Net, Carrot Fly]
+  - [Potassium Soap, Onion Thrips]
+  - [Potassium Soap, Aphids]
+  - [Neem Oil, Onion Thrips]
+  - [Neem Oil, Leek Moth]
+  - [Neem Oil, Allium Leafminer]
+  - ["Bacillus thuringiensis (Bt)", Cabbage White Butterfly]
+  - [Ferramol, Slug]
+
+# Treatment -> Disease targeting edges
+disease_treatments:
+  - [Potassium Bicarbonate, Leek Rust]
+  - [Potassium Bicarbonate, Powdery Mildew]
+  - [Environmental Control, Leek Rust]
+  - [Crop Rotation, White Rot]
+  - [Crop Rotation, Cercospora Leaf Spot]
+  - [Sanitation, Alternaria Leaf Blight]
+
+# Existing families needed for species creation (loaded at runtime)
+existing_families_needed:
+  - Brassicaceae
+  - Solanaceae
+  - Apiaceae
+  - Fabaceae
+  - Cucurbitaceae
+  - Asteraceae
+  - Lamiaceae

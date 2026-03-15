@@ -128,7 +128,12 @@ PlantingRun: "Mischkultur Beet B Sommer 2025"
     - `source_plant_key: Optional[str]` (Nur bei `clone`: Key der Mutterpflanze)
     - `clone_generation: Optional[int]` (Nur bei `clone`: 1 = direkt von Saat-Pflanze, 2+ = Klon vom Klon. Vigor kann über Generationen nachlassen.)
     - `propagation_method: Optional[Literal['seed', 'cutting', 'tissue_culture', 'air_layer', 'division']]` (Vermehrungsmethode — beeinflusst Wurzelsystem-Qualität und Erfolgsrate)
-    - `clone_from_run_key: Optional[str]` (Key eines bestehenden Runs als Vorlage — für Staffelanbau/Succession Planting: nur Konfiguration wird kopiert, nicht die Pflanzen)
+    - `clone_from_run_key: Optional[str]` (Key eines bestehenden Runs als Vorlage — für Staffelanbau/Succession Planting und **Jahreswiederholung**: nur Konfiguration wird kopiert, nicht die Pflanzen)
+    <!-- Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03 -->
+    - `annual_repeat: bool` (Default: `false`. Wenn `true`, wird der Run im Kalender als jährlich wiederkehrend markiert und im Aussaatkalender (REQ-015) als Vorschlag für das Folgejahr angezeigt.)
+    - `repeat_month: Optional[int]` (Monat (1–12) in dem der Run jährlich wiederholt werden soll. Nur relevant wenn `annual_repeat == true`. Beispiel: `2` für Februar-Aussaat von Stiefmütterchen.)
+    - `previous_run_key: Optional[str]` (Referenz auf den Run des Vorjahres — ermöglicht Jahresvergleich: Keimrate, Überlebensrate, Blühdauer)
+    <!-- /Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03 -->
     - `germination_count: Optional[int]` (Bei Saat: Anzahl tatsächlich gekeimter Samen — nachträglich erfasst)
     - `rooting_count: Optional[int]` (Bei Klonen: Anzahl erfolgreich bewurzelter Stecklinge)
     - `survival_rate: Optional[float]` (actual_quantity / planned_quantity — berechnet nach Run-Abschluss)

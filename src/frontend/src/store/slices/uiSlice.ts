@@ -12,7 +12,7 @@ interface UiState {
 }
 
 const initialState: UiState = {
-  sidebarOpen: true,
+  sidebarOpen: typeof window !== 'undefined' ? window.innerWidth >= 768 : true,
   breadcrumbs: [],
   globalLoading: false,
 };

@@ -52,6 +52,8 @@ WORKFLOW_TEMPLATES = "workflow_templates"
 TASK_TEMPLATES = "task_templates"
 TASKS = "tasks"
 WORKFLOW_EXECUTIONS = "workflow_executions"
+TASK_COMMENTS = "task_comments"
+TASK_AUDIT_ENTRIES = "task_audit_entries"
 
 # REQ-023 Auth
 USERS = "users"
@@ -89,6 +91,12 @@ LOCATION_TYPES = "location_types"
 
 # System Settings (singleton)
 SYSTEM_SETTINGS = "system_settings"
+
+# Unified Watering Log (replaces WateringEvents + FeedingEvents)
+WATERING_LOGS = "watering_logs"
+
+# Activities (Stammdaten)
+ACTIVITIES = "activities"
 
 DOCUMENT_COLLECTIONS = [
     SPECIES,
@@ -135,6 +143,8 @@ DOCUMENT_COLLECTIONS = [
     TASK_TEMPLATES,
     TASKS,
     WORKFLOW_EXECUTIONS,
+    TASK_COMMENTS,
+    TASK_AUDIT_ENTRIES,
     USERS,
     AUTH_PROVIDERS,
     REFRESH_TOKENS,
@@ -155,6 +165,8 @@ DOCUMENT_COLLECTIONS = [
     SENSORS,
     SYSTEM_SETTINGS,
     LOCATION_TYPES,
+    WATERING_LOGS,
+    ACTIVITIES,
 ]
 
 # Edge collections
@@ -198,7 +210,7 @@ HAS_PHASE_ENTRY = "has_phase_entry"
 PLAN_USES_FERTILIZER = "plan_uses_fertilizer"
 FOLLOWS_PLAN = "follows_plan"
 CLONED_FROM = "cloned_from"
-WATERED_SLOT = "watered_slot"
+WATERED_PLANT = "watered_plant"
 SHARES_PEST_RISK = "shares_pest_risk"
 FAMILY_COMPATIBLE_WITH = "family_compatible_with"
 FAMILY_INCOMPATIBLE_WITH = "family_incompatible_with"
@@ -231,6 +243,11 @@ INSTANCE_OF = "instance_of"
 WF_EXECUTING = "wf_executing"
 WF_GENERATED = "wf_generated"
 FOLLOWS_WORKFLOW = "follows_workflow"
+TASK_HAS_COMMENT = "task_has_comment"
+TASK_HAS_AUDIT = "task_has_audit"
+TASK_CLONED_FROM = "task_cloned_from"
+TASK_RECURS_FROM = "task_recurs_from"
+TASK_ASSIGNED_TO = "task_assigned_to"
 
 # REQ-023 Auth edges
 HAS_AUTH_PROVIDER = "has_auth_provider"
@@ -262,6 +279,15 @@ GENERATED_TASK = "generated_task"
 
 # REQ-005 Sensor edges
 MONITORS_TANK = "monitors_tank"
+LOCATED_AT = "located_at"
+
+# Watering Log edges
+LOG_SLOT = "log_slot"
+LOG_PLANT = "log_plant"
+LOG_FERTILIZER = "log_fertilizer"
+
+# Activity edges
+TASK_USES_ACTIVITY = "task_uses_activity"
 
 # Watering Schedule edges
 RUN_FOLLOWS_PLAN = "run_follows_plan"
@@ -313,7 +339,7 @@ EDGE_COLLECTIONS = [
     PLAN_USES_FERTILIZER,
     FOLLOWS_PLAN,
     CLONED_FROM,
-    WATERED_SLOT,
+    WATERED_PLANT,
     SHARES_PEST_RISK,
     FAMILY_COMPATIBLE_WITH,
     FAMILY_INCOMPATIBLE_WITH,
@@ -340,6 +366,11 @@ EDGE_COLLECTIONS = [
     WF_EXECUTING,
     WF_GENERATED,
     FOLLOWS_WORKFLOW,
+    TASK_HAS_COMMENT,
+    TASK_HAS_AUDIT,
+    TASK_CLONED_FROM,
+    TASK_RECURS_FROM,
+    TASK_ASSIGNED_TO,
     HAS_AUTH_PROVIDER,
     HAS_SESSION,
     HAS_API_KEY,
@@ -360,10 +391,15 @@ EDGE_COLLECTIONS = [
     CREATED_BY_WIZARD,
     RUN_FOLLOWS_PLAN,
     MONITORS_TANK,
+    LOCATED_AT,
+    LOG_SLOT,
+    LOG_PLANT,
+    LOG_FERTILIZER,
     HAS_FILL_EVENT,
     MIXED_INTO,
     WATERING_FROM,
     GENERATED_TASK,
+    TASK_USES_ACTIVITY,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -570,9 +606,9 @@ GRAPH_EDGE_DEFINITIONS = [
         "to_vertex_collections": [NUTRIENT_PLANS],
     },
     {
-        "edge_collection": WATERED_SLOT,
+        "edge_collection": WATERED_PLANT,
         "from_vertex_collections": [WATERING_EVENTS],
-        "to_vertex_collections": [SLOTS],
+        "to_vertex_collections": [PLANT_INSTANCES],
     },
     {
         "edge_collection": SHARES_PEST_RISK,
@@ -707,6 +743,31 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [PLANT_INSTANCES],
         "to_vertex_collections": [WORKFLOW_TEMPLATES],
     },
+    {
+        "edge_collection": TASK_HAS_COMMENT,
+        "from_vertex_collections": [TASKS],
+        "to_vertex_collections": [TASK_COMMENTS],
+    },
+    {
+        "edge_collection": TASK_HAS_AUDIT,
+        "from_vertex_collections": [TASKS],
+        "to_vertex_collections": [TASK_AUDIT_ENTRIES],
+    },
+    {
+        "edge_collection": TASK_CLONED_FROM,
+        "from_vertex_collections": [TASKS],
+        "to_vertex_collections": [TASKS],
+    },
+    {
+        "edge_collection": TASK_RECURS_FROM,
+        "from_vertex_collections": [TASKS],
+        "to_vertex_collections": [TASKS],
+    },
+    {
+        "edge_collection": TASK_ASSIGNED_TO,
+        "from_vertex_collections": [TASKS],
+        "to_vertex_collections": [USERS],
+    },
     # REQ-023 Auth
     {
         "edge_collection": HAS_AUTH_PROVIDER,
@@ -813,6 +874,33 @@ GRAPH_EDGE_DEFINITIONS = [
         "edge_collection": MONITORS_TANK,
         "from_vertex_collections": [SENSORS],
         "to_vertex_collections": [TANKS],
+    },
+    {
+        "edge_collection": LOCATED_AT,
+        "from_vertex_collections": [SENSORS],
+        "to_vertex_collections": [SITES, LOCATIONS],
+    },
+    # Watering Log edges
+    {
+        "edge_collection": LOG_SLOT,
+        "from_vertex_collections": [WATERING_LOGS],
+        "to_vertex_collections": [SLOTS],
+    },
+    {
+        "edge_collection": LOG_PLANT,
+        "from_vertex_collections": [WATERING_LOGS],
+        "to_vertex_collections": [PLANT_INSTANCES],
+    },
+    {
+        "edge_collection": LOG_FERTILIZER,
+        "from_vertex_collections": [WATERING_LOGS],
+        "to_vertex_collections": [FERTILIZERS],
+    },
+    # Activity edges
+    {
+        "edge_collection": TASK_USES_ACTIVITY,
+        "from_vertex_collections": [TASKS, TASK_TEMPLATES],
+        "to_vertex_collections": [ACTIVITIES],
     },
     # REQ-014 Tank Fill
     {
@@ -980,6 +1068,18 @@ def ensure_collections(db: StandardDatabase) -> None:
     # REQ-005 Sensor indexes
     sensors_col = db.collection(SENSORS)
     sensors_col.add_hash_index(fields=["tank_key"], unique=False)
+    sensors_col.add_hash_index(fields=["site_key"], unique=False)
+    sensors_col.add_hash_index(fields=["location_key"], unique=False)
+
+    # Watering Log indexes
+    watering_logs_col = db.collection(WATERING_LOGS)
+    watering_logs_col.add_hash_index(fields=["logged_at"], unique=False)
+    watering_logs_col.add_hash_index(fields=["plant_keys[*]"], unique=False)
+    watering_logs_col.add_hash_index(fields=["slot_keys[*]"], unique=False)
+
+    # Activity indexes
+    activities_col = db.collection(ACTIVITIES)
+    activities_col.add_hash_index(fields=["name"], unique=True)
 
     # REQ-015 Calendar indexes
     calendar_feeds_col = db.collection(CALENDAR_FEEDS)

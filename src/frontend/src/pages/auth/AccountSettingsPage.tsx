@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTabUrl } from '@/hooks/useTabUrl';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -13,6 +14,12 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import IconButton from '@mui/material/IconButton';
+import Divider from '@mui/material/Divider';
+import InputAdornment from '@mui/material/InputAdornment';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
+import InputLabel from '@mui/material/InputLabel';
+import FormControl from '@mui/material/FormControl';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import Chip from '@mui/material/Chip';
@@ -25,6 +32,7 @@ import DialogActions from '@mui/material/DialogActions';
 import EmojiNatureIcon from '@mui/icons-material/EmojiNature';
 import SchoolIcon from '@mui/icons-material/School';
 import ScienceIcon from '@mui/icons-material/Science';
+import PageTitle from '@/components/layout/PageTitle';
 import { useSnackbar } from 'notistack';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchProfile } from '@/store/slices/authSlice';
@@ -81,7 +89,7 @@ export default function AccountSettingsPage() {
     ];
   }, [t]);
 
-  const [tabIndex, setTabIndex] = useState(0);
+  const [tabIndex, setTabIndex] = useTabUrl(tabs.map((t) => t.key));
   const activeTab = tabs[tabIndex]?.key ?? 'profile';
 
   const [displayName, setDisplayName] = useState('');
@@ -217,9 +225,7 @@ export default function AccountSettingsPage() {
 
   return (
     <Box sx={{ maxWidth: 700, mx: 'auto', mt: 2 }}>
-      <Typography variant="h5" gutterBottom>
-        {t('pages.auth.accountSettings')}
-      </Typography>
+      <PageTitle title={t('pages.auth.accountSettings')} />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -232,29 +238,55 @@ export default function AccountSettingsPage() {
       {activeTab === 'profile' && (
         <Card>
           <CardContent>
-            <TextField
-              label={t('pages.auth.displayName')}
-              fullWidth
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              label={t('pages.auth.email')}
-              fullWidth
-              value={user?.email || ''}
-              disabled
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              label={t('pages.auth.timezone')}
-              fullWidth
-              value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
-              helperText="e.g. Europe/Berlin, America/New_York"
-              sx={{ mb: 2 }}
-            />
-            <Button variant="contained" onClick={handleProfileSave}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              {t('pages.auth.profileSection')}
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
+              <TextField
+                label={t('pages.auth.displayName')}
+                fullWidth
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                autoFocus
+                data-testid="profile-display-name"
+              />
+              <TextField
+                label={t('pages.auth.email')}
+                fullWidth
+                value={user?.email || ''}
+                disabled
+                helperText={t('pages.auth.emailReadOnly')}
+                data-testid="profile-email"
+              />
+            </Box>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              {t('pages.auth.regionSection')}
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
+              <FormControl fullWidth>
+                <InputLabel id="locale-label">{t('pages.auth.locale')}</InputLabel>
+                <Select
+                  labelId="locale-label"
+                  value={locale}
+                  label={t('pages.auth.locale')}
+                  onChange={(e) => setLocale(e.target.value)}
+                  data-testid="profile-locale"
+                >
+                  <MenuItem value="de">Deutsch</MenuItem>
+                  <MenuItem value="en">English</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                label={t('pages.auth.timezone')}
+                fullWidth
+                value={timezone}
+                onChange={(e) => setTimezone(e.target.value)}
+                helperText={t('pages.auth.timezoneHelper')}
+                data-testid="profile-timezone"
+              />
+            </Box>
+            <Button variant="contained" onClick={handleProfileSave} data-testid="profile-save-btn">
               {t('common.save')}
             </Button>
           </CardContent>
@@ -264,41 +296,56 @@ export default function AccountSettingsPage() {
       {activeTab === 'security' && (
         <Card>
           <CardContent>
-            <Typography variant="h6" gutterBottom>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               {hasLocalProvider ? t('pages.auth.changePassword') : t('pages.auth.setPassword')}
             </Typography>
-            {hasLocalProvider && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
+              {hasLocalProvider && (
+                <TextField
+                  label={t('pages.auth.currentPassword')}
+                  type="password"
+                  fullWidth
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  data-testid="current-password-field"
+                />
+              )}
               <TextField
-                label={t('pages.auth.currentPassword')}
+                label={t('pages.auth.newPasswordField')}
                 type="password"
                 fullWidth
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                sx={{ mb: 2 }}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                helperText={t('pages.auth.passwordHelp')}
+                data-testid="new-password-field"
               />
-            )}
-            <TextField
-              label={t('pages.auth.newPassword')}
-              type="password"
-              fullWidth
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              sx={{ mb: 2 }}
-            />
-            <Button variant="contained" onClick={handlePasswordChange} sx={{ mb: 3 }}>
+            </Box>
+            <Button
+              variant="contained"
+              onClick={handlePasswordChange}
+              disabled={!newPassword || (hasLocalProvider && !currentPassword)}
+              data-testid="change-password-btn"
+            >
               {hasLocalProvider ? t('pages.auth.changePasswordButton') : t('pages.auth.setPasswordButton')}
             </Button>
 
-            <Typography variant="h6" gutterBottom>
+            <Divider sx={{ my: 3 }} />
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               {t('pages.auth.linkedProviders')}
             </Typography>
-            <List>
+            <List disablePadding>
               {providers.map((p) => (
                 <ListItem
                   key={p.key}
+                  disableGutters
                   secondaryAction={
                     providers.length > 1 && (
-                      <IconButton edge="end" onClick={() => handleUnlinkProvider(p.key)}>
+                      <IconButton
+                        edge="end"
+                        onClick={() => handleUnlinkProvider(p.key)}
+                        aria-label={t('pages.auth.unlinkProvider')}
+                        data-testid={`unlink-provider-${p.key}`}
+                      >
                         <DeleteIcon />
                       </IconButton>
                     )
@@ -346,7 +393,7 @@ export default function AccountSettingsPage() {
                         />
                       </Box>
                     }
-                    secondary={`IP: ${s.ip_address || '-'} | ${t('pages.auth.expires')}: ${new Date(s.expires_at).toLocaleDateString()}`}
+                    secondary={`IP: ${s.ip_address || '\u2014'} | ${t('pages.auth.expires')}: ${new Date(s.expires_at).toLocaleDateString()}`}
                   />
                 </ListItem>
               ))}
@@ -439,10 +486,10 @@ export default function AccountSettingsPage() {
       {activeTab === 'experience' && (
         <Card>
           <CardContent>
-            <Typography variant="h6" gutterBottom>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               {t('pages.auth.experienceLevelTitle')}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {t('pages.auth.experienceLevelSubtitle')}
             </Typography>
 
@@ -451,10 +498,16 @@ export default function AccountSettingsPage() {
               exclusive
               onChange={handleExperienceLevelChange}
               fullWidth
-              sx={{ mb: 3 }}
+              sx={{ mb: 4 }}
+              aria-label={t('pages.auth.experienceLevelTitle')}
             >
               {EXPERIENCE_LEVELS.map(({ level, icon }) => (
-                <ToggleButton key={level} value={level} sx={{ flexDirection: 'column', py: 2 }}>
+                <ToggleButton
+                  key={level}
+                  value={level}
+                  sx={{ flexDirection: 'column', py: 2 }}
+                  data-testid={`experience-toggle-${level}`}
+                >
                   {icon}
                   <Typography variant="subtitle2" sx={{ mt: 0.5 }}>
                     {t(`enums.experienceLevel.${level}`)}
@@ -465,6 +518,32 @@ export default function AccountSettingsPage() {
                 </ToggleButton>
               ))}
             </ToggleButtonGroup>
+
+            <Divider sx={{ mb: 2 }} />
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              {t('pages.auth.wateringCanSize')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.auth.wateringCanSizeHelper')}
+            </Typography>
+            <TextField
+              type="number"
+              label={t('pages.auth.wateringCanSizeLiters')}
+              value={preferences?.watering_can_liters ?? 10}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                if (!isNaN(val) && val > 0) {
+                  dispatch(updateUserPreferences({ watering_can_liters: val }));
+                  enqueueSnackbar(t('common.saved'), { variant: 'success' });
+                }
+              }}
+              slotProps={{ htmlInput: { min: 0.5, max: 100, step: 0.5, inputMode: 'decimal' } }}
+              InputProps={{
+                endAdornment: <InputAdornment position="end">L</InputAdornment>,
+              }}
+              sx={{ maxWidth: 220 }}
+              data-testid="watering-can-size-field"
+            />
           </CardContent>
         </Card>
       )}
@@ -472,15 +551,25 @@ export default function AccountSettingsPage() {
       {activeTab === 'account' && (
         <Card>
           <CardContent>
-            <Typography variant="h6" gutterBottom color="error">
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              {t('pages.auth.deleteAccountWarning')}
+            </Alert>
+            <Typography variant="subtitle2" color="error" gutterBottom>
               {t('pages.auth.dangerZone')}
             </Typography>
-            <Typography variant="body2" sx={{ mb: 2 }}>
-              {t('pages.auth.deleteAccountWarning')}
-            </Typography>
-            <Button variant="outlined" color="error" onClick={handleDeleteAccount}>
-              {t('pages.auth.deleteAccount')}
-            </Button>
+            <Box sx={{ p: 2, border: 1, borderColor: 'error.main', borderRadius: 1 }}>
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                {t('pages.auth.deleteAccountDescription')}
+              </Typography>
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={handleDeleteAccount}
+                data-testid="delete-account-btn"
+              >
+                {t('pages.auth.deleteAccount')}
+              </Button>
+            </Box>
           </CardContent>
         </Card>
       )}

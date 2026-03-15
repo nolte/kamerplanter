@@ -11,6 +11,7 @@ import { fetchSites } from '@/store/slices/sitesSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import type { Site } from '@/api/types';
 import SiteCreateDialog from './SiteCreateDialog';
+import { kamiLocations } from '@/assets/brand/illustrations';
 
 export default function SiteListPage() {
   const { t } = useTranslation();
@@ -26,9 +27,23 @@ export default function SiteListPage() {
 
   const columns: Column<Site>[] = [
     { id: 'name', label: t('pages.sites.name'), render: (r) => r.name },
-    { id: 'type', label: t('pages.sites.type'), render: (r) => t(`enums.siteType.${r.type}`), searchValue: (r) => t(`enums.siteType.${r.type}`) },
-    { id: 'area', label: t('pages.sites.totalArea'), render: (r) => `${r.total_area_m2} m²`, align: 'right', searchValue: (r) => String(r.total_area_m2) },
-    { id: 'climate', label: t('pages.sites.climateZone'), render: (r) => r.climate_zone },
+    {
+      id: 'climate',
+      label: t('pages.sites.climateZone'),
+      render: (r) => r.climate_zone || '\u2014',
+    },
+    {
+      id: 'area',
+      label: t('pages.sites.totalArea'),
+      render: (r) => r.total_area_m2 ? `${r.total_area_m2} m\u00B2` : '\u2014',
+      align: 'right',
+      searchValue: (r) => String(r.total_area_m2),
+    },
+    {
+      id: 'timezone',
+      label: t('pages.sites.timezone'),
+      render: (r) => r.timezone || '\u2014',
+    },
   ];
 
   return (
@@ -47,6 +62,7 @@ export default function SiteListPage() {
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.sites.create')}
         onEmptyAction={() => setCreateOpen(true)}
+        emptyIllustration={kamiLocations}
         tableState={tableState}
         ariaLabel={t('pages.sites.title')}
       />

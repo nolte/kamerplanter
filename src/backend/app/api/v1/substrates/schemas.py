@@ -5,9 +5,27 @@ from pydantic import BaseModel, Field
 from app.common.enums import BufferCapacity, IrrigationStrategy, SubstrateType, WaterRetention
 
 
+class MixComponentRequest(BaseModel):
+    substrate_key: str
+    fraction: float = Field(ge=0.01, le=1.0)
+
+
+class SubstrateMixRequest(BaseModel):
+    name_de: str = ""
+    name_en: str = ""
+    components: list[MixComponentRequest] = Field(min_length=2)
+
+
+class MixComponentResponse(BaseModel):
+    substrate_key: str
+    fraction: float
+
+
 class SubstrateCreate(BaseModel):
     type: SubstrateType = SubstrateType.SOIL
     brand: str | None = None
+    name_de: str = ""
+    name_en: str = ""
     ph_base: float = Field(default=6.5, ge=0, le=14)
     ec_base_ms: float = Field(default=0.5, ge=0)
     water_retention: WaterRetention = WaterRetention.MEDIUM
@@ -28,6 +46,10 @@ class SubstrateResponse(BaseModel):
     key: str
     type: SubstrateType
     brand: str | None
+    name_de: str = ""
+    name_en: str = ""
+    is_mix: bool = False
+    mix_components: list[MixComponentResponse] = Field(default_factory=list)
     ph_base: float
     ec_base_ms: float
     water_retention: WaterRetention

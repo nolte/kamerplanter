@@ -12,6 +12,7 @@ class FertilizerDosage(BaseModel):
     fertilizer_key: str
     ml_per_liter: float = Field(gt=0, le=50)
     optional: bool = False
+    mixing_order: int = Field(default=0, ge=0, description="Mixing sequence: 0 = first product to add to tank")
 
 
 # ── Method-specific parameters for DeliveryChannel ───────────────────
@@ -97,11 +98,17 @@ class NutrientPlanPhaseEntry(BaseModel):
     sequence_order: int = Field(ge=1)
     week_start: int = Field(ge=1)
     week_end: int = Field(ge=1)
+    is_recurring: bool = False
     npk_ratio: tuple[float, float, float] = (0.0, 0.0, 0.0)
     calcium_ppm: float | None = Field(default=None, ge=0)
     magnesium_ppm: float | None = Field(default=None, ge=0)
+    sulfur_ppm: float | None = Field(default=None, ge=0)
+    iron_ppm: float | None = Field(default=None, ge=0)
+    boron_ppm: float | None = Field(default=None, ge=0)
     notes: str | None = None
     delivery_channels: list[DeliveryChannel] = Field(default_factory=list)
+    watering_schedule_override: WateringSchedule | None = None
+    water_mix_ratio_ro_percent: int | None = Field(default=None, ge=0, le=100)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -118,8 +125,8 @@ class NutrientPlanPhaseEntry(BaseModel):
     @field_validator("week_end")
     @classmethod
     def validate_week_end(cls, v: int, info) -> int:
-        if "week_start" in info.data and v <= info.data["week_start"]:
-            raise ValueError("week_end must be greater than week_start")
+        if "week_start" in info.data and v < info.data["week_start"]:
+            raise ValueError("week_end must be greater than or equal to week_start")
         return v
 
     @model_validator(mode="after")
@@ -145,6 +152,7 @@ class NutrientPlan(BaseModel):
     cloned_from_key: str | None = None
     watering_schedule: WateringSchedule | None = None
     water_mix_ratio_ro_percent: int | None = Field(default=None, ge=0, le=100)
+    cycle_restart_from_sequence: int | None = Field(default=None, ge=1)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

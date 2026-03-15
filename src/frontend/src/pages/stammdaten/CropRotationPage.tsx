@@ -11,7 +11,10 @@ import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
+import Typography from '@mui/material/Typography';
+import AddIcon from '@mui/icons-material/Add';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
@@ -20,6 +23,7 @@ import { useApiError } from '@/hooks/useApiError';
 import * as rotationApi from '@/api/endpoints/cropRotation';
 import * as familiesApi from '@/api/endpoints/botanicalFamilies';
 import type { BotanicalFamily, RotationSuccessor } from '@/api/types';
+import { kamiMasterdata } from '@/assets/brand/illustrations';
 
 export default function CropRotationPage() {
   const { t } = useTranslation();
@@ -69,12 +73,18 @@ export default function CropRotationPage() {
     <>
       <PageTitle title={t('pages.cropRotation.title')} />
 
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        {t('pages.cropRotation.intro')}
+      </Typography>
+
       <TextField
         select
         label={t('pages.cropRotation.fromFamily')}
         value={selectedKey}
         onChange={(e) => setSelectedKey(e.target.value)}
+        helperText={t('pages.cropRotation.fromFamilyHelper')}
         sx={{ minWidth: 300, mb: 3 }}
+        data-testid="from-family-select"
       >
         {families.map((f) => (
           <MenuItem key={f.key} value={f.key}>{f.name}</MenuItem>
@@ -86,19 +96,40 @@ export default function CropRotationPage() {
       {selectedKey && !loading && (
         <Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Box />
-            <Button onClick={() => setDialogOpen(true)}>
+            <Typography variant="subtitle2" color="text.secondary">
+              {t('pages.cropRotation.successorsTitle')}
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() => setDialogOpen(true)}
+              data-testid="add-successor-button"
+            >
               {t('pages.cropRotation.addSuccessor')}
             </Button>
           </Box>
           {successors.length === 0 ? (
-            <EmptyState />
+            <EmptyState
+              illustration={kamiMasterdata}
+              message={t('pages.cropRotation.noSuccessors')}
+              actionLabel={t('pages.cropRotation.addSuccessor')}
+              onAction={() => setDialogOpen(true)}
+            />
           ) : (
             <List>
               {successors.map((s) => (
-                <ListItem key={s.family_key}>
-                  <ListItemText primary={s.name ?? s.family_key} />
-                  <Chip label={`${s.wait_years} ${t('pages.cropRotation.waitYears')}`} size="small" />
+                <ListItem key={s.family_key} divider>
+                  <ListItemText
+                    primary={s.name ?? s.family_key}
+                    primaryTypographyProps={{ variant: 'body2' }}
+                  />
+                  <Chip
+                    label={`${s.wait_years} ${t('pages.cropRotation.waitYears')}`}
+                    size="small"
+                    color="default"
+                    variant="outlined"
+                  />
                 </ListItem>
               ))}
             </List>
@@ -106,16 +137,28 @@ export default function CropRotationPage() {
         </Box>
       )}
 
+      {!selectedKey && !loading && (
+        <EmptyState
+          illustration={kamiMasterdata}
+          message={t('pages.cropRotation.selectFamilyHint')}
+        />
+      )}
+
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('pages.cropRotation.addSuccessor')}</DialogTitle>
         <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            {t('pages.cropRotation.addSuccessorHint')}
+          </DialogContentText>
           <TextField
             select
             fullWidth
             label={t('pages.cropRotation.toFamily')}
             value={targetKey}
             onChange={(e) => setTargetKey(e.target.value)}
+            helperText={t('pages.cropRotation.toFamilyHelper')}
             sx={{ mt: 1, mb: 2 }}
+            data-testid="to-family-select"
           >
             {families.filter((f) => f.key !== selectedKey).map((f) => (
               <MenuItem key={f.key} value={f.key}>{f.name}</MenuItem>
@@ -127,7 +170,9 @@ export default function CropRotationPage() {
             value={waitYears}
             onChange={(e) => setWaitYears(Number(e.target.value))}
             fullWidth
+            helperText={t('pages.cropRotation.waitYearsHelper')}
             inputProps={{ min: 1, max: 10 }}
+            data-testid="wait-years-input"
           />
         </DialogContent>
         <DialogActions>

@@ -13,6 +13,8 @@ class FertilizerCreate(BaseModel):
     recommended_application: str = "any"
     npk_ratio: tuple[float, float, float] = (0.0, 0.0, 0.0)
     ec_contribution_per_ml: float = Field(default=0.0, ge=0)
+    ec_contribution_uncertain: bool = False
+    max_dose_ml_per_liter: float | None = Field(default=None, ge=0.1)
     mixing_priority: int = Field(default=50, ge=1, le=100)
     ph_effect: str = "neutral"
     bioavailability: str = "immediate"
@@ -31,6 +33,8 @@ class FertilizerUpdate(BaseModel):
     recommended_application: str | None = None
     npk_ratio: tuple[float, float, float] | None = None
     ec_contribution_per_ml: float | None = Field(default=None, ge=0)
+    ec_contribution_uncertain: bool | None = None
+    max_dose_ml_per_liter: float | None = Field(default=None, ge=0.1)
     mixing_priority: int | None = Field(default=None, ge=1, le=100)
     ph_effect: str | None = None
     bioavailability: str | None = None
@@ -50,6 +54,8 @@ class FertilizerResponse(BaseModel):
     recommended_application: str
     npk_ratio: tuple[float, float, float]
     ec_contribution_per_ml: float
+    ec_contribution_uncertain: bool
+    max_dose_ml_per_liter: float | None
     mixing_priority: int
     ph_effect: str
     bioavailability: str
@@ -103,3 +109,25 @@ class IncompatibilityResponse(BaseModel):
     product_name: str | None
     reason: str
     severity: str
+
+
+# ── Nutrient plan usage ────────────────────────────────────────────
+
+class FertilizerChannelUsage(BaseModel):
+    channel_id: str
+    label: str
+    application_method: str
+    ml_per_liter: float
+
+
+class FertilizerPhaseUsage(BaseModel):
+    phase_name: str
+    week_start: int
+    week_end: int
+    channels: list[FertilizerChannelUsage]
+
+
+class NutrientPlanUsageResponse(BaseModel):
+    key: str
+    name: str
+    phase_entries: list[FertilizerPhaseUsage] = []

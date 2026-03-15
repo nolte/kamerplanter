@@ -1,14 +1,22 @@
 import client from '../client';
 import type {
   DueMaintenance,
+  FillEventResult,
+  LiveStateResponse,
   MaintenanceLog,
   MaintenanceLogCreate,
   MaintenanceSchedule,
   MaintenanceScheduleCreate,
   MaintenanceScheduleUpdate,
+  Sensor,
+  SensorCreate,
+  SensorUpdate,
   Tank,
   TankAlert,
   TankCreate,
+  TankFillEvent,
+  TankFillEventCreate,
+  TankFillEventStats,
   TankState,
   TankStateCreate,
   TankUpdate,
@@ -178,6 +186,55 @@ export async function getAllDueMaintenances(): Promise<DueMaintenance[]> {
   return data;
 }
 
+// ── Fill Events ────────────────────────────────────────────────────────
+
+export async function recordFillEvent(
+  tankKey: string,
+  payload: TankFillEventCreate,
+): Promise<FillEventResult> {
+  const { data } = await client.post<FillEventResult>(
+    `${BASE}/${tankKey}/fills`,
+    payload,
+  );
+  return data;
+}
+
+export async function getFillEvents(
+  tankKey: string,
+  offset = 0,
+  limit = 50,
+): Promise<TankFillEvent[]> {
+  const { data } = await client.get<TankFillEvent[]>(
+    `${BASE}/${tankKey}/fills`,
+    { params: { offset, limit } },
+  );
+  return data;
+}
+
+export async function getLatestFill(
+  tankKey: string,
+): Promise<TankFillEvent | null> {
+  const { data } = await client.get<TankFillEvent | null>(
+    `${BASE}/${tankKey}/fills/latest`,
+  );
+  return data;
+}
+
+export async function getFillStats(
+  tankKey: string,
+  startDate?: string,
+  endDate?: string,
+): Promise<TankFillEventStats> {
+  const params: Record<string, string> = {};
+  if (startDate) params.start_date = startDate;
+  if (endDate) params.end_date = endDate;
+  const { data } = await client.get<TankFillEventStats>(
+    `${BASE}/${tankKey}/fills/stats`,
+    { params },
+  );
+  return data;
+}
+
 // ── Relationships ──────────────────────────────────────────────────────
 
 export async function linkFeedsFrom(
@@ -187,4 +244,67 @@ export async function linkFeedsFrom(
   await client.post(`${BASE}/${tankKey}/feeds-from`, {
     source_tank_key: sourceTankKey,
   });
+}
+
+// ── Sensors & Live Query ──────────────────────────────────────────────
+
+export async function getLiveState(
+  tankKey: string,
+): Promise<LiveStateResponse> {
+  const { data } = await client.get<LiveStateResponse>(
+    `${BASE}/${tankKey}/states/live`,
+  );
+  return data;
+}
+
+export async function getSensors(tankKey: string): Promise<Sensor[]> {
+  const { data } = await client.get<Sensor[]>(
+    `${BASE}/${tankKey}/sensors`,
+  );
+  return data;
+}
+
+export async function createSensor(
+  tankKey: string,
+  payload: SensorCreate,
+): Promise<Sensor> {
+  const { data } = await client.post<Sensor>(
+    `${BASE}/${tankKey}/sensors`,
+    payload,
+  );
+  return data;
+}
+
+export async function updateSensor(
+  sensorKey: string,
+  payload: SensorUpdate,
+): Promise<Sensor> {
+  const { data } = await client.put<Sensor>(
+    `${BASE}/sensors/${sensorKey}`,
+    payload,
+  );
+  return data;
+}
+
+export async function deleteSensor(sensorKey: string): Promise<void> {
+  await client.delete(`${BASE}/sensors/${sensorKey}`);
+}
+
+// ── HA Entity Discovery ──────────────────────────────────────────────
+
+export interface HAEntitySuggestion {
+  entity_id: string;
+  friendly_name: string;
+  unit_of_measurement: string | null;
+  device_class: string | null;
+  state: string | null;
+  suggested_metric_type: string | null;
+  suggested_name: string | null;
+}
+
+export async function listHaEntities(): Promise<HAEntitySuggestion[]> {
+  const { data } = await client.get<HAEntitySuggestion[]>(
+    `${BASE}/ha-entities`,
+  );
+  return data;
 }

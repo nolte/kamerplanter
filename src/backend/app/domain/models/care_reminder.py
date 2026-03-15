@@ -21,6 +21,10 @@ class CareProfile(BaseModel):
     humidity_check_enabled: bool = False
     humidity_check_interval_days: int = Field(default=7, ge=3, le=90)
     adaptive_learning_enabled: bool = True
+    auto_create_watering_task: bool = True
+    auto_create_fertilizing_task: bool = True
+    auto_create_repotting_task: bool = True
+    auto_create_pest_check_task: bool = True
     watering_interval_learned: int | None = None
     fertilizing_interval_learned: int | None = None
     notes: str | None = None
@@ -41,6 +45,7 @@ class CareConfirmation(BaseModel):
     confirmed_at: datetime
     snooze_days: int | None = None
     task_key: str | None = None
+    watering_log_key: str | None = None
     notes: str | None = None
     interval_at_time: int | None = None
     created_at: datetime | None = None

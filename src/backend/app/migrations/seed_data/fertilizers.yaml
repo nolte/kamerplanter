@@ -1,0 +1,663 @@
+# Fertilizer products and nutrient plans for Advanced Nutrients product lines.
+#
+# Sources — Advanced Nutrients:
+#   https://www.advancednutrients.com/products/ph-perfect-sensi-grow-bloom/
+#   https://greenlab.ge/en/product/advanced-nutrients-ph-perfect-sensi-grow-a/
+#   https://greenlab.ge/en/product/advanced-nutrients-ph-perfect-sensi-grow-b/
+#   https://www.advancednutrients.com/products/big-bud/
+#   https://www.advancednutrients.com/products/b-52/
+#   https://www.advancednutrients.com/products/voodoo-juice/
+#   https://www.advancednutrients.com/de/products/ph-perfect-grow-micro-bloom/
+# Sources — Third-Party Supplements:
+#   spec/ref/products/hg-drip-clean.md
+#   spec/ref/products/bn-free-flow.md
+
+fertilizers:
+  # ── Base Nutrients (GMB 3-Part) ──────────────────────────────────────────────
+  - product_name: "pH Perfect Grow"
+    brand: "Advanced Nutrients"
+    fertilizer_type: BASE
+    is_organic: false
+    tank_safe: true
+    recommended_application: FERTIGATION
+    npk_ratio: [1.0, 0.0, 4.0]
+    ec_contribution_per_ml: 0.10
+    mixing_priority: 15
+    ph_effect: NEUTRAL
+    bioavailability: IMMEDIATE
+    notes: >-
+      3-Part-System: Stickstoff + Kalium.
+      Nach Micro hinzufügen. 1-4 ml/L je nach Phase.
+
+  - product_name: "pH Perfect Micro"
+    brand: "Advanced Nutrients"
+    fertilizer_type: BASE
+    is_organic: false
+    tank_safe: true
+    recommended_application: FERTIGATION
+    npk_ratio: [2.0, 0.0, 0.0]
+    ec_contribution_per_ml: 0.15
+    mixing_priority: 10
+    ph_effect: NEUTRAL
+    bioavailability: IMMEDIATE
+    notes: >-
+      3-Part-System: CalMag-Komponente.
+      IMMER zuerst hinzufügen (vor Grow und Bloom). 1-4 ml/L je nach Phase.
+
+  - product_name: "pH Perfect Bloom"
+    brand: "Advanced Nutrients"
+    fertilizer_type: BASE
+    is_organic: false
+    tank_safe: true
+    recommended_application: FERTIGATION
+    npk_ratio: [1.0, 3.0, 4.0]
+    ec_contribution_per_ml: 0.10
+    mixing_priority: 20
+    ph_effect: NEUTRAL
+    bioavailability: IMMEDIATE
+    notes: >-
+      3-Part-System: Phosphor + Kalium für Blüte.
+      Nach Micro und Grow hinzufügen. 1-4 ml/L je nach Phase.
+
+  # ── Base Nutrients (Sensi 2-Part, Grow Phase) ────────────────────────────────
+  - product_name: "pH Perfect Sensi Grow A"
+    brand: "Advanced Nutrients"
+    fertilizer_type: BASE
+    is_organic: false
+    tank_safe: true
+    recommended_application: FERTIGATION
+    npk_ratio: [3.0, 0.0, 0.0]
+    ec_contribution_per_ml: 0.15
+    mixing_priority: 10
+    ph_effect: NEUTRAL
+    bioavailability: IMMEDIATE
+    notes: "CalMag-Komponente (3% Ca). Immer zuerst hinzufügen, vor Part B."
+
+  - product_name: "pH Perfect Sensi Grow B"
+    brand: "Advanced Nutrients"
+    fertilizer_type: BASE
+    is_organic: false
+    tank_safe: true
+    recommended_application: FERTIGATION
+    npk_ratio: [1.0, 2.0, 6.0]
+    ec_contribution_per_ml: 0.15
+    mixing_priority: 20
+    ph_effect: NEUTRAL
+    bioavailability: IMMEDIATE
+    notes: "PK-Komponente mit Schwefel (1.3% S). Nach Part A hinzufügen."
+
+  # ── Base Nutrients (Sensi 2-Part, Bloom Phase) ──────────────────────────────
+  - product_name: "pH Perfect Sensi Bloom A"
+    brand: "Advanced Nutrients"
+    fertilizer_type: BASE
+    is_organic: false
+    tank_safe: true
+    recommended_application: FERTIGATION
+    npk_ratio: [3.0, 0.0, 0.0]
+    ec_contribution_per_ml: 0.15
+    mixing_priority: 10
+    ph_effect: NEUTRAL
+    bioavailability: IMMEDIATE
+    notes: "CalMag-Komponente für Blüte. Immer zuerst hinzufügen."
+
+  - product_name: "pH Perfect Sensi Bloom B"
+    brand: "Advanced Nutrients"
+    fertilizer_type: BASE
+    is_organic: false
+    tank_safe: true
+    recommended_application: FERTIGATION
+    npk_ratio: [2.0, 4.0, 8.0]
+    ec_contribution_per_ml: 0.20
+    mixing_priority: 20
+    ph_effect: NEUTRAL
+    bioavailability: IMMEDIATE
+    notes: "Höherer PK-Anteil für Blütebildung. Nach Part A hinzufügen."
+
+  # ── Boosters ────────────────────────────────────────────────────────────────
+  - product_name: "Big Bud"
+    brand: "Advanced Nutrients"
+    fertilizer_type: BOOSTER
+    is_organic: false
+    tank_safe: true
+    recommended_application: FERTIGATION
+    npk_ratio: [0.0, 1.0, 3.0]
+    ec_contribution_per_ml: 0.05
+    mixing_priority: 30
+    ph_effect: NEUTRAL
+    bioavailability: IMMEDIATE
+    notes: "Bloom-Booster für größere, dichtere Blüten. Woche 2-4 der Blüte."
+
+  - product_name: "Overdrive"
+    brand: "Advanced Nutrients"
+    fertilizer_type: BOOSTER
+    is_organic: false
+    tank_safe: true
+    recommended_application: FERTIGATION
+    npk_ratio: [1.0, 5.0, 4.0]
+    ec_contribution_per_ml: 0.10
+    mixing_priority: 30
+    ph_effect: NEUTRAL
+    bioavailability: IMMEDIATE
+    notes: "Spätblüte-Booster. Letzte 3 Wochen vor dem Flush."
+
+  # ── Supplements ─────────────────────────────────────────────────────────────
+  - product_name: "B-52"
+    brand: "Advanced Nutrients"
+    fertilizer_type: SUPPLEMENT
+    is_organic: false
+    tank_safe: true
+    recommended_application: FERTIGATION
+    npk_ratio: [2.0, 1.0, 4.0]
+    ec_contribution_per_ml: 0.05
+    mixing_priority: 40
+    ph_effect: NEUTRAL
+    bioavailability: IMMEDIATE
+    notes: "B-Vitamin-Komplex + Kelp. Stärkt Photosynthese und Stressresistenz."
+
+  - product_name: "Bud Candy"
+    brand: "Advanced Nutrients"
+    fertilizer_type: SUPPLEMENT
+    is_organic: false
+    tank_safe: true
+    recommended_application: FERTIGATION
+    npk_ratio: [0.0, 0.0, 0.0]
+    ec_contribution_per_ml: 0.0
+    mixing_priority: 40
+    ph_effect: NEUTRAL
+    bioavailability: IMMEDIATE
+    notes: "Kohlenhydrat-Supplement mit Magnesium. Verbessert Aroma und Blütengewicht."
+
+  - product_name: "Nirvana"
+    brand: "Advanced Nutrients"
+    fertilizer_type: ORGANIC
+    is_organic: true
+    tank_safe: true
+    recommended_application: FERTIGATION
+    npk_ratio: [0.0, 0.0, 1.0]
+    ec_contribution_per_ml: 0.01
+    mixing_priority: 40
+    ph_effect: NEUTRAL
+    bioavailability: SLOW_RELEASE
+    notes: "Organischer Blüte-Supplement. Enthält Guano, Alfalfa und Humate."
+
+  - product_name: "Rhino Skin"
+    brand: "Advanced Nutrients"
+    fertilizer_type: SUPPLEMENT
+    is_organic: false
+    tank_safe: true
+    recommended_application: FERTIGATION
+    npk_ratio: [0.0, 0.0, 0.0]
+    ec_contribution_per_ml: 0.0
+    mixing_priority: 5
+    ph_effect: ALKALINE
+    bioavailability: IMMEDIATE
+    notes: "Kaliumsilikat — stärkt Zellwände. VOR allen anderen Düngern hinzufügen!"
+
+  # ── Biologicals ─────────────────────────────────────────────────────────────
+  - product_name: "Voodoo Juice"
+    brand: "Advanced Nutrients"
+    fertilizer_type: BIOLOGICAL
+    is_organic: true
+    tank_safe: false
+    recommended_application: DRENCH
+    npk_ratio: [0.0, 0.0, 0.0]
+    ec_contribution_per_ml: 0.0
+    mixing_priority: 50
+    ph_effect: NEUTRAL
+    bioavailability: MICROBIAL_DEPENDENT
+    notes: "4 Bacillus-Stämme für Wurzelmasse. Woche 1-2 von Wachstum und Blüte."
+
+  - product_name: "Piranha"
+    brand: "Advanced Nutrients"
+    fertilizer_type: BIOLOGICAL
+    is_organic: true
+    tank_safe: false
+    recommended_application: DRENCH
+    npk_ratio: [0.0, 0.0, 0.0]
+    ec_contribution_per_ml: 0.0
+    mixing_priority: 50
+    ph_effect: NEUTRAL
+    bioavailability: MICROBIAL_DEPENDENT
+    notes: "Mykorrhiza-Pilze für Nährstoffaufnahme. Woche 1-2."
+
+  - product_name: "Tarantula"
+    brand: "Advanced Nutrients"
+    fertilizer_type: BIOLOGICAL
+    is_organic: true
+    tank_safe: false
+    recommended_application: DRENCH
+    npk_ratio: [0.0, 0.0, 0.0]
+    ec_contribution_per_ml: 0.0
+    mixing_priority: 50
+    ph_effect: NEUTRAL
+    bioavailability: MICROBIAL_DEPENDENT
+    notes: "10 Mio. CFU/g Bacillus + Streptomyces. Woche 1-2."
+
+  # ── Third-Party Supplements ─────────────────────────────────────────────────
+  - product_name: "Drip Clean"
+    brand: "House & Garden"
+    fertilizer_type: SUPPLEMENT
+    is_organic: false
+    tank_safe: true
+    recommended_application: FERTIGATION
+    npk_ratio: [0.0, 18.0, 6.0]
+    ec_contribution_per_ml: 0.5
+    mixing_priority: 8
+    ph_effect: ACIDIC
+    bioavailability: IMMEDIATE
+    shelf_life_days: 730
+    storage_temp_min: 5.0
+    storage_temp_max: 25.0
+    notes: >-
+      Mineralischer Systemreiniger (P2O5 18%, K2O 6%). Löst Salzablagerungen
+      in Leitungen und Substrat. 0.1 ml/L bei jeder Bewässerung.
+      IMMER vor den Basisdüngern zugeben.
+
+  - product_name: "Free Flow"
+    brand: "Bio Nova"
+    fertilizer_type: BIOLOGICAL
+    is_organic: true
+    tank_safe: false
+    recommended_application: DRENCH
+    npk_ratio: [0.0, 0.0, 0.0]
+    ec_contribution_per_ml: 0.0
+    mixing_priority: 50
+    ph_effect: NEUTRAL
+    bioavailability: MICROBIAL_DEPENDENT
+    shelf_life_days: 365
+    storage_temp_min: 5.0
+    storage_temp_max: 25.0
+    notes: >-
+      Organisches Enzympräparat (Cellulasen, Proteasen, Lipasen).
+      Baut abgestorbene Wurzelmasse und organische Rückstände ab.
+      0.3-0.5 ml/L per Gießkanne, nicht im Tank (Biofilm-Gefahr).
+
+
+# ── Nutrient Plans ────────────────────────────────────────────────────────────
+
+nutrient_plans:
+  # ── Advanced Nutrients pH Perfect Sensi — Cannabis ──────────────────────────
+  # Based on: https://www.advancednutrients.com/feeding/
+  #           https://www.growbarato.net/blog/en/advanced-nutrients-feeding-chart/
+  - name: "Advanced Nutrients pH Perfect Sensi — Cannabis"
+    description: >-
+      Vollständiges Düngeprogramm für Cannabis mit der pH Perfect Sensi-Serie
+      von Advanced Nutrients. Enthält Basis A+B, Booster (Big Bud, Overdrive),
+      Supplements (B-52, Bud Candy, Nirvana, Rhino Skin) und Biologicals
+      (Voodoo Juice, Piranha, Tarantula). Ergänzt durch H&G Drip Clean
+      (Systemreiniger) und Bio Nova Free Flow (Enzympräparat).
+      Für Coco/Hydro optimiert.
+    recommended_substrate_type: COCO
+    author: "Advanced Nutrients"
+    is_template: true
+    version: "2025.1"
+    tags: [advanced-nutrients, ph-perfect, sensi, cannabis, coco, hydro]
+    phase_entries:
+      # ── 1. Keimung (Week 0-1) ──────────────────────────────────────────
+      - phase_name: GERMINATION
+        sequence_order: 1
+        week_start: 1
+        week_end: 2
+        npk_ratio: [0.0, 0.0, 0.0]
+        target_ec_ms: 0.2
+        target_ph: 6.2
+        feeding_frequency_per_week: 1
+        notes: "Nur Wasser. Samen keimen in feuchtem Medium, kein Dünger."
+        dosages: []
+
+      # ── 2. Sämling (Week 1-3) ──────────────────────────────────────────
+      - phase_name: SEEDLING
+        sequence_order: 2
+        week_start: 2
+        week_end: 4
+        npk_ratio: [2.0, 1.0, 3.0]
+        target_ec_ms: 0.6
+        target_ph: 5.9
+        feeding_frequency_per_week: 2
+        volume_per_feeding_liters: 0.3
+        notes: >-
+          1/4 Dosis Sensi Grow. Voodoo Juice + Tarantula + Piranha
+          für Wurzelaufbau. B-52 gegen Umpflanz-Stress.
+        dosages:
+          - product_name: "Rhino Skin"
+            ml_per_liter: 0.5
+          - product_name: "Drip Clean"
+            ml_per_liter: 0.1
+          - product_name: "pH Perfect Sensi Grow A"
+            ml_per_liter: 1.0
+          - product_name: "pH Perfect Sensi Grow B"
+            ml_per_liter: 1.0
+          - product_name: "B-52"
+            ml_per_liter: 2.0
+          - product_name: "Voodoo Juice"
+            ml_per_liter: 2.0
+          - product_name: "Piranha"
+            ml_per_liter: 2.0
+          - product_name: "Tarantula"
+            ml_per_liter: 2.0
+          - product_name: "Free Flow"
+            ml_per_liter: 0.5
+            optional: true
+
+      # ── 3. Vegetativ (Week 3-7) ────────────────────────────────────────
+      - phase_name: VEGETATIVE
+        sequence_order: 3
+        week_start: 4
+        week_end: 8
+        npk_ratio: [4.0, 2.0, 6.0]
+        target_ec_ms: 1.4
+        target_ph: 5.9
+        feeding_frequency_per_week: 3
+        volume_per_feeding_liters: 0.5
+        notes: >-
+          Volle Dosis Sensi Grow A+B. Rhino Skin für starke Stängel.
+          B-52 durchgehend. Voodoo Juice in Woche 3-4.
+        dosages:
+          - product_name: "Rhino Skin"
+            ml_per_liter: 2.0
+          - product_name: "Drip Clean"
+            ml_per_liter: 0.1
+          - product_name: "pH Perfect Sensi Grow A"
+            ml_per_liter: 4.0
+          - product_name: "pH Perfect Sensi Grow B"
+            ml_per_liter: 4.0
+          - product_name: "B-52"
+            ml_per_liter: 2.0
+          - product_name: "Voodoo Juice"
+            ml_per_liter: 2.0
+            optional: true
+          - product_name: "Free Flow"
+            ml_per_liter: 0.5
+
+      # ── 4. Blüte — Früh (Week 7-10) ───────────────────────────────────
+      - phase_name: FLOWERING
+        sequence_order: 4
+        week_start: 8
+        week_end: 11
+        npk_ratio: [5.0, 4.0, 8.0]
+        target_ec_ms: 1.6
+        target_ph: 5.9
+        calcium_ppm: 200.0
+        magnesium_ppm: 60.0
+        feeding_frequency_per_week: 3
+        volume_per_feeding_liters: 0.8
+        notes: >-
+          Umstellung auf Sensi Bloom A+B. Big Bud für Blütenbildung.
+          Bud Candy + Nirvana für Aroma. Voodoo Juice in Woche 7-8.
+        dosages:
+          - product_name: "Rhino Skin"
+            ml_per_liter: 2.0
+          - product_name: "Drip Clean"
+            ml_per_liter: 0.1
+          - product_name: "pH Perfect Sensi Bloom A"
+            ml_per_liter: 4.0
+          - product_name: "pH Perfect Sensi Bloom B"
+            ml_per_liter: 4.0
+          - product_name: "Big Bud"
+            ml_per_liter: 2.0
+          - product_name: "B-52"
+            ml_per_liter: 2.0
+          - product_name: "Bud Candy"
+            ml_per_liter: 2.0
+          - product_name: "Nirvana"
+            ml_per_liter: 2.0
+          - product_name: "Voodoo Juice"
+            ml_per_liter: 2.0
+            optional: true
+          - product_name: "Free Flow"
+            ml_per_liter: 0.5
+
+      # ── 5. Blüte — Spät (Week 10-14) ──────────────────────────────────
+      - phase_name: FLOWERING
+        sequence_order: 5
+        week_start: 11
+        week_end: 15
+        npk_ratio: [6.0, 9.0, 12.0]
+        target_ec_ms: 1.8
+        target_ph: 5.9
+        calcium_ppm: 200.0
+        magnesium_ppm: 60.0
+        feeding_frequency_per_week: 3
+        volume_per_feeding_liters: 1.0
+        notes: >-
+          Overdrive ersetzt Big Bud für maximale Blütendichte.
+          Sensi Bloom A+B volle Dosis. Bud Candy + Nirvana weiter.
+        dosages:
+          - product_name: "Rhino Skin"
+            ml_per_liter: 2.0
+          - product_name: "Drip Clean"
+            ml_per_liter: 0.1
+          - product_name: "pH Perfect Sensi Bloom A"
+            ml_per_liter: 4.0
+          - product_name: "pH Perfect Sensi Bloom B"
+            ml_per_liter: 4.0
+          - product_name: "Overdrive"
+            ml_per_liter: 2.0
+          - product_name: "B-52"
+            ml_per_liter: 2.0
+          - product_name: "Bud Candy"
+            ml_per_liter: 2.0
+          - product_name: "Nirvana"
+            ml_per_liter: 2.0
+          - product_name: "Free Flow"
+            ml_per_liter: 0.5
+
+      # ── 6. Ernte / Flush (Week 14-16) ──────────────────────────────────
+      - phase_name: HARVEST
+        sequence_order: 6
+        week_start: 15
+        week_end: 17
+        npk_ratio: [0.0, 0.0, 0.0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        feeding_frequency_per_week: 7
+        volume_per_feeding_liters: 1.0
+        notes: >-
+          10-14 Tage Flush mit reinem Wasser (Coco).
+          Drip Clean löst restliche Salzablagerungen.
+          Free Flow optional für Wurzelabbau.
+          Ziel: EC im Ablauf < 0.3 mS.
+        dosages:
+          - product_name: "Drip Clean"
+            ml_per_liter: 0.1
+          - product_name: "Free Flow"
+            ml_per_liter: 0.3
+            optional: true
+
+  # ── Advanced Nutrients pH Perfect GMB — Cannabis ───────────────────────────
+  # Based on: https://www.advancednutrients.com/de/products/ph-perfect-grow-micro-bloom/
+  #           https://www.advancednutrients.com/feeding/
+  - name: "Advanced Nutrients pH Perfect GMB — Cannabis"
+    description: >-
+      Vollständiges Düngeprogramm für Cannabis mit der pH Perfect
+      Grow-Micro-Bloom 3-Part-Serie von Advanced Nutrients.
+      Enthält Basis Micro+Grow+Bloom, Booster (Big Bud, Overdrive),
+      Supplements (B-52, Bud Candy, Nirvana, Rhino Skin) und Biologicals
+      (Voodoo Juice, Piranha, Tarantula). Ergänzt durch H&G Drip Clean
+      (Systemreiniger) und Bio Nova Free Flow (Enzympräparat).
+      Für Coco/Hydro optimiert.
+    recommended_substrate_type: COCO
+    author: "Advanced Nutrients"
+    is_template: true
+    version: "2025.1"
+    tags: [advanced-nutrients, ph-perfect, gmb, 3-part, cannabis, coco, hydro]
+    phase_entries:
+      # ── 1. Keimung (Week 1-2) ──────────────────────────────────────────
+      - phase_name: GERMINATION
+        sequence_order: 1
+        week_start: 1
+        week_end: 2
+        npk_ratio: [0.0, 0.0, 0.0]
+        target_ec_ms: 0.2
+        target_ph: 6.2
+        feeding_frequency_per_week: 1
+        notes: "Nur Wasser. Samen keimen in feuchtem Medium, kein Dünger."
+        dosages: []
+
+      # ── 2. Sämling (Week 2-4) ──────────────────────────────────────────
+      - phase_name: SEEDLING
+        sequence_order: 2
+        week_start: 2
+        week_end: 4
+        npk_ratio: [1.3, 1.0, 2.7]
+        target_ec_ms: 0.6
+        target_ph: 5.9
+        feeding_frequency_per_week: 2
+        volume_per_feeding_liters: 0.3
+        notes: >-
+          1/4 Dosis GMB (je 1 ml/L). Micro zuerst, dann Grow, dann Bloom.
+          Voodoo Juice + Tarantula + Piranha für Wurzelaufbau.
+          B-52 gegen Umpflanz-Stress.
+        dosages:
+          - product_name: "Rhino Skin"
+            ml_per_liter: 0.5
+          - product_name: "Drip Clean"
+            ml_per_liter: 0.1
+          - product_name: "pH Perfect Micro"
+            ml_per_liter: 1.0
+          - product_name: "pH Perfect Grow"
+            ml_per_liter: 1.0
+          - product_name: "pH Perfect Bloom"
+            ml_per_liter: 1.0
+          - product_name: "B-52"
+            ml_per_liter: 2.0
+          - product_name: "Voodoo Juice"
+            ml_per_liter: 2.0
+          - product_name: "Piranha"
+            ml_per_liter: 2.0
+          - product_name: "Tarantula"
+            ml_per_liter: 2.0
+          - product_name: "Free Flow"
+            ml_per_liter: 0.5
+            optional: true
+
+      # ── 3. Vegetativ (Week 4-8) ────────────────────────────────────────
+      - phase_name: VEGETATIVE
+        sequence_order: 3
+        week_start: 4
+        week_end: 8
+        npk_ratio: [4.0, 3.0, 8.0]
+        target_ec_ms: 1.4
+        target_ph: 5.9
+        feeding_frequency_per_week: 3
+        volume_per_feeding_liters: 0.5
+        notes: >-
+          Volle Dosis GMB (je 4 ml/L). Micro -> Grow -> Bloom.
+          Rhino Skin für starke Stängel. B-52 durchgehend.
+        dosages:
+          - product_name: "Rhino Skin"
+            ml_per_liter: 2.0
+          - product_name: "Drip Clean"
+            ml_per_liter: 0.1
+          - product_name: "pH Perfect Micro"
+            ml_per_liter: 4.0
+          - product_name: "pH Perfect Grow"
+            ml_per_liter: 4.0
+          - product_name: "pH Perfect Bloom"
+            ml_per_liter: 4.0
+          - product_name: "B-52"
+            ml_per_liter: 2.0
+          - product_name: "Voodoo Juice"
+            ml_per_liter: 2.0
+            optional: true
+          - product_name: "Free Flow"
+            ml_per_liter: 0.5
+
+      # ── 4. Blüte — Früh (Week 8-11) ───────────────────────────────────
+      - phase_name: FLOWERING
+        sequence_order: 4
+        week_start: 8
+        week_end: 11
+        npk_ratio: [4.0, 3.0, 8.0]
+        target_ec_ms: 1.6
+        target_ph: 5.9
+        calcium_ppm: 200.0
+        magnesium_ppm: 60.0
+        feeding_frequency_per_week: 3
+        volume_per_feeding_liters: 0.8
+        notes: >-
+          GMB volle Dosis (je 4 ml/L). Alle drei Teile gleich dosiert.
+          Big Bud für Blütenbildung. Bud Candy + Nirvana für Aroma.
+        dosages:
+          - product_name: "Rhino Skin"
+            ml_per_liter: 2.0
+          - product_name: "Drip Clean"
+            ml_per_liter: 0.1
+          - product_name: "pH Perfect Micro"
+            ml_per_liter: 4.0
+          - product_name: "pH Perfect Grow"
+            ml_per_liter: 4.0
+          - product_name: "pH Perfect Bloom"
+            ml_per_liter: 4.0
+          - product_name: "Big Bud"
+            ml_per_liter: 2.0
+          - product_name: "B-52"
+            ml_per_liter: 2.0
+          - product_name: "Bud Candy"
+            ml_per_liter: 2.0
+          - product_name: "Nirvana"
+            ml_per_liter: 2.0
+          - product_name: "Voodoo Juice"
+            ml_per_liter: 2.0
+            optional: true
+          - product_name: "Free Flow"
+            ml_per_liter: 0.5
+
+      # ── 5. Blüte — Spät (Week 11-15) ──────────────────────────────────
+      - phase_name: FLOWERING
+        sequence_order: 5
+        week_start: 11
+        week_end: 15
+        npk_ratio: [4.0, 3.0, 8.0]
+        target_ec_ms: 1.8
+        target_ph: 5.9
+        calcium_ppm: 200.0
+        magnesium_ppm: 60.0
+        feeding_frequency_per_week: 3
+        volume_per_feeding_liters: 1.0
+        notes: >-
+          Overdrive ersetzt Big Bud für maximale Blütendichte.
+          GMB volle Dosis (je 4 ml/L). Bud Candy + Nirvana weiter.
+        dosages:
+          - product_name: "Rhino Skin"
+            ml_per_liter: 2.0
+          - product_name: "Drip Clean"
+            ml_per_liter: 0.1
+          - product_name: "pH Perfect Micro"
+            ml_per_liter: 4.0
+          - product_name: "pH Perfect Grow"
+            ml_per_liter: 4.0
+          - product_name: "pH Perfect Bloom"
+            ml_per_liter: 4.0
+          - product_name: "Overdrive"
+            ml_per_liter: 2.0
+          - product_name: "B-52"
+            ml_per_liter: 2.0
+          - product_name: "Bud Candy"
+            ml_per_liter: 2.0
+          - product_name: "Nirvana"
+            ml_per_liter: 2.0
+          - product_name: "Free Flow"
+            ml_per_liter: 0.5
+
+      # ── 6. Ernte / Flush (Week 15-17) ──────────────────────────────────
+      - phase_name: HARVEST
+        sequence_order: 6
+        week_start: 15
+        week_end: 17
+        npk_ratio: [0.0, 0.0, 0.0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        feeding_frequency_per_week: 7
+        volume_per_feeding_liters: 1.0
+        notes: >-
+          10-14 Tage Flush mit reinem Wasser (Coco).
+          Drip Clean löst restliche Salzablagerungen.
+          Free Flow optional für Wurzelabbau.
+          Ziel: EC im Ablauf < 0.3 mS.
+        dosages:
+          - product_name: "Drip Clean"
+            ml_per_liter: 0.1
+          - product_name: "Free Flow"
+            ml_per_liter: 0.3
+            optional: true

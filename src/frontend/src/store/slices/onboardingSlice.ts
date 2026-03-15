@@ -38,6 +38,9 @@ export const completeOnboarding = createAsyncThunk(
     experience_level?: ExperienceLevel;
     site_name?: string;
     plant_count?: number;
+    has_ro_system?: boolean;
+    tap_water_ec_ms?: number;
+    tap_water_ph?: number;
   }) => {
     return onboardingApi.complete(payload);
   },

@@ -5,6 +5,8 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import Divider from '@mui/material/Divider';
+import Typography from '@mui/material/Typography';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -12,6 +14,7 @@ import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
+import FormRow from '@/components/form/FormRow';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as phasesApi from '@/api/endpoints/phases';
@@ -25,6 +28,7 @@ const schema = z.object({
   is_terminal: z.boolean(),
   allows_harvest: z.boolean(),
   stress_tolerance: z.enum(['low', 'medium', 'high']),
+  watering_interval_days: z.union([z.number().min(1).max(90), z.literal(''), z.null()]).nullable(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -54,6 +58,7 @@ export default function GrowthPhaseDialog({ lifecycleKey, phase, open, onClose, 
       is_terminal: false,
       allows_harvest: false,
       stress_tolerance: 'medium',
+      watering_interval_days: null,
     },
   });
 
@@ -67,6 +72,7 @@ export default function GrowthPhaseDialog({ lifecycleKey, phase, open, onClose, 
         is_terminal: phase.is_terminal,
         allows_harvest: phase.allows_harvest,
         stress_tolerance: phase.stress_tolerance,
+        watering_interval_days: phase.watering_interval_days,
       });
     } else {
       reset({
@@ -77,6 +83,7 @@ export default function GrowthPhaseDialog({ lifecycleKey, phase, open, onClose, 
         is_terminal: false,
         allows_harvest: false,
         stress_tolerance: 'medium',
+        watering_interval_days: null,
       });
     }
   }, [phase, reset]);
@@ -84,7 +91,11 @@ export default function GrowthPhaseDialog({ lifecycleKey, phase, open, onClose, 
   const onSubmit = async (data: FormData) => {
     try {
       setSaving(true);
-      const payload = { ...data, lifecycle_key: lifecycleKey };
+      const payload = {
+        ...data,
+        lifecycle_key: lifecycleKey,
+        watering_interval_days: data.watering_interval_days || null,
+      };
       if (isEdit) {
         await phasesApi.updateGrowthPhase(phase.key, payload);
       } else {
@@ -106,19 +117,37 @@ export default function GrowthPhaseDialog({ lifecycleKey, phase, open, onClose, 
       </DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
-          <FormTextField name="name" control={control} label={t('pages.growthPhases.name')} required />
-          <FormTextField name="display_name" control={control} label={t('pages.growthPhases.displayName')} />
-          <FormNumberField name="typical_duration_days" control={control} label={t('pages.growthPhases.duration')} min={1} />
-          <FormNumberField name="sequence_order" control={control} label={t('pages.growthPhases.sequenceOrder')} min={0} />
-          <FormSelectField
-            name="stress_tolerance"
-            control={control}
-            label={t('pages.growthPhases.stressTolerance')}
-            options={['low', 'medium', 'high'].map((v) => ({
-              value: v,
-              label: t(`enums.stressTolerance.${v}`),
-            }))}
-          />
+          <FormRow>
+            <FormTextField name="name" control={control} label={t('pages.growthPhases.name')} required autoFocus />
+            <FormTextField name="display_name" control={control} label={t('pages.growthPhases.displayName')} helperText={t('pages.growthPhases.displayNameHelper')} />
+          </FormRow>
+          <FormRow>
+            <FormNumberField name="typical_duration_days" control={control} label={t('pages.growthPhases.duration')} min={1} helperText={t('pages.growthPhases.durationHelper')} />
+            <FormNumberField name="sequence_order" control={control} label={t('pages.growthPhases.sequenceOrder')} min={0} helperText={t('pages.growthPhases.sequenceOrderHelper')} />
+          </FormRow>
+          <FormRow>
+            <FormNumberField
+              name="watering_interval_days"
+              control={control}
+              label={t('pages.growthPhases.wateringInterval')}
+              min={1}
+              max={90}
+              helperText={t('pages.growthPhases.wateringIntervalHelper')}
+            />
+            <FormSelectField
+              name="stress_tolerance"
+              control={control}
+              label={t('pages.growthPhases.stressTolerance')}
+              options={['low', 'medium', 'high'].map((v) => ({
+                value: v,
+                label: t(`enums.stressTolerance.${v}`),
+              }))}
+            />
+          </FormRow>
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+            {t('pages.growthPhases.sectionBehavior')}
+          </Typography>
           <Controller
             name="is_terminal"
             control={control}
@@ -126,7 +155,7 @@ export default function GrowthPhaseDialog({ lifecycleKey, phase, open, onClose, 
               <FormControlLabel
                 control={<Switch checked={field.value} onChange={field.onChange} />}
                 label={t('pages.growthPhases.isTerminal')}
-                sx={{ display: 'block', mb: 1 }}
+                sx={{ display: 'block', mb: 0.5 }}
               />
             )}
           />

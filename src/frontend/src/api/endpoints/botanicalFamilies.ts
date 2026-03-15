@@ -1,5 +1,5 @@
 import client from '../client';
-import type { BotanicalFamily, BotanicalFamilyCreate } from '../types';
+import type { BotanicalFamily, BotanicalFamilyCreate, Species } from '../types';
 
 const BASE = '/botanical-families';
 
@@ -35,4 +35,9 @@ export async function updateBotanicalFamily(
 
 export async function deleteBotanicalFamily(key: string): Promise<void> {
   await client.delete(`${BASE}/${key}`);
+}
+
+export async function listSpeciesByFamily(familyKey: string): Promise<Species[]> {
+  const { data } = await client.get<Species[]>(`${BASE}/${familyKey}/species`);
+  return data;
 }

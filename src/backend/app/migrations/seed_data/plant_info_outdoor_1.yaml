@@ -1,0 +1,2032 @@
+# Plant-info seed data from spec/ref/plant-info/*.md — Outdoor batch 1.
+#
+# Covers 30 plant-info documents (allium_cepa through foeniculum_vulgare).
+# Adds 5 new botanical families, 12 new species, enriches 18 existing species,
+# adds growth phases, cultivars, companion planting edges, and IPM data.
+#
+# Enum mapping notes (doc values -> valid enums):
+#   half_hardy / tender -> sensitive / moderate  (frost_sensitivity enum: sensitive, moderate, hardy, very_hardy)
+#   rhizomatous -> fibrous (closest valid root_type)
+#   heavy_feeder -> heavy  (nutrient_demand_level enum: light, medium, heavy)
+#   medium_feeder -> medium
+#   light_feeder -> light
+#
+# NOTE: Apium graveolens var. rapaceum already has a full entry in plant_info.yaml — skipped here.
+# NOTE: Foeniculum vulgare exists in species.yaml; the doc describes var. azoricum but enrichment targets the parent.
+
+# ==============================================================================
+# S1  NEW BOTANICAL FAMILIES (5)
+# ==============================================================================
+
+new_families:
+  - name: Ranunculaceae
+    common_name_de: "Hahnenfussgewaechse"
+    common_name_en: Buttercup family
+    order: Ranunculales
+    typical_nutrient_demand: medium
+    frost_tolerance: hardy
+    typical_root_depth: medium
+    typical_growth_forms: [herb, vine]
+    common_pests: [aphids, slugs]
+    common_diseases: [powdery_mildew, crown_rot]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
+    description: >-
+      Hahnenfussgewaechse umfassen Anemone, Clematis, Delphinium, Ranunculus.
+      Viele Arten enthalten Protoanemonin (hautreizend). Ueberwiegend insektenbestaubt.
+    rotation_category: ornamental
+
+  - name: Asparagaceae
+    common_name_de: Spargelgewaechse
+    common_name_en: Asparagus family
+    order: Asparagales
+    typical_nutrient_demand: heavy
+    frost_tolerance: hardy
+    typical_root_depth: deep
+    typical_growth_forms: [herb]
+    common_pests: [asparagus_beetle, aphids]
+    common_diseases: [rust, fusarium]
+    pollination_type: [insect, wind]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
+    description: >-
+      Spargelgewaechse mit Spargel, Agave und vielen Zierpflanzen.
+      Mehrjaehrige Stauden mit kraeftigem Wurzelsystem.
+    rotation_category: vegetable
+
+  - name: Saxifragaceae
+    common_name_de: Steinbrechgewaechse
+    common_name_en: Saxifrage family
+    order: Saxifragales
+    typical_nutrient_demand: medium
+    frost_tolerance: hardy
+    typical_root_depth: medium
+    typical_growth_forms: [herb]
+    common_pests: [aphids, vine_weevil]
+    common_diseases: [powdery_mildew, leaf_spot]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.0
+    description: >-
+      Steinbrechgewaechse umfassen Astilbe, Heuchera und Saxifraga.
+      Ueberwiegend schattenvertraegliche Stauden fuer feuchte Standorte.
+    rotation_category: ornamental
+
+  - name: Buxaceae
+    common_name_de: Buchsbaumgewaechse
+    common_name_en: Boxwood family
+    order: Buxales
+    typical_nutrient_demand: light
+    frost_tolerance: hardy
+    typical_root_depth: medium
+    typical_growth_forms: [shrub]
+    common_pests: [box_tree_moth, box_psyllid]
+    common_diseases: [box_blight, volutella_blight]
+    pollination_type: [wind, insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
+    description: >-
+      Buchsbaumgewaechse mit der Gattung Buxus als wichtigstem Vertreter.
+      Immergruene Gehoelze, klassische Heckenpflanze.
+    rotation_category: ornamental
+
+  - name: Cornaceae
+    common_name_de: Hartriegelgewaechse
+    common_name_en: Dogwood family
+    order: Cornales
+    typical_nutrient_demand: light
+    frost_tolerance: hardy
+    typical_root_depth: medium
+    typical_growth_forms: [shrub, tree]
+    common_pests: [aphids, scale_insects]
+    common_diseases: [anthracnose, powdery_mildew]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.5
+    description: >-
+      Hartriegelgewaechse umfassen Cornus (Hartriegel, Kornelkirsche).
+      Gehoelze mit dekorativer Rinde, Blueten und essbaren Fruechten.
+    rotation_category: ornamental
+
+# ==============================================================================
+# S2  NEW SPECIES -> FAMILY MAP (12 new species)
+# ==============================================================================
+
+new_species_family_map:
+  "Allium cepa": Amaryllidaceae
+  "Allium sativum": Amaryllidaceae
+  "Anemone hupehensis": Ranunculaceae
+  "Asparagus officinalis": Asparagaceae
+  "Astilbe chinensis": Saxifragaceae
+  "Brassica oleracea var. sabellica": Brassicaceae
+  "Buxus sempervirens": Buxaceae
+  "Calendula officinalis": Asteraceae
+  "Clematis spp.": Ranunculaceae
+  "Cornus mas": Cornaceae
+  "Delphinium elatum": Ranunculaceae
+  "Echinacea purpurea": Asteraceae
+
+# ==============================================================================
+# S3  NEW SPECIES (12)
+# ==============================================================================
+
+new_species:
+  - scientific_name: "Allium cepa"
+    common_names: ["Zwiebel", "Kuechenzwiebel", "Onion", "Common Onion"]
+    genus: Allium
+    growth_habit: herb
+    root_type: bulbous
+    native_habitat: "Zentralasien"
+    hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b"]
+    allelopathy_score: 0.3
+    frost_sensitivity: moderate
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [seed, bulb]
+    propagation_difficulty: easy
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+    spacing_cm: "10"
+    mature_height_cm: "40"
+    mature_width_cm: "15"
+    sowing_indoor_weeks_before_last_frost: 8
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [3, 4]
+    harvest_months: [7, 8, 9]
+    bloom_months: [6, 7]
+    pruning_type: none
+    toxicity:
+      is_toxic_cats: true
+      is_toxic_dogs: true
+      is_toxic_children: false
+      toxic_parts: [bulb, leaf]
+      toxic_compounds: ["N-propyl disulfide", "Thiosulfate"]
+      severity: moderate
+    allergen_info:
+      contact_allergen: true
+      pollen_allergen: false
+
+  - scientific_name: "Allium sativum"
+    common_names: ["Knoblauch", "Garlic"]
+    genus: Allium
+    growth_habit: herb
+    root_type: bulbous
+    native_habitat: "Zentralasien"
+    hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b"]
+    allelopathy_score: 0.4
+    frost_sensitivity: hardy
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    traits: [edible, medicinal]
+    propagation_methods: [bulb]
+    propagation_difficulty: easy
+    container_suitable: "yes"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    spacing_cm: "15"
+    mature_height_cm: "60"
+    mature_width_cm: "15"
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [10, 11, 3]
+    harvest_months: [7, 8]
+    bloom_months: [6, 7]
+    pruning_type: none
+    toxicity:
+      is_toxic_cats: true
+      is_toxic_dogs: true
+      is_toxic_children: false
+      toxic_parts: [bulb, leaf]
+      toxic_compounds: ["Allicin", "N-propyl disulfide"]
+      severity: moderate
+    allergen_info:
+      contact_allergen: true
+      pollen_allergen: false
+
+  - scientific_name: "Anemone hupehensis"
+    common_names: ["Herbstanemone", "Japanese Anemone", "Chinese Anemone"]
+    genus: Anemone
+    growth_habit: herb
+    root_type: fibrous
+    native_habitat: "China"
+    hardiness_zones: ["5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a"]
+    allelopathy_score: 0.0
+    frost_sensitivity: moderate
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    traits: [ornamental]
+    propagation_methods: [seed, division]
+    propagation_difficulty: moderate
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+    spacing_cm: "40"
+    mature_height_cm: "80"
+    mature_width_cm: "40"
+    bloom_months: [8, 9, 10]
+    pruning_type: spring_cleanup
+    pruning_months: [3]
+    toxicity:
+      is_toxic_cats: true
+      is_toxic_dogs: true
+      is_toxic_children: true
+      toxic_parts: [leaf, stem, root]
+      toxic_compounds: ["Protoanemonin"]
+      severity: moderate
+    allergen_info:
+      contact_allergen: true
+      pollen_allergen: false
+
+  - scientific_name: "Asparagus officinalis"
+    common_names: ["Spargel", "Asparagus", "Garden Asparagus"]
+    genus: Asparagus
+    growth_habit: herb
+    root_type: fibrous
+    native_habitat: "Europa, Westasien, Nordafrika"
+    hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b"]
+    allelopathy_score: 0.1
+    frost_sensitivity: hardy
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [seed, division]
+    propagation_difficulty: moderate
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+    spacing_cm: "40"
+    mature_height_cm: "150"
+    mature_width_cm: "40"
+    harvest_months: [4, 5, 6]
+    bloom_months: [6, 7]
+    pruning_type: autumn_cleanup
+    pruning_months: [10, 11]
+    toxicity:
+      is_toxic_cats: true
+      is_toxic_dogs: true
+      is_toxic_children: false
+      toxic_parts: [berry]
+      toxic_compounds: ["Saponine"]
+      severity: mild
+    allergen_info:
+      contact_allergen: true
+      pollen_allergen: false
+
+  - scientific_name: "Astilbe chinensis"
+    common_names: ["Prachtspiere", "Chinese Astilbe", "False Goat's Beard"]
+    genus: Astilbe
+    growth_habit: herb
+    root_type: fibrous
+    native_habitat: "China, Korea, Japan"
+    hardiness_zones: ["4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b"]
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    traits: [ornamental]
+    propagation_methods: [division, seed]
+    propagation_difficulty: easy
+    container_suitable: "yes"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    spacing_cm: "40"
+    mature_height_cm: "60"
+    mature_width_cm: "40"
+    bloom_months: [7, 8, 9]
+    pruning_type: spring_cleanup
+    pruning_months: [3]
+    toxicity:
+      is_toxic_cats: false
+      is_toxic_dogs: false
+      is_toxic_children: false
+      severity: none
+    allergen_info:
+      contact_allergen: false
+      pollen_allergen: false
+
+  - scientific_name: "Brassica oleracea var. sabellica"
+    common_names: ["Gruenkohl", "Kale", "Borecole"]
+    genus: Brassica
+    growth_habit: herb
+    root_type: fibrous
+    native_habitat: "Mittelmeerraum, Westeuropa"
+    hardiness_zones: ["2a", "2b", "3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a"]
+    allelopathy_score: 0.0
+    frost_sensitivity: very_hardy
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [seed]
+    propagation_difficulty: easy
+    container_suitable: "yes"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    spacing_cm: "50"
+    mature_height_cm: "80"
+    mature_width_cm: "60"
+    sowing_indoor_weeks_before_last_frost: 6
+    direct_sow_months: [5, 6, 7]
+    harvest_months: [10, 11, 12, 1, 2]
+    bloom_months: [4, 5]
+    pruning_type: none
+    toxicity:
+      is_toxic_cats: false
+      is_toxic_dogs: false
+      is_toxic_children: false
+      severity: none
+    allergen_info:
+      contact_allergen: false
+      pollen_allergen: false
+
+  - scientific_name: "Buxus sempervirens"
+    common_names: ["Buchsbaum", "Common Boxwood", "European Box"]
+    genus: Buxus
+    growth_habit: shrub
+    root_type: fibrous
+    native_habitat: "Suedwesteuropa, Nordafrika, Westasien"
+    hardiness_zones: ["5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a"]
+    allelopathy_score: 0.2
+    frost_sensitivity: hardy
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    traits: [ornamental, evergreen]
+    propagation_methods: [cutting]
+    propagation_difficulty: moderate
+    container_suitable: "yes"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    spacing_cm: "30"
+    mature_height_cm: "400"
+    mature_width_cm: "300"
+    pruning_type: topiary
+    pruning_months: [5, 6, 9]
+    toxicity:
+      is_toxic_cats: true
+      is_toxic_dogs: true
+      is_toxic_children: true
+      toxic_parts: [leaf, stem, root]
+      toxic_compounds: ["Buxin (Steroidal-Alkaloide)"]
+      severity: moderate
+    allergen_info:
+      contact_allergen: false
+      pollen_allergen: false
+
+  - scientific_name: "Calendula officinalis"
+    common_names: ["Ringelblume", "Pot Marigold", "Calendula"]
+    genus: Calendula
+    growth_habit: herb
+    root_type: taproot
+    native_habitat: "Mittelmeerraum"
+    hardiness_zones: ["2a", "2b", "3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b", "10a"]
+    allelopathy_score: 0.1
+    frost_sensitivity: moderate
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: true
+    traits: [ornamental, medicinal, edible]
+    propagation_methods: [seed]
+    propagation_difficulty: easy
+    container_suitable: "yes"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    spacing_cm: "30"
+    mature_height_cm: "50"
+    mature_width_cm: "30"
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [3, 4, 5, 9]
+    harvest_months: [6, 7, 8, 9, 10]
+    bloom_months: [6, 7, 8, 9, 10]
+    pruning_type: deadheading
+    pruning_months: [6, 7, 8, 9]
+    toxicity:
+      is_toxic_cats: false
+      is_toxic_dogs: false
+      is_toxic_children: false
+      severity: none
+    allergen_info:
+      contact_allergen: true
+      pollen_allergen: false
+
+  - scientific_name: "Clematis spp."
+    common_names: ["Waldrebe", "Clematis"]
+    genus: Clematis
+    growth_habit: vine
+    root_type: fibrous
+    native_habitat: "Nordhalbkugel, temperierte Zonen"
+    hardiness_zones: ["4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a"]
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    traits: [ornamental]
+    propagation_methods: [cutting, layering]
+    propagation_difficulty: moderate
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: true
+    spacing_cm: "100"
+    mature_height_cm: "300"
+    mature_width_cm: "100"
+    bloom_months: [5, 6, 7, 8, 9]
+    pruning_type: group_dependent
+    pruning_months: [2, 3]
+    toxicity:
+      is_toxic_cats: true
+      is_toxic_dogs: true
+      is_toxic_children: true
+      toxic_parts: [leaf, stem, flower]
+      toxic_compounds: ["Protoanemonin", "Anemonin"]
+      severity: moderate
+    allergen_info:
+      contact_allergen: true
+      pollen_allergen: false
+
+  - scientific_name: "Cornus mas"
+    common_names: ["Kornelkirsche", "Dirndlstrauch", "Cornelian Cherry"]
+    genus: Cornus
+    growth_habit: shrub
+    root_type: fibrous
+    native_habitat: "Suedeuropa, Westasien"
+    hardiness_zones: ["4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b"]
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    traits: [edible, ornamental]
+    propagation_methods: [seed, cutting, layering]
+    propagation_difficulty: moderate
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+    spacing_cm: "300"
+    mature_height_cm: "600"
+    mature_width_cm: "400"
+    harvest_months: [8, 9, 10]
+    bloom_months: [2, 3]
+    pruning_type: winter_pruning
+    pruning_months: [11, 12, 1]
+    toxicity:
+      is_toxic_cats: false
+      is_toxic_dogs: false
+      is_toxic_children: false
+      severity: none
+    allergen_info:
+      contact_allergen: false
+      pollen_allergen: false
+
+  - scientific_name: "Delphinium elatum"
+    common_names: ["Rittersporn", "Delphinium", "Larkspur"]
+    genus: Delphinium
+    growth_habit: herb
+    root_type: fibrous
+    native_habitat: "Europa, Zentralasien"
+    hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b"]
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    traits: [ornamental]
+    propagation_methods: [seed, division]
+    propagation_difficulty: moderate
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: true
+    spacing_cm: "50"
+    mature_height_cm: "180"
+    mature_width_cm: "60"
+    bloom_months: [6, 7, 8]
+    pruning_type: deadheading
+    pruning_months: [7, 8]
+    toxicity:
+      is_toxic_cats: true
+      is_toxic_dogs: true
+      is_toxic_children: true
+      toxic_parts: [leaf, stem, seed, root]
+      toxic_compounds: ["Delphinoidin", "Methyllycaconitin"]
+      severity: severe
+    allergen_info:
+      contact_allergen: true
+      pollen_allergen: false
+
+  - scientific_name: "Echinacea purpurea"
+    common_names: ["Purpur-Sonnenhut", "Purple Coneflower", "Echinacea"]
+    genus: Echinacea
+    growth_habit: herb
+    root_type: fibrous
+    native_habitat: "Nordamerika (oestliches USA)"
+    hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b"]
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    traits: [ornamental, medicinal]
+    propagation_methods: [seed, division]
+    propagation_difficulty: easy
+    container_suitable: "yes"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    spacing_cm: "40"
+    mature_height_cm: "100"
+    mature_width_cm: "50"
+    bloom_months: [7, 8, 9, 10]
+    pruning_type: spring_cleanup
+    pruning_months: [3]
+    toxicity:
+      is_toxic_cats: false
+      is_toxic_dogs: false
+      is_toxic_children: false
+      severity: none
+    allergen_info:
+      contact_allergen: true
+      pollen_allergen: true
+
+# ==============================================================================
+# S4  SPECIES ENRICHMENT (18 existing species)
+# ==============================================================================
+
+species_enrichment:
+  "Allium porrum":
+    frost_sensitivity: hardy
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [seed]
+    propagation_difficulty: moderate
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    spacing_cm: "15"
+    mature_height_cm: "80"
+    mature_width_cm: "20"
+    sowing_indoor_weeks_before_last_frost: 8
+    direct_sow_months: [3, 4]
+    harvest_months: [9, 10, 11, 12, 1, 2]
+
+  "Allium schoenoprasum":
+    frost_sensitivity: very_hardy
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    traits: [edible, ornamental]
+    propagation_methods: [seed, division]
+    propagation_difficulty: easy
+    container_suitable: "yes"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    spacing_cm: "20"
+    mature_height_cm: "30"
+    mature_width_cm: "20"
+    direct_sow_months: [3, 4, 5]
+    harvest_months: [4, 5, 6, 7, 8, 9, 10]
+    bloom_months: [5, 6, 7]
+    pruning_type: harvest_cut
+    pruning_months: [4, 5, 6, 7, 8, 9]
+
+  "Anethum graveolens":
+    frost_sensitivity: moderate
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [seed]
+    propagation_difficulty: easy
+    container_suitable: "yes"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    spacing_cm: "25"
+    mature_height_cm: "100"
+    mature_width_cm: "30"
+    direct_sow_months: [4, 5, 6, 7]
+    harvest_months: [6, 7, 8, 9]
+    bloom_months: [7, 8]
+
+  "Artemisia dracunculus":
+    frost_sensitivity: moderate
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [cutting, division]
+    propagation_difficulty: moderate
+    container_suitable: "yes"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    spacing_cm: "40"
+    mature_height_cm: "100"
+    mature_width_cm: "40"
+    harvest_months: [5, 6, 7, 8, 9]
+    bloom_months: [7, 8]
+
+  "Beta vulgaris subsp. vulgaris":
+    frost_sensitivity: moderate
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [seed]
+    propagation_difficulty: easy
+    container_suitable: "yes"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+    spacing_cm: "10"
+    mature_height_cm: "40"
+    mature_width_cm: "20"
+    sowing_indoor_weeks_before_last_frost: 4
+    direct_sow_months: [4, 5, 6, 7]
+    harvest_months: [7, 8, 9, 10, 11]
+    bloom_months: [6, 7]
+
+  "Brassica oleracea var. botrytis":
+    frost_sensitivity: moderate
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [seed]
+    propagation_difficulty: moderate
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    spacing_cm: "60"
+    mature_height_cm: "60"
+    mature_width_cm: "60"
+    sowing_indoor_weeks_before_last_frost: 6
+    direct_sow_months: [5, 6]
+    harvest_months: [7, 8, 9, 10]
+    bloom_months: [5, 6]
+
+  "Brassica oleracea var. gemmifera":
+    frost_sensitivity: very_hardy
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [seed]
+    propagation_difficulty: moderate
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    spacing_cm: "60"
+    mature_height_cm: "90"
+    mature_width_cm: "50"
+    sowing_indoor_weeks_before_last_frost: 6
+    direct_sow_months: [4, 5]
+    harvest_months: [10, 11, 12, 1, 2]
+
+  "Brassica oleracea var. gongylodes":
+    frost_sensitivity: moderate
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [seed]
+    propagation_difficulty: easy
+    container_suitable: "yes"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+    spacing_cm: "28"
+    mature_height_cm: "50"
+    mature_width_cm: "40"
+    sowing_indoor_weeks_before_last_frost: 5
+    direct_sow_months: [4, 5, 6, 7, 8]
+    harvest_months: [5, 6, 7, 8, 9, 10]
+
+  "Brassica oleracea var. italica":
+    frost_sensitivity: moderate
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [seed]
+    propagation_difficulty: easy
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    spacing_cm: "45"
+    mature_height_cm: "90"
+    mature_width_cm: "60"
+    sowing_indoor_weeks_before_last_frost: 5
+    direct_sow_months: [5, 6]
+    harvest_months: [7, 8, 9, 10, 11]
+    bloom_months: [7, 8, 9, 10]
+
+  "Capsicum annuum":
+    frost_sensitivity: sensitive
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    traits: [edible, heat_tolerant]
+    propagation_methods: [seed]
+    propagation_difficulty: moderate
+    container_suitable: "yes"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: true
+    support_required: true
+    spacing_cm: "45"
+    mature_height_cm: "80"
+    mature_width_cm: "50"
+    sowing_indoor_weeks_before_last_frost: 10
+    harvest_months: [7, 8, 9, 10]
+    bloom_months: [6, 7, 8]
+    pruning_type: summer_pruning
+    pruning_months: [6, 7, 8]
+
+  "Cichorium intybus":
+    frost_sensitivity: hardy
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    traits: [edible, medicinal]
+    propagation_methods: [seed]
+    propagation_difficulty: easy
+    container_suitable: limited
+    indoor_suitable: limited
+    balcony_suitable: limited
+    spacing_cm: "28"
+    mature_height_cm: "120"
+    mature_width_cm: "50"
+    direct_sow_months: [5, 6]
+    harvest_months: [7, 8, 9, 10, 11]
+    bloom_months: [6, 7, 8, 9]
+    sowing_indoor_weeks_before_last_frost: 5
+
+  "Coriandrum sativum":
+    frost_sensitivity: moderate
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [seed]
+    propagation_difficulty: easy
+    container_suitable: "yes"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    spacing_cm: "27"
+    mature_height_cm: "45"
+    mature_width_cm: "25"
+    sowing_outdoor_after_last_frost_days: 14
+    direct_sow_months: [4, 5, 6, 7, 8]
+    harvest_months: [5, 6, 7, 8, 9, 10]
+    bloom_months: [6, 7, 8]
+
+  "Cucumis sativus":
+    frost_sensitivity: sensitive
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [seed]
+    propagation_difficulty: easy
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: true
+    support_required: true
+    spacing_cm: "80"
+    mature_height_cm: "250"
+    mature_width_cm: "80"
+    sowing_indoor_weeks_before_last_frost: 4
+    sowing_outdoor_after_last_frost_days: 14
+    direct_sow_months: [5, 6]
+    harvest_months: [7, 8, 9, 10]
+    bloom_months: [6, 7, 8]
+    pruning_type: summer_pruning
+    pruning_months: [6, 7, 8]
+
+  "Cucurbita maxima":
+    frost_sensitivity: sensitive
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [seed]
+    propagation_difficulty: easy
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    support_required: true
+    spacing_cm: "175"
+    mature_height_cm: "50"
+    mature_width_cm: "300"
+    sowing_indoor_weeks_before_last_frost: 4
+    sowing_outdoor_after_last_frost_days: 14
+    direct_sow_months: [5, 6]
+    harvest_months: [9, 10]
+    bloom_months: [7, 8]
+    pruning_type: summer_pruning
+    pruning_months: [7, 8]
+
+  "Cucurbita pepo":
+    frost_sensitivity: sensitive
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    traits: [edible, high_yield]
+    propagation_methods: [seed]
+    propagation_difficulty: easy
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: true
+    spacing_cm: "90"
+    mature_height_cm: "60"
+    mature_width_cm: "125"
+    sowing_indoor_weeks_before_last_frost: 4
+    sowing_outdoor_after_last_frost_days: 14
+    direct_sow_months: [5, 6]
+    harvest_months: [6, 7, 8, 9, 10]
+    bloom_months: [6, 7, 8, 9]
+
+  "Daucus carota":
+    frost_sensitivity: moderate
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [seed]
+    propagation_difficulty: easy
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    spacing_cm: "5"
+    mature_height_cm: "40"
+    mature_width_cm: "20"
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [3, 4, 5, 6, 7]
+    harvest_months: [6, 7, 8, 9, 10, 11]
+    bloom_months: [6, 7]
+    pruning_type: none
+
+  "Foeniculum vulgare":
+    frost_sensitivity: moderate
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [seed]
+    propagation_difficulty: moderate
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    spacing_cm: "28"
+    mature_height_cm: "80"
+    mature_width_cm: "30"
+    sowing_outdoor_after_last_frost_days: 14
+    direct_sow_months: [5, 6, 7]
+    harvest_months: [8, 9, 10]
+    bloom_months: [7, 8, 9]
+    pruning_type: none
+    allelopathy_score: -0.5
+
+# ==============================================================================
+# S5  LIFECYCLE CONFIGS
+# ==============================================================================
+
+lifecycle_configs:
+  "Allium cepa":
+    cycle_type: biennial
+    photoperiod_type: long_day
+    vernalization_required: true
+
+  "Allium sativum":
+    cycle_type: perennial
+    photoperiod_type: long_day
+
+  "Anemone hupehensis":
+    cycle_type: perennial
+    photoperiod_type: short_day
+
+  "Asparagus officinalis":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+
+  "Astilbe chinensis":
+    cycle_type: perennial
+    photoperiod_type: long_day
+
+  "Brassica oleracea var. sabellica":
+    cycle_type: biennial
+    photoperiod_type: long_day
+    vernalization_required: true
+
+  "Buxus sempervirens":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+
+  "Calendula officinalis":
+    cycle_type: annual
+    photoperiod_type: day_neutral
+
+  "Clematis spp.":
+    cycle_type: perennial
+    photoperiod_type: long_day
+
+  "Cornus mas":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+
+  "Delphinium elatum":
+    cycle_type: perennial
+    photoperiod_type: long_day
+
+  "Echinacea purpurea":
+    cycle_type: perennial
+    photoperiod_type: long_day
+
+  # Enriched species lifecycle overrides
+  "Capsicum annuum":
+    cycle_type: annual
+    photoperiod_type: day_neutral
+
+  "Cichorium intybus":
+    cycle_type: perennial
+    photoperiod_type: long_day
+
+  "Coriandrum sativum":
+    cycle_type: annual
+    photoperiod_type: long_day
+
+  "Cucumis sativus":
+    cycle_type: annual
+    photoperiod_type: day_neutral
+
+  "Cucurbita maxima":
+    cycle_type: annual
+    photoperiod_type: day_neutral
+
+  "Cucurbita pepo":
+    cycle_type: annual
+    photoperiod_type: day_neutral
+
+  "Daucus carota":
+    cycle_type: biennial
+    photoperiod_type: long_day
+    vernalization_required: true
+
+  "Foeniculum vulgare":
+    cycle_type: annual
+    photoperiod_type: long_day
+
+# ==============================================================================
+# S6  GROWTH PHASES (selected key species)
+# ==============================================================================
+
+growth_phases:
+  "Capsicum annuum":
+    - name: germination
+      order: 1
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 10
+      duration_days_max: 21
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 0
+        dli_target_mol: 0
+        photoperiod_hours: 0
+        temperature_day_c: 27.0
+        temperature_night_c: 23.0
+        humidity_day_percent: 85
+        humidity_night_percent: 90
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 1
+        irrigation_volume_ml_per_plant: 10
+      nutrient_profile:
+        npk_ratio: "0-0-0"
+        ec_min: 0.0
+        ec_max: 0.0
+        ph_min: 6.0
+        ph_max: 6.5
+
+    - name: seedling
+      order: 2
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 28
+      duration_days_max: 42
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 200
+        dli_target_mol: 11
+        photoperiod_hours: 15
+        temperature_day_c: 22.0
+        temperature_night_c: 17.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.8
+        co2_ppm: 500
+        irrigation_frequency_days: 2
+        irrigation_volume_ml_per_plant: 35
+      nutrient_profile:
+        npk_ratio: "1-1-1"
+        ec_min: 0.6
+        ec_max: 1.0
+        ph_min: 5.8
+        ph_max: 6.2
+        ca_ppm: 80
+        mg_ppm: 30
+        s_ppm: 25
+        fe_ppm: 2
+
+    - name: vegetative
+      order: 3
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 35
+      duration_days_max: 56
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        dli_target_mol: 20
+        photoperiod_hours: 16
+        temperature_day_c: 25.0
+        temperature_night_c: 19.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 1.0
+        co2_ppm: 800
+        irrigation_frequency_days: 2
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: "3-1-2"
+        ec_min: 1.4
+        ec_max: 1.8
+        ph_min: 5.8
+        ph_max: 6.2
+        ca_ppm: 120
+        mg_ppm: 50
+        s_ppm: 40
+        fe_ppm: 3
+
+    - name: flowering
+      order: 4
+      is_terminal: false
+      is_harvest_allowed: true
+      duration_days_min: 21
+      duration_days_max: 42
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 500
+        dli_target_mol: 25
+        photoperiod_hours: 15
+        temperature_day_c: 25.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 58
+        humidity_night_percent: 63
+        vpd_target_kpa: 1.1
+        co2_ppm: 800
+        irrigation_frequency_days: 1
+        irrigation_volume_ml_per_plant: 350
+      nutrient_profile:
+        npk_ratio: "2-2-3"
+        ec_min: 1.8
+        ec_max: 2.2
+        ph_min: 5.8
+        ph_max: 6.2
+        ca_ppm: 150
+        mg_ppm: 50
+        s_ppm: 40
+        fe_ppm: 3
+
+    - name: harvest
+      order: 5
+      is_terminal: true
+      is_harvest_allowed: true
+      duration_days_min: 42
+      duration_days_max: 84
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 500
+        dli_target_mol: 25
+        photoperiod_hours: 15
+        temperature_day_c: 25.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 1.1
+        co2_ppm: 700
+        irrigation_frequency_days: 1
+        irrigation_volume_ml_per_plant: 450
+      nutrient_profile:
+        npk_ratio: "1-2-3"
+        ec_min: 1.8
+        ec_max: 2.5
+        ph_min: 5.8
+        ph_max: 6.2
+        ca_ppm: 180
+        mg_ppm: 60
+        s_ppm: 45
+        fe_ppm: 3
+
+  "Cucumis sativus":
+    - name: germination
+      order: 1
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 3
+      duration_days_max: 7
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 0
+        dli_target_mol: 0
+        photoperiod_hours: 0
+        temperature_day_c: 28.0
+        temperature_night_c: 23.0
+        humidity_day_percent: 85
+        humidity_night_percent: 90
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 1
+        irrigation_volume_ml_per_plant: 10
+      nutrient_profile:
+        npk_ratio: "0-0-0"
+        ec_min: 0.0
+        ec_max: 0.0
+        ph_min: 5.5
+        ph_max: 6.5
+
+    - name: seedling
+      order: 2
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 14
+      duration_days_max: 21
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 200
+        dli_target_mol: 12
+        photoperiod_hours: 15
+        temperature_day_c: 24.0
+        temperature_night_c: 19.0
+        humidity_day_percent: 72
+        humidity_night_percent: 78
+        vpd_target_kpa: 0.7
+        co2_ppm: 500
+        irrigation_frequency_days: 2
+        irrigation_volume_ml_per_plant: 55
+      nutrient_profile:
+        npk_ratio: "1-1-1"
+        ec_min: 0.6
+        ec_max: 1.0
+        ph_min: 5.5
+        ph_max: 6.0
+        ca_ppm: 80
+        mg_ppm: 30
+        s_ppm: 25
+        fe_ppm: 2
+
+    - name: vegetative
+      order: 3
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 21
+      duration_days_max: 35
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        dli_target_mol: 25
+        photoperiod_hours: 16
+        temperature_day_c: 26.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 68
+        humidity_night_percent: 72
+        vpd_target_kpa: 0.95
+        co2_ppm: 800
+        irrigation_frequency_days: 1
+        irrigation_volume_ml_per_plant: 350
+      nutrient_profile:
+        npk_ratio: "3-1-2"
+        ec_min: 1.5
+        ec_max: 2.0
+        ph_min: 5.5
+        ph_max: 6.0
+        ca_ppm: 150
+        mg_ppm: 50
+        s_ppm: 40
+        fe_ppm: 3
+
+    - name: flowering
+      order: 4
+      is_terminal: false
+      is_harvest_allowed: true
+      duration_days_min: 7
+      duration_days_max: 14
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        dli_target_mol: 25
+        photoperiod_hours: 15
+        temperature_day_c: 26.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 68
+        humidity_night_percent: 72
+        vpd_target_kpa: 0.95
+        co2_ppm: 800
+        irrigation_frequency_days: 1
+        irrigation_volume_ml_per_plant: 450
+      nutrient_profile:
+        npk_ratio: "2-2-3"
+        ec_min: 1.7
+        ec_max: 2.2
+        ph_min: 5.5
+        ph_max: 6.0
+        ca_ppm: 180
+        mg_ppm: 60
+        s_ppm: 45
+        fe_ppm: 3
+
+    - name: harvest
+      order: 5
+      is_terminal: true
+      is_harvest_allowed: true
+      duration_days_min: 42
+      duration_days_max: 84
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        dli_target_mol: 25
+        photoperiod_hours: 15
+        temperature_day_c: 25.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 62
+        humidity_night_percent: 68
+        vpd_target_kpa: 1.05
+        co2_ppm: 700
+        irrigation_frequency_days: 1
+        irrigation_volume_ml_per_plant: 1000
+      nutrient_profile:
+        npk_ratio: "1-2-3"
+        ec_min: 1.7
+        ec_max: 2.5
+        ph_min: 5.5
+        ph_max: 6.0
+        ca_ppm: 200
+        mg_ppm: 60
+        s_ppm: 45
+        fe_ppm: 3
+
+  "Cucurbita pepo":
+    - name: germination
+      order: 1
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 5
+      duration_days_max: 14
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 0
+        dli_target_mol: 0
+        photoperiod_hours: 0
+        temperature_day_c: 25.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 80
+        humidity_night_percent: 85
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 1
+        irrigation_volume_ml_per_plant: 20
+      nutrient_profile:
+        npk_ratio: "0-0-0"
+        ec_min: 0.0
+        ec_max: 0.0
+        ph_min: 6.0
+        ph_max: 6.5
+
+    - name: seedling
+      order: 2
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 14
+      duration_days_max: 21
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 225
+        dli_target_mol: 12
+        photoperiod_hours: 15
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.65
+        co2_ppm: 500
+        irrigation_frequency_days: 2
+        irrigation_volume_ml_per_plant: 55
+      nutrient_profile:
+        npk_ratio: "1-1-1"
+        ec_min: 0.6
+        ec_max: 1.0
+        ph_min: 5.8
+        ph_max: 6.5
+        ca_ppm: 80
+        mg_ppm: 30
+        s_ppm: 20
+        fe_ppm: 2
+
+    - name: vegetative
+      order: 3
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 21
+      duration_days_max: 35
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 450
+        dli_target_mol: 25
+        photoperiod_hours: 16
+        temperature_day_c: 25.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 1.1
+        co2_ppm: 800
+        irrigation_frequency_days: 2
+        irrigation_volume_ml_per_plant: 350
+      nutrient_profile:
+        npk_ratio: "3-1-2"
+        ec_min: 1.6
+        ec_max: 2.2
+        ph_min: 5.8
+        ph_max: 6.5
+        ca_ppm: 150
+        mg_ppm: 50
+        s_ppm: 40
+        fe_ppm: 4
+
+    - name: flowering
+      order: 4
+      is_terminal: false
+      is_harvest_allowed: true
+      duration_days_min: 60
+      duration_days_max: 90
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 450
+        dli_target_mol: 25
+        photoperiod_hours: 16
+        temperature_day_c: 25.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 58
+        humidity_night_percent: 63
+        vpd_target_kpa: 1.1
+        co2_ppm: 800
+        irrigation_frequency_days: 1
+        irrigation_volume_ml_per_plant: 1250
+      nutrient_profile:
+        npk_ratio: "2-3-4"
+        ec_min: 2.0
+        ec_max: 2.8
+        ph_min: 5.8
+        ph_max: 6.5
+        ca_ppm: 180
+        mg_ppm: 60
+        s_ppm: 50
+        fe_ppm: 4
+
+  "Daucus carota":
+    - name: germination
+      order: 1
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 10
+      duration_days_max: 21
+      stress_tolerance: low
+      requirement_profile:
+        temperature_day_c: 15.0
+        temperature_night_c: 8.0
+        humidity_day_percent: 78
+        humidity_night_percent: 83
+        co2_ppm: 400
+        irrigation_frequency_days: 1
+        irrigation_volume_ml_per_plant: 15
+      nutrient_profile:
+        npk_ratio: "0-0-0"
+        ec_min: 0.0
+        ec_max: 0.0
+        ph_min: 6.0
+        ph_max: 7.0
+
+    - name: seedling
+      order: 2
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 14
+      duration_days_max: 21
+      stress_tolerance: low
+      requirement_profile:
+        temperature_day_c: 18.0
+        temperature_night_c: 11.0
+        humidity_day_percent: 68
+        humidity_night_percent: 72
+        co2_ppm: 400
+        irrigation_frequency_days: 3
+        irrigation_volume_ml_per_plant: 22
+      nutrient_profile:
+        npk_ratio: "1-1-1"
+        ec_min: 0.3
+        ec_max: 0.6
+        ph_min: 6.0
+        ph_max: 6.8
+        ca_ppm: 60
+        mg_ppm: 25
+        s_ppm: 20
+        fe_ppm: 2
+
+    - name: vegetative
+      order: 3
+      is_terminal: false
+      is_harvest_allowed: true
+      duration_days_min: 50
+      duration_days_max: 80
+      stress_tolerance: medium
+      requirement_profile:
+        temperature_day_c: 20.0
+        temperature_night_c: 13.0
+        humidity_day_percent: 62
+        humidity_night_percent: 68
+        co2_ppm: 400
+        irrigation_frequency_days: 4
+        irrigation_volume_ml_per_plant: 55
+      nutrient_profile:
+        npk_ratio: "1-1-2"
+        ec_min: 0.8
+        ec_max: 1.4
+        ph_min: 6.0
+        ph_max: 6.8
+        ca_ppm: 100
+        mg_ppm: 40
+        s_ppm: 30
+        fe_ppm: 3
+
+    - name: harvest
+      order: 4
+      is_terminal: true
+      is_harvest_allowed: true
+      duration_days_min: 14
+      duration_days_max: 42
+      stress_tolerance: high
+      requirement_profile:
+        temperature_day_c: 15.0
+        temperature_night_c: 8.0
+        co2_ppm: 400
+        irrigation_frequency_days: 4
+        irrigation_volume_ml_per_plant: 35
+      nutrient_profile:
+        npk_ratio: "0-1-2"
+        ec_min: 0.6
+        ec_max: 1.0
+        ph_min: 6.0
+        ph_max: 6.8
+        ca_ppm: 80
+        mg_ppm: 35
+        s_ppm: 25
+        fe_ppm: 2
+
+# ==============================================================================
+# S7  CULTIVARS
+# ==============================================================================
+
+cultivars:
+  "Allium cepa":
+    - name: "Stuttgarter Riesen"
+      traits: [heirloom, high_yield]
+      days_to_maturity: 120
+      seed_type: open_pollinated
+    - name: "Zittauer Gelbe"
+      traits: [heirloom, long_storage]
+      days_to_maturity: 130
+      seed_type: open_pollinated
+    - name: "Red Baron"
+      traits: [red_skin, ornamental]
+      days_to_maturity: 110
+      seed_type: open_pollinated
+
+  "Allium sativum":
+    - name: "Thermidrome"
+      traits: [large_cloves, hardy]
+      days_to_maturity: 240
+      seed_type: open_pollinated
+    - name: "Sprint"
+      traits: [early_maturing]
+      days_to_maturity: 200
+      seed_type: open_pollinated
+
+  "Asparagus officinalis":
+    - name: "Gijnlim"
+      traits: [high_yield, early_maturing]
+      days_to_maturity: 730
+      seed_type: open_pollinated
+    - name: "Backlim"
+      traits: [high_yield, disease_resistant]
+      days_to_maturity: 730
+      seed_type: open_pollinated
+
+  "Brassica oleracea var. sabellica":
+    - name: "Winterbor F1"
+      traits: [very_hardy, curly_leaf, high_yield]
+      days_to_maturity: 65
+      seed_type: f1_hybrid
+    - name: "Nero di Toscana"
+      traits: [heirloom, dark_leaf, italian_type]
+      days_to_maturity: 60
+      seed_type: open_pollinated
+    - name: "Redbor F1"
+      traits: [ornamental, red_leaf]
+      days_to_maturity: 55
+      seed_type: f1_hybrid
+
+  "Buxus sempervirens":
+    - name: "Suffruticosa"
+      traits: [compact, dwarf]
+      days_to_maturity: 0
+      seed_type: open_pollinated
+
+  "Calendula officinalis":
+    - name: "Erfurter Orangefarbige"
+      traits: [heirloom, orange_flower]
+      days_to_maturity: 50
+      seed_type: open_pollinated
+    - name: "Fiesta Gitana"
+      traits: [compact, mixed_colors]
+      days_to_maturity: 45
+      seed_type: open_pollinated
+
+  "Clematis spp.":
+    - name: "Nelly Moser"
+      traits: [large_flowered, bicolor]
+      days_to_maturity: 0
+      seed_type: open_pollinated
+    - name: "Jackmanii"
+      traits: [vigorous, purple_flower]
+      days_to_maturity: 0
+      seed_type: open_pollinated
+
+  "Echinacea purpurea":
+    - name: "Magnus"
+      traits: [large_flowered]
+      days_to_maturity: 120
+      seed_type: open_pollinated
+    - name: "White Swan"
+      traits: [white_flower]
+      days_to_maturity: 120
+      seed_type: open_pollinated
+
+  "Capsicum annuum":
+    - name: "Yolo Wonder"
+      breeder: null
+      breeding_year: 1952
+      traits: [high_yield, disease_resistant]
+      days_to_maturity: 75
+      seed_type: open_pollinated
+    - name: "California Wonder"
+      traits: [high_yield, heirloom]
+      days_to_maturity: 75
+      seed_type: open_pollinated
+    - name: "Hungarian Wax"
+      traits: [heat_tolerant, early_maturing]
+      days_to_maturity: 65
+      seed_type: open_pollinated
+    - name: "Palermo F1"
+      breeder: "Enza Zaden"
+      traits: [high_yield, disease_resistant]
+      days_to_maturity: 85
+      seed_type: f1_hybrid
+    - name: "Snackpaprika (Mini)"
+      traits: [compact, high_yield, early_maturing]
+      days_to_maturity: 60
+      seed_type: f1_hybrid
+
+  "Cichorium intybus":
+    - name: "Catalogna (Blattzichorie)"
+      traits: [large_leaf, italian_type]
+      days_to_maturity: 60
+      seed_type: open_pollinated
+    - name: "Zuckerhut"
+      traits: [compact, mild_flavor, long_storage]
+      days_to_maturity: 90
+      seed_type: open_pollinated
+    - name: "Rossa di Treviso"
+      traits: [red_leaf, italian_type, ornamental]
+      days_to_maturity: 85
+      seed_type: open_pollinated
+    - name: "Palla Rossa"
+      traits: [red_leaf, compact]
+      days_to_maturity: 80
+      seed_type: open_pollinated
+
+  "Cucumis sativus":
+    - name: "Marketmore 76"
+      breeder: "Cornell University"
+      breeding_year: 1976
+      traits: [disease_resistant, high_yield, heirloom]
+      days_to_maturity: 65
+      seed_type: open_pollinated
+    - name: "Picolino F1"
+      traits: [compact, disease_resistant, high_yield]
+      days_to_maturity: 50
+      seed_type: f1_hybrid
+    - name: "Vorgebirgstraube"
+      traits: [heirloom, high_yield]
+      days_to_maturity: 55
+      seed_type: open_pollinated
+    - name: "Diamant F1"
+      traits: [disease_resistant, high_yield]
+      days_to_maturity: 58
+      seed_type: f1_hybrid
+
+  "Cucurbita maxima":
+    - name: "Hokkaido (Red Kuri)"
+      traits: [nutty_flavor, compact]
+      days_to_maturity: 110
+      seed_type: open_pollinated
+    - name: "Atlantic Giant"
+      traits: [giant, exhibition]
+      days_to_maturity: 120
+      seed_type: open_pollinated
+
+  "Cucurbita pepo":
+    - name: "Black Beauty"
+      traits: [dark_green, high_yield, compact]
+      days_to_maturity: 50
+      seed_type: open_pollinated
+    - name: "Defender F1"
+      traits: [disease_resistant, parthenocarp, early_maturing]
+      days_to_maturity: 47
+      seed_type: f1_hybrid
+    - name: "Partenon F1"
+      traits: [parthenocarp, disease_resistant]
+      days_to_maturity: 47
+      seed_type: f1_hybrid
+    - name: "Romanesco"
+      traits: [ribbed, italian_type, ornamental]
+      days_to_maturity: 55
+      seed_type: open_pollinated
+    - name: "Tondo di Nizza"
+      traits: [round_fruit, compact, italian_type]
+      days_to_maturity: 45
+      seed_type: open_pollinated
+
+  "Daucus carota":
+    - name: "Nantes 2"
+      traits: [high_yield, heirloom]
+      days_to_maturity: 80
+      seed_type: open_pollinated
+    - name: "Flakkee"
+      traits: [high_yield, long_season]
+      days_to_maturity: 130
+      seed_type: open_pollinated
+    - name: "Pariser Markt"
+      traits: [compact, early_maturing]
+      days_to_maturity: 65
+      seed_type: open_pollinated
+    - name: "Bolero"
+      breeder: "Vilmorin"
+      traits: [disease_resistant, high_yield]
+      days_to_maturity: 75
+      seed_type: f1_hybrid
+    - name: "Flyaway"
+      traits: [pest_resistant]
+      days_to_maturity: 85
+      seed_type: open_pollinated
+    - name: "Rodelika"
+      breeder: "Bingenheim"
+      traits: [high_yield, heirloom]
+      days_to_maturity: 100
+      seed_type: open_pollinated
+
+  "Brassica oleracea var. gongylodes":
+    - name: "Superschmelz"
+      traits: [giant, long_storage]
+      days_to_maturity: 80
+      seed_type: open_pollinated
+    - name: "Azur Star"
+      traits: [purple_skin, early_maturing]
+      days_to_maturity: 55
+      seed_type: open_pollinated
+
+  "Brassica oleracea var. italica":
+    - name: "Marathon F1"
+      traits: [large_head, heat_tolerant]
+      days_to_maturity: 70
+      seed_type: f1_hybrid
+    - name: "Calabrese"
+      traits: [high_yield]
+      days_to_maturity: 75
+      seed_type: open_pollinated
+
+  "Foeniculum vulgare":
+    - name: "Finale"
+      traits: [bolt_resistant]
+      days_to_maturity: 80
+      seed_type: open_pollinated
+    - name: "Zefa Fino"
+      traits: [compact, bolt_resistant]
+      days_to_maturity: 75
+      seed_type: open_pollinated
+
+# ==============================================================================
+# S8  COMPANION PLANTING
+# ==============================================================================
+
+companion_planting:
+  compatible:
+    # Allium cepa
+    - source: "Allium cepa"
+      target: "Daucus carota"
+      score: 0.9
+      reason: "Klassische Mischkultur: Zwiebelgeruch verwirrt Moehrenfliege"
+    - source: "Allium cepa"
+      target: "Lactuca sativa"
+      score: 0.7
+      reason: "Gute Raumausnutzung, Bodenbeschattung"
+
+    # Capsicum annuum
+    - source: "Capsicum annuum"
+      target: "Ocimum basilicum"
+      score: 0.9
+      reason: "Weisse-Fliege-Abwehr, aehnliche Standortansprueche"
+    - source: "Capsicum annuum"
+      target: "Daucus carota"
+      score: 0.7
+      reason: "Platzausnutzung (Tiefwurzler + Flachwurzler)"
+
+    # Cucumis sativus
+    - source: "Cucumis sativus"
+      target: "Anethum graveolens"
+      score: 0.9
+      reason: "Klassische Mischkultur: Dill lockt Bestauber und Nuetzlinge an"
+    - source: "Cucumis sativus"
+      target: "Lactuca sativa"
+      score: 0.8
+      reason: "Bodenbeschattung, schnelle Ernte"
+
+    # Cucurbita pepo
+    - source: "Cucurbita pepo"
+      target: "Ocimum basilicum"
+      score: 0.8
+      reason: "Insektenabwehr, gleiche Waermebeduerfnisse"
+
+    # Daucus carota
+    - source: "Daucus carota"
+      target: "Allium cepa"
+      score: 0.9
+      reason: "Gegenseitige Fliegenabwehr (Moehrenfliege / Zwiebelfliege)"
+    - source: "Daucus carota"
+      target: "Allium porrum"
+      score: 0.9
+      reason: "Wie Zwiebel — gegenseitige Fliegenabwehr"
+    - source: "Daucus carota"
+      target: "Allium sativum"
+      score: 0.8
+      reason: "Fliegenabwehr, Pilzabwehr"
+    - source: "Daucus carota"
+      target: "Allium schoenoprasum"
+      score: 0.8
+      reason: "Pilzabwehr, Fliegenabwehr"
+
+    # Brassica oleracea var. gongylodes
+    - source: "Brassica oleracea var. gongylodes"
+      target: "Allium cepa"
+      score: 0.7
+      reason: "Schaedlingsabwehr"
+    - source: "Brassica oleracea var. gongylodes"
+      target: "Anethum graveolens"
+      score: 0.8
+      reason: "Nuetzlingsfoerderung"
+    - source: "Brassica oleracea var. gongylodes"
+      target: "Lactuca sativa"
+      score: 0.8
+      reason: "Platzsparend, Bodenbeschattung"
+
+    # Brassica oleracea var. italica
+    - source: "Brassica oleracea var. italica"
+      target: "Anethum graveolens"
+      score: 0.7
+      reason: "Nuetzlinge anlocken, lockert Boden"
+    - source: "Brassica oleracea var. italica"
+      target: "Lactuca sativa"
+      score: 0.8
+      reason: "Bodenschutz, schwaches Untergewaechs"
+
+    # Cichorium intybus
+    - source: "Cichorium intybus"
+      target: "Daucus carota"
+      score: 0.7
+      reason: "Ergaenzende Wurzeltiefen"
+    - source: "Cichorium intybus"
+      target: "Foeniculum vulgare"
+      score: 0.7
+      reason: "Aehnliche Standortansprueche, ergaenzende Ernte"
+
+    # Coriandrum sativum
+    - source: "Coriandrum sativum"
+      target: "Brassica oleracea"
+      score: 0.8
+      reason: "Schutz vor Kohlweissling"
+
+  incompatible:
+    # Capsicum annuum
+    - source: "Capsicum annuum"
+      target: "Foeniculum vulgare"
+      reason: "Allelopathische Hemmung"
+      severity: moderate
+    - source: "Capsicum annuum"
+      target: "Anethum graveolens"
+      reason: "Kann Paprikawachstum hemmen"
+      severity: mild
+    - source: "Capsicum annuum"
+      target: "Cucumis sativus"
+      reason: "Unterschiedliche Feuchtigkeitsbeduerfnisse"
+      severity: mild
+
+    # Cucumis sativus
+    - source: "Cucumis sativus"
+      target: "Foeniculum vulgare"
+      reason: "Allelopathische Hemmung"
+      severity: moderate
+
+    # Cucurbita pepo
+    - source: "Cucurbita pepo"
+      target: "Cucumis sativus"
+      reason: "Gleiche Familie, geteilte Krankheiten (Mehltau, CMV)"
+      severity: moderate
+
+    # Daucus carota
+    - source: "Daucus carota"
+      target: "Anethum graveolens"
+      reason: "Gleiche Familie (Apiaceae), gemeinsame Schaedlinge"
+      severity: moderate
+    - source: "Daucus carota"
+      target: "Foeniculum vulgare"
+      reason: "Gleiche Familie + allelopathische Wirkung"
+      severity: severe
+
+    # Foeniculum vulgare (strong allelopathy)
+    - source: "Foeniculum vulgare"
+      target: "Capsicum annuum"
+      reason: "Allelopathische Hemmung durch Terpenoide"
+      severity: moderate
+    - source: "Foeniculum vulgare"
+      target: "Brassica oleracea"
+      reason: "Allelopathische Hemmung"
+      severity: moderate
+    - source: "Foeniculum vulgare"
+      target: "Daucus carota"
+      reason: "Geteilter Schaedling (Moehrenfliege), Allelopathie"
+      severity: moderate
+
+    # Coriandrum sativum
+    - source: "Coriandrum sativum"
+      target: "Foeniculum vulgare"
+      reason: "Hemmende Wirkung auf viele Kraeuter"
+      severity: moderate
+    - source: "Coriandrum sativum"
+      target: "Ocimum basilicum"
+      reason: "Allelopathische Hemmung"
+      severity: moderate
+
+    # Brassica oleracea var. italica
+    - source: "Brassica oleracea var. italica"
+      target: "Brassica oleracea var. botrytis"
+      reason: "Gleiche Schaedlinge + Kohlhernie-Risiko"
+      severity: severe
+    - source: "Brassica oleracea var. italica"
+      target: "Brassica oleracea var. gongylodes"
+      reason: "Gleiche Familie, Krankheitsdruck"
+      severity: severe
+
+    # Brassica oleracea var. gongylodes
+    - source: "Brassica oleracea var. gongylodes"
+      target: "Brassica oleracea var. italica"
+      reason: "Gleiche Schaedlinge, selbe Familie"
+      severity: severe
+
+# ==============================================================================
+# S9  IPM DATA — PESTS, DISEASES, TREATMENTS
+# ==============================================================================
+
+pests:
+  - scientific_name: "Psila rosae"
+    common_name_de: "Moehrenfliege"
+    common_name_en: "Carrot Fly"
+    pest_type: insect
+    affected_parts: [root]
+    symptoms: "Rostbraune Fraessgaenge in der Wurzel, welkes Kraut"
+    detection_difficulty: medium
+    affected_species: ["Daucus carota", "Foeniculum vulgare"]
+
+  - scientific_name: "Pieris brassicae"
+    common_name_de: "Grosser Kohlweissling"
+    common_name_en: "Large Cabbage White"
+    pest_type: insect
+    affected_parts: [leaf]
+    symptoms: "Lochfrass, Raupen, Kotspuren an Blaettern"
+    detection_difficulty: easy
+    affected_species:
+      - "Brassica oleracea var. sabellica"
+      - "Brassica oleracea var. gongylodes"
+      - "Brassica oleracea var. italica"
+      - "Brassica oleracea var. botrytis"
+      - "Brassica oleracea var. gemmifera"
+
+  - scientific_name: "Brevicoryne brassicae"
+    common_name_de: "Mehlige Kohlblattlaus"
+    common_name_en: "Cabbage Aphid"
+    pest_type: insect
+    affected_parts: [leaf, shoot]
+    symptoms: "Weissliche Kolonien, Blattkraeuselung, Wachsbeschlag"
+    detection_difficulty: easy
+    affected_species:
+      - "Brassica oleracea var. sabellica"
+      - "Brassica oleracea var. gongylodes"
+      - "Brassica oleracea var. italica"
+
+  - scientific_name: "Delia radicum"
+    common_name_de: "Kohlfliege"
+    common_name_en: "Cabbage Root Fly"
+    pest_type: insect
+    affected_parts: [root, stem]
+    symptoms: "Larvenbefall an Wurzeln, Welke, Kuemmerwuchs"
+    detection_difficulty: difficult
+    affected_species:
+      - "Brassica oleracea var. gongylodes"
+      - "Brassica oleracea var. italica"
+
+  - scientific_name: "Cydia pomonella"
+    common_name_de: "Buchsbaumzuensler"
+    common_name_en: "Box Tree Moth"
+    pest_type: insect
+    affected_parts: [leaf]
+    symptoms: "Kahlfraß durch Raupen, Gespinste, Pflanze stirbt bei starkem Befall"
+    detection_difficulty: medium
+    affected_species: ["Buxus sempervirens"]
+
+diseases:
+  - name: "Kohlhernie"
+    scientific_name: "Plasmodiophora brassicae"
+    disease_type: protist
+    symptoms: "Knollenartige Wurzelwucherungen, Welke"
+    triggers: ["saurer Boden (pH < 6.5)", "Staunaesse"]
+    incubation_days_min: 14
+    incubation_days_max: 21
+    affected_species:
+      - "Brassica oleracea var. sabellica"
+      - "Brassica oleracea var. gongylodes"
+      - "Brassica oleracea var. italica"
+      - "Brassica oleracea var. botrytis"
+      - "Brassica oleracea var. gemmifera"
+
+  - name: "Alternaria-Blattflecken"
+    scientific_name: "Alternaria dauci"
+    disease_type: fungal
+    symptoms: "Braun-schwarze Laesionen an Blattrandern"
+    triggers: ["warm_humid", "rain_splash"]
+    incubation_days_min: 5
+    incubation_days_max: 10
+    affected_species: ["Daucus carota"]
+
+  - name: "Buchsbaumtriebsterben"
+    scientific_name: "Cylindrocladium buxicola"
+    disease_type: fungal
+    symptoms: "Braune Blattflecken, Triebsterben, Blattverlust"
+    triggers: ["Feuchtigkeit", "dichte Pflanzung"]
+    incubation_days_min: 5
+    incubation_days_max: 10
+    affected_species: ["Buxus sempervirens"]
+
+treatments:
+  - name: "Kulturschutznetz"
+    treatment_type: cultural
+    active_ingredient: null
+    application: "Feinmaschiges Netz (0.8 mm) ueber Beet ab Aussaat/Pflanzung"
+    waiting_period_days: 0
+    effective_against: ["Psila rosae", "Pieris brassicae", "Delia radicum"]
+
+  - name: "Bacillus thuringiensis (Bt)"
+    treatment_type: biological
+    active_ingredient: "Bt-Toxin"
+    application: "Spruehanwendung 0.5-1%, abends (Raupen aktiv)"
+    waiting_period_days: 0
+    effective_against: ["Pieris brassicae"]
+
+  - name: "Kalkung (Kohlhernie-Prophylaxe)"
+    treatment_type: cultural
+    active_ingredient: "Algenkalk / CaCO3"
+    application: "100 g/m2, Boden-pH auf 7.0-7.5 anheben vor Pflanzung"
+    waiting_period_days: 0
+    effective_against: ["Plasmodiophora brassicae"]

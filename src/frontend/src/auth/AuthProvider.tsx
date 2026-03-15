@@ -120,26 +120,40 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
   // On mount: try to refresh and load profile + preferences
   const initAuth = useCallback(async () => {
-    if (isLightMode) {
-      // Light mode: skip JWT refresh, just fetch profile directly
+    const AUTH_TIMEOUT_MS = 10_000;
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Auth init timeout')), AUTH_TIMEOUT_MS),
+    );
+
+    const doInit = async () => {
+      if (isLightMode) {
+        // Light mode: skip JWT refresh, just fetch profile directly
+        try {
+          await dispatch(fetchProfile()).unwrap();
+          dispatch(loadMyTenants());
+          dispatch(fetchPreferences());
+        } catch {
+          // System user should always exist in light mode
+        }
+        return;
+      }
+
       try {
-        await dispatch(fetchProfile()).unwrap();
+        const result = await dispatch(refreshAccessToken()).unwrap();
+        dispatch(setAccessToken(result.access_token));
+        await dispatch(fetchProfile());
         dispatch(loadMyTenants());
         dispatch(fetchPreferences());
       } catch {
-        // System user should always exist in light mode
+        // Not authenticated — that's fine
       }
-      return;
-    }
+    };
 
     try {
-      const result = await dispatch(refreshAccessToken()).unwrap();
-      dispatch(setAccessToken(result.access_token));
-      await dispatch(fetchProfile());
-      dispatch(loadMyTenants());
-      dispatch(fetchPreferences());
+      await Promise.race([doInit(), timeout]);
     } catch {
-      // Not authenticated — that's fine
+      // Timeout or error — clear auth state so UI exits loading
+      dispatch(clearAuth());
     }
   }, [dispatch]);
 

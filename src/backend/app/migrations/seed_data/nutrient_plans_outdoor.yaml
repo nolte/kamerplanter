@@ -1,0 +1,2941 @@
+nutrient_plans:
+- name: Buschbohne — Plagron Terra (Leguminose)
+  description: 'Minimaldüngungs-Plan für Buschbohne (Phaseolus vulgaris) als N-Fixierer. KEIN Terra Grow! Nur Terra Bloom
+    (P+K) in niedriger Dosis. Rhizobium-Symbiose liefert Stickstoff. Direktsaat nach Eisheiligen, 10–14 Wochen Kulturzeit.
+    WARNUNG: Rohe Bohnen sind giftig (Phasin)!'
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - bohne
+  - buschbohne
+  - phaseolus
+  - fabaceae
+  - leguminose
+  - plagron
+  - terra
+  - erde
+  - outdoor
+  - schwachzehrer
+  - n-fixierer
+  - gemüse
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 3
+    preferred_time: 07:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 2
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Direktsaat nach Eisheiligen, Bodentemperatur mind. 10°C. Dunkelkeimer, 3–5 cm tief. NICHT vorquellen! Mäßig feucht
+      halten, nicht nass. Rhizobium-Impfung bei erstmaligem Anbau empfohlen.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 2
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Wasser Keimung
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.02
+      fertilizer_dosages: []
+  - phase_name: seedling
+    sequence_order: 2
+    week_start: 3
+    week_end: 4
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Kein Dünger. Rhizobium-Knöllchen bilden sich an den Wurzeln. N-Düngung würde die Knöllchenbildung hemmen! Erste
+      Fiederblätter entfalten sich.
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Nur Wasser (Sämling)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.05
+      fertilizer_dosages: []
+  - phase_name: vegetative
+    sequence_order: 3
+    week_start: 5
+    week_end: 8
+    npk_ratio:
+    - 0.0
+    - 1.0
+    - 2.0
+    notes: 'Terra Bloom Viertel-Dosis (1.5 ml/L) + Pure Zym. Nur P+K-Versorgung — Rhizobium liefert N. Anhäufelung: 5–8 cm
+      Erde an Stängelbasis. Alle 14 Tage düngen.'
+    delivery_channels:
+    - channel_id: naehrloesung-pk
+      label: P+K-Düngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.5
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.1
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 1.5
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: flowering
+    sequence_order: 4
+    week_start: 9
+    week_end: 11
+    npk_ratio:
+    - 0.0
+    - 2.0
+    - 3.0
+    notes: Terra Bloom niedrige Dosis (2 ml/L) + Pure Zym. P+K für Blüte und Hülsenbildung. Hitze über 30°C = Blütenabwurf!
+      Gleichmäßig gießen (alle 2 Tage). Alle 14 Tage düngen.
+    delivery_channels:
+    - channel_id: naehrloesung-pk
+      label: P+K-Düngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.6
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.1
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 2.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: harvest
+    sequence_order: 5
+    week_start: 12
+    week_end: 14
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: 'Kein Dünger. Alle 2–3 Tage ernten! Überreife Hülsen hemmen Neuansatz. Nach der Ernte: Pflanzen abschneiden, Wurzeln
+      im Boden lassen (N-Anreicherung für Nachfolgekultur).'
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Nur Wasser (Ernte)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.1
+      fertilizer_dosages: []
+- name: Chicorée (Freiland + Treiberei) — Plagron Terra
+  description: 'Zweiteiliger Plan: Freiland-Wurzelaufbau (Mai–Oktober) + Treiberei im Dunkeln (Nov–Dez). Plagron Terra-Linie,
+    3 Produkte. Mittelzehrer. 28 Wochen Gesamtdauer.'
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - chicorée
+  - zichorie
+  - wegwarte
+  - chicory
+  - cichorium
+  - plagron
+  - terra
+  - erde
+  - outdoor
+  - mittelzehrer
+  - treiberei
+  - etiolierung
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 4
+    preferred_time: 07:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 3
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Direktsaat Mai/Juni, 1–2 cm tief (Dunkelkeimer). Reihenabstand 30–40 cm. Keimung 10–21 Tage. KEIN Dünger.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 2
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Wasser Keimung
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.02
+      fertilizer_dosages: []
+  - phase_name: seedling
+    sequence_order: 2
+    week_start: 4
+    week_end: 7
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: Vereinzeln auf 25–30 cm. Viertel-Dosis Terra Grow (1.5 ml/L). Alle 14 Tage düngen.
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung Sämling (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.5
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.4
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 1.5
+  - phase_name: vegetative
+    sequence_order: 3
+    week_start: 8
+    week_end: 20
+    npk_ratio:
+    - 2.0
+    - 2.0
+    - 4.0
+    notes: 'W8–12: Terra Grow 2.5 ml/L + Pure Zym. Ab W13: Umstellung auf Terra Bloom 2.5 ml/L (K-betont für Wurzeleinlagerung)
+      + Pure Zym. Alle 14 Tage düngen. Ab W18 Düngung einstellen (4 Wochen vor Rodung). Blütenstängel sofort entfernen!'
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.65
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.4
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 2.5
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: dormancy
+    sequence_order: 4
+    week_start: 21
+    week_end: 24
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Wurzeln roden, Kraut auf 3 cm kürzen. 1–2 Wochen bei 0–5°C lagern. Dann in Sand/Erde bei 15–18°C im Dunkeln einstellen.
+      KEINE Düngung.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 7
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-treiberei
+      label: Wasser Treiberei-Vorbereitung
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.1
+      fertilizer_dosages: []
+  - phase_name: harvest
+    sequence_order: 5
+    week_start: 25
+    week_end: 28
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Treiberei im Dunkeln. KEIN Dünger, KEIN Licht! Chicoréezapfen wachsen aus der Wurzelkrone. Ernte nach 3–4 Wochen
+      bei 15–20 cm. Substrat leicht feucht halten.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 3
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-treiberei
+      label: Wasser Treiberei (dunkel)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.1
+      fertilizer_dosages: []
+- name: Dahlie — Plagron Terra + PK 13-14
+  description: 'Saisonplan für Dahlien (dekorative, halbgefüllte und Kaktus-Typen) mit Knollen-Vorkultur ab März und Freilandkultur
+    ab Mai. Plagron Terra-Linie mit 5 Produkten inkl. PK 13-14 Blütebooster. Starkzehrer, perennierend via Knolle. 32 Wochen
+    aktive Saison + 20 Wochen Dormanz. Geeignet für Cultivare: Armateras, Hapet Daydream, Lavender Perfection, Great Silence,
+    Embassy.'
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - dahlie
+  - dahlia
+  - asteraceae
+  - plagron
+  - terra
+  - pk-13-14
+  - erde
+  - outdoor
+  - starkzehrer
+  - zierpflanze
+  - knollengewächs
+  - schnittblume
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 2
+    preferred_time: 07:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  cycle_restart_from_sequence: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 4
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    is_recurring: true
+    notes: Knollen ab März in Töpfen antreiben bei 15–18°C. NICHT gießen bis Austrieb sichtbar! Knolle hat ausreichend Reserven.
+      Fäulnisgefahr bei nasser Knolle. Knollenteilung möglich (jedes Stück mind. 1 Auge).
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 5
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-vorkeimen
+      label: Wasser Vorkeimen
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.2
+      fertilizer_dosages: []
+  - phase_name: vegetative
+    sequence_order: 2
+    week_start: 5
+    week_end: 12
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    is_recurring: true
+    calcium_ppm: 100.0
+    magnesium_ppm: 40.0
+    notes: Volle Dosis Terra Grow (5 ml/L) + Power Roots + Pure Zym. Kräftiger Laub- und Stängelaufbau. Calcium für Stängelstabilität.
+      Entspitzen bei 30–40 cm. Abhärtung ab Woche 9. Auspflanzen nach Eisheiligen (Mitte Mai). Stützstäbe einschlagen. Alle
+      7 Tage düngen.
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.8
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 1.0
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 5.0
+      - product_name: Power Roots
+        ml_per_liter: 1.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: flowering
+    sequence_order: 3
+    week_start: 13
+    week_end: 26
+    npk_ratio:
+    - 2.0
+    - 2.0
+    - 4.0
+    is_recurring: true
+    calcium_ppm: 100.0
+    magnesium_ppm: 40.0
+    notes: Umstellung auf Terra Bloom (5 ml/L). Power Roots absetzen. PK 13-14 (0.75 ml/L) NUR in Woche 15–16 als Knospenansatz-Boost.
+      Danach sofort absetzen! Kein Sugar Royal (N-Überschuss hemmt Blüte). Deadheading konsequent durchführen. Ab September
+      (W23–26) Terra Bloom auf 3 ml/L reduzieren. Alle 7–10 Tage düngen.
+    delivery_channels:
+    - channel_id: naehrloesung-bluete
+      label: Blütendüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.9
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 1.5
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 5.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+      - product_name: PK 13-14
+        ml_per_liter: 0.75
+        optional: true
+  - phase_name: harvest
+    sequence_order: 4
+    week_start: 27
+    week_end: 30
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    is_recurring: true
+    notes: Keine Düngung. Pflanze nach erstem Frost einziehen lassen. Stängel auf 10–15 cm kürzen. Knollen ausgraben, 5–7
+      Tage trocknen, beschriften (Sortenname!), einlagern.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 7
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Nur Wasser (Seneszenz)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.5
+      fertilizer_dosages: []
+  - phase_name: dormancy
+    sequence_order: 5
+    week_start: 31
+    week_end: 52
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    is_recurring: true
+    notes: 'Knollen frostfrei lagern bei 4–8°C, dunkel. Kein Wasser, kein Dünger. Lagermedium: Vermiculite, Kokoserde oder
+      Zeitungspapier. Monatliche Kontrolle auf Fäulnis/Austrocknung. Zyklus-Neustart im Frühling bei Vorkeimen.'
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 30
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels: []
+- name: Dill (Direktsaat) — Plagron Terra
+  description: Minimalistischer Nährstoffplan für Dill (Schwachzehrer). Schnelle Kultur (12 Wochen). Direktsaat, kein Pikieren
+    (Pfahlwurzel). Staffelsaat alle 3–4 Wochen. Nur Terra Grow + Pure Zym. Bewusst niedrige Dosierung — überdüngter Dill schmeckt
+    fad.
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - dill
+  - anethum
+  - gurkenkraut
+  - plagron
+  - terra
+  - erde
+  - kräutergarten
+  - schwachzehrer
+  - outdoor
+  - direktsaat
+  - schnellkultur
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 3
+    preferred_time: 08:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 2
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: 'Direktsaat ab Bodentemperatur 8°C. Lichtkeimer: Samen nur leicht andrücken. NICHT pikieren (Pfahlwurzel). Keimdauer
+      7–14 Tage.'
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 2
+      preferred_time: 08:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Sprühwasser Keimung
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.02
+      fertilizer_dosages: []
+  - phase_name: seedling
+    sequence_order: 2
+    week_start: 3
+    week_end: 4
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: Viertel-Dosis Terra Grow (1.5 ml/L). Vereinzeln auf 15–20 cm. Nur bei Nährstoffmangel düngen — Kompost im Boden
+      genügt oft. Max. 1x düngen.
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.4
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.2
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 1.5
+  - phase_name: vegetative
+    sequence_order: 3
+    week_start: 5
+    week_end: 8
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: Haupterntephase. Halbe Dosis Terra Grow (2.0 ml/L) + Pure Zym. Blattspitzen ernten verzögert Schossen. NICHT überdosieren
+      — überdüngter Dill schmeckt fad! Alle 3 Wochen 1x düngen.
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.5
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.2
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 2.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: flowering
+    sequence_order: 4
+    week_start: 9
+    week_end: 11
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Keine Düngung. Dill schosst. Blühender Dill = Nützlingsmagnet (Schwebfliegen, Schlupfwespen). Im Mischkulturbeet
+      blühen lassen. Dillsamen ernten wenn braun und trocken.
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Nur Wasser (Blüte)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.1
+      fertilizer_dosages: []
+  - phase_name: harvest
+    sequence_order: 5
+    week_start: 12
+    week_end: 12
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Seneszenz. Kein Dünger. Samen sammeln. Pflanze entfernen oder für Selbstaussaat stehen lassen. Pflanzenreste kompostieren.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 5
+      preferred_time: 08:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Nur Wasser (Seneszenz)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.1
+      fertilizer_dosages: []
+- name: Erbse — Plagron Terra (Leguminose)
+  description: Minimaldüngungs-Plan für Erbse (Pisum sativum) als N-Fixierer und Kühle-Liebhaber. KEIN Terra Grow! Nur Terra
+    Bloom (P+K) in Viertel-Dosis. Rhizobium-Symbiose liefert Stickstoff. Direktsaat ab März, 12–16 Wochen Kulturzeit. Leidet
+    ab 25°C.
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - erbse
+  - pisum
+  - fabaceae
+  - leguminose
+  - plagron
+  - terra
+  - erde
+  - outdoor
+  - schwachzehrer
+  - n-fixierer
+  - gemüse
+  - kühleliebhaber
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 3
+    preferred_time: 07:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 2
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Direktsaat ab März, Bodentemperatur ab 5°C. Kühle Keimer! Keimlinge vertragen Frost bis -4°C. Dunkelkeimer, 3–5
+      cm tief. Saatgut 12–24 h einweichen. Rhizobium-Impfung bei erstmaligem Anbau empfohlen.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 2
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Wasser Keimung
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.02
+      fertilizer_dosages: []
+  - phase_name: seedling
+    sequence_order: 2
+    week_start: 3
+    week_end: 5
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Kein Dünger. Rhizobium-Knöllchen bilden sich an den Wurzeln. N-Düngung hemmt Knöllchenbildung! Rankhilfe ab 15
+      cm Höhe bereitstellen. Kühle Temperaturen (12–18°C) ideal.
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Nur Wasser (Sämling)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.05
+      fertilizer_dosages: []
+  - phase_name: vegetative
+    sequence_order: 3
+    week_start: 6
+    week_end: 9
+    npk_ratio:
+    - 0.0
+    - 1.0
+    - 2.0
+    notes: Terra Bloom Viertel-Dosis (1.25 ml/L) + Pure Zym. Minimale P+K-Versorgung — Rhizobium liefert N. Aktives Rankenwachstum.
+      Alle 14 Tage düngen. Optimale Temperatur 14–20°C.
+    delivery_channels:
+    - channel_id: naehrloesung-pk
+      label: P+K-Düngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.5
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.15
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 1.25
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: flowering
+    sequence_order: 4
+    week_start: 10
+    week_end: 12
+    npk_ratio:
+    - 0.0
+    - 2.0
+    - 3.0
+    notes: 'Terra Bloom Viertel-Dosis (1.25 ml/L) + Pure Zym. P+K für Blüte und Hülsenbildung. Hitze über 25°C = Blütenabwurf!
+      Gleichmäßig gießen. Alle 14 Tage düngen. Bei Hitze: Mulch 5 cm.'
+    delivery_channels:
+    - channel_id: naehrloesung-pk
+      label: P+K-Düngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.5
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.15
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 1.25
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: harvest
+    sequence_order: 5
+    week_start: 13
+    week_end: 16
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: 'Kein Dünger. Alle 2–3 Tage ernten! Überreife Hülsen hemmen Neuansatz. Nach der Ernte: Pflanzen als Gründüngung
+      einarbeiten oder Wurzeln im Boden lassen (N-Anreicherung für Nachfolgekultur).'
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Nur Wasser (Ernte)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.1
+      fertilizer_dosages: []
+- name: Gurke — Plagron Terra + PK 13-14
+  description: Saisonplan für Salatgurken und Einlegegurken mit Indoor-Vorkultur ab April und Gewächshaus-/Freilandkultur
+    ab Mitte Mai. Plagron Terra-Linie mit 6 Produkten inkl. PK 13-14 Fruchtbooster. Starkzehrer, 22 Wochen (April–September).
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - gurke
+  - cucumber
+  - cucumis
+  - sativus
+  - starkzehrer
+  - plagron
+  - terra
+  - pk-13-14
+  - erde
+  - gewaechshaus
+  - outdoor
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 1
+    preferred_time: 07:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 1
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Indoor-Aussaat in Anzuchterde, 25–30°C Substrattemperatur (Heizmatte). Dunkelkeimer, 2–3 cm tief. Feine Sprühung,
+      kein Dünger. Keimung nach 3–7 Tagen.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Keimungssprühung (Sprühflasche)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.2
+      drench_params:
+        volume_per_feeding_liters: 0.03
+      fertilizer_dosages: []
+  - phase_name: seedling
+    sequence_order: 2
+    week_start: 2
+    week_end: 4
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: Viertel-Dosis Terra Grow (1.5 ml/L). NICHT pikieren – empfindliche Wurzeln! Power Roots fördert Wurzelentwicklung.
+      EC zügig steigern (Starkzehrer).
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 2
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung Sämling (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.6
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.5
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 1.5
+      - product_name: Power Roots
+        ml_per_liter: 1.0
+  - phase_name: vegetative
+    sequence_order: 3
+    week_start: 5
+    week_end: 8
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: Volle Dosis Terra Grow (5 ml/L). Kräftiger Blatt- und Rankenaufbau. Abhärtung ab Woche 7. Auspflanzen nach Eisheiligen
+      (ca. 15. Mai). Rankhilfe aufstellen, Mulch ausbringen.
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 1.5
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 1.0
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 5.0
+      - product_name: Power Roots
+        ml_per_liter: 1.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+      - product_name: Sugar Royal
+        ml_per_liter: 1.0
+        optional: true
+  - phase_name: flowering
+    sequence_order: 4
+    week_start: 9
+    week_end: 12
+    npk_ratio:
+    - 2.0
+    - 2.0
+    - 4.0
+    calcium_ppm: 165.0
+    magnesium_ppm: 50.0
+    notes: Umstellung auf Terra Bloom (5 ml/L). Power Roots absetzen. PK 13-14 (0.5 ml/L) NUR in Woche 10–11 als einmaliger
+      Fruchtansatz-Boost. Danach sofort absetzen! Ausgeizen bei Gewächshaus-Schlangengurken. Calcium gleichmäßig sicherstellen.
+    delivery_channels:
+    - channel_id: naehrloesung-bluete
+      label: Blütendüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 1.8
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 1.5
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 5.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+      - product_name: Sugar Royal
+        ml_per_liter: 1.0
+        optional: true
+      - product_name: PK 13-14
+        ml_per_liter: 0.5
+        optional: true
+  - phase_name: harvest
+    sequence_order: 5
+    week_start: 13
+    week_end: 20
+    npk_ratio:
+    - 2.0
+    - 2.0
+    - 4.0
+    calcium_ppm: 175.0
+    magnesium_ppm: 50.0
+    notes: Reduzierter Terra Bloom (4 ml/L). Kein Sugar Royal (organischer N verschlechtert Fruchtqualität). Kein PK 13-14.
+      Alle 1–2 Tage ernten! Salatgurken bei 25–30 cm, Einlegegurken bei 5–10 cm. Überreife Gurken hemmen Neuansatz massiv.
+      Kalium sicherstellen (K-Mangel = birnenförmige, bittere Früchte).
+    delivery_channels:
+    - channel_id: naehrloesung-bluete
+      label: Ernte-Düngung reduziert (Gießkanne)
+      application_method: drench
+      target_ec_ms: 1.5
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 1.5
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 4.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: flushing
+    sequence_order: 6
+    week_start: 21
+    week_end: 22
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Kein Dünger. Substrat mit klarem Wasser durchspülen. Pure Zym für Salzabbau. Letzte Früchte ernten. Pflanzen kompostieren.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 3
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Substratspülung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 1.0
+      fertilizer_dosages:
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+- name: Lauch (Porree) — Plagron Terra
+  description: Saisonplan für Winterlauch mit langer Vorkultur ab Februar und Freilandpflanzung ab Mai/Juni. Plagron Terra-Linie
+    mit 5 Produkten. Starkzehrer, 34 Wochen (Februar–Oktober, Ernte bis März). K-betonte Düngung ab August für Winterhärte.
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - lauch
+  - porree
+  - winterlauch
+  - leek
+  - allium
+  - porrum
+  - starkzehrer
+  - plagron
+  - terra
+  - erde
+  - outdoor
+  - winter
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 3
+    preferred_time: 07:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 3
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Indoor-Aussaat in Topfplatten, 15–20°C. Dunkelkeimer, 1–2 cm tief. Feine Sprühung, kein Dünger. Keimung nach 10–20
+      Tagen.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Keimungssprühung (Sprühflasche)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.01
+      fertilizer_dosages: []
+  - phase_name: seedling
+    sequence_order: 2
+    week_start: 4
+    week_end: 11
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: Viertel-Dosis Terra Grow (1.5 ml/L), alle 2 Wochen. Lange Voranzucht (8 Wochen). Power Roots fördert Wurzelentwicklung.
+      Abhärtung ab April. Pflanzung wenn Sämling bleistiftdick (6–8 mm, 15–20 cm).
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 14
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung Sämling (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.6
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.2
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 1.5
+      - product_name: Power Roots
+        ml_per_liter: 1.0
+  - phase_name: vegetative
+    sequence_order: 3
+    week_start: 12
+    week_end: 26
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: 'Phase 1 (W12–19, Mai–Juli): Volle Dosis Terra Grow (5 ml/L), N-betont für Schaftwachstum. Power Roots bis W14.
+      Pure Zym + Sugar Royal ab W14. Anhäufeln 1. Etappe Juli. Phase 2 (W20–26, Aug–Sep): Wechsel auf Terra Bloom (4 ml/L),
+      K-betont für Winterhärte. Sugar Royal absetzen (kein N mehr!). Anhäufeln 2. + 3. Etappe. Kulturschutznetze kontrollieren.'
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung N-betont (Gießkanne) – W12–19
+      application_method: drench
+      target_ec_ms: 1.5
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.5
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 5.0
+      - product_name: Power Roots
+        ml_per_liter: 1.0
+        optional: true
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+      - product_name: Sugar Royal
+        ml_per_liter: 1.0
+        optional: true
+    - channel_id: naehrloesung-winterhaerte
+      label: K-betonte Düngung Winterhärte (Gießkanne) – W20–26
+      application_method: drench
+      target_ec_ms: 1.2
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.5
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 4.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: harvest
+    sequence_order: 4
+    week_start: 27
+    week_end: 34
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: 'Keine Düngung. Winterlauch steht im Beet (frosthart bis -15°C). Ernte nach Bedarf bei frostfreiem Boden. Frostschutz:
+      Vlies/Laub auflegen. Vor Schossen (März/April) alle Pflanzen ernten.'
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 7
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Natürliche Bewässerung / bei Bedarf
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.3
+      fertilizer_dosages: []
+- name: Mangold — Plagron Terra
+  description: Saisonplan für Mangold (Schnitt-/Stielmangold) mit Vorkultur ab Ende März oder Direktsaat ab Mitte April. Plagron
+    Terra-Linie mit 5 Produkten. Mittelzehrer, 18 Wochen (April–September). Kontinuierliche Blatternte.
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - mangold
+  - chard
+  - swiss-chard
+  - beta
+  - vulgaris
+  - mittelzehrer
+  - plagron
+  - terra
+  - erde
+  - outdoor
+  - balkon
+  - blattgemuese
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 2
+    preferred_time: 07:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 2
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: 'Vorkultur Indoor oder Direktsaat ab Mitte April. Dunkelkeimer, 2–3 cm tief. 10–20°C. Saatgut 12–24 h einweichen.
+      Knauelfrüchte: auf stärksten Keimling vereinzeln. Keimung nach 10–14 Tagen.'
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 2
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Keimungsbewässerung (Sprühflasche)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.02
+      fertilizer_dosages: []
+  - phase_name: seedling
+    sequence_order: 2
+    week_start: 3
+    week_end: 5
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: Viertel-Dosis Terra Grow (1.5 ml/L). Vereinzeln auf 25–30 cm Abstand. Power Roots fördert Wurzelentwicklung.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 3
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung Sämling (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.5
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.3
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 1.5
+      - product_name: Power Roots
+        ml_per_liter: 1.0
+  - phase_name: vegetative
+    sequence_order: 3
+    week_start: 6
+    week_end: 10
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: Moderate Dosis Terra Grow (4 ml/L) – Mittelzehrer, nicht überdosieren! Pure Zym + Sugar Royal (halbe Dosis 0.5
+      ml/L). Power Roots bis W8. Erste Blatternte ab W8–9 möglich. Mulchen empfohlen.
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 1.2
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.4
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 4.0
+      - product_name: Power Roots
+        ml_per_liter: 1.0
+        optional: true
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+      - product_name: Sugar Royal
+        ml_per_liter: 0.5
+        optional: true
+  - phase_name: harvest
+    sequence_order: 4
+    week_start: 11
+    week_end: 16
+    npk_ratio:
+    - 2.0
+    - 2.0
+    - 4.0
+    notes: 'Terra Bloom reduziert (3 ml/L). K-betont für Blattqualität. Kein Sugar Royal (N-Reduktion). Kontinuierliche Blatternte:
+      max. 2–3 äußere Blätter, Herz stehen lassen. Alle 7–10 Tage ernten. Schosser sofort entfernen.'
+    delivery_channels:
+    - channel_id: naehrloesung-ernte
+      label: Ernte-Düngung K-betont (Gießkanne)
+      application_method: drench
+      target_ec_ms: 1.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.4
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 3.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: flushing
+    sequence_order: 5
+    week_start: 17
+    week_end: 18
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Kein Dünger. Pure Zym für Salzabbau. Letzte Blätter ernten. Mit Frostschutz (Vlies) Ernte bis November verlängerbar.
+      Pflanzen danach kompostieren.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 3
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Substratspülung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.3
+      fertilizer_dosages:
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+- name: Möhre (Direktsaat Frühjahr) — Plagron Terra
+  description: Saisonplan für Möhren (Nantes-Typ) bei Direktsaat. Plagron Terra-Linie, 2 Produkte. K-betonte Schwachzehrer-Strategie
+    (Terra Bloom statt Terra Grow). KEIN frischer organischer Dünger. 18 Wochen (März–August).
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - möhre
+  - karotte
+  - carrot
+  - daucus
+  - plagron
+  - terra
+  - erde
+  - outdoor
+  - schwachzehrer
+  - wurzelgemüse
+  - direktsaat
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 3
+    preferred_time: 07:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 3
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Direktsaat in feine, steinfreie Erde. Lichtkeimer, nur 1 cm tief. Boden 10–21 Tage gleichmäßig feucht halten. Vliesabdeckung
+      empfohlen. KEIN Dünger.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Sprühwasser Keimung
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.02
+      fertilizer_dosages: []
+  - phase_name: seedling
+    sequence_order: 2
+    week_start: 4
+    week_end: 6
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Vereinzeln auf 3–5 cm Abstand. Kein Dünger — Boden liefert Grundversorgung. Boden gleichmäßig feucht halten.
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Sprühwasser Sämling
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.03
+      fertilizer_dosages: []
+  - phase_name: vegetative
+    sequence_order: 3
+    week_start: 7
+    week_end: 14
+    npk_ratio:
+    - 2.0
+    - 2.0
+    - 4.0
+    notes: Terra Bloom 2 ml/L (K-betont für Wurzelbildung) + Pure Zym. Alle 14 Tage düngen. N bewusst niedrig — üppiges Kraut
+      auf Kosten der Wurzel vermeiden! Anhäufeln bei sichtbarer Wurzelschulter. Gleichmäßig gießen.
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum-k
+      label: Wachstumsdüngung K-betont (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.6
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.5
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 2.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: harvest
+    sequence_order: 4
+    week_start: 15
+    week_end: 18
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Keine Düngung. 4 Wochen vor Ernte einstellen für bessere Lagerfähigkeit. 2–3 Tage vor Ernte nicht gießen. Bei trockenem
+      Wetter ernten, Kraut abdrehen.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 5
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Nur Wasser (Erntephase)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.3
+      fertilizer_dosages: []
+- name: Paprika — Plagron Terra + PK 13-14
+  description: Saisonplan für Paprika (Gemüse-Paprika) mit Indoor-Vorkultur ab Februar und Freilandkultur ab Mitte Mai. Plagron
+    Terra-Linie mit 6 Produkten inkl. PK 13-14 Blütebooster. Starkzehrer (Solanaceae), 30 Wochen (Februar–September).
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - paprika
+  - capsicum
+  - annuum
+  - starkzehrer
+  - plagron
+  - terra
+  - pk-13-14
+  - erde
+  - outdoor
+  - gewaechshaus
+  - solanaceae
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 1
+    preferred_time: 07:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 3
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Indoor-Aussaat in Anzuchterde, 25–28°C Substrattemperatur (Heizmatte dringend empfohlen). Feine Sprühung, kein
+      Dünger. Keimung nach 10–21 Tagen. Dunkelkeimer.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Keimungssprühung (Sprühflasche)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.2
+      drench_params:
+        volume_per_feeding_liters: 0.03
+      fertilizer_dosages: []
+  - phase_name: seedling
+    sequence_order: 2
+    week_start: 4
+    week_end: 9
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: Viertel-Dosis Terra Grow (1.5 ml/L). Pikieren nach 2. Blattpaar. Paprika wächst langsam – Geduld! Kühlere Nachttemperaturen
+      (16–18°C) fördern stöckigen Wuchs. Power Roots fördert Wurzelentwicklung.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 2
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung Sämling (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.6
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.3
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 1.5
+      - product_name: Power Roots
+        ml_per_liter: 1.0
+  - phase_name: vegetative
+    sequence_order: 3
+    week_start: 10
+    week_end: 16
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: Volle Dosis Terra Grow (5 ml/L). Kräftiger Stamm- und Blattaufbau. Abhärtung ab Woche 14. Auspflanzen nach Eisheiligen
+      (ca. 15. Mai), Stützstab setzen, Pflanzabstand 40–50 cm.
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 1.5
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.8
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 5.0
+      - product_name: Power Roots
+        ml_per_liter: 1.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+      - product_name: Sugar Royal
+        ml_per_liter: 1.0
+        optional: true
+  - phase_name: flowering
+    sequence_order: 4
+    week_start: 17
+    week_end: 22
+    npk_ratio:
+    - 2.0
+    - 2.0
+    - 4.0
+    calcium_ppm: 165.0
+    magnesium_ppm: 50.0
+    notes: Umstellung auf Terra Bloom (5 ml/L). Power Roots absetzen. PK 13-14 (0.5 ml/L) NUR in Woche 19–20 als Fruchtansatz-Boost.
+      Königsblüte bei Gemüsepaprika ausbrechen. Calcium sicherstellen. Blütenabwurf bei >32°C oder <15°C.
+    delivery_channels:
+    - channel_id: naehrloesung-bluete
+      label: Blütendüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 1.8
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 1.0
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 5.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+      - product_name: Sugar Royal
+        ml_per_liter: 1.0
+        optional: true
+      - product_name: PK 13-14
+        ml_per_liter: 0.5
+        optional: true
+  - phase_name: harvest
+    sequence_order: 5
+    week_start: 23
+    week_end: 28
+    npk_ratio:
+    - 2.0
+    - 2.0
+    - 4.0
+    calcium_ppm: 165.0
+    magnesium_ppm: 55.0
+    notes: Reduzierter Terra Bloom (4 ml/L). Kein Sugar Royal, kein PK 13-14. Regelmäßig ernten fördert Neuansatz. Grüne Früchte
+      essbar, volle Farbausreifung (rot/gelb) dauert 2–3 Wochen länger, ergibt höheren Vitamin-C-Gehalt. Calcium sicherstellen.
+    delivery_channels:
+    - channel_id: naehrloesung-bluete
+      label: Ernte-Düngung reduziert (Gießkanne)
+      application_method: drench
+      target_ec_ms: 1.5
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 1.0
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 4.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: flushing
+    sequence_order: 6
+    week_start: 29
+    week_end: 30
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Kein Dünger. Substrat mit klarem Wasser durchspülen. Pure Zym für Salzabbau. Letzte Früchte vor erstem Frost ernten.
+      Pflanzen kompostieren.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 3
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Substratspülung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.5
+      fertilizer_dosages:
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+- name: Petersilie (1. Jahr Blattkultur) — Plagron Terra
+  description: Saisonplan für Petersilie (Petroselinum crispum) im 1. Anbaujahr (Blattkultur). Plagron Terra-Linie mit 2 Produkten.
+    Mittelzehrer mit halber Herstellerdosis. Zweijährig, aber nur 1. Jahr nutzbar — im 2. Jahr schießt die Pflanze. Bedeckt
+    säen (Furanocumarine in Samenschale), langsame Keimung (3–4 Wochen). Kontinuierliche Blatternte Mai–November.
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - petersilie
+  - petroselinum
+  - parsley
+  - plagron
+  - terra
+  - erde
+  - kräutergarten
+  - mittelzehrer
+  - outdoor
+  - indoor
+  - biennale
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 3
+    preferred_time: 08:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 4
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: 'Bedeckt säen: Samen 0.5 cm mit Erde bedecken (Furanocumarine in Samenschale erfordern Bodenkontakt). 24h einweichen
+      vor Aussaat. Temperatur 18–22 °C. Keimdauer 14–28 Tage — Geduld! Substrat gleichmäßig feucht halten.'
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: 08:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Sprühwasser Keimung
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.05
+      fertilizer_dosages: []
+  - phase_name: seedling
+    sequence_order: 2
+    week_start: 5
+    week_end: 10
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: Viertel-Dosis Terra Grow (1.5 ml/L). Pikieren ab 2. echtem Blattpaar. Tiefe Töpfe wegen Pfahlwurzel. Ab Mitte April
+      Abhärtung. Alle 14 Tage düngen. Pure Zym erst ab VEGETATIVE.
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.5
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.3
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 1.5
+  - phase_name: vegetative
+    sequence_order: 3
+    week_start: 11
+    week_end: 24
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: 'Halbe Dosis Terra Grow (2.5 ml/L) + Pure Zym. Hauptwachstum der Blattrosette. Kontinuierliche Blatternte: äußere
+      Blätter von außen nach innen, Herzblätter stehen lassen. Alle 14 Tage düngen.'
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.6
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.3
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 2.5
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: harvest
+    sequence_order: 4
+    week_start: 25
+    week_end: 36
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: Reduzierter Terra Grow (2.0 ml/L) + Pure Zym. Fortgesetzte Blatternte bei nachlassendem Wachstum. Ab September
+      alle 3 Wochen düngen. Petersilie verträgt leichte Fröste bis -8 °C — Ernteperiode mit Vlies verlängerbar.
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung reduziert (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.5
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.3
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 2.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: dormancy
+    sequence_order: 5
+    week_start: 37
+    week_end: 44
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: 'Keine Düngung. Petersilie kann überwintern (bis -8 °C mit Vlies), wird aber im 2. Jahr unbrauchbar (schießt, Blätter
+      bitter). Empfehlung: Restblätter ernten, Pflanze entfernen, neue Aussaat im Frühjahr.'
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 5
+      preferred_time: 08:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Nur Wasser (Saisonende)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.2
+      fertilizer_dosages: []
+- name: Petunie — Plagron Terra
+  description: Saisonplan für Garten-Petunien (Petunia × hybrida) mit Indoor-Voranzucht ab Februar. Plagron Terra-Linie mit
+    4 Produkten. Mittelzehrer bis Starkzehrer mit kritischem Eisenbedarf. Dauerblüte Mai–Oktober. Annuell in Mitteleuropa.
+    Balkonkasten, Ampel und Beet.
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - petunie
+  - petunia
+  - solanaceae
+  - plagron
+  - terra
+  - erde
+  - outdoor
+  - balkon
+  - ampel
+  - mittelzehrer
+  - starkzehrer
+  - zierpflanze
+  - dauerblüher
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 2
+    preferred_time: 07:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 2
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Aussaat bei 22–24°C. Lichtkeimer — Samen nur andrücken, nicht bedecken. Abdeckung (Dome) für 80–95% Luftfeuchte.
+      Staubsamen extrem fein. Keimdauer 7–14 Tage.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Sprühwasser Keimung
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 5.8
+      drench_params:
+        volume_per_feeding_liters: 0.02
+      fertilizer_dosages: []
+  - phase_name: seedling
+    sequence_order: 2
+    week_start: 3
+    week_end: 8
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    calcium_ppm: 60.0
+    magnesium_ppm: 25.0
+    notes: Halbe Dosis Terra Grow (2.5 ml/L). Pikieren nach 1. Laubblattpaar in 7–9 cm Töpfe. Kühle Nächte 15–18°C für kompakten
+      Wuchs. Alle 14 Tage düngen. Pure Zym und Sugar Royal erst ab VEGETATIVE.
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.6
+      target_ph: 5.8
+      drench_params:
+        volume_per_feeding_liters: 0.3
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 2.5
+  - phase_name: vegetative
+    sequence_order: 3
+    week_start: 9
+    week_end: 14
+    npk_ratio:
+    - 2.0
+    - 1.0
+    - 2.0
+    calcium_ppm: 100.0
+    magnesium_ppm: 40.0
+    notes: Volle Dosis Terra Grow (5 ml/L) + Pure Zym + Sugar Royal. Umtopfen in Endgefäße. Abhärtung ab Mitte April, Auspflanzen
+      nach Eisheiligen (Mitte Mai). Pflanzabstand 25–40 cm. Alle 7–14 Tage düngen.
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.8
+      target_ph: 5.8
+      drench_params:
+        volume_per_feeding_liters: 0.4
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 5.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+      - product_name: Sugar Royal
+        ml_per_liter: 1.0
+  - phase_name: flowering
+    sequence_order: 4
+    week_start: 15
+    week_end: 36
+    npk_ratio:
+    - 1.0
+    - 2.0
+    - 3.0
+    calcium_ppm: 120.0
+    magnesium_ppm: 50.0
+    notes: Terra Bloom 5 ml/L + Pure Zym + Sugar Royal. K-betonte Düngung für Blütenansatz und Farbintensität. Wöchentlich
+      düngen! Eisenchelat bei Chlorose supplementieren. Mitte Juli Rückschnitt um 1/3 für zweite Blütenwelle. Ab Oktober auf
+      3 ml/L reduzieren.
+    delivery_channels:
+    - channel_id: naehrloesung-bluete
+      label: Blütendüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.9
+      target_ph: 5.8
+      drench_params:
+        volume_per_feeding_liters: 0.5
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 5.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+      - product_name: Sugar Royal
+        ml_per_liter: 1.0
+  - phase_name: dormancy
+    sequence_order: 5
+    week_start: 37
+    week_end: 40
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: 'Seneszenz nach erstem Frost. Keine Düngung. Pflanze entfernen. Optional: Stecklinge für Überwinterung im September
+      abnehmen (vegetative Sorten). Gefäße reinigen und einlagern.'
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 5
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Nur Wasser (Seneszenz)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.2
+      fertilizer_dosages: []
+- name: Radieschen (Direktsaat) — Plagron Terra
+  description: Minimalplan für Radieschen. 5 Wochen Gesamtkultur, fast keine Düngung. Optional 1x Terra Bloom halbe Dosis.
+    Einfachster Plan im System. Sukzessionskultur März–September.
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - radieschen
+  - radish
+  - raphanus
+  - plagron
+  - terra
+  - erde
+  - outdoor
+  - schwachzehrer
+  - direktsaat
+  - anfänger
+  - schnellkultur
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 2
+    preferred_time: 07:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 1
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Direktsaat 1–2 cm tief, Dunkelkeimer. Keimung in 3–7 Tagen. KEIN Dünger, KEIN frischer Mist.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Wasser Keimung
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.01
+      fertilizer_dosages: []
+  - phase_name: vegetative
+    sequence_order: 2
+    week_start: 2
+    week_end: 4
+    npk_ratio:
+    - 2.0
+    - 2.0
+    - 4.0
+    notes: Optional 1x Terra Bloom 1.5 ml/L (halbe Dosis) in Woche 3 — NUR bei magerem Boden. Normalerweise keine Düngung
+      nötig. Vereinzeln auf 3–5 cm. Gleichmäßig gießen!
+    delivery_channels:
+    - channel_id: naehrloesung-knolle
+      label: Knollendüngung optional (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.5
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.2
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 1.5
+        optional: true
+  - phase_name: harvest
+    sequence_order: 3
+    week_start: 5
+    week_end: 5
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Keine Düngung. Ernte bei 2–3 cm Knollendurchmesser. Nicht zu lange warten — überreif = holzig! Morgens ernten,
+      Blätter sofort abdrehen.
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Nur Wasser (Ernte)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.1
+      fertilizer_dosages: []
+- name: Rosenkohl — Plagron Terra
+  description: Saisonplan für Rosenkohl mit Indoor-Vorkultur ab März und Freilandkultur ab Mai. Plagron Terra-Linie mit 5
+    Produkten (kein PK 13-14). Starkzehrer mit sehr langer Kulturdauer, 30 Wochen (März–November). N-Stopp ab August für kompakte
+    Röschen.
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - rosenkohl
+  - brussels-sprouts
+  - brassica
+  - oleracea
+  - gemmifera
+  - starkzehrer
+  - plagron
+  - terra
+  - erde
+  - outdoor
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 2
+    preferred_time: 07:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 2
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: 'Indoor-Aussaat in Anzuchterde, 15–20°C. Dunkelkeimer: Samen 1–2 cm tief. Kein Dünger. Keimung nach 5–8 Tagen.'
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Keimungssprühung (Sprühflasche)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.03
+      fertilizer_dosages: []
+  - phase_name: seedling
+    sequence_order: 2
+    week_start: 3
+    week_end: 8
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: Viertel-Dosis Terra Grow (1.5 ml/L). Pikieren nach 2. Blattpaar. Kühlere Temperaturen (12–18°C). Power Roots fördert
+      Wurzelentwicklung.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 3
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung Sämling (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.6
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 0.5
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 1.5
+      - product_name: Power Roots
+        ml_per_liter: 1.0
+  - phase_name: vegetative
+    sequence_order: 3
+    week_start: 9
+    week_end: 22
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 2.0
+    notes: 'Volle Dosis Terra Grow (5 ml/L) bis W19. Auspflanzen nach Eisheiligen (60×60 cm). Köpfen W18–20 (Triebspitze entfernen).
+      N-STOPP ab W20: Terra Grow + Sugar Royal absetzen, Umstellung auf Terra Bloom (3 ml/L). Zu viel N → lockere, bittere
+      Röschen.'
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 1.5
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 1.0
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 5.0
+      - product_name: Power Roots
+        ml_per_liter: 1.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+      - product_name: Sugar Royal
+        ml_per_liter: 1.0
+        optional: true
+    - channel_id: naehrloesung-reife
+      label: N-Stopp-Düngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 1.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 1.0
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 3.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: harvest
+    sequence_order: 4
+    week_start: 23
+    week_end: 28
+    npk_ratio:
+    - 2.0
+    - 2.0
+    - 3.0
+    notes: Reduzierter Terra Bloom (3 ml/L). Röschen reifen von unten nach oben. Frost verbessert Geschmack (Stärke → Zucker).
+      Ernte bei 2–3 cm Durchmesser, fest geschlossen. Untere Blätter sukzessive entfernen. Rosenkohl verträgt bis -15°C.
+    delivery_channels:
+    - channel_id: naehrloesung-reife
+      label: Ernte-Düngung reduziert (Gießkanne)
+      application_method: drench
+      target_ec_ms: 1.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 1.5
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 3.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: flushing
+    sequence_order: 5
+    week_start: 29
+    week_end: 30
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Kein Dünger. Letzte Röschen ernten. Bei starkem Frost (<-10°C) ganze Pflanze ernten – Röschen am Stamm im Keller
+      2–3 Wochen haltbar. Strunk kompostieren.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 4
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Substratspülung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.5
+      drench_params:
+        volume_per_feeding_liters: 1.0
+      fertilizer_dosages:
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+- name: Kopfsalat / Pfluecksalat — Plagron Terra
+  description: 'Saisonplan fuer Kopfsalat und Pfluecksalat (Lactuca sativa) bei Fruehjahrsaussaat. Plagron Terra-Linie mit
+    2 Produkten. Indoor-Vorkultur Maerz, Auspflanzen April, Ernte Mai–Juni. Mittelzehrer, 10 Wochen. Nitratakkumulation vermeiden:
+    N-Reduktion vor Ernte.'
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - salat
+  - kopfsalat
+  - pfluecksalat
+  - lattich
+  - lettuce
+  - plagron
+  - terra
+  - erde
+  - outdoor
+  - mittelzehrer
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 2
+    preferred_time: 07:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 2
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Indoor-Vorkultur bei 12–16 °C. Lichtkeimer — Samen nur leicht andruecken. NICHT ueber 25 °C (Thermodormanz)! Substrat
+      feucht halten, leicht spruehen.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Sprühwasser Keimung
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.02
+      fertilizer_dosages: []
+  - phase_name: seedling
+    sequence_order: 2
+    week_start: 3
+    week_end: 4
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: Viertel-Dosis Terra Grow. Pikierte Jungpflanzen bei kühlen 14–18 °C. Alle 14 Tage düngen. Pure Zym erst ab VEGETATIVE.
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung Sämling (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.5
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.15
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 1.5
+  - phase_name: vegetative
+    sequence_order: 3
+    week_start: 5
+    week_end: 8
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 2.0
+    notes: 'Halbe Dosis Terra Grow + Pure Zym. Aktiver Blattaufbau, Kopfbildung. Auspflanzen ins Freiland ab April. Tipburn-Prävention:
+      Luftzirkulation sicherstellen. Alle 14 Tage düngen.'
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.6
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.15
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 2.5
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: harvest
+    sequence_order: 4
+    week_start: 9
+    week_end: 10
+    npk_ratio:
+    - 2.0
+    - 1.0
+    - 2.0
+    notes: 'Reduzierte Terra Grow Dosis (Viertel-Dosis). Nitrat-Reduktion vor Ernte! Letzte Düngung mind. 7 Tage vor Ernte.
+      Kopfsalat morgens ernten. Pflücksalat: äußere Blätter laufend ernten.'
+    delivery_channels:
+    - channel_id: naehrloesung-ernte
+      label: Ernte-Düngung reduziert (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.5
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.15
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 1.5
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+- name: Schnittlauch (perennierend) — Plagron Terra
+  description: 'Perennierend-zyklischer Nährstoffplan für Schnittlauch (Allium schoenoprasum). Schwachzehrer, winterhart bis
+    −30°C. Jährlicher Zyklus: Vegetativ → Blüte → Dormanz. Zyklus-Neustart ab VEGETATIVE. Nur Terra Grow + Pure Zym.'
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - schnittlauch
+  - allium
+  - chives
+  - plagron
+  - terra
+  - erde
+  - kräutergarten
+  - schwachzehrer
+  - outdoor
+  - perennierend
+  - winterhart
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 3
+    preferred_time: 08:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  cycle_restart_from_sequence: 3
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 3
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: 'Nur bei Erstaussaat. Dunkelkeimer: Samen 1–2 cm tief. 18–25°C. Keimdauer 7–21 Tage. Alternative: Horst-Teilung
+      etablierter Pflanzen.'
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 2
+      preferred_time: 08:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Sprühwasser Keimung
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.02
+      fertilizer_dosages: []
+  - phase_name: seedling
+    sequence_order: 2
+    week_start: 4
+    week_end: 8
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: Nur bei Erstaussaat. Viertel-Dosis Terra Grow (1.5 ml/L). Junge Halme 3–5 cm. Noch keine Ernte. Alle 3–4 Wochen
+      düngen.
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.5
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.2
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 1.5
+  - phase_name: vegetative
+    sequence_order: 3
+    week_start: 9
+    week_end: 20
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    is_recurring: true
+    notes: Haupterntephase. Halbe Dosis Terra Grow (2.0 ml/L) + Pure Zym. Ernteschnitt 3 cm über Boden. Nach jedem Schnitt
+      leicht nachdüngen. 2–3 Schnitte pro Saison. Alle 3–4 Wochen düngen. Wiederholt sich jährlich nach Dormanz (Zyklus-Neustart).
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.6
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.2
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 2.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: flowering
+    sequence_order: 4
+    week_start: 21
+    week_end: 24
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    is_recurring: true
+    notes: 'Keine Düngung. Essbare Kugelblüten (lila). Blütenstände für Blattqualität entfernen oder für Deko stehen lassen.
+      Nach Blüte: kompletter Rückschnitt → kräftiger 2. Austrieb.'
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Nur Wasser (Blüte)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.2
+      fertilizer_dosages: []
+  - phase_name: dormancy
+    sequence_order: 5
+    week_start: 25
+    week_end: 44
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    is_recurring: true
+    notes: Oberirdische Teile sterben ab — nicht abschneiden! Nährstoffe wandern in die Zwiebel. Winterhart bis −30°C. Kaltphase
+      6–8 Wochen <5°C nötig (Vernalisation). Im Frühjahr Neuaustrieb → Zyklus-Neustart bei VEGETATIVE.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 14
+      preferred_time: 08:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Nur Wasser (Winterruhe)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.0
+      drench_params:
+        volume_per_feeding_liters: 0.1
+      fertilizer_dosages: []
+- name: Knollensellerie — Plagron Terra
+  description: Saisonplan für Knollensellerie mit Indoor-Vorkultur ab Mitte Februar und Freilandkultur ab Mitte Mai. Plagron
+    Terra-Linie mit 5 Produkten. Starkzehrer mit sehr langer Kulturzeit, hohem Ca/K-Bedarf und Bor-Empfindlichkeit. 32 Wochen
+    (Februar–Oktober).
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - sellerie
+  - knollensellerie
+  - celeriac
+  - apium
+  - graveolens
+  - starkzehrer
+  - plagron
+  - terra
+  - erde
+  - outdoor
+  - wurzelgemuese
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 1
+    preferred_time: 07:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 3
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Indoor-Aussaat in Anzuchterde, LICHTKEIMER – Samen nur leicht andrücken. 20–22°C Substrattemperatur. Feine Sprühung,
+      kein Dünger. Keimung nach 14–28 Tagen.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Keimungssprühung (Sprühflasche)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.2
+      drench_params:
+        volume_per_feeding_liters: 0.03
+      fertilizer_dosages: []
+  - phase_name: seedling
+    sequence_order: 2
+    week_start: 4
+    week_end: 10
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    calcium_ppm: 80.0
+    magnesium_ppm: 30.0
+    notes: Viertel-Dosis Terra Grow (1.5 ml/L). Pikieren nach 2. Blattpaar. Temperaturen NIE unter 10°C (Vernalisation/Schoss-Gefahr!).
+      Abhärtung ab Woche 9 vorsichtig, nie unter 12°C.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 2
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung Sämling (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.6
+      target_ph: 6.2
+      drench_params:
+        volume_per_feeding_liters: 0.3
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 1.5
+      - product_name: Power Roots
+        ml_per_liter: 1.0
+  - phase_name: vegetative
+    sequence_order: 3
+    week_start: 11
+    week_end: 18
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    calcium_ppm: 150.0
+    magnesium_ppm: 50.0
+    notes: Volle Dosis Terra Grow (5 ml/L). Auspflanzung nach Eisheiligen (ca. 15. Mai), flach pflanzen. Kräftiger Blattrosetten-Aufbau.
+      Gleichmäßig gießen, mulchen. Bei sehr wüchsigen Pflanzen auf 6–7 ml/L steigern.
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 1.5
+      target_ph: 6.2
+      drench_params:
+        volume_per_feeding_liters: 0.5
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 5.0
+      - product_name: Power Roots
+        ml_per_liter: 1.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+      - product_name: Sugar Royal
+        ml_per_liter: 1.0
+        optional: true
+  - phase_name: flowering
+    sequence_order: 4
+    week_start: 19
+    week_end: 28
+    npk_ratio:
+    - 2.0
+    - 2.0
+    - 4.0
+    calcium_ppm: 180.0
+    magnesium_ppm: 60.0
+    notes: Umstellung auf Terra Bloom (5 ml/L). K-betonte Düngung für Knollenqualität. Power Roots absetzen. Äußere Blätter
+      ab Juli entfernen, Seitenwurzeln abschneiden. Sugar Royal bis August, dann absetzen (N-Reduktion). Terra Bloom ab August
+      auf 4 ml/L reduzieren. Bor-Versorgung über Terra Bloom (0.48% B). Gleichmäßig gießen (Schwarzherz-Prävention).
+    delivery_channels:
+    - channel_id: naehrloesung-knolle
+      label: Knollendüngung K-betont (Gießkanne)
+      application_method: drench
+      target_ec_ms: 1.8
+      target_ph: 6.2
+      drench_params:
+        volume_per_feeding_liters: 1.0
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 5.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+      - product_name: Sugar Royal
+        ml_per_liter: 1.0
+        optional: true
+  - phase_name: harvest
+    sequence_order: 5
+    week_start: 29
+    week_end: 30
+    npk_ratio:
+    - 2.0
+    - 2.0
+    - 4.0
+    calcium_ppm: 150.0
+    magnesium_ppm: 50.0
+    notes: 'Reduzierter Terra Bloom (3 ml/L). Kein Sugar Royal. Ernte wenn Knolle 10–15 cm Durchmesser, vor starkem Frost.
+      Lagerung: Blätter auf 5 cm kürzen, Knollen in feuchtem Sand bei 0–2°C (4–6 Monate haltbar).'
+    delivery_channels:
+    - channel_id: naehrloesung-knolle
+      label: Ernte-Düngung reduziert (Gießkanne)
+      application_method: drench
+      target_ec_ms: 1.2
+      target_ph: 6.2
+      drench_params:
+        volume_per_feeding_liters: 1.0
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 3.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: flushing
+    sequence_order: 6
+    week_start: 31
+    week_end: 32
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Kein Dünger. Substrat mit klarem Wasser durchspülen. Pure Zym für Salzabbau. Letzte Knollen ernten und einlagern.
+      Pflanzen kompostieren.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 3
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Substratspülung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.2
+      drench_params:
+        volume_per_feeding_liters: 1.0
+      fertilizer_dosages:
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+- name: Tigerblume — Plagron Terra
+  description: Saisonplan für Tigerblume (Tigridia pavonia) mit Knollen-Vorkultur ab März und Freilandkultur ab Mai. Plagron
+    Terra-Linie mit 3 Produkten. Schwach-/Mittelzehrer, perennierend via Knolle. 22 Wochen aktive Saison + 30 Wochen Dormanz.
+    Kormen bei 10–13°C lagern (nicht 4–8°C).
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - tigerblume
+  - tigridia
+  - pfauenblume
+  - iridaceae
+  - plagron
+  - terra
+  - erde
+  - outdoor
+  - schwachzehrer
+  - zierpflanze
+  - knollengewächs
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 3
+    preferred_time: 07:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  cycle_restart_from_sequence: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 4
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    is_recurring: true
+    notes: Knollen ab März in Töpfen antreiben bei 15–18°C. Erst gießen wenn Austrieb sichtbar! Knolle hat ausreichend Reserven.
+      Fäulnisgefahr bei nasser Knolle. 8–10 cm tief pflanzen, Spitze nach oben.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 5
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-vorkeimen
+      label: Wasser Vorkeimen
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.3
+      drench_params:
+        volume_per_feeding_liters: 0.15
+      fertilizer_dosages: []
+  - phase_name: vegetative
+    sequence_order: 2
+    week_start: 5
+    week_end: 10
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    is_recurring: true
+    calcium_ppm: 60.0
+    magnesium_ppm: 20.0
+    notes: Niedrige Dosis Terra Grow (2 ml/L) + Pure Zym. Schwachzehrer! Schwertförmige Blätter entfalten sich. Abhärtung
+      ab Woche 8. Auspflanzen nach Eisheiligen (Mitte Mai). Gruppen von 5–10 Knollen. Alle 14 Tage düngen.
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.6
+      target_ph: 6.3
+      drench_params:
+        volume_per_feeding_liters: 0.3
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 2.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: flowering
+    sequence_order: 3
+    week_start: 11
+    week_end: 20
+    npk_ratio:
+    - 2.0
+    - 2.0
+    - 4.0
+    is_recurring: true
+    calcium_ppm: 60.0
+    magnesium_ppm: 30.0
+    notes: Umstellung auf Terra Bloom (2.5 ml/L). P+K-betont für Blütenbildung und Knollenaufbau. N minimal halten! Jede Einzelblüte
+      öffnet nur 1 Tag. Ab September auf 1.5 ml/L reduzieren. Alle 14 Tage düngen.
+    delivery_channels:
+    - channel_id: naehrloesung-bluete
+      label: Blütendüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.7
+      target_ph: 6.3
+      drench_params:
+        volume_per_feeding_liters: 0.3
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 2.5
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: harvest
+    sequence_order: 4
+    week_start: 21
+    week_end: 22
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    is_recurring: true
+    notes: Keine Düngung. Laub vergilben lassen für Nährstoffrücklagerung in die Knolle. Stiele auf 2–3 cm kürzen. Knollen
+      ausgraben, 2–4 Wochen trocknen, Tochterknollen separieren, beschriften.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 7
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Nur Wasser (Abreife)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.3
+      drench_params:
+        volume_per_feeding_liters: 0.2
+      fertilizer_dosages: []
+  - phase_name: dormancy
+    sequence_order: 5
+    week_start: 23
+    week_end: 52
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    is_recurring: true
+    notes: 'Knollen frostfrei lagern bei 10–13°C (NICHT 4–8°C wie Dahlien!), dunkel. Kein Wasser, kein Dünger. Lagermedium:
+      trockenes Sägemehl, Kokosfaser, Perlite. Monatliche Kontrolle auf Fäulnis/Austrocknung. Zyklus-Neustart im Frühling
+      bei Vorkeimen.'
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 30
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels: []
+- name: Zucchini — Plagron Terra
+  description: Saisonplan für Zucchini (Buschtyp) mit Indoor-Vorkultur ab Mitte April und Freilandkultur ab Mitte Mai. Plagron
+    Terra-Linie mit 5 Produkten. Starkzehrer, 22 Wochen (April–September).
+  recommended_substrate_type: soil
+  author: Kamerplanter Referenzdaten
+  is_template: true
+  version: '1.0'
+  tags:
+  - zucchini
+  - courgette
+  - cucurbita
+  - pepo
+  - starkzehrer
+  - plagron
+  - terra
+  - erde
+  - outdoor
+  - gewaechshaus
+  watering_schedule:
+    schedule_mode: interval
+    interval_days: 1
+    preferred_time: 07:00
+    application_method: drench
+    reminder_hours_before: 2
+    times_per_day: 1
+  phase_entries:
+  - phase_name: germination
+    sequence_order: 1
+    week_start: 1
+    week_end: 2
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Indoor-Aussaat in Anzuchterde, 22–25°C Substrattemperatur (Heizmatte). Dunkelkeimer, 2–3 cm tief. Feine Sprühung,
+      kein Dünger. Keimung nach 5–8 Tagen.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-keimung
+      label: Keimungssprühung (Sprühflasche)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.2
+      drench_params:
+        volume_per_feeding_liters: 0.03
+      fertilizer_dosages: []
+  - phase_name: seedling
+    sequence_order: 2
+    week_start: 3
+    week_end: 4
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: Viertel-Dosis Terra Grow (1.5 ml/L). Nicht pikieren (empfindliche Wurzeln). Power Roots fördert Wurzelentwicklung.
+      Abhärtung beginnt Ende Woche 4.
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 2
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung Sämling (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.6
+      target_ph: 6.2
+      drench_params:
+        volume_per_feeding_liters: 0.5
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 1.5
+      - product_name: Power Roots
+        ml_per_liter: 1.0
+  - phase_name: vegetative
+    sequence_order: 3
+    week_start: 5
+    week_end: 8
+    npk_ratio:
+    - 3.0
+    - 1.0
+    - 3.0
+    notes: Volle Dosis Terra Grow (5 ml/L). Extrem schnelles Blattwachstum. Auspflanzen nach Eisheiligen (ca. 15. Mai). Pflanzabstand
+      mind. 80–100 cm. Bei sehr wüchsigen Pflanzen auf 6–7 ml/L steigern.
+    delivery_channels:
+    - channel_id: naehrloesung-wachstum
+      label: Wachstumsdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 1.5
+      target_ph: 6.2
+      drench_params:
+        volume_per_feeding_liters: 1.0
+      fertilizer_dosages:
+      - product_name: Terra Grow
+        ml_per_liter: 5.0
+      - product_name: Power Roots
+        ml_per_liter: 1.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+      - product_name: Sugar Royal
+        ml_per_liter: 1.0
+        optional: true
+  - phase_name: flowering
+    sequence_order: 4
+    week_start: 9
+    week_end: 12
+    npk_ratio:
+    - 2.0
+    - 2.0
+    - 4.0
+    calcium_ppm: 165.0
+    magnesium_ppm: 50.0
+    notes: 'Umstellung auf Terra Bloom (5 ml/L). Power Roots absetzen. Bestaeubung sicherstellen (Insekten oder Handbestaeubung).
+      Erste Ernte ca. 5–6 Wochen nach Pflanzung. BER-Prävention: gleichmäßig gießen!'
+    delivery_channels:
+    - channel_id: naehrloesung-bluete
+      label: Blüte-/Fruchtdüngung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 2.0
+      target_ph: 6.2
+      drench_params:
+        volume_per_feeding_liters: 1.5
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 5.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+      - product_name: Sugar Royal
+        ml_per_liter: 1.0
+        optional: true
+  - phase_name: harvest
+    sequence_order: 5
+    week_start: 13
+    week_end: 20
+    npk_ratio:
+    - 2.0
+    - 2.0
+    - 4.0
+    calcium_ppm: 165.0
+    magnesium_ppm: 50.0
+    notes: 'Reduzierter Terra Bloom (4 ml/L). Kein Sugar Royal. Kontinuierliche Ernte alle 2–3 Tage bei 15–25 cm Fruchtlänge.
+      Mehltau-Management: befallene Blätter entfernen, Kaliumbicarbonat 0.5% sprühen. Bei großen Pflanzen Terra Bloom auf
+      5 ml/L erhöhen.'
+    delivery_channels:
+    - channel_id: naehrloesung-bluete
+      label: Ernte-Düngung reduziert (Gießkanne)
+      application_method: drench
+      target_ec_ms: 1.8
+      target_ph: 6.2
+      drench_params:
+        volume_per_feeding_liters: 1.5
+      fertilizer_dosages:
+      - product_name: Terra Bloom
+        ml_per_liter: 4.0
+      - product_name: Pure Zym
+        ml_per_liter: 1.0
+  - phase_name: flushing
+    sequence_order: 6
+    week_start: 21
+    week_end: 22
+    npk_ratio:
+    - 0.0
+    - 0.0
+    - 0.0
+    notes: Kein Dünger. Substrat mit klarem Wasser durchspülen. Pure Zym für Salzabbau. Letzte Früchte ernten. Pflanzen kompostieren
+      (nur gesunde).
+    watering_schedule_override:
+      schedule_mode: interval
+      interval_days: 3
+      preferred_time: 07:00
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+    delivery_channels:
+    - channel_id: wasser-pur
+      label: Substratspülung (Gießkanne)
+      application_method: drench
+      target_ec_ms: 0.0
+      target_ph: 6.2
+      drench_params:
+        volume_per_feeding_liters: 1.5
+      fertilizer_dosages:
+      - product_name: Pure Zym
+        ml_per_liter: 1.0

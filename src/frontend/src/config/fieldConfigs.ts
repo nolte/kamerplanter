@@ -19,6 +19,10 @@ export const speciesFieldConfig: Record<string, FieldMeta> = {
   scientific_name: { level: 'intermediate' },
   family_key: { level: 'intermediate' },
   genus: { level: 'intermediate' },
+  // intermediate — cultivation conditions (key info for plant selection)
+  container_suitable: { level: 'intermediate' },
+  indoor_suitable: { level: 'intermediate' },
+  balcony_suitable: { level: 'intermediate' },
   // expert
   root_type: { level: 'expert' },
   allelopathy_score: { level: 'expert' },
@@ -28,6 +32,14 @@ export const speciesFieldConfig: Record<string, FieldMeta> = {
   synonyms: { level: 'expert' },
   taxonomic_authority: { level: 'expert' },
   taxonomic_status: { level: 'expert' },
+  // expert — cultivation conditions (detailed sizing/spacing)
+  recommended_container_volume_l: { level: 'expert' },
+  min_container_depth_cm: { level: 'expert' },
+  mature_height_cm: { level: 'expert' },
+  mature_width_cm: { level: 'expert' },
+  spacing_cm: { level: 'expert' },
+  greenhouse_recommended: { level: 'expert' },
+  support_required: { level: 'expert' },
 };
 
 // PlantingRunCreateDialog field visibility
@@ -54,8 +66,26 @@ export const siteFieldConfig: Record<string, FieldMeta> = {
   // intermediate
   climate_zone: { level: 'intermediate' },
   total_area_m2: { level: 'intermediate' },
+  water_config: { level: 'intermediate' },
   // expert
   timezone: { level: 'expert' },
+};
+
+// WaterSourceSection detail field visibility
+export const waterSourceFieldConfig: Record<string, FieldMeta> = {
+  // intermediate (basic water params)
+  ec_ms: { level: 'intermediate' },
+  ph: { level: 'intermediate' },
+  has_ro_system: { level: 'intermediate' },
+  // expert (advanced water chemistry)
+  alkalinity_ppm: { level: 'expert' },
+  gh_ppm: { level: 'expert' },
+  calcium_ppm: { level: 'expert' },
+  magnesium_ppm: { level: 'expert' },
+  chlorine_ppm: { level: 'expert' },
+  chloramine_ppm: { level: 'expert' },
+  measurement_date: { level: 'expert' },
+  source_note: { level: 'expert' },
 };
 
 // GrowthPhaseDialog field visibility
@@ -95,6 +125,24 @@ export const fertilizerFieldConfig: Record<string, FieldMeta> = {
   ph_effect: { level: 'expert' },
   mixing_priority: { level: 'expert' },
   tank_safe: { level: 'expert' },
+};
+
+// EC Budget / Water Mixer field visibility
+export const ecBudgetFieldConfig: Record<string, FieldMeta> = {
+  // intermediate (water mixer basics)
+  tap_water_ec: { level: 'intermediate' },
+  alkalinity: { level: 'intermediate' },
+  target_base_ec: { level: 'intermediate' },
+  // expert (full EC budget)
+  target_ec: { level: 'expert' },
+  substrate: { level: 'expert' },
+  phase: { level: 'expert' },
+  volume: { level: 'expert' },
+  fertilizer_keys: { level: 'expert' },
+  calmag: { level: 'expert' },
+  silicate: { level: 'expert' },
+  substrate_cycles: { level: 'expert' },
+  temperature: { level: 'expert' },
 };
 
 // Navigation items: which minimum level is required

@@ -28,6 +28,7 @@ export const updateUserPreferences = createAsyncThunk(
     locale?: string;
     theme?: string;
     onboarding_completed?: boolean;
+    watering_can_liters?: number;
   }) => {
     return api.updatePreferences(updates);
   },

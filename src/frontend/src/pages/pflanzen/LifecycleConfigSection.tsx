@@ -2,21 +2,22 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { useForm } from 'react-hook-form';
+import Divider from '@mui/material/Divider';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
+import FormRow from '@/components/form/FormRow';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import GrowthPhaseListSection from './GrowthPhaseListSection';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as phasesApi from '@/api/endpoints/phases';
 import type { LifecycleConfig } from '@/api/types';
-import Switch from '@mui/material/Switch';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import { Controller } from 'react-hook-form';
 
 const schema = z.object({
   cycle_type: z.enum(['annual', 'biennial', 'perennial']),
@@ -103,39 +104,61 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
       <Typography variant="h6" sx={{ mb: 2 }}>
         {t('pages.lifecycle.title')}
       </Typography>
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 600 }}>
-        <FormSelectField
-          name="cycle_type"
-          control={control}
-          label={t('pages.lifecycle.cycleType')}
-          options={['annual', 'biennial', 'perennial'].map((v) => ({
-            value: v,
-            label: t(`enums.cycleType.${v}`),
-          }))}
-        />
-        <FormNumberField
-          name="typical_lifespan_years"
-          control={control}
-          label={t('pages.lifecycle.lifespanYears')}
-          min={1}
-        />
-        <FormSelectField
-          name="photoperiod_type"
-          control={control}
-          label={t('pages.lifecycle.photoperiodType')}
-          options={['short_day', 'long_day', 'day_neutral'].map((v) => ({
-            value: v,
-            label: t(`enums.photoperiodType.${v}`),
-          }))}
-        />
-        <FormNumberField
-          name="critical_day_length_hours"
-          control={control}
-          label={t('pages.lifecycle.criticalDayLength')}
-          min={0}
-          max={24}
-          step={0.5}
-        />
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
+        {/* Life cycle */}
+        <FormRow>
+          <FormSelectField
+            name="cycle_type"
+            control={control}
+            label={t('pages.lifecycle.cycleType')}
+            options={['annual', 'biennial', 'perennial'].map((v) => ({
+              value: v,
+              label: t(`enums.cycleType.${v}`),
+            }))}
+          />
+          <FormNumberField
+            name="typical_lifespan_years"
+            control={control}
+            label={t('pages.lifecycle.lifespanYears')}
+            min={1}
+            helperText={t('pages.lifecycle.lifespanYearsHelper')}
+          />
+        </FormRow>
+
+        <Divider sx={{ my: 2 }} />
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+          {t('pages.lifecycle.sectionPhotoperiod')}
+        </Typography>
+
+        {/* Photoperiod */}
+        <FormRow>
+          <FormSelectField
+            name="photoperiod_type"
+            control={control}
+            label={t('pages.lifecycle.photoperiodType')}
+            options={['short_day', 'long_day', 'day_neutral'].map((v) => ({
+              value: v,
+              label: t(`enums.photoperiodType.${v}`),
+            }))}
+            helperText={t('pages.lifecycle.photoperiodTypeHelper')}
+          />
+          <FormNumberField
+            name="critical_day_length_hours"
+            control={control}
+            label={t('pages.lifecycle.criticalDayLength')}
+            min={0}
+            max={24}
+            step={0.5}
+            helperText={t('pages.lifecycle.criticalDayLengthHelper')}
+          />
+        </FormRow>
+
+        <Divider sx={{ my: 2 }} />
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+          {t('pages.lifecycle.sectionDormancy')}
+        </Typography>
+
+        {/* Dormancy + vernalization */}
         <Controller
           name="dormancy_required"
           control={control}
@@ -143,7 +166,7 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
             <FormControlLabel
               control={<Switch checked={field.value} onChange={field.onChange} />}
               label={t('pages.lifecycle.dormancy')}
-              sx={{ mb: 1, display: 'block' }}
+              sx={{ mb: 0.5, display: 'block' }}
             />
           )}
         />
@@ -163,6 +186,7 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
           control={control}
           label={t('pages.lifecycle.vernalizationDays')}
           min={1}
+          helperText={t('pages.lifecycle.vernalizationDaysHelper')}
         />
         <FormActions
           onCancel={() => {}}

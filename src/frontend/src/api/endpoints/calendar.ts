@@ -1,5 +1,5 @@
 import client from '../client';
-import type { CalendarEventsResponse, CalendarFeed } from '../types';
+import type { CalendarEventsResponse, CalendarFeed, SowingCalendarResponse, SeasonOverviewResponse } from '../types';
 
 export async function getCalendarEvents(
   start: string,
@@ -52,5 +52,27 @@ export async function deleteCalendarFeed(key: string): Promise<void> {
 
 export async function regenerateCalendarFeedToken(key: string): Promise<CalendarFeed> {
   const response = await client.post<CalendarFeed>(`/calendar/feeds/${key}/regenerate-token`);
+  return response.data;
+}
+
+export async function getSowingCalendar(
+  siteId?: string,
+  year?: number,
+): Promise<SowingCalendarResponse> {
+  const params: Record<string, string> = {};
+  if (siteId) params.site_id = siteId;
+  if (year) params.year = String(year);
+  const response = await client.get<SowingCalendarResponse>('/calendar/sowing', { params });
+  return response.data;
+}
+
+export async function getSeasonOverview(
+  siteId?: string,
+  year?: number,
+): Promise<SeasonOverviewResponse> {
+  const params: Record<string, string> = {};
+  if (siteId) params.site_id = siteId;
+  if (year) params.year = String(year);
+  const response = await client.get<SeasonOverviewResponse>('/calendar/season-overview', { params });
   return response.data;
 }

@@ -156,13 +156,41 @@ class TestShouldGenerateReminder:
         profile = _make_profile(fertilizing_active_months=[4, 5, 6, 7, 8])
         assert self.engine.should_generate_reminder(
             profile, ReminderType.FERTILIZING, None, "north", month=1,
+            has_nutrient_plan=True,
         ) is False
 
     def test_fertilizing_guard_active_month(self):
         profile = _make_profile(fertilizing_active_months=[4, 5, 6, 7, 8])
         assert self.engine.should_generate_reminder(
             profile, ReminderType.FERTILIZING, None, "north", month=6,
+            has_nutrient_plan=True,
         ) is True
+
+    def test_fertilizing_suppressed_without_nutrient_plan(self):
+        profile = _make_profile()
+        assert self.engine.should_generate_reminder(
+            profile, ReminderType.FERTILIZING, month=6,
+            has_nutrient_plan=False,
+        ) is False
+
+    def test_fertilizing_toggle_disabled(self):
+        profile = _make_profile(auto_create_fertilizing_task=False)
+        assert self.engine.should_generate_reminder(
+            profile, ReminderType.FERTILIZING, month=6,
+            has_nutrient_plan=True,
+        ) is False
+
+    def test_repotting_toggle_disabled(self):
+        profile = _make_profile(auto_create_repotting_task=False)
+        assert self.engine.should_generate_reminder(
+            profile, ReminderType.REPOTTING,
+        ) is False
+
+    def test_pest_check_toggle_disabled(self):
+        profile = _make_profile(auto_create_pest_check_task=False)
+        assert self.engine.should_generate_reminder(
+            profile, ReminderType.PEST_CHECK,
+        ) is False
 
     def test_humidity_disabled(self):
         profile = _make_profile(humidity_check_enabled=False)
@@ -198,6 +226,7 @@ class TestShouldGenerateReminder:
         profile = _make_profile()
         assert self.engine.should_generate_reminder(
             profile, ReminderType.FERTILIZING, has_active_watering_plan=True, month=6,
+            has_nutrient_plan=True,
         ) is False
 
     def test_pest_check_not_suppressed_by_active_plan(self):

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import PageTitle from '@/components/layout/PageTitle';
@@ -11,6 +12,16 @@ import { fetchDiseases } from '@/store/slices/ipmSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import type { Disease } from '@/api/types';
 import DiseaseCreateDialog from './DiseaseCreateDialog';
+import { kamiIpm } from '@/assets/brand/illustrations';
+
+type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
+
+const pathogenTypeColor: Record<string, ChipColor> = {
+  fungal: 'warning',
+  bacterial: 'error',
+  viral: 'secondary',
+  physiological: 'info',
+};
 
 export default function DiseaseListPage() {
   const { t } = useTranslation();
@@ -39,7 +50,13 @@ export default function DiseaseListPage() {
     {
       id: 'pathogenType',
       label: t('pages.ipm.pathogenType'),
-      render: (r) => t(`enums.pathogenType.${r.pathogen_type}`),
+      render: (r) => (
+        <Chip
+          label={t(`enums.pathogenType.${r.pathogen_type}`)}
+          size="small"
+          color={pathogenTypeColor[r.pathogen_type] ?? 'default'}
+        />
+      ),
       searchValue: (r) => t(`enums.pathogenType.${r.pathogen_type}`),
     },
     {
@@ -47,11 +64,12 @@ export default function DiseaseListPage() {
       label: t('pages.ipm.incubationPeriodDays'),
       render: (r) =>
         r.incubation_period_days != null
-          ? `${r.incubation_period_days} ${t('pages.ipm.days')}`
-          : '—',
+          ? `${r.incubation_period_days}\u202f${t('pages.ipm.days')}`
+          : '\u2014',
       align: 'right',
       searchValue: (r) =>
         r.incubation_period_days != null ? String(r.incubation_period_days) : '',
+      hideBelowBreakpoint: 'md',
     },
   ];
 
@@ -84,6 +102,7 @@ export default function DiseaseListPage() {
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.ipm.createDisease')}
         onEmptyAction={() => setCreateOpen(true)}
+        emptyIllustration={kamiIpm}
         tableState={tableState}
         ariaLabel={t('pages.ipm.diseasesTitle')}
       />

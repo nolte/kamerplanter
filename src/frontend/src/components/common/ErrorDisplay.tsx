@@ -12,15 +12,26 @@ export default function ErrorDisplay({ error, onRetry }: ErrorDisplayProps) {
   const { t } = useTranslation();
 
   return (
-    <Box sx={{ my: 3 }} data-testid="error-display">
-      <Alert severity="error" sx={{ mb: 2 }} data-testid="error-message">
+    <Box sx={{ my: 3 }} data-testid="error-display" role="alert">
+      <Alert
+        severity="error"
+        sx={{ mb: onRetry ? 1.5 : 0 }}
+        data-testid="error-message"
+        action={
+          onRetry ? (
+            <Button
+              color="inherit"
+              size="small"
+              onClick={onRetry}
+              data-testid="error-retry-button"
+            >
+              {t('common.retry')}
+            </Button>
+          ) : undefined
+        }
+      >
         {error}
       </Alert>
-      {onRetry && (
-        <Button variant="outlined" onClick={onRetry}>
-          {t('common.back')}
-        </Button>
-      )}
     </Box>
   );
 }

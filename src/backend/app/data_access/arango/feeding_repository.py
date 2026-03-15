@@ -91,3 +91,19 @@ class ArangoFeedingRepository(IFeedingRepository, BaseArangoRepository):
     def get_latest_by_plant(self, plant_key: str) -> FeedingEvent | None:
         events = self.get_by_plant(plant_key, offset=0, limit=1)
         return events[0] if events else None
+
+    def get_recent_runoff_events(self, plant_key: str, limit: int = 5) -> list[FeedingEvent]:
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.plant_key == @plant_key
+            AND doc.runoff_ec != null
+          SORT doc.timestamp DESC
+          LIMIT @limit
+          RETURN doc
+        """
+        cursor = self._db.aql.execute(query, bind_vars={
+            "@collection": col.FEEDING_EVENTS,
+            "plant_key": plant_key,
+            "limit": limit,
+        })
+        return [FeedingEvent(**self._from_doc(doc)) for doc in cursor]

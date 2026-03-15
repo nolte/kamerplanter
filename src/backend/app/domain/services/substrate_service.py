@@ -1,11 +1,12 @@
 from datetime import date
 
 from app.common.enums import IrrigationStrategy, SubstrateType
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import NotFoundError, ValidationError
 from app.common.types import BatchKey, SlotKey, SubstrateKey
 from app.domain.engines.substrate_lifecycle_manager import SubstrateLifecycleManager
+from app.domain.engines.substrate_mix_engine import calculate_mix_properties
 from app.domain.interfaces.substrate_repository import ISubstrateRepository
-from app.domain.models.substrate import Substrate, SubstrateBatch
+from app.domain.models.substrate import MixComponent, Substrate, SubstrateBatch
 
 
 class SubstrateService:
@@ -84,6 +85,68 @@ class SubstrateService:
     def assign_batch_to_slot(self, batch_key: BatchKey, slot_key: SlotKey) -> dict:
         self.get_batch(batch_key)
         return self._repo.assign_batch_to_slot(batch_key, slot_key)
+
+    def create_mix(
+        self,
+        components: list[MixComponent],
+        name_de: str = "",
+        name_en: str = "",
+    ) -> Substrate:
+        """Create a substrate mix from multiple component substrates."""
+        if len(components) < 2:
+            raise ValidationError("A mix requires at least 2 components.")
+        total = sum(c.fraction for c in components)
+        if abs(total - 1.0) > 0.01:
+            raise ValidationError(f"Component fractions must sum to 1.0, got {total:.4f}.")
+
+        # Resolve all component substrates
+        substrate_map: dict[str, Substrate] = {}
+        for comp in components:
+            sub = self._repo.get_substrate_by_key(comp.substrate_key)
+            if sub is None:
+                raise NotFoundError("Substrate", comp.substrate_key)
+            if sub.is_mix:
+                raise ValidationError(f"Cannot use mix '{comp.substrate_key}' as a component (no nested mixes).")
+            substrate_map[comp.substrate_key] = sub
+
+        props = calculate_mix_properties(components, substrate_map)
+
+        mix = Substrate(
+            type=props["type"],
+            brand=None,
+            name_de=name_de,
+            name_en=name_en,
+            is_mix=True,
+            mix_components=components,
+            ph_base=props["ph_base"],
+            ec_base_ms=props["ec_base_ms"],
+            water_retention=props["water_retention"],
+            air_porosity_percent=props["air_porosity_percent"],
+            composition=props["composition"],
+            buffer_capacity=props["buffer_capacity"],
+            reusable=props["reusable"],
+            max_reuse_cycles=props["max_reuse_cycles"],
+            water_holding_capacity_percent=props["water_holding_capacity_percent"],
+            easily_available_water_percent=props["easily_available_water_percent"],
+            cec_meq_per_100g=props["cec_meq_per_100g"],
+            bulk_density_g_per_l=props["bulk_density_g_per_l"],
+            irrigation_strategy=props["irrigation_strategy"],
+        )
+        return self._repo.create_substrate(mix)
+
+    def preview_mix(self, components: list[MixComponent]) -> dict:
+        """Calculate blended properties without saving."""
+        if len(components) < 2:
+            raise ValidationError("A mix requires at least 2 components.")
+
+        substrate_map: dict[str, Substrate] = {}
+        for comp in components:
+            sub = self._repo.get_substrate_by_key(comp.substrate_key)
+            if sub is None:
+                raise NotFoundError("Substrate", comp.substrate_key)
+            substrate_map[comp.substrate_key] = sub
+
+        return calculate_mix_properties(components, substrate_map)
 
     @staticmethod
     def get_irrigation_strategy(substrate_type: SubstrateType) -> IrrigationStrategy:

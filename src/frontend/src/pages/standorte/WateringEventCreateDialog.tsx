@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -17,10 +17,12 @@ import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
+import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/watering-events';
+import { useWateringVolumeSuggestion } from '@/hooks/useWateringVolumeSuggestion';
 
 const applicationMethods = ['fertigation', 'drench', 'foliar', 'top_dress'] as const;
 const waterSources = ['tank', 'tap', 'osmose', 'rainwater', 'distilled', 'well'] as const;
@@ -34,7 +36,7 @@ const schema = z.object({
   application_method: z.enum(applicationMethods),
   is_supplemental: z.boolean(),
   volume_liters: z.number().gt(0),
-  slot_keys_input: z.string().min(1),
+  plant_keys_input: z.string().min(1),
   water_source: z.string().nullable(),
   target_ec: z.number().min(0).nullable(),
   target_ph: z.number().min(0).max(14).nullable(),
@@ -53,14 +55,14 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
-  slotKeys?: string[];
+  plantKeys?: string[];
 }
 
 export default function WateringEventCreateDialog({
   open,
   onClose,
   onCreated,
-  slotKeys,
+  plantKeys,
 }: Props) {
   const { t } = useTranslation();
   const notification = useNotification();
@@ -68,13 +70,17 @@ export default function WateringEventCreateDialog({
   const [saving, setSaving] = useState(false);
   const [warnings, setWarnings] = useState<Array<{ type: string; message: string }>>([]);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  // Fetch volume suggestion for the first plant
+  const firstPlantKey = plantKeys?.[0];
+  const { suggestion: volumeSuggestion } = useWateringVolumeSuggestion(firstPlantKey);
+
+  const { control, handleSubmit, reset, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       application_method: 'drench',
       is_supplemental: false,
       volume_liters: 1,
-      slot_keys_input: slotKeys?.join(', ') ?? '',
+      plant_keys_input: plantKeys?.join(', ') ?? '',
       water_source: null,
       target_ec: null,
       target_ph: null,
@@ -88,6 +94,13 @@ export default function WateringEventCreateDialog({
     },
   });
 
+  // Pre-fill suggested volume when it becomes available
+  useEffect(() => {
+    if (volumeSuggestion) {
+      setValue('volume_liters', volumeSuggestion.liters);
+    }
+  }, [volumeSuggestion, setValue]);
+
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'fertilizers_used',
@@ -97,7 +110,7 @@ export default function WateringEventCreateDialog({
     try {
       setSaving(true);
       setWarnings([]);
-      const slotKeysArray = data.slot_keys_input
+      const plantKeysArray = data.plant_keys_input
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean);
@@ -105,7 +118,7 @@ export default function WateringEventCreateDialog({
         application_method: data.application_method,
         is_supplemental: data.is_supplemental,
         volume_liters: data.volume_liters,
-        slot_keys: slotKeysArray,
+        plant_keys: plantKeysArray,
         water_source: data.water_source as 'tank' | 'tap' | 'osmose' | 'rainwater' | 'distilled' | 'well' | null | undefined,
         target_ec: data.target_ec,
         target_ph: data.target_ph,
@@ -143,12 +156,16 @@ export default function WateringEventCreateDialog({
           </Alert>
         ))}
         <form onSubmit={handleSubmit(onSubmit)}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+            {t('pages.wateringEvents.sectionBasics')}
+          </Typography>
           <FormTextField
-            name="slot_keys_input"
+            name="plant_keys_input"
             control={control}
-            label={t('pages.wateringEvents.slotKeys')}
+            label={t('pages.wateringEvents.plantKeys')}
+            helperText={t('pages.wateringEvents.plantKeysHelper')}
             required
-            disabled={!!slotKeys}
+            disabled={!!plantKeys}
           />
           <FormSelectField
             name="application_method"
@@ -168,6 +185,7 @@ export default function WateringEventCreateDialog({
             name="volume_liters"
             control={control}
             label={t('pages.wateringEvents.volumeLiters')}
+            helperText={volumeSuggestion?.hint ?? t('pages.wateringEvents.volumeLitersHelper')}
             min={0.01}
           />
           <FormSelectField
@@ -179,52 +197,76 @@ export default function WateringEventCreateDialog({
               label: t(`enums.waterSource.${v}`),
             }))}
           />
-          <FormNumberField
-            name="target_ec"
-            control={control}
-            label={t('pages.wateringEvents.targetEc')}
-            min={0}
-          />
-          <FormNumberField
-            name="target_ph"
-            control={control}
-            label={t('pages.wateringEvents.targetPh')}
-            min={0}
-            max={14}
-          />
-          <FormNumberField
-            name="measured_ec"
-            control={control}
-            label={t('pages.wateringEvents.measuredEc')}
-            min={0}
-          />
-          <FormNumberField
-            name="measured_ph"
-            control={control}
-            label={t('pages.wateringEvents.measuredPh')}
-            min={0}
-            max={14}
-          />
-          <FormNumberField
-            name="runoff_ec"
-            control={control}
-            label={t('pages.wateringEvents.runoffEc')}
-            min={0}
-          />
-          <FormNumberField
-            name="runoff_ph"
-            control={control}
-            label={t('pages.wateringEvents.runoffPh')}
-            min={0}
-            max={14}
-          />
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.wateringEvents.sectionTarget')}
+          </Typography>
+          <FormRow>
+            <FormNumberField
+              name="target_ec"
+              control={control}
+              label={t('pages.wateringEvents.targetEc')}
+              helperText={t('pages.wateringEvents.targetEcHelper')}
+              min={0}
+              inputMode="decimal"
+            />
+            <FormNumberField
+              name="target_ph"
+              control={control}
+              label={t('pages.wateringEvents.targetPh')}
+              helperText={t('pages.wateringEvents.targetPhHelper')}
+              min={0}
+              max={14}
+              inputMode="decimal"
+            />
+          </FormRow>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.wateringEvents.sectionMeasured')}
+          </Typography>
+          <FormRow>
+            <FormNumberField
+              name="measured_ec"
+              control={control}
+              label={t('pages.wateringEvents.measuredEc')}
+              min={0}
+              inputMode="decimal"
+            />
+            <FormNumberField
+              name="measured_ph"
+              control={control}
+              label={t('pages.wateringEvents.measuredPh')}
+              min={0}
+              max={14}
+              inputMode="decimal"
+            />
+          </FormRow>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.wateringEvents.sectionRunoff')}
+          </Typography>
+          <FormRow>
+            <FormNumberField
+              name="runoff_ec"
+              control={control}
+              label={t('pages.wateringEvents.runoffEc')}
+              helperText={t('pages.wateringEvents.runoffEcHelper')}
+              min={0}
+              inputMode="decimal"
+            />
+            <FormNumberField
+              name="runoff_ph"
+              control={control}
+              label={t('pages.wateringEvents.runoffPh')}
+              min={0}
+              max={14}
+              inputMode="decimal"
+            />
+          </FormRow>
           <FormTextField
             name="performed_by"
             control={control}
             label={t('pages.wateringEvents.performedBy')}
           />
 
-          <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2, mb: 1 }}>
             {t('pages.wateringEvents.fertilizersUsed')}
           </Typography>
           {fields.map((field, index) => (

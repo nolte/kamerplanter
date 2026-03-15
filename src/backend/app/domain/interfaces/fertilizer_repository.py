@@ -62,3 +62,9 @@ class IFertilizerRepository(ABC):
     @abstractmethod
     def remove_incompatibility(self, key_a: FertilizerKey, key_b: FertilizerKey) -> bool:
         ...
+
+    # ── Reverse lookup ─────────────────────────────────────────────────
+
+    @abstractmethod
+    def get_nutrient_plan_usage(self, key: FertilizerKey) -> list[dict]:
+        ...

@@ -13,7 +13,10 @@ import TableCell from '@mui/material/TableCell';
 import TableRow from '@mui/material/TableRow';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
+import IconButton from '@mui/material/IconButton';
 import DeleteIcon from '@mui/icons-material/Delete';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -23,18 +26,22 @@ import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useTableLocalState } from '@/hooks/useTableState';
+import { useTabUrl } from '@/hooks/useTabUrl';
+import { useLocalFavorites } from '@/hooks/useLocalFavorites';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
+import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as fertApi from '@/api/endpoints/fertilizers';
-import type { Fertilizer, FertilizerStock } from '@/api/types';
+import FertilizerUsageGantt from './FertilizerUsageGantt';
+import type { Fertilizer, FertilizerStock, NutrientPlanUsage } from '@/api/types';
 
-const fertilizerTypes = ['base', 'supplement', 'booster', 'biological', 'ph_adjuster', 'organic'] as const;
+const fertilizerTypes = ['base', 'supplement', 'booster', 'biological', 'ph_adjuster', 'organic', 'silicate'] as const;
 const phEffects = ['acidic', 'alkaline', 'neutral'] as const;
 const applicationMethods = ['fertigation', 'drench', 'foliar', 'top_dress', 'any'] as const;
 const bioavailabilities = ['immediate', 'slow_release', 'microbial_dependent'] as const;
@@ -70,11 +77,13 @@ export default function FertilizerDetailPage() {
 
   const [fertilizer, setFertilizer] = useState<Fertilizer | null>(null);
   const [stocks, setStocks] = useState<FertilizerStock[]>([]);
+  const [planUsage, setPlanUsage] = useState<NutrientPlanUsage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useTabUrl(['details', 'stock', 'edit']);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const { isFavorite, toggleFavorite } = useLocalFavorites('kamerplanter-fertilizer-favorites');
 
   const stocksTableState = useTableLocalState({ defaultSort: { column: 'purchase_date', direction: 'desc' } });
 
@@ -110,7 +119,11 @@ export default function FertilizerDetailPage() {
     if (!key) return;
     setLoading(true);
     try {
-      const f = await fertApi.fetchFertilizer(key);
+      const [f, st, pu] = await Promise.all([
+        fertApi.fetchFertilizer(key),
+        fertApi.fetchFertilizerStocks(key),
+        fertApi.fetchNutrientPlanUsage(key),
+      ]);
       setFertilizer(f);
       reset({
         product_name: f.product_name,
@@ -131,8 +144,8 @@ export default function FertilizerDetailPage() {
         storage_temp_max: f.storage_temp_max,
         notes: f.notes,
       });
-      const st = await fertApi.fetchFertilizerStocks(key);
       setStocks(st);
+      setPlanUsage(pu);
       setError(null);
     } catch (err) {
       setError(String(err));
@@ -197,22 +210,22 @@ export default function FertilizerDetailPage() {
     {
       id: 'purchase_date',
       label: t('pages.fertilizers.purchaseDate'),
-      render: (r) => r.purchase_date ? new Date(r.purchase_date).toLocaleDateString() : '-',
+      render: (r) => r.purchase_date ? new Date(r.purchase_date).toLocaleDateString() : '\u2014',
     },
     {
       id: 'expiry_date',
       label: t('pages.fertilizers.expiryDate'),
-      render: (r) => r.expiry_date ? new Date(r.expiry_date).toLocaleDateString() : '-',
+      render: (r) => r.expiry_date ? new Date(r.expiry_date).toLocaleDateString() : '\u2014',
     },
     {
       id: 'batch_number',
       label: t('pages.fertilizers.batchNumber'),
-      render: (r) => r.batch_number || '-',
+      render: (r) => r.batch_number || '\u2014',
     },
     {
       id: 'cost',
       label: t('pages.fertilizers.costPerLiter'),
-      render: (r) => r.cost_per_liter != null ? `${r.cost_per_liter.toFixed(2)} EUR/L` : '-',
+      render: (r) => r.cost_per_liter != null ? `${r.cost_per_liter.toFixed(2)} \u20AC/L` : '\u2014',
       align: 'right',
       searchValue: (r) => r.cost_per_liter != null ? String(r.cost_per_liter) : '',
     },
@@ -233,7 +246,17 @@ export default function FertilizerDetailPage() {
           mb: 2,
         }}
       >
-        <PageTitle title={fertilizer.product_name} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <PageTitle title={fertilizer.product_name} />
+          {key && (
+            <IconButton
+              onClick={() => toggleFavorite(key)}
+              sx={{ color: isFavorite(key) ? 'warning.main' : 'action.disabled' }}
+            >
+              {isFavorite(key) ? <StarIcon /> : <StarBorderIcon />}
+            </IconButton>
+          )}
+        </Box>
         <Button
           variant="outlined"
           color="error"
@@ -247,7 +270,7 @@ export default function FertilizerDetailPage() {
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab label={t('pages.fertilizers.tabDetails')} />
         <Tab label={t('pages.fertilizers.tabStock')} />
-        <Tab label={t('common.edit')} />
+        <Tab label={t('pages.fertilizers.tabEdit')} />
       </Tabs>
 
       {/* Tab 0: Details */}
@@ -255,9 +278,6 @@ export default function FertilizerDetailPage() {
         <Box>
           <Card sx={{ mb: 2 }}>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {t('pages.fertilizers.tabDetails')}
-              </Typography>
               <Table size="small" aria-label={t('pages.fertilizers.tabDetails')}>
                 <TableBody>
                   <TableRow>
@@ -266,14 +286,14 @@ export default function FertilizerDetailPage() {
                   </TableRow>
                   <TableRow>
                     <TableCell component="th">{t('pages.fertilizers.brand')}</TableCell>
-                    <TableCell>{fertilizer.brand || '-'}</TableCell>
+                    <TableCell>{fertilizer.brand || '\u2014'}</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell component="th">{t('pages.fertilizers.fertilizerType')}</TableCell>
                     <TableCell>{t(`enums.fertilizerType.${fertilizer.fertilizer_type}`)}</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell component="th">NPK</TableCell>
+                    <TableCell component="th">{t('pages.fertilizers.npkRatio')}</TableCell>
                     <TableCell>
                       {fertilizer.npk_ratio[0]}-{fertilizer.npk_ratio[1]}-{fertilizer.npk_ratio[2]}
                     </TableCell>
@@ -307,18 +327,43 @@ export default function FertilizerDetailPage() {
                       {fertilizer.tank_safe && (
                         <Chip label={t('pages.fertilizers.tankSafe')} size="small" color="info" sx={{ mr: 0.5 }} />
                       )}
+                      {!fertilizer.is_organic && !fertilizer.tank_safe && (
+                        <Typography variant="body2" color="text.secondary">{t('pages.fertilizers.noProperties')}</Typography>
+                      )}
                     </TableCell>
                   </TableRow>
-                  {fertilizer.notes && (
-                    <TableRow>
-                      <TableCell component="th">{t('pages.fertilizers.notes')}</TableCell>
-                      <TableCell>{fertilizer.notes}</TableCell>
-                    </TableRow>
+                  {(fertilizer.shelf_life_days != null || fertilizer.storage_temp_min != null || fertilizer.storage_temp_max != null) && (
+                    <>
+                      {fertilizer.shelf_life_days != null && (
+                        <TableRow>
+                          <TableCell component="th">{t('pages.fertilizers.shelfLifeDays')}</TableCell>
+                          <TableCell>{fertilizer.shelf_life_days}</TableCell>
+                        </TableRow>
+                      )}
+                      {(fertilizer.storage_temp_min != null || fertilizer.storage_temp_max != null) && (
+                        <TableRow>
+                          <TableCell component="th">{t('pages.fertilizers.sectionStorage')}</TableCell>
+                          <TableCell>
+                            {fertilizer.storage_temp_min != null && fertilizer.storage_temp_max != null
+                              ? `${fertilizer.storage_temp_min}\u2013${fertilizer.storage_temp_max} °C`
+                              : fertilizer.storage_temp_min != null
+                                ? `\u2265 ${fertilizer.storage_temp_min} °C`
+                                : `\u2264 ${fertilizer.storage_temp_max} °C`}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </>
                   )}
+                  <TableRow>
+                    <TableCell component="th">{t('pages.fertilizers.notes')}</TableCell>
+                    <TableCell>{fertilizer.notes || '\u2014'}</TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
+
+          <FertilizerUsageGantt planUsage={planUsage} />
         </Box>
       )}
 
@@ -338,127 +383,184 @@ export default function FertilizerDetailPage() {
 
       {/* Tab 2: Edit */}
       {tab === 2 && (
-        <Card>
-          <CardContent>
-            <form onSubmit={handleSubmit(onSave)}>
-              <FormTextField
-                name="product_name"
-                control={control}
-                label={t('pages.fertilizers.productName')}
-                required
-              />
-              <FormTextField
-                name="brand"
-                control={control}
-                label={t('pages.fertilizers.brand')}
-              />
-              <FormSelectField
-                name="fertilizer_type"
-                control={control}
-                label={t('pages.fertilizers.fertilizerType')}
-                options={fertilizerTypes.map((v) => ({
-                  value: v,
-                  label: t(`enums.fertilizerType.${v}`),
-                }))}
-              />
-              <FormSwitchField
-                name="is_organic"
-                control={control}
-                label={t('pages.fertilizers.isOrganic')}
-              />
-              <FormSwitchField
-                name="tank_safe"
-                control={control}
-                label={t('pages.fertilizers.tankSafe')}
-              />
-              <FormNumberField
-                name="npk_n"
-                control={control}
-                label={t('pages.fertilizers.npkN')}
-                min={0}
-              />
-              <FormNumberField
-                name="npk_p"
-                control={control}
-                label={t('pages.fertilizers.npkP')}
-                min={0}
-              />
-              <FormNumberField
-                name="npk_k"
-                control={control}
-                label={t('pages.fertilizers.npkK')}
-                min={0}
-              />
-              <FormNumberField
-                name="ec_contribution_per_ml"
-                control={control}
-                label={t('pages.fertilizers.ecContribution')}
-                min={0}
-              />
-              <FormNumberField
-                name="mixing_priority"
-                control={control}
-                label={t('pages.fertilizers.mixingPriority')}
-                min={1}
-              />
-              <FormSelectField
-                name="ph_effect"
-                control={control}
-                label={t('pages.fertilizers.phEffect')}
-                options={phEffects.map((v) => ({
-                  value: v,
-                  label: t(`enums.phEffect.${v}`),
-                }))}
-              />
-              <FormSelectField
-                name="recommended_application"
-                control={control}
-                label={t('pages.fertilizers.recommendedApplication')}
-                options={applicationMethods.map((v) => ({
-                  value: v,
-                  label: t(`enums.applicationMethod.${v}`),
-                }))}
-              />
-              <FormSelectField
-                name="bioavailability"
-                control={control}
-                label={t('pages.fertilizers.bioavailability')}
-                options={bioavailabilities.map((v) => ({
-                  value: v,
-                  label: t(`enums.bioavailability.${v}`),
-                }))}
-              />
-              <FormNumberField
-                name="shelf_life_days"
-                control={control}
-                label={t('pages.fertilizers.shelfLifeDays')}
-                min={1}
-              />
-              <FormNumberField
-                name="storage_temp_min"
-                control={control}
-                label={t('pages.fertilizers.storageTempMin')}
-              />
-              <FormNumberField
-                name="storage_temp_max"
-                control={control}
-                label={t('pages.fertilizers.storageTempMax')}
-              />
-              <FormTextField
-                name="notes"
-                control={control}
-                label={t('pages.fertilizers.notes')}
-                multiline
-                rows={3}
-              />
-              <FormActions
-                onCancel={() => reset()}
-                loading={saving}
-                disabled={!isDirty}
-              />
-            </form>
-          </CardContent>
-        </Card>
+        <Box component="form" onSubmit={handleSubmit(onSave)} sx={{ maxWidth: 900 }}>
+          {/* Section: Identifikation */}
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 1 }}>
+            {t('pages.fertilizers.sectionIdentification')}
+          </Typography>
+          <FormRow>
+            <FormTextField
+              name="product_name"
+              control={control}
+              label={t('pages.fertilizers.productName')}
+              required
+            />
+            <FormTextField
+              name="brand"
+              control={control}
+              label={t('pages.fertilizers.brand')}
+            />
+          </FormRow>
+          <FormSelectField
+            name="fertilizer_type"
+            control={control}
+            label={t('pages.fertilizers.fertilizerType')}
+            options={fertilizerTypes.map((v) => ({
+              value: v,
+              label: t(`enums.fertilizerType.${v}`),
+            }))}
+          />
+
+          {/* Section: NPK & Nährstoff-Profil */}
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.fertilizers.sectionNutrients')}
+          </Typography>
+          <FormRow>
+            <FormNumberField
+              name="npk_n"
+              control={control}
+              label={t('pages.fertilizers.npkN')}
+              min={0}
+              suffix="%"
+              inputMode="decimal"
+              helperText={t('pages.fertilizers.npkNHelper')}
+            />
+            <FormNumberField
+              name="npk_p"
+              control={control}
+              label={t('pages.fertilizers.npkP')}
+              min={0}
+              suffix="%"
+              inputMode="decimal"
+            />
+          </FormRow>
+          <FormRow>
+            <FormNumberField
+              name="npk_k"
+              control={control}
+              label={t('pages.fertilizers.npkK')}
+              min={0}
+              suffix="%"
+              inputMode="decimal"
+            />
+            <FormNumberField
+              name="ec_contribution_per_ml"
+              control={control}
+              label={t('pages.fertilizers.ecContribution')}
+              min={0}
+              suffix="mS/ml"
+              inputMode="decimal"
+              helperText={t('pages.fertilizers.ecContributionHelper')}
+            />
+          </FormRow>
+
+          {/* Section: Misch- & Anwendungseigenschaften */}
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.fertilizers.sectionMixing')}
+          </Typography>
+          <FormRow>
+            <FormNumberField
+              name="mixing_priority"
+              control={control}
+              label={t('pages.fertilizers.mixingPriority')}
+              min={1}
+              step={1}
+              helperText={t('pages.fertilizers.mixingPriorityHelper')}
+            />
+            <FormSelectField
+              name="ph_effect"
+              control={control}
+              label={t('pages.fertilizers.phEffect')}
+              options={phEffects.map((v) => ({
+                value: v,
+                label: t(`enums.phEffect.${v}`),
+              }))}
+            />
+          </FormRow>
+          <FormRow>
+            <FormSelectField
+              name="recommended_application"
+              control={control}
+              label={t('pages.fertilizers.recommendedApplication')}
+              options={applicationMethods.map((v) => ({
+                value: v,
+                label: t(`enums.applicationMethod.${v}`),
+              }))}
+            />
+            <FormSelectField
+              name="bioavailability"
+              control={control}
+              label={t('pages.fertilizers.bioavailability')}
+              options={bioavailabilities.map((v) => ({
+                value: v,
+                label: t(`enums.bioavailability.${v}`),
+              }))}
+            />
+          </FormRow>
+
+          {/* Section: Eigenschaften */}
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.fertilizers.sectionProperties')}
+          </Typography>
+          <FormRow>
+            <FormSwitchField
+              name="is_organic"
+              control={control}
+              label={t('pages.fertilizers.isOrganic')}
+              helperText={t('pages.fertilizers.isOrganicHelper')}
+            />
+            <FormSwitchField
+              name="tank_safe"
+              control={control}
+              label={t('pages.fertilizers.tankSafe')}
+              helperText={t('pages.fertilizers.tankSafeHelper')}
+            />
+          </FormRow>
+
+          {/* Section: Lagerung */}
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.fertilizers.sectionStorage')}
+          </Typography>
+          <FormRow>
+            <FormNumberField
+              name="storage_temp_min"
+              control={control}
+              label={t('pages.fertilizers.storageTempMin')}
+              suffix="\u00B0C"
+              inputMode="decimal"
+            />
+            <FormNumberField
+              name="storage_temp_max"
+              control={control}
+              label={t('pages.fertilizers.storageTempMax')}
+              suffix="\u00B0C"
+              inputMode="decimal"
+            />
+          </FormRow>
+          <FormNumberField
+            name="shelf_life_days"
+            control={control}
+            label={t('pages.fertilizers.shelfLifeDays')}
+            min={1}
+            step={1}
+            inputMode="numeric"
+            helperText={t('pages.fertilizers.shelfLifeHelper')}
+          />
+
+          {/* Notizen */}
+          <FormTextField
+            name="notes"
+            control={control}
+            label={t('pages.fertilizers.notes')}
+            multiline
+            rows={3}
+          />
+          <FormActions
+            onCancel={() => reset()}
+            loading={saving}
+            disabled={!isDirty}
+          />
+        </Box>
       )}
 
       <ConfirmDialog
@@ -467,6 +569,7 @@ export default function FertilizerDetailPage() {
         message={t('common.deleteConfirm', { name: fertilizer.product_name })}
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
+        destructive
       />
     </Box>
   );

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import PageTitle from '@/components/layout/PageTitle';
@@ -12,6 +13,17 @@ import { fetchBatches } from '@/store/slices/harvestSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import type { HarvestBatch } from '@/api/types';
 import HarvestCreateDialog from './HarvestCreateDialog';
+import { kamiHarvest } from '@/assets/brand/illustrations';
+
+type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
+
+const qualityGradeColor: Record<string, ChipColor> = {
+  a_plus: 'success',
+  a: 'success',
+  b: 'info',
+  c: 'warning',
+  d: 'error',
+};
 
 export default function HarvestBatchListPage() {
   const { t } = useTranslation();
@@ -31,18 +43,19 @@ export default function HarvestBatchListPage() {
     {
       id: 'batchId',
       label: t('pages.harvest.batchId'),
-      render: (r) => r.batch_id || '-',
+      render: (r) => r.batch_id || '\u2014',
     },
     {
       id: 'plantKey',
       label: t('pages.harvest.plantKey'),
       render: (r) => r.plant_key,
+      hideBelowBreakpoint: 'md',
     },
     {
       id: 'harvestDate',
       label: t('pages.harvest.harvestDate'),
       render: (r) =>
-        r.harvest_date ? new Date(r.harvest_date).toLocaleDateString() : '-',
+        r.harvest_date ? new Date(r.harvest_date).toLocaleDateString() : '\u2014',
       sortFn: (a, b) => {
         const aDate = a.harvest_date ? new Date(a.harvest_date).getTime() : 0;
         const bDate = b.harvest_date ? new Date(b.harvest_date).getTime() : 0;
@@ -52,13 +65,20 @@ export default function HarvestBatchListPage() {
     {
       id: 'harvestType',
       label: t('pages.harvest.harvestType'),
-      render: (r) => t(`enums.harvestType.${r.harvest_type}`),
+      render: (r) => (
+        <Chip
+          label={t(`enums.harvestType.${r.harvest_type}`)}
+          size="small"
+          variant="outlined"
+        />
+      ),
       searchValue: (r) => t(`enums.harvestType.${r.harvest_type}`),
+      hideBelowBreakpoint: 'md',
     },
     {
       id: 'wetWeight',
       label: t('pages.harvest.wetWeightG'),
-      render: (r) => (r.wet_weight_g != null ? `${r.wet_weight_g} g` : '-'),
+      render: (r) => (r.wet_weight_g != null ? `${r.wet_weight_g}\u202fg` : '\u2014'),
       align: 'right',
       searchValue: (r) =>
         r.wet_weight_g != null ? String(r.wet_weight_g) : '',
@@ -67,9 +87,13 @@ export default function HarvestBatchListPage() {
       id: 'qualityGrade',
       label: t('pages.harvest.qualityGrade'),
       render: (r) =>
-        r.quality_grade
-          ? t(`enums.qualityGrade.${r.quality_grade}`)
-          : '-',
+        r.quality_grade ? (
+          <Chip
+            label={t(`enums.qualityGrade.${r.quality_grade}`)}
+            size="small"
+            color={qualityGradeColor[r.quality_grade] ?? 'default'}
+          />
+        ) : '\u2014',
       searchValue: (r) =>
         r.quality_grade
           ? t(`enums.qualityGrade.${r.quality_grade}`)
@@ -111,6 +135,7 @@ export default function HarvestBatchListPage() {
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.harvest.create')}
         onEmptyAction={() => setCreateOpen(true)}
+        emptyIllustration={kamiHarvest}
         tableState={tableState}
         ariaLabel={t('pages.harvest.title')}
       />

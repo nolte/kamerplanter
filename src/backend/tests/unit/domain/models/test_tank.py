@@ -1,8 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from app.common.enums import MaintenancePriority, MaintenanceType, TankMaterial, TankType
-from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankState
+from app.common.enums import FillType, MaintenancePriority, MaintenanceType, TankMaterial, TankType, WaterSource
+from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState
 
 
 class TestTank:
@@ -21,11 +21,23 @@ class TestTank:
             has_air_pump=True,
             has_circulation_pump=True,
             has_heater=True,
+            is_light_proof=True,
+            has_uv_sterilizer=True,
+            has_ozone_generator=True,
         )
         assert tank.has_lid is True
         assert tank.has_air_pump is True
         assert tank.has_circulation_pump is True
         assert tank.has_heater is True
+        assert tank.is_light_proof is True
+        assert tank.has_uv_sterilizer is True
+        assert tank.has_ozone_generator is True
+
+    def test_new_equipment_flags_default_false(self):
+        tank = Tank(name="Basic", tank_type=TankType.NUTRIENT, volume_liters=20.0)
+        assert tank.is_light_proof is False
+        assert tank.has_uv_sterilizer is False
+        assert tank.has_ozone_generator is False
 
     def test_key_alias(self):
         tank = Tank(name="Test", tank_type=TankType.IRRIGATION, volume_liters=20.0, **{"_key": "abc123"})
@@ -102,6 +114,29 @@ class TestTankState:
     def test_source_default(self):
         state = TankState(tank_key="t1")
         assert state.source == "manual"
+
+    def test_dissolved_oxygen_bounds(self):
+        TankState(tank_key="t1", dissolved_oxygen_mgl=0.0)
+        TankState(tank_key="t1", dissolved_oxygen_mgl=20.0)
+        TankState(tank_key="t1", dissolved_oxygen_mgl=8.5)
+        with pytest.raises(ValidationError):
+            TankState(tank_key="t1", dissolved_oxygen_mgl=-0.1)
+        with pytest.raises(ValidationError):
+            TankState(tank_key="t1", dissolved_oxygen_mgl=20.1)
+
+    def test_orp_bounds(self):
+        TankState(tank_key="t1", orp_mv=-500)
+        TankState(tank_key="t1", orp_mv=1000)
+        TankState(tank_key="t1", orp_mv=650)
+        with pytest.raises(ValidationError):
+            TankState(tank_key="t1", orp_mv=-501)
+        with pytest.raises(ValidationError):
+            TankState(tank_key="t1", orp_mv=1001)
+
+    def test_dissolved_oxygen_and_orp_default_none(self):
+        state = TankState(tank_key="t1")
+        assert state.dissolved_oxygen_mgl is None
+        assert state.orp_mv is None
 
 
 class TestMaintenanceLog:
@@ -193,3 +228,107 @@ class TestMaintenanceSchedule:
                 reminder_days_before=2,
             )
             assert schedule.maintenance_type == mtype
+
+
+class TestTankFillEvent:
+    def test_valid_full_change(self):
+        event = TankFillEvent(
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            measured_ec_ms=1.2,
+            measured_ph=6.0,
+        )
+        assert event.fill_type == FillType.FULL_CHANGE
+        assert event.volume_liters == 50.0
+
+    def test_valid_top_up(self):
+        event = TankFillEvent(
+            tank_key="t1",
+            fill_type=FillType.TOP_UP,
+            volume_liters=10.0,
+        )
+        assert event.fill_type == FillType.TOP_UP
+
+    def test_adjustment_requires_target(self):
+        with pytest.raises(ValidationError, match="target_ec_ms or target_ph"):
+            TankFillEvent(
+                tank_key="t1",
+                fill_type=FillType.ADJUSTMENT,
+                volume_liters=2.0,
+            )
+
+    def test_adjustment_with_ec_valid(self):
+        event = TankFillEvent(
+            tank_key="t1",
+            fill_type=FillType.ADJUSTMENT,
+            volume_liters=2.0,
+            target_ec_ms=1.5,
+        )
+        assert event.target_ec_ms == 1.5
+
+    def test_adjustment_with_ph_valid(self):
+        event = TankFillEvent(
+            tank_key="t1",
+            fill_type=FillType.ADJUSTMENT,
+            volume_liters=1.0,
+            target_ph=5.8,
+        )
+        assert event.target_ph == 5.8
+
+    def test_volume_must_be_positive(self):
+        with pytest.raises(ValidationError):
+            TankFillEvent(
+                tank_key="t1",
+                fill_type=FillType.FULL_CHANGE,
+                volume_liters=0,
+            )
+
+    def test_water_source_enum(self):
+        event = TankFillEvent(
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            water_source=WaterSource.MIXED,
+            water_mix_ratio_ro_percent=60.0,
+        )
+        assert event.water_source == WaterSource.MIXED
+        assert event.water_mix_ratio_ro_percent == 60.0
+
+    def test_ro_percent_bounds(self):
+        TankFillEvent(
+            tank_key="t1", fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0, water_mix_ratio_ro_percent=0.0,
+        )
+        TankFillEvent(
+            tank_key="t1", fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0, water_mix_ratio_ro_percent=100.0,
+        )
+        with pytest.raises(ValidationError):
+            TankFillEvent(
+                tank_key="t1", fill_type=FillType.FULL_CHANGE,
+                volume_liters=50.0, water_mix_ratio_ro_percent=101.0,
+            )
+
+    def test_fertilizers_used(self):
+        from app.domain.models.tank import FertilizerSnapshot
+        event = TankFillEvent(
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+            fertilizers_used=[
+                FertilizerSnapshot(product_name="CalMag", ml_per_liter=1.0),
+                FertilizerSnapshot(product_name="Bloom A", ml_per_liter=2.5, product_key="f1"),
+            ],
+        )
+        assert len(event.fertilizers_used) == 2
+
+    def test_defaults(self):
+        event = TankFillEvent(
+            tank_key="t1",
+            fill_type=FillType.FULL_CHANGE,
+            volume_liters=50.0,
+        )
+        assert event.is_organic_fertilizers is False
+        assert event.fertilizers_used == []
+        assert event.water_defaults_source is None

@@ -1,7 +1,13 @@
+from __future__ import annotations
+
 from datetime import date, timedelta
+from typing import TYPE_CHECKING
 
 from app.common.enums import CareStyleType, ConfirmAction, ReminderType, WateringMethod
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
+
+if TYPE_CHECKING:
+    from app.domain.models.species import SeasonalWateringAdjustment, WateringGuide
 
 # ── Dormancy-aware phases ──────────────────────────────────────────────
 
@@ -106,6 +112,28 @@ CARE_STYLE_PRESETS: dict[CareStyleType, dict] = {
         "humidity_check_enabled": False,
         "humidity_check_interval_days": 30,
     },
+    CareStyleType.OUTDOOR_ANNUAL_VEG: {
+        "watering_interval_days": 3,
+        "winter_watering_multiplier": 1.0,
+        "watering_method": WateringMethod.TOP_WATER,
+        "fertilizing_interval_days": 14,
+        "fertilizing_active_months": [4, 5, 6, 7, 8, 9],
+        "repotting_interval_months": 12,
+        "pest_check_interval_days": 7,
+        "humidity_check_enabled": False,
+        "humidity_check_interval_days": 14,
+    },
+    CareStyleType.OUTDOOR_PERENNIAL: {
+        "watering_interval_days": 5,
+        "winter_watering_multiplier": 2.0,
+        "watering_method": WateringMethod.TOP_WATER,
+        "fertilizing_interval_days": 21,
+        "fertilizing_active_months": [3, 4, 5, 6, 7, 8, 9],
+        "repotting_interval_months": 36,
+        "pest_check_interval_days": 14,
+        "humidity_check_enabled": False,
+        "humidity_check_interval_days": 14,
+    },
     CareStyleType.CUSTOM: {
         "watering_interval_days": 7,
         "winter_watering_multiplier": 1.5,
@@ -184,6 +212,7 @@ class CareReminderEngine:
         hemisphere: str = "north",
         month: int | None = None,
         has_active_watering_plan: bool = False,
+        has_nutrient_plan: bool = False,
     ) -> bool:
         """Check whether a reminder should be generated."""
         if month is None:
@@ -194,6 +223,18 @@ class CareReminderEngine:
             ReminderType.WATERING,
             ReminderType.FERTILIZING,
         ):
+            return False
+
+        # Per-type toggle guards
+        if reminder_type == ReminderType.FERTILIZING and not profile.auto_create_fertilizing_task:
+            return False
+        if reminder_type == ReminderType.REPOTTING and not profile.auto_create_repotting_task:
+            return False
+        if reminder_type == ReminderType.PEST_CHECK and not profile.auto_create_pest_check_task:
+            return False
+
+        # Fertilizing only makes sense when a nutrient plan is assigned
+        if reminder_type == ReminderType.FERTILIZING and not has_nutrient_plan:
             return False
 
         # Dormancy guard — suppress all except pest_check during dormancy
@@ -286,20 +327,55 @@ class CareReminderEngine:
         species_name: str | None = None,
         botanical_family: str | None = None,
         plant_key: str = "",
+        watering_guide: "WateringGuide | None" = None,
     ) -> CareProfile:
-        """Generate a CareProfile from species/family defaults."""
+        """Generate a CareProfile from species/family defaults.
+
+        Three-tier fallback:
+        1. WateringGuide (species-specific structured data) — highest priority
+        2. FAMILY_CARE_MAP → CARE_STYLE_PRESETS (family-level generic)
+        3. TROPICAL preset (default fallback)
+        """
         care_style = CareStyleType.TROPICAL  # default fallback
 
         if botanical_family and botanical_family in FAMILY_CARE_MAP:
             care_style = FAMILY_CARE_MAP[botanical_family]
 
-        preset = CARE_STYLE_PRESETS[care_style]
+        preset = dict(CARE_STYLE_PRESETS[care_style])
+
+        # Tier 2: Override preset values with species-specific WateringGuide
+        if watering_guide is not None:
+            preset["watering_interval_days"] = watering_guide.interval_days
+            preset["watering_method"] = watering_guide.watering_method
+            if watering_guide.water_quality_hint:
+                preset["water_quality_hint"] = watering_guide.water_quality_hint
+            # Compute winter multiplier from seasonal adjustments
+            winter_adj = self._find_winter_adjustment(watering_guide)
+            if winter_adj is not None and watering_guide.interval_days > 0:
+                preset["winter_watering_multiplier"] = round(
+                    winter_adj.interval_days / watering_guide.interval_days, 2,
+                )
+
         return CareProfile(
             care_style=care_style,
             plant_key=plant_key,
             auto_generated=True,
+            notes=watering_guide.practical_tip if watering_guide else None,
             **preset,
         )
+
+    @staticmethod
+    def _find_winter_adjustment(
+        guide: "WateringGuide",
+    ) -> "SeasonalWateringAdjustment | None":
+        """Find the seasonal adjustment that covers winter months."""
+        from app.domain.models.species import SeasonalWateringAdjustment
+
+        winter_months = {11, 12, 1, 2}
+        for adj in guide.seasonal_adjustments:
+            if winter_months & set(adj.months):
+                return adj
+        return None
 
     # ── Private helpers ──────────────────────────────────────────────
 

@@ -63,6 +63,7 @@ class ChannelFertilizerAssignRequest(BaseModel):
     fertilizer_key: str
     ml_per_liter: float = Field(gt=0, le=50)
     optional: bool = False
+    mixing_order: int = Field(default=0, ge=0)
 
 
 # ── NutrientPlan schemas ────────────────────────────────────────────
@@ -116,6 +117,7 @@ class FertilizerDosageSchema(BaseModel):
     fertilizer_key: str
     ml_per_liter: float = Field(gt=0, le=50)
     optional: bool = False
+    mixing_order: int = Field(default=0, ge=0)
 
 
 class PhaseEntryCreate(BaseModel):
@@ -130,6 +132,7 @@ class PhaseEntryCreate(BaseModel):
     notes: str | None = None
     delivery_channels: list[DeliveryChannelSchema] = Field(default_factory=list)
     watering_schedule_override: WateringScheduleSchema | None = None
+    water_mix_ratio_ro_percent: int | None = Field(default=None, ge=0, le=100)
 
 
 class PhaseEntryUpdate(BaseModel):
@@ -144,6 +147,7 @@ class PhaseEntryUpdate(BaseModel):
     notes: str | None = None
     delivery_channels: list[DeliveryChannelSchema] | None = None
     watering_schedule_override: WateringScheduleSchema | None = None
+    water_mix_ratio_ro_percent: int | None = Field(default=None, ge=0, le=100)
 
 
 class PhaseEntryResponse(BaseModel):
@@ -160,6 +164,7 @@ class PhaseEntryResponse(BaseModel):
     notes: str | None
     delivery_channels: list[DeliveryChannelSchema] = Field(default_factory=list)
     watering_schedule_override: WateringScheduleSchema | None = None
+    water_mix_ratio_ro_percent: int | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

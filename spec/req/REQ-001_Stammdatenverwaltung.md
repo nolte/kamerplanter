@@ -7,7 +7,7 @@ Kategorie: Stammdaten
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 3.0
+Version: 3.1 (Agrarbiologie-Review Korrekturen)
 ```
 
 ## 1. Business Case
@@ -68,6 +68,8 @@ Zusätzlich erfasst das System:
     - `pruning_type: Optional[Literal['winter_pruning', 'summer_pruning', 'after_harvest', 'spring_pruning', 'none']]`
     - `bloom_months: Optional[list[int]]` (Blütemonate — für Blühkalender und Bestäuber-Planung)
     <!-- /Quelle: G-001, G-006 -->
+    <!-- Quelle: Agrarbiologie-Review AB-004, 2026-03 -->
+    - `traits: Optional[list[str]]` (Tags auf Species-Ebene, z.B. `['ornamental']`. Analog zu Cultivar.traits, aber für art-übergreifende Eigenschaften. Gültige Werte: `'ornamental'`, `'edible'`, `'medicinal'`, `'fragrant'`, `'bee_friendly'`, `'native'`. Validierung identisch zu Cultivar.traits-Validator.)
 
 - **`:Cultivar`** - Sorte/Zuchtform
   - Properties:
@@ -330,6 +332,77 @@ Die folgenden 9 Pflanzenfamilien bilden die initiale Datenbasis:
 | Poaceae | Süßgräser | Grass family | Poales | medium | false | SHALLOW | VERY_HARDY | WIND, SELF |
 | Lamiaceae | Lippenblütler | Mint family | Lamiales | light | false | SHALLOW | MODERATE | INSECT |
 | Cannabaceae | Hanfgewächse | Hemp family | Rosales | heavy | false | DEEP | SENSITIVE | WIND |
+| Violaceae | Veilchengewächse | Violet family | Malpighiales | light | false | SHALLOW | HARDY | INSECT, SELF |
+
+<!-- Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03 -->
+### Seed-Daten: Zierpflanzen-Species
+
+Die folgenden Zierpflanzen-Species erweitern die initiale Datenbasis um gängige Balkon- und Beetpflanzen:
+
+| scientific_name | common_names (DE) | family | growth_habit | root_type | frost_sensitivity | cycle_type | sowing_indoor_weeks_before_last_frost | bloom_months | nutrient_demand_level | traits |
+|----------------|-------------------|--------|-------------|-----------|-------------------|-----------|--------------------------------------|-------------|----------------------|--------|
+| *Viola x wittrockiana* | Stiefmütterchen, Gartenstiefmütterchen | Violaceae | herb | fibrous | hardy | annual | 12 | [3, 4, 5, 6, 9, 10] | light_feeder | ornamental |
+| *Viola cornuta* | Hornveilchen | Violaceae | herb | fibrous | hardy | perennial | 12 | [3, 4, 5, 6, 7, 8, 9, 10] | light_feeder | ornamental |
+| *Petunia x hybrida* | Petunie | Solanaceae | herb | fibrous | tender | annual | 10 | [5, 6, 7, 8, 9, 10] | medium_feeder | ornamental |
+| *Pelargonium zonale* | Geranie, Stehende Geranie | Geraniaceae | herb | fibrous | tender | perennial | 12 | [5, 6, 7, 8, 9, 10] | medium_feeder | ornamental |
+| *Tagetes patula* | Studentenblume, Tagetes | Asteraceae | herb | fibrous | tender | annual | 6 | [6, 7, 8, 9, 10] | light_feeder | ornamental |
+| *Lobelia erinus* | Männertreu, Blaue Lobelie | Campanulaceae | herb | fibrous | tender | annual | 10 | [5, 6, 7, 8, 9] | light_feeder | ornamental |
+| *Osteospermum ecklonis* | Kapkörbchen, Kapmargerite | Asteraceae | herb | fibrous | half_hardy | perennial | 8 | [5, 6, 7, 8, 9, 10] | medium_feeder | ornamental |
+| *Impatiens walleriana* | Fleißiges Lieschen | Balsaminaceae | herb | fibrous | tender | annual | 10 | [5, 6, 7, 8, 9, 10] | light_feeder | ornamental |
+| *Calibrachoa × hybrida* | Zauberglöckchen, Calibrachoa | Solanaceae | herb | fibrous | tender | annual | 10 | [5, 6, 7, 8, 9, 10] | heavy_feeder | ornamental |
+| *Primula vulgaris* | Primel, Kissenprimel | Primulaceae | herb | fibrous | hardy | perennial | 10 | [2, 3, 4, 5] | light_feeder | ornamental |
+
+<!-- Quelle: Agrarbiologie-Review AB-011, AB-012, AB-013, 2026-03 -->
+**Korrekturen gegenüber v3.0:**
+- **AB-001:** *Calibrachoa* → *Calibrachoa × hybrida* (Hybridzeichen nach APG IV Binomialnomenklatur)
+- **AB-011:** *Lobelia erinus* `frost_sensitivity` von `half_hardy` → `tender` (Sämlinge sind frostempfindlich; Auspflanzen erst nach Eisheiligen)
+- **AB-012:** *Viola x wittrockiana* + *Viola cornuta* `sowing_indoor_weeks_before_last_frost` von `8` → `12` (8 Wochen ergibt zu kleine Pflanzen; kommerzieller Standard: 12–16 Wochen)
+- **AB-004:** `traits`-Spalte ergänzt — alle Zierpflanzen-Species erhalten `ornamental` (lowercase, konsistent mit Cultivar.validate_traits)
+
+**Ergänzende Direktsaat-Daten (AB-013):**
+- *Tagetes patula*: `direct_sow_months: [5, 6]` — Direktsaat nach Eisheiligen möglich, Blüte ca. 2–3 Wochen später als bei Voranzucht
+
+**Artspezifische Keimtemperaturen (AB-007):**
+
+| Species | Keimtemperatur optimal (°C) | Keimtemperatur min (°C) | Besonderheit |
+|---------|----------------------------|------------------------|-------------|
+| *Viola x wittrockiana* | 15–18 | 10 | Thermoinhibition ab 22°C — NICHT auf Heizmatte! Lichtkeimer. |
+| *Viola cornuta* | 15–18 | 10 | Wie Viola x wittrockiana |
+| *Petunia x hybrida* | 22–25 | 18 | Bodenwärme empfohlen (Heizmatte). Lichtkeimer. |
+| *Tagetes patula* | 20–25 | 15 | Schnelle Keimung (3–5 Tage). Dunkelkeimer. |
+| *Lobelia erinus* | 20–22 | 16 | Lichtkeimer — Samen nur andrücken, nicht bedecken. Keimdauer 14–21 Tage. |
+| *Impatiens walleriana* | 22–25 | 18 | Lichtkeimer. Keimdauer 10–14 Tage. |
+| *Calibrachoa × hybrida* | 22–25 | 18 | Lichtkeimer. Professionelle Anzucht empfohlen. |
+| *Primula vulgaris* | 12–15 | 5 | Kaltkeimer — 2–4 Wochen Stratifikation bei 0–5°C förderlich. Lichtkeimer. |
+
+Zusätzliche BotanicalFamily-Einträge für Zierpflanzen (sofern nicht bereits vorhanden):
+
+| name | common_name_de | common_name_en | order | typical_nutrient_demand | nitrogen_fixing | typical_root_depth | frost_tolerance | pollination_type |
+|------|---------------|---------------|-------|------------------------|----------------|-------------------|----------------|-----------------|
+| Geraniaceae | Storchschnabelgewächse | Geranium family | Geraniales | medium | false | SHALLOW | SENSITIVE | INSECT |
+| Campanulaceae | Glockenblumengewächse | Bellflower family | Asterales | light | false | SHALLOW | MODERATE | INSECT |
+| Balsaminaceae | Balsaminengewächse | Balsam family | Ericales | light | false | SHALLOW | SENSITIVE | INSECT |
+| Primulaceae | Primelgewächse | Primrose family | Ericales | light | false | SHALLOW | HARDY | INSECT, SELF |
+
+<!-- Quelle: Agrarbiologie-Review AB-002, 2026-03 -->
+> **Taxonomie-Hinweis (APG IV):** *Primulaceae* und *Balsaminaceae* gehören seit APG III (2009) zur Ordnung **Ericales** (nicht zur historischen Ordnung Primulales bzw. einer eigenen Ordnung). Dies ist korrekt nach aktuellem molekulargenetischem Stand.
+
+<!-- Quelle: Agrarbiologie-Review AB-015, 2026-03 -->
+**Toxizitätsdaten: Zierpflanzen-Species**
+
+| Species | is_toxic_cats | is_toxic_dogs | is_toxic_children | toxic_compounds | toxic_parts | severity | source |
+|---------|:---:|:---:|:---:|---------|---------|----------|--------|
+| *Viola x wittrockiana* | false | false | false | – | – | none | ASPCA |
+| *Viola cornuta* | false | false | false | – | – | none | ASPCA |
+| *Petunia x hybrida* | false | false | false | – | – | none | ASPCA |
+| *Pelargonium zonale* | true | true | false | geraniol, linalool | leaves, stems | mild | ASPCA |
+| *Tagetes patula* | true | true | false | thiophene_derivatives | leaves, flowers | mild | ASPCA |
+| *Lobelia erinus* | true | true | true | lobeline (alkaloid) | all, especially seeds | moderate | Giftnotruf Bonn |
+| *Osteospermum ecklonis* | false | false | false | – | – | none | ASPCA |
+| *Impatiens walleriana* | false | false | false | saponins (trace) | all | none | ASPCA |
+| *Calibrachoa × hybrida* | false | false | false | – | – | none | ASPCA |
+| *Primula vulgaris* | false | true | false | primin (contact dermatitis) | leaves, stems | mild | ASPCA |
+<!-- /Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03 -->
 
 **Seed-Daten: rotation_after-Kanten (~16 gerichtete Kanten):**
 
@@ -764,12 +837,29 @@ class SpeciesDefinition(BaseModel):
     )
     # /Quelle: Outdoor-Garden-Planner Review G-001
 
+    # Quelle: Agrarbiologie-Review AB-004, 2026-03
+    traits: list[str] = Field(
+        default_factory=list,
+        description="Tags auf Species-Ebene, z.B. ['ornamental']. Analog zu Cultivar.traits."
+    )
+
     @field_validator('scientific_name')
     @classmethod
     def validate_scientific_name(cls, v):
+        """Validiert Binomialnomenklatur und Hybridnotation.
+
+        Akzeptiert:
+        - "Genus species" (2 Teile, Standard-Binomial)
+        - "Genus x species" oder "Genus × species" (3 Teile, Hybrid-Notation)
+        """
         parts = v.split()
+        if len(parts) == 3 and parts[1] in ('x', '×'):
+            return v  # Gültige Hybrid-Notation (z.B. "Viola x wittrockiana", "Calibrachoa × hybrida")
         if len(parts) != 2:
-            raise ValueError("Wissenschaftlicher Name muss aus Gattung und Art bestehen")
+            raise ValueError(
+                "Wissenschaftlicher Name muss Binomialnomenklatur (Gattung Art) "
+                "oder Hybridnotation (Gattung × Art) sein"
+            )
         return v
     
     @field_validator('vernalization_days')
@@ -854,6 +944,7 @@ class CultivarDefinition(BaseModel):
             'drought_tolerant', 'cold_hardy', 'heat_tolerant', 'early_maturing',
             'long_season', 'ornamental', 'heirloom', 'hybrid', 'f1',
             'autoflower',  # Quelle: G-009
+            'self_cleaning',  # Quelle: AB-016 — verblühte Blüten fallen von selbst (kein Deadheading nötig)
         }
         invalid = set(v) - valid_traits
         if invalid:

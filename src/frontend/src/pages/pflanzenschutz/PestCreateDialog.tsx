@@ -10,6 +10,7 @@ import { z } from 'zod';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
+import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -93,6 +94,7 @@ export default function PestCreateDialog({ open, onClose, onCreated }: Props) {
             control={control}
             label={t('pages.ipm.scientificName')}
             required
+            autoFocus
             helperText={t('pages.ipm.scientificNameHelper')}
           />
           <FormTextField
@@ -116,20 +118,26 @@ export default function PestCreateDialog({ open, onClose, onCreated }: Props) {
             control={control}
             label={t('pages.ipm.lifecycleDays')}
             min={1}
-            step={1}
+            inputMode="numeric"
             helperText={t('pages.ipm.lifecycleDaysHelper')}
           />
-          <FormNumberField
-            name="optimal_temp_min"
-            control={control}
-            label={t('pages.ipm.optimalTempMin')}
-            helperText={t('pages.ipm.optimalTempHelper')}
-          />
-          <FormNumberField
-            name="optimal_temp_max"
-            control={control}
-            label={t('pages.ipm.optimalTempMax')}
-          />
+          <FormRow>
+            <FormNumberField
+              name="optimal_temp_min"
+              control={control}
+              label={t('pages.ipm.optimalTempMin')}
+              helperText={t('pages.ipm.optimalTempHelper')}
+              inputMode="decimal"
+              suffix="\u00b0C"
+            />
+            <FormNumberField
+              name="optimal_temp_max"
+              control={control}
+              label={t('pages.ipm.optimalTempMax')}
+              inputMode="decimal"
+              suffix="\u00b0C"
+            />
+          </FormRow>
           <FormSelectField
             name="detection_difficulty"
             control={control}

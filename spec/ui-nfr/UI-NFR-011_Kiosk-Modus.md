@@ -6,9 +6,9 @@ Kategorie: UI-Verhalten Unterkategorie: Kiosk, Touch, Gewächshaus, Feldmodus
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.0
+Version: 1.1
 Autor: Business Analyst - Agrotech
-Datum: 2026-02-27
+Datum: 2026-02-28
 Tags: [kiosk, touch-targets, greenhouse, dirty-hands, gloves, simplified-ui, auto-timeout, high-contrast]
 Abhängigkeiten: [UI-NFR-001, UI-NFR-002, UI-NFR-004, UI-NFR-005, UI-NFR-006]
 Betroffene Module: [Frontend, Mobile]
@@ -152,6 +152,28 @@ Ohne Kiosk-Modus wird die Anwendung in der primären Arbeitsumgebung nicht praxi
 | R-054 | Im Kiosk-Modus SOLL nach dem Timeout-Reset ein Bildschirmschoner oder ein gedimmter Zustand angezeigt werden, um den Bildschirm zu schonen und Energie zu sparen. | SOLL |
 | R-055 | Der Bildschirmschoner SOLL die aktuelle Uhrzeit und den wichtigsten Status-Wert (z.B. Anzahl offener Aufgaben, letzter Sensorwert) in großer Schrift anzeigen. | SOLL |
 | R-056 | Eine beliebige Touch-Interaktion MUSS den Bildschirmschoner beenden und die Kiosk-Startseite anzeigen. | MUSS |
+
+<!-- Quelle: Frontend-Design-Review K-002 (Massentauglichkeit 2026-02-28) -->
+### 2.10 Implementierungspriorität & MVP-Scope
+
+**Begründung:** Die gesamte UI-NFR-011 (56 Einzelanforderungen) ist zum Stand 2026-02-28 nicht implementiert. Kein `/kiosk`-Route, kein Kiosk-Toggle, keine Quick-Action-Kacheln, kein Auto-Timeout, kein High-Contrast-Theme. Der Kiosk-Modus ist die prioritäre Anforderung für den professionellen Einsatz im Growraum — ohne ihn weichen Nutzer auf Papiernotizen aus. Die folgende Phasierung definiert den Mindestumfang (MVP) und die empfohlene Implementierungsreihenfolge.
+
+| Phase | Umfang | Anforderungen | Begründung |
+|-------|--------|---------------|------------|
+| **Phase 1 — MVP** | `/kiosk`-Route, KioskProvider-Context, 4 Quick-Action-Kacheln (Pflanze scannen, Bewässerung erfassen, Rundgang starten, Problem melden), Kiosk-Badge in App-Bar, Auto-Timeout mit Warnung + Reset | R-001, R-002, R-003, R-014, R-015, R-033–R-036 | Grundstruktur ermöglicht erste praxistaugliche Nutzung im Gewächshaus. Ohne diese Basis hat der Kiosk-Modus keinen Wert. |
+| **Phase 2 — Touch-Optimierung** | Touch-Target-Scaling (64px Minimum), MUI-Defaults auf `size: 'large'`, Debouncing (300ms), Long-Press für destruktive Aktionen, Scroll-Indikatoren | R-007–R-013, R-029–R-032 | Macht die Bedienung mit Handschuhen und verschmutzten Händen möglich. Ohne Touch-Scaling ist der Kiosk-Modus zwar erreichbar aber nicht bedienbar. |
+| **Phase 3 — Navigation & Eingabe** | Zurück-Button statt Breadcrumbs, Home-Button, 2-Ebenen-Tiefe, Quick-Select-Kacheln (EC, pH, Temperatur), reduzierte Formulare, Stepper-Buttons, Fullscreen-API | R-004, R-006, R-017–R-028 | Vereinfacht den Workflow auf das Wesentliche. Quick-Select-Kacheln sind der zentrale Effizienzgewinn gegenüber Standard-Formularen. |
+| **Phase 4 — Visual & Feedback** | High-Contrast-Theme (WCAG AAA), Vollbild-Overlays für Erfolg/Fehler, Audio-Signale, Button-Press-Feedback, Bildschirmschoner, konfigurierbarer Timeout | R-005, R-037–R-056 | Polishing für professionelle Dauerbetrieb-Szenarien. High-Contrast-Theme verbessert die Lesbarkeit bei Sonneneinstrahlung erheblich. |
+
+**MVP-Definition (Mindestumfang für erste nutzbare Version):**
+
+| Komponente | Beschreibung |
+|-----------|-------------|
+| `KioskProvider` | React Context der den Kiosk-Modus global verwaltet (isKiosk, toggleKiosk, timeoutConfig). MUI-Theme-Override für Touch-Target-Größen. |
+| `/kiosk` Route | Dedizierte Route mit eigenem Layout (keine Sidebar, kein Breadcrumb). |
+| `KioskStartPage` | 4 Quick-Action-Kacheln (min. 80×80px), Status-Zusammenfassung, letzte Aktivität. |
+| `KioskAppBar` | Kiosk-Badge, Home-Button, Zurück-Button. |
+| `useKioskTimeout` | Hook für Inaktivitäts-Timer (Touch-Event-Listener, Timeout-Warnung, Reset-zur-Startseite). |
 
 ---
 
@@ -391,8 +413,8 @@ Ohne Kiosk-Modus wird die Anwendung in der primären Arbeitsumgebung nicht praxi
 
 **Dokumenten-Ende**
 
-**Version**: 1.0
+**Version**: 1.1
 **Status**: Entwurf
-**Letzte Aktualisierung**: 2026-02-27
+**Letzte Aktualisierung**: 2026-02-28
 **Review**: Pending
 **Genehmigung**: Pending

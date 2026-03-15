@@ -1,6 +1,9 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.watering_events.schemas import (
+    VolumeSuggestionResponse,
     WateringConfirmRequest,
     WateringConfirmResponse,
     WateringEventCreate,
@@ -45,19 +48,27 @@ def list_events(
     return [_event_response(e) for e in items]
 
 
+@router.get("/watering-events/{key}", response_model=WateringEventResponse)
+def get_event(
+    key: str,
+    service: WateringService = Depends(get_watering_service),
+):
+    return _event_response(service.get_event(key))
+
+
 # ── Queries ──────────────────────────────────────────────────────────
 
 @router.get(
-    "/slots/{slot_key}/watering-events",
+    "/plant-instances/{plant_key}/watering-events",
     response_model=list[WateringEventResponse],
 )
-def get_slot_events(
-    slot_key: str,
+def get_plant_events(
+    plant_key: str,
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     service: WateringService = Depends(get_watering_service),
 ):
-    events = service.get_by_slot(slot_key, offset, limit)
+    events = service.get_by_plant(plant_key, offset, limit)
     return [_event_response(e) for e in events]
 
 
@@ -112,3 +123,19 @@ def quick_confirm_watering(
 ):
     result = service.quick_confirm_watering(body.run_key, body.task_key)
     return WateringConfirmResponse(**result)
+
+
+# ── Volume suggestion ─────────────────────────────────────────────
+
+@router.get(
+    "/plant-instances/{plant_key}/watering-volume-suggestion",
+    response_model=VolumeSuggestionResponse,
+)
+def suggest_watering_volume(
+    plant_key: str,
+    reference_date: date | None = Query(default=None, description="ISO date for seasonal lookup"),
+    hemisphere: str = Query(default="north", pattern="^(north|south)$"),
+    service: WateringService = Depends(get_watering_service),
+):
+    suggestion = service.suggest_volume(plant_key, reference_date, hemisphere)
+    return VolumeSuggestionResponse(**suggestion.model_dump())

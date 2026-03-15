@@ -1,0 +1,1809 @@
+# Plant-info seed data from spec/ref/plant-info/*.md — Outdoor Garden Plants Batch 2.
+#
+# Adds 15 new botanical families, 38 new species, enriches 14 existing species,
+# and adds companion planting edges.
+#
+# Enum mapping notes:
+#   - "rhizomatous" root_type in docs → mapped to "fibrous" (closest match in RootType enum)
+#   - "tender" frost_sensitivity in docs → mapped to "sensitive" (FrostTolerance enum)
+#   - "half_hardy" frost_sensitivity → mapped to "moderate" (FrostTolerance enum)
+#   - nutrient_demand_level values use doc format (light_feeder, medium_feeder, heavy_feeder, nitrogen_fixer)
+#     as per existing plant_info.yaml pattern
+
+# ==============================================================================
+# S1  NEW BOTANICAL FAMILIES (15)
+# ==============================================================================
+
+new_families:
+  - name: Oleaceae
+    common_name_de: "Oelgewaechse"
+    common_name_en: Olive family
+    order: Lamiales
+    typical_nutrient_demand: medium
+    frost_tolerance: hardy
+    typical_root_depth: deep
+    typical_growth_forms: [shrub, tree]
+    common_pests: [aphids, scale_insects, lilac_borer]
+    common_diseases: [powdery_mildew, bacterial_blight]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
+    description: >-
+      Oelbaumgewaechse mit Flieder, Forsythie und Liguster.
+      Meist Straeucher oder Baeume, teils immergruen.
+    rotation_category: ornamental
+
+  - name: Geraniaceae
+    common_name_de: Storchschnabelgewaechse
+    common_name_en: Geranium family
+    order: Geraniales
+    typical_nutrient_demand: light
+    frost_tolerance: hardy
+    typical_root_depth: shallow
+    typical_growth_forms: [herb]
+    common_pests: [slugs, vine_weevil]
+    common_diseases: [powdery_mildew, rust]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
+    description: >-
+      Storchschnabelgewaechse mit winterharten Geranium-Arten.
+      Beliebte Bodendecker und Staudenpflanzen.
+    rotation_category: ornamental
+
+  - name: Ranunculaceae
+    common_name_de: Hahnenfussgewaechse
+    common_name_en: Buttercup family
+    order: Ranunculales
+    typical_nutrient_demand: medium
+    frost_tolerance: hardy
+    typical_root_depth: medium
+    typical_growth_forms: [herb]
+    common_pests: [aphids, slugs]
+    common_diseases: [black_spot, crown_rot]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
+    description: >-
+      Hahnenfussgewaechse mit Christrose, Eisenhut und Rittersporn.
+      Viele Arten enthalten Alkaloide (giftig).
+    rotation_category: ornamental
+
+  - name: Asphodelaceae
+    common_name_de: Grasliliengewaechse
+    common_name_en: Asphodel family
+    order: Asparagales
+    typical_nutrient_demand: medium
+    frost_tolerance: hardy
+    typical_root_depth: medium
+    typical_growth_forms: [herb]
+    common_pests: [thrips, slugs, deer]
+    common_diseases: [rust, leaf_streak]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
+    description: >-
+      Grasliliengewaechse mit Taglilien (Hemerocallis) und Aloe.
+      Robuste Stauden mit Knollen oder Rhizomen.
+    rotation_category: ornamental
+
+  - name: Hydrangeaceae
+    common_name_de: Hortensiengewaechse
+    common_name_en: Hydrangea family
+    order: Cornales
+    typical_nutrient_demand: medium
+    frost_tolerance: moderate
+    typical_root_depth: medium
+    typical_growth_forms: [shrub]
+    common_pests: [aphids, spider_mites, vine_weevil]
+    common_diseases: [powdery_mildew, leaf_spot, botrytis]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 5.0
+      max_ph: 6.5
+    description: >-
+      Hortensiengewaechse. Bluetenfarbe pH-abhaengig (sauer = blau, alkalisch = rosa).
+      Feuchtigkeitsliebende Straeucher.
+    rotation_category: ornamental
+
+  - name: Paeoniaceae
+    common_name_de: Pfingstrosengewaechse
+    common_name_en: Peony family
+    order: Saxifragales
+    typical_nutrient_demand: medium
+    frost_tolerance: hardy
+    typical_root_depth: deep
+    typical_growth_forms: [herb, shrub]
+    common_pests: [ants, botrytis, nematodes]
+    common_diseases: [botrytis, powdery_mildew, leaf_spot]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
+    description: >-
+      Pfingstrosengewaechse mit langlebigen Stauden- und Strauchpfingstrosen.
+      Benoetigen Kaelteperiode fuer Blueteninduktion (Vernalisation).
+    rotation_category: ornamental
+
+  - name: Boraginaceae
+    common_name_de: Raublattgewaechse
+    common_name_en: Borage family
+    order: Boraginales
+    typical_nutrient_demand: light
+    frost_tolerance: moderate
+    typical_root_depth: medium
+    typical_growth_forms: [herb]
+    common_pests: [aphids]
+    common_diseases: [powdery_mildew]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
+    description: >-
+      Raublattgewaechse mit Phacelia und Borretsch.
+      Hervorragende Bienenweide und Gruenduengung.
+    rotation_category: green_manure
+
+  - name: Vitaceae
+    common_name_de: Weinrebengewaechse
+    common_name_en: Grape family
+    order: Vitales
+    typical_nutrient_demand: medium
+    frost_tolerance: hardy
+    typical_root_depth: deep
+    typical_growth_forms: [vine]
+    common_pests: [grape_phylloxera, spider_mites, grape_berry_moth]
+    common_diseases: [downy_mildew, powdery_mildew, botrytis]
+    pollination_type: [wind, self]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
+    description: >-
+      Weinrebengewaechse. Rankende Holzgewaechse mit Trauben.
+      PIWI-Sorten (pilzwiderstandsfaehig) fuer Norddeutschland empfohlen.
+    rotation_category: permanent
+
+  - name: Ericaceae
+    common_name_de: Heidekrautgewaechse
+    common_name_en: Heath family
+    order: Ericales
+    typical_nutrient_demand: light
+    frost_tolerance: hardy
+    typical_root_depth: shallow
+    typical_growth_forms: [shrub]
+    common_pests: [vine_weevil, lace_bug]
+    common_diseases: [phytophthora, chlorosis]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 4.0
+      max_ph: 5.5
+    description: >-
+      Heidekrautgewaechse mit Rhododendron, Heidelbeere und Erika.
+      Benoetigen zwingend saure Boeden (pH 4.0-5.5). Mykorrhiza-abhaengig.
+    rotation_category: permanent
+
+  - name: Grossulariaceae
+    common_name_de: Stachelbeergewaechse
+    common_name_en: Currant family
+    order: Saxifragales
+    typical_nutrient_demand: medium
+    frost_tolerance: hardy
+    typical_root_depth: medium
+    typical_growth_forms: [shrub]
+    common_pests: [gooseberry_sawfly, aphids, scale_insects]
+    common_diseases: [powdery_mildew, leaf_spot]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
+    description: >-
+      Stachelbeergewaechse mit Johannisbeere und Stachelbeere.
+      Winterharte Beerenstraeucher fuer Norddeutschland.
+    rotation_category: permanent
+
+  - name: Adoxaceae
+    common_name_de: Moschuskrautgewaechse
+    common_name_en: Moschatel family
+    order: Dipsacales
+    typical_nutrient_demand: medium
+    frost_tolerance: hardy
+    typical_root_depth: medium
+    typical_growth_forms: [shrub]
+    common_pests: [aphids, viburnum_leaf_beetle]
+    common_diseases: [powdery_mildew]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.0
+    description: >-
+      Moschuskrautgewaechse mit Holunder (Sambucus) und Schneeball (Viburnum).
+      Einheimische Wildstraeucher, Vogelnaehrgehoelze.
+    rotation_category: permanent
+
+  - name: Caprifoliaceae
+    common_name_de: Geissblattgewaechse
+    common_name_en: Honeysuckle family
+    order: Dipsacales
+    typical_nutrient_demand: medium
+    frost_tolerance: hardy
+    typical_root_depth: medium
+    typical_growth_forms: [shrub]
+    common_pests: [aphids]
+    common_diseases: [powdery_mildew, leaf_spot]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.0
+    description: >-
+      Geissblattgewaechse mit Weigelie, Geissblatt und Abelie.
+      Ueberwiegend Zierstaerucher mit reicher Bluete.
+    rotation_category: ornamental
+
+  - name: Polemoniaceae
+    common_name_de: Himmelsleitergewaechse
+    common_name_en: Phlox family
+    order: Ericales
+    typical_nutrient_demand: medium
+    frost_tolerance: hardy
+    typical_root_depth: medium
+    typical_growth_forms: [herb]
+    common_pests: [spider_mites, nematodes]
+    common_diseases: [powdery_mildew, leaf_spot]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
+    description: >-
+      Himmelsleitergewaechse mit Phlox und Jakobsleiter.
+      Beliebte Gartenstauden mit langer Bluetezeit.
+    rotation_category: ornamental
+
+  - name: Polygonaceae
+    common_name_de: Knoeterichgewaechse
+    common_name_en: Buckwheat family
+    order: Caryophyllales
+    typical_nutrient_demand: medium
+    frost_tolerance: hardy
+    typical_root_depth: deep
+    typical_growth_forms: [herb]
+    common_pests: [aphids, slugs]
+    common_diseases: [leaf_spot, crown_rot]
+    pollination_type: [wind, insect]
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.0
+    description: >-
+      Knoeterichgewaechse mit Rhabarber, Buchweizen und Sauerampfer.
+      Enthaelt Oxalsaeure in Blaettern (Rhabarber).
+    rotation_category: vegetable
+
+  - name: Tropaeolaceae
+    common_name_de: Kapuzinerkressengewaechse
+    common_name_en: Nasturtium family
+    order: Brassicales
+    typical_nutrient_demand: light
+    frost_tolerance: sensitive
+    typical_root_depth: shallow
+    typical_growth_forms: [herb, vine]
+    common_pests: [aphids, caterpillars, whiteflies]
+    common_diseases: [mosaic_virus]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 7.0
+    description: >-
+      Kapuzinerkressengewaechse. Essbare Blueten und Blaetter (senfoel-artig).
+      Hervorragende Blattlaus-Fangpflanze (Trap Crop).
+    rotation_category: ornamental
+
+# ==============================================================================
+# S2  NEW SPECIES (38)
+# ==============================================================================
+
+new_species_family_map:
+  "Forsythia x intermedia": Oleaceae
+  "Geranium sanguineum": Geraniaceae
+  "Helleborus niger": Ranunculaceae
+  "Hemerocallis spp.": Asphodelaceae
+  "Hosta spp.": Asparagaceae
+  "Hydrangea macrophylla": Hydrangeaceae
+  "Levisticum officinale": Apiaceae
+  "Ligustrum vulgare": Oleaceae
+  "Lupinus polyphyllus": Fabaceae
+  "Malus domestica": Rosaceae
+  "Medicago sativa": Fabaceae
+  "Melissa officinalis": Lamiaceae
+  "Origanum vulgare": Lamiaceae
+  "Paeonia lactiflora": Paeoniaceae
+  "Pastinaca sativa": Apiaceae
+  "Phacelia tanacetifolia": Boraginaceae
+  "Phlox paniculata": Polemoniaceae
+  "Prunus avium": Rosaceae
+  "Prunus domestica": Rosaceae
+  "Pyrus communis": Rosaceae
+  "Rheum rhabarbarum": Polygonaceae
+  "Rhododendron spp.": Ericaceae
+  "Ribes rubrum": Grossulariaceae
+  "Ribes uva-crispa": Grossulariaceae
+  "Rosa spp.": Rosaceae
+  "Rubus fruticosus agg.": Rosaceae
+  "Rubus idaeus": Rosaceae
+  "Sambucus nigra": Adoxaceae
+  "Satureja hortensis": Lamiaceae
+  "Sinapis alba": Brassicaceae
+  "Spinacia oleracea": Amaranthaceae
+  "Syringa vulgaris": Oleaceae
+  "Tagetes patula": Asteraceae
+  "Tropaeolum majus": Tropaeolaceae
+  "Vaccinium corymbosum": Ericaceae
+  "Viburnum opulus": Adoxaceae
+  "Vitis vinifera": Vitaceae
+  "Weigela florida": Caprifoliaceae
+
+new_species:
+  # ---------- Ornamental shrubs / trees ----------
+
+  - scientific_name: "Forsythia x intermedia"
+    common_names: [Forsythie, Goldgloeckchen, Forsythia]
+    genus: Forsythia
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
+    native_habitat: "Hybride (F. suspensa x F. viridissima); Ostasien"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: false
+    bloom_months: [3, 4]
+    container_suitable: limited
+    recommended_container_volume_l: "40-60"
+    min_container_depth_cm: 40
+    mature_height_cm: "200-300"
+    mature_width_cm: "200-300"
+    spacing_cm: "150-200"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [4, 5]
+
+  - scientific_name: "Geranium sanguineum"
+    common_names: [Blut-Storchschnabel, Bloody Cranesbill]
+    genus: Geranium
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
+    native_habitat: "Europa, Westasien"
+    allelopathy_score: 0.1
+    frost_sensitivity: hardy
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: 7
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [4, 5]
+    bloom_months: [5, 6, 7, 8, 9]
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-10"
+    min_container_depth_cm: 20
+    mature_height_cm: "15-40"
+    mature_width_cm: "30-60"
+    spacing_cm: "30-40"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [7, 8]
+
+  - scientific_name: "Helleborus niger"
+    common_names: [Christrose, Schneerose, Christmas Rose]
+    genus: Helleborus
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
+    native_habitat: "Alpen, Mittel- und Suedeuropa"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: false
+    bloom_months: [12, 1, 2, 3]
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-10"
+    min_container_depth_cm: 25
+    mature_height_cm: "20-40"
+    mature_width_cm: "30-50"
+    spacing_cm: "30-40"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: spring_pruning
+    pruning_months: [3]
+
+  - scientific_name: "Hemerocallis spp."
+    common_names: [Taglilie, Daylily]
+    genus: Hemerocallis
+    growth_habit: herb
+    root_type: tuberous
+    hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
+    native_habitat: "China, Korea, Japan"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: false
+    bloom_months: [6, 7, 8]
+    container_suitable: "yes"
+    recommended_container_volume_l: "15-30"
+    min_container_depth_cm: 25
+    mature_height_cm: "30-120"
+    mature_width_cm: "40-80"
+    spacing_cm: "45-60"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [10, 11]
+
+  - scientific_name: "Hosta spp."
+    common_names: [Funkie, Herzlilie, Hosta, Plantain Lily]
+    genus: Hosta
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
+    native_habitat: "Ostasien (Japan, Korea, China)"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: false
+    bloom_months: [6, 7, 8]
+    container_suitable: "yes"
+    recommended_container_volume_l: "10-30"
+    min_container_depth_cm: 25
+    mature_height_cm: "15-120"
+    mature_width_cm: "30-150"
+    spacing_cm: "40-80"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: winter_pruning
+    pruning_months: [10, 11, 3]
+
+  - scientific_name: "Hydrangea macrophylla"
+    common_names: [Gartenhortensie, Bauernhortensie, Hydrangea, Bigleaf Hydrangea]
+    genus: Hydrangea
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a]
+    native_habitat: "Japan"
+    allelopathy_score: 0.0
+    frost_sensitivity: moderate
+    allows_harvest: false
+    bloom_months: [6, 7, 8, 9]
+    container_suitable: "yes"
+    recommended_container_volume_l: "20-40"
+    min_container_depth_cm: 35
+    mature_height_cm: "80-200"
+    mature_width_cm: "100-200"
+    spacing_cm: "100-150"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: spring_pruning
+    pruning_months: [3, 4]
+
+  - scientific_name: "Ligustrum vulgare"
+    common_names: [Liguster, Gewoehnlicher Liguster, Wild Privet]
+    genus: Ligustrum
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
+    native_habitat: "Europa, Nordafrika, Westasien"
+    allelopathy_score: -0.1
+    frost_sensitivity: hardy
+    allows_harvest: false
+    bloom_months: [6, 7]
+    container_suitable: limited
+    recommended_container_volume_l: "20-40"
+    min_container_depth_cm: 30
+    mature_height_cm: "200-400"
+    mature_width_cm: "200-400"
+    spacing_cm: "30-50"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    pruning_type: summer_pruning
+    pruning_months: [6, 7, 8]
+
+  - scientific_name: "Paeonia lactiflora"
+    common_names: [Staudenpfingstrose, Edelpfingstrose, Chinese Peony, Garden Peony]
+    genus: Paeonia
+    growth_habit: herb
+    root_type: tuberous
+    hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
+    native_habitat: "Ostasien (China, Mongolei, Sibirien)"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: false
+    bloom_months: [5, 6]
+    container_suitable: limited
+    recommended_container_volume_l: "30-50"
+    min_container_depth_cm: 40
+    mature_height_cm: "60-100"
+    mature_width_cm: "60-100"
+    spacing_cm: "60-80"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: true
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [10, 11]
+
+  - scientific_name: "Phlox paniculata"
+    common_names: [Flammenblume, Hoher Stauden-Phlox, Garden Phlox]
+    genus: Phlox
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
+    native_habitat: "oestliches Nordamerika"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: false
+    bloom_months: [7, 8, 9]
+    container_suitable: limited
+    recommended_container_volume_l: "15-25"
+    min_container_depth_cm: 30
+    mature_height_cm: "60-120"
+    mature_width_cm: "40-60"
+    spacing_cm: "45-60"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [10, 11]
+
+  - scientific_name: "Rhododendron spp."
+    common_names: [Rhododendron, Alpenrose]
+    genus: Rhododendron
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
+    native_habitat: "Asien (Himalaya, China), Amerika, Europa"
+    allelopathy_score: -0.3
+    frost_sensitivity: hardy
+    allows_harvest: false
+    bloom_months: [4, 5, 6]
+    container_suitable: "yes"
+    recommended_container_volume_l: "20-60"
+    min_container_depth_cm: 35
+    mature_height_cm: "50-300"
+    mature_width_cm: "60-300"
+    spacing_cm: "80-200"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [5, 6]
+
+  - scientific_name: "Rosa spp."
+    common_names: [Gartenrose, Rose, Garden Rose]
+    genus: Rosa
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
+    native_habitat: "Nordhalbkugel (Europa, Asien, Nordamerika)"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: false
+    bloom_months: [5, 6, 7, 8, 9, 10]
+    container_suitable: limited
+    recommended_container_volume_l: "30-50"
+    min_container_depth_cm: 40
+    mature_height_cm: "50-300"
+    mature_width_cm: "50-200"
+    spacing_cm: "50-100"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: true
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    pruning_type: spring_pruning
+    pruning_months: [3, 4]
+
+  - scientific_name: "Syringa vulgaris"
+    common_names: [Gemeiner Flieder, Edelflieder, Common Lilac]
+    genus: Syringa
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b]
+    native_habitat: "Balkanhalbinsel (Suedosteuropa)"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: false
+    bloom_months: [4, 5]
+    container_suitable: limited
+    recommended_container_volume_l: "50-80"
+    min_container_depth_cm: 50
+    mature_height_cm: "200-500"
+    mature_width_cm: "200-400"
+    spacing_cm: "200-300"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [5, 6]
+
+  - scientific_name: "Viburnum opulus"
+    common_names: [Gewoehnlicher Schneeball, Gemeiner Schneeball, Guelder-rose]
+    genus: Viburnum
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
+    native_habitat: "Europa, Nordafrika, Zentralasien"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: false
+    bloom_months: [5, 6]
+    container_suitable: limited
+    recommended_container_volume_l: "30-60"
+    min_container_depth_cm: 40
+    mature_height_cm: "200-500"
+    mature_width_cm: "200-400"
+    spacing_cm: "200-300"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [6]
+
+  - scientific_name: "Weigela florida"
+    common_names: [Liebliche Weigelie, Weigelie, Weigela]
+    genus: Weigela
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
+    native_habitat: "China, Korea, Japan"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: false
+    bloom_months: [5, 6]
+    container_suitable: "yes"
+    recommended_container_volume_l: "20-40"
+    min_container_depth_cm: 35
+    mature_height_cm: "100-250"
+    mature_width_cm: "100-200"
+    spacing_cm: "100-150"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [6]
+
+  # ---------- Fruit trees ----------
+
+  - scientific_name: "Malus domestica"
+    common_names: [Kulturapfel, Apfel, Apple]
+    genus: Malus
+    growth_habit: tree
+    root_type: fibrous
+    hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
+    native_habitat: "Zentralasien (Kasachstan)"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: true
+    harvest_months: [8, 9, 10]
+    bloom_months: [4, 5]
+    container_suitable: limited
+    recommended_container_volume_l: "50-100"
+    min_container_depth_cm: 50
+    mature_height_cm: "200-800"
+    mature_width_cm: "200-600"
+    spacing_cm: "250-500"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: true
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: winter_pruning
+    pruning_months: [1, 2, 3]
+
+  - scientific_name: "Prunus avium"
+    common_names: [Suesskirsche, Vogelkirsche, Sweet Cherry, Wild Cherry]
+    genus: Prunus
+    growth_habit: tree
+    root_type: taproot
+    hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
+    native_habitat: "Europa, Westasien"
+    allelopathy_score: -0.1
+    frost_sensitivity: hardy
+    allows_harvest: true
+    harvest_months: [6, 7]
+    bloom_months: [4, 5]
+    container_suitable: limited
+    recommended_container_volume_l: "100-200"
+    min_container_depth_cm: 60
+    mature_height_cm: "400-800"
+    mature_width_cm: "400-800"
+    spacing_cm: "500-800"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: true
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: summer_pruning
+    pruning_months: [7, 8]
+
+  - scientific_name: "Prunus domestica"
+    common_names: [Pflaume, Zwetschge, Plum, European Plum]
+    genus: Prunus
+    growth_habit: tree
+    root_type: fibrous
+    hardiness_zones: [4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
+    native_habitat: "Kultivierter Hybrid (Vorderasien/Kaukasus)"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: true
+    harvest_months: [7, 8, 9, 10]
+    bloom_months: [3, 4]
+    container_suitable: limited
+    recommended_container_volume_l: "50-100"
+    min_container_depth_cm: 50
+    mature_height_cm: "300-800"
+    mature_width_cm: "300-600"
+    spacing_cm: "400-500"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [8, 9]
+
+  - scientific_name: "Pyrus communis"
+    common_names: [Kulturbirne, Gemeine Birne, Pear]
+    genus: Pyrus
+    growth_habit: tree
+    root_type: taproot
+    hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
+    native_habitat: "Westasien, Europa"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: true
+    harvest_months: [8, 9, 10]
+    bloom_months: [4, 5]
+    container_suitable: limited
+    recommended_container_volume_l: "60-200"
+    min_container_depth_cm: 60
+    mature_height_cm: "300-800"
+    mature_width_cm: "300-600"
+    spacing_cm: "400-600"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: true
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: winter_pruning
+    pruning_months: [2, 3]
+
+  # ---------- Berry shrubs ----------
+
+  - scientific_name: "Ribes rubrum"
+    common_names: [Rote Johannisbeere, Ahlbeere, Red Currant]
+    genus: Ribes
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b]
+    native_habitat: "Europa (West- und Mitteleuropa)"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: true
+    harvest_months: [6, 7]
+    bloom_months: [4, 5]
+    container_suitable: limited
+    recommended_container_volume_l: "40-60"
+    min_container_depth_cm: 40
+    mature_height_cm: "100-180"
+    mature_width_cm: "100-150"
+    spacing_cm: "120-150"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [7, 8, 2, 3]
+
+  - scientific_name: "Ribes uva-crispa"
+    common_names: [Stachelbeere, Stachelbeerstrauch, Gooseberry]
+    genus: Ribes
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
+    native_habitat: "Europa, Nordafrika, Kaukasus"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: true
+    harvest_months: [6, 7, 8]
+    bloom_months: [3, 4]
+    container_suitable: limited
+    recommended_container_volume_l: "30-50"
+    min_container_depth_cm: 40
+    mature_height_cm: "80-150"
+    mature_width_cm: "100-150"
+    spacing_cm: "120-150"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: winter_pruning
+    pruning_months: [2, 3, 6]
+
+  - scientific_name: "Rubus fruticosus agg."
+    common_names: [Brombeere, Blackberry, Bramble]
+    genus: Rubus
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
+    native_habitat: "Europa, Nordafrika, Westasien"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: true
+    harvest_months: [7, 8, 9]
+    bloom_months: [5, 6, 7]
+    container_suitable: limited
+    recommended_container_volume_l: "40-60"
+    min_container_depth_cm: 40
+    mature_height_cm: "150-300"
+    mature_width_cm: "100-200"
+    spacing_cm: "150-200"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: true
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [8, 9, 10]
+
+  - scientific_name: "Rubus idaeus"
+    common_names: [Himbeere, Gemeine Himbeere, Raspberry]
+    genus: Rubus
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
+    native_habitat: "Europa, Asien"
+    allelopathy_score: -0.1
+    frost_sensitivity: hardy
+    allows_harvest: true
+    harvest_months: [6, 7, 8, 9, 10]
+    bloom_months: [5, 6, 7, 8]
+    container_suitable: limited
+    recommended_container_volume_l: "40-60"
+    min_container_depth_cm: 40
+    mature_height_cm: "100-200"
+    mature_width_cm: "60-100"
+    spacing_cm: "50"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: true
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [7, 8, 2, 3]
+
+  - scientific_name: "Sambucus nigra"
+    common_names: [Schwarzer Holunder, Fliederbeere, Hollerbusch, Black Elderberry, Elder]
+    genus: Sambucus
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
+    native_habitat: "Europa, Nordafrika, Westasien"
+    allelopathy_score: -0.2
+    frost_sensitivity: hardy
+    allows_harvest: true
+    harvest_months: [6, 7, 8, 9, 10]
+    bloom_months: [5, 6, 7]
+    container_suitable: limited
+    recommended_container_volume_l: "50-80"
+    min_container_depth_cm: 50
+    mature_height_cm: "200-700"
+    mature_width_cm: "200-500"
+    spacing_cm: "200-400"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: spring_pruning
+    pruning_months: [2, 3]
+
+  - scientific_name: "Vaccinium corymbosum"
+    common_names: [Kulturheidelbeere, Amerikanische Heidelbeere, Highbush Blueberry]
+    genus: Vaccinium
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b]
+    native_habitat: "Nordamerika (oestliche USA, Kanada)"
+    allelopathy_score: -0.1
+    frost_sensitivity: hardy
+    allows_harvest: true
+    harvest_months: [7, 8, 9]
+    bloom_months: [4, 5]
+    container_suitable: "yes"
+    recommended_container_volume_l: "30-50"
+    min_container_depth_cm: 40
+    mature_height_cm: "100-200"
+    mature_width_cm: "80-150"
+    spacing_cm: "100-150"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    pruning_type: winter_pruning
+    pruning_months: [2, 3]
+
+  - scientific_name: "Vitis vinifera"
+    common_names: [Weinrebe, Weintraube, Grape Vine]
+    genus: Vitis
+    growth_habit: vine
+    root_type: taproot
+    hardiness_zones: [5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
+    native_habitat: "Vorderasien, Kaukasus, Mittelmeerraum"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: true
+    harvest_months: [9, 10]
+    bloom_months: [6]
+    container_suitable: "yes"
+    recommended_container_volume_l: "30-60"
+    min_container_depth_cm: 50
+    mature_height_cm: "200-600"
+    mature_width_cm: "200-400"
+    spacing_cm: "150-250"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+    greenhouse_recommended: true
+    support_required: true
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: winter_pruning
+    pruning_months: [1, 2, 3]
+
+  # ---------- Herbs ----------
+
+  - scientific_name: "Levisticum officinale"
+    common_names: [Liebstoeckel, Maggikraut, Lovage]
+    genus: Levisticum
+    growth_habit: herb
+    root_type: taproot
+    hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
+    native_habitat: "Vorderasien (Iran, Afghanistan)"
+    allelopathy_score: 0.1
+    frost_sensitivity: hardy
+    allows_harvest: true
+    sowing_indoor_weeks_before_last_frost: 6
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [4, 5]
+    harvest_months: [4, 5, 6, 7, 8, 9, 10]
+    bloom_months: [6, 7]
+    container_suitable: limited
+    recommended_container_volume_l: "20-40"
+    min_container_depth_cm: 40
+    mature_height_cm: "100-200"
+    mature_width_cm: "60-100"
+    spacing_cm: "60-80"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [7, 10]
+
+  - scientific_name: "Melissa officinalis"
+    common_names: [Zitronenmelisse, Melisse, Lemon Balm]
+    genus: Melissa
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a]
+    native_habitat: "Oestliches Mittelmeer, Westasien"
+    allelopathy_score: 0.1
+    frost_sensitivity: hardy
+    allows_harvest: true
+    sowing_indoor_weeks_before_last_frost: 8
+    sowing_outdoor_after_last_frost_days: 14
+    direct_sow_months: [5, 6]
+    harvest_months: [5, 6, 7, 8, 9]
+    bloom_months: [6, 7, 8]
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-10"
+    min_container_depth_cm: 20
+    mature_height_cm: "40-80"
+    mature_width_cm: "30-50"
+    spacing_cm: "30-40"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [6, 7, 8]
+
+  - scientific_name: "Origanum vulgare"
+    common_names: [Oregano, Wilder Majoran, Dost, Oregano]
+    genus: Origanum
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
+    native_habitat: "Mittelmeerraum, Europa, Westasien"
+    allelopathy_score: 0.1
+    frost_sensitivity: hardy
+    allows_harvest: true
+    sowing_indoor_weeks_before_last_frost: 8
+    sowing_outdoor_after_last_frost_days: 14
+    direct_sow_months: [5, 6]
+    harvest_months: [5, 6, 7, 8, 9, 10]
+    bloom_months: [6, 7, 8, 9]
+    container_suitable: "yes"
+    recommended_container_volume_l: "3-5"
+    min_container_depth_cm: 15
+    mature_height_cm: "30-60"
+    mature_width_cm: "30-50"
+    spacing_cm: "25-30"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    pruning_type: spring_pruning
+    pruning_months: [3, 4]
+
+  - scientific_name: "Satureja hortensis"
+    common_names: [Sommer-Bohnenkraut, Summer Savory]
+    genus: Satureja
+    growth_habit: herb
+    root_type: taproot
+    hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b, 11a, 11b]
+    native_habitat: "Oestliches Mittelmeergebiet, Kleinasien"
+    allelopathy_score: 0.2
+    frost_sensitivity: sensitive
+    allows_harvest: true
+    sowing_indoor_weeks_before_last_frost: 6
+    sowing_outdoor_after_last_frost_days: 10
+    direct_sow_months: [5, 6]
+    harvest_months: [6, 7, 8, 9, 10]
+    bloom_months: [7, 8, 9]
+    container_suitable: "yes"
+    recommended_container_volume_l: "1-3"
+    min_container_depth_cm: 15
+    mature_height_cm: "20-40"
+    mature_width_cm: "15-25"
+    spacing_cm: "20-25"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    pruning_type: none
+    pruning_months: []
+
+  # ---------- Vegetables ----------
+
+  - scientific_name: "Pastinaca sativa"
+    common_names: [Pastinake, Parsnip]
+    genus: Pastinaca
+    growth_habit: herb
+    root_type: taproot
+    hardiness_zones: [2a, 2b, 3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a]
+    native_habitat: "Europa, Westasien"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: true
+    sowing_outdoor_after_last_frost_days: -28
+    direct_sow_months: [3, 4, 5]
+    harvest_months: [9, 10, 11, 12, 1, 2]
+    bloom_months: [6, 7]
+    container_suitable: limited
+    recommended_container_volume_l: "10-20"
+    min_container_depth_cm: 30
+    mature_height_cm: "30-40"
+    mature_width_cm: "15-25"
+    spacing_cm: "10-15"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: none
+    pruning_months: []
+
+  - scientific_name: "Rheum rhabarbarum"
+    common_names: [Rhabarber, Gemueserhabarber, Rhubarb, Garden Rhubarb]
+    genus: Rheum
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
+    native_habitat: "Zentralasien (China, Sibirien)"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: true
+    harvest_months: [4, 5, 6]
+    bloom_months: [5, 6, 7]
+    container_suitable: limited
+    recommended_container_volume_l: "50-80"
+    min_container_depth_cm: 40
+    mature_height_cm: "60-150"
+    mature_width_cm: "80-120"
+    spacing_cm: "80-100"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [5, 6, 11]
+
+  - scientific_name: "Spinacia oleracea"
+    common_names: [Spinat, Echter Spinat, Spinach]
+    genus: Spinacia
+    growth_habit: herb
+    root_type: taproot
+    hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
+    native_habitat: "Westasien (Persien)"
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    allows_harvest: true
+    sowing_outdoor_after_last_frost_days: -30
+    direct_sow_months: [2, 3, 4, 5, 8, 9, 10]
+    harvest_months: [4, 5, 6, 9, 10, 11]
+    bloom_months: [5, 6, 7]
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-10"
+    min_container_depth_cm: 15
+    mature_height_cm: "20-40"
+    mature_width_cm: "15-25"
+    spacing_cm: "15-20"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [4, 5, 9, 10]
+
+  # ---------- Green manure / cover crops ----------
+
+  - scientific_name: "Lupinus polyphyllus"
+    common_names: [Vielblaettrige Lupine, Staudenlupine, Garden Lupin, Bigleaf Lupin]
+    genus: Lupinus
+    growth_habit: herb
+    root_type: taproot
+    hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a]
+    native_habitat: "Westliches Nordamerika"
+    allelopathy_score: -0.2
+    frost_sensitivity: hardy
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: 4
+    sowing_outdoor_after_last_frost_days: 14
+    direct_sow_months: [4, 5, 6]
+    bloom_months: [5, 6, 7]
+    container_suitable: limited
+    recommended_container_volume_l: "15-25"
+    min_container_depth_cm: 30
+    mature_height_cm: "80-120"
+    mature_width_cm: "40-60"
+    spacing_cm: "40-50"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: nitrogen_fixer
+    green_manure_suitable: true
+    pruning_type: after_harvest
+    pruning_months: [7, 10]
+
+  - scientific_name: "Medicago sativa"
+    common_names: [Luzerne, Alfalfa, Ewiger Klee]
+    genus: Medicago
+    growth_habit: herb
+    root_type: taproot
+    hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
+    native_habitat: "Vorderasien, Kaukasus"
+    allelopathy_score: -0.2
+    frost_sensitivity: hardy
+    allows_harvest: false
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [4, 5, 6, 7, 8]
+    bloom_months: [6, 7, 8, 9]
+    container_suitable: "no"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+    mature_height_cm: "30-80"
+    mature_width_cm: "20-40"
+    spacing_cm: "5-10"
+    nutrient_demand_level: nitrogen_fixer
+    green_manure_suitable: true
+    pruning_type: after_harvest
+    pruning_months: [6, 7, 8]
+
+  - scientific_name: "Phacelia tanacetifolia"
+    common_names: [Bueschelschoen, Bienenfreund, Phacelia, Scorpion Weed]
+    genus: Phacelia
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [2a, 2b, 3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
+    native_habitat: "Suedwestliches Nordamerika (Kalifornien, Mexiko)"
+    allelopathy_score: 0.0
+    frost_sensitivity: moderate
+    allows_harvest: false
+    sowing_outdoor_after_last_frost_days: -14
+    direct_sow_months: [3, 4, 5, 6, 7, 8, 9]
+    bloom_months: [5, 6, 7, 8, 9, 10]
+    container_suitable: "no"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+    mature_height_cm: "50-100"
+    mature_width_cm: "20-40"
+    spacing_cm: "5-15"
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: true
+    pruning_type: none
+    pruning_months: []
+
+  - scientific_name: "Sinapis alba"
+    common_names: [Gelbsenf, Weisser Senf, White Mustard, Yellow Mustard]
+    genus: Sinapis
+    growth_habit: herb
+    root_type: taproot
+    hardiness_zones: [2a, 2b, 3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
+    native_habitat: "Mittelmeer, Vorderasien"
+    allelopathy_score: 0.3
+    frost_sensitivity: moderate
+    allows_harvest: false
+    sowing_outdoor_after_last_frost_days: -14
+    direct_sow_months: [4, 5, 6, 7, 8, 9]
+    bloom_months: [6, 7, 8, 9]
+    container_suitable: "no"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+    mature_height_cm: "50-100"
+    mature_width_cm: "20-40"
+    spacing_cm: "5-15"
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: true
+    pruning_type: none
+    pruning_months: []
+
+  # ---------- Annual ornamentals ----------
+
+  - scientific_name: "Tagetes patula"
+    common_names: [Studentenblume, Franzoesische Tagetes, French Marigold]
+    genus: Tagetes
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [2a, 2b, 3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b, 11a, 11b]
+    native_habitat: "Mexiko, Guatemala"
+    allelopathy_score: 0.4
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: 7
+    sowing_outdoor_after_last_frost_days: 14
+    direct_sow_months: [5, 6]
+    bloom_months: [6, 7, 8, 9, 10]
+    container_suitable: "yes"
+    recommended_container_volume_l: "3-10"
+    min_container_depth_cm: 20
+    mature_height_cm: "20-40"
+    mature_width_cm: "20-35"
+    spacing_cm: "20-25"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    pruning_type: after_harvest
+    pruning_months: [6, 7, 8, 9]
+
+  - scientific_name: "Tropaeolum majus"
+    common_names: [Grosse Kapuzinerkresse, Kapuzinerkresse, Garden Nasturtium, Indian Cress]
+    genus: Tropaeolum
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
+    native_habitat: "Peru, Kolumbien (Anden)"
+    allelopathy_score: 0.2
+    frost_sensitivity: sensitive
+    allows_harvest: true
+    sowing_indoor_weeks_before_last_frost: 4
+    sowing_outdoor_after_last_frost_days: 14
+    direct_sow_months: [5, 6]
+    harvest_months: [6, 7, 8, 9, 10]
+    bloom_months: [6, 7, 8, 9, 10]
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-10"
+    min_container_depth_cm: 20
+    mature_height_cm: "30-300"
+    mature_width_cm: "40-100"
+    spacing_cm: "25-30"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: true
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    pruning_type: none
+    pruning_months: []
+
+# ==============================================================================
+# S3  SPECIES ENRICHMENT (14 existing species)
+# ==============================================================================
+
+species_enrichment:
+  "Lactuca sativa":
+    container_suitable: "yes"
+    recommended_container_volume_l: "3-5"
+    min_container_depth_cm: 15
+    mature_height_cm: "20-30"
+    mature_width_cm: "20-30"
+    spacing_cm: "25-30"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: true
+    frost_sensitivity: moderate
+    harvest_months: [4, 5, 6, 7, 8, 9, 10, 11]
+    bloom_months: [6, 7, 8]
+    sowing_indoor_weeks_before_last_frost: 5
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [3, 4, 5, 6, 7, 8]
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    allelopathy_score: 0.0
+    native_habitat: "Mittelmeerraum, Vorderasien"
+    pruning_type: none
+    pruning_months: []
+
+  "Lavandula angustifolia":
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-15"
+    min_container_depth_cm: 20
+    mature_height_cm: "30-80"
+    mature_width_cm: "40-80"
+    spacing_cm: "40-60"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    frost_sensitivity: hardy
+    harvest_months: [6, 7, 8]
+    bloom_months: [6, 7, 8]
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    allelopathy_score: 0.1
+    native_habitat: "Westliches Mittelmeer (Frankreich, Spanien)"
+    pruning_type: spring_pruning
+    pruning_months: [3, 4, 8]
+
+  "Mentha piperita":
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-10"
+    min_container_depth_cm: 20
+    mature_height_cm: "30-80"
+    mature_width_cm: "30-60"
+    spacing_cm: "30-40"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    frost_sensitivity: hardy
+    harvest_months: [5, 6, 7, 8, 9, 10]
+    bloom_months: [6, 7, 8]
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    allelopathy_score: 0.2
+    native_habitat: "Hybride (Mentha aquatica x Mentha spicata); Europa"
+    pruning_type: after_harvest
+    pruning_months: [6, 7, 8, 9]
+
+  "Ocimum basilicum":
+    container_suitable: "yes"
+    recommended_container_volume_l: "3-5"
+    min_container_depth_cm: 15
+    mature_height_cm: "30-60"
+    mature_width_cm: "20-35"
+    spacing_cm: "25-30"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: true
+    frost_sensitivity: sensitive
+    harvest_months: [6, 7, 8, 9, 10]
+    bloom_months: [7, 8, 9]
+    sowing_indoor_weeks_before_last_frost: 7
+    sowing_outdoor_after_last_frost_days: 14
+    direct_sow_months: [5, 6]
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    allelopathy_score: 0.1
+    native_habitat: "Tropisches Asien (Indien, Suedostasien)"
+    pruning_type: summer_pruning
+    pruning_months: [5, 6, 7, 8, 9]
+
+  "Petroselinum crispum":
+    container_suitable: "yes"
+    recommended_container_volume_l: "3-5"
+    min_container_depth_cm: 20
+    mature_height_cm: "25-40"
+    mature_width_cm: "20-30"
+    spacing_cm: "20-25"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    frost_sensitivity: moderate
+    harvest_months: [5, 6, 7, 8, 9, 10, 11]
+    bloom_months: [6, 7, 8]
+    sowing_indoor_weeks_before_last_frost: 9
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [3, 4, 5, 6, 7]
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    allelopathy_score: 0.1
+    native_habitat: "Mittelmeerraum"
+    pruning_type: summer_pruning
+    pruning_months: [5, 6, 7, 8, 9, 10]
+
+  "Phaseolus vulgaris":
+    container_suitable: limited
+    recommended_container_volume_l: "10-15"
+    min_container_depth_cm: 20
+    mature_height_cm: "30-300"
+    mature_width_cm: "20-50"
+    spacing_cm: "40-50"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    frost_sensitivity: sensitive
+    harvest_months: [7, 8, 9, 10]
+    bloom_months: [6, 7, 8]
+    sowing_indoor_weeks_before_last_frost: 3
+    sowing_outdoor_after_last_frost_days: 7
+    direct_sow_months: [5, 6, 7]
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: true
+    allelopathy_score: -0.2
+    native_habitat: "Mittel- und Suedamerika"
+    support_required: true
+    pruning_type: none
+    pruning_months: []
+
+  "Pisum sativum":
+    container_suitable: limited
+    recommended_container_volume_l: "10-20"
+    min_container_depth_cm: 25
+    mature_height_cm: "50-200"
+    mature_width_cm: "15-30"
+    spacing_cm: "5-8"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    frost_sensitivity: moderate
+    harvest_months: [5, 6, 7, 8, 9]
+    bloom_months: [5, 6, 7]
+    sowing_indoor_weeks_before_last_frost: 5
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [3, 4, 5, 6]
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: true
+    allelopathy_score: -0.3
+    native_habitat: "Vorderasien, Mittelmeerraum"
+    support_required: true
+    pruning_type: none
+    pruning_months: []
+
+  "Salvia officinalis":
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-10"
+    min_container_depth_cm: 20
+    mature_height_cm: "40-80"
+    mature_width_cm: "40-70"
+    spacing_cm: "40-50"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    frost_sensitivity: moderate
+    harvest_months: [5, 6, 7, 8, 9]
+    bloom_months: [5, 6, 7]
+    sowing_indoor_weeks_before_last_frost: 7
+    sowing_outdoor_after_last_frost_days: 14
+    direct_sow_months: [5, 6]
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    allelopathy_score: 0.1
+    native_habitat: "Mittelmeerraum (Dalmatien, Balkan)"
+    pruning_type: spring_pruning
+    pruning_months: [3, 4]
+
+  "Salvia rosmarinus":
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-15"
+    min_container_depth_cm: 20
+    mature_height_cm: "40-120"
+    mature_width_cm: "40-80"
+    spacing_cm: "40-60"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    frost_sensitivity: moderate
+    harvest_months: [3, 4, 5, 6, 7, 8, 9, 10]
+    bloom_months: [3, 4, 5]
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    allelopathy_score: 0.2
+    native_habitat: "Mittelmeerraum"
+    pruning_type: spring_pruning
+    pruning_months: [3, 4]
+
+  "Solanum lycopersicum":
+    container_suitable: limited
+    recommended_container_volume_l: "10-20"
+    min_container_depth_cm: 30
+    mature_height_cm: "50-200"
+    mature_width_cm: "40-60"
+    spacing_cm: "50-80"
+    indoor_suitable: limited
+    balcony_suitable: limited
+    greenhouse_recommended: true
+    frost_sensitivity: sensitive
+    harvest_months: [7, 8, 9, 10]
+    bloom_months: [5, 6, 7, 8]
+    sowing_indoor_weeks_before_last_frost: 8
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    allelopathy_score: -0.2
+    native_habitat: "Suedamerika (Peru, Ecuador)"
+    support_required: true
+    pruning_type: summer_pruning
+    pruning_months: [5, 6, 7, 8, 9]
+
+  "Solanum tuberosum":
+    container_suitable: limited
+    recommended_container_volume_l: "40-60"
+    min_container_depth_cm: 40
+    mature_height_cm: "40-80"
+    mature_width_cm: "40-60"
+    spacing_cm: "30-35"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    frost_sensitivity: sensitive
+    harvest_months: [6, 7, 8, 9, 10]
+    bloom_months: [6, 7]
+    sowing_indoor_weeks_before_last_frost: 5
+    sowing_outdoor_after_last_frost_days: 7
+    direct_sow_months: [3, 4, 5]
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    allelopathy_score: -0.1
+    native_habitat: "Suedamerika (Peru, Bolivien)"
+    pruning_type: none
+    pruning_months: []
+
+  "Thymus vulgaris":
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-5"
+    min_container_depth_cm: 15
+    mature_height_cm: "15-40"
+    mature_width_cm: "20-40"
+    spacing_cm: "20-30"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    frost_sensitivity: hardy
+    harvest_months: [3, 4, 5, 6, 7, 8, 9, 10]
+    bloom_months: [5, 6, 7]
+    sowing_indoor_weeks_before_last_frost: 9
+    sowing_outdoor_after_last_frost_days: 14
+    direct_sow_months: [3, 4, 5]
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    allelopathy_score: 0.2
+    native_habitat: "Westliches Mittelmeer"
+    pruning_type: spring_pruning
+    pruning_months: [4, 7]
+
+  "Trifolium pratense":
+    container_suitable: "no"
+    indoor_suitable: "no"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    frost_sensitivity: hardy
+    bloom_months: [5, 6, 7, 8, 9]
+    sowing_outdoor_after_last_frost_days: -21
+    direct_sow_months: [3, 4, 5, 8, 9]
+    nutrient_demand_level: nitrogen_fixer
+    green_manure_suitable: true
+    allelopathy_score: -0.1
+    native_habitat: "Europa, Westasien"
+    mature_height_cm: "20-60"
+    mature_width_cm: "20-40"
+    spacing_cm: "5-10"
+    support_required: false
+    pruning_type: after_harvest
+    pruning_months: [6, 7, 8]
+
+# ==============================================================================
+# S4  COMPANION PLANTING
+# ==============================================================================
+
+companion_planting:
+  compatible:
+    # Herbs with vegetables — classic companions
+    - species_a: "Satureja hortensis"
+      species_b: "Phaseolus vulgaris"
+      score: 0.9
+    - species_a: "Origanum vulgare"
+      species_b: "Solanum lycopersicum"
+      score: 0.7
+    - species_a: "Melissa officinalis"
+      species_b: "Solanum lycopersicum"
+      score: 0.6
+    - species_a: "Ocimum basilicum"
+      species_b: "Solanum lycopersicum"
+      score: 0.9
+
+    # Tagetes as nematode deterrent
+    - species_a: "Tagetes patula"
+      species_b: "Solanum lycopersicum"
+      score: 0.8
+    - species_a: "Tagetes patula"
+      species_b: "Solanum tuberosum"
+      score: 0.8
+    - species_a: "Tagetes patula"
+      species_b: "Fragaria x ananassa"
+      score: 0.7
+    - species_a: "Tagetes patula"
+      species_b: "Rosa spp."
+      score: 0.7
+
+    # Tropaeolum as trap crop for aphids
+    - species_a: "Tropaeolum majus"
+      species_b: "Solanum lycopersicum"
+      score: 0.7
+    - species_a: "Tropaeolum majus"
+      species_b: "Phaseolus vulgaris"
+      score: 0.6
+
+    # Phacelia as universal companion / bee forage
+    - species_a: "Phacelia tanacetifolia"
+      species_b: "Solanum lycopersicum"
+      score: 0.6
+    - species_a: "Phacelia tanacetifolia"
+      species_b: "Solanum tuberosum"
+      score: 0.6
+
+    # Spinach and strawberries
+    - species_a: "Spinacia oleracea"
+      species_b: "Fragaria x ananassa"
+      score: 0.7
+
+    # Lavender with roses (aphid deterrent)
+    - species_a: "Lavandula angustifolia"
+      species_b: "Rosa spp."
+      score: 0.8
+
+    # Berry companions
+    - species_a: "Ribes rubrum"
+      species_b: "Ribes uva-crispa"
+      score: 0.6
+    - species_a: "Rubus idaeus"
+      species_b: "Trifolium pratense"
+      score: 0.7
+
+    # Legume pre-crops improve soil for heavy feeders
+    - species_a: "Pisum sativum"
+      species_b: "Solanum lycopersicum"
+      score: 0.7
+    - species_a: "Lupinus polyphyllus"
+      species_b: "Rosa spp."
+      score: 0.6
+
+    # Fruit tree understory
+    - species_a: "Trifolium pratense"
+      species_b: "Malus domestica"
+      score: 0.7
+    - species_a: "Tropaeolum majus"
+      species_b: "Malus domestica"
+      score: 0.6
+
+  incompatible:
+    # Brassicaceae allelopathy conflicts
+    - species_a: "Sinapis alba"
+      species_b: "Fragaria x ananassa"
+      reason: "Kreuzbleutler-Allelopathie; Kohlhernie-Risiko im Boden"
+    - species_a: "Sinapis alba"
+      species_b: "Solanum lycopersicum"
+      reason: "Kreuzbleutler hemmen Nachtschattengewaechse"
+
+    # Mint spreads aggressively — conflicts with neighbors
+    - species_a: "Mentha piperita"
+      species_b: "Petroselinum crispum"
+      reason: "Minze verdraengt Petersilie durch aggressive Rhizomausbreitung"
+
+    # Rhododendron allelopathy — acidifies and inhibits surrounding plants
+    - species_a: "Rhododendron spp."
+      species_b: "Rosa spp."
+      reason: "Rhododendron-Phenole hemmen Rosenwurzeln; unterschiedliche pH-Anforderungen"
+    - species_a: "Rhododendron spp."
+      species_b: "Lavandula angustifolia"
+      reason: "Entgegengesetzte pH-Anforderungen (sauer vs. kalkig)"
+
+    # Potatoes and tomatoes share blight
+    - species_a: "Solanum tuberosum"
+      species_b: "Solanum lycopersicum"
+      reason: "Gleiche Familie; Braunfaeule und Krautfaeule uebertraegbar"
+
+    # Fennel/Lovage inhibition
+    - species_a: "Levisticum officinale"
+      species_b: "Phaseolus vulgaris"
+      reason: "Liebstoeckel hemmt Bohnen durch aetherische Oele"
+
+    # Walnut allelopathy (rhubarb sensitive)
+    - species_a: "Rheum rhabarbarum"
+      species_b: "Solanum lycopersicum"
+      reason: "Rhabarber-Oxalsaeure-Auswaschungen hemmen empfindliche Nachbarn"

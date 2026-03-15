@@ -64,6 +64,13 @@ export default function GrowthPhaseListSection({ lifecycleKey }: Props) {
     { id: 'name', label: t('pages.growthPhases.name'), render: (r) => r.display_name || r.name },
     { id: 'duration', label: t('pages.growthPhases.duration'), render: (r) => `${r.typical_duration_days}d`, align: 'right' as const, searchValue: (r: GrowthPhase) => String(r.typical_duration_days) },
     {
+      id: 'watering',
+      label: t('pages.growthPhases.wateringInterval'),
+      render: (r) => r.watering_interval_days != null ? `${r.watering_interval_days}d` : '—',
+      align: 'right' as const,
+      searchValue: (r: GrowthPhase) => r.watering_interval_days != null ? String(r.watering_interval_days) : '',
+    },
+    {
       id: 'stress',
       label: t('pages.growthPhases.stressTolerance'),
       render: (r) => t(`enums.stressTolerance.${r.stress_tolerance}`),
@@ -74,21 +81,25 @@ export default function GrowthPhaseListSection({ lifecycleKey }: Props) {
       label: '',
       render: (r) => (
         <Box sx={{ display: 'flex', gap: 0.5 }}>
-          {r.is_terminal && <Chip label="Terminal" size="small" color="warning" />}
-          {r.allows_harvest && <Chip label="Harvest" size="small" color="success" />}
+          {r.is_terminal && <Chip label={t('pages.growthPhases.isTerminal')} size="small" color="warning" />}
+          {r.allows_harvest && <Chip label={t('pages.growthPhases.allowsHarvest')} size="small" color="success" />}
         </Box>
       ),
+      searchValue: (r: GrowthPhase) => [
+        r.is_terminal ? t('pages.growthPhases.isTerminal') : '',
+        r.allows_harvest ? t('pages.growthPhases.allowsHarvest') : '',
+      ].filter(Boolean).join(' '),
     },
     {
       id: 'actions',
       label: t('common.actions'),
-      width: 100,
+      width: 120,
       sortable: false,
       searchable: false,
       render: (r) => (
         <Box>
           <Button size="small" onClick={(e) => { e.stopPropagation(); setSelectedPhase(r); }}>
-            Profiles
+            {t('entities.profile')}
           </Button>
           <IconButton size="small" aria-label={t('common.delete')} onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}>
             <DeleteIcon fontSize="small" />

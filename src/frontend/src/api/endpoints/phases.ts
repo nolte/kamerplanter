@@ -54,6 +54,13 @@ export async function updatePhaseHistoryDates(
   return data;
 }
 
+export async function deletePhaseHistory(
+  plantKey: string,
+  historyKey: string,
+): Promise<void> {
+  await client.delete(`/plant-instances/${plantKey}/phases/history/${historyKey}`);
+}
+
 // Growth Phases (lifecycle definitions)
 
 export async function listGrowthPhases(lifecycleKey: string): Promise<GrowthPhase[]> {
@@ -133,6 +140,14 @@ export async function createRequirementProfile(
   return data;
 }
 
+export async function updateRequirementProfile(
+  key: string,
+  payload: RequirementProfileCreate,
+): Promise<RequirementProfile> {
+  const { data } = await client.put<RequirementProfile>(`/profiles/requirements/${key}`, payload);
+  return data;
+}
+
 export async function getNutrientProfile(phaseKey: string): Promise<NutrientProfile> {
   const { data } = await client.get<NutrientProfile>(`/profiles/nutrients/${phaseKey}`);
   return data;
@@ -142,6 +157,14 @@ export async function createNutrientProfile(
   payload: NutrientProfileCreate,
 ): Promise<NutrientProfile> {
   const { data } = await client.post<NutrientProfile>('/profiles/nutrients', payload);
+  return data;
+}
+
+export async function updateNutrientProfile(
+  key: string,
+  payload: NutrientProfileCreate,
+): Promise<NutrientProfile> {
+  const { data } = await client.put<NutrientProfile>(`/profiles/nutrients/${key}`, payload);
   return data;
 }
 

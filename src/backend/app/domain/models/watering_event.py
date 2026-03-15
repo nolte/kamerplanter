@@ -20,7 +20,7 @@ class WateringEvent(BaseModel):
     application_method: ApplicationMethod = ApplicationMethod.DRENCH
     is_supplemental: bool = False
     volume_liters: float = Field(gt=0)
-    slot_keys: list[str] = Field(min_length=1)
+    plant_keys: list[str] = Field(min_length=1)
     tank_fill_event_key: str | None = None
     nutrient_plan_key: str | None = None
     fertilizers_used: list[FertilizerSnapshot] = Field(default_factory=list)
@@ -40,7 +40,7 @@ class WateringEvent(BaseModel):
     model_config = {"populate_by_name": True}
 
     @model_validator(mode="after")
-    def check_supplemental_not_fertigation(self) -> WateringEvent:
+    def check_valid(self) -> WateringEvent:
         if self.is_supplemental and self.application_method == ApplicationMethod.FERTIGATION:
             raise ValueError(
                 "Supplemental watering cannot use fertigation application method"

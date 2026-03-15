@@ -38,13 +38,13 @@ class WateringEngine:
                 "message": "Drench on automated system without supplemental flag",
             })
 
-        # Volume exceeds threshold per slot
-        volume_per_slot = event.volume_liters / len(event.slot_keys)
-        if volume_per_slot > MAX_VOLUME_PER_SLOT:
+        # Volume exceeds threshold per plant
+        volume_per_plant = event.volume_liters / len(event.plant_keys)
+        if volume_per_plant > MAX_VOLUME_PER_SLOT:
             warnings.append({
                 "type": "high_volume",
                 "message": (
-                    f"Volume per slot ({volume_per_slot:.1f} L) "
+                    f"Volume per plant ({volume_per_plant:.1f} L) "
                     f"exceeds {MAX_VOLUME_PER_SLOT} L threshold"
                 ),
             })

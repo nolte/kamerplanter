@@ -7,7 +7,7 @@ Kategorie: Prozessmanagement
 Fokus: Beides
 Technologie: Python, ArangoDB, Celery (Task Scheduling)
 Status: Entwurf
-Version: 2.7 (Saisonaler Gartenkalender & Phänologie)
+Version: 3.0 (Vollständige Einzelaufgaben-Pflege & Phasengebundene Workflows)
 ```
 
 ## 1. Business Case
@@ -64,6 +64,132 @@ Das System implementiert ein flexibles, templat-basiertes Task-Management-System
 - Speicherbar, editierbar, teilbar mit Community
 - Versionierung von Template-Änderungen
 - Import/Export als JSON
+
+<!-- Quelle: Einzelaufgaben-Pflege Review v3.0 -->
+### Vollständige Einzelaufgaben-Pflege (CRUD+)
+
+Das System bietet dem Nutzer vollständige Kontrolle über einzelne Aufgaben — unabhängig davon, ob diese manuell erstellt, aus Templates generiert oder durch Celery-Tasks erzeugt wurden. Jede Aufgabe kann individuell angepasst, erweitert und verwaltet werden.
+
+**Erweiterte Einzelaufgaben-Features:**
+
+**Tags & freie Kategorisierung:**
+- Jede Task-Instanz kann beliebig viele benutzerdefinierte Tags tragen (`tags: list[str]`)
+- Tags sind frei eingebbar (kein vordefiniertes Vokabular) und ermöglichen Filterung/Suche über die Task-Queue
+- Beispiele: `["dringend", "hochbeet-a", "mit-luna-besprechen", "nächste-woche"]`
+- Tags werden bei Workflow-Instantiation nicht vom Template propagiert — sie sind rein nutzerindividuell
+
+**Checkliste (Subtasks):**
+- Jede Task-Instanz kann eine eingebettete Checkliste tragen (`checklist: list[ChecklistItem]`)
+- ChecklistItem: `{ text: str, done: bool, order: int }`
+- Die Checkliste ermöglicht Teilschritte innerhalb einer Aufgabe, ohne dafür separate Tasks zu erstellen
+- Fortschrittsanzeige: "3/5 Schritte erledigt"
+- Nutzer können Checklist-Einträge frei hinzufügen, umbenennen, umsortieren und löschen
+- TaskTemplates können eine Default-Checkliste definieren, die bei Instantiation auf die Task-Instanz kopiert wird
+- Beim Abschluss der Aufgabe müssen nicht alle Checklist-Einträge erledigt sein (optional konfigurierbar via `require_all_checklist_items: bool` am TaskTemplate)
+
+**Bewertungen nach Abschluss:**
+- `difficulty_rating: Optional[int]` (1-5) — Wie schwierig war die Aufgabe?
+- `quality_rating: Optional[int]` (1-5) — Wie gut ist das Ergebnis?
+- Bewertungen werden bei `complete_task()` optional mitgegeben
+- Über die Zeit lernt das System durchschnittliche Schwierigkeitsgrade pro Task-Kategorie/Template (Learning-Mode)
+
+**Zeitplanung mit Uhrzeit:**
+- `scheduled_time: Optional[time]` — Geplante Uhrzeit zusätzlich zum `due_date`
+- Wird von TaskTemplate `optimal_time_of_day` in eine konkrete Uhrzeit aufgelöst (morning=08:00, afternoon=14:00, evening=18:00, lights_off=22:00 — konfigurierbar)
+- Nutzer können die Uhrzeit jederzeit überschreiben
+
+**User-Zuweisung (Multi-Tenant):**
+- `assigned_to_user_key: Optional[str]` — Welches Tenant-Mitglied soll die Aufgabe erledigen?
+- Bei Gemeinschaftsgärten (REQ-024) kann ein Admin Tasks an Mitglieder zuweisen
+- Filter: "Meine Aufgaben" vs. "Alle Aufgaben"
+- Optional: Notification an zugewiesenen Nutzer
+
+**Wiederkehrende Aufgaben (Recurring Tasks):**
+- `recurrence_rule: Optional[str]` — Cron-Expression für automatische Wiedererzeugung (z.B. `"0 8 * * 1"` = jeden Montag 08:00)
+- `recurrence_end_date: Optional[date]` — Optionales Ende der Wiederholung
+- `parent_recurring_task_key: Optional[str]` — Referenz auf die "Eltern-Aufgabe" die die Wiederholung definiert
+- Bei Completion einer wiederkehrenden Task wird automatisch die nächste Instanz erzeugt
+- Nutzer können die Wiederholung jederzeit stoppen, ändern oder pausieren
+- Celery-Beat prüft täglich offene Recurring-Rules und erzeugt fällige Instanzen
+
+**Task-Klonen (Duplikate):**
+- `POST /tasks/{key}/clone` — Erzeugt eine Kopie einer bestehenden Aufgabe
+- Übernimmt: name, instruction, category, priority, tags, checklist, timer, estimated_duration
+- Setzt zurück: status=pending, due_date=null, completed_at=null, photo_refs=[]
+- Optional: `target_plant_key` für Zuweisung an andere Pflanze
+- Optional: `due_date_offset_days` für automatische Datumsverschiebung
+
+**Task-Wiedereröffnung (Reopen):**
+- `POST /tasks/{key}/reopen` — Setzt eine abgeschlossene/übersprungene Aufgabe zurück auf `pending`
+- Nur möglich für Status `completed`, `skipped`
+- Setzt `completed_at`, `actual_duration_minutes`, `completion_notes` zurück
+- Behält `photo_refs`, `tags`, `checklist` bei
+- Audit-Trail: `reopened_at: datetime`, `reopened_from_status: str`
+
+**Task-Neuzuweisung (Reassign):**
+- `plant_key` ist über TaskUpdate änderbar — Aufgaben können einer anderen Pflanze zugewiesen werden
+- `assigned_to_user_key` ist über TaskUpdate änderbar
+
+**Batch-Operationen:**
+- `POST /tasks/batch/status` — Mehrere Tasks gleichzeitig starten, abschließen oder überspringen
+  - Body: `{ task_keys: list[str], action: Literal['start', 'complete', 'skip'], completion_notes?: str }`
+- `POST /tasks/batch/delete` — Mehrere Tasks gleichzeitig löschen (nur pending/skipped)
+  - Body: `{ task_keys: list[str] }`
+- `POST /tasks/batch/assign` — Mehrere Tasks einem Nutzer zuweisen
+  - Body: `{ task_keys: list[str], assigned_to_user_key: str }`
+- Batch-Operationen sind atomar: entweder alle erfolgreich oder Rollback mit Fehlerliste
+
+**Task-Kommentare:**
+- Nutzer können Notizen, Fragen und Beobachtungen an Tasks hinterlassen
+- Kommentare sind chronologisch geordnet und an den erstellenden User gebunden
+- CRUD: `GET/POST /tasks/{key}/comments`, `PUT/DELETE /tasks/{key}/comments/{comment_key}`
+- Kommentare werden bei Task-Löschung kaskadiert gelöscht
+
+**Task-Änderungshistorie:**
+- Jede Statusänderung und jedes Update wird als Audit-Entry protokolliert
+- `GET /tasks/{key}/history` — Chronologische Liste aller Änderungen
+- Entry: `{ changed_at: datetime, changed_by: str, field: str, old_value: any, new_value: any }`
+- Ermöglicht Nachvollziehbarkeit: "Wer hat wann was geändert?"
+
+### Phasengebundene Workflow-Gestaltung
+
+Der Nutzer kann Workflows so gestalten, dass einzelne Tätigkeiten an bestimmte Wachstumsphasen gebunden sind und bei Phasenwechsel automatisch fällig werden. Jede Aufgabe innerhalb eines Workflows kann individuell konfiguriert werden.
+
+**Phasen-Trigger im Workflow-Designer:**
+- Jedes TaskTemplate innerhalb eines Workflows kann unabhängig einen eigenen `trigger_type` und `trigger_phase` haben
+- Beispiel: Ein Workflow "Cannabis SCROG" enthält:
+  - Task A: "Topping" → `trigger_phase: 'vegetative'`, `trigger_type: 'days_after_phase'`, `days_offset: 14`
+  - Task B: "SCROG-Netz montieren" → `trigger_phase: 'vegetative'`, `trigger_type: 'days_after_phase'`, `days_offset: 21`
+  - Task C: "Lollipopping" → `trigger_phase: 'flowering'`, `trigger_type: 'phase_entry'`
+  - Task D: "SCROG-Füllgrad prüfen" → `trigger_phase: 'flowering'`, `trigger_type: 'days_after_phase'`, `days_offset: 7`
+  - Task E: "Flushing starten" → `trigger_phase: 'flowering'`, `trigger_type: 'days_after_phase'`, `days_offset: 49`
+  - Task F: "Ernte" → `trigger_phase: 'harvest'`, `trigger_type: 'phase_entry'`
+- Bei Workflow-Instantiation werden nur die Tasks sofort erzeugt, deren Phase bereits aktiv ist
+- Die übrigen Tasks werden als "dormant" gespeichert und bei Phase-Transition automatisch aktiviert (Status `dormant` → `pending`)
+
+**Individuelle Task-Anpassung innerhalb von Workflows:**
+- Nach Workflow-Instantiation kann der Nutzer jede einzelne Task-Instanz individuell anpassen:
+  - Name, Instruktion, Priorität, Fälligkeitsdatum, Checkliste, Timer, Tags ändern
+  - Phasen-Binding beibehalten oder überschreiben (`trigger_phase_override`)
+  - Tasks innerhalb des Workflows löschen (ohne den Workflow zu brechen)
+  - Zusätzliche Tasks dem laufenden Workflow hinzufügen (`POST /workflows/executions/{key}/tasks`)
+- Änderungen an Instanzen wirken sich nicht auf das Template aus (One-Way: Template → Instanz)
+- Template-Updates erzeugen keine Änderungen an bereits instanziierten Workflows
+
+**Dormant-Status für phasengebundene Tasks:**
+- Neuer TaskStatus: `dormant` — Task existiert, ist aber noch nicht fällig (Phase nicht erreicht)
+- Dormant-Tasks erscheinen in der UI als "Geplant" in einer separaten Sektion
+- Bei Phase-Transition (REQ-003) prüft das System automatisch, ob dormante Tasks für die neue Phase aktiviert werden müssen
+- Celery-Task oder Phase-Transition-Hook: `activate_dormant_tasks_for_phase(plant_key, new_phase)`
+- Aktivierung: Status `dormant` → `pending`, `due_date` wird basierend auf `trigger_type` berechnet
+
+**Workflow-Instanz-Übersicht:**
+- Pro laufendem Workflow sieht der Nutzer:
+  - Alle Tasks gruppiert nach Phase (visuell als Timeline/Gantt)
+  - Welche Phase aktiv ist (Highlight)
+  - Welche Tasks dormant (zukünftige Phasen), pending, in_progress, completed sind
+  - Fortschritt: "Phase 2/4, 7/12 Tasks erledigt"
+- Der Nutzer kann die Reihenfolge und Phase-Zuordnung der Tasks per Drag&Drop ändern (nur bei User-Workflows, nicht bei System-Workflows)
 
 **Task-Trigger-Typen:**
 1. **Phase-Entry:** Automatisch beim Phasenwechsel (z.B. Blüte-Start)
@@ -284,7 +410,7 @@ Das System bietet ein Jahreskalender-Template, das für jeden Monat die wichtigs
     - `category: str`
     - `due_date: date`
     - `scheduled_time: Optional[time]`
-    - `status: Literal['pending', 'in_progress', 'completed', 'skipped', 'failed']`
+    - `status: Literal['pending', 'in_progress', 'completed', 'skipped', 'failed', 'dormant']`
     - `priority: Literal['low', 'medium', 'high', 'critical']`
     - `created_at: datetime`
     - `started_at: Optional[datetime]`
@@ -302,6 +428,17 @@ Das System bietet ein Jahreskalender-Template, das für jeden Monat die wichtigs
     - `watering_event_key: Optional[str]` (Referenz auf WateringEvent — nach Bestätigung des Gießvorgangs gefüllt. Verknüpft Task mit dem erzeugten Event für Rückverfolgbarkeit)
     - `timer_duration_seconds: Optional[int]` (von TaskTemplate propagiert oder manuell gesetzt) <!-- W-006 -->
     - `timer_label: Optional[str]` (von TaskTemplate propagiert oder manuell gesetzt) <!-- W-006 -->
+    <!-- Quelle: Einzelaufgaben-Pflege v3.0 -->
+    - `tags: list[str]` (benutzerdefinierte Tags zur freien Kategorisierung, z.B. `["dringend", "hochbeet-a"]`)
+    - `checklist: list[ChecklistItem]` (eingebettete Checkliste mit Teilschritten, `{ text: str, done: bool, order: int }`)
+    - `assigned_to_user_key: Optional[str]` (zugewiesenes Tenant-Mitglied, REQ-024)
+    - `recurrence_rule: Optional[str]` (Cron-Expression für wiederkehrende Erzeugung, z.B. `"0 8 * * 1"`)
+    - `recurrence_end_date: Optional[date]` (optionales Ende der Wiederholung)
+    - `parent_recurring_task_key: Optional[str]` (Referenz auf die Eltern-Recurring-Aufgabe)
+    - `trigger_phase: Optional[str]` (Phasen-Binding bei Workflow-Tasks — für dormant-Aktivierung)
+    - `trigger_phase_override: Optional[str]` (nutzerindividuelle Überschreibung des Phasen-Bindings)
+    - `reopened_at: Optional[datetime]` (Zeitpunkt der Wiedereröffnung, Audit-Trail)
+    - `reopened_from_status: Optional[str]` (Status vor Wiedereröffnung, z.B. 'completed')
 
 - **`:TaskDependency`** - Abhängigkeits-Regel
   - Properties:
@@ -326,12 +463,25 @@ Das System bietet ein Jahreskalender-Template, das für jeden Monat die wichtigs
     - `on_schedule: bool`
     - `days_ahead_behind: int`
 
-- **`:TaskComment`** - Kommentare/Notizen
+- **`:TaskComment`** - Kommentare/Notizen zu Aufgaben
   - Properties:
     - `comment_id: str`
-    - `comment_text: str`
-    - `created_by: str`
+    - `comment_text: str` (max. 2000 Zeichen)
+    - `created_by: str` (User-Key)
     - `created_at: datetime`
+    - `updated_at: Optional[datetime]`
+
+<!-- Quelle: Einzelaufgaben-Pflege v3.0 -->
+- **`:TaskAuditEntry`** - Änderungshistorie für Aufgaben
+  - Properties:
+    - `audit_id: str`
+    - `task_key: str`
+    - `changed_at: datetime`
+    - `changed_by: str` (User-Key)
+    - `action: Literal['created', 'updated', 'status_changed', 'reopened', 'assigned', 'cloned', 'commented']`
+    - `field: Optional[str]` (geändertes Feld, z.B. 'priority', 'status')
+    - `old_value: Optional[str]` (vorheriger Wert als JSON-String)
+    - `new_value: Optional[str]` (neuer Wert als JSON-String)
 
 <!-- Quelle: Cannabis Indoor Grower Review G-004 -->
 - **`:TrainingEvent`** - Einzelnes Training-Ereignis mit Recovery-Tracking
@@ -393,9 +543,13 @@ instance_of:       Tasks -> TaskTemplates
 has_task:          PlantInstances -> Tasks
 blocks:            Tasks -> Tasks                             // Konkrete Dependency-Chain
 completed_by:      Tasks -> Users                             {timestamp: datetime}
+assigned_to:       Tasks -> Users                             {assigned_at: datetime, assigned_by: str}
 has_comment:       Tasks -> TaskComments
 written_by:        TaskComments -> Users
 rated_by:          WorkflowTemplates -> Users                 {rating: int, timestamp: datetime}
+has_audit:         Tasks -> TaskAuditEntries
+cloned_from:       Tasks -> Tasks                             // Referenz auf Quell-Task bei Klonen
+recurs_from:       Tasks -> Tasks                             // Referenz auf Eltern-Recurring-Task
 
 // Training-Plan (Canopy Management) — G-004:
 has_training_event:       Tasks -> TrainingEvents                // Task erzeugt TrainingEvent bei Completion
@@ -808,6 +962,16 @@ class TaskTemplate(BaseModel):
         None, max_length=100,
         description="Phänologisches Ereignis, z.B. 'forsythia_bloom', 'elderberry_bloom', 'apple_bloom'. "
                     "Task wird ausgelöst wenn der Nutzer das Eintreten dieses Ereignisses dokumentiert."
+    )
+    # v3.0: Default-Checkliste und Checklist-Pflicht
+    default_checklist: List[dict] = Field(
+        default_factory=list,
+        description="Default-Checkliste die bei Workflow-Instantiation auf die Task-Instanz kopiert wird. "
+                    "Format: [{ 'text': str, 'order': int }]. Der Nutzer kann sie nach Instantiation frei ändern."
+    )
+    require_all_checklist_items: bool = Field(
+        False,
+        description="Wenn true, müssen alle Checklist-Einträge erledigt sein bevor der Task abgeschlossen werden kann."
     )
 
     @field_validator('days_offset')
@@ -1963,10 +2127,20 @@ from datetime import date, time, datetime
 
 TaskCategory = Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological']
 TriggerType = Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional', 'gdd_threshold', 'seasonal_month', 'phenological']
-TaskStatus = Literal['pending', 'in_progress', 'completed', 'skipped', 'failed']
+# v3.0: 'dormant' Status für phasengebundene Workflow-Tasks (Phase noch nicht erreicht)
+TaskStatus = Literal['pending', 'in_progress', 'completed', 'skipped', 'failed', 'dormant']
 TaskPriority = Literal['low', 'medium', 'high', 'critical']
 StressLevel = Literal['none', 'low', 'medium', 'high']
 SkillLevel = Literal['beginner', 'intermediate', 'advanced']
+
+
+# v3.0: Eingebettete Checkliste für Teilschritte innerhalb einer Aufgabe
+class ChecklistItem(BaseModel):
+    """Einzelner Checklist-Eintrag innerhalb einer Task-Instanz"""
+    text: str = Field(min_length=1, max_length=500)
+    done: bool = False
+    order: int = Field(ge=0, description="Sortierposition innerhalb der Checkliste")
+
 
 class TaskInstance(BaseModel):
     """Konkrete Task-Instanz"""
@@ -1983,6 +2157,11 @@ class TaskInstance(BaseModel):
     requires_photo: bool = False
     photo_refs: List[str] = Field(default_factory=list)
     completion_notes: Optional[str] = Field(None, max_length=1000)
+    # v3.0: Bewertungen nach Abschluss
+    difficulty_rating: Optional[int] = Field(None, ge=1, le=5, description="Wie schwierig war die Aufgabe? (1=trivial, 5=sehr schwierig)")
+    quality_rating: Optional[int] = Field(None, ge=1, le=5, description="Wie gut ist das Ergebnis? (1=schlecht, 5=exzellent)")
+    skill_level: SkillLevel = 'beginner'
+    stress_level: StressLevel = 'none'
     planting_run_key: Optional[str] = Field(
         None,
         description="Referenz auf PlantingRun — für Run-basierte Tasks (Gießplan-Workflow)"
@@ -1999,6 +2178,43 @@ class TaskInstance(BaseModel):
         None, max_length=100,
         description="Beschriftung des Timers, z.B. 'Umrühren', 'Einwirkzeit'"
     )  # W-006
+    # v3.0: Einzelaufgaben-Pflege — Tags, Checkliste, Zuweisung, Wiederholung
+    tags: List[str] = Field(
+        default_factory=list,
+        description="Benutzerdefinierte Tags zur freien Kategorisierung (kein vordefiniertes Vokabular)"
+    )
+    checklist: List[ChecklistItem] = Field(
+        default_factory=list,
+        description="Eingebettete Checkliste mit Teilschritten innerhalb der Aufgabe"
+    )
+    assigned_to_user_key: Optional[str] = Field(
+        None,
+        description="Zugewiesenes Tenant-Mitglied (REQ-024). Bei Gemeinschaftsgärten: Admin kann Tasks zuweisen."
+    )
+    recurrence_rule: Optional[str] = Field(
+        None, max_length=100,
+        description="Cron-Expression für automatische Wiedererzeugung, z.B. '0 8 * * 1' (jeden Montag 08:00)"
+    )
+    recurrence_end_date: Optional[date] = Field(
+        None,
+        description="Optionales Ende der Wiederholung"
+    )
+    parent_recurring_task_key: Optional[str] = Field(
+        None,
+        description="Referenz auf die Eltern-Aufgabe die die Wiederholung definiert"
+    )
+    # v3.0: Phasengebundene Workflow-Tasks
+    trigger_phase: Optional[str] = Field(
+        None,
+        description="Phasen-Binding bei Workflow-Tasks — Task wird dormant erzeugt und bei Phase-Transition aktiviert"
+    )
+    trigger_phase_override: Optional[str] = Field(
+        None,
+        description="Nutzerindividuelle Überschreibung des Phasen-Bindings"
+    )
+    # v3.0: Audit-Trail für Wiedereröffnung
+    reopened_at: Optional[datetime] = None
+    reopened_from_status: Optional[str] = None
 
     @field_validator('photo_refs')
     @classmethod
@@ -2008,33 +2224,83 @@ class TaskInstance(BaseModel):
                 raise ValueError("Foto-Upload erforderlich für diesen Task")
         return v
 
+    @field_validator('recurrence_rule')
+    @classmethod
+    def validate_cron_expression(cls, v):
+        if v is not None:
+            # Basis-Validierung: 5 Felder (minute hour day month weekday)
+            parts = v.strip().split()
+            if len(parts) != 5:
+                raise ValueError("Cron-Expression muss 5 Felder haben (minute hour day month weekday)")
+        return v
+
+    @property
+    def checklist_progress(self) -> tuple[int, int]:
+        """Gibt (done_count, total_count) der Checkliste zurück"""
+        total = len(self.checklist)
+        done = sum(1 for item in self.checklist if item.done)
+        return (done, total)
+
+    @property
+    def effective_trigger_phase(self) -> Optional[str]:
+        """Gibt die effektive Phase zurück (Override > Original)"""
+        return self.trigger_phase_override or self.trigger_phase
+
+
 class TaskCompletion(BaseModel):
     """Task-Abschluss-Daten"""
-    
+
     task_id: str
     completed_at: datetime
     actual_duration_minutes: int = Field(ge=1)
     photo_refs: List[str] = Field(default_factory=list)
     completion_notes: Optional[str] = None
-    difficulty_rating: Optional[int] = Field(None, ge=1, le=5)
-    quality_rating: Optional[int] = Field(None, ge=1, le=5)
-    
+    # v3.0: Bewertungen nach Abschluss
+    difficulty_rating: Optional[int] = Field(None, ge=1, le=5, description="Wie schwierig war die Aufgabe?")
+    quality_rating: Optional[int] = Field(None, ge=1, le=5, description="Wie gut ist das Ergebnis?")
+
     def calculate_performance_score(self, estimated_duration: int) -> float:
         """
         Berechnet Performance-Score
         - Zeit-Effizienz
         - Qualität
-        
+
         Returns: Score 0-100
         """
         # Zeit-Effizienz (50% des Scores)
         time_ratio = estimated_duration / self.actual_duration_minutes
         time_score = min(50, time_ratio * 50)
-        
+
         # Qualität (50% des Scores)
         quality_score = (self.quality_rating or 3) / 5 * 50 if self.quality_rating else 30
-        
+
         return round(time_score + quality_score, 1)
+
+
+# v3.0: Task-Kommentar-Modell
+class TaskComment(BaseModel):
+    """Kommentar/Notiz an einer Aufgabe"""
+
+    comment_id: str
+    task_key: str
+    comment_text: str = Field(min_length=1, max_length=2000)
+    created_by: str  # User-Key
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+# v3.0: Task-Änderungshistorie
+class TaskAuditEntry(BaseModel):
+    """Audit-Eintrag für Aufgaben-Änderungen"""
+
+    audit_id: str
+    task_key: str
+    changed_at: datetime
+    changed_by: str  # User-Key
+    action: Literal['created', 'updated', 'status_changed', 'reopened', 'assigned', 'cloned', 'commented']
+    field: Optional[str] = None  # Geändertes Feld, z.B. 'priority'
+    old_value: Optional[str] = None  # Vorheriger Wert als JSON-String
+    new_value: Optional[str] = None  # Neuer Wert als JSON-String
 ```
 
 ### Celery-Beat: Gießplan-Task-Generierung
@@ -2107,8 +2373,16 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 |---------------------------|-------|-----------|---------|
 | Tasks (Tenant-scoped) | Mitglied | Mitglied | Admin |
 | Task-Statusübergänge | — | Mitglied | — |
+| Task-Kommentare | Mitglied | Mitglied (eigene) | Mitglied (eigene) / Admin (alle) |
+| Task-Historie | Mitglied | — (systemgeneriert) | — |
+| Task-Klonen | — | Mitglied | — |
+| Task-Wiedereröffnen | — | Mitglied | — |
+| Task-Batch-Operationen | — | Mitglied (eigene) / Admin (alle) | Admin |
+| Task-Zuweisung | — | Admin / Grower (nur eigene) | — |
+| Recurring-Tasks | Mitglied | Mitglied | Mitglied (eigene) / Admin (alle) |
 | WorkflowTemplates | Mitglied | Admin | Admin |
 | Workflow-Instanziierung | — | Mitglied | — |
+| Workflow-Task-Hinzufügen | — | Mitglied (eigene Execution) | — |
 
 ## 5. Abhängigkeiten
 
@@ -2128,8 +2402,12 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - REQ-009 (Dashboard): Task-Queue-Widget
 - REQ-014 (Tankmanagement): **HOCH** — Automatische Wartungs-Tasks aus MaintenanceSchedule; Gießplan-Bestätigungsflow (`confirm`/`quick-confirm`) nutzt Task-Key für Completion + WateringEvent-Erzeugung
 
+**Neue/verstärkte Abhängigkeiten (v3.0):**
+- REQ-003 (Phasen): **HOCH** — Phase-Transition-Hook muss `activate_dormant_tasks_for_phase()` aufrufen, um dormante Workflow-Tasks bei Phasenwechsel zu aktivieren
+- REQ-024 (Mandantenverwaltung): **HOCH** — `assigned_to_user_key` erfordert Membership-Prüfung (nur Tenant-Mitglieder zuweisbar)
+
 **Python-Bibliotheken:**
-- `celery` - Zeitgesteuerte Task-Erinnerungen
+- `celery` - Zeitgesteuerte Task-Erinnerungen + Recurring-Task-Erzeugung
 - `croniter` - Cron-Expression-Parsing für Recurring Tasks
 - `jsonschema` - Validierung von Workflow-JSON-Importen
 
@@ -2200,6 +2478,26 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Regionale Kalender-Anpassung (G-005):** Gartenkalender verschiebt sich basierend auf climate_zone der Site (REQ-002) um ±2-4 Wochen
 - [ ] **Seasonal/Phenological-Kategorien (G-005):** Neue Task-Kategorien 'seasonal' und 'phenological' für saisonale und phänologische Aufgaben
 - [ ] **Phänologische Zeigerpflanzen (G-005):** 6 vordefinierte Zeiger für Mitteleuropa (Hasel, Forsythie, Apfel, Holunder, Linde, Erster Frost) mit verknüpften Gartenaktionen
+<!-- Quelle: Einzelaufgaben-Pflege v3.0 -->
+- [ ] **Tags (v3.0):** Tasks unterstützen benutzerdefinierte Tags (`tags: list[str]`); Filterung/Suche über Tags in Task-Queue
+- [ ] **Checkliste (v3.0):** Tasks unterstützen eingebettete Checklisten (`checklist: list[ChecklistItem]`); Fortschrittsanzeige "x/y Schritte erledigt"; optional `require_all_checklist_items` am TaskTemplate
+- [ ] **Bewertungen (v3.0):** `difficulty_rating` und `quality_rating` (1-5) bei Task-Completion optional erfassbar; Performance-Score-Berechnung
+- [ ] **Zeitplanung (v3.0):** `scheduled_time` auf Task-Instanz; Auflösung aus TaskTemplate `optimal_time_of_day` in konkrete Uhrzeit
+- [ ] **User-Zuweisung (v3.0):** `assigned_to_user_key` auf Task; Filter "Meine Aufgaben" vs. "Alle Aufgaben"; Membership-Validierung (nur Tenant-Mitglieder)
+- [ ] **Wiederkehrende Aufgaben (v3.0):** `recurrence_rule` (Cron), `recurrence_end_date`; automatische Erzeugung nächster Instanz bei Completion; Celery-Beat tägliche Prüfung; Stoppen/Ändern/Pausieren der Wiederholung
+- [ ] **Task-Klonen (v3.0):** `POST /tasks/{key}/clone` erzeugt Kopie mit Status=pending; optionale `target_plant_key` und `due_date_offset_days`
+- [ ] **Task-Wiedereröffnung (v3.0):** `POST /tasks/{key}/reopen` setzt completed/skipped → pending; Audit-Trail (`reopened_at`, `reopened_from_status`)
+- [ ] **Task-Neuzuweisung (v3.0):** `plant_key` und `assigned_to_user_key` über TaskUpdate änderbar
+- [ ] **Batch-Operationen (v3.0):** `POST /tasks/batch/status`, `POST /tasks/batch/delete`, `POST /tasks/batch/assign`; atomare Ausführung mit Rollback
+- [ ] **Task-Kommentare (v3.0):** CRUD für Kommentare an Tasks; chronologisch geordnet; kaskadierte Löschung bei Task-Entfernung
+- [ ] **Task-Änderungshistorie (v3.0):** `GET /tasks/{key}/history` zeigt alle Änderungen; TaskAuditEntry mit action, field, old_value, new_value
+- [ ] **Dormant-Status (v3.0):** Tasks mit `trigger_phase` für zukünftige Phasen werden als `dormant` erzeugt; automatische Aktivierung bei Phase-Transition
+- [ ] **Phase-Transition-Hook (v3.0):** `activate_dormant_tasks_for_phase()` wird bei jedem Phasenwechsel (REQ-003) aufgerufen; dormant → pending mit berechneter due_date
+- [ ] **Workflow-Task-Anpassung (v3.0):** Jede instanziierte Task kann individuell angepasst werden (Name, Instruktion, Phase-Binding, Checkliste, Timer, Tags) ohne das Template zu ändern
+- [ ] **Workflow-Tasks hinzufügen (v3.0):** `POST /workflows/executions/{key}/tasks` ermöglicht zusätzliche Tasks zu einem laufenden Workflow
+- [ ] **Workflow-Tasks löschen (v3.0):** Einzelne Tasks innerhalb einer Workflow-Execution können gelöscht werden ohne den Workflow zu brechen
+- [ ] **Workflow-Phase-Timeline (v3.0):** UI zeigt Tasks gruppiert nach Phase als Timeline/Gantt mit Highlight der aktiven Phase
+- [ ] **Enum-Synchronisation (v3.0):** Backend `TaskCategory` enthält alle 12 Werte (training, pruning, ausgeizen, transplant, feeding, ipm, harvest, observation, maintenance, care_reminder, seasonal, phenological); Frontend-Kategorien sind identisch mit Backend-Enum
 
 ### Testszenarien:
 
@@ -2527,10 +2825,178 @@ THEN:
   - Tasks nur für konfigurierte Species generiert
 ```
 
+<!-- Quelle: Einzelaufgaben-Pflege v3.0 -->
+**Szenario 23: Task-Klonen mit Pflanzenwechsel**
+```
+GIVEN: Task "Topping an Node 5" für Pflanze "Cannabis #1"
+       Status: completed, mit Foto-Referenzen und Completion-Notes
+WHEN: Nutzer klickt "Task klonen" mit target_plant_key="Cannabis #2"
+THEN:
+  - Neuer Task erzeugt:
+    name: "Topping an Node 5" (identisch)
+    instruction: identisch
+    category: training
+    plant_key: "Cannabis #2" (neue Pflanze)
+    status: pending
+    due_date: null
+    photo_refs: [] (leer)
+    completion_notes: null
+    tags: [] (kopiert von Original, falls vorhanden)
+    checklist: kopiert von Original (alle done=false)
+  - cloned_from-Edge zum Original-Task
+  - TaskAuditEntry: action='cloned', new_value='original_task_key'
+```
+
+**Szenario 24: Wiederkehrende Aufgabe (Recurring Task)**
+```
+GIVEN: Task "Orchidee tauchen" mit recurrence_rule="0 8 * * 6"
+       (jeden Samstag 08:00), recurrence_end_date=null
+WHEN: Nutzer markiert Task als completed
+THEN:
+  - Task.status = 'completed', completed_at = jetzt
+  - System erzeugt automatisch nächste Instanz:
+    name: "Orchidee tauchen"
+    due_date: nächster Samstag
+    scheduled_time: 08:00
+    status: pending
+    parent_recurring_task_key: key des abgeschlossenen Tasks
+    recurrence_rule: "0 8 * * 6" (propagiert)
+  - recurs_from-Edge zum Eltern-Task
+```
+
+**Szenario 25: Task-Kommentare im Team**
+```
+GIVEN: Task "Rosenschnitt" im Gemeinschaftsgarten "Gartenfreunde"
+       Assigned to: user "Maria"
+WHEN: User "Klaus" (Admin) fügt Kommentar hinzu:
+      "Bitte die kranken Triebe besonders beachten — sah letzte Woche nach Sternrußtau aus"
+THEN:
+  - TaskComment erstellt: comment_text, created_by='klaus', created_at=jetzt
+  - has_comment-Edge: Task → Comment
+  - written_by-Edge: Comment → User 'klaus'
+  - TaskAuditEntry: action='commented'
+  - Maria sieht den Kommentar auf der Task-Detail-Seite
+```
+
+**Szenario 26: Task-Wiedereröffnung**
+```
+GIVEN: Task "pH-Wert prüfen" mit status='completed', completed_at=gestern
+       Nutzer stellt fest, dass die Messung fehlerhaft war
+WHEN: Nutzer klickt "Wiedereröffnen"
+THEN:
+  - status: completed → pending
+  - completed_at: null
+  - actual_duration_minutes: null
+  - completion_notes: null (zurückgesetzt)
+  - reopened_at: jetzt
+  - reopened_from_status: 'completed'
+  - photo_refs: beibehalten (Fotos nicht gelöscht)
+  - tags: beibehalten
+  - checklist: beibehalten (items bleiben done/undone)
+  - TaskAuditEntry: action='reopened', old_value='completed', new_value='pending'
+```
+
+**Szenario 27: Batch-Status-Änderung**
+```
+GIVEN: 5 Tasks mit status='pending' in der Task-Queue
+       Nutzer wählt 3 davon aus
+WHEN: Nutzer klickt "Alle abschließen" (Batch-Complete)
+THEN:
+  - POST /tasks/batch/status mit task_keys=[key1, key2, key3], action='complete'
+  - Alle 3 Tasks: status=completed, completed_at=jetzt
+  - Je ein TaskAuditEntry pro Task: action='status_changed'
+  - Response: { success: 3, failed: 0, errors: [] }
+
+GIVEN: 1 der 3 Tasks hat requires_photo=true und keine photo_refs
+THEN:
+  - Response: { success: 2, failed: 1, errors: [{ key: key2, reason: "Foto erforderlich" }] }
+  - Rollback: Nur die 2 erfolgreichen werden committed
+```
+
+**Szenario 28: Phasengebundener Workflow mit Dormant-Tasks**
+```
+GIVEN: Cannabis-Pflanze in Phase "vegetative"
+       Workflow "SCROG-Workflow" wird instanziiert mit Tasks:
+         Task A: trigger_phase='vegetative', days_offset=14 → "Topping"
+         Task B: trigger_phase='vegetative', days_offset=21 → "SCROG-Netz montieren"
+         Task C: trigger_phase='flowering', phase_entry → "Lollipopping"
+         Task D: trigger_phase='flowering', days_offset=7 → "SCROG-Füllgrad prüfen"
+         Task E: trigger_phase='harvest', phase_entry → "Ernte"
+WHEN: Workflow instanziiert
+THEN:
+  - Task A: status='pending', due_date=heute+14d (vegetative Phase aktiv)
+  - Task B: status='pending', due_date=heute+21d
+  - Task C: status='dormant' (flowering Phase noch nicht erreicht)
+  - Task D: status='dormant'
+  - Task E: status='dormant'
+  - UI zeigt: "Phase Vegetativ: 2 Tasks | Phase Blüte: 2 geplant | Ernte: 1 geplant"
+
+WHEN: Pflanze wechselt zu Phase "flowering"
+THEN:
+  - activate_dormant_tasks_for_phase(plant_key, 'flowering') wird aufgerufen
+  - Task C: status dormant → pending, due_date=Phasenwechsel-Datum
+  - Task D: status dormant → pending, due_date=Phasenwechsel-Datum + 7d
+  - Task E: bleibt dormant (harvest Phase noch nicht erreicht)
+  - Notification: "2 neue Aufgaben für Blüte-Phase aktiviert"
+```
+
+**Szenario 29: Individuelle Anpassung instanziierter Workflow-Tasks**
+```
+GIVEN: Workflow "Tomaten Multi-Stem" instanziiert mit 6 Tasks
+       Task "Ausgeizen" hat trigger_phase='vegetative', due_date=übermorgen
+WHEN: Nutzer bearbeitet die Task-Instanz:
+       - Name ändern: "Ausgeizen + Stütze anbringen"
+       - Checkliste hinzufügen: ["Geiztriebe entfernen", "Stab einsetzen", "Pflanze anbinden"]
+       - Tags hinzufügen: ["hochbeet-nord", "stab-nötig"]
+       - due_date verschieben auf nächste Woche
+THEN:
+  - Task-Instanz wird aktualisiert (Template bleibt unverändert!)
+  - TaskAuditEntry: action='updated', field='name', old_value='Ausgeizen', new_value='Ausgeizen + Stütze anbringen'
+  - Weitere AuditEntries für checklist, tags, due_date
+  - Workflow-Progress bleibt korrekt (Task gehört weiterhin zur Execution)
+```
+
+**Szenario 30: Task mit Checkliste und Pflicht-Prüfung**
+```
+GIVEN: TaskTemplate "Nährlösung-Wechsel" mit:
+       require_all_checklist_items: true
+       default_checklist: [
+         { text: "Altes Reservoir leeren", order: 0 },
+         { text: "Reservoir reinigen", order: 1 },
+         { text: "Frische Lösung ansetzen", order: 2 },
+         { text: "pH messen und korrigieren", order: 3 },
+         { text: "EC messen und dokumentieren", order: 4 }
+       ]
+WHEN: Workflow instanziiert → Task erhält Kopie der Checkliste
+       Nutzer erledigt 3 von 5 Schritten und versucht Task abzuschließen
+THEN:
+  - Validierung: require_all_checklist_items=true, aber nur 3/5 done
+  - Error: "Alle Checklist-Einträge müssen erledigt sein (3/5 abgehakt)"
+  - Task bleibt in_progress
+  - Nutzer kann Checklist-Items nachhaken und erneut abschließen
+```
+
+**Szenario 31: Zusätzliche Tasks zu laufendem Workflow hinzufügen**
+```
+GIVEN: Laufende Workflow-Execution "Cannabis Mainlining" mit 7 Tasks
+       Nutzer merkt, dass ein zusätzlicher LST-Schritt nötig ist
+WHEN: POST /workflows/executions/{key}/tasks mit:
+       { name: "LST Biegen — Seitentrieb links", category: "training",
+         trigger_phase: "vegetative", due_date: "2026-03-20",
+         checklist: [{ text: "Trieb sanft biegen", order: 0 }, { text: "Mit Draht fixieren", order: 1 }] }
+THEN:
+  - Neuer Task erstellt und der Workflow-Execution zugeordnet
+  - generated-Edge: Execution → neuer Task
+  - has_task-Edge: Plant → neuer Task
+  - Workflow-Progress aktualisiert: completion_percentage neu berechnet (z.B. 4/8 statt 4/7)
+  - Neuer Task erscheint in der Phase-Timeline an korrekter Position
+```
+
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Workflow, Task, HST, Training, Topping, LST, Dependency, Scheduling, Template, Ausgeizen, Observation, Zimmerpflanzen, Hydroponik-Wartung, GDD-Trigger, Outdoor, Frostschutz, Abhärtung, Überwinterung, Umtopf, Vermehrung, Mondkalender, Gießplan, generate_watering_tasks, Celery-Beat, planting_run_key, watering_event_key, WateringSchedule, Gießplan-Task, Task-Timer, Countdown, timer_duration_seconds, timer_label, Mischvorgang, Einwirkzeit, Burping, Training-Plan, Canopy-Management, TrainingEvent, CanopyMeasurement, Recovery-Timer, Autoflower-Guard, SCROG-Füllgrad, Canopy-Evenness-Score, Mainlining-Workflow, Defoliation-Schedule, Gartenkalender, Seasonal-Month, Phenological, PhenologicalEvent, Forsythienblüte, Holunderblüte, Apfelblüte, Zeigerpflanze, Beetvorbereitung, Gründüngung, Sukzessions-Aussaat, Staudenteilung, Überwinterungs-Checklist, Auswinterung, Rosen-Jahrespflege
+- Keywords: Workflow, Task, HST, Training, Topping, LST, Dependency, Scheduling, Template, Ausgeizen, Observation, Zimmerpflanzen, Hydroponik-Wartung, GDD-Trigger, Outdoor, Frostschutz, Abhärtung, Überwinterung, Umtopf, Vermehrung, Mondkalender, Gießplan, generate_watering_tasks, Celery-Beat, planting_run_key, watering_event_key, WateringSchedule, Gießplan-Task, Task-Timer, Countdown, timer_duration_seconds, timer_label, Mischvorgang, Einwirkzeit, Burping, Training-Plan, Canopy-Management, TrainingEvent, CanopyMeasurement, Recovery-Timer, Autoflower-Guard, SCROG-Füllgrad, Canopy-Evenness-Score, Mainlining-Workflow, Defoliation-Schedule, Gartenkalender, Seasonal-Month, Phenological, PhenologicalEvent, Forsythienblüte, Holunderblüte, Apfelblüte, Zeigerpflanze, Beetvorbereitung, Gründüngung, Sukzessions-Aussaat, Staudenteilung, Überwinterungs-Checklist, Auswinterung, Rosen-Jahrespflege, Tags, Checkliste, ChecklistItem, Subtasks, Bewertung, difficulty_rating, quality_rating, Recurring, Wiederholung, recurrence_rule, Cron, Task-Klonen, Task-Wiedereröffnung, Reopen, Batch-Operationen, Task-Kommentare, TaskComment, TaskAuditEntry, Änderungshistorie, Audit-Trail, Dormant, Phasengebundene-Tasks, activate_dormant_tasks, Phase-Transition-Hook, User-Zuweisung, assigned_to_user_key, Workflow-Task-Anpassung, trigger_phase_override, scheduled_time
 - Fachbegriffe: Auxin-Dominanz, Hermaphroditismus, Mainlining, Lollipopping, SOG, SCROG, Supercropping, Karenzzeit, PHI, Kumulativer Stress, Jasmonsäure, Ethylen, Stretch-Phase, Early Flowering, Geiztrieb, Assimilat-Verteilung, Phototoxizität, Transpiration, cultivar_timing_factor, Dormanz, Akklimatisierung, Canopy-Gleichmäßigkeit, Recovery-Phase, Autoflower, Manifolding, SCROG-Tucking, Netz-Höhe, Netz-Füllgrad, Phänologie, Phänologische Jahreszeiten, Vorfrühling, Erstfrühling, Vollfrühling, Frühsommer, Hochsommer, Sukzessions-Anbau, Gründüngung, Bodenlebewesen, Eisheilige, Starkzehrer, Schwachzehrer
-- Verknüpfung: Zentral für REQ-001 (cultivar_timing_factor + Cultivar.flowering_type für Autoflower-Guard + sowing_indoor_weeks_before_last_frost + frost_sensitivity), REQ-002 (climate_zone für regionale Kalender-Anpassung), REQ-003 (Phasen-Trigger + GDD), REQ-005 (canopy_height als Sensorwert), REQ-007 (Harvest-Tasks), REQ-010 (IPM-Tasks + Karenzzeit), REQ-013 (PlantInstance für TrainingEvent/CanopyMeasurement + clone_from_run_key für Sukzession), REQ-018 (Aktor-Verknüpfung), REQ-014 (Hydroponik-Wartung), REQ-019 (Substrat-spezifische Post-HST-Bewässerung), REQ-022 (OverwinteringProfile für Überwinterungs-Checklist)
+- Verknüpfung: Zentral für REQ-001 (cultivar_timing_factor + Cultivar.flowering_type für Autoflower-Guard + sowing_indoor_weeks_before_last_frost + frost_sensitivity), REQ-002 (climate_zone für regionale Kalender-Anpassung), REQ-003 (Phasen-Trigger + GDD + **Phase-Transition-Hook für Dormant-Aktivierung v3.0**), REQ-005 (canopy_height als Sensorwert), REQ-007 (Harvest-Tasks), REQ-010 (IPM-Tasks + Karenzzeit), REQ-013 (PlantInstance für TrainingEvent/CanopyMeasurement + clone_from_run_key für Sukzession), REQ-018 (Aktor-Verknüpfung), REQ-014 (Hydroponik-Wartung), REQ-019 (Substrat-spezifische Post-HST-Bewässerung), REQ-022 (OverwinteringProfile für Überwinterungs-Checklist), REQ-024 (**User-Zuweisung + Membership-Validierung v3.0**)
 - Pflanzenwissenschaft: Stress-Physiologie, Hormon-Regulation, Recovery-Zeiten, artspezifische Metabolismus-Geschwindigkeit, Tageszeit-Einfluss auf Pflanzenphysiologie, Temperatur-Recovery-Modifikation, Dormanz-Management, Abhärtungs-Physiologie
+- Software-Engineering (v3.0): CRUD+, Batch-Operationen, Audit-Trail, Recurring-Pattern (Cron), Dormant-State-Machine, Phase-Transition-Hook, One-Way-Template-Instantiation, Checklist-Embedding, Tag-basierte Filterung, User-Assignment, Task-Cloning, Reopen-Semantik

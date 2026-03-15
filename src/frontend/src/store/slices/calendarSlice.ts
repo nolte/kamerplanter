@@ -1,5 +1,11 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { CalendarEvent, CalendarFeed } from '@/api/types';
+import type {
+  CalendarEvent,
+  CalendarFeed,
+  FrostConfig,
+  SeasonOverviewResponse,
+  SowingCalendarEntry,
+} from '@/api/types';
 import * as api from '@/api/endpoints/calendar';
 
 interface CalendarState {
@@ -8,6 +14,14 @@ interface CalendarState {
   loading: boolean;
   feedsLoading: boolean;
   error: string | null;
+  // Sowing calendar
+  sowingEntries: SowingCalendarEntry[];
+  sowingFrostConfig: FrostConfig | null;
+  sowingYear: number;
+  sowingLoading: boolean;
+  // Season overview
+  seasonOverview: SeasonOverviewResponse | null;
+  seasonLoading: boolean;
 }
 
 const initialState: CalendarState = {
@@ -16,6 +30,12 @@ const initialState: CalendarState = {
   loading: false,
   feedsLoading: false,
   error: null,
+  sowingEntries: [],
+  sowingFrostConfig: null,
+  sowingYear: new Date().getFullYear(),
+  sowingLoading: false,
+  seasonOverview: null,
+  seasonLoading: false,
 };
 
 export const fetchCalendarEvents = createAsyncThunk(
@@ -61,6 +81,20 @@ export const regenerateCalendarFeedToken = createAsyncThunk(
   'calendar/regenerateToken',
   async (key: string) => {
     return api.regenerateCalendarFeedToken(key);
+  },
+);
+
+export const fetchSowingCalendar = createAsyncThunk(
+  'calendar/fetchSowing',
+  async ({ siteId, year }: { siteId?: string; year?: number }) => {
+    return api.getSowingCalendar(siteId, year);
+  },
+);
+
+export const fetchSeasonOverview = createAsyncThunk(
+  'calendar/fetchSeasonOverview',
+  async ({ siteId, year }: { siteId?: string; year?: number }) => {
+    return api.getSeasonOverview(siteId, year);
   },
 );
 
@@ -113,6 +147,34 @@ const calendarSlice = createSlice({
         if (index >= 0) {
           state.feeds[index] = action.payload;
         }
+      })
+      // Sowing calendar
+      .addCase(fetchSowingCalendar.pending, (state) => {
+        state.sowingLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchSowingCalendar.fulfilled, (state, action) => {
+        state.sowingLoading = false;
+        state.sowingEntries = action.payload.entries;
+        state.sowingFrostConfig = action.payload.frost_config;
+        state.sowingYear = action.payload.year;
+      })
+      .addCase(fetchSowingCalendar.rejected, (state, action) => {
+        state.sowingLoading = false;
+        state.error = action.error.message ?? 'Failed to load sowing calendar';
+      })
+      // Season overview
+      .addCase(fetchSeasonOverview.pending, (state) => {
+        state.seasonLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchSeasonOverview.fulfilled, (state, action) => {
+        state.seasonLoading = false;
+        state.seasonOverview = action.payload;
+      })
+      .addCase(fetchSeasonOverview.rejected, (state, action) => {
+        state.seasonLoading = false;
+        state.error = action.error.message ?? 'Failed to load season overview';
       });
   },
 });

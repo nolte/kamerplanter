@@ -10,12 +10,14 @@ import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
+import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
+import Typography from '@mui/material/Typography';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/fertilizers';
 
-const fertilizerTypes = ['base', 'supplement', 'booster', 'biological', 'ph_adjuster', 'organic'] as const;
+const fertilizerTypes = ['base', 'supplement', 'booster', 'biological', 'ph_adjuster', 'organic', 'silicate'] as const;
 const phEffects = ['acidic', 'alkaline', 'neutral'] as const;
 const applicationMethods = ['fertigation', 'drench', 'foliar', 'top_dress', 'any'] as const;
 
@@ -99,6 +101,9 @@ export default function FertilizerCreateDialog({ open, onClose, onCreated }: Pro
       <DialogTitle>{t('pages.fertilizers.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 1 }}>
+            {t('pages.fertilizers.sectionIdentification')}
+          </Typography>
           <FormTextField
             name="product_name"
             control={control}
@@ -119,55 +124,72 @@ export default function FertilizerCreateDialog({ open, onClose, onCreated }: Pro
               label: t(`enums.fertilizerType.${v}`),
             }))}
           />
-          <FormSwitchField
-            name="is_organic"
-            control={control}
-            label={t('pages.fertilizers.isOrganic')}
-          />
-          <FormSwitchField
-            name="tank_safe"
-            control={control}
-            label={t('pages.fertilizers.tankSafe')}
-          />
-          <FormNumberField
-            name="npk_n"
-            control={control}
-            label={t('pages.fertilizers.npkN')}
-            min={0}
-          />
-          <FormNumberField
-            name="npk_p"
-            control={control}
-            label={t('pages.fertilizers.npkP')}
-            min={0}
-          />
-          <FormNumberField
-            name="npk_k"
-            control={control}
-            label={t('pages.fertilizers.npkK')}
-            min={0}
-          />
-          <FormNumberField
-            name="ec_contribution_per_ml"
-            control={control}
-            label={t('pages.fertilizers.ecContribution')}
-            min={0}
-          />
-          <FormNumberField
-            name="mixing_priority"
-            control={control}
-            label={t('pages.fertilizers.mixingPriority')}
-            min={1}
-          />
-          <FormSelectField
-            name="ph_effect"
-            control={control}
-            label={t('pages.fertilizers.phEffect')}
-            options={phEffects.map((v) => ({
-              value: v,
-              label: t(`enums.phEffect.${v}`),
-            }))}
-          />
+
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.fertilizers.sectionNutrients')}
+          </Typography>
+          <FormRow>
+            <FormNumberField
+              name="npk_n"
+              control={control}
+              label={t('pages.fertilizers.npkN')}
+              min={0}
+              suffix="%"
+              inputMode="decimal"
+              helperText={t('pages.fertilizers.npkNHelper')}
+            />
+            <FormNumberField
+              name="npk_p"
+              control={control}
+              label={t('pages.fertilizers.npkP')}
+              min={0}
+              suffix="%"
+              inputMode="decimal"
+            />
+          </FormRow>
+          <FormRow>
+            <FormNumberField
+              name="npk_k"
+              control={control}
+              label={t('pages.fertilizers.npkK')}
+              min={0}
+              suffix="%"
+              inputMode="decimal"
+            />
+            <FormNumberField
+              name="ec_contribution_per_ml"
+              control={control}
+              label={t('pages.fertilizers.ecContribution')}
+              min={0}
+              suffix="mS/ml"
+              inputMode="decimal"
+              helperText={t('pages.fertilizers.ecContributionHelper')}
+            />
+          </FormRow>
+
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.fertilizers.sectionMixing')}
+          </Typography>
+          <FormRow>
+            <FormNumberField
+              name="mixing_priority"
+              control={control}
+              label={t('pages.fertilizers.mixingPriority')}
+              min={1}
+              step={1}
+              inputMode="numeric"
+              helperText={t('pages.fertilizers.mixingPriorityHelper')}
+            />
+            <FormSelectField
+              name="ph_effect"
+              control={control}
+              label={t('pages.fertilizers.phEffect')}
+              options={phEffects.map((v) => ({
+                value: v,
+                label: t(`enums.phEffect.${v}`),
+              }))}
+            />
+          </FormRow>
           <FormSelectField
             name="recommended_application"
             control={control}
@@ -177,6 +199,24 @@ export default function FertilizerCreateDialog({ open, onClose, onCreated }: Pro
               label: t(`enums.applicationMethod.${v}`),
             }))}
           />
+
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.fertilizers.sectionProperties')}
+          </Typography>
+          <FormRow>
+            <FormSwitchField
+              name="is_organic"
+              control={control}
+              label={t('pages.fertilizers.isOrganic')}
+              helperText={t('pages.fertilizers.isOrganicHelper')}
+            />
+            <FormSwitchField
+              name="tank_safe"
+              control={control}
+              label={t('pages.fertilizers.tankSafe')}
+              helperText={t('pages.fertilizers.tankSafeHelper')}
+            />
+          </FormRow>
           <FormTextField
             name="notes"
             control={control}

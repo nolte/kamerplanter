@@ -12,6 +12,7 @@ import { fetchBotanicalFamilies } from '@/store/slices/botanicalFamiliesSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import type { BotanicalFamily } from '@/api/types';
 import BotanicalFamilyCreateDialog from './BotanicalFamilyCreateDialog';
+import { kamiMasterdata } from '@/assets/brand/illustrations';
 
 export default function BotanicalFamilyListPage() {
   const { t, i18n } = useTranslation();
@@ -32,8 +33,8 @@ export default function BotanicalFamilyListPage() {
       label: t('pages.botanicalFamilies.commonName'),
       render: (r) =>
         i18n.language === 'en'
-          ? r.common_name_en || r.common_name_de
-          : r.common_name_de || r.common_name_en,
+          ? r.common_name_en || r.common_name_de || '\u2014'
+          : r.common_name_de || r.common_name_en || '\u2014',
       searchValue: (r) => `${r.common_name_de} ${r.common_name_en}`,
     },
     {
@@ -55,9 +56,16 @@ export default function BotanicalFamilyListPage() {
       searchValue: (r) => t(`enums.rootDepth.${r.typical_root_depth}`),
     },
     {
+      id: 'speciesCount',
+      label: t('pages.botanicalFamilies.speciesCount'),
+      render: (r) => r.species_count,
+      align: 'right',
+      sortFn: (a, b) => a.species_count - b.species_count,
+    },
+    {
       id: 'rotationCategory',
       label: t('pages.botanicalFamilies.rotationCategory'),
-      render: (r) => r.rotation_category,
+      render: (r) => r.rotation_category || '\u2014',
     },
   ];
 
@@ -87,6 +95,7 @@ export default function BotanicalFamilyListPage() {
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.botanicalFamilies.create')}
         onEmptyAction={() => setCreateOpen(true)}
+        emptyIllustration={kamiMasterdata}
         tableState={tableState}
         ariaLabel={t('pages.botanicalFamilies.title')}
       />

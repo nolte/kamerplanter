@@ -6,6 +6,7 @@ from app.common.enums import (
     GrowthHabit,
     RootType,
     RowStatus,
+    Suitability,
 )
 from app.domain.engines.csv_parser import COLUMN_DEFINITIONS
 from app.domain.models.import_job import PreviewRow, RowValidationError
@@ -16,6 +17,9 @@ ENUM_VALIDATORS: dict[str, type] = {
     "growth_habit": GrowthHabit,
     "cycle_type": CycleType,
     "root_type": RootType,
+    "container_suitable": Suitability,
+    "indoor_suitable": Suitability,
+    "balcony_suitable": Suitability,
 }
 
 

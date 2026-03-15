@@ -1,5 +1,5 @@
 from collections import deque
-from datetime import datetime
+from datetime import UTC, datetime
 
 # Priority scores (lower = higher priority)
 PRIORITY_SCORES = {
@@ -46,7 +46,7 @@ class DependencyResolver:
                 blocked_by.setdefault(to_key, set()).add(from_key)
 
         ready = []
-        now = datetime.now()
+        now = datetime.now(UTC)
         for t in tasks:
             if t.get("status") != "pending":
                 continue
@@ -56,6 +56,8 @@ class DependencyResolver:
             due = t.get("due_date")
             if due and isinstance(due, str):
                 due = datetime.fromisoformat(due)
+            if due and due.tzinfo is None:
+                due = due.replace(tzinfo=UTC)
 
             urgency = 0.0
             if due:

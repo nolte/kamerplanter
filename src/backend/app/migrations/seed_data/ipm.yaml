@@ -1,0 +1,241 @@
+pests:
+  - scientific_name: Tetranychus urticae
+    common_name: Spider Mites
+    pest_type: arachnid
+    lifecycle_days: 21
+    optimal_temp_min: 25.0
+    optimal_temp_max: 30.0
+    detection_difficulty: medium
+
+  - scientific_name: Aphis gossypii
+    common_name: Aphids
+    pest_type: insect
+    lifecycle_days: 14
+    optimal_temp_min: 20.0
+    optimal_temp_max: 25.0
+    detection_difficulty: easy
+
+  - scientific_name: Frankliniella occidentalis
+    common_name: Thrips
+    pest_type: insect
+    lifecycle_days: 18
+    optimal_temp_min: 20.0
+    optimal_temp_max: 28.0
+    detection_difficulty: hard
+
+  - scientific_name: Bradysia spp.
+    common_name: Fungus Gnats
+    pest_type: insect
+    lifecycle_days: 28
+    optimal_temp_min: 20.0
+    optimal_temp_max: 25.0
+    detection_difficulty: easy
+
+  - scientific_name: Trialeurodes vaporariorum
+    common_name: Whitefly
+    pest_type: insect
+    lifecycle_days: 30
+    optimal_temp_min: 22.0
+    optimal_temp_max: 28.0
+    detection_difficulty: easy
+
+  - scientific_name: Trichoplusia ni
+    common_name: Caterpillar
+    pest_type: insect
+    lifecycle_days: 35
+    optimal_temp_min: 20.0
+    optimal_temp_max: 28.0
+    detection_difficulty: medium
+
+  - scientific_name: Pseudococcus longispinus
+    common_name: Mealybug
+    pest_type: insect
+    lifecycle_days: 40
+    optimal_temp_min: 22.0
+    optimal_temp_max: 30.0
+    detection_difficulty: medium
+
+  - scientific_name: Phyllotreta spp.
+    common_name: Flea Beetle
+    pest_type: insect
+    lifecycle_days: 45
+    optimal_temp_min: 20.0
+    optimal_temp_max: 27.0
+    detection_difficulty: easy
+
+  - scientific_name: Arion vulgaris
+    common_name: Slug
+    pest_type: gastropod
+    lifecycle_days: 365
+    optimal_temp_min: 10.0
+    optimal_temp_max: 20.0
+    detection_difficulty: easy
+
+  - scientific_name: Meloidogyne spp.
+    common_name: Nematode
+    pest_type: nematode
+    lifecycle_days: 30
+    optimal_temp_min: 20.0
+    optimal_temp_max: 30.0
+    detection_difficulty: hard
+
+diseases:
+  - scientific_name: Erysiphe spp.
+    common_name: Powdery Mildew
+    pathogen_type: fungal
+    incubation_period_days: 5
+    environmental_triggers: [high_humidity, poor_ventilation]
+    affected_plant_parts: [leaf, stem]
+
+  - scientific_name: Botrytis cinerea
+    common_name: Botrytis (Grey Mold)
+    pathogen_type: fungal
+    incubation_period_days: 3
+    environmental_triggers: [high_humidity, low_temperature]
+    affected_plant_parts: [flower, fruit, leaf]
+
+  - scientific_name: Fusarium oxysporum
+    common_name: Fusarium Wilt
+    pathogen_type: fungal
+    incubation_period_days: 14
+    environmental_triggers: [warm_soil, overwatering]
+    affected_plant_parts: [root, stem]
+
+  - scientific_name: Peronospora spp.
+    common_name: Downy Mildew
+    pathogen_type: fungal
+    incubation_period_days: 7
+    environmental_triggers: [cool_wet, poor_ventilation]
+    affected_plant_parts: [leaf]
+
+  - scientific_name: Pythium spp.
+    common_name: Root Rot
+    pathogen_type: fungal
+    incubation_period_days: 5
+    environmental_triggers: [overwatering, poor_drainage]
+    affected_plant_parts: [root]
+
+  - scientific_name: Xanthomonas campestris
+    common_name: Bacterial Spot
+    pathogen_type: bacterial
+    incubation_period_days: 5
+    environmental_triggers: [high_humidity, warm_temperature]
+    affected_plant_parts: [leaf, fruit]
+
+  - scientific_name: Tobacco mosaic virus
+    common_name: Tobacco Mosaic Virus
+    pathogen_type: viral
+    incubation_period_days: 14
+    environmental_triggers: [mechanical_transmission]
+    affected_plant_parts: [leaf, stem]
+
+  - scientific_name: Phytophthora infestans
+    common_name: Late Blight
+    pathogen_type: fungal
+    incubation_period_days: 7
+    environmental_triggers: [cool_wet, prolonged_moisture]
+    affected_plant_parts: [leaf, stem, fruit]
+
+treatments:
+  # Cultural (4)
+  - name: Crop Rotation
+    treatment_type: cultural
+    application_method: cultural
+    description: "Rotate plant families to break pest/disease cycles"
+
+  - name: Sanitation
+    treatment_type: cultural
+    application_method: cultural
+    description: "Remove dead plant material and debris"
+
+  - name: Resistant Varieties
+    treatment_type: cultural
+    application_method: cultural
+    description: "Use disease-resistant cultivars"
+
+  - name: Environmental Control
+    treatment_type: cultural
+    application_method: cultural
+    description: "Adjust temperature, humidity, and ventilation"
+
+  # Biological (3)
+  - name: Phytoseiulus persimilis
+    treatment_type: biological
+    application_method: release
+    description: "Predatory mite for spider mite control"
+
+  - name: Encarsia formosa
+    treatment_type: biological
+    application_method: release
+    description: "Parasitic wasp for whitefly control"
+
+  - name: Bacillus thuringiensis (Bt)
+    treatment_type: biological
+    application_method: spray
+    description: "Biological insecticide for caterpillar control"
+
+  # Mechanical (2)
+  - name: Sticky Traps
+    treatment_type: mechanical
+    application_method: cultural
+    description: "Yellow/blue sticky traps for flying insects"
+
+  - name: Hand Removal
+    treatment_type: mechanical
+    application_method: cultural
+    description: "Manual removal of pests"
+
+  # Chemical (3)
+  - name: Pyrethrin
+    treatment_type: chemical
+    active_ingredient: pyrethrin
+    application_method: spray
+    safety_interval_days: 7
+    dosage_per_liter: 1.0
+    protective_equipment: [gloves, mask]
+
+  - name: Neem Oil
+    treatment_type: chemical
+    active_ingredient: azadirachtin
+    application_method: spray
+    safety_interval_days: 3
+    dosage_per_liter: 5.0
+    protective_equipment: [gloves]
+
+  - name: Spinosad
+    treatment_type: chemical
+    active_ingredient: spinosad
+    application_method: spray
+    safety_interval_days: 14
+    dosage_per_liter: 0.5
+    protective_equipment: [gloves, mask, goggles]
+
+pest_treatments:
+  - [Phytoseiulus persimilis, Spider Mites]
+  - [Pyrethrin, Spider Mites]
+  - [Neem Oil, Spider Mites]
+  - [Neem Oil, Aphids]
+  - [Pyrethrin, Aphids]
+  - [Sticky Traps, Thrips]
+  - [Spinosad, Thrips]
+  - [Sticky Traps, Fungus Gnats]
+  - [Encarsia formosa, Whitefly]
+  - [Sticky Traps, Whitefly]
+  - [Bacillus thuringiensis (Bt), Caterpillar]
+  - [Neem Oil, Mealybug]
+  - [Hand Removal, Slug]
+
+disease_treatments:
+  - [Environmental Control, Powdery Mildew]
+  - [Environmental Control, Botrytis (Grey Mold)]
+  - [Environmental Control, Downy Mildew]
+  - [Sanitation, Botrytis (Grey Mold)]
+  - [Sanitation, Fusarium Wilt]
+  - [Resistant Varieties, Fusarium Wilt]
+  - [Resistant Varieties, Tobacco Mosaic Virus]
+  - [Crop Rotation, Late Blight]
+
+contraindications:
+  - [Phytoseiulus persimilis, Pyrethrin]
+  - [Encarsia formosa, Pyrethrin]
+  - [Phytoseiulus persimilis, Spinosad]

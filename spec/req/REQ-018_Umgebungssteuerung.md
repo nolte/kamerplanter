@@ -7,7 +7,7 @@ Kategorie: Automatisierung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, Home Assistant, MQTT
 Status: Entwurf
-Version: 1.1
+Version: 1.2 (HA-UI-Visibility gemäß REQ-005 §4a)
 ```
 
 ## 1. Business Case
@@ -54,11 +54,12 @@ Wenn mehrere Regeln denselben Aktor ansprechen, gilt:
 3. **Regelbasierte Steuerung** (Sensor-Schwellwerte)
 4. **Zeitplan** (niedrigste Priorität)
 
-**Home-Assistant-Integration (bidirektional):**
+**Home-Assistant-Integration (bidirektional, vollständig optional — siehe REQ-005 §4a):**
 - **Outbound:** Kamerplanter sendet Service-Calls an Home Assistant (Aktoren steuern)
 - **Inbound:** Home Assistant meldet Zustandsänderungen zurück (Bestätigung)
 - **Entity-Mapping:** Jeder Aktor hat eine optionale `ha_entity_id` (z.B. `light.growzelt_1`, `switch.exhaust_fan`)
 - **Graceful Degradation:** Wenn HA nicht erreichbar, erzeugt das System stattdessen einen manuellen Task (REQ-006)
+- **UI-Visibility:** Wenn die HA-Integration nicht aktiviert ist (`ha_token_set == false`), werden `ha_entity_id`-Felder, die Protocol-Option `home_assistant` und HA-Service-Call-Logs im Frontend ausgeblendet. Der Nutzer sieht nur die Protokolle `mqtt` und `manual`. Siehe REQ-005 §4a für die systemweite Visibility-Regel.
 
 **Phasengebundene Profile:**
 Das System verknüpft REQ-003 `requirement_profiles` mit konkreten Aktor-Einstellungen:

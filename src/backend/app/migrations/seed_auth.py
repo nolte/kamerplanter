@@ -9,12 +9,9 @@ from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.models.membership import Membership
 from app.domain.models.tenant import Tenant
 from app.domain.models.user import User
+from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
-
-DEMO_EMAIL = "demo@kamerplanter.example"
-DEMO_PASSWORD = "demo-passwort-2024"
-DEMO_DISPLAY_NAME = "Demo Admin"
 
 password_engine = PasswordEngine()
 tenant_engine = TenantEngine()
@@ -22,32 +19,32 @@ tenant_engine = TenantEngine()
 
 def run_seed_auth() -> None:
     """Create a demo user with personal tenant if not already present."""
+    data = load_yaml("auth.yaml")
+    demo = data["demo_user"]
+
     user_repo = get_user_repo()
     tenant_repo = get_tenant_repo()
     membership_repo = get_membership_repo()
 
-    # Check if demo user already exists
-    existing = user_repo.get_by_email(DEMO_EMAIL)
+    existing = user_repo.get_by_email(demo["email"])
     if existing:
-        logger.info("demo_user_exists", email=DEMO_EMAIL)
+        logger.info("demo_user_exists", email=demo["email"])
         return
 
-    # Create demo user (pre-verified)
     user = User(
-        email=DEMO_EMAIL,
-        display_name=DEMO_DISPLAY_NAME,
-        password_hash=password_engine.hash_password(DEMO_PASSWORD),
+        email=demo["email"],
+        display_name=demo["display_name"],
+        password_hash=password_engine.hash_password(demo["password"]),
         email_verified=EmailVerificationStatus.VERIFIED,
         is_active=True,
     )
     created_user = user_repo.create(user)
     user_key = created_user.key or ""
-    logger.info("demo_user_created", email=DEMO_EMAIL, key=user_key)
+    logger.info("demo_user_created", email=demo["email"], key=user_key)
 
-    # Create personal tenant
-    slug = tenant_engine.generate_slug(DEMO_DISPLAY_NAME)
+    slug = tenant_engine.generate_slug(demo["display_name"])
     tenant = Tenant(
-        name=f"{DEMO_DISPLAY_NAME}'s Garden",
+        name=f"{demo['display_name']}'s Garden",
         slug=slug,
         tenant_type=TenantType.PERSONAL,
         owner_user_key=user_key,
@@ -57,7 +54,6 @@ def run_seed_auth() -> None:
     tenant_key = created_tenant.key or ""
     logger.info("demo_tenant_created", slug=slug, key=tenant_key)
 
-    # Create admin membership
     membership = Membership(
         user_key=user_key,
         tenant_key=tenant_key,
@@ -69,8 +65,8 @@ def run_seed_auth() -> None:
 
     logger.info(
         "demo_seed_complete",
-        email=DEMO_EMAIL,
-        password=DEMO_PASSWORD,
+        email=demo["email"],
+        password=demo["password"],
         tenant_slug=slug,
     )
 

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import date
 
-from app.common.types import LocationKey, SlotKey, WateringEventKey
+from app.common.types import LocationKey, PlantInstanceKey, WateringEventKey
 from app.domain.models.watering_event import WateringEvent
 
 
@@ -25,8 +25,8 @@ class IWateringRepository(ABC):
     # ── Queries ────────────────────────────────────────────────────────
 
     @abstractmethod
-    def get_by_slot(
-        self, slot_key: SlotKey, offset: int = 0, limit: int = 50,
+    def get_by_plant(
+        self, plant_key: PlantInstanceKey, offset: int = 0, limit: int = 50,
     ) -> list[WateringEvent]:
         ...
 

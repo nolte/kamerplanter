@@ -5,10 +5,12 @@ from datetime import date, datetime
 from pydantic import BaseModel, Field, model_validator
 
 from app.common.enums import (
+    FillType,
     MaintenancePriority,
     MaintenanceType,
     TankMaterial,
     TankType,
+    WaterSource,
 )
 
 
@@ -23,6 +25,9 @@ class Tank(BaseModel):
     has_air_pump: bool = False
     has_circulation_pump: bool = False
     has_heater: bool = False
+    is_light_proof: bool = False
+    has_uv_sterilizer: bool = False
+    has_ozone_generator: bool = False
     installed_on: date | None = None
     location_key: str | None = None
     notes: str | None = None
@@ -42,6 +47,8 @@ class TankState(BaseModel):
     ec_ms: float | None = Field(default=None, ge=0)
     water_temp_celsius: float | None = Field(default=None, ge=0, le=50)
     tds_ppm: float | None = Field(default=None, ge=0)
+    dissolved_oxygen_mgl: float | None = Field(default=None, ge=0, le=20)
+    orp_mv: int | None = Field(default=None, ge=-500, le=1000)
     source: str = "manual"
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -86,4 +93,51 @@ class MaintenanceSchedule(BaseModel):
                 f"reminder_days_before ({self.reminder_days_before}) "
                 f"must be less than interval_days ({self.interval_days})"
             )
+        return self
+
+
+class FertilizerSnapshot(BaseModel):
+    """Lightweight snapshot of a fertilizer used in a fill event."""
+
+    product_key: str | None = None
+    product_name: str
+    ml_per_liter: float = Field(gt=0)
+
+
+class TankFillEvent(BaseModel):
+    key: str | None = Field(default=None, alias="_key")
+    tank_key: str = ""
+    filled_at: datetime | None = None
+    fill_type: FillType
+    volume_liters: float = Field(gt=0)
+    mixing_result_key: str | None = None
+    nutrient_plan_key: str | None = None
+    target_ec_ms: float | None = Field(default=None, ge=0)
+    target_ph: float | None = Field(default=None, ge=0, le=14)
+    measured_ec_ms: float | None = Field(default=None, ge=0)
+    measured_ph: float | None = Field(default=None, ge=0, le=14)
+    water_source: WaterSource | None = None
+    water_mix_ratio_ro_percent: float | None = Field(default=None, ge=0, le=100)
+    source_tank_key: str | None = None
+    fertilizers_used: list[FertilizerSnapshot] = Field(default_factory=list)
+    base_water_ec_ms: float | None = Field(default=None, ge=0)
+    chlorine_ppm: float | None = Field(default=None, ge=0)
+    chloramine_ppm: float | None = Field(default=None, ge=0)
+    alkalinity_ppm: float | None = Field(default=None, ge=0)
+    is_organic_fertilizers: bool = False
+    performed_by: str | None = None
+    notes: str | None = None
+    water_defaults_source: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    model_config = {"populate_by_name": True}
+
+    @model_validator(mode="after")
+    def check_adjustment_requires_target(self) -> TankFillEvent:
+        if self.fill_type == FillType.ADJUSTMENT:
+            if self.target_ec_ms is None and self.target_ph is None:
+                raise ValueError(
+                    "Adjustment fill type requires at least target_ec_ms or target_ph"
+                )
         return self

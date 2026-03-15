@@ -52,3 +52,14 @@ export async function validatePlanting(
   );
   return data;
 }
+
+export interface PlantRunRef {
+  key: string;
+  name: string;
+  status: string;
+}
+
+export async function getPlantRuns(plantKey: string): Promise<PlantRunRef[]> {
+  const { data } = await client.get<PlantRunRef[]>(`${BASE}/${plantKey}/planting-runs`);
+  return data;
+}

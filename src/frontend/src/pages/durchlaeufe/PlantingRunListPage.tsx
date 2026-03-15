@@ -13,6 +13,7 @@ import { fetchPlantingRuns } from '@/store/slices/plantingRunsSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import type { PlantingRun, PlantingRunStatus } from '@/api/types';
 import PlantingRunCreateDialog from './PlantingRunCreateDialog';
+import { kamiPlantingRuns } from '@/assets/brand/illustrations';
 
 const statusColor: Record<PlantingRunStatus, ChipProps['color']> = {
   planned: 'default',
@@ -49,6 +50,7 @@ export default function PlantingRunListPage() {
           label={t(`enums.plantingRunStatus.${r.status}`)}
           size="small"
           color={statusColor[r.status] ?? 'default'}
+          data-testid={`status-chip-${r.key}`}
         />
       ),
       searchValue: (r) => t(`enums.plantingRunStatus.${r.status}`),
@@ -57,12 +59,12 @@ export default function PlantingRunListPage() {
       id: 'phase',
       label: t('pages.plantingRuns.currentPhase'),
       render: (r) => {
-        if (!r.phase_summary || r.status === 'planned') return '-';
+        if (!r.phase_summary || r.status === 'planned') return '\u2014';
         const { dominant_phase, dominant_phase_count, total_plant_count } = r.phase_summary;
-        if (!dominant_phase) return '-';
+        if (!dominant_phase) return '\u2014';
         return (
           <Chip
-            label={`${dominant_phase} (${dominant_phase_count}/${total_plant_count})`}
+            label={`${t(`enums.phase.${dominant_phase}`, dominant_phase)} (${dominant_phase_count}/${total_plant_count})`}
             size="small"
             color="info"
           />
@@ -85,7 +87,7 @@ export default function PlantingRunListPage() {
     {
       id: 'startedAt',
       label: t('pages.plantingRuns.startedAt'),
-      render: (r) => (r.started_at ? new Date(r.started_at).toLocaleDateString() : '-'),
+      render: (r) => (r.started_at ? new Date(r.started_at).toLocaleDateString() : '\u2014'),
     },
   ];
 
@@ -110,6 +112,7 @@ export default function PlantingRunListPage() {
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.plantingRuns.create')}
         onEmptyAction={() => setCreateOpen(true)}
+        emptyIllustration={kamiPlantingRuns}
         tableState={tableState}
         ariaLabel={t('pages.plantingRuns.title')}
       />

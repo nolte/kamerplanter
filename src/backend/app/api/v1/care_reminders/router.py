@@ -62,7 +62,16 @@ def confirm_reminder(
     body: ConfirmRequest,
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
-    confirmation = service.confirm_reminder(plant_key, body.reminder_type, body.notes)
+    fertilizers = [f.model_dump() for f in body.fertilizers_used] if body.fertilizers_used else None
+    confirmation = service.confirm_reminder(
+        plant_key,
+        body.reminder_type,
+        body.notes,
+        volume_liters=body.volume_liters,
+        fertilizers_used=fertilizers,
+        measured_ec=body.measured_ec,
+        measured_ph=body.measured_ph,
+    )
     return _confirmation_to_response(confirmation)
 
 

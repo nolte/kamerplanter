@@ -7,7 +7,7 @@ Kategorie: Benutzerführung
 Fokus: Frontend (Backend-Unterstützung für Starter-Kits und Präferenzen)
 Technologie: React, TypeScript, MUI, Redux Toolkit, FastAPI, ArangoDB
 Status: Entwurf
-Version: 1.1 (Optionale Wasserquellen-Konfiguration im Wizard)
+Version: 1.3 (Agrarbiologie-Review Korrekturen)
 ```
 
 ## 1. Business Case
@@ -82,6 +82,7 @@ Der Wizard erstellt auf Basis der Nutzer-Eingaben automatisch alle benötigten E
     - `onboarding_completed: bool`
     - `locale: str` (z.B. `"de"`, `"en"`)
     - `theme: Literal['light', 'dark', 'system']`
+    - `temperature_unit: Literal['celsius', 'fahrenheit']` (Default: `'celsius'`) — Bestimmt die Temperaturanzeige im gesamten System. Alle Temperaturen werden intern in °C gespeichert und bei der Anzeige gemäß dieser Präferenz konvertiert (°C ↔ °F).
 
 ### Edges:
 
@@ -271,6 +272,32 @@ class StarterKitService:
 | `chili-zucht` | Chili-Zucht (Einsteiger) | *Capsicum annuum* | Jalapeño, Cayenne, Hungarian Wax | `beginner` |
 | `superhot-chili` | Superhot-Chili | *Capsicum chinense*, *Capsicum annuum* | Habanero Orange, Carolina Reaper, Trinidad Scorpion | `advanced` |
 | `microgreens` | Microgreens | *Brassica oleracea* var. *italica*, *Raphanus sativus*, *Helianthus annuus* | Brokkoli-Microgreens 'Calabrese', Radieschen-Microgreens 'China Rose', Sonnenblumen-Microgreens | `beginner` |
+| `balkon-blumen` | Balkonblumen | *Viola x wittrockiana*, *Petunia x hybrida*, *Tagetes patula*, *Lobelia erinus* | Schweizer Riesen (Stiefmütterchen), Surfinia Blue (Petunie), Bonanza Yellow (Tagetes), Crystal Palace (Lobelie) | `beginner` |
+| `balkon-blumen-voranzucht` | Balkonblumen (Voranzucht) | *Viola x wittrockiana*, *Petunia x hybrida*, *Lobelia erinus*, *Impatiens walleriana* | Schweizer Riesen, Surfinia Blue, Crystal Palace, Accent White | `intermediate` |
+
+<!-- Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03 -->
+**Balkonblumen-Kit Beschreibung:**
+
+Das Kit `balkon-blumen` erstellt automatisch:
+- **Site:** "Mein Balkon" (`location_type: balcony`, `is_indoor: false`)
+- **Location:** "Balkonkasten" (`bed_type: container`)
+- **PlantingRun:** Monokultur-Run pro Art mit artspezifischen Pflanzzeiten
+- **WorkflowTemplate:** Einsteiger-Workflow mit: Pflanzen einsetzen, erstes Gießen, Langzeitdünger einarbeiten, wöchentlich Verblühtes entfernen
+- **CareProfile:** `outdoor_annual_ornamental` (siehe REQ-022)
+
+Das Kit `balkon-blumen-voranzucht` erstellt zusätzlich:
+- **Location:** "Fensterbank" (`location_type: room`, `is_indoor: true`, `window_orientation: south`)
+- **WorkflowTemplate:** Voranzucht-Workflow mit: Aussaat (Jan/Feb), Pikieren (Mär), Abhärten (Apr), Auspflanzen (Mai)
+- Phasen: `germination` → `seedling` → `vegetative` → `hardening_off` → `flowering` → `senescence`
+
+<!-- Quelle: Agrarbiologie-Review AB-006, AB-007, AB-008, AB-009, 2026-03 -->
+**Voranzucht-Hinweise (im Kit-Beschreibungstext, i18n):**
+- **Lichtbedarf (AB-006):** "Für erfolgreiche Voranzucht wird ein Pflanzenlichtsystem empfohlen (DLI min. 8 mol/m²/d, 100–200 µmol/m²/s PPFD). Fensterbank-Aufzucht nur bei Südfenster mit direkter Sonne von Februar an. Nordfenster im Februar liefert nur 1–3 mol/m²/d — das reicht nicht für gesunde Sämlinge."
+- **Keimtemperaturen (AB-007):** "Achtung: Nicht alle Balkonblumen keimen bei gleicher Temperatur! Stiefmütterchen (Viola) brauchen Kühle (15–18°C, NICHT auf Heizmatte!), Petunien dagegen Wärme (22–25°C, Heizmatte empfohlen). Getrennte Keimung empfohlen."
+- **Pikieren (AB-008):** "3–5 Tage nach dem Pikieren: erhöhte Luftfeuchtigkeit, gedämpftes Licht, kein Dünger (Erholungsphase)."
+- **Abhärten (AB-009):** "7–14 Tage vor dem Auspflanzen schrittweise an Außenluft gewöhnen: Tag 1–3: 2 Stunden geschützt, dann täglich steigern. Plötzliches Auspflanzen führt zu Sonnenbrand und Welke."
+- **Geranien-Überwinterung (AB-003):** "Geranien (*Pelargonium*) können im Herbst eingewintert werden (hell, 5–10°C, stark zurückschneiden) oder werden jährlich neu gekauft."
+<!-- /Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03 -->
 
 **Toxizitätswarnungen pro Kit:**
 
@@ -285,6 +312,11 @@ class StarterKitService:
 | `chili-zucht` | `{"cats": "safe", "dogs": "safe", "children": "safe"}` |
 | `superhot-chili` | `{"cats": "safe", "dogs": "safe", "children": "caution"}` |
 | `microgreens` | `{"cats": "safe", "dogs": "safe", "children": "safe"}` |
+| `balkon-blumen` | `{"cats": "caution", "dogs": "caution", "children": "safe"}` |
+| `balkon-blumen-voranzucht` | `{"cats": "caution", "dogs": "caution", "children": "safe"}` |
+
+<!-- Quelle: Agrarbiologie-Review AB-015, 2026-03 -->
+> **Toxizitäts-Korrektur (AB-015):** Die Balkonblumen-Kits enthalten *Tagetes patula* (mild toxisch: Thiophenderivate, kutane Irritation bei Katzen/Hunden, ASPCA) und *Lobelia erinus* (moderat toxisch: Lobeliin-Alkaloid, ASPCA/Giftnotruf Bonn). Daher `"caution"` statt `"safe"` für cats/dogs. *Pelargonium zonale* ist ebenfalls mild toxisch (Geraniol/Linalool). Children: `"safe"`, da die enthaltenen Species bei oraler Aufnahme nur milde Symptome verursachen.
 
 Hinweis: Tomate (*Solanum lycopersicum*) enthält Solanin/Tomatidin in Blättern und unreifen Früchten — milde Toxizität für Haustiere. Alle vier Zimmerpflanzen-Kit-Species sind für Haustiere toxisch (Calciumoxalat-Raphide bzw. Saponine).
 
@@ -330,7 +362,7 @@ Dekorative Zimmerpflanzen (Kits `zimmerpflanzen` und `zimmerpflanzen-haustierfre
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
 | `GET` | `/api/v1/user-preferences` | Aktuelle Präferenzen abfragen | Ja |
-| `PATCH` | `/api/v1/user-preferences` | Präferenzen aktualisieren (experience_level, locale, theme) | Ja |
+| `PATCH` | `/api/v1/user-preferences` | Präferenzen aktualisieren (experience_level, locale, theme, temperature_unit) | Ja |
 
 ### Response-Beispiele:
 

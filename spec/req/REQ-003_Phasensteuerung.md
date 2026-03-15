@@ -7,7 +7,7 @@ Kategorie: Wachstumslogik
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 2.1
+Version: 2.3 (DORMANCY-Phase für perenniale Zimmerpflanzen, Abgrenzung FLUSHING vs. DORMANCY)
 ```
 
 ## 1. Business Case
@@ -22,9 +22,15 @@ Das System implementiert eine State-Machine für phänologische Phasenübergäng
 - **Stress-Phasen:** Temporäre Zustände wie Hardening-Off, Drought-Stress für Terpen-Induktion
 
 Typische Phasen-Sequenzen:
-- **Annuelle:** Keimung → Sämling → Vegetativ → Blüte → Fruchtreife → Seneszenz
-- **Perenniale:** [Keimung → ...] → Dormanz → Neuaustrieb → [Wiederholt Vegetativ/Blüte]
+- **Annuelle (Ernte):** Keimung → Sämling → Vegetativ → Blüte → Fruchtreife → Seneszenz
+- **Annuelle (Zierpflanze):** Keimung → Sämling → Vegetativ → Abhärtung → Blüte → Seneszenz (kein Ernte-Schritt; `allows_harvest: false` auf allen Phasen, `is_terminal: true` auf Seneszenz). Die `hardening_off`-Phase (7–14 Tage) ist obligatorisch bei Indoor-Voranzucht → Outdoor-Auspflanzung (AB-009).
+<!-- Quelle: Agrarbiologie-Review AB-008, AB-009, 2026-03 -->
+> **Pikier-Übergang (AB-008):** Der Übergang `seedling → vegetative` entspricht dem Pikieren. Nach dem Pikieren benötigen Zierpflanzen 3–5 Tage Erholungszeit (erhöhte Luftfeuchtigkeit 70–80%, gedämpftes Licht ~100 µmol/m²/s). Dies wird als Stress-Phase-Annotation auf dem Phasenübergang modelliert (analog `repotting_recovery` bei Zimmerpflanzen), nicht als eigene Phase.
+- **Perenniale (Outdoor):** [Keimung → ...] → Dormanz → Neuaustrieb → [Wiederholt Vegetativ/Blüte]
 - **Bienniale:** Jahr 1: Keimung → Vegetativ → Dormanz | Jahr 2: Neuaustrieb → Blüte → Samenreife
+<!-- Quelle: Nährstoffplan-Review Monstera 2026-03 -->
+- **Perenniale Zimmerpflanze (Indoor):** Bewurzelung → Juvenil → [Aktives Wachstum (Mär-Okt) → Dormanz (Nov-Feb)] ↻. Kein Ernteziel, kein Flushing im Hydro-Sinne. Die Dormanz-Phase (`dormancy`) bildet die saisonale Ruhephase ab: reduzierter Stoffwechsel, keine Düngung, verlängertes Gießintervall. `is_recurring: true` auf den zyklischen Phasen. Beispiel-Arten: Monstera, Ficus, Alocasia, Calathea.
+- **Abgrenzung DORMANCY vs. FLUSHING:** `dormancy` ist biologisch bedingt (Photoperiode, Temperatur, genetisches Programm) und wiederholt sich saisonal. `flushing` ist eine aktive Kulturmaßnahme (Pre-Harvest-Flush, Substrat-Entsalzung) mit definiertem Anfang und Ende. Eine Zimmerpflanze in Winterruhe befindet sich in `dormancy`, nicht in `flushing`. Beide Phasen haben gemeinsam, dass keine oder minimale Düngung erfolgt, unterscheiden sich aber in Ursache und Kontext.
 <!-- Quelle: Cannabis Indoor Grower Review G-009 -->
 - **Autoflower (Cultivar-Level):** Keimung (3–5d) → Sämling (7–10d) → Vegetativ (14–21d) → Blüte (35–56d) → Ernte. Verkürzte Gesamtdauer (60–90 Tage). Übergang Vegi→Blüte ist zeitgesteuert (nach `autoflower_days_to_flower` Tagen), kein manueller/photoperiodischer Trigger. Lichtprofil bleibt durchgehend bei 20/4 oder 18/6 (kein Wechsel auf 12/12).
 <!-- /Quelle: G-009 -->
@@ -43,12 +49,13 @@ Zyklen statt eines einmaligen linearen Durchlaufs. Das System unterstützt:
 ### Dokumentsammlungen (Collections):
 - **`growth_phases`** - Wachstumsphase
   - Properties:
-    - `name: str` (z.B. "vegetative", "flowering", "ripening")
+    - `name: str` (z.B. "vegetative", "flowering", "dormancy", "ripening" — Werte aus PhaseName-Enum: germination, seedling, vegetative, flowering, flushing, dormancy, harvest)
     - `display_name: str` (z.B. "Vegetative Wachstumsphase")
     - `typical_duration_days: int`
     - `sequence_order: int`
-    - `is_terminal: bool` (Letzte Phase vor Ernte/Tod)
-    - `allows_harvest: bool`
+    - `is_terminal: bool` (Letzte Phase vor Ernte/Tod — bei annuellen Zierpflanzen ist `senescence` terminal ohne `is_cycle_restart`)
+    - `allows_harvest: bool` (Bei Zierpflanzen durchgehend `false`)
+    - `allows_disposal: bool` (Default: `false`. Bei `true` kann die Pflanze nach Abschluss dieser Phase als entsorgt markiert werden — relevant für annuelle Zierpflanzen nach der Blüte/Seneszenz)
     - `stress_tolerance: Literal['low', 'medium', 'high']`
     - `is_recurring: bool` — Phase wiederholt sich jährlich (true für Dauerkulturen-Phasen)
 

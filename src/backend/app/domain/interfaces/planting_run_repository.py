@@ -106,6 +106,14 @@ class IPlantingRunRepository(ABC):
         ...
 
     @abstractmethod
+    def get_runs_for_plant(self, plant_key: PlantID) -> list[PlantingRun]:
+        ...
+
+    @abstractmethod
+    def get_runs_at_site(self, site_key: str) -> list[PlantingRun]:
+        ...
+
+    @abstractmethod
     def get_active_runs_with_schedule(self) -> list[dict]:
         ...
 

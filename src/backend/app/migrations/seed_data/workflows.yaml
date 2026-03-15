@@ -1,0 +1,389 @@
+workflow_templates:
+  - name: Cannabis SOG
+    description: "Sea of Green workflow for cannabis"
+    created_by: system
+    version: "1.0"
+    species_compatible: [Cannabis sativa]
+    growth_system: indoor
+    difficulty_level: intermediate
+    category: harvest
+    tags: [cannabis, sog, indoor]
+    is_system: true
+
+  - name: Tomato Standard
+    description: "Standard tomato growing workflow"
+    created_by: system
+    version: "1.0"
+    species_compatible: [Solanum lycopersicum]
+    growth_system: greenhouse
+    difficulty_level: beginner
+    category: maintenance
+    tags: [tomato, standard]
+    is_system: true
+
+  - name: General Maintenance
+    description: "General recurring maintenance tasks"
+    created_by: system
+    version: "1.0"
+    species_compatible: []
+    difficulty_level: beginner
+    category: maintenance
+    tags: [general, maintenance]
+    is_system: true
+
+  - name: Tank Anmischen
+    description: >-
+      Schritt-für-Schritt Mischprotokoll für Nährstofflösungen.
+      Dünger werden in der korrekten Reihenfolge zugegeben,
+      mit Pausen zum gründlichen Einrühren.
+    created_by: system
+    version: "1.0"
+    species_compatible: []
+    difficulty_level: beginner
+    category: feeding
+    tags: [tank, mixing, nutrient-solution, protocol]
+    is_system: true
+
+task_templates:
+  # -- Cannabis SOG --
+  - name: Transplant to SOG
+    instruction: "Transplant rooted clones to SOG positions"
+    category: transplant
+    trigger_type: days_after_planting
+    trigger_phase: vegetative
+    days_offset: 14
+    stress_level: medium
+    estimated_duration_minutes: 30
+    requires_photo: false
+    skill_level: beginner
+    workflow_name: Cannabis SOG
+    sequence_order: 0
+
+  - name: Defoliation
+    instruction: "Remove large fan leaves to improve light penetration"
+    category: pruning
+    trigger_type: days_after_planting
+    trigger_phase: vegetative
+    days_offset: 18
+    stress_level: high
+    estimated_duration_minutes: 45
+    requires_photo: true
+    skill_level: intermediate
+    workflow_name: Cannabis SOG
+    sequence_order: 1
+
+  - name: Flip to 12/12
+    instruction: "Switch lighting to 12/12 to initiate flowering"
+    category: maintenance
+    trigger_type: days_after_planting
+    trigger_phase: vegetative
+    days_offset: 21
+    stress_level: none
+    estimated_duration_minutes: 15
+    requires_photo: false
+    skill_level: beginner
+    workflow_name: Cannabis SOG
+    sequence_order: 2
+
+  - name: Lollipopping
+    instruction: "Remove lower growth for upper canopy focus"
+    category: pruning
+    trigger_type: days_after_planting
+    trigger_phase: flowering
+    days_offset: 35
+    stress_level: high
+    estimated_duration_minutes: 60
+    requires_photo: true
+    skill_level: advanced
+    workflow_name: Cannabis SOG
+    sequence_order: 3
+
+  - name: Flushing
+    instruction: "Begin plain water flushing before harvest"
+    category: feeding
+    trigger_type: days_after_planting
+    trigger_phase: flowering
+    days_offset: 56
+    stress_level: none
+    estimated_duration_minutes: 20
+    requires_photo: false
+    skill_level: beginner
+    workflow_name: Cannabis SOG
+    sequence_order: 4
+
+  - name: Harvest
+    instruction: "Harvest mature plants"
+    category: harvest
+    trigger_type: days_after_planting
+    trigger_phase: flowering
+    days_offset: 70
+    stress_level: none
+    estimated_duration_minutes: 120
+    requires_photo: true
+    skill_level: intermediate
+    workflow_name: Cannabis SOG
+    sequence_order: 5
+
+  # -- Tomato Standard --
+  - name: Transplant Seedlings
+    instruction: "Move seedlings to final containers"
+    category: transplant
+    trigger_type: phase_entry
+    trigger_phase: vegetative
+    days_offset: 0
+    stress_level: medium
+    estimated_duration_minutes: 30
+    requires_photo: false
+    skill_level: beginner
+    workflow_name: Tomato Standard
+    sequence_order: 0
+
+  - name: Install Stakes
+    instruction: "Set up stakes or cages for support"
+    category: maintenance
+    trigger_type: days_after_phase
+    trigger_phase: vegetative
+    days_offset: 7
+    stress_level: none
+    estimated_duration_minutes: 20
+    requires_photo: false
+    skill_level: beginner
+    workflow_name: Tomato Standard
+    sequence_order: 1
+
+  - name: Prune Suckers
+    instruction: "Remove side shoots to maintain single stem"
+    category: pruning
+    trigger_type: days_after_phase
+    trigger_phase: vegetative
+    days_offset: 14
+    stress_level: medium
+    estimated_duration_minutes: 30
+    requires_photo: true
+    skill_level: intermediate
+    workflow_name: Tomato Standard
+    sequence_order: 2
+
+  - name: Weekly Feeding
+    instruction: "Apply balanced fertilizer per nutrient plan"
+    category: feeding
+    trigger_type: manual
+    days_offset: 0
+    stress_level: none
+    estimated_duration_minutes: 15
+    requires_photo: false
+    skill_level: beginner
+    workflow_name: Tomato Standard
+    sequence_order: 3
+
+  - name: Fruit Observation
+    instruction: "Check fruit development and ripeness indicators"
+    category: observation
+    trigger_type: phase_entry
+    trigger_phase: flowering
+    days_offset: 0
+    stress_level: none
+    estimated_duration_minutes: 15
+    requires_photo: true
+    skill_level: beginner
+    workflow_name: Tomato Standard
+    sequence_order: 4
+
+  - name: Harvest Ripe Fruit
+    instruction: "Pick ripe tomatoes as they reach maturity"
+    category: harvest
+    trigger_type: manual
+    days_offset: 0
+    stress_level: none
+    estimated_duration_minutes: 30
+    requires_photo: true
+    skill_level: beginner
+    workflow_name: Tomato Standard
+    sequence_order: 5
+
+  # -- General Maintenance --
+  - name: Weekly Inspection
+    instruction: "Perform general plant health inspection"
+    category: observation
+    trigger_type: manual
+    days_offset: 0
+    stress_level: none
+    estimated_duration_minutes: 30
+    requires_photo: true
+    skill_level: beginner
+    workflow_name: General Maintenance
+    sequence_order: 0
+
+  - name: Monthly Feeding Review
+    instruction: "Review and adjust feeding schedule"
+    category: feeding
+    trigger_type: manual
+    days_offset: 0
+    stress_level: none
+    estimated_duration_minutes: 20
+    requires_photo: false
+    skill_level: intermediate
+    workflow_name: General Maintenance
+    sequence_order: 1
+
+  - name: Substrate Check
+    instruction: "Check substrate pH, EC and moisture levels"
+    category: maintenance
+    trigger_type: manual
+    days_offset: 0
+    stress_level: none
+    estimated_duration_minutes: 15
+    requires_photo: false
+    skill_level: beginner
+    workflow_name: General Maintenance
+    sequence_order: 2
+
+  - name: Equipment Maintenance
+    instruction: "Clean and check growing equipment"
+    category: maintenance
+    trigger_type: manual
+    days_offset: 0
+    stress_level: none
+    estimated_duration_minutes: 45
+    requires_photo: false
+    skill_level: beginner
+    workflow_name: General Maintenance
+    sequence_order: 3
+
+  # -- Tank Anmischen (Mischprotokoll) --
+  - name: Wasser einfüllen
+    instruction: >-
+      Tank mit Zielvolumen befüllen. Bei RO/Leitungswasser-Mischung zuerst RO-Wasser,
+      dann Leitungswasser zugeben.
+    category: feeding
+    trigger_type: manual
+    days_offset: 0
+    stress_level: none
+    estimated_duration_minutes: 5
+    requires_photo: false
+    skill_level: beginner
+    workflow_name: Tank Anmischen
+    sequence_order: 0
+
+  - name: "EC & pH Ausgangswasser messen"
+    instruction: >-
+      EC und pH des Ausgangswassers messen und notieren. EC-Wert bestimmt den
+      verfügbaren EC-Spielraum (Ziel-EC minus Basis-EC).
+    category: feeding
+    trigger_type: manual
+    days_offset: 0
+    stress_level: none
+    estimated_duration_minutes: 5
+    requires_photo: false
+    skill_level: beginner
+    workflow_name: Tank Anmischen
+    sequence_order: 1
+
+  - name: Silikat / Systemreiniger zugeben
+    instruction: >-
+      Silikat-Produkte (z.B. Rhino Skin) oder Systemreiniger (z.B. Drip Clean) als
+      erstes zugeben — diese haben die höchste Mischpriorität. Gründlich einrühren.
+    category: feeding
+    trigger_type: manual
+    days_offset: 0
+    stress_level: none
+    estimated_duration_minutes: 5
+    requires_photo: false
+    skill_level: beginner
+    workflow_name: Tank Anmischen
+    sequence_order: 2
+    timer_duration_seconds: 60
+    timer_label: "Rühren & warten"
+
+  - name: CalMag / Basisdünger A zugeben
+    instruction: >-
+      CalMag oder den A-Teil des Basisdüngers zugeben (z.B. Micro, Sensi A, Cocos A).
+      IMMER vor dem B-Teil und vor Sulfat-haltigen Düngern! Gut umrühren und Pause einhalten.
+    category: feeding
+    trigger_type: manual
+    days_offset: 0
+    stress_level: none
+    estimated_duration_minutes: 5
+    requires_photo: false
+    skill_level: beginner
+    workflow_name: Tank Anmischen
+    sequence_order: 3
+    timer_duration_seconds: 60
+    timer_label: "Rühren & warten"
+
+  - name: Basisdünger B / Grow / Bloom zugeben
+    instruction: >-
+      Den B-Teil, Grow- oder Bloom-Dünger zugeben (z.B. Sensi B, Cocos B, Terra Bloom).
+      Gut einrühren und auflösen lassen.
+    category: feeding
+    trigger_type: manual
+    days_offset: 0
+    stress_level: none
+    estimated_duration_minutes: 5
+    requires_photo: false
+    skill_level: beginner
+    workflow_name: Tank Anmischen
+    sequence_order: 4
+    timer_duration_seconds: 60
+    timer_label: "Rühren & warten"
+
+  - name: PK-Booster zugeben
+    instruction: >-
+      Falls im aktuellen Nährstoffplan vorgesehen: PK-Booster zugeben
+      (z.B. Green Sensation, Big Bud, Overdrive). Gründlich einrühren.
+    category: feeding
+    trigger_type: manual
+    days_offset: 0
+    stress_level: none
+    estimated_duration_minutes: 5
+    requires_photo: false
+    skill_level: beginner
+    workflow_name: Tank Anmischen
+    sequence_order: 5
+    timer_duration_seconds: 60
+    timer_label: "Rühren & warten"
+
+  - name: "Zusätze & Supplements zugeben"
+    instruction: >-
+      Wurzelstimulatoren, Enzyme, Aminosäuren oder Vitamine zugeben
+      (z.B. Power Roots, Pure Zym, B-52, Sugar Royal). Einrühren.
+    category: feeding
+    trigger_type: manual
+    days_offset: 0
+    stress_level: none
+    estimated_duration_minutes: 5
+    requires_photo: false
+    skill_level: beginner
+    workflow_name: Tank Anmischen
+    sequence_order: 6
+    timer_duration_seconds: 60
+    timer_label: "Rühren & warten"
+
+  - name: "EC & pH Endwert messen und korrigieren"
+    instruction: >-
+      EC und pH der fertigen Lösung messen. Bei Bedarf pH mit pH-Up oder pH-Down
+      korrigieren. Ziel-EC und Ziel-pH gemäß Nährstoffplan einhalten.
+    category: feeding
+    trigger_type: manual
+    days_offset: 0
+    stress_level: none
+    estimated_duration_minutes: 5
+    requires_photo: false
+    skill_level: beginner
+    workflow_name: Tank Anmischen
+    sequence_order: 7
+
+  - name: Biologicals zugeben (optional)
+    instruction: >-
+      Falls verwendet: Biologische Zusätze als letztes zugeben (z.B. Voodoo Juice,
+      Piranha, Tarantula). Diese sind oft nicht tanksicher — ggf. direkt bei der
+      Anwendung zugeben.
+    category: feeding
+    trigger_type: manual
+    days_offset: 0
+    stress_level: none
+    estimated_duration_minutes: 5
+    requires_photo: false
+    skill_level: beginner
+    workflow_name: Tank Anmischen
+    sequence_order: 8

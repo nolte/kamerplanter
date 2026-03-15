@@ -49,6 +49,7 @@ interface DataTableProps<T> {
   emptyMessage?: string;
   emptyActionLabel?: string;
   onEmptyAction?: () => void;
+  emptyIllustration?: string;
   getRowKey: (row: T) => string;
   tableState?: TableState;
   variant?: 'full' | 'simple';
@@ -87,6 +88,7 @@ export default function DataTable<T>({
   emptyMessage,
   emptyActionLabel,
   onEmptyAction,
+  emptyIllustration,
   getRowKey,
   tableState,
   variant = 'full',
@@ -196,6 +198,7 @@ export default function DataTable<T>({
         message={emptyMessage}
         actionLabel={emptyActionLabel}
         onAction={onEmptyAction}
+        illustration={emptyIllustration}
       />
     );
   }

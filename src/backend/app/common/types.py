@@ -1,5 +1,6 @@
 
 type PlantID = str
+type PlantInstanceKey = str
 type SpeciesKey = str
 type CultivarKey = str
 type FamilyKey = str
@@ -76,3 +77,6 @@ type ImportJobKey = str
 
 # REQ-015 Calendar
 type CalendarFeedKey = str
+
+# Activities (Stammdaten)
+type ActivityKey = str

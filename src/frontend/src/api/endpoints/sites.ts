@@ -6,6 +6,9 @@ import type {
   LocationCreate,
   LocationTreeNode,
   LocationType,
+  LiveStateResponse,
+  Sensor,
+  SensorCreate,
   Slot,
   SlotCreate,
 } from '../types';
@@ -111,4 +114,62 @@ export async function updateSlot(key: string, payload: SlotCreate): Promise<Slot
 
 export async function deleteSlot(key: string): Promise<void> {
   await client.delete(`${SLOTS}/${key}`);
+}
+
+// ── Site Sensors ────────────────────────────────────────────────────────
+
+export async function getSiteSensors(siteKey: string): Promise<Sensor[]> {
+  const { data } = await client.get<Sensor[]>(`${SITES}/${siteKey}/sensors`);
+  return data;
+}
+
+export async function createSiteSensor(
+  siteKey: string,
+  payload: SensorCreate,
+): Promise<Sensor> {
+  const { data } = await client.post<Sensor>(
+    `${SITES}/${siteKey}/sensors`,
+    payload,
+  );
+  return data;
+}
+
+export async function getSiteSensorsLive(
+  siteKey: string,
+): Promise<LiveStateResponse> {
+  const { data } = await client.get<LiveStateResponse>(
+    `${SITES}/${siteKey}/sensors/live`,
+  );
+  return data;
+}
+
+// ── Location Sensors ────────────────────────────────────────────────────
+
+export async function getLocationSensors(
+  locationKey: string,
+): Promise<Sensor[]> {
+  const { data } = await client.get<Sensor[]>(
+    `${LOCATIONS}/${locationKey}/sensors`,
+  );
+  return data;
+}
+
+export async function createLocationSensor(
+  locationKey: string,
+  payload: SensorCreate,
+): Promise<Sensor> {
+  const { data } = await client.post<Sensor>(
+    `${LOCATIONS}/${locationKey}/sensors`,
+    payload,
+  );
+  return data;
+}
+
+export async function getLocationSensorsLive(
+  locationKey: string,
+): Promise<LiveStateResponse> {
+  const { data } = await client.get<LiveStateResponse>(
+    `${LOCATIONS}/${locationKey}/sensors/live`,
+  );
+  return data;
 }

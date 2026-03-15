@@ -15,7 +15,23 @@ class NutrientSolutionCalculator:
         base_water_ph: float,
         fertilizers: list[Fertilizer],
         substrate_type: SubstrateType = SubstrateType.COCO,
+        recipe_ml_per_liter: dict[str, float] | None = None,
     ) -> dict:
+        """Calculate nutrient solution dosages.
+
+        Uses recipe scaling (REQ-004-A §5.2):
+            EC_rezept = Σ(r_i × ec_i)  — EC the recipe would produce at full dose
+            k = EC_net / EC_rezept      — scaling factor
+            d_i = k × r_i              — actual dose per fertilizer
+
+        If no recipe_ml_per_liter is provided, falls back to equal EC
+        distribution among all fertilizers (uniform share).
+
+        Args:
+            recipe_ml_per_liter: Optional dict mapping fertilizer key to
+                manufacturer-recommended ml/L dose. When provided, enables
+                accurate recipe scaling instead of equal distribution.
+        """
         available_ec = max(0, target_ec_ms - base_water_ec)
 
         if not fertilizers or available_ec <= 0:
@@ -33,11 +49,27 @@ class NutrientSolutionCalculator:
         # Sort by mixing priority (CalMag first = lower number)
         sorted_ferts = sorted(fertilizers, key=lambda f: f.mixing_priority)
 
-        # Proportional EC distribution based on NPK sum weight
-        total_npk_weight = sum(sum(f.npk_ratio) for f in sorted_ferts if f.ec_contribution_per_ml > 0)
         dosages = []
         total_calculated_ec = base_water_ec
         warnings: list[str] = []
+
+        # Recipe scaling: calculate EC the full recipe would produce
+        if recipe_ml_per_liter:
+            ec_recipe = sum(
+                recipe_ml_per_liter.get(f.key or "", 0.0) * f.ec_contribution_per_ml
+                for f in sorted_ferts
+                if f.ec_contribution_per_ml > 0
+            )
+        else:
+            ec_recipe = 0.0
+
+        # Scaling factor k = EC_net / EC_recipe
+        use_recipe_scaling = ec_recipe > 0
+        k = available_ec / ec_recipe if use_recipe_scaling else 0.0
+
+        # Fallback: equal share among fertilizers with EC contribution
+        ferts_with_ec = [f for f in sorted_ferts if f.ec_contribution_per_ml > 0]
+        equal_share = available_ec / len(ferts_with_ec) if ferts_with_ec else 0.0
 
         for fert in sorted_ferts:
             if fert.ec_contribution_per_ml <= 0:
@@ -50,19 +82,32 @@ class NutrientSolutionCalculator:
                 })
                 continue
 
-            npk_weight = sum(fert.npk_ratio)
-            share = npk_weight / total_npk_weight if total_npk_weight > 0 else 1.0 / len(sorted_ferts)
-            ec_share = available_ec * share
-            ml_per_liter = ec_share / fert.ec_contribution_per_ml
+            if use_recipe_scaling:
+                recipe_dose = recipe_ml_per_liter.get(fert.key or "", 0.0)
+                ml_per_liter = k * recipe_dose
+            else:
+                # Equal EC distribution fallback
+                ml_per_liter = equal_share / fert.ec_contribution_per_ml
+
+            # Cap at max_dose_ml_per_liter if defined on the product
+            max_dose = getattr(fert, "max_dose_ml_per_liter", None)
+            if max_dose is not None and ml_per_liter > max_dose:
+                warnings.append(
+                    f"{fert.product_name}: dose capped at {max_dose} ml/L "
+                    f"(calculated {ml_per_liter:.2f} ml/L)"
+                )
+                ml_per_liter = max_dose
+
+            ec_contribution = ml_per_liter * fert.ec_contribution_per_ml
             total_ml = ml_per_liter * target_volume_liters
-            total_calculated_ec += ec_share
+            total_calculated_ec += ec_contribution
 
             dosages.append({
                 "fertilizer_key": fert.key,
                 "product_name": fert.product_name,
                 "ml_per_liter": round(ml_per_liter, 2),
                 "total_ml": round(total_ml, 1),
-                "ec_contribution": round(ec_share, 3),
+                "ec_contribution": round(ec_contribution, 3),
             })
 
             if not fert.tank_safe and substrate_type in (SubstrateType.HYDRO_SOLUTION,):
@@ -70,7 +115,7 @@ class NutrientSolutionCalculator:
                     f"{fert.product_name} is not tank-safe — do not pre-mix in reservoir"
                 )
 
-        # Incompatibility warnings for CalMag + sulfates
+        # Mixing instructions
         instructions = _build_instructions(sorted_ferts, dosages, target_volume_liters)
 
         return {
@@ -273,6 +318,22 @@ class MixingSafetyValidator:
                         warnings.append(
                             f"CRITICAL: {cf.product_name} (priority {cf.mixing_priority}) must be mixed BEFORE "
                             f"{sf.product_name} (priority {sf.mixing_priority}) — CalMag before sulfates!"
+                        )
+
+        # Check silicate-before-CalMag order (CaSiO₃ precipitation risk)
+        silicate_ferts = [f for f in fertilizers if f.fertilizer_type == FertilizerType.SILICATE]
+        calmag_ferts_all = [
+            f for f in fertilizers
+            if "calcium" in f.product_name.lower() or "calmag" in f.product_name.lower()
+        ]
+        if silicate_ferts and calmag_ferts_all:
+            for sf in silicate_ferts:
+                for cf in calmag_ferts_all:
+                    if sf.mixing_priority > cf.mixing_priority:
+                        warnings.append(
+                            f"CRITICAL: {sf.product_name} (silicate, priority {sf.mixing_priority}) "
+                            f"must be mixed BEFORE {cf.product_name} (priority {cf.mixing_priority}) — "
+                            f"Ca²⁺-silicate precipitation (CaSiO₃) risk!"
                         )
 
         # Check application method compatibility

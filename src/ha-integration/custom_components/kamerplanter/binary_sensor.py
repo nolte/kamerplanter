@@ -1,0 +1,214 @@
+"""Binary sensor entities for the Kamerplanter integration."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
+)
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from .const import DOMAIN
+from .coordinator import KamerplanterAlertCoordinator, KamerplanterLocationCoordinator
+from .sensor import _slugify_key, location_device_info, plant_device_info, server_device_info
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Kamerplanter binary sensor entities."""
+    data = hass.data[DOMAIN][entry.entry_id]
+    alert_coordinator: KamerplanterAlertCoordinator = data["coordinators"]["alerts"]
+    plant_coordinator = data["coordinators"]["plants"]
+    loc_coordinator: KamerplanterLocationCoordinator = data["coordinators"]["locations"]
+
+    entities: list[BinarySensorEntity] = []
+
+    # Plant attention sensors (derived from overdue tasks)
+    if alert_coordinator.data and plant_coordinator.data:
+        # Build plant lookup for active plants only
+        plant_lookup: dict[str, dict[str, Any]] = {
+            p["key"]: p for p in plant_coordinator.data if not p.get("removed_on")
+        }
+        plant_keys_seen: set[str] = set()
+        for alert in alert_coordinator.data:
+            plant_key = alert.get("plant_key")
+            if plant_key and plant_key not in plant_keys_seen and plant_key in plant_lookup:
+                plant_keys_seen.add(plant_key)
+                dev = plant_device_info(entry, plant_lookup[plant_key])
+                entities.append(
+                    PlantNeedsAttentionSensor(alert_coordinator, entry, plant_key, dev)
+                )
+
+    # Location needs-attention sensors
+    if loc_coordinator.data:
+        for loc in loc_coordinator.data:
+            loc_key = loc.get("key") or loc.get("_key", "")
+            if not loc_key:
+                continue
+            # Only add if the location has active runs or plants
+            if loc.get("_active_run_count", 0) > 0 or loc.get("_active_plant_count", 0) > 0:
+                dev = location_device_info(entry, loc)
+                entities.append(
+                    LocationNeedsAttentionSensor(
+                        alert_coordinator, loc_coordinator, entry, loc_key, dev
+                    )
+                )
+
+    # Global sensor offline — under server device
+    entities.append(
+        SensorOfflineSensor(alert_coordinator, entry, server_device_info(entry))
+    )
+
+    async_add_entities(entities)
+
+
+class PlantNeedsAttentionSensor(
+    CoordinatorEntity, RestoreEntity, BinarySensorEntity
+):
+    """Binary sensor indicating a plant needs attention."""
+
+    _attr_has_entity_name = True
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_icon = "mdi:alert-circle"
+
+    def __init__(
+        self,
+        coordinator: KamerplanterAlertCoordinator,
+        entry: ConfigEntry,
+        plant_key: str,
+        device_info: DeviceInfo,
+    ) -> None:
+        super().__init__(coordinator)
+        self._plant_key = plant_key
+        slug = _slugify_key(plant_key)
+        self._attr_unique_id = f"{entry.entry_id}_kp_{slug}_needs_attention"
+        self.entity_id = f"binary_sensor.kp_{slug}_needs_attention"
+        self._attr_name = "Needs Attention"
+        self._attr_device_info = device_info
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        if self.coordinator.data:
+            self._attr_is_on = any(
+                a.get("plant_key") == self._plant_key for a in self.coordinator.data
+            )
+        else:
+            self._attr_is_on = False
+        self.async_write_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last and last.state not in ("unknown", "unavailable", ""):
+            self._attr_is_on = last.state == "on"
+            self.async_write_ha_state()
+
+
+class SensorOfflineSensor(CoordinatorEntity, RestoreEntity, BinarySensorEntity):
+    """Binary sensor indicating sensor connectivity issues."""
+
+    _attr_has_entity_name = True
+    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+    _attr_icon = "mdi:access-point-network-off"
+
+    def __init__(
+        self,
+        coordinator: KamerplanterAlertCoordinator,
+        entry: ConfigEntry,
+        device_info: DeviceInfo,
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_kp_sensor_offline"
+        self.entity_id = "binary_sensor.kp_sensor_offline"
+        self._attr_name = "Sensor Offline"
+        self._attr_device_info = device_info
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        if self.coordinator.data:
+            self._attr_is_on = any(
+                a.get("type") == "sensor_offline" for a in self.coordinator.data
+            )
+        else:
+            self._attr_is_on = False
+        self.async_write_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last and last.state not in ("unknown", "unavailable", ""):
+            self._attr_is_on = last.state == "on"
+            self.async_write_ha_state()
+
+
+class LocationNeedsAttentionSensor(
+    CoordinatorEntity, RestoreEntity, BinarySensorEntity
+):
+    """Binary sensor indicating a location needs attention (overdue tasks for assigned runs/plants)."""
+
+    _attr_has_entity_name = True
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_icon = "mdi:alert-circle"
+
+    def __init__(
+        self,
+        alert_coordinator: KamerplanterAlertCoordinator,
+        loc_coordinator: KamerplanterLocationCoordinator,
+        entry: ConfigEntry,
+        location_key: str,
+        device_info: DeviceInfo,
+    ) -> None:
+        super().__init__(alert_coordinator)
+        self._location_key = location_key
+        self._loc_coordinator = loc_coordinator
+        slug = _slugify_key(location_key)
+        self._attr_unique_id = f"{entry.entry_id}_kp_loc_{slug}_needs_attention"
+        self.entity_id = f"binary_sensor.kp_loc_{slug}_needs_attention"
+        self._attr_name = "Needs Attention"
+        self._attr_device_info = device_info
+
+    def _get_location_plant_keys(self) -> set[str]:
+        """Get all plant keys associated with this location."""
+        plant_keys: set[str] = set()
+        if not self._loc_coordinator.data:
+            return plant_keys
+        for loc in self._loc_coordinator.data:
+            key = loc.get("key") or loc.get("_key", "")
+            if key != self._location_key:
+                continue
+            for plant in loc.get("_active_plants", []):
+                pk = plant.get("key")
+                if pk:
+                    plant_keys.add(pk)
+            break
+        return plant_keys
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        if self.coordinator.data:
+            plant_keys = self._get_location_plant_keys()
+            self._attr_is_on = any(
+                a.get("plant_key") in plant_keys
+                or a.get("location_key") == self._location_key
+                for a in self.coordinator.data
+            )
+        else:
+            self._attr_is_on = False
+        self.async_write_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last and last.state not in ("unknown", "unavailable", ""):
+            self._attr_is_on = last.state == "on"
+            self.async_write_ha_state()

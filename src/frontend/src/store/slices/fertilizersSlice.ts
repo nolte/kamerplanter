@@ -23,12 +23,23 @@ export const fetchFertilizers = createAsyncThunk(
     offset,
     limit,
     fertilizerType,
+    brand,
+    tankSafe,
+    isOrganic,
   }: {
     offset?: number;
     limit?: number;
     fertilizerType?: string;
+    brand?: string;
+    tankSafe?: boolean;
+    isOrganic?: boolean;
   } = {}) => {
-    return api.fetchFertilizers(offset, limit, fertilizerType ? { fertilizer_type: fertilizerType } : undefined);
+    const filters: Record<string, string> = {};
+    if (fertilizerType) filters.fertilizer_type = fertilizerType;
+    if (brand) filters.brand = brand;
+    if (tankSafe !== undefined) filters.tank_safe = String(tankSafe);
+    if (isOrganic !== undefined) filters.is_organic = String(isOrganic);
+    return api.fetchFertilizers(offset, limit, Object.keys(filters).length > 0 ? filters : undefined);
   },
 );
 

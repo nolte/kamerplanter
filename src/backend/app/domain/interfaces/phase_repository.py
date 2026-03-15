@@ -85,3 +85,7 @@ class IPhaseRepository(ABC):
     @abstractmethod
     def update_phase_history(self, key: str, history: PhaseHistory) -> PhaseHistory:
         ...
+
+    @abstractmethod
+    def delete_phase_history(self, key: str) -> bool:
+        ...

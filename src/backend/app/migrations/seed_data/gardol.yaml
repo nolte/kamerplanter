@@ -1,0 +1,908 @@
+# Gardol fertilizer products and nutrient plans.
+#
+# Sources — Gardol:
+#   Gardol Grünpflanzendünger NPK 6-4-6 (Bauhaus)
+#   spec/ref/products/gardol_gruenpflanzenduenger.md
+#
+# Nutrient plans:
+#   spec/ref/nutrient-plans/monstera_deliciosa_gardol.md
+#   spec/ref/nutrient-plans/gruenlilie_gardol.md
+#   spec/ref/nutrient-plans/einblatt_gardol.md
+#   spec/ref/nutrient-plans/guzmania_gardol.md
+#   spec/ref/nutrient-plans/yucca_gardol.md
+
+fertilizers:
+  - product_name: Grünpflanzendünger
+    brand: Gardol
+    fertilizer_type: base
+    is_organic: false
+    tank_safe: false
+    recommended_application: drench
+    npk_ratio: [6.0, 4.0, 6.0]
+    ec_contribution_per_ml: 0.06
+    ec_contribution_uncertain: true
+    max_dose_ml_per_liter: 4.0
+    mixing_priority: 20
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: "Gardol Grünpflanzendünger (Bauhaus). EC-Beitrag geschätzt (~0,06 mS/cm pro ml/L)."
+
+nutrient_plans:
+  # ── Plan: Monstera deliciosa — Gardol Grünpflanzendünger ──────────────────────
+  - name: "Monstera deliciosa — Gardol Grünpflanzendünger"
+    description: >-
+      Ganzjahresplan für Monstera deliciosa in Erdsubstrat.
+      Einzeldünger-Konzept mit Gardol Grünpflanzendünger (NPK 6-4-6).
+      Saisonaler Rhythmus: März–Oktober Düngung, November–Februar Pause.
+    recommended_substrate_type: soil
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.2"
+    tags: [monstera, zimmerpflanze, gruenpflanze, gardol, erde, indoor, anfaenger]
+    water_mix_ratio_ro_percent: null
+    cycle_restart_from_sequence: 3
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 7
+      preferred_time: "09:00"
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+
+    phase_entries:
+      # ── GERMINATION W1-4 ──
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 4
+        is_recurring: false
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Keine Düngung. Steckling nur mit klarem Wasser gießen.
+          Substrat feucht halten, nicht nass. 3-Tage-Intervall für kleine Töpfe
+          (8–10 cm) bei 22–25 °C.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 3
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-bewurzelung
+            label: "Nur Wasser (Bewurzelung)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.10
+            fertilizer_dosages: []
+
+      # ── SEEDLING W5-16 ──
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 5
+        week_end: 16
+        is_recurring: false
+        npk_ratio: [1.0, 1.0, 1.0]
+        calcium_ppm: 40.0
+        magnesium_ppm: 20.0
+        notes: >-
+          Halbe Dosis alle 14 Tage. Pflanze baut Wurzelsystem und erste Blätter auf.
+          Eisenbedarf ca. 1 ppm.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 14
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: drench-giessduengung
+            label: "Gießdüngung (Gießkanne)"
+            application_method: drench
+            target_ec_ms: 0.6
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages:
+              - product_name: Grünpflanzendünger
+                ml_per_liter: 2.0
+
+      # ── DORMANCY W1-8 (recurring, Jan–Feb) ──
+      - phase_name: dormancy
+        sequence_order: 3
+        week_start: 1
+        week_end: 8
+        is_recurring: true
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Saisonale Ruhephase Januar–Februar. Keine Düngung.
+          12-Tage-Intervall bei 18–22 °C.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 12
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-dormancy
+            label: "Nur Wasser (Ruheperiode)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages: []
+
+      # ── VEGETATIVE W9-43 (recurring, Mär–Okt) ──
+      - phase_name: vegetative
+        sequence_order: 4
+        week_start: 9
+        week_end: 43
+        is_recurring: true
+        npk_ratio: [1.5, 1.0, 1.5]
+        calcium_ppm: 80.0
+        magnesium_ppm: 40.0
+        notes: >-
+          Volle Dosis wöchentlich (April–September), halbe Dosis 14-tägig
+          (März, Oktober). Ca/Mg aus Leitungswasser.
+          Alle 6–8 Wochen Salzspülung.
+        delivery_channels:
+          - channel_id: drench-giessduengung
+            label: "Gießdüngung (Gießkanne)"
+            application_method: drench
+            target_ec_ms: 1.0
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.5
+            fertilizer_dosages:
+              - product_name: Grünpflanzendünger
+                ml_per_liter: 4.0
+
+      # ── DORMANCY W44-52 (recurring, Nov–Dez) ──
+      - phase_name: dormancy
+        sequence_order: 5
+        week_start: 44
+        week_end: 52
+        is_recurring: true
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Saisonale Ruhephase November–Dezember. Keine Düngung.
+          12-Tage-Intervall bei 18–22 °C.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 12
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-dormancy
+            label: "Nur Wasser (Ruheperiode)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages: []
+
+  # ── Plan: Chlorophytum comosum — Gardol Grünpflanzendünger ───────────────────
+  - name: "Chlorophytum comosum — Gardol Grünpflanzendünger"
+    description: >-
+      Ganzjahresplan für Chlorophytum comosum (Grünlilie) in Erdsubstrat.
+      Einzeldünger-Konzept mit Gardol Grünpflanzendünger (NPK 6-4-6).
+      Schwachzehrer — reduzierte Dosierung. Saisonaler Rhythmus:
+      März–Oktober Düngung (halbe Dosis), November–Februar Pause.
+      Fluorid-empfindlich: abgestandenes Leitungswasser bevorzugt.
+    recommended_substrate_type: soil
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags:
+      - gruenlilie
+      - spider-plant
+      - zimmerpflanze
+      - gruenpflanze
+      - gardol
+      - erde
+      - indoor
+      - anfaenger
+      - schwachzehrer
+    water_mix_ratio_ro_percent: null
+    cycle_restart_from_sequence: 3
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 7
+      preferred_time: "09:00"
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+
+    phase_entries:
+      # ── GERMINATION W1-3 ──
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 3
+        is_recurring: false
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Keine Düngung. Kindel/Ableger nur mit klarem, abgestandenem Wasser
+          gießen. Substrat gleichmäßig feucht halten, nicht nass —
+          Knollenwurzeln faulen bei Staunässe.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 3
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-bewurzelung
+            label: "Nur Wasser (Bewurzelung)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.10
+            fertilizer_dosages: []
+
+      # ── SEEDLING W4-12 ──
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 4
+        week_end: 12
+        is_recurring: false
+        npk_ratio: [1.0, 1.0, 1.0]
+        calcium_ppm: 30.0
+        magnesium_ppm: 15.0
+        notes: >-
+          Vierteldosis Gardol (1 ml/L) alle 21 Tage. Gießintervall 7 Tage.
+          Jungpflanze baut Wurzelsystem und Blattmasse auf.
+          Schwachzehrer — erst nach sichtbarem Neuzuwachs düngen.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 7
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: drench-giessduengung
+            label: "Gießdüngung (Gießkanne)"
+            application_method: drench
+            target_ec_ms: 0.4
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.2
+            fertilizer_dosages:
+              - product_name: Grünpflanzendünger
+                ml_per_liter: 1.0
+
+      # ── DORMANCY W1-8 (recurring, Jan–Feb) ──
+      - phase_name: dormancy
+        sequence_order: 3
+        week_start: 1
+        week_end: 8
+        is_recurring: true
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Saisonale Ruhephase Januar–Februar. Keine Düngung.
+          12-Tage-Intervall bei 18–22 °C.
+          Knollenwurzeln speichern Wasser — Übergießen vermeiden.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 12
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-dormancy
+            label: "Nur Wasser (Ruheperiode)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.2
+            fertilizer_dosages: []
+
+      # ── VEGETATIVE W9-43 (recurring, Mär–Okt) ──
+      - phase_name: vegetative
+        sequence_order: 4
+        week_start: 9
+        week_end: 43
+        is_recurring: true
+        npk_ratio: [1.5, 1.0, 1.5]
+        calcium_ppm: 60.0
+        magnesium_ppm: 30.0
+        notes: >-
+          Halbe Dosis Gardol (2 ml/L) alle 21 Tage (April–September).
+          Vierteldosis (März, Oktober).
+          Schwachzehrer: halbe Dosis ist Maximum!
+          Alle 3–4 Monate Salzspülung.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 7
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: drench-giessduengung
+            label: "Gießdüngung (Gießkanne)"
+            application_method: drench
+            target_ec_ms: 0.6
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages:
+              - product_name: Grünpflanzendünger
+                ml_per_liter: 2.0
+
+      # ── DORMANCY W44-52 (recurring, Nov–Dez) ──
+      - phase_name: dormancy
+        sequence_order: 5
+        week_start: 44
+        week_end: 52
+        is_recurring: true
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Saisonale Ruhephase November–Dezember. Keine Düngung.
+          12-Tage-Intervall bei 18–22 °C.
+          Knollenwurzeln speichern Wasser — Übergießen vermeiden.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 12
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-dormancy
+            label: "Nur Wasser (Ruheperiode)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.2
+            fertilizer_dosages: []
+
+  # ── Plan: Spathiphyllum wallisii — Gardol Grünpflanzendünger ─────────────────
+  - name: "Spathiphyllum wallisii — Gardol Grünpflanzendünger"
+    description: >-
+      Ganzjahresplan für Spathiphyllum wallisii (Einblatt) in Erdsubstrat.
+      Einzeldünger-Konzept mit Gardol Grünpflanzendünger (NPK 6-4-6) in halber Dosis.
+      Saisonaler Rhythmus: März–Oktober Düngung (21-Tage-Intervall),
+      November–Februar Pause. Schwachzehrer — EC unter 1,0 mS/cm halten.
+      GIFTIG für Katzen, Hunde und Kinder.
+    recommended_substrate_type: soil
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags:
+      - spathiphyllum
+      - einblatt
+      - peace-lily
+      - zimmerpflanze
+      - gruenpflanze
+      - gardol
+      - erde
+      - indoor
+      - anfaenger
+      - schwachzehrer
+      - schattenvertraeglich
+    water_mix_ratio_ro_percent: null
+    cycle_restart_from_sequence: 2
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 7
+      preferred_time: "09:00"
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+
+    phase_entries:
+      # ── GERMINATION W1-4 ──
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 4
+        is_recurring: false
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Keine Düngung. Frisch geteilte oder neu gekaufte Pflanze nur mit klarem,
+          abgestandenem Wasser gießen. 5-Tage-Intervall bei 20–24 °C.
+          Staunässe führt bei Spathiphyllum schnell zu Rhizomfäule (Phytophthora).
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 5
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-etablierung
+            label: "Nur Wasser (Etablierung)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.20
+            fertilizer_dosages: []
+
+      # ── DORMANCY W1-8 (recurring, Jan–Feb) ──
+      - phase_name: dormancy
+        sequence_order: 2
+        week_start: 1
+        week_end: 8
+        is_recurring: true
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Saisonale Ruhephase Januar–Februar. Keine Düngung.
+          9-Tage-Intervall bei 18–22 °C. Minimum 15 °C.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 9
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-dormancy
+            label: "Nur Wasser (Ruheperiode)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.2
+            fertilizer_dosages: []
+
+      # ── VEGETATIVE W9-35 (recurring, Mär–Sep) ──
+      - phase_name: vegetative
+        sequence_order: 3
+        week_start: 9
+        week_end: 35
+        is_recurring: true
+        npk_ratio: [1.5, 1.0, 1.5]
+        calcium_ppm: 40.0
+        magnesium_ppm: 20.0
+        notes: >-
+          Halbe Dosis (2 ml/L) alle 21 Tage.
+          Ca/Mg aus Leitungswasser. EC-Grenze 1,0 mS/cm einhalten.
+          Im März Vierteldosis (1 ml/L), ab April halbe Dosis.
+          Alle 2–3 Monate Salzspülung.
+        delivery_channels:
+          - channel_id: drench-giessduengung
+            label: "Gießdüngung (Gießkanne)"
+            application_method: drench
+            target_ec_ms: 0.5
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.4
+            fertilizer_dosages:
+              - product_name: Grünpflanzendünger
+                ml_per_liter: 2.0
+
+      # ── FLOWERING W36-43 (recurring, Sep–Okt) ──
+      - phase_name: flowering
+        sequence_order: 4
+        week_start: 36
+        week_end: 43
+        is_recurring: true
+        npk_ratio: [1.5, 1.0, 1.5]
+        calcium_ppm: 40.0
+        magnesium_ppm: 25.0
+        notes: >-
+          Optionale Phase — tritt nur bei ausreichend indirektem Licht ein
+          (DLI > 5 mol/m²/Tag). Halbe Dosis (2 ml/L) alle 21 Tage beibehalten.
+          Mg erhöht auf 25 ppm (Blütephase).
+        delivery_channels:
+          - channel_id: drench-giessduengung
+            label: "Gießdüngung (Gießkanne)"
+            application_method: drench
+            target_ec_ms: 0.5
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.4
+            fertilizer_dosages:
+              - product_name: Grünpflanzendünger
+                ml_per_liter: 2.0
+
+      # ── DORMANCY W44-52 (recurring, Nov–Dez) ──
+      - phase_name: dormancy
+        sequence_order: 5
+        week_start: 44
+        week_end: 52
+        is_recurring: true
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Saisonale Ruhephase November–Dezember. Keine Düngung.
+          9-Tage-Intervall bei 18–22 °C. Minimum 15 °C.
+          Salzspülung einmalig im November.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 9
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-dormancy
+            label: "Nur Wasser (Ruheperiode)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.2
+            fertilizer_dosages: []
+
+  # ── Plan: Guzmania lingulata — Gardol Grünpflanzendünger ─────────────────────
+  - name: "Guzmania lingulata — Gardol Grünpflanzendünger"
+    description: >-
+      Lebenszyklus-Plan für Guzmania lingulata (Bromelie) in Orchideensubstrat.
+      Einzeldünger-Konzept mit Gardol Grünpflanzendünger (NPK 6-4-6) auf 1/4-Dosis
+      reduziert. Monokarper Lebenszyklus: Kindel → vegetatives Wachstum (~1 Jahr)
+      → Blüte → Seneszenz. Ausschließlich weiches Wasser
+      (Regenwasser/destilliert) verwenden.
+    recommended_substrate_type: orchid_bark
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags:
+      - guzmania
+      - bromelie
+      - epiphyt
+      - zimmerpflanze
+      - gardol
+      - orchideensubstrat
+      - indoor
+      - schwachzehrer
+      - monokarp
+    water_mix_ratio_ro_percent: 100
+    cycle_restart_from_sequence: null
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 10
+      preferred_time: "09:00"
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+
+    phase_entries:
+      # ── GERMINATION W1-8 ──
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 8
+        is_recurring: false
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Keine Düngung. Frisch abgetrenntes Kindel nur mit weichem Wasser
+          (Regenwasser/destilliert) versorgen. Orchideensubstrat leicht feucht
+          halten, nie nass. Trichter minimal befüllen (20–30 ml).
+          Hohe Luftfeuchtigkeit (60–80 %) fördert Bewurzelung.
+          Kein Trichterwasser unter 18 °C.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 10
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-pur
+            label: "Nur Wasser (Substratbefeuchtung)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 5.5
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.03
+            fertilizer_dosages: []
+
+      # ── VEGETATIVE W9-60 ──
+      - phase_name: vegetative
+        sequence_order: 2
+        week_start: 9
+        week_end: 60
+        is_recurring: false
+        npk_ratio: [1.0, 1.0, 1.0]
+        calcium_ppm: 20.0
+        magnesium_ppm: 10.0
+        notes: >-
+          1/4-Dosis Gardol (1 ml/L) alle 28 Tage über Trichter oder als
+          Blattdüngung. EC-Ziel ~0,3 mS/cm. Ca/Mg minimal aus Düngerspuren.
+          Trichterwasser alle 4–6 Wochen komplett austauschen.
+          Kein Trichterwasser unter 18 °C.
+          Wintermonate (Nov–Feb): Düngung pausieren.
+        delivery_channels:
+          - channel_id: trichter-duengung
+            label: "Trichter-Düngung (Rosettentank)"
+            application_method: drench
+            target_ec_ms: 0.3
+            target_ph: 5.5
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.05
+            fertilizer_dosages:
+              - product_name: Grünpflanzendünger
+                ml_per_liter: 1.0
+          - channel_id: blatternaehrung
+            label: "Blattdüngung (Foliar Spray)"
+            application_method: foliar
+            target_ec_ms: 0.2
+            target_ph: 5.5
+            method_type: foliar
+            method_params:
+              volume_per_spray_liters: 0.02
+            fertilizer_dosages:
+              - product_name: Grünpflanzendünger
+                ml_per_liter: 0.5
+                optional: true
+
+      # ── FLOWERING W61-76 ──
+      - phase_name: flowering
+        sequence_order: 3
+        week_start: 61
+        week_end: 76
+        is_recurring: false
+        npk_ratio: [1.0, 2.0, 1.0]
+        calcium_ppm: 20.0
+        magnesium_ppm: 15.0
+        notes: >-
+          Minimale Düngung beibehalten: 1 ml/L Gardol alle 28 Tage über Trichter.
+          Blütenstand hält 2–4 Monate. Nicht umtopfen oder umstellen.
+          Düngerlösung NICHT auf Blütenstand gießen.
+        delivery_channels:
+          - channel_id: trichter-duengung
+            label: "Trichter-Düngung (Rosettentank)"
+            application_method: drench
+            target_ec_ms: 0.3
+            target_ph: 5.5
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.05
+            fertilizer_dosages:
+              - product_name: Grünpflanzendünger
+                ml_per_liter: 1.0
+
+      # ── DORMANCY W77-104 (senescence) ──
+      - phase_name: dormancy
+        sequence_order: 4
+        week_start: 77
+        week_end: 104
+        is_recurring: false
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Keine Düngung. Terminale Seneszenz der Mutterpflanze (monokarper
+          Lebenszyklus). Mutterpflanze NICHT entfernen solange sie Kindel versorgt.
+          14-Tage-Intervall für Substrat, minimales Volumen.
+          Kindel bei 1/3–1/2 Muttergröße abtrennen → neue Pflanzeninstanz.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 14
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-pur
+            label: "Nur Wasser (Substratbefeuchtung)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 5.5
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.05
+            fertilizer_dosages: []
+
+  # ── Plan: Yucca elephantipes — Gardol Grünpflanzendünger ─────────────────────
+  - name: "Yucca elephantipes — Gardol Grünpflanzendünger"
+    description: >-
+      Ganzjahresplan für Yucca elephantipes (Yucca-Palme) in Erdsubstrat.
+      Einzeldünger-Konzept mit Gardol Grünpflanzendünger (NPK 6-4-6).
+      Schwachzehrer — stark reduzierte Dosierung (Vierteldosis Maximum).
+      Saisonaler Rhythmus: April–September Düngung (4-Wochen-Intervall),
+      Oktober–März Pause. Trockenheitsliebend — Substrat zwischen Gießgängen
+      gut abtrocknen lassen.
+    recommended_substrate_type: soil
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags:
+      - yucca
+      - yucca-palme
+      - zimmerpflanze
+      - gruenpflanze
+      - gardol
+      - erde
+      - indoor
+      - anfaenger
+      - schwachzehrer
+      - trockenheitsvertraeglich
+    water_mix_ratio_ro_percent: null
+    cycle_restart_from_sequence: 3
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 10
+      preferred_time: "09:00"
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+
+    phase_entries:
+      # ── GERMINATION W1-4 (Etablierung nach Kauf/Umtopfen) ──
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 4
+        is_recurring: false
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Keine Düngung. Neugekaufte oder umgetopfte Yucca nur mit klarem
+          Wasser gießen. Substrat zwischen Gießgängen fast komplett abtrocknen
+          lassen — Yucca speichert Wasser im Stamm und verträgt Trockenheit
+          besser als Staunässe. 10-Tage-Intervall, Fingerprobe: obere 5 cm
+          trocken = gießen.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 10
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-etablierung
+            label: "Nur Wasser (Etablierung)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.5
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages: []
+
+      # ── SEEDLING W5-16 (Jungpflanze/Steckling) ──
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 5
+        week_end: 16
+        is_recurring: false
+        npk_ratio: [1.0, 1.0, 1.0]
+        calcium_ppm: 30.0
+        magnesium_ppm: 15.0
+        notes: >-
+          Vierteldosis Gardol (1 ml/L) alle 28 Tage. Gießintervall 10 Tage.
+          Junge Yucca baut Wurzelsystem auf. Schwachzehrer — frühestens
+          nach sichtbarem Neuzuwachs düngen. Substrat gut durchlässig
+          halten (ggf. Sand/Perlite beimischen). Nur in der
+          Wachstumsperiode (April–September) düngen.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 10
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: drench-giessduengung
+            label: "Gießdüngung (Gießkanne)"
+            application_method: drench
+            target_ec_ms: 0.3
+            target_ph: 6.5
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages:
+              - product_name: Grünpflanzendünger
+                ml_per_liter: 1.0
+
+      # ── DORMANCY W1-13 (recurring, Jan–Mär) ──
+      - phase_name: dormancy
+        sequence_order: 3
+        week_start: 1
+        week_end: 13
+        is_recurring: true
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Saisonale Ruhephase Januar–März. Keine Düngung.
+          14-Tage-Intervall bei 10–18 °C (Yucca verträgt kühle
+          Überwinterung bis 5 °C). Substrat fast komplett austrocknen
+          lassen. Yucca speichert Wasser im Stamm — Übergießen ist
+          der häufigste Pflegefehler. Heller, kühler Standort ideal.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 14
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-dormancy
+            label: "Nur Wasser (Ruheperiode)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.5
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages: []
+
+      # ── VEGETATIVE W14-39 (recurring, Apr–Sep) ──
+      - phase_name: vegetative
+        sequence_order: 4
+        week_start: 14
+        week_end: 39
+        is_recurring: true
+        npk_ratio: [1.5, 1.0, 1.5]
+        calcium_ppm: 40.0
+        magnesium_ppm: 20.0
+        notes: >-
+          Vierteldosis Gardol (1 ml/L) alle 28 Tage (April–September).
+          Schwachzehrer — Vierteldosis ist Maximum! Gießintervall 10 Tage,
+          Fingerprobe: obere 5 cm trocken = gießen. Ca/Mg aus Leitungswasser.
+          Alle 3–4 Monate Salzspülung. Yucca verträgt volle Sonne und
+          profitiert von Freilandaufenthalt im Sommer (abhärten!).
+          NPK 1,5:1:1,5 = Gardol-Produktrealität. Keine höhere Dosierung
+          verwenden — Yucca wächst langsam und benötigt wenig Nährstoffe.
+        delivery_channels:
+          - channel_id: drench-giessduengung
+            label: "Gießdüngung (Gießkanne)"
+            application_method: drench
+            target_ec_ms: 0.4
+            target_ph: 6.5
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.5
+            fertilizer_dosages:
+              - product_name: Grünpflanzendünger
+                ml_per_liter: 1.0
+
+      # ── DORMANCY W40-52 (recurring, Okt–Dez) ──
+      - phase_name: dormancy
+        sequence_order: 5
+        week_start: 40
+        week_end: 52
+        is_recurring: true
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Saisonale Ruhephase Oktober–Dezember. Keine Düngung.
+          14-Tage-Intervall bei 10–18 °C. Substrat fast komplett
+          austrocknen lassen. Salzspülung einmalig im Oktober.
+          Yucca profitiert von kühlerer Überwinterung (10–15 °C)
+          — fördert kompakten Wuchs.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 14
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-dormancy
+            label: "Nur Wasser (Ruheperiode)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.5
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages: []

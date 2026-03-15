@@ -1,0 +1,2 @@
+FROM busybox:1.37
+COPY custom_components /ha-integration/custom_components

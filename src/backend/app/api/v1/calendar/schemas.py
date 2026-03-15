@@ -63,3 +63,56 @@ class CalendarQueryParams(BaseModel):
     start: date
     end: date
     category: str | None = None
+
+
+# ── Sowing Calendar (REQ-015 §3.8) ──────────────────────────────────
+
+
+class FrostConfigSchema(BaseModel):
+    last_frost_date: date
+    first_frost_date: date | None = None
+    eisheilige_date: date
+
+
+class SowingBarSchema(BaseModel):
+    phase: str
+    color: str
+    start_date: date
+    end_date: date
+    label: str = ""
+
+
+class SowingCalendarEntrySchema(BaseModel):
+    species_key: str
+    species_name: str
+    common_name: str = ""
+    link_species_key: str = ""
+    bars: list[SowingBarSchema] = Field(default_factory=list)
+
+
+class SowingCalendarResponse(BaseModel):
+    entries: list[SowingCalendarEntrySchema] = Field(default_factory=list)
+    frost_config: FrostConfigSchema
+    year: int
+    total: int = 0
+
+
+# ── Season Overview (REQ-015 §3.9) ──────────────────────────────────
+
+
+class MonthSummarySchema(BaseModel):
+    month: int
+    month_name: str = ""
+    sowing_count: int = 0
+    harvest_count: int = 0
+    bloom_count: int = 0
+    task_count: int = 0
+    top_tasks: list[str] = Field(default_factory=list)
+    is_current: bool = False
+
+
+class SeasonOverviewResponse(BaseModel):
+    site_key: str = ""
+    site_name: str = ""
+    year: int
+    months: list[MonthSummarySchema] = Field(default_factory=list)

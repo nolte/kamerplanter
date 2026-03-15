@@ -1,5 +1,7 @@
 import client from '../client';
 import type {
+  EcBudgetRequest,
+  EcBudgetResponse,
   FlushingRequest,
   FlushingResponse,
   MixingProtocolRequest,
@@ -8,6 +10,8 @@ import type {
   MixingSafetyResponse,
   RunoffRequest,
   RunoffResponse,
+  WaterMixReverseRequest,
+  WaterMixReverseResponse,
 } from '../types';
 
 const BASE = '/nutrient-calculations';
@@ -55,6 +59,30 @@ export async function validateMixingSafety(
 ): Promise<MixingSafetyResponse> {
   const { data } = await client.post<MixingSafetyResponse>(
     `${BASE}/mixing-safety`,
+    payload,
+  );
+  return data;
+}
+
+// ── Water Mix Reverse ────────────────────────────────────────────────
+
+export async function calculateWaterMixReverse(
+  payload: WaterMixReverseRequest,
+): Promise<WaterMixReverseResponse> {
+  const { data } = await client.post<WaterMixReverseResponse>(
+    `${BASE}/water-mix/reverse`,
+    payload,
+  );
+  return data;
+}
+
+// ── EC Budget ────────────────────────────────────────────────────────
+
+export async function calculateEcBudget(
+  payload: EcBudgetRequest,
+): Promise<EcBudgetResponse> {
+  const { data } = await client.post<EcBudgetResponse>(
+    `${BASE}/ec-budget`,
     payload,
   );
   return data;

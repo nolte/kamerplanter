@@ -72,10 +72,11 @@ class TestNutrientSolutionCalculator:
         assert result["dosages"] == []
         assert result["calculated_ec"] == 0.3
 
-    def test_multiple_fertilizers(self, calculator):
+    def test_multiple_fertilizers_equal_share(self, calculator):
+        """Without recipe, equal EC share: each gets 50% of available EC."""
         ferts = [
-            _make_fert(product_name="A", npk_ratio=(10.0, 0.0, 0.0), ec_contribution_per_ml=0.1, mixing_priority=10),
-            _make_fert(product_name="B", npk_ratio=(0.0, 10.0, 0.0), ec_contribution_per_ml=0.1, mixing_priority=20),
+            _make_fert(key="a", product_name="A", npk_ratio=(10.0, 0.0, 0.0), ec_contribution_per_ml=0.1, mixing_priority=10),
+            _make_fert(key="b", product_name="B", npk_ratio=(0.0, 10.0, 0.0), ec_contribution_per_ml=0.1, mixing_priority=20),
         ]
         result = calculator.calculate(
             target_volume_liters=10.0,
@@ -87,6 +88,31 @@ class TestNutrientSolutionCalculator:
         )
         assert len(result["dosages"]) == 2
         assert result["dosages"][0]["product_name"] == "A"
+        # Equal share: each contributes 0.85 mS → 8.5 ml/L
+        assert result["dosages"][0]["ml_per_liter"] == pytest.approx(
+            result["dosages"][1]["ml_per_liter"], abs=0.01,
+        )
+
+    def test_recipe_scaling(self, calculator):
+        """With recipe_ml_per_liter, scaling preserves manufacturer ratios."""
+        ferts = [
+            _make_fert(key="a", product_name="A", ec_contribution_per_ml=0.2, mixing_priority=10),
+            _make_fert(key="b", product_name="B", ec_contribution_per_ml=0.1, mixing_priority=20),
+        ]
+        # Manufacturer recipe: A=2ml/L, B=4ml/L → EC_recipe = 2*0.2 + 4*0.1 = 0.8
+        # Available EC = 1.6, k = 1.6/0.8 = 2.0 → A=4ml/L, B=8ml/L
+        result = calculator.calculate(
+            target_volume_liters=10.0,
+            target_ec_ms=2.0,
+            target_ph=6.0,
+            base_water_ec=0.4,
+            base_water_ph=7.0,
+            fertilizers=ferts,
+            recipe_ml_per_liter={"a": 2.0, "b": 4.0},
+        )
+        assert result["dosages"][0]["ml_per_liter"] == pytest.approx(4.0, abs=0.01)
+        assert result["dosages"][1]["ml_per_liter"] == pytest.approx(8.0, abs=0.01)
+        assert result["calculated_ec"] == pytest.approx(2.0, abs=0.01)
 
     def test_ph_adjustment_down(self, calculator):
         result = calculator.calculate(

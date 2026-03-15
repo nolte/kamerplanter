@@ -4,7 +4,16 @@ from app.common.enums import ApplicationMethod
 from app.domain.models.fertilizer import Fertilizer
 from app.domain.models.nutrient_plan import DeliveryChannel
 
-EC_TOLERANCE = 0.3  # mS
+EC_TOLERANCE_FIXED = 0.3  # mS — legacy, kept for reference
+
+
+def ec_tolerance(target_ec: float) -> float:
+    """Phase-dependent EC tolerance (REQ-004-A §5.5).
+
+    At low EC targets (e.g. seedling 0.6 mS), a fixed 0.3 tolerance
+    is 50% — far too loose. This uses 10% of target with 0.1 floor.
+    """
+    return max(0.1, target_ec * 0.10)
 
 
 class DeliveryChannelValidator:
@@ -63,16 +72,18 @@ class DeliveryChannelValidator:
                     calculated_ec += dosage.ml_per_liter * fert.ec_contribution_per_ml
 
                 delta = abs(channel.target_ec_ms - calculated_ec)
+                tolerance = ec_tolerance(channel.target_ec_ms)
                 ec_budget = {
                     "target": channel.target_ec_ms,
                     "calculated": round(calculated_ec, 2),
                     "delta": round(delta, 2),
+                    "tolerance": round(tolerance, 2),
                 }
-                if delta > EC_TOLERANCE:
+                if delta > tolerance:
                     issues.append(
                         f"EC mismatch: target {channel.target_ec_ms} mS, "
                         f"calculated {calculated_ec:.2f} mS "
-                        f"(delta {delta:.2f}, tolerance {EC_TOLERANCE})"
+                        f"(delta {delta:.2f}, tolerance {tolerance:.2f})"
                     )
 
             # Tank-safe check for fertigation channels

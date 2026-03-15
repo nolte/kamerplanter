@@ -8,6 +8,7 @@ import StepLabel from '@mui/material/StepLabel';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
+import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import FormControl from '@mui/material/FormControl';
@@ -15,8 +16,12 @@ import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Slider from '@mui/material/Slider';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
+import Divider from '@mui/material/Divider';
+import InputAdornment from '@mui/material/InputAdornment';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EmojiNatureIcon from '@mui/icons-material/EmojiNature';
 import SchoolIcon from '@mui/icons-material/School';
@@ -67,6 +72,9 @@ export default function OnboardingWizard() {
   const [siteType, setSiteType] = useState<SiteType>('indoor');
   const [plantCount, setPlantCount] = useState(5);
   const [submitting, setSubmitting] = useState(false);
+  const [hasRoSystem, setHasRoSystem] = useState(false);
+  const [tapWaterEc, setTapWaterEc] = useState<string>('');
+  const [tapWaterPh, setTapWaterPh] = useState<string>('');
 
   useEffect(() => {
     dispatch(fetchOnboardingState());
@@ -126,6 +134,9 @@ export default function OnboardingWizard() {
           experience_level: experienceLevel,
           site_name: siteName || undefined,
           plant_count: plantCount,
+          has_ro_system: hasRoSystem || undefined,
+          tap_water_ec_ms: tapWaterEc ? parseFloat(tapWaterEc) : undefined,
+          tap_water_ph: tapWaterPh ? parseFloat(tapWaterPh) : undefined,
         }),
       ).unwrap();
       notification.success(t('pages.onboarding.complete'));
@@ -141,6 +152,9 @@ export default function OnboardingWizard() {
     experienceLevel,
     siteName,
     plantCount,
+    hasRoSystem,
+    tapWaterEc,
+    tapWaterPh,
     notification,
     handleError,
     navigate,
@@ -184,14 +198,14 @@ export default function OnboardingWizard() {
       case 0:
         return (
           <Box data-testid="onboarding-step-welcome">
-            <Typography variant="h5" gutterBottom>
-              {t('pages.onboarding.title')}
-            </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
               {t('pages.onboarding.subtitle')}
             </Typography>
             <Typography variant="h6" gutterBottom>
               {t('pages.onboarding.experienceLevel')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.onboarding.experienceLevelHint')}
             </Typography>
             <Box
               sx={{
@@ -208,6 +222,7 @@ export default function OnboardingWizard() {
                     border: experienceLevel === level ? 2 : 1,
                     borderColor:
                       experienceLevel === level ? 'primary.main' : 'divider',
+                    transition: 'border-color 0.15s, box-shadow 0.15s',
                   }}
                 >
                   <CardActionArea
@@ -216,8 +231,11 @@ export default function OnboardingWizard() {
                     sx={{ p: 2, textAlign: 'center' }}
                   >
                     <Box sx={{ color: 'primary.main', mb: 1 }}>{icon}</Box>
-                    <Typography variant="subtitle1">
+                    <Typography variant="subtitle1" fontWeight={experienceLevel === level ? 700 : 400}>
                       {t(`enums.experienceLevel.${level}`)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t(`pages.auth.experienceLevel.${level}Description`)}
                     </Typography>
                   </CardActionArea>
                 </Card>
@@ -285,26 +303,25 @@ export default function OnboardingWizard() {
         return (
           <Box
             data-testid="onboarding-step-site"
-            sx={{ maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 3 }}
+            sx={{ maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 2.5 }}
           >
-            <Typography variant="h6" gutterBottom>
-              {t('pages.onboarding.step3')}
-            </Typography>
             <TextField
               label={t('pages.onboarding.siteName')}
               value={siteName}
               onChange={(e) => setSiteName(e.target.value)}
               fullWidth
+              helperText={t('pages.onboarding.siteNameHelper')}
+              autoFocus
               data-testid="site-name-field"
             />
             <FormControl fullWidth>
               <InputLabel id="site-type-label">
-                {t('enums.siteType.indoor')}
+                {t('pages.onboarding.siteType')}
               </InputLabel>
               <Select
                 labelId="site-type-label"
                 value={siteType}
-                label={t('enums.siteType.indoor')}
+                label={t('pages.onboarding.siteType')}
                 onChange={(e) => setSiteType(e.target.value as SiteType)}
                 data-testid="site-type-select"
               >
@@ -315,6 +332,50 @@ export default function OnboardingWizard() {
                 ))}
               </Select>
             </FormControl>
+            {experienceLevel !== 'beginner' && (
+              <>
+                <Divider sx={{ my: 0.5 }} />
+                <Typography variant="subtitle2">
+                  {t('pages.onboarding.waterSection')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {t('pages.onboarding.waterSectionHelper')}
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  <TextField
+                    label={t('pages.onboarding.tapWaterEc')}
+                    type="number"
+                    value={tapWaterEc}
+                    onChange={(e) => setTapWaterEc(e.target.value)}
+                    inputProps={{ step: 0.01, min: 0, max: 2.0, inputMode: 'decimal' }}
+                    helperText={t('pages.onboarding.tapWaterEcHelper')}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">mS/cm</InputAdornment>,
+                    }}
+                    data-testid="onboarding-tap-ec"
+                  />
+                  <TextField
+                    label={t('pages.onboarding.tapWaterPh')}
+                    type="number"
+                    value={tapWaterPh}
+                    onChange={(e) => setTapWaterPh(e.target.value)}
+                    inputProps={{ step: 0.1, min: 3.0, max: 10.0, inputMode: 'decimal' }}
+                    helperText={t('pages.onboarding.tapWaterPhHelper')}
+                    data-testid="onboarding-tap-ph"
+                  />
+                </Box>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={hasRoSystem}
+                      onChange={(e) => setHasRoSystem(e.target.checked)}
+                      data-testid="onboarding-ro-toggle"
+                    />
+                  }
+                  label={t('pages.onboarding.hasRoSystemToggle')}
+                />
+              </>
+            )}
           </Box>
         );
 
@@ -324,29 +385,35 @@ export default function OnboardingWizard() {
             data-testid="onboarding-step-plants"
             sx={{ maxWidth: 480 }}
           >
-            <Typography variant="h6" gutterBottom>
-              {t('pages.onboarding.plantCount')}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               {selectedKit
-                ? `${getKitName(selectedKit)} — ${t('pages.onboarding.plantCount')}: ${selectedKit.plant_count_suggestion}`
-                : ''}
+                ? t('pages.onboarding.plantCountSuggestion', {
+                    kit: getKitName(selectedKit),
+                    count: selectedKit.plant_count_suggestion,
+                  })
+                : t('pages.onboarding.plantCountHelper')}
             </Typography>
-            <Slider
-              value={plantCount}
-              onChange={(_, val) => setPlantCount(val as number)}
-              min={1}
-              max={50}
-              step={1}
-              valueLabelDisplay="on"
-              marks={[
-                { value: 1, label: '1' },
-                { value: 10, label: '10' },
-                { value: 25, label: '25' },
-                { value: 50, label: '50' },
-              ]}
-              data-testid="plant-count-slider"
-            />
+            <Typography variant="subtitle2" gutterBottom>
+              {t('pages.onboarding.plantCount')}: <strong>{plantCount}</strong>
+            </Typography>
+            <Box sx={{ px: 1, pt: 2, pb: 1 }}>
+              <Slider
+                value={plantCount}
+                onChange={(_, val) => setPlantCount(val as number)}
+                min={1}
+                max={50}
+                step={1}
+                valueLabelDisplay="on"
+                marks={[
+                  { value: 1, label: '1' },
+                  { value: 10, label: '10' },
+                  { value: 25, label: '25' },
+                  { value: 50, label: '50' },
+                ]}
+                data-testid="plant-count-slider"
+                aria-label={t('pages.onboarding.plantCount')}
+              />
+            </Box>
           </Box>
         );
 
@@ -358,48 +425,55 @@ export default function OnboardingWizard() {
                 sx={{ fontSize: '4rem', color: 'success.main', mb: 1 }}
               />
               <Typography variant="h5" gutterBottom>
-                {t('pages.onboarding.complete')}
+                {t('pages.onboarding.reviewTitle')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {t('pages.onboarding.reviewSubtitle')}
               </Typography>
             </Box>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 1,
-                maxWidth: 400,
-                mx: 'auto',
-              }}
-            >
-              <Typography variant="body2" color="text.secondary">
-                {t('pages.onboarding.experienceLevel')}:
-              </Typography>
-              <Typography variant="body2">
-                {t(`enums.experienceLevel.${experienceLevel}`)}
-              </Typography>
-
-              {selectedKit && (
-                <>
+            <Card variant="outlined" sx={{ maxWidth: 440, mx: 'auto' }}>
+              <CardContent>
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: 'auto 1fr',
+                    rowGap: 1.5,
+                    columnGap: 2,
+                    alignItems: 'baseline',
+                  }}
+                >
                   <Typography variant="body2" color="text.secondary">
-                    {t('pages.onboarding.selectKit')}:
+                    {t('pages.onboarding.experienceLevel')}
                   </Typography>
-                  <Typography variant="body2">{getKitName(selectedKit)}</Typography>
-                </>
-              )}
+                  <Typography variant="body2" fontWeight={600}>
+                    {t(`enums.experienceLevel.${experienceLevel}`)}
+                  </Typography>
 
-              {siteName && (
-                <>
+                  {selectedKit && (
+                    <>
+                      <Typography variant="body2" color="text.secondary">
+                        {t('pages.onboarding.selectKit')}
+                      </Typography>
+                      <Typography variant="body2" fontWeight={600}>{getKitName(selectedKit)}</Typography>
+                    </>
+                  )}
+
+                  {siteName && (
+                    <>
+                      <Typography variant="body2" color="text.secondary">
+                        {t('pages.onboarding.siteName')}
+                      </Typography>
+                      <Typography variant="body2" fontWeight={600}>{siteName}</Typography>
+                    </>
+                  )}
+
                   <Typography variant="body2" color="text.secondary">
-                    {t('pages.onboarding.siteName')}:
+                    {t('pages.onboarding.plantCount')}
                   </Typography>
-                  <Typography variant="body2">{siteName}</Typography>
-                </>
-              )}
-
-              <Typography variant="body2" color="text.secondary">
-                {t('pages.onboarding.plantCount')}:
-              </Typography>
-              <Typography variant="body2">{plantCount}</Typography>
-            </Box>
+                  <Typography variant="body2" fontWeight={600}>{plantCount}</Typography>
+                </Box>
+              </CardContent>
+            </Card>
           </Box>
         );
 
@@ -457,7 +531,7 @@ export default function OnboardingWizard() {
               disabled={!canProceed || submitting}
               data-testid="onboarding-next"
             >
-              {t('common.confirm')}
+              {t('common.next')}
             </Button>
           ) : (
             <Button
@@ -469,7 +543,7 @@ export default function OnboardingWizard() {
               }
               data-testid="onboarding-complete"
             >
-              {t('pages.onboarding.complete')}
+              {t('pages.onboarding.completeButton')}
             </Button>
           )}
         </Box>

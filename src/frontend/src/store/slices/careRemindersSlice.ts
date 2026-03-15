@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { CareDashboardEntry, CareProfile, ReminderType } from '@/api/types';
+import type { ConfirmReminderOptions } from '@/api/endpoints/careReminders';
 import * as api from '@/api/endpoints/careReminders';
 
 interface CareRemindersState {
@@ -43,13 +44,13 @@ export const confirmCareReminder = createAsyncThunk(
   async ({
     plantKey,
     reminderType,
-    notes,
+    options,
   }: {
     plantKey: string;
     reminderType: ReminderType;
-    notes?: string;
+    options?: ConfirmReminderOptions;
   }) => {
-    return api.confirmReminder(plantKey, reminderType, notes);
+    return api.confirmReminder(plantKey, reminderType, options);
   },
 );
 

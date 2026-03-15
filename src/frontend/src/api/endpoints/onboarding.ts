@@ -13,6 +13,9 @@ export async function complete(payload: {
   experience_level?: ExperienceLevel;
   site_name?: string;
   plant_count?: number;
+  has_ro_system?: boolean;
+  tap_water_ec_ms?: number;
+  tap_water_ph?: number;
 }): Promise<Record<string, unknown>> {
   const { data } = await client.post('/onboarding/complete', payload);
   return data as Record<string, unknown>;

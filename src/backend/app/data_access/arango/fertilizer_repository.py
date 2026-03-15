@@ -155,3 +155,43 @@ class ArangoFertilizerRepository(IFertilizerRepository, BaseArangoRepository):
         """
         self._db.aql.execute(query, bind_vars={"a": from_a, "b": from_b})
         return True
+
+    # ── Reverse lookup ─────────────────────────────────────────────────
+
+    def get_nutrient_plan_usage(self, key: FertilizerKey) -> list[dict]:
+        query = f"""
+        FOR entry IN {col.NUTRIENT_PLAN_PHASE_ENTRIES}
+          LET matched_channels = (
+            FOR ch IN (entry.delivery_channels || [])
+              LET matched = (
+                FOR d IN (ch.fertilizer_dosages || [])
+                  FILTER d.fertilizer_key == @fert_key
+                  RETURN d
+              )
+              FILTER LENGTH(matched) > 0
+              RETURN {{
+                channel_id: ch.channel_id,
+                label: ch.label,
+                application_method: ch.application_method,
+                ml_per_liter: matched[0].ml_per_liter
+              }}
+          )
+          FILTER LENGTH(matched_channels) > 0
+          LET plan = DOCUMENT(CONCAT("{col.NUTRIENT_PLANS}/", entry.plan_key))
+          FILTER plan != null
+          COLLECT plan_key = entry.plan_key,
+                  plan_name = plan.name
+          INTO groups
+          LET phase_data = (
+            FOR g IN groups
+              RETURN {{
+                phase_name: g.entry.phase_name,
+                week_start: g.entry.week_start,
+                week_end: g.entry.week_end,
+                channels: g.matched_channels
+              }}
+          )
+          RETURN {{ key: plan_key, name: plan_name, phase_entries: phase_data }}
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"fert_key": key})
+        return list(cursor)

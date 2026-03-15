@@ -45,6 +45,25 @@ class TestValidateSpeciesRow:
         assert result.status == RowStatus.VALID
 
 
+class TestSuitabilityEnumValidation:
+    def test_valid_suitability(self, validator):
+        row = {"scientific_name": "Rosa canina", "container_suitable": "yes"}
+        result = validator.validate_row(row, EntityType.SPECIES, 1)
+        assert result.status == RowStatus.VALID
+
+    def test_invalid_suitability(self, validator):
+        row = {"scientific_name": "Rosa canina", "indoor_suitable": "maybe"}
+        result = validator.validate_row(row, EntityType.SPECIES, 1)
+        assert result.status == RowStatus.INVALID
+        assert any(e.field == "indoor_suitable" for e in result.errors)
+
+    def test_all_suitability_values(self, validator):
+        for val in ["yes", "limited", "no"]:
+            row = {"scientific_name": "Rosa canina", "balcony_suitable": val}
+            result = validator.validate_row(row, EntityType.SPECIES, 1)
+            assert result.status == RowStatus.VALID
+
+
 class TestDuplicateDetection:
     def test_duplicate_detected(self, validator):
         existing = {"Rosa canina"}

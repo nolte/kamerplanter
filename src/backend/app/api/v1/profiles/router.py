@@ -34,6 +34,18 @@ def create_nutrient_profile(body: NutrientProfileCreate, service: PhaseService =
     created = service.create_nutrient_profile(profile)
     return NutrientProfileResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
 
+@router.put("/requirements/{key}", response_model=RequirementProfileResponse)
+def update_requirement_profile(key: str, body: RequirementProfileCreate, service: PhaseService = Depends(get_phase_service)):
+    profile = RequirementProfile(**body.model_dump())
+    updated = service.update_requirement_profile(key, profile)
+    return RequirementProfileResponse(key=updated.key or "", **updated.model_dump(exclude={"key"}))
+
+@router.put("/nutrients/{key}", response_model=NutrientProfileResponse)
+def update_nutrient_profile(key: str, body: NutrientProfileCreate, service: PhaseService = Depends(get_phase_service)):
+    profile = NutrientProfile(**body.model_dump())
+    updated = service.update_nutrient_profile(key, profile)
+    return NutrientProfileResponse(key=updated.key or "", **updated.model_dump(exclude={"key"}))
+
 @router.post("/generate-defaults/{phase_key}")
 def generate_default_profiles(phase_key: str, service: PhaseService = Depends(get_phase_service)):
     req, nut = service.generate_default_profiles(phase_key)

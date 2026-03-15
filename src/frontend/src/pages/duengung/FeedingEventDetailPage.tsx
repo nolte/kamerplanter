@@ -28,9 +28,11 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormTextField from '@/components/form/FormTextField';
 import FormActions from '@/components/form/FormActions';
+import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useTabUrl } from '@/hooks/useTabUrl';
 import * as feedingApi from '@/api/endpoints/feeding-events';
 import type { FeedingEvent, RunoffResponse } from '@/api/types';
 
@@ -62,7 +64,7 @@ export default function FeedingEventDetailPage() {
   const [event, setEvent] = useState<FeedingEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useTabUrl(['details', 'edit']);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [runoffResult, setRunoffResult] = useState<RunoffResponse | null>(null);
@@ -155,7 +157,7 @@ export default function FeedingEventDetailPage() {
           alignItems: 'center',
         }}
       >
-        <PageTitle title={`${t('entities.feedingEvent')} ${event.key}`} />
+        <PageTitle title={event.timestamp ? new Date(event.timestamp).toLocaleString() : t('entities.feedingEvent')} />
         <Button
           color="error"
           startIcon={<DeleteIcon />}
@@ -226,31 +228,50 @@ export default function FeedingEventDetailPage() {
                   </TableRow>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 'bold' }}>
-                      {t('pages.feedingEvents.ecBefore')} /{' '}
+                      {t('pages.feedingEvents.ecBefore')}
+                    </TableCell>
+                    <TableCell>
+                      {event.measured_ec_before != null ? `${event.measured_ec_before} mS/cm` : '\u2014'}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 'bold' }}>
                       {t('pages.feedingEvents.ecAfter')}
                     </TableCell>
                     <TableCell>
-                      {event.measured_ec_before ?? '—'} /{' '}
-                      {event.measured_ec_after ?? '—'} mS
+                      {event.measured_ec_after != null ? `${event.measured_ec_after} mS/cm` : '\u2014'}
                     </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 'bold' }}>
-                      {t('pages.feedingEvents.phBefore')} /{' '}
+                      {t('pages.feedingEvents.phBefore')}
+                    </TableCell>
+                    <TableCell>
+                      {event.measured_ph_before ?? '\u2014'}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 'bold' }}>
                       {t('pages.feedingEvents.phAfter')}
                     </TableCell>
                     <TableCell>
-                      {event.measured_ph_before ?? '—'} /{' '}
-                      {event.measured_ph_after ?? '—'}
+                      {event.measured_ph_after ?? '\u2014'}
                     </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 'bold' }}>
-                      {t('pages.feedingEvents.runoffEc')} /{' '}
+                      {t('pages.feedingEvents.runoffEc')}
+                    </TableCell>
+                    <TableCell>
+                      {event.runoff_ec != null ? `${event.runoff_ec} mS/cm` : '\u2014'}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 'bold' }}>
                       {t('pages.feedingEvents.runoffPh')}
                     </TableCell>
                     <TableCell>
-                      {event.runoff_ec ?? '—'} / {event.runoff_ph ?? '—'}
+                      {event.runoff_ph ?? '\u2014'}
                     </TableCell>
                   </TableRow>
                   {event.notes && (
@@ -314,72 +335,108 @@ export default function FeedingEventDetailPage() {
       )}
 
       {tab === 1 && (
-        <Box sx={{ maxWidth: 600 }}>
+        <Box sx={{ maxWidth: 900 }}>
           <form onSubmit={handleSubmit(onSave)}>
-            <FormSelectField
-              name="application_method"
-              control={control}
-              label={t('pages.feedingEvents.applicationMethod')}
-              options={applicationMethods.map((v) => ({
-                value: v,
-                label: t(`enums.applicationMethod.${v}`),
-              }))}
-            />
-            <FormSwitchField
-              name="is_supplemental"
-              control={control}
-              label={t('pages.feedingEvents.isSupplemental')}
-            />
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 1 }}>
+              {t('pages.feedingEvents.sectionApplication')}
+            </Typography>
+            <FormRow>
+              <FormSelectField
+                name="application_method"
+                control={control}
+                label={t('pages.feedingEvents.applicationMethod')}
+                options={applicationMethods.map((v) => ({
+                  value: v,
+                  label: t(`enums.applicationMethod.${v}`),
+                }))}
+              />
+              <FormSwitchField
+                name="is_supplemental"
+                control={control}
+                label={t('pages.feedingEvents.isSupplemental')}
+              />
+            </FormRow>
             <FormNumberField
               name="volume_applied_liters"
               control={control}
               label={t('pages.feedingEvents.volumeApplied')}
               min={0.01}
+              suffix="L"
+              inputMode="decimal"
+              helperText={t('pages.feedingEvents.volumeAppliedHelper')}
             />
-            <FormNumberField
-              name="measured_ec_before"
-              control={control}
-              label={t('pages.feedingEvents.ecBefore')}
-              min={0}
-            />
-            <FormNumberField
-              name="measured_ec_after"
-              control={control}
-              label={t('pages.feedingEvents.ecAfter')}
-              min={0}
-            />
-            <FormNumberField
-              name="measured_ph_before"
-              control={control}
-              label={t('pages.feedingEvents.phBefore')}
-              min={0}
-              max={14}
-            />
-            <FormNumberField
-              name="measured_ph_after"
-              control={control}
-              label={t('pages.feedingEvents.phAfter')}
-              min={0}
-              max={14}
-            />
-            <FormNumberField
-              name="runoff_ec"
-              control={control}
-              label={t('pages.feedingEvents.runoffEc')}
-              min={0}
-            />
-            <FormNumberField
-              name="runoff_ph"
-              control={control}
-              label={t('pages.feedingEvents.runoffPh')}
-              min={0}
-              max={14}
-            />
+
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+              {t('pages.feedingEvents.sectionMeasurements')}
+            </Typography>
+            <FormRow>
+              <FormNumberField
+                name="measured_ec_before"
+                control={control}
+                label={t('pages.feedingEvents.ecBefore')}
+                min={0}
+                suffix="mS/cm"
+                inputMode="decimal"
+                helperText={t('pages.feedingEvents.ecHelper')}
+              />
+              <FormNumberField
+                name="measured_ec_after"
+                control={control}
+                label={t('pages.feedingEvents.ecAfter')}
+                min={0}
+                suffix="mS/cm"
+                inputMode="decimal"
+              />
+            </FormRow>
+            <FormRow>
+              <FormNumberField
+                name="measured_ph_before"
+                control={control}
+                label={t('pages.feedingEvents.phBefore')}
+                min={0}
+                max={14}
+                inputMode="decimal"
+                helperText={t('pages.feedingEvents.phHelper')}
+              />
+              <FormNumberField
+                name="measured_ph_after"
+                control={control}
+                label={t('pages.feedingEvents.phAfter')}
+                min={0}
+                max={14}
+                inputMode="decimal"
+              />
+            </FormRow>
+
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+              {t('pages.feedingEvents.sectionRunoff')}
+            </Typography>
+            <FormRow>
+              <FormNumberField
+                name="runoff_ec"
+                control={control}
+                label={t('pages.feedingEvents.runoffEc')}
+                min={0}
+                suffix="mS/cm"
+                inputMode="decimal"
+                helperText={t('pages.feedingEvents.ecHelper')}
+              />
+              <FormNumberField
+                name="runoff_ph"
+                control={control}
+                label={t('pages.feedingEvents.runoffPh')}
+                min={0}
+                max={14}
+                inputMode="decimal"
+              />
+            </FormRow>
             <FormNumberField
               name="runoff_volume_liters"
               control={control}
               label={t('pages.feedingEvents.runoffVolume')}
               min={0}
+              suffix="L"
+              inputMode="decimal"
             />
             <FormTextField
               name="notes"
@@ -403,6 +460,7 @@ export default function FeedingEventDetailPage() {
         message={t('common.deleteConfirm', { name: event.key })}
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
+        destructive
       />
     </Box>
   );

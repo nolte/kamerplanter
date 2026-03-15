@@ -1,0 +1,157 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homeassistant-config
+  labels:
+    app.kubernetes.io/name: homeassistant
+    app.kubernetes.io/part-of: kamerplanter
+data:
+  configuration.yaml: |
+    homeassistant:
+      name: Kamerplanter Test HA
+      unit_system: metric
+      time_zone: Europe/Berlin
+      language: de
+
+    default_config:
+
+    api:
+
+    logger:
+      default: warning
+      logs:
+        homeassistant.components.template: info
+
+    # Simulated sensors for integration testing with Kamerplanter
+    template:
+      - sensor:
+          # -- Grow tent environment sensors --
+          - name: "Growzelt Temperatur"
+            unique_id: kp_test_growzelt_temp
+            unit_of_measurement: "°C"
+            device_class: temperature
+            state: >-
+              {{ (range(220, 280) | random / 10) | round(1) }}
+
+          - name: "Growzelt Luftfeuchtigkeit"
+            unique_id: kp_test_growzelt_humidity
+            unit_of_measurement: "%"
+            device_class: humidity
+            state: >-
+              {{ (range(550, 750) | random / 10) | round(1) }}
+
+          - name: "Growzelt CO2"
+            unique_id: kp_test_growzelt_co2
+            unit_of_measurement: "ppm"
+            device_class: carbon_dioxide
+            state: >-
+              {{ range(400, 1200) | random }}
+
+          - name: "Growzelt PPFD"
+            unique_id: kp_test_growzelt_ppfd
+            unit_of_measurement: "µmol/m²/s"
+            device_class: illuminance
+            state: >-
+              {{ range(200, 800) | random }}
+
+          # -- Tank sensors --
+          - name: "Tank 1 EC"
+            unique_id: kp_test_tank1_ec
+            unit_of_measurement: "mS/cm"
+            state: >-
+              {{ (range(8, 22) | random / 10) | round(1) }}
+
+          - name: "Tank 1 pH"
+            unique_id: kp_test_tank1_ph
+            unit_of_measurement: "pH"
+            state: >-
+              {{ (range(55, 68) | random / 10) | round(1) }}
+
+          - name: "Tank 1 Wassertemperatur"
+            unique_id: kp_test_tank1_water_temp
+            unit_of_measurement: "°C"
+            device_class: temperature
+            state: >-
+              {{ (range(180, 230) | random / 10) | round(1) }}
+
+          - name: "Tank 1 Fuellstand"
+            unique_id: kp_test_tank1_level
+            unit_of_measurement: "%"
+            state: >-
+              {{ range(20, 100) | random }}
+
+          # -- Outdoor weather sensors --
+          - name: "Aussen Temperatur"
+            unique_id: kp_test_outdoor_temp
+            unit_of_measurement: "°C"
+            device_class: temperature
+            state: >-
+              {{ (range(20, 300) | random / 10) | round(1) }}
+
+          - name: "Aussen Luftfeuchtigkeit"
+            unique_id: kp_test_outdoor_humidity
+            unit_of_measurement: "%"
+            device_class: humidity
+            state: >-
+              {{ (range(400, 900) | random / 10) | round(1) }}
+
+          - name: "Bodenfeuchte Beet 1"
+            unique_id: kp_test_soil_moisture_1
+            unit_of_measurement: "%"
+            device_class: moisture
+            state: >-
+              {{ range(15, 85) | random }}
+
+      # -- Actuator switches for REQ-018 testing --
+      - binary_sensor:
+          - name: "Growzelt Abluft Status"
+            unique_id: kp_test_exhaust_fan
+            state: "on"
+
+      - switch:
+          - name: "Growzelt Abluft"
+            unique_id: kp_test_switch_exhaust
+            state: "{{ is_state('input_boolean.growzelt_abluft_state', 'on') }}"
+            turn_on:
+              - action: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.growzelt_abluft_state
+            turn_off:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.growzelt_abluft_state
+
+          - name: "Growzelt Beleuchtung"
+            unique_id: kp_test_switch_light
+            state: "{{ is_state('input_boolean.growzelt_beleuchtung_state', 'on') }}"
+            turn_on:
+              - action: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.growzelt_beleuchtung_state
+            turn_off:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.growzelt_beleuchtung_state
+
+          - name: "Bewässerungspumpe"
+            unique_id: kp_test_switch_pump
+            state: "{{ is_state('input_boolean.bewaesserungspumpe_state', 'on') }}"
+            turn_on:
+              - action: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.bewaesserungspumpe_state
+            turn_off:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.bewaesserungspumpe_state
+
+    input_boolean:
+      growzelt_abluft_state:
+        name: Growzelt Abluft State
+        initial: true
+      growzelt_beleuchtung_state:
+        name: Growzelt Beleuchtung State
+        initial: false
+      bewaesserungspumpe_state:
+        name: Bewässerungspumpe State
+        initial: false

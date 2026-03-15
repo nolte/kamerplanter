@@ -1,5 +1,7 @@
 from fastapi import APIRouter
 
+from app.api.v1.activities.router import router as activities_router
+from app.api.v1.activity_plans.router import router as activity_plans_router
 from app.api.v1.admin.settings.router import router as admin_settings_router
 from app.api.v1.botanical_families.router import router as families_router
 from app.api.v1.calculations.router import router as calculations_router
@@ -39,6 +41,7 @@ from app.api.v1.tenants.router import router as tenants_router
 from app.api.v1.user_preferences.router import router as user_preferences_router
 from app.api.v1.users.router import router as users_router
 from app.api.v1.watering_events.router import router as watering_events_router
+from app.api.v1.watering_logs.router import router as watering_logs_router
 from app.config.settings import settings
 
 api_router = APIRouter(prefix="/api/v1")
@@ -102,6 +105,7 @@ api_router.include_router(nutrient_plans_router)
 api_router.include_router(feeding_events_router)
 api_router.include_router(nutrient_calculations_router)
 api_router.include_router(watering_events_router)
+api_router.include_router(watering_logs_router)
 api_router.include_router(ipm_router)
 api_router.include_router(harvest_router)
 api_router.include_router(tasks_router)
@@ -113,3 +117,5 @@ api_router.include_router(starter_kits_router)
 api_router.include_router(user_preferences_router)
 api_router.include_router(imports_router)
 api_router.include_router(calendar_router)
+api_router.include_router(activities_router)
+api_router.include_router(activity_plans_router)

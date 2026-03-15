@@ -1,0 +1,181 @@
+refresh_data:
+  name: Refresh Data
+  description: Immediately re-poll all coordinators to fetch latest data from Kamerplanter.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: Target a specific Kamerplanter instance. Leave empty for all instances.
+      required: false
+      example: "abc123"
+      selector:
+        text:
+
+clear_cache:
+  name: Clear Cache
+  description: Clear local coordinator cache and reload all data from Kamerplanter.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: Target a specific Kamerplanter instance. Leave empty for all instances.
+      required: false
+      example: "abc123"
+      selector:
+        text:
+
+fill_tank:
+  name: Tank befüllen
+  description: >-
+    Startet den Tank-Befüllungsprozess in Kamerplanter. Erstellt ein Fill-Event
+    mit den aktuellen Dosierungen aus dem zugewiesenen Nährstoffplan.
+    Akzeptiert eine HA Entity-ID (beliebige Tank-Entity) oder einen direkten Tank-Key.
+  fields:
+    entity_id:
+      name: Tank-Entity
+      description: Eine beliebige Entity des Tanks (z.B. sensor.kp_xxx_info oder sensor.kp_xxx_fill_level).
+      required: false
+      example: "sensor.kp_90639_info"
+      selector:
+        entity:
+          integration: kamerplanter
+    tank_key:
+      name: Tank-Key (Legacy)
+      description: Direkter ArangoDB-Key des Tanks. Nur verwenden wenn keine Entity-ID verfügbar.
+      required: false
+      example: "90639"
+      selector:
+        text:
+    fill_type:
+      name: Befüllungsart
+      description: Art der Befüllung.
+      required: false
+      default: "full_change"
+      selector:
+        select:
+          options:
+            - label: "Komplettwechsel"
+              value: "full_change"
+            - label: "Nachfüllen"
+              value: "top_up"
+            - label: "Korrektur"
+              value: "adjustment"
+    volume_liters:
+      name: Volumen (Liter)
+      description: Befülltes Volumen. Leer = Tank-Nennvolumen.
+      required: false
+      selector:
+        number:
+          min: 0.1
+          max: 1000
+          step: 0.1
+          unit_of_measurement: "L"
+    measured_ec_ms:
+      name: Gemessener EC (mS/cm)
+      description: EC-Wert nach dem Mischen (optional).
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 10
+          step: 0.01
+          unit_of_measurement: "mS/cm"
+    measured_ph:
+      name: Gemessener pH
+      description: pH-Wert nach dem Mischen (optional).
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 14
+          step: 0.1
+    notes:
+      name: Notizen
+      description: Optionale Bemerkungen zum Fill-Event.
+      required: false
+      selector:
+        text:
+          multiline: true
+
+water_channel:
+  name: Ausführungskanal gießen
+  description: >-
+    Führt eine Bewässerung für einen Ausführungskanal (Delivery Channel) einer
+    Pflanzeninstanz durch. Erstellt einen Watering-Log-Eintrag mit den aktuellen
+    Dosierungen aus dem zugewiesenen Nährstoffplan.
+    Akzeptiert eine Channel-Entity-ID oder direkt plant_key + channel_id.
+  fields:
+    entity_id:
+      name: Channel-Entity
+      description: >-
+        Eine Channel-Entity der Pflanze (z.B. sensor.kp_12345_giesswasser_mix).
+        Der plant_key und channel_id werden automatisch aufgelöst.
+      required: false
+      example: "sensor.kp_12345_giesswasser_mix"
+      selector:
+        entity:
+          integration: kamerplanter
+    plant_key:
+      name: Pflanzen-Key
+      description: Direkter ArangoDB-Key der Pflanzeninstanz. Nur verwenden wenn keine Entity-ID verfügbar.
+      required: false
+      example: "12345"
+      selector:
+        text:
+    channel_id:
+      name: Channel-ID
+      description: ID des Ausführungskanals (z.B. "giesswasser" oder "blattpflege"). Nur verwenden zusammen mit plant_key.
+      required: false
+      example: "giesswasser"
+      selector:
+        text:
+    volume_liters:
+      name: Volumen (Liter)
+      description: Gegossenes Volumen. Leer = Kanalvolumen aus Nährstoffplan.
+      required: false
+      selector:
+        number:
+          min: 0.01
+          max: 1000
+          step: 0.01
+          unit_of_measurement: "L"
+    application_method:
+      name: Ausbringungsmethode
+      description: Wie wird gegossen?
+      required: false
+      default: "drench"
+      selector:
+        select:
+          options:
+            - label: "Gießen (Drench)"
+              value: "drench"
+            - label: "Blattsprühung (Foliar)"
+              value: "foliar"
+            - label: "Fertigation"
+              value: "fertigation"
+            - label: "Kapillar"
+              value: "capillary"
+    measured_ec_ms:
+      name: Gemessener EC (mS/cm)
+      description: EC-Wert der Nährlösung (optional).
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 10
+          step: 0.01
+          unit_of_measurement: "mS/cm"
+    measured_ph:
+      name: Gemessener pH
+      description: pH-Wert der Nährlösung (optional).
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 14
+          step: 0.1
+    notes:
+      name: Notizen
+      description: Optionale Bemerkungen.
+      required: false
+      selector:
+        text:
+          multiline: true

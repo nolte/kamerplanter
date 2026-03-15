@@ -60,11 +60,17 @@ custom_components/kamerplanter/
 ├── todo.py                  # Todo-Entity (fällige Tasks)
 ├── diagnostics.py           # Debug-Informationen (Config-Entry-Diagnostics)
 ├── const.py                 # Konstanten, Default Polling-Intervalle
+├── icon.png                 # Kami-Maskottchen Icon 256×256 (Integrations-Menü)
+├── icon@2x.png              # Kami-Maskottchen Icon 512×512 (HiDPI)
 ├── strings.json             # Lokalisierung (DE/EN)
 └── translations/
     ├── de.json
     └── en.json
 ```
+
+> **Icon-Assets:** Das Kami-Maskottchen (Happy-Pose) dient als Integration-Icon. Fertige Icons mit transparentem Hintergrund: `docs/img/ha_integration/icon.png` (256×256) und `docs/img/ha_integration/icon@2x.png` (512×512). Generierungs-Prompts: `spec/ref/graphic-prompts/ha-integration-icon-kami.md`.
+>
+> ![Kami HA Icon](../../docs/img/ha_integration/icon.png)
 
 ### 2.2 manifest.json
 
@@ -149,12 +155,18 @@ Pflanzen, Locations und Tanks werden als **Entity-Gruppen** unter dem Device org
 | `sensor.kp_{plant}_karenz_remaining` | Karenz-Gate (berechnet) | `sensor` | `d` |
 | `sensor.kp_{plant}_next_watering` | `GET /care-reminders/` | `sensor` | — |
 | `sensor.kp_{plant}_health_score` | IPM + Quality (aggregiert) | `sensor` | `%` |
+| `sensor.kp_{plant}_active_channels` | `GET /plant-instances/{key}/active-channels` | `sensor` | — |
+| `sensor.kp_{plant}_{channel_slug}_mix` | `_current_dosages.channels[]` (Coordinator) | `sensor` | — |
 | `binary_sensor.kp_{plant}_needs_attention` | Alerts + überfällige Tasks | `binary_sensor` | — |
 | `sensor.kp_{location}_active_plants` | Slot-Belegung | `sensor` | — |
 | `sensor.kp_{tank}_ec` | `TankState.ec_ms` | `sensor` | `mS/cm` |
 | `sensor.kp_{tank}_ph` | `TankState.ph` | `sensor` | `pH` |
 | `sensor.kp_{tank}_fill_level` | `TankState.fill_level_percent` | `sensor` | `%` |
 | `sensor.kp_{tank}_water_temp` | `TankState.water_temp_celsius` | `sensor` | `°C` |
+| `sensor.kp_{tank}_dissolved_oxygen` | `TankState.dissolved_oxygen_mgl` | `sensor` | `mg/L` |
+| `sensor.kp_{tank}_orp` | `TankState.orp_mv` | `sensor` | `mV` |
+| `sensor.kp_{tank}_solution_age_days` | Berechnet aus letztem `full_change` TankFillEvent (Q10-korrigiert) | `sensor` | `d` |
+| `binary_sensor.kp_{tank}_alert_active` | `check_alerts()` Result (aggregiert) | `binary_sensor` | — |
 | `calendar.kp_tasks` | CalendarFeed (iCal) | `calendar` | — |
 | `todo.kp_{location}_tasks` | `GET /tasks/?status=pending` | `todo` | — |
 | `sensor.kp_{actuator}_state` | `Actuator.current_state` | `sensor` | — |
@@ -482,6 +494,244 @@ action:
 mode: single
 ```
 
+### Blueprint 6: Alle Ausbringkanaele einer Pflanze giessen
+
+```yaml
+# Trigger: Taeglich um 8:00 Uhr alle aktiven Kanaele der Pflanze giessen
+alias: "KP: Morgendliches Giessen aller Kanaele"
+description: "Iteriert ueber alle aktiven Ausbringkanaele und fuehrt Giessvorgang aus"
+trigger:
+  - platform: time
+    at: "08:00:00"
+condition:
+  - condition: numeric_state
+    entity_id: sensor.kp_149369_active_channels
+    above: 0
+action:
+  - repeat:
+      for_each: >
+        {{ state_attr('sensor.kp_149369_active_channels', 'channel_ids') }}
+      sequence:
+        - service: kamerplanter.water_channel
+          data:
+            plant_key: "149369"
+            channel_id: "{{ repeat.item }}"
+            volume_liters: 0.7
+            notes: "Automatisches Morgengiessen via HA"
+mode: single
+```
+
+### Blueprint 7: Gezieltes Giessen eines einzelnen Kanals
+
+```yaml
+# Manueller Trigger: Einen bestimmten Kanal einer Pflanze giessen
+alias: "KP: Giesskanne 10L befuellen und giessen"
+description: "Giesst den Giesskanne-10L-Kanal mit Dosierungen aus dem Naehrstoffplan"
+trigger:
+  - platform: event
+    event_type: call_service
+    event_data:
+      domain: script
+      service: kp_giessen_giesskanne
+action:
+  - service: kamerplanter.water_channel
+    data:
+      entity_id: sensor.kp_149369_giesskanne_10l_mix
+      volume_liters: 0.7
+      measured_ec_ms: "{{ states('sensor.ec_meter_growroom') | float(0) }}"
+      measured_ph: "{{ states('sensor.ph_meter_growroom') | float(0) }}"
+      notes: "Gegossen mit gemessenen EC/pH-Werten"
+mode: single
+```
+
+### Sensor: Active Channels (Ausbringkanaele)
+
+Jede aktive Pflanzeninstanz erhaelt einen `active_channels`-Sensor, der alle aktuell aktiven Ausbringkanaele aus dem zugewiesenen Naehrstoffplan auflistet.
+
+**Entity-ID:** `sensor.kp_{plant_key}_active_channels`
+
+**State:** Anzahl aktiver Kanaele (z.B. `2`)
+
+**Attribute:**
+
+| Attribut | Typ | Beschreibung |
+|----------|-----|-------------|
+| `plant_key` | `str` | ArangoDB-Key der Pflanzeninstanz |
+| `channel_ids` | `list[str]` | Liste aller aktiven `channel_id`-Werte |
+| `{channel_id}` | `dict` | Pro Kanal: `label`, `application_method`, `target_ec_ms`, `target_ph`, `phase_name`, `week_start`, `week_end`, `dosages` (dict Produktname → ml/L) |
+
+**Beispiel-Attribute:**
+
+```yaml
+plant_key: "149369"
+channel_ids:
+  - "giesskanne_10l"
+  - "blattpflege"
+giesskanne_10l:
+  label: "Giesskanne 10L"
+  application_method: "drench"
+  target_ec_ms: 1.4
+  target_ph: 6.2
+  phase_name: "vegetative"
+  week_start: 3
+  week_end: 7
+  dosages:
+    Plagron Terra Grow: 0.5
+    Plagron Power Roots: 0.25
+blattpflege:
+  label: "Blattpflege Sprueher"
+  application_method: "foliar"
+  target_ec_ms: null
+  target_ph: null
+  phase_name: "vegetative"
+  week_start: 3
+  week_end: 7
+  dosages:
+    Plagron Pure Zym: 0.1
+```
+
+**Datenquelle:** `GET /api/v1/t/{slug}/plant-instances/{key}/active-channels?current_week=N` (neuer Backend-Endpoint). Der Plant-Coordinator berechnet `current_week` aus `current_phase_started_at` und ruft den Endpoint bei jedem Poll-Zyklus (300s) ab.
+
+### Sensor: Channel Mix (Dosierungen pro Kanal)
+
+Pro aktivem Ausbringkanal wird ein separater `{channel_slug}_mix`-Sensor erstellt, der die einzelnen Duengemittel-Dosierungen als Attribute exponiert.
+
+**Entity-ID:** `sensor.kp_{plant_key}_{channel_slug}_mix`
+
+**State:** Anzahl Duengemittel im Kanal (z.B. `3`)
+
+**Attribute:**
+
+| Attribut | Typ | Beschreibung |
+|----------|-----|-------------|
+| `plant_key` | `str` | ArangoDB-Key der Pflanzeninstanz |
+| `channel_id` | `str` | ID des Ausbringkanals |
+| `{Produktname} (ml/L)` | `float` | Dosierung pro Produkt in ml pro Liter |
+
+**Beispiel-Attribute:**
+
+```yaml
+plant_key: "149369"
+channel_id: "giesskanne_10l"
+Plagron Terra Grow (ml/L): 0.5
+Plagron Power Roots (ml/L): 0.25
+Plagron Pure Zym (ml/L): 0.1
+```
+
+### Service: water_channel (Ausbringkanal giessen)
+
+Fuehrt eine Bewaesserung fuer einen bestimmten Ausbringkanal einer Pflanzeninstanz durch. Erstellt einen Watering-Log-Eintrag im Kamerplanter-Backend mit den aktuellen Dosierungen aus dem Naehrstoffplan.
+
+**Service-Name:** `kamerplanter.water_channel`
+
+**Felder:**
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|-------------|
+| `entity_id` | `entity` | Nein | Channel-Entity (z.B. `sensor.kp_149369_giesskanne_10l_mix`). Plant/Channel werden automatisch aufgeloest. |
+| `plant_key` | `str` | Nein | Direkter ArangoDB-Key der Pflanzeninstanz. Nur wenn keine `entity_id`. |
+| `channel_id` | `str` | Nein | ID des Ausbringkanals. Nur zusammen mit `plant_key`. |
+| `volume_liters` | `float` | Nein | Gegossenes Volumen (L). Default: Kanalvolumen aus Plan. |
+| `application_method` | `select` | Nein | `drench` (default), `foliar`, `fertigation`, `capillary` |
+| `measured_ec_ms` | `float` | Nein | Gemessener EC-Wert (mS/cm) |
+| `measured_ph` | `float` | Nein | Gemessener pH-Wert |
+| `notes` | `str` | Nein | Optionale Bemerkungen |
+
+**Aufloesung plant_key + channel_id (3 Strategien):**
+
+1. **State-Attribute:** Liest `plant_key` und `channel_id` direkt aus den Attributen der Entity
+2. **Entity-ID-Pattern:** Parst `sensor.kp_{plant_slug}_{channel_slug}_mix` und gleicht mit Coordinator-Daten ab
+3. **Direkte Parameter:** `plant_key` + `channel_id` als Service-Felder
+
+**Ablauf:**
+
+```
+1. Aufloesen: plant_key + channel_id (aus entity_id oder direkte Parameter)
+2. Dosierungen laden: Plant-Coordinator → _current_dosages → channels[] → dosages[]
+3. Volumen bestimmen: Parameter > Kanal-Volumen aus Plan
+4. Watering-Log erstellen: POST /api/v1/watering-logs
+5. Coordinators refreshen: Alle 5 Coordinators neu laden
+```
+
+**Backend-Endpoint:** `POST /api/v1/watering-logs` (nicht tenant-scoped)
+
+**Payload-Beispiel:**
+
+```json
+{
+  "application_method": "drench",
+  "volume_liters": 0.7,
+  "plant_keys": ["149369"],
+  "channel_id": "giesskanne_10l",
+  "fertilizers_used": [
+    {"fertilizer_key": "plagron-terra-grow", "ml_per_liter": 0.5},
+    {"fertilizer_key": "plagron-power-roots", "ml_per_liter": 0.25}
+  ],
+  "performed_by": "home_assistant"
+}
+```
+
+### Service: fill_tank (Tank befuellen)
+
+Erstellt ein Tank-Fill-Event mit automatischer Dosierungsaufloesung aus dem Naehrstoffplan der zugewiesenen Location.
+
+**Service-Name:** `kamerplanter.fill_tank`
+
+**Felder:**
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|-------------|
+| `entity_id` | `entity` | Nein | Beliebige Tank-Entity (z.B. `sensor.kp_90639_info`) |
+| `tank_key` | `str` | Nein | Direkter ArangoDB-Key (Legacy). Nur wenn keine `entity_id`. |
+| `fill_type` | `select` | Nein | `full_change` (default), `top_up`, `adjustment` |
+| `volume_liters` | `float` | Nein | Befuelltes Volumen (L). Default: Tank-Nennvolumen. |
+| `measured_ec_ms` | `float` | Nein | Gemessener EC-Wert (mS/cm) nach Mischen |
+| `measured_ph` | `float` | Nein | Gemessener pH-Wert nach Mischen |
+| `notes` | `str` | Nein | Optionale Bemerkungen |
+
+**Dosierungsaufloesung:** Sucht im Location-Coordinator den Primary Run, matched Delivery Channels zum Tank (via Name/Volumen im Label) und uebernimmt die Dosierungen.
+
+### Backend-Endpoints: Active Channels
+
+Zwei neue API-Endpoints liefern die aktiven Ausbringkanaele fuer Pflanzeninstanzen und Pflanzdurchlaeufe:
+
+**`GET /api/v1/t/{slug}/plant-instances/{key}/active-channels?current_week=N`**
+
+Gibt die aktiven Delivery Channels der aktuellen Phase einer Pflanzeninstanz zurueck. `current_week` ist pflicht.
+
+**`GET /api/v1/t/{slug}/planting-runs/{key}/active-channels?current_week=N`**
+
+Gibt die aktiven Delivery Channels der dominanten Phase eines Pflanzdurchlaufs zurueck. `current_week` ist optional — wird aus dem Startdatum berechnet wenn nicht angegeben.
+
+**Response-Format (ActiveChannelResponse):**
+
+```json
+[
+  {
+    "channel_id": "giesskanne_10l",
+    "label": "Giesskanne 10L",
+    "application_method": "drench",
+    "target_ec_ms": 1.4,
+    "target_ph": 6.2,
+    "plan_key": "abc123",
+    "plan_name": "Tomate Plagron Terra",
+    "entry_key": "def456",
+    "phase_name": "vegetative",
+    "week_start": 3,
+    "week_end": 7,
+    "dosages": [
+      {
+        "fertilizer_key": "plagron-terra-grow",
+        "product_name": "Plagron Terra Grow",
+        "ml_per_liter": 0.5,
+        "optional": false,
+        "mixing_priority": 10
+      }
+    ]
+  }
+]
+```
+
 ---
 
 ## 5. Steuerungsmodi (Kamerplanter vs. HA)
@@ -562,6 +812,8 @@ async def _async_register_services(hass):
 |---------|-------------|
 | `kamerplanter.refresh_data` | Sofortiges Re-Polling aller Coordinators (oder eines bestimmten via `entry_id`) |
 | `kamerplanter.clear_cache` | Lokalen Storage-Cache leeren und Daten neu laden |
+| `kamerplanter.fill_tank` | Tank-Befuellung mit automatischer Dosierungsaufloesung aus Naehrstoffplan |
+| `kamerplanter.water_channel` | Bewaesserung eines Ausbringkanals einer Pflanzeninstanz (erstellt Watering-Log) |
 
 ---
 

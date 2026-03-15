@@ -15,6 +15,7 @@ interface FormSelectFieldProps<T extends FieldValues> {
   required?: boolean;
   disabled?: boolean;
   helperText?: string;
+  autoFocus?: boolean;
 }
 
 export default function FormSelectField<T extends FieldValues>({
@@ -25,6 +26,7 @@ export default function FormSelectField<T extends FieldValues>({
   required,
   disabled,
   helperText,
+  autoFocus,
 }: FormSelectFieldProps<T>) {
   return (
     <Controller
@@ -33,10 +35,12 @@ export default function FormSelectField<T extends FieldValues>({
       render={({ field, fieldState: { error } }) => (
         <TextField
           {...field}
+          value={field.value ?? ''}
           select
           label={label}
           required={required}
           disabled={disabled}
+          autoFocus={autoFocus}
           error={!!error}
           helperText={error?.message ?? helperText}
           fullWidth

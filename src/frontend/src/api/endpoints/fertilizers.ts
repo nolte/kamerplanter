@@ -6,6 +6,7 @@ import type {
   FertilizerStockCreate,
   FertilizerUpdate,
   Incompatibility,
+  NutrientPlanUsage,
 } from '../types';
 
 const BASE = '/fertilizers';
@@ -87,6 +88,17 @@ export async function fetchIncompatibilities(
 ): Promise<Incompatibility[]> {
   const { data } = await client.get<Incompatibility[]>(
     `${BASE}/${key}/incompatibilities`,
+  );
+  return data;
+}
+
+// ── Nutrient plan usage ──────────────────────────────────────────────
+
+export async function fetchNutrientPlanUsage(
+  key: string,
+): Promise<NutrientPlanUsage[]> {
+  const { data } = await client.get<NutrientPlanUsage[]>(
+    `${BASE}/${key}/nutrient-plans`,
   );
   return data;
 }

@@ -156,6 +156,9 @@ export default function HarvestCreateDialog({
             control={control}
             label={t('pages.harvest.wetWeightG')}
             min={0}
+            inputMode="decimal"
+            suffix="g"
+            helperText={t('pages.harvest.weightHelper')}
           />
           <FormTextField
             name="harvester"

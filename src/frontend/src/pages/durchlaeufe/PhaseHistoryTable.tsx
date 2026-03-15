@@ -4,11 +4,15 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
+import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
-import Alert from '@mui/material/Alert';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EmptyState from '@/components/common/EmptyState';
 import DataTable, { type Column } from '@/components/common/DataTable';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as phasesApi from '@/api/endpoints/phases';
@@ -16,14 +20,15 @@ import type { PhaseHistoryEntry } from '@/api/types';
 
 interface Props {
   plantKey: string;
+  onChanged?: () => void;
 }
 
 function formatDateTime(iso: string | null): string {
-  if (!iso) return '-';
+  if (!iso) return '\u2014';
   return new Date(iso).toLocaleString();
 }
 
-export default function PhaseHistoryTable({ plantKey }: Props) {
+export default function PhaseHistoryTable({ plantKey, onChanged }: Props) {
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -33,6 +38,8 @@ export default function PhaseHistoryTable({ plantKey }: Props) {
   const [editEnteredAt, setEditEnteredAt] = useState('');
   const [editExitedAt, setEditExitedAt] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deleteKey, setDeleteKey] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadHistory = () => {
     setLoading(true);
@@ -71,10 +78,27 @@ export default function PhaseHistoryTable({ plantKey }: Props) {
       notification.success(t('pages.plantingRuns.phaseDateUpdated'));
       cancelEdit();
       loadHistory();
+      onChanged?.();
     } catch (err) {
       handleError(err);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteKey) return;
+    try {
+      setDeleting(true);
+      await phasesApi.deletePhaseHistory(plantKey, deleteKey);
+      notification.success(t('pages.phases.phaseDeleted'));
+      setDeleteKey(null);
+      loadHistory();
+      onChanged?.();
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -91,11 +115,13 @@ export default function PhaseHistoryTable({ plantKey }: Props) {
       render: (r) => {
         if (editingKey === r.key) {
           return (
-            <input
+            <TextField
               type="datetime-local"
+              size="small"
               value={editEnteredAt}
               onChange={(e) => setEditEnteredAt(e.target.value)}
-              style={{ fontSize: '0.875rem' }}
+              slotProps={{ inputLabel: { shrink: true } }}
+              sx={{ minWidth: 180 }}
             />
           );
         }
@@ -108,11 +134,13 @@ export default function PhaseHistoryTable({ plantKey }: Props) {
       render: (r) => {
         if (editingKey === r.key) {
           return (
-            <input
+            <TextField
               type="datetime-local"
+              size="small"
               value={editExitedAt}
               onChange={(e) => setEditExitedAt(e.target.value)}
-              style={{ fontSize: '0.875rem' }}
+              slotProps={{ inputLabel: { shrink: true } }}
+              sx={{ minWidth: 180 }}
             />
           );
         }
@@ -122,44 +150,79 @@ export default function PhaseHistoryTable({ plantKey }: Props) {
     {
       id: 'duration',
       label: t('pages.plantingRuns.duration'),
-      render: (r) => (r.actual_duration_days != null ? `${r.actual_duration_days}d` : '-'),
+      render: (r) => (r.actual_duration_days != null ? `${r.actual_duration_days}d` : '\u2014'),
       align: 'right',
     },
     {
       id: 'reason',
       label: t('pages.phases.reason'),
-      render: (r) => r.transition_reason || '-',
+      render: (r) => r.transition_reason || '\u2014',
     },
     {
       id: 'actions',
       label: '',
-      width: 90,
+      width: 120,
       sortable: false,
       searchable: false,
       render: (r) => {
         if (editingKey === r.key) {
           return (
             <Box sx={{ display: 'flex', gap: 0.5 }}>
-              <IconButton size="small" onClick={saveEdit} disabled={saving} color="primary">
-                {saving ? <CircularProgress size={16} /> : <SaveIcon fontSize="small" />}
-              </IconButton>
-              <IconButton size="small" onClick={cancelEdit}>
-                <CloseIcon fontSize="small" />
-              </IconButton>
+              <Tooltip title={t('common.save')}>
+                <IconButton
+                  size="small"
+                  onClick={saveEdit}
+                  disabled={saving}
+                  color="primary"
+                  aria-label={t('common.save')}
+                  data-testid="save-phase-date-button"
+                >
+                  {saving ? <CircularProgress size={16} /> : <SaveIcon fontSize="small" />}
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={t('common.cancel')}>
+                <IconButton
+                  size="small"
+                  onClick={cancelEdit}
+                  aria-label={t('common.cancel')}
+                  data-testid="cancel-phase-date-button"
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </Box>
           );
         }
         return (
-          <IconButton
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              startEdit(r);
-            }}
-            title={t('pages.plantingRuns.editPhaseDate')}
-          >
-            <EditIcon fontSize="small" />
-          </IconButton>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <Tooltip title={t('pages.plantingRuns.editPhaseDate')}>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(r);
+                }}
+                aria-label={t('pages.plantingRuns.editPhaseDate')}
+                data-testid={`edit-phase-date-${r.key}`}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={t('common.delete')}>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteKey(r.key);
+                }}
+                color="error"
+                aria-label={t('common.delete')}
+                data-testid={`delete-phase-${r.key}`}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
         );
       },
     },
@@ -174,16 +237,26 @@ export default function PhaseHistoryTable({ plantKey }: Props) {
   }
 
   if (history.length === 0) {
-    return <Alert severity="info">{t('pages.plantingRuns.noPlantsYet')}</Alert>;
+    return <EmptyState message={t('pages.plantingRuns.noPlantsYet')} />;
   }
 
   return (
-    <DataTable
-      columns={columns}
-      rows={history}
-      getRowKey={(r) => r.key}
-      variant="simple"
-      ariaLabel={t('pages.plantingRuns.phaseTimeline')}
-    />
+    <>
+      <DataTable
+        columns={columns}
+        rows={history}
+        getRowKey={(r) => r.key}
+        variant="simple"
+        ariaLabel={t('pages.plantingRuns.phaseTimeline')}
+      />
+      <ConfirmDialog
+        open={!!deleteKey}
+        title={t('pages.phases.deletePhaseTitle')}
+        message={t('pages.phases.deletePhaseMessage')}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteKey(null)}
+        loading={deleting}
+      />
+    </>
   );
 }

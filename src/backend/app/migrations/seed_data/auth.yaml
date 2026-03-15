@@ -1,0 +1,4 @@
+demo_user:
+  email: demo@kamerplanter.example
+  password: demo-passwort-2024
+  display_name: Demo Admin

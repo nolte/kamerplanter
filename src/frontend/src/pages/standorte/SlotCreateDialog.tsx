@@ -69,7 +69,7 @@ export default function SlotCreateDialog({ locationKey, open, onClose, onCreated
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           <FormTextField name="slot_id" control={control} label={t('pages.slots.slotId')} helperText={t('pages.slots.slotIdHelper')} required />
-          <FormNumberField name="capacity_plants" control={control} label={t('pages.slots.capacity')} min={1} max={20} />
+          <FormNumberField name="capacity_plants" control={control} label={t('pages.slots.capacity')} helperText={t('pages.slots.capacityHelper')} min={1} max={20} />
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
         </form>
       </DialogContent>

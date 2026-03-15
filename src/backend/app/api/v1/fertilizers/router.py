@@ -6,6 +6,7 @@ from app.api.v1.fertilizers.schemas import (
     FertilizerUpdate,
     IncompatibilityCreate,
     IncompatibilityResponse,
+    NutrientPlanUsageResponse,
     StockCreate,
     StockResponse,
     StockUpdate,
@@ -150,3 +151,13 @@ def remove_incompatibility(
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
     service.remove_incompatibility(key, other_key)
+
+
+# ── Nutrient plan usage ─────────────────────────────────────────────
+
+@router.get("/{key}/nutrient-plans", response_model=list[NutrientPlanUsageResponse])
+def list_nutrient_plan_usage(
+    key: str,
+    service: FertilizerService = Depends(get_fertilizer_service),
+):
+    return service.get_nutrient_plan_usage(key)

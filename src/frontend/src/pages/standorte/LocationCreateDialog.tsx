@@ -6,13 +6,13 @@ import DialogContent from '@mui/material/DialogContent';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import Box from '@mui/material/Box';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormTimeField from '@/components/form/FormTimeField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
+import FormRow from '@/components/form/FormRow';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/sites';
@@ -36,12 +36,13 @@ type FormData = z.infer<typeof schema>;
 interface Props {
   siteKey: string;
   parentLocationKey?: string;
+  parentLocationTypeKey?: string;
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
 }
 
-export default function LocationCreateDialog({ siteKey, parentLocationKey, open, onClose, onCreated }: Props) {
+export default function LocationCreateDialog({ siteKey, parentLocationKey, parentLocationTypeKey, open, onClose, onCreated }: Props) {
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -68,9 +69,19 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, open,
 
   useEffect(() => {
     if (open) {
-      api.listLocationTypes().then(setLocationTypes).catch(() => {});
+      api.listLocationTypes().then(setLocationTypes).catch((err) => {
+        console.error('Failed to load location types', err);
+      });
     }
   }, [open]);
+
+  // Filter types: indoor parent → only indoor types
+  const parentType = parentLocationTypeKey
+    ? locationTypes.find((lt) => lt.key === parentLocationTypeKey)
+    : undefined;
+  const filteredTypes = parentType?.is_indoor
+    ? locationTypes.filter((lt) => lt.is_indoor)
+    : locationTypes;
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -106,7 +117,7 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, open,
             name="location_type_key"
             control={control}
             label={t('pages.locations.locationType')}
-            options={locationTypes.map((lt) => ({
+            options={filteredTypes.map((lt) => ({
               value: lt.key,
               label: lt.name,
             }))}
@@ -132,7 +143,7 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, open,
           />
 
           {(isArtificial || isNaturalOrMixed) && (
-            <Box sx={{ display: 'flex', gap: 2 }}>
+            <FormRow>
               <FormTimeField
                 name="lights_on"
                 control={control}
@@ -145,7 +156,7 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, open,
                 label={t('pages.locations.lightsOff')}
                 helperText={t('pages.locations.lightsOffHelper')}
               />
-            </Box>
+            </FormRow>
           )}
 
           {isNaturalOrMixed && (

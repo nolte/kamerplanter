@@ -7,7 +7,7 @@ Kategorie: Pflege & Erinnerungen
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 2.3 (Überwinterungsmanagement)
+Version: 2.4 (Agrarbiologie-Review Korrekturen)
 ```
 
 ## 1. Business Case
@@ -190,7 +190,7 @@ Care-Reminder-Tasks werden **direkt** vom `CareReminderEngine` erstellt — sie 
     - `winter_watering_multiplier: float` (Default aus care_style-Preset, z.B. 1.5 für tropical)
     - `fertilizing_interval_days: int`
     - `fertilizing_active_months: list[int]` (z.B. `[3, 4, 5, 6, 7, 8, 9, 10]` für Mär–Okt)
-    - `repotting_interval_months: int`
+    - `repotting_interval_months: Optional[int]` (None = kein Umtopfen, z.B. bei annuellen Zierpflanzen)
     - `pest_check_interval_days: int`
     - `watering_method: Literal['soak', 'drench_and_drain', 'top_water', 'bottom_water']` (Default aus care_style-Preset)
     - `water_quality_hint: Optional[str]` (Default aus care_style-Preset, z.B. "Kalkarmes Wasser bevorzugt" für Orchideen)
@@ -209,7 +209,7 @@ Care-Reminder-Tasks werden **direkt** vom `CareReminderEngine` erstellt — sie 
 - **`:CareConfirmation`** — Immutables Event-Log für Bestätigungen und Snoozes
   - Collection: `care_confirmations`
   - Properties:
-    - `reminder_type: Literal['watering', 'fertilizing', 'repotting', 'pest_check', 'location_check', 'humidity_check']`
+    - `reminder_type: Literal['watering', 'fertilizing', 'repotting', 'pest_check', 'location_check', 'humidity_check', 'deadheading']`
     - `action: Literal['confirmed', 'snoozed', 'skipped']`
     - `confirmed_at: datetime`
     - `snooze_days: Optional[int]` (Default: 2, nur bei `action='snoozed'`)
@@ -413,9 +413,31 @@ Das System berechnet pro PlantInstance eine Winterhärte-Ampel basierend auf:
 3. `OverwinteringProfile.hardiness_zone_min`
 
 **Ampel-Logik:**
-- **Winterhart (grün):** `frost_sensitivity == 'hardy'` UND `species.hardiness_zone_min <= site.climate_zone` — Kein Handlungsbedarf
+- **Winterhart (grün):** `frost_sensitivity == 'hardy'` UND `species.hardiness_zone_min <= site.climate_zone` — Kein Handlungsbedarf. **Keine Winterschutz-Erinnerungen generieren.**
 - **Schutz nötig (gelb):** `frost_sensitivity == 'half_hardy'` ODER Hardiness-Zone knapp (Differenz <= 1 Zone) — Mulch/Vlies/Anhäufeln empfohlen
 - **Muss rein (rot):** `frost_sensitivity == 'tender'` ODER Hardiness-Zone deutlich zu niedrig (Differenz > 1) — Winterquartier oder Ausgraben
+
+<!-- Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03 -->
+**Winterschutz-Guard für frostharte Pflanzen:**
+Die `CareReminderEngine` MUSS vor der Generierung von Winterschutz-Erinnerungen (`winter_protection`, `spring_uncover`, `tuber_dig`, `storage_check`) prüfen, ob `Species.frost_sensitivity == 'hardy'`. Ist dies der Fall, werden **keine** Winterschutz-Erinnerungen generiert. Dies verhindert irreführende Erinnerungen für frostharte Pflanzen wie Stiefmütterchen (Viola), Hornveilchen, Primeln oder Schneeglöckchen.
+
+**FAMILY_CARE_MAP-Erweiterung für Zierpflanzen:**
+Die Backend-Implementation (`care_reminder_engine.py`) MUSS um folgende Einträge erweitert werden:
+
+| Familie | Care-Style | Begründung |
+|---------|-----------|-----------|
+| `Violaceae` | `outdoor_annual_ornamental` | Stiefmütterchen — frosthart, annuelle Balkonkultur. **Ausnahme:** *Viola cornuta* (Hornveilchen) ist eine winterharte Staude — für überwinterte Exemplare `mediterranean`-Preset verwenden (Rückschnitt nach Hauptblüte, Umtopfen alle 2–3 Jahre). |
+| `Primulaceae` | `outdoor_annual_ornamental` | Primeln — frosthart, Frühblüher |
+| `Geraniaceae` | `outdoor_annual_ornamental` | Geranien — frostempfindlich, annuelle Balkonkultur. **Hinweis Überwinterung (AB-003):** Werden *Pelargonium zonale* überwintert statt entsorgt, benötigen sie ein OverwinteringProfile (5–10°C, hell, reduziertes Gießen Nov–Feb, Rückschnitt im Frühjahr). Das `outdoor_annual_ornamental`-Preset gilt nur für den jährlichen Neukauf-Use-Case. |
+| `Campanulaceae` | `outdoor_annual_ornamental` | Lobelien — annuelle Balkonkultur |
+| `Balsaminaceae` | `outdoor_annual_ornamental` | Fleißiges Lieschen — Schattenbalkon |
+
+<!-- Quelle: Agrarbiologie-Review AB-004, AB-016, 2026-03 -->
+Hinweis: Die `auto_generate_profile()`-Methode nutzt `FAMILY_CARE_MAP` als Fallback. Für Outdoor-Zierpflanzen mit `traits=['ornamental']` (lowercase, konsistent mit Cultivar-Validator) UND `is_indoor == false` am Standort SOLL der `outdoor_annual_ornamental`-Preset bevorzugt werden, auch wenn die Familie nicht in der Map ist.
+
+**Deadheading-Guard für Self-Cleaning-Sorten (AB-016):**
+Cultivare mit `traits: ['self_cleaning']` (z.B. Surfinia-Petunien, Calibrachoa 'Million Bells') sollen KEINE Deadheading-Erinnerungen erhalten, auch wenn der Preset `deadheading_enabled: True` setzt. Die `CareReminderEngine` prüft vor der Deadheading-Generierung: `if 'self_cleaning' in cultivar.traits: skip deadheading`.
+<!-- /Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03 -->
 
 **Dashboard-Widget "Winterschutz-Übersicht":**
 Ab September zeigt das Dashboard ein Widget mit:
@@ -552,10 +574,27 @@ CARE_STYLE_PRESETS: dict[str, dict] = {
         'humidity_check_enabled': False,
         'humidity_check_interval_days': 14,
     },
+    # Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03
+    # Quelle: Agrarbiologie-Review AB-005, AB-014, AB-017, 2026-03
+    'outdoor_annual_ornamental': {
+        'watering_interval_days': 2,       # Balkonkästen trocknen schnell aus (Sommer, Jun–Aug)
+        'winter_watering_multiplier': 1.5,  # Frühjahr/Herbst: alle 3 Tage (niedrigere Temperaturen)
+        'watering_method': 'top_water',
+        'water_quality_hint': None,         # Leitungswasser OK für Stiefmütterchen, Petunien etc.
+        'fertilizing_interval_days': 14,    # Alle 2 Wochen Flüssigdünger
+        'fertilizing_active_months': [3, 4, 5, 6, 7, 8, 9],  # März–September (AB-017: inkl. März für Voranzucht-Sämlinge)
+        'repotting_interval_months': None,  # Kein Umtopfen (annuelle Kultur) — AB-005: None statt 0
+        'pest_check_interval_days': 14,     # Blattläuse, Weiße Fliege, Grauschimmel
+        'humidity_check_enabled': False,    # Outdoor — Luftfeuchtigkeit irrelevant
+        'humidity_check_interval_days': 14,
+        'deadheading_enabled': True,        # Verblühtes entfernen verlängert Blütezeit
+        'deadheading_interval_days': 5,     # Alle 5 Tage kontrollieren (AB-016: Cultivar.self_cleaning überschreibt)
+        'deadheading_active_phases': ['flowering'],  # Nur während der Blüte
+    },
 }
 
-CareStyleType = Literal['tropical', 'succulent', 'orchid', 'calathea', 'herb_tropical', 'mediterranean', 'fern', 'cactus', 'custom']
-ReminderType = Literal['watering', 'fertilizing', 'repotting', 'pest_check', 'location_check', 'humidity_check']
+CareStyleType = Literal['tropical', 'succulent', 'orchid', 'calathea', 'herb_tropical', 'mediterranean', 'fern', 'cactus', 'outdoor_annual_ornamental', 'custom']
+ReminderType = Literal['watering', 'fertilizing', 'repotting', 'pest_check', 'location_check', 'humidity_check', 'deadheading']
 ConfirmAction = Literal['confirmed', 'snoozed', 'skipped']
 
 # --- Dormancy Phases (no fertilizing) ---
@@ -595,7 +634,7 @@ class CareProfile(BaseModel):
         min_length=1, max_length=12,
         description="Monate (1–12) in denen gedüngt werden soll"
     )
-    repotting_interval_months: int = Field(ge=6, le=60)
+    repotting_interval_months: Optional[int] = Field(None, ge=6, le=60)  # AB-005: None = kein Umtopfen (annuelle Kultur)
     pest_check_interval_days: int = Field(ge=3, le=90)
     location_check_enabled: bool = True
     location_check_months: Optional[dict] = Field(
@@ -611,6 +650,21 @@ class CareProfile(BaseModel):
         default=14, ge=3, le=90,
         description="Intervall für Luftfeuchte-Checks (nur aktiv in Heizperiode Okt–Mär NH / Apr–Sep SH)"
     )
+    # Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03
+    deadheading_enabled: bool = Field(
+        default=False,
+        description="Verblühtes-Entfernen-Erinnerungen (Default aus care_style-Preset — true für outdoor_annual_ornamental). "
+                    "Nur aktiv wenn Species.traits 'ornamental' enthält UND aktuelle Phase 'flowering' ist."
+    )
+    deadheading_interval_days: int = Field(
+        default=5, ge=2, le=30,
+        description="Intervall für Deadheading-Checks in Tagen. Standard 5 Tage für Stiefmütterchen/Petunien."
+    )
+    deadheading_active_phases: list[str] = Field(
+        default=['flowering'],
+        description="Phasen in denen Deadheading-Erinnerungen generiert werden."
+    )
+    # /Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03
     adaptive_learning_enabled: bool = True
     watering_interval_learned: Optional[float] = Field(
         None, ge=1.0, le=90.0,
@@ -852,6 +906,8 @@ class CareReminderEngine:
                 return round(profile.fertilizing_interval_learned)
             return profile.fertilizing_interval_days
         elif reminder_type == 'repotting':
+            if profile.repotting_interval_months is None:
+                return None  # AB-005: Kein Umtopfen (annuelle Kultur) — keine Erinnerung generieren
             return profile.repotting_interval_months * 30  # Approximation
         elif reminder_type == 'pest_check':
             return profile.pest_check_interval_days

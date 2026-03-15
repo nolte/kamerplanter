@@ -8,6 +8,8 @@ import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Alert from '@mui/material/Alert';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
 import * as phasesApi from '@/api/endpoints/phases';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -34,11 +36,15 @@ export default function PhaseTransitionDialog({
   const [phases, setPhases] = useState<GrowthPhase[]>([]);
   const [targetPhaseKey, setTargetPhaseKey] = useState('');
   const [reason, setReason] = useState('manual');
+  const [force, setForce] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open && lifecycleKey) {
       phasesApi.listGrowthPhases(lifecycleKey).then(setPhases).catch(() => {});
+      setTargetPhaseKey('');
+      setReason('manual');
+      setForce(false);
     }
   }, [open, lifecycleKey]);
 
@@ -48,7 +54,8 @@ export default function PhaseTransitionDialog({
       setSaving(true);
       const plant = await phasesApi.transitionPhase(plantKey, {
         target_phase_key: targetPhaseKey,
-        reason,
+        reason: force ? (reason || 'correction') : reason,
+        force,
       });
       notification.success(t('pages.phases.transition'));
       onTransitioned(plant);
@@ -63,9 +70,6 @@ export default function PhaseTransitionDialog({
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="phase-transition-dialog">
       <DialogTitle>{t('pages.phases.transition')}</DialogTitle>
       <DialogContent>
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          {t('common.unsavedChanges')}
-        </Alert>
         <TextField
           select
           fullWidth
@@ -74,6 +78,7 @@ export default function PhaseTransitionDialog({
           onChange={(e) => setTargetPhaseKey(e.target.value)}
           sx={{ mb: 2, mt: 1 }}
           data-testid="target-phase-select"
+          helperText={t('pages.phases.targetPhaseHelper')}
         >
           {phases.map((p) => (
             <MenuItem key={p.key} value={p.key}>
@@ -86,8 +91,30 @@ export default function PhaseTransitionDialog({
           label={t('pages.phases.reason')}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
+          sx={{ mb: 2 }}
+          helperText={t('pages.phases.reasonHelper')}
           data-testid="transition-reason"
         />
+        <FormControlLabel
+          control={
+            <Switch
+              checked={force}
+              onChange={(e) => {
+                setForce(e.target.checked);
+                if (e.target.checked) setReason('correction');
+                else setReason('manual');
+              }}
+              data-testid="force-transition-switch"
+            />
+          }
+          label={t('pages.phases.forceCorrection')}
+          sx={{ mb: 1, mt: 1 }}
+        />
+        {force && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            {t('pages.phases.forceCorrectionHint')}
+          </Alert>
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} data-testid="transition-cancel">{t('common.cancel')}</Button>
@@ -95,9 +122,10 @@ export default function PhaseTransitionDialog({
           variant="contained"
           onClick={handleTransition}
           disabled={!targetPhaseKey || saving}
+          color={force ? 'warning' : 'primary'}
           data-testid="transition-confirm"
         >
-          {t('common.confirm')}
+          {force ? t('pages.phases.forceTransition') : t('common.confirm')}
         </Button>
       </DialogActions>
     </Dialog>

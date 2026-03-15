@@ -1,0 +1,70 @@
+# Development overrides
+backend:
+  replicaCount: 1
+  env:
+    ARANGODB_HOST: kamerplanter-arangodb
+    ARANGODB_PORT: "8529"
+    ARANGODB_DATABASE: kamerplanter
+    ARANGODB_USERNAME: root
+    ARANGODB_PASSWORD: rootpassword
+    REDIS_URL: redis://redis-master:6379/0
+    CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
+    DEBUG: "true"
+    REQUIRE_EMAIL_VERIFICATION: "false"
+    HA_URL: "http://homeassistant:8123"
+    HA_ACCESS_TOKEN: ""
+  probes:
+    liveness:
+      path: /api/v1/health/live
+      initialDelaySeconds: 30
+      periodSeconds: 15
+      timeoutSeconds: 10
+      failureThreshold: 10
+    readiness:
+      path: /api/v1/health/ready
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      timeoutSeconds: 10
+      failureThreshold: 10
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+  strategy:
+    type: Recreate
+
+frontend:
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 5173
+  containerPort: 5173
+  probes:
+    liveness:
+      path: /
+      initialDelaySeconds: 30
+      periodSeconds: 15
+      timeoutSeconds: 10
+      failureThreshold: 10
+    readiness:
+      path: /
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      timeoutSeconds: 10
+      failureThreshold: 10
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+  strategy:
+    type: Recreate
+  ingress:
+    enabled: true
+    backendService: kamerplanter-backend
+    backendPort: 8000

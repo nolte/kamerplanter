@@ -6,6 +6,7 @@ import DialogContent from '@mui/material/DialogContent';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -28,7 +29,8 @@ import { plantingRunFieldConfig } from '@/config/fieldConfigs';
 import * as runApi from '@/api/endpoints/plantingRuns';
 import * as speciesApi from '@/api/endpoints/species';
 import * as sitesApi from '@/api/endpoints/sites';
-import type { Species, Cultivar, Site, Location } from '@/api/types';
+import LocationTreeSelect from '@/components/form/LocationTreeSelect';
+import type { Species, Cultivar, Site } from '@/api/types';
 
 const entrySchema = z.object({
   species_key: z.string().min(1),
@@ -136,7 +138,7 @@ function EntryRow({ index, control, setValue, speciesList, roles, onRemove, canR
           label={t('entities.cultivar')}
           disabled={!speciesKey || cultivarsLoading}
           options={[
-            { value: '', label: '-' },
+            { value: '', label: '\u2014' },
             ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
           ]}
         />
@@ -156,7 +158,7 @@ function EntryRow({ index, control, setValue, speciesList, roles, onRemove, canR
           control={control}
           label={t('pages.plantingRuns.idPrefix')}
           required
-          helperText="A-Z, 2-5"
+          helperText={t('pages.plantingRuns.idPrefixHelper')}
         />
       </Box>
       <Box sx={{ width: 140 }}>
@@ -167,13 +169,19 @@ function EntryRow({ index, control, setValue, speciesList, roles, onRemove, canR
           options={roles}
         />
       </Box>
-      <IconButton
-        onClick={onRemove}
-        disabled={!canRemove}
-        sx={{ mt: 1 }}
-      >
-        <DeleteIcon />
-      </IconButton>
+      <Tooltip title={t('pages.plantingRuns.removeEntry')}>
+        <span>
+          <IconButton
+            onClick={onRemove}
+            disabled={!canRemove}
+            sx={{ mt: 1 }}
+            aria-label={t('pages.plantingRuns.removeEntry')}
+            data-testid={`remove-entry-${index}`}
+          >
+            <DeleteIcon />
+          </IconButton>
+        </span>
+      </Tooltip>
     </Box>
   );
 }
@@ -185,8 +193,6 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
   const [saving, setSaving] = useState(false);
   const [speciesList, setSpeciesList] = useState<Species[]>([]);
   const [sitesList, setSitesList] = useState<Site[]>([]);
-  const [locationsList, setLocationsList] = useState<Location[]>([]);
-  const [locationsLoading, setLocationsLoading] = useState(false);
   const { showAllOverride, toggleShowAll, level } = useExpertiseLevel();
 
   const { control, handleSubmit, reset, setValue } = useForm<FormData>({
@@ -221,7 +227,6 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
         notes: null,
         entries: [{ species_key: '', cultivar_key: null, quantity: 1, role: 'primary', id_prefix: '', spacing_cm: null, notes: null }],
       });
-      setLocationsList([]);
       speciesApi.listSpecies(0, 200).then((r) => setSpeciesList(r.items)).catch(() => {});
       sitesApi.listSites(0, 200).then(setSitesList).catch(() => {});
     }
@@ -229,16 +234,8 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
 
   useEffect(() => {
     if (!siteKey) {
-      setLocationsList([]);
-      return;
+      setValue('location_key', null);
     }
-    setLocationsLoading(true);
-    setValue('location_key', null);
-    sitesApi
-      .listLocations(siteKey)
-      .then(setLocationsList)
-      .catch(() => setLocationsList([]))
-      .finally(() => setLocationsLoading(false));
   }, [siteKey, setValue]);
 
   const onSubmit = async (data: FormData) => {
@@ -291,7 +288,9 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
       <DialogTitle>{t('pages.plantingRuns.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
-          {/* beginner */}
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.plantingRuns.sectionBasics')}
+          </Typography>
           <FormTextField name="name" control={control} label={t('pages.plantingRuns.name')} required />
           <FormDateField
             name="planned_start_date"
@@ -299,7 +298,6 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
             label={t('pages.plantingRuns.plannedStartDate')}
           />
 
-          {/* intermediate */}
           <ExpertiseFieldWrapper minLevel={fc.run_type.level}>
             <FormSelectField
               name="run_type"
@@ -315,21 +313,17 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
               control={control}
               label={t('entities.site')}
               options={[
-                { value: '', label: '-' },
+                { value: '', label: '\u2014' },
                 ...sitesList.map((s) => ({ value: s.key, label: s.name })),
               ]}
             />
           </ExpertiseFieldWrapper>
           <ExpertiseFieldWrapper minLevel={fc.location_key.level}>
-            <FormSelectField
+            <LocationTreeSelect
               name="location_key"
               control={control}
+              siteKey={siteKey}
               label={t('pages.plantingRuns.location')}
-              disabled={!siteKey || locationsLoading}
-              options={[
-                { value: '', label: '-' },
-                ...locationsList.map((l) => ({ value: l.key, label: l.name })),
-              ]}
             />
           </ExpertiseFieldWrapper>
           <ExpertiseFieldWrapper minLevel={fc.notes.level}>
@@ -356,7 +350,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
           )}
 
           <Divider sx={{ my: 2 }} />
-          <Typography variant="subtitle1" sx={{ mb: 1 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
             {t('pages.plantingRuns.entries')}
           </Typography>
 

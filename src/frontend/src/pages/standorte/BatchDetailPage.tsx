@@ -15,6 +15,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
+import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -112,12 +113,14 @@ export default function BatchDetailPage() {
         </Button>
       </Box>
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 600 }}>
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.batches.editIntro')}
         </Typography>
-        <FormTextField name="batch_id" control={control} label={t('pages.batches.batchId')} helperText={t('pages.batches.batchIdHelper')} required />
-        <FormNumberField name="volume_liters" control={control} label={t('pages.batches.volume')} helperText={t('pages.batches.volumeHelper')} min={0} step={0.1} />
+        <FormRow>
+          <FormTextField name="batch_id" control={control} label={t('pages.batches.batchId')} helperText={t('pages.batches.batchIdHelper')} required />
+          <FormNumberField name="volume_liters" control={control} label={t('pages.batches.volume')} helperText={t('pages.batches.volumeHelper')} min={0} step={0.1} />
+        </FormRow>
         <FormTextField name="mixed_on" control={control} label={t('pages.batches.mixedOn')} helperText={t('pages.batches.mixedOnHelper')} type="date" required />
 
         {batch && (

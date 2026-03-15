@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
@@ -8,6 +8,9 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import AddIcon from '@mui/icons-material/Add';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -15,9 +18,11 @@ import { fetchNutrientPlans } from '@/store/slices/nutrientPlansSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useLocalFavorites } from '@/hooks/useLocalFavorites';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 import type { NutrientPlan } from '@/api/types';
 import NutrientPlanCreateDialog from './NutrientPlanCreateDialog';
+import { kamiFertilizer } from '@/assets/brand/illustrations';
 
 export default function NutrientPlanListPage() {
   const { t } = useTranslation();
@@ -27,6 +32,8 @@ export default function NutrientPlanListPage() {
   const { handleError } = useApiError();
   const { plans, loading } = useAppSelector((s) => s.nutrientPlans);
   const [createOpen, setCreateOpen] = useState(false);
+  const [favFilterActive, setFavFilterActive] = useState(false);
+  const { isFavorite, toggleFavorite, hasFavorites } = useLocalFavorites('kamerplanter-nutrient-plan-favorites');
   const tableState = useTableUrlState({ defaultSort: { column: 'name', direction: 'asc' } });
 
   useEffect(() => {
@@ -46,7 +53,27 @@ export default function NutrientPlanListPage() {
     }
   };
 
+  const filteredPlans = useMemo(
+    () => favFilterActive && hasFavorites ? plans.filter((p) => isFavorite(p.key)) : plans,
+    [plans, favFilterActive, hasFavorites, isFavorite],
+  );
+
   const columns: Column<NutrientPlan>[] = [
+    {
+      id: 'favorite',
+      label: '',
+      sortable: false,
+      searchable: false,
+      render: (r) => (
+        <IconButton
+          size="small"
+          onClick={(e) => { e.stopPropagation(); toggleFavorite(r.key); }}
+          sx={{ color: isFavorite(r.key) ? 'warning.main' : 'action.disabled' }}
+        >
+          {isFavorite(r.key) ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
+        </IconButton>
+      ),
+    },
     {
       id: 'name',
       label: t('pages.nutrientPlans.name'),
@@ -55,7 +82,7 @@ export default function NutrientPlanListPage() {
     {
       id: 'author',
       label: t('pages.nutrientPlans.author'),
-      render: (r) => r.author || '-',
+      render: (r) => r.author || '\u2014',
     },
     {
       id: 'recommended_substrate_type',
@@ -63,7 +90,7 @@ export default function NutrientPlanListPage() {
       render: (r) =>
         r.recommended_substrate_type
           ? t(`enums.substrateType.${r.recommended_substrate_type}`)
-          : '-',
+          : '\u2014',
       searchValue: (r) =>
         r.recommended_substrate_type
           ? t(`enums.substrateType.${r.recommended_substrate_type}`)
@@ -84,7 +111,7 @@ export default function NutrientPlanListPage() {
     {
       id: 'version',
       label: t('pages.nutrientPlans.version'),
-      render: (r) => r.version || '-',
+      render: (r) => r.version || '\u2014',
     },
     {
       id: 'tags',
@@ -127,23 +154,36 @@ export default function NutrientPlanListPage() {
         }}
       >
         <PageTitle title={t('pages.nutrientPlans.title')} />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateOpen(true)}
-          data-testid="create-button"
-        >
-          {t('pages.nutrientPlans.create')}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {hasFavorites && (
+            <Tooltip title={t('pages.nutrientPlans.favFilter')}>
+              <IconButton
+                onClick={() => setFavFilterActive((p) => !p)}
+                color={favFilterActive ? 'warning' : 'default'}
+              >
+                <FilterListIcon />
+              </IconButton>
+            </Tooltip>
+          )}
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+            data-testid="create-button"
+          >
+            {t('pages.nutrientPlans.create')}
+          </Button>
+        </Box>
       </Box>
       <DataTable
         columns={columns}
-        rows={plans}
+        rows={filteredPlans}
         loading={loading}
         onRowClick={(r) => navigate(`/duengung/plans/${r.key}`)}
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.nutrientPlans.create')}
         onEmptyAction={() => setCreateOpen(true)}
+        emptyIllustration={kamiFertilizer}
         tableState={tableState}
         ariaLabel={t('pages.nutrientPlans.title')}
       />

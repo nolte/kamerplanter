@@ -10,6 +10,7 @@ class UserPreferenceResponse(BaseModel):
     onboarding_completed: bool
     locale: str
     theme: str
+    watering_can_liters: float
 
 
 class UserPreferenceUpdate(BaseModel):
@@ -17,3 +18,4 @@ class UserPreferenceUpdate(BaseModel):
     onboarding_completed: bool | None = None
     locale: str | None = None
     theme: str | None = None
+    watering_can_liters: float | None = None

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from app.common.types import LocationKey, SiteKey, SlotKey
+from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
 from app.domain.models.site import Location, Site, Slot
 
 
@@ -71,4 +71,8 @@ class ISiteRepository(ABC):
 
     @abstractmethod
     def delete_slot(self, key: SlotKey) -> bool:
+        ...
+
+    @abstractmethod
+    def get_slot_for_plant(self, plant_key: PlantInstanceKey) -> Slot | None:
         ...

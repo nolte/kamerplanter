@@ -1,0 +1,3921 @@
+# Plant-info seed data from spec/ref/plant-info/*.md (30 indoor plant documents).
+#
+# Adds 15 new botanical families, 29 new species, enriches 29 species with
+# watering guides, adds lifecycle configs and growth phases for all 30 species,
+# and cultivar data where available.
+
+# ==============================================================================
+# S1  NEW BOTANICAL FAMILIES (15)
+# ==============================================================================
+
+new_families:
+  - name: Arecaceae
+    common_name_de: "Palmengewaechse"
+    common_name_en: Palm family
+    order: Arecales
+    typical_nutrient_demand: medium
+    frost_tolerance: sensitive
+    typical_root_depth: deep
+    typical_growth_forms: [tree]
+    common_pests: [spider_mites, scale, mealybugs]
+    common_diseases: [Wurzelfaeule, Blattflecken]
+    pollination_type: [insect, wind]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
+    description: >-
+      Palmengewaechse mit ca. 2600 Arten. Tropische und subtropische Baeume
+      und Straeucher mit gefiederten oder faecherfoermigen Blaettern.
+    rotation_category: ornamental
+
+  - name: Crassulaceae
+    common_name_de: "Dickblattgewaechse"
+    common_name_en: Stonecrop family
+    order: Saxifragales
+    typical_nutrient_demand: light
+    frost_tolerance: moderate
+    typical_root_depth: shallow
+    typical_growth_forms: [herb]
+    common_pests: [mealybugs, fungus_gnats]
+    common_diseases: [Wurzelfaeule, Rosettenfaeule]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
+    description: >-
+      Dickblattgewaechse mit sukkulenten Blaettern. Enthalt Echeveria,
+      Kalanchoe, Sedum und Crassula. Trockenheitsresistent.
+    rotation_category: ornamental
+
+  - name: Euphorbiaceae
+    common_name_de: "Wolfsmilchgewaechse"
+    common_name_en: Spurge family
+    order: Malpighiales
+    typical_nutrient_demand: medium
+    frost_tolerance: sensitive
+    typical_root_depth: medium
+    typical_growth_forms: [herb, shrub]
+    common_pests: [whitefly, fungus_gnats, aphids]
+    common_diseases: [Wurzelfaeule, Grauschimmel]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 5.5
+      max_ph: 6.5
+    description: >-
+      Wolfsmilchgewaechse mit Milchsaft. Enthaelt Euphorbia (Weihnachtsstern),
+      Codiaeum und viele Sukkulenten. Oft giftig.
+    rotation_category: ornamental
+
+  - name: Moraceae
+    common_name_de: "Maulbeergewaechse"
+    common_name_en: Mulberry family
+    order: Rosales
+    typical_nutrient_demand: medium
+    frost_tolerance: sensitive
+    typical_root_depth: deep
+    typical_growth_forms: [tree, shrub]
+    common_pests: [scale, mealybugs, spider_mites, thrips]
+    common_diseases: [Wurzelfaeule, Blattflecken]
+    pollination_type: [wind, insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
+    description: >-
+      Maulbeergewaechse mit Milchsaft. Enthaelt Ficus (Birkenfeige,
+      Gummibaum, Geigenfeige), Morus und Artocarpus.
+    rotation_category: ornamental
+
+  - name: Acanthaceae
+    common_name_de: "Akanthusgewaechse"
+    common_name_en: Acanthus family
+    order: Lamiales
+    typical_nutrient_demand: light
+    frost_tolerance: sensitive
+    typical_root_depth: shallow
+    typical_growth_forms: [herb, groundcover]
+    common_pests: [aphids, mealybugs]
+    common_diseases: [Wurzelfaeule]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
+    description: >-
+      Akanthusgewaechse mit ca. 4000 Arten. Enthaelt Fittonia, Justicia
+      und Aphelandra. Viele tropische Zierpflanzen.
+    rotation_category: ornamental
+
+  - name: Rubiaceae
+    common_name_de: "Roetegewaechse"
+    common_name_en: Coffee family
+    order: Gentianales
+    typical_nutrient_demand: medium
+    frost_tolerance: sensitive
+    typical_root_depth: medium
+    typical_growth_forms: [shrub, tree]
+    common_pests: [aphids, mealybugs, spider_mites, whitefly]
+    common_diseases: [Wurzelfaeule, Chlorose, Russ]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 5.0
+      max_ph: 6.0
+    description: >-
+      Roetegewaechse mit ca. 13000 Arten. Enthaelt Gardenia, Coffea und
+      Ixora. Viele saeureliebende Pflanzen.
+    rotation_category: ornamental
+
+  - name: Marantaceae
+    common_name_de: "Pfeilwurzgewaechse"
+    common_name_en: Prayer plant family
+    order: Zingiberales
+    typical_nutrient_demand: light
+    frost_tolerance: sensitive
+    typical_root_depth: shallow
+    typical_growth_forms: [herb]
+    common_pests: [spider_mites, mealybugs, aphids]
+    common_diseases: [Wurzelfaeule, Blattflecken]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
+    description: >-
+      Pfeilwurzgewaechse mit ausgepraegter Nyktinastie (Blattbewegung).
+      Enthaelt Goeppertia (Calathea), Maranta und Ctenanthe.
+    rotation_category: ornamental
+
+  - name: Cactaceae
+    common_name_de: "Kakteengewaechse"
+    common_name_en: Cactus family
+    order: Caryophyllales
+    typical_nutrient_demand: light
+    frost_tolerance: moderate
+    typical_root_depth: shallow
+    typical_growth_forms: [herb]
+    common_pests: [mealybugs, scale, spider_mites]
+    common_diseases: [Wurzelfaeule, Stammfaeule]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
+    description: >-
+      Kakteengewaechse mit ca. 1750 Arten. Sukkulente Stammpflanzen
+      mit Areolen. Enthaelt Gymnocalycium, Mammillaria und Opuntia.
+    rotation_category: ornamental
+
+  - name: Asphodelaceae
+    common_name_de: "Affodillgewaechse"
+    common_name_en: Asphodel family
+    order: Asparagales
+    typical_nutrient_demand: light
+    frost_tolerance: moderate
+    typical_root_depth: shallow
+    typical_growth_forms: [herb]
+    common_pests: [mealybugs, scale]
+    common_diseases: [Wurzelfaeule]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
+    description: >-
+      Affodillgewaechse mit Aloe, Haworthia und Gasteria.
+      Sukkulente Rosettenpflanzen aus Suedafrika.
+    rotation_category: ornamental
+
+  - name: Araliaceae
+    common_name_de: "Araliengewaechse"
+    common_name_en: Ivy family
+    order: Apiales
+    typical_nutrient_demand: medium
+    frost_tolerance: moderate
+    typical_root_depth: medium
+    typical_growth_forms: [shrub, vine, tree]
+    common_pests: [aphids, scale, mealybugs, spider_mites, whitefly]
+    common_diseases: [Wurzelfaeule, Mehltau]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
+    description: >-
+      Araliengewaechse mit Hedera (Efeu), Fatsia, Schefflera und Polyscias.
+      Viele beliebte Zimmerpflanzen.
+    rotation_category: ornamental
+
+  - name: Malvaceae
+    common_name_de: "Malvengewaechse"
+    common_name_en: Mallow family
+    order: Malvales
+    typical_nutrient_demand: medium
+    frost_tolerance: sensitive
+    typical_root_depth: medium
+    typical_growth_forms: [shrub, herb]
+    common_pests: [aphids, whitefly, spider_mites, mealybugs]
+    common_diseases: [Wurzelfaeule, Blattflecken, Rost]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
+    description: >-
+      Malvengewaechse mit Hibiscus, Abutilon und Malva.
+      Tropische Bluetenstraeucher mit grossen, leuchtenden Blueten.
+    rotation_category: ornamental
+
+  - name: Apocynaceae
+    common_name_de: "Hundsgiftgewaechse"
+    common_name_en: Dogbane family
+    order: Gentianales
+    typical_nutrient_demand: light
+    frost_tolerance: sensitive
+    typical_root_depth: medium
+    typical_growth_forms: [vine, shrub]
+    common_pests: [mealybugs, aphids, scale]
+    common_diseases: [Wurzelfaeule, Blattflecken]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
+    description: >-
+      Hundsgiftgewaechse mit Hoya, Stephanotis und Nerium.
+      Viele kletternde Arten mit wachsartigen Blueten.
+    rotation_category: ornamental
+
+  - name: Balsaminaceae
+    common_name_de: "Balsaminengewaechse"
+    common_name_en: Balsam family
+    order: Ericales
+    typical_nutrient_demand: medium
+    frost_tolerance: sensitive
+    typical_root_depth: shallow
+    typical_growth_forms: [herb]
+    common_pests: [aphids, whitefly, spider_mites, thrips]
+    common_diseases: [Falscher_Mehltau, Grauschimmel]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
+    description: >-
+      Balsaminengewaechse mit Impatiens. Einjaerige und mehrjaehrige
+      Schattenpflanzen mit Springfruechten.
+    rotation_category: ornamental
+
+  - name: Oleaceae
+    common_name_de: "Oelbaumgewaechse"
+    common_name_en: Olive family
+    order: Lamiales
+    typical_nutrient_demand: medium
+    frost_tolerance: moderate
+    typical_root_depth: medium
+    typical_growth_forms: [vine, shrub]
+    common_pests: [aphids, mealybugs, scale]
+    common_diseases: [Wurzelfaeule, Mehltau]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.5
+    description: >-
+      Oelbaumgewaechse mit Jasminum, Olea und Syringa.
+      Viele duftende Bluetenpflanzen.
+    rotation_category: ornamental
+
+  - name: Aizoaceae
+    common_name_de: "Mittagsblumengewaechse"
+    common_name_en: Ice plant family
+    order: Caryophyllales
+    typical_nutrient_demand: light
+    frost_tolerance: sensitive
+    typical_root_depth: shallow
+    typical_growth_forms: [herb]
+    common_pests: [mealybugs, fungus_gnats, scale]
+    common_diseases: [Wurzelfaeule]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.5
+      max_ph: 7.5
+    description: >-
+      Mittagsblumengewaechse mit Lithops (Lebende Steine),
+      Conophytum und Delosperma. Hochsukkulente Pflanzen.
+    rotation_category: ornamental
+
+# ==============================================================================
+# S2  NEW SPECIES (29)
+# ==============================================================================
+
+new_species_family_map:
+  "Dracaena trifasciata": Asparagaceae
+  "Dypsis lutescens": Arecaceae
+  "Echeveria elegans": Crassulaceae
+  "Epipremnum aureum": Araceae
+  "Euphorbia pulcherrima": Euphorbiaceae
+  "Fatsia japonica": Araliaceae
+  "Ficus benjamina": Moraceae
+  "Ficus elastica": Moraceae
+  "Ficus lyrata": Moraceae
+  "Fittonia albivenis": Acanthaceae
+  "Gardenia jasminoides": Rubiaceae
+  "Goeppertia lancifolia": Marantaceae
+  "Goeppertia makoyana": Marantaceae
+  "Goeppertia orbifolia": Marantaceae
+  "Gymnocalycium mihanovichii": Cactaceae
+  "Haworthiopsis fasciata": Asphodelaceae
+  "Hedera helix": Araliaceae
+  "Hibiscus rosa-sinensis": Malvaceae
+  "Hippeastrum hybridum": Amaryllidaceae
+  "Howea forsteriana": Arecaceae
+  "Hoya carnosa": Apocynaceae
+  "Impatiens walleriana": Balsaminaceae
+  "Jasminum polyanthum": Oleaceae
+  "Kalanchoe blossfeldiana": Crassulaceae
+  "Kalanchoe daigremontiana": Crassulaceae
+  "Lithops spp.": Aizoaceae
+  "Livistona chinensis": Arecaceae
+  "Mammillaria spp.": Cactaceae
+  "Maranta leuconeura": Marantaceae
+
+new_species:
+  - scientific_name: "Dracaena trifasciata"
+    common_names: [Bogenhanf, Schwiegermutterzunge, Snake Plant, Mother-in-Law's Tongue]
+    genus: Dracaena
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [9b, 10a, 10b, 11a, 11b]
+    native_habitat: "Westafrika (Nigeria bis Kongo)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [3, 4, 5]
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-15"
+    min_container_depth_cm: 15
+    mature_height_cm: "30-120"
+    mature_width_cm: "20-60"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Dypsis lutescens"
+    common_names: [Goldfruchtpalme, Areca-Palme, Areca Palm, Butterfly Palm, Golden Cane Palm]
+    genus: Dypsis
+    growth_habit: tree
+    root_type: fibrous
+    hardiness_zones: [10a, 10b, 11a, 11b]
+    native_habitat: "Madagaskar (tropische Kuestenwaelder)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: []
+    container_suitable: "yes"
+    recommended_container_volume_l: "10-30"
+    min_container_depth_cm: 30
+    mature_height_cm: "150-250"
+    mature_width_cm: "100-200"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Echeveria elegans"
+    common_names: [Mexikanische Schneekugel, Glashausrose, Mexican Snowball, Mexican Gem]
+    genus: Echeveria
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
+    native_habitat: "Mexiko (Hidalgo)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: moderate
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [3, 4, 5]
+    container_suitable: "yes"
+    recommended_container_volume_l: "0.3-2"
+    min_container_depth_cm: 6
+    mature_height_cm: "8-15"
+    mature_width_cm: "8-30"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Epipremnum aureum"
+    common_names: [Efeutute, Goldene Efeutute, Pothos, Golden Pothos, Devil's Ivy]
+    genus: Epipremnum
+    growth_habit: vine
+    root_type: fibrous
+    hardiness_zones: [10a, 10b, 11a, 11b, 12a]
+    native_habitat: "Suedostasien (Mo'orea, Gesellschaftsinseln)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: []
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-10"
+    min_container_depth_cm: 15
+    mature_height_cm: "20-40"
+    mature_width_cm: "40-100"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Euphorbia pulcherrima"
+    common_names: [Weihnachtsstern, Adventsstern, Poinsettia, Christmas Star]
+    genus: Euphorbia
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
+    native_habitat: "Mexiko, Zentralamerika (tropische Laubwaelder)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [11, 12, 1, 2]
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-8"
+    min_container_depth_cm: 15
+    mature_height_cm: "30-60"
+    mature_width_cm: "30-45"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Fatsia japonica"
+    common_names: [Zimmeraralie, Japanische Aralie, Japanese Aralia, Paperplant]
+    genus: Fatsia
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [8a, 8b, 9a, 9b, 10a, 10b, 11a]
+    native_habitat: "Japan, Suedkorea"
+    allelopathy_score: 0.0
+    base_temp: 5.0
+    frost_sensitivity: moderate
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [10, 11, 12]
+    container_suitable: "yes"
+    recommended_container_volume_l: "10-30"
+    min_container_depth_cm: 25
+    mature_height_cm: "80-200"
+    mature_width_cm: "80-200"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Ficus benjamina"
+    common_names: [Birkenfeige, Weeping Fig, Benjamin Fig]
+    genus: Ficus
+    growth_habit: tree
+    root_type: fibrous
+    hardiness_zones: [10a, 10b, 11a, 11b]
+    native_habitat: "Suedostasien, Australien (tropische Regenwaelder)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: []
+    container_suitable: "yes"
+    recommended_container_volume_l: "10-30"
+    min_container_depth_cm: 25
+    mature_height_cm: "150-300"
+    mature_width_cm: "60-150"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Ficus elastica"
+    common_names: [Gummibaum, Rubber Plant, Rubber Fig, Indian Rubber Tree]
+    genus: Ficus
+    growth_habit: tree
+    root_type: fibrous
+    hardiness_zones: [10a, 10b, 11a, 11b]
+    native_habitat: "Suedostasien (Nordostindien, Nepal, Indonesien)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: []
+    container_suitable: "yes"
+    recommended_container_volume_l: "10-30"
+    min_container_depth_cm: 30
+    mature_height_cm: "100-300"
+    mature_width_cm: "60-150"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Ficus lyrata"
+    common_names: [Geigenfeige, Fiddle Leaf Fig]
+    genus: Ficus
+    growth_habit: tree
+    root_type: fibrous
+    hardiness_zones: [10a, 10b, 11a, 11b]
+    native_habitat: "Westafrika (tropische Tieflandregenwaelder)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: []
+    container_suitable: "yes"
+    recommended_container_volume_l: "10-30"
+    min_container_depth_cm: 30
+    mature_height_cm: "150-300"
+    mature_width_cm: "80-180"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Fittonia albivenis"
+    common_names: [Fittonie, Mosaikpflanze, Nerve Plant, Mosaic Plant]
+    genus: Fittonia
+    growth_habit: groundcover
+    root_type: fibrous
+    hardiness_zones: [11a, 11b, 12a]
+    native_habitat: "Peru, Kolumbien (tropische Regenwaelder)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [6, 7, 8]
+    container_suitable: "yes"
+    recommended_container_volume_l: "0.5-2"
+    min_container_depth_cm: 8
+    mature_height_cm: "10-15"
+    mature_width_cm: "20-40"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Gardenia jasminoides"
+    common_names: [Gardenie, Knopflochblume, Gardenia, Cape Jasmine]
+    genus: Gardenia
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [8a, 8b, 9a, 9b, 10a, 10b, 11a, 11b]
+    native_habitat: "Suedchina, Taiwan, Japan"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [6, 7, 8, 9, 10]
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-20"
+    min_container_depth_cm: 20
+    mature_height_cm: "60-120"
+    mature_width_cm: "60-120"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Goeppertia lancifolia"
+    common_names: [Klapperschlangen-Calathea, Lanzettblatt-Calathea, Rattlesnake Plant]
+    genus: Goeppertia
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [11a, 11b, 12a, 12b]
+    native_habitat: "Brasilien (tropische Regenwaelder)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [5, 6, 7]
+    container_suitable: "yes"
+    recommended_container_volume_l: "3-10"
+    min_container_depth_cm: 15
+    mature_height_cm: "45-75"
+    mature_width_cm: "30-60"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Goeppertia makoyana"
+    common_names: [Pfauenkorb-Marante, Korbmarante, Peacock Plant, Cathedral Windows]
+    genus: Goeppertia
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [10a, 10b, 11a, 11b]
+    native_habitat: "Brasilien (tropische Regenwaelder)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [5, 6]
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-8"
+    min_container_depth_cm: 15
+    mature_height_cm: "30-60"
+    mature_width_cm: "30-60"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Goeppertia orbifolia"
+    common_names: [Orbifolia-Korbmarante, Calathea orbifolia, Round-leaf Calathea]
+    genus: Goeppertia
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [11a, 11b, 12a, 12b]
+    native_habitat: "Brasilien (Bahia, tropische Regenwaelder)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: []
+    container_suitable: "yes"
+    recommended_container_volume_l: "3-10"
+    min_container_depth_cm: 15
+    mature_height_cm: "40-90"
+    mature_width_cm: "40-90"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Gymnocalycium mihanovichii"
+    common_names: [Erdbeerkaktus, Hibotan, Moon Cactus, Chin Cactus]
+    genus: Gymnocalycium
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [10a, 10b, 11a, 11b, 12a, 12b]
+    native_habitat: "Paraguay, Argentinien (Gran Chaco)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [4, 5, 6]
+    container_suitable: "yes"
+    recommended_container_volume_l: "0.3-1"
+    min_container_depth_cm: 8
+    mature_height_cm: "5-15"
+    mature_width_cm: "5-10"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Haworthiopsis fasciata"
+    common_names: [Zebra-Haworthie, Zebrapflanze, Zebra Plant, Zebra Cactus]
+    genus: Haworthiopsis
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [9b, 10a, 10b, 11a, 11b]
+    native_habitat: "Suedafrika (Eastern Cape)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: moderate
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [3, 4, 5, 6]
+    container_suitable: "yes"
+    recommended_container_volume_l: "0.5-2"
+    min_container_depth_cm: 8
+    mature_height_cm: "10-20"
+    mature_width_cm: "10-20"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Hedera helix"
+    common_names: [Gewoehnlicher Efeu, English Ivy, Common Ivy]
+    genus: Hedera
+    growth_habit: vine
+    root_type: fibrous
+    hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
+    native_habitat: "Europa, Westasien"
+    allelopathy_score: 0.1
+    base_temp: 5.0
+    frost_sensitivity: hardy
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [9, 10]
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-8"
+    min_container_depth_cm: 15
+    mature_height_cm: "30-100"
+    mature_width_cm: "40-150"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Hibiscus rosa-sinensis"
+    common_names: [Chinesischer Roseneibisch, Zimmer-Hibiskus, Chinese Hibiscus, Tropical Hibiscus]
+    genus: Hibiscus
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
+    native_habitat: "Suedostasien (tropisch)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [5, 6, 7, 8, 9, 10]
+    container_suitable: "yes"
+    recommended_container_volume_l: "10-30"
+    min_container_depth_cm: 25
+    mature_height_cm: "100-250"
+    mature_width_cm: "60-150"
+    spacing_cm: null
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Hippeastrum hybridum"
+    common_names: [Ritterstern, Amaryllis, Hippeastrum, Knight's Star Lily]
+    genus: Hippeastrum
+    growth_habit: herb
+    root_type: bulbous
+    hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
+    native_habitat: "Suedamerika (tropisch und subtropisch)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [12, 1, 2, 3]
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-5"
+    min_container_depth_cm: 20
+    mature_height_cm: "30-70"
+    mature_width_cm: "20-35"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: true
+
+  - scientific_name: "Howea forsteriana"
+    common_names: [Kentiapalme, Kentia Palm, Sentry Palm, Thatch Palm]
+    genus: Howea
+    growth_habit: tree
+    root_type: fibrous
+    hardiness_zones: [9b, 10a, 10b, 11a, 11b]
+    native_habitat: "Lord Howe Island, Australien"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: moderate
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: []
+    container_suitable: "yes"
+    recommended_container_volume_l: "10-30"
+    min_container_depth_cm: 30
+    mature_height_cm: "150-300"
+    mature_width_cm: "80-150"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Hoya carnosa"
+    common_names: [Wachsblume, Porzellanblume, Wax Plant, Porcelain Flower]
+    genus: Hoya
+    growth_habit: vine
+    root_type: fibrous
+    hardiness_zones: [10a, 10b, 11a, 11b, 12a]
+    native_habitat: "Suedostasien, Australien"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [5, 6, 7, 8]
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-5"
+    min_container_depth_cm: 15
+    mature_height_cm: "100-400"
+    mature_width_cm: "30-100"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: true
+
+  - scientific_name: "Impatiens walleriana"
+    common_names: [Fleissiges Lieschen, Busy Lizzie, Patient Lucy]
+    genus: Impatiens
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [10a, 10b, 11a, 11b]
+    native_habitat: "Ostafrika (Kenia, Mosambik, Tansania)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: 11
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [5, 6, 7, 8, 9, 10]
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-8"
+    min_container_depth_cm: 15
+    mature_height_cm: "20-60"
+    mature_width_cm: "20-50"
+    spacing_cm: "20-30"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Jasminum polyanthum"
+    common_names: [Vielbluetigter Jasmin, Winterjasmin, Pink Jasmine, Winter-blooming Jasmine]
+    genus: Jasminum
+    growth_habit: vine
+    root_type: fibrous
+    hardiness_zones: [8a, 8b, 9a, 9b, 10a, 10b]
+    native_habitat: "China (Yunnan, Guizhou, Sichuan)"
+    allelopathy_score: 0.0
+    base_temp: 5.0
+    frost_sensitivity: moderate
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [2, 3, 4, 5]
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-20"
+    min_container_depth_cm: 20
+    mature_height_cm: "300-600"
+    mature_width_cm: "100-300"
+    spacing_cm: null
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: true
+
+  - scientific_name: "Kalanchoe blossfeldiana"
+    common_names: [Flammendes Kaethchen, Kalanchoe, Flaming Katy, Christmas Kalanchoe]
+    genus: Kalanchoe
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [10a, 10b, 11a, 11b]
+    native_habitat: "Madagaskar"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [11, 12, 1, 2, 3]
+    container_suitable: "yes"
+    recommended_container_volume_l: "1-3"
+    min_container_depth_cm: 10
+    mature_height_cm: "15-45"
+    mature_width_cm: "15-35"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Kalanchoe daigremontiana"
+    common_names: [Brutblatt, Goethepflanze, Mother of Thousands, Mexican Hat Plant]
+    genus: Kalanchoe
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [9b, 10a, 10b, 11a, 11b]
+    native_habitat: "Madagaskar"
+    allelopathy_score: -0.1
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [1, 2, 3]
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-5"
+    min_container_depth_cm: 15
+    mature_height_cm: "30-90"
+    mature_width_cm: "20-40"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: true
+
+  - scientific_name: "Lithops spp."
+    common_names: [Lebende Steine, Lithops, Living Stones, Stone Plants]
+    genus: Lithops
+    growth_habit: herb
+    root_type: taproot
+    hardiness_zones: [10a, 10b, 11a, 11b]
+    native_habitat: "Suedliches Afrika (Namibia, Suedafrika)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [9, 10, 11]
+    container_suitable: "yes"
+    recommended_container_volume_l: "0.2-1"
+    min_container_depth_cm: 10
+    mature_height_cm: "2-5"
+    mature_width_cm: "2-5"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Livistona chinensis"
+    common_names: [Chinesische Faecherpalme, Brunnenpalme, Chinese Fan Palm, Fountain Palm]
+    genus: Livistona
+    growth_habit: tree
+    root_type: fibrous
+    hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
+    native_habitat: "Suedchina, Sudjapan, Taiwan"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: moderate
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [6, 7]
+    container_suitable: "yes"
+    recommended_container_volume_l: "10-30"
+    min_container_depth_cm: 30
+    mature_height_cm: "100-300"
+    mature_width_cm: "100-250"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Mammillaria spp."
+    common_names: [Warzenkaktus, Mammillaria, Pincushion Cactus, Nipple Cactus]
+    genus: Mammillaria
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
+    native_habitat: "Mexiko, suedwestliche USA"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: moderate
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [2, 3, 4, 5]
+    container_suitable: "yes"
+    recommended_container_volume_l: "0.3-2"
+    min_container_depth_cm: 8
+    mature_height_cm: "5-30"
+    mature_width_cm: "3-20"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+
+# Guzmania lingulata already fully enriched in plant_info.yaml — skipped here.
+
+  - scientific_name: "Maranta leuconeura"
+    common_names: [Pfeilwurz, Marante, Prayer Plant]
+    genus: Maranta
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [11a, 11b, 12a]
+    native_habitat: "Brasilien (tropische Regenwaelder)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [5, 6, 7, 8]
+    container_suitable: "yes"
+    recommended_container_volume_l: "1-5"
+    min_container_depth_cm: 12
+    mature_height_cm: "15-30"
+    mature_width_cm: "30-60"
+    spacing_cm: null
+    indoor_suitable: "yes"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+
+# ==============================================================================
+# S3  SPECIES ENRICHMENT (watering guides for all 29 new species)
+# ==============================================================================
+
+species_enrichment:
+  "Dracaena trifasciata":
+    watering_guide:
+      interval_days: 17
+      volume_ml_min: 150
+      volume_ml_max: 400
+      watering_method: soak
+      water_quality_hint: null
+      practical_tip: "Substrat vollstaendig austrocknen lassen. Bogenhanf ist extrem trockenheitstolerant — lieber zu wenig als zu viel giessen. Staunaesse ist toedlich."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 30
+          volume_ml_min: 80
+          volume_ml_max: 200
+
+  "Dypsis lutescens":
+    watering_guide:
+      interval_days: 7
+      volume_ml_min: 300
+      volume_ml_max: 800
+      watering_method: drench_and_drain
+      water_quality_hint: "Fluoridempfindlich — kein fluoridiertes Leitungswasser. Regenwasser oder gefiltertes Wasser bevorzugt."
+      practical_tip: "Obere 2-3 cm abtrocknen lassen, dann gruendlich giessen. Gelbe Wedel oft Zeichen von Ueberwaesserung."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 12
+          volume_ml_min: 150
+          volume_ml_max: 400
+
+  "Echeveria elegans":
+    watering_guide:
+      interval_days: 12
+      volume_ml_min: 30
+      volume_ml_max: 100
+      watering_method: soak
+      water_quality_hint: null
+      practical_tip: "NIEMALS auf Blaetter giessen — Farina zerstoeren und Faeulnis. Substrat komplett austrocknen lassen. Flache Toepfe mit exzellenter Drainage."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 31
+          volume_ml_min: 15
+          volume_ml_max: 50
+
+  "Epipremnum aureum":
+    watering_guide:
+      interval_days: 7
+      volume_ml_min: 100
+      volume_ml_max: 300
+      watering_method: top_water
+      water_quality_hint: null
+      practical_tip: "Obere 2-3 cm abtrocknen lassen (Fingerprobe). Gelbe Blaetter = Ueberwaesserung, braune Spitzen = Unterwaesserung. Sehr anspruchslos."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 12
+          volume_ml_min: 60
+          volume_ml_max: 150
+
+  "Euphorbia pulcherrima":
+    watering_guide:
+      interval_days: 5
+      volume_ml_min: 100
+      volume_ml_max: 300
+      watering_method: top_water
+      water_quality_hint: "Zimmerwarmes Wasser verwenden. Kein kaltes Wasser — schockt die Pflanze."
+      practical_tip: "Gleichmaessig feucht halten, weder austrocknen noch staunass. Staunasse Erde fuehrt schnell zu Wurzelfaeule und Blattverlust."
+      seasonal_adjustments:
+        - label: "Ruhezeit (Apr-Sep)"
+          months: [4, 5, 6, 7, 8, 9]
+          interval_days: 10
+          volume_ml_min: 50
+          volume_ml_max: 150
+
+  "Fatsia japonica":
+    watering_guide:
+      interval_days: 7
+      volume_ml_min: 300
+      volume_ml_max: 800
+      watering_method: drench_and_drain
+      water_quality_hint: "Leitungswasser ok. Gleichmaessig feucht halten, Staunaesse vermeiden."
+      practical_tip: "Kuehlere Standorte als die meisten Zimmerpflanzen. Grosse Blaetter verdunsten viel Wasser — bei Waerme haeufiger giessen."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 15
+          volume_ml_min: 150
+          volume_ml_max: 400
+
+  "Ficus benjamina":
+    watering_guide:
+      interval_days: 8
+      volume_ml_min: 300
+      volume_ml_max: 800
+      watering_method: drench_and_drain
+      water_quality_hint: null
+      practical_tip: "Obere 2-3 cm abtrocknen lassen. Standort NICHT veraendern — Birkenfeige reagiert auf Ortswechsel mit Blattabwurf."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 17
+          volume_ml_min: 150
+          volume_ml_max: 400
+
+  "Ficus elastica":
+    watering_guide:
+      interval_days: 10
+      volume_ml_min: 300
+      volume_ml_max: 800
+      watering_method: drench_and_drain
+      water_quality_hint: null
+      practical_tip: "Blaetter mit feuchtem Tuch abstauben fuer optimale Photosynthese. Obere 3-5 cm abtrocknen lassen."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 17
+          volume_ml_min: 150
+          volume_ml_max: 400
+
+  "Ficus lyrata":
+    watering_guide:
+      interval_days: 10
+      volume_ml_min: 300
+      volume_ml_max: 800
+      watering_method: drench_and_drain
+      water_quality_hint: null
+      practical_tip: "Geigenfeige braucht viel indirektes Licht. Obere 3-5 cm abtrocknen lassen. Standort nicht veraendern."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 17
+          volume_ml_min: 150
+          volume_ml_max: 400
+
+  "Fittonia albivenis":
+    watering_guide:
+      interval_days: 4
+      volume_ml_min: 50
+      volume_ml_max: 150
+      watering_method: bottom_water
+      water_quality_hint: "Weiches Wasser bevorzugt. Hohe Luftfeuchtigkeit wichtig — ideal fuer Terrarien."
+      practical_tip: "Fittonie kollabiert dramatisch bei Trockenheit, erholt sich aber nach dem Giessen schnell. Substrat gleichmaessig feucht halten."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 6
+          volume_ml_min: 30
+          volume_ml_max: 100
+
+  "Gardenia jasminoides":
+    watering_guide:
+      interval_days: 5
+      volume_ml_min: 200
+      volume_ml_max: 500
+      watering_method: drench_and_drain
+      water_quality_hint: "Kalkarmes Wasser essentiell (Regenwasser, gefiltertes Wasser). Gardenie ist saeureliebend (pH 5.0-6.0) und reagiert auf Kalk mit Chlorose."
+      practical_tip: "Gleichmaessig feucht halten, niemals austrocknen. Hohe Luftfeuchtigkeit. Knospenabwurf bei Standortwechsel oder Temperaturschwankungen."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 7
+          volume_ml_min: 100
+          volume_ml_max: 300
+
+  "Goeppertia lancifolia":
+    watering_guide:
+      interval_days: 7
+      volume_ml_min: 150
+      volume_ml_max: 400
+      watering_method: bottom_water
+      water_quality_hint: "Weiches, kalkarmes Wasser. Hohe Luftfeuchtigkeit (60-80%) essentiell."
+      practical_tip: "Gleichmaessig feucht halten, nicht austrocknen. Braune Blattspitzen = zu trockene Luft. Luftbefeuchter empfohlen."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 12
+          volume_ml_min: 80
+          volume_ml_max: 200
+
+  "Goeppertia makoyana":
+    watering_guide:
+      interval_days: 6
+      volume_ml_min: 100
+      volume_ml_max: 300
+      watering_method: bottom_water
+      water_quality_hint: "Weiches, kalkarmes Wasser. Kalkempfindlich — Regenwasser oder gefiltertes Wasser."
+      practical_tip: "Gleichmaessig feucht, nie staunass. Hohe Luftfeuchtigkeit (65-80%). Blaetter NICHT bespruehen — fleckig."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 12
+          volume_ml_min: 60
+          volume_ml_max: 200
+
+  "Goeppertia orbifolia":
+    watering_guide:
+      interval_days: 7
+      volume_ml_min: 150
+      volume_ml_max: 400
+      watering_method: bottom_water
+      water_quality_hint: "Weiches, kalkarmes Wasser essentiell. Hohe Luftfeuchtigkeit (65-80%)."
+      practical_tip: "Grosse runde Blaetter verdunsten viel. Gleichmaessig feucht halten, keinesfalls austrocknen lassen."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 10
+          volume_ml_min: 80
+          volume_ml_max: 200
+
+  "Gymnocalycium mihanovichii":
+    watering_guide:
+      interval_days: 14
+      volume_ml_min: 15
+      volume_ml_max: 50
+      watering_method: soak
+      water_quality_hint: null
+      practical_tip: "Substrat komplett austrocknen lassen. Gepfropfte Exemplare (bunte Koepfe) brauchen den Unterlags-Kaktus zum Ueberleben."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 35
+          volume_ml_min: 5
+          volume_ml_max: 20
+
+  "Haworthiopsis fasciata":
+    watering_guide:
+      interval_days: 17
+      volume_ml_min: 30
+      volume_ml_max: 100
+      watering_method: soak
+      water_quality_hint: null
+      practical_tip: "Substrat komplett austrocknen lassen. Schattenvertraeglicher als die meisten Sukkulenten — gut fuer Nordfenster."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 35
+          volume_ml_min: 15
+          volume_ml_max: 50
+
+  "Hedera helix":
+    watering_guide:
+      interval_days: 6
+      volume_ml_min: 100
+      volume_ml_max: 300
+      watering_method: drench_and_drain
+      water_quality_hint: "Leitungswasser gut vertraeglich. Kuehler und feuchter Standort beugt Spinnmilben vor."
+      practical_tip: "Kuehle, gleichmaessig feuchte Haltung. Warme, trockene Zimmerluft foerdert Spinnmilbenbefall massiv."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 10
+          volume_ml_min: 60
+          volume_ml_max: 200
+
+  "Hibiscus rosa-sinensis":
+    watering_guide:
+      interval_days: 5
+      volume_ml_min: 300
+      volume_ml_max: 800
+      watering_method: drench_and_drain
+      water_quality_hint: null
+      practical_tip: "Reichlich giessen in der Bluetezeit. Staunaesse vermeiden. Knospenabwurf bei Trockenheit oder Standortwechsel."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 10
+          volume_ml_min: 150
+          volume_ml_max: 400
+
+  "Hippeastrum hybridum":
+    watering_guide:
+      interval_days: 7
+      volume_ml_min: 100
+      volume_ml_max: 300
+      watering_method: top_water
+      water_quality_hint: null
+      practical_tip: "Waehrend der Bluete und Blattphase gleichmaessig feucht. In der Ruhephase (Aug-Okt) komplett trocken halten — kein Wasser!"
+      seasonal_adjustments:
+        - label: "Ruhephase (Aug-Okt)"
+          months: [8, 9, 10]
+          interval_days: 0
+          volume_ml_min: 0
+          volume_ml_max: 0
+
+  "Howea forsteriana":
+    watering_guide:
+      interval_days: 8
+      volume_ml_min: 300
+      volume_ml_max: 800
+      watering_method: drench_and_drain
+      water_quality_hint: null
+      practical_tip: "Obere 3-5 cm abtrocknen lassen. Vertraegt mehr Schatten als die meisten Palmen. Keine direkte Sonne."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 17
+          volume_ml_min: 150
+          volume_ml_max: 400
+
+  "Hoya carnosa":
+    watering_guide:
+      interval_days: 10
+      volume_ml_min: 80
+      volume_ml_max: 250
+      watering_method: drench_and_drain
+      water_quality_hint: null
+      practical_tip: "Zwischen den Giessintervallen deutlich abtrocknen lassen. Leichte Trockenheit foerdert Bluetenbildung. Bluetenstiele NICHT entfernen — bluehen erneut."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 17
+          volume_ml_min: 40
+          volume_ml_max: 120
+
+  "Impatiens walleriana":
+    watering_guide:
+      interval_days: 3
+      volume_ml_min: 150
+      volume_ml_max: 400
+      watering_method: top_water
+      water_quality_hint: null
+      practical_tip: "Gleichmaessig feucht halten — welkt schnell bei Trockenheit. Staunaesse vermeiden. Bei warmem Wetter taeglich giessen."
+      seasonal_adjustments: []
+
+  "Jasminum polyanthum":
+    watering_guide:
+      interval_days: 5
+      volume_ml_min: 200
+      volume_ml_max: 500
+      watering_method: drench_and_drain
+      water_quality_hint: null
+      practical_tip: "Waehrend der Bluete gleichmaessig feucht. Im Winter kuehler Standort (5-10C) foerdert Bluetenbildung."
+      seasonal_adjustments:
+        - label: "Winter/Kuehlphase (Nov-Jan)"
+          months: [11, 12, 1]
+          interval_days: 10
+          volume_ml_min: 100
+          volume_ml_max: 250
+
+  "Kalanchoe blossfeldiana":
+    watering_guide:
+      interval_days: 10
+      volume_ml_min: 50
+      volume_ml_max: 150
+      watering_method: soak
+      water_quality_hint: null
+      practical_tip: "Substrat zwischen den Giessintervallen abtrocknen lassen. Kurztagpflanze — fuer erneute Bluete ab September 6 Wochen Dunkelperiode (14h/Tag)."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 17
+          volume_ml_min: 30
+          volume_ml_max: 80
+
+  "Kalanchoe daigremontiana":
+    watering_guide:
+      interval_days: 10
+      volume_ml_min: 50
+      volume_ml_max: 200
+      watering_method: soak
+      water_quality_hint: null
+      practical_tip: "Substrat abtrocknen lassen. Brutblatt bildet Adventivsprosse an Blaettern — extrem invasiv. Abgefallene Kindel entfernen."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 21
+          volume_ml_min: 30
+          volume_ml_max: 100
+
+  "Lithops spp.":
+    watering_guide:
+      interval_days: 21
+      volume_ml_min: 5
+      volume_ml_max: 20
+      watering_method: soak
+      water_quality_hint: null
+      practical_tip: "KEINESFALLS waehrend des Haeufungswechsels (Winter) und der Sommerruhe giessen! Nur in der kurzen Wachstumsphase im Herbst sparsam giessen."
+      seasonal_adjustments:
+        - label: "Sommerdormanz (Jun-Aug)"
+          months: [6, 7, 8]
+          interval_days: 0
+          volume_ml_min: 0
+          volume_ml_max: 0
+        - label: "Winterhaeufung (Dez-Maerz)"
+          months: [12, 1, 2, 3]
+          interval_days: 0
+          volume_ml_min: 0
+          volume_ml_max: 0
+
+  "Livistona chinensis":
+    watering_guide:
+      interval_days: 7
+      volume_ml_min: 300
+      volume_ml_max: 800
+      watering_method: drench_and_drain
+      water_quality_hint: null
+      practical_tip: "Obere 3-5 cm abtrocknen lassen. Braune Blattspitzen bei zu trockener Luft. Wachst langsam."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 14
+          volume_ml_min: 150
+          volume_ml_max: 400
+
+  "Mammillaria spp.":
+    watering_guide:
+      interval_days: 17
+      volume_ml_min: 20
+      volume_ml_max: 80
+      watering_method: soak
+      water_quality_hint: null
+      practical_tip: "Substrat komplett austrocknen lassen. Winter fast trocken halten — kuehle Ueberwinterung (5-10C) foerdert Bluetenbildung."
+      seasonal_adjustments:
+        - label: "Winterdormanz (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 66
+          volume_ml_min: 5
+          volume_ml_max: 20
+
+  "Maranta leuconeura":
+    watering_guide:
+      interval_days: 6
+      volume_ml_min: 100
+      volume_ml_max: 300
+      watering_method: bottom_water
+      water_quality_hint: "Weiches, kalkarmes Wasser. Hohe Luftfeuchtigkeit (60-80%)."
+      practical_tip: "Gleichmaessig feucht halten, nicht austrocknen. Zeigt Nyktinastie — faltet Blaetter abends zusammen (Prayer Plant). Braune Spitzen = zu trockene Luft."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 8
+          volume_ml_min: 60
+          volume_ml_max: 180
+
+# ==============================================================================
+# S4  LIFECYCLE CONFIGS (30 species)
+# ==============================================================================
+
+lifecycle_configs:
+  "Dracaena trifasciata":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 15
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Dypsis lutescens":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 20
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Echeveria elegans":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 7
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Epipremnum aureum":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 10
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Euphorbia pulcherrima":
+    cycle_type: perennial
+    photoperiod_type: short_day
+    typical_lifespan_years: 3
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: 12.0
+
+  "Fatsia japonica":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 20
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Ficus benjamina":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 15
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Ficus elastica":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 50
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Ficus lyrata":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 38
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Fittonia albivenis":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 7
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Gardenia jasminoides":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: null
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Goeppertia lancifolia":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 10
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Goeppertia makoyana":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 10
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Goeppertia orbifolia":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 13
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Guzmania lingulata":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 3
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Gymnocalycium mihanovichii":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 4
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Haworthiopsis fasciata":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 20
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Hedera helix":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 65
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Hibiscus rosa-sinensis":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 20
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Hippeastrum hybridum":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: null
+    dormancy_required: true
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Howea forsteriana":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 75
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Hoya carnosa":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 30
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Impatiens walleriana":
+    cycle_type: annual
+    photoperiod_type: day_neutral
+    typical_lifespan_years: null
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Jasminum polyanthum":
+    cycle_type: perennial
+    photoperiod_type: short_day
+    typical_lifespan_years: null
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: 12.0
+
+  "Kalanchoe blossfeldiana":
+    cycle_type: perennial
+    photoperiod_type: short_day
+    typical_lifespan_years: 4
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: 12.0
+
+  "Kalanchoe daigremontiana":
+    cycle_type: perennial
+    photoperiod_type: short_day
+    typical_lifespan_years: null
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: 12.0
+
+  "Lithops spp.":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 30
+    dormancy_required: true
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Livistona chinensis":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: null
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Mammillaria spp.":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 30
+    dormancy_required: true
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Maranta leuconeura":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 10
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+# ==============================================================================
+# S5  ART-SPECIFIC GROWTH PHASES (30 species)
+# ==============================================================================
+
+growth_phases:
+  "Dracaena trifasciata":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 180
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 350
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.5
+        temperature_night_c: 18.5
+        humidity_day_percent: 40
+        humidity_night_percent: 40
+        vpd_target_kpa: 1.15
+        co2_ppm: 400
+        irrigation_frequency_days: 17.5
+        irrigation_volume_ml_per_plant: 275
+      nutrient_profile:
+        npk_ratio: [2, 1, 1]
+        target_ec_ms: 0.6
+        target_ph: 6.5
+        calcium_ppm: 40
+        magnesium_ppm: 15
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 175
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.5
+        temperature_night_c: 15.0
+        humidity_day_percent: 35
+        humidity_night_percent: 35
+        vpd_target_kpa: 1.5
+        co2_ppm: 400
+        irrigation_frequency_days: 30.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Dypsis lutescens":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.5
+        temperature_night_c: 18.0
+        humidity_day_percent: 60
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.85
+        co2_ppm: 400
+        irrigation_frequency_days: 7.5
+        irrigation_volume_ml_per_plant: 550
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.5
+        calcium_ppm: 80
+        magnesium_ppm: 30
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 275
+        photoperiod_hours: 12.0
+        temperature_day_c: 18.5
+        temperature_night_c: 15.0
+        humidity_day_percent: 55
+        humidity_night_percent: 55
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 12.0
+        irrigation_volume_ml_per_plant: 275
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Echeveria elegans":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 165
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 700
+        photoperiod_hours: 15.0
+        temperature_day_c: 22.5
+        temperature_night_c: 16.0
+        humidity_day_percent: 30
+        humidity_night_percent: 30
+        vpd_target_kpa: 1.75
+        co2_ppm: 400
+        irrigation_frequency_days: 12.0
+        irrigation_volume_ml_per_plant: 65
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.45
+        target_ph: 6.5
+        calcium_ppm: 30
+        magnesium_ppm: 10
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 550
+        photoperiod_hours: 12.0
+        temperature_day_c: 14.0
+        temperature_night_c: 10.0
+        humidity_day_percent: 25
+        humidity_night_percent: 25
+        vpd_target_kpa: 2.0
+        co2_ppm: 400
+        irrigation_frequency_days: 31.0
+        irrigation_volume_ml_per_plant: 33
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Epipremnum aureum":
+    - name: establishment
+      display_name: "Etablierung"
+      duration_days: 21
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 100
+        photoperiod_hours: 13.0
+        temperature_day_c: 22.5
+        temperature_night_c: 20.0
+        humidity_day_percent: 70
+        humidity_night_percent: 73
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 6.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.3
+        target_ph: 6.3
+        calcium_ppm: 30
+        magnesium_ppm: 15
+
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 250
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.5
+        temperature_night_c: 19.0
+        humidity_day_percent: 50
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 7.5
+        irrigation_volume_ml_per_plant: 250
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.6
+        target_ph: 6.3
+        calcium_ppm: 60
+        magnesium_ppm: 25
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 150
+        photoperiod_hours: 12.0
+        temperature_day_c: 20.0
+        temperature_night_c: 17.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 12.0
+        irrigation_volume_ml_per_plant: 120
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.3
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Euphorbia pulcherrima":
+    - name: bract_coloring
+      display_name: "Brakteenfaerbung"
+      duration_days: 56
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 10.0
+        temperature_day_c: 20.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.0
+        calcium_ppm: 60
+        magnesium_ppm: 25
+
+    - name: flowering
+      display_name: "Bluete"
+      duration_days: 90
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 350
+        photoperiod_hours: 10.0
+        temperature_day_c: 20.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.6
+        target_ph: 6.0
+        calcium_ppm: 60
+        magnesium_ppm: 25
+
+    - name: vegetative
+      display_name: "Vegetative Phase"
+      duration_days: 150
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 500
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 250
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 1.0
+        target_ph: 6.0
+        calcium_ppm: 80
+        magnesium_ppm: 30
+
+    - name: short_day_induction
+      display_name: "Kurztageinleitung"
+      duration_days: 56
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 10.0
+        temperature_day_c: 20.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.0
+        calcium_ppm: 60
+        magnesium_ppm: 25
+
+  "Fatsia japonica":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 190
+        photoperiod_hours: 14.0
+        temperature_day_c: 18.5
+        temperature_night_c: 14.0
+        humidity_day_percent: 50
+        humidity_night_percent: 50
+        vpd_target_kpa: 0.85
+        co2_ppm: 400
+        irrigation_frequency_days: 7.5
+        irrigation_volume_ml_per_plant: 550
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.5
+        calcium_ppm: 80
+        magnesium_ppm: 30
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 130
+        photoperiod_hours: 10.0
+        temperature_day_c: 10.0
+        temperature_night_c: 8.0
+        humidity_day_percent: 45
+        humidity_night_percent: 45
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 15.5
+        irrigation_volume_ml_per_plant: 275
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.1
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Ficus benjamina":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 21.0
+        temperature_night_c: 17.5
+        humidity_day_percent: 60
+        humidity_night_percent: 63
+        vpd_target_kpa: 0.75
+        co2_ppm: 400
+        irrigation_frequency_days: 8.5
+        irrigation_volume_ml_per_plant: 550
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 1.0
+        target_ph: 6.3
+        calcium_ppm: 100
+        magnesium_ppm: 40
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 275
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.5
+        temperature_night_c: 16.0
+        humidity_day_percent: 53
+        humidity_night_percent: 58
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 17.5
+        irrigation_volume_ml_per_plant: 275
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.15
+        target_ph: 6.3
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Ficus elastica":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 23.5
+        temperature_night_c: 18.5
+        humidity_day_percent: 50
+        humidity_night_percent: 50
+        vpd_target_kpa: 0.95
+        co2_ppm: 400
+        irrigation_frequency_days: 10.5
+        irrigation_volume_ml_per_plant: 550
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 1.1
+        target_ph: 6.5
+        calcium_ppm: 100
+        magnesium_ppm: 40
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 275
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.5
+        temperature_night_c: 16.0
+        humidity_day_percent: 45
+        humidity_night_percent: 45
+        vpd_target_kpa: 1.1
+        co2_ppm: 400
+        irrigation_frequency_days: 17.5
+        irrigation_volume_ml_per_plant: 275
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.15
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Ficus lyrata":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 550
+        photoperiod_hours: 14.0
+        temperature_day_c: 21.0
+        temperature_night_c: 17.5
+        humidity_day_percent: 55
+        humidity_night_percent: 58
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 10.5
+        irrigation_volume_ml_per_plant: 550
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 1.1
+        target_ph: 6.5
+        calcium_ppm: 100
+        magnesium_ppm: 40
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.5
+        temperature_night_c: 16.0
+        humidity_day_percent: 53
+        humidity_night_percent: 55
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 17.5
+        irrigation_volume_ml_per_plant: 275
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.15
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Fittonia albivenis":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 125
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 19.0
+        humidity_day_percent: 70
+        humidity_night_percent: 75
+        vpd_target_kpa: 0.4
+        co2_ppm: 400
+        irrigation_frequency_days: 4.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.45
+        target_ph: 6.5
+        calcium_ppm: 60
+        magnesium_ppm: 20
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 100
+        photoperiod_hours: 12.0
+        temperature_day_c: 20.0
+        temperature_night_c: 17.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.5
+        co2_ppm: 400
+        irrigation_frequency_days: 6.0
+        irrigation_volume_ml_per_plant: 65
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Gardenia jasminoides":
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 105
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 250
+        photoperiod_hours: 10.0
+        temperature_day_c: 16.0
+        temperature_night_c: 13.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 5.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+    - name: bud_formation
+      display_name: "Knospenbildung"
+      duration_days: 45
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 20.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 300
+      nutrient_profile:
+        npk_ratio: [2, 3, 2]
+        target_ec_ms: 1.0
+        target_ph: 5.5
+        calcium_ppm: 80
+        magnesium_ppm: 30
+
+    - name: flowering
+      display_name: "Bluete"
+      duration_days: 90
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.65
+        co2_ppm: 400
+        irrigation_frequency_days: 4.0
+        irrigation_volume_ml_per_plant: 350
+      nutrient_profile:
+        npk_ratio: [2, 3, 2]
+        target_ec_ms: 1.0
+        target_ph: 5.5
+        calcium_ppm: 80
+        magnesium_ppm: 30
+
+    - name: vegetative
+      display_name: "Vegetative Phase"
+      duration_days: 105
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 350
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 1.2
+        target_ph: 5.5
+        calcium_ppm: 100
+        magnesium_ppm: 40
+
+  "Goeppertia lancifolia":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 190
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.5
+        temperature_night_c: 18.5
+        humidity_day_percent: 70
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.65
+        co2_ppm: 400
+        irrigation_frequency_days: 7.5
+        irrigation_volume_ml_per_plant: 275
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.6
+        target_ph: 6.5
+        calcium_ppm: 50
+        magnesium_ppm: 20
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 130
+        photoperiod_hours: 12.0
+        temperature_day_c: 19.0
+        temperature_night_c: 17.0
+        humidity_day_percent: 65
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 12.0
+        irrigation_volume_ml_per_plant: 140
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.1
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Goeppertia makoyana":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 125
+        photoperiod_hours: 13.0
+        temperature_day_c: 21.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 70
+        humidity_night_percent: 73
+        vpd_target_kpa: 0.5
+        co2_ppm: 400
+        irrigation_frequency_days: 6.0
+        irrigation_volume_ml_per_plant: 250
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.5
+        target_ph: 6.5
+        calcium_ppm: 50
+        magnesium_ppm: 20
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 100
+        photoperiod_hours: 12.0
+        temperature_day_c: 19.5
+        temperature_night_c: 17.0
+        humidity_day_percent: 65
+        humidity_night_percent: 68
+        vpd_target_kpa: 0.65
+        co2_ppm: 400
+        irrigation_frequency_days: 12.0
+        irrigation_volume_ml_per_plant: 140
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.1
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Goeppertia orbifolia":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 165
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.5
+        temperature_night_c: 19.0
+        humidity_day_percent: 70
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 7.5
+        irrigation_volume_ml_per_plant: 275
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.6
+        target_ph: 6.5
+        calcium_ppm: 50
+        magnesium_ppm: 20
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 130
+        photoperiod_hours: 12.0
+        temperature_day_c: 19.0
+        temperature_night_c: 17.5
+        humidity_day_percent: 65
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 10.5
+        irrigation_volume_ml_per_plant: 140
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.1
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Gymnocalycium mihanovichii":
+    - name: establishment
+      display_name: "Etablierung"
+      duration_days: 21
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 12.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 35
+        humidity_night_percent: 35
+        vpd_target_kpa: 1.2
+        co2_ppm: 400
+        irrigation_frequency_days: 10.0
+        irrigation_volume_ml_per_plant: 20
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+    - name: vegetative
+      display_name: "Vegetative Phase"
+      duration_days: 228
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 30
+        humidity_night_percent: 30
+        vpd_target_kpa: 1.5
+        co2_ppm: 400
+        irrigation_frequency_days: 14.0
+        irrigation_volume_ml_per_plant: 30
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.3
+        target_ph: 6.5
+        calcium_ppm: 20
+        magnesium_ppm: 10
+
+    - name: flowering
+      display_name: "Bluete"
+      duration_days: 21
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 30
+        humidity_night_percent: 30
+        vpd_target_kpa: 1.5
+        co2_ppm: 400
+        irrigation_frequency_days: 14.0
+        irrigation_volume_ml_per_plant: 30
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.3
+        target_ph: 6.5
+        calcium_ppm: 20
+        magnesium_ppm: 10
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 75
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 10.0
+        temperature_day_c: 12.0
+        temperature_night_c: 8.0
+        humidity_day_percent: 25
+        humidity_night_percent: 25
+        vpd_target_kpa: 2.0
+        co2_ppm: 400
+        irrigation_frequency_days: 35.0
+        irrigation_volume_ml_per_plant: 10
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Haworthiopsis fasciata":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 21.0
+        temperature_night_c: 15.0
+        humidity_day_percent: 30
+        humidity_night_percent: 30
+        vpd_target_kpa: 1.75
+        co2_ppm: 400
+        irrigation_frequency_days: 17.5
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.45
+        target_ph: 7.0
+        calcium_ppm: 30
+        magnesium_ppm: 10
+
+    - name: dormancy
+      display_name: "Ruhezeit"
+      duration_days: 105
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 275
+        photoperiod_hours: 12.0
+        temperature_day_c: 15.0
+        temperature_night_c: 10.0
+        humidity_day_percent: 25
+        humidity_night_percent: 25
+        vpd_target_kpa: 2.0
+        co2_ppm: 400
+        irrigation_frequency_days: 35.0
+        irrigation_volume_ml_per_plant: 50
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 7.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Hedera helix":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 14.0
+        temperature_day_c: 21.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 55
+        humidity_night_percent: 55
+        vpd_target_kpa: 0.85
+        co2_ppm: 400
+        irrigation_frequency_days: 6.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.8
+        calcium_ppm: 80
+        magnesium_ppm: 30
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 215
+        photoperiod_hours: 10.0
+        temperature_day_c: 12.0
+        temperature_night_c: 8.0
+        humidity_day_percent: 45
+        humidity_night_percent: 45
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 10.5
+        irrigation_volume_ml_per_plant: 130
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.8
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Hibiscus rosa-sinensis":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 120
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 600
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 550
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 1.2
+        target_ph: 6.5
+        calcium_ppm: 100
+        magnesium_ppm: 40
+
+    - name: flowering
+      display_name: "Bluete"
+      duration_days: 150
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 700
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.85
+        co2_ppm: 400
+        irrigation_frequency_days: 4.0
+        irrigation_volume_ml_per_plant: 600
+      nutrient_profile:
+        npk_ratio: [2, 3, 3]
+        target_ec_ms: 1.4
+        target_ph: 6.5
+        calcium_ppm: 100
+        magnesium_ppm: 40
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 90
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 10.0
+        temperature_day_c: 16.0
+        temperature_night_c: 13.0
+        humidity_day_percent: 50
+        humidity_night_percent: 50
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 10.0
+        irrigation_volume_ml_per_plant: 300
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Hippeastrum hybridum":
+    - name: sprouting
+      display_name: "Austrieb"
+      duration_days: 21
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 12.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.4
+        target_ph: 6.0
+        calcium_ppm: 40
+        magnesium_ppm: 20
+
+    - name: flowering
+      display_name: "Bluete"
+      duration_days: 32
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 350
+        photoperiod_hours: 12.0
+        temperature_day_c: 20.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.6
+        target_ph: 6.0
+        calcium_ppm: 60
+        magnesium_ppm: 25
+
+    - name: leaf_phase
+      display_name: "Blattphase"
+      duration_days: 150
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 500
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 250
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 1.0
+        target_ph: 6.0
+        calcium_ppm: 80
+        magnesium_ppm: 30
+
+    - name: rest_phase
+      display_name: "Ruhephase"
+      duration_days: 75
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 0
+        photoperiod_hours: 0.0
+        temperature_day_c: 15.0
+        temperature_night_c: 12.0
+        humidity_day_percent: 40
+        humidity_night_percent: 40
+        vpd_target_kpa: 1.5
+        co2_ppm: 400
+        irrigation_frequency_days: 0.0
+        irrigation_volume_ml_per_plant: 0
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+    - name: dry_storage
+      display_name: "Trockenlagerung"
+      duration_days: 75
+      sequence_order: 5
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 0
+        photoperiod_hours: 0.0
+        temperature_day_c: 12.0
+        temperature_night_c: 10.0
+        humidity_day_percent: 35
+        humidity_night_percent: 35
+        vpd_target_kpa: 2.0
+        co2_ppm: 400
+        irrigation_frequency_days: 0.0
+        irrigation_volume_ml_per_plant: 0
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Howea forsteriana":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 250
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.5
+        temperature_night_c: 18.0
+        humidity_day_percent: 60
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 8.5
+        irrigation_volume_ml_per_plant: 550
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.5
+        calcium_ppm: 80
+        magnesium_ppm: 30
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 190
+        photoperiod_hours: 12.0
+        temperature_day_c: 16.0
+        temperature_night_c: 13.0
+        humidity_day_percent: 55
+        humidity_night_percent: 55
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 17.5
+        irrigation_volume_ml_per_plant: 275
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Hoya carnosa":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 23.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 10.0
+        irrigation_volume_ml_per_plant: 165
+      nutrient_profile:
+        npk_ratio: [2, 3, 2]
+        target_ec_ms: 0.6
+        target_ph: 6.3
+        calcium_ppm: 50
+        magnesium_ppm: 20
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 275
+        photoperiod_hours: 12.0
+        temperature_day_c: 16.0
+        temperature_night_c: 13.0
+        humidity_day_percent: 50
+        humidity_night_percent: 50
+        vpd_target_kpa: 1.2
+        co2_ppm: 400
+        irrigation_frequency_days: 17.0
+        irrigation_volume_ml_per_plant: 80
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.3
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Impatiens walleriana":
+    - name: germination
+      display_name: "Keimung"
+      duration_days: 10
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 100
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 80
+        humidity_night_percent: 85
+        vpd_target_kpa: 0.3
+        co2_ppm: 400
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 50
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.3
+        calcium_ppm: null
+        magnesium_ppm: null
+
+    - name: growth_bloom
+      display_name: "Wachstum & Dauerblüte"
+      duration_days: 165
+      sequence_order: 2
+      is_terminal: true
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 3.0
+        irrigation_volume_ml_per_plant: 275
+      nutrient_profile:
+        npk_ratio: [2, 3, 2]
+        target_ec_ms: 1.0
+        target_ph: 6.3
+        calcium_ppm: 80
+        magnesium_ppm: 30
+
+  "Jasminum polyanthum":
+    - name: winter_rest
+      display_name: "Winterruhe & Kuehlphase"
+      duration_days: 90
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 10.0
+        temperature_day_c: 10.0
+        temperature_night_c: 5.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 10.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+    - name: flowering
+      display_name: "Bluete"
+      duration_days: 90
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 500
+        photoperiod_hours: 12.0
+        temperature_day_c: 18.0
+        temperature_night_c: 13.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 350
+      nutrient_profile:
+        npk_ratio: [2, 3, 2]
+        target_ec_ms: 1.0
+        target_ph: 6.5
+        calcium_ppm: 80
+        magnesium_ppm: 30
+
+    - name: vegetative
+      display_name: "Vegetative Phase"
+      duration_days: 120
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 600
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 400
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 1.2
+        target_ph: 6.5
+        calcium_ppm: 100
+        magnesium_ppm: 40
+
+    - name: autumn_ripening
+      display_name: "Herbstreife"
+      duration_days: 60
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 11.0
+        temperature_day_c: 16.0
+        temperature_night_c: 10.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 250
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.6
+        target_ph: 6.5
+        calcium_ppm: 60
+        magnesium_ppm: 25
+
+  "Kalanchoe blossfeldiana":
+    - name: vegetative
+      display_name: "Vegetative Phase"
+      duration_days: 105
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 500
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 35
+        humidity_night_percent: 35
+        vpd_target_kpa: 1.3
+        co2_ppm: 400
+        irrigation_frequency_days: 10.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 0.6
+        target_ph: 6.3
+        calcium_ppm: 40
+        magnesium_ppm: 15
+
+    - name: short_day_induction
+      display_name: "Kurztageinleitung"
+      duration_days: 49
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.0
+        temperature_night_c: 15.0
+        humidity_day_percent: 35
+        humidity_night_percent: 35
+        vpd_target_kpa: 1.2
+        co2_ppm: 400
+        irrigation_frequency_days: 14.0
+        irrigation_volume_ml_per_plant: 70
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.5
+        target_ph: 6.3
+        calcium_ppm: 30
+        magnesium_ppm: 10
+
+    - name: flowering
+      display_name: "Bluete"
+      duration_days: 75
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 12.0
+        temperature_day_c: 20.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 35
+        humidity_night_percent: 35
+        vpd_target_kpa: 1.2
+        co2_ppm: 400
+        irrigation_frequency_days: 10.0
+        irrigation_volume_ml_per_plant: 80
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.5
+        target_ph: 6.3
+        calcium_ppm: 30
+        magnesium_ppm: 10
+
+    - name: rest_after_bloom
+      display_name: "Ruhe nach Bluete"
+      duration_days: 75
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 350
+        photoperiod_hours: 12.0
+        temperature_day_c: 18.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 30
+        humidity_night_percent: 30
+        vpd_target_kpa: 1.5
+        co2_ppm: 400
+        irrigation_frequency_days: 17.0
+        irrigation_volume_ml_per_plant: 50
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.3
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Kalanchoe daigremontiana":
+    - name: bulbil_establishment
+      display_name: "Kindel-Etablierung"
+      duration_days: 21
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 40
+        humidity_night_percent: 40
+        vpd_target_kpa: 1.2
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 50
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.3
+        target_ph: 6.3
+        calcium_ppm: 20
+        magnesium_ppm: 10
+
+    - name: vegetative
+      display_name: "Vegetative Phase"
+      duration_days: 228
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 600
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 35
+        humidity_night_percent: 35
+        vpd_target_kpa: 1.3
+        co2_ppm: 400
+        irrigation_frequency_days: 10.0
+        irrigation_volume_ml_per_plant: 125
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.5
+        target_ph: 6.3
+        calcium_ppm: 30
+        magnesium_ppm: 15
+
+    - name: flowering
+      display_name: "Bluete (terminal)"
+      duration_days: 45
+      sequence_order: 3
+      is_terminal: true
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 500
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 30
+        humidity_night_percent: 30
+        vpd_target_kpa: 1.5
+        co2_ppm: 400
+        irrigation_frequency_days: 14.0
+        irrigation_volume_ml_per_plant: 80
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.4
+        target_ph: 6.3
+        calcium_ppm: 20
+        magnesium_ppm: 10
+
+  "Lithops spp.":
+    - name: spring_growth
+      display_name: "Frühjahrswachstum"
+      duration_days: 75
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 1000
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 15.0
+        humidity_day_percent: 20
+        humidity_night_percent: 20
+        vpd_target_kpa: 2.5
+        co2_ppm: 400
+        irrigation_frequency_days: 21.0
+        irrigation_volume_ml_per_plant: 10
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.2
+        target_ph: 7.0
+        calcium_ppm: 15
+        magnesium_ppm: 5
+
+    - name: summer_dormancy
+      display_name: "Sommerdormanz"
+      duration_days: 75
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 800
+        photoperiod_hours: 14.0
+        temperature_day_c: 28.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 15
+        humidity_night_percent: 15
+        vpd_target_kpa: 3.5
+        co2_ppm: 400
+        irrigation_frequency_days: 0.0
+        irrigation_volume_ml_per_plant: 0
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 7.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+    - name: autumn_growth_bloom
+      display_name: "Herbstwachstum & Bluete"
+      duration_days: 75
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 1000
+        photoperiod_hours: 12.0
+        temperature_day_c: 22.0
+        temperature_night_c: 12.0
+        humidity_day_percent: 20
+        humidity_night_percent: 20
+        vpd_target_kpa: 2.5
+        co2_ppm: 400
+        irrigation_frequency_days: 14.0
+        irrigation_volume_ml_per_plant: 10
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.2
+        target_ph: 7.0
+        calcium_ppm: 15
+        magnesium_ppm: 5
+
+    - name: winter_hull_change
+      display_name: "Winter-Haeufungswechsel"
+      duration_days: 75
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 600
+        photoperiod_hours: 10.0
+        temperature_day_c: 15.0
+        temperature_night_c: 8.0
+        humidity_day_percent: 15
+        humidity_night_percent: 15
+        vpd_target_kpa: 3.0
+        co2_ppm: 400
+        irrigation_frequency_days: 0.0
+        irrigation_volume_ml_per_plant: 0
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 7.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Livistona chinensis":
+    - name: germination
+      display_name: "Keimung"
+      duration_days: 60
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 150
+        photoperiod_hours: 14.0
+        temperature_day_c: 28.0
+        temperature_night_c: 22.0
+        humidity_day_percent: 70
+        humidity_night_percent: 75
+        vpd_target_kpa: 0.5
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+    - name: young_palm
+      display_name: "Jungpalme"
+      duration_days: 1095
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 400
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.5
+        calcium_ppm: 80
+        magnesium_ppm: 30
+
+    - name: vegetative
+      display_name: "Vegetative Phase"
+      duration_days: 365
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 450
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 600
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 1.0
+        target_ph: 6.5
+        calcium_ppm: 100
+        magnesium_ppm: 40
+
+  "Mammillaria spp.":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 1250
+        photoperiod_hours: 15.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.5
+        humidity_day_percent: 20
+        humidity_night_percent: 20
+        vpd_target_kpa: 2.5
+        co2_ppm: 400
+        irrigation_frequency_days: 17.5
+        irrigation_volume_ml_per_plant: 50
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.45
+        target_ph: 6.5
+        calcium_ppm: 30
+        magnesium_ppm: 10
+
+    - name: winter_dormancy
+      display_name: "Winterdormanz"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 550
+        photoperiod_hours: 10.0
+        temperature_day_c: 10.0
+        temperature_night_c: 7.5
+        humidity_day_percent: 20
+        humidity_night_percent: 20
+        vpd_target_kpa: 3.0
+        co2_ppm: 400
+        irrigation_frequency_days: 66.0
+        irrigation_volume_ml_per_plant: 10
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Maranta leuconeura":
+    - name: active_growth
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 150
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.5
+        temperature_night_c: 18.5
+        humidity_day_percent: 63
+        humidity_night_percent: 68
+        vpd_target_kpa: 0.55
+        co2_ppm: 400
+        irrigation_frequency_days: 6.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.6
+        target_ph: 6.0
+        calcium_ppm: 80
+        magnesium_ppm: 30
+
+    - name: winter_rest
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 125
+        photoperiod_hours: 12.0
+        temperature_day_c: 19.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 58
+        humidity_night_percent: 63
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 8.5
+        irrigation_volume_ml_per_plant: 120
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+# ==============================================================================
+# S6  CULTIVARS
+# ==============================================================================
+
+cultivars:
+  "Hedera helix":
+    - name: Goldheart
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, variegated]
+      seed_type: clone
+    - name: Glacier
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, variegated]
+      seed_type: clone
+    - name: Green Ripple
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: Needlepoint
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+
+  "Ficus elastica":
+    - name: Robusta
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: Burgundy
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: Tineke
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, variegated]
+      seed_type: clone
+    - name: Ruby
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, variegated]
+      seed_type: clone
+
+  "Epipremnum aureum":
+    - name: Marble Queen
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, variegated]
+      seed_type: clone
+    - name: Neon
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: N'Joy
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, variegated]
+      seed_type: clone
+
+  "Ficus lyrata":
+    - name: Bambino
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+
+  "Maranta leuconeura":
+    - name: Erythroneura
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: Kerchoveana
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+
+  "Dracaena trifasciata":
+    - name: Laurentii
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, variegated]
+      seed_type: clone
+    - name: Moonshine
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: Hahnii
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+
+  "Fittonia albivenis":
+    - name: Verschaffeltii
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: White Anne
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, variegated]
+      seed_type: clone
+
+  "Hoya carnosa":
+    - name: Tricolor
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, variegated]
+      seed_type: clone
+    - name: Compacta
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: Krimson Queen
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, variegated]
+      seed_type: clone

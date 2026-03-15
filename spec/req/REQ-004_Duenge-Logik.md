@@ -7,7 +7,7 @@ Kategorie: Bewässerung & Düngung
 Fokus: Nutzpflanze (Indoor/Hydro)
 Technologie: Python, ArangoDB, Regelbasierte Logik
 Status: Entwurf
-Version: 3.1 (Wasserquellen-Integration & WaterMixCalculator)
+Version: 3.2 (Perenniale Nährstoffpläne, DORMANCY-Phase, Zyklusfähigkeit)
 ```
 
 ## 1. Business Case
@@ -169,8 +169,58 @@ Wenn der Nutzer mit der Maus über einen Phasen-Balken (Header-Zeile) oder einen
 - **Lücken-Erkennung:** Wochen ohne Phase-Entry werden als leere Spalten (grauer Hintergrund) dargestellt, um fehlende Phasenabdeckung visuell hervorzuheben
 - **Überlappungs-Erkennung:** Überlappende Phase-Entries werden als gestapelte Balken dargestellt, mit visueller Warnung (roter Rahmen)
 
+**Zwei Gantt-Modi: Einjährig vs. Saisonaler Zyklus**
+
+Das Gantt-Diagramm MUSS abhängig vom Plantyp in einem von zwei Modi dargestellt werden:
+
+**Modus A — Einjähriger Plan (Samen → Ernte):**
+Anwendbar wenn `cycle_restart_from_sequence` = `null` (Default). Stellt den linearen Lebenszyklus einer einjährigen Pflanze (annuell) als durchgehenden Zeitstrahl dar.
+
+- **X-Achse:** Laufende Wochen von `min(week_start)` bis `max(week_end)` — der Zeitstrahl beginnt bei Woche 1 und endet mit der letzten Phase
+- **Darstellung:** Alle Phasen werden sequenziell von links nach rechts abgebildet (z.B. Keimung → Sämling → Vegetativ → Blüte → Ernte)
+- **Abschluss:** Der Zeitstrahl endet nach der letzten Phase — kein Wrap-Around, kein Wiederholungsindikator
+- **Anwendungsbeispiele:** Cannabis (Samen → Ernte in 12–16 Wochen), Tomate (20 Wochen), Basilikum (8–10 Wochen), Paprika, Salat, Radieschen
+
+**Modus B — Saisonaler Zyklus (perennial/wiederkehrend):**
+Anwendbar wenn `cycle_restart_from_sequence` ≠ `null`. Stellt den wiederkehrenden Jahres-Nährstoffzyklus einer mehrjährigen oder dauerhaft kultivierten Pflanze dar.
+
+- **X-Achse:** Wochen 1 bis zum Ende des ersten vollständigen Zyklus. Eine vertikale Markierungslinie (gestrichelt, farbig hervorgehoben) kennzeichnet die **Zyklus-Grenze** — den Punkt, ab dem der Plan zur Phase mit `sequence_order = cycle_restart_from_sequence` zurückspringt
+- **Zwei Zonen:** Der Zeitstrahl wird visuell in zwei Bereiche unterteilt:
+  - **Einmalige Setup-Phasen** (links der Zyklus-Grenze, `sequence_order < cycle_restart_from_sequence`): Phasen die nur beim Erstdurchlauf durchlaufen werden (z.B. Bewurzelung, Juvenilphase). Darstellung mit normalem Hintergrund
+  - **Wiederkehrende Phasen** (rechts der Zyklus-Grenze, `sequence_order >= cycle_restart_from_sequence`): Phasen die sich saisonal wiederholen (z.B. Vegetativ ↔ Dormanz). Darstellung mit einem dezenten Wiederhol-Indikator (↻-Symbol im Phasen-Header, leicht getönter Hintergrund)
+- **Zyklus-Indikator:** Am rechten Rand des Zeitstrahls wird ein visueller Hinweis angezeigt: „↻ Zyklus wiederholt ab Phase X" mit dem Namen der Restart-Phase
+- **Anwendungsbeispiele:** Monstera (Vegetativ ↔ Dormanz, `cycle_restart_from_sequence=3`), Ficus, Orchideen, Beerensträucher, Obstbäume, Zierpflanzen mit saisonaler Ruheperiode
+
+**Modus-Erkennung:** Das Frontend ermittelt den Modus automatisch anhand des `cycle_restart_from_sequence`-Feldes auf dem NutrientPlan. Kein manueller Toggle ist erforderlich.
+
 **Integration in NutrientPlanDetailPage:**
 Das Gantt-Diagramm wird als zusätzlicher Tab „Zeitplan" (Timeline) auf der NutrientPlanDetailPage dargestellt — neben den bestehenden Tabs für Phase-Entries, Validierung und Bearbeitung. Alternativ kann das Diagramm über einen Toggle-Button (Listenansicht ↔ Gantt-Ansicht) im Phase-Entries-Tab eingeblendet werden.
+
+**Aktuelle-Woche-Berechnung (Current Week Resolution):**
+
+Die Bestimmung der aktuellen Planwoche ist zentral für die korrekte Zuordnung von Ausbringkanälen, Gantt-Markierungen und Phasen-Einträgen. Die Berechnung MUSS phasenbasiert erfolgen:
+
+**Primäre Methode — Phasenbasiert (autoritativ):**
+1. Die **aktuelle Phase** wird aus der **Phase-History** abgeleitet (letzter `PhaseHistory`-Eintrag ohne `exited_at`), NICHT aus dem `current_phase`-Feld auf dem Plant-Dokument. Die Phase-History ist die Single Source of Truth, da das Plant-Dokument durch Race Conditions oder fehlende Updates inkonsistent sein kann.
+2. Aus der Phase-History wird `entered_at` der aktiven Phase ermittelt (= Phasen-Startdatum).
+3. **Wochen in der Phase:** `weeksInPhase = floor((heute - entered_at) / 7) + 1` (1-basiert, Woche 1 = erste 7 Tage nach Phasen-Start).
+4. Der zugehörige `NutrientPlanPhaseEntry` wird über `phase_name` des aktiven History-Eintrags gesucht.
+5. **Aktuelle Planwoche:** `currentWeek = phaseEntry.week_start + weeksInPhase - 1`.
+
+**Fallback — Pflanztermin-basiert:**
+Nur wenn keine Phase-History vorliegt oder kein passender `NutrientPlanPhaseEntry` gefunden wird:
+- `currentWeek = floor((heute - planted_on) / 7) + 1`
+
+**Perenniale Pläne (Zyklus-Restart):**
+Wenn `currentWeek > max(week_end)` aller Entries und `cycle_restart_from_sequence ≠ null`:
+- Zykluslänge = `cycleEnd - cycleStart + 1` (aus wiederkehrenden Entries)
+- `effectiveWeek = cycleStart + ((currentWeek - cycleEnd - 1) % cycleLen)`
+- Der aktive Phase-Entry wird über `effectiveWeek` im Zyklus-Bereich gesucht
+
+**Anwendung:**
+- **ActivePhaseEntry-Bestimmung:** Der aktive Phasen-Eintrag bestimmt, welche Ausbringkanäle (Delivery Channels) mit ihren Düngerdosierungen angezeigt und für die Gießprotokoll-Vorauswahl verwendet werden.
+- **Gantt-Markierung:** Die `currentWeek` wird im Gantt-Diagramm als vertikale "Heute"-Linie dargestellt.
+- **Phasen-Highlighting:** Der Gantt-Bereich (Vegetativ/Blüte) erhält die `currentWeek`-Markierung nur, wenn die aktuelle Phase (aus History) in die jeweilige Phase-Gruppe fällt.
 
 **Abgrenzung NutrientProfile vs. NutrientPlan:**
 
@@ -256,13 +306,15 @@ Das Gantt-Diagramm wird als zusätzlicher Tab „Zeitplan" (Timeline) auf der Nu
   - Properties:
     - `name: str` (z.B. "Tomato Heavy Coco", "Auto Light Feed")
     - `description: Optional[str]`
-    - `recommended_substrate_type: Optional[Literal['hydro', 'coco', 'soil', 'living_soil']]`
+    - `recommended_substrate_type: Optional[SubstrateType]` (Referenz auf `SubstrateType`-Enum aus REQ-019 — aktuell 13 Werte inkl. `soil`, `coco`, `hydro_solution`, `living_soil`, `orchid_bark`, `pon_mineral`, `sphagnum` etc. Nicht auf ein Subset eingeschränkt, da Nährstoffpläne für beliebige Substrate erstellt werden können.)
     - `author: str`
     - `is_template: bool` (als Vorlage für andere nutzbar)
     - `version: int` (Versionierung bei Änderungen)
     - `tags: list[str]` (z.B. ["organic", "autoflower", "heavy-feeder"])
     - `water_mix_ratio_ro_percent: Optional[int]` (ge=0, le=100) — Default-Mischverhältnis Osmose/Leitungswasser in Prozent Osmoseanteil (0 = reines Leitungswasser, 100 = reines Osmosewasser, 50 = 50/50-Mischung). Wird vom `WaterMixCalculator` zusammen mit dem `TapWaterProfile` der Site (REQ-002) für die automatische Basis-EC-Berechnung genutzt. `null` = kein Mischverhältnis definiert (manuelle Eingabe pro Befüllung). Nur relevant wenn die Site `water_source.has_ro_system=true` hat.
     - `watering_schedule: Optional[WateringSchedule]` (Gießplan-Konfiguration für manuelle Bewässerung — siehe eingebettetes Modell unten; `null` = Plan ohne Terminplanung, rein als Dosierungsvorlage nutzbar)
+    <!-- Quelle: Nährstoffplan-Review Monstera 2026-03 -->
+    - `cycle_restart_from_sequence: Optional[int]` (Für perenniale/saisonale Pläne: Nach der letzten Phase-Entry springt der Plan zurück zur Phase-Entry mit diesem `sequence_order`-Wert. `null` = linearer Plan ohne Wiederholung (Default, typisch für annuelle Pflanzen). Beispiel: Monstera-Plan mit 4 Phasen (1=Bewurzelung, 2=Juvenil, 3=VEGETATIVE, 4=DORMANCY) → `cycle_restart_from_sequence: 3` bewirkt: nach DORMANCY (4) geht es zurück zu VEGETATIVE (3), dann DORMANCY (4), dann VEGETATIVE (3), usw. Die einmaligen Anfangsphasen (1, 2) werden nur beim Erstdurchlauf durchlaufen.)
 
 - **`WateringSchedule`** - Eingebettetes Modell (kein eigenes Dokument) innerhalb von `NutrientPlan`
   - Beschreibung: Definiert *wann* und *wie* manuell gegossen wird. Unterstützt zwei Modi: feste Wochentage (z.B. Mo/Mi/Fr) oder Intervall-basiert (z.B. alle 3 Tage). Die Kombination aus NutrientPlan (was/wieviel) und WateringSchedule (wann/wie) ergibt einen vollständigen Gießplan.
@@ -273,6 +325,8 @@ Das Gantt-Diagramm wird als zusätzlicher Tab „Zeitplan" (Timeline) auf der Nu
     - `preferred_time: Optional[str]` (HH:MM Format, z.B. "08:00"; für Erinnerungs-Timing und Task-`scheduled_time`)
     - `application_method: Literal['drench', 'foliar', 'top_dress']` (Default: `'drench'`; `'fertigation'` ist bewusst ausgeschlossen — Tank-Bewässerung wird über REQ-014 TankFillEvent gesteuert, nicht über den manuellen Gießplan)
     - `reminder_hours_before: int` (0–24, Default: 2; Stunden vor `preferred_time`, zu der die Erinnerung/Task erscheinen soll; 0 = Erinnerung zum Gießzeitpunkt)
+    <!-- Quelle: Nährstoffplan-Review Monstera 2026-03 — Spec/Impl-Abgleich -->
+    - `times_per_day: int` (1–6, Default: 1; Anzahl Gieß-/Düngungsvorgänge pro Gießtag. Bei `times_per_day > 1` werden die Vorgänge gleichmäßig über den Tag verteilt. Typisch: 1 für Zimmerpflanzen/Erde, 2-4 für Coco/Hydro mit Fertigation-ähnlicher manueller Bewässerung.)
   - Validatoren:
     - `mode='weekdays'` → `weekday_schedule` muss nicht-leer sein, alle Werte 0–6, keine Duplikate
     - `mode='interval'` → `interval_days` muss gesetzt sein, 1–90
@@ -281,20 +335,25 @@ Das Gantt-Diagramm wird als zusätzlicher Tab „Zeitplan" (Timeline) auf der Nu
 
 - **`NutrientPlanPhaseEntry`** - Phasen-spezifische Konfiguration innerhalb eines Plans
   - Properties:
-    - `phase_name: Literal['germination', 'seedling', 'vegetative', 'flowering', 'harvest']`
+    - `phase_name: Literal['germination', 'seedling', 'vegetative', 'flowering', 'flushing', 'dormancy', 'harvest']`
+    <!-- Quelle: Nährstoffplan-Review Monstera 2026-03 -->
+    <!-- `flushing`: Aktive Substratspülung — Pre-Harvest-Flush (7-14 Tage, graduelle EC-Reduktion), Mid-Cycle-Flush (bei Salzakkumulation) oder Transplant-Flush. Kein Dünger, nur klares Wasser. -->
+    <!-- `dormancy`: Saisonale Ruhephase perennialer Pflanzen (z.B. Zimmerpflanzen Nov-Feb, Stauden Winter). Reduzierter Stoffwechsel, keine oder minimale Düngung, verlängertes Gießintervall. Wiederholt sich jährlich (is_recurring: true). Abgrenzung zu `flushing`: Dormanz ist biologisch bedingt (Photoperiode, Temperatur), Flushing ist eine aktive Kulturmaßnahme. -->
     - `sequence_order: int` (Reihenfolge innerhalb des Plans)
     - `week_start: int` (ab welcher Woche)
     - `week_end: int` (bis welcher Woche)
+    - `is_recurring: bool` (Default: `false`. Wenn `true`, wiederholt sich diese Phase zyklisch — für saisonale Pläne perennialer Pflanzen. Siehe `cycle_restart_from_sequence` auf NutrientPlan.)
     - `npk_ratio: tuple[float, float, float]` (Ziel-NPK-Verhältnis)
-    - `target_ec_ms: float` (Ziel-EC für diese Phase)
-    - `target_ph: float` (Ziel-pH für diese Phase)
+    - `target_ec_ms: Optional[float]` (Ziel-EC für diese Phase — **Deprecated zugunsten DeliveryChannel.target_ec_ms** (Abschnitt 4). Bei vorhandenen `delivery_channels` wird dieses Feld ignoriert. Bleibt für Legacy-Kompatibilität und als Fallback bei `delivery_channels=[]` erhalten.)
+    - `target_ph: Optional[float]` (Ziel-pH für diese Phase — **Deprecated zugunsten DeliveryChannel.target_ph** (Abschnitt 4). Analog zu `target_ec_ms`.)
     - `calcium_ppm: Optional[float]`
     - `magnesium_ppm: Optional[float]`
     - `sulfur_ppm: Optional[float]`
     - `iron_ppm: Optional[float]` (Fe-Mangel = häufigste Mikronährstoff-Chlorose in Hydro/Coco)
     - `boron_ppm: Optional[float]` (B-Mangel = Wachstumsstörungen, besonders bei Ca-reicher Düngung)
-    - `feeding_frequency_per_week: int`
-    - `volume_per_feeding_liters: float`
+    - `feeding_frequency_per_week: Optional[int]` (**Deprecated zugunsten DeliveryChannel.schedule** (Abschnitt 4). Bei vorhandenen `delivery_channels` wird dieses Feld ignoriert.)
+    - `volume_per_feeding_liters: Optional[float]` (**Deprecated zugunsten DeliveryChannel.method_params** (Abschnitt 4). Bei vorhandenen `delivery_channels` wird dieses Feld ignoriert.)
+    - `watering_schedule_override: Optional[WateringSchedule]` (Phasen-spezifischer Override des Plan-Level-Gießplans. Ermöglicht unterschiedliche Gießfrequenzen pro Phase — z.B. 7 Tage in VEGETATIVE, 14 Tage in DORMANCY. `null` = Plan-Level-Gießplan gilt. Auch bei `delivery_channels=[]` nutzbar, d.h. Phasen ohne Düngung können trotzdem eigene Gießintervalle definieren.)
     - `notes: Optional[str]`
 
 - **`FertilizerStock`** - Inventar-Tracking
@@ -757,8 +816,8 @@ class NutrientSolutionCalculator(BaseModel):
                     "und dem Mischverhältnis vorbelegt werden."
     )
     fertilizers: list[FertilizerComponent]
-    substrate_type: Literal['hydro', 'coco', 'soil', 'living_soil']
-    
+    substrate_type: SubstrateType  # Referenz auf SubstrateType-Enum (REQ-019)
+
     @field_validator('target_ec_ms')
     @classmethod
     def validate_ec_for_substrate(cls, v, info):
@@ -1086,8 +1145,8 @@ class FlushingProtocol(BaseModel):
     plant_id: str
     current_ec: float = Field(ge=0, le=4.0)
     days_until_harvest: int = Field(ge=0, le=60)
-    substrate_type: Literal['hydro', 'coco', 'soil']
-    
+    substrate_type: SubstrateType  # Referenz auf SubstrateType-Enum (REQ-019)
+
     def get_schedule(self) -> dict:
         """Erstellt schrittweisen Flush-Plan"""
         
@@ -1412,7 +1471,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional, Tuple
 from datetime import datetime
 
-PhaseNameType = Literal['germination', 'seedling', 'vegetative', 'flowering', 'harvest']
+PhaseNameType = Literal['germination', 'seedling', 'vegetative', 'flowering', 'flushing', 'dormancy', 'harvest']
 
 class FertilizerDosage(BaseModel):
     """Dünger-Zuweisung innerhalb einer Phase-Entry"""
@@ -1428,16 +1487,25 @@ class NutrientPlanPhaseEntry(BaseModel):
     sequence_order: int = Field(ge=1, le=10)
     week_start: int = Field(ge=0, le=52)
     week_end: int = Field(ge=1, le=52)
+    # Quelle: Nährstoffplan-Review Monstera 2026-03
+    is_recurring: bool = Field(default=False, description="Phase wiederholt sich zyklisch (saisonale Pläne)")
     npk_ratio: Tuple[float, float, float] = Field(description="Ziel-NPK-Verhältnis")
-    target_ec_ms: float = Field(ge=0.0, le=4.0)
-    target_ph: float = Field(ge=4.0, le=8.0)
+    # Deprecated: target_ec_ms/target_ph — bei delivery_channels nutze Channel-Level EC/pH
+    target_ec_ms: Optional[float] = Field(None, ge=0.0, le=4.0, deprecated=True)
+    target_ph: Optional[float] = Field(None, ge=4.0, le=8.0, deprecated=True)
     calcium_ppm: Optional[float] = Field(None, ge=0, le=500)
     magnesium_ppm: Optional[float] = Field(None, ge=0, le=200)
     sulfur_ppm: Optional[float] = Field(None, ge=0, le=300)
     iron_ppm: Optional[float] = Field(None, ge=0, le=20)  # Fe-Mangel = häufigste Chlorose in Hydro/Coco
     boron_ppm: Optional[float] = Field(None, ge=0, le=5)   # B-Mangel bei Ca-reicher Düngung
-    feeding_frequency_per_week: int = Field(ge=1, le=14)
-    volume_per_feeding_liters: float = Field(gt=0, le=1000)
+    # Deprecated: feeding_frequency_per_week/volume_per_feeding_liters — bei delivery_channels nutze Channel-Level Schedule/Params
+    feeding_frequency_per_week: Optional[int] = Field(None, ge=1, le=14, deprecated=True)
+    volume_per_feeding_liters: Optional[float] = Field(None, gt=0, le=1000, deprecated=True)
+    watering_schedule_override: Optional[WateringSchedule] = Field(
+        None,
+        description="Phasen-spezifischer Override des Plan-Level-Gießplans. "
+                    "Auch bei delivery_channels=[] nutzbar für Nur-Wasser-Phasen."
+    )
     notes: Optional[str] = Field(None, max_length=2000)
     fertilizer_dosages: list[FertilizerDosage] = Field(default_factory=list)
 
@@ -1464,7 +1532,7 @@ class NutrientPlan(BaseModel):
 
     name: str = Field(min_length=1, max_length=200)
     description: Optional[str] = Field(None, max_length=2000)
-    recommended_substrate_type: Optional[Literal['hydro', 'coco', 'soil', 'living_soil']] = None
+    recommended_substrate_type: Optional[SubstrateType] = None  # Referenz auf SubstrateType-Enum (REQ-019)
     author: str = Field(min_length=1, max_length=100)
     is_template: bool = Field(default=False)
     version: int = Field(default=1, ge=1)
@@ -1474,6 +1542,15 @@ class NutrientPlan(BaseModel):
         None,
         description="Gießplan-Konfiguration für manuelle Bewässerung. "
                     "null = Plan ohne Terminplanung (rein als Dosierungsvorlage)."
+    )
+    # Quelle: Nährstoffplan-Review Monstera 2026-03
+    cycle_restart_from_sequence: Optional[int] = Field(
+        None, ge=1, le=10,
+        description="Für perenniale/saisonale Pläne: Nach der letzten Phase-Entry "
+                    "springt der Plan zurück zur Phase-Entry mit diesem sequence_order. "
+                    "null = linearer Plan ohne Wiederholung (Default). "
+                    "Beispiel: Monstera-Plan → cycle_restart_from_sequence=3 bewirkt "
+                    "Zykluswechsel VEGETATIVE↔DORMANCY nach einmaligem Erstdurchlauf."
     )
 
     @field_validator('tags')
@@ -1767,6 +1844,8 @@ class NutrientPlanCreateRequest(BaseModel):
     recommended_substrate_type: Optional[str] = None
     is_template: bool = False
     tags: list[str] = Field(default_factory=list)
+    # Quelle: Nährstoffplan-Review Monstera 2026-03
+    cycle_restart_from_sequence: Optional[int] = Field(None, ge=1, le=10)
 
 class NutrientPlanResponse(BaseModel):
     """Response-Schema für Plan"""
@@ -1779,6 +1858,8 @@ class NutrientPlanResponse(BaseModel):
     version: int
     tags: list[str]
     phase_entry_count: int
+    # Quelle: Nährstoffplan-Review Monstera 2026-03
+    cycle_restart_from_sequence: Optional[int]
     created_at: datetime
     updated_at: datetime
 
@@ -1788,13 +1869,16 @@ class PhaseEntryCreateRequest(BaseModel):
     sequence_order: int
     week_start: int
     week_end: int
+    # Quelle: Nährstoffplan-Review Monstera 2026-03
+    is_recurring: bool = False
     npk_ratio: tuple[float, float, float]
-    target_ec_ms: float
-    target_ph: float
+    target_ec_ms: Optional[float] = None  # Deprecated — nutze DeliveryChannel
+    target_ph: Optional[float] = None  # Deprecated — nutze DeliveryChannel
     calcium_ppm: Optional[float] = None
     magnesium_ppm: Optional[float] = None
-    feeding_frequency_per_week: int
-    volume_per_feeding_liters: float
+    feeding_frequency_per_week: Optional[int] = None  # Deprecated — nutze DeliveryChannel
+    volume_per_feeding_liters: Optional[float] = None  # Deprecated — nutze DeliveryChannel
+    watering_schedule_override: Optional[dict] = None  # WateringSchedule-Objekt
     notes: Optional[str] = None
 
 class PhaseEntryResponse(BaseModel):
@@ -1804,13 +1888,15 @@ class PhaseEntryResponse(BaseModel):
     sequence_order: int
     week_start: int
     week_end: int
+    is_recurring: bool
     npk_ratio: tuple[float, float, float]
-    target_ec_ms: float
-    target_ph: float
+    target_ec_ms: Optional[float]  # Deprecated
+    target_ph: Optional[float]  # Deprecated
     calcium_ppm: Optional[float]
     magnesium_ppm: Optional[float]
-    feeding_frequency_per_week: int
-    volume_per_feeding_liters: float
+    feeding_frequency_per_week: Optional[int]  # Deprecated
+    volume_per_feeding_liters: Optional[float]  # Deprecated
+    watering_schedule_override: Optional[dict]  # WateringSchedule
     notes: Optional[str]
     fertilizer_dosages: list[dict]
 
@@ -1934,7 +2020,7 @@ from pydantic import BaseModel, Field, field_validator
 from datetime import date, datetime
 
 FertilizerType = Literal['base', 'supplement', 'booster', 'biological', 'ph_adjuster', 'organic']
-SubstrateType = Literal['hydro', 'coco', 'soil', 'living_soil', 'perlite', 'rockwool']
+SubstrateType = SubstrateType  # Importiert aus common.enums — 13 Werte, siehe REQ-019
 MixingMethod = Literal['stir', 'circulate', 'rest', 'aerate']
 
 class FertilizerDefinition(BaseModel):
@@ -2811,6 +2897,7 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **EC-Budget-Validierung:** Abgleich Dünger-EC-Summe vs. Ziel-EC pro Phase-Entry (Toleranz ±0.3 mS)
 - [ ] **Plan-Filterung:** Filter nach Substrattyp, Tags und Template-Status
 - [ ] **Düngemittel-Filterung:** Düngemittel-Tabelle filterbar nach Dünger-Typ (`fertilizer_type`), Hersteller (`brand`, Teilstring-Suche), Tank-Sicherheit (`tank_safe`) und Bio-Zertifizierung (`is_organic`). Alle Filter optional und kombinierbar (AND-Verknüpfung).
+- [ ] **Dünger-Planzuordnung (Reverse Lookup):** Auf der Düngemittel-Detailseite und optional in der Listenansicht muss der Nutzer auf einen Blick erkennen können, in welchen Nährstoffplänen ein Dünger verwendet wird. Die Zuordnung wird über die `USES_FERTILIZER`-Kanten (NutrientPlanPhaseEntry → Fertilizer) per Reverse-Graph-Traversal ermittelt. Anzeige als klickbare Chips/Links mit Planname, die direkt zur NutrientPlanDetailPage navigieren. Wird ein Dünger in keinem Plan verwendet, wird dies explizit angezeigt (z.B. "Keinem Plan zugeordnet").
 - [ ] **Gantt-Diagramm:** Nährstoffplan als interaktives Gantt-Diagramm mit Wochen-Zeitachse und Dünger-Zeilen
 - [ ] **Gantt-Phasen-Header:** Zusammenfassende Phasenbalken über den Dünger-Zeilen mit EC/pH-Beschriftung
 - [ ] **Gantt-Phasenfarben:** Farbcodierung nach Wachstumsphase (Germination, Seedling, Vegetative, Flowering, Harvest)
@@ -2819,6 +2906,8 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Gantt-Optionale-Dünger:** Optionale Dünger visuell unterscheidbar (gestrichelt/reduzierte Opazität)
 - [ ] **Gantt-Lücken-Erkennung:** Wochen ohne Phase-Entry als leere Spalten (grauer Hintergrund) hervorgehoben
 - [ ] **Gantt-Überlappung:** Überlappende Phase-Entries als gestapelte Balken mit Warnung dargestellt
+- [ ] **Gantt-Modus-A (Einjährig):** Linearer Zeitstrahl von Samen→Ernte bei `cycle_restart_from_sequence = null`
+- [ ] **Gantt-Modus-B (Saisonal):** Zyklus-Grenzlinie, Setup- vs. wiederkehrende Phasen visuell getrennt, ↻-Indikator bei `cycle_restart_from_sequence ≠ null`
 - [ ] **WateringSchedule-Validierung:** Mode-abhängige Pflichtfelder werden korrekt enforced (weekdays → weekday_schedule, interval → interval_days)
 - [ ] **WateringSchedule-Modus Weekdays:** Feste Wochentage (0–6) werden akzeptiert, Duplikate abgelehnt
 - [ ] **WateringSchedule-Modus Interval:** Intervall 1–90 Tage wird akzeptiert, 0 oder >90 abgelehnt
@@ -3004,6 +3093,37 @@ THEN:
   - Wochen 3–4 werden als leere Spalten mit grauem Hintergrund angezeigt
   - Kein Dünger-Balken in Woche 3–4
   - Visuell erkennbar, dass eine Lücke im Plan existiert
+```
+
+**Szenario 12a: Gantt-Diagramm — Einjähriger Plan (Modus A)**
+```
+GIVEN: NutrientPlan "Tomato Heavy Coco" mit cycle_restart_from_sequence = null
+       4 Phase-Entries: Seedling (W1–2), Vegetative (W3–7), Flowering (W8–15), Harvest (W16–18)
+WHEN: Gantt-Diagramm wird gerendert
+THEN:
+  - Linearer Zeitstrahl von Woche 1 bis 18
+  - Alle Phasen sequenziell von links nach rechts
+  - Kein Zyklus-Indikator, keine Grenzlinie
+  - Zeitstrahl endet nach Woche 18
+```
+
+**Szenario 12b: Gantt-Diagramm — Saisonaler Zyklus (Modus B)**
+```
+GIVEN: NutrientPlan "Monstera Ganzjahr" mit cycle_restart_from_sequence = 3
+       5 Phase-Entries:
+         - seq 1: Establishment (W1–4)     ← einmalig
+         - seq 2: Juvenile (W5–12)          ← einmalig
+         - seq 3: Vegetative (W13–36)       ← wiederkehrend
+         - seq 4: Dormancy (W37–48)         ← wiederkehrend
+         - seq 5: Recovery (W49–52)          ← wiederkehrend
+WHEN: Gantt-Diagramm wird gerendert
+THEN:
+  - Zeitstrahl von Woche 1 bis 52
+  - Vertikale gestrichelte Linie zwischen Woche 12 und 13 (Zyklus-Grenze)
+  - Setup-Zone (W1–12): normaler Hintergrund, kein ↻-Symbol
+  - Zyklus-Zone (W13–52): ↻-Symbol in Phasen-Headern, dezent getönter Hintergrund
+  - Am rechten Rand: Hinweis "↻ Zyklus wiederholt ab Vegetativ"
+  - Dormancy-Phase mit Dormanz-Farbcodierung (Kühlgrau #B0BEC5)
 ```
 
 **Szenario 13: Vollständigkeits-Warnung bei fehlenden Pflichtphasen**
@@ -3206,10 +3326,32 @@ THEN:
   - Override-Werte werden in Response als "Override" gekennzeichnet
 ```
 
+**Szenario 27: Dünger-Planzuordnung (Reverse Lookup)**
+```
+GIVEN: Dünger "CalMag" wird in 3 Nährstoffplänen verwendet:
+       - "Tomato Heavy Coco" (vegetative W3–6: 1.5 ml/L, flowering W7–12: 1.0 ml/L)
+       - "Auto Light Feed" (vegetative W2–5: 1.0 ml/L)
+       - "Orchid Weekly" (vegetative W1–4: 0.5 ml/L)
+       Dünger "PK 13-14" wird in 1 Plan verwendet:
+       - "Tomato Heavy Coco" (flowering W7–12: 0.5 ml/L)
+       Dünger "Neuer Dünger" wird in keinem Plan verwendet.
+WHEN: Nutzer öffnet die FertilizerDetailPage für "CalMag"
+THEN:
+  - Sektion "Verwendet in Nährstoffplänen" zeigt 3 klickbare Chips/Links:
+    "Tomato Heavy Coco", "Auto Light Feed", "Orchid Weekly"
+  - Klick auf einen Chip navigiert zur NutrientPlanDetailPage des jeweiligen Plans
+WHEN: Nutzer öffnet die FertilizerDetailPage für "Neuer Dünger"
+THEN:
+  - Sektion zeigt "Keinem Plan zugeordnet"
+WHEN: Nutzer öffnet die FertilizerListPage
+THEN:
+  - Optional: Spalte oder Badge zeigt Anzahl der zugeordneten Pläne pro Dünger
+```
+
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Düngung, NPK, EC, pH, Misch-Reihenfolge, Flushing, Runoff, Salzakkumulation, Nährstoffplan, NutrientPlan, Lifecycle-Plan, Phase-Entry, Dosierung, Plan-Zuweisung, Klonen, Deep-Copy, EC-Budget, Vollständigkeits-Validierung, Gantt-Diagramm, Gantt-Chart, Timeline, Zeitplan, Dünge-Timeline, Hover-Tooltip, Phasen-Farbcodierung, Dünger-Zeilen, Gießplan, WateringSchedule, Gießtermin, Wochentag, Intervall, ScheduleMode, WateringScheduleEngine, RUN_FOLLOWS_PLAN, Gießplan-Workflow, Foliar-Warnung, Blattdüngung-Blüte, Schimmelrisiko, Multi-Channel, DeliveryChannel, Ausbringungskanal, Fertigation, Drench, Foliar, TopDress, FertigationParams, DrenchParams, FoliarParams, TopDressParams, Channel-Schedule, Channel-EC-Override, Tank-Safe, get_due_channels, get_effective_channels, DeliveryChannelValidator, migrate-to-channels, channel_id
+- Keywords: Düngung, NPK, EC, pH, Misch-Reihenfolge, Flushing, Runoff, Salzakkumulation, Nährstoffplan, NutrientPlan, Lifecycle-Plan, Phase-Entry, Dosierung, Plan-Zuweisung, Klonen, Deep-Copy, EC-Budget, Vollständigkeits-Validierung, Gantt-Diagramm, Gantt-Chart, Timeline, Zeitplan, Dünge-Timeline, Hover-Tooltip, Phasen-Farbcodierung, Dünger-Zeilen, Gießplan, WateringSchedule, Gießtermin, Wochentag, Intervall, ScheduleMode, WateringScheduleEngine, RUN_FOLLOWS_PLAN, Gießplan-Workflow, Foliar-Warnung, Blattdüngung-Blüte, Schimmelrisiko, Multi-Channel, DeliveryChannel, Ausbringungskanal, Fertigation, Drench, Foliar, TopDress, FertigationParams, DrenchParams, FoliarParams, TopDressParams, Channel-Schedule, Channel-EC-Override, Tank-Safe, get_due_channels, get_effective_channels, DeliveryChannelValidator, migrate-to-channels, channel_id, Dünger-Planzuordnung, Reverse-Lookup, USES_FERTILIZER
 - Fachbegriffe: Elektrische Leitfähigkeit, Ausfällung, Chelat, Huminsäure, Osmose, Feeding-Schedule, Nutrient-Profile
 - Verknüpfung: Zentral für REQ-003 (Phasen-NPK, NutrientProfile vs. NutrientPlan), REQ-005 (EC-Sensorik), REQ-007 (Pre-Harvest)
 - Chemische Formeln: CaSO4, NO3-, Ca2+, Fe-EDTA

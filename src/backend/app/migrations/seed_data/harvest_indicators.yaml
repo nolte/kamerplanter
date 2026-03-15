@@ -1,0 +1,95 @@
+harvest_indicators:
+  # Cannabis
+  - indicator_type: trichome
+    measurement_unit: percentage_milky
+    measurement_method: magnification_60x
+    observation_frequency: daily
+    reliability_score: 0.9
+    species_name: Cannabis sativa
+
+  - indicator_type: color
+    measurement_unit: pistil_brown_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.7
+    species_name: Cannabis sativa
+
+  - indicator_type: aroma
+    measurement_unit: terpene_intensity
+    measurement_method: olfactory
+    observation_frequency: daily
+    reliability_score: 0.5
+    species_name: Cannabis sativa
+
+  # Solanaceae
+  - indicator_type: color
+    measurement_unit: color_change_percent
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.85
+    species_name: Solanum lycopersicum
+
+  - indicator_type: brix
+    measurement_unit: brix_degrees
+    measurement_method: refractometer
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Solanum lycopersicum
+
+  - indicator_type: size
+    measurement_unit: diameter_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.7
+    species_name: Solanum lycopersicum
+
+  - indicator_type: texture
+    measurement_unit: firmness_kg
+    measurement_method: penetrometer
+    observation_frequency: weekly
+    reliability_score: 0.6
+    species_name: Solanum lycopersicum
+
+  # Brassicaceae
+  - indicator_type: size
+    measurement_unit: head_diameter_cm
+    measurement_method: caliper
+    observation_frequency: weekly
+    reliability_score: 0.8
+    species_name: Brassica oleracea var. italica
+
+  - indicator_type: texture
+    measurement_unit: compactness_score
+    measurement_method: manual
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Brassica oleracea var. italica
+
+  - indicator_type: days_since_flowering
+    measurement_unit: days
+    measurement_method: calendar
+    observation_frequency: daily
+    reliability_score: 0.7
+    species_name: Brassica oleracea var. italica
+
+  # Asteraceae
+  - indicator_type: texture
+    measurement_unit: leaf_crispness
+    measurement_method: manual
+    observation_frequency: daily
+    reliability_score: 0.8
+    species_name: Lactuca sativa
+
+  - indicator_type: size
+    measurement_unit: head_weight_g
+    measurement_method: scale
+    observation_frequency: weekly
+    reliability_score: 0.75
+    species_name: Lactuca sativa
+
+  - indicator_type: color
+    measurement_unit: green_intensity
+    measurement_method: visual
+    observation_frequency: daily
+    reliability_score: 0.6
+    species_name: Lactuca sativa

@@ -1,6 +1,6 @@
 from arango.database import StandardDatabase
 
-from app.common.types import LocationKey, SiteKey, SlotKey
+from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.site_repository import ISiteRepository
@@ -154,3 +154,21 @@ class ArangoSiteRepository(ISiteRepository, BaseArangoRepository):
         self.delete_edges(col.ADJACENT_TO, from_id=slot_id)
         self.delete_edges(col.FILLED_WITH, from_id=slot_id)
         return BaseArangoRepository(self._db, col.SLOTS).delete(key)
+
+    def get_slot_for_plant(self, plant_key: PlantInstanceKey) -> Slot | None:
+        """Find the slot a plant instance is placed in via the placed_in edge."""
+        query = """
+        FOR e IN @@placed_in
+          FILTER e._from == @plant_id
+          LET slot = DOCUMENT(e._to)
+          RETURN slot
+        """
+        plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
+        cursor = self._db.aql.execute(query, bind_vars={
+            "@placed_in": col.PLACED_IN,
+            "plant_id": plant_id,
+        })
+        doc = next(cursor, None)
+        if doc is None:
+            return None
+        return Slot(**self._from_doc(doc))

@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
-import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import SensorsIcon from '@mui/icons-material/Sensors';
+import GrassIcon from '@mui/icons-material/Grass';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -14,6 +18,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import DataTable, { type Column } from '@/components/common/DataTable';
+import EmptyState from '@/components/common/EmptyState';
 import { useTableLocalState } from '@/hooks/useTableState';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
@@ -23,21 +28,33 @@ import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
-import MuiBreadcrumbs from '@mui/material/Breadcrumbs';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
-import Link from '@mui/material/Link';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import LocationCreateDialog from './LocationCreateDialog';
 import SlotCreateDialog from './SlotCreateDialog';
+import SensorCreateDialog from './SensorCreateDialog';
 import WateringEventCreateDialog from './WateringEventCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useAppDispatch } from '@/store/hooks';
+import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as api from '@/api/endpoints/sites';
 import * as tankApi from '@/api/endpoints/tanks';
 import * as wateringApi from '@/api/endpoints/watering-events';
-import type { Location, Slot, Tank, WateringEvent, WateringStats } from '@/api/types';
+import * as runApi from '@/api/endpoints/plantingRuns';
+import { listPlantInstances } from '@/api/endpoints/plantInstances';
+import type { ChipProps } from '@mui/material/Chip';
+import type { Location, PlantInstance, PlantingRun, PlantingRunStatus, Sensor, Slot, Tank, WateringEvent, WateringStats } from '@/api/types';
+
+const runStatusColor: Record<PlantingRunStatus, ChipProps['color']> = {
+  planned: 'default',
+  active: 'primary',
+  harvesting: 'warning',
+  completed: 'success',
+  cancelled: 'error',
+};
 
 const timeRegex = /^\d{2}:\d{2}$/;
 
@@ -58,6 +75,7 @@ export default function LocationDetailPage() {
   const { key } = useParams<{ key: string }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [location, setLocation] = useState<Location | null>(null);
@@ -75,9 +93,19 @@ export default function LocationDetailPage() {
   const [sublocationCreateOpen, setSublocationCreateOpen] = useState(false);
   const [ancestorChain, setAncestorChain] = useState<{ key: string; name: string }[]>([]);
   const [siteName, setSiteName] = useState<string>('');
+  const [sensors, setSensors] = useState<Sensor[]>([]);
+  const [sensorDialogOpen, setSensorDialogOpen] = useState(false);
+  const [editSensor, setEditSensor] = useState<Sensor | undefined>(undefined);
+  const [deleteSensorKey, setDeleteSensorKey] = useState<string | null>(null);
+  const [assignedRuns, setAssignedRuns] = useState<PlantingRun[]>([]);
+  const [runPlantCounts, setRunPlantCounts] = useState<Map<string, number>>(new Map());
+  const [standaloneInstances, setStandaloneInstances] = useState<PlantInstance[]>([]);
   const slotTableState = useTableLocalState({ defaultSort: { column: 'slotId', direction: 'asc' } });
+  const runTableState = useTableLocalState({ defaultSort: { column: 'name', direction: 'asc' } });
+  const instanceTableState = useTableLocalState({ defaultSort: { column: 'instance_id', direction: 'asc' } });
   const childTableState = useTableLocalState({ defaultSort: { column: 'name', direction: 'asc' } });
   const wateringTableState = useTableLocalState({ defaultSort: { column: 'wateredAt', direction: 'desc' } });
+  const sensorTableState = useTableLocalState({ defaultSort: { column: 'name', direction: 'asc' } });
 
   const { control, handleSubmit, reset, formState: { isDirty } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -169,6 +197,43 @@ export default function LocationDetailPage() {
       } catch {
         // Watering data may not be available
       }
+      // Load sensors
+      try {
+        const locationSensors = await api.getLocationSensors(key);
+        setSensors(locationSensors);
+      } catch {
+        // Sensors may not be available
+      }
+      // Load assigned planting runs + plant instances for this location
+      try {
+        const runs = await runApi.listPlantingRuns(0, 200, undefined, undefined, key);
+        setAssignedRuns(runs);
+        // Load plant counts per run
+        const counts = new Map<string, number>();
+        const runInstanceKeys = new Set<string>();
+        await Promise.all(
+          runs.map(async (r) => {
+            try {
+              const plants = await runApi.listRunPlants(r.key);
+              counts.set(r.key, plants.length);
+              for (const p of plants) runInstanceKeys.add(p.key);
+            } catch {
+              counts.set(r.key, r.actual_quantity);
+            }
+          }),
+        );
+        setRunPlantCounts(counts);
+        // Load all plant instances at this location and find standalone ones
+        try {
+          const allInstances = await listPlantInstances(0, 500);
+          const locationInstances = allInstances.filter((i) => i.location_key === key);
+          setStandaloneInstances(locationInstances.filter((i) => !runInstanceKeys.has(i.key)));
+        } catch {
+          setStandaloneInstances([]);
+        }
+      } catch {
+        setAssignedRuns([]);
+      }
     } catch (err) {
       setError(String(err));
     } finally {
@@ -177,6 +242,26 @@ export default function LocationDetailPage() {
   };
 
   useEffect(() => { load(); }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Push dynamic breadcrumbs to global store
+  useEffect(() => {
+    if (!location) return;
+    const crumbs: { label: string; path?: string }[] = [
+      { label: 'nav.dashboard', path: '/dashboard' },
+      { label: 'nav.sites', path: '/standorte/sites' },
+    ];
+    if (siteName) {
+      crumbs.push({ label: siteName, path: `/standorte/sites/${location.site_key}` });
+    }
+    for (const a of ancestorChain) {
+      crumbs.push({ label: a.name, path: `/standorte/locations/${a.key}` });
+    }
+    crumbs.push({ label: location.name });
+    dispatch(setBreadcrumbs(crumbs));
+  }, [location, siteName, ancestorChain, dispatch]);
+
+  // Clear dynamic breadcrumbs on unmount
+  useEffect(() => () => { dispatch(setBreadcrumbs([])); }, [dispatch]);
 
   const onSubmit = async (data: FormData) => {
     if (!key) return;
@@ -223,23 +308,6 @@ export default function LocationDetailPage() {
   return (
     <>
       <UnsavedChangesGuard dirty={isDirty} />
-
-      {/* Dynamic hierarchy breadcrumb */}
-      {location && (ancestorChain.length > 0 || location.parent_location_key) && (
-        <MuiBreadcrumbs aria-label="location-hierarchy" sx={{ mb: 1 }}>
-          {siteName && (
-            <Link component={RouterLink} to={`/standorte/sites/${location.site_key}`} underline="hover" color="inherit">
-              {siteName}
-            </Link>
-          )}
-          {ancestorChain.map((a) => (
-            <Link key={a.key} component={RouterLink} to={`/standorte/locations/${a.key}`} underline="hover" color="inherit">
-              {a.name}
-            </Link>
-          ))}
-          <Typography color="text.primary">{location.name}</Typography>
-        </MuiBreadcrumbs>
-      )}
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <PageTitle title={location?.name ?? t('entities.location')} />
@@ -302,22 +370,84 @@ export default function LocationDetailPage() {
 
       {/* Assigned Tank */}
       <Box sx={{ mt: 3, maxWidth: 600 }}>
-        <Typography variant="subtitle2" color="text.secondary">
-          {t('pages.locations.assignedTank')}
+        <Card variant="outlined">
+          <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              {t('pages.locations.assignedTank')}
+            </Typography>
+            {assignedTank ? (
+              <Chip
+                label={`${assignedTank.name} (${assignedTank.volume_liters} L)`}
+                size="small"
+                color="primary"
+                variant="outlined"
+                onClick={() => navigate(`/standorte/tanks/${assignedTank.key}`)}
+              />
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                {t('pages.locations.noTank')}
+              </Typography>
+            )}
+          </CardContent>
+        </Card>
+      </Box>
+
+      {/* Plants & Runs at this location */}
+      <Box sx={{ mt: 4 }}>
+        <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <GrassIcon />
+          {t('pages.locations.plantsAndRuns')}
         </Typography>
-        {assignedTank ? (
-          <Chip
-            label={`${assignedTank.name} (${assignedTank.volume_liters} L)`}
-            size="small"
-            color="primary"
-            variant="outlined"
-            onClick={() => navigate(`/standorte/tanks/${assignedTank.key}`)}
-            sx={{ mt: 0.5 }}
-          />
+        {assignedRuns.length === 0 && standaloneInstances.length === 0 ? (
+          <EmptyState message={t('pages.locations.noPlantsOrRuns')} />
         ) : (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            {t('pages.locations.noTank')}
-          </Typography>
+          <>
+            {assignedRuns.length > 0 && (
+              <DataTable<PlantingRun>
+                columns={[
+                  { id: 'name', label: t('pages.plantingRuns.name'), render: (r) => r.name },
+                  { id: 'status', label: t('pages.plantingRuns.status'), render: (r) => (
+                    <Chip label={t(`enums.plantingRunStatus.${r.status}`)} size="small" color={runStatusColor[r.status] ?? 'default'} />
+                  )},
+                  { id: 'runType', label: t('pages.plantingRuns.runType'), render: (r) => t(`enums.plantingRunType.${r.run_type}`) },
+                  { id: 'plants', label: t('pages.locations.plantCount'), render: (r) => (
+                    <Chip
+                      label={`${runPlantCounts.get(r.key) ?? r.actual_quantity} ${t('entities.plantInstances')}`}
+                      size="small"
+                      variant="outlined"
+                    />
+                  ), searchValue: (r) => String(runPlantCounts.get(r.key) ?? r.actual_quantity) },
+                ]}
+                rows={assignedRuns}
+                getRowKey={(r) => r.key}
+                onRowClick={(r) => navigate(`/durchlaeufe/planting-runs/${r.key}`)}
+                tableState={runTableState}
+                ariaLabel={t('pages.locations.assignedRuns')}
+              />
+            )}
+            {standaloneInstances.length > 0 && (
+              <Box sx={{ mt: assignedRuns.length > 0 ? 3 : 0 }}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                  {t('pages.locations.standalonePlants')}
+                </Typography>
+                <DataTable<PlantInstance>
+                  columns={[
+                    { id: 'instance_id', label: t('pages.plantInstances.instanceId'), render: (r) => r.instance_id },
+                    { id: 'plant_name', label: t('pages.plantInstances.plantName'), render: (r) => r.plant_name || '\u2014' },
+                    { id: 'current_phase', label: t('pages.plantInstances.currentPhase'), render: (r) => (
+                      <Chip label={t(`enums.phaseName.${r.current_phase}`)} size="small" variant="outlined" />
+                    ), searchValue: (r) => t(`enums.phaseName.${r.current_phase}`) },
+                    { id: 'planted_on', label: t('pages.plantInstances.plantedOn'), render: (r) => r.planted_on ? new Date(r.planted_on).toLocaleDateString() : '\u2014' },
+                  ]}
+                  rows={standaloneInstances}
+                  getRowKey={(r) => r.key}
+                  onRowClick={(r) => navigate(`/pflanzen/plant-instances/${r.key}`)}
+                  tableState={instanceTableState}
+                  ariaLabel={t('pages.locations.standalonePlants')}
+                />
+              </Box>
+            )}
+          </>
         )}
       </Box>
 
@@ -325,14 +455,16 @@ export default function LocationDetailPage() {
       <Box sx={{ mt: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6">{t('pages.locations.sublocations')}</Typography>
-          <Button startIcon={<AddIcon />} onClick={() => setSublocationCreateOpen(true)}>
+          <Button startIcon={<AddIcon />} onClick={() => setSublocationCreateOpen(true)} data-testid="add-sublocation-button">
             {t('pages.locations.addSublocation')}
           </Button>
         </Box>
         {childLocations.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            {t('pages.locations.noSublocations')}
-          </Typography>
+          <EmptyState
+            message={t('pages.locations.noSublocations')}
+            actionLabel={t('pages.locations.addSublocation')}
+            onAction={() => setSublocationCreateOpen(true)}
+          />
         ) : (
           <DataTable<Location>
             columns={[
@@ -352,11 +484,19 @@ export default function LocationDetailPage() {
       <Box sx={{ mt: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6">{t('pages.slots.title')}</Typography>
-          <Button startIcon={<AddIcon />} onClick={() => setSlotCreateOpen(true)}>
+          <Button startIcon={<AddIcon />} onClick={() => setSlotCreateOpen(true)} data-testid="create-slot-button">
             {t('pages.slots.create')}
           </Button>
         </Box>
-        <DataTable columns={slotColumns} rows={slots} getRowKey={(r) => r.key} onRowClick={(r) => navigate(`/standorte/slots/${r.key}`)} tableState={slotTableState} ariaLabel={t('pages.slots.title')} />
+        {slots.length === 0 ? (
+          <EmptyState
+            message={t('pages.slots.noSlots')}
+            actionLabel={t('pages.slots.create')}
+            onAction={() => setSlotCreateOpen(true)}
+          />
+        ) : (
+          <DataTable columns={slotColumns} rows={slots} getRowKey={(r) => r.key} onRowClick={(r) => navigate(`/standorte/slots/${r.key}`)} tableState={slotTableState} ariaLabel={t('pages.slots.title')} />
+        )}
       </Box>
 
       {/* Watering Events Section */}
@@ -428,9 +568,9 @@ export default function LocationDetailPage() {
               align: 'right',
             },
             {
-              id: 'slots',
-              label: t('pages.wateringEvents.slotKeys'),
-              render: (r) => String(r.slot_keys.length),
+              id: 'plants',
+              label: t('pages.wateringEvents.plantKeys'),
+              render: (r) => String(r.plant_keys.length),
               align: 'right',
             },
             {
@@ -452,9 +592,83 @@ export default function LocationDetailPage() {
             setWateringCreateOpen(false);
             load();
           }}
-          slotKeys={slots.map((s) => s.key)}
         />
       </Box>
+
+      {/* Sensors */}
+      <Box sx={{ mt: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <SensorsIcon />
+            {t('pages.sensors.title')}
+          </Typography>
+          <Button startIcon={<AddIcon />} onClick={() => { setEditSensor(undefined); setSensorDialogOpen(true); }} data-testid="add-sensor-button">
+            {t('pages.sensors.add')}
+          </Button>
+        </Box>
+        {sensors.length === 0 ? (
+          <EmptyState
+            message={t('pages.sensors.noSensors')}
+            actionLabel={t('pages.sensors.add')}
+            onAction={() => { setEditSensor(undefined); setSensorDialogOpen(true); }}
+          />
+        ) : (
+          <DataTable<Sensor>
+            columns={[
+              { id: 'name', label: t('pages.sensors.name'), render: (r) => r.name },
+              { id: 'metricType', label: t('pages.sensors.metricType'), render: (r) => r.metric_type },
+              { id: 'haEntityId', label: t('pages.sensors.haEntityId'), render: (r) => r.ha_entity_id || '—' },
+              { id: 'active', label: t('pages.sensors.active'), render: (r) => (
+                <Chip label={r.is_active ? t('common.yes') : t('common.no')} size="small" color={r.is_active ? 'success' : 'default'} />
+              )},
+              { id: 'actions', label: '', render: (r) => (
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  <IconButton size="small" onClick={(e) => { e.stopPropagation(); setEditSensor(r); setSensorDialogOpen(true); }}>
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton size="small" onClick={(e) => { e.stopPropagation(); setDeleteSensorKey(r.key); }}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              )},
+            ] satisfies Column<Sensor>[]}
+            rows={sensors}
+            getRowKey={(r) => r.key}
+            tableState={sensorTableState}
+            ariaLabel={t('pages.sensors.title')}
+          />
+        )}
+      </Box>
+
+      {key && (
+        <SensorCreateDialog
+          open={sensorDialogOpen}
+          onClose={() => { setSensorDialogOpen(false); setEditSensor(undefined); }}
+          context={{ parentType: 'location', parentKey: key }}
+          sensor={editSensor}
+          onSaved={() => { setSensorDialogOpen(false); setEditSensor(undefined); load(); }}
+        />
+      )}
+
+      <ConfirmDialog
+        open={!!deleteSensorKey}
+        title={t('common.delete')}
+        message={t('common.deleteConfirm', { name: sensors.find((s) => s.key === deleteSensorKey)?.name })}
+        onConfirm={async () => {
+          if (deleteSensorKey) {
+            try {
+              await tankApi.deleteSensor(deleteSensorKey);
+              notification.success(t('pages.sensors.deleted'));
+              load();
+            } catch (err) {
+              handleError(err);
+            }
+          }
+          setDeleteSensorKey(null);
+        }}
+        onCancel={() => setDeleteSensorKey(null)}
+        destructive
+      />
 
       {key && (
         <SlotCreateDialog
@@ -469,6 +683,7 @@ export default function LocationDetailPage() {
         <LocationCreateDialog
           siteKey={location.site_key}
           parentLocationKey={key}
+          parentLocationTypeKey={location.location_type_key}
           open={sublocationCreateOpen}
           onClose={() => setSublocationCreateOpen(false)}
           onCreated={() => { setSublocationCreateOpen(false); load(); }}

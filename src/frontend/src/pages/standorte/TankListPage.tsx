@@ -11,6 +11,7 @@ import { fetchTanks } from '@/store/slices/tanksSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import type { Tank } from '@/api/types';
 import TankCreateDialog from './TankCreateDialog';
+import { kamiTanks } from '@/assets/brand/illustrations';
 
 export default function TankListPage() {
   const { t } = useTranslation();
@@ -74,6 +75,7 @@ export default function TankListPage() {
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.tanks.create')}
         onEmptyAction={() => setCreateOpen(true)}
+        emptyIllustration={kamiTanks}
         tableState={tableState}
         ariaLabel={t('pages.tanks.title')}
       />

@@ -52,5 +52,19 @@ celery_app.conf.update(
             "task": "app.tasks.watering_tasks.generate_watering_tasks",
             "schedule": 86400,
         },
+        # REQ-014 Tank maintenance tasks
+        "tank-maintenance-tasks-daily": {
+            "task": "app.tasks.tank_maintenance_tasks.generate_tank_maintenance_tasks",
+            "schedule": 86400,
+        },
+        "tank-check-alerts-hourly": {
+            "task": "app.tasks.tank_maintenance_tasks.check_tank_alerts",
+            "schedule": 3600,
+        },
+        # REQ-004-A Runoff trend analysis
+        "runoff-trend-check-daily": {
+            "task": "app.tasks.tank_maintenance_tasks.check_runoff_trends",
+            "schedule": 86400,
+        },
     },
 )

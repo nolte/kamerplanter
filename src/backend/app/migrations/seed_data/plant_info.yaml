@@ -1,0 +1,3229 @@
+# Plant-info seed data from spec/ref/plant-info/*.md (32 documents, 28 species).
+#
+# Adds 1 new botanical family (Iridaceae), 4 new species, enriches 24 existing
+# species, adds art-specific growth phases for 11 species, ~120 cultivars,
+# companion planting edges, and IPM data.
+
+# ==============================================================================
+# S1  NEW BOTANICAL FAMILIES (1)
+# ==============================================================================
+
+new_families:
+  - name: Iridaceae
+    common_name_de: "Schwertliliengewächse"
+    common_name_en: Iris family
+    order: Asparagales
+    typical_nutrient_demand: light
+    frost_tolerance: moderate
+    typical_root_depth: shallow
+    typical_growth_forms: [herb]
+    common_pests: [thrips, aphids, gladiolus_thrips]
+    common_diseases: [Fusarium, Grauschimmel, "Knollenfäule"]
+    pollination_type: [insect]
+    soil_ph_preference:
+      min_ph: 6.0
+      max_ph: 7.0
+    description: >-
+      Schwertliliengewächse mit Iris, Krokus, Gladiole und Tigridia.
+      Geophyten mit Zwiebeln, Knollen oder Rhizomen. Insektenbestäubt.
+    rotation_category: ornamental
+
+# ==============================================================================
+# S2  NEW SPECIES (4)
+# ==============================================================================
+
+new_species_family_map:
+  "Dahlia pinnata": Asteraceae
+  "Petunia x hybrida": Solanaceae
+  "Tigridia pavonia": Iridaceae
+  "Apium graveolens var. rapaceum": Apiaceae
+
+new_species:
+  - scientific_name: "Dahlia pinnata"
+    common_names: [Dahlie, Dahlia, Garden Dahlia]
+    genus: Dahlia
+    growth_habit: herb
+    root_type: tuberous
+    hardiness_zones: [8a, 8b, 9a, 9b, 10a, 10b, 11a]
+    native_habitat: "Mexiko, Mittelamerika (Hochland, 1500-3000 m)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: 5
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [5, 6]
+    harvest_months: []
+    bloom_months: [7, 8, 9, 10]
+    container_suitable: limited
+    recommended_container_volume_l: "20-30"
+    min_container_depth_cm: 40
+    mature_height_cm: "90-130"
+    mature_width_cm: "40-60"
+    spacing_cm: "50-60"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: true
+
+  - scientific_name: "Petunia x hybrida"
+    common_names: [Garten-Petunie, Garden Petunia, Petunia]
+    genus: Petunia
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: [10a, 10b, 11a, 11b]
+    native_habitat: "Südamerika (Argentinien, Uruguay)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: 11
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: []
+    bloom_months: [5, 6, 7, 8, 9, 10]
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-15"
+    min_container_depth_cm: 20
+    mature_height_cm: "20-40"
+    mature_width_cm: "30-90"
+    spacing_cm: "25-40"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Tigridia pavonia"
+    common_names:
+      - Pfauenblume
+      - Tigerblume
+      - Tiger Flower
+      - Mexican Shell Flower
+      - Peacock Flower
+    genus: Tigridia
+    growth_habit: herb
+    root_type: corm
+    hardiness_zones: [7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b]
+    native_habitat: "Mexiko, Guatemala, Kolumbien (2000-3000 m)"
+    allelopathy_score: 0.0
+    base_temp: 10.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    sowing_indoor_weeks_before_last_frost: 7
+    sowing_outdoor_after_last_frost_days: 7
+    direct_sow_months: [5, 6]
+    harvest_months: []
+    bloom_months: [7, 8, 9]
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-10"
+    min_container_depth_cm: 20
+    mature_height_cm: "45-75"
+    mature_width_cm: "15-30"
+    spacing_cm: "10-15"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+
+  - scientific_name: "Apium graveolens var. rapaceum"
+    common_names:
+      - Knollensellerie
+      - Wurzelsellerie
+      - Zeller
+      - Celeriac
+      - Turnip-rooted Celery
+    genus: Apium
+    growth_habit: herb
+    root_type: tuberous
+    hardiness_zones: [5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
+    native_habitat: "Europa, Mittelmeerraum, Vorderasien"
+    allelopathy_score: 0.1
+    base_temp: 7.0
+    frost_sensitivity: moderate
+    allows_harvest: true
+    sowing_indoor_weeks_before_last_frost: 11
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
+    harvest_months: [9, 10, 11]
+    bloom_months: []
+    container_suitable: limited
+    recommended_container_volume_l: "15-20"
+    min_container_depth_cm: 30
+    mature_height_cm: "30-50"
+    mature_width_cm: "30-40"
+    spacing_cm: "35-40"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: true
+    support_required: false
+
+# ==============================================================================
+# S3  SPECIES ENRICHMENT (existing species - fill None/empty fields)
+# ==============================================================================
+
+species_enrichment:
+  "Chlorophytum comosum":
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-5"
+    min_container_depth_cm: 15
+    mature_height_cm: "30-60"
+    mature_width_cm: "30-60"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    frost_sensitivity: sensitive
+    bloom_months: [5, 6, 7, 8]
+    watering_guide:
+      interval_days: 7
+      volume_ml_min: 100
+      volume_ml_max: 300
+      watering_method: top_water
+      water_quality_hint: null
+      practical_tip: "Substrat leicht antrocknen lassen zwischen den Giessintervallen. Gruenlilie ist trockenheitstolerant dank fleischiger Speicherwurzeln."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 10
+          volume_ml_min: 80
+          volume_ml_max: 200
+
+  "Guzmania lingulata":
+    container_suitable: "yes"
+    recommended_container_volume_l: "1-2"
+    min_container_depth_cm: 10
+    mature_height_cm: "30-50"
+    mature_width_cm: "30-40"
+    indoor_suitable: "yes"
+    balcony_suitable: "no"
+    frost_sensitivity: sensitive
+    watering_guide:
+      interval_days: 7
+      volume_ml_min: 50
+      volume_ml_max: 150
+      watering_method: top_water
+      water_quality_hint: "Kalkfreies Wasser verwenden (Regenwasser oder gefiltertes Wasser). Chlor vermeiden."
+      practical_tip: "Blatttrichter immer mit Wasser gefuellt halten. Substrat nur leicht feucht. Alle 2 Wochen Trichterwasser erneuern."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 10
+          volume_ml_min: 30
+          volume_ml_max: 100
+
+  "Monstera deliciosa":
+    container_suitable: "yes"
+    recommended_container_volume_l: "10-20"
+    min_container_depth_cm: 25
+    mature_height_cm: "100-300"
+    mature_width_cm: "80-150"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    frost_sensitivity: sensitive
+    support_required: true
+    watering_guide:
+      interval_days: 7
+      volume_ml_min: 200
+      volume_ml_max: 500
+      watering_method: top_water
+      water_quality_hint: null
+      practical_tip: "Obere 3-5 cm abtrocknen lassen (Fingerprobe). Langsam und gleichmaessig giessen, bis Wasser aus den Abzugsloechern laeuft. Ueberschuss nach 30 Minuten entfernen."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 12
+          volume_ml_min: 150
+          volume_ml_max: 300
+
+  "Spathiphyllum wallisii":
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-5"
+    min_container_depth_cm: 15
+    mature_height_cm: "30-60"
+    mature_width_cm: "30-50"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    frost_sensitivity: sensitive
+    bloom_months: [4, 5, 6, 7, 8]
+    watering_guide:
+      interval_days: 5
+      volume_ml_min: 100
+      volume_ml_max: 300
+      watering_method: top_water
+      water_quality_hint: "Kalkempfindlich. Abgestandenes Leitungswasser oder Regenwasser bevorzugt."
+      practical_tip: "Einblatt laesst bei Trockenheit die Blaetter haengen -- das ist der natuerliche Giessindikator. Obere 2-3 cm antrocknen lassen. Keine Staunaesse."
+      seasonal_adjustments:
+        - label: "Winter (Nov-Feb)"
+          months: [11, 12, 1, 2]
+          interval_days: 7
+          volume_ml_min: 80
+          volume_ml_max: 200
+
+  "Fragaria x ananassa":
+    container_suitable: "yes"
+    recommended_container_volume_l: "3-5"
+    min_container_depth_cm: 20
+    mature_height_cm: "15-30"
+    mature_width_cm: "30-45"
+    spacing_cm: "25-35"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: true
+    frost_sensitivity: moderate
+    harvest_months: [5, 6, 7, 8, 9, 10]
+    bloom_months: [4, 5, 6, 7, 8, 9]
+    watering_guide:
+      interval_days: 3
+      volume_ml_min: 200
+      volume_ml_max: 500
+      watering_method: drench_and_drain
+      water_quality_hint: null
+      practical_tip: "Erdbeeren gleichmaessig feucht halten, Staunaesse vermeiden. Mulchen reduziert Verdunstung und haelt Fruechte sauber. In der Fruchtreife taeglicher Wasserbedarf moeglich."
+      seasonal_adjustments:
+        - label: "Fruchtreife (Jun-Aug)"
+          months: [6, 7, 8]
+          interval_days: 2
+          volume_ml_min: 300
+          volume_ml_max: 600
+
+  "Helianthus annuus":
+    container_suitable: limited
+    recommended_container_volume_l: "10-20"
+    min_container_depth_cm: 25
+    mature_height_cm: "30-300"
+    mature_width_cm: "30-60"
+    spacing_cm: "30-60"
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    frost_sensitivity: sensitive
+    sowing_indoor_weeks_before_last_frost: 4
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [5, 6]
+    harvest_months: [8, 9, 10]
+    bloom_months: [7, 8, 9]
+    support_required: true
+
+  "Viola x wittrockiana":
+    container_suitable: "yes"
+    recommended_container_volume_l: "1-3"
+    min_container_depth_cm: 15
+    mature_height_cm: "15-25"
+    mature_width_cm: "15-25"
+    spacing_cm: "20-25"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+    frost_sensitivity: hardy
+    sowing_indoor_weeks_before_last_frost: 12
+    bloom_months: [3, 4, 5, 6, 9, 10]
+
+# ==============================================================================
+# S4  LIFECYCLE CONFIGS
+# ==============================================================================
+
+lifecycle_configs:
+  # Indoor perennials
+  "Chlorophytum comosum":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 20
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Guzmania lingulata":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 3
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Monstera deliciosa":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 40
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Spathiphyllum wallisii":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 15
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  # Outdoor perennials
+  "Fragaria x ananassa":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 4
+    dormancy_required: true
+    vernalization_required: true
+    vernalization_min_days: 30
+    critical_day_length_hours: null
+
+  "Dahlia pinnata":
+    cycle_type: perennial
+    photoperiod_type: short_day
+    typical_lifespan_years: null
+    dormancy_required: true
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: 12.0
+
+  "Tigridia pavonia":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: null
+    dormancy_required: true
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  # Outdoor annuals / biennials
+  "Helianthus annuus":
+    cycle_type: annual
+    photoperiod_type: day_neutral
+    typical_lifespan_years: null
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Viola x wittrockiana":
+    cycle_type: biennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: null
+    dormancy_required: false
+    vernalization_required: true
+    vernalization_min_days: 30
+    critical_day_length_hours: null
+
+  "Petunia x hybrida":
+    cycle_type: annual
+    photoperiod_type: day_neutral
+    typical_lifespan_years: null
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+  "Apium graveolens var. rapaceum":
+    cycle_type: biennial
+    photoperiod_type: long_day
+    typical_lifespan_years: null
+    dormancy_required: false
+    vernalization_required: true
+    vernalization_min_days: 42
+    critical_day_length_hours: 14.0
+
+# ==============================================================================
+# S5  ART-SPECIFIC GROWTH PHASES (11 species)
+# ==============================================================================
+# Each phase has: phase info, requirement_profile, nutrient_profile
+
+growth_phases:
+  "Chlorophytum comosum":
+    - name: establishment
+      display_name: "Etablierung"
+      duration_days: 30
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 150
+        photoperiod_hours: 12.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 3.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.5
+        target_ph: 6.0
+        calcium_ppm: 40
+        magnesium_ppm: 20
+
+    - name: vegetative
+      display_name: Vegetativ
+      duration_days: 180
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 12.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.0
+        calcium_ppm: 60
+        magnesium_ppm: 30
+
+    - name: flowering
+      display_name: "Blüte & Kindel"
+      duration_days: 60
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 250
+        photoperiod_hours: 12.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.0
+        calcium_ppm: 60
+        magnesium_ppm: 30
+
+    - name: mature
+      display_name: Reife Pflanze
+      duration_days: 365
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 12.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.6
+        target_ph: 6.0
+        calcium_ppm: 50
+        magnesium_ppm: 25
+
+  "Guzmania lingulata":  # W-001: vegetative 365→730 (realität 2-3 Jahre bis Blühreife)
+    - name: pup_establishment
+      display_name: Kindel-Etablierung
+      duration_days: 60
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 100
+        photoperiod_hours: 12.0
+        temperature_day_c: 24.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 70
+        humidity_night_percent: 75
+        vpd_target_kpa: 0.5
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 30
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.2
+        target_ph: 5.5
+        calcium_ppm: 20
+        magnesium_ppm: 10
+
+    - name: vegetative
+      display_name: Vegetativ
+      duration_days: 730
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 150
+        photoperiod_hours: 12.0
+        temperature_day_c: 24.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 30
+      nutrient_profile:
+        npk_ratio: [1, 0, 1]
+        target_ec_ms: 0.3
+        target_ph: 5.5
+        calcium_ppm: 20
+        magnesium_ppm: 10
+
+    - name: pre_bloom
+      display_name: "Blüteninduktion"
+      duration_days: 60
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 12.0
+        temperature_day_c: 24.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 30
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.4
+        target_ph: 5.5
+        calcium_ppm: 20
+        magnesium_ppm: 10
+
+    - name: flowering
+      display_name: "Blüte"
+      duration_days: 90
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 150
+        photoperiod_hours: 12.0
+        temperature_day_c: 24.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 30
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.3
+        target_ph: 5.5
+        calcium_ppm: 20
+        magnesium_ppm: 10
+
+    - name: senescence
+      display_name: "Seneszenz & Kindel"
+      duration_days: 180
+      sequence_order: 5
+      is_terminal: true
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 100
+        photoperiod_hours: 12.0
+        temperature_day_c: 24.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.5
+        co2_ppm: 400
+        irrigation_frequency_days: 10.0
+        irrigation_volume_ml_per_plant: 20
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.1
+        target_ph: 5.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Monstera deliciosa":
+    - name: juvenile
+      display_name: Juvenil
+      duration_days: 365
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 150
+        photoperiod_hours: 12.0
+        temperature_day_c: 24.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [2, 1, 1]
+        target_ec_ms: 0.8
+        target_ph: 6.0
+        calcium_ppm: 60
+        magnesium_ppm: 30
+
+    - name: vegetative
+      display_name: Vegetativ
+      duration_days: 365
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 250
+        photoperiod_hours: 12.0
+        temperature_day_c: 25.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 400
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 1.2
+        target_ph: 6.0
+        calcium_ppm: 80
+        magnesium_ppm: 40
+
+    - name: climbing
+      display_name: Kletterphase
+      duration_days: 365
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 12.0
+        temperature_day_c: 25.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 500
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 1.4
+        target_ph: 6.0
+        calcium_ppm: 100
+        magnesium_ppm: 50
+
+    - name: mature
+      display_name: Reife Pflanze
+      duration_days: 365
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 250
+        photoperiod_hours: 12.0
+        temperature_day_c: 24.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 500
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 1.2
+        target_ph: 6.0
+        calcium_ppm: 80
+        magnesium_ppm: 40
+
+  "Spathiphyllum wallisii":
+    - name: establishment
+      display_name: "Etablierung"
+      duration_days: 60
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 100
+        photoperiod_hours: 12.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 3.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.5
+        target_ph: 5.8
+        calcium_ppm: 40
+        magnesium_ppm: 20
+
+    - name: vegetative
+      display_name: Vegetativ
+      duration_days: 180
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 150
+        photoperiod_hours: 12.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.8
+        target_ph: 5.8
+        calcium_ppm: 60
+        magnesium_ppm: 30
+
+    - name: flowering
+      display_name: "Blüte"
+      duration_days: 60
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 12.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 4.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [2, 2, 2]
+        target_ec_ms: 0.8
+        target_ph: 5.8
+        calcium_ppm: 60
+        magnesium_ppm: 30
+
+    - name: mature
+      display_name: Reife Pflanze
+      duration_days: 365
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 150
+        photoperiod_hours: 12.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.7
+        target_ph: 5.8
+        calcium_ppm: 50
+        magnesium_ppm: 25
+
+  "Fragaria x ananassa":
+    - name: germination
+      display_name: Keimung/Etablierung
+      duration_days: 14
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 14.0
+        temperature_day_c: 20.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 70
+        humidity_night_percent: 75
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 50
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.5
+        target_ph: 6.0
+        calcium_ppm: 40
+        magnesium_ppm: 20
+
+    - name: vegetative
+      display_name: Vegetativ
+      duration_days: 90
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 1.2
+        target_ph: 6.0
+        calcium_ppm: 100
+        magnesium_ppm: 40
+
+    - name: flowering
+      display_name: "Blüte"
+      duration_days: 21
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 20.0
+        temperature_night_c: 12.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 250
+      nutrient_profile:
+        npk_ratio: [2, 2, 3]
+        target_ec_ms: 1.4
+        target_ph: 6.0
+        calcium_ppm: 120
+        magnesium_ppm: 50
+
+    - name: ripening
+      display_name: Fruchtreife
+      duration_days: 28
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: true
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 1.5
+        irrigation_volume_ml_per_plant: 300
+      nutrient_profile:
+        npk_ratio: [1, 2, 4]
+        target_ec_ms: 1.6
+        target_ph: 6.0
+        calcium_ppm: 150
+        magnesium_ppm: 60
+
+    - name: recovery
+      display_name: Erholung
+      duration_days: 45
+      sequence_order: 5
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 12.0
+        temperature_day_c: 20.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 3.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 1.0
+        target_ph: 6.0
+        calcium_ppm: 80
+        magnesium_ppm: 40
+
+    - name: dormancy
+      display_name: Winterruhe
+      duration_days: 90
+      sequence_order: 6
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 0
+        photoperiod_hours: 8.0
+        temperature_day_c: 5.0
+        temperature_night_c: 0.0
+        humidity_day_percent: 75
+        humidity_night_percent: 80
+        vpd_target_kpa: 0.2
+        co2_ppm: 400
+        irrigation_frequency_days: 14.0
+        irrigation_volume_ml_per_plant: 50
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Helianthus annuus":
+    - name: germination
+      display_name: Keimung
+      duration_days: 10
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 0
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 75
+        humidity_night_percent: 80
+        vpd_target_kpa: 0.5
+        co2_ppm: 400
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 20
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+    - name: seedling
+      display_name: "Sämling"
+      duration_days: 18
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 16.0
+        temperature_day_c: 22.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 50
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.6
+        target_ph: 6.5
+        calcium_ppm: 60
+        magnesium_ppm: 30
+
+    - name: vegetative
+      display_name: Vegetativ
+      duration_days: 60
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 600
+        photoperiod_hours: 16.0
+        temperature_day_c: 25.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 1.1
+        co2_ppm: 400
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 300
+      nutrient_profile:
+        npk_ratio: [3, 1, 3]
+        target_ec_ms: 1.6
+        target_ph: 6.5
+        calcium_ppm: 120
+        magnesium_ppm: 50
+
+    - name: flowering
+      display_name: "Blüte"
+      duration_days: 21
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 700
+        photoperiod_hours: 14.0
+        temperature_day_c: 25.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 1.2
+        co2_ppm: 400
+        irrigation_frequency_days: 1.5
+        irrigation_volume_ml_per_plant: 400
+      nutrient_profile:
+        npk_ratio: [2, 2, 4]
+        target_ec_ms: 2.0
+        target_ph: 6.5
+        calcium_ppm: 150
+        magnesium_ppm: 60
+
+    - name: ripening
+      display_name: Samenreife
+      duration_days: 32
+      sequence_order: 5
+      is_terminal: false
+      allows_harvest: true
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 600
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 1.1
+        co2_ppm: 400
+        irrigation_frequency_days: 3.0
+        irrigation_volume_ml_per_plant: 300
+      nutrient_profile:
+        npk_ratio: [1, 2, 3]
+        target_ec_ms: 1.4
+        target_ph: 6.5
+        calcium_ppm: 100
+        magnesium_ppm: 40
+
+    - name: senescence
+      display_name: Seneszenz
+      duration_days: 10
+      sequence_order: 6
+      is_terminal: true
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 12.0
+        temperature_day_c: 20.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Viola x wittrockiana":
+    - name: germination
+      display_name: Keimung
+      duration_days: 12
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 100
+        photoperiod_hours: 12.0
+        temperature_day_c: 16.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 80
+        humidity_night_percent: 85
+        vpd_target_kpa: 0.4
+        co2_ppm: 400
+        irrigation_frequency_days: 1.0
+        irrigation_volume_ml_per_plant: 10
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+    - name: seedling
+      display_name: "Sämling"
+      duration_days: 35
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 14.0
+        temperature_day_c: 16.0
+        temperature_night_c: 12.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 25
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.5
+        target_ph: 6.0
+        calcium_ppm: 50
+        magnesium_ppm: 25
+
+    - name: vegetative
+      display_name: Vegetativ
+      duration_days: 28
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 14.0
+        temperature_day_c: 16.0
+        temperature_night_c: 10.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 80
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.0
+        calcium_ppm: 70
+        magnesium_ppm: 35
+
+    - name: flowering
+      display_name: "Blüte"
+      duration_days: 90
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 350
+        photoperiod_hours: 14.0
+        temperature_day_c: 16.0
+        temperature_night_c: 8.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.7
+        target_ph: 6.0
+        calcium_ppm: 60
+        magnesium_ppm: 30
+
+    - name: senescence
+      display_name: Seneszenz
+      duration_days: 21
+      sequence_order: 5
+      is_terminal: true
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 12.0
+        temperature_day_c: 22.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 3.0
+        irrigation_volume_ml_per_plant: 50
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Dahlia pinnata":
+    - name: dormancy
+      display_name: Dormanz (Knollenlager)
+      duration_days: 135
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 0
+        photoperiod_hours: 0.0
+        temperature_day_c: 7.0
+        temperature_night_c: 4.0
+        humidity_day_percent: 68
+        humidity_night_percent: 68
+        vpd_target_kpa: 0.0
+        co2_ppm: 400
+        irrigation_frequency_days: null
+        irrigation_volume_ml_per_plant: 0
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+    - name: sprouting
+      display_name: Voranzucht/Austrieb
+      duration_days: 30
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 14.0
+        temperature_day_c: 17.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 3.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.5
+        target_ph: 6.5
+        calcium_ppm: 50
+        magnesium_ppm: 25
+
+    - name: hardening_off
+      display_name: "Abhärtung"
+      duration_days: 10
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 18.0
+        temperature_night_c: 12.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.6
+        target_ph: 6.5
+        calcium_ppm: 60
+        magnesium_ppm: 30
+
+    - name: vegetative
+      display_name: Vegetativ
+      duration_days: 70
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 600
+        photoperiod_hours: 16.0
+        temperature_day_c: 22.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 400
+      nutrient_profile:
+        npk_ratio: [3, 1, 3]
+        target_ec_ms: 1.6
+        target_ph: 6.5
+        calcium_ppm: 120
+        magnesium_ppm: 50
+
+    - name: flowering
+      display_name: "Blüte"
+      duration_days: 75
+      sequence_order: 5
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 600
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 1.1
+        co2_ppm: 400
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 500
+      nutrient_profile:
+        npk_ratio: [2, 2, 4]
+        target_ec_ms: 2.0
+        target_ph: 6.5
+        calcium_ppm: 150
+        magnesium_ppm: 60
+
+    - name: senescence
+      display_name: Seneszenz/Knollenreife
+      duration_days: 18
+      sequence_order: 6
+      is_terminal: true
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 10.0
+        temperature_day_c: 14.0
+        temperature_night_c: 8.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Petunia x hybrida":
+    - name: germination
+      display_name: Keimung
+      duration_days: 10
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 100
+        photoperiod_hours: 16.0
+        temperature_day_c: 23.0
+        temperature_night_c: 21.0
+        humidity_day_percent: 88
+        humidity_night_percent: 88
+        vpd_target_kpa: 0.4
+        co2_ppm: 400
+        irrigation_frequency_days: 1.5
+        irrigation_volume_ml_per_plant: 10
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 5.8
+        calcium_ppm: null
+        magnesium_ppm: null
+
+    - name: seedling
+      display_name: "Sämling"
+      duration_days: 28
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 225
+        photoperiod_hours: 16.0
+        temperature_day_c: 20.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 68
+        humidity_night_percent: 72
+        vpd_target_kpa: 0.7
+        co2_ppm: 500
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 25
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.5
+        target_ph: 5.8
+        calcium_ppm: 50
+        magnesium_ppm: 25
+
+    - name: vegetative
+      display_name: Vegetativ
+      duration_days: 35
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 16.0
+        temperature_day_c: 22.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 58
+        humidity_night_percent: 62
+        vpd_target_kpa: 1.0
+        co2_ppm: 500
+        irrigation_frequency_days: 1.5
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 1.2
+        target_ph: 5.8
+        calcium_ppm: 100
+        magnesium_ppm: 40
+
+    - name: hardening_off
+      display_name: "Abhärtung"
+      duration_days: 10
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 500
+        photoperiod_hours: 14.0
+        temperature_day_c: 18.0
+        temperature_night_c: 12.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 120
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 1.0
+        target_ph: 5.8
+        calcium_ppm: 80
+        magnesium_ppm: 35
+
+    - name: flowering
+      display_name: "Blüte"
+      duration_days: 150
+      sequence_order: 5
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 600
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 1.2
+        co2_ppm: 400
+        irrigation_frequency_days: 1.5
+        irrigation_volume_ml_per_plant: 300
+      nutrient_profile:
+        npk_ratio: [2, 2, 3]
+        target_ec_ms: 1.6
+        target_ph: 5.8
+        calcium_ppm: 120
+        magnesium_ppm: 50
+
+    - name: senescence
+      display_name: Seneszenz
+      duration_days: 18
+      sequence_order: 6
+      is_terminal: true
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 12.0
+        temperature_day_c: 20.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 3.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Tigridia pavonia":
+    - name: sprouting
+      display_name: Austrieb/Bewurzelung
+      duration_days: 21
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 13.0
+        temperature_day_c: 20.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 58
+        humidity_night_percent: 62
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 6.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.4
+        target_ph: 6.2
+        calcium_ppm: 40
+        magnesium_ppm: 20
+
+    - name: vegetative
+      display_name: Vegetativ
+      duration_days: 40
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 650
+        photoperiod_hours: 15.0
+        temperature_day_c: 24.0
+        temperature_night_c: 15.0
+        humidity_day_percent: 52
+        humidity_night_percent: 60
+        vpd_target_kpa: 1.1
+        co2_ppm: 400
+        irrigation_frequency_days: 3.0
+        irrigation_volume_ml_per_plant: 300
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.2
+        calcium_ppm: 60
+        magnesium_ppm: 30
+
+    - name: hardening_off
+      display_name: "Abhärtung"
+      duration_days: 10
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 600
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 50
+        humidity_night_percent: 58
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 3.0
+        irrigation_volume_ml_per_plant: 250
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.7
+        target_ph: 6.2
+        calcium_ppm: 50
+        magnesium_ppm: 25
+
+    - name: budding
+      display_name: Knospenbildung
+      duration_days: 18
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 650
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 48
+        humidity_night_percent: 55
+        vpd_target_kpa: 1.2
+        co2_ppm: 400
+        irrigation_frequency_days: 2.5
+        irrigation_volume_ml_per_plant: 300
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.2
+        calcium_ppm: 60
+        magnesium_ppm: 30
+
+    - name: flowering
+      display_name: "Blüte"
+      duration_days: 52
+      sequence_order: 5
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 600
+        photoperiod_hours: 14.0
+        temperature_day_c: 25.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 45
+        humidity_night_percent: 55
+        vpd_target_kpa: 1.2
+        co2_ppm: 400
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 350
+      nutrient_profile:
+        npk_ratio: [1, 2, 3]
+        target_ec_ms: 0.9
+        target_ph: 6.2
+        calcium_ppm: 70
+        magnesium_ppm: 35
+
+    - name: corm_ripening
+      display_name: Abreife/Knollenaufbau
+      duration_days: 35
+      sequence_order: 6
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 12.0
+        temperature_day_c: 20.0
+        temperature_night_c: 12.0
+        humidity_day_percent: 50
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [0, 1, 2]
+        target_ec_ms: 0.5
+        target_ph: 6.2
+        calcium_ppm: 40
+        magnesium_ppm: 20
+
+    - name: dormancy
+      display_name: Dormanz (Einlagerung)
+      duration_days: 165
+      sequence_order: 7
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 0
+        photoperiod_hours: 0.0
+        temperature_day_c: 12.0
+        temperature_night_c: 10.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 0.0
+        co2_ppm: 400
+        irrigation_frequency_days: null
+        irrigation_volume_ml_per_plant: 0
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.2
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Apium graveolens var. rapaceum":
+    - name: germination
+      display_name: Keimung
+      duration_days: 21
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 75
+        photoperiod_hours: 14.0
+        temperature_day_c: 21.0
+        temperature_night_c: 19.0
+        humidity_day_percent: 85
+        humidity_night_percent: 90
+        vpd_target_kpa: 0.4
+        co2_ppm: 400
+        irrigation_frequency_days: 1.0
+        irrigation_volume_ml_per_plant: 8
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+    - name: seedling
+      display_name: "Sämling"
+      duration_days: 49
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 150
+        photoperiod_hours: 15.0
+        temperature_day_c: 20.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 25
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.6
+        target_ph: 6.5
+        calcium_ppm: 60
+        magnesium_ppm: 30
+
+    - name: vegetative
+      display_name: Vegetativ
+      duration_days: 75
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 350
+        photoperiod_hours: 14.0
+        temperature_day_c: 20.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 1.5
+        irrigation_volume_ml_per_plant: 300
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 1.7
+        target_ph: 6.5
+        calcium_ppm: 150
+        magnesium_ppm: 60
+
+    - name: tuber_formation
+      display_name: Knollenbildung
+      duration_days: 75
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: true
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 350
+        photoperiod_hours: 14.0
+        temperature_day_c: 18.0
+        temperature_night_c: 12.0
+        humidity_day_percent: 58
+        humidity_night_percent: 62
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 2.0
+        irrigation_volume_ml_per_plant: 400
+      nutrient_profile:
+        npk_ratio: [2, 1, 4]
+        target_ec_ms: 2.0
+        target_ph: 6.5
+        calcium_ppm: 180
+        magnesium_ppm: 60
+
+    - name: harvest
+      display_name: "Ernte & Lagerung"
+      duration_days: 28
+      sequence_order: 5
+      is_terminal: true
+      allows_harvest: true
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 250
+        photoperiod_hours: 12.0
+        temperature_day_c: 16.0
+        temperature_night_c: 10.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 3.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+# ==============================================================================
+# S6  CULTIVARS
+# ==============================================================================
+# Format: species -> list of cultivars with name, breeder, days_to_maturity, traits, seed_type
+
+cultivars:
+  "Dahlia pinnata":
+    - name: Embassy
+      breeder: null
+      days_to_maturity: 90
+      traits: [ornamental]
+      seed_type: clone
+    - name: Hapet Daydream
+      breeder: null
+      days_to_maturity: 90
+      traits: [ornamental]
+      seed_type: clone
+    - name: Great Silence
+      breeder: null
+      days_to_maturity: 90
+      traits: [ornamental]
+      seed_type: clone
+    - name: Armateras
+      breeder: A.C. Koot
+      days_to_maturity: 90
+      traits: [ornamental]
+      seed_type: clone
+    - name: Lavender Perfection
+      breeder: null
+      days_to_maturity: 90
+      traits: [ornamental, heat_tolerant]
+      seed_type: clone
+
+  "Petunia x hybrida":
+    - name: Surfinia Purple
+      breeder: Suntory
+      days_to_maturity: null
+      traits: [ornamental, high_yield]
+      seed_type: clone
+    - name: Wave Purple
+      breeder: PanAmerican Seed
+      days_to_maturity: null
+      traits: [ornamental, high_yield]
+      seed_type: f1_hybrid
+    - name: Supertunia Vista Bubblegum
+      breeder: Proven Winners
+      days_to_maturity: null
+      traits: [ornamental, high_yield]
+      seed_type: clone
+    - name: Tidal Wave Silver
+      breeder: PanAmerican Seed
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: f1_hybrid
+    - name: Crazytunia Mandeville
+      breeder: Westhoff
+      days_to_maturity: null
+      traits: [ornamental, compact]
+      seed_type: clone
+    - name: Prism Sunshine
+      breeder: Benary
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: f1_hybrid
+
+  "Tigridia pavonia":
+    - name: Alba
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: open_pollinated
+    - name: Aurea
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: open_pollinated
+    - name: Canariensis
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: open_pollinated
+    - name: Lilacea
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: open_pollinated
+    - name: Speciosa
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: open_pollinated
+
+  "Apium graveolens var. rapaceum":
+    - name: Prinz
+      breeder: null
+      days_to_maturity: 190
+      traits: [disease_resistant]
+      seed_type: open_pollinated
+    - name: Monarch
+      breeder: null
+      days_to_maturity: 195
+      traits: [disease_resistant]
+      seed_type: open_pollinated
+    - name: Brilliant
+      breeder: null
+      days_to_maturity: 185
+      traits: [high_yield]
+      seed_type: open_pollinated
+    - name: Mars
+      breeder: null
+      days_to_maturity: 190
+      traits: []
+      seed_type: open_pollinated
+    - name: Ibis
+      breeder: null
+      days_to_maturity: 180
+      traits: [early_maturing]
+      seed_type: open_pollinated
+    - name: Diamant
+      breeder: null
+      days_to_maturity: 200
+      traits: [high_yield]
+      seed_type: open_pollinated
+
+  "Chlorophytum comosum":
+    - name: Vittatum
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: Variegatum
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: Bonnie
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, compact]
+      seed_type: clone
+    - name: Ocean
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, compact]
+      seed_type: clone
+
+  "Guzmania lingulata":
+    - name: Tempo
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: Hilda
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: Amaranth
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: Rana
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, compact]
+      seed_type: clone
+
+  "Monstera deliciosa":
+    - name: Borsigiana
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, compact]
+      seed_type: clone
+    - name: Albo Variegata
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: Thai Constellation
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+
+  "Spathiphyllum wallisii":
+    - name: Chopin
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, compact]
+      seed_type: clone
+    - name: Sweet Silvio
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: Sensation
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: Cupido
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, compact]
+      seed_type: clone
+
+  "Fragaria x ananassa":
+    - name: Senga Sengana
+      breeder: null
+      days_to_maturity: 60
+      traits: [high_yield, heirloom]
+      seed_type: clone
+    - name: Korona
+      breeder: null
+      days_to_maturity: 55
+      traits: [high_yield, disease_resistant]
+      seed_type: clone
+    - name: Elsanta
+      breeder: null
+      days_to_maturity: 58
+      traits: [high_yield]
+      seed_type: clone
+    - name: Mieze Schindler
+      breeder: null
+      days_to_maturity: 65
+      traits: [heirloom]
+      seed_type: clone
+    - name: Ostara
+      breeder: null
+      days_to_maturity: 50
+      traits: [high_yield]
+      seed_type: clone
+    - name: Mara des Bois
+      breeder: null
+      days_to_maturity: 50
+      traits: [high_yield]
+      seed_type: clone
+    - name: Honeoye
+      breeder: null
+      days_to_maturity: 55
+      traits: [early_maturing, high_yield]
+      seed_type: clone
+    - name: Malwina
+      breeder: null
+      days_to_maturity: 70
+      traits: [late_season, disease_resistant]
+      seed_type: clone
+
+  "Helianthus annuus":
+    - name: Sunrich Orange
+      breeder: null
+      days_to_maturity: 60
+      traits: [ornamental]
+      seed_type: f1_hybrid
+    - name: Big Smile
+      breeder: null
+      days_to_maturity: 55
+      traits: [compact, ornamental]
+      seed_type: f1_hybrid
+    - name: Teddy Bear
+      breeder: null
+      days_to_maturity: 60
+      traits: [compact, ornamental]
+      seed_type: open_pollinated
+    - name: Mammoth Russian
+      breeder: null
+      days_to_maturity: 80
+      traits: [high_yield, heirloom]
+      seed_type: open_pollinated
+    - name: Velvet Queen
+      breeder: null
+      days_to_maturity: 70
+      traits: [ornamental]
+      seed_type: open_pollinated
+    - name: Pacino
+      breeder: null
+      days_to_maturity: 55
+      traits: [compact, ornamental]
+      seed_type: f1_hybrid
+    - name: Sunspot
+      breeder: null
+      days_to_maturity: 60
+      traits: [compact, high_yield]
+      seed_type: open_pollinated
+
+  "Viola x wittrockiana":
+    - name: Schweizer Riesen
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, heirloom]
+      seed_type: open_pollinated
+    - name: Delta Premium
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: f1_hybrid
+    - name: Colossus
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: f1_hybrid
+    - name: Cats
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: f1_hybrid
+    - name: Frizzle Sizzle
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: f1_hybrid
+    - name: Cool Wave
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: f1_hybrid
+
+# ==============================================================================
+# S7  COMPANION PLANTING EDGES
+# ==============================================================================
+
+companion_planting:
+  compatible:
+    # Dahlia companions
+    - species_a: "Dahlia pinnata"
+      species_b: "Helianthus annuus"
+      score: 0.6
+    # Fragaria companions
+    - species_a: "Fragaria x ananassa"
+      species_b: "Allium porrum"
+      score: 0.7
+    - species_a: "Fragaria x ananassa"
+      species_b: "Petroselinum crispum"
+      score: 0.6
+    - species_a: "Fragaria x ananassa"
+      species_b: "Raphanus sativus"
+      score: 0.6
+    - species_a: "Fragaria x ananassa"
+      species_b: "Daucus carota"
+      score: 0.6
+    - species_a: "Fragaria x ananassa"
+      species_b: "Pisum sativum"
+      score: 0.6
+    - species_a: "Fragaria x ananassa"
+      species_b: "Viola x wittrockiana"
+      score: 0.6
+    # Helianthus companions
+    - species_a: "Helianthus annuus"
+      species_b: "Cucumis sativus"
+      score: 0.7
+    - species_a: "Helianthus annuus"
+      species_b: "Cucurbita pepo"
+      score: 0.7
+    - species_a: "Helianthus annuus"
+      species_b: "Phaseolus vulgaris"
+      score: 0.7
+    # Viola companions
+    - species_a: "Viola x wittrockiana"
+      species_b: "Lactuca sativa"
+      score: 0.6
+    - species_a: "Viola x wittrockiana"
+      species_b: "Raphanus sativus"
+      score: 0.6
+    - species_a: "Viola x wittrockiana"
+      species_b: "Daucus carota"
+      score: 0.6
+    # Petunia companions
+    - species_a: "Petunia x hybrida"
+      species_b: "Ocimum basilicum"
+      score: 0.7
+    - species_a: "Petunia x hybrida"
+      species_b: "Solanum lycopersicum"
+      score: 0.6
+    # Indoor plants - generally compatible with each other
+    - species_a: "Chlorophytum comosum"
+      species_b: "Spathiphyllum wallisii"
+      score: 0.5
+    - species_a: "Chlorophytum comosum"
+      species_b: "Monstera deliciosa"
+      score: 0.5
+    # Apium rapaceum companions (similar to Apium graveolens)
+    - species_a: "Apium graveolens var. rapaceum"
+      species_b: "Allium porrum"
+      score: 0.7
+    - species_a: "Apium graveolens var. rapaceum"
+      species_b: "Brassica oleracea var. gemmifera"
+      score: 0.7
+    - species_a: "Apium graveolens var. rapaceum"
+      species_b: "Solanum lycopersicum"
+      score: 0.6
+    - species_a: "Apium graveolens var. rapaceum"
+      species_b: "Phaseolus vulgaris"
+      score: 0.6
+    - species_a: "Apium graveolens var. rapaceum"
+      species_b: "Pisum sativum"
+      score: 0.6
+
+  incompatible:
+    # Helianthus - strong allelopathy
+    - species_a: "Helianthus annuus"
+      species_b: "Solanum lycopersicum"
+      reason: "Allelopathie: Heliannuole hemmen Tomatenwachstum"
+    - species_a: "Helianthus annuus"
+      species_b: "Solanum tuberosum"
+      reason: "Allelopathie: Heliannuole hemmen Kartoffelwachstum"
+    - species_a: "Helianthus annuus"
+      species_b: "Lactuca sativa"
+      reason: "Allelopathie: Wurzelexsudate hemmen Salatkeimung"
+    # Fragaria - replant problem
+    - species_a: "Fragaria x ananassa"
+      species_b: "Fragaria x ananassa"
+      reason: "Autotoxizität: Bodenermüdung bei Nachbau"
+    - species_a: "Fragaria x ananassa"
+      species_b: "Brassica oleracea var. gemmifera"
+      reason: "Nährstoffkonkurrenz"
+    # Dahlia
+    - species_a: "Dahlia pinnata"
+      species_b: "Dahlia pinnata"
+      reason: "Virenübertragung bei engem Stand"
+    # Apiaceae untereinander
+    - species_a: "Apium graveolens var. rapaceum"
+      species_b: "Daucus carota"
+      reason: "Gleiche Familie, Möhrenfliegen-Risiko"
+    - species_a: "Apium graveolens var. rapaceum"
+      species_b: "Anethum graveolens"
+      reason: "Gleiche Familie, Schädlingsübertragung"
+    - species_a: "Apium graveolens var. rapaceum"
+      species_b: "Petroselinum crispum"
+      reason: "Gleiche Familie, Schädlingsübertragung"
+
+# ==============================================================================
+# S8  IPM DATA
+# ==============================================================================
+
+pests:
+  - scientific_name: "Frankliniella occidentalis"
+    common_name: Western Flower Thrips
+    pest_type: insect
+    lifecycle_days: 18
+    optimal_temp_min: 20.0
+    optimal_temp_max: 30.0
+    detection_difficulty: hard
+    description: >-
+      Kalifornischer Blütenthrips. Winzige Insekten (1-2mm),
+      verursachen silbrige Saugflecken auf Blättern und Blüten.
+      Überträgt Tomatenbronzefleckenvirus (TSWV). Betrifft viele Arten.
+
+  - scientific_name: "Bemisia tabaci"
+    common_name: Silverleaf Whitefly
+    pest_type: insect
+    lifecycle_days: 28
+    optimal_temp_min: 20.0
+    optimal_temp_max: 32.0
+    detection_difficulty: medium
+    description: >-
+      Silberblatt-Weiße Fliege. Saugt an Blattunterseiten,
+      produziert Honigtau und fördert Russstaupilze.
+      Betrifft besonders Solanaceae und Petunia.
+
+  - scientific_name: "Otiorhynchus sulcatus"
+    common_name: Black Vine Weevil
+    pest_type: insect
+    lifecycle_days: 90
+    optimal_temp_min: 10.0
+    optimal_temp_max: 25.0
+    detection_difficulty: hard
+    description: >-
+      Dickmaulrüssler. Adulte fressen Buchtenfraß an Blatträndern (nachts),
+      Larven zerstören Wurzeln. Betrifft Erdbeere, Dahlie, Cyclamen,
+      viele Zierpflanzen.
+
+  - scientific_name: "Tarsonemus pallidus"
+    common_name: Cyclamen Mite
+    pest_type: mite
+    lifecycle_days: 14
+    optimal_temp_min: 15.0
+    optimal_temp_max: 25.0
+    detection_difficulty: hard
+    description: >-
+      Weichhautmilbe. Mikroskopisch klein, verursacht
+      verkrüppelte, deformierte Blätter und Blüten.
+      Betrifft Erdbeere, Dahlie, Begonie, Cyclamen.
+
+  - scientific_name: "Planococcus citri"
+    common_name: Citrus Mealybug
+    pest_type: insect
+    lifecycle_days: 35
+    optimal_temp_min: 20.0
+    optimal_temp_max: 30.0
+    detection_difficulty: medium
+    description: >-
+      Zitrus-Schmierlaus. Weißliche, wachsbedeckte Insekten
+      an Blattachseln und Triebspitzen. Saugen Pflanzensaft,
+      produzieren Honigtau. Betrifft Indoor-Pflanzen.
+
+  - scientific_name: "Coccus hesperidum"
+    common_name: Brown Soft Scale
+    pest_type: insect
+    lifecycle_days: 60
+    optimal_temp_min: 18.0
+    optimal_temp_max: 30.0
+    detection_difficulty: medium
+    description: >-
+      Braune Schildlaus. Ovale, braune Schilde an Blättern und
+      Stängeln. Produziert Honigtau. Betrifft Indoor-Pflanzen.
+
+  - scientific_name: "Chaetosiphon fragaefolii"
+    common_name: Strawberry Aphid
+    pest_type: insect
+    lifecycle_days: 14
+    optimal_temp_min: 10.0
+    optimal_temp_max: 25.0
+    detection_difficulty: medium
+    description: >-
+      Erdbeerblattlaus. Überträger von Erdbeerviren.
+      Hellgrüne Blattläuse an Blattunterseiten und Blütenständen.
+
+  - scientific_name: "Botrytis cinerea (vector)"
+    common_name: Slug
+    pest_type: gastropod
+    lifecycle_days: 365
+    optimal_temp_min: 5.0
+    optimal_temp_max: 20.0
+    detection_difficulty: easy
+    description: >-
+      Nacktschnecken. Fressen Löcher in Blätter und Früchte.
+      Besonders schädlich an Erdbeeren, Salat und Jungpflanzen.
+
+diseases:
+  - scientific_name: "Botrytis cinerea"
+    common_name: Gray Mold
+    pathogen_type: fungal
+    incubation_period_days: 5
+    environmental_triggers: [high_humidity, cool_wet_conditions, poor_airflow]
+    affected_plant_parts: [flower, fruit, leaf]
+    description: >-
+      Grauschimmel. Grauer, pelziger Belag auf Blüten und Früchten.
+      Wichtigste Krankheit bei Erdbeere, Dahlie, Petunie.
+      Gefördert durch Nässe und schlechte Luftzirkulation.
+
+  - scientific_name: "Dahlia mosaic virus"
+    common_name: Dahlia Mosaic Virus
+    pathogen_type: viral
+    incubation_period_days: 21
+    environmental_triggers: [aphid_transmission]
+    affected_plant_parts: [leaf]
+    description: >-
+      Dahlienmosaikvirus (DMV). Hellgrüne Mosaikmuster auf Blättern,
+      Wuchsdepression. Übertragung durch Blattläuse. Keine Heilung.
+
+  - scientific_name: "Verticillium dahliae"
+    common_name: Verticillium Wilt
+    pathogen_type: fungal
+    incubation_period_days: 14
+    environmental_triggers: [cool_wet_soil, soil_contamination]
+    affected_plant_parts: [root, stem, leaf]
+    description: >-
+      Verticillium-Welke. Einseitiges Welken, Braunfärbung der Leitbahnen.
+      Bodenbürtiger Pilz, betrifft Erdbeere, Dahlie, viele Gemüsearten.
+
+  - scientific_name: "Phytophthora fragariae"
+    common_name: Red Stele Root Rot
+    pathogen_type: fungal
+    incubation_period_days: 14
+    environmental_triggers: [waterlogged_soil, cool_wet_conditions]
+    affected_plant_parts: [root]
+    description: >-
+      Rote Wurzelfäule der Erdbeere. Roter Zentralzylinder in Wurzeln,
+      Welke trotz feuchtem Boden. Schwer zu bekämpfen.
+
+  - scientific_name: "Septoria apiicola"
+    common_name: Septoria Leaf Spot of Celery
+    pathogen_type: fungal
+    incubation_period_days: 10
+    environmental_triggers: [warm_humid_conditions, rain_splash]
+    affected_plant_parts: [leaf]
+    description: >-
+      Septoria-Blattfleckenkrankheit. Kleine runde Flecken mit
+      dunklem Rand auf Sellerie-Blättern. Breitet sich bei Nässe aus.
+
+  - scientific_name: "Tobacco mosaic virus"
+    common_name: Tobacco Mosaic Virus
+    pathogen_type: viral
+    incubation_period_days: 10
+    environmental_triggers: [mechanical_transmission]
+    affected_plant_parts: [leaf]
+    description: >-
+      Tabakmosaikvirus (TMV). Gelbgrünes Mosaikmuster auf Blättern.
+      Mechanisch übertragbar. Betrifft Petunia und andere Solanaceae.
+
+treatments:
+  - name: "Nematodes (Heterorhabditis)"
+    treatment_type: biological
+    active_ingredient: "Heterorhabditis bacteriophora"
+    application_method: drench
+    safety_interval_days: 0
+    dosage_per_liter: null
+    protective_equipment: []
+    description: >-
+      Nützlingsnematoden gegen Dickmaulrüssler-Larven im Boden.
+      Ausbringung als Gießbehandlung bei Bodentemperatur >12°C.
+
+  - name: "Amblyseius cucumeris"
+    treatment_type: biological
+    active_ingredient: "Amblyseius cucumeris"
+    application_method: release
+    safety_interval_days: 0
+    dosage_per_liter: null
+    protective_equipment: []
+    description: >-
+      Raubmilbe gegen Thripse. Sachets oder Streuware.
+      Vorbeugend ausbringen, funktioniert ab 15°C.
+
+  - name: Yellow Sticky Traps
+    treatment_type: mechanical
+    active_ingredient: null
+    application_method: cultural
+    safety_interval_days: 0
+    dosage_per_liter: null
+    protective_equipment: []
+    description: >-
+      Gelbtafeln zum Monitoring und zur Reduktion fliegender
+      Schädlinge (Weiße Fliege, Trauermücken, geflügelte Blattläuse).
+
+  - name: Straw Mulch
+    treatment_type: cultural
+    active_ingredient: null
+    application_method: cultural
+    safety_interval_days: 0
+    dosage_per_liter: null
+    protective_equipment: []
+    description: >-
+      Strohmulch unter Erdbeerpflanzen. Verhindert Fruchtfäule
+      durch Bodenkontakt und reduziert Schneckenzugang.
+
+  - name: Copper Spray
+    treatment_type: chemical
+    active_ingredient: copper hydroxide
+    application_method: spray
+    safety_interval_days: 7
+    dosage_per_liter: 3.0
+    protective_equipment: [gloves, eye_protection]
+    description: >-
+      Kupferspritzmittel gegen Pilzkrankheiten. Vorbeugend gegen
+      Septoria, Falschen Mehltau und Rost. Karenzzeit beachten.
+
+  - name: Alcohol Spray
+    treatment_type: biological
+    active_ingredient: "isopropyl alcohol 70%"
+    application_method: spray
+    safety_interval_days: 0
+    dosage_per_liter: null
+    protective_equipment: []
+    description: >-
+      Alkoholspray gegen Schildläuse und Schmierläuse.
+      Wattestäbchen oder Sprühflasche direkt auf Schädlinge.
+
+# Treatment -> Pest targeting edges
+pest_treatments:
+  - treatment: "Nematodes (Heterorhabditis)"
+    pest: Black Vine Weevil
+  - treatment: "Amblyseius cucumeris"
+    pest: Western Flower Thrips
+  - treatment: Yellow Sticky Traps
+    pest: Silverleaf Whitefly
+  - treatment: Potassium Soap
+    pest: Citrus Mealybug
+  - treatment: Potassium Soap
+    pest: Brown Soft Scale
+  - treatment: Potassium Soap
+    pest: Strawberry Aphid
+  - treatment: Alcohol Spray
+    pest: Citrus Mealybug
+  - treatment: Alcohol Spray
+    pest: Brown Soft Scale
+  - treatment: Ferramol
+    pest: Slug
+  - treatment: Neem Oil
+    pest: Western Flower Thrips
+  - treatment: Neem Oil
+    pest: Cyclamen Mite
+  - treatment: Insect Protection Net
+    pest: Silverleaf Whitefly
+
+# Treatment -> Disease targeting edges
+disease_treatments:
+  - treatment: Environmental Control
+    disease: Gray Mold
+  - treatment: Copper Spray
+    disease: Septoria Leaf Spot of Celery
+  - treatment: Crop Rotation
+    disease: Verticillium Wilt
+  - treatment: Crop Rotation
+    disease: Red Stele Root Rot
+  - treatment: Straw Mulch
+    disease: Gray Mold
+  - treatment: Sanitation
+    disease: Dahlia Mosaic Virus
+  - treatment: Sanitation
+    disease: Tobacco Mosaic Virus
+
+# ==============================================================================
+# S9  SUBSTRATES — Standard substrate products
+# ==============================================================================
+# Users can always create custom substrates on top of these defaults.
+# Composition fractions must sum to 1.0 (±0.01), or be empty for type=none / hydro.
+
+substrates:
+  # ── Soil-based ──────────────────────────────────────────────────────
+
+  - type: soil
+    brand: "Universalerde"
+    name_de: "Universalerde"
+    name_en: "Universal Potting Soil"
+    ph_base: 6.3
+    ec_base_ms: 0.5
+    water_retention: high
+    air_porosity_percent: 18.0
+    composition:
+      torf: 0.40
+      kompost: 0.30
+      perlit: 0.15
+      ton: 0.15
+    buffer_capacity: high
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 55.0
+    easily_available_water_percent: 25.0
+    cec_meq_per_100g: 15.0
+    particle_size_mm: 2.0
+    bulk_density_g_per_l: 550.0
+    irrigation_strategy: moderate
+
+  - type: living_soil
+    brand: "Living Soil"
+    name_de: "Living Soil (organisch)"
+    name_en: "Living Soil (Organic)"
+    ph_base: 6.5
+    ec_base_ms: 1.0
+    water_retention: high
+    air_porosity_percent: 22.0
+    composition:
+      kompost: 0.35
+      torf: 0.25
+      wurmhumus: 0.15
+      perlit: 0.15
+      bims: 0.10
+    buffer_capacity: high
+    reusable: true
+    max_reuse_cycles: 5
+    water_holding_capacity_percent: 60.0
+    easily_available_water_percent: 28.0
+    cec_meq_per_100g: 25.0
+    particle_size_mm: 3.0
+    bulk_density_g_per_l: 500.0
+    irrigation_strategy: infrequent
+
+  # ── Torf / Peat ────────────────────────────────────────────────────
+
+  - type: peat
+    brand: ""
+    name_de: "Weißtorf (ungedüngt)"
+    name_en: "White Peat (Unfertilized)"
+    ph_base: 3.8
+    ec_base_ms: 0.05
+    water_retention: high
+    air_porosity_percent: 15.0
+    composition:
+      torf: 1.0
+    buffer_capacity: low
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 70.0
+    easily_available_water_percent: 35.0
+    cec_meq_per_100g: 10.0
+    particle_size_mm: 1.0
+    bulk_density_g_per_l: 120.0
+    irrigation_strategy: moderate
+
+  # ── Kokos / Coco ───────────────────────────────────────────────────
+
+  - type: coco
+    brand: ""
+    name_de: "Kokossubstrat (gewaschen)"
+    name_en: "Coco Coir (Washed)"
+    ph_base: 6.0
+    ec_base_ms: 0.3
+    water_retention: medium
+    air_porosity_percent: 30.0
+    composition:
+      kokosfaser: 0.70
+      kokos_chips: 0.30
+    buffer_capacity: medium
+    reusable: true
+    max_reuse_cycles: 3
+    water_holding_capacity_percent: 45.0
+    easily_available_water_percent: 22.0
+    cec_meq_per_100g: 8.5
+    particle_size_mm: 2.5
+    bulk_density_g_per_l: 90.0
+    irrigation_strategy: frequent
+
+  - type: coco
+    brand: ""
+    name_de: "Kokos/Perlit 70/30"
+    name_en: "Coco/Perlite 70/30"
+    ph_base: 6.0
+    ec_base_ms: 0.2
+    water_retention: medium
+    air_porosity_percent: 35.0
+    composition:
+      kokosfaser: 0.70
+      perlit: 0.30
+    buffer_capacity: medium
+    reusable: true
+    max_reuse_cycles: 2
+    water_holding_capacity_percent: 38.0
+    easily_available_water_percent: 18.0
+    cec_meq_per_100g: 6.0
+    particle_size_mm: 3.0
+    bulk_density_g_per_l: 100.0
+    irrigation_strategy: frequent
+
+  # ── Clay Pebbles ──────────────────────────────────────────────────
+
+  - type: clay_pebbles
+    brand: ""
+    name_de: "Blähton 8-16mm"
+    name_en: "Clay Pebbles 8-16mm"
+    ph_base: 7.0
+    ec_base_ms: 0.0
+    water_retention: low
+    air_porosity_percent: 45.0
+    composition:
+      blaehton: 1.0
+    buffer_capacity: low
+    reusable: true
+    max_reuse_cycles: 10
+    water_holding_capacity_percent: 8.0
+    easily_available_water_percent: 2.0
+    cec_meq_per_100g: 0.2
+    particle_size_mm: 12.0
+    bulk_density_g_per_l: 350.0
+    irrigation_strategy: frequent
+
+  # ── Perlite ───────────────────────────────────────────────────────
+
+  - type: perlite
+    brand: ""
+    name_de: "Perlit (2-6mm)"
+    name_en: "Perlite (2-6mm)"
+    ph_base: 7.2
+    ec_base_ms: 0.0
+    water_retention: low
+    air_porosity_percent: 50.0
+    composition:
+      perlit: 1.0
+    buffer_capacity: low
+    reusable: true
+    max_reuse_cycles: 3
+    water_holding_capacity_percent: 12.0
+    easily_available_water_percent: 5.0
+    cec_meq_per_100g: 0.1
+    particle_size_mm: 4.0
+    bulk_density_g_per_l: 100.0
+    irrigation_strategy: frequent
+
+  # ── Vermiculite ───────────────────────────────────────────────────
+
+  - type: vermiculite
+    brand: ""
+    name_de: "Vermiculit (2-5mm)"
+    name_en: "Vermiculite (2-5mm)"
+    ph_base: 7.0
+    ec_base_ms: 0.0
+    water_retention: high
+    air_porosity_percent: 20.0
+    composition:
+      vermiculit: 1.0
+    buffer_capacity: medium
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 55.0
+    easily_available_water_percent: 30.0
+    cec_meq_per_100g: 15.0
+    particle_size_mm: 3.0
+    bulk_density_g_per_l: 90.0
+    irrigation_strategy: moderate
+
+  # ── Rockwool ──────────────────────────────────────────────────────
+
+  - type: rockwool_slab
+    brand: ""
+    name_de: "Steinwollmatte"
+    name_en: "Rockwool Slab"
+    ph_base: 7.5
+    ec_base_ms: 0.0
+    water_retention: medium
+    air_porosity_percent: 40.0
+    composition:
+      steinwolle: 1.0
+    buffer_capacity: low
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 80.0
+    easily_available_water_percent: 40.0
+    cec_meq_per_100g: 0.3
+    bulk_density_g_per_l: 80.0
+    irrigation_strategy: frequent
+
+  - type: rockwool_plug
+    brand: ""
+    name_de: "Steinwollwürfel (Anzucht)"
+    name_en: "Rockwool Plug (Propagation)"
+    ph_base: 7.5
+    ec_base_ms: 0.0
+    water_retention: medium
+    air_porosity_percent: 35.0
+    composition:
+      steinwolle: 1.0
+    buffer_capacity: low
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 85.0
+    easily_available_water_percent: 45.0
+    cec_meq_per_100g: 0.3
+    bulk_density_g_per_l: 75.0
+    irrigation_strategy: frequent
+
+  # ── Orchid Bark ───────────────────────────────────────────────────
+
+  - type: orchid_bark
+    brand: ""
+    name_de: "Orchideenrinde (Pinienrinde 10-25mm)"
+    name_en: "Orchid Bark (Pine Bark 10-25mm)"
+    ph_base: 4.8
+    ec_base_ms: 0.1
+    water_retention: low
+    air_porosity_percent: 55.0
+    composition:
+      pinienrinde: 1.0
+    buffer_capacity: low
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 15.0
+    easily_available_water_percent: 5.0
+    cec_meq_per_100g: 2.0
+    particle_size_mm: 15.0
+    bulk_density_g_per_l: 250.0
+    irrigation_strategy: frequent
+
+  # ── PON Mineral Substrate ─────────────────────────────────────────
+
+  - type: pon_mineral
+    brand: "Lechuza"
+    name_de: "Lechuza PON (Mineralsubstrat)"
+    name_en: "Lechuza PON (Mineral Substrate)"
+    ph_base: 6.8
+    ec_base_ms: 0.0
+    water_retention: medium
+    air_porosity_percent: 40.0
+    composition:
+      bims: 0.35
+      zeolith: 0.35
+      lava: 0.25
+      langzeitduenger: 0.05
+    buffer_capacity: medium
+    reusable: true
+    max_reuse_cycles: 8
+    water_holding_capacity_percent: 30.0
+    easily_available_water_percent: 12.0
+    cec_meq_per_100g: 12.0
+    particle_size_mm: 6.0
+    bulk_density_g_per_l: 600.0
+    irrigation_strategy: moderate
+
+  # ── Sphagnum Moss ─────────────────────────────────────────────────
+
+  - type: sphagnum
+    brand: ""
+    name_de: "Sphagnum-Moos (getrocknet)"
+    name_en: "Sphagnum Moss (Dried)"
+    ph_base: 4.2
+    ec_base_ms: 0.05
+    water_retention: high
+    air_porosity_percent: 25.0
+    composition:
+      sphagnum: 1.0
+    buffer_capacity: low
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 80.0
+    easily_available_water_percent: 40.0
+    cec_meq_per_100g: 8.0
+    bulk_density_g_per_l: 30.0
+    irrigation_strategy: moderate
+
+  # ── Plagron Substrates ─────────────────────────────────────────────
+
+  - type: soil
+    brand: "Plagron"
+    name_de: "Plagron Lightmix"
+    name_en: "Plagron Light Mix"
+    ph_base: 6.2
+    ec_base_ms: 1.2
+    water_retention: medium
+    air_porosity_percent: 28.0
+    composition:
+      torf: 0.65
+      perlit: 0.15
+      fasern: 0.10
+      wurmhumus: 0.10
+    buffer_capacity: medium
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 48.0
+    easily_available_water_percent: 24.0
+    cec_meq_per_100g: 12.0
+    particle_size_mm: 2.5
+    bulk_density_g_per_l: 430.0
+    irrigation_strategy: moderate
+
+  - type: soil
+    brand: "Plagron"
+    name_de: "Plagron Growmix"
+    name_en: "Plagron Grow Mix"
+    ph_base: 6.2
+    ec_base_ms: 1.4
+    water_retention: medium
+    air_porosity_percent: 26.0
+    composition:
+      torf: 0.55
+      perlit: 0.15
+      fasern: 0.10
+      wurmhumus: 0.20
+    buffer_capacity: medium
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 52.0
+    easily_available_water_percent: 26.0
+    cec_meq_per_100g: 15.0
+    particle_size_mm: 2.5
+    bulk_density_g_per_l: 450.0
+    irrigation_strategy: moderate
+
+  - type: soil
+    brand: "Plagron"
+    name_de: "Plagron Allmix"
+    name_en: "Plagron All-Mix"
+    ph_base: 6.6
+    ec_base_ms: 2.5
+    water_retention: high
+    air_porosity_percent: 22.0
+    composition:
+      torf: 0.45
+      wurmhumus: 0.25
+      perlit: 0.15
+      fasern: 0.10
+      organischer_duenger: 0.05
+    buffer_capacity: high
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 58.0
+    easily_available_water_percent: 28.0
+    cec_meq_per_100g: 22.0
+    particle_size_mm: 2.5
+    bulk_density_g_per_l: 480.0
+    irrigation_strategy: moderate
+
+  - type: soil
+    brand: "Plagron"
+    name_de: "Plagron Royalmix"
+    name_en: "Plagron Royal Mix"
+    ph_base: 6.6
+    ec_base_ms: 1.6
+    water_retention: high
+    air_porosity_percent: 24.0
+    composition:
+      torf: 0.45
+      wurmhumus: 0.25
+      perlit: 0.15
+      fasern: 0.10
+      organischer_duenger: 0.05
+    buffer_capacity: high
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 58.0
+    easily_available_water_percent: 28.0
+    cec_meq_per_100g: 22.0
+    particle_size_mm: 2.5
+    bulk_density_g_per_l: 470.0
+    irrigation_strategy: moderate
+
+  - type: soil
+    brand: "Plagron"
+    name_de: "Plagron Batmix"
+    name_en: "Plagron Bat Mix"
+    ph_base: 6.4
+    ec_base_ms: 1.6
+    water_retention: high
+    air_porosity_percent: 24.0
+    composition:
+      torf: 0.45
+      wurmhumus: 0.20
+      perlit: 0.15
+      fasern: 0.10
+      fledermausguano: 0.10
+    buffer_capacity: high
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 56.0
+    easily_available_water_percent: 27.0
+    cec_meq_per_100g: 20.0
+    particle_size_mm: 2.5
+    bulk_density_g_per_l: 460.0
+    irrigation_strategy: moderate
+
+  - type: soil
+    brand: "Plagron"
+    name_de: "Plagron Promix"
+    name_en: "Plagron Pro Mix"
+    ph_base: 6.6
+    ec_base_ms: 0.7
+    water_retention: medium
+    air_porosity_percent: 25.0
+    composition:
+      torf: 0.70
+      perlit: 0.15
+      fasern: 0.10
+      kalk: 0.05
+    buffer_capacity: medium
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 50.0
+    easily_available_water_percent: 24.0
+    cec_meq_per_100g: 12.0
+    particle_size_mm: 2.5
+    bulk_density_g_per_l: 420.0
+    irrigation_strategy: moderate
+
+  - type: soil
+    brand: "Plagron"
+    name_de: "Plagron Bio Lightmix"
+    name_en: "Plagron Bio Light Mix"
+    ph_base: 6.3
+    ec_base_ms: 0.5
+    water_retention: medium
+    air_porosity_percent: 28.0
+    composition:
+      schwarztorf: 0.40
+      weisstorf: 0.35
+      perlit: 0.15
+      organischer_duenger: 0.10
+    buffer_capacity: medium
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 48.0
+    easily_available_water_percent: 24.0
+    cec_meq_per_100g: 13.0
+    particle_size_mm: 2.5
+    bulk_density_g_per_l: 420.0
+    irrigation_strategy: moderate
+
+  - type: coco
+    brand: "Plagron"
+    name_de: "Plagron Cocos Premium"
+    name_en: "Plagron Cocos Premium"
+    ph_base: 6.3
+    ec_base_ms: 0.1
+    water_retention: medium
+    air_porosity_percent: 30.0
+    composition:
+      kokosfaser: 1.0
+    buffer_capacity: medium
+    reusable: true
+    max_reuse_cycles: 2
+    water_holding_capacity_percent: 50.0
+    easily_available_water_percent: 25.0
+    cec_meq_per_100g: 9.0
+    particle_size_mm: 2.5
+    bulk_density_g_per_l: 85.0
+    irrigation_strategy: frequent
+
+  - type: coco
+    brand: "Plagron"
+    name_de: "Plagron Cocos Perlite 70/30"
+    name_en: "Plagron Cocos Perlite 70/30"
+    ph_base: 6.5
+    ec_base_ms: 0.1
+    water_retention: medium
+    air_porosity_percent: 38.0
+    composition:
+      kokosfaser: 0.70
+      perlit: 0.30
+    buffer_capacity: medium
+    reusable: true
+    max_reuse_cycles: 2
+    water_holding_capacity_percent: 40.0
+    easily_available_water_percent: 20.0
+    cec_meq_per_100g: 6.5
+    particle_size_mm: 3.0
+    bulk_density_g_per_l: 95.0
+    irrigation_strategy: frequent
+
+  # ── Hydro Solution ────────────────────────────────────────────────
+
+  # ── BioBizz Substrates ─────────────────────────────────────────────
+
+  - type: soil
+    brand: "BioBizz"
+    name_de: "BioBizz Light·Mix"
+    name_en: "BioBizz Light Mix"
+    ph_base: 6.2
+    ec_base_ms: 1.2
+    water_retention: medium
+    air_porosity_percent: 30.0
+    composition:
+      torf: 0.55
+      perlit: 0.30
+      kalk: 0.10
+      spurenelemente: 0.05
+    buffer_capacity: medium
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 45.0
+    easily_available_water_percent: 22.0
+    cec_meq_per_100g: 12.0
+    particle_size_mm: 3.0
+    bulk_density_g_per_l: 400.0
+    irrigation_strategy: moderate
+
+  - type: soil
+    brand: "BioBizz"
+    name_de: "BioBizz All·Mix"
+    name_en: "BioBizz All-Mix"
+    ph_base: 6.6
+    ec_base_ms: 2.4
+    water_retention: high
+    air_porosity_percent: 22.0
+    composition:
+      torf: 0.40
+      wurmhumus: 0.20
+      perlit: 0.20
+      pre_mix: 0.15
+      kalk: 0.05
+    buffer_capacity: high
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 58.0
+    easily_available_water_percent: 28.0
+    cec_meq_per_100g: 20.0
+    particle_size_mm: 2.5
+    bulk_density_g_per_l: 480.0
+    irrigation_strategy: moderate
+
+  - type: coco
+    brand: "BioBizz"
+    name_de: "BioBizz Coco·Mix"
+    name_en: "BioBizz Coco-Mix"
+    ph_base: 6.0
+    ec_base_ms: 0.5
+    water_retention: medium
+    air_porosity_percent: 32.0
+    composition:
+      kokosfaser: 0.60
+      kokos_chips: 0.25
+      kokosfaser_fein: 0.15
+    buffer_capacity: medium
+    reusable: true
+    max_reuse_cycles: 2
+    water_holding_capacity_percent: 48.0
+    easily_available_water_percent: 24.0
+    cec_meq_per_100g: 9.0
+    particle_size_mm: 3.0
+    bulk_density_g_per_l: 85.0
+    irrigation_strategy: frequent
+
+  - type: soil
+    brand: "BioBizz"
+    name_de: "BioBizz Worm·Humus"
+    name_en: "BioBizz Worm Humus"
+    ph_base: 7.0
+    ec_base_ms: 1.5
+    water_retention: high
+    air_porosity_percent: 18.0
+    composition:
+      wurmhumus: 1.0
+    buffer_capacity: high
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 65.0
+    easily_available_water_percent: 30.0
+    cec_meq_per_100g: 30.0
+    particle_size_mm: 1.5
+    bulk_density_g_per_l: 600.0
+    irrigation_strategy: infrequent
+
+  - type: peat
+    brand: "BioBizz"
+    name_de: "BioBizz Pre·Mix (Bodenverbesserer)"
+    name_en: "BioBizz Pre-Mix (Soil Conditioner)"
+    ph_base: 6.5
+    ec_base_ms: 1.8
+    water_retention: medium
+    air_porosity_percent: 20.0
+    composition:
+      torf: 0.30
+      seetang: 0.20
+      knochenmehl: 0.15
+      blutmehl: 0.10
+      fledermausguano: 0.10
+      dolomit: 0.10
+      leonardit: 0.05
+    buffer_capacity: high
+    reusable: false
+    max_reuse_cycles: 1
+    water_holding_capacity_percent: 50.0
+    easily_available_water_percent: 22.0
+    cec_meq_per_100g: 25.0
+    particle_size_mm: 2.0
+    bulk_density_g_per_l: 520.0
+    irrigation_strategy: moderate
+
+  # ── Hydro Solution ────────────────────────────────────────────────
+
+  - type: hydro_solution
+    brand: ""
+    name_de: "Hydrokultur (kein Substrat)"
+    name_en: "Hydroponics (No Substrate)"
+    ph_base: 6.0
+    ec_base_ms: 0.0
+    water_retention: low
+    air_porosity_percent: 100.0
+    composition: {}
+    buffer_capacity: low
+    reusable: true
+    max_reuse_cycles: 99
+    irrigation_strategy: continuous

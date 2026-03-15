@@ -7,7 +7,7 @@ Kategorie: Bewässerung & Düngung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery
 Status: Entwurf
-Version: 1.4 (Wasserquellen-Defaults & Kaskade)
+Version: 1.5 (HA-Sensor-Binding & Bulk-Endpoints)
 ```
 
 ## 1. Business Case
@@ -124,6 +124,8 @@ Auch bei Locations mit automatischer Bewässerung (`irrigation_system != 'manual
     - `has_ozone_generator: bool` (Ozon-Desinfektion — effektiv gegen Pythium/Fusarium)
     - `installed_on: date` (Installationsdatum)
     - `notes: Optional[str]`
+    - **Sensor-Binding:** Erfolgt über `monitors_tank`-Edge (REQ-005 `:Sensor` → `:Tank`). Ein Sensor kann `ha_entity_id`, `mqtt_topic` oder `modbus_address` tragen — damit werden **alle Datenquellen** (Home Assistant, ESPHome/MQTT direkt, Modbus/I2C) gleichwertig unterstützt. Kein HA-spezifisches Feld auf dem Tank selbst nötig.
+    <!-- Quelle: HA-REVIEW-CORE CF-006 — Über monitors_tank Edge statt ha_*_entity_id auf Tank. Nutzt REQ-005 Sensor-Infrastruktur mit ha_entity_id, mqtt_topic, modbus_address. Unterstützt alle Datenkanäle (HA, ESPHome, Modbus) gleichwertig. -->
 
 - **`:TankState`** — Momentaufnahme des Tank-Zustands (immutable)
   - Collection: `tank_states`
@@ -137,7 +139,7 @@ Auch bei Locations mit automatischer Bewässerung (`irrigation_system != 'manual
     - `dissolved_oxygen_mgl: Optional[float]` (Gelöstsauerstoff — kritisch für Hydroponik: >6 mg/L optimal, <4 mg/L kritisch)
     - `orp_mv: Optional[int]` (Oxidation-Reduction-Potential — Rezirkulation: >700 mV steril, <250 mV Pathogen-Risiko)
     - `tds_ppm: Optional[int]`
-    - `source: Literal['manual', 'sensor', 'home_assistant']` (Datenherkunft analog REQ-005)
+    - `source: Literal['manual', 'ha_auto', 'mqtt_auto', 'modbus_auto']` (Datenherkunft — identisch mit REQ-005 `Observation.source`. `manual` = Nutzereingabe, Rest = automatisch via Sensor-Webhook)
 
 - **`:TankFillEvent`** — Einzelne Tankbefüllung (immutable)
   - Collection: `tank_fill_events`
@@ -220,7 +222,10 @@ watered_slot:      watering_events → slots              // Gießvorgang betrif
 watering_from:     watering_events → tank_fill_events   // Gießvorgang stammt aus dokumentierter Tankbefüllung (optional)
 generated_task:    maintenance_logs → tasks            // Verknüpfung zu REQ-006 Tasks
 mixed_into:        mixing_results → tank_fill_events   // Nährstofflösung aus REQ-004 verknüpft mit Befüllungs-Event
+monitors_tank:     sensors → tanks                     // Sensor überwacht Tank-Parameter (REQ-005). Attribute: parameter (ec, ph, fill_level, water_temp, dissolved_oxygen, orp)
 ```
+
+> **Sensor-Binding via `monitors_tank`:** Ein REQ-005 `:Sensor` mit `parameter: 'ec'` und `ha_entity_id: 'sensor.tank1_ec'` (oder `mqtt_topic: 'esphome/tank1/ec'`, oder `modbus_address: 42`) wird über einen `monitors_tank`-Edge mit dem Tank verknüpft. Das System erkennt anhand des `parameter`-Feldes, welches TankState-Feld befüllt wird (ec → `ec_ms`, ph → `ph`, etc.). Damit sind **alle REQ-005-Datenkanäle** (Home Assistant, MQTT direkt, Modbus, manuell) für Tank-Monitoring nutzbar.
 
 **ArangoDB-Graph-Definition:**
 ```json
@@ -1544,6 +1549,220 @@ DELETE /api/v1/tanks/{tank_key}/schedules/{schedule_key} — Plan deaktivieren
 # Übergreifend
 GET    /api/v1/maintenance/due                            — Alle fälligen Wartungen (tankübergreifend)
 GET    /api/v1/locations/{location_key}/tanks/validation  — Prüfe ob Location Tank braucht
+
+# Sensor-Integration Bulk-Endpoints (CF-004, CF-005)
+GET    /api/v1/tanks/states/latest                        — Bulk: Alle Tanks mit jeweils neuestem TankState in einem Call (verhindert N+1-Problem bei Polling)
+GET    /api/v1/tanks/alerts                               — Bulk: Aggregierte Tank-Alerts aller Tanks
+
+# Sensor-Integration Live-Query (nur bei HA-Direktanbindung)
+GET    /api/v1/tanks/{tank_key}/states/live                — Live-Abfrage: Holt aktuelle Sensorwerte direkt von Home Assistant (nur für Sensoren mit ha_entity_id)
+
+# Sensor-Integration Webhook (CF-010)
+POST   /api/v1/webhooks/sensor-event                      — Webhook für Sensor→KP Push (HA, ESPHome, MQTT-Bridge etc.)
+```
+
+**Bulk-Endpoint `GET /tanks/states/latest`:**
+<!-- Quelle: HA-REVIEW-CORE CF-004 -->
+
+Response-Format:
+```json
+[
+  {
+    "tank_key": "tank_zelt1",
+    "tank_name": "Haupttank Grow Zelt 1",
+    "tank_type": "nutrient",
+    "latest_state": {
+      "recorded_at": "2026-02-26T10:00:00Z",
+      "ph": 5.9,
+      "ec_ms": 1.75,
+      "water_temp_celsius": 21.5,
+      "fill_level_percent": 85,
+      "dissolved_oxygen_mgl": 7.2,
+      "orp_mv": 720,
+      "source": "home_assistant"
+    }
+  }
+]
+```
+
+**Webhook `POST /webhooks/sensor-event`:**
+<!-- Quelle: HA-REVIEW-CORE CF-010, erweitert für alle REQ-005 Datenkanäle -->
+
+Der Webhook ist **source-agnostisch** — er akzeptiert Sensor-Daten aus beliebigen Quellen (Home Assistant, ESPHome, MQTT-Bridge, Modbus-Gateway etc.). Die Zuordnung zum Tank erfolgt über den REQ-005 `:Sensor` und dessen `monitors_tank`-Edge.
+
+Request-Format:
+```json
+{
+  "event_type": "sensor_reading",
+  "sensor_id": "sensor_tank1_ec",
+  "value": 1.82,
+  "unit": "mS/cm",
+  "source": "ha_auto",
+  "timestamp": "2026-02-26T10:05:00Z"
+}
+```
+
+Alternativ mit `entity_id` (für HA-Automationen, die den Sensor-Key nicht kennen):
+```json
+{
+  "event_type": "sensor_reading",
+  "entity_id": "sensor.tank1_ec",
+  "value": 1.82,
+  "source": "ha_auto",
+  "timestamp": "2026-02-26T10:05:00Z"
+}
+```
+
+Oder mit `mqtt_topic` (für MQTT-Bridge/ESPHome-Weiterleitungen):
+```json
+{
+  "event_type": "sensor_reading",
+  "mqtt_topic": "esphome/tank1/ec",
+  "value": 1.82,
+  "source": "mqtt_auto",
+  "timestamp": "2026-02-26T10:05:00Z"
+}
+```
+
+**Sensor-Auflösung (Priorität):**
+1. `sensor_id` → direkter Lookup in `sensors`-Collection
+2. `entity_id` → Lookup über `Sensor.ha_entity_id`
+3. `mqtt_topic` → Lookup über `Sensor.mqtt_topic`
+
+**Verarbeitung (Dual-Write):**
+1. Sensor auflösen (siehe oben), dann über `monitors_tank`-Edge den zugeordneten Tank ermitteln
+2. **TimescaleDB:** Sensorwert als REQ-005 `Observation` in `sensor_readings`-Hypertable schreiben (mit `sensor_id`, `value`, `source`, `timestamp`). Unterliegt dem 3-stufigen Downsampling (NFR-011 R-14: 90d raw → 2y stündlich → 5y täglich).
+3. **ArangoDB:** Anhand `Sensor.parameter` das richtige TankState-Feld bestimmen (ec → `ec_ms`, ph → `ph`, water_temp → `water_temp_celsius`, fill_level → `fill_level_percent`, dissolved_oxygen → `dissolved_oxygen_mgl`, orp → `orp_mv`). `TankState` mit `source` aus Request erstellen (oder in bestehenden aktuellen State mergen, wenn mehrere Sensoren innerhalb eines kurzen Zeitfensters melden).
+4. Unterstützte `event_type`-Werte: `sensor_reading`, `watering_completed` (erzeugt WateringEvent), `maintenance_completed` (erzeugt MaintenanceLog)
+
+> **Dual-Write-Begründung:** TimescaleDB liefert die hochfrequente Langzeit-Historie mit automatischem Downsampling (Trend-Analyse, Charts). ArangoDB `TankState` bleibt der operative Snapshot für Alerts, Dashboard und API-Abfragen. Manuelle TankState-Eingaben (`source='manual'`) gehen nur nach ArangoDB — kein TimescaleDB-Eintrag nötig.
+
+| HTTP-Status | Fehlerfall |
+|-------------|-----------|
+| `200` | Sensor-Reading erfolgreich verarbeitet |
+| `404` | Sensor nicht gefunden (weder sensor_id, entity_id noch mqtt_topic matchen) |
+| `404` | Sensor hat keinen `monitors_tank`-Edge (ist keinem Tank zugeordnet) |
+| `422` | Unbekannter `event_type` oder ungültiger `value`-Typ |
+
+**Live-Query `GET /tanks/{tank_key}/states/live`:**
+
+Holt aktuelle Sensorwerte **direkt von der Home Assistant REST API** (`GET /api/states/{entity_id}`) für alle `monitors_tank`-Sensoren des Tanks, die eine `ha_entity_id` haben. Damit sieht der Nutzer exakt dieselben Werte wie in seinem HA-Dashboard — ohne Verzögerung durch Polling-Intervalle oder Push-Latenz.
+
+**Voraussetzungen:**
+- HA-Integration aktiviert (`ha_token_set == true`, siehe REQ-005 §4a)
+- Mindestens ein Sensor am Tank hat eine `ha_entity_id`
+- Nutzer hat `ha_url` und `ha_token` in den Kontoeinstellungen hinterlegt (REQ-023)
+
+**Funktionsweise:**
+1. Alle `monitors_tank`-Sensoren des Tanks laden
+2. Sensoren nach Datenkanal filtern:
+   - **`ha_entity_id` gesetzt:** Live-Abfrage via `HomeAssistantConnector.get_sensor_state(entity_id)` — Echtzeit-Wert
+   - **`mqtt_topic` oder `modbus_address` (ohne `ha_entity_id`):** Letzten bekannten Wert aus ArangoDB `TankState` verwenden — mit Zeitstempel und Kennzeichnung als nicht-live
+3. Zusammengesetztes Ergebnis zurückgeben
+
+Response-Format:
+```json
+{
+  "tank_key": "tank_zelt1",
+  "queried_at": "2026-02-26T10:05:02Z",
+  "ha_connected": true,
+  "values": [
+    {
+      "parameter": "ec",
+      "value": 1.82,
+      "unit": "mS/cm",
+      "source": "ha_live",
+      "ha_entity_id": "sensor.tank1_ec",
+      "timestamp": "2026-02-26T10:05:01Z",
+      "freshness": "live"
+    },
+    {
+      "parameter": "ph",
+      "value": 5.9,
+      "unit": "pH",
+      "source": "ha_live",
+      "ha_entity_id": "sensor.tank1_ph",
+      "timestamp": "2026-02-26T10:05:01Z",
+      "freshness": "live"
+    },
+    {
+      "parameter": "water_temp",
+      "value": 21.3,
+      "unit": "°C",
+      "source": "mqtt_auto",
+      "mqtt_topic": "esphome/tank1/temp",
+      "timestamp": "2026-02-26T10:03:45Z",
+      "freshness": "recent"
+    }
+  ],
+  "warnings": ["Parameter 'water_temp' ist nicht live-fähig (MQTT-Push, letzter Wert vor 77s)"]
+}
+```
+
+**`freshness`-Stufen:**
+
+| Stufe | Bedingung | Bedeutung |
+|-------|-----------|-----------|
+| `live` | Wert soeben von HA abgefragt | Echtzeit — identisch mit HA-Dashboard |
+| `recent` | Letzter Push/Webhook < 5 Minuten alt | Aktuell, aber nicht garantiert live |
+| `stale` | Letzter bekannter Wert 5–60 Minuten alt | Veraltet — Nutzer sollte manuell prüfen |
+| `offline` | Kein Wert seit > 60 Minuten oder Sensor offline | Sensor ausgefallen oder nicht erreichbar |
+
+**Fehlerbehandlung:**
+
+| HTTP-Status | Fehlerfall |
+|-------------|-----------|
+| `200` | Werte erfolgreich abgefragt (auch wenn einzelne Sensoren nicht erreichbar — `warnings` enthält Details) |
+| `404` | Tank nicht gefunden |
+| `409` | HA-Integration nicht aktiviert (`ha_token_set == false`) |
+| `502` | HA nicht erreichbar (alle HA-Sensoren, Timeout nach 10s) |
+
+**Wichtig:** Dieser Endpoint ist **kein Ersatz** für das reguläre State-Tracking. Er erzeugt **keinen** TankState in ArangoDB und **keine** Observation in TimescaleDB. Er ist ein reiner Read-Through für die UI. Soll der Live-Wert persistiert werden, muss der Nutzer explizit "Messung übernehmen" klicken (→ `POST /tanks/{key}/states`).
+
+### Datenherkunft-Kennzeichnung (UI)
+
+Alle Sensor- und Messwerte in der UI tragen eine **Herkunftskennzeichnung**, damit der Nutzer erkennt, woher ein Wert stammt und wie aktuell er ist.
+
+**Source-Badges (MUI Chip, klein, neben dem Messwert):**
+
+| Source | Badge | Farbe | Tooltip |
+|--------|-------|-------|---------|
+| `manual` | `Manuell` | `default` (grau) | "Manuell eingegeben am {timestamp}" |
+| `ha_auto` | `HA` | `info` (blau) | "Home Assistant — {ha_entity_id}, {timestamp}" |
+| `ha_live` | `HA Live` | `success` (grün) | "Live von Home Assistant abgefragt, {timestamp}" |
+| `mqtt_auto` | `MQTT` | `secondary` (lila) | "MQTT-Push — {mqtt_topic}, {timestamp}" |
+| `modbus_auto` | `Modbus` | `secondary` (lila) | "Modbus-Sensor, {timestamp}" |
+
+**Freshness-Indikator (zusätzlich zum Source-Badge):**
+
+| Freshness | Darstellung | Beispiel |
+|-----------|-------------|---------|
+| `live` | Grüner Punkt (pulsierend) | `● 1.82 mS/cm` |
+| `recent` | Grüner Punkt (statisch) + relative Zeitangabe | `● 1.82 mS/cm · vor 2 Min` |
+| `stale` | Gelber Punkt + relative Zeitangabe | `● 1.82 mS/cm · vor 23 Min` |
+| `offline` | Roter Punkt + "Offline" | `● — · Offline seit 2h` |
+
+**Platzierung:** Auf allen Seiten, die TankState-Werte anzeigen:
+- **TankDetailPage:** State-Karten im Überblick-Tab — jeder Wert mit Source-Badge + Freshness
+- **TankDetailPage Live-Tab:** Separater Tab "Live" (nur sichtbar wenn HA aktiv oder Sensoren vorhanden) — zeigt alle Sensorwerte mit Auto-Refresh (konfigurierbar: 10s/30s/60s/aus)
+- **Dashboard Tank-Widget:** Kompakt — nur Freshness-Punkt, Tooltip zeigt Source
+
+**i18n-Keys:**
+```
+tanks.source.manual: "Manuell" / "Manual"
+tanks.source.ha_auto: "HA" / "HA"
+tanks.source.ha_live: "HA Live" / "HA Live"
+tanks.source.mqtt_auto: "MQTT" / "MQTT"
+tanks.source.modbus_auto: "Modbus" / "Modbus"
+tanks.freshness.live: "Live" / "Live"
+tanks.freshness.recent: "vor {minutes} Min" / "{minutes} min ago"
+tanks.freshness.stale: "vor {minutes} Min (veraltet)" / "{minutes} min ago (stale)"
+tanks.freshness.offline: "Offline seit {duration}" / "Offline for {duration}"
+tanks.live.title: "Live-Sensorwerte" / "Live Sensor Values"
+tanks.live.ha_only: "Live-Abfrage nur mit Home Assistant möglich" / "Live query requires Home Assistant"
+tanks.live.adopt_value: "Messung übernehmen" / "Adopt reading"
+tanks.live.auto_refresh: "Auto-Refresh" / "Auto-refresh"
+tanks.live.push_delay_hint: "MQTT/Webhook-Werte können verzögert sein" / "MQTT/Webhook values may be delayed"
 ```
 
 ### Seed-Daten:
@@ -1729,7 +1948,7 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 **Erforderliche Module:**
 - REQ-002 (Standort): Location für Tank-Zuordnung, `irrigation_system` für Pflicht-Validierung; **HOCH** — `Site.water_source` (TapWaterProfile, RoWaterProfile) als Default-Quelle in der Wasserquellen-Kaskade für TankFillEvent-Felder
 - REQ-004 (Düngung): **HOCH** — MixingResult als Input für Tank-Befüllung; NutrientPlan + WateringScheduleEngine für Bestätigungsflow (Dosierungs-Auflösung pro Phase); FeedingEvent-Erzeugung bei Gießplan-Bestätigung
-- REQ-005 (Sensorik): Sensor-Daten für automatische Zustandserfassung (pH, EC, Füllstand, Temperatur)
+- REQ-005 (Sensorik): **HOCH** — Sensor-Daten für automatische Zustandserfassung (pH, EC, Füllstand, Temperatur, DO, ORP). `monitors_tank`-Edge verknüpft REQ-005 `:Sensor` (mit `ha_entity_id`, `mqtt_topic` oder `modbus_address`) mit Tank. Unterstützt alle 4 Datenkanäle gleichwertig: Home Assistant (`ha_auto`), MQTT direkt/ESPHome (`mqtt_auto`), Modbus (`modbus_auto`), manuell (`manual`). Webhook `POST /webhooks/sensor-event` als Push-Kanal.
 - REQ-006 (Aufgabenplanung): **HOCH** — Task-Completion bei Gießplan-Bestätigung; `planting_run_key` und `watering_event_key` auf Task
 - REQ-013 (Pflanzdurchlauf): **HOCH** — PlantingRun als Gruppierungs-Container für Bestätigungsflow; Pflanzen-Phasen-Gruppierung; Slot-Ermittlung
 
@@ -1818,6 +2037,22 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **water_defaults_source:** API-Response enthält `water_defaults_source`-Feld mit der Quelle der aufgelösten Defaults
 - [ ] **Kaskade-Transparenz:** Nutzer sieht im UI, ob `base_water_ec_ms` manuell eingegeben oder aus Site/Plan berechnet wurde
 - [ ] **WaterMixCalculator-Integration:** Bei bekanntem Mischverhältnis wird `base_water_ec_ms` automatisch via WaterMixCalculator (REQ-004) berechnet
+- [ ] **Sensor-Binding via monitors_tank Edge:** REQ-005 `:Sensor` wird über `monitors_tank`-Edge mit Tank verknüpft. Sensor trägt `ha_entity_id`, `mqtt_topic` oder `modbus_address` — alle Datenkanäle gleichwertig (CF-006)
+- [ ] **Sensor-Parameter-Mapping:** `Sensor.parameter` bestimmt das TankState-Feld: ec→`ec_ms`, ph→`ph`, water_temp→`water_temp_celsius`, fill_level→`fill_level_percent`, dissolved_oxygen→`dissolved_oxygen_mgl`, orp→`orp_mv`
+- [ ] **Bulk-States-Endpoint:** `GET /tanks/states/latest` liefert alle Tanks mit jeweils neuestem TankState in einem API-Call (CF-004)
+- [ ] **Bulk-Alerts-Endpoint:** `GET /tanks/alerts` liefert aggregierte Tank-Alerts aller Tanks in einem API-Call
+- [ ] **Webhook Source-Agnostisch:** `POST /webhooks/sensor-event` akzeptiert Sensor-Daten aus beliebigen Quellen (HA, ESPHome, MQTT-Bridge, Modbus-Gateway) und routet über `sensor_id`, `entity_id` oder `mqtt_topic` zum Tank (CF-010)
+- [ ] **Webhook Dual-Write:** Webhook schreibt Sensorwert parallel als REQ-005 `Observation` in TimescaleDB (mit Downsampling) und als `TankState` in ArangoDB
+- [ ] **Manuelle Eingabe nur ArangoDB:** Manuelle TankState-Eingaben (`source='manual'`) gehen nur nach ArangoDB, kein TimescaleDB-Eintrag
+- [ ] **DO/ORP-Export:** `dissolved_oxygen_mgl` und `orp_mv` als HA-Entities in HA-CUSTOM-INTEGRATION.md exportiert (CF-005)
+- [ ] **Live-Query Endpoint:** `GET /tanks/{key}/states/live` fragt Sensorwerte direkt von HA ab (nur Sensoren mit `ha_entity_id`). Kein TankState/Observation erzeugt — reiner Read-Through.
+- [ ] **Live-Query Fallback:** Sensoren ohne `ha_entity_id` (MQTT/Modbus) liefern letzten bekannten Wert aus ArangoDB mit Zeitstempel und `freshness`-Angabe
+- [ ] **Live-Query Voraussetzung:** Endpoint gibt `409` wenn HA-Integration nicht aktiviert (`ha_token_set == false`)
+- [ ] **Messung übernehmen:** UI bietet "Messung übernehmen"-Button für Live-Werte → erstellt TankState + Observation via `POST /tanks/{key}/states`
+- [ ] **Source-Badge:** Alle Messwerte in der UI zeigen Source-Badge (MUI Chip): `Manuell`, `HA`, `HA Live`, `MQTT`, `Modbus`
+- [ ] **Freshness-Indikator:** Messwerte zeigen farbcodierten Freshness-Punkt: `live` (grün pulsierend), `recent` (grün statisch), `stale` (gelb), `offline` (rot)
+- [ ] **Live-Tab:** TankDetailPage zeigt "Live"-Tab nur wenn HA aktiv oder Sensoren vorhanden. Auto-Refresh konfigurierbar (10s/30s/60s/aus).
+- [ ] **Push-Delay-Hinweis:** UI zeigt Hinweis bei MQTT/Webhook-Sensoren: "MQTT/Webhook-Werte können verzögert sein"
 
 ### Testszenarien:
 
@@ -2085,9 +2320,48 @@ THEN:
   - Message: "Task bereits abgeschlossen — WateringEvent existiert bereits"
 ```
 
+**Szenario 22: Live-Abfrage mit gemischten Sensoren (HA + MQTT)**
+```
+GIVEN: Tank "Haupttank Zelt 1" hat 3 monitors_tank-Sensoren:
+       - EC-Sensor: ha_entity_id="sensor.tank1_ec" (HA-Direktanbindung)
+       - pH-Sensor: ha_entity_id="sensor.tank1_ph" (HA-Direktanbindung)
+       - Temp-Sensor: mqtt_topic="esphome/tank1/temp" (ESPHome via MQTT, kein HA)
+       HA-Integration aktiviert (ha_token_set=true)
+WHEN: GET /api/v1/tanks/tank_zelt1/states/live
+THEN:
+  - EC: value=1.82, source="ha_live", freshness="live" (direkt von HA abgefragt)
+  - pH: value=5.9, source="ha_live", freshness="live" (direkt von HA abgefragt)
+  - Temp: value=21.3, source="mqtt_auto", freshness="recent", timestamp=vor 45s
+  - warnings: ["Parameter 'water_temp' ist nicht live-fähig (MQTT-Push)"]
+  - UI zeigt: EC/pH mit grün pulsierendem Punkt + "HA Live"-Badge,
+              Temp mit grün statischem Punkt + "MQTT"-Badge + "vor 45s"
+```
+
+**Szenario 23: Live-Abfrage ohne HA-Integration**
+```
+GIVEN: Tank "Regenwassertonne" hat 1 Sensor: mqtt_topic="esphome/garten/level"
+       HA-Integration NICHT aktiviert (ha_token_set=false)
+WHEN: GET /api/v1/tanks/tank_regenwasser/states/live
+THEN:
+  - HTTP 409 Conflict
+  - Message: "HA-Integration nicht aktiviert — Live-Abfrage nicht möglich"
+  - UI zeigt stattdessen letzte bekannte Werte mit Freshness-Indikator
+```
+
+**Szenario 24: Nutzer übernimmt Live-Wert als Messung**
+```
+GIVEN: Live-Tab zeigt EC=1.85 (ha_live) für "Haupttank Zelt 1"
+WHEN: Nutzer klickt "Messung übernehmen"
+THEN:
+  - POST /api/v1/tanks/tank_zelt1/states mit {ec_ms: 1.85, source: "ha_auto"}
+  - TankState in ArangoDB erzeugt
+  - Observation in TimescaleDB erzeugt (Dual-Write)
+  - Live-Tab zeigt Bestätigung: "Messung übernommen"
+```
+
 ---
 
 **Hinweise für RAG-Integration:**
 - Keywords: Tank, Reservoir, Bewässerung, Nährstofflösung, Wasserwechsel, Reinigung, Desinfektion, Kalibrierung, Wartungsplan, Wartungshistorie, Befüllungshistorie, Tankbefüllung, Vollwechsel, Auffüllung, Korrektur, Dünger-Snapshot, Rezept-Verknüpfung, Füllstand, Algenrisiko, Rezirkulation, Tankkaskade, Gießkanne, Gießvorgang, manuelle Bewässerung, ergänzende Handdüngung, Blattdüngung, Komposttee, organischer Dünger, Applikationsmethode, Fertigation, Drench, Foliar, Top Dress, Gelöstsauerstoff, Sauerstoff, Pythium, Wurzelfäule, ORP, Sterilisation, UV-C, Ozon, Chlor, Chloramin, Alkalinität, Karbonathärte, Lösungsalter, Chelat-Degradation, pH-Drift, EC-Abweichung, Wurzelschock, Kälte, Salting-Out-Effekt, Q10-Regel, Biofilm, EC-Drift, EC-Trend, Stammlösung, Stock Solution, A/B-Tank, Compound-Alert, Lichtdichtheit, Substrat-pH, CalMag-Pufferung, Nachfüllwasser-Temperatur, Temperaturschock, Drain-to-Waste, Runoff-Interpretation
-- Technische Begriffe: MaintenanceSchedule, TankState, TankFillEvent, WateringEvent, ApplicationMethod, FillType, FertilizerSnapshot, TankType, MaintenanceType, feeds_from, has_tank, has_fill_event, watered_slot, watering_from, supplies, mixed_into, auto_create_task, tank_safe, is_organic, is_supplemental, Celery-Beat, dissolved_oxygen_mgl, orp_mv, chlorine_ppm, chloramine_ppm, alkalinity_ppm, has_uv_sterilizer, has_ozone_generator, is_light_proof, solution_age, ph_drift, ec_deviation, ec_trend_rising, ec_trend_falling, temp_do_compound, biofilm_risk, algae_risk, stock_solution, water_temperature_celsius, g_per_liter, PH_RANGES_BY_SUBSTRATE, Q10
-- Verknüpfung: Zentral für REQ-002 (Standort — irrigation_system), REQ-004 (Düngung — MixingResult, NutrientPlan, FeedingEvent, ApplicationMethod, Fertilizer.tank_safe, WateringScheduleEngine), REQ-005 (Sensorik), REQ-006 (Aufgabenplanung — Gießplan-Tasks, Task-Completion), REQ-013 (Pflanzdurchlauf — Run-basierter Bestätigungsflow), REQ-022 (Pflegeerinnerungen — CareConfirmation-Interop)
+- Technische Begriffe: MaintenanceSchedule, TankState, TankFillEvent, WateringEvent, ApplicationMethod, FillType, FertilizerSnapshot, TankType, MaintenanceType, feeds_from, has_tank, has_fill_event, watered_slot, watering_from, supplies, mixed_into, monitors_tank, auto_create_task, tank_safe, is_organic, is_supplemental, Celery-Beat, dissolved_oxygen_mgl, orp_mv, chlorine_ppm, chloramine_ppm, alkalinity_ppm, has_uv_sterilizer, has_ozone_generator, is_light_proof, solution_age, ph_drift, ec_deviation, ec_trend_rising, ec_trend_falling, temp_do_compound, biofilm_risk, algae_risk, stock_solution, water_temperature_celsius, g_per_liter, PH_RANGES_BY_SUBSTRATE, Q10, ha_entity_id, mqtt_topic, modbus_address, ha_live, freshness, source_badge, dual_write, sensor_event, live_query
+- Verknüpfung: Zentral für REQ-002 (Standort — irrigation_system), REQ-004 (Düngung — MixingResult, NutrientPlan, FeedingEvent, ApplicationMethod, Fertilizer.tank_safe, WateringScheduleEngine), REQ-005 (Sensorik — monitors_tank Edge, Observation, HomeAssistantConnector, MQTT, Modbus, Live-Query), REQ-006 (Aufgabenplanung — Gießplan-Tasks, Task-Completion), REQ-013 (Pflanzdurchlauf — Run-basierter Bestätigungsflow), REQ-022 (Pflegeerinnerungen — CareConfirmation-Interop)

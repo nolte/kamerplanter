@@ -42,9 +42,13 @@ interface PhaseGanttChartProps {
   onPhaseClick?: (entryKey: string) => void;
   onEditEntry?: (entry: NutrientPlanPhaseEntry) => void;
   selectedPhaseKey?: string;
+  /** Auto-expand channel sub-rows for entries with exactly 1 delivery channel */
+  autoExpandSingleChannel?: boolean;
+  /** Compact mode: phase bar as top row, no expand labels, channel sub-rows shown directly */
+  compactMode?: boolean;
 }
 
-export default function PhaseGanttChart({ entries, fertilizers, currentWeek, weekOffset = 0, title, weekLabel, totalWeeksOverride, showMonthHeaders, onPhaseClick, onEditEntry, selectedPhaseKey }: PhaseGanttChartProps) {
+export default function PhaseGanttChart({ entries, fertilizers, currentWeek, weekOffset = 0, title, weekLabel, totalWeeksOverride, showMonthHeaders, onPhaseClick, onEditEntry, selectedPhaseKey, autoExpandSingleChannel, compactMode }: PhaseGanttChartProps) {
   const { t, i18n } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -166,13 +170,13 @@ export default function PhaseGanttChart({ entries, fertilizers, currentWeek, wee
                       borderLeft: ms.month > 0 ? 1 : 0,
                       py: 0.5,
                       ...(isCurrent && {
-                        bgcolor: alpha(theme.palette.primary.main, 0.10),
+                        bgcolor: alpha(theme.palette.error.main, 0.10),
                       }),
                     }}
                   >
                     <Typography
                       variant="caption"
-                      color={isCurrent ? 'primary' : 'text.secondary'}
+                      color={isCurrent ? 'error' : 'text.secondary'}
                       sx={isCurrent ? { fontWeight: 700 } : undefined}
                     >
                       {getShortMonthName(ms.month, i18n.language)}
@@ -193,13 +197,13 @@ export default function PhaseGanttChart({ entries, fertilizers, currentWeek, wee
                       borderColor: 'divider',
                       py: 0.5,
                       ...(absWeek === currentWeek && {
-                        bgcolor: alpha(theme.palette.primary.main, 0.10),
+                        bgcolor: alpha(theme.palette.error.main, 0.10),
                       }),
                     }}
                   >
                     <Typography
                       variant="caption"
-                      color={absWeek === currentWeek ? 'primary' : 'text.secondary'}
+                      color={absWeek === currentWeek ? 'error' : 'text.secondary'}
                       sx={absWeek === currentWeek ? { fontWeight: 700 } : undefined}
                     >
                       {weekLabel ?? t('pages.gantt.week')}{absWeek}
@@ -312,36 +316,135 @@ export default function PhaseGanttChart({ entries, fertilizers, currentWeek, wee
               </>
             )}
 
-            {/* Phase rows */}
-            {sorted.map((entry) => {
-              const color = PHASE_COLORS[entry.phase_name] ?? theme.palette.grey[600];
-              const isExpanded = expandedPhases.has(entry.key);
-              const hasChannels = entry.delivery_channels.length > 0;
-              const duration = entry.week_end - entry.week_start + 1;
+            {compactMode ? (
+              <>
+                {/* Compact: phase bar row showing all phases as colored blocks */}
+                <Box
+                  sx={{
+                    position: 'sticky',
+                    left: 0,
+                    bgcolor: 'background.paper',
+                    zIndex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    py: 0.5,
+                    px: 0.5,
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Typography variant="caption" noWrap sx={{ fontWeight: 600 }} color="text.secondary">
+                    {t('pages.gantt.phase')}
+                  </Typography>
+                </Box>
+                {(() => {
+                  type PhaseRun = { startCol: number; span: number; color: string; label: string };
+                  const runs: PhaseRun[] = [];
+                  const useMonthSnap = showMonthHeaders;
+                  for (const w of weeks) {
+                    const absWeek = w + weekOffset;
+                    const entry = sorted.find((e) => {
+                      if (e.week_end > totalWeeks + weekOffset) {
+                        const wrapEnd = e.week_end - totalWeeks;
+                        return (absWeek >= e.week_start && absWeek <= totalWeeks + weekOffset)
+                          || (absWeek >= 1 + weekOffset && absWeek <= wrapEnd + weekOffset);
+                      }
+                      return absWeek >= e.week_start && absWeek <= e.week_end;
+                    });
+                    const color = entry ? (PHASE_COLORS[entry.phase_name] ?? theme.palette.grey[600]) : '';
+                    const label = entry ? t(`enums.phaseName.${entry.phase_name}`) : '';
+                    const prev = runs[runs.length - 1];
+                    const mb = useMonthSnap && prev && weekToMonth.get(absWeek) !== weekToMonth.get(absWeek - 1);
+                    if (prev && prev.color === color && !mb) {
+                      prev.span += 1;
+                    } else {
+                      runs.push({ startCol: w + 1, span: 1, color, label });
+                    }
+                  }
+                  return runs.map((run) => (
+                    <Box
+                      key={run.startCol}
+                      sx={{
+                        gridColumn: `${run.startCol} / span ${run.span}`,
+                        py: 0.5,
+                        px: '2px',
+                        borderBottom: 1,
+                        borderColor: 'divider',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                    >
+                      {run.color && (
+                        <Tooltip title={run.label} arrow>
+                          <Box
+                            sx={{
+                              width: '100%',
+                              height: 14,
+                              bgcolor: alpha(run.color, 0.85),
+                              borderRadius: 0.5,
+                            }}
+                          />
+                        </Tooltip>
+                      )}
+                    </Box>
+                  ));
+                })()}
 
-              return (
-                <PhaseRow
-                  key={entry.key}
-                  entry={entry}
-                  color={color}
-                  isExpanded={isExpanded}
-                  hasChannels={hasChannels}
-                  duration={duration}
-                  totalWeeks={totalWeeks}
-                  labelWidth={labelWidth}
-                  onToggle={togglePhase}
-                  getFertilizerName={getFertilizerName}
-                  t={t}
-                  theme={theme}
-                  weekOffset={weekOffset}
-                  weekLabel={weekLabel}
-                  onPhaseClick={onPhaseClick}
-                  onEditEntry={onEditEntry}
-                  isSelected={selectedPhaseKey === entry.key}
-                  monthSnap={showMonthHeaders}
-                />
-              );
-            })}
+                {/* Compact: channel sub-rows directly (no phase label rows) */}
+                {sorted.map((entry) => {
+                  const color = PHASE_COLORS[entry.phase_name] ?? theme.palette.grey[600];
+                  return entry.delivery_channels.map((ch) => (
+                    <ChannelSubRow
+                      key={`${entry.key}-${ch.channel_id}`}
+                      channel={ch}
+                      entry={entry}
+                      color={color}
+                      totalWeeks={totalWeeks}
+                      labelWidth={labelWidth}
+                      getFertilizerName={getFertilizerName}
+                      t={t}
+                      theme={theme}
+                      weekOffset={weekOffset}
+                      monthSnap={showMonthHeaders}
+                    />
+                  ));
+                })}
+              </>
+            ) : (
+              /* Normal: expandable phase rows */
+              sorted.map((entry) => {
+                const color = PHASE_COLORS[entry.phase_name] ?? theme.palette.grey[600];
+                const autoExpand = autoExpandSingleChannel && entry.delivery_channels.length === 1;
+                const isExpanded = autoExpand || expandedPhases.has(entry.key);
+                const hasChannels = entry.delivery_channels.length > 0;
+                const duration = entry.week_end - entry.week_start + 1;
+
+                return (
+                  <PhaseRow
+                    key={entry.key}
+                    entry={entry}
+                    color={color}
+                    isExpanded={isExpanded}
+                    hasChannels={hasChannels}
+                    duration={duration}
+                    totalWeeks={totalWeeks}
+                    labelWidth={labelWidth}
+                    onToggle={togglePhase}
+                    getFertilizerName={getFertilizerName}
+                    t={t}
+                    theme={theme}
+                    weekOffset={weekOffset}
+                    weekLabel={weekLabel}
+                    onPhaseClick={onPhaseClick}
+                    onEditEntry={onEditEntry}
+                    isSelected={selectedPhaseKey === entry.key}
+                    monthSnap={showMonthHeaders}
+                  />
+                );
+              })
+            )}
+
+            {/* (current week highlighting is done per-cell in headers) */}
           </Box>
         </Box>
       </CardContent>

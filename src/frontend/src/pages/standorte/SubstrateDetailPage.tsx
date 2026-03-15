@@ -5,9 +5,13 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
 import Alert from '@mui/material/Alert';
+import { useLocalFavorites } from '@/hooks/useLocalFavorites';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -22,16 +26,20 @@ import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
+import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import BatchCreateDialog from './BatchCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/substrates';
+import Chip from '@mui/material/Chip';
 import type { Substrate, Batch, ReusabilityResponse } from '@/api/types';
 
 const schema = z.object({
   type: z.enum(['soil', 'coco', 'clay_pebbles', 'perlite', 'living_soil', 'peat', 'rockwool_slab', 'rockwool_plug', 'vermiculite', 'none', 'orchid_bark', 'pon_mineral', 'sphagnum', 'hydro_solution']),
   brand: z.string().nullable(),
+  name_de: z.string(),
+  name_en: z.string(),
   ph_base: z.number().min(0).max(14),
   ec_base_ms: z.number().min(0),
   water_retention: z.enum(['low', 'medium', 'high']),
@@ -45,7 +53,7 @@ type FormData = z.infer<typeof schema>;
 
 export default function SubstrateDetailPage() {
   const { key } = useParams<{ key: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -58,6 +66,8 @@ export default function SubstrateDetailPage() {
   const [deleteBatchTarget, setDeleteBatchTarget] = useState<Batch | null>(null);
   const [batchCreateOpen, setBatchCreateOpen] = useState(false);
   const [reusability, setReusability] = useState<Record<string, ReusabilityResponse>>({});
+  const [allSubstrates, setAllSubstrates] = useState<Substrate[]>([]);
+  const { isFavorite, toggleFavorite } = useLocalFavorites('kamerplanter-substrate-favorites');
   const batchTableState = useTableLocalState({ defaultSort: { column: 'mixedOn', direction: 'desc' } });
 
   const {
@@ -70,6 +80,8 @@ export default function SubstrateDetailPage() {
     defaultValues: {
       type: 'soil',
       brand: null,
+      name_de: '',
+      name_en: '',
       ph_base: 6.5,
       ec_base_ms: 0.5,
       water_retention: 'medium',
@@ -89,6 +101,8 @@ export default function SubstrateDetailPage() {
       reset({
         type: s.type,
         brand: s.brand,
+        name_de: s.name_de ?? '',
+        name_en: s.name_en ?? '',
         ph_base: s.ph_base,
         ec_base_ms: s.ec_base_ms,
         water_retention: s.water_retention,
@@ -98,6 +112,9 @@ export default function SubstrateDetailPage() {
         max_reuse_cycles: s.max_reuse_cycles,
       });
       setBatches(await api.listBatches(key));
+      if (s.is_mix && s.mix_components?.length) {
+        api.listSubstrates(0, 200).then(setAllSubstrates).catch(() => {});
+      }
     } catch (err) {
       setError(String(err));
     } finally {
@@ -189,38 +206,93 @@ export default function SubstrateDetailPage() {
     <>
       <UnsavedChangesGuard dirty={isDirty} />
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <PageTitle title={substrate ? `${t(`enums.substrateType.${substrate.type}`)} ${substrate.brand ?? ''}` : t('entities.substrate')} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <PageTitle title={substrate ? ((i18n.language?.startsWith('en') ? substrate.name_en : substrate.name_de) || `${t(`enums.substrateType.${substrate.type}`)} ${substrate.brand ?? ''}`) : t('entities.substrate')} />
+          {key && (
+            <Tooltip title={t('pages.plantInstances.substrateFavToggle')}>
+              <IconButton
+                onClick={() => toggleFavorite(key)}
+                sx={{ color: isFavorite(key) ? 'warning.main' : 'action.disabled' }}
+              >
+                {isFavorite(key) ? <StarIcon /> : <StarBorderIcon />}
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
         <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
           {t('common.delete')}
         </Button>
       </Box>
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 600 }}>
+      {substrate?.is_mix && substrate.mix_components?.length > 0 && (
+        <Box sx={{ mb: 3, p: 2, borderRadius: 1, bgcolor: 'action.hover' }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+            {t('pages.substrates.mixComponents')}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {substrate.mix_components.map((comp) => {
+              const compSub = allSubstrates.find((s) => s.key === comp.substrate_key);
+              const label = compSub
+                ? (i18n.language?.startsWith('en') ? compSub.name_en : compSub.name_de) || `${t(`enums.substrateType.${compSub.type}`)} ${compSub.brand ?? ''}`
+                : comp.substrate_key;
+              return (
+                <Chip
+                  key={comp.substrate_key}
+                  label={`${label}: ${Math.round(comp.fraction * 100)}%`}
+                  color="info"
+                  variant="outlined"
+                />
+              );
+            })}
+          </Box>
+        </Box>
+      )}
+
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.substrates.editIntro')}
         </Typography>
-        <FormSelectField
-          name="type"
-          control={control}
-          label={t('pages.substrates.type')}
-          helperText={t('pages.substrates.typeHelper')}
-          options={['soil', 'coco', 'clay_pebbles', 'perlite', 'living_soil', 'peat', 'rockwool_slab', 'rockwool_plug', 'vermiculite', 'none', 'orchid_bark', 'pon_mineral', 'sphagnum', 'hydro_solution'].map((v) => ({
-            value: v, label: t(`enums.substrateType.${v}`),
-          }))}
-        />
-        <FormTextField name="brand" control={control} label={t('pages.substrates.brand')} helperText={t('pages.substrates.brandHelper')} />
-        <FormNumberField name="ph_base" control={control} label={t('pages.substrates.phBase')} helperText={t('pages.substrates.phBaseHelper')} min={0} max={14} step={0.1} />
-        <FormNumberField name="ec_base_ms" control={control} label={t('pages.substrates.ecBase')} helperText={t('pages.substrates.ecBaseHelper')} min={0} step={0.1} />
-        <FormSelectField
-          name="water_retention"
-          control={control}
-          label={t('pages.substrates.waterRetention')}
-          helperText={t('pages.substrates.waterRetentionHelper')}
-          options={['low', 'medium', 'high'].map((v) => ({
-            value: v, label: t(`enums.waterRetention.${v}`),
-          }))}
-        />
-        <FormNumberField name="air_porosity_percent" control={control} label={t('pages.substrates.airPorosity')} helperText={t('pages.substrates.airPorosityHelper')} min={0} max={100} step={1} />
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+          {t('pages.substrates.sectionIdentification')}
+        </Typography>
+        <FormRow>
+          <FormSelectField
+            name="type"
+            control={control}
+            label={t('pages.substrates.type')}
+            helperText={t('pages.substrates.typeHelper')}
+            options={['soil', 'coco', 'clay_pebbles', 'perlite', 'living_soil', 'peat', 'rockwool_slab', 'rockwool_plug', 'vermiculite', 'none', 'orchid_bark', 'pon_mineral', 'sphagnum', 'hydro_solution'].map((v) => ({
+              value: v, label: t(`enums.substrateType.${v}`),
+            }))}
+          />
+          <FormTextField name="brand" control={control} label={t('pages.substrates.brand')} helperText={t('pages.substrates.brandHelper')} />
+        </FormRow>
+        <FormRow>
+          <FormTextField name="name_de" control={control} label={`${t('pages.substrates.name')} (DE)`} helperText={t('pages.substrates.nameHelper')} />
+          <FormTextField name="name_en" control={control} label={`${t('pages.substrates.name')} (EN)`} helperText={t('pages.substrates.nameHelper')} />
+        </FormRow>
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+          {t('pages.substrates.sectionChemistry')}
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <FormNumberField name="ph_base" control={control} label={t('pages.substrates.phBase')} helperText={t('pages.substrates.phBaseHelper')} min={0} max={14} step={0.1} />
+          <FormNumberField name="ec_base_ms" control={control} label={t('pages.substrates.ecBase')} helperText={t('pages.substrates.ecBaseHelper')} min={0} step={0.1} />
+        </Box>
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+          {t('pages.substrates.sectionPhysical')}
+        </Typography>
+        <FormRow>
+          <FormSelectField
+            name="water_retention"
+            control={control}
+            label={t('pages.substrates.waterRetention')}
+            helperText={t('pages.substrates.waterRetentionHelper')}
+            options={['low', 'medium', 'high'].map((v) => ({
+              value: v, label: t(`enums.waterRetention.${v}`),
+            }))}
+          />
+          <FormNumberField name="air_porosity_percent" control={control} label={t('pages.substrates.airPorosity')} helperText={t('pages.substrates.airPorosityHelper')} min={0} max={100} step={1} />
+        </FormRow>
         <FormSelectField
           name="buffer_capacity"
           control={control}
@@ -230,14 +302,21 @@ export default function SubstrateDetailPage() {
             value: v, label: t(`enums.bufferCapacity.${v}`),
           }))}
         />
-        <FormSwitchField name="reusable" control={control} label={t('pages.substrates.reusable')} helperText={t('pages.substrates.reusableHelper')} />
-        <FormNumberField name="max_reuse_cycles" control={control} label={t('pages.substrates.maxReuseCycles')} helperText={t('pages.substrates.maxReuseCyclesHelper')} min={1} />
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+          {t('pages.substrates.sectionReuse')}
+        </Typography>
+        <FormRow>
+          <FormSwitchField name="reusable" control={control} label={t('pages.substrates.reusable')} helperText={t('pages.substrates.reusableHelper')} />
+          <FormNumberField name="max_reuse_cycles" control={control} label={t('pages.substrates.maxReuseCycles')} helperText={t('pages.substrates.maxReuseCyclesHelper')} min={1} />
+        </FormRow>
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
       </Box>
 
       {Object.entries(reusability).map(([batchKey, result]) => (
         <Alert key={batchKey} severity={result.can_reuse ? 'success' : 'warning'} sx={{ mb: 1, mt: 2 }}>
-          Batch {batchKey}: {result.can_reuse ? 'Reusable' : result.treatments.join(', ')}
+          {result.can_reuse
+            ? t('pages.substrates.reusabilityOk', { batch: batchKey })
+            : t('pages.substrates.reusabilityRequired', { batch: batchKey, treatments: result.treatments.join(', ') })}
         </Alert>
       ))}
 
@@ -270,7 +349,7 @@ export default function SubstrateDetailPage() {
       <ConfirmDialog
         open={deleteOpen}
         title={t('common.delete')}
-        message={t('common.deleteConfirm', { name: substrate ? `${t(`enums.substrateType.${substrate.type}`)} ${substrate.brand ?? ''}` : '' })}
+        message={t('common.deleteConfirm', { name: substrate ? ((i18n.language?.startsWith('en') ? substrate.name_en : substrate.name_de) || `${t(`enums.substrateType.${substrate.type}`)} ${substrate.brand ?? ''}`) : '' })}
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
         destructive

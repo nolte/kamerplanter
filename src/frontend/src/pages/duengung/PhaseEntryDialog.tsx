@@ -11,7 +11,7 @@ import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
-import Box from '@mui/material/Box';
+import FormRow from '@/components/form/FormRow';
 import Typography from '@mui/material/Typography';
 import Collapse from '@mui/material/Collapse';
 import FormActions from '@/components/form/FormActions';
@@ -36,6 +36,7 @@ const schema = z.object({
   notes: z.string().nullable(),
   override_enabled: z.boolean(),
   override_interval_days: z.number().min(1).max(90).nullable(),
+  water_mix_ratio_ro_percent: z.number().min(0).max(100).nullable(),
 }).refine((data) => data.week_end >= data.week_start, {
   message: 'week_end_before_start',
   path: ['week_end'],
@@ -74,6 +75,7 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
       notes: null,
       override_enabled: false,
       override_interval_days: null,
+      water_mix_ratio_ro_percent: null,
     },
   });
 
@@ -96,6 +98,7 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
           notes: entry.notes,
           override_enabled: entry.watering_schedule_override != null,
           override_interval_days: entry.watering_schedule_override?.interval_days ?? null,
+          water_mix_ratio_ro_percent: entry.water_mix_ratio_ro_percent,
         });
       } else {
         reset({
@@ -112,6 +115,7 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
           notes: null,
           override_enabled: false,
           override_interval_days: null,
+          water_mix_ratio_ro_percent: null,
         });
       }
     }
@@ -130,6 +134,7 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
         calcium_ppm: data.calcium_ppm,
         magnesium_ppm: data.magnesium_ppm,
         notes: data.notes,
+        water_mix_ratio_ro_percent: data.water_mix_ratio_ro_percent,
         watering_schedule_override: data.override_enabled && data.override_interval_days
           ? {
               schedule_mode: 'interval' as const,
@@ -187,12 +192,14 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
             min={1}
             required
           />
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <FormRow>
             <FormNumberField
               name="week_start"
               control={control}
               label={t('pages.nutrientPlans.weekStart')}
               min={1}
+              step={1}
+              inputMode="numeric"
               required
             />
             <FormNumberField
@@ -200,9 +207,11 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
               control={control}
               label={t('pages.nutrientPlans.weekEnd')}
               min={1}
+              step={1}
+              inputMode="numeric"
               required
             />
-          </Box>
+          </FormRow>
 
           <FormSwitchField
             name="is_recurring"
@@ -230,32 +239,53 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
             {t('pages.fertilizers.sectionNutrients')}
           </Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <FormRow>
             <FormNumberField
               name="npk_n"
               control={control}
               label={t('pages.fertilizers.npkN')}
               min={0}
+              suffix="%"
+              inputMode="decimal"
             />
             <FormNumberField
               name="npk_p"
               control={control}
               label={t('pages.fertilizers.npkP')}
               min={0}
+              suffix="%"
+              inputMode="decimal"
             />
+          </FormRow>
+          <FormRow>
             <FormNumberField
               name="npk_k"
               control={control}
               label={t('pages.fertilizers.npkK')}
               min={0}
+              suffix="%"
+              inputMode="decimal"
             />
-          </Box>
-          <Box sx={{ display: 'flex', gap: 2 }}>
+            <FormNumberField
+              name="water_mix_ratio_ro_percent"
+              control={control}
+              label={t('pages.nutrientPlans.roPercent')}
+              min={0}
+              max={100}
+              step={5}
+              suffix="%"
+              inputMode="numeric"
+              helperText={t('pages.nutrientPlans.roPercentHelper')}
+            />
+          </FormRow>
+          <FormRow>
             <FormNumberField
               name="calcium_ppm"
               control={control}
               label={t('pages.nutrientPlans.calciumPpm')}
               min={0}
+              suffix="ppm"
+              inputMode="decimal"
               helperText={t('pages.nutrientPlans.ppmHelper')}
             />
             <FormNumberField
@@ -263,8 +293,10 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
               control={control}
               label={t('pages.nutrientPlans.magnesiumPpm')}
               min={0}
+              suffix="ppm"
+              inputMode="decimal"
             />
-          </Box>
+          </FormRow>
           <FormTextField
             name="notes"
             control={control}

@@ -1,0 +1,215 @@
+site_name: Kamerplanter Dokumentation
+site_url: https://docs.kamerplanter.example.com
+site_description: Dokumentation für die Kamerplanter Pflanzenpflege-Plattform — von der Aussaat bis zur Ernte.
+site_author: Kamerplanter Development Team
+
+repo_url: https://github.com/nolte/kamerplanter
+repo_name: nolte/kamerplanter
+edit_uri: edit/main/docs/
+
+copyright: Copyright &copy; 2026 Kamerplanter
+
+docs_dir: docs
+
+theme:
+  name: material
+  language: de
+
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: green
+      accent: light green
+      toggle:
+        icon: material/brightness-7
+        name: Zum Dunkelmodus wechseln
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: green
+      accent: light green
+      toggle:
+        icon: material/brightness-4
+        name: Zum Hellmodus wechseln
+
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+  logo: assets/images/logo.svg
+  favicon: assets/images/favicon.png
+
+  features:
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.indexes
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - search.share
+    - header.autohide
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.action.edit
+    - content.action.view
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/extra.js
+
+plugins:
+  - search:
+      lang:
+        - de
+        - en
+      separator: '[\\s\\-,:!=\\[\\]()\"/]+|(?!\\b)(?=[A-Z][a-z])|\\.(?!\\d)|&[lg]t;'
+
+  - i18n:
+      docs_structure: folder
+      languages:
+        - locale: de
+          name: Deutsch
+          default: true
+          build: true
+          nav_translations:
+            Getting Started: Erste Schritte
+        - locale: en
+          name: English
+          build: true
+
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago
+      fallback_to_build_date: true
+      strict: false
+
+  - awesome-pages:
+      collapse_single_pages: false
+
+  - minify:
+      minify_html: true
+      minify_js: false
+      minify_css: true
+      htmlmin_opts:
+        remove_comments: true
+
+  - redirects:
+      redirect_maps: {}
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      auto_append:
+        - includes/abbreviations.md
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+extra:
+  version:
+    provider: mike
+    default: stable
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/nolte/kamerplanter
+
+nav:
+  - Startseite: de/index.md
+  - Erste Schritte:
+      - de/getting-started/index.md
+      - Installation: de/getting-started/installation.md
+      - Schnellstart: de/getting-started/quickstart.md
+      - Erstes Deployment: de/getting-started/first-deployment.md
+  - Benutzerhandbuch:
+      - de/user-guide/index.md
+      - Stammdaten: de/user-guide/plant-management.md
+      - Standorte & Substrate: de/user-guide/locations-substrates.md
+      - Wachstumsphasen: de/user-guide/growth-phases.md
+      - Dünge-Logik: de/user-guide/fertilization.md
+      - Sensorik: de/user-guide/sensors.md
+      - Aufgaben: de/user-guide/tasks.md
+      - Ernte: de/user-guide/harvest.md
+      - Pflanzenschutz (IPM): de/user-guide/pest-management.md
+      - Pflanzdurchläufe: de/user-guide/planting-runs.md
+      - Tankmanagement: de/user-guide/tanks.md
+      - Kalender: de/user-guide/calendar.md
+      - Dashboard: de/user-guide/dashboard.md
+  - Architektur:
+      - de/architecture/index.md
+      - Überblick: de/architecture/overview.md
+      - Backend: de/architecture/backend.md
+      - Frontend: de/architecture/frontend.md
+      - Datenbank: de/architecture/database.md
+      - Infrastruktur: de/architecture/infrastructure.md
+  - Entwicklung:
+      - de/development/index.md
+      - Lokales Setup: de/development/local-setup.md
+      - Code-Standards: de/development/code-standards.md
+      - Testen: de/development/testing.md
+      - Debugging: de/development/debugging.md
+  - API:
+      - de/api/index.md
+      - Überblick: de/api/overview.md
+      - Authentifizierung: de/api/authentication.md
+      - Fehlerbehandlung: de/api/error-handling.md
+  - Deployment:
+      - de/deployment/index.md
+      - Kubernetes: de/deployment/kubernetes.md
+      - Helm Charts: de/deployment/helm.md
+      - CI/CD: de/deployment/ci-cd.md
+  - Guides:
+      - de/guides/index.md
+      - GDD-Berechnung: de/guides/gdd-calculation.md
+      - VPD-Optimierung: de/guides/vpd-optimization.md
+      - Nährlösung mischen: de/guides/nutrient-mixing.md
+      - Fehlerbehebung: de/guides/troubleshooting.md
+      - Pflanzendaten per AI: de/guides/ai-plant-data-pipeline.md
+      - Home Assistant Integration: de/guides/home-assistant-integration.md
+  - Referenz:
+      - de/reference/index.md
+      - API-Referenz: de/reference/api-reference.md
+      - Datenbankschema: de/reference/database-schema.md
+      - Umgebungsvariablen: de/reference/environment-variables.md
+  - ADR:
+      - de/adr/index.md
+  - Changelog:
+      - de/changelog/index.md
+      - Unveröffentlicht: de/changelog/unreleased.md

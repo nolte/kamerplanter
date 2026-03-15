@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import PageTitle from '@/components/layout/PageTitle';
@@ -11,6 +12,15 @@ import { fetchPests } from '@/store/slices/ipmSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import type { Pest } from '@/api/types';
 import PestCreateDialog from './PestCreateDialog';
+import { kamiIpm } from '@/assets/brand/illustrations';
+
+type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
+
+const difficultyColor: Record<string, ChipColor> = {
+  easy: 'success',
+  medium: 'warning',
+  hard: 'error',
+};
 
 export default function PestListPage() {
   const { t } = useTranslation();
@@ -39,21 +49,35 @@ export default function PestListPage() {
     {
       id: 'pestType',
       label: t('pages.ipm.pestType'),
-      render: (r) => t(`enums.pestType.${r.pest_type}`),
+      render: (r) => (
+        <Chip
+          label={t(`enums.pestType.${r.pest_type}`)}
+          size="small"
+          variant="outlined"
+        />
+      ),
       searchValue: (r) => t(`enums.pestType.${r.pest_type}`),
+      hideBelowBreakpoint: 'md',
     },
     {
       id: 'lifecycleDays',
       label: t('pages.ipm.lifecycleDays'),
       render: (r) =>
-        r.lifecycle_days != null ? `${r.lifecycle_days} ${t('pages.ipm.days')}` : '—',
+        r.lifecycle_days != null ? `${r.lifecycle_days}\u202f${t('pages.ipm.days')}` : '\u2014',
       align: 'right',
       searchValue: (r) => (r.lifecycle_days != null ? String(r.lifecycle_days) : ''),
+      hideBelowBreakpoint: 'md',
     },
     {
       id: 'detectionDifficulty',
       label: t('pages.ipm.detectionDifficulty'),
-      render: (r) => t(`enums.detectionDifficulty.${r.detection_difficulty}`),
+      render: (r) => (
+        <Chip
+          label={t(`enums.detectionDifficulty.${r.detection_difficulty}`)}
+          size="small"
+          color={difficultyColor[r.detection_difficulty] ?? 'default'}
+        />
+      ),
       searchValue: (r) => t(`enums.detectionDifficulty.${r.detection_difficulty}`),
     },
   ];
@@ -87,6 +111,7 @@ export default function PestListPage() {
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.ipm.createPest')}
         onEmptyAction={() => setCreateOpen(true)}
+        emptyIllustration={kamiIpm}
         tableState={tableState}
         ariaLabel={t('pages.ipm.pestsTitle')}
       />

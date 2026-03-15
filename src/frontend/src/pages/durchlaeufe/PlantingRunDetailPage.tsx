@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useTabUrl } from '@/hooks/useTabUrl';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -6,46 +7,44 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
 import type { ChipProps } from '@mui/material/Chip';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
-import Alert from '@mui/material/Alert';
-import CircularProgress from '@mui/material/CircularProgress';
-import MenuItem from '@mui/material/MenuItem';
-import TextField from '@mui/material/TextField';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import DeleteIcon from '@mui/icons-material/Delete';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
+import StopCircleIcon from '@mui/icons-material/StopCircle';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
-import WaterDropIcon from '@mui/icons-material/WaterDrop';
-import { useForm, useWatch } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import EditIcon from '@mui/icons-material/Edit';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
-import DataTable, { type Column } from '@/components/common/DataTable';
-import FormTextField from '@/components/form/FormTextField';
-import FormSelectField from '@/components/form/FormSelectField';
-import FormDateField from '@/components/form/FormDateField';
-import FormActions from '@/components/form/FormActions';
-import FormRow from '@/components/form/FormRow';
+import type { Column } from '@/components/common/DataTable';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import BatchPhaseTransitionDialog from './BatchPhaseTransitionDialog';
-import PhaseTimelineStepper from './PhaseTimelineStepper';
-import PhaseHistoryTable from './PhaseHistoryTable';
+import RunPhaseEditor from './RunPhaseEditor';
+import PhaseKamiTimeline from './PhaseKamiTimeline';
 import WateringConfirmDialog from './WateringConfirmDialog';
-import WateringCalendarView from './WateringCalendarView';
-import FertilizerGanttChart from '@/pages/duengung/FertilizerGanttChart';
-import type { PhaseTransition } from '@/pages/duengung/FertilizerGanttChart';
+import ActivityPlanTab from './ActivityPlanTab';
+import PlantingRunDetailsTab from './PlantingRunDetailsTab';
+import PlantingRunPlantsTab from './PlantingRunPlantsTab';
+import PlantingRunNutrientWateringTab from './PlantingRunNutrientWateringTab';
+import PlantingRunEditDialog from './PlantingRunEditDialog';
+import { useRunNutrientData } from '@/hooks/useRunNutrientData';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
-import { MS_PER_WEEK, computeCurrentWeek } from '@/utils/weekCalculation';
+import { useWateringVolumeSuggestion } from '@/hooks/useWateringVolumeSuggestion';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { setBreadcrumbs } from '@/store/slices/uiSlice';
+import * as speciesApi from '@/api/endpoints/species';
 import * as runApi from '@/api/endpoints/plantingRuns';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 import * as fertApi from '@/api/endpoints/fertilizers';
@@ -63,8 +62,9 @@ import type {
   PlantingRunStatus,
   WateringScheduleCalendarResponse,
   Site,
-  Location,
 } from '@/api/types';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
 
 const statusColor: Record<PlantingRunStatus, ChipProps['color']> = {
   planned: 'default',
@@ -74,107 +74,14 @@ const statusColor: Record<PlantingRunStatus, ChipProps['color']> = {
   cancelled: 'error',
 };
 
-// ── Gantt adaptation helpers ──────────────────────────────────────────
-
-/**
- * Find the epoch for week-1: the actual_entered_at of the first timeline phase
- * that also exists in the nutrient plan entries.  Falls back to run.started_at.
- */
-function findGanttEpoch(
-  planEntries: NutrientPlanPhaseEntry[],
-  timelines: SpeciesPhaseTimeline[],
-  runStartedAt: string | null,
-): string | null {
-  if (timelines.length > 0 && planEntries.length > 0) {
-    const planPhaseNames = new Set<string>(planEntries.map((e) => e.phase_name));
-    const phases = timelines[0].phases;
-    for (const phase of phases) {
-      if (planPhaseNames.has(phase.phase_name) && phase.actual_entered_at) {
-        return phase.actual_entered_at;
-      }
-    }
-  }
-  return runStartedAt;
-}
-
-/**
- * Adapt nutrient plan phase entries to actual run durations.
- *
- * Uses a shift-based approach: for each plan phase, compute the offset between
- * the plan's phase start week and the actual phase start week. Apply that shift
- * to every entry, preserving relative positions within the phase (e.g. flushing
- * products stay at the end of flowering, not the beginning).
- *
- * Phases that don't exist in the timeline (e.g. "flushing") inherit the
- * cumulative shift from the previous matched phase.
- */
-function adaptEntriesToRun(
-  planEntries: NutrientPlanPhaseEntry[],
-  timelines: SpeciesPhaseTimeline[],
-  epoch: string,
-): NutrientPlanPhaseEntry[] {
-  if (timelines.length === 0) return planEntries;
-  const phases = timelines[0].phases;
-  if (phases.length === 0) return planEntries;
-
-  const epochDate = new Date(epoch);
-  epochDate.setHours(0, 0, 0, 0);
-  if (isNaN(epochDate.getTime())) return planEntries;
-
-  // 1. Actual phase start weeks from timeline
-  const actualStartWeek = new Map<string, number>();
-  for (const phase of phases) {
-    const enteredAt = phase.actual_entered_at ?? phase.projected_start;
-    if (!enteredAt) continue;
-    const d = new Date(enteredAt);
-    d.setHours(0, 0, 0, 0);
-    actualStartWeek.set(phase.phase_name, Math.max(1, Math.floor((d.getTime() - epochDate.getTime()) / MS_PER_WEEK) + 1));
-  }
-
-  // 2. Plan phase start weeks from entries (min week_start per phase)
-  const planStartWeek = new Map<string, number>();
-  for (const entry of planEntries) {
-    const cur = planStartWeek.get(entry.phase_name);
-    if (cur === undefined || entry.week_start < cur) {
-      planStartWeek.set(entry.phase_name, entry.week_start);
-    }
-  }
-
-  // 3. Compute shift per plan phase, sorted by plan start week.
-  //    Unmatched phases (e.g. "flushing" not in timeline) inherit the last shift.
-  const sortedPhases = [...planStartWeek.entries()].sort((a, b) => a[1] - b[1]);
-  const shiftMap = new Map<string, number>();
-  let cumulativeShift = 0;
-  for (const [phaseName, planStart] of sortedPhases) {
-    const actualStart = actualStartWeek.get(phaseName);
-    if (actualStart !== undefined) {
-      cumulativeShift = actualStart - planStart;
-    }
-    shiftMap.set(phaseName, cumulativeShift);
-  }
-
-  // 4. Apply shift — preserves relative position within each phase
-  return planEntries.map((entry) => {
-    const shift = shiftMap.get(entry.phase_name) ?? 0;
-    if (shift === 0) return entry;
-    return { ...entry, week_start: entry.week_start + shift, week_end: entry.week_end + shift };
-  });
-}
-
-const editSchema = z.object({
-  name: z.string().min(1).max(200),
-  site_key: z.string().nullable(),
-  location_key: z.string().nullable(),
-  notes: z.string().nullable(),
-  planned_start_date: z.string().nullable(),
-});
-
-type EditFormData = z.infer<typeof editSchema>;
+// Tab slugs — "edit" removed (now a dialog), "nutrient-plan" + "watering" merged
+const TAB_SLUGS = ['details', 'plants', 'phases', 'nutrient-watering', 'activity-plan'] as const;
 
 export default function PlantingRunDetailPage() {
   const { key } = useParams<{ key: string }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [run, setRun] = useState<PlantingRun | null>(null);
@@ -182,15 +89,21 @@ export default function PlantingRunDetailPage() {
   const [plants, setPlants] = useState<PlantInRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState(0);
-  const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useTabUrl(TAB_SLUGS);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [createPlantsOpen, setCreatePlantsOpen] = useState(false);
   const [batchRemoveOpen, setBatchRemoveOpen] = useState(false);
+  const [endRunOpen, setEndRunOpen] = useState(false);
+  const [endRunStatus, setEndRunStatus] = useState<'completed' | 'cancelled'>('cancelled');
   const [batchTransitionOpen, setBatchTransitionOpen] = useState(false);
-  const [selectedPlantKey, setSelectedPlantKey] = useState('');
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
-  // Watering tab state
+  // Species/cultivar name resolution for entries table
+  const [speciesMap, setSpeciesMap] = useState<Map<string, string>>(new Map());
+  const [locationName, setLocationName] = useState<string>('');
+  const [siteKeyFromLocation, setSiteKeyFromLocation] = useState<string | null>(null);
+
+  // Nutrient plan / watering state
   const [nutrientPlans, setNutrientPlans] = useState<NutrientPlan[]>([]);
   const [assignedPlan, setAssignedPlan] = useState<Record<string, unknown> | null>(null);
   const [selectedPlanKey, setSelectedPlanKey] = useState('');
@@ -202,53 +115,48 @@ export default function PlantingRunDetailPage() {
   const [confirmChannelId, setConfirmChannelId] = useState<string | undefined>(undefined);
   const [quickConfirming, setQuickConfirming] = useState<string | null>(null);
   const [removePlanOpen, setRemovePlanOpen] = useState(false);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
 
-  // Gantt chart state
+  // Volume suggestion from first plant in run
+  const firstPlantKey = plants.length > 0 ? plants[0].key : undefined;
+  const { suggestion: volumeSuggestion } = useWateringVolumeSuggestion(firstPlantKey);
+
+  // Dosage display mode
+  const wateringCanLiters = useAppSelector((s) => s.userPreferences.preferences?.watering_can_liters ?? 10);
+  const [dosageMode, setDosageMode] = useState<'per_liter' | 'total'>('per_liter');
+
+  // Gantt chart raw data
   const [planEntries, setPlanEntries] = useState<NutrientPlanPhaseEntry[]>([]);
   const [fertilizers, setFertilizers] = useState<Fertilizer[]>([]);
   const [resolvedTank, setResolvedTank] = useState<{ key: string; name: string; volumeLiters: number } | null>(null);
   const [phaseTimelines, setPhaseTimelines] = useState<SpeciesPhaseTimeline[]>([]);
 
-  // Edit tab: site → location cascade
+  // Site list for edit dialog
   const [sitesList, setSitesList] = useState<Site[]>([]);
-  const [locationsList, setLocationsList] = useState<Location[]>([]);
-  const [locationsLoading, setLocationsLoading] = useState(false);
 
-  const {
-    control,
-    handleSubmit,
-    reset,
-    setValue,
-    formState: { isDirty },
-  } = useForm<EditFormData>({
-    resolver: zodResolver(editSchema),
-    defaultValues: { name: '', site_key: null, location_key: null, notes: null, planned_start_date: null },
-  });
+  // Derived nutrient data via custom hook
+  const nutrientData = useRunNutrientData(planEntries, phaseTimelines, run?.started_at);
 
-  const editSiteKey = useWatch({ control, name: 'site_key' });
+  // Track dirty state for UnsavedChangesGuard (edit dialog has own form)
+  const isDirty = false;
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!key) return;
     setLoading(true);
-    skipLocationReset.current = true;
     try {
       const r = await runApi.getPlantingRun(key);
       setRun(r);
-      let siteKeyFromLocation: string | null = null;
-      // Resolve tank from run's location:
-      // Primary: Location.tank_key (denormalized).
-      // Fallback: find tank whose location_key matches the run's location.
       if (r.location_key) {
         try {
           const loc = await siteApi.getLocation(r.location_key);
-          siteKeyFromLocation = loc.site_key;
+          setSiteKeyFromLocation(loc.site_key);
+          setLocationName(loc.name);
           if (loc.tank_key) {
-            const t = await tankApi.getTank(loc.tank_key);
-            setResolvedTank({ key: t.key, name: t.name, volumeLiters: t.volume_liters });
+            const tk = await tankApi.getTank(loc.tank_key);
+            setResolvedTank({ key: tk.key, name: tk.name, volumeLiters: tk.volume_liters });
           } else {
-            // Fallback: find tank assigned to this location via Tank.location_key
             const allTanks = await tankApi.listTanks(0, 200);
-            const match = allTanks.find((t) => t.location_key === r.location_key);
+            const match = allTanks.find((tk) => tk.location_key === r.location_key);
             if (match) {
               setResolvedTank({ key: match.key, name: match.name, volumeLiters: match.volume_liters });
             } else {
@@ -257,23 +165,32 @@ export default function PlantingRunDetailPage() {
           }
         } catch {
           setResolvedTank(null);
+          setLocationName('');
         }
       } else {
         setResolvedTank(null);
-      }
-      reset({
-        name: r.name,
-        site_key: siteKeyFromLocation,
-        location_key: r.location_key ?? null,
-        notes: r.notes,
-        planned_start_date: r.planned_start_date,
-      });
-      // Pre-load locations for the resolved site
-      if (siteKeyFromLocation) {
-        siteApi.listLocations(siteKeyFromLocation).then(setLocationsList).catch(() => {});
+        setLocationName('');
+        setSiteKeyFromLocation(null);
       }
       const e = await runApi.listEntries(key);
       setEntries(e);
+      const uniqueSpeciesKeys = [...new Set(e.map((entry) => entry.species_key))];
+      const nameMap = new Map<string, string>();
+      await Promise.all(
+        uniqueSpeciesKeys.map(async (sk) => {
+          try {
+            const sp = await speciesApi.getSpecies(sk);
+            nameMap.set(sk, sp.common_names?.length > 0 ? sp.common_names[0] : sp.scientific_name);
+            for (const ent of e.filter((en) => en.species_key === sk && en.cultivar_key)) {
+              try {
+                const cv = await speciesApi.getCultivar(sk, ent.cultivar_key!);
+                nameMap.set(ent.cultivar_key!, cv.name);
+              } catch { /* ok */ }
+            }
+          } catch { /* ok */ }
+        }),
+      );
+      setSpeciesMap(nameMap);
       try {
         const p = await runApi.listRunPlants(key, true);
         setPlants(p);
@@ -285,35 +202,25 @@ export default function PlantingRunDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [key]);
 
   useEffect(() => {
     load();
     siteApi.listSites(0, 200).then(setSitesList).catch(() => {});
-  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [load]);
 
-  // Site → Location cascade for edit tab.
-  // skipLocationReset prevents clearing location_key on the initial load
-  // (load() pre-sets both site_key and location_key via reset()).
-  const skipLocationReset = useRef(true);
+  // Dynamic breadcrumbs
   useEffect(() => {
-    if (skipLocationReset.current) {
-      skipLocationReset.current = false;
-      return;
-    }
-    if (!editSiteKey) {
-      setLocationsList([]);
-      setValue('location_key', null);
-      return;
-    }
-    setLocationsLoading(true);
-    setValue('location_key', null);
-    siteApi
-      .listLocations(editSiteKey)
-      .then(setLocationsList)
-      .catch(() => setLocationsList([]))
-      .finally(() => setLocationsLoading(false));
-  }, [editSiteKey, setValue]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!run) return;
+    dispatch(setBreadcrumbs([
+      { label: 'nav.dashboard', path: '/dashboard' },
+      { label: 'nav.plantingRuns', path: '/durchlaeufe/planting-runs' },
+      { label: run.name },
+    ]));
+  }, [run, dispatch]);
+
+  // Clear dynamic breadcrumbs on unmount
+  useEffect(() => () => { dispatch(setBreadcrumbs([])); }, [dispatch]);
 
   const loadWateringData = useCallback(async () => {
     if (!key) return;
@@ -322,7 +229,7 @@ export default function PlantingRunDetailPage() {
       const [plans, planResult, calendar, timelines] = await Promise.all([
         planApi.fetchNutrientPlans(0, 200),
         runApi.getRunNutrientPlan(key).catch(() => ({ plan: null })),
-        runApi.getWateringSchedule(key, 14).catch(() => null),
+        runApi.getWateringSchedule(key, 90).catch(() => null),
         runApi.getPhaseTimeline(key).catch(() => [] as SpeciesPhaseTimeline[]),
       ]);
       setNutrientPlans(plans);
@@ -332,13 +239,12 @@ export default function PlantingRunDetailPage() {
       if (planResult.plan) {
         const planKey = (planResult.plan as { key?: string }).key ?? '';
         setSelectedPlanKey(planKey);
-        // Load plan entries + fertilizers for Gantt charts
         if (planKey) {
-          const [entries, ferts] = await Promise.all([
+          const [fetchedEntries, ferts] = await Promise.all([
             planApi.fetchPhaseEntries(planKey),
             fertApi.fetchFertilizers(0, 200),
           ]);
-          setPlanEntries(entries);
+          setPlanEntries(fetchedEntries);
           setFertilizers(ferts);
         }
       } else {
@@ -352,68 +258,12 @@ export default function PlantingRunDetailPage() {
     }
   }, [key, handleError]);
 
-  const ganttEpoch = useMemo(
-    () => findGanttEpoch(planEntries, phaseTimelines, run?.started_at ?? null),
-    [planEntries, phaseTimelines, run?.started_at],
-  );
-
-  const currentWeek = useMemo(
-    () => (ganttEpoch ? computeCurrentWeek(ganttEpoch) : undefined),
-    [ganttEpoch],
-  );
-
-  const adaptedEntries = useMemo(
-    () =>
-      ganttEpoch && planEntries.length > 0
-        ? adaptEntriesToRun(planEntries, phaseTimelines, ganttEpoch)
-        : planEntries,
-    [planEntries, phaseTimelines, ganttEpoch],
-  );
-
-  const phaseTransitions = useMemo((): PhaseTransition[] => {
-    if (phaseTimelines.length === 0 || !ganttEpoch) return [];
-    const epochDate = new Date(ganttEpoch);
-    epochDate.setHours(0, 0, 0, 0);
-    const timeline = phaseTimelines[0].phases;
-    const result: PhaseTransition[] = [];
-    for (const phase of timeline) {
-      const date = phase.actual_entered_at ?? phase.projected_start;
-      if (!date) continue;
-      const enteredDate = new Date(date);
-      enteredDate.setHours(0, 0, 0, 0);
-      const week = Math.floor((enteredDate.getTime() - epochDate.getTime()) / MS_PER_WEEK) + 1;
-      if (week < 1) continue; // before epoch — skip phases before the plan starts
-      result.push({ week, date, phaseName: phase.phase_name });
-    }
-    return result;
-  }, [phaseTimelines, ganttEpoch]);
-
+  // Load watering data for details tab (tab 0) and nutrient+watering tab (tab 3)
   useEffect(() => {
-    if (tab === 3) {
+    if (tab === 0 || tab === 3) {
       loadWateringData();
     }
   }, [tab, loadWateringData]);
-
-  const onEditSubmit = async (data: EditFormData) => {
-    if (!key) return;
-    try {
-      setSaving(true);
-      const updated = await runApi.updatePlantingRun(key, {
-        name: data.name,
-        location_key: data.location_key,
-        notes: data.notes,
-        planned_start_date: data.planned_start_date,
-      });
-      setRun(updated);
-      notification.success(t('common.save'));
-      // Re-resolve tank after location change
-      load();
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const onDelete = async () => {
     if (!key) return;
@@ -453,6 +303,26 @@ export default function PlantingRunDetailPage() {
       handleError(err);
     }
     setBatchRemoveOpen(false);
+  };
+
+  const onEndRun = async () => {
+    if (!key) return;
+    try {
+      const result = await runApi.batchRemove(key, {
+        reason: 'run_ended',
+        target_status: endRunStatus,
+      });
+      notification.success(
+        t('pages.plantingRuns.runEnded', {
+          count: result.removed_count,
+          status: t(`enums.plantingRunStatus.${result.final_status}`),
+        }),
+      );
+      load();
+    } catch (err) {
+      handleError(err);
+    }
+    setEndRunOpen(false);
   };
 
   const onDetach = async (plantKey: string) => {
@@ -519,8 +389,8 @@ export default function PlantingRunDetailPage() {
   };
 
   const entryColumns: Column<PlantingRunEntry>[] = [
-    { id: 'species', label: t('entities.species'), render: (r) => r.species_key },
-    { id: 'cultivar', label: t('entities.cultivar'), render: (r) => r.cultivar_key ?? '\u2014' },
+    { id: 'species', label: t('entities.species'), render: (r) => speciesMap.get(r.species_key) ?? r.species_key, searchValue: (r) => speciesMap.get(r.species_key) ?? r.species_key },
+    { id: 'cultivar', label: t('entities.cultivar'), render: (r) => r.cultivar_key ? (speciesMap.get(r.cultivar_key) ?? r.cultivar_key) : '\u2014', searchValue: (r) => r.cultivar_key ? (speciesMap.get(r.cultivar_key) ?? '') : '' },
     { id: 'quantity', label: t('pages.plantingRuns.quantity'), render: (r) => r.quantity, align: 'right' },
     { id: 'role', label: t('pages.plantingRuns.role'), render: (r) => t(`enums.entryRole.${r.role}`), searchValue: (r) => t(`enums.entryRole.${r.role}`) },
     { id: 'idPrefix', label: t('pages.plantingRuns.idPrefix'), render: (r) => r.id_prefix },
@@ -541,6 +411,7 @@ export default function PlantingRunDetailPage() {
             size="small"
             onClick={(e) => { e.stopPropagation(); navigate(`/pflanzen/plant-instances/${r.key}`); }}
             data-testid={`open-plant-${r.key}`}
+            aria-label={t('pages.plantInstances.title')}
           >
             <OpenInNewIcon fontSize="small" />
           </IconButton>
@@ -563,8 +434,19 @@ export default function PlantingRunDetailPage() {
   return (
     <Box data-testid="planting-run-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+
+      {/* ── Header: responsive flex → stack on mobile ── */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          gap: 2,
+          mb: 1,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <PageTitle title={run?.name ?? t('entities.plantingRun')} />
           {run && (
             <Chip
@@ -573,8 +455,18 @@ export default function PlantingRunDetailPage() {
               data-testid="status-chip"
             />
           )}
+          <Tooltip title={t('common.edit')}>
+            <IconButton
+              size="small"
+              onClick={() => setEditDialogOpen(true)}
+              data-testid="edit-button"
+              aria-label={t('common.edit')}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           {run?.status === 'planned' && (
             <>
               <Button
@@ -606,290 +498,129 @@ export default function PlantingRunDetailPage() {
                 {t('pages.plantingRuns.batchTransition')}
               </Button>
               <Button
+                variant="contained"
                 color="error"
-                startIcon={<RemoveCircleIcon />}
-                onClick={() => setBatchRemoveOpen(true)}
-                data-testid="batch-remove-button"
+                startIcon={<StopCircleIcon />}
+                onClick={() => {
+                  setEndRunStatus(run?.status === 'harvesting' ? 'completed' : 'cancelled');
+                  setEndRunOpen(true);
+                }}
+                data-testid="end-run-button"
               >
-                {t('pages.plantingRuns.batchRemove')}
+                {t('pages.plantingRuns.endRun')}
               </Button>
             </>
           )}
         </Box>
       </Box>
 
+      {/* ── Tabs (5 instead of 7) ── */}
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
-        <Tab label={t('pages.plantingRuns.tabDetails')} />
-        <Tab label={t('pages.plantingRuns.tabPlants')} />
-        <Tab label={t('pages.plantingRuns.tabPhases')} data-testid="phases-tab" />
-        <Tab label={t('pages.wateringSchedule.title')} data-testid="watering-tab" />
-        <Tab label={t('common.edit')} />
+        <Tab id="tab-details" label={t('pages.plantingRuns.tabDetails')} />
+        <Tab id="tab-plants" label={t('pages.plantingRuns.tabPlants')} />
+        <Tab id="tab-phases" label={t('pages.plantingRuns.tabPhases')} data-testid="phases-tab" />
+        <Tab id="tab-nutrient-watering" label={t('pages.plantingRuns.tabNutrientWatering')} data-testid="nutrient-plan-tab" />
+        <Tab id="tab-activity-plan" label={t('pages.activityPlan.tabTitle')} data-testid="activity-plan-tab" />
       </Tabs>
 
-      {tab === 0 && (
-        <>
-          {run && (
-            <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mb: 4 }}>
-              <Card sx={{ minWidth: 250 }}>
-                <CardContent>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    {t('pages.plantingRuns.runType')}
-                  </Typography>
-                  <Typography>{t(`enums.plantingRunType.${run.run_type}`)}</Typography>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
-                    {t('pages.plantingRuns.plannedQuantity')}
-                  </Typography>
-                  <Typography>{run.planned_quantity}</Typography>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
-                    {t('pages.plantingRuns.actualQuantity')}
-                  </Typography>
-                  <Typography>{run.actual_quantity}</Typography>
-                  {run.planned_start_date && (
-                    <>
-                      <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
-                        {t('pages.plantingRuns.plannedStartDate')}
-                      </Typography>
-                      <Typography>{run.planned_start_date}</Typography>
-                    </>
-                  )}
-                  {run.started_at && (
-                    <>
-                      <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
-                        {t('pages.plantingRuns.startedAt')}
-                      </Typography>
-                      <Typography>{new Date(run.started_at).toLocaleString()}</Typography>
-                    </>
-                  )}
-                  {run.notes && (
-                    <>
-                      <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
-                        {t('pages.plantingRuns.notes')}
-                      </Typography>
-                      <Typography>{run.notes}</Typography>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            </Box>
-          )}
-
-          {entries.length > 0 && (
-            <Box>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                {t('pages.plantingRuns.entries')}
-              </Typography>
-              <DataTable
-                columns={entryColumns}
-                rows={entries}
-                getRowKey={(r) => r.key}
-                variant="simple"
-                ariaLabel={t('pages.plantingRuns.entries')}
-              />
-            </Box>
-          )}
-        </>
+      {/* Tab 0: Details */}
+      {tab === 0 && run && (
+        <PlantingRunDetailsTab
+          run={run}
+          entries={entries}
+          entryColumns={entryColumns}
+          assignedPlan={assignedPlan}
+          locationName={locationName}
+          fertilizers={fertilizers}
+          nutrientData={nutrientData}
+          dosageMode={dosageMode}
+          onDosageModeChange={setDosageMode}
+          wateringCanLiters={wateringCanLiters}
+          tankVolumeLiters={resolvedTank?.volumeLiters ?? null}
+          tankName={resolvedTank?.name ?? null}
+        />
       )}
 
+      {/* Tab 1: Plants */}
       {tab === 1 && (
-        <Box>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            {t('pages.plantingRuns.tabPlants')} ({plants.length})
-          </Typography>
-          {plants.length === 0 ? (
-            <Typography color="text.secondary">{t('pages.plantingRuns.noPlantsYet')}</Typography>
-          ) : (
-            <DataTable
-              columns={plantColumns}
-              rows={plants}
-              getRowKey={(r) => r.key}
-              variant="simple"
-              ariaLabel={t('pages.plantingRuns.tabPlants')}
-            />
-          )}
-        </Box>
+        <PlantingRunPlantsTab
+          plants={plants}
+          plantColumns={plantColumns}
+          runStatus={run?.status}
+          onCreatePlants={() => setCreatePlantsOpen(true)}
+        />
       )}
 
       {/* Tab 2: Phases */}
       {tab === 2 && key && (
-        <Box data-testid="phases-tab-content">
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            {t('pages.plantingRuns.phaseTimeline')}
-          </Typography>
-          <PhaseTimelineStepper runKey={key} />
-
-          {plants.length > 0 && (
-            <Box sx={{ mt: 4 }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                {t('pages.plantingRuns.editPhaseDate')}
-              </Typography>
-              <TextField
-                select
-                label={t('pages.plantingRuns.selectPlant')}
-                value={selectedPlantKey}
-                onChange={(e) => setSelectedPlantKey(e.target.value)}
-                fullWidth
-                sx={{ maxWidth: 400, mb: 2 }}
-                data-testid="plant-select"
-              >
-                {plants
-                  .filter((p) => !p.detached_at)
-                  .map((p) => (
-                    <MenuItem key={p.key} value={p.key}>
-                      {p.instance_id} ({p.current_phase})
-                    </MenuItem>
-                  ))}
-              </TextField>
-              {selectedPlantKey && <PhaseHistoryTable plantKey={selectedPlantKey} />}
-            </Box>
+        <Box role="tabpanel" aria-labelledby="tab-phases" data-testid="phases-tab-content">
+          {phaseTimelines.length > 0 && phaseTimelines[0].phases.length > 0 && (
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  {t('pages.plantingRuns.phaseTimeline')}
+                </Typography>
+                <PhaseKamiTimeline phases={phaseTimelines[0].phases} speciesName={phaseTimelines[0].species_name} />
+              </CardContent>
+            </Card>
           )}
+          <RunPhaseEditor
+            runKey={key}
+            isActive={run?.status === 'active' || run?.status === 'harvesting'}
+            onPhaseDatesChanged={loadWateringData}
+          />
         </Box>
       )}
 
-      {/* Tab 3: Watering Schedule */}
+      {/* Tab 3: Nutrient Plan + Watering (merged) */}
       {tab === 3 && (
-        <Box data-testid="watering-schedule-tab">
-          {wateringLoading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress />
-            </Box>
-          )}
-
-          {!wateringLoading && (
-            <>
-              {/* Plan Assignment */}
-              <Card sx={{ mb: 3 }}>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    {t('pages.nutrientPlans.assignPlan')}
-                  </Typography>
-
-                  {assignedPlan ? (
-                    <Box>
-                      <Alert severity="success" sx={{ mb: 2 }}>
-                        {t('pages.nutrientPlans.assignedPlan')}:{' '}
-                        <strong>{(assignedPlan as { name?: string }).name ?? t('pages.wateringSchedule.noPlan')}</strong>
-                      </Alert>
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        startIcon={<DeleteIcon />}
-                        onClick={() => setRemovePlanOpen(true)}
-                        data-testid="remove-plan-button"
-                      >
-                        {t('pages.wateringSchedule.removePlan')}
-                      </Button>
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-                      <TextField
-                        select
-                        label={t('pages.wateringSchedule.assignPlan')}
-                        value={selectedPlanKey}
-                        onChange={(e) => setSelectedPlanKey(e.target.value)}
-                        fullWidth
-                        sx={{ maxWidth: 400 }}
-                        data-testid="plan-select"
-                      >
-                        {nutrientPlans.map((plan) => (
-                          <MenuItem key={plan.key} value={plan.key}>
-                            {plan.name}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                      <Button
-                        variant="contained"
-                        onClick={onAssignPlan}
-                        disabled={!selectedPlanKey || assigning}
-                        data-testid="assign-plan-button"
-                      >
-                        {assigning ? <CircularProgress size={20} /> : t('pages.wateringSchedule.assignPlan')}
-                      </Button>
-                    </Box>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Watering Calendar */}
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                    <WaterDropIcon color="primary" />
-                    <Typography variant="h6">
-                      {t('pages.wateringSchedule.upcomingDates')}
-                    </Typography>
-                  </Box>
-
-                  {!wateringCalendar || !wateringCalendar.has_schedule ? (
-                    <Alert severity="info">
-                      {t('pages.wateringSchedule.noPlan')}
-                    </Alert>
-                  ) : (
-                    <WateringCalendarView
-                      dates={wateringCalendar.dates}
-                      channelCalendars={wateringCalendar.channel_calendars ?? []}
-                      quickConfirming={quickConfirming}
-                      onQuickConfirm={onQuickConfirm}
-                      onConfirm={(dateStr, channelId) => {
-                        setConfirmDate(dateStr);
-                        setConfirmChannelId(channelId);
-                        setConfirmDialogOpen(true);
-                      }}
-                    />
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Gantt Charts from assigned nutrient plan */}
-              {adaptedEntries.length > 0 && (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 3 }}>
-                  <FertilizerGanttChart
-                    entries={adaptedEntries}
-                    fertilizers={fertilizers}
-                    currentWeek={currentWeek}
-                    phaseTransitions={phaseTransitions}
-                    tank={resolvedTank}
-                  />
-                </Box>
-              )}
-            </>
-          )}
-        </Box>
+        <PlantingRunNutrientWateringTab
+          runStatus={run?.status}
+          wateringLoading={wateringLoading}
+          assignedPlan={assignedPlan}
+          nutrientPlans={nutrientPlans}
+          selectedPlanKey={selectedPlanKey}
+          assigning={assigning}
+          assignDialogOpen={assignDialogOpen}
+          nutrientData={nutrientData}
+          fertilizers={fertilizers}
+          wateringCalendar={wateringCalendar}
+          quickConfirming={quickConfirming}
+          phaseTimelines={phaseTimelines}
+          onSetSelectedPlanKey={setSelectedPlanKey}
+          onOpenAssignDialog={() => setAssignDialogOpen(true)}
+          onCloseAssignDialog={() => setAssignDialogOpen(false)}
+          onAssignPlan={onAssignPlan}
+          onOpenRemovePlan={() => setRemovePlanOpen(true)}
+          onQuickConfirm={onQuickConfirm}
+          onOpenConfirmDialog={(dateStr, channelId) => {
+            setConfirmDate(dateStr);
+            setConfirmChannelId(channelId);
+            setConfirmDialogOpen(true);
+          }}
+        />
       )}
 
-      {tab === 4 && (
-        <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: 900 }}>
-          <FormRow>
-            <FormTextField name="name" control={control} label={t('pages.plantingRuns.name')} required />
-            <FormDateField
-              name="planned_start_date"
-              control={control}
-              label={t('pages.plantingRuns.plannedStartDate')}
-            />
-          </FormRow>
-          <FormRow>
-            <FormSelectField
-              name="site_key"
-              control={control}
-              label={t('entities.site')}
-              options={[
-                { value: '', label: '\u2014' },
-                ...sitesList.map((s) => ({ value: s.key, label: s.name })),
-              ]}
-            />
-            <FormSelectField
-              name="location_key"
-              control={control}
-              label={t('pages.plantingRuns.location')}
-              disabled={!editSiteKey || locationsLoading}
-              options={[
-                { value: '', label: '\u2014' },
-                ...locationsList.map((l) => ({ value: l.key, label: l.name })),
-              ]}
-            />
-          </FormRow>
-          <FormTextField name="notes" control={control} label={t('pages.plantingRuns.notes')} />
-          <FormActions onCancel={() => setTab(0)} loading={saving} />
-        </Box>
+      {/* Tab 4: Activity Plan */}
+      {tab === 4 && run && entries.length > 0 && (
+        <ActivityPlanTab runKey={key!} speciesKey={entries[0]?.species_key ?? ''} />
+      )}
+
+      {/* ── Dialogs ── */}
+
+      {run && (
+        <PlantingRunEditDialog
+          open={editDialogOpen}
+          run={run}
+          sitesList={sitesList}
+          initialSiteKey={siteKeyFromLocation}
+          onClose={() => setEditDialogOpen(false)}
+          onSaved={(updated) => {
+            setRun(updated);
+            setEditDialogOpen(false);
+            load();
+          }}
+        />
       )}
 
       <ConfirmDialog
@@ -920,10 +651,52 @@ export default function PlantingRunDetailPage() {
         destructive
       />
 
+      <Dialog
+        open={endRunOpen}
+        onClose={() => setEndRunOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>{t('pages.plantingRuns.endRun')}</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>
+            {t('pages.plantingRuns.endRunConfirm', {
+              count: plants.filter((p) => !p.removed_on).length,
+            })}
+          </Typography>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            {t('pages.plantingRuns.endRunStatusLabel')}
+          </Typography>
+          <ToggleButtonGroup
+            value={endRunStatus}
+            exclusive
+            onChange={(_, v) => { if (v) setEndRunStatus(v); }}
+            fullWidth
+            size="small"
+            aria-label={t('pages.plantingRuns.endRunStatusLabel')}
+          >
+            <ToggleButton value="cancelled" color="warning">
+              {t('enums.plantingRunStatus.cancelled')}
+            </ToggleButton>
+            <ToggleButton value="completed" color="success">
+              {t('enums.plantingRunStatus.completed')}
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEndRunOpen(false)}>
+            {t('common.cancel')}
+          </Button>
+          <Button variant="contained" color="error" onClick={onEndRun}>
+            {t('pages.plantingRuns.endRun')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <ConfirmDialog
         open={removePlanOpen}
-        title={t('pages.wateringSchedule.removePlan')}
-        message={t('pages.wateringSchedule.removePlanConfirm')}
+        title={t('pages.nutrientPlans.removePlan')}
+        message={t('common.deleteConfirm', { name: (assignedPlan as { name?: string })?.name ?? '' })}
         onConfirm={onRemovePlan}
         onCancel={() => setRemovePlanOpen(false)}
         destructive
@@ -950,6 +723,8 @@ export default function PlantingRunDetailPage() {
           runKey={key}
           taskKey={confirmDate}
           channelId={confirmChannelId}
+          suggestedVolumeLiters={volumeSuggestion?.liters}
+          volumeHint={volumeSuggestion?.hint}
           onConfirmed={() => {
             setConfirmDialogOpen(false);
             loadWateringData();

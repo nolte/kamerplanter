@@ -5,10 +5,21 @@ from pydantic import BaseModel, Field, model_validator
 from app.common.enums import BufferCapacity, IrrigationStrategy, SubstrateType, WaterRetention
 
 
+class MixComponent(BaseModel):
+    """A component in a substrate mix — references an existing substrate + fraction."""
+
+    substrate_key: str
+    fraction: float = Field(ge=0.01, le=1.0)
+
+
 class Substrate(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     type: SubstrateType = SubstrateType.SOIL
     brand: str | None = None
+    name_de: str = ""
+    name_en: str = ""
+    is_mix: bool = False
+    mix_components: list[MixComponent] = Field(default_factory=list)
     ph_base: float = Field(default=6.5, ge=0, le=14)
     ec_base_ms: float = Field(default=0.5, ge=0)
     water_retention: WaterRetention = WaterRetention.MEDIUM
@@ -39,6 +50,15 @@ class Substrate(BaseModel):
             total = sum(self.composition.values())
             if abs(total - 1.0) > 0.01:
                 msg = f"Composition fractions must sum to 1.0 (±0.01), got {total:.4f}."
+                raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_mix_components(self) -> "Substrate":
+        if self.mix_components:
+            total = sum(c.fraction for c in self.mix_components)
+            if abs(total - 1.0) > 0.01:
+                msg = f"Mix component fractions must sum to 1.0 (±0.01), got {total:.4f}."
                 raise ValueError(msg)
         return self
 

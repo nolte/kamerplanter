@@ -281,7 +281,7 @@ class TestChannelIdOnEvents:
 
         we = WateringEvent(
             volume_liters=2.0,
-            slot_keys=["s1"],
+            plant_keys=["p1"],
             channel_id="foliar-1",
         )
         assert we.channel_id == "foliar-1"
@@ -289,5 +289,5 @@ class TestChannelIdOnEvents:
     def test_watering_event_channel_id_default(self):
         from app.domain.models.watering_event import WateringEvent
 
-        we = WateringEvent(volume_liters=2.0, slot_keys=["s1"])
+        we = WateringEvent(volume_liters=2.0, plant_keys=["p1"])
         assert we.channel_id is None

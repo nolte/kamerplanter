@@ -11,7 +11,9 @@ import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormChipInput from '@/components/form/FormChipInput';
+import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
+import FormRow from '@/components/form/FormRow';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import ShowAllFieldsToggle from '@/components/common/ShowAllFieldsToggle';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
@@ -37,6 +39,16 @@ const schema = z.object({
   synonyms: z.array(z.string()),
   taxonomic_authority: z.string(),
   taxonomic_status: z.string(),
+  container_suitable: z.enum(['yes', 'limited', 'no', '']).nullable(),
+  recommended_container_volume_l: z.string(),
+  min_container_depth_cm: z.number().min(1).max(200).nullable(),
+  mature_height_cm: z.string(),
+  mature_width_cm: z.string(),
+  spacing_cm: z.string(),
+  indoor_suitable: z.enum(['yes', 'limited', 'no', '']).nullable(),
+  balcony_suitable: z.enum(['yes', 'limited', 'no', '']).nullable(),
+  greenhouse_recommended: z.boolean(),
+  support_required: z.boolean(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -72,6 +84,16 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
       synonyms: [],
       taxonomic_authority: '',
       taxonomic_status: '',
+      container_suitable: null,
+      recommended_container_volume_l: '',
+      min_container_depth_cm: null,
+      mature_height_cm: '',
+      mature_width_cm: '',
+      spacing_cm: '',
+      indoor_suitable: null,
+      balcony_suitable: null,
+      greenhouse_recommended: false,
+      support_required: false,
     },
   });
 
@@ -84,7 +106,13 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
   const onSubmit = async (data: FormData) => {
     try {
       setSaving(true);
-      await speciesApi.createSpecies(data);
+      const payload = {
+        ...data,
+        container_suitable: data.container_suitable || null,
+        indoor_suitable: data.indoor_suitable || null,
+        balcony_suitable: data.balcony_suitable || null,
+      };
+      await speciesApi.createSpecies(payload);
       notification.success(t('common.create'));
       reset();
       onCreated();
@@ -105,37 +133,10 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
           {t('pages.species.createIntro')}
         </Typography>
         <form onSubmit={handleSubmit(onSubmit)}>
-          {/* intermediate fields (F-004: all Species fields are intermediate+) */}
-          <ExpertiseFieldWrapper minLevel={fc.common_names.level}>
-            <FormChipInput
-              name="common_names"
-              control={control}
-              label={t('pages.species.commonNames')}
-              helperText={t('pages.species.commonNamesHelper')}
-            />
-          </ExpertiseFieldWrapper>
-          <ExpertiseFieldWrapper minLevel={fc.description.level}>
-            <FormTextField
-              name="description"
-              control={control}
-              label={t('pages.species.description')}
-              helperText={t('pages.species.descriptionHelper')}
-              multiline
-              rows={3}
-            />
-          </ExpertiseFieldWrapper>
-          <ExpertiseFieldWrapper minLevel={fc.growth_habit.level}>
-            <FormSelectField
-              name="growth_habit"
-              control={control}
-              label={t('pages.species.growthHabit')}
-              helperText={t('pages.species.growthHabitHelper')}
-              options={['herb', 'shrub', 'tree', 'vine', 'groundcover'].map((v) => ({
-                value: v,
-                label: t(`enums.growthHabit.${v}`),
-              }))}
-            />
-          </ExpertiseFieldWrapper>
+          {/* --- Taxonomy section --- */}
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.species.sectionTaxonomy')}
+          </Typography>
           <ExpertiseFieldWrapper minLevel={fc.scientific_name.level}>
             <FormTextField
               name="scientific_name"
@@ -145,6 +146,14 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
               required
             />
           </ExpertiseFieldWrapper>
+          <ExpertiseFieldWrapper minLevel={fc.common_names.level}>
+            <FormChipInput
+              name="common_names"
+              control={control}
+              label={t('pages.species.commonNames')}
+              helperText={t('pages.species.commonNamesHelper')}
+            />
+          </ExpertiseFieldWrapper>
           <ExpertiseFieldWrapper minLevel={fc.family_key.level}>
             <FormSelectField
               name="family_key"
@@ -152,7 +161,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
               label={t('pages.species.family')}
               helperText={t('pages.species.familyHelper')}
               options={[
-                { value: '', label: '-' },
+                { value: '', label: '\u2014' },
                 ...families.map((f) => ({ value: f.key, label: f.name })),
               ]}
             />
@@ -165,8 +174,33 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
               helperText={t('pages.species.genusHelper')}
             />
           </ExpertiseFieldWrapper>
+          <ExpertiseFieldWrapper minLevel={fc.description.level}>
+            <FormTextField
+              name="description"
+              control={control}
+              label={t('pages.species.description')}
+              helperText={t('pages.species.descriptionHelper')}
+              multiline
+              rows={3}
+            />
+          </ExpertiseFieldWrapper>
 
-          {/* expert fields */}
+          {/* --- Growth section --- */}
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.species.sectionGrowth')}
+          </Typography>
+          <ExpertiseFieldWrapper minLevel={fc.growth_habit.level}>
+            <FormSelectField
+              name="growth_habit"
+              control={control}
+              label={t('pages.species.growthHabit')}
+              helperText={t('pages.species.growthHabitHelper')}
+              options={['herb', 'shrub', 'tree', 'vine', 'groundcover'].map((v) => ({
+                value: v,
+                label: t(`enums.growthHabit.${v}`),
+              }))}
+            />
+          </ExpertiseFieldWrapper>
           <ExpertiseFieldWrapper minLevel={fc.root_type.level}>
             <FormSelectField
               name="root_type"
@@ -179,6 +213,11 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
               }))}
             />
           </ExpertiseFieldWrapper>
+
+          {/* --- Environment section --- */}
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.species.sectionEnvironment')}
+          </Typography>
           <ExpertiseFieldWrapper minLevel={fc.hardiness_zones.level}>
             <FormChipInput
               name="hardiness_zones"
@@ -214,6 +253,11 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
               helperText={t('pages.species.baseTempHelper')}
             />
           </ExpertiseFieldWrapper>
+
+          {/* --- Classification section --- */}
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.species.sectionClassification')}
+          </Typography>
           <ExpertiseFieldWrapper minLevel={fc.synonyms.level}>
             <FormChipInput
               name="synonyms"
@@ -237,6 +281,114 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
               label={t('pages.species.taxonomicStatus')}
               helperText={t('pages.species.taxonomicStatusHelper')}
             />
+          </ExpertiseFieldWrapper>
+
+          {/* --- Cultivation conditions section --- */}
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.species.sectionCultivation')}
+          </Typography>
+          <ExpertiseFieldWrapper minLevel={fc.container_suitable.level}>
+            <FormRow>
+              <FormSelectField
+                name="container_suitable"
+                control={control}
+                label={t('pages.species.containerSuitable')}
+                helperText={t('pages.species.containerSuitableHelper')}
+                options={[
+                  { value: '', label: '\u2014' },
+                  ...['yes', 'limited', 'no'].map((v) => ({
+                    value: v,
+                    label: t(`enums.suitability.${v}`),
+                  })),
+                ]}
+              />
+              <FormSelectField
+                name="indoor_suitable"
+                control={control}
+                label={t('pages.species.indoorSuitable')}
+                helperText={t('pages.species.indoorSuitableHelper')}
+                options={[
+                  { value: '', label: '\u2014' },
+                  ...['yes', 'limited', 'no'].map((v) => ({
+                    value: v,
+                    label: t(`enums.suitability.${v}`),
+                  })),
+                ]}
+              />
+            </FormRow>
+          </ExpertiseFieldWrapper>
+          <ExpertiseFieldWrapper minLevel={fc.balcony_suitable.level}>
+            <FormSelectField
+              name="balcony_suitable"
+              control={control}
+              label={t('pages.species.balconySuitable')}
+              helperText={t('pages.species.balconySuitableHelper')}
+              options={[
+                { value: '', label: '\u2014' },
+                ...['yes', 'limited', 'no'].map((v) => ({
+                  value: v,
+                  label: t(`enums.suitability.${v}`),
+                })),
+              ]}
+            />
+          </ExpertiseFieldWrapper>
+          <ExpertiseFieldWrapper minLevel={fc.recommended_container_volume_l.level}>
+            <FormRow>
+              <FormTextField
+                name="recommended_container_volume_l"
+                control={control}
+                label={t('pages.species.recommendedContainerVolumeL')}
+                helperText={t('pages.species.recommendedContainerVolumeLHelper')}
+              />
+              <FormNumberField
+                name="min_container_depth_cm"
+                control={control}
+                label={t('pages.species.minContainerDepthCm')}
+                helperText={t('pages.species.minContainerDepthCmHelper')}
+                min={1}
+                max={200}
+              />
+            </FormRow>
+          </ExpertiseFieldWrapper>
+          <ExpertiseFieldWrapper minLevel={fc.mature_height_cm.level}>
+            <FormRow>
+              <FormTextField
+                name="mature_height_cm"
+                control={control}
+                label={t('pages.species.matureHeightCm')}
+                helperText={t('pages.species.matureHeightCmHelper')}
+              />
+              <FormTextField
+                name="mature_width_cm"
+                control={control}
+                label={t('pages.species.matureWidthCm')}
+                helperText={t('pages.species.matureWidthCmHelper')}
+              />
+            </FormRow>
+          </ExpertiseFieldWrapper>
+          <ExpertiseFieldWrapper minLevel={fc.spacing_cm.level}>
+            <FormTextField
+              name="spacing_cm"
+              control={control}
+              label={t('pages.species.spacingCm')}
+              helperText={t('pages.species.spacingCmHelper')}
+            />
+          </ExpertiseFieldWrapper>
+          <ExpertiseFieldWrapper minLevel={fc.greenhouse_recommended.level}>
+            <FormRow>
+              <FormSwitchField
+                name="greenhouse_recommended"
+                control={control}
+                label={t('pages.species.greenhouseRecommended')}
+                helperText={t('pages.species.greenhouseRecommendedHelper')}
+              />
+              <FormSwitchField
+                name="support_required"
+                control={control}
+                label={t('pages.species.supportRequired')}
+                helperText={t('pages.species.supportRequiredHelper')}
+              />
+            </FormRow>
           </ExpertiseFieldWrapper>
 
           {level !== 'expert' && (

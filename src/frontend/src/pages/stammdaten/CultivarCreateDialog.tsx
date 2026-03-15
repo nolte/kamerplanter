@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
+import Typography from '@mui/material/Typography';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,6 +11,7 @@ import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormChipInput from '@/components/form/FormChipInput';
 import FormActions from '@/components/form/FormActions';
+import FormRow from '@/components/form/FormRow';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/species';
@@ -76,13 +78,60 @@ export default function CultivarCreateDialog({ speciesKey, open, onClose, onCrea
       <DialogTitle>{t('pages.cultivars.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
-          <FormTextField name="name" control={control} label={t('pages.cultivars.name')} required />
-          <FormTextField name="breeder" control={control} label={t('pages.cultivars.breeder')} />
-          <FormNumberField name="breeding_year" control={control} label={t('pages.cultivars.breedingYear')} />
-          <FormChipInput name="traits" control={control} label={t('pages.cultivars.traits')} />
-          <FormTextField name="patent_status" control={control} label={t('pages.cultivars.patentStatus')} />
-          <FormNumberField name="days_to_maturity" control={control} label={t('pages.cultivars.daysToMaturity')} min={1} max={365} />
-          <FormChipInput name="disease_resistances" control={control} label={t('pages.cultivars.diseaseResistances')} />
+          {/* Identification */}
+          <FormTextField
+            name="name"
+            control={control}
+            label={t('pages.cultivars.name')}
+            helperText={t('pages.cultivars.nameHelper')}
+            required
+            autoFocus
+          />
+          <FormRow>
+            <FormTextField
+              name="breeder"
+              control={control}
+              label={t('pages.cultivars.breeder')}
+              helperText={t('pages.cultivars.breederHelper')}
+            />
+            <FormNumberField
+              name="breeding_year"
+              control={control}
+              label={t('pages.cultivars.breedingYear')}
+              helperText={t('pages.cultivars.breedingYearHelper')}
+            />
+          </FormRow>
+
+          {/* Characteristics */}
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.cultivars.sectionCharacteristics')}
+          </Typography>
+          <FormNumberField
+            name="days_to_maturity"
+            control={control}
+            label={t('pages.cultivars.daysToMaturity')}
+            helperText={t('pages.cultivars.daysToMaturityHelper')}
+            min={1}
+            max={365}
+          />
+          <FormChipInput
+            name="traits"
+            control={control}
+            label={t('pages.cultivars.traits')}
+            helperText={t('pages.cultivars.traitsHelper')}
+          />
+          <FormChipInput
+            name="disease_resistances"
+            control={control}
+            label={t('pages.cultivars.diseaseResistances')}
+            helperText={t('pages.cultivars.diseaseResistancesHelper')}
+          />
+          <FormTextField
+            name="patent_status"
+            control={control}
+            label={t('pages.cultivars.patentStatus')}
+            helperText={t('pages.cultivars.patentStatusHelper')}
+          />
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
         </form>
       </DialogContent>

@@ -5,12 +5,15 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
+import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import Grid from '@mui/material/Grid';
 import Chip from '@mui/material/Chip';
+import Tooltip from '@mui/material/Tooltip';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
+import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import { useApiError } from '@/hooks/useApiError';
 import * as calcApi from '@/api/endpoints/nutrient-calculations';
 import type {
@@ -20,6 +23,10 @@ import type {
   FlushingScheduleDay,
   RunoffResponse,
   MixingSafetyResponse,
+  WaterMixReverseResponse,
+  EcBudgetResponse,
+  SubstrateType,
+  PhaseName,
 } from '@/api/types';
 
 export default function NutrientCalculationsPage() {
@@ -52,6 +59,27 @@ export default function NutrientCalculationsPage() {
   // ── Mixing Safety ────────────────────────────────────────────────────
   const [msKeys, setMsKeys] = useState('');
   const [msResult, setMsResult] = useState<MixingSafetyResponse | null>(null);
+
+  // ── Water Mixer (reverse) ──────────────────────────────────────────
+  const [wmTapEc, setWmTapEc] = useState(0.5);
+  const [wmAlkalinity, setWmAlkalinity] = useState(80);
+  const [wmTargetBaseEc, setWmTargetBaseEc] = useState(0.15);
+  const [wmResult, setWmResult] = useState<WaterMixReverseResponse | null>(null);
+
+  // ── EC Budget ──────────────────────────────────────────────────────
+  const [ebTargetEc, setEbTargetEc] = useState(1.8);
+  const [ebSubstrate, setEbSubstrate] = useState<SubstrateType>('coco');
+  const [ebPhase, setEbPhase] = useState<PhaseName>('vegetative');
+  const [ebVolume, setEbVolume] = useState(10);
+  const [ebFertKeys, setEbFertKeys] = useState('');
+  const [ebCalmagKey, setEbCalmagKey] = useState('');
+  const [ebCalmagDose, setEbCalmagDose] = useState(1.0);
+  const [ebSilicateKey, setEbSilicateKey] = useState('');
+  const [ebSilicateDose, setEbSilicateDose] = useState(0.5);
+  const [ebSubstrateCycles, setEbSubstrateCycles] = useState<number | ''>('');
+  const [ebMeasuredEc, setEbMeasuredEc] = useState<number | ''>('');
+  const [ebMeasuredTemp, setEbMeasuredTemp] = useState<number | ''>('');
+  const [ebResult, setEbResult] = useState<EcBudgetResponse | null>(null);
 
   const calcMixingProtocol = async () => {
     try {
@@ -110,6 +138,78 @@ export default function NutrientCalculationsPage() {
     }
   };
 
+  const calcWaterMixReverse = async () => {
+    try {
+      const result = await calcApi.calculateWaterMixReverse({
+        tap_profile: { ec_ms: wmTapEc, ph: 7.5, alkalinity_ppm: wmAlkalinity },
+        target_base_ec_ms: wmTargetBaseEc,
+      });
+      setWmResult(result);
+    } catch (err) {
+      handleError(err);
+    }
+  };
+
+  const calcEcBudget = async () => {
+    try {
+      const fertEntries = ebFertKeys
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .map((entry) => {
+          const [key, dose] = entry.split(':');
+          return {
+            key: key.trim(),
+            recipe_ml_per_liter: dose ? Number(dose.trim()) : undefined,
+          };
+        });
+
+      const baseEc = wmResult ? wmResult.effective_profile.ec_ms : wmTargetBaseEc;
+
+      const result = await calcApi.calculateEcBudget({
+        base_water_ec: baseEc,
+        alkalinity_ppm: wmAlkalinity,
+        target_ec: ebTargetEc,
+        substrate: ebSubstrate,
+        phase: ebPhase,
+        volume_liters: ebVolume,
+        fertilizer_keys: fertEntries,
+        calmag_key: ebCalmagKey || undefined,
+        calmag_dose_ml_per_liter: ebCalmagKey ? ebCalmagDose : undefined,
+        silicate_key: ebSilicateKey || undefined,
+        silicate_dose_ml_per_liter: ebSilicateKey ? ebSilicateDose : undefined,
+        substrate_cycles_used: ebSubstrateCycles !== '' ? ebSubstrateCycles : undefined,
+        measured_ec: ebMeasuredEc !== '' ? ebMeasuredEc : undefined,
+        measured_temp_celsius: ebMeasuredTemp !== '' ? ebMeasuredTemp : undefined,
+      });
+      setEbResult(result);
+    } catch (err) {
+      handleError(err);
+    }
+  };
+
+  const SEGMENT_COLORS: Record<string, string> = {
+    bluegrey: 'info.main',
+    teal: 'success.light',
+    orange: 'warning.main',
+    green: 'success.main',
+    grey: 'text.disabled',
+  };
+
+  const SUBSTRATE_OPTIONS: { value: SubstrateType; label: string }[] = [
+    { value: 'hydro_solution', label: t('enums.substrateType.hydro_solution') },
+    { value: 'coco', label: t('enums.substrateType.coco') },
+    { value: 'soil', label: t('enums.substrateType.soil') },
+    { value: 'living_soil', label: t('enums.substrateType.living_soil') },
+  ];
+
+  const PHASE_OPTIONS: { value: PhaseName; label: string }[] = [
+    { value: 'seedling', label: t('enums.phaseName.seedling') },
+    { value: 'vegetative', label: t('enums.phaseName.vegetative') },
+    { value: 'flowering', label: t('enums.phaseName.flowering') },
+    { value: 'flushing', label: t('enums.phaseName.flushing') },
+  ];
+
   const dosageColumns: Column<MixingDosage>[] = [
     { id: 'product', label: t('pages.nutrientCalc.product'), render: (r) => r.product_name },
     { id: 'mlPerLiter', label: t('pages.nutrientCalc.mlPerLiter'), render: (r) => r.ml_per_liter.toFixed(2), align: 'right' },
@@ -144,43 +244,51 @@ export default function NutrientCalculationsPage() {
                 fullWidth
                 sx={{ mb: 2 }}
                 inputProps={{ min: 0.1, step: 0.1 }}
+                helperText={t('pages.nutrientCalc.targetVolumeHelper')}
               />
-              <TextField
-                type="number"
-                label={t('pages.nutrientCalc.targetEc')}
-                value={mpTargetEc}
-                onChange={(e) => setMpTargetEc(Number(e.target.value))}
-                fullWidth
-                sx={{ mb: 2 }}
-                inputProps={{ min: 0, step: 0.1 }}
-              />
-              <TextField
-                type="number"
-                label={t('pages.nutrientCalc.targetPh')}
-                value={mpTargetPh}
-                onChange={(e) => setMpTargetPh(Number(e.target.value))}
-                fullWidth
-                sx={{ mb: 2 }}
-                inputProps={{ min: 0, max: 14, step: 0.1 }}
-              />
-              <TextField
-                type="number"
-                label={t('pages.nutrientCalc.baseWaterEc')}
-                value={mpBaseEc}
-                onChange={(e) => setMpBaseEc(Number(e.target.value))}
-                fullWidth
-                sx={{ mb: 2 }}
-                inputProps={{ min: 0, step: 0.1 }}
-              />
-              <TextField
-                type="number"
-                label={t('pages.nutrientCalc.baseWaterPh')}
-                value={mpBasePh}
-                onChange={(e) => setMpBasePh(Number(e.target.value))}
-                fullWidth
-                sx={{ mb: 2 }}
-                inputProps={{ min: 0, max: 14, step: 0.1 }}
-              />
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  type="number"
+                  label={t('pages.nutrientCalc.targetEc')}
+                  value={mpTargetEc}
+                  onChange={(e) => setMpTargetEc(Number(e.target.value))}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  inputProps={{ min: 0, step: 0.1 }}
+                  helperText={t('pages.nutrientCalc.ecUnitHelper')}
+                />
+                <TextField
+                  type="number"
+                  label={t('pages.nutrientCalc.targetPh')}
+                  value={mpTargetPh}
+                  onChange={(e) => setMpTargetPh(Number(e.target.value))}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  inputProps={{ min: 0, max: 14, step: 0.1 }}
+                  helperText={t('pages.nutrientCalc.phUnitHelper')}
+                />
+              </Box>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  type="number"
+                  label={t('pages.nutrientCalc.baseWaterEc')}
+                  value={mpBaseEc}
+                  onChange={(e) => setMpBaseEc(Number(e.target.value))}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  inputProps={{ min: 0, step: 0.1 }}
+                  helperText={t('pages.nutrientCalc.ecUnitHelper')}
+                />
+                <TextField
+                  type="number"
+                  label={t('pages.nutrientCalc.baseWaterPh')}
+                  value={mpBasePh}
+                  onChange={(e) => setMpBasePh(Number(e.target.value))}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  inputProps={{ min: 0, max: 14, step: 0.1 }}
+                />
+              </Box>
               <TextField
                 label={t('pages.nutrientCalc.fertilizerKeys')}
                 value={mpFertKeys}
@@ -285,60 +393,68 @@ export default function NutrientCalculationsPage() {
               <Typography variant="h6" sx={{ mb: 2 }}>
                 {t('pages.nutrientCalc.runoffAnalysis')}
               </Typography>
-              <TextField
-                type="number"
-                label={t('pages.nutrientCalc.inputEc')}
-                value={roInputEc}
-                onChange={(e) => setRoInputEc(Number(e.target.value))}
-                fullWidth
-                sx={{ mb: 2 }}
-                inputProps={{ min: 0, step: 0.1 }}
-              />
-              <TextField
-                type="number"
-                label={t('pages.nutrientCalc.runoffEc')}
-                value={roRunoffEc}
-                onChange={(e) => setRoRunoffEc(Number(e.target.value))}
-                fullWidth
-                sx={{ mb: 2 }}
-                inputProps={{ min: 0, step: 0.1 }}
-              />
-              <TextField
-                type="number"
-                label={t('pages.nutrientCalc.inputPh')}
-                value={roInputPh}
-                onChange={(e) => setRoInputPh(Number(e.target.value))}
-                fullWidth
-                sx={{ mb: 2 }}
-                inputProps={{ min: 0, max: 14, step: 0.1 }}
-              />
-              <TextField
-                type="number"
-                label={t('pages.nutrientCalc.runoffPh')}
-                value={roRunoffPh}
-                onChange={(e) => setRoRunoffPh(Number(e.target.value))}
-                fullWidth
-                sx={{ mb: 2 }}
-                inputProps={{ min: 0, max: 14, step: 0.1 }}
-              />
-              <TextField
-                type="number"
-                label={t('pages.nutrientCalc.inputVolume')}
-                value={roInputVol}
-                onChange={(e) => setRoInputVol(Number(e.target.value))}
-                fullWidth
-                sx={{ mb: 2 }}
-                inputProps={{ min: 0, step: 0.1 }}
-              />
-              <TextField
-                type="number"
-                label={t('pages.nutrientCalc.runoffVolume')}
-                value={roRunoffVol}
-                onChange={(e) => setRoRunoffVol(Number(e.target.value))}
-                fullWidth
-                sx={{ mb: 2 }}
-                inputProps={{ min: 0, step: 0.1 }}
-              />
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  type="number"
+                  label={t('pages.nutrientCalc.inputEc')}
+                  value={roInputEc}
+                  onChange={(e) => setRoInputEc(Number(e.target.value))}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  inputProps={{ min: 0, step: 0.1 }}
+                  helperText={t('pages.nutrientCalc.ecUnitHelper')}
+                />
+                <TextField
+                  type="number"
+                  label={t('pages.nutrientCalc.runoffEc')}
+                  value={roRunoffEc}
+                  onChange={(e) => setRoRunoffEc(Number(e.target.value))}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  inputProps={{ min: 0, step: 0.1 }}
+                />
+              </Box>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  type="number"
+                  label={t('pages.nutrientCalc.inputPh')}
+                  value={roInputPh}
+                  onChange={(e) => setRoInputPh(Number(e.target.value))}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  inputProps={{ min: 0, max: 14, step: 0.1 }}
+                  helperText={t('pages.nutrientCalc.phUnitHelper')}
+                />
+                <TextField
+                  type="number"
+                  label={t('pages.nutrientCalc.runoffPh')}
+                  value={roRunoffPh}
+                  onChange={(e) => setRoRunoffPh(Number(e.target.value))}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  inputProps={{ min: 0, max: 14, step: 0.1 }}
+                />
+              </Box>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  type="number"
+                  label={t('pages.nutrientCalc.inputVolume')}
+                  value={roInputVol}
+                  onChange={(e) => setRoInputVol(Number(e.target.value))}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  inputProps={{ min: 0, step: 0.1 }}
+                />
+                <TextField
+                  type="number"
+                  label={t('pages.nutrientCalc.runoffVolume')}
+                  value={roRunoffVol}
+                  onChange={(e) => setRoRunoffVol(Number(e.target.value))}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  inputProps={{ min: 0, step: 0.1 }}
+                />
+              </Box>
               <Button variant="contained" onClick={calcRunoff} fullWidth>
                 {t('pages.nutrientCalc.calculate')}
               </Button>
@@ -403,6 +519,293 @@ export default function NutrientCalculationsPage() {
                   ))}
                 </Box>
               )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* EC Budget (full width) */}
+        <Grid size={12}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                {t('pages.nutrientCalc.ecBudgetTitle')}
+              </Typography>
+
+              {/* Water Mixer Section (intermediate+) */}
+              <ExpertiseFieldWrapper minLevel="intermediate">
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                  {t('pages.nutrientCalc.waterMixer')}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                  <TextField
+                    type="number"
+                    label={t('pages.nutrientCalc.baseWaterEc')}
+                    value={wmTapEc}
+                    onChange={(e) => setWmTapEc(Number(e.target.value))}
+                    fullWidth
+                    inputProps={{ min: 0, max: 2, step: 0.01 }}
+                    helperText={t('pages.nutrientCalc.ecUnitHelper')}
+                  />
+                  <TextField
+                    type="number"
+                    label={t('pages.nutrientCalc.alkalinity')}
+                    value={wmAlkalinity}
+                    onChange={(e) => setWmAlkalinity(Number(e.target.value))}
+                    fullWidth
+                    inputProps={{ min: 0, max: 500, step: 10 }}
+                  />
+                  <TextField
+                    type="number"
+                    label={t('pages.nutrientCalc.targetBaseEc')}
+                    value={wmTargetBaseEc}
+                    onChange={(e) => setWmTargetBaseEc(Number(e.target.value))}
+                    fullWidth
+                    inputProps={{ min: 0, max: 2, step: 0.01 }}
+                    helperText={t('pages.nutrientCalc.ecUnitHelper')}
+                  />
+                </Box>
+                <Button variant="outlined" onClick={calcWaterMixReverse} sx={{ mb: 2 }}>
+                  {t('pages.nutrientCalc.calculate')}
+                </Button>
+                {wmResult && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    {t('pages.nutrientCalc.suggestedRoPercent')}: {wmResult.ro_percent}% |{' '}
+                    {t('pages.nutrientCalc.ecMix')}: {wmResult.effective_profile.ec_ms.toFixed(3)} mS/cm
+                  </Alert>
+                )}
+              </ExpertiseFieldWrapper>
+
+              {/* EC Budget Section (expert) */}
+              <ExpertiseFieldWrapper minLevel="expert">
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                  {t('pages.nutrientCalc.ecBudget')}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                  <TextField
+                    type="number"
+                    label={t('pages.nutrientCalc.targetEc')}
+                    value={ebTargetEc}
+                    onChange={(e) => setEbTargetEc(Number(e.target.value))}
+                    fullWidth
+                    inputProps={{ min: 0, max: 10, step: 0.1 }}
+                  />
+                  <TextField
+                    select
+                    label={t('pages.nutrientCalc.substrate')}
+                    value={ebSubstrate}
+                    onChange={(e) => setEbSubstrate(e.target.value as SubstrateType)}
+                    fullWidth
+                  >
+                    {SUBSTRATE_OPTIONS.map((o) => (
+                      <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    select
+                    label={t('pages.nutrientCalc.phase')}
+                    value={ebPhase}
+                    onChange={(e) => setEbPhase(e.target.value as PhaseName)}
+                    fullWidth
+                  >
+                    {PHASE_OPTIONS.map((o) => (
+                      <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    type="number"
+                    label={t('pages.nutrientCalc.targetVolume')}
+                    value={ebVolume}
+                    onChange={(e) => setEbVolume(Number(e.target.value))}
+                    fullWidth
+                    inputProps={{ min: 0.1, step: 1 }}
+                  />
+                </Box>
+                <TextField
+                  label={t('pages.nutrientCalc.fertilizerKeys')}
+                  value={ebFertKeys}
+                  onChange={(e) => setEbFertKeys(e.target.value)}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  helperText={t('pages.nutrientCalc.fertilizerKeysEcBudgetHelp')}
+                />
+                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                  <TextField
+                    label={t('pages.nutrientCalc.calmagKey')}
+                    value={ebCalmagKey}
+                    onChange={(e) => setEbCalmagKey(e.target.value)}
+                    fullWidth
+                  />
+                  <TextField
+                    type="number"
+                    label={t('pages.nutrientCalc.calmagDose')}
+                    value={ebCalmagDose}
+                    onChange={(e) => setEbCalmagDose(Number(e.target.value))}
+                    fullWidth
+                    inputProps={{ min: 0, step: 0.1 }}
+                  />
+                  <TextField
+                    label={t('pages.nutrientCalc.silicateKey')}
+                    value={ebSilicateKey}
+                    onChange={(e) => setEbSilicateKey(e.target.value)}
+                    fullWidth
+                  />
+                  <TextField
+                    type="number"
+                    label={t('pages.nutrientCalc.silicateDose')}
+                    value={ebSilicateDose}
+                    onChange={(e) => setEbSilicateDose(Number(e.target.value))}
+                    fullWidth
+                    inputProps={{ min: 0, step: 0.1 }}
+                  />
+                </Box>
+                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                  <TextField
+                    type="number"
+                    label={t('pages.nutrientCalc.substrateCycles')}
+                    value={ebSubstrateCycles}
+                    onChange={(e) => setEbSubstrateCycles(e.target.value === '' ? '' : Number(e.target.value))}
+                    fullWidth
+                    inputProps={{ min: 0, step: 1 }}
+                  />
+                  <TextField
+                    type="number"
+                    label={t('pages.nutrientCalc.measuredEcAtTemp')}
+                    value={ebMeasuredEc}
+                    onChange={(e) => setEbMeasuredEc(e.target.value === '' ? '' : Number(e.target.value))}
+                    fullWidth
+                    inputProps={{ min: 0, step: 0.01 }}
+                  />
+                  <TextField
+                    type="number"
+                    label={t('pages.nutrientCalc.measuredTemp')}
+                    value={ebMeasuredTemp}
+                    onChange={(e) => setEbMeasuredTemp(e.target.value === '' ? '' : Number(e.target.value))}
+                    fullWidth
+                    inputProps={{ step: 0.5 }}
+                  />
+                </Box>
+                <Button variant="contained" onClick={calcEcBudget} fullWidth sx={{ mb: 2 }}>
+                  {t('pages.nutrientCalc.calculate')}
+                </Button>
+
+                {ebResult && (
+                  <Box>
+                    {/* Living Soil bypass */}
+                    {ebResult.living_soil_bypass && (
+                      <Alert severity="info" sx={{ mb: 2 }}>
+                        {t('pages.nutrientCalc.livingsoilBypass')}
+                      </Alert>
+                    )}
+
+                    {/* Validation status */}
+                    {!ebResult.living_soil_bypass && (
+                      <Alert severity={ebResult.valid ? 'success' : 'error'} sx={{ mb: 2 }}>
+                        <Chip
+                          label={ebResult.valid ? t('pages.nutrientCalc.ecBudgetValid') : t('pages.nutrientCalc.ecBudgetInvalid')}
+                          size="small"
+                          color={ebResult.valid ? 'success' : 'error'}
+                          sx={{ mr: 1 }}
+                        />
+                        {t('pages.nutrientCalc.ecFinal')}: {ebResult.ec_final.toFixed(2)} mS |{' '}
+                        {t('pages.nutrientCalc.ecTarget')}: {ebResult.ec_target.toFixed(2)} mS |{' '}
+                        {t('pages.nutrientCalc.ecMax')}: {ebResult.ec_max.toFixed(1)} mS
+                      </Alert>
+                    )}
+
+                    {/* Temperature correction */}
+                    {ebResult.ec_at_25_corrected != null && (
+                      <Alert severity="info" sx={{ mb: 2 }}>
+                        {t('pages.nutrientCalc.ecAt25')}: {ebResult.ec_at_25_corrected.toFixed(3)} mS/cm
+                      </Alert>
+                    )}
+
+                    {/* EC Budget Bar */}
+                    {!ebResult.living_soil_bypass && ebResult.segments.length > 0 && (
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                          {t('pages.nutrientCalc.ecBudget')} ({ebResult.ec_final.toFixed(2)} / {ebResult.ec_max.toFixed(1)} mS)
+                        </Typography>
+                        <Box sx={{
+                          display: 'flex',
+                          height: 32,
+                          borderRadius: 1,
+                          overflow: 'hidden',
+                          border: 1,
+                          borderColor: 'divider',
+                        }}>
+                          {ebResult.segments.map((seg, i) => {
+                            const widthPct = ebResult.ec_max > 0
+                              ? Math.max(1, (seg.ec_contribution / ebResult.ec_max) * 100)
+                              : 0;
+                            return (
+                              <Tooltip
+                                key={i}
+                                title={`${seg.label}: ${seg.ec_contribution.toFixed(3)} mS${seg.ml_per_liter ? ` (${seg.ml_per_liter} ml/L)` : ''}`}
+                              >
+                                <Box sx={{
+                                  width: `${widthPct}%`,
+                                  bgcolor: SEGMENT_COLORS[seg.color_hint] ?? 'action.disabled',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  overflow: 'hidden',
+                                  px: 0.5,
+                                }}>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{ color: 'common.white', whiteSpace: 'nowrap', fontSize: '0.65rem' }}
+                                  >
+                                    {seg.ec_contribution > 0.05 ? seg.label : ''}
+                                  </Typography>
+                                </Box>
+                              </Tooltip>
+                            );
+                          })}
+                        </Box>
+                      </Box>
+                    )}
+
+                    {/* Warnings */}
+                    {ebResult.warnings.map((w, i) => (
+                      <Alert key={i} severity="warning" sx={{ mb: 0.5 }}>
+                        {w}
+                      </Alert>
+                    ))}
+
+                    {/* Dosage table */}
+                    {ebResult.dosage_table.length > 0 && (
+                      <Box sx={{ mt: 2 }}>
+                        <DataTable
+                          columns={[
+                            { id: 'product', label: t('pages.nutrientCalc.product'), render: (r: Record<string, unknown>) => String(r.product_name) },
+                            { id: 'mlPerLiter', label: t('pages.nutrientCalc.mlPerLiter'), render: (r: Record<string, unknown>) => Number(r.ml_per_liter).toFixed(2), align: 'right' as const },
+                            { id: 'totalMl', label: t('pages.nutrientCalc.totalMl'), render: (r: Record<string, unknown>) => Number(r.total_ml).toFixed(1), align: 'right' as const },
+                            { id: 'ecContrib', label: t('pages.nutrientCalc.ecContribution'), render: (r: Record<string, unknown>) => Number(r.ec_contribution).toFixed(3), align: 'right' as const },
+                          ]}
+                          rows={ebResult.dosage_table}
+                          getRowKey={(r: Record<string, unknown>) => String(r.key)}
+                          variant="simple"
+                          ariaLabel={t('pages.nutrientCalc.ecBudget')}
+                        />
+                      </Box>
+                    )}
+
+                    {/* Mixing instructions */}
+                    {ebResult.dosage_instructions.length > 0 && (
+                      <Box sx={{ mt: 2 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                          {t('pages.nutrientCalc.dosageInstructions')}
+                        </Typography>
+                        {ebResult.dosage_instructions.map((inst, i) => (
+                          <Typography key={i} variant="body2" sx={{ mb: 0.5 }}>
+                            {inst}
+                          </Typography>
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
+                )}
+              </ExpertiseFieldWrapper>
             </CardContent>
           </Card>
         </Grid>

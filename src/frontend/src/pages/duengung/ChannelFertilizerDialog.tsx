@@ -171,6 +171,7 @@ export default function ChannelFertilizerDialog({
               size="small"
               required
               inputProps={{ min: 0.1, max: 50, step: 0.1 }}
+              helperText={t('pages.nutrientPlans.mlPerLiterHelper')}
             />
             <FormControlLabel
               control={

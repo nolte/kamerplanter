@@ -1,0 +1,2547 @@
+# plant_info_indoor_3.yaml
+# Seed-Daten für Zimmerpflanzen — Batch 3 (29 Arten)
+# Quellen: spec/ref/plant-info/*.md
+# Erstellt: 2026-03-11
+
+# ──────────────────────────────────────────────
+# 1. Neue Botanische Familien
+# ──────────────────────────────────────────────
+new_families:
+  - name: Nephrolepidaceae
+    order: Polypodiales
+  - name: Oxalidaceae
+    order: Oxalidales
+  - name: Malvaceae
+    order: Malvales
+  - name: Geraniaceae
+    order: Geraniales
+  - name: Piperaceae
+    order: Piperales
+  - name: Orchidaceae
+    order: Asparagales
+  - name: Urticaceae
+    order: Rosales
+  - name: Polypodiaceae
+    order: Polypodiales
+  - name: Ericaceae
+    order: Ericales
+  - name: Araliaceae
+    order: Apiales
+  - name: Crassulaceae
+    order: Saxifragales
+  - name: Apocynaceae
+    order: Gentianales
+  - name: Strelitziaceae
+    order: Zingiberales
+  - name: Gesneriaceae
+    order: Lamiales
+  - name: Marantaceae
+    order: Zingiberales
+  - name: Commelinaceae
+    order: Commelinales
+  - name: Asparagaceae
+    order: Asparagales
+
+# ──────────────────────────────────────────────
+# 2. Species → Family Mapping
+# ──────────────────────────────────────────────
+new_species_family_map:
+  "Monstera adansonii": Araceae
+  "Neoregelia carolinae": Bromeliaceae
+  "Nephrolepis exaltata": Nephrolepidaceae
+  "Opuntia microdasys": Cactaceae
+  "Oxalis triangularis": Oxalidaceae
+  "Pachira aquatica": Malvaceae
+  "Pelargonium zonale": Geraniaceae
+  "Peperomia obtusifolia": Piperaceae
+  "Phalaenopsis spp.": Orchidaceae
+  "Philodendron hederaceum": Araceae
+  "Pilea peperomioides": Urticaceae
+  "Platycerium bifurcatum": Polypodiaceae
+  "Plectranthus verticillatus": Lamiaceae
+  "Rhipsalis baccifera": Cactaceae
+  "Rhododendron simsii": Ericaceae
+  "Schefflera arboricola": Araliaceae
+  "Schlumbergera truncata": Cactaceae
+  "Sedum morganianum": Crassulaceae
+  "Soleirolia soleirolii": Urticaceae
+  "Stephanotis floribunda": Apocynaceae
+  "Strelitzia reginae": Strelitziaceae
+  "Streptocarpus hybridus": Gesneriaceae
+  "Stromanthe sanguinea": Marantaceae
+  "Tillandsia usneoides": Bromeliaceae
+  "Tradescantia zebrina": Commelinaceae
+  "Vriesea splendens": Bromeliaceae
+  "Yucca elephantipes": Asparagaceae
+  "Zamioculcas zamiifolia": Araceae
+  "Zantedeschia aethiopica": Araceae
+
+# ──────────────────────────────────────────────
+# 3. Neue Species
+# ──────────────────────────────────────────────
+new_species:
+  - scientific_name: "Monstera adansonii"
+    common_names: "Adansonii;Fensterblatt;Monkey Mask;Swiss Cheese Vine"
+    genus: Monstera
+    growth_habit: vine
+    root_type: fibrous
+    hardiness_zones: "10a;10b;11a;11b"
+    native_habitat: "Mittel- und Südamerika — tropische Regenwälder"
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-8"
+    min_container_depth_cm: 15
+    mature_height_cm: "100-300"
+    mature_width_cm: "60-150"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: true
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Neoregelia carolinae"
+    common_names: "Nestrosette;Karminrote Neoregelia;Blushing Bromeliad"
+    genus: Neoregelia
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: "10a;10b;11a;11b"
+    native_habitat: "Brasilien — tropische Atlantikwälder"
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-5"
+    min_container_depth_cm: 12
+    mature_height_cm: "20-40"
+    mature_width_cm: "30-50"
+    indoor_suitable: "yes"
+    balcony_suitable: "no"
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Nephrolepis exaltata"
+    common_names: "Schwertfarn;Nephrolepis;Boston Fern;Sword Fern"
+    genus: Nephrolepis
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: "9a;9b;10a;10b;11a;11b"
+    native_habitat: "Tropische und subtropische Regionen weltweit"
+    container_suitable: "yes"
+    recommended_container_volume_l: "3-10"
+    min_container_depth_cm: 15
+    mature_height_cm: "40-90"
+    mature_width_cm: "60-150"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Opuntia microdasys"
+    common_names: "Hasenohr-Kaktus;Goldstachel-Kaktus;Bunny Ears Cactus;Angel Wings Cactus"
+    genus: Opuntia
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: "9a;9b;10a;10b;11a;11b"
+    native_habitat: "Mexiko — semi-aride Gebirgsregionen"
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-8"
+    min_container_depth_cm: 15
+    mature_height_cm: "30-60"
+    mature_width_cm: "30-90"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: moderate
+
+  - scientific_name: "Oxalis triangularis"
+    common_names: "Lila Sauerklee;Glücksklee;Purple Shamrock;False Shamrock"
+    genus: Oxalis
+    growth_habit: herb
+    root_type: bulbous
+    hardiness_zones: "6a;6b;7a;7b;8a;8b;9a;9b;10a;10b;11a"
+    native_habitat: "Brasilien, Argentinien"
+    container_suitable: "yes"
+    recommended_container_volume_l: "0.5-3"
+    min_container_depth_cm: 10
+    mature_height_cm: "15-30"
+    mature_width_cm: "20-40"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: moderate
+
+  - scientific_name: "Pachira aquatica"
+    common_names: "Glückskastanie;Malabar-Kastanie;Pachira;Money Tree;Guiana Chestnut"
+    genus: Pachira
+    growth_habit: tree
+    root_type: fibrous
+    hardiness_zones: "10a;10b;11a;11b"
+    native_habitat: "Mexiko bis Nordbolivien"
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-20"
+    min_container_depth_cm: 25
+    mature_height_cm: "100-250"
+    mature_width_cm: "60-150"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Pelargonium zonale"
+    common_names: "Geranie;Zonalpelargonie;Zonal Geranium;Horseshoe Geranium"
+    genus: Pelargonium
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: "10a;10b;11a;11b;12a"
+    native_habitat: "Südafrika (Kap-Region)"
+    container_suitable: "yes"
+    recommended_container_volume_l: "3-10"
+    min_container_depth_cm: 15
+    mature_height_cm: "30-60"
+    mature_width_cm: "30-50"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    support_required: false
+    nutrient_demand_level: heavy_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Peperomia obtusifolia"
+    common_names: "Zwergpfeffer;Baby Rubber Plant;Pepper Face"
+    genus: Peperomia
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: "10a;10b;11a;11b;12a"
+    native_habitat: "Mittel- und Südamerika — tropische Regenwälder"
+    container_suitable: "yes"
+    recommended_container_volume_l: "0.5-3"
+    min_container_depth_cm: 10
+    mature_height_cm: "15-30"
+    mature_width_cm: "15-30"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Phalaenopsis spp."
+    common_names: "Schmetterlingsorchidee;Phalaenopsis;Moth Orchid"
+    genus: Phalaenopsis
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: "10a;10b;11a;11b;12a;12b"
+    native_habitat: "Südostasien, Australien — tropische Regenwälder"
+    container_suitable: "yes"
+    recommended_container_volume_l: "0.5-3"
+    min_container_depth_cm: 10
+    mature_height_cm: "30-60"
+    mature_width_cm: "20-40"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Philodendron hederaceum"
+    common_names: "Kletter-Philodendron;Herzblatt-Philodendron;Heartleaf Philodendron"
+    genus: Philodendron
+    growth_habit: vine
+    root_type: fibrous
+    hardiness_zones: "10a;10b;11a;11b"
+    native_habitat: "Karibik, Mittel- und Südamerika — tropische Regenwälder"
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-8"
+    min_container_depth_cm: 15
+    mature_height_cm: "100-300"
+    mature_width_cm: "30-100"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: true
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Pilea peperomioides"
+    common_names: "Ufopflanze;Chinesischer Geldbaum;Chinese Money Plant;Pancake Plant"
+    genus: Pilea
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: "9b;10a;10b;11a;11b"
+    native_habitat: "China (Yunnan, Sichuan) — schattige Felshänge"
+    container_suitable: "yes"
+    recommended_container_volume_l: "1-4"
+    min_container_depth_cm: 12
+    mature_height_cm: "20-40"
+    mature_width_cm: "20-40"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Platycerium bifurcatum"
+    common_names: "Geweihfarn;Elchgeweihfarn;Staghorn Fern;Elkhorn Fern"
+    genus: Platycerium
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: "9a;9b;10a;10b;11a;11b"
+    native_habitat: "Australien, Neuguinea — tropische/subtropische Regenwälder"
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-8"
+    min_container_depth_cm: 15
+    mature_height_cm: "40-90"
+    mature_width_cm: "50-100"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: true
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: moderate
+
+  - scientific_name: "Plectranthus verticillatus"
+    common_names: "Harfenstrauch;Schwedischer Efeu;Swedish Ivy;Wax Plant"
+    genus: Plectranthus
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: "10a;10b;11a;11b"
+    native_habitat: "Südafrika, Mosambik"
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-5"
+    min_container_depth_cm: 12
+    mature_height_cm: "20-40"
+    mature_width_cm: "40-80"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Rhipsalis baccifera"
+    common_names: "Korallenkaktus;Binsenkaktus;Mistletoe Cactus"
+    genus: Rhipsalis
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: "9b;10a;10b;11a;11b"
+    native_habitat: "Mittel- und Südamerika, Afrika, Sri Lanka — tropische Regenwälder"
+    container_suitable: "yes"
+    recommended_container_volume_l: "1-5"
+    min_container_depth_cm: 12
+    mature_height_cm: "60-120"
+    mature_width_cm: "30-60"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Rhododendron simsii"
+    common_names: "Zimmerazalee;Indische Azalee;Indoor Azalea;Sims' Azalea"
+    genus: Rhododendron
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: "8a;8b;9a;9b;10a"
+    native_habitat: "China, Taiwan, Südostasien — Bergwälder"
+    container_suitable: "yes"
+    recommended_container_volume_l: "3-10"
+    min_container_depth_cm: 15
+    mature_height_cm: "30-60"
+    mature_width_cm: "30-60"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: false
+    nutrient_demand_level: medium_feeder
+    frost_sensitivity: moderate
+
+  - scientific_name: "Schefflera arboricola"
+    common_names: "Kleine Strahlenaralie;Schefflera;Dwarf Umbrella Tree;Hawaiian Umbrella Tree"
+    genus: Schefflera
+    growth_habit: shrub
+    root_type: fibrous
+    hardiness_zones: "10a;10b;11a;11b"
+    native_habitat: "Taiwan — subtropische Wälder"
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-20"
+    min_container_depth_cm: 20
+    mature_height_cm: "80-200"
+    mature_width_cm: "60-120"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: false
+    nutrient_demand_level: medium_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Schlumbergera truncata"
+    common_names: "Weihnachtskaktus;Gliederkaktus;Christmas Cactus;Holiday Cactus"
+    genus: Schlumbergera
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: "10a;10b;11a;11b;12a"
+    native_habitat: "Brasilien — Küstengebirge (Mata Atlantica)"
+    container_suitable: "yes"
+    recommended_container_volume_l: "1-5"
+    min_container_depth_cm: 12
+    mature_height_cm: "20-40"
+    mature_width_cm: "30-60"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Sedum morganianum"
+    common_names: "Eselsschwanz;Donkey's Tail;Burro's Tail"
+    genus: Sedum
+    growth_habit: vine
+    root_type: fibrous
+    hardiness_zones: "9b;10a;10b;11a;11b;12a;12b"
+    native_habitat: "Mexiko, Honduras"
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-5"
+    min_container_depth_cm: 12
+    mature_height_cm: "10-30"
+    mature_width_cm: "30-90"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Soleirolia soleirolii"
+    common_names: "Bubikopf;Baby's Tears;Mind-Your-Own-Business"
+    genus: Soleirolia
+    growth_habit: groundcover
+    root_type: fibrous
+    hardiness_zones: "9a;9b;10a;10b;11a;11b"
+    native_habitat: "Korsika, Sardinien"
+    container_suitable: "yes"
+    recommended_container_volume_l: "0.5-2"
+    min_container_depth_cm: 8
+    mature_height_cm: "5-10"
+    mature_width_cm: "20-50"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: moderate
+
+  - scientific_name: "Stephanotis floribunda"
+    common_names: "Brautstrauch;Madagaskarjasmin;Madagascar Jasmine"
+    genus: Stephanotis
+    growth_habit: vine
+    root_type: fibrous
+    hardiness_zones: "10a;10b;11a;11b"
+    native_habitat: "Madagaskar"
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-15"
+    min_container_depth_cm: 20
+    mature_height_cm: "150-500"
+    mature_width_cm: "60-200"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: true
+    nutrient_demand_level: medium_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Strelitzia reginae"
+    common_names: "Paradiesvogelblume;Königin-Strelitzie;Bird of Paradise;Crane Flower"
+    genus: Strelitzia
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: "9a;9b;10a;10b;11a;11b"
+    native_habitat: "Südafrika (Ostkap, KwaZulu-Natal)"
+    container_suitable: "yes"
+    recommended_container_volume_l: "10-25"
+    min_container_depth_cm: 30
+    mature_height_cm: "100-200"
+    mature_width_cm: "80-150"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    support_required: false
+    nutrient_demand_level: medium_feeder
+    frost_sensitivity: moderate
+
+  - scientific_name: "Streptocarpus hybridus"
+    common_names: "Drehfrucht;Streptocarpus;Cape Primrose"
+    genus: Streptocarpus
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: "10a;10b;11a;11b"
+    native_habitat: "Südafrika — schattige Bergwälder"
+    container_suitable: "yes"
+    recommended_container_volume_l: "1-3"
+    min_container_depth_cm: 10
+    mature_height_cm: "15-30"
+    mature_width_cm: "20-40"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Stromanthe sanguinea"
+    common_names: "Stromanthe Triostar;Sanguinea;Triostar Stromanthe;Never Never Plant"
+    genus: Stromanthe
+    growth_habit: herb
+    root_type: tuberous
+    hardiness_zones: "10a;10b;11a;11b"
+    native_habitat: "Brasilien — tropische Regenwälder"
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-8"
+    min_container_depth_cm: 15
+    mature_height_cm: "40-90"
+    mature_width_cm: "30-60"
+    indoor_suitable: "yes"
+    balcony_suitable: "no"
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Tillandsia usneoides"
+    common_names: "Spanisches Moos;Louisianamoos;Spanish Moss"
+    genus: Tillandsia
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: "8a;8b;9a;9b;10a;10b;11a;11b"
+    native_habitat: "Südosten USA, Mexiko, Mittel- und Südamerika"
+    container_suitable: "yes"
+    recommended_container_volume_l: "0"
+    min_container_depth_cm: 0
+    mature_height_cm: "30-600"
+    mature_width_cm: "10-30"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: true
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: moderate
+
+  - scientific_name: "Tradescantia zebrina"
+    common_names: "Dreimasterblume;Silbrige Tradescantie;Wandering Dude;Silver Inch Plant"
+    genus: Tradescantia
+    growth_habit: groundcover
+    root_type: fibrous
+    hardiness_zones: "9a;9b;10a;10b;11a;11b"
+    native_habitat: "Mexiko, Guatemala, Mittelamerika"
+    container_suitable: "yes"
+    recommended_container_volume_l: "1-5"
+    min_container_depth_cm: 12
+    mature_height_cm: "15-60"
+    mature_width_cm: "40-100"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Vriesea splendens"
+    common_names: "Flammendes Schwert;Vriesea;Flaming Sword"
+    genus: Vriesea
+    growth_habit: herb
+    root_type: fibrous
+    hardiness_zones: "10a;10b;11a;11b;12a;12b"
+    native_habitat: "Trinidad, Venezuela, Guayana"
+    container_suitable: "yes"
+    recommended_container_volume_l: "2-5"
+    min_container_depth_cm: 12
+    mature_height_cm: "40-60"
+    mature_width_cm: "40-60"
+    indoor_suitable: "yes"
+    balcony_suitable: "no"
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Yucca elephantipes"
+    common_names: "Yucca-Palme;Riesen-Palmlilie;Spineless Yucca;Stick Yucca"
+    genus: Yucca
+    growth_habit: tree
+    root_type: fibrous
+    hardiness_zones: "9a;9b;10a;10b;11a;11b"
+    native_habitat: "Mexiko, Guatemala — Trockenwald und Buschland"
+    container_suitable: "yes"
+    recommended_container_volume_l: "15-30"
+    min_container_depth_cm: 30
+    mature_height_cm: "100-300"
+    mature_width_cm: "80-150"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: moderate
+
+  - scientific_name: "Zamioculcas zamiifolia"
+    common_names: "Zamioculcas;Glücksfeder;ZZ Plant;Zanzibar Gem"
+    genus: Zamioculcas
+    growth_habit: herb
+    root_type: tuberous
+    hardiness_zones: "9b;10a;10b;11a;11b"
+    native_habitat: "Ostafrika (Tansania, Kenia, Malawi)"
+    container_suitable: "yes"
+    recommended_container_volume_l: "3-15"
+    min_container_depth_cm: 20
+    mature_height_cm: "45-90"
+    mature_width_cm: "30-60"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: false
+    nutrient_demand_level: light_feeder
+    frost_sensitivity: sensitive
+
+  - scientific_name: "Zantedeschia aethiopica"
+    common_names: "Calla;Weiße Calla;Zimmercalla;Calla Lily;Arum Lily"
+    genus: Zantedeschia
+    growth_habit: herb
+    root_type: tuberous
+    hardiness_zones: "8a;8b;9a;9b;10a;10b;11a"
+    native_habitat: "Südafrika, Lesotho"
+    container_suitable: "yes"
+    recommended_container_volume_l: "5-15"
+    min_container_depth_cm: 20
+    mature_height_cm: "60-120"
+    mature_width_cm: "40-80"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+    support_required: false
+    nutrient_demand_level: medium_feeder
+    frost_sensitivity: moderate
+
+# ──────────────────────────────────────────────
+# 4. Species Enrichment (keine — alle 29 sind neu)
+# ──────────────────────────────────────────────
+species_enrichment: {}
+
+# ──────────────────────────────────────────────
+# 5. Lifecycle Configs
+# ──────────────────────────────────────────────
+lifecycle_configs:
+  "Monstera adansonii":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 10
+
+  "Neoregelia carolinae":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 5
+
+  "Nephrolepis exaltata":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 15
+
+  "Opuntia microdasys":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: true
+    vernalization_required: false
+    typical_lifespan_years: 50
+
+  "Oxalis triangularis":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: true
+    vernalization_required: false
+    typical_lifespan_years: 10
+
+  "Pachira aquatica":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 50
+
+  "Pelargonium zonale":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 10
+
+  "Peperomia obtusifolia":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 10
+
+  "Phalaenopsis spp.":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 15
+
+  "Philodendron hederaceum":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 15
+
+  "Pilea peperomioides":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 10
+
+  "Platycerium bifurcatum":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 20
+
+  "Plectranthus verticillatus":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 5
+
+  "Rhipsalis baccifera":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 20
+
+  "Rhododendron simsii":
+    cycle_type: perennial
+    photoperiod_type: short_day
+    dormancy_required: true
+    vernalization_required: true
+    typical_lifespan_years: 15
+
+  "Schefflera arboricola":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 20
+
+  "Schlumbergera truncata":
+    cycle_type: perennial
+    photoperiod_type: short_day
+    dormancy_required: true
+    vernalization_required: true
+    typical_lifespan_years: 30
+
+  "Sedum morganianum":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 15
+
+  "Soleirolia soleirolii":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 5
+
+  "Stephanotis floribunda":
+    cycle_type: perennial
+    photoperiod_type: short_day
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 15
+
+  "Strelitzia reginae":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 50
+
+  "Streptocarpus hybridus":
+    cycle_type: perennial
+    photoperiod_type: long_day
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 5
+
+  "Stromanthe sanguinea":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 10
+
+  "Tillandsia usneoides":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 20
+
+  "Tradescantia zebrina":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 5
+
+  "Vriesea splendens":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 5
+
+  "Yucca elephantipes":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 50
+
+  "Zamioculcas zamiifolia":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
+    typical_lifespan_years: 15
+
+  "Zantedeschia aethiopica":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    dormancy_required: true
+    vernalization_required: false
+    typical_lifespan_years: 15
+
+# ──────────────────────────────────────────────
+# 6. Growth Phases (mit requirement_profile + nutrient_profile)
+# ──────────────────────────────────────────────
+growth_phases:
+  "Monstera adansonii":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 250
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.0
+        calcium_ppm: 80
+        magnesium_ppm: 30
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 150
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.0
+        temperature_night_c: 15.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 14.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Neoregelia carolinae":
+    - name: vegetative
+      display_name: "Jugendphase (Rosetten-Aufbau)"
+      duration_days: 730
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 12.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 60
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.3
+        target_ph: 5.5
+        calcium_ppm: 30
+        magnesium_ppm: 15
+
+    - name: flowering
+      display_name: "Blüte"
+      duration_days: 120
+      sequence_order: 2
+      is_terminal: true
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 250
+        photoperiod_hours: 12.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 60
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 5.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Nephrolepis exaltata":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 65
+        humidity_night_percent: 75
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 3.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.6
+        target_ph: 6.0
+        calcium_ppm: 60
+        magnesium_ppm: 30
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 100
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 55
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Opuntia microdasys":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 600
+        photoperiod_hours: 14.0
+        temperature_day_c: 26.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 30
+        humidity_night_percent: 35
+        vpd_target_kpa: 1.5
+        co2_ppm: 400
+        irrigation_frequency_days: 14.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.5
+        target_ph: 6.5
+        calcium_ppm: 50
+        magnesium_ppm: 25
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 120
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 10.0
+        temperature_day_c: 10.0
+        temperature_night_c: 5.0
+        humidity_day_percent: 25
+        humidity_night_percent: 30
+        vpd_target_kpa: 1.8
+        co2_ppm: 400
+        irrigation_frequency_days: 42.0
+        irrigation_volume_ml_per_plant: 50
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Oxalis triangularis":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 270
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 18.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 8.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.6
+        target_ph: 6.5
+        calcium_ppm: 40
+        magnesium_ppm: 15
+
+    - name: dormancy
+      display_name: "Dormanz"
+      duration_days: 21
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 25
+        photoperiod_hours: 0.0
+        temperature_day_c: 14.0
+        temperature_night_c: 10.0
+        humidity_day_percent: 40
+        humidity_night_percent: 45
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 50.0
+        irrigation_volume_ml_per_plant: 10
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Pachira aquatica":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 8.0
+        irrigation_volume_ml_per_plant: 400
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.5
+        calcium_ppm: 80
+        magnesium_ppm: 30
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 250
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.0
+        temperature_night_c: 15.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 12.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Pelargonium zonale":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 60
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 500
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 45
+        humidity_night_percent: 50
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 250
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 1.2
+        target_ph: 6.2
+        calcium_ppm: 100
+        magnesium_ppm: 40
+
+    - name: flowering
+      display_name: "Blüte"
+      duration_days: 150
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 600
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 45
+        humidity_night_percent: 50
+        vpd_target_kpa: 1.1
+        co2_ppm: 400
+        irrigation_frequency_days: 4.0
+        irrigation_volume_ml_per_plant: 300
+      nutrient_profile:
+        npk_ratio: [1, 2, 3]
+        target_ec_ms: 1.5
+        target_ph: 6.2
+        calcium_ppm: 120
+        magnesium_ppm: 50
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 120
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 10.0
+        temperature_day_c: 12.0
+        temperature_night_c: 8.0
+        humidity_day_percent: 40
+        humidity_night_percent: 45
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 14.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.2
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Peperomia obtusifolia":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 250
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 10.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.5
+        target_ph: 6.0
+        calcium_ppm: 50
+        magnesium_ppm: 20
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 150
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.0
+        temperature_night_c: 15.0
+        humidity_day_percent: 45
+        humidity_night_percent: 50
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 14.0
+        irrigation_volume_ml_per_plant: 50
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Phalaenopsis spp.":
+    - name: vegetative
+      display_name: "Vegetatives Wachstum"
+      duration_days: 120
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 14.0
+        temperature_day_c: 25.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 60
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 0.6
+        target_ph: 5.8
+        calcium_ppm: 60
+        magnesium_ppm: 30
+
+    - name: flowering
+      display_name: "Blüte"
+      duration_days: 90
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 12.0
+        temperature_day_c: 22.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 60
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 80
+      nutrient_profile:
+        npk_ratio: [1, 3, 2]
+        target_ec_ms: 0.5
+        target_ph: 5.8
+        calcium_ppm: 50
+        magnesium_ppm: 25
+
+    - name: dormancy
+      display_name: "Ruhephase"
+      duration_days: 60
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 150
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 10.0
+        irrigation_volume_ml_per_plant: 50
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 5.8
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Philodendron hederaceum":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 250
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 55
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.0
+        calcium_ppm: 80
+        magnesium_ppm: 30
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 150
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.0
+        temperature_night_c: 15.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 14.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Pilea peperomioides":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.6
+        target_ph: 6.0
+        calcium_ppm: 60
+        magnesium_ppm: 25
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 150
+        photoperiod_hours: 10.0
+        temperature_day_c: 16.0
+        temperature_night_c: 12.0
+        humidity_day_percent: 40
+        humidity_night_percent: 45
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 14.0
+        irrigation_volume_ml_per_plant: 80
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Platycerium bifurcatum":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 60
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.4
+        target_ph: 6.0
+        calcium_ppm: 40
+        magnesium_ppm: 20
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 100
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 10.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Plectranthus verticillatus":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.6
+        target_ph: 6.0
+        calcium_ppm: 60
+        magnesium_ppm: 25
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 150
+        photoperiod_hours: 10.0
+        temperature_day_c: 16.0
+        temperature_night_c: 12.0
+        humidity_day_percent: 45
+        humidity_night_percent: 50
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 10.0
+        irrigation_volume_ml_per_plant: 80
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Rhipsalis baccifera":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 55
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.4
+        target_ph: 6.0
+        calcium_ppm: 40
+        magnesium_ppm: 20
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 100
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 14.0
+        irrigation_volume_ml_per_plant: 80
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Rhododendron simsii":
+    - name: flowering
+      display_name: "Blüte"
+      duration_days: 60
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 12.0
+        temperature_day_c: 16.0
+        temperature_night_c: 10.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.5
+        co2_ppm: 400
+        irrigation_frequency_days: 3.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.6
+        target_ph: 4.8
+        calcium_ppm: 40
+        magnesium_ppm: 20
+
+    - name: vegetative
+      display_name: "Vegetatives Wachstum"
+      duration_days: 120
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 14.0
+        temperature_day_c: 20.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 3.0
+        irrigation_volume_ml_per_plant: 250
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 0.8
+        target_ph: 4.8
+        calcium_ppm: 50
+        magnesium_ppm: 25
+
+    - name: dormancy
+      display_name: "Kühle Ruhephase (Blüteninduktion)"
+      duration_days: 90
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 8.0
+        temperature_day_c: 10.0
+        temperature_night_c: 5.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 4.8
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Schefflera arboricola":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 350
+        photoperiod_hours: 14.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 300
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.2
+        calcium_ppm: 80
+        magnesium_ppm: 35
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 45
+        humidity_night_percent: 50
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 14.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.2
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Schlumbergera truncata":
+    - name: vegetative
+      display_name: "Vegetatives Wachstum"
+      duration_days: 120
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 250
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.6
+        target_ph: 6.0
+        calcium_ppm: 50
+        magnesium_ppm: 25
+
+    - name: dormancy
+      display_name: "Kühle Ruhephase (Blüteninduktion)"
+      duration_days: 60
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 150
+        photoperiod_hours: 8.0
+        temperature_day_c: 14.0
+        temperature_night_c: 10.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 14.0
+        irrigation_volume_ml_per_plant: 50
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+    - name: flowering
+      display_name: "Blüte"
+      duration_days: 45
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [1, 2, 3]
+        target_ec_ms: 0.5
+        target_ph: 6.0
+        calcium_ppm: 40
+        magnesium_ppm: 20
+
+  "Sedum morganianum":
+    - name: vegetative
+      display_name: "Vegetatives Wachstum"
+      duration_days: 210
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 15.0
+        humidity_day_percent: 40
+        humidity_night_percent: 45
+        vpd_target_kpa: 1.3
+        co2_ppm: 400
+        irrigation_frequency_days: 12.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.6
+        target_ph: 6.5
+        calcium_ppm: 50
+        magnesium_ppm: 30
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 75
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 250
+        photoperiod_hours: 10.0
+        temperature_day_c: 12.0
+        temperature_night_c: 8.0
+        humidity_day_percent: 30
+        humidity_night_percent: 35
+        vpd_target_kpa: 1.5
+        co2_ppm: 400
+        irrigation_frequency_days: 25.0
+        irrigation_volume_ml_per_plant: 75
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Soleirolia soleirolii":
+    - name: vegetative
+      display_name: "Vegetatives Wachstum"
+      duration_days: 240
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 125
+        photoperiod_hours: 13.0
+        temperature_day_c: 19.0
+        temperature_night_c: 13.0
+        humidity_day_percent: 70
+        humidity_night_percent: 75
+        vpd_target_kpa: 0.5
+        co2_ppm: 400
+        irrigation_frequency_days: 3.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.6
+        target_ph: 6.0
+        calcium_ppm: 60
+        magnesium_ppm: 30
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 90
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 75
+        photoperiod_hours: 10.0
+        temperature_day_c: 14.0
+        temperature_night_c: 10.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 60
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Stephanotis floribunda":
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 105
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 225
+        photoperiod_hours: 9.0
+        temperature_day_c: 14.0
+        temperature_night_c: 12.0
+        humidity_day_percent: 57
+        humidity_night_percent: 60
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 12.0
+        irrigation_volume_ml_per_plant: 225
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.2
+        calcium_ppm: null
+        magnesium_ppm: null
+
+    - name: flowering
+      display_name: "Knospenbildung & Blüte"
+      duration_days: 120
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 450
+        photoperiod_hours: 13.0
+        temperature_day_c: 20.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 62
+        humidity_night_percent: 67
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 6.0
+        irrigation_volume_ml_per_plant: 450
+      nutrient_profile:
+        npk_ratio: [1, 2, 3]
+        target_ec_ms: 1.2
+        target_ph: 6.2
+        calcium_ppm: 100
+        magnesium_ppm: 50
+
+    - name: vegetative
+      display_name: "Vegetatives Wachstum"
+      duration_days: 105
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 58
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 6.0
+        irrigation_volume_ml_per_plant: 400
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 1.2
+        target_ph: 6.2
+        calcium_ppm: 100
+        magnesium_ppm: 50
+
+  "Strelitzia reginae":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 700
+        photoperiod_hours: 15.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 8.0
+        irrigation_volume_ml_per_plant: 500
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 1.1
+        target_ph: 6.5
+        calcium_ppm: 100
+        magnesium_ppm: 40
+
+    - name: dormancy
+      display_name: "Winterruhe (Blüteninduktion)"
+      duration_days: 105
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 500
+        photoperiod_hours: 10.0
+        temperature_day_c: 15.0
+        temperature_night_c: 10.0
+        humidity_day_percent: 40
+        humidity_night_percent: 45
+        vpd_target_kpa: 1.2
+        co2_ppm: 400
+        irrigation_frequency_days: 17.0
+        irrigation_volume_ml_per_plant: 250
+      nutrient_profile:
+        npk_ratio: [0, 1, 1]
+        target_ec_ms: 0.5
+        target_ph: 6.5
+        calcium_ppm: 60
+        magnesium_ppm: 20
+
+    - name: flowering
+      display_name: "Blütezeit"
+      duration_days: 75
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 600
+        photoperiod_hours: 12.0
+        temperature_day_c: 22.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 45
+        humidity_night_percent: 50
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 10.0
+        irrigation_volume_ml_per_plant: 400
+      nutrient_profile:
+        npk_ratio: [1, 3, 2]
+        target_ec_ms: 1.0
+        target_ph: 6.5
+        calcium_ppm: 80
+        magnesium_ppm: 35
+
+  "Streptocarpus hybridus":
+    - name: vegetative
+      display_name: "Vegetativ/Blüte"
+      duration_days: 225
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 250
+        photoperiod_hours: 15.0
+        temperature_day_c: 20.0
+        temperature_night_c: 15.0
+        humidity_day_percent: 57
+        humidity_night_percent: 62
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 6.0
+        irrigation_volume_ml_per_plant: 175
+      nutrient_profile:
+        npk_ratio: [1, 2, 1]
+        target_ec_ms: 1.0
+        target_ph: 6.0
+        calcium_ppm: 80
+        magnesium_ppm: 40
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 75
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 115
+        photoperiod_hours: 10.0
+        temperature_day_c: 14.0
+        temperature_night_c: 12.0
+        humidity_day_percent: 52
+        humidity_night_percent: 57
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 12.0
+        irrigation_volume_ml_per_plant: 75
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Stromanthe sanguinea":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 225
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 70
+        humidity_night_percent: 75
+        vpd_target_kpa: 0.5
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 275
+      nutrient_profile:
+        npk_ratio: [2, 1, 2]
+        target_ec_ms: 0.6
+        target_ph: 6.5
+        calcium_ppm: 50
+        magnesium_ppm: 20
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 165
+        photoperiod_hours: 10.0
+        temperature_day_c: 19.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 12.0
+        irrigation_volume_ml_per_plant: 140
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Tillandsia usneoides":
+    - name: vegetative
+      display_name: "Vegetatives Wachstum"
+      duration_days: 225
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 350
+        photoperiod_hours: 13.0
+        temperature_day_c: 22.0
+        temperature_night_c: 17.0
+        humidity_day_percent: 62
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 4.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.2
+        target_ph: 6.2
+        calcium_ppm: 20
+        magnesium_ppm: 10
+
+    - name: dormancy
+      display_name: "Ruhephase"
+      duration_days: 105
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 10.0
+        temperature_day_c: 16.0
+        temperature_night_c: 12.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 14.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.2
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Tradescantia zebrina":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 325
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 175
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.5
+        calcium_ppm: 80
+        magnesium_ppm: 30
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 200
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 45
+        humidity_night_percent: 50
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 12.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Vriesea splendens":
+    - name: vegetative
+      display_name: "Jugendphase (Rosetten-Aufbau)"
+      duration_days: 1095
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 175
+        photoperiod_hours: 13.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 8.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.3
+        target_ph: 6.0
+        calcium_ppm: 40
+        magnesium_ppm: 20
+
+    - name: flowering
+      display_name: "Blüte"
+      duration_days: 120
+      sequence_order: 2
+      is_terminal: true
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 225
+        photoperiod_hours: 13.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 8.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.0
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Yucca elephantipes":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 600
+        photoperiod_hours: 15.0
+        temperature_day_c: 24.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 40
+        humidity_night_percent: 40
+        vpd_target_kpa: 1.2
+        co2_ppm: 400
+        irrigation_frequency_days: 10.0
+        irrigation_volume_ml_per_plant: 450
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.6
+        target_ph: 6.5
+        calcium_ppm: 60
+        magnesium_ppm: 30
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 105
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 225
+        photoperiod_hours: 9.0
+        temperature_day_c: 14.0
+        temperature_night_c: 10.0
+        humidity_day_percent: 35
+        humidity_night_percent: 40
+        vpd_target_kpa: 1.3
+        co2_ppm: 400
+        irrigation_frequency_days: 28.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Zamioculcas zamiifolia":
+    - name: vegetative
+      display_name: "Aktives Wachstum"
+      duration_days: 195
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 225
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 18.0
+        humidity_day_percent: 40
+        humidity_night_percent: 42
+        vpd_target_kpa: 1.0
+        co2_ppm: 400
+        irrigation_frequency_days: 17.0
+        irrigation_volume_ml_per_plant: 350
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.6
+        target_ph: 6.5
+        calcium_ppm: 60
+        magnesium_ppm: 20
+
+    - name: dormancy
+      display_name: "Winterruhe"
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 115
+        photoperiod_hours: 10.0
+        temperature_day_c: 18.0
+        temperature_night_c: 15.0
+        humidity_day_percent: 35
+        humidity_night_percent: 35
+        vpd_target_kpa: 1.3
+        co2_ppm: 400
+        irrigation_frequency_days: 35.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.5
+        calcium_ppm: null
+        magnesium_ppm: null
+
+  "Zantedeschia aethiopica":
+    - name: dormancy
+      display_name: "Winterruhe / Einzug"
+      duration_days: 105
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 100
+        photoperiod_hours: 8.0
+        temperature_day_c: 10.0
+        temperature_night_c: 6.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 30.0
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.2
+        calcium_ppm: null
+        magnesium_ppm: null
+
+    - name: flowering
+      display_name: "Hauptblüte"
+      duration_days: 75
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 14.0
+        temperature_day_c: 20.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 3.0
+        irrigation_volume_ml_per_plant: 550
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 1.4
+        target_ph: 6.2
+        calcium_ppm: 100
+        magnesium_ppm: 40
+
+    - name: vegetative
+      display_name: "Nach der Blüte / Sommer"
+      duration_days: 75
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 350
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 400
+      nutrient_profile:
+        npk_ratio: [1, 1, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.2
+        calcium_ppm: 60
+        magnesium_ppm: 20
+
+# ──────────────────────────────────────────────
+# 7. Cultivars
+# ──────────────────────────────────────────────
+cultivars:
+  "Nephrolepis exaltata":
+    - name: Bostoniensis
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: Fluffy Ruffles
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, compact]
+      seed_type: clone
+    - name: Green Lady
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+
+  "Peperomia obtusifolia":
+    - name: Variegata
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, variegated]
+      seed_type: clone
+    - name: Marble
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, variegated]
+      seed_type: clone
+
+  "Philodendron hederaceum":
+    - name: Brasil
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, variegated]
+      seed_type: clone
+    - name: Micans
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+
+  "Schefflera arboricola":
+    - name: Gold Capella
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, variegated]
+      seed_type: clone
+    - name: Nora
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, compact]
+      seed_type: clone
+    - name: Trinette
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, variegated]
+      seed_type: clone
+
+  "Zamioculcas zamiifolia":
+    - name: Raven
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental]
+      seed_type: clone
+    - name: Zenzi
+      breeder: null
+      days_to_maturity: null
+      traits: [ornamental, compact]
+      seed_type: clone

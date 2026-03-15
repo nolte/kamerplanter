@@ -25,10 +25,12 @@ export async function listPlantingRuns(
   limit = 50,
   status?: string,
   runType?: string,
+  locationKey?: string,
 ): Promise<PlantingRun[]> {
   const params: Record<string, string | number> = { offset, limit };
   if (status) params.status = status;
   if (runType) params.run_type = runType;
+  if (locationKey) params.location_key = locationKey;
   const { data } = await client.get<PlantingRun[]>(BASE, { params });
   return data;
 }
@@ -188,6 +190,30 @@ export async function getPhaseTimeline(
 ): Promise<SpeciesPhaseTimeline[]> {
   const { data } = await client.get<SpeciesPhaseTimeline[]>(
     `${BASE}/${runKey}/phase-timeline`,
+  );
+  return data;
+}
+
+export interface BatchUpdatePhaseDatesRequest {
+  phase_key: string;
+  entered_at?: string;
+  exited_at?: string;
+}
+
+export interface BatchUpdatePhaseDatesResponse {
+  run_key: string;
+  phase_key: string;
+  updated_count: number;
+  skipped_count: number;
+}
+
+export async function batchUpdatePhaseDates(
+  runKey: string,
+  payload: BatchUpdatePhaseDatesRequest,
+): Promise<BatchUpdatePhaseDatesResponse> {
+  const { data } = await client.patch<BatchUpdatePhaseDatesResponse>(
+    `${BASE}/${runKey}/batch-update-phase-dates`,
+    payload,
   );
   return data;
 }

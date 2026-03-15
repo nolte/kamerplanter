@@ -1,0 +1,9 @@
+system_user:
+  key: system-user
+  email: system@kamerplanter.example
+  display_name: Gaertner
+
+system_tenant:
+  key: system-tenant
+  name: Mein Garten
+  slug: mein-garten

@@ -26,7 +26,10 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as careApi from '@/api/endpoints/careReminders';
 import type { CareDashboardEntry, ReminderType, CareProfile } from '@/api/types';
+import { kamiCare } from '@/assets/brand/illustrations';
 import CareProfileEditDialog from './components/CareProfileEditDialog';
+import CareConfirmDialog from './components/CareConfirmDialog';
+import type { ConfirmReminderOptions } from '@/api/endpoints/careReminders';
 
 type UrgencyLevel = 'overdue' | 'due_today' | 'upcoming';
 
@@ -72,6 +75,8 @@ export default function PflegeDashboardPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editPlantKey, setEditPlantKey] = useState<string | null>(null);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmEntry, setConfirmEntry] = useState<CareDashboardEntry | null>(null);
 
   useEffect(() => {
     dispatch(fetchDashboard());
@@ -97,13 +102,25 @@ export default function PflegeDashboardPage() {
     return groups;
   }, [dashboard]);
 
-  const handleConfirm = useCallback(
-    async (plantKey: string, reminderType: ReminderType) => {
-      const id = `${plantKey}-${reminderType}`;
+  const handleConfirmClick = useCallback(
+    (entry: CareDashboardEntry) => {
+      setConfirmEntry(entry);
+      setConfirmDialogOpen(true);
+    },
+    [],
+  );
+
+  const handleConfirmSubmit = useCallback(
+    async (options: ConfirmReminderOptions) => {
+      if (!confirmEntry) return;
+      const { plant_key, reminder_type } = confirmEntry;
+      const id = `${plant_key}-${reminder_type}`;
       try {
         setActionLoading(id);
-        await careApi.confirmReminder(plantKey, reminderType);
+        await careApi.confirmReminder(plant_key, reminder_type, options);
         notification.success(t('pages.pflege.confirmAction'));
+        setConfirmDialogOpen(false);
+        setConfirmEntry(null);
         dispatch(fetchDashboard());
       } catch (err) {
         handleError(err);
@@ -111,7 +128,7 @@ export default function PflegeDashboardPage() {
         setActionLoading(null);
       }
     },
-    [dispatch, notification, handleError, t],
+    [confirmEntry, dispatch, notification, handleError, t],
   );
 
   const handleSnooze = useCallback(
@@ -222,7 +239,7 @@ export default function PflegeDashboardPage() {
                   <IconButton
                     size="small"
                     color="success"
-                    onClick={() => handleConfirm(entry.plant_key, entry.reminder_type)}
+                    onClick={() => handleConfirmClick(entry)}
                     disabled={isLoading}
                     data-testid={`confirm-${id}`}
                   >
@@ -256,7 +273,7 @@ export default function PflegeDashboardPage() {
         </Card>
       );
     },
-    [actionLoading, handleConfirm, handleSnooze, handleEditProfile, t],
+    [actionLoading, handleConfirmClick, handleSnooze, handleEditProfile, t],
   );
 
   const renderSection = useCallback(
@@ -293,11 +310,11 @@ export default function PflegeDashboardPage() {
     <Box data-testid="pflege-dashboard-page">
       <PageTitle title={t('pages.pflege.title')} />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        {t('pages.pflege.title')}
+        {t('pages.pflege.subtitle')}
       </Typography>
 
       {totalEntries === 0 ? (
-        <EmptyState message={t('pages.pflege.noReminders')} />
+        <EmptyState illustration={kamiCare} message={t('pages.pflege.noReminders')} />
       ) : (
         URGENCY_ORDER.map((urgency) => renderSection(urgency, grouped[urgency]))
       )}
@@ -311,6 +328,20 @@ export default function PflegeDashboardPage() {
           }}
           profile={currentProfile}
           onUpdated={handleProfileUpdated}
+        />
+      )}
+
+      {confirmEntry && (
+        <CareConfirmDialog
+          open={confirmDialogOpen}
+          onClose={() => {
+            setConfirmDialogOpen(false);
+            setConfirmEntry(null);
+          }}
+          onConfirm={handleConfirmSubmit}
+          plantName={confirmEntry.plant_name}
+          reminderType={confirmEntry.reminder_type}
+          loading={actionLoading === `${confirmEntry.plant_key}-${confirmEntry.reminder_type}`}
         />
       )}
     </Box>

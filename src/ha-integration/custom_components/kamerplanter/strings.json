@@ -1,0 +1,49 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Kamerplanter",
+        "description": "Enter the URL of your Kamerplanter instance.",
+        "data": {
+          "url": "URL"
+        }
+      },
+      "auth": {
+        "title": "Authentication",
+        "description": "Enter your API key (kp_...) to authenticate.",
+        "data": {
+          "api_key": "API Key"
+        }
+      },
+      "tenant": {
+        "title": "Select Tenant",
+        "description": "Choose which tenant to use.",
+        "data": {
+          "tenant_slug": "Tenant"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to Kamerplanter",
+      "invalid_auth": "Invalid API key or credentials"
+    },
+    "abort": {
+      "already_configured": "This Kamerplanter instance is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Kamerplanter Options",
+        "description": "Configure polling intervals (in seconds).",
+        "data": {
+          "poll_interval_plants": "Plants polling interval",
+          "poll_interval_locations": "Locations polling interval",
+          "poll_interval_tanks": "Tanks polling interval",
+          "poll_interval_alerts": "Alerts polling interval",
+          "poll_interval_tasks": "Tasks polling interval"
+        }
+      }
+    }
+  }
+}

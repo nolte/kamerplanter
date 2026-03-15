@@ -1,5 +1,5 @@
 import client from '../client';
-import type { WateringEvent, WateringEventCreate, WateringEventWithWarnings, WateringStats } from '../types';
+import type { VolumeSuggestion, WateringEvent, WateringEventCreate, WateringEventWithWarnings, WateringStats } from '../types';
 
 // ── Create ────────────────────────────────────────────────────────────
 
@@ -10,6 +10,13 @@ export async function createWateringEvent(
     '/watering-events',
     payload,
   );
+  return data;
+}
+
+// ── Get ───────────────────────────────────────────────────────────────
+
+export async function getWateringEvent(key: string): Promise<WateringEvent> {
+  const { data } = await client.get<WateringEvent>(`/watering-events/${key}`);
   return data;
 }
 
@@ -27,13 +34,13 @@ export async function listWateringEvents(
 
 // ── Queries ───────────────────────────────────────────────────────────
 
-export async function getSlotWateringEvents(
-  slotKey: string,
+export async function getPlantWateringEvents(
+  plantKey: string,
   offset = 0,
   limit = 50,
 ): Promise<WateringEvent[]> {
   const { data } = await client.get<WateringEvent[]>(
-    `/slots/${slotKey}/watering-events`,
+    `/plant-instances/${plantKey}/watering-events`,
     { params: { offset, limit } },
   );
   return data;
@@ -56,6 +63,20 @@ export async function getLocationWateringStats(
 ): Promise<WateringStats> {
   const { data } = await client.get<WateringStats>(
     `/locations/${locationKey}/watering-stats`,
+  );
+  return data;
+}
+
+// ── Volume Suggestion ────────────────────────────────────────────────
+
+export async function getWateringVolumeSuggestion(
+  plantKey: string,
+  referenceDate?: string,
+  hemisphere: string = 'north',
+): Promise<VolumeSuggestion> {
+  const { data } = await client.get<VolumeSuggestion>(
+    `/plant-instances/${plantKey}/watering-volume-suggestion`,
+    { params: { reference_date: referenceDate, hemisphere } },
   );
   return data;
 }

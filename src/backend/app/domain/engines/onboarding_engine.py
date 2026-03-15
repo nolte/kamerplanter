@@ -29,6 +29,9 @@ class OnboardingEngine:
         kit: StarterKit,
         site_name: str,
         plant_count: int,
+        has_ro_system: bool | None = None,
+        tap_water_ec_ms: float | None = None,
+        tap_water_ph: float | None = None,
     ) -> dict:
         """Build a plan of entities to create from a kit.
 
@@ -46,7 +49,7 @@ class OnboardingEngine:
             count = plants_per_species + (1 if i < remainder else 0)
             plant_assignments.append({"species_key": species_key, "count": count})
 
-        return {
+        plan: dict = {
             "site_name": site_name,
             "site_type": kit.site_type.value,
             "location_count": 1,
@@ -57,3 +60,15 @@ class OnboardingEngine:
             "workflow_template_keys": kit.workflow_template_keys,
             "includes_nutrient_plan": kit.includes_nutrient_plan,
         }
+
+        # Add water config if any water fields are provided
+        if any(v is not None for v in (has_ro_system, tap_water_ec_ms, tap_water_ph)):
+            water_config: dict = {"has_ro_system": has_ro_system or False}
+            if tap_water_ec_ms is not None or tap_water_ph is not None:
+                water_config["tap_water_profile"] = {
+                    "ec_ms": tap_water_ec_ms or 0.3,
+                    "ph": tap_water_ph or 7.0,
+                }
+            plan["water_config"] = water_config
+
+        return plan

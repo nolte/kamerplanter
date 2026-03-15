@@ -1,0 +1,84 @@
+location_types:
+  - key: zone
+    name: Zone
+    name_en: Zone
+    is_indoor: false
+    icon: AccountTree
+    sort_order: 1
+
+  - key: home
+    name: Zuhause
+    name_en: Home
+    is_indoor: false
+    icon: Landscape
+    sort_order: 5
+
+  - key: garden
+    name: Garten
+    name_en: Garden
+    is_indoor: false
+    icon: Park
+    sort_order: 10
+
+  - key: greenhouse
+    name: "Gewächshaus"
+    name_en: Greenhouse
+    is_indoor: false
+    icon: Warehouse
+    sort_order: 20
+
+  - key: building
+    name: "Gebäude"
+    name_en: Building
+    is_indoor: true
+    icon: Home
+    sort_order: 30
+
+  - key: room
+    name: Zimmer
+    name_en: Room
+    is_indoor: true
+    icon: MeetingRoom
+    sort_order: 40
+
+  - key: balcony
+    name: Balkon
+    name_en: Balcony
+    is_indoor: false
+    icon: Balcony
+    sort_order: 50
+
+  - key: terrace
+    name: Terrasse
+    name_en: Terrace
+    is_indoor: false
+    icon: Deck
+    sort_order: 60
+
+  - key: tent
+    name: Grow-Zelt
+    name_en: Grow Tent
+    is_indoor: true
+    icon: Campaign
+    sort_order: 70
+
+  - key: bed
+    name: Beet
+    name_en: Bed
+    is_indoor: false
+    icon: Grass
+    sort_order: 80
+
+  - key: shelf
+    name: Regal
+    name_en: Shelf
+    is_indoor: true
+    icon: Shelves
+    sort_order: 90
+
+  - key: container
+    name: Topf-/Container-Gruppe
+    name_en: Container Group
+    is_indoor: false
+    icon: Inventory2
+    sort_order: 100

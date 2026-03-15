@@ -19,7 +19,7 @@ class RequirementProfile(BaseModel):
     humidity_night_percent: int = Field(default=65, ge=0, le=100)
     vpd_target_kpa: float = Field(default=1.0, ge=0)
     co2_ppm: int | None = Field(default=None, ge=0)
-    irrigation_frequency_days: float = Field(default=1.0, gt=0)
+    irrigation_frequency_days: float | None = Field(default=1.0, gt=0)
     irrigation_volume_ml_per_plant: int = Field(default=250, ge=0)
     created_at: datetime | None = None
     updated_at: datetime | None = None

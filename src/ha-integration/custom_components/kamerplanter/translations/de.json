@@ -1,0 +1,49 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mit Kamerplanter verbinden",
+        "description": "Gib die URL deiner Kamerplanter-Instanz ein.",
+        "data": {
+          "url": "URL"
+        }
+      },
+      "auth": {
+        "title": "Authentifizierung",
+        "description": "Gib deinen API-Key (kp_...) ein.",
+        "data": {
+          "api_key": "API-Key"
+        }
+      },
+      "tenant": {
+        "title": "Mandant auswählen",
+        "description": "Wähle den Mandanten aus, den du verwenden möchtest.",
+        "data": {
+          "tenant_slug": "Mandant"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kamerplanter nicht erreichbar",
+      "invalid_auth": "Ungültiger API-Key oder Zugangsdaten"
+    },
+    "abort": {
+      "already_configured": "Diese Kamerplanter-Instanz ist bereits konfiguriert"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Kamerplanter Optionen",
+        "description": "Polling-Intervalle konfigurieren (in Sekunden).",
+        "data": {
+          "poll_interval_plants": "Pflanzen-Abfrageintervall",
+          "poll_interval_locations": "Standort-Abfrageintervall",
+          "poll_interval_tanks": "Tank-Abfrageintervall",
+          "poll_interval_alerts": "Alarm-Abfrageintervall",
+          "poll_interval_tasks": "Aufgaben-Abfrageintervall"
+        }
+      }
+    }
+  }
+}

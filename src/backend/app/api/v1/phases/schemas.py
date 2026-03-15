@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class TransitionRequest(BaseModel):
     target_phase_key: str
     reason: str = "manual"
+    force: bool = False
 
 class CurrentPhaseResponse(BaseModel):
     phase: str

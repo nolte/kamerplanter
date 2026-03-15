@@ -75,8 +75,8 @@ export default function BatchCreateDialog({ substrateKey, open, onClose, onCreat
       <DialogTitle>{t('pages.batches.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
-          <FormTextField name="batch_id" control={control} label={t('pages.batches.batchId')} required />
-          <FormNumberField name="volume_liters" control={control} label={t('pages.batches.volume')} min={0} step={0.5} />
+          <FormTextField name="batch_id" control={control} label={t('pages.batches.batchId')} helperText={t('pages.batches.batchIdHelper')} required />
+          <FormNumberField name="volume_liters" control={control} label={t('pages.batches.volume')} helperText={t('pages.batches.volumeHelper')} min={0} step={0.5} />
           <FormDateField name="mixed_on" control={control} label={t('pages.batches.mixedOn')} required />
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
         </form>

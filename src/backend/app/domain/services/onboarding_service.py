@@ -40,6 +40,9 @@ class OnboardingService:
         experience_level: str | None = None,
         site_name: str = "",
         plant_count: int = 3,
+        has_ro_system: bool | None = None,
+        tap_water_ec_ms: float | None = None,
+        tap_water_ph: float | None = None,
     ) -> dict:
         """Complete the onboarding wizard, optionally applying a starter kit."""
         state = self.get_state(user_key)
@@ -52,7 +55,12 @@ class OnboardingService:
                 raise ValidationError("Invalid kit application", [
                     {"field": "kit", "reason": e, "code": "VALIDATION_ERROR"} for e in errors
                 ])
-            entity_plan = self._engine.build_entity_plan(kit, site_name, plant_count)
+            entity_plan = self._engine.build_entity_plan(
+                kit, site_name, plant_count,
+                has_ro_system=has_ro_system,
+                tap_water_ec_ms=tap_water_ec_ms,
+                tap_water_ph=tap_water_ph,
+            )
             created_entities["plan"] = [str(entity_plan)]
 
         state_data = state.model_dump()

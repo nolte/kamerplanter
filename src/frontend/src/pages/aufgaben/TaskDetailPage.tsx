@@ -12,6 +12,7 @@ import CardContent from '@mui/material/CardContent';
 import Checkbox from '@mui/material/Checkbox';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -52,6 +53,8 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as taskApi from '@/api/endpoints/tasks';
 import * as plantApi from '@/api/endpoints/plantInstances';
+import * as speciesApi from '@/api/endpoints/species';
+import type { PlantInstance } from '@/api/types';
 import type { TaskItem, TaskComment, TaskAuditEntry, ChecklistItem } from '@/api/types';
 import PhotoUpload from '@/components/common/PhotoUpload';
 import TaskTimer from '@/components/common/TaskTimer';
@@ -137,6 +140,7 @@ export default function TaskDetailPage() {
 
   const [task, setTask] = useState<TaskItem | null>(null);
   const [plantName, setPlantName] = useState<string | null>(null);
+  const [plantInfo, setPlantInfo] = useState<{ plant: PlantInstance; speciesName: string; cultivarName: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -211,7 +215,22 @@ export default function TaskDetailPage() {
       setPhotoRefs(fetched.photo_refs ?? []);
       if (fetched.plant_key) {
         plantApi.getPlantInstance(fetched.plant_key)
-          .then((p) => setPlantName(p.plant_name || p.instance_id))
+          .then(async (p) => {
+            setPlantName(p.plant_name || p.instance_id);
+            try {
+              const sp = await speciesApi.getSpecies(p.species_key);
+              const speciesName = sp.common_names?.[0] || sp.scientific_name;
+              let cultivarName: string | null = null;
+              if (p.cultivar_key) {
+                const cvList = await speciesApi.listCultivars(p.species_key);
+                const cv = cvList.find((c) => c.key === p.cultivar_key);
+                if (cv) cultivarName = cv.name;
+              }
+              setPlantInfo({ plant: p, speciesName, cultivarName });
+            } catch {
+              setPlantInfo(null);
+            }
+          })
           .catch(() => setPlantName(null));
       }
       resetEdit({
@@ -593,17 +612,46 @@ export default function TaskDetailPage() {
               >
                 {task.plant_key && (
                   <MetaItem label={t('pages.tasks.plant')}>
-                    <Link
-                      component={RouterLink}
-                      to={`/pflanzen/plant-instances/${task.plant_key}`}
-                      underline="hover"
-                      variant="body2"
-                      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, fontWeight: 500 }}
-                      data-testid="plant-link"
+                    <Tooltip
+                      arrow
+                      enterTouchDelay={0}
+                      leaveTouchDelay={3000}
+                      title={plantInfo ? (
+                        <Box sx={{ p: 0.5 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                            {plantInfo.plant.plant_name || plantInfo.plant.instance_id}
+                          </Typography>
+                          <Typography variant="caption" display="block">
+                            {t('entities.species')}: {plantInfo.speciesName}
+                          </Typography>
+                          {plantInfo.cultivarName && (
+                            <Typography variant="caption" display="block">
+                              {t('entities.cultivar')}: {plantInfo.cultivarName}
+                            </Typography>
+                          )}
+                          {plantInfo.plant.current_phase && (
+                            <Typography variant="caption" display="block">
+                              {t('pages.plantInstances.currentPhase')}: {t(`enums.phaseName.${plantInfo.plant.current_phase}`, { defaultValue: plantInfo.plant.current_phase })}
+                            </Typography>
+                          )}
+                          <Typography variant="caption" display="block" color="text.secondary">
+                            ID: {plantInfo.plant.instance_id}
+                          </Typography>
+                        </Box>
+                      ) : ''}
                     >
-                      <LocalFloristIcon sx={{ fontSize: 16 }} />
-                      {plantName ?? task.plant_key}
-                    </Link>
+                      <Link
+                        component={RouterLink}
+                        to={`/pflanzen/plant-instances/${task.plant_key}`}
+                        underline="hover"
+                        variant="body2"
+                        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, fontWeight: 500 }}
+                        data-testid="plant-link"
+                      >
+                        <LocalFloristIcon sx={{ fontSize: 16 }} />
+                        {plantName ?? task.plant_key}
+                      </Link>
+                    </Tooltip>
                   </MetaItem>
                 )}
 

@@ -1,4 +1,10 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.domain.models.activity import Activity
 
 # HST (High Stress Training) tasks forbidden in all flowering sub-phases
 FORBIDDEN_ALL_FLOWER = {"topping", "fim", "mainlining", "heavy_defoliation"}
@@ -27,6 +33,7 @@ class HSTValidator:
         current_phase: str,
         recent_hst_tasks: list[dict],
         species_name: str = "",
+        activities: list[Activity] | None = None,
     ) -> dict:
         """Validate whether an HST task can be performed.
 
@@ -37,6 +44,10 @@ class HSTValidator:
                 - name: str
                 - completed_at: datetime | str
             species_name: Species common name for recovery lookup.
+            activities: Optional list of Activity models. When provided,
+                uses Activity data for phase restrictions and recovery days
+                instead of hardcoded constants. Falls back to constants
+                when None (backward compatible).
 
         Returns:
             Dict with can_perform (bool), reason (str), recovery_status (dict|None).
@@ -44,7 +55,102 @@ class HSTValidator:
         task_lower = task_name.lower().replace(" ", "_").replace("-", "_")
         phase_lower = current_phase.lower()
 
-        # Check flowering phase restrictions
+        # Try activity-driven validation first
+        if activities:
+            result = self._validate_from_activity(
+                task_name, task_lower, phase_lower, recent_hst_tasks, species_name, activities,
+            )
+            if result is not None:
+                return result
+
+        # Fallback: hardcoded constants
+        return self._validate_from_constants(
+            task_name, task_lower, phase_lower, recent_hst_tasks, species_name,
+        )
+
+    def _validate_from_activity(
+        self,
+        task_name: str,
+        task_lower: str,
+        phase_lower: str,
+        recent_hst_tasks: list[dict],
+        species_name: str,
+        activities: list[Activity],
+    ) -> dict | None:
+        """Validate using Activity model data. Returns None if no matching activity found."""
+        # Find matching activity by name
+        activity = None
+        for a in activities:
+            if a.name.lower().replace(" ", "_").replace("-", "_") == task_lower:
+                activity = a
+                break
+
+        if activity is None:
+            return None  # fall through to constant-based validation
+
+        is_flowering = "flower" in phase_lower or phase_lower == "harvest"
+
+        # Check forbidden phases
+        if activity.forbidden_phases:
+            for fp in activity.forbidden_phases:
+                if fp.lower() in phase_lower or phase_lower in fp.lower():
+                    return {
+                        "can_perform": False,
+                        "reason": f"'{task_name}' is forbidden during {fp} phase.",
+                        "recovery_status": None,
+                    }
+            # Also block if flowering and "flowering" is in forbidden_phases
+            if is_flowering and any(fp.lower() == "flowering" for fp in activity.forbidden_phases):
+                return {
+                    "can_perform": False,
+                    "reason": f"'{task_name}' is forbidden during flowering phase.",
+                    "recovery_status": None,
+                }
+
+        # Check restricted sub-phases
+        if activity.restricted_sub_phases:
+            for rsp in activity.restricted_sub_phases:
+                if rsp.lower() in phase_lower:
+                    return {
+                        "can_perform": False,
+                        "reason": f"'{task_name}' is forbidden in {rsp.replace('_', ' ')}.",
+                        "recovery_status": None,
+                    }
+
+        # Check recovery time
+        recovery_days = activity.recovery_days_default
+        species_lower = species_name.lower()
+        for sp_key, days in activity.recovery_days_by_species.items():
+            if sp_key in species_lower:
+                recovery_days = days
+                break
+
+        recovery_status = self._check_recovery(recent_hst_tasks, recovery_days)
+        if recovery_status and not recovery_status["recovered"]:
+            return {
+                "can_perform": False,
+                "reason": (
+                    f"Plant needs {recovery_status['days_remaining']} more days "
+                    f"to recover from '{recovery_status['last_task']}'."
+                ),
+                "recovery_status": recovery_status,
+            }
+
+        return {
+            "can_perform": True,
+            "reason": "",
+            "recovery_status": recovery_status,
+        }
+
+    def _validate_from_constants(
+        self,
+        task_name: str,
+        task_lower: str,
+        phase_lower: str,
+        recent_hst_tasks: list[dict],
+        species_name: str,
+    ) -> dict:
+        """Original constant-based validation logic."""
         is_flowering = "flower" in phase_lower or phase_lower == "harvest"
 
         if is_flowering and task_lower in FORBIDDEN_ALL_FLOWER:

@@ -7,7 +7,7 @@ Kategorie: Visualisierung & Integration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React (FullCalendar), iCalendar (RFC 5545)
 Status: Entwurf
-Version: 1.2 (HA Calendar-Entity)
+Version: 1.4 (Zierpflanzen-Aussaatkalender + Agrarbiologie-Review)
 ```
 
 ## 1. Business Case
@@ -1010,6 +1010,9 @@ class ICalendarFeedRepository(ABC):
 - `calendar.feeds.*` / `calendar.feeds.*`
 - `calendar.categories.*` für alle `CalendarEventCategory`-Werte
 - `calendar.sowingCalendar.*` / `calendar.sowingCalendar.*` (Aussaatkalender)
+- `calendar.sowingCalendar.flowering` / `calendar.sowingCalendar.flowering` (Blüte-Phase für Zierpflanzen)
+- `calendar.sowingCalendar.annualRepeat` / `calendar.sowingCalendar.annualRepeat` (Jährlich wiederkehrend)
+- `calendar.sowingCalendar.yearComparison` / `calendar.sowingCalendar.yearComparison` (Jahresvergleich)
 - `calendar.seasonOverview.*` / `calendar.seasonOverview.*` (Saisonübersicht)
 - `calendar.frost.*` / `calendar.frost.*` (Frosttermin-Labels)
 
@@ -1029,12 +1032,16 @@ Der Aussaatkalender ist eine spezialisierte Ansicht, die den gesamten Anbauzyklu
 
 **Farbkodierung der Balken:**
 
-| Phase | Farbe | Hex |
-|-------|-------|-----|
-| Voranzucht (Indoor) | Gelb | `#FDD835` |
-| Direktsaat/Auspflanzen | Grün | `#66BB6A` |
-| Wachstum | Blau | `#42A5F5` |
-| Ernte | Orange | `#FFA726` |
+| Phase | Farbe | Hex | Pflanzentyp |
+|-------|-------|-----|-------------|
+| Voranzucht (Indoor) | Gelb | `#FDD835` | Alle |
+| Direktsaat/Auspflanzen | Grün | `#66BB6A` | Alle |
+| Wachstum | Blau | `#42A5F5` | Alle |
+| Ernte | Orange | `#FFA726` | Nutzpflanzen (`allows_harvest: true`) |
+| Blüte | Pink | `#EC407A` | Zierpflanzen (`traits: ['ornamental']`, `allows_harvest: false`) |
+
+<!-- Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03 -->
+> **Hinweis Zierpflanzen:** Für Zierpflanzen ohne Erntephase (REQ-003: `allows_harvest: false`) wird statt des orangenen Ernte-Balkens ein pinker Blüte-Balken angezeigt. Die Blütezeit wird aus `bloom_months` (REQ-001 Species) oder `harvest_months` (Fallback) gelesen. Pflanzen mit `traits: ['ornamental']` werden automatisch der Kategorie "Blumen" zugeordnet.
 
 **Frosttermin-Konfiguration (auf Site-Level, Verweis auf REQ-002):**
 
@@ -1062,14 +1069,19 @@ Eine vertikale Linie bei den Eisheiligen (11.–15. Mai, konfigurierbar) markier
 ```
 Pflanze          Jan  Feb  Mär  Apr  Mai  Jun  Jul  Aug  Sep  Okt  Nov  Dez
                                        |← Eisheilige
+── Gemüse ──
 Paprika          ·····🟡🟡🟡🟡·····🟢🟢🔵🔵🔵🔵🟠🟠🟠·····
 Tomate           ··········🟡🟡🟡···🟢🔵🔵🔵🔵🟠🟠🟠🟠····
 Möhre            ·············🟢🟢🟢🔵🔵🔵🔵🟠🟠🟠🟠·······
 Salat            ········🟢🟢🟢🔵🟠🟢🟢🔵🟠🟢🟢🔵🟠·······  (Sukzession!)
 Radieschen       ·······🟢🔵🟠🟢🔵🟠🟢🔵🟠🟢🔵🟠···········
 Grünkohl         ···············🟡🟡🟢🟢🔵🔵🔵🔵🔵🟠🟠🟠🟠  (Wintergemüse)
+── Blumen ──
+Stiefmütterchen  🟡🟡🟡🟡🟡·····🟢🟢🩷🩷🩷🩷·······🩷🩷····  (12 Wo. Voranzucht, 2 Blühphasen)
+Petunie          ·····🟡🟡🟡🟡···🟢🟢🔵🩷🩷🩷🩷🩷🩷🩷······  (frostempfindlich)
+Tagetes          ··········🟡🟡···🟢🟢🔵🩷🩷🩷🩷🩷🩷········
 ```
-Legende: 🟡 Voranzucht | 🟢 Direktsaat/Auspflanzen | 🔵 Wachstum | 🟠 Ernte
+Legende: 🟡 Voranzucht | 🟢 Direktsaat/Auspflanzen | 🔵 Wachstum | 🟠 Ernte | 🩷 Blüte
 
 **Interaktion:**
 - Klick auf einen Balken öffnet Detail-Panel mit konkreten Terminen
@@ -1094,6 +1106,10 @@ Legende: 🟡 Voranzucht | 🟢 Direktsaat/Auspflanzen | 🔵 Wachstum | 🟠 Er
 │ □ Gemüse │  Salat      ·····🟢🟢🟢🔵🟠🟢🟢🔵🟠🟢🟢🔵🟠·   │
 │ □ Kräuter│  Radieschen ····🟢🔵🟠🟢🔵🟠🟢🔵🟠🟢🔵🟠·····   │
 │ □ Blumen │  Grünkohl   ···········🟡🟡🟢🟢🔵🔵🔵🔵🔵🟠🟠🟠 │
+│          │  ── Blumen ──                                        │
+│ Zyklus   │  Stiefm.    🟡🟡🟡🟡🟡🟢🟢🩷🩷🩷🩷·····🩷🩷···  │
+│ □ Jährl. │  Petunie    ·····🟡🟡🟡·🟢🟢🔵🩷🩷🩷🩷🩷🩷····   │
+│ □ Einmal │                                                      │
 │          │                                                       │
 │ [🖨 Druck]│  Legende: 🟡 Voranzucht 🟢 Auspflanzen 🔵 Wachstum 🟠 Ernte│
 └──────────┴───────────────────────────────────────────────────────┘
@@ -1117,7 +1133,7 @@ class FrostConfig(BaseModel):
 
 class SowingBar(BaseModel):
     """Einzelner Zeitbalken im Aussaatkalender."""
-    phase: str  # "indoor_sowing" | "outdoor_planting" | "growth" | "harvest"
+    phase: str  # "indoor_sowing" | "outdoor_planting" | "growth" | "harvest" | "flowering"
     start_date: date
     end_date: date
     color: str
@@ -1130,6 +1146,8 @@ class SowingCalendarEntry(BaseModel):
     cultivar_key: Optional[str] = None
     cultivar_name: Optional[str] = None
     frost_sensitive: bool = False
+    is_ornamental: bool = False  # True wenn traits enthält 'ornamental'
+    annual_repeat: bool = False  # True wenn jährlich wiederkehrend (REQ-013)
     bars: list[SowingBar] = Field(default_factory=list)
 
 
@@ -1141,20 +1159,28 @@ class SowingCalendarEngine:
     - sowing_indoor_weeks_before_last_frost
     - sowing_outdoor_after_last_frost_days
     - direct_sow_months
-    - harvest_months
+    - harvest_months (Nutzpflanzen)
+    - bloom_months (Zierpflanzen — bevorzugt bei ornamental trait)
     - frost_sensitivity
+    - traits (zur Erkennung von Zierpflanzen: 'ornamental')
 
     Liest Frosttermine aus REQ-002 (Site):
     - last_frost_date_avg
     - first_frost_date_avg
     - eisheilige_date
+
+    Liest Pflanzdurchlauf-Daten aus REQ-013:
+    - annual_repeat (jährlich wiederkehrend)
+    - repeat_month (Startmonat für Voranzucht)
+    - previous_run_key (Vorjahres-Vergleich)
     """
 
     PHASE_COLORS = {
         "indoor_sowing": "#FDD835",    # Gelb
         "outdoor_planting": "#66BB6A",  # Grün
         "growth": "#42A5F5",            # Blau
-        "harvest": "#FFA726",           # Orange
+        "harvest": "#FFA726",           # Orange — Nutzpflanzen
+        "flowering": "#EC407A",         # Pink — Zierpflanzen
     }
 
     def calculate_bars(
@@ -1209,34 +1235,70 @@ class SowingCalendarEngine:
             color=self.PHASE_COLORS["outdoor_planting"],
         ))
 
-        # 3. Wachstum (bis Erntebeginn)
+        # 3. Wachstum + 4. Ernte ODER Blüte
+        # Zierpflanzen (ornamental trait, allows_harvest: false):
+        #   → bloom_months als Blütephase (pink), kein Ernte-Balken
+        # Nutzpflanzen (allows_harvest: true):
+        #   → harvest_months als Erntephase (orange)
+        is_ornamental = "ornamental" in species.get("traits", [])
+        bloom_months = species.get("bloom_months", [])
         harvest_months = species.get("harvest_months", [])
-        if harvest_months:
-            harvest_start = date(year, min(harvest_months), 1)
+
+        # Für Zierpflanzen: bloom_months bevorzugen, harvest_months als Fallback
+        target_months = bloom_months if (is_ornamental and bloom_months) else harvest_months
+        target_phase = "flowering" if is_ornamental else "harvest"
+
+        if target_months:
+            # AB-010: Lücken in bloom_months erkennen und getrennte Balken zeichnen
+            # z.B. Viola bloom_months=[3,4,5,6,9,10] → Perioden [3-6] und [9-10]
+            periods = self._split_into_periods(sorted(target_months))
+
             growth_start = outdoor_end + timedelta(days=1)
-            if growth_start < harvest_start:
+            first_period_start = date(year, periods[0][0], 1)
+
+            if growth_start < first_period_start:
                 bars.append(SowingBar(
                     phase="growth",
                     start_date=growth_start,
-                    end_date=harvest_start - timedelta(days=1),
+                    end_date=first_period_start - timedelta(days=1),
                     color=self.PHASE_COLORS["growth"],
                 ))
 
-            # 4. Ernte
-            harvest_end_month = max(harvest_months)
-            # Letzter Tag des letzten Erntemonats
-            if harvest_end_month == 12:
-                harvest_end = date(year, 12, 31)
-            else:
-                harvest_end = date(year, harvest_end_month + 1, 1) - timedelta(days=1)
-            bars.append(SowingBar(
-                phase="harvest",
-                start_date=harvest_start,
-                end_date=harvest_end,
-                color=self.PHASE_COLORS["harvest"],
-            ))
+            for period_start_month, period_end_month in periods:
+                period_start = date(year, period_start_month, 1)
+                if period_end_month == 12:
+                    period_end = date(year, 12, 31)
+                else:
+                    period_end = date(year, period_end_month + 1, 1) - timedelta(days=1)
+                bars.append(SowingBar(
+                    phase=target_phase,
+                    start_date=period_start,
+                    end_date=period_end,
+                    color=self.PHASE_COLORS[target_phase],
+                ))
 
         return bars
+
+    @staticmethod
+    def _split_into_periods(months: list[int]) -> list[tuple[int, int]]:
+        """Teilt eine sortierte Monatsliste in zusammenhängende Perioden.
+
+        Erkennt Lücken und erzeugt getrennte (start, end)-Tupel.
+        z.B. [3,4,5,6,9,10] → [(3,6), (9,10)]
+             [5,6,7,8,9,10] → [(5,10)]
+        """
+        if not months:
+            return []
+        periods = []
+        start = months[0]
+        prev = months[0]
+        for m in months[1:]:
+            if m != prev + 1:
+                periods.append((start, prev))
+                start = m
+            prev = m
+        periods.append((start, prev))
+        return periods
 
     def build_calendar(
         self,
@@ -1257,6 +1319,8 @@ class SowingCalendarEngine:
                 cultivar_key=sp.get("cultivar_key"),
                 cultivar_name=sp.get("cultivar_name"),
                 frost_sensitive=sp.get("frost_sensitivity") == "tender",
+                is_ornamental="ornamental" in sp.get("traits", []),
+                annual_repeat=sp.get("annual_repeat", False),
                 bars=bars,
             ))
         # Sortierung: frühester Balken-Start zuerst
@@ -1265,6 +1329,25 @@ class SowingCalendarEngine:
         )
         return entries
 ```
+
+<!-- Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03 -->
+#### 3.8.1 Jährlich wiederkehrende Pflanzen im Aussaatkalender
+
+Für Zierpflanzen und Einjährige, die jedes Jahr neu vorgezogen werden (REQ-013: `annual_repeat: true`), bietet der Aussaatkalender zusätzliche Funktionen:
+
+**Automatische Voranzucht-Erinnerung:**
+- Wenn ein `PlantingRun` mit `annual_repeat: true` und `repeat_month` existiert (REQ-013), wird die Pflanze automatisch im Aussaatkalender des Folgejahres angezeigt
+- Der Voranzucht-Balken berechnet sich aus `sowing_indoor_weeks_before_last_frost` (REQ-001) und dem konfigurierten Frosttermin (REQ-002)
+- Beispiel: Stiefmütterchen mit `repeat_month: 2` und `sowing_indoor_weeks_before_last_frost: 8` → Voranzucht-Balken ab Mitte Februar
+
+**Jahresvergleich (optional):**
+- Über `previous_run_key` (REQ-013) kann der Verlauf des Vorjahres als Referenz eingeblendet werden
+- Darstellung: dünne, halbtransparente Linie unter dem aktuellen Balken
+- Zeigt: tatsächlicher Voranzucht-Start, Auspflanz-Datum, Blüte-Beginn des Vorjahres
+
+**Kategorie-Filter "Jährlich wiederkehrend":**
+- Neuer Filter `□ Jährlich` im Aussaatkalender zeigt nur Pflanzen mit `annual_repeat: true`
+- Kombinierbar mit bestehenden Filtern (Gemüse, Kräuter, Blumen)
 
 <!-- Quelle: Outdoor-Garden-Planner Review G-001, G-005 -->
 ### 3.9 Saisonübersicht-Modus (Monthly Overview)
@@ -1652,6 +1735,8 @@ mode: single
 | `year` | `int` | ❌ | Bezugsjahr (Default: aktuelles Jahr) |
 | `site_id` | `str` | ✅ | Site-ID für Frosttermin-Lookup |
 | `planned_only` | `bool` | ❌ | Nur geplante Pflanzen (Default: false) |
+| `category` | `str` | ❌ | Filter: `vegetables`, `herbs`, `flowers` (Default: alle) |
+| `annual_only` | `bool` | ❌ | Nur jährlich wiederkehrende Pflanzen (Default: false) |
 
 **Response:** `200 OK`
 ```json
@@ -1670,6 +1755,8 @@ mode: single
       "cultivar_key": "cv_california_wonder",
       "cultivar_name": "California Wonder",
       "frost_sensitive": true,
+      "is_ornamental": false,
+      "annual_repeat": false,
       "bars": [
         {
           "phase": "indoor_sowing",
@@ -1694,6 +1781,41 @@ mode: single
           "start_date": "2026-07-15",
           "end_date": "2026-09-30",
           "color": "#FFA726"
+        }
+      ]
+    },
+    {
+      "species_key": "sp_viola_wittrockiana",
+      "species_name": "Stiefmütterchen",
+      "cultivar_key": null,
+      "cultivar_name": null,
+      "frost_sensitive": false,
+      "is_ornamental": true,
+      "annual_repeat": true,
+      "bars": [
+        {
+          "phase": "indoor_sowing",
+          "start_date": "2026-02-15",
+          "end_date": "2026-03-14",
+          "color": "#FDD835"
+        },
+        {
+          "phase": "outdoor_planting",
+          "start_date": "2026-03-15",
+          "end_date": "2026-03-29",
+          "color": "#66BB6A"
+        },
+        {
+          "phase": "flowering",
+          "start_date": "2026-03-01",
+          "end_date": "2026-06-30",
+          "color": "#EC407A"
+        },
+        {
+          "phase": "flowering",
+          "start_date": "2026-09-01",
+          "end_date": "2026-10-31",
+          "color": "#EC407A"
         }
       ]
     }
@@ -1767,14 +1889,14 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 
 | REQ | Zugriff | Beschreibung |
 |-----|---------|-------------|
-| REQ-001 | `species`, `cultivars` Collections | Aussaat-Stammdaten (sowing_indoor_weeks_before_last_frost, harvest_months, frost_sensitivity) für Aussaatkalender |
+| REQ-001 | `species`, `cultivars` Collections | Aussaat-Stammdaten (sowing_indoor_weeks_before_last_frost, harvest_months, bloom_months, frost_sensitivity, traits) für Aussaatkalender |
 | REQ-002 | `locations`, `sites` Collections | Location-Namen für Event-Kontext und Filter; Frosttermin-Konfiguration (last_frost_date_avg, first_frost_date_avg, eisheilige_date) auf Site-Level für Aussaatkalender |
 | REQ-003 | `phase_histories` Collection | Phasentransitionen als Timeline-Events |
 | REQ-004 | `mixing_results`, `nutrient_plans` | Dünge-Events als Timeline-Kontext |
 | REQ-007 | Tasks mit Kategorie `harvest` | Ernte-Tasks im Kalender |
 | REQ-008 | Tasks mit Kategorie `post_harvest` | Post-Harvest-Tasks im Kalender |
 | REQ-010 | Tasks mit Kategorie `ipm` | IPM-Inspektions-Tasks im Kalender |
-| REQ-013 | Tasks via `PlantingRun` | Pflanzdurchlauf-bezogene Tasks |
+| REQ-013 | Tasks via `PlantingRun`, `annual_repeat`, `repeat_month`, `previous_run_key` | Pflanzdurchlauf-bezogene Tasks; jährlich wiederkehrende Pflanzen im Aussaatkalender; Jahresvergleich über previous_run_key |
 | REQ-014 | `maintenance_logs`, `tank_fill_events`, `watering_events` | Tank-Events als Timeline |
 
 ### Wer liest REQ-015?
@@ -1812,6 +1934,13 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] Aktueller Monat ist in der Saisonübersicht visuell hervorgehoben
 - [ ] Klick auf Monatskarte wechselt zur Monatsansicht des gewählten Monats
 - [ ] Aussaatkalender-API liefert korrekte Zeitbalken basierend auf Frosttermin und Stammdaten
+- [ ] Zierpflanzen (`traits: ['ornamental']`) zeigen pinken Blüte-Balken statt orangenem Ernte-Balken
+- [ ] Zierpflanzen nutzen `bloom_months` für Blüte-Zeitraum (Fallback: `harvest_months`)
+- [ ] Lücken in `bloom_months` werden erkannt und als getrennte Blüte-Balken dargestellt (AB-010: z.B. Viola [3,4,5,6,9,10] → zwei Balken mit Pause Jul/Aug)
+- [ ] Kategorie-Filter "Blumen" filtert korrekt auf Pflanzen mit `traits: ['ornamental']`
+- [ ] Filter "Jährlich wiederkehrend" zeigt nur Pflanzen mit `annual_repeat: true` (REQ-013)
+- [ ] Jährlich wiederkehrende Pflanzen mit `repeat_month` erscheinen automatisch im Aussaatkalender des Folgejahres
+- [ ] Jahresvergleich: Vorjahres-Daten werden als halbtransparente Referenzlinie angezeigt (wenn `previous_run_key` gesetzt)
 
 ### Testszenarien
 
@@ -1895,6 +2024,41 @@ AND der aktuelle Monat ist visuell hervorgehoben
 AND jede Monatskarte zeigt die Top-3 wichtigsten Tasks
 WHEN ich auf die Karte "Mai" klicke
 THEN wechselt die Ansicht zur Monatsansicht Mai 2026
+```
+
+<!-- Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03 -->
+**Szenario 10: Aussaatkalender — Zierpflanzen mit Blüte-Balken und Blühpause (AB-010)**
+```
+GIVEN Stiefmütterchen hat traits = ['ornamental'], bloom_months = [3,4,5,6,9,10]
+AND sowing_indoor_weeks_before_last_frost = 12, frost_sensitivity = "hardy"
+AND Site "Balkon" hat last_frost_date_avg = 15. Mai
+WHEN ich den Aussaatkalender für 2026 und Site "Balkon" öffne
+THEN zeigt Stiefmütterchen einen gelben Voranzucht-Balken ab ca. Mitte Februar (12 Wochen vor 15. Mai)
+AND einen grünen Auspflanzen-Balken ab ca. Anfang März (hardy → vor Eisheiligen erlaubt)
+AND ZWEI getrennte pinke Blüte-Balken: März–Juni UND September–Oktober (Blühpause Jul/Aug)
+AND KEINEN durchgehenden Balken von März bis Oktober
+AND keinen orangenen Ernte-Balken (da allows_harvest: false)
+```
+
+**Szenario 11: Aussaatkalender — Jährlich wiederkehrende Pflanze**
+```
+GIVEN ein PlantingRun "Stiefmütterchen 2025" existiert mit annual_repeat = true, repeat_month = 2
+AND ein abgeschlossener Run "Stiefmütterchen 2024" ist als previous_run_key verknüpft
+WHEN ich den Aussaatkalender für 2026 öffne
+THEN erscheint Stiefmütterchen automatisch im Kalender (aus annual_repeat)
+AND der Voranzucht-Balken startet im Februar (repeat_month = 2)
+AND eine halbtransparente Referenzlinie zeigt die Zeitbalken des Vorjahres-Runs
+```
+
+**Szenario 12: Aussaatkalender — Kategorie-Filter Blumen**
+```
+GIVEN 8 Nutzpflanzen und 4 Zierpflanzen (traits: ['ornamental']) existieren
+WHEN ich den Kategorie-Filter auf "Blumen" setze
+THEN sehe ich nur die 4 Zierpflanzen im Aussaatkalender
+AND alle zeigen pinke Blüte-Balken (nicht orangene Ernte-Balken)
+WHEN ich zusätzlich "Jährlich wiederkehrend" aktiviere
+AND 2 der 4 Zierpflanzen haben annual_repeat = true
+THEN sehe ich nur die 2 jährlich wiederkehrenden Zierpflanzen
 ```
 
 **Szenario 9: Aussaatkalender — Druckversion**

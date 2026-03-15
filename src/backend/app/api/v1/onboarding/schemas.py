@@ -22,6 +22,9 @@ class OnboardingCompleteRequest(BaseModel):
     experience_level: ExperienceLevel | None = None
     site_name: str = ""
     plant_count: int = Field(default=3, ge=1, le=50)
+    has_ro_system: bool | None = None
+    tap_water_ec_ms: float | None = Field(default=None, ge=0, le=2.0)
+    tap_water_ph: float | None = Field(default=None, ge=3.0, le=10.0)
 
 
 class OnboardingProgressUpdate(BaseModel):

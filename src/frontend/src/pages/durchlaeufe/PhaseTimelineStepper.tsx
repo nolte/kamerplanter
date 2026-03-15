@@ -11,16 +11,36 @@ import CircularProgress from '@mui/material/CircularProgress';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
-import Alert from '@mui/material/Alert';
+import EmptyState from '@/components/common/EmptyState';
 import * as runApi from '@/api/endpoints/plantingRuns';
 import type { SpeciesPhaseTimeline, PhaseTimelineEntry } from '@/api/types';
+import {
+  kamiPhaseGermination, kamiPhaseSeedling, kamiPhaseVegetative,
+  kamiPhaseFlowering, kamiPhaseHarvest, kamiPhaseRipening,
+  kamiPhaseJuvenile, kamiPhaseClimbing, kamiPhaseMature, kamiPhaseDormancy,
+  kamiPhaseSenescence,
+} from '@/assets/brand/illustrations';
+
+const PHASE_IMAGES: Record<string, string> = {
+  germination: kamiPhaseGermination,
+  seedling: kamiPhaseSeedling,
+  vegetative: kamiPhaseVegetative,
+  flowering: kamiPhaseFlowering,
+  harvest: kamiPhaseHarvest,
+  ripening: kamiPhaseRipening,
+  juvenile: kamiPhaseJuvenile,
+  climbing: kamiPhaseClimbing,
+  mature: kamiPhaseMature,
+  dormancy: kamiPhaseDormancy,
+  senescence: kamiPhaseSenescence,
+};
 
 interface Props {
   runKey: string;
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '-';
+  if (!iso) return '\u2014';
   return new Date(iso).toLocaleDateString();
 }
 
@@ -90,7 +110,7 @@ export default function PhaseTimelineStepper({ runKey }: Props) {
   }
 
   if (timelines.length === 0) {
-    return <Alert severity="info">{t('pages.plantingRuns.noPlantsYet')}</Alert>;
+    return <EmptyState message={t('pages.plantingRuns.noPlantsYet')} />;
   }
 
   return (
@@ -115,6 +135,14 @@ export default function PhaseTimelineStepper({ runKey }: Props) {
                     StepIconComponent={() => <PhaseStepIcon status={phase.status} />}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {PHASE_IMAGES[phase.phase_name.toLowerCase()] && (
+                        <Box
+                          component="img"
+                          src={PHASE_IMAGES[phase.phase_name.toLowerCase()]}
+                          alt=""
+                          sx={{ width: 32, height: 32, objectFit: 'contain' }}
+                        />
+                      )}
                       <Typography variant="body1">
                         {phase.display_name || phase.phase_name}
                       </Typography>

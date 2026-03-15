@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTabUrl } from '@/hooks/useTabUrl';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -24,6 +25,7 @@ import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
+import FormRow from '@/components/form/FormRow';
 import FormChipInput from '@/components/form/FormChipInput';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -81,7 +83,7 @@ export default function HarvestBatchDetailPage() {
   const [yieldMetric, setYieldMetric] = useState<YieldMetric | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useTabUrl(['details', 'quality', 'yield', 'edit']);
   const [saving, setSaving] = useState(false);
   const [savingQuality, setSavingQuality] = useState(false);
   const [savingYield, setSavingYield] = useState(false);
@@ -272,7 +274,7 @@ export default function HarvestBatchDetailPage() {
                   <TableCell component="th">
                     {t('pages.harvest.batchId')}
                   </TableCell>
-                  <TableCell>{batch.batch_id || '-'}</TableCell>
+                  <TableCell>{batch.batch_id || '\u2014'}</TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell component="th">
@@ -287,7 +289,7 @@ export default function HarvestBatchDetailPage() {
                   <TableCell>
                     {batch.harvest_date
                       ? new Date(batch.harvest_date).toLocaleDateString()
-                      : '-'}
+                      : '\u2014'}
                   </TableCell>
                 </TableRow>
                 <TableRow>
@@ -305,7 +307,7 @@ export default function HarvestBatchDetailPage() {
                   <TableCell>
                     {batch.wet_weight_g != null
                       ? `${batch.wet_weight_g} g`
-                      : '-'}
+                      : '\u2014'}
                   </TableCell>
                 </TableRow>
                 <TableRow>
@@ -315,7 +317,7 @@ export default function HarvestBatchDetailPage() {
                   <TableCell>
                     {batch.estimated_dry_weight_g != null
                       ? `${batch.estimated_dry_weight_g} g`
-                      : '-'}
+                      : '\u2014'}
                   </TableCell>
                 </TableRow>
                 <TableRow>
@@ -325,7 +327,7 @@ export default function HarvestBatchDetailPage() {
                   <TableCell>
                     {batch.actual_dry_weight_g != null
                       ? `${batch.actual_dry_weight_g} g`
-                      : '-'}
+                      : '\u2014'}
                   </TableCell>
                 </TableRow>
                 <TableRow>
@@ -333,16 +335,20 @@ export default function HarvestBatchDetailPage() {
                     {t('pages.harvest.qualityGrade')}
                   </TableCell>
                   <TableCell>
-                    {batch.quality_grade
-                      ? t(`enums.qualityGrade.${batch.quality_grade}`)
-                      : '-'}
+                    {batch.quality_grade ? (
+                      <Chip
+                        label={t(`enums.qualityGrade.${batch.quality_grade}`)}
+                        size="small"
+                        color="primary"
+                      />
+                    ) : '\u2014'}
                   </TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell component="th">
                     {t('pages.harvest.harvester')}
                   </TableCell>
-                  <TableCell>{batch.harvester || '-'}</TableCell>
+                  <TableCell>{batch.harvester || '\u2014'}</TableCell>
                 </TableRow>
                 {batch.notes && (
                   <TableRow>
@@ -385,7 +391,7 @@ export default function HarvestBatchDetailPage() {
                       <TableCell>
                         {quality.assessed_at
                           ? new Date(quality.assessed_at).toLocaleString()
-                          : '-'}
+                          : '\u2014'}
                       </TableCell>
                     </TableRow>
                     <TableRow>
@@ -519,26 +525,32 @@ export default function HarvestBatchDetailPage() {
                     label={t('pages.harvest.assessedBy')}
                     required
                   />
-                  <FormNumberField
-                    name="appearance_score"
-                    control={qualityControl}
-                    label={t('pages.harvest.appearanceScore')}
-                    min={0}
-                    max={100}
-                  />
-                  <FormNumberField
-                    name="aroma_score"
-                    control={qualityControl}
-                    label={t('pages.harvest.aromaScore')}
-                    min={0}
-                    max={100}
-                  />
+                  <FormRow>
+                    <FormNumberField
+                      name="appearance_score"
+                      control={qualityControl}
+                      label={t('pages.harvest.appearanceScore')}
+                      min={0}
+                      max={100}
+                      inputMode="numeric"
+                      helperText={t('pages.harvest.scoreHelper')}
+                    />
+                    <FormNumberField
+                      name="aroma_score"
+                      control={qualityControl}
+                      label={t('pages.harvest.aromaScore')}
+                      min={0}
+                      max={100}
+                      inputMode="numeric"
+                    />
+                  </FormRow>
                   <FormNumberField
                     name="color_score"
                     control={qualityControl}
                     label={t('pages.harvest.colorScore')}
                     min={0}
                     max={100}
+                    inputMode="numeric"
                   />
                   <FormChipInput
                     name="defects"
@@ -629,36 +641,52 @@ export default function HarvestBatchDetailPage() {
                   {t('pages.harvest.createYieldIntro')}
                 </Typography>
                 <form onSubmit={handleYieldSubmit(onSaveYield)}>
-                  <FormNumberField
-                    name="yield_per_plant_g"
-                    control={yieldControl}
-                    label={t('pages.harvest.yieldPerPlant')}
-                    min={0}
-                  />
-                  <FormNumberField
-                    name="yield_per_m2_g"
-                    control={yieldControl}
-                    label={t('pages.harvest.yieldPerM2')}
-                    min={0}
-                  />
-                  <FormNumberField
-                    name="total_yield_g"
-                    control={yieldControl}
-                    label={t('pages.harvest.totalYield')}
-                    min={0}
-                  />
+                  <FormRow>
+                    <FormNumberField
+                      name="yield_per_plant_g"
+                      control={yieldControl}
+                      label={t('pages.harvest.yieldPerPlant')}
+                      min={0}
+                      inputMode="decimal"
+                      suffix="g"
+                      helperText={t('pages.harvest.weightHelper')}
+                    />
+                    <FormNumberField
+                      name="yield_per_m2_g"
+                      control={yieldControl}
+                      label={t('pages.harvest.yieldPerM2')}
+                      min={0}
+                      inputMode="decimal"
+                      suffix="g/m\u00b2"
+                    />
+                  </FormRow>
+                  <FormRow>
+                    <FormNumberField
+                      name="total_yield_g"
+                      control={yieldControl}
+                      label={t('pages.harvest.totalYield')}
+                      min={0}
+                      inputMode="decimal"
+                      suffix="g"
+                    />
+                    <FormNumberField
+                      name="usable_yield_g"
+                      control={yieldControl}
+                      label={t('pages.harvest.usableYield')}
+                      min={0}
+                      inputMode="decimal"
+                      suffix="g"
+                    />
+                  </FormRow>
                   <FormNumberField
                     name="trim_waste_percent"
                     control={yieldControl}
                     label={t('pages.harvest.trimWaste')}
                     min={0}
                     max={100}
-                  />
-                  <FormNumberField
-                    name="usable_yield_g"
-                    control={yieldControl}
-                    label={t('pages.harvest.usableYield')}
-                    min={0}
+                    inputMode="decimal"
+                    suffix="%"
+                    helperText={t('pages.harvest.trimWasteHelper')}
                   />
                   <FormActions
                     onCancel={() => resetYield()}
@@ -674,7 +702,7 @@ export default function HarvestBatchDetailPage() {
 
       {/* Tab 3: Edit */}
       {tab === 3 && (
-        <Card>
+        <Card sx={{ maxWidth: 900 }}>
           <CardContent>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {t('pages.harvest.editIntro')}
@@ -689,41 +717,56 @@ export default function HarvestBatchDetailPage() {
                   label: t(`enums.harvestType.${v}`),
                 }))}
               />
+
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+                {t('pages.harvest.sectionWeights')}
+              </Typography>
               <FormNumberField
                 name="wet_weight_g"
                 control={editControl}
                 label={t('pages.harvest.wetWeightG')}
                 min={0}
+                inputMode="decimal"
+                suffix="g"
+                helperText={t('pages.harvest.weightHelper')}
               />
-              <FormNumberField
-                name="estimated_dry_weight_g"
-                control={editControl}
-                label={t('pages.harvest.estimatedDryWeightG')}
-                min={0}
-              />
-              <FormNumberField
-                name="actual_dry_weight_g"
-                control={editControl}
-                label={t('pages.harvest.actualDryWeightG')}
-                min={0}
-              />
-              <FormSelectField
-                name="quality_grade"
-                control={editControl}
-                label={t('pages.harvest.qualityGrade')}
-                options={[
-                  { value: '', label: '-' },
-                  ...qualityGrades.map((v) => ({
-                    value: v,
-                    label: t(`enums.qualityGrade.${v}`),
-                  })),
-                ]}
-              />
-              <FormTextField
-                name="harvester"
-                control={editControl}
-                label={t('pages.harvest.harvester')}
-              />
+              <FormRow>
+                <FormNumberField
+                  name="estimated_dry_weight_g"
+                  control={editControl}
+                  label={t('pages.harvest.estimatedDryWeightG')}
+                  min={0}
+                  inputMode="decimal"
+                  suffix="g"
+                />
+                <FormNumberField
+                  name="actual_dry_weight_g"
+                  control={editControl}
+                  label={t('pages.harvest.actualDryWeightG')}
+                  min={0}
+                  inputMode="decimal"
+                  suffix="g"
+                />
+              </FormRow>
+              <FormRow>
+                <FormSelectField
+                  name="quality_grade"
+                  control={editControl}
+                  label={t('pages.harvest.qualityGrade')}
+                  options={[
+                    { value: '', label: '\u2014' },
+                    ...qualityGrades.map((v) => ({
+                      value: v,
+                      label: t(`enums.qualityGrade.${v}`),
+                    })),
+                  ]}
+                />
+                <FormTextField
+                  name="harvester"
+                  control={editControl}
+                  label={t('pages.harvest.harvester')}
+                />
+              </FormRow>
               <FormTextField
                 name="notes"
                 control={editControl}

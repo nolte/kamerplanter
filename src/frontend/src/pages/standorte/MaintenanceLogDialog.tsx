@@ -9,6 +9,7 @@ import { z } from 'zod';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
+import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -93,21 +94,26 @@ export default function MaintenanceLogDialog({ open, onClose, tankKey, onCreated
               label: t(`enums.maintenanceType.${v}`),
             }))}
           />
-          <FormTextField
-            name="performed_by"
-            control={control}
-            label={t('pages.tanks.performedBy')}
-          />
-          <FormNumberField
-            name="duration_minutes"
-            control={control}
-            label={t('pages.tanks.durationMinutes')}
-            min={1}
-          />
+          <FormRow>
+            <FormTextField
+              name="performed_by"
+              control={control}
+              label={t('pages.tanks.performedBy')}
+            />
+            <FormNumberField
+              name="duration_minutes"
+              control={control}
+              label={t('pages.tanks.durationMinutes')}
+              helperText={t('pages.tanks.durationMinutesHelper')}
+              min={1}
+              inputMode="numeric"
+            />
+          </FormRow>
           <FormTextField
             name="products_used"
             control={control}
             label={t('pages.tanks.productsUsed')}
+            helperText={t('pages.tanks.productsUsedHelper')}
           />
           <FormTextField
             name="notes"

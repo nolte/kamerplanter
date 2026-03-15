@@ -12,8 +12,10 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import TodayIcon from '@mui/icons-material/Today';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import OpacityIcon from '@mui/icons-material/Opacity';
+import LocalDrinkIcon from '@mui/icons-material/LocalDrink';
 import { alpha, useTheme } from '@mui/material/styles';
-import type { ChannelCalendarEntry } from '@/api/types';
+import type { ChannelCalendarEntry, PhaseTimelineEntry } from '@/api/types';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -32,6 +34,25 @@ function formatDateISO(year: number, month: number, day: number): string {
   return `${year}-${m}-${d}`;
 }
 
+// ── Phase colors ────────────────────────────────────────────────────
+
+const PHASE_COLORS: Record<string, string> = {
+  germination: '#a5d6a7',
+  seedling: '#81c784',
+  vegetative: '#4caf50',
+  flowering: '#f48fb1',
+  ripening: '#ffcc80',
+  harvest: '#ffb74d',
+  drying: '#bcaaa4',
+  curing: '#a1887f',
+  flushing: '#90caf9',
+  juvenile: '#c5e1a5',
+  climbing: '#aed581',
+  mature: '#66bb6a',
+  dormancy: '#b0bec5',
+  senescence: '#ef9a9a',
+};
+
 // ── Channel color palette ────────────────────────────────────────────
 
 const CHANNEL_COLORS = [
@@ -45,15 +66,29 @@ const CHANNEL_COLORS = [
   '#f57c00', // deep orange
 ];
 
+// ── Application method icons ─────────────────────────────────────────
+
+const METHOD_ICONS: Record<string, typeof OpacityIcon> = {
+  tank_drip: LocalDrinkIcon,
+  watering_can: OpacityIcon,
+  foliar_spray: OpacityIcon,
+  drip: LocalDrinkIcon,
+};
+
+// Manual methods: collapse times_per_day into a single entry
+const MANUAL_METHODS = new Set(['watering_can', 'foliar_spray', 'drench', 'foliar', 'top_dress']);
+
 // ── Types ────────────────────────────────────────────────────────────
 
-interface WateringDateEntry {
+interface CalendarDayEntry {
   dateStr: string;
   channelId?: string;
   label: string;
   color: string;
   occurrence: number;
   timesPerDay: number;
+  method?: string;
+  type: 'watering' | 'tank_fill';
 }
 
 interface WateringCalendarViewProps {
@@ -62,6 +97,7 @@ interface WateringCalendarViewProps {
   quickConfirming: string | null;
   onQuickConfirm: (dateStr: string, channelId?: string, stateKey?: string) => void;
   onConfirm: (dateStr: string, channelId?: string) => void;
+  phases?: PhaseTimelineEntry[];
 }
 
 export default function WateringCalendarView({
@@ -70,6 +106,7 @@ export default function WateringCalendarView({
   quickConfirming,
   onQuickConfirm,
   onConfirm,
+  phases,
 }: WateringCalendarViewProps) {
   const { t, i18n } = useTranslation();
   const theme = useTheme();
@@ -81,28 +118,101 @@ export default function WateringCalendarView({
 
   // Build flat list of watering entries with color assignments
   const allEntries = useMemo(() => {
-    const entries: WateringDateEntry[] = [];
+    const entries: CalendarDayEntry[] = [];
     if (channelCalendars.length > 0) {
       channelCalendars.forEach((ch, idx) => {
         const color = CHANNEL_COLORS[idx % CHANNEL_COLORS.length];
         const tpd = ch.times_per_day ?? 1;
+        const isTank = ch.application_method === 'tank_drip' || ch.application_method === 'drip';
+        const isManual = MANUAL_METHODS.has(ch.application_method);
         for (const dateStr of ch.dates) {
-          for (let occ = 1; occ <= tpd; occ++) {
-            entries.push({ dateStr, channelId: ch.channel_id, label: ch.label, color, occurrence: occ, timesPerDay: tpd });
+          // Tank fill entry (once per date for tank channels)
+          if (isTank) {
+            entries.push({
+              dateStr,
+              channelId: ch.channel_id,
+              label: `${t('pages.wateringSchedule.tankFill')}: ${ch.label}`,
+              color: '#5d4037',
+              occurrence: 1,
+              timesPerDay: 1,
+              method: ch.application_method,
+              type: 'tank_fill',
+            });
+          }
+          if (isManual) {
+            // Manual methods: single entry per day, times_per_day is irrelevant
+            entries.push({
+              dateStr,
+              channelId: ch.channel_id,
+              label: ch.label,
+              color,
+              occurrence: 1,
+              timesPerDay: 1,
+              method: ch.application_method,
+              type: 'watering',
+            });
+          } else {
+            // Automatic methods: one entry per occurrence
+            for (let occ = 1; occ <= tpd; occ++) {
+              entries.push({
+                dateStr,
+                channelId: ch.channel_id,
+                label: ch.label,
+                color,
+                occurrence: occ,
+                timesPerDay: tpd,
+                method: ch.application_method,
+                type: 'watering',
+              });
+            }
           }
         }
       });
     } else {
       for (const dateStr of dates) {
-        entries.push({ dateStr, label: t('pages.wateringSchedule.title'), color: theme.palette.primary.main, occurrence: 1, timesPerDay: 1 });
+        entries.push({
+          dateStr,
+          label: t('pages.wateringSchedule.title'),
+          color: theme.palette.primary.main,
+          occurrence: 1,
+          timesPerDay: 1,
+          type: 'watering',
+        });
       }
     }
     return entries;
   }, [dates, channelCalendars, t, theme.palette.primary.main]);
 
+  // Determine active phase for each day of the current month
+  const phaseByDay = useMemo(() => {
+    const map = new Map<number, { name: string; displayName: string; color: string }>();
+    if (!phases || phases.length === 0) return map;
+
+    const daysInM = getDaysInMonth(currentYear, currentMonth);
+    for (let day = 1; day <= daysInM; day++) {
+      const dayTs = new Date(currentYear, currentMonth, day).getTime();
+      for (const p of phases) {
+        const startStr = p.actual_entered_at ?? p.projected_start;
+        const endStr = p.actual_exited_at ?? p.projected_end;
+        if (!startStr) continue;
+        const startTs = new Date(startStr).getTime();
+        const endTs = endStr ? new Date(endStr).getTime() : Date.now() + 365 * 86400000;
+        if (dayTs >= startTs && dayTs <= endTs) {
+          map.set(day, {
+            name: p.phase_name,
+            displayName: p.display_name || p.phase_name,
+            color: PHASE_COLORS[p.phase_name.toLowerCase()] ?? '#e0e0e0',
+          });
+          break;
+        }
+      }
+    }
+    return map;
+  }, [phases, currentYear, currentMonth]);
+
   // Group entries by day number for the current month
   const entriesByDay = useMemo(() => {
-    const map = new Map<number, WateringDateEntry[]>();
+    const map = new Map<number, CalendarDayEntry[]>();
     for (const entry of allEntries) {
       const d = new Date(entry.dateStr);
       if (d.getFullYear() === currentYear && d.getMonth() === currentMonth) {
@@ -224,19 +334,38 @@ export default function WateringCalendarView({
 
       {/* Channel legend */}
       {channelLegend.length > 0 && (
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-          {channelLegend.map((ch) => (
-            <Chip
-              key={ch.label}
-              label={ch.label}
-              size="small"
-              sx={{
-                bgcolor: alpha(ch.color, 0.15),
-                borderLeft: `3px solid ${ch.color}`,
-                fontWeight: 500,
-              }}
-            />
-          ))}
+        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center', mb: 1.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+            {t('pages.wateringSchedule.channel')}:
+          </Typography>
+          {channelLegend.map((ch) => {
+            const MethodIcon = METHOD_ICONS[ch.method] ?? OpacityIcon;
+            return (
+              <Chip
+                key={ch.label}
+                icon={<MethodIcon sx={{ fontSize: 14 }} />}
+                label={`${ch.label} (${t(`enums.applicationMethod.${ch.method}`)})`}
+                size="small"
+                sx={{
+                  bgcolor: alpha(ch.color, 0.15),
+                  borderLeft: `3px solid ${ch.color}`,
+                  fontWeight: 500,
+                  fontSize: '0.7rem',
+                }}
+              />
+            );
+          })}
+          <Chip
+            icon={<LocalDrinkIcon sx={{ fontSize: 14 }} />}
+            label={t('pages.wateringSchedule.tankFill')}
+            size="small"
+            sx={{
+              bgcolor: alpha('#5d4037', 0.15),
+              borderLeft: '3px solid #5d4037',
+              fontWeight: 500,
+              fontSize: '0.7rem',
+            }}
+          />
         </Box>
       )}
 
@@ -266,6 +395,8 @@ export default function WateringCalendarView({
           const dayEntries = isValidDay ? entriesByDay.get(dayNum) ?? [] : [];
           const hasEntries = dayEntries.length > 0;
           const isToday = isValidDay && isTodayCell(dayNum);
+          const phase = isValidDay ? phaseByDay.get(dayNum) : undefined;
+          const isFuture = isValidDay && new Date(currentYear, currentMonth, dayNum) > todayDate;
 
           cells.push(
             <Box
@@ -285,49 +416,78 @@ export default function WateringCalendarView({
               }
               sx={{
                 flex: '1 0 calc(100% / 7)',
-                minHeight: { xs: '2.5rem', sm: '3.5rem' },
+                minHeight: { xs: '3rem', sm: '4rem' },
                 border: 1,
                 borderColor: 'divider',
                 p: 0.5,
                 cursor: hasEntries ? 'pointer' : 'default',
-                bgcolor: isValidDay
-                  ? isToday
+                bgcolor: !isValidDay
+                  ? 'action.disabledBackground'
+                  : isToday
                     ? 'action.selected'
-                    : 'background.paper'
-                  : 'action.disabledBackground',
-                '&:hover': hasEntries ? { bgcolor: 'action.hover' } : {},
+                    : phase
+                      ? alpha(phase.color, 0.1)
+                      : 'background.paper',
+                '&:hover': hasEntries ? { bgcolor: phase ? alpha(phase.color, 0.2) : 'action.hover' } : {},
                 position: 'relative',
+                // Phase left-border indicator
+                ...(phase
+                  ? { borderLeft: `3px solid ${phase.color}` }
+                  : {}),
+                // Dim future days slightly
+                ...(isFuture && !hasEntries ? { opacity: 0.7 } : {}),
               }}
             >
               {isValidDay && (
                 <>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontWeight: isToday ? 'bold' : 'normal',
-                      color: isToday ? 'primary.main' : 'text.primary',
-                      fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                    }}
-                  >
-                    {dayNum}
-                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: isToday ? 'bold' : 'normal',
+                        color: isToday ? 'primary.main' : 'text.primary',
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                      }}
+                    >
+                      {dayNum}
+                    </Typography>
+                    {/* Phase abbreviation on small screens */}
+                    {phase && (
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: phase.color,
+                          fontSize: '0.55rem',
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                          lineHeight: 1,
+                          display: { xs: 'none', sm: 'block' },
+                        }}
+                      >
+                        {phase.displayName.slice(0, 3)}
+                      </Typography>
+                    )}
+                  </Box>
                   {hasEntries && (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '2px', mt: 0.25 }}>
-                      {dayEntries.map((entry, idx) => (
-                        <Tooltip key={`${entry.channelId ?? 'plan'}-${idx}`} title={entry.label} arrow>
-                          <Box
-                            component="span"
-                            sx={{
-                              width: { xs: '0.5rem', sm: '0.625rem' },
-                              height: { xs: '0.5rem', sm: '0.625rem' },
-                              borderRadius: '50%',
-                              bgcolor: entry.color,
-                              display: 'inline-block',
-                              flexShrink: 0,
-                            }}
-                          />
-                        </Tooltip>
-                      ))}
+                      {dayEntries.map((entry, idx) => {
+                        const isTankFill = entry.type === 'tank_fill';
+                        return (
+                          <Tooltip key={`${entry.channelId ?? 'plan'}-${entry.type}-${idx}`} title={entry.label} arrow>
+                            <Box
+                              component="span"
+                              sx={{
+                                width: { xs: '0.5rem', sm: '0.625rem' },
+                                height: { xs: '0.5rem', sm: '0.625rem' },
+                                borderRadius: isTankFill ? '2px' : '50%',
+                                bgcolor: entry.color,
+                                display: 'inline-block',
+                                flexShrink: 0,
+                              }}
+                            />
+                          </Tooltip>
+                        );
+                      })}
                     </Box>
                   )}
                 </>
@@ -357,24 +517,39 @@ export default function WateringCalendarView({
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
       >
         {popoverDay != null && (
-          <Box sx={{ p: 2, minWidth: 260, maxWidth: 360 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              {new Date(currentYear, currentMonth, popoverDay).toLocaleDateString(
-                i18n.language === 'de' ? 'de-DE' : 'en-US',
-                { weekday: 'long', day: 'numeric', month: 'long' },
+          <Box sx={{ p: 2, minWidth: 280, maxWidth: 400 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="subtitle2">
+                {new Date(currentYear, currentMonth, popoverDay).toLocaleDateString(
+                  i18n.language === 'de' ? 'de-DE' : 'en-US',
+                  { weekday: 'long', day: 'numeric', month: 'long' },
+                )}
+              </Typography>
+              {phaseByDay.get(popoverDay) && (
+                <Chip
+                  label={phaseByDay.get(popoverDay)!.displayName}
+                  size="small"
+                  sx={{
+                    bgcolor: alpha(phaseByDay.get(popoverDay)!.color, 0.25),
+                    fontSize: '0.7rem',
+                  }}
+                />
               )}
-            </Typography>
+            </Box>
             {popoverEntries.map((entry, idx) => {
               const dateStr = formatDateISO(currentYear, currentMonth, popoverDay);
+              const isFutureDate = new Date(dateStr) > todayDate;
               const stateKey = entry.channelId
                 ? `${entry.channelId}-${dateStr}-${entry.occurrence}`
                 : `${dateStr}-${entry.occurrence}`;
-              const displayLabel = entry.timesPerDay > 1
+              const isTankFill = entry.type === 'tank_fill';
+              const displayLabel = entry.timesPerDay > 1 && !isTankFill
                 ? t('pages.wateringSchedule.timesPerDayOccurrence', { label: entry.label, current: entry.occurrence, total: entry.timesPerDay })
                 : entry.label;
+              const MethodIcon = METHOD_ICONS[entry.method ?? ''] ?? OpacityIcon;
               return (
                 <Box
-                  key={`${entry.channelId ?? 'plan'}-${idx}`}
+                  key={`${entry.channelId ?? 'plan'}-${entry.type}-${idx}`}
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
@@ -390,39 +565,48 @@ export default function WateringCalendarView({
                       sx={{
                         width: 10,
                         height: 10,
-                        borderRadius: '50%',
+                        borderRadius: isTankFill ? '2px' : '50%',
                         bgcolor: entry.color,
                         flexShrink: 0,
                       }}
                     />
+                    <MethodIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                     <Typography variant="body2" noWrap>
                       {displayLabel}
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={<CheckCircleIcon />}
-                      disabled={quickConfirming === stateKey}
-                      onClick={() => {
-                        onQuickConfirm(dateStr, entry.channelId, stateKey);
-                        handleClosePopover();
-                      }}
-                    >
-                      {quickConfirming === stateKey ? <CircularProgress size={14} /> : t('pages.wateringSchedule.quickConfirm')}
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      onClick={() => {
-                        onConfirm(dateStr, entry.channelId);
-                        handleClosePopover();
-                      }}
-                    >
-                      {t('pages.wateringSchedule.confirm')}
-                    </Button>
-                  </Box>
+                  {!isTankFill && (
+                    <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+                      {isFutureDate ? (
+                        <Chip label={t('pages.wateringSchedule.projected')} size="small" variant="outlined" />
+                      ) : (
+                        <>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<CheckCircleIcon />}
+                            disabled={quickConfirming === stateKey}
+                            onClick={() => {
+                              onQuickConfirm(dateStr, entry.channelId, stateKey);
+                              handleClosePopover();
+                            }}
+                          >
+                            {quickConfirming === stateKey ? <CircularProgress size={14} /> : t('pages.wateringSchedule.quickConfirm')}
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => {
+                              onConfirm(dateStr, entry.channelId);
+                              handleClosePopover();
+                            }}
+                          >
+                            {t('pages.wateringSchedule.confirm')}
+                          </Button>
+                        </>
+                      )}
+                    </Box>
+                  )}
                 </Box>
               );
             })}

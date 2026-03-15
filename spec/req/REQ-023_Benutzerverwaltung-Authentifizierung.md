@@ -7,13 +7,14 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.4 (M2M API-Keys)
+Version: 1.5 (Home Assistant Token, Temperatureinheit)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.5 | 2026-02-28 | Home Assistant Integration: `ha_url` + `ha_token_encrypted` auf User-Modell, neuer Tab „Integrationen" in AccountSettingsPage, Verbindungstest-Endpoint. Temperatureinheit: Verweis auf `temperature_unit` in UserPreference (REQ-020 v1.2). |
 | 1.4 | 2026-02-27 | M2M-Authentifizierung: API-Key-Modell (`kp_`-Prefix, SHA-256-Hash), `api_keys` Collection, `has_api_key` Edge, 3 Endpoints (erstellen/auflisten/revoken), Bearer-Erkennung neben JWT, Rate Limit 1000 req/min. |
 | 1.3 | 2026-02-27 | „Angemeldet bleiben"-Option: Session-Cookie (Browser-Session) vs. persistentes Cookie (30 Tage) via `remember_me`-Flag. Neue User Story, Login-Checkbox, `is_persistent`-Feld auf RefreshToken, differenzierte Cookie-Strategie. |
 | 1.2 | 2026-02-27 | SEC-K-002: IP-Anonymisierung nach 7 Tagen, `ip_anonymized_at` Feld. SEC-K-004: CSRF-Strategie — `SameSite=Lax` (statt Strict) + Double-Submit Cookie für zustandsändernde Cookie-Endpunkte. |
@@ -251,6 +252,8 @@ Ein User kann mehrere Auth-Provider verknüpfen:
     - `failed_login_attempts: int` (Default: 0, Reset nach erfolgreichem Login)
     - `locked_until: Optional[datetime]` (Temporäre Sperrung nach zu vielen Fehlversuchen)
     - `last_login_at: Optional[datetime]`
+    - `ha_url: Optional[str]` (Home Assistant URL, z.B. `"http://homeassistant.local:8123"`)
+    - `ha_token_encrypted: Optional[str]` (Home Assistant Long-Lived Access Token, AES-256 verschlüsselt gespeichert. Wird vom `HomeAssistantConnector` (REQ-005) zur Kommunikation mit der HA REST API verwendet.)
     - `created_at: datetime`
     - `updated_at: datetime`
 
@@ -759,7 +762,30 @@ def require_role(role: str):
 - **Tab "Sicherheit":** Passwort ändern/setzen, Verknüpfte Provider (Google ✓, GitHub ✓, etc.), Provider entfernen
 - **Tab "Sessions":** Liste aktiver Sessions (Gerät, IP, Zeitpunkt, „Angemeldet bleiben" Ja/Nein), "Andere Sessions beenden"-Button
 - **Tab "API-Keys":** Verwaltung von M2M-API-Keys (siehe §3.7)
+- **Tab "Integrationen":** Home Assistant Verbindung konfigurieren (siehe Detailbeschreibung unten)
 - **Tab "Account":** Account löschen (Bestätigungs-Dialog mit Passworteingabe)
+
+**Tab "Integrationen" — Detailbeschreibung:**
+
+Ermöglicht dem Nutzer, seine Home Assistant Instanz mit Kamerplanter zu verbinden. Der hier hinterlegte Long-Lived Access Token wird vom `HomeAssistantConnector` (REQ-005) verwendet, um Sensordaten automatisch von Home Assistant abzurufen.
+
+**Sichtbarkeit:** Der Tab „Integrationen" ist immer sichtbar — er dient als zentrale Stelle, an der der Nutzer die HA-Integration aktivieren oder deaktivieren kann. Solange die HA-Integration nicht aktiviert ist (`ha_token_set == false`), werden in allen anderen Bereichen des Systems (Sensoren, Aktoren, Tanks, Dashboard) die HA-spezifischen Felder und Panels ausgeblendet (siehe REQ-005 §4a Optionalitätsprinzip).
+
+**Felder:**
+
+| Feld | Typ | Beschreibung |
+|------|-----|-------------|
+| Home Assistant URL | Text | URL der HA-Instanz (z.B. `http://homeassistant.local:8123`). Validierung: gültige URL, erreichbar beim Verbindungstest. |
+| Long-Lived Access Token | Passwort | HA-Token aus Profil → Sicherheit → Long-Lived Access Tokens. Wird AES-256-verschlüsselt gespeichert, in der UI nach dem Speichern nur als `••••••••` angezeigt. |
+| Verbindungsstatus | Chip | Zeigt den aktuellen Status: ✅ Verbunden (HA-Version), ⚠️ Nicht erreichbar, ❌ Nicht konfiguriert |
+
+**Aktionen:**
+
+- **Verbindung testen** → `POST /api/v1/auth/ha-connection/test` — Ruft HA `/api/` auf, zeigt Erfolg/Fehler mit HA-Version
+- **Speichern** → `PATCH /api/v1/users/me` mit `ha_url` und `ha_token` (Token wird serverseitig verschlüsselt)
+- **Token entfernen** → Setzt `ha_url` und `ha_token_encrypted` auf `null`
+
+**Sicherheitshinweis:** Der Token wird niemals im Klartext an das Frontend zurückgegeben. `GET /api/v1/users/me` liefert nur `ha_url` und `ha_token_set: bool` (ob ein Token hinterlegt ist).
 
 <!-- Quelle: Smart-Home-HA-Integration Review A-003 -->
 **Tab "API-Keys" — Detailbeschreibung:**

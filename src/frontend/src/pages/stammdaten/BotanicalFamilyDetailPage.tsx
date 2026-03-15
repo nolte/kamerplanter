@@ -1,31 +1,39 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import Divider from '@mui/material/Divider';
+import List from '@mui/material/List';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Switch from '@mui/material/Switch';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { useForm, Controller } from 'react-hook-form';
+import ParkIcon from '@mui/icons-material/Park';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
+import EmptyState from '@/components/common/EmptyState';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormMultiSelectField from '@/components/form/FormMultiSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormChipInput from '@/components/form/FormChipInput';
+import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
+import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchBotanicalFamily, clearCurrent } from '@/store/slices/botanicalFamiliesSlice';
 import * as api from '@/api/endpoints/botanicalFamilies';
+import type { Species } from '@/api/types';
 
 const growthHabitValues = ['herb', 'shrub', 'tree', 'vine', 'groundcover'] as const;
 const pollinationValues = ['insect', 'wind', 'self'] as const;
@@ -63,6 +71,7 @@ export default function BotanicalFamilyDetailPage() {
   const { current, loading, error } = useAppSelector((s) => s.botanicalFamilies);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [familySpecies, setFamilySpecies] = useState<Species[]>([]);
 
   const {
     control,
@@ -92,7 +101,10 @@ export default function BotanicalFamilyDetailPage() {
   });
 
   useEffect(() => {
-    if (key) dispatch(fetchBotanicalFamily(key));
+    if (key) {
+      dispatch(fetchBotanicalFamily(key));
+      api.listSpeciesByFamily(key).then(setFamilySpecies).catch(() => {});
+    }
     return () => {
       dispatch(clearCurrent());
     };
@@ -210,7 +222,10 @@ export default function BotanicalFamilyDetailPage() {
         {t('pages.botanicalFamilies.editIntro')}
       </Typography>
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 600 }}>
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+          {t('pages.botanicalFamilies.sectionTaxonomy')}
+        </Typography>
         <FormTextField
           name="name"
           control={control}
@@ -218,18 +233,20 @@ export default function BotanicalFamilyDetailPage() {
           required
           helperText={t('pages.botanicalFamilies.nameHelper')}
         />
-        <FormTextField
-          name="common_name_de"
-          control={control}
-          label={t('pages.botanicalFamilies.commonNameDe')}
-          helperText={t('pages.botanicalFamilies.commonNameDeHelper')}
-        />
-        <FormTextField
-          name="common_name_en"
-          control={control}
-          label={t('pages.botanicalFamilies.commonNameEn')}
-          helperText={t('pages.botanicalFamilies.commonNameEnHelper')}
-        />
+        <FormRow>
+          <FormTextField
+            name="common_name_de"
+            control={control}
+            label={t('pages.botanicalFamilies.commonNameDe')}
+            helperText={t('pages.botanicalFamilies.commonNameDeHelper')}
+          />
+          <FormTextField
+            name="common_name_en"
+            control={control}
+            label={t('pages.botanicalFamilies.commonNameEn')}
+            helperText={t('pages.botanicalFamilies.commonNameEnHelper')}
+          />
+        </FormRow>
         <FormTextField
           name="order"
           control={control}
@@ -244,60 +261,31 @@ export default function BotanicalFamilyDetailPage() {
           rows={2}
           helperText={t('pages.botanicalFamilies.descriptionHelper')}
         />
-        <FormSelectField
-          name="typical_nutrient_demand"
-          control={control}
-          label={t('pages.botanicalFamilies.nutrientDemand')}
-          options={nutrientDemandOptions}
-          helperText={t('pages.botanicalFamilies.nutrientDemandHelper')}
-        />
-        <Controller
+
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+          {t('pages.botanicalFamilies.sectionGrowth')}
+        </Typography>
+        <FormRow>
+          <FormSelectField
+            name="typical_nutrient_demand"
+            control={control}
+            label={t('pages.botanicalFamilies.nutrientDemand')}
+            options={nutrientDemandOptions}
+            helperText={t('pages.botanicalFamilies.nutrientDemandHelper')}
+          />
+          <FormSelectField
+            name="typical_root_depth"
+            control={control}
+            label={t('pages.botanicalFamilies.rootDepth')}
+            options={rootDepthOptions}
+            helperText={t('pages.botanicalFamilies.rootDepthHelper')}
+          />
+        </FormRow>
+        <FormSwitchField
           name="nitrogen_fixing"
           control={control}
-          render={({ field }) => (
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={field.value}
-                  onChange={field.onChange}
-                  data-testid="form-field-nitrogen_fixing"
-                />
-              }
-              label={t('pages.botanicalFamilies.nitrogenFixing')}
-              sx={{ mb: 2, display: 'block' }}
-            />
-          )}
-        />
-        <FormSelectField
-          name="typical_root_depth"
-          control={control}
-          label={t('pages.botanicalFamilies.rootDepth')}
-          options={rootDepthOptions}
-          helperText={t('pages.botanicalFamilies.rootDepthHelper')}
-        />
-        <FormNumberField
-          name="soil_ph_min"
-          control={control}
-          label={t('pages.botanicalFamilies.soilPhMin')}
-          min={3}
-          max={9}
-          step={0.1}
-          helperText={t('pages.botanicalFamilies.soilPhHelper')}
-        />
-        <FormNumberField
-          name="soil_ph_max"
-          control={control}
-          label={t('pages.botanicalFamilies.soilPhMax')}
-          min={3}
-          max={9}
-          step={0.1}
-        />
-        <FormSelectField
-          name="frost_tolerance"
-          control={control}
-          label={t('pages.botanicalFamilies.frostTolerance')}
-          options={frostToleranceOptions}
-          helperText={t('pages.botanicalFamilies.frostToleranceHelper')}
+          label={t('pages.botanicalFamilies.nitrogenFixing')}
+          helperText={t('pages.botanicalFamilies.nitrogenFixingHelper')}
         />
         <FormMultiSelectField
           name="typical_growth_forms"
@@ -307,18 +295,58 @@ export default function BotanicalFamilyDetailPage() {
           required
           helperText={t('pages.botanicalFamilies.growthFormsHelper')}
         />
-        <FormChipInput
-          name="common_pests"
+
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+          {t('pages.botanicalFamilies.sectionEnvironment')}
+        </Typography>
+        <FormRow>
+          <FormNumberField
+            name="soil_ph_min"
+            control={control}
+            label={t('pages.botanicalFamilies.soilPhMin')}
+            min={3}
+            max={9}
+            step={0.1}
+            helperText={t('pages.botanicalFamilies.soilPhHelper')}
+          />
+          <FormNumberField
+            name="soil_ph_max"
+            control={control}
+            label={t('pages.botanicalFamilies.soilPhMax')}
+            min={3}
+            max={9}
+            step={0.1}
+          />
+        </FormRow>
+        <FormSelectField
+          name="frost_tolerance"
           control={control}
-          label={t('pages.botanicalFamilies.commonPests')}
-          helperText={t('pages.botanicalFamilies.commonPestsHelper')}
+          label={t('pages.botanicalFamilies.frostTolerance')}
+          options={frostToleranceOptions}
+          helperText={t('pages.botanicalFamilies.frostToleranceHelper')}
         />
-        <FormChipInput
-          name="common_diseases"
-          control={control}
-          label={t('pages.botanicalFamilies.commonDiseases')}
-          helperText={t('pages.botanicalFamilies.commonDiseasesHelper')}
-        />
+
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+          {t('pages.botanicalFamilies.sectionPestsAndDiseases')}
+        </Typography>
+        <FormRow>
+          <FormChipInput
+            name="common_pests"
+            control={control}
+            label={t('pages.botanicalFamilies.commonPests')}
+            helperText={t('pages.botanicalFamilies.commonPestsHelper')}
+          />
+          <FormChipInput
+            name="common_diseases"
+            control={control}
+            label={t('pages.botanicalFamilies.commonDiseases')}
+            helperText={t('pages.botanicalFamilies.commonDiseasesHelper')}
+          />
+        </FormRow>
+
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+          {t('pages.botanicalFamilies.sectionReproduction')}
+        </Typography>
         <FormMultiSelectField
           name="pollination_type"
           control={control}
@@ -335,6 +363,53 @@ export default function BotanicalFamilyDetailPage() {
         />
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
       </Box>
+
+      <Divider sx={{ my: 4 }} />
+
+      <Typography variant="h6" sx={{ mb: 1 }}>
+        {t('pages.botanicalFamilies.speciesInFamily')}
+        {familySpecies.length > 0 && (
+          <Chip label={familySpecies.length} size="small" sx={{ ml: 1 }} />
+        )}
+      </Typography>
+
+      {familySpecies.length === 0 ? (
+        <EmptyState
+          message={t('pages.botanicalFamilies.noSpeciesInFamily')}
+          actionLabel={t('pages.botanicalFamilies.showAllSpeciesFiltered')}
+          onAction={() => navigate(`/stammdaten/species?family=${key}`)}
+        />
+      ) : (
+        <List dense>
+          {familySpecies.map((s) => (
+            <ListItemButton
+              key={s.key}
+              component={RouterLink}
+              to={`/stammdaten/species/${s.key}`}
+            >
+              <ListItemText
+                primary={s.scientific_name}
+                secondary={s.common_names.join(', ') || undefined}
+                primaryTypographyProps={{ variant: 'body2' }}
+              />
+              <ParkIcon fontSize="small" sx={{ color: 'text.disabled', ml: 1 }} />
+            </ListItemButton>
+          ))}
+        </List>
+      )}
+
+      {familySpecies.length > 0 && (
+        <Box sx={{ mt: 1 }}>
+          <Button
+            variant="outlined"
+            size="small"
+            component={RouterLink}
+            to={`/stammdaten/species?family=${key}`}
+          >
+            {t('pages.botanicalFamilies.showAllSpeciesFiltered')}
+          </Button>
+        </Box>
+      )}
 
       <ConfirmDialog
         open={deleteOpen}

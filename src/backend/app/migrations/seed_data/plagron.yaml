@@ -1,0 +1,1334 @@
+# Plagron fertilizer products and nutrient plans.
+#
+# Sources — Plagron:
+#   https://plagron.com/en/hobby/products/terra-grow      (NPK 3-1-3)
+#   https://plagron.com/en/hobby/products/terra-bloom      (NPK 2-2-4)
+#   https://plagron.com/en/hobby/products/power-roots      (NPK 0-0-2)
+#   https://plagron.com/en/hobby/products/pure-zym         (enzyme)
+#   https://plagron.com/en/hobby/products/sugar-royal      (NPK 9-0-0)
+#   https://plagron.com/en/hobby/products/green-sensation  (NPK 0-8-9)
+#   https://plagron.com/downloads/en/grow-schedule-100-terra
+#   https://plagron.com/downloads/en/grow-schedule-100-coco
+
+# ── Product Catalog ───────────────────────────────────────────────────────────
+
+fertilizers:
+  # ── Base Nutrients — Terra (Soil) ──────────────────────────────────────
+  - product_name: "Terra Grow"
+    brand: Plagron
+    fertilizer_type: base
+    is_organic: false
+    tank_safe: true
+    recommended_application: drench
+    npk_ratio: [3.0, 1.0, 3.0]
+    ec_contribution_per_ml: 0.08
+    mixing_priority: 10
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Mineralischer Basisdünger für die Wachstumsphase in Erde.
+      Max. 5 ml/L. Schnelle Nährstoffaufnahme.
+
+  - product_name: "Terra Bloom"
+    brand: Plagron
+    fertilizer_type: base
+    is_organic: false
+    tank_safe: true
+    recommended_application: drench
+    npk_ratio: [2.0, 2.0, 4.0]
+    ec_contribution_per_ml: 0.10
+    mixing_priority: 10
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Mineralischer Basisdünger für die Blütephase in Erde.
+      Max. 5 ml/L. Fördert Blütenbildung und -gewicht.
+
+  # ── Base Nutrients — Coco ──────────────────────────────────────────────
+  - product_name: "Cocos A"
+    brand: Plagron
+    fertilizer_type: base
+    is_organic: false
+    tank_safe: true
+    recommended_application: fertigation
+    npk_ratio: [4.0, 0.0, 1.0]
+    ec_contribution_per_ml: 0.15
+    mixing_priority: 10
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      2-Komponenten-Basisdünger für Coco (Teil A). Enthält Ca 4.5%.
+      IMMER zuerst zugeben, vor Teil B. 1-4 ml/L je nach Phase.
+
+  - product_name: "Cocos B"
+    brand: Plagron
+    fertilizer_type: base
+    is_organic: false
+    tank_safe: true
+    recommended_application: fertigation
+    npk_ratio: [1.0, 4.0, 2.0]
+    ec_contribution_per_ml: 0.15
+    mixing_priority: 20
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      2-Komponenten-Basisdünger für Coco (Teil B). Enthält MgO 2%.
+      Nach Teil A zugeben. 1-4 ml/L je nach Phase.
+
+  # ── Additives ─────────────────────────────────────────────────────────
+  - product_name: "Power Roots"
+    brand: Plagron
+    fertilizer_type: supplement
+    is_organic: false
+    tank_safe: true
+    recommended_application: any
+    npk_ratio: [0.0, 0.0, 2.0]
+    ec_contribution_per_ml: 0.01
+    mixing_priority: 30
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Wurzelstimulator. Fördert Wurzelwachstum und erhöht Widerstandskraft.
+      1 ml/L. Wachstumsphase + erste 2 Wochen Blüte.
+
+  - product_name: "Pure Zym"
+    brand: Plagron
+    fertilizer_type: biological
+    is_organic: true
+    tank_safe: true
+    recommended_application: any
+    npk_ratio: [0.0, 0.0, 0.0]
+    ec_contribution_per_ml: 0.0
+    mixing_priority: 40
+    ph_effect: neutral
+    bioavailability: microbial_dependent
+    notes: >-
+      Enzympräparat (Cellulase, Pectinase). Baut abgestorbene Wurzeln ab
+      und verbessert Nährstoffaufnahme. 1 ml/L bei jeder Bewässerung.
+
+  - product_name: "Green Sensation"
+    brand: Plagron
+    fertilizer_type: booster
+    is_organic: false
+    tank_safe: true
+    recommended_application: any
+    npk_ratio: [0.0, 8.0, 9.0]
+    ec_contribution_per_ml: 0.05
+    mixing_priority: 25
+    ph_effect: acidic
+    bioavailability: immediate
+    notes: >-
+      4-in-1 Bloom-Booster (PK, Enzyme, Vitamine, Geschmacksstoffe).
+      Dichtere, schwerere Blüten. 0.5-1 ml/L ab Mitte Blüte.
+
+  - product_name: "Sugar Royal"
+    brand: Plagron
+    fertilizer_type: supplement
+    is_organic: false
+    tank_safe: true
+    recommended_application: any
+    npk_ratio: [9.0, 0.0, 0.0]
+    ec_contribution_per_ml: 0.02
+    mixing_priority: 40
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Aminosäure-Supplement (Arginin, Alanin, Lysin).
+      Verbessert Geschmack und verkürzt Reifezeit. 1 ml/L.
+
+  # ── PK Booster ───────────────────────────────────────────────────
+  - product_name: "PK 13-14"
+    brand: Plagron
+    fertilizer_type: booster
+    is_organic: false
+    tank_safe: true
+    recommended_application: any
+    npk_ratio: [0.0, 13.0, 14.0]
+    ec_contribution_per_ml: 0.12
+    mixing_priority: 30
+    ph_effect: acidic
+    bioavailability: immediate
+    notes: >-
+      Hoch konzentrierter PK-Booster für die mittlere Blütephase.
+      0.5-1 ml/L. Nur 1-2 Wochen im Peak verwenden.
+      Nicht mit Green Sensation kombinieren.
+
+
+# ── Nutrient Plans ────────────────────────────────────────────────────────────
+
+nutrient_plans:
+  # ── Plagron 100% Terra — Cannabis ─────────────────────────────────────
+  # Based on: https://plagron.com/downloads/en/grow-schedule-100-terra
+  #           https://pevgrow.com/blog/en/plagron-chart-for-cannabis-growing/
+  - name: "Plagron 100% Terra — Cannabis"
+    description: >-
+      Vollständiges Düngeprogramm für Cannabis in Erde mit der Plagron
+      100% Terra-Serie. Enthält Terra Grow/Bloom als Basisdünger,
+      Power Roots (Wurzelstimulator), Pure Zym (Enzympräparat),
+      Sugar Royal (Aminosäuren) und Green Sensation (PK-Booster).
+      Einfaches System — ein Basisdünger pro Phase. pH 6.0.
+    recommended_substrate_type: soil
+    author: Plagron
+    is_template: true
+    version: "2025.1"
+    tags: [plagron, terra, soil, cannabis, mineral]
+    watering_schedule: null
+    cycle_restart_from_sequence: null
+
+    phase_entries:
+      # ── 1. Keimung (Week 1) ────────────────────────────────────────────
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 2
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: "Nur Wasser. Samen keimen in feuchtem Substrat."
+        delivery_channels:
+          - channel_id: drench
+            label: "Gießen"
+            application_method: drench
+            target_ec_ms: 0.0
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertigation_params: null
+            fertilizer_dosages: []
+
+      # ── 2. Sämling (Week 2–3) ─────────────────────────────────────────
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 2
+        week_end: 4
+        npk_ratio: [1.5, 0.5, 1.5]
+        notes: >-
+          Halbe Dosis Terra Grow (2.5 ml/L).
+          Power Roots für Wurzelaufbau. Pure Zym durchgehend.
+        delivery_channels:
+          - channel_id: drench
+            label: "Gießen"
+            application_method: drench
+            target_ec_ms: 0.8
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Grow"
+                ml_per_liter: 2.5
+              - product_name: "Power Roots"
+                ml_per_liter: 1.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+
+      # ── 3. Vegetativ (Week 3–5) ───────────────────────────────────────
+      - phase_name: vegetative
+        sequence_order: 3
+        week_start: 4
+        week_end: 6
+        npk_ratio: [3.0, 1.0, 3.0]
+        notes: >-
+          Volle Dosis Terra Grow (5 ml/L).
+          Power Roots weiter für Wurzelmasse.
+          Sugar Royal ab jetzt für Aminosäuren.
+        delivery_channels:
+          - channel_id: drench
+            label: "Gießen"
+            application_method: drench
+            target_ec_ms: 1.2
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.5
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Grow"
+                ml_per_liter: 5.0
+              - product_name: "Power Roots"
+                ml_per_liter: 1.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+              - product_name: "Sugar Royal"
+                ml_per_liter: 1.0
+
+      # ── 4. Blüte — Früh (Week 5–8) ───────────────────────────────────
+      - phase_name: flowering
+        sequence_order: 4
+        week_start: 6
+        week_end: 9
+        npk_ratio: [2.0, 2.0, 4.0]
+        calcium_ppm: 150.0
+        magnesium_ppm: 40.0
+        notes: >-
+          Umstellung auf Terra Bloom (5 ml/L).
+          Power Roots noch 1 Woche, dann absetzen.
+          Pure Zym + Sugar Royal weiter.
+        delivery_channels:
+          - channel_id: drench
+            label: "Gießen"
+            application_method: drench
+            target_ec_ms: 1.4
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.8
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Bloom"
+                ml_per_liter: 5.0
+              - product_name: "Power Roots"
+                ml_per_liter: 1.0
+                optional: true
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+              - product_name: "Sugar Royal"
+                ml_per_liter: 1.0
+
+      # ── 5. Blüte — Spät (Week 8–11) ──────────────────────────────────
+      - phase_name: flowering
+        sequence_order: 5
+        week_start: 9
+        week_end: 12
+        npk_ratio: [2.0, 10.0, 13.0]
+        calcium_ppm: 150.0
+        magnesium_ppm: 40.0
+        notes: >-
+          Terra Bloom (4-5 ml/L) + Green Sensation (1 ml/L).
+          PK-Booster für maximale Blütendichte.
+          Sugar Royal bis 1 Woche vor Flush.
+        delivery_channels:
+          - channel_id: drench
+            label: "Gießen"
+            application_method: drench
+            target_ec_ms: 1.6
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 1.0
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Bloom"
+                ml_per_liter: 4.5
+              - product_name: "Green Sensation"
+                ml_per_liter: 1.0
+              - product_name: "Sugar Royal"
+                ml_per_liter: 1.0
+
+      # ── 6. Ernte / Flush (Week 11–12) ─────────────────────────────────
+      - phase_name: harvest
+        sequence_order: 6
+        week_start: 12
+        week_end: 13
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Letzte Woche nur Wasser spülen.
+          Plagron empfiehlt in der letzten Woche
+          keine Nährstoffe mehr zuzugeben.
+        delivery_channels:
+          - channel_id: drench
+            label: "Flush"
+            application_method: drench
+            target_ec_ms: 0.0
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 1.0
+            fertigation_params: null
+            fertilizer_dosages: []
+
+  # ── Plagron 100% Coco — Cannabis ─────────────────────────────────────
+  # Based on: https://plagron.com/downloads/en/grow-schedule-100-coco
+  - name: "Plagron 100% Coco — Cannabis"
+    description: >-
+      Vollständiges Düngeprogramm für Cannabis auf Coco mit der Plagron
+      100% Coco-Serie. Enthält Cocos A+B als 2-Komponenten-Basisdünger,
+      Power Roots (Wurzelstimulator), Pure Zym (Enzympräparat),
+      Sugar Royal (Aminosäuren) und Green Sensation (PK-Booster).
+      A+B-System durch den gesamten Zyklus. pH 5.5-6.0.
+    recommended_substrate_type: coco
+    author: Plagron
+    is_template: true
+    version: "2025.1"
+    tags: [plagron, coco, cannabis, mineral, a-b-system]
+    watering_schedule: null
+    cycle_restart_from_sequence: null
+
+    phase_entries:
+      # ── 1. Keimung (Week 1) ────────────────────────────────────────────
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 2
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: "Nur Wasser. Samen keimen in feuchtem Coco."
+        delivery_channels:
+          - channel_id: fertigation
+            label: "Fertigation"
+            application_method: fertigation
+            target_ec_ms: 0.0
+            target_ph: 5.8
+            drench_params: null
+            fertigation_params: {}
+            fertilizer_dosages: []
+
+      # ── 2. Sämling (Week 2–3) ─────────────────────────────────────────
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 2
+        week_end: 4
+        npk_ratio: [2.5, 2.0, 1.5]
+        notes: >-
+          Cocos A+B je 1.5 ml/L (niedrige Dosis).
+          Power Roots für schnellen Wurzelaufbau.
+          Pure Zym durchgehend.
+        delivery_channels:
+          - channel_id: fertigation
+            label: "Fertigation"
+            application_method: fertigation
+            target_ec_ms: 0.8
+            target_ph: 5.8
+            drench_params: null
+            fertigation_params: {}
+            fertilizer_dosages:
+              - product_name: "Cocos A"
+                ml_per_liter: 1.5
+              - product_name: "Cocos B"
+                ml_per_liter: 1.5
+              - product_name: "Power Roots"
+                ml_per_liter: 1.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+
+      # ── 3. Vegetativ (Week 3–5) ───────────────────────────────────────
+      - phase_name: vegetative
+        sequence_order: 3
+        week_start: 4
+        week_end: 6
+        npk_ratio: [5.0, 4.0, 3.0]
+        notes: >-
+          Cocos A+B auf 2.5-3 ml/L steigern.
+          Power Roots + Pure Zym weiter.
+          Sugar Royal ab jetzt für Aminosäuren.
+        delivery_channels:
+          - channel_id: fertigation
+            label: "Fertigation"
+            application_method: fertigation
+            target_ec_ms: 1.4
+            target_ph: 5.8
+            drench_params: null
+            fertigation_params: {}
+            fertilizer_dosages:
+              - product_name: "Cocos A"
+                ml_per_liter: 3.0
+              - product_name: "Cocos B"
+                ml_per_liter: 3.0
+              - product_name: "Power Roots"
+                ml_per_liter: 1.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+              - product_name: "Sugar Royal"
+                ml_per_liter: 1.0
+
+      # ── 4. Blüte — Früh (Week 5–8) ───────────────────────────────────
+      - phase_name: flowering
+        sequence_order: 4
+        week_start: 6
+        week_end: 9
+        npk_ratio: [5.0, 4.0, 3.0]
+        calcium_ppm: 180.0
+        magnesium_ppm: 50.0
+        notes: >-
+          Cocos A+B auf volle Dosis (3.5 ml/L).
+          Power Roots absetzen nach Woche 6.
+          Pure Zym + Sugar Royal weiter.
+          Green Sensation ab Ende dieser Phase.
+        delivery_channels:
+          - channel_id: fertigation
+            label: "Fertigation"
+            application_method: fertigation
+            target_ec_ms: 1.8
+            target_ph: 5.8
+            drench_params: null
+            fertigation_params: {}
+            fertilizer_dosages:
+              - product_name: "Cocos A"
+                ml_per_liter: 3.5
+              - product_name: "Cocos B"
+                ml_per_liter: 3.5
+              - product_name: "Power Roots"
+                ml_per_liter: 1.0
+                optional: true
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+              - product_name: "Sugar Royal"
+                ml_per_liter: 1.0
+              - product_name: "Green Sensation"
+                ml_per_liter: 0.5
+                optional: true
+
+      # ── 5. Blüte — Spät (Week 8–11) ──────────────────────────────────
+      - phase_name: flowering
+        sequence_order: 5
+        week_start: 9
+        week_end: 12
+        npk_ratio: [5.0, 12.0, 12.0]
+        calcium_ppm: 180.0
+        magnesium_ppm: 50.0
+        notes: >-
+          Cocos A+B volle Dosis (3.5 ml/L) + Green Sensation (1 ml/L).
+          PK-Booster für maximale Blütendichte.
+          Sugar Royal bis 1 Woche vor Flush.
+        delivery_channels:
+          - channel_id: fertigation
+            label: "Fertigation"
+            application_method: fertigation
+            target_ec_ms: 2.0
+            target_ph: 5.8
+            drench_params: null
+            fertigation_params: {}
+            fertilizer_dosages:
+              - product_name: "Cocos A"
+                ml_per_liter: 3.5
+              - product_name: "Cocos B"
+                ml_per_liter: 3.5
+              - product_name: "Green Sensation"
+                ml_per_liter: 1.0
+              - product_name: "Sugar Royal"
+                ml_per_liter: 1.0
+
+      # ── 6. Ernte / Flush (Week 11–12) ─────────────────────────────────
+      - phase_name: harvest
+        sequence_order: 6
+        week_start: 12
+        week_end: 13
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Letzte Woche nur Wasser spülen.
+          Plagron empfiehlt in der letzten Woche
+          keine Nährstoffe mehr zuzugeben.
+          Ziel: EC im Ablauf < 0.3 mS.
+        delivery_channels:
+          - channel_id: fertigation
+            label: "Flush"
+            application_method: fertigation
+            target_ec_ms: 0.0
+            target_ph: 5.8
+            drench_params: null
+            fertigation_params: {}
+            fertilizer_dosages: []
+
+  # ── Erdbeere (einmaltragend) — Plagron Terra ───────────────────────────
+  - name: "Erdbeere (einmaltragend) — Plagron Terra"
+    description: >-
+      Jahresplan für einmaltragende Erdbeeren im Topf/Kübel.
+      Plagron Terra-Linie mit 5 Produkten. Saisonaler Zyklus:
+      März–Oktober Düngung, November–Februar Winterruhe.
+    recommended_substrate_type: soil
+    author: "Kamerplanter Referenzdaten"
+    is_template: true
+    version: "1.1"
+    tags: [erdbeere, fragaria, einmaltragend, plagron, terra, erde, outdoor, topf, balkon]
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 2
+      preferred_time: "07:00"
+      application_method: drench
+    cycle_restart_from_sequence: 3
+
+    phase_entries:
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 3
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: "Nur Wasser + Wurzelstimulator. Neupflanzung/Umtopf-Etablierung."
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 2
+          preferred_time: "07:00"
+          application_method: drench
+        delivery_channels:
+          - channel_id: wasser-pur
+            label: "Wasser + Wurzelstimulator"
+            application_method: drench
+            target_ec_ms: 0.0
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Power Roots"
+                ml_per_liter: 1.0
+                optional: true
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+                optional: true
+
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 4
+        week_end: 8
+        npk_ratio: [3.0, 1.0, 3.0]
+        notes: "Halbe Dosis Terra Grow. Blattmasse aufbauen."
+        delivery_channels:
+          - channel_id: naehrloesung-wachstum
+            label: "Nährlösung Wachstum"
+            application_method: drench
+            target_ec_ms: 0.5
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Grow"
+                ml_per_liter: 2.5
+              - product_name: "Power Roots"
+                ml_per_liter: 1.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+
+      - phase_name: vegetative
+        sequence_order: 3
+        week_start: 9
+        week_end: 16
+        npk_ratio: [3.0, 1.0, 3.0]
+        is_recurring: true
+        notes: "Volle Dosis Terra Grow. Hauptwachstum Frühjahr."
+        delivery_channels:
+          - channel_id: naehrloesung-wachstum
+            label: "Nährlösung Wachstum"
+            application_method: drench
+            target_ec_ms: 0.8
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.5
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Grow"
+                ml_per_liter: 4.0
+              - product_name: "Power Roots"
+                ml_per_liter: 1.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+              - product_name: "Sugar Royal"
+                ml_per_liter: 1.0
+                optional: true
+
+      - phase_name: flowering
+        sequence_order: 4
+        week_start: 17
+        week_end: 22
+        npk_ratio: [2.0, 2.0, 4.0]
+        is_recurring: true
+        calcium_ppm: 100.0
+        notes: "Umstellung auf Terra Bloom. Blüte und Fruchtansatz."
+        delivery_channels:
+          - channel_id: naehrloesung-bluete
+            label: "Nährlösung Blüte"
+            application_method: drench
+            target_ec_ms: 0.9
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.5
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Bloom"
+                ml_per_liter: 4.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+              - product_name: "Sugar Royal"
+                ml_per_liter: 1.0
+                optional: true
+
+      - phase_name: harvest
+        sequence_order: 5
+        week_start: 23
+        week_end: 28
+        npk_ratio: [2.0, 2.0, 4.0]
+        is_recurring: true
+        calcium_ppm: 100.0
+        notes: "Erntephase. Reduzierte Düngung, Terra Bloom beibehalten."
+        delivery_channels:
+          - channel_id: naehrloesung-bluete
+            label: "Nährlösung Blüte"
+            application_method: drench
+            target_ec_ms: 0.7
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.5
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Bloom"
+                ml_per_liter: 3.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+
+      - phase_name: flushing
+        sequence_order: 6
+        week_start: 29
+        week_end: 30
+        npk_ratio: [0.0, 0.0, 0.0]
+        is_recurring: true
+        notes: "Salzspülung nach Ernte. Nur Wasser + Enzyme."
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 5
+          preferred_time: "07:00"
+          application_method: drench
+        delivery_channels:
+          - channel_id: wasser-pur
+            label: "Flush + Enzyme"
+            application_method: drench
+            target_ec_ms: 0.0
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.5
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+
+      - phase_name: vegetative
+        sequence_order: 7
+        week_start: 31
+        week_end: 40
+        npk_ratio: [3.0, 1.0, 3.0]
+        is_recurring: true
+        notes: "Herbst-Vegetativ. Reduzierte Düngung für Wintervorbereitung."
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 5
+          preferred_time: "07:00"
+          application_method: drench
+        delivery_channels:
+          - channel_id: naehrloesung-wachstum
+            label: "Nährlösung Wachstum"
+            application_method: drench
+            target_ec_ms: 0.6
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Grow"
+                ml_per_liter: 3.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+
+      - phase_name: dormancy
+        sequence_order: 8
+        week_start: 41
+        week_end: 52
+        npk_ratio: [0.0, 0.0, 0.0]
+        is_recurring: true
+        notes: "Winterruhe. Keine Düngung, minimale Bewässerung."
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 14
+          preferred_time: "07:00"
+          application_method: drench
+        delivery_channels:
+          - channel_id: wasser-pur
+            label: "Nur Wasser"
+            application_method: drench
+            target_ec_ms: 0.0
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.2
+            fertigation_params: null
+            fertilizer_dosages: []
+
+  # ── Basilikum (Sweet Basil) — Plagron Terra ───────────────────────────
+  - name: "Basilikum (Sweet Basil) — Plagron Terra"
+    description: >-
+      Minimalistischer Nährstoffplan für Basilikum (Schwachzehrer).
+      Nur 2 Produkte: Terra Grow + Pure Zym. Bewusst niedrige Dosierung —
+      Überdüngung reduziert ätherische Öle. Einjährig, 18-Wochen-Zyklus.
+    recommended_substrate_type: soil
+    author: "Kamerplanter Referenzdaten"
+    is_template: true
+    version: "1.0"
+    tags:
+      - basilikum
+      - ocimum
+      - sweet-basil
+      - plagron
+      - terra
+      - erde
+      - kraeutergarten
+      - schwachzehrer
+      - indoor
+      - outdoor
+      - aroma
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 2
+      preferred_time: "08:00"
+      application_method: drench
+    cycle_restart_from_sequence: null
+
+    phase_entries:
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 2
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: "Nur Wasser. Samen keimen bei 20–25 °C in feuchtem Substrat."
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 1
+          preferred_time: "08:00"
+          application_method: drench
+        delivery_channels:
+          - channel_id: wasser-keimung
+            label: "Nur Wasser (Keimung)"
+            application_method: drench
+            target_ec_ms: 0.0
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.1
+            fertigation_params: null
+            fertilizer_dosages: []
+
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 3
+        week_end: 5
+        npk_ratio: [1.0, 1.0, 1.0]
+        notes: "Halbe Dosis Terra Grow + Pure Zym. Erstes echtes Blattpaar."
+        delivery_channels:
+          - channel_id: naehrloesung-wachstum
+            label: "Nährlösung Wachstum"
+            application_method: drench
+            target_ec_ms: 0.5
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.2
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Grow"
+                ml_per_liter: 1.5
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+
+      - phase_name: vegetative
+        sequence_order: 3
+        week_start: 6
+        week_end: 12
+        npk_ratio: [3.0, 1.0, 3.0]
+        notes: "Hauptwachstum. Regelmäßig ernten für buschiges Wachstum."
+        delivery_channels:
+          - channel_id: naehrloesung-wachstum
+            label: "Nährlösung Wachstum"
+            application_method: drench
+            target_ec_ms: 0.6
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Grow"
+                ml_per_liter: 2.5
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+
+      - phase_name: flowering
+        sequence_order: 4
+        week_start: 13
+        week_end: 16
+        npk_ratio: [3.0, 1.0, 3.0]
+        notes: "Blütenbildung. Blüten ausbrechen für Blattqualität, oder blühen lassen."
+        delivery_channels:
+          - channel_id: naehrloesung-wachstum
+            label: "Nährlösung Wachstum"
+            application_method: drench
+            target_ec_ms: 0.5
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Grow"
+                ml_per_liter: 2.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+
+      - phase_name: harvest
+        sequence_order: 5
+        week_start: 17
+        week_end: 18
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: "Letzte Ernte. Nur Wasser, Pflanze wird kompostiert."
+        delivery_channels:
+          - channel_id: wasser-nur
+            label: "Nur Wasser"
+            application_method: drench
+            target_ec_ms: 0.0
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertigation_params: null
+            fertilizer_dosages: []
+
+  # ── Stiefmütterchen (Frühjahrsaussaat) — Plagron Terra ────────────────
+  - name: "Stiefmütterchen (Frühjahrsaussaat) — Plagron Terra"
+    description: >-
+      Saisonplan für Stiefmütterchen (Viola x wittrockiana). Plagron Terra-Linie
+      mit 3 Produkten. Indoor-Aussaat Feb/März, Hauptblüte Mai–Juli.
+      Schwachzehrer, annuell kultiviert. Blüten essbar.
+    recommended_substrate_type: soil
+    author: "Kamerplanter Referenzdaten"
+    is_template: true
+    version: "1.0"
+    tags:
+      - "stiefmütterchen"
+      - viola
+      - pansy
+      - plagron
+      - terra
+      - erde
+      - outdoor
+      - schwachzehrer
+      - essbare-blüten
+      - zierpflanze
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 3
+      preferred_time: "08:00"
+      application_method: drench
+    cycle_restart_from_sequence: null
+
+    phase_entries:
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 2
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: "Nur Wasser. Samen keimen bei 15–18 °C (Kaltkeimer)."
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 1
+          preferred_time: "08:00"
+          application_method: drench
+        delivery_channels:
+          - channel_id: wasser-keimung
+            label: "Nur Wasser (Keimung)"
+            application_method: drench
+            target_ec_ms: 0.0
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.1
+            fertigation_params: null
+            fertilizer_dosages: []
+
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 3
+        week_end: 8
+        npk_ratio: [3.0, 1.0, 3.0]
+        notes: "Schwache Düngung mit Terra Grow. Jungpflanzen pikieren."
+        delivery_channels:
+          - channel_id: naehrloesung-wachstum
+            label: "Nährlösung Wachstum"
+            application_method: drench
+            target_ec_ms: 0.5
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.2
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Grow"
+                ml_per_liter: 1.5
+
+      - phase_name: vegetative
+        sequence_order: 3
+        week_start: 9
+        week_end: 14
+        npk_ratio: [2.0, 1.0, 2.0]
+        notes: "Blattmasse aufbauen. Pure Zym für Bodengesundheit."
+        delivery_channels:
+          - channel_id: naehrloesung-wachstum
+            label: "Nährlösung Wachstum"
+            application_method: drench
+            target_ec_ms: 0.6
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Grow"
+                ml_per_liter: 2.5
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+
+      - phase_name: flowering
+        sequence_order: 4
+        week_start: 15
+        week_end: 28
+        npk_ratio: [2.0, 2.0, 4.0]
+        notes: "Umstellung auf Terra Bloom. Hauptblüte Mai–Juli."
+        delivery_channels:
+          - channel_id: naehrloesung-bluete
+            label: "Nährlösung Blüte"
+            application_method: drench
+            target_ec_ms: 0.7
+            target_ph: 5.8
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Bloom"
+                ml_per_liter: 3.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+
+      - phase_name: dormancy
+        sequence_order: 5
+        week_start: 29
+        week_end: 32
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: "Seneszenz durch Sommerhitze. Nur Wasser, Pflanze wird kompostiert."
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 5
+          preferred_time: "08:00"
+          application_method: drench
+        delivery_channels:
+          - channel_id: wasser-pur
+            label: "Nur Wasser"
+            application_method: drench
+            target_ec_ms: 0.0
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.2
+            fertigation_params: null
+            fertilizer_dosages: []
+
+  # ── Sonnenblume — Plagron Terra ────────────────────────────────────────
+  - name: "Sonnenblume — Plagron Terra"
+    description: >-
+      Saisonplan für Sonnenblumen (Helianthus annuus) im Freiland.
+      Plagron Terra-Linie mit 6 Produkten inkl. Green Sensation.
+      Starkzehrer mit EC bis 1.5. Einjährig.
+    recommended_substrate_type: soil
+    author: "Kamerplanter Referenzdaten"
+    is_template: true
+    version: "1.0"
+    tags:
+      - sonnenblume
+      - helianthus
+      - annuus
+      - plagron
+      - terra
+      - erde
+      - outdoor
+      - freiland
+      - starkzehrer
+      - samen
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 2
+      preferred_time: "07:00"
+      application_method: drench
+    cycle_restart_from_sequence: null
+
+    phase_entries:
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 2
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: "Nur Wasser. Direktsaat Mitte Mai, 2–3 cm tief."
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 1
+          preferred_time: "07:00"
+          application_method: drench
+        delivery_channels:
+          - channel_id: wasser-keimung
+            label: "Nur Wasser (Keimung)"
+            application_method: drench
+            target_ec_ms: 0.0
+            target_ph: 6.5
+            drench_params:
+              volume_per_feeding_liters: 0.5
+            fertigation_params: null
+            fertilizer_dosages: []
+
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 3
+        week_end: 5
+        npk_ratio: [2.0, 1.0, 1.0]
+        notes: "Halbe Dosis Terra Grow + Power Roots. Schnelles Jugendwachstum."
+        delivery_channels:
+          - channel_id: naehrloesung-wachstum
+            label: "Nährlösung Wachstum"
+            application_method: drench
+            target_ec_ms: 0.8
+            target_ph: 6.5
+            drench_params:
+              volume_per_feeding_liters: 0.5
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Grow"
+                ml_per_liter: 2.5
+              - product_name: "Power Roots"
+                ml_per_liter: 1.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+
+      - phase_name: vegetative
+        sequence_order: 3
+        week_start: 6
+        week_end: 12
+        npk_ratio: [3.0, 1.0, 2.0]
+        notes: "Volle Dosis Terra Grow. Starkzehrer — EC 1.5."
+        delivery_channels:
+          - channel_id: naehrloesung-wachstum
+            label: "Nährlösung Wachstum"
+            application_method: drench
+            target_ec_ms: 1.5
+            target_ph: 6.5
+            drench_params:
+              volume_per_feeding_liters: 1.0
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Grow"
+                ml_per_liter: 5.0
+              - product_name: "Power Roots"
+                ml_per_liter: 1.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+              - product_name: "Sugar Royal"
+                ml_per_liter: 1.0
+                optional: true
+
+      - phase_name: flowering
+        sequence_order: 4
+        week_start: 13
+        week_end: 16
+        npk_ratio: [1.0, 2.0, 3.0]
+        notes: "Umstellung auf Terra Bloom. Blütenentwicklung, hoher K-Bedarf."
+        delivery_channels:
+          - channel_id: naehrloesung-bluete
+            label: "Nährlösung Blüte"
+            application_method: drench
+            target_ec_ms: 1.5
+            target_ph: 6.3
+            drench_params:
+              volume_per_feeding_liters: 1.0
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Bloom"
+                ml_per_liter: 5.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+              - product_name: "Sugar Royal"
+                ml_per_liter: 1.0
+                optional: true
+
+      - phase_name: harvest
+        sequence_order: 5
+        week_start: 17
+        week_end: 22
+        npk_ratio: [0.0, 1.0, 3.0]
+        notes: "Samenfüllung. Green Sensation für PK-Booster, dann Düngung reduzieren."
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 3
+          preferred_time: "07:00"
+          application_method: drench
+        delivery_channels:
+          - channel_id: naehrloesung-bluete
+            label: "Nährlösung Blüte + PK"
+            application_method: drench
+            target_ec_ms: 1.0
+            target_ph: 6.3
+            drench_params:
+              volume_per_feeding_liters: 0.5
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Bloom"
+                ml_per_liter: 3.0
+              - product_name: "Green Sensation"
+                ml_per_liter: 1.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+
+  # ── Tomate — Plagron Terra + PK 13-14 ─────────────────────────────────
+  - name: "Tomate — Plagron Terra + PK 13-14"
+    description: >-
+      Saisonplan für Tomaten (indeterminiert) mit Indoor-Vorkultur ab März.
+      Plagron Terra-Linie mit 6 Produkten inkl. PK 13-14 Blütebooster.
+      Starkzehrer, 28 Wochen (März–Oktober).
+    recommended_substrate_type: soil
+    author: "Kamerplanter Referenzdaten"
+    is_template: true
+    version: "1.0"
+    tags:
+      - tomate
+      - tomato
+      - solanum
+      - lycopersicum
+      - starkzehrer
+      - plagron
+      - terra
+      - pk-13-14
+      - erde
+      - outdoor
+      - gewaechshaus
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 1
+      preferred_time: "07:00"
+      application_method: drench
+    cycle_restart_from_sequence: null
+
+    phase_entries:
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 2
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: "Nur Wasser. Indoor-Aussaat bei 22–25 °C."
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 1
+          preferred_time: "07:00"
+          application_method: drench
+        delivery_channels:
+          - channel_id: wasser-keimung
+            label: "Nur Wasser (Keimung)"
+            application_method: drench
+            target_ec_ms: 0.0
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.1
+            fertigation_params: null
+            fertilizer_dosages: []
+
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 3
+        week_end: 6
+        npk_ratio: [3.0, 1.0, 3.0]
+        notes: "Halbe Dosis Terra Grow + Power Roots. Indoor-Vorkultur."
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 2
+          preferred_time: "07:00"
+          application_method: drench
+        delivery_channels:
+          - channel_id: naehrloesung-wachstum
+            label: "Nährlösung Wachstum"
+            application_method: drench
+            target_ec_ms: 0.6
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.2
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Grow"
+                ml_per_liter: 1.5
+              - product_name: "Power Roots"
+                ml_per_liter: 1.0
+
+      - phase_name: vegetative
+        sequence_order: 3
+        week_start: 7
+        week_end: 12
+        npk_ratio: [3.0, 1.0, 3.0]
+        notes: "Volle Dosis Terra Grow. Starkzehrer — EC 1.5. Ausgeizen beginnen."
+        delivery_channels:
+          - channel_id: naehrloesung-wachstum
+            label: "Nährlösung Wachstum"
+            application_method: drench
+            target_ec_ms: 1.5
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 1.0
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Grow"
+                ml_per_liter: 5.0
+              - product_name: "Power Roots"
+                ml_per_liter: 1.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+              - product_name: "Sugar Royal"
+                ml_per_liter: 1.0
+                optional: true
+
+      - phase_name: flowering
+        sequence_order: 4
+        week_start: 13
+        week_end: 17
+        npk_ratio: [2.0, 2.0, 4.0]
+        calcium_ppm: 175.0
+        magnesium_ppm: 50.0
+        notes: >-
+          Umstellung auf Terra Bloom. PK 13-14 nur in Woche 15–16
+          (Peak Blüte). Starkzehrer — EC 1.8.
+        delivery_channels:
+          - channel_id: naehrloesung-bluete
+            label: "Nährlösung Blüte"
+            application_method: drench
+            target_ec_ms: 1.8
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 1.0
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Bloom"
+                ml_per_liter: 5.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+              - product_name: "Sugar Royal"
+                ml_per_liter: 1.0
+                optional: true
+              - product_name: "PK 13-14"
+                ml_per_liter: 0.5
+                optional: true
+
+      - phase_name: harvest
+        sequence_order: 5
+        week_start: 18
+        week_end: 26
+        npk_ratio: [2.0, 2.0, 4.0]
+        calcium_ppm: 175.0
+        magnesium_ppm: 50.0
+        notes: "Erntephase. Reduzierte Düngung, fortlaufende Fruchtreife."
+        delivery_channels:
+          - channel_id: naehrloesung-bluete
+            label: "Nährlösung Blüte"
+            application_method: drench
+            target_ec_ms: 1.5
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 1.0
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Terra Bloom"
+                ml_per_liter: 4.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+
+      - phase_name: flushing
+        sequence_order: 6
+        week_start: 27
+        week_end: 28
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: "Saisonende. Nur Wasser + Enzyme, letzte Früchte ernten."
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 3
+          preferred_time: "07:00"
+          application_method: drench
+        delivery_channels:
+          - channel_id: wasser-pur
+            label: "Flush + Enzyme"
+            application_method: drench
+            target_ec_ms: 0.0
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 1.0
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0

@@ -38,3 +38,8 @@ class IFeedingRepository(ABC):
     @abstractmethod
     def get_latest_by_plant(self, plant_key: str) -> FeedingEvent | None:
         ...
+
+    @abstractmethod
+    def get_recent_runoff_events(self, plant_key: str, limit: int = 5) -> list[FeedingEvent]:
+        """Return last N FeedingEvents with non-null runoff_ec, ordered by timestamp desc."""
+        ...

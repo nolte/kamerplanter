@@ -1,7 +1,7 @@
 from app.common.exceptions import NotFoundError
 from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
 from app.domain.engines.delivery_channel_engine import DeliveryChannelValidator
-from app.domain.engines.nutrient_plan_engine import NutrientPlanValidator
+from app.domain.engines.nutrient_plan_engine import NutrientPlanValidator, resolve_effective_entry
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
 from app.domain.models.nutrient_plan import DeliveryChannel, NutrientPlan, NutrientPlanPhaseEntry
@@ -70,6 +70,7 @@ class NutrientPlanService:
             "phase_name", "sequence_order", "week_start", "week_end",
             "npk_ratio", "calcium_ppm", "magnesium_ppm", "notes",
             "delivery_channels", "is_recurring", "watering_schedule_override",
+            "water_mix_ratio_ro_percent",
         }
         for field, value in data.items():
             if field in allowed_fields:
@@ -220,22 +221,50 @@ class NutrientPlanService:
             return None
 
         entries = self._repo.get_phase_entries(plan.key)
-        # Find matching entry for current phase and week
-        for entry in entries:
-            if (
-                entry.phase_name.value == current_phase
-                and entry.week_start <= current_week <= entry.week_end
-            ):
-                channels_data = self._build_channels_data(entry.delivery_channels)
-                return {
-                    "plan_key": plan.key,
-                    "plan_name": plan.name,
-                    "entry_key": entry.key,
-                    "phase_name": entry.phase_name.value,
-                    "channels": channels_data,
-                }
+        entry = resolve_effective_entry(
+            entries, current_phase, current_week, plan.cycle_restart_from_sequence,
+        )
+        if entry is None:
+            return None
 
-        return None
+        channels_data = self._build_channels_data(entry.delivery_channels)
+        return {
+            "plan_key": plan.key,
+            "plan_name": plan.name,
+            "entry_key": entry.key,
+            "phase_name": entry.phase_name.value,
+            "channels": channels_data,
+        }
+
+    def get_active_channels_for_plan(
+        self, plan_key: str, current_phase: str, current_week: int,
+    ) -> list[dict]:
+        """Return active delivery channels with enriched dosage data.
+
+        Works for any entity that has a nutrient plan assigned (plant or run).
+        Returns only enabled channels from the effective phase entry.
+        """
+        plan = self._repo.get_by_key(plan_key)
+        if plan is None or plan.key is None:
+            return []
+
+        entries = self._repo.get_phase_entries(plan.key)
+        entry = resolve_effective_entry(
+            entries, current_phase, current_week, plan.cycle_restart_from_sequence,
+        )
+        if entry is None:
+            return []
+
+        channels_data = self._build_channels_data(entry.delivery_channels)
+        # Augment with plan context
+        for ch in channels_data:
+            ch["plan_key"] = plan.key
+            ch["plan_name"] = plan.name
+            ch["entry_key"] = entry.key
+            ch["phase_name"] = entry.phase_name.value
+            ch["week_start"] = entry.week_start
+            ch["week_end"] = entry.week_end
+        return channels_data
 
     def _build_channels_data(self, channels: list[DeliveryChannel]) -> list[dict]:
         """Build enriched channel data with fertilizer names and mixing priorities."""

@@ -2,6 +2,7 @@ import client from '../client';
 import type {
   Substrate,
   SubstrateCreate,
+  SubstrateMixRequest,
   Batch,
   BatchCreate,
   ReusabilityResponse,
@@ -61,5 +62,15 @@ export async function checkReusability(batchKey: string): Promise<ReusabilityRes
   const { data } = await client.post<ReusabilityResponse>(
     `${BASE}/batches/${batchKey}/check-reusability`,
   );
+  return data;
+}
+
+export async function createSubstrateMix(payload: SubstrateMixRequest): Promise<Substrate> {
+  const { data } = await client.post<Substrate>(`${BASE}/mix`, payload);
+  return data;
+}
+
+export async function previewSubstrateMix(payload: SubstrateMixRequest): Promise<Substrate> {
+  const { data } = await client.post<Substrate>(`${BASE}/preview-mix`, payload);
   return data;
 }

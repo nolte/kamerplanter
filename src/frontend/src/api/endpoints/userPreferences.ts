@@ -11,6 +11,7 @@ export async function updatePreferences(updates: {
   locale?: string;
   theme?: string;
   onboarding_completed?: boolean;
+  watering_can_liters?: number;
 }): Promise<UserPreference> {
   const { data } = await client.patch<UserPreference>('/user-preferences', updates);
   return data;

@@ -19,6 +19,12 @@ from .schemas import (
     CalendarFeedFiltersSchema,
     CalendarFeedResponse,
     CalendarFeedUpdateRequest,
+    FrostConfigSchema,
+    MonthSummarySchema,
+    SeasonOverviewResponse,
+    SowingBarSchema,
+    SowingCalendarEntrySchema,
+    SowingCalendarResponse,
 )
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
@@ -91,6 +97,73 @@ def get_calendar_events(
             for e in events
         ],
         total=len(events),
+    )
+
+
+@router.get("/sowing")
+def get_sowing_calendar(
+    site_id: str | None = Query(default=None),
+    year: int = Query(default=None),
+) -> SowingCalendarResponse:
+    from datetime import date as _date
+    svc: CalendarService = get_calendar_service()
+    effective_year = year if year else _date.today().year
+    entries, frost_config = svc.get_sowing_calendar(site_id, effective_year)
+    return SowingCalendarResponse(
+        entries=[
+            SowingCalendarEntrySchema(
+                species_key=e.species_key,
+                species_name=e.species_name,
+                common_name=e.common_name,
+                bars=[
+                    SowingBarSchema(
+                        phase=b.phase,
+                        color=b.color,
+                        start_date=b.start_date,
+                        end_date=b.end_date,
+                        label=b.label,
+                    )
+                    for b in e.bars
+                ],
+            )
+            for e in entries
+        ],
+        frost_config=FrostConfigSchema(
+            last_frost_date=frost_config.last_frost_date,
+            first_frost_date=frost_config.first_frost_date,
+            eisheilige_date=frost_config.eisheilige_date,
+        ),
+        year=effective_year,
+        total=len(entries),
+    )
+
+
+@router.get("/season-overview")
+def get_season_overview(
+    site_id: str | None = Query(default=None),
+    year: int = Query(default=None),
+) -> SeasonOverviewResponse:
+    from datetime import date as _date
+    svc: CalendarService = get_calendar_service()
+    effective_year = year if year else _date.today().year
+    overview = svc.get_season_overview(site_id, effective_year)
+    return SeasonOverviewResponse(
+        site_key=overview.site_key,
+        site_name=overview.site_name,
+        year=overview.year,
+        months=[
+            MonthSummarySchema(
+                month=m.month,
+                month_name=m.month_name,
+                sowing_count=m.sowing_count,
+                harvest_count=m.harvest_count,
+                bloom_count=m.bloom_count,
+                task_count=m.task_count,
+                top_tasks=m.top_tasks,
+                is_current=m.is_current,
+            )
+            for m in overview.months
+        ],
     )
 
 

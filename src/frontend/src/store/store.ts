@@ -1,4 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
+import activitiesReducer from './slices/activitiesSlice';
 import authReducer from './slices/authSlice';
 import uiReducer from './slices/uiSlice';
 import botanicalFamiliesReducer from './slices/botanicalFamiliesSlice';
@@ -21,9 +22,11 @@ import onboardingReducer from './slices/onboardingSlice';
 import userPreferencesReducer from './slices/userPreferencesSlice';
 import importReducer from './slices/importSlice';
 import calendarReducer from './slices/calendarSlice';
+import wateringLogsReducer from './slices/wateringLogsSlice';
 
 export const store = configureStore({
   reducer: {
+    activities: activitiesReducer,
     auth: authReducer,
     ui: uiReducer,
     tenants: tenantsReducer,
@@ -46,6 +49,7 @@ export const store = configureStore({
     userPreferences: userPreferencesReducer,
     import: importReducer,
     calendar: calendarReducer,
+    wateringLogs: wateringLogsReducer,
   },
 });
 

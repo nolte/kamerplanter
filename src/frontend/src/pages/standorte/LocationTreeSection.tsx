@@ -17,14 +17,19 @@ import GrassIcon from '@mui/icons-material/Grass';
 import BalconyIcon from '@mui/icons-material/Balcony';
 import DeckIcon from '@mui/icons-material/Deck';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
+import LandscapeIcon from '@mui/icons-material/Landscape';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import LocationCreateDialog from './LocationCreateDialog';
+import EmptyState from '@/components/common/EmptyState';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/sites';
 import type { LocationTreeNode } from '@/api/types';
 
 const ICON_MAP: Record<string, React.ReactElement> = {
+  AccountTree: <AccountTreeIcon fontSize="small" />,
+  Landscape: <LandscapeIcon fontSize="small" />,
   Park: <ParkIcon fontSize="small" />,
   Home: <HomeIcon fontSize="small" />,
   MeetingRoom: <MeetingRoomIcon fontSize="small" />,
@@ -56,6 +61,7 @@ export default function LocationTreeSection({ siteKey }: Props) {
   const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createParentKey, setCreateParentKey] = useState<string | undefined>(undefined);
+  const [createParentTypeKey, setCreateParentTypeKey] = useState<string | undefined>(undefined);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,14 +85,16 @@ export default function LocationTreeSection({ siteKey }: Props) {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleAddSublocation = (parentKey: string) => (e: React.MouseEvent) => {
+  const handleAddSublocation = (parentKey: string, typeKey?: string) => (e: React.MouseEvent) => {
     e.stopPropagation();
     setCreateParentKey(parentKey);
+    setCreateParentTypeKey(typeKey);
     setCreateOpen(true);
   };
 
   const handleAddTopLevel = () => {
     setCreateParentKey(undefined);
+    setCreateParentTypeKey(undefined);
     setCreateOpen(true);
   };
 
@@ -124,7 +132,7 @@ export default function LocationTreeSection({ siteKey }: Props) {
             )}
             <IconButton
               size="small"
-              onClick={handleAddSublocation(node.key)}
+              onClick={handleAddSublocation(node.key, node.location_type_key)}
               title={t('pages.locations.addSublocation')}
             >
               <AddIcon fontSize="small" />
@@ -149,7 +157,11 @@ export default function LocationTreeSection({ siteKey }: Props) {
       {loading ? (
         <Typography variant="body2" color="text.secondary">{t('common.loading')}</Typography>
       ) : tree.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">{t('pages.locations.noSublocations')}</Typography>
+        <EmptyState
+          message={t('pages.locations.noSublocations')}
+          actionLabel={t('pages.locations.create')}
+          onAction={handleAddTopLevel}
+        />
       ) : (
         <SimpleTreeView defaultExpandedItems={tree.map((n) => n.key)}>
           {tree.map(renderNode)}
@@ -159,6 +171,7 @@ export default function LocationTreeSection({ siteKey }: Props) {
       <LocationCreateDialog
         siteKey={siteKey}
         parentLocationKey={createParentKey}
+        parentLocationTypeKey={createParentTypeKey}
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={() => { setCreateOpen(false); load(); }}
