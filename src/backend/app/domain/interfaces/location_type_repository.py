@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.domain.models.location_type import LocationType
+from app.domain.models.location_type import LocationType
 
 
 class ILocationTypeRepository(ABC):

@@ -1,20 +1,17 @@
 from datetime import UTC, date, datetime, timedelta
-from typing import TYPE_CHECKING
 
 from app.common.enums import PlantingRunStatus
 from app.common.exceptions import InvalidRunStateError, NotFoundError
+from app.common.types import PlantID, PlantingRunKey
+from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
+from app.domain.interfaces.phase_repository import IPhaseRepository
+from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
+from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
+from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
-
-if TYPE_CHECKING:
-    from app.common.types import PlantID, PlantingRunKey
-    from app.domain.engines.planting_run_engine import PlantingRunEngine
-    from app.domain.interfaces.phase_repository import IPhaseRepository
-    from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
-    from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
-    from app.domain.interfaces.site_repository import ISiteRepository
-    from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
+from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 
 
 class PlantingRunService:

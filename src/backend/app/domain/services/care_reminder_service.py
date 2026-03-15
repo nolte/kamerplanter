@@ -1,20 +1,15 @@
-from __future__ import annotations
-
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
 from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, TaskCategory, TaskPriority, TaskStatus
 from app.common.exceptions import NotFoundError
+from app.domain.engines.care_reminder_engine import CareReminderEngine
+from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
+from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
+from app.domain.interfaces.task_repository import ITaskRepository
+from app.domain.interfaces.watering_log_repository import IWateringLogRepository
 from app.domain.models.care_reminder import CareConfirmation, CareDashboardEntry, CareProfile
 from app.domain.models.task import Task
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
-
-if TYPE_CHECKING:
-    from app.domain.engines.care_reminder_engine import CareReminderEngine
-    from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
-    from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
-    from app.domain.interfaces.task_repository import ITaskRepository
-    from app.domain.interfaces.watering_log_repository import IWateringLogRepository
 
 
 class CareReminderService:

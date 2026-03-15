@@ -1,14 +1,10 @@
-from typing import TYPE_CHECKING
+from arango.database import StandardDatabase
 
+from app.common.types import CalendarFeedKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.calendar_feed_repository import ICalendarFeedRepository
 from app.domain.models.calendar import CalendarFeed
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
-
-    from app.common.types import CalendarFeedKey
 
 
 class ArangoCalendarFeedRepository(BaseArangoRepository, ICalendarFeedRepository):

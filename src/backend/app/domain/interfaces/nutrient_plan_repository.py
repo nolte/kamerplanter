@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
-    from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
+from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
+from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
 
 
 class INutrientPlanRepository(ABC):

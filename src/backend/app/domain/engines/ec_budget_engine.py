@@ -5,8 +5,6 @@ Calculates how to distribute available EC headroom among silicate, CalMag,
 base fertilizers, and pH reserve.
 """
 
-from __future__ import annotations
-
 from pydantic import BaseModel, Field
 
 from app.common.enums import FertilizerType, PhaseName, SubstrateType

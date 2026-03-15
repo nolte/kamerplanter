@@ -1,10 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.common.enums import AuthProviderType
-    from app.common.types import AuthProviderKey, UserKey
-    from app.domain.models.auth import AuthProvider
+from app.common.enums import AuthProviderType
+from app.common.types import AuthProviderKey, UserKey
+from app.domain.models.auth import AuthProvider
 
 
 class IAuthProviderRepository(ABC):

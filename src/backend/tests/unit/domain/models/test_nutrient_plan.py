@@ -45,15 +45,16 @@ class TestNutrientPlanPhaseEntry:
                 week_end=3,
             )
 
-    def test_week_end_equals_start_raises(self):
-        with pytest.raises(ValidationError, match="week_end"):
-            NutrientPlanPhaseEntry(
-                plan_key="p1",
-                phase_name=PhaseName.VEGETATIVE,
-                sequence_order=1,
-                week_start=3,
-                week_end=3,
-            )
+    def test_week_end_equals_start_is_valid(self):
+        """A single-week entry (start == end) is valid."""
+        entry = NutrientPlanPhaseEntry(
+            plan_key="p1",
+            phase_name=PhaseName.VEGETATIVE,
+            sequence_order=1,
+            week_start=3,
+            week_end=3,
+        )
+        assert entry.week_start == entry.week_end
 
     def test_npk_negative_raises(self):
         with pytest.raises(ValidationError, match="non-negative"):

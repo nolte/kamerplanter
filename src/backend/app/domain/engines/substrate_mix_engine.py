@@ -3,12 +3,8 @@
 Computes weighted averages for pH, EC, porosity, water retention, etc.
 """
 
-from typing import TYPE_CHECKING
-
 from app.common.enums import BufferCapacity, IrrigationStrategy, WaterRetention
-
-if TYPE_CHECKING:
-    from app.domain.models.substrate import MixComponent, Substrate
+from app.domain.models.substrate import MixComponent, Substrate
 
 # Numeric encoding for ordinal enums (for weighted averaging)
 _RETENTION_ORDER = {WaterRetention.LOW: 1, WaterRetention.MEDIUM: 2, WaterRetention.HIGH: 3}

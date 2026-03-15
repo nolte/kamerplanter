@@ -1,13 +1,9 @@
-from typing import TYPE_CHECKING
-
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.slots.schemas import SlotCreate, SlotResponse
 from app.common.dependencies import get_site_service
 from app.domain.models.site import Slot
-
-if TYPE_CHECKING:
-    from app.domain.services.site_service import SiteService
+from app.domain.services.site_service import SiteService
 
 router = APIRouter(prefix="/slots", tags=["slots"])
 

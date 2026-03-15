@@ -1,13 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.common.types import (
-        LocationKey,
-        MaintenanceScheduleKey,
-        TankKey,
-    )
-    from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState
+from app.common.types import (
+    LocationKey,
+    MaintenanceScheduleKey,
+    TankKey,
+)
+from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState
 
 
 class ITankRepository(ABC):

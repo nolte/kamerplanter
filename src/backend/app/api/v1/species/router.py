@@ -1,14 +1,10 @@
-from typing import TYPE_CHECKING
-
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.species.schemas import SpeciesCreate, SpeciesListResponse, SpeciesResponse
 from app.common.dependencies import get_family_repo, get_species_service
+from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.domain.models.species import Species
-
-if TYPE_CHECKING:
-    from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
-    from app.domain.services.species_service import SpeciesService
+from app.domain.services.species_service import SpeciesService
 
 router = APIRouter(prefix="/species", tags=["species"])
 

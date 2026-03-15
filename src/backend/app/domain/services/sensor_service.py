@@ -1,11 +1,8 @@
-from typing import TYPE_CHECKING
-
 import structlog
 
-if TYPE_CHECKING:
-    from app.data_access.external.ha_client import HomeAssistantClient
-    from app.domain.interfaces.sensor_repository import ISensorRepository
-    from app.domain.models.sensor import Sensor
+from app.data_access.external.ha_client import HomeAssistantClient
+from app.domain.interfaces.sensor_repository import ISensorRepository
+from app.domain.models.sensor import Sensor
 
 logger = structlog.get_logger(__name__)
 

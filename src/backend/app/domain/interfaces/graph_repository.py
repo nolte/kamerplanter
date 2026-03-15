@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from app.common.types import SpeciesKey
+from app.common.types import SpeciesKey
 
 
 class IGraphRepository(ABC):

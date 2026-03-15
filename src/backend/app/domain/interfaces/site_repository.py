@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
-    from app.domain.models.site import Location, Site, Slot
+from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
+from app.domain.models.site import Location, Site, Slot
 
 
 class ISiteRepository(ABC):

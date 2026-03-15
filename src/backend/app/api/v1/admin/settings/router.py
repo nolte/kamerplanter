@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 import httpx
 from fastapi import APIRouter, Depends
 
@@ -12,10 +10,8 @@ from app.api.v1.admin.settings.schemas import (
 )
 from app.common.auth import get_current_user
 from app.common.dependencies import get_system_settings_service
-
-if TYPE_CHECKING:
-    from app.domain.models.user import User
-    from app.domain.services.system_settings_service import SystemSettingsService
+from app.domain.models.user import User
+from app.domain.services.system_settings_service import SystemSettingsService
 
 router = APIRouter(prefix="/admin/settings", tags=["admin-settings"])
 

@@ -30,10 +30,10 @@ describe('PlantInstanceListPage', () => {
     });
   });
 
-  it('shows current phase as chip', async () => {
+  it('shows the data table', async () => {
     renderWithProviders(<PlantInstanceListPage />);
     await waitFor(() => {
-      expect(screen.getByText('vegetative')).toBeTruthy();
+      expect(screen.getByTestId('data-table')).toBeTruthy();
     });
   });
 

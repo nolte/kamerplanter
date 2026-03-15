@@ -1,9 +1,5 @@
-from typing import TYPE_CHECKING
-
 from app.common.enums import PhaseName
-
-if TYPE_CHECKING:
-    from app.domain.models.nutrient_plan import NutrientPlanPhaseEntry
+from app.domain.models.nutrient_plan import NutrientPlanPhaseEntry
 
 ALL_PHASES = [p for p in PhaseName]
 

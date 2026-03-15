@@ -1,15 +1,12 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
+from arango.database import StandardDatabase
+
+from app.common.types import PlantID, SlotKey, SpeciesKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.models.plant_instance import PlantInstance
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
-
-    from app.common.types import PlantID, SlotKey, SpeciesKey
 
 
 class ArangoPlantInstanceRepository(IPlantInstanceRepository, BaseArangoRepository):

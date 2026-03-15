@@ -1,13 +1,9 @@
-from typing import TYPE_CHECKING
-
+from app.common.enums import IrrigationSystem
 from app.common.exceptions import NotFoundError, ValidationError
+from app.common.types import MaintenanceScheduleKey, TankKey
+from app.domain.engines.tank_engine import TankEngine
+from app.domain.interfaces.tank_repository import ITankRepository
 from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState
-
-if TYPE_CHECKING:
-    from app.common.enums import IrrigationSystem
-    from app.common.types import MaintenanceScheduleKey, TankKey
-    from app.domain.engines.tank_engine import TankEngine
-    from app.domain.interfaces.tank_repository import ITankRepository
 
 
 class TankService:

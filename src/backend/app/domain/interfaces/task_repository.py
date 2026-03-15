@@ -1,16 +1,14 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
-    from app.domain.models.task import (
-        Task,
-        TaskAuditEntry,
-        TaskComment,
-        TaskTemplate,
-        WorkflowExecution,
-        WorkflowTemplate,
-    )
+from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
+from app.domain.models.task import (
+    Task,
+    TaskAuditEntry,
+    TaskComment,
+    TaskTemplate,
+    WorkflowExecution,
+    WorkflowTemplate,
+)
 
 
 class ITaskRepository(ABC):

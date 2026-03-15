@@ -19,7 +19,7 @@ function renderComponent(props: { error: string; onRetry?: () => void }) {
 describe('ErrorDisplay', () => {
   it('renders error message in alert', () => {
     renderComponent({ error: 'Something went wrong' });
-    expect(screen.getByRole('alert')).toBeTruthy();
+    expect(screen.getByTestId('error-display')).toBeTruthy();
     expect(screen.getByText('Something went wrong')).toBeTruthy();
   });
 

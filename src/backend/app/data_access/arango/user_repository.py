@@ -1,14 +1,10 @@
-from typing import TYPE_CHECKING
+from arango.database import StandardDatabase
 
+from app.common.types import UserKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.user import User
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
-
-    from app.common.types import UserKey
 
 
 class ArangoUserRepository(IUserRepository, BaseArangoRepository):

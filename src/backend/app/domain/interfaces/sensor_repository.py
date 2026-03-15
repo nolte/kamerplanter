@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.domain.models.sensor import Sensor
+from app.domain.models.sensor import Sensor
 
 
 class ISensorRepository(ABC):

@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.common.types import ExternalMappingKey, SourceKey, SyncRunKey
-    from app.domain.models.enrichment import ExternalMapping, ExternalSource, SyncRun
+from app.common.types import ExternalMappingKey, SourceKey, SyncRunKey
+from app.domain.models.enrichment import ExternalMapping, ExternalSource, SyncRun
 
 
 class IExternalSourceRepository(ABC):

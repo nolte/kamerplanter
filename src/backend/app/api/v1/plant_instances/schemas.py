@@ -1,11 +1,8 @@
-from typing import TYPE_CHECKING
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
-if TYPE_CHECKING:
-    from datetime import date, datetime
-
-    from app.common.enums import SubstrateType
+from app.common.enums import SubstrateType
 
 
 class PlantCreate(BaseModel):

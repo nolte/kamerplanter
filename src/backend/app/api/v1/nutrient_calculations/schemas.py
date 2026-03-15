@@ -1,9 +1,6 @@
-from typing import TYPE_CHECKING
+from datetime import date
 
 from pydantic import BaseModel, Field
-
-if TYPE_CHECKING:
-    from datetime import date
 
 
 class MixingProtocolRequest(BaseModel):

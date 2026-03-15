@@ -1,14 +1,10 @@
 """Season overview engine — aggregates sowing/harvest/task counts per month."""
 
-from __future__ import annotations
-
 from datetime import date
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
-if TYPE_CHECKING:
-    from app.domain.engines.sowing_calendar_engine import SowingCalendarEntry
+from app.domain.engines.sowing_calendar_engine import SowingCalendarEntry
 
 
 class MonthSummary(BaseModel):

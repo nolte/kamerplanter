@@ -1,14 +1,10 @@
-from typing import TYPE_CHECKING
+from arango.database import StandardDatabase
 
+from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.site import Location, Site, Slot
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
-
-    from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
 
 
 class ArangoSiteRepository(ISiteRepository, BaseArangoRepository):

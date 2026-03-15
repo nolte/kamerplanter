@@ -1,13 +1,10 @@
 import statistics
 from datetime import date, timedelta
-from typing import TYPE_CHECKING
 
 from app.common.enums import IrrigationStrategy, SubstrateType
 from app.common.exceptions import SubstrateExhaustedError
-
-if TYPE_CHECKING:
-    from app.domain.interfaces.substrate_repository import ISubstrateRepository
-    from app.domain.models.substrate import Substrate, SubstrateBatch
+from app.domain.interfaces.substrate_repository import ISubstrateRepository
+from app.domain.models.substrate import Substrate, SubstrateBatch
 
 # Substrate types that cannot be reused (disposable)
 DISPOSABLE_TYPES: frozenset[SubstrateType] = frozenset(

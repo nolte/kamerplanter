@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -10,9 +8,6 @@ from app.common.enums import (
     FertilizerType,
     PhEffect,
 )
-
-if TYPE_CHECKING:
-    from datetime import date, datetime
 
 
 class Fertilizer(BaseModel):

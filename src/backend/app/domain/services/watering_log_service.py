@@ -1,22 +1,17 @@
-from __future__ import annotations
-
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
 from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, TaskStatus
 from app.common.exceptions import NotFoundError
 from app.domain.engines.nutrient_engine import RunoffAnalyzer
+from app.domain.engines.watering_engine import WateringEngine
+from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
+from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
+from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
+from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.interfaces.task_repository import ITaskRepository
+from app.domain.interfaces.watering_log_repository import IWateringLogRepository
 from app.domain.models.care_reminder import CareConfirmation
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
-
-if TYPE_CHECKING:
-    from app.domain.engines.watering_engine import WateringEngine
-    from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
-    from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
-    from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
-    from app.domain.interfaces.site_repository import ISiteRepository
-    from app.domain.interfaces.task_repository import ITaskRepository
-    from app.domain.interfaces.watering_log_repository import IWateringLogRepository
 
 
 class WateringLogService:

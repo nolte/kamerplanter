@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.common.types import FertilizerKey, FertilizerStockKey
-    from app.domain.models.fertilizer import Fertilizer, FertilizerStock
+from app.common.types import FertilizerKey, FertilizerStockKey
+from app.domain.models.fertilizer import Fertilizer, FertilizerStock
 
 
 class IFertilizerRepository(ABC):

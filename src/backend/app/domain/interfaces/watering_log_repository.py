@@ -1,12 +1,7 @@
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from datetime import date
 
-if TYPE_CHECKING:
-    from datetime import date
-
-    from app.domain.models.watering_log import WateringLog
+from app.domain.models.watering_log import WateringLog
 
 
 class IWateringLogRepository(ABC):

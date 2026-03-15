@@ -1,5 +1,4 @@
 from datetime import UTC
-from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -28,12 +27,10 @@ from app.api.v1.planting_runs.schemas import (
 )
 from app.common.dependencies import get_nutrient_plan_service, get_planting_run_service, get_species_repo
 from app.common.enums import PlantingRunStatus
+from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
-
-if TYPE_CHECKING:
-    from app.domain.interfaces.species_repository import ISpeciesRepository
-    from app.domain.services.nutrient_plan_service import NutrientPlanService
-    from app.domain.services.planting_run_service import PlantingRunService
+from app.domain.services.nutrient_plan_service import NutrientPlanService
+from app.domain.services.planting_run_service import PlantingRunService
 
 router = APIRouter(prefix="/planting-runs", tags=["planting-runs"])
 

@@ -1,7 +1,5 @@
 """Sowing calendar engine — calculates time bars for species sowing/harvest/bloom phases."""
 
-from __future__ import annotations
-
 from datetime import date, timedelta
 
 from pydantic import BaseModel, model_validator

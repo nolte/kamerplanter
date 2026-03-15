@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.common.types import CalendarFeedKey
-    from app.domain.models.calendar import CalendarFeed
+from app.common.types import CalendarFeedKey
+from app.domain.models.calendar import CalendarFeed
 
 
 class ICalendarFeedRepository(ABC):

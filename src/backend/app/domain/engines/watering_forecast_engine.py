@@ -1,14 +1,10 @@
 """Pure domain engine for projecting future watering dates from a CareProfile."""
 
-from __future__ import annotations
-
 from datetime import date, timedelta
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-if TYPE_CHECKING:
-    from app.domain.models.care_reminder import CareProfile
+from app.domain.models.care_reminder import CareProfile
 
 
 class PhaseInterval(BaseModel):

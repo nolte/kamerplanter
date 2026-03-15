@@ -1,9 +1,5 @@
-from typing import TYPE_CHECKING
-
 from app.common.enums import ApplicationMethod, IrrigationSystem
-
-if TYPE_CHECKING:
-    from app.domain.models.watering_event import WateringEvent
+from app.domain.models.watering_event import WateringEvent
 
 HYDRO_SYSTEMS = {IrrigationSystem.HYDRO, IrrigationSystem.NFT, IrrigationSystem.EBB_FLOW}
 MAX_VOLUME_PER_SLOT = 20.0

@@ -1,15 +1,10 @@
-from __future__ import annotations
-
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
 from app.common.exceptions import PhaseTransitionError
+from app.domain.interfaces.phase_repository import IPhaseRepository
+from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.models.phase import PhaseHistory
-
-if TYPE_CHECKING:
-    from app.domain.interfaces.phase_repository import IPhaseRepository
-    from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
-    from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.plant_instance import PlantInstance
 
 
 class PhaseTransitionEngine:

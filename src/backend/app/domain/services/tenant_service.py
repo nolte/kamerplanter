@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
 import structlog
 
@@ -14,21 +13,19 @@ from app.common.exceptions import (
     NotFoundError,
     ValidationError,
 )
+from app.domain.engines.invitation_engine import InvitationEngine
+from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.tenant_engine import TenantEngine
+from app.domain.interfaces.invitation_repository import IInvitationRepository
+from app.domain.interfaces.location_assignment_repository import (
+    ILocationAssignmentRepository,
+)
+from app.domain.interfaces.membership_repository import IMembershipRepository
+from app.domain.interfaces.tenant_repository import ITenantRepository
 from app.domain.models.invitation import Invitation, InvitationLink
 from app.domain.models.location_assignment import LocationAssignment
 from app.domain.models.membership import MemberInfo, Membership
 from app.domain.models.tenant import Tenant, TenantWithRole
-
-if TYPE_CHECKING:
-    from app.domain.engines.invitation_engine import InvitationEngine
-    from app.domain.engines.membership_engine import MembershipEngine
-    from app.domain.engines.tenant_engine import TenantEngine
-    from app.domain.interfaces.invitation_repository import IInvitationRepository
-    from app.domain.interfaces.location_assignment_repository import (
-        ILocationAssignmentRepository,
-    )
-    from app.domain.interfaces.membership_repository import IMembershipRepository
-    from app.domain.interfaces.tenant_repository import ITenantRepository
 
 logger = structlog.get_logger()
 

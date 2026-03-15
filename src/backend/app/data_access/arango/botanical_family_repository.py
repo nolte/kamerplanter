@@ -1,12 +1,9 @@
-from typing import TYPE_CHECKING
+from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.species import Species
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
 
 
 class ArangoBotanicalFamilyRepository(BaseArangoRepository):

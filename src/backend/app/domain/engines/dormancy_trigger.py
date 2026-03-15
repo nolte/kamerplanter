@@ -1,8 +1,5 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from app.domain.interfaces.phase_repository import IPhaseRepository
-    from app.domain.interfaces.species_repository import ISpeciesRepository
+from app.domain.interfaces.phase_repository import IPhaseRepository
+from app.domain.interfaces.species_repository import ISpeciesRepository
 
 
 class DormancyTrigger:

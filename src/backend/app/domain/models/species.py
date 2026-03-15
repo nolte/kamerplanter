@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -11,9 +11,6 @@ from app.common.enums import (
     Suitability,
     WateringMethod,
 )
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 # ── WateringGuide (embedded on Species/Cultivar) ─────────────────────
 

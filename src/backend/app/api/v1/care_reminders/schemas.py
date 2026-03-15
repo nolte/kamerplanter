@@ -1,11 +1,8 @@
-from typing import TYPE_CHECKING
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-if TYPE_CHECKING:
-    from datetime import datetime
-
-    from app.common.enums import CareStyleType, ConfirmAction, ReminderType, WateringMethod
+from app.common.enums import CareStyleType, ConfirmAction, ReminderType, WateringMethod
 
 
 class CareProfileResponse(BaseModel):

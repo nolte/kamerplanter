@@ -1,15 +1,11 @@
-from typing import TYPE_CHECKING
+from arango.database import StandardDatabase
 
+from app.common.enums import ReminderType
+from app.common.types import CareProfileKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
-
-    from app.common.enums import ReminderType
-    from app.common.types import CareProfileKey
 
 
 class ArangoCareReminderRepository(ICareReminderRepository, BaseArangoRepository):

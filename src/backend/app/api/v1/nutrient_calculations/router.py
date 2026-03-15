@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 from fastapi import APIRouter, Depends
 
 from app.api.v1.nutrient_calculations.schemas import (
@@ -33,9 +31,7 @@ from app.domain.engines.nutrient_engine import (
 )
 from app.domain.engines.water_mix_engine import WaterMixCalculator, WaterSourceValidator
 from app.domain.models.site import RoWaterProfile, TapWaterProfile
-
-if TYPE_CHECKING:
-    from app.domain.services.fertilizer_service import FertilizerService
+from app.domain.services.fertilizer_service import FertilizerService
 
 router = APIRouter(prefix="/nutrient-calculations", tags=["nutrient-calculations"])
 

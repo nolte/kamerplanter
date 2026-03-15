@@ -1,11 +1,8 @@
-from typing import TYPE_CHECKING
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field, model_validator
 
 from app.common.enums import BufferCapacity, IrrigationStrategy, SubstrateType, WaterRetention
-
-if TYPE_CHECKING:
-    from datetime import date, datetime
 
 
 class MixComponent(BaseModel):

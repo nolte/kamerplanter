@@ -1,15 +1,12 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
+from arango.database import StandardDatabase
+
+from app.common.types import FeedingEventKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.feeding_repository import IFeedingRepository
 from app.domain.models.feeding_event import FeedingEvent
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
-
-    from app.common.types import FeedingEventKey
 
 
 class ArangoFeedingRepository(IFeedingRepository, BaseArangoRepository):

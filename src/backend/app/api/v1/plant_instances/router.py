@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.plant_instances.schemas import (
@@ -12,11 +10,9 @@ from app.api.v1.plant_instances.schemas import (
 )
 from app.common.dependencies import get_nutrient_plan_service, get_plant_instance_service, get_planting_run_service
 from app.domain.models.plant_instance import PlantInstance
-
-if TYPE_CHECKING:
-    from app.domain.services.nutrient_plan_service import NutrientPlanService
-    from app.domain.services.plant_instance_service import PlantInstanceService
-    from app.domain.services.planting_run_service import PlantingRunService
+from app.domain.services.nutrient_plan_service import NutrientPlanService
+from app.domain.services.plant_instance_service import PlantInstanceService
+from app.domain.services.planting_run_service import PlantingRunService
 
 router = APIRouter(prefix="/plant-instances", tags=["plant-instances"])
 

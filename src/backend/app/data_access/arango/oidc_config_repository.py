@@ -1,14 +1,10 @@
-from typing import TYPE_CHECKING
+from arango.database import StandardDatabase
 
+from app.common.types import OidcProviderConfigKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.oidc_config_repository import IOidcConfigRepository
 from app.domain.models.oidc_config import OidcProviderConfig
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
-
-    from app.common.types import OidcProviderConfigKey
 
 
 class ArangoOidcConfigRepository(IOidcConfigRepository, BaseArangoRepository):

@@ -1,14 +1,7 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
+from app.domain.models.activity import Activity
+from app.domain.models.lifecycle import GrowthPhase
+from app.domain.models.species import Species
 from app.domain.models.task import TaskTemplate, WorkflowTemplate
-
-if TYPE_CHECKING:
-    from app.domain.models.activity import Activity
-    from app.domain.models.lifecycle import GrowthPhase
-    from app.domain.models.species import Species
-
 
 # Stress ranking for gate checks
 _STRESS_RANK: dict[str, int] = {"none": 0, "low": 1, "medium": 2, "high": 3}

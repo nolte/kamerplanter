@@ -1,13 +1,8 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.common.enums import EntryRole, PlantingRunStatus, PlantingRunType
-
-if TYPE_CHECKING:
-    from datetime import date, datetime
 
 ALLOWED_STATUS_TRANSITIONS: dict[PlantingRunStatus, list[PlantingRunStatus]] = {
     PlantingRunStatus.PLANNED: [PlantingRunStatus.ACTIVE, PlantingRunStatus.CANCELLED],

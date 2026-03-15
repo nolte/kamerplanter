@@ -1,6 +1,8 @@
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
 
+from arango.database import StandardDatabase
+
+from app.common.types import DiseaseKey, PestKey, TreatmentKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.ipm_repository import IIpmRepository
@@ -11,11 +13,6 @@ from app.domain.models.ipm import (
     Treatment,
     TreatmentApplication,
 )
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
-
-    from app.common.types import DiseaseKey, PestKey, TreatmentKey
 
 
 class ArangoIpmRepository(IIpmRepository, BaseArangoRepository):

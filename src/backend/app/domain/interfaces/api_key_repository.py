@@ -1,11 +1,9 @@
 """Abstract interface for API key persistence."""
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.common.types import ApiKeyKey, UserKey
-    from app.domain.models.auth import ApiKey
+from app.common.types import ApiKeyKey, UserKey
+from app.domain.models.auth import ApiKey
 
 
 class IApiKeyRepository(ABC):

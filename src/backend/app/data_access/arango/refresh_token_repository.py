@@ -1,15 +1,12 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
+from arango.database import StandardDatabase
+
+from app.common.types import UserKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
 from app.domain.models.auth import RefreshToken
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
-
-    from app.common.types import UserKey
 
 
 class ArangoRefreshTokenRepository(IRefreshTokenRepository, BaseArangoRepository):

@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -12,9 +10,6 @@ from app.common.enums import (
     TankType,
     WaterSource,
 )
-
-if TYPE_CHECKING:
-    from datetime import date, datetime
 
 
 class Tank(BaseModel):

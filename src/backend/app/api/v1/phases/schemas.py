@@ -1,9 +1,6 @@
-from typing import TYPE_CHECKING
+from datetime import datetime
 
 from pydantic import BaseModel
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class TransitionRequest(BaseModel):

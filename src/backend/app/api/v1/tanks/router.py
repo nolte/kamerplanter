@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.tanks.schemas import (
@@ -31,6 +29,7 @@ from app.api.v1.tanks.schemas import (
 )
 from app.common.dependencies import get_ha_client, get_sensor_service, get_site_service, get_tank_service
 from app.common.enums import IrrigationSystem
+from app.data_access.external.ha_client import HomeAssistantClient
 from app.domain.models.sensor import Sensor
 from app.domain.models.tank import (
     FertilizerSnapshot,
@@ -40,12 +39,9 @@ from app.domain.models.tank import (
     TankFillEvent,
     TankState,
 )
-
-if TYPE_CHECKING:
-    from app.data_access.external.ha_client import HomeAssistantClient
-    from app.domain.services.sensor_service import SensorService
-    from app.domain.services.site_service import SiteService
-    from app.domain.services.tank_service import TankService
+from app.domain.services.sensor_service import SensorService
+from app.domain.services.site_service import SiteService
+from app.domain.services.tank_service import TankService
 
 router = APIRouter(prefix="/tanks", tags=["tanks"])
 

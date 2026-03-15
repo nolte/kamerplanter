@@ -1,14 +1,10 @@
-from typing import TYPE_CHECKING
-
 from app.common.enums import DuplicateStrategy, EntityType, ImportJobStatus
 from app.common.exceptions import NotFoundError, ValidationError
 from app.domain.engines.csv_parser import CsvParser
 from app.domain.engines.import_engine import ImportEngine
 from app.domain.engines.row_validator import RowValidator
-
-if TYPE_CHECKING:
-    from app.domain.interfaces.import_job_repository import IImportJobRepository
-    from app.domain.models.import_job import ImportJob
+from app.domain.interfaces.import_job_repository import IImportJobRepository
+from app.domain.models.import_job import ImportJob
 
 
 class ImportService:

@@ -4,16 +4,12 @@ Implements REQ-004 v3.1: WaterMixCalculator for RO/tap water blending
 and CalMag correction, plus WaterSourceValidator for plausibility checks.
 """
 
-from __future__ import annotations
-
 import math
 from datetime import date
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
-if TYPE_CHECKING:
-    from app.domain.models.site import RoWaterProfile, TapWaterProfile
+from app.domain.models.site import RoWaterProfile, TapWaterProfile
 
 # ── Result types ──────────────────────────────────────────────────────
 

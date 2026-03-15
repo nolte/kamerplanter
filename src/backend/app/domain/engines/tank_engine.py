@@ -1,7 +1,4 @@
-from __future__ import annotations
-
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
 
 from app.common.enums import (
     FillType,
@@ -11,9 +8,7 @@ from app.common.enums import (
     MaintenanceType,
     TankType,
 )
-
-if TYPE_CHECKING:
-    from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState
+from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState
 
 # ── Tank-type-specific alert thresholds ──────────────────────────────
 

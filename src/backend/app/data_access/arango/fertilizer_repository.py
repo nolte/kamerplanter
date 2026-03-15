@@ -1,15 +1,13 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from arango.database import StandardDatabase
+
+from app.common.types import FertilizerKey, FertilizerStockKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
-
-    from app.common.types import FertilizerKey, FertilizerStockKey
 
 
 class ArangoFertilizerRepository(IFertilizerRepository, BaseArangoRepository):

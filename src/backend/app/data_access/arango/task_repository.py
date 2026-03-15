@@ -1,15 +1,12 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
+from arango.database import StandardDatabase
+
+from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.task import Task, TaskAuditEntry, TaskComment, TaskTemplate, WorkflowExecution, WorkflowTemplate
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
-
-    from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
 
 
 class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):

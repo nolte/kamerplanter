@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.substrates.schemas import (
@@ -15,9 +13,7 @@ from app.api.v1.substrates.schemas import (
 )
 from app.common.dependencies import get_substrate_service
 from app.domain.models.substrate import MixComponent, Substrate, SubstrateBatch
-
-if TYPE_CHECKING:
-    from app.domain.services.substrate_service import SubstrateService
+from app.domain.services.substrate_service import SubstrateService
 
 router = APIRouter(prefix="/substrates", tags=["substrates"])
 

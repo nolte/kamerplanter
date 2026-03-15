@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.common.types import FeedingEventKey
-    from app.domain.models.feeding_event import FeedingEvent
+from app.common.types import FeedingEventKey
+from app.domain.models.feeding_event import FeedingEvent
 
 
 class IFeedingRepository(ABC):

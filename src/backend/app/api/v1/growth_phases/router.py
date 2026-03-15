@@ -1,13 +1,9 @@
-from typing import TYPE_CHECKING
-
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.growth_phases.schemas import PhaseCreate, PhaseResponse
 from app.common.dependencies import get_phase_service
 from app.domain.models.lifecycle import GrowthPhase
-
-if TYPE_CHECKING:
-    from app.domain.services.phase_service import PhaseService
+from app.domain.services.phase_service import PhaseService
 
 router = APIRouter(prefix="/growth-phases", tags=["growth-phases"])
 

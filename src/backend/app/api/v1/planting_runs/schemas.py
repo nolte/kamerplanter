@@ -1,9 +1,6 @@
-from typing import TYPE_CHECKING
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
-
-if TYPE_CHECKING:
-    from datetime import date, datetime
 
 # ── Phase summary ────────────────────────────────────────────────────
 

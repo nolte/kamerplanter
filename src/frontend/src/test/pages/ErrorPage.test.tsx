@@ -22,8 +22,8 @@ describe('ErrorPage', () => {
     renderWithProviders(<ErrorPage statusCode={404} />);
     await waitFor(() => {
       expect(screen.getByText('404')).toBeTruthy();
-      const img = screen.getByRole('img');
-      expect(img.getAttribute('src')).toContain('error-404');
+      const img = document.querySelector('img[src*="error-404"]');
+      expect(img).toBeTruthy();
     });
   });
 

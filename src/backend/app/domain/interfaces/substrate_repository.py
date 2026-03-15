@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.common.types import BatchKey, SlotKey, SubstrateKey
-    from app.domain.models.substrate import Substrate, SubstrateBatch
+from app.common.types import BatchKey, SlotKey, SubstrateKey
+from app.domain.models.substrate import Substrate, SubstrateBatch
 
 
 class ISubstrateRepository(ABC):

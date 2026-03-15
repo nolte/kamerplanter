@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from arango.database import StandardDatabase
 
 from app.config.settings import settings
 from app.data_access.arango.auth_provider_repository import ArangoAuthProviderRepository
@@ -56,6 +56,7 @@ from app.domain.engines.tank_engine import TankEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.engines.watering_engine import WateringEngine
+from app.domain.interfaces.email_service import IEmailService
 from app.domain.services.auth_service import AuthService
 from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.enrichment_service import EnrichmentService
@@ -76,11 +77,6 @@ from app.domain.services.tenant_service import TenantService
 from app.domain.services.user_service import UserService
 from app.domain.services.watering_log_service import WateringLogService
 from app.domain.services.watering_service import WateringService
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
-
-    from app.domain.interfaces.email_service import IEmailService
 
 _connection: ArangoConnection | None = None
 

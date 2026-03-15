@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.v1.phases.schemas import (
@@ -10,10 +8,8 @@ from app.api.v1.phases.schemas import (
 )
 from app.api.v1.plant_instances.schemas import PlantResponse
 from app.common.dependencies import get_phase_service, get_plant_instance_service
-
-if TYPE_CHECKING:
-    from app.domain.services.phase_service import PhaseService
-    from app.domain.services.plant_instance_service import PlantInstanceService
+from app.domain.services.phase_service import PhaseService
+from app.domain.services.plant_instance_service import PlantInstanceService
 
 router = APIRouter(prefix="/plant-instances/{plant_key}/phases", tags=["phases"])
 

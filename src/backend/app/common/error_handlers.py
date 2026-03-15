@@ -1,15 +1,12 @@
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
 import structlog
+from fastapi import Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-if TYPE_CHECKING:
-    from fastapi import Request
-    from fastapi.exceptions import RequestValidationError
-
-    from app.common.exceptions import KamerplanterError
+from app.common.exceptions import KamerplanterError
 
 logger = structlog.get_logger()
 

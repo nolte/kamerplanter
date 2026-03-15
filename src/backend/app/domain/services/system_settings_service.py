@@ -1,12 +1,6 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
 from app.config.settings import settings as env_settings
+from app.data_access.arango.system_settings_repository import ArangoSystemSettingsRepository
 from app.domain.models.system_settings import HomeAssistantSettings, SystemSettings
-
-if TYPE_CHECKING:
-    from app.data_access.arango.system_settings_repository import ArangoSystemSettingsRepository
 
 
 class SystemSettingsService:

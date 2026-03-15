@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.care_reminders.schemas import (
@@ -11,10 +9,8 @@ from app.api.v1.care_reminders.schemas import (
     SnoozeRequest,
 )
 from app.common.dependencies import get_care_reminder_service
-
-if TYPE_CHECKING:
-    from app.common.enums import ReminderType
-    from app.domain.services.care_reminder_service import CareReminderService
+from app.common.enums import ReminderType
+from app.domain.services.care_reminder_service import CareReminderService
 
 router = APIRouter(prefix="/care-reminders", tags=["care-reminders"])
 

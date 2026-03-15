@@ -1,15 +1,11 @@
 """Unit tests for the adapter registry."""
 
-from typing import TYPE_CHECKING
-
 import pytest
 
 from app.common.exceptions import AdapterNotFoundError
 from app.domain.interfaces.external_source_adapter import ExternalSourceAdapter
+from app.domain.models.enrichment import ExternalSpeciesData
 from app.domain.services.adapter_registry import AdapterRegistry
-
-if TYPE_CHECKING:
-    from app.domain.models.enrichment import ExternalSpeciesData
 
 
 class DummyAdapter(ExternalSourceAdapter):

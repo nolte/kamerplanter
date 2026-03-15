@@ -1,13 +1,9 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Annotated, Literal
+from datetime import datetime
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Discriminator, Field, field_validator, model_validator
 
 from app.common.enums import ApplicationMethod, PhaseName, ScheduleMode, SubstrateType
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class FertilizerDosage(BaseModel):

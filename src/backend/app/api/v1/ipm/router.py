@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, Query
 
@@ -28,9 +27,7 @@ from app.domain.models.ipm import (
     Treatment,
     TreatmentApplication,
 )
-
-if TYPE_CHECKING:
-    from app.domain.services.ipm_service import IpmService
+from app.domain.services.ipm_service import IpmService
 
 router = APIRouter(prefix="/ipm", tags=["ipm"])
 

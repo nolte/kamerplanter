@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, Query, Response, UploadFile
 
@@ -34,9 +33,7 @@ from app.api.v1.tasks.schemas import (
 from app.common.dependencies import get_task_service
 from app.config.settings import settings
 from app.domain.models.task import Task, TaskTemplate, WorkflowTemplate
-
-if TYPE_CHECKING:
-    from app.domain.services.task_service import TaskService
+from app.domain.services.task_service import TaskService
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 

@@ -7,16 +7,13 @@ user info extraction (Google, GitHub, Apple, generic OIDC).
 import hashlib
 import hmac
 import secrets
-from typing import TYPE_CHECKING
 
 import httpx
 import structlog
 
 from app.common.enums import AuthProviderType
 from app.domain.models.auth import OAuthRedirect, OAuthUserInfo
-
-if TYPE_CHECKING:
-    from app.domain.models.oidc_config import OidcProviderConfig
+from app.domain.models.oidc_config import OidcProviderConfig
 
 logger = structlog.get_logger()
 

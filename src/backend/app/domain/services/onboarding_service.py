@@ -1,13 +1,10 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
 from app.common.exceptions import ValidationError
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.engines.onboarding_engine import OnboardingEngine
 from app.domain.models.onboarding import OnboardingState
-
-if TYPE_CHECKING:
-    from app.domain.services.starter_kit_service import StarterKitService
+from app.domain.services.starter_kit_service import StarterKitService
 
 
 class OnboardingService:

@@ -1,7 +1,4 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from app.domain.models.starter_kit import StarterKit
+from app.domain.models.starter_kit import StarterKit
 
 
 class OnboardingEngine:

@@ -1,16 +1,12 @@
 """ArangoDB implementation of the API key repository."""
 
-from typing import TYPE_CHECKING
+from arango.database import StandardDatabase
 
+from app.common.types import ApiKeyKey, UserKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.api_key_repository import IApiKeyRepository
 from app.domain.models.auth import ApiKey
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
-
-    from app.common.types import ApiKeyKey, UserKey
 
 
 class ArangoApiKeyRepository(IApiKeyRepository, BaseArangoRepository):

@@ -1,12 +1,8 @@
 """DeliveryChannel validation and helper logic (REQ-004 Multi-Channel Delivery)."""
 
-from typing import TYPE_CHECKING
-
 from app.common.enums import ApplicationMethod
-
-if TYPE_CHECKING:
-    from app.domain.models.fertilizer import Fertilizer
-    from app.domain.models.nutrient_plan import DeliveryChannel
+from app.domain.models.fertilizer import Fertilizer
+from app.domain.models.nutrient_plan import DeliveryChannel
 
 EC_TOLERANCE_FIXED = 0.3  # mS — legacy, kept for reference
 

@@ -1,11 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from datetime import date
 
-if TYPE_CHECKING:
-    from datetime import date
-
-    from app.common.types import LocationKey, PlantInstanceKey, WateringEventKey
-    from app.domain.models.watering_event import WateringEvent
+from app.common.types import LocationKey, PlantInstanceKey, WateringEventKey
+from app.domain.models.watering_event import WateringEvent
 
 
 class IWateringRepository(ABC):

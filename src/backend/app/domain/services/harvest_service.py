@@ -1,20 +1,17 @@
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from app.common.exceptions import KarenzViolationError, NotFoundError
-
-if TYPE_CHECKING:
-    from app.domain.engines.quality_scoring_engine import QualityScoringEngine
-    from app.domain.engines.readiness_engine import ReadinessEngine
-    from app.domain.interfaces.harvest_repository import IHarvestRepository
-    from app.domain.models.harvest import (
-        HarvestBatch,
-        HarvestIndicator,
-        HarvestObservation,
-        QualityAssessment,
-        YieldMetric,
-    )
-    from app.domain.services.ipm_service import IpmService
+from app.domain.engines.quality_scoring_engine import QualityScoringEngine
+from app.domain.engines.readiness_engine import ReadinessEngine
+from app.domain.interfaces.harvest_repository import IHarvestRepository
+from app.domain.models.harvest import (
+    HarvestBatch,
+    HarvestIndicator,
+    HarvestObservation,
+    QualityAssessment,
+    YieldMetric,
+)
+from app.domain.services.ipm_service import IpmService
 
 
 class HarvestService:

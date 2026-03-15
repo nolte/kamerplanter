@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 from fastapi import APIRouter, Depends
 
 from app.api.v1.profiles.schemas import (
@@ -10,9 +8,7 @@ from app.api.v1.profiles.schemas import (
 )
 from app.common.dependencies import get_phase_service
 from app.domain.models.phase import NutrientProfile, RequirementProfile
-
-if TYPE_CHECKING:
-    from app.domain.services.phase_service import PhaseService
+from app.domain.services.phase_service import PhaseService
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 

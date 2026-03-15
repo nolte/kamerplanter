@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.harvest.schemas import (
@@ -23,9 +21,7 @@ from app.domain.models.harvest import (
     QualityAssessment,
     YieldMetric,
 )
-
-if TYPE_CHECKING:
-    from app.domain.services.harvest_service import HarvestService
+from app.domain.services.harvest_service import HarvestService
 
 router = APIRouter(prefix="/harvest", tags=["harvest"])
 

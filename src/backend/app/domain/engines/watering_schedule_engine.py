@@ -1,10 +1,7 @@
 from datetime import date, timedelta
-from typing import TYPE_CHECKING
 
 from app.common.enums import ScheduleMode
-
-if TYPE_CHECKING:
-    from app.domain.models.nutrient_plan import DeliveryChannel, NutrientPlanPhaseEntry, WateringSchedule
+from app.domain.models.nutrient_plan import DeliveryChannel, NutrientPlanPhaseEntry, WateringSchedule
 
 
 class WateringScheduleEngine:

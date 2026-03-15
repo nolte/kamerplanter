@@ -1,18 +1,15 @@
 import contextlib
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
 from app.common.exceptions import NotFoundError
+from app.common.types import PhaseKey, PlantID
 from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
-
-if TYPE_CHECKING:
-    from app.common.types import PhaseKey, PlantID
-    from app.domain.interfaces.phase_repository import IPhaseRepository
-    from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
-    from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
-    from app.domain.models.phase import NutrientProfile, PhaseHistory, PhaseTransitionRule, RequirementProfile
-    from app.domain.models.plant_instance import PlantInstance
+from app.domain.interfaces.phase_repository import IPhaseRepository
+from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
+from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
+from app.domain.models.phase import NutrientProfile, PhaseHistory, PhaseTransitionRule, RequirementProfile
+from app.domain.models.plant_instance import PlantInstance
 
 
 class PhaseService:

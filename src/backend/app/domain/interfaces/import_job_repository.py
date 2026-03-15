@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.common.types import ImportJobKey
-    from app.domain.models.import_job import ImportJob
+from app.common.types import ImportJobKey
+from app.domain.models.import_job import ImportJob
 
 
 class IImportJobRepository(ABC):

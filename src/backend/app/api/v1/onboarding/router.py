@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 from fastapi import APIRouter, Depends
 
 from app.api.v1.onboarding.schemas import (
@@ -8,9 +6,7 @@ from app.api.v1.onboarding.schemas import (
     OnboardingStateResponse,
 )
 from app.common.dependencies import get_onboarding_service
-
-if TYPE_CHECKING:
-    from app.domain.services.onboarding_service import OnboardingService
+from app.domain.services.onboarding_service import OnboardingService
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
 

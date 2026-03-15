@@ -1,16 +1,12 @@
-from typing import TYPE_CHECKING
+from datetime import date
 
+from app.common.enums import IrrigationStrategy, SubstrateType
 from app.common.exceptions import NotFoundError, ValidationError
+from app.common.types import BatchKey, SlotKey, SubstrateKey
 from app.domain.engines.substrate_lifecycle_manager import SubstrateLifecycleManager
 from app.domain.engines.substrate_mix_engine import calculate_mix_properties
+from app.domain.interfaces.substrate_repository import ISubstrateRepository
 from app.domain.models.substrate import MixComponent, Substrate, SubstrateBatch
-
-if TYPE_CHECKING:
-    from datetime import date
-
-    from app.common.enums import IrrigationStrategy, SubstrateType
-    from app.common.types import BatchKey, SlotKey, SubstrateKey
-    from app.domain.interfaces.substrate_repository import ISubstrateRepository
 
 
 class SubstrateService:

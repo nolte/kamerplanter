@@ -1,14 +1,12 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+
+from arango.database import StandardDatabase
 
 from app.common.enums import InvitationStatus
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.invitation_repository import IInvitationRepository
 from app.domain.models.invitation import Invitation
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
 
 
 class ArangoInvitationRepository(IInvitationRepository, BaseArangoRepository):

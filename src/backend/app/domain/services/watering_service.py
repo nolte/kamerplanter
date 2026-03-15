@@ -1,19 +1,16 @@
 from datetime import UTC, date, datetime
-from typing import TYPE_CHECKING
 
 from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, TaskStatus
 from app.common.exceptions import NotFoundError
+from app.common.types import LocationKey, PlantInstanceKey, WateringEventKey
+from app.domain.engines.watering_engine import WateringEngine
 from app.domain.engines.watering_volume_engine import VolumeSuggestion, WateringVolumeEngine
+from app.domain.interfaces.phase_repository import IPhaseRepository
+from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.interfaces.watering_repository import IWateringRepository
 from app.domain.models.care_reminder import CareConfirmation
 from app.domain.models.feeding_event import FeedingEvent
 from app.domain.models.watering_event import WateringEvent
-
-if TYPE_CHECKING:
-    from app.common.types import LocationKey, PlantInstanceKey, WateringEventKey
-    from app.domain.engines.watering_engine import WateringEngine
-    from app.domain.interfaces.phase_repository import IPhaseRepository
-    from app.domain.interfaces.site_repository import ISiteRepository
-    from app.domain.interfaces.watering_repository import IWateringRepository
 
 
 class WateringService:

@@ -1,13 +1,8 @@
-from __future__ import annotations
-
 from datetime import date, timedelta
-from typing import TYPE_CHECKING
 
 from app.common.enums import CareStyleType, ConfirmAction, ReminderType, WateringMethod
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
-
-if TYPE_CHECKING:
-    from app.domain.models.species import SeasonalWateringAdjustment, WateringGuide
+from app.domain.models.species import SeasonalWateringAdjustment, WateringGuide
 
 # ── Dormancy-aware phases ──────────────────────────────────────────────
 

@@ -1,17 +1,13 @@
-from typing import TYPE_CHECKING
-
 from app.common.enums import SyncTrigger
 from app.common.exceptions import NotFoundError
+from app.domain.engines.enrichment_engine import EnrichmentEngine
+from app.domain.interfaces.enrichment_repository import (
+    IExternalMappingRepository,
+    IExternalSourceRepository,
+    ISyncRunRepository,
+)
+from app.domain.models.enrichment import ExternalMapping, ExternalSource, ExternalSpeciesData, SyncRun
 from app.domain.services.adapter_registry import AdapterRegistry
-
-if TYPE_CHECKING:
-    from app.domain.engines.enrichment_engine import EnrichmentEngine
-    from app.domain.interfaces.enrichment_repository import (
-        IExternalMappingRepository,
-        IExternalSourceRepository,
-        ISyncRunRepository,
-    )
-    from app.domain.models.enrichment import ExternalMapping, ExternalSource, ExternalSpeciesData, SyncRun
 
 
 class EnrichmentService:

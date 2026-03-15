@@ -1,10 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.common.enums import ReminderType
-    from app.common.types import CareProfileKey
-    from app.domain.models.care_reminder import CareConfirmation, CareProfile
+from app.common.enums import ReminderType
+from app.common.types import CareProfileKey
+from app.domain.models.care_reminder import CareConfirmation, CareProfile
 
 
 class ICareReminderRepository(ABC):

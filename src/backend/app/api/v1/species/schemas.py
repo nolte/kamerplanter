@@ -1,13 +1,9 @@
-from typing import TYPE_CHECKING
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
 from app.common.enums import FrostTolerance, GrowthHabit, RootType, Suitability
-
-if TYPE_CHECKING:
-    from datetime import datetime
-
-    from app.domain.models.species import GrowingPeriod, WateringGuide
+from app.domain.models.species import GrowingPeriod, WateringGuide
 
 
 class SpeciesCreate(BaseModel):

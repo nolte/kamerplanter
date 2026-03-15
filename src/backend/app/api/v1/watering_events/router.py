@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query
 
@@ -14,11 +14,7 @@ from app.api.v1.watering_events.schemas import (
 )
 from app.common.dependencies import get_watering_service
 from app.domain.models.watering_event import WateringEvent
-
-if TYPE_CHECKING:
-    from datetime import date
-
-    from app.domain.services.watering_service import WateringService
+from app.domain.services.watering_service import WateringService
 
 router = APIRouter(tags=["watering-events"])
 

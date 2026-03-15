@@ -10,16 +10,11 @@ Resolution order (highest priority first):
   4. Fallback default: 250 ml
 """
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
+from datetime import date
 
 from pydantic import BaseModel, Field
 
-if TYPE_CHECKING:
-    from datetime import date
-
-    from app.common.enums import IrrigationStrategy, SubstrateType, WaterRetention
+from app.common.enums import IrrigationStrategy, SubstrateType, WaterRetention
 
 
 class VolumeSuggestion(BaseModel):

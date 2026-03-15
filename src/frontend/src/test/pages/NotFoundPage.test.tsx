@@ -20,8 +20,8 @@ describe('NotFoundPage', () => {
     renderWithProviders(<NotFoundPage />);
     await waitFor(() => {
       expect(screen.getByTestId('error-page')).toBeTruthy();
-      const img = screen.getByRole('img');
-      expect(img.getAttribute('src')).toContain('error-404');
+      const img = document.querySelector('img[src*="error-404"]');
+      expect(img).toBeTruthy();
     });
   });
 

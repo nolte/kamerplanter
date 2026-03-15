@@ -1,10 +1,6 @@
-from typing import TYPE_CHECKING
-
 from app.common.exceptions import NotFoundError, ValidationError
-
-if TYPE_CHECKING:
-    from app.domain.interfaces.location_type_repository import ILocationTypeRepository
-    from app.domain.models.location_type import LocationType
+from app.domain.interfaces.location_type_repository import ILocationTypeRepository
+from app.domain.models.location_type import LocationType
 
 
 class LocationTypeService:

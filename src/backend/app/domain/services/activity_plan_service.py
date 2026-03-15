@@ -1,14 +1,10 @@
-from typing import TYPE_CHECKING
-
 from app.common.exceptions import NotFoundError, ValidationError
+from app.domain.engines.activity_plan_engine import ActivityPlanEngine
+from app.domain.interfaces.activity_repository import IActivityRepository
+from app.domain.interfaces.phase_repository import IPhaseRepository
+from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
+from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.task import Task, WorkflowTemplate
-
-if TYPE_CHECKING:
-    from app.domain.engines.activity_plan_engine import ActivityPlanEngine
-    from app.domain.interfaces.activity_repository import IActivityRepository
-    from app.domain.interfaces.phase_repository import IPhaseRepository
-    from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
-    from app.domain.interfaces.task_repository import ITaskRepository
 
 
 class ActivityPlanService:

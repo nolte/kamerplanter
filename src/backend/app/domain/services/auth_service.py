@@ -1,28 +1,8 @@
-from __future__ import annotations
-
 import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
 
 import structlog
-
-if TYPE_CHECKING:
-    from app.common.types import UserKey
-    from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
-    from app.data_access.external.redis_oauth_state import RedisOAuthStateStore
-    from app.domain.engines.encryption_engine import EncryptionEngine
-    from app.domain.engines.login_throttle_engine import LoginThrottleEngine
-    from app.domain.engines.oauth_engine import OAuthEngine
-    from app.domain.engines.password_engine import PasswordEngine
-    from app.domain.engines.token_engine import TokenEngine
-    from app.domain.interfaces.api_key_repository import IApiKeyRepository
-    from app.domain.interfaces.auth_provider_repository import IAuthProviderRepository
-    from app.domain.interfaces.email_service import IEmailService
-    from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
-    from app.domain.interfaces.user_repository import IUserRepository
-    from app.domain.models.auth import OAuthUserInfo
-    from app.domain.services.tenant_service import TenantService
 
 from app.common.enums import AuthProviderType
 from app.common.exceptions import (
@@ -34,6 +14,19 @@ from app.common.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
+from app.common.types import UserKey
+from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
+from app.data_access.external.redis_oauth_state import RedisOAuthStateStore
+from app.domain.engines.encryption_engine import EncryptionEngine
+from app.domain.engines.login_throttle_engine import LoginThrottleEngine
+from app.domain.engines.oauth_engine import OAuthEngine
+from app.domain.engines.password_engine import PasswordEngine
+from app.domain.engines.token_engine import TokenEngine
+from app.domain.interfaces.api_key_repository import IApiKeyRepository
+from app.domain.interfaces.auth_provider_repository import IAuthProviderRepository
+from app.domain.interfaces.email_service import IEmailService
+from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
+from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.auth import (
     ApiKey,
     ApiKeyCreated,
@@ -41,11 +34,13 @@ from app.domain.models.auth import (
     AuthProvider,
     AuthProviderInfo,
     OAuthRedirect,
+    OAuthUserInfo,
     RefreshToken,
     SessionInfo,
     TokenPair,
 )
 from app.domain.models.user import User, UserProfile
+from app.domain.services.tenant_service import TenantService
 
 logger = structlog.get_logger()
 

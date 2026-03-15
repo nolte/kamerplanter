@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.domain.models.membership import MemberInfo, Membership
+from app.domain.models.membership import MemberInfo, Membership
 
 
 class IMembershipRepository(ABC):

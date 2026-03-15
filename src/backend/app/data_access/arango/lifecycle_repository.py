@@ -1,5 +1,6 @@
-from typing import TYPE_CHECKING
+from arango.database import StandardDatabase
 
+from app.common.types import PhaseKey, PlantID, ProfileKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.phase_repository import IPhaseRepository
@@ -10,11 +11,6 @@ from app.domain.models.phase import (
     PhaseTransitionRule,
     RequirementProfile,
 )
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
-
-    from app.common.types import PhaseKey, PlantID, ProfileKey
 
 
 class ArangoLifecycleRepository(IPhaseRepository, BaseArangoRepository):

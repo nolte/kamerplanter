@@ -1,11 +1,6 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
+from datetime import datetime
 
 from pydantic import BaseModel, Field, model_validator
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class Sensor(BaseModel):

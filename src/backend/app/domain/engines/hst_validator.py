@@ -1,10 +1,6 @@
-from __future__ import annotations
-
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.domain.models.activity import Activity
+from app.domain.models.activity import Activity
 
 # HST (High Stress Training) tasks forbidden in all flowering sub-phases
 FORBIDDEN_ALL_FLOWER = {"topping", "fim", "mainlining", "heavy_defoliation"}

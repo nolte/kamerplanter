@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
+from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -11,9 +9,6 @@ from app.common.enums import (
     PollinationType,
     RootDepth,
 )
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class PhRange(BaseModel):

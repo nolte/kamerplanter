@@ -63,7 +63,7 @@ class TestCultivationConditionFields:
 
     def test_min_container_depth_too_low(self):
         with pytest.raises(ValidationError):
-            Species(scientific_name="Genus species", min_container_depth_cm=0)
+            Species(scientific_name="Genus species", min_container_depth_cm=-1)
 
     def test_min_container_depth_too_high(self):
         with pytest.raises(ValidationError):

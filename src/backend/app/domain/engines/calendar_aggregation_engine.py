@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, time, timedelta
-from typing import TYPE_CHECKING
+
+from arango.database import StandardDatabase
 
 from app.common.enums import (
     CATEGORY_COLORS,
@@ -9,9 +10,6 @@ from app.common.enums import (
 from app.data_access.arango import collections as col
 from app.domain.engines.watering_volume_engine import SUBSTRATE_WATERING_RATIO as _SUBSTRATE_WATERING_RATIO
 from app.domain.models.calendar import CalendarEvent, CalendarEventsQuery
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
 
 
 class CalendarAggregationEngine:

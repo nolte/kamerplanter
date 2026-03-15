@@ -1,14 +1,12 @@
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from arango.database import StandardDatabase
+
+from app.common.types import ActivityKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.activity_repository import IActivityRepository
 from app.domain.models.activity import Activity
-
-if TYPE_CHECKING:
-    from arango.database import StandardDatabase
-
-    from app.common.types import ActivityKey
 
 
 class ArangoActivityRepository(IActivityRepository, BaseArangoRepository):

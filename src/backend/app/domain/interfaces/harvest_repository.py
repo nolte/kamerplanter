@@ -1,15 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from app.common.types import HarvestBatchKey
-    from app.domain.models.harvest import (
-        HarvestBatch,
-        HarvestIndicator,
-        HarvestObservation,
-        QualityAssessment,
-        YieldMetric,
-    )
+from app.common.types import HarvestBatchKey
+from app.domain.models.harvest import (
+    HarvestBatch,
+    HarvestIndicator,
+    HarvestObservation,
+    QualityAssessment,
+    YieldMetric,
+)
 
 
 class IHarvestRepository(ABC):

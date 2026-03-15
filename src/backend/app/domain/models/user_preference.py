@@ -1,11 +1,8 @@
-from typing import TYPE_CHECKING
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
 from app.common.enums import ExperienceLevel
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class UserPreference(BaseModel):

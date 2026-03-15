@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 from fastapi import APIRouter, Cookie, Depends, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from slowapi import Limiter
@@ -23,11 +21,9 @@ from app.api.v1.auth.schemas import (
 from app.common.auth import get_current_user, get_refresh_token_from_cookie
 from app.common.dependencies import get_auth_service, get_oidc_config_repo
 from app.config.settings import settings
-
-if TYPE_CHECKING:
-    from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
-    from app.domain.models.user import User
-    from app.domain.services.auth_service import AuthService
+from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
+from app.domain.models.user import User
+from app.domain.services.auth_service import AuthService
 
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/auth", tags=["auth"])
