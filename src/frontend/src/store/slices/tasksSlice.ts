@@ -44,6 +44,14 @@ export const fetchWorkflow = createAsyncThunk(
   },
 );
 
+export const deleteWorkflowThunk = createAsyncThunk(
+  'tasks/deleteWorkflow',
+  async (key: string) => {
+    await api.deleteWorkflow(key);
+    return key;
+  },
+);
+
 // -- Task template thunks --
 
 export const fetchTaskTemplates = createAsyncThunk(
@@ -124,6 +132,9 @@ const tasksSlice = createSlice({
       .addCase(fetchWorkflows.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message ?? 'Failed to load workflows';
+      })
+      .addCase(deleteWorkflowThunk.fulfilled, (state, action) => {
+        state.workflows = state.workflows.filter((w) => w.key !== action.payload);
       })
       // Task templates
       .addCase(fetchTaskTemplates.fulfilled, (state, action) => {

@@ -8,6 +8,8 @@ from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
+from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 
@@ -22,6 +24,7 @@ class PlantingRunService:
         nutrient_plan_repo=None,
         watering_repo=None,
         phase_repo: IPhaseRepository | None = None,
+        site_repo: ISiteRepository | None = None,
     ) -> None:
         self._repo = run_repo
         self._plant_repo = plant_repo
@@ -30,6 +33,7 @@ class PlantingRunService:
         self._nutrient_plan_repo = nutrient_plan_repo
         self._watering_repo = watering_repo
         self._phase_repo = phase_repo
+        self._site_repo = site_repo
 
     # ── Run CRUD ──────────────────────────────────────────────────────
 
@@ -62,11 +66,22 @@ class PlantingRunService:
 
     def update_run(self, key: PlantingRunKey, data: dict) -> PlantingRun:
         run = self.get_run(key)
+        old_location_key = run.location_key
         allowed_fields = {"name", "notes", "planned_start_date", "location_key"}
         for field, value in data.items():
             if field in allowed_fields:
                 setattr(run, field, value)
-        return self._repo.update(key, run)
+        updated = self._repo.update(key, run)
+
+        # When location changes on an active run, reassign plants to new slots
+        new_location_key = updated.location_key
+        if (
+            old_location_key != new_location_key
+            and updated.status in (PlantingRunStatus.ACTIVE, PlantingRunStatus.HARVESTING)
+        ):
+            self._reassign_plant_slots(key, old_location_key, new_location_key)
+
+        return updated
 
     def delete_run(self, key: PlantingRunKey) -> bool:
         run = self.get_run(key)
@@ -158,19 +173,53 @@ class PlantingRunService:
 
         plant_specs = self._engine.generate_plant_ids(location_key, entries, existing_ids)
 
+        # Resolve available slots at the run's location
+        available_slots = self._get_available_slots(run.location_key)
+
+        # Resolve initial phase per species from lifecycle config
+        initial_phases: dict[str, tuple[str, str]] = {}  # species_key -> (phase_key, phase_name)
+        if self._phase_repo:
+            for entry in entries:
+                if entry.species_key not in initial_phases:
+                    lifecycle = self._phase_repo.get_lifecycle_by_species(entry.species_key)
+                    if lifecycle:
+                        growth_phases = self._phase_repo.get_phases_by_lifecycle(lifecycle.key)
+                        if growth_phases:
+                            first = min(growth_phases, key=lambda gp: gp.sequence_order)
+                            initial_phases[entry.species_key] = (first.key or "", first.name)
+
+        now = datetime.now(UTC)
         created_plants = []
-        for spec in plant_specs:
+        for i, spec in enumerate(plant_specs):
+            slot_key = available_slots[i].key if i < len(available_slots) else None
+            phase_key, phase_name = initial_phases.get(spec["species_key"], ("", "seedling"))
             plant = PlantInstance(
                 instance_id=spec["instance_id"],
                 species_key=spec["species_key"],
                 cultivar_key=spec.get("cultivar_key"),
-                slot_key=None,
+                slot_key=slot_key,
                 planted_on=date.today(),
-                current_phase="seedling",
+                current_phase_key=phase_key or None,
+                current_phase_started_at=now,
             )
             created = self._plant_repo.create(plant)
             if created.key:
                 self._repo.link_run_to_plant(run_key, created.key)
+                # Create initial phase history entry
+                if self._phase_repo:
+                    history = PhaseHistory(
+                        plant_instance_key=created.key,
+                        phase_key=phase_key,
+                        phase_name=phase_name,
+                        entered_at=now,
+                        transition_reason="initial",
+                    )
+                    self._phase_repo.create_phase_history(history)
+            # Mark slot as occupied
+            if slot_key and self._site_repo:
+                slot = available_slots[i]
+                slot.currently_occupied = True
+                self._site_repo.update_slot(slot_key, slot)
             created_plants.append(created)
 
         # Transition to active
@@ -184,7 +233,59 @@ class PlantingRunService:
             "created_count": len(created_plants),
             "plant_keys": [p.key for p in created_plants if p.key],
             "instance_ids": [p.instance_id for p in created_plants],
+            "slots_assigned": min(len(available_slots), len(created_plants)),
         }
+
+    # ── Slot helpers ────────────────────────────────────────────────────
+
+    def _get_available_slots(self, location_key: str | None) -> list:
+        """Return unoccupied slots at the given location, sorted by slot_id."""
+        if not location_key or not self._site_repo:
+            return []
+        slots = self._site_repo.get_slots_by_location(location_key)
+        return sorted(
+            [s for s in slots if not s.currently_occupied and s.key],
+            key=lambda s: s.slot_id,
+        )
+
+    def _reassign_plant_slots(
+        self,
+        run_key: PlantingRunKey,
+        old_location_key: str | None,
+        new_location_key: str | None,
+    ) -> None:
+        """Clear slot assignments from old location and assign to new location's slots."""
+        if not self._site_repo:
+            return
+
+        plants_raw = self._repo.get_run_plants(run_key, include_detached=False)
+
+        # Release old slots
+        for p in plants_raw:
+            slot_key = p.get("slot_key")
+            if slot_key:
+                plant_key = p.get("_key") or p.get("key", "")
+                plant = self._plant_repo.get(plant_key)
+                if plant:
+                    plant.slot_key = None
+                    self._plant_repo.update(plant_key, plant)
+                slot = self._site_repo.get_slot_by_key(slot_key)
+                if slot:
+                    slot.currently_occupied = False
+                    self._site_repo.update_slot(slot_key, slot)
+
+        # Assign to new location's available slots
+        available_slots = self._get_available_slots(new_location_key)
+        for i, p in enumerate(plants_raw):
+            if i >= len(available_slots):
+                break
+            plant_key = p.get("_key") or p.get("key", "")
+            plant = self._plant_repo.get(plant_key)
+            if plant and available_slots[i].key:
+                plant.slot_key = available_slots[i].key
+                self._plant_repo.update(plant_key, plant)
+                available_slots[i].currently_occupied = True
+                self._site_repo.update_slot(available_slots[i].key, available_slots[i])
 
     def batch_transition(
         self, run_key: PlantingRunKey, target_phase_key: str, target_phase_name: str,
@@ -207,7 +308,6 @@ class PlantingRunService:
             try:
                 existing = self._plant_repo.get_by_key(plant_key)
                 if existing:
-                    existing.current_phase = target_phase_name
                     existing.current_phase_key = target_phase_key
                     existing.current_phase_started_at = datetime.now(UTC)
                     self._plant_repo.update(plant_key, existing)
@@ -226,11 +326,33 @@ class PlantingRunService:
             "failed_keys": failed,
         }
 
-    def batch_remove(self, run_key: PlantingRunKey, reason: str = "batch_remove") -> dict:
-        """Remove all active plants from the run and complete it."""
+    def batch_remove(
+        self,
+        run_key: PlantingRunKey,
+        reason: str = "batch_remove",
+        target_status: str | None = None,
+    ) -> dict:
+        """Remove all active plants from the run and transition to target status.
+
+        If *target_status* is ``None`` the status is auto-determined:
+        ``COMPLETED`` when the run is already in HARVESTING, ``CANCELLED``
+        otherwise.
+        """
         run = self.get_run(run_key)
         if run.status not in (PlantingRunStatus.ACTIVE, PlantingRunStatus.HARVESTING):
             raise InvalidRunStateError("batch_remove", run.status.value)
+
+        # Resolve final status
+        if target_status is not None:
+            final = PlantingRunStatus(target_status)
+            if final not in (PlantingRunStatus.COMPLETED, PlantingRunStatus.CANCELLED):
+                raise InvalidRunStateError("batch_remove", target_status)
+        else:
+            final = (
+                PlantingRunStatus.COMPLETED
+                if run.status == PlantingRunStatus.HARVESTING
+                else PlantingRunStatus.CANCELLED
+            )
 
         plants = self._repo.get_run_plants(run_key, include_detached=False)
         removed = []
@@ -245,8 +367,7 @@ class PlantingRunService:
             except Exception:
                 pass
 
-        # Transition to completed
-        run.status = PlantingRunStatus.COMPLETED
+        run.status = final
         run.completed_at = datetime.now(UTC)
         self._repo.update(run_key, run)
 
@@ -254,6 +375,7 @@ class PlantingRunService:
             "run_key": run_key,
             "removed_count": len(removed),
             "removed_keys": removed,
+            "final_status": final.value,
         }
 
     # ── Phase summaries ─────────────────────────────────────────────
@@ -335,16 +457,23 @@ class PlantingRunService:
                 }
 
             # Build timeline entries
+            now = datetime.now(UTC)
             phase_entries = []
             last_end: datetime | None = None
             for gp in growth_phases:
                 h = history_by_phase.get(gp.name)
-                if h and h.get("exited_at"):
-                    # Completed phase
+                exited = h.get("exited_at") if h else None
+                exited_in_past = (
+                    exited is not None
+                    and (exited if exited.tzinfo else exited.replace(tzinfo=UTC)) <= now
+                )
+                if h and exited_in_past:
+                    # Completed phase (exited_at is in the past)
                     phase_entries.append({
                         "phase_key": gp.key or "",
                         "phase_name": gp.name,
                         "display_name": gp.display_name or gp.name,
+                        "description": gp.description or "",
                         "sequence_order": gp.sequence_order,
                         "typical_duration_days": gp.typical_duration_days,
                         "status": "completed",
@@ -355,8 +484,9 @@ class PlantingRunService:
                         "projected_end": None,
                     })
                     last_end = h["exited_at"]
-                elif gp.name == rep_current_phase:
-                    # Current phase
+                elif gp.name == rep_current_phase or (h and h.get("entered_at") and not exited_in_past):
+                    # Current phase (either matches plant's current_phase, or has
+                    # entered_at set with exited_at in the future / not yet set)
                     entered = h["entered_at"] if h else None
                     if entered is None:
                         # Fallback: use current_phase_started_at from plant
@@ -366,20 +496,27 @@ class PlantingRunService:
                                 entered = datetime.fromisoformat(started_str)
                             else:
                                 entered = started_str
+                    # Use future exited_at as projected end, otherwise compute from typical duration
+                    proj_end_dt = exited if (exited and not exited_in_past) else (
+                        (entered + timedelta(days=gp.typical_duration_days)) if entered else None
+                    )
                     phase_entries.append({
                         "phase_key": gp.key or "",
                         "phase_name": gp.name,
                         "display_name": gp.display_name or gp.name,
+                        "description": gp.description or "",
                         "sequence_order": gp.sequence_order,
                         "typical_duration_days": gp.typical_duration_days,
                         "status": "current",
                         "actual_entered_at": entered,
-                        "actual_exited_at": None,
+                        "actual_exited_at": exited if (exited and not exited_in_past) else None,
                         "actual_duration_days": None,
                         "projected_start": None,
-                        "projected_end": (entered + timedelta(days=gp.typical_duration_days)) if entered else None,
+                        "projected_end": proj_end_dt,
                     })
-                    if entered:
+                    if proj_end_dt:
+                        last_end = proj_end_dt
+                    elif entered:
                         last_end = entered + timedelta(days=gp.typical_duration_days)
                 else:
                     # Projected phase (future)
@@ -389,6 +526,7 @@ class PlantingRunService:
                         "phase_key": gp.key or "",
                         "phase_name": gp.name,
                         "display_name": gp.display_name or gp.name,
+                        "description": gp.description or "",
                         "sequence_order": gp.sequence_order,
                         "typical_duration_days": gp.typical_duration_days,
                         "status": "projected",
@@ -411,6 +549,77 @@ class PlantingRunService:
 
         return timelines
 
+    # ── Batch phase date editing ─────────────────────────────────────
+
+    def batch_update_phase_dates(
+        self,
+        run_key: PlantingRunKey,
+        phase_key: str,
+        entered_at: datetime | None = None,
+        exited_at: datetime | None = None,
+    ) -> dict:
+        """Update phase history dates for ALL plants in the run that have a matching phase_key."""
+        run = self.get_run(run_key)
+        if run.status not in (PlantingRunStatus.ACTIVE, PlantingRunStatus.HARVESTING):
+            raise InvalidRunStateError("batch_update_phase_dates", run.status.value)
+
+        if self._phase_repo is None:
+            raise ValueError("Phase repository not available")
+
+        if entered_at is not None and exited_at is not None and entered_at >= exited_at:
+            raise ValueError("entered_at must be before exited_at")
+
+        plants_raw = self._repo.get_run_plants(run_key, include_detached=False)
+        updated_count = 0
+        skipped_count = 0
+
+        for plant_data in plants_raw:
+            plant_key = plant_data.get("_key", "")
+            if not plant_key:
+                skipped_count += 1
+                continue
+
+            history_entries = self._phase_repo.get_phase_history(plant_key)
+            matched = None
+            for h in history_entries:
+                if h.phase_key == phase_key:
+                    matched = h
+                    break
+
+            if matched is None or matched.key is None:
+                skipped_count += 1
+                continue
+
+            if entered_at is not None:
+                matched.entered_at = entered_at
+            if exited_at is not None:
+                matched.exited_at = exited_at
+
+            # Recalculate duration
+            if matched.exited_at is not None:
+                delta = matched.exited_at - matched.entered_at
+                matched.actual_duration_days = delta.days
+            else:
+                matched.actual_duration_days = None
+
+            self._phase_repo.update_phase_history(matched.key, matched)
+
+            # Update plant's current_phase_started_at if this is the open phase
+            if matched.exited_at is None and entered_at is not None:
+                plant = self._plant_repo.get_by_key(plant_key)
+                if plant:
+                    plant.current_phase_started_at = entered_at
+                    self._plant_repo.update(plant_key, plant)
+
+            updated_count += 1
+
+        return {
+            "run_key": run_key,
+            "phase_key": phase_key,
+            "updated_count": updated_count,
+            "skipped_count": skipped_count,
+        }
+
     # ── Plant management ──────────────────────────────────────────────
 
     def get_plants(self, run_key: PlantingRunKey, include_detached: bool = False) -> list[dict]:
@@ -420,6 +629,9 @@ class PlantingRunService:
     def detach_plant(self, run_key: PlantingRunKey, plant_key: PlantID, reason: str) -> None:
         self.get_run(run_key)
         self._repo.detach_plant(run_key, plant_key, reason)
+
+    def get_runs_for_plant(self, plant_key: PlantID) -> list[PlantingRun]:
+        return self._repo.get_runs_for_plant(plant_key)
 
     # ── Nutrient plan assignment ───────────────────────────────────────
 
@@ -445,12 +657,17 @@ class PlantingRunService:
     def _build_channel_calendars(
         self, plan_key: str, run_key: PlantingRunKey, days_ahead: int,
     ) -> list[dict]:
-        """Build per-channel watering calendars from phase entry schedules."""
+        """Build per-channel watering calendars from phase entry schedules.
+
+        Channels with the same channel_id across different phases are merged
+        so that each physical channel appears only once with combined dates.
+        """
         if self._nutrient_plan_repo is None:
             return []
         phase_entries = self._nutrient_plan_repo.get_phase_entries(plan_key)
         today = date.today()
-        calendars: list[dict] = []
+
+        merged: dict[str, dict] = {}
         for entry in phase_entries:
             for ch in entry.delivery_channels:
                 if not ch.enabled or ch.schedule is None:
@@ -465,15 +682,21 @@ class PlantingRunService:
                 method_str = method.value if hasattr(method, "value") else str(method)
                 phase = entry.phase_name
                 phase_str = phase.value if hasattr(phase, "value") else str(phase)
-                calendars.append({
-                    "channel_id": ch.channel_id,
-                    "label": ch.label or ch.channel_id,
-                    "application_method": method_str,
-                    "phase_name": phase_str,
-                    "dates": [d.isoformat() for d in ch_dates],
-                    "times_per_day": ch.schedule.times_per_day,
-                })
-        return calendars
+
+                if ch.channel_id in merged:
+                    date_set = set(merged[ch.channel_id]["dates"])
+                    date_set.update(d.isoformat() for d in ch_dates)
+                    merged[ch.channel_id]["dates"] = sorted(date_set)
+                else:
+                    merged[ch.channel_id] = {
+                        "channel_id": ch.channel_id,
+                        "label": ch.label or ch.channel_id,
+                        "application_method": method_str,
+                        "phase_name": phase_str,
+                        "dates": sorted(d.isoformat() for d in ch_dates),
+                        "times_per_day": ch.schedule.times_per_day,
+                    }
+        return list(merged.values())
 
     def get_watering_schedule(self, run_key: PlantingRunKey, days_ahead: int = 14) -> dict:
         """Get watering schedule calendar for the next N days."""

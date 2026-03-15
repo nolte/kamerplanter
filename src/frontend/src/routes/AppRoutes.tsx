@@ -4,6 +4,7 @@ import MainLayout from '@/layouts/MainLayout';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ProtectedRoute from '@/auth/ProtectedRoute';
 import PublicOnlyRoute from '@/auth/PublicOnlyRoute';
+import RouterErrorPage from '@/pages/RouterErrorPage';
 import { isLightMode } from '@/config/mode';
 
 // Auth pages
@@ -34,6 +35,8 @@ const BotanicalFamilyDetailPage = lazy(
 const SpeciesListPage = lazy(() => import('@/pages/stammdaten/SpeciesListPage'));
 const SpeciesDetailPage = lazy(() => import('@/pages/stammdaten/SpeciesDetailPage'));
 const CultivarDetailPage = lazy(() => import('@/pages/stammdaten/CultivarDetailPage'));
+const ActivityListPage = lazy(() => import('@/pages/stammdaten/ActivityListPage'));
+const ActivityDetailPage = lazy(() => import('@/pages/stammdaten/ActivityDetailPage'));
 const CompanionPlantingPage = lazy(
   () => import('@/pages/stammdaten/CompanionPlantingPage'),
 );
@@ -78,6 +81,13 @@ const FeedingEventDetailPage = lazy(
 const WateringEventListPage = lazy(
   () => import('@/pages/standorte/WateringEventListPage'),
 );
+// Unified watering log (replaces WateringEvent + FeedingEvent)
+const WateringLogListPage = lazy(
+  () => import('@/pages/giessprotokoll/WateringLogListPage'),
+);
+const WateringLogDetailPage = lazy(
+  () => import('@/pages/giessprotokoll/WateringLogDetailPage'),
+);
 // REQ-010 IPM
 const PestListPage = lazy(() => import('@/pages/pflanzenschutz/PestListPage'));
 const DiseaseListPage = lazy(() => import('@/pages/pflanzenschutz/DiseaseListPage'));
@@ -94,22 +104,23 @@ const HarvestBatchDetailPage = lazy(
 // REQ-006 Tasks
 const TaskQueuePage = lazy(() => import('@/pages/aufgaben/TaskQueuePage'));
 const TaskDetailPage = lazy(() => import('@/pages/aufgaben/TaskDetailPage'));
-const WorkflowTemplateListPage = lazy(
-  () => import('@/pages/aufgaben/WorkflowTemplateListPage'),
+const WorkflowDetailPage = lazy(
+  () => import('@/pages/aufgaben/WorkflowDetailPage'),
 );
 
-// REQ-022 Pflege
-const PflegeDashboardPage = lazy(() => import('@/pages/pflege/PflegeDashboardPage'));
 // REQ-015 Kalender
 const CalendarPage = lazy(() => import('@/pages/kalender/CalendarPage'));
 // REQ-020 Onboarding
 const OnboardingWizard = lazy(() => import('@/pages/onboarding/OnboardingWizard'));
 
+// Admin
+const AdminSettingsPage = lazy(() => import('@/pages/admin/AdminSettingsPage'));
+
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 export const router = createBrowserRouter(
   createRoutesFromElements(
-    <>
+    <Route errorElement={<RouterErrorPage />}>
       {/* OAuth callback — full mode only */}
       {!isLightMode && (
         <Route
@@ -191,6 +202,16 @@ export const router = createBrowserRouter(
             }
           />
 
+          {/* Admin Settings */}
+          <Route
+            path="admin/settings"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                <AdminSettingsPage />
+              </Suspense>
+            }
+          />
+
           {/* REQ-024 Tenants — full mode only */}
           {!isLightMode && (
             <>
@@ -221,15 +242,8 @@ export const router = createBrowserRouter(
             </>
           )}
 
-          {/* REQ-022 Pflege */}
-          <Route
-            path="pflege"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <PflegeDashboardPage />
-              </Suspense>
-            }
-          />
+          {/* REQ-022 Pflege — merged into aufgaben/queue */}
+          <Route path="pflege" element={<Navigate to="/aufgaben/queue" replace />} />
 
           {/* REQ-015 Kalender */}
           <Route
@@ -305,6 +319,23 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="table" />}>
                 <CropRotationPage />
+              </Suspense>
+            }
+          />
+          {/* Activities */}
+          <Route
+            path="stammdaten/activities"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                <ActivityListPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="stammdaten/activities/:key"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                <ActivityDetailPage />
               </Suspense>
             }
           />
@@ -490,6 +521,24 @@ export const router = createBrowserRouter(
             }
           />
 
+          {/* Watering Log (unified) */}
+          <Route
+            path="giessprotokoll"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                <WateringLogListPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="giessprotokoll/:key"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                <WateringLogDetailPage />
+              </Suspense>
+            }
+          />
+
           {/* REQ-010 Pflanzenschutz */}
           <Route
             path="pflanzenschutz/pests"
@@ -552,12 +601,24 @@ export const router = createBrowserRouter(
             }
           />
           <Route
-            path="aufgaben/workflows"
+            path="aufgaben/workflows/:key"
             element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <WorkflowTemplateListPage />
+              <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                <WorkflowDetailPage />
               </Suspense>
             }
+          />
+          <Route
+            path="aufgaben/workflows"
+            element={<Navigate to="/stammdaten/species" replace />}
+          />
+          <Route
+            path="aufgaben/activity-plans"
+            element={<Navigate to="/stammdaten/species" replace />}
+          />
+          <Route
+            path="aufgaben/activity-plans/:speciesKey"
+            element={<Navigate to="/aufgaben/workflows" replace />}
           />
 
           {/* REQ-013 Durchläufe */}
@@ -588,6 +649,6 @@ export const router = createBrowserRouter(
           />
         </Route>
       </Route>
-    </>,
+    </Route>,
   ),
 );

@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Drawer from '@mui/material/Drawer';
 import List from '@mui/material/List';
@@ -7,8 +7,11 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import ListSubheader from '@mui/material/ListSubheader';
 import Toolbar from '@mui/material/Toolbar';
+import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import ParkIcon from '@mui/icons-material/Park';
 import ScienceIcon from '@mui/icons-material/Science';
@@ -23,21 +26,22 @@ import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import OpacityIcon from '@mui/icons-material/Opacity';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import BiotechIcon from '@mui/icons-material/Biotech';
-import EventNoteIcon from '@mui/icons-material/EventNote';
-import WaterIcon from '@mui/icons-material/Water';
+import HistoryIcon from '@mui/icons-material/History';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import CoronavirusIcon from '@mui/icons-material/Coronavirus';
 import MedicationIcon from '@mui/icons-material/Medication';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import SettingsIcon from '@mui/icons-material/Settings';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import ContentCutIcon from '@mui/icons-material/ContentCut';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import { sidebarWidth } from '@/theme/tokens';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { navItemConfig, navSectionConfig } from '@/config/fieldConfigs';
+import { useAppDispatch } from '@/store/hooks';
+import { setSidebarOpen } from '@/store/slices/uiSlice';
 import type { ExperienceLevel } from '@/api/types';
 
 interface NavItem {
@@ -61,8 +65,14 @@ interface SidebarProps {
 export default function Sidebar({ open }: SidebarProps) {
   const { t } = useTranslation();
   const location = useLocation();
-  const navigate = useNavigate();
   const { isNavVisible } = useExpertiseLevel();
+  const dispatch = useAppDispatch();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  const handleClose = () => {
+    dispatch(setSidebarOpen(false));
+  };
 
   const isItemVisible = (path: string): boolean => {
     const minLevel = navItemConfig[path];
@@ -79,14 +89,14 @@ export default function Sidebar({ open }: SidebarProps) {
   const navItems: NavEntry[] = [
     { label: t('nav.dashboard'), path: '/dashboard', icon: <DashboardIcon /> },
     {
-      label: t('nav.pflege'),
-      path: '/pflege',
-      icon: <NotificationsActiveIcon />,
-    },
-    {
       label: t('nav.calendar'),
       path: '/kalender',
       icon: <CalendarMonthIcon />,
+    },
+    {
+      label: t('nav.wateringLog'),
+      path: '/giessprotokoll',
+      icon: <HistoryIcon />,
     },
     {
       header: t('nav.pflanzen'),
@@ -112,11 +122,6 @@ export default function Sidebar({ open }: SidebarProps) {
           label: t('nav.taskQueue'),
           path: '/aufgaben/queue',
           icon: <TaskAltIcon />,
-        },
-        {
-          label: t('nav.workflows'),
-          path: '/aufgaben/workflows',
-          icon: <AccountTreeIcon />,
         },
       ],
     },
@@ -145,6 +150,11 @@ export default function Sidebar({ open }: SidebarProps) {
           icon: <LoopIcon />,
         },
         {
+          label: t('nav.activities'),
+          path: '/stammdaten/activities',
+          icon: <ContentCutIcon />,
+        },
+        {
           label: t('nav.import'),
           path: '/stammdaten/import',
           icon: <FileUploadIcon />,
@@ -166,11 +176,6 @@ export default function Sidebar({ open }: SidebarProps) {
           path: '/standorte/tanks',
           icon: <WaterDropIcon />,
         },
-        {
-          label: t('nav.wateringEvents'),
-          path: '/standorte/watering-events',
-          icon: <WaterIcon />,
-        },
       ],
     },
     {
@@ -186,11 +191,6 @@ export default function Sidebar({ open }: SidebarProps) {
           label: t('nav.nutrientPlans'),
           path: '/duengung/plans',
           icon: <ListAltIcon />,
-        },
-        {
-          label: t('nav.feedingEvents'),
-          path: '/duengung/feeding-events',
-          icon: <EventNoteIcon />,
         },
         {
           label: t('nav.nutrientCalculations'),
@@ -244,13 +244,23 @@ export default function Sidebar({ open }: SidebarProps) {
     },
   ];
 
+  // Determine whether any top-level (non-section) items are visible
+  const topLevelItems = navItems.filter(
+    (item): item is NavItem =>
+      'path' in item && typeof (item as NavItem).path === 'string',
+  );
+  const visibleTopLevelItems = topLevelItems.filter((item) => isItemVisible(item.path));
+  const hasSections = navItems.some((item) => !('path' in item));
+
   return (
     <Drawer
-      variant="persistent"
+      variant={isMobile ? 'temporary' : 'persistent'}
       open={open}
+      onClose={handleClose}
       data-testid="sidebar"
+      ModalProps={{ keepMounted: true }}
       sx={{
-        width: open ? sidebarWidth : 0,
+        width: !isMobile && open ? sidebarWidth : 0,
         flexShrink: 0,
         '& .MuiDrawer-paper': {
           width: sidebarWidth,
@@ -259,27 +269,41 @@ export default function Sidebar({ open }: SidebarProps) {
       }}
     >
       <Toolbar>
-        <Typography variant="h6" noWrap>
+        <Typography variant="h6" noWrap component="span">
           Kamerplanter
         </Typography>
       </Toolbar>
+      <Divider />
       <Box component="nav" aria-label={t('nav.mainNavigation')} sx={{ overflow: 'auto', flex: 1 }}>
-        <List>
-          {navItems.map((section) => {
+        <List disablePadding>
+          {navItems.map((section, sectionIndex) => {
             if ('path' in section && typeof section.path === 'string') {
               if (!isItemVisible(section.path)) return null;
               const { path } = section;
-              const isActive = location.pathname === path;
+              const isActive = location.pathname === path || location.pathname.startsWith(path + '/');
               return (
                 <ListItemButton
                   key={path}
+                  component={Link}
+                  to={path}
                   selected={isActive}
-                  onClick={() => navigate(path)}
                   aria-current={isActive ? 'page' : undefined}
                   data-testid={`nav-${path}`}
+                  onClick={isMobile ? handleClose : undefined}
+                  sx={{
+                    borderRadius: 1,
+                    mx: 0.5,
+                    my: 0.25,
+                    '&.Mui-selected': {
+                      fontWeight: 600,
+                    },
+                  }}
                 >
-                  <ListItemIcon>{section.icon}</ListItemIcon>
-                  <ListItemText primary={section.label} />
+                  <ListItemIcon sx={{ minWidth: 40 }}>{section.icon}</ListItemIcon>
+                  <ListItemText
+                    primary={section.label}
+                    primaryTypographyProps={{ fontSize: '0.875rem' }}
+                  />
                 </ListItemButton>
               );
             }
@@ -287,21 +311,51 @@ export default function Sidebar({ open }: SidebarProps) {
             if (!isSectionVisible(navSection.sectionKey)) return null;
             const visibleItems = navSection.items.filter((item) => isItemVisible(item.path));
             if (visibleItems.length === 0) return null;
+            // Add a divider before the first section if there are top-level items above
+            const isFirstSection =
+              hasSections &&
+              visibleTopLevelItems.length > 0 &&
+              navItems.findIndex((item) => !('path' in item)) === sectionIndex;
             return (
               <Box key={navSection.header}>
-                <ListSubheader>{navSection.header}</ListSubheader>
+                {isFirstSection && <Divider sx={{ mt: 0.5 }} />}
+                <ListSubheader
+                  sx={{
+                    lineHeight: '32px',
+                    fontSize: '0.7rem',
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: 'text.disabled',
+                    mt: 0.5,
+                  }}
+                >
+                  {navSection.header}
+                </ListSubheader>
                 {visibleItems.map((item) => {
                   const isActive = location.pathname.startsWith(item.path);
                   return (
                     <ListItemButton
                       key={item.path}
+                      component={Link}
+                      to={item.path}
                       selected={isActive}
-                      onClick={() => navigate(item.path)}
                       aria-current={isActive ? 'page' : undefined}
                       data-testid={`nav-${item.path}`}
+                      onClick={isMobile ? handleClose : undefined}
+                      sx={{
+                        borderRadius: 1,
+                        mx: 0.5,
+                        my: 0.125,
+                        '&.Mui-selected': {
+                          fontWeight: 600,
+                        },
+                      }}
                     >
-                      <ListItemIcon>{item.icon}</ListItemIcon>
-                      <ListItemText primary={item.label} />
+                      <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                      <ListItemText
+                        primary={item.label}
+                        primaryTypographyProps={{ fontSize: '0.875rem' }}
+                      />
                     </ListItemButton>
                   );
                 })}
@@ -310,14 +364,37 @@ export default function Sidebar({ open }: SidebarProps) {
           })}
         </List>
       </Box>
-      <List>
+      <Divider />
+      <List disablePadding sx={{ pb: 1 }}>
         <ListItemButton
-          selected={location.pathname === '/settings'}
-          onClick={() => navigate('/settings')}
-          data-testid="nav-settings"
+          component={Link}
+          to="/admin/settings"
+          selected={location.pathname === '/admin/settings'}
+          aria-current={location.pathname === '/admin/settings' ? 'page' : undefined}
+          data-testid="nav-admin-settings"
+          onClick={isMobile ? handleClose : undefined}
+          sx={{ borderRadius: 1, mx: 0.5, my: 0.25 }}
         >
-          <ListItemIcon><SettingsIcon /></ListItemIcon>
-          <ListItemText primary={t('nav.settings')} />
+          <ListItemIcon sx={{ minWidth: 40 }}><AdminPanelSettingsIcon /></ListItemIcon>
+          <ListItemText
+            primary={t('nav.adminSettings')}
+            primaryTypographyProps={{ fontSize: '0.875rem' }}
+          />
+        </ListItemButton>
+        <ListItemButton
+          component={Link}
+          to="/settings"
+          selected={location.pathname === '/settings'}
+          aria-current={location.pathname === '/settings' ? 'page' : undefined}
+          data-testid="nav-settings"
+          onClick={isMobile ? handleClose : undefined}
+          sx={{ borderRadius: 1, mx: 0.5, my: 0.25 }}
+        >
+          <ListItemIcon sx={{ minWidth: 40 }}><SettingsIcon /></ListItemIcon>
+          <ListItemText
+            primary={t('nav.settings')}
+            primaryTypographyProps={{ fontSize: '0.875rem' }}
+          />
         </ListItemButton>
       </List>
     </Drawer>

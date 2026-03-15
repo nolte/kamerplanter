@@ -540,7 +540,7 @@ export interface PlantInstanceCreate {
   substrate_key?: string | null;
   plant_name?: string | null;
   planted_on: string;
-  current_phase?: string;
+  current_phase_key?: string | null;
   container_volume_liters?: number | null;
   substrate_type_override?: SubstrateType | null;
 }
@@ -2352,6 +2352,11 @@ export interface WorkflowTemplate {
   category: string;
   tags: string[];
   is_system: boolean;
+  auto_generated: boolean;
+  species_key: string | null;
+  species_name: string;
+  total_duration_days: number;
+  assigned_plant_count: number;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -2362,6 +2367,7 @@ export interface WorkflowTemplateCreate {
   created_by?: string;
   version?: string;
   species_compatible?: string[];
+  species_key?: string | null;
   growth_system?: string | null;
   difficulty_level?: string;
   category?: string;
@@ -2389,10 +2395,19 @@ export interface ChecklistItem {
 export interface TaskTemplate {
   key: string;
   name: string;
+  name_de: string;
   instruction: string;
+  instruction_de: string;
+  description: string;
+  description_de: string;
+  rationale: string;
+  rationale_de: string;
   category: string;
   trigger_type: string;
   trigger_phase: string | null;
+  phase_display_name: string;
+  phase_duration_days: number;
+  phase_stress_tolerance: string;
   days_offset: number;
   stress_level: string;
   estimated_duration_minutes: number | null;
@@ -2403,7 +2418,11 @@ export interface TaskTemplate {
   skill_level: string;
   optimal_time_of_day: string | null;
   workflow_template_key: string | null;
+  activity_key: string | null;
   sequence_order: number;
+  recovery_days: number;
+  is_optional: boolean;
+  enabled: boolean;
   default_checklist: ChecklistItem[];
   require_all_checklist_items: boolean;
   created_at: string | null;
@@ -2454,7 +2473,9 @@ export interface TaskTemplateUpdate {
 export interface TaskItem {
   key: string;
   name: string;
+  name_de: string;
   instruction: string;
+  instruction_de: string;
   category: string;
   plant_key: string | null;
   due_date: string | null;
@@ -2484,6 +2505,7 @@ export interface TaskItem {
   reopened_from_status: string | null;
   started_at: string | null;
   completed_at: string | null;
+  activity_key: string | null;
   template_key: string | null;
   workflow_execution_key: string | null;
   planting_run_key: string | null;
@@ -2494,7 +2516,9 @@ export interface TaskItem {
 
 export interface TaskItemCreate {
   name: string;
+  name_de?: string;
   instruction?: string;
+  instruction_de?: string;
   category?: string;
   plant_key?: string | null;
   due_date?: string | null;
@@ -3084,6 +3108,16 @@ export interface WateringConfirmResponse {
   warnings: Record<string, unknown>[];
 }
 
+// ── Watering Volume Suggestion ────────────────────────────────────────
+
+export interface VolumeSuggestion {
+  volume_ml: number;
+  volume_ml_min: number;
+  volume_ml_max: number;
+  source: string;
+  adjustments: string[];
+}
+
 // ── REQ-012 Import Types ─────────────────────────────────────────────
 
 export type EntityType = 'species' | 'cultivar' | 'botanical_family';
@@ -3182,13 +3216,19 @@ export interface ActivityCreate {
 
 // ── Activity Plans ──
 
-export interface PlannedActivity {
-  activity_key: string;
-  activity_name: string;
-  phase_name: string;
-  phase_sequence_order: number;
-  suggested_day_offset: number;
+export interface TaskTemplateResponse {
+  key: string;
+  name: string;
+  name_de: string;
+  instruction: string;
+  instruction_de: string;
+  trigger_phase: string | null;
+  phase_display_name: string;
+  phase_duration_days: number;
+  phase_stress_tolerance: string;
+  days_offset: number;
   rationale: string;
+  rationale_de: string;
   category: string;
   stress_level: string;
   skill_level: string;
@@ -3197,24 +3237,22 @@ export interface PlannedActivity {
   recovery_days: number;
   is_optional: boolean;
   enabled: boolean;
-}
-
-export interface ActivityPlanPhase {
-  phase_name: string;
-  phase_display_name: string;
-  phase_duration_days: number;
-  sequence_order: number;
-  stress_tolerance: string;
-  activities: PlannedActivity[];
+  activity_key: string | null;
+  description: string;
+  description_de: string;
 }
 
 export interface ActivityPlanResponse {
+  workflow_template_key: string;
+  name: string;
   species_name: string;
+  species_key: string | null;
+  auto_generated: boolean;
   growth_system: string | null;
   skill_level_filter: string | null;
-  phases: ActivityPlanPhase[];
   total_activities: number;
   total_duration_days: number;
+  templates: TaskTemplateResponse[];
 }
 
 export interface ActivityPlanGenerateRequest {
@@ -3222,10 +3260,11 @@ export interface ActivityPlanGenerateRequest {
   lifecycle_key?: string | null;
   growth_system?: string | null;
   skill_level?: string | null;
+  force_regenerate?: boolean;
 }
 
 export interface ActivityPlanApplyRequest {
-  plan: ActivityPlanResponse;
+  workflow_template_key: string;
   plant_key?: string | null;
   run_key?: string | null;
   tenant_key?: string;
@@ -3238,14 +3277,8 @@ export interface ActivityPlanApplyResponse {
   total_tasks: number | null;
 }
 
-export interface ActivityPlanToWorkflowRequest {
-  plan: ActivityPlanResponse;
-  name: string;
-  tenant_key?: string;
-}
-
-export interface WorkflowTemplateBasicResponse {
-  key: string;
-  name: string;
-  description: string | null;
+export interface TaskTemplateUpdateRequest {
+  enabled?: boolean | null;
+  days_offset?: number | null;
+  trigger_phase?: string | null;
 }

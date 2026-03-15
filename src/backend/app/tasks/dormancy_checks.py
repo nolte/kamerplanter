@@ -21,7 +21,9 @@ def check_dormancy_triggers(current_temp_c: float, day_length_hours: float) -> d
     for plant in plants:
         if plant.removed_on is not None:
             continue
-        if plant.current_phase == "dormancy":
+        # Resolve phase name from key to check for dormancy
+        phase_name = plant_repo.resolve_phase_name(plant.current_phase_key or "") if plant.current_phase_key else ""
+        if phase_name == "dormancy":
             continue
 
         try:

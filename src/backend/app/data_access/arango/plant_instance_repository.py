@@ -13,23 +13,28 @@ class ArangoPlantInstanceRepository(IPlantInstanceRepository, BaseArangoReposito
     def __init__(self, db: StandardDatabase) -> None:
         BaseArangoRepository.__init__(self, db, col.PLANT_INSTANCES)
 
+    def _resolve_phase_name(self, doc: dict) -> dict:
+        """Strip legacy current_phase string; the key is the single source of truth."""
+        doc.pop("current_phase", None)
+        return doc
+
     # ── Basic CRUD ────────────────────────────────────────────────────
 
     def get_all(self, offset: int = 0, limit: int = 50) -> tuple[list[PlantInstance], int]:
         docs, total = BaseArangoRepository.get_all(self, offset, limit)
-        return [PlantInstance(**doc) for doc in docs], total
+        return [PlantInstance(**self._resolve_phase_name(doc)) for doc in docs], total
 
     def get_by_key(self, key: PlantID) -> PlantInstance | None:
         doc = BaseArangoRepository.get_by_key(self, key)
-        return PlantInstance(**doc) if doc else None
+        return PlantInstance(**self._resolve_phase_name(doc)) if doc else None
 
     def get_by_instance_id(self, instance_id: str) -> PlantInstance | None:
         docs = self.find_by_field("instance_id", instance_id)
-        return PlantInstance(**docs[0]) if docs else None
+        return PlantInstance(**self._resolve_phase_name(docs[0])) if docs else None
 
     def create(self, plant: PlantInstance) -> PlantInstance:
         doc = BaseArangoRepository.create(self, plant)
-        created = PlantInstance(**doc)
+        created = PlantInstance(**self._resolve_phase_name(doc))
         if plant.slot_key:
             plant_id = f"{col.PLANT_INSTANCES}/{doc['_key']}"
             slot_id = f"{col.SLOTS}/{plant.slot_key}"
@@ -38,7 +43,7 @@ class ArangoPlantInstanceRepository(IPlantInstanceRepository, BaseArangoReposito
 
     def update(self, key: PlantID, plant: PlantInstance) -> PlantInstance:
         doc = BaseArangoRepository.update(self, key, plant)
-        return PlantInstance(**doc)
+        return PlantInstance(**self._resolve_phase_name(doc))
 
     def delete(self, key: PlantID) -> bool:
         plant_id = f"{col.PLANT_INSTANCES}/{key}"
@@ -52,7 +57,7 @@ class ArangoPlantInstanceRepository(IPlantInstanceRepository, BaseArangoReposito
     def get_by_slot(self, slot_key: SlotKey) -> list[PlantInstance]:
         slot_id = f"{col.SLOTS}/{slot_key}"
         results = self.get_edges(col.PLACED_IN, slot_id, direction="inbound")
-        return [PlantInstance(**self._from_doc(r["vertex"])) for r in results]
+        return [PlantInstance(**self._resolve_phase_name(self._from_doc(r["vertex"]))) for r in results]
 
     def get_active_by_slot(self, slot_key: SlotKey) -> list[PlantInstance]:
         query = """
@@ -66,7 +71,7 @@ class ArangoPlantInstanceRepository(IPlantInstanceRepository, BaseArangoReposito
             "edge_col": col.PLACED_IN,
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        return [PlantInstance(**self._from_doc(doc)) for doc in cursor]
+        return [PlantInstance(**self._resolve_phase_name(self._from_doc(doc))) for doc in cursor]
 
     def get_history_by_slot(self, slot_key: SlotKey, years: int = 3) -> list[PlantInstance]:
         cutoff = datetime.now(UTC).replace(year=datetime.now(UTC).year - years)
@@ -84,10 +89,17 @@ class ArangoPlantInstanceRepository(IPlantInstanceRepository, BaseArangoReposito
             "cutoff": cutoff_iso,
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        return [PlantInstance(**self._from_doc(doc)) for doc in cursor]
+        return [PlantInstance(**self._resolve_phase_name(self._from_doc(doc))) for doc in cursor]
 
     # ── Species-based query ───────────────────────────────────────────
 
     def get_by_species(self, species_key: SpeciesKey) -> list[PlantInstance]:
         docs = self.find_by_field("species_key", species_key)
-        return [PlantInstance(**doc) for doc in docs]
+        return [PlantInstance(**self._resolve_phase_name(doc)) for doc in docs]
+
+    def resolve_phase_name(self, phase_key: str) -> str:
+        """Resolve a GrowthPhase key to its name."""
+        if not phase_key:
+            return ""
+        doc = self._db.collection(col.GROWTH_PHASES).get(phase_key)
+        return doc.get("name", "") if doc else ""

@@ -1,0 +1,1980 @@
+activities:
+  # ==========================================================================
+  # CANNABIS-SPECIFIC TRAINING TECHNIQUES
+  # ==========================================================================
+
+  - name: "Topping"
+    name_de: "Topping (Haupttrieb kappen)"
+    description: >
+      Remove the apical meristem (main growing tip) to break apical dominance — the hormonal
+      mechanism by which the top shoot suppresses lateral branching via auxin distribution.
+      Once the apical meristem is removed, auxin concentration drops at the lateral nodes,
+      causing two or more side branches to develop into new main colas. This effectively
+      doubles the number of top flowering sites. Topping is best performed after the plant
+      has developed 4-6 nodes, when it is vigorous enough to recover quickly. The plant
+      needs 5-7 days of recovery before further training. Never top during flowering, as
+      the stress would reduce yield and the plant cannot develop new structural growth.
+    description_de: >
+      Entfernung des Apikalmeristems (Haupttriebspitze), um die Apikaldominanz zu brechen —
+      den hormonellen Mechanismus, durch den der Haupttrieb über Auxinverteilung das
+      Seitentriebwachstum unterdrückt. Ohne Apikalmeristem sinkt die Auxinkonzentration
+      an den lateralen Nodien, wodurch zwei oder mehr Seitentriebe zu neuen Hauptblütenständen
+      heranwachsen. Dies verdoppelt effektiv die Anzahl der oberen Blütenstände. Topping
+      wird idealerweise durchgeführt, wenn die Pflanze 4-6 Nodien entwickelt hat und
+      kräftig genug für eine schnelle Erholung ist. Die Pflanze benötigt 5-7 Tage
+      Regenerationszeit vor weiterem Training. Niemals während der Blüte toppen, da der
+      Stress den Ertrag mindert und die Pflanze keine neuen Strukturen mehr aufbauen kann.
+    category: "training_hst"
+    stress_level: "high"
+    skill_level: "intermediate"
+    recovery_days_default: 5
+    recovery_days_by_species:
+      cannabis: 7
+    species_compatible: ["Cannabis", "Hanf"]
+    forbidden_phases: ["flowering", "harvest", "ripening", "senescence", "dormancy", "budding", "corm_ripening"]
+    tools_required: ["scissors", "gloves", "disinfectant"]
+    estimated_duration_minutes: 5
+    sort_order: 1
+    tags: ["hst", "branching", "cannabis"]
+
+  - name: "FIM"
+    name_de: "FIM (F**k I Missed)"
+    description: >
+      A variation of topping where approximately 75-80% of the apical meristem is removed
+      rather than cutting cleanly through the stem. The partial removal leaves some
+      meristematic tissue intact, which can result in 3-8 new growing tips instead of
+      the typical 2 from topping. The technique is named after its accidental discovery
+      ('F**k, I missed'). FIM is considered higher-risk than topping because the outcome
+      is less predictable — the remaining tissue may produce uneven growth. Recovery time
+      is similar to topping (5-7 days). Best performed during vigorous vegetative growth
+      when the plant has 5+ nodes. Advanced technique due to the precision required.
+    description_de: >
+      Eine Variante des Toppings, bei der etwa 75-80% des Apikalmeristems entfernt werden,
+      anstatt sauber durch den Stängel zu schneiden. Die teilweise Entfernung belässt
+      etwas meristematisches Gewebe intakt, wodurch 3-8 neue Triebspitzen entstehen können
+      statt der typischen 2 beim Topping. Die Technik ist nach ihrer zufälligen Entdeckung
+      benannt ('F**k, I missed'). FIM gilt als riskanter als Topping, da das Ergebnis
+      weniger vorhersagbar ist — das verbleibende Gewebe kann ungleichmässiges Wachstum
+      erzeugen. Die Erholungszeit ist ähnlich wie beim Topping (5-7 Tage). Am besten
+      während kräftigen vegetativen Wachstums mit 5+ Nodien durchführen. Fortgeschrittene
+      Technik aufgrund der erforderlichen Präzision.
+    category: "training_hst"
+    stress_level: "high"
+    skill_level: "advanced"
+    recovery_days_default: 5
+    recovery_days_by_species:
+      cannabis: 7
+    species_compatible: ["Cannabis", "Hanf"]
+    forbidden_phases: ["flowering", "harvest", "ripening", "senescence", "dormancy", "budding", "corm_ripening"]
+    tools_required: ["scissors", "gloves", "disinfectant"]
+    estimated_duration_minutes: 5
+    sort_order: 2
+    tags: ["hst", "branching", "cannabis"]
+
+  - name: "Mainlining"
+    name_de: "Mainlining (Manifold)"
+    description: >
+      An advanced structural training technique that creates a perfectly symmetrical
+      plant architecture through systematic topping and branch training. The plant is
+      topped early (at node 3-4), then each resulting branch is topped again, creating
+      a manifold of 8-16 evenly sized colas. Each branch receives equal nutrient flow
+      from the root system because the vascular pathways are symmetrical. This produces
+      remarkably uniform bud size and density. Mainlining requires multiple topping
+      events with 5-7 days recovery between each, extending the vegetative phase by
+      2-4 weeks. The result is worth the time investment for experienced growers seeking
+      maximum uniformity and yield optimization.
+    description_de: >
+      Eine fortgeschrittene strukturelle Trainingstechnik, die durch systematisches
+      Topping und Triebführung eine perfekt symmetrische Pflanzenarchitektur erzeugt.
+      Die Pflanze wird früh getopped (an Nodie 3-4), dann wird jeder resultierende
+      Trieb erneut getopped, wodurch ein Verteiler mit 8-16 gleichmässig grossen
+      Blütenständen entsteht. Jeder Trieb erhält gleichmässigen Nährstofffluss vom
+      Wurzelsystem, da die Leitbahnen symmetrisch sind. Dies erzeugt bemerkenswert
+      einheitliche Blütengrösse und -dichte. Mainlining erfordert mehrere Topping-Schritte
+      mit je 5-7 Tagen Erholung und verlängert die vegetative Phase um 2-4 Wochen.
+      Das Ergebnis lohnt den Zeitaufwand für erfahrene Grower, die maximale
+      Gleichmässigkeit und Ertragsoptimierung anstreben.
+    category: "training_hst"
+    stress_level: "high"
+    skill_level: "advanced"
+    recovery_days_default: 5
+    recovery_days_by_species:
+      cannabis: 7
+    species_compatible: ["Cannabis", "Hanf"]
+    forbidden_phases: ["flowering", "harvest", "ripening", "senescence", "dormancy", "budding", "corm_ripening"]
+    tools_required: ["scissors", "plant ties", "gloves", "disinfectant"]
+    estimated_duration_minutes: 15
+    sort_order: 3
+    tags: ["hst", "manifold", "cannabis"]
+
+  - name: "Supercropping"
+    name_de: "Supercropping (Stängel knicken)"
+    description: >
+      A high-stress training technique where stems are deliberately bent and partially
+      crushed between the fingers without breaking the outer skin. The inner xylem and
+      phloem tissues are damaged, triggering the plant's wound response: the stem rebuilds
+      with a thicker, stronger knuckle at the bend point. This knuckle contains more
+      vascular tissue, improving nutrient transport to the branch above. Supercropping
+      also levels the canopy by bending tall branches down to the height of shorter ones.
+      The plant responds by producing elevated levels of secondary metabolites (terpenes,
+      cannabinoids) as a stress defense. Best performed on semi-woody stems during late
+      vegetative or early flowering phase. Avoid in late flower when stems are brittle.
+    description_de: >
+      Eine Hochstress-Trainingstechnik, bei der Stängel absichtlich zwischen den Fingern
+      gebogen und teilweise gequetscht werden, ohne die äussere Haut zu brechen. Das
+      innere Xylem- und Phloemgewebe wird beschädigt, was die Wundheilungsreaktion der
+      Pflanze auslöst: Der Stängel wird mit einem dickeren, stärkeren Knoten an der
+      Biegestelle neu aufgebaut. Dieser Knoten enthält mehr Leitgewebe und verbessert den
+      Nährstofftransport zum darüberliegenden Trieb. Supercropping nivelliert auch das
+      Kronendach, indem hohe Triebe auf die Höhe kürzerer gebogen werden. Die Pflanze
+      reagiert mit erhöhter Produktion sekundärer Metabolite (Terpene, Cannabinoide) als
+      Stressabwehr. Am besten an halbverholzten Stängeln in der späten vegetativen oder
+      frühen Blütephase durchführen. In der Spätblüte vermeiden, wenn Stängel spröde sind.
+    category: "training_hst"
+    stress_level: "medium"
+    skill_level: "intermediate"
+    recovery_days_default: 5
+    species_compatible: ["Cannabis", "Hanf"]
+    restricted_sub_phases: ["mid_flower", "late_flower"]
+    forbidden_phases: ["senescence", "dormancy", "ripening"]
+    tools_required: ["tape"]
+    estimated_duration_minutes: 10
+    sort_order: 4
+    tags: ["hst", "cannabis"]
+
+  - name: "LST"
+    name_de: "LST (Low Stress Training)"
+    description: >
+      A non-destructive canopy management technique where branches are gently bent
+      and tied down to create a flat, even canopy. By repositioning branches horizontally,
+      auxin distribution changes: the lowered apical tip loses dominance, causing lower
+      nodes to develop into active growth points. This exposes more bud sites to direct
+      light, significantly increasing yield potential. Unlike HST methods, LST does not
+      damage tissue, so there is no recovery period and it can be applied continuously
+      throughout vegetative and early flowering. LST is especially valuable in height-
+      restricted environments (grow tents) and when maximizing light footprint utilization.
+    description_de: >
+      Eine zerstörungsfreie Kronenmanagement-Technik, bei der Zweige vorsichtig gebogen
+      und festgebunden werden, um ein flaches, gleichmässiges Kronendach zu erzeugen.
+      Durch die horizontale Neupositionierung der Triebe ändert sich die Auxinverteilung:
+      Die abgesenkte Triebspitze verliert ihre Dominanz, wodurch untere Nodien zu aktiven
+      Wachstumspunkten werden. Dies exponiert mehr Blütenansätze dem direkten Licht und
+      steigert das Ertragspotenzial erheblich. Anders als HST-Methoden beschädigt LST
+      kein Gewebe, daher gibt es keine Erholungszeit und es kann kontinuierlich während
+      der vegetativen und frühen Blütephase angewendet werden. LST ist besonders wertvoll
+      in höhenbeschränkten Umgebungen (Growzelte) und zur maximalen Nutzung der
+      Lichtfläche.
+    category: "training_lst"
+    stress_level: "low"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Cannabis", "Hanf"]
+    forbidden_phases: ["dormancy", "senescence"]
+    tools_required: ["plant ties", "wire"]
+    estimated_duration_minutes: 15
+    sort_order: 5
+    tags: ["lst", "canopy", "cannabis"]
+
+  - name: "SCROG Setup"
+    name_de: "SCROG-Netz spannen"
+    description: >
+      Screen of Green (SCROG) is an advanced LST method using a horizontal net or screen
+      placed 20-40 cm above the growing medium. As branches grow through the net, they are
+      woven back underneath, creating a perfectly flat canopy. Every growing tip is forced
+      to the same height, ensuring uniform light distribution across all bud sites. The
+      net also provides structural support during flowering when heavy buds would otherwise
+      cause branches to bend or break. SCROG maximizes yield per square meter by eliminating
+      shaded lower growth (popcorn buds) and concentrating the plant's energy into a single
+      productive canopy layer. Best installed during late vegetative phase; weaving continues
+      into early flowering.
+    description_de: >
+      Screen of Green (SCROG) ist eine fortgeschrittene LST-Methode mit einem horizontalen
+      Netz, das 20-40 cm über dem Substrat gespannt wird. Wenn Triebe durch das Netz
+      wachsen, werden sie zurückgeflochten, wodurch ein perfekt flaches Kronendach entsteht.
+      Jede Triebspitze wird auf gleiche Höhe gezwungen, was eine gleichmässige
+      Lichtverteilung über alle Blütenansätze sicherstellt. Das Netz bietet zudem
+      strukturelle Unterstützung während der Blüte, wenn schwere Blüten die Zweige sonst
+      biegen oder brechen würden. SCROG maximiert den Ertrag pro Quadratmeter, indem
+      beschattetes Unterwuchs (Popcorn-Buds) eliminiert und die Pflanzenenergie in eine
+      einzige produktive Kronenschicht konzentriert wird. Am besten in der späten
+      vegetativen Phase installieren; das Einflechten wird bis in die frühe Blüte
+      fortgesetzt.
+    category: "training_lst"
+    stress_level: "low"
+    skill_level: "intermediate"
+    recovery_days_default: 0
+    species_compatible: ["Cannabis", "Hanf"]
+    forbidden_phases: ["dormancy", "senescence", "germination"]
+    tools_required: ["scrog net", "hooks"]
+    estimated_duration_minutes: 30
+    sort_order: 6
+    tags: ["lst", "scrog", "cannabis"]
+
+  - name: "Heavy Defoliation"
+    name_de: "Starke Entlaubung"
+    description: >
+      Aggressive removal of 50-75% of fan leaves at strategic points during the grow cycle.
+      Typically performed at the onset of flowering (day 1-3) and again around day 21.
+      The biological rationale is controversial but practiced widely: removing large fan
+      leaves forces light deeper into the canopy and redirects the plant's photosynthate
+      production toward bud sites rather than maintaining leaf tissue. The plant responds
+      to the stress by increasing resin production as a protective mechanism. This is an
+      advanced technique — excessive defoliation on weak or stressed plants can severely
+      reduce yield. Only recommended for vigorous, healthy plants under optimal growing
+      conditions with adequate light intensity (>600 PPFD).
+    description_de: >
+      Aggressives Entfernen von 50-75% der Fächerblätter an strategischen Punkten im
+      Wachstumszyklus. Typischerweise zu Blütebeginn (Tag 1-3) und erneut um Tag 21
+      durchgeführt. Die biologische Begründung ist umstritten, wird aber breit praktiziert:
+      Das Entfernen grosser Fächerblätter lässt Licht tiefer in das Kronendach eindringen
+      und lenkt die Photosyntheseproduktion der Pflanze auf Blütenansätze statt auf den
+      Erhalt von Blattgewebe um. Die Pflanze reagiert auf den Stress mit erhöhter
+      Harzproduktion als Schutzmechanismus. Dies ist eine fortgeschrittene Technik —
+      übermässige Entlaubung bei schwachen oder gestressten Pflanzen kann den Ertrag
+      erheblich reduzieren. Nur empfohlen für kräftige, gesunde Pflanzen unter optimalen
+      Anbaubedingungen mit ausreichender Lichtintensität (>600 PPFD).
+    category: "pruning"
+    stress_level: "high"
+    skill_level: "advanced"
+    recovery_days_default: 5
+    species_compatible: ["Cannabis", "Hanf"]
+    restricted_sub_phases: ["mid_flower", "late_flower"]
+    forbidden_phases: ["harvest", "ripening", "dormancy", "germination", "senescence"]
+    tools_required: ["scissors", "gloves"]
+    estimated_duration_minutes: 20
+    sort_order: 8
+    tags: ["defoliation", "cannabis"]
+
+  - name: "Lollipopping"
+    name_de: "Lollipopping (Untere Triebe entfernen)"
+    description: >
+      Strategic removal of all lower growth below the canopy line, creating a bare stem
+      ('lollipop' shape) with all productive growth concentrated at the top. The biological
+      basis: lower branches receive insufficient light (<200 PPFD) and produce only small,
+      airy buds ('popcorn buds') that are not worth harvesting. By removing this growth,
+      the plant redirects all assimilates to the well-lit upper canopy, producing fewer
+      but significantly larger and denser buds. Lollipopping also improves airflow beneath
+      the canopy, reducing humidity and the risk of Botrytis (bud rot). Best performed
+      1-2 weeks before flipping to flowering or in the first week of 12/12. Avoid removing
+      growth after week 3 of flowering, as the stress disrupts bud development.
+    description_de: >
+      Strategisches Entfernen aller unteren Triebe unterhalb der Kronenlinie, wodurch ein
+      kahler Stängel ('Lollipop'-Form) entsteht und alles produktive Wachstum oben
+      konzentriert wird. Die biologische Grundlage: Untere Zweige erhalten unzureichend
+      Licht (<200 PPFD) und produzieren nur kleine, lockere Blüten ('Popcorn-Buds'), die
+      nicht erntewürdig sind. Durch Entfernung dieses Wuchses leitet die Pflanze alle
+      Assimilate in das gut belichtete obere Kronendach um und produziert weniger, aber
+      deutlich grössere und dichtere Blüten. Lollipopping verbessert auch die Luftzirkulation
+      unter der Krone, reduziert Luftfeuchtigkeit und das Risiko von Botrytis (Blütenfäule).
+      Am besten 1-2 Wochen vor dem Umstellen auf Blüte oder in der ersten Woche von 12/12
+      durchführen. Nach Woche 3 der Blüte kein Wachstum mehr entfernen, da der Stress die
+      Blütenentwicklung stört.
+    category: "pruning"
+    stress_level: "high"
+    skill_level: "advanced"
+    recovery_days_default: 7
+    recovery_days_by_species:
+      cannabis: 10
+    species_compatible: ["Cannabis", "Hanf"]
+    restricted_sub_phases: ["mid_flower", "late_flower"]
+    forbidden_phases: ["dormancy", "germination", "senescence"]
+    tools_required: ["scissors"]
+    estimated_duration_minutes: 15
+    sort_order: 9
+    tags: ["pruning", "cannabis"]
+
+  - name: "Flushing"
+    name_de: "Spülen (Flush)"
+    description: >
+      Irrigation with pure, pH-adjusted water (no nutrients) for the final 7-14 days before
+      harvest. The purpose is to force the plant to metabolize residual mineral salts stored
+      in leaf and bud tissue. When nutrient supply stops, the plant mobilizes internal
+      reserves — visible as yellowing of fan leaves (nitrogen remobilization). Proponents
+      argue this produces a smoother, cleaner-tasting final product with a white ash when
+      combusted, as opposed to the black ash and harsh taste associated with excess mineral
+      residues. Flushing is primarily practiced in mineral/salt-based growing systems (hydro,
+      coco, inert media). In living soil or organic systems, flushing is generally unnecessary
+      as nutrients are already in organic form. Monitor EC runoff: target <0.3 mS/cm.
+    description_de: >
+      Bewässerung mit reinem, pH-adjustiertem Wasser (ohne Nährstoffe) für die letzten
+      7-14 Tage vor der Ernte. Der Zweck ist, die Pflanze zu zwingen, im Blatt- und
+      Blütengewebe eingelagerte Mineralsalzreste zu verstoffwechseln. Wenn die
+      Nährstoffzufuhr stoppt, mobilisiert die Pflanze interne Reserven — sichtbar als
+      Vergilbung der Fächerblätter (Stickstoff-Remobilisierung). Befürworter argumentieren,
+      dies erzeugt ein weicheres, sauberer schmeckendes Endprodukt mit weisser Asche bei
+      Verbrennung, im Gegensatz zur schwarzen Asche und dem harschen Geschmack bei
+      überschüssigen Mineralresten. Flushing wird hauptsächlich in mineral-/salzbasierten
+      Anbausystemen praktiziert (Hydro, Coco, inerte Medien). In Living Soil oder
+      organischen Systemen ist Flushing generell unnötig, da Nährstoffe bereits in
+      organischer Form vorliegen. EC-Ablauf überwachen: Zielwert <0,3 mS/cm.
+    category: "harvest_prep"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Cannabis", "Hanf"]
+    forbidden_phases: ["dormancy", "germination"]
+    estimated_duration_minutes: 15
+    sort_order: 14
+    tags: ["flush", "harvest_prep", "cannabis"]
+
+  # ==========================================================================
+  # UNIVERSAL ACTIVITIES (filtered by species traits)
+  # ==========================================================================
+
+  - name: "Light Defoliation"
+    name_de: "Leichte Entlaubung"
+    description: >
+      Selective removal of damaged, yellowed, or overcrowded leaves to improve air circulation
+      and light penetration within the plant canopy. Dead or dying leaves are entry points
+      for fungal pathogens (Botrytis, Pythium) and should be removed promptly. Overcrowded
+      foliage creates pockets of stagnant, humid air that favor disease development. By
+      thinning the canopy moderately (removing no more than 10-20% of healthy leaves at
+      once), the remaining foliage receives better light exposure, improving photosynthetic
+      efficiency. Unlike heavy defoliation, light defoliation is a low-stress maintenance
+      activity suitable for all plant types throughout the active growing season.
+    description_de: >
+      Gezieltes Entfernen beschädigter, vergilbter oder zu dichter Blätter, um Luftzirkulation
+      und Lichtdurchdringung im Pflanzenbestand zu verbessern. Tote oder absterbende Blätter
+      sind Eintrittspforten für Pilzpathogene (Botrytis, Pythium) und sollten umgehend
+      entfernt werden. Zu dichtes Laub erzeugt Zonen stagnierender, feuchter Luft, die
+      Krankheitsentwicklung begünstigen. Durch mässiges Auslichten (nicht mehr als 10-20%
+      der gesunden Blätter auf einmal entfernen) erhält das verbleibende Laub bessere
+      Lichtexposition und steigert die Photosyntheseeffizienz. Anders als starke Entlaubung
+      ist leichte Entlaubung eine stressarme Pflegemassnahme, die für alle Pflanzentypen
+      während der gesamten aktiven Wachstumsperiode geeignet ist.
+    category: "pruning"
+    stress_level: "low"
+    skill_level: "beginner"
+    recovery_days_default: 2
+    forbidden_phases: ["dormancy", "germination", "senescence"]
+    tools_required: ["scissors"]
+    estimated_duration_minutes: 10
+    sort_order: 7
+    tags: ["defoliation", "maintenance"]
+    # Applies to all multi-leaved plants; excluded for succulents/cacti via stress gate
+    applicable_growth_habits: ["herb", "shrub", "vine"]
+
+  - name: "Pruning (General)"
+    name_de: "Rückschnitt (allgemein)"
+    description: >
+      General-purpose pruning for plant health, shape control, and growth stimulation.
+      Pruning removes dead, crossing, or inward-growing branches to maintain an open
+      plant structure with good airflow. From a physiological perspective, pruning
+      redirects auxin flow and removes apical dominance on specific branches, stimulating
+      dormant buds below the cut to break. Strategic pruning also controls plant size,
+      which is important for container-grown plants and limited grow spaces. Always cut
+      just above a node (leaf junction) at a slight angle to promote healing and direct
+      new growth outward. Use clean, sharp tools to minimize tissue damage and pathogen entry.
+    description_de: >
+      Allgemeiner Rückschnitt für Pflanzengesundheit, Formkontrolle und Wachstumsförderung.
+      Rückschnitt entfernt tote, kreuzende oder nach innen wachsende Triebe, um eine offene
+      Pflanzenstruktur mit guter Luftzirkulation zu erhalten. Physiologisch gesehen lenkt
+      Rückschnitt den Auxinfluss um und hebt die Apikaldominanz an bestimmten Zweigen auf,
+      wodurch ruhende Knospen unterhalb der Schnittstelle zum Austrieb angeregt werden.
+      Strategischer Rückschnitt kontrolliert auch die Pflanzengrösse, was bei Topfpflanzen
+      und begrenztem Wuchsraum wichtig ist. Immer knapp über einer Nodie (Blattansatz)
+      in leichtem Winkel schneiden, um die Heilung zu fördern und neues Wachstum nach
+      aussen zu lenken. Saubere, scharfe Werkzeuge verwenden, um Gewebeschäden und
+      Pathogeneintritt zu minimieren.
+    category: "pruning"
+    stress_level: "low"
+    skill_level: "beginner"
+    recovery_days_default: 2
+    forbidden_phases: ["dormancy", "germination"]
+    tools_required: ["secateurs"]
+    estimated_duration_minutes: 15
+    sort_order: 11
+    tags: ["pruning"]
+    applicable_growth_habits: ["herb", "shrub", "tree", "vine"]
+
+  - name: "Transplanting"
+    name_de: "Umpflanzen"
+    description: >
+      Moving a plant from a smaller container to a larger one or into a new growing medium.
+      Transplanting is necessary when roots become pot-bound — visually indicated by roots
+      circling the pot bottom, growing out of drainage holes, or the plant showing slowed
+      growth despite adequate nutrition. Root-bound plants cannot access sufficient water
+      and nutrients, leading to stunted growth and nutrient lockout. The new container should
+      be 2-4 cm larger in diameter (not excessively larger, to avoid waterlogging in unused
+      soil volume). Transplanting causes temporary stress as fine root hairs are inevitably
+      damaged; the plant needs 3-5 days to regenerate these and resume normal nutrient uptake.
+      Best performed during active vegetative growth, not during flowering or dormancy.
+    description_de: >
+      Umsetzen einer Pflanze von einem kleineren in einen grösseren Topf oder in ein neues
+      Substrat. Umpflanzen ist nötig, wenn die Wurzeln topfgebunden werden — erkennbar an
+      Wurzeln, die den Topfboden umkreisen, aus Drainagelöchern wachsen oder wenn die Pflanze
+      trotz ausreichender Nährstoffversorgung verlangsamtes Wachstum zeigt. Topfgebundene
+      Pflanzen können nicht genügend Wasser und Nährstoffe aufnehmen, was zu Kümmerwuchs und
+      Nährstoff-Lockout führt. Der neue Topf sollte 2-4 cm grösser im Durchmesser sein
+      (nicht übermässig grösser, um Staunässe in ungenutztem Erdvolumen zu vermeiden).
+      Umpflanzen verursacht vorübergehenden Stress, da feine Wurzelhaare unweigerlich
+      beschädigt werden; die Pflanze braucht 3-5 Tage, um diese zu regenerieren und die
+      normale Nährstoffaufnahme wieder aufzunehmen. Am besten während aktivem vegetativem
+      Wachstum durchführen, nicht während Blüte oder Ruhezeit.
+    category: "transplant"
+    stress_level: "medium"
+    skill_level: "beginner"
+    recovery_days_default: 5
+    recovery_days_by_species:
+      cannabis: 3
+      sellerie: 7
+    restricted_sub_phases: ["mid_flower", "late_flower"]
+    forbidden_phases: ["dormancy", "senescence"]
+    tools_required: ["pot", "substrate", "trowel"]
+    estimated_duration_minutes: 15
+    sort_order: 12
+    tags: ["transplant"]
+    requires_container: true
+
+  - name: "Repotting"
+    name_de: "Umtopfen"
+    description: >
+      Transferring a plant to a new pot with fresh substrate, typically when the old
+      substrate has degraded, become compacted, or accumulated excess salts. Unlike
+      transplanting (which focuses on pot size), repotting emphasizes substrate renewal.
+      Over time, organic substrates decompose, losing their aeration properties — peat
+      compacts, perlite migrates to the surface, and the root zone becomes anaerobic.
+      Salt buildup from fertilization can cause root burn and nutrient lockout (visible
+      as brown leaf tips). Fresh substrate restores proper drainage, aeration, and pH
+      buffering capacity. For continuously flowering houseplants (Spathiphyllum, which
+      blooms multiple times per year), repotting during flowering is acceptable since
+      avoiding it would mean never having a bloom-free window.
+    description_de: >
+      Umsetzen einer Pflanze in einen neuen Topf mit frischem Substrat, typischerweise wenn
+      das alte Substrat abgebaut, verdichtet oder mit überschüssigen Salzen belastet ist.
+      Anders als beim Umpflanzen (das sich auf Topfgrösse konzentriert) liegt der Fokus
+      beim Umtopfen auf der Substraterneuerung. Im Laufe der Zeit zersetzen sich organische
+      Substrate und verlieren ihre Belüftungseigenschaften — Torf verdichtet sich, Perlite
+      wandert an die Oberfläche, und die Wurzelzone wird anaerob. Salzanreicherung durch
+      Düngung kann Wurzelverbrennung und Nährstoff-Lockout verursachen (sichtbar als braune
+      Blattspitzen). Frisches Substrat stellt Drainage, Belüftung und pH-Pufferkapazität
+      wieder her. Bei dauerblühenden Zimmerpflanzen (Spathiphyllum, das mehrmals jährlich
+      blüht) ist Umtopfen während der Blüte akzeptabel, da das Vermeiden ein nie
+      blütenfreies Zeitfenster bedeuten würde.
+    category: "transplant"
+    stress_level: "medium"
+    skill_level: "beginner"
+    recovery_days_default: 5
+    forbidden_phases: ["dormancy", "senescence"]
+    restricted_sub_phases: ["mid_flower", "late_flower"]
+    tools_required: ["pot", "substrate"]
+    estimated_duration_minutes: 10
+    sort_order: 13
+    tags: ["transplant"]
+    requires_container: true
+
+  - name: "Pinching"
+    name_de: "Entspitzen"
+    description: >
+      Removal of the soft, actively growing tip of a stem using thumb and forefinger.
+      Pinching disrupts apical dominance at the pinched shoot, causing 2 lateral buds
+      below the pinch point to develop into active branches. This creates a bushier, more
+      compact plant form with increased branching. Unlike topping (which uses scissors on
+      woody tissue), pinching targets only the soft meristematic tissue and causes minimal
+      stress. The technique is fundamental for ornamental plants (petunias, chrysanthemums,
+      herbs) where a compact, multi-branched habit is desired. Pinching can be repeated
+      throughout the vegetative phase as new growth appears. Each pinch doubles the number
+      of growing tips at that branch. Recovery is rapid (1-2 days) due to the minimal tissue
+      damage.
+    description_de: >
+      Entfernung der weichen, aktiv wachsenden Triebspitze mit Daumen und Zeigefinger.
+      Entspitzen unterbricht die Apikaldominanz am behandelten Trieb, wodurch 2 laterale
+      Knospen unterhalb der Pinch-Stelle zu aktiven Zweigen werden. Dies erzeugt eine
+      buschigere, kompaktere Pflanzenform mit verstärkter Verzweigung. Anders als Topping
+      (das Scheren an verholztem Gewebe verwendet) zielt Entspitzen nur auf weiches
+      meristematisches Gewebe ab und verursacht minimalen Stress. Die Technik ist
+      fundamental für Zierpflanzen (Petunien, Chrysanthemen, Kräuter), bei denen ein
+      kompakter, viel verzweigter Habitus gewünscht wird. Entspitzen kann während der
+      gesamten vegetativen Phase wiederholt werden, wenn neues Wachstum erscheint. Jedes
+      Entspitzen verdoppelt die Anzahl der Triebspitzen an diesem Zweig. Die Erholung
+      ist schnell (1-2 Tage) aufgrund des minimalen Gewebeschadens.
+    category: "pruning"
+    stress_level: "low"
+    skill_level: "beginner"
+    recovery_days_default: 2
+    forbidden_phases: ["dormancy", "senescence", "ripening"]
+    estimated_duration_minutes: 5
+    sort_order: 16
+    tags: ["pruning"]
+    applicable_growth_habits: ["herb", "shrub", "groundcover"]
+
+  - name: "Root Pruning"
+    name_de: "Wurzelschnitt"
+    description: >
+      Trimming of root mass to control plant size, rejuvenate root systems, or prepare for
+      repotting. Root pruning is essential for long-term container culture of trees, shrubs,
+      and perennials where unrestricted root growth is not possible. By removing the outer
+      layer of circling roots (up to 20-30% of root mass), the plant is stimulated to
+      produce new feeder roots — the fine, white root hairs responsible for active water
+      and nutrient absorption. Old, woody roots are primarily structural and contribute
+      little to uptake. Root pruning triggers a hormonal reset: cytokinin production
+      increases in new root tips, promoting shoot growth above. This is a high-stress
+      operation requiring sharp, sterile tools. The plant needs 5-7 days minimum recovery
+      with reduced light and careful watering to avoid root rot in freshly cut tissue.
+    description_de: >
+      Beschneiden der Wurzelmasse zur Grössenkontrolle, Wurzelverjüngung oder
+      Umtopfvorbereitung. Wurzelschnitt ist essentiell für langfristige Topfkultur von
+      Bäumen, Sträuchern und Stauden, wo uneingeschränktes Wurzelwachstum nicht möglich ist.
+      Durch Entfernung der äusseren Schicht kreisender Wurzeln (bis zu 20-30% der
+      Wurzelmasse) wird die Pflanze angeregt, neue Saugwurzeln zu bilden — die feinen,
+      weissen Wurzelhaare, die für aktive Wasser- und Nährstoffaufnahme verantwortlich sind.
+      Alte, verholzte Wurzeln sind hauptsächlich strukturell und tragen wenig zur Aufnahme
+      bei. Wurzelschnitt löst einen hormonellen Reset aus: Die Cytokininproduktion steigt
+      in neuen Wurzelspitzen, was das Sprosswachstum oberirdisch fördert. Dies ist ein
+      Hochstress-Eingriff, der scharfe, sterile Werkzeuge erfordert. Die Pflanze benötigt
+      mindestens 5-7 Tage Erholung bei reduziertem Licht und vorsichtiger Bewässerung, um
+      Wurzelfäule an frisch geschnittenem Gewebe zu vermeiden.
+    category: "pruning"
+    stress_level: "high"
+    skill_level: "advanced"
+    recovery_days_default: 7
+    forbidden_phases: ["flowering", "dormancy", "senescence", "ripening"]
+    tools_required: ["scissors", "gloves"]
+    estimated_duration_minutes: 20
+    sort_order: 17
+    tags: ["pruning", "roots"]
+    applicable_growth_habits: ["tree", "shrub"]
+    requires_container: true
+
+  - name: "Cloning"
+    name_de: "Stecklinge nehmen"
+    description: >
+      Vegetative propagation by removing a stem cutting (typically 10-15 cm with 2-3 nodes)
+      from the mother plant and inducing root formation. The cut is made at a 45-degree angle
+      just below a node, where natural auxin concentration is highest.
+      Rooting hormone (IBA — indole-3-butyric acid) applied to the cut end enhances root
+      initiation. Cuttings are placed in a high-humidity environment (>80% RH) because they
+      cannot absorb water through roots until new ones form, relying entirely on transpiration
+      reduction. The mother plant experiences moderate stress from the wound and lost biomass
+      but recovers within days. Cloning preserves the exact genotype of the mother plant,
+      including all desirable traits (vigor, resistance, yield potential). Best taken from
+      vegetative growth; flowering tissue roots poorly due to hormonal shifts.
+    description_de: >
+      Vegetative Vermehrung durch Entnahme eines Stängelstecklings (typischerweise 10-15 cm
+      mit 2-3 Nodien) von der Mutterpflanze und Induktion der Wurzelbildung. Der Schnitt
+      erfolgt im 45-Grad-Winkel knapp unterhalb einer Nodie, wo die höchste Konzentration
+      natürlicher Auxinkonzentration vorliegt. Bewurzelungshormon (IBA — Indol-3-Buttersäure),
+      auf das Schnittende aufgetragen, verbessert die Wurzelinitiation. Stecklinge werden in
+      einer hochfeuchten Umgebung (>80% RH) platziert, da sie bis zur Bildung neuer Wurzeln
+      kein Wasser über Wurzeln aufnehmen können und vollständig auf Transpirationssreduktion
+      angewiesen sind. Die Mutterpflanze erfährt moderaten Stress durch die Wunde und den
+      Biomasseverlust, erholt sich aber innerhalb von Tagen. Klonen bewahrt den exakten
+      Genotyp der Mutterpflanze einschliesslich aller erwünschten Eigenschaften (Vitalität,
+      Resistenz, Ertragspotenzial). Am besten von vegetativem Wuchs nehmen; blühendes
+      Gewebe bewurzelt schlecht aufgrund hormoneller Verschiebungen.
+    category: "propagation"
+    stress_level: "medium"
+    skill_level: "intermediate"
+    recovery_days_default: 0
+    recovery_days_by_species:
+      cannabis: 14
+    forbidden_phases: ["dormancy", "senescence", "germination"]
+    tools_required: ["scalpel", "rooting hormone", "propagation tray"]
+    estimated_duration_minutes: 20
+    sort_order: 18
+    tags: ["propagation", "cloning"]
+    applicable_growth_habits: ["herb", "shrub", "vine"]
+
+  # ==========================================================================
+  # SOLANACEAE: Tomato, Pepper, Eggplant, Petunia
+  # ==========================================================================
+
+  - name: "Ausgeizen"
+    name_de: "Ausgeizen (Seitentriebe entfernen)"
+    description: >
+      Removal of axillary shoots (suckers) that develop in the leaf axils of Solanaceae
+      (tomato, pepper, eggplant). These side shoots compete with the main stem(s) for
+      assimilates and, if left unchecked, create a dense, tangled bush with many small
+      fruits instead of fewer, larger ones. In indeterminate tomato varieties, unchecked
+      suckers can reduce fruit size by 30-50%. Ausgeizen directs the plant's energy to
+      the main fruiting trusses and improves air circulation, reducing Botrytis and late
+      blight risk. Best done weekly when shoots are small (< 5 cm) — at this size they
+      snap off cleanly by hand without leaving a wound. Larger suckers require cutting and
+      leave a wound prone to infection. Not needed for determinate (bush) varieties.
+    description_de: >
+      Entfernung der Achseltriebe (Geiztriebe), die sich in den Blattachseln von
+      Nachtschattengewächsen (Tomate, Paprika, Aubergine) entwickeln. Diese Seitentriebe
+      konkurrieren mit dem Hauptstamm um Assimilate und erzeugen, wenn unbehandelt, einen
+      dichten, verfilzten Busch mit vielen kleinen statt weniger, grösserer Früchte. Bei
+      indeterminierten Tomatensorten können unkontrollierte Geiztriebe die Fruchtgrösse um
+      30-50% reduzieren. Ausgeizen lenkt die Pflanzenenergie auf die Hauptfruchtstände und
+      verbessert die Luftzirkulation, was Botrytis- und Krautfäule-Risiko reduziert. Am
+      besten wöchentlich durchführen, wenn die Triebe klein sind (< 5 cm) — in dieser Grösse
+      lassen sie sich sauber per Hand abbrechen ohne Wunde. Grössere Geiztriebe erfordern
+      Schnitt und hinterlassen eine infektionsanfällige Wunde. Bei determinierten
+      (Busch-)Sorten nicht nötig.
+    category: "ausgeizen"
+    stress_level: "low"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Solanum lycopersicum", "Capsicum", "Solanum melongena", "Tomate", "Paprika", "Aubergine"]
+    applicable_families: ["Solanaceae"]
+    forbidden_phases: ["germination", "seedling", "senescence"]
+    estimated_duration_minutes: 10
+    sort_order: 10
+    tags: ["ausgeizen", "vegetable", "solanaceae"]
+
+  - name: "Petunia Pinching"
+    name_de: "Petunien entspitzen"
+    description: >
+      Pinching of petunia growing tips after the 3rd leaf pair to promote compact, bushy
+      growth with abundant flowering. Petunias have a natural tendency to grow long, leggy
+      stems with flowers only at the tips. By removing the apical meristem early, 2-4
+      lateral branches develop from each pinched point, creating a much fuller plant with
+      3-4 times more flower buds. Unlike many other plants, petunias can be pinched
+      throughout the flowering period without significant bloom interruption — new buds
+      form within 7-10 days on the lateral shoots. This is because petunias are
+      indeterminate bloomers that continuously produce new flower buds on active growth
+      points. Regular pinching throughout the season maintains compact shape and prevents
+      the 'bare stem with flowers only at tips' syndrome.
+    description_de: >
+      Entspitzen der Petunien-Triebspitzen nach dem 3. Blattpaar für kompaktes, buschiges
+      Wachstum mit reichlicher Blüte. Petunien neigen natürlicherweise dazu, lange, kahle
+      Stängel mit Blüten nur an den Spitzen zu bilden. Durch frühes Entfernen des
+      Apikalmeristems entwickeln sich 2-4 Seitentriebe an jedem Pinch-Punkt, was eine
+      viel vollere Pflanze mit 3-4 mal mehr Blütenknospen erzeugt. Anders als bei vielen
+      anderen Pflanzen können Petunien auch während der Blütezeit ohne wesentliche
+      Blühunterbrechung entspitzt werden — neue Knospen bilden sich innerhalb von 7-10
+      Tagen an den Seitentrieben. Dies liegt daran, dass Petunien indeterminierte Blüher
+      sind, die kontinuierlich neue Blütenknospen an aktiven Wachstumspunkten bilden.
+      Regelmässiges Entspitzen über die Saison erhält die kompakte Form und verhindert
+      das 'kahler Stängel mit Blüten nur an den Spitzen'-Syndrom.
+    category: "pruning"
+    stress_level: "low"
+    skill_level: "beginner"
+    recovery_days_default: 3
+    species_compatible: ["Petunia", "Petunie"]
+    forbidden_phases: ["germination", "senescence"]
+    estimated_duration_minutes: 5
+    sort_order: 20
+    tags: ["pruning", "ornamental", "petunia"]
+
+  # ==========================================================================
+  # ORNAMENTAL FLOWERING: Deadheading, disbud, staking
+  # ==========================================================================
+
+  - name: "Deadheading"
+    name_de: "Verblühtes entfernen"
+    description: >
+      Removal of spent (faded) flowers before they can form seeds. Seed production is
+      energetically expensive — a single flower can divert 30-60% of the plant's current
+      assimilate production toward seed maturation. By removing spent flowers promptly,
+      the plant's hormonal balance shifts: the ethylene surge from maturing seeds — which
+      inhibits new flower initiation — is prevented, allowing the plant to continue
+      producing new flower buds in an attempt to achieve reproduction. This dramatically extends the bloom period of annuals and repeat-
+      blooming perennials. Deadheading also improves the plant's appearance and prevents
+      self-seeding of aggressive spreaders. For best results, cut the stem back to just
+      above the first set of healthy leaves, not just the flower head — this encourages
+      stronger regrowth from a well-established node.
+    description_de: >
+      Entfernung verblühter Blüten, bevor sie Samen bilden können. Samenproduktion ist
+      energetisch aufwändig — eine einzige Blüte kann 30-60% der aktuellen
+      Assimilatproduktion der Pflanze in die Samenreife umleiten. Durch promptes Entfernen
+      verblühter Blüten verschiebt sich das Hormongleichgewicht der Pflanze: Der
+      Ethylen-Anstieg reifender Samen — der die Neubildung von Blüten hemmt — wird
+      verhindert, sodass die Pflanze weiterhin neue Blütenknospen im Versuch der
+      Fortpflanzung produziert. Dies verlängert die Blütezeit von
+      Einjährigen und remontierenden Stauden dramatisch. Verblühtes entfernen verbessert
+      auch das Erscheinungsbild und verhindert Selbstaussaat aggressiver Ausbreiter.
+      Für beste Ergebnisse den Stängel bis knapp über das erste gesunde Blattpaar
+      zurückschneiden, nicht nur den Blütenkopf — dies fördert kräftigeren Neuaustrieb
+      von einer gut etablierten Nodie.
+    category: "pruning"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    forbidden_phases: ["dormancy", "germination", "seedling"]
+    estimated_duration_minutes: 10
+    sort_order: 15
+    tags: ["pruning", "ornamental"]
+    applicable_growth_habits: ["herb", "shrub", "groundcover"]
+
+  - name: "Dahlia Disbudding"
+    name_de: "Dahlie entknospten"
+    description: >
+      Removal of the two smaller side buds that flank the main terminal bud on each
+      dahlia stem. Each dahlia stem tip naturally produces a triad of buds — one large
+      central bud and two smaller lateral buds. If all three are left, they compete for
+      assimilates and produce three medium-sized flowers. By pinching out the side buds
+      when they are pea-sized, all energy flows to the central bud, producing one
+      significantly larger, show-quality bloom. This technique is essential for exhibition
+      dahlias (Dinner-Plate, Decorative, Cactus types) where flower diameter is judged.
+      For garden dahlias grown for mass effect, disbudding is optional — leaving all buds
+      produces more (but smaller) flowers. Disbud during budding phase, not during
+      vegetative growth (no buds to remove) or dormancy.
+    description_de: >
+      Entfernung der zwei kleineren Seitenknospen, die die Hauptendknospe an jedem
+      Dahlienstängel flankieren. Jede Dahlien-Stängelspitze bildet natürlicherweise eine
+      Knospen-Triade — eine grosse Zentralknospe und zwei kleinere laterale Knospen. Wenn
+      alle drei belassen werden, konkurrieren sie um Assimilate und produzieren drei
+      mittelgrosse Blüten. Durch Auspinchen der Seitenknospen in Erbsengrösse fliesst
+      alle Energie in die Zentralknospe und erzeugt eine deutlich grössere, ausstellungs-
+      würdige Blüte. Diese Technik ist essentiell für Ausstellungsdahlien (Dinner-Plate,
+      Dekorative, Kaktus-Typen), wo der Blütendurchmesser bewertet wird. Für Gartendahlien,
+      die auf Massenwirkung gezüchtet werden, ist Entknospen optional — alle Knospen
+      belassen ergibt mehr (aber kleinere) Blüten. Während der Knospungsphase entknospen,
+      nicht im vegetativen Wachstum (keine Knospen vorhanden) oder in der Ruhezeit.
+    category: "pruning"
+    stress_level: "low"
+    skill_level: "intermediate"
+    recovery_days_default: 0
+    species_compatible: ["Dahlia", "Dahlie"]
+    forbidden_phases: ["dormancy", "sprouting", "senescence", "vegetative"]
+    estimated_duration_minutes: 10
+    sort_order: 21
+    tags: ["pruning", "ornamental", "dahlia"]
+
+  - name: "Dahlia Staking"
+    name_de: "Dahlie aufbinden"
+    description: >
+      Installing support stakes and tying dahlia stems to prevent lodging (stem collapse)
+      from wind, rain, or the weight of heavy flowers. Dahlia stems are hollow and brittle,
+      making them vulnerable to snapping, especially in dinner-plate varieties where flower
+      heads can weigh 300-500 g. Stakes should be installed at planting time (pushing them
+      in later risks damaging the tuber underground) and be 2/3 the expected plant height.
+      Tie stems loosely with soft material in a figure-eight pattern — tight ties can girdle
+      the stem and cut off phloem transport. Staking is also critical for preventing tuber
+      damage: a snapped stem can tear out the tuber crown, killing the entire plant.
+    description_de: >
+      Anbringen von Stützstäben und Anbinden der Dahlienstängel, um Umknicken
+      (Stängelkollaps) durch Wind, Regen oder das Gewicht schwerer Blüten zu verhindern.
+      Dahlienstängel sind hohl und brüchig, was sie anfällig für Brechen macht, besonders
+      bei Dinner-Plate-Sorten, deren Blütenköpfe 300-500 g wiegen können. Stäbe sollten
+      zur Pflanzzeit gesetzt werden (späteres Einstecken riskiert Beschädigung der Knolle
+      im Boden) und 2/3 der erwarteten Pflanzenhöhe haben. Stängel locker mit weichem
+      Material in Achter-Schlinge anbinden — straffe Bindungen können den Stängel
+      einschnüren und den Phloemtransport unterbinden. Stützen ist auch kritisch zur
+      Vorbeugung von Knollenschäden: Ein abgebrochener Stängel kann die Knollenkrone
+      herausreissen und die gesamte Pflanze töten.
+    category: "training_lst"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Dahlia", "Dahlie"]
+    forbidden_phases: ["dormancy", "senescence"]
+    tools_required: ["bamboo stake", "plant ties"]
+    estimated_duration_minutes: 10
+    sort_order: 22
+    tags: ["support", "ornamental", "dahlia"]
+
+  - name: "Sunflower Staking"
+    name_de: "Sonnenblume stützen"
+    description: >
+      Installing support stakes for tall sunflower varieties (>150 cm) to prevent stem
+      breakage from wind or the weight of the developing seed head. Sunflower stems become
+      increasingly top-heavy as the capitulum (flower head) matures and fills with seeds —
+      a mature seed head can weigh 0.5-1.5 kg. The stem's structural integrity decreases
+      in late season as lignification slows and the plant diverts energy to seed filling.
+      Stake early (when the plant reaches 60-80 cm) to avoid root damage from later
+      installation. Use a stake at least 2/3 of the final height and tie loosely below
+      the flower head. In exposed garden positions, consider windbreak planting alongside.
+    description_de: >
+      Anbringen von Stützstäben für hohe Sonnenblumensorten (>150 cm), um Stängelbruch
+      durch Wind oder das Gewicht des sich entwickelnden Samenstands zu verhindern.
+      Sonnenblumenstängel werden zunehmend kopflastig, wenn das Capitulum (Blütenstand)
+      reift und sich mit Samen füllt — ein reifer Samenstand kann 0,5-1,5 kg wiegen.
+      Die Strukturintegrität des Stängels nimmt in der Spätsaison ab, da die Verholzung
+      nachlässt und die Pflanze Energie in die Samenfüllung umleitet. Früh stützen (wenn
+      die Pflanze 60-80 cm erreicht), um Wurzelschäden durch spätere Installation zu
+      vermeiden. Einen Stab von mindestens 2/3 der Endhöhe verwenden und locker unterhalb
+      des Blütenkopfs anbinden. In exponierten Gartenlagen Windschutzpflanzungen erwägen.
+    category: "training_lst"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Helianthus", "Sonnenblume", "Sunflower"]
+    forbidden_phases: ["germination", "senescence", "ripening"]
+    tools_required: ["bamboo stake", "plant ties"]
+    estimated_duration_minutes: 10
+    sort_order: 23
+    tags: ["support", "sunflower"]
+
+  # ==========================================================================
+  # GEOPHYTES: Dahlia (tuber), Tigridia (corm), Strawberry (runner)
+  # ==========================================================================
+
+  - name: "Tuber Inspection"
+    name_de: "Knollenkontrolle"
+    description: >
+      Regular inspection of stored tubers and corms during winter dormancy to detect rot,
+      desiccation, or pest damage early. Dahlia tubers and Tigridia corms are living organs
+      that continue to respire during storage, slowly consuming starch reserves. Storage
+      conditions must balance preventing desiccation (too dry → shriveling, loss of
+      viability) against preventing rot (too wet → fungal/bacterial infection). Check monthly
+      for: soft spots indicating bacterial rot (Erwinia), white fuzzy mold (Botrytis),
+      shriveling (insufficient humidity), and pest damage (vine weevil larvae, slugs).
+      Remove affected portions immediately, dust cuts with fungicide powder, and adjust
+      storage conditions. Ideal storage: 5-8°C, 60-70% humidity, in dry peat or sawdust.
+    description_de: >
+      Regelmässige Kontrolle eingelagerter Knollen und Kormen während der Winterruhe, um
+      Fäulnis, Austrocknung oder Schädlingsbefall frühzeitig zu erkennen. Dahlienknollen
+      und Tigridia-Kormen sind lebende Organe, die während der Lagerung weiter atmen und
+      langsam Stärkereserven verbrauchen. Die Lagerbedingungen müssen die Verhinderung von
+      Austrocknung (zu trocken → Schrumpfung, Vitalitätsverlust) gegen die Verhinderung
+      von Fäulnis (zu feucht → Pilz-/Bakterieninfektion) abwägen. Monatlich prüfen auf:
+      Weiche Stellen (bakterielle Fäulnis, Erwinia), weissen Schimmelrasen (Botrytis),
+      Schrumpfung (unzureichende Luftfeuchtigkeit) und Schädlingsbefall (Dickmaulrüssler-
+      Larven, Schnecken). Betroffene Stellen sofort entfernen, Schnittflächen mit
+      Fungizidpulver bestäuben und Lagerbedingungen anpassen. Ideale Lagerung: 5-8°C,
+      60-70% Luftfeuchtigkeit, in trockenem Torf oder Sägemehl.
+    category: "inspection"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Dahlia", "Dahlie", "Tigridia", "Pfauenblume"]
+    forbidden_phases: ["vegetative", "flowering", "hardening_off"]
+    estimated_duration_minutes: 10
+    sort_order: 30
+    tags: ["geophyte", "dormancy", "inspection"]
+
+  - name: "Tuber Division"
+    name_de: "Knollenteilung"
+    description: >
+      Dividing dahlia tuber clumps at the end of dormancy (late winter/early spring) for
+      propagation and rejuvenation. Over the growing season, a single planted tuber
+      develops into a clump of 5-15 new tubers connected to the old crown. If replanted
+      whole, the crowded clump produces many weak shoots competing for limited root space.
+      Division ensures each new plant has adequate resources. Each division must include
+      at least one viable eye (growth bud) on the crown — tubers without eyes cannot
+      sprout. The best time is when eyes begin to swell (visible as pink or green bumps)
+      but before shoots are longer than 2 cm. Use a sharp, clean knife; dust all cuts
+      with sulfur or fungicide powder to prevent Fusarium infection. Allow cuts to callus
+      for 24-48 hours before planting.
+    description_de: >
+      Teilen von Dahlien-Knollenbüscheln am Ende der Winterruhe (Spätwinter/Vorfrühling)
+      zur Vermehrung und Verjüngung. Während der Wachstumssaison entwickelt sich eine
+      einzelne gepflanzte Knolle zu einem Büschel von 5-15 neuen Knollen, die mit der
+      alten Krone verbunden sind. Wird das Büschel komplett wieder gepflanzt, produziert
+      es viele schwache Triebe, die um begrenzten Wurzelraum konkurrieren. Teilung stellt
+      sicher, dass jede neue Pflanze ausreichend Ressourcen hat. Jedes Teilstück muss
+      mindestens ein lebensfähiges Auge (Wachstumsknospe) an der Krone haben — Knollen
+      ohne Auge können nicht austreiben. Der beste Zeitpunkt ist, wenn die Augen
+      anschwellen (sichtbar als rosa oder grüne Höcker), aber bevor die Triebe länger
+      als 2 cm sind. Ein scharfes, sauberes Messer verwenden; alle Schnittflächen mit
+      Schwefel oder Fungizidpulver bestäuben, um Fusarium-Infektion zu verhindern.
+      Schnittflächen 24-48 Stunden abtrocknen lassen vor dem Pflanzen.
+    category: "propagation"
+    stress_level: "medium"
+    skill_level: "intermediate"
+    recovery_days_default: 0
+    species_compatible: ["Dahlia", "Dahlie"]
+    forbidden_phases: ["flowering", "vegetative", "senescence"]
+    tools_required: ["sharp knife", "fungicide powder", "labels"]
+    estimated_duration_minutes: 20
+    sort_order: 31
+    tags: ["geophyte", "propagation", "dahlia"]
+
+  - name: "Tuber Lifting"
+    name_de: "Knollen einlagern"
+    description: >
+      Digging up and storing dahlia tubers and Tigridia corms for winter after the first
+      frost kills the aboveground foliage. Both species are frost-tender geophytes that
+      cannot survive soil temperatures below -2°C. The first frost serves as the natural
+      signal — it kills the foliage while the tubers/corms underground are still protected.
+      Wait 1-2 days after frost, then cut stems back to 10 cm and carefully lift with a
+      garden fork (not a spade, which can slice through tubers). Shake off loose soil but
+      do NOT wash — the thin skin protects against desiccation. Dry in a frost-free, airy
+      location for 2-3 days until the cut stems are no longer weeping. Store in dry peat,
+      sawdust, or vermiculite at 5-8°C. Label varieties immediately — they all look alike
+      once dormant.
+    description_de: >
+      Ausgraben und Einlagern von Dahlienknollen und Tigridia-Kormen für den Winter, nachdem
+      der erste Frost das oberirdische Laub abgetötet hat. Beide Arten sind frostempfindliche
+      Geophyten, die Bodentemperaturen unter -2°C nicht überleben. Der erste Frost dient als
+      natürliches Signal — er tötet das Laub, während die Knollen/Kormen im Boden noch
+      geschützt sind. 1-2 Tage nach dem Frost warten, dann Stängel auf 10 cm kürzen und
+      vorsichtig mit einer Grabgabel heben (nicht mit einem Spaten, der Knollen durchschneiden
+      kann). Lose Erde abschütteln, aber NICHT waschen — die dünne Haut schützt vor
+      Austrocknung. An einem frostfreien, luftigen Ort 2-3 Tage trocknen, bis die
+      geschnittenen Stängel nicht mehr nässen. In trockenem Torf, Sägemehl oder Vermiculit
+      bei 5-8°C lagern. Sorten sofort beschriften — sie sehen alle gleich aus, wenn sie
+      ruhen.
+    category: "harvest_prep"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Dahlia", "Dahlie", "Tigridia", "Pfauenblume"]
+    forbidden_phases: ["dormancy", "vegetative", "flowering", "sprouting"]
+    tools_required: ["garden fork", "labels", "storage box", "sawdust"]
+    estimated_duration_minutes: 30
+    sort_order: 32
+    tags: ["geophyte", "overwintering"]
+
+  - name: "Corm Separation"
+    name_de: "Brutknollen trennen"
+    description: >
+      Separating daughter cormels from the mother corm of Tigridia (tiger flower) after
+      lifting for propagation. Unlike tubers, corms are solid stem tissue that is entirely
+      consumed during the growing season — the original planted corm shrivels and is replaced
+      by a new corm on top, plus several small cormels (baby corms) around the base. These
+      cormels can be grown on to flowering size in 1-2 seasons. Separate them gently by
+      hand after the mother corm has dried for a few days. Do not force — they should
+      detach easily. Store cormels separately from full-sized corms at the same conditions
+      (5-8°C, dry) but plant them out 2-3 weeks earlier in spring for a longer growing
+      season to reach maturity.
+    description_de: >
+      Trennung der Tochterknöllchen (Brutkormen) von der Mutterkorm der Tigridia
+      (Pfauenblume) nach dem Ausgraben zur Vermehrung. Anders als Knollen sind Kormen
+      solides Stängelgewebe, das während der Vegetationsperiode vollständig verbraucht
+      wird — die ursprünglich gepflanzte Korm schrumpft und wird durch eine neue Korm
+      obendrauf ersetzt, plus mehrere kleine Brutkormen an der Basis. Diese Brutkormen
+      können in 1-2 Saisons bis zur Blühgrösse herangezogen werden. Nach einigen Tagen
+      Trocknung vorsichtig per Hand trennen. Nicht mit Gewalt — sie sollten sich leicht
+      lösen. Brutkormen getrennt von ausgewachsenen Kormen bei gleichen Bedingungen
+      (5-8°C, trocken) lagern, aber 2-3 Wochen früher im Frühling auspflanzen für eine
+      längere Vegetationsperiode bis zur Reife.
+    category: "propagation"
+    stress_level: "low"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Tigridia", "Pfauenblume"]
+    forbidden_phases: ["flowering", "vegetative", "sprouting"]
+    tools_required: ["labels"]
+    estimated_duration_minutes: 15
+    sort_order: 33
+    tags: ["geophyte", "propagation", "tigridia"]
+
+  - name: "Runner Removal"
+    name_de: "Ausläufer entfernen"
+    description: >
+      Removing or managing strawberry runners (stolons) to optimize fruit production or
+      propagate new plants. Strawberries produce stolons — horizontal stems that grow along
+      the soil surface and form daughter plants at nodes. Runner production is triggered by
+      long days and competes directly with fruit production: a plant producing runners
+      diverts 30-40% of assimilates away from developing berries. For maximum fruit yield,
+      remove runners weekly throughout the fruiting season. However, runners are also the
+      primary propagation method — to establish new plants, allow 3-5 runners per mother
+      plant to root in small pots placed beside the parent. Once rooted (visible as new
+      leaf growth from the daughter crown), sever the stolon. Replace strawberry beds every
+      3 years using runner-propagated plants to maintain vigor.
+    description_de: >
+      Entfernen oder Managen von Erdbeer-Ausläufern (Stolonen) zur Optimierung der
+      Fruchtproduktion oder Vermehrung neuer Pflanzen. Erdbeeren bilden Stolonen —
+      horizontale Stängel, die über die Bodenoberfläche wachsen und an Knoten
+      Tochterpflanzen bilden. Ausläuferproduktion wird durch Langtage ausgelöst und
+      konkurriert direkt mit der Fruchtproduktion: Eine ausläuferbildende Pflanze leitet
+      30-40% der Assimilate von sich entwickelnden Beeren ab. Für maximalen Fruchtertrag
+      wöchentlich Ausläufer entfernen während der gesamten Fruchtsaison. Ausläufer sind
+      jedoch auch die primäre Vermehrungsmethode — für neue Pflanzen 3-5 Ausläufer pro
+      Mutterpflanze in kleinen Töpfen neben der Elternpflanze bewurzeln lassen. Sobald
+      bewurzelt (sichtbar als neuer Blattwuchs aus der Tochterkrone), den Stolon kappen.
+      Erdbeerbeete alle 3 Jahre mit ausläufervermehrten Pflanzen erneuern, um die
+      Vitalität zu erhalten.
+    category: "pruning"
+    stress_level: "low"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Fragaria", "Erdbeere", "Strawberry"]
+    applicable_families: ["Rosaceae"]
+    forbidden_phases: ["germination", "dormancy"]
+    tools_required: ["scissors"]
+    estimated_duration_minutes: 15
+    sort_order: 34
+    tags: ["strawberry", "runner", "pruning"]
+
+  # ==========================================================================
+  # INDOOR TROPICAL: Monstera, Spathiphyllum, Chlorophytum, Guzmania
+  # ==========================================================================
+
+  - name: "Aerial Root Training"
+    name_de: "Luftwurzeln leiten"
+    description: >
+      Guiding Monstera aerial roots toward a moss pole, plank, or substrate for structural
+      support and enhanced nutrient uptake. In their native tropical rainforest habitat,
+      Monsteras are hemiepiphytes — they germinate on the forest floor, then climb trees
+      using aerial roots that anchor into bark crevices and absorb moisture and nutrients
+      from decaying organic matter. In cultivation, aerial roots growing freely in air
+      cannot perform this anchoring and absorption function. By directing them into a
+      moist moss pole (sphagnum or coco coir), the roots establish a secondary nutrient
+      uptake pathway, resulting in larger leaves, faster growth, and better fenestration
+      (the characteristic leaf holes). Untrained aerial roots grow aimlessly, may damage
+      walls or furniture, and represent wasted growth potential. Gently wrap or guide roots
+      toward the pole using soft ties; never cut healthy aerial roots.
+    description_de: >
+      Leiten von Monstera-Luftwurzeln zu einem Moosstab, Brett oder Substrat für
+      strukturelle Unterstützung und verbesserte Nährstoffaufnahme. In ihrem natürlichen
+      tropischen Regenwald-Habitat sind Monsteras Hemiepiphyten — sie keimen am Waldboden,
+      klettern dann an Bäumen hoch mittels Luftwurzeln, die sich in Rindenritzen verankern
+      und Feuchtigkeit sowie Nährstoffe aus zersetzendem organischem Material aufnehmen.
+      In Kultur können frei in der Luft wachsende Luftwurzeln diese Verankerungs- und
+      Absorptionsfunktion nicht erfüllen. Durch Leitung in einen feuchten Moosstab
+      (Sphagnum oder Kokosfaser) etablieren die Wurzeln einen sekundären
+      Nährstoffaufnahmeweg, was in grösseren Blättern, schnellerem Wachstum und besserer
+      Fenestration (den charakteristischen Blattlöchern) resultiert. Ungeleitete
+      Luftwurzeln wachsen ziellos, können Wände oder Möbel beschädigen und stellen
+      verschwendetes Wachstumspotenzial dar. Wurzeln vorsichtig mit weichen Bindungen
+      zum Stab leiten; niemals gesunde Luftwurzeln abschneiden.
+    category: "training_lst"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Monstera", "Fensterblatt"]
+    forbidden_phases: ["dormancy"]
+    tools_required: ["moss pole", "plant ties"]
+    estimated_duration_minutes: 10
+    sort_order: 40
+    tags: ["indoor", "monstera", "aerial_roots"]
+
+  - name: "Moss Pole Extension"
+    name_de: "Moosstab verlängern"
+    description: >
+      Extending or replacing the moss pole as the Monstera outgrows its current support.
+      A Monstera can grow 30-60 cm per year under good conditions, quickly surpassing
+      standard moss poles (typically 60-90 cm). Without continued upward support, the
+      heavy stem arches over and produces smaller, unfenestrated leaves — the plant
+      reverts to its juvenile 'ground-crawling' growth habit when it loses vertical
+      support. Extending the pole maintains the climbing signal that triggers mature
+      leaf development (larger leaves with more fenestrations). Use stackable moss poles
+      or attach a new section with wire, ensuring overlap of at least 15 cm for stability.
+      Re-moisten the sphagnum before extending to encourage aerial roots to grow into it.
+    description_de: >
+      Verlängerung oder Ersatz des Moosstabs, wenn die Monstera ihre aktuelle Stütze
+      überragt. Eine Monstera kann unter guten Bedingungen 30-60 cm pro Jahr wachsen und
+      übertrifft schnell Standard-Moosstäbe (typischerweise 60-90 cm). Ohne fortgesetzte
+      Aufwärtsstütze biegt sich der schwere Stängel über und produziert kleinere, nicht
+      fenestrierte Blätter — die Pflanze kehrt zu ihrem juvenilen 'bodenkriechenden'
+      Wuchshabitus zurück, wenn sie die vertikale Stütze verliert. Verlängerung des Stabs
+      erhält das Klettersignal, das die Entwicklung adulter Blätter auslöst (grössere
+      Blätter mit mehr Fenestrationen). Steckbare Moosstäbe verwenden oder ein neues
+      Segment mit Draht befestigen, mit mindestens 15 cm Überlappung für Stabilität.
+      Sphagnum vor dem Verlängern erneut befeuchten, um Luftwurzeln zum Einwachsen
+      anzuregen.
+    category: "training_lst"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Monstera", "Fensterblatt"]
+    forbidden_phases: ["dormancy"]
+    tools_required: ["moss pole extension", "plant ties"]
+    estimated_duration_minutes: 15
+    sort_order: 41
+    tags: ["indoor", "monstera", "support"]
+
+  - name: "Leaf Cleaning"
+    name_de: "Blätter reinigen"
+    description: >
+      Wiping large leaves with a damp cloth to remove accumulated dust and improve
+      photosynthetic efficiency. Indoor plants accumulate a fine layer of dust that can
+      reduce photosynthetically active radiation (PAR) reaching the chloroplasts by 10-25%.
+      Dust also clogs stomata — the tiny pores on leaf surfaces responsible for gas exchange
+      (CO2 uptake and O2/H2O release). Blocked stomata impair transpiration cooling and
+      CO2 fixation, slowing growth. Additionally, a dust layer provides a substrate for
+      spider mites and can hide early pest infestations. Clean both upper and lower leaf
+      surfaces gently with a soft, damp cloth or sponge. Avoid leaf-shine products (they
+      block stomata). For Monstera's large leaves, support the leaf from underneath while
+      wiping to avoid snapping the petiole. Clean monthly or whenever dust is visible.
+    description_de: >
+      Abwischen grosser Blätter mit einem feuchten Tuch, um angesammelten Staub zu entfernen
+      und die Photosyntheseeffizienz zu verbessern. Zimmerpflanzen sammeln eine feine
+      Staubschicht an, die die photosynthetisch aktive Strahlung (PAR), die die Chloroplasten
+      erreicht, um 10-25% reduzieren kann. Staub verstopft auch die Stomata — die winzigen
+      Poren auf Blattoberflächen, die für den Gasaustausch (CO2-Aufnahme und O2/H2O-Abgabe)
+      verantwortlich sind. Blockierte Stomata beeinträchtigen die Transpirationskühlung und
+      CO2-Fixierung und verlangsamen das Wachstum. Zusätzlich bietet eine Staubschicht ein
+      Substrat für Spinnmilben und kann frühen Schädlingsbefall verbergen. Ober- und
+      Unterseite der Blätter vorsichtig mit einem weichen, feuchten Tuch oder Schwamm
+      reinigen. Blattglanzprodukte vermeiden (sie verstopfen Stomata). Bei Monsteras
+      grossen Blättern das Blatt von unten stützen, um ein Abbrechen des Blattstiels zu
+      vermeiden. Monatlich oder bei sichtbarem Staub reinigen.
+    category: "general"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Monstera", "Spathiphyllum", "Fensterblatt", "Einblatt"]
+    forbidden_phases: ["dormancy"]
+    estimated_duration_minutes: 10
+    sort_order: 42
+    tags: ["indoor", "maintenance", "cleaning"]
+
+  - name: "Spider Plant Pup Separation"
+    name_de: "Grünlilie Kindel abtrennen"
+    description: >
+      Separating rooted plantlets (pups) from the mother Chlorophytum's stolons for
+      propagation. Spider plants produce long, arching stolons (runners) that develop
+      miniature rosettes at their tips — these are genetically identical clones of the
+      mother plant. In nature, the stolons arch downward until the plantlet touches soil,
+      where it roots and establishes. In pots, the plantlets dangle in air, developing
+      aerial roots visible as short, fleshy white nubs. Once a plantlet has 5+ leaves and
+      visible aerial roots, it can be separated and potted independently. Either snip the
+      stolon and plant the pup directly in moist substrate, or place the still-attached pup
+      on a small pot of soil beside the mother to root in situ before severing (higher
+      success rate). Spider plants are extremely prolific — a healthy mother can produce
+      20-30 pups per year, making them one of the easiest houseplants to propagate.
+    description_de: >
+      Abtrennung bewurzelter Kindel von den Stolonen der Mutter-Grünlilie (Chlorophytum)
+      zur Vermehrung. Grünlilien bilden lange, überhängende Stolone (Ausläufer), die an
+      ihren Spitzen Miniatur-Rosetten entwickeln — genetisch identische Klone der
+      Mutterpflanze. In der Natur biegen sich die Stolone abwärts, bis das Kindel den
+      Boden berührt, dort wurzelt und sich etabliert. In Töpfen hängen die Kindel in der
+      Luft und entwickeln Luftwurzeln, sichtbar als kurze, fleischige weisse Knubbel.
+      Sobald ein Kindel 5+ Blätter und sichtbare Luftwurzeln hat, kann es getrennt und
+      eigenständig getopft werden. Entweder den Stolon abschneiden und das Kindel direkt
+      in feuchtes Substrat pflanzen, oder das noch angehängte Kindel auf einem kleinen
+      Topf mit Erde neben der Mutter bewurzeln lassen vor dem Abtrennen (höhere
+      Erfolgsrate). Grünlilien sind extrem produktiv — eine gesunde Mutter kann 20-30
+      Kindel pro Jahr produzieren, was sie zu einer der am einfachsten zu vermehrenden
+      Zimmerpflanzen macht.
+    category: "propagation"
+    stress_level: "low"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Chlorophytum", "Grünlilie", "Spider Plant"]
+    forbidden_phases: ["establishment", "dormancy"]
+    tools_required: ["scissors", "small pots", "substrate"]
+    estimated_duration_minutes: 15
+    sort_order: 43
+    tags: ["indoor", "propagation", "chlorophytum"]
+
+  - name: "Bromeliad Pup Separation"
+    name_de: "Bromelie Kindel abtrennen"
+    description: >
+      Removing offset plants (pups) from the base of a Guzmania mother plant for propagation.
+      Bromeliads are monocarpic — each rosette flowers once and then gradually dies over
+      6-12 months. Before dying, the mother produces 1-5 basal offsets (pups) that will
+      grow into the next generation. Pups should be separated when they reach approximately
+      1/3 the size of the mother plant and have developed their own root system (visible at
+      the base). Separating too early results in weak pups that struggle to establish;
+      waiting too long means the dying mother's decaying tissue can harbor fungal pathogens.
+      Use a sharp, sterile knife to cut the pup away with some attached roots. Pot in
+      well-draining orchid/bromeliad mix. Pups take 2-3 years to reach flowering maturity,
+      assuming adequate warmth (18-24°C) and indirect bright light.
+    description_de: >
+      Entfernung von Kindeln (Seitensprossen) von der Basis einer Guzmania-Mutterpflanze
+      zur Vermehrung. Bromelien sind monokarp — jede Rosette blüht einmal und stirbt dann
+      über 6-12 Monate allmählich ab. Vor dem Absterben bildet die Mutter 1-5 basale
+      Seitensprosse (Kindel), die zur nächsten Generation heranwachsen. Kindel sollten
+      getrennt werden, wenn sie etwa 1/3 der Muttergrösse erreicht haben und ein eigenes
+      Wurzelsystem entwickelt haben (an der Basis sichtbar). Zu frühes Trennen ergibt
+      schwache Kindel, die sich schwer etablieren; zu langes Warten bedeutet, dass das
+      zersetzende Gewebe der sterbenden Mutter Pilzpathogene beherbergen kann. Mit einem
+      scharfen, sterilen Messer das Kindel mit einigen angewachsenen Wurzeln abtrennen.
+      In gut durchlässige Orchideen-/Bromelien-Mischung topfen. Kindel benötigen 2-3
+      Jahre bis zur Blühreife bei ausreichender Wärme (18-24°C) und hellem indirektem
+      Licht.
+    category: "propagation"
+    stress_level: "medium"
+    skill_level: "intermediate"
+    recovery_days_default: 5
+    species_compatible: ["Guzmania", "Bromelie"]
+    applicable_families: ["Bromeliaceae"]
+    forbidden_phases: ["pup_establishment", "pre_bloom"]
+    tools_required: ["sharp knife", "small pots", "orchid substrate"]
+    estimated_duration_minutes: 15
+    sort_order: 44
+    tags: ["indoor", "propagation", "bromeliad"]
+
+  - name: "Bromeliad Cup Filling"
+    name_de: "Bromelie Trichter füllen"
+    description: >
+      Filling the central cup (tank) of the Guzmania rosette with water — the primary
+      hydration method for tank bromeliads. Unlike most plants that absorb water through
+      roots, epiphytic bromeliads evolved to collect rainwater in their central rosette,
+      absorbing it through specialized trichomes (scale-like structures) on the inner leaf
+      surfaces. The roots of tank bromeliads serve primarily for anchoring, not water uptake.
+      Use rainwater, distilled, or filtered water — tap water contains chlorine, fluoride,
+      and mineral salts that damage the delicate trichomes and cause leaf-tip browning.
+      Refresh the water every 2 weeks by tipping the plant to drain old water (which may
+      have become stagnant and developed bacterial growth) before refilling. In winter,
+      reduce cup water volume by half but never let it dry completely. Avoid filling the
+      cup during or immediately after flowering, as trapped water can rot the flower spike.
+    description_de: >
+      Befüllung des zentralen Trichters (Tanks) der Guzmania-Rosette mit Wasser — die
+      primäre Hydrierungsmethode für Trichter-Bromelien. Anders als die meisten Pflanzen,
+      die Wasser über Wurzeln aufnehmen, haben epiphytische Bromelien sich darauf
+      spezialisiert, Regenwasser in ihrer zentralen Rosette zu sammeln und über
+      spezialisierte Trichome (schuppenartige Strukturen) auf den inneren Blattflächen
+      aufzunehmen. Die Wurzeln von Trichter-Bromelien dienen primär der Verankerung,
+      nicht der Wasseraufnahme. Regenwasser, destilliertes oder gefiltertes Wasser
+      verwenden — Leitungswasser enthält Chlor, Fluorid und Mineralsalze, die die
+      empfindlichen Trichome schädigen und Blattspitzenbräunung verursachen. Wasser alle
+      2 Wochen erneuern: Pflanze kippen, um altes Wasser abzulassen (das stagniert sein
+      und Bakterienwachstum entwickelt haben kann), dann neu befüllen. Im Winter die
+      Trichterwassermenge halbieren, aber nie vollständig austrocknen lassen. Trichter
+      während oder unmittelbar nach der Blüte nicht befüllen, da eingeschlossenes Wasser
+      den Blütenschaft faulen lassen kann.
+    category: "general"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Guzmania", "Bromelie"]
+    applicable_families: ["Bromeliaceae"]
+    estimated_duration_minutes: 5
+    sort_order: 45
+    tags: ["indoor", "bromeliad", "watering"]
+
+  # ==========================================================================
+  # OUTDOOR VEGETABLES: Celeriac, Strawberry, Sunflower
+  # ==========================================================================
+
+  - name: "Hardening Off"
+    name_de: "Abhärten"
+    description: >
+      Gradually acclimatizing indoor-raised seedlings to outdoor conditions over 7-10 days
+      before transplanting. Seedlings grown indoors under stable temperature, humidity, and
+      light develop thin cell walls, soft tissue (etiolation), and underdeveloped cuticle
+      (waxy leaf coating). Direct exposure to outdoor conditions — UV radiation, wind,
+      temperature fluctuations, lower humidity — can cause transplant shock: leaf scorch,
+      wilting, or death. Hardening off triggers physiological adaptations: thicker cuticle
+      production, stronger cell walls (increased lignin), anthocyanin buildup (UV protection),
+      and adjusted stomatal regulation. Start with 2-3 hours of sheltered outdoor exposure,
+      increasing by 1-2 hours daily. Avoid full sun and wind on day 1. By day 7-10, seedlings
+      should tolerate full-day outdoor exposure. Bring indoors if night temperatures drop
+      below the species' minimum (typically 5-10°C for most vegetables).
+    description_de: >
+      Schrittweise Gewöhnung von indoor vorgezogenen Jungpflanzen an Freilandbedingungen
+      über 7-10 Tage vor dem Auspflanzen. Indoor unter stabiler Temperatur, Luftfeuchtigkeit
+      und Licht aufgezogene Sämlinge entwickeln dünne Zellwände, weiches Gewebe
+      (Etiolierung) und eine unterentwickelte Kutikula (wachsartige Blattbeschichtung).
+      Direkte Exposition gegenüber Freilandbedingungen — UV-Strahlung, Wind,
+      Temperaturschwankungen, niedrigere Luftfeuchtigkeit — kann Pflanzschock verursachen:
+      Blattverbrennungen, Welken oder Absterben. Abhärten löst physiologische Anpassungen
+      aus: verstärkte Kutikulaproduktion, stärkere Zellwände (mehr Lignin),
+      Anthocyan-Aufbau (UV-Schutz) und angepasste Stomata-Regulation. Mit 2-3 Stunden
+      geschützter Freilandexposition beginnen, täglich um 1-2 Stunden steigern. Am Tag 1
+      pralle Sonne und Wind vermeiden. Nach Tag 7-10 sollten die Sämlinge ganztägige
+      Freilandexposition vertragen. Bei Nachttemperaturen unter dem Artenminimum
+      (typischerweise 5-10°C für die meisten Gemüse) wieder ins Haus holen.
+    category: "transplant"
+    stress_level: "low"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    forbidden_phases: ["dormancy", "ripening", "harvest", "senescence"]
+    estimated_duration_minutes: 15
+    sort_order: 50
+    tags: ["outdoor", "seedling", "hardening"]
+
+  - name: "Celeriac Leaf Stripping"
+    name_de: "Sellerie Blätter entfernen"
+    description: >
+      Selective removal of the oldest outer leaves during celeriac tuber formation to redirect
+      assimilates into bulb growth. Celeriac (Apium graveolens var. rapaceum) produces a
+      swollen stem base (hypocotyl-derived storage organ) (the 'bulb') that is the harvestable organ. During mid-season, the
+      plant maintains 15-20 large leaves that shade the developing bulb. Removing the 3-4
+      oldest, outermost leaves every 2-3 weeks serves two purposes: (1) it redirects
+      photosynthate from maintaining aging leaves toward bulb expansion, and (2) it exposes
+      the bulb crown to more light and air, reducing the risk of crown rot. Do NOT remove
+      young, actively photosynthesizing central leaves — they are the primary source of
+      carbohydrates for bulb growth. Always leave at least 8-10 healthy inner leaves.
+      Begin when the bulb is golf-ball sized (typically July in Central European conditions).
+    description_de: >
+      Gezieltes Entfernen der ältesten äusseren Blätter während der Sellerie-Knollenbildung,
+      um Assimilate in das Knollenwachstum umzuleiten. Knollensellerie (Apium graveolens
+      var. rapaceum) bildet ein verdicktes Speicherorgan aus Sprossbasis und Hypokotyl (die 'Knolle') als erntbares Organ.
+      Zur Saisonmitte unterhält die Pflanze 15-20 grosse Blätter, die die sich entwickelnde
+      Knolle beschatten. Das Entfernen der 3-4 ältesten, äussersten Blätter alle 2-3 Wochen
+      dient zwei Zwecken: (1) Es leitet Photosyntheseprodukte vom Erhalt alternder Blätter
+      in die Knollenexpansion um, und (2) es exponiert die Knollenkrone mehr Licht und Luft,
+      was das Risiko von Kronenfäule reduziert. NICHT die jungen, aktiv photosynthetisierenden
+      zentralen Blätter entfernen — sie sind die Hauptquelle der Kohlenhydrate für das
+      Knollenwachstum. Immer mindestens 8-10 gesunde innere Blätter belassen. Beginnen,
+      wenn die Knolle Golfballgrösse hat (typischerweise Juli in mitteleuropäischen
+      Verhältnissen).
+    category: "pruning"
+    stress_level: "low"
+    skill_level: "intermediate"
+    recovery_days_default: 2
+    species_compatible: ["Apium", "Sellerie", "Celeriac"]
+    forbidden_phases: ["germination", "seedling", "harvest"]
+    tools_required: ["scissors"]
+    estimated_duration_minutes: 10
+    sort_order: 51
+    tags: ["vegetable", "celeriac", "pruning"]
+
+  - name: "Celeriac Side Root Removal"
+    name_de: "Sellerie Seitenwurzeln entfernen"
+    description: >
+      Removing lateral side roots from the upper half of the exposed celeriac tuber to
+      achieve a smooth, round bulb shape. Celeriac naturally grows with the upper half
+      of the tuber above the soil line — this is correct and must NOT be changed by earthing
+      up (unlike potatoes, celeriac is not a solanaceous tuber and does not produce solanine).
+      The upper portion develops numerous fine side roots that, if left, grow into thick
+      woody roots creating a rough, pitted surface difficult to peel. By cutting these
+      side roots flush with the tuber surface every 2-3 weeks using a sharp knife, the
+      bulb develops the smooth, round shape valued in cuisine. Begin when the tuber is
+      clearly visible above soil (typically late July). Work carefully to avoid damaging
+      the tuber's skin, which could invite disease (Septoria, Cercospora).
+    description_de: >
+      Entfernung seitlicher Nebenwurzeln von der oberen Hälfte der freiliegenden
+      Sellerie-Knolle für eine glatte, runde Knollenform. Knollensellerie wächst
+      natürlicherweise mit der oberen Knollenhälfte über der Bodenoberfläche — dies ist
+      korrekt und darf NICHT durch Anhäufeln geändert werden (anders als Kartoffeln ist
+      Knollensellerie keine Solanaceen-Knolle und bildet kein Solanin). Der obere Teil
+      entwickelt zahlreiche feine Seitenwurzeln, die unbehandelt zu dicken, holzigen
+      Wurzeln heranwachsen und eine raue, narbige Oberfläche erzeugen, die schwer zu
+      schälen ist. Durch Abschneiden dieser Seitenwurzeln bündig mit der Knollenoberfläche
+      alle 2-3 Wochen mit einem scharfen Messer entwickelt die Knolle die glatte, runde
+      Form, die in der Küche geschätzt wird. Beginnen, wenn die Knolle deutlich über dem
+      Boden sichtbar ist (typischerweise Ende Juli). Vorsichtig arbeiten, um die
+      Knollenhaut nicht zu beschädigen, was Krankheiten (Septoria, Cercospora) einladen
+      könnte.
+    category: "pruning"
+    stress_level: "low"
+    skill_level: "intermediate"
+    recovery_days_default: 1
+    species_compatible: ["Apium", "Sellerie", "Celeriac"]
+    forbidden_phases: ["germination", "seedling", "harvest"]
+    tools_required: ["sharp knife"]
+    estimated_duration_minutes: 15
+    sort_order: 52
+    tags: ["vegetable", "celeriac", "pruning"]
+
+  - name: "Sunflower Head Support"
+    name_de: "Sonnenblumenkopf stützen"
+    description: >
+      Additional support for the developing seed head (capitulum) during the ripening phase,
+      when the flower head becomes extremely heavy with maturing seeds. A fully developed
+      sunflower head can weigh 0.5-1.5 kg and measure 20-40 cm in diameter. As seeds fill
+      and the head gains weight, the neck (peduncle) bends progressively downward — this
+      is natural (heliotropism stops at maturity) but excessive bending can kink the
+      vascular tissue, cutting off water supply and causing premature seed shriveling.
+      Support the head with a soft sling (cloth or netting) tied to the main stake, or
+      install a second short stake positioned to cradle the head from below. This is
+      distinct from stem staking (done earlier) — head support targets the specific
+      weight problem of mature capitula.
+    description_de: >
+      Zusätzliche Stützung des sich entwickelnden Samenstands (Capitulum) während der
+      Reifephase, wenn der Blütenkopf durch reifende Samen extrem schwer wird. Ein voll
+      entwickelter Sonnenblumenkopf kann 0,5-1,5 kg wiegen und 20-40 cm Durchmesser
+      haben. Wenn die Samen sich füllen und der Kopf an Gewicht gewinnt, biegt sich der
+      Hals (Pedunkulus) zunehmend nach unten — dies ist natürlich (Heliotropismus stoppt
+      bei Reife), aber übermässiges Biegen kann das Leitgewebe abknicken, die
+      Wasserversorgung unterbrechen und vorzeitiges Schrumpfen der Samen verursachen.
+      Den Kopf mit einer weichen Schlinge (Stoff oder Netz) am Hauptstab befestigen,
+      oder einen zweiten kurzen Stab installieren, der den Kopf von unten abstützt.
+      Dies unterscheidet sich vom Stängelstützen (das früher durchgeführt wird) —
+      Kopfstützung adressiert das spezifische Gewichtsproblem reifer Capitula.
+    category: "training_lst"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Helianthus", "Sonnenblume", "Sunflower"]
+    forbidden_phases: ["germination", "seedling", "senescence"]
+    tools_required: ["plant ties", "netting"]
+    estimated_duration_minutes: 10
+    sort_order: 53
+    tags: ["sunflower", "support", "ripening"]
+
+  # ==========================================================================
+  # PANSY / VIOLA: Cool-season bedding
+  # ==========================================================================
+
+  - name: "Pansy Deadheading"
+    name_de: "Stiefmütterchen ausputzen"
+    description: >
+      Regular removal of faded pansy flowers and developing seed pods to extend the bloom
+      period significantly. Pansies (Viola x wittrockiana) are cool-season annuals or
+      short-lived perennials that naturally set seed and decline quickly once pollinated.
+      Each flower, once pollinated, develops a seed capsule that consumes significant
+      resources — a single plant producing seeds can stop flowering within 2-3 weeks.
+      Deadheading prevents this hormonal shutdown and keeps the plant in continuous bloom
+      for 3-6 months. Remove flowers at the base of the flower stalk (not just the petals),
+      including any developing seed capsules visible as swollen green structures at the
+      flower base. In mass plantings, running your fingers through the plants ('combing')
+      weekly is more efficient than individual flower removal.
+    description_de: >
+      Regelmässiges Entfernen verblühter Stiefmütterchen-Blüten und sich entwickelnder
+      Samenkapseln, um die Blütezeit erheblich zu verlängern. Stiefmütterchen (Viola x
+      wittrockiana) sind kühlsaisonale Einjährige oder kurzlebige Stauden, die natürlich
+      Samen ansetzen und nach der Bestäubung schnell nachlassen. Jede bestäubte Blüte
+      entwickelt eine Samenkapsel, die erhebliche Ressourcen verbraucht — eine
+      samenproduzierende Pflanze kann innerhalb von 2-3 Wochen aufhören zu blühen.
+      Ausputzen verhindert dieses hormonelle Abschalten und hält die Pflanze 3-6 Monate
+      in Dauerblüte. Blüten an der Basis des Blütenstiels entfernen (nicht nur die
+      Blütenblätter), einschliesslich sichtbarer sich entwickelnder Samenkapseln als
+      geschwollene grüne Strukturen an der Blütenbasis. Bei Flächenpflanzungen ist
+      wöchentliches 'Durchkämmen' mit den Fingern effizienter als individuelles
+      Blütenentfernen.
+    category: "pruning"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Viola", "Stiefmütterchen", "Pansy"]
+    forbidden_phases: ["germination", "seedling", "senescence"]
+    estimated_duration_minutes: 10
+    sort_order: 60
+    tags: ["ornamental", "viola", "deadheading"]
+
+  - name: "Pansy Rejuvenation Cut"
+    name_de: "Stiefmütterchen Verjüngungsschnitt"
+    description: >
+      Cutting back leggy, exhausted pansy stems by approximately half in midsummer to trigger
+      a vigorous second flush of compact growth and flowers. By mid-season, pansies often
+      become leggy and sparse with elongated internodes — a response to increasing summer
+      heat and day length. The plant's energy is distributed across many long, weak stems
+      with diminishing flower production. A rejuvenation cut removes the tired top growth,
+      stimulating dormant buds lower on the stems to break. Combined with a light
+      fertilization (balanced NPK), the plant regenerates a dense, compact crown within
+      2-3 weeks and resumes heavy flowering that continues into autumn. This extends the
+      total bloom season from the typical 3-4 months to 5-7 months. The cut causes
+      moderate stress, so water well after cutting and provide temporary shade if
+      temperatures exceed 25°C.
+    description_de: >
+      Rückschnitt verkahlter, erschöpfter Stiefmütterchen-Triebe um etwa die Hälfte im
+      Hochsommer, um einen kräftigen zweiten Wachstums- und Blütenschub auszulösen.
+      Zur Saisonmitte werden Stiefmütterchen oft langbeinig und spärlich mit gestreckten
+      Internodien — eine Reaktion auf zunehmende Sommerhitze und Tageslänge. Die Energie
+      der Pflanze verteilt sich auf viele lange, schwache Stängel mit nachlassender
+      Blütenproduktion. Ein Verjüngungsschnitt entfernt den müden Oberwuchs und stimuliert
+      ruhende Knospen tiefer an den Stängeln zum Austrieb. Kombiniert mit leichter
+      Düngung (ausgewogenes NPK) regeneriert die Pflanze innerhalb von 2-3 Wochen eine
+      dichte, kompakte Krone und nimmt die reiche Blüte wieder auf, die bis in den Herbst
+      anhält. Dies verlängert die Gesamtblütezeit von typischen 3-4 auf 5-7 Monate.
+      Der Schnitt verursacht moderaten Stress, daher nach dem Schnitt gut wässern und
+      bei Temperaturen über 25°C vorübergehend beschatten.
+    category: "pruning"
+    stress_level: "medium"
+    skill_level: "intermediate"
+    recovery_days_default: 5
+    species_compatible: ["Viola", "Stiefmütterchen", "Pansy"]
+    forbidden_phases: ["germination", "seedling", "senescence"]
+    tools_required: ["scissors"]
+    estimated_duration_minutes: 10
+    sort_order: 61
+    tags: ["ornamental", "viola", "rejuvenation"]
+
+  # ==========================================================================
+  # PETUNIA: Specific bloom management
+  # ==========================================================================
+
+  - name: "Petunia Cutting Back"
+    name_de: "Petunie zurückschneiden"
+    description: >
+      Cutting back leggy petunia stems by approximately 1/3 at mid-season to rejuvenate
+      growth and trigger a new flush of blooms. Petunias naturally produce long, trailing
+      stems that become progressively bare at the base as the plant pushes growth outward.
+      By mid-season (typically July-August), the plant often looks like bare brown stems
+      with flowers only at the very tips — the 'spider legs' syndrome. Cutting back forces
+      dormant axillary buds on the bare stems to break, producing fresh, leafy side shoots
+      with abundant new flower buds within 10-14 days. Combine the cut with a balanced
+      liquid fertilizer application to fuel the regrowth. This technique can be repeated
+      once more in late summer if needed. Petunias are remarkably resilient to hard cutting
+      and respond more vigorously than most other bedding plants.
+    description_de: >
+      Rückschnitt verkahlter Petunien-Triebe um etwa 1/3 zur Saisonmitte, um das Wachstum
+      zu verjüngen und eine neue Blütenwelle auszulösen. Petunien bilden natürlicherweise
+      lange, hängende Triebe, die an der Basis zunehmend kahl werden, da die Pflanze das
+      Wachstum nach aussen schiebt. Zur Saisonmitte (typischerweise Juli-August) sieht
+      die Pflanze oft aus wie kahle braune Stängel mit Blüten nur an den äussersten
+      Spitzen — das 'Spinnenbein'-Syndrom. Rückschnitt zwingt ruhende Achselknospen an
+      den kahlen Stängeln zum Austrieb, was frische, belaubte Seitentriebe mit reichlich
+      neuen Blütenknospen innerhalb von 10-14 Tagen erzeugt. Den Schnitt mit einer
+      ausgewogenen Flüssigdüngergabe kombinieren, um den Neuaustrieb zu versorgen. Diese
+      Technik kann bei Bedarf im Spätsommer noch einmal wiederholt werden. Petunien sind
+      bemerkenswert widerstandsfähig gegenüber hartem Schnitt und reagieren kräftiger als
+      die meisten anderen Beetpflanzen.
+    category: "pruning"
+    stress_level: "medium"
+    skill_level: "intermediate"
+    recovery_days_default: 5
+    species_compatible: ["Petunia", "Petunie"]
+    forbidden_phases: ["germination", "seedling", "senescence"]
+    tools_required: ["scissors"]
+    estimated_duration_minutes: 10
+    sort_order: 62
+    tags: ["ornamental", "petunia", "rejuvenation"]
+
+  # ==========================================================================
+  # ADDITIONAL SPECIES-SPECIFIC (from agrobiology review 2026-03)
+  # ==========================================================================
+
+  - name: "Dahlia Pinching"
+    name_de: "Dahlie entspitzen"
+    description: >
+      Pinching the main growing tip of young dahlia plants after they have developed 4-5
+      leaf pairs to promote lateral branching and a multi-stemmed growth habit. Without
+      pinching, a dahlia grows as a single tall stem with one terminal flower — pinching
+      breaks apical dominance and causes 4-6 lateral branches to develop, each producing
+      its own flower. This is particularly critical for Dinner-Plate varieties, where the
+      difference between 1 flower and 5-6 flowers per plant is dramatic. The pinch should
+      be done when the plant is 30-40 cm tall and actively growing. Pinch just above the
+      third or fourth leaf pair, removing only the soft growing tip. The plant recovers
+      quickly (2-3 days) as the stress is minimal — only soft meristematic tissue is
+      removed. Each lateral branch can later be staked individually for support.
+    description_de: >
+      Entspitzen des Haupttriebs junger Dahlienpflanzen nach Entwicklung von 4-5 Blattpaaren,
+      um laterale Verzweigung und einen mehrstieligen Wuchshabitus zu fördern. Ohne
+      Entspitzen wächst eine Dahlie als einzelner hoher Stängel mit einer Terminalblüte —
+      Entspitzen bricht die Apikaldominanz und bewirkt, dass 4-6 Seitentriebe entstehen,
+      von denen jeder eine eigene Blüte produziert. Dies ist besonders kritisch bei
+      Dinner-Plate-Sorten, wo der Unterschied zwischen 1 Blüte und 5-6 Blüten pro Pflanze
+      dramatisch ist. Das Entspitzen sollte erfolgen, wenn die Pflanze 30-40 cm hoch ist
+      und aktiv wächst. Knapp über dem dritten oder vierten Blattpaar pinchen und nur die
+      weiche Triebspitze entfernen. Die Pflanze erholt sich schnell (2-3 Tage), da der
+      Stress minimal ist — nur weiches meristematisches Gewebe wird entfernt. Jeder
+      Seitentrieb kann später einzeln gestäbt werden.
+    category: "pruning"
+    stress_level: "low"
+    skill_level: "beginner"
+    recovery_days_default: 3
+    species_compatible: ["Dahlia", "Dahlie"]
+    forbidden_phases: ["dormancy", "flowering", "senescence", "corm_ripening"]
+    estimated_duration_minutes: 5
+    sort_order: 24
+    tags: ["ornamental", "dahlia", "pinching"]
+
+  - name: "Spathiphyllum Flower Stalk Removal"
+    name_de: "Einblatt Blütenstiel entfernen"
+    description: >
+      Cutting spent flower stalks at the base after the spathe (the white 'petal', actually
+      a modified leaf) turns green or brown. Spathiphyllum flowers last 4-8 weeks before
+      fading. The spathe first turns from white to green (photosynthesizing in its new role
+      as a leaf-like structure), then eventually browns. The flower stalk (scape) should be
+      cut at soil level once browning begins — leaving it wastes energy as the plant
+      continues to supply the dying structure. Removing spent blooms also redirects hormonal
+      signals: without the ethylene from maturing seeds inhibiting new bud formation,
+      cytokinin levels remain high enough to promote vegetative growth and new flower
+      bud initiation. A healthy Spathiphyllum
+      can produce 3-8 flowers per year with regular dead bloom removal. Use clean scissors
+      and cut as low as possible to prevent the remaining stump from rotting.
+    description_de: >
+      Abschneiden verblühter Blütenstiele an der Basis, nachdem das Hochblatt (Spatha —
+      das weisse 'Blütenblatt', eigentlich ein modifiziertes Laubblatt) grün oder braun
+      wird. Spathiphyllum-Blüten halten 4-8 Wochen bevor sie verblassen. Die Spatha
+      verfärbt sich zunächst von weiss zu grün (sie photosynthetisiert in ihrer neuen Rolle
+      als blattähnliche Struktur), dann wird sie schliesslich braun. Der Blütenstiel
+      (Scape) sollte auf Bodenniveau geschnitten werden, sobald die Bräunung beginnt —
+      ihn zu belassen verschwendet Energie, da die Pflanze die absterbende Struktur weiter
+      versorgt. Das Entfernen verblühter Blüten leitet auch hormonelle Signale um: Ohne
+      aktiven Samenentwicklungspfad — und ohne die Ethylen-Hemmung reifender Samen —
+      bleiben die Cytokinin-Spiegel hoch genug, um vegetatives Wachstum und neue
+      Blütenknospeninitiation zu fördern. Ein gesundes Spathiphyllum kann mit
+      regelmässiger Blütenentfernung 3-8 Blüten pro Jahr produzieren. Saubere Schere
+      verwenden und so tief wie möglich schneiden, um Fäulnis des verbleibenden Stumpfs
+      zu verhindern.
+    category: "pruning"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Spathiphyllum", "Einblatt"]
+    forbidden_phases: ["dormancy"]
+    tools_required: ["scissors"]
+    estimated_duration_minutes: 5
+    sort_order: 46
+    tags: ["indoor", "spathiphyllum", "pruning"]
+
+  - name: "Strawberry Old Leaf Removal"
+    name_de: "Erdbeere alte Blätter entfernen"
+    description: >
+      Removing old, spotted, or dried strawberry leaves in early spring and after harvest
+      to reduce disease pressure and improve plant vigor. Strawberry leaves have a functional
+      lifespan of about 60-90 days, after which they become net consumers of resources rather
+      than producers. Old leaves are also the primary overwintering site for fungal pathogens:
+      Botrytis cinerea (gray mold — responsible for 30-50% of strawberry crop losses),
+      Mycosphaerella fragariae (leaf spot), and Diplocarpon earlianum (leaf scorch). By
+      removing these infected reservoir leaves, the inoculum pressure for the new growing
+      season is significantly reduced. In spring, remove all leaves that show brown spots,
+      are flattened to the ground, or have visible fungal growth. After harvest (for
+      June-bearing varieties), a complete foliage renovation cut 5-8 cm above the crown
+      is common practice — the plant regenerates fresh, disease-free foliage within 3-4
+      weeks. Never cut into the crown itself, as this can kill the plant.
+    description_de: >
+      Entfernung alter, fleckiger oder vertrockneter Erdbeerblätter im Vorfrühling und
+      nach der Ernte, um Krankheitsdruck zu reduzieren und die Pflanzenvitalität zu
+      verbessern. Erdbeerblätter haben eine funktionelle Lebensdauer von etwa 60-90 Tagen,
+      danach werden sie zu Netto-Verbrauchern von Ressourcen statt Produzenten. Alte
+      Blätter sind auch der primäre Überwinterungsort für Pilzpathogene: Botrytis cinerea
+      (Grauschimmel — verantwortlich für 30-50% der Erdbeer-Ernteverluste),
+      Mycosphaerella fragariae (Blattflecken) und Diplocarpon earlianum (Blattbrand).
+      Durch Entfernung dieser infizierten Reservoirblätter wird der Inokulumdruck für die
+      neue Vegetationsperiode erheblich reduziert. Im Frühjahr alle Blätter entfernen, die
+      braune Flecken zeigen, flach am Boden liegen oder sichtbaren Pilzbefall aufweisen.
+      Nach der Ernte (bei einmaltragenden Sorten) ist ein kompletter Lauberneuerungsschnitt
+      5-8 cm über der Krone gängige Praxis — die Pflanze regeneriert frisches, krankheits-
+      freies Laub innerhalb von 3-4 Wochen. Niemals in die Krone selbst schneiden, da dies
+      die Pflanze töten kann.
+    category: "pruning"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Fragaria", "Erdbeere", "Strawberry"]
+    forbidden_phases: ["germination", "dormancy"]
+    tools_required: ["scissors"]
+    estimated_duration_minutes: 15
+    sort_order: 35
+    tags: ["strawberry", "pruning", "disease_prevention"]
+
+  # ==========================================================================
+  # AGROBIOLOGY REVIEW 2026-03: Missing Activities (M-001 through M-008)
+  # ==========================================================================
+
+  - name: "Gravity Bending"
+    name_de: "Schwerkraftbiegen"
+    description: >
+      A low-stress training technique where branches are gradually bent downward using
+      weights or soft ties, leveraging gravity to reposition growth without crushing or
+      damaging internal vascular tissue. Unlike supercropping (which deliberately damages
+      xylem/phloem), gravity bending applies continuous gentle force that triggers
+      thigmomorphogenesis — the plant's natural response to mechanical stress. The bent
+      branch develops a stronger, thicker stem at the stress point and redistributes
+      auxin flow, causing lower lateral nodes to activate and develop into productive
+      branches. Gravity bending is particularly effective for cannabis growers who want
+      the canopy-flattening benefits of LST with minimal risk of stem breakage. The
+      technique works best on semi-flexible, actively growing stems during mid to late
+      vegetative phase. Attach small weights (binder clips, fishing weights) to branch
+      tips or use soft plant ties anchored to the pot rim. Check daily and adjust — over-
+      bending can kink the stem and restrict phloem transport, visible as drooping leaves
+      distal to the bend point. Recovery is rapid (1-2 days) as no tissue is damaged.
+    description_de: >
+      Eine stressarme Trainingstechnik, bei der Zweige mithilfe von Gewichten oder
+      weichen Bindungen schrittweise nach unten gebogen werden, wobei die Schwerkraft
+      genutzt wird, um das Wachstum neu auszurichten, ohne inneres Leitgewebe zu
+      quetschen oder zu beschädigen. Anders als Supercropping (das Xylem/Phloem
+      absichtlich verletzt) übt Schwerkraftbiegen eine kontinuierliche, sanfte Kraft aus,
+      die Thigmomorphogenese auslöst — die natürliche Reaktion der Pflanze auf
+      mechanischen Stress. Der gebogene Zweig entwickelt einen stärkeren, dickeren
+      Stängel am Belastungspunkt und verteilt den Auxinfluss um, wodurch untere laterale
+      Nodien aktiviert werden und zu produktiven Trieben heranwachsen.
+      Schwerkraftbiegen ist besonders effektiv für Cannabis-Grower, die die
+      kronenabflachenden Vorteile von LST mit minimalem Risiko eines Stängelbruchs
+      wünschen. Die Technik funktioniert am besten an halbflexiblen, aktiv wachsenden
+      Stängeln während der mittleren bis späten vegetativen Phase. Kleine Gewichte
+      (Binderclips, Angelgewichte) an Triebspitzen befestigen oder weiche Pflanzenbinder
+      am Topfrand verankern. Täglich kontrollieren und anpassen — übermässiges Biegen
+      kann den Stängel abknicken und den Phloemtransport einschränken, erkennbar an
+      herabhängenden Blättern distal des Biegepunkts. Die Erholung ist schnell (1-2
+      Tage), da kein Gewebe beschädigt wird.
+    category: "training_lst"
+    stress_level: "low"
+    skill_level: "intermediate"
+    recovery_days_default: 2
+    species_compatible: ["Cannabis", "Hanf"]
+    forbidden_phases: ["dormancy", "senescence", "germination"]
+    tools_required: ["plant ties", "weights"]
+    estimated_duration_minutes: 15
+    sort_order: 70
+    tags: ["lst", "bending", "cannabis"]
+
+  - name: "Trichome Inspection"
+    name_de: "Trichomkontrolle"
+    description: >
+      Microscopic examination of glandular trichomes on cannabis flower surfaces to
+      determine optimal harvest timing. Cannabis produces three types of trichomes, but
+      the capitate-stalked glandular trichomes are the primary cannabinoid and terpene
+      production sites. These trichomes progress through a predictable maturation sequence
+      visible under 40-100x magnification: (1) clear/transparent — immature, low
+      cannabinoid content, harvesting now yields a weak product; (2) milky/cloudy —
+      peak THC production, maximum psychoactive potency, optimal harvest window for most
+      cultivars; (3) amber/brown — THC is degrading to CBN (cannabinol), producing a
+      more sedative, body-heavy effect. The ideal harvest ratio for most recreational
+      cultivars is 70-80% milky with 20-30% amber trichomes. For medical cultivars
+      targeting specific cannabinoid profiles, the ratio may differ. Inspect multiple bud
+      sites (top, middle, lower canopy) as maturation is uneven — upper buds exposed to
+      more light ripen faster. Use a jeweller's loupe (40x minimum) or USB digital
+      microscope for reliable assessment. Inspect every 2-3 days during the final 2 weeks
+      before expected harvest. This is the single most important quality-determining
+      activity in the entire cannabis cultivation cycle.
+    description_de: >
+      Mikroskopische Untersuchung der Drüsentrichome auf Cannabis-Blütenoberflächen zur
+      Bestimmung des optimalen Erntezeitpunkts. Cannabis produziert drei Trichomtypen,
+      aber die gestielten Kopftrichome (capitate-stalked) sind die primären Cannabinoid-
+      und Terpen-Produktionsstätten. Diese Trichome durchlaufen eine vorhersagbare
+      Reifungssequenz, sichtbar unter 40-100-facher Vergrösserung: (1) klar/transparent
+      — unreif, geringer Cannabinoidgehalt, Ernte jetzt ergibt ein schwaches Produkt;
+      (2) milchig/trüb — Spitzen-THC-Produktion, maximale psychoaktive Potenz, optimales
+      Erntefenster für die meisten Sorten; (3) bernstein/braun — THC degradiert zu CBN
+      (Cannabinol), was einen stärker sedierenden, körperbetonten Effekt erzeugt. Das
+      ideale Ernteverhältnis für die meisten Freizeitsorten ist 70-80% milchig mit 20-30%
+      bernsteinfarbenen Trichomen. Für medizinische Sorten mit spezifischen Cannabinoid-
+      Profilen kann das Verhältnis abweichen. Mehrere Blütenpositionen inspizieren
+      (oben, Mitte, untere Krone), da die Reifung ungleichmässig verläuft — obere Blüten
+      mit mehr Lichtexposition reifen schneller. Juwelierslupe (mindestens 40x) oder
+      USB-Digitalmikroskop für zuverlässige Beurteilung verwenden. In den letzten 2
+      Wochen vor der erwarteten Ernte alle 2-3 Tage kontrollieren. Dies ist die
+      wichtigste qualitätsbestimmende Aktivität im gesamten Cannabis-Anbauzyklus.
+    category: "inspection"
+    stress_level: "none"
+    skill_level: "intermediate"
+    recovery_days_default: 0
+    species_compatible: ["Cannabis", "Hanf"]
+    forbidden_phases: ["germination", "seedling", "vegetative", "dormancy"]
+    tools_required: ["jewellers loupe 40x", "digital microscope"]
+    estimated_duration_minutes: 10
+    sort_order: 71
+    tags: ["inspection", "harvest_prep", "cannabis"]
+
+  - name: "Staking"
+    name_de: "Anbinden / Stützen"
+    description: >
+      Installing support stakes and tying stems to prevent lodging (stem collapse) caused
+      by wind, rain, or the weight of developing fruits and flowers. Many cultivated plants
+      have been bred for larger fruits, heavier flower heads, or taller growth than their
+      wild ancestors could support — making structural support essential. Staking provides
+      a vertical anchor that distributes mechanical load along the stem, preventing the
+      critical failure point where the stem buckles under its own weight or lateral wind
+      force. Use bamboo stakes, metal plant supports, or wooden dowels sized to 2/3 of the
+      expected plant height. Insert stakes at planting time or early in the vegetative phase
+      to avoid damaging established root systems. Tie stems loosely with soft material
+      (garden twine, foam-coated wire, fabric strips) in a figure-eight pattern — the
+      crossover between stem and stake prevents direct pressure on the stem while allowing
+      natural swaying that strengthens the stem through thigmomorphogenesis. Tight ties can
+      girdle the stem, cutting off phloem transport and causing dieback above the tie point.
+      Check ties monthly and loosen as the stem thickens during growth.
+    description_de: >
+      Anbringen von Stützstäben und Anbinden von Stängeln, um Umknicken (Stängelkollaps)
+      durch Wind, Regen oder das Gewicht sich entwickelnder Früchte und Blüten zu
+      verhindern. Viele Kulturpflanzen wurden auf grössere Früchte, schwerere Blütenköpfe
+      oder höheren Wuchs gezüchtet als ihre wilden Vorfahren tragen konnten — strukturelle
+      Unterstützung ist daher essentiell. Stützen bieten einen vertikalen Anker, der die
+      mechanische Last entlang des Stängels verteilt und den kritischen Versagenspunkt
+      verhindert, an dem der Stängel unter seinem eigenen Gewicht oder seitlicher Windkraft
+      einknickt. Bambusstäbe, Metallstützen oder Holzdübel verwenden, bemessen auf 2/3 der
+      erwarteten Pflanzenhöhe. Stäbe zur Pflanzzeit oder früh in der vegetativen Phase
+      setzen, um Schäden an etablierten Wurzelsystemen zu vermeiden. Stängel locker mit
+      weichem Material (Gartenschnur, schaumstoffbeschichteter Draht, Stoffstreifen) in
+      Achter-Schlinge anbinden — die Kreuzung zwischen Stängel und Stab verhindert
+      direkten Druck auf den Stängel und erlaubt natürliches Schwanken, das den Stängel
+      durch Thigmomorphogenese stärkt. Straffe Bindungen können den Stängel einschnüren,
+      den Phloemtransport unterbinden und Absterben oberhalb der Bindestelle verursachen.
+      Bindungen monatlich kontrollieren und lockern, wenn der Stängel während des Wachstums
+      dicker wird.
+    category: "training_lst"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    requires_support: true
+    forbidden_phases: ["dormancy", "senescence", "germination"]
+    tools_required: ["bamboo stake", "plant ties"]
+    estimated_duration_minutes: 10
+    sort_order: 72
+    tags: ["support", "staking"]
+
+  - name: "Substrate Aeration"
+    name_de: "Substratauflockerung"
+    description: >
+      Carefully loosening compacted substrate in containers by inserting a thin wooden
+      stick or chopstick 4-6 times around the pot perimeter, pushing it to 2/3 pot depth
+      and gently wiggling to create air channels. Over time, organic substrates (especially
+      peat-based mixes) compact from repeated watering cycles — water pressure pushes fine
+      particles together, reducing pore space. Compacted substrate becomes hydrophobic:
+      water runs down the inside of the pot wall and out the drainage hole without wetting
+      the root ball, a phenomenon called channeling. The root zone becomes anaerobic
+      (oxygen-depleted), leading to root suffocation and creating conditions favorable for
+      root rot pathogens (Pythium, Phytophthora). Substrate aeration breaks up compacted
+      zones, restores oxygen flow to roots, and re-establishes even water distribution
+      throughout the root ball. This is a critical maintenance activity for long-term
+      container plants (Monstera, Ficus, Spathiphyllum) that are not repotted annually.
+      Perform every 4-6 weeks during the active growing season. Work carefully around
+      the pot perimeter — avoid the center where the main root mass is concentrated to
+      minimize root damage.
+    description_de: >
+      Vorsichtiges Auflockern von verdichtetem Substrat in Töpfen durch Einstechen eines
+      dünnen Holzstabs oder Essstäbchens 4-6 Mal um den Topfrand, bis auf 2/3 der
+      Topftiefe, und sanftes Bewegen, um Luftkanäle zu erzeugen. Im Laufe der Zeit
+      verdichten sich organische Substrate (besonders torfbasierte Mischungen) durch
+      wiederholte Bewässerungszyklen — Wasserdruck presst Feinpartikel zusammen und
+      reduziert den Porenraum. Verdichtetes Substrat wird hydrophob: Wasser läuft an der
+      Topfinnenwand herunter und durch das Abzugsloch, ohne den Wurzelballen zu
+      durchfeuchten — ein Phänomen namens Channeling. Die Wurzelzone wird anaerob
+      (sauerstoffverarmt), was zu Wurzelerstickung führt und Bedingungen schafft, die
+      Wurzelfäule-Pathogene (Pythium, Phytophthora) begünstigen. Substratauflockerung
+      bricht verdichtete Zonen auf, stellt den Sauerstofffluss zu den Wurzeln wieder her
+      und re-etabliert eine gleichmässige Wasserverteilung im Wurzelballen. Dies ist eine
+      kritische Pflegemassnahme für langfristige Topfpflanzen (Monstera, Ficus,
+      Spathiphyllum), die nicht jährlich umgetopft werden. Alle 4-6 Wochen während der
+      aktiven Wachstumsperiode durchführen. Vorsichtig am Topfrand arbeiten — die Mitte
+      meiden, wo die Hauptwurzelmasse konzentriert ist, um Wurzelschäden zu minimieren.
+    category: "general"
+    stress_level: "low"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    applicable_growth_habits: ["herb", "shrub", "vine"]
+    requires_container: true
+    forbidden_phases: ["dormancy", "germination"]
+    tools_required: ["wooden stick"]
+    estimated_duration_minutes: 5
+    sort_order: 73
+    tags: ["maintenance", "substrate", "houseplant"]
+
+  - name: "Mulching"
+    name_de: "Mulchen"
+    description: >
+      Applying a 5-10 cm layer of organic material (bark mulch, straw, or compost) around
+      the base of geophyte plantings for frost protection, moisture retention, and weed
+      suppression. Mulch acts as a thermal insulator — it moderates soil temperature swings
+      by slowing heat loss at night and reducing solar heating during the day. For dahlia
+      tubers and Tigridia corms left in the ground over winter (possible in USDA Zone 8+
+      or sheltered microclimates), a thick mulch layer can prevent the soil from reaching
+      the lethal freezing threshold of -2°C even when air temperatures drop well below
+      freezing. In summer, mulch reduces soil evaporation by 30-50%, maintains more uniform
+      soil moisture (reducing tuber desiccation stress), and suppresses weed competition
+      that would otherwise compete with the geophytes for water and nutrients. As organic
+      mulch decomposes, it contributes humus and nutrients to the soil, improving structure
+      over time. Apply mulch after planting in spring (for summer moisture retention) and
+      add an additional layer in late autumn before the first frost (for winter insulation).
+      Keep mulch 5 cm away from the stem base to prevent crown rot from excessive moisture.
+    description_de: >
+      Aufbringen einer 5-10 cm dicken Schicht organischen Materials (Rindenmulch, Stroh
+      oder Kompost) um die Basis von Geophyten-Pflanzungen zum Frostschutz,
+      Feuchtigkeitserhalt und Unkrautunterdrückung. Mulch wirkt als thermischer Isolator —
+      er mildert Bodentemperaturschwankungen, indem er den Wärmeverlust nachts verlangsamt
+      und die Sonneneinstrahlung tagsüber reduziert. Für Dahlienknollen und Tigridia-Kormen,
+      die über Winter im Boden bleiben (möglich ab USDA-Zone 8+ oder in geschützten
+      Mikroklimaten), kann eine dicke Mulchschicht verhindern, dass der Boden die letale
+      Frostschwelle von -2°C erreicht, selbst wenn die Lufttemperatur deutlich unter den
+      Gefrierpunkt sinkt. Im Sommer reduziert Mulch die Bodenverdunstung um 30-50%, hält
+      eine gleichmässigere Bodenfeuchte (reduziert Austrocknungsstress der Knollen) und
+      unterdrückt Unkrautkonkurrenz, die sonst mit den Geophyten um Wasser und Nährstoffe
+      konkurrieren würde. Bei der Zersetzung trägt organischer Mulch Humus und Nährstoffe
+      zum Boden bei und verbessert langfristig die Struktur. Mulch nach dem Pflanzen im
+      Frühling auftragen (für Feuchtigkeitserhalt im Sommer) und eine zusätzliche Schicht
+      im Spätherbst vor dem ersten Frost aufbringen (für Winterisolierung). Mulch 5 cm
+      vom Stängelansatz fernhalten, um Kronenfäule durch übermässige Feuchtigkeit zu
+      verhindern.
+    category: "general"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Dahlia", "Dahlie", "Tigridia", "Pfauenblume"]
+    forbidden_phases: ["dormancy"]
+    tools_required: ["bark mulch", "straw", "trowel"]
+    estimated_duration_minutes: 20
+    sort_order: 74
+    tags: ["mulch", "frost_protection", "outdoor"]
+
+  - name: "Straw Mulching"
+    name_de: "Stroh unterlegen"
+    description: >
+      Placing a layer of clean straw or specialized mulching material beneath developing
+      strawberry fruits to prevent direct soil contact. This is a cornerstone practice in
+      integrated strawberry production (IPM) targeting Botrytis cinerea (gray mold), the
+      single most destructive pathogen of strawberry fruits worldwide, responsible for
+      30-60% of crop losses in humid climates. Botrytis spores are ubiquitous in soil
+      and splashed onto fruits during rain or irrigation events. When ripe strawberries
+      rest directly on moist soil, the prolonged moisture contact creates ideal infection
+      conditions — Botrytis germinates within 4-6 hours on wet fruit surfaces. A straw
+      barrier physically separates fruits from soil, dramatically reducing splash-borne
+      inoculum transfer and keeping fruit surfaces drier. Field trials consistently show
+      40-60% reduction in Botrytis infection rates with proper straw mulching. Additionally,
+      the straw layer suppresses weed germination beneath the canopy, reduces soil
+      evaporation, and keeps fruits clean for harvest. Apply when the first fruits begin
+      to swell and hang downward (typically late May in Central European conditions).
+      Use clean, seed-free straw — hay contains weed seeds that will germinate prolifically.
+    description_de: >
+      Unterlegen einer Schicht sauberen Strohs oder speziellen Mulchmaterials unter
+      sich entwickelnde Erdbeerfrüchte, um direkten Bodenkontakt zu verhindern. Dies ist
+      eine Kernmassnahme im integrierten Erdbeeranbau (IPM) gegen Botrytis cinerea
+      (Grauschimmel), den weltweit zerstörerischsten Pathogen von Erdbeerfrüchten,
+      verantwortlich für 30-60% der Ernteverluste in feuchten Klimaten. Botrytis-Sporen
+      sind allgegenwärtig im Boden und werden bei Regen oder Bewässerung auf Früchte
+      gespritzt. Wenn reife Erdbeeren direkt auf feuchtem Boden liegen, schafft der
+      anhaltende Feuchtigkeitskontakt ideale Infektionsbedingungen — Botrytis keimt
+      innerhalb von 4-6 Stunden auf nassen Fruchtoberflächen. Eine Strohbarriere trennt
+      Früchte physisch vom Boden, reduziert den spritzwassergetragenen Inokulumtransfer
+      drastisch und hält Fruchtoberflächen trockener. Feldversuche zeigen konsistent eine
+      40-60%ige Reduktion der Botrytis-Infektionsrate bei sachgemässer Strohmulchung.
+      Zusätzlich unterdrückt die Strohschicht Unkrautkeimung unter dem Bestand, reduziert
+      Bodenverdunstung und hält Früchte sauber für die Ernte. Auftragen, wenn die ersten
+      Früchte anschwellen und herabhängen (typischerweise Ende Mai in mitteleuropäischen
+      Verhältnissen). Sauberes, samenfreies Stroh verwenden — Heu enthält Unkrautsamen,
+      die üppig keimen werden.
+    category: "general"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Fragaria", "Erdbeere", "Strawberry"]
+    forbidden_phases: ["germination", "dormancy", "seedling"]
+    tools_required: ["straw", "mulching material"]
+    estimated_duration_minutes: 15
+    sort_order: 75
+    tags: ["ipm", "botrytis", "strawberry", "outdoor"]
+
+  - name: "Celeriac Blanching"
+    name_de: "Knollen abdecken (Sellerie)"
+    description: >
+      Loosely covering the exposed upper portion of the celeriac tuber with newspaper,
+      horticultural fleece, or light-excluding material to prevent greening of the tuber
+      surface from UV exposure. Celeriac (Apium graveolens var. rapaceum) naturally grows
+      with 40-60% of the tuber above the soil line — this aerial exposure is correct for
+      optimal tuber development and must not be counteracted by earthing up (which would
+      promote crown rot). However, the exposed surface develops chlorophyll when exposed to
+      direct sunlight, causing a green discoloration. While celeriac greening does not
+      produce toxic compounds (unlike potato solanine), it affects the tuber's visual
+      quality and can impart a slightly more bitter taste to the outer layers. In commercial
+      production, uniform white-cream tuber color is a quality criterion. Blanching is a
+      simple light-exclusion technique: loosely wrap or drape the material around the
+      exposed tuber, ensuring air circulation is maintained to prevent moisture buildup and
+      fungal infection. Begin when the tuber reaches tennis-ball size (typically August in
+      Central European conditions). This is an optional quality measure primarily relevant
+      for market gardeners and exhibition growers — home gardeners may choose to skip it
+      as the greening is purely cosmetic.
+    description_de: >
+      Lockeres Abdecken des freiliegenden oberen Teils der Sellerieknolle mit
+      Zeitungspapier, Gartenvlies oder lichtundurchlässigem Material, um Vergrünung der
+      Knollenoberfläche durch UV-Exposition zu verhindern. Knollensellerie (Apium
+      graveolens var. rapaceum) wächst natürlicherweise mit 40-60% der Knolle über der
+      Bodenoberfläche — diese Freiluftexposition ist korrekt für optimale
+      Knollenentwicklung und darf nicht durch Anhäufeln gegengesteuert werden (was
+      Kronenfäule fördern würde). Die freiliegende Oberfläche entwickelt jedoch
+      Chlorophyll bei direkter Sonneneinstrahlung, was eine grüne Verfärbung verursacht.
+      Während Sellerie-Vergrünung keine toxischen Verbindungen produziert (anders als
+      Kartoffel-Solanin), beeinträchtigt sie die optische Qualität der Knolle und kann
+      den äusseren Schichten einen leicht bittereren Geschmack verleihen. In der
+      kommerziellen Produktion ist eine einheitliche weiss-cremefarbene Knollenfarbe ein
+      Qualitätskriterium. Blanching ist eine einfache Lichtexklusionstechnik: Material
+      locker um die freiliegende Knolle wickeln oder drapieren, dabei Luftzirkulation
+      aufrechterhalten, um Feuchtigkeitsstau und Pilzinfektion zu verhindern. Beginnen,
+      wenn die Knolle Tennisballgrösse erreicht (typischerweise August in
+      mitteleuropäischen Verhältnissen). Dies ist eine optionale Qualitätsmassnahme,
+      primär relevant für Marktgärtner und Ausstellungszüchter — Hobbygärtner können sie
+      überspringen, da die Vergrünung rein kosmetisch ist.
+    category: "general"
+    stress_level: "none"
+    skill_level: "beginner"
+    recovery_days_default: 0
+    species_compatible: ["Apium", "Sellerie", "Celeriac"]
+    forbidden_phases: ["germination", "seedling", "dormancy"]
+    tools_required: ["newspaper", "horticultural fleece"]
+    estimated_duration_minutes: 10
+    sort_order: 76
+    tags: ["blanching", "celeriac", "outdoor"]
+
+  - name: "CO2 Monitoring"
+    name_de: "CO2-Kontrolle und Anpassung"
+    description: >
+      Measuring and adjusting the CO2 concentration in indoor cannabis cultivation spaces
+      to optimize photosynthetic efficiency and accelerate growth. Ambient air contains
+      approximately 420 ppm CO2, which is the limiting factor for photosynthesis when
+      light levels exceed 600 PPFD — at this light intensity, the plant's carbon fixation
+      machinery (RuBisCO enzyme) can process CO2 faster than it diffuses into the leaf
+      through stomata. Supplementing to 800-1200 ppm CO2 saturates the Calvin cycle,
+      increasing dry weight accumulation by 20-40% compared to ambient levels. The
+      relationship follows a saturation curve: gains diminish above 1200 ppm, and levels
+      above 1500 ppm can cause stomatal closure and growth inhibition. CO2 supplementation
+      is only beneficial during the light period (plants do not photosynthesize in darkness)
+      and requires corresponding increases in nutrient supply and temperature (optimal
+      28-30°C at elevated CO2, vs. 24-26°C at ambient). Monitoring involves: (1) calibrate
+      the CO2 meter weekly (sensors drift over time), (2) measure at plant canopy height
+      during peak light hours, (3) adjust CO2 injection rate or ventilation accordingly.
+      Ensure adequate air exchange when CO2 is not being supplemented — sealed rooms
+      without supplementation will deplete CO2 below ambient within 30-60 minutes of
+      lights-on, actually reducing growth below what natural ventilation would provide.
+    description_de: >
+      Messung und Anpassung der CO2-Konzentration in Indoor-Cannabis-Anbauräumen zur
+      Optimierung der Photosyntheseeffizienz und Beschleunigung des Wachstums. Umgebungsluft
+      enthält ca. 420 ppm CO2, was der limitierende Faktor für die Photosynthese ist, wenn
+      die Lichtintensität 600 PPFD übersteigt — bei dieser Lichtintensität kann die
+      Kohlenstofffixierungsmaschinerie der Pflanze (RuBisCO-Enzym) CO2 schneller verarbeiten
+      als es durch die Stomata ins Blatt diffundiert. Supplementierung auf 800-1200 ppm CO2
+      sättigt den Calvin-Zyklus und steigert die Trockenmasse-Akkumulation um 20-40%
+      gegenüber Umgebungswerten. Die Beziehung folgt einer Sättigungskurve: Gewinne nehmen
+      oberhalb von 1200 ppm ab, und Werte über 1500 ppm können Stomataschluss und
+      Wachstumshemmung verursachen. CO2-Supplementierung ist nur während der Lichtperiode
+      vorteilhaft (Pflanzen photosynthetisieren nicht im Dunkeln) und erfordert
+      entsprechende Erhöhungen der Nährstoffzufuhr und Temperatur (optimal 28-30°C bei
+      erhöhtem CO2, vs. 24-26°C bei Umgebungswerten). Monitoring umfasst: (1) CO2-Meter
+      wöchentlich kalibrieren (Sensoren driften über die Zeit), (2) auf Pflanzen-
+      Kronenhöhe während der Hauptlichtstunden messen, (3) CO2-Injektionsrate oder
+      Ventilation entsprechend anpassen. Ausreichenden Luftaustausch sicherstellen, wenn
+      kein CO2 supplementiert wird — versiegelte Räume ohne Supplementierung verarmen CO2
+      innerhalb von 30-60 Minuten nach Lichtbeginn unter Umgebungswerte und reduzieren
+      das Wachstum tatsächlich unter das, was natürliche Belüftung liefern würde.
+    category: "inspection"
+    stress_level: "none"
+    skill_level: "intermediate"
+    recovery_days_default: 0
+    species_compatible: ["Cannabis", "Hanf"]
+    forbidden_phases: ["dormancy"]
+    tools_required: ["CO2 meter"]
+    estimated_duration_minutes: 10
+    sort_order: 77
+    tags: ["monitoring", "co2", "cannabis", "indoor"]

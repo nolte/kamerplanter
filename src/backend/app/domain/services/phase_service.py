@@ -17,6 +17,11 @@ class PhaseService:
         self._plant_repo = plant_repo
         self._transition_engine = PhaseTransitionEngine(phase_repo, plant_repo)
         self._profile_generator = ResourceProfileGenerator()
+        self._on_phase_transition_callbacks: list = []
+
+    def register_on_transition(self, callback) -> None:
+        """Register a callback(plant_key: str, phase_name: str) to invoke after phase transitions."""
+        self._on_phase_transition_callbacks.append(callback)
 
     # --- Lifecycle ---
 
@@ -125,18 +130,76 @@ class PhaseService:
                 if target:
                     next_phase = target.name
 
+        phase_name = ""
+        if plant.current_phase_key:
+            phase = self._repo.get_phase_by_key(plant.current_phase_key)
+            if phase:
+                phase_name = phase.name
+
         return {
-            "phase": plant.current_phase,
+            "phase": phase_name,
             "phase_key": plant.current_phase_key,
             "days_in_phase": days_in_phase,
             "next_phase": next_phase,
         }
 
-    def transition_phase(self, plant_key: PlantID, target_phase_key: PhaseKey, reason: str = "manual") -> PlantInstance:
-        return self._transition_engine.execute_transition(plant_key, target_phase_key, reason)
+    def transition_phase(
+        self, plant_key: PlantID, target_phase_key: PhaseKey, reason: str = "manual", *, force: bool = False,
+    ) -> PlantInstance:
+        plant = self._transition_engine.execute_transition(plant_key, target_phase_key, reason, force=force)
+
+        # Resolve phase name for callbacks
+        phase_name = ""
+        if plant.current_phase_key:
+            phase = self._repo.get_phase_by_key(plant.current_phase_key)
+            if phase:
+                phase_name = phase.name
+
+        # Notify registered callbacks (e.g. activate dormant tasks)
+        for callback in self._on_phase_transition_callbacks:
+            try:
+                callback(plant_key, phase_name)
+            except Exception:
+                pass  # Don't let callback errors break the transition
+
+        return plant
 
     def get_phase_history(self, plant_key: PlantID) -> list[PhaseHistory]:
         return self._repo.get_phase_history(plant_key)
+
+    def delete_phase_history(self, plant_key: PlantID, history_key: str) -> None:
+        plant = self._plant_repo.get_by_key(plant_key)
+        if plant is None:
+            raise NotFoundError("PlantInstance", plant_key)
+
+        all_history = self._repo.get_phase_history(plant_key)
+        history = None
+        for h in all_history:
+            if h.key == history_key:
+                history = h
+                break
+        if history is None:
+            raise NotFoundError("PhaseHistory", history_key)
+
+        is_current = history.exited_at is None
+
+        self._repo.delete_phase_history(history_key)
+
+        # If deleted entry was the current (open) phase, revert to previous phase
+        if is_current:
+            remaining = [h for h in all_history if h.key != history_key]
+            if remaining:
+                prev = remaining[-1]
+                # Reopen previous phase
+                prev.exited_at = None
+                prev.actual_duration_days = None
+                self._repo.update_phase_history(prev.key or "", prev)
+                plant.current_phase_key = prev.phase_key
+                plant.current_phase_started_at = prev.entered_at
+            else:
+                plant.current_phase_key = None
+                plant.current_phase_started_at = None
+            self._plant_repo.update(plant_key, plant)
 
     def update_phase_history_dates(
         self,

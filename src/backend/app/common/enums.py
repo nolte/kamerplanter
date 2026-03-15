@@ -14,6 +14,7 @@ class RootType(StrEnum):
     TAPROOT = "taproot"
     TUBEROUS = "tuberous"
     BULBOUS = "bulbous"
+    CORM = "corm"
 
 
 class PhotoperiodType(StrEnum):
@@ -110,6 +111,19 @@ class FrostTolerance(StrEnum):
     VERY_HARDY = "very_hardy"
 
 
+class Suitability(StrEnum):
+    YES = "yes"
+    LIMITED = "limited"
+    NO = "no"
+
+
+class NutrientDemandLevel(StrEnum):
+    HEAVY_FEEDER = "heavy_feeder"
+    MEDIUM_FEEDER = "medium_feeder"
+    LIGHT_FEEDER = "light_feeder"
+    NITROGEN_FIXER = "nitrogen_fixer"
+
+
 class PollinationType(StrEnum):
     INSECT = "insect"
     WIND = "wind"
@@ -193,6 +207,13 @@ class TankType(StrEnum):
     IRRIGATION = "irrigation"
     RESERVOIR = "reservoir"
     RECIRCULATION = "recirculation"
+    STOCK_SOLUTION = "stock_solution"
+
+
+class FillType(StrEnum):
+    FULL_CHANGE = "full_change"
+    TOP_UP = "top_up"
+    ADJUSTMENT = "adjustment"
 
 
 class TankMaterial(StrEnum):
@@ -231,6 +252,7 @@ class FertilizerType(StrEnum):
     BIOLOGICAL = "biological"
     PH_ADJUSTER = "ph_adjuster"
     ORGANIC = "organic"
+    SILICATE = "silicate"
 
 
 class PhEffect(StrEnum):
@@ -266,6 +288,7 @@ class WaterSource(StrEnum):
     RAINWATER = "rainwater"
     DISTILLED = "distilled"
     WELL = "well"
+    MIXED = "mixed"
 
 
 class PhaseName(StrEnum):
@@ -273,6 +296,8 @@ class PhaseName(StrEnum):
     SEEDLING = "seedling"
     VEGETATIVE = "vegetative"
     FLOWERING = "flowering"
+    FLUSHING = "flushing"
+    DORMANCY = "dormancy"
     HARVEST = "harvest"
 
 
@@ -367,6 +392,7 @@ class TaskStatus(StrEnum):
     COMPLETED = "completed"
     SKIPPED = "skipped"
     FAILED = "failed"
+    DORMANT = "dormant"
 
 
 class TaskPriority(StrEnum):
@@ -379,6 +405,7 @@ class TaskPriority(StrEnum):
 class TaskCategory(StrEnum):
     TRAINING = "training"
     PRUNING = "pruning"
+    AUSGEIZEN = "ausgeizen"
     TRANSPLANT = "transplant"
     FEEDING = "feeding"
     IPM = "ipm"
@@ -386,6 +413,20 @@ class TaskCategory(StrEnum):
     OBSERVATION = "observation"
     MAINTENANCE = "maintenance"
     CARE_REMINDER = "care_reminder"
+    SEASONAL = "seasonal"
+    PHENOLOGICAL = "phenological"
+
+
+class ActivityCategory(StrEnum):
+    TRAINING_HST = "training_hst"
+    TRAINING_LST = "training_lst"
+    PRUNING = "pruning"
+    AUSGEIZEN = "ausgeizen"
+    TRANSPLANT = "transplant"
+    HARVEST_PREP = "harvest_prep"
+    PROPAGATION = "propagation"
+    INSPECTION = "inspection"
+    GENERAL = "general"
 
 
 class TaskTriggerType(StrEnum):
@@ -395,6 +436,9 @@ class TaskTriggerType(StrEnum):
     ABSOLUTE_DATE = "absolute_date"
     MANUAL = "manual"
     CONDITIONAL = "conditional"
+    GDD_THRESHOLD = "gdd_threshold"
+    SEASONAL_MONTH = "seasonal_month"
+    PHENOLOGICAL = "phenological"
 
 
 class StressLevel(StrEnum):
@@ -477,6 +521,8 @@ class CareStyleType(StrEnum):
     MEDITERRANEAN = "mediterranean"
     FERN = "fern"
     CACTUS = "cactus"
+    OUTDOOR_ANNUAL_VEG = "outdoor_annual_veg"
+    OUTDOOR_PERENNIAL = "outdoor_perennial"
     CUSTOM = "custom"
 
 
@@ -569,6 +615,7 @@ class CalendarEventCategory(StrEnum):
     MAINTENANCE = "maintenance"
     PHASE_TRANSITION = "phase_transition"
     TANK_MAINTENANCE = "tank_maintenance"
+    WATERING_FORECAST = "watering_forecast"
     CUSTOM = "custom"
 
 
@@ -577,6 +624,7 @@ class CalendarEventSource(StrEnum):
     PHASE_TRANSITION = "phase_transition"
     MAINTENANCE_LOG = "maintenance_log"
     WATERING = "watering"
+    WATERING_FORECAST = "watering_forecast"
 
 
 CATEGORY_COLORS: dict[CalendarEventCategory, str] = {
@@ -589,5 +637,6 @@ CATEGORY_COLORS: dict[CalendarEventCategory, str] = {
     CalendarEventCategory.MAINTENANCE: "#9E9E9E",
     CalendarEventCategory.PHASE_TRANSITION: "#9C27B0",
     CalendarEventCategory.TANK_MAINTENANCE: "#00BCD4",
+    CalendarEventCategory.WATERING_FORECAST: "#42A5F5",
     CalendarEventCategory.CUSTOM: "#607D8B",
 }

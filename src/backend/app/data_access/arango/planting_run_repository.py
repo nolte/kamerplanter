@@ -162,8 +162,13 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
         """
         if not include_detached:
             query += "  FILTER e.detached_at == null\n"
-        query += """  LET v = DOCUMENT(e._to)
-          RETURN MERGE(v, {_edge_detached_at: e.detached_at, _edge_detach_reason: e.detach_reason})"""
+        query += f"""  LET v = DOCUMENT(e._to)
+          LET gp = DOCUMENT(CONCAT('{col.GROWTH_PHASES}/', v.current_phase_key))
+          RETURN MERGE(v, {{
+            _edge_detached_at: e.detached_at,
+            _edge_detach_reason: e.detach_reason,
+            current_phase: gp != null ? gp.name : ''
+          }})"""
         bind_vars = {
             "run_id": f"{col.PLANTING_RUNS}/{run_key}",
         }
@@ -199,6 +204,32 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return {doc for doc in cursor if doc}
+
+    def get_runs_for_plant(self, plant_key: PlantID) -> list[PlantingRun]:
+        query = f"""
+        FOR e IN {col.RUN_CONTAINS}
+          FILTER e._to == @plant_id
+          LET run = DOCUMENT(e._from)
+          FILTER run != null
+          SORT run.started_at DESC
+          RETURN run
+        """
+        bind_vars = {"plant_id": f"{col.PLANT_INSTANCES}/{plant_key}"}
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return [PlantingRun(**self._from_doc(doc)) for doc in cursor]
+
+    def get_runs_at_site(self, site_key: str) -> list[PlantingRun]:
+        query = f"""
+        FOR run IN {col.PLANTING_RUNS}
+          FILTER run.location_key != null
+          FILTER run.status IN ['active', 'harvesting', 'completed']
+          LET loc = DOCUMENT(CONCAT('{col.LOCATIONS}/', run.location_key))
+          FILTER loc != null AND loc.site_key == @site_key
+          SORT run.started_at DESC
+          RETURN run
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"site_key": site_key})
+        return [PlantingRun(**self._from_doc(doc)) for doc in cursor]
 
     # ── Nutrient plan assignment ───────────────────────────────────────
 
@@ -292,7 +323,9 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
               FILTER e._from == run_id AND e.detached_at == null
               LET plant = DOCUMENT(e._to)
               FILTER plant != null AND plant.removed_on == null
-              COLLECT phase = plant.current_phase WITH COUNT INTO cnt
+              LET gp = DOCUMENT(CONCAT('{col.GROWTH_PHASES}/', plant.current_phase_key))
+              LET phase_name = gp != null ? gp.name : ''
+              COLLECT phase = phase_name WITH COUNT INTO cnt
               RETURN {{ phase: phase, cnt: cnt }}
           )
           RETURN {{ run_key: run_key, phases: phases }}

@@ -44,3 +44,8 @@ class IPlantInstanceRepository(ABC):
     @abstractmethod
     def get_by_species(self, species_key: SpeciesKey) -> list[PlantInstance]:
         ...
+
+    @abstractmethod
+    def resolve_phase_name(self, phase_key: str) -> str:
+        """Resolve a GrowthPhase key to its name. Returns empty string if not found."""
+        ...

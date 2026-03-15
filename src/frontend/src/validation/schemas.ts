@@ -80,7 +80,7 @@ export const plantInstanceSchema = z.object({
   substrate_batch_key: z.string().nullable().default(null),
   plant_name: z.string().nullable().default(null),
   planted_on: z.string().min(1),
-  current_phase: z.string().default('seedling'),
+  current_phase_key: z.string().nullable().default(null),
 });
 
 export const growthPhaseSchema = z.object({

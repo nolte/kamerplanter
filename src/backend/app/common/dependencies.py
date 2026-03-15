@@ -31,6 +31,7 @@ from app.data_access.arango.tank_repository import ArangoTankRepository
 from app.data_access.arango.task_repository import ArangoTaskRepository
 from app.data_access.arango.tenant_repository import ArangoTenantRepository
 from app.data_access.arango.user_repository import ArangoUserRepository
+from app.data_access.arango.watering_log_repository import ArangoWateringLogRepository
 from app.data_access.arango.watering_repository import ArangoWateringRepository
 from app.data_access.external.console_email_adapter import ConsoleEmailAdapter
 from app.data_access.external.smtp_email_adapter import SmtpEmailAdapter
@@ -74,6 +75,7 @@ from app.domain.services.tank_service import TankService
 from app.domain.services.task_service import TaskService
 from app.domain.services.tenant_service import TenantService
 from app.domain.services.user_service import UserService
+from app.domain.services.watering_log_service import WateringLogService
 from app.domain.services.watering_service import WateringService
 
 _connection: ArangoConnection | None = None
@@ -133,11 +135,15 @@ def get_substrate_service() -> SubstrateService:
 def get_plant_instance_service() -> PlantInstanceService:
     rotation_validator = CropRotationValidator(get_plant_repo(), get_species_repo(), get_graph_repo())
     companion_engine = CompanionPlantingEngine(get_graph_repo(), get_plant_repo(), get_species_repo())
-    return PlantInstanceService(get_plant_repo(), get_site_repo(), rotation_validator, companion_engine)
+    return PlantInstanceService(get_plant_repo(), get_site_repo(), rotation_validator, companion_engine, phase_repo=get_lifecycle_repo())
 
 
 def get_phase_service() -> PhaseService:
-    return PhaseService(get_lifecycle_repo(), get_plant_repo())
+    service = PhaseService(get_lifecycle_repo(), get_plant_repo())
+    # REQ-006: Activate dormant tasks when a plant transitions to a new phase
+    task_service = get_task_service()
+    service.register_on_transition(task_service.activate_dormant_tasks_for_phase)
+    return service
 
 
 def get_source_repo() -> ArangoExternalSourceRepository:
@@ -174,6 +180,7 @@ def get_planting_run_service() -> PlantingRunService:
         nutrient_plan_repo=get_nutrient_plan_repo(),
         watering_repo=get_watering_repo(),
         phase_repo=get_lifecycle_repo(),
+        site_repo=get_site_repo(),
     )
 
 
@@ -225,6 +232,26 @@ def get_watering_service() -> WateringService:
         run_repo=get_planting_run_repo(),
         task_repo=get_task_repo(),
         feeding_repo=get_feeding_repo(),
+        nutrient_plan_repo=get_nutrient_plan_repo(),
+        care_repo=get_care_reminder_repo(),
+        plant_repo=get_plant_repo(),
+        species_repo=get_species_repo(),
+        substrate_repo=get_substrate_repo(),
+        lifecycle_repo=get_lifecycle_repo(),
+    )
+
+
+def get_watering_log_repo() -> ArangoWateringLogRepository:
+    return ArangoWateringLogRepository(get_db())
+
+
+def get_watering_log_service() -> WateringLogService:
+    return WateringLogService(
+        get_watering_log_repo(),
+        WateringEngine(),
+        get_site_repo(),
+        run_repo=get_planting_run_repo(),
+        task_repo=get_task_repo(),
         nutrient_plan_repo=get_nutrient_plan_repo(),
         care_repo=get_care_reminder_repo(),
     )
@@ -420,7 +447,13 @@ def get_care_reminder_repo() -> ArangoCareReminderRepository:
 
 
 def get_care_reminder_service() -> CareReminderService:
-    return CareReminderService(get_care_reminder_repo(), CareReminderEngine())
+    return CareReminderService(
+        get_care_reminder_repo(),
+        CareReminderEngine(),
+        get_task_repo(),
+        watering_log_repo=get_watering_log_repo(),
+        plant_repo=get_plant_repo(),
+    )
 
 
 # ── REQ-012 Import dependencies ──────────────────────────────────────
@@ -456,6 +489,7 @@ def get_calendar_service():
         get_calendar_aggregation_engine(),
         species_repo=get_species_repo(),
         site_repo=get_site_repo(),
+        planting_run_service=get_planting_run_service(),
     )
 
 
@@ -511,6 +545,33 @@ def get_location_type_repo():
 def get_location_type_service():
     from app.domain.services.location_type_service import LocationTypeService
     return LocationTypeService(get_location_type_repo())
+
+
+# ── Activity dependencies ──────────────────────────────────────────
+
+
+def get_activity_repo():
+    from app.data_access.arango.activity_repository import ArangoActivityRepository
+    return ArangoActivityRepository(get_db())
+
+
+def get_activity_service():
+    from app.domain.services.activity_service import ActivityService
+    return ActivityService(get_activity_repo())
+
+
+def get_activity_plan_service():
+    from app.domain.engines.activity_plan_engine import ActivityPlanEngine
+    from app.domain.services.activity_plan_service import ActivityPlanService
+    return ActivityPlanService(
+        engine=ActivityPlanEngine(),
+        activity_repo=get_activity_repo(),
+        phase_repo=get_lifecycle_repo(),
+        task_repo=get_task_repo(),
+        planting_run_repo=get_planting_run_repo(),
+        species_repo=get_species_repo(),
+        family_repo=get_family_repo(),
+    )
 
 
 def close_connection() -> None:

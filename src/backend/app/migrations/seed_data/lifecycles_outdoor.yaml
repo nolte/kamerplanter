@@ -1,0 +1,1775 @@
+# Lifecycle configurations and growth phases for 38 outdoor species.
+# Phase names in English, display_name in German.
+# Durations calibrated for Central Europe (USDA Zone 7).
+
+lifecycles:
+
+  # ============================================================================
+  # Outdoor-Stauden / Zierpflanzen
+  # ============================================================================
+
+  # -- Forsythia x intermedia (Forsythie) -- Laubabwerfender Strauch
+  - species_key: "1794864"
+    cycle_type: "perennial"
+    typical_lifespan_years: 30
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 60
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 30
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Geranium sanguineum (Blut-Storchschnabel) -- Staude
+  - species_key: "1794868"
+    cycle_type: "perennial"
+    typical_lifespan_years: 15
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 150
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 45
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 45
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Einziehen"
+        typical_duration_days: 21
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Helleborus niger (Christrose) -- Winterblüher
+  - species_key: "1794872"
+    cycle_type: "perennial"
+    typical_lifespan_years: 20
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Sommerruhe"
+        typical_duration_days: 90
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 60
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 120
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattrückzug"
+        typical_duration_days: 30
+        sequence_order: 4
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Hemerocallis spp. (Taglilie) -- Staude
+  - species_key: "1794876"
+    cycle_type: "perennial"
+    typical_lifespan_years: 20
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 150
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 45
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 30
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Einziehen"
+        typical_duration_days: 21
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Hosta spp. (Funkie) -- Staude
+  - species_key: "1794880"
+    cycle_type: "perennial"
+    typical_lifespan_years: 25
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 150
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 45
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 30
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Einziehen"
+        typical_duration_days: 21
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Hydrangea macrophylla (Gartenhortensie) -- Laubabwerfender Strauch
+  - species_key: "1794884"
+    cycle_type: "perennial"
+    typical_lifespan_years: 30
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 60
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 30
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Ligustrum vulgare (Gemeiner Liguster) -- Laubabwerfender Strauch
+  - species_key: "1794888"
+    cycle_type: "perennial"
+    typical_lifespan_years: 40
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 60
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 30
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Paeonia lactiflora (Staudenpfingstrose) -- Staude
+  - species_key: "1794892"
+    cycle_type: "perennial"
+    typical_lifespan_years: 50
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 150
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 45
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 30
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Einziehen"
+        typical_duration_days: 21
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Phlox paniculata (Hohe Flammenblume) -- Staude
+  - species_key: "1794896"
+    cycle_type: "perennial"
+    typical_lifespan_years: 10
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 150
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 45
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 45
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Einziehen"
+        typical_duration_days: 21
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Rhododendron spp. (Rhododendron) -- Immergrüner Strauch
+  - species_key: "1794900"
+    cycle_type: "perennial"
+    typical_lifespan_years: 50
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 30
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 150
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Ruheübergang"
+        typical_duration_days: 14
+        sequence_order: 4
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Rosa spp. (Rose) -- Dauerblüher-Strauch
+  - species_key: "1794904"
+    cycle_type: "perennial"
+    typical_lifespan_years: 25
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 30
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 120
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 21
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Syringa vulgaris (Gemeiner Flieder) -- Laubabwerfender Strauch
+  - species_key: "1794908"
+    cycle_type: "perennial"
+    typical_lifespan_years: 40
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 60
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 30
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Viburnum opulus (Gemeiner Schneeball) -- Laubabwerfender Strauch
+  - species_key: "1794912"
+    cycle_type: "perennial"
+    typical_lifespan_years: 30
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 60
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 30
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Weigela florida (Weigelie) -- Laubabwerfender Strauch
+  - species_key: "1794916"
+    cycle_type: "perennial"
+    typical_lifespan_years: 25
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 60
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 30
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # ============================================================================
+  # Obstgehölze
+  # ============================================================================
+
+  # -- Malus domestica (Kulturapfel) -- Obstbaum, fruiting 120d
+  - species_key: "1794920"
+    cycle_type: "perennial"
+    typical_lifespan_years: 50
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 135
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 14
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "fruiting"
+        display_name: "Fruchtentwicklung"
+        typical_duration_days: 120
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 21
+        sequence_order: 4
+        stress_tolerance: "high"
+        allows_harvest: true
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Prunus avium (Süßkirsche) -- Obstbaum, fruiting 60d
+  - species_key: "1794924"
+    cycle_type: "perennial"
+    typical_lifespan_years: 40
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 135
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 14
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "fruiting"
+        display_name: "Fruchtentwicklung"
+        typical_duration_days: 60
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 21
+        sequence_order: 4
+        stress_tolerance: "high"
+        allows_harvest: true
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Prunus domestica (Zwetschge/Pflaume) -- Obstbaum, fruiting 90d
+  - species_key: "1794928"
+    cycle_type: "perennial"
+    typical_lifespan_years: 40
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 135
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 14
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "fruiting"
+        display_name: "Fruchtentwicklung"
+        typical_duration_days: 90
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 21
+        sequence_order: 4
+        stress_tolerance: "high"
+        allows_harvest: true
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Pyrus communis (Birne) -- Obstbaum, fruiting 120d
+  - species_key: "1794932"
+    cycle_type: "perennial"
+    typical_lifespan_years: 60
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 135
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 14
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "fruiting"
+        display_name: "Fruchtentwicklung"
+        typical_duration_days: 120
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 21
+        sequence_order: 4
+        stress_tolerance: "high"
+        allows_harvest: true
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Ribes rubrum (Rote Johannisbeere) -- Beerenobst
+  - species_key: "1794936"
+    cycle_type: "perennial"
+    typical_lifespan_years: 15
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 14
+        sequence_order: 3
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "fruiting"
+        display_name: "Fruchtentwicklung"
+        typical_duration_days: 60
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 21
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: true
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 6
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Ribes uva-crispa (Stachelbeere) -- Beerenobst
+  - species_key: "1794940"
+    cycle_type: "perennial"
+    typical_lifespan_years: 15
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 14
+        sequence_order: 3
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "fruiting"
+        display_name: "Fruchtentwicklung"
+        typical_duration_days: 60
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 21
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: true
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 6
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Rubus fruticosus agg. (Brombeere) -- Beerenobst
+  - species_key: "1794944"
+    cycle_type: "perennial"
+    typical_lifespan_years: 15
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 14
+        sequence_order: 3
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "fruiting"
+        display_name: "Fruchtentwicklung"
+        typical_duration_days: 60
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 21
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: true
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 6
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Rubus idaeus (Himbeere) -- Beerenobst
+  - species_key: "1794948"
+    cycle_type: "perennial"
+    typical_lifespan_years: 12
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 14
+        sequence_order: 3
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "fruiting"
+        display_name: "Fruchtentwicklung"
+        typical_duration_days: 60
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 21
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: true
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 6
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Sambucus nigra (Schwarzer Holunder) -- Obstbaum
+  - species_key: "1794952"
+    cycle_type: "perennial"
+    typical_lifespan_years: 30
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 135
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "fruiting"
+        display_name: "Fruchtentwicklung"
+        typical_duration_days: 90
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 21
+        sequence_order: 4
+        stress_tolerance: "high"
+        allows_harvest: true
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Vaccinium corymbosum (Kulturheidelbeere) -- Beerenobst
+  - species_key: "1794956"
+    cycle_type: "perennial"
+    typical_lifespan_years: 20
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 14
+        sequence_order: 3
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "fruiting"
+        display_name: "Fruchtentwicklung"
+        typical_duration_days: 90
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 21
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: true
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 6
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Vitis vinifera (Weinrebe) -- Kletterpflanze mit Reifephase
+  - species_key: "1794960"
+    cycle_type: "perennial"
+    typical_lifespan_years: 50
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 150
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 30
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 14
+        sequence_order: 4
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "fruiting"
+        display_name: "Fruchtentwicklung"
+        typical_duration_days: 90
+        sequence_order: 5
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "ripening"
+        display_name: "Reife"
+        typical_duration_days: 30
+        sequence_order: 6
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 14
+        sequence_order: 7
+        stress_tolerance: "high"
+        allows_harvest: true
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 21
+        sequence_order: 8
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # ============================================================================
+  # Kräuter
+  # ============================================================================
+
+  # -- Levisticum officinale (Liebstöckel) -- Mehrjähriges Kraut
+  - species_key: "1794964"
+    cycle_type: "perennial"
+    typical_lifespan_years: 10
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 14
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 60
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 21
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 60
+        sequence_order: 5
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Einziehen"
+        typical_duration_days: 21
+        sequence_order: 6
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Melissa officinalis (Zitronenmelisse) -- Mehrjähriges Kraut
+  - species_key: "1794968"
+    cycle_type: "perennial"
+    typical_lifespan_years: 8
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 14
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 60
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 21
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 60
+        sequence_order: 5
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Einziehen"
+        typical_duration_days: 21
+        sequence_order: 6
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Origanum vulgare (Oregano) -- Mehrjähriges Kraut
+  - species_key: "1794972"
+    cycle_type: "perennial"
+    typical_lifespan_years: 8
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 14
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 60
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 21
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 60
+        sequence_order: 5
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Einziehen"
+        typical_duration_days: 21
+        sequence_order: 6
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Satureja hortensis (Bohnenkraut) -- Einjährig
+  - species_key: "1794976"
+    cycle_type: "annual"
+    typical_lifespan_years: 1
+    dormancy_required: false
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "germination"
+        display_name: "Keimung"
+        typical_duration_days: 7
+        sequence_order: 1
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "seedling"
+        display_name: "Jungpflanze"
+        typical_duration_days: 14
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 30
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 30
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Absterben"
+        typical_duration_days: 14
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # ============================================================================
+  # Gemüse
+  # ============================================================================
+
+  # -- Pastinaca sativa (Pastinake) -- Zweijährig, vernalization_required
+  - species_key: "1794980"
+    cycle_type: "biennial"
+    typical_lifespan_years: 2
+    dormancy_required: true
+    vernalization_required: true
+    vernalization_min_days: 30
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "germination"
+        display_name: "Keimung"
+        typical_duration_days: 10
+        sequence_order: 1
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "seedling"
+        display_name: "Jungpflanze"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 90
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 4
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 21
+        sequence_order: 5
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 30
+        sequence_order: 6
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: true
+
+  # -- Rheum rhabarbarum (Rhabarber) -- Staude mit Erntephase
+  - species_key: "1794984"
+    cycle_type: "perennial"
+    typical_lifespan_years: 15
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 14
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 60
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Regeneration"
+        typical_duration_days: 90
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Einziehen"
+        typical_duration_days: 21
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Spinacia oleracea (Spinat) -- Einjährig, Langtagpflanze
+  - species_key: "1794988"
+    cycle_type: "annual"
+    typical_lifespan_years: 1
+    dormancy_required: false
+    vernalization_required: false
+    photoperiod_type: "long_day"
+    phases:
+      - name: "germination"
+        display_name: "Keimung"
+        typical_duration_days: 7
+        sequence_order: 1
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "seedling"
+        display_name: "Jungpflanze"
+        typical_duration_days: 14
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 30
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Ernte"
+        typical_duration_days: 21
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Schossen"
+        typical_duration_days: 14
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # ============================================================================
+  # Gründüngung
+  # ============================================================================
+
+  # -- Lupinus polyphyllus (Vielblättrige Lupine) -- Gründüngung, annual use
+  - species_key: "1794992"
+    cycle_type: "annual"
+    typical_lifespan_years: 1
+    dormancy_required: false
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "germination"
+        display_name: "Keimung"
+        typical_duration_days: 7
+        sequence_order: 1
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "seedling"
+        display_name: "Jungpflanze"
+        typical_duration_days: 14
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 45
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 30
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Einarbeitung"
+        typical_duration_days: 14
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Medicago sativa (Luzerne) -- Perennial Gründüngung
+  - species_key: "1794996"
+    cycle_type: "perennial"
+    typical_lifespan_years: 5
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 90
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 14
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 45
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 21
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "harvest"
+        display_name: "Schnitt"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Ruheübergang"
+        typical_duration_days: 14
+        sequence_order: 6
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Phacelia tanacetifolia (Bienenfreund) -- Gründüngung, lange Blüte
+  - species_key: "1795000"
+    cycle_type: "annual"
+    typical_lifespan_years: 1
+    dormancy_required: false
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "germination"
+        display_name: "Keimung"
+        typical_duration_days: 7
+        sequence_order: 1
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "seedling"
+        display_name: "Jungpflanze"
+        typical_duration_days: 14
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 30
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 30
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Einarbeitung"
+        typical_duration_days: 14
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Sinapis alba (Weißer Senf) -- Gründüngung
+  - species_key: "1795004"
+    cycle_type: "annual"
+    typical_lifespan_years: 1
+    dormancy_required: false
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "germination"
+        display_name: "Keimung"
+        typical_duration_days: 7
+        sequence_order: 1
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "seedling"
+        display_name: "Jungpflanze"
+        typical_duration_days: 14
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 30
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 21
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Einarbeitung"
+        typical_duration_days: 14
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Tagetes patula (Studentenblume) -- Gründüngung, lange Blüte (Nematodenfalle)
+  - species_key: "1795008"
+    cycle_type: "annual"
+    typical_lifespan_years: 1
+    dormancy_required: false
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "germination"
+        display_name: "Keimung"
+        typical_duration_days: 7
+        sequence_order: 1
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "seedling"
+        display_name: "Jungpflanze"
+        typical_duration_days: 14
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 30
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 60
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Einarbeitung"
+        typical_duration_days: 14
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+
+  # -- Tropaeolum majus (Kapuzinerkresse) -- Gründüngung/Mischkultur
+  - species_key: "1795012"
+    cycle_type: "annual"
+    typical_lifespan_years: 1
+    dormancy_required: false
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    phases:
+      - name: "germination"
+        display_name: "Keimung"
+        typical_duration_days: 7
+        sequence_order: 1
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "seedling"
+        display_name: "Jungpflanze"
+        typical_duration_days: 14
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 30
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 60
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "senescence"
+        display_name: "Absterben"
+        typical_duration_days: 14
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true

@@ -1,9 +1,10 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, TaskCategory, TaskStatus
 from app.common.exceptions import NotFoundError
-from app.common.types import LocationKey, SlotKey, WateringEventKey
+from app.common.types import LocationKey, PlantInstanceKey, WateringEventKey
 from app.domain.engines.watering_engine import WateringEngine
+from app.domain.engines.watering_volume_engine import VolumeSuggestion, WateringVolumeEngine
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.watering_repository import IWateringRepository
 from app.domain.models.care_reminder import CareConfirmation
@@ -22,6 +23,11 @@ class WateringService:
         feeding_repo=None,
         nutrient_plan_repo=None,
         care_repo=None,
+        volume_engine: WateringVolumeEngine | None = None,
+        plant_repo=None,
+        species_repo=None,
+        substrate_repo=None,
+        lifecycle_repo=None,
     ) -> None:
         self._repo = repo
         self._engine = engine
@@ -31,16 +37,22 @@ class WateringService:
         self._feeding_repo = feeding_repo
         self._nutrient_plan_repo = nutrient_plan_repo
         self._care_repo = care_repo
+        self._volume_engine = volume_engine or WateringVolumeEngine()
+        self._plant_repo = plant_repo
+        self._species_repo = species_repo
+        self._substrate_repo = substrate_repo
+        self._lifecycle_repo = lifecycle_repo
 
     # ── Create ─────────────────────────────────────────────────────────
 
     def create_event(self, event: WateringEvent) -> dict:
         """Create a watering event and return it with any warnings."""
-        # Look up irrigation system from the slot's location
+        # Look up irrigation system from the first plant's placement
         irrigation_system = None
-        first_slot = self._site_repo.get_slot_by_key(event.slot_keys[0])
-        if first_slot is not None:
-            location = self._site_repo.get_location_by_key(first_slot.location_key)
+        first_plant_key = event.plant_keys[0]
+        slot = self._site_repo.get_slot_for_plant(first_plant_key)
+        if slot is not None:
+            location = self._site_repo.get_location_by_key(slot.location_key)
             if location is not None:
                 irrigation_system = location.irrigation_system
 
@@ -61,10 +73,10 @@ class WateringService:
     ) -> tuple[list[WateringEvent], int]:
         return self._repo.get_all(offset, limit)
 
-    def get_by_slot(
-        self, slot_key: SlotKey, offset: int = 0, limit: int = 50,
+    def get_by_plant(
+        self, plant_key: PlantInstanceKey, offset: int = 0, limit: int = 50,
     ) -> list[WateringEvent]:
-        return self._repo.get_by_slot(slot_key, offset, limit)
+        return self._repo.get_by_plant(plant_key, offset, limit)
 
     def get_by_location(
         self, location_key: LocationKey, offset: int = 0, limit: int = 50,
@@ -101,9 +113,9 @@ class WateringService:
 
         # Get plants in the run
         plants = self._run_repo.get_run_plants(run_key, include_detached=False)
-        slot_keys = list({p.get("slot_key", "") for p in plants if p.get("slot_key")})
-        if not slot_keys:
-            slot_keys = ["default"]
+        plant_keys = [p["_key"] for p in plants if p.get("_key")]
+        if not plant_keys:
+            raise ValueError("No active plants found in run")
 
         # Create watering event
         now = datetime.now(UTC)
@@ -111,7 +123,7 @@ class WateringService:
             watered_at=now,
             application_method=watering_schedule.application_method if watering_schedule else ApplicationMethod.DRENCH,
             volume_liters=volume_liters or 1.0,
-            slot_keys=slot_keys,
+            plant_keys=plant_keys,
             nutrient_plan_key=plan_key,
             measured_ec=measured_ec,
             measured_ph=measured_ph,
@@ -177,3 +189,87 @@ class WateringService:
     def quick_confirm_watering(self, run_key: str, task_key: str) -> dict:
         """Quick confirm using plan defaults — no overrides."""
         return self.confirm_watering(run_key, task_key)
+
+    # ── Volume suggestion ─────────────────────────────────────────────
+
+    def suggest_volume(
+        self,
+        plant_key: PlantInstanceKey,
+        reference_date: date | None = None,
+        hemisphere: str = "north",
+    ) -> VolumeSuggestion:
+        """Suggest a watering volume for a plant based on its phase, species, substrate, and container.
+
+        Gathers all relevant data from repositories and delegates to WateringVolumeEngine.
+        """
+        from app.domain.interfaces.phase_repository import IPhaseRepository
+
+        plant = self._get_plant(plant_key)
+        ref_date = reference_date or date.today()
+
+        # Gather species watering guide
+        species_vol_min: int | None = None
+        species_vol_max: int | None = None
+        species_seasonal: list[dict] | None = None
+        if self._species_repo and plant.species_key:
+            species = self._species_repo.get_by_key(plant.species_key)
+            if species:
+                # Check cultivar override first
+                guide = None
+                if plant.cultivar_key and hasattr(self._species_repo, "get_cultivar_by_key"):
+                    cultivar = self._species_repo.get_cultivar_by_key(plant.cultivar_key)
+                    if cultivar and cultivar.watering_guide_override:
+                        guide = cultivar.watering_guide_override
+                if guide is None and species.watering_guide:
+                    guide = species.watering_guide
+                if guide:
+                    species_vol_min = guide.volume_ml_min
+                    species_vol_max = guide.volume_ml_max
+                    species_seasonal = [
+                        adj.model_dump() for adj in guide.seasonal_adjustments
+                    ] if guide.seasonal_adjustments else None
+
+        # Gather substrate properties
+        water_retention = None
+        water_holding_capacity = None
+        irrigation_strategy = None
+        substrate_type = plant.substrate_type_override
+        if self._substrate_repo and plant.substrate_key:
+            substrate = self._substrate_repo.get_substrate_by_key(plant.substrate_key)
+            if substrate:
+                substrate_type = substrate_type or substrate.type
+                water_retention = substrate.water_retention
+                water_holding_capacity = substrate.water_holding_capacity_percent
+                irrigation_strategy = substrate.irrigation_strategy
+
+        # Gather phase requirement profile
+        phase_irrigation_vol: int | None = None
+        if self._lifecycle_repo and plant.current_phase_key:
+            lifecycle_repo: IPhaseRepository = self._lifecycle_repo
+            if hasattr(lifecycle_repo, "get_requirement_profile"):
+                req_profile = lifecycle_repo.get_requirement_profile(plant.current_phase_key)
+                if req_profile and req_profile.irrigation_volume_ml_per_plant > 0:
+                    phase_irrigation_vol = req_profile.irrigation_volume_ml_per_plant
+
+        return self._volume_engine.suggest_volume(
+            container_volume_liters=plant.container_volume_liters,
+            substrate_type=substrate_type,
+            water_retention=water_retention,
+            water_holding_capacity_percent=water_holding_capacity,
+            irrigation_strategy=irrigation_strategy,
+            phase_name=phase_name,
+            phase_irrigation_volume_ml=phase_irrigation_vol,
+            species_volume_ml_min=species_vol_min,
+            species_volume_ml_max=species_vol_max,
+            species_seasonal_adjustments=species_seasonal,
+            reference_date=ref_date,
+            hemisphere=hemisphere,
+        )
+
+    def _get_plant(self, plant_key: PlantInstanceKey):
+        """Look up a plant instance."""
+        if self._plant_repo:
+            plant = self._plant_repo.get_by_key(plant_key)
+            if plant:
+                return plant
+        raise NotFoundError("PlantInstance", plant_key)
