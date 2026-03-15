@@ -8,7 +8,6 @@ from app.common.enums import (
     MaintenancePriority,
     MaintenanceType,
     TankType,
-    WaterSource,
 )
 from app.domain.engines.tank_engine import TankEngine
 from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState

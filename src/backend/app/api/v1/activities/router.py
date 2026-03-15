@@ -1,9 +1,13 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.activities.schemas import ActivityCreate, ActivityResponse, ActivityUpdate
 from app.common.dependencies import get_activity_service
 from app.domain.models.activity import Activity
-from app.domain.services.activity_service import ActivityService
+
+if TYPE_CHECKING:
+    from app.domain.services.activity_service import ActivityService
 
 router = APIRouter(prefix="/activities", tags=["activities"])
 

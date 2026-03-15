@@ -1,10 +1,14 @@
+from typing import TYPE_CHECKING
+
 from app.common.exceptions import NotFoundError
-from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
 from app.domain.engines.delivery_channel_engine import DeliveryChannelValidator
 from app.domain.engines.nutrient_plan_engine import NutrientPlanValidator, resolve_effective_entry
-from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
-from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
-from app.domain.models.nutrient_plan import DeliveryChannel, NutrientPlan, NutrientPlanPhaseEntry
+
+if TYPE_CHECKING:
+    from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
+    from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
+    from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
+    from app.domain.models.nutrient_plan import DeliveryChannel, NutrientPlan, NutrientPlanPhaseEntry
 
 
 class NutrientPlanService:
@@ -165,7 +169,6 @@ class NutrientPlanService:
             # Calculate EC budget for this entry
             calculated_ec = 0.0
             for ch in (entry.delivery_channels or []):
-                target = ch.target_ec_ms or 0.0
                 for dosage in ch.fertilizer_dosages:
                     fert = ferts.get(dosage.fertilizer_key)
                     if fert is not None:

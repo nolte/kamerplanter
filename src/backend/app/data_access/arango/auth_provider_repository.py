@@ -1,11 +1,16 @@
-from arango.database import StandardDatabase
 
-from app.common.enums import AuthProviderType
-from app.common.types import AuthProviderKey, UserKey
+from typing import TYPE_CHECKING
+
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.auth_provider_repository import IAuthProviderRepository
 from app.domain.models.auth import AuthProvider
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
+
+    from app.common.enums import AuthProviderType
+    from app.common.types import AuthProviderKey, UserKey
 
 
 class ArangoAuthProviderRepository(IAuthProviderRepository, BaseArangoRepository):

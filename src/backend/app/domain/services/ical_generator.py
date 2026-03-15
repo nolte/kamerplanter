@@ -1,6 +1,8 @@
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
-from app.domain.models.calendar import CalendarEvent
+if TYPE_CHECKING:
+    from app.domain.models.calendar import CalendarEvent
 
 
 class ICalGenerator:

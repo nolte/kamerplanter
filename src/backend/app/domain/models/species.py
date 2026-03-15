@@ -1,8 +1,20 @@
-from datetime import datetime
+
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.common.enums import FrostTolerance, GrowthHabit, NutrientDemandLevel, PlantTrait, RootType, Suitability, WateringMethod
+from app.common.enums import (
+    FrostTolerance,
+    GrowthHabit,
+    NutrientDemandLevel,
+    PlantTrait,
+    RootType,
+    Suitability,
+    WateringMethod,
+)
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 # ── WateringGuide (embedded on Species/Cultivar) ─────────────────────
 

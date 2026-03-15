@@ -1,14 +1,18 @@
+import contextlib
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from app.common.exceptions import NotFoundError
-from app.common.types import PhaseKey, PlantID
 from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
-from app.domain.interfaces.phase_repository import IPhaseRepository
-from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
-from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
-from app.domain.models.phase import NutrientProfile, PhaseHistory, PhaseTransitionRule, RequirementProfile
-from app.domain.models.plant_instance import PlantInstance
+
+if TYPE_CHECKING:
+    from app.common.types import PhaseKey, PlantID
+    from app.domain.interfaces.phase_repository import IPhaseRepository
+    from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
+    from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
+    from app.domain.models.phase import NutrientProfile, PhaseHistory, PhaseTransitionRule, RequirementProfile
+    from app.domain.models.plant_instance import PlantInstance
 
 
 class PhaseService:
@@ -157,10 +161,8 @@ class PhaseService:
 
         # Notify registered callbacks (e.g. activate dormant tasks)
         for callback in self._on_phase_transition_callbacks:
-            try:
+            with contextlib.suppress(Exception):
                 callback(plant_key, phase_name)
-            except Exception:
-                pass  # Don't let callback errors break the transition
 
         return plant
 

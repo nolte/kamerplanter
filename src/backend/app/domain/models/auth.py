@@ -1,8 +1,12 @@
-from datetime import datetime
+
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import AuthProviderType
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from app.common.enums import AuthProviderType
 
 
 class AuthProvider(BaseModel):

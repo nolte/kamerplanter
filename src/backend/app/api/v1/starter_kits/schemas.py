@@ -1,6 +1,9 @@
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel, Field
 
-from app.common.enums import SiteType, StarterKitDifficulty
+if TYPE_CHECKING:
+    from app.common.enums import SiteType, StarterKitDifficulty
 
 
 class StarterKitResponse(BaseModel):

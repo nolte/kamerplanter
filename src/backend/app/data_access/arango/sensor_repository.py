@@ -1,9 +1,13 @@
-from arango.database import StandardDatabase
+
+from typing import TYPE_CHECKING
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.sensor_repository import ISensorRepository
 from app.domain.models.sensor import Sensor
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
 
 
 class ArangoSensorRepository(ISensorRepository, BaseArangoRepository):

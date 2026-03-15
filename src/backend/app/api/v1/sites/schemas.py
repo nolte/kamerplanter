@@ -1,8 +1,12 @@
-from datetime import date, datetime
+
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
 from app.common.enums import SiteType
+
+if TYPE_CHECKING:
+    from datetime import date, datetime
 
 # ── Water config schemas ──────────────────────────────────────────────
 

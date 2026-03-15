@@ -1,10 +1,14 @@
-from arango.database import StandardDatabase
+
+from typing import TYPE_CHECKING
 
 from app.common.enums import TenantType
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.tenant_repository import ITenantRepository
 from app.domain.models.tenant import Tenant
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
 
 
 class ArangoTenantRepository(ITenantRepository, BaseArangoRepository):

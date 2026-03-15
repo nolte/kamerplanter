@@ -1,8 +1,12 @@
-from datetime import datetime
+
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
 from app.common.enums import IrrigationSystem, LightType, Orientation
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 class LocationCreate(BaseModel):
@@ -49,4 +53,4 @@ class LocationTreeNode(BaseModel):
     depth: int = 0
     parent_location_key: str | None = None
     slot_count: int = 0
-    children: list["LocationTreeNode"] = []
+    children: list[LocationTreeNode] = []

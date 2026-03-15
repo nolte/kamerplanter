@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.domain.models.activity import Activity
-from app.domain.models.lifecycle import GrowthPhase
 from app.domain.models.task import TaskTemplate, WorkflowTemplate
 
 if TYPE_CHECKING:
+    from app.domain.models.activity import Activity
+    from app.domain.models.lifecycle import GrowthPhase
     from app.domain.models.species import Species
 
 
@@ -166,9 +166,8 @@ class ActivityPlanEngine:
                 # Generic activity — apply structural filters
 
                 # Growth habit filter
-                if act.applicable_growth_habits and growth_habit:
-                    if growth_habit not in act.applicable_growth_habits:
-                        continue
+                if act.applicable_growth_habits and growth_habit and growth_habit not in act.applicable_growth_habits:
+                    continue
 
                 # Family filter
                 if act.applicable_families and family_name:
@@ -220,17 +219,10 @@ class ActivityPlanEngine:
 
             # Determine base offset
             default_offset = _CATEGORY_DEFAULT_OFFSETS.get(category, 1)
-            if default_offset < 0:
-                # From end of phase
-                base_day = max(0, duration + default_offset)
-            else:
-                base_day = default_offset
+            base_day = max(0, duration + default_offset) if default_offset < 0 else default_offset
 
             # Recovery group key: HST activities share one slot
-            if category in _HST_CATEGORIES:
-                recovery_group = "hst"
-            else:
-                recovery_group = f"cat_{category}"
+            recovery_group = "hst" if category in _HST_CATEGORIES else f"cat_{category}"
 
             # Check recovery calendar
             earliest = recovery_calendar.get(recovery_group, 0)

@@ -1,9 +1,13 @@
+from typing import TYPE_CHECKING
+
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
-from app.common.types import ActivityKey
-from app.domain.interfaces.activity_repository import IActivityRepository
 from app.domain.models.activity import Activity
+
+if TYPE_CHECKING:
+    from app.common.types import ActivityKey
+    from app.domain.interfaces.activity_repository import IActivityRepository
 
 
 class ActivityService:

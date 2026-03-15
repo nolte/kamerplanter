@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-from app.domain.models.enrichment import ExternalCultivarData, ExternalSpeciesData
+if TYPE_CHECKING:
+    from app.domain.models.enrichment import ExternalCultivarData, ExternalSpeciesData
 
 
 class ExternalSourceAdapter(ABC):

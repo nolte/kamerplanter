@@ -1,9 +1,11 @@
 from datetime import UTC, datetime
-
-from arango.database import StandardDatabase
+from typing import TYPE_CHECKING
 
 from app.data_access.arango import collections as col
 from app.domain.models.system_settings import SystemSettings
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
 
 SINGLETON_KEY = "default"
 

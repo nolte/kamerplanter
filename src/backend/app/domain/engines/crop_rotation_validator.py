@@ -1,11 +1,13 @@
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from app.common.exceptions import RotationViolationError
 from app.config.constants import DEFAULT_ROTATION_WINDOW_YEARS
-from app.domain.interfaces.graph_repository import IGraphRepository
-from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
-from app.domain.interfaces.species_repository import ISpeciesRepository
+
+if TYPE_CHECKING:
+    from app.domain.interfaces.graph_repository import IGraphRepository
+    from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
+    from app.domain.interfaces.species_repository import ISpeciesRepository
 
 
 @dataclass

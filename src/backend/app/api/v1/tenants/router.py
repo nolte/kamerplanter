@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends
 
 from app.api.v1.tenants.schemas import (
@@ -20,10 +22,12 @@ from app.api.v1.tenants.schemas import (
 from app.common.auth import get_current_tenant, get_current_user, require_tenant_role
 from app.common.dependencies import get_tenant_service
 from app.common.enums import TenantRole
-from app.domain.models.tenant import Tenant
-from app.domain.models.tenant_context import TenantContext
-from app.domain.models.user import User
-from app.domain.services.tenant_service import TenantService
+
+if TYPE_CHECKING:
+    from app.domain.models.tenant import Tenant
+    from app.domain.models.tenant_context import TenantContext
+    from app.domain.models.user import User
+    from app.domain.services.tenant_service import TenantService
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 

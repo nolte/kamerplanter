@@ -1,12 +1,15 @@
 """Seed location_types stammdaten on app startup (REQ-002)."""
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import structlog
-from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.migrations.yaml_loader import load_yaml
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
 
 logger = structlog.get_logger()
 

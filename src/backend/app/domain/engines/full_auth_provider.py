@@ -1,10 +1,14 @@
+from typing import TYPE_CHECKING
+
 from app.common.exceptions import UnauthorizedError
-from app.domain.engines.token_engine import TokenEngine
 from app.domain.interfaces.auth_provider import IAuthProvider
-from app.domain.interfaces.user_repository import IUserRepository
-from app.domain.models.auth import TokenPayload
-from app.domain.models.user import User
-from app.domain.services.auth_service import AuthService
+
+if TYPE_CHECKING:
+    from app.domain.engines.token_engine import TokenEngine
+    from app.domain.interfaces.user_repository import IUserRepository
+    from app.domain.models.auth import TokenPayload
+    from app.domain.models.user import User
+    from app.domain.services.auth_service import AuthService
 
 _API_KEY_PREFIX = "kp_"
 

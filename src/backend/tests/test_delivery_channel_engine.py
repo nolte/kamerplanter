@@ -1,8 +1,7 @@
 """Tests for DeliveryChannelValidator engine."""
 
-import pytest
 
-from app.common.enums import ApplicationMethod, FertilizerType, PhaseName
+from app.common.enums import ApplicationMethod, FertilizerType
 from app.domain.engines.delivery_channel_engine import DeliveryChannelValidator
 from app.domain.engines.nutrient_engine import MixingSafetyValidator
 from app.domain.models.fertilizer import Fertilizer

@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends
 
 from app.api.v1.profiles.schemas import (
@@ -8,7 +10,9 @@ from app.api.v1.profiles.schemas import (
 )
 from app.common.dependencies import get_phase_service
 from app.domain.models.phase import NutrientProfile, RequirementProfile
-from app.domain.services.phase_service import PhaseService
+
+if TYPE_CHECKING:
+    from app.domain.services.phase_service import PhaseService
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
@@ -35,7 +39,9 @@ def create_nutrient_profile(body: NutrientProfileCreate, service: PhaseService =
     return NutrientProfileResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
 
 @router.put("/requirements/{key}", response_model=RequirementProfileResponse)
-def update_requirement_profile(key: str, body: RequirementProfileCreate, service: PhaseService = Depends(get_phase_service)):
+def update_requirement_profile(
+    key: str, body: RequirementProfileCreate, service: PhaseService = Depends(get_phase_service),
+):
     profile = RequirementProfile(**body.model_dump())
     updated = service.update_requirement_profile(key, profile)
     return RequirementProfileResponse(key=updated.key or "", **updated.model_dump(exclude={"key"}))

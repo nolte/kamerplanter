@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-from app.common.types import PhaseKey, PlantID, ProfileKey
-from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
-from app.domain.models.phase import NutrientProfile, PhaseHistory, PhaseTransitionRule, RequirementProfile
+if TYPE_CHECKING:
+    from app.common.types import PhaseKey, PlantID, ProfileKey
+    from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
+    from app.domain.models.phase import NutrientProfile, PhaseHistory, PhaseTransitionRule, RequirementProfile
 
 
 class IPhaseRepository(ABC):

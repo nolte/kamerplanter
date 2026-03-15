@@ -1,8 +1,12 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends
 
-from app.api.v1.companion_planting.schemas import CompatibilitySet, IncompatibilitySet
 from app.common.dependencies import get_species_service
-from app.domain.services.species_service import SpeciesService
+
+if TYPE_CHECKING:
+    from app.api.v1.companion_planting.schemas import CompatibilitySet, IncompatibilitySet
+    from app.domain.services.species_service import SpeciesService
 
 router = APIRouter(prefix="/companion-planting", tags=["companion-planting"])
 

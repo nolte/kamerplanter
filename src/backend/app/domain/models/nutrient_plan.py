@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import BaseModel, Discriminator, Field, field_validator, model_validator
 
 from app.common.enums import ApplicationMethod, PhaseName, ScheduleMode, SubstrateType
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 class FertilizerDosage(BaseModel):
@@ -66,9 +68,8 @@ class WateringSchedule(BaseModel):
                 raise ValueError("weekday_schedule required for WEEKDAYS mode")
             if any(d < 0 or d > 6 for d in self.weekday_schedule):
                 raise ValueError("weekday_schedule values must be 0-6")
-        if self.schedule_mode == ScheduleMode.INTERVAL:
-            if self.interval_days is None:
-                raise ValueError("interval_days required for INTERVAL mode")
+        if self.schedule_mode == ScheduleMode.INTERVAL and self.interval_days is None:
+            raise ValueError("interval_days required for INTERVAL mode")
         return self
 
 

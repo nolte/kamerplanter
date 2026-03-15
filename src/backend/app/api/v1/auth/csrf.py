@@ -7,10 +7,12 @@ that use cookie-based auth (refresh, logout, logout-all).
 
 import hmac
 import secrets
-
-from fastapi import Request, Response
+from typing import TYPE_CHECKING
 
 from app.common.exceptions import ForbiddenError
+
+if TYPE_CHECKING:
+    from fastapi import Request, Response
 
 _CSRF_COOKIE = "csrf_token"
 _CSRF_HEADER = "x-csrf-token"

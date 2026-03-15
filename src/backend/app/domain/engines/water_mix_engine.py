@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import math
 from datetime import date
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
-from app.domain.models.site import RoWaterProfile, TapWaterProfile
+if TYPE_CHECKING:
+    from app.domain.models.site import RoWaterProfile, TapWaterProfile
 
 # ── Result types ──────────────────────────────────────────────────────
 

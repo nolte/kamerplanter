@@ -1,6 +1,9 @@
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel
 
-from app.common.enums import ExperienceLevel
+if TYPE_CHECKING:
+    from app.common.enums import ExperienceLevel
 
 
 class UserPreferenceResponse(BaseModel):

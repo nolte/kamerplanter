@@ -206,7 +206,10 @@ class SowingCalendarEngine:
 
         terminal_months = period.bloom_months if (is_ornamental and period.bloom_months) else period.harvest_months
         terminal_phase = "flowering" if (is_ornamental and period.bloom_months) else "harvest"
-        terminal_from_year = period.bloom_from_year if (is_ornamental and period.bloom_months) else period.harvest_from_year
+        terminal_from_year = (
+            period.bloom_from_year if (is_ornamental and period.bloom_months)
+            else period.harvest_from_year
+        )
 
         if terminal_months:
             for period_start, period_end in _split_into_periods(terminal_months):
@@ -356,10 +359,7 @@ def _period_dates(year: int, period_start: int, period_end: int) -> tuple[date, 
     Wrap-around periods (start > end, e.g. (8, 3)) are clipped at year end.
     """
     ds = date(year, period_start, 1)
-    if period_end >= period_start:
-        de = _month_end(year, period_end)
-    else:
-        de = date(year, 12, 31)
+    de = _month_end(year, period_end) if period_end >= period_start else date(year, 12, 31)
     return ds, de
 
 

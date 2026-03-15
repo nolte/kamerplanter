@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Cookie, Depends, Query
 
 from app.api.v1.auth.schemas import (
@@ -6,13 +8,15 @@ from app.api.v1.auth.schemas import (
     SessionResponse,
     UserProfileResponse,
 )
-from app.api.v1.users.schemas import ChangePasswordRequest, ProfileUpdateRequest
 from app.common.auth import get_current_user
 from app.common.dependencies import get_auth_service, get_user_service
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.models.user import User, UserProfileUpdate
-from app.domain.services.auth_service import AuthService
-from app.domain.services.user_service import UserService
+
+if TYPE_CHECKING:
+    from app.api.v1.users.schemas import ChangePasswordRequest, ProfileUpdateRequest
+    from app.domain.services.auth_service import AuthService
+    from app.domain.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])
 

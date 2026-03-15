@@ -1,15 +1,19 @@
 from datetime import UTC, date, datetime
+from typing import TYPE_CHECKING
 
-from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, TaskCategory, TaskStatus
+from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, TaskStatus
 from app.common.exceptions import NotFoundError
-from app.common.types import LocationKey, PlantInstanceKey, WateringEventKey
-from app.domain.engines.watering_engine import WateringEngine
 from app.domain.engines.watering_volume_engine import VolumeSuggestion, WateringVolumeEngine
-from app.domain.interfaces.site_repository import ISiteRepository
-from app.domain.interfaces.watering_repository import IWateringRepository
 from app.domain.models.care_reminder import CareConfirmation
 from app.domain.models.feeding_event import FeedingEvent
 from app.domain.models.watering_event import WateringEvent
+
+if TYPE_CHECKING:
+    from app.common.types import LocationKey, PlantInstanceKey, WateringEventKey
+    from app.domain.engines.watering_engine import WateringEngine
+    from app.domain.interfaces.phase_repository import IPhaseRepository
+    from app.domain.interfaces.site_repository import ISiteRepository
+    from app.domain.interfaces.watering_repository import IWateringRepository
 
 
 class WateringService:
@@ -202,7 +206,6 @@ class WateringService:
 
         Gathers all relevant data from repositories and delegates to WateringVolumeEngine.
         """
-        from app.domain.interfaces.phase_repository import IPhaseRepository
 
         plant = self._get_plant(plant_key)
         ref_date = reference_date or date.today()
@@ -243,9 +246,13 @@ class WateringService:
                 irrigation_strategy = substrate.irrigation_strategy
 
         # Gather phase requirement profile
+        phase_name: str | None = None
         phase_irrigation_vol: int | None = None
         if self._lifecycle_repo and plant.current_phase_key:
             lifecycle_repo: IPhaseRepository = self._lifecycle_repo
+            growth_phase = lifecycle_repo.get_phase_by_key(plant.current_phase_key)
+            if growth_phase:
+                phase_name = growth_phase.name
             if hasattr(lifecycle_repo, "get_requirement_profile"):
                 req_profile = lifecycle_repo.get_requirement_profile(plant.current_phase_key)
                 if req_profile and req_profile.irrigation_volume_ml_per_plant > 0:

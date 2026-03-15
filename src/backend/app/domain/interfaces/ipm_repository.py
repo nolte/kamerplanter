@@ -1,17 +1,19 @@
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-from app.common.types import (
-    DiseaseKey,
-    PestKey,
-    TreatmentKey,
-)
-from app.domain.models.ipm import (
-    Disease,
-    Inspection,
-    Pest,
-    Treatment,
-    TreatmentApplication,
-)
+if TYPE_CHECKING:
+    from app.common.types import (
+        DiseaseKey,
+        PestKey,
+        TreatmentKey,
+    )
+    from app.domain.models.ipm import (
+        Disease,
+        Inspection,
+        Pest,
+        Treatment,
+        TreatmentApplication,
+    )
 
 
 class IIpmRepository(ABC):

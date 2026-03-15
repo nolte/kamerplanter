@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-from app.domain.models.user import User
+if TYPE_CHECKING:
+    from app.domain.models.user import User
 
 
 class IAuthProvider(ABC):

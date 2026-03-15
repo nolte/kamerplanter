@@ -1,7 +1,11 @@
-from arango import ArangoClient
-from arango.database import StandardDatabase
+from typing import TYPE_CHECKING
 
-from app.config.settings import Settings
+from arango import ArangoClient
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
+
+    from app.config.settings import Settings
 
 
 class ArangoConnection:

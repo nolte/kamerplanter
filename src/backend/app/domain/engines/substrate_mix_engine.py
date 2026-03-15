@@ -3,8 +3,12 @@
 Computes weighted averages for pH, EC, porosity, water retention, etc.
 """
 
+from typing import TYPE_CHECKING
+
 from app.common.enums import BufferCapacity, IrrigationStrategy, WaterRetention
-from app.domain.models.substrate import MixComponent, Substrate
+
+if TYPE_CHECKING:
+    from app.domain.models.substrate import MixComponent, Substrate
 
 # Numeric encoding for ordinal enums (for weighted averaging)
 _RETENTION_ORDER = {WaterRetention.LOW: 1, WaterRetention.MEDIUM: 2, WaterRetention.HIGH: 3}
@@ -53,7 +57,7 @@ def _resolve_irrigation(substrates: list[tuple[Substrate, float]]) -> Irrigation
     """Highest-demand irrigation strategy wins (conservative approach)."""
     best_priority = 0
     best_strategy: IrrigationStrategy | None = None
-    for substrate, fraction in substrates:
+    for substrate, _fraction in substrates:
         if substrate.irrigation_strategy is None:
             continue
         prio = _IRRIGATION_PRIORITY.get(substrate.irrigation_strategy, 0)

@@ -112,7 +112,7 @@ class TestExtractFromIdToken:
             "name": "Test User",
             "picture": "https://lh3.googleusercontent.com/photo.jpg",
         })
-        config = _make_config(provider_type="google", userinfo_url=None)
+        _make_config(provider_type="google", userinfo_url=None)
         # Force id_token path by not providing userinfo_url
         result = self.engine._extract_from_id_token(
             {"id_token": id_token}, "google",

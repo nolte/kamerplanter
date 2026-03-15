@@ -1,14 +1,17 @@
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from app.common.exceptions import NotFoundError
-from app.common.types import PlantID, SlotKey, SpeciesKey
-from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
-from app.domain.engines.crop_rotation_validator import CropRotationValidator
-from app.domain.interfaces.phase_repository import IPhaseRepository
-from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
-from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.phase import PhaseHistory
-from app.domain.models.plant_instance import PlantInstance
+
+if TYPE_CHECKING:
+    from app.common.types import PlantID, SlotKey, SpeciesKey
+    from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
+    from app.domain.engines.crop_rotation_validator import CropRotationValidator
+    from app.domain.interfaces.phase_repository import IPhaseRepository
+    from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
+    from app.domain.interfaces.site_repository import ISiteRepository
+    from app.domain.models.plant_instance import PlantInstance
 
 
 class PlantInstanceService:

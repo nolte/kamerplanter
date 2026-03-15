@@ -1,7 +1,11 @@
+from typing import TYPE_CHECKING
+
 from app.common.exceptions import CompanionConflictError
-from app.domain.interfaces.graph_repository import IGraphRepository
-from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
-from app.domain.interfaces.species_repository import ISpeciesRepository
+
+if TYPE_CHECKING:
+    from app.domain.interfaces.graph_repository import IGraphRepository
+    from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
+    from app.domain.interfaces.species_repository import ISpeciesRepository
 
 
 class CompanionPlantingEngine:

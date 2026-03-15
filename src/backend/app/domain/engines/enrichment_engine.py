@@ -1,14 +1,11 @@
 import hashlib
 import json
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import structlog
 
 from app.common.enums import SyncStatus, SyncTrigger
-from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
-from app.domain.interfaces.enrichment_repository import IExternalMappingRepository, ISyncRunRepository
-from app.domain.interfaces.external_source_adapter import ExternalSourceAdapter
-from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.enrichment import (
     ExternalMapping,
     ExternalSpeciesData,
@@ -16,6 +13,12 @@ from app.domain.models.enrichment import (
     SyncResult,
     SyncRun,
 )
+
+if TYPE_CHECKING:
+    from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
+    from app.domain.interfaces.enrichment_repository import IExternalMappingRepository, ISyncRunRepository
+    from app.domain.interfaces.external_source_adapter import ExternalSourceAdapter
+    from app.domain.interfaces.species_repository import ISpeciesRepository
 
 logger = structlog.get_logger()
 

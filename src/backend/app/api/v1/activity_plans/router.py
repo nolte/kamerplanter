@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends
 
 from app.api.v1.activity_plans.schemas import (
@@ -10,7 +12,9 @@ from app.api.v1.activity_plans.schemas import (
 )
 from app.common.dependencies import get_activity_plan_service, get_task_repo
 from app.common.exceptions import NotFoundError, ValidationError
-from app.domain.services.activity_plan_service import ActivityPlanService
+
+if TYPE_CHECKING:
+    from app.domain.services.activity_plan_service import ActivityPlanService
 
 router = APIRouter(prefix="/activity-plans", tags=["activity-plans"])
 

@@ -10,6 +10,7 @@ construction and seeding logic (reusing patterns from seed_plant_info).
 Sources: spec/ref/plant-info/*.md (185 plant-info documents)
 """
 
+import contextlib
 import time
 from typing import Any
 
@@ -28,18 +29,14 @@ from app.common.enums import (
     FrostTolerance,
     GrowthHabit,
     NutrientDemandLevel,
-    PathogenType,
     PhotoperiodType,
     PlantTrait,
     RootType,
     StressTolerance,
     Suitability,
-    TreatmentApplicationMethod,
-    TreatmentType,
     WateringMethod,
 )
 from app.domain.models.botanical_family import BotanicalFamily, PhRange
-from app.domain.models.ipm import Disease, Pest, Treatment
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import NutrientProfile, RequirementProfile
 from app.domain.models.species import (
@@ -251,7 +248,7 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
     species_repo = get_species_repo()
     lifecycle_repo = get_lifecycle_repo()
     graph_repo = get_graph_repo()
-    ipm_repo = get_ipm_repo()
+    get_ipm_repo()
 
     new_families = _build_families(yaml_data)
     new_species = _build_species(yaml_data)
@@ -561,10 +558,7 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
             lifecycle_repo.create_requirement_profile(requirement)
 
             npk_raw = nut.get("npk_ratio", (1, 1, 1))
-            if isinstance(npk_raw, str):
-                npk = tuple(float(x) for x in npk_raw.split("-"))
-            else:
-                npk = tuple(npk_raw)
+            npk = tuple(float(x) for x in npk_raw.split("-")) if isinstance(npk_raw, str) else tuple(npk_raw)
             nutrient = NutrientProfile(
                 phase_key=phase_key,
                 npk_ratio=npk,
@@ -617,23 +611,19 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
         a_key = species_key_map.get(edge.get("species_a") or edge.get("source", ""), "")
         b_key = species_key_map.get(edge.get("species_b") or edge.get("target", ""), "")
         if a_key and b_key:
-            try:
+            with contextlib.suppress(Exception):
                 graph_repo.set_compatibility(
                     a_key, b_key, edge.get("score", 0.5)
                 )
-            except Exception:
-                pass  # Edge may already exist
 
     for edge in companion_incompatible:
         a_key = species_key_map.get(edge.get("species_a") or edge.get("source", ""), "")
         b_key = species_key_map.get(edge.get("species_b") or edge.get("target", ""), "")
         if a_key and b_key:
-            try:
+            with contextlib.suppress(Exception):
                 graph_repo.set_incompatibility(
                     a_key, b_key, edge.get("reason", "")
                 )
-            except Exception:
-                pass  # Edge may already exist
 
     logger.info("yaml_seed_complete", source=yaml_filename)
 

@@ -1,4 +1,5 @@
-from datetime import datetime
+
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
@@ -8,6 +9,9 @@ from app.common.enums import (
     QualityGrade,
     RipenessStage,
 )
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 class HarvestIndicator(BaseModel):

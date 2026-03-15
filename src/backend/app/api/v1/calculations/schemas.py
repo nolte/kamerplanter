@@ -1,6 +1,10 @@
-from datetime import date
+
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from datetime import date
 
 
 class VPDRequest(BaseModel):

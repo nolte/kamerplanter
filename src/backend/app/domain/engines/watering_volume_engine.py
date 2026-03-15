@@ -12,11 +12,14 @@ Resolution order (highest priority first):
 
 from __future__ import annotations
 
-from datetime import date
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import IrrigationStrategy, SubstrateType, WaterRetention
+if TYPE_CHECKING:
+    from datetime import date
+
+    from app.common.enums import IrrigationStrategy, SubstrateType, WaterRetention
 
 
 class VolumeSuggestion(BaseModel):

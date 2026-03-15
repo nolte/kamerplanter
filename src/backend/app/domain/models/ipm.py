@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -12,6 +12,9 @@ from app.common.enums import (
     TreatmentApplicationMethod,
     TreatmentType,
 )
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 class Pest(BaseModel):

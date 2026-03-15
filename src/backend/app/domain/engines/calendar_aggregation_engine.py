@@ -1,6 +1,5 @@
 from datetime import UTC, datetime, time, timedelta
-
-from arango.database import StandardDatabase
+from typing import TYPE_CHECKING
 
 from app.common.enums import (
     CATEGORY_COLORS,
@@ -10,6 +9,9 @@ from app.common.enums import (
 from app.data_access.arango import collections as col
 from app.domain.engines.watering_volume_engine import SUBSTRATE_WATERING_RATIO as _SUBSTRATE_WATERING_RATIO
 from app.domain.models.calendar import CalendarEvent, CalendarEventsQuery
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
 
 
 class CalendarAggregationEngine:
@@ -263,7 +265,8 @@ class CalendarAggregationEngine:
             plant_names = doc.get("resolved_plant_names", [])
             plant_label = ", ".join(plant_names) if plant_names else ""
             has_ferts = len(doc.get("fertilizers_used", [])) > 0
-            title = f"{plant_label}: {'Feeding' if has_ferts else 'Watering'}" if plant_label else ("Feeding" if has_ferts else "Watering")
+            action = "Feeding" if has_ferts else "Watering"
+            title = f"{plant_label}: {action}" if plant_label else action
             plant_keys = doc.get("plant_keys", [])
             events.append(CalendarEvent(
                 id=f"water:{doc['_key']}",

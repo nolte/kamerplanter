@@ -1,9 +1,13 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.starter_kits.schemas import ApplyKitRequest, StarterKitResponse
 from app.common.dependencies import get_onboarding_service, get_starter_kit_service
-from app.domain.services.onboarding_service import OnboardingService
-from app.domain.services.starter_kit_service import StarterKitService
+
+if TYPE_CHECKING:
+    from app.domain.services.onboarding_service import OnboardingService
+    from app.domain.services.starter_kit_service import StarterKitService
 
 router = APIRouter(prefix="/starter-kits", tags=["starter-kits"])
 

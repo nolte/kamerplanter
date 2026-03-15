@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.fertilizers.schemas import (
@@ -13,7 +15,9 @@ from app.api.v1.fertilizers.schemas import (
 )
 from app.common.dependencies import get_fertilizer_service
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
-from app.domain.services.fertilizer_service import FertilizerService
+
+if TYPE_CHECKING:
+    from app.domain.services.fertilizer_service import FertilizerService
 
 router = APIRouter(prefix="/fertilizers", tags=["fertilizers"])
 

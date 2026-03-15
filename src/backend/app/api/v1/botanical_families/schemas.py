@@ -1,4 +1,5 @@
-from datetime import datetime
+
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
@@ -9,7 +10,11 @@ from app.common.enums import (
     PollinationType,
     RootDepth,
 )
-from app.domain.models.botanical_family import PhRange
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from app.domain.models.botanical_family import PhRange
 
 
 class FamilyCreate(BaseModel):

@@ -1,10 +1,15 @@
-from arango.database import StandardDatabase
 
-from app.common.types import BatchKey, SlotKey, SubstrateKey
+from typing import TYPE_CHECKING
+
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.substrate_repository import ISubstrateRepository
 from app.domain.models.substrate import Substrate, SubstrateBatch
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
+
+    from app.common.types import BatchKey, SlotKey, SubstrateKey
 
 
 class ArangoSubstrateRepository(ISubstrateRepository, BaseArangoRepository):

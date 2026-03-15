@@ -1,9 +1,13 @@
+from typing import TYPE_CHECKING
+
 from app.common.exceptions import DuplicateError, NotFoundError
-from app.common.types import CultivarKey, FamilyKey, SpeciesKey
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
-from app.domain.interfaces.graph_repository import IGraphRepository
-from app.domain.interfaces.species_repository import ISpeciesRepository
-from app.domain.models.species import Cultivar, Species
+
+if TYPE_CHECKING:
+    from app.common.types import CultivarKey, FamilyKey, SpeciesKey
+    from app.domain.interfaces.graph_repository import IGraphRepository
+    from app.domain.interfaces.species_repository import ISpeciesRepository
+    from app.domain.models.species import Cultivar, Species
 
 
 class SpeciesService:

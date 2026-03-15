@@ -1,8 +1,8 @@
 import secrets
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 
 from app.common.exceptions import NotFoundError, ValidationError
-from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine
 from app.domain.engines.season_overview_engine import (
     SeasonOverview,
     SeasonOverviewEngine,
@@ -17,15 +17,19 @@ from app.domain.engines.sowing_calendar_engine import (
     SowingCalendarEntry,
     SpeciesData,
 )
-from app.domain.interfaces.calendar_feed_repository import ICalendarFeedRepository
-from app.domain.interfaces.site_repository import ISiteRepository
-from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.calendar import (
     CalendarEvent,
     CalendarEventsQuery,
     CalendarFeed,
 )
 from app.domain.services.ical_generator import ICalGenerator
+
+if TYPE_CHECKING:
+    from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine
+    from app.domain.interfaces.calendar_feed_repository import ICalendarFeedRepository
+    from app.domain.interfaces.site_repository import ISiteRepository
+    from app.domain.interfaces.species_repository import ISpeciesRepository
+    from app.domain.services.planting_run_service import PlantingRunService
 
 
 class CalendarService:
@@ -146,7 +150,6 @@ class CalendarService:
         Appends the Species' theoretical harvest/bloom period so the Gantt
         always extends to the expected harvest window.
         """
-        from app.domain.services.planting_run_service import PlantingRunService
 
         run_svc: PlantingRunService = self._run_service
         runs = run_svc._repo.get_runs_at_site(site_key)
@@ -331,7 +334,6 @@ def _split_months(months: list[int]) -> list[tuple[int, int]]:
     """
     if not months:
         return []
-    from datetime import timedelta as _td  # noqa: F811
 
     sorted_months = sorted(set(months))
     periods: list[tuple[int, int]] = []

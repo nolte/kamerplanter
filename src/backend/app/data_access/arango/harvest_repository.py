@@ -1,8 +1,6 @@
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
-from arango.database import StandardDatabase
-
-from app.common.types import HarvestBatchKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.harvest_repository import IHarvestRepository
@@ -13,6 +11,11 @@ from app.domain.models.harvest import (
     QualityAssessment,
     YieldMetric,
 )
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
+
+    from app.common.types import HarvestBatchKey
 
 
 class ArangoHarvestRepository(IHarvestRepository, BaseArangoRepository):

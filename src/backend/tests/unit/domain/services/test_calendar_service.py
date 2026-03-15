@@ -1,10 +1,10 @@
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from unittest.mock import MagicMock
 
 import pytest
 
 from app.common.exceptions import NotFoundError, ValidationError
-from app.domain.models.calendar import CalendarFeed, CalendarFeedFilters
+from app.domain.models.calendar import CalendarFeed
 from app.domain.services.calendar_service import CalendarService
 
 
@@ -28,7 +28,7 @@ class TestCreateFeed:
         feed = CalendarFeed(name="My Feed", tenant_key="t1", user_key="u1")
         mock_repo.save.return_value = feed
 
-        result = service.create_feed(feed)
+        service.create_feed(feed)
 
         assert feed.token != ""
         mock_repo.save.assert_called_once()

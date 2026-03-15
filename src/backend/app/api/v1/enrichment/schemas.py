@@ -1,8 +1,12 @@
-from datetime import datetime
+
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import AuthType, SyncStatus, SyncTrigger
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from app.common.enums import AuthType, SyncStatus, SyncTrigger
 
 
 class SourceResponse(BaseModel):

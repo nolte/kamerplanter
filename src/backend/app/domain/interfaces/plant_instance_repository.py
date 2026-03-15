@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-from app.common.types import PlantID, SlotKey, SpeciesKey
-from app.domain.models.plant_instance import PlantInstance
+if TYPE_CHECKING:
+    from app.common.types import PlantID, SlotKey, SpeciesKey
+    from app.domain.models.plant_instance import PlantInstance
 
 
 class IPlantInstanceRepository(ABC):

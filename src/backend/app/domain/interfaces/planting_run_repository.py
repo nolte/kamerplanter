@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-from app.common.types import LocationKey, PlantID, PlantingRunEntryKey, PlantingRunKey
-from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
+if TYPE_CHECKING:
+    from app.common.types import LocationKey, PlantID, PlantingRunEntryKey, PlantingRunKey
+    from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 
 
 class IPlantingRunRepository(ABC):

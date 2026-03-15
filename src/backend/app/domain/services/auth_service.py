@@ -8,11 +8,20 @@ from typing import TYPE_CHECKING
 import structlog
 
 if TYPE_CHECKING:
+    from app.common.types import UserKey
     from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
     from app.data_access.external.redis_oauth_state import RedisOAuthStateStore
     from app.domain.engines.encryption_engine import EncryptionEngine
+    from app.domain.engines.login_throttle_engine import LoginThrottleEngine
     from app.domain.engines.oauth_engine import OAuthEngine
+    from app.domain.engines.password_engine import PasswordEngine
+    from app.domain.engines.token_engine import TokenEngine
     from app.domain.interfaces.api_key_repository import IApiKeyRepository
+    from app.domain.interfaces.auth_provider_repository import IAuthProviderRepository
+    from app.domain.interfaces.email_service import IEmailService
+    from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
+    from app.domain.interfaces.user_repository import IUserRepository
+    from app.domain.models.auth import OAuthUserInfo
     from app.domain.services.tenant_service import TenantService
 
 from app.common.enums import AuthProviderType
@@ -25,14 +34,6 @@ from app.common.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
-from app.common.types import UserKey
-from app.domain.engines.login_throttle_engine import LoginThrottleEngine
-from app.domain.engines.password_engine import PasswordEngine
-from app.domain.engines.token_engine import TokenEngine
-from app.domain.interfaces.auth_provider_repository import IAuthProviderRepository
-from app.domain.interfaces.email_service import IEmailService
-from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
-from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.auth import (
     ApiKey,
     ApiKeyCreated,
@@ -395,11 +396,10 @@ class AuthService:
             raise NotFoundError("User", user_key)
 
         # SSO-only users (no password_hash) can set initial password without current_password
-        if user.password_hash:
-            if not current_password or not self._password_engine.verify_password(
-                current_password, user.password_hash,
-            ):
-                raise UnauthorizedError("Current password is incorrect.")
+        if user.password_hash and (not current_password or not self._password_engine.verify_password(
+            current_password, user.password_hash,
+        )):
+            raise UnauthorizedError("Current password is incorrect.")
 
         errors = self._password_engine.validate_password_policy(new_password)
         if errors:
@@ -569,9 +569,8 @@ class AuthService:
             last_used_at=provider.last_used_at,
         )
 
-    def _register_oauth_user(self, oauth_user: "OAuthUserInfo") -> User:
+    def _register_oauth_user(self, oauth_user: OAuthUserInfo) -> User:
         """Create a new user from OAuth info (no password)."""
-        from app.domain.models.auth import OAuthUserInfo as _OUI  # noqa: F811
 
         user = User(
             email=oauth_user.email,
@@ -586,10 +585,9 @@ class AuthService:
         return created
 
     def _create_oauth_provider(
-        self, user_key: str, oauth_user: "OAuthUserInfo", token_response: dict,
+        self, user_key: str, oauth_user: OAuthUserInfo, token_response: dict,
     ) -> AuthProvider:
         """Create an AuthProvider record for an OAuth login."""
-        from app.domain.models.auth import OAuthUserInfo as _OUI  # noqa: F811
 
         encrypted_access = token_response.get("access_token", "")
         encrypted_refresh = token_response.get("refresh_token", "")

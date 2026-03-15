@@ -75,8 +75,14 @@ class TestNutrientSolutionCalculator:
     def test_multiple_fertilizers_equal_share(self, calculator):
         """Without recipe, equal EC share: each gets 50% of available EC."""
         ferts = [
-            _make_fert(key="a", product_name="A", npk_ratio=(10.0, 0.0, 0.0), ec_contribution_per_ml=0.1, mixing_priority=10),
-            _make_fert(key="b", product_name="B", npk_ratio=(0.0, 10.0, 0.0), ec_contribution_per_ml=0.1, mixing_priority=20),
+            _make_fert(
+                key="a", product_name="A", npk_ratio=(10.0, 0.0, 0.0),
+                ec_contribution_per_ml=0.1, mixing_priority=10,
+            ),
+            _make_fert(
+                key="b", product_name="B", npk_ratio=(0.0, 10.0, 0.0),
+                ec_contribution_per_ml=0.1, mixing_priority=20,
+            ),
         ]
         result = calculator.calculate(
             target_volume_liters=10.0,

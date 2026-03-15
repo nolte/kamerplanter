@@ -3,7 +3,6 @@ import pytest
 from app.common.enums import FertilizerType, PhaseName, SubstrateType
 from app.domain.engines.ec_budget_engine import (
     FRESH_COCO_CALMAG_BOOST,
-    UNCERTAIN_EC_RESERVE,
     EcBudgetCalculator,
     EcBudgetFertilizerInput,
     EcBudgetInput,

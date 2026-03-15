@@ -242,9 +242,8 @@ class CareReminderEngine:
             return reminder_type == ReminderType.PEST_CHECK
 
         # Fertilizing guard — only in active months
-        if reminder_type == ReminderType.FERTILIZING:
-            if month not in profile.fertilizing_active_months:
-                return False
+        if reminder_type == ReminderType.FERTILIZING and month not in profile.fertilizing_active_months:
+            return False
 
         # Location check guard
         if reminder_type == ReminderType.LOCATION_CHECK:
@@ -254,11 +253,7 @@ class CareReminderEngine:
                 return False
 
         # Humidity check guard
-        if reminder_type == ReminderType.HUMIDITY_CHECK:
-            if not profile.humidity_check_enabled:
-                return False
-
-        return True
+        return not (reminder_type == ReminderType.HUMIDITY_CHECK and not profile.humidity_check_enabled)
 
     def apply_adaptive_learning(
         self,
@@ -327,7 +322,7 @@ class CareReminderEngine:
         species_name: str | None = None,
         botanical_family: str | None = None,
         plant_key: str = "",
-        watering_guide: "WateringGuide | None" = None,
+        watering_guide: WateringGuide | None = None,
     ) -> CareProfile:
         """Generate a CareProfile from species/family defaults.
 
@@ -366,10 +361,9 @@ class CareReminderEngine:
 
     @staticmethod
     def _find_winter_adjustment(
-        guide: "WateringGuide",
-    ) -> "SeasonalWateringAdjustment | None":
+        guide: WateringGuide,
+    ) -> SeasonalWateringAdjustment | None:
         """Find the seasonal adjustment that covers winter months."""
-        from app.domain.models.species import SeasonalWateringAdjustment
 
         winter_months = {11, 12, 1, 2}
         for adj in guide.seasonal_adjustments:

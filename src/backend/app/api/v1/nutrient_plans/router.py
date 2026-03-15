@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.nutrient_plans.schemas import (
@@ -12,7 +14,9 @@ from app.api.v1.nutrient_plans.schemas import (
 )
 from app.common.dependencies import get_nutrient_plan_service
 from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
-from app.domain.services.nutrient_plan_service import NutrientPlanService
+
+if TYPE_CHECKING:
+    from app.domain.services.nutrient_plan_service import NutrientPlanService
 
 router = APIRouter(prefix="/nutrient-plans", tags=["nutrient-plans"])
 

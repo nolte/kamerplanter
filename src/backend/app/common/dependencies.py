@@ -1,4 +1,5 @@
-from arango.database import StandardDatabase
+
+from typing import TYPE_CHECKING
 
 from app.config.settings import settings
 from app.data_access.arango.auth_provider_repository import ArangoAuthProviderRepository
@@ -56,7 +57,6 @@ from app.domain.engines.tank_engine import TankEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.engines.watering_engine import WateringEngine
-from app.domain.interfaces.email_service import IEmailService
 from app.domain.services.auth_service import AuthService
 from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.enrichment_service import EnrichmentService
@@ -77,6 +77,11 @@ from app.domain.services.tenant_service import TenantService
 from app.domain.services.user_service import UserService
 from app.domain.services.watering_log_service import WateringLogService
 from app.domain.services.watering_service import WateringService
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
+
+    from app.domain.interfaces.email_service import IEmailService
 
 _connection: ArangoConnection | None = None
 
@@ -135,7 +140,10 @@ def get_substrate_service() -> SubstrateService:
 def get_plant_instance_service() -> PlantInstanceService:
     rotation_validator = CropRotationValidator(get_plant_repo(), get_species_repo(), get_graph_repo())
     companion_engine = CompanionPlantingEngine(get_graph_repo(), get_plant_repo(), get_species_repo())
-    return PlantInstanceService(get_plant_repo(), get_site_repo(), rotation_validator, companion_engine, phase_repo=get_lifecycle_repo())
+    return PlantInstanceService(
+        get_plant_repo(), get_site_repo(), rotation_validator, companion_engine,
+        phase_repo=get_lifecycle_repo(),
+    )
 
 
 def get_phase_service() -> PhaseService:

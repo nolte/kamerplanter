@@ -1,8 +1,7 @@
+import math
 from datetime import date
 
 import pytest
-
-import math
 
 from app.domain.engines.water_mix_engine import (
     WaterMixCalculator,

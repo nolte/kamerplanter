@@ -1,10 +1,15 @@
-from arango.database import StandardDatabase
 
-from app.common.types import ImportJobKey
+from typing import TYPE_CHECKING
+
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.import_job_repository import IImportJobRepository
 from app.domain.models.import_job import ImportJob
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
+
+    from app.common.types import ImportJobKey
 
 
 class ArangoImportJobRepository(IImportJobRepository, BaseArangoRepository):

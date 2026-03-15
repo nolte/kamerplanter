@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.locations.schemas import LocationTreeNode
@@ -6,8 +8,10 @@ from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResp
 from app.common.dependencies import get_sensor_service, get_site_service
 from app.domain.models.sensor import Sensor
 from app.domain.models.site import Location, Site
-from app.domain.services.sensor_service import SensorService
-from app.domain.services.site_service import SiteService
+
+if TYPE_CHECKING:
+    from app.domain.services.sensor_service import SensorService
+    from app.domain.services.site_service import SiteService
 
 router = APIRouter(prefix="/sites", tags=["sites"])
 

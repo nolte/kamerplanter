@@ -1,17 +1,20 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from app.common.exceptions import NotFoundError, ResistanceWarningError
-from app.domain.engines.inspection_scheduler import InspectionScheduler
-from app.domain.engines.resistance_engine import ResistanceManager
-from app.domain.engines.safety_interval_engine import SafetyIntervalValidator
-from app.domain.interfaces.ipm_repository import IIpmRepository
-from app.domain.models.ipm import (
-    Disease,
-    Inspection,
-    Pest,
-    Treatment,
-    TreatmentApplication,
-)
+
+if TYPE_CHECKING:
+    from app.domain.engines.inspection_scheduler import InspectionScheduler
+    from app.domain.engines.resistance_engine import ResistanceManager
+    from app.domain.engines.safety_interval_engine import SafetyIntervalValidator
+    from app.domain.interfaces.ipm_repository import IIpmRepository
+    from app.domain.models.ipm import (
+        Disease,
+        Inspection,
+        Pest,
+        Treatment,
+        TreatmentApplication,
+    )
 
 
 class IpmService:

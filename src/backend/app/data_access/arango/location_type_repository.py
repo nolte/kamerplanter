@@ -1,9 +1,13 @@
-from arango.database import StandardDatabase
+
+from typing import TYPE_CHECKING
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.location_type_repository import ILocationTypeRepository
 from app.domain.models.location_type import LocationType
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
 
 
 class ArangoLocationTypeRepository(ILocationTypeRepository, BaseArangoRepository):

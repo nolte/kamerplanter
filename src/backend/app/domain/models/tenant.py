@@ -1,8 +1,12 @@
-from datetime import datetime
+
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
 from app.common.enums import TenantRole, TenantType
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 class Tenant(BaseModel):

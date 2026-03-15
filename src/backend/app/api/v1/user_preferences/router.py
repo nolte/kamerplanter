@@ -1,10 +1,14 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends
 
 from app.api.v1.user_preferences.schemas import UserPreferenceResponse, UserPreferenceUpdate
 from app.common.auth import get_current_user
 from app.common.dependencies import get_user_preference_service
-from app.domain.models.user import User
-from app.domain.services.user_preference_service import UserPreferenceService
+
+if TYPE_CHECKING:
+    from app.domain.models.user import User
+    from app.domain.services.user_preference_service import UserPreferenceService
 
 router = APIRouter(prefix="/user-preferences", tags=["user-preferences"])
 

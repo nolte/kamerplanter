@@ -1,4 +1,7 @@
-from arango.database import StandardDatabase
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
 
 # Document collections
 SPECIES = "species"

@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING
 
 from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, TaskCategory, TaskPriority, TaskStatus
 from app.common.exceptions import NotFoundError
-from app.domain.engines.care_reminder_engine import CareReminderEngine
-from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 from app.domain.models.care_reminder import CareConfirmation, CareDashboardEntry, CareProfile
 from app.domain.models.task import Task
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
 
 if TYPE_CHECKING:
+    from app.domain.engines.care_reminder_engine import CareReminderEngine
+    from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
     from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
     from app.domain.interfaces.task_repository import ITaskRepository
     from app.domain.interfaces.watering_log_repository import IWateringLogRepository
@@ -22,9 +22,9 @@ class CareReminderService:
         self,
         care_repo: ICareReminderRepository,
         engine: CareReminderEngine,
-        task_repo: "ITaskRepository | None" = None,
-        watering_log_repo: "IWateringLogRepository | None" = None,
-        plant_repo: "IPlantInstanceRepository | None" = None,
+        task_repo: ITaskRepository | None = None,
+        watering_log_repo: IWateringLogRepository | None = None,
+        plant_repo: IPlantInstanceRepository | None = None,
     ) -> None:
         self._repo = care_repo
         self._engine = engine

@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends
 
 from app.api.v1.admin.oidc_providers.schemas import (
@@ -9,11 +11,13 @@ from app.api.v1.auth.schemas import MessageResponse
 from app.common.auth import get_current_user
 from app.common.dependencies import get_encryption_engine, get_oauth_engine, get_oidc_config_repo
 from app.common.exceptions import DuplicateError, NotFoundError
-from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
-from app.domain.engines.encryption_engine import EncryptionEngine
-from app.domain.engines.oauth_engine import OAuthEngine
 from app.domain.models.oidc_config import OidcProviderConfig
-from app.domain.models.user import User
+
+if TYPE_CHECKING:
+    from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
+    from app.domain.engines.encryption_engine import EncryptionEngine
+    from app.domain.engines.oauth_engine import OAuthEngine
+    from app.domain.models.user import User
 
 router = APIRouter(prefix="/admin/oidc-providers", tags=["admin-oidc"])
 

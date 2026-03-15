@@ -1,6 +1,6 @@
 """Tests for CareReminderService.ensure_next_watering_task."""
 
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest

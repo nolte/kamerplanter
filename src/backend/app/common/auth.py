@@ -1,14 +1,19 @@
-from collections.abc import Callable
+
+from typing import TYPE_CHECKING
 
 from fastapi import Cookie, Depends, Header, Path
 
 from app.common.dependencies import get_auth_provider, get_tenant_service
 from app.common.enums import TenantRole
 from app.common.exceptions import ForbiddenError, UnauthorizedError
-from app.domain.interfaces.auth_provider import IAuthProvider
 from app.domain.models.tenant_context import TenantContext
-from app.domain.models.user import User
-from app.domain.services.tenant_service import TenantService
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from app.domain.interfaces.auth_provider import IAuthProvider
+    from app.domain.models.user import User
+    from app.domain.services.tenant_service import TenantService
 
 
 def get_current_user(

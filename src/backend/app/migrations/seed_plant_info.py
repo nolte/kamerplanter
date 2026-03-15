@@ -42,7 +42,6 @@ from app.common.enums import (
 from app.domain.models.botanical_family import BotanicalFamily, PhRange
 from app.domain.models.ipm import Disease, Pest, Treatment
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
-from app.domain.models.substrate import Substrate
 from app.domain.models.phase import NutrientProfile, RequirementProfile
 from app.domain.models.species import (
     Cultivar,
@@ -50,6 +49,7 @@ from app.domain.models.species import (
     Species,
     WateringGuide,
 )
+from app.domain.models.substrate import Substrate
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()

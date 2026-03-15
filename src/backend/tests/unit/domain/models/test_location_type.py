@@ -1,4 +1,3 @@
-import pytest
 
 from app.domain.models.location_type import LocationType
 

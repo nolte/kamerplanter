@@ -1,12 +1,15 @@
 from datetime import UTC, date, datetime
+from typing import TYPE_CHECKING
 
-from arango.database import StandardDatabase
-
-from app.common.types import LocationKey, PlantInstanceKey, WateringEventKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.watering_repository import IWateringRepository
 from app.domain.models.watering_event import WateringEvent
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
+
+    from app.common.types import LocationKey, PlantInstanceKey, WateringEventKey
 
 
 class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):

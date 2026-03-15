@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -12,6 +12,9 @@ from app.common.enums import (
     TankType,
     WaterSource,
 )
+
+if TYPE_CHECKING:
+    from datetime import date, datetime
 
 
 class Tank(BaseModel):
@@ -135,9 +138,8 @@ class TankFillEvent(BaseModel):
 
     @model_validator(mode="after")
     def check_adjustment_requires_target(self) -> TankFillEvent:
-        if self.fill_type == FillType.ADJUSTMENT:
-            if self.target_ec_ms is None and self.target_ph is None:
-                raise ValueError(
-                    "Adjustment fill type requires at least target_ec_ms or target_ph"
-                )
+        if self.fill_type == FillType.ADJUSTMENT and self.target_ec_ms is None and self.target_ph is None:
+            raise ValueError(
+                "Adjustment fill type requires at least target_ec_ms or target_ph"
+            )
         return self

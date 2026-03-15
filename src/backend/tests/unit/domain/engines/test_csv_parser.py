@@ -11,7 +11,7 @@ def parser():
 
 class TestDetectEncoding:
     def test_utf8(self, parser):
-        assert parser.detect_encoding("hello".encode("utf-8")) == "utf-8"
+        assert parser.detect_encoding(b"hello") == "utf-8"
 
     def test_latin1_fallback(self, parser):
         # Byte 0xe4 is 'ä' in latin-1, invalid standalone in utf-8

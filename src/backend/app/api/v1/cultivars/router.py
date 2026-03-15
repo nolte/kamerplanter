@@ -1,9 +1,13 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends
 
 from app.api.v1.cultivars.schemas import CultivarCreate, CultivarResponse
 from app.common.dependencies import get_species_service
 from app.domain.models.species import Cultivar
-from app.domain.services.species_service import SpeciesService
+
+if TYPE_CHECKING:
+    from app.domain.services.species_service import SpeciesService
 
 router = APIRouter(prefix="/species/{species_key}/cultivars", tags=["cultivars"])
 

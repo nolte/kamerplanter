@@ -1,8 +1,12 @@
-from datetime import date, datetime
+
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, model_validator
 
 from app.common.enums import BufferCapacity, IrrigationStrategy, SubstrateType, WaterRetention
+
+if TYPE_CHECKING:
+    from datetime import date, datetime
 
 
 class MixComponent(BaseModel):
@@ -40,7 +44,7 @@ class Substrate(BaseModel):
     model_config = {"populate_by_name": True}
 
     @model_validator(mode="after")
-    def validate_composition(self) -> "Substrate":
+    def validate_composition(self) -> Substrate:
         if self.type == SubstrateType.NONE:
             if self.composition:
                 msg = "Composition must be empty for substrate type 'none'."
@@ -54,7 +58,7 @@ class Substrate(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def validate_mix_components(self) -> "Substrate":
+    def validate_mix_components(self) -> Substrate:
         if self.mix_components:
             total = sum(c.fraction for c in self.mix_components)
             if abs(total - 1.0) > 0.01:

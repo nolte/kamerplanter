@@ -1,12 +1,14 @@
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from arango.database import StandardDatabase
 from arango.exceptions import DocumentInsertError, DocumentUpdateError
-from pydantic import BaseModel
 
 from app.common.exceptions import DuplicateError, NotFoundError
 from app.data_access.arango.query_builder import AQLBuilder
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
+    from pydantic import BaseModel
 
 
 class BaseArangoRepository:

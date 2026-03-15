@@ -1,6 +1,10 @@
+from typing import TYPE_CHECKING
+
 from app.domain.interfaces.auth_provider import IAuthProvider
-from app.domain.interfaces.user_repository import IUserRepository
-from app.domain.models.user import User
+
+if TYPE_CHECKING:
+    from app.domain.interfaces.user_repository import IUserRepository
+    from app.domain.models.user import User
 
 _SYSTEM_USER_KEY = "system-user"
 

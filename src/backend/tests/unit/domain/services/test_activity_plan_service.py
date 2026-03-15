@@ -2,14 +2,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.common.enums import SkillLevel, StressLevel, StressTolerance
+from app.common.enums import ActivityCategory, SkillLevel, StressLevel, StressTolerance
 from app.domain.engines.activity_plan_engine import ActivityPlanEngine
 from app.domain.models.activity import Activity
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.task import TaskTemplate, WorkflowTemplate
 from app.domain.services.activity_plan_service import ActivityPlanService
-
-from app.common.enums import ActivityCategory
 
 
 def _make_species():
@@ -145,7 +143,7 @@ class TestGetOrGenerateForSpecies:
         wt_mock = _make_workflow_template()
         service._task_repo.create_workflow_template.return_value = wt_mock
 
-        result = service.get_or_generate_for_species("sp1")
+        service.get_or_generate_for_species("sp1")
         service._task_repo.create_workflow_template.assert_called_once()
 
 
@@ -162,7 +160,7 @@ class TestRegenerateForSpecies:
         wt_mock = _make_workflow_template(key="wt2")
         service._task_repo.create_workflow_template.return_value = wt_mock
 
-        result = service.regenerate_for_species("sp1")
+        service.regenerate_for_species("sp1")
         service._task_repo.delete_task_templates_for_workflow.assert_called_once_with("wt1")
         service._task_repo.delete_workflow_template.assert_called_once_with("wt1")
         service._task_repo.create_workflow_template.assert_called_once()

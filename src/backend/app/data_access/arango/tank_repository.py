@@ -1,17 +1,19 @@
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from arango.database import StandardDatabase
-
-from app.common.types import (
-    LocationKey,
-    MaintenanceScheduleKey,
-    TankKey,
-)
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.tank_repository import ITankRepository
 from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
+
+    from app.common.types import (
+        LocationKey,
+        MaintenanceScheduleKey,
+        TankKey,
+    )
 
 
 class ArangoTankRepository(ITankRepository, BaseArangoRepository):

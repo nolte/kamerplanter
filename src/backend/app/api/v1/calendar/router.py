@@ -1,4 +1,5 @@
-from datetime import date
+
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import Response
@@ -10,7 +11,6 @@ from app.domain.models.calendar import (
     CalendarFeed,
     CalendarFeedFilters,
 )
-from app.domain.services.calendar_service import CalendarService
 
 from .schemas import (
     CalendarEventSchema,
@@ -26,6 +26,11 @@ from .schemas import (
     SowingCalendarEntrySchema,
     SowingCalendarResponse,
 )
+
+if TYPE_CHECKING:
+    from datetime import date
+
+    from app.domain.services.calendar_service import CalendarService
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
 

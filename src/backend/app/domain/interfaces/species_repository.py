@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from app.common.types import CultivarKey, FamilyKey, SpeciesKey
-from app.domain.models.species import Cultivar, Species
+if TYPE_CHECKING:
+    from app.common.types import CultivarKey, FamilyKey, SpeciesKey
+    from app.domain.models.species import Cultivar, Species
 
 
 class ISpeciesRepository(ABC):

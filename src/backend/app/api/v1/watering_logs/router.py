@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.watering_logs.schemas import (
@@ -14,7 +16,9 @@ from app.api.v1.watering_logs.schemas import (
 )
 from app.common.dependencies import get_watering_log_service
 from app.domain.models.watering_log import WateringLog
-from app.domain.services.watering_log_service import WateringLogService
+
+if TYPE_CHECKING:
+    from app.domain.services.watering_log_service import WateringLogService
 
 router = APIRouter(tags=["watering-logs"])
 

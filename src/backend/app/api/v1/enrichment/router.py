@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.enrichment.schemas import (
@@ -14,7 +16,9 @@ from app.api.v1.enrichment.schemas import (
     SyncTriggerResponse,
 )
 from app.common.dependencies import get_enrichment_service
-from app.domain.services.enrichment_service import EnrichmentService
+
+if TYPE_CHECKING:
+    from app.domain.services.enrichment_service import EnrichmentService
 
 router = APIRouter(prefix="/enrichment", tags=["enrichment"])
 

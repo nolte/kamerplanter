@@ -1,9 +1,13 @@
+from typing import TYPE_CHECKING
+
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.exceptions import NotFoundError, ValidationError
-from app.common.types import FertilizerKey, FertilizerStockKey
-from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
+
+if TYPE_CHECKING:
+    from app.common.types import FertilizerKey, FertilizerStockKey
+    from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 
 
 class FertilizerService:

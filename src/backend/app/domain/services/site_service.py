@@ -1,8 +1,12 @@
+from typing import TYPE_CHECKING
+
 from app.common.exceptions import NotFoundError
-from app.common.types import LocationKey, SiteKey, SlotKey
 from app.domain.engines.water_mix_engine import WaterSourceValidator, WaterSourceWarning
-from app.domain.interfaces.site_repository import ISiteRepository
-from app.domain.models.site import Location, Site, SiteWaterConfig, Slot
+
+if TYPE_CHECKING:
+    from app.common.types import LocationKey, SiteKey, SlotKey
+    from app.domain.interfaces.site_repository import ISiteRepository
+    from app.domain.models.site import Location, Site, SiteWaterConfig, Slot
 
 
 class SiteService:

@@ -17,7 +17,13 @@ def generate_due_care_reminders() -> dict:
     """
     from datetime import UTC, date, datetime
 
-    from app.common.dependencies import get_care_reminder_service, get_nutrient_plan_repo, get_plant_repo, get_planting_run_repo, get_task_repo
+    from app.common.dependencies import (
+        get_care_reminder_service,
+        get_nutrient_plan_repo,
+        get_plant_repo,
+        get_planting_run_repo,
+        get_task_repo,
+    )
     from app.common.enums import ReminderType, TaskCategory, TaskPriority, TaskStatus
     from app.domain.models.task import Task
 

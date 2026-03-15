@@ -1,9 +1,7 @@
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 from app.common.exceptions import NotFoundError, ValidationError
-from app.domain.engines.dependency_resolver import DependencyResolver
-from app.domain.engines.hst_validator import HSTValidator
-from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.task import (
     ChecklistItem,
     Task,
@@ -13,6 +11,11 @@ from app.domain.models.task import (
     WorkflowExecution,
     WorkflowTemplate,
 )
+
+if TYPE_CHECKING:
+    from app.domain.engines.dependency_resolver import DependencyResolver
+    from app.domain.engines.hst_validator import HSTValidator
+    from app.domain.interfaces.task_repository import ITaskRepository
 
 
 class TaskService:

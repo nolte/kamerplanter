@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends
 
 from app.api.v1.location_types.schemas import (
@@ -7,7 +9,9 @@ from app.api.v1.location_types.schemas import (
 )
 from app.common.dependencies import get_location_type_service
 from app.domain.models.location_type import LocationType
-from app.domain.services.location_type_service import LocationTypeService
+
+if TYPE_CHECKING:
+    from app.domain.services.location_type_service import LocationTypeService
 
 router = APIRouter(prefix="/location-types", tags=["location-types"])
 

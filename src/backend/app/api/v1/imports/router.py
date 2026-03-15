@@ -1,10 +1,14 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, Form, Query, Response, UploadFile
 
 from app.api.v1.imports.schemas import ImportJobResponse
 from app.common.dependencies import get_import_service
 from app.common.enums import DuplicateStrategy, EntityType
-from app.domain.models.import_job import ImportJob
-from app.domain.services.import_service import ImportService
+
+if TYPE_CHECKING:
+    from app.domain.models.import_job import ImportJob
+    from app.domain.services.import_service import ImportService
 
 router = APIRouter(prefix="/import", tags=["import"])
 

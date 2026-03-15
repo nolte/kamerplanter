@@ -1,8 +1,12 @@
+from typing import TYPE_CHECKING
+
 from app.common.exceptions import NotFoundError
-from app.common.types import FeedingEventKey
 from app.domain.engines.nutrient_engine import RunoffAnalyzer
-from app.domain.interfaces.feeding_repository import IFeedingRepository
-from app.domain.models.feeding_event import FeedingEvent
+
+if TYPE_CHECKING:
+    from app.common.types import FeedingEventKey
+    from app.domain.interfaces.feeding_repository import IFeedingRepository
+    from app.domain.models.feeding_event import FeedingEvent
 
 
 class FeedingService:

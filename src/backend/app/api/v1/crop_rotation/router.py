@@ -1,8 +1,12 @@
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends
 
-from app.api.v1.crop_rotation.schemas import RotationSuccessorSet
 from app.common.dependencies import get_graph_repo
-from app.data_access.arango.graph_repository import ArangoGraphRepository
+
+if TYPE_CHECKING:
+    from app.api.v1.crop_rotation.schemas import RotationSuccessorSet
+    from app.data_access.arango.graph_repository import ArangoGraphRepository
 
 router = APIRouter(prefix="/crop-rotation", tags=["crop-rotation"])
 

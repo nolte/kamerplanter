@@ -1,10 +1,14 @@
+from typing import TYPE_CHECKING
+
 import structlog
 
 from app.common.exceptions import NotFoundError
-from app.common.types import UserKey
-from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
-from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.user import User, UserProfile, UserProfileUpdate
+
+if TYPE_CHECKING:
+    from app.common.types import UserKey
+    from app.domain.interfaces.refresh_token_repository import IRefreshTokenRepository
+    from app.domain.interfaces.user_repository import IUserRepository
 
 logger = structlog.get_logger()
 

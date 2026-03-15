@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-from app.common.types import OidcProviderConfigKey
-from app.domain.models.oidc_config import OidcProviderConfig
+if TYPE_CHECKING:
+    from app.common.types import OidcProviderConfigKey
+    from app.domain.models.oidc_config import OidcProviderConfig
 
 
 class IOidcConfigRepository(ABC):

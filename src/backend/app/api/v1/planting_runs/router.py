@@ -1,5 +1,9 @@
+from datetime import UTC
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app.api.v1.plant_instances.schemas import ActiveChannelResponse
 from app.api.v1.planting_runs.schemas import (
     BatchCreatePlantsResponse,
     BatchRemoveRequest,
@@ -22,13 +26,14 @@ from app.api.v1.planting_runs.schemas import (
     SpeciesPhaseTimeline,
     WateringScheduleCalendarResponse,
 )
-from app.api.v1.plant_instances.schemas import ActiveChannelResponse
 from app.common.dependencies import get_nutrient_plan_service, get_planting_run_service, get_species_repo
 from app.common.enums import PlantingRunStatus
-from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
-from app.domain.services.nutrient_plan_service import NutrientPlanService
-from app.domain.services.planting_run_service import PlantingRunService
+
+if TYPE_CHECKING:
+    from app.domain.interfaces.species_repository import ISpeciesRepository
+    from app.domain.services.nutrient_plan_service import NutrientPlanService
+    from app.domain.services.planting_run_service import PlantingRunService
 
 router = APIRouter(prefix="/planting-runs", tags=["planting-runs"])
 
@@ -300,13 +305,13 @@ def get_active_channels(
 
     # Calculate current_week from run start if not provided
     if current_week is None:
-        from datetime import date, datetime, timezone
+        from datetime import date, datetime
         started = run.started_at
         if started is None:
             current_week = 1
         else:
             if isinstance(started, datetime):
-                started_date = started.date() if started.tzinfo else started.replace(tzinfo=timezone.utc).date()
+                started_date = started.date() if started.tzinfo else started.replace(tzinfo=UTC).date()
             else:
                 started_date = started
             delta_days = (date.today() - started_date).days

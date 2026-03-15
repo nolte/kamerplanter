@@ -1,6 +1,10 @@
+from typing import TYPE_CHECKING
+
 from app.common.enums import ApplicationMethod, FertilizerType, PhEffect, SubstrateType
-from app.domain.models.fertilizer import Fertilizer
-from app.domain.models.nutrient_plan import DeliveryChannel
+
+if TYPE_CHECKING:
+    from app.domain.models.fertilizer import Fertilizer
+    from app.domain.models.nutrient_plan import DeliveryChannel
 
 
 class NutrientSolutionCalculator:

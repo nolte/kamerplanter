@@ -1,13 +1,15 @@
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from arango.database import StandardDatabase
-
-from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
 from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
+
+    from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
 
 
 class ArangoNutrientPlanRepository(INutrientPlanRepository, BaseArangoRepository):

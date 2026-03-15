@@ -1,10 +1,14 @@
-from arango.database import StandardDatabase
+
+from typing import TYPE_CHECKING
 
 from app.common.enums import TenantRole
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.models.membership import MemberInfo, Membership
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
 
 
 class ArangoMembershipRepository(IMembershipRepository, BaseArangoRepository):

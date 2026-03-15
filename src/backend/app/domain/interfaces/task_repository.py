@@ -1,13 +1,24 @@
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
-from app.domain.models.task import Task, TaskAuditEntry, TaskComment, TaskTemplate, WorkflowExecution, WorkflowTemplate
+if TYPE_CHECKING:
+    from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
+    from app.domain.models.task import (
+        Task,
+        TaskAuditEntry,
+        TaskComment,
+        TaskTemplate,
+        WorkflowExecution,
+        WorkflowTemplate,
+    )
 
 
 class ITaskRepository(ABC):
     # ── WorkflowTemplate CRUD ──
     @abstractmethod
-    def get_all_workflow_templates(self, offset: int = 0, limit: int = 50, species_key: str | None = None) -> tuple[list[WorkflowTemplate], int]: ...
+    def get_all_workflow_templates(
+        self, offset: int = 0, limit: int = 50, species_key: str | None = None,
+    ) -> tuple[list[WorkflowTemplate], int]: ...
 
     @abstractmethod
     def get_workflow_template_by_key(self, key: WorkflowTemplateKey) -> WorkflowTemplate | None: ...

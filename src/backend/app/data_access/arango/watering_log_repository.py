@@ -1,11 +1,13 @@
 from datetime import UTC, date, datetime
-
-from arango.database import StandardDatabase
+from typing import TYPE_CHECKING
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.watering_log_repository import IWateringLogRepository
 from app.domain.models.watering_log import WateringLog
+
+if TYPE_CHECKING:
+    from arango.database import StandardDatabase
 
 
 class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):

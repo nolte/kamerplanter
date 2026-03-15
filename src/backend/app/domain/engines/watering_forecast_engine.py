@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from app.domain.models.care_reminder import CareProfile
+if TYPE_CHECKING:
+    from app.domain.models.care_reminder import CareProfile
 
 
 class PhaseInterval(BaseModel):

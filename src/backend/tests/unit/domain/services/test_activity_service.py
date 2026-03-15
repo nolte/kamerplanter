@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.common.enums import ActivityCategory, StressLevel
+from app.common.enums import ActivityCategory
 from app.common.exceptions import ForbiddenError, NotFoundError
 from app.domain.models.activity import Activity
 from app.domain.services.activity_service import ActivityService
