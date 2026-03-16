@@ -12,7 +12,7 @@ class CultivarCreate(BaseModel):
     breeding_year: int | None = None
     traits: list[PlantTrait] = Field(default_factory=list)
     patent_status: str = ""
-    days_to_maturity: int | None = Field(default=None, ge=1, le=365)
+    days_to_maturity: int | None = Field(default=None, ge=1, le=1095)
     disease_resistances: list[str] = Field(default_factory=list)
     phase_watering_overrides: dict[str, int] | None = None
 

@@ -54,7 +54,7 @@ class Cultivar(BaseModel):
     traits: list[PlantTrait] = Field(default_factory=list)
     patent_status: str = ""
     seed_type: str = ""
-    days_to_maturity: int | None = Field(default=None, ge=1, le=365)
+    days_to_maturity: int | None = Field(default=None, ge=1, le=1095)
     disease_resistances: list[str] = Field(default_factory=list)
     watering_guide_override: WateringGuide | None = None
     phase_watering_overrides: dict[str, int] | None = Field(
