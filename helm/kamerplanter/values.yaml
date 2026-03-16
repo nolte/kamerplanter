@@ -1,7 +1,7 @@
 backend:
   replicaCount: 2
   image:
-    repository: kamerplanter-backend
+    repository: ghcr.io/nolte/kamerplanter-backend
     tag: latest
     pullPolicy: IfNotPresent
   service:
@@ -45,7 +45,7 @@ backend:
 frontend:
   replicaCount: 2
   image:
-    repository: kamerplanter-frontend
+    repository: ghcr.io/nolte/kamerplanter-frontend
     tag: latest
     pullPolicy: IfNotPresent
   service:
