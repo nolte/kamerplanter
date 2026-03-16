@@ -166,7 +166,9 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
 
       - name: Build chart dependencies
-        run: helm dependency build helm/${{ matrix.chart }}
+        run: |
+          helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/
+          helm dependency build helm/${{ matrix.chart }}
 
       - name: Package chart
         run: helm package helm/${{ matrix.chart }}
