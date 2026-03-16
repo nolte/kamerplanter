@@ -43,17 +43,64 @@ Kamerplanter is a plant lifecycle management system for indoor and outdoor growi
 
 ## Quick Start (Docker Compose)
 
-The fastest way to get everything running:
+### From Release (pre-built images)
+
+Download the latest release assets from the [Releases page](https://github.com/nolte/kamerplanter/releases):
 
 ```bash
-docker compose up --build
+# Download docker-compose and .env template (replace VERSION)
+curl -LO https://github.com/nolte/kamerplanter/releases/download/vVERSION/docker-compose-VERSION.yml
+curl -LO https://github.com/nolte/kamerplanter/releases/download/vVERSION/.env.example-VERSION
+
+# Create your .env and set secure passwords
+cp .env.example-VERSION .env
 ```
 
-This starts:
-- **ArangoDB** on `localhost:8529` (root / `rootpassword`)
-- **Redis** on `localhost:6379`
-- **Backend API** on `localhost:8000`
-- **Frontend** on `localhost:8080`
+Edit `.env` and set secure passwords (at minimum `ARANGO_ROOT_PASSWORD` and `ARANGODB_PASSWORD`):
+
+```bash
+# Generate a secure password
+openssl rand -base64 24
+
+# Start all services
+docker-compose -f docker-compose-VERSION.yml up -d
+```
+
+### From Source (local build)
+
+```bash
+# Copy the env template and set passwords
+cp .env.example .env
+
+# Start all services (builds from source)
+docker-compose up --build
+```
+
+### Configuration
+
+All credentials and settings are managed via a `.env` file. Docker Compose reads it automatically. See [`.env.example`](.env.example) for all available variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ARANGO_ROOT_PASSWORD` | ArangoDB root password | `changeme` |
+| `ARANGODB_PASSWORD` | Password used by the application | `changeme` |
+| `ARANGODB_DATABASE` | Database name | `kamerplanter` |
+| `ARANGODB_USERNAME` | Database user | `root` |
+| `REDIS_URL` | Valkey/Redis connection URL | `redis://valkey:6379/0` |
+| `DEBUG` | Enable debug mode | `false` |
+| `REQUIRE_EMAIL_VERIFICATION` | Require email verification on signup | `false` |
+| `CORS_ORIGINS` | Allowed CORS origins (JSON array) | `["http://localhost:8080"]` |
+
+### Services
+
+Once running, these services are available:
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:8080 |
+| Backend API | http://localhost:8000 |
+| API Docs (Swagger) | http://localhost:8000/docs |
+| ArangoDB UI | http://localhost:8529 |
 
 The backend auto-creates the database, collections, and seeds demo data on first startup.
 
@@ -142,13 +189,6 @@ Frontend (React) --> REST API (FastAPI) --> Services --> Engines --> Repositorie
 - **Services** orchestrate engines and repositories
 - **Repositories** abstract database access behind interfaces
 - ArangoDB serves as a multi-model database — documents for entities, graphs for relationships (companion planting, genetic lineage, crop rotation)
-
-## API Documentation
-
-With the backend running, interactive API docs are available at:
-
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
 
 ## License
 
