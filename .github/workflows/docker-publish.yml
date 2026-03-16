@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/backend/**'
       - 'src/frontend/**'
+      - 'helm/**'
   workflow_dispatch:
 
 env:
@@ -22,6 +23,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      helm: ${{ steps.filter.outputs.helm }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -32,6 +34,8 @@ jobs:
               - 'src/backend/**'
             frontend:
               - 'src/frontend/**'
+            helm:
+              - 'helm/**'
 
   build-backend:
     needs: changes
@@ -108,3 +112,27 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  publish-helm-charts:
+    needs: changes
+    if: needs.changes.outputs.helm == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        chart:
+          - kamerplanter
+          - kamerplanter-arangodb
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+
+      - name: Package chart
+        run: helm package helm/${{ matrix.chart }}
+
+      - name: Push chart to GHCR
+        run: helm push ${{ matrix.chart }}-*.tgz oci://${{ env.IMAGE_PREFIX }}/charts
