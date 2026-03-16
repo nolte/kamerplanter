@@ -133,6 +133,36 @@ Port forwards are configured automatically:
 | ArangoDB UI | 8529 |
 | Home Assistant | 8123 |
 
+## Contributing / Git Workflow
+
+This project uses a branch-based workflow. The `main` branch is protected — all changes go through feature branches and pull requests.
+
+1. **Create a feature branch** from `develop`:
+   ```bash
+   git checkout develop
+   git pull origin develop
+   git checkout -b feature/my-new-feature
+   ```
+
+2. **Develop and commit** your changes on the feature branch.
+
+3. **Push and open a Pull Request** against `develop`:
+   ```bash
+   git push -u origin feature/my-new-feature
+   ```
+   Then open a PR on GitHub. Describe what the change does and link related issues or requirements (e.g. REQ-005).
+
+4. **Review and merge** — after CI checks pass and the PR is approved, merge via GitHub. Avoid pushing directly to `main` or `develop`.
+
+Branch naming conventions:
+
+| Prefix | Purpose | Example |
+|--------|---------|---------|
+| `feature/` | New functionality | `feature/req005-sensor-integration` |
+| `fix/` | Bug fixes | `fix/seed-data-validation` |
+| `chore/` | Maintenance, CI, deps | `chore/update-helm-chart` |
+| `docs/` | Documentation only | `docs/add-api-examples` |
+
 ## Running Tests
 
 ```bash
