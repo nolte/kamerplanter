@@ -2,5 +2,12 @@ apiVersion: v2
 name: kamerplanter
 description: Kamerplanter plant lifecycle management system
 type: application
-version: 0.1.0
+version: 0.2.0
 appVersion: "1.0.0"
+dependencies:
+  - name: common
+    repository: https://bjw-s-labs.github.io/helm-charts/
+    version: 4.6.2
+  - name: valkey
+    repository: oci://ghcr.io/valkey-io/valkey-helm
+    version: 0.9.3

@@ -814,7 +814,23 @@
       "taskCompleteQuick": "Mark as done",
       "taskCompleted": "Task marked as done.",
       "duplicate": "Duplicate plant",
-      "duplicateTitle": "Duplicate plant"
+      "duplicateTitle": "Duplicate plant",
+      "tag": {
+        "button": "Tag / Label",
+        "title": "Create Tag / Label",
+        "description": "Create a QR code or write an NFC tag for \"{{name}}\".",
+        "qrTab": "QR Code",
+        "nfcTab": "NFC",
+        "copyUrl": "Copy URL",
+        "urlCopied": "URL copied to clipboard",
+        "downloadQr": "Download QR Code",
+        "nfcNotSupported": "Web NFC is not supported by this browser. Use Chrome on Android.",
+        "nfcInstructions": "Hold the NFC tag against the back of your smartphone and press the button.",
+        "nfcWrite": "Write NFC Tag",
+        "nfcWriting": "Writing\u2026",
+        "nfcSuccess": "NFC tag written successfully!",
+        "nfcError": "Error writing tag: {{error}}"
+      }
     },
     "phases": {
       "title": "Phase Control",

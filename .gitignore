@@ -25,6 +25,7 @@ coverage/
 
 # Helm
 *.tgz
+helm/kamerplanter/charts/
 
 # Skaffold
 .skaffold/

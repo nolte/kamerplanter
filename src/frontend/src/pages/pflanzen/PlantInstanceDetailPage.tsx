@@ -20,6 +20,7 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import LabelIcon from '@mui/icons-material/Label';
 import ScienceIcon from '@mui/icons-material/Science';
 import TodayIcon from '@mui/icons-material/Today';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -48,6 +49,7 @@ import FormRow from '@/components/form/FormRow';
 import LocationTreeSelect from '@/components/form/LocationTreeSelect';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import PhaseTransitionDialog from './PhaseTransitionDialog';
+import PlantTagDialog from './PlantTagDialog';
 import PlantPhaseTimeline from './PlantPhaseTimeline';
 import ProfilesSection from './ProfilesSection';
 import PhaseHistoryTable from '@/pages/durchlaeufe/PhaseHistoryTable';
@@ -112,6 +114,7 @@ export default function PlantInstanceDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [transitionOpen, setTransitionOpen] = useState(false);
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [tab, setTab] = useTabUrl(['info', 'phases', 'nutrient-plan', 'watering-log', 'care', 'activity-plan', 'tasks', 'edit']);
   const [saving, setSaving] = useState(false);
   const [species, setSpecies] = useState<Species | null>(null);
@@ -801,6 +804,13 @@ export default function PlantInstanceDetailPage() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <PageTitle title={plant?.plant_name ?? plant?.instance_id ?? t('entities.plantInstance')} />
         <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            startIcon={<LabelIcon />}
+            onClick={() => setTagDialogOpen(true)}
+            data-testid="tag-button"
+          >
+            {t('pages.plantInstances.tag.button')}
+          </Button>
           <Button
             startIcon={<SwapHorizIcon />}
             onClick={() => setTransitionOpen(true)}
@@ -2047,6 +2057,15 @@ export default function PlantInstanceDetailPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {plant && (
+        <PlantTagDialog
+          open={tagDialogOpen}
+          onClose={() => setTagDialogOpen(false)}
+          plantKey={plant.key}
+          plantName={plant.plant_name ?? plant.instance_id}
+        />
+      )}
 
       {key && (
         <PhaseTransitionDialog

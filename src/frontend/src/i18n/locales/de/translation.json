@@ -814,7 +814,23 @@
       "taskCompleteQuick": "Als erledigt markieren",
       "taskCompleted": "Aufgabe als erledigt markiert.",
       "duplicate": "Pflanze duplizieren",
-      "duplicateTitle": "Pflanze duplizieren"
+      "duplicateTitle": "Pflanze duplizieren",
+      "tag": {
+        "button": "Tag / Label",
+        "title": "Tag / Label erstellen",
+        "description": "Erstelle einen QR-Code oder beschreibe einen NFC-Tag f\u00fcr \"{{name}}\".",
+        "qrTab": "QR-Code",
+        "nfcTab": "NFC",
+        "copyUrl": "URL kopieren",
+        "urlCopied": "URL in die Zwischenablage kopiert",
+        "downloadQr": "QR-Code herunterladen",
+        "nfcNotSupported": "Web NFC wird von diesem Browser nicht unterst\u00fctzt. Verwende Chrome auf Android.",
+        "nfcInstructions": "Halte den NFC-Tag an die R\u00fcckseite deines Smartphones und dr\u00fccke den Button.",
+        "nfcWrite": "NFC-Tag beschreiben",
+        "nfcWriting": "Schreibe\u2026",
+        "nfcSuccess": "NFC-Tag erfolgreich beschrieben!",
+        "nfcError": "Fehler beim Beschreiben: {{error}}"
+      }
     },
     "phases": {
       "title": "Phasensteuerung",

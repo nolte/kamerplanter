@@ -1,70 +1,124 @@
-# Development overrides
-backend:
-  replicaCount: 1
-  env:
-    ARANGODB_HOST: kamerplanter-arangodb
-    ARANGODB_PORT: "8529"
-    ARANGODB_DATABASE: kamerplanter
-    ARANGODB_USERNAME: root
-    ARANGODB_PASSWORD: rootpassword
-    REDIS_URL: redis://redis-master:6379/0
-    CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
-    DEBUG: "true"
-    REQUIRE_EMAIL_VERIFICATION: "false"
-    HA_URL: "http://homeassistant:8123"
-    HA_ACCESS_TOKEN: ""
-  probes:
-    liveness:
-      path: /api/v1/health/live
-      initialDelaySeconds: 30
-      periodSeconds: 15
-      timeoutSeconds: 10
-      failureThreshold: 10
-    readiness:
-      path: /api/v1/health/ready
-      initialDelaySeconds: 15
-      periodSeconds: 10
-      timeoutSeconds: 10
-      failureThreshold: 10
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: "2"
-      memory: 1Gi
-  strategy:
-    type: Recreate
+controllers:
+  backend:
+    replicas: 1
+    strategy: Recreate
+    containers:
+      main:
+        env:
+          ARANGODB_HOST: kamerplanter-arangodb
+          ARANGODB_PORT: "8529"
+          ARANGODB_DATABASE: kamerplanter
+          ARANGODB_USERNAME: root
+          ARANGODB_PASSWORD: rootpassword
+          REDIS_URL: redis://kamerplanter-valkey:6379/0
+          CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
+          DEBUG: "true"
+          REQUIRE_EMAIL_VERIFICATION: "false"
+          HA_URL: "http://homeassistant:8123"
+          HA_ACCESS_TOKEN: ""
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /api/v1/health/live
+                port: 8000
+              initialDelaySeconds: 30
+              periodSeconds: 15
+              timeoutSeconds: 10
+              failureThreshold: 10
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /api/v1/health/ready
+                port: 8000
+              initialDelaySeconds: 15
+              periodSeconds: 10
+              timeoutSeconds: 10
+              failureThreshold: 10
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: "2"
+            memory: 1Gi
 
-frontend:
-  replicaCount: 1
-  service:
-    type: ClusterIP
-    port: 5173
-  containerPort: 5173
-  probes:
-    liveness:
-      path: /
-      initialDelaySeconds: 30
-      periodSeconds: 15
-      timeoutSeconds: 10
-      failureThreshold: 10
-    readiness:
-      path: /
-      initialDelaySeconds: 15
-      periodSeconds: 10
-      timeoutSeconds: 10
-      failureThreshold: 10
-  resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: "2"
-      memory: 1Gi
-  strategy:
-    type: Recreate
-  ingress:
+  frontend:
+    replicas: 1
+    strategy: Recreate
+    containers:
+      main:
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 5173
+              initialDelaySeconds: 30
+              periodSeconds: 15
+              timeoutSeconds: 10
+              failureThreshold: 10
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 5173
+              initialDelaySeconds: 15
+              periodSeconds: 10
+              timeoutSeconds: 10
+              failureThreshold: 10
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: "2"
+            memory: 1Gi
+
+  arangodb:
+    containers:
+      main:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+    statefulset:
+      volumeClaimTemplates:
+        - name: data
+          accessMode: ReadWriteOnce
+          size: 2Gi
+          globalMounts:
+            - path: /var/lib/arangodb3
+
+service:
+  frontend:
+    controller: frontend
+    ports:
+      http:
+        port: 5173
+
+ingress:
+  main:
     enabled: true
-    backendService: kamerplanter-backend
-    backendPort: 8000
+    hosts:
+      - host: kamerplanter.local
+        paths:
+          - path: /api
+            pathType: Prefix
+            service:
+              identifier: backend
+          - path: /
+            pathType: Prefix
+            service:
+              identifier: frontend
