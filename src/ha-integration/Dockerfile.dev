@@ -1,2 +1,4 @@
 FROM busybox:1.37
+
+LABEL org.opencontainers.image.description="Kamerplanter Home Assistant custom integration"
 COPY custom_components /ha-integration/custom_components

@@ -2,6 +2,8 @@
 # Runs Vite dev server with HMR
 FROM node:22-alpine
 
+LABEL org.opencontainers.image.description="Kamerplanter frontend UI (development with Vite HMR)"
+
 WORKDIR /app
 
 # Install dependencies first for better layer caching

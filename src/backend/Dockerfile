@@ -1,5 +1,7 @@
 FROM python:3.14-slim AS base
 
+LABEL org.opencontainers.image.description="Kamerplanter backend API for plant lifecycle management"
+
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
