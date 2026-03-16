@@ -1,0 +1,9 @@
+# These settings are synced to GitHub by https://probot.github.io/apps/settings/
+
+_extends: gh-plumbing:.github/commons-settings.yml
+
+repository:
+  name: kamerplante
+  description: Agricultural technology system for plant lifecycle management
+  homepage: https://nolte.github.io/kamerplante
+  topics: agriculture, plant-management, fastapi, react, helm, kubernetes
