@@ -196,7 +196,8 @@ jobs:
         run: |
           VERSION_NUM="${VERSION#v}"
           sed "s/__VERSION__/${VERSION_NUM}/g" docker-compose.release.yml > docker-compose-${VERSION_NUM}.yml
-          gh release upload "$VERSION" "docker-compose-${VERSION_NUM}.yml" --clobber
+          cp .env.example .env.example-${VERSION_NUM}
+          gh release upload "$VERSION" "docker-compose-${VERSION_NUM}.yml" ".env.example-${VERSION_NUM}" --clobber
 
       - name: Update release body with package links
         env:
@@ -224,7 +225,9 @@ jobs:
           ### Docker Compose
           \`\`\`bash
           curl -LO https://github.com/${{ github.repository }}/releases/download/${VERSION}/docker-compose-${VERSION_NUM}.yml
-          docker-compose -f docker-compose-${VERSION_NUM}.yml up -d
+          curl -LO https://github.com/${{ github.repository }}/releases/download/${VERSION}/.env.example-${VERSION_NUM}
+          cp .env.example-${VERSION_NUM} .env   # edit passwords!
+          docker compose -f docker-compose-${VERSION_NUM}.yml up -d
           \`\`\`
           EOF
           )
