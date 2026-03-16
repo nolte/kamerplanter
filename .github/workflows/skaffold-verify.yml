@@ -2,13 +2,12 @@ name: Skaffold Verify
 
 on:
   pull_request:
-    branches: [main]
+    branches: [develop]
     paths:
       - "skaffold.yaml"
       - "helm/**"
       - "src/backend/Dockerfile*"
       - "src/frontend/Dockerfile*"
-      - "kind-config.yaml"
 
 jobs:
   verify:
@@ -25,20 +24,18 @@ jobs:
         with:
           skaffold-version: 2.14.0
 
-      - name: Lint Helm charts
+      - name: Build chart dependencies
         run: |
-          helm lint helm/kamerplanter-backend/
-          helm lint helm/kamerplanter-frontend/
-          helm lint helm/kamerplanter-arangodb/
+          helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/
+          helm dependency build helm/kamerplanter
+
+      - name: Lint Helm chart
+        run: helm lint helm/kamerplanter -f helm/kamerplanter/values-dev.yaml
 
       - name: Render Helm templates
         run: |
-          helm template kamerplanter-backend helm/kamerplanter-backend/ \
-            -f helm/kamerplanter-backend/values-dev.yaml
-          helm template kamerplanter-frontend helm/kamerplanter-frontend/ \
-            -f helm/kamerplanter-frontend/values-dev.yaml
-          helm template kamerplanter-arangodb helm/kamerplanter-arangodb/ \
-            -f helm/kamerplanter-arangodb/values-dev.yaml
+          helm template kamerplanter helm/kamerplanter/ \
+            -f helm/kamerplanter/values-dev.yaml
 
       - name: Skaffold diagnose
         run: skaffold diagnose
