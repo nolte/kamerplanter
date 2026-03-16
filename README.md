@@ -45,12 +45,12 @@ Kamerplanter is a plant lifecycle management system for indoor and outdoor growi
 
 ### From Release (pre-built images)
 
-Download the latest release assets from the [Releases page](https://github.com/nolte/kamerplanter/releases):
+Download the latest release assets from the [Releases page](https://github.com/nolte/kamerplante/releases):
 
 ```bash
 # Download docker-compose and .env template (replace VERSION)
-curl -LO https://github.com/nolte/kamerplanter/releases/download/vVERSION/docker-compose-VERSION.yml
-curl -LO https://github.com/nolte/kamerplanter/releases/download/vVERSION/.env.example-VERSION
+curl -LO https://github.com/nolte/kamerplante/releases/download/vVERSION/docker-compose-VERSION.yml
+curl -LO https://github.com/nolte/kamerplante/releases/download/vVERSION/.env.example-VERSION
 
 # Create your .env and set secure passwords
 cp .env.example-VERSION .env
