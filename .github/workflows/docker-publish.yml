@@ -134,7 +134,6 @@ jobs:
       matrix:
         chart:
           - kamerplanter
-          - kamerplanter-arangodb
     steps:
       - uses: actions/checkout@v4
 
