@@ -3,6 +3,7 @@ name: Build & Publish Container Images
 on:
   push:
     branches: [main]
+    tags: ['v*']
     paths:
       - 'src/backend/**'
       - 'src/frontend/**'
@@ -20,6 +21,8 @@ permissions:
 jobs:
   changes:
     runs-on: ubuntu-latest
+    # On tags and workflow_dispatch, skip path filtering — build everything
+    if: github.ref_type == 'branch'
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
@@ -39,7 +42,9 @@ jobs:
 
   build-backend:
     needs: changes
-    if: needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
+    if: |
+      always() &&
+      (needs.changes.outputs.backend == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,9 +65,11 @@ jobs:
         with:
           images: ${{ env.IMAGE_PREFIX }}/kamerplanter-backend
           tags: |
-            type=raw,value=latest
+            type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=
             type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -77,7 +84,9 @@ jobs:
 
   build-frontend:
     needs: changes
-    if: needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
+    if: |
+      always() &&
+      (needs.changes.outputs.frontend == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -98,9 +107,11 @@ jobs:
         with:
           images: ${{ env.IMAGE_PREFIX }}/kamerplanter-frontend
           tags: |
-            type=raw,value=latest
+            type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=
             type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -115,7 +126,9 @@ jobs:
 
   publish-helm-charts:
     needs: changes
-    if: needs.changes.outputs.helm == 'true' || github.event_name == 'workflow_dispatch'
+    if: |
+      always() &&
+      (needs.changes.outputs.helm == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -127,6 +140,28 @@ jobs:
 
       - name: Setup Helm
         uses: azure/setup-helm@v4
+
+      - name: Determine chart version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update chart version for release
+        if: steps.version.outputs.version != ''
+        run: |
+          sed -i "s/^version:.*/version: ${{ steps.version.outputs.version }}/" helm/${{ matrix.chart }}/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${{ steps.version.outputs.version }}\"/" helm/${{ matrix.chart }}/Chart.yaml
+
+      - name: Set image tags in chart values for release
+        if: steps.version.outputs.version != '' && matrix.chart == 'kamerplanter'
+        run: |
+          sed -i "s/tag: latest/tag: ${{ steps.version.outputs.version }}/" helm/${{ matrix.chart }}/values.yaml
 
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
