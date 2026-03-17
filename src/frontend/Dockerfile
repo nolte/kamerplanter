@@ -15,6 +15,7 @@ LABEL org.opencontainers.image.description="Kamerplanter frontend UI for plant l
 
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker-entrypoint.d/10-runtime-config.sh /docker-entrypoint.d/10-runtime-config.sh
 
 EXPOSE 80
 

@@ -53,6 +53,7 @@ services:
       CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
       DEBUG: ${DEBUG}
       REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION}
+      KAMERPLANTER_MODE: light
     ports:
       - "8000:8000"
     depends_on:
@@ -75,6 +76,7 @@ services:
       ARANGODB_USERNAME: ${ARANGODB_USERNAME}
       ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
       REDIS_URL: ${REDIS_URL}
+      KAMERPLANTER_MODE: light
     depends_on:
       - arangodb
       - valkey
@@ -91,6 +93,7 @@ services:
       ARANGODB_USERNAME: ${ARANGODB_USERNAME}
       ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
       REDIS_URL: ${REDIS_URL}
+      KAMERPLANTER_MODE: light
     depends_on:
       - arangodb
       - valkey
@@ -100,6 +103,8 @@ services:
   frontend:
     build:
       context: ./src/frontend
+    environment:
+      KAMERPLANTER_MODE: light
     ports:
       - "8080:80"
     depends_on:
