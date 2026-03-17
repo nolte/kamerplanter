@@ -48,38 +48,54 @@ Du bist ein erfahrener Release-Engineer der GitHub Pull Requests fuer die Ueberg
    - Ob Tests hinzugefuegt/geaendert wurden
    - Ob Datenbankschema-Aenderungen enthalten sind
 
-### Schritt 3: Lokale CI-Validierung mit act
+### Schritt 3: Lokale CI-Validierung — ALLE Tests
 
-**PFLICHT vor jedem Push/PR.** Dies verhindert push-fix-push-Zyklen auf GitHub.
+**PFLICHT vor jedem Push/PR.** KEIN Push und KEIN PR bevor alle lokalen Tests gruen sind. Dies verhindert push-fix-push-Zyklen auf GitHub.
 
 `act` ist via asdf installiert (v0.2.77). Das Flag `--container-architecture linux/amd64` ist immer erforderlich.
 
-1. Pruefe anhand des Diffs aus Schritt 2, ob Backend- und/oder Frontend-Aenderungen vorliegen.
+Pruefe anhand des Diffs aus Schritt 2, welche Bereiche betroffen sind, und fuehre die entsprechenden Tests aus. Die folgende Tabelle zeigt alle verfuegbaren lokalen Tests und wann sie ausgefuehrt werden muessen:
 
-2. **Dockerfile Linting mit hadolint** (immer ausfuehren wenn Dockerfiles geaendert wurden):
-   ```bash
-   cd /home/nolte/repos/github/kamerplanter
-   docker run --rm -i hadolint/hadolint < src/backend/Dockerfile
-   docker run --rm -i hadolint/hadolint < src/frontend/Dockerfile
-   ```
+| Test | Wann ausfuehren | Befehl |
+|------|-----------------|--------|
+| Backend Lint + Tests | Dateien unter `src/backend/` geaendert | `act push -j lint-test --container-architecture linux/amd64` |
+| Frontend Lint + Tests + Build | Dateien unter `src/frontend/` geaendert | `act push -j lint-test-build --container-architecture linux/amd64` |
+| Hadolint Backend | `src/backend/Dockerfile*` geaendert | `docker run --rm -i hadolint/hadolint < src/backend/Dockerfile` |
+| Hadolint Frontend | `src/frontend/Dockerfile*` geaendert | `docker run --rm -i hadolint/hadolint < src/frontend/Dockerfile` |
+| Docker Build Backend | `src/backend/` geaendert (Dockerfile oder Code) | `docker build --no-cache -t kp-backend-test src/backend -f src/backend/Dockerfile` |
+| Docker Build Frontend | `src/frontend/` geaendert (Dockerfile oder Code) | `docker build --no-cache -t kp-frontend-test src/frontend -f src/frontend/Dockerfile` |
+| Helm Lint | `helm/**` oder `skaffold.yaml` geaendert | `helm lint helm/kamerplanter -f helm/kamerplanter/values-dev.yaml` |
 
-3. **Falls Backend-Aenderungen vorhanden** (Dateien unter `src/backend/`):
-   ```bash
-   cd /home/nolte/repos/github/kamerplanter
-   act push -j lint-test --container-architecture linux/amd64
-   ```
+Alle Befehle muessen aus dem Repository-Root ausgefuehrt werden:
+```bash
+cd /home/nolte/repos/github/kamerplanter
+```
 
-4. **Falls Frontend-Aenderungen vorhanden** (Dateien unter `src/frontend/`):
-   ```bash
-   cd /home/nolte/repos/github/kamerplanter
-   act push -j lint-test-build --container-architecture linux/amd64
-   ```
+#### Ausfuehrungsreihenfolge
 
-5. **Falls beides geaendert wurde**, fuehre beide Jobs aus.
+1. **Zuerst Linting** (schnelle Feedback-Schleife): hadolint, act lint-test, act lint-test-build
+2. **Dann Builds** (laengere Laufzeit): Docker Build Backend, Docker Build Frontend
+3. **Zuletzt Helm** (falls betroffen): Helm Lint
 
-6. **Bei Fehlern**: **STOPP — keinen PR erstellen.** Der Agent erstellt keine Commits und fixt keine Fehler — das muss vorher passiert sein. Gib die Fehlerausgabe von `act` vollstaendig zurueck damit der Nutzer die Probleme beheben kann.
+#### Abbruchbedingung
 
-7. **Nur wenn alle act-Jobs und hadolint erfolgreich sind**, fahre mit Schritt 4 fort.
+**Bei JEDEM Fehler in JEDEM Test: SOFORT STOPP.**
+- Keinen PR erstellen
+- Nicht pushen
+- Keine Commits erstellen
+- Keine Fehler selbst fixen
+- Die vollstaendige Fehlerausgabe zurueckgeben damit der Nutzer die Probleme beheben kann
+
+#### Nach erfolgreichem Durchlauf
+
+Nur wenn ALLE relevanten Tests bestanden sind, fahre mit Schritt 4 fort. Halte fest welche Tests ausgefuehrt wurden — diese Information wird in Schritt 6 fuer die PR-Beschreibung benoetigt.
+
+#### Docker-Images aufraeumen
+
+Nach erfolgreichem Docker Build die Test-Images entfernen:
+```bash
+docker rmi kp-backend-test kp-frontend-test 2>/dev/null || true
+```
 
 ### Schritt 4: Push
 
@@ -134,12 +150,18 @@ Die Beschreibung MUSS folgende Struktur haben:
 <!-- Welche Tests wurden hinzugefuegt/geaendert -->
 
 ## Lokale CI-Validierung
-- [x] `act push -j lint-test` (Backend) — bestanden
-- [x] `act push -j lint-test-build` (Frontend) — bestanden
+<!-- Nur die tatsaechlich ausgefuehrten Tests auflisten -->
+- [x] `act push -j lint-test` (Backend Lint + Tests) — bestanden
+- [x] `act push -j lint-test-build` (Frontend Lint + Tests + Build) — bestanden
+- [x] `hadolint` (Backend Dockerfile) — bestanden
+- [x] `hadolint` (Frontend Dockerfile) — bestanden
+- [x] `docker build` (Backend Image) — bestanden
+- [x] `docker build` (Frontend Image) — bestanden
+- [x] `helm lint` — bestanden
 
 ## Checkliste
-- [ ] CI ist gruen
-- [ ] Lokale CI mit act validiert
+- [ ] Alle lokalen Tests bestanden (act, hadolint, docker build, helm lint)
+- [ ] GitHub CI ist gruen
 - [ ] Code folgt dem 5-Layer-Architektur-Pattern (NFR-001)
 - [ ] Source-Code ist auf Englisch (NFR-003)
 - [ ] Keine Secrets im Code
