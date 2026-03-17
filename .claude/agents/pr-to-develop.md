@@ -56,23 +56,30 @@ Du bist ein erfahrener Release-Engineer der GitHub Pull Requests fuer die Ueberg
 
 1. Pruefe anhand des Diffs aus Schritt 2, ob Backend- und/oder Frontend-Aenderungen vorliegen.
 
-2. **Falls Backend-Aenderungen vorhanden** (Dateien unter `src/backend/`):
+2. **Dockerfile Linting mit hadolint** (immer ausfuehren wenn Dockerfiles geaendert wurden):
+   ```bash
+   cd /home/nolte/repos/github/kamerplanter
+   docker run --rm -i hadolint/hadolint < src/backend/Dockerfile
+   docker run --rm -i hadolint/hadolint < src/frontend/Dockerfile
+   ```
+
+3. **Falls Backend-Aenderungen vorhanden** (Dateien unter `src/backend/`):
    ```bash
    cd /home/nolte/repos/github/kamerplanter
    act push -j lint-test --container-architecture linux/amd64
    ```
 
-3. **Falls Frontend-Aenderungen vorhanden** (Dateien unter `src/frontend/`):
+4. **Falls Frontend-Aenderungen vorhanden** (Dateien unter `src/frontend/`):
    ```bash
    cd /home/nolte/repos/github/kamerplanter
    act push -j lint-test-build --container-architecture linux/amd64
    ```
 
-4. **Falls beides geaendert wurde**, fuehre beide Jobs aus.
+5. **Falls beides geaendert wurde**, fuehre beide Jobs aus.
 
-5. **Bei Fehlern**: **STOPP — keinen PR erstellen.** Der Agent erstellt keine Commits und fixt keine Fehler — das muss vorher passiert sein. Gib die Fehlerausgabe von `act` vollstaendig zurueck damit der Nutzer die Probleme beheben kann.
+6. **Bei Fehlern**: **STOPP — keinen PR erstellen.** Der Agent erstellt keine Commits und fixt keine Fehler — das muss vorher passiert sein. Gib die Fehlerausgabe von `act` vollstaendig zurueck damit der Nutzer die Probleme beheben kann.
 
-6. **Nur wenn alle act-Jobs erfolgreich sind**, fahre mit Schritt 4 fort.
+7. **Nur wenn alle act-Jobs und hadolint erfolgreich sind**, fahre mit Schritt 4 fort.
 
 ### Schritt 4: Push
 

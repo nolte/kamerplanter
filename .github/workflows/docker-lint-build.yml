@@ -1,0 +1,86 @@
+name: Docker Lint & Build
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'src/backend/Dockerfile'
+      - 'src/backend/Dockerfile.*'
+      - 'src/backend/**'
+      - 'src/frontend/Dockerfile'
+      - 'src/frontend/Dockerfile.*'
+      - 'src/frontend/**'
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'src/backend/Dockerfile'
+              - 'src/backend/Dockerfile.*'
+              - 'src/backend/**'
+            frontend:
+              - 'src/frontend/Dockerfile'
+              - 'src/frontend/Dockerfile.*'
+              - 'src/frontend/**'
+
+  hadolint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint backend Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: src/backend/Dockerfile
+
+      - name: Lint frontend Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: src/frontend/Dockerfile
+
+  build-backend:
+    needs: [changes, hadolint]
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: src/backend
+          file: src/backend/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-frontend:
+    needs: [changes, hadolint]
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build frontend image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: src/frontend
+          file: src/frontend/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
