@@ -13,6 +13,7 @@ class Tenant(BaseModel):
     description: str | None = None
     owner_user_key: str
     is_active: bool = True
+    is_platform: bool = False
     max_members: int = Field(default=1, ge=1)
     created_at: datetime | None = None
     updated_at: datetime | None = None

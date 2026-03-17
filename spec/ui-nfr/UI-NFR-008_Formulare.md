@@ -6,9 +6,9 @@ Kategorie: UI-Verhalten Unterkategorie: Formulare, Eingaben, Validierung
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.0
+Version: 1.2
 Autor: Business Analyst - Agrotech
-Datum: 2026-02-26
+Datum: 2026-03-17
 Tags: [formulare, forms, validierung, dirty-state, autofokus, tab-order, submit, double-submit, fremdschlüssel, autocomplete, dropdown]
 Abhängigkeiten: [UI-NFR-002, UI-NFR-004, UI-NFR-006, UI-NFR-007]
 Betroffene Module: [Frontend, Mobile]
@@ -102,8 +102,109 @@ Formulare sind die primäre Datenerfassungsmethode in der Anwendung. Schlechte F
 | R-024 | Feldgruppen MÜSSEN einen beschreibenden Titel haben. | MUSS |
 | R-025 | Pflichtfelder MÜSSEN als solche gekennzeichnet sein (z.B. mit `*` und Erklärungstext „* Pflichtfeld"). | MUSS |
 | R-026 | Optionale Felder KÖNNEN mit dem Hinweis „(optional)" gekennzeichnet werden. | KANN |
+| R-037 | Komplexe Formulare mit mehr als 6 Feldern MÜSSEN in klar voneinander abgegrenzte Panels (MUI `Card` oder `Paper` mit Titel) aufgeteilt werden. Jedes Panel gruppiert thematisch zusammengehörige Felder (z.B. „Grunddaten", „Nährstoffprofil", „Umgebungsbedingungen"). | MUSS |
+| R-038 | Jedes Panel MUSS eine eigene Überschrift (Typography variant `h6` oder `subtitle1`) und optional einen kurzen Einleitungstext besitzen, der den Zweck der Feldgruppe beschreibt. | MUSS |
+| R-039 | Panels MÜSSEN durch visuellen Abstand (`spacing.lg` = 24px) und/oder Rahmen/Elevation (`elevation.1`) klar voneinander getrennt sein — ein einzelnes langes Formular ohne visuelle Unterteilung ist NICHT akzeptabel. | MUSS |
+| R-040 | Die Panel-Reihenfolge MUSS der fachlichen Priorität folgen: Pflichtfelder und häufig genutzte Felder in den oberen Panels, optionale und Experten-Felder in den unteren Panels. | MUSS |
+| R-041 | Panels, die nur für höhere Erfahrungsstufen (REQ-021) sichtbare Felder enthalten, SOLLEN als Ganzes ein-/ausgeblendet werden, statt leere Panels anzuzeigen. | SOLL |
 
-### 2.7 Formular-Reset
+### 2.7 Kontextuelle Hilfetext-Icons
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-042 | Jedes Eingabefeld, dessen Zweck nicht auf den ersten Blick offensichtlich ist, MUSS ein Info-Icon (ℹ️ / `HelpOutlineIcon`) rechts neben dem Feldlabel besitzen, das bei Interaktion einen erklärenden Hilfetext anzeigt. | MUSS |
+| R-043 | Das Info-Icon MUSS als `InputAdornment` (MUI `endAdornment`) oder direkt neben dem Label platziert werden — konsistent über alle Formulare hinweg. | MUSS |
+| R-044 | Bei Hover (Desktop, 300ms Delay) oder Tap (Mobile/Touch) auf das Info-Icon MUSS ein Tooltip mit dem Hilfetext erscheinen. Der Tooltip MUSS bei Mausverlassen bzw. Tap außerhalb wieder schließen. | MUSS |
+| R-045 | Hilfetexte MÜSSEN als i18n-Schlüssel verwaltet werden (`fields.<fieldName>.help`) und in DE + EN vorliegen. | MUSS |
+| R-046 | Für Felder mit Fachbegriffen (VPD, EC, PPFD etc.) MUSS die `HelpTooltip`-Komponente aus UI-NFR-011 verwendet werden, die zusätzlich Glossar-Verlinkung und erfahrungsstufenabhängige Darstellung bietet. Für allgemeine Felder ohne Fachbegriff genügt ein einfacher MUI `Tooltip` mit dem i18n-Hilfetext. | MUSS |
+| R-047 | Das Info-Icon MUSS per Tastatur fokussierbar sein (`tabIndex={0}`) und den Tooltip bei Enter/Space öffnen (WCAG 2.1 Level AA). | MUSS |
+| R-048 | Das Info-Icon SOLL dezent gestaltet sein (Farbe: `text.secondary`, Größe: 18px), um den visuellen Fluss des Formulars nicht zu stören, aber dennoch als interaktives Element erkennbar bleiben. | SOLL |
+
+#### Wireframe: Feld mit Info-Icon
+
+```
+  Name *                              Beschreibung (optional)
+  ┌───────────────────────────── ⓘ┐   ┌───────────────────────────── ⓘ┐
+  │ Basilikum                     │   │                               │
+  └───────────────────────────────┘   └───────────────────────────────┘
+                                        ↑ Info-Icon (endAdornment)
+  Bei Hover/Tap auf ⓘ:
+  ┌─────────────────────────────────┐
+  │ Der botanische oder umgangs-    │
+  │ sprachliche Name der Pflanze.   │
+  └─────────────────────────────────┘
+```
+
+#### Wireframe: Panel-Aufteilung mit Info-Icons
+
+```
+┌──────────────────────────────────────────────┐
+│                                              │
+│  Neue Art anlegen                            │
+│                                              │
+│  ┌─ Grunddaten ───────────────────────────┐  │
+│  │                                        │  │
+│  │  Name *                            ⓘ  │  │
+│  │  ┌──────────────────────────────────┐  │  │
+│  │  │                                  │  │  │
+│  │  └──────────────────────────────────┘  │  │
+│  │                                        │  │
+│  │  Botanische Familie *              ⓘ  │  │
+│  │  ┌──────────────────────────── ▾┐     │  │
+│  │  │ Bitte wählen...              │     │  │
+│  │  └──────────────────────────────┘     │  │
+│  │                                        │  │
+│  └────────────────────────────────────────┘  │
+│                                              │  ← spacing.lg (24px)
+│  ┌─ Nährstoffprofil ─────────────────────┐  │
+│  │  Definiert den typischen Nährstoff-    │  │
+│  │  bedarf dieser Art.                    │  │
+│  │                                        │  │
+│  │  EC-Zielwert (mS/cm)              ⓘ  │  │  ← HelpTooltip (Fachbegriff)
+│  │  ┌──────────────────────────────────┐  │  │
+│  │  │ 1.2                              │  │  │
+│  │  └──────────────────────────────────┘  │  │
+│  │                                        │  │
+│  │  pH-Bereich                        ⓘ  │  │
+│  │  ┌──────────┐  ┌──────────┐           │  │
+│  │  │ 5.5      │  │ 6.5      │           │  │
+│  │  └──────────┘  └──────────┘           │  │
+│  │   Min            Max                   │  │
+│  │                                        │  │
+│  └────────────────────────────────────────┘  │
+│                                              │
+│  * Pflichtfeld                               │
+│                                              │
+│           [Abbrechen]  [Speichern]           │
+│                                              │
+└──────────────────────────────────────────────┘
+```
+
+### 2.8 Sonderzeichen, Einheiten & Unicode in UI-Strings
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-049 | Sonderzeichen in UI-Strings (Labels, Suffixe, Hilfetexte, Platzhalter) MÜSSEN als direkte UTF-8-Zeichen geschrieben werden, NICHT als Unicode-Escapes (`\u00B0`, `\u2014` etc.). | MUSS |
+| R-050 | Einheiten-Suffixe in numerischen Feldern (z.B. `°C`, `mS/cm`, `ml/L`, `€/L`, `%`, `m²`) MÜSSEN als direkte UTF-8-Zeichen im `suffix`-Prop angegeben werden. | MUSS |
+| R-051 | Sonderzeichen in Template-Literals und JSX-Attributen MÜSSEN ebenfalls als direkte UTF-8-Zeichen geschrieben werden — auch wenn Unicode-Escapes zur Compile-Zeit korrekt aufgelöst werden, können sie bei Hot-Reload, SSR oder Bundler-Konfigurationsänderungen als Rohtext durchrutschen. | MUSS |
+| R-052 | Häufig verwendete Sonderzeichen und ihre korrekte Schreibweise: | — |
+
+**Referenztabelle:**
+
+| Zeichen | Beschreibung | Korrekt | Verboten |
+|---------|-------------|---------|----------|
+| ° | Grad-Zeichen | `suffix="°C"` | `suffix="\u00B0C"` |
+| — | Gedankenstrich (Em-Dash) | `'—'` | `'\u2014'` |
+| – | Halbgeviertstrich (En-Dash) | `'–'` | `'\u2013'` |
+| € | Euro-Zeichen | `'€/L'` | `'\u20AC/L'` |
+| ≥ | Grösser-gleich | `'≥'` | `'\u2265'` |
+| ≤ | Kleiner-gleich | `'≤'` | `'\u2264'` |
+| ² | Hochgestellt 2 | `'m²'` | `'m\u00B2'` |
+| ℹ | Info-Symbol | `'ℹ'` | `'\u2139'` |
+
+> **Begründung:** Unicode-Escapes in JSX/TypeScript werden zwar zur Compile-Zeit korrekt aufgelöst, sind aber (a) schwer lesbar im Code-Review, (b) fehleranfällig bei Copy-Paste und (c) in Edge-Cases (Hot-Module-Replacement, SSR-Hydration-Mismatch) als Rohtext sichtbar. Direkte UTF-8-Zeichen sind in modernen Editoren und Toolchains problemlos und eindeutig.
+
+### 2.9 Formular-Reset
 
 | # | Regel | Stufe |
 |---|-------|-------|
@@ -111,7 +212,7 @@ Formulare sind die primäre Datenerfassungsmethode in der Anwendung. Schlechte F
 | R-028 | Ein „Zurücksetzen"-Button KANN angeboten werden, um das Formular auf die Standardwerte zurückzusetzen. | KANN |
 | R-029 | Der Reset SOLL einen Bestätigungsdialog zeigen, wenn der Dirty-State aktiv ist. | SOLL |
 
-### 2.8 Fremdschlüssel-Felder & Referenzauswahl
+### 2.10 Fremdschlüssel-Felder & Referenzauswahl
 
 | # | Regel | Stufe |
 |---|-------|-------|
@@ -247,9 +348,19 @@ Formulare sind die primäre Datenerfassungsmethode in der Anwendung. Schlechte F
     - [ ] Ladezustand am Submit-Button
     - [ ] Bestätigungsmeldung nach erfolgreichem Submit
     - [ ] Formulardaten bleiben bei fehlgeschlagenem Submit erhalten
-- [ ] **Feldgruppen**
+- [ ] **Feldgruppen & Panel-Aufteilung**
     - [ ] Zusammengehörige Felder sind mit `<fieldset>` und `<legend>` gruppiert
     - [ ] Pflichtfelder sind gekennzeichnet
+    - [ ] Komplexe Formulare (>6 Felder) sind in separate Panels (Card/Paper) aufgeteilt
+    - [ ] Jedes Panel hat eine Überschrift und optional einen Einleitungstext
+    - [ ] Panels sind durch visuellen Abstand (24px) klar getrennt
+    - [ ] Panel-Reihenfolge folgt der fachlichen Priorität (Pflichtfelder oben)
+- [ ] **Kontextuelle Hilfetext-Icons**
+    - [ ] Nicht-offensichtliche Felder haben ein Info-Icon (ⓘ) neben dem Label
+    - [ ] Info-Icon zeigt Tooltip mit Hilfetext bei Hover/Tap
+    - [ ] Hilfetexte sind als i18n-Schlüssel verwaltet (DE + EN)
+    - [ ] Fachbegriff-Felder verwenden `HelpTooltip` aus UI-NFR-011
+    - [ ] Info-Icon ist per Tastatur fokussierbar (WCAG 2.1 Level AA)
 - [ ] **Fremdschlüssel-Felder**
     - [ ] Alle Fremdschlüssel-Felder nutzen Dropdown oder Autocomplete — kein manuelles Eintippen
     - [ ] Optionen werden dynamisch aus der API geladen
@@ -279,8 +390,8 @@ Formulare sind die primäre Datenerfassungsmethode in der Anwendung. Schlechte F
 
 **Dokumenten-Ende**
 
-**Version**: 1.0
+**Version**: 1.2
 **Status**: Entwurf
-**Letzte Aktualisierung**: 2026-02-26
+**Letzte Aktualisierung**: 2026-03-17
 **Review**: Pending
 **Genehmigung**: Pending

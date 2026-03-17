@@ -79,6 +79,9 @@ export default function CultivarCreateDialog({ speciesKey, open, onClose, onCrea
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           {/* Identification */}
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 1 }}>
+            {t('pages.cultivars.sectionIdentification')}
+          </Typography>
           <FormTextField
             name="name"
             control={control}

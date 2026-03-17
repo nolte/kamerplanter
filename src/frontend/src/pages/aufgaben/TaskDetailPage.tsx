@@ -916,21 +916,30 @@ export default function TaskDetailPage() {
 
       {/* Tab: Complete task (only when actionable) */}
       {tab === 1 && isActionable && (
-        <Card variant="outlined">
-          <CardContent>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
-              {t('pages.tasks.completeTask')}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {t('pages.tasks.completeIntro')}
-            </Typography>
-            <form onSubmit={handleCompletionSubmit(handleComplete)}>
+        <Box
+          component="form"
+          onSubmit={handleCompletionSubmit(handleComplete)}
+          sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            {t('pages.tasks.completeIntro')}
+          </Typography>
+
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.tasks.sectionCompletion')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.tasks.sectionCompletionDesc')}
+              </Typography>
               <FormTextField
                 name="completion_notes"
                 control={completionControl}
                 label={t('pages.tasks.completionNotes')}
                 multiline
                 rows={4}
+                autoFocus
               />
               <FormNumberField
                 name="actual_duration_minutes"
@@ -940,6 +949,17 @@ export default function TaskDetailPage() {
                 step={1}
                 helperText={t('pages.tasks.actualDurationHelper')}
               />
+            </CardContent>
+          </Card>
+
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.tasks.sectionRatings')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.tasks.sectionRatingsDesc')}
+              </Typography>
               <FormRow>
                 <FormNumberField
                   name="difficulty_rating"
@@ -984,23 +1004,24 @@ export default function TaskDetailPage() {
                   />
                 </Box>
               )}
-              <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  color="success"
-                  startIcon={
-                    actionLoading ? <CircularProgress size={16} /> : <CheckIcon />
-                  }
-                  disabled={actionLoading || (task.requires_photo && photoRefs.length === 0)}
-                  data-testid="complete-task-submit"
-                >
-                  {t('pages.tasks.completeTask')}
-                </Button>
-              </Box>
-            </form>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              type="submit"
+              variant="contained"
+              color="success"
+              startIcon={
+                actionLoading ? <CircularProgress size={16} /> : <CheckIcon />
+              }
+              disabled={actionLoading || (task.requires_photo && photoRefs.length === 0)}
+              data-testid="complete-task-submit"
+            >
+              {t('pages.tasks.completeTask')}
+            </Button>
+          </Box>
+        </Box>
       )}
 
       {/* Tab: Comments */}
@@ -1144,103 +1165,131 @@ export default function TaskDetailPage() {
 
       {/* Tab: Edit */}
       {tab === editTabIndex && (
-        <Card variant="outlined">
-          <CardContent>
-            <form onSubmit={handleEditSubmit(onSave)}>
-              <Box sx={{ maxWidth: 900 }}>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-                  {t('pages.tasks.sectionTask')}
-                </Typography>
+        <Box
+          component="form"
+          onSubmit={handleEditSubmit(onSave)}
+          sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            {t('pages.tasks.editIntro')}
+          </Typography>
+
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.tasks.sectionTask')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.tasks.sectionTaskDesc')}
+              </Typography>
+              <FormTextField
+                name="name"
+                control={editControl}
+                label={t('pages.tasks.name')}
+                required
+                autoFocus
+              />
+              <FormTextField
+                name="instruction"
+                control={editControl}
+                label={t('pages.tasks.instruction')}
+                multiline
+                rows={4}
+              />
+              <FormSelectField
+                name="category"
+                control={editControl}
+                label={t('pages.tasks.category')}
+                options={categories.map((v) => ({
+                  value: v,
+                  label: t(`enums.taskCategory.${v}`),
+                }))}
+              />
+            </CardContent>
+          </Card>
+
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.tasks.sectionScheduling')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.tasks.sectionSchedulingDesc')}
+              </Typography>
+              <FormRow>
                 <FormTextField
-                  name="name"
+                  name="due_date"
                   control={editControl}
-                  label={t('pages.tasks.name')}
-                  required
-                />
-                <FormTextField
-                  name="instruction"
-                  control={editControl}
-                  label={t('pages.tasks.instruction')}
-                  multiline
-                  rows={4}
+                  label={t('pages.tasks.dueDate')}
+                  type="date"
                 />
                 <FormSelectField
-                  name="category"
+                  name="priority"
                   control={editControl}
-                  label={t('pages.tasks.category')}
-                  options={categories.map((v) => ({
+                  label={t('pages.tasks.priority')}
+                  helperText={t('pages.tasks.priorityHelper')}
+                  options={priorities.map((v) => ({
                     value: v,
-                    label: t(`enums.taskCategory.${v}`),
+                    label: t(`enums.taskPriority.${v}`),
                   }))}
                 />
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-                  {t('pages.tasks.sectionScheduling')}
-                </Typography>
-                <FormRow>
-                  <FormTextField
-                    name="due_date"
-                    control={editControl}
-                    label={t('pages.tasks.dueDate')}
-                    type="date"
-                  />
-                  <FormSelectField
-                    name="priority"
-                    control={editControl}
-                    label={t('pages.tasks.priority')}
-                    helperText={t('pages.tasks.priorityHelper')}
-                    options={priorities.map((v) => ({
-                      value: v,
-                      label: t(`enums.taskPriority.${v}`),
-                    }))}
-                  />
-                </FormRow>
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <FormNumberField
-                    name="estimated_duration_minutes"
-                    control={editControl}
-                    label={t('pages.tasks.estimatedDuration')}
-                    min={1}
-                    step={1}
-                    helperText={t('pages.tasks.estimatedDurationHelper')}
-                  />
-                  <FormNumberField
-                    name="timer_duration_seconds"
-                    control={editControl}
-                    label={t('pages.tasks.timerDuration')}
-                    min={1}
-                    step={1}
-                    helperText={t('pages.tasks.timerDurationHelper')}
-                  />
-                </Box>
-                <FormTextField
-                  name="timer_label"
+              </FormRow>
+              <FormRow>
+                <FormNumberField
+                  name="estimated_duration_minutes"
                   control={editControl}
-                  label={t('pages.tasks.timerLabel')}
+                  label={t('pages.tasks.estimatedDuration')}
+                  min={1}
+                  step={1}
+                  helperText={t('pages.tasks.estimatedDurationHelper')}
                 />
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-                  {t('pages.tasks.sectionAssignment')}
-                </Typography>
-                <FormTextField
-                  name="assigned_to_user_key"
+                <FormNumberField
+                  name="timer_duration_seconds"
                   control={editControl}
-                  label={t('pages.tasks.assignedTo')}
-                  helperText={t('pages.tasks.assignedToHelper')}
+                  label={t('pages.tasks.timerDuration')}
+                  min={1}
+                  step={1}
+                  helperText={t('pages.tasks.timerDurationHelper')}
                 />
-                <FormTextField
-                  name="recurrence_rule"
-                  control={editControl}
-                  label={t('pages.tasks.recurrenceRule')}
-                  helperText={t('pages.tasks.recurrenceRuleHelper')}
-                />
-                <FormActions
-                  onCancel={() => resetEdit()}
-                  loading={saving}
-                  disabled={!isDirty}
-                />
-              </Box>
-            </form>
-          </CardContent>
-        </Card>
+              </FormRow>
+              <FormTextField
+                name="timer_label"
+                control={editControl}
+                label={t('pages.tasks.timerLabel')}
+              />
+            </CardContent>
+          </Card>
+
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.tasks.sectionAssignment')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.tasks.sectionAssignmentDesc')}
+              </Typography>
+              <FormTextField
+                name="assigned_to_user_key"
+                control={editControl}
+                label={t('pages.tasks.assignedTo')}
+                helperText={t('pages.tasks.assignedToHelper')}
+              />
+              <FormTextField
+                name="recurrence_rule"
+                control={editControl}
+                label={t('pages.tasks.recurrenceRule')}
+                helperText={t('pages.tasks.recurrenceRuleHelper')}
+              />
+            </CardContent>
+          </Card>
+
+          <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
+          <FormActions
+            onCancel={() => resetEdit()}
+            loading={saving}
+            disabled={!isDirty}
+          />
+        </Box>
       )}
 
       <ConfirmDialog

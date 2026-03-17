@@ -55,6 +55,17 @@ def get_current_tenant(
     )
 
 
+def require_platform_admin(
+    user: User = Depends(get_current_user),
+    tenant_service: TenantService = Depends(get_tenant_service),
+) -> User:
+    """Require the user to be a platform admin (admin membership in platform tenant)."""
+    membership = tenant_service.get_membership(user.key, "platform")
+    if not membership or not membership.is_active or membership.role != TenantRole.ADMIN:
+        raise ForbiddenError("Platform admin role required.")
+    return user
+
+
 def require_tenant_role(min_role: TenantRole) -> Callable:
     """Dependency factory for minimum role enforcement."""
     role_order = {TenantRole.VIEWER: 0, TenantRole.GROWER: 1, TenantRole.ADMIN: 2}

@@ -78,6 +78,9 @@ Praktisches Beispiel:
 
 Jede Domänenentität **MUSS** folgende UI-Operationen unterstützen:
 
+<!-- Quelle: Widerspruchsanalyse W-011 — Erfahrungsstufen-Kompatibilitaet -->
+**Hinweis zur Kompatibilität mit REQ-021 (Erfahrungsstufen):** Im Einsteiger-Modus blendet REQ-021 bestimmte Felder aus und befüllt sie mit Defaults. Dies gilt als NFR-010-konform, sofern alle Felder über den "Mehr anzeigen"-Toggle (REQ-021, `ShowAllFieldsToggle`) erreichbar bleiben. Felder, die per Auto-Fill mit Defaults gesetzt wurden, SOLLEN in der Detailansicht mit einem "Automatisch gesetzt"-Badge gekennzeichnet werden, damit Nutzer erkennen können, welche Werte manuell überprüft werden sollten.
+
 | Operation | UI-Element | Beschreibung |
 |---|---|---|
 | **Create** | Dialog oder eigene Seite | Neuen Datensatz anlegen mit Formularvalidierung |

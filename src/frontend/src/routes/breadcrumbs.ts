@@ -65,7 +65,10 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
 
   // Settings
   '/settings': { label: 'nav.settings', parent: '/dashboard' },
-  '/admin/settings': { label: 'nav.adminSettings', parent: '/dashboard' },
+
+  // Admin
+  '/admin/tenants': { label: 'pages.auth.adminTenantsTitle', parent: '/settings' },
+  '/admin/users': { label: 'pages.auth.adminUsersTitle', parent: '/settings' },
 };
 
 export function buildBreadcrumbs(

@@ -26,6 +26,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -78,6 +79,9 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
+
+/** Spacing between form panels (UI-NFR-008 R-039: 24px = spacing.lg) */
+const PANEL_GAP = 4;
 
 export default function SpeciesDetailPage() {
   const { key } = useParams<{ key: string }>();
@@ -241,267 +245,308 @@ export default function SpeciesDetailPage() {
       </Tabs>
 
       {tab === 0 && (
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+          <Typography variant="body2" color="text.secondary">
             {t('pages.species.editIntro')}
           </Typography>
 
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-            {t('pages.species.sectionTaxonomy')}
-          </Typography>
-          <FormTextField
-            name="scientific_name"
-            control={control}
-            label={t('pages.species.scientificName')}
-            helperText={t('pages.species.scientificNameHelper')}
-            required
-          />
-          <FormChipInput
-            name="common_names"
-            control={control}
-            label={t('pages.species.commonNames')}
-            helperText={t('pages.species.commonNamesHelper')}
-          />
-          <FormRow>
-            <Box>
-              <FormSelectField
-                name="family_key"
+          {/* ── Panel 1: Taxonomie (intermediate — Pflichtfelder) ── */}
+          {/* UI-NFR-008 R-037/R-038/R-040: Card panel, h6 heading, required fields first */}
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.species.sectionTaxonomy')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.species.editIntro')}
+              </Typography>
+              <FormTextField
+                name="scientific_name"
                 control={control}
-                label={t('pages.species.family')}
-                helperText={t('pages.species.familyHelper')}
-                options={[
-                  { value: '', label: '\u2014' },
-                  ...families.map((f) => ({ value: f.key, label: f.name })),
-                ]}
+                label={t('pages.species.scientificName')}
+                helperText={t('pages.species.scientificNameHelper')}
+                required
+                autoFocus
               />
-              {current?.family_key && (
-                <Link
-                  component={RouterLink}
-                  to={`/stammdaten/botanical-families/${current.family_key}`}
-                  variant="body2"
-                  sx={{ display: 'inline-block', mt: -1, mb: 1 }}
-                >
-                  {t('pages.species.viewFamily')}
-                </Link>
-              )}
-            </Box>
-            <FormTextField
-              name="genus"
-              control={control}
-              label={t('pages.species.genus')}
-              helperText={t('pages.species.genusHelper')}
-            />
-          </FormRow>
-          <FormTextField
-            name="description"
-            control={control}
-            label={t('pages.species.description')}
-            helperText={t('pages.species.descriptionHelper')}
-            multiline
-            rows={3}
-          />
+              <FormChipInput
+                name="common_names"
+                control={control}
+                label={t('pages.species.commonNames')}
+                helperText={t('pages.species.commonNamesHelper')}
+              />
+              <FormRow>
+                <Box>
+                  <FormSelectField
+                    name="family_key"
+                    control={control}
+                    label={t('pages.species.family')}
+                    helperText={t('pages.species.familyHelper')}
+                    options={[
+                      { value: '', label: '\u2014' },
+                      ...families.map((f) => ({ value: f.key, label: f.name })),
+                    ]}
+                  />
+                  {current?.family_key && (
+                    <Link
+                      component={RouterLink}
+                      to={`/stammdaten/botanical-families/${current.family_key}`}
+                      variant="body2"
+                      sx={{ display: 'inline-block', mt: -1, mb: 1 }}
+                    >
+                      {t('pages.species.viewFamily')}
+                    </Link>
+                  )}
+                </Box>
+                <FormTextField
+                  name="genus"
+                  control={control}
+                  label={t('pages.species.genus')}
+                  helperText={t('pages.species.genusHelper')}
+                />
+              </FormRow>
+              <FormTextField
+                name="description"
+                control={control}
+                label={t('pages.species.description')}
+                helperText={t('pages.species.descriptionHelper')}
+                multiline
+                rows={3}
+              />
+            </CardContent>
+          </Card>
 
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-            {t('pages.species.sectionGrowth')}
-          </Typography>
-          <FormRow>
-            <FormSelectField
-              name="growth_habit"
-              control={control}
-              label={t('pages.species.growthHabit')}
-              helperText={t('pages.species.growthHabitHelper')}
-              options={['herb', 'shrub', 'tree', 'vine', 'groundcover'].map((v) => ({
-                value: v,
-                label: t(`enums.growthHabit.${v}`),
-              }))}
-            />
-            <FormSelectField
-              name="root_type"
-              control={control}
-              label={t('pages.species.rootType')}
-              helperText={t('pages.species.rootTypeHelper')}
-              options={['fibrous', 'taproot', 'tuberous', 'bulbous'].map((v) => ({
-                value: v,
-                label: t(`enums.rootType.${v}`),
-              }))}
-            />
-          </FormRow>
+          {/* ── Panel 2: Wachstum (intermediate) ── */}
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
+                {t('pages.species.sectionGrowth')}
+              </Typography>
+              <FormRow>
+                <FormSelectField
+                  name="growth_habit"
+                  control={control}
+                  label={t('pages.species.growthHabit')}
+                  helperText={t('pages.species.growthHabitHelper')}
+                  options={['herb', 'shrub', 'tree', 'vine', 'groundcover'].map((v) => ({
+                    value: v,
+                    label: t(`enums.growthHabit.${v}`),
+                  }))}
+                />
+                <ExpertiseFieldWrapper minLevel="expert">
+                  <FormSelectField
+                    name="root_type"
+                    control={control}
+                    label={t('pages.species.rootType')}
+                    helperText={t('pages.species.rootTypeHelper')}
+                    options={['fibrous', 'taproot', 'tuberous', 'bulbous'].map((v) => ({
+                      value: v,
+                      label: t(`enums.rootType.${v}`),
+                    }))}
+                  />
+                </ExpertiseFieldWrapper>
+              </FormRow>
+            </CardContent>
+          </Card>
 
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-            {t('pages.species.sectionEnvironment')}
-          </Typography>
-          <FormChipInput
-            name="hardiness_zones"
-            control={control}
-            label={t('pages.species.hardinessZones')}
-            helperText={t('pages.species.hardinessZonesHelper')}
-          />
-          <FormTextField
-            name="native_habitat"
-            control={control}
-            label={t('pages.species.nativeHabitat')}
-            helperText={t('pages.species.nativeHabitatHelper')}
-          />
-          <FormRow>
-            <FormNumberField
-              name="allelopathy_score"
-              control={control}
-              label={t('pages.species.allelopathyScore')}
-              helperText={t('pages.species.allelopathyScoreHelper')}
-              min={-1}
-              max={1}
-              step={0.1}
-            />
-            <FormNumberField
-              name="base_temp"
-              control={control}
-              label={t('pages.species.baseTemp')}
-              helperText={t('pages.species.baseTempHelper')}
-            />
-          </FormRow>
+          {/* ── Panel 3: Anbaubedingungen (intermediate — key cultivation info) ── */}
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
+                {t('pages.species.sectionCultivation')}
+              </Typography>
+              <FormRow>
+                <FormSelectField
+                  name="container_suitable"
+                  control={control}
+                  label={t('pages.species.containerSuitable')}
+                  helperText={t('pages.species.containerSuitableHelper')}
+                  options={[
+                    { value: '', label: '\u2014' },
+                    ...['yes', 'limited', 'no'].map((v) => ({
+                      value: v,
+                      label: t(`enums.suitability.${v}`),
+                    })),
+                  ]}
+                />
+                <FormSelectField
+                  name="indoor_suitable"
+                  control={control}
+                  label={t('pages.species.indoorSuitable')}
+                  helperText={t('pages.species.indoorSuitableHelper')}
+                  options={[
+                    { value: '', label: '\u2014' },
+                    ...['yes', 'limited', 'no'].map((v) => ({
+                      value: v,
+                      label: t(`enums.suitability.${v}`),
+                    })),
+                  ]}
+                />
+              </FormRow>
+              <FormRow>
+                <FormSelectField
+                  name="balcony_suitable"
+                  control={control}
+                  label={t('pages.species.balconySuitable')}
+                  helperText={t('pages.species.balconySuitableHelper')}
+                  options={[
+                    { value: '', label: '\u2014' },
+                    ...['yes', 'limited', 'no'].map((v) => ({
+                      value: v,
+                      label: t(`enums.suitability.${v}`),
+                    })),
+                  ]}
+                />
+                <FormSelectField
+                  name="default_nutrient_plan_key"
+                  control={control}
+                  label={t('pages.species.defaultNutrientPlan')}
+                  helperText={t('pages.species.defaultNutrientPlanHelper')}
+                  options={[
+                    { value: '', label: '\u2014' },
+                    ...nutrientPlans.map((p) => ({
+                      value: p.key,
+                      label: `${p.name}${p.is_template ? ` (${t('pages.nutrientPlans.isTemplate')})` : ''}`,
+                    })),
+                  ]}
+                />
+              </FormRow>
+              <FormRow>
+                <FormSwitchField
+                  name="greenhouse_recommended"
+                  control={control}
+                  label={t('pages.species.greenhouseRecommended')}
+                  helperText={t('pages.species.greenhouseRecommendedHelper')}
+                />
+                <FormSwitchField
+                  name="support_required"
+                  control={control}
+                  label={t('pages.species.supportRequired')}
+                  helperText={t('pages.species.supportRequiredHelper')}
+                />
+              </FormRow>
 
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-            {t('pages.species.sectionClassification')}
-          </Typography>
-          <FormChipInput
-            name="synonyms"
-            control={control}
-            label={t('pages.species.synonyms')}
-            helperText={t('pages.species.synonymsHelper')}
-          />
-          <FormRow>
-            <FormTextField
-              name="taxonomic_authority"
-              control={control}
-              label={t('pages.species.taxonomicAuthority')}
-              helperText={t('pages.species.taxonomicAuthorityHelper')}
-            />
-            <FormTextField
-              name="taxonomic_status"
-              control={control}
-              label={t('pages.species.taxonomicStatus')}
-              helperText={t('pages.species.taxonomicStatusHelper')}
-            />
-          </FormRow>
+              {/* Expert: Sizing & spacing details */}
+              <ExpertiseFieldWrapper minLevel="expert">
+                <FormRow>
+                  <FormTextField
+                    name="recommended_container_volume_l"
+                    control={control}
+                    label={t('pages.species.recommendedContainerVolumeL')}
+                    helperText={t('pages.species.recommendedContainerVolumeLHelper')}
+                  />
+                  <FormNumberField
+                    name="min_container_depth_cm"
+                    control={control}
+                    label={t('pages.species.minContainerDepthCm')}
+                    helperText={t('pages.species.minContainerDepthCmHelper')}
+                    min={1}
+                    max={200}
+                  />
+                </FormRow>
+                <FormRow>
+                  <FormTextField
+                    name="mature_height_cm"
+                    control={control}
+                    label={t('pages.species.matureHeightCm')}
+                    helperText={t('pages.species.matureHeightCmHelper')}
+                  />
+                  <FormTextField
+                    name="mature_width_cm"
+                    control={control}
+                    label={t('pages.species.matureWidthCm')}
+                    helperText={t('pages.species.matureWidthCmHelper')}
+                  />
+                </FormRow>
+                <FormRow>
+                  <FormTextField
+                    name="spacing_cm"
+                    control={control}
+                    label={t('pages.species.spacingCm')}
+                    helperText={t('pages.species.spacingCmHelper')}
+                  />
+                </FormRow>
+              </ExpertiseFieldWrapper>
+            </CardContent>
+          </Card>
 
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-            {t('pages.species.sectionCultivation')}
-          </Typography>
-          <FormRow>
-            <FormSelectField
-              name="container_suitable"
-              control={control}
-              label={t('pages.species.containerSuitable')}
-              helperText={t('pages.species.containerSuitableHelper')}
-              options={[
-                { value: '', label: '\u2014' },
-                ...['yes', 'limited', 'no'].map((v) => ({
-                  value: v,
-                  label: t(`enums.suitability.${v}`),
-                })),
-              ]}
-            />
-            <FormTextField
-              name="recommended_container_volume_l"
-              control={control}
-              label={t('pages.species.recommendedContainerVolumeL')}
-              helperText={t('pages.species.recommendedContainerVolumeLHelper')}
-            />
-          </FormRow>
-          <FormRow>
-            <FormNumberField
-              name="min_container_depth_cm"
-              control={control}
-              label={t('pages.species.minContainerDepthCm')}
-              helperText={t('pages.species.minContainerDepthCmHelper')}
-              min={1}
-              max={200}
-            />
-            <FormTextField
-              name="mature_height_cm"
-              control={control}
-              label={t('pages.species.matureHeightCm')}
-              helperText={t('pages.species.matureHeightCmHelper')}
-            />
-          </FormRow>
-          <FormRow>
-            <FormTextField
-              name="mature_width_cm"
-              control={control}
-              label={t('pages.species.matureWidthCm')}
-              helperText={t('pages.species.matureWidthCmHelper')}
-            />
-            <FormTextField
-              name="spacing_cm"
-              control={control}
-              label={t('pages.species.spacingCm')}
-              helperText={t('pages.species.spacingCmHelper')}
-            />
-          </FormRow>
-          <FormRow>
-            <FormSelectField
-              name="indoor_suitable"
-              control={control}
-              label={t('pages.species.indoorSuitable')}
-              helperText={t('pages.species.indoorSuitableHelper')}
-              options={[
-                { value: '', label: '\u2014' },
-                ...['yes', 'limited', 'no'].map((v) => ({
-                  value: v,
-                  label: t(`enums.suitability.${v}`),
-                })),
-              ]}
-            />
-            <FormSelectField
-              name="balcony_suitable"
-              control={control}
-              label={t('pages.species.balconySuitable')}
-              helperText={t('pages.species.balconySuitableHelper')}
-              options={[
-                { value: '', label: '\u2014' },
-                ...['yes', 'limited', 'no'].map((v) => ({
-                  value: v,
-                  label: t(`enums.suitability.${v}`),
-                })),
-              ]}
-            />
-          </FormRow>
-          <FormRow>
-            <FormSwitchField
-              name="greenhouse_recommended"
-              control={control}
-              label={t('pages.species.greenhouseRecommended')}
-              helperText={t('pages.species.greenhouseRecommendedHelper')}
-            />
-            <FormSwitchField
-              name="support_required"
-              control={control}
-              label={t('pages.species.supportRequired')}
-              helperText={t('pages.species.supportRequiredHelper')}
-            />
-          </FormRow>
-          <FormRow>
-            <FormSelectField
-              name="default_nutrient_plan_key"
-              control={control}
-              label={t('pages.species.defaultNutrientPlan')}
-              helperText={t('pages.species.defaultNutrientPlanHelper')}
-              options={[
-                { value: '', label: '—' },
-                ...nutrientPlans.map((p) => ({
-                  value: p.key,
-                  label: `${p.name}${p.is_template ? ` (${t('pages.nutrientPlans.isTemplate')})` : ''}`,
-                })),
-              ]}
-            />
-          </FormRow>
-          <FormActions onCancel={() => navigate(-1)} loading={saving} />
+          {/* ── Panel 4: Umgebung (expert) ── */}
+          {/* UI-NFR-008 R-041: Expert-only panel hidden as a whole */}
+          <ExpertiseFieldWrapper minLevel="expert">
+            <Card variant="outlined">
+              <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
+                  {t('pages.species.sectionEnvironment')}
+                </Typography>
+                <FormChipInput
+                  name="hardiness_zones"
+                  control={control}
+                  label={t('pages.species.hardinessZones')}
+                  helperText={t('pages.species.hardinessZonesHelper')}
+                />
+                <FormTextField
+                  name="native_habitat"
+                  control={control}
+                  label={t('pages.species.nativeHabitat')}
+                  helperText={t('pages.species.nativeHabitatHelper')}
+                />
+                <FormRow>
+                  <FormNumberField
+                    name="allelopathy_score"
+                    control={control}
+                    label={t('pages.species.allelopathyScore')}
+                    helperText={t('pages.species.allelopathyScoreHelper')}
+                    min={-1}
+                    max={1}
+                    step={0.1}
+                  />
+                  <FormNumberField
+                    name="base_temp"
+                    control={control}
+                    label={t('pages.species.baseTemp')}
+                    helperText={t('pages.species.baseTempHelper')}
+                  />
+                </FormRow>
+              </CardContent>
+            </Card>
+          </ExpertiseFieldWrapper>
 
-          {/* Watering Guide (read-only display from seed data) */}
+          {/* ── Panel 5: Klassifikation (expert) ── */}
+          {/* UI-NFR-008 R-041: Expert-only panel hidden as a whole */}
+          <ExpertiseFieldWrapper minLevel="expert">
+            <Card variant="outlined">
+              <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
+                  {t('pages.species.sectionClassification')}
+                </Typography>
+                <FormChipInput
+                  name="synonyms"
+                  control={control}
+                  label={t('pages.species.synonyms')}
+                  helperText={t('pages.species.synonymsHelper')}
+                />
+                <FormRow>
+                  <FormTextField
+                    name="taxonomic_authority"
+                    control={control}
+                    label={t('pages.species.taxonomicAuthority')}
+                    helperText={t('pages.species.taxonomicAuthorityHelper')}
+                  />
+                  <FormTextField
+                    name="taxonomic_status"
+                    control={control}
+                    label={t('pages.species.taxonomicStatus')}
+                    helperText={t('pages.species.taxonomicStatusHelper')}
+                  />
+                </FormRow>
+              </CardContent>
+            </Card>
+          </ExpertiseFieldWrapper>
+
+          {/* ── Watering Guide (read-only, before actions) ── */}
           {current?.watering_guide ? (
-            <Card variant="outlined" sx={{ mt: 3 }}>
+            <Card variant="outlined">
               <CardContent>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="h6" sx={{ pt: 1.5, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                   <OpacityIcon fontSize="small" />
                   {t('pages.species.sectionWateringGuide')}
                 </Typography>
@@ -549,10 +594,17 @@ export default function SpeciesDetailPage() {
               </CardContent>
             </Card>
           ) : (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            <Typography variant="body2" color="text.secondary">
               {t('pages.species.noWateringGuide')}
             </Typography>
           )}
+
+          {/* UI-NFR-008 R-025: Required field legend */}
+          <Typography variant="caption" color="text.secondary">
+            * {t('common.required')}
+          </Typography>
+
+          <FormActions onCancel={() => navigate(-1)} loading={saving} />
         </Box>
       )}
 

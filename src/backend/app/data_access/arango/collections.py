@@ -76,6 +76,7 @@ CARE_CONFIRMATIONS = "care_confirmations"
 STARTER_KITS = "starter_kits"
 ONBOARDING_STATES = "onboarding_states"
 USER_PREFERENCES = "user_preferences"
+USER_FAVORITES = "user_favorites"
 
 # REQ-012 Import
 IMPORT_JOBS = "import_jobs"
@@ -296,6 +297,7 @@ RUN_FOLLOWS_PLAN = "run_follows_plan"
 INCLUDES_SPECIES = "includes_species"
 INCLUDES_CULTIVAR = "includes_cultivar"
 INCLUDES_TEMPLATE = "includes_template"
+INCLUDES_NUTRIENT_PLAN = "includes_nutrient_plan"
 CREATED_BY_WIZARD = "created_by_wizard"
 
 EDGE_COLLECTIONS = [
@@ -388,7 +390,9 @@ EDGE_COLLECTIONS = [
     INCLUDES_SPECIES,
     INCLUDES_CULTIVAR,
     INCLUDES_TEMPLATE,
+    INCLUDES_NUTRIENT_PLAN,
     CREATED_BY_WIZARD,
+    USER_FAVORITES,
     RUN_FOLLOWS_PLAN,
     MONITORS_TANK,
     LOCATED_AT,
@@ -859,9 +863,19 @@ GRAPH_EDGE_DEFINITIONS = [
         "to_vertex_collections": [WORKFLOW_TEMPLATES],
     },
     {
+        "edge_collection": INCLUDES_NUTRIENT_PLAN,
+        "from_vertex_collections": [STARTER_KITS],
+        "to_vertex_collections": [NUTRIENT_PLANS],
+    },
+    {
         "edge_collection": CREATED_BY_WIZARD,
         "from_vertex_collections": [ONBOARDING_STATES],
         "to_vertex_collections": [PLANT_INSTANCES],
+    },
+    {
+        "edge_collection": USER_FAVORITES,
+        "from_vertex_collections": [USERS],
+        "to_vertex_collections": [SPECIES, NUTRIENT_PLANS, FERTILIZERS],
     },
     # Watering Schedule
     {
@@ -1055,6 +1069,11 @@ def ensure_collections(db: StandardDatabase) -> None:
     starter_kits_col = db.collection(STARTER_KITS)
     starter_kits_col.add_hash_index(fields=["kit_id"], unique=True)
     starter_kits_col.add_hash_index(fields=["difficulty", "sort_order"], unique=False)
+
+    # REQ-020 User Favorites indexes
+    user_favorites_col = db.collection(USER_FAVORITES)
+    user_favorites_col.add_hash_index(fields=["_from", "_to"], unique=True)
+    user_favorites_col.add_hash_index(fields=["_from"], unique=False)
 
     # REQ-012 Import indexes
     import_jobs_col = db.collection(IMPORT_JOBS)

@@ -1,0 +1,666 @@
+{
+  "analysisDate": "2026-03-17",
+  "documents": [
+    {"file": "spec/req/REQ-001_Stammdatenverwaltung.md", "version": "4.0", "type": "functional"},
+    {"file": "spec/req/REQ-002_Standortverwaltung.md", "version": "4.2", "type": "functional"},
+    {"file": "spec/req/REQ-003_Phasensteuerung.md", "version": "unknown", "type": "functional"},
+    {"file": "spec/req/REQ-004_Duenge-Logik.md", "version": "3.2", "type": "functional"},
+    {"file": "spec/req/REQ-005_Hybrid-Sensorik.md", "version": "2.6", "type": "functional"},
+    {"file": "spec/req/REQ-006_Aufgabenplanung.md", "version": "2.7", "type": "functional"},
+    {"file": "spec/req/REQ-007_Erntemanagement.md", "version": "unknown", "type": "functional"},
+    {"file": "spec/req/REQ-008_Post-Harvest.md", "version": "unknown", "type": "functional"},
+    {"file": "spec/req/REQ-009_Dashboard.md", "version": "unknown", "type": "functional"},
+    {"file": "spec/req/REQ-010_IPM-System.md", "version": "unknown", "type": "functional"},
+    {"file": "spec/req/REQ-011_Externe-Stammdatenanreicherung.md", "version": "unknown", "type": "functional"},
+    {"file": "spec/req/REQ-012_Stammdaten-Import.md", "version": "unknown", "type": "functional"},
+    {"file": "spec/req/REQ-013_Pflanzdurchlauf.md", "version": "1.2", "type": "functional"},
+    {"file": "spec/req/REQ-014_Tankmanagement.md", "version": "1.4", "type": "functional"},
+    {"file": "spec/req/REQ-015_Kalenderansicht.md", "version": "1.1", "type": "functional"},
+    {"file": "spec/req/REQ-016_InvenTree-Integration.md", "version": "unknown", "type": "functional"},
+    {"file": "spec/req/REQ-017_Vermehrungsmanagement.md", "version": "unknown", "type": "functional"},
+    {"file": "spec/req/REQ-018_Umgebungssteuerung.md", "version": "unknown", "type": "functional"},
+    {"file": "spec/req/REQ-019_Substratverwaltung.md", "version": "unknown", "type": "functional"},
+    {"file": "spec/req/REQ-020_Onboarding-Wizard.md", "version": "1.1", "type": "functional"},
+    {"file": "spec/req/REQ-021_UI-Erfahrungsstufen.md", "version": "unknown", "type": "functional"},
+    {"file": "spec/req/REQ-022_Pflegeerinnerungen.md", "version": "2.3", "type": "functional"},
+    {"file": "spec/req/REQ-023_Benutzerverwaltung-Authentifizierung.md", "version": "1.7", "type": "functional"},
+    {"file": "spec/req/REQ-024_Mandantenverwaltung-Gemeinschaftsgaerten.md", "version": "1.4", "type": "functional"},
+    {"file": "spec/req/REQ-025_Datenschutz-Betroffenenrechte.md", "version": "1.0", "type": "functional"},
+    {"file": "spec/req/REQ-027_Light-Modus.md", "version": "1.2", "type": "functional"},
+    {"file": "spec/req/REQ-028_Mischkultur-Companion-Planting.md", "version": "unknown", "type": "functional"},
+    {"file": "spec/nfr/NFR-001_Separation-of-Concerns.md", "version": "2.2", "type": "non-functional"},
+    {"file": "spec/nfr/NFR-002_Infrastruktur-Kubernetes.md", "version": "unknown", "type": "non-functional"},
+    {"file": "spec/nfr/NFR-003_Sprache-Englisch.md", "version": "unknown", "type": "non-functional"},
+    {"file": "spec/nfr/NFR-004_Logging-Observability.md", "version": "unknown", "type": "non-functional"},
+    {"file": "spec/nfr/NFR-005_Datenbankmodell.md", "version": "unknown", "type": "non-functional"},
+    {"file": "spec/nfr/NFR-006_CI-CD.md", "version": "unknown", "type": "non-functional"},
+    {"file": "spec/nfr/NFR-007_Betriebsstabilitaet-Monitoring.md", "version": "1.0", "type": "non-functional"},
+    {"file": "spec/nfr/NFR-008_Testabdeckung.md", "version": "unknown", "type": "non-functional"},
+    {"file": "spec/nfr/NFR-009_Datenschutz-by-Design.md", "version": "unknown", "type": "non-functional"},
+    {"file": "spec/nfr/NFR-010_Accessibility.md", "version": "unknown", "type": "non-functional"},
+    {"file": "spec/nfr/NFR-011_Vorratsdatenspeicherung-Aufbewahrungsfristen.md", "version": "1.0", "type": "non-functional"},
+    {"file": "spec/ui-nfr/UI-NFR-001_Responsive-Design.md", "version": "unknown", "type": "ui-non-functional"},
+    {"file": "spec/ui-nfr/UI-NFR-002_Barrierefreiheit.md", "version": "unknown", "type": "ui-non-functional"},
+    {"file": "spec/ui-nfr/UI-NFR-003_Performance.md", "version": "unknown", "type": "ui-non-functional"},
+    {"file": "spec/ui-nfr/UI-NFR-004_Internationalisierung.md", "version": "unknown", "type": "ui-non-functional"},
+    {"file": "spec/ui-nfr/UI-NFR-005_Themes.md", "version": "unknown", "type": "ui-non-functional"},
+    {"file": "spec/ui-nfr/UI-NFR-006_Navigation.md", "version": "unknown", "type": "ui-non-functional"},
+    {"file": "spec/ui-nfr/UI-NFR-007_Fehlerbehandlung.md", "version": "unknown", "type": "ui-non-functional"},
+    {"file": "spec/ui-nfr/UI-NFR-008_Formulare.md", "version": "unknown", "type": "ui-non-functional"},
+    {"file": "spec/ui-nfr/UI-NFR-009_Zustandsanzeigen.md", "version": "unknown", "type": "ui-non-functional"},
+    {"file": "spec/ui-nfr/UI-NFR-010_Datenvisualisierung.md", "version": "unknown", "type": "ui-non-functional"},
+    {"file": "spec/ui-nfr/UI-NFR-011_Codequalitaet.md", "version": "unknown", "type": "ui-non-functional"},
+    {"file": "spec/ui-nfr/UI-NFR-012_PWA-Offline.md", "version": "2.0", "type": "ui-non-functional"},
+    {"file": "spec/ui-nfr/UI-NFR-013_Einwilligungsmanagement-Consent.md", "version": "1.0", "type": "ui-non-functional"},
+    {"file": "spec/ui-nfr/UI-NFR-014_Expertise-Level.md", "version": "unknown", "type": "ui-non-functional"},
+    {"file": "spec/ui-nfr/UI-NFR-015_Mobile-First.md", "version": "unknown", "type": "ui-non-functional"},
+    {"file": "spec/ui-nfr/UI-NFR-016_State-Management.md", "version": "unknown", "type": "ui-non-functional"},
+    {"file": "spec/ui-nfr/UI-NFR-017_Seitenlayout-Seitenueberschriften.md", "version": "unknown", "type": "ui-non-functional"}
+  ],
+  "functional": [
+    {
+      "id": "FA-001",
+      "doc": "spec/req/REQ-025_Datenschutz-Betroffenenrechte.md",
+      "area": "DSGVO",
+      "section": "§1",
+      "text": "Nutzer kann vollstaendige Loeschung seines Accounts und aller zugehoerigen Daten beantragen (Art. 17 DSGVO)",
+      "contradictions": ["W-001"]
+    },
+    {
+      "id": "FA-002",
+      "doc": "spec/req/REQ-025_Datenschutz-Betroffenenrechte.md",
+      "area": "DSGVO",
+      "section": "§1 Szenario 3",
+      "text": "Erntedaten/Behandlungen: User-Referenz anonymisiert, Daten bleiben bestehen (CanG/PflSchG)",
+      "contradictions": ["W-001"]
+    },
+    {
+      "id": "FA-003",
+      "doc": "spec/req/REQ-027_Light-Modus.md",
+      "area": "Light-Modus",
+      "section": "§1",
+      "text": "Light-Modus deaktiviert Auth, Tenants und DSGVO-Consent-Banner",
+      "contradictions": ["W-002", "W-008"]
+    },
+    {
+      "id": "FA-004",
+      "doc": "spec/req/REQ-027_Light-Modus.md",
+      "area": "Light-Modus",
+      "section": "§1.1 Szenario 2",
+      "text": "Mehrere Geraete im LAN teilen denselben System-User ohne Authentifizierung",
+      "contradictions": ["W-002"]
+    },
+    {
+      "id": "FA-005",
+      "doc": "spec/req/REQ-023_Benutzerverwaltung-Authentifizierung.md",
+      "area": "Authentifizierung",
+      "section": "§1",
+      "text": "Refresh-Token mit 30 Tagen Laufzeit (persistent, HttpOnly Cookie, Rotation)",
+      "contradictions": ["W-004"]
+    },
+    {
+      "id": "FA-006",
+      "doc": "spec/req/REQ-023_Benutzerverwaltung-Authentifizierung.md",
+      "area": "Authentifizierung",
+      "section": "v1.2",
+      "text": "IP-Adressen werden nach 7 Tagen anonymisiert",
+      "contradictions": []
+    },
+    {
+      "id": "FA-007",
+      "doc": "spec/req/REQ-004_Duenge-Logik.md",
+      "area": "Duengung",
+      "section": "§1 Mischsequenz",
+      "text": "Silizium-Zusaetze werden als erstes in den Tank gegeben",
+      "contradictions": ["W-016"]
+    },
+    {
+      "id": "FA-008",
+      "doc": "spec/req/REQ-004_Duenge-Logik.md",
+      "area": "Duengung",
+      "section": "§1 Mischsequenz",
+      "text": "CalMag wird vor Base-A und Base-B eingemischt",
+      "contradictions": ["W-016"]
+    },
+    {
+      "id": "FA-009",
+      "doc": "spec/req/REQ-004_Duenge-Logik.md",
+      "area": "Duengung",
+      "section": "§1 Foliar",
+      "text": "Foliar-Anwendung in der Bluetephase ab Woche 2 wird per Soft-Warnung blockiert",
+      "contradictions": []
+    },
+    {
+      "id": "FA-010",
+      "doc": "spec/req/REQ-004_Duenge-Logik.md",
+      "area": "Duengung",
+      "section": "§1 Ausnahmen",
+      "text": "IPM-Notfallbehandlungen sind von der Foliar-Warnung in der Bluetephase ausgenommen",
+      "contradictions": []
+    },
+    {
+      "id": "FA-011",
+      "doc": "spec/req/REQ-007_Erntemanagement.md",
+      "area": "Ernte",
+      "section": "§1 Karenz-Gate",
+      "text": "Karenzzeit-Gate blockiert Ernteerstellung wenn noch laufende IPM-Behandlungen mit offener Karenzzeit vorhanden",
+      "contradictions": ["W-003"]
+    },
+    {
+      "id": "FA-012",
+      "doc": "spec/req/REQ-011_Externe-Stammdatenanreicherung.md",
+      "area": "Anreicherung",
+      "section": "§1",
+      "text": "Externe Stammdatenanreicherung (GBIF, Perenual) benoetigt optionale Nutzereinwilligung",
+      "contradictions": ["W-008"]
+    },
+    {
+      "id": "FA-013",
+      "doc": "spec/req/REQ-021_UI-Erfahrungsstufen.md",
+      "area": "UI-Modus",
+      "section": "§1",
+      "text": "Backend liefert immer alle Felder; Sichtbarkeits-Filterung ausschliesslich im Frontend per fieldConfigs.ts",
+      "contradictions": ["W-011"]
+    },
+    {
+      "id": "FA-014",
+      "doc": "spec/req/REQ-023_Benutzerverwaltung-Authentifizierung.md",
+      "area": "Authentifizierung",
+      "section": "§1 Token",
+      "text": "Access-Token TTL betraegt 15 Minuten (authlib.jose)",
+      "contradictions": ["W-004"]
+    },
+    {
+      "id": "FA-015",
+      "doc": "spec/req/REQ-024_Mandantenverwaltung-Gemeinschaftsgaerten.md",
+      "area": "Multi-Tenancy",
+      "section": "§1",
+      "text": "Alle Ressourcen gehoeren zu genau einem Tenant; keine tenantuebergreifenden direkten Verbindungen",
+      "contradictions": []
+    },
+    {
+      "id": "FA-016",
+      "doc": "spec/req/REQ-027_Light-Modus.md",
+      "area": "Light-Modus",
+      "section": "§1.1",
+      "text": "System-User (KAMERPLANTER_SYSTEM_USER) wird fuer alle Aktionen ohne Authentifizierung verwendet",
+      "contradictions": ["W-002", "W-008"]
+    },
+    {
+      "id": "FA-017",
+      "doc": "spec/req/REQ-020_Onboarding-Wizard.md",
+      "area": "Onboarding",
+      "section": "§1",
+      "text": "Onboarding laeuft auch im Light-Modus ohne Login-Schritt ab",
+      "contradictions": []
+    },
+    {
+      "id": "FA-018",
+      "doc": "spec/req/REQ-005_Hybrid-Sensorik.md",
+      "area": "Sensorik",
+      "section": "§1 Fallback",
+      "text": "Automatische Sensor-Fallback-Kette: HA automatisch -> MQTT -> Wetter-API -> Manuell",
+      "contradictions": ["W-003", "W-006"]
+    },
+    {
+      "id": "FA-019",
+      "doc": "spec/req/REQ-018_Umgebungssteuerung.md",
+      "area": "Aktorik",
+      "section": "§1",
+      "text": "Phasengebundene Aktoren-Profile werden bei Phasenwechsel serverseitig automatisch angepasst",
+      "contradictions": ["W-003", "W-007"]
+    },
+    {
+      "id": "FA-020",
+      "doc": "spec/req/REQ-003_Phasensteuerung.md",
+      "area": "Phasen",
+      "section": "§1 Zustandsmaschine",
+      "text": "Keine Rueckwaerts-Transitionen erlaubt; Validierung serverseitig",
+      "contradictions": ["W-007"]
+    },
+    {
+      "id": "FA-021",
+      "doc": "spec/req/REQ-022_Pflegeerinnerungen.md",
+      "area": "Pflege",
+      "section": "§1 Wetter",
+      "text": "Giess-Erinnerungen werden bei >5mm Regen-Vorhersage automatisch unterdrueckt (REQ-005-Integration)",
+      "contradictions": []
+    },
+    {
+      "id": "FA-022",
+      "doc": "spec/req/REQ-013_Pflanzdurchlauf.md",
+      "area": "Durchlauf",
+      "section": "§1 Mischkultur",
+      "text": "Mischkultur-Runs erlauben mehrere Pflanzenarten innerhalb eines Durchlaufs",
+      "contradictions": []
+    },
+    {
+      "id": "FA-023",
+      "doc": "spec/req/REQ-001_Stammdatenverwaltung.md",
+      "area": "Stammdaten",
+      "section": "§2 Scoping",
+      "text": "Tenant kann Species-Zugaenge ausblenden (hidden-Flag via TenantSpeciesConfig)",
+      "contradictions": ["W-010"]
+    },
+    {
+      "id": "FA-024",
+      "doc": "spec/req/REQ-028_Mischkultur-Companion-Planting.md",
+      "area": "Mischkultur",
+      "section": "§1 Graph",
+      "text": "Companion-Planting-Empfehlungen basieren auf Graph-Traversal ueber compatible_with/incompatible_with Edges",
+      "contradictions": ["W-010"]
+    }
+  ],
+  "nonFunctional": [
+    {
+      "id": "NFA-001",
+      "doc": "spec/nfr/NFR-007_Betriebsstabilitaet-Monitoring.md",
+      "category": "Performance",
+      "section": "§2.2 SLO",
+      "text": "API-Latenz P50 muss kleiner als 200ms sein",
+      "measurable": true,
+      "metric": "P50 < 200ms",
+      "contradictions": ["W-005", "W-012"]
+    },
+    {
+      "id": "NFA-002",
+      "doc": "spec/nfr/NFR-007_Betriebsstabilitaet-Monitoring.md",
+      "category": "Performance",
+      "section": "§2.2 SLO",
+      "text": "API-Latenz P95 muss kleiner als 500ms sein",
+      "measurable": true,
+      "metric": "P95 < 500ms",
+      "contradictions": ["W-005"]
+    },
+    {
+      "id": "NFA-003",
+      "doc": "spec/nfr/NFR-007_Betriebsstabilitaet-Monitoring.md",
+      "category": "Verfuegbarkeit",
+      "section": "§2.2 SLO",
+      "text": "System-Uptime muss >= 99,5% betragen",
+      "measurable": true,
+      "metric": ">= 99.5% Uptime",
+      "contradictions": []
+    },
+    {
+      "id": "NFA-004",
+      "doc": "spec/nfr/NFR-007_Betriebsstabilitaet-Monitoring.md",
+      "category": "Resilience",
+      "section": "§4.3",
+      "text": "Alle externen Netzwerkaufrufe haben explizite Timeouts",
+      "measurable": true,
+      "metric": "Timeout vorhanden (Wert nicht spezifiziert)",
+      "contradictions": []
+    },
+    {
+      "id": "NFA-005",
+      "doc": "spec/nfr/NFR-008_Testabdeckung.md",
+      "category": "Testing",
+      "section": "§2.1",
+      "text": "Unit-Test-Coverage muss >= 80% betragen",
+      "measurable": true,
+      "metric": ">= 80% Coverage",
+      "contradictions": []
+    },
+    {
+      "id": "NFA-006",
+      "doc": "spec/nfr/NFR-003_Sprache-Englisch.md",
+      "category": "Code-Qualitaet",
+      "section": "§1",
+      "text": "Gesamter Source Code (Variablen, Funktionen, Kommentare) auf Englisch",
+      "measurable": true,
+      "metric": "100% englischer Sourcecode",
+      "contradictions": ["W-015"]
+    },
+    {
+      "id": "NFA-007",
+      "doc": "spec/nfr/NFR-011_Vorratsdatenspeicherung-Aufbewahrungsfristen.md",
+      "category": "DSGVO",
+      "section": "§2.1 R-01",
+      "text": "Soft-deleted Accounts werden nach 90 Tagen automatisch hard-deleted",
+      "measurable": true,
+      "metric": "90 Tage Soft-Delete-Fenster",
+      "contradictions": []
+    },
+    {
+      "id": "NFA-008",
+      "doc": "spec/nfr/NFR-011_Vorratsdatenspeicherung-Aufbewahrungsfristen.md",
+      "category": "DSGVO/Gesetz",
+      "section": "§2.3 R-16",
+      "text": "Erntedaten mindestens 5 Jahre aufbewahren (CanG), Behandlungsanwendungen mindestens 3 Jahre (PflSchG)",
+      "measurable": true,
+      "metric": "5 Jahre Harvest / 3 Jahre Treatment",
+      "contradictions": ["W-001"]
+    },
+    {
+      "id": "NFA-009",
+      "doc": "spec/nfr/NFR-011_Vorratsdatenspeicherung-Aufbewahrungsfristen.md",
+      "category": "DSGVO",
+      "section": "§2.1 R-05",
+      "text": "IP-Adressen werden spaetestens nach 7 Tagen anonymisiert",
+      "measurable": true,
+      "metric": "7 Tage Anonymisierungsfrist",
+      "contradictions": []
+    },
+    {
+      "id": "NFA-010",
+      "doc": "spec/nfr/NFR-011_Vorratsdatenspeicherung-Aufbewahrungsfristen.md",
+      "category": "DSGVO",
+      "section": "§2.2 R-10",
+      "text": "Sensor-Rohdaten nach 90 Tagen geloescht/zu Stundenmittelwerten aggregiert",
+      "measurable": true,
+      "metric": "90 Tage Rohdaten, 2 Jahre Stunden, 5 Jahre Tages-Aggregat",
+      "contradictions": ["W-009"]
+    },
+    {
+      "id": "NFA-011",
+      "doc": "spec/ui-nfr/UI-NFR-003_Performance.md",
+      "category": "Performance",
+      "section": "§2.1",
+      "text": "First Contentful Paint muss kleiner als 1,5 Sekunden sein",
+      "measurable": true,
+      "metric": "FCP < 1.5s",
+      "contradictions": ["W-012"]
+    },
+    {
+      "id": "NFA-012",
+      "doc": "spec/ui-nfr/UI-NFR-003_Performance.md",
+      "category": "Performance",
+      "section": "§2.1",
+      "text": "Interaction to Next Paint (INP) muss kleiner als 200ms sein",
+      "measurable": true,
+      "metric": "INP < 200ms",
+      "contradictions": []
+    },
+    {
+      "id": "NFA-013",
+      "doc": "spec/ui-nfr/UI-NFR-012_PWA-Offline.md",
+      "category": "Offline",
+      "section": "§2",
+      "text": "PWA muss offline-faehig sein; Beobachtungen und Aufgaben koennen ohne Verbindung erfasst werden",
+      "measurable": true,
+      "metric": "Offline-Funktionalitaet vorhanden (Umfang nicht vollstaendig spezifiziert)",
+      "contradictions": ["W-003", "W-007"]
+    },
+    {
+      "id": "NFA-014",
+      "doc": "spec/ui-nfr/UI-NFR-012_PWA-Offline.md",
+      "category": "Offline",
+      "section": "§3 Konflikte",
+      "text": "Offline-Konflikte werden per Last-Write-Wins automatisch zusammengefuehrt",
+      "measurable": true,
+      "metric": "Last-Write-Wins fuer alle Offline-Konflikte",
+      "contradictions": ["W-003"]
+    },
+    {
+      "id": "NFA-015",
+      "doc": "spec/ui-nfr/UI-NFR-013_Einwilligungsmanagement-Consent.md",
+      "category": "Consent",
+      "section": "§3.1 CB-001",
+      "text": "Beim ersten Besuch eines neuen Nutzers MUSS ein Consent-Banner angezeigt werden",
+      "measurable": true,
+      "metric": "Consent-Banner beim ersten Visit",
+      "contradictions": ["W-002", "W-008"]
+    },
+    {
+      "id": "NFA-016",
+      "doc": "spec/ui-nfr/UI-NFR-013_Einwilligungsmanagement-Consent.md",
+      "category": "Consent",
+      "section": "§3.1",
+      "text": "App bleibt ohne jegliche Einwilligung voll funktionsfaehig (kein Consent-Wall)",
+      "measurable": true,
+      "metric": "Volle Funktionalitaet ohne Consent",
+      "contradictions": []
+    },
+    {
+      "id": "NFA-017",
+      "doc": "spec/ui-nfr/UI-NFR-002_Barrierefreiheit.md",
+      "category": "Barrierefreiheit",
+      "section": "§2.1",
+      "text": "Barrierefreiheit nach WCAG 2.1 Level AA",
+      "measurable": true,
+      "metric": "WCAG 2.1 AA konform",
+      "contradictions": []
+    },
+    {
+      "id": "NFA-018",
+      "doc": "spec/nfr/NFR-001_Separation-of-Concerns.md",
+      "category": "Sicherheit",
+      "section": "§6 (REQ-023 v1.7 Abweichung)",
+      "text": "JWT Access-Token TTL 15 Minuten (REQ-023 ueberschreibt NFR-001 §6.1 explizit)",
+      "measurable": true,
+      "metric": "15 Minuten Access-Token-Laufzeit",
+      "contradictions": ["W-004"]
+    },
+    {
+      "id": "NFA-019",
+      "doc": "spec/nfr/NFR-001_Separation-of-Concerns.md",
+      "category": "Sicherheit",
+      "section": "§5",
+      "text": "Alle sensiblen Daten muessen verschluesselt gespeichert werden",
+      "measurable": false,
+      "metric": null,
+      "contradictions": ["W-005"]
+    },
+    {
+      "id": "NFA-020",
+      "doc": "spec/nfr/NFR-007_Betriebsstabilitaet-Monitoring.md",
+      "category": "Rate Limiting",
+      "section": "§4.6",
+      "text": "Per-Client Rate Limit 100 Req/min; fuer Service Accounts (HA) nicht explizit ausgenommen",
+      "measurable": true,
+      "metric": "100 Req/min per Client",
+      "contradictions": ["W-006"]
+    },
+    {
+      "id": "NFA-021",
+      "doc": "spec/nfr/NFR-011_Vorratsdatenspeicherung-Aufbewahrungsfristen.md",
+      "category": "DSGVO",
+      "section": "§2.1 R-04",
+      "text": "Consent-Records 3 Jahre nach Widerruf behalten (Nachweispflicht)",
+      "measurable": true,
+      "metric": "3 Jahre Consent-Retention nach Widerruf",
+      "contradictions": []
+    },
+    {
+      "id": "NFA-022",
+      "doc": "spec/req/REQ-025_Datenschutz-Betroffenenrechte.md",
+      "category": "DSGVO",
+      "section": "§1 Art. 7",
+      "text": "Widerruf einer Einwilligung muss sofort wirksam sein und die betroffene Funktion deaktivieren",
+      "measurable": false,
+      "metric": null,
+      "contradictions": []
+    },
+    {
+      "id": "NFA-023",
+      "doc": "spec/ui-nfr/UI-NFR-001_Responsive-Design.md",
+      "category": "Layout",
+      "section": "§2.3",
+      "text": "Kein festes maxWidth auf dem Content-Container — Content soll den vollen verfuegbaren Platz nutzen",
+      "measurable": true,
+      "metric": "Kein maxWidth Constraint",
+      "contradictions": []
+    },
+    {
+      "id": "NFA-024",
+      "doc": "spec/nfr/NFR-002_Infrastruktur-Kubernetes.md",
+      "category": "Infrastruktur",
+      "section": "§1",
+      "text": "Kubernetes 1.28+ ist verpflichtende Produktionsplattform",
+      "measurable": true,
+      "metric": "K8s >= 1.28",
+      "contradictions": []
+    },
+    {
+      "id": "NFA-025",
+      "doc": "spec/nfr/NFR-007_Betriebsstabilitaet-Monitoring.md",
+      "category": "Resilience",
+      "section": "§4.5",
+      "text": "Redis-Ausfall degradiert zu direkten DB-Abfragen statt Totalausfall (graceful degradation)",
+      "measurable": true,
+      "metric": "Graceful degradation bei Redis-Ausfall",
+      "contradictions": []
+    }
+  ],
+  "contradictions": [
+    {
+      "id": "W-001",
+      "severity": "CRITICAL",
+      "type": "implicit",
+      "title": "DSGVO-Loeschrecht vs. gesetzliche Aufbewahrungspflicht (CanG/PflSchG)",
+      "requires": ["FA-001", "FA-002", "NFA-008"],
+      "description": "REQ-025 formuliert vollstaendige Loeschung; NFR-011 spezifiziert Anonymisierung (keine Loeschung) fuer gesetzlich geschuetzte Daten. UI-Kommunikation nicht geklaert."
+    },
+    {
+      "id": "W-002",
+      "severity": "CRITICAL",
+      "type": "direct",
+      "title": "Light-Modus deaktiviert DSGVO-Consent ohne rechtliche Abgrenzung",
+      "requires": ["FA-003", "FA-004", "NFA-015", "NFA-019"],
+      "description": "REQ-027 deaktiviert den Consent-Banner explizit; UI-NFR-013 definiert diesen als MUSS-Anforderung. Haushaltsausnahme (Art. 2 Abs. 2 lit. c DSGVO) nicht erwaehnt."
+    },
+    {
+      "id": "W-003",
+      "severity": "CRITICAL",
+      "type": "implicit",
+      "title": "Offline-Faehigkeit (PWA) vs. serverseitige Safety-Gates",
+      "requires": ["NFA-013", "NFA-014", "FA-018", "FA-019", "FA-011"],
+      "description": "Last-Write-Wins-Konfliktaufloesung ist fuer Safety-kritische Daten (Karenzzeit-Gate, Phasenwechsel mit Aktoren) ungeeignet. Offline-Umfang nicht abgegrenzt."
+    },
+    {
+      "id": "W-004",
+      "severity": "HIGH",
+      "type": "direct",
+      "title": "NFR-001 §6.1 vs. REQ-023 v1.7 — JWT-Bibliothek und Access-Token-TTL",
+      "requires": ["FA-014", "NFA-018"],
+      "description": "NFR-001 §6.1 referenziert python-jose (unmaintained) mit 1h TTL. REQ-023 v1.7 definiert authlib.jose mit 15min TTL. NFR-001 wurde nicht aktualisiert, Widerspruch im Quelltext vorhanden."
+    },
+    {
+      "id": "W-005",
+      "severity": "HIGH",
+      "type": "prioritization",
+      "title": "Performance-SLOs vs. kryptographische Ende-zu-Ende-Verarbeitung",
+      "requires": ["NFA-001", "NFA-002", "NFA-019"],
+      "description": "P50 < 200ms und P95 < 500ms koennen bei EC-Budget-Kalkulation (komplexe AQL + Pydantic-Validierung) mit Vollverschluesselung unter Last nicht garantiert werden."
+    },
+    {
+      "id": "W-006",
+      "severity": "HIGH",
+      "type": "prioritization",
+      "title": "Rate Limiting fuer Home Assistant Service Accounts zu restriktiv",
+      "requires": ["NFA-020", "FA-018"],
+      "description": "NFR-007 definiert 100 Req/min per Client. Home Assistant pollt Sensordaten typisch alle 10s pro Sensor — bei 20 Sensoren = 120 Req/min. Keine Ausnahme fuer Service Accounts definiert."
+    },
+    {
+      "id": "W-007",
+      "severity": "HIGH",
+      "type": "implicit",
+      "title": "Offline-Phasenwechsel umgeht Aktoren-Trigger",
+      "requires": ["NFA-013", "FA-019", "FA-020"],
+      "description": "REQ-018 Aktoren-Profile werden bei Phasenwechsel serverseitig ausgeloest. Wenn ein Phasenwechsel offline erfolgt und spaeter synchronisiert wird, ist der Aktoren-Trigger-Zeitpunkt nicht mehr rekonstruierbar."
+    },
+    {
+      "id": "W-008",
+      "severity": "HIGH",
+      "type": "scope",
+      "title": "Consent fuer externe Dienste (HIBP, Sentry, Anreicherung) im Light-Modus",
+      "requires": ["FA-003", "FA-012", "NFA-015"],
+      "description": "UI-NFR-013 definiert Sentry, HIBP und externe Anreicherung als Opt-In. REQ-027 deaktiviert den gesamten Consent-Mechanismus im Light-Modus, ohne diese optionalen Dienste zu adressieren."
+    },
+    {
+      "id": "W-009",
+      "severity": "MEDIUM",
+      "type": "temporal",
+      "title": "Sensor-Daten-Retention vs. Langzeit-Wachstumsverlauf",
+      "requires": ["NFA-010"],
+      "description": "NFR-011 sieht Sensor-Rohdaten-Loeschung nach 90 Tagen vor. Pflanzdurchlaeufe koennen laenger als 90 Tage dauern. Ob Tages-Aggregatwerte fuer Pflanzverlaufs-Analyse ausreichen, ist nicht spezifiziert."
+    },
+    {
+      "id": "W-010",
+      "severity": "MEDIUM",
+      "type": "implicit",
+      "title": "Stammdaten-Scoping hidden-Flag vs. Companion-Planting-Graph-Traversal",
+      "requires": ["FA-023", "FA-024"],
+      "description": "REQ-001 erlaubt Tenants, Species auszublenden. REQ-028 Companion-Planting traversiert den Graphen global. Ob Graph-Traversal das hidden-Flag respektiert, ist nicht definiert."
+    },
+    {
+      "id": "W-011",
+      "severity": "MEDIUM",
+      "type": "scope",
+      "title": "Frontend-only Expertise-Filterung vs. API-Vollstaendigkeit",
+      "requires": ["FA-013"],
+      "description": "REQ-021 filtert Felder ausschliesslich im Frontend. Das Backend liefert immer alle Felder. Bei direktem API-Zugriff (z.B. Home Assistant, Service Accounts) oder Fehlern im Frontend koennen Nutzer unbeabsichtigt Expertfelder modifizieren."
+    },
+    {
+      "id": "W-012",
+      "severity": "MEDIUM",
+      "type": "prioritization",
+      "title": "Gantt-Visualisierung fuer Naehrstoffplaene vs. FCP < 1,5s",
+      "requires": ["NFA-001", "NFA-011"],
+      "description": "REQ-004 spezifiziert Gantt-Diagramme fuer Naehrstoffplaene mit Phasenbloecken. Komplexe Canvas/SVG-Visualisierungen erhoehn den Bundle-Size und koennen die FCP-Anforderung verletzen."
+    },
+    {
+      "id": "W-013",
+      "severity": "MEDIUM",
+      "type": "implicit",
+      "title": "DutyRotation (Giessdienst) und BulletinPost fehlen in NFR-011 Retention-Matrix",
+      "requires": ["NFA-021"],
+      "description": "REQ-024 v1.4 definiert DutyRotation und BulletinPost/Comment als neue Datenklassen. NFR-011 Retention-Matrix (R-01 bis R-18) erwaehnt diese nicht. Aufbewahrungsfristen und Loeschlogik fehlen."
+    },
+    {
+      "id": "W-014",
+      "severity": "MEDIUM",
+      "type": "implicit",
+      "title": "Aufgaben-Bewertungen und Workflow-Kommentare fehlen in NFR-011",
+      "requires": ["NFA-021"],
+      "description": "REQ-006 sieht Aufgaben-Bewertungen und Kommentare vor, die Nutzerbezug haben. NFR-011 Retention-Matrix deckt diese nicht ab. DSGVO-Loeschpflicht unklar."
+    },
+    {
+      "id": "W-015",
+      "severity": "LOW",
+      "type": "editorial",
+      "title": "Python type: Alias vs. TypeAlias — NFR-003 vs. CLAUDE.md Hinweis",
+      "requires": ["NFA-006"],
+      "description": "CLAUDE.md instruiert, `type` keyword fuer Typ-Aliase zu nutzen (nicht TypeAlias). NFR-003 spezifiziert lediglich englische Sprache, keine Typ-Annotationsstile. Keine direkte Anforderung kollidiert, aber ein Implementierungshinweis widerspricht dem Pythonic-Standard vor 3.12."
+    },
+    {
+      "id": "W-016",
+      "severity": "LOW",
+      "type": "direct",
+      "title": "Mischsequenz-Widerspruch innerhalb REQ-004 (Silizium vs. CalMag zuerst)",
+      "requires": ["FA-007", "FA-008"],
+      "description": "REQ-004 nennt an einer Stelle Silizium als erstes und CalMag als zweites. An anderer Stelle wird CalMag als Prioritaet vor Sulfaten beschrieben. Die Mischsequenz-Tabelle und der Fliesstextbereich sind nicht konsistent."
+    },
+    {
+      "id": "W-017",
+      "severity": "LOW",
+      "type": "editorial",
+      "title": "Wasser-Defaults dreifach definiert in REQ-004, REQ-014, REQ-020",
+      "requires": [],
+      "description": "REQ-004 v3.1, REQ-014 v1.4 und REQ-020 v1.1 definieren alle einen 4-Level-Wasserdefaults-Kaskade (explicit -> plan -> site -> manual). Die drei Definitionen sind aehnlich aber nicht identisch formuliert."
+    },
+    {
+      "id": "W-018",
+      "severity": "LOW",
+      "type": "editorial",
+      "title": "Dokumentationssprache Deutsch vs. NFR-003 Englisch-Pflicht fuer Sourcecode",
+      "requires": ["NFA-006"],
+      "description": "NFR-003 fordert englischen Sourcecode. Alle spec/-Dokumente sind auf Deutsch. CLAUDE.md definiert dies explizit als valide Trennung. Kein echter Widerspruch, aber fuer neue Mitarbeiter ohne CLAUDE.md-Kenntnis verwirrend."
+    }
+  ],
+  "summary": {
+    "totalDocuments": 59,
+    "functionalRequirements": 24,
+    "nonFunctionalRequirements": 25,
+    "totalContradictions": 18,
+    "bySeverity": {
+      "CRITICAL": 3,
+      "HIGH": 5,
+      "MEDIUM": 6,
+      "LOW": 4
+    },
+    "nonMeasurableNFAs": ["NFA-019", "NFA-022"],
+    "retentionMatrixGaps": ["DutyRotation", "BulletinPost", "BulletinComment", "TaskRating", "WorkflowComment"]
+  }
+}

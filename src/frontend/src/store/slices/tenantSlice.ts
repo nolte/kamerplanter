@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import * as tenantApi from '@/api/endpoints/tenants';
 import type { TenantWithRole, TenantCreate } from '@/api/types';
+import { isLightMode } from '@/config/mode';
 
 interface TenantState {
   activeTenant: TenantWithRole | null;
@@ -12,6 +13,7 @@ interface TenantState {
 const ACTIVE_TENANT_KEY = 'kp_active_tenant_slug';
 
 function loadPersistedSlug(): string | null {
+  if (isLightMode) return 'mein-garten';
   try {
     return localStorage.getItem(ACTIVE_TENANT_KEY);
   } catch {

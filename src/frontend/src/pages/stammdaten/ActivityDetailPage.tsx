@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
-import Button from '@mui/material/Button';
 import Autocomplete from '@mui/material/Autocomplete';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Chip from '@mui/material/Chip';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -48,6 +50,9 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
+
+/** Spacing between form panels (UI-NFR-008 R-039: 24px = spacing.lg) */
+const PANEL_GAP = 4;
 
 export default function ActivityDetailPage() {
   const { key } = useParams<{ key: string }>();
@@ -187,7 +192,7 @@ export default function ActivityDetailPage() {
   }));
 
   return (
-    <>
+    <Box data-testid="activity-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <PageTitle title={displayName} />
@@ -209,148 +214,199 @@ export default function ActivityDetailPage() {
         </Alert>
       )}
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate sx={{ maxWidth: 900 }}>
-
-        {/* --- Section: Bezeichnung --- */}
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-          {t('pages.activities.sectionIdentification')}
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+        <Typography variant="body2" color="text.secondary">
+          {t('pages.activities.editIntro')}
         </Typography>
-        <FormRow>
-          <FormTextField name="name" control={control} label={t('pages.activities.nameEn')} required />
-          <FormTextField name="name_de" control={control} label={t('pages.activities.nameDe')} />
-        </FormRow>
-        <FormRow>
-          <FormTextField name="description" control={control} label={t('pages.activities.descriptionEn')} multiline rows={3} />
-          <FormTextField name="description_de" control={control} label={t('pages.activities.descriptionDe')} multiline rows={3} />
-        </FormRow>
 
-        {/* --- Section: Klassifizierung --- */}
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-          {t('pages.activities.sectionClassification')}
-        </Typography>
-        <FormRow>
-          <FormSelectField name="category" control={control} label={t('pages.activities.category')} options={categoryOptions} />
-          <FormSelectField name="skill_level" control={control} label={t('pages.activities.skillLevel')} options={skillOptions} />
-        </FormRow>
-        <FormRow>
-          <FormSelectField
-            name="stress_level"
-            control={control}
-            label={t('pages.activities.stressLevel')}
-            helperText={t('pages.activities.stressLevelHint')}
-            options={stressOptions}
-          />
-          <FormNumberField
-            name="recovery_days_default"
-            control={control}
-            label={t('pages.activities.recoveryDays')}
-            helperText={t('pages.activities.recoveryDaysHint')}
-            min={0}
-            suffix="d"
-          />
-        </FormRow>
+        {/* ── Panel 1: Bezeichnung ── */}
+        {/* UI-NFR-008 R-037/R-038/R-040: Card panel, h6 heading, required fields first */}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.activities.sectionIdentification')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.activities.sectionIdentificationDesc')}
+            </Typography>
+            <FormRow>
+              <FormTextField name="name" control={control} label={t('pages.activities.nameEn')} required autoFocus />
+              <FormTextField name="name_de" control={control} label={t('pages.activities.nameDe')} />
+            </FormRow>
+            <FormRow>
+              <FormTextField name="description" control={control} label={t('pages.activities.descriptionEn')} multiline rows={3} />
+              <FormTextField name="description_de" control={control} label={t('pages.activities.descriptionDe')} multiline rows={3} />
+            </FormRow>
+          </CardContent>
+        </Card>
 
-        {/* --- Section: Ausführung --- */}
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-          {t('pages.activities.sectionExecution')}
-        </Typography>
-        <FormRow>
-          <FormNumberField
-            name="estimated_duration_minutes"
-            control={control}
-            label={t('pages.activities.estimatedDuration')}
-            min={1}
-            suffix="min"
-          />
-          <FormSwitchField
-            name="requires_photo"
-            control={control}
-            label={t('pages.activities.requiresPhoto')}
-            helperText={t('pages.activities.requiresPhotoHint')}
-          />
-        </FormRow>
-        <FormChipInput
-          name="tools_required"
-          control={control}
-          label={t('pages.activities.toolsRequired')}
-          helperText={t('pages.activities.toolsRequiredHint')}
-        />
+        {/* ── Panel 2: Klassifizierung ── */}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.activities.sectionClassification')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.activities.sectionClassificationDesc')}
+            </Typography>
+            <FormRow>
+              <FormSelectField name="category" control={control} label={t('pages.activities.category')} options={categoryOptions} />
+              <FormSelectField name="skill_level" control={control} label={t('pages.activities.skillLevel')} options={skillOptions} />
+            </FormRow>
+            <FormRow>
+              <FormSelectField
+                name="stress_level"
+                control={control}
+                label={t('pages.activities.stressLevel')}
+                helperText={t('pages.activities.stressLevelHint')}
+                options={stressOptions}
+              />
+              <FormNumberField
+                name="recovery_days_default"
+                control={control}
+                label={t('pages.activities.recoveryDays')}
+                helperText={t('pages.activities.recoveryDaysHint')}
+                min={0}
+                suffix="d"
+              />
+            </FormRow>
+          </CardContent>
+        </Card>
 
-        {/* --- Section: Geltungsbereich --- */}
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-          {t('pages.activities.sectionScope')}
-        </Typography>
-        <Alert
-          severity={speciesCompatible.length === 0 ? 'success' : 'info'}
-          sx={{ mb: 2 }}
-          icon={false}
-        >
-          {speciesCompatible.length === 0
-            ? t('pages.activities.scopeUniversalInfo')
-            : t('pages.activities.scopeRestrictedInfo', { count: speciesCompatible.length })}
-        </Alert>
-        <Controller
-          name="species_compatible"
-          control={control}
-          render={({ field }) => (
-            <Autocomplete
-              multiple
-              freeSolo
-              options={[]}
-              value={field.value}
-              onChange={(_, newValue) => field.onChange(newValue)}
-              renderTags={(value, getTagProps) =>
-                value.map((option, index) => {
-                  const { key: tagKey, ...tagProps } = getTagProps({ index });
-                  return <Chip key={tagKey} label={option} size="small" color="primary" variant="outlined" {...tagProps} />;
-                })
-              }
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label={t('pages.activities.speciesCompatible')}
-                  helperText={t('pages.activities.speciesCompatibleHint')}
+        {/* ── Panel 3: Ausführung ── */}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.activities.sectionExecution')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.activities.sectionExecutionDesc')}
+            </Typography>
+            <FormRow>
+              <FormNumberField
+                name="estimated_duration_minutes"
+                control={control}
+                label={t('pages.activities.estimatedDuration')}
+                min={1}
+                suffix="min"
+              />
+              <FormSwitchField
+                name="requires_photo"
+                control={control}
+                label={t('pages.activities.requiresPhoto')}
+                helperText={t('pages.activities.requiresPhotoHint')}
+              />
+            </FormRow>
+            <FormChipInput
+              name="tools_required"
+              control={control}
+              label={t('pages.activities.toolsRequired')}
+              helperText={t('pages.activities.toolsRequiredHint')}
+            />
+          </CardContent>
+        </Card>
+
+        {/* ── Panel 4: Geltungsbereich ── */}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.activities.sectionScope')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.activities.sectionScopeDesc')}
+            </Typography>
+            <Alert
+              severity={speciesCompatible.length === 0 ? 'success' : 'info'}
+              sx={{ mb: 2 }}
+              icon={false}
+            >
+              {speciesCompatible.length === 0
+                ? t('pages.activities.scopeUniversalInfo')
+                : t('pages.activities.scopeRestrictedInfo', { count: speciesCompatible.length })}
+            </Alert>
+            <Controller
+              name="species_compatible"
+              control={control}
+              render={({ field }) => (
+                <Autocomplete
+                  multiple
+                  freeSolo
+                  options={[]}
+                  value={field.value}
+                  onChange={(_, newValue) => field.onChange(newValue)}
+                  renderTags={(value, getTagProps) =>
+                    value.map((option, index) => {
+                      const { key: tagKey, ...tagProps } = getTagProps({ index });
+                      return <Chip key={tagKey} label={option} size="small" color="primary" variant="outlined" {...tagProps} />;
+                    })
+                  }
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t('pages.activities.speciesCompatible')}
+                      helperText={t('pages.activities.speciesCompatibleHint')}
+                    />
+                  )}
                 />
               )}
             />
-          )}
-        />
+          </CardContent>
+        </Card>
 
-        {/* --- Section: Phasenbeschränkungen --- */}
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 3 }}>
-          {t('pages.activities.sectionPhaseRestrictions')}
-        </Typography>
-        <FormChipInput
-          name="forbidden_phases"
-          control={control}
-          label={t('pages.activities.forbiddenPhases')}
-          helperText={t('pages.activities.forbiddenPhasesHint')}
-        />
-        <FormChipInput
-          name="restricted_sub_phases"
-          control={control}
-          label={t('pages.activities.restrictedSubPhases')}
-          helperText={t('pages.activities.restrictedSubPhasesHint')}
-        />
+        {/* ── Panel 5: Phasenbeschränkungen ── */}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.activities.sectionPhaseRestrictions')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.activities.sectionPhaseRestrictionsDesc')}
+            </Typography>
+            <FormChipInput
+              name="forbidden_phases"
+              control={control}
+              label={t('pages.activities.forbiddenPhases')}
+              helperText={t('pages.activities.forbiddenPhasesHint')}
+            />
+            <FormChipInput
+              name="restricted_sub_phases"
+              control={control}
+              label={t('pages.activities.restrictedSubPhases')}
+              helperText={t('pages.activities.restrictedSubPhasesHint')}
+            />
+          </CardContent>
+        </Card>
 
-        {/* --- Section: Tags & Sortierung --- */}
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-          {t('pages.activities.sectionMeta')}
+        {/* ── Panel 6: Tags & Sortierung ── */}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.activities.sectionMeta')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.activities.sectionMetaDesc')}
+            </Typography>
+            <FormChipInput
+              name="tags"
+              control={control}
+              label={t('pages.activities.tags')}
+              helperText={t('pages.activities.tagsHint')}
+            />
+            <FormNumberField
+              name="sort_order"
+              control={control}
+              label={t('pages.activities.sortOrder')}
+              helperText={t('pages.activities.sortOrderHint')}
+              min={0}
+              step={1}
+            />
+          </CardContent>
+        </Card>
+
+        {/* UI-NFR-008 R-025: Required field legend */}
+        <Typography variant="caption" color="text.secondary">
+          * {t('common.required')}
         </Typography>
-        <FormChipInput
-          name="tags"
-          control={control}
-          label={t('pages.activities.tags')}
-          helperText={t('pages.activities.tagsHint')}
-        />
-        <FormNumberField
-          name="sort_order"
-          control={control}
-          label={t('pages.activities.sortOrder')}
-          helperText={t('pages.activities.sortOrderHint')}
-          min={0}
-          step={1}
-        />
 
         <FormActions
           onCancel={() => navigate('/stammdaten/activities')}
@@ -366,6 +422,6 @@ export default function ActivityDetailPage() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteOpen(false)}
       />
-    </>
+    </Box>
   );
 }

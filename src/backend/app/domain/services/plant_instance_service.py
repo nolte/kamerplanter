@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from app.common.exceptions import NotFoundError
+from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, SlotKey, SpeciesKey
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
@@ -26,13 +27,15 @@ class PlantInstanceService:
         self._companion = companion_engine
         self._phase_repo = phase_repo
 
-    def list_plants(self, offset: int = 0, limit: int = 50) -> tuple[list[PlantInstance], int]:
-        return self._repo.get_all(offset, limit)
+    def list_plants(self, offset: int = 0, limit: int = 50, tenant_key: str = "") -> tuple[list[PlantInstance], int]:
+        return self._repo.get_all(offset, limit, tenant_key=tenant_key)
 
-    def get_plant(self, key: PlantID) -> PlantInstance:
+    def get_plant(self, key: PlantID, tenant_key: str = "") -> PlantInstance:
         plant = self._repo.get_by_key(key)
         if plant is None:
             raise NotFoundError("PlantInstance", key)
+        if tenant_key:
+            verify_tenant_ownership(plant, tenant_key, "PlantInstance")
         return plant
 
     def create_plant(self, plant: PlantInstance, skip_validation: bool = False) -> PlantInstance:

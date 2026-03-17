@@ -284,6 +284,21 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 
 ---
 
+### 🌿 REQ-028: Mischkultur & Companion Planting
+**Fokus:** Companion-Planting-Empfehlungen, Kompatibilitäts-Validierung, Mischkultur-Beratung
+- Graph-basierte Empfehlungs-Engine (Species-Level + Family-Level Fallback mit 20% Abschlag)
+- 7 Effekt-Typen: pest_repellent, growth_enhancer, soil_improver, nutrient_fixer, pollinator_attractor, space_optimizer, general
+- Seed-Daten: 25+ compatible_with-Paare, 15+ incompatible_with-Paare aus 185 plant-info Dokumenten
+- Run-Kompatibilitäts-Validierung (N×N/2 Paarprüfung) + Slot-Nachbarschafts-Check
+
+**Highlights:**
+- 4-Schritt-Algorithmus: Species-Level → Family-Fallback → Standort/Saison-Filter → Effekt-Prioritäts-Sortierung
+- Mischkultur-Partner-Panel mit Quick-Add im PlantingRun-Create-Dialog
+- Expertise-Level-Anpassung (Beginner: Top-3, Expert: alle mit Scores)
+- Konsolidiert aus REQ-001 (Datenmodell), REQ-013 (Runs), Outdoor-Garden-Planner Review G-008
+
+---
+
 ## Technologie-Stack
 
 ### Backend
@@ -356,6 +371,7 @@ Jedes Dokument folgt einer konsistenten, RAG-optimierten Struktur:
 - ✅ REQ-016: Optionale InvenTree-Integration
 - ✅ REQ-017: Vermehrungsmanagement
 - ✅ REQ-018: Umgebungssteuerung & Aktorik
+- ✅ REQ-028: Mischkultur & Companion Planting
 
 ---
 

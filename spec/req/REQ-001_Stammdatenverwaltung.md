@@ -7,12 +7,30 @@ Kategorie: Stammdaten
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 3.1 (Agrarbiologie-Review Korrekturen)
+Version: 4.0 (Stammdaten-Scoping: Origin, Tenant-Overlay, tenant_has_access)
+Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access)
 ```
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 4.0 | 2026-03-16 | **Stammdaten-Scoping:** `origin`-Feld + `tenant_key` auf Species/Cultivar. Drei-Schichten-Architektur: Globale Stammdaten (KA-Admin) → Tenant-Overlay (`tenant_species_config`, `tenant_cultivar_config`) → Tenant-eigene Stammdaten. Edge `tenant_has_access` für Sichtbarkeitssteuerung. Cultivar-Zuweisung transitiv über Species. Promotion-Workflow (tenant→system in-place). Merge-Logik im Service. Neue User Stories, AQL-Queries, Akzeptanzkriterien. |
+| 3.1 | 2026-03 | Agrarbiologie-Review Korrekturen |
 
 ## 1. Business Case
 
 **User Story:** "Als Systemadministrator möchte ich botanische Stammdaten und Lebenszyklus-Typen definieren, um automatisierte Pflegepläne basierend auf der Biologie der Pflanze zu generieren."
+
+<!-- Quelle: Stammdaten-Scoping v4.0 -->
+**User Story (KA-Admin — Stammdaten kuratieren):** "Als Plattform-Administrator möchte ich steuern können, welche Pflanzenarten und Sorten ein bestimmter Tenant sieht — damit ein Cannabis Social Club nicht mit Tomaten-Stammdaten überflutet wird und ein Gemüse-Gemeinschaftsgarten keine Cannabis-Einträge sieht."
+
+**User Story (Tenant-Overlay):** "Als Tenant-Admin möchte ich zu einer globalen Pflanzenart eigene Notizen, angepasste Phasendauern und bevorzugte Sorten hinterlegen können — ohne die globalen Stammdaten zu verändern, damit meine lokalen Anpassungen erhalten bleiben, auch wenn die globalen Daten aktualisiert werden."
+
+**User Story (Tenant-eigene Stammdaten):** "Als ambitionierter Züchter möchte ich eigene Pflanzensorten und Kreuzungen anlegen können, die nur in meinem Tenant sichtbar sind — weil diese Stammdaten für andere Tenants irrelevant sind und ich meine Zuchtarbeit nicht öffentlich teilen möchte."
+
+**User Story (Promotion):** "Als KA-Admin möchte ich eine von einem Tenant erstellte Pflanzenart in die globalen Stammdaten übernehmen können — damit qualitativ hochwertige Tenant-Beiträge allen Nutzern zugänglich werden."
+<!-- /Quelle: Stammdaten-Scoping v4.0 -->
 
 **Beschreibung:** 
 Das System verwaltet die botanische Taxonomie und physiologische Charakteristika von Pflanzenarten als zentrale Wissensgrundlage. Es unterscheidet zwischen:
@@ -37,7 +55,11 @@ Zusätzlich erfasst das System:
 
 ### Nodes:
 - **`:Species`** - Botanische Art
-  - Properties: 
+  - Properties:
+    <!-- Quelle: Stammdaten-Scoping v4.0 -->
+    - `origin: Literal['system', 'enrichment', 'import', 'tenant']` (Default: `'system'`) — Herkunft des Datensatzes. `system`: Seed-Daten oder KA-Admin-gepflegt. `enrichment`: Automatisch via REQ-011. `import`: CSV-Import via REQ-012. `tenant`: Von einem Tenant-Admin erstellt.
+    - `tenant_key: Optional[str]` (Default: `null`) — Nur gesetzt bei `origin: 'tenant'` oder `origin: 'import'` mit Tenant-Bezug. `null` = globaler Datensatz, sichtbar für alle Tenants mit `tenant_has_access`-Kante.
+    <!-- /Quelle: Stammdaten-Scoping v4.0 -->
     - `scientific_name: str` (Binomiale Nomenklatur, z.B. "Solanum lycopersicum")
     - `common_names: list[str]` (Landessprachliche Namen)
     - `family: str` (Botanische Familie, z.B. "Solanaceae")
@@ -73,6 +95,10 @@ Zusätzlich erfasst das System:
 
 - **`:Cultivar`** - Sorte/Zuchtform
   - Properties:
+    <!-- Quelle: Stammdaten-Scoping v4.0 -->
+    - `origin: Literal['system', 'enrichment', 'import', 'tenant']` (Default: `'system'`) — Identisch zu Species.origin.
+    - `tenant_key: Optional[str]` (Default: `null`) — Identisch zu Species.tenant_key.
+    <!-- /Quelle: Stammdaten-Scoping v4.0 -->
     - `name: str` (z.B. "San Marzano")
     - `breeder: str`
     - `breeding_year: int`
@@ -136,7 +162,81 @@ Zusätzlich erfasst das System:
     - `pollination_type: list[PollinationType]` (Enum: INSECT / WIND / SELF)
     - `rotation_category: str` (Für Fruchtfolge)
 
+<!-- Quelle: Stammdaten-Scoping v4.0 -->
+### Tenant-Overlay Collections:
+
+- **`:TenantSpeciesConfig`** — Tenant-spezifische Anpassungen auf globale Species
+  - Collection: `tenant_species_config`
+  - Properties:
+    - `tenant_key: str` (Pflicht — Referenz auf `tenants._key`)
+    - `species_key: str` (Pflicht — Referenz auf `species._key`)
+    - `custom_notes: Optional[str]` (Freitext-Notizen, z.B. "Unsere Hausorte bevorzugen Halbschatten")
+    - `custom_phase_durations: Optional[dict[str, int]]` (Überschriebene Phasendauern in Tagen, z.B. `{"vegetative": 45, "flowering": 60}`)
+    - `preferred_cultivars: Optional[list[str]]` (Bevorzugte Cultivar-Keys für diesen Tenant, z.B. `["cultivar/san-marzano"]`)
+    - `default_nutrient_plan_key: Optional[str]` (Standard-Nährstoffplan für diese Species im Tenant)
+    - `tags: list[str]` (Tenant-eigene Tags, z.B. `["Hauptkultur", "Gewächshaus"]`)
+    - `hidden: bool` (Default: `false`) — Tenant kann eine zugewiesene Species ausblenden, ohne die `tenant_has_access`-Kante zu entfernen
+    - `created_at: datetime`
+    - `updated_at: datetime`
+  - Indizes:
+    - PERSISTENT INDEX on `[tenant_key, species_key]` UNIQUE
+    - PERSISTENT INDEX on `[tenant_key]`
+  - Composite Key: `{tenant_key}__{species_key}` (deterministisch)
+
+- **`:TenantCultivarConfig`** — Tenant-spezifische Anpassungen auf globale Cultivars
+  - Collection: `tenant_cultivar_config`
+  - Properties:
+    - `tenant_key: str` (Pflicht)
+    - `cultivar_key: str` (Pflicht — Referenz auf `cultivars._key`)
+    - `custom_notes: Optional[str]` (z.B. "Saatgut von Dreschflegel, keimt langsam")
+    - `custom_sowing_dates: Optional[dict[str, str]]` (z.B. `{"indoor_start": "02-15", "outdoor_start": "05-15"}`)
+    - `expected_yield_per_plant_g: Optional[float]` (Erwarteter Ertrag in Gramm pro Pflanze)
+    - `tags: list[str]` (z.B. `["Bewährt", "Eigenanbau"]`)
+    - `created_at: datetime`
+    - `updated_at: datetime`
+  - Indizes:
+    - PERSISTENT INDEX on `[tenant_key, cultivar_key]` UNIQUE
+    - PERSISTENT INDEX on `[tenant_key]`
+  - Composite Key: `{tenant_key}__{cultivar_key}` (deterministisch)
+
+**Merge-Logik:**
+
+Beim Abrufen von Stammdaten im Tenant-Kontext werden Overlay-Felder über die globalen Felder gelegt. Nur explizit gesetzte Felder (nicht `null`) im Overlay überschreiben den globalen Wert:
+
+```python
+def merge_species_with_overlay(
+    species: Species, overlay: TenantSpeciesConfig | None
+) -> MergedSpecies:
+    """Merged globale Species mit Tenant-Overlay.
+    Overlay-Felder überschreiben nur wenn explizit gesetzt (nicht None)."""
+    if overlay is None:
+        return MergedSpecies(**species.model_dump(), has_overlay=False)
+
+    merged = species.model_dump()
+    overlay_data = overlay.model_dump(exclude={"tenant_key", "species_key", "created_at", "updated_at"})
+    for key, value in overlay_data.items():
+        if value is not None:
+            merged[key] = value
+    return MergedSpecies(**merged, has_overlay=True)
+```
+<!-- /Quelle: Stammdaten-Scoping v4.0 -->
+
 ### Edges (ArangoDB Edge Collections):
+
+<!-- Quelle: Stammdaten-Scoping v4.0 -->
+**Stammdaten-Sichtbarkeit:**
+- **`tenant_has_access`**: `Species → Tenant` (Sichtbarkeitszuweisung)
+  - Collection: `tenant_has_access` (Edge Collection)
+  - Richtung: `(Species)-[:tenant_has_access]->(Tenant)` = "Tenant hat Zugriff auf diese Species"
+  - Properties:
+    - `assigned_at: datetime` (Zeitpunkt der Zuweisung)
+    - `assigned_by: Optional[str]` (user_key des zuweisenden KA-Admins, `null` bei Auto-Assign)
+  - **Cultivar-Zuweisung ist transitiv:** Wenn ein Tenant Zugriff auf eine Species hat, hat er automatisch Zugriff auf alle Cultivars dieser Species (über `has_cultivar`-Kante). Es gibt keine separate `tenant_has_access`-Kante auf Cultivar-Ebene.
+  - **BotanicalFamily bleibt ungefiltert:** Familien sind rein taxonomische Referenzdaten und werden nicht per Tenant eingeschränkt.
+  - Indizes:
+    - PERSISTENT INDEX on `[_to]` (Lookup: alle Species eines Tenants)
+    - PERSISTENT INDEX on `[_from]` (Lookup: alle Tenants einer Species)
+<!-- /Quelle: Stammdaten-Scoping v4.0 -->
 
 **Spezies-Kanten:**
 - **`belongs_to_family`**: `Species → BotanicalFamily`
@@ -145,10 +245,8 @@ Zusätzlich erfasst das System:
   - Properties: (keine)
 - **`consists_of`**: `LifecycleConfig → GrowthPhase`
   - Properties: `sequence: int`
-- **`compatible_with`**: `Species → Species` (Mischkultur)
-  - Properties: `compatibility_score: float` (0.0–1.0)
-- **`incompatible_with`**: `Species → Species` (Allelopathie)
-  - Properties: `reason: str`
+- **`compatible_with`**: `Species → Species` (Mischkultur) — siehe **REQ-028** für vollständige Edge-Definition, Effekt-Typen und Seed-Daten
+- **`incompatible_with`**: `Species → Species` (Allelopathie) — siehe **REQ-028**
 
 **Familien-Kanten:**
 - **`rotation_after`**: `BotanicalFamily → BotanicalFamily` (gerichtet)
@@ -260,35 +358,8 @@ RETURN {
 ```
 
 **3. Familien-Level Mischkultur-Fallback:**
-```aql
-// Wenn keine Spezies-Level compatible_with-Kante existiert,
-// Fallback auf Familien-Level family_compatible_with
-LET species = DOCUMENT("species", @species_key)
-LET family = FIRST(FOR v IN 1..1 OUTBOUND species belongs_to_family RETURN v)
 
-// Spezies-Level Matches
-LET species_matches = (
-    FOR v, e IN 1..1 OUTBOUND species compatible_with
-    RETURN { species: v.scientific_name, score: e.compatibility_score, level: "species" }
-)
-
-// Familien-Level Fallback (nur wenn Spezies-Level leer)
-LET family_matches = LENGTH(species_matches) == 0 ? (
-    FOR fam, e IN 1..1 ANY family family_compatible_with
-    FOR s IN 1..1 INBOUND fam belongs_to_family
-    RETURN DISTINCT {
-        species: s.scientific_name,
-        score: e.compatibility_score * 0.8,  // 20% Abschlag für Familien-Level
-        level: "family",
-        benefit_type: e.benefit_type
-    }
-) : []
-
-RETURN {
-    matches: LENGTH(species_matches) > 0 ? species_matches : family_matches,
-    match_level: LENGTH(species_matches) > 0 ? "species" : "family"
-}
-```
+> Vollständige AQL-Abfragen für Companion-Empfehlungen und Run-Kompatibilitäts-Checks: siehe **REQ-028 §3.4**.
 
 **4. Optimale Rotationssequenz-Empfehlung (3-Jahres-Plan):**
 ```aql
@@ -316,6 +387,96 @@ RETURN {
     year2: LENGTH(year2_options) > 0 ? { name: FIRST(year2_options).family.name, common_name_de: FIRST(year2_options).family.common_name_de, score: FIRST(year2_options).score, reason: FIRST(year2_options).reason } : null,
     alternatives_year1: SLICE(year1_options, 1, 3)
 }
+
+<!-- Quelle: Stammdaten-Scoping v4.0 -->
+**5. Tenant-Scoped Species-Query (alle Species die ein Tenant sieht):**
+```aql
+// Zugewiesene globale Species (über tenant_has_access-Kante)
+LET global_species = (
+  FOR edge IN tenant_has_access
+    FILTER edge._to == CONCAT("tenants/", @tenant_key)
+    FILTER STARTS_WITH(edge._from, "species/")
+    LET s = DOCUMENT(edge._from)
+    FILTER s != null
+    RETURN s
+)
+
+// Tenant-eigene Species (origin: 'tenant' oder 'import' mit tenant_key)
+LET tenant_species = (
+  FOR s IN species
+    FILTER s.tenant_key == @tenant_key
+    RETURN s
+)
+
+// Merge + Overlay anwenden
+FOR s IN UNION(global_species, tenant_species)
+  LET overlay = FIRST(
+    FOR c IN tenant_species_config
+      FILTER c.tenant_key == @tenant_key
+      FILTER c.species_key == s._key
+      FILTER c.hidden != true
+      RETURN c
+  )
+  // Ausblenden wenn overlay.hidden == true
+  FILTER overlay == null OR overlay.hidden != true
+  RETURN MERGE(
+    s,
+    overlay != null
+      ? UNSET(overlay, "_key", "_id", "_rev", "tenant_key", "species_key", "created_at", "updated_at", "hidden")
+      : {},
+    { has_overlay: overlay != null }
+  )
+```
+
+**6. Cultivars einer Species im Tenant-Kontext (transitiv):**
+```aql
+// Alle Cultivars einer zugewiesenen Species — keine eigene tenant_has_access-Kante nötig
+LET species_doc = DOCUMENT("species", @species_key)
+
+// Globale Cultivars der Species
+LET global_cultivars = (
+  FOR c IN 1..1 OUTBOUND species_doc has_cultivar
+    FILTER c.tenant_key == null
+    RETURN c
+)
+
+// Tenant-eigene Cultivars der Species
+LET tenant_cultivars = (
+  FOR c IN 1..1 OUTBOUND species_doc has_cultivar
+    FILTER c.tenant_key == @tenant_key
+    RETURN c
+)
+
+// Merge + Overlay
+FOR c IN UNION(global_cultivars, tenant_cultivars)
+  LET overlay = FIRST(
+    FOR cfg IN tenant_cultivar_config
+      FILTER cfg.tenant_key == @tenant_key
+      FILTER cfg.cultivar_key == c._key
+      RETURN cfg
+  )
+  RETURN MERGE(
+    c,
+    overlay != null
+      ? UNSET(overlay, "_key", "_id", "_rev", "tenant_key", "cultivar_key", "created_at", "updated_at")
+      : {},
+    { has_overlay: overlay != null }
+  )
+```
+
+**7. Promotion: Tenant-Species → Global (KA-Admin):**
+```aql
+// In-place Update: origin → system, tenant_key → null
+UPDATE @species_key WITH {
+  origin: "system",
+  tenant_key: null,
+  updated_at: DATE_ISO8601(DATE_NOW())
+} IN species
+
+// Optional: tenant_has_access-Kante für alle Tenants erstellen (Broadcast)
+// Wird im Service programmatisch gelöst, nicht per AQL
+```
+<!-- /Quelle: Stammdaten-Scoping v4.0 -->
 
 ### Seed-Daten: BotanicalFamily
 
@@ -437,26 +598,9 @@ Zusätzliche BotanicalFamily-Einträge für Zierpflanzen (sofern nicht bereits v
 | Cannabaceae | Cannabaceae | Spinnmilben, Thripse, Trauermücken | Botrytis, Mehltau, Fusarium | high |
 | Cannabaceae | Cucurbitaceae | Spinnmilben, Blattläuse | Mehltau | medium |
 
-**Seed-Daten: family_compatible_with-Kanten (~8 bidirektionale Paare):**
+**Seed-Daten: family_compatible_with / family_incompatible_with:**
 
-| Familie A | Familie B | benefit_type | compatibility_score | notes |
-|-----------|-----------|-------------|--------------------|----|
-| Fabaceae | Solanaceae | nitrogen_fixation | 0.85 | N-Fixierung verbessert Starkzehrer-Versorgung |
-| Fabaceae | Brassicaceae | nitrogen_fixation | 0.80 | N-Fixierung nach Starkzehrer |
-| Fabaceae | Cannabaceae | nitrogen_fixation | 0.85 | N-Fixierung verbessert Starkzehrer-Versorgung |
-| Lamiaceae | Solanaceae | pest_deterrent | 0.75 | Ätherische Öle wirken abschreckend |
-| Lamiaceae | Brassicaceae | pest_deterrent | 0.70 | Basilikum/Minze gegen Kohlweißling |
-| Lamiaceae | Cannabaceae | pest_deterrent | 0.70 | Ätherische Öle gegen Spinnmilben und Thripse |
-| Asteraceae | Cucurbitaceae | pollinator_attraction | 0.65 | Blüten locken Bestäuber an |
-| Apiaceae | Asteraceae | pollinator_attraction | 0.60 | Komplementäre Blütenbesucher |
-
-**Seed-Daten: family_incompatible_with-Kanten (~3 bidirektionale Paare):**
-
-| Familie A | Familie B | reason | severity |
-|-----------|-----------|--------|----------|
-| Solanaceae | Solanaceae | Selbstinkompatibilität: gemeinsame Krankheiten und Schädlinge | severe |
-| Brassicaceae | Brassicaceae | Kohlhernie-Risiko bei wiederholtem Anbau | severe |
-| Cucurbitaceae | Cucurbitaceae | Fusarium-Akkumulation im Boden | moderate |
+> Vollständige Mischkultur-Seed-Daten (Spezies-Level und Familien-Level): siehe **REQ-028 §6**.
 
 ### Seed-Daten: Species-Toxizität
 
@@ -1102,15 +1246,31 @@ class BotanicalFamilyDefinition(BaseModel):
 **Standardregel:** Alle Endpunkte dieses REQ erfordern Authentifizierung (JWT Bearer Token)
 und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 
-Stammdaten sind globale Referenzdaten und nicht Tenant-scoped. Lesezugriff ist öffentlich (kein Token erforderlich). Schreiboperationen erfordern einen authentifizierten Benutzer.
+<!-- Quelle: Stammdaten-Scoping v4.0 — Auth-Erweiterung -->
+Stammdaten unterliegen einer **dreistufigen Autorisierung** basierend auf dem Stammdaten-Scoping:
 
-| Ressource/Endpoint-Gruppe | Lesen | Schreiben | Löschen |
+**Schicht 1 — Globale Stammdaten (origin: system/enrichment):**
+Lesezugriff für alle authentifizierten Benutzer (gefiltert durch `tenant_has_access`-Kante). Schreibzugriff nur für **Platform-Admins** (Membership im Platform-Tenant, REQ-023 v1.6).
+
+**Schicht 2 — Tenant-Overlay (tenant_species_config, tenant_cultivar_config):**
+Lese- und Schreibzugriff für **Tenant-Admins** des jeweiligen Tenants. Lesezugriff für alle Tenant-Mitglieder.
+
+**Schicht 3 — Tenant-eigene Stammdaten (origin: tenant/import, tenant_key gesetzt):**
+Schreibzugriff für **Tenant-Admins**. Lesezugriff für alle Mitglieder des Tenants.
+
+| Ressource/Endpoint-Gruppe | Lesen (Auth) | Schreiben (Auth) | Löschen (Auth) |
 |---------------------------|-------|-----------|---------|
-| BotanicalFamilies (globale Referenzdaten) | Nein | Ja | Ja |
-| Species (globale Referenzdaten) | Nein | Ja | Ja |
-| Cultivars (globale Referenzdaten) | Nein | Ja | Ja |
-| CompanionPlanting (Graph-Beziehungen) | Nein | Ja | Ja |
-| CropRotation (Graph-Beziehungen) | Nein | Ja | Ja |
+| BotanicalFamilies (global, ungefiltert) | Ja (alle) | Platform-Admin | Platform-Admin |
+| Species (global, via tenant_has_access) | Ja (Tenant-Mitglied) | Platform-Admin | Platform-Admin |
+| Species (tenant-eigen, origin: tenant) | Ja (Tenant-Mitglied) | Tenant-Admin | Tenant-Admin |
+| Cultivars (transitiv via Species) | Ja (Tenant-Mitglied) | Platform-Admin (global) / Tenant-Admin (tenant) | Platform-Admin / Tenant-Admin |
+| TenantSpeciesConfig (Overlay) | Ja (Tenant-Mitglied) | Tenant-Admin | Tenant-Admin |
+| TenantCultivarConfig (Overlay) | Ja (Tenant-Mitglied) | Tenant-Admin | Tenant-Admin |
+| tenant_has_access (Zuweisung) | — | Platform-Admin | Platform-Admin |
+| Promotion (tenant→system) | — | Platform-Admin | — |
+| CompanionPlanting (Graph-Beziehungen) | Ja (alle) | Platform-Admin | Platform-Admin |
+| CropRotation (Graph-Beziehungen) | Ja (alle) | Platform-Admin | Platform-Admin |
+<!-- /Quelle: Stammdaten-Scoping v4.0 -->
 
 ## 5. Abhängigkeiten
 
@@ -1120,7 +1280,8 @@ Stammdaten sind globale Referenzdaten und nicht Tenant-scoped. Lesezugriff ist �
 - Sortenkataloge (EU-Sortenkatalog, nationale Register)
 
 **Systemabhängigkeiten:**
-- Keine - Dies ist das Fundament-Modul, auf dem alle anderen aufbauen
+- REQ-024 v1.3 (Platform-Tenant, tenant_has_access-Kante, Tenant-Scoping)
+- REQ-023 v1.6 (Platform-Admin-Rolle für globale Stammdaten-Verwaltung)
 
 **Wird benötigt von:**
 - REQ-002 (Standortverwaltung) - Familie für Fruchtfolge; **HOCH:** shares_pest_risk + nitrogen_fixing für erweiterte Rotation-Validierung nutzen
@@ -1139,15 +1300,14 @@ Stammdaten sind globale Referenzdaten und nicht Tenant-scoped. Lesezugriff ist �
 - [ ] **Lifecycle-Konfiguration:** Jede Spezies hat eine valide LifecycleConfig mit mindestens 3 GrowthPhases
 - [ ] **Familienbeziehungen:** Alle Spezies sind einer BotanicalFamily zugeordnet
 - [ ] **Sortenvielfalt:** Mindestens 3 Cultivars pro häufiger Nutzpflanze (z.B. Tomate, Paprika, Salat)
-- [ ] **Mischkultur-Matrix:** Kompatibilitäts-Beziehungen für mindestens 20 Spezies-Paare definiert
+- [ ] **Mischkultur-Matrix:** Siehe **REQ-028 §9** (Datenmodell & Seed-Daten DoD)
 - [ ] **Fruchtfolge-Regeln:** Rotation-Empfehlungen zwischen den 9 wichtigsten Pflanzenfamilien
 - [ ] **Erweiterte BotanicalFamily:** Alle 9 Seed-Familien mit vollständigen erweiterten Attributen (common_name_de/en, order, nitrogen_fixing, typical_root_depth, frost_tolerance, pollination_type, common_diseases, soil_ph_preference)
 - [ ] **Familien-Kanten (rotation_after):** Mind. 16 gerichtete rotation_after-Kanten mit benefit_score und benefit_reason
 - [ ] **Familien-Kanten (shares_pest_risk):** Mind. 7 bidirektionale shares_pest_risk-Kanten mit shared_pests/diseases und risk_level
-- [ ] **Familien-Kanten (family_compatible_with):** Mind. 8 bidirektionale family_compatible_with-Kanten mit benefit_type und compatibility_score
-- [ ] **Familien-Kanten (family_incompatible_with):** Mind. 3 bidirektionale family_incompatible_with-Kanten (Selbstinkompatibilitäten)
+- [ ] **Familien-Kanten (family_compatible_with / family_incompatible_with):** Siehe **REQ-028 §9** (Datenmodell & Seed-Daten DoD)
 - [ ] **CropRotationValidator:** Differenzierte Warnungen (CRITICAL/WARNING/INFO) basierend auf Familien-Kanten und Pest-Risiko
-- [ ] **CompanionPlantingEngine:** Family-Level Fallback wenn keine Spezies-Level Mischkultur-Kante existiert (Score × 0.8 Abschlag)
+- [ ] **CompanionPlantingEngine:** Siehe **REQ-028 §9** (Empfehlungs-Engine DoD)
 - [ ] **i18n-Anzeige:** common_name_de/en in UI je nach Spracheinstellung angezeigt
 - [ ] **Validierung (BotanicalFamily):** Familienname endet auf "-aceae", Ordnungsname auf "-ales", nitrogen_fixing=true + heavy-Demand wird abgelehnt
 <!-- Quelle: Cannabis Indoor Grower Review G-009 -->
@@ -1164,6 +1324,18 @@ Stammdaten sind globale Referenzdaten und nicht Tenant-scoped. Lesezugriff ist �
 - [ ] **API-Export:** GraphQL/REST-Endpoint für externe Nutzung der Stammdaten
 - [ ] **Bulk-Import:** CSV/JSON-Import für initiale Datenbefüllung
 - [ ] **Kulturdatenblätter:** Automatische Generierung von Pflege-Empfehlungen aus Stammdaten
+<!-- Quelle: Stammdaten-Scoping v4.0 -->
+- [ ] **Stammdaten-Scoping — origin-Feld:** Species und Cultivars haben ein `origin`-Feld (system/enrichment/import/tenant) und ein optionales `tenant_key`-Feld
+- [ ] **Stammdaten-Scoping — tenant_has_access:** Edge Collection `tenant_has_access` (Species→Tenant) steuert Sichtbarkeit globaler Stammdaten pro Tenant
+- [ ] **Stammdaten-Scoping — Cultivar transitiv:** Tenant mit Zugriff auf eine Species sieht automatisch alle Cultivars dieser Species
+- [ ] **Stammdaten-Scoping — Tenant-Overlay:** `tenant_species_config` und `tenant_cultivar_config` Collections ermöglichen Tenant-spezifische Anpassungen ohne Änderung globaler Daten
+- [ ] **Stammdaten-Scoping — Merge-Logik:** API liefert gemergte Ansicht (global + Overlay), `has_overlay: bool` im Response zeigt an ob ein Overlay aktiv ist
+- [ ] **Stammdaten-Scoping — hidden-Flag:** Overlay mit `hidden: true` blendet zugewiesene Species im Tenant aus
+- [ ] **Stammdaten-Scoping — Tenant-eigene Species:** Tenant-Admins können eigene Species/Cultivars anlegen (`origin: 'tenant'`, `tenant_key` gesetzt), sichtbar nur im eigenen Tenant
+- [ ] **Stammdaten-Scoping — Promotion:** KA-Admin kann Tenant-Species in-place zu globalen Stammdaten promoten (`origin: 'tenant'` → `'system'`, `tenant_key` → `null`)
+- [ ] **Stammdaten-Scoping — BotanicalFamily ungefiltert:** Familien bleiben global ohne `tenant_has_access`-Filterung
+- [ ] **Stammdaten-Scoping — Weitere Collections:** Pests, Diseases, Treatments (REQ-010), Fertilizers, NutrientPlans (REQ-004) erhalten ebenfalls `origin`/`tenant_key`-Felder und `tenant_has_access`-Kanten (definiert in REQ-024 v1.3)
+<!-- /Quelle: Stammdaten-Scoping v4.0 -->
 
 ### Testszenarien:
 
@@ -1273,16 +1445,53 @@ THEN:
 ```
 
 **Szenario 8: Familien-Level Mischkultur-Fallback**
+
+> Testszenarien für Mischkultur-Empfehlungen und Kompatibilitäts-Checks: siehe **REQ-028 §10**.
+
+<!-- Quelle: Stammdaten-Scoping v4.0 -->
+**Szenario 9: Tenant sieht nur zugewiesene Species**
 ```
-GIVEN: Spezies "Capsicum annuum" (Paprika) hat keine Spezies-Level compatible_with-Kante zu "Phaseolus vulgaris" (Buschbohne)
-WHEN: Mischkultur-Empfehlung wird abgefragt
+GIVEN: 3 globale Species (Tomate, Cannabis, Basilikum), 2 Tenants
+  - Tenant "Gemüsegarten" hat tenant_has_access auf Tomate + Basilikum
+  - Tenant "Grow-Op" hat tenant_has_access auf Cannabis
+WHEN: Tenant "Gemüsegarten" ruft GET /api/v1/t/gemuese/species ab
 THEN:
-  - Kein Spezies-Level Match gefunden
-  - Fallback auf Familien-Level: family_compatible_with(Solanaceae, Fabaceae)
-  - Empfehlung: "Buschbohne (Familien-Level: Fabaceae↔Solanaceae, Score: 0.68)"
-  - Score = 0.85 × 0.8 (20% Familien-Level Abschlag)
-  - match_level: "family" wird in der Antwort ausgewiesen
+  - Response enthält nur Tomate + Basilikum (nicht Cannabis)
+  - Jede Species enthält has_overlay: false (kein Overlay konfiguriert)
 ```
+
+**Szenario 10: Tenant-Overlay überschreibt globale Daten**
+```
+GIVEN: Globale Species "Tomate" mit typical_phase_durations = {vegetative: 30}
+  - Tenant "Profi-Farm" hat TenantSpeciesConfig mit custom_phase_durations = {vegetative: 45}
+WHEN: Tenant "Profi-Farm" ruft GET /api/v1/t/profi/species/tomato ab
+THEN:
+  - Response zeigt custom_phase_durations = {vegetative: 45}
+  - has_overlay: true
+  - custom_notes und tags aus dem Overlay sind enthalten
+  - Alle nicht überschriebenen Felder (scientific_name, family, etc.) kommen aus der globalen Species
+```
+
+**Szenario 11: Tenant erstellt eigene Species**
+```
+GIVEN: Tenant "Züchter" mit Admin-Rolle
+WHEN: Admin erstellt Species "Hybrid-X" mit origin='tenant'
+THEN:
+  - Species wird mit tenant_key="zuechter" gespeichert
+  - Nur Mitglieder des Tenants "Züchter" sehen diese Species
+  - Andere Tenants sehen "Hybrid-X" nicht
+```
+
+**Szenario 12: KA-Admin promoted Tenant-Species**
+```
+GIVEN: Tenant-eigene Species "Super-Tomate" (origin: 'tenant', tenant_key: 'zuechter')
+WHEN: KA-Admin führt Promotion durch
+THEN:
+  - Species wird in-place geändert: origin → 'system', tenant_key → null
+  - Species ist jetzt global und kann per tenant_has_access zugewiesen werden
+  - Bestehende Referenzen (PlantInstances, PlantingRuns) bleiben intakt
+```
+<!-- /Quelle: Stammdaten-Scoping v4.0 -->
 
 ---
 

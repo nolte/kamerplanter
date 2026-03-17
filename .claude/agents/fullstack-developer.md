@@ -596,6 +596,15 @@ def my_task(self, param: str) -> dict:
 - `FormActions` für einheitliche Aktionsleiste
 - Double-Submit-Schutz (Button disabled + Spinner)
 
+### Beschreibende Texte & Fachbegriff-Erklaerungen (UI-NFR-008 + UI-NFR-011 — KRITISCH):
+**Formulare und Seiten DUERFEN NICHT ohne beschreibende Texte ausgeliefert werden!**
+
+- **Panel-Einleitungstexte (MUSS — UI-NFR-008 R-038):** Jedes Panel (`Card`/`Paper`) in einem Formular MUSS eine Ueberschrift UND einen kurzen Einleitungstext haben, der den Zweck der Feldgruppe beschreibt. Beispiel: *"Definiert den typischen Naehrstoffbedarf dieser Art."*
+- **Hilfetext-Icons (MUSS — UI-NFR-008 R-042):** Jedes Feld, dessen Zweck nicht auf den ersten Blick offensichtlich ist, MUSS ein Info-Icon (ⓘ) mit erklarendem Tooltip haben. Die Hilfetexte MUESSEN als i18n-Keys (`fields.<fieldName>.help`) in DE+EN vorliegen.
+- **Fachbegriff-Tooltips (MUSS — UI-NFR-011):** Felder mit Fachbegriffen (EC, pH, VPD, PPFD, NPK, GDD, DLI, CalMag, etc.) MUESSEN die `HelpTooltip`-Komponente aus UI-NFR-011 verwenden (falls vorhanden). Falls `HelpTooltip` noch nicht existiert, verwende einen MUI `Tooltip` mit ausfuehrlichem Hilfetext als Zwischenloesung.
+- **Seiten-Einleitungstexte:** Jede Listenseite SOLL oberhalb der Tabelle einen kurzen Einleitungstext haben, der beschreibt was diese Entitaet ist und wofuer sie verwendet wird.
+- **Alle Texte ueber i18n-Keys** — keine hartcodierten Strings.
+
 ### Tabellen (UI-NFR-010 + NFR-010):
 - IMMER `DataTable`-Komponente
 - Server-seitige Sortierung, Suche, Pagination
@@ -627,6 +636,83 @@ controllers:
 - Helm `--atomic` für automatisches Rollback bei fehlgeschlagenen Smoke-Tests
 - Secrets via K8s Secrets / External Secrets (nie in values.yaml)
 - Resource Requests + Limits definieren
+
+---
+
+## Nachgelagerter UI-Review (PFLICHT bei Frontend-Aenderungen)
+
+**WICHTIG:** Wenn du React-Komponenten, Seiten, Formulare, Dialoge oder Listenansichten erstellt oder wesentlich geaendert hast, MUSST du am Ende deiner Ausgabe den Benutzer explizit darauf hinweisen, dass der `frontend-usability-optimizer` Agent gestartet werden sollte.
+
+### Wann gilt diese Regel?
+- Du hast **neue Seiten** (`src/frontend/src/pages/`) erstellt
+- Du hast **bestehende Seiten** wesentlich geaendert (neue Felder, neue Sections, Layout-Aenderungen)
+- Du hast **neue Dialoge** (Create/Edit) erstellt oder wesentlich erweitert
+- Du hast **neue Tabellen/Listen** erstellt oder Spalten geaendert
+- Du hast **Formular-Logik** geaendert (Validierung, Feldtypen, Gruppierung)
+
+### Wann gilt diese Regel NICHT?
+- Reine Backend-Aenderungen ohne Frontend-Bezug
+- Minimale Frontend-Fixes (Typo in i18n-Key, Import-Fix, Lint-Fix)
+- Reine Helm/Kubernetes/Docker-Aenderungen
+- Test-Aenderungen ohne UI-Bezug
+
+### Was du ausgeben MUSST:
+
+Am Ende deiner Zusammenfassung, nach allen Code-Aenderungen und Tests, fuege folgenden Abschnitt hinzu:
+
+```
+### UI-Review empfohlen
+
+Die folgenden Frontend-Komponenten wurden erstellt/geaendert und sollten vom
+`frontend-usability-optimizer` Agent auf Usability und UI-NFR-Compliance geprueft werden:
+
+- `src/frontend/src/pages/[...].tsx` — [Kurzbeschreibung der Aenderung]
+- `src/frontend/src/pages/[...].tsx` — [Kurzbeschreibung der Aenderung]
+- ...
+```
+
+Liste dabei **alle** geaenderten/erstellten Frontend-Dateien auf, die UI-Komponenten betreffen (keine API-Clients, keine Redux-Slices, keine Typen — nur sichtbare Komponenten).
+
+---
+
+## Nachgelagerter Security-Review (PFLICHT bei sicherheitsrelevantem Code)
+
+**WICHTIG:** Wenn du sicherheitsrelevanten Code erstellt oder wesentlich geaendert hast, MUSST du am Ende deiner Ausgabe den Benutzer explizit darauf hinweisen, dass der `code-security-reviewer` Agent gestartet werden sollte.
+
+### Wann gilt diese Regel?
+- Du hast **neue API-Endpunkte** erstellt oder bestehende wesentlich geaendert
+- Du hast **Auth-Logik** geaendert (Login, JWT, Middleware, Guards)
+- Du hast **Tenant-scoped Endpunkte** erstellt oder geaendert
+- Du hast **Datenbankabfragen** geschrieben oder geaendert (AQL, Repository-Methoden)
+- Du hast **Input-Validierung** geaendert (Pydantic-Schemas, Zod-Schemas)
+- Du hast **CORS, Middleware oder Error-Handler** geaendert
+- Du hast **Celery-Tasks** erstellt die mit sensiblen Daten arbeiten
+- Du hast **Seed-Daten oder Migrations** mit Credentials erstellt
+
+### Wann gilt diese Regel NICHT?
+- Reine Frontend-UI-Aenderungen ohne API-Bezug (Styling, Layout, i18n)
+- Reine Helm/Kubernetes/Docker-Aenderungen (Infrastruktur-Security ist ein anderer Scope)
+- Reine Test-Aenderungen
+- Dokumentationsaenderungen
+
+### Was du ausgeben MUSST:
+
+Am Ende deiner Zusammenfassung, nach dem UI-Review-Abschnitt (falls vorhanden), fuege folgenden Abschnitt hinzu:
+
+```
+### Security-Review empfohlen
+
+Die folgenden Dateien enthalten sicherheitsrelevante Aenderungen und sollten vom
+`code-security-reviewer` Agent geprueft werden:
+
+- `src/backend/app/api/v1/[...].py` — [Kurzbeschreibung: neue Endpunkte, Auth-Aenderung, etc.]
+- `src/backend/app/data_access/[...].py` — [Kurzbeschreibung: neue Queries, etc.]
+- ...
+
+Sicherheitsrelevante Aspekte:
+- [z.B. "Neue tenant-scoped Endpunkte — Tenant-Isolation pruefen"]
+- [z.B. "AQL-Queries mit dynamischen Filtern — Injection pruefen"]
+```
 
 ---
 

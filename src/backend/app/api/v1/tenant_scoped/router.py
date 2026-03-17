@@ -1,6 +1,6 @@
 """Tenant-scoped router.
 
-Mounts existing resource routers under /t/{tenant_slug}/ prefix.
+Mounts tenant-aware resource routers under /t/{tenant_slug}/ prefix.
 All endpoints in this router require authentication and tenant membership.
 The TenantContext is available via Depends(get_current_tenant).
 
@@ -10,17 +10,24 @@ remain at /api/v1/ without tenant scoping.
 
 from fastapi import APIRouter
 
-from app.api.v1.feeding_events.router import router as feeding_events_router
-from app.api.v1.fertilizers.router import router as fertilizers_router
-from app.api.v1.harvest.router import router as harvest_router
+from app.api.v1.calendar.tenant_router import router as tenant_calendar_router
+from app.api.v1.favorites.tenant_router import router as tenant_favorites_router
+from app.api.v1.feeding_events.tenant_router import router as tenant_feeding_events_router
+from app.api.v1.fertilizers.tenant_router import router as tenant_fertilizers_router
+from app.api.v1.harvest.tenant_router import router as tenant_harvest_router
+from app.api.v1.ipm.tenant_router import router as tenant_ipm_router
 from app.api.v1.nutrient_calculations.router import router as nutrient_calculations_router
-from app.api.v1.nutrient_plans.router import router as nutrient_plans_router
-from app.api.v1.plant_instances.router import router as plants_router
-from app.api.v1.planting_runs.router import router as planting_runs_router
-from app.api.v1.sites.router import router as sites_router
-from app.api.v1.tanks.router import router as tanks_router
-from app.api.v1.tasks.router import router as tasks_router
-from app.api.v1.watering_events.router import router as watering_events_router
+from app.api.v1.nutrient_plans.tenant_router import router as tenant_nutrient_plans_router
+from app.api.v1.onboarding.tenant_router import router as tenant_onboarding_router
+from app.api.v1.plant_instances.tenant_router import router as tenant_plants_router
+from app.api.v1.planting_runs.tenant_router import router as tenant_planting_runs_router
+from app.api.v1.sites.tenant_router import router as tenant_sites_router
+from app.api.v1.starter_kits.tenant_router import router as tenant_starter_kits_router
+from app.api.v1.tanks.tenant_router import router as tenant_tanks_router
+from app.api.v1.tasks.tenant_router import router as tenant_tasks_router
+from app.api.v1.user_preferences.tenant_router import router as tenant_user_preferences_router
+from app.api.v1.watering_events.tenant_router import router as tenant_watering_events_router
+from app.api.v1.watering_logs.tenant_router import router as tenant_watering_logs_router
 
 tenant_scoped_router = APIRouter(
     prefix="/t/{tenant_slug}",
@@ -28,17 +35,22 @@ tenant_scoped_router = APIRouter(
 )
 
 # Mount tenant-scoped resource routers
-# These are the same routers as the global ones, but nested under /t/{tenant_slug}/
-# During migration, both paths work. The tenant_slug path parameter is available
-# for future use when services are updated to filter by tenant.
-tenant_scoped_router.include_router(sites_router)
-tenant_scoped_router.include_router(plants_router)
-tenant_scoped_router.include_router(planting_runs_router)
-tenant_scoped_router.include_router(tanks_router)
-tenant_scoped_router.include_router(fertilizers_router)
-tenant_scoped_router.include_router(nutrient_plans_router)
-tenant_scoped_router.include_router(feeding_events_router)
+# These routers enforce tenant isolation via get_current_tenant() dependency.
+tenant_scoped_router.include_router(tenant_sites_router)
+tenant_scoped_router.include_router(tenant_plants_router)
+tenant_scoped_router.include_router(tenant_planting_runs_router)
+tenant_scoped_router.include_router(tenant_tanks_router)
+tenant_scoped_router.include_router(tenant_fertilizers_router)
+tenant_scoped_router.include_router(tenant_nutrient_plans_router)
+tenant_scoped_router.include_router(tenant_feeding_events_router)
 tenant_scoped_router.include_router(nutrient_calculations_router)
-tenant_scoped_router.include_router(watering_events_router)
-tenant_scoped_router.include_router(harvest_router)
-tenant_scoped_router.include_router(tasks_router)
+tenant_scoped_router.include_router(tenant_watering_events_router)
+tenant_scoped_router.include_router(tenant_watering_logs_router)
+tenant_scoped_router.include_router(tenant_harvest_router)
+tenant_scoped_router.include_router(tenant_tasks_router)
+tenant_scoped_router.include_router(tenant_ipm_router)
+tenant_scoped_router.include_router(tenant_calendar_router)
+tenant_scoped_router.include_router(tenant_starter_kits_router)
+tenant_scoped_router.include_router(tenant_onboarding_router)
+tenant_scoped_router.include_router(tenant_favorites_router)
+tenant_scoped_router.include_router(tenant_user_preferences_router)

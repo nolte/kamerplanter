@@ -11,6 +11,7 @@ class UserPreferenceResponse(BaseModel):
     locale: str
     theme: str
     watering_can_liters: float
+    smart_home_enabled: bool
 
 
 class UserPreferenceUpdate(BaseModel):
@@ -19,3 +20,4 @@ class UserPreferenceUpdate(BaseModel):
     locale: str | None = None
     theme: str | None = None
     watering_can_liters: float | None = None
+    smart_home_enabled: bool | None = None

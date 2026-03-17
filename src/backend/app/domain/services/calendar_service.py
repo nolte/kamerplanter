@@ -2,6 +2,7 @@ import secrets
 from datetime import date, datetime
 
 from app.common.exceptions import NotFoundError, ValidationError
+from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine
 from app.domain.engines.season_overview_engine import (
     SeasonOverview,
@@ -58,10 +59,12 @@ class CalendarService:
         feed.token = secrets.token_urlsafe(32)
         return self._feed_repo.save(feed)
 
-    def get_feed(self, key: str) -> CalendarFeed:
+    def get_feed(self, key: str, tenant_key: str = "") -> CalendarFeed:
         feed = self._feed_repo.get_by_key(key)
         if feed is None:
             raise NotFoundError("CalendarFeed", key)
+        if tenant_key:
+            verify_tenant_ownership(feed, tenant_key, "CalendarFeed")
         return feed
 
     def list_feeds(self, user_key: str, tenant_key: str) -> list[CalendarFeed]:

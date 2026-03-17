@@ -510,21 +510,39 @@ export default function HarvestBatchDetailPage() {
               </CardContent>
             </Card>
           ) : (
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  {t('pages.harvest.createQuality')}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  {t('pages.harvest.createQualityIntro')}
-                </Typography>
-                <form onSubmit={handleQualitySubmit(onSaveQuality)}>
+            <Box component="form" onSubmit={handleQualitySubmit(onSaveQuality)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <Typography variant="body2" color="text.secondary">
+                {t('pages.harvest.createQualityIntro')}
+              </Typography>
+
+              {/* Section: Assessor */}
+              <Card variant="outlined">
+                <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                  <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                    {t('pages.harvest.createQuality')}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {t('pages.harvest.sectionAssessorDesc')}
+                  </Typography>
                   <FormTextField
                     name="assessed_by"
                     control={qualityControl}
                     label={t('pages.harvest.assessedBy')}
                     required
+                    autoFocus
                   />
+                </CardContent>
+              </Card>
+
+              {/* Section: Scores */}
+              <Card variant="outlined">
+                <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                  <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                    {t('pages.harvest.sectionScores')}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {t('pages.harvest.sectionScoresDesc')}
+                  </Typography>
                   <FormRow>
                     <FormNumberField
                       name="appearance_score"
@@ -552,6 +570,18 @@ export default function HarvestBatchDetailPage() {
                     max={100}
                     inputMode="numeric"
                   />
+                </CardContent>
+              </Card>
+
+              {/* Section: Defects & Notes */}
+              <Card variant="outlined">
+                <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                  <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                    {t('pages.harvest.sectionDefectsNotes')}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {t('pages.harvest.sectionDefectsNotesDesc')}
+                  </Typography>
                   <FormChipInput
                     name="defects"
                     control={qualityControl}
@@ -565,14 +595,16 @@ export default function HarvestBatchDetailPage() {
                     multiline
                     rows={3}
                   />
-                  <FormActions
-                    onCancel={() => resetQuality()}
-                    loading={savingQuality}
-                    saveLabel={t('common.create')}
-                  />
-                </form>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+
+              <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
+              <FormActions
+                onCancel={() => resetQuality()}
+                loading={savingQuality}
+                saveLabel={t('common.create')}
+              />
+            </Box>
           )}
         </Box>
       )}
@@ -632,15 +664,20 @@ export default function HarvestBatchDetailPage() {
               </CardContent>
             </Card>
           ) : (
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  {t('pages.harvest.createYield')}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  {t('pages.harvest.createYieldIntro')}
-                </Typography>
-                <form onSubmit={handleYieldSubmit(onSaveYield)}>
+            <Box component="form" onSubmit={handleYieldSubmit(onSaveYield)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <Typography variant="body2" color="text.secondary">
+                {t('pages.harvest.createYieldIntro')}
+              </Typography>
+
+              {/* Section: Yield Data */}
+              <Card variant="outlined">
+                <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                  <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                    {t('pages.harvest.createYield')}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {t('pages.harvest.sectionYieldDataDesc')}
+                  </Typography>
                   <FormRow>
                     <FormNumberField
                       name="yield_per_plant_g"
@@ -650,6 +687,7 @@ export default function HarvestBatchDetailPage() {
                       inputMode="decimal"
                       suffix="g"
                       helperText={t('pages.harvest.weightHelper')}
+                      autoFocus
                     />
                     <FormNumberField
                       name="yield_per_m2_g"
@@ -688,26 +726,36 @@ export default function HarvestBatchDetailPage() {
                     suffix="%"
                     helperText={t('pages.harvest.trimWasteHelper')}
                   />
-                  <FormActions
-                    onCancel={() => resetYield()}
-                    loading={savingYield}
-                    saveLabel={t('common.create')}
-                  />
-                </form>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+
+              <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
+              <FormActions
+                onCancel={() => resetYield()}
+                loading={savingYield}
+                saveLabel={t('common.create')}
+              />
+            </Box>
           )}
         </Box>
       )}
 
       {/* Tab 3: Edit */}
       {tab === 3 && (
-        <Card sx={{ maxWidth: 900 }}>
-          <CardContent>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {t('pages.harvest.editIntro')}
-            </Typography>
-            <form onSubmit={handleEditSubmit(onSave)}>
+        <Box component="form" onSubmit={handleEditSubmit(onSave)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Typography variant="body2" color="text.secondary">
+            {t('pages.harvest.editIntro')}
+          </Typography>
+
+          {/* Section: General */}
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.harvest.sectionGeneral')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.harvest.sectionGeneralDesc')}
+              </Typography>
               <FormSelectField
                 name="harvest_type"
                 control={editControl}
@@ -716,10 +764,38 @@ export default function HarvestBatchDetailPage() {
                   value: v,
                   label: t(`enums.harvestType.${v}`),
                 }))}
+                autoFocus
               />
+              <FormRow>
+                <FormSelectField
+                  name="quality_grade"
+                  control={editControl}
+                  label={t('pages.harvest.qualityGrade')}
+                  options={[
+                    { value: '', label: '\u2014' },
+                    ...qualityGrades.map((v) => ({
+                      value: v,
+                      label: t(`enums.qualityGrade.${v}`),
+                    })),
+                  ]}
+                />
+                <FormTextField
+                  name="harvester"
+                  control={editControl}
+                  label={t('pages.harvest.harvester')}
+                />
+              </FormRow>
+            </CardContent>
+          </Card>
 
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+          {/* Section: Weights */}
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
                 {t('pages.harvest.sectionWeights')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.harvest.sectionWeightsDesc')}
               </Typography>
               <FormNumberField
                 name="wet_weight_g"
@@ -748,25 +824,18 @@ export default function HarvestBatchDetailPage() {
                   suffix="g"
                 />
               </FormRow>
-              <FormRow>
-                <FormSelectField
-                  name="quality_grade"
-                  control={editControl}
-                  label={t('pages.harvest.qualityGrade')}
-                  options={[
-                    { value: '', label: '\u2014' },
-                    ...qualityGrades.map((v) => ({
-                      value: v,
-                      label: t(`enums.qualityGrade.${v}`),
-                    })),
-                  ]}
-                />
-                <FormTextField
-                  name="harvester"
-                  control={editControl}
-                  label={t('pages.harvest.harvester')}
-                />
-              </FormRow>
+            </CardContent>
+          </Card>
+
+          {/* Section: Notes */}
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.harvest.notes')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.harvest.sectionNotesDesc')}
+              </Typography>
               <FormTextField
                 name="notes"
                 control={editControl}
@@ -774,14 +843,16 @@ export default function HarvestBatchDetailPage() {
                 multiline
                 rows={3}
               />
-              <FormActions
-                onCancel={() => resetEdit()}
-                loading={saving}
-                disabled={!isDirty}
-              />
-            </form>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
+          <FormActions
+            onCancel={() => resetEdit()}
+            loading={saving}
+            disabled={!isDirty}
+          />
+        </Box>
       )}
     </Box>
   );

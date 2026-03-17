@@ -416,84 +416,8 @@ RETURN {
 ```
 
 **5. Mischkultur-Kompatibilitäts-Check für einen Run:**
-```aql
-// Prüft ob alle Entries in einem mixed_culture Run kompatibel sind
-LET run = DOCUMENT("planting_runs", @run_key)
-FILTER run.run_type == "mixed_culture"
 
-LET entries = (
-    FOR entry IN 1..1 OUTBOUND run has_entry
-    LET species = FIRST(FOR s IN 1..1 OUTBOUND entry entry_for_species RETURN s)
-    RETURN { entry_key: entry._key, species_id: species._id, species_name: species.scientific_name, role: entry.role }
-)
-
-// Prüfe alle Paare auf Kompatibilität
-LET compatibility_checks = (
-    FOR e1 IN entries
-        FOR e2 IN entries
-            FILTER e1.entry_key < e2.entry_key  // Jedes Paar nur einmal
-
-            // Spezies-Level: kompatibel?
-            LET compat = FIRST(
-                FOR v, edge IN 1..1 OUTBOUND DOCUMENT(e1.species_id) compatible_with
-                FILTER v._id == e2.species_id
-                RETURN edge
-            )
-
-            // Spezies-Level: inkompatibel?
-            LET incompat = FIRST(
-                FOR v, edge IN 1..1 OUTBOUND DOCUMENT(e1.species_id) incompatible_with
-                FILTER v._id == e2.species_id
-                RETURN edge
-            )
-
-            // Familien-Level Fallback
-            LET f1 = FIRST(FOR f IN 1..1 OUTBOUND DOCUMENT(e1.species_id) belongs_to_family RETURN f)
-            LET f2 = FIRST(FOR f IN 1..1 OUTBOUND DOCUMENT(e2.species_id) belongs_to_family RETURN f)
-
-            LET family_compat = compat == null AND incompat == null ? FIRST(
-                FOR v, edge IN 1..1 ANY f1 family_compatible_with
-                FILTER v._id == f2._id
-                RETURN edge
-            ) : null
-
-            LET family_incompat = compat == null AND incompat == null ? FIRST(
-                FOR v, edge IN 1..1 ANY f1 family_incompatible_with
-                FILTER v._id == f2._id
-                RETURN edge
-            ) : null
-
-            RETURN {
-                species_a: e1.species_name,
-                species_b: e2.species_name,
-                status: incompat != null ? "INCOMPATIBLE"
-                    : (family_incompat != null ? "FAMILY_INCOMPATIBLE"
-                    : (compat != null ? "COMPATIBLE"
-                    : (family_compat != null ? "FAMILY_COMPATIBLE"
-                    : "UNKNOWN"))),
-                score: incompat != null ? 0.0
-                    : (compat != null ? compat.compatibility_score
-                    : (family_compat != null ? family_compat.compatibility_score * 0.8
-                    : null)),
-                detail: incompat != null ? incompat.reason
-                    : (family_incompat != null ? family_incompat.reason
-                    : (compat != null ? CONCAT("Spezies-Level, Score: ", compat.compatibility_score)
-                    : (family_compat != null ? CONCAT("Familien-Level (", f1.name, " ↔ ", f2.name, "), Score: ", family_compat.compatibility_score * 0.8)
-                    : "Keine Daten")))
-            }
-)
-
-LET has_incompatible = LENGTH(
-    FOR c IN compatibility_checks FILTER c.status IN ["INCOMPATIBLE", "FAMILY_INCOMPATIBLE"] RETURN 1
-) > 0
-
-RETURN {
-    run_key: run._key,
-    run_name: run.name,
-    overall_status: has_incompatible ? "WARNING" : "OK",
-    checks: compatibility_checks
-}
-```
+> AQL-Referenzabfrage für Run-Kompatibilitäts-Check (alle N×N/2 Paare mit Familien-Level-Fallback): siehe **REQ-028 §3.4**.
 
 ### Seed-Daten:
 
@@ -682,37 +606,9 @@ RETURN {
 <!-- Quelle: Outdoor-Garden-Planner Review G-008 -->
 ### Mischkultur-Berater (Companion Planting Advisor)
 
-Bei Erstellung eines `mixed_culture`-Runs (oder bei Hinzufügen einer `primary`-Pflanze zu einem beliebigen Run) generiert das System aktive Mischkultur-Empfehlungen:
-
-**Empfehlungs-Engine:**
-1. Lade alle `compatible_with`-Edges der primary Species (REQ-001)
-2. Lade alle `incompatible_with`-Edges der primary Species
-3. Filtere nach Species, die für den Standort und die Saison geeignet sind
-4. Sortiere nach Companion-Effekt-Typ:
-   - `pest_repellent` → "Hält [Schädling] fern" (höchste Priorität)
-   - `growth_enhancer` → "Fördert Wachstum von [Pflanze]"
-   - `soil_improver` → "Verbessert Bodenstruktur/Stickstoff"
-   - `pollinator_attractor` → "Lockt Bestäuber an"
-
-**API-Response:**
-```json
-{
-  "primary_species": "Solanum lycopersicum",
-  "recommended_companions": [
-    {"species_key": "...", "common_name": "Basilikum", "role": "companion", "effect": "pest_repellent", "description": "Hält Weiße Fliege fern"},
-    {"species_key": "...", "common_name": "Tagetes", "role": "trap_crop", "effect": "pest_repellent", "description": "Nematoden-Abwehr"}
-  ],
-  "incompatible_species": [
-    {"species_key": "...", "common_name": "Fenchel", "reason": "Hemmt Tomatenwachstum (Allelopathie)"},
-    {"species_key": "...", "common_name": "Kartoffel", "reason": "Gleiche Familie (Solanaceae), Krankheitsübertragung"}
-  ]
-}
-```
-
-**UI-Integration:**
-- Im PlantingRun-Create-Dialog: Nach Auswahl der Primary-Pflanze erscheint ein "Mischkultur-Partner"-Panel mit Empfehlungen
-- Im Beetplan (REQ-002): Farbliche Markierung von Kompatibilitäten wenn Pflanzen nebeneinander platziert werden
-- Quick-Add: "Empfohlenen Partner hinzufügen" mit 1-Klick
+> Vollständige Spezifikation der Mischkultur-Empfehlungs-Engine, Kompatibilitäts-Validierung, API-Endpunkte, UI-Integration und Seed-Daten: siehe **REQ-028 Mischkultur & Companion Planting**.
+>
+> REQ-013 definiert die `mixed_culture`-Runs mit Entry-Rollen und konsumiert die CompanionPlantingEngine aus REQ-028 für Empfehlungen und Validierung.
 
 ## 3. Technische Umsetzung (Python)
 
@@ -1171,69 +1067,8 @@ class PlantingRunEngine:
 ```
 
 **3. PlantingRunEngine — Mischkultur-Validierung:**
-```python
-    @staticmethod
-    def validate_mixed_culture_compatibility(
-        compatibility_results: list[dict]
-    ) -> dict:
-        """
-        Bewertet die Kompatibilitäts-Ergebnisse einer Mischkultur.
 
-        Args:
-            compatibility_results: Ergebnisse aus der AQL-Kompatibilitäts-Abfrage
-
-        Returns:
-            { overall_status, score, warnings, recommendations }
-        """
-        incompatible = [
-            r for r in compatibility_results
-            if r['status'] in ('INCOMPATIBLE', 'FAMILY_INCOMPATIBLE')
-        ]
-        compatible = [
-            r for r in compatibility_results
-            if r['status'] in ('COMPATIBLE', 'FAMILY_COMPATIBLE')
-        ]
-        unknown = [
-            r for r in compatibility_results
-            if r['status'] == 'UNKNOWN'
-        ]
-
-        # Gewichteter Gesamt-Score
-        scores = [r['score'] for r in compatibility_results if r['score'] is not None]
-        avg_score = sum(scores) / len(scores) if scores else None
-
-        warnings = []
-        recommendations = []
-
-        for r in incompatible:
-            warnings.append(
-                f"INKOMPATIBEL: {r['species_a']} ↔ {r['species_b']} — {r['detail']}"
-            )
-            recommendations.append(
-                f"Erwäge {r['species_b']} durch eine kompatible Art zu ersetzen"
-            )
-
-        for r in unknown:
-            warnings.append(
-                f"UNBEKANNT: Keine Kompatibilitätsdaten für "
-                f"{r['species_a']} ↔ {r['species_b']}"
-            )
-
-        overall_status = (
-            "INCOMPATIBLE" if incompatible
-            else ("WARNING" if unknown else "COMPATIBLE")
-        )
-
-        return {
-            'overall_status': overall_status,
-            'average_score': round(avg_score, 2) if avg_score else None,
-            'compatible_pairs': len(compatible),
-            'incompatible_pairs': len(incompatible),
-            'unknown_pairs': len(unknown),
-            'warnings': warnings,
-            'recommendations': recommendations,
-        }
-```
+> Vollständige Engine-Methoden (`validate_run_compatibility`, `get_companion_recommendations`, Pydantic-Modelle): siehe **REQ-028 §4**.
 
 ### Datenvalidierung:
 
@@ -1464,7 +1299,7 @@ Nach der Pflanzen-Erstellung werden zusätzlich NutrientPlan-Zuweisungen kaskadi
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `POST` | `/api/v1/planting-runs/{key}/validate-compatibility` | Mischkultur-Kompatibilitäts-Check | Mitglied |
+| `POST` | `/api/v1/planting-runs/{key}/validate-compatibility` | Mischkultur-Kompatibilitäts-Check (siehe **REQ-028 §5**) | Mitglied |
 
 ### Request/Response-Beispiele:
 
@@ -1758,10 +1593,7 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Sukzessions-Verknüpfung:** Generierte Runs haben succession_plan_key, succession_sequence und succession_total korrekt gesetzt
 - [ ] **Sukzessions-Erinnerung:** reminder_days_before Tage vor nächster Aussaat wird eine Erinnerung erzeugt
 - [ ] **Sukzessions-Status:** SuccessionPlan-Status wechselt automatisch zu completed wenn alle Batches abgeschlossen
-- [ ] **Mischkultur-Berater:** Bei Auswahl einer primary Species werden compatible_with- und incompatible_with-Edges geladen und als Empfehlungen zurückgegeben
-- [ ] **Companion-Effekt-Typen:** Empfehlungen werden nach Effekt-Typ sortiert (pest_repellent > growth_enhancer > soil_improver > pollinator_attractor)
-- [ ] **Mischkultur-UI:** Im PlantingRun-Create-Dialog erscheint nach Primary-Auswahl ein Mischkultur-Partner-Panel
-- [ ] **Quick-Add Companion:** Empfohlener Partner kann mit 1-Klick als Entry hinzugefügt werden
+- [ ] **Mischkultur-Berater, UI & Quick-Add:** Siehe **REQ-028 §9** (Empfehlungs-Engine, API & UI DoD)
 - [ ] **Graph-Integration (Sukzession):** has_succession_plan und succession_at Edge Collections korrekt im Named Graph registriert
 
 ### Testszenarien:
@@ -1793,19 +1625,8 @@ THEN:
 ```
 
 **Szenario 3: Mischkultur — Kompatibilitäts-Prüfung**
-```
-GIVEN: PlantingRun (type: mixed_culture) mit Entries:
-       - Solanum lycopersicum (primary, 8)
-       - Ocimum basilicum (companion, 12)
-       - Tagetes patula (trap_crop, 6)
-WHEN: Nutzer ruft validate-compatibility auf
-THEN:
-  - System prüft alle Paar-Kombinationen (3 Paare)
-  - Tomate ↔ Basilikum: COMPATIBLE (Spezies-Level oder Familien-Level Fallback)
-  - Tomate ↔ Tagetes: Ergebnis abhängig von vorhandenen Kompatibilitätsdaten
-  - Basilikum ↔ Tagetes: Ergebnis abhängig von vorhandenen Kompatibilitätsdaten
-  - Overall-Status und Empfehlungen werden zurückgegeben
-```
+
+> Detaillierte Testszenarien für Mischkultur-Empfehlungen, Run-Kompatibilitäts-Checks, Familien-Fallback und Slot-Nachbarschafts-Prüfung: siehe **REQ-028 §10**.
 
 **Szenario 4: Batch-Phasenübergang mit Ausschlüssen**
 ```
@@ -1906,4 +1727,4 @@ THEN:
 **Hinweise für RAG-Integration:**
 - Keywords: Pflanzdurchlauf, Planting Run, Batch-Operation, Gruppenmanagement, Monokultur, Klon, Mischkultur, Batch-Erstellung, Batch-Phasenübergang, Batch-Ernte, Batch-Entfernung, Seed-to-Shelf, Traceability, Sukzessions-Aussaat, Staffelanbau, Mischkultur-Berater, Companion Planting Advisor
 - Fachbegriffe: PlantingRun, PlantingRunEntry, SuccessionPlan, Mutterpflanze, Steckling, Companion Planting, Trap Crop, Nurse Crop, Cover Crop, Gründüngung, Klon-Generation, Staffelanbau, Succession Planting, Detach-Kategorie, Male Plant, Bewurzelungsrate, Keimrate, HarvestBatch, State Machine, Detach, ID-Generierung, NutrientPlan-Zuweisung, Gießkalender, Entry-Level-Override, RUN_FOLLOWS_PLAN, Cascade, Phasengruppe, pest_repellent, growth_enhancer, soil_improver, pollinator_attractor, Empfehlungs-Engine, has_succession_plan, succession_at
-- Verknüpfung: Baut auf REQ-001 (Species/Cultivar + compatible_with/incompatible_with-Edges), REQ-002 (Location/Substrate), REQ-003 (Phasensteuerung), REQ-004 (NutrientPlan/WateringSchedule) auf; liefert an REQ-007 (Batch-Ernte), REQ-006 (Run-Tasks + Gießplan-Tasks), REQ-009 (Dashboard), REQ-010 (IPM), REQ-014 (Gießplan-Bestätigung), REQ-022 (Sukzessions-Erinnerungen)
+- Verknüpfung: Baut auf REQ-001 (Species/Cultivar), REQ-002 (Location/Substrate), REQ-003 (Phasensteuerung), REQ-004 (NutrientPlan/WateringSchedule), **REQ-028** (Mischkultur-Engine, compatible_with/incompatible_with-Edges) auf; liefert an REQ-007 (Batch-Ernte), REQ-006 (Run-Tasks + Gießplan-Tasks), REQ-009 (Dashboard), REQ-010 (IPM), REQ-014 (Gießplan-Bestätigung), REQ-022 (Sukzessions-Erinnerungen)

@@ -835,17 +835,29 @@ export default function TankDetailPage() {
 
       {/* Tab 5: Edit */}
       {tab === 5 && (
-        <Card>
-          <CardContent sx={{ maxWidth: 900 }}>
-            <form onSubmit={handleSubmit(onSave)}>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+        <Box
+          component="form"
+          onSubmit={handleSubmit(onSave)}
+          sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            {t('pages.tanks.editIntro')}
+          </Typography>
+
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
                 {t('pages.tanks.sectionIdentification')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.tanks.sectionIdentificationDesc')}
               </Typography>
               <FormTextField
                 name="name"
                 control={control}
                 label={t('pages.tanks.name')}
                 required
+                autoFocus
               />
               <FormRow>
                 <FormSelectField
@@ -876,8 +888,16 @@ export default function TankDetailPage() {
                 inputMode="decimal"
                 min={0.1}
               />
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            </CardContent>
+          </Card>
+
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
                 {t('pages.tanks.sectionLocation')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.tanks.sectionLocationDesc')}
               </Typography>
               <FormRow>
                 <TextField
@@ -905,8 +925,16 @@ export default function TankDetailPage() {
                   ]}
                 />
               </FormRow>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-                {t('pages.tanks.equipment')}
+            </CardContent>
+          </Card>
+
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.tanks.sectionEquipment')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.tanks.sectionEquipmentDesc')}
               </Typography>
               <FormRow>
                 <FormSwitchField
@@ -949,8 +977,16 @@ export default function TankDetailPage() {
                 control={control}
                 label={t('pages.tanks.hasOzoneGenerator')}
               />
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            </CardContent>
+          </Card>
+
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
                 {t('pages.tanks.sectionNotes')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.tanks.sectionNotesDesc')}
               </Typography>
               <FormTextField
                 name="notes"
@@ -959,14 +995,16 @@ export default function TankDetailPage() {
                 multiline
                 rows={3}
               />
-              <FormActions
-                onCancel={() => reset()}
-                loading={saving}
-                disabled={!isDirty}
-              />
-            </form>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
+          <FormActions
+            onCancel={() => reset()}
+            loading={saving}
+            disabled={!isDirty}
+          />
+        </Box>
       )}
 
       <TankStateCreateDialog

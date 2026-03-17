@@ -151,6 +151,20 @@ Die urspruengliche Planung sah Flutter (spec/stack.md, Abschnitt 4.2) als mobile
 | R-019 | Es SOLL eine Obergrenze von **500 Offline-Eintraegen** geben. Bei Erreichen der Grenze MUSS der Nutzer gewarnt werden, dass eine Synchronisation noetig ist. | SOLL |
 | R-020 | Pflanzenstammdaten (Arten, Sorten, Standorte) MUESSEN offline lesbar sein — diese Daten werden beim letzten Online-Zugriff vorab gecacht. | MUSS |
 
+<!-- Quelle: Widerspruchsanalyse W-003, W-007 -->
+### 3.3a Offline-Schutzbereich (Requires-Connectivity-Aktionen)
+
+Bestimmte Aktionen erfordern serverseitige Validierung und DUERFEN NICHT offline ausgefuehrt werden. Das Frontend MUSS diese Aktionen im Offline-Zustand sperren und den Nutzer informieren ("Diese Aktion erfordert eine Netzwerkverbindung").
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-020a | **Phasenwechsel** (REQ-003) DUERFEN NICHT offline ausgefuehrt werden — die Phasen-Zustandsmaschine verbietet Rueckwaerts-Transitionen, die serverseitig validiert werden. Offline koennte Last-Write-Wins eine verbotene Rueckwaerts-Transition erzwingen. | MUSS |
+| R-020b | **Ernteerstellung** (REQ-007) DARF NICHT offline erfolgen — das Karenzzeit-Gate prueft serverseitig, ob laufende IPM-Behandlungen die Ernte blockieren. Eine offline erstellte Ernte koennte das Safety-Gate umgehen. | MUSS |
+| R-020c | **Aktoren-Steuerung und Aktoren-Trigger** (REQ-018) DUERFEN NICHT offline ausgefuehrt werden — Aktoren-Befehle muessen in Echtzeit an Home Assistant/MQTT uebermittelt werden. | MUSS |
+| R-020d | **Behandlungsanwendungen** (REQ-010 IPM) DUERFEN NICHT offline erstellt werden — die Resistenz-Validierung (max. 3 konsekutive gleiche Wirkstoffe in 90 Tagen) erfordert serverseitige Pruefung. | MUSS |
+| R-020e | Fuer alle Requires-Connectivity-Aktionen MUSS das Frontend im Offline-Zustand den Aktions-Button deaktivieren und einen Tooltip anzeigen: "Netzwerkverbindung erforderlich". | MUSS |
+| R-020f | Offline erfasste Daten, die NICHT in der Requires-Connectivity-Liste stehen, werden weiterhin per Last-Write-Wins synchronisiert (R-030). Fuer Requires-Connectivity-Daten gilt stattdessen: Offline-Erfassung ist technisch unterbunden (UI-seitig gesperrt). | MUSS |
+
 ### 3.4 Synchronisation
 
 | # | Regel | Stufe |

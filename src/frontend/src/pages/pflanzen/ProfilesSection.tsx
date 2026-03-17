@@ -110,8 +110,8 @@ export default function ProfilesSection({ phaseKey, phaseName, readOnly }: Props
                   <ProfileRow label={`${t('pages.profiles.lightPpfd')} (PPFD)`} value={reqProfile.light_ppfd_target} />
                   <ProfileRow label={t('pages.profiles.photoperiodHours')} value={`${reqProfile.photoperiod_hours} h`} />
                   <Divider sx={{ my: 1 }} />
-                  <ProfileRow label={t('pages.profiles.tempDay')} value={`${reqProfile.temperature_day_c} \u00B0C`} />
-                  <ProfileRow label={t('pages.profiles.tempNight')} value={`${reqProfile.temperature_night_c} \u00B0C`} />
+                  <ProfileRow label={t('pages.profiles.tempDay')} value={`${reqProfile.temperature_day_c} °C`} />
+                  <ProfileRow label={t('pages.profiles.tempNight')} value={`${reqProfile.temperature_night_c} °C`} />
                   <ProfileRow label={t('pages.profiles.humidityDay')} value={`${reqProfile.humidity_day_percent} %`} />
                   <ProfileRow label={t('pages.profiles.humidityNight')} value={`${reqProfile.humidity_night_percent} %`} />
                   <ProfileRow label={`VPD ${t('pages.profiles.vpdTarget')}`} value={`${reqProfile.vpd_target_kpa} kPa`} />

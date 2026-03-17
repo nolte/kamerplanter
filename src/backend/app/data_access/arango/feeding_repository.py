@@ -19,8 +19,9 @@ class ArangoFeedingRepository(IFeedingRepository, BaseArangoRepository):
         self,
         offset: int = 0,
         limit: int = 50,
+        tenant_key: str | None = None,
     ) -> tuple[list[FeedingEvent], int]:
-        docs, total = BaseArangoRepository.get_all(self, offset, limit)
+        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key)
         return [FeedingEvent(**doc) for doc in docs], total
 
     def get_by_key(self, key: FeedingEventKey) -> FeedingEvent | None:

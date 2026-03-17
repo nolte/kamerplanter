@@ -7,14 +7,16 @@ Kategorie: Plattform & Deployment
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.0
-Abhängigkeit: REQ-023 v1.3, REQ-024 v1.1, REQ-025
+Version: 1.2 (Bidirektionaler Moduswechsel Light↔Full)
+Abhängigkeit: REQ-023 v1.6, REQ-024 v1.3, REQ-025
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.2 | 2026-03-16 | **Bidirektionaler Moduswechsel:** Upgrade Light→Full (System-Tenant-Übernahme durch ersten registrierten User, Platform-Admin-Transfer), Downgrade Full→Light (Datenverlust akzeptabel, System-User/Tenant-Reaktivierung, Multi-Tenant-Daten verwaist). Neue Szenarien 5–8, Upgrade-/Downgrade-API, Abnahmekriterien. |
+| 1.1 | 2026-03-16 | **Platform-Tenant im Light-Modus:** System-User erhält automatisch admin-Membership im Platform-Tenant. Alle globalen Stammdaten (Species, Pests, Diseases, Treatments, Fertilizers, NutrientPlans) werden via `tenant_has_access`-Kanten dem System-Tenant zugewiesen. Seed-Logik erweitert um Platform-Tenant-Erstellung und Auto-Assign. |
 | 1.0 | 2026-02-27 | Erstversion — Light-Modus als Deployment-Option für lokale Instanzen |
 
 ## 1. Business Case
@@ -37,6 +39,17 @@ Zwei Findings aus dem Casual-Houseplant-User-Review ([spec/requirements-analysis
 - **F-003 (Mandantenverwaltung und DSGVO-Formulare):** Concepts wie "Tenants", "Mitgliederverwaltung", "Consent-Banner" und "Datenschutz-Einstellungen" sind Overhead für Einzelnutzer auf lokalen Instanzen.
 
 Der Light-Modus ist ein **Deployment-Modus** für geschlossene Netzwerke und lokale Instanzen (Raspberry Pi, Home-Server, einzelner PC, Docker Compose auf dem Laptop). Er deaktiviert Auth, Tenants und DSGVO-Consent auf Konfigurationsebene — die App funktioniert sofort nach dem Öffnen.
+
+<!-- Quelle: Widerspruchsanalyse W-002 -->
+**Rechtliche Abgrenzung — DSGVO-Haushaltsausnahme (Art. 2 Abs. 2 lit. c):**
+
+Der Light-Modus stützt sich auf die **Haushaltsausnahme** der DSGVO: Die Verordnung findet keine Anwendung auf die Verarbeitung personenbezogener Daten durch natürliche Personen zur Ausübung ausschließlich persönlicher oder familiärer Tätigkeiten. Der Light-Modus ist daher **ausschließlich für private Deployments** vorgesehen:
+- `localhost` / einzelner Rechner
+- Geschlossenes Heimnetzwerk (hinter Router-Firewall)
+- Raspberry Pi ohne Port-Forwarding
+- VPN-geschütztes LAN
+
+**Wenn der Light-Modus außerhalb der Haushaltsausnahme betrieben wird** (öffentlich erreichbar, gewerblicher Einsatz, Cloud-Hosting), MUSS der Betreiber auf den Full-Modus wechseln. Das System kann dies nicht automatisch erzwingen, aber die Deployment-Dokumentation MUSS diesen Sachverhalt prominent darstellen.
 
 **Kernkonzepte:**
 
@@ -111,19 +124,91 @@ Voraussetzung: Light-Modus
 4. Response: Sites des System-Tenants
 ```
 
-**Szenario 5: Upgrade von Light auf Full**
+<!-- Quelle: Bidirektionaler Moduswechsel v1.2 -->
+**Szenario 5: Upgrade von Light auf Full — System-Tenant-Übernahme**
 ```
-Voraussetzung: Nutzer hat im Light-Modus 30 Pflanzen angelegt
+Voraussetzung: Nutzer hat im Light-Modus 30 Pflanzen, 3 Standorte, 5 Nährstoffpläne angelegt
 
 1. Nutzer möchte Kamerplanter mit Freund teilen
 2. Ändert KAMERPLANTER_MODE=full, startet neu
-3. Beim nächsten Aufruf: Login-Screen erscheint
-4. Nutzer registriert sich (REQ-023)
-5. System erkennt: Bestehende Daten im System-Tenant vorhanden
-   → Hinweis: "Bestehende Daten können über die Admin-Oberfläche
-      Ihrem neuen Account zugewiesen werden"
-6. Bestehende Pflanzen bleiben im System-Tenant erhalten
+3. Backend erkennt: Moduswechsel (vorher light, jetzt full)
+   → System-User (system@local) wird auf status: "inactive" gesetzt
+   → Platform-Tenant und System-Tenant bleiben bestehen
+4. Beim nächsten Aufruf: Login-Screen erscheint
+5. Nutzer registriert sich (REQ-023) → persönlicher Tenant wird NICHT erstellt
+6. Stattdessen: System erkennt System-Tenant mit Daten
+   → Übernahme-Dialog: "Es gibt bestehende Daten (30 Pflanzen, 3 Standorte).
+      Möchten Sie diese in Ihr Konto übernehmen?"
+7. Nutzer bestätigt → System-Tenant wird in-place übernommen:
+   a) system-tenant.name → "{display_name}s Garten"
+   b) system-tenant.type bleibt "personal"
+   c) Neue Membership: registrierter User → system-tenant (role: admin)
+   d) System-User-Membership wird auf status: "left" gesetzt
+   e) Neuer User erhält admin-Membership im Platform-Tenant (= erster KA-Admin)
+8. Alle 30 Pflanzen, Standorte, Nährstoffpläne etc. gehören jetzt dem neuen User
+9. Neuer User kann jetzt weitere Mitglieder einladen (REQ-024)
 ```
+
+**Szenario 6: Upgrade Light→Full — Übernahme ablehnen**
+```
+Voraussetzung: Wie Szenario 5
+
+1-5. Wie Szenario 5
+6. Nutzer lehnt Übernahme ab: "Nein, neu starten"
+7. System erstellt persönlichen Tenant für den neuen User (Standard REQ-024)
+8. System-Tenant bleibt mit status: "active" bestehen (verwaist)
+   → Nur über KA-Admin-Panel einsehbar/löschbar
+9. Neuer User erhält admin-Membership im Platform-Tenant (= KA-Admin)
+10. KA-Admin kann System-Tenant später über Admin-Panel löschen oder
+    einem anderen User zuweisen
+```
+
+**Szenario 7: Downgrade von Full auf Light**
+```
+Voraussetzung: Full-Modus mit 3 Usern, 2 Tenants, 50 Pflanzen verteilt
+
+1. Admin ändert KAMERPLANTER_MODE=light, startet neu
+2. Backend erkennt: Moduswechsel (vorher full, jetzt light)
+3. System prüft: System-User vorhanden?
+   a) Ja → System-User wird auf status: "active" gesetzt
+   b) Nein → System-User + System-Tenant werden neu erstellt (Seed-Logik)
+4. System prüft: System-Tenant vorhanden?
+   a) Ja → System-Tenant wird reaktiviert (status: "active")
+   b) Nein → System-Tenant wird neu erstellt
+5. System-User erhält admin-Membership in System-Tenant + Platform-Tenant
+6. Auto-Assign: Alle globalen Stammdaten → System-Tenant
+7. Frontend: Kein Login-Screen, arbeitet als System-User im System-Tenant
+
+WICHTIG — Datenverlust:
+- Alle anderen Tenants und deren Daten bleiben in der DB, sind aber im
+  Light-Modus nicht erreichbar (nur System-Tenant ist operativ)
+- User-Accounts, Memberships, Einladungen sind nicht sichtbar
+- Bei erneutem Upgrade auf Full sind die Daten wieder zugänglich
+```
+
+**Szenario 8: Roundtrip Light → Full → Light**
+```
+Phase 1 — Light:
+  System-User hat 10 Pflanzen im System-Tenant
+
+Phase 2 — Upgrade auf Full:
+  Nutzer registriert sich als "Anna", übernimmt System-Tenant
+  Anna hat jetzt 10 Pflanzen, lädt Freund "Max" ein
+  Max erstellt eigenen Tenant mit 5 Pflanzen
+  Anna erstellt 20 weitere Pflanzen → insgesamt 30
+
+Phase 3 — Downgrade auf Light:
+  System-User wird reaktiviert, System-Tenant wird reaktiviert
+  System-User sieht die 30 Pflanzen im System-Tenant (Annas Daten)
+  Max' separater Tenant (5 Pflanzen) ist nicht sichtbar, aber in DB erhalten
+  Anna und Max können sich nicht anmelden (Auth deaktiviert)
+
+Phase 4 — Erneuter Upgrade auf Full:
+  Anna meldet sich an → System-Tenant-Übernahme-Dialog erscheint erneut
+  Anna übernimmt → hat wieder 30 Pflanzen
+  Max meldet sich an → sein Tenant mit 5 Pflanzen ist wieder da
+```
+<!-- /Quelle: Bidirektionaler Moduswechsel v1.2 -->
 
 ## 2. Deployment-Modi-Vergleich
 
@@ -152,7 +237,7 @@ Voraussetzung: Nutzer hat im Light-Modus 30 Pflanzen angelegt
 | **Aufgabenplanung** | Vollständig (ohne User-Zuweisung) | Vollständig |
 | **Phasensteuerung** | Vollständig | Vollständig |
 | **Stammdaten-Import** | Vollständig | Vollständig |
-| **Externe Anreicherung** | Vollständig | Vollständig |
+| **Externe Anreicherung** | Deaktiviert (Standard) — aktivierbar per `ENABLE_ENRICHMENT_LIGHTMODE=true` | Vollständig (mit Consent) |
 
 ### 2.2 Ausgeblendete UI-Elemente im Light-Modus
 
@@ -233,17 +318,54 @@ SYSTEM_MEMBERSHIP = Membership(
 # Edge: membership_in: system-membership → system-tenant
 ```
 
-### 3.4 Seed-Logik (Idempotent)
+<!-- Quelle: Platform-Tenant & Auto-Assign v1.1 -->
+### 3.4 Platform-Tenant-Membership im Light-Modus
+
+Im Light-Modus erhält der System-User automatisch eine admin-Membership im Platform-Tenant (REQ-024 v1.3). Damit ist der System-User gleichzeitig:
+- **KA-Admin** (via Platform-Tenant-Membership) → kann globale Stammdaten verwalten
+- **Tenant-Admin** (via System-Tenant-Membership) → kann Pflanzen, Standorte etc. verwalten
+
+```python
+SYSTEM_PLATFORM_MEMBERSHIP = Membership(
+    role="admin",
+    joined_at=datetime.now(UTC),
+    status="active",
+)
+# Edge: has_membership: system-user → system-platform-membership
+# Edge: membership_in: system-platform-membership → platform-tenant
+```
+
+### 3.5 Seed-Logik (Idempotent, erweitert)
 
 ```python
 def seed_light_mode(db: StandardDatabase) -> None:
-    """Erzeugt System-User + System-Tenant falls nicht vorhanden.
+    """Erzeugt System-User + System-Tenant + Platform-Tenant + Auto-Assign.
     Idempotent — kann bei jedem Start aufgerufen werden."""
     users = db.collection("users")
+
+    # 1. System-User erstellen
     if not users.has("system-user"):
         users.insert({**SYSTEM_USER.dict(), "_key": "system-user"})
-        # ... Tenant, Membership, Edges
+
+    # 2. System-Tenant erstellen
+    tenants = db.collection("tenants")
+    if not tenants.has("system-tenant"):
+        tenants.insert({**SYSTEM_TENANT.dict(), "_key": "system-tenant"})
+        # Membership: system-user → system-tenant (admin)
+        _create_membership(db, "system-user", "system-tenant", "admin")
+
+    # 3. Platform-Tenant erstellen (REQ-024 v1.3)
+    if not tenants.has("platform"):
+        tenants.insert({**PLATFORM_TENANT.dict(), "_key": "platform"})
+        # Membership: system-user → platform (admin) → macht System-User zum KA-Admin
+        _create_membership(db, "system-user", "platform", "admin")
+
+    # 4. Auto-Assign: Alle globalen Stammdaten → System-Tenant
+    auto_assign_all_master_data("system-tenant", db)
 ```
+
+**Schritt 4 (Auto-Assign)** erstellt `tenant_has_access`-Kanten für alle globalen Species, Pests, Diseases, Treatments, Fertilizers und NutrientPlans zum System-Tenant. Damit sieht der Light-Modus-Nutzer alle verfügbaren Stammdaten ohne manuelle Zuweisung.
+<!-- /Quelle: Platform-Tenant & Auto-Assign v1.1 -->
 
 - Wird beim App-Start aufgerufen, wenn `KAMERPLANTER_MODE=light`
 - Idempotent: Doppelter Aufruf erzeugt keine Duplikate
@@ -570,6 +692,192 @@ apiClient.interceptors.request.use((config) => {
 // - Kein Token-Refresh-Interceptor
 ```
 
+<!-- Quelle: Bidirektionaler Moduswechsel v1.2 -->
+## 7a. Moduswechsel-Mechanik
+
+### 7a.1 Modus-Erkennung beim Start
+
+Das Backend erkennt einen Moduswechsel durch Vergleich des gespeicherten Modus mit dem aktuellen:
+
+```python
+# src/backend/app/config/settings.py
+class Settings(BaseSettings):
+    kamerplanter_mode: Literal["light", "full"] = "full"
+
+# Beim App-Start (lifespan):
+def detect_mode_change(db: StandardDatabase, current_mode: str) -> str | None:
+    """Erkennt Moduswechsel. Gibt vorherigen Modus zurück, oder None."""
+    meta = db.collection("system_meta")
+    prev = meta.get("deployment_mode")
+    if prev is None:
+        # Erster Start — kein Wechsel
+        meta.insert({"_key": "deployment_mode", "mode": current_mode})
+        return None
+    if prev["mode"] != current_mode:
+        old_mode = prev["mode"]
+        meta.update({"_key": "deployment_mode", "mode": current_mode})
+        return old_mode
+    return None
+```
+
+**Neue Collection:** `system_meta` (Doc Collection, max. wenige Dokumente) — speichert systemweite Metadaten wie den zuletzt aktiven Deployment-Modus.
+
+### 7a.2 Upgrade: Light → Full
+
+Wird ausgeführt wenn `detect_mode_change()` den Wechsel `light → full` erkennt:
+
+```python
+def handle_upgrade_light_to_full(db: StandardDatabase) -> None:
+    """Bereitet System für Full-Modus vor nach Light-Modus-Betrieb."""
+    users = db.collection("users")
+
+    # 1. System-User deaktivieren (kein Login im Full-Modus möglich)
+    if users.has("system-user"):
+        users.update({"_key": "system-user", "status": "inactive"})
+
+    # 2. Platform-Tenant bleibt aktiv (wird vom ersten Admin übernommen)
+    # 3. System-Tenant bleibt aktiv (wird vom ersten registrierten User übernommen)
+
+    # 4. Setze Flag für Frontend: Übernahme-Dialog anzeigen
+    meta = db.collection("system_meta")
+    meta.insert_or_replace({
+        "_key": "pending_takeover",
+        "system_tenant_key": "system-tenant",
+        "created_at": datetime.now(UTC).isoformat(),
+    })
+```
+
+**Übernahme-Endpoint (nach Registrierung):**
+
+```python
+@router.post("/system/takeover")
+def takeover_system_tenant(
+    accept: bool,
+    current_user: User = Depends(get_current_user),
+    tenant_service: TenantService = Depends(get_tenant_service),
+) -> dict:
+    """Übernimmt oder verwirft den System-Tenant nach Upgrade.
+    Nur aufrufbar wenn pending_takeover existiert."""
+
+    if accept:
+        # System-Tenant in-place übernehmen
+        tenant_service.takeover_system_tenant(
+            user=current_user,
+            new_name=f"{current_user.display_name}s Garten",
+        )
+        # → Membership: current_user → system-tenant (admin)
+        # → System-User-Membership: status → "left"
+        # → Platform-Tenant: current_user → admin (= KA-Admin)
+    else:
+        # Standard: Persönlichen Tenant erstellen (REQ-024)
+        tenant_service.create_personal_tenant(current_user)
+        # → Platform-Tenant: current_user → admin (= KA-Admin)
+
+    # Flag entfernen
+    db.collection("system_meta").delete("pending_takeover")
+    return {"takeover": accept, "tenant_slug": "mein-garten" if accept else ...}
+```
+
+**Route:** `POST /api/v1/system/takeover` — Erfordert Auth (Full-Modus), nur aufrufbar wenn `pending_takeover` in `system_meta` existiert.
+
+**Frontend-Flow:**
+
+```typescript
+// Nach erfolgreicher Registrierung im Full-Modus:
+// 1. Frontend prüft: GET /api/v1/system/takeover-status
+// 2. Wenn pending_takeover vorhanden → Übernahme-Dialog anzeigen:
+//    "Es gibt bestehende Daten (X Pflanzen, Y Standorte).
+//     Möchten Sie diese in Ihr Konto übernehmen?"
+//    [Ja, übernehmen] [Nein, neu starten]
+// 3. POST /api/v1/system/takeover mit accept: true/false
+// 4. Redirect zum Dashboard
+```
+
+### 7a.3 Downgrade: Full → Light
+
+Wird ausgeführt wenn `detect_mode_change()` den Wechsel `full → light` erkennt:
+
+```python
+def handle_downgrade_full_to_light(db: StandardDatabase) -> None:
+    """Bereitet System für Light-Modus vor nach Full-Modus-Betrieb.
+    Datenverlust für Nicht-System-Tenant-Daten ist akzeptabel."""
+    users = db.collection("users")
+    tenants = db.collection("tenants")
+    memberships = db.collection("memberships")
+
+    # 1. System-User reaktivieren oder neu erstellen
+    if users.has("system-user"):
+        users.update({"_key": "system-user", "status": "active"})
+    else:
+        users.insert({**SYSTEM_USER.dict(), "_key": "system-user"})
+
+    # 2. System-Tenant reaktivieren oder neu erstellen
+    if tenants.has("system-tenant"):
+        tenants.update({"_key": "system-tenant", "status": "active"})
+    else:
+        tenants.insert({**SYSTEM_TENANT.dict(), "_key": "system-tenant"})
+
+    # 3. Platform-Tenant reaktivieren oder neu erstellen
+    if tenants.has("platform"):
+        tenants.update({"_key": "platform", "status": "active"})
+    else:
+        tenants.insert({**PLATFORM_TENANT.dict(), "_key": "platform"})
+
+    # 4. System-User Memberships sicherstellen
+    _ensure_membership(db, "system-user", "system-tenant", "admin")
+    _ensure_membership(db, "system-user", "platform", "admin")
+
+    # 5. Auto-Assign: Alle globalen Stammdaten → System-Tenant
+    auto_assign_all_master_data("system-tenant", db)
+
+    # 6. Aufräumen: pending_takeover entfernen falls vorhanden
+    meta = db.collection("system_meta")
+    if meta.has("pending_takeover"):
+        meta.delete("pending_takeover")
+```
+
+**Verhalten anderer Tenants beim Downgrade:**
+
+| Ressource | Verhalten | Begründung |
+|-----------|----------|------------|
+| Andere Tenants (personal, organization) | Bleiben in DB, nicht erreichbar | Kein Datenverlust, wiederherstellbar bei erneutem Upgrade |
+| User-Accounts (außer System-User) | Bleiben in DB, nicht nutzbar | Auth ist deaktiviert im Light-Modus |
+| Memberships anderer User | Bleiben in DB, inaktiv | Werden bei Upgrade reaktiviert |
+| System-Tenant-Daten | Vollständig nutzbar | Gehören dem System-User |
+| Daten anderer Tenants | In DB erhalten, nicht sichtbar | Light-Modus operiert nur auf System-Tenant |
+| tenant_has_access-Kanten | Bleiben erhalten | Werden bei Upgrade wieder relevant |
+| Overlay-Daten (tenant_*_config) | Bleiben erhalten | System-Tenant-Overlays sind nutzbar |
+
+**Wichtig:** Es werden **keine Daten gelöscht**. Alle Tenants, Users, Memberships und Ressourcen bleiben in der Datenbank. Der Light-Modus kann sie nur nicht anzeigen, weil er ausschließlich mit dem System-User und System-Tenant arbeitet. Bei erneutem Upgrade auf Full sind alle Daten wieder zugänglich.
+
+**Tatsächlicher Datenverlust tritt nur ein wenn:**
+- Der System-Tenant im Full-Modus von einem User übernommen wurde (Szenario 5), dann beim Downgrade der System-User diesen Tenant mit den Daten des vorherigen Users sieht — aber keine Daten verloren gehen
+- Ein User im Full-Modus Daten im System-Tenant ändert und dann downgraded — der System-User sieht die geänderten Daten
+
+### 7a.4 Modus-Tracking Endpoint
+
+```python
+@router.get("/system/takeover-status")
+def get_takeover_status() -> dict:
+    """Gibt den Übernahme-Status zurück.
+    Nur relevant nach Upgrade Light→Full."""
+    meta = db.collection("system_meta")
+    pending = meta.get("pending_takeover")
+    if pending is None:
+        return {"pending": False}
+
+    # Zähle Ressourcen im System-Tenant
+    stats = _count_system_tenant_resources(db)
+    return {
+        "pending": True,
+        "system_tenant_key": pending["system_tenant_key"],
+        "resource_counts": stats,  # {"plants": 30, "sites": 3, ...}
+    }
+```
+
+**Route:** `GET /api/v1/system/takeover-status` — Im Full-Modus: Auth erforderlich. Im Light-Modus: nicht relevant (404).
+<!-- /Quelle: Bidirektionaler Moduswechsel v1.2 -->
+
 ## 8. Abnahmekriterien
 
 ### Funktionale Kriterien:
@@ -586,6 +894,28 @@ apiClient.interceptors.request.use((config) => {
 | AK-08 | Pflegeerinnerungen (REQ-022) funktionieren im Light-Modus uneingeschränkt | Integration |
 | AK-09 | Alle Ressourcen werden dem System-Tenant zugeordnet (`tenant_key: "system-tenant"`) | Integration |
 | AK-10 | `GET /api/v1/mode` gibt den korrekten Modus und Feature-Flags zurück | Unit |
+<!-- Quelle: Platform-Tenant & Auto-Assign v1.1 -->
+| AK-11 | Platform-Tenant wird beim Light-Modus-Start automatisch erstellt (idempotent) | Integration |
+| AK-12 | System-User hat admin-Membership im Platform-Tenant (= KA-Admin) | Integration |
+| AK-13 | Alle globalen Stammdaten (Species, Pests, Diseases, Treatments, Fertilizers, NutrientPlans) haben `tenant_has_access`-Kanten zum System-Tenant | Integration |
+| AK-14 | Light-Modus-Nutzer sieht alle verfügbaren Stammdaten ohne manuelle Zuweisung | E2E |
+<!-- /Quelle: Platform-Tenant & Auto-Assign v1.1 -->
+<!-- Quelle: Bidirektionaler Moduswechsel v1.2 -->
+| AK-15 | Moduswechsel wird erkannt: `system_meta.deployment_mode` wird beim Start verglichen und aktualisiert | Integration |
+| AK-16 | **Upgrade Light→Full:** System-User wird auf `status: inactive` gesetzt | Integration |
+| AK-17 | **Upgrade Light→Full:** `pending_takeover` wird in `system_meta` gesetzt | Integration |
+| AK-18 | **Upgrade Light→Full:** Erster registrierter User kann System-Tenant übernehmen (`POST /system/takeover`, accept=true) | Integration |
+| AK-19 | **Upgrade Light→Full:** Bei Übernahme erhält User admin-Membership in System-Tenant + Platform-Tenant | Integration |
+| AK-20 | **Upgrade Light→Full:** Bei Ablehnung wird persönlicher Tenant erstellt, System-Tenant bleibt verwaist | Integration |
+| AK-21 | **Upgrade Light→Full:** `pending_takeover` wird nach Übernahme/Ablehnung entfernt | Integration |
+| AK-22 | **Downgrade Full→Light:** System-User wird reaktiviert oder neu erstellt | Integration |
+| AK-23 | **Downgrade Full→Light:** System-Tenant wird reaktiviert oder neu erstellt | Integration |
+| AK-24 | **Downgrade Full→Light:** Auto-Assign aller Stammdaten zum System-Tenant wird ausgeführt | Integration |
+| AK-25 | **Downgrade Full→Light:** Andere Tenants/Users bleiben in DB erhalten (kein Löschen) | Integration |
+| AK-26 | **Downgrade Full→Light:** App arbeitet sofort als System-User im System-Tenant | E2E |
+| AK-27 | **Roundtrip:** Light→Full→Light→Full: Alle Daten bleiben erhalten und sind nach erneutem Upgrade zugänglich | Integration |
+| AK-28 | `GET /api/v1/system/takeover-status` gibt korrekte Ressourcen-Zählung zurück | Integration |
+<!-- /Quelle: Bidirektionaler Moduswechsel v1.2 -->
 
 ### Frontend-Kriterien:
 
@@ -613,8 +943,8 @@ apiClient.interceptors.request.use((config) => {
 
 | REQ/NFR | Bezug |
 |---------|-------|
-| **REQ-023** | Auth-Architektur — `get_current_user`-Dependency wird durch Adapter-Pattern erweitert |
-| **REQ-024** | Tenant-Architektur — System-Tenant nutzt das bestehende Tenant-Modell |
+| **REQ-023 v1.6** | Auth-Architektur — `get_current_user`-Dependency wird durch Adapter-Pattern erweitert. Platform-Admin-Rolle für System-User. |
+| **REQ-024 v1.3** | Tenant-Architektur — System-Tenant + Platform-Tenant nutzen das bestehende Modell. `tenant_has_access`-Kanten für Auto-Assign. |
 | **REQ-025** | DSGVO — Im Light-Modus deaktiviert (keine personenbezogenen Daten) |
 | REQ-020 | Onboarding-Wizard — Startet im Light-Modus ohne Login-Schritt |
 | REQ-021 | Erfahrungsstufen — Funktioniert unverändert (User-Preference am System-User) |
@@ -649,9 +979,10 @@ apiClient.interceptors.request.use((config) => {
 - **Nutzer-Umschaltung im Light-Modus** — Es gibt nur einen System-User. Für Multi-User: Full-Modus nutzen.
 - **Granulares Feature-Toggling** — Kein "Light-Modus mit Auth aber ohne Tenants". Die Modi sind atomar: alles oder nichts.
 - **Runtime-Umschaltung** — Moduswechsel erfordert Neustart. Kein Hot-Switching.
-- **Migration von System-User-Daten** — Beim Upgrade auf Full-Modus bleiben Daten im System-Tenant. Automatische Übernahme in einen neuen User-Account ist eine zukünftige Erweiterung.
 - **Reverse-Proxy-Auth** — Integration mit externem Auth (Authelia, Authentik Proxy) ist ein eigenes Thema.
-- **Light-Modus mit mehreren Tenants** — Im Light-Modus existiert nur ein Tenant.
+- **Light-Modus mit mehreren Tenants** — Im Light-Modus existiert nur ein operativer Tenant (System-Tenant). Der Platform-Tenant dient ausschließlich der KA-Admin-Berechtigung.
+- **Automatische Daten-Migration bei Downgrade** — Beim Downgrade Full→Light werden keine Daten aus anderen Tenants in den System-Tenant kopiert. Die Daten bleiben in der DB und sind beim nächsten Upgrade wieder zugänglich.
+- **Selektive Tenant-Übernahme** — Beim Upgrade kann nur der System-Tenant übernommen werden. Andere verwaiste Tenants müssen über das KA-Admin-Panel verwaltet werden.
 
 ## 11. Sicherheitshinweis
 

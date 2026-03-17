@@ -80,7 +80,7 @@ Ohne rechtskonformes Einwilligungsmanagement drohen Bußgelder nach DSGVO Art. 8
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| CB-001 | Beim ersten Besuch eines neuen Nutzers MUSS ein Consent-Banner angezeigt werden. | MUSS |
+| CB-001 | Beim ersten Besuch eines neuen Nutzers MUSS ein Consent-Banner angezeigt werden. **Ausnahme:** Im Light-Modus (REQ-027, `KAMERPLANTER_MODE=light`) entfaellt das Consent-Banner, da die DSGVO-Haushaltsausnahme (Art. 2 Abs. 2 lit. c) greift. Die externe Stammdatenanreicherung (REQ-011) ist im Light-Modus standardmaessig deaktiviert; bei manueller Aktivierung (`ENABLE_ENRICHMENT_LIGHTMODE=true`) MUSS ein einmaliges Opt-in-Modal angezeigt werden. <!-- Quelle: Widerspruchsanalyse W-002, W-008 --> | MUSS |
 | CB-002 | Das Banner MUSS **minimal-invasiv** gestaltet sein: als Bottom-Sheet oder Inline-Banner, NICHT als Fullscreen-Overlay oder Modal, das die gesamte Seite blockiert. | MUSS |
 | CB-003 | Das Banner MUSS eine Schaltfläche „Alle akzeptieren" und eine Schaltfläche „Nur Notwendige" gleichwertig (gleiche visuelle Prominenz) anbieten. | MUSS |
 | CB-004 | Das Banner MUSS eine Schaltfläche „Einstellungen" anbieten, die die Kategorie-Auswahl öffnet. | MUSS |

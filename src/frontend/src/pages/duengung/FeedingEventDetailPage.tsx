@@ -16,6 +16,8 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Alert from '@mui/material/Alert';
 import DeleteIcon from '@mui/icons-material/Delete';
+
+const PANEL_GAP = 4;
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -148,7 +150,7 @@ export default function FeedingEventDetailPage() {
   if (error || !event) return <ErrorDisplay error={error ?? 'Not found'} />;
 
   return (
-    <Box>
+    <Box data-testid="feeding-event-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
       <Box
         sx={{
@@ -335,122 +337,163 @@ export default function FeedingEventDetailPage() {
       )}
 
       {tab === 1 && (
-        <Box sx={{ maxWidth: 900 }}>
-          <form onSubmit={handleSubmit(onSave)}>
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 1 }}>
-              {t('pages.feedingEvents.sectionApplication')}
-            </Typography>
-            <FormRow>
-              <FormSelectField
-                name="application_method"
-                control={control}
-                label={t('pages.feedingEvents.applicationMethod')}
-                options={applicationMethods.map((v) => ({
-                  value: v,
-                  label: t(`enums.applicationMethod.${v}`),
-                }))}
-              />
-              <FormSwitchField
-                name="is_supplemental"
-                control={control}
-                label={t('pages.feedingEvents.isSupplemental')}
-              />
-            </FormRow>
-            <FormNumberField
-              name="volume_applied_liters"
-              control={control}
-              label={t('pages.feedingEvents.volumeApplied')}
-              min={0.01}
-              suffix="L"
-              inputMode="decimal"
-              helperText={t('pages.feedingEvents.volumeAppliedHelper')}
-            />
+        <Box component="form" onSubmit={handleSubmit(onSave)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+          <Typography variant="body2" color="text.secondary">
+            {t('pages.feedingEvents.editIntro')}
+          </Typography>
 
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-              {t('pages.feedingEvents.sectionMeasurements')}
-            </Typography>
-            <FormRow>
+          {/* Section: Application */}
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.feedingEvents.sectionApplication')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.feedingEvents.sectionApplicationDesc')}
+              </Typography>
+              <FormRow>
+                <FormSelectField
+                  name="application_method"
+                  control={control}
+                  label={t('pages.feedingEvents.applicationMethod')}
+                  options={applicationMethods.map((v) => ({
+                    value: v,
+                    label: t(`enums.applicationMethod.${v}`),
+                  }))}
+                  autoFocus
+                />
+                <FormSwitchField
+                  name="is_supplemental"
+                  control={control}
+                  label={t('pages.feedingEvents.isSupplemental')}
+                />
+              </FormRow>
               <FormNumberField
-                name="measured_ec_before"
+                name="volume_applied_liters"
                 control={control}
-                label={t('pages.feedingEvents.ecBefore')}
-                min={0}
-                suffix="mS/cm"
+                label={t('pages.feedingEvents.volumeApplied')}
+                min={0.01}
+                suffix="L"
                 inputMode="decimal"
-                helperText={t('pages.feedingEvents.ecHelper')}
+                helperText={t('pages.feedingEvents.volumeAppliedHelper')}
               />
-              <FormNumberField
-                name="measured_ec_after"
-                control={control}
-                label={t('pages.feedingEvents.ecAfter')}
-                min={0}
-                suffix="mS/cm"
-                inputMode="decimal"
-              />
-            </FormRow>
-            <FormRow>
-              <FormNumberField
-                name="measured_ph_before"
-                control={control}
-                label={t('pages.feedingEvents.phBefore')}
-                min={0}
-                max={14}
-                inputMode="decimal"
-                helperText={t('pages.feedingEvents.phHelper')}
-              />
-              <FormNumberField
-                name="measured_ph_after"
-                control={control}
-                label={t('pages.feedingEvents.phAfter')}
-                min={0}
-                max={14}
-                inputMode="decimal"
-              />
-            </FormRow>
+            </CardContent>
+          </Card>
 
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-              {t('pages.feedingEvents.sectionRunoff')}
-            </Typography>
-            <FormRow>
+          {/* Section: Measurements */}
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.feedingEvents.sectionMeasurements')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.feedingEvents.sectionMeasurementsDesc')}
+              </Typography>
+              <FormRow>
+                <FormNumberField
+                  name="measured_ec_before"
+                  control={control}
+                  label={t('pages.feedingEvents.ecBefore')}
+                  min={0}
+                  suffix="mS/cm"
+                  inputMode="decimal"
+                  helperText={t('pages.feedingEvents.ecHelper')}
+                />
+                <FormNumberField
+                  name="measured_ec_after"
+                  control={control}
+                  label={t('pages.feedingEvents.ecAfter')}
+                  min={0}
+                  suffix="mS/cm"
+                  inputMode="decimal"
+                />
+              </FormRow>
+              <FormRow>
+                <FormNumberField
+                  name="measured_ph_before"
+                  control={control}
+                  label={t('pages.feedingEvents.phBefore')}
+                  min={0}
+                  max={14}
+                  inputMode="decimal"
+                  helperText={t('pages.feedingEvents.phHelper')}
+                />
+                <FormNumberField
+                  name="measured_ph_after"
+                  control={control}
+                  label={t('pages.feedingEvents.phAfter')}
+                  min={0}
+                  max={14}
+                  inputMode="decimal"
+                />
+              </FormRow>
+            </CardContent>
+          </Card>
+
+          {/* Section: Runoff */}
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.feedingEvents.sectionRunoff')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.feedingEvents.sectionRunoffDesc')}
+              </Typography>
+              <FormRow>
+                <FormNumberField
+                  name="runoff_ec"
+                  control={control}
+                  label={t('pages.feedingEvents.runoffEc')}
+                  min={0}
+                  suffix="mS/cm"
+                  inputMode="decimal"
+                  helperText={t('pages.feedingEvents.ecHelper')}
+                />
+                <FormNumberField
+                  name="runoff_ph"
+                  control={control}
+                  label={t('pages.feedingEvents.runoffPh')}
+                  min={0}
+                  max={14}
+                  inputMode="decimal"
+                />
+              </FormRow>
               <FormNumberField
-                name="runoff_ec"
+                name="runoff_volume_liters"
                 control={control}
-                label={t('pages.feedingEvents.runoffEc')}
+                label={t('pages.feedingEvents.runoffVolume')}
                 min={0}
-                suffix="mS/cm"
-                inputMode="decimal"
-                helperText={t('pages.feedingEvents.ecHelper')}
-              />
-              <FormNumberField
-                name="runoff_ph"
-                control={control}
-                label={t('pages.feedingEvents.runoffPh')}
-                min={0}
-                max={14}
+                suffix="L"
                 inputMode="decimal"
               />
-            </FormRow>
-            <FormNumberField
-              name="runoff_volume_liters"
-              control={control}
-              label={t('pages.feedingEvents.runoffVolume')}
-              min={0}
-              suffix="L"
-              inputMode="decimal"
-            />
-            <FormTextField
-              name="notes"
-              control={control}
-              label={t('pages.feedingEvents.notes')}
-              multiline
-              rows={3}
-            />
-            <FormActions
-              onCancel={() => setTab(0)}
-              loading={saving}
-              disabled={!isDirty}
-            />
-          </form>
+            </CardContent>
+          </Card>
+
+          {/* Notes */}
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.feedingEvents.notes')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.feedingEvents.sectionNotesDesc')}
+              </Typography>
+              <FormTextField
+                name="notes"
+                control={control}
+                label={t('pages.feedingEvents.notes')}
+                multiline
+                rows={3}
+              />
+            </CardContent>
+          </Card>
+
+          <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
+          <FormActions
+            onCancel={() => setTab(0)}
+            loading={saving}
+            disabled={!isDirty}
+          />
         </Box>
       )}
 

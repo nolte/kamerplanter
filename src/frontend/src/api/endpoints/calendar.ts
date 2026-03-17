@@ -1,4 +1,4 @@
-import client from '../client';
+import { tenantClient as client } from '../client';
 import type { CalendarEventsResponse, CalendarFeed, SowingCalendarResponse, SeasonOverviewResponse } from '../types';
 
 export async function getCalendarEvents(

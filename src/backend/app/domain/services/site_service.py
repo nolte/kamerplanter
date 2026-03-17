@@ -1,4 +1,5 @@
 from app.common.exceptions import NotFoundError
+from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import LocationKey, SiteKey, SlotKey
 from app.domain.engines.water_mix_engine import WaterSourceValidator, WaterSourceWarning
 from app.domain.interfaces.site_repository import ISiteRepository
@@ -12,13 +13,15 @@ class SiteService:
 
     # --- Sites ---
 
-    def list_sites(self, offset: int = 0, limit: int = 50) -> tuple[list[Site], int]:
-        return self._repo.get_all_sites(offset, limit)
+    def list_sites(self, offset: int = 0, limit: int = 50, tenant_key: str = "") -> tuple[list[Site], int]:
+        return self._repo.get_all_sites(offset, limit, tenant_key=tenant_key)
 
-    def get_site(self, key: SiteKey) -> Site:
+    def get_site(self, key: SiteKey, tenant_key: str = "") -> Site:
         site = self._repo.get_site_by_key(key)
         if site is None:
             raise NotFoundError("Site", key)
+        if tenant_key:
+            verify_tenant_ownership(site, tenant_key, "Site")
         return site
 
     def create_site(self, site: Site) -> Site:

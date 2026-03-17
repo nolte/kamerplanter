@@ -674,30 +674,42 @@ export default function WorkflowDetailPage() {
       </Dialog>
 
       {tab === 2 && (
-        <Card>
-          <CardContent>
-            <form onSubmit={handleSubmit(onSave)}>
-              <Box sx={{ maxWidth: 900 }}>
-                <FormTextField name="name" control={control} label={t('pages.tasks.workflowName')} required />
+        <Box sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Typography variant="body2" color="text.secondary">
+            {t('pages.tasks.workflowEditIntro')}
+          </Typography>
+
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.tasks.sectionWorkflow')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.tasks.sectionWorkflowDesc')}
+              </Typography>
+              <form onSubmit={handleSubmit(onSave)}>
+                <FormTextField name="name" control={control} label={t('pages.tasks.workflowName')} required autoFocus />
                 <FormTextField name="description" control={control} label={t('common.description')} multiline rows={3} />
                 <FormTextField name="version" control={control} label={t('pages.tasks.version')} />
                 <FormTextField name="tags" control={control} label={t('pages.tasks.tags')} helperText={t('pages.tasks.tagsHelper')} />
+                <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
                 <FormActions onCancel={() => reset()} loading={saving} disabled={!isDirty} />
-              </Box>
-            </form>
-            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                variant="outlined"
-                color="error"
-                startIcon={<DeleteIcon />}
-                onClick={() => setDeleteOpen(true)}
-                disabled={workflow.is_system}
-              >
-                {workflow.is_system ? t('pages.tasks.systemTemplateDeleteDisabled') : t('pages.tasks.deleteWorkflow')}
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() => setDeleteOpen(true)}
+              disabled={workflow.is_system}
+            >
+              {workflow.is_system ? t('pages.tasks.systemTemplateDeleteDisabled') : t('pages.tasks.deleteWorkflow')}
+            </Button>
+          </Box>
+        </Box>
       )}
 
       <TaskTemplateDialog

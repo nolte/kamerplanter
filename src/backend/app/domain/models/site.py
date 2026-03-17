@@ -32,6 +32,7 @@ class SiteWaterConfig(BaseModel):
 
 class Slot(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    tenant_key: str = ""
     slot_id: str
     location_key: str = ""
     position: tuple[int, int] = (0, 0)
@@ -55,6 +56,7 @@ class Slot(BaseModel):
 
 class Location(BaseModel):
     key: str | None = Field(default=None, alias="_key")
+    tenant_key: str = ""
     name: str
     site_key: str = ""
     parent_location_key: str | None = None
