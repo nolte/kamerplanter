@@ -3,7 +3,7 @@
 _extends: gh-plumbing:.github/commons-settings.yml
 
 repository:
-  name: kamerplante
+  name: kamerplanter
   description: Agricultural technology system for plant lifecycle management
   homepage: https://nolte.github.io/kamerplante
   topics: agriculture, plant-management, fastapi, react, helm, kubernetes
