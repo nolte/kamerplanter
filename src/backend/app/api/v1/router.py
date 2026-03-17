@@ -12,6 +12,7 @@ from app.api.v1.crop_rotation.router import router as rotation_router
 from app.api.v1.cultivars.router import router as cultivars_router
 from app.api.v1.enrichment.router import router as enrichment_router
 from app.api.v1.family_relationships.router import router as family_relationships_router
+from app.api.v1.favorites.router import router as favorites_router
 from app.api.v1.feeding_events.router import router as feeding_events_router
 from app.api.v1.fertilizers.router import router as fertilizers_router
 from app.api.v1.growth_phases.router import router as phases_router
@@ -73,10 +74,12 @@ api_router.include_router(admin_settings_router)
 # Auth-related routers: only in full mode
 if settings.kamerplanter_mode == "full":
     from app.api.v1.admin.oidc_providers.router import router as oidc_providers_router
+    from app.api.v1.admin.platform.router import router as platform_admin_router
     from app.api.v1.auth.router import router as auth_router
 
     api_router.include_router(auth_router)
     api_router.include_router(oidc_providers_router)
+    api_router.include_router(platform_admin_router)
 
 api_router.include_router(users_router)
 api_router.include_router(health_router)
@@ -119,3 +122,4 @@ api_router.include_router(imports_router)
 api_router.include_router(calendar_router)
 api_router.include_router(activities_router)
 api_router.include_router(activity_plans_router)
+api_router.include_router(favorites_router)

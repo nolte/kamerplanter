@@ -1,4 +1,5 @@
 from app.common.exceptions import NotFoundError
+from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
 from app.domain.engines.delivery_channel_engine import DeliveryChannelValidator
 from app.domain.engines.nutrient_plan_engine import NutrientPlanValidator, resolve_effective_entry
@@ -25,13 +26,16 @@ class NutrientPlanService:
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
+        tenant_key: str = "",
     ) -> tuple[list[NutrientPlan], int]:
-        return self._repo.get_all(offset, limit, filters)
+        return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
 
-    def get_plan(self, key: NutrientPlanKey) -> NutrientPlan:
+    def get_plan(self, key: NutrientPlanKey, tenant_key: str = "") -> NutrientPlan:
         plan = self._repo.get_by_key(key)
         if plan is None:
             raise NotFoundError("NutrientPlan", key)
+        if tenant_key:
+            verify_tenant_ownership(plan, tenant_key, "NutrientPlan")
         return plan
 
     def create_plan(self, plan: NutrientPlan) -> NutrientPlan:

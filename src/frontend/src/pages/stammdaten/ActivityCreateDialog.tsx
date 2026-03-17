@@ -108,7 +108,7 @@ export default function ActivityCreateDialog({ open, onClose, onCreated }: Props
   }));
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth data-testid="create-dialog">
       <DialogTitle>{t('pages.activities.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
@@ -118,7 +118,7 @@ export default function ActivityCreateDialog({ open, onClose, onCreated }: Props
             {t('pages.activities.sectionIdentification')}
           </Typography>
           <FormRow>
-            <FormTextField name="name" control={control} label={t('pages.activities.nameEn')} required />
+            <FormTextField name="name" control={control} label={t('pages.activities.nameEn')} required autoFocus />
             <FormTextField name="name_de" control={control} label={t('pages.activities.nameDe')} />
           </FormRow>
           <FormRow>

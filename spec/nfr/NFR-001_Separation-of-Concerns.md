@@ -436,6 +436,19 @@ const db = new Database({
 
 ### 5.2 Sicherheitsmechanismen
 
+<!-- Quelle: Widerspruchsanalyse W-005 — Praezisierung Verschluesselungsanforderungen -->
+**Verschlüsselung sensibler Daten — Scope-Definition:**
+
+| Datenkategorie | Verschlüsselungsmethode | Bemerkung |
+|---------------|------------------------|-----------|
+| Passwörter | bcrypt (Cost Factor 12) | Irreversibler Hash, kein Klartext (REQ-023) |
+| API-Keys (Service Accounts) | SHA-256 Hash (gespeichert) | Nur Hash in DB, Klartext einmalig bei Erstellung angezeigt (REQ-023 v1.7) |
+| Home-Assistant-Tokens | AES-256-GCM (application-level) | Reversible Verschlüsselung nötig für API-Calls |
+| Datenbank at-rest | ArangoDB-eigene Encryption-at-Rest (RocksDB) | Keine per-field-Verschlüsselung — Performance-SLOs (NFR-007 P50 <200ms) wären sonst gefährdet |
+| Transport | TLS 1.2+ (HTTPS, MQTT über Port 8883) | Pflicht für alle Netzwerkkommunikation |
+
+Alle übrigen Anwendungsdaten (Pflanzen, Standorte, Sensordaten, Aufgaben) werden **nicht** application-level-verschlüsselt, sondern durch Zugriffskontrolle (§5.1), Netzwerk-Isolation (§6) und Datenbank-Encryption-at-Rest geschützt.
+
 **Backend-Konfiguration**:
 
 ```python

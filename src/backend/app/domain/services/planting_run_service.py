@@ -2,6 +2,7 @@ from datetime import UTC, date, datetime, timedelta
 
 from app.common.enums import PlantingRunStatus
 from app.common.exceptions import InvalidRunStateError, NotFoundError
+from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, PlantingRunKey
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
@@ -42,13 +43,16 @@ class PlantingRunService:
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
+        tenant_key: str = "",
     ) -> tuple[list[PlantingRun], int]:
-        return self._repo.get_all(offset, limit, filters)
+        return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
 
-    def get_run(self, key: PlantingRunKey) -> PlantingRun:
+    def get_run(self, key: PlantingRunKey, tenant_key: str = "") -> PlantingRun:
         run = self._repo.get_by_key(key)
         if run is None:
             raise NotFoundError("PlantingRun", key)
+        if tenant_key:
+            verify_tenant_ownership(run, tenant_key, "PlantingRun")
         return run
 
     def create_run(self, run: PlantingRun, entries: list[PlantingRunEntry] | None = None) -> PlantingRun:

@@ -128,7 +128,7 @@ export default function TankStateCreateDialog({ open, onClose, tankKey, onCreate
               control={control}
               label={t('pages.tanks.waterTempShort')}
               helperText={t('pages.tanks.waterTempHelper')}
-              suffix={'\u00B0C'}
+              suffix="°C"
               inputMode="decimal"
               min={0}
               max={50}

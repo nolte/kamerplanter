@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import List from '@mui/material/List';
@@ -60,6 +62,9 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
+
+/** Spacing between form panels (UI-NFR-008 R-039: 24px = spacing.lg) */
+const PANEL_GAP = 4;
 
 export default function BotanicalFamilyDetailPage() {
   const { key } = useParams<{ key: string }>();
@@ -205,7 +210,7 @@ export default function BotanicalFamilyDetailPage() {
   ];
 
   return (
-    <>
+    <Box data-testid="botanical-family-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <PageTitle title={current?.name ?? t('entities.botanicalFamily')} />
@@ -218,149 +223,197 @@ export default function BotanicalFamilyDetailPage() {
         </Button>
       </Box>
 
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {t('pages.botanicalFamilies.editIntro')}
-      </Typography>
-
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-          {t('pages.botanicalFamilies.sectionTaxonomy')}
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+        <Typography variant="body2" color="text.secondary">
+          {t('pages.botanicalFamilies.editIntro')}
         </Typography>
-        <FormTextField
-          name="name"
-          control={control}
-          label={t('pages.botanicalFamilies.name')}
-          required
-          helperText={t('pages.botanicalFamilies.nameHelper')}
-        />
-        <FormRow>
-          <FormTextField
-            name="common_name_de"
-            control={control}
-            label={t('pages.botanicalFamilies.commonNameDe')}
-            helperText={t('pages.botanicalFamilies.commonNameDeHelper')}
-          />
-          <FormTextField
-            name="common_name_en"
-            control={control}
-            label={t('pages.botanicalFamilies.commonNameEn')}
-            helperText={t('pages.botanicalFamilies.commonNameEnHelper')}
-          />
-        </FormRow>
-        <FormTextField
-          name="order"
-          control={control}
-          label={t('pages.botanicalFamilies.order')}
-          helperText={t('pages.botanicalFamilies.orderHelper')}
-        />
-        <FormTextField
-          name="description"
-          control={control}
-          label={t('pages.botanicalFamilies.description')}
-          multiline
-          rows={2}
-          helperText={t('pages.botanicalFamilies.descriptionHelper')}
-        />
 
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-          {t('pages.botanicalFamilies.sectionGrowth')}
-        </Typography>
-        <FormRow>
-          <FormSelectField
-            name="typical_nutrient_demand"
-            control={control}
-            label={t('pages.botanicalFamilies.nutrientDemand')}
-            options={nutrientDemandOptions}
-            helperText={t('pages.botanicalFamilies.nutrientDemandHelper')}
-          />
-          <FormSelectField
-            name="typical_root_depth"
-            control={control}
-            label={t('pages.botanicalFamilies.rootDepth')}
-            options={rootDepthOptions}
-            helperText={t('pages.botanicalFamilies.rootDepthHelper')}
-          />
-        </FormRow>
-        <FormSwitchField
-          name="nitrogen_fixing"
-          control={control}
-          label={t('pages.botanicalFamilies.nitrogenFixing')}
-          helperText={t('pages.botanicalFamilies.nitrogenFixingHelper')}
-        />
-        <FormMultiSelectField
-          name="typical_growth_forms"
-          control={control}
-          label={t('pages.botanicalFamilies.growthForms')}
-          options={growthFormOptions}
-          required
-          helperText={t('pages.botanicalFamilies.growthFormsHelper')}
-        />
+        {/* ── Panel 1: Taxonomie (Pflichtfelder zuerst) ── */}
+        {/* UI-NFR-008 R-037/R-038/R-040: Card panel, h6 heading, required fields first */}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.botanicalFamilies.sectionTaxonomy')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.botanicalFamilies.sectionTaxonomyDesc')}
+            </Typography>
+            <FormTextField
+              name="name"
+              control={control}
+              label={t('pages.botanicalFamilies.name')}
+              required
+              autoFocus
+              helperText={t('pages.botanicalFamilies.nameHelper')}
+            />
+            <FormRow>
+              <FormTextField
+                name="common_name_de"
+                control={control}
+                label={t('pages.botanicalFamilies.commonNameDe')}
+                helperText={t('pages.botanicalFamilies.commonNameDeHelper')}
+              />
+              <FormTextField
+                name="common_name_en"
+                control={control}
+                label={t('pages.botanicalFamilies.commonNameEn')}
+                helperText={t('pages.botanicalFamilies.commonNameEnHelper')}
+              />
+            </FormRow>
+            <FormTextField
+              name="order"
+              control={control}
+              label={t('pages.botanicalFamilies.order')}
+              helperText={t('pages.botanicalFamilies.orderHelper')}
+            />
+            <FormTextField
+              name="description"
+              control={control}
+              label={t('pages.botanicalFamilies.description')}
+              multiline
+              rows={2}
+              helperText={t('pages.botanicalFamilies.descriptionHelper')}
+            />
+          </CardContent>
+        </Card>
 
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-          {t('pages.botanicalFamilies.sectionEnvironment')}
-        </Typography>
-        <FormRow>
-          <FormNumberField
-            name="soil_ph_min"
-            control={control}
-            label={t('pages.botanicalFamilies.soilPhMin')}
-            min={3}
-            max={9}
-            step={0.1}
-            helperText={t('pages.botanicalFamilies.soilPhHelper')}
-          />
-          <FormNumberField
-            name="soil_ph_max"
-            control={control}
-            label={t('pages.botanicalFamilies.soilPhMax')}
-            min={3}
-            max={9}
-            step={0.1}
-          />
-        </FormRow>
-        <FormSelectField
-          name="frost_tolerance"
-          control={control}
-          label={t('pages.botanicalFamilies.frostTolerance')}
-          options={frostToleranceOptions}
-          helperText={t('pages.botanicalFamilies.frostToleranceHelper')}
-        />
+        {/* ── Panel 2: Wachstum & Nährstoffe ── */}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.botanicalFamilies.sectionGrowth')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.botanicalFamilies.sectionGrowthDesc')}
+            </Typography>
+            <FormRow>
+              <FormSelectField
+                name="typical_nutrient_demand"
+                control={control}
+                label={t('pages.botanicalFamilies.nutrientDemand')}
+                options={nutrientDemandOptions}
+                helperText={t('pages.botanicalFamilies.nutrientDemandHelper')}
+              />
+              <FormSelectField
+                name="typical_root_depth"
+                control={control}
+                label={t('pages.botanicalFamilies.rootDepth')}
+                options={rootDepthOptions}
+                helperText={t('pages.botanicalFamilies.rootDepthHelper')}
+              />
+            </FormRow>
+            <FormSwitchField
+              name="nitrogen_fixing"
+              control={control}
+              label={t('pages.botanicalFamilies.nitrogenFixing')}
+              helperText={t('pages.botanicalFamilies.nitrogenFixingHelper')}
+            />
+            <FormMultiSelectField
+              name="typical_growth_forms"
+              control={control}
+              label={t('pages.botanicalFamilies.growthForms')}
+              options={growthFormOptions}
+              required
+              helperText={t('pages.botanicalFamilies.growthFormsHelper')}
+            />
+          </CardContent>
+        </Card>
 
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-          {t('pages.botanicalFamilies.sectionPestsAndDiseases')}
-        </Typography>
-        <FormRow>
-          <FormChipInput
-            name="common_pests"
-            control={control}
-            label={t('pages.botanicalFamilies.commonPests')}
-            helperText={t('pages.botanicalFamilies.commonPestsHelper')}
-          />
-          <FormChipInput
-            name="common_diseases"
-            control={control}
-            label={t('pages.botanicalFamilies.commonDiseases')}
-            helperText={t('pages.botanicalFamilies.commonDiseasesHelper')}
-          />
-        </FormRow>
+        {/* ── Panel 3: Umgebung & Boden ── */}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.botanicalFamilies.sectionEnvironment')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.botanicalFamilies.sectionEnvironmentDesc')}
+            </Typography>
+            <FormRow>
+              <FormNumberField
+                name="soil_ph_min"
+                control={control}
+                label={t('pages.botanicalFamilies.soilPhMin')}
+                min={3}
+                max={9}
+                step={0.1}
+                helperText={t('pages.botanicalFamilies.soilPhHelper')}
+              />
+              <FormNumberField
+                name="soil_ph_max"
+                control={control}
+                label={t('pages.botanicalFamilies.soilPhMax')}
+                min={3}
+                max={9}
+                step={0.1}
+              />
+            </FormRow>
+            <FormSelectField
+              name="frost_tolerance"
+              control={control}
+              label={t('pages.botanicalFamilies.frostTolerance')}
+              options={frostToleranceOptions}
+              helperText={t('pages.botanicalFamilies.frostToleranceHelper')}
+            />
+          </CardContent>
+        </Card>
 
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-          {t('pages.botanicalFamilies.sectionReproduction')}
+        {/* ── Panel 4: Schädlinge & Krankheiten ── */}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.botanicalFamilies.sectionPestsAndDiseases')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.botanicalFamilies.sectionPestsAndDiseasesDesc')}
+            </Typography>
+            <FormRow>
+              <FormChipInput
+                name="common_pests"
+                control={control}
+                label={t('pages.botanicalFamilies.commonPests')}
+                helperText={t('pages.botanicalFamilies.commonPestsHelper')}
+              />
+              <FormChipInput
+                name="common_diseases"
+                control={control}
+                label={t('pages.botanicalFamilies.commonDiseases')}
+                helperText={t('pages.botanicalFamilies.commonDiseasesHelper')}
+              />
+            </FormRow>
+          </CardContent>
+        </Card>
+
+        {/* ── Panel 5: Bestäubung & Fruchtfolge ── */}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.botanicalFamilies.sectionReproduction')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.botanicalFamilies.sectionReproductionDesc')}
+            </Typography>
+            <FormMultiSelectField
+              name="pollination_type"
+              control={control}
+              label={t('pages.botanicalFamilies.pollinationType')}
+              options={pollinationOptions}
+              required
+              helperText={t('pages.botanicalFamilies.pollinationTypeHelper')}
+            />
+            <FormTextField
+              name="rotation_category"
+              control={control}
+              label={t('pages.botanicalFamilies.rotationCategory')}
+              helperText={t('pages.botanicalFamilies.rotationCategoryHelper')}
+            />
+          </CardContent>
+        </Card>
+
+        {/* UI-NFR-008 R-025: Required field legend */}
+        <Typography variant="caption" color="text.secondary">
+          * {t('common.required')}
         </Typography>
-        <FormMultiSelectField
-          name="pollination_type"
-          control={control}
-          label={t('pages.botanicalFamilies.pollinationType')}
-          options={pollinationOptions}
-          required
-          helperText={t('pages.botanicalFamilies.pollinationTypeHelper')}
-        />
-        <FormTextField
-          name="rotation_category"
-          control={control}
-          label={t('pages.botanicalFamilies.rotationCategory')}
-          helperText={t('pages.botanicalFamilies.rotationCategoryHelper')}
-        />
+
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
       </Box>
 
@@ -419,6 +472,6 @@ export default function BotanicalFamilyDetailPage() {
         onCancel={() => setDeleteOpen(false)}
         destructive
       />
-    </>
+    </Box>
   );
 }

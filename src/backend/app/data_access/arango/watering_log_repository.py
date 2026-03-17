@@ -65,8 +65,9 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
         self,
         offset: int = 0,
         limit: int = 50,
+        tenant_key: str | None = None,
     ) -> tuple[list[WateringLog], int]:
-        docs, total = BaseArangoRepository.get_all(self, offset, limit)
+        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key)
         return [WateringLog(**doc) for doc in docs], total
 
     def resolve_plant_names(self, plant_keys: list[str]) -> dict[str, str]:

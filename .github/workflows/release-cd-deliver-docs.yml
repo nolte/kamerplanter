@@ -5,6 +5,8 @@ on:
 jobs:
   publish_docs:
     uses: nolte/gh-plumbing/.github/workflows/reusable-mkdocs.yaml@v1.1.12
+    with:
+      requirements: docs/requirements.txt
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}
     permissions:

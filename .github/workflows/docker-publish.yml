@@ -15,7 +15,7 @@ env:
   IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -175,3 +175,60 @@ jobs:
 
       - name: Push chart to GHCR
         run: helm push ${{ matrix.chart }}-*.tgz oci://${{ env.IMAGE_PREFIX }}/charts
+
+      - name: Upload chart as release asset
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" ${{ matrix.chart }}-*.tgz --clobber
+
+  update-release-assets:
+    needs: [build-backend, build-frontend, publish-helm-charts]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate and upload docker-compose
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          VERSION_NUM="${VERSION#v}"
+          sed "s/__VERSION__/${VERSION_NUM}/g" docker-compose.release.yml > docker-compose-${VERSION_NUM}.yml
+          cp .env.example .env.example-${VERSION_NUM}
+          gh release upload "$VERSION" "docker-compose-${VERSION_NUM}.yml" ".env.example-${VERSION_NUM}" --clobber
+
+      - name: Update release body with package links
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          VERSION_NUM="${VERSION#v}"
+          BODY=$(gh release view "$VERSION" --json body -q .body)
+          PACKAGES=$(cat <<EOF
+
+          ## Packages
+
+          ### Container Images
+          - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-backend:${VERSION_NUM}\`
+          - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-frontend:${VERSION_NUM}\`
+
+          ### Helm Chart
+          - \`oci://ghcr.io/${{ github.repository_owner }}/charts/kamerplanter:${VERSION_NUM}\`
+
+          \`\`\`bash
+          helm pull oci://ghcr.io/${{ github.repository_owner }}/charts/kamerplanter --version ${VERSION_NUM}
+          \`\`\`
+
+          ### Docker Compose
+          \`\`\`bash
+          curl -LO https://github.com/${{ github.repository }}/releases/download/${VERSION}/docker-compose-${VERSION_NUM}.yml
+          curl -LO https://github.com/${{ github.repository }}/releases/download/${VERSION}/.env.example-${VERSION_NUM}
+          cp .env.example-${VERSION_NUM} .env   # edit passwords!
+          docker compose -f docker-compose-${VERSION_NUM}.yml up -d
+          \`\`\`
+          EOF
+          )
+          gh release edit "$VERSION" --notes "${BODY}${PACKAGES}"

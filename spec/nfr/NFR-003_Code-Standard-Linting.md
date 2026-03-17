@@ -110,6 +110,9 @@ def calculate_gdd(plant_id: str, base_temperature: float) -> float:
 
 **Begründung**: Deutsche Fachlichkeit, internationale Technologie.
 
+<!-- Quelle: Widerspruchsanalyse W-018 — Klarstellung Scope der Englisch-Pflicht -->
+**Klarstellung:** Die Englisch-Pflicht gilt ausschliesslich fuer Source Code, Code-Kommentare, Docstrings, Commit Messages und API-Dokumentation. Spezifikationsdokumente (`spec/**/*.md`), Nutzer-facing Dokumentation (`docs/`) und Anforderungsanalysen werden auf Deutsch verfasst.
+
 ### 2.2 Englisch verpflichtend für
 
 **Code-Elemente**:
@@ -139,6 +142,13 @@ def calculate_gdd(plant_id: str, base_temperature: float) -> float:
 - Issue Titles
 
 ### 2.3 Namenskonventionen (Python 3.14)
+
+<!-- Quelle: Widerspruchsanalyse W-015 — Python 3.14 Type Annotation Style -->
+**Python 3.14+ Type Annotation Style:**
+- Bevorzugter Stil: `str | None` (nicht `Optional[str]`), `list[str]` (nicht `List[str]`)
+- Type Aliases: `type PlantID = str` (Python 3.12+ `type`-Statement, nicht `TypeAlias`)
+- Union-Typen: `int | float` (nicht `Union[int, float]`)
+- Bestehender Code im Repository folgt bereits diesem Stil — Rueckfallmuster (`Optional`, `Union`, `List`, `Dict` aus `typing`) sind in neuem Code verboten
 
 **PEP 8 + Agrotech Extensions**:
 

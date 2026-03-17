@@ -1,35 +1,219 @@
 # Lokales Setup
 
-Skaffold ist das einzige Werkzeug für den lokalen Entwicklungsprozess. Es übernimmt Image-Building und Deployment/Update im Kubernetes-Cluster. Keine manuellen `docker build`/`kubectl apply`-Befehle.
+Diese Seite beschreibt, wie du eine vollständige lokale Entwicklungsumgebung für Kamerplanter aufsetzt. Skaffold ist das einzige autorisierte Werkzeug für den Entwicklungsprozess — es übernimmt Image-Building und Deployment im Kubernetes-Cluster. Manuelle `docker build`- oder `kubectl apply`-Befehle werden nicht verwendet.
 
-!!! note "Platzhalter"
-    Dieser Inhalt wird in einem folgenden Schritt ausgearbeitet.
+---
 
 ## Voraussetzungen
 
-- Docker Desktop oder ein lokaler Kubernetes-Cluster (Kind, k3s, minikube)
-- Skaffold installiert
-- Node.js 25+ (via asdf, `.tool-versions` in `src/frontend/`)
-- Python 3.14+
+Installiere folgende Werkzeuge, bevor du beginnst:
 
-## Entwicklungsstart
+| Werkzeug | Mindestversion | Zweck |
+|----------|---------------|-------|
+| [Docker](https://docs.docker.com/get-docker/) | 24+ | Container-Runtime für Kind |
+| [Kind](https://kind.sigs.k8s.io/) | 0.20+ | Lokaler Kubernetes-Cluster |
+| [kubectl](https://kubernetes.io/docs/tasks/tools/) | 1.28+ | Kubernetes CLI |
+| [Skaffold](https://skaffold.dev/docs/install/) | 2.10+ | Build- und Deploy-Automatisierung |
+| [Helm](https://helm.sh/docs/intro/install/) | 3.14+ | Kubernetes Package Manager |
+| [asdf](https://asdf-vm.com/) | 0.14+ | Node.js-Versionsverwaltung |
+| Python | 3.14+ | Backend-Entwicklung ohne Cluster |
+| Node.js | 25.1.0 | Frontend-Entwicklung ohne Cluster |
+
+!!! note "Node.js-Version via asdf"
+    Im `src/frontend/`-Verzeichnis liegt eine `.tool-versions`-Datei mit `nodejs 25.1.0`. Nach der asdf-Installation wird die korrekte Version automatisch aktiviert:
+    ```bash
+    asdf plugin add nodejs
+    asdf install
+    ```
+
+---
+
+## Kind-Cluster erstellen
+
+Das Repository enthält eine vorkonfigurierte Kind-Konfiguration mit drei Knoten (1 Control Plane, 2 Worker) und vordefinierten Port-Mappings:
 
 ```bash
-# Vollstack (manueller Trigger)
+kind create cluster --config kind-config.yaml --name kamerplanter
+```
+
+Der Cluster öffnet die Ports 80, 443, 8000, 3000 und 8529 direkt auf dem Host-System.
+
+!!! warning "Bereits vorhandener Cluster"
+    Falls ein Cluster mit dem Namen `kamerplanter` existiert, lösche ihn zunächst:
+    ```bash
+    kind delete cluster --name kamerplanter
+    ```
+
+Nach dem Erstellen prüfst du, ob `kubectl` auf den neuen Cluster zeigt:
+
+```bash
+kubectl cluster-info --context kind-kamerplanter
+```
+
+---
+
+## Entwicklungsstart mit Skaffold
+
+Skaffold baut die Container-Images lokal (ohne Push in eine Registry) und deployt sie per Helm ins Kind-Cluster. Dateiänderungen werden per `sync` direkt in laufende Container übertragen, ohne ein komplettes Rebuild.
+
+### Vollstack starten
+
+```bash
 skaffold dev --trigger=manual --port-forward
+```
 
-# Nur Backend
+Mit `--trigger=manual` erfolgt ein Rebuild nur, wenn du `r` drückst. Das verhindert ungewollte Neustarts bei schnellen Dateiänderungen. Skaffold aktiviert die Port-Weiterleitungen automatisch (siehe Tabelle unten).
+
+### Nur Backend
+
+```bash
 skaffold dev --trigger=manual --port-forward -p backend-only
+```
 
-# Mit Debugger
+Das `backend-only`-Profil entfernt das Frontend-Artifact und dessen Port-Weiterleitung aus dem Build-Prozess.
+
+### Nur Frontend
+
+```bash
+skaffold dev --trigger=manual --port-forward -p frontend-only
+```
+
+### Mit Debugger (debugpy)
+
+```bash
 skaffold debug --port-forward
 ```
 
+Das `debug`-Profil aktiviert `DEBUGPY_ENABLED=true` als Build-Argument im Backend-Container. Der debugpy-Port `5678` ist dann erreichbar (siehe [Debugging](debugging.md)).
+
+---
+
 ## Port-Weiterleitungen
 
-| Service | Lokaler Port |
-|---------|-------------|
-| Frontend | 3000 |
-| Backend API | 8000 |
-| ArangoDB UI | 8529 |
-| Home Assistant | 8123 |
+Skaffold leitet folgende Ports automatisch weiter, sobald `--port-forward` gesetzt ist:
+
+| Service | Lokaler Port | Ziel im Cluster |
+|---------|-------------|-----------------|
+| Frontend | `3000` | Vite-Dev-Server auf `5173` |
+| Backend API | `8000` | FastAPI auf `8000` |
+| ArangoDB Web-UI | `8529` | ArangoDB auf `8529` |
+| Home Assistant | `8123` | Home Assistant auf `8123` |
+
+!!! tip "API-Dokumentation"
+    Nach dem Start ist die automatisch generierte Swagger-UI unter [http://localhost:8000/docs](http://localhost:8000/docs) erreichbar. ReDoc ist unter [http://localhost:8000/redoc](http://localhost:8000/redoc) verfügbar.
+
+---
+
+## Demo-Zugangsdaten
+
+Der Backend-Container führt beim ersten Start automatisch Seed-Skripte aus. Danach steht ein Demo-Benutzer bereit:
+
+| Feld | Wert |
+|------|------|
+| E-Mail | `demo@kamerplanter.local` |
+| Passwort | `demo-passwort-2024` |
+| Tenant-Slug | `demo` |
+
+---
+
+## Backend lokal ohne Kubernetes
+
+Für reine Backend-Entwicklung ohne Cluster-Overhead kannst du den FastAPI-Server direkt starten. Voraussetzung ist eine laufende ArangoDB-Instanz (z. B. per Docker Compose).
+
+```bash
+# ArangoDB und Redis mit Docker Compose starten
+docker-compose up -d arangodb valkey
+
+# Python-Abhängigkeiten installieren
+cd src/backend
+pip install -e ".[dev]"
+
+# Umgebungsvariablen setzen
+export ARANGODB_HOST=localhost
+export ARANGODB_PORT=8529
+export ARANGODB_DATABASE=kamerplanter
+export ARANGODB_USERNAME=root
+export ARANGODB_PASSWORD=rootpassword
+export REDIS_URL=redis://localhost:6379/0
+export DEBUG=true
+export REQUIRE_EMAIL_VERIFICATION=false
+
+# Server starten
+uvicorn app.main:app --reload --port 8000
+```
+
+!!! note "Hot-Reload"
+    `uvicorn --reload` überwacht alle `.py`-Dateien im `app/`-Verzeichnis und startet den Server bei Änderungen automatisch neu. Im Kind-Cluster übernimmt Skaffold diese Aufgabe über den `sync`-Mechanismus.
+
+---
+
+## Frontend lokal ohne Kubernetes
+
+Der Vite-Dev-Server kann unabhängig vom Cluster laufen. Er proxyt alle `/api`-Anfragen an das Backend (Standard: `http://127.0.0.1:8000`).
+
+```bash
+cd src/frontend
+npm install
+npm run dev
+```
+
+Der Dev-Server startet auf Port `5173`. Die Backend-URL kann über die Umgebungsvariable `VITE_BACKEND_URL` überschrieben werden:
+
+```bash
+VITE_BACKEND_URL=http://localhost:8000 npm run dev
+```
+
+---
+
+## Home Assistant Integration
+
+Die HA-Integration in `src/ha-integration/` wird **nicht** automatisch von Skaffold deployed. Nach Änderungen an den HA-Integrationsdateien muss der Inhalt manuell in den laufenden Pod kopiert werden:
+
+```bash
+# Dateien in den Pod kopieren
+kubectl cp src/ha-integration/custom_components/kamerplanter/ \
+  default/homeassistant-0:/config/custom_components/kamerplanter/
+
+# Python-Cache löschen (MUSS immer gemacht werden, sonst lädt HA alten Bytecode)
+kubectl exec default/homeassistant-0 -- \
+  rm -rf /config/custom_components/kamerplanter/__pycache__
+
+# Pod neu starten (PVC bleibt erhalten, Dateien überleben den Restart)
+kubectl delete pod homeassistant-0 -n default
+```
+
+---
+
+## Fehlerbehebung
+
+??? question "Skaffold findet den Kind-Cluster nicht"
+    Stelle sicher, dass der kubectl-Kontext korrekt gesetzt ist:
+    ```bash
+    kubectl config use-context kind-kamerplanter
+    ```
+
+??? question "Backend-Pod startet nicht (CrashLoopBackOff)"
+    Sieh dir die Pod-Logs an:
+    ```bash
+    kubectl logs -l app=kamerplanter-backend --tail=50
+    ```
+    Häufige Ursache: ArangoDB ist noch nicht bereit. Die Liveness-Probe wartet bis zu 150 Sekunden (`initialDelaySeconds: 30`, `failureThreshold: 10`).
+
+??? question "Port 8000 oder 3000 ist belegt"
+    Beende alle Prozesse auf dem betreffenden Port:
+    ```bash
+    lsof -ti:8000 | xargs kill -9
+    ```
+
+??? question "Seed-Daten fehlen nach Neustart"
+    Die Seed-Skripte laufen nur beim ersten Start oder wenn die ArangoDB-Datenbank neu erstellt wird. Um die Seeds erneut auszuführen:
+    ```bash
+    kubectl exec -it deployment/kamerplanter-backend -- \
+      python -m app.migrations.seed_auth
+    ```
+
+## Siehe auch
+
+- [Code-Standards](code-standards.md)
+- [Testen](testing.md)
+- [Debugging](debugging.md)

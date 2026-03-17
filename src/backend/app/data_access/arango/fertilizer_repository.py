@@ -21,11 +21,15 @@ class ArangoFertilizerRepository(IFertilizerRepository, BaseArangoRepository):
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
+        tenant_key: str | None = None,
     ) -> tuple[list[Fertilizer], int]:
         if filters:
             query = f"FOR doc IN {col.FERTILIZERS}"
             bind_vars: dict[str, Any] = {}
             filter_clauses = []
+            if tenant_key:
+                bind_vars["tenant_key"] = tenant_key
+                filter_clauses.append("doc.tenant_key == @tenant_key")
             for i, (field, value) in enumerate(filters.items()):
                 bind_vars[f"val{i}"] = value
                 if field == "brand":
@@ -40,7 +44,7 @@ class ArangoFertilizerRepository(IFertilizerRepository, BaseArangoRepository):
             count_cursor = self._db.aql.execute(count_query, bind_vars=bind_vars)
             total = next(count_cursor, 0)
             return items, total
-        docs, total = BaseArangoRepository.get_all(self, offset, limit)
+        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key)
         return [Fertilizer(**doc) for doc in docs], total
 
     def get_by_key(self, key: FertilizerKey) -> Fertilizer | None:

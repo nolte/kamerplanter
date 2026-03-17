@@ -1193,14 +1193,26 @@ export default function NutrientPlanDetailPage() {
 
       {/* Tab 2: Edit */}
       {tab === 2 && (
-        <Card>
-          <CardContent>
-            <form onSubmit={handleSubmit(onSave)}>
+        <Box component="form" onSubmit={handleSubmit(onSave)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Typography variant="body2" color="text.secondary">
+            {t('pages.nutrientPlans.editIntro')}
+          </Typography>
+
+          {/* Section: General */}
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.nutrientPlans.sectionGeneral')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.nutrientPlans.sectionGeneralDesc')}
+              </Typography>
               <FormTextField
                 name="name"
                 control={control}
                 label={t('pages.nutrientPlans.name')}
                 required
+                autoFocus
               />
               <FormTextField
                 name="description"
@@ -1239,10 +1251,22 @@ export default function NutrientPlanDetailPage() {
                 label={t('pages.nutrientPlans.tags')}
                 placeholder={t('pages.nutrientPlans.tagsPlaceholder')}
               />
+            </CardContent>
+          </Card>
 
-              {/* Water Mix Ratio */}
-              <ExpertiseFieldWrapper minLevel="intermediate">
-                <Box sx={{ mt: 2 }}>
+          {/* Section: Advanced */}
+          <ExpertiseFieldWrapper minLevel="intermediate">
+            <Card variant="outlined">
+              <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                  {t('pages.nutrientPlans.sectionAdvanced')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {t('pages.nutrientPlans.sectionAdvancedDesc')}
+                </Typography>
+
+                {/* Water Mix Ratio */}
+                <Box sx={{ mb: 2 }}>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     {t('pages.nutrientPlans.waterMixRatio')}
                   </Typography>
@@ -1268,10 +1292,8 @@ export default function NutrientPlanDetailPage() {
                     )}
                   />
                 </Box>
-              </ExpertiseFieldWrapper>
 
-              {/* Cycle Restart */}
-              <ExpertiseFieldWrapper minLevel="intermediate">
+                {/* Cycle Restart */}
                 <FormNumberField
                   name="cycle_restart_from_sequence"
                   control={control}
@@ -1279,156 +1301,166 @@ export default function NutrientPlanDetailPage() {
                   min={1}
                   helperText={t('pages.nutrientPlans.cycleRestartHelper')}
                 />
-              </ExpertiseFieldWrapper>
+              </CardContent>
+            </Card>
+          </ExpertiseFieldWrapper>
 
-              {/* Watering Schedule Section */}
-              <Box sx={{ mt: 3, mb: 2 }}>
-                <FormSwitchField
-                  name="schedule_enabled"
-                  control={control}
-                  label={t('pages.wateringSchedule.title')}
-                />
+          {/* Section: Watering Schedule */}
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.nutrientPlans.sectionSchedule')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.nutrientPlans.sectionScheduleDesc')}
+              </Typography>
 
-                <Collapse in={editScheduleEnabled}>
-                  <Box sx={{ pl: 1, pt: 1 }}>
-                    {/* Schedule Mode Toggle */}
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        {t('pages.wateringSchedule.mode')}
-                      </Typography>
-                      <Controller
-                        name="schedule_mode"
-                        control={control}
-                        render={({ field }) => (
-                          <ToggleButtonGroup
-                            value={field.value}
-                            exclusive
-                            onChange={(_, value: ScheduleMode | null) => {
-                              if (value) field.onChange(value);
-                            }}
-                            size="small"
-                            fullWidth
-                          >
-                            <ToggleButton value="weekdays">
-                              {t('pages.wateringSchedule.weekdays')}
-                            </ToggleButton>
-                            <ToggleButton value="interval">
-                              {t('pages.wateringSchedule.interval')}
-                            </ToggleButton>
-                          </ToggleButtonGroup>
-                        )}
-                      />
-                    </Box>
+              <FormSwitchField
+                name="schedule_enabled"
+                control={control}
+                label={t('pages.wateringSchedule.title')}
+              />
 
-                    {/* Weekday Checkboxes */}
-                    {editScheduleMode === 'weekdays' && (
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                          {t('pages.wateringSchedule.weekdays')}
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {WEEKDAY_KEYS.map((dayKey, index) => (
-                            <FormControlLabel
-                              key={dayKey}
-                              control={
-                                <Checkbox
-                                  checked={editWeekdaySchedule.includes(index)}
-                                  onChange={() => handleEditWeekdayToggle(index)}
-                                  size="small"
-                                />
-                              }
-                              label={t(`pages.wateringSchedule.${dayKey}`)}
-                            />
-                          ))}
-                        </Box>
-                      </Box>
-                    )}
-
-                    {/* Interval Days */}
-                    {editScheduleMode === 'interval' && (
-                      <FormNumberField
-                        name="interval_days"
-                        control={control}
-                        label={t('pages.wateringSchedule.intervalDays')}
-                        min={1}
-                        max={90}
-                        step={1}
-                      />
-                    )}
-
-                    {/* Preferred Time */}
+              <Collapse in={editScheduleEnabled}>
+                <Box sx={{ pl: 1, pt: 1 }}>
+                  {/* Schedule Mode Toggle */}
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      {t('pages.wateringSchedule.mode')}
+                    </Typography>
                     <Controller
-                      name="preferred_time"
+                      name="schedule_mode"
                       control={control}
-                      render={({ field, fieldState: { error } }) => (
-                        <Box sx={{ mb: 2 }}>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                            {t('pages.wateringSchedule.preferredTime')}
-                          </Typography>
-                          <input
-                            type="time"
-                            value={field.value}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            style={{
-                              width: '100%',
-                              padding: '0.5rem',
-                              fontSize: '1rem',
-                              border: error ? '1px solid red' : '1px solid rgba(0,0,0,0.23)',
-                              borderRadius: '4px',
-                            }}
-                          />
-                          {error?.message && (
-                            <Typography variant="caption" color="error">
-                              {error.message}
-                            </Typography>
-                          )}
-                        </Box>
+                      render={({ field }) => (
+                        <ToggleButtonGroup
+                          value={field.value}
+                          exclusive
+                          onChange={(_, value: ScheduleMode | null) => {
+                            if (value) field.onChange(value);
+                          }}
+                          size="small"
+                          fullWidth
+                        >
+                          <ToggleButton value="weekdays">
+                            {t('pages.wateringSchedule.weekdays')}
+                          </ToggleButton>
+                          <ToggleButton value="interval">
+                            {t('pages.wateringSchedule.interval')}
+                          </ToggleButton>
+                        </ToggleButtonGroup>
                       )}
                     />
-
-                    {/* Application Method */}
-                    <FormSelectField
-                      name="application_method"
-                      control={control}
-                      label={t('pages.wateringSchedule.applicationMethod')}
-                      options={applicationMethods.map((v) => ({
-                        value: v,
-                        label: t(`enums.applicationMethod.${v}`),
-                      }))}
-                    />
-
-                    {/* Reminder Hours Before */}
-                    <FormNumberField
-                      name="reminder_hours_before"
-                      control={control}
-                      label={t('pages.wateringSchedule.reminderHoursBefore')}
-                      min={0}
-                      max={24}
-                      step={1}
-                    />
-
-                    {/* Times Per Day */}
-                    <FormNumberField
-                      name="times_per_day"
-                      control={control}
-                      label={t('pages.wateringSchedule.timesPerDay')}
-                      min={1}
-                      max={6}
-                      step={1}
-                    />
                   </Box>
-                </Collapse>
-              </Box>
 
-              <FormActions
-                onCancel={() => reset()}
-                loading={saving}
-                disabled={!isDirty}
-              />
-            </form>
-          </CardContent>
-        </Card>
+                  {/* Weekday Checkboxes */}
+                  {editScheduleMode === 'weekdays' && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        {t('pages.wateringSchedule.weekdays')}
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {WEEKDAY_KEYS.map((dayKey, index) => (
+                          <FormControlLabel
+                            key={dayKey}
+                            control={
+                              <Checkbox
+                                checked={editWeekdaySchedule.includes(index)}
+                                onChange={() => handleEditWeekdayToggle(index)}
+                                size="small"
+                              />
+                            }
+                            label={t(`pages.wateringSchedule.${dayKey}`)}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+
+                  {/* Interval Days */}
+                  {editScheduleMode === 'interval' && (
+                    <FormNumberField
+                      name="interval_days"
+                      control={control}
+                      label={t('pages.wateringSchedule.intervalDays')}
+                      min={1}
+                      max={90}
+                      step={1}
+                    />
+                  )}
+
+                  {/* Preferred Time */}
+                  <Controller
+                    name="preferred_time"
+                    control={control}
+                    render={({ field, fieldState: { error } }) => (
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                          {t('pages.wateringSchedule.preferredTime')}
+                        </Typography>
+                        <input
+                          type="time"
+                          value={field.value}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          style={{
+                            width: '100%',
+                            padding: '0.5rem',
+                            fontSize: '1rem',
+                            border: error ? '1px solid red' : '1px solid rgba(0,0,0,0.23)',
+                            borderRadius: '4px',
+                          }}
+                        />
+                        {error?.message && (
+                          <Typography variant="caption" color="error">
+                            {error.message}
+                          </Typography>
+                        )}
+                      </Box>
+                    )}
+                  />
+
+                  {/* Application Method */}
+                  <FormSelectField
+                    name="application_method"
+                    control={control}
+                    label={t('pages.wateringSchedule.applicationMethod')}
+                    options={applicationMethods.map((v) => ({
+                      value: v,
+                      label: t(`enums.applicationMethod.${v}`),
+                    }))}
+                  />
+
+                  {/* Reminder Hours Before */}
+                  <FormNumberField
+                    name="reminder_hours_before"
+                    control={control}
+                    label={t('pages.wateringSchedule.reminderHoursBefore')}
+                    min={0}
+                    max={24}
+                    step={1}
+                  />
+
+                  {/* Times Per Day */}
+                  <FormNumberField
+                    name="times_per_day"
+                    control={control}
+                    label={t('pages.wateringSchedule.timesPerDay')}
+                    min={1}
+                    max={6}
+                    step={1}
+                  />
+                </Box>
+              </Collapse>
+            </CardContent>
+          </Card>
+
+          <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
+          <FormActions
+            onCancel={() => reset()}
+            loading={saving}
+            disabled={!isDirty}
+          />
+        </Box>
       )}
 
       {/* Dialogs */}

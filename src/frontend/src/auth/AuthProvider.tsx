@@ -9,7 +9,7 @@ import {
 import { loadMyTenants } from '@/store/slices/tenantSlice';
 import { fetchPreferences } from '@/store/slices/userPreferencesSlice';
 import { isLightMode } from '@/config/mode';
-import client from '@/api/client';
+import client, { tenantClient } from '@/api/client';
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 interface QueueItem {
@@ -46,17 +46,19 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (isLightMode) return;
 
-    const requestInterceptor = client.interceptors.request.use(
-      (config: InternalAxiosRequestConfig) => {
-        if (tokenRef.current && config.headers) {
-          config.headers.Authorization = `Bearer ${tokenRef.current}`;
-        }
-        return config;
-      },
-    );
+    const addAuth = (config: InternalAxiosRequestConfig) => {
+      if (tokenRef.current && config.headers) {
+        config.headers.Authorization = `Bearer ${tokenRef.current}`;
+      }
+      return config;
+    };
+
+    const requestInterceptor = client.interceptors.request.use(addAuth);
+    const tenantRequestInterceptor = tenantClient.interceptors.request.use(addAuth);
 
     return () => {
       client.interceptors.request.eject(requestInterceptor);
+      tenantClient.interceptors.request.eject(tenantRequestInterceptor);
     };
   }, []);
 
@@ -64,57 +66,66 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (isLightMode) return;
 
-    const responseInterceptor = client.interceptors.response.use(
-      (response) => response,
-      async (error: AxiosError) => {
-        const originalRequest = error.config;
-        if (!originalRequest) throw error;
+    const handle401 = async (error: AxiosError) => {
+      const originalRequest = error.config;
+      if (!originalRequest) throw error;
 
-        // Don't retry auth endpoints
-        const url = originalRequest.url || '';
-        if (
-          error.response?.status !== 401 ||
-          url.includes('/auth/login') ||
-          url.includes('/auth/refresh') ||
-          url.includes('/auth/register')
-        ) {
-          throw error;
-        }
+      // Don't retry auth endpoints
+      const url = originalRequest.url || '';
+      if (
+        error.response?.status !== 401 ||
+        url.includes('/auth/login') ||
+        url.includes('/auth/refresh') ||
+        url.includes('/auth/register')
+      ) {
+        throw error;
+      }
 
-        if (isRefreshing) {
-          return new Promise<string>((resolve, reject) => {
-            failedQueue.push({ resolve, reject });
-          }).then((token) => {
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${token}`;
-            }
-            return client(originalRequest);
-          });
-        }
+      // Determine which client to use for retry based on URL
+      const isTenantScoped = url.includes('/t/');
+      const retryClient = isTenantScoped ? tenantClient : client;
 
-        isRefreshing = true;
-
-        try {
-          const result = await dispatch(refreshAccessToken()).unwrap();
-          const newToken = result.access_token;
-          dispatch(setAccessToken(newToken));
-          processQueue(null, newToken);
+      if (isRefreshing) {
+        return new Promise<string>((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then((token) => {
           if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            originalRequest.headers.Authorization = `Bearer ${token}`;
           }
-          return client(originalRequest);
-        } catch (refreshError) {
-          processQueue(refreshError, null);
-          dispatch(clearAuth());
-          throw refreshError;
-        } finally {
-          isRefreshing = false;
+          return retryClient(originalRequest);
+        });
+      }
+
+      isRefreshing = true;
+
+      try {
+        const result = await dispatch(refreshAccessToken()).unwrap();
+        const newToken = result.access_token;
+        dispatch(setAccessToken(newToken));
+        processQueue(null, newToken);
+        if (originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
         }
-      },
+        return retryClient(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        dispatch(clearAuth());
+        throw refreshError;
+      } finally {
+        isRefreshing = false;
+      }
+    };
+
+    const responseInterceptor = client.interceptors.response.use(
+      (response) => response, handle401,
+    );
+    const tenantResponseInterceptor = tenantClient.interceptors.response.use(
+      (response) => response, handle401,
     );
 
     return () => {
       client.interceptors.response.eject(responseInterceptor);
+      tenantClient.interceptors.response.eject(tenantResponseInterceptor);
     };
   }, [dispatch]);
 

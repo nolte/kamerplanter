@@ -1246,6 +1246,175 @@ species:
     balcony_suitable: "yes"
     greenhouse_recommended: true
 
+  # -- Urticaceae (1) --
+  - scientific_name: Pilea peperomioides
+    common_names: [Chinese Money Plant, Ufopflanze]
+    family: Urticaceae
+    genus: Pilea
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 10.0
+    hardiness_zones: ["9b", "11a"]
+    native_habitat: Southern China
+    allelopathy_score: 0.0
+    container_suitable: "yes"
+    recommended_container_volume_l: "1--3"
+    min_container_depth_cm: 15
+    mature_height_cm: "20--40"
+    mature_width_cm: "20--30"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+
+  # -- Marantaceae (1) --
+  - scientific_name: Calathea orbifolia
+    common_names: [Calathea, Korbmarante]
+    family: Marantaceae
+    genus: Calathea
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 15.0
+    hardiness_zones: ["10b", "11a"]
+    native_habitat: South America
+    allelopathy_score: 0.0
+    container_suitable: "yes"
+    recommended_container_volume_l: "3--5"
+    min_container_depth_cm: 15
+    mature_height_cm: "40--80"
+    mature_width_cm: "40--60"
+    indoor_suitable: "yes"
+    balcony_suitable: "no"
+
+  # -- Asparagaceae (2) --
+  - scientific_name: Dracaena trifasciata
+    common_names: [Snake Plant, Bogenhanf, Sansevieria]
+    family: Asparagaceae
+    genus: Dracaena
+    growth_habit: herb
+    root_type: tuberous
+    base_temp: 10.0
+    hardiness_zones: ["10a", "12a"]
+    native_habitat: West Africa
+    allelopathy_score: 0.0
+    container_suitable: "yes"
+    recommended_container_volume_l: "2--5"
+    min_container_depth_cm: 15
+    mature_height_cm: "60--120"
+    mature_width_cm: "20--40"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+
+  # -- Araceae (3) --
+  - scientific_name: Epipremnum aureum
+    common_names: [Pothos, Efeutute]
+    family: Araceae
+    genus: Epipremnum
+    growth_habit: vine
+    root_type: fibrous
+    base_temp: 15.0
+    hardiness_zones: ["10a", "12a"]
+    native_habitat: Southeast Asia
+    allelopathy_score: 0.0
+    container_suitable: "yes"
+    recommended_container_volume_l: "2--5"
+    min_container_depth_cm: 15
+    mature_height_cm: "100--300"
+    mature_width_cm: "30--60"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    support_required: true
+
+  # -- Amaryllidaceae (1) --
+  - scientific_name: Allium schoenoprasum
+    common_names: [Chives, Schnittlauch]
+    family: Amaryllidaceae
+    genus: Allium
+    growth_habit: herb
+    root_type: bulbous
+    base_temp: 5.0
+    hardiness_zones: ["3a", "9b"]
+    native_habitat: Europe
+    allelopathy_score: 0.1
+    sowing_indoor_weeks_before_last_frost: 6
+    direct_sow_months: [3, 4, 5]
+    harvest_months: [4, 5, 6, 7, 8, 9, 10]
+    frost_sensitivity: hardy
+    container_suitable: "yes"
+    recommended_container_volume_l: "1--3"
+    min_container_depth_cm: 15
+    mature_height_cm: "20--40"
+    mature_width_cm: "15--25"
+    spacing_cm: "15--20"
+    indoor_suitable: "yes"
+    balcony_suitable: "yes"
+
+  # -- Geraniaceae (1) --
+  - scientific_name: Pelargonium zonale
+    common_names: [Zonal Geranium, Geranie]
+    family: Geraniaceae
+    genus: Pelargonium
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 10.0
+    hardiness_zones: ["10a", "11a"]
+    native_habitat: South Africa
+    allelopathy_score: 0.0
+    bloom_months: [5, 6, 7, 8, 9, 10]
+    frost_sensitivity: sensitive
+    container_suitable: "yes"
+    recommended_container_volume_l: "3--5"
+    min_container_depth_cm: 15
+    mature_height_cm: "30--60"
+    mature_width_cm: "30--40"
+    spacing_cm: "25--35"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+
+  # -- Solanaceae (Petunia) --
+  - scientific_name: Petunia x hybrida
+    common_names: [Petunia, Petunie]
+    family: Solanaceae
+    genus: Petunia
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 10.0
+    hardiness_zones: ["10a", "11a"]
+    native_habitat: South America (hybrid)
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 10
+    bloom_months: [5, 6, 7, 8, 9, 10]
+    frost_sensitivity: sensitive
+    container_suitable: "yes"
+    recommended_container_volume_l: "3--5"
+    min_container_depth_cm: 15
+    mature_height_cm: "15--45"
+    mature_width_cm: "30--60"
+    spacing_cm: "25--30"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+
+  # -- Verbenaceae (1) --
+  - scientific_name: Verbena x hybrida
+    common_names: [Garden Verbena, Verbene]
+    family: Verbenaceae
+    genus: Verbena
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 10.0
+    hardiness_zones: ["9a", "11a"]
+    native_habitat: South America (hybrid)
+    allelopathy_score: 0.0
+    sowing_indoor_weeks_before_last_frost: 8
+    bloom_months: [5, 6, 7, 8, 9, 10]
+    frost_sensitivity: sensitive
+    container_suitable: "yes"
+    recommended_container_volume_l: "2--5"
+    min_container_depth_cm: 15
+    mature_height_cm: "20--45"
+    mature_width_cm: "30--50"
+    spacing_cm: "25--30"
+    indoor_suitable: "no"
+    balcony_suitable: "yes"
+
   # -- Violaceae (1) --
   - scientific_name: Viola x wittrockiana
     common_names: [Pansy, "Stiefmütterchen"]

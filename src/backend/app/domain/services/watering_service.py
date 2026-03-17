@@ -2,6 +2,7 @@ from datetime import UTC, date, datetime
 
 from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, TaskStatus
 from app.common.exceptions import NotFoundError
+from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import LocationKey, PlantInstanceKey, WateringEventKey
 from app.domain.engines.watering_engine import WateringEngine
 from app.domain.engines.watering_volume_engine import VolumeSuggestion, WateringVolumeEngine
@@ -63,18 +64,21 @@ class WateringService:
 
     # ── Read ───────────────────────────────────────────────────────────
 
-    def get_event(self, key: WateringEventKey) -> WateringEvent:
+    def get_event(self, key: WateringEventKey, tenant_key: str = "") -> WateringEvent:
         event = self._repo.get_by_key(key)
         if event is None:
             raise NotFoundError("WateringEvent", key)
+        if tenant_key:
+            verify_tenant_ownership(event, tenant_key, "WateringEvent")
         return event
 
     def list_events(
         self,
         offset: int = 0,
         limit: int = 50,
+        tenant_key: str = "",
     ) -> tuple[list[WateringEvent], int]:
-        return self._repo.get_all(offset, limit)
+        return self._repo.get_all(offset, limit, tenant_key=tenant_key)
 
     def get_by_plant(
         self,

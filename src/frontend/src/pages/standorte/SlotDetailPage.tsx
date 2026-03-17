@@ -91,7 +91,7 @@ export default function SlotDetailPage() {
   if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
 
   return (
-    <>
+    <Box data-testid="slot-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <PageTitle title={slot?.slot_id ?? t('entities.slot')} />
@@ -102,7 +102,7 @@ export default function SlotDetailPage() {
 
       <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
         <FormRow>
-          <FormTextField name="slot_id" control={control} label={t('pages.slots.slotId')} helperText={t('pages.slots.slotIdHelper')} required />
+          <FormTextField name="slot_id" control={control} label={t('pages.slots.slotId')} helperText={t('pages.slots.slotIdHelper')} required autoFocus />
           <FormNumberField name="capacity_plants" control={control} label={t('pages.slots.capacity')} helperText={t('pages.slots.capacityHelper')} min={1} max={20} />
         </FormRow>
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
@@ -116,6 +116,6 @@ export default function SlotDetailPage() {
         onCancel={() => setDeleteOpen(false)}
         destructive
       />
-    </>
+    </Box>
   );
 }

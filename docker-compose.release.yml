@@ -1,0 +1,121 @@
+##
+## Kamerplanter – Docker Compose (pre-built images)
+##
+## Quick start:
+##   cp .env.example .env        # copy & edit passwords!
+##   docker-compose -f docker-compose.release.yml up -d
+##
+## All credentials are read from .env (not hardcoded here).
+## See .env.example for required variables.
+##
+## Web UI:  http://localhost:8080
+## API:     http://localhost:8000/api/v1/docs
+##
+version: "3.8"
+
+services:
+  # ── ArangoDB ──────────────────────────────────────────────
+  arangodb:
+    image: arangodb:3.11
+    environment:
+      ARANGO_ROOT_PASSWORD: ${ARANGO_ROOT_PASSWORD}
+    ports:
+      - "8529:8529"
+    volumes:
+      - arangodb_data:/var/lib/arangodb3
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8529/_api/version"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Valkey (Redis-compatible) ────────────────────────────
+  valkey:
+    image: valkey/valkey:8-alpine
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Backend (FastAPI) ─────────────────────────────────────
+  backend:
+    image: ghcr.io/nolte/kamerplanter-backend:__VERSION__
+    environment:
+      ARANGODB_HOST: arangodb
+      ARANGODB_PORT: "8529"
+      ARANGODB_DATABASE: ${ARANGODB_DATABASE}
+      ARANGODB_USERNAME: ${ARANGODB_USERNAME}
+      ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
+      REDIS_URL: ${REDIS_URL}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      DEBUG: ${DEBUG}
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION}
+      KAMERPLANTER_MODE: light
+    ports:
+      - "8000:8000"
+    depends_on:
+      - arangodb
+      - valkey
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/api/v1/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Celery Worker ────────────────────────────────────────
+  celery-worker:
+    image: ghcr.io/nolte/kamerplanter-backend:__VERSION__
+    environment:
+      ARANGODB_HOST: arangodb
+      ARANGODB_PORT: "8529"
+      ARANGODB_DATABASE: ${ARANGODB_DATABASE}
+      ARANGODB_USERNAME: ${ARANGODB_USERNAME}
+      ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
+      REDIS_URL: ${REDIS_URL}
+      KAMERPLANTER_MODE: light
+    depends_on:
+      - arangodb
+      - valkey
+    command: celery -A app.tasks worker --loglevel=info
+    restart: unless-stopped
+
+  # ── Celery Beat (periodic tasks) ─────────────────────────
+  celery-beat:
+    image: ghcr.io/nolte/kamerplanter-backend:__VERSION__
+    environment:
+      ARANGODB_HOST: arangodb
+      ARANGODB_PORT: "8529"
+      ARANGODB_DATABASE: ${ARANGODB_DATABASE}
+      ARANGODB_USERNAME: ${ARANGODB_USERNAME}
+      ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
+      REDIS_URL: ${REDIS_URL}
+      KAMERPLANTER_MODE: light
+    depends_on:
+      - arangodb
+      - valkey
+    command: celery -A app.tasks beat --loglevel=info
+    restart: unless-stopped
+
+  # ── Frontend (React + nginx) ──────────────────────────────
+  frontend:
+    image: ghcr.io/nolte/kamerplanter-frontend:__VERSION__
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  arangodb_data:
+  valkey_data:

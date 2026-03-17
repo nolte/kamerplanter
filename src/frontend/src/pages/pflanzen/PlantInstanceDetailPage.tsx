@@ -1939,73 +1939,108 @@ export default function PlantInstanceDetailPage() {
 
       {/* Tab 7: Edit */}
       {tab === 7 && (
-        <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: 900 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Typography variant="body2" color="text.secondary">
             {t('pages.plantInstances.editIntro')}
           </Typography>
-          <FormRow>
-            <FormTextField name="plant_name" control={control} label={t('pages.plantInstances.plantName')} helperText={t('pages.plantInstances.plantNameHelper')} />
-            <FormSelectField
-              name="cultivar_key"
-              control={control}
-              label={t('pages.plantInstances.cultivarKey')}
-              helperText={t('pages.plantInstances.cultivarKeyHelper')}
-              options={[
-                { value: '', label: '\u2014' },
-                ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
-              ]}
-            />
-          </FormRow>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-            {t('pages.plantInstances.sectionLocation')}
-          </Typography>
-          <FormRow>
-            <FormSelectField
-              name="site_key"
-              control={control}
-              label={t('entities.site')}
-              helperText={t('pages.plantInstances.siteHelper')}
-              options={[
-                { value: '', label: '\u2014' },
-                ...sitesList.map((s) => ({ value: s.key, label: s.name })),
-              ]}
-            />
-            <LocationTreeSelect
-              name="location_key"
-              control={control}
-              siteKey={editSiteKey}
-              label={t('entities.location')}
-            />
-          </FormRow>
-          <FormRow>
-            <FormSelectField
-              name="slot_key"
-              control={control}
-              label={t('entities.slot')}
-              helperText={t('pages.plantInstances.slotHelper')}
-              disabled={!editLocationKey}
-              options={[
-                { value: '', label: '\u2014' },
-                ...slotsList.map((s) => ({
-                  value: s.key,
-                  label: s.currently_occupied
-                    ? `${s.slot_id} (${t('pages.plantInstances.slotOccupied')})`
-                    : s.slot_id,
-                })),
-              ]}
-            />
-          </FormRow>
-          <FormRow>
-            <FormNumberField name="container_volume_liters" control={control} label={t('pages.plantInstances.containerVolumeLiters')} helperText={t('pages.plantInstances.containerVolumeLitersHelper')} min={0.1} max={500} />
-            <SubstrateSelectField
-              name="substrate_key"
-              control={control}
-              label={t('pages.plantInstances.substrate')}
-              helperText={t('pages.plantInstances.substrateHelper')}
-              substrates={substratesList}
-            />
-          </FormRow>
-          <FormTextField name="planted_on" control={control} label={t('pages.plantInstances.plantedOn')} helperText={t('pages.plantInstances.plantedOnHelper')} type="date" required />
+
+          {/* Panel 1: General */}
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.plantInstances.sectionGeneral')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.plantInstances.sectionGeneralDesc')}
+              </Typography>
+              <FormRow>
+                <FormTextField name="plant_name" control={control} label={t('pages.plantInstances.plantName')} helperText={t('pages.plantInstances.plantNameHelper')} autoFocus />
+                <FormSelectField
+                  name="cultivar_key"
+                  control={control}
+                  label={t('pages.plantInstances.cultivarKey')}
+                  helperText={t('pages.plantInstances.cultivarKeyHelper')}
+                  options={[
+                    { value: '', label: '\u2014' },
+                    ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
+                  ]}
+                />
+              </FormRow>
+            </CardContent>
+          </Card>
+
+          {/* Panel 2: Location */}
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.plantInstances.sectionLocation')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.plantInstances.sectionLocationDesc')}
+              </Typography>
+              <FormRow>
+                <FormSelectField
+                  name="site_key"
+                  control={control}
+                  label={t('entities.site')}
+                  helperText={t('pages.plantInstances.siteHelper')}
+                  options={[
+                    { value: '', label: '\u2014' },
+                    ...sitesList.map((s) => ({ value: s.key, label: s.name })),
+                  ]}
+                />
+                <LocationTreeSelect
+                  name="location_key"
+                  control={control}
+                  siteKey={editSiteKey}
+                  label={t('entities.location')}
+                />
+              </FormRow>
+              <FormRow>
+                <FormSelectField
+                  name="slot_key"
+                  control={control}
+                  label={t('entities.slot')}
+                  helperText={t('pages.plantInstances.slotHelper')}
+                  disabled={!editLocationKey}
+                  options={[
+                    { value: '', label: '\u2014' },
+                    ...slotsList.map((s) => ({
+                      value: s.key,
+                      label: s.currently_occupied
+                        ? `${s.slot_id} (${t('pages.plantInstances.slotOccupied')})`
+                        : s.slot_id,
+                    })),
+                  ]}
+                />
+              </FormRow>
+            </CardContent>
+          </Card>
+
+          {/* Panel 3: Planting Setup */}
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.plantInstances.sectionSetup')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.plantInstances.sectionSetupDesc')}
+              </Typography>
+              <FormRow>
+                <FormNumberField name="container_volume_liters" control={control} label={t('pages.plantInstances.containerVolumeLiters')} helperText={t('pages.plantInstances.containerVolumeLitersHelper')} min={0.1} max={500} />
+                <SubstrateSelectField
+                  name="substrate_key"
+                  control={control}
+                  label={t('pages.plantInstances.substrate')}
+                  helperText={t('pages.plantInstances.substrateHelper')}
+                  substrates={substratesList}
+                />
+              </FormRow>
+              <FormTextField name="planted_on" control={control} label={t('pages.plantInstances.plantedOn')} helperText={t('pages.plantInstances.plantedOnHelper')} type="date" required />
+            </CardContent>
+          </Card>
+
+          <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
           <FormActions onCancel={() => setTab(0)} loading={saving} />
         </Box>
       )}

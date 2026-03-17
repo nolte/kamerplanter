@@ -2,6 +2,8 @@
 # Hot-reload enabled via uvicorn --reload
 FROM python:3.14-slim
 
+LABEL org.opencontainers.image.description="Kamerplanter backend API (development with hot-reload and debugpy)"
+
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

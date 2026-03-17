@@ -101,7 +101,11 @@ export const handlers = [
     return HttpResponse.json(species);
   }),
 
-  // Sites
+  // Sites (tenant-scoped)
+  http.get('/api/v1/t/:tenant/sites', () => {
+    return HttpResponse.json(mockSites);
+  }),
+  // Sites (non-scoped fallback for tests)
   http.get('/api/v1/sites', () => {
     return HttpResponse.json(mockSites);
   }),
@@ -111,9 +115,17 @@ export const handlers = [
     return HttpResponse.json([]);
   }),
 
-  // Plant instances
+  // Plant instances (tenant-scoped + fallback)
+  http.get('/api/v1/t/:tenant/plant-instances', () => {
+    return HttpResponse.json(mockPlants);
+  }),
   http.get('/api/v1/plant-instances', () => {
     return HttpResponse.json(mockPlants);
+  }),
+  http.get('/api/v1/t/:tenant/plant-instances/:key', ({ params }) => {
+    const plant = mockPlants.find((p) => p.key === params.key);
+    if (!plant) return HttpResponse.json({ error_id: 'err_1', error_code: 'ENTITY_NOT_FOUND', message: 'Not found', details: [], timestamp: '', path: '', method: '' }, { status: 404 });
+    return HttpResponse.json(plant);
   }),
   http.get('/api/v1/plant-instances/:key', ({ params }) => {
     const plant = mockPlants.find((p) => p.key === params.key);

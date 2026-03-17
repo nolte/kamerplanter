@@ -114,7 +114,8 @@ const CalendarPage = lazy(() => import('@/pages/kalender/CalendarPage'));
 const OnboardingWizard = lazy(() => import('@/pages/onboarding/OnboardingWizard'));
 
 // Admin
-const AdminSettingsPage = lazy(() => import('@/pages/admin/AdminSettingsPage'));
+const AdminEditTenantPage = lazy(() => import('@/pages/admin/AdminEditTenantPage'));
+const AdminEditUserPage = lazy(() => import('@/pages/admin/AdminEditUserPage'));
 
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
@@ -202,15 +203,27 @@ export const router = createBrowserRouter(
             }
           />
 
-          {/* Admin Settings */}
-          <Route
-            path="admin/settings"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <AdminSettingsPage />
-              </Suspense>
-            }
-          />
+          {/* Admin: Edit tenant/user — full mode only */}
+          {!isLightMode && (
+            <>
+              <Route
+                path="admin/tenants/:key"
+                element={
+                  <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                    <AdminEditTenantPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="admin/users/:key"
+                element={
+                  <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                    <AdminEditUserPage />
+                  </Suspense>
+                }
+              />
+            </>
+          )}
 
           {/* REQ-024 Tenants — full mode only */}
           {!isLightMode && (

@@ -34,7 +34,8 @@ import AgricultureIcon from '@mui/icons-material/Agriculture';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import SettingsIcon from '@mui/icons-material/Settings';
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import ContentCutIcon from '@mui/icons-material/ContentCut';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import { sidebarWidth } from '@/theme/tokens';
@@ -368,16 +369,16 @@ export default function Sidebar({ open }: SidebarProps) {
       <List disablePadding sx={{ pb: 1 }}>
         <ListItemButton
           component={Link}
-          to="/admin/settings"
-          selected={location.pathname === '/admin/settings'}
-          aria-current={location.pathname === '/admin/settings' ? 'page' : undefined}
-          data-testid="nav-admin-settings"
+          to="/onboarding"
+          selected={location.pathname === '/onboarding'}
+          aria-current={location.pathname === '/onboarding' ? 'page' : undefined}
+          data-testid="nav-onboarding"
           onClick={isMobile ? handleClose : undefined}
           sx={{ borderRadius: 1, mx: 0.5, my: 0.25 }}
         >
-          <ListItemIcon sx={{ minWidth: 40 }}><AdminPanelSettingsIcon /></ListItemIcon>
+          <ListItemIcon sx={{ minWidth: 40 }}><RocketLaunchIcon /></ListItemIcon>
           <ListItemText
-            primary={t('nav.adminSettings')}
+            primary={t('nav.onboarding')}
             primaryTypographyProps={{ fontSize: '0.875rem' }}
           />
         </ListItemButton>

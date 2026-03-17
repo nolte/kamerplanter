@@ -3045,7 +3045,7 @@ growth_phases:
         humidity_night_percent: 40
         vpd_target_kpa: 1.5
         co2_ppm: 400
-        irrigation_frequency_days: 0.0
+        irrigation_frequency_days: null
         irrigation_volume_ml_per_plant: 0
       nutrient_profile:
         npk_ratio: [0, 0, 0]
@@ -3070,7 +3070,7 @@ growth_phases:
         humidity_night_percent: 35
         vpd_target_kpa: 2.0
         co2_ppm: 400
-        irrigation_frequency_days: 0.0
+        irrigation_frequency_days: null
         irrigation_volume_ml_per_plant: 0
       nutrient_profile:
         npk_ratio: [0, 0, 0]
@@ -3552,7 +3552,7 @@ growth_phases:
         humidity_night_percent: 15
         vpd_target_kpa: 3.5
         co2_ppm: 400
-        irrigation_frequency_days: 0.0
+        irrigation_frequency_days: null
         irrigation_volume_ml_per_plant: 0
       nutrient_profile:
         npk_ratio: [0, 0, 0]
@@ -3602,7 +3602,7 @@ growth_phases:
         humidity_night_percent: 15
         vpd_target_kpa: 3.0
         co2_ppm: 400
-        irrigation_frequency_days: 0.0
+        irrigation_frequency_days: null
         irrigation_volume_ml_per_plant: 0
       nutrient_profile:
         npk_ratio: [0, 0, 0]

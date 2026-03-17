@@ -1,4 +1,4 @@
-import client from '../client';
+import { tenantClient as client } from '../client';
 import type {
   PlantInstance,
   PlantInstanceCreate,

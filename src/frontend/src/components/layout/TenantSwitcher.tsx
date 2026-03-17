@@ -36,8 +36,14 @@ export default function TenantSwitcher() {
   };
 
   const handleSwitch = (slug: string) => {
+    if (slug === activeTenant?.slug) {
+      handleClose();
+      return;
+    }
     dispatch(switchTenant(slug));
     handleClose();
+    // Reload to fetch all data for the new tenant
+    window.location.reload();
   };
 
   const handleCreateOrg = () => {

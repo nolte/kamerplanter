@@ -73,6 +73,10 @@ Diese NFR adressiert direkt die folgenden kritischen Befunde aus dem IT-Security
 | R-11 | Abgelaufene Refresh Tokens | `refresh_tokens` | Sofort nach Ablauf | Hard-Delete (TTL-Index besteht) | Zweckentfall | REQ-023 §2 |
 | R-12 | Einladungen (abgelaufen) | `invitations` | 30 Tage nach Ablauf | Hard-Delete | Zweckentfall | REQ-024 |
 | R-13 | Processing Restrictions | `processing_restrictions` | Unbegrenzt (bis Aufhebung durch Betroffenen) | Nur auf expliziten Wunsch entfernen | Art. 18 DSGVO | REQ-025 |
+| R-19 | Gießdienst-Rotation (DutyRotation) | `duty_rotations` | Unbegrenzt (bei User-Löschung: User-Referenz anonymisieren) | Anonymisierung: User-Referenz auf NULL, Dienst-Zeitraum bleibt | Art. 17 Abs. 3 (berechtigtes Interesse Tenant) | REQ-024 v1.2 |
+| R-20 | Pinnwand-Beiträge (BulletinPost/Comment) | `bulletin_posts`, `bulletin_comments` | Bei User-Löschung: User-Referenz anonymisieren, Inhalt bleibt | Anonymisierung | Art. 17 Abs. 3 (berechtigtes Interesse Tenant) | REQ-024 v1.2 |
+| R-21 | Einkaufslisten (SharedShoppingList) | `shared_shopping_lists` | Bei User-Löschung: User-Referenz anonymisieren | Anonymisierung | Art. 17 Abs. 3 (berechtigtes Interesse Tenant) | REQ-024 v1.2 |
+| R-22 | Aufgaben-Bewertungen (Task difficulty/quality ratings) | `tasks` (Felder: `difficulty_rating`, `quality_rating`, `assigned_to`) | Bei User-Löschung: `assigned_to` auf NULL setzen, Bewertungen bleiben (aggregiert nutzbar) | Anonymisierung | Art. 17 Abs. 3 (Lern-System benötigt Aggregatdaten) | REQ-006 |
 
 ### 2.2 Sensordaten (Indirekt personenbezogen — SEC-K-005)
 
@@ -82,6 +86,15 @@ Sensordaten können Rückschlüsse auf Anwesenheit und Verhalten von Personen er
 |---|---------------|---------------|-------------------|--------------------|--------------------|----------------|
 | R-14 | Sensordaten (Temperatur, RH, CO2, Licht, Bodenfeuchtigkeit) | TimescaleDB | 90 Tage volle Auflösung | 90d–2 Jahre: Stundenmittelwerte | 2–5 Jahre: Tagesmittelwerte, danach löschen | Art. 6(1)(b) Vertragserfüllung |
 | R-15 | Aktor-Logs (manuelle Overrides) | TimescaleDB | 90 Tage | 90d–1 Jahr: aggregiert (Override-Anzahl/Tag) | Danach löschen | Art. 6(1)(f) berechtigtes Interesse |
+
+<!-- Quelle: Widerspruchsanalyse W-009 — Klimatische Extremwerte dauerhaft archivieren -->
+**Ausnahme: Klimatische Extremwert-Events:**
+
+Sensordaten-Rohdaten werden nach 90 Tagen aggregiert (R-14). Fuer die Pflanzenpflege-Analyse bei mehrjaehrigen Pflanzen (Perennials, Obstbaeume) werden jedoch **klimatische Extremereignisse** (Frost, Hitzewelle, Sturm) als eigenstaendige Event-Dokumente in ArangoDB dauerhaft archiviert. Diese Events enthalten keinen Personenbezug und unterliegen daher nicht der DSGVO-Loeschpflicht:
+
+- `ClimateEvent`-Dokument in ArangoDB (nicht TimescaleDB): `type` (frost/heat/storm), `location_key`, `start_at`, `end_at`, `min_temp`/`max_temp`, `severity`
+- Automatische Erkennung durch Schwellwert-Pruefung im Sensor-Ingestion-Task
+- Konfigurierbar: `SENSOR_RAW_RETENTION_DAYS` (Standard 90) erhoehbar fuer Perennial-Anlagen
 
 **TimescaleDB Continuous Aggregates:**
 

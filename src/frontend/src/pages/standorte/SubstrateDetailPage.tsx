@@ -10,6 +10,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
 import Alert from '@mui/material/Alert';
 import { useLocalFavorites } from '@/hooks/useLocalFavorites';
 import { useForm } from 'react-hook-form';
@@ -202,8 +204,10 @@ export default function SubstrateDetailPage() {
   if (loading) return <LoadingSkeleton variant="form" />;
   if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
 
+  const PANEL_GAP = 4;
+
   return (
-    <>
+    <Box data-testid="substrate-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -248,67 +252,102 @@ export default function SubstrateDetailPage() {
         </Box>
       )}
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+        <Typography variant="body2" color="text.secondary">
           {t('pages.substrates.editIntro')}
         </Typography>
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-          {t('pages.substrates.sectionIdentification')}
-        </Typography>
-        <FormRow>
-          <FormSelectField
-            name="type"
-            control={control}
-            label={t('pages.substrates.type')}
-            helperText={t('pages.substrates.typeHelper')}
-            options={['soil', 'coco', 'clay_pebbles', 'perlite', 'living_soil', 'peat', 'rockwool_slab', 'rockwool_plug', 'vermiculite', 'none', 'orchid_bark', 'pon_mineral', 'sphagnum', 'hydro_solution'].map((v) => ({
-              value: v, label: t(`enums.substrateType.${v}`),
-            }))}
-          />
-          <FormTextField name="brand" control={control} label={t('pages.substrates.brand')} helperText={t('pages.substrates.brandHelper')} />
-        </FormRow>
-        <FormRow>
-          <FormTextField name="name_de" control={control} label={`${t('pages.substrates.name')} (DE)`} helperText={t('pages.substrates.nameHelper')} />
-          <FormTextField name="name_en" control={control} label={`${t('pages.substrates.name')} (EN)`} helperText={t('pages.substrates.nameHelper')} />
-        </FormRow>
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-          {t('pages.substrates.sectionChemistry')}
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <FormNumberField name="ph_base" control={control} label={t('pages.substrates.phBase')} helperText={t('pages.substrates.phBaseHelper')} min={0} max={14} step={0.1} />
-          <FormNumberField name="ec_base_ms" control={control} label={t('pages.substrates.ecBase')} helperText={t('pages.substrates.ecBaseHelper')} min={0} step={0.1} />
-        </Box>
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-          {t('pages.substrates.sectionPhysical')}
-        </Typography>
-        <FormRow>
-          <FormSelectField
-            name="water_retention"
-            control={control}
-            label={t('pages.substrates.waterRetention')}
-            helperText={t('pages.substrates.waterRetentionHelper')}
-            options={['low', 'medium', 'high'].map((v) => ({
-              value: v, label: t(`enums.waterRetention.${v}`),
-            }))}
-          />
-          <FormNumberField name="air_porosity_percent" control={control} label={t('pages.substrates.airPorosity')} helperText={t('pages.substrates.airPorosityHelper')} min={0} max={100} step={1} />
-        </FormRow>
-        <FormSelectField
-          name="buffer_capacity"
-          control={control}
-          label={t('pages.substrates.bufferCapacity')}
-          helperText={t('pages.substrates.bufferCapacityHelper')}
-          options={['low', 'medium', 'high'].map((v) => ({
-            value: v, label: t(`enums.bufferCapacity.${v}`),
-          }))}
-        />
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
-          {t('pages.substrates.sectionReuse')}
-        </Typography>
-        <FormRow>
-          <FormSwitchField name="reusable" control={control} label={t('pages.substrates.reusable')} helperText={t('pages.substrates.reusableHelper')} />
-          <FormNumberField name="max_reuse_cycles" control={control} label={t('pages.substrates.maxReuseCycles')} helperText={t('pages.substrates.maxReuseCyclesHelper')} min={1} />
-        </FormRow>
+
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.substrates.sectionIdentification')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.substrates.sectionIdentificationDesc')}
+            </Typography>
+            <FormRow>
+              <FormSelectField
+                name="type"
+                control={control}
+                label={t('pages.substrates.type')}
+                helperText={t('pages.substrates.typeHelper')}
+                autoFocus
+                options={['soil', 'coco', 'clay_pebbles', 'perlite', 'living_soil', 'peat', 'rockwool_slab', 'rockwool_plug', 'vermiculite', 'none', 'orchid_bark', 'pon_mineral', 'sphagnum', 'hydro_solution'].map((v) => ({
+                  value: v, label: t(`enums.substrateType.${v}`),
+                }))}
+              />
+              <FormTextField name="brand" control={control} label={t('pages.substrates.brand')} helperText={t('pages.substrates.brandHelper')} />
+            </FormRow>
+            <FormRow>
+              <FormTextField name="name_de" control={control} label={`${t('pages.substrates.name')} (DE)`} helperText={t('pages.substrates.nameHelper')} />
+              <FormTextField name="name_en" control={control} label={`${t('pages.substrates.name')} (EN)`} helperText={t('pages.substrates.nameHelper')} />
+            </FormRow>
+          </CardContent>
+        </Card>
+
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.substrates.sectionChemistry')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.substrates.sectionChemistryDesc')}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <FormNumberField name="ph_base" control={control} label={t('pages.substrates.phBase')} helperText={t('pages.substrates.phBaseHelper')} min={0} max={14} step={0.1} />
+              <FormNumberField name="ec_base_ms" control={control} label={t('pages.substrates.ecBase')} helperText={t('pages.substrates.ecBaseHelper')} min={0} step={0.1} />
+            </Box>
+          </CardContent>
+        </Card>
+
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.substrates.sectionPhysical')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.substrates.sectionPhysicalDesc')}
+            </Typography>
+            <FormRow>
+              <FormSelectField
+                name="water_retention"
+                control={control}
+                label={t('pages.substrates.waterRetention')}
+                helperText={t('pages.substrates.waterRetentionHelper')}
+                options={['low', 'medium', 'high'].map((v) => ({
+                  value: v, label: t(`enums.waterRetention.${v}`),
+                }))}
+              />
+              <FormNumberField name="air_porosity_percent" control={control} label={t('pages.substrates.airPorosity')} helperText={t('pages.substrates.airPorosityHelper')} min={0} max={100} step={1} />
+            </FormRow>
+            <FormSelectField
+              name="buffer_capacity"
+              control={control}
+              label={t('pages.substrates.bufferCapacity')}
+              helperText={t('pages.substrates.bufferCapacityHelper')}
+              options={['low', 'medium', 'high'].map((v) => ({
+                value: v, label: t(`enums.bufferCapacity.${v}`),
+              }))}
+            />
+          </CardContent>
+        </Card>
+
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.substrates.sectionReuse')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.substrates.sectionReuseDesc')}
+            </Typography>
+            <FormRow>
+              <FormSwitchField name="reusable" control={control} label={t('pages.substrates.reusable')} helperText={t('pages.substrates.reusableHelper')} />
+              <FormNumberField name="max_reuse_cycles" control={control} label={t('pages.substrates.maxReuseCycles')} helperText={t('pages.substrates.maxReuseCyclesHelper')} min={1} />
+            </FormRow>
+          </CardContent>
+        </Card>
+
+        <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
       </Box>
 
@@ -363,6 +402,6 @@ export default function SubstrateDetailPage() {
         onCancel={() => setDeleteBatchTarget(null)}
         destructive
       />
-    </>
+    </Box>
   );
 }

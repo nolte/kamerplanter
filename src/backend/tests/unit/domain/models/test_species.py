@@ -112,7 +112,7 @@ class TestCultivarValidation:
 
     def test_days_to_maturity_too_high(self):
         with pytest.raises(ValidationError):
-            Cultivar(name="Test", species_key="sp1", days_to_maturity=400)
+            Cultivar(name="Test", species_key="sp1", days_to_maturity=1096)
 
     def test_days_to_maturity_too_low(self):
         with pytest.raises(ValidationError):

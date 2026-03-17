@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
@@ -46,6 +48,9 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
+
+/** Spacing between form panels (UI-NFR-008 R-039: 32px) */
+const PANEL_GAP = 4;
 
 export default function CultivarDetailPage() {
   const { speciesKey, cultivarKey } = useParams<{
@@ -220,16 +225,10 @@ export default function CultivarDetailPage() {
   if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
 
   return (
-    <>
+    <Box data-testid="cultivar-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
 
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <PageTitle title={cultivar?.name ?? t('entities.cultivar')} />
         <Button
           color="error"
@@ -254,74 +253,102 @@ export default function CultivarDetailPage() {
       <Box
         component="form"
         onSubmit={handleSubmit(onSubmit)}
-        sx={{ maxWidth: 900 }}
+        sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
       >
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography variant="body2" color="text.secondary">
           {t('pages.cultivars.editIntro')}
         </Typography>
-        <FormRow>
-          <FormTextField
-            name="name"
-            control={control}
-            label={t('pages.cultivars.name')}
-            helperText={t('pages.cultivars.nameHelper')}
-            required
-          />
-          <FormTextField
-            name="breeder"
-            control={control}
-            label={t('pages.cultivars.breeder')}
-            helperText={t('pages.cultivars.breederHelper')}
-          />
-        </FormRow>
-        <FormRow>
-          <FormNumberField
-            name="breeding_year"
-            control={control}
-            label={t('pages.cultivars.breedingYear')}
-            helperText={t('pages.cultivars.breedingYearHelper')}
-          />
-          <FormNumberField
-            name="days_to_maturity"
-            control={control}
-            label={t('pages.cultivars.daysToMaturity')}
-            helperText={t('pages.cultivars.daysToMaturityHelper')}
-            min={1}
-            max={365}
-          />
-        </FormRow>
-        <FormChipInput
-          name="traits"
-          control={control}
-          label={t('pages.cultivars.traits')}
-          helperText={t('pages.cultivars.traitsHelper')}
-        />
-        <FormTextField
-          name="patent_status"
-          control={control}
-          label={t('pages.cultivars.patentStatus')}
-          helperText={t('pages.cultivars.patentStatusHelper')}
-        />
-        <FormChipInput
-          name="disease_resistances"
-          control={control}
-          label={t('pages.cultivars.diseaseResistances')}
-          helperText={t('pages.cultivars.diseaseResistancesHelper')}
-        />
+
+        {/* ── Panel 1: Grunddaten ── */}
+        {/* UI-NFR-008 R-037/R-038: Card panel with h6 heading, required fields first */}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.cultivars.sectionIdentification')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.cultivars.sectionIdentificationDesc')}
+            </Typography>
+            <FormTextField
+              name="name"
+              control={control}
+              label={t('pages.cultivars.name')}
+              helperText={t('pages.cultivars.nameHelper')}
+              required
+              autoFocus
+            />
+            <FormRow>
+              <FormTextField
+                name="breeder"
+                control={control}
+                label={t('pages.cultivars.breeder')}
+                helperText={t('pages.cultivars.breederHelper')}
+              />
+              <FormNumberField
+                name="breeding_year"
+                control={control}
+                label={t('pages.cultivars.breedingYear')}
+                helperText={t('pages.cultivars.breedingYearHelper')}
+              />
+            </FormRow>
+          </CardContent>
+        </Card>
+
+        {/* ── Panel 2: Eigenschaften ── */}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.cultivars.sectionCharacteristics')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.cultivars.sectionCharacteristicsDesc')}
+            </Typography>
+            <FormNumberField
+              name="days_to_maturity"
+              control={control}
+              label={t('pages.cultivars.daysToMaturity')}
+              helperText={t('pages.cultivars.daysToMaturityHelper')}
+              min={1}
+              max={365}
+            />
+            <FormChipInput
+              name="traits"
+              control={control}
+              label={t('pages.cultivars.traits')}
+              helperText={t('pages.cultivars.traitsHelper')}
+            />
+            <FormChipInput
+              name="disease_resistances"
+              control={control}
+              label={t('pages.cultivars.diseaseResistances')}
+              helperText={t('pages.cultivars.diseaseResistancesHelper')}
+            />
+            <FormTextField
+              name="patent_status"
+              control={control}
+              label={t('pages.cultivars.patentStatus')}
+              helperText={t('pages.cultivars.patentStatusHelper')}
+            />
+          </CardContent>
+        </Card>
+
+        {/* UI-NFR-008 R-025: Required field legend */}
+        <Typography variant="caption" color="text.secondary">
+          * {t('common.required')}
+        </Typography>
+
         <FormActions
-          onCancel={() =>
-            navigate(`/stammdaten/species/${speciesKey}`)
-          }
+          onCancel={() => navigate(`/stammdaten/species/${speciesKey}`)}
           loading={saving}
         />
       </Box>
 
       {/* Phase watering overrides */}
       {growthPhases.length > 0 && (
-        <Paper sx={{ mt: 3, p: 2 }}>
+        <Paper sx={{ mt: 4, p: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
             <OpacityIcon color="primary" />
-            <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+            <Typography variant="h6">
               {t('pages.cultivars.phaseWateringOverrides')}
             </Typography>
           </Box>
@@ -345,7 +372,7 @@ export default function CultivarDetailPage() {
                   <TableCell>
                     {gp.watering_interval_days
                       ? `${gp.watering_interval_days} ${t('common.days')}`
-                      : '—'}
+                      : '\u2014'}
                   </TableCell>
                   <TableCell>
                     <TextField
@@ -384,6 +411,6 @@ export default function CultivarDetailPage() {
         onCancel={() => setDeleteOpen(false)}
         destructive
       />
-    </>
+    </Box>
   );
 }

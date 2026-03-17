@@ -1,6 +1,7 @@
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.exceptions import NotFoundError, ValidationError
+from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import FertilizerKey, FertilizerStockKey
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
@@ -17,13 +18,16 @@ class FertilizerService:
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
+        tenant_key: str = "",
     ) -> tuple[list[Fertilizer], int]:
-        return self._repo.get_all(offset, limit, filters)
+        return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
 
-    def get_fertilizer(self, key: FertilizerKey) -> Fertilizer:
+    def get_fertilizer(self, key: FertilizerKey, tenant_key: str = "") -> Fertilizer:
         fert = self._repo.get_by_key(key)
         if fert is None:
             raise NotFoundError("Fertilizer", key)
+        if tenant_key:
+            verify_tenant_ownership(fert, tenant_key, "Fertilizer")
         return fert
 
     def create_fertilizer(self, fertilizer: Fertilizer) -> Fertilizer:

@@ -697,14 +697,19 @@ service_degraded = Gauge(
 
 **MUSS**: API-Endpunkte sind gegen Überlastung geschützt (vgl. NFR-006, Error-Code `RATE_LIMITED`).
 
-| Scope | Limit | Zeitfenster |
-|---|---|---|
-| Global (alle Clients) | 1.000 Requests | 1 Minute |
-| Per Client (IP/API-Key) | 100 Requests | 1 Minute |
-| Per Endpunkt (Schreiboperationen) | 20 Requests | 1 Minute |
+<!-- Quelle: Widerspruchsanalyse W-006 — Rate-Limiting-Hierarchie fuer Service Accounts -->
+| Scope | Limit | Zeitfenster | Bemerkung |
+|---|---|---|---|
+| Global (alle Clients) | 10.000 Requests | 1 Minute | Gesamtlast-Schutz |
+| Per Client — Human (IP-basiert) | 100 Requests | 1 Minute | Standard fuer Browser-Clients |
+| Per Client — Service Account (API-Key) | 1.000 Requests | 1 Minute | Erhoehtes Limit fuer M2M (REQ-023 v1.7) |
+| Per Client — Service Account (Batch) | 10.000 Requests | 1 Minute | Fuer Batch-Sensor-Endpoints (REQ-005) |
+| Per Endpunkt (Schreiboperationen) | 20 Requests | 1 Minute | Human-Clients; Service Accounts: 200/min |
+
+**Hinweis:** Service Accounts (REQ-023 v1.7, `account_type: 'service'`) erhalten ein separates Rate-Limit-Tier, da Home Assistant bei intensiver Sensor-Erfassung (REQ-005) die Human-Client-Limits ueberschreiten kann. Zusaetzlich SOLL ein Batch-Sensor-Endpoint (`POST /api/v1/t/{slug}/sensors/batch`) bereitgestellt werden, der mehrere Datenpunkte in einem Request verarbeitet.
 
 **MUSS**: Rate-Limit-Responses enthalten `Retry-After`-Header.
-**MUSS**: Rate-Limit-Überschreitungen werden als Prometheus-Counter gezählt.
+**MUSS**: Rate-Limit-Überschreitungen werden als Prometheus-Counter gezählt (Label: `client_type: human|service`).
 
 ---
 

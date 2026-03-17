@@ -1,3 +1,13 @@
+##
+## Kamerplanter – Docker Compose (local build)
+##
+## Quick start:
+##   cp .env.example .env        # copy & edit passwords
+##   docker-compose up -d
+##
+## All credentials are read from .env (not hardcoded here).
+## See .env.example for required variables.
+##
 version: "3.8"
 
 services:
@@ -5,26 +15,26 @@ services:
   arangodb:
     image: arangodb:3.11
     environment:
-      ARANGO_ROOT_PASSWORD: rootpassword
+      ARANGO_ROOT_PASSWORD: ${ARANGO_ROOT_PASSWORD}
     ports:
       - "8529:8529"
     volumes:
       - arangodb_data:/var/lib/arangodb3
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8529/_api/version"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8529/_api/version"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ── Redis ─────────────────────────────────────────────────
-  redis:
-    image: redis:7.2-alpine
+  # ── Valkey (Redis-compatible) ────────────────────────────
+  valkey:
+    image: valkey/valkey:8-alpine
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - valkey_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "valkey-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -36,32 +46,75 @@ services:
     environment:
       ARANGODB_HOST: arangodb
       ARANGODB_PORT: "8529"
-      ARANGODB_DATABASE: kamerplanter
-      ARANGODB_USERNAME: root
-      ARANGODB_PASSWORD: rootpassword
-      REDIS_URL: redis://redis:6379/0
+      ARANGODB_DATABASE: ${ARANGODB_DATABASE}
+      ARANGODB_USERNAME: ${ARANGODB_USERNAME}
+      ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
+      REDIS_URL: ${REDIS_URL}
       CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
-      DEBUG: "false"
+      DEBUG: ${DEBUG}
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION}
+      KAMERPLANTER_MODE: light
     ports:
       - "8000:8000"
     depends_on:
       - arangodb
-      - redis
+      - valkey
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health/live"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/api/v1/health/live"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # ── Celery Worker ────────────────────────────────────────
+  celery-worker:
+    build:
+      context: ./src/backend
+    environment:
+      ARANGODB_HOST: arangodb
+      ARANGODB_PORT: "8529"
+      ARANGODB_DATABASE: ${ARANGODB_DATABASE}
+      ARANGODB_USERNAME: ${ARANGODB_USERNAME}
+      ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
+      REDIS_URL: ${REDIS_URL}
+      KAMERPLANTER_MODE: light
+    depends_on:
+      - arangodb
+      - valkey
+    command: celery -A app.tasks worker --loglevel=info
+
+  # ── Celery Beat (periodic tasks) ─────────────────────────
+  celery-beat:
+    build:
+      context: ./src/backend
+    environment:
+      ARANGODB_HOST: arangodb
+      ARANGODB_PORT: "8529"
+      ARANGODB_DATABASE: ${ARANGODB_DATABASE}
+      ARANGODB_USERNAME: ${ARANGODB_USERNAME}
+      ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
+      REDIS_URL: ${REDIS_URL}
+      KAMERPLANTER_MODE: light
+    depends_on:
+      - arangodb
+      - valkey
+    command: celery -A app.tasks beat --loglevel=info
 
   # ── Frontend (React + nginx) ──────────────────────────────
   frontend:
     build:
       context: ./src/frontend
+    environment:
+      KAMERPLANTER_MODE: light
     ports:
       - "8080:80"
     depends_on:
       - backend
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   arangodb_data:
-  redis_data:
+  valkey_data:
