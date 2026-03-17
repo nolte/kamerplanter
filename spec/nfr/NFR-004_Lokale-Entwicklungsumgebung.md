@@ -705,15 +705,15 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "
 controllers:
   main:
     replicas: 1  # Single Pod für dev
-    
+
     strategy:
       type: Recreate  # Schneller für dev
-    
+
     containers:
       main:
         image:
           pullPolicy: IfNotPresent  # Kein Pull bei lokalem Build
-        
+
         env:
           - name: ENVIRONMENT
             value: "development"
@@ -725,7 +725,7 @@ controllers:
             value: "http://arangodb-main:8529"
           - name: REDIS_URL
             value: "redis://redis-master:6379/0"
-        
+
         probes:
           liveness:
             initialDelaySeconds: 5  # Schneller für dev
@@ -737,7 +737,7 @@ controllers:
             initialDelaySeconds: 0
             periodSeconds: 2
             failureThreshold: 30
-        
+
         resources:
           requests:
             cpu: 100m      # Weniger für dev
@@ -745,7 +745,7 @@ controllers:
           limits:
             cpu: 500m
             memory: 512Mi
-        
+
         securityContext:
           runAsNonRoot: false  # Relaxed für dev (File Sync)
           readOnlyRootFilesystem: false
@@ -1128,15 +1128,15 @@ sync:
     - src: 'src/**/*.py'
       dest: /app/src
       strip: src/
-    
+
     # Templates (FastAPI Jinja2)
     - src: 'templates/**/*.html'
       dest: /app/templates
-    
+
     # Static Assets
     - src: 'static/**/*'
       dest: /app/static
-    
+
   # Rebuild bei diesen Änderungen
   infer:
     - requirements.txt
@@ -1695,29 +1695,29 @@ on:
 jobs:
   skaffold-build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Skaffold
         run: |
           curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64
           chmod +x skaffold
           sudo mv skaffold /usr/local/bin/
-      
+
       - name: Setup Kind
         uses: helm/kind-action@v1.8.0
         with:
           cluster_name: skaffold-test
-      
+
       - name: Skaffold Build
         run: |
           skaffold build --file-output=build.json
-      
+
       - name: Skaffold Render
         run: |
           skaffold render --build-artifacts=build.json > manifests.yaml
-      
+
       - name: Upload Manifests
         uses: actions/upload-artifact@v3
         with:

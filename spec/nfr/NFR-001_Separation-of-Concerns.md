@@ -151,7 +151,7 @@ from datetime import date
 
 class GDDCalculator:
     """Growing Degree Days Calculation Service"""
-    
+
     def calculate_gdd(
         self,
         temp_min: float,
@@ -160,18 +160,18 @@ class GDDCalculator:
     ) -> float:
         """
         Berechnet Growing Degree Days nach Standard-Formel.
-        
+
         Args:
             temp_min: Tagesminimum in °C
             temp_max: Tagesmaximum in °C
             base_temp: Basistemperatur der Pflanze in °C
-        
+
         Returns:
             GDD-Wert (0 wenn negativ)
         """
         avg_temp = (temp_min + temp_max) / 2
         return max(0, avg_temp - base_temp)
-    
+
     def calculate_cumulative_gdd(
         self,
         plant_id: str,
@@ -180,12 +180,12 @@ class GDDCalculator:
     ) -> float:
         """
         Summiert GDD über einen Zeitraum aus ArangoDB-Sensordaten.
-        
+
         Args:
             plant_id: UUID der Pflanze
             start_date: Startdatum
             end_date: Enddatum
-        
+
         Returns:
             Kumulierter GDD-Wert
         """
@@ -221,7 +221,7 @@ class IrrigationRuleEngine:
     - VPD
     - Wetterdaten
     """
-    
+
     def should_irrigate(
         self,
         plant_id: str,
@@ -232,24 +232,24 @@ class IrrigationRuleEngine:
             (should_irrigate, reason)
         """
         plant = self.repo.get_plant(plant_id)
-        
+
         # Phasenspezifische Schwellenwerte
         threshold = self._get_moisture_threshold(
             plant.current_phase,
             plant.species.water_needs
         )
-        
+
         if current_moisture < threshold:
             return (
                 True,
                 f"Moisture {current_moisture}% below threshold {threshold}%"
             )
-        
+
         # VPD-Check
         vpd = self._calculate_current_vpd(plant.location_id)
         if vpd > 1.5 and current_moisture < 60:
             return (True, "High VPD detected, preventive irrigation")
-        
+
         return (False, "No irrigation needed")
 ```
 
@@ -276,7 +276,7 @@ async def create_plant(
 ) -> PlantResponse:
     """
     Erstellt eine neue Pflanze im System.
-    
+
     Geschäftsregeln (Backend):
     - Validiert Substrat-Kompatibilität
     - Prüft Mischkultur-Kompatibilität am Standort
@@ -284,7 +284,7 @@ async def create_plant(
     - Erstellt initiale Aufgaben
     """
     service = PlantService(db)
-    
+
     try:
         plant = service.create_plant(
             species_id=plant_data.species_id,
@@ -399,7 +399,7 @@ class PlantRepository:
     def __init__(self, client: ArangoClient):
         self._client = client
         self._db = client.db('agrotech_db', username='user', password='pass')
-    
+
     def get_plant_by_id(self, plant_id: str) -> Plant:
         aql = """
         FOR p IN plants
@@ -730,7 +730,7 @@ services:
       - VITE_API_URL=http://localhost:8000
     depends_on:
       - backend
-  
+
   backend:
     build: ./backend
     ports:
@@ -742,7 +742,7 @@ services:
       - arangodb
     volumes:
       - ./backend:/app  # Hot reload
-  
+
   arangodb:
     image: arangodb:3.11
     ports:
@@ -902,18 +902,18 @@ async def monitor_requests(request: Request, call_next):
     start_time = time.time()
     response = await call_next(request)
     duration = time.time() - start_time
-    
+
     api_requests_total.labels(
         method=request.method,
         endpoint=request.url.path,
         status=response.status_code
     ).inc()
-    
+
     api_request_duration.labels(
         method=request.method,
         endpoint=request.url.path
     ).observe(duration)
-    
+
     return response
 ```
 
@@ -948,7 +948,7 @@ async def create_plant(plant_data: PlantCreate):
         location_id=plant_data.location_id,
         user_id=current_user.id
     )
-    
+
     try:
         plant = service.create_plant(plant_data)
         logger.info(
@@ -1037,7 +1037,7 @@ class TestPlantService:
     @pytest.fixture
     def service(self, mock_db):
         return PlantService(mock_db)
-    
+
     def test_create_plant_validates_substrate_compatibility(self, service):
         """Substrat-Kompatibilität wird geprüft"""
         with pytest.raises(ValidationError, match="incompatible substrate"):
@@ -1045,7 +1045,7 @@ class TestPlantService:
                 species_id="acidic-loving-plant",
                 location_id="alkaline-substrate-location"
             )
-    
+
     def test_create_plant_checks_companion_planting(self, service):
         """Mischkultur-Kompatibilität wird geprüft"""
         # Tomate und Kartoffel sind inkompatibel
@@ -1069,15 +1069,15 @@ describe('PlantForm', () => {
   it('submits data to API and handles success', async () => {
     const mockCreate = vi.fn().mockResolvedValue({ id: '123' });
     mockApiClient.plants.create = mockCreate;
-    
+
     render(<PlantForm />);
-    
+
     await userEvent.selectOptions(
       screen.getByLabelText('Species'),
       'tomato'
     );
     await userEvent.click(screen.getByText('Create Plant'));
-    
+
     await waitFor(() => {
       expect(mockCreate).toHaveBeenCalledWith({
         species_id: 'tomato',
@@ -1085,16 +1085,16 @@ describe('PlantForm', () => {
       });
     });
   });
-  
+
   it('displays backend validation errors', async () => {
     mockApiClient.plants.create = vi.fn().mockRejectedValue({
       status: 400,
       data: { detail: 'Incompatible substrate' }
     });
-    
+
     render(<PlantForm />);
     await userEvent.click(screen.getByText('Create Plant'));
-    
+
     expect(
       await screen.findByText('Incompatible substrate')
     ).toBeInTheDocument();
@@ -1119,11 +1119,11 @@ class TestAPIContract:
         }
         plant_create = PlantCreate(**valid_data)
         assert plant_create.species_id == "uuid-format"
-        
+
         # Invalide Daten werden abgelehnt
         with pytest.raises(ValidationError):
             PlantCreate(species_id="invalid")  # Fehlt location_id
-    
+
     def test_plant_response_schema(self):
         """API-Response entspricht PlantResponse-Schema"""
         response_data = {
@@ -1270,13 +1270,13 @@ const aql = `
 ### Definition of Done
 
 - [ ] **Architektur-Compliance**
-    
+
     - [ ] Keine Frontend-Komponente importiert ArangoDB-Driver (arangojs/python-arango)
     - [ ] Keine Business-Logic in Frontend-Code
     - [ ] Alle AQL-Queries ausschließlich in Backend-Repositories
     - [ ] Klare Schichten-Trennung in Projektstruktur sichtbar
 - [ ] **API-Design**
-    
+
     - [ ] OpenAPI 3.0 Spezifikation vorhanden
     - [ ] Alle Endpoints dokumentiert (Swagger UI)
     - [ ] API-Versionierung implementiert (`/api/v1/`)
@@ -1295,19 +1295,19 @@ const aql = `
     - [ ] Sentry erst nach Einwilligung initialisiert, PII-Scrubbing aktiv (§8.3)
     - [ ] DSFA für Sensordaten vor Inbetriebnahme durchgeführt (§6.7)
 - [ ] **Deployment**
-    
+
     - [ ] Frontend und Backend getrennt deploybar
     - [ ] Separate Docker-Container
     - [ ] Kubernetes Deployments für Frontend/Backend/ArangoDB
     - [ ] HPA (Horizontal Pod Autoscaler) konfiguriert
 - [ ] **Testing**
-    
+
     - [ ] Backend Unit Tests >= 80% Coverage
     - [ ] API Contract Tests vorhanden
     - [ ] Frontend Component Tests vorhanden
     - [ ] Integration Tests mit Mock-Backend
 - [ ] **Monitoring**
-    
+
     - [ ] Prometheus Metrics exportiert
     - [ ] Strukturiertes JSON-Logging
     - [ ] Frontend Error Tracking (Sentry)
@@ -1442,13 +1442,13 @@ API Contracts bleiben stabil, interne Architektur kann sich ändern.
 # Beispiel: Wetterstation-Integration
 class WeatherStationAdapter:
     """Externe Wetterstation nutzt die gleiche API"""
-    
+
     def __init__(self, api_key: str):
         self.client = ApiClient(
             base_url="https://api.agrotech.example.com",
             api_key=api_key
         )
-    
+
     def report_sensor_reading(
         self,
         location_id: str,

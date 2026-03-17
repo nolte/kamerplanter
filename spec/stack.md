@@ -1,8 +1,8 @@
 ---
-ID: TECH-STACK-001 
-Titel: Technologie-Stack & Architektur-Entscheidungen 
-Kategorie: Architektur / Infrastructure 
-Fokus: Beides 
+ID: TECH-STACK-001
+Titel: Technologie-Stack & Architektur-Entscheidungen
+Kategorie: Architektur / Infrastructure
+Fokus: Beides
 Technologie: Python 3.14, FastAPI, ArangoDB, Kubernetes, Helm
 Status: Produktionsreif Priorität: Kritisch
 ---
@@ -137,10 +137,10 @@ from collections.abc import Sequence
 
 class Repository[T]:
     """Generic Repository Pattern mit neuer Syntax"""
-    
+
     def get_by_id(self, id: str) -> T | None:
         ...
-    
+
     def list_all(self) -> Sequence[T]:
         ...
 
@@ -231,7 +231,7 @@ class PlantCreate(BaseModel):
     species_id: UUID = Field(..., description="Species UUID")
     location_id: UUID = Field(..., description="Location UUID")
     planted_date: date = Field(default_factory=date.today)
-    
+
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
@@ -247,7 +247,7 @@ class PlantResponse(BaseModel):
     species_name: str
     current_phase: str
     gdd_accumulated: float
-    
+
     model_config = ConfigDict(from_attributes=True)
 ```
 
@@ -324,7 +324,7 @@ app = FastAPI(
     title="Agrotech Plant Care API",
     description="""
     ## Pflanzen Pflege & Ernte Helfer API
-    
+
     Verwaltet:
     - 🌱 Pflanzen-Lifecycle (Keimung bis Ernte)
     - 💧 Bewässerungsmanagement
@@ -409,7 +409,7 @@ FOR plant IN plants
             RETURN v
     )
     FILTER location.site_name == "Greenhouse A"
-    
+
     LET neighbors = (
         FOR v, e IN 1..1 ANY location._id neighbor_of
             FOR p IN 1..1 INBOUND v located_in
@@ -418,7 +418,7 @@ FOR plant IN plants
                     distance_cm: e.distance_cm
                 }
     )
-    
+
     RETURN {
         plant: plant,
         location: location,
@@ -511,7 +511,7 @@ CREATE INDEX ON sensor_readings (sensor_type, time DESC);
 -- Automatische Aggregation (Continuous Aggregates)
 CREATE MATERIALIZED VIEW sensor_readings_hourly
 WITH (timescaledb.continuous) AS
-SELECT 
+SELECT
     time_bucket('1 hour', time) AS bucket,
     location_id,
     sensor_type,
@@ -560,12 +560,12 @@ import json
 class RedisCache:
     def __init__(self, redis_url: str):
         self.redis = Redis.from_url(redis_url, decode_responses=True)
-    
+
     async def get_plant(self, plant_id: str) -> Optional[dict]:
         """Hole Pflanze aus Cache"""
         data = await self.redis.get(f"plant:{plant_id}")
         return json.loads(data) if data else None
-    
+
     async def set_plant(self, plant_id: str, plant_data: dict, ttl: int = 300):
         """Speichere Pflanze im Cache (5 Minuten TTL)"""
         await self.redis.setex(
@@ -573,11 +573,11 @@ class RedisCache:
             ttl,
             json.dumps(plant_data)
         )
-    
+
     async def invalidate_plant(self, plant_id: str):
         """Lösche Cache bei Updates"""
         await self.redis.delete(f"plant:{plant_id}")
-    
+
     # Rate Limiting
     async def check_rate_limit(self, user_id: str, limit: int = 100) -> bool:
         """100 Requests pro Minute"""
@@ -699,7 +699,7 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant }) => {
         <Typography variant="h6">
           <LocalFlorist /> {plant.species_name}
         </Typography>
-        <Chip 
+        <Chip
           label={plant.current_phase}
           color={getPhaseColor(plant.current_phase)}
           size="small"
@@ -728,15 +728,15 @@ import 'dart:convert';
 class ApiClient {
   final String baseUrl = 'https://api.agrotech.example.com';
   final String _token;
-  
+
   ApiClient(this._token);
-  
+
   Future<List<Plant>> fetchPlants(String locationId) async {
     final response = await http.get(
       Uri.parse('$baseUrl/api/v1/plants?location_id=$locationId'),
       headers: {'Authorization': 'Bearer $_token'}
     );
-    
+
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
       return data.map((json) => Plant.fromJson(json)).toList();
@@ -752,14 +752,14 @@ class Plant {
   final String speciesName;
   final String currentPhase;
   final double gddAccumulated;
-  
+
   Plant({
     required this.id,
     required this.speciesName,
     required this.currentPhase,
     required this.gddAccumulated
   });
-  
+
   factory Plant.fromJson(Map<String, dynamic> json) {
     return Plant(
       id: json['id'],
@@ -832,44 +832,44 @@ helm search repo bjw-s/common
 Die bjw-s/common Library bietet vordefinierte Templates für:
 
 1. **Controller Types**:
-    
+
     - `deployment` - Standard Kubernetes Deployment
     - `statefulset` - Für zustandsbehaftete Applikationen
     - `daemonset` - Auf jedem Node
     - `cronjob` - Zeitgesteuerte Jobs
 2. **Service Types**:
-    
+
     - `ClusterIP` - Interner Service
     - `LoadBalancer` - Externer Zugriff
     - `NodePort` - Port auf jedem Node
     - `ExternalName` - DNS-Alias
 3. **Ingress Management**:
-    
+
     - Automatische TLS-Konfiguration
     - Multiple Hosts/Paths
     - Annotation-basierte Middleware
 4. **Persistence**:
-    
+
     - `persistentVolumeClaim` - Standard PVC
     - `emptyDir` - Temporärer Speicher
     - `configMap` / `secret` - Als Volume
     - `hostPath` - Node-lokaler Pfad
 5. **ConfigMaps & Secrets**:
-    
+
     - Automatische Creation aus values
     - Environment-Variable-Injection
     - File-Mounting
 6. **Probes & Health Checks**:
-    
+
     - Liveness Probes
     - Readiness Probes
     - Startup Probes
 7. **Autoscaling**:
-    
+
     - HPA (Horizontal Pod Autoscaler)
     - VPA (Vertical Pod Autoscaler) Support
 8. **Security**:
-    
+
     - ServiceAccounts
     - PodSecurityContext
     - SecurityContext (Container-level)
@@ -961,20 +961,20 @@ controllers:
   main:
     type: deployment
     replicas: 3
-    
+
     strategy:
       type: RollingUpdate
       rollingUpdate:
         maxSurge: 1
         maxUnavailable: 0
-    
+
     containers:
       main:
         image:
           repository: agrotech/backend
           tag: "1.0.0"
           pullPolicy: IfNotPresent
-        
+
         env:
           # ArangoDB Connection
           - name: ARANGODB_URL
@@ -994,11 +994,11 @@ controllers:
               secretKeyRef:
                 name: arangodb-credentials
                 key: password
-          
+
           # Redis Connection
           - name: REDIS_URL
             value: "redis://redis:6379/0"
-          
+
           # JWT Configuration (REQ-023: Authlib)
           - name: JWT_SECRET
             valueFrom:
@@ -1028,7 +1028,7 @@ controllers:
             value: "INFO"
           - name: ENVIRONMENT
             value: "production"
-        
+
         probes:
           liveness:
             enabled: true
@@ -1039,7 +1039,7 @@ controllers:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
-          
+
           readiness:
             enabled: true
             type: http
@@ -1049,7 +1049,7 @@ controllers:
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 3
-          
+
           startup:
             enabled: true
             type: http
@@ -1059,7 +1059,7 @@ controllers:
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 30
-        
+
         resources:
           requests:
             cpu: 250m
@@ -1067,7 +1067,7 @@ controllers:
           limits:
             cpu: 1000m
             memory: 1Gi
-        
+
         securityContext:
           runAsNonRoot: true
           runAsUser: 1000
@@ -1114,7 +1114,7 @@ persistence:
     medium: Memory
     globalMounts:
       - path: /tmp
-  
+
   cache:
     type: emptyDir
     globalMounts:
@@ -1198,13 +1198,13 @@ controllers:
   worker:
     type: deployment
     replicas: 2
-    
+
     containers:
       main:
         image:
           repository: agrotech/backend
           tag: "1.0.0"
-        
+
         command:
           - celery
           - -A
@@ -1212,7 +1212,7 @@ controllers:
           - worker
           - --loglevel=info
           - --concurrency=4
-        
+
         env:
           - name: ARANGODB_URL
             valueFrom:
@@ -1221,7 +1221,7 @@ controllers:
                 key: url
           - name: REDIS_URL
             value: "redis://redis:6379/0"
-        
+
         resources:
           requests:
             cpu: 250m
@@ -1233,24 +1233,24 @@ controllers:
   beat:
     type: deployment
     replicas: 1  # Nur ein Beat-Scheduler!
-    
+
     containers:
       main:
         image:
           repository: agrotech/backend
           tag: "1.0.0"
-        
+
         command:
           - celery
           - -A
           - celery_app
           - beat
           - --loglevel=info
-        
+
         env:
           - name: REDIS_URL
             value: "redis://redis:6379/0"
-        
+
         resources:
           requests:
             cpu: 100m
@@ -1275,13 +1275,13 @@ controllers:
   main:
     type: deployment
     replicas: 2
-    
+
     containers:
       main:
         image:
           repository: agrotech/frontend
           tag: "1.0.0"
-        
+
         env:
           - name: REACT_APP_API_URL
             value: "https://api.agrotech.example.com"
@@ -1290,7 +1290,7 @@ controllers:
               secretKeyRef:
                 name: frontend-secrets
                 key: sentry-dsn
-        
+
         probes:
           liveness:
             enabled: true
@@ -1302,7 +1302,7 @@ controllers:
             type: http
             path: /
             port: 80
-        
+
         resources:
           requests:
             cpu: 100m
@@ -1352,7 +1352,7 @@ controllers:
   main:
     type: statefulset
     replicas: 3  # Cluster-Modus
-    
+
     statefulset:
       volumeClaimTemplates:
         - name: data
@@ -1361,13 +1361,13 @@ controllers:
           accessMode: ReadWriteOnce
           size: 50Gi
           storageClass: fast-ssd
-    
+
     containers:
       main:
         image:
           repository: arangodb
           tag: "3.11"
-        
+
         env:
           - name: ARANGO_ROOT_PASSWORD
             valueFrom:
@@ -1376,7 +1376,7 @@ controllers:
                 key: password
           - name: ARANGO_STORAGE_ENGINE
             value: "rocksdb"
-        
+
         probes:
           liveness:
             enabled: true
@@ -1388,7 +1388,7 @@ controllers:
             type: http
             path: /_api/version
             port: 8529
-        
+
         resources:
           requests:
             cpu: 1000m
@@ -1434,22 +1434,22 @@ dependencies:
     version: 1.0.0
     repository: "file://../agrotech-backend"
     condition: backend.enabled
-  
+
   - name: agrotech-frontend
     version: 1.0.0
     repository: "file://../agrotech-frontend"
     condition: frontend.enabled
-  
+
   - name: agrotech-arangodb
     version: 1.0.0
     repository: "file://../agrotech-arangodb"
     condition: arangodb.enabled
-  
+
   - name: redis
     version: 18.0.0
     repository: https://charts.bitnami.com/bitnami
     condition: redis.enabled
-  
+
   - name: postgresql
     version: 13.0.0
     repository: https://charts.bitnami.com/bitnami
@@ -1625,13 +1625,13 @@ releases:
     values:
       - ./helm/agrotech-backend/values.yaml
       - ./helm/agrotech-backend/values-{{ .Environment.Name }}.yaml
-  
+
   - name: agrotech-frontend
     namespace: agrotech-{{ .Environment.Name }}
     chart: ./helm/agrotech-frontend
     values:
       - ./helm/agrotech-frontend/values.yaml
-  
+
   - name: redis
     namespace: agrotech-{{ .Environment.Name }}
     chart: bitnami/redis
@@ -1697,30 +1697,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-      
+
       - name: Install dependencies
         run: |
           cd backend
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
-      
+
       - name: Run Ruff (Linting)
         run: cd backend && ruff check .
-      
+
       - name: Run Black (Formatting)
         run: cd backend && black --check .
-      
+
       - name: Run mypy (Type Checking)
         run: cd backend && mypy .
-      
+
       - name: Run Pytest
         run: cd backend && pytest --cov=. --cov-report=xml
-      
+
       - name: Upload Coverage
         uses: codecov/codecov-action@v3
         with:
@@ -1731,11 +1731,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Build Docker Image
         run: |
           docker build -t agrotech/backend:${{ github.sha }} backend/
-      
+
       - name: Push to Registry
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
@@ -1747,30 +1747,30 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Configure kubectl
         uses: azure/k8s-set-context@v3
         with:
           method: kubeconfig
           kubeconfig: ${{ secrets.KUBE_CONFIG }}
-      
+
       - name: Install Helm
         uses: azure/setup-helm@v3
         with:
           version: '3.13.0'
-      
+
       - name: Add Helm Repositories
         run: |
           helm repo add bjw-s https://bjw-s.github.io/helm-charts
           helm repo add bitnami https://charts.bitnami.com/bitnami
           helm repo update
-      
+
       - name: Lint Helm Chart
         run: |
           cd helm/agrotech-backend
           helm dependency build
           helm lint .
-      
+
       - name: Deploy to Kubernetes (Helm)
         run: |
           helm upgrade --install agrotech-backend \
@@ -1783,11 +1783,11 @@ jobs:
             --atomic \
             --timeout 10m \
             --wait
-      
+
       - name: Run Helm Tests
         run: |
           helm test agrotech-backend -n agrotech-prod
-      
+
       - name: Notify Deployment
         if: success()
         run: |
@@ -1832,14 +1832,14 @@ resource "aws_db_instance" "timescale" {
   engine_version    = "16.1"
   instance_class    = "db.t3.medium"
   allocated_storage = 100
-  
+
   db_name  = "agrotech_sensors"
   username = var.db_username
   password = var.db_password
-  
+
   vpc_security_group_ids = [aws_security_group.db.id]
   db_subnet_group_name   = aws_db_subnet_group.main.name
-  
+
   backup_retention_period = 7
   skip_final_snapshot     = false
 }
@@ -1863,7 +1863,7 @@ data:
   prometheus.yml: |
     global:
       scrape_interval: 15s
-    
+
     scrape_configs:
       - job_name: 'kubernetes-pods'
         kubernetes_sd_configs:
@@ -1943,11 +1943,11 @@ async def get_plant(plant_id: str):
     with tracer.start_as_current_span("get_plant"):
         with tracer.start_as_current_span("fetch_from_cache"):
             plant = await cache.get_plant(plant_id)
-        
+
         if not plant:
             with tracer.start_as_current_span("fetch_from_db"):
                 plant = await db.get_plant(plant_id)
-        
+
         return plant
 ```
 
@@ -1987,7 +1987,7 @@ import hvac
 class VaultSecrets:
     def __init__(self, vault_url: str, token: str):
         self.client = hvac.Client(url=vault_url, token=token)
-    
+
     def get_db_credentials(self) -> dict:
         """Hole DB-Credentials aus Vault"""
         secret = self.client.secrets.kv.v2.read_secret_version(

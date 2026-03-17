@@ -916,7 +916,7 @@ from datetime import date, datetime, timedelta
 
 class TaskTemplate(BaseModel):
     """Template für wiederverwendbare Aufgaben"""
-    
+
     task_template_id: str
     name: str = Field(min_length=3, max_length=200)
     instruction: str = Field(min_length=10, max_length=2000)
@@ -982,7 +982,7 @@ class TaskTemplate(BaseModel):
             if v is None:
                 raise ValueError(f"days_offset erforderlich für {trigger}")
         return v
-    
+
     @field_validator('trigger_phase')
     @classmethod
     def validate_phase_for_trigger(cls, v, info):
@@ -1016,40 +1016,40 @@ class TaskTemplate(BaseModel):
     ) -> date:
         """
         Berechnet Due-Date basierend auf Trigger-Typ
-        
+
         Args:
             plant_instance: Dict mit planted_on, current_phase, etc.
             current_phase: Aktuelle Wachstumsphase
-        
+
         Returns:
             Berechnetes Fälligkeitsdatum
         """
         today = date.today()
-        
+
         if self.trigger_type == 'manual':
             return today
-        
+
         elif self.trigger_type == 'absolute_date':
             # Wird extern gesetzt
             return today
-        
+
         elif self.trigger_type == 'days_after_planting':
             planted_on = plant_instance.get('planted_on')
             if not planted_on:
                 return today
             return planted_on + timedelta(days=self.days_offset)
-        
+
         elif self.trigger_type == 'phase_entry':
             # Wird ausgelöst wenn Phase eintritt
             return today
-        
+
         elif self.trigger_type == 'days_after_phase':
             # Annahme: Phase-Entry-Datum ist bekannt
             phase_entered_at = plant_instance.get('current_phase_entered_at')
             if not phase_entered_at:
                 return today
             return phase_entered_at + timedelta(days=self.days_offset)
-        
+
         elif self.trigger_type == 'conditional':
             # Wird ausgelöst wenn Bedingung erfüllt
             return today
@@ -1071,7 +1071,7 @@ class TaskTemplate(BaseModel):
 
 class WorkflowTemplate(BaseModel):
     """Kompletter Workflow aus mehreren Tasks"""
-    
+
     template_id: str
     name: str = Field(min_length=3, max_length=200)
     description: str = Field(min_length=10, max_length=1000)
@@ -1084,7 +1084,7 @@ class WorkflowTemplate(BaseModel):
     estimated_total_hours: float = Field(ge=0, le=1000)
     category: Literal['training', 'maintenance', 'harvest', 'seasonal', 'custom']
     tags: List[str] = Field(default_factory=list)
-    
+
     @field_validator('version')
     @classmethod
     def validate_semver(cls, v):
@@ -1092,7 +1092,7 @@ class WorkflowTemplate(BaseModel):
         if len(parts) != 3 or not all(p.isdigit() for p in parts):
             raise ValueError("Version muss Semantic Versioning folgen (X.Y.Z)")
         return v
-    
+
     @field_validator('species_compatible')
     @classmethod
     def validate_scientific_names(cls, v):
@@ -1107,7 +1107,7 @@ class WorkflowTemplate(BaseModel):
 ```python
 class HST_Validator:
     """Verhindert High-Stress Training in kritischen Phasen"""
-    
+
     # HST-Tasks die in Blüte/Fruchtbildung verboten sind
     # Differenziert nach Phase: early_flowering erlaubt Supercropping/Transplant
     # (Stretch-Phase = letztes vegetatives Internodienwachstum)
@@ -1326,11 +1326,11 @@ class HST_Validator:
             'window_days': window_days,
             'events': counted_events,
         }
-    
+
     @staticmethod
     def get_hst_best_practices(task_name: str) -> dict:
         """Gibt Best-Practices für spezifische HST-Techniken"""
-        
+
         # Artspezifische Best-Practices. Cannabis ist Referenz, andere Arten ergänzen.
         practices = {
             'topping': {
@@ -1411,7 +1411,7 @@ class HST_Validator:
                 }
             }
         }
-        
+
         task_key = task_name.lower().split()[0]
         return practices.get(task_key, {
             'best_timing': 'Konsultiere Fachliteratur',
@@ -1828,27 +1828,27 @@ class WorkflowExecutor:
               )
               RETURN { wf: wf, tasks_data: tasks_data }
         """, bind_vars={'wf_id': workflow_template_id}).next()
-            
+
             if not result:
                 raise ValueError(f"Workflow-Template {workflow_template_id} nicht gefunden")
-            
+
             workflow = result['wf']
             tasks_data = result['tasks_data']
-            
+
             # Erstelle Workflow-Execution
             execution_id = self._create_execution(plant_id, workflow_template_id)
-            
+
             # Erstelle Tasks
             created_tasks = []
             task_id_map = {}  # template_id -> task_id
-            
+
             for task_data in tasks_data:
                 template_dict = dict(task_data['template'])
                 template = TaskTemplate(**template_dict)
-                
+
                 # Berechne Due-Date
                 due_date = template.calculate_due_date(plant_data)
-                
+
                 # Erstelle Task
                 task_id = self._create_task(
                     plant_id=plant_id,
@@ -1856,26 +1856,26 @@ class WorkflowExecutor:
                     template=template,
                     due_date=due_date
                 )
-                
+
                 task_id_map[template.task_template_id] = task_id
-                
+
                 created_tasks.append({
                     'task_id': task_id,
                     'name': template.name,
                     'due_date': due_date,
                     'category': template.category
                 })
-            
+
             # Erstelle Dependency-Ketten
             dependencies_count = 0
             for task_data in tasks_data:
                 template_id = task_data['template']['task_template_id']
                 task_id = task_id_map.get(template_id)
-                
+
                 for dep in task_data['dependencies']:
                     if dep['dep_template_id']:
                         dep_task_id = task_id_map.get(dep['dep_template_id'])
-                        
+
                         if dep_task_id and task_id:
                             self._create_dependency(
                                 dep_task_id,
@@ -1883,14 +1883,14 @@ class WorkflowExecutor:
                                 dep['min_delay_days']
                             )
                             dependencies_count += 1
-            
+
             return {
                 'execution_id': execution_id,
                 'tasks_created': len(created_tasks),
                 'tasks': created_tasks,
                 'dependencies_created': dependencies_count
             }
-    
+
     def _create_execution(self, plant_id: str, template_id: str) -> str:
         """Erstellt WorkflowExecution-Dokument"""
         result = self.db.aql.execute("""
@@ -1919,7 +1919,7 @@ class WorkflowExecutor:
         """, bind_vars={'plant_id': plant_id, 'template_id': template_id}).next()
 
         return result
-    
+
     def _create_task(
         self,
         plant_id: str,
@@ -1984,7 +1984,7 @@ class WorkflowExecutor:
         }).next()
 
         return result
-    
+
     def _create_dependency(
         self,
         blocker_task_id: str,

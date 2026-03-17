@@ -496,4 +496,3 @@ Bevor Web Push implementiert ist: E-Mail-Erinnerung aktivierbar in den Einstellu
 ---
 
 *Ende des Reviews. Datum: 2026-02-28.*
-

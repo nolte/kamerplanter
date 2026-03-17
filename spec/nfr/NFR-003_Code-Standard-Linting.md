@@ -77,11 +77,11 @@ def berechne_gdd(pflanze_id: str, basis_temperatur: float) -> float:
 def calculate_gdd(plant_id: str, base_temperature: float) -> float:
     """
     Calculate Growing Degree Days (GDD) for a plant.
-    
+
     Args:
         plant_id: UUID of the plant
         base_temperature: Base temperature in °C
-    
+
     Returns:
         GDD value (0 if negative)
     """
@@ -185,7 +185,7 @@ class IrrigationService:
 class Plant:
     def __str__(self) -> str:
         return f"Plant({self.species_name})"
-    
+
     def __repr__(self) -> str:
         return f"Plant(id={self.id}, species={self.species_id})"
 
@@ -618,23 +618,23 @@ git commit -m "Add irrigation service"
 {
   // Python Interpreter
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-  
+
   // Ruff
   "ruff.enable": true,
   "ruff.lint.run": "onSave",
   "ruff.organizeImports": true,
-  
+
   // Black
   "python.formatting.provider": "black",
   "python.formatting.blackArgs": ["--line-length", "100"],
-  
+
   // Format on Save
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
     "source.organizeImports": true,
     "source.fixAll": true
   },
-  
+
   // mypy
   "python.linting.enabled": true,
   "python.linting.mypyEnabled": true,
@@ -643,15 +643,15 @@ git commit -m "Add irrigation service"
     "--ignore-missing-imports",
     "--show-error-codes"
   ],
-  
+
   // Type Checking Mode
   "python.analysis.typeCheckingMode": "strict",
-  
+
   // Editor Settings
   "editor.rulers": [100],
   "files.trimTrailingWhitespace": true,
   "files.insertFinalNewline": true,
-  
+
   // Python-specific
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter",
@@ -698,12 +698,12 @@ def get_plants_by_phase(
 ) -> Sequence[Plant]:
     """
     Retrieve plants filtered by growth phase.
-    
+
     Args:
         phase: Growth phase (seedling, vegetative, flowering, harvest)
         location_id: Optional location filter
         limit: Maximum number of results
-    
+
     Returns:
         Sequence of Plant objects
     """
@@ -723,7 +723,7 @@ from uuid import UUID
 
 class PlantCreate(BaseModel):
     """Schema for creating a new plant."""
-    
+
     species_id: UUID = Field(
         ...,
         description="UUID of the plant species"
@@ -736,7 +736,7 @@ class PlantCreate(BaseModel):
         default_factory=date.today,
         description="Date when planted"
     )
-    
+
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
@@ -749,13 +749,13 @@ class PlantCreate(BaseModel):
 
 class PlantResponse(BaseModel):
     """Schema for plant API responses."""
-    
+
     id: UUID
     species_name: str
     current_phase: str
     gdd_accumulated: float
     is_active: bool
-    
+
     model_config = ConfigDict(
         from_attributes=True,
         strict=True
@@ -793,19 +793,19 @@ T = TypeVar("T")
 
 class Repository[T](Protocol):
     """Generic repository interface."""
-    
+
     def get_by_id(self, id: str) -> T | None:
         ...
-    
+
     def list_all(self, limit: int = 100) -> Sequence[T]:
         ...
-    
+
     def create(self, entity: T) -> T:
         ...
 
 class PlantRepository(Repository[Plant]):
     """Plant-specific repository implementation."""
-    
+
     def get_by_id(self, id: str) -> Plant | None:
         ...
 ```
@@ -899,51 +899,51 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python 3.14
         uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-      
+
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-      
+
       - name: Run Ruff (Linting)
         run: |
           ruff check . --output-format=github
-      
+
       - name: Run Ruff (Formatting Check)
         run: |
           ruff format --check .
-      
+
       - name: Run Black (Formatting Check)
         run: |
           black --check --diff .
-      
+
       - name: Run mypy (Type Checking)
         run: |
           mypy .
-      
+
       - name: Run Bandit (Security)
         run: |
           bandit -r . -f json -o bandit-report.json
-      
+
       - name: Run Safety (Dependency Check)
         run: |
           safety check --json > safety-report.json
         continue-on-error: true  # Warnings nicht blockieren
-      
+
       - name: Upload Security Reports
         if: always()
         uses: actions/upload-artifact@v3
@@ -952,33 +952,33 @@ jobs:
           path: |
             bandit-report.json
             safety-report.json
-  
+
   test:
     needs: lint
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python 3.14
         uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-      
+
       - name: Install dependencies
         run: |
           pip install -e ".[dev]"
-      
+
       - name: Run Tests with Coverage
         run: |
           pytest --cov=. --cov-report=xml --cov-report=html
-      
+
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
           files: ./coverage.xml
           fail_ci_if_error: true
-      
+
       - name: Check Coverage Threshold
         run: |
           COVERAGE=$(coverage report | grep TOTAL | awk '{print $4}' | sed 's/%//')
@@ -1078,7 +1078,7 @@ branches:
         required_approving_review_count: 1
         dismiss_stale_reviews: true
         require_code_owner_reviews: true
-      
+
       required_status_checks:
         strict: true
         contexts:
@@ -1086,12 +1086,12 @@ branches:
           - "test"
           - "Python Code Quality / lint"
           - "Python Code Quality / test"
-      
+
       enforce_admins: true
       required_linear_history: true
       allow_force_pushes: false
       allow_deletions: false
-      
+
       restrictions:
         users: []
         teams: ["backend-team"]
@@ -1228,36 +1228,36 @@ def calculate_irrigation_amount(
 ) -> float:
     """
     Calculate the required irrigation amount to reach target moisture.
-    
+
     This function considers substrate type, plant water requirements,
     and current moisture levels to determine optimal irrigation volume.
-    
+
     Args:
         plant_id: UUID of the plant to irrigate
         substrate_moisture: Current substrate moisture in percent (0-100)
         target_moisture: Desired substrate moisture in percent (0-100)
-    
+
     Returns:
         Required irrigation volume in liters
-    
+
     Raises:
         ValueError: If moisture values are outside valid range (0-100)
         PlantNotFoundError: If plant_id does not exist
-    
+
     Examples:
         >>> calculate_irrigation_amount("plant-123", 30.0, 60.0)
         2.5
-        
+
         >>> calculate_irrigation_amount("plant-456", 70.0, 60.0)
         0.0  # No irrigation needed
-    
+
     Note:
         This function assumes substrate field capacity is 80%.
         For hydroponic systems, use calculate_reservoir_refill() instead.
     """
     if not 0 <= substrate_moisture <= 100:
         raise ValueError(f"Moisture must be 0-100, got {substrate_moisture}")
-    
+
     # ... Implementation
 ```
 
@@ -1267,21 +1267,21 @@ def calculate_irrigation_amount(
 class IrrigationService:
     """
     Service for managing automated irrigation scheduling.
-    
+
     This service coordinates between sensor readings, plant water requirements,
     and irrigation hardware to ensure optimal watering schedules.
-    
+
     Attributes:
         db: ArangoDB connection for plant data
         redis: Redis client for caching irrigation schedules
         scheduler: Celery scheduler for automated tasks
-    
+
     Example:
         >>> service = IrrigationService(db_conn, redis_conn)
         >>> service.schedule_irrigation("greenhouse-a")
         {'scheduled_plants': 12, 'total_water_liters': 45.5}
     """
-    
+
     def __init__(
         self,
         db: Connection,
@@ -1290,7 +1290,7 @@ class IrrigationService:
     ):
         """
         Initialize the irrigation service.
-        
+
         Args:
             db: ArangoDB connection
             redis: Redis client for caching
@@ -1589,7 +1589,7 @@ git commit -m "Add irrigation function"
 # Ruff....................................................................Failed
 # - hook id: ruff
 # - exit code: 1
-# 
+#
 # irrigation.py:1:5: N816 Variable name should be in snake_case
 # irrigation.py:1:32: N803 Argument name should be in snake_case
 ```

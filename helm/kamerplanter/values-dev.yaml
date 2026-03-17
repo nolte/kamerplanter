@@ -14,6 +14,7 @@ controllers:
           CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
           DEBUG: "true"
           REQUIRE_EMAIL_VERIFICATION: "false"
+          KAMERPLANTER_MODE: "light"
           HA_URL: "http://homeassistant:8123"
           HA_ACCESS_TOKEN: ""
         probes:

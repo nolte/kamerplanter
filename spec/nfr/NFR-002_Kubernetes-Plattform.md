@@ -185,14 +185,14 @@ spec:
     spec:
       # Service Account für RBAC
       serviceAccountName: backend-sa
-      
+
       # Security Context (Pod-Level)
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
-      
+
       # Init Container (z.B. DB-Migrations)
       initContainers:
       - name: wait-for-arangodb
@@ -205,18 +205,18 @@ spec:
               echo "Waiting for ArangoDB..."
               sleep 2
             done
-      
+
       # Main Container
       containers:
       - name: backend
         image: agrotech/backend:1.0.0
         imagePullPolicy: IfNotPresent
-        
+
         ports:
         - name: http
           containerPort: 8000
           protocol: TCP
-        
+
         # Environment Variables
         env:
         - name: ENVIRONMENT
@@ -245,7 +245,7 @@ spec:
             secretKeyRef:
               name: backend-secrets
               key: jwt-secret
-        
+
         # Probes
         livenessProbe:
           httpGet:
@@ -255,7 +255,7 @@ spec:
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
-        
+
         readinessProbe:
           httpGet:
             path: /health/ready
@@ -264,7 +264,7 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 3
-        
+
         startupProbe:
           httpGet:
             path: /health/startup
@@ -273,7 +273,7 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 30  # 150 Sekunden max Startup-Zeit
-        
+
         # Resource Management
         resources:
           requests:
@@ -282,7 +282,7 @@ spec:
           limits:
             cpu: 1000m     # 1 CPU core
             memory: 1Gi
-        
+
         # Security Context (Container-Level) — SEC-M-004
         securityContext:
           allowPrivilegeEscalation: false
@@ -292,14 +292,14 @@ spec:
           capabilities:
             drop:
               - ALL
-        
+
         # Volume Mounts
         volumeMounts:
         - name: tmp
           mountPath: /tmp
         - name: cache
           mountPath: /app/.cache
-      
+
       # Volumes
       volumes:
       - name: tmp
@@ -307,7 +307,7 @@ spec:
           medium: Memory
       - name: cache
         emptyDir: {}
-      
+
       # Pod Disruption Budget (separat definiert)
       # Node Affinity (optional für Multi-Zone)
       affinity:
@@ -542,23 +542,23 @@ data:
   # Application Settings
   LOG_LEVEL: "INFO"
   ENVIRONMENT: "production"
-  
+
   # Feature Flags
   FEATURE_ML_PREDICTIONS: "true"
   FEATURE_WEATHER_API: "true"
-  
+
   # Non-sensitive URLs
   SENTRY_DSN: "https://public@sentry.io/12345"
-  
+
   # Config Files
   app-config.yaml: |
     server:
       port: 8000
       workers: 4
-    
+
     gdd:
       calculation_interval: 3600  # 1 hour
-    
+
     irrigation:
       check_interval: 900  # 15 minutes
 ```
@@ -782,16 +782,16 @@ controllers:
   main:
     type: deployment
     replicas: 3
-    
+
     strategy:
       type: RollingUpdate
-    
+
     containers:
       main:
         image:
           repository: agrotech/backend
           tag: "1.0.0"
-        
+
         env:
           - name: ARANGODB_URL
             valueFrom:
@@ -800,7 +800,7 @@ controllers:
                 key: url
           - name: REDIS_URL
             value: "redis://redis:6379/0"
-        
+
         probes:
           liveness:
             enabled: true
@@ -817,7 +817,7 @@ controllers:
             type: http
             path: /health/startup
             port: 8000
-        
+
         resources:
           requests:
             cpu: 250m
@@ -1062,7 +1062,7 @@ def init_tracing():
     )
     provider.add_span_processor(processor)
     trace.set_tracer_provider(provider)
-    
+
     # Auto-Instrument FastAPI
     FastAPIInstrumentor.instrument_app(app)
 
@@ -1380,7 +1380,7 @@ spec:
                 --server.username root \
                 --server.password "$ARANGO_PASSWORD" \
                 --output-directory /backup/$(date +%Y%m%d_%H%M%S)
-              
+
               # Upload zu S3
               aws s3 sync /backup s3://agrotech-backups/arangodb/
             env:
@@ -1617,7 +1617,7 @@ spec:
     operator: "Equal"
     value: "true"
     effect: "NoSchedule"
-  
+
   nodeSelector:
     workload: stateless
 ```
@@ -1653,25 +1653,25 @@ spec:
 ### Definition of Done
 
 - [ ] **Containerisierung**
-    
+
     - [ ] Alle Services als Docker Container
     - [ ] Multi-Stage Builds für kleinere Images
     - [ ] Non-Root User in Containern
     - [ ] Health Checks implementiert
 - [ ] **Kubernetes Resources**
-    
+
     - [ ] Deployments für stateless Workloads
     - [ ] StatefulSets für Datenbanken
     - [ ] Services (ClusterIP, LoadBalancer)
     - [ ] Ingress mit TLS konfiguriert
 - [ ] **Helm Charts**
-    
+
     - [ ] Charts basieren auf bjw-s/common
     - [ ] Values für Dev/Staging/Prod
     - [ ] Dependencies definiert
     - [ ] Helm Tests vorhanden
 - [ ] **Skalierung**
-    
+
     - [ ] HPA konfiguriert (min 3, max 10 Pods)
     - [ ] PDB verhindert kompletten Ausfall
     - [ ] Resource Limits gesetzt
@@ -1685,13 +1685,13 @@ spec:
     - [ ] RBAC konfiguriert
     - [ ] Secrets nicht in Git
 - [ ] **Observability**
-    
+
     - [ ] Prometheus Metrics exportiert
     - [ ] Strukturiertes Logging (JSON)
     - [ ] Distributed Tracing (Jaeger)
     - [ ] Grafana Dashboards
 - [ ] **Backup & Recovery**
-    
+
     - [ ] Velero konfiguriert
     - [ ] Tägliche Backups (02:00 Uhr)
     - [ ] Restore getestet

@@ -658,22 +658,22 @@ app = FastAPI()
 # WebSocket Connection Manager
 class ConnectionManager:
     """Verwaltet aktive WebSocket-Verbindungen"""
-    
+
     def __init__(self):
         self.active_connections: Dict[str, Set[WebSocket]] = {}
-    
+
     async def connect(self, websocket: WebSocket, dashboard_id: str):
         """Neue Connection registrieren"""
         await websocket.accept()
         if dashboard_id not in self.active_connections:
             self.active_connections[dashboard_id] = set()
         self.active_connections[dashboard_id].add(websocket)
-    
+
     def disconnect(self, websocket: WebSocket, dashboard_id: str):
         """Connection entfernen"""
         if dashboard_id in self.active_connections:
             self.active_connections[dashboard_id].discard(websocket)
-    
+
     async def broadcast_to_dashboard(self, dashboard_id: str, message: dict):
         """Sende Update an alle Clients eines Dashboards"""
         if dashboard_id in self.active_connections:
@@ -683,7 +683,7 @@ class ConnectionManager:
                     await connection.send_json(message)
                 except:
                     dead_connections.add(connection)
-            
+
             # Entferne tote Connections
             for conn in dead_connections:
                 self.active_connections[dashboard_id].discard(conn)
@@ -694,25 +694,25 @@ manager = ConnectionManager()
 async def websocket_endpoint(websocket: WebSocket, dashboard_id: str):
     """WebSocket-Endpoint für Live-Updates"""
     await manager.connect(websocket, dashboard_id)
-    
+
     try:
         while True:
             # Warte auf Client-Messages (z.B. Widget-Updates anfordern)
             data = await websocket.receive_text()
             message = json.loads(data)
-            
+
             # Verarbeite Client-Request
             if message.get('type') == 'request_update':
                 widget_id = message.get('widget_id')
                 widget_data = await fetch_widget_data(widget_id)
-                
+
                 await websocket.send_json({
                     'type': 'widget_update',
                     'widget_id': widget_id,
                     'data': widget_data,
                     'timestamp': datetime.now().isoformat()
                 })
-    
+
     except WebSocketDisconnect:
         manager.disconnect(websocket, dashboard_id)
 
@@ -729,10 +729,10 @@ async def broadcast_updates():
     """Sendet regelmäßige Updates an alle Dashboards"""
     while True:
         await asyncio.sleep(10)  # Alle 10 Sekunden
-        
+
         # Hole aktuelle Metriken
         overview_data = await get_overview_data()
-        
+
         # Broadcast an alle Overview-Dashboards
         await manager.broadcast_to_dashboard('overview', {
             'type': 'auto_update',
@@ -754,86 +754,86 @@ from datetime import datetime, date
 
 class DashboardOverview(BaseModel):
     """Aggregierte Daten für Overview-Dashboard"""
-    
+
     plants_total: int
     plants_healthy: int = Field(ge=0)
     plants_attention_needed: int = Field(ge=0)
     plants_critical: int = Field(ge=0)
     plants_in_flower: int = Field(ge=0)
     plants_ready_harvest: int = Field(ge=0)
-    
+
     tasks_overdue: int = Field(ge=0)
     tasks_today: int = Field(ge=0)
     tasks_this_week: int = Field(ge=0)
-    
+
     alerts_critical: int = Field(ge=0)
     alerts_warning: int = Field(ge=0)
     alerts_info: int = Field(ge=0)
-    
+
     climate_status: Literal['optimal', 'attention', 'warning', 'critical']
     current_temp_c: Optional[float] = None
     current_rh_percent: Optional[int] = None
     current_vpd_kpa: Optional[float] = None
-    
+
     avg_days_to_harvest: Optional[int] = None
-    
+
     @property
     def total_alerts(self) -> int:
         return self.alerts_critical + self.alerts_warning + self.alerts_info
-    
+
     @property
     def health_percentage(self) -> float:
         if self.plants_total == 0:
             return 100.0
         return (self.plants_healthy / self.plants_total) * 100
-    
+
     def get_priority_actions(self) -> List[str]:
         """Generiert Top-3 Priority-Actions"""
         actions = []
-        
+
         if self.plants_critical > 0:
             actions.append(f"🔴 {self.plants_critical} Pflanzen brauchen SOFORTIGE Aufmerksamkeit")
-        
+
         if self.tasks_overdue > 0:
             actions.append(f"📋 {self.tasks_overdue} überfällige Tasks erledigen")
-        
+
         if self.alerts_critical > 0:
             actions.append(f"⚠️ {self.alerts_critical} kritische Alerts prüfen")
-        
+
         if self.climate_status == 'critical':
             actions.append(f"🌡️ Klima außerhalb kritischer Grenzen")
-        
+
         if self.plants_ready_harvest > 0:
             actions.append(f"✂️ {self.plants_ready_harvest} Pflanzen bereit zur Ernte")
-        
+
         return actions[:3]  # Top 3
 
 class VPDWidget(BaseModel):
     """VPD Calculator Widget"""
-    
+
     current_temp_c: float
     current_rh_percent: float
     target_vpd_kpa: float = 1.0
     vpd_tolerance_kpa: float = 0.2
-    
+
     @property
     def saturation_vapor_pressure_kpa(self) -> float:
         """Berechnet SVP (Sättigungsdampfdruck)"""
         # August-Roche-Magnus Formel
         return 0.61078 * (2.71828 ** ((17.27 * self.current_temp_c) / (self.current_temp_c + 237.3)))
-    
+
     @property
     def current_vpd_kpa(self) -> float:
         """Berechnet aktuellen VPD"""
         return (1 - self.current_rh_percent / 100) * self.saturation_vapor_pressure_kpa
-    
+
     @property
     def vpd_status(self) -> Dict:
         """Bewertet VPD-Status"""
         vpd = self.current_vpd_kpa
         target = self.target_vpd_kpa
         tolerance = self.vpd_tolerance_kpa
-        
+
         if vpd < (target - tolerance):
             status = 'LOW'
             color = 'red'
@@ -850,7 +850,7 @@ class VPDWidget(BaseModel):
             status = 'ACCEPTABLE'
             color = 'yellow'
             action = 'Im Zielbereich, aber optimierbar'
-        
+
         return {
             'status': status,
             'color': color,
@@ -860,17 +860,17 @@ class VPDWidget(BaseModel):
             'deviation': round(vpd - target, 2),
             'deviation_percent': round(((vpd - target) / target) * 100, 1)
         }
-    
+
     def calculate_ideal_adjustments(self) -> List[Dict]:
         """Berechnet mögliche Anpassungen um Ziel zu erreichen"""
         current_vpd = self.current_vpd_kpa
         target = self.target_vpd_kpa
-        
+
         if abs(current_vpd - target) < 0.05:
             return [{'message': 'VPD bereits optimal'}]
-        
+
         adjustments = []
-        
+
         # Option 1: Nur Temperatur ändern
         if current_vpd < target:
             # VPD zu niedrig → Temp erhöhen
@@ -890,7 +890,7 @@ class VPDWidget(BaseModel):
                 'new_temp': round(self.current_temp_c - temp_decrease, 1),
                 'rh_stays': self.current_rh_percent
             })
-        
+
         # Option 2: Nur RH ändern
         target_rh = (1 - target / self.saturation_vapor_pressure_kpa) * 100
         rh_change = target_rh - self.current_rh_percent
@@ -900,12 +900,12 @@ class VPDWidget(BaseModel):
             'temp_stays': self.current_temp_c,
             'new_rh': round(target_rh, 0)
         })
-        
+
         return adjustments
 
 class PlantHealthWidget(BaseModel):
     """Plant Health Aggregation Widget"""
-    
+
     @staticmethod
     async def calculate_health_scores(arangodb) -> List[Dict]:
         """Berechnet Health-Scores für alle Pflanzen"""
@@ -956,11 +956,11 @@ class PlantHealthWidget(BaseModel):
 
 class YieldForecast(BaseModel):
     """Yield Forecasting basierend auf Historie"""
-    
+
     plant_id: str
     current_phase: str
     days_in_current_phase: int
-    
+
     @staticmethod
     async def forecast_yield(plant_id: str, arangodb) -> Dict:
         """Prognostiziert Yield basierend auf ähnlichen Grows"""
@@ -1040,7 +1040,7 @@ from typing import Any
 
 class WidgetConfig(BaseModel):
     """Base-Konfiguration für alle Widgets"""
-    
+
     widget_id: str
     widget_type: str
     title: str
@@ -1051,7 +1051,7 @@ class WidgetConfig(BaseModel):
 
 class WidgetFactory:
     """Factory für Widget-Typen"""
-    
+
     WIDGET_TYPES = {
         'plant_grid': {
             'default_config': {
@@ -1098,16 +1098,16 @@ class WidgetFactory:
             'refresh_interval': 300
         }
     }
-    
+
     @classmethod
     def create_widget(cls, widget_type: str, **kwargs) -> WidgetConfig:
         """Erstellt Widget mit Defaults"""
-        
+
         if widget_type not in cls.WIDGET_TYPES:
             raise ValueError(f"Unknown widget type: {widget_type}")
-        
+
         template = cls.WIDGET_TYPES[widget_type]
-        
+
         return WidgetConfig(
             widget_id=kwargs.get('widget_id', f'{widget_type}_{datetime.now().timestamp()}'),
             widget_type=widget_type,
@@ -1121,17 +1121,17 @@ class WidgetFactory:
 ```python
 class ResponsiveLayoutEngine:
     """Berechnet optimale Widget-Layouts für verschiedene Screen-Sizes"""
-    
+
     BREAKPOINTS = {
         'mobile': 768,
         'tablet': 1024,
         'desktop': 1920
     }
-    
+
     @staticmethod
     def calculate_layout(widgets: List[WidgetConfig], screen_width: int) -> Dict:
         """Berechnet Grid-Layout basierend auf Screen-Width"""
-        
+
         if screen_width < ResponsiveLayoutEngine.BREAKPOINTS['mobile']:
             # Mobile: 1 Spalte, Stack
             columns = 1
@@ -1144,23 +1144,23 @@ class ResponsiveLayoutEngine:
             # Desktop: 4 Spalten
             columns = 4
             widget_width = 3
-        
+
         layout = []
         x, y = 0, 0
-        
+
         for widget in widgets:
             if not widget.visible:
                 continue
-            
+
             # Bestimme Widget-Größe
             w = widget.position.get('w', widget_width)
             h = widget.position.get('h', 2)
-            
+
             # Prüfe ob Widget in aktuelle Reihe passt
             if x + w > 12:
                 x = 0
                 y += h
-            
+
             layout.append({
                 'widget_id': widget.widget_id,
                 'x': x,
@@ -1168,9 +1168,9 @@ class ResponsiveLayoutEngine:
                 'w': w,
                 'h': h
             })
-            
+
             x += w
-        
+
         return {
             'columns': columns,
             'layout': layout,
@@ -1191,7 +1191,7 @@ HealthStatus = Literal['healthy', 'attention', 'warning', 'critical']
 
 class DashboardConfig(BaseModel):
     """Dashboard-Konfiguration"""
-    
+
     dashboard_id: str
     name: str = Field(min_length=1, max_length=100)
     dashboard_type: DashboardType
@@ -1199,7 +1199,7 @@ class DashboardConfig(BaseModel):
     is_public: bool = False
     widgets: List[WidgetConfig] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.now)
-    
+
     @field_validator('widgets')
     @classmethod
     def validate_unique_widget_ids(cls, v):

@@ -575,4 +575,3 @@ Ohne Foto-Erkennung bleibt der Casual-User-Markt verschlossen. Die Implementieru
 CanG hat in Deutschland einen voellig neuen, regulierten Markt geschaffen. Kamerplanter ist als einziges System tief genug in Cannabis-Spezifika (Karenz, Trichom, Seed-to-Shelf) um ein CSC-Compliance-Modul glaubwuerdig anbieten zu koennen. Zahlungsbereitschaft 50-200 EUR/Monat pro CSC bei 500-2.000 aktiven Vereinen = signifikantes SaaS-Revenue-Potenzial.
 
 Der aktuelle Zustand ist -- um es praezise zu formulieren -- ein exzellentes System fuer 2-3% des adressierbaren Markts, das mit gezielten Ergaenzungen fuer weitere 20-30% des Markts attraktiv werden kann.
-
