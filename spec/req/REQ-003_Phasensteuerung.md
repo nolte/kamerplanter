@@ -253,7 +253,7 @@ class TransitionTrigger(str, Enum):
 
 class PhaseTransitionEngine(BaseModel):
     """Steuert Übergänge zwischen Wachstumsphasen"""
-    
+
     plant_id: str
     current_phase: str
     phase_entered_at: datetime
@@ -262,25 +262,25 @@ class PhaseTransitionEngine(BaseModel):
     gdd_base_temp_c: Optional[float] = None
     accumulated_gdd: float = 0.0
     transition_trigger: TransitionTrigger
-    
+
     def check_transition_due(self) -> tuple[bool, str, Optional[str]]:
         """
         Returns: (should_transition, reason, next_phase_name)
         """
         days_in_phase = (datetime.now() - self.phase_entered_at).days
-        
+
         if self.transition_trigger == TransitionTrigger.TIME_BASED:
             if self.auto_transition_days is None:
                 return False, "Keine Auto-Transition konfiguriert", None
-            
+
             if days_in_phase >= self.auto_transition_days:
                 return True, f"Geplante Dauer erreicht ({self.auto_transition_days} Tage)", "next_phase"
-            
+
             # Warnung 3 Tage vorher
             days_remaining = self.auto_transition_days - days_in_phase
             if days_remaining <= 3 and days_remaining > 0:
                 return False, f"WARNUNG: Automatische Transition in {days_remaining} Tagen", None
-        
+
         if self.transition_trigger == TransitionTrigger.GDD_BASED:
             if self.gdd_threshold is None:
                 return False, "Kein GDD-Schwellenwert konfiguriert", None
@@ -320,7 +320,7 @@ class PhaseTransitionEngine(BaseModel):
         - Cannabis: 10°C (geschätzt)
         """
         return max(0.0, (temp_max_c + temp_min_c) / 2 - base_temp_c)
-    
+
     def execute_transition(
         self,
         next_phase_name: str,
@@ -564,7 +564,7 @@ from typing import Literal
 
 class VPDCalculator:
     """Berechnet Vapor Pressure Deficit für Transpirationssteuerung"""
-    
+
     @staticmethod
     def calculate_vpd(
         temperature_c: float,
@@ -596,19 +596,19 @@ class VPDCalculator:
             # 200-800: Default -2.0 beibehalten
         # Sättigungsdampfdruck bei Lufttemperatur (in Pa)
         svp_air = 610.7 * (10 ** ((7.5 * temperature_c) / (237.3 + temperature_c)))
-        
+
         # Tatsächlicher Dampfdruck
         avp = svp_air * (relative_humidity_percent / 100)
-        
+
         # Sättigungsdampfdruck bei Blatttemperatur
         leaf_temp = temperature_c + leaf_temperature_offset_c
         svp_leaf = 610.7 * (10 ** ((7.5 * leaf_temp) / (237.3 + leaf_temp)))
-        
+
         # VPD = Differenz in kPa
         vpd_kpa = (svp_leaf - avp) / 1000
-        
+
         return round(vpd_kpa, 2)
-    
+
     @staticmethod
     def get_vpd_recommendation(
         phase: str,
@@ -644,7 +644,7 @@ class VPDCalculator:
         }
         ranges = target_ranges_by_type.get(species_type, target_ranges_by_type['default'])
         target_min, target_max = ranges.get(phase, (0.8, 1.2))
-        
+
         if current_vpd_kpa < target_min:
             return "ZU NIEDRIG", f"Erhöhe Temperatur oder senke Luftfeuchte. Ziel: {target_min}-{target_max} kPa"
         elif current_vpd_kpa > target_max:
@@ -794,11 +794,11 @@ from datetime import time
 
 class PhotoperiodManager(BaseModel):
     """Verwaltet Licht-Zyklen und automatische Umstellung"""
-    
+
     current_photoperiod_hours: float
     target_photoperiod_hours: float
     transition_days: int = Field(default=7, description="Schrittweise Umstellung")
-    
+
     def calculate_transition_schedule(self) -> list[dict]:
         """
         Erstellt graduellen Übergang zwischen Photoperioden
@@ -806,22 +806,22 @@ class PhotoperiodManager(BaseModel):
         """
         hour_diff = self.target_photoperiod_hours - self.current_photoperiod_hours
         daily_increment = hour_diff / self.transition_days
-        
+
         schedule = []
         for day in range(self.transition_days + 1):
             hours = self.current_photoperiod_hours + (daily_increment * day)
             minutes = int((hours % 1) * 60)
             full_hours = int(hours)
-            
+
             schedule.append({
                 'day': day,
                 'photoperiod_hours': round(hours, 2),
                 'lights_on_duration': f"{full_hours:02d}:{minutes:02d}",
                 'change_from_previous': round(daily_increment, 2) if day > 0 else 0
             })
-        
+
         return schedule
-    
+
     @staticmethod
     def calculate_light_times(
         photoperiod_hours: float,
@@ -982,7 +982,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class RequirementProfileDefinition(BaseModel):
     """Ressourcen-Anforderungen einer Phase"""
-    
+
     light_ppfd_target: int = Field(ge=0, le=2000, description="μmol/m²/s")
     dli_target_mol: Optional[float] = Field(
         None, ge=0.0, le=80.0,
@@ -1002,7 +1002,7 @@ class RequirementProfileDefinition(BaseModel):
     humidity_day_percent: int = Field(ge=20, le=95)
     humidity_night_percent: int = Field(ge=30, le=95)
     vpd_target_kpa: float = Field(ge=0.2, le=2.5)
-    
+
     @field_validator('temperature_night_c')
     @classmethod
     def validate_temp_range(cls, v, info):
@@ -1010,7 +1010,7 @@ class RequirementProfileDefinition(BaseModel):
         if day_temp and v > day_temp:
             raise ValueError("Nachttemperatur muss niedriger als Tagestemperatur sein")
         return v
-    
+
     @field_validator('photoperiod_hours')
     @classmethod
     def validate_photoperiod(cls, v):
@@ -1032,11 +1032,11 @@ class RequirementProfileDefinition(BaseModel):
 
 class NutrientProfileDefinition(BaseModel):
     """Nährstoff-Profil für eine Phase"""
-    
+
     npk_ratio: Tuple[int, int, int] = Field(description="Nitrogen-Phosphor-Kalium Verhältnis")
     target_ec_ms: float = Field(ge=0.0, le=4.0, description="Elektrische Leitfähigkeit in mS/cm")
     target_ph: float = Field(ge=4.0, le=8.0)
-    
+
     @field_validator('npk_ratio')
     @classmethod
     def validate_npk(cls, v):

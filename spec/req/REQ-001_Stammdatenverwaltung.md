@@ -32,7 +32,7 @@ Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access)
 **User Story (Promotion):** "Als KA-Admin möchte ich eine von einem Tenant erstellte Pflanzenart in die globalen Stammdaten übernehmen können — damit qualitativ hochwertige Tenant-Beiträge allen Nutzern zugänglich werden."
 <!-- /Quelle: Stammdaten-Scoping v4.0 -->
 
-**Beschreibung:** 
+**Beschreibung:**
 Das System verwaltet die botanische Taxonomie und physiologische Charakteristika von Pflanzenarten als zentrale Wissensgrundlage. Es unterscheidet zwischen:
 - **Einjährige (Annual):** Vollständiger Lebenszyklus in einer Vegetationsperiode, harter Abschluss nach Samenreife
 - **Zweijährige (Biennial):** Vegetatives Wachstum im ersten Jahr, Blüte/Samenbildung im zweiten Jahr
@@ -716,21 +716,21 @@ from pydantic import BaseModel, Field, field_validator
 
 class DormancyTrigger(BaseModel):
     """Steuerung der Winterruhe bei mehrjährigen Pflanzen"""
-    
+
     trigger_type: Literal['temperature', 'photoperiod', 'manual']
     temperature_threshold_c: Optional[float] = Field(None, ge=-20, le=25)
     consecutive_days_required: int = Field(default=7, ge=1)
     photoperiod_threshold_hours: Optional[float] = Field(None, ge=0, le=24)
-    
+
     @field_validator('temperature_threshold_c')
     @classmethod
     def validate_temp_trigger(cls, v, info):
         if info.data.get('trigger_type') == 'temperature' and v is None:
             raise ValueError("Temperatur-Schwelle erforderlich für temperature-Trigger")
         return v
-    
+
     def is_triggered(
-        self, 
+        self,
         observations: list[dict],  # Letzte N Tage Sensor-Daten
         current_daylight_hours: float
     ) -> tuple[bool, str]:
@@ -740,19 +740,19 @@ class DormancyTrigger(BaseModel):
         """
         if self.trigger_type == 'manual':
             return False, "Manuelle Steuerung aktiv"
-        
+
         if self.trigger_type == 'temperature':
             recent_temps = [obs['temperature_c'] for obs in observations[-self.consecutive_days_required:]]
             if len(recent_temps) < self.consecutive_days_required:
                 return False, "Nicht genügend Temperatur-Daten"
-            
+
             if all(temp < self.temperature_threshold_c for temp in recent_temps):
                 return True, f"Temperatur < {self.temperature_threshold_c}°C für {self.consecutive_days_required} Tage"
-        
+
         if self.trigger_type == 'photoperiod':
             if current_daylight_hours < self.photoperiod_threshold_hours:
                 return True, f"Tageslänge < {self.photoperiod_threshold_hours}h"
-        
+
         return False, "Bedingungen nicht erfüllt"
 ```
 
@@ -762,13 +762,13 @@ from datetime import date
 
 class VernalizationTracker(BaseModel):
     """Tracking der Kälteperiode für blütenbildende Zweijährige"""
-    
+
     required_days: int = Field(ge=0, le=180)
     temperature_range: tuple[float, float] = Field(default=(0.0, 10.0))
     accumulated_days: int = Field(default=0, ge=0)
     start_date: Optional[date] = None
     completion_date: Optional[date] = None
-    
+
     def update(self, current_temp: float, observation_date: date) -> dict:
         """
         Aktualisiert den Vernalisations-Fortschritt
@@ -780,14 +780,14 @@ class VernalizationTracker(BaseModel):
                 'progress_percent': 100.0,
                 'completed_on': self.completion_date
             }
-        
+
         temp_in_range = self.temperature_range[0] <= current_temp <= self.temperature_range[1]
-        
+
         if temp_in_range:
             if self.start_date is None:
                 self.start_date = observation_date
             self.accumulated_days += 1
-            
+
             if self.accumulated_days >= self.required_days:
                 self.completion_date = observation_date
                 return {
@@ -795,9 +795,9 @@ class VernalizationTracker(BaseModel):
                     'progress_percent': 100.0,
                     'completed_on': observation_date
                 }
-        
+
         progress = (self.accumulated_days / self.required_days * 100) if self.required_days > 0 else 0
-        
+
         return {
             'status': 'in_progress' if self.accumulated_days > 0 else 'pending',
             'progress_percent': round(progress, 1),
@@ -813,7 +813,7 @@ from datetime import date
 
 class PhotoperiodCalculator:
     """Berechnet Tageslänge basierend auf Breitengrad und Datum"""
-    
+
     @staticmethod
     def calculate_day_length(latitude: float, observation_date: date) -> float:
         """
@@ -826,27 +826,27 @@ class PhotoperiodCalculator:
         """
         # Vereinfachte Formel nach Forsythe et al. (1995)
         day_of_year = observation_date.timetuple().tm_yday
-        
+
         # Deklination der Sonne
         declination = 23.44 * math.sin(math.radians((360/365) * (day_of_year - 81)))
-        
+
         # Stundenwinkel
         lat_rad = math.radians(latitude)
         dec_rad = math.radians(declination)
-        
+
         cos_hour_angle = -math.tan(lat_rad) * math.tan(dec_rad)
-        
+
         # Grenzfälle (Polartag/-nacht)
         if cos_hour_angle > 1:
             return 0.0  # Polarnacht
         if cos_hour_angle < -1:
             return 24.0  # Polartag
-        
+
         hour_angle = math.degrees(math.acos(cos_hour_angle))
         day_length = (2 * hour_angle) / 15  # 15° pro Stunde
-        
+
         return round(day_length, 2)
-    
+
     @staticmethod
     def is_critical_photoperiod(
         current_day_length: float,
@@ -858,20 +858,20 @@ class PhotoperiodCalculator:
         """
         if photoperiod_type == 'day_neutral':
             return True, "Tagneutrale Pflanze - Photoperiode irrelevant"
-        
+
         if critical_day_length is None:
             return False, "Kritische Tageslänge nicht definiert"
-        
+
         if photoperiod_type == 'short_day':
             triggered = current_day_length < critical_day_length
             reason = f"Tageslänge {current_day_length}h {'<' if triggered else '>='} kritisch {critical_day_length}h"
             return triggered, reason
-        
+
         if photoperiod_type == 'long_day':
             triggered = current_day_length > critical_day_length
             reason = f"Tageslänge {current_day_length}h {'>' if triggered else '<='} kritisch {critical_day_length}h"
             return triggered, reason
-        
+
         return False, "Unbekannter Photoperiod-Typ"
 ```
 
@@ -1005,7 +1005,7 @@ class SpeciesDefinition(BaseModel):
                 "oder Hybridnotation (Gattung × Art) sein"
             )
         return v
-    
+
     @field_validator('vernalization_days')
     @classmethod
     def validate_vernalization(cls, v, info):
@@ -1014,7 +1014,7 @@ class SpeciesDefinition(BaseModel):
         if not info.data.get('vernalization_required') and v is not None:
             raise ValueError("Vernalisations-Dauer nur bei vernalization_required=True")
         return v
-    
+
     @field_validator('cycle_type')
     @classmethod
     def validate_biennial_vernalization(cls, v, info):
@@ -1343,7 +1343,7 @@ Schreibzugriff für **Tenant-Admins**. Lesezugriff für alle Mitglieder des Tena
 ```
 GIVEN: Basilikum (Ocimum basilicum) als einjährige Langtagspflanze
 WHEN: Alle Phasen durchlaufen (Keimung → Vegi → Blüte → Samen)
-THEN: 
+THEN:
   - System markiert Pflanze nach Samenernte als "Lifecycle Complete"
   - Standort wird für neue Anpflanzung freigegeben
   - Keine Dormanz-Phase wird generiert

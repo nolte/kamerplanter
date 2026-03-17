@@ -776,7 +776,7 @@ from datetime import datetime
 
 class FertilizerComponent(BaseModel):
     """Einzelner Dünger mit allen Eigenschaften"""
-    
+
     id: str
     product_name: str
     brand: str
@@ -786,7 +786,7 @@ class FertilizerComponent(BaseModel):
     incompatible_with: list[str] = Field(default_factory=list)
     ph_effect: Literal['acidic', 'alkaline', 'neutral'] = 'neutral'
     type: Literal['base', 'supplement', 'booster', 'biological', 'ph_adjuster']
-    
+
     @field_validator('npk')
     @classmethod
     def validate_npk_sum(cls, v):
@@ -798,7 +798,7 @@ class FertilizerComponent(BaseModel):
 
 class NutrientSolutionCalculator(BaseModel):
     """Berechnet optimale Mischverhältnisse"""
-    
+
     target_volume_liters: float = Field(gt=0, le=10000)
     target_ec_ms: float = Field(ge=0.5, le=4.0)
     target_ph: float = Field(ge=4.0, le=8.0)
@@ -837,24 +837,24 @@ class NutrientSolutionCalculator(BaseModel):
         if not (min_ec <= v <= max_ec):
             raise ValueError(f"EC {v} außerhalb empfohlenen Bereichs für {substrate}: {min_ec}-{max_ec} mS")
         return v
-    
+
     def calculate_dosages(self) -> dict:
         """
         Hauptfunktion: Berechnet ml pro Dünger
         Returns: Detailliertes Mischprotokoll
         """
-        
+
         # 1. Sortiere nach Mischreihenfolge
         sorted_ferts = sorted(self.fertilizers, key=lambda f: f.mixing_priority)
-        
+
         # 2. Verfügbares EC-Budget
         available_ec = self.target_ec_ms - self.base_water_ec_ms
         if available_ec < 0:
             raise ValueError(f"Wasser-EC ({self.base_water_ec_ms}) bereits über Ziel ({self.target_ec_ms})")
-        
+
         # 3. Prüfe auf Inkompatibilitäten
         incompatibility_warnings = self._check_incompatibilities(sorted_ferts)
-        
+
         # 4. Berechne Dosierungen
         dosages = []
         accumulated_ec = self.base_water_ec_ms
@@ -864,17 +864,17 @@ class NutrientSolutionCalculator(BaseModel):
             # aber ihr EC-Beitrag wird dort geschätzt und im Ergebnis ausgewiesen
             if fert.type == 'ph_adjuster':
                 continue
-            
+
             # EC-Beitrag dieses Düngers
             # Vereinfachte Verteilung: Proportional zu NPK-Summe
             npk_sum = sum(fert.npk)
             total_npk = sum(sum(f.npk) for f in sorted_ferts if f.type != 'ph_adjuster')
-            
+
             if total_npk > 0:
                 ec_allocation = available_ec * (npk_sum / total_npk)
             else:
                 ec_allocation = 0
-            
+
             # Berechne ml/L basierend auf EC-Beitrag
             if fert.ec_contribution_per_ml > 0:
                 ml_per_liter = min(
@@ -883,11 +883,11 @@ class NutrientSolutionCalculator(BaseModel):
                 )
             else:
                 ml_per_liter = 0
-            
+
             total_ml = ml_per_liter * self.target_volume_liters
             ec_contrib = ml_per_liter * fert.ec_contribution_per_ml
             accumulated_ec += ec_contrib
-            
+
             dosages.append({
                 'fertilizer_id': fert.id,
                 'product_name': fert.product_name,
@@ -897,7 +897,7 @@ class NutrientSolutionCalculator(BaseModel):
                 'ec_contribution': round(ec_contrib, 3),
                 'npk_contribution': tuple(round(ml_per_liter * n / 100, 3) for n in fert.npk)
             })
-        
+
         # 5. pH-Korrektur schätzen
         ph_adjustment = self._estimate_ph_adjustment(
             self.base_water_ph,
@@ -905,7 +905,7 @@ class NutrientSolutionCalculator(BaseModel):
             sorted_ferts,
             dosages
         )
-        
+
         # EC-Beitrag der pH-Korrektur einrechnen (typisch 0.02-0.05 mS/ml)
         ph_ec = ph_adjustment.get('estimated_ec_contribution', 0.0)
         total_ec = accumulated_ec + ph_ec
@@ -924,11 +924,11 @@ class NutrientSolutionCalculator(BaseModel):
             'mixing_instructions': self._generate_step_by_step(dosages, ph_adjustment),
             'total_cost': self._calculate_cost(dosages)
         }
-    
+
     def _check_incompatibilities(self, fertilizers: list[FertilizerComponent]) -> list[dict]:
         """Prüft auf chemische Unverträglichkeiten"""
         warnings = []
-        
+
         for i, fert1 in enumerate(fertilizers):
             for fert2 in fertilizers[i+1:]:
                 if fert2.id in fert1.incompatible_with:
@@ -938,9 +938,9 @@ class NutrientSolutionCalculator(BaseModel):
                         'severity': 'CRITICAL',
                         'message': f"NICHT zusammen mischen: {fert1.product_name} + {fert2.product_name}"
                     })
-        
+
         return warnings
-    
+
     def _estimate_ph_adjustment(
         self,
         base_ph: float,
@@ -1006,43 +1006,43 @@ class NutrientSolutionCalculator(BaseModel):
             'current_ph_estimate': round(estimated_ph, 2),
             'target_ph': target_ph
         }
-    
+
     def _generate_step_by_step(
         self,
         dosages: list[dict],
         ph_adjustment: dict
     ) -> list[str]:
         """Generiert menschenlesbare Misch-Anleitung"""
-        
+
         instructions = [
             f"1. Fülle {self.target_volume_liters}L Wasser in Tank/Gießkanne",
             f"   - Wasser-Temperatur: 18-22°C optimal",
             f"   - Basis-EC: {self.base_water_ec_ms} mS, Basis-pH: {self.base_water_ph}"
         ]
-        
+
         for idx, dosage in enumerate(dosages, start=2):
             instructions.append(
                 f"{idx}. Füge {dosage['total_ml']}ml {dosage['product_name']} hinzu "
                 f"({dosage['ml_per_liter']}ml/L)"
             )
             instructions.append(f"   - GRÜNDLICH RÜHREN (30 Sekunden)")
-            
+
             if idx == 2:  # Nach erstem Dünger
                 instructions.append(f"   - Warte 2 Minuten vor nächster Zugabe")
-        
+
         if ph_adjustment['needed']:
             instructions.append(
                 f"{len(dosages)+2}. pH-Korrektur: {ph_adjustment['type']} "
                 f"~{ph_adjustment['estimated_ml']}ml (schrittweise zugeben!)"
             )
             instructions.append(f"   - Ziel-pH: {ph_adjustment['target_ph']}")
-        
+
         instructions.append(f"{len(dosages)+3}. FINALE MESSUNG:")
         instructions.append(f"   - EC: {self.target_ec_ms} mS (±0.2)")
         instructions.append(f"   - pH: {self.target_ph} (±0.3)")
-        
+
         return instructions
-    
+
     def _calculate_cost(self, dosages: list[dict]) -> float:
         """Berechnet Kosten pro Düngung (wenn Preise hinterlegt)"""
         # Placeholder für Kostenberechnung
@@ -1146,7 +1146,7 @@ class WaterMixCalculator:
 
 class FlushingProtocol(BaseModel):
     """Nährstoffreduktion vor Ernte"""
-    
+
     plant_id: str
     current_ec: float = Field(ge=0, le=4.0)
     days_until_harvest: int = Field(ge=0, le=60)
@@ -1154,17 +1154,17 @@ class FlushingProtocol(BaseModel):
 
     def get_schedule(self) -> dict:
         """Erstellt schrittweisen Flush-Plan"""
-        
+
         # Flush-Dauer nach Substrat
         durations = {
             'hydro': {'min': 7, 'optimal': 10, 'max': 14},
             'coco': {'min': 10, 'optimal': 14, 'max': 21},
             'soil': {'min': 21, 'optimal': 28, 'max': 42}  # Hohe CEC bindet Salze stärker
         }
-        
+
         duration_map = durations[self.substrate_type]
         flush_days = duration_map['optimal']
-        
+
         # Validierung
         if self.days_until_harvest < duration_map['min']:
             return {
@@ -1172,17 +1172,17 @@ class FlushingProtocol(BaseModel):
                 'warning': f"Nur noch {self.days_until_harvest} Tage - Minimum: {duration_map['min']}",
                 'recommendation': 'Notfall-Flush (nur Wasser, täglich spülen)'
             }
-        
+
         if self.days_until_harvest > flush_days:
             flush_days = min(self.days_until_harvest, duration_map['max'])
-        
+
         # Gradueller EC-Abbau
         steps = []
         ec_reduction_per_day = self.current_ec / flush_days
-        
+
         for day in range(flush_days + 1):
             target_ec = max(0, self.current_ec - (ec_reduction_per_day * day))
-            
+
             # Strategie basierend auf Tag
             if day == 0:
                 action = f"Letzte normale Düngung (EC {target_ec:.1f})"
@@ -1197,7 +1197,7 @@ class FlushingProtocol(BaseModel):
                 action = "Nur Wasser (EC ~0.0)"
                 dosage_percent = 0
                 target_ec = 0.0
-            
+
             steps.append({
                 'day': day,
                 'days_to_harvest': self.days_until_harvest - day,
@@ -1206,7 +1206,7 @@ class FlushingProtocol(BaseModel):
                 'dosage_percent': dosage_percent,
                 'measurement_required': day % 3 == 0  # Alle 3 Tage messen
             })
-        
+
         return {
             'status': 'OK',
             'total_flush_days': flush_days,
@@ -1223,17 +1223,17 @@ class FlushingProtocol(BaseModel):
 
 class ECBudgetOptimizer(BaseModel):
     """Optimiert Dünger-Dosierungen für Ziel-EC"""
-    
+
     target_ec: float
     current_ec: float
     fertilizers: list[FertilizerComponent]
     optimization_goal: Literal['match_ec', 'match_npk_ratio', 'minimize_cost']
-    
+
     def optimize(self, target_npk_ratio: Optional[Tuple[int, int, int]] = None) -> dict:
         """
         Iterative Optimierung der Dosierungen
         """
-        
+
         if self.optimization_goal == 'match_ec':
             return self._optimize_for_ec()
         elif self.optimization_goal == 'match_npk_ratio':
@@ -1242,21 +1242,21 @@ class ECBudgetOptimizer(BaseModel):
             return self._optimize_for_npk(target_npk_ratio)
         else:
             return self._optimize_for_cost()
-    
+
     def _optimize_for_ec(self) -> dict:
         """Einfache proportionale Skalierung"""
-        
+
         ec_gap = self.target_ec - self.current_ec
-        
+
         # Berechne aktuelle EC-Summe der Dünger
         total_ec_contrib = sum(f.ec_contribution_per_ml for f in self.fertilizers)
-        
+
         if total_ec_contrib == 0:
             return {'error': 'Keine EC-Beiträge definiert'}
-        
+
         # Skalierungsfaktor
         scale_factor = ec_gap / total_ec_contrib
-        
+
         optimized = []
         for fert in self.fertilizers:
             ml_per_liter = fert.ec_contribution_per_ml * scale_factor
@@ -1265,19 +1265,19 @@ class ECBudgetOptimizer(BaseModel):
                 'ml_per_liter': round(ml_per_liter, 2),
                 'ec_contribution': round(fert.ec_contribution_per_ml * ml_per_liter, 3)
             })
-        
+
         return {
             'method': 'ec_optimization',
             'target_ec': self.target_ec,
             'optimized_dosages': optimized,
             'estimated_total_ec': round(self.current_ec + sum(d['ec_contribution'] for d in optimized), 2)
         }
-    
+
     def _optimize_for_npk(self, target_ratio: Tuple[int, int, int]) -> dict:
         """Optimiert für NPK-Verhältnis (komplex - hier vereinfacht)"""
         # Placeholder für lineare Optimierung
         return {'status': 'Not implemented - requires scipy.optimize'}
-    
+
     def _optimize_for_cost(self) -> dict:
         """Minimiert Kosten bei Einhaltung der EC"""
         return {'status': 'Not implemented - requires cost data'}
@@ -1289,7 +1289,7 @@ from typing import Literal
 
 class MixingSafetyValidator:
     """Verhindert gefährliche Dünger-Kombinationen"""
-    
+
     # Kritische Inkompatibilitäten
     CRITICAL_INCOMPATIBILITIES = {
         ('calcium', 'sulfate'): 'Gips-Ausfällung (CaSO4)',
@@ -1300,7 +1300,7 @@ class MixingSafetyValidator:
         ('trichoderma', 'peroxide'): 'H₂O₂-Produkte töten Trichoderma-Kulturen ab',
         ('beneficial_bacteria', 'chlorine'): 'Chlor/Chloramin im Wasser tötet Mikrobiom ab'
     }
-    
+
     @staticmethod
     def validate_combination(
         fert1_components: list[str],
@@ -1310,16 +1310,16 @@ class MixingSafetyValidator:
         """
         Prüft ob zwei Dünger zusammen gemischt werden können
         """
-        
+
         warnings = []
-        
+
         # Prüfe auf kritische Kombinationen
         for comp1 in fert1_components:
             for comp2 in fert2_components:
                 key = tuple(sorted([comp1, comp2]))
                 if key in MixingSafetyValidator.CRITICAL_INCOMPATIBILITIES:
                     reason = MixingSafetyValidator.CRITICAL_INCOMPATIBILITIES[key]
-                    
+
                     if mixing_order == 'simultaneous':
                         warnings.append({
                             'severity': 'CRITICAL',
@@ -1332,28 +1332,28 @@ class MixingSafetyValidator:
                             'message': f"Vorsicht: {reason}",
                             'mitigation': 'Gut rühren zwischen Zugaben'
                         })
-        
+
         return {
             'safe': len([w for w in warnings if w['severity'] == 'CRITICAL']) == 0,
             'warnings': warnings
         }
-    
+
     @staticmethod
     def validate_temperature(
         water_temp_c: float,
         fertilizer_type: str
     ) -> dict:
         """Prüft Temperatur-Kompatibilität"""
-        
+
         temp_ranges = {
             'biological': (15, 25),  # Bakterien/Pilze sterben bei Extremen
             'enzyme': (10, 30),
             'chelate': (5, 35),
             'salt_based': (10, 40)
         }
-        
+
         min_temp, max_temp = temp_ranges.get(fertilizer_type, (5, 40))
-        
+
         if water_temp_c < min_temp:
             return {
                 'ok': False,
@@ -1366,7 +1366,7 @@ class MixingSafetyValidator:
                 'message': f"Wasser zu warm ({water_temp_c}°C) - Maximum: {max_temp}°C",
                 'risk': 'Zersetzung oder Denaturierung'
             }
-        
+
         return {'ok': True}
 ```
 
@@ -1376,22 +1376,22 @@ from pydantic import BaseModel
 
 class RunoffAnalyzer(BaseModel):
     """Analysiert Abfluss bei DTW-Systemen"""
-    
+
     input_ec: float
     input_ph: float
     runoff_ec: float
     runoff_ph: float
     input_volume_liters: float
     runoff_volume_liters: float
-    
+
     def analyze(self) -> dict:
         """
         Bewertet Nährstoff-Aufnahme und Substrat-Zustand
         """
-        
+
         # 1. EC-Analyse
         ec_diff = self.runoff_ec - self.input_ec
-        
+
         if ec_diff > 0.5:
             ec_status = 'SALT_BUILDUP'
             ec_action = 'Flush erforderlich - Salzakkumulation im Substrat'
@@ -1404,10 +1404,10 @@ class RunoffAnalyzer(BaseModel):
         else:
             ec_status = 'OK'
             ec_action = 'Nährstoffaufnahme im normalen Bereich'
-        
+
         # 2. pH-Analyse
         ph_diff = self.runoff_ph - self.input_ph
-        
+
         if abs(ph_diff) > 1.0:
             ph_status = 'CRITICAL'
             ph_action = 'Starke pH-Drift - Substrat-Pufferung erschöpft?'
@@ -1417,10 +1417,10 @@ class RunoffAnalyzer(BaseModel):
         else:
             ph_status = 'OK'
             ph_action = 'pH stabil'
-        
+
         # 3. Runoff-Prozentsatz
         runoff_percent = (self.runoff_volume_liters / self.input_volume_liters) * 100
-        
+
         if runoff_percent < 10:
             runoff_status = 'TOO_LOW'
             runoff_action = 'Zu wenig Runoff - erhöhe Wassermenge (Ziel: 15-20%)'
@@ -1430,7 +1430,7 @@ class RunoffAnalyzer(BaseModel):
         else:
             runoff_status = 'OK'
             runoff_action = f'Runoff im Zielbereich ({runoff_percent:.1f}%)'
-        
+
         return {
             'ec_analysis': {
                 'status': ec_status,
@@ -1453,13 +1453,13 @@ class RunoffAnalyzer(BaseModel):
             },
             'overall_health': self._calculate_overall_health(ec_status, ph_status, runoff_status)
         }
-    
+
     def _calculate_overall_health(self, ec_status: str, ph_status: str, runoff_status: str) -> str:
         """Gesamtbewertung"""
-        
+
         critical_count = sum(1 for s in [ec_status, ph_status, runoff_status] if s == 'CRITICAL')
         warning_count = sum(1 for s in [ec_status, ph_status, runoff_status] if s in ['WARNING', 'TOO_LOW', 'TOO_HIGH', 'SALT_BUILDUP', 'HEAVY_FEEDING'])
-        
+
         if critical_count > 0:
             return 'CRITICAL - Sofortmaßnahmen erforderlich'
         elif warning_count >= 2:
@@ -2030,7 +2030,7 @@ MixingMethod = Literal['stir', 'circulate', 'rest', 'aerate']
 
 class FertilizerDefinition(BaseModel):
     """Vollständige Dünger-Definition"""
-    
+
     product_name: str = Field(min_length=1, max_length=200)
     brand: str
     type: FertilizerType
@@ -2039,7 +2039,7 @@ class FertilizerDefinition(BaseModel):
     mixing_priority: int = Field(ge=1, le=100)
     shelf_life_months: int = Field(ge=1, le=60)
     organic_certified: bool = False
-    
+
     @field_validator('npk')
     @classmethod
     def validate_npk_realistic(cls, v):
@@ -2050,7 +2050,7 @@ class FertilizerDefinition(BaseModel):
         if sum(v) > 80:
             raise ValueError("NPK-Summe über 80% unrealistisch")
         return v
-    
+
     @field_validator('ec_contribution_per_ml')
     @classmethod
     def validate_ec_contribution(cls, v, info):

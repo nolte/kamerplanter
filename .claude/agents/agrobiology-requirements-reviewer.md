@@ -355,7 +355,7 @@ Erstelle `spec/requirements-analysis/agrobiology-review.md`:
 ## Parameter-Übersicht: Fehlende Messwerte
 
 | Parameter | Vorhanden? | Empfohlener Bereich | Priorität |
-|-----------|-----------|--------------------|-----------| 
+|-----------|-----------|--------------------|-----------|
 | PPFD (µmol/m²/s) | ❌/✅ | artspezifisch | Hoch |
 | DLI (mol/m²/d) | ❌/✅ | artspezifisch | Hoch |
 | VPD (kPa) | ❌/✅ | 0,8–1,2 kPa | Hoch |

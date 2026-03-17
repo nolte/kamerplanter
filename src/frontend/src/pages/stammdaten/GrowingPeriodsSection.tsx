@@ -1041,4 +1041,3 @@ function BarRow({
     </>
   );
 }
-

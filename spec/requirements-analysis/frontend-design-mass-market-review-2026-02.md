@@ -539,4 +539,3 @@ Schrift: min. 18px Fliestext, 24px Labels
 **Status**: Final
 **Erstellt**: 2026-02-28
 **Naechste Ueberpruefung**: Nach Implementierung von Kiosk-Modus und PWA-Grundkonfiguration
-

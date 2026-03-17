@@ -25,11 +25,11 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
   - **Ziel:** 75-80% Gewichtsverlust (von Nass zu Trocken, ca. 10-12% Restfeuchte)
   - **Snap-Test:** Zweige brechen aber splittern nicht
   - **Qualitätskriterien:** Langsame Trocknung = besseres Aroma
-  
+
 - **Chili/Paprika:**
   - **Lufttrocknung:** 2-4 Wochen bei Raumtemperatur
   - **Dörrgerät:** 50-60°C für 6-12h (schneller aber weniger Aroma)
-  
+
 - **Speisepilze** (Champignon, Shiitake, Austernpilz):
   - **Dehydrator:** 45-55°C bis cracker-dry (Speisepilze vertragen höhere Temperaturen)
   - **Kritisch:** Über 60°C = Aromaverlust und Texturschäden
@@ -37,7 +37,7 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
 - **Heilpilze / empfindliche Pilze** (z.B. Psilocybe, Löwenmähne):
   - **Dehydrator:** 35-40°C bis cracker-dry
   - **Kritisch:** Über 40°C = Wirkstoff-/Terpen-Verlust (Psilocybin, Hericenone)
-  
+
 - **Zwiebeln/Knoblauch (P-004: Phasentrennung Härtung vs. Lagerung):**
   - **Phase 1 — Schalenhärtung (Curing):** 2-3 Wochen bei 25-30°C, niedrige RLF
     - UV-Exposition GEWÜNSCHT: Fördert Schalenhärtung und antimikrobielle Wirkung
@@ -49,13 +49,13 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
 **2. Curing (Fermentierung/Veredelung):**
 - **Cannabis:**
   - **Jar-Curing:** 3-8 Wochen in verschlossenen Gläsern
-  - **Burping-Schedule:** 
+  - **Burping-Schedule:**
     - Woche 1-2: 2x täglich 15min lüften
     - Woche 3-4: 1x täglich 10min
     - Woche 5+: Wöchentlich 5min
   - **Ziel-RH im Jar:** 58-62% (Boveda-Packs)
   - **Prozesse:** Chlorophyll-Abbau, Terpen-Entwicklung
-  
+
 - **Sauerkraut:**
   - **Phase 1 (Leuconostoc, Tag 1-3):** 18-22°C, schnelle CO₂-Bildung, täglich Gasen ablassen
   - **Phase 2 (Lactobacillus, Tag 4-21):** 15-18°C für langsamere, aromatischere Fermentation
@@ -67,7 +67,7 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
   - **Phase 2 (Kaltfermentation):** 2-5°C im Kühlschrank für 2-4 Wochen
   - **Salzgehalt:** 3-5% (höher als Sauerkraut durch Gochugaru/Fischsauce)
   - **Hinweis:** Kimchi erfordert anaerobe Bedingung, anderes Temperaturprofil als Sauerkraut
-  
+
 - **Tabak** (Anbau in Deutschland genehmigungspflichtig gemäß TabStG):
   - **Air-Curing (Lufttrocknung):** 4-8 Wochen bei 15-30°C, 65-70% RH — Burley, Orientalischer
   - **Flue-Curing (Heißlufttrocknung):** 5-7 Tage, Temp-Rampe 35→70°C — Virginia. Nur hier gilt 55°C als kritische Schwelle für enzymatische Prozesse
@@ -78,14 +78,14 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
 - **Kürbis/Squash:**
   - **Nachreife:** 2-3 Monate bei 10-15°C
   - **Verbessert:** Geschmack, Textur, Lagerfähigkeit
-  
+
 - **Tomaten (grün geerntet):**
   - **Ethylen-Management:**
     - **Professionell:** Kontrollierte Ethylen-Begasung (0.1-1 ppm) bei 18-21°C, 85-90% RH
     - **Hobby:** Mit reifen Äpfeln/Bananen in geschlossener Papiertüte lagern (unkontrolliert, aber effektiv)
     - **ACHTUNG:** Ethylen-empfindliche Produkte (Salat, Gurke, Brokkoli, Kräuter) NICHT zusammen mit Ethylen-Produzenten (Tomate, Apfel, Banane) lagern — beschleunigt Vergilbung, Bitterkeit und Verderb
   - **Nachreife:** 1-3 Wochen bei 18-21°C
-  
+
 - **Wein/Käse (optional):**
   - **Langzeitreifung:** Monate bis Jahre
   - **Klima-kontrolliert:** Spezifische Temp/RLF
@@ -95,7 +95,7 @@ Das System implementiert spezies-spezifische Post-Harvest-Protokolle für die Ph
   - **Kühl (0-5°C):** Wurzelgemüse, Äpfel, Kohl
   - **Keller (10-15°C):** Kürbis, Zwiebeln, Kartoffeln
   - **Raumtemperatur (18-22°C):** Getrocknete Kräuter, Samen
-  
+
 - **Luftfeuchte-Kontrolle:**
   - **Hoch (80-95%):** Wurzelgemüse in Sand
   - **Mittel (60-70%):** Kürbis, Zwiebeln
@@ -625,14 +625,14 @@ from datetime import datetime, date, timedelta
 
 class DryingProtocol(BaseModel):
     """Trocknungs-Management mit Fortschritts-Tracking"""
-    
+
     batch_id: str
     species_type: Literal['flower', 'herb', 'root', 'fruit', 'mushroom']
     initial_weight_g: float = Field(gt=0)
     current_weight_g: float = Field(gt=0)
     target_moisture_percent: float = Field(default=10, ge=5, le=15)
     drying_method: Literal['hang_dry', 'rack_dry', 'dehydrator', 'air_cure']
-    
+
     @field_validator('current_weight_g')
     @classmethod
     def validate_weight_reduction(cls, v, info):
@@ -640,21 +640,21 @@ class DryingProtocol(BaseModel):
         if v > initial:
             raise ValueError("Current weight kann nicht größer als initial weight sein")
         return v
-    
+
     def calculate_dryness_progress(self) -> Dict:
         """
         Berechnet Trocknungs-Fortschritt
-        
+
         Returns:
             Detaillierter Progress-Report
         """
-        weight_loss_pct = ((self.initial_weight_g - self.current_weight_g) / 
+        weight_loss_pct = ((self.initial_weight_g - self.current_weight_g) /
                           self.initial_weight_g * 100)
-        
+
         # Ziel: 75-80% Gewichtsverlust für ~10% Restfeuchte
         target_loss = 100 - self.target_moisture_percent
         progress = min(100, (weight_loss_pct / target_loss) * 100)
-        
+
         # Snap-Test-Bereitschaft: Berechnet als Hinweis, wann der Test sinnvoll ist.
         # WICHTIG (P-002): snap_test_ready ist eine Schätzung basierend auf Gewichtsverlust.
         # Der tatsächliche Snap-Test ist ein unabhängiger boolean Input
@@ -666,7 +666,7 @@ class DryingProtocol(BaseModel):
 
         # Übertrocknung-Warnung
         over_dried = weight_loss_pct > 85
-        
+
         return {
             'weight_loss_percent': round(weight_loss_pct, 1),
             'dryness_progress_percent': round(progress, 1),
@@ -678,10 +678,10 @@ class DryingProtocol(BaseModel):
             'estimated_days_remaining': self._estimate_remaining_days(progress),
             'next_action': self._get_next_action(progress, over_dried)
         }
-    
+
     def _estimate_remaining_days(self, current_progress: float) -> int:
         """Schätzt verbleibende Trocknungs-Tage"""
-        
+
         # Basis-Schätzung nach Methode
         base_days = {
             'hang_dry': 10,    # Langsam, beste Qualität
@@ -689,9 +689,9 @@ class DryingProtocol(BaseModel):
             'dehydrator': 1,   # Schnell, weniger Aroma
             'air_cure': 14     # Sehr langsam
         }
-        
+
         total_days = base_days.get(self.drying_method, 10)
-        
+
         if current_progress >= 95:
             return 0
         elif current_progress >= 70:
@@ -700,10 +700,10 @@ class DryingProtocol(BaseModel):
             return int(total_days * 0.3)
         else:
             return int(total_days * 0.7)
-    
+
     def _get_next_action(self, progress: float, over_dried: bool) -> str:
         """Empfiehlt nächste Schritte"""
-        
+
         if over_dried:
             return "WARNUNG: Übertrocknet - Sofort in Jars mit Boveda-Pack (62%)"
         elif progress >= 95:
@@ -714,15 +714,15 @@ class DryingProtocol(BaseModel):
             return "Trocknung läuft normal - Temperatur/RLF überwachen"
         else:
             return "Frühe Phase - Sicherstellen dass Luftzirkulation gut ist"
-    
+
     def perform_snap_test(self, snaps_cleanly: bool, splinters: bool) -> Dict:
         """
         Interpretiert Snap-Test-Ergebnis
-        
+
         Args:
             snaps_cleanly: Zweig bricht sauber durch
             splinters: Zweig splittert
-        
+
         Returns:
             Test-Interpretation
         """
@@ -750,7 +750,7 @@ class DryingProtocol(BaseModel):
 
 class SpeciesSpecificDrying:
     """Spezies-spezifische Trocknungs-Parameter"""
-    
+
     DRYING_SPECS = {
         'Cannabis sativa': {
             'method': 'hang_dry',
@@ -804,7 +804,7 @@ class SpeciesSpecificDrying:
             ]
         }
     }
-    
+
     @classmethod
     def get_specs(cls, scientific_name: str) -> Dict:
         """Holt spezies-spezifische Trocknungs-Specs"""
@@ -827,18 +827,18 @@ from datetime import datetime, timedelta
 
 class JarCuringManager(BaseModel):
     """Verwaltet Cannabis Jar-Curing mit Burping"""
-    
+
     batch_id: str
     jar_count: int = Field(ge=1, le=100)
     grams_per_jar: float = Field(gt=0, le=500)
     curing_started_at: datetime
     target_rh_percent: int = Field(default=62, ge=55, le=65)
-    
+
     def get_burping_schedule(self) -> Dict:
         """Generiert dynamischen Burping-Schedule"""
-        
+
         days_in_cure = (datetime.now() - self.curing_started_at).days
-        
+
         if days_in_cure <= 7:
             schedule = {
                 'frequency': 'twice_daily',
@@ -875,7 +875,7 @@ class JarCuringManager(BaseModel):
                 'rh_target': '58-62%',
                 'condensation_check': False
             }
-        
+
         return {
             'days_in_cure': days_in_cure,
             'current_schedule': schedule,
@@ -889,26 +889,26 @@ class JarCuringManager(BaseModel):
                 'Chlorophyll-Abbau = weniger "grüner" Geschmack'
             ]
         }
-    
+
     def _calculate_next_burping(self, days_in_cure: int) -> datetime:
         """Berechnet nächsten Burping-Zeitpunkt"""
-        
+
         hours_interval = {
             range(0, 8): 12,      # Twice daily
             range(8, 15): 24,     # Daily
             range(15, 22): 48,    # Every 2 days
             range(22, 365): 168   # Weekly
         }
-        
+
         for day_range, hours in hours_interval.items():
             if days_in_cure in day_range:
                 return datetime.now() + timedelta(hours=hours)
-        
+
         return datetime.now() + timedelta(hours=168)
-    
+
     def _get_cure_duration_recommendation(self) -> Dict:
         """Empfiehlt Cure-Dauer basierend auf Qualitätsziel"""
-        
+
         return {
             'minimum': {
                 'weeks': 2,
@@ -927,12 +927,12 @@ class JarCuringManager(BaseModel):
                 'quality': 'Premium - Peak Aroma, maximale Smoothness'
             }
         }
-    
+
     def _get_quality_indicators(self, days_in_cure: int) -> List[str]:
         """Gibt erwartete Qualitäts-Veränderungen an"""
-        
+
         indicators = []
-        
+
         if days_in_cure >= 3:
             indicators.append("✓ Erste Aroma-Veränderungen erkennbar")
         if days_in_cure >= 7:
@@ -943,12 +943,12 @@ class JarCuringManager(BaseModel):
             indicators.append("✓ Terpen-Profil voll entwickelt")
         if days_in_cure >= 42:
             indicators.append("✓ Peak-Qualität erreicht")
-        
+
         return indicators
-    
+
     def assess_jar_rh(self, measured_rh: int) -> Dict:
         """Bewertet Jar-Luftfeuchte und gibt Empfehlungen"""
-        
+
         if measured_rh > 65:
             return {
                 'status': 'TOO_HIGH',
@@ -995,18 +995,18 @@ from typing import List
 
 class MoldPreventionMonitor:
     """Schimmel-Früherkennung und Prävention"""
-    
+
     # Kritische Schwellenwerte
     CRITICAL_RH = 65
     WARNING_RH = 62
     SAFE_RH = 55
-    
+
     # Temperatur-RH Kombinations-Risiko
     HIGH_RISK_COMBOS = [
         {'temp_min': 20, 'temp_max': 25, 'rh_min': 60},
         {'temp_min': 15, 'temp_max': 20, 'rh_min': 65},
     ]
-    
+
     @staticmethod
     def calculate_dew_point(temp_c: float, rh_percent: float) -> float:
         """
@@ -1084,7 +1084,7 @@ class MoldPreventionMonitor:
         if duration_hours > 6 and rh_percent > cls.WARNING_RH:
             risk_factors.append(f"Erhöhte RH über {duration_hours}h")
             risk_score += 15
-        
+
         # Bestimme Risiko-Level
         if risk_score >= 70:
             level = 'CRITICAL'
@@ -1117,7 +1117,7 @@ class MoldPreventionMonitor:
             level = 'OK'
             color = 'green'
             actions = ['Bedingungen stabil - Weiter überwachen']
-        
+
         return {
             'risk_level': level,
             'risk_score': risk_score,
@@ -1138,15 +1138,15 @@ class MoldPreventionMonitor:
                 'air_exchange': '>2x/h'
             }
         }
-    
+
     @staticmethod
     def identify_mold_type(visual_description: str, color: str, texture: str) -> Dict:
         """
         Hilft bei Identifikation von Schimmeltypen
-        
+
         (DISCLAIMER: Nur informativ, kein Ersatz für Experten)
         """
-        
+
         mold_types = {
             'botrytis': {
                 'names': ['Botrytis', 'Grauschimmel', 'Bud Rot'],
@@ -1200,10 +1200,10 @@ class MoldPreventionMonitor:
                 'prevention': 'Keine Beschädigungen, saubere Handhabung'
             }
         }
-        
+
         # Einfache Keyword-Matching (in Produktion: ML-basiert)
         color_lower = color.lower()
-        
+
         if 'grau' in color_lower or 'gray' in color_lower:
             # Differenziere: Blaugrau → A. fumigatus, Grau → Botrytis
             if 'blau' in color_lower or 'blue' in color_lower:
@@ -1226,7 +1226,7 @@ class MoldPreventionMonitor:
                 'action': 'Im Zweifelsfall: Komplette Entsorgung',
                 'prevention': 'Strikte Hygiene'
             }
-        
+
         return {
             'identified_as': identified['names'][0],
             'alternative_names': identified['names'],
@@ -1590,18 +1590,18 @@ class LightDegradationManager:
 ```python
 class StorageLocationManager(BaseModel):
     """Verwaltet Lagerorte und Inventar"""
-    
+
     location_id: str
     location_name: str
     location_type: Literal['room', 'closet', 'cellar', 'fridge', 'jar', 'container']
     capacity_kg: float = Field(gt=0, le=1000)
     has_climate_control: bool = False
-    
+
     def calculate_utilization(self, current_stock_kg: float) -> Dict:
         """Berechnet Lagerort-Auslastung"""
-        
+
         utilization_pct = (current_stock_kg / self.capacity_kg) * 100
-        
+
         if utilization_pct > 90:
             status = 'CRITICAL_FULL'
             recommendation = 'Sofort alternative Lagerung suchen'
@@ -1614,7 +1614,7 @@ class StorageLocationManager(BaseModel):
         else:
             status = 'LOW'
             recommendation = 'Viel freie Kapazität'
-        
+
         return {
             'capacity_kg': self.capacity_kg,
             'current_stock_kg': current_stock_kg,
@@ -1623,10 +1623,10 @@ class StorageLocationManager(BaseModel):
             'status': status,
             'recommendation': recommendation
         }
-    
+
     def get_ideal_conditions(self, stored_species: List[str]) -> Dict:
         """Gibt ideale Lagerbedingungen basierend auf gespeicherten Spezies"""
-        
+
         # Spezies-spezifische Anforderungen
         species_requirements = {
             'Cannabis sativa': {'temp': (15, 18), 'rh': (58, 62), 'light': 'none'},
@@ -1634,26 +1634,26 @@ class StorageLocationManager(BaseModel):
             'Solanum tuberosum': {'temp': (7, 10), 'rh': (85, 90), 'light': 'none'},
             'Cucurbita maxima': {'temp': (10, 15), 'rh': (60, 70), 'light': 'minimal'}
         }
-        
+
         if not stored_species:
             return {'message': 'Keine Spezies im Lager'}
-        
+
         # Finde Überschneidung der Anforderungen
-        temp_ranges = [species_requirements.get(sp, {'temp': (15, 20)})['temp'] 
+        temp_ranges = [species_requirements.get(sp, {'temp': (15, 20)})['temp']
                       for sp in stored_species]
-        rh_ranges = [species_requirements.get(sp, {'rh': (50, 60)})['rh'] 
+        rh_ranges = [species_requirements.get(sp, {'rh': (50, 60)})['rh']
                     for sp in stored_species]
-        
+
         optimal_temp = (
             max(t[0] for t in temp_ranges),
             min(t[1] for t in temp_ranges)
         )
-        
+
         optimal_rh = (
             max(r[0] for r in rh_ranges),
             min(r[1] for r in rh_ranges)
         )
-        
+
         return {
             'location': self.location_name,
             'stored_species': stored_species,
@@ -1663,19 +1663,19 @@ class StorageLocationManager(BaseModel):
             'air_exchange': '2-4x/Tag öffnen für Frischluft',
             'notes': self._get_storage_notes(stored_species)
         }
-    
+
     def _get_storage_notes(self, species: List[str]) -> List[str]:
         """Spezielle Lagerhinweise"""
-        
+
         notes = []
-        
+
         if 'Cannabis sativa' in species:
             notes.append("Cannabis: In luftdichten Jars mit Boveda-Packs")
         if 'Solanum tuberosum' in species:
             notes.append("Kartoffeln: KOMPLETT dunkel (sonst Solanin-Bildung)")
         if 'Allium cepa' in species:
             notes.append("Zwiebeln: Gute Luftzirkulation, nicht mit Kartoffeln lagern")
-        
+
         return notes
 ```
 
@@ -1692,15 +1692,15 @@ AromaQuality = Literal['excellent', 'good', 'acceptable', 'off', 'moldy']
 
 class StorageObservation(BaseModel):
     """Zustandserfassung während Lagerung"""
-    
+
     batch_id: str
     observed_at: datetime
     observer: str
-    
+
     weight_g: Optional[float] = Field(None, gt=0)
     temperature_c: Optional[float] = Field(None, ge=-10, le=50)
     rh_percent: Optional[int] = Field(None, ge=0, le=100)
-    
+
     water_activity: Optional[float] = Field(None, ge=0, le=1, description="a_w-Messwert")
     co2_ppm: Optional[int] = Field(None, ge=0, le=10000, description="CO2-Konzentration im Raum (U-005)")
 
@@ -1710,21 +1710,21 @@ class StorageObservation(BaseModel):
     defects_observed: List[str] = Field(default_factory=list)
     photo_refs: List[str] = Field(default_factory=list)
     notes: Optional[str] = Field(None, max_length=1000)
-    
+
     @field_validator('defects_observed')
     @classmethod
     def validate_critical_defects(cls, v, info):
         critical_defects = ['mold', 'mold_spot', 'moldy']
-        
+
         if any(defect in v for defect in critical_defects):
             if info.data.get('visual_condition') != 'critical':
                 raise ValueError("Schimmel erfordert visual_condition='critical'")
-        
+
         return v
 
 class BurpingEvent(BaseModel):
     """Jar-Lüftungs-Ereignis"""
-    
+
     batch_id: str
     burped_at: datetime
     duration_minutes: int = Field(ge=1, le=60)
@@ -1732,7 +1732,7 @@ class BurpingEvent(BaseModel):
     jar_rh_after: Optional[int] = Field(None, ge=0, le=100)
     condensation_observed: bool = False
     aroma_notes: Optional[str] = None
-    
+
     ambient_rh: Optional[int] = Field(None, ge=0, le=100)
 
     @field_validator('jar_rh_after')

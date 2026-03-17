@@ -523,7 +523,7 @@ import statistics
 
 class SensorReading(BaseModel):
     """Einzelne Sensor-Messung mit Metadaten"""
-    
+
     sensor_id: str
     parameter: Literal['temp', 'humidity', 'ec', 'ph', 'ppfd', 'co2', 'soil_moisture', 'water_level']
     value: float
@@ -531,7 +531,7 @@ class SensorReading(BaseModel):
     source: Literal['ha_auto', 'mqtt_auto', 'modbus_auto', 'manual', 'interpolated', 'fallback', 'weather_api']
     timestamp: datetime = Field(default_factory=datetime.now)
     quality_score: float = Field(default=1.0, ge=0, le=1.0)
-    
+
     # Validierungs-Ranges pro Parameter
     VALID_RANGES = {
         'temp': (-10, 50),
@@ -552,14 +552,14 @@ class SensorReading(BaseModel):
         'r_fr_ratio': (0.1, 10.0),   # Dimensionslos — typisch 0.5-3.0 (Sonnenlicht ~1.2, LED variabel)
         'blue_fraction': (0, 100),    # Prozent des PAR-Spektrums im Blaubereich (400-500nm)
     }
-    
+
     def validate_plausibility(self) -> dict:
         """
         Plausibilitätsprüfung mit detailliertem Feedback
         Returns: {valid: bool, error: Optional[str], warning: Optional[str]}
         """
         min_val, max_val = self.VALID_RANGES.get(self.parameter, (-1000, 1000))
-        
+
         # Kritische Verletzung
         if not (min_val <= self.value <= max_val):
             return {
@@ -567,7 +567,7 @@ class SensorReading(BaseModel):
                 'error': f'{self.parameter} = {self.value}{self.unit} außerhalb physikalisch möglichem Bereich: {min_val}-{max_val}{self.unit}',
                 'severity': 'critical'
             }
-        
+
         # Warnung bei extremen aber möglichen Werten
         warning_margin = (max_val - min_val) * 0.1
         if self.value < (min_val + warning_margin) or self.value > (max_val - warning_margin):
@@ -576,9 +576,9 @@ class SensorReading(BaseModel):
                 'warning': f'{self.parameter} nahe Grenzbereich - bitte visuell bestätigen',
                 'severity': 'warning'
             }
-        
+
         return {'valid': True, 'severity': 'ok'}
-    
+
     def calculate_quality_score(
         self,
         previous_values: list[float],
@@ -592,7 +592,7 @@ class SensorReading(BaseModel):
         - Source-Vertrauenswürdigkeit
         """
         score = 1.0
-        
+
         # 1. Source-basierte Basis-Qualität
         # Manuelle Eingaben differenziert bewerten: Ein kalibriertes Profi-Gerät
         # (z.B. Apera pH20) liefert annähernd Auto-Qualität, während eine
@@ -609,32 +609,32 @@ class SensorReading(BaseModel):
             'fallback': 0.4
         }
         score *= source_scores.get(self.source, 0.5)
-        
+
         # 2. Zeitliche Aktualität (penalisiere alte Daten)
         if time_since_last.total_seconds() > 3600:  # >1h
             age_penalty = 1 - min(0.5, time_since_last.total_seconds() / 7200)
             score *= age_penalty
-        
+
         # 3. Statistische Konsistenz
         if len(previous_values) >= 3:
             mean = statistics.mean(previous_values)
             stddev = statistics.stdev(previous_values) if len(previous_values) > 1 else 0
-            
+
             if stddev > 0:
                 z_score = abs(self.value - mean) / stddev
-                
+
                 # Penalisiere Ausreißer
                 if z_score > 3:  # >3 Standardabweichungen
                     score *= 0.5
                 elif z_score > 2:
                     score *= 0.8
-        
+
         self.quality_score = max(0.0, min(1.0, score))
         return self.quality_score
 
 class SensorReadingValidator:
     """Erweiterte Validierung mit Kontext"""
-    
+
     @staticmethod
     def validate_reading_sequence(
         readings: list[SensorReading],
@@ -642,11 +642,11 @@ class SensorReadingValidator:
     ) -> dict:
         """
         Prüft eine Sequenz von Messungen auf Anomalien
-        
+
         Args:
             readings: Chronologisch sortierte Readings
             max_rate_of_change: Dict[parameter, max_change_per_minute]
-        
+
         Returns:
             Validierungs-Bericht
         """
@@ -663,26 +663,26 @@ class SensorReadingValidator:
                 'water_temp': 0.3,     # 0.3°C/min
                 'leaf_temp': 0.8,      # 0.8°C/min — reagiert schneller als Lufttemperatur
             }
-        
+
         anomalies = []
-        
+
         for i in range(1, len(readings)):
             prev = readings[i-1]
             curr = readings[i]
-            
+
             if prev.parameter != curr.parameter:
                 continue
-            
+
             # Zeitdifferenz in Minuten
             time_diff = (curr.timestamp - prev.timestamp).total_seconds() / 60
-            
+
             if time_diff == 0:
                 continue
-            
+
             # Änderungsrate
             rate_of_change = abs(curr.value - prev.value) / time_diff
             max_allowed = max_rate_of_change.get(curr.parameter, float('inf'))
-            
+
             if rate_of_change > max_allowed:
                 anomalies.append({
                     'timestamp': curr.timestamp,
@@ -694,7 +694,7 @@ class SensorReadingValidator:
                     'severity': 'critical' if rate_of_change > (max_allowed * 2) else 'warning',
                     'message': f'Unplausibel schnelle Änderung: {rate_of_change:.2f} {curr.unit}/min (Max: {max_allowed})'
                 })
-        
+
         return {
             'valid': len(anomalies) == 0,
             'anomaly_count': len(anomalies),
@@ -730,7 +730,7 @@ class HomeAssistantConnector:
         }
         self.verify_ssl = verify_ssl
         self.timeout = 10
-    
+
     def test_connection(self) -> dict:
         """Prüft Verbindung zu HA"""
         try:
@@ -740,7 +740,7 @@ class HomeAssistantConnector:
                 timeout=5,
                 verify=self.verify_ssl
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 return {
@@ -758,14 +758,14 @@ class HomeAssistantConnector:
                 'connected': False,
                 'error': str(e)
             }
-    
+
     def get_sensor_state(self, entity_id: str) -> Optional[SensorReading]:
         """
         Liest aktuellen Zustand eines HA-Sensors
-        
+
         Args:
             entity_id: HA Entity ID (z.B. "sensor.growzelt_temperature")
-        
+
         Returns:
             SensorReading oder None bei Fehler
         """
@@ -776,22 +776,22 @@ class HomeAssistantConnector:
                 timeout=self.timeout,
                 verify=self.verify_ssl
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
-                
+
                 # Extrahiere Wert (HA speichert als String)
                 try:
                     value = float(data['state'])
                 except (ValueError, KeyError):
                     return None
-                
+
                 # Extrahiere Unit
                 unit = data.get('attributes', {}).get('unit_of_measurement', '')
-                
+
                 # Mapping von HA-Sensor zu Parameter-Typ
                 parameter = self._infer_parameter_from_entity(entity_id, unit)
-                
+
                 return SensorReading(
                     sensor_id=entity_id,
                     parameter=parameter,
@@ -800,13 +800,13 @@ class HomeAssistantConnector:
                     source='ha_auto',
                     timestamp=datetime.fromisoformat(data['last_updated'].replace('Z', '+00:00'))
                 )
-            
+
             return None
-            
+
         except requests.exceptions.RequestException as e:
             print(f"HA Request Error: {e}")
             return None
-    
+
     def get_sensor_history(
         self,
         entity_id: str,
@@ -815,22 +815,22 @@ class HomeAssistantConnector:
     ) -> list[SensorReading]:
         """
         Holt historische Daten aus HA
-        
+
         Args:
             entity_id: HA Entity ID
             start_time: Start-Zeitpunkt
             end_time: End-Zeitpunkt (default: jetzt)
-        
+
         Returns:
             Liste von SensorReadings
         """
         if not end_time:
             end_time = datetime.now()
-        
+
         # HA History API Format
         start_iso = start_time.isoformat()
         end_iso = end_time.isoformat()
-        
+
         try:
             response = requests.get(
                 f'{self.base_url}/api/history/period/{start_iso}',
@@ -842,10 +842,10 @@ class HomeAssistantConnector:
                 timeout=self.timeout,
                 verify=self.verify_ssl
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
-                
+
                 readings = []
                 for entity_data in data:
                     for state in entity_data:
@@ -853,7 +853,7 @@ class HomeAssistantConnector:
                             value = float(state['state'])
                             unit = state.get('attributes', {}).get('unit_of_measurement', '')
                             parameter = self._infer_parameter_from_entity(entity_id, unit)
-                            
+
                             readings.append(SensorReading(
                                 sensor_id=entity_id,
                                 parameter=parameter,
@@ -864,15 +864,15 @@ class HomeAssistantConnector:
                             ))
                         except (ValueError, KeyError):
                             continue
-                
+
                 return readings
-            
+
             return []
-            
+
         except requests.exceptions.RequestException as e:
             print(f"HA History Error: {e}")
             return []
-    
+
     def _infer_parameter_from_entity(self, entity_id: str, unit: str) -> str:
         """
         Inferiert Parameter-Typ aus Entity-ID und Unit.
@@ -887,37 +887,37 @@ class HomeAssistantConnector:
 
         entity_lower = entity_id.lower()
         unit_lower = unit.lower()
-        
+
         # Temperatur
         if 'temp' in entity_lower or unit_lower in ['°c', 'c', 'celsius', '°f', 'f']:
             return 'temp'
-        
+
         # Luftfeuchte
         if 'hum' in entity_lower or unit_lower == '%':
             return 'humidity'
-        
+
         # EC
         if 'ec' in entity_lower or 'conductivity' in entity_lower:
             return 'ec'
-        
+
         # pH
         if 'ph' in entity_lower:
             return 'ph'
-        
+
         # CO2
         if 'co2' in entity_lower or unit_lower == 'ppm':
             return 'co2'
-        
+
         # PPFD/Licht
         if 'light' in entity_lower or 'ppfd' in entity_lower or unit_lower in ['μmol/m²/s', 'umol']:
             return 'ppfd'
-        
+
         # Soil Moisture
         if 'soil' in entity_lower or 'moisture' in entity_lower:
             return 'soil_moisture'
-        
+
         return 'unknown'
-    
+
     def subscribe_to_updates(self, entity_ids: list[str], callback):
         """
         WebSocket-Subscription für Real-Time Updates
@@ -934,7 +934,7 @@ from typing import Optional
 
 class SensorFallbackManager:
     """Erkennt Sensor-Ausfälle und orchestriert Fallback-Strategien"""
-    
+
     # Konfigurierbare Schwellenwerte (Defaults — parameterspezifisch überschreibbar)
     MAX_AGE_CRITICAL_HOURS = 24
     MAX_AGE_WARNING_HOURS = 6
@@ -975,10 +975,10 @@ class SensorFallbackManager:
         'water_temp':     3.0,
         'do':             2.0,
     }
-    
+
     def __init__(self, arango_db):
         self.db = arango_db
-    
+
     def check_sensor_health(
         self,
         sensor_id: str,
@@ -987,7 +987,7 @@ class SensorFallbackManager:
     ) -> dict:
         """
         Überprüft Sensor-Gesundheit und empfiehlt Actions
-        
+
         Returns:
             {
                 status: 'OK' | 'WARNING' | 'CRITICAL',
@@ -1003,7 +1003,7 @@ class SensorFallbackManager:
                 'message': 'Sensor hat noch nie Daten geliefert',
                 'age_hours': float('inf')
             }
-        
+
         age = datetime.now() - last_reading_time
         age_hours = age.total_seconds() / 3600
 
@@ -1024,7 +1024,7 @@ class SensorFallbackManager:
                 'task_priority': 'high',
                 'suggested_measurement_frequency': 'daily'
             }
-        
+
         elif age_hours > warning_hours:
             return {
                 'status': 'WARNING',
@@ -1043,13 +1043,13 @@ class SensorFallbackManager:
                 'message': f'Kurzer Ausfall ({age_hours:.1f}h) - Interpolation verwenden',
                 'age_hours': age_hours
             }
-        
+
         return {
             'status': 'OK',
             'message': 'Sensor liefert aktuelle Daten',
             'age_hours': age_hours
         }
-    
+
     def interpolate_missing_values(
         self,
         sensor_id: str,
@@ -1118,7 +1118,7 @@ class SensorFallbackManager:
             current_time += timedelta(hours=1)
 
         return interpolated
-    
+
     def create_manual_measurement_task(
         self,
         sensor_id: str,
@@ -1127,7 +1127,7 @@ class SensorFallbackManager:
     ) -> str:
         """
         Generiert einen Task für manuelle Messung
-        
+
         Returns:
             task_id
         """
@@ -1177,7 +1177,7 @@ from typing import Optional
 
 class ManualInputValidator:
     """Validiert und scored manuelle Eingaben"""
-    
+
     @staticmethod
     def validate_manual_entry(
         parameter: str,
@@ -1188,7 +1188,7 @@ class ManualInputValidator:
     ) -> dict:
         """
         Prüft ob manuelle Eingabe plausibel ist
-        
+
         Returns:
             {
                 suspicious: bool,
@@ -1199,7 +1199,7 @@ class ManualInputValidator:
         """
         warnings = []
         suspicious = False
-        
+
         # 1. Basis-Plausibilität (Wertebereich)
         reading = SensorReading(
             sensor_id='manual',
@@ -1208,7 +1208,7 @@ class ManualInputValidator:
             unit='',
             source='manual'
         )
-        
+
         plausibility = reading.validate_plausibility()
         if not plausibility['valid']:
             return {
@@ -1217,11 +1217,11 @@ class ManualInputValidator:
                 'warnings': [plausibility['error']],
                 'confirm_required': True
             }
-        
+
         # 2. Vergleich mit letztem Wert
         if previous_value and time_since_last:
             hours = time_since_last.total_seconds() / 3600
-            
+
             # Maximal erwartete Änderung pro Stunde
             max_change_per_hour = {
                 'temp': 3.0,
@@ -1230,17 +1230,17 @@ class ManualInputValidator:
                 'ph': 0.5,
                 'co2': 200.0
             }
-            
+
             expected_max_change = max_change_per_hour.get(parameter, 999) * hours
             actual_change = abs(value - previous_value)
-            
+
             if actual_change > expected_max_change:
                 suspicious = True
                 warnings.append(
                     f'Ungewöhnlich starke Änderung: {actual_change:.1f} '
                     f'(erwartet max {expected_max_change:.1f} in {hours:.1f}h)'
                 )
-        
+
         # 3. User Confidence Score
         confidence_scores = {
             'high': 1.0,
@@ -1248,20 +1248,20 @@ class ManualInputValidator:
             'low': 0.6
         }
         base_confidence = confidence_scores.get(user_confidence, 0.5)
-        
+
         # 4. Finale Bewertung
         if suspicious:
             final_confidence = base_confidence * 0.6  # Penalty für Verdacht
         else:
             final_confidence = base_confidence
-        
+
         return {
             'suspicious': suspicious,
             'confidence_score': final_confidence,
             'warnings': warnings,
             'confirm_required': suspicious and final_confidence < 0.7
         }
-    
+
     @staticmethod
     def calculate_manual_quality_score(
         user_confidence: Literal['high', 'medium', 'low'],
@@ -1309,7 +1309,7 @@ class ManualInputValidator:
     @staticmethod
     def suggest_measurement_tool(parameter: str) -> dict:
         """Empfiehlt geeignetes Mess-Tool"""
-        
+
         tools = {
             'temp': {
                 'recommended': ['Infrarot-Thermometer', 'DHT22', 'DS18B20'],
@@ -1337,7 +1337,7 @@ class ManualInputValidator:
                 'notes': 'In Höhe der Pflanzenspitzen messen'
             }
         }
-        
+
         return tools.get(parameter, {
             'recommended': ['Nicht spezifiziert'],
             'accuracy': 'N/A',
@@ -1371,7 +1371,7 @@ SensorStatus = Literal['online', 'degraded', 'offline', 'maintenance']
 
 class SensorDefinition(BaseModel):
     """Vollständige Sensor-Definition"""
-    
+
     sensor_id: str = Field(regex=r'^[a-zA-Z0-9_-]+$')
     sensor_type: SensorType
     parameter: ParameterType
@@ -1419,14 +1419,14 @@ class SensorDefinition(BaseModel):
         'cbar',              # Centibar (= kPa, alternative Einheit für Tensiometer)
     ]] = None
     substrate_type_key: Optional[str] = None  # Referenz auf REQ-019 Substrat — beeinflusst Interpretation der Messwerte
-    
+
     @field_validator('calibration_factor')
     @classmethod
     def validate_reasonable_calibration(cls, v):
         if not (0.5 <= v <= 2.0):
             raise ValueError("Calibration factor außerhalb vernünftigem Bereich (0.5-2.0)")
         return v
-    
+
     @field_validator('ha_entity_id')
     @classmethod
     def validate_ha_entity(cls, v):
@@ -1483,7 +1483,7 @@ class PhaseAlertProfile(BaseModel):
 
 class CalibrationRecord(BaseModel):
     """Kalibrierungs-Event"""
-    
+
     sensor_id: str
     calibration_date: datetime
     calibration_type: Literal['single_point', 'two_point', 'multi_point']
@@ -1492,7 +1492,7 @@ class CalibrationRecord(BaseModel):
     calibrated_by: str
     calibration_solution: Optional[str] = None
     notes: Optional[str] = Field(None, max_length=500)
-    
+
     @field_validator('measured_values')
     @classmethod
     def validate_value_count_match(cls, v, info):
@@ -1500,44 +1500,44 @@ class CalibrationRecord(BaseModel):
         if len(v) != len(ref_vals):
             raise ValueError("Anzahl measured_values muss reference_values entsprechen")
         return v
-    
+
     def calculate_calibration_params(self) -> dict:
         """Berechnet Offset und Factor aus Kalibrierpunkten"""
-        
+
         if self.calibration_type == 'single_point':
             # Offset-Korrektur
             offset = self.reference_values[0] - self.measured_values[0]
             return {'offset': offset, 'factor': 1.0}
-        
+
         elif self.calibration_type == 'two_point':
             # Lineare Regression
             ref = self.reference_values
             meas = self.measured_values
-            
+
             # y = mx + b wobei y=reference, x=measured
             factor = (ref[1] - ref[0]) / (meas[1] - meas[0])
             offset = ref[0] - (factor * meas[0])
-            
+
             return {'offset': offset, 'factor': factor}
-        
+
         else:
             # Multi-Point: Least-Squares
             import numpy as np
-            
+
             meas = np.array(self.measured_values)
             ref = np.array(self.reference_values)
-            
+
             # Lineare Regression
             coeffs = np.polyfit(meas, ref, 1)
             factor = coeffs[0]
             offset = coeffs[1]
-            
+
             # R²-Berechnung
             predictions = factor * meas + offset
             ss_res = np.sum((ref - predictions) ** 2)
             ss_tot = np.sum((ref - np.mean(ref)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
-            
+
             return {
                 'offset': float(offset),
                 'factor': float(factor),
