@@ -150,11 +150,7 @@ def backfill_tenant_key(db: StandardDatabase) -> dict[str, int]:
         logger.info("Phase 2b: %s (from %s) — %d documents updated", child_coll, parent_coll, count)
 
     # Phase 3: Catch any remaining orphans with default tenant
-    all_collections = (
-        TOP_LEVEL_COLLECTIONS
-        + [c for c, _, _ in CHILD_PROPAGATION]
-        + [SLOT_PROPAGATION[0]]
-    )
+    all_collections = TOP_LEVEL_COLLECTIONS + [c for c, _, _ in CHILD_PROPAGATION] + [SLOT_PROPAGATION[0]]
     for coll_name in all_collections:
         query = f"""
         FOR doc IN {coll_name}
@@ -170,7 +166,8 @@ def backfill_tenant_key(db: StandardDatabase) -> dict[str, int]:
             stats["warnings"] += count
             logger.warning(
                 "Phase 3 fallback: %s — %d documents assigned default tenant",
-                coll_name, count,
+                coll_name,
+                count,
             )
 
     logger.info(

@@ -185,9 +185,7 @@ class FavoritesService:
 
         created = []
         for fert_key in fertilizer_keys:
-            edge = self.add_favorite(
-                user_key, fert_key, source="cascade", cascade_from_key=nutrient_plan_key
-            )
+            edge = self.add_favorite(user_key, fert_key, source="cascade", cascade_from_key=nutrient_plan_key)
             created.append(edge)
         return created
 

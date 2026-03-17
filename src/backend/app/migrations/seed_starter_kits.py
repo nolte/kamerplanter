@@ -50,9 +50,7 @@ def run_seed_starter_kits() -> None:
             # Update species_keys if changed
             existing_doc = existing[0]
             if existing_doc.get("species_keys", []) != resolved_keys:
-                db.collection(col.STARTER_KITS).update(
-                    {"_key": existing_doc["_key"], "species_keys": resolved_keys}
-                )
+                db.collection(col.STARTER_KITS).update({"_key": existing_doc["_key"], "species_keys": resolved_keys})
                 updated += 1
                 logger.info(
                     "starter_kit_species_updated",

@@ -96,9 +96,7 @@ class TestOnboardingStateModel:
         assert state.plant_count is None
 
     def test_new_fields_set(self):
-        state = OnboardingState(
-            user_key="u1", site_name="Balkon", site_type="balcony", plant_count=5
-        )
+        state = OnboardingState(user_key="u1", site_name="Balkon", site_type="balcony", plant_count=5)
         assert state.site_name == "Balkon"
         assert state.site_type == "balcony"
         assert state.plant_count == 5

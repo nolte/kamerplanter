@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, Query, Response
 
 from app.api.v1.tasks.router import _ACTIVITY_TO_TASK_CATEGORY, _task_response, _tt_response, _we_response, _wf_response
@@ -348,8 +347,12 @@ def complete_task(
 ):
     service.get_task(key, tenant_key=ctx.tenant_key)
     completed = service.complete_task(
-        key, body.completion_notes, body.actual_duration_minutes, body.photo_refs or None,
-        body.difficulty_rating, body.quality_rating,
+        key,
+        body.completion_notes,
+        body.actual_duration_minutes,
+        body.photo_refs or None,
+        body.difficulty_rating,
+        body.quality_rating,
     )
     if (
         completed.category == "care_reminder"
@@ -358,6 +361,7 @@ def complete_task(
         and completed.plant_key
     ):
         from app.common.dependencies import get_care_reminder_service
+
         care_service = get_care_reminder_service()
         profile = care_service._repo.get_profile_by_plant_key(completed.plant_key)
         if profile is not None and profile.auto_create_watering_task:
@@ -379,6 +383,7 @@ def skip_task(
         from app.common.dependencies import get_care_reminder_service
         from app.common.enums import ConfirmAction, ReminderType
         from app.domain.models.care_reminder import CareConfirmation
+
         care_service = get_care_reminder_service()
         profile = care_service._repo.get_profile_by_plant_key(skipped.plant_key)
         if profile is not None:

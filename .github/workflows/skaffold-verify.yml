@@ -16,37 +16,54 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check skaffold.yaml exists
+        id: check
+        run: |
+          if [ -f skaffold.yaml ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::skaffold.yaml not found — skipping Skaffold steps"
+          fi
+
       - name: Setup Helm
+        if: steps.check.outputs.exists == 'true'
         uses: azure/setup-helm@v4
 
       - name: Setup Skaffold
+        if: steps.check.outputs.exists == 'true'
         uses: hiberbee/github-action-skaffold@1.27.0
         with:
-          skaffold-version: 2.14.0
+          skaffold-version: 2.17.2
 
       - name: Build chart dependencies
+        if: steps.check.outputs.exists == 'true'
         run: |
           helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/
           helm dependency build helm/kamerplanter
 
       - name: Lint Helm chart
+        if: steps.check.outputs.exists == 'true'
         run: helm lint helm/kamerplanter -f helm/kamerplanter/values-dev.yaml
 
       - name: Render Helm templates
+        if: steps.check.outputs.exists == 'true'
         run: |
           helm template kamerplanter helm/kamerplanter/ \
             -f helm/kamerplanter/values-dev.yaml
 
       - name: Skaffold diagnose
+        if: steps.check.outputs.exists == 'true'
         run: skaffold diagnose
 
       - name: Skaffold render
+        if: steps.check.outputs.exists == 'true'
         run: |
           skaffold render --output rendered-manifests.yaml || true
 
       - name: Upload rendered manifests
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && steps.check.outputs.exists == 'true'
         with:
           name: rendered-manifests
           path: rendered-manifests.yaml

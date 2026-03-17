@@ -29,47 +29,53 @@ def run_seed_light_mode() -> None:
         logger.info("light_mode_system_user_exists", key=su["key"])
         return
 
-    users.insert({
-        "_key": su["key"],
-        "email": su["email"],
-        "display_name": su["display_name"],
-        "password_hash": None,
-        "email_verified": True,
-        "is_active": True,
-        "failed_login_attempts": 0,
-        "locale": "de",
-        "timezone": "Europe/Berlin",
-        "created_at": now,
-        "updated_at": now,
-    })
+    users.insert(
+        {
+            "_key": su["key"],
+            "email": su["email"],
+            "display_name": su["display_name"],
+            "password_hash": None,
+            "email_verified": True,
+            "is_active": True,
+            "failed_login_attempts": 0,
+            "locale": "de",
+            "timezone": "Europe/Berlin",
+            "created_at": now,
+            "updated_at": now,
+        }
+    )
     logger.info("light_mode_system_user_created", key=su["key"])
 
     tenants = db.collection(col.TENANTS)
     if not tenants.has(st["key"]):
-        tenants.insert({
-            "_key": st["key"],
-            "name": st["name"],
-            "slug": st["slug"],
-            "tenant_type": "personal",
-            "owner_user_key": su["key"],
-            "is_active": True,
-            "created_at": now,
-            "updated_at": now,
-        })
+        tenants.insert(
+            {
+                "_key": st["key"],
+                "name": st["name"],
+                "slug": st["slug"],
+                "tenant_type": "personal",
+                "owner_user_key": su["key"],
+                "is_active": True,
+                "created_at": now,
+                "updated_at": now,
+            }
+        )
         logger.info("light_mode_system_tenant_created", key=st["key"])
 
     memberships = db.collection(col.MEMBERSHIPS)
     membership_key = f"{su['key']}--{st['key']}"
     if not memberships.has(membership_key):
-        memberships.insert({
-            "_key": membership_key,
-            "user_key": su["key"],
-            "tenant_key": st["key"],
-            "role": "admin",
-            "is_active": True,
-            "created_at": now,
-            "updated_at": now,
-        })
+        memberships.insert(
+            {
+                "_key": membership_key,
+                "user_key": su["key"],
+                "tenant_key": st["key"],
+                "role": "admin",
+                "is_active": True,
+                "created_at": now,
+                "updated_at": now,
+            }
+        )
         logger.info("light_mode_membership_created", role="admin")
 
     logger.info("light_mode_seed_complete")

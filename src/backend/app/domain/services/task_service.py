@@ -187,7 +187,11 @@ class TaskService:
     # ── Task CRUD ──
 
     def list_tasks(
-        self, offset: int = 0, limit: int = 50, filters: dict | None = None, tenant_key: str = "",
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict | None = None,
+        tenant_key: str = "",
     ) -> tuple[list[Task], int]:
         return self._repo.get_all_tasks(offset, limit, filters, tenant_key=tenant_key)
 

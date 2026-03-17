@@ -168,11 +168,13 @@ class OnboardingService:
         except ValueError:
             site_type_enum = SiteType.INDOOR
 
-        site = site_service.create_site(Site(
-            name=site_name,
-            type=site_type_enum,
-            tenant_key=tenant_key,
-        ))
+        site = site_service.create_site(
+            Site(
+                name=site_name,
+                type=site_type_enum,
+                tenant_key=tenant_key,
+            )
+        )
         logger.info("onboarding_site_created", site_key=site.key, name=site_name)
         return site.key or ""
 

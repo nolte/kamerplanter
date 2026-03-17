@@ -36,8 +36,7 @@ class StarterKitService:
 
         # Filter kits: show if at least one species is accessible
         return [
-            kit for kit in all_kits
-            if not kit.species_keys or any(sk in accessible_species for sk in kit.species_keys)
+            kit for kit in all_kits if not kit.species_keys or any(sk in accessible_species for sk in kit.species_keys)
         ]
 
     def _get_accessible_species_keys(self, tenant_key: str) -> set[str] | None:

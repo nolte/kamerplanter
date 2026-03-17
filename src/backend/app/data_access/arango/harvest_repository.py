@@ -114,7 +114,10 @@ class ArangoHarvestRepository(IHarvestRepository, BaseArangoRepository):
     # ── Batches ──
 
     def get_all_batches(
-        self, offset: int = 0, limit: int = 50, tenant_key: str | None = None,
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        tenant_key: str | None = None,
     ) -> tuple[list[HarvestBatch], int]:
         docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key)
         return [HarvestBatch(**doc) for doc in docs], total

@@ -36,10 +36,14 @@ def complete_onboarding(
     ctx: TenantContext = Depends(get_current_tenant),
     service: OnboardingService = Depends(get_onboarding_service),
 ):
-    plant_configs = [
-        PlantConfig(species_key=c.species_key, count=c.count, initial_phase=c.initial_phase)
-        for c in body.plant_configs
-    ] if body.plant_configs else None
+    plant_configs = (
+        [
+            PlantConfig(species_key=c.species_key, count=c.count, initial_phase=c.initial_phase)
+            for c in body.plant_configs
+        ]
+        if body.plant_configs
+        else None
+    )
     return service.complete_wizard(
         user_key=ctx.user_key,
         tenant_key=ctx.tenant_key,

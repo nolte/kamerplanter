@@ -165,8 +165,7 @@ def update_tenant(
 
     # Compute member_count
     member_count_cursor = db.aql.execute(
-        "FOR m IN @@col FILTER m.tenant_key == @key AND m.is_active == true "
-        "COLLECT WITH COUNT INTO c RETURN c",
+        "FOR m IN @@col FILTER m.tenant_key == @key AND m.is_active == true COLLECT WITH COUNT INTO c RETURN c",
         bind_vars={"@col": col.MEMBERSHIPS, "key": key},
     )
     member_count = next(member_count_cursor, 0)
@@ -445,16 +444,20 @@ def add_tenant_member(
     m_key = result["new"]["_key"]
 
     # Create graph edges
-    db.collection(col.HAS_MEMBERSHIP).insert({
-        "_from": f"{col.USERS}/{body.user_key}",
-        "_to": f"{col.MEMBERSHIPS}/{m_key}",
-        "created_at": now,
-    })
-    db.collection(col.MEMBERSHIP_IN).insert({
-        "_from": f"{col.MEMBERSHIPS}/{m_key}",
-        "_to": f"{col.TENANTS}/{tenant_key}",
-        "created_at": now,
-    })
+    db.collection(col.HAS_MEMBERSHIP).insert(
+        {
+            "_from": f"{col.USERS}/{body.user_key}",
+            "_to": f"{col.MEMBERSHIPS}/{m_key}",
+            "created_at": now,
+        }
+    )
+    db.collection(col.MEMBERSHIP_IN).insert(
+        {
+            "_from": f"{col.MEMBERSHIPS}/{m_key}",
+            "_to": f"{col.TENANTS}/{tenant_key}",
+            "created_at": now,
+        }
+    )
 
     return AdminTenantMemberResponse(
         membership_key=m_key,
@@ -517,11 +520,13 @@ def change_member_role(
     if not existing or existing["tenant_key"] != tenant_key:
         raise NotFoundError("Membership", membership_key)
 
-    memberships.update({
-        "_key": membership_key,
-        "role": body.role.value,
-        "updated_at": datetime.now(UTC).isoformat(),
-    })
+    memberships.update(
+        {
+            "_key": membership_key,
+            "role": body.role.value,
+            "updated_at": datetime.now(UTC).isoformat(),
+        }
+    )
     updated = memberships.get(membership_key)
 
     user_doc = db.collection(col.USERS).get(updated["user_key"])
@@ -618,16 +623,20 @@ def add_user_to_tenant(
     )
     m_key = result["new"]["_key"]
 
-    db.collection(col.HAS_MEMBERSHIP).insert({
-        "_from": f"{col.USERS}/{user_key}",
-        "_to": f"{col.MEMBERSHIPS}/{m_key}",
-        "created_at": now,
-    })
-    db.collection(col.MEMBERSHIP_IN).insert({
-        "_from": f"{col.MEMBERSHIPS}/{m_key}",
-        "_to": f"{col.TENANTS}/{body.tenant_key}",
-        "created_at": now,
-    })
+    db.collection(col.HAS_MEMBERSHIP).insert(
+        {
+            "_from": f"{col.USERS}/{user_key}",
+            "_to": f"{col.MEMBERSHIPS}/{m_key}",
+            "created_at": now,
+        }
+    )
+    db.collection(col.MEMBERSHIP_IN).insert(
+        {
+            "_from": f"{col.MEMBERSHIPS}/{m_key}",
+            "_to": f"{col.TENANTS}/{body.tenant_key}",
+            "created_at": now,
+        }
+    )
 
     return AdminUserMembershipResponse(
         membership_key=m_key,
@@ -689,11 +698,13 @@ def change_user_membership_role(
     if not existing or existing["user_key"] != user_key:
         raise NotFoundError("Membership", membership_key)
 
-    memberships.update({
-        "_key": membership_key,
-        "role": body.role.value,
-        "updated_at": datetime.now(UTC).isoformat(),
-    })
+    memberships.update(
+        {
+            "_key": membership_key,
+            "role": body.role.value,
+            "updated_at": datetime.now(UTC).isoformat(),
+        }
+    )
     updated = memberships.get(membership_key)
 
     tenant_doc = db.collection(col.TENANTS).get(updated["tenant_key"])

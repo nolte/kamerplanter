@@ -45,17 +45,28 @@ def get_calendar_events(
             if c:
                 categories.append(CalendarEventCategory(c))
     query = CalendarEventsQuery(
-        start_date=start, end_date=end, categories=categories, tenant_key=ctx.tenant_key,
+        start_date=start,
+        end_date=end,
+        categories=categories,
+        tenant_key=ctx.tenant_key,
     )
     events = svc.get_events(query)
     return CalendarEventsResponse(
         events=[
             CalendarEventSchema(
-                id=e.id, title=e.title, description=e.description,
-                category=e.category.value, source=e.source.value, color=e.color,
-                start=e.start, end=e.end, all_day=e.all_day,
-                plant_key=e.plant_key, task_key=e.task_key,
-                site_key=e.site_key, location_key=e.location_key,
+                id=e.id,
+                title=e.title,
+                description=e.description,
+                category=e.category.value,
+                source=e.source.value,
+                color=e.color,
+                start=e.start,
+                end=e.end,
+                all_day=e.all_day,
+                plant_key=e.plant_key,
+                task_key=e.task_key,
+                site_key=e.site_key,
+                location_key=e.location_key,
                 metadata=e.metadata,
             )
             for e in events
@@ -71,18 +82,23 @@ def get_sowing_calendar(
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> SowingCalendarResponse:
     from datetime import date as _date
+
     svc: CalendarService = get_calendar_service()
     effective_year = year if year else _date.today().year
     entries, frost_config = svc.get_sowing_calendar(site_id, effective_year)
     return SowingCalendarResponse(
         entries=[
             SowingCalendarEntrySchema(
-                species_key=e.species_key, species_name=e.species_name,
+                species_key=e.species_key,
+                species_name=e.species_name,
                 common_name=e.common_name,
                 bars=[
                     SowingBarSchema(
-                        phase=b.phase, color=b.color, start_date=b.start_date,
-                        end_date=b.end_date, label=b.label,
+                        phase=b.phase,
+                        color=b.color,
+                        start_date=b.start_date,
+                        end_date=b.end_date,
+                        label=b.label,
                     )
                     for b in e.bars
                 ],
@@ -94,7 +110,8 @@ def get_sowing_calendar(
             first_frost_date=frost_config.first_frost_date,
             eisheilige_date=frost_config.eisheilige_date,
         ),
-        year=effective_year, total=len(entries),
+        year=effective_year,
+        total=len(entries),
     )
 
 
@@ -105,17 +122,24 @@ def get_season_overview(
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> SeasonOverviewResponse:
     from datetime import date as _date
+
     svc: CalendarService = get_calendar_service()
     effective_year = year if year else _date.today().year
     overview = svc.get_season_overview(site_id, effective_year)
     return SeasonOverviewResponse(
-        site_key=overview.site_key, site_name=overview.site_name, year=overview.year,
+        site_key=overview.site_key,
+        site_name=overview.site_name,
+        year=overview.year,
         months=[
             MonthSummarySchema(
-                month=m.month, month_name=m.month_name,
-                sowing_count=m.sowing_count, harvest_count=m.harvest_count,
-                bloom_count=m.bloom_count, task_count=m.task_count,
-                top_tasks=m.top_tasks, is_current=m.is_current,
+                month=m.month,
+                month_name=m.month_name,
+                sowing_count=m.sowing_count,
+                harvest_count=m.harvest_count,
+                bloom_count=m.bloom_count,
+                task_count=m.task_count,
+                top_tasks=m.top_tasks,
+                is_current=m.is_current,
             )
             for m in overview.months
         ],
@@ -131,7 +155,9 @@ def create_feed(
     svc: CalendarService = get_calendar_service()
     cats = [CalendarEventCategory(c) for c in body.filters.categories]
     feed = CalendarFeed(
-        name=body.name, tenant_key=ctx.tenant_key, user_key=ctx.user_key,
+        name=body.name,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
         filters=CalendarFeedFilters(categories=cats, site_key=body.filters.site_key),
     )
     created = svc.create_feed(feed)
@@ -170,7 +196,8 @@ def update_feed(
     svc.get_feed(key, tenant_key=ctx.tenant_key)
     cats = [CalendarEventCategory(c) for c in body.filters.categories]
     feed = CalendarFeed(
-        name=body.name, is_active=body.is_active,
+        name=body.name,
+        is_active=body.is_active,
         filters=CalendarFeedFilters(categories=cats, site_key=body.filters.site_key),
     )
     updated = svc.update_feed(key, feed)
