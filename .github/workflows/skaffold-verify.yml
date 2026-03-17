@@ -20,7 +20,7 @@ jobs:
         uses: azure/setup-helm@v4
 
       - name: Setup Skaffold
-        uses: hiberbee/github-action-skaffold@1.31.0
+        uses: hiberbee/github-action-skaffold@1.27.0
         with:
           skaffold-version: 2.14.0
 
