@@ -16,6 +16,7 @@ import FilterListOffIcon from '@mui/icons-material/FilterListOff';
 import SearchIcon from '@mui/icons-material/Search';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -324,6 +325,23 @@ export default function FertilizerListPage() {
         tableState={tableState}
         searchable={false}
         ariaLabel={t('pages.fertilizers.title')}
+        mobileCardRenderer={(r) => (
+          <MobileCard
+            title={r.product_name}
+            subtitle={r.brand || undefined}
+            chips={
+              <>
+                <Chip label={t(`enums.fertilizerType.${r.fertilizer_type}`)} size="small" variant="outlined" />
+                {r.is_organic && <Chip label={t('pages.fertilizers.isOrganic')} size="small" color="success" />}
+                {r.tank_safe && <Chip label={t('pages.fertilizers.tankSafe')} size="small" color="success" />}
+              </>
+            }
+            fields={[
+              { label: 'NPK', value: `${r.npk_ratio[0]}-${r.npk_ratio[1]}-${r.npk_ratio[2]}` },
+              { label: 'EC', value: `${r.ec_contribution_per_ml.toFixed(3)} mS/ml` },
+            ]}
+          />
+        )}
       />
       <FertilizerCreateDialog
         open={createOpen}
