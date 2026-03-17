@@ -4,8 +4,9 @@ LABEL org.opencontainers.image.description="Kamerplanter backend API for plant l
 
 WORKDIR /app
 
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl=7.* \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml .
