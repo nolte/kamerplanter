@@ -119,6 +119,7 @@ plugins:
             Deployment: Deployment
             Kubernetes: Kubernetes
             Helm Charts: Helm Charts
+            ArgoCD: ArgoCD
             CI/CD: CI/CD
             Guides: Guides
             GDD-Berechnung: GDD Calculation
@@ -247,6 +248,7 @@ nav:
       - de/deployment/index.md
       - Kubernetes: de/deployment/kubernetes.md
       - Helm Charts: de/deployment/helm.md
+      - ArgoCD: de/deployment/argocd.md
       - CI/CD: de/deployment/ci-cd.md
   - Guides:
       - de/guides/index.md
