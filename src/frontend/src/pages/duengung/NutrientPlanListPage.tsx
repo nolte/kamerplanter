@@ -11,6 +11,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -186,6 +187,22 @@ export default function NutrientPlanListPage() {
         emptyIllustration={kamiFertilizer}
         tableState={tableState}
         ariaLabel={t('pages.nutrientPlans.title')}
+        mobileCardRenderer={(r) => (
+          <MobileCard
+            title={r.name}
+            subtitle={r.author || undefined}
+            chips={
+              <>
+                {r.is_template && <Chip label={t('pages.nutrientPlans.isTemplate')} size="small" color="primary" />}
+                {r.tags.map((tag) => <Chip key={tag} label={tag} size="small" variant="outlined" />)}
+              </>
+            }
+            fields={[
+              ...(r.recommended_substrate_type ? [{ label: t('pages.nutrientPlans.substrateType'), value: t(`enums.substrateType.${r.recommended_substrate_type}`) }] : []),
+              ...(r.version ? [{ label: t('pages.nutrientPlans.version'), value: r.version }] : []),
+            ]}
+          />
+        )}
       />
       <NutrientPlanCreateDialog
         open={createOpen}
