@@ -63,12 +63,55 @@ def run_seed_auth() -> None:
     membership_repo.create(membership)
     logger.info("demo_membership_created", role="admin")
 
+    # Ensure platform tenant exists and user is platform admin
+    _ensure_platform_admin(user_key, tenant_repo, membership_repo)
+
     logger.info(
         "demo_seed_complete",
         email=demo["email"],
         password=demo["password"],
         tenant_slug=slug,
     )
+
+
+def _ensure_platform_admin(
+    user_key: str,
+    tenant_repo,
+    membership_repo,
+) -> None:
+    """Ensure platform tenant exists and user has admin membership."""
+    platform = tenant_repo.get_by_key("platform")
+    if not platform:
+        platform = Tenant(
+            _key="platform",
+            name="Kamerplanter Platform",
+            slug="platform",
+            tenant_type=TenantType.ORGANIZATION,
+            owner_user_key=user_key,
+            is_active=True,
+            is_platform=True,
+            max_members=999,
+        )
+        tenant_repo.create(platform)
+        logger.info("platform_tenant_created")
+
+    existing_membership = membership_repo.get_by_user_and_tenant(user_key, "platform")
+    if not existing_membership:
+        membership = Membership(
+            user_key=user_key,
+            tenant_key="platform",
+            role=TenantRole.ADMIN,
+            is_active=True,
+        )
+        membership_repo.create(membership)
+        logger.info("platform_admin_membership_created", user_key=user_key)
+
+
+def ensure_platform_admin_for_user(user_key: str) -> None:
+    """Add a user as platform admin. Can be called standalone."""
+    tenant_repo = get_tenant_repo()
+    membership_repo = get_membership_repo()
+    _ensure_platform_admin(user_key, tenant_repo, membership_repo)
 
 
 if __name__ == "__main__":

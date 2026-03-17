@@ -385,10 +385,10 @@ class KamerplanterApi:
     async def async_create_watering_log(
         self, payload: dict[str, Any]
     ) -> dict[str, Any]:
-        """Create a watering log entry (non-tenant-scoped endpoint)."""
+        """Create a watering log entry."""
         return await self._request(
             "POST",
-            "/api/v1/watering-logs",
+            f"{self._tenant_prefix}/watering-logs",
             json=payload,
         )
 

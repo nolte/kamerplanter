@@ -18,3 +18,5 @@ Das Benutzerhandbuch erklärt alle Funktionen von Kamerplanter für Pflanzenzüc
 | [Tankmanagement](tanks.md) | Wassertanks und Befüllungen | REQ-014 |
 | [Kalender](calendar.md) | Kalenderansicht und Aussaatkalender | REQ-015 |
 | [Dashboard](dashboard.md) | Übersicht und Kennzahlen | REQ-009 |
+| [Onboarding-Wizard](onboarding.md) | Geführte Ersteinrichtung mit Starter-Kits und Favoriten | REQ-020 |
+| [Light-Modus](light-mode.md) | Kamerplanter ohne Login für lokale Instanzen | REQ-027 |

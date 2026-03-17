@@ -20,8 +20,10 @@ class ArangoPlantInstanceRepository(IPlantInstanceRepository, BaseArangoReposito
 
     # ── Basic CRUD ────────────────────────────────────────────────────
 
-    def get_all(self, offset: int = 0, limit: int = 50) -> tuple[list[PlantInstance], int]:
-        docs, total = BaseArangoRepository.get_all(self, offset, limit)
+    def get_all(
+        self, offset: int = 0, limit: int = 50, tenant_key: str | None = None,
+    ) -> tuple[list[PlantInstance], int]:
+        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key)
         return [PlantInstance(**self._resolve_phase_name(doc)) for doc in docs], total
 
     def get_by_key(self, key: PlantID) -> PlantInstance | None:

@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from app.common.exceptions import KarenzViolationError, NotFoundError
+from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.quality_scoring_engine import QualityScoringEngine
 from app.domain.engines.readiness_engine import ReadinessEngine
 from app.domain.interfaces.harvest_repository import IHarvestRepository
@@ -90,13 +91,15 @@ class HarvestService:
 
     # ── Harvest Batches (with Karenz-Gate) ──
 
-    def list_batches(self, offset: int = 0, limit: int = 50) -> tuple[list[HarvestBatch], int]:
-        return self._repo.get_all_batches(offset, limit)
+    def list_batches(self, offset: int = 0, limit: int = 50, tenant_key: str = "") -> tuple[list[HarvestBatch], int]:
+        return self._repo.get_all_batches(offset, limit, tenant_key=tenant_key)
 
-    def get_batch(self, key: str) -> HarvestBatch:
+    def get_batch(self, key: str, tenant_key: str = "") -> HarvestBatch:
         batch = self._repo.get_batch_by_key(key)
         if not batch:
             raise NotFoundError("HarvestBatch", key)
+        if tenant_key:
+            verify_tenant_ownership(batch, tenant_key, "HarvestBatch")
         return batch
 
     def create_harvest_batch(self, plant_key: str, batch: HarvestBatch) -> HarvestBatch:

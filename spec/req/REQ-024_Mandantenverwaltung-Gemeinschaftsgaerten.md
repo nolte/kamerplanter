@@ -7,9 +7,17 @@ Kategorie: Plattform & Kollaboration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.2 (Gemeinschaftsgarten-Kollaboration)
-Abhängigkeit: REQ-023 v1.1 (Benutzerverwaltung & Authentifizierung)
+Version: 1.4 (RBAC Permission-Matrix, Platform-Rollen-Differenzierung)
+Abhängigkeit: REQ-023 v1.7 (Service Accounts & RBAC-Erweiterung)
 ```
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 1.4 | 2026-03-17 | **RBAC Permission-Matrix, Platform-Rollen & Tenant-Notfallverwaltung:** (1) Granulare Permission-Matrix (§1a) mit ressourcentyp-spezifischen CRUD-Rechten pro Rolle (admin/grower/viewer). Spezialaktionen (Phasen-Transition, Task-Zuweisung, Pinnwand-Pinnen). Zuweisungsbasierte Write-Kontrolle formalisiert. (2) Platform-Rollen erweitert: `admin` (KA-Admin) + `viewer` (Read-Only Admin-Panel). (3) Tenant-Notfallverwaltung: `orphaned_since` + `suspended_reason` auf Tenant-Modell. Platform-Admin-Permissions für Emergency-Admin, Tenant-/User-Suspendierung. (4) `Permission` Enum + `require_permission()` Dependency. Service Account Integration (REQ-023 v1.7). |
+| 1.3 | 2026-03-16 | **Platform-Tenant & Stammdaten-Scoping:** Neues `is_platform: bool`-Feld auf Tenant. Platform-Tenant als Träger der KA-Admin-Berechtigung. Edge Collection `tenant_has_access` (Species→Tenant) für Sichtbarkeitssteuerung globaler Stammdaten. Auto-Assign-Logik für Tier 1+2 (alle globalen Species automatisch zugewiesen). Kuratierte Zuweisung für Tier 3 (Enterprise). Seed-Daten für Platform-Tenant. Neue User Stories, AQL-Queries, Abnahmekriterien. |
+| 1.2 | 2026-03 | Gemeinschaftsgarten-Kollaboration (DutyRotation, BulletinPost, SharedShoppingList) |
 
 ## 1. Business Case
 
@@ -28,6 +36,14 @@ Abhängigkeit: REQ-023 v1.1 (Benutzerverwaltung & Authentifizierung)
 **User Story (Privater Bereich):** "Als Mitglied eines Gemeinschaftsgartens möchte ich meine privaten Zimmerpflanzen in einem separaten, nur für mich sichtbaren Bereich verwalten — ohne dass die Gemeinschaft Zugriff auf meine Wohnungspflanzen hat."
 
 **User Story (OIDC-Tenant-Zuweisung):** "Als Admin einer Anbauvereinigung möchte ich, dass sich Mitglieder über unseren zentralen Identity Provider (Keycloak) anmelden und automatisch unserem Tenant zugewiesen werden — ohne manuelle Einladung."
+
+<!-- Quelle: Platform-Tenant & Stammdaten-Scoping v1.3 -->
+**User Story (Platform-Tenant):** "Als Plattform-Betreiber möchte ich über einen speziellen Platform-Tenant die globalen Stammdaten (Pflanzenarten, Sorten, Schädlinge, Krankheiten, Behandlungen, Düngemittel, Nährstoffpläne) verwalten und einzelnen Tenants zuweisen können — damit jeder Tenant nur relevante Daten sieht."
+
+**User Story (Stammdaten-Zuweisung):** "Als KA-Admin möchte ich einem Cannabis-Tenant nur Cannabis-bezogene Stammdaten (Species, Schädlinge, Düngemittel) zuweisen und einem Gemüse-Tenant nur Gemüse-bezogene — damit die Nutzer nicht mit irrelevanten Einträgen überflutet werden."
+
+**User Story (Tenant-übergreifende Elemente):** "Als KA-Admin möchte ich globale Düngemittel, Nährstoffpläne, Schädlinge, Krankheiten und Behandlungen pflegen können, die von mehreren Tenants genutzt werden — während jeder Tenant zusätzlich eigene anlegen kann."
+<!-- /Quelle: Platform-Tenant & Stammdaten-Scoping v1.3 -->
 
 <!-- Quelle: Outdoor-Garden-Planner Review G-030 -->
 **User Story (Gießdienst-Rotation):** "Als Gemeinschaftsgarten-Admin möchte ich einen rotierenden Gießdienst einrichten — jede Woche ist ein anderes Mitglied für die Gemeinschaftsbeete zuständig, und die App erinnert automatisch das diensthabende Mitglied."
@@ -77,6 +93,282 @@ Innerhalb eines organisatorischen Tenants können Standorte (Sites, Locations, S
 | **E-Mail-Einladung** | Admin gibt E-Mail ein → System sendet Einladungs-E-Mail mit Link → Empfänger registriert sich oder meldet sich an → wird automatisch dem Tenant mit vorgewählter Rolle hinzugefügt |
 | **Einladungslink** | Admin generiert Link (optional: max. Nutzungen, Ablaufdatum, vordefinierte Rolle) → Link kann geteilt werden (WhatsApp, Aushang) → Jeder mit Link kann beitreten |
 | **OIDC-Auto-Join** | OIDC-Provider hat `default_tenant_key` konfiguriert (REQ-023) → Neue User über diesen Provider werden automatisch dem Tenant hinzugefügt |
+
+<!-- Quelle: RBAC Permission-Matrix v1.4 -->
+### 1a. RBAC Permission-Matrix
+
+Die Permission-Matrix definiert granular, welche Aktionen jede Rolle pro Ressourcentyp ausführen darf. Sie gilt identisch für menschliche User (`account_type: 'human'`) und Service Accounts (`account_type: 'service'`, REQ-023 v1.7).
+
+#### 1a.1 Tenant-scoped Rollen — Ressourcen-Permissions
+
+**Legende:**
+- **C** = Create, **R** = Read, **U** = Update, **D** = Delete
+- **own** = nur eigene/zugewiesene Ressourcen, **all** = alle Ressourcen im Tenant
+- **community** = Gemeinschaftsressourcen (ohne LocationAssignment)
+- ✅ = erlaubt, ❌ = verboten, 🔒 = nur Admin
+
+| Ressource (Collection) | Admin | Grower | Viewer | Spezialaktionen |
+|------------------------|-------|--------|--------|-----------------|
+| **Sites** | CRUD all | CR all, U own+community, ❌D | R all | — |
+| **Locations** | CRUD all | CR all, U own+community, ❌D | R all | Standort-Hierarchie: Location-Erstellung erbt Tenant-Zugehörigkeit der Parent-Site |
+| **Slots** | CRUD all | CR (in own/community Location), U own+community, ❌D | R all | — |
+| **Plant Instances** | CRUD all | CR all, U own+community, ❌D | R all | **Phasen-Transition:** admin, grower (own+community) |
+| **Planting Runs** | CRUD all | CR all, U own, ❌D | R all | **State-Transition:** admin, grower (own). **Batch-Ops:** admin, grower (own) |
+| **Tasks** | CRUD all | CR all, U assigned+own, ❌D | R all | **Zuweisen (`assigned_to`):** 🔒 admin. **Status ändern:** admin, grower (wenn assigned) |
+| **Harvest Batches** | CRUD all | CR all, U own, ❌D | R all | **Quality Assessment:** admin, grower (own) |
+| **Tanks** | CRUD all | CR all, U all, ❌D | R all | **Tank-State erstellen:** admin, grower |
+| **Fertilizers** (tenant-eigen) | CRUD all | CR all, R all, ❌U ❌D | R all | Globale Fertilizers: nur lesen (alle Rollen) |
+| **Nutrient Plans** (tenant-eigen) | CRUD all | CR all, U own, ❌D | R all | Globale Pläne: nur lesen |
+| **Feeding Events** | CRUD all | CR all, U own, ❌D | R all | — |
+| **Watering Events** | CRUD all | CR all, U own, ❌D | R all | **Quick-Confirm:** admin, grower |
+| **Watering Logs** | CRUD all | CR all, U own, ❌D | R all | — |
+| **IPM Inspections** | CRUD all | CR all, U own, ❌D | R all | — |
+| **Treatment Applications** | CRUD all | CR all, U own, ❌D | R all | **Karenz-Gate:** automatisch (kein Rollen-Override) |
+| **Care Profiles** | CRUD all | R all, U own (confirm/snooze), ❌CD | R all | **Care Confirmation:** admin, grower (own) |
+| **Workflow Templates** | CRUD all | R all, ❌CUD | R all | Custom-Templates: nur Admin |
+| **Substrate Types** | CRUD all | R all, ❌CUD | R all | — |
+| **Import Jobs** | CRUD all | CR all, R own, ❌UD | R all | **Confirm Import:** admin, grower (own) |
+
+#### 1a.2 Tenant-Verwaltungs-Permissions
+
+| Aktion | Admin | Grower | Viewer |
+|--------|-------|--------|--------|
+| **Tenant-Einstellungen ändern** | ✅ | ❌ | ❌ |
+| **Mitglieder auflisten** | ✅ | ✅ (Name + Rolle sichtbar) | ✅ (Name + Rolle sichtbar) |
+| **Mitglied einladen** | ✅ | ❌ | ❌ |
+| **Mitglied-Rolle ändern** | ✅ | ❌ | ❌ |
+| **Mitglied entfernen** | ✅ (nicht letzter Admin) | ❌ | ❌ |
+| **Einladungslinks erstellen** | ✅ | ❌ | ❌ |
+| **Einladungslinks revoken** | ✅ | ❌ | ❌ |
+| **LocationAssignment erstellen** | ✅ | ❌ | ❌ |
+| **LocationAssignment ändern** | ✅ | ❌ | ❌ |
+| **LocationAssignment entfernen** | ✅ | ❌ | ❌ |
+| **Service Accounts verwalten** | ✅ (REQ-023 v1.7) | ❌ | ❌ |
+| **Tenant löschen** | ✅ (Soft-Delete) | ❌ | ❌ |
+| **Eigene Membership verlassen** | ✅ (nicht letzter Admin) | ✅ | ✅ |
+
+#### 1a.3 Kollaborations-Permissions (Gemeinschaftsgarten)
+
+| Aktion | Admin | Grower | Viewer |
+|--------|-------|--------|--------|
+| **Duty-Rotation erstellen** | ✅ | ❌ | ❌ |
+| **Duty-Rotation bearbeiten** | ✅ | ❌ | ❌ |
+| **Duty-Rotation anzeigen** | ✅ | ✅ | ✅ |
+| **Am Dienst teilnehmen** | ✅ | ✅ (wenn in `rotation_members`) | ❌ |
+| **Dienst-Tausch anfragen** | ✅ | ✅ | ❌ |
+| **Dienst-Tausch akzeptieren** | ✅ | ✅ | ❌ |
+| **Pinnwand-Post erstellen** | ✅ | ✅ | ❌ |
+| **Pinnwand-Post kommentieren** | ✅ | ✅ | ❌ |
+| **Pinnwand-Post lesen** | ✅ | ✅ | ✅ |
+| **Pinnwand-Post pinnen** | ✅ | ❌ | ❌ |
+| **Pinnwand-Post löschen** | ✅ (alle), Grower (eigene) | ✅ (eigene) | ❌ |
+| **Shopping-List erstellen** | ✅ | ❌ | ❌ |
+| **Shopping-List Items hinzufügen** | ✅ | ✅ | ❌ |
+| **Shopping-List anzeigen** | ✅ | ✅ | ✅ |
+| **Shopping-List abschließen** | ✅ | ❌ | ❌ |
+
+#### 1a.4 Platform-Rollen — Differenziertes Admin-Panel
+
+Das Platform-Tenant-Modell (§1.3) wird um die `viewer`-Rolle erweitert:
+
+| Platform-Rolle | Schlüssel | Rechte |
+|---------------|-----------|--------|
+| **Platform-Admin** | `admin` im Platform-Tenant | Voller KA-Admin-Zugriff: Globale Stammdaten CRUD, `tenant_has_access`-Verwaltung, Tenant-Übersicht, OIDC-Provider-Konfiguration, Platform Service Accounts, Species-Promotion, User-Übersicht |
+| **Platform-Viewer** | `viewer` im Platform-Tenant | Read-Only Admin-Panel: Globale Stammdaten lesen, Tenant-Übersicht (read-only), OIDC-Provider-Liste, User-Statistiken. Kein Schreibzugriff auf globale Daten. Typischer Use-Case: Monitoring-Dashboards, Audit. |
+
+**Platform-Permission-Matrix:**
+
+| Aktion | Platform-Admin | Platform-Viewer |
+|--------|---------------|-----------------|
+| **Globale Species/Cultivars CRUD** | ✅ | R only |
+| **`tenant_has_access`-Kanten verwalten** | ✅ | ❌ |
+| **Species promoten (tenant → global)** | ✅ | ❌ |
+| **Alle Tenants auflisten** | ✅ | ✅ (read-only) |
+| **Tenant-Details anzeigen** | ✅ | ✅ (read-only) |
+| **OIDC-Provider konfigurieren** | ✅ | R only |
+| **Platform Service Accounts verwalten** | ✅ | ❌ |
+| **User-Übersicht** | ✅ | ✅ (read-only) |
+| **Globale IPM-Daten (Pests, Diseases, Treatments) CRUD** | ✅ | R only |
+| **Globale Fertilizers/NutrientPlans CRUD** | ✅ | R only |
+<!-- Quelle: Tenant-Notfallverwaltung v1.7 -->
+| **Verwaiste Tenants einsehen** | ✅ | ✅ (read-only) |
+| **Notfall-Admin in verwaistem Tenant ernennen** | ✅ | ❌ |
+| **Tenant suspendieren** | ✅ | ❌ |
+| **Tenant reaktivieren** | ✅ | ❌ |
+| **User suspendieren** | ✅ | ❌ |
+| **User reaktivieren** | ✅ | ❌ |
+| **Tenant-Mitgliederliste einsehen (Cross-Tenant)** | ✅ | ✅ (read-only) |
+<!-- /Quelle: Tenant-Notfallverwaltung v1.7 -->
+
+#### 1a.5 Zuweisungsbasierte Write-Kontrolle — Formale Regeln
+
+Die informelle Beschreibung "zugewiesene und gemeinschaftliche Ressourcen" wird wie folgt formalisiert:
+
+```
+can_write(user, resource, tenant) =
+    membership.role == 'admin'
+    OR (
+        membership.role == 'grower'
+        AND (
+            resource hat KEINE LocationAssignment im Tenant    # Gemeinschaftsressource
+            OR resource.location hat LocationAssignment für user  # Zugewiesene Ressource
+            OR resource.created_by == user._key                 # Eigene Ressource
+        )
+    )
+```
+
+**Sonderfälle:**
+- **Pflanzen ohne Standort** (z.B. frisch importiert): Gemeinschaftsressource → jeder Grower darf bearbeiten
+- **Tasks:** `assigned_to` überschreibt LocationAssignment — ein zugewiesener Task darf nur vom Assignee und Admins bearbeitet werden
+- **LocationAssignment mit Zeitfenster:** `valid_from`/`valid_until` wird geprüft — außerhalb des Zeitraums gilt die Zuweisung nicht
+- **Service Accounts (REQ-023 v1.7):** Identische Regeln — ein Service Account mit `grower`-Rolle hat dieselben Write-Rechte wie ein menschlicher Grower. LocationAssignment ist für Service Accounts typischerweise nicht gesetzt → Zugriff auf alle Gemeinschaftsressourcen.
+
+#### 1a.6 Backend-Dependency: `require_permission()`
+
+Die bestehende `require_role()`-Dependency (REQ-023 §3.4) wird durch eine granularere `require_permission()`-Dependency ergänzt:
+
+```python
+class Permission(str, Enum):
+    """Granulare Permissions für RBAC-Prüfung."""
+    # Tenant-Verwaltung
+    MANAGE_MEMBERS = "manage_members"
+    MANAGE_INVITATIONS = "manage_invitations"
+    MANAGE_ASSIGNMENTS = "manage_assignments"
+    MANAGE_TENANT_SETTINGS = "manage_tenant_settings"
+    MANAGE_SERVICE_ACCOUNTS = "manage_service_accounts"
+    DELETE_TENANT = "delete_tenant"
+
+    # Ressourcen
+    CREATE_RESOURCE = "create_resource"
+    READ_RESOURCE = "read_resource"
+    UPDATE_RESOURCE = "update_resource"
+    DELETE_RESOURCE = "delete_resource"
+
+    # Spezialaktionen
+    ASSIGN_TASK = "assign_task"
+    TRANSITION_PHASE = "transition_phase"
+    TRANSITION_RUN_STATE = "transition_run_state"
+    CONFIRM_CARE = "confirm_care"
+    PIN_BULLETIN = "pin_bulletin"
+    MANAGE_DUTY_ROTATION = "manage_duty_rotation"
+    MANAGE_SHOPPING_LIST = "manage_shopping_list"
+
+    # Platform
+    MANAGE_GLOBAL_MASTER_DATA = "manage_global_master_data"
+    MANAGE_TENANT_ACCESS = "manage_tenant_access"
+    PROMOTE_TO_GLOBAL = "promote_to_global"
+    MANAGE_OIDC_PROVIDERS = "manage_oidc_providers"
+    MANAGE_PLATFORM_SERVICE_ACCOUNTS = "manage_platform_service_accounts"
+    VIEW_PLATFORM_ADMIN_PANEL = "view_platform_admin_panel"
+
+    # Platform — Tenant-Notfallverwaltung (REQ-023 v1.7 §5a.5)
+    APPOINT_EMERGENCY_ADMIN = "appoint_emergency_admin"
+    SUSPEND_TENANT = "suspend_tenant"
+    REACTIVATE_TENANT = "reactivate_tenant"
+    SUSPEND_USER = "suspend_user"
+    REACTIVATE_USER = "reactivate_user"
+    VIEW_TENANT_MEMBERS_CROSS = "view_tenant_members_cross"
+
+
+# Rolle → erlaubte Permissions
+ROLE_PERMISSIONS: dict[str, set[Permission]] = {
+    "admin": {
+        Permission.MANAGE_MEMBERS,
+        Permission.MANAGE_INVITATIONS,
+        Permission.MANAGE_ASSIGNMENTS,
+        Permission.MANAGE_TENANT_SETTINGS,
+        Permission.MANAGE_SERVICE_ACCOUNTS,
+        Permission.DELETE_TENANT,
+        Permission.CREATE_RESOURCE,
+        Permission.READ_RESOURCE,
+        Permission.UPDATE_RESOURCE,
+        Permission.DELETE_RESOURCE,
+        Permission.ASSIGN_TASK,
+        Permission.TRANSITION_PHASE,
+        Permission.TRANSITION_RUN_STATE,
+        Permission.CONFIRM_CARE,
+        Permission.PIN_BULLETIN,
+        Permission.MANAGE_DUTY_ROTATION,
+        Permission.MANAGE_SHOPPING_LIST,
+    },
+    "grower": {
+        Permission.CREATE_RESOURCE,
+        Permission.READ_RESOURCE,
+        Permission.UPDATE_RESOURCE,   # mit Zuweisungs-Prüfung (§1a.5)
+        Permission.TRANSITION_PHASE,  # mit Zuweisungs-Prüfung
+        Permission.TRANSITION_RUN_STATE,
+        Permission.CONFIRM_CARE,
+    },
+    "viewer": {
+        Permission.READ_RESOURCE,
+    },
+}
+
+# Platform-Rollen
+PLATFORM_ROLE_PERMISSIONS: dict[str, set[Permission]] = {
+    "admin": {
+        Permission.MANAGE_GLOBAL_MASTER_DATA,
+        Permission.MANAGE_TENANT_ACCESS,
+        Permission.PROMOTE_TO_GLOBAL,
+        Permission.MANAGE_OIDC_PROVIDERS,
+        Permission.MANAGE_PLATFORM_SERVICE_ACCOUNTS,
+        Permission.VIEW_PLATFORM_ADMIN_PANEL,
+        # Tenant-Notfallverwaltung (REQ-023 v1.7 §5a.5)
+        Permission.APPOINT_EMERGENCY_ADMIN,
+        Permission.SUSPEND_TENANT,
+        Permission.REACTIVATE_TENANT,
+        Permission.SUSPEND_USER,
+        Permission.REACTIVATE_USER,
+        Permission.VIEW_TENANT_MEMBERS_CROSS,
+    },
+    "viewer": {
+        Permission.VIEW_PLATFORM_ADMIN_PANEL,
+        Permission.VIEW_TENANT_MEMBERS_CROSS,  # Read-only: Mitgliederlisten einsehen
+    },
+}
+
+
+def require_permission(permission: Permission):
+    """Factory für FastAPI-Dependency die eine bestimmte Permission erfordert.
+    Prüft Membership-Rolle des aktuellen Users im aktuellen Tenant und
+    leitet Permission aus ROLE_PERMISSIONS ab."""
+
+    def dependency(
+        current_user: User = Depends(get_current_user),
+        membership: Membership = Depends(get_current_membership),
+    ) -> User:
+        role_perms = ROLE_PERMISSIONS.get(membership.role, set())
+        if permission not in role_perms:
+            raise ForbiddenError(
+                f"Permission '{permission.value}' required. "
+                f"Your role '{membership.role}' does not have this permission."
+            )
+        return current_user
+
+    return Depends(dependency)
+```
+
+**Verwendung in Routern:**
+
+```python
+@router.post("/t/{slug}/tasks/{task_key}/assign")
+def assign_task(
+    task_key: str,
+    assignee_key: str,
+    current_user: User = require_permission(Permission.ASSIGN_TASK),
+):
+    ...
+
+@router.delete("/t/{slug}/sites/{site_key}")
+def delete_site(
+    site_key: str,
+    current_user: User = require_permission(Permission.DELETE_RESOURCE),
+):
+    ...
+```
+
+**Kompatibilität:** `require_role()` bleibt als Convenience-Wrapper bestehen — delegiert intern an `require_permission()`. Bestehender Code muss nicht sofort migriert werden.
+<!-- /Quelle: RBAC Permission-Matrix v1.4 -->
 
 ### 1.1 Szenarien
 
@@ -222,11 +514,18 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 aktiven Mitgliedern
     - `name: str` (Anzeigename, z.B. "Grüne Oase e.V.")
     - `slug: str` (URL-sicher, UNIQUE, z.B. `gruene-oase`)
     - `type: Literal['personal', 'organization']`
+    <!-- Quelle: Platform-Tenant v1.3 -->
+    - `is_platform: bool` (Default: `false`) — `true` nur für den einen Platform-Tenant. Platform-Tenant-Admins haben KA-Admin-Rechte (REQ-023 v1.6). Wird beim Seeding automatisch erstellt. Reguläre Tenants können `is_platform` nicht auf `true` setzen.
+    <!-- /Quelle: Platform-Tenant v1.3 -->
     - `description: Optional[str]` (Beschreibung, z.B. "Gemeinschaftsgarten in Berlin-Kreuzberg")
     - `avatar_url: Optional[str]` (Logo/Bild der Organisation)
     - `settings: dict` (Tenant-spezifische Einstellungen, z.B. Default-Sprache, Zeitzone)
     - `max_members: Optional[int]` (Mitgliederlimit, `null` = unbegrenzt)
     - `status: Literal['active', 'suspended', 'deleted']`
+    <!-- Quelle: Tenant-Notfallverwaltung v1.4 -->
+    - `orphaned_since: Optional[datetime]` (Zeitpunkt seit dem der Tenant keine aktiven Admins hat. `null` = Tenant hat aktive Admins. Wird von Celery-Task wöchentlich geprüft und bei Emergency-Admin-Ernennung auf `null` zurückgesetzt.)
+    - `suspended_reason: Optional[str]` (Grund der Suspendierung durch Platform-Admin. `null` = nicht suspendiert oder kein Grund angegeben.)
+    <!-- /Quelle: Tenant-Notfallverwaltung v1.4 -->
     - `created_at: datetime`
     - `updated_at: datetime`
 
@@ -369,19 +668,84 @@ Alle bestehenden Ressourcen-Collections erhalten ein `tenant_key: str`-Feld:
 | `care_profiles` | Node | `tenant_key` (transitiv über PlantInstance) |
 | `workflow_templates` | Node | `tenant_key` (Custom-Templates pro Tenant) |
 
-**Globale Collections (Tenant-unabhängig):**
+<!-- Quelle: Platform-Tenant & Stammdaten-Scoping v1.3 -->
+**Globale Collections mit Stammdaten-Scoping (`tenant_has_access`):**
+
+Die folgenden Collections enthalten globale Referenzdaten, die per `tenant_has_access`-Edge einzelnen Tenants zugewiesen werden. Zusätzlich können Tenants eigene Einträge anlegen (`origin: 'tenant'`, `tenant_key` gesetzt):
+
+| Collection | Sichtbarkeit | Tenant-eigene Einträge | Overlay |
+|-----------|-------------|----------------------|---------|
+| `species` | Via `tenant_has_access` Edge | Ja (`origin: 'tenant'`) | `tenant_species_config` (REQ-001 v4.0) |
+| `cultivars` | Transitiv über Species | Ja (`origin: 'tenant'`) | `tenant_cultivar_config` (REQ-001 v4.0) |
+| `pests` | Via `tenant_has_access` Edge | Ja (`origin: 'tenant'`) | — (Phase 2) |
+| `diseases` | Via `tenant_has_access` Edge | Ja (`origin: 'tenant'`) | — (Phase 2) |
+| `treatments` | Via `tenant_has_access` Edge | Ja (`origin: 'tenant'`) | — (Phase 2) |
+| `fertilizers` | Via `tenant_has_access` Edge | Ja (`origin: 'tenant'`) | — (Phase 2) |
+| `nutrient_plans` | Via `tenant_has_access` Edge | Ja (`origin: 'tenant'`) | — (Phase 2) |
+
+**Erweiterung bestehender Collections:**
+
+Die Collections `pests`, `diseases`, `treatments`, `fertilizers` und `nutrient_plans` erhalten analog zu Species/Cultivar (REQ-001 v4.0) folgende neue Felder:
+
+```python
+# Neue Felder auf pests, diseases, treatments, fertilizers, nutrient_plans:
+origin: Literal['system', 'enrichment', 'import', 'tenant']  # Default: 'system'
+tenant_key: Optional[str]  # Default: null (global)
+```
+
+- **Global (`tenant_key: null`):** Von KA-Admin gepflegt, sichtbar für Tenants mit `tenant_has_access`-Kante
+- **Tenant-eigen (`tenant_key` gesetzt):** Von Tenant-Admin erstellt, nur im eigenen Tenant sichtbar
+- Promotion (tenant → global) über KA-Admin wie bei Species (in-place: `origin` → `'system'`, `tenant_key` → `null`)
+
+**`tenant_has_access`-Edge unterstützt mehrere Collection-Typen:**
+
+```
+tenant_has_access Edge Collection:
+  _from: species/{key}        → _to: tenants/{key}
+  _from: pests/{key}          → _to: tenants/{key}
+  _from: diseases/{key}       → _to: tenants/{key}
+  _from: treatments/{key}     → _to: tenants/{key}
+  _from: fertilizers/{key}    → _to: tenants/{key}
+  _from: nutrient_plans/{key} → _to: tenants/{key}
+```
+
+**Hinweis:** Cultivars werden **nicht** direkt über `tenant_has_access` zugewiesen — sie sind transitiv über ihre Species sichtbar.
+
+**Ungefilterte globale Collections (kein Scoping):**
 
 | Collection | Begründung |
 |-----------|-----------|
-| `botanical_families` | Botanische Stammdaten sind global/wissenschaftlich |
-| `species` | Arten sind global (GBIF/Perenual) |
-| `cultivars` | Sorten sind global (können von mehreren Tenants genutzt werden) |
-| `pests`, `diseases`, `treatments` | IPM-Stammdaten sind global |
+| `botanical_families` | Rein taxonomische Referenzdaten, kein operativer Nutzen zum Einschränken |
 | `users` | User-Accounts existieren unabhängig von Tenants |
 | `oidc_provider_configs` | System-Level-Konfiguration |
 
+**Auto-Assign-Logik:**
+
+| Tier | Verhalten |
+|------|-----------|
+| **Tier 1 (Light-Modus)** | Alle globalen Stammdaten werden automatisch dem System-Tenant zugewiesen (REQ-027 v1.1) |
+| **Tier 2 (Multi-User, kleine Instanzen)** | Bei Tenant-Erstellung werden automatisch `tenant_has_access`-Kanten für **alle** globalen Stammdaten erstellt. Kein manuelles Kuratieren nötig. |
+| **Tier 3 (Enterprise)** | KA-Admin kuratiert Zuweisungen aktiv über das Admin-Panel. Bei Tenant-Erstellung werden **keine** automatischen Kanten erstellt — KA-Admin weist gezielt zu. |
+
+Die Entscheidung zwischen Tier 2 und Tier 3 wird über ein neues Tenant-Setting gesteuert:
+
+```python
+# Tenant.settings Erweiterung
+{
+    "auto_assign_master_data": true  # Default: true (Tier 1+2), false für Enterprise
+}
+```
+
+Alternativ kann der KA-Admin dies global konfigurieren:
+
+```python
+# Settings (Environment Variable)
+KAMERPLANTER_AUTO_ASSIGN_MASTER_DATA: bool = True  # Default: True
+```
+<!-- /Quelle: Platform-Tenant & Stammdaten-Scoping v1.3 -->
+
 **Hinweis zu Seed-Daten in Tenant-scoped Collections:**
-Einige Tenant-scoped Collections enthalten vorinstallierte Seed-Daten (z.B. `workflow_templates` mit 3 Workflows/16 Task-Templates aus REQ-006, `fertilizers` mit Standard-Düngern). Bei Erstellung eines neuen Tenants werden die System-Seed-Daten **als Kopie** in den Tenant übernommen (`tenant_key` wird gesetzt). Der Tenant-Admin kann diese anschließend anpassen oder löschen. Globale Stammdaten (Species, Cultivars, IPM) werden hingegen **referenziert, nicht kopiert** — alle Tenants teilen sich dieselben botanischen Daten.
+Einige Tenant-scoped Collections enthalten vorinstallierte Seed-Daten (z.B. `workflow_templates` mit 3 Workflows/16 Task-Templates aus REQ-006). Bei Erstellung eines neuen Tenants werden die System-Seed-Daten **als Kopie** in den Tenant übernommen (`tenant_key` wird gesetzt). Der Tenant-Admin kann diese anschließend anpassen oder löschen. Globale Stammdaten (Species, Cultivars, IPM, Fertilizer, NutrientPlans) werden hingegen **referenziert via `tenant_has_access`-Kanten, nicht kopiert**.
 
 ### Indizes:
 
@@ -893,10 +1257,70 @@ function useCanEditLocation(locationKey: string): boolean {
       "_user": "demo@kamerplanter.local",
       "_tenant": "gemeinschaftsgarten-sonnenschein",
       "role": "admin"
+    },
+    {
+      "_user": "demo@kamerplanter.local",
+      "_tenant": "platform",
+      "role": "admin",
+      "_comment": "Demo-User ist auch KA-Admin"
     }
   ]
 }
 ```
+
+<!-- Quelle: Platform-Tenant & Stammdaten-Scoping v1.3 -->
+### 5.2 Platform-Tenant Seed-Daten
+
+Der Platform-Tenant wird beim ersten App-Start automatisch erstellt (idempotent):
+
+```python
+PLATFORM_TENANT = Tenant(
+    key="platform",
+    name="Kamerplanter Admin",
+    slug="platform",
+    type="organization",
+    is_platform=True,
+    description="Plattform-Administration: Globale Stammdaten, Tenant-Zuweisungen",
+    status="active",
+    max_members=None,
+    settings={"auto_assign_master_data": True},
+    created_at=datetime.now(UTC),
+    updated_at=datetime.now(UTC),
+)
+```
+
+**Seed-Logik:**
+- Wird in `seed_initial_data()` erstellt (beide Modi: light + full)
+- Idempotent: Doppelter Aufruf erzeugt keine Duplikate
+- Im Light-Modus: System-User erhält automatisch admin-Membership im Platform-Tenant
+- Im Full-Modus: Erster registrierter Admin-User sollte manuell als Platform-Admin hinzugefügt werden (oder über Environment Variable `KAMERPLANTER_INITIAL_ADMIN_EMAIL` beim ersten Start)
+
+### 5.3 Auto-Assign Seed-Logik
+
+Bei `auto_assign_master_data=true` (Default) werden bei Tenant-Erstellung automatisch `tenant_has_access`-Kanten für alle globalen Stammdaten erstellt:
+
+```python
+def auto_assign_all_master_data(tenant_key: str, db: StandardDatabase) -> int:
+    """Erstellt tenant_has_access-Kanten für alle globalen Stammdaten.
+    Gibt die Anzahl erstellter Kanten zurück."""
+    edge_col = db.collection("tenant_has_access")
+    count = 0
+    for collection_name in ["species", "pests", "diseases", "treatments", "fertilizers", "nutrient_plans"]:
+        col = db.collection(collection_name)
+        for doc in col.find({"tenant_key": None}):  # Nur globale Einträge
+            edge_key = f"{doc['_key']}__{tenant_key}"
+            if not edge_col.has(edge_key):
+                edge_col.insert({
+                    "_key": edge_key,
+                    "_from": f"{collection_name}/{doc['_key']}",
+                    "_to": f"tenants/{tenant_key}",
+                    "assigned_at": datetime.now(UTC).isoformat(),
+                    "assigned_by": None,
+                })
+                count += 1
+    return count
+```
+<!-- /Quelle: Platform-Tenant & Stammdaten-Scoping v1.3 -->
 
 ## 6. Abnahmekriterien
 
@@ -922,6 +1346,45 @@ function useCanEditLocation(locationKey: string): boolean {
 | AK-16 | Tenant-Löschung (Soft-Delete) setzt `status: deleted` und deaktiviert alle Memberships | Integration |
 | AK-17 | Task-Zuweisung (`assigned_to`) im Tenant-Kontext: nur Mitglieder des Tenants wählbar | Integration |
 | AK-18 | Persönlicher Tenant ist für andere User unsichtbar | Integration |
+<!-- Quelle: Platform-Tenant & Stammdaten-Scoping v1.3 -->
+| AK-19 | Platform-Tenant (`is_platform: true`) wird beim App-Start automatisch erstellt (idempotent) | Integration |
+| AK-20 | `is_platform: true` kann nur auf dem Platform-Tenant gesetzt sein — reguläre Tenants lehnen `is_platform=true` ab | Unit |
+| AK-21 | Bei Tenant-Erstellung mit `auto_assign_master_data=true` werden `tenant_has_access`-Kanten für alle globalen Stammdaten automatisch erstellt | Integration |
+| AK-22 | `tenant_has_access`-Kanten werden für Species, Pests, Diseases, Treatments, Fertilizers, NutrientPlans erstellt | Integration |
+| AK-23 | Cultivars sind transitiv sichtbar — keine eigenen `tenant_has_access`-Kanten | Unit |
+| AK-24 | BotanicalFamilies bleiben ungefiltert (kein `tenant_has_access`) | Unit |
+| AK-25 | Tenant-Admin kann eigene Pests, Diseases, Treatments, Fertilizers, NutrientPlans anlegen (`origin: 'tenant'`) | Integration |
+| AK-26 | Tenant-eigene Stammdaten sind für andere Tenants unsichtbar | Integration |
+| AK-27 | KA-Admin kann Tenant-eigene Stammdaten zu global promoten (in-place: `origin` → `'system'`, `tenant_key` → `null`) | Integration |
+| AK-28 | Demo-User hat Platform-Admin-Membership in Seed-Daten | Seed-Validation |
+<!-- /Quelle: Platform-Tenant & Stammdaten-Scoping v1.3 -->
+<!-- Quelle: RBAC Permission-Matrix v1.4 -->
+| AK-29 | Permission-Matrix: Admin hat alle Permissions (`ROLE_PERMISSIONS['admin']` enthält alle Tenant-Permissions) | Unit |
+| AK-30 | Permission-Matrix: Grower kann Ressourcen erstellen und eigene/gemeinschaftliche bearbeiten, aber nicht löschen | Unit + Integration |
+| AK-31 | Permission-Matrix: Viewer hat ausschließlich `READ_RESOURCE` Permission | Unit |
+| AK-32 | Permission-Matrix: Grower kann Tasks nur bearbeiten wenn `assigned_to == user_key` oder Gemeinschaftsressource | Integration |
+| AK-33 | Permission-Matrix: Nur Admin kann Tasks zuweisen (`ASSIGN_TASK` Permission) | Integration |
+| AK-34 | Permission-Matrix: Nur Admin kann Pinnwand-Posts pinnen (`PIN_BULLETIN` Permission) | Integration |
+| AK-35 | Permission-Matrix: Grower kann eigene Pinnwand-Posts löschen, Admin kann alle löschen | Integration |
+| AK-36 | `require_permission()` Dependency gibt 403 mit klarer Fehlermeldung bei fehlender Permission | Unit + Integration |
+| AK-37 | `require_permission()` funktioniert identisch für `account_type: 'human'` und `account_type: 'service'` | Integration |
+| AK-38 | Platform-Viewer (`viewer` im Platform-Tenant) kann Admin-Panel read-only sehen, aber keine Daten ändern | Integration |
+| AK-39 | Platform-Viewer kann keine `tenant_has_access`-Kanten erstellen oder löschen | Integration |
+| AK-40 | Platform-Viewer kann keine Species promoten oder globale Stammdaten ändern | Integration |
+| AK-41 | Zuweisungsbasierte Write-Kontrolle: Grower kann Gemeinschaftsressource (keine LocationAssignment) bearbeiten | Integration |
+| AK-42 | Zuweisungsbasierte Write-Kontrolle: Grower kann NICHT die Ressource eines anderen zugewiesenen Growers bearbeiten | Integration |
+| AK-43 | Zuweisungsbasierte Write-Kontrolle: LocationAssignment mit abgelaufenem `valid_until` wird ignoriert | Unit + Integration |
+| AK-44 | Service Account mit `grower`-Rolle hat identische Zugriffsmuster wie menschlicher Grower (keine LocationAssignment → Gemeinschaftszugriff) | Integration |
+<!-- /Quelle: RBAC Permission-Matrix v1.4 -->
+<!-- Quelle: Tenant-Notfallverwaltung v1.4 -->
+| AK-45 | Platform-Admin kann Mitgliederliste eines fremden Tenants einsehen (`VIEW_TENANT_MEMBERS_CROSS`) | Integration |
+| AK-46 | Platform-Viewer kann Mitgliederliste eines fremden Tenants read-only einsehen | Integration |
+| AK-47 | Suspendierter Tenant: TenantSwitcher zeigt Tenant ausgegraut mit Hinweis "Suspendiert" | E2E |
+| AK-48 | Suspendierter Tenant: Kein Zugriff auf Ressourcen (403 mit klarer Fehlermeldung) | Integration |
+| AK-49 | `APPOINT_EMERGENCY_ADMIN`, `SUSPEND_TENANT`, `REACTIVATE_TENANT`, `SUSPEND_USER`, `REACTIVATE_USER` sind in `PLATFORM_ROLE_PERMISSIONS['admin']` enthalten | Unit |
+| AK-50 | `VIEW_TENANT_MEMBERS_CROSS` ist in `PLATFORM_ROLE_PERMISSIONS['viewer']` enthalten | Unit |
+| AK-51 | Platform-Viewer hat KEINE Permissions für `APPOINT_EMERGENCY_ADMIN`, `SUSPEND_TENANT` etc. | Unit |
+<!-- /Quelle: Tenant-Notfallverwaltung v1.4 -->
 
 ### Frontend-Kriterien:
 
@@ -941,7 +1404,7 @@ function useCanEditLocation(locationKey: string): boolean {
 
 | REQ/NFR | Bezug |
 |---------|-------|
-| **REQ-023** | Benutzerverwaltung — User-Entität, JWT-Token mit `tenant_roles` |
+| **REQ-023 v1.7** | Benutzerverwaltung — User-Entität, JWT-Token mit `tenant_roles`, `account_type`, Service Accounts |
 | REQ-002 | Standortverwaltung — Site/Location/Slot-Hierarchie für Parzellen-Zuweisung |
 | REQ-006 | Aufgabenplanung — Task.assigned_to für Aufgaben-Delegation |
 | NFR-001 | Architektur-Layer |
@@ -980,9 +1443,18 @@ function useCanEditLocation(locationKey: string): boolean {
 - Duty-Rotation (rotierende Dienstpläne, z.B. Gießdienst) mit Tausch-Funktion
 - Pinnwand / Bulletin-Board (Posts, Kommentare, Reaktionen, Pinned-Posts)
 - Gemeinsame Einkaufslisten (Sammelbestellungen koordinieren)
+<!-- Quelle: RBAC Permission-Matrix v1.4 -->
+- Granulare RBAC Permission-Matrix (§1a) mit ressourcentyp-spezifischen CRUD-Rechten pro Rolle
+- Zuweisungsbasierte Write-Kontrolle formal definiert (§1a.5)
+- Platform-Rollen-Differenzierung: `admin` (KA-Admin) und `viewer` (Read-Only Admin-Panel)
+- `Permission` Enum und `require_permission()` FastAPI-Dependency (§1a.6)
+- Service Account Integration: Permission-Matrix gilt identisch für `account_type: 'human'` und `'service'`
+- `orphaned_since` und `suspended_reason` auf Tenant-Modell
+- Platform-Admin-Notfallrechte: Emergency-Admin, Tenant-/User-Suspendierung (REQ-023 §5a.5)
+<!-- /Quelle: RBAC Permission-Matrix v1.4 -->
 
 **Nicht in Scope (bewusst ausgeklammert):**
-- Fein-granulare Permissions (z.B. "darf nur Gießen-Tasks erstellen") → 3 Rollen genügen initial
+- **Attribut-basiertes Access Control (ABAC)** — z.B. "darf nur Gießen-Tasks erstellen" oder zeitlich beschränkte Permissions → 3 Rollen + Permission-Matrix genügen
 - Audit-Log (wer hat was geändert) → zukünftige REQ
 - Cross-Tenant-Ressourcen-Sharing (z.B. geteilte Düngerliste) → Resourcen sind immer tenant-scoped
 - Tenant-Billing / Abrechnung → SaaS-Modell zukünftig
@@ -990,3 +1462,8 @@ function useCanEditLocation(locationKey: string): boolean {
 - Automatische Parzellen-Rotation (saisonaler Wechsel der Zuweisungen) → manuell
 - Echtzeit-Chat/Direct-Messaging zwischen einzelnen Mitgliedern → externe Tools (WhatsApp, Signal); Pinnwand deckt asynchrone Kommunikation ab
 - DSGVO-Export pro Tenant → zukünftig, nach Audit-Log
+<!-- Quelle: RBAC Permission-Matrix v1.4 -->
+- Custom Roles (nutzerdefinierte Rollen pro Tenant) → feste 3 Rollen sind ausreichend, Komplexität nicht gerechtfertigt
+- Permission-Delegation (User gibt temporär eigene Permissions an anderen User weiter) → manuell über Admin
+- Row-Level Security in ArangoDB → wird in der Service-Schicht gelöst, nicht auf DB-Ebene
+<!-- /Quelle: RBAC Permission-Matrix v1.4 -->

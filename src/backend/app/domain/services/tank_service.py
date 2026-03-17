@@ -1,5 +1,6 @@
 from app.common.enums import IrrigationSystem
 from app.common.exceptions import NotFoundError, ValidationError
+from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import MaintenanceScheduleKey, TankKey
 from app.domain.engines.tank_engine import TankEngine
 from app.domain.interfaces.tank_repository import ITankRepository
@@ -18,13 +19,16 @@ class TankService:
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
+        tenant_key: str = "",
     ) -> tuple[list[Tank], int]:
-        return self._repo.get_all(offset, limit, filters)
+        return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
 
-    def get_tank(self, key: TankKey) -> Tank:
+    def get_tank(self, key: TankKey, tenant_key: str = "") -> Tank:
         tank = self._repo.get_by_key(key)
         if tank is None:
             raise NotFoundError("Tank", key)
+        if tenant_key:
+            verify_tenant_ownership(tank, tenant_key, "Tank")
         return tank
 
     def create_tank(
@@ -160,7 +164,7 @@ class TankService:
             results.append(info)
         return results
 
-    def get_all_due_maintenances(self) -> list[dict]:
+    def get_all_due_maintenances(self, tenant_key: str = "") -> list[dict]:
         """Get due maintenances across all tanks."""
         tanks, _total = self._repo.get_all(offset=0, limit=1000)
         results = []

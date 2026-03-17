@@ -46,6 +46,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     run_seed()
 
+    from app.migrations.seed_starter_kits import run_seed_starter_kits
+
+    run_seed_starter_kits()
+
     from app.migrations.seed_adventskalender import run_seed_adventskalender
 
     run_seed_adventskalender()
@@ -85,6 +89,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         run_seed_light_mode()
         logger.info("light_mode_active")
+
+    from app.migrations.backfill_tenant_key import backfill_tenant_key
+
+    backfill_tenant_key(db)
 
     yield
 

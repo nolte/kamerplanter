@@ -440,6 +440,12 @@ def get_tenant_service() -> TenantService:
 # ── REQ-020 Onboarding dependencies ────────────────────────────────
 
 
+def get_favorites_service():
+    from app.domain.services.favorites_service import FavoritesService
+
+    return FavoritesService(get_db())
+
+
 def get_starter_kit_service():
     from app.domain.services.starter_kit_service import StarterKitService
 

@@ -42,8 +42,9 @@ class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
         self,
         offset: int = 0,
         limit: int = 50,
+        tenant_key: str | None = None,
     ) -> tuple[list[WateringEvent], int]:
-        docs, total = BaseArangoRepository.get_all(self, offset, limit)
+        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key)
         return [WateringEvent(**doc) for doc in docs], total
 
     # ── Queries ────────────────────────────────────────────────────────

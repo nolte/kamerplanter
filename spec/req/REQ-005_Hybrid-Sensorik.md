@@ -7,7 +7,7 @@ Kategorie: Monitoring
 Fokus: Beides
 Technologie: Python, Home Assistant API, MQTT, TimescaleDB
 Status: Entwurf
-Version: 2.5 (HA-Integration vollständig optional, UI-Visibility)
+Version: 2.6 (Smart-Home-Gesamtdeaktivierung über UserPreference)
 ```
 
 ## 1. Business Case
@@ -1672,6 +1672,78 @@ Wenn die HA-Integration **nicht aktiviert** ist (`ha_token_set == false` oder `h
 **Implementierungshinweis:** Das Frontend prüft `user.ha_token_set` (aus `GET /api/v1/users/me`) und steuert die Sichtbarkeit über einen zentralen `useHaIntegration()`-Hook, der einen Boolean `isHaEnabled` bereitstellt. Komponenten verwenden diesen Hook, um HA-spezifische Felder und Panels bedingt zu rendern.
 
 **Backend-Verhalten ohne HA:** Sensoren und Aktoren können weiterhin angelegt werden — `ha_entity_id` bleibt `Optional[str]` und wird einfach nicht gesetzt. Die Fallback-Kette (Auto → Semi-Auto → Wetter-API → Manual) übergeht die HA-Stufe automatisch, wenn keine HA-Credentials hinterlegt sind.
+
+## 4b. Smart-Home-Gesamtdeaktivierung
+
+**Über die HA-spezifische Deaktivierung (§4a) hinaus** bietet Kamerplanter eine vollständige Smart-Home-Deaktivierung für Nutzer, die keine Sensorik, Aktorik oder IoT-Hardware verwenden. Dies vereinfacht die Oberfläche erheblich und entfernt alle technischen Elemente, die für rein manuelle Pflanzenpflege irrelevant sind.
+
+### Steuerung
+
+Die Deaktivierung erfolgt über das Feld `UserPreference.smart_home_enabled` (REQ-020 v1.6):
+
+- **Default: `false`** — Neue Nutzer starten ohne Smart-Home-Funktionen
+- **Aktivierung:** Im Onboarding-Wizard (Schritt 2, Frage: "Nutzt du Smart-Home-Geräte oder Sensoren?") oder jederzeit in AccountSettings → Tab "Integrationen"
+- **Vorrang vor `ha_token_set`:** Auch bei konfiguriertem HA-Token werden Smart-Home-Funktionen ausgeblendet, wenn `smart_home_enabled == false`. Der Toggle ist der übergeordnete Schalter.
+
+### Verhältnis zu §4a (HA-Optionalität)
+
+| Zustand | `smart_home_enabled` | `ha_token_set` | Ergebnis |
+|---------|---------------------|----------------|----------|
+| **Kein Smart Home** | `false` | `false` | Alle Smart-Home-UI ausgeblendet (§4b) |
+| **Smart Home ohne HA** | `true` | `false` | Sensoren/Aktoren sichtbar, nur HA-spezifische Felder ausgeblendet (§4a) |
+| **Smart Home mit HA** | `true` | `true` | Alles sichtbar |
+| **Deaktiviert trotz HA** | `false` | `true` | Alle Smart-Home-UI ausgeblendet (§4b hat Vorrang) |
+
+### UI-Visibility-Matrix (bei `smart_home_enabled == false`)
+
+| Bereich | Ausgeblendete Elemente | Auswirkung |
+|---------|----------------------|------------|
+| **Navigation** (Sidebar) | Menüpunkte "Sensoren", "Aktoren", "Umgebungssteuerung" | Komplette Sektionen nicht sichtbar |
+| **Sensor-Konfiguration** (REQ-005) | Gesamter Sensor-Bereich: Sensor-CRUD, Kalibrierung, Health-Monitoring, Observations-History | Keine Sensor-Verwaltung möglich |
+| **Aktorik** (REQ-018) | Gesamter Aktor-Bereich: Actuator-CRUD, Control-Rules, Schedules, Overrides, Emergency-Stop | Keine Aktorik-Steuerung möglich |
+| **Tankmanagement** (REQ-014) | Sensor-Binding-Sektion, Live-Query-Button, HA/MQTT-Source-Badges, automatische Zustandserfassung | Tank-Zustände nur manuell erfassbar, ohne Sensor-Hinweise |
+| **Düngung** (REQ-004) | Live-EC-Anzeige, automatische EC-Übernahme aus Tank-Sensor, Sensor-EC-Abgleich bei FeedingEvent-Erfassung, Runoff-Sensor-Integration | EC/pH-Werte nur manuell eingebbar, keine Auto-Fill-Funktion |
+| **Dashboard** (REQ-009) | Klimadaten-Widgets (VPD-Heatmap, Temperatur-Trends, CO₂-Monitoring, DLI-Tracker), Sensor-Alert-History, Live-Messwert-Karten | Dashboard zeigt nur aufgaben-, pflanzen- und ernte-basierte Widgets |
+| **Standort-Detail** (REQ-002) | Sensor-Zuordnung an Slots/Locations, Sensor-Liste pro Standort | Standorte ohne Sensor-Referenzen |
+| **Pflanzdurchlauf** (REQ-013) | Sensor-basierte Phase-Transition-Trigger, VPD/EC-Zielwert-Anzeige bei aktiver Phase | Phasenübergänge nur manuell oder zeitbasiert |
+| **AccountSettings** (REQ-023) | Tab "Integrationen" zeigt den Smart-Home-Toggle prominent an; HA-Konfiguration nur sichtbar wenn `smart_home_enabled == true` |
+
+### Verhalten bei Deaktivierung
+
+- **Bestehende Sensor-Daten bleiben erhalten:** Deaktivierung löscht keine Daten. Bei Reaktivierung sind alle Sensoren, Observations und Kalibrierungen wieder verfügbar.
+- **Celery-Tasks pausiert:** Sensor-Health-Checks, automatische Alert-Generierung und HA-Polling werden für Nutzer mit `smart_home_enabled == false` übersprungen.
+- **API-Endpunkte bleiben erreichbar:** Die Deaktivierung ist rein UI-seitig. API-Endpunkte für Sensoren/Aktoren bleiben funktional (M2M-Zugriff, zukünftige Integrationen). Die API liefert jedoch einen Hinweis-Header `X-Smart-Home-Disabled: true` wenn der anfragende User Smart Home deaktiviert hat.
+- **Manuelle Messwert-Eingabe entfällt:** Bei `smart_home_enabled == false` werden auch die manuellen Messwert-Eingabeformulare ausgeblendet (Temperatur, Feuchte, EC, pH etc.). Der Nutzer arbeitet ausschließlich mit Planwerten und manuell erfassten Tank-Zuständen über das vereinfachte Tankmanagement-Formular.
+- **Wetter-Integration bleibt aktiv:** Wetter-API-Daten für Freiland-Standorte (DWD, Open-Meteo) werden unabhängig von `smart_home_enabled` abgerufen — Wetter ist keine "Smart-Home-Funktion" sondern ein externer Datendienst.
+
+### Frontend-Implementierung
+
+```typescript
+// Hook: useSmartHomeEnabled()
+// Prüft UserPreference.smart_home_enabled
+// Analog zu useHaIntegration(), aber übergeordnet
+
+function useSmartHomeEnabled(): { isSmartHomeEnabled: boolean } {
+  const smartHomeEnabled = useSelector(
+    (state: RootState) => state.userPreferences.smart_home_enabled
+  );
+  return useMemo(() => ({
+    isSmartHomeEnabled: smartHomeEnabled ?? false,
+  }), [smartHomeEnabled]);
+}
+
+// Komponenten-Verwendung:
+// const { isSmartHomeEnabled } = useSmartHomeEnabled();
+// {isSmartHomeEnabled && <SensorSection />}
+// {isSmartHomeEnabled && <ActuatorPanel />}
+// {isSmartHomeEnabled && <LiveEcDisplay />}
+```
+
+### User Stories
+
+- **US-005-SH-01:** "Als Hobby-Gärtner ohne Smart-Home-Geräte möchte ich eine aufgeräumte Oberfläche ohne Sensor- und Aktor-Elemente sehen, damit ich mich auf die reine Pflanzenpflege konzentrieren kann."
+- **US-005-SH-02:** "Als Nutzer, der später Sensoren nachrüsten möchte, möchte ich die Smart-Home-Funktionen jederzeit in den Einstellungen aktivieren können, ohne Daten zu verlieren."
+- **US-005-SH-03:** "Als fortgeschrittener Nutzer mit Smart-Home möchte ich beim Düngen den EC-Wert automatisch aus dem Tank-Sensor übernehmen können, damit ich keine Werte manuell abtippen muss." (Nur bei `smart_home_enabled == true`)
 
 ## 5. Abhängigkeiten
 

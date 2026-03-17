@@ -13,18 +13,18 @@ class AQLBuilder:
         self._offset: int | None = None
         self._var_counter = 0
 
-    def filter(self, field: str, op: str, value: Any) -> AQLBuilder:
+    def filter(self, field: str, op: str, value: Any) -> "AQLBuilder":
         var_name = f"v{self._var_counter}"
         self._var_counter += 1
         self._filters.append(f"doc.{field} {op} @{var_name}")
         self._bind_vars[var_name] = value
         return self
 
-    def sort(self, field: str, direction: str = "ASC") -> AQLBuilder:
+    def sort(self, field: str, direction: str = "ASC") -> "AQLBuilder":
         self._sort = f"doc.{field} {direction}"
         return self
 
-    def paginate(self, offset: int, limit: int) -> AQLBuilder:
+    def paginate(self, offset: int, limit: int) -> "AQLBuilder":
         self._offset = offset
         self._limit = limit
         return self

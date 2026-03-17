@@ -94,7 +94,7 @@ export default function CultivarListSection({ speciesKey }: Props) {
   ];
 
   return (
-    <Box sx={{ mt: 4 }}>
+    <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">{t('pages.cultivars.title')}</Typography>
         <Button startIcon={<AddIcon />} onClick={() => setCreateOpen(true)} data-testid="create-button">

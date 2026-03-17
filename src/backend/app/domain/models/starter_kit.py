@@ -19,6 +19,7 @@ class StarterKit(BaseModel):
     toxicity_warning: bool = False
     workflow_template_keys: list[str] = Field(default_factory=list)
     includes_nutrient_plan: bool = False
+    nutrient_plan_keys: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     sort_order: int = Field(default=0, ge=0)
     created_at: datetime | None = None

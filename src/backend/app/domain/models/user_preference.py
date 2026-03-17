@@ -12,7 +12,9 @@ class UserPreference(BaseModel):
     onboarding_completed: bool = False
     locale: str = "de"
     theme: str = "system"
+    temperature_unit: str = "celsius"
     watering_can_liters: float = 10.0
+    smart_home_enabled: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

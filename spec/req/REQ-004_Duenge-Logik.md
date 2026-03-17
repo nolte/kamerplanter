@@ -23,7 +23,8 @@ Das System verwaltet die gesamte Nährstoffversorgung von der Planung bis zur Do
 - **Boosters:** PK 13-14 (Blüte-Booster), Root-Stimulatoren, Top-Max
 - **Biologische Zusätze:** Mykorrhiza, Trichoderma, Beneficial Bacteria
 
-**Kritische Misch-Reihenfolge:**
+<!-- Quelle: Widerspruchsanalyse W-016 — Klarstellung: Beispiel, nicht normativ -->
+**Empfohlene Standard-Misch-Reihenfolge** (ueberschreibbar per `mixing_priority`-Feld des Fertilizer-Modells):
 1. Wasser mit Basistemperatur (18-22°C)
 2. Silizium-Zusätze (pH-instabil, zuerst!)
 3. CalMag (verhindert Ca-P-Ausfällung)
@@ -32,7 +33,7 @@ Das System verwaltet die gesamte Nährstoffversorgung von der Planung bis zur Do
 6. Weitere Zusätze nach Priorität
 7. pH-Korrektur (pH Down/Up) als letzter Schritt
 
-**Hinweis:** Die Zuordnung A/B variiert je nach Hersteller. Die tatsächliche Reihenfolge wird über das `mixing_priority`-Feld des Fertilizer-Modells gesteuert, nicht über eine feste A/B-Konvention.
+**Hinweis:** Die obige Liste ist ein Beispiel fuer eine typische Reihenfolge. Die Zuordnung A/B variiert je nach Hersteller. Die **tatsächliche Reihenfolge** im System wird ausschliesslich über das `mixing_priority`-Feld des Fertilizer-Modells gesteuert — nicht durch diese Liste.
 
 **CalMag-Korrektur aus Wasserquelle:**
 
@@ -44,7 +45,8 @@ Bei Nutzung von Osmosewasser oder weichem Leitungswasser (Ca <40 ppm, Mg <10 ppm
 
 Das System berechnet den effektiven Ca/Mg-Gehalt des Mischwassers automatisch aus dem `TapWaterProfile` (REQ-002) und dem gewählten Mischverhältnis. Wenn der effektive Ca-Gehalt unter dem Zielwert der aktuellen Phase liegt, wird eine CalMag-Dosierungsempfehlung ausgegeben.
 
-**EC-Budget-Management:**
+<!-- Quelle: Widerspruchsanalyse W-017 — Single Source of Truth fuer EC-Budget-Mathematik -->
+**EC-Budget-Management** (REQ-004 ist die Single Source of Truth fuer die EC-Budget- und WaterMixCalculator-Logik; REQ-014 referenziert diese Berechnungen fuer TankFillEvent-Defaults):
 - Gesamtziel-EC (z.B. 1.8 mS) minus Wasser-Basis-EC (automatisch berechnet aus Mischverhältnis Osmose/Leitungswasser, wenn `WaterSource` auf der Site hinterlegt ist — siehe REQ-002)
 - Proportionale Verteilung auf Komponenten basierend auf NPK-Beitrag
 - Berücksichtigung von EC-Beiträgen durch pH-Korrekturen
@@ -145,6 +147,9 @@ Das System ermöglicht die Erstellung und Verwaltung von Lifecycle-Nährstoffpl�
 
 **Beschreibung:**
 Das System stellt jeden Nährstoffplan als interaktives Gantt-Diagramm dar. Die X-Achse bildet den Wochen-Zeitstrahl des gesamten Plans ab (`week_start` bis `week_end` über alle Phase-Entries), die Y-Achse listet alle im Plan genutzten Dünger auf.
+
+<!-- Quelle: Widerspruchsanalyse W-012 — Performance-Optimierung -->
+**Performance-Hinweis:** Das Gantt-Diagramm MUSS per Dynamic Import (`React.lazy`) geladen werden (UI-NFR-003 R-012). Die NutrientPlanDetailPage zeigt initial die Text-Listenansicht; die Gantt-Ansicht wird erst beim Tab-Wechsel geladen. Gantt-Balken ausserhalb des sichtbaren Viewports SOLLEN per Intersection Observer virtualisiert werden.
 
 **Diagramm-Aufbau:**
 - **X-Achse (Zeitstrahl):** Wochen von `min(week_start)` bis `max(week_end)` aller Phase-Entries. Jede Woche ist eine Spalte. Phasengrenzen werden durch vertikale Trennlinien oder Farbwechsel im Hintergrund visualisiert
@@ -2854,7 +2859,7 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - REQ-001 (Stammdaten): Species für substrat-spezifische Empfehlungen
 - REQ-002 (Standort): SubstrateBatch für EC/pH-Historie; **HOCH** — `Site.water_source` (TapWaterProfile, RoWaterProfile) als Basis-Datenquelle für `WaterMixCalculator` und automatische `base_water_ec_ms`-Berechnung
 - REQ-003 (Phasen): GrowthPhase für NPK-Profile, Flushing-Trigger
-- REQ-005 (Sensorik): EC/pH-Messungen zur Validierung
+- REQ-005 (Sensorik): EC/pH-Messungen zur Validierung. **Hinweis:** Bei `UserPreference.smart_home_enabled == false` (REQ-005 §4b) werden Live-EC-Anzeige, automatische EC-Übernahme aus Tank-Sensoren und Sensor-EC-Abgleich bei FeedingEvent-Erfassung ausgeblendet — EC/pH-Werte sind dann nur manuell eingebbar.
 
 **Wird benötigt von:**
 - REQ-006 (Tasks): Automatische Feeding-Tasks; **HOCH** — `generate_watering_tasks` Celery-Task nutzt WateringSchedule + WateringScheduleEngine zur täglichen Gießplan-Task-Generierung

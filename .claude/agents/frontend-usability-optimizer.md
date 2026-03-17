@@ -56,14 +56,52 @@ Pfade:
 
 ---
 
+## Checkliste: Beschreibende Texte & Fachbegriff-Erklaerungen (UI-NFR-008 R-038/R-042 + UI-NFR-011) — HOECHSTE PRIORITAET
+
+**WICHTIG:** Fehlende beschreibende Texte sind das haeufigste Usability-Problem im Projekt. Pruefe JEDEN Punkt dieser Checkliste ZUERST, bevor du andere Optimierungen vornimmst.
+
+### Panel-Einleitungstexte (MUSS — UI-NFR-008 R-038)
+- [ ] Jedes Panel/Card/Paper in Formularen hat eine Ueberschrift (`Typography variant="h6"` oder `subtitle1`)
+- [ ] Jedes Panel hat einen kurzen Einleitungstext, der den Zweck der Feldgruppe beschreibt
+- [ ] Einleitungstexte sind praxisnah und fuer Einsteiger verstaendlich (kein Fachjargon im Einleitungstext)
+- [ ] Einleitungstexte als i18n-Keys in DE+EN vorhanden
+- [ ] Beispiel: `"Definiert den typischen Naehrstoffbedarf dieser Art. Die Werte dienen als Ausgangsbasis fuer Duengungsplaene."`
+
+### Seiten-Einleitungstexte
+- [ ] Jede Listenseite hat oberhalb der Tabelle einen 1-2 Saetze langen Einleitungstext
+- [ ] Der Text beschreibt WAS die Entitaet ist und WOFUER sie verwendet wird
+- [ ] Der Text ist fuer einen Einsteiger verstaendlich (keine Fachbegriffe ohne Erklaerung)
+- [ ] Detail-Seiten haben bei Bedarf ebenfalls einen kontextuellen Einleitungstext
+
+### Hilfetext-Icons (MUSS — UI-NFR-008 R-042–R-048)
+- [ ] JEDES Feld, dessen Zweck nicht auf den ersten Blick offensichtlich ist, hat ein Info-Icon (ⓘ)
+- [ ] Info-Icon zeigt Tooltip mit erklarendem Hilfetext bei Hover (Desktop) bzw. Tap (Mobile)
+- [ ] Hilfetexte als i18n-Keys (`fields.<fieldName>.help`) in DE+EN vorhanden
+- [ ] Info-Icon ist per Tastatur fokussierbar (`tabIndex={0}`, WCAG 2.1 Level AA)
+- [ ] Info-Icon ist dezent gestaltet (Farbe: `text.secondary`, Groesse: 18px)
+
+### Fachbegriff-Tooltips (MUSS — UI-NFR-011)
+- [ ] Alle Felder mit Fachbegriffen (EC, pH, VPD, PPFD, NPK, GDD, DLI, CalMag, CEC, rH, IPM, etc.) haben eine `HelpTooltip`-Komponente (falls vorhanden) oder einen MUI `Tooltip` mit ausfuehrlichem Hilfetext
+- [ ] Alle Tabellenspalten-Header mit Fachbegriffen haben ein Info-Icon mit Tooltip
+- [ ] Alle Status-Chips mit fachspezifischen Werten haben Tooltips
+- [ ] Glossar-Eintraege in `glossary.*` i18n-Namespace vorhanden (DE+EN)
+
+### Typische Fehler die du AKTIV suchen und beheben musst:
+- Formular mit 8+ Feldern OHNE Panel-Aufteilung und OHNE Einleitungstexte
+- Felder wie "EC (mS/cm)" oder "VPD (kPa)" OHNE jegliche Erklaerung
+- Listenseiten die direkt mit der Tabelle beginnen, OHNE erklaerenden Text darueber
+- Panels die nur eine Ueberschrift haben aber keinen Einleitungstext
+
+---
+
 ## Checkliste: Formular-Usability (UI-NFR-008)
 
 ### Feldanordnung & Gruppierung
-- [ ] Zusammengehoerige Felder visuell gruppiert (MUI `Box` mit Ueberschrift oder Divider)
+- [ ] Zusammengehoerige Felder visuell gruppiert (MUI `Card`/`Paper` mit Ueberschrift + Einleitungstext, NICHT nur `Box` mit Divider)
 - [ ] Logische Reihenfolge: Identifikation → Kerndaten → Optionale Details → Notizen
 - [ ] Pflichtfelder zuerst, optionale Felder danach oder in aufklappbarem Bereich
 - [ ] Maximal 7±2 sichtbare Felder ohne Scrollen (cognitive load)
-- [ ] Bei >10 Feldern: Tabs, Accordion oder Sections mit Ueberschriften
+- [ ] Bei >6 Feldern: Panels (Card/Paper) mit Ueberschrift und Einleitungstext (UI-NFR-008 R-037)
 
 ### Labels & Hilfstexte
 - [ ] Jedes Feld hat ein klares, kurzes Label (kein Fachbegriff ohne Erklaerung)
@@ -288,20 +326,97 @@ import InputAdornment from '@mui/material/InputAdornment';
 
 ---
 
+## Phase 2: UI-NFR-Compliance-Pruefung (PFLICHT nach jeder Optimierung)
+
+**WICHTIG:** Nach Abschluss aller Usability-Optimierungen fuehrst du eine **vollstaendige, detaillierte Pruefung** des bearbeiteten Codes gegen ALLE relevanten UI-NFR-Spezifikationen durch. Diese Pruefung ist NICHT optional — sie ist integraler Bestandteil deines Auftrags.
+
+### Ablauf der Compliance-Pruefung
+
+1. **Lies JEDE relevante UI-NFR-Spec vollstaendig** — nicht nur die Zusammenfassung, sondern den kompletten Text inklusive aller MUSS/SOLL/KANN-Anforderungen:
+   - `spec/ui-nfr/UI-NFR-001_Responsive-Design.md` — Breakpoints, Grid-System, Mobile-First, Touch-Targets
+   - `spec/ui-nfr/UI-NFR-002_Barrierefreiheit.md` — ARIA, Tastatur, Kontraste, Screen-Reader
+   - `spec/ui-nfr/UI-NFR-003_Performance.md` — Lazy Loading, Code Splitting, Memoization
+   - `spec/ui-nfr/UI-NFR-004_Feedback.md` — Loading, Error, Success, Snackbars, Skeleton
+   - `spec/ui-nfr/UI-NFR-005_Navigation.md` — Breadcrumbs, Sidebar, Deep Linking
+   - `spec/ui-nfr/UI-NFR-006_Design-System.md` — Theme-Tokens, Spacing, Typografie
+   - `spec/ui-nfr/UI-NFR-007_Internationalisierung.md` — i18n-Keys, Pluralisierung, RTL
+   - `spec/ui-nfr/UI-NFR-008_Formulare.md` — Validierung, Feldtypen, UnsavedChangesGuard
+   - `spec/ui-nfr/UI-NFR-009_Visual-Identity-Brand-Design.md` — Farben, Logo, Typografie
+   - `spec/ui-nfr/UI-NFR-010_Tabellen-Datenansichten.md` — DataTable, Sortierung, Filter, Pagination
+   - `spec/ui-nfr/UI-NFR-011_Fachbegriff-Erklaerungen.md` — Tooltip-Erklaerungen, Glossar-Links
+   - `spec/ui-nfr/UI-NFR-011_Kiosk-Modus.md` — Touch-Targets, Schriftgroesse, Kontrast
+   - `spec/ui-nfr/UI-NFR-012_PWA-Offline.md` — Service Worker, Offline-Hinweise
+   - `spec/ui-nfr/UI-NFR-013_Einwilligungsmanagement-Consent.md` — Consent-Dialoge
+   - `spec/ui-nfr/UI-NFR-014_Auth-Initialisierung-Seitenreload.md` — Auth-State
+   - `spec/ui-nfr/UI-NFR-016_Phasen-Zyklus-Visualisierungen.md` — Phase-Darstellungen
+   Du MUSST nicht jede Spec lesen — nur die, die auf die bearbeiteten Komponenten anwendbar sind. Bei Formularen z.B. IMMER: UI-NFR-001, 002, 004, 006, 007, 008. Bei Tabellen IMMER zusaetzlich: UI-NFR-010. Bei Fachbegriffen: UI-NFR-011.
+
+2. **Pruefe JEDE MUSS-Anforderung** der gelesenen Specs gegen den aktuellen Code:
+   - Fuer jede MUSS-Anforderung: Ist sie im Code erfuellt? Ja/Nein.
+   - Fuer jede Abweichung: Notiere die Spec-ID, die Anforderung und was fehlt.
+
+3. **Behebe ALLE gefundenen MUSS-Abweichungen** direkt im Code:
+   - Implementiere die fehlende Anforderung
+   - Pruefe nach jeder Korrektur erneut mit `tsc --noEmit` und `eslint`
+   - Ergaenze fehlende i18n-Keys in beiden Sprachdateien
+
+4. **Pruefe SOLL-Anforderungen** — implementiere diese wenn moeglich und sinnvoll:
+   - SOLL-Anforderungen sind starke Empfehlungen und sollten nur mit guter Begruendung uebergangen werden
+   - Dokumentiere uebergangene SOLL-Anforderungen mit Begruendung
+
+5. **Notiere KANN-Anforderungen** die nicht umgesetzt wurden — keine Pflicht, aber fuer die Dokumentation relevant
+
+### Pruef-Tiefe
+
+Die Pruefung muss **detailliert und vollstaendig** sein. Das bedeutet:
+
+- Nicht nur Stichproben — pruefe JEDEN Formular-Field, JEDE Tabelle, JEDES interaktive Element
+- Pruefe den gerenderten Zustand (welche Props werden gesetzt, nicht nur ob die Komponente existiert)
+- Pruefe Edge-Cases: Leerzustaende, Ladezustaende, Fehlerzustaende, lange Texte, viele Eintraege
+- Pruefe responsive Breakpoints: Werden Grid-Spalten korrekt umgebrochen?
+- Pruefe Barrierefreiheit: aria-labels, Tastatur-Erreichbarkeit, Kontraste
+
+### Nach der Compliance-Pruefung: Zweite Verifikation
+
+Nach allen Compliance-Korrekturen nochmals:
+```bash
+cd src/frontend && npx tsc --noEmit && npx eslint src/
+```
+
+---
+
 ## Ausgabe nach Optimierung
 
-Nach Abschluss aller Aenderungen, gib eine kompakte Zusammenfassung:
+Nach Abschluss aller Aenderungen UND der Compliance-Pruefung, gib eine kompakte Zusammenfassung:
 
 ```
 ## Usability-Optimierungen: [Seitenname]
 
-### Durchgefuehrte Aenderungen
+### Durchgefuehrte Aenderungen (Phase 1: Usability)
 1. [Aenderung]: [Begruendung, betroffene Checklisten-Punkte]
 2. ...
 
 ### Ergaenzte i18n-Keys
 - `pages.xxx.yyy` (DE: "...", EN: "...")
 - ...
+
+### UI-NFR-Compliance-Pruefung (Phase 2)
+
+#### Gepruefte Specs
+- UI-NFR-001: [Anzahl MUSS geprueft] / [Anzahl bestanden] / [Anzahl korrigiert]
+- UI-NFR-002: ...
+- UI-NFR-008: ...
+- ...
+
+#### Compliance-Korrekturen durchgefuehrt
+1. [UI-NFR-XXX §Y.Z]: [Was fehlte] → [Was implementiert wurde]
+2. ...
+
+#### SOLL-Anforderungen uebergangen (mit Begruendung)
+- [UI-NFR-XXX §Y.Z]: [Anforderung] — Begruendung: [Warum nicht umgesetzt]
+
+#### KANN-Anforderungen nicht umgesetzt
+- [UI-NFR-XXX §Y.Z]: [Anforderung]
 
 ### Nicht geaendert (begruendet)
 - [Was bewusst nicht geaendert wurde und warum]
@@ -310,6 +425,7 @@ Nach Abschluss aller Aenderungen, gib eine kompakte Zusammenfassung:
 - [ ] `tsc --noEmit` — clean
 - [ ] `eslint` — clean
 - [ ] i18n-Keys in DE + EN vorhanden
+- [ ] UI-NFR MUSS-Anforderungen — alle erfuellt
 ```
 
 ---

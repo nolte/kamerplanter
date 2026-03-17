@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 from app.common.exceptions import NotFoundError, ValidationError
+from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.dependency_resolver import DependencyResolver
 from app.domain.engines.hst_validator import HSTValidator
 from app.domain.interfaces.task_repository import ITaskRepository
@@ -33,17 +34,20 @@ class TaskService:
         offset: int = 0,
         limit: int = 50,
         species_key: str | None = None,
+        tenant_key: str = "",
     ) -> tuple[list[WorkflowTemplate], int]:
-        return self._repo.get_all_workflow_templates(offset, limit, species_key=species_key)
+        return self._repo.get_all_workflow_templates(offset, limit, species_key=species_key, tenant_key=tenant_key)
 
     def get_workflow_usage_stats(self, wf_keys: list[str]) -> dict[str, dict]:
         """Return species_name and assigned plant count per workflow key."""
         return self._repo.get_workflow_usage_stats(wf_keys)
 
-    def get_workflow_template(self, key: str) -> WorkflowTemplate:
+    def get_workflow_template(self, key: str, tenant_key: str = "") -> WorkflowTemplate:
         wt = self._repo.get_workflow_template_by_key(key)
         if not wt:
             raise NotFoundError("WorkflowTemplate", key)
+        if tenant_key:
+            verify_tenant_ownership(wt, tenant_key, "WorkflowTemplate")
         return wt
 
     def create_workflow_template(self, template: WorkflowTemplate) -> WorkflowTemplate:
@@ -182,13 +186,17 @@ class TaskService:
 
     # ── Task CRUD ──
 
-    def list_tasks(self, offset: int = 0, limit: int = 50, filters: dict | None = None) -> tuple[list[Task], int]:
-        return self._repo.get_all_tasks(offset, limit, filters)
+    def list_tasks(
+        self, offset: int = 0, limit: int = 50, filters: dict | None = None, tenant_key: str = "",
+    ) -> tuple[list[Task], int]:
+        return self._repo.get_all_tasks(offset, limit, filters, tenant_key=tenant_key)
 
-    def get_task(self, key: str) -> Task:
+    def get_task(self, key: str, tenant_key: str = "") -> Task:
         task = self._repo.get_task_by_key(key)
         if not task:
             raise NotFoundError("Task", key)
+        if tenant_key:
+            verify_tenant_ownership(task, tenant_key, "Task")
         return task
 
     def create_task(self, task: Task) -> Task:

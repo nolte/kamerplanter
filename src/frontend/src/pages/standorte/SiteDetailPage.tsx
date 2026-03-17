@@ -122,8 +122,10 @@ export default function SiteDetailPage() {
   if (loading) return <LoadingSkeleton variant="form" />;
   if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
 
+  const PANEL_GAP = 4;
+
   return (
-    <>
+    <Box data-testid="site-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <PageTitle title={current?.name ?? t('entities.site')} />
@@ -132,13 +134,29 @@ export default function SiteDetailPage() {
         </Button>
       </Box>
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
-        <FormTextField name="name" control={control} label={t('pages.sites.name')} required />
-        <FormRow>
-          <FormTextField name="climate_zone" control={control} label={t('pages.sites.climateZone')} />
-          <FormNumberField name="total_area_m2" control={control} label={t('pages.sites.totalArea')} helperText={t('pages.sites.totalAreaHelper')} min={0} />
-        </FormRow>
-        <FormTextField name="timezone" control={control} label={t('pages.sites.timezone')} helperText={t('pages.sites.timezoneHelper')} />
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+        <Typography variant="body2" color="text.secondary">
+          {t('pages.sites.editIntro')}
+        </Typography>
+
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.sites.sectionBasicData')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.sites.sectionBasicDataDesc')}
+            </Typography>
+            <FormTextField name="name" control={control} label={t('pages.sites.name')} required autoFocus />
+            <FormRow>
+              <FormTextField name="climate_zone" control={control} label={t('pages.sites.climateZone')} />
+              <FormNumberField name="total_area_m2" control={control} label={t('pages.sites.totalArea')} helperText={t('pages.sites.totalAreaHelper')} min={0} />
+            </FormRow>
+            <FormTextField name="timezone" control={control} label={t('pages.sites.timezone')} helperText={t('pages.sites.timezoneHelper')} />
+          </CardContent>
+        </Card>
+
+        <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
       </Box>
 
@@ -271,6 +289,6 @@ export default function SiteDetailPage() {
         onCancel={() => setDeleteOpen(false)}
         destructive
       />
-    </>
+    </Box>
   );
 }

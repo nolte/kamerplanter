@@ -20,13 +20,22 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
         offset: int = 0,
         limit: int = 50,
         species_key: str | None = None,
+        tenant_key: str | None = None,
     ) -> tuple[list[WorkflowTemplate], int]:
-        filt = f"FILTER doc.species_key == '{species_key}'" if species_key else ""
+        filter_parts: list[str] = []
+        bind_vars: dict = {}
+        if species_key:
+            filter_parts.append("doc.species_key == @species_key")
+            bind_vars["species_key"] = species_key
+        if tenant_key:
+            filter_parts.append("doc.tenant_key == @tenant_key")
+            bind_vars["tenant_key"] = tenant_key
+        filt = ("FILTER " + " AND ".join(filter_parts)) if filter_parts else ""
         query = f"FOR doc IN {col.WORKFLOW_TEMPLATES} {filt} SORT doc.name LIMIT {offset}, {limit} RETURN doc"
         count_query = f"FOR doc IN {col.WORKFLOW_TEMPLATES} {filt} COLLECT WITH COUNT INTO total RETURN total"
-        cursor = self._db.aql.execute(query)
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         items = [WorkflowTemplate(**self._from_doc(doc)) for doc in cursor]
-        count_cursor = self._db.aql.execute(count_query)
+        count_cursor = self._db.aql.execute(count_query, bind_vars=bind_vars)
         total = next(count_cursor, 0)
         return items, total
 
@@ -125,15 +134,23 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
 
     # ── Task ──
 
-    def get_all_tasks(self, offset: int = 0, limit: int = 50, filters: dict | None = None) -> tuple[list[Task], int]:
+    def get_all_tasks(
+        self, offset: int = 0, limit: int = 50, filters: dict | None = None, tenant_key: str | None = None,
+    ) -> tuple[list[Task], int]:
         query = f"FOR doc IN {col.TASKS}"
         bind_vars: dict = {}
+        filter_clauses: list[str] = []
+
+        if tenant_key:
+            bind_vars["tenant_key"] = tenant_key
+            filter_clauses.append("doc.tenant_key == @tenant_key")
 
         if filters:
-            filter_clauses = []
             for i, (field, value) in enumerate(filters.items()):
                 bind_vars[f"val{i}"] = value
                 filter_clauses.append(f"doc.{field} == @val{i}")
+
+        if filter_clauses:
             query += " FILTER " + " AND ".join(filter_clauses)
 
         count_query = query + " COLLECT WITH COUNT INTO total RETURN total"

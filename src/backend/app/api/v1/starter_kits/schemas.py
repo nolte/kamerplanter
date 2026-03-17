@@ -17,8 +17,18 @@ class StarterKitResponse(BaseModel):
     toxicity_warning: bool
     workflow_template_keys: list[str]
     includes_nutrient_plan: bool
+    nutrient_plan_keys: list[str] = []
     tags: list[str]
     sort_order: int
+
+
+class SpeciesAvailability(BaseModel):
+    species_key: str
+    available: bool
+
+
+class StarterKitTenantResponse(StarterKitResponse):
+    species_availability: list[SpeciesAvailability]
 
 
 class ApplyKitRequest(BaseModel):

@@ -13,8 +13,8 @@ class ArangoSiteRepository(ISiteRepository, BaseArangoRepository):
 
     # ── Site CRUD ─────────────────────────────────────────────────────
 
-    def get_all_sites(self, offset: int = 0, limit: int = 50) -> tuple[list[Site], int]:
-        docs, total = BaseArangoRepository.get_all(self, offset, limit)
+    def get_all_sites(self, offset: int = 0, limit: int = 50, tenant_key: str | None = None) -> tuple[list[Site], int]:
+        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key)
         return [Site(**doc) for doc in docs], total
 
     def get_site_by_key(self, key: SiteKey) -> Site | None:

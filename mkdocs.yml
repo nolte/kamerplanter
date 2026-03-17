@@ -78,11 +78,62 @@ plugins:
           name: Deutsch
           default: true
           build: true
-          nav_translations:
-            Getting Started: Erste Schritte
         - locale: en
           name: English
           build: true
+          nav_translations:
+            Startseite: Home
+            Erste Schritte: Getting Started
+            Installation: Installation
+            Schnellstart: Quickstart
+            Erstes Deployment: First Deployment
+            Benutzerhandbuch: User Guide
+            Stammdaten: Plant Master Data
+            Standorte & Substrate: Locations & Substrates
+            Wachstumsphasen: Growth Phases
+            Dünge-Logik: Fertilization Logic
+            Sensorik: Sensors
+            Aufgaben: Tasks
+            Ernte: Harvest
+            Pflanzenschutz (IPM): Pest Management (IPM)
+            Pflanzdurchläufe: Planting Runs
+            Tankmanagement: Tank Management
+            Kalender: Calendar
+            Dashboard: Dashboard
+            Onboarding-Wizard: Onboarding Wizard
+            Light-Modus: Light Mode
+            Architektur: Architecture
+            Überblick: Overview
+            Backend: Backend
+            Frontend: Frontend
+            Datenbank: Database
+            Infrastruktur: Infrastructure
+            Entwicklung: Development
+            Lokales Setup: Local Setup
+            Code-Standards: Code Standards
+            Testen: Testing
+            Debugging: Debugging
+            API: API
+            Authentifizierung: Authentication
+            Fehlerbehandlung: Error Handling
+            Deployment: Deployment
+            Kubernetes: Kubernetes
+            Helm Charts: Helm Charts
+            CI/CD: CI/CD
+            Guides: Guides
+            GDD-Berechnung: GDD Calculation
+            VPD-Optimierung: VPD Optimization
+            Nährlösung mischen: Nutrient Mixing
+            Fehlerbehebung: Troubleshooting
+            Pflanzendaten per AI: AI Plant Data Pipeline
+            Home Assistant Integration: Home Assistant Integration
+            Referenz: Reference
+            API-Referenz: API Reference
+            Datenbankschema: Database Schema
+            Umgebungsvariablen: Environment Variables
+            ADR: ADR
+            Changelog: Changelog
+            Unveröffentlicht: Unreleased
 
   - git-revision-date-localized:
       enable_creation_date: true
@@ -172,6 +223,8 @@ nav:
       - Tankmanagement: de/user-guide/tanks.md
       - Kalender: de/user-guide/calendar.md
       - Dashboard: de/user-guide/dashboard.md
+      - Onboarding-Wizard: de/user-guide/onboarding.md
+      - Light-Modus: de/user-guide/light-mode.md
   - Architektur:
       - de/architecture/index.md
       - Überblick: de/architecture/overview.md

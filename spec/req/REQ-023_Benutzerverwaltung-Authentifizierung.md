@@ -7,13 +7,16 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.5 (Home Assistant Token, Temperatureinheit)
+Version: 1.7 (Service Accounts & RBAC-Erweiterung)
+Abhängigkeit: REQ-024 v1.4 (Permission-Matrix)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.7 | 2026-03-17 | **Service Accounts, RBAC-Erweiterung & Tenant-Notfallverwaltung:** (1) `account_type: Literal['human', 'service']` auf User-Modell. Service Accounts als eigenständige, nicht-interaktive Konten für Third-Party-Systeme (Home Assistant, Grafana, CI/CD). Keine Passwort/SSO-Fähigkeit, API-Key-only. Tenant-scoped oder Platform-scoped. ServiceAccountEngine, ServiceAccountService, 15 neue API-Endpoints. Rate-Limit und IP-Allowlist pro Service Account. (2) Tenant-Notfallverwaltung: Emergency-Admin-Ernennung bei verwaisten Tenants (`orphaned_since`), Tenant-Suspendierung/Reaktivierung, User-Suspendierung/Reaktivierung durch Platform-Admin. 7 neue Admin-API-Endpoints. Celery-Task für Verwaist-Erkennung. |
+| 1.6 | 2026-03-16 | **Platform-Admin-Rolle:** Neues Konzept Platform-Tenant (`is_platform: true`) als Träger der KA-Admin-Berechtigung. Platform-Admins verwalten globale Stammdaten, `tenant_has_access`-Zuweisungen und Promotions. User kann gleichzeitig Platform-Admin und regulärer Tenant-Nutzer sein. Neue User Stories, JWT-Erweiterung (`is_platform_admin`), Dependency `is_platform_admin`. |
 | 1.5 | 2026-02-28 | Home Assistant Integration: `ha_url` + `ha_token_encrypted` auf User-Modell, neuer Tab „Integrationen" in AccountSettingsPage, Verbindungstest-Endpoint. Temperatureinheit: Verweis auf `temperature_unit` in UserPreference (REQ-020 v1.2). |
 | 1.4 | 2026-02-27 | M2M-Authentifizierung: API-Key-Modell (`kp_`-Prefix, SHA-256-Hash), `api_keys` Collection, `has_api_key` Edge, 3 Endpoints (erstellen/auflisten/revoken), Bearer-Erkennung neben JWT, Rate Limit 1000 req/min. |
 | 1.3 | 2026-02-27 | „Angemeldet bleiben"-Option: Session-Cookie (Browser-Session) vs. persistentes Cookie (30 Tage) via `remember_me`-Flag. Neue User Story, Login-Checkbox, `is_persistent`-Feld auf RefreshToken, differenzierte Cookie-Strategie. |
@@ -36,6 +39,26 @@ Version: 1.5 (Home Assistant Token, Temperatureinheit)
 **User Story (Passwort-Reset):** "Als Nutzer, der sein Passwort vergessen hat, möchte ich über meine E-Mail-Adresse ein neues Passwort setzen können — ohne den Support kontaktieren zu müssen."
 
 **User Story (OIDC-Anbindung):** "Als Systemadministrator möchte ich einen eigenen OpenID-Connect-Provider (z.B. Keycloak, Authentik) konfigurieren können — damit unser Gemeinschaftsgarten den zentralen Identity Provider der Organisation nutzen kann."
+
+<!-- Quelle: Platform-Admin v1.6 -->
+**User Story (Platform-Admin):** "Als Plattform-Betreiber möchte ich globale Stammdaten (Pflanzenarten, Sorten, Schädlinge) zentral pflegen und einzelnen Tenants zuweisen können — damit jeder Tenant nur die für ihn relevanten Daten sieht und die Datenqualität zentral sichergestellt wird."
+
+**User Story (Doppelrolle):** "Als KA-Admin möchte ich gleichzeitig meinen eigenen privaten Garten als normaler Tenant-Nutzer verwalten können — ohne zwischen verschiedenen Accounts wechseln zu müssen."
+<!-- /Quelle: Platform-Admin v1.6 -->
+
+<!-- Quelle: Service Accounts v1.7 -->
+**User Story (Home Assistant Integration):** "Als Hobby-Gärtner mit Home Assistant möchte ich einen Service Account für meine HA-Installation erstellen können — damit HA automatisch Sensordaten liefert und Aktoren steuert, ohne dass mein persönlicher Account dafür missbraucht wird."
+
+**User Story (CI/CD Pipeline):** "Als Plattform-Betreiber möchte ich einen Service Account für meine CI/CD-Pipeline erstellen können — damit automatisierte Tests und Deployments API-Zugriff haben, ohne menschliche Credentials zu verwenden."
+
+**User Story (Monitoring-System):** "Als Tenant-Admin möchte ich einen Service Account für Grafana/Prometheus erstellen können — damit das Monitoring-System Metriken abrufen kann, mit eigenen Rate-Limits und eingeschränktem Zugriff nur auf meinen Tenant."
+
+**User Story (Service Account Verwaltung):** "Als Tenant-Admin möchte ich Service Accounts für meinen Garten erstellen, deren Berechtigungen steuern und sie bei Bedarf deaktivieren können — damit ich volle Kontrolle über maschinelle Zugriffe auf meine Daten habe."
+
+**User Story (Platform Service Account):** "Als KA-Admin möchte ich Service Accounts auf Plattformebene erstellen können — damit zentrale Systeme (Backup, Monitoring, Enrichment-Pipelines) über einen dedizierten, auditierbaren Account auf globale Daten zugreifen."
+
+**User Story (IP-Einschränkung):** "Als sicherheitsbewusster Admin möchte ich Service Accounts auf bestimmte IP-Bereiche einschränken können — damit ein kompromittierter API-Key nicht von beliebigen Netzwerken aus genutzt werden kann."
+<!-- /Quelle: Service Accounts v1.7 -->
 
 **Beschreibung:**
 Kamerplanter ist aktuell ein Einbenutzer-System ohne Authentifizierung. Für Mehrbenutzerbetrieb (Gemeinschaftsgärten, Mikro-Farmen, Anbauvereinigungen) ist eine vollständige Benutzerverwaltung die **Grundvoraussetzung**. Diese REQ **ersetzt NFR-001 §6.1** (JWT-Skizze mit `python-jose`, 1h Access Token) durch eine vollständige Spezifikation und bildet die Basis für REQ-024 (Mandantenverwaltung).
@@ -234,7 +257,7 @@ Ein User kann mehrere Auth-Provider verknüpfen:
 
 ### Nodes:
 
-- **`:User`** — Benutzerkonto
+- **`:User`** — Benutzerkonto (menschliche User und Service Accounts)
   - Collection: `users`
   - Properties:
     - `email: str` (UNIQUE, lowercase-normalisiert)
@@ -242,11 +265,14 @@ Ein User kann mehrere Auth-Provider verknüpfen:
     - `avatar_url: Optional[str]` (Profilbild-URL, von SSO übernommen oder manuell gesetzt)
     - `locale: str` (Default: `de`, Sprachpräferenz für i18n)
     - `timezone: str` (Default: `Europe/Berlin`, IANA-Zeitzone)
+    <!-- Quelle: Service Accounts v1.7 -->
+    - `account_type: Literal['human', 'service']` (Default: `human`) — Unterscheidet menschliche Nutzer von Service Accounts. Service Accounts können sich nicht interaktiv anmelden (kein Passwort, kein SSO), werden ausschließlich per API-Key authentifiziert.
+    <!-- /Quelle: Service Accounts v1.7 -->
     - `status: Literal['unverified', 'active', 'suspended', 'deleted']`
     - `email_verified: bool` (Default: `false`)
     - `email_verification_token: Optional[str]` (Einmalig, gehashed gespeichert)
     - `email_verification_expires: Optional[datetime]`
-    - `password_hash: Optional[str]` (Bcrypt, `null` bei reinen SSO-Accounts)
+    - `password_hash: Optional[str]` (Bcrypt, `null` bei reinen SSO-Accounts und Service Accounts)
     - `password_reset_token: Optional[str]` (Einmalig, gehashed gespeichert)
     - `password_reset_expires: Optional[datetime]`
     - `failed_login_attempts: int` (Default: 0, Reset nach erfolgreichem Login)
@@ -254,6 +280,13 @@ Ein User kann mehrere Auth-Provider verknüpfen:
     - `last_login_at: Optional[datetime]`
     - `ha_url: Optional[str]` (Home Assistant URL, z.B. `"http://homeassistant.local:8123"`)
     - `ha_token_encrypted: Optional[str]` (Home Assistant Long-Lived Access Token, AES-256 verschlüsselt gespeichert. Wird vom `HomeAssistantConnector` (REQ-005) zur Kommunikation mit der HA REST API verwendet.)
+    <!-- Quelle: Service Accounts v1.7 -->
+    - `description: Optional[str]` (Nur für Service Accounts — Zweck/Beschreibung, z.B. "Home Assistant Zelt 1", "Grafana Monitoring")
+    - `created_by: Optional[str]` (user_key des Erstellers, nur für Service Accounts)
+    - `rate_limit_rpm: Optional[int]` (Rate Limit pro Minute, nur für Service Accounts. Default: `1000`. `null` = globaler Default.)
+    - `allowed_ip_ranges: Optional[list[str]]` (CIDR-Notation, nur für Service Accounts. `null` = keine Einschränkung. z.B. `["192.168.1.0/24", "10.0.0.0/8"]`)
+    - `last_active_at: Optional[datetime]` (Letzte API-Aktivität, nur für Service Accounts — wird bei jedem API-Key-Zugriff aktualisiert)
+    <!-- /Quelle: Service Accounts v1.7 -->
     - `created_at: datetime`
     - `updated_at: datetime`
 
@@ -564,7 +597,7 @@ Neben der JWT-basierten Browser-Authentifizierung unterstützt Kamerplanter **la
 ```python
 class ApiKey(BaseModel):
     _key: str                          # Auto-generiert
-    user_key: str                      # Besitzer
+    user_key: str                      # Besitzer (human User ODER Service Account)
     label: str                         # Vom User vergebener Name (z.B. "Home Assistant")
     key_prefix: str                    # Erste 8 Zeichen des Keys (für Anzeige: "kp_a3f8...")
     key_hash: str                      # SHA-256-Hash des vollständigen Keys
@@ -574,7 +607,7 @@ class ApiKey(BaseModel):
     tenant_scope: str | None = None    # Optional: Key auf einen Tenant beschränken
 ```
 
-**Edge:** `has_api_key` (User → ApiKey)
+**Edge:** `has_api_key` (User → ApiKey) — funktioniert für `account_type: 'human'` und `account_type: 'service'` gleichermaßen, da Service Accounts als User modelliert sind.
 
 #### Key-Format
 
@@ -595,6 +628,16 @@ kp_<48 hex characters>
 ```
 
 Die Middleware erkennt anhand des `kp_`-Prefix automatisch, ob ein API-Key oder JWT vorliegt. API-Keys werden gegen den gespeicherten Hash validiert und `last_used_at` wird aktualisiert.
+
+<!-- Quelle: Service Accounts v1.7 -->
+**Erweiterter Flow bei Service-Account-API-Keys:**
+
+Bei API-Key-Authentifizierung wird zusätzlich geprüft:
+1. **IP-Allowlist:** Wenn `allowed_ip_ranges` auf dem zugehörigen User (Service Account) gesetzt ist, wird die Client-IP gegen die CIDR-Bereiche geprüft. Mismatch → 403 Forbidden.
+2. **Service-Account-Status:** `status` des Service Accounts muss `active` sein. Suspended/Deleted → 401 Unauthorized.
+3. **Rate Limit:** `rate_limit_rpm` des Service Accounts wird als individuelle Obergrenze verwendet (statt des globalen 1000 req/min Defaults).
+4. **`last_active_at`:** Wird bei jedem erfolgreichen API-Key-Zugriff auf dem Service Account aktualisiert.
+<!-- /Quelle: Service Accounts v1.7 -->
 
 #### Rate Limiting
 
@@ -911,6 +954,688 @@ interface AuthState {
 }
 ```
 
+<!-- Quelle: Platform-Admin v1.6 -->
+## 5a. Platform-Admin-Rolle
+
+### 5a.1 Konzept
+
+Der **Platform-Admin** (KA-Admin) ist ein Benutzer mit Membership im **Platform-Tenant** (REQ-024 v1.3). Die Platform-Admin-Berechtigung wird über das bestehende Tenant/Membership-Modell abgebildet — es gibt kein separates Rollen-System.
+
+**Architektur-Entscheidung:** Die Platform-Admin-Rolle nutzt das bestehende Membership-Modell (Variante 1: Platform-Tenant) statt eines `is_platform_admin`-Flags auf User-Ebene. Begründung:
+- Wiederverwendung der bestehenden Tenant/Membership-Mechanik
+- Differenzierte Rollen im Platform-Tenant möglich (z.B. `admin` = volle Rechte, `viewer` = Read-Only-Zugang zu globalem Admin-Panel)
+- Kein zweites Rollen-System neben dem Tenant-scoped-Modell
+
+**Doppelrolle:**
+Ein User kann gleichzeitig Memberships in beliebig vielen Tenants haben, inklusive dem Platform-Tenant:
+
+```
+User "anna"
+  ├── Membership in tenant/platform (role: admin) → KA-Admin
+  ├── Membership in tenant/annas-garten (role: admin) → Privater Garten
+  └── Membership in tenant/gruene-oase (role: grower) → Gemeinschaftsgarten
+```
+
+### 5a.2 JWT-Erweiterung
+
+Das JWT Access Token wird um ein `is_platform_admin`-Flag erweitert:
+
+```python
+# Token Payload (Erweiterung)
+{
+    "sub": "users/anna",
+    "email": "anna@example.com",
+    "display_name": "Anna",
+    "tenant_roles": {
+        "platform": "admin",        # Platform-Tenant Membership
+        "annas-garten": "admin",
+        "gruene-oase": "grower"
+    },
+    "is_platform_admin": true,       # NEU: Shortcut für Frontend/Backend
+    "exp": 1711276800,
+    "iat": 1711275900,
+    "type": "access"
+}
+```
+
+Das `is_platform_admin`-Flag wird beim Token-Erstellen aus den `tenant_roles` abgeleitet:
+
+```python
+is_platform_admin = "platform" in tenant_roles and tenant_roles["platform"] == "admin"
+```
+
+### 5a.3 Backend-Dependency
+
+Neue FastAPI-Dependency für Platform-Admin-geschützte Endpunkte:
+
+```python
+def get_platform_admin(
+    current_user: User = Depends(get_current_user),
+    membership_repo: IMembershipRepository = Depends(get_membership_repo),
+) -> User:
+    """Stellt sicher, dass der aktuelle User Platform-Admin ist.
+    Wirft ForbiddenError wenn keine admin-Membership im Platform-Tenant."""
+    platform_membership = membership_repo.get_by_user_and_tenant(
+        current_user.key, "platform"
+    )
+    if not platform_membership or platform_membership.role != "admin":
+        raise ForbiddenError("Platform admin access required.")
+    return current_user
+```
+
+Verwendung in Routern:
+
+```python
+@router.post("/species/{species_key}/assign-to-tenant/{tenant_key}")
+def assign_species_to_tenant(
+    species_key: str,
+    tenant_key: str,
+    admin: User = Depends(get_platform_admin),  # Platform-Admin-Guard
+):
+    ...
+```
+
+### 5a.4 Platform-Admin-Rechte
+
+| Aktion | Berechtigung | Endpoint-Pattern |
+|--------|-------------|------------------|
+| Globale Species/Cultivars erstellen/bearbeiten/löschen | Platform-Admin | `POST/PUT/DELETE /api/v1/species/*` |
+| `tenant_has_access`-Kanten verwalten (zuweisen/entziehen) | Platform-Admin | `POST/DELETE /api/v1/admin/species/{key}/tenants/{tenant_key}` |
+| Tenant-Species zu global promoten | Platform-Admin | `POST /api/v1/admin/species/{key}/promote` |
+| Alle Tenants auflisten | Platform-Admin | `GET /api/v1/admin/tenants` |
+| Globale IPM-Daten verwalten | Platform-Admin | `POST/PUT/DELETE /api/v1/pests/*`, `/diseases/*`, `/treatments/*` |
+| OIDC-Provider konfigurieren | Platform-Admin | `POST/PUT/DELETE /api/v1/admin/oidc-providers/*` (bereits vorhanden) |
+<!-- Quelle: Tenant-Notfallverwaltung v1.7 -->
+| Verwaisten Tenant einsehen (Mitglieder, Status) | Platform-Admin | `GET /api/v1/admin/tenants/{tenant_key}/members` |
+| Neuen Admin in Tenant ernennen (Notfall) | Platform-Admin | `POST /api/v1/admin/tenants/{tenant_key}/emergency-admin` |
+| Tenant suspendieren | Platform-Admin | `POST /api/v1/admin/tenants/{tenant_key}/suspend` |
+| Tenant reaktivieren | Platform-Admin | `POST /api/v1/admin/tenants/{tenant_key}/reactivate` |
+| User-Status ändern (suspend/reactivate) | Platform-Admin | `POST /api/v1/admin/users/{user_key}/suspend`, `POST .../reactivate` |
+<!-- /Quelle: Tenant-Notfallverwaltung v1.7 -->
+
+<!-- Quelle: Tenant-Notfallverwaltung v1.7 -->
+### 5a.5 Tenant-Notfallverwaltung durch Platform-Admin
+
+**Problem:** Wenn alle Admins eines Organisations-Tenants ausfallen (Account gelöscht, suspended, alle verlassen den Tenant), ist der Tenant verwaist — kein Mitglied kann Verwaltungsaktionen durchführen. Ohne Eingriffsmöglichkeit ist der Tenant und alle seine Daten faktisch verloren.
+
+**Lösung:** Platform-Admins erhalten die Fähigkeit, in verwaiste Tenants einzugreifen und einen neuen Admin zu ernennen. Dieser Eingriff ist an strenge Bedingungen geknüpft und wird vollständig protokolliert.
+
+#### 5a.5.1 Verwaist-Erkennung
+
+Ein Tenant gilt als **verwaist** wenn:
+```python
+def is_orphaned(tenant_key: str) -> bool:
+    """Ein Tenant ist verwaist wenn er keine aktiven Admins hat."""
+    active_admins = membership_repo.count_by_tenant_and_role(
+        tenant_key, role="admin", status="active"
+    )
+    return active_admins == 0
+```
+
+**Automatische Erkennung:** Ein Celery-Task prüft wöchentlich alle Organisations-Tenants auf Verwaist-Status und setzt ggf. ein Flag `orphaned_since: datetime` auf dem Tenant. Platform-Admins sehen verwaiste Tenants prominent im Admin-Panel.
+
+#### 5a.5.2 Emergency-Admin-Ernennung
+
+```python
+@router.post("/admin/tenants/{tenant_key}/emergency-admin")
+def appoint_emergency_admin(
+    tenant_key: str,
+    request: EmergencyAdminRequest,
+    admin: User = Depends(get_platform_admin),
+    tenant_service: TenantService = Depends(get_tenant_service),
+) -> EmergencyAdminResponse:
+    """Ernennt einen neuen Admin in einem verwaisten Tenant.
+
+    Bedingungen:
+    1. Aufrufender muss Platform-Admin sein
+    2. Tenant muss verwaist sein (keine aktiven Admins)
+    3. Ziel-User muss existieren und status 'active' haben
+    4. Ziel-User darf bereits Mitglied sein (Rolle wird auf 'admin' hochgestuft)
+       ODER wird als neues Mitglied mit Rolle 'admin' hinzugefügt
+    5. Aktion wird im Audit-Log protokolliert
+    """
+```
+
+**Request:**
+```json
+{
+  "user_key": "users/max",
+  "reason": "Bisherige Admins Lisa und Tom haben Verein verlassen. Max ist stellvertretender Vorsitzender."
+}
+```
+
+**Response:**
+```json
+{
+  "tenant_key": "gruene-oase",
+  "user_key": "users/max",
+  "previous_role": "grower",
+  "new_role": "admin",
+  "reason": "Bisherige Admins Lisa und Tom haben Verein verlassen. Max ist stellvertretender Vorsitzender.",
+  "appointed_by": "users/anna",
+  "appointed_at": "2026-03-17T14:30:00Z",
+  "orphaned_since": "2026-03-10T00:00:00Z"
+}
+```
+
+**Sicherheitsregeln:**
+- **Nur bei verwaisten Tenants:** Wenn der Tenant noch aktive Admins hat → 409 Conflict ("Tenant hat aktive Admins — Notfall-Eingriff nicht erforderlich")
+- **Reason ist Pflichtfeld:** Der Grund wird persistent gespeichert (Audit-Trail)
+- **Benachrichtigung:** Alle aktiven Mitglieder des Tenants werden benachrichtigt (E-Mail/In-App), dass ein neuer Admin durch Platform-Admin ernannt wurde
+- **Keine Selbst-Ernennung:** Platform-Admin darf sich selbst als Emergency-Admin einsetzen (sinnvoll für kleine Instanzen mit einem einzigen KA-Admin)
+
+#### 5a.5.3 Tenant-Suspendierung
+
+Platform-Admins können Tenants bei Bedarf suspendieren (z.B. bei Missbrauch, Rechtsstreitigkeiten, nicht-zahlenden Kunden im SaaS-Modell):
+
+```python
+@router.post("/admin/tenants/{tenant_key}/suspend")
+def suspend_tenant(
+    tenant_key: str,
+    request: TenantSuspendRequest,  # { reason: str }
+    admin: User = Depends(get_platform_admin),
+) -> Tenant:
+    """Setzt Tenant auf status='suspended'.
+    Alle API-Zugriffe im Tenant-Scope geben 403 zurück.
+    Memberships bleiben erhalten, aber Zugriff wird blockiert."""
+```
+
+```python
+@router.post("/admin/tenants/{tenant_key}/reactivate")
+def reactivate_tenant(
+    tenant_key: str,
+    admin: User = Depends(get_platform_admin),
+) -> Tenant:
+    """Setzt Tenant zurück auf status='active'."""
+```
+
+**Verhalten bei suspendiertem Tenant:**
+- Alle tenant-scoped API-Requests (`/api/v1/t/{slug}/...`) geben 403 zurück mit Meldung "Tenant ist suspendiert. Kontaktieren Sie den Plattform-Administrator."
+- Tenant erscheint im Tenant-Switcher ausgegraut mit Hinweis
+- Memberships bleiben erhalten → bei Reaktivierung sofort wieder funktionsfähig
+- Celery-Tasks für den Tenant werden pausiert (kein Care-Reminder, kein Watering-Task)
+- Platform-Tenant kann NICHT suspendiert werden (Schutz)
+- Persönliche Tenants können suspendiert werden (z.B. bei Account-Missbrauch)
+
+#### 5a.5.4 User-Verwaltung durch Platform-Admin
+
+Platform-Admins können User-Accounts verwalten (z.B. bei Missbrauch, kompromittierten Accounts):
+
+```python
+@router.post("/admin/users/{user_key}/suspend")
+def suspend_user(
+    user_key: str,
+    request: UserSuspendRequest,  # { reason: str }
+    admin: User = Depends(get_platform_admin),
+) -> User:
+    """Setzt User auf status='suspended'.
+    Alle Refresh Tokens werden invalidiert.
+    Alle API-Keys werden suspendiert.
+    User kann sich nicht mehr anmelden."""
+
+@router.post("/admin/users/{user_key}/reactivate")
+def reactivate_user(
+    user_key: str,
+    admin: User = Depends(get_platform_admin),
+) -> User:
+    """Setzt User zurück auf status='active'.
+    User muss sich erneut anmelden (keine automatische Session-Wiederherstellung)."""
+```
+
+**Schutzregeln:**
+- Platform-Admin kann sich NICHT selbst suspendieren
+- Wenn der suspendierte User der letzte Admin eines Tenants ist → Tenant wird als verwaist markiert (`orphaned_since` gesetzt)
+- System-User (Light-Modus) kann nicht suspendiert werden
+
+#### 5a.5.5 Szenarien
+
+**Szenario 12: Verwaister Gemeinschaftsgarten — Notfall-Admin**
+```
+Voraussetzung: Tenant "Grüne Oase e.V." mit 12 Mitgliedern
+  Lisa (Admin) hat Account gelöscht
+  Tom (Admin, Stellvertreter) hat Verein verlassen
+
+1. Celery-Task erkennt: "Grüne Oase e.V." hat 0 aktive Admins
+   → orphaned_since: 2026-03-10
+2. KA-Admin Anna sieht im Admin-Panel: "1 verwaister Tenant"
+3. Anna öffnet Tenant-Details → sieht Mitgliederliste:
+   - Lisa (deleted), Tom (left), Max (grower), ...
+4. Anna wählt "Notfall-Admin ernennen" → Max (Grower)
+5. Grund: "Bisherige Admins haben Verein verlassen. Max ist Kassenwart."
+6. System:
+   a) Max' Rolle: grower → admin
+   b) orphaned_since: null (Tenant nicht mehr verwaist)
+   c) E-Mail an alle 10 verbleibenden Mitglieder:
+      "Max wurde von der Plattform-Administration als neuer Admin ernannt."
+7. Max kann jetzt Mitglieder verwalten, Einladungen erstellen, etc.
+```
+
+**Szenario 13: Tenant-Suspendierung bei Missbrauch**
+```
+1. KA-Admin erhält Hinweis: Tenant "spam-garden" missbraucht Plattform
+2. Anna navigiert zu Admin-Panel → Tenant-Liste
+3. Klickt auf "spam-garden" → "Tenant suspendieren"
+4. Gibt Grund ein: "Spam-Inhalte, Meldung von 3 Nutzern"
+5. System setzt status='suspended'
+6. Alle 5 Mitglieder von "spam-garden":
+   - Sehen im Tenant-Switcher: "spam-garden (suspendiert)"
+   - API-Zugriffe auf /t/spam-garden/* → 403
+   - Andere Tenants der Mitglieder funktionieren normal
+7. Nach Klärung: Anna reaktiviert → sofort wieder funktionsfähig
+```
+
+**Szenario 14: User-Suspendierung bei kompromittiertem Account**
+```
+1. KA-Admin bemerkt: User "hacker@example.com" zeigt verdächtige Aktivität
+2. Anna suspendiert den User über Admin-Panel
+3. System:
+   a) status → suspended
+   b) Alle Refresh Tokens invalidiert (sofortiger Logout auf allen Geräten)
+   c) Alle API-Keys suspendiert
+   d) Prüfung: War User letzter Admin in einem Tenant?
+      → Ja in "kleiner-garten" → Tenant als verwaist markiert
+4. Anna untersucht den Vorfall
+5. Nach Klärung: Reaktivierung → User muss sich neu anmelden
+```
+<!-- /Quelle: Tenant-Notfallverwaltung v1.7 -->
+
+### 5a.6 Szenario: Platform-Admin verwaltet Stammdaten
+
+```
+1. Anna ist Platform-Admin (Membership in tenant/platform, role: admin)
+2. Anna navigiert zum Admin-Panel (/admin/stammdaten)
+3. Anna sieht alle globalen Species mit Zuweisungsstatus pro Tenant
+4. Anna wählt Species "Cannabis sativa" und weist sie Tenant "grow-op" zu:
+   → tenant_has_access-Kante wird erstellt
+5. Anna entzieht Species "Cannabis sativa" von Tenant "gemuese-garten":
+   → tenant_has_access-Kante wird gelöscht
+6. Tenant "grow-op" sieht Cannabis, Tenant "gemuese-garten" nicht
+7. Anna wechselt zu ihrem privaten Garten (Tenant-Switcher → "Annas Garten")
+   → Anna arbeitet als normaler Tenant-Admin, nicht als KA-Admin
+```
+<!-- /Quelle: Platform-Admin v1.6 -->
+
+<!-- Quelle: Service Accounts v1.7 -->
+## 5b. Service Accounts
+
+### 5b.1 Konzept
+
+**Service Accounts** sind nicht-interaktive Konten für maschinellen API-Zugriff. Sie werden als User mit `account_type: 'service'` modelliert und nutzen die bestehende Membership- und API-Key-Infrastruktur. Hauptanwendungsfälle:
+
+| System | Typische Rolle | Zugriff |
+|--------|---------------|---------|
+| **Home Assistant** | `grower` im Tenant | Sensordaten schreiben, Aktoren steuern, Tasks lesen |
+| **Grafana/Prometheus** | `viewer` im Tenant | Metriken/Sensordaten lesen, Dashboard-Daten abfragen |
+| **CI/CD Pipeline** | `admin` im Tenant | Seed-Daten deployen, Konfiguration aktualisieren |
+| **Enrichment-Pipeline** | Platform `viewer` | Globale Stammdaten lesen, Enrichment-Ergebnisse schreiben |
+| **Backup-System** | Platform `admin` | Cross-Tenant Read-Access für Datensicherung |
+
+**Architektur-Entscheidung:** Service Accounts als User-Subtyp (Variante B) statt separater Entity (Variante A). Begründung:
+- Wiederverwendung der gesamten Membership/API-Key/RBAC-Infrastruktur ohne Code-Duplikation
+- `get_current_user`-Dependency funktioniert unverändert — gibt User zurück, egal ob `human` oder `service`
+- Permission-Prüfung (REQ-024 Permission Matrix) greift identisch für beide Account-Typen
+- Audit-Trail mit `user_key` funktioniert transparent (Service Account Keys sind in Logs identifizierbar)
+
+### 5b.2 Abgrenzung: Service Account vs. API-Key eines menschlichen Users
+
+| Eigenschaft | API-Key (human User) | Service Account |
+|-------------|---------------------|-----------------|
+| **Besitzer** | Menschlicher User | Eigenständiges Konto (`account_type: 'service'`) |
+| **Erstellung** | User erstellt selbst | Tenant-Admin oder Platform-Admin erstellt |
+| **Interaktiver Login** | User kann sich per Passwort/SSO anmelden | Kein Login möglich (kein Passwort, kein SSO) |
+| **JWT-Tokens** | Ja (interaktive Sessions) | Nein (nur API-Key-Authentifizierung) |
+| **Refresh Tokens** | Ja | Nein |
+| **Membership** | Eigene Memberships des Users | Eigene Memberships — vom Ersteller festgelegt |
+| **IP-Einschränkung** | Nicht unterstützt | `allowed_ip_ranges` (CIDR-Notation) |
+| **Individuelles Rate Limit** | Nein (globaler Default) | `rate_limit_rpm` pro Account konfigurierbar |
+| **Sichtbarkeit** | Nur für den User selbst | Für Tenant-Admins und Platform-Admins sichtbar |
+| **Verantwortung** | User selbst | `created_by` → Ersteller ist verantwortlich |
+
+### 5b.3 Tenant-scoped Service Accounts
+
+Tenant-Admins können Service Accounts für ihren Tenant erstellen. Der Service Account erhält eine Membership im Tenant mit einer vom Admin festgelegten Rolle.
+
+**Regeln:**
+- Nur Tenant-Admins dürfen Service Accounts erstellen (`role: admin` im Tenant erforderlich)
+- Die zugewiesene Rolle darf maximal `grower` sein — ein Service Account kann nicht `admin` im Tenant werden (verhindert Privilege Escalation über maschinelle Konten)
+- Ausnahme: Platform-Admins dürfen Service Accounts mit jeder Rolle erstellen (auch `admin`)
+- Service Accounts werden dem Tenant via Membership zugeordnet (analog zu menschlichen Usern)
+- Ein Service Account kann Memberships in mehreren Tenants haben (z.B. Home Assistant, das mehrere Growzelte überwacht)
+- Die `email` des Service Accounts folgt dem Pattern `{slugified-name}@service.{tenant_slug}.local` (nicht routbar, nur für Eindeutigkeit)
+
+### 5b.4 Platform-scoped Service Accounts
+
+Platform-Admins können Service Accounts auf Plattformebene erstellen. Diese erhalten eine Membership im Platform-Tenant und können zusätzlich Memberships in beliebigen regulären Tenants erhalten.
+
+**Regeln:**
+- Nur Platform-Admins dürfen Platform Service Accounts erstellen
+- Platform Service Accounts können Rollen im Platform-Tenant haben (`admin` oder `viewer`)
+- Platform Service Accounts mit `admin`-Rolle im Platform-Tenant haben KA-Admin-Rechte (globale Stammdaten, `tenant_has_access`-Verwaltung)
+- Platform Service Accounts mit `viewer`-Rolle im Platform-Tenant haben Read-Only-Zugriff auf das Admin-Panel (z.B. für Monitoring/Dashboards)
+
+### 5b.5 Service Account Lifecycle
+
+```
+Erstellt (active) → Suspendiert (suspended) → Reaktiviert (active) → Gelöscht (deleted)
+                  ↘                                                  ↗
+                    → Gelöscht (deleted) ─────────────────────────────
+```
+
+| Status | Verhalten |
+|--------|----------|
+| `active` | API-Keys funktionieren, normale Zugriffskontrolle |
+| `suspended` | Alle API-Keys sofort ungültig (401), Daten bleiben erhalten. Reaktivierung möglich. |
+| `deleted` | Soft-Delete — Alle API-Keys invalidiert, Memberships auf `status: 'left'` gesetzt. Nicht reaktivierbar. |
+
+### 5b.6 Backend-Architektur
+
+**`ServiceAccountEngine`** — Validierungslogik (pure Logik, kein I/O):
+
+```python
+class ServiceAccountEngine:
+    MAX_SERVICE_ACCOUNTS_PER_TENANT = 20
+    DEFAULT_RATE_LIMIT_RPM = 1000
+
+    def validate_name(self, name: str) -> list[str]: ...
+        # Min 2, Max 100 Zeichen
+        # Nur alphanumerisch, Leerzeichen, Bindestriche
+
+    def generate_email(self, name: str, tenant_slug: str) -> str: ...
+        # "Home Assistant" + "mein-garten" → "home-assistant@service.mein-garten.local"
+
+    def validate_ip_ranges(self, ip_ranges: list[str]) -> list[str]: ...
+        # Prüft gültige CIDR-Notation (IPv4 und IPv6)
+        # Maximale Range: /8 (IPv4), /32 (IPv6) — verhindert "0.0.0.0/0"
+
+    def check_ip_allowed(self, client_ip: str, allowed_ranges: list[str]) -> bool: ...
+        # Prüft ob Client-IP in einem der erlaubten CIDR-Bereiche liegt
+        # None/leere Liste → alle IPs erlaubt
+
+    def can_assign_role(self, creator_role: str, target_role: str,
+                        is_platform_admin: bool) -> bool: ...
+        # Tenant-Admin: max. grower
+        # Platform-Admin: alle Rollen (inkl. admin)
+
+    def validate_rate_limit(self, rpm: int) -> list[str]: ...
+        # Min: 10, Max: 10000 req/min
+```
+
+**`ServiceAccountService`** — Orchestriert Service-Account-CRUD:
+
+```python
+class ServiceAccountService:
+    def __init__(self, user_repo, membership_repo, api_key_repo,
+                 service_account_engine, membership_engine, tenant_repo): ...
+
+    async def create_service_account(
+        self,
+        creator: User,
+        tenant_key: str,
+        name: str,
+        role: str,
+        description: str | None = None,
+        rate_limit_rpm: int | None = None,
+        allowed_ip_ranges: list[str] | None = None,
+    ) -> ServiceAccountCreated: ...
+        # 1. Prüft: Creator ist Admin im Tenant (oder Platform-Admin)
+        # 2. Prüft: Max. 20 Service Accounts pro Tenant
+        # 3. Validiert Name, IP-Ranges, Rate Limit, Rollen-Zuweisung
+        # 4. Erstellt User mit account_type='service', generierter E-Mail
+        # 5. Erstellt Membership im Tenant mit gewählter Rolle
+        # 6. Erstellt initialen API-Key (kp_...)
+        # 7. Gibt ServiceAccountCreated zurück (inkl. einmaligem API-Key-Klartext)
+
+    async def list_service_accounts(
+        self, tenant_key: str, actor: User
+    ) -> list[ServiceAccountInfo]: ...
+        # Alle Service Accounts des Tenants (nur für Tenant-Admins)
+
+    async def get_service_account(
+        self, service_account_key: str, actor: User
+    ) -> ServiceAccountDetail: ...
+        # Inkl. Memberships, API-Key-Liste, letzte Aktivität
+
+    async def update_service_account(
+        self, service_account_key: str, actor: User,
+        updates: ServiceAccountUpdate
+    ) -> ServiceAccountDetail: ...
+        # Aktualisiert: name, description, rate_limit_rpm, allowed_ip_ranges
+        # Rollen-Änderung über separate Membership-Verwaltung
+
+    async def suspend_service_account(
+        self, service_account_key: str, actor: User
+    ) -> None: ...
+        # Setzt status='suspended', alle API-Keys sofort ungültig
+
+    async def reactivate_service_account(
+        self, service_account_key: str, actor: User
+    ) -> None: ...
+        # Setzt status='active', bestehende (nicht-revoked) API-Keys funktionieren wieder
+
+    async def delete_service_account(
+        self, service_account_key: str, actor: User
+    ) -> None: ...
+        # Soft-Delete: status='deleted', alle API-Keys revoked, Memberships 'left'
+
+    async def rotate_api_key(
+        self, service_account_key: str, actor: User
+    ) -> ApiKeyCreated: ...
+        # Revoked alten Key, erstellt neuen Key
+        # Gibt einmalig den neuen Key-Klartext zurück
+
+    async def add_tenant_membership(
+        self, service_account_key: str, target_tenant_key: str,
+        role: str, actor: User
+    ) -> Membership: ...
+        # Fügt Service Account als Mitglied in einem weiteren Tenant hinzu
+        # Nur Platform-Admin für Cross-Tenant, Tenant-Admin für eigenen Tenant
+```
+
+### 5b.7 API-Endpoints
+
+**Router: `/api/v1/t/{tenant_slug}/service-accounts`** — Tenant-scoped Service Account Verwaltung:
+
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `POST` | `/t/{slug}/service-accounts` | Service Account erstellen (inkl. initialer API-Key) | Tenant-Admin |
+| `GET` | `/t/{slug}/service-accounts` | Alle Service Accounts des Tenants auflisten | Tenant-Admin |
+| `GET` | `/t/{slug}/service-accounts/{sa_key}` | Details eines Service Accounts | Tenant-Admin |
+| `PATCH` | `/t/{slug}/service-accounts/{sa_key}` | Service Account aktualisieren (Name, Beschreibung, Rate Limit, IP-Ranges) | Tenant-Admin |
+| `POST` | `/t/{slug}/service-accounts/{sa_key}/suspend` | Service Account suspendieren | Tenant-Admin |
+| `POST` | `/t/{slug}/service-accounts/{sa_key}/reactivate` | Service Account reaktivieren | Tenant-Admin |
+| `DELETE` | `/t/{slug}/service-accounts/{sa_key}` | Service Account löschen (Soft-Delete) | Tenant-Admin |
+| `POST` | `/t/{slug}/service-accounts/{sa_key}/rotate-key` | API-Key rotieren (alter Key revoked, neuer Key erstellt) | Tenant-Admin |
+
+**Router: `/api/v1/admin/platform/service-accounts`** — Platform-scoped Service Account Verwaltung:
+
+| Methode | Pfad | Beschreibung | Auth |
+|---------|------|-------------|------|
+| `POST` | `/admin/platform/service-accounts` | Platform Service Account erstellen | Platform-Admin |
+| `GET` | `/admin/platform/service-accounts` | Alle Platform Service Accounts auflisten | Platform-Admin |
+| `GET` | `/admin/platform/service-accounts/{sa_key}` | Details eines Platform Service Accounts | Platform-Admin |
+| `PATCH` | `/admin/platform/service-accounts/{sa_key}` | Platform Service Account aktualisieren | Platform-Admin |
+| `POST` | `/admin/platform/service-accounts/{sa_key}/tenants/{tenant_key}` | Service Account Membership in weiterem Tenant hinzufügen | Platform-Admin |
+| `DELETE` | `/admin/platform/service-accounts/{sa_key}/tenants/{tenant_key}` | Service Account Membership aus Tenant entfernen | Platform-Admin |
+| `DELETE` | `/admin/platform/service-accounts/{sa_key}` | Platform Service Account löschen | Platform-Admin |
+
+**Gesamt:** 15 neue API-Endpoints
+
+**POST /api/v1/t/{slug}/service-accounts — Request:**
+```json
+{
+  "name": "Home Assistant Growzelt",
+  "description": "Sensordaten und Aktorsteuerung für Zelt 1",
+  "role": "grower",
+  "rate_limit_rpm": 500,
+  "allowed_ip_ranges": ["192.168.1.0/24"]
+}
+```
+
+**POST /api/v1/t/{slug}/service-accounts — Response (einmalig mit API-Key-Klartext):**
+```json
+{
+  "_key": "sa_homeassistant_001",
+  "name": "Home Assistant Growzelt",
+  "description": "Sensordaten und Aktorsteuerung für Zelt 1",
+  "account_type": "service",
+  "email": "home-assistant-growzelt@service.mein-garten.local",
+  "role": "grower",
+  "status": "active",
+  "rate_limit_rpm": 500,
+  "allowed_ip_ranges": ["192.168.1.0/24"],
+  "api_key": {
+    "_key": "ak_sa_001",
+    "api_key": "kp_b7e2f8a1c3d5e9f0a2b4c6d8e0f2a4b6c8d0e2f4a6b8c0d2e4",
+    "key_prefix": "kp_b7e2...",
+    "created_at": "2026-03-17T10:00:00Z"
+  },
+  "created_by": "users/anna",
+  "created_at": "2026-03-17T10:00:00Z"
+}
+```
+
+> **Hinweis:** Der vollständige API-Key wird nur bei der Erstellung und bei Key-Rotation angezeigt. Danach ist er nicht mehr abrufbar.
+
+### 5b.8 JWT-Erweiterung
+
+Das JWT Access Token (§5a.2) wird um `account_type` erweitert:
+
+```python
+{
+    "sub": "users/sa_homeassistant_001",
+    "email": "home-assistant-growzelt@service.mein-garten.local",
+    "display_name": "Home Assistant Growzelt",
+    "account_type": "service",          # NEU: Unterscheidung human/service
+    "tenant_roles": {
+        "mein-garten": "grower"
+    },
+    "is_platform_admin": false,
+    "exp": 1711276800,
+    "iat": 1711275900,
+    "type": "access"
+}
+```
+
+**Hinweis:** Service Accounts erhalten kein JWT-Token über Login — das Token wird nur intern für die API-Key→User-Auflösung im Middleware-Kontext verwendet. Der `account_type` im Token ermöglicht es Endpunkten, Service-Account-Zugriffe gesondert zu behandeln (z.B. keine interaktiven Operationen wie Passwort-Änderung).
+
+### 5b.9 Szenarien
+
+**Szenario 8: Home Assistant Service Account erstellen**
+```
+1. Anna (Tenant-Admin von "Annas Garten") navigiert zu /t/annas-garten/settings/service-accounts
+2. Klickt "Service Account erstellen"
+3. Dialog: Name "Home Assistant", Beschreibung "Sensor- und Aktor-Integration",
+   Rolle: Gärtner (grower), IP-Bereich: 192.168.1.0/24
+4. System erstellt Service Account + initialen API-Key
+5. Dialog zeigt API-Key einmalig an: "kp_b7e2f8a1..."
+6. Anna kopiert Key und hinterlegt ihn in der HA-Konfiguration
+7. HA authentifiziert sich per API-Key → Middleware erkennt kp_-Prefix
+   → löst Service Account auf → prüft IP (192.168.1.x ✓) → Zugriff OK
+8. HA kann im Tenant "Annas Garten" Sensordaten schreiben und Tasks lesen
+```
+
+**Szenario 9: Monitoring Service Account mit Platform-Zugriff**
+```
+1. KA-Admin erstellt Platform Service Account "Grafana Monitoring"
+   → POST /api/v1/admin/platform/service-accounts
+   → Rolle im Platform-Tenant: viewer
+2. KA-Admin fügt Service Account als viewer in 3 Tenants hinzu:
+   → POST /api/v1/admin/platform/service-accounts/{key}/tenants/annas-garten
+   → POST /api/v1/admin/platform/service-accounts/{key}/tenants/gruene-oase
+   → POST /api/v1/admin/platform/service-accounts/{key}/tenants/cannabis-club
+3. Grafana nutzt den API-Key um Metriken aus allen 3 Tenants abzurufen
+4. Read-Only: Grafana kann keine Daten ändern (viewer-Rolle)
+```
+
+**Szenario 10: Service Account Key-Rotation**
+```
+1. Anna vermutet, dass der HA-API-Key kompromittiert wurde
+2. Navigiert zu Service Account Details
+3. Klickt "Key rotieren"
+4. System: Alter Key wird sofort revoked, neuer Key wird erstellt
+5. Dialog zeigt neuen Key einmalig an
+6. Anna aktualisiert den Key in der HA-Konfiguration
+7. HA nutzt ab sofort den neuen Key — alter Key ist ungültig
+```
+
+**Szenario 11: Service Account suspendieren**
+```
+1. Anna bemerkt verdächtige API-Zugriffe vom HA-Service-Account
+2. Klickt "Suspendieren" → sofortige Wirkung
+3. Alle API-Keys des Service Accounts geben 401 zurück
+4. Anna untersucht das Problem
+5. Problem gelöst → "Reaktivieren" → API-Keys funktionieren wieder
+```
+
+### 5b.10 Frontend
+
+**Service Account Verwaltung im Tenant-Settings-Bereich:**
+
+| Seite | Route | Beschreibung |
+|-------|-------|-------------|
+| `ServiceAccountListPage` | `/t/{slug}/settings/service-accounts` | Liste aller Service Accounts des Tenants |
+| `ServiceAccountDetailPage` | `/t/{slug}/settings/service-accounts/{sa_key}` | Details, API-Keys, Memberships, Aktivitätslog |
+
+**ServiceAccountListPage (Tabelle):**
+
+| Spalte | Beschreibung |
+|--------|-------------|
+| Name | Anzeigename (z.B. "Home Assistant Growzelt") |
+| Rolle | Rolle im Tenant (Chip: grower, viewer) |
+| Status | Status-Chip (active: grün, suspended: orange, deleted: grau) |
+| Letzte Aktivität | Zeitpunkt des letzten API-Zugriffs oder "Nie aktiv" |
+| IP-Bereich | Konfigurierte Allowlist oder "Alle" |
+| Aktionen | Suspendieren/Reaktivieren, Löschen |
+
+**ServiceAccountDetailPage (Tabs):**
+
+- **Tab "Übersicht":** Name, Beschreibung, Status, Erstellt von, Rate Limit, IP-Bereiche — editierbar
+- **Tab "API-Keys":** Aktive Keys (Label, Prefix, Erstellt, Letzter Zugriff). Button "Key rotieren" (revoked alten, erstellt neuen)
+- **Tab "Tenants":** Alle Memberships des Service Accounts (Tenant-Name, Rolle). Nur bei Platform Service Accounts: Tenants hinzufügen/entfernen
+
+**Erstell-Dialog:**
+
+- **Name** (Pflicht): z.B. "Home Assistant", "Grafana"
+- **Beschreibung** (Optional): Freitext
+- **Rolle** (Pflicht): Dropdown (Gärtner, Beobachter — kein Admin für Tenant-scoped)
+- **Rate Limit** (Optional): Zahleneingabe, Default 1000 req/min
+- **IP-Bereiche** (Optional): Chip-Input für CIDR-Notation
+- **Erstellen** → API-Key wird einmalig angezeigt (Copy-Button, Warnhinweis wie bei normalen API-Keys)
+
+**Sichtbarkeit:**
+- Service Account Menüpunkt nur für Tenant-Admins sichtbar
+- Im Light-Modus (REQ-027): Sichtbar, da System-User Admin ist — nützlich für HA-Integration
+- Expertise-Level (REQ-021): Nur ab `intermediate` sichtbar (beginners brauchen keine Service Accounts)
+
+### 5b.11 Light-Modus-Integration (REQ-027)
+
+Im Light-Modus funktionieren Service Accounts uneingeschränkt:
+- System-User ist Admin im System-Tenant → kann Service Accounts erstellen
+- Nützlichster Use-Case: Home Assistant Service Account für lokale HA-Integration
+- Service Account API-Keys funktionieren auch ohne JWT (LightAuthProvider gibt System-User zurück, aber API-Keys werden direkt per Hash validiert — kein Bypass)
+
+**Sicherheitsaspekt:** Im Light-Modus gibt es keine Authentifizierung — aber Service Accounts mit API-Keys bieten eine optionale Sicherheitsebene für automatisierte Zugriffe. Ein Admin kann Service Accounts mit IP-Allowlist konfigurieren, auch wenn der Browser-Zugang offen ist.
+
+### 5b.12 Seed-Daten
+
+**Demo Service Account (nur Entwicklungsumgebung):**
+
+```json
+{
+  "email": "demo-ha@service.demo-garten.local",
+  "display_name": "Demo Home Assistant",
+  "account_type": "service",
+  "description": "Demo Service Account für Home Assistant Integration",
+  "status": "active",
+  "rate_limit_rpm": 1000,
+  "allowed_ip_ranges": null,
+  "created_by": "users/demo-user"
+}
+```
+
+Membership: `grower` im Demo-Tenant. API-Key: `kp_demo000000000000000000000000000000000000000000000000` (nur in Seed-Daten, nicht für Produktion).
+<!-- /Quelle: Service Accounts v1.7 -->
+
 ## 6. Abnahmekriterien
 
 ### Funktionale Kriterien:
@@ -936,6 +1661,50 @@ interface AuthState {
 | AK-15 | Profil-Update (display_name, locale, timezone) persistiert korrekt | Integration |
 | AK-16 | Account-Löschung setzt `status: deleted`, anonymisiert E-Mail, invalidiert alle Tokens | Integration |
 | AK-17 | Celery-Task bereinigt abgelaufene Tokens stündlich und unbestätigte Accounts nach 7 Tagen | Integration |
+<!-- Quelle: Platform-Admin v1.6 -->
+| AK-18 | Platform-Admin-Dependency (`get_platform_admin`) prüft Membership im Platform-Tenant mit `role: admin` | Unit + Integration |
+| AK-19 | JWT Access Token enthält `is_platform_admin: true` wenn User Platform-Admin ist | Unit |
+| AK-20 | User kann gleichzeitig Platform-Admin und regulärer Tenant-Nutzer sein (Doppelrolle) | Integration |
+| AK-21 | Nicht-Platform-Admins erhalten 403 bei Zugriff auf Platform-Admin-Endpunkte | Integration |
+| AK-22 | Platform-Admin kann globale Species/Cultivars erstellen, bearbeiten, löschen | Integration |
+| AK-23 | Platform-Admin kann `tenant_has_access`-Kanten erstellen und entfernen | Integration |
+| AK-24 | Platform-Admin kann Tenant-eigene Species zu globalen promoten (origin: tenant → system, tenant_key → null) | Integration |
+<!-- /Quelle: Platform-Admin v1.6 -->
+<!-- Quelle: Service Accounts v1.7 -->
+| AK-25 | Service Account Erstellung erzeugt User mit `account_type: 'service'`, generierter E-Mail und Membership im Tenant | Integration |
+| AK-26 | Service Account bekommt bei Erstellung automatisch einen API-Key (Klartext einmalig in Response) | Integration |
+| AK-27 | Service Account kann sich NICHT per Passwort oder SSO anmelden (kein `password_hash`, kein AuthProvider) | Unit + Integration |
+| AK-28 | Tenant-Admin kann Service Accounts nur mit Rolle `grower` oder `viewer` erstellen (kein `admin`) | Unit |
+| AK-29 | Platform-Admin kann Service Accounts mit jeder Rolle erstellen (inkl. `admin`) | Integration |
+| AK-30 | Maximal 20 Service Accounts pro Tenant (429 bei Überschreitung) | Unit + Integration |
+| AK-31 | `allowed_ip_ranges` wird bei API-Key-Authentifizierung geprüft — Zugriff von nicht-erlaubter IP gibt 403 | Integration |
+| AK-32 | `rate_limit_rpm` wird als individuelles Rate Limit pro Service Account angewendet | Integration |
+| AK-33 | Suspendierung eines Service Accounts macht alle seine API-Keys sofort ungültig (401) | Integration |
+| AK-34 | Reaktivierung eines Service Accounts stellt API-Key-Funktionalität wieder her (nicht-revoked Keys funktionieren) | Integration |
+| AK-35 | Löschung (Soft-Delete) revoked alle API-Keys und setzt Memberships auf `status: 'left'` | Integration |
+| AK-36 | Key-Rotation revoked den alten Key und erstellt einen neuen (Klartext einmalig in Response) | Integration |
+| AK-37 | Platform Service Account kann Memberships in mehreren Tenants erhalten | Integration |
+| AK-38 | `last_active_at` wird bei jedem API-Key-Zugriff des Service Accounts aktualisiert | Integration |
+| AK-39 | Service Account E-Mail folgt Pattern `{slug}@service.{tenant_slug}.local` und ist UNIQUE | Unit |
+| AK-40 | Service Accounts sind in der User-Auflistung (`GET /users/me/providers` etc.) nicht sichtbar — eigene Verwaltung über `/service-accounts` | Integration |
+| AK-41 | `account_type` ist im JWT-Token enthalten und korrekt gesetzt (`human` oder `service`) | Unit |
+<!-- /Quelle: Service Accounts v1.7 -->
+<!-- Quelle: Tenant-Notfallverwaltung v1.7 -->
+| AK-42 | Verwaist-Erkennung: Tenant ohne aktive Admins wird korrekt als verwaist erkannt (`is_orphaned() == True`) | Unit + Integration |
+| AK-43 | Emergency-Admin-Ernennung nur bei verwaisten Tenants möglich (409 wenn aktive Admins vorhanden) | Integration |
+| AK-44 | Emergency-Admin-Ernennung erfordert Platform-Admin-Berechtigung (403 für Nicht-Platform-Admins) | Integration |
+| AK-45 | Emergency-Admin-Ernennung: `reason` ist Pflichtfeld (422 bei fehlendem Grund) | Unit |
+| AK-46 | Emergency-Admin-Ernennung: Ziel-User wird korrekt zum Admin befördert (bestehende Membership) oder als Admin hinzugefügt (neue Membership) | Integration |
+| AK-47 | Emergency-Admin-Ernennung: `orphaned_since` wird auf `null` zurückgesetzt | Integration |
+| AK-48 | Emergency-Admin-Ernennung: Alle aktiven Mitglieder des Tenants werden benachrichtigt | Integration |
+| AK-49 | Tenant-Suspendierung: Alle tenant-scoped API-Requests geben 403 zurück | Integration |
+| AK-50 | Tenant-Suspendierung: Platform-Tenant kann NICHT suspendiert werden (400) | Unit |
+| AK-51 | Tenant-Reaktivierung: Zugriff wird sofort wiederhergestellt | Integration |
+| AK-52 | User-Suspendierung: Alle Refresh Tokens invalidiert, alle API-Keys suspendiert | Integration |
+| AK-53 | User-Suspendierung: Platform-Admin kann sich NICHT selbst suspendieren (400) | Unit |
+| AK-54 | User-Suspendierung: Wenn User letzter Admin eines Tenants → Tenant als verwaist markiert | Integration |
+| AK-55 | Celery-Task erkennt verwaiste Tenants wöchentlich und setzt `orphaned_since` | Integration |
+<!-- /Quelle: Tenant-Notfallverwaltung v1.7 -->
 
 ### Sicherheitskriterien:
 
@@ -1034,6 +1803,21 @@ Die Wahl der konkreten Implementierung erfolgt per Konfiguration (`EMAIL_ADAPTER
 - Login-Throttling und Rate Limiting
 - Session-Verwaltung (aktive Geräte, Logout-All)
 - OIDC-Provider-Konfiguration durch System-Admin
+<!-- Quelle: Service Accounts v1.7 -->
+- Service Accounts (`account_type: 'service'`) als nicht-interaktive Konten für Third-Party-Systeme
+- Tenant-scoped und Platform-scoped Service Accounts
+- API-Key-only Authentifizierung für Service Accounts (kein Passwort, kein SSO)
+- IP-Allowlist und individuelles Rate Limit pro Service Account
+- Service Account Lifecycle (erstellen, suspendieren, reaktivieren, löschen, Key-Rotation)
+- 15 neue API-Endpoints für Service Account Verwaltung
+<!-- /Quelle: Service Accounts v1.7 -->
+<!-- Quelle: Tenant-Notfallverwaltung v1.7 -->
+- Tenant-Notfallverwaltung: Emergency-Admin-Ernennung bei verwaisten Tenants
+- Tenant-Suspendierung/Reaktivierung durch Platform-Admin
+- User-Suspendierung/Reaktivierung durch Platform-Admin
+- Verwaist-Erkennung via Celery-Task (wöchentlich)
+- 7 neue Admin-API-Endpoints (`/admin/tenants/{key}/emergency-admin`, `/suspend`, `/reactivate`, `/admin/users/{key}/suspend`, `/reactivate`, `/admin/tenants/{key}/members`)
+<!-- /Quelle: Tenant-Notfallverwaltung v1.7 -->
 
 **Nicht in Scope (bewusst ausgeklammert):**
 - Mandanten/Tenants und Rollenkonzept → REQ-024
@@ -1042,3 +1826,9 @@ Die Wahl der konkreten Implementierung erfolgt per Konfiguration (`EMAIL_ADAPTER
 - SAML 2.0 → Enterprise-Segment, aktuell nicht priorisiert
 - E-Mail-Template-Customization → Standard-Templates genügen initial
 - User-Administration durch Nicht-Admins (Nutzer können nur ihr eigenes Profil verwalten)
+<!-- Quelle: Service Accounts v1.7 -->
+- OAuth2 Client Credentials Grant für Service Accounts → API-Keys sind einfacher und ausreichend
+- Service Account Impersonation (ein SA agiert im Namen eines menschlichen Users) → Sicherheitsrisiko, nicht unterstützt
+- Automatische Service Account Erstellung bei Third-Party-Integration → immer manuell durch Admin
+- Service Account Audit-Log (detailliertes Zugriffsprotokoll) → zukünftig, nach allgemeinem Audit-Log
+<!-- /Quelle: Service Accounts v1.7 -->

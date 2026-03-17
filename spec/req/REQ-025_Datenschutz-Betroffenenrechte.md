@@ -18,7 +18,7 @@ Security-Review-Referenz: SEC-K-001, SEC-K-003
 
 **User Story (Berichtigung — Art. 16):** "Als Nutzer möchte ich meine E-Mail-Adresse ändern können — damit meine Kontaktdaten aktuell sind und ich mein Recht auf Berichtigung nach DSGVO Art. 16 ausüben kann."
 
-**User Story (Löschung — Art. 17):** "Als Nutzer, der das System nicht mehr nutzen möchte, möchte ich die vollständige Löschung meines Accounts und aller zugehörigen Daten beantragen können — damit mein Recht auf Löschung nach DSGVO Art. 17 umgesetzt wird."
+**User Story (Löschung — Art. 17):** "Als Nutzer, der das System nicht mehr nutzen möchte, möchte ich die Löschung meines Accounts und aller zugehörigen personenbezogenen Daten beantragen können — damit mein Recht auf Löschung nach DSGVO Art. 17 umgesetzt wird. Ich verstehe, dass gesetzlich geschützte Daten (Erntedokumentation, IPM-Behandlungsnachweise) anonymisiert statt gelöscht werden (Art. 17 Abs. 3 lit. b)."
 
 **User Story (Einschränkung — Art. 18):** "Als Nutzer möchte ich die Verarbeitung meiner Daten für bestimmte Zwecke einschränken können — beispielsweise wenn ich die Richtigkeit meiner Daten bestreite oder die Verarbeitung für unrechtmäßig halte."
 
@@ -723,9 +723,9 @@ def check_processing_restriction(scope: str):
 
 **Tab "Account löschen":**
 - Warnhinweis: "Diese Aktion ist nach 90 Tagen unwiderruflich"
-- Info: Welche Daten gelöscht und welche anonymisiert werden
+- **Transparente Aufschlüsselung:** Welche Daten vollständig gelöscht werden (Profil, Sessions, Einwilligungen, Aufgaben) und welche nur anonymisiert werden (Erntedokumentation, IPM-Behandlungsnachweise — gesetzliche Aufbewahrungspflicht nach CanG/PflSchG). <!-- Quelle: Widerspruchsanalyse W-001 -->
 - Passwort-Bestätigung (oder OAuth Re-Auth Button)
-- Bestätigungs-Dialog mit Checkbox "Ich verstehe, dass mein Account gelöscht wird"
+- Bestätigungs-Dialog mit Checkbox "Ich verstehe, dass mein Account gelöscht wird und gesetzlich geschützte Daten anonymisiert aufbewahrt bleiben"
 
 **Tab "Verarbeitungseinschränkung":**
 - Info-Text: Erklärung Art. 18 DSGVO
@@ -810,6 +810,7 @@ pages.privacy.objection.title: "Widerspruch"
 | AK-06 | Info-E-Mail wird an die alte Adresse gesendet | 16 | Integration |
 | AK-07 | Kontolöschung setzt User sofort auf status: deleted (Soft-Delete) | 17 | Integration |
 | AK-08 | Erntedaten und Behandlungsanwendungen werden anonymisiert, nicht gelöscht | 17 | Integration |
+| AK-08a | Löschbestätigung unterscheidet zwischen `fully_deleted_categories` und `anonymized_categories` und zeigt beide Listen transparent an | 17 | E2E |
 | AK-09 | Hard-Delete erfolgt 90 Tage nach Soft-Delete (NFR-011 R-01) | 17 | Integration |
 | AK-10 | Erasure-Audit-Log wird für 1 Jahr aufbewahrt | 17 | Integration |
 | AK-11 | Verarbeitungseinschränkung blockiert betroffene Endpunkte (423 Locked) | 18 | Integration |

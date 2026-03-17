@@ -6,12 +6,14 @@ import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormDateField from '@/components/form/FormDateField';
+import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import LocationTreeSelect from '@/components/form/LocationTreeSelect';
 import { useNotification } from '@/hooks/useNotification';
@@ -118,58 +120,64 @@ export default function PlantingRunEditDialog({
     >
       <DialogTitle>{t('pages.plantingRuns.editTitle')}</DialogTitle>
       <DialogContent>
-        <FormRow>
-          <FormTextField
-            name="name"
-            control={control}
-            label={t('pages.plantingRuns.name')}
-            required
-            autoFocus
-          />
-          <FormDateField
-            name="planned_start_date"
-            control={control}
-            label={t('pages.plantingRuns.plannedStartDate')}
-          />
-        </FormRow>
-        <FormRow>
-          <FormSelectField
-            name="site_key"
-            control={control}
-            label={t('entities.site')}
-            options={[
-              { value: '', label: '\u2014' },
-              ...sitesList.map((s) => ({ value: s.key, label: s.name })),
-            ]}
-          />
-          <LocationTreeSelect
-            name="location_key"
-            control={control}
-            siteKey={editSiteKey}
-            label={t('pages.plantingRuns.location')}
-          />
-        </FormRow>
-        <FormTextField
-          name="notes"
-          control={control}
-          label={t('pages.plantingRuns.notes')}
-          multiline
-          minRows={3}
-        />
+        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            {t('pages.plantingRuns.editDesc')}
+          </Typography>
+
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.plantingRuns.editTitle')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.plantingRuns.editSectionDesc')}
+              </Typography>
+              <FormRow>
+                <FormTextField
+                  name="name"
+                  control={control}
+                  label={t('pages.plantingRuns.name')}
+                  required
+                  autoFocus
+                />
+                <FormDateField
+                  name="planned_start_date"
+                  control={control}
+                  label={t('pages.plantingRuns.plannedStartDate')}
+                />
+              </FormRow>
+              <FormRow>
+                <FormSelectField
+                  name="site_key"
+                  control={control}
+                  label={t('entities.site')}
+                  options={[
+                    { value: '', label: '\u2014' },
+                    ...sitesList.map((s) => ({ value: s.key, label: s.name })),
+                  ]}
+                />
+                <LocationTreeSelect
+                  name="location_key"
+                  control={control}
+                  siteKey={editSiteKey}
+                  label={t('pages.plantingRuns.location')}
+                />
+              </FormRow>
+              <FormTextField
+                name="notes"
+                control={control}
+                label={t('pages.plantingRuns.notes')}
+                multiline
+                minRows={3}
+              />
+            </CardContent>
+          </Card>
+
+          <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
+          <FormActions onCancel={onClose} loading={saving} />
+        </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={saving}>
-          {t('common.cancel')}
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handleSubmit(onSubmit)}
-          disabled={saving}
-          data-testid="save-edit-button"
-        >
-          {saving ? <CircularProgress size={20} /> : t('common.save')}
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

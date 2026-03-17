@@ -23,14 +23,17 @@ export const fetchPreferences = createAsyncThunk(
 
 export const updateUserPreferences = createAsyncThunk(
   'userPreferences/update',
-  async (updates: {
-    experience_level?: ExperienceLevel;
-    locale?: string;
-    theme?: string;
-    onboarding_completed?: boolean;
-    watering_can_liters?: number;
+  async (payload: {
+    updates: {
+      experience_level?: ExperienceLevel;
+      locale?: string;
+      theme?: string;
+      onboarding_completed?: boolean;
+      watering_can_liters?: number;
+      smart_home_enabled?: boolean;
+    };
   }) => {
-    return api.updatePreferences(updates);
+    return api.updatePreferences(payload.updates);
   },
 );
 

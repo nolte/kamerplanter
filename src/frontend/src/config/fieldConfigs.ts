@@ -147,7 +147,8 @@ export const ecBudgetFieldConfig: Record<string, FieldMeta> = {
 
 // Navigation items: which minimum level is required
 export const navItemConfig: Record<string, ExperienceLevel> = {
-  // beginner (5 items)
+  // beginner (5 items + onboarding)
+  '/onboarding': 'beginner',
   '/dashboard': 'beginner',
   '/pflege': 'beginner',
   '/pflanzen/plant-instances': 'beginner',

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
-import Divider from '@mui/material/Divider';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import { useForm, Controller } from 'react-hook-form';
@@ -12,6 +13,7 @@ import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
+import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import GrowthPhaseListSection from './GrowthPhaseListSection';
 import { useNotification } from '@/hooks/useNotification';
@@ -31,6 +33,9 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
+/** Spacing between form panels (UI-NFR-008 R-039: 24px) */
+const PANEL_GAP = 4;
+
 interface Props {
   speciesKey: string;
 }
@@ -44,7 +49,7 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
   const [saving, setSaving] = useState(false);
   const [exists, setExists] = useState(false);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset, formState: { isDirty } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       cycle_type: 'annual',
@@ -100,96 +105,108 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
   if (loading) return <LoadingSkeleton variant="form" />;
 
   return (
-    <Box sx={{ mt: 2 }}>
-      <Typography variant="h6" sx={{ mb: 2 }}>
-        {t('pages.lifecycle.title')}
-      </Typography>
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
-        {/* Life cycle */}
-        <FormRow>
-          <FormSelectField
-            name="cycle_type"
-            control={control}
-            label={t('pages.lifecycle.cycleType')}
-            options={['annual', 'biennial', 'perennial'].map((v) => ({
-              value: v,
-              label: t(`enums.cycleType.${v}`),
-            }))}
-          />
-          <FormNumberField
-            name="typical_lifespan_years"
-            control={control}
-            label={t('pages.lifecycle.lifespanYears')}
-            min={1}
-            helperText={t('pages.lifecycle.lifespanYearsHelper')}
-          />
-        </FormRow>
+    <Box>
+      <UnsavedChangesGuard dirty={isDirty} />
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
 
-        <Divider sx={{ my: 2 }} />
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-          {t('pages.lifecycle.sectionPhotoperiod')}
-        </Typography>
+        {/* ── Panel 1: Lebenszyklus ── */}
+        {/* UI-NFR-008 R-037/R-038: Card panel with h6 heading */}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
+              {t('pages.lifecycle.title')}
+            </Typography>
+            <FormRow>
+              <FormSelectField
+                name="cycle_type"
+                control={control}
+                label={t('pages.lifecycle.cycleType')}
+                options={['annual', 'biennial', 'perennial'].map((v) => ({
+                  value: v,
+                  label: t(`enums.cycleType.${v}`),
+                }))}
+              />
+              <FormNumberField
+                name="typical_lifespan_years"
+                control={control}
+                label={t('pages.lifecycle.lifespanYears')}
+                min={1}
+                helperText={t('pages.lifecycle.lifespanYearsHelper')}
+              />
+            </FormRow>
+          </CardContent>
+        </Card>
 
-        {/* Photoperiod */}
-        <FormRow>
-          <FormSelectField
-            name="photoperiod_type"
-            control={control}
-            label={t('pages.lifecycle.photoperiodType')}
-            options={['short_day', 'long_day', 'day_neutral'].map((v) => ({
-              value: v,
-              label: t(`enums.photoperiodType.${v}`),
-            }))}
-            helperText={t('pages.lifecycle.photoperiodTypeHelper')}
-          />
-          <FormNumberField
-            name="critical_day_length_hours"
-            control={control}
-            label={t('pages.lifecycle.criticalDayLength')}
-            min={0}
-            max={24}
-            step={0.5}
-            helperText={t('pages.lifecycle.criticalDayLengthHelper')}
-          />
-        </FormRow>
+        {/* ── Panel 2: Photoperiode ── */}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
+              {t('pages.lifecycle.sectionPhotoperiod')}
+            </Typography>
+            <FormRow>
+              <FormSelectField
+                name="photoperiod_type"
+                control={control}
+                label={t('pages.lifecycle.photoperiodType')}
+                options={['short_day', 'long_day', 'day_neutral'].map((v) => ({
+                  value: v,
+                  label: t(`enums.photoperiodType.${v}`),
+                }))}
+                helperText={t('pages.lifecycle.photoperiodTypeHelper')}
+              />
+              <FormNumberField
+                name="critical_day_length_hours"
+                control={control}
+                label={t('pages.lifecycle.criticalDayLength')}
+                min={0}
+                max={24}
+                step={0.5}
+                helperText={t('pages.lifecycle.criticalDayLengthHelper')}
+              />
+            </FormRow>
+          </CardContent>
+        </Card>
 
-        <Divider sx={{ my: 2 }} />
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-          {t('pages.lifecycle.sectionDormancy')}
-        </Typography>
-
-        {/* Dormancy + vernalization */}
-        <Controller
-          name="dormancy_required"
-          control={control}
-          render={({ field }) => (
-            <FormControlLabel
-              control={<Switch checked={field.value} onChange={field.onChange} />}
-              label={t('pages.lifecycle.dormancy')}
-              sx={{ mb: 0.5, display: 'block' }}
+        {/* ── Panel 3: Dormanz & Vernalisation ── */}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
+              {t('pages.lifecycle.sectionDormancy')}
+            </Typography>
+            <Controller
+              name="dormancy_required"
+              control={control}
+              render={({ field }) => (
+                <FormControlLabel
+                  control={<Switch checked={field.value} onChange={field.onChange} />}
+                  label={t('pages.lifecycle.dormancy')}
+                  sx={{ mb: 0.5, display: 'block' }}
+                />
+              )}
             />
-          )}
-        />
-        <Controller
-          name="vernalization_required"
-          control={control}
-          render={({ field }) => (
-            <FormControlLabel
-              control={<Switch checked={field.value} onChange={field.onChange} />}
-              label={t('pages.lifecycle.vernalization')}
-              sx={{ mb: 1, display: 'block' }}
+            <Controller
+              name="vernalization_required"
+              control={control}
+              render={({ field }) => (
+                <FormControlLabel
+                  control={<Switch checked={field.value} onChange={field.onChange} />}
+                  label={t('pages.lifecycle.vernalization')}
+                  sx={{ mb: 1, display: 'block' }}
+                />
+              )}
             />
-          )}
-        />
-        <FormNumberField
-          name="vernalization_min_days"
-          control={control}
-          label={t('pages.lifecycle.vernalizationDays')}
-          min={1}
-          helperText={t('pages.lifecycle.vernalizationDaysHelper')}
-        />
+            <FormNumberField
+              name="vernalization_min_days"
+              control={control}
+              label={t('pages.lifecycle.vernalizationDays')}
+              min={1}
+              helperText={t('pages.lifecycle.vernalizationDaysHelper')}
+            />
+          </CardContent>
+        </Card>
+
         <FormActions
-          onCancel={() => {}}
+          onCancel={() => reset()}
           loading={saving}
           saveLabel={exists ? t('common.save') : t('common.create')}
         />

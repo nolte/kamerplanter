@@ -55,6 +55,7 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS}
       DEBUG: ${DEBUG}
       REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION}
+      KAMERPLANTER_MODE: light
     ports:
       - "8000:8000"
     depends_on:
@@ -77,6 +78,7 @@ services:
       ARANGODB_USERNAME: ${ARANGODB_USERNAME}
       ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
       REDIS_URL: ${REDIS_URL}
+      KAMERPLANTER_MODE: light
     depends_on:
       - arangodb
       - valkey
@@ -93,6 +95,7 @@ services:
       ARANGODB_USERNAME: ${ARANGODB_USERNAME}
       ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
       REDIS_URL: ${REDIS_URL}
+      KAMERPLANTER_MODE: light
     depends_on:
       - arangodb
       - valkey

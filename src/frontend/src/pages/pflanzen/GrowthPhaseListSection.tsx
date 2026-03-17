@@ -110,7 +110,7 @@ export default function GrowthPhaseListSection({ lifecycleKey }: Props) {
   ];
 
   return (
-    <Box sx={{ mt: 4 }}>
+    <Box sx={{ mt: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">{t('pages.growthPhases.title')}</Typography>
         <Button startIcon={<AddIcon />} onClick={() => { setEditPhase(null); setDialogOpen(true); }}>

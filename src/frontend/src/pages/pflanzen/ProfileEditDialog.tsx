@@ -4,7 +4,9 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
-import Divider from '@mui/material/Divider';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Box from '@mui/material/Box';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -135,57 +137,74 @@ export default function ProfileEditDialog({
         {phaseName} — {t('pages.profiles.editTitle')}
       </DialogTitle>
       <DialogContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          {/* Environment section */}
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1, mb: 1 }}>
-            {t('pages.profiles.requirements')}
+        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            {t('pages.profiles.editDesc')}
           </Typography>
-          <FormRow>
-            <FormNumberField name="req.light_ppfd_target" control={control} label={t('pages.profiles.lightPpfd')} min={0} suffix="PPFD" helperText="0–2000 \u03BCmol/m\u00B2/s" />
-            <FormNumberField name="req.photoperiod_hours" control={control} label={t('pages.profiles.photoperiodHours')} min={0} max={24} step={0.5} suffix="h" helperText="0–24 h" />
-          </FormRow>
-          <FormRow>
-            <FormNumberField name="req.temperature_day_c" control={control} label={t('pages.profiles.tempDay')} step={0.5} suffix="\u00B0C" helperText="18–30 \u00B0C" />
-            <FormNumberField name="req.temperature_night_c" control={control} label={t('pages.profiles.tempNight')} step={0.5} suffix="\u00B0C" helperText="15–25 \u00B0C" />
-          </FormRow>
-          <FormRow>
-            <FormNumberField name="req.humidity_day_percent" control={control} label={t('pages.profiles.humidityDay')} min={0} max={100} suffix="%" helperText="40–70 %" />
-            <FormNumberField name="req.humidity_night_percent" control={control} label={t('pages.profiles.humidityNight')} min={0} max={100} suffix="%" helperText="45–75 %" />
-          </FormRow>
-          <FormRow>
-            <FormNumberField name="req.vpd_target_kpa" control={control} label={t('pages.profiles.vpdTarget')} min={0} step={0.1} suffix="kPa" helperText="0.8–1.5 kPa" />
-            <FormNumberField name="req.co2_ppm" control={control} label="CO\u2082 (ppm)" min={0} suffix="ppm" helperText="400–1500 ppm" />
-          </FormRow>
-          <FormRow>
-            <FormNumberField name="req.irrigation_frequency_days" control={control} label={t('pages.profiles.irrigationFrequency')} min={0} step={0.5} suffix={t('common.days')} />
-            <FormNumberField name="req.irrigation_volume_ml_per_plant" control={control} label={t('pages.profiles.irrigationVolume')} min={0} suffix="ml" />
-          </FormRow>
 
-          <Divider sx={{ my: 2 }} />
+          {/* Environment section */}
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.profiles.requirements')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.profiles.requirementsDesc')}
+              </Typography>
+              <FormRow>
+                <FormNumberField name="req.light_ppfd_target" control={control} label={t('pages.profiles.lightPpfd')} min={0} suffix="PPFD" helperText="0–2000 \u03BCmol/m\u00B2/s" autoFocus />
+                <FormNumberField name="req.photoperiod_hours" control={control} label={t('pages.profiles.photoperiodHours')} min={0} max={24} step={0.5} suffix="h" helperText="0–24 h" />
+              </FormRow>
+              <FormRow>
+                <FormNumberField name="req.temperature_day_c" control={control} label={t('pages.profiles.tempDay')} step={0.5} suffix="°C" helperText="18–30 °C" />
+                <FormNumberField name="req.temperature_night_c" control={control} label={t('pages.profiles.tempNight')} step={0.5} suffix="°C" helperText="15–25 °C" />
+              </FormRow>
+              <FormRow>
+                <FormNumberField name="req.humidity_day_percent" control={control} label={t('pages.profiles.humidityDay')} min={0} max={100} suffix="%" helperText="40–70 %" />
+                <FormNumberField name="req.humidity_night_percent" control={control} label={t('pages.profiles.humidityNight')} min={0} max={100} suffix="%" helperText="45–75 %" />
+              </FormRow>
+              <FormRow>
+                <FormNumberField name="req.vpd_target_kpa" control={control} label={t('pages.profiles.vpdTarget')} min={0} step={0.1} suffix="kPa" helperText="0.8–1.5 kPa" />
+                <FormNumberField name="req.co2_ppm" control={control} label="CO\u2082 (ppm)" min={0} suffix="ppm" helperText="400–1500 ppm" />
+              </FormRow>
+              <FormRow>
+                <FormNumberField name="req.irrigation_frequency_days" control={control} label={t('pages.profiles.irrigationFrequency')} min={0} step={0.5} suffix={t('common.days')} />
+                <FormNumberField name="req.irrigation_volume_ml_per_plant" control={control} label={t('pages.profiles.irrigationVolume')} min={0} suffix="ml" />
+              </FormRow>
+            </CardContent>
+          </Card>
 
           {/* Nutrient section */}
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-            {t('pages.profiles.nutrients')}
-          </Typography>
-          <FormRow>
-            <FormNumberField name="nut.npk_n" control={control} label={`N (${t('pages.profiles.npkRatio')})`} min={0} helperText={t('pages.profiles.npkHelper')} />
-            <FormNumberField name="nut.npk_p" control={control} label="P" min={0} />
-          </FormRow>
-          <FormRow>
-            <FormNumberField name="nut.npk_k" control={control} label="K" min={0} />
-            <span />
-          </FormRow>
-          <FormRow>
-            <FormNumberField name="nut.target_ec_ms" control={control} label="EC" min={0} step={0.1} suffix="mS/cm" helperText="0.5–3.5 mS/cm" />
-            <FormNumberField name="nut.target_ph" control={control} label="pH" min={0} max={14} step={0.1} helperText="5.5–7.0" />
-          </FormRow>
-          <FormRow>
-            <FormNumberField name="nut.calcium_ppm" control={control} label="Ca (ppm)" min={0} suffix="ppm" />
-            <FormNumberField name="nut.magnesium_ppm" control={control} label="Mg (ppm)" min={0} suffix="ppm" />
-          </FormRow>
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.profiles.nutrients')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.profiles.nutrientsDesc')}
+              </Typography>
+              <FormRow>
+                <FormNumberField name="nut.npk_n" control={control} label={`N (${t('pages.profiles.npkRatio')})`} min={0} helperText={t('pages.profiles.npkHelper')} />
+                <FormNumberField name="nut.npk_p" control={control} label="P" min={0} />
+              </FormRow>
+              <FormRow>
+                <FormNumberField name="nut.npk_k" control={control} label="K" min={0} />
+                <span />
+              </FormRow>
+              <FormRow>
+                <FormNumberField name="nut.target_ec_ms" control={control} label="EC" min={0} step={0.1} suffix="mS/cm" helperText="0.5–3.5 mS/cm" />
+                <FormNumberField name="nut.target_ph" control={control} label="pH" min={0} max={14} step={0.1} helperText="5.5–7.0" />
+              </FormRow>
+              <FormRow>
+                <FormNumberField name="nut.calcium_ppm" control={control} label="Ca (ppm)" min={0} suffix="ppm" />
+                <FormNumberField name="nut.magnesium_ppm" control={control} label="Mg (ppm)" min={0} suffix="ppm" />
+              </FormRow>
+            </CardContent>
+          </Card>
 
+          <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.save')} />
-        </form>
+        </Box>
       </DialogContent>
     </Dialog>
   );

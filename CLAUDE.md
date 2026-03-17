@@ -47,6 +47,7 @@ Documentation is written in **German**; source code must be in **English only** 
 | REQ-024 | Mandantenverwaltung & Gemeinschaftsgärten | Plattform & Kollaboration |
 | REQ-025 | Datenschutz & Betroffenenrechte (DSGVO) | Plattform & Datenschutz |
 | REQ-027 | Light-Modus (Anonymer Zugang) | Plattform & Deployment |
+| REQ-028 | Mischkultur & Companion Planting | Pflanzenplanung |
 
 ## Key Architectural Decisions
 
@@ -66,9 +67,9 @@ These constraints are documented across multiple files and must be respected whe
 
 7. **Actuator control loop** (REQ-018): Closes the sensor→actuator loop. Home Assistant/MQTT/manual protocols. Rule-based control with hysteresis. Priority system: manual override > safety rules > sensor rules > schedules. Graceful degradation to fallback tasks on HA outage.
 
-8. **Dual authentication** (REQ-023): Local accounts (email + bcrypt password) and federated accounts (Google, GitHub, Apple + generic OIDC providers via Authlib). JWT access tokens (15 min) + refresh tokens (30 days, HttpOnly cookie, rotation). Supersedes NFR-001 §6.1.
+8. **Dual authentication + Service Accounts** (REQ-023): Local accounts (email + bcrypt password) and federated accounts (Google, GitHub, Apple + generic OIDC providers via Authlib). JWT access tokens (15 min) + refresh tokens (30 days, HttpOnly cookie, rotation). Service Accounts (`account_type: 'service'`) for M2M integration (Home Assistant, Grafana, CI/CD) — API-key-only, no interactive login, with IP allowlist and per-account rate limits. Supersedes NFR-001 §6.1.
 
-9. **Multi-tenancy with tenant-scoped roles** (REQ-024): Tenant is the isolation container — all resources belong to exactly one tenant. Users can be members of multiple tenants with different roles per tenant (admin/grower/viewer). URL-based routing: `/api/v1/t/{tenant_slug}/...` for tenant-scoped endpoints. Global resources (species, cultivars, IPM data) remain at `/api/v1/...`. Personal tenant auto-created at registration.
+9. **Multi-tenancy with RBAC Permission Matrix** (REQ-024): Tenant is the isolation container — all resources belong to exactly one tenant. Users can be members of multiple tenants with different roles per tenant (admin/grower/viewer). Granular Permission Matrix defines CRUD rights per resource type and role. Assignment-based write control for locations. Platform roles: admin (full KA-Admin) and viewer (read-only admin panel). `require_permission()` FastAPI dependency. URL-based routing: `/api/v1/t/{tenant_slug}/...` for tenant-scoped endpoints. Global resources (species, cultivars, IPM data) remain at `/api/v1/...`. Personal tenant auto-created at registration.
 
 10. **DSGVO by Design** (REQ-025, NFR-011): All personal data has defined retention periods enforced by Celery. DSGVO subject rights (Art. 15–21) as self-service API at `/api/v1/privacy/`. IP addresses anonymized after 7 days. Sensor data downsampled in 3 stages (90d raw → 2y hourly → 5y daily). Consent-checking middleware for optional processing. Harvest/treatment data anonymized (not deleted) when retention laws (CanG, PflSchG) apply.
 

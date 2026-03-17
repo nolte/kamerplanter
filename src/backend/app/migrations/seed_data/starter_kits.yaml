@@ -11,8 +11,13 @@ starter_kits:
     plant_count_suggestion: 3
     site_type: windowsill
     species_keys: []
+    species_names:
+      - Ocimum basilicum
+      - Petroselinum crispum
+      - Allium schoenoprasum
     toxicity_warning: false
     includes_nutrient_plan: false
+    nutrient_plan_keys: []
     tags: [herbs, kitchen, beginner]
     sort_order: 0
 
@@ -28,8 +33,13 @@ starter_kits:
     plant_count_suggestion: 3
     site_type: indoor
     species_keys: []
+    species_names:
+      - Monstera deliciosa
+      - Epipremnum aureum
+      - Dracaena trifasciata
     toxicity_warning: true
     includes_nutrient_plan: false
+    nutrient_plan_keys: []
     tags: [houseplants, indoor, low-maintenance]
     sort_order: 1
 
@@ -45,10 +55,59 @@ starter_kits:
     plant_count_suggestion: 3
     site_type: indoor
     species_keys: []
+    species_names:
+      - Calathea orbifolia
+      - Chlorophytum comosum
+      - Pilea peperomioides
     toxicity_warning: false
     includes_nutrient_plan: false
+    nutrient_plan_keys: []
     tags: [houseplants, pet-friendly, safe]
     sort_order: 2
+
+  - kit_id: balkon-blumen
+    name_i18n:
+      de: Balkon-Blumen
+      en: Balcony Flowers
+    description_i18n:
+      de: "Geranien, Petunien und Verbenen — farbenfrohes Blütenmeer für den Balkon."
+      en: "Geraniums, petunias, and verbenas — a colorful flower display for your balcony."
+    difficulty: beginner
+    icon: flower
+    plant_count_suggestion: 5
+    site_type: balcony
+    species_keys: []
+    species_names:
+      - Pelargonium zonale
+      - Petunia x hybrida
+      - Verbena x hybrida
+    toxicity_warning: false
+    includes_nutrient_plan: false
+    nutrient_plan_keys: []
+    tags: [flowers, balcony, beginner]
+    sort_order: 3
+
+  - kit_id: balkon-blumen-voranzucht
+    name_i18n:
+      de: Balkon-Blumen Voranzucht
+      en: Balcony Flowers Pre-Cultivation
+    description_i18n:
+      de: "Aussaat ab Februar auf der Fensterbank, ab Mai auf den Balkon — Blüten von eigener Hand."
+      en: "Start seeds indoors from February, move to balcony in May — flowers you grew yourself."
+    difficulty: intermediate
+    icon: seedling
+    plant_count_suggestion: 6
+    site_type: windowsill
+    species_keys: []
+    species_names:
+      - Pelargonium zonale
+      - Petunia x hybrida
+      - Verbena x hybrida
+    toxicity_warning: false
+    includes_nutrient_plan: true
+    nutrient_plan_keys: []
+    tags: [flowers, balcony, seedling, pre-cultivation]
+    sort_order: 4
 
   - kit_id: balkon-tomaten
     name_i18n:
@@ -62,10 +121,13 @@ starter_kits:
     plant_count_suggestion: 4
     site_type: balcony
     species_keys: []
+    species_names:
+      - Solanum lycopersicum
     toxicity_warning: false
     includes_nutrient_plan: true
+    nutrient_plan_keys: []
     tags: [vegetables, balcony, tomatoes]
-    sort_order: 3
+    sort_order: 5
 
   - kit_id: kleines-gemusebeet
     name_i18n:
@@ -79,10 +141,15 @@ starter_kits:
     plant_count_suggestion: 6
     site_type: outdoor
     species_keys: []
+    species_names:
+      - Lactuca sativa
+      - Raphanus sativus
+      - Daucus carota
     toxicity_warning: false
     includes_nutrient_plan: true
+    nutrient_plan_keys: []
     tags: [vegetables, outdoor, garden]
-    sort_order: 4
+    sort_order: 6
 
   - kit_id: chili-zucht
     name_i18n:
@@ -96,10 +163,13 @@ starter_kits:
     plant_count_suggestion: 3
     site_type: windowsill
     species_keys: []
+    species_names:
+      - Capsicum annuum
     toxicity_warning: false
     includes_nutrient_plan: true
+    nutrient_plan_keys: []
     tags: [chili, spicy, indoor]
-    sort_order: 5
+    sort_order: 7
 
   - kit_id: indoor-growzelt
     name_i18n:
@@ -113,10 +183,14 @@ starter_kits:
     plant_count_suggestion: 4
     site_type: grow_tent
     species_keys: []
+    species_names:
+      - Cannabis sativa
+      - Solanum lycopersicum
     toxicity_warning: false
     includes_nutrient_plan: true
+    nutrient_plan_keys: []
     tags: [indoor, grow-tent, controlled]
-    sort_order: 6
+    sort_order: 8
 
   - kit_id: superhot-chili
     name_i18n:
@@ -130,10 +204,13 @@ starter_kits:
     plant_count_suggestion: 3
     site_type: grow_tent
     species_keys: []
+    species_names:
+      - Capsicum annuum
     toxicity_warning: false
     includes_nutrient_plan: true
+    nutrient_plan_keys: []
     tags: [chili, superhot, advanced]
-    sort_order: 7
+    sort_order: 9
 
   - kit_id: microgreens
     name_i18n:
@@ -147,7 +224,12 @@ starter_kits:
     plant_count_suggestion: 3
     site_type: windowsill
     species_keys: []
+    species_names:
+      - Helianthus annuus
+      - Pisum sativum
+      - Raphanus sativus
     toxicity_warning: false
     includes_nutrient_plan: false
+    nutrient_plan_keys: []
     tags: [microgreens, quick, windowsill]
-    sort_order: 8
+    sort_order: 10

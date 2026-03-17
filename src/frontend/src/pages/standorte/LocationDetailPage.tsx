@@ -305,8 +305,10 @@ export default function LocationDetailPage() {
   if (loading) return <LoadingSkeleton variant="form" />;
   if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
 
+  const PANEL_GAP = 4;
+
   return (
-    <>
+    <Box data-testid="location-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -316,55 +318,81 @@ export default function LocationDetailPage() {
         </Button>
       </Box>
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
-        <FormRow>
-          <FormTextField name="name" control={control} label={t('pages.locations.name')} required />
-          <FormNumberField name="area_m2" control={control} label={t('pages.locations.area')} helperText={t('pages.locations.areaHelper')} min={0} />
-        </FormRow>
-        <FormRow>
-          <FormSelectField
-            name="light_type"
-            control={control}
-            label={t('pages.locations.lightType')}
-            options={['natural', 'led', 'hps', 'cmh', 'mixed'].map((v) => ({
-              value: v, label: t(`enums.lightType.${v}`),
-            }))}
-          />
-          <FormSelectField
-            name="irrigation_system"
-            control={control}
-            label={t('pages.locations.irrigationSystem')}
-            options={['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow'].map((v) => ({
-              value: v, label: t(`enums.irrigationSystem.${v}`),
-            }))}
-          />
-        </FormRow>
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+        <Typography variant="body2" color="text.secondary">
+          {t('pages.locations.editIntro')}
+        </Typography>
 
-        {(isArtificial || isNaturalOrMixed) && (
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <FormTimeField
-              name="lights_on"
-              control={control}
-              label={t('pages.locations.lightsOn')}
-              helperText={t('pages.locations.lightsOnHelper')}
-            />
-            <FormTimeField
-              name="lights_off"
-              control={control}
-              label={t('pages.locations.lightsOff')}
-              helperText={t('pages.locations.lightsOffHelper')}
-            />
-          </Box>
-        )}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.locations.sectionBasicData')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.locations.sectionBasicDataDesc')}
+            </Typography>
+            <FormRow>
+              <FormTextField name="name" control={control} label={t('pages.locations.name')} required autoFocus />
+              <FormNumberField name="area_m2" control={control} label={t('pages.locations.area')} helperText={t('pages.locations.areaHelper')} min={0} />
+            </FormRow>
+          </CardContent>
+        </Card>
 
-        {isNaturalOrMixed && (
-          <FormSwitchField
-            name="use_dynamic_sunrise"
-            control={control}
-            label={t('pages.locations.useDynamicSunrise')}
-          />
-        )}
+        <Card variant="outlined">
+          <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+              {t('pages.locations.sectionLightingIrrigation')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.locations.sectionLightingIrrigationDesc')}
+            </Typography>
+            <FormRow>
+              <FormSelectField
+                name="light_type"
+                control={control}
+                label={t('pages.locations.lightType')}
+                options={['natural', 'led', 'hps', 'cmh', 'mixed'].map((v) => ({
+                  value: v, label: t(`enums.lightType.${v}`),
+                }))}
+              />
+              <FormSelectField
+                name="irrigation_system"
+                control={control}
+                label={t('pages.locations.irrigationSystem')}
+                options={['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow'].map((v) => ({
+                  value: v, label: t(`enums.irrigationSystem.${v}`),
+                }))}
+              />
+            </FormRow>
 
+            {(isArtificial || isNaturalOrMixed) && (
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <FormTimeField
+                  name="lights_on"
+                  control={control}
+                  label={t('pages.locations.lightsOn')}
+                  helperText={t('pages.locations.lightsOnHelper')}
+                />
+                <FormTimeField
+                  name="lights_off"
+                  control={control}
+                  label={t('pages.locations.lightsOff')}
+                  helperText={t('pages.locations.lightsOffHelper')}
+                />
+              </Box>
+            )}
+
+            {isNaturalOrMixed && (
+              <FormSwitchField
+                name="use_dynamic_sunrise"
+                control={control}
+                label={t('pages.locations.useDynamicSunrise')}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
       </Box>
 
@@ -698,6 +726,6 @@ export default function LocationDetailPage() {
         onCancel={() => setDeleteOpen(false)}
         destructive
       />
-    </>
+    </Box>
   );
 }

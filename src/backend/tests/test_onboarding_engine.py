@@ -1,5 +1,6 @@
 from app.common.enums import SiteType, StarterKitDifficulty
 from app.domain.engines.onboarding_engine import OnboardingEngine
+from app.domain.models.onboarding import OnboardingState
 from app.domain.models.starter_kit import StarterKit
 
 
@@ -85,3 +86,19 @@ class TestBuildEntityPlan:
         kit = _make_kit(site_type=SiteType.BALCONY)
         plan = self.engine.build_entity_plan(kit, "Garden", 3)
         assert plan["site_type"] == "balcony"
+
+
+class TestOnboardingStateModel:
+    def test_new_fields_defaults(self):
+        state = OnboardingState(user_key="u1")
+        assert state.site_name == ""
+        assert state.site_type is None
+        assert state.plant_count is None
+
+    def test_new_fields_set(self):
+        state = OnboardingState(
+            user_key="u1", site_name="Balkon", site_type="balcony", plant_count=5
+        )
+        assert state.site_name == "Balkon"
+        assert state.site_type == "balcony"
+        assert state.plant_count == 5

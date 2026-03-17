@@ -2902,8 +2902,24 @@ export interface StarterKit {
   toxicity_warning: boolean;
   workflow_template_keys: string[];
   includes_nutrient_plan: boolean;
+  nutrient_plan_keys: string[];
   tags: string[];
   sort_order: number;
+}
+
+export interface SpeciesAvailability {
+  species_key: string;
+  available: boolean;
+}
+
+export interface StarterKitWithAvailability extends StarterKit {
+  species_availability: SpeciesAvailability[];
+}
+
+export interface PlantConfig {
+  species_key: string;
+  count: number;
+  initial_phase: PhaseName;
 }
 
 export interface OnboardingState {
@@ -2916,6 +2932,39 @@ export interface OnboardingState {
   selected_experience_level: ExperienceLevel | null;
   wizard_step: number;
   created_entities: Record<string, string[]>;
+  site_name: string;
+  site_type: string | null;
+  selected_site_key: string | null;
+  plant_count: number | null;
+  plant_configs: PlantConfig[];
+  favorite_species_keys: string[];
+  favorite_nutrient_plan_keys: string[];
+}
+
+// ── REQ-020 Favorites ───────────────────────────────────────────────
+
+export interface FavoriteEntry {
+  key: string;
+  target_key: string;
+  target_type: string;
+  source: string;
+  cascade_from_key: string | null;
+  favorited_at: string;
+}
+
+export interface NutrientPlanFertilizerInfo {
+  key: string;
+  product_name: string;
+  brand: string | null;
+}
+
+export interface NutrientPlanMatch {
+  plan_key: string;
+  name: string;
+  description: string | null;
+  substrate_type: string | null;
+  fertilizer_count: number;
+  fertilizers: NutrientPlanFertilizerInfo[];
 }
 
 // ── REQ-021 User Preferences ────────────────────────────────────────
@@ -2928,6 +2977,7 @@ export interface UserPreference {
   locale: string;
   theme: string;
   watering_can_liters: number;
+  smart_home_enabled: boolean;
 }
 
 // ── Watering Schedule types ──────────────────────────────────────────
@@ -3281,4 +3331,91 @@ export interface TaskTemplateUpdateRequest {
   enabled?: boolean | null;
   days_offset?: number | null;
   trigger_phase?: string | null;
+}
+
+// ── Admin Platform Types ──────────────────────────────────────────────
+
+export interface AdminTenant {
+  key: string;
+  name: string;
+  slug: string;
+  tenant_type: TenantType;
+  description: string | null;
+  owner_user_key: string;
+  is_active: boolean;
+  is_platform: boolean;
+  max_members: number;
+  member_count: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface AdminUserTenantRole {
+  tenant_key: string;
+  tenant_name: string;
+  tenant_slug: string;
+  role: TenantRole;
+}
+
+export interface AdminUser {
+  key: string;
+  email: string;
+  display_name: string;
+  is_active: boolean;
+  email_verified: boolean;
+  last_login_at: string | null;
+  created_at: string | null;
+  tenant_count: number;
+  roles: AdminUserTenantRole[];
+}
+
+export interface AdminPlatformStats {
+  total_users: number;
+  active_users: number;
+  total_tenants: number;
+  active_tenants: number;
+  total_memberships: number;
+}
+
+export interface AdminTenantUpdate {
+  name?: string;
+  description?: string;
+  max_members?: number;
+  is_active?: boolean;
+}
+
+export interface AdminUserUpdate {
+  display_name?: string;
+  is_active?: boolean;
+  email_verified?: boolean;
+}
+
+export interface AdminTenantMember {
+  membership_key: string;
+  user_key: string;
+  display_name: string;
+  email: string;
+  role: TenantRole;
+  is_active: boolean;
+  joined_at: string | null;
+}
+
+export interface AdminAddMemberRequest {
+  user_key: string;
+  role: TenantRole;
+}
+
+export interface AdminUserMembership {
+  membership_key: string;
+  tenant_key: string;
+  tenant_name: string;
+  tenant_slug: string;
+  role: TenantRole;
+  is_active: boolean;
+  joined_at: string | null;
+}
+
+export interface AdminAddUserToTenantRequest {
+  tenant_key: string;
+  role: TenantRole;
 }
