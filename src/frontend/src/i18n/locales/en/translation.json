@@ -907,6 +907,13 @@
       "phaseProfile": "Current Phase Profile",
       "noNutrientPlanHint": "No nutrient plan assigned — switch to the Nutrient Plan tab to assign one.",
       "days": "days",
+      "estimatedHarvest": "Estimated Harvest",
+      "estimatedHarvestTooltip": "Estimate based on planting date plus the sum of all typical phase durations. Actual harvest may vary depending on growth.",
+      "daysRemaining_one": "{{count}} day remaining",
+      "daysRemaining_other": "{{count}} days remaining",
+      "daysOverdue_one": "{{count}} day overdue",
+      "daysOverdue_other": "{{count}} days overdue",
+      "harvestToday": "Today",
       "wateringInterval": "Watering Interval",
       "wateringPerPhase": "Watering Interval per Phase",
       "cultivarOverride": "Cultivar override",
@@ -2550,7 +2557,7 @@
       "spathiphyllum_wallisii": {
         "establishment": "Acclimate freshly potted peace lily to a semi-shaded location. Sensitive to drafts and direct sun — drooping leaves indicate water needs immediately.",
         "vegetative": "Peace lily forms strong dark green leaves and expands through division in the pot. Regular misting with soft water supports its tropical origins.",
-        "flowering": "The characteristic white spathe typically appears after mild drought or cold stress. Cooler nights (15–17 °C) over several weeks can trigger bloom formation. Cut spent flower stalks close to the base.",
+        "flowering": "The white spathe typically appears following cool night temperatures (15–17 °C) or drought stress. Cooler nights over several weeks can trigger bloom formation. Cut spent flower stalks close to the base.",
         "mature": "Robust, mature peace lily with regular blooming. Propagate by dividing the root ball when needed — ideal during spring repotting."
       },
       "fragaria_x_ananassa": {
@@ -2565,7 +2572,7 @@
         "germination": "Sunflower seeds germinate quickly with warmth and darkness. Plant seeds 2–3 cm deep and keep evenly moist — slugs are the biggest threat at this stage.",
         "seedling": "Young sunflower develops first true leaf pairs and grows rapidly. Very light-hungry — insufficient light causes the stem to etiolate and break easily later.",
         "vegetative": "Explosive height growth of the sunflower with high water and nutrient demand. Set support stake early for tall varieties, as the stem can reach up to 3 m.",
-        "flowering": "The flower head opens. Mature flower heads are permanently east-facing — heliotropism only occurs during the vegetative juvenile stage. High water demand — drought causes outer petals to wilt first and impairs seed formation.",
+        "flowering": "The flower head opens. Mature heads are stationary, facing east — heliotropism occurs only during the juvenile vegetative phase. High water demand — drought causes outer petals to wilt first and impairs seed formation.",
         "ripening": "The flower head droops and seeds ripen. Apply bird protection netting if harvesting seeds — watering can now be significantly reduced.",
         "senescence": "The annual sunflower dries out and can be composted. Hang flower heads with ripe seeds to dry — usable as seed stock or bird feed."
       },

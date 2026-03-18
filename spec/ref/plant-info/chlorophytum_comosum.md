@@ -32,7 +32,7 @@
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Naehrstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
 | Gruenduengung geeignet | false | `species.green_manure_suitable` |
-| Traits | ornamental, air_purifying | `species.traits` |
+| Traits | ornamental | `species.traits` |
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -208,6 +208,7 @@ Chlorophytum comosum ist eine perenniale Zimmerpflanze ohne Ernte-Ziel. Die Phas
 |------------|---------|----------|-------------|
 | Bewurzelung -> Juvenil | conditional | 7-21 Tage | Wurzeln 3+ cm, neues Blattwachstum sichtbar |
 | Juvenil -> Aktives Wachstum | time_based | 30-90 Tage | Pflanze etabliert, 5+ Blaetter, stabiles Wurzelsystem |
+| Aktives Wachstum -> Kindel-Bildung | event_based | photoperiod_trigger | Photoperiode < 12h fuer 21+ Tage loest Stolonenbildung aus; typisch natuerlich ab September/Oktober |
 | Aktives Wachstum -> Ruheperiode | event_based | saisonal (November) | Tageslaenge/Temperatur sinken |
 | Ruheperiode -> Aktives Wachstum | event_based | saisonal (Maerz) | is_cycle_restart: true |
 
@@ -388,7 +389,7 @@ Entfaellt (reine Zimmerpflanze). Fruchtfolge und Mischkultur sind Konzepte des F
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,frost_sensitivity,nutrient_demand_level,green_manure_suitable,traits,air_purification_score
-Chlorophytum comosum,Gruenlilie;Spider Plant;Airplane Plant;Ribbon Plant,Asparagaceae,Chlorophytum,perennial,day_neutral,herb,tuberous,9b;10a;10b;11a;11b,0.0,Tropisches und suedliches Afrika,sensitive,light_feeder,false,ornamental;air_purifying,0.8
+Chlorophytum comosum,Gruenlilie;Spider Plant;Airplane Plant;Ribbon Plant,Asparagaceae,Chlorophytum,perennial,day_neutral,herb,tuberous,9b;10a;10b;11a;11b,0.0,Tropisches und suedliches Afrika,sensitive,light_feeder,false,ornamental,0.8
 ```
 
 ### 8.2 BotanicalFamily CSV-Zeile (falls noch nicht vorhanden)

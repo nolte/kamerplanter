@@ -814,7 +814,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
-        light_ppfd_target: 200
+        light_ppfd_target: 100  # W-005: 200→100 (shade plant, 200 PPFD causes leaf burn)
         photoperiod_hours: 12.0
         temperature_day_c: 22.0
         temperature_night_c: 18.0

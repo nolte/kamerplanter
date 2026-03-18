@@ -42,6 +42,8 @@ Mitteleuropa (Zone 7–8), Bezugspunkt: letzter Frost Mitte Mai.
 | Erntemonate | null (Zierpflanze, keine Ernte; `allows_harvest: false` auf allen Phasen) | `species.harvest_months` |
 | Blütemonate | 3, 4, 5, 6, 9, 10 (Hauptblüte Frühling und Herbst; Sommerhitze unterbricht Blüte) | `species.bloom_months` |
 
+<!-- AB-010: bloom_months enthaelt zwei getrennte Bluehperioden: Fruehjahr [3,4,5,6] und Herbst [9,10] mit einer Bluehpause im Juli/August (Thermoinhibition ab 25°C). Die Luecke im Array (kein 7,8) signalisiert, dass dies KEINE durchgehende Bluete ist. Die Kalenderansicht (REQ-015) muss Luecken im bloom_months-Array als separate Balken darstellen, nicht als durchgehenden Block. -->
+
 ### 1.3 Vermehrung
 
 | Feld | Wert | KA-Feld |

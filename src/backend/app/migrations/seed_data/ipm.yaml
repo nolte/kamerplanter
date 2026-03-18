@@ -55,6 +55,14 @@ pests:
     optimal_temp_max: 30.0
     detection_difficulty: medium
 
+  - scientific_name: Coccoidea (Überfamilie)
+    common_name: Scale Insects
+    pest_type: insect
+    lifecycle_days: 60
+    optimal_temp_min: 20.0
+    optimal_temp_max: 30.0
+    detection_difficulty: hard
+
   - scientific_name: Phyllotreta spp.
     common_name: Flea Beetle
     pest_type: insect
@@ -84,7 +92,7 @@ diseases:
     common_name: Powdery Mildew
     pathogen_type: fungal
     incubation_period_days: 5
-    environmental_triggers: [high_humidity, poor_ventilation]
+    environmental_triggers: [low_humidity, warm_temperature, poor_air_circulation, drought_stress]
     affected_plant_parts: [leaf, stem]
 
   - scientific_name: Botrytis cinerea

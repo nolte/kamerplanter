@@ -36,6 +36,8 @@
 
 **Hinweis:** "Geranie" ist botanisch unkorrekt — echte Geranien (Storchschnäbel) sind eine andere Gattung. Pelargonien sind Südafrikaner und vertragen keine Staunässe. Als Zimmerpflanze bei ausreichend Licht ganzjährig blühend. Das charakteristische Ringmuster (Hufeisenmuster) auf den Blättern ist namengebend für "zonale" Pelargonien. Sehr beliebte Balkonpflanze in Deutschland, kommt aber auch als langlebige Zimmerpflanze vor.
 
+<!-- AB-003: Pelargonium zonale ist botanisch perennial, wird in DE aber oft als Einjaehrige behandelt (frost_sensitivity: tender). Fuer das Care-Preset gilt: Standard-Nutzung als Balkonpflanze → outdoor_annual_ornamental Preset passt. Ueberwinterungsszenario (hell, 5-10°C, reduziertes Giessen, Rueckschnitt im Fruehjahr, jaehrliches Umtopfen) erfordert ein dediziertes OverwinteringProfile (REQ-022) oder ein Perennial-Preset -- das ist NICHT im outdoor_annual_ornamental Preset abgedeckt. Im Onboarding-Kit balkon-blumen den Hinweis ergaenzen: "Geranien koennen eingewintert werden (hell, 5-10°C) oder werden jaehrlich neu gekauft." -->
+
 ### 1.2 Aussaat- & Erntezeiten
 
 | Feld | Wert | KA-Feld |

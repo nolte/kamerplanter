@@ -1426,6 +1426,24 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 | Import-History | Admin | — | — |
 | Template-Download | Ja | — | — |
 
+### 5.1 Sicherheitsanforderungen für CSV-Import
+
+<!-- Quelle: IT-Security-Review SEC-M-008 -->
+
+CSV-Dateien können bösartigen Inhalt transportieren. Die folgenden Sicherheitsmaßnahmen MÜSSEN implementiert werden:
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| CI-001 | CSV-Import MUSS auf die Rolle **Admin** beschränkt sein (keine Grower/Viewer). | MUSS |
+| CI-002 | Maximale Dateigröße: **10 MB** (erzwungen via FastAPI `UploadFile` und NFR-001 §6.5 EV-004). | MUSS |
+| CI-003 | Maximale Zeilenanzahl: **10.000 Zeilen** pro Import-Job. Dateien mit mehr Zeilen werden mit Validierungsfehler abgelehnt. | MUSS |
+| CI-004 | **CSV-Injection-Sanitisierung:** Zellenwerte die mit `=`, `+`, `-`, `@`, `\t`, `\r` beginnen, MÜSSEN bei der Validierung als `SUSPICIOUS_CONTENT`-Warnung markiert werden. Das führende Zeichen wird beim Import automatisch entfernt (Prefix-Stripping). | MUSS |
+| CI-005 | **MIME-Type-Validierung:** Upload MUSS `text/csv`, `text/plain`, `application/csv` oder `application/vnd.ms-excel` akzeptieren. Alle anderen MIME-Types werden abgelehnt (415 Unsupported Media Type). | MUSS |
+| CI-006 | **Encoding-Validierung:** Nur UTF-8, UTF-8-BOM, Latin-1 (ISO-8859-1) und Windows-1252 werden akzeptiert. Dateien mit Null-Bytes oder Steuerzeichen (außer `,`, `\n`, `\r`, `\t`) werden abgelehnt. | MUSS |
+| CI-007 | Rate-Limiting: Maximal **5 Uploads pro Stunde** pro User (NFR-001 §6.3 Tier "CSV-Upload"). | MUSS |
+| CI-008 | Hochgeladene CSV-Dateien MÜSSEN nach Abschluss des Imports (Status `completed` oder `failed`) innerhalb von **24 Stunden** gelöscht werden. | MUSS |
+| CI-009 | AQL-Injection-Schutz: Alle Zellenwerte MÜSSEN über parametrisierte AQL-Queries (`@variable`-Binding) eingefügt werden. String-Konkatenation in AQL ist verboten. | MUSS |
+
 ## 6. Abhängigkeiten
 
 **Benötigt:**

@@ -44,6 +44,21 @@ families:
     description: "Aromatische Kräuter wie Basilikum, Minze, Thymian und Rosmarin. Ätherische Öle."
     rotation_category: herb
 
+  - name: Verbenaceae
+    common_name_de: "Eisenkrautgewächse"
+    common_name_en: Verbena family
+    order: Lamiales
+    typical_nutrient_demand: medium
+    frost_tolerance: sensitive
+    typical_root_depth: medium
+    typical_growth_forms: [herb, shrub]
+    common_pests: [aphids, whitefly]
+    common_diseases: [Mehltau]
+    pollination_type: [insect]
+    soil_ph_preference: {min_ph: 6.0, max_ph: 7.5}
+    description: "Eisenkrautgewächse mit Verbena, Lantana und Aloysia (Zitronenverbene). Oft aromatisch."
+    rotation_category: herb
+
   - name: Apiaceae
     common_name_de: "Doldenblütler"
     common_name_en: Carrot family

@@ -50,14 +50,16 @@
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Giftig für Katzen | false | `species.toxicity.is_toxic_cats` |
-| Giftig für Hunde | false | `species.toxicity.is_toxic_dogs` |
+| Giftig für Katzen | true | `species.toxicity.is_toxic_cats` |
+| Giftig für Hunde | true | `species.toxicity.is_toxic_dogs` |
 | Giftig für Kinder | false | `species.toxicity.is_toxic_children` |
-| Giftige Pflanzenteile | — | `species.toxicity.toxic_parts` |
-| Giftige Inhaltsstoffe | — | `species.toxicity.toxic_compounds` |
-| Schweregrad | none | `species.toxicity.severity` |
+| Giftige Pflanzenteile | leaves, stems, flowers | `species.toxicity.toxic_parts` |
+| Giftige Inhaltsstoffe | thiophene_derivatives, essential_oils (Thiophen-Derivate und aetherische Oele; ASPCA: Tagetes als toxisch fuer Hunde und Katzen gelistet) | `species.toxicity.toxic_compounds` |
+| Schweregrad | mild (kutane Irritation, milde Gastroenteritis bei Verschlucken) | `species.toxicity.severity` |
 | Kontaktallergen | true (ätherische Öle können bei Korbblütler-Allergie reagieren) | `species.allergen_info.contact_allergen` |
 | Pollenallergen | true (bei Korbblütler-Allergie) | `species.allergen_info.pollen_allergen` |
+
+<!-- AB-015: Korrektur gemaess ASPCA Animal Poison Control -- Tagetes patula ist fuer Katzen und Hunde mild toxisch (Thiophen-Derivate, aetherische Oele). Symptome: Hautirritation, leichte Magen-Darm-Beschwerden. Fuer Menschen/Kinder unbedenklich (Blueten essbar). -->
 
 ### 1.5 Rückschnitt
 
