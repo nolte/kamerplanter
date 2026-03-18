@@ -4,10 +4,9 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 
-from app.common.enums import AuthProviderType
+from app.common.enums import AuthProviderType, TenantRole
 from app.common.exceptions import (
     AccountLockedError,
-    DuplicateError,
     EmailNotVerifiedError,
     InvalidTokenError,
     NotFoundError,
@@ -101,10 +100,12 @@ class AuthService:
         if errors:
             raise ValidationError("; ".join(errors))
 
-        # Check duplicate email
+        # Check duplicate email — return generic profile to prevent account enumeration
+        # (SEC-H-009). The caller cannot distinguish between new and existing accounts.
         existing = self._user_repo.get_by_email(email)
         if existing:
-            raise DuplicateError("User", "email", email)
+            logger.info("registration_duplicate_suppressed", email=email)
+            return self._to_profile(existing)
 
         # Create user
         skip_verification = not self._require_email_verification
@@ -725,11 +726,17 @@ class AuthService:
         ip_address: str | None,
         is_persistent: bool = False,
     ) -> tuple[TokenPair, str, bool]:
+        # Determine platform admin status from membership in "platform" tenant
+        is_platform_admin = False
+        if self._tenant_service and user.key:
+            membership = self._tenant_service.get_membership(user.key, "platform")
+            if membership and membership.is_active and membership.role == TenantRole.ADMIN:
+                is_platform_admin = True
+
         token_pair = self._token_engine.create_access_token(
             user_key=user.key or "",
-            email=user.email,
-            display_name=user.display_name,
             expire_minutes=self._access_expire_min,
+            is_platform_admin=is_platform_admin,
         )
 
         raw_refresh, refresh_hash = self._token_engine.create_refresh_token()

@@ -3,10 +3,20 @@ from fastapi import APIRouter, Depends, Form, Query, Response, UploadFile
 from app.api.v1.imports.schemas import ImportJobResponse
 from app.common.dependencies import get_import_service
 from app.common.enums import DuplicateStrategy, EntityType
+from app.common.exceptions import PayloadTooLargeError, UnsupportedMediaTypeError
 from app.domain.models.import_job import ImportJob
 from app.domain.services.import_service import ImportService
 
 router = APIRouter(prefix="/import", tags=["import"])
+
+# SEC-M-008: Upload security constants
+MAX_UPLOAD_SIZE_BYTES = 10_485_760  # 10 MB
+ALLOWED_MIME_TYPES = frozenset({
+    "text/csv",
+    "text/plain",
+    "application/csv",
+    "application/vnd.ms-excel",
+})
 
 
 def _job_response(job: ImportJob) -> ImportJobResponse:
@@ -42,7 +52,17 @@ async def upload_csv(
     duplicate_strategy: DuplicateStrategy = Form(DuplicateStrategy.SKIP),
     service: ImportService = Depends(get_import_service),
 ):
+    # SEC-M-008: Validate MIME type
+    content_type = (file.content_type or "").lower().strip()
+    if content_type not in ALLOWED_MIME_TYPES:
+        raise UnsupportedMediaTypeError(content_type, sorted(ALLOWED_MIME_TYPES))
+
     content = await file.read()
+
+    # SEC-M-008: Validate file size
+    if len(content) > MAX_UPLOAD_SIZE_BYTES:
+        raise PayloadTooLargeError(MAX_UPLOAD_SIZE_BYTES)
+
     job = service.upload(content, entity_type, file.filename or "upload.csv", duplicate_strategy)
     return _job_response(job)
 

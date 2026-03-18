@@ -50,12 +50,12 @@ class RefreshToken(BaseModel):
 
 class TokenPayload(BaseModel):
     sub: str  # user_key
-    email: str
-    display_name: str
     tenant_roles: dict[str, str] = Field(default_factory=dict)
+    is_platform_admin: bool = False
     exp: int
     iat: int
     jti: str
+    type: str = "access"
 
 
 class TokenPair(BaseModel):

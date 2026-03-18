@@ -25,7 +25,7 @@ class ImportEngine:
     ) -> ImportJob:
         """Parse CSV, validate rows, return job with preview."""
         try:
-            rows, _delimiter = self._parser.parse(file_bytes, entity_type)
+            rows, warnings = self._parser.parse(file_bytes, entity_type)
         except ValueError as e:
             return ImportJob(
                 entity_type=entity_type,
@@ -38,6 +38,16 @@ class ImportEngine:
         preview_rows = []
         for i, row in enumerate(rows, start=1):
             preview = self._validator.validate_row(row, entity_type, i, existing_keys)
+            # SEC-M-008: Attach CSV injection warnings as validation errors
+            for warning in warnings:
+                if warning.startswith(f"Row {i},"):
+                    preview.errors.append(
+                        RowValidationError(
+                            row=i,
+                            field="",
+                            message=warning,
+                        )
+                    )
             preview_rows.append(preview)
 
         return ImportJob(

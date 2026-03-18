@@ -4,6 +4,10 @@ import re
 
 from app.common.enums import EntityType
 
+# SEC-M-008: Security constants
+MAX_DATA_ROWS = 10_000
+CSV_INJECTION_PREFIXES = frozenset({"=", "+", "-", "@", "\t", "\r"})
+
 COLUMN_DEFINITIONS: dict[EntityType, dict[str, bool]] = {
     EntityType.SPECIES: {
         "scientific_name": True,
@@ -67,14 +71,19 @@ class CsvParser:
         self,
         file_bytes: bytes,
         entity_type: EntityType,
-    ) -> tuple[list[dict], str]:
+    ) -> tuple[list[dict], list[str]]:
+        """Parse CSV bytes into row dicts.
+
+        Returns:
+            Tuple of (rows, warnings). Warnings include CSV injection sanitization notices.
+        """
         encoding = self.detect_encoding(file_bytes)
         text = file_bytes.decode(encoding)
         # Normalize line endings
         text = text.replace("\r\n", "\n").replace("\r", "\n")
         stripped = text.strip()
         if not stripped:
-            return [], ","
+            return [], []
         lines = stripped.split("\n")
 
         delimiter = self.detect_delimiter(lines[0])
@@ -91,15 +100,30 @@ class CsvParser:
             raise ValueError(f"Missing required columns: {', '.join(sorted(missing_required))}")
 
         rows: list[dict] = []
-        for row in reader:
+        warnings: list[str] = []
+        for row_idx, row in enumerate(reader, start=1):
+            # SEC-M-008: Row count limit
+            if row_idx > MAX_DATA_ROWS:
+                raise ValueError(
+                    f"CSV file exceeds maximum of {MAX_DATA_ROWS} data rows"
+                )
+
             normalized = {}
             for key, value in row.items():
                 norm_key = self._normalize_header(key)
                 if norm_key in expected_cols:
-                    normalized[norm_key] = (value or "").strip()
+                    raw = value or ""
+                    # SEC-M-008: CSV injection sanitization (check before strip)
+                    if raw and raw[0] in CSV_INJECTION_PREFIXES:
+                        warnings.append(
+                            f"Row {row_idx}, field '{norm_key}': "
+                            f"SUSPICIOUS_CONTENT — leading character stripped"
+                        )
+                        raw = raw[1:]
+                    normalized[norm_key] = raw.strip()
             rows.append(normalized)
 
-        return rows, delimiter
+        return rows, warnings
 
     @staticmethod
     def _normalize_header(header: str) -> str:
