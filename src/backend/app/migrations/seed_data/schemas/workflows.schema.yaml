@@ -1,0 +1,101 @@
+# JSON Schema for workflows.yaml
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "workflows.schema.yaml"
+title: "Workflows Seed Data"
+description: "Schema for workflow templates and task templates"
+type: object
+
+properties:
+  workflow_templates:
+    type: array
+    items:
+      $ref: "#/$defs/workflow_template"
+  task_templates:
+    type: array
+    items:
+      $ref: "#/$defs/task_template"
+
+required: [workflow_templates, task_templates]
+additionalProperties: false
+
+$defs:
+  workflow_template:
+    type: object
+    properties:
+      name:
+        type: string
+      description:
+        type: string
+      created_by:
+        type: string
+        enum: [system]
+      version:
+        type: string
+      species_compatible:
+        type: array
+        items:
+          type: string
+        description: "Scientific names. Empty = all species."
+      growth_system:
+        type: string
+        enum: [indoor, outdoor, greenhouse]
+      difficulty_level:
+        type: string
+        enum: [beginner, intermediate, advanced]
+      category:
+        type: string
+        enum: [training, pruning, ausgeizen, transplant, feeding, ipm, harvest,
+               observation, maintenance, care_reminder, seasonal, phenological]
+      tags:
+        type: array
+        items:
+          type: string
+      is_system:
+        type: boolean
+    required: [name, description, created_by, version, species_compatible,
+               difficulty_level, category, tags, is_system]
+    additionalProperties: false
+
+  task_template:
+    type: object
+    properties:
+      name:
+        type: string
+      instruction:
+        type: string
+      category:
+        type: string
+        enum: [training, pruning, ausgeizen, transplant, feeding, ipm, harvest,
+               observation, maintenance, care_reminder, seasonal, phenological]
+      trigger_type:
+        type: string
+        enum: [phase_entry, days_after_phase, days_after_planting, absolute_date,
+               manual, conditional, gdd_threshold, seasonal_month, phenological]
+      trigger_phase:
+        type: string
+        enum: [germination, seedling, vegetative, flowering, flushing, dormancy,
+               harvest, sprouting, budding, fruiting, ripening, senescence, corm_ripening]
+      days_offset:
+        type: integer
+        minimum: 0
+      stress_level:
+        type: string
+        enum: [none, low, medium, high]
+      estimated_duration_minutes:
+        type: integer
+        minimum: 1
+      requires_photo:
+        type: boolean
+      skill_level:
+        type: string
+        enum: [beginner, intermediate, advanced]
+      workflow_name:
+        type: string
+        description: "Name of the parent workflow template"
+      sequence_order:
+        type: integer
+        minimum: 0
+    required: [name, instruction, category, trigger_type, trigger_phase,
+               stress_level, estimated_duration_minutes, skill_level,
+               workflow_name, sequence_order]
+    additionalProperties: false

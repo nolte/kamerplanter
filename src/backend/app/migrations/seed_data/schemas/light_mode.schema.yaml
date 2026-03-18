@@ -1,0 +1,35 @@
+# JSON Schema for light_mode.yaml (system user + tenant for light mode)
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "light_mode.schema.yaml"
+title: "Light Mode Seed Data"
+description: "Schema for light mode system user and tenant"
+type: object
+
+properties:
+  system_user:
+    type: object
+    properties:
+      key:
+        type: string
+      email:
+        type: string
+        format: email
+      display_name:
+        type: string
+    required: [key, email, display_name]
+    additionalProperties: false
+  system_tenant:
+    type: object
+    properties:
+      key:
+        type: string
+      name:
+        type: string
+      slug:
+        type: string
+        pattern: "^[a-z0-9-]+$"
+    required: [key, name, slug]
+    additionalProperties: false
+
+required: [system_user, system_tenant]
+additionalProperties: false

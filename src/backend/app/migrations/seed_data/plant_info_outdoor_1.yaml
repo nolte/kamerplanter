@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=./schemas/plant_info.schema.yaml
 # Plant-info seed data from spec/ref/plant-info/*.md — Outdoor batch 1.
 #
 # Covers 30 plant-info documents (allium_cepa through foeniculum_vulgare).

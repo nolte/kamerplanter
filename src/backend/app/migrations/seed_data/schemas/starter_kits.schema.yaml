@@ -1,0 +1,79 @@
+# JSON Schema for starter_kits.yaml
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "starter_kits.schema.yaml"
+title: "Starter Kits Seed Data"
+description: "Schema for onboarding starter kit definitions"
+type: object
+
+properties:
+  starter_kits:
+    type: array
+    items:
+      $ref: "#/$defs/starter_kit"
+
+required: [starter_kits]
+additionalProperties: false
+
+$defs:
+  starter_kit:
+    type: object
+    properties:
+      kit_id:
+        type: string
+        pattern: "^[a-z0-9-]+$"
+        description: "URL-safe identifier (kebab-case)"
+      name_i18n:
+        type: object
+        properties:
+          de: { type: string }
+          en: { type: string }
+        required: [de, en]
+        additionalProperties: false
+      description_i18n:
+        type: object
+        properties:
+          de: { type: string }
+          en: { type: string }
+        required: [de, en]
+        additionalProperties: false
+      difficulty:
+        type: string
+        enum: [beginner, intermediate, advanced]
+      icon:
+        type: string
+        description: "Icon identifier (e.g. herbs, houseplant, cannabis, pet_friendly)"
+      plant_count_suggestion:
+        type: integer
+        minimum: 1
+      site_type:
+        type: string
+        enum: [outdoor, greenhouse, indoor, windowsill, balcony, grow_tent]
+      species_keys:
+        type: array
+        items:
+          type: string
+        description: "ArangoDB keys of species (empty if using species_names)"
+      species_names:
+        type: array
+        items:
+          type: string
+        description: "Scientific names — resolved to keys during seeding"
+      toxicity_warning:
+        type: boolean
+      includes_nutrient_plan:
+        type: boolean
+      nutrient_plan_keys:
+        type: array
+        items:
+          type: string
+      tags:
+        type: array
+        items:
+          type: string
+      sort_order:
+        type: integer
+        minimum: 0
+    required: [kit_id, name_i18n, description_i18n, difficulty, icon,
+               plant_count_suggestion, site_type, species_names,
+               toxicity_warning, includes_nutrient_plan, tags, sort_order]
+    additionalProperties: false

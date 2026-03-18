@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=./schemas/workflows.schema.yaml
 workflow_templates:
   - name: Cannabis SOG
     description: "Sea of Green workflow for cannabis"

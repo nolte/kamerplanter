@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=./schemas/fertilizers.schema.yaml
 # Fertilizer products and nutrient plans for Advanced Nutrients product lines.
 #
 # Sources — Advanced Nutrients:
@@ -782,8 +783,8 @@ nutrient_plans:
       NICHT in den Tank (Biofilmgefahr).
       Sensizym und Free Flow ABWECHSELND — nie gleichzeitig.
       Biologicals/Organics NICHT in den Tank (Biofilmgefahr).
-      Für Coco/Hydro mit Reservoir-System optimiert.
-    recommended_substrate_type: coco
+      Für Erde mit Reservoir-System optimiert.
+    recommended_substrate_type: soil
     author: "Kamerplanter Referenzdaten"
     is_template: true
     version: "2.0"

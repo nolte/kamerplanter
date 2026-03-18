@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=./schemas/companion_planting.schema.yaml
 compatible:
   - [Solanum lycopersicum, Ocimum basilicum, 0.9]
   - [Ocimum basilicum, Solanum lycopersicum, 0.9]

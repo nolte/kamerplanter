@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=./schemas/plant_info.schema.yaml
 # Indoor plant seed data batch 1 — from spec/ref/plant-info/*.md (30 documents).
 #
 # Adds 15 new botanical families, 29 new species, enriches 1 existing species
