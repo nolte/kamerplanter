@@ -146,8 +146,8 @@ fertilizers:
     brand: "Advanced Nutrients"
     fertilizer_type: supplement
     is_organic: false
-    tank_safe: true
-    recommended_application: fertigation
+    tank_safe: false
+    recommended_application: drench
     npk_ratio: [2.0, 1.0, 4.0]
     ec_contribution_per_ml: 0.05
     mixing_priority: 40
@@ -832,11 +832,11 @@ nutrient_plans:
         npk_ratio: [1.3, 1.0, 2.7]
         notes: >-
           Tank: Rhino Skin (Silikat, VOR GMB!) + 1/4 Dosis GMB (je 1 ml/L) +
-          B-52 (Stressresistenz) + Drip Clean.
-          Gießkanne A (Woche A): Sensizym + Wurzel-Trio (Voodoo Juice,
+          Drip Clean.
+          Gießkanne A (Woche A): B-52 + Sensizym + Wurzel-Trio (Voodoo Juice,
           Piranha, Tarantula) für maximalen Wurzelaufbau.
           Gießkanne B (Woche B): Free Flow.
-          NICHT mischen — separat ansetzen und manuell gießen.
+          B-52 NICHT in den Tank (Huminsäure/Kelp = Biofilmgefahr).
         delivery_channels:
           - channel_id: tank-fertigation
             label: "Tank (mineralisch)"
@@ -856,10 +856,8 @@ nutrient_plans:
                 ml_per_liter: 1.0
               - product_name: "pH Perfect Bloom"
                 ml_per_liter: 1.0
-              - product_name: "B-52"
-                ml_per_liter: 2.0
           - channel_id: giesskanne-sensizym
-            label: "Gießkanne A — Sensizym + Wurzel-Trio (Woche A)"
+            label: "Gießkanne A — Sensizym + Wurzel-Trio + B-52 (Woche A)"
             application_method: drench
             target_ec_ms: 0.0
             target_ph: 5.9
@@ -867,6 +865,8 @@ nutrient_plans:
               volume_per_feeding_liters: 0.3
             fertigation_params: null
             fertilizer_dosages:
+              - product_name: "B-52"
+                ml_per_liter: 2.0
               - product_name: "Sensizym"
                 ml_per_liter: 2.0
               - product_name: "Voodoo Juice"
@@ -895,8 +895,8 @@ nutrient_plans:
         npk_ratio: [4.0, 3.0, 8.0]
         notes: >-
           Tank: Rhino Skin (2 ml/L) + volle Dosis GMB (je 4 ml/L) +
-          B-52 (2 ml/L) + Drip Clean. Rhino Skin stärkt Stängel für
-          schwere Blüten — jetzt investieren zahlt sich in der Blüte aus.
+          Drip Clean. Rhino Skin stärkt Stängel für schwere Blüten.
+          B-52 NICHT in den Tank (Huminsäure/Kelp = Biofilmgefahr).
           Gießkanne A (Woche A): Sensizym + Wurzel-Trio (nur Woche 4-5,
           danach nur noch Sensizym).
           Gießkanne B (Woche B): Free Flow.
@@ -919,10 +919,8 @@ nutrient_plans:
                 ml_per_liter: 4.0
               - product_name: "pH Perfect Bloom"
                 ml_per_liter: 4.0
-              - product_name: "B-52"
-                ml_per_liter: 2.0
           - channel_id: giesskanne-sensizym
-            label: "Gießkanne A — Sensizym + Wurzel-Trio (Woche A)"
+            label: "Gießkanne A — Sensizym + Wurzel-Trio + B-52 (Woche A)"
             application_method: drench
             target_ec_ms: 0.0
             target_ph: 5.9
@@ -930,6 +928,8 @@ nutrient_plans:
               volume_per_feeding_liters: 0.5
             fertigation_params: null
             fertilizer_dosages:
+              - product_name: "B-52"
+                ml_per_liter: 2.0
               - product_name: "Sensizym"
                 ml_per_liter: 2.0
               - product_name: "Voodoo Juice"
@@ -963,7 +963,7 @@ nutrient_plans:
         magnesium_ppm: 60.0
         notes: >-
           Tank: Rhino Skin (2 ml/L) + GMB volle Dosis (je 4 ml/L) +
-          B-52 (2 ml/L) + Drip Clean. Kein PK-Booster —
+          Drip Clean. Kein PK-Booster —
           GMB liefert ausreichend PK in dieser Phase.
           Gießkanne A (Woche A): Sensizym (kein Wurzel-Trio mehr).
           Gießkanne B (Woche B): Free Flow + Nirvana + Bud Candy
@@ -987,10 +987,8 @@ nutrient_plans:
                 ml_per_liter: 4.0
               - product_name: "pH Perfect Bloom"
                 ml_per_liter: 4.0
-              - product_name: "B-52"
-                ml_per_liter: 2.0
           - channel_id: giesskanne-sensizym
-            label: "Gießkanne A — Sensizym (Woche A)"
+            label: "Gießkanne A — Sensizym + B-52 (Woche A)"
             application_method: drench
             target_ec_ms: 0.0
             target_ph: 5.9
@@ -998,6 +996,8 @@ nutrient_plans:
               volume_per_feeding_liters: 0.8
             fertigation_params: null
             fertilizer_dosages:
+              - product_name: "B-52"
+                ml_per_liter: 2.0
               - product_name: "Sensizym"
                 ml_per_liter: 2.0
           - channel_id: giesskanne-freeflow
@@ -1027,7 +1027,7 @@ nutrient_plans:
         notes: >-
           Tank: Rhino Skin + GMB volle Dosis + PK 13-14 (0.75 ml/L, Woche 11-13) +
           Overdrive (2 ml/L, Woche 13-15, Spätblüte-Finisher) +
-          B-52 + Drip Clean. Maximale Blütendichte.
+          Drip Clean. Maximale Blütendichte.
           PK 13-14 und Overdrive NICHT gleichzeitig — PK 13-14 zuerst (Woche 11-13),
           dann Overdrive (Woche 13-15). EC-Peak ~2.2 mS/cm.
           Gießkanne A (Woche A): Sensizym.
@@ -1051,15 +1051,13 @@ nutrient_plans:
                 ml_per_liter: 4.0
               - product_name: "pH Perfect Bloom"
                 ml_per_liter: 4.0
-              - product_name: "B-52"
-                ml_per_liter: 2.0
               - product_name: "PK 13-14"
                 ml_per_liter: 0.75
               - product_name: "Overdrive"
                 ml_per_liter: 2.0
                 optional: true
           - channel_id: giesskanne-sensizym
-            label: "Gießkanne A — Sensizym (Woche A)"
+            label: "Gießkanne A — Sensizym + B-52 (Woche A)"
             application_method: drench
             target_ec_ms: 0.0
             target_ph: 5.9
@@ -1067,6 +1065,8 @@ nutrient_plans:
               volume_per_feeding_liters: 1.0
             fertigation_params: null
             fertilizer_dosages:
+              - product_name: "B-52"
+                ml_per_liter: 2.0
               - product_name: "Sensizym"
                 ml_per_liter: 2.0
           - channel_id: giesskanne-freeflow

@@ -1,0 +1,758 @@
+# yaml-language-server: $schema=./schemas/fertilizers.schema.yaml
+# RO-Wasser (Osmosewasser) Varianten bestehender Nährstoffpläne.
+#
+# Bei Osmosewasser (EC ~0.0) fehlen Calcium und Magnesium aus dem
+# Leitungswasser. CalMag-Supplement (Terra Aquatica) gleicht dies aus.
+# CalMag wird VOR den Basisdüngern zugegeben (mixing_priority 8).
+#
+# WICHTIG: RO-Wasser hat keine Karbonathärte (KH ~0) und damit keine
+# pH-Pufferkapazität. Nach Düngerzugabe kann der pH stark schwanken.
+# pH-Wert NACH dem Mischen messen und ggf. mit pH-Up/pH-Down korrigieren.
+#
+# Quellen:
+#   Originalpläne: plagron.yaml, gardol.yaml
+#   CalMag-Produkt: fertilizers.yaml (Terra Aquatica CalMag)
+
+nutrient_plans:
+  # ── Plagron 100% Terra — Cannabis (Osmosewasser) ────────────────────────────
+  - name: "Plagron 100% Terra — Cannabis (Osmosewasser)"
+    description: >-
+      RO-Wasser-Variante des Plagron 100% Terra Cannabis-Plans.
+      Identische Basisdüngung, ergänzt durch Terra Aquatica CalMag
+      in allen düngenden Phasen. Ca/Mg via CalMag-Supplement,
+      nicht aus Leitungswasser. EC-Ziele leicht erhöht (+0.15)
+      wegen CalMag-Beitrag. ACHTUNG: RO-Wasser hat keine
+      pH-Pufferkapazität (KH ~0) — pH NACH dem Mischen messen
+      und ggf. mit pH-Up/Down korrigieren.
+    recommended_substrate_type: soil
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags: [plagron, terra, soil, cannabis, mineral, osmosewasser, ro]
+    water_mix_ratio_ro_percent: 100
+    # base_water_ec_ms: 0.0  (informativ — Feld existiert nicht auf NutrientPlan)
+    watering_schedule: null
+    cycle_restart_from_sequence: null
+
+    phase_entries:
+      # ── 1. Keimung (Week 1) ────────────────────────────────────────────
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 2
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: "Nur RO-Wasser. Samen keimen in feuchtem Substrat. Kein CalMag nötig."
+        delivery_channels:
+          - channel_id: drench
+            label: "Gießen"
+            application_method: drench
+            target_ec_ms: 0.0
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertigation_params: null
+            fertilizer_dosages: []
+
+      # ── 2. Sämling (Week 2–3) ─────────────────────────────────────────
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 2
+        week_end: 4
+        npk_ratio: [1.5, 0.5, 1.5]
+        notes: >-
+          Halbe Dosis Terra Grow (2.5 ml/L) + CalMag 1.0 ml/L.
+          Power Roots für Wurzelaufbau. Pure Zym durchgehend.
+          Ca/Mg via CalMag-Supplement, nicht aus Leitungswasser.
+        delivery_channels:
+          - channel_id: drench
+            label: "Gießen"
+            application_method: drench
+            target_ec_ms: 0.95
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.3
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.0
+              - product_name: "Terra Grow"
+                ml_per_liter: 2.5
+              - product_name: "Power Roots"
+                ml_per_liter: 1.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+
+      # ── 3. Vegetativ (Week 3–5) ───────────────────────────────────────
+      - phase_name: vegetative
+        sequence_order: 3
+        week_start: 4
+        week_end: 6
+        npk_ratio: [3.0, 1.0, 3.0]
+        notes: >-
+          Volle Dosis Terra Grow (5 ml/L) + CalMag 1.5 ml/L.
+          Power Roots weiter für Wurzelmasse.
+          Sugar Royal ab jetzt für Aminosäuren.
+          Ca/Mg via CalMag-Supplement, nicht aus Leitungswasser.
+        delivery_channels:
+          - channel_id: drench
+            label: "Gießen"
+            application_method: drench
+            target_ec_ms: 1.35
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.5
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.5
+              - product_name: "Terra Grow"
+                ml_per_liter: 5.0
+              - product_name: "Power Roots"
+                ml_per_liter: 1.0
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+              - product_name: "Sugar Royal"
+                ml_per_liter: 1.0
+
+      # ── 4. Blüte — Früh (Week 5–8) ───────────────────────────────────
+      - phase_name: flowering
+        sequence_order: 4
+        week_start: 6
+        week_end: 9
+        npk_ratio: [2.0, 2.0, 4.0]
+        calcium_ppm: 150.0
+        magnesium_ppm: 40.0
+        notes: >-
+          Umstellung auf Terra Bloom (5 ml/L) + CalMag 1.5 ml/L.
+          Power Roots noch 1 Woche, dann absetzen.
+          Pure Zym + Sugar Royal weiter.
+          Ca/Mg via CalMag-Supplement, nicht aus Leitungswasser.
+        delivery_channels:
+          - channel_id: drench
+            label: "Gießen"
+            application_method: drench
+            target_ec_ms: 1.55
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 0.8
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.5
+              - product_name: "Terra Bloom"
+                ml_per_liter: 5.0
+              - product_name: "Power Roots"
+                ml_per_liter: 1.0
+                optional: true
+              - product_name: "Pure Zym"
+                ml_per_liter: 1.0
+              - product_name: "Sugar Royal"
+                ml_per_liter: 1.0
+
+      # ── 5. Blüte — Spät (Week 8–11) ──────────────────────────────────
+      - phase_name: flowering
+        sequence_order: 5
+        week_start: 9
+        week_end: 12
+        npk_ratio: [2.0, 10.0, 13.0]
+        calcium_ppm: 150.0
+        magnesium_ppm: 40.0
+        notes: >-
+          Terra Bloom (4-5 ml/L) + Green Sensation (1 ml/L) + CalMag 1.5 ml/L.
+          PK-Booster für maximale Blütendichte.
+          Sugar Royal bis 1 Woche vor Flush.
+          Ca/Mg via CalMag-Supplement, nicht aus Leitungswasser.
+        delivery_channels:
+          - channel_id: drench
+            label: "Gießen"
+            application_method: drench
+            target_ec_ms: 1.75
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 1.0
+            fertigation_params: null
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 1.5
+              - product_name: "Terra Bloom"
+                ml_per_liter: 4.5
+              - product_name: "Green Sensation"
+                ml_per_liter: 1.0
+              - product_name: "Sugar Royal"
+                ml_per_liter: 1.0
+
+      # ── 6. Ernte / Flush (Week 11–12) ─────────────────────────────────
+      - phase_name: harvest
+        sequence_order: 6
+        week_start: 12
+        week_end: 13
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Letzte Woche nur RO-Wasser spülen. Kein CalMag.
+          Plagron empfiehlt in der letzten Woche
+          keine Nährstoffe mehr zuzugeben.
+        delivery_channels:
+          - channel_id: drench
+            label: "Flush"
+            application_method: drench
+            target_ec_ms: 0.0
+            target_ph: 6.0
+            drench_params:
+              volume_per_feeding_liters: 1.0
+            fertigation_params: null
+            fertilizer_dosages: []
+
+  # ── Monstera deliciosa — Gardol Grünpflanzendünger (Osmosewasser) ───────────
+  - name: "Monstera deliciosa — Gardol Grünpflanzendünger (Osmosewasser)"
+    description: >-
+      RO-Wasser-Variante des Monstera-Gardol-Plans.
+      Identische Basisdüngung, ergänzt durch Terra Aquatica CalMag.
+      Ca/Mg via CalMag-Supplement, nicht aus Leitungswasser.
+      EC-Ziele leicht erhöht (+0.05) wegen CalMag-Beitrag.
+      ACHTUNG: RO-Wasser hat keine pH-Pufferkapazität (KH ~0) —
+      pH NACH dem Mischen messen und ggf. korrigieren.
+    recommended_substrate_type: soil
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags: [monstera, zimmerpflanze, gruenpflanze, gardol, erde, indoor, anfaenger, osmosewasser, ro]
+    water_mix_ratio_ro_percent: 100
+    cycle_restart_from_sequence: 3
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 7
+      preferred_time: "09:00"
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+
+    phase_entries:
+      # ── GERMINATION W1-4 ──
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 4
+        is_recurring: false
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Keine Düngung, kein CalMag. Steckling nur mit RO-Wasser gießen.
+          Substrat feucht halten, nicht nass. 3-Tage-Intervall für kleine Töpfe
+          (8–10 cm) bei 22–25 °C.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 3
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-bewurzelung
+            label: "Nur Wasser (Bewurzelung)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.10
+            fertilizer_dosages: []
+
+      # ── SEEDLING W5-16 ──
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 5
+        week_end: 16
+        is_recurring: false
+        npk_ratio: [1.0, 1.0, 1.0]
+        calcium_ppm: 40.0
+        magnesium_ppm: 20.0
+        notes: >-
+          Halbe Dosis alle 14 Tage + CalMag 0.5 ml/L.
+          Pflanze baut Wurzelsystem und erste Blätter auf.
+          Ca/Mg via CalMag-Supplement, nicht aus Leitungswasser.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 14
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: drench-giessduengung
+            label: "Gießdüngung (Gießkanne)"
+            application_method: drench
+            target_ec_ms: 0.65
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 0.5
+              - product_name: Grünpflanzendünger
+                ml_per_liter: 2.0
+
+      # ── DORMANCY W1-8 (recurring, Jan–Feb) ──
+      - phase_name: dormancy
+        sequence_order: 3
+        week_start: 1
+        week_end: 8
+        is_recurring: true
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Saisonale Ruhephase Januar–Februar. Keine Düngung, kein CalMag.
+          12-Tage-Intervall bei 18–22 °C.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 12
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-dormancy
+            label: "Nur Wasser (Ruheperiode)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages: []
+
+      # ── VEGETATIVE W9-43 (recurring, Mär–Okt) ──
+      - phase_name: vegetative
+        sequence_order: 4
+        week_start: 9
+        week_end: 43
+        is_recurring: true
+        npk_ratio: [1.5, 1.0, 1.5]
+        calcium_ppm: 80.0
+        magnesium_ppm: 40.0
+        notes: >-
+          Volle Dosis wöchentlich (April–September), halbe Dosis 14-tägig
+          (März, Oktober). CalMag 0.5 ml/L bei jeder Düngung.
+          Ca/Mg via CalMag-Supplement, nicht aus Leitungswasser.
+          Alle 6–8 Wochen Salzspülung.
+        delivery_channels:
+          - channel_id: drench-giessduengung
+            label: "Gießdüngung (Gießkanne)"
+            application_method: drench
+            target_ec_ms: 1.05
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.5
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 0.5
+              - product_name: Grünpflanzendünger
+                ml_per_liter: 4.0
+
+      # ── DORMANCY W44-52 (recurring, Nov–Dez) ──
+      - phase_name: dormancy
+        sequence_order: 5
+        week_start: 44
+        week_end: 52
+        is_recurring: true
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Saisonale Ruhephase November–Dezember. Keine Düngung, kein CalMag.
+          12-Tage-Intervall bei 18–22 °C.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 12
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-dormancy
+            label: "Nur Wasser (Ruheperiode)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages: []
+
+  # ── Chlorophytum comosum — Gardol Grünpflanzendünger (Osmosewasser) ─────────
+  - name: "Chlorophytum comosum — Gardol Grünpflanzendünger (Osmosewasser)"
+    description: >-
+      RO-Wasser-Variante des Chlorophytum-Gardol-Plans.
+      Osmosewasser EMPFOHLEN — Chlorophytum ist fluorid-empfindlich,
+      RO-Wasser entfernt Fluorid. Identische Basisdüngung, ergänzt durch
+      Terra Aquatica CalMag (0.5 ml/L, erhöht gegenüber Leitungswasser-Variante).
+      Ca/Mg via CalMag-Supplement, nicht aus Leitungswasser.
+      EC-Ziele leicht erhöht (+0.05) wegen CalMag-Beitrag.
+      ACHTUNG: RO-Wasser hat keine pH-Pufferkapazität (KH ~0) —
+      pH NACH dem Mischen messen und ggf. korrigieren.
+    recommended_substrate_type: soil
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags:
+      - gruenlilie
+      - spider-plant
+      - zimmerpflanze
+      - gruenpflanze
+      - gardol
+      - erde
+      - indoor
+      - anfaenger
+      - schwachzehrer
+      - osmosewasser
+      - ro
+    water_mix_ratio_ro_percent: 100
+    cycle_restart_from_sequence: 3
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 7
+      preferred_time: "09:00"
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+
+    phase_entries:
+      # ── GERMINATION W1-3 ──
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 3
+        is_recurring: false
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Keine Düngung, kein CalMag. Kindel/Ableger nur mit RO-Wasser
+          gießen. Substrat gleichmäßig feucht halten, nicht nass —
+          Knollenwurzeln faulen bei Staunässe.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 3
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-bewurzelung
+            label: "Nur Wasser (Bewurzelung)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.10
+            fertilizer_dosages: []
+
+      # ── SEEDLING W4-12 ──
+      - phase_name: seedling
+        sequence_order: 2
+        week_start: 4
+        week_end: 12
+        is_recurring: false
+        npk_ratio: [1.0, 1.0, 1.0]
+        calcium_ppm: 30.0
+        magnesium_ppm: 15.0
+        notes: >-
+          Vierteldosis Gardol (1 ml/L) alle 21 Tage + CalMag 0.5 ml/L.
+          Gießintervall 7 Tage. Jungpflanze baut Wurzelsystem und
+          Blattmasse auf. Schwachzehrer — erst nach sichtbarem Neuzuwachs düngen.
+          Ca/Mg via CalMag-Supplement, nicht aus Leitungswasser.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 7
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: drench-giessduengung
+            label: "Gießdüngung (Gießkanne)"
+            application_method: drench
+            target_ec_ms: 0.45
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.2
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 0.5
+              - product_name: Grünpflanzendünger
+                ml_per_liter: 1.0
+
+      # ── DORMANCY W1-8 (recurring, Jan–Feb) ──
+      - phase_name: dormancy
+        sequence_order: 3
+        week_start: 1
+        week_end: 8
+        is_recurring: true
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Saisonale Ruhephase Januar–Februar. Keine Düngung, kein CalMag.
+          12-Tage-Intervall bei 18–22 °C.
+          Knollenwurzeln speichern Wasser — Übergießen vermeiden.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 12
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-dormancy
+            label: "Nur Wasser (Ruheperiode)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.2
+            fertilizer_dosages: []
+
+      # ── VEGETATIVE W9-43 (recurring, Mär–Okt) ──
+      - phase_name: vegetative
+        sequence_order: 4
+        week_start: 9
+        week_end: 43
+        is_recurring: true
+        npk_ratio: [1.5, 1.0, 1.5]
+        calcium_ppm: 60.0
+        magnesium_ppm: 30.0
+        notes: >-
+          Halbe Dosis Gardol (2 ml/L) alle 21 Tage + CalMag 0.5 ml/L.
+          Schwachzehrer: halbe Dosis ist Maximum!
+          Ca/Mg via CalMag-Supplement, nicht aus Leitungswasser.
+          Alle 3–4 Monate Salzspülung.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 7
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: drench-giessduengung
+            label: "Gießdüngung (Gießkanne)"
+            application_method: drench
+            target_ec_ms: 0.65
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.3
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 0.5
+              - product_name: Grünpflanzendünger
+                ml_per_liter: 2.0
+
+      # ── DORMANCY W44-52 (recurring, Nov–Dez) ──
+      - phase_name: dormancy
+        sequence_order: 5
+        week_start: 44
+        week_end: 52
+        is_recurring: true
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Saisonale Ruhephase November–Dezember. Keine Düngung, kein CalMag.
+          12-Tage-Intervall bei 18–22 °C.
+          Knollenwurzeln speichern Wasser — Übergießen vermeiden.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 12
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-dormancy
+            label: "Nur Wasser (Ruheperiode)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.2
+            fertilizer_dosages: []
+
+  # ── Spathiphyllum wallisii — Gardol Grünpflanzendünger (Osmosewasser) ───────
+  - name: "Spathiphyllum wallisii — Gardol Grünpflanzendünger (Osmosewasser)"
+    description: >-
+      RO-Wasser-Variante des Spathiphyllum-Gardol-Plans.
+      Identische Basisdüngung (halbe Dosis), ergänzt durch Terra Aquatica
+      CalMag in Vegetativ- und Blütephase. Ca/Mg via CalMag-Supplement,
+      nicht aus Leitungswasser. EC-Ziele leicht erhöht (+0.05) wegen
+      CalMag-Beitrag. GIFTIG für Katzen, Hunde und Kinder.
+      ACHTUNG: RO-Wasser hat keine pH-Pufferkapazität (KH ~0) —
+      pH NACH dem Mischen messen und ggf. korrigieren.
+    recommended_substrate_type: soil
+    author: Kamerplanter Referenzdaten
+    is_template: true
+    version: "1.0"
+    tags:
+      - spathiphyllum
+      - einblatt
+      - peace-lily
+      - zimmerpflanze
+      - gruenpflanze
+      - gardol
+      - erde
+      - indoor
+      - anfaenger
+      - schwachzehrer
+      - schattenvertraeglich
+      - osmosewasser
+      - ro
+    water_mix_ratio_ro_percent: 100
+    cycle_restart_from_sequence: 2
+    watering_schedule:
+      schedule_mode: interval
+      interval_days: 7
+      preferred_time: "09:00"
+      application_method: drench
+      reminder_hours_before: 2
+      times_per_day: 1
+
+    phase_entries:
+      # ── GERMINATION W1-4 ──
+      - phase_name: germination
+        sequence_order: 1
+        week_start: 1
+        week_end: 4
+        is_recurring: false
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Keine Düngung, kein CalMag. Frisch geteilte oder neu gekaufte Pflanze
+          nur mit RO-Wasser gießen. 5-Tage-Intervall bei 20–24 °C.
+          Staunässe führt bei Spathiphyllum schnell zu Rhizomfäule (Phytophthora).
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 5
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-etablierung
+            label: "Nur Wasser (Etablierung)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.20
+            fertilizer_dosages: []
+
+      # ── DORMANCY W1-8 (recurring, Jan–Feb) ──
+      - phase_name: dormancy
+        sequence_order: 2
+        week_start: 1
+        week_end: 8
+        is_recurring: true
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Saisonale Ruhephase Januar–Februar. Keine Düngung, kein CalMag.
+          9-Tage-Intervall bei 18–22 °C. Minimum 15 °C.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 9
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-dormancy
+            label: "Nur Wasser (Ruheperiode)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.2
+            fertilizer_dosages: []
+
+      # ── VEGETATIVE W9-35 (recurring, Mär–Sep) ──
+      - phase_name: vegetative
+        sequence_order: 3
+        week_start: 9
+        week_end: 35
+        is_recurring: true
+        npk_ratio: [1.5, 1.0, 1.5]
+        calcium_ppm: 40.0
+        magnesium_ppm: 20.0
+        notes: >-
+          Halbe Dosis (2 ml/L) alle 21 Tage + CalMag 0.5 ml/L.
+          Ca/Mg via CalMag-Supplement, nicht aus Leitungswasser.
+          EC-Grenze 1,0 mS/cm einhalten.
+          Im März Vierteldosis (1 ml/L), ab April halbe Dosis.
+          Alle 2–3 Monate Salzspülung.
+        delivery_channels:
+          - channel_id: drench-giessduengung
+            label: "Gießdüngung (Gießkanne)"
+            application_method: drench
+            target_ec_ms: 0.55
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.4
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 0.5
+              - product_name: Grünpflanzendünger
+                ml_per_liter: 2.0
+
+      # ── FLOWERING W36-43 (recurring, Sep–Okt) ──
+      - phase_name: flowering
+        sequence_order: 4
+        week_start: 36
+        week_end: 43
+        is_recurring: true
+        npk_ratio: [1.5, 1.0, 1.5]
+        calcium_ppm: 40.0
+        magnesium_ppm: 25.0
+        notes: >-
+          Optionale Phase — tritt nur bei ausreichend indirektem Licht ein
+          (DLI > 5 mol/m²/Tag). Halbe Dosis (2 ml/L) alle 21 Tage + CalMag 0.5 ml/L.
+          Mg erhöht auf 25 ppm (Blütephase).
+          Ca/Mg via CalMag-Supplement, nicht aus Leitungswasser.
+        delivery_channels:
+          - channel_id: drench-giessduengung
+            label: "Gießdüngung (Gießkanne)"
+            application_method: drench
+            target_ec_ms: 0.55
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.4
+            fertilizer_dosages:
+              - product_name: "CalMag"
+                ml_per_liter: 0.5
+              - product_name: Grünpflanzendünger
+                ml_per_liter: 2.0
+
+      # ── DORMANCY W44-52 (recurring, Nov–Dez) ──
+      - phase_name: dormancy
+        sequence_order: 5
+        week_start: 44
+        week_end: 52
+        is_recurring: true
+        npk_ratio: [0.0, 0.0, 0.0]
+        notes: >-
+          Saisonale Ruhephase November–Dezember. Keine Düngung, kein CalMag.
+          9-Tage-Intervall bei 18–22 °C. Minimum 15 °C.
+          Salzspülung einmalig im November.
+        watering_schedule_override:
+          schedule_mode: interval
+          interval_days: 9
+          preferred_time: "09:00"
+          application_method: drench
+          reminder_hours_before: 2
+          times_per_day: 1
+        delivery_channels:
+          - channel_id: wasser-dormancy
+            label: "Nur Wasser (Ruheperiode)"
+            application_method: drench
+            target_ec_ms: null
+            target_ph: 6.0
+            method_type: drench
+            method_params:
+              volume_per_feeding_liters: 0.2
+            fertilizer_dosages: []
