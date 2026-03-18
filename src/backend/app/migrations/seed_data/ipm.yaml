@@ -111,14 +111,14 @@ diseases:
 
   - scientific_name: Peronospora spp.
     common_name: Downy Mildew
-    pathogen_type: fungal
+    pathogen_type: oomycete
     incubation_period_days: 7
     environmental_triggers: [cool_wet, poor_ventilation]
     affected_plant_parts: [leaf]
 
   - scientific_name: Pythium spp.
     common_name: Root Rot
-    pathogen_type: fungal
+    pathogen_type: oomycete
     incubation_period_days: 5
     environmental_triggers: [overwatering, poor_drainage]
     affected_plant_parts: [root]
@@ -139,7 +139,7 @@ diseases:
 
   - scientific_name: Phytophthora infestans
     common_name: Late Blight
-    pathogen_type: fungal
+    pathogen_type: oomycete
     incubation_period_days: 7
     environmental_triggers: [cool_wet, prolonged_moisture]
     affected_plant_parts: [leaf, stem, fruit]
@@ -203,7 +203,7 @@ treatments:
     protective_equipment: [gloves, mask]
 
   - name: Neem Oil
-    treatment_type: chemical
+    treatment_type: biological
     active_ingredient: azadirachtin
     application_method: spray
     safety_interval_days: 3
@@ -218,19 +218,59 @@ treatments:
     dosage_per_liter: 0.5
     protective_equipment: [gloves, mask, goggles]
 
+  - name: Phosphonate (Phosphorous Acid)
+    treatment_type: chemical
+    active_ingredient: phosphorous acid
+    application_method: drench
+    safety_interval_days: 14
+    dosage_per_liter: 3.0
+    protective_equipment: [gloves, goggles]
+    description: >-
+      Oomycete-specific treatment effective against Pythium, Phytophthora
+      and Peronospora. Disrupts oomycete phospholipid synthesis. Applied
+      as root drench (3 ml/L) or foliar spray (1.5 ml/L). Not effective
+      against true fungi.
+
+  - name: Steinernema feltiae (Nematodes)
+    treatment_type: biological
+    application_method: drench
+    description: >-
+      Beneficial nematodes for biological control of fungus gnat larvae
+      (Bradysia spp.). Applied as drench at 250,000 nematodes per m2.
+      Optimal soil temperature 12-25°C. Apply in the evening or on
+      overcast days (UV-sensitive). Effective within 2-3 days.
+
+  - name: Insecticidal Soap (Potassium Salts)
+    treatment_type: biological
+    active_ingredient: potassium salts of fatty acids
+    application_method: spray
+    safety_interval_days: 1
+    dosage_per_liter: 10.0
+    protective_equipment: [gloves]
+    description: >-
+      Contact insecticide effective against soft-bodied insects (aphids,
+      whitefly, mealybug, spider mites, thrips). Disrupts cell membranes
+      on contact. No residual activity — must contact pest directly.
+      Safe for beneficial insects once dry. Repeat every 5-7 days.
+
 pest_treatments:
   - [Phytoseiulus persimilis, Spider Mites]
   - [Pyrethrin, Spider Mites]
   - [Neem Oil, Spider Mites]
+  - [Insecticidal Soap (Potassium Salts), Spider Mites]
   - [Neem Oil, Aphids]
   - [Pyrethrin, Aphids]
+  - [Insecticidal Soap (Potassium Salts), Aphids]
   - [Sticky Traps, Thrips]
   - [Spinosad, Thrips]
   - [Sticky Traps, Fungus Gnats]
+  - [Steinernema feltiae (Nematodes), Fungus Gnats]
   - [Encarsia formosa, Whitefly]
   - [Sticky Traps, Whitefly]
+  - [Insecticidal Soap (Potassium Salts), Whitefly]
   - [Bacillus thuringiensis (Bt), Caterpillar]
   - [Neem Oil, Mealybug]
+  - [Insecticidal Soap (Potassium Salts), Mealybug]
   - [Hand Removal, Slug]
 
 disease_treatments:
@@ -242,6 +282,9 @@ disease_treatments:
   - [Resistant Varieties, Fusarium Wilt]
   - [Resistant Varieties, Tobacco Mosaic Virus]
   - [Crop Rotation, Late Blight]
+  - [Phosphonate (Phosphorous Acid), Root Rot]
+  - [Phosphonate (Phosphorous Acid), Downy Mildew]
+  - [Phosphonate (Phosphorous Acid), Late Blight]
 
 contraindications:
   - [Phytoseiulus persimilis, Pyrethrin]

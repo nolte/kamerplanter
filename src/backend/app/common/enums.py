@@ -324,6 +324,7 @@ class PathogenType(StrEnum):
     BACTERIAL = "bacterial"
     VIRAL = "viral"
     PHYSIOLOGICAL = "physiological"
+    OOMYCETE = "oomycete"
 
 
 class PlantPart(StrEnum):

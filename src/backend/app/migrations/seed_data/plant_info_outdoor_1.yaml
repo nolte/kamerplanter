@@ -38,25 +38,6 @@ new_families:
       Viele Arten enthalten Protoanemonin (hautreizend). Ueberwiegend insektenbestaubt.
     rotation_category: ornamental
 
-  - name: Asparagaceae
-    common_name_de: Spargelgewaechse
-    common_name_en: Asparagus family
-    order: Asparagales
-    typical_nutrient_demand: heavy
-    frost_tolerance: hardy
-    typical_root_depth: deep
-    typical_growth_forms: [herb]
-    common_pests: [asparagus_beetle, aphids]
-    common_diseases: [rust, fusarium]
-    pollination_type: [insect, wind]
-    soil_ph_preference:
-      min_ph: 6.0
-      max_ph: 7.5
-    description: >-
-      Spargelgewaechse mit Spargel, Agave und vielen Zierpflanzen.
-      Mehrjaehrige Stauden mit kraeftigem Wurzelsystem.
-    rotation_category: vegetable
-
   - name: Saxifragaceae
     common_name_de: Steinbrechgewaechse
     common_name_en: Saxifrage family

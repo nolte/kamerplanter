@@ -124,17 +124,18 @@ fertilizers:
   - product_name: "Sugar Royal"
     brand: Plagron
     fertilizer_type: supplement
-    is_organic: false
+    is_organic: true
     tank_safe: true
     recommended_application: any
     npk_ratio: [9.0, 0.0, 0.0]
     ec_contribution_per_ml: 0.02
-    mixing_priority: 40
+    mixing_priority: 65
     ph_effect: neutral
     bioavailability: immediate
     notes: >-
-      Aminosäure-Supplement (Arginin, Alanin, Lysin).
+      Aminosäure-Supplement organischen Ursprungs (Arginin, Alanin, Lysin u.a.).
       Verbessert Geschmack und verkürzt Reifezeit. 1 ml/L.
+      Nach Basisdünger und PK-Booster hinzufügen.
 
   # ── PK Booster ───────────────────────────────────────────────────
   - product_name: "PK 13-14"

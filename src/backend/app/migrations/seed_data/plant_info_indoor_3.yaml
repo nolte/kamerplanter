@@ -39,8 +39,6 @@ new_families:
     order: Zingiberales
   - name: Commelinaceae
     order: Commelinales
-  - name: Asparagaceae
-    order: Asparagales
 
 # ──────────────────────────────────────────────
 # 2. Species → Family Mapping

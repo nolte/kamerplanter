@@ -104,6 +104,16 @@ def run_seed_fertilizers() -> None:
             fert_keys[fert.product_name] = created.key or ""
             logger.info("fertilizer_created", name=fert.product_name)
 
+    # ── Resolve cross-file fertilizer references ──────────────────────────
+    # Some nutrient plans reference products from other seed files (e.g.
+    # PK 13-14 from plagron.yaml).  Look up any existing fertilizers in
+    # the DB that are not yet in fert_keys so cross-file references
+    # resolve correctly.
+    all_existing, _ = fert_repo.get_all(offset=0, limit=1000)
+    for fert in all_existing:
+        if fert.product_name not in fert_keys:
+            fert_keys[fert.product_name] = fert.key or ""
+
     # ── Create nutrient plans ─────────────────────────────────────────────
     existing_plans, _ = plan_repo.get_all(offset=0, limit=100)
     existing_names = {p.name for p in existing_plans}
