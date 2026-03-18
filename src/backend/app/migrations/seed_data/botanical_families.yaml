@@ -172,7 +172,7 @@ families:
     typical_nutrient_demand: light
     frost_tolerance: moderate
     typical_root_depth: shallow
-    typical_growth_forms: [herb, shrub, succulent]
+    typical_growth_forms: [herb, shrub]
     common_pests: [spider_mites, mealybug, asparagus_beetle]
     common_diseases: [root_rot, rust, fusarium]
     pollination_type: [insect, self, wind]
