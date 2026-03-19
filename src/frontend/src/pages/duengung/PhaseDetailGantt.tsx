@@ -23,6 +23,8 @@ interface Props {
   title: string;
   currentWeek?: number;
   onEntriesChange?: (updatedEntries: NutrientPlanPhaseEntry[]) => void;
+  /** Recommended RO% per sequence_order (fallback when entry has no explicit value). */
+  recommendedRoMap?: Map<number, number>;
 }
 
 interface FertRow {
@@ -33,12 +35,17 @@ interface FertRow {
   weekMap: Map<number, number>;
 }
 
+interface RoValue {
+  percent: number;
+  isRecommended: boolean;  // true = from water-mix engine, false = explicitly stored
+}
+
 interface ChannelGroup {
   groupKey: 'auto' | 'manual';
   label: string;
   isAuto: boolean;
   ecMap: Map<number, number | null>;
-  roMap: Map<number, number | null>;
+  roMap: Map<number, RoValue | null>;
   phMap: Map<number, number | null>;
   fertRows: FertRow[];
   weekStart: number;
@@ -112,7 +119,7 @@ function findBestEntryForEdit(
   return best;
 }
 
-export default function PhaseDetailGantt({ entries, fertilizers, title, currentWeek, onEntriesChange }: Props) {
+export default function PhaseDetailGantt({ entries, fertilizers, title, currentWeek, onEntriesChange, recommendedRoMap }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -168,8 +175,13 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
             group.ecMap.set(w, null);
           }
           // RO% is entry-level — collect once per entry/week (not per channel)
-          if (entry.water_mix_ratio_ro_percent != null) {
-            group.roMap.set(w, entry.water_mix_ratio_ro_percent);
+          // Fallback: use recommended value from water mix engine if no explicit value stored
+          const explicitRo = entry.water_mix_ratio_ro_percent;
+          const recommendedRo = recommendedRoMap?.get(entry.sequence_order);
+          if (explicitRo != null) {
+            group.roMap.set(w, { percent: explicitRo, isRecommended: false });
+          } else if (recommendedRo != null) {
+            group.roMap.set(w, { percent: recommendedRo, isRecommended: true });
           } else if (!group.roMap.has(w)) {
             group.roMap.set(w, null);
           }
@@ -203,7 +215,7 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
     }
 
     return [...groupMap.values()].sort((a, b) => (a.isAuto === b.isAuto ? 0 : a.isAuto ? -1 : 1));
-  }, [sorted, fertilizers, t]);
+  }, [sorted, fertilizers, t, recommendedRoMap]);
 
   const handleMove = useCallback(
     (groupKey: 'auto' | 'manual', fertKey: string, direction: 'up' | 'down') => {
@@ -348,7 +360,7 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
   const globalEnd = Math.max(...sorted.map((e) => e.week_end));
   const totalWeeks = globalEnd - globalStart + 1;
   const weeks = Array.from({ length: totalWeeks }, (_, i) => globalStart + i);
-  const labelWidth = isMobile ? 110 : 150;
+  const labelWidth = isMobile ? 90 : 150;
 
   const phaseColor = PHASE_COLORS[sorted[0].phase_name] ?? theme.palette.grey[600];
 
@@ -380,12 +392,12 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
             </Box>
 
             {/* Gantt grid */}
-            <Box sx={{ overflowX: 'auto' }}>
+            <Box sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', mx: isMobile ? -1 : 0 }}>
               <Box
                 sx={{
                   display: 'grid',
                   gridTemplateColumns: `${labelWidth}px repeat(${totalWeeks}, 1fr)`,
-                  minWidth: labelWidth + totalWeeks * 40,
+                  minWidth: labelWidth + totalWeeks * (isMobile ? 28 : 40),
                   gap: 0,
                 }}
               >
@@ -599,9 +611,9 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                       </Typography>
                     </Box>
                     {weeks.map((w) => {
-                      const ro = group.roMap.get(w);
-                      const hasRo = group.roMap.has(w) && ro != null && ro > 0;
-                      const isHatched = group.roMap.has(w) && (ro == null || ro === 0);
+                      const roVal = group.roMap.get(w);
+                      const hasRo = group.roMap.has(w) && roVal != null;
+                      const isHatched = group.roMap.has(w) && roVal == null;
                       const cellEditing = isEditing(w, group.groupKey, 'ro');
                       return (
                         <Box
@@ -648,25 +660,41 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                                 />
                               )}
                               {hasRo && (
-                                <Box
-                                  sx={{
-                                    width: '100%',
-                                    height: 22,
-                                    bgcolor: alpha(WATER_COLOR, 0.15 + (ro / 100) * 0.35),
-                                    borderRadius: 0.5,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                  }}
+                                <Tooltip
+                                  title={roVal.isRecommended
+                                    ? t('pages.gantt.roRecommended')
+                                    : t('pages.gantt.roExplicit')}
+                                  arrow
+                                  placement="top"
                                 >
-                                  <Typography
-                                    variant="caption"
-                                    sx={{ fontSize: '0.65rem', fontWeight: 600, lineHeight: 1 }}
-                                    color="primary.dark"
+                                  <Box
+                                    sx={{
+                                      width: '100%',
+                                      height: 22,
+                                      bgcolor: alpha(WATER_COLOR, 0.12 + (roVal.percent / 100) * 0.35),
+                                      borderRadius: 0.5,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      ...(roVal.isRecommended && {
+                                        border: `1px dashed ${alpha(WATER_COLOR, 0.5)}`,
+                                      }),
+                                    }}
                                   >
-                                    {ro}%
-                                  </Typography>
-                                </Box>
+                                    <Typography
+                                      variant="caption"
+                                      sx={{
+                                        fontSize: '0.65rem',
+                                        fontWeight: 600,
+                                        lineHeight: 1,
+                                        ...(roVal.isRecommended && { fontStyle: 'italic' }),
+                                      }}
+                                      color="primary.dark"
+                                    >
+                                      {roVal.percent}%
+                                    </Typography>
+                                  </Box>
+                                </Tooltip>
                               )}
                             </>
                           )}
