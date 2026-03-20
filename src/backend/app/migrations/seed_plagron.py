@@ -150,86 +150,25 @@ def _build_nutrient_plan(raw: dict[str, Any]) -> NutrientPlan:
 
 def run_seed_plagron() -> None:
     """Create Plagron fertilizer products and nutrient plans."""
+    from app.migrations.seed_upsert_helpers import upsert_fertilizers, upsert_nutrient_plan_with_entries
+
     data = load_yaml("plagron.yaml")
     fert_repo = get_fertilizer_repo()
     plan_repo = get_nutrient_plan_repo()
 
-    # ── Create fertilizers ────────────────────────────────────────────────
+    # ── Upsert fertilizers ────────────────────────────────────────────────
     fertilizers = _build_fertilizers(data["fertilizers"])
-    fert_keys: dict[str, str] = {}
-    for fert in fertilizers:
-        existing, _ = fert_repo.get_all(offset=0, limit=1000)
-        found = next(
-            (f for f in existing if f.product_name == fert.product_name and f.brand == fert.brand),
-            None,
-        )
-        if found:
-            fert_keys[fert.product_name] = found.key or ""
-            logger.info("fertilizer_exists", name=fert.product_name, brand=fert.brand)
-        else:
-            created = fert_repo.create(fert)
-            fert_keys[fert.product_name] = created.key or ""
-            logger.info("fertilizer_created", name=fert.product_name, brand=fert.brand)
+    fert_keys = upsert_fertilizers(fert_repo, fertilizers)
 
-    # ── Create nutrient plans ─────────────────────────────────────────────
+    # ── Upsert nutrient plans ─────────────────────────────────────────────
     existing_plans, _ = plan_repo.get_all(offset=0, limit=100)
     existing_plan_map = {p.name: p for p in existing_plans}
 
     raw_plans = data["nutrient_plans"]
     for raw_plan in raw_plans:
         plan = _build_nutrient_plan(raw_plan)
-
-        if plan.name in existing_plan_map:
-            existing = existing_plan_map[plan.name]
-            plan_key = existing.key or ""
-            existing_entries = plan_repo.get_phase_entries(plan_key)
-            if existing_entries:
-                # Backfill missing entries by sequence_order
-                existing_seqs = {e.sequence_order for e in existing_entries}
-                desired = _build_phase_entries(raw_plan.get("phase_entries", []), fert_keys)
-                missing = [e for e in desired if e.sequence_order not in existing_seqs]
-                if not missing:
-                    logger.info("plan_exists", name=plan.name, entries=len(existing_entries))
-                    continue
-                for entry in missing:
-                    entry.plan_key = plan_key
-                    dosage_count = sum(len(ch.fertilizer_dosages) for ch in entry.delivery_channels)
-                    created_entry = plan_repo.create_phase_entry(entry)
-                    logger.info(
-                        "phase_entry_backfilled",
-                        plan=plan.name,
-                        phase=entry.phase_name,
-                        seq=entry.sequence_order,
-                        week=f"{entry.week_start}-{entry.week_end}",
-                        dosages=dosage_count,
-                        key=created_entry.key,
-                    )
-                logger.info(
-                    "plan_backfill_complete",
-                    name=plan.name,
-                    added=len(missing),
-                    total=len(existing_entries) + len(missing),
-                )
-                continue
-            logger.info("plan_exists_no_entries", name=plan.name, key=plan_key)
-        else:
-            created_plan = plan_repo.create(plan)
-            plan_key = created_plan.key or ""
-            logger.info("plan_created", name=plan.name, key=plan_key)
-
         entries = _build_phase_entries(raw_plan.get("phase_entries", []), fert_keys)
-        for entry in entries:
-            entry.plan_key = plan_key
-            dosage_count = sum(len(ch.fertilizer_dosages) for ch in entry.delivery_channels)
-            created_entry = plan_repo.create_phase_entry(entry)
-            logger.info(
-                "phase_entry_created",
-                plan=plan.name,
-                phase=entry.phase_name,
-                week=f"{entry.week_start}-{entry.week_end}",
-                dosages=dosage_count,
-                key=created_entry.key,
-            )
+        upsert_nutrient_plan_with_entries(plan_repo, plan, entries, existing_plan_map)
 
     logger.info(
         "seed_plagron_complete",

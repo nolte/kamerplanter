@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.nutrient_plans.router import _entry_response, _plan_response
 from app.api.v1.nutrient_plans.schemas import (
+    CalculateDosagesRequest,
+    CalculateDosagesResponse,
     ChannelFertilizerAssignRequest,
     CloneRequest,
     NutrientPlanCreate,
@@ -10,6 +12,8 @@ from app.api.v1.nutrient_plans.schemas import (
     PhaseEntryCreate,
     PhaseEntryResponse,
     PhaseEntryUpdate,
+    WaterMixBatchRecommendationResponse,
+    WaterMixRecommendationResponse,
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_nutrient_plan_service
@@ -151,6 +155,68 @@ def delete_entry(
 ):
     service.get_plan(key, tenant_key=ctx.tenant_key)
     service.delete_phase_entry(ek)
+
+
+@router.get(
+    "/{key}/water-mix-recommendations",
+    response_model=WaterMixBatchRecommendationResponse,
+)
+def get_water_mix_recommendations_batch(
+    key: str,
+    site_key: str = Query(..., description="Site key with water source configuration"),
+    substrate_type: str | None = Query(None, description="Override substrate type"),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: NutrientPlanService = Depends(get_nutrient_plan_service),
+):
+    return service.get_water_mix_recommendations_batch(
+        tenant_key=ctx.tenant_key,
+        plan_key=key,
+        site_key=site_key,
+        substrate_type_override=substrate_type,
+    )
+
+
+@router.get(
+    "/{key}/entries/{sequence_order}/water-mix-recommendation",
+    response_model=WaterMixRecommendationResponse,
+)
+def get_water_mix_recommendation(
+    key: str,
+    sequence_order: int,
+    site_key: str = Query(..., description="Site key with water source configuration"),
+    substrate_type: str | None = Query(None, description="Override substrate type"),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: NutrientPlanService = Depends(get_nutrient_plan_service),
+):
+    return service.get_water_mix_recommendation(
+        tenant_key=ctx.tenant_key,
+        plan_key=key,
+        sequence_order=sequence_order,
+        site_key=site_key,
+        substrate_type_override=substrate_type,
+    )
+
+
+@router.post(
+    "/{key}/calculate-dosages",
+    response_model=CalculateDosagesResponse,
+)
+def calculate_dosages(
+    key: str,
+    body: CalculateDosagesRequest,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: NutrientPlanService = Depends(get_nutrient_plan_service),
+):
+    result = service.calculate_dosages(
+        tenant_key=ctx.tenant_key,
+        plan_key=key,
+        sequence_order=body.phase_sequence_order,
+        site_key=body.site_key,
+        volume_liters=body.volume_liters,
+        channel_id=body.channel_id,
+        ro_percent_override=body.ro_percent_override,
+    )
+    return result.model_dump()
 
 
 @router.post("/entries/{ek}/channels/{cid}/fertilizers", status_code=201)

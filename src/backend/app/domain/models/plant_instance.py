@@ -11,6 +11,7 @@ class PlantInstance(BaseModel):
     instance_id: str
     species_key: str
     cultivar_key: str | None = None
+    site_key: str | None = None
     location_key: str | None = None
     slot_key: str | None = None
     substrate_batch_key: str | None = None

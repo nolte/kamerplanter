@@ -2489,6 +2489,10 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Task-Wiedereröffnung (v3.0):** `POST /tasks/{key}/reopen` setzt completed/skipped → pending; Audit-Trail (`reopened_at`, `reopened_from_status`)
 - [ ] **Task-Neuzuweisung (v3.0):** `plant_key` und `assigned_to_user_key` über TaskUpdate änderbar
 - [ ] **Batch-Operationen (v3.0):** `POST /tasks/batch/status`, `POST /tasks/batch/delete`, `POST /tasks/batch/assign`; atomare Ausführung mit Rollback
+<!-- Quelle: Tabellen-Analyse UI-NFR-010 §7.2, §2.7 -->
+- [ ] **Listenansicht-Filter (v3.0):** Task-Liste bietet Status-Filter (Enum-Chip: pending, in_progress, completed, skipped, dormant), „Meine Aufgaben"-Toggle (`?assigned_to=me`), optionale Prioritäts- und Kategorie-Filter; alle URL-persistiert (UI-NFR-010 §7.2)
+- [ ] **Bulk-Aktionen-UI (v3.0):** Task-ListPage implementiert Checkbox-Selektion (UI-NFR-010 R-025–R-028) mit Aktionsleiste für die bestehenden Batch-API-Endpunkte (Status ändern, Löschen, Zuweisen); destruktive Aktionen mit ConfirmDialog
+- [ ] **Tablet-Spaltenprioritäten (v3.0):** Task-ListPage blendet auf Tablet Kategorie und Erstellt-am aus; Primärspalten: Name, Status, Fälligkeit (UI-NFR-010 §8.1)
 - [ ] **Task-Kommentare (v3.0):** CRUD für Kommentare an Tasks; chronologisch geordnet; kaskadierte Löschung bei Task-Entfernung
 - [ ] **Task-Änderungshistorie (v3.0):** `GET /tasks/{key}/history` zeigt alle Änderungen; TaskAuditEntry mit action, field, old_value, new_value
 - [ ] **Dormant-Status (v3.0):** Tasks mit `trigger_phase` für zukünftige Phasen werden als `dormant` erzeugt; automatische Aktivierung bei Phase-Transition

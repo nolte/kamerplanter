@@ -19,6 +19,8 @@ import TableRow from '@mui/material/TableRow';
 import Collapse from '@mui/material/Collapse';
 import TextField from '@mui/material/TextField';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
@@ -174,6 +176,8 @@ function getRunLink(runKey: string): string {
 }
 
 export default function CalendarPage() {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -1429,8 +1433,7 @@ export default function CalendarPage() {
       </Box>
 
       {/* Create feed dialog */}
-      <Dialog
-        open={createFeedDialogOpen}
+      <Dialog fullScreen={fullScreen} open={createFeedDialogOpen}
         onClose={() => setCreateFeedDialogOpen(false)}
         maxWidth="sm"
         fullWidth

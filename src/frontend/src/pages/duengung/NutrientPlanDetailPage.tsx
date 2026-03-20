@@ -55,6 +55,7 @@ import {
 import DeliveryChannelDialog from './DeliveryChannelDialog';
 import ChannelFertilizerDialog from './ChannelFertilizerDialog';
 import type { DosageEntry } from './ChannelFertilizerDialog';
+import DosageCalculatorTab from './DosageCalculatorTab';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
@@ -134,6 +135,7 @@ function PhaseTimelineTab({
   onAddChannelFertilizer,
   onEditChannelFertilizer,
   onRemoveChannelFertilizer,
+  onRemoveFertilizerFromGantt,
   onEntriesChange,
   onLogWatering,
 }: {
@@ -151,6 +153,7 @@ function PhaseTimelineTab({
   onAddChannelFertilizer: (entryKey: string, channelId: string) => void;
   onEditChannelFertilizer: (entryKey: string, channelId: string, dosage: FertilizerDosage) => void;
   onRemoveChannelFertilizer: (entryKey: string, channelId: string, fertKey: string) => void;
+  onRemoveFertilizerFromGantt?: (fertilizerKey: string, isAuto: boolean, entriesSubset: NutrientPlanPhaseEntry[]) => void;
   onEntriesChange?: (updatedEntries: NutrientPlanPhaseEntry[]) => void;
   onLogWatering?: (channel: DeliveryChannel) => void;
 }) {
@@ -498,6 +501,7 @@ function PhaseTimelineTab({
                         fertilizers={fertilizers}
                         title={t('pages.gantt.vegetativeDetail')}
                         onEntriesChange={onEntriesChange}
+                        onRemoveFertilizer={onRemoveFertilizerFromGantt ? (fk, isAuto) => onRemoveFertilizerFromGantt(fk, isAuto, vegEntries) : undefined}
                       />
                     )}
                     {flowerEntries.length > 0 && (
@@ -506,6 +510,7 @@ function PhaseTimelineTab({
                         fertilizers={fertilizers}
                         title={t('pages.gantt.floweringDetail')}
                         onEntriesChange={onEntriesChange}
+                        onRemoveFertilizer={onRemoveFertilizerFromGantt ? (fk, isAuto) => onRemoveFertilizerFromGantt(fk, isAuto, flowerEntries) : undefined}
                       />
                     )}
                   </Box>
@@ -574,7 +579,7 @@ export default function NutrientPlanDetailPage() {
   const [validating, setValidating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useTabUrl(['phases', 'validation', 'edit']);
+  const [tab, setTab] = useTabUrl(['phases', 'validation', 'dosage', 'edit']);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -965,8 +970,8 @@ export default function NutrientPlanDetailPage() {
           mb: 2,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <PageTitle title={plan.name} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <PageTitle title={plan.name} sx={{ mb: 0 }} />
           {key && (
             <Tooltip title={t('pages.nutrientPlans.favToggle')}>
               <IconButton
@@ -1002,6 +1007,7 @@ export default function NutrientPlanDetailPage() {
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab label={t('pages.nutrientPlans.tabPhaseEntries')} />
         <Tab label={t('pages.nutrientPlans.tabValidation')} />
+        <Tab label={t('pages.nutrientPlans.dosageCalc.tabTitle')} />
         <Tab label={t('common.edit')} />
       </Tabs>
 
@@ -1039,6 +1045,27 @@ export default function NutrientPlanDetailPage() {
         onAddChannelFertilizer={onAddChannelFertilizer}
         onEditChannelFertilizer={onEditChannelFertilizer}
         onRemoveChannelFertilizer={onRemoveChannelFertilizer}
+        onRemoveFertilizerFromGantt={(fertilizerKey, isAuto, entriesSubset) => {
+          const autoMethods = new Set(['fertigation']);
+          const targets: { entryKey: string; channelId: string }[] = [];
+          for (const entry of entriesSubset) {
+            for (const ch of entry.delivery_channels) {
+              const chIsAuto = autoMethods.has(ch.application_method);
+              if (chIsAuto !== isAuto) continue;
+              if (ch.fertilizer_dosages.some((d) => d.fertilizer_key === fertilizerKey)) {
+                targets.push({ entryKey: entry.key, channelId: ch.channel_id });
+              }
+            }
+          }
+          if (targets.length === 0) return;
+          const fert = fertilizers.find((f) => f.key === fertilizerKey);
+          setRemoveFertAllPayload({
+            fertilizerKey,
+            fertilizerName: fert?.product_name ?? fertilizerKey,
+            targets,
+          });
+          setRemoveFertAllOpen(true);
+        }}
         onEntriesChange={handleEntriesChange}
         onLogWatering={(ch) => {
           const volumeLiters = ch.method_params
@@ -1191,8 +1218,13 @@ export default function NutrientPlanDetailPage() {
         </Box>
       )}
 
-      {/* Tab 2: Edit */}
+      {/* Tab 2: Dosage Calculator */}
       {tab === 2 && (
+        <DosageCalculatorTab plan={plan} entries={entries} />
+      )}
+
+      {/* Tab 3: Edit */}
+      {tab === 3 && (
         <Box component="form" onSubmit={handleSubmit(onSave)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Typography variant="body2" color="text.secondary">
             {t('pages.nutrientPlans.editIntro')}

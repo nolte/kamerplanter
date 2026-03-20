@@ -23,29 +23,30 @@ class ArangoFertilizerRepository(IFertilizerRepository, BaseArangoRepository):
         filters: dict | None = None,
         tenant_key: str | None = None,
     ) -> tuple[list[Fertilizer], int]:
+        query = f"FOR doc IN {col.FERTILIZERS}"
+        bind_vars: dict[str, Any] = {}
+        filter_clauses = []
+        if tenant_key:
+            bind_vars["tenant_key"] = tenant_key
+            filter_clauses.append(
+                '(doc.tenant_key == @tenant_key OR doc.tenant_key == "" OR doc.tenant_key == null)'
+            )
         if filters:
-            query = f"FOR doc IN {col.FERTILIZERS}"
-            bind_vars: dict[str, Any] = {}
-            filter_clauses = []
-            if tenant_key:
-                bind_vars["tenant_key"] = tenant_key
-                filter_clauses.append("doc.tenant_key == @tenant_key")
             for i, (field, value) in enumerate(filters.items()):
                 bind_vars[f"val{i}"] = value
                 if field == "brand":
                     filter_clauses.append(f"CONTAINS(LOWER(doc.{field}), LOWER(@val{i}))")
                 else:
                     filter_clauses.append(f"doc.{field} == @val{i}")
+        if filter_clauses:
             query += " FILTER " + " AND ".join(filter_clauses)
-            count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
-            query += f" SORT doc.product_name LIMIT {offset}, {limit} RETURN doc"
-            cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-            items = [Fertilizer(**self._from_doc(doc)) for doc in cursor]
-            count_cursor = self._db.aql.execute(count_query, bind_vars=bind_vars)
-            total = next(count_cursor, 0)
-            return items, total
-        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key)
-        return [Fertilizer(**doc) for doc in docs], total
+        count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
+        query += f" SORT doc.product_name LIMIT {offset}, {limit} RETURN doc"
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        items = [Fertilizer(**self._from_doc(doc)) for doc in cursor]
+        count_cursor = self._db.aql.execute(count_query, bind_vars=bind_vars)
+        total = next(count_cursor, 0)
+        return items, total
 
     def get_by_key(self, key: FertilizerKey) -> Fertilizer | None:
         doc = BaseArangoRepository.get_by_key(self, key)

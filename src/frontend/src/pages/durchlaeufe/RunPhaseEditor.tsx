@@ -15,6 +15,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import EmptyState from '@/components/common/EmptyState';
+import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -319,6 +320,23 @@ export default function RunPhaseEditor({ runKey, isActive, onPhaseDatesChanged }
             getRowKey={(r) => r.phase_key}
             variant="simple"
             ariaLabel={t('pages.plantingRuns.phaseTimeline')}
+            mobileCardRenderer={(r) => (
+              <MobileCard
+                title={r.display_name || r.phase_name}
+                chips={
+                  <Chip
+                    size="small"
+                    label={t(`pages.plantingRuns.phase${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`)}
+                    color={r.status === 'completed' ? 'success' : r.status === 'current' ? 'primary' : 'default'}
+                    variant="outlined"
+                  />
+                }
+                fields={[
+                  { label: t('pages.plantingRuns.actualStart'), value: r.actual_entered_at ? formatDate(r.actual_entered_at) : r.projected_start ? `~${formatDate(r.projected_start)}` : '\u2014' },
+                  { label: t('pages.plantingRuns.durationDays'), value: r.actual_duration_days != null ? `${r.actual_duration_days} ${t('pages.plantingRuns.daysShort')}` : `~${r.typical_duration_days} ${t('pages.plantingRuns.daysShort')}` },
+                ]}
+              />
+            )}
           />
         </Box>
       ))}

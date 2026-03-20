@@ -28,6 +28,7 @@ const PHASE_IMAGES: Record<string, string> = {
   flowering: kamiPhaseFlowering,
   harvest: kamiPhaseHarvest,
   ripening: kamiPhaseRipening,
+  fruiting: kamiPhaseRipening,
   juvenile: kamiPhaseJuvenile,
   climbing: kamiPhaseClimbing,
   mature: kamiPhaseMature,

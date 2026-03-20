@@ -1130,6 +1130,9 @@ Zustandslose Berechnungsendpunkte (VPD, GDD, Photoperiode) sind öffentlich zug�
 - [ ] **Stress-Phasen:** Support für temporäre Zustände (Hardening, Drought-Stress)
 - [ ] **Rückwärts-Transition:** Verhinderung (Blüte → Vegi nicht erlaubt)
 - [ ] **Multi-Phase-Harvests:** Support für kontinuierliche Ernte (z.B. Salat, Kräuter)
+<!-- Quelle: Tabellen-Analyse UI-NFR-010 §7.2 -->
+- [ ] **Listenansicht-Filter:** PlantInstance-Liste bietet Phase-Filter (Enum-Chip-Gruppe: germination, seedling, vegetative, flowering, harvest, drying, curing) und Standort-Filter (Site-Dropdown); URL-Parameter `?phase=...&site_key=...`
+- [ ] **Tablet-Spaltenprioritäten:** PlantInstance-ListPage blendet auf Tablet (≤1024px) Instanz-ID und Entfernt-am aus; nur Name, Sorte, Phase bleiben sichtbar (UI-NFR-010 §8.1)
 - [ ] **Dashboard-Integration:** Visuelle Phase-Indikatoren mit Fortschrittsbalken
 - [ ] **Notification-System:** Push bei anstehenden Auto-Transitions
 - [ ] **Profile-Versionierung:** Änderungen an Standard-Profilen historisiert

@@ -134,6 +134,7 @@ def _build_phase_entries(
             ]
 
         # Strip non-model fields before validation
+        # Note: target_ec_ms is now a model field (REQ-004 §4b), so it is NOT stripped.
         entry_data = {
             k: v
             for k, v in phase_data.items()
@@ -141,7 +142,6 @@ def _build_phase_entries(
             not in {
                 "dosages",
                 "delivery_channels",
-                "target_ec_ms",
                 "target_ph",
                 "feeding_frequency_per_week",
                 "volume_per_feeding_liters",
@@ -160,27 +160,15 @@ def _build_phase_entries(
 
 def run_seed_fertilizers() -> None:
     """Create fertilizer products and nutrient plans."""
+    from app.migrations.seed_upsert_helpers import upsert_fertilizers, upsert_nutrient_plan_with_entries
+
     fert_repo = get_fertilizer_repo()
     plan_repo = get_nutrient_plan_repo()
     data = load_yaml("fertilizers.yaml")
 
-    # ── Create fertilizers ────────────────────────────────────────────────
-    fert_keys: dict[str, str] = {}
+    # ── Upsert fertilizers ────────────────────────────────────────────────
     fertilizers = [_build_fertilizer(f) for f in data["fertilizers"]]
-
-    for fert in fertilizers:
-        existing, _ = fert_repo.get_all(offset=0, limit=1000)
-        found = next(
-            (f for f in existing if f.product_name == fert.product_name and f.brand == fert.brand),
-            None,
-        )
-        if found:
-            fert_keys[fert.product_name] = found.key or ""
-            logger.info("fertilizer_exists", name=fert.product_name)
-        else:
-            created = fert_repo.create(fert)
-            fert_keys[fert.product_name] = created.key or ""
-            logger.info("fertilizer_created", name=fert.product_name)
+    fert_keys = upsert_fertilizers(fert_repo, fertilizers)
 
     # ── Resolve cross-file fertilizer references ──────────────────────────
     # Some nutrient plans reference products from other seed files (e.g.
@@ -192,63 +180,15 @@ def run_seed_fertilizers() -> None:
         if fert.product_name not in fert_keys:
             fert_keys[fert.product_name] = fert.key or ""
 
-    # ── Create nutrient plans ─────────────────────────────────────────────
+    # ── Upsert nutrient plans ─────────────────────────────────────────────
     existing_plans, _ = plan_repo.get_all(offset=0, limit=100)
     existing_plan_map = {p.name: p for p in existing_plans}
 
     plan_data_list = data["nutrient_plans"]
     for plan_data in plan_data_list:
         plan = _build_nutrient_plan(plan_data)
-
-        if plan.name in existing_plan_map:
-            existing = existing_plan_map[plan.name]
-            plan_key = existing.key or ""
-            existing_entries = plan_repo.get_phase_entries(plan_key)
-            if existing_entries:
-                existing_seqs = {e.sequence_order for e in existing_entries}
-                desired = _build_phase_entries(plan_data, fert_keys)
-                missing_entries = [e for e in desired if e.sequence_order not in existing_seqs]
-                if not missing_entries:
-                    logger.info("plan_exists", name=plan.name, entries=len(existing_entries))
-                    continue
-                for entry in missing_entries:
-                    entry.plan_key = plan_key
-                    dosage_count = sum(len(ch.fertilizer_dosages) for ch in entry.delivery_channels)
-                    created_entry = plan_repo.create_phase_entry(entry)
-                    logger.info(
-                        "phase_entry_backfilled",
-                        plan=plan.name,
-                        phase=entry.phase_name,
-                        seq=entry.sequence_order,
-                        dosages=dosage_count,
-                        key=created_entry.key,
-                    )
-                logger.info(
-                    "plan_backfill_complete",
-                    name=plan.name,
-                    added=len(missing_entries),
-                )
-                continue
-            # Plan exists but has no entries — fall through to create entries
-            logger.info("plan_exists_no_entries", name=plan.name, key=plan_key)
-        else:
-            created_plan = plan_repo.create(plan)
-            plan_key = created_plan.key or ""
-            logger.info("plan_created", name=plan.name, key=plan_key)
-
         entries = _build_phase_entries(plan_data, fert_keys)
-        for entry in entries:
-            entry.plan_key = plan_key
-            dosage_count = sum(len(ch.fertilizer_dosages) for ch in entry.delivery_channels)
-            created_entry = plan_repo.create_phase_entry(entry)
-            logger.info(
-                "phase_entry_created",
-                plan=plan.name,
-                phase=entry.phase_name,
-                week=f"{entry.week_start}-{entry.week_end}",
-                dosages=dosage_count,
-                key=created_entry.key,
-            )
+        upsert_nutrient_plan_with_entries(plan_repo, plan, entries, existing_plan_map)
 
     logger.info(
         "seed_fertilizers_complete",

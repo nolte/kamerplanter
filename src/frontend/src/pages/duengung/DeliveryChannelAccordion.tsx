@@ -82,6 +82,7 @@ export default function DeliveryChannelAccordion({
               {onLogWatering && ch.enabled && (
                 <Tooltip title={t('pages.deliveryChannels.logWatering')}>
                   <IconButton
+                    component="span"
                     size="small"
                     color="success"
                     onClick={(e) => {

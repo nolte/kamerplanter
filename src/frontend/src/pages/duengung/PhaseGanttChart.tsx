@@ -134,12 +134,12 @@ export default function PhaseGanttChart({ entries, fertilizers, currentWeek, wee
           {title ?? t('pages.gantt.title')}
         </Typography>
 
-        <Box sx={{ overflowX: 'auto' }}>
+        <Box sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', mx: isMobile ? -1 : 0 }}>
           <Box
             sx={{
               display: 'grid',
               gridTemplateColumns: `${labelWidth}px repeat(${totalWeeks}, 1fr)`,
-              minWidth: labelWidth + totalWeeks * 32,
+              minWidth: labelWidth + totalWeeks * (isMobile ? 22 : 32),
               gap: 0,
             }}
           >

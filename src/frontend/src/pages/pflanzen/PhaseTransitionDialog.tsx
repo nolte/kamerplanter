@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
@@ -30,6 +32,8 @@ export default function PhaseTransitionDialog({
   onClose,
   onTransitioned,
 }: Props) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -67,7 +71,7 @@ export default function PhaseTransitionDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="phase-transition-dialog">
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="phase-transition-dialog">
       <DialogTitle>{t('pages.phases.transition')}</DialogTitle>
       <DialogContent>
         <TextField

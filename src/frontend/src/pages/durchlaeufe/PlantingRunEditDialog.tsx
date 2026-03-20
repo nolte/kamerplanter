@@ -4,6 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Box from '@mui/material/Box';
@@ -49,6 +51,8 @@ export default function PlantingRunEditDialog({
   onClose,
   onSaved,
 }: PlantingRunEditDialogProps) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -111,13 +115,11 @@ export default function PlantingRunEditDialog({
   };
 
   return (
-    <Dialog
-      open={open}
+    <Dialog fullScreen={fullScreen} open={open}
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      data-testid="planting-run-edit-dialog"
-    >
+      data-testid="planting-run-edit-dialog">
       <DialogTitle>{t('pages.plantingRuns.editTitle')}</DialogTitle>
       <DialogContent>
         <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>

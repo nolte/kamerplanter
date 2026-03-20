@@ -67,7 +67,7 @@ export default function SowingCalendarView({ entries, frostConfig, year, favorit
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const labelWidth = isMobile ? 140 : 210;
+  const labelWidth = isMobile ? 120 : 210;
   const totalWeeks = 52;
 
   // Eisheilige week for the vertical line
@@ -150,12 +150,12 @@ export default function SowingCalendarView({ entries, frostConfig, year, favorit
           </Box>
         )}
 
-        <Box sx={{ overflowX: 'auto' }}>
+        <Box sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', mx: isMobile ? -1 : 0 }}>
           <Box
             sx={{
               display: 'grid',
               gridTemplateColumns: `${labelWidth}px repeat(${totalWeeks}, 1fr)`,
-              minWidth: labelWidth + totalWeeks * 20,
+              minWidth: labelWidth + totalWeeks * (isMobile ? 14 : 20),
               gap: 0,
               position: 'relative',
             }}

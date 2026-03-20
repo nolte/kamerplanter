@@ -16,6 +16,7 @@ import Link from '@mui/material/Link';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import YardIcon from '@mui/icons-material/Yard';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -87,7 +88,7 @@ export default function SpeciesListPage() {
 
   useEffect(() => {
     dispatch(fetchSpeciesList({ offset: 0, limit: 1000 }));
-    dispatch(fetchPlantInstances({ offset: 0, limit: 10000 }));
+    dispatch(fetchPlantInstances({ offset: 0, limit: 200 }));
   }, [dispatch]);
 
   const activeCountMap = useMemo(() => {
@@ -380,6 +381,30 @@ export default function SpeciesListPage() {
         emptyIllustration={kamiMasterdata}
         tableState={tableState}
         ariaLabel={t('pages.species.title')}
+        mobileCardRenderer={(r) => (
+          <MobileCard
+            title={r.scientific_name}
+            subtitle={r.common_names.join(', ') || undefined}
+            chips={
+              <>
+                <Chip
+                  label={t(`enums.growthHabit.${r.growth_habit}`)}
+                  size="small"
+                  variant="outlined"
+                />
+                <Chip
+                  label={t(`enums.rootType.${r.root_type}`)}
+                  size="small"
+                  variant="outlined"
+                />
+              </>
+            }
+            fields={[
+              { label: t('pages.species.genus'), value: r.genus },
+              { label: t('pages.species.activePlants'), value: activeCountMap.get(r.key) ?? 0 },
+            ]}
+          />
+        )}
       />
 
       <SpeciesCreateDialog

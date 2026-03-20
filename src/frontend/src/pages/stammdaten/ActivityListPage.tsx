@@ -12,6 +12,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -174,6 +175,31 @@ export default function ActivityListPage() {
         emptyIllustration={kamiMasterdata}
         tableState={tableState}
         ariaLabel={t('pages.activities.title')}
+        mobileCardRenderer={(r) => (
+          <MobileCard
+            title={lang === 'en' ? r.name : r.name_de || r.name}
+            subtitle={t(`enums.activityCategory.${r.category}`)}
+            chips={
+              <>
+                <Chip
+                  label={t(`enums.stressLevel.${r.stress_level}`)}
+                  size="small"
+                  color={stressColors[r.stress_level] ?? 'default'}
+                />
+                <Chip
+                  label={t(`enums.skillLevel.${r.skill_level}`)}
+                  size="small"
+                  variant="outlined"
+                />
+              </>
+            }
+            fields={
+              r.recovery_days_default > 0
+                ? [{ label: t('pages.activities.recoveryDays'), value: `${r.recovery_days_default}d` }]
+                : undefined
+            }
+          />
+        )}
       />
       <ActivityCreateDialog
         open={createOpen}

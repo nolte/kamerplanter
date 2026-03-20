@@ -242,7 +242,7 @@ export default function FertilizerListPage() {
                 ),
               },
             }}
-            sx={{ flex: '1 1 auto', minWidth: 160, maxWidth: 220 }}
+            sx={{ flex: '1 1 auto', minWidth: { xs: 120, sm: 160 }, maxWidth: 220 }}
             data-testid="table-search-input"
           />
 
@@ -252,7 +252,7 @@ export default function FertilizerListPage() {
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
             size="small"
-            sx={{ flex: '1 1 auto', minWidth: 160, maxWidth: 220 }}
+            sx={{ flex: '1 1 auto', minWidth: { xs: 120, sm: 160 }, maxWidth: 220 }}
             data-testid="filter-fertilizer-type"
           >
             <MenuItem value="">{t('common.all')}</MenuItem>

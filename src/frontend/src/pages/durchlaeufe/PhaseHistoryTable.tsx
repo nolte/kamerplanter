@@ -11,6 +11,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EmptyState from '@/components/common/EmptyState';
+import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { useNotification } from '@/hooks/useNotification';
@@ -248,6 +249,19 @@ export default function PhaseHistoryTable({ plantKey, onChanged }: Props) {
         getRowKey={(r) => r.key}
         variant="simple"
         ariaLabel={t('pages.plantingRuns.phaseTimeline')}
+        mobileCardRenderer={(r) => (
+          <MobileCard
+            title={r.phase_name}
+            subtitle={formatDateTime(r.entered_at)}
+            chips={
+              <Chip label={r.phase_name} size="small" color="primary" />
+            }
+            fields={[
+              ...(r.actual_duration_days != null ? [{ label: t('pages.plantingRuns.duration'), value: `${r.actual_duration_days}d` }] : []),
+              ...(r.transition_reason ? [{ label: t('pages.phases.reason'), value: r.transition_reason }] : []),
+            ]}
+          />
+        )}
       />
       <ConfirmDialog
         open={!!deleteKey}

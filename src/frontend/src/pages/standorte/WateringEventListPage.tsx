@@ -5,6 +5,8 @@ import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
@@ -18,6 +20,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import AddIcon from '@mui/icons-material/Add';
 import SpaIcon from '@mui/icons-material/Spa';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -79,6 +82,8 @@ interface DetailDialogProps {
 }
 
 function WateringEventDetailDialog({ event, open, onClose, getPlantsForEvent }: DetailDialogProps) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
 
   if (!event) return null;
@@ -94,7 +99,7 @@ function WateringEventDetailDialog({ event, open, onClose, getPlantsForEvent }: 
     ) : null;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{t('pages.wateringEvents.detail')}</DialogTitle>
       <DialogContent dividers>
         {/* Plants linked via slots */}
@@ -399,6 +404,26 @@ export default function WateringEventListPage() {
         emptyIllustration={kamiTanks}
         tableState={tableState}
         ariaLabel={t('pages.wateringEvents.title')}
+        mobileCardRenderer={(r) => {
+          const plants = getPlantsForEvent(r);
+          const ecPhParts: string[] = [];
+          if (r.measured_ec != null) ecPhParts.push(`EC ${r.measured_ec}`);
+          else if (r.target_ec != null) ecPhParts.push(`EC ${r.target_ec}*`);
+          if (r.measured_ph != null) ecPhParts.push(`pH ${r.measured_ph}`);
+          else if (r.target_ph != null) ecPhParts.push(`pH ${r.target_ph}*`);
+          return (
+            <MobileCard
+              title={r.watered_at ? new Date(r.watered_at).toLocaleString() : '\u2014'}
+              subtitle={plants.length > 0 ? plants.map((p) => p.plant_name || p.instance_id).join(', ') : undefined}
+              chips={<Chip label={t(`enums.applicationMethod.${r.application_method}`)} size="small" />}
+              fields={[
+                { label: t('pages.wateringEvents.volumeLiters'), value: `${r.volume_liters} L` },
+                ...(ecPhParts.length > 0 ? [{ label: 'EC / pH', value: ecPhParts.join(' | ') }] : []),
+                ...(r.water_source ? [{ label: t('pages.wateringEvents.waterSource'), value: t(`enums.waterSource.${r.water_source}`) }] : []),
+              ]}
+            />
+          );
+        }}
       />
       <WateringEventCreateDialog
         open={createOpen}

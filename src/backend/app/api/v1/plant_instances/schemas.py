@@ -9,6 +9,7 @@ class PlantCreate(BaseModel):
     instance_id: str
     species_key: str
     cultivar_key: str | None = None
+    site_key: str | None = None
     location_key: str | None = None
     slot_key: str | None = None
     substrate_batch_key: str | None = None
@@ -25,6 +26,7 @@ class PlantResponse(BaseModel):
     instance_id: str
     species_key: str
     cultivar_key: str | None
+    site_key: str | None = None
     location_key: str | None = None
     slot_key: str | None
     substrate_batch_key: str | None

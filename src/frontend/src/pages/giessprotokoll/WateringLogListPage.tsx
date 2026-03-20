@@ -7,6 +7,7 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import SpaIcon from '@mui/icons-material/Spa';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -188,6 +189,42 @@ export default function WateringLogListPage() {
         emptyIllustration={kamiTanks}
         tableState={tableState}
         ariaLabel={t('pages.wateringLogs.title')}
+        mobileCardRenderer={(r) => {
+          const plants = r.resolved_plants ?? [];
+          const plantNames = plants.slice(0, 3).map((p) => p.name).join(', ');
+          const ferts = r.resolved_fertilizers ?? [];
+          return (
+            <MobileCard
+              title={r.logged_at ? new Date(r.logged_at).toLocaleString() : '\u2014'}
+              subtitle={plantNames || undefined}
+              chips={
+                <>
+                  <Chip
+                    label={t(`enums.applicationMethod.${r.application_method}`)}
+                    size="small"
+                    variant="outlined"
+                  />
+                  {r.water_source && (
+                    <Chip
+                      label={t(`enums.waterSource.${r.water_source}`)}
+                      size="small"
+                      variant="outlined"
+                    />
+                  )}
+                  {ferts.map((rf, i) => (
+                    <Chip key={i} label={rf.name} size="small" variant="outlined" color="secondary" />
+                  ))}
+                </>
+              }
+              fields={[
+                { label: t('pages.wateringLogs.volumeLiters'), value: `${r.volume_liters} L` },
+                ...(r.ec_before != null || r.ec_after != null
+                  ? [{ label: 'EC', value: `${r.ec_before ?? '\u2014'} / ${r.ec_after ?? '\u2014'} mS/cm` }]
+                  : []),
+              ]}
+            />
+          );
+        }}
       />
       <WateringLogCreateDialog
         open={createOpen}

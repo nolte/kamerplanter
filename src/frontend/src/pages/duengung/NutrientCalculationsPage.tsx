@@ -12,6 +12,7 @@ import Grid from '@mui/material/Grid';
 import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
 import PageTitle from '@/components/layout/PageTitle';
+import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import { useApiError } from '@/hooks/useApiError';
@@ -328,6 +329,16 @@ export default function NutrientCalculationsPage() {
                         getRowKey={(r) => r.fertilizer_key}
                         variant="simple"
                         ariaLabel={t('pages.nutrientCalc.mixingProtocol')}
+                        mobileCardRenderer={(r) => (
+                          <MobileCard
+                            title={r.product_name}
+                            fields={[
+                              { label: t('pages.nutrientCalc.mlPerLiter'), value: r.ml_per_liter.toFixed(2) },
+                              { label: t('pages.nutrientCalc.totalMl'), value: r.total_ml.toFixed(1) },
+                              { label: t('pages.nutrientCalc.ecContribution'), value: r.ec_contribution.toFixed(3) },
+                            ]}
+                          />
+                        )}
                       />
                     </Box>
                   )}
@@ -378,6 +389,16 @@ export default function NutrientCalculationsPage() {
                       getRowKey={(r) => String(r.day)}
                       variant="simple"
                       ariaLabel={t('pages.nutrientCalc.flushing')}
+                      mobileCardRenderer={(r) => (
+                        <MobileCard
+                          title={`${t('pages.nutrientCalc.day')} ${r.day}`}
+                          subtitle={r.action}
+                          fields={[
+                            { label: t('pages.nutrientCalc.targetEc'), value: r.target_ec_ms.toFixed(2) },
+                            { label: t('pages.nutrientCalc.dosagePercent'), value: `${r.dosage_percent}%` },
+                          ]}
+                        />
+                      )}
                     />
                   )}
                 </Box>
@@ -786,6 +807,16 @@ export default function NutrientCalculationsPage() {
                           getRowKey={(r: Record<string, unknown>) => String(r.key)}
                           variant="simple"
                           ariaLabel={t('pages.nutrientCalc.ecBudget')}
+                          mobileCardRenderer={(r: Record<string, unknown>) => (
+                            <MobileCard
+                              title={String(r.product_name)}
+                              fields={[
+                                { label: t('pages.nutrientCalc.mlPerLiter'), value: Number(r.ml_per_liter).toFixed(2) },
+                                { label: t('pages.nutrientCalc.totalMl'), value: Number(r.total_ml).toFixed(1) },
+                                { label: t('pages.nutrientCalc.ecContribution'), value: Number(r.ec_contribution).toFixed(3) },
+                              ]}
+                            />
+                          )}
                         />
                       </Box>
                     )}

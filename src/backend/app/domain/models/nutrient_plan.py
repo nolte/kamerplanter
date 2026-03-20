@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, Discriminator, Field, field_validator, model_validator
 
@@ -58,7 +58,7 @@ class WateringSchedule(BaseModel):
     times_per_day: int = Field(default=1, ge=1, le=6)
 
     @model_validator(mode="after")
-    def validate_schedule_mode(self) -> WateringSchedule:
+    def validate_schedule_mode(self) -> Self:
         if self.schedule_mode == ScheduleMode.WEEKDAYS:
             if not self.weekday_schedule:
                 raise ValueError("weekday_schedule required for WEEKDAYS mode")
@@ -102,6 +102,11 @@ class NutrientPlanPhaseEntry(BaseModel):
     sulfur_ppm: float | None = Field(default=None, ge=0)
     iron_ppm: float | None = Field(default=None, ge=0)
     boron_ppm: float | None = Field(default=None, ge=0)
+    # REQ-004 §4b: Normalized EC dosing — phase-level targets
+    target_ec_ms: float | None = Field(default=None, ge=0, le=10)
+    target_calcium_ppm: float | None = Field(default=None, ge=0)
+    target_magnesium_ppm: float | None = Field(default=None, ge=0)
+    reference_base_ec: float = Field(default=0.0, ge=0, le=5)
     notes: str | None = None
     delivery_channels: list[DeliveryChannel] = Field(default_factory=list)
     watering_schedule_override: WateringSchedule | None = None
@@ -127,7 +132,7 @@ class NutrientPlanPhaseEntry(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def validate_unique_channel_ids(self) -> NutrientPlanPhaseEntry:
+    def validate_unique_channel_ids(self) -> Self:
         if not self.delivery_channels:
             return self
         ids = [ch.channel_id for ch in self.delivery_channels]
@@ -156,7 +161,7 @@ class NutrientPlan(BaseModel):
     model_config = {"populate_by_name": True}
 
     @model_validator(mode="after")
-    def validate_plan_schedule(self) -> NutrientPlan:
+    def validate_plan_schedule(self) -> Self:
         if (
             self.watering_schedule is not None
             and self.watering_schedule.application_method == ApplicationMethod.FERTIGATION

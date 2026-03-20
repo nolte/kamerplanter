@@ -514,6 +514,7 @@ export interface PlantInstance {
   instance_id: string;
   species_key: string;
   cultivar_key: string | null;
+  site_key: string | null;
   location_key: string | null;
   slot_key: string | null;
   substrate_batch_key: string | null;
@@ -534,6 +535,7 @@ export interface PlantInstanceCreate {
   instance_id: string;
   species_key: string;
   cultivar_key?: string | null;
+  site_key?: string | null;
   location_key?: string | null;
   slot_key?: string | null;
   substrate_batch_key?: string | null;
@@ -1527,6 +1529,10 @@ export interface NutrientPlanPhaseEntry {
   npk_ratio: [number, number, number];
   calcium_ppm: number | null;
   magnesium_ppm: number | null;
+  target_ec_ms: number | null;
+  target_calcium_ppm: number | null;
+  target_magnesium_ppm: number | null;
+  reference_base_ec: number;
   notes: string | null;
   delivery_channels: DeliveryChannel[];
   watering_schedule_override: WateringSchedule | null;
@@ -1544,6 +1550,10 @@ export interface PhaseEntryCreate {
   npk_ratio?: [number, number, number];
   calcium_ppm?: number | null;
   magnesium_ppm?: number | null;
+  target_ec_ms?: number | null;
+  target_calcium_ppm?: number | null;
+  target_magnesium_ppm?: number | null;
+  reference_base_ec?: number;
   notes?: string | null;
   delivery_channels?: DeliveryChannelCreate[];
   watering_schedule_override?: WateringSchedule | null;
@@ -1559,6 +1569,10 @@ export interface PhaseEntryUpdate {
   npk_ratio?: [number, number, number];
   calcium_ppm?: number | null;
   magnesium_ppm?: number | null;
+  target_ec_ms?: number | null;
+  target_calcium_ppm?: number | null;
+  target_magnesium_ppm?: number | null;
+  reference_base_ec?: number;
   notes?: string | null;
   delivery_channels?: DeliveryChannelCreate[];
   watering_schedule_override?: WateringSchedule | null;

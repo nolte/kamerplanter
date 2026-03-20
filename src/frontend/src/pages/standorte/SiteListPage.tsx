@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import AddIcon from '@mui/icons-material/Add';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -65,6 +66,16 @@ export default function SiteListPage() {
         emptyIllustration={kamiLocations}
         tableState={tableState}
         ariaLabel={t('pages.sites.title')}
+        mobileCardRenderer={(r) => (
+          <MobileCard
+            title={r.name}
+            subtitle={r.climate_zone || undefined}
+            fields={[
+              ...(r.total_area_m2 ? [{ label: t('pages.sites.totalArea'), value: `${r.total_area_m2} m\u00B2` }] : []),
+              ...(r.timezone ? [{ label: t('pages.sites.timezone'), value: r.timezone }] : []),
+            ]}
+          />
+        )}
       />
       <SiteCreateDialog
         open={createOpen}

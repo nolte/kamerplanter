@@ -290,12 +290,9 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
         if not sp_key:
             logger.info("cultivar_species_not_found", species=sci_name)
             continue
+        existing_cultivars = species_repo.get_cultivars(sp_key)
+        existing_cv_map = {c.name: c for c in existing_cultivars}
         for cv_data in cv_list:
-            existing_cultivars = species_repo.get_cultivars(sp_key)
-            if any(c.name == cv_data["name"] for c in existing_cultivars):
-                logger.info("cultivar_exists", species=sci_name, cultivar=cv_data["name"])
-                continue
-
             cultivar = Cultivar(
                 name=cv_data["name"],
                 species_key=sp_key,
@@ -303,8 +300,13 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
                 days_to_maturity=cv_data.get("days_to_maturity"),
                 traits=[PlantTrait(t) for t in cv_data.get("traits", [])],
             )
-            species_repo.create_cultivar(cultivar)
-            logger.info("cultivar_created", species=sci_name, cultivar=cv_data["name"])
+            found_cv = existing_cv_map.get(cv_data["name"])
+            if found_cv:
+                species_repo.update_cultivar(found_cv.key or "", cultivar)
+                logger.info("cultivar_upserted", species=sci_name, cultivar=cv_data["name"])
+            else:
+                species_repo.create_cultivar(cultivar)
+                logger.info("cultivar_created", species=sci_name, cultivar=cv_data["name"])
 
     # ── Seed companion planting edges (species-level) ────────────────
     for entry in companion_data.get("compatible", []):
@@ -333,47 +335,53 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
 
     # ── Seed IPM data (REQ-010) ──────────────────────────────────────
     ipm_repo = get_ipm_repo()
+    existing_pests, _ = ipm_repo.get_all_pests(0, 200)
+    existing_pest_map = {p.scientific_name: p for p in existing_pests}
+
     pest_key_map: dict[str, str] = {}
     for pest_data in ipm_data.get("pests", []):
         pest = Pest.model_validate(pest_data)
-        existing_pests, _ = ipm_repo.get_all_pests(0, 200)
-        if any(p.scientific_name == pest.scientific_name for p in existing_pests):
-            for p in existing_pests:
-                if p.scientific_name == pest.scientific_name:
-                    pest_key_map[pest.common_name] = p.key or ""
-            logger.info("pest_exists", name=pest.common_name)
-            continue
-        created = ipm_repo.create_pest(pest)
-        pest_key_map[pest.common_name] = created.key or ""
-        logger.info("pest_created", name=pest.common_name)
+        found = existing_pest_map.get(pest.scientific_name)
+        if found:
+            pest_key_map[pest.common_name] = found.key or ""
+            ipm_repo.update_pest(found.key or "", pest)
+            logger.info("pest_upserted", name=pest.common_name)
+        else:
+            created = ipm_repo.create_pest(pest)
+            pest_key_map[pest.common_name] = created.key or ""
+            logger.info("pest_created", name=pest.common_name)
+
+    existing_diseases, _ = ipm_repo.get_all_diseases(0, 200)
+    existing_disease_map = {d.scientific_name: d for d in existing_diseases}
 
     disease_key_map: dict[str, str] = {}
     for disease_data in ipm_data.get("diseases", []):
         disease = Disease.model_validate(disease_data)
-        existing_diseases, _ = ipm_repo.get_all_diseases(0, 200)
-        if any(d.scientific_name == disease.scientific_name for d in existing_diseases):
-            for d in existing_diseases:
-                if d.scientific_name == disease.scientific_name:
-                    disease_key_map[d.common_name] = d.key or ""
-            logger.info("disease_exists", name=disease.common_name)
-            continue
-        created = ipm_repo.create_disease(disease)
-        disease_key_map[disease.common_name] = created.key or ""
-        logger.info("disease_created", name=disease.common_name)
+        found = existing_disease_map.get(disease.scientific_name)
+        if found:
+            disease_key_map[disease.common_name] = found.key or ""
+            ipm_repo.update_disease(found.key or "", disease)
+            logger.info("disease_upserted", name=disease.common_name)
+        else:
+            created = ipm_repo.create_disease(disease)
+            disease_key_map[disease.common_name] = created.key or ""
+            logger.info("disease_created", name=disease.common_name)
+
+    existing_treatments, _ = ipm_repo.get_all_treatments(0, 200)
+    existing_treatment_map = {t.name: t for t in existing_treatments}
 
     treatment_key_map: dict[str, str] = {}
     for treatment_data in ipm_data.get("treatments", []):
         treatment = Treatment.model_validate(treatment_data)
-        existing_treatments, _ = ipm_repo.get_all_treatments(0, 200)
-        if any(t.name == treatment.name for t in existing_treatments):
-            for t in existing_treatments:
-                if t.name == treatment.name:
-                    treatment_key_map[t.name] = t.key or ""
-            logger.info("treatment_exists", name=treatment.name)
-            continue
-        created = ipm_repo.create_treatment(treatment)
-        treatment_key_map[treatment.name] = created.key or ""
-        logger.info("treatment_created", name=treatment.name)
+        found = existing_treatment_map.get(treatment.name)
+        if found:
+            treatment_key_map[treatment.name] = found.key or ""
+            ipm_repo.update_treatment(found.key or "", treatment)
+            logger.info("treatment_upserted", name=treatment.name)
+        else:
+            created = ipm_repo.create_treatment(treatment)
+            treatment_key_map[treatment.name] = created.key or ""
+            logger.info("treatment_created", name=treatment.name)
 
     for entry in ipm_data.get("pest_treatments", []):
         treat_name, pest_name = entry[0], entry[1]
@@ -446,34 +454,32 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
 
     # ── Seed Workflow templates + Task templates (REQ-006) ───────────
     task_repo = get_task_repo()
+    existing_wfs, _ = task_repo.get_all_workflow_templates(0, 200)
+    existing_wf_map = {w.name: w for w in existing_wfs}
     wf_key_map: dict[str, str] = {}
 
     for wt_data in workflow_data.get("workflow_templates", []):
         wt = WorkflowTemplate.model_validate(wt_data)
-        existing_wfs, _ = task_repo.get_all_workflow_templates(0, 200)
-        if any(w.name == wt.name for w in existing_wfs):
-            for w in existing_wfs:
-                if w.name == wt.name:
-                    wf_key_map[w.name] = w.key or ""
-            logger.info("workflow_template_exists", name=wt.name)
-            continue
-        created = task_repo.create_workflow_template(wt)
-        wf_key_map[wt.name] = created.key or ""
-        logger.info("workflow_template_created", name=wt.name)
+        found = existing_wf_map.get(wt.name)
+        if found:
+            wf_key_map[wt.name] = found.key or ""
+            task_repo.update_workflow_template(found.key or "", wt)
+            logger.info("workflow_template_upserted", name=wt.name)
+        else:
+            created = task_repo.create_workflow_template(wt)
+            wf_key_map[wt.name] = created.key or ""
+            logger.info("workflow_template_created", name=wt.name)
 
-    # Build lookup of existing task templates per workflow to avoid duplicates
-    existing_tt_names: dict[str, set[str]] = {}
+    # Build lookup of existing task templates per workflow
+    existing_tt_map: dict[str, dict[str, TaskTemplate]] = {}
     for _wf_name, wf_key in wf_key_map.items():
         existing_tts = task_repo.get_task_templates_for_workflow(wf_key)
-        existing_tt_names[wf_key] = {tt.name for tt in existing_tts}
+        existing_tt_map[wf_key] = {tt.name: tt for tt in existing_tts}
 
     for tt_data in workflow_data.get("task_templates", []):
         wf_name = tt_data["workflow_name"]
         wf_key = wf_key_map.get(wf_name, "")
         if not wf_key:
-            continue
-        if tt_data["name"] in existing_tt_names.get(wf_key, set()):
-            logger.info("task_template_exists", name=tt_data["name"], workflow=wf_name)
             continue
         tt = TaskTemplate(
             name=tt_data["name"],
@@ -491,8 +497,13 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
             timer_duration_seconds=tt_data.get("timer_duration_seconds"),
             timer_label=tt_data.get("timer_label"),
         )
-        task_repo.create_task_template(tt)
-        logger.info("task_template_created", name=tt_data["name"], workflow=wf_name)
+        found_tt = existing_tt_map.get(wf_key, {}).get(tt_data["name"])
+        if found_tt:
+            task_repo.update_task_template(found_tt.key or "", tt)
+            logger.info("task_template_upserted", name=tt_data["name"], workflow=wf_name)
+        else:
+            task_repo.create_task_template(tt)
+            logger.info("task_template_created", name=tt_data["name"], workflow=wf_name)
 
     logger.info("seed_complete")
 

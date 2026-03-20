@@ -102,7 +102,7 @@ export default function WaterSourceSection({
             type="number"
             value={tap.alkalinity_ppm}
             onChange={(e) => updateTap('alkalinity_ppm', parseFloat(e.target.value) || 0)}
-            inputProps={{ step: 1, min: 0, max: 500, inputMode: 'numeric' }}
+            inputProps={{ step: 0.1, min: 0, max: 500, inputMode: 'decimal' }}
             InputProps={{ endAdornment: <Typography variant="caption" sx={{ pr: 1, color: 'text.secondary' }}>ppm</Typography> }}
             size="small"
           />
@@ -111,7 +111,7 @@ export default function WaterSourceSection({
             type="number"
             value={tap.gh_ppm}
             onChange={(e) => updateTap('gh_ppm', parseFloat(e.target.value) || 0)}
-            inputProps={{ step: 1, min: 0, max: 1000, inputMode: 'numeric' }}
+            inputProps={{ step: 0.1, min: 0, max: 1000, inputMode: 'decimal' }}
             InputProps={{ endAdornment: <Typography variant="caption" sx={{ pr: 1, color: 'text.secondary' }}>ppm</Typography> }}
             size="small"
           />
@@ -120,7 +120,7 @@ export default function WaterSourceSection({
             type="number"
             value={tap.calcium_ppm}
             onChange={(e) => updateTap('calcium_ppm', parseFloat(e.target.value) || 0)}
-            inputProps={{ step: 1, min: 0, max: 500, inputMode: 'numeric' }}
+            inputProps={{ step: 0.1, min: 0, max: 500, inputMode: 'decimal' }}
             InputProps={{ endAdornment: <Typography variant="caption" sx={{ pr: 1, color: 'text.secondary' }}>ppm</Typography> }}
             size="small"
           />

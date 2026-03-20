@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -138,6 +139,33 @@ export default function HarvestBatchListPage() {
         emptyIllustration={kamiHarvest}
         tableState={tableState}
         ariaLabel={t('pages.harvest.title')}
+        mobileCardRenderer={(r) => (
+          <MobileCard
+            title={r.batch_id || r.key}
+            subtitle={r.harvest_date ? new Date(r.harvest_date).toLocaleDateString() : undefined}
+            chips={
+              <>
+                <Chip
+                  label={t(`enums.harvestType.${r.harvest_type}`)}
+                  size="small"
+                  variant="outlined"
+                />
+                {r.quality_grade && (
+                  <Chip
+                    label={t(`enums.qualityGrade.${r.quality_grade}`)}
+                    size="small"
+                    color={qualityGradeColor[r.quality_grade] ?? 'default'}
+                  />
+                )}
+              </>
+            }
+            fields={[
+              ...(r.wet_weight_g != null
+                ? [{ label: t('pages.harvest.wetWeightG'), value: `${r.wet_weight_g}\u202fg` }]
+                : []),
+            ]}
+          />
+        )}
       />
       <HarvestCreateDialog
         open={createOpen}

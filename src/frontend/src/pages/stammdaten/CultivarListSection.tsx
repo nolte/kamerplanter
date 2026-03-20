@@ -8,6 +8,7 @@ import IconButton from '@mui/material/IconButton';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import Chip from '@mui/material/Chip';
+import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { useTableLocalState } from '@/hooks/useTableState';
@@ -102,7 +103,35 @@ export default function CultivarListSection({ speciesKey }: Props) {
         </Button>
       </Box>
 
-      <DataTable columns={columns} rows={cultivars} loading={loading} getRowKey={(r) => r.key} onRowClick={(r) => navigate(`/stammdaten/species/${speciesKey}/cultivars/${r.key}`)} tableState={tableState} ariaLabel={t('pages.cultivars.title')} />
+      <DataTable
+        columns={columns}
+        rows={cultivars}
+        loading={loading}
+        getRowKey={(r) => r.key}
+        onRowClick={(r) => navigate(`/stammdaten/species/${speciesKey}/cultivars/${r.key}`)}
+        tableState={tableState}
+        ariaLabel={t('pages.cultivars.title')}
+        mobileCardRenderer={(r) => (
+          <MobileCard
+            title={r.name}
+            subtitle={r.breeder || undefined}
+            chips={
+              r.traits.length > 0 ? (
+                <>
+                  {r.traits.map((tr) => (
+                    <Chip key={tr} label={t(`enums.plantTrait.${tr}`)} size="small" variant="outlined" />
+                  ))}
+                </>
+              ) : undefined
+            }
+            fields={
+              r.days_to_maturity != null
+                ? [{ label: t('pages.cultivars.daysToMaturity'), value: r.days_to_maturity }]
+                : undefined
+            }
+          />
+        )}
+      />
 
       <CultivarCreateDialog
         speciesKey={speciesKey}

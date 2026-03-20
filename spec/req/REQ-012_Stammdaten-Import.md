@@ -1472,10 +1472,10 @@ CSV-Dateien können bösartigen Inhalt transportieren. Die folgenden Sicherheits
 - [ ] **Zeilen-Validierung:** Jede Zeile wird gegen Spaltendefinitionen und Cross-Field-Regeln geprüft
 - [ ] **Duplikaterkennung:** Abgleich gegen bestehende Datenbank-Einträge per Identifikationsmerkmale
 - [ ] **Konfigurierbare Duplikatstrategie:** skip/update/fail pro Import wählbar
-- [ ] **Vorschau-Tabelle:** MUI DataGrid mit Farbkodierung, Filterung, Sortierung
+- [ ] **Vorschau-Tabelle:** MUI DataGrid mit Farbkodierung, Filterung, Sortierung; zeilenweiser Validierungsstatus (grün/rot/gelb), fehlerhafte Felder farblich hervorgehoben, Status-Filter („Nur Fehler" / „Nur Duplikate" / „Alle"), einzelne Zeilen per Checkbox vom Import ausschließbar, Zusammenfassung „X gültig, Y fehlerhaft, Z Duplikate" oberhalb der Tabelle (UI-NFR-010 §7.3, R-046–R-050)
 - [ ] **Fehlerdetails:** Pro-Zeile/Pro-Feld-Fehlermeldungen mit Codes
 - [ ] **Ergebnis-Anzeige:** Statistiken (created/updated/skipped/failed) nach Abschluss
-- [ ] **Import-Historie:** Übersicht aller bisherigen Import-Jobs mit Filterung
+- [ ] **Import-Historie:** Übersicht aller bisherigen Import-Jobs mit Status-Filter (Enum-Chip: pending, validated, imported, failed); URL-Parameter `?status=...` (UI-NFR-010 §7.2)
 - [ ] **CSV-Templates:** Herunterladbare Vorlagen mit Header und Beispielzeile pro Entität
 - [ ] **Dateivalidierung:** Größenlimit (10 MB), Dateityp (.csv), Encoding-Prüfung
 - [ ] **Abbruch:** Import-Jobs im Status preview_ready können abgebrochen werden

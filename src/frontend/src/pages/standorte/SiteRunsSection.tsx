@@ -5,6 +5,7 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import type { ChipProps } from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
+import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import EmptyState from '@/components/common/EmptyState';
 import { useApiError } from '@/hooks/useApiError';
@@ -125,6 +126,23 @@ export default function SiteRunsSection({ siteKey }: Props) {
           getRowKey={(r) => r.key}
           tableState={tableState}
           ariaLabel={t('entities.plantingRuns')}
+          mobileCardRenderer={(r) => (
+            <MobileCard
+              title={r.name}
+              subtitle={r.location_key ? locationNameMap.get(r.location_key) : undefined}
+              chips={
+                <Chip
+                  label={t(`enums.plantingRunStatus.${r.status}`)}
+                  size="small"
+                  color={statusColor[r.status] ?? 'default'}
+                />
+              }
+              fields={[
+                { label: t('entities.plantInstances'), value: `${r.actual_quantity} / ${r.planned_quantity}` },
+                ...(r.phase_summary?.dominant_phase ? [{ label: t('pages.plantingRuns.currentPhase'), value: r.phase_summary.dominant_phase }] : []),
+              ]}
+            />
+          )}
         />
       )}
     </Box>

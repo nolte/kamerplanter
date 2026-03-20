@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
@@ -124,6 +126,8 @@ export default function CareProfileEditDialog({
   profile,
   onUpdated,
 }: CareProfileEditDialogProps) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -347,13 +351,11 @@ export default function CareProfileEditDialog({
     );
 
   return (
-    <Dialog
-      open={open}
+    <Dialog fullScreen={fullScreen} open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      data-testid="care-profile-edit-dialog"
-    >
+      data-testid="care-profile-edit-dialog">
       <DialogTitle>{t('pages.pflege.editProfile')}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import { useForm, useWatch } from 'react-hook-form';
@@ -20,14 +22,16 @@ import type { LocationType } from '@/api/types';
 
 const timeRegex = /^\d{2}:\d{2}$/;
 
+const timeOrEmpty = z.union([z.string().regex(timeRegex), z.literal('')]).nullable().optional();
+
 const schema = z.object({
   name: z.string().min(1),
   location_type_key: z.string(),
   area_m2: z.number().min(0),
   light_type: z.enum(['natural', 'led', 'hps', 'cmh', 'mixed']),
   irrigation_system: z.enum(['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow']),
-  lights_on: z.string().regex(timeRegex).nullable().optional(),
-  lights_off: z.string().regex(timeRegex).nullable().optional(),
+  lights_on: timeOrEmpty,
+  lights_off: timeOrEmpty,
   use_dynamic_sunrise: z.boolean(),
 });
 
@@ -43,6 +47,8 @@ interface Props {
 }
 
 export default function LocationCreateDialog({ siteKey, parentLocationKey, parentLocationTypeKey, open, onClose, onCreated }: Props) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -108,7 +114,7 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, paren
     : t('pages.locations.create');
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{dialogTitle}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>

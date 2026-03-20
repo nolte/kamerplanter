@@ -9,6 +9,7 @@ import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { alpha, useTheme, type Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import type { NutrientPlanPhaseEntry, Fertilizer, ApplicationMethod } from '@/api/types';
@@ -23,6 +24,8 @@ interface Props {
   title: string;
   currentWeek?: number;
   onEntriesChange?: (updatedEntries: NutrientPlanPhaseEntry[]) => void;
+  /** Remove a fertilizer from all entries/channels in this group. */
+  onRemoveFertilizer?: (fertilizerKey: string, isAuto: boolean) => void;
   /** Recommended RO% per sequence_order (fallback when entry has no explicit value). */
   recommendedRoMap?: Map<number, number>;
 }
@@ -119,7 +122,7 @@ function findBestEntryForEdit(
   return best;
 }
 
-export default function PhaseDetailGantt({ entries, fertilizers, title, currentWeek, onEntriesChange, recommendedRoMap }: Props) {
+export default function PhaseDetailGantt({ entries, fertilizers, title, currentWeek, onEntriesChange, onRemoveFertilizer, recommendedRoMap }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -798,6 +801,7 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                     canReorder={editable}
                     onMoveUp={() => handleMove(group.groupKey, row.fertKey, 'up')}
                     onMoveDown={() => handleMove(group.groupKey, row.fertKey, 'down')}
+                    onRemove={onRemoveFertilizer ? () => onRemoveFertilizer(row.fertKey, group.isAuto) : undefined}
                     editing={editing}
                     editValue={editValue}
                     groupKey={group.groupKey}
@@ -891,6 +895,7 @@ function FertilizerRow({
   canReorder,
   onMoveUp,
   onMoveDown,
+  onRemove,
   editing,
   editValue,
   groupKey,
@@ -910,6 +915,7 @@ function FertilizerRow({
   canReorder: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  onRemove?: () => void;
   editing: EditingCell | null;
   editValue: string;
   groupKey: 'auto' | 'manual';
@@ -960,7 +966,7 @@ function FertilizerRow({
             </IconButton>
           </Box>
         )}
-        <Box sx={{ minWidth: 0 }}>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
           <Typography variant="caption" noWrap sx={{ fontWeight: 600, display: 'block' }} color="text.secondary">
             {row.name}
           </Typography>
@@ -970,6 +976,16 @@ function FertilizerRow({
             </Typography>
           )}
         </Box>
+        {onRemove && (
+          <IconButton
+            size="small"
+            color="error"
+            onClick={onRemove}
+            sx={{ flexShrink: 0, p: 0.25, opacity: 0.5, '&:hover': { opacity: 1 } }}
+          >
+            <DeleteOutlineIcon sx={{ fontSize: 14 }} />
+          </IconButton>
+        )}
       </Box>
       {weeks.map((w) => {
         const ml = row.weekMap.get(w);

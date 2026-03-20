@@ -5,6 +5,7 @@ import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -114,6 +115,31 @@ export default function PestListPage() {
         emptyIllustration={kamiIpm}
         tableState={tableState}
         ariaLabel={t('pages.ipm.pestsTitle')}
+        mobileCardRenderer={(r) => (
+          <MobileCard
+            title={r.scientific_name}
+            subtitle={r.common_name}
+            chips={
+              <>
+                <Chip
+                  label={t(`enums.pestType.${r.pest_type}`)}
+                  size="small"
+                  variant="outlined"
+                />
+                <Chip
+                  label={t(`enums.detectionDifficulty.${r.detection_difficulty}`)}
+                  size="small"
+                  color={difficultyColor[r.detection_difficulty] ?? 'default'}
+                />
+              </>
+            }
+            fields={[
+              ...(r.lifecycle_days != null
+                ? [{ label: t('pages.ipm.lifecycleDays'), value: `${r.lifecycle_days}\u202f${t('pages.ipm.days')}` }]
+                : []),
+            ]}
+          />
+        )}
       />
       <PestCreateDialog
         open={createOpen}

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import { useForm } from 'react-hook-form';
@@ -42,6 +44,8 @@ interface Props {
 }
 
 export default function MaintenanceLogDialog({ open, onClose, tankKey, onCreated }: Props) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -81,7 +85,7 @@ export default function MaintenanceLogDialog({ open, onClose, tankKey, onCreated
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{t('pages.tanks.logMaintenance')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
