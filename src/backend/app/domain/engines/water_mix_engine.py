@@ -59,38 +59,81 @@ class WaterSourceWarning(BaseModel):
 
 # ── WaterMixCalculator ────────────────────────────────────────────────
 
-
+# Headroom ratio per substrate type: fraction of target EC that must be
+# available for nutrients.  max_base_water_ec = target_ec × (1 − headroom).
+#
+# Higher headroom → cleaner base water → more RO.
 SUBSTRATE_HEADROOM: dict[str, float] = {
-    "hydro_solution": 0.70,
-    "deep_water_culture": 0.70,
-    "aeroponics": 0.70,
-    "coco": 0.60,
-    "soil": 0.50,
-    "living_soil": 0.50,
+    # Hydroponic / no CEC — maximum nutrient control required
+    "hydro_solution": 0.95,
+    "deep_water_culture": 0.95,
+    "aeroponics": 0.95,
+    "rockwool_slab": 0.95,
+    "rockwool_plug": 0.95,
+    "clay_pebbles": 0.95,
+    "perlite": 0.93,
+    "none": 0.95,
+    # Moderate CEC — some buffering capacity
+    "coco": 0.90,
+    "vermiculite": 0.90,
+    "pon_mineral": 0.90,
+    "orchid_bark": 0.92,
+    # High CEC — significant substrate buffering
+    "soil": 0.85,
+    "peat": 0.83,
+    # Special cases
+    "sphagnum": 0.99,  # carnivores/epiphytes: near-pure water required
 }
+# living_soil intentionally absent — uses water-quality path, not EC headroom.
 
-DEFAULT_HEADROOM = 0.60
+DEFAULT_HEADROOM = 0.85
 
 # Per-substrate alkalinity limits (ppm CaCO₃ in blended water).
 # High alkalinity demands excessive pH-Down which introduces uncontrolled
 # phosphate into the nutrient solution and destabilises pH management.
 SUBSTRATE_ALKALINITY_LIMIT: dict[str, float] = {
+    # Hydroponic
     "hydro_solution": 60.0,
     "deep_water_culture": 60.0,
     "aeroponics": 60.0,
+    "rockwool_slab": 60.0,
+    "rockwool_plug": 60.0,
+    "clay_pebbles": 60.0,
+    "perlite": 60.0,
+    "none": 60.0,
+    # Moderate CEC
     "coco": 80.0,
+    "vermiculite": 80.0,
+    "pon_mineral": 80.0,
+    "orchid_bark": 80.0,
+    # High CEC
     "soil": 120.0,
-    "living_soil": 150.0,  # living soil buffers well
+    "peat": 100.0,
+    # Special cases
+    "sphagnum": 10.0,  # carnivores: near-distilled water
+    "living_soil": 80.0,  # microbiome protection — NOT laxer than coco
 }
 
 DEFAULT_ALKALINITY_LIMIT = 80.0
 
 CHLORINE_LIMIT_PPM = 0.5
 CHLORAMINE_LIMIT_PPM = 0.3
+# Living soil / sphagnum: microbiome is chlorine-sensitive
+CHLORINE_LIMIT_LIVING_PPM = 0.1
+CHLORAMINE_LIMIT_LIVING_PPM = 0.1
+
 FALLBACK_RO_PERCENT = 80
 
-# Ca:Mg ratio thresholds — ideal 3:1–4:1 in the blended water.
-# Above 5:1 Mg² uptake is competitively inhibited at the root.
+# Ca:Mg ratio thresholds — evaluated on the FINAL nutrient solution
+# (after fertiliser + CalMag supplementation), not on the raw tap water.
+# Ideal ratio in the finished solution is 3:1–4:1 (ppm Ca : ppm Mg).
+# Above 5:1 Mg²⁺ uptake is competitively inhibited at the root.
+# Below 2:1 Ca²⁺ deficiency risk increases (blossom end rot, tip burn).
+#
+# Note: Raw tap water in many regions has Ca:Mg > 5:1 — this is normal
+# and corrected by CalMag supplements.  The CA_MG_RATIO_WARN threshold
+# applies to tap water and triggers extra RO dilution so that a CalMag
+# product can bring the final ratio into the 3:1–4:1 window.
 CA_MG_RATIO_WARN = 5.0
 # Minimum RO% bump when tap Ca:Mg ratio exceeds the warning threshold.
 # This ensures enough dilution so a CalMag supplement can correct the ratio.
@@ -100,6 +143,9 @@ CA_MG_RATIO_MIN_RO_BUMP = 15
 # regardless of EC headroom.
 FLUSH_PHASE_NAMES = frozenset({"flushing", "flush"})
 FLUSH_MIN_RO_PERCENT = 85
+
+# Substrates where chlorine/chloramine limits are tightened for microbiome
+_LIVING_SUBSTRATES = frozenset({"living_soil", "sphagnum"})
 
 
 class WaterMixCalculator:
@@ -162,21 +208,31 @@ class WaterMixCalculator:
     ) -> CalMagCorrection:
         """Calculate CalMag supplement needed to reach target levels.
 
-        Also validates Ca:Mg ratio — ideal is 3:1 to 4:1.
-        Warns if ratio < 2.0 or > 5.0.
+        The Ca:Mg ratio is evaluated on the TARGET levels (= final nutrient
+        solution after supplementation), not on the raw base water.
+        Ideal ratio: 3:1–4:1 (ppm).
+        < 2:1 → calcium deficiency risk (blossom end rot, tip burn).
+        > 5:1 → magnesium lockout risk (interveinal chlorosis).
         """
         ca_deficit = max(0.0, target_ca_ppm - effective.calcium_ppm)
         mg_deficit = max(0.0, target_mg_ppm - effective.magnesium_ppm)
 
-        # Ca:Mg ratio check on target levels
+        # Ca:Mg ratio check on target levels (final solution)
         ca_mg_ratio: float | None = None
         ca_mg_warning: str | None = None
         if target_mg_ppm > 0:
             ca_mg_ratio = round(target_ca_ppm / target_mg_ppm, 2)
             if ca_mg_ratio < 2.0:
-                ca_mg_warning = f"Ca:Mg ratio {ca_mg_ratio:.1f}:1 is low (ideal 3:1–4:1). Risk of calcium deficiency."
+                ca_mg_warning = (
+                    f"Ca:Mg ratio {ca_mg_ratio:.1f}:1 is low (ideal 3:1\u20134:1). "
+                    "Risk of calcium deficiency (blossom end rot, tip burn)."
+                )
             elif ca_mg_ratio > 5.0:
-                ca_mg_warning = f"Ca:Mg ratio {ca_mg_ratio:.1f}:1 is high (ideal 3:1–4:1). Risk of magnesium lockout."
+                ca_mg_warning = (
+                    f"Ca:Mg ratio {ca_mg_ratio:.1f}:1 is high (ideal 3:1\u20134:1). "
+                    "Risk of magnesium lockout (interveinal chlorosis). "
+                    "Consider a CalMag product with higher Mg proportion."
+                )
 
         return CalMagCorrection(
             calcium_deficit_ppm=round(ca_deficit, 2),
@@ -198,23 +254,35 @@ class WaterMixCalculator:
     ) -> WaterMixRecommendation:
         """Recommend optimal RO/tap mix ratio for a given target EC and substrate.
 
-        Iterates RO percentages from 0% to 100% in 5% steps and selects the
-        lowest RO percentage that satisfies ALL constraints:
-        - EC headroom >= min_headroom * target_ec
-        - Effective chlorine < 0.5 ppm
-        - Effective chloramine < 0.3 ppm
+        For living_soil: EC headroom is ignored; recommendation is based purely
+        on water quality (chlorine, chloramine, alkalinity, pH).
+
+        For all other substrates: iterates RO percentages from 0% to 100% in
+        5% steps and selects the lowest RO percentage that satisfies ALL
+        constraints:
+        - EC headroom >= min_headroom × target_ec
+        - Effective chlorine < limit (0.5 ppm; 0.1 ppm for living substrates)
+        - Effective chloramine < limit (0.3 ppm; 0.1 ppm for living substrates)
         - Alkalinity in blended water < substrate-specific limit
         - Ca:Mg ratio of tap water considered (min RO bump if > 5:1)
         - Flush phases force >= 85% RO
 
         Falls back to 80% RO if no percentage meets all criteria.
         """
-        # ── Flush override ───────────────────────────────────────────
+        is_living = substrate_type in _LIVING_SUBSTRATES
         is_flush = phase_name.lower() in FLUSH_PHASE_NAMES
 
+        # Living soil: no EC-based headroom — use water-quality-only path
+        if is_living and not is_flush:
+            return self._recommend_living_soil(tap, ro, substrate_type, target_ca_ppm, target_mg_ppm)
+
+        # ── Standard EC-headroom path ─────────────────────────────────
         min_headroom = SUBSTRATE_HEADROOM.get(substrate_type, DEFAULT_HEADROOM)
         min_available_ec = min_headroom * target_ec_ms
         alk_limit = SUBSTRATE_ALKALINITY_LIMIT.get(substrate_type, DEFAULT_ALKALINITY_LIMIT)
+
+        cl_limit = CHLORINE_LIMIT_LIVING_PPM if is_living else CHLORINE_LIMIT_PPM
+        cla_limit = CHLORAMINE_LIMIT_LIVING_PPM if is_living else CHLORAMINE_LIMIT_PPM
 
         # ── Ca:Mg ratio floor ────────────────────────────────────────
         ca_mg_min_ro = 0
@@ -232,8 +300,8 @@ class WaterMixCalculator:
             available_ec = target_ec_ms - effective.ec_ms
 
             meets_ec = available_ec >= min_available_ec
-            meets_chlorine = effective.chlorine_ppm < CHLORINE_LIMIT_PPM
-            meets_chloramine = effective.chloramine_ppm < CHLORAMINE_LIMIT_PPM
+            meets_chlorine = effective.chlorine_ppm < cl_limit
+            meets_chloramine = effective.chloramine_ppm < cla_limit
             meets_alkalinity = effective.alkalinity_ppm <= alk_limit
             meets_ca_mg_floor = ro_pct >= ca_mg_min_ro
             meets_flush = ro_pct >= FLUSH_MIN_RO_PERCENT if is_flush else True
@@ -292,6 +360,92 @@ class WaterMixCalculator:
             calmag_correction=calmag,
         )
 
+    # ── Living soil / sphagnum: water-quality-only path ──────────────
+
+    def _recommend_living_soil(
+        self,
+        tap: TapWaterProfile,
+        ro: RoWaterProfile,
+        substrate_type: str,
+        target_ca_ppm: float = 0.0,
+        target_mg_ppm: float = 0.0,
+    ) -> WaterMixRecommendation:
+        """Recommend RO% for living substrates based on water quality, not EC.
+
+        Living soil does not use EC-based dosing (SubstrateEcAdapter returns 0).
+        Instead we optimise for:
+        - Chlorine < 0.1 ppm (microbiome protection)
+        - Chloramine < 0.1 ppm (cannot be removed by letting water sit)
+        - Alkalinity below substrate limit (pH drift → microbiome damage)
+        - pH 6.0–7.0 in blended water
+        """
+        alk_limit = SUBSTRATE_ALKALINITY_LIMIT.get(substrate_type, DEFAULT_ALKALINITY_LIMIT)
+
+        best_ro: int | None = None
+        best_effective: EffectiveWaterProfile | None = None
+
+        for ro_pct in range(0, 101, 5):
+            effective = self.calculate_effective_water(tap, ro, ro_pct)
+
+            meets_chlorine = effective.chlorine_ppm < CHLORINE_LIMIT_LIVING_PPM
+            meets_chloramine = effective.chloramine_ppm < CHLORAMINE_LIMIT_LIVING_PPM
+            meets_alkalinity = effective.alkalinity_ppm <= alk_limit
+
+            if meets_chlorine and meets_chloramine and meets_alkalinity and best_ro is None:
+                best_ro = ro_pct
+                best_effective = effective
+
+        if best_ro is None:
+            best_ro = FALLBACK_RO_PERCENT
+            best_effective = self.calculate_effective_water(tap, ro, best_ro)
+
+        assert best_effective is not None  # noqa: S101
+
+        # Reasoning
+        parts: list[str] = []
+        if substrate_type == "sphagnum":
+            parts.append(
+                f"{best_ro}% RO recommended for sphagnum substrate. "
+                "Carnivorous plants and epiphytes require near-pure water (EC < 0.05 mS/cm)."
+            )
+        elif best_ro == 0:
+            parts.append(
+                "No RO water needed for living soil. "
+                f"Tap water is chlorine-free ({best_effective.chlorine_ppm:.2f} ppm) "
+                f"with acceptable alkalinity ({best_effective.alkalinity_ppm:.0f} ppm)."
+            )
+        else:
+            parts.append(
+                f"{best_ro}% RO water recommended for living soil (microbiome protection). "
+                "EC-based dosing does not apply — recommendation is based on water quality."
+            )
+
+        if best_effective.chloramine_ppm > 0 and best_ro > 0:
+            parts.append(
+                "Note: Chloramine cannot be removed by letting water sit — "
+                "it requires activated carbon filtration or vitamin C treatment."
+            )
+
+        # CalMag correction (living soil may still benefit from Ca/Mg info)
+        calmag: CalMagCorrection | None = None
+        if target_ca_ppm > 0 or target_mg_ppm > 0:
+            calmag = self.suggest_calmag_correction(
+                best_effective, target_ca_ppm, target_mg_ppm,
+            )
+
+        return WaterMixRecommendation(
+            recommended_ro_percent=best_ro,
+            ec_headroom=0.0,  # not applicable for living soil
+            effective_ec_ms=best_effective.ec_ms,
+            available_ec_for_nutrients=0.0,  # not applicable
+            target_ec_ms=0.0,  # not applicable
+            substrate_type=substrate_type,
+            min_headroom_ratio=0.0,  # not applicable
+            reasoning=" ".join(parts),
+            alternatives=[],  # living soil: no EC-based alternatives
+            calmag_correction=calmag,
+        )
+
     def _build_reasoning(
         self,
         ro_pct: int,
@@ -334,14 +488,14 @@ class WaterMixCalculator:
         # Alkalinity note
         if effective.alkalinity_ppm > alk_limit * 0.8 and not is_flush:
             parts.append(
-                f"Alkalinity ({effective.alkalinity_ppm:.0f} ppm CaCO₃) "
+                f"Alkalinity ({effective.alkalinity_ppm:.0f} ppm CaCO\u2083) "
                 f"requires dilution to limit pH-Down usage and phosphate build-up."
             )
 
         # Ca:Mg ratio note
         if ca_mg_min_ro > 0:
             parts.append(
-                "Tap water Ca:Mg ratio exceeds 5:1 — higher RO dilution "
+                "Tap water Ca:Mg ratio exceeds 5:1 \u2014 higher RO dilution "
                 "recommended so CalMag supplement can correct the imbalance."
             )
 

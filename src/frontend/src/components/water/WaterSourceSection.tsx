@@ -9,6 +9,21 @@ import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import type { SiteWaterConfig, WaterSourceWarning } from '@/api/types';
 import { waterSourceFieldConfig } from '@/config/fieldConfigs';
 
+export const TAP_WATER_DEFAULTS = {
+  ec_ms: 0.3,
+  ph: 7.0,
+  alkalinity_ppm: 0,
+  gh_ppm: 0,
+  calcium_ppm: 0,
+  magnesium_ppm: 0,
+  chlorine_ppm: 0,
+  chloramine_ppm: 0,
+  measurement_date: null as string | null,
+  source_note: null as string | null,
+};
+
+export const RO_WATER_DEFAULTS = { ec_ms: 0.02, ph: 6.5 };
+
 interface WaterSourceSectionProps {
   value: SiteWaterConfig;
   onChange: (config: SiteWaterConfig) => void;
@@ -24,20 +39,8 @@ export default function WaterSourceSection({
   const w = (key: string) => t(`pages.sites.water.${key}`);
   const fc = waterSourceFieldConfig;
 
-  const tap = value.tap_water_profile ?? {
-    ec_ms: 0.3,
-    ph: 7.0,
-    alkalinity_ppm: 0,
-    gh_ppm: 0,
-    calcium_ppm: 0,
-    magnesium_ppm: 0,
-    chlorine_ppm: 0,
-    chloramine_ppm: 0,
-    measurement_date: null,
-    source_note: null,
-  };
-
-  const ro = value.ro_water_profile ?? { ec_ms: 0.02, ph: 6.5 };
+  const tap = value.tap_water_profile ?? { ...TAP_WATER_DEFAULTS };
+  const ro = value.ro_water_profile ?? { ...RO_WATER_DEFAULTS };
 
   const updateTap = (field: string, val: number | string | null) => {
     onChange({

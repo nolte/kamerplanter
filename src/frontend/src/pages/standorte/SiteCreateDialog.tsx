@@ -13,7 +13,7 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import ShowAllFieldsToggle from '@/components/common/ShowAllFieldsToggle';
-import WaterSourceSection from '@/components/water/WaterSourceSection';
+import WaterSourceSection, { TAP_WATER_DEFAULTS, RO_WATER_DEFAULTS } from '@/components/water/WaterSourceSection';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -46,8 +46,8 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
   const { showAllOverride, toggleShowAll, level } = useExpertiseLevel();
   const [waterConfig, setWaterConfig] = useState<SiteWaterConfig>({
     has_ro_system: false,
-    tap_water_profile: null,
-    ro_water_profile: null,
+    tap_water_profile: { ...TAP_WATER_DEFAULTS },
+    ro_water_profile: { ...RO_WATER_DEFAULTS },
   });
 
   const { control, handleSubmit, reset } = useForm<FormData>({
@@ -58,14 +58,13 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
   const onSubmit = async (data: FormData) => {
     try {
       setSaving(true);
-      const hasWaterData = waterConfig.tap_water_profile || waterConfig.has_ro_system;
       await api.createSite({
         ...data,
-        water_config: hasWaterData ? waterConfig : undefined,
+        water_config: waterConfig,
       });
       notification.success(t('common.create'));
       reset();
-      setWaterConfig({ has_ro_system: false, tap_water_profile: null, ro_water_profile: null });
+      setWaterConfig({ has_ro_system: false, tap_water_profile: { ...TAP_WATER_DEFAULTS }, ro_water_profile: { ...RO_WATER_DEFAULTS } });
       onCreated();
     } catch (err) {
       handleError(err);

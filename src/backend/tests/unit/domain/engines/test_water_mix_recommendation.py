@@ -7,6 +7,8 @@ from app.domain.engines.water_mix_engine import (
     CA_MG_RATIO_WARN,
     CHLORAMINE_LIMIT_PPM,
     CHLORINE_LIMIT_PPM,
+    CHLORINE_LIMIT_LIVING_PPM,
+    CHLORAMINE_LIMIT_LIVING_PPM,
     DEFAULT_HEADROOM,
     FALLBACK_RO_PERCENT,
     FLUSH_MIN_RO_PERCENT,
@@ -65,8 +67,7 @@ class TestRecommendMixRatio:
             tap=tap, ro=ro, target_ec_ms=1.2, substrate_type="hydro_solution",
         )
 
-        # Hydro needs 70% headroom → 0.84 mS/cm available
-        # At 0% RO: available = 1.2 - 0.8 = 0.4, headroom = 0.33 < 0.70
+        # Hydro needs 95% headroom → almost pure RO needed
         assert result.recommended_ro_percent >= 40
         headroom = result.available_ec_for_nutrients / result.target_ec_ms
         assert headroom >= SUBSTRATE_HEADROOM["hydro_solution"]
@@ -81,8 +82,6 @@ class TestRecommendMixRatio:
             tap=tap, ro=ro, target_ec_ms=0.8, substrate_type="hydro_solution",
         )
 
-        # Even at 100% RO, EC is 0.03, available = 0.77, headroom = 0.96
-        # But at lower RO%, tap water dominates — need high RO
         assert result.recommended_ro_percent >= 70
 
     def test_high_chlorine_forces_higher_ro(self):
@@ -115,7 +114,7 @@ class TestRecommendMixRatio:
         assert result.recommended_ro_percent >= 65
 
     def test_substrate_headroom_soil_vs_hydro(self):
-        """Soil (50% headroom) should recommend lower RO% than hydro (70%)."""
+        """Soil (85% headroom) should recommend lower RO% than hydro (95%)."""
         calc = WaterMixCalculator()
         tap = _make_tap(ec_ms=0.5, chlorine_ppm=0.1, chloramine_ppm=0.05)
         ro = _make_ro()
@@ -130,7 +129,7 @@ class TestRecommendMixRatio:
         assert soil_result.recommended_ro_percent <= hydro_result.recommended_ro_percent
 
     def test_unknown_substrate_uses_default_headroom(self):
-        """Unknown substrate type should use DEFAULT_HEADROOM (0.60)."""
+        """Unknown substrate type should use DEFAULT_HEADROOM."""
         calc = WaterMixCalculator()
         tap = _make_tap(ec_ms=0.4, chlorine_ppm=0.1, chloramine_ppm=0.05)
         ro = _make_ro()
@@ -214,18 +213,44 @@ class TestRecommendMixRatio:
 
     def test_all_substrate_headrooms_exist(self):
         """Ensure all specified substrate types have headroom values."""
-        assert SUBSTRATE_HEADROOM["hydro_solution"] == 0.70
-        assert SUBSTRATE_HEADROOM["deep_water_culture"] == 0.70
-        assert SUBSTRATE_HEADROOM["aeroponics"] == 0.70
-        assert SUBSTRATE_HEADROOM["coco"] == 0.60
-        assert SUBSTRATE_HEADROOM["soil"] == 0.50
-        assert SUBSTRATE_HEADROOM["living_soil"] == 0.50
-        assert DEFAULT_HEADROOM == 0.60
+        # Hydroponic / no CEC
+        assert SUBSTRATE_HEADROOM["hydro_solution"] == 0.95
+        assert SUBSTRATE_HEADROOM["deep_water_culture"] == 0.95
+        assert SUBSTRATE_HEADROOM["aeroponics"] == 0.95
+        assert SUBSTRATE_HEADROOM["rockwool_slab"] == 0.95
+        assert SUBSTRATE_HEADROOM["rockwool_plug"] == 0.95
+        assert SUBSTRATE_HEADROOM["clay_pebbles"] == 0.95
+        assert SUBSTRATE_HEADROOM["perlite"] == 0.93
+        assert SUBSTRATE_HEADROOM["none"] == 0.95
+        # Moderate CEC
+        assert SUBSTRATE_HEADROOM["coco"] == 0.90
+        assert SUBSTRATE_HEADROOM["vermiculite"] == 0.90
+        assert SUBSTRATE_HEADROOM["pon_mineral"] == 0.90
+        assert SUBSTRATE_HEADROOM["orchid_bark"] == 0.92
+        # High CEC
+        assert SUBSTRATE_HEADROOM["soil"] == 0.85
+        assert SUBSTRATE_HEADROOM["peat"] == 0.83
+        # Special
+        assert SUBSTRATE_HEADROOM["sphagnum"] == 0.99
+        # living_soil intentionally absent — uses water-quality path
+        assert "living_soil" not in SUBSTRATE_HEADROOM
+        assert DEFAULT_HEADROOM == 0.85
+
+    def test_all_alkalinity_limits_exist(self):
+        """Ensure all substrate types have alkalinity limits."""
+        assert SUBSTRATE_ALKALINITY_LIMIT["hydro_solution"] == 60.0
+        assert SUBSTRATE_ALKALINITY_LIMIT["rockwool_slab"] == 60.0
+        assert SUBSTRATE_ALKALINITY_LIMIT["coco"] == 80.0
+        assert SUBSTRATE_ALKALINITY_LIMIT["soil"] == 120.0
+        assert SUBSTRATE_ALKALINITY_LIMIT["living_soil"] == 80.0  # microbiome protection
+        assert SUBSTRATE_ALKALINITY_LIMIT["sphagnum"] == 10.0
 
     def test_constants_values(self):
         """Verify safety limit constants."""
         assert CHLORINE_LIMIT_PPM == 0.5
         assert CHLORAMINE_LIMIT_PPM == 0.3
+        assert CHLORINE_LIMIT_LIVING_PPM == 0.1
+        assert CHLORAMINE_LIMIT_LIVING_PPM == 0.1
         assert FALLBACK_RO_PERCENT == 80
 
     def test_recommended_ro_in_5_percent_steps(self):
@@ -253,6 +278,103 @@ class TestRecommendMixRatio:
 
         # Nothing can meet all criteria, so fallback
         assert result.recommended_ro_percent == FALLBACK_RO_PERCENT
+
+
+class TestLivingSoilPath:
+    """Tests for the living-soil water-quality-only path."""
+
+    def test_living_soil_uses_water_quality_path(self):
+        """Living soil should not use EC headroom logic."""
+        calc = WaterMixCalculator()
+        tap = _make_tap(ec_ms=0.5, chlorine_ppm=0.0, chloramine_ppm=0.0, alkalinity_ppm=30)
+        ro = _make_ro()
+
+        result = calc.recommend_mix_ratio(
+            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="living_soil",
+        )
+
+        # EC headroom fields should be 0 (not applicable)
+        assert result.target_ec_ms == 0.0
+        assert result.min_headroom_ratio == 0.0
+        assert result.available_ec_for_nutrients == 0.0
+        assert "living soil" in result.reasoning.lower() or "microbiome" in result.reasoning.lower()
+
+    def test_living_soil_clean_water_no_ro(self):
+        """Clean tap water (no chlorine, low alkalinity) needs no RO for living soil."""
+        calc = WaterMixCalculator()
+        tap = _make_tap(ec_ms=0.3, chlorine_ppm=0.0, chloramine_ppm=0.0, alkalinity_ppm=50)
+        ro = _make_ro()
+
+        result = calc.recommend_mix_ratio(
+            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="living_soil",
+        )
+
+        assert result.recommended_ro_percent == 0
+
+    def test_living_soil_chlorine_forces_ro(self):
+        """Even low chlorine (0.2 ppm) should force RO for living soil (limit 0.1)."""
+        calc = WaterMixCalculator()
+        tap = _make_tap(ec_ms=0.3, chlorine_ppm=0.2, chloramine_ppm=0.0, alkalinity_ppm=30)
+        ro = _make_ro()
+
+        result = calc.recommend_mix_ratio(
+            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="living_soil",
+        )
+
+        # 0.2 * (1 - X/100) < 0.1 → X > 50
+        assert result.recommended_ro_percent >= 50
+
+    def test_living_soil_high_alkalinity_forces_ro(self):
+        """High alkalinity should force RO for living soil (limit 80 ppm)."""
+        calc = WaterMixCalculator()
+        tap = _make_tap(ec_ms=0.2, chlorine_ppm=0.0, chloramine_ppm=0.0, alkalinity_ppm=200)
+        ro = _make_ro()
+
+        result = calc.recommend_mix_ratio(
+            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="living_soil",
+        )
+
+        # 200 * (1 - X/100) <= 80 → X >= 60
+        assert result.recommended_ro_percent >= 60
+
+    def test_living_soil_flush_overrides_quality_path(self):
+        """Flush phase on living soil should use standard flush logic."""
+        calc = WaterMixCalculator()
+        tap = _make_tap(ec_ms=0.3, chlorine_ppm=0.0, chloramine_ppm=0.0, alkalinity_ppm=30)
+        ro = _make_ro()
+
+        result = calc.recommend_mix_ratio(
+            tap=tap, ro=ro, target_ec_ms=1.0, substrate_type="living_soil",
+            phase_name="flushing",
+        )
+
+        assert result.recommended_ro_percent >= FLUSH_MIN_RO_PERCENT
+
+    def test_living_soil_chloramine_warning(self):
+        """Chloramine in tap water should produce a removal hint."""
+        calc = WaterMixCalculator()
+        tap = _make_tap(ec_ms=0.3, chlorine_ppm=0.0, chloramine_ppm=0.2, alkalinity_ppm=30)
+        ro = _make_ro()
+
+        result = calc.recommend_mix_ratio(
+            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="living_soil",
+        )
+
+        assert "chloramine" in result.reasoning.lower()
+
+    def test_sphagnum_uses_water_quality_path(self):
+        """Sphagnum should also use water-quality-only path."""
+        calc = WaterMixCalculator()
+        tap = _make_tap(ec_ms=0.3, chlorine_ppm=0.0, chloramine_ppm=0.0, alkalinity_ppm=30)
+        ro = _make_ro()
+
+        result = calc.recommend_mix_ratio(
+            tap=tap, ro=ro, target_ec_ms=1.0, substrate_type="sphagnum",
+        )
+
+        # Sphagnum has alk limit 10 ppm → 30 * (1-X/100) <= 10 → X >= 67
+        assert result.recommended_ro_percent >= 65
+        assert "sphagnum" in result.reasoning.lower() or "carnivorous" in result.reasoning.lower()
 
 
 class TestAlkalinityConstraint:
@@ -334,6 +456,38 @@ class TestCaMgRatioConstraint:
 
         assert result.recommended_ro_percent == 0
         assert "Ca:Mg" not in result.reasoning
+
+    def test_calmag_warning_high_ratio(self):
+        """CalMag correction should warn when final Ca:Mg > 5:1."""
+        calc = WaterMixCalculator()
+        tap = _make_tap()
+        ro = _make_ro()
+
+        result = calc.recommend_mix_ratio(
+            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="coco",
+            target_ca_ppm=200, target_mg_ppm=30,  # 6.7:1
+        )
+
+        assert result.calmag_correction is not None
+        assert result.calmag_correction.ca_mg_ratio is not None
+        assert result.calmag_correction.ca_mg_ratio > 5.0
+        assert "magnesium lockout" in result.calmag_correction.ca_mg_ratio_warning.lower()
+
+    def test_calmag_warning_low_ratio(self):
+        """CalMag correction should warn when final Ca:Mg < 2:1."""
+        calc = WaterMixCalculator()
+        tap = _make_tap()
+        ro = _make_ro()
+
+        result = calc.recommend_mix_ratio(
+            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="coco",
+            target_ca_ppm=30, target_mg_ppm=30,  # 1:1
+        )
+
+        assert result.calmag_correction is not None
+        assert result.calmag_correction.ca_mg_ratio is not None
+        assert result.calmag_correction.ca_mg_ratio < 2.0
+        assert "calcium deficiency" in result.calmag_correction.ca_mg_ratio_warning.lower()
 
 
 class TestFlushPhaseConstraint:

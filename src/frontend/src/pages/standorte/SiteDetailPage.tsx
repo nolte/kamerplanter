@@ -28,7 +28,7 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
-import WaterSourceSection from '@/components/water/WaterSourceSection';
+import WaterSourceSection, { TAP_WATER_DEFAULTS, RO_WATER_DEFAULTS } from '@/components/water/WaterSourceSection';
 import LocationTreeSection from './LocationTreeSection';
 import SiteRunsSection from './SiteRunsSection';
 import SensorCreateDialog from './SensorCreateDialog';
@@ -65,8 +65,8 @@ export default function SiteDetailPage() {
   const [deleteSensorKey, setDeleteSensorKey] = useState<string | null>(null);
   const [waterConfig, setWaterConfig] = useState<SiteWaterConfig>({
     has_ro_system: false,
-    tap_water_profile: null,
-    ro_water_profile: null,
+    tap_water_profile: { ...TAP_WATER_DEFAULTS },
+    ro_water_profile: { ...RO_WATER_DEFAULTS },
   });
   const sensorTableState = useTableLocalState({ defaultSort: { column: 'name', direction: 'asc' } });
 
@@ -96,10 +96,11 @@ export default function SiteDetailPage() {
   useEffect(() => {
     if (current) {
       reset({ name: current.name, climate_zone: current.climate_zone, total_area_m2: current.total_area_m2, timezone: current.timezone ?? 'UTC' });
-      setWaterConfig(current.water_config ?? {
-        has_ro_system: false,
-        tap_water_profile: null,
-        ro_water_profile: null,
+      const wc = current.water_config;
+      setWaterConfig({
+        has_ro_system: wc?.has_ro_system ?? false,
+        tap_water_profile: wc?.tap_water_profile ?? { ...TAP_WATER_DEFAULTS },
+        ro_water_profile: wc?.ro_water_profile ?? { ...RO_WATER_DEFAULTS },
       });
     }
   }, [current, reset]);
@@ -108,10 +109,9 @@ export default function SiteDetailPage() {
     if (!key) return;
     try {
       setSaving(true);
-      const hasWaterData = waterConfig.tap_water_profile || waterConfig.has_ro_system;
       await api.updateSite(key, {
         ...data,
-        water_config: hasWaterData ? waterConfig : undefined,
+        water_config: waterConfig,
       });
       notification.success(t('common.save'));
       dispatch(fetchSite(key));
