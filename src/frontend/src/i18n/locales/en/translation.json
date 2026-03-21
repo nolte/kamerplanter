@@ -1380,6 +1380,9 @@
       "name": "Name",
       "description": "Description",
       "substrateType": "Substrate Type",
+      "referenceSubstrateType": "Reference Substrate (EC Calibration)",
+      "substrateCorrection": "Substrate correction applied",
+      "referenceEc": "Reference EC",
       "author": "Author",
       "isTemplate": "Template",
       "version": "Version",
@@ -2532,7 +2535,9 @@
         "today": "Today",
         "toggleFavorite": "Toggle favorite",
         "showFavoritesOnly": "Favorites only",
-        "viewDetails": "View species details"
+        "viewDetails": "View species details",
+        "indoorPlant": "Houseplant",
+        "filterByCategory": "Filter by category"
       },
       "seasonOverview": {
         "title": "Season Overview",
@@ -2762,6 +2767,17 @@
       "moderate": "Moderate",
       "hardy": "Hardy",
       "very_hardy": "Very Hardy"
+    },
+    "plantCategory": {
+      "indoor_houseplant": "Houseplant",
+      "outdoor_ornamental": "Garden Ornamental",
+      "outdoor_vegetable": "Vegetable",
+      "balcony_plant": "Balcony Plant",
+      "succulent_cactus": "Succulent / Cactus",
+      "tropical_foliage": "Tropical Foliage",
+      "orchid": "Orchid",
+      "herb": "Herb",
+      "bulb_tuber": "Bulb / Tuber"
     },
     "pollinationType": {
       "insect": "Insect Pollination",

@@ -31,6 +31,7 @@ from app.common.enums import (
     GrowthHabit,
     PathogenType,
     PhotoperiodType,
+    PlantCategory,
     PlantTrait,
     RootType,
     StressTolerance,
@@ -99,11 +100,13 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
     species_list: list[Species] = []
     for entry in data.get("new_species", []):
         frost = entry.get("frost_sensitivity")
+        pc = entry.get("plant_category")
         species_list.append(
             Species(
                 scientific_name=entry["scientific_name"],
                 common_names=entry.get("common_names", []),
                 genus=entry.get("genus", ""),
+                plant_category=PlantCategory(pc) if pc else None,
                 growth_habit=GrowthHabit(entry.get("growth_habit", "herb")),
                 root_type=RootType(entry.get("root_type", "fibrous")),
                 hardiness_zones=entry.get("hardiness_zones", []),
@@ -270,14 +273,18 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
     species_key_map: dict[str, str] = {}
 
     for sp in new_species:
+        family_name = new_species_family_map.get(sp.scientific_name, "")
+        sp.family_key = family_map.get(family_name, "")
+
         existing = species_repo.get_by_scientific_name(sp.scientific_name)
         if existing:
             species_key_map[sp.scientific_name] = existing.key or ""
-            logger.info("species_exists", name=sp.scientific_name)
+            # Update phase-relevant fields from YAML (idempotent)
+            sp.family_key = sp.family_key or existing.family_key
+            species_repo.update(existing.key or "", sp)
+            logger.info("species_updated", name=sp.scientific_name)
             continue
 
-        family_name = new_species_family_map.get(sp.scientific_name, "")
-        sp.family_key = family_map.get(family_name, "")
         created = species_repo.create(sp)
         species_key_map[sp.scientific_name] = created.key or ""
         logger.info("species_created", name=sp.scientific_name)

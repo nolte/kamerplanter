@@ -730,6 +730,7 @@ species_enrichment:
     mature_height_cm: "80"
     mature_width_cm: "50"
     sowing_indoor_weeks_before_last_frost: 10
+    sowing_outdoor_after_last_frost_days: 14
     harvest_months: [7, 8, 9, 10]
     bloom_months: [6, 7, 8]
     pruning_type: summer_pruning
@@ -833,7 +834,7 @@ species_enrichment:
     sowing_indoor_weeks_before_last_frost: 4
     sowing_outdoor_after_last_frost_days: 14
     direct_sow_months: [5, 6]
-    harvest_months: [6, 7, 8, 9, 10]
+    harvest_months: [7, 8, 9, 10]
     bloom_months: [6, 7, 8, 9]
 
   "Daucus carota":

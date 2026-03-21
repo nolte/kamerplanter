@@ -1612,15 +1612,16 @@ species_enrichment:
     greenhouse_recommended: true
     frost_sensitivity: sensitive
     harvest_months: [7, 8, 9, 10]
-    bloom_months: [5, 6, 7, 8]
+    bloom_months: [6, 7, 8, 9]
     sowing_indoor_weeks_before_last_frost: 8
+    sowing_outdoor_after_last_frost_days: 14
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     allelopathy_score: -0.2
     native_habitat: "Suedamerika (Peru, Ecuador)"
     support_required: true
     pruning_type: summer_pruning
-    pruning_months: [5, 6, 7, 8, 9]
+    pruning_months: [6, 7, 8, 9]
 
   "Solanum tuberosum":
     container_suitable: limited
@@ -1637,7 +1638,7 @@ species_enrichment:
     bloom_months: [6, 7]
     sowing_indoor_weeks_before_last_frost: 5
     sowing_outdoor_after_last_frost_days: 7
-    direct_sow_months: [3, 4, 5]
+    direct_sow_months: [4, 5]
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     allelopathy_score: -0.1

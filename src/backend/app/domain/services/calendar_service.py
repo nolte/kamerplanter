@@ -128,6 +128,7 @@ class CalendarService:
                 harvest_from_year=sp.harvest_from_year,
                 bloom_from_year=sp.bloom_from_year,
                 frost_sensitivity=sp.frost_sensitivity,
+                plant_category=sp.plant_category.value if sp.plant_category else None,
             )
             for sp in species_list
             if _has_sowing_data(sp)

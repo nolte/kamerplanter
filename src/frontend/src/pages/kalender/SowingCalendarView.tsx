@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -15,9 +15,41 @@ import StarBorderIcon from '@mui/icons-material/StarBorder';
 import SearchIcon from '@mui/icons-material/Search';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import AcUnitIcon from '@mui/icons-material/AcUnit';
+import CottageOutlinedIcon from '@mui/icons-material/CottageOutlined';
+import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
+import GrassIcon from '@mui/icons-material/Grass';
+import DeckIcon from '@mui/icons-material/Deck';
+import WbSunnyIcon from '@mui/icons-material/WbSunny';
+import ForestIcon from '@mui/icons-material/Forest';
+import SpaIcon from '@mui/icons-material/Spa';
+import RestaurantIcon from '@mui/icons-material/Restaurant';
+import FilterVintageIcon from '@mui/icons-material/FilterVintage';
 import EmptyState from '@/components/common/EmptyState';
 import type { SowingCalendarEntry, FrostConfig, SowingPhase } from '@/api/types';
 import { MONTH_WEEK_SPANS, getShortMonthName } from '@/utils/weekCalculation';
+
+type PlantCategoryKey =
+  | 'indoor_houseplant' | 'outdoor_ornamental' | 'outdoor_vegetable'
+  | 'balcony_plant' | 'succulent_cactus' | 'tropical_foliage'
+  | 'orchid' | 'herb' | 'bulb_tuber';
+
+const CATEGORY_ICONS: Record<PlantCategoryKey, React.ReactElement> = {
+  indoor_houseplant: <CottageOutlinedIcon sx={{ fontSize: 16 }} />,
+  outdoor_ornamental: <LocalFloristIcon sx={{ fontSize: 16 }} />,
+  outdoor_vegetable: <GrassIcon sx={{ fontSize: 16 }} />,
+  balcony_plant: <DeckIcon sx={{ fontSize: 16 }} />,
+  succulent_cactus: <WbSunnyIcon sx={{ fontSize: 16 }} />,
+  tropical_foliage: <ForestIcon sx={{ fontSize: 16 }} />,
+  orchid: <SpaIcon sx={{ fontSize: 16 }} />,
+  herb: <RestaurantIcon sx={{ fontSize: 16 }} />,
+  bulb_tuber: <FilterVintageIcon sx={{ fontSize: 16 }} />,
+};
+
+const CATEGORY_DISPLAY_ORDER: PlantCategoryKey[] = [
+  'outdoor_vegetable', 'herb', 'outdoor_ornamental', 'bulb_tuber',
+  'balcony_plant', 'indoor_houseplant', 'tropical_foliage',
+  'succulent_cactus', 'orchid',
+];
 
 const PHASE_COLORS: Record<SowingPhase, string> = {
   indoor_sowing: '#FDD835',
@@ -66,9 +98,28 @@ export default function SowingCalendarView({ entries, frostConfig, year, favorit
   const { t, i18n } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [selectedCategories, setSelectedCategories] = useState<Set<PlantCategoryKey>>(() => new Set());
 
   const labelWidth = isMobile ? 120 : 210;
   const totalWeeks = 52;
+
+  // Detect which plant categories are present in the data
+  const usedCategories = useMemo(() => {
+    const cats = new Set<PlantCategoryKey>();
+    for (const entry of entries) {
+      if (entry.plant_category) cats.add(entry.plant_category as PlantCategoryKey);
+    }
+    return CATEGORY_DISPLAY_ORDER.filter((c) => cats.has(c));
+  }, [entries]);
+
+  const toggleCategory = (cat: PlantCategoryKey) => {
+    setSelectedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  };
 
   // Eisheilige week for the vertical line
   const eisheiligenWeek = useMemo(() => {
@@ -100,11 +151,16 @@ export default function SowingCalendarView({ entries, frostConfig, year, favorit
     return order.filter((p) => phases.has(p));
   }, [entries]);
 
-  // Filter (if favorites-only) then sort: favorites first, then alphabetical
+  // Filter by favorites, category, then sort
   const sortedEntries = useMemo(() => {
-    const filtered = showFavoritesOnly
+    let filtered = showFavoritesOnly
       ? entries.filter((e) => favorites.has(e.species_key))
       : entries;
+    if (selectedCategories.size > 0) {
+      filtered = filtered.filter((e) =>
+        e.plant_category ? selectedCategories.has(e.plant_category as PlantCategoryKey) : false,
+      );
+    }
     return [...filtered].sort((a, b) => {
       const aFav = favorites.has(a.species_key);
       const bFav = favorites.has(b.species_key);
@@ -113,7 +169,7 @@ export default function SowingCalendarView({ entries, frostConfig, year, favorit
       const bName = b.common_name || b.species_name;
       return aName.localeCompare(bName);
     });
-  }, [entries, favorites, showFavoritesOnly]);
+  }, [entries, favorites, showFavoritesOnly, selectedCategories]);
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -147,6 +203,34 @@ export default function SowingCalendarView({ entries, frostConfig, year, favorit
               variant="outlined"
               color="error"
             />
+          </Box>
+        )}
+
+        {/* Plant category filter chips */}
+        {usedCategories.length > 1 && (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1.5 }} role="group" aria-label={t('pages.calendar.sowingCalendar.filterByCategory')}>
+            {usedCategories.map((cat) => (
+              <Chip
+                key={cat}
+                icon={CATEGORY_ICONS[cat]}
+                label={t(`enums.plantCategory.${cat}`)}
+                size="small"
+                variant={selectedCategories.has(cat) ? 'filled' : 'outlined'}
+                color={selectedCategories.has(cat) ? 'primary' : 'default'}
+                onClick={() => toggleCategory(cat)}
+                data-testid={`sowing-category-filter-${cat}`}
+              />
+            ))}
+            {selectedCategories.size > 0 && (
+              <Chip
+                label={t('common.all')}
+                size="small"
+                variant="outlined"
+                onClick={() => setSelectedCategories(new Set())}
+                onDelete={() => setSelectedCategories(new Set())}
+                data-testid="sowing-category-filter-clear"
+              />
+            )}
           </Box>
         )}
 
@@ -287,6 +371,12 @@ function SowingRow({
   isMobile: boolean;
 }) {
   const displayName = entry.common_name || entry.species_name;
+  const isIndoor = entry.plant_category
+    ? entry.plant_category === 'indoor_houseplant'
+      || entry.plant_category === 'tropical_foliage'
+      || entry.plant_category === 'orchid'
+      || entry.plant_category === 'succulent_cactus'
+    : !entry.bars.some((b) => b.phase === 'indoor_sowing' || b.phase === 'outdoor_planting');
 
   // Build tooltip
   const tooltipLines = entry.bars.map((bar) => {
@@ -333,11 +423,16 @@ function SowingRow({
         >
           <SearchIcon sx={{ fontSize: isMobile ? 16 : 20 }} />
         </IconButton>
+        {isIndoor && (
+          <Tooltip title={t('pages.calendar.sowingCalendar.indoorPlant')} arrow>
+            <CottageOutlinedIcon sx={{ fontSize: isMobile ? 14 : 16, color: 'text.secondary', flexShrink: 0 }} />
+          </Tooltip>
+        )}
         <Tooltip title={entry.species_name} arrow>
           <Typography
             variant="body2"
             noWrap
-            sx={{ fontWeight: 500, maxWidth: labelWidth - (isMobile ? 70 : 90) }}
+            sx={{ fontWeight: 500, maxWidth: labelWidth - (isMobile ? (isIndoor ? 86 : 70) : (isIndoor ? 110 : 90)) }}
           >
             {displayName}
           </Typography>

@@ -962,27 +962,29 @@ export default function CalendarPage() {
         </Tabs>
       </Box>
 
-      {/* Category filter chips */}
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }} role="group" aria-label={t('pages.calendar.categories')}>
-        {ALL_CATEGORIES.map((cat) => (
-          <Chip
-            key={cat}
-            label={t(CATEGORY_I18N_KEYS[cat])}
-            size="small"
-            variant={selectedCategories.has(cat) ? 'filled' : 'outlined'}
-            onClick={() => toggleCategory(cat)}
-            data-testid={`category-filter-${cat}`}
-            sx={{
-              bgcolor: selectedCategories.has(cat) ? CATEGORY_COLORS[cat] : 'transparent',
-              color: selectedCategories.has(cat) ? 'common.white' : 'text.primary',
-              borderColor: CATEGORY_COLORS[cat],
-              '&:hover': {
-                bgcolor: selectedCategories.has(cat) ? CATEGORY_COLORS[cat] : `${CATEGORY_COLORS[cat]}22`,
-              },
-            }}
-          />
-        ))}
-      </Box>
+      {/* Category filter chips — only relevant for month/list/phases views */}
+      {viewMode !== 'sowing' && viewMode !== 'season' && (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }} role="group" aria-label={t('pages.calendar.categories')}>
+          {ALL_CATEGORIES.map((cat) => (
+            <Chip
+              key={cat}
+              label={t(CATEGORY_I18N_KEYS[cat])}
+              size="small"
+              variant={selectedCategories.has(cat) ? 'filled' : 'outlined'}
+              onClick={() => toggleCategory(cat)}
+              data-testid={`category-filter-${cat}`}
+              sx={{
+                bgcolor: selectedCategories.has(cat) ? CATEGORY_COLORS[cat] : 'transparent',
+                color: selectedCategories.has(cat) ? 'common.white' : 'text.primary',
+                borderColor: CATEGORY_COLORS[cat],
+                '&:hover': {
+                  bgcolor: selectedCategories.has(cat) ? CATEGORY_COLORS[cat] : `${CATEGORY_COLORS[cat]}22`,
+                },
+              }}
+            />
+          ))}
+        </Box>
+      )}
 
       {/* Calendar content */}
       {viewMode === 'sowing' ? (

@@ -191,6 +191,7 @@ export interface Species {
   harvest_from_year: number | null;
   bloom_from_year: number | null;
   frost_sensitivity: FrostTolerance | null;
+  plant_category: string | null;
   allows_harvest: boolean;
   growing_periods: GrowingPeriod[];
   container_suitable: Suitability | null;
@@ -232,6 +233,7 @@ export interface SpeciesCreate {
   harvest_from_year?: number | null;
   bloom_from_year?: number | null;
   frost_sensitivity?: FrostTolerance | null;
+  plant_category?: string | null;
   allows_harvest?: boolean;
   growing_periods?: GrowingPeriod[];
   container_suitable?: Suitability | null;
@@ -1413,6 +1415,7 @@ export interface NutrientPlan {
   name: string;
   description: string;
   recommended_substrate_type: SubstrateType | null;
+  reference_substrate_type: SubstrateType;
   author: string;
   is_template: boolean;
   version: string;
@@ -1429,6 +1432,7 @@ export interface NutrientPlanCreate {
   name: string;
   description?: string;
   recommended_substrate_type?: SubstrateType | null;
+  reference_substrate_type?: SubstrateType;
   author?: string;
   is_template?: boolean;
   version?: string;
@@ -1442,6 +1446,7 @@ export interface NutrientPlanUpdate {
   name?: string;
   description?: string;
   recommended_substrate_type?: SubstrateType | null;
+  reference_substrate_type?: SubstrateType;
   author?: string;
   is_template?: boolean;
   version?: string;
@@ -1530,6 +1535,7 @@ export interface NutrientPlanPhaseEntry {
   calcium_ppm: number | null;
   magnesium_ppm: number | null;
   target_ec_ms: number | null;
+  reference_ec_ms: number | null;
   target_calcium_ppm: number | null;
   target_magnesium_ppm: number | null;
   reference_base_ec: number;
@@ -1551,6 +1557,7 @@ export interface PhaseEntryCreate {
   calcium_ppm?: number | null;
   magnesium_ppm?: number | null;
   target_ec_ms?: number | null;
+  reference_ec_ms?: number | null;
   target_calcium_ppm?: number | null;
   target_magnesium_ppm?: number | null;
   reference_base_ec?: number;
@@ -1570,6 +1577,7 @@ export interface PhaseEntryUpdate {
   calcium_ppm?: number | null;
   magnesium_ppm?: number | null;
   target_ec_ms?: number | null;
+  reference_ec_ms?: number | null;
   target_calcium_ppm?: number | null;
   target_magnesium_ppm?: number | null;
   reference_base_ec?: number;
@@ -3113,6 +3121,7 @@ export interface SowingCalendarEntry {
   species_name: string;
   common_name: string;
   link_species_key: string;
+  plant_category: string | null;
   bars: SowingBar[];
 }
 

@@ -1380,6 +1380,9 @@
       "name": "Name",
       "description": "Beschreibung",
       "substrateType": "Substrattyp",
+      "referenceSubstrateType": "Referenz-Substrat (EC-Kalibrierung)",
+      "substrateCorrection": "Substrat-Korrektur angewandt",
+      "referenceEc": "Referenz-EC",
       "author": "Autor",
       "isTemplate": "Vorlage",
       "version": "Version",
@@ -2532,7 +2535,9 @@
         "today": "Heute",
         "toggleFavorite": "Favorit umschalten",
         "showFavoritesOnly": "Nur Favoriten",
-        "viewDetails": "Art-Details anzeigen"
+        "viewDetails": "Art-Details anzeigen",
+        "indoorPlant": "Zimmerpflanze",
+        "filterByCategory": "Nach Kategorie filtern"
       },
       "seasonOverview": {
         "title": "Saisonübersicht",
@@ -2762,6 +2767,17 @@
       "moderate": "Moderat",
       "hardy": "Hardy",
       "very_hardy": "Sehr hardy"
+    },
+    "plantCategory": {
+      "indoor_houseplant": "Zimmerpflanze",
+      "outdoor_ornamental": "Gartenzierpflanze",
+      "outdoor_vegetable": "Gemüse",
+      "balcony_plant": "Balkonpflanze",
+      "succulent_cactus": "Sukkulente / Kaktus",
+      "tropical_foliage": "Tropische Blattpflanze",
+      "orchid": "Orchidee",
+      "herb": "Küchenkraut",
+      "bulb_tuber": "Zwiebel- / Knollenpflanze"
     },
     "pollinationType": {
       "insect": "Insektenbestäubung",
