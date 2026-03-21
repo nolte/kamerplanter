@@ -15,12 +15,15 @@
 | Name | Erbse -- Plagron Terra (Leguminose) | `nutrient_plans.name` |
 | Beschreibung | Minimalduegungs-Plan fuer Erbse (Pisum sativum) als Stickstoff-Fixierer und Kuehle-Liebhaber. Plagron Terra-Linie mit nur 2 Produkten. KEIN Terra Grow (zu viel N)! Leguminosen fixieren Stickstoff ueber Rhizobium-Symbiose -- N-Duengung ist kontraproduktiv. Terra Bloom in Viertel-Dosis fuer minimale P+K-Versorgung. Direktsaat ab Maerz (Keimlinge vertragen leichten Frost bis -4 degC). 12--16 Wochen Kulturzeit. Fruehjahrskultur -- leidet ab 25 degC Dauertemperatur. Annuell -- kein Zyklus-Neustart. | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | erbse, pisum, fabaceae, leguminose, plagron, terra, erde, outdoor, schwachzehrer, n-fixierer, gemuese, kuehleliebhaber | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (annuell, kein Neustart) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -135,7 +138,8 @@ Erbsen sind Schwachzehrer UND N-Fixierer mit dem niedrigsten Duengebedarf aller 
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer) |
 
@@ -158,7 +162,8 @@ Erbsen sind Schwachzehrer UND N-Fixierer mit dem niedrigsten Duengebedarf aller 
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer) |
 
@@ -181,7 +186,8 @@ Erbsen sind Schwachzehrer UND N-Fixierer mit dem niedrigsten Duengebedarf aller 
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.5 |
+| target_ec_ms | 0.5  |
+| reference_ec_ms | 0.5  |
 | target_ph | 6.5 |
 | Terra Bloom ml/L | 1.25 (Viertel-Dosis, minimale Duengung) |
 | Pure Zym ml/L | 1.0 |
@@ -205,7 +211,8 @@ Erbsen sind Schwachzehrer UND N-Fixierer mit dem niedrigsten Duengebedarf aller 
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.5 |
+| target_ec_ms | 0.5  |
+| reference_ec_ms | 0.5  |
 | target_ph | 6.5 |
 | Terra Bloom ml/L | 1.25 (Viertel-Dosis, unveraendert) |
 | Pure Zym ml/L | 1.0 |
@@ -231,7 +238,8 @@ Erbsen sind Schwachzehrer UND N-Fixierer mit dem niedrigsten Duengebedarf aller 
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer) |
 
@@ -348,6 +356,7 @@ Bei einer Erbsen-Reihe (20 Pflanzen), 0.15 L Giessloessung pro Duengung (gesamte
   "name": "Erbse \u2014 Plagron Terra (Leguminose)",
   "description": "Minimald\u00fcngungs-Plan f\u00fcr Erbse (Pisum sativum) als N-Fixierer und K\u00fchle-Liebhaber. KEIN Terra Grow! Nur Terra Bloom (P+K) in Viertel-Dosis. Rhizobium-Symbiose liefert Stickstoff. Direktsaat ab M\u00e4rz, 12\u201316 Wochen Kulturzeit. Leidet ab 25\u00b0C.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -397,6 +406,7 @@ Bei einer Erbsen-Reihe (20 Pflanzen), 0.15 L Giessloessung pro Duengung (gesamte
       "enabled": true,
       "notes": "Kein D\u00fcnger. Gleichm\u00e4\u00dfig feucht, nicht nass.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.02}
@@ -427,6 +437,7 @@ Bei einer Erbsen-Reihe (20 Pflanzen), 0.15 L Giessloessung pro Duengung (gesamte
       "enabled": true,
       "notes": "Kein D\u00fcnger. Rhizobium-Etablierung nicht st\u00f6ren.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.05}
@@ -457,6 +468,7 @@ Bei einer Erbsen-Reihe (20 Pflanzen), 0.15 L Giessloessung pro Duengung (gesamte
       "enabled": true,
       "notes": "Terra Bloom Viertel-Dosis + Pure Zym. KEIN Terra Grow! Reihenfolge: Terra Bloom \u2192 Pure Zym \u2192 pH pr\u00fcfen.",
       "target_ec_ms": 0.5,
+      "reference_ec_ms": 0.5,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 1.25, "optional": false},
@@ -490,6 +502,7 @@ Bei einer Erbsen-Reihe (20 Pflanzen), 0.15 L Giessloessung pro Duengung (gesamte
       "enabled": true,
       "notes": "Terra Bloom Viertel-Dosis + Pure Zym. Dosierung bleibt gleich wie VEGETATIVE (extremer Schwachzehrer).",
       "target_ec_ms": 0.5,
+      "reference_ec_ms": 0.5,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 1.25, "optional": false},
@@ -523,6 +536,7 @@ Bei einer Erbsen-Reihe (20 Pflanzen), 0.15 L Giessloessung pro Duengung (gesamte
       "enabled": true,
       "notes": "Kein D\u00fcnger. Gleichm\u00e4\u00dfig gie\u00dfen f\u00fcr H\u00fclsenqualit\u00e4t.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.1}

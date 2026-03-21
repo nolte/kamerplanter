@@ -36,6 +36,7 @@ nutrient_plans:
       Einzeldünger-Konzept mit Gardol Grünpflanzendünger (NPK 6-4-6).
       Saisonaler Rhythmus: März–Oktober Düngung, November–Februar Pause.
     recommended_substrate_type: soil
+    reference_substrate_type: soil
     author: Kamerplanter Referenzdaten
     is_template: true
     version: "1.2"
@@ -87,6 +88,7 @@ nutrient_plans:
         week_end: 16
         is_recurring: false
         npk_ratio: [1.0, 1.0, 1.0]
+        reference_ec_ms: 0.6
         calcium_ppm: 40.0
         magnesium_ppm: 20.0
         notes: >-
@@ -147,6 +149,7 @@ nutrient_plans:
         week_end: 43
         is_recurring: true
         npk_ratio: [1.5, 1.0, 1.5]
+        reference_ec_ms: 1.0
         calcium_ppm: 80.0
         magnesium_ppm: 40.0
         notes: >-
@@ -203,6 +206,7 @@ nutrient_plans:
       März–Oktober Düngung (halbe Dosis), November–Februar Pause.
       Fluorid-empfindlich: abgestandenes Leitungswasser bevorzugt.
     recommended_substrate_type: soil
+    reference_substrate_type: soil
     author: Kamerplanter Referenzdaten
     is_template: true
     version: "1.0"
@@ -263,6 +267,7 @@ nutrient_plans:
         week_end: 12
         is_recurring: false
         npk_ratio: [1.0, 1.0, 1.0]
+        reference_ec_ms: 0.4
         calcium_ppm: 30.0
         magnesium_ppm: 15.0
         notes: >-
@@ -325,6 +330,7 @@ nutrient_plans:
         week_end: 43
         is_recurring: true
         npk_ratio: [1.5, 1.0, 1.5]
+        reference_ec_ms: 0.6
         calcium_ppm: 60.0
         magnesium_ppm: 30.0
         notes: >-
@@ -390,6 +396,7 @@ nutrient_plans:
       November–Februar Pause. Schwachzehrer — EC unter 1,0 mS/cm halten.
       GIFTIG für Katzen, Hunde und Kinder.
     recommended_substrate_type: soil
+    reference_substrate_type: soil
     author: Kamerplanter Referenzdaten
     is_template: true
     version: "1.0"
@@ -480,6 +487,7 @@ nutrient_plans:
         week_end: 35
         is_recurring: true
         npk_ratio: [1.5, 1.0, 1.5]
+        reference_ec_ms: 0.5
         calcium_ppm: 40.0
         magnesium_ppm: 20.0
         notes: >-
@@ -507,6 +515,7 @@ nutrient_plans:
         week_end: 43
         is_recurring: true
         npk_ratio: [1.5, 1.0, 1.5]
+        reference_ec_ms: 0.5
         calcium_ppm: 40.0
         magnesium_ppm: 25.0
         notes: >-
@@ -564,6 +573,7 @@ nutrient_plans:
       → Blüte → Seneszenz. Ausschließlich weiches Wasser
       (Regenwasser/destilliert) verwenden.
     recommended_substrate_type: orchid_bark
+    reference_substrate_type: soil
     author: Kamerplanter Referenzdaten
     is_template: true
     version: "1.0"
@@ -626,6 +636,7 @@ nutrient_plans:
         week_end: 60
         is_recurring: false
         npk_ratio: [1.0, 1.0, 1.0]
+        reference_ec_ms: 0.3
         calcium_ppm: 20.0
         magnesium_ppm: 10.0
         notes: >-
@@ -666,6 +677,7 @@ nutrient_plans:
         week_end: 76
         is_recurring: false
         npk_ratio: [1.0, 2.0, 1.0]
+        reference_ec_ms: 0.3
         calcium_ppm: 20.0
         magnesium_ppm: 15.0
         notes: >-
@@ -725,6 +737,7 @@ nutrient_plans:
       Oktober–März Pause. Trockenheitsliebend — Substrat zwischen Gießgängen
       gut abtrocknen lassen.
     recommended_substrate_type: soil
+    reference_substrate_type: soil
     author: Kamerplanter Referenzdaten
     is_template: true
     version: "1.0"
@@ -788,6 +801,7 @@ nutrient_plans:
         week_end: 16
         is_recurring: false
         npk_ratio: [1.0, 1.0, 1.0]
+        reference_ec_ms: 0.3
         calcium_ppm: 30.0
         magnesium_ppm: 15.0
         notes: >-
@@ -854,6 +868,7 @@ nutrient_plans:
         week_end: 39
         is_recurring: true
         npk_ratio: [1.5, 1.0, 1.5]
+        reference_ec_ms: 0.4
         calcium_ppm: 40.0
         magnesium_ppm: 20.0
         notes: >-

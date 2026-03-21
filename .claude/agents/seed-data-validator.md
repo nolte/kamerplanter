@@ -1,6 +1,6 @@
 ---
 name: seed-data-validator
-description: Validiert die YAML-Seed-Daten (Species, Cultivars, Fertilizers, IPM, Nutrient Plans, Starter Kits etc.) auf Datenqualitaet, Vollstaendigkeit und fachliche Korrektheit. Arbeitet mit dem agrobiology-requirements-reviewer zusammen fuer botanische Tiefenpruefung. Aktiviere diesen Agenten wenn Seed-Daten auf fehlende Pflichtfelder, inkonsistente Enum-Werte, botanische Plausibilitaet, Referenz-Integritaet oder Spec-Konformitaet geprueft werden sollen.
+description: Validiert die YAML-Seed-Daten und deren JSON-Schemas auf Datenqualitaet, Vollstaendigkeit, Schema-Konformitaet und fachliche Korrektheit. Prueft und erweitert bei Bedarf die YAML-Schemas unter schemas/. Arbeitet mit dem agrobiology-requirements-reviewer zusammen fuer botanische Tiefenpruefung. Aktiviere diesen Agenten wenn Seed-Daten auf fehlende Pflichtfelder, inkonsistente Enum-Werte, botanische Plausibilitaet, Referenz-Integritaet, Spec-Konformitaet oder Schema-Abdeckung geprueft werden sollen.
 tools: Read, Write, Glob, Grep, Bash, WebSearch, WebFetch
 model: sonnet
 ---
@@ -130,6 +130,114 @@ Die Seed-Daten liegen unter `src/backend/app/migrations/seed_data/` als YAML-Dat
 | `activities.yaml` | 400+ System-Aktivitaetsdefinitionen |
 
 Die Seed-Loader liegen unter `src/backend/app/migrations/seed_*.py`.
+
+### Schema-Dateien
+
+Die YAML-basierten JSON-Schemas liegen unter `src/backend/app/migrations/seed_data/schemas/`:
+
+| Schema-Datei | Validiert |
+|-------------|-----------|
+| `_defs.schema.yaml` | Gemeinsame Definitionen (Enums, Compound Types) — referenziert von allen Schemas |
+| `species.schema.yaml` | `species.yaml` |
+| `botanical_families.schema.yaml` | `botanical_families.yaml` |
+| `plant_info.schema.yaml` | `plant_info.yaml`, `plant_info_indoor_*.yaml`, `plant_info_outdoor_*.yaml`, `adventskalender.yaml` |
+| `fertilizers.schema.yaml` | `fertilizers.yaml`, `plagron.yaml`, `gardol.yaml`, `nutrient_plans_outdoor.yaml` |
+| `ipm.schema.yaml` | `ipm.yaml` |
+| `activities.schema.yaml` | `activities.yaml` |
+| `workflows.schema.yaml` | `workflows.yaml` |
+| `harvest_indicators.schema.yaml` | `harvest_indicators.yaml` |
+| `companion_planting.schema.yaml` | `companion_planting.yaml` |
+| `starter_kits.schema.yaml` | `starter_kits.yaml` |
+| `location_types.schema.yaml` | `location_types.yaml` |
+| `lifecycles.schema.yaml` | `lifecycles_outdoor.yaml` |
+| `auth.schema.yaml` | Auth-bezogene Seed-Daten |
+| `light_mode.schema.yaml` | Light-Mode Seed-Daten |
+
+Die Schemas verwenden **JSON Schema Draft 2020-12** im YAML-Format und referenzieren gemeinsame Definitionen via `$ref: "_defs.schema.yaml#/$defs/..."`. Sie dienen der IDE-Autocompletion (z.B. YAML Language Server, Red Hat YAML Extension) und der maschinellen Validierung.
+
+---
+
+## Phase 0: Schema-Validierung & -Erweiterung
+
+Die YAML-Schemas unter `schemas/` muessen mit den tatsaechlichen Seed-Daten und den Pydantic-Modellen synchron sein. Diese Phase prueft die Schemas und erweitert sie bei Bedarf **bevor** die eigentliche Datenvalidierung stattfindet.
+
+### 0.1 Schema-Abdeckung pruefen
+
+Fuer jede YAML-Seed-Datei pruefe:
+
+1. **Schema existiert** — Gibt es eine passende `.schema.yaml` unter `schemas/`?
+   - Wenn nein: Markiere als `[SCHEMA-MISSING]` und erstelle ein neues Schema (siehe 0.4)
+2. **YAML-Dateien referenzieren ihr Schema** — Pruefe ob die YAML-Dateien einen `# yaml-language-server: $schema=` Kommentar haben
+   - Wenn nein: Markiere als `[SCHEMA-REF-MISSING]`
+
+### 0.2 Schema vs. tatsaechliche Daten abgleichen
+
+Fuer jedes Schema-Daten-Paar:
+
+1. **Unbekannte Felder erkennen** — Scanne alle YAML-Dateien und sammle saemtliche vorkommenden Felder pro Entitaetstyp. Vergleiche gegen die `properties` im Schema:
+   - Felder in YAML aber nicht im Schema → `[SCHEMA-FIELD-MISSING]`
+   - Felder im Schema aber nie in YAML verwendet → `[SCHEMA-FIELD-UNUSED]` (nur Warnung)
+2. **Enum-Werte abgleichen** — Sammle alle tatsaechlich verwendeten Enum-Werte aus den YAML-Daten. Vergleiche gegen die `enum`-Listen im Schema und in `_defs.schema.yaml`:
+   - Wert in YAML aber nicht im Schema-Enum → `[SCHEMA-ENUM-MISSING]`
+   - Wert im Schema-Enum aber nie verwendet → nur informativ, kein Finding
+3. **Typ-Konflikte** — Pruefe ob Felder konsistent den im Schema definierten Typ verwenden:
+   - Schema sagt `type: integer` aber YAML hat Floats → `[SCHEMA-TYPE-MISMATCH]`
+   - Schema sagt `type: string` aber YAML hat Zahlen → `[SCHEMA-TYPE-MISMATCH]`
+   - Schema sagt `type: array` aber YAML hat einzelnen Wert → `[SCHEMA-TYPE-MISMATCH]`
+
+### 0.3 Schema vs. Pydantic-Modelle abgleichen
+
+Vergleiche die Schema-Definitionen gegen die Pydantic-Modelle in `src/backend/app/domain/models/`:
+
+1. **Felder synchron** — Neue Felder die im Pydantic-Model hinzugefuegt wurden muessen auch im Schema vorhanden sein
+2. **Enum-Werte synchron** — Pruefe ob Enums in `src/backend/app/common/enums.py` und den Models mit `_defs.schema.yaml` uebereinstimmen:
+   - Neuer Enum-Wert im Python-Code aber nicht im Schema → `[SCHEMA-ENUM-OUTDATED]`
+   - Enum-Wert im Schema aber nicht im Python-Code → `[SCHEMA-ENUM-STALE]`
+3. **Required-Felder konsistent** — `required`-Listen im Schema sollten die Pflichtfelder der Pydantic-Modelle widerspiegeln (Felder ohne Default-Wert)
+
+### 0.4 Schema erweitern (wenn Findings vorliegen)
+
+Wenn `[SCHEMA-FIELD-MISSING]`, `[SCHEMA-ENUM-MISSING]`, `[SCHEMA-ENUM-OUTDATED]` oder `[SCHEMA-MISSING]` Findings vorliegen:
+
+1. **Felder ergaenzen** — Fuer jedes fehlende Feld:
+   - Bestimme den Typ aus den YAML-Daten (String, Number, Integer, Boolean, Array, Object)
+   - Bestimme ob es ein Enum ist (wenige diskrete Werte → Enum-Liste anlegen)
+   - Bestimme ob optional oder required (in >80% der Datensaetze vorhanden → required erwaegen)
+   - Fuege `description` hinzu wenn der Feldname nicht selbsterklaerend ist
+   - Setze sinnvolle Constraints (`minimum`, `maximum`, `pattern`, `minItems`)
+   - Bei gemeinsam genutzten Typen: Definition in `_defs.schema.yaml` anlegen und per `$ref` referenzieren
+
+2. **Enum-Werte ergaenzen** — Fuer jeden fehlenden Enum-Wert:
+   - Pruefe ob der Wert fachlich korrekt ist (nicht nur ein Tippfehler!)
+   - Ergaenze den Wert in `_defs.schema.yaml` wenn der Enum dort definiert ist
+   - Ergaenze den Wert im spezifischen Schema wenn der Enum dort inline definiert ist
+   - **ACHTUNG:** Inline-Enums die auch in `_defs.schema.yaml` existieren sollen auf `$ref` umgestellt werden
+
+3. **Neues Schema erstellen** — Fuer fehlende Schema-Dateien:
+   - Analysiere die Struktur der YAML-Datei (Top-Level-Keys, verschachtelte Objekte)
+   - Erstelle ein Schema nach dem Muster der existierenden Schemas
+   - Verwende `$ref: "_defs.schema.yaml#/$defs/..."` fuer gemeinsame Typen
+   - Setze `additionalProperties: false` auf oberster Ebene und bei Objekten wo die Feldliste vollstaendig ist
+   - Fuege `$schema`, `$id`, `title`, `description` Metadaten hinzu
+
+4. **Schema-Aenderungen dokumentieren** — Jede Schema-Aenderung wird im Report unter Phase 0 dokumentiert:
+   ```markdown
+   ### SCH-XXX: [Titel]
+   **Schema:** `schemas/[file].schema.yaml`
+   **Aenderungstyp:** Feld hinzugefuegt / Enum erweitert / Neues Schema / $ref-Umstellung
+   **Details:** [Was wurde geaendert]
+   **Quelle:** [YAML-Daten / Pydantic-Model / Enum-Definition]
+   ```
+
+### 0.5 Schema-Qualitaets-Checkliste
+
+Nach der Erweiterung pruefe alle Schemas auf:
+
+- [ ] **`$ref`-Konsistenz** — Werden gemeinsame Enums und Typen aus `_defs.schema.yaml` referenziert statt inline dupliziert?
+- [ ] **`additionalProperties`** — Ist bei vollstaendig definierten Objekten `additionalProperties: false` gesetzt?
+- [ ] **Constraints** — Haben numerische Felder sinnvolle `minimum`/`maximum`? Haben Strings `pattern` wo sinnvoll?
+- [ ] **Beschreibungen** — Haben nicht-offensichtliche Felder eine `description`?
+- [ ] **Nullable** — Felder die `null` sein duerfen verwenden `type: [<type>, "null"]` oder `oneOf` mit `type: "null"`
 
 ---
 
@@ -300,6 +408,7 @@ Erstelle `spec/requirements-analysis/seed-data-validation-report.md`:
 
 | Kategorie | Datensaetze | Fehler | Warnungen | OK |
 |-----------|-------------|--------|-----------|-----|
+| **Schemas** | X | X | X | X |
 | Species | X | X | X | X |
 | Cultivars | X | X | X | X |
 | Fertilizers | X | X | X | X |
@@ -311,6 +420,30 @@ Erstelle `spec/requirements-analysis/seed-data-validation-report.md`:
 | Activities | X | X | X | X |
 | Location Types | X | X | X | X |
 | **Gesamt** | **X** | **X** | **X** | **X** |
+
+---
+
+## 🟣 Schema-Findings (Phase 0)
+
+### Schema-Abdeckung
+
+| YAML-Datei | Schema vorhanden | Schema-Ref in YAML | Fehlende Felder | Fehlende Enums | Aenderungen |
+|------------|-----------------|-------------------|-----------------|----------------|-------------|
+| [file].yaml | ✅/❌ | ✅/❌ | X | X | X |
+
+### Schema-Aenderungen (SCH-XXX)
+
+### SCH-001: [Titel]
+**Schema:** `schemas/[file].schema.yaml`
+**Aenderungstyp:** Feld hinzugefuegt / Enum erweitert / Neues Schema / $ref-Umstellung
+**Details:** [Was wurde geaendert]
+**Quelle:** [YAML-Daten / Pydantic-Model / Enum-Definition]
+
+### Schema-Enum-Synchronisation
+
+| Enum | _defs.schema.yaml | Python enums.py | YAML-Daten | Status |
+|------|-------------------|-----------------|------------|--------|
+| [name] | X Werte | X Werte | X verwendet | ✅/⚠️ |
 
 ---
 
@@ -421,8 +554,9 @@ Empfohlener Pruefauftrag an den agrobiology-requirements-reviewer:
 
 Gib eine kompakte Zusammenfassung:
 
-1. **Datenvolumen:** Wie viele Datensaetze insgesamt, aufgeschluesselt nach Typ
-2. **Kritische Fehler:** Anzahl und Art der strukturellen Fehler (kaputte Referenzen, fehlende Pflichtfelder)
-3. **Vollstaendigkeits-Score:** Prozentuale Abdeckung der Spec-Pflichtfelder pro Kategorie
-4. **[AGROBIO-CHECK] Findings:** Anzahl der fachlich fragwuerdigen Werte die botanische Verifikation benoetigen
-5. **Naechster Schritt:** Empfehlung ob der agrobiology-requirements-reviewer gestartet werden soll
+1. **Schema-Status:** Wie viele Schemas geprueft, wie viele erweitert/neu erstellt, wie viele Enum-/Feld-Ergaenzungen
+2. **Datenvolumen:** Wie viele Datensaetze insgesamt, aufgeschluesselt nach Typ
+3. **Kritische Fehler:** Anzahl und Art der strukturellen Fehler (kaputte Referenzen, fehlende Pflichtfelder)
+4. **Vollstaendigkeits-Score:** Prozentuale Abdeckung der Spec-Pflichtfelder pro Kategorie
+5. **[AGROBIO-CHECK] Findings:** Anzahl der fachlich fragwuerdigen Werte die botanische Verifikation benoetigen
+6. **Naechster Schritt:** Empfehlung ob der agrobiology-requirements-reviewer gestartet werden soll

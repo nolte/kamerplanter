@@ -15,12 +15,15 @@
 | Name | Radieschen (Direktsaat) -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Minimalplan fuer Radieschen bei Direktsaat. Einfachster Naehrstoffplan im System: 4--6 Wochen Gesamtkultur, fast keine Duengung noetig. Optional 1x Terra Bloom in halber Dosis waehrend Knollenbildung. Schwachzehrer, Direktsaat Maerz--September, Sukzessionskultur. | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | radieschen, radish, raphanus, plagron, terra, erde, outdoor, schwachzehrer, direktsaat, anfaenger, schnellkultur | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (annuell, kein Neustart) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -123,7 +126,8 @@ Radieschen sind klassische Schwachzehrer und brauchen normalerweise **KEINE Duen
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer) |
 
@@ -146,7 +150,8 @@ Radieschen sind klassische Schwachzehrer und brauchen normalerweise **KEINE Duen
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.5 |
+| target_ec_ms | 0.5  |
+| reference_ec_ms | 0.5  |
 | target_ph | 6.5 |
 | Terra Bloom ml/L | 1.5 (halbe Dosis, optional, 1x) |
 
@@ -169,7 +174,8 @@ Radieschen sind klassische Schwachzehrer und brauchen normalerweise **KEINE Duen
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer) |
 
@@ -252,6 +258,7 @@ Bei 6--8 Sukzessionssaetzen pro Saison, je 1 Laufmeter, 0.2 L Giessloessung:
   "name": "Radieschen (Direktsaat) \u2014 Plagron Terra",
   "description": "Minimalplan f\u00fcr Radieschen. 5 Wochen Gesamtkultur, fast keine D\u00fcngung. Optional 1x Terra Bloom halbe Dosis. Einfachster Plan im System. Sukzessionskultur M\u00e4rz\u2013September.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -301,6 +308,7 @@ Bei 6--8 Sukzessionssaetzen pro Saison, je 1 Laufmeter, 0.2 L Giessloessung:
       "enabled": true,
       "notes": "Kein D\u00fcnger. Boden gleichm\u00e4\u00dfig feucht.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.01}
@@ -331,6 +339,7 @@ Bei 6--8 Sukzessionssaetzen pro Saison, je 1 Laufmeter, 0.2 L Giessloessung:
       "enabled": true,
       "notes": "Optional, nur bei magerem Boden. Terra Bloom halbe Dosis, K-betont.",
       "target_ec_ms": 0.5,
+      "reference_ec_ms": 0.5,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 1.5, "optional": true}
@@ -363,6 +372,7 @@ Bei 6--8 Sukzessionssaetzen pro Saison, je 1 Laufmeter, 0.2 L Giessloessung:
       "enabled": true,
       "notes": "Kein D\u00fcnger.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.1}

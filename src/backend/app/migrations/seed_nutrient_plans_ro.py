@@ -123,6 +123,7 @@ def _build_phase_entries(
                 sulfur_ppm=entry_data.get("sulfur_ppm"),
                 iron_ppm=entry_data.get("iron_ppm"),
                 boron_ppm=entry_data.get("boron_ppm"),
+                reference_ec_ms=entry_data.get("reference_ec_ms"),
                 notes=entry_data.get("notes"),
                 watering_schedule_override=_build_watering_schedule(
                     entry_data.get("watering_schedule_override"),
@@ -145,6 +146,7 @@ def _build_nutrient_plan(raw: dict[str, Any]) -> NutrientPlan:
         name=raw["name"],
         description=raw.get("description", ""),
         recommended_substrate_type=raw.get("recommended_substrate_type"),
+        reference_substrate_type=raw.get("reference_substrate_type", "soil"),
         author=raw.get("author", ""),
         is_template=raw.get("is_template", False),
         version=raw.get("version", "1.0"),

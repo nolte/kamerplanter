@@ -15,6 +15,7 @@ import structlog
 from pydantic import BaseModel, Field
 
 from app.domain.engines.ec_budget_engine import FRESH_COCO_CALMAG_BOOST, PH_RESERVE
+from app.domain.engines.substrate_ec_adapter import SubstrateEcAdapter
 from app.domain.engines.water_mix_engine import (
     CalMagCorrection,
     EffectiveWaterProfile,
@@ -53,6 +54,7 @@ class DosageCalculationInput(BaseModel):
     substrate_cycles_used: int | None = None
     calmag_product: Fertilizer | None = None
     fertilizer_lookup: dict[str, Fertilizer] = Field(default_factory=dict)
+    plan_reference_substrate_type: str = "soil"
 
 
 class DosageEntry(BaseModel):
@@ -92,6 +94,8 @@ class DosageCalculationResult(BaseModel):
     dosages: list[DosageEntry]
     mixing_instructions: list[str]
     warnings: list[str]
+    reference_ec_ms: float | None = None
+    substrate_correction_applied: bool = False
 
 
 # ── Engine ────────────────────────────────────────────────────────────
@@ -107,6 +111,7 @@ class DosageCalculationEngine:
 
     def __init__(self) -> None:
         self._water_calc = WaterMixCalculator()
+        self._substrate_adapter = SubstrateEcAdapter()
 
     def calculate(self, inp: DosageCalculationInput) -> DosageCalculationResult:
         """Run the full dosage calculation pipeline."""
@@ -114,12 +119,14 @@ class DosageCalculationEngine:
         entry = inp.phase_entry
 
         # Resolve target EC: phase-level is single source of truth,
-        # channel-level is optional override
+        # channel-level is optional override. Apply substrate conversion if needed.
         channel, channel_id = self._resolve_channel(entry, inp.channel_id)
-        target_ec = self._resolve_target_ec(entry, channel)
+        target_ec, ref_ec, substrate_corrected = self._resolve_target_ec(
+            entry, channel, inp.plan_reference_substrate_type, inp.substrate_type,
+        )
 
         if target_ec <= 0:
-            return self._build_reference_result(
+            result = self._build_reference_result(
                 entry,
                 channel_id,
                 target_ec,
@@ -127,6 +134,9 @@ class DosageCalculationEngine:
                 inp.fertilizer_lookup,
                 warnings=["Target EC is 0 — returning reference dosages (flush/germination phase)."],
             )
+            result.reference_ec_ms = ref_ec
+            result.substrate_correction_applied = substrate_corrected
+            return result
 
         # Legacy mode: no reference_base_ec set or no water profiles
         has_water_profiles = inp.tap_water is not None
@@ -138,7 +148,7 @@ class DosageCalculationEngine:
                 if not is_legacy
                 else "Legacy plan without reference_base_ec — returning reference dosages unchanged."
             )
-            return self._build_reference_result(
+            result = self._build_reference_result(
                 entry,
                 channel_id,
                 target_ec,
@@ -146,6 +156,9 @@ class DosageCalculationEngine:
                 inp.fertilizer_lookup,
                 warnings=[reason],
             )
+            result.reference_ec_ms = ref_ec
+            result.substrate_correction_applied = substrate_corrected
+            return result
 
         # ── Stage 1: Calculate effective water ─────────────────────
         effective_water: EffectiveWaterProfile | None = None
@@ -290,6 +303,8 @@ class DosageCalculationEngine:
             dosages=dosages,
             mixing_instructions=mixing_instructions,
             warnings=warnings,
+            reference_ec_ms=ref_ec,
+            substrate_correction_applied=substrate_corrected,
         )
 
     # ── Private helpers ───────────────────────────────────────────────
@@ -323,18 +338,42 @@ class DosageCalculationEngine:
         self,
         entry: NutrientPlanPhaseEntry,
         channel: object,
-    ) -> float:
-        """Resolve target EC: phase-level is SSOT, channel-level is override."""
-        # Phase-level target_ec_ms is the primary source
+        plan_ref_substrate: str = "soil",
+        runtime_substrate: str = "soil",
+    ) -> tuple[float, float | None, bool]:
+        """Resolve target EC with optional substrate conversion.
+
+        Returns (effective_ec, reference_ec_ms, substrate_correction_applied).
+
+        When reference_ec_ms is set on the phase entry, it is treated as the
+        single source of truth and converted from the plan's reference substrate
+        to the runtime substrate. Legacy entries without reference_ec_ms fall
+        back to target_ec_ms / channel target_ec_ms unchanged.
+        """
+        phase_name = entry.phase_name.value if hasattr(entry.phase_name, "value") else str(entry.phase_name)
+
+        # New path: reference_ec_ms is the SSOT
+        ref_ec = entry.reference_ec_ms
+        if ref_ec is not None:
+            if ref_ec <= 0:
+                return 0.0, ref_ec, False
+            if plan_ref_substrate != runtime_substrate:
+                effective_ec = self._substrate_adapter.convert_ec(
+                    ref_ec, plan_ref_substrate, runtime_substrate, phase_name,
+                )
+                return effective_ec, ref_ec, True
+            return ref_ec, ref_ec, False
+
+        # Legacy fallback: target_ec_ms directly (no substrate conversion)
         if entry.target_ec_ms is not None and entry.target_ec_ms > 0:
-            return entry.target_ec_ms
+            return entry.target_ec_ms, None, False
 
         # Fallback: channel-level target_ec_ms
         channel_ec = getattr(channel, "target_ec_ms", None)
         if channel_ec is not None and channel_ec > 0:
-            return channel_ec
+            return channel_ec, None, False
 
-        return 0.0
+        return 0.0, None, False
 
     def _calculate_reference_ec(
         self,

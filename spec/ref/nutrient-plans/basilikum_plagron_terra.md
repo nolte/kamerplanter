@@ -15,12 +15,15 @@
 | Name | Basilikum (Sweet Basil) -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Minimalistischer Naehrstoffplan fuer Basilikum (Schwachzehrer). Nur 2 Produkte: Terra Grow (Basis) + Pure Zym (Enzym-Substratpflege). Bewusst niedrige Dosierung -- Ueberduengung reduziert den Gehalt aetherischer Oele um bis zu 28%. Ziel ist aromatisches Kraut, nicht maximale Biomasse. Einjaehrig, 18-Wochen-Zyklus von Aussaat bis Saisonende. Mehrere Aussaaten pro Jahr moeglich. | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | basilikum, ocimum, sweet-basil, plagron, terra, erde, kraeutergarten, schwachzehrer, indoor, outdoor, aroma | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (einjaehrig, kein Zyklus-Neustart -- neue Aussaat starten) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -134,6 +137,7 @@ Manuelle Giessduengung per Giesskanne oder Spruehflasche. Minimales 2-Kanal-Syst
 | Feld | Wert |
 |------|------|
 | target_ec_ms | 0.0 |
+| reference_ec_ms | 0.0 |
 | target_ph | 6.0 |
 | fertilizer_dosages | [] (leer -- kein Duenger) |
 
@@ -157,6 +161,7 @@ Manuelle Giessduengung per Giesskanne oder Spruehflasche. Minimales 2-Kanal-Syst
 | Feld | Wert |
 |------|------|
 | target_ec_ms | 0.5 |
+| reference_ec_ms | 0.5 |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 1.5 (Vierteldosis -- 30% der Herstellerempfehlung) |
 | Pure Zym ml/L | 1.0 |
@@ -181,6 +186,7 @@ Manuelle Giessduengung per Giesskanne oder Spruehflasche. Minimales 2-Kanal-Syst
 | Feld | Wert |
 |------|------|
 | target_ec_ms | 0.6 |
+| reference_ec_ms | 0.6 |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 2.5 (halbe Dosis -- 50% der Herstellerempfehlung) |
 | Pure Zym ml/L | 1.0 |
@@ -205,6 +211,7 @@ Manuelle Giessduengung per Giesskanne oder Spruehflasche. Minimales 2-Kanal-Syst
 | Feld | Wert |
 |------|------|
 | target_ec_ms | 0.5 |
+| reference_ec_ms | 0.5 |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 2.0 (reduziert -- 40% der Herstellerempfehlung) |
 | Pure Zym ml/L | 1.0 |
@@ -229,6 +236,7 @@ Manuelle Giessduengung per Giesskanne oder Spruehflasche. Minimales 2-Kanal-Syst
 | Feld | Wert |
 |------|------|
 | target_ec_ms | 0.0 |
+| reference_ec_ms | 0.0 |
 | target_ph | 6.0 |
 | fertilizer_dosages | [] (leer -- kein Duenger) |
 
@@ -391,6 +399,7 @@ Quelle: `spec/ref/plant-info/ocimum_basilicum.md`, Abschnitt 2.2
   "name": "Basilikum (Sweet Basil) \u2014 Plagron Terra",
   "description": "Minimalistischer Nährstoffplan für Basilikum (Schwachzehrer). Nur 2 Produkte: Terra Grow + Pure Zym. Bewusst niedrige Dosierung \u2014 Überdüngung reduziert ätherische Öle um bis zu 28%. Einjährig, 18-Wochen-Zyklus.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -440,6 +449,7 @@ Quelle: `spec/ref/plant-info/ocimum_basilicum.md`, Abschnitt 2.2
       "enabled": true,
       "notes": "Kein Dünger. Feiner Sprühstrahl, Samen nicht wegschwemmen.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.05}
@@ -470,6 +480,7 @@ Quelle: `spec/ref/plant-info/ocimum_basilicum.md`, Abschnitt 2.2
       "enabled": true,
       "notes": "Terra Grow Vierteldosis + Pure Zym. Reihenfolge: Terra Grow \u2192 Pure Zym \u2192 pH prüfen",
       "target_ec_ms": 0.5,
+      "reference_ec_ms": 0.5,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 1.5, "optional": false},
@@ -503,6 +514,7 @@ Quelle: `spec/ref/plant-info/ocimum_basilicum.md`, Abschnitt 2.2
       "enabled": true,
       "notes": "Halbe Dosis Terra Grow + Pure Zym. NICHT überdosieren! Reihenfolge: Terra Grow \u2192 Pure Zym \u2192 pH prüfen",
       "target_ec_ms": 0.6,
+      "reference_ec_ms": 0.6,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 2.5, "optional": false},
@@ -536,6 +548,7 @@ Quelle: `spec/ref/plant-info/ocimum_basilicum.md`, Abschnitt 2.2
       "enabled": true,
       "notes": "Reduzierter Terra Grow + Pure Zym. Kein Bloom-Dünger nötig.",
       "target_ec_ms": 0.5,
+      "reference_ec_ms": 0.5,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 2.0, "optional": false},
@@ -569,6 +582,7 @@ Quelle: `spec/ref/plant-info/ocimum_basilicum.md`, Abschnitt 2.2
       "enabled": true,
       "notes": "Kein Dünger. Nur Wasser bis Pflanze entsorgt wird.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.3}

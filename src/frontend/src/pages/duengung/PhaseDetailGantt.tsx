@@ -10,6 +10,8 @@ import IconButton from '@mui/material/IconButton';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import AddIcon from '@mui/icons-material/Add';
+import Button from '@mui/material/Button';
 import { alpha, useTheme, type Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import type { NutrientPlanPhaseEntry, Fertilizer, ApplicationMethod } from '@/api/types';
@@ -26,6 +28,8 @@ interface Props {
   onEntriesChange?: (updatedEntries: NutrientPlanPhaseEntry[]) => void;
   /** Remove a fertilizer from all entries/channels in this group. */
   onRemoveFertilizer?: (fertilizerKey: string, isAuto: boolean) => void;
+  /** Add a fertilizer to a delivery channel. */
+  onAddFertilizer?: (entryKey: string, channelId: string) => void;
   /** Recommended RO% per sequence_order (fallback when entry has no explicit value). */
   recommendedRoMap?: Map<number, number>;
 }
@@ -122,7 +126,7 @@ function findBestEntryForEdit(
   return best;
 }
 
-export default function PhaseDetailGantt({ entries, fertilizers, title, currentWeek, onEntriesChange, onRemoveFertilizer, recommendedRoMap }: Props) {
+export default function PhaseDetailGantt({ entries, fertilizers, title, currentWeek, onEntriesChange, onRemoveFertilizer, onAddFertilizer, recommendedRoMap }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -389,9 +393,27 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                 color={group.isAuto ? 'primary' : 'default'}
                 variant="outlined"
               />
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
                 {group.label}
               </Typography>
+              {onAddFertilizer && (() => {
+                const autoMethods = new Set<ApplicationMethod>(['fertigation']);
+                for (const entry of sorted) {
+                  const ch = entry.delivery_channels.find((c) => autoMethods.has(c.application_method) === group.isAuto);
+                  if (ch) {
+                    return (
+                      <Button
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={() => onAddFertilizer(entry.key, ch.channel_id)}
+                      >
+                        {t('pages.nutrientPlans.addFertilizer')}
+                      </Button>
+                    );
+                  }
+                }
+                return null;
+              })()}
             </Box>
 
             {/* Gantt grid */}

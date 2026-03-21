@@ -15,12 +15,15 @@
 | Name | Buschbohne -- Plagron Terra (Leguminose) | `nutrient_plans.name` |
 | Beschreibung | Minimalduegungs-Plan fuer Buschbohne (Phaseolus vulgaris) als Stickstoff-Fixierer. Plagron Terra-Linie mit nur 2 Produkten. KEIN Terra Grow (zu viel N)! Leguminosen fixieren Stickstoff ueber Rhizobium-Symbiose -- N-Duengung ist kontraproduktiv und hemmt die Knoellchenbildung. Nur P+K-Versorgung ueber Terra Bloom in niedriger Dosis. Direktsaat nach Eisheiligen (Mitte Mai), 10--14 Wochen Kulturzeit. Annuell -- kein Zyklus-Neustart. WARNUNG: Rohe Bohnen sind giftig (Phasin/Lektin, zerstoert durch 15 Min Kochen)! | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | bohne, buschbohne, phaseolus, fabaceae, leguminose, plagron, terra, erde, outdoor, schwachzehrer, n-fixierer, gemuese | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (annuell, kein Neustart) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -133,7 +136,8 @@ Bohnen sind Schwachzehrer UND N-Fixierer. Ziel-EC der Gesamtloesung: **0.3--0.7 
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer) |
 
@@ -156,7 +160,8 @@ Bohnen sind Schwachzehrer UND N-Fixierer. Ziel-EC der Gesamtloesung: **0.3--0.7 
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer) |
 
@@ -179,7 +184,8 @@ Bohnen sind Schwachzehrer UND N-Fixierer. Ziel-EC der Gesamtloesung: **0.3--0.7 
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.5 |
+| target_ec_ms | 0.5  |
+| reference_ec_ms | 0.5  |
 | target_ph | 6.5 |
 | Terra Bloom ml/L | 1.5 (Viertel-Dosis, Schwachzehrer + N-Fixierer) |
 | Pure Zym ml/L | 1.0 |
@@ -203,7 +209,8 @@ Bohnen sind Schwachzehrer UND N-Fixierer. Ziel-EC der Gesamtloesung: **0.3--0.7 
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6 |
+| target_ec_ms | 0.6  |
+| reference_ec_ms | 0.6  |
 | target_ph | 6.5 |
 | Terra Bloom ml/L | 2.0 (niedrige Dosis) |
 | Pure Zym ml/L | 1.0 |
@@ -227,7 +234,8 @@ Bohnen sind Schwachzehrer UND N-Fixierer. Ziel-EC der Gesamtloesung: **0.3--0.7 
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer) |
 
@@ -324,6 +332,7 @@ Bei einer Buschbohnen-Reihe (10 Pflanzen), 0.1 L Giessloessung pro Pflanze/Dueng
   "name": "Buschbohne \u2014 Plagron Terra (Leguminose)",
   "description": "Minimald\u00fcngungs-Plan f\u00fcr Buschbohne (Phaseolus vulgaris) als N-Fixierer. KEIN Terra Grow! Nur Terra Bloom (P+K) in niedriger Dosis. Rhizobium-Symbiose liefert Stickstoff. Direktsaat nach Eisheiligen, 10\u201314 Wochen Kulturzeit. WARNUNG: Rohe Bohnen sind giftig (Phasin)!",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -373,6 +382,7 @@ Bei einer Buschbohnen-Reihe (10 Pflanzen), 0.1 L Giessloessung pro Pflanze/Dueng
       "enabled": true,
       "notes": "Kein D\u00fcnger. M\u00e4\u00dfig feucht, nicht nass. Bohnen faulen in kalter, nasser Erde.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.02}
@@ -403,6 +413,7 @@ Bei einer Buschbohnen-Reihe (10 Pflanzen), 0.1 L Giessloessung pro Pflanze/Dueng
       "enabled": true,
       "notes": "Kein D\u00fcnger. Rhizobium-Etablierung nicht st\u00f6ren.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.05}
@@ -433,6 +444,7 @@ Bei einer Buschbohnen-Reihe (10 Pflanzen), 0.1 L Giessloessung pro Pflanze/Dueng
       "enabled": true,
       "notes": "Terra Bloom Viertel-Dosis + Pure Zym. KEIN Terra Grow! Reihenfolge: Terra Bloom \u2192 Pure Zym \u2192 pH pr\u00fcfen.",
       "target_ec_ms": 0.5,
+      "reference_ec_ms": 0.5,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 1.5, "optional": false},
@@ -466,6 +478,7 @@ Bei einer Buschbohnen-Reihe (10 Pflanzen), 0.1 L Giessloessung pro Pflanze/Dueng
       "enabled": true,
       "notes": "Terra Bloom niedrige Dosis + Pure Zym. P+K f\u00fcr H\u00fclsenbildung. KEIN Terra Grow!",
       "target_ec_ms": 0.6,
+      "reference_ec_ms": 0.6,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 2.0, "optional": false},
@@ -499,6 +512,7 @@ Bei einer Buschbohnen-Reihe (10 Pflanzen), 0.1 L Giessloessung pro Pflanze/Dueng
       "enabled": true,
       "notes": "Kein D\u00fcnger. Regelm\u00e4\u00dfig gie\u00dfen f\u00fcr H\u00fclsenqualit\u00e4t.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.1}

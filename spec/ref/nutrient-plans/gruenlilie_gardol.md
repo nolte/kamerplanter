@@ -15,6 +15,7 @@
 | Name | Chlorophytum comosum -- Gardol Gruenpflanzenduenger | `nutrient_plans.name` |
 | Beschreibung | Ganzjahresplan fuer Chlorophytum comosum (Gruenlilie) in Erdsubstrat. Einzelduenger-Konzept mit Gardol Gruenpflanzenduenger (NPK 6-4-6). Schwachzehrer -- reduzierte Dosierung gegenueber Herstellerangabe. Saisonaler Rhythmus: Maerz--Oktober Duengung (halbe Dosis), November--Februar Pause. Fluorid-empfindlich: abgestandenes Leitungswasser oder Regenwasser bevorzugt. | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
@@ -23,6 +24,8 @@
 
 <!-- GL-001: Ca/Mg-Versorgung wird bei null (= Leitungswasser) durch das Wasser selbst gedeckt (dt. Durchschnitt ~100 ppm Ca, 15 ppm Mg). Bei RO-/Regenwasser ist ein CalMag-Supplement erforderlich. Abgestandenes Leitungswasser bevorzugt wegen Fluorid-/Chlor-Empfindlichkeit der Gruenlilie. -->
 | Zyklus-Neustart ab Sequenz | 3 (VEGETATIVE) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -140,7 +143,8 @@ Geschaetzter EC-Beitrag: **~0,06--0,10 mS/cm pro ml/L** (Herstellerangabe fehlt;
 |------|------|
 | channel_id | wasser-bewurzelung |
 | application_method | drench |
-| target_ec_ms | null (keine Duengung, Leitungswasser-EC 0,3--0,7 mS/cm) |
+| target_ec_ms | null (keine Duengung, Leitungswasser-EC 0,3--0,7 mS/cm)  |
+| reference_ec_ms | null (keine Duengung, Leitungswasser-EC 0,3--0,7 mS/cm)  |
 | target_ph | 6.0 (Substrat-pH-Optimum, nicht Giesswasser-pH; Leitungswasser muss fuer Erdkultur nicht pH-korrigiert werden) |
 | fertilizer_dosages | [] (leer) |
 
@@ -162,7 +166,8 @@ Geschaetzter EC-Beitrag: **~0,06--0,10 mS/cm pro ml/L** (Herstellerangabe fehlt;
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.4 |
+| target_ec_ms | 0.4  |
+| reference_ec_ms | 0.4  |
 | target_ph | 6.0 (Substrat-pH-Optimum) |
 | Gardol ml/L | 1.0 (Vierteldosis) |
 | EC-Beitrag | ~0,06 mS/cm |
@@ -187,7 +192,8 @@ Geschaetzter EC-Beitrag: **~0,06--0,10 mS/cm pro ml/L** (Herstellerangabe fehlt;
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6 |
+| target_ec_ms | 0.6  |
+| reference_ec_ms | 0.6  |
 | target_ph | 6.0 (Substrat-pH-Optimum) |
 | Gardol ml/L | 2.0 (halbe Dosis) |
 | EC-Beitrag | ~0,12 mS/cm |
@@ -215,7 +221,8 @@ Geschaetzter EC-Beitrag: **~0,06--0,10 mS/cm pro ml/L** (Herstellerangabe fehlt;
 |------|------|
 | channel_id | wasser-bewurzelung |
 | application_method | drench |
-| target_ec_ms | null (keine Duengung, Leitungswasser-EC 0,3--0,7 mS/cm) |
+| target_ec_ms | null (keine Duengung, Leitungswasser-EC 0,3--0,7 mS/cm)  |
+| reference_ec_ms | null (keine Duengung, Leitungswasser-EC 0,3--0,7 mS/cm)  |
 | target_ph | 6.0 (Substrat-pH-Optimum, nicht Giesswasser-pH) |
 | fertilizer_dosages | [] (leer) |
 
@@ -270,6 +277,7 @@ Legende: --- = keine Duengung, ... = Vierteldosis (1 ml/L), ### = halbe Dosis (2
   "name": "Chlorophytum comosum \u2014 Gardol Gr\u00fcnpflanzend\u00fcnger",
   "description": "Ganzjahresplan f\u00fcr Chlorophytum comosum (Gr\u00fcnlilie) in Erdsubstrat. Einzeld\u00fcnger-Konzept mit Gardol Gr\u00fcnpflanzend\u00fcnger (NPK 6-4-6). Schwachzehrer \u2014 reduzierte Dosierung. Saisonaler Rhythmus: M\u00e4rz\u2013Oktober D\u00fcngung (halbe Dosis), November\u2013Februar Pause. Fluorid-empfindlich: abgestandenes Leitungswasser bevorzugt.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -319,6 +327,7 @@ Legende: --- = keine Duengung, ... = Vierteldosis (1 ml/L), ### = halbe Dosis (2
       "enabled": true,
       "notes": "Nur klares, abgestandenes Wasser, kein D\u00fcnger. DRENCH = von oben gie\u00dfen (entspricht top_water-Methode). Fluorid-empfindlich: Wasser mind. 24h abstehen lassen.",
       "target_ec_ms": null,
+      "reference_ec_ms": null,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {
@@ -360,6 +369,7 @@ Legende: --- = keine Duengung, ... = Vierteldosis (1 ml/L), ### = halbe Dosis (2
       "enabled": true,
       "notes": "D\u00fcnger ins abgestandene Gie\u00dfwasser einr\u00fchren, nur auf feuchtes Substrat gie\u00dfen. DRENCH = von oben gie\u00dfen (entspricht top_water-Methode).",
       "target_ec_ms": 0.4,
+      "reference_ec_ms": 0.4,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {
@@ -408,6 +418,7 @@ Legende: --- = keine Duengung, ... = Vierteldosis (1 ml/L), ### = halbe Dosis (2
       "enabled": true,
       "notes": "D\u00fcnger ins abgestandene Gie\u00dfwasser einr\u00fchren, nur auf feuchtes Substrat gie\u00dfen. DRENCH = von oben gie\u00dfen (entspricht top_water-Methode).",
       "target_ec_ms": 0.6,
+      "reference_ec_ms": 0.6,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {
@@ -455,6 +466,7 @@ Legende: --- = keine Duengung, ... = Vierteldosis (1 ml/L), ### = halbe Dosis (2
       "enabled": true,
       "notes": "Nur klares, abgestandenes Wasser, kein D\u00fcnger. Reduziertes Volumen. DRENCH = von oben gie\u00dfen (entspricht top_water-Methode).",
       "target_ec_ms": null,
+      "reference_ec_ms": null,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {

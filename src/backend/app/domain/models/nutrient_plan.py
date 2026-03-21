@@ -104,6 +104,13 @@ class NutrientPlanPhaseEntry(BaseModel):
     boron_ppm: float | None = Field(default=None, ge=0)
     # REQ-004 §4b: Normalized EC dosing — phase-level targets
     target_ec_ms: float | None = Field(default=None, ge=0, le=10)
+    reference_ec_ms: float | None = Field(
+        default=None,
+        ge=0,
+        le=10,
+        description="EC target in context of plan's reference_substrate_type. "
+        "At runtime, converted to effective target via SubstrateEcAdapter.",
+    )
     target_calcium_ppm: float | None = Field(default=None, ge=0)
     target_magnesium_ppm: float | None = Field(default=None, ge=0)
     reference_base_ec: float = Field(default=0.0, ge=0, le=5)
@@ -147,6 +154,10 @@ class NutrientPlan(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str = ""
     recommended_substrate_type: SubstrateType | None = None
+    reference_substrate_type: SubstrateType = Field(
+        default=SubstrateType.SOIL,
+        description="Substrate type the reference_ec_ms values are calibrated for.",
+    )
     author: str = ""
     is_template: bool = False
     version: str = "1.0"

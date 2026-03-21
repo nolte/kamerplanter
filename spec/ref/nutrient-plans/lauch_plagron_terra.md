@@ -15,12 +15,15 @@
 | Name | Lauch (Porree) -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Saisonplan fuer Winterlauch mit langer Indoor-Vorkultur ab Februar und Freilandpflanzung ab Mai/Juni. Plagron Terra-Linie mit 5 Produkten. Starkzehrer mit hohem N- und K-Bedarf, extrem lange vegetative Phase (Schaftbildung). Kein Bluetebooster noetig (Bluete unerwuenscht -- Schossen vermeiden!). K-betonte Duengung ab Spaetsommer fuer Winterhaerte. Ernte Oktober--Maerz. 34 Wochen Gesamtdauer (Februar--Oktober, Ernte bis Maerz). | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | lauch, porree, winterlauch, leek, allium, porrum, starkzehrer, plagron, terra, erde, outdoor, winter | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (einjaehrig, kein Neustart) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -143,7 +146,8 @@ Lauch ist ein Starkzehrer mit hohem N- und K-Bedarf. In Erdkultur sind die benoe
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer -- kein Duenger) |
 
@@ -167,7 +171,8 @@ Lauch ist ein Starkzehrer mit hohem N- und K-Bedarf. In Erdkultur sind die benoe
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6 |
+| target_ec_ms | 0.6  |
+| reference_ec_ms | 0.6  |
 | target_ph | 6.5 |
 | Terra Grow ml/L | 1.5 (Viertel-Dosis) |
 | Power Roots ml/L | 1.0 |
@@ -194,7 +199,8 @@ Lauch ist ein Starkzehrer mit hohem N- und K-Bedarf. In Erdkultur sind die benoe
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.5 |
+| target_ec_ms | 1.5  |
+| reference_ec_ms | 1.5  |
 | target_ph | 6.5 |
 | Terra Grow ml/L | 5.0 (volle Dosis) |
 | Power Roots ml/L | 1.0 (nur bis Woche 14) |
@@ -207,7 +213,8 @@ Lauch ist ein Starkzehrer mit hohem N- und K-Bedarf. In Erdkultur sind die benoe
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.2 |
+| target_ec_ms | 1.2  |
+| reference_ec_ms | 1.2  |
 | target_ph | 6.5 |
 | Terra Bloom ml/L | 4.0 |
 | Pure Zym ml/L | 1.0 |
@@ -235,7 +242,8 @@ Lauch ist ein Starkzehrer mit hohem N- und K-Bedarf. In Erdkultur sind die benoe
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer -- kein Duenger) |
 
@@ -375,6 +383,7 @@ Schossen (Bluete im 1. Jahr) wird ausgeloest durch:
   "name": "Lauch (Porree) \u2014 Plagron Terra",
   "description": "Saisonplan f\u00fcr Winterlauch mit langer Vorkultur ab Februar und Freilandpflanzung ab Mai/Juni. Plagron Terra-Linie mit 5 Produkten. Starkzehrer, 34 Wochen (Februar\u2013Oktober, Ernte bis M\u00e4rz). K-betonte D\u00fcngung ab August f\u00fcr Winterh\u00e4rte.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -424,6 +433,7 @@ Schossen (Bluete im 1. Jahr) wird ausgeloest durch:
       "enabled": true,
       "notes": "Nur Wasser. Feine Spr\u00fchung, Substrat gleichm\u00e4\u00dfig feucht halten.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.01}
@@ -462,6 +472,7 @@ Schossen (Bluete im 1. Jahr) wird ausgeloest durch:
       "enabled": true,
       "notes": "Terra Grow Viertel-Dosis + Power Roots, alle 2 Wochen",
       "target_ec_ms": 0.6,
+      "reference_ec_ms": 0.6,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 1.5, "optional": false},
@@ -495,6 +506,7 @@ Schossen (Bluete im 1. Jahr) wird ausgeloest durch:
       "enabled": true,
       "notes": "Terra Grow + Additive. Mai\u2013Juli. Reihenfolge: Terra Grow \u2192 Power Roots \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen",
       "target_ec_ms": 1.5,
+      "reference_ec_ms": 1.5,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 5.0, "optional": false},
@@ -511,6 +523,7 @@ Schossen (Bluete im 1. Jahr) wird ausgeloest durch:
       "enabled": true,
       "notes": "Terra Bloom + Pure Zym. Aug\u2013Sep. Kein Sugar Royal (N-Stopp!). Reihenfolge: Terra Bloom \u2192 Pure Zym \u2192 pH pr\u00fcfen",
       "target_ec_ms": 1.2,
+      "reference_ec_ms": 1.2,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 4.0, "optional": false},
@@ -552,6 +565,7 @@ Schossen (Bluete im 1. Jahr) wird ausgeloest durch:
       "enabled": true,
       "notes": "Kein D\u00fcnger. Nat\u00fcrlicher Niederschlag gen\u00fcgt. Bei Trockenheit im Herbst gelegentlich gie\u00dfen.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.3}

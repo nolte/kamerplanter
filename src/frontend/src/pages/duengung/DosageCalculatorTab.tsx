@@ -153,6 +153,17 @@ function PhaseResult({ result }: { result: CalculateDosagesResponse }) {
         </Alert>
       )}
 
+      {/* Substrate EC correction info */}
+      {result.substrate_correction_applied && result.reference_ec_ms != null && (
+        <Alert severity="info" variant="outlined" sx={{ mb: 2 }} icon={<ScienceIcon />}>
+          <Typography variant="body2">
+            {t('pages.nutrientPlans.substrateCorrection')}:{' '}
+            {t('pages.nutrientPlans.referenceEc')} {result.reference_ec_ms.toFixed(2)} mS/cm
+            {' → '}{t('pages.nutrientPlans.dosageCalc.targetEc')} {result.target_ec_ms.toFixed(2)} mS/cm
+          </Typography>
+        </Alert>
+      )}
+
       {/* EC Budget visualization */}
       <EcBudgetBar budget={result.ec_budget} targetEc={result.target_ec_ms} />
 

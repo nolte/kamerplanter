@@ -170,6 +170,7 @@ nutrient_plans:
       Sugar Royal (Aminosäuren) und Green Sensation (PK-Booster).
       Einfaches System — ein Basisdünger pro Phase. pH 6.0.
     recommended_substrate_type: soil
+    reference_substrate_type: soil
     author: Plagron
     is_template: true
     version: "2025.1"
@@ -202,6 +203,7 @@ nutrient_plans:
         week_start: 2
         week_end: 4
         npk_ratio: [1.5, 0.5, 1.5]
+        reference_ec_ms: 0.8
         notes: >-
           Halbe Dosis Terra Grow (2.5 ml/L).
           Power Roots für Wurzelaufbau. Pure Zym durchgehend.
@@ -228,6 +230,7 @@ nutrient_plans:
         week_start: 4
         week_end: 6
         npk_ratio: [3.0, 1.0, 3.0]
+        reference_ec_ms: 1.2
         notes: >-
           Volle Dosis Terra Grow (5 ml/L).
           Power Roots weiter für Wurzelmasse.
@@ -257,6 +260,7 @@ nutrient_plans:
         week_start: 6
         week_end: 9
         npk_ratio: [2.0, 2.0, 4.0]
+        reference_ec_ms: 1.4
         calcium_ppm: 150.0
         magnesium_ppm: 40.0
         notes: >-
@@ -289,6 +293,7 @@ nutrient_plans:
         week_start: 9
         week_end: 12
         npk_ratio: [2.0, 10.0, 13.0]
+        reference_ec_ms: 1.6
         calcium_ppm: 150.0
         magnesium_ppm: 40.0
         notes: >-
@@ -343,6 +348,7 @@ nutrient_plans:
       Sugar Royal (Aminosäuren) und Green Sensation (PK-Booster).
       A+B-System durch den gesamten Zyklus. pH 5.5-6.0.
     recommended_substrate_type: coco
+    reference_substrate_type: coco
     author: Plagron
     is_template: true
     version: "2025.1"
@@ -374,6 +380,7 @@ nutrient_plans:
         week_start: 2
         week_end: 4
         npk_ratio: [2.5, 2.0, 1.5]
+        reference_ec_ms: 0.8
         notes: >-
           Cocos A+B je 1.5 ml/L (niedrige Dosis).
           Power Roots für schnellen Wurzelaufbau.
@@ -402,6 +409,7 @@ nutrient_plans:
         week_start: 4
         week_end: 6
         npk_ratio: [5.0, 4.0, 3.0]
+        reference_ec_ms: 1.4
         notes: >-
           Cocos A+B auf 2.5-3 ml/L steigern.
           Power Roots + Pure Zym weiter.
@@ -432,6 +440,7 @@ nutrient_plans:
         week_start: 6
         week_end: 9
         npk_ratio: [5.0, 4.0, 3.0]
+        reference_ec_ms: 1.8
         calcium_ppm: 180.0
         magnesium_ppm: 50.0
         notes: >-
@@ -469,6 +478,7 @@ nutrient_plans:
         week_start: 9
         week_end: 12
         npk_ratio: [5.0, 12.0, 12.0]
+        reference_ec_ms: 2.0
         calcium_ppm: 180.0
         magnesium_ppm: 50.0
         notes: >-
@@ -521,6 +531,7 @@ nutrient_plans:
       Plagron Terra-Linie mit 5 Produkten. Saisonaler Zyklus:
       März–Oktober Düngung, November–Februar Winterruhe.
     recommended_substrate_type: soil
+    reference_substrate_type: soil
     author: "Kamerplanter Referenzdaten"
     is_template: true
     version: "1.1"
@@ -566,6 +577,7 @@ nutrient_plans:
         week_start: 4
         week_end: 8
         npk_ratio: [3.0, 1.0, 3.0]
+        reference_ec_ms: 0.5
         notes: "Halbe Dosis Terra Grow. Blattmasse aufbauen."
         delivery_channels:
           - channel_id: naehrloesung-wachstum
@@ -589,6 +601,7 @@ nutrient_plans:
         week_start: 9
         week_end: 16
         npk_ratio: [3.0, 1.0, 3.0]
+        reference_ec_ms: 0.8
         is_recurring: true
         notes: "Volle Dosis Terra Grow. Hauptwachstum Frühjahr."
         delivery_channels:
@@ -616,6 +629,7 @@ nutrient_plans:
         week_start: 17
         week_end: 22
         npk_ratio: [2.0, 2.0, 4.0]
+        reference_ec_ms: 0.9
         is_recurring: true
         calcium_ppm: 100.0
         notes: "Umstellung auf Terra Bloom. Blüte und Fruchtansatz."
@@ -642,6 +656,7 @@ nutrient_plans:
         week_start: 23
         week_end: 28
         npk_ratio: [2.0, 2.0, 4.0]
+        reference_ec_ms: 0.7
         is_recurring: true
         calcium_ppm: 100.0
         notes: "Erntephase. Reduzierte Düngung, Terra Bloom beibehalten."
@@ -690,6 +705,7 @@ nutrient_plans:
         week_start: 31
         week_end: 40
         npk_ratio: [3.0, 1.0, 3.0]
+        reference_ec_ms: 0.6
         is_recurring: true
         notes: "Herbst-Vegetativ. Reduzierte Düngung für Wintervorbereitung."
         watering_schedule_override:
@@ -742,6 +758,7 @@ nutrient_plans:
       Nur 2 Produkte: Terra Grow + Pure Zym. Bewusst niedrige Dosierung —
       Überdüngung reduziert ätherische Öle. Einjährig, 18-Wochen-Zyklus.
     recommended_substrate_type: soil
+    reference_substrate_type: soil
     author: "Kamerplanter Referenzdaten"
     is_template: true
     version: "1.0"
@@ -792,6 +809,7 @@ nutrient_plans:
         week_start: 3
         week_end: 5
         npk_ratio: [1.0, 1.0, 1.0]
+        reference_ec_ms: 0.5
         notes: "Halbe Dosis Terra Grow + Pure Zym. Erstes echtes Blattpaar."
         delivery_channels:
           - channel_id: naehrloesung-wachstum
@@ -813,6 +831,7 @@ nutrient_plans:
         week_start: 6
         week_end: 12
         npk_ratio: [3.0, 1.0, 3.0]
+        reference_ec_ms: 0.6
         notes: "Hauptwachstum. Regelmäßig ernten für buschiges Wachstum."
         delivery_channels:
           - channel_id: naehrloesung-wachstum
@@ -834,6 +853,7 @@ nutrient_plans:
         week_start: 13
         week_end: 16
         npk_ratio: [3.0, 1.0, 3.0]
+        reference_ec_ms: 0.5
         notes: "Blütenbildung. Blüten ausbrechen für Blattqualität, oder blühen lassen."
         delivery_channels:
           - channel_id: naehrloesung-wachstum
@@ -874,6 +894,7 @@ nutrient_plans:
       mit 3 Produkten. Indoor-Aussaat Feb/März, Hauptblüte Mai–Juli.
       Schwachzehrer, annuell kultiviert. Blüten essbar.
     recommended_substrate_type: soil
+    reference_substrate_type: soil
     author: "Kamerplanter Referenzdaten"
     is_template: true
     version: "1.0"
@@ -923,6 +944,7 @@ nutrient_plans:
         week_start: 3
         week_end: 8
         npk_ratio: [3.0, 1.0, 3.0]
+        reference_ec_ms: 0.5
         notes: "Schwache Düngung mit Terra Grow. Jungpflanzen pikieren."
         delivery_channels:
           - channel_id: naehrloesung-wachstum
@@ -942,6 +964,7 @@ nutrient_plans:
         week_start: 9
         week_end: 14
         npk_ratio: [2.0, 1.0, 2.0]
+        reference_ec_ms: 0.6
         notes: "Blattmasse aufbauen. Pure Zym für Bodengesundheit."
         delivery_channels:
           - channel_id: naehrloesung-wachstum
@@ -963,6 +986,7 @@ nutrient_plans:
         week_start: 15
         week_end: 28
         npk_ratio: [2.0, 2.0, 4.0]
+        reference_ec_ms: 0.7
         notes: "Umstellung auf Terra Bloom. Hauptblüte Mai–Juli."
         delivery_channels:
           - channel_id: naehrloesung-bluete
@@ -1008,6 +1032,7 @@ nutrient_plans:
       Plagron Terra-Linie mit 6 Produkten inkl. Green Sensation.
       Starkzehrer mit EC bis 1.5. Einjährig.
     recommended_substrate_type: soil
+    reference_substrate_type: soil
     author: "Kamerplanter Referenzdaten"
     is_template: true
     version: "1.0"
@@ -1057,6 +1082,7 @@ nutrient_plans:
         week_start: 3
         week_end: 5
         npk_ratio: [2.0, 1.0, 1.0]
+        reference_ec_ms: 0.8
         notes: "Halbe Dosis Terra Grow + Power Roots. Schnelles Jugendwachstum."
         delivery_channels:
           - channel_id: naehrloesung-wachstum
@@ -1080,6 +1106,7 @@ nutrient_plans:
         week_start: 6
         week_end: 12
         npk_ratio: [3.0, 1.0, 2.0]
+        reference_ec_ms: 1.5
         notes: "Volle Dosis Terra Grow. Starkzehrer — EC 1.5."
         delivery_channels:
           - channel_id: naehrloesung-wachstum
@@ -1106,6 +1133,7 @@ nutrient_plans:
         week_start: 13
         week_end: 16
         npk_ratio: [1.0, 2.0, 3.0]
+        reference_ec_ms: 1.5
         notes: "Umstellung auf Terra Bloom. Blütenentwicklung, hoher K-Bedarf."
         delivery_channels:
           - channel_id: naehrloesung-bluete
@@ -1130,6 +1158,7 @@ nutrient_plans:
         week_start: 17
         week_end: 22
         npk_ratio: [0.0, 1.0, 3.0]
+        reference_ec_ms: 1.0
         notes: "Samenfüllung. Green Sensation für PK-Booster, dann Düngung reduzieren."
         watering_schedule_override:
           schedule_mode: interval
@@ -1160,6 +1189,7 @@ nutrient_plans:
       Plagron Terra-Linie mit 6 Produkten inkl. PK 13-14 Blütebooster.
       Starkzehrer, 28 Wochen (März–Oktober).
     recommended_substrate_type: soil
+    reference_substrate_type: soil
     author: "Kamerplanter Referenzdaten"
     is_template: true
     version: "1.0"
@@ -1210,6 +1240,7 @@ nutrient_plans:
         week_start: 3
         week_end: 6
         npk_ratio: [3.0, 1.0, 3.0]
+        reference_ec_ms: 0.6
         notes: "Halbe Dosis Terra Grow + Power Roots. Indoor-Vorkultur."
         watering_schedule_override:
           schedule_mode: interval
@@ -1236,6 +1267,7 @@ nutrient_plans:
         week_start: 7
         week_end: 12
         npk_ratio: [3.0, 1.0, 3.0]
+        reference_ec_ms: 1.5
         notes: "Volle Dosis Terra Grow. Starkzehrer — EC 1.5. Ausgeizen beginnen."
         delivery_channels:
           - channel_id: naehrloesung-wachstum
@@ -1262,6 +1294,7 @@ nutrient_plans:
         week_start: 13
         week_end: 17
         npk_ratio: [2.0, 2.0, 4.0]
+        reference_ec_ms: 1.8
         calcium_ppm: 175.0
         magnesium_ppm: 50.0
         notes: >-
@@ -1293,6 +1326,7 @@ nutrient_plans:
         week_start: 18
         week_end: 26
         npk_ratio: [2.0, 2.0, 4.0]
+        reference_ec_ms: 1.5
         calcium_ppm: 175.0
         magnesium_ppm: 50.0
         notes: "Erntephase. Reduzierte Düngung, fortlaufende Fruchtreife."

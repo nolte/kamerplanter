@@ -60,6 +60,7 @@ class NutrientPlanService:
             "name",
             "description",
             "recommended_substrate_type",
+            "reference_substrate_type",
             "author",
             "is_template",
             "version",
@@ -101,6 +102,7 @@ class NutrientPlanService:
             "calcium_ppm",
             "magnesium_ppm",
             "target_ec_ms",
+            "reference_ec_ms",
             "target_calcium_ppm",
             "target_magnesium_ppm",
             "reference_base_ec",
@@ -420,6 +422,13 @@ class NutrientPlanService:
         if not substrate_type:
             substrate_type = "coco"
 
+        # Resolve plan reference substrate type
+        plan_ref_substrate = (
+            plan.reference_substrate_type.value
+            if hasattr(plan.reference_substrate_type, "value")
+            else str(plan.reference_substrate_type)
+        ) if plan.reference_substrate_type else "soil"
+
         # Build input and run engine
         calc_input = DosageCalculationInput(
             phase_entry=entry,
@@ -431,6 +440,7 @@ class NutrientPlanService:
             substrate_type=substrate_type,
             calmag_product=calmag_product,
             fertilizer_lookup=fertilizer_lookup,
+            plan_reference_substrate_type=plan_ref_substrate,
         )
 
         return self._dosage_engine.calculate(calc_input)

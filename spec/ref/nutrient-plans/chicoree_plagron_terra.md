@@ -15,12 +15,15 @@
 | Name | Chicoree (Freiland + Treiberei) -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Zweiteiliger Plan fuer Chicoree (Cichorium intybus): Phase 1 Freiland (Mai--Oktober, Wurzelaufbau), Phase 2 Treiberei im Dunkeln (Nov--Dez, Etiolierung). Plagron Terra-Linie mit 3 Produkten. Mittelzehrer. Freiland-Direktsaat, dann Wurzeln roden und dunkel bei 15--18 degC treiben. Chicoreezapfen nach 3--4 Wochen erntereif. | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | chicoree, zichorie, wegwarte, chicory, cichorium, plagron, terra, erde, outdoor, mittelzehrer, treiberei, etiolierung | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (kein Neustart) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -124,7 +127,8 @@ Chicoree ist ein Mittelzehrer. Der Plan teilt sich in 2 Abschnitte: Freiland (EC
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer) |
 
@@ -147,7 +151,8 @@ Chicoree ist ein Mittelzehrer. Der Plan teilt sich in 2 Abschnitte: Freiland (EC
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.5 |
+| target_ec_ms | 0.5  |
+| reference_ec_ms | 0.5  |
 | target_ph | 6.5 |
 | Terra Grow ml/L | 1.5 (Viertel-Dosis) |
 
@@ -170,7 +175,8 @@ Chicoree ist ein Mittelzehrer. Der Plan teilt sich in 2 Abschnitte: Freiland (EC
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6 |
+| target_ec_ms | 0.6  |
+| reference_ec_ms | 0.6  |
 | target_ph | 6.5 |
 | Terra Grow ml/L | 2.5 (halbe Dosis, W8--12) |
 | Pure Zym ml/L | 1.0 |
@@ -181,7 +187,8 @@ Chicoree ist ein Mittelzehrer. Der Plan teilt sich in 2 Abschnitte: Freiland (EC
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.7 |
+| target_ec_ms | 0.7  |
+| reference_ec_ms | 0.7  |
 | target_ph | 6.5 |
 | Terra Bloom ml/L | 2.5 (halbe Dosis, K-betont, W13--17) |
 | Pure Zym ml/L | 1.0 |
@@ -208,7 +215,8 @@ Chicoree ist ein Mittelzehrer. Der Plan teilt sich in 2 Abschnitte: Freiland (EC
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer) |
 
@@ -232,7 +240,8 @@ Chicoree ist ein Mittelzehrer. Der Plan teilt sich in 2 Abschnitte: Freiland (EC
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer) |
 
@@ -319,6 +328,7 @@ Bei 10 Pflanzen, 0.4 L Giessloessung pro Duengung, Duengung alle 14 Tage:
   "name": "Chicor\u00e9e (Freiland + Treiberei) \u2014 Plagron Terra",
   "description": "Zweiteiliger Plan: Freiland-Wurzelaufbau (Mai\u2013Oktober) + Treiberei im Dunkeln (Nov\u2013Dez). Plagron Terra-Linie, 3 Produkte. Mittelzehrer. 28 Wochen Gesamtdauer.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -368,6 +378,7 @@ Bei 10 Pflanzen, 0.4 L Giessloessung pro Duengung, Duengung alle 14 Tage:
       "enabled": true,
       "notes": "Kein D\u00fcnger. Boden gleichm\u00e4\u00dfig feucht.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.02}
@@ -398,6 +409,7 @@ Bei 10 Pflanzen, 0.4 L Giessloessung pro Duengung, Duengung alle 14 Tage:
       "enabled": true,
       "notes": "Terra Grow Viertel-Dosis.",
       "target_ec_ms": 0.5,
+      "reference_ec_ms": 0.5,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 1.5, "optional": false}
@@ -430,6 +442,7 @@ Bei 10 Pflanzen, 0.4 L Giessloessung pro Duengung, Duengung alle 14 Tage:
       "enabled": true,
       "notes": "W8\u201312: Terra Grow halbe Dosis. Ab W13: Terra Bloom halbe Dosis (K-betont). + Pure Zym. Ab W18: nur Wasser.",
       "target_ec_ms": 0.65,
+      "reference_ec_ms": 0.65,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 2.5, "optional": false},
@@ -471,6 +484,7 @@ Bei 10 Pflanzen, 0.4 L Giessloessung pro Duengung, Duengung alle 14 Tage:
       "enabled": true,
       "notes": "Kein D\u00fcnger. Substrat minimal feucht halten.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.1}
@@ -509,6 +523,7 @@ Bei 10 Pflanzen, 0.4 L Giessloessung pro Duengung, Duengung alle 14 Tage:
       "enabled": true,
       "notes": "KEIN D\u00fcnger, KEIN Licht. Substrat leicht feucht.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.1}

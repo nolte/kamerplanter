@@ -271,6 +271,8 @@ export interface CalculateDosagesResponse {
   dosages: DosageEntry[];
   mixing_instructions: string[];
   warnings: string[];
+  reference_ec_ms: number | null;
+  substrate_correction_applied: boolean;
 }
 
 export async function calculateDosages(

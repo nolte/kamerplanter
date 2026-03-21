@@ -15,12 +15,15 @@
 | Name | Kopfsalat / Pfluecksalat -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Saisonplan fuer Kopfsalat und Pfluecksalat (Lactuca sativa) bei Fruehjahrsaussaat. Plagron Terra-Linie mit 2 Produkten (Terra Grow + Pure Zym). Mittelzehrer mit kurzer Kulturdauer (6--10 Wochen). Nitratakkumulation vermeiden: kein N-betonter Duenger vor Ernte! Kein Terra Bloom noetig -- Salat wird vor Bluete geerntet. Annuell, kein Zyklus-Neustart. Staffelsaat alle 2--3 Wochen fuer kontinuierliche Ernte empfohlen. | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | salat, kopfsalat, pfluecksalat, lattich, lettuce, plagron, terra, erde, outdoor, mittelzehrer, schwachzehrer | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (annuell, kein Neustart) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -129,7 +132,8 @@ Salat ist ein Mittelzehrer (Kopfsalat) bis Schwachzehrer (Schnittsalat) und reag
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.0 |
 | fertilizer_dosages | [] (leer) |
 
@@ -152,7 +156,8 @@ Salat ist ein Mittelzehrer (Kopfsalat) bis Schwachzehrer (Schnittsalat) und reag
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.5 |
+| target_ec_ms | 0.5  |
+| reference_ec_ms | 0.5  |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 1.5 (Viertel-Dosis) |
 | Pure Zym ml/L | -- (noch nicht) |
@@ -176,7 +181,8 @@ Salat ist ein Mittelzehrer (Kopfsalat) bis Schwachzehrer (Schnittsalat) und reag
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6 |
+| target_ec_ms | 0.6  |
+| reference_ec_ms | 0.6  |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 2.5 (halbe Dosis) |
 | Pure Zym ml/L | 1.0 |
@@ -200,7 +206,8 @@ Salat ist ein Mittelzehrer (Kopfsalat) bis Schwachzehrer (Schnittsalat) und reag
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.5 |
+| target_ec_ms | 0.5  |
+| reference_ec_ms | 0.5  |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 1.5 (Viertel-Dosis, Nitrat-Reduktion) |
 | Pure Zym ml/L | 1.0 |
@@ -308,6 +315,7 @@ Bei einem Kopfsalat (25 cm Topf/Beet), 0.15 L Giessloessung pro Duengung, Duengu
   "name": "Kopfsalat / Pfluecksalat \u2014 Plagron Terra",
   "description": "Saisonplan fuer Kopfsalat und Pfluecksalat (Lactuca sativa) bei Fruehjahrsaussaat. Plagron Terra-Linie mit 2 Produkten. Indoor-Vorkultur Maerz, Auspflanzen April, Ernte Mai\u2013Juni. Mittelzehrer, 10 Wochen. Nitratakkumulation vermeiden: N-Reduktion vor Ernte.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -357,6 +365,7 @@ Bei einem Kopfsalat (25 cm Topf/Beet), 0.15 L Giessloessung pro Duengung, Duengu
       "enabled": true,
       "notes": "Kein D\u00fcnger. Leichtes Spr\u00fchen, Substrat gleichm\u00e4\u00dfig feucht. Lichtkeimer!",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.02}
@@ -387,6 +396,7 @@ Bei einem Kopfsalat (25 cm Topf/Beet), 0.15 L Giessloessung pro Duengung, Duengu
       "enabled": true,
       "notes": "Terra Grow Viertel-Dosis. Salzempfindlich \u2014 weniger ist mehr.",
       "target_ec_ms": 0.5,
+      "reference_ec_ms": 0.5,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 1.5, "optional": false}
@@ -419,6 +429,7 @@ Bei einem Kopfsalat (25 cm Topf/Beet), 0.15 L Giessloessung pro Duengung, Duengu
       "enabled": true,
       "notes": "Terra Grow halbe Dosis + Pure Zym. Reihenfolge: Terra Grow \u2192 Pure Zym \u2192 pH pr\u00fcfen. Nie \u00fcber die Bl\u00e4tter gie\u00dfen!",
       "target_ec_ms": 0.6,
+      "reference_ec_ms": 0.6,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 2.5, "optional": false},
@@ -452,6 +463,7 @@ Bei einem Kopfsalat (25 cm Topf/Beet), 0.15 L Giessloessung pro Duengung, Duengu
       "enabled": true,
       "notes": "Reduzierte Terra Grow Dosis + Pure Zym. Nitrat-Akkumulation vermeiden!",
       "target_ec_ms": 0.5,
+      "reference_ec_ms": 0.5,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 1.5, "optional": false},

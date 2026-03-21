@@ -25,6 +25,7 @@ nutrient_plans:
       pH-Pufferkapazität (KH ~0) — pH NACH dem Mischen messen
       und ggf. mit pH-Up/Down korrigieren.
     recommended_substrate_type: soil
+    reference_substrate_type: soil
     author: Kamerplanter Referenzdaten
     is_template: true
     version: "1.0"
@@ -59,6 +60,7 @@ nutrient_plans:
         week_start: 2
         week_end: 4
         npk_ratio: [1.5, 0.5, 1.5]
+        reference_ec_ms: 0.95
         notes: >-
           Halbe Dosis Terra Grow (2.5 ml/L) + CalMag 1.0 ml/L.
           Power Roots für Wurzelaufbau. Pure Zym durchgehend.
@@ -88,6 +90,7 @@ nutrient_plans:
         week_start: 4
         week_end: 6
         npk_ratio: [3.0, 1.0, 3.0]
+        reference_ec_ms: 1.35
         notes: >-
           Volle Dosis Terra Grow (5 ml/L) + CalMag 1.5 ml/L.
           Power Roots weiter für Wurzelmasse.
@@ -120,6 +123,7 @@ nutrient_plans:
         week_start: 6
         week_end: 9
         npk_ratio: [2.0, 2.0, 4.0]
+        reference_ec_ms: 1.55
         calcium_ppm: 150.0
         magnesium_ppm: 40.0
         notes: >-
@@ -155,6 +159,7 @@ nutrient_plans:
         week_start: 9
         week_end: 12
         npk_ratio: [2.0, 10.0, 13.0]
+        reference_ec_ms: 1.75
         calcium_ppm: 150.0
         magnesium_ppm: 40.0
         notes: >-
@@ -212,6 +217,7 @@ nutrient_plans:
       ACHTUNG: RO-Wasser hat keine pH-Pufferkapazität (KH ~0) —
       pH NACH dem Mischen messen und ggf. korrigieren.
     recommended_substrate_type: soil
+    reference_substrate_type: soil
     author: Kamerplanter Referenzdaten
     is_template: true
     version: "1.0"
@@ -263,6 +269,7 @@ nutrient_plans:
         week_end: 16
         is_recurring: false
         npk_ratio: [1.0, 1.0, 1.0]
+        reference_ec_ms: 0.65
         calcium_ppm: 40.0
         magnesium_ppm: 20.0
         notes: >-
@@ -326,6 +333,7 @@ nutrient_plans:
         week_end: 43
         is_recurring: true
         npk_ratio: [1.5, 1.0, 1.5]
+        reference_ec_ms: 1.05
         calcium_ppm: 80.0
         magnesium_ppm: 40.0
         notes: >-
@@ -388,6 +396,7 @@ nutrient_plans:
       ACHTUNG: RO-Wasser hat keine pH-Pufferkapazität (KH ~0) —
       pH NACH dem Mischen messen und ggf. korrigieren.
     recommended_substrate_type: soil
+    reference_substrate_type: soil
     author: Kamerplanter Referenzdaten
     is_template: true
     version: "1.0"
@@ -450,6 +459,7 @@ nutrient_plans:
         week_end: 12
         is_recurring: false
         npk_ratio: [1.0, 1.0, 1.0]
+        reference_ec_ms: 0.45
         calcium_ppm: 30.0
         magnesium_ppm: 15.0
         notes: >-
@@ -515,6 +525,7 @@ nutrient_plans:
         week_end: 43
         is_recurring: true
         npk_ratio: [1.5, 1.0, 1.5]
+        reference_ec_ms: 0.65
         calcium_ppm: 60.0
         magnesium_ppm: 30.0
         notes: >-
@@ -584,6 +595,7 @@ nutrient_plans:
       ACHTUNG: RO-Wasser hat keine pH-Pufferkapazität (KH ~0) —
       pH NACH dem Mischen messen und ggf. korrigieren.
     recommended_substrate_type: soil
+    reference_substrate_type: soil
     author: Kamerplanter Referenzdaten
     is_template: true
     version: "1.0"
@@ -676,6 +688,7 @@ nutrient_plans:
         week_end: 35
         is_recurring: true
         npk_ratio: [1.5, 1.0, 1.5]
+        reference_ec_ms: 0.55
         calcium_ppm: 40.0
         magnesium_ppm: 20.0
         notes: >-
@@ -706,6 +719,7 @@ nutrient_plans:
         week_end: 43
         is_recurring: true
         npk_ratio: [1.5, 1.0, 1.5]
+        reference_ec_ms: 0.55
         calcium_ppm: 40.0
         magnesium_ppm: 25.0
         notes: >-

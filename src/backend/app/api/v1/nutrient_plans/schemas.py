@@ -74,6 +74,7 @@ class NutrientPlanCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str = ""
     recommended_substrate_type: str | None = None
+    reference_substrate_type: str | None = None
     author: str = ""
     is_template: bool = False
     version: str = "1.0"
@@ -87,6 +88,7 @@ class NutrientPlanUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     recommended_substrate_type: str | None = None
+    reference_substrate_type: str | None = None
     author: str | None = None
     is_template: bool | None = None
     version: str | None = None
@@ -101,6 +103,7 @@ class NutrientPlanResponse(BaseModel):
     name: str
     description: str
     recommended_substrate_type: str | None
+    reference_substrate_type: str = "soil"
     author: str
     is_template: bool
     version: str
@@ -133,6 +136,7 @@ class PhaseEntryCreate(BaseModel):
     calcium_ppm: float | None = Field(default=None, ge=0)
     magnesium_ppm: float | None = Field(default=None, ge=0)
     target_ec_ms: float | None = Field(default=None, ge=0, le=10)
+    reference_ec_ms: float | None = Field(default=None, ge=0, le=10)
     target_calcium_ppm: float | None = Field(default=None, ge=0)
     target_magnesium_ppm: float | None = Field(default=None, ge=0)
     reference_base_ec: float = Field(default=0.0, ge=0, le=5)
@@ -152,6 +156,7 @@ class PhaseEntryUpdate(BaseModel):
     calcium_ppm: float | None = Field(default=None, ge=0)
     magnesium_ppm: float | None = Field(default=None, ge=0)
     target_ec_ms: float | None = Field(default=None, ge=0, le=10)
+    reference_ec_ms: float | None = Field(default=None, ge=0, le=10)
     target_calcium_ppm: float | None = Field(default=None, ge=0)
     target_magnesium_ppm: float | None = Field(default=None, ge=0)
     reference_base_ec: float | None = Field(default=None, ge=0, le=5)
@@ -173,6 +178,7 @@ class PhaseEntryResponse(BaseModel):
     calcium_ppm: float | None
     magnesium_ppm: float | None
     target_ec_ms: float | None = None
+    reference_ec_ms: float | None = None
     target_calcium_ppm: float | None = None
     target_magnesium_ppm: float | None = None
     reference_base_ec: float = 0.0
@@ -305,3 +311,5 @@ class CalculateDosagesResponse(BaseModel):
     dosages: list[DosageEntryResponse]
     mixing_instructions: list[str]
     warnings: list[str]
+    reference_ec_ms: float | None = None
+    substrate_correction_applied: bool = False

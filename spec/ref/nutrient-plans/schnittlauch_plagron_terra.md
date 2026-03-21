@@ -15,12 +15,15 @@
 | Name | Schnittlauch (perennierend) -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Perennierend-zyklischer Naehrstoffplan fuer Schnittlauch (Allium schoenoprasum). Schwachzehrer mit jaehrlichem Zyklus: Vegetativ (Maerz--Mai) -> Bluete (Juni--Juli) -> 2. Vegetativ (Juli--September) -> Dormanz (Oktober--Februar). Zyklus-Neustart ab Sequenz 3 (VEGETATIVE). Nur 2 Produkte: Terra Grow + Pure Zym. Kein Bloom-Duenger noetig. Schwefelversorgung durch Substrat ausreichend. | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | schnittlauch, allium, chives, plagron, terra, erde, kraeutergarten, schwachzehrer, outdoor, perennierend, winterhart | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | 3 (VEGETATIVE -- nach Dormanz springt der Zyklus zurueck zur vegetativen Erntephase) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -131,7 +134,8 @@ Schnittlauch ist ein Schwachzehrer. Ziel-EC der Gesamtloesung: **0.3--0.7 mS/cm*
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.0 |
 | fertilizer_dosages | [] (leer) |
 
@@ -154,7 +158,8 @@ Schnittlauch ist ein Schwachzehrer. Ziel-EC der Gesamtloesung: **0.3--0.7 mS/cm*
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.5 |
+| target_ec_ms | 0.5  |
+| reference_ec_ms | 0.5  |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 1.5 (Viertel-Dosis, Schwachzehrer) |
 | Pure Zym ml/L | -- (noch nicht) |
@@ -178,7 +183,8 @@ Schnittlauch ist ein Schwachzehrer. Ziel-EC der Gesamtloesung: **0.3--0.7 mS/cm*
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6 |
+| target_ec_ms | 0.6  |
+| reference_ec_ms | 0.6  |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 2.0 (halbe Dosis, Schwachzehrer) |
 | Pure Zym ml/L | 1.0 |
@@ -202,7 +208,8 @@ Schnittlauch ist ein Schwachzehrer. Ziel-EC der Gesamtloesung: **0.3--0.7 mS/cm*
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.0 |
 | fertilizer_dosages | [] (leer) |
 
@@ -226,7 +233,8 @@ Schnittlauch ist ein Schwachzehrer. Ziel-EC der Gesamtloesung: **0.3--0.7 mS/cm*
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.0 |
 | fertilizer_dosages | [] (leer) |
 
@@ -330,6 +338,7 @@ Bei einem Schnittlauch-Horst im 3--5 L Topf, 0.2 L Giessloessung pro Duengung, D
   "name": "Schnittlauch (perennierend) \u2014 Plagron Terra",
   "description": "Perennierend-zyklischer N\u00e4hrstoffplan f\u00fcr Schnittlauch (Allium schoenoprasum). Schwachzehrer, winterhart bis \u221230\u00b0C. J\u00e4hrlicher Zyklus: Vegetativ \u2192 Bl\u00fcte \u2192 Dormanz. Zyklus-Neustart ab VEGETATIVE. Nur Terra Grow + Pure Zym.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -379,6 +388,7 @@ Bei einem Schnittlauch-Horst im 3--5 L Topf, 0.2 L Giessloessung pro Duengung, D
       "enabled": true,
       "notes": "Kein D\u00fcnger. Substrat gleichm\u00e4\u00dfig feucht halten.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.02}
@@ -409,6 +419,7 @@ Bei einem Schnittlauch-Horst im 3--5 L Topf, 0.2 L Giessloessung pro Duengung, D
       "enabled": true,
       "notes": "Terra Grow Viertel-Dosis. Schwachzehrer \u2014 weniger ist mehr.",
       "target_ec_ms": 0.5,
+      "reference_ec_ms": 0.5,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 1.5, "optional": false}
@@ -441,6 +452,7 @@ Bei einem Schnittlauch-Horst im 3--5 L Topf, 0.2 L Giessloessung pro Duengung, D
       "enabled": true,
       "notes": "Halbe Dosis Terra Grow + Pure Zym. Reihenfolge: Terra Grow \u2192 Pure Zym \u2192 pH pr\u00fcfen.",
       "target_ec_ms": 0.6,
+      "reference_ec_ms": 0.6,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 2.0, "optional": false},
@@ -474,6 +486,7 @@ Bei einem Schnittlauch-Horst im 3--5 L Topf, 0.2 L Giessloessung pro Duengung, D
       "enabled": true,
       "notes": "Kein D\u00fcnger. Nur Wasser.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.2}
@@ -512,6 +525,7 @@ Bei einem Schnittlauch-Horst im 3--5 L Topf, 0.2 L Giessloessung pro Duengung, D
       "enabled": true,
       "notes": "Kein D\u00fcnger. Freiland: nat\u00fcrlicher Niederschlag gen\u00fcgt. Topf: nur Austrocknung verhindern.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.1}

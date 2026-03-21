@@ -80,6 +80,12 @@ $defs:
         enum: [soil, coco, clay_pebbles, perlite, living_soil, peat, rockwool_slab,
                rockwool_plug, vermiculite, none, orchid_bark, pon_mineral, sphagnum,
                hydro_solution]
+      reference_substrate_type:
+        type: string
+        enum: [soil, coco, clay_pebbles, perlite, living_soil, peat, rockwool_slab,
+               rockwool_plug, vermiculite, none, orchid_bark, pon_mineral, sphagnum,
+               hydro_solution]
+        description: "Substrate type the EC values are calibrated for"
       author:
         type: string
       is_template:
@@ -164,6 +170,11 @@ $defs:
           minimum: 0
         minItems: 3
         maxItems: 3
+      reference_ec_ms:
+        type: number
+        minimum: 0
+        maximum: 10
+        description: "EC target in context of plan's reference_substrate_type"
       notes:
         type: string
       watering_schedule_override:

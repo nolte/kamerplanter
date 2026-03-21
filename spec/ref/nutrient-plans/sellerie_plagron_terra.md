@@ -15,12 +15,15 @@
 | Name | Knollensellerie -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Saisonplan fuer Knollensellerie mit Indoor-Vorkultur ab Mitte Februar und Freilandkultur ab Mitte Mai. Plagron Terra-Linie mit 5 Produkten. Klassischer Starkzehrer mit sehr langer Kulturzeit (180--200 Tage), hohem Ca/K-Bedarf und Bor-Empfindlichkeit. Einjaehrige Kultur (biologisch zweijahrig), kein Zyklus-Neustart. 32 Wochen Gesamtdauer (Februar--Oktober). | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | sellerie, knollensellerie, celeriac, apium, graveolens, starkzehrer, plagron, terra, erde, outdoor, wurzelgemuese | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (einjaehrig, kein Neustart) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -143,7 +146,8 @@ Knollensellerie ist ein Starkzehrer mit hoher EC-Toleranz (bis 2.4 mS/cm in Hydr
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.2 |
 | fertilizer_dosages | [] (leer -- kein Duenger) |
 
@@ -167,7 +171,8 @@ Knollensellerie ist ein Starkzehrer mit hoher EC-Toleranz (bis 2.4 mS/cm in Hydr
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6 |
+| target_ec_ms | 0.6  |
+| reference_ec_ms | 0.6  |
 | target_ph | 6.2 |
 | Terra Grow ml/L | 1.5 (Viertel-Dosis) |
 | Power Roots ml/L | 1.0 |
@@ -193,7 +198,8 @@ Knollensellerie ist ein Starkzehrer mit hoher EC-Toleranz (bis 2.4 mS/cm in Hydr
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.5 |
+| target_ec_ms | 1.5  |
+| reference_ec_ms | 1.5  |
 | target_ph | 6.2 |
 | Terra Grow ml/L | 5.0 (volle Dosis) |
 | Power Roots ml/L | 1.0 |
@@ -222,7 +228,8 @@ Knollensellerie ist ein Starkzehrer mit hoher EC-Toleranz (bis 2.4 mS/cm in Hydr
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.8 |
+| target_ec_ms | 1.8  |
+| reference_ec_ms | 1.8  |
 | target_ph | 6.2 |
 | Terra Bloom ml/L | 5.0 |
 | Pure Zym ml/L | 1.0 |
@@ -249,7 +256,8 @@ Knollensellerie ist ein Starkzehrer mit hoher EC-Toleranz (bis 2.4 mS/cm in Hydr
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.2 |
+| target_ec_ms | 1.2  |
+| reference_ec_ms | 1.2  |
 | target_ph | 6.2 |
 | Terra Bloom ml/L | 3.0 (reduziert) |
 | Pure Zym ml/L | 1.0 |
@@ -274,7 +282,8 @@ Knollensellerie ist ein Starkzehrer mit hoher EC-Toleranz (bis 2.4 mS/cm in Hydr
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.2 |
 | Pure Zym ml/L | 1.0 |
 | fertilizer_dosages | Pure Zym only |
@@ -408,6 +417,7 @@ Schwarze Verfaerbung im Knolleninneren durch unzureichenden Ca-Transport.
   "name": "Knollensellerie \u2014 Plagron Terra",
   "description": "Saisonplan f\u00fcr Knollensellerie mit Indoor-Vorkultur ab Mitte Februar und Freilandkultur ab Mitte Mai. Plagron Terra-Linie mit 5 Produkten. Starkzehrer mit sehr langer Kulturzeit, hohem Ca/K-Bedarf und Bor-Empfindlichkeit. 32 Wochen (Februar\u2013Oktober).",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -457,6 +467,7 @@ Schwarze Verfaerbung im Knolleninneren durch unzureichenden Ca-Transport.
       "enabled": true,
       "notes": "Nur Wasser. Feine Spr\u00fchung, Substrat gleichm\u00e4\u00dfig feucht halten. Lichtkeimer!",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.2,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.03}
@@ -495,6 +506,7 @@ Schwarze Verfaerbung im Knolleninneren durch unzureichenden Ca-Transport.
       "enabled": true,
       "notes": "Terra Grow Viertel-Dosis + Power Roots",
       "target_ec_ms": 0.6,
+      "reference_ec_ms": 0.6,
       "target_ph": 6.2,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 1.5, "optional": false},
@@ -528,6 +540,7 @@ Schwarze Verfaerbung im Knolleninneren durch unzureichenden Ca-Transport.
       "enabled": true,
       "notes": "Terra Grow + alle Additive. Reihenfolge: Terra Grow \u2192 Power Roots \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen",
       "target_ec_ms": 1.5,
+      "reference_ec_ms": 1.5,
       "target_ph": 6.2,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 5.0, "optional": false},
@@ -563,6 +576,7 @@ Schwarze Verfaerbung im Knolleninneren durch unzureichenden Ca-Transport.
       "enabled": true,
       "notes": "Terra Bloom + Additive. Reihenfolge: Terra Bloom \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen",
       "target_ec_ms": 1.8,
+      "reference_ec_ms": 1.8,
       "target_ph": 6.2,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 5.0, "optional": false},
@@ -597,6 +611,7 @@ Schwarze Verfaerbung im Knolleninneren durch unzureichenden Ca-Transport.
       "enabled": true,
       "notes": "Reduzierter Terra Bloom. Kein Sugar Royal.",
       "target_ec_ms": 1.2,
+      "reference_ec_ms": 1.2,
       "target_ph": 6.2,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 3.0, "optional": false},
@@ -638,6 +653,7 @@ Schwarze Verfaerbung im Knolleninneren durch unzureichenden Ca-Transport.
       "enabled": true,
       "notes": "Nur Wasser + Pure Zym. Kein D\u00fcnger.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.2,
       "fertilizer_dosages": [
         {"fertilizer_key": "<pure_zym_key>", "ml_per_liter": 1.0, "optional": false}

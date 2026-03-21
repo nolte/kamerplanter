@@ -99,6 +99,7 @@ const editSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().max(2000),
   recommended_substrate_type: z.enum(substrateTypes).nullable(),
+  reference_substrate_type: z.enum(substrateTypes),
   author: z.string().max(200),
   is_template: z.boolean(),
   version: z.string().max(50),
@@ -502,6 +503,7 @@ function PhaseTimelineTab({
                         title={t('pages.gantt.vegetativeDetail')}
                         onEntriesChange={onEntriesChange}
                         onRemoveFertilizer={onRemoveFertilizerFromGantt ? (fk, isAuto) => onRemoveFertilizerFromGantt(fk, isAuto, vegEntries) : undefined}
+                        onAddFertilizer={onAddChannelFertilizer}
                       />
                     )}
                     {flowerEntries.length > 0 && (
@@ -511,6 +513,7 @@ function PhaseTimelineTab({
                         title={t('pages.gantt.floweringDetail')}
                         onEntriesChange={onEntriesChange}
                         onRemoveFertilizer={onRemoveFertilizerFromGantt ? (fk, isAuto) => onRemoveFertilizerFromGantt(fk, isAuto, flowerEntries) : undefined}
+                        onAddFertilizer={onAddChannelFertilizer}
                       />
                     )}
                   </Box>
@@ -631,6 +634,7 @@ export default function NutrientPlanDetailPage() {
       name: '',
       description: '',
       recommended_substrate_type: null,
+      reference_substrate_type: 'soil',
       author: '',
       is_template: false,
       version: '',
@@ -678,6 +682,7 @@ export default function NutrientPlanDetailPage() {
         name: p.name,
         description: p.description,
         recommended_substrate_type: p.recommended_substrate_type as typeof substrateTypes[number] | null,
+        reference_substrate_type: (p.reference_substrate_type ?? 'soil') as typeof substrateTypes[number],
         author: p.author,
         is_template: p.is_template,
         version: p.version,
@@ -736,6 +741,7 @@ export default function NutrientPlanDetailPage() {
         name: data.name,
         description: data.description,
         recommended_substrate_type: data.recommended_substrate_type,
+        reference_substrate_type: data.reference_substrate_type,
         author: data.author,
         is_template: data.is_template,
         version: data.version,
@@ -1262,6 +1268,17 @@ export default function NutrientPlanDetailPage() {
                   label: t(`enums.substrateType.${v}`),
                 }))}
               />
+              <ExpertiseFieldWrapper minLevel="expert">
+                <FormSelectField
+                  name="reference_substrate_type"
+                  control={control}
+                  label={t('pages.nutrientPlans.referenceSubstrateType')}
+                  options={substrateTypes.map((v) => ({
+                    value: v,
+                    label: t(`enums.substrateType.${v}`),
+                  }))}
+                />
+              </ExpertiseFieldWrapper>
               <FormTextField
                 name="author"
                 control={control}
