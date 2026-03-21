@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
@@ -19,6 +19,7 @@ import { useTableUrlState } from '@/hooks/useTableState';
 import type { PlantInstance, Species, Cultivar, Site, Location, Slot } from '@/api/types';
 import { listSpecies, listCultivars } from '@/api/endpoints/species';
 import { listSites, listLocations, getSlot } from '@/api/endpoints/sites';
+import MobileCard from '@/components/common/MobileCard';
 import PlantInstanceCreateDialog, { type PlantInstanceDuplicateData } from './PlantInstanceCreateDialog';
 import { kamiPlants } from '@/assets/brand/illustrations';
 
@@ -221,6 +222,33 @@ export default function PlantInstanceListPage() {
     },
   ];
 
+  const renderMobileCard = useCallback((r: PlantInstance) => {
+    const species = speciesMap.get(r.species_key);
+    const cultivar = r.cultivar_key ? cultivarMap.get(r.cultivar_key) : null;
+    const slot = r.slot_key ? slotMap.get(r.slot_key) : null;
+    const location = slot ? locationMap.get(slot.location_key) : null;
+    const phaseColorMap: Record<string, 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'info' | 'error'> = {
+      germination: 'info', seedling: 'success', vegetative: 'primary', flowering: 'warning', harvest: 'secondary',
+    };
+    return (
+      <MobileCard
+        title={r.plant_name ?? r.instance_id}
+        subtitle={species ? `${species.common_names[0] ?? species.scientific_name}${cultivar ? ` \u2014 ${cultivar.name}` : ''}` : undefined}
+        chips={
+          <Chip
+            label={t(`enums.phaseName.${r.current_phase}`, { defaultValue: r.current_phase })}
+            size="small"
+            color={phaseColorMap[r.current_phase] ?? 'default'}
+          />
+        }
+        fields={[
+          ...(location ? [{ label: t('entities.location'), value: location.name }] : []),
+          ...(r.planted_on ? [{ label: t('pages.plantInstances.plantedOn'), value: new Date(r.planted_on).toLocaleDateString() }] : []),
+        ]}
+      />
+    );
+  }, [speciesMap, cultivarMap, slotMap, locationMap, t]);
+
   return (
     <Box data-testid="plant-instance-list-page">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -246,6 +274,7 @@ export default function PlantInstanceListPage() {
         emptyIllustration={kamiPlants}
         tableState={tableState}
         ariaLabel={t('pages.plantInstances.title')}
+        mobileCardRenderer={renderMobileCard}
       />
       <PlantInstanceCreateDialog
         open={createOpen}

@@ -9,7 +9,7 @@ import Link from '@mui/material/Link';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
+
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import ToggleButton from '@mui/material/ToggleButton';
@@ -18,6 +18,7 @@ import ScienceIcon from '@mui/icons-material/Science';
 import LocalDrinkIcon from '@mui/icons-material/LocalDrink';
 import { Link as RouterLink } from 'react-router-dom';
 import DataTable, { type Column } from '@/components/common/DataTable';
+import MobileCard from '@/components/common/MobileCard';
 import type { PlantingRun, PlantingRunEntry, Fertilizer } from '@/api/types';
 import type { RunNutrientData, ChannelGroup } from '@/hooks/useRunNutrientData';
 
@@ -25,6 +26,7 @@ interface PlantingRunDetailsTabProps {
   run: PlantingRun;
   entries: PlantingRunEntry[];
   entryColumns: Column<PlantingRunEntry>[];
+  speciesMap: Map<string, string>;
   assignedPlan: Record<string, unknown> | null;
   locationName: string;
   fertilizers: Fertilizer[];
@@ -72,7 +74,7 @@ function ChannelCard({
             <Chip label={`pH ${group.targetPh}`} size="small" variant="outlined" />
           )}
         </Box>
-        <TableContainer>
+        <Box sx={{ overflowX: 'auto' }}>
           <Table size="small">
             <TableHead>
               <TableRow>
@@ -107,7 +109,7 @@ function ChannelCard({
               })}
             </TableBody>
           </Table>
-        </TableContainer>
+        </Box>
       </CardContent>
     </Card>
   );
@@ -117,6 +119,7 @@ export default function PlantingRunDetailsTab({
   run,
   entries,
   entryColumns,
+  speciesMap,
   assignedPlan,
   locationName,
   fertilizers,
@@ -272,6 +275,19 @@ export default function PlantingRunDetailsTab({
             getRowKey={(r) => r.key}
             variant="simple"
             ariaLabel={t('pages.plantingRuns.entries')}
+            mobileCardRenderer={(r) => (
+              <MobileCard
+                title={speciesMap.get(r.species_key) ?? r.species_key}
+                subtitle={r.cultivar_key ? (speciesMap.get(r.cultivar_key) ?? r.cultivar_key) : undefined}
+                chips={
+                  <Chip label={t(`enums.entryRole.${r.role}`)} size="small" variant="outlined" />
+                }
+                fields={[
+                  { label: t('pages.plantingRuns.quantity'), value: String(r.quantity) },
+                  ...(r.spacing_cm ? [{ label: t('pages.plantingRuns.spacing'), value: `${r.spacing_cm} cm` }] : []),
+                ]}
+              />
+            )}
           />
         </Box>
       )}

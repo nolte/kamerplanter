@@ -1,0 +1,98 @@
+# JSON Schema for lifecycles_outdoor.yaml
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "lifecycles.schema.yaml"
+title: "Lifecycle Seed Data"
+description: "Schema for species lifecycle and growth phase definitions"
+type: object
+
+properties:
+  lifecycles:
+    type: array
+    items:
+      $ref: "#/$defs/lifecycle"
+
+required: [lifecycles]
+additionalProperties: false
+
+$defs:
+  lifecycle:
+    type: object
+    properties:
+      species_key:
+        type: string
+        description: "ArangoDB key of the species"
+      cycle_type:
+        type: string
+        enum: [annual, biennial, perennial]
+      typical_lifespan_years:
+        type: [integer, "null"]
+        minimum: 1
+      dormancy_required:
+        type: boolean
+      vernalization_required:
+        type: boolean
+      photoperiod_type:
+        type: string
+        enum: [short_day, long_day, day_neutral]
+      phases:
+        type: array
+        items:
+          $ref: "#/$defs/growth_phase"
+        minItems: 1
+    required: [species_key, cycle_type, dormancy_required, vernalization_required,
+               photoperiod_type, phases]
+    additionalProperties: false
+
+  growth_phase:
+    type: object
+    properties:
+      name:
+        type: string
+        enum: [germination, seedling, vegetative, flowering, flushing, dormancy,
+               harvest, sprouting, budding, fruiting, ripening, senescence, corm_ripening]
+      display_name:
+        type: string
+        description: "German display name"
+      typical_duration_days:
+        type: integer
+        minimum: 1
+      sequence_order:
+        type: integer
+        minimum: 1
+      stress_tolerance:
+        type: string
+        enum: [low, medium, high]
+      allows_harvest:
+        type: boolean
+      is_terminal:
+        type: boolean
+        description: "True if this is the last phase before cycle restart"
+      # Optional environment targets
+      vpd_target_min:
+        type: number
+        minimum: 0
+      vpd_target_max:
+        type: number
+        minimum: 0
+      temp_target_min:
+        type: number
+      temp_target_max:
+        type: number
+      humidity_target_min:
+        type: number
+        minimum: 0
+        maximum: 100
+      humidity_target_max:
+        type: number
+        minimum: 0
+        maximum: 100
+      ppfd_target:
+        type: integer
+        minimum: 0
+      photoperiod_hours:
+        type: number
+        minimum: 0
+        maximum: 24
+    required: [name, display_name, typical_duration_days, sequence_order,
+               stress_tolerance, allows_harvest, is_terminal]
+    additionalProperties: false

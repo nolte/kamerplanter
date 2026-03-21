@@ -15,6 +15,7 @@
 | Name | Monstera deliciosa -- Gardol Gruenpflanzenduenger | `nutrient_plans.name` |
 | Beschreibung | Ganzjahresplan fuer Monstera deliciosa in Erdsubstrat. Einzelduenger-Konzept mit Gardol Gruenpflanzenduenger (NPK 6-4-6). Saisonaler Rhythmus: Maerz--Oktober Duengung, November--Februar Pause. | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.2 | `nutrient_plans.version` |
@@ -23,6 +24,8 @@
 
 <!-- MN-008: Ca/Mg-Versorgung wird bei null (= Leitungswasser) durch das Wasser selbst gedeckt (dt. Durchschnitt ~100 ppm Ca, 15 ppm Mg). Bei RO-/Regenwasser ist ein CalMag-Supplement erforderlich. -->
 | Zyklus-Neustart ab Sequenz | 3 (VEGETATIVE) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -119,6 +122,7 @@ Geschaetzter EC-Beitrag: **~0,06 mS/cm pro ml/L** (Herstellerangabe fehlt, Schae
 | channel_id | wasser-bewurzelung |
 | application_method | drench |
 | target_ec_ms | null (keine Duengung, Leitungswasser-EC 0,3--0,7 mS/cm) |
+| reference_ec_ms | null (keine Duengung, Leitungswasser-EC 0,3--0,7 mS/cm) |
 | target_ph | 6.0 (Substrat-pH-Optimum, nicht Giesswasser-pH; Leitungswasser muss fuer Erdkultur nicht pH-korrigiert werden) |
 | fertilizer_dosages | [] (leer) |
 
@@ -141,6 +145,7 @@ Geschaetzter EC-Beitrag: **~0,06 mS/cm pro ml/L** (Herstellerangabe fehlt, Schae
 | Feld | Wert |
 |------|------|
 | target_ec_ms | 0.6 |
+| reference_ec_ms | 0.6 |
 | target_ph | 6.0 (Substrat-pH-Optimum) |
 | Gardol ml/L | 2.0 (halbe Dosis) |
 | EC-Beitrag | ~0,12 mS/cm |
@@ -165,6 +170,7 @@ Geschaetzter EC-Beitrag: **~0,06 mS/cm pro ml/L** (Herstellerangabe fehlt, Schae
 | Feld | Wert |
 |------|------|
 | target_ec_ms | 1.0 |
+| reference_ec_ms | 1.0 |
 | target_ph | 6.0 (Substrat-pH-Optimum) |
 | Gardol ml/L | 4.0 (volle Dosis) |
 | EC-Beitrag | ~0,24 mS/cm |
@@ -193,6 +199,7 @@ Geschaetzter EC-Beitrag: **~0,06 mS/cm pro ml/L** (Herstellerangabe fehlt, Schae
 | channel_id | wasser-dormancy |
 | application_method | drench |
 | target_ec_ms | null (keine Duengung, Leitungswasser-EC 0,3--0,7 mS/cm) |
+| reference_ec_ms | null (keine Duengung, Leitungswasser-EC 0,3--0,7 mS/cm) |
 | target_ph | 6.0 (Substrat-pH-Optimum, nicht Giesswasser-pH) |
 | fertilizer_dosages | [] (leer) |
 
@@ -247,6 +254,7 @@ Legende: --- = keine Duengung, ### = halbe Dosis (2 ml/L), === = volle Dosis (4 
   "name": "Monstera deliciosa \u2014 Gardol Gr\u00fcnpflanzend\u00fcnger",
   "description": "Ganzjahresplan f\u00fcr Monstera deliciosa in Erdsubstrat. Einzeld\u00fcnger-Konzept mit Gardol Gr\u00fcnpflanzend\u00fcnger (NPK 6-4-6). Saisonaler Rhythmus: M\u00e4rz\u2013Oktober D\u00fcngung, November\u2013Februar Pause.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.2",
@@ -296,6 +304,7 @@ Legende: --- = keine Duengung, ### = halbe Dosis (2 ml/L), === = volle Dosis (4 
       "enabled": true,
       "notes": "Nur klares Wasser, kein D\u00fcnger. DRENCH = von oben gie\u00dfen (entspricht top_water-Methode).",
       "target_ec_ms": null,
+      "reference_ec_ms": null,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {
@@ -337,6 +346,7 @@ Legende: --- = keine Duengung, ### = halbe Dosis (2 ml/L), === = volle Dosis (4 
       "enabled": true,
       "notes": "D\u00fcnger ins Gie\u00dfwasser einr\u00fchren, nur auf feuchtes Substrat gie\u00dfen. DRENCH = von oben gie\u00dfen (entspricht top_water-Methode).",
       "target_ec_ms": 0.6,
+      "reference_ec_ms": 0.6,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {
@@ -377,6 +387,7 @@ Legende: --- = keine Duengung, ### = halbe Dosis (2 ml/L), === = volle Dosis (4 
       "enabled": true,
       "notes": "D\u00fcnger ins Gie\u00dfwasser einr\u00fchren, nur auf feuchtes Substrat gie\u00dfen. DRENCH = von oben gie\u00dfen (entspricht top_water-Methode).",
       "target_ec_ms": 1.0,
+      "reference_ec_ms": 1.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {
@@ -424,6 +435,7 @@ Legende: --- = keine Duengung, ### = halbe Dosis (2 ml/L), === = volle Dosis (4 
       "enabled": true,
       "notes": "Nur klares Wasser, kein D\u00fcnger. Reduziertes Volumen. DRENCH = von oben gie\u00dfen (entspricht top_water-Methode).",
       "target_ec_ms": null,
+      "reference_ec_ms": null,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {

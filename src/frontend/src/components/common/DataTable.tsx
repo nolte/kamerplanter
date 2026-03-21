@@ -15,6 +15,8 @@ import InputAdornment from '@mui/material/InputAdornment';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import LoadingSkeleton from './LoadingSkeleton';
@@ -56,6 +58,8 @@ interface DataTableProps<T> {
   searchable?: boolean;
   ariaLabel?: string;
   stickyHeader?: boolean;
+  mobileCardRenderer?: (row: T) => ReactNode;
+  mobileBreakpoint?: 'sm' | 'md';
 }
 
 function defaultSearchExtractor<T>(row: T, col: Column<T>): string {
@@ -95,8 +99,12 @@ export default function DataTable<T>({
   searchable,
   ariaLabel,
   stickyHeader = true,
+  mobileCardRenderer,
+  mobileBreakpoint = 'sm',
 }: DataTableProps<T>) {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down(mobileBreakpoint));
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollShadow, setScrollShadow] = useState<'none' | 'left' | 'right' | 'both'>('none');
 
@@ -302,101 +310,136 @@ export default function DataTable<T>({
         </Box>
       )}
 
-      <Box sx={scrollShadowSx}>
-        <TableContainer ref={containerRef}>
-          <Table
-            size="small"
-            stickyHeader={stickyHeader}
-            aria-label={ariaLabel}
-          >
-            <TableHead>
-              <TableRow>
-                {columns.map((col) => {
-                  const isSortable = tableState && col.sortable !== false && col.id !== 'actions';
-                  const isSorted = tableState?.sort?.column === col.id;
-                  const responsiveSx = col.hideBelowBreakpoint
-                    ? { display: { xs: 'none', [col.hideBelowBreakpoint]: 'table-cell' } }
-                    : undefined;
-
-                  return (
-                    <TableCell
-                      key={col.id}
-                      width={col.width}
-                      align={col.align}
-                      sx={{
-                        ...responsiveSx,
-                        ...(stickyHeader && {
-                          borderBottom: 2,
-                          borderColor: 'divider',
-                        }),
-                      }}
-                      sortDirection={isSorted ? tableState!.sort!.direction : false}
-                      aria-sort={
-                        isSorted
-                          ? tableState!.sort!.direction === 'asc'
-                            ? 'ascending'
-                            : 'descending'
-                          : undefined
-                      }
-                    >
-                      {isSortable ? (
-                        <TableSortLabel
-                          active={isSorted}
-                          direction={isSorted ? tableState!.sort!.direction : 'asc'}
-                          onClick={() => tableState!.setSort(col.id)}
-                        >
-                          {col.label}
-                        </TableSortLabel>
-                      ) : (
-                        col.label
-                      )}
-                    </TableCell>
-                  );
-                })}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {displayRows.map((row) => (
-                <TableRow
-                  key={getRowKey(row)}
-                  hover
-                  onClick={() => onRowClick?.(row)}
-                  onKeyDown={
-                    onRowClick
-                      ? (e) => {
-                          if (e.key === 'Enter') onRowClick(row);
-                        }
-                      : undefined
-                  }
-                  tabIndex={onRowClick ? 0 : undefined}
-                  sx={{
-                    ...(onRowClick && {
-                      cursor: 'pointer',
-                      '&:focus-visible': {
-                        outline: '2px solid',
-                        outlineColor: 'primary.main',
-                        outlineOffset: -2,
-                      },
-                    }),
-                  }}
-                  data-testid="data-table-row"
-                >
+      {/* Mobile card view */}
+      {isMobile && mobileCardRenderer ? (
+        <Box
+          sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}
+          data-testid="data-table-cards"
+        >
+          {displayRows.map((row) => (
+            <Box
+              key={getRowKey(row)}
+              onClick={() => onRowClick?.(row)}
+              onKeyDown={
+                onRowClick
+                  ? (e) => { if (e.key === 'Enter') onRowClick(row); }
+                  : undefined
+              }
+              tabIndex={onRowClick ? 0 : undefined}
+              sx={{
+                ...(onRowClick && {
+                  cursor: 'pointer',
+                  '&:focus-visible': {
+                    outline: '2px solid',
+                    outlineColor: 'primary.main',
+                    outlineOffset: -2,
+                  },
+                }),
+              }}
+              data-testid="data-table-row"
+            >
+              {mobileCardRenderer(row)}
+            </Box>
+          ))}
+        </Box>
+      ) : (
+        /* Desktop table view */
+        <Box sx={scrollShadowSx}>
+          <TableContainer ref={containerRef}>
+            <Table
+              size="small"
+              stickyHeader={stickyHeader}
+              aria-label={ariaLabel}
+            >
+              <TableHead>
+                <TableRow>
                   {columns.map((col) => {
+                    const isSortable = tableState && col.sortable !== false && col.id !== 'actions';
+                    const isSorted = tableState?.sort?.column === col.id;
                     const responsiveSx = col.hideBelowBreakpoint
                       ? { display: { xs: 'none', [col.hideBelowBreakpoint]: 'table-cell' } }
                       : undefined;
+
                     return (
-                      <TableCell key={col.id} align={col.align} sx={responsiveSx}>
-                        {col.render(row)}
+                      <TableCell
+                        key={col.id}
+                        width={col.width}
+                        align={col.align}
+                        sx={{
+                          ...responsiveSx,
+                          ...(stickyHeader && {
+                            borderBottom: 2,
+                            borderColor: 'divider',
+                          }),
+                        }}
+                        sortDirection={isSorted ? tableState!.sort!.direction : false}
+                        aria-sort={
+                          isSorted
+                            ? tableState!.sort!.direction === 'asc'
+                              ? 'ascending'
+                              : 'descending'
+                            : undefined
+                        }
+                      >
+                        {isSortable ? (
+                          <TableSortLabel
+                            active={isSorted}
+                            direction={isSorted ? tableState!.sort!.direction : 'asc'}
+                            onClick={() => tableState!.setSort(col.id)}
+                          >
+                            {col.label}
+                          </TableSortLabel>
+                        ) : (
+                          col.label
+                        )}
                       </TableCell>
                     );
                   })}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
+              </TableHead>
+              <TableBody>
+                {displayRows.map((row) => (
+                  <TableRow
+                    key={getRowKey(row)}
+                    hover
+                    onClick={() => onRowClick?.(row)}
+                    onKeyDown={
+                      onRowClick
+                        ? (e) => {
+                            if (e.key === 'Enter') onRowClick(row);
+                          }
+                        : undefined
+                    }
+                    tabIndex={onRowClick ? 0 : undefined}
+                    sx={{
+                      ...(onRowClick && {
+                        cursor: 'pointer',
+                        '&:focus-visible': {
+                          outline: '2px solid',
+                          outlineColor: 'primary.main',
+                          outlineOffset: -2,
+                        },
+                      }),
+                    }}
+                    data-testid="data-table-row"
+                  >
+                    {columns.map((col) => {
+                      const responsiveSx = col.hideBelowBreakpoint
+                        ? { display: { xs: 'none', [col.hideBelowBreakpoint]: 'table-cell' } }
+                        : undefined;
+                      return (
+                        <TableCell key={col.id} align={col.align} sx={responsiveSx}>
+                          {col.render(row)}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      )}
 
       {/* No search results state */}
       {tableState && processedData.totalFiltered === 0 && rows.length > 0 && (

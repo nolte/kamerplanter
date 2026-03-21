@@ -15,12 +15,15 @@
 | Name | Sonnenblume -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Saisonplan fuer Sonnenblumen (Helianthus annuus) im Freiland. Plagron Terra-Linie mit 6 Produkten (inkl. Green Sensation als PK-Booster). Einjaerige Kultur: Direktsaat Mitte Mai bis Samenernte September/Oktober. Starkzehrer mit hoechstem Borbedarf aller gaengigen Kulturen. Kein Zyklus-Neustart (Pflanze stirbt nach Ernte). | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | sonnenblume, helianthus, annuus, plagron, terra, erde, outdoor, freiland, starkzehrer, samen | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (einjaerig, kein Neustart) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -142,7 +145,8 @@ Sonnenblumen sind Starkzehrer mit hoher Salztoleranz. Ziel-EC der Gesamtloesung:
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer) |
 
@@ -165,7 +169,8 @@ Sonnenblumen sind Starkzehrer mit hoher Salztoleranz. Ziel-EC der Gesamtloesung:
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.8 |
+| target_ec_ms | 0.8  |
+| reference_ec_ms | 0.8  |
 | target_ph | 6.5 |
 | Terra Grow ml/L | 2.5 (halbe Dosis) |
 | Power Roots ml/L | 1.0 |
@@ -192,7 +197,8 @@ Sonnenblumen sind Starkzehrer mit hoher Salztoleranz. Ziel-EC der Gesamtloesung:
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.5 |
+| target_ec_ms | 1.5  |
+| reference_ec_ms | 1.5  |
 | target_ph | 6.5 |
 | Terra Grow ml/L | 5.0 (volle Dosis) |
 | Power Roots ml/L | 1.0 |
@@ -221,7 +227,8 @@ Sonnenblumen sind Starkzehrer mit hoher Salztoleranz. Ziel-EC der Gesamtloesung:
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.5 |
+| target_ec_ms | 1.5  |
+| reference_ec_ms | 1.5  |
 | target_ph | 6.3 |
 | Terra Bloom ml/L | 5.0 (volle Dosis) |
 | Pure Zym ml/L | 1.0 |
@@ -247,7 +254,8 @@ Sonnenblumen sind Starkzehrer mit hoher Salztoleranz. Ziel-EC der Gesamtloesung:
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.0 |
+| target_ec_ms | 1.0  |
+| reference_ec_ms | 1.0  |
 | target_ph | 6.3 |
 | Terra Bloom ml/L | 3.0 (reduziert, -20% wg. Green Sensation) |
 | Green Sensation ml/L | 1.0 (Kornfuellung, K-Versorgung) |
@@ -259,7 +267,8 @@ Sonnenblumen sind Starkzehrer mit hoher Salztoleranz. Ziel-EC der Gesamtloesung:
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer, nur klares Wasser) |
 
@@ -408,6 +417,7 @@ Helianthus annuus bildet **allelopathische Substanzen** (Heliannuol A--E), die d
   "name": "Sonnenblume \u2014 Plagron Terra",
   "description": "Saisonplan f\u00fcr Sonnenblumen (Helianthus annuus) im Freiland. Plagron Terra-Linie mit 6 Produkten (inkl. Green Sensation als PK-Booster). Einj\u00e4hrige Kultur: Direktsaat Mitte Mai bis Samenernte September/Oktober. Starkzehrer mit h\u00f6chstem Borbedarf aller g\u00e4ngigen Kulturen.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -457,6 +467,7 @@ Helianthus annuus bildet **allelopathische Substanzen** (Heliannuol A--E), die d
       "enabled": true,
       "notes": "Nur klares Wasser. Boden gleichm\u00e4\u00dfig feucht halten.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.2}
@@ -487,6 +498,7 @@ Helianthus annuus bildet **allelopathische Substanzen** (Heliannuol A--E), die d
       "enabled": true,
       "notes": "Terra Grow halbe Dosis + Additive. Reihenfolge: Terra Grow \u2192 Power Roots \u2192 Pure Zym \u2192 pH pr\u00fcfen",
       "target_ec_ms": 0.8,
+      "reference_ec_ms": 0.8,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 2.5, "optional": false},
@@ -521,6 +533,7 @@ Helianthus annuus bildet **allelopathische Substanzen** (Heliannuol A--E), die d
       "enabled": true,
       "notes": "Terra Grow + alle Additive. Reihenfolge: Terra Grow \u2192 Power Roots \u2192 Sugar Royal \u2192 Pure Zym \u2192 pH pr\u00fcfen",
       "target_ec_ms": 1.5,
+      "reference_ec_ms": 1.5,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 5.0, "optional": false},
@@ -557,6 +570,7 @@ Helianthus annuus bildet **allelopathische Substanzen** (Heliannuol A--E), die d
       "enabled": true,
       "notes": "Terra Bloom + Additive. Reihenfolge: Terra Bloom \u2192 Sugar Royal \u2192 Pure Zym \u2192 pH pr\u00fcfen",
       "target_ec_ms": 1.5,
+      "reference_ec_ms": 1.5,
       "target_ph": 6.3,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 5.0, "optional": false},
@@ -599,6 +613,7 @@ Helianthus annuus bildet **allelopathische Substanzen** (Heliannuol A--E), die d
       "enabled": true,
       "notes": "Reduzierter Terra Bloom + Green Sensation + Pure Zym. Nur W17\u201319, danach auf wasser-pur wechseln. TB reduziert auf 3 ml/L wg. GS (Herstellervorgabe: -20%).",
       "target_ec_ms": 1.0,
+      "reference_ec_ms": 1.0,
       "target_ph": 6.3,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 3.0, "optional": false},
@@ -614,6 +629,7 @@ Helianthus annuus bildet **allelopathische Substanzen** (Heliannuol A--E), die d
       "enabled": true,
       "notes": "Ab Woche 20: kein D\u00fcnger, nur klares Wasser. 2\u20133 Wochen vor Samenernte.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 2.0}

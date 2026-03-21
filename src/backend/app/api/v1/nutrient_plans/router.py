@@ -9,6 +9,8 @@ from app.api.v1.nutrient_plans.schemas import (
     PhaseEntryCreate,
     PhaseEntryResponse,
     PhaseEntryUpdate,
+    WaterMixBatchRecommendationResponse,
+    WaterMixRecommendationResponse,
 )
 from app.common.dependencies import get_nutrient_plan_service
 from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
@@ -75,6 +77,47 @@ def update_plan(
 @router.delete("/{key}", status_code=204)
 def delete_plan(key: str, service: NutrientPlanService = Depends(get_nutrient_plan_service)):
     service.delete_plan(key)
+
+
+# ── Water Mix Recommendation ──────────────────────────────────────────
+
+
+@router.get(
+    "/{key}/water-mix-recommendations",
+    response_model=WaterMixBatchRecommendationResponse,
+)
+def get_water_mix_recommendations_batch(
+    key: str,
+    site_key: str = Query(..., description="Site key with water source configuration"),
+    substrate_type: str | None = Query(None, description="Override substrate type"),
+    service: NutrientPlanService = Depends(get_nutrient_plan_service),
+):
+    return service.get_water_mix_recommendations_batch(
+        tenant_key="",
+        plan_key=key,
+        site_key=site_key,
+        substrate_type_override=substrate_type,
+    )
+
+
+@router.get(
+    "/{key}/entries/{sequence_order}/water-mix-recommendation",
+    response_model=WaterMixRecommendationResponse,
+)
+def get_water_mix_recommendation(
+    key: str,
+    sequence_order: int,
+    site_key: str = Query(..., description="Site key with water source configuration"),
+    substrate_type: str | None = Query(None, description="Override substrate type"),
+    service: NutrientPlanService = Depends(get_nutrient_plan_service),
+):
+    return service.get_water_mix_recommendation(
+        tenant_key="",
+        plan_key=key,
+        sequence_order=sequence_order,
+        site_key=site_key,
+        substrate_type_override=substrate_type,
+    )
 
 
 # ── Clone + Validate ─────────────────────────────────────────────────

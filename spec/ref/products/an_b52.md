@@ -94,7 +94,7 @@ B-52 hat ein NPK-Verhältnis von 2-1-4 und liefert damit auch moderate Makronäh
 
 - **Primär:** Fertigation (Bewässerungslösung)
 - **Foliar:** Ja — B-Vitamine und Kelp-Extrakte werden effektiv über die Blätter aufgenommen. 1 ml/L Blattsprühung bei Stresssituationen.
-- **Tank-tauglich:** Ja — mineralisch/organischer Hybrid, aber keine Verstopfungsgefahr
+- **Tank-tauglich:** Nein — enthält Huminsäure und Seetang-Extrakt (organisch), Biofilmgefahr im Reservoir. Per Gießkanne ausbringen.
 
 ### 3.3 Mischungsreihenfolge & Kompatibilität
 
@@ -243,7 +243,7 @@ Fertilizer(
     brand="Advanced Nutrients",
     fertilizer_type=FertilizerType.SUPPLEMENT,       # Ganzjährig-Supplement
     is_organic=False,                                # Hybrid (mineralisch + organisch)
-    tank_safe=True,
+    tank_safe=False,
     recommended_application=ApplicationMethod.FERTIGATION,
     npk_ratio=(2.0, 1.0, 4.0),                      # N-P-K: 2-1-4
     ec_contribution_per_ml=0.05,                     # ~0.05 mS/cm pro ml/L

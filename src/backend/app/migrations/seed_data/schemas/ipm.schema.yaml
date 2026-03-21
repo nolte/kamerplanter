@@ -1,0 +1,123 @@
+# JSON Schema for ipm.yaml
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "ipm.schema.yaml"
+title: "IPM Seed Data"
+description: "Schema for pests, diseases, and treatments"
+type: object
+
+properties:
+  pests:
+    type: array
+    items:
+      $ref: "#/$defs/pest"
+  diseases:
+    type: array
+    items:
+      $ref: "#/$defs/disease"
+  treatments:
+    type: array
+    items:
+      $ref: "#/$defs/treatment"
+
+additionalProperties: false
+
+$defs:
+  pest:
+    type: object
+    properties:
+      scientific_name:
+        type: string
+      common_name:
+        type: string
+      pest_type:
+        type: string
+        enum: [insect, arachnid, gastropod, nematode, mammal]
+      lifecycle_days:
+        type: integer
+        minimum: 1
+      optimal_temp_min:
+        type: number
+      optimal_temp_max:
+        type: number
+      detection_difficulty:
+        type: string
+        enum: [easy, medium, hard]
+    required: [scientific_name, common_name, pest_type, lifecycle_days,
+               optimal_temp_min, optimal_temp_max, detection_difficulty]
+    additionalProperties: false
+
+  disease:
+    type: object
+    properties:
+      name:
+        type: string
+      pathogen_type:
+        type: string
+        enum: [fungal, bacterial, viral, physiological, oomycete]
+      symptoms:
+        type: array
+        items:
+          type: string
+      affected_parts:
+        type: array
+        items:
+          type: string
+          enum: [leaf, stem, root, flower, fruit]
+      optimal_temp_min:
+        type: number
+      optimal_temp_max:
+        type: number
+      optimal_humidity_min:
+        type: number
+        minimum: 0
+        maximum: 100
+      optimal_humidity_max:
+        type: number
+        minimum: 0
+        maximum: 100
+      spreads_by:
+        type: array
+        items:
+          type: string
+      species_susceptible:
+        type: array
+        items:
+          type: string
+    required: [name, pathogen_type]
+    additionalProperties: true
+
+  treatment:
+    type: object
+    properties:
+      name:
+        type: string
+      treatment_type:
+        type: string
+        enum: [cultural, biological, chemical, mechanical]
+      active_ingredient:
+        type: string
+      application_method:
+        type: string
+        enum: [spray, drench, granular, release, cultural]
+      safety_interval_days:
+        type: integer
+        minimum: 0
+        description: "Karenz period — days before harvest"
+      max_applications_per_cycle:
+        type: integer
+        minimum: 1
+      application_interval_days:
+        type: integer
+        minimum: 1
+      target_pests:
+        type: array
+        items:
+          type: string
+      target_diseases:
+        type: array
+        items:
+          type: string
+      notes:
+        type: string
+    required: [name, treatment_type]
+    additionalProperties: true

@@ -15,12 +15,15 @@
 | Name | Mangold -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Saisonplan fuer Mangold (Schnitt-/Stielmangold) mit Vorkultur ab Ende Maerz oder Direktsaat ab Mitte April. Plagron Terra-Linie mit 5 Produkten. Mittelzehrer mit moderatem N- und hohem K-Bedarf, kontinuierliche Blatternte ueber die gesamte Saison. Robuste, dankbare Anfaengerkultur. Zweijaehrig, aber als Einjaehrige kultiviert. 18 Wochen Gesamtdauer (April--August, Ernte bis November). | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | mangold, chard, swiss-chard, beta, vulgaris, mittelzehrer, plagron, terra, erde, outdoor, balkon, blattgemuese | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (einjaehrig kultiviert, kein Neustart) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -143,7 +146,8 @@ Mangold ist ein Mittelzehrer mit moderatem EC-Bedarf (Steckbrief: 1.0--1.6 mS/cm
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer -- kein Duenger) |
 
@@ -167,7 +171,8 @@ Mangold ist ein Mittelzehrer mit moderatem EC-Bedarf (Steckbrief: 1.0--1.6 mS/cm
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.5 |
+| target_ec_ms | 0.5  |
+| reference_ec_ms | 0.5  |
 | target_ph | 6.5 |
 | Terra Grow ml/L | 1.5 (Viertel-Dosis) |
 | Power Roots ml/L | 1.0 |
@@ -194,7 +199,8 @@ Mangold ist ein Mittelzehrer mit moderatem EC-Bedarf (Steckbrief: 1.0--1.6 mS/cm
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.2 |
+| target_ec_ms | 1.2  |
+| reference_ec_ms | 1.2  |
 | target_ph | 6.5 |
 | Terra Grow ml/L | 4.0 (moderate Dosis -- Mittelzehrer!) |
 | Power Roots ml/L | 1.0 (nur bis Woche 8) |
@@ -222,7 +228,8 @@ Mangold ist ein Mittelzehrer mit moderatem EC-Bedarf (Steckbrief: 1.0--1.6 mS/cm
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.0 |
+| target_ec_ms | 1.0  |
+| reference_ec_ms | 1.0  |
 | target_ph | 6.5 |
 | Terra Bloom ml/L | 3.0 (reduziert -- Mittelzehrer!) |
 | Pure Zym ml/L | 1.0 |
@@ -247,7 +254,8 @@ Mangold ist ein Mittelzehrer mit moderatem EC-Bedarf (Steckbrief: 1.0--1.6 mS/cm
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | Pure Zym ml/L | 1.0 |
 | fertilizer_dosages | Pure Zym only |
@@ -407,6 +415,7 @@ Buntstielige Sorten (Bright Lights, Rainbow, Rhubarb Chard) sind ausgesprochen d
   "name": "Mangold \u2014 Plagron Terra",
   "description": "Saisonplan f\u00fcr Mangold (Schnitt-/Stielmangold) mit Vorkultur ab Ende M\u00e4rz oder Direktsaat ab Mitte April. Plagron Terra-Linie mit 5 Produkten. Mittelzehrer, 18 Wochen (April\u2013September). Kontinuierliche Blatternte.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -456,6 +465,7 @@ Buntstielige Sorten (Bright Lights, Rainbow, Rhubarb Chard) sind ausgesprochen d
       "enabled": true,
       "notes": "Nur Wasser. Substrat gleichm\u00e4\u00dfig feucht halten.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.02}
@@ -494,6 +504,7 @@ Buntstielige Sorten (Bright Lights, Rainbow, Rhubarb Chard) sind ausgesprochen d
       "enabled": true,
       "notes": "Terra Grow Viertel-Dosis + Power Roots",
       "target_ec_ms": 0.5,
+      "reference_ec_ms": 0.5,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 1.5, "optional": false},
@@ -527,6 +538,7 @@ Buntstielige Sorten (Bright Lights, Rainbow, Rhubarb Chard) sind ausgesprochen d
       "enabled": true,
       "notes": "Terra Grow moderate Dosis + Additive. Reihenfolge: Terra Grow \u2192 Power Roots \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen. NICHT auf 5 ml/L steigern (Nitrat!).",
       "target_ec_ms": 1.2,
+      "reference_ec_ms": 1.2,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 4.0, "optional": false},
@@ -562,6 +574,7 @@ Buntstielige Sorten (Bright Lights, Rainbow, Rhubarb Chard) sind ausgesprochen d
       "enabled": true,
       "notes": "Reduzierter Terra Bloom. Kein Sugar Royal.",
       "target_ec_ms": 1.0,
+      "reference_ec_ms": 1.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 3.0, "optional": false},
@@ -603,6 +616,7 @@ Buntstielige Sorten (Bright Lights, Rainbow, Rhubarb Chard) sind ausgesprochen d
       "enabled": true,
       "notes": "Nur Wasser + Pure Zym. Kein D\u00fcnger.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<pure_zym_key>", "ml_per_liter": 1.0, "optional": false}

@@ -323,6 +323,9 @@ und Tenant-Mitgliedschaft. Alle Substrat-Daten sind Tenant-scoped.
 - [ ] **CEC-Tracking:** Kationenaustauschkapazität pro Substrattyp für Dünge-/Spülberechnung
 - [ ] **Substrattemperatur:** Tracking über SubstrateBatch, Warnung bei <12°C oder >28°C
 - [ ] **Bewässerungs-Mapping:** Substrattyp → Bewässerungsstrategie für REQ-018 Automatik
+<!-- Quelle: Tabellen-Analyse UI-NFR-010 §7.2, §8.1 -->
+- [ ] **Listenansicht-Filter:** Substrate-Liste bietet Substrattyp-Filter (Enum-Chip: 13 Werte gemäß SubstrateType-Enum); URL-Parameter `?substrate_type=...` (UI-NFR-010 §7.2)
+- [ ] **Tablet-Spaltenprioritäten:** SubstrateList blendet auf Tablet „Erstellt-am" aus; Primärspalten: Name, Typ, pH (UI-NFR-010 §8.1)
 
 ### Testszenarien:
 

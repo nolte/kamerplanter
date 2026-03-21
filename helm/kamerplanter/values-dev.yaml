@@ -1,9 +1,20 @@
+# -- Dev overrides: relax readOnlyRootFilesystem for hot-reload (SEC-M-004)
+defaultPodOptions:
+  securityContext:
+    runAsNonRoot: false
+
 controllers:
   backend:
     replicas: 1
     strategy: Recreate
+    pod:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
     containers:
       main:
+        securityContext:
+          readOnlyRootFilesystem: false
         env:
           ARANGODB_HOST: kamerplanter-arangodb
           ARANGODB_PORT: "8529"
@@ -14,6 +25,7 @@ controllers:
           CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
           DEBUG: "true"
           REQUIRE_EMAIL_VERIFICATION: "false"
+          KAMERPLANTER_MODE: "light"
           HA_URL: "http://homeassistant:8123"
           HA_ACCESS_TOKEN: ""
         probes:
@@ -50,8 +62,16 @@ controllers:
   frontend:
     replicas: 1
     strategy: Recreate
+    pod:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
     containers:
       main:
+        securityContext:
+          readOnlyRootFilesystem: false
+        env:
+          KAMERPLANTER_MODE: "light"
         probes:
           liveness:
             enabled: true
@@ -84,6 +104,11 @@ controllers:
             memory: 1Gi
 
   arangodb:
+    pod:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 0
     containers:
       main:
         resources:

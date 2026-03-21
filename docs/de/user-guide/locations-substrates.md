@@ -58,14 +58,46 @@ Füllen Sie folgende Felder aus:
 
 ### Schritt 4: Wasserquelle konfigurieren (optional, ab Mittelstufe)
 
-Wenn Sie Ihr Leitungswasser oder eine Umkehrosmose-Anlage nutzen, hinterlegen Sie die Wasserwerte. Das System berechnet daraus später automatisch Ihr EC-Budget und CalMag-Bedarf:
+Wenn Sie Ihr Leitungswasser oder eine Umkehrosmose-Anlage nutzen, hinterlegen Sie die Wasserwerte. Das System berechnet daraus automatisch Ihr EC-Budget, den CalMag-Bedarf und Mischungsempfehlungen.
 
-- **Leitungswasser-EC** (mS/cm): Typisch 0,3–0,8 in Deutschland
-- **Leitungswasser-pH**: Typisch 7,0–8,0
-- **Hat RO-Anlage**: Aktivieren Sie dies, wenn Sie eine Umkehrosmose-Anlage haben
+#### Leitungswasser-Profil
+
+| Feld | Einheit | Typischer Bereich (DE) | Beschreibung |
+|------|---------|----------------------|-------------|
+| EC | mS/cm | 0,3–0,8 | Elektrische Leitfaehigkeit — zeigt den Gesamtmineralgehalt |
+| pH | — | 7,0–8,0 | Saeuregrad des Wassers |
+| Gesamthaerte (GH) | ppm CaCO3 | 100–350 | Summe aller geloesten Mineralien (Ca + Mg) |
+| Karbonathaerte (KH) | ppm CaCO3 | 80–250 | Pufferkapazitaet des Wassers (Alkalinity) |
+| Calcium (Ca) | mg/L | 30–120 | Wichtig fuer CalMag-Berechnung |
+| Magnesium (Mg) | mg/L | 5–30 | Wichtig fuer CalMag-Berechnung |
+| Chlor | mg/L | 0–0,3 | Bei > 0,1 mg/L Wasser abstehen lassen oder filtern |
+| Chloramin | mg/L | 0 | In Deutschland selten eingesetzt |
+
+!!! info "Umrechnung deutscher Wasserhaerte"
+    Deutsche Wasserwerke geben die Haerte oft in °dH (Grad deutscher Haerte) an. So rechnen Sie um:
+
+    - **Gesamthaerte**: °dH × 17,848 = ppm CaCO3 (z.B. 11,6 °dH = 207 ppm)
+    - **Karbonathaerte**: °dH × 17,848 = ppm CaCO3 (z.B. 9,1 °dH = 162 ppm)
+
+#### Zusaetzliche Optionen
+
+- **Hat RO-Anlage**: Aktivieren Sie dies, wenn Sie eine Umkehrosmose-Anlage haben. Das System berechnet dann Mischungsverhaeltnisse aus Leitungs- und RO-Wasser.
+- **Messdatum**: Datum der Wasseranalyse. Kamerplanter warnt Sie, wenn die Analyse aelter als 12 Monate ist.
+- **Quellennotiz**: Freitext fuer die Herkunft der Werte (z.B. "Hamburg Wasser Trinkwasseranalyse 2025").
 
 !!! tip "Wasserwerte herausfinden"
-    Den EC-Wert Ihres Leitungswassers finden Sie auf der Website Ihres Wasserversorgers oder Sie messen ihn selbst mit einem günstigen EC-Messgerät.
+    Ihr lokales Wasserwerk stellt die Trinkwasseranalyse in der Regel kostenlos bereit — oft als PDF-Download auf der Website. Deutsche Wasserversorger sind nach Trinkwasserverordnung (TrinkwV §21) verpflichtet, diese Daten zu veroeffentlichen.
+
+    **Beispiele:**
+
+    - **Hamburg**: [hamburgwasser.de/wasser](https://www.hamburgwasser.de/wasser) — PLZ-Suche unter "Mein Trinkwasser"
+    - **Berlin**: berliner-wasserbetriebe.de — Wasserqualitaet nach PLZ
+    - **Muenchen**: swm.de — Trinkwasseranalyse nach Versorgungsgebiet
+
+    Alternativ koennen Sie die Werte selbst messen: Ein EC/TDS-Messgeraet (ab ca. 15 EUR) liefert den EC-Wert, ein pH-Messgeraet den pH. Fuer Calcium und Magnesium sind Tropfentests (GH/KH-Test aus der Aquaristik, ab ca. 8 EUR) eine guenstige Option.
+
+!!! warning "Warum genaue Wasserwerte wichtig sind"
+    Kamerplanter berechnet aus Ihren Wasserwerten das **EC-Budget** (wie viel Platz fuer Duenger bleibt) und die **CalMag-Korrektur** (ob zusaetzliches Calcium/Magnesium noetig ist). Ungenaue Werte fuehren zu falschen Duengeempfehlungen — im schlimmsten Fall zu Ueber- oder Unterduengung.
 
 ### Schritt 5: Speichern
 

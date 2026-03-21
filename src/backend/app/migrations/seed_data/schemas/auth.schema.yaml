@@ -1,0 +1,24 @@
+# JSON Schema for auth.yaml (demo user seed)
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "auth.schema.yaml"
+title: "Auth Seed Data"
+description: "Schema for demo user seed data"
+type: object
+
+properties:
+  demo_user:
+    type: object
+    properties:
+      email:
+        type: string
+        format: email
+      password:
+        type: string
+        minLength: 8
+      display_name:
+        type: string
+    required: [email, password, display_name]
+    additionalProperties: false
+
+required: [demo_user]
+additionalProperties: false

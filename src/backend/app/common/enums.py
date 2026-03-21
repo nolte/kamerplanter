@@ -1,6 +1,18 @@
 from enum import StrEnum
 
 
+class PlantCategory(StrEnum):
+    INDOOR_HOUSEPLANT = "indoor_houseplant"
+    OUTDOOR_ORNAMENTAL = "outdoor_ornamental"
+    OUTDOOR_VEGETABLE = "outdoor_vegetable"
+    BALCONY_PLANT = "balcony_plant"
+    SUCCULENT_CACTUS = "succulent_cactus"
+    TROPICAL_FOLIAGE = "tropical_foliage"
+    ORCHID = "orchid"
+    HERB = "herb"
+    BULB_TUBER = "bulb_tuber"
+
+
 class GrowthHabit(StrEnum):
     HERB = "herb"
     SHRUB = "shrub"
@@ -324,6 +336,7 @@ class PathogenType(StrEnum):
     BACTERIAL = "bacterial"
     VIRAL = "viral"
     PHYSIOLOGICAL = "physiological"
+    OOMYCETE = "oomycete"
 
 
 class PlantPart(StrEnum):

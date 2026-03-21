@@ -295,7 +295,7 @@ copyright: Copyright &copy; 2026 Agrotech
 theme:
   name: material
   language: en
-  
+
   # Color Scheme
   palette:
     # Light Mode
@@ -306,7 +306,7 @@ theme:
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
-    
+
     # Dark Mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
@@ -315,16 +315,16 @@ theme:
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
-  
+
   # Font
   font:
     text: Roboto
     code: Roboto Mono
-  
+
   # Logo & Favicon
   logo: assets/logo.png
   favicon: assets/favicon.png
-  
+
   # Features
   features:
     # Navigation
@@ -339,34 +339,34 @@ theme:
     - navigation.path           # Breadcrumbs
     - navigation.indexes        # Section index pages
     - navigation.top            # Back-to-top button
-    
+
     # Search
     - search.suggest            # Search suggestions
     - search.highlight          # Highlight search terms
     - search.share              # Share search URL
-    
+
     # Header
     - header.autohide           # Hide header on scroll
-    
+
     # Table of Contents
     - toc.follow                # TOC follows scroll
     - toc.integrate             # TOC in navigation
-    
+
     # Code
     - content.code.copy         # Copy button for code blocks
     - content.code.annotate     # Annotations in code
-    
+
     # Tabs
     - content.tabs.link         # Link content tabs
-    
+
     # Actions
     - content.action.edit       # Edit this page
     - content.action.view       # View source
-  
+
   # Custom CSS/JS
   extra_css:
     - stylesheets/extra.css
-  
+
   extra_javascript:
     - javascripts/extra.js
 
@@ -376,7 +376,7 @@ plugins:
   - search:
       lang: en
       separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
-  
+
   # API Documentation (Auto-generate from docstrings)
   - mkdocstrings:
       enabled: true
@@ -399,20 +399,20 @@ plugins:
             show_submodules: false
             members_order: source
             heading_level: 2
-  
+
   # Diagrams (Mermaid)
   - mermaid2:
       version: 10.6.1
-  
+
   # Git Info
   - git-revision-date-localized:
       enable_creation_date: true
       type: timeago
-  
+
   # Page Organization
   - awesome-pages:
       collapse_single_pages: true
-  
+
   # Minify HTML/CSS/JS
   - minify:
       minify_html: true
@@ -424,7 +424,7 @@ plugins:
         - javascripts/extra.js
       css_files:
         - stylesheets/extra.css
-  
+
   # Redirects (for moved pages)
   - redirects:
       redirect_maps:
@@ -443,7 +443,7 @@ markdown_extensions:
   - toc:
       permalink: true
       toc_depth: 3
-  
+
   # PyMdown Extensions
   - pymdownx.arithmatex:
       generic: true
@@ -482,7 +482,7 @@ extra:
   version:
     provider: mike
     default: stable
-  
+
   # Social Links
   social:
     - icon: fontawesome/brands/github
@@ -491,12 +491,12 @@ extra:
       link: https://agrotech.slack.com
     - icon: fontawesome/brands/docker
       link: https://hub.docker.com/u/agrotech
-  
+
   # Analytics (optional)
   analytics:
     provider: google
     property: G-XXXXXXXXXX
-  
+
   # Consent (GDPR)
   consent:
     title: Cookie consent
@@ -508,27 +508,27 @@ extra:
 # Navigation
 nav:
   - Home: index.md
-  
+
   - Getting Started:
     - getting-started/index.md
     - Installation: getting-started/installation.md
     - Quickstart: getting-started/quickstart.md
     - First Deployment: getting-started/first-deployment.md
-  
+
   - Architecture:
     - architecture/index.md
     - Overview: architecture/overview.md
     - Backend: architecture/backend.md
     - Database: architecture/database.md
     - Infrastructure: architecture/infrastructure.md
-  
+
   - Development:
     - development/index.md
     - Local Setup: development/local-setup.md
     - Code Standards: development/code-standards.md
     - Testing: development/testing.md
     - Debugging: development/debugging.md
-  
+
   - API:
     - api/index.md
     - Overview: api/overview.md
@@ -536,31 +536,31 @@ nav:
     - Plants: api/plants.md
     - Irrigation: api/irrigation.md
     - Harvest: api/harvest.md
-  
+
   - Deployment:
     - deployment/index.md
     - Kubernetes: deployment/kubernetes.md
     - Helm Charts: deployment/helm.md
     - CI/CD: deployment/ci-cd.md
-  
+
   - Guides:
     - guides/index.md
     - GDD Calculation: guides/gdd-calculation.md
     - VPD Optimization: guides/vpd-optimization.md
     - Irrigation Logic: guides/irrigation-logic.md
-  
+
   - Reference:
     - reference/index.md
     - API Reference: reference/api-reference.md
     - Database Schema: reference/database-schema.md
     - Environment Variables: reference/environment-variables.md
-  
+
   - ADR:
     - adr/index.md
     - ArangoDB vs Neo4j: adr/001-arangodb-vs-neo4j.md
     - Python 3.14: adr/002-python-3.14.md
     - Kind vs Minikube: adr/003-kind-vs-minikube.md
-  
+
   - Changelog:
     - changelog/index.md
     - Unreleased: changelog/unreleased.md
@@ -755,22 +755,22 @@ This page is automatically generated from Python docstrings using mkdocstrings.
 class IrrigationService:
     """
     Service for managing automated irrigation scheduling.
-    
+
     This service coordinates between sensor readings, plant water requirements,
     and irrigation hardware to ensure optimal watering schedules.
-    
+
     Attributes:
         db: ArangoDB connection for plant data
         redis: Redis client for caching schedules
         scheduler: Celery scheduler for automated tasks
-    
+
     Example:
         >>> service = IrrigationService(db_conn, redis_conn)
         >>> result = service.schedule_irrigation("greenhouse-a")
         >>> print(result)
         {'scheduled_plants': 12, 'total_water_liters': 45.5}
     """
-    
+
     def calculate_water_demand(
         self,
         plant_id: str,
@@ -779,22 +779,22 @@ class IrrigationService:
     ) -> float:
         """
         Calculate required irrigation amount to reach target moisture.
-        
+
         This function considers substrate type, plant water requirements,
         and current moisture levels to determine optimal irrigation volume.
-        
+
         Args:
             plant_id: UUID of the plant to irrigate
             substrate_moisture: Current substrate moisture in percent (0-100)
             target_moisture: Desired substrate moisture in percent (0-100)
-        
+
         Returns:
             Required irrigation volume in liters
-        
+
         Raises:
             ValueError: If moisture values are outside valid range (0-100)
             PlantNotFoundError: If plant_id does not exist
-        
+
         Example:
             >>> service = IrrigationService()
             >>> volume = service.calculate_water_demand(
@@ -804,7 +804,7 @@ class IrrigationService:
             ... )
             >>> print(f"Need {volume}L water")
             Need 2.5L water
-        
+
         Note:
             This function assumes substrate field capacity is 80%.
             For hydroponic systems, use `calculate_reservoir_refill()` instead.
@@ -847,7 +847,7 @@ Where:
         """Calculate Growing Degree Days (GDD)."""
         avg_temp = (temp_min + temp_max) / 2
         return max(0, avg_temp - base_temp)
-    
+
     # Example
     gdd = calculate_gdd(
         temp_min=15.0,
@@ -868,7 +868,7 @@ Where:
       const avgTemp = (tempMin + tempMax) / 2;
       return Math.max(0, avgTemp - baseTemp);
     }
-    
+
     // Example
     const gdd = calculateGdd(15.0, 25.0, 10.0);
     console.log(`GDD: ${gdd}`);  // Output: GDD: 10
@@ -937,7 +937,7 @@ Try it yourself:
 
 ??? note "Expandable Section (Collapsed by Default)"
     This content is hidden until clicked.
-    
+
     - Detail 1
     - Detail 2
 
@@ -967,42 +967,42 @@ graph TB
         Mobile[Mobile App<br/>Flutter]
         IoT[IoT Devices<br/>MQTT]
     end
-    
+
     subgraph "API Gateway"
         Traefik[Traefik Ingress]
     end
-    
+
     subgraph "Application Layer"
         Backend[Backend API<br/>FastAPI]
         Worker[Celery Workers]
         Beat[Celery Beat<br/>Scheduler]
     end
-    
+
     subgraph "Data Layer"
         ArangoDB[(ArangoDB<br/>Multi-Model)]
         TimescaleDB[(TimescaleDB<br/>Time-Series)]
         Redis[(Redis<br/>Cache)]
     end
-    
+
     subgraph "Monitoring"
         Prometheus[Prometheus]
         Grafana[Grafana]
         ELK[ELK Stack]
     end
-    
+
     Web --> Traefik
     Mobile --> Traefik
     IoT --> Backend
-    
+
     Traefik --> Backend
     Backend --> ArangoDB
     Backend --> TimescaleDB
     Backend --> Redis
-    
+
     Worker --> ArangoDB
     Worker --> Redis
     Beat --> Redis
-    
+
     Backend -.-> Prometheus
     Prometheus --> Grafana
     Backend -.-> ELK
@@ -1017,19 +1017,19 @@ sequenceDiagram
     participant DB as ArangoDB
     participant W as Worker
     participant H as Hardware
-    
+
     S->>B: POST /sensor-readings<br/>{moisture: 30%}
     B->>DB: Store reading
     B->>W: Trigger irrigation check
-    
+
     W->>DB: Get plant requirements
     DB-->>W: {target_moisture: 60%}
-    
+
     W->>W: Calculate water demand<br/>2.5L needed
-    
+
     W->>DB: Create irrigation event
     W->>H: Activate irrigation<br/>2.5L, 5 minutes
-    
+
     H-->>W: Irrigation complete
     W->>DB: Update event status
 ```
@@ -1043,15 +1043,15 @@ stateDiagram-v2
     Vegetative --> Flowering: Photoperiod switch
     Flowering --> Harvest: Trichome maturity
     Harvest --> [*]
-    
+
     Vegetative --> Vegetative: Continue growth
     Flowering --> Flowering: Bulk up
-    
+
     note right of Seedling
         Light: 18/6
         Nutrients: Low
     end note
-    
+
     note right of Flowering
         Light: 12/12
         Nutrients: High PK
@@ -1136,7 +1136,7 @@ on:
       - 'docs/**'
       - 'mkdocs.yml'
       - '.github/workflows/docs.yml'
-  
+
   pull_request:
     branches:
       - main
@@ -1146,74 +1146,74 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Für git-revision-date-localized
-      
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-      
+
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('docs/requirements.txt') }}
-      
+
       - name: Install dependencies
         run: |
           pip install -r docs/requirements.txt
-      
+
       - name: Build docs
         run: |
           cd docs
           mkdocs build --strict
-      
+
       - name: Check links
         run: |
           pip install linkchecker
           linkchecker --check-extern site/
-      
+
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
           name: documentation
           path: site/
-  
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-      
+
       - name: Install dependencies
         run: |
           pip install -r docs/requirements.txt
           pip install mike
-      
+
       - name: Configure Git
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
-      
+
       - name: Deploy with Mike
         run: |
           VERSION=$(cat VERSION)
           mike deploy --push --update-aliases $VERSION latest
           mike set-default --push latest
-      
+
       - name: Deploy to GitHub Pages (Alternative)
         uses: peaceiris/actions-gh-pages@v3
         with:
@@ -1321,15 +1321,15 @@ function calculateGDD() {
   const tempMin = parseFloat(document.getElementById('temp-min').value);
   const tempMax = parseFloat(document.getElementById('temp-max').value);
   const baseTemp = parseFloat(document.getElementById('base-temp').value);
-  
+
   if (isNaN(tempMin) || isNaN(tempMax) || isNaN(baseTemp)) {
     document.getElementById('result').textContent = 'Invalid input';
     return;
   }
-  
+
   const avgTemp = (tempMin + tempMax) / 2;
   const gdd = Math.max(0, avgTemp - baseTemp);
-  
+
   document.getElementById('result').textContent = gdd.toFixed(2);
 }
 
@@ -1354,7 +1354,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
-  
+
   // Track external link clicks
   document.querySelectorAll('a[href^="http"]').forEach(link => {
     link.addEventListener('click', function() {
@@ -1414,7 +1414,7 @@ What is the change that we're proposing and/or doing?
 
 ### Alternative 1: [Name]
 
-- **Pros**: 
+- **Pros**:
   - Pro 1
 - **Cons**:
   - Con 1
@@ -1490,7 +1490,7 @@ We will use **Kind (Kubernetes in Docker)** as the primary local development clu
 
 ### Alternative 1: Minikube
 
-- **Pros**: 
+- **Pros**:
   - Mature, stable
   - Built-in dashboard
   - Easy addon system
@@ -1635,29 +1635,29 @@ data:
         server_name docs.agrotech.example.com;
         root /usr/share/nginx/html;
         index index.html;
-        
+
         # Gzip compression
         gzip on;
         gzip_vary on;
         gzip_min_length 1024;
         gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml+rss application/json;
-        
+
         # Security headers
         add_header X-Frame-Options "SAMEORIGIN" always;
         add_header X-Content-Type-Options "nosniff" always;
         add_header X-XSS-Protection "1; mode=block" always;
-        
+
         # Cache static assets
         location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
             expires 1y;
             add_header Cache-Control "public, immutable";
         }
-        
+
         # SPA routing (for version selector)
         location / {
             try_files $uri $uri/ /index.html;
         }
-        
+
         # Health check
         location /health {
             access_log off;

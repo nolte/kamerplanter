@@ -16,12 +16,15 @@
 | Name | Dahlie -- Plagron Terra + PK 13-14 | `nutrient_plans.name` |
 | Beschreibung | Saisonplan fuer Dahlien (dekorative, halbgefuellte und Kaktus-Typen) mit Knollen-Vorkultur ab Maerz und Freilandkultur ab Mai. Plagron Terra-Linie mit 5 Produkten inkl. PK 13-14 Bluetenbooster. Starkzehrer mit hohem P/K-Bedarf in der Bluete und niedrigem N-Bedarf. Perennierend via Knolleneinlagerung (DORMANCY = frostfreie Trockenlagerung 4--8 degC). Zyklus-Neustart ab Sequenz 1 (Vorkeimen). 32 Wochen aktive Saison (Maerz--Oktober) + 20 Wochen Dormanz. Geeignet fuer alle 5 Cultivare: Armateras, Hapet Daydream, Lavender Perfection, Great Silence, Embassy. | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | dahlie, dahlia, asteraceae, plagron, terra, pk-13-14, erde, outdoor, starkzehrer, zierpflanze, knollengewaeechs, schnittblume | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | 1 (perennierend via Knolle -- Neustart bei Vorkeimen im Fruehling) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -144,7 +147,8 @@ Dahlien sind Starkzehrer, tolerieren aber im Vergleich zu Tomaten geringere EC-W
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer) |
 
@@ -167,7 +171,8 @@ Dahlien sind Starkzehrer, tolerieren aber im Vergleich zu Tomaten geringere EC-W
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.8 |
+| target_ec_ms | 0.8  |
+| reference_ec_ms | 0.8  |
 | target_ph | 6.5 |
 | Terra Grow ml/L | 5.0 (volle Dosis) |
 | Power Roots ml/L | 1.0 |
@@ -194,7 +199,8 @@ Dahlien sind Starkzehrer, tolerieren aber im Vergleich zu Tomaten geringere EC-W
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.9 |
+| target_ec_ms | 0.9  |
+| reference_ec_ms | 0.9  |
 | target_ph | 6.5 |
 | Terra Bloom ml/L | 5.0 |
 | Pure Zym ml/L | 1.0 |
@@ -224,7 +230,8 @@ Dahlien sind Starkzehrer, tolerieren aber im Vergleich zu Tomaten geringere EC-W
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer) |
 
@@ -248,7 +255,8 @@ Dahlien sind Starkzehrer, tolerieren aber im Vergleich zu Tomaten geringere EC-W
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | null |
 | fertilizer_dosages | [] (leer) |
 
@@ -382,6 +390,7 @@ Alle 5 Cultivare teilen diesen Naehrstoffplan. Sortentypische Anpassungen:
   "name": "Dahlie \u2014 Plagron Terra + PK 13-14",
   "description": "Saisonplan f\u00fcr Dahlien (dekorative, halbgef\u00fcllte und Kaktus-Typen) mit Knollen-Vorkultur ab M\u00e4rz und Freilandkultur ab Mai. Plagron Terra-Linie mit 5 Produkten inkl. PK 13-14 Bl\u00fctebooster. Starkzehrer, perennierend via Knolle. 32 Wochen aktive Saison + 20 Wochen Dormanz. Geeignet f\u00fcr Cultivare: Armateras, Hapet Daydream, Lavender Perfection, Great Silence, Embassy.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -431,6 +440,7 @@ Alle 5 Cultivare teilen diesen Naehrstoffplan. Sortentypische Anpassungen:
       "enabled": true,
       "notes": "Kein D\u00fcnger. Erst gie\u00dfen wenn Triebe sichtbar (5\u201310 cm). Substrat nur leicht feucht.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.2}
@@ -461,6 +471,7 @@ Alle 5 Cultivare teilen diesen Naehrstoffplan. Sortentypische Anpassungen:
       "enabled": true,
       "notes": "Terra Grow + Power Roots + Pure Zym. Reihenfolge: Terra Grow \u2192 Power Roots \u2192 Pure Zym \u2192 pH pr\u00fcfen.",
       "target_ec_ms": 0.8,
+      "reference_ec_ms": 0.8,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 5.0, "optional": false},
@@ -495,6 +506,7 @@ Alle 5 Cultivare teilen diesen Naehrstoffplan. Sortentypische Anpassungen:
       "enabled": true,
       "notes": "Terra Bloom + Pure Zym + PK 13-14 (nur W15\u201316!). Reihenfolge: Terra Bloom \u2192 PK 13-14 \u2192 Pure Zym \u2192 pH pr\u00fcfen.",
       "target_ec_ms": 0.9,
+      "reference_ec_ms": 0.9,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 5.0, "optional": false},
@@ -537,6 +549,7 @@ Alle 5 Cultivare teilen diesen Naehrstoffplan. Sortentypische Anpassungen:
       "enabled": true,
       "notes": "Kein D\u00fcnger. Stark reduziertes Gie\u00dfen. Knollenreifung durch Trockenheit f\u00f6rdern.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.5}

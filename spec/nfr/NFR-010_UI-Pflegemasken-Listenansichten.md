@@ -197,6 +197,44 @@ Jede Domänenentität **MUSS** eine tabellarische Listenansicht besitzen, die au
 
 > **Hinweis**: Die aktuelle `DataTable`-Komponente unterstützt noch keine Suche. Diese Erweiterung ist bei der Umsetzung von NFR-010 zu implementieren (MUI `TextField` mit `InputAdornment`).
 
+### 3.3b Spaltenspezifische Filter
+
+<!-- Quelle: Tabellen-Analyse-Report 2026-03-18 -->
+
+**SOLL**:
+- Listenansichten mit fachlich relevanten Filterdimensionen SOLLEN spaltenspezifische Filter bereitstellen (Enum-Chips, Datums-Range-Picker, Referenz-Dropdowns)
+- Die konkreten Filter pro Entität sind in **UI-NFR-010 §7.2 (Domänenspezifische Filter-Matrix)** definiert
+- Mindestens die dort als SOLL markierten Filter SOLLEN implementiert werden
+- Filter-Werte werden als URL-Query-Parameter abgebildet und sind über die URL teilbar
+
+**Prioritäten für die Erstimplementierung:**
+
+| Entität | Filter | Begründung |
+|---------|--------|------------|
+| PlantInstance | Phase (Enum-Chip) | Häufigste Nutzerfrage: „Welche Pflanzen blühen gerade?" |
+| Task | Status + „Meine Aufgaben" (Toggle) | Häufigste Nutzerfrage: „Was muss ich heute erledigen?" |
+| HarvestBatch | Erntezeitraum (Datums-Range) | Ernteauswertungen sind immer zeitraumbezogen |
+| Treatment | Karenz-Status (Toggle) | Compliance-kritisch: aktive Sperrzeiten auf einen Blick |
+
+### 3.3c Tablet-Spaltenprioritäten
+
+<!-- Quelle: Tabellen-Analyse-Report 2026-03-18 -->
+
+**SOLL**:
+- Jede Listenansicht SOLL Spaltenprioritäten definieren, die auf Tablet (≤1024px) weniger wichtige Spalten automatisch ausblenden (via `hideBelowBreakpoint` in der DataTable-Column-Definition)
+- Die konkreten Spaltenprioritäten pro Listenansicht sind in **UI-NFR-010 §8.1** definiert
+- Auf Tablet SOLLEN maximal 3–4 Primärspalten sichtbar bleiben
+
+### 3.3d Daten-Export
+
+<!-- Quelle: Tabellen-Analyse-Report 2026-03-18 -->
+
+**KANN**:
+- Listenansichten KÖNNEN einen Export-Button (CSV, optional PDF) anbieten
+- Der Export berücksichtigt die aktuell aktiven Filter und die aktuelle Sortierung
+- Compliance-relevante Exporte (HarvestBatch für CanG, TreatmentApplication für Pflanzenschutz-Protokolle) SOLLEN priorisiert werden
+- Details: **UI-NFR-010 §9**
+
 ### 3.4 Leerzustand
 
 **MUSS**:
@@ -396,6 +434,8 @@ Entitäten, die aufgrund ihres fachlichen Charakters nicht alle CRUD-Operationen
     - [ ] Ladezustand mit `LoadingSkeleton`
     - [ ] Zeilenklick navigiert zur Detail-Ansicht
     - [ ] „Hinzufügen"-Button prominent sichtbar
+    - [ ] Spaltenspezifische Filter gemäß UI-NFR-010 §7.2 implementiert (mindestens SOLL-Filter)
+    - [ ] Tablet-Spaltenprioritäten gemäß UI-NFR-010 §8.1 konfiguriert (`hideBelowBreakpoint`)
 - [ ] **Konsistenz**
     - [ ] Alle Masken verwenden die gemeinsamen Form-Komponenten
     - [ ] Einheitliches Pattern für eigenständige und eingebettete Entitäten
@@ -513,8 +553,8 @@ Entitäten, die aufgrund ihres fachlichen Charakters nicht alle CRUD-Operationen
 
 **Dokumenten-Ende**
 
-**Version**: 1.0
+**Version**: 1.1
 **Status**: Entwurf
-**Letzte Aktualisierung**: 2026-02-26
+**Letzte Aktualisierung**: 2026-03-18
 **Review**: Pending
 **Genehmigung**: Pending

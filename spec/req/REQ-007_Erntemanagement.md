@@ -20,7 +20,7 @@ Das System implementiert einen polymorphen, pflanzenspezifischen Ansatz zur Reif
 **Pflanzenspezifische Ernte-Indikatoren:**
 
 **1. Blütenstände/Früchte (Cannabis, Hopfen, Blumen):**
-- **Trichom-Mikroskopie:** 
+- **Trichom-Mikroskopie:**
   - Klar (0-30%) → Unreif, niedriger Wirkstoffgehalt
   - Milchig/Cloudy (50-70%) → Peak THC, ausgewogene Effekte
   - Bernstein/Amber (10-30%) → CBN-Umwandlung, sedierend
@@ -622,7 +622,7 @@ from datetime import datetime, timedelta
 
 class HarvestIndicator(ABC, BaseModel):
     """Abstrakte Basis für Reife-Indikatoren"""
-    
+
     @abstractmethod
     def assess_ripeness(self, observations: Dict) -> Dict:
         """
@@ -635,12 +635,12 @@ class HarvestIndicator(ABC, BaseModel):
         }
         """
         pass
-    
+
     @abstractmethod
     def time_to_harvest_estimate(self, observations: Dict) -> Optional[int]:
         """Returns: Geschätzte Tage bis optimaler Ernte"""
         pass
-    
+
     @abstractmethod
     def get_measurement_instructions(self) -> Dict:
         """Returns: Anleitung wie dieser Indikator gemessen wird"""
@@ -708,7 +708,7 @@ class TrichomeIndicator(HarvestIndicator):
                 'quality_impact': 0 if degraded < 15 else -20,  # Qualitätsabzug bei >15% degraded
                 'days_to_harvest': None
             }
-        
+
         # Effekt-Profile basierend auf Trichom-Verteilung
         if amber > 30:
             return {
@@ -720,7 +720,7 @@ class TrichomeIndicator(HarvestIndicator):
                 'thc_status': 'Degrading to CBN',
                 'color_description': f'Klar: {clear}%, Milchig: {cloudy}%, Bernstein: {amber}%'
             }
-        
+
         elif cloudy >= 70 and 5 <= amber <= 15:
             return {
                 'stage': 'peak',
@@ -732,7 +732,7 @@ class TrichomeIndicator(HarvestIndicator):
                 'harvest_window': '24-48 Stunden für beste Qualität',
                 'color_description': f'Klar: {clear}%, Milchig: {cloudy}%, Bernstein: {amber}%'
             }
-        
+
         elif cloudy >= 50 and amber < 5:
             return {
                 'stage': 'approaching',
@@ -743,7 +743,7 @@ class TrichomeIndicator(HarvestIndicator):
                 'thc_status': 'High THC, wenig CBN',
                 'color_description': f'Klar: {clear}%, Milchig: {cloudy}%, Bernstein: {amber}%'
             }
-        
+
         elif clear > 50:
             return {
                 'stage': 'immature',
@@ -754,7 +754,7 @@ class TrichomeIndicator(HarvestIndicator):
                 'thc_status': 'THC noch nicht voll entwickelt',
                 'color_description': f'Klar: {clear}%, Milchig: {cloudy}%, Bernstein: {amber}%'
             }
-        
+
         # Default
         return {
             'stage': 'monitoring',
@@ -763,7 +763,7 @@ class TrichomeIndicator(HarvestIndicator):
             'days_to_harvest': 7,
             'color_description': f'Klar: {clear}%, Milchig: {cloudy}%, Bernstein: {amber}%'
         }
-    
+
     def _assess_multi_location(self, samples: List[Dict]) -> Dict:
         """
         Gewichteter Durchschnitt über mehrere Probenstellen.
@@ -831,7 +831,7 @@ class TrichomeIndicator(HarvestIndicator):
     def time_to_harvest_estimate(self, observations: Dict) -> Optional[int]:
         cloudy = observations.get('cloudy_percent', 0)
         amber = observations.get('amber_percent', 0)
-        
+
         if amber > 15:
             return 0  # Sofort
         elif cloudy >= 70:
@@ -842,7 +842,7 @@ class TrichomeIndicator(HarvestIndicator):
             return 10
         else:
             return 14
-    
+
     def get_measurement_instructions(self) -> Dict:
         return {
             'tool': '60x-100x Mikroskop oder Juwelier-Lupe',
@@ -863,9 +863,9 @@ class TrichomeIndicator(HarvestIndicator):
 
 class FoliageIndicator(HarvestIndicator):
     """Für Kartoffeln, Zwiebeln - Krautsterben"""
-    
+
     indicator_type: Literal['foliage'] = 'foliage'
-    
+
     def assess_ripeness(self, observations: Dict) -> Dict:
         """
         observations = {
@@ -875,7 +875,7 @@ class FoliageIndicator(HarvestIndicator):
         """
         dead_foliage = observations.get('dead_foliage_percent', 0)
         skin = observations.get('skin_hardness', 'soft')
-        
+
         if dead_foliage > 80 and skin == 'hard':
             return {
                 'stage': 'ready',
@@ -885,7 +885,7 @@ class FoliageIndicator(HarvestIndicator):
                 'storage_readiness': 'Schale voll ausgehärtet - optimal für Lagerung',
                 'notes': 'Schalenhärtung abgeschlossen'
             }
-        
+
         elif dead_foliage > 50:
             return {
                 'stage': 'approaching',
@@ -895,7 +895,7 @@ class FoliageIndicator(HarvestIndicator):
                 'storage_readiness': 'Schalenhärtung in Progress',
                 'action': 'Kein Wasser mehr geben für Schalenhärtung'
             }
-        
+
         else:
             return {
                 'stage': 'immature',
@@ -904,17 +904,17 @@ class FoliageIndicator(HarvestIndicator):
                 'days_to_harvest': 21,
                 'foliage_status': f'{dead_foliage}% abgestorben'
             }
-    
+
     def time_to_harvest_estimate(self, observations: Dict) -> Optional[int]:
         dead = observations.get('dead_foliage_percent', 0)
-        
+
         if dead > 80:
             return 7
         elif dead > 50:
             return 14
         else:
             return 21
-    
+
     def get_measurement_instructions(self) -> Dict:
         return {
             'tool': 'Visuelle Inspektion',
@@ -930,10 +930,10 @@ class FoliageIndicator(HarvestIndicator):
 
 class BrixIndicator(HarvestIndicator):
     """Für Fruchtgemüse - Zuckergehalt"""
-    
+
     indicator_type: Literal['brix'] = 'brix'
     target_brix: float = Field(ge=0, le=30)
-    
+
     def assess_ripeness(self, observations: Dict) -> Dict:
         """
         observations = {
@@ -944,9 +944,9 @@ class BrixIndicator(HarvestIndicator):
         """
         brix = observations.get('brix_value', 0)
         color = observations.get('color', 'green')
-        
+
         deviation = ((brix - self.target_brix) / self.target_brix) * 100
-        
+
         if abs(deviation) < 10:  # Innerhalb 10% vom Ziel
             return {
                 'stage': 'peak',
@@ -975,18 +975,18 @@ class BrixIndicator(HarvestIndicator):
                 'brix_value': brix,
                 'target_brix': self.target_brix
             }
-    
+
     def time_to_harvest_estimate(self, observations: Dict) -> Optional[int]:
         brix = observations.get('brix_value', 0)
         deviation = ((brix - self.target_brix) / self.target_brix) * 100
-        
+
         if deviation > -10:
             return 1
         elif deviation > -20:
             return 3
         else:
             return 7
-    
+
     def get_measurement_instructions(self) -> Dict:
         return {
             'tool': 'Refraktometer (0-32 °Brix)',
@@ -1219,11 +1219,11 @@ class DaysSinceFloweringIndicator(HarvestIndicator):
 
     indicator_type: Literal['days_since_flowering'] = 'days_since_flowering'
     typical_flowering_days: int = Field(ge=30, le=150)
-    
+
     def assess_ripeness(self, observations: Dict) -> Dict:
         days = observations.get('days_since_flowering', 0)
         progress = (days / self.typical_flowering_days) * 100
-        
+
         if progress >= 100:
             return {
                 'stage': 'ready',
@@ -1249,11 +1249,11 @@ class DaysSinceFloweringIndicator(HarvestIndicator):
                 'days_to_harvest': self.typical_flowering_days - days,
                 'progress_percent': round(progress, 1)
             }
-    
+
     def time_to_harvest_estimate(self, observations: Dict) -> Optional[int]:
         days = observations.get('days_since_flowering', 0)
         return max(0, self.typical_flowering_days - days)
-    
+
     def get_measurement_instructions(self) -> Dict:
         return {
             'tool': 'Kalender-Tracking',
@@ -1892,7 +1892,7 @@ class HarvestEnvironment(BaseModel):
 
 class HarvestBatch(BaseModel):
     """Ernte-Charge mit vollständiger Dokumentation"""
-    
+
     batch_id: str = Field(description="Format: PLANT_ID_YYYYMMDD_SEQ")
     plant_id: str
     harvest_date: date
@@ -1943,20 +1943,20 @@ class HarvestBatch(BaseModel):
                     "< Karenzzeit (PHI) zurückliegt. Force-Override nur für "
                     "nicht-essbare Kulturen (Zierpflanzen) mit Dokumentation."
     )
-    
+
     @staticmethod
     def generate_batch_id(plant_id: str, harvest_date: date, sequence: int = 1) -> str:
         """Generiert eindeutige Batch-ID"""
         date_str = harvest_date.strftime('%Y%m%d')
         seq_str = f'{sequence:03d}'
         return f'{plant_id}_{date_str}_{seq_str}'
-    
+
     def generate_qr_code_url(self) -> str:
         """Generiert QR-Code URL"""
         base_url = 'https://api.qrserver.com/v1/create-qr-code/'
         params = f'?data={self.batch_id}&size=200x200&format=png'
         return base_url + params
-    
+
     # Artspezifischer Wassergehalt (% des Nassgewichts)
     # Bestimmt den Trockengewicht-Faktor: dry = wet × (1 - moisture/100)
     SPECIES_MOISTURE_CONTENT: dict[str, float] = {
@@ -2013,18 +2013,18 @@ class HarvestBatch(BaseModel):
 
         dry_weight = effective_wet * (1 - moisture_loss_percent / 100)
         return round(dry_weight, 1)
-    
+
     def calculate_trim_waste(
         self,
         trim_weight_g: float,
         stem_weight_g: float = 0
     ) -> Dict:
         """Berechnet Verschnitt-Anteil"""
-        
+
         total_waste = trim_weight_g + stem_weight_g
         waste_percent = (total_waste / self.wet_weight_g) * 100
         usable_weight = self.wet_weight_g - total_waste
-        
+
         return {
             'trim_weight_g': trim_weight_g,
             'stem_weight_g': stem_weight_g,
@@ -2033,7 +2033,7 @@ class HarvestBatch(BaseModel):
             'usable_weight_g': round(usable_weight, 1),
             'usable_percent': round(100 - waste_percent, 1)
         }
-    
+
     def generate_seed_to_shelf_id(self, seed_id: str) -> str:
         """Erstellt Traceability-ID"""
         data = f'{seed_id}_{self.plant_id}_{self.batch_id}'
@@ -2042,25 +2042,25 @@ class HarvestBatch(BaseModel):
 
 class QualityAssessment(BaseModel):
     """Qualitätsbewertung für Ernte-Batch"""
-    
+
     batch_id: str
     assessed_at: datetime
     assessed_by: str
-    
+
     # Bewertungs-Dimensionen (0-100)
     appearance_score: int = Field(ge=0, le=100)
     aroma_score: int = Field(ge=0, le=100)
     trichome_coverage_score: Optional[int] = Field(None, ge=0, le=100)
     bud_density_score: Optional[int] = Field(None, ge=0, le=100)
     color_score: int = Field(ge=0, le=100)
-    
+
     # Defekte
     defects: List[str] = Field(default_factory=list)
-    
+
     # Zusätzliche Cannabis-Metriken
     potency_estimate: Optional[Literal['Low', 'Medium', 'High', 'Very High']] = None
     terpene_profile: Optional[Dict[str, str]] = None  # {dominant: 'Myrcene', secondary: 'Limonene'}
-    
+
     def calculate_overall_score(
         self, species_type: str = 'cannabis', weights: Optional[Dict[str, float]] = None
     ) -> int:
@@ -2072,7 +2072,7 @@ class QualityAssessment(BaseModel):
         Args:
             species_type: Pflanzentyp für artspezifische Gewichtung
             weights: Custom weights für Dimensionen (überschreibt Profil)
-        
+
         Returns:
             Overall score 0-100
         """
@@ -2094,22 +2094,22 @@ class QualityAssessment(BaseModel):
             'density': self.bud_density_score if self.bud_density_score else 0,
             'color': self.color_score
         }
-        
+
         weighted_sum = sum(
             scores[dim] * weights.get(dim, 0)
             for dim in scores
         )
-        
+
         # Penalty für Defekte
         defect_penalty = len(self.defects) * 5  # -5 Punkte pro Defekt
-        
+
         final_score = max(0, weighted_sum - defect_penalty)
-        
+
         return int(final_score)
-    
+
     def assign_grade(self, overall_score: int) -> Literal['A+', 'A', 'B', 'C', 'D']:
         """Weist Qualitäts-Grade basierend auf Score zu"""
-        
+
         if overall_score >= 95:
             return 'A+'
         elif overall_score >= 85:
@@ -2120,13 +2120,13 @@ class QualityAssessment(BaseModel):
             return 'C'
         else:
             return 'D'
-    
+
     def get_quality_report(self) -> Dict:
         """Generiert detaillierten Qualitäts-Report"""
-        
+
         overall = self.calculate_overall_score()
         grade = self.assign_grade(overall)
-        
+
         return {
             'overall_score': overall,
             'grade': grade,
@@ -2145,7 +2145,7 @@ class QualityAssessment(BaseModel):
             'assessed_by': self.assessed_by,
             'assessed_at': self.assessed_at
         }
-    
+
     # Artspezifische Bewertungsdimensionen und Gewichtungen
     SPECIES_QUALITY_PROFILES: dict[str, dict] = {
         'cannabis': {
@@ -2219,7 +2219,7 @@ from datetime import date, datetime, timedelta
 
 class FlushingProtocol(BaseModel):
     """Nährstoffreduktion vor Ernte"""
-    
+
     plant_id: str
     substrate_type: Literal['hydro', 'coco', 'soil', 'living_soil']
     current_ec: float = Field(ge=0, le=5)
@@ -2233,7 +2233,7 @@ class FlushingProtocol(BaseModel):
         'soil':        {'min': 21, 'optimal': 28, 'max': 42},    # Korrigiert: Soil-CEC erfordert längere Flush
         'living_soil': None,  # Kein Flushing — zerstört Mikrobiom
     }
-    
+
     def get_schedule(self) -> Dict:
         """Erstellt schrittweisen Flush-Plan. Flushing ist optional."""
 
@@ -2262,7 +2262,7 @@ class FlushingProtocol(BaseModel):
             }
 
         optimal_days = duration_map['optimal']
-        
+
         # Validierung
         if self.days_until_harvest < duration_map['min']:
             return {
@@ -2271,20 +2271,20 @@ class FlushingProtocol(BaseModel):
                 'recommendation': 'Notfall-Flush: Täglich mit 3x Topf-Volumen pH-Wasser durchspülen',
                 'emergency_flush': True
             }
-        
+
         # Bestimme tatsächliche Flush-Dauer
         if self.days_until_harvest >= optimal_days:
             flush_days = optimal_days
         else:
             flush_days = self.days_until_harvest
-        
+
         # Gradueller EC-Abbau
         steps = []
         ec_reduction_per_day = self.current_ec / flush_days
-        
+
         for day in range(flush_days + 1):
             target_ec = max(0, self.current_ec - (ec_reduction_per_day * day))
-            
+
             # Strategie basierend auf Tag
             if day == 0:
                 action = f"Letzte normale Düngung (EC {target_ec:.1f})"
@@ -2304,7 +2304,7 @@ class FlushingProtocol(BaseModel):
                 water_only = True
                 # Ziel: Runoff-EC ≈ Basis-Wasser-EC (nicht 0.0, da unrealistisch)
                 target_ec = getattr(self, 'base_water_ec', 0.3)
-            
+
             steps.append({
                 'day': day,
                 'days_to_harvest': self.days_until_harvest - day,
@@ -2315,7 +2315,7 @@ class FlushingProtocol(BaseModel):
                 'measurement_required': day % 3 == 0,  # Alle 3 Tage messen
                 'runoff_ec_target': f'< {target_ec + 0.3:.1f} mS'  # Max. 0.3 über Input-EC
             })
-        
+
         return {
             'status': 'OK',
             'total_flush_days': flush_days,
@@ -2330,10 +2330,10 @@ class FlushingProtocol(BaseModel):
                 'chlorophyll': 'Reduziertes Chlorophyll = weniger "grüner" Geschmack'
             }
         }
-    
+
     def _get_substrate_specific_notes(self) -> List[str]:
         """Substrat-spezifische Flush-Hinweise"""
-        
+
         notes_map = {
             'hydro': [
                 'Täglich Reservoir prüfen und auffüllen',
@@ -2359,7 +2359,7 @@ class FlushingProtocol(BaseModel):
                 'Organisch gebundene Nährstoffe lösen sich nicht durch Durchspülen'
             ]
         }
-        
+
         return notes_map.get(self.substrate_type, [])
 ```
 
@@ -2376,7 +2376,7 @@ IndicatorType = Literal['trichome', 'foliage', 'brix', 'size', 'color', 'days_si
 
 class HarvestObservation(BaseModel):
     """Reife-Check-Dokumentation"""
-    
+
     plant_id: str
     indicator_type: IndicatorType
     observed_at: datetime
@@ -2386,35 +2386,35 @@ class HarvestObservation(BaseModel):
     ripeness_assessment: Literal['immature', 'approaching', 'peak', 'overripe']
     days_to_harvest_estimate: Optional[int] = Field(None, ge=0, le=60)
     notes: Optional[str] = Field(None, max_length=500)
-    
+
     @field_validator('measurements')
     @classmethod
     def validate_measurements(cls, v, info):
         indicator = info.data.get('indicator_type')
-        
+
         # Trichome braucht Prozent-Werte
         if indicator == 'trichome':
             required = {'clear_percent', 'cloudy_percent', 'amber_percent'}
             if not required.issubset(v.keys()):
                 raise ValueError(f"Trichome-Messung benötigt: {required}")
-            
+
             # Validiere Summe
             total = sum(v.get(k, 0) for k in required)
             if abs(total - 100) > 5:
                 raise ValueError(f"Prozent-Summe = {total}, sollte ~100 sein")
-        
+
         return v
 
 class YieldMetric(BaseModel):
     """Ertrags-Metriken"""
-    
+
     batch_id: str
     yield_per_plant_g: float = Field(gt=0)
     yield_per_m2_g: Optional[float] = Field(None, gt=0)
     total_yield_g: float = Field(gt=0)
     trim_waste_percent: float = Field(ge=0, le=100)
     usable_yield_g: float = Field(gt=0)
-    
+
     @field_validator('usable_yield_g')
     @classmethod
     def validate_usable_yield(cls, v, info):
@@ -2422,15 +2422,15 @@ class YieldMetric(BaseModel):
         if v > total:
             raise ValueError("Usable yield kann nicht größer als total yield sein")
         return v
-    
+
     def calculate_efficiency_score(self, grow_area_m2: float, cycle_days: int) -> Dict:
         """Berechnet Effizienz-Metriken"""
-        
+
         if self.yield_per_m2_g:
             grams_per_m2_per_day = self.yield_per_m2_g / cycle_days
         else:
             grams_per_m2_per_day = 0
-        
+
         return {
             'yield_per_m2': self.yield_per_m2_g,
             'grams_per_day': self.total_yield_g / cycle_days,
@@ -2438,7 +2438,7 @@ class YieldMetric(BaseModel):
             'usable_percent': round((self.usable_yield_g / self.total_yield_g) * 100, 1),
             'cycle_efficiency_score': self._calculate_score(grams_per_m2_per_day)
         }
-    
+
     # Artspezifische Effizienz-Benchmarks — Cannabis-Schwellenwerte sind NICHT
     # auf andere Kulturen übertragbar (Nass- vs. Trockengewicht-Basis).
     SPECIES_EFFICIENCY_BENCHMARKS: dict[str, dict] = {
@@ -2526,6 +2526,10 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Dark-Period-Timer:** Optional 24-48h Dunkelphase vor Ernte
 - [ ] **Harvest-Kalender:** Vorschau auf nächste Ernten (14 Tage)
 - [ ] **Grade-Distribution:** Statistik über A+/A/B/C-Batches
+<!-- Quelle: Tabellen-Analyse UI-NFR-010 §7.2, §9.2 -->
+- [ ] **Listenansicht-Filter:** HarvestBatch-Liste bietet Erntezeitraum-Filter (Datums-Range: `?harvested_from=...&harvested_to=...`), optionale Qualitätsgrad- und Erntetyp-Filter (Enum-Chips); alle URL-persistiert (UI-NFR-010 §7.2)
+- [ ] **Tablet-Spaltenprioritäten:** HarvestBatch-ListPage blendet auf Tablet Pflanzen-Key aus; Primärspalten: Batch-ID, Datum, Gewicht (UI-NFR-010 §8.1)
+- [ ] **Compliance-Export:** HarvestBatch-Liste bietet CSV- und PDF-Export der gefilterten Ansicht für CanG-Dokumentation (Erntemengen, Qualität, Seed-to-Shelf-Rückverfolgbarkeit); UI-NFR-010 §9.2
 - [ ] **Karenzzeit-Gate:** Batch-Erstellung prüft automatisch REQ-010 IPM-Treatment-Log auf offene Karenzzeiten
 - [ ] **Paprika bedingt klimakterisch:** WEAKLY_CLIMACTERIC-Kategorie für Paprika im Farbumschlag
 - [ ] **Melonen-Differenzierung:** Wassermelone → nicht-klimakterisch, Cantaloupe/Honeydew → klimakterisch

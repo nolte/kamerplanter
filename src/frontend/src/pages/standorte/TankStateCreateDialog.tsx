@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
@@ -35,6 +37,8 @@ interface Props {
 }
 
 export default function TankStateCreateDialog({ open, onClose, tankKey, onCreated }: Props) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -79,13 +83,11 @@ export default function TankStateCreateDialog({ open, onClose, tankKey, onCreate
   };
 
   return (
-    <Dialog
-      open={open}
+    <Dialog fullScreen={fullScreen} open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      data-testid="tank-state-create-dialog"
-    >
+      data-testid="tank-state-create-dialog">
       <DialogTitle>{t('pages.tanks.recordState')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>

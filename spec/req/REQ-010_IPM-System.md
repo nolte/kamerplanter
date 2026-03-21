@@ -14,7 +14,7 @@ Version: 1.0
 
 **User Story:** "Als Gärtner möchte ich Schädlingsbefall und Krankheiten frühzeitig erkennen, präventive Maßnahmen planen und biologische sowie chemische Gegenmaßnahmen dokumentieren, um Ernteausfälle zu minimieren und die Produktqualität zu sichern."
 
-**Beschreibung:** 
+**Beschreibung:**
 Das System implementiert einen mehrstufigen IPM-Ansatz (Integrated Pest Management) mit Fokus auf Prävention, Monitoring und zielgerichteter Intervention. Es berücksichtigt:
 - **Präventive Kulturmaßnahmen:** Standorthygiene, Fruchtfolge, resistente Sorten
 - **Monitoring-Strategien:** Regelmäßige Inspektionen, Fallen-Systeme, Symptom-Erkennung
@@ -215,17 +215,17 @@ class InspectionSchedule(BaseModel):
             "harvest": 0.33     # Kritische Phase
         }
     )
-    
+
     def next_inspection_date(
-        self, 
-        last_inspection: datetime, 
+        self,
+        last_inspection: datetime,
         current_phase: str,
         pest_pressure: Literal['none', 'low', 'medium', 'high', 'critical']
     ) -> datetime:
         """Berechnet dynamisches Inspektionsdatum basierend auf Risikofaktoren"""
         base_interval = self.frequency_days
         phase_multiplier = self.growth_phase_modifiers.get(current_phase, 1.0)
-        
+
         # Erhöhe Frequenz bei aktuellem Befall
         pressure_multipliers = {
             'none': 1.0,
@@ -234,7 +234,7 @@ class InspectionSchedule(BaseModel):
             'high': 0.33,
             'critical': 0.25
         }
-        
+
         adjusted_interval = base_interval * phase_multiplier * pressure_multipliers[pest_pressure]
         return last_inspection + timedelta(days=max(1, int(adjusted_interval)))
 ```
@@ -246,10 +246,10 @@ from typing import Optional
 
 class ResistanceManager:
     """Verhindert Resistenzbildung durch Wirkstoff-Rotation"""
-    
+
     MAX_CONSECUTIVE_APPLICATIONS = 3
     ROTATION_WINDOW_DAYS = 90
-    
+
     def __init__(self, db):
         self.db = db  # python-arango StandardDatabase instance
 
@@ -286,15 +286,15 @@ class ResistanceManager:
             }
         )
         history = list(cursor)
-        
+
         # Prüfe auf zu häufige Wiederholung desselben Wirkstoffs
         ingredient_counts = defaultdict(int)
         for record in history:
             ingredient_counts[record['ingredient']] += record['applications']
-        
+
         if any(count >= self.MAX_CONSECUTIVE_APPLICATIONS for count in ingredient_counts.values()):
             return False, "RESISTENZWARNUNG: Wirkstoff-Rotation erforderlich"
-        
+
         return True, None
 ```
 
@@ -315,13 +315,13 @@ class BeneficialReleaseCalculation(BaseModel):
         if v <= 0:
             raise ValueError("Fläche muss positiv sein")
         return v
-    
+
     def calculate_release_quantity(self, infestation_level: Literal['low', 'medium', 'high']) -> dict:
         """Berechnet Ausbringungsmenge basierend on Befallsdruck"""
         multipliers = {'low': 1.0, 'medium': 1.5, 'high': 2.5}
         base_quantity = self.affected_area_m2 * self.release_rate_base
         adjusted_quantity = base_quantity * multipliers[infestation_level]
-        
+
         return {
             'total_organisms': int(adjusted_quantity),
             'distribution_points': max(4, int(self.affected_area_m2 / 2)),
@@ -519,7 +519,7 @@ from datetime import datetime, timedelta
 
 class SafetyIntervalValidator:
     """Prüft Erntefähigkeit unter Berücksichtigung von Pflanzenschutzmittel-Anwendungen"""
-    
+
     @staticmethod
     def can_harvest(
         treatment_applications: list[dict],
@@ -532,7 +532,7 @@ class SafetyIntervalValidator:
             (is_safe, list_of_blocking_treatments)
         """
         blocking_treatments = []
-        
+
         for app in treatment_applications:
             safe_date = app['applied_at'] + timedelta(days=app['safety_interval_days'])
             if safe_date > planned_harvest_date:
@@ -540,7 +540,7 @@ class SafetyIntervalValidator:
                 blocking_treatments.append(
                     f"{app['active_ingredient']}: Noch {days_remaining} Tage Karenzzeit"
                 )
-        
+
         return len(blocking_treatments) == 0, blocking_treatments
 ```
 
@@ -601,7 +601,7 @@ class TreatmentProtocol(BaseModel):
         description="Inkompatible Wirkstoffe/Bedingungen"
     )
     protective_equipment_required: list[str] = Field(default_factory=list)
-    
+
     @field_validator('safety_interval_days')
     @classmethod
     def validate_chemical_safety(cls, v, info):
@@ -671,6 +671,10 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Alert-System:** Push-Benachrichtigungen bei kritischem Befallsdruck (Schwellenwert konfigurierbar)
 - [ ] **Wetter-Integration:** Risiko-Scores für pilzliche Erreger basierend auf RLF/Temperatur (z.B. Mehltau-Warnung bei >80% RLF)
 - [ ] **Behandlungs-Tracking:** Efficacy-Rating kann nach Behandlung erfasst werden (Wirksam/Teilweise/Unwirksam)
+<!-- Quelle: Tabellen-Analyse UI-NFR-010 §7.2, §9.2 -->
+- [ ] **Listenansicht-Filter:** Pest-Liste bietet Befallstyp-Filter (Enum-Chip: insect, mite, fungus, bacteria, virus, nematode); Disease-Liste bietet Krankheitstyp-Filter; Treatment-Liste bietet Behandlungsmethode-Filter (cultural, biological, chemical) und Karenz-Status-Toggle („Aktive Karenz" / „Alle"); alle URL-persistiert (UI-NFR-010 §7.2)
+- [ ] **Tablet-Spaltenprioritäten:** Pest/Disease-ListPages blenden auf Tablet wissenschaftl. Namen aus; Treatment-ListPage blendet Hersteller aus; Primärspalten: dt. Name, Typ, Methode/Wirkstoff (UI-NFR-010 §8.1)
+- [ ] **Compliance-Export:** TreatmentApplication-Liste bietet CSV- und PDF-Export der gefilterten Ansicht für Pflanzenschutz-Protokolle mit Karenzzeiten (UI-NFR-010 §9.2)
 - [ ] **Batch-Traceability:** Alle Behandlungen sind mit erntefähigen Batches verknüpft (für Seed-to-Shelf-Tracking aus REQ-008)
 - [ ] **Prävention-Score:** Dashboard zeigt präventive Gesundheits-Indikatoren (z.B. "Letzte Inspektion vor 5 Tagen, Risiko: Mittel")
 <!-- Quelle: Cannabis Indoor Grower Review G-010 -->
@@ -688,7 +692,7 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 ```
 GIVEN: PlantInstance in Blütephase mit letzter Inspektion vor 4 Tagen
 WHEN: Neue Inspektion erkennt Spinnmilben (Druck: Medium)
-THEN: 
+THEN:
   - System schlägt Phytoseiulus persimilis vor
   - Berechnet 500 Nützlinge für 10m² Fläche
   - Warnt vor chemischer Behandlung (würde Nützlinge töten)

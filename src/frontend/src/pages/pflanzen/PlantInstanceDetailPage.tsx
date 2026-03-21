@@ -13,9 +13,6 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Alert from '@mui/material/Alert';
 import Link from '@mui/material/Link';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
@@ -31,6 +28,7 @@ import RepeatIcon from '@mui/icons-material/Repeat';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import PendingIcon from '@mui/icons-material/Pending';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -41,6 +39,7 @@ import ErrorDisplay from '@/components/common/ErrorDisplay';
 import EmptyState from '@/components/common/EmptyState';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import DataTable from '@/components/common/DataTable';
+import MobileCard from '@/components/common/MobileCard';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -59,6 +58,7 @@ import type { DosagePreset } from '@/pages/pflege/components/CareConfirmDialog';
 import WateringLogCreateDialog from '@/pages/giessprotokoll/WateringLogCreateDialog';
 import type { ChannelPreset } from '@/pages/giessprotokoll/WateringLogCreateDialog';
 import DeliveryChannelAccordion from '@/pages/duengung/DeliveryChannelAccordion';
+import NutrientPlanAssignDialog from '@/pages/duengung/NutrientPlanAssignDialog';
 import PhaseGanttChart from '@/pages/duengung/PhaseGanttChart';
 import ActivityPlanTab from '@/pages/durchlaeufe/ActivityPlanTab';
 import PhaseDetailGantt from '@/pages/duengung/PhaseDetailGantt';
@@ -94,12 +94,6 @@ const editSchema = z.object({
 
 type EditFormData = z.infer<typeof editSchema>;
 
-const assignSchema = z.object({
-  plan_key: z.string().min(1),
-  assigned_by: z.string().min(1),
-});
-
-type AssignFormData = z.infer<typeof assignSchema>;
 
 export default function PlantInstanceDetailPage() {
   const { key } = useParams<{ key: string }>();
@@ -128,16 +122,17 @@ export default function PlantInstanceDetailPage() {
 
   // Nutrient plan assignment state
   const [assignedPlan, setAssignedPlan] = useState<NutrientPlan | null>(null);
-  const [availablePlans, setAvailablePlans] = useState<NutrientPlan[]>([]);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [removePlanOpen, setRemovePlanOpen] = useState(false);
-  const [assignSaving, setAssignSaving] = useState(false);
 
   // Gantt chart state
   const [planEntries, setPlanEntries] = useState<NutrientPlanPhaseEntry[]>([]);
   const [fertilizers, setFertilizers] = useState<Fertilizer[]>([]);
   const [growthPhases, setGrowthPhases] = useState<GrowthPhase[]>([]);
   const [lifecycleKey, setLifecycleKey] = useState<string | null>(null);
+
+  // Water mix recommended RO% per sequence_order (filled from batch endpoint)
+  const [recommendedRoMap, setRecommendedRoMap] = useState<Map<number, number>>(new Map());
 
   // Slot picker cascade state
   const [sitesList, setSitesList] = useState<Site[]>([]);
@@ -187,15 +182,6 @@ export default function PlantInstanceDetailPage() {
     },
   });
 
-  const {
-    control: assignControl,
-    handleSubmit: handleAssignSubmit,
-    reset: resetAssign,
-  } = useForm<AssignFormData>({
-    resolver: zodResolver(assignSchema),
-    defaultValues: { plan_key: '', assigned_by: '' },
-  });
-
   const editSiteKey = useWatch({ control, name: 'site_key' });
   const editLocationKey = useWatch({ control, name: 'location_key' });
 
@@ -215,8 +201,8 @@ export default function PlantInstanceDetailPage() {
         }
         speciesApi.listCultivars(p.species_key).then(setCultivarList).catch(() => setCultivarList([]));
       }
-      // Resolve location → site for form and info tab display
-      let resolvedSiteKey: string | null = null;
+      // Resolve site_key: prefer stored value, fall back to location → site derivation
+      let resolvedSiteKey: string | null = p.site_key ?? null;
       let resolvedLocationKey: string | null = p.location_key;
       // If no location_key but slot exists, reverse-resolve from slot
       if (!resolvedLocationKey && p.slot_key) {
@@ -225,12 +211,12 @@ export default function PlantInstanceDetailPage() {
           resolvedLocationKey = slot.location_key;
         } catch { /* ignore */ }
       }
-      // Resolve location → site + display
+      // Resolve location → site + display (also backfill site_key if not stored)
       if (resolvedLocationKey) {
         try {
           const loc = await sitesApi.getLocation(resolvedLocationKey);
           setAssignedLocation(loc);
-          resolvedSiteKey = loc.site_key;
+          if (!resolvedSiteKey) resolvedSiteKey = loc.site_key;
         } catch {
           setAssignedLocation(null);
         }
@@ -386,6 +372,23 @@ export default function PlantInstanceDetailPage() {
     }
   }, [editLocationKey, setValue]);
 
+  // Fetch recommended RO% for each phase entry when plan + site are available
+  useEffect(() => {
+    if (!assignedPlan?.key || !editSiteKey) {
+      setRecommendedRoMap(new Map());
+      return;
+    }
+    planApi.fetchWaterMixRecommendationsBatch(assignedPlan.key, editSiteKey)
+      .then((result) => {
+        const map = new Map<number, number>();
+        for (const rec of result.recommendations) {
+          map.set(rec.sequence_order, rec.recommendation.recommended_ro_percent);
+        }
+        setRecommendedRoMap(map);
+      })
+      .catch(() => setRecommendedRoMap(new Map()));
+  }, [assignedPlan?.key, editSiteKey]);
+
   const handleConfirmWatering = async (options?: ConfirmReminderOptions) => {
     if (!key) return;
     try {
@@ -439,7 +442,7 @@ export default function PlantInstanceDetailPage() {
     if (!key || !plant) return;
     try {
       setSaving(true);
-      const { site_key: _, substrate_key: rawSubstrateKey, ...payload } = data; // eslint-disable-line @typescript-eslint/no-unused-vars
+      const { substrate_key: rawSubstrateKey, ...payload } = data;
       // Type-only fallback keys start with '_type_' — don't send as substrate_key
       const isTypeOnly = rawSubstrateKey?.startsWith('_type_');
       const substrateKey = isTypeOnly ? null : (rawSubstrateKey || null);
@@ -451,6 +454,7 @@ export default function PlantInstanceDetailPage() {
         instance_id: plant.instance_id,
         species_key: plant.species_key,
         ...payload,
+        site_key: payload.site_key || null,
         location_key: payload.location_key || null,
         slot_key: payload.slot_key || null,
         substrate_key: substrateKey,
@@ -465,30 +469,15 @@ export default function PlantInstanceDetailPage() {
     }
   };
 
-  const openAssignDialog = async () => {
-    try {
-      const plans = await planApi.fetchNutrientPlans(0, 200);
-      setAvailablePlans(plans);
-      resetAssign({ plan_key: '', assigned_by: '' });
-      setAssignDialogOpen(true);
-    } catch (err) {
-      handleError(err);
-    }
+  const openAssignDialog = () => {
+    setAssignDialogOpen(true);
   };
 
-  const onAssignPlan = async (data: AssignFormData) => {
+  const onAssignPlan = async (planKey: string) => {
     if (!key) return;
-    try {
-      setAssignSaving(true);
-      await planApi.assignPlanToPlant(key, data);
-      notification.success(t('pages.nutrientPlans.assignPlan'));
-      setAssignDialogOpen(false);
-      load();
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setAssignSaving(false);
-    }
+    await planApi.assignPlanToPlant(key, { plan_key: planKey, assigned_by: '' });
+    notification.success(t('pages.nutrientPlans.assignPlan'));
+    load();
   };
 
   const onRemovePlan = async () => {
@@ -565,6 +554,17 @@ export default function PlantInstanceDetailPage() {
     if (currentGrowthPhase.watering_interval_days != null) return { value: currentGrowthPhase.watering_interval_days, source: 'phase' as const };
     return null;
   }, [currentGrowthPhase, assignedCultivar]);
+
+  // Estimated harvest date: planted_on + sum(all growth phase durations)
+  const estimatedHarvest = useMemo(() => {
+    if (!plant?.planted_on || growthPhases.length === 0 || plant.removed_on) return null;
+    const totalDays = growthPhases.reduce((sum, gp) => sum + gp.typical_duration_days, 0);
+    if (totalDays === 0) return null;
+    const planted = new Date(plant.planted_on);
+    const harvestDate = new Date(planted.getTime() + totalDays * 86400000);
+    const daysRemaining = Math.ceil((harvestDate.getTime() - Date.now()) / 86400000);
+    return { date: harvestDate, daysRemaining };
+  }, [plant?.planted_on, plant?.removed_on, growthPhases]);
 
   // Active nutrient plan phase entry for the current week (handles perennial cycle restarts)
   const activePhaseEntry = useMemo(() => {
@@ -740,7 +740,7 @@ export default function PlantInstanceDetailPage() {
 
   // Helper: format a due date as a relative label
   const formatRelativeDueDate = (dueDate: string | null): string => {
-    if (!dueDate) return '\u2014';
+    if (!dueDate) return '—';
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const due = new Date(dueDate);
@@ -801,13 +801,23 @@ export default function PlantInstanceDetailPage() {
   return (
     <Box data-testid="plant-instance-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 1,
+          mb: 0.5,
+        }}
+      >
         <PageTitle title={plant?.plant_name ?? plant?.instance_id ?? t('entities.plantInstance')} />
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flexShrink: 0 }}>
           <Button
             startIcon={<LabelIcon />}
             onClick={() => setTagDialogOpen(true)}
             data-testid="tag-button"
+            size="small"
           >
             {t('pages.plantInstances.tag.button')}
           </Button>
@@ -816,6 +826,7 @@ export default function PlantInstanceDetailPage() {
             onClick={() => setTransitionOpen(true)}
             disabled={!!plant?.removed_on}
             data-testid="transition-button"
+            size="small"
           >
             {t('pages.phases.transition')}
           </Button>
@@ -825,13 +836,14 @@ export default function PlantInstanceDetailPage() {
             onClick={() => setRemoveOpen(true)}
             disabled={!!plant?.removed_on}
             data-testid="remove-button"
+            size="small"
           >
             {t('pages.plantInstances.remove')}
           </Button>
         </Box>
       </Box>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
+      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }} variant="scrollable" scrollButtons="auto">
         <Tab label={t('pages.plantInstances.info')} />
         <Tab label={t('pages.plantingRuns.tabPhases')} data-testid="phases-tab" />
         <Tab label={t('entities.nutrientPlan')} />
@@ -844,14 +856,18 @@ export default function PlantInstanceDetailPage() {
 
       {tab === 0 && (
         <>
+          {plant && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.plantInstances.infoIntro')}
+            </Typography>
+          )}
           {/* Compact summary bar */}
           {plant && (
             <Box
               sx={{
-                display: 'flex',
-                gap: { xs: 2, sm: 4 },
-                flexWrap: 'wrap',
-                alignItems: 'flex-start',
+                display: 'grid',
+                gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(auto-fit, minmax(150px, 1fr))' },
+                gap: { xs: 1.5, sm: 2 },
                 mb: 3,
                 p: 2,
                 bgcolor: 'background.paper',
@@ -871,8 +887,60 @@ export default function PlantInstanceDetailPage() {
                 <Typography variant="caption" color="text.secondary">
                   {t('pages.plantInstances.plantedOn')}
                 </Typography>
-                <Typography variant="body1">{plant.planted_on}</Typography>
+                <Typography variant="body1">
+                  {new Date(plant.planted_on).toLocaleDateString(i18n.language)}
+                </Typography>
               </Box>
+              {estimatedHarvest && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    {t('pages.plantInstances.estimatedHarvest')}
+                  </Typography>
+                  <Tooltip
+                    title={t('pages.plantInstances.estimatedHarvestTooltip')}
+                    arrow
+                    enterTouchDelay={0}
+                  >
+                    <Box
+                      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'help' }}
+                      tabIndex={0}
+                      role="note"
+                      aria-label={t('pages.plantInstances.estimatedHarvestTooltip')}
+                    >
+                      <EventAvailableIcon
+                        sx={{
+                          fontSize: 18,
+                          color: estimatedHarvest.daysRemaining < 0
+                            ? 'error.main'
+                            : estimatedHarvest.daysRemaining <= 7
+                              ? 'warning.main'
+                              : 'text.secondary',
+                        }}
+                      />
+                      <Typography
+                        variant="body1"
+                        fontWeight={500}
+                        color={
+                          estimatedHarvest.daysRemaining < 0
+                            ? 'error.main'
+                            : estimatedHarvest.daysRemaining <= 7
+                              ? 'warning.main'
+                              : undefined
+                        }
+                      >
+                        {estimatedHarvest.date.toLocaleDateString(i18n.language)}
+                        {' '}
+                        ({estimatedHarvest.daysRemaining === 0
+                          ? t('pages.plantInstances.harvestToday')
+                          : estimatedHarvest.daysRemaining > 0
+                            ? t('pages.plantInstances.daysRemaining', { count: estimatedHarvest.daysRemaining })
+                            : t('pages.plantInstances.daysOverdue', { count: Math.abs(estimatedHarvest.daysRemaining) })
+                        })
+                      </Typography>
+                    </Box>
+                  </Tooltip>
+                </Box>
+              )}
               {assignedLocation && (
                 <Box>
                   <Typography variant="caption" color="text.secondary">
@@ -919,7 +987,9 @@ export default function PlantInstanceDetailPage() {
                   <Typography variant="caption" color="text.secondary">
                     {t('pages.plantInstances.removedOn')}
                   </Typography>
-                  <Typography variant="body1" color="error">{plant.removed_on}</Typography>
+                  <Typography variant="body1" color="error">
+                    {new Date(plant.removed_on).toLocaleDateString(i18n.language)}
+                  </Typography>
                 </Box>
               )}
               <Box data-testid="phase-info-card">
@@ -927,7 +997,14 @@ export default function PlantInstanceDetailPage() {
                   {t('pages.phases.current')}
                 </Typography>
                 <Box>
-                  <Chip label={plant.current_phase} color="primary" size="small" data-testid="current-phase" />
+                  <Chip
+                    label={plant.current_phase
+                      ? t(`enums.phaseName.${plant.current_phase}`, { defaultValue: plant.current_phase })
+                      : '—'}
+                    color="primary"
+                    size="small"
+                    data-testid="current-phase"
+                  />
                 </Box>
               </Box>
               {currentPhase && (
@@ -1048,10 +1125,14 @@ export default function PlantInstanceDetailPage() {
                           />
                         )}
                         {dosagePresets?.targetEc != null && (
-                          <Chip label={`EC ${dosagePresets.targetEc} mS`} size="small" variant="outlined" />
+                          <Tooltip title={t('pages.plantInstances.ecTooltip')} arrow enterTouchDelay={0}>
+                            <Chip label={`EC ${dosagePresets.targetEc} mS/cm`} size="small" variant="outlined" />
+                          </Tooltip>
                         )}
                         {dosagePresets?.targetPh != null && (
-                          <Chip label={`pH ${dosagePresets.targetPh}`} size="small" variant="outlined" />
+                          <Tooltip title={t('pages.plantInstances.phTooltip')} arrow enterTouchDelay={0}>
+                            <Chip label={`pH ${dosagePresets.targetPh}`} size="small" variant="outlined" />
+                          </Tooltip>
                         )}
                         {wateringVolume && (
                           <Chip
@@ -1122,9 +1203,11 @@ export default function PlantInstanceDetailPage() {
                   {activePhaseEntry && (
                     <>
                       <Box>
-                        <Typography variant="caption" color="text.secondary">
-                          {t('pages.nutrientPlans.npkRatio')}
-                        </Typography>
+                        <Tooltip title={t('pages.plantInstances.npkTooltip')} arrow enterTouchDelay={0}>
+                          <Typography variant="caption" color="text.secondary" sx={{ cursor: 'help', textDecoration: 'underline dotted' }}>
+                            {t('pages.nutrientPlans.npkRatio')}
+                          </Typography>
+                        </Tooltip>
                         <Typography variant="body1" fontWeight={500}>
                           {activePhaseEntry.npk_ratio[0]}-{activePhaseEntry.npk_ratio[1]}-{activePhaseEntry.npk_ratio[2]}
                         </Typography>
@@ -1132,10 +1215,10 @@ export default function PlantInstanceDetailPage() {
                       {(activePhaseEntry.calcium_ppm != null || activePhaseEntry.magnesium_ppm != null) && (
                         <Box>
                           <Typography variant="caption" color="text.secondary">
-                            Ca / Mg (ppm)
+                            {t('pages.plantInstances.caMgPpm')}
                           </Typography>
                           <Typography variant="body1">
-                            {activePhaseEntry.calcium_ppm ?? '–'} / {activePhaseEntry.magnesium_ppm ?? '–'}
+                            {activePhaseEntry.calcium_ppm ?? '—'} / {activePhaseEntry.magnesium_ppm ?? '—'}
                           </Typography>
                         </Box>
                       )}
@@ -1490,6 +1573,21 @@ export default function PlantInstanceDetailPage() {
             </Box>
           )}
 
+          {/* Hint when water config is missing — RO% in Gantt will be empty */}
+          {assignedPlan && editSiteKey && recommendedRoMap.size === 0 && (() => {
+            const selectedSite = sitesList.find((s) => s.key === editSiteKey);
+            return (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                {t('pages.nutrientPlans.waterMix.noWaterConfig', { siteName: selectedSite?.name ?? '' })}
+                {selectedSite && (
+                  <Link component={RouterLink} to={`/standorte/sites/${selectedSite.key}`} sx={{ ml: 0.5 }}>
+                    {t('pages.nutrientPlans.waterMix.configureSite')}
+                  </Link>
+                )}
+              </Alert>
+            );
+          })()}
+
           {/* Non-perennial: PhaseGanttChart overview + PhaseDetailGantt per group */}
           {!perennialCycleInfo && planEntries.length > 0 && (
             <Box sx={{ mt: 3 }}>
@@ -1517,6 +1615,7 @@ export default function PlantInstanceDetailPage() {
                         fertilizers={fertilizers}
                         title={t('pages.gantt.vegetativeDetail')}
                         currentWeek={vegWeek}
+                        recommendedRoMap={recommendedRoMap}
                       />
                     )}
                     {flowerEntries.length > 0 && (
@@ -1525,6 +1624,7 @@ export default function PlantInstanceDetailPage() {
                         fertilizers={fertilizers}
                         title={t('pages.gantt.floweringDetail')}
                         currentWeek={flowerWeek}
+                        recommendedRoMap={recommendedRoMap}
                       />
                     )}
                   </Box>
@@ -1549,7 +1649,7 @@ export default function PlantInstanceDetailPage() {
                 />
               </Box>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                {perennialCycleInfo.recurringEntries.map((e) => t(`enums.phaseName.${e.phase_name}`)).join(' \u2192 ')}
+                {perennialCycleInfo.recurringEntries.map((e) => t(`enums.phaseName.${e.phase_name}`)).join(' → ')}
               </Typography>
 
               {/* PhaseGanttChart: 52-week calendar with month headers */}
@@ -1568,9 +1668,12 @@ export default function PlantInstanceDetailPage() {
         </Box>
       )}
 
-      {/* Tab 3: Feeding Events */}
+      {/* Tab 3: Watering Log */}
       {tab === 3 && (
         <Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t('pages.plantInstances.wateringLogIntro')}
+          </Typography>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6">{t('entities.wateringLog')}</Typography>
             <Button
@@ -1588,7 +1691,7 @@ export default function PlantInstanceDetailPage() {
               {
                 id: 'loggedAt',
                 label: t('pages.wateringLogs.loggedAt'),
-                render: (r) => r.logged_at ? new Date(r.logged_at).toLocaleString() : '\u2014',
+                render: (r) => r.logged_at ? new Date(r.logged_at).toLocaleString() : '—',
                 searchValue: (r) => r.logged_at ? new Date(r.logged_at).toLocaleString() : '',
               },
               {
@@ -1613,7 +1716,8 @@ export default function PlantInstanceDetailPage() {
               {
                 id: 'ecAfter',
                 label: t('pages.wateringLogs.ecAfter'),
-                render: (r) => r.ec_after != null ? String(r.ec_after) : '\u2014',
+                render: (r) => r.ec_after != null ? `${r.ec_after} mS/cm` : '—',
+                searchValue: (r) => r.ec_after != null ? String(r.ec_after) : '',
                 align: 'right',
               },
             ]}
@@ -1622,6 +1726,19 @@ export default function PlantInstanceDetailPage() {
             onRowClick={(r) => navigate(`/giessprotokoll/${r.key}`)}
             tableState={wateringLogTableState}
             ariaLabel={t('entities.wateringLog')}
+            mobileCardRenderer={(r) => (
+              <MobileCard
+                title={r.logged_at ? new Date(r.logged_at).toLocaleString() : '—'}
+                subtitle={t(`enums.applicationMethod.${r.application_method}`)}
+                chips={
+                  r.is_supplemental ? <Chip label={t('common.yes')} size="small" color="info" /> : undefined
+                }
+                fields={[
+                  { label: t('pages.wateringLogs.volumeLiters'), value: `${r.volume_liters} L` },
+                  ...(r.ec_after != null ? [{ label: t('pages.wateringLogs.ecAfter'), value: String(r.ec_after) }] : []),
+                ]}
+              />
+            )}
           />
         </Box>
       )}
@@ -1693,7 +1810,7 @@ export default function PlantInstanceDetailPage() {
               />
             </>
           ) : (
-            <Typography color="text.secondary">{t('common.loading')}</Typography>
+            <LoadingSkeleton variant="form" />
           )}
         </Box>
       )}
@@ -1865,6 +1982,30 @@ export default function PlantInstanceDetailPage() {
                     tableState={taskTableState}
                     ariaLabel={t('pages.plantInstances.taskTabActiveSection')}
                     searchable
+                    mobileCardRenderer={(row) => (
+                      <MobileCard
+                        title={row.name}
+                        subtitle={formatRelativeDueDate(row.due_date)}
+                        chips={
+                          <>
+                            <Chip
+                              size="small"
+                              label={t(`enums.taskStatus.${row.status}`, { defaultValue: row.status })}
+                              color={taskStatusColor(row.status)}
+                              variant="filled"
+                            />
+                            <Chip
+                              size="small"
+                              label={t(`enums.taskCategory.${row.category}`, { defaultValue: row.category })}
+                              variant="outlined"
+                            />
+                          </>
+                        }
+                        fields={[
+                          { label: t('pages.tasks.priority'), value: t(`enums.taskPriority.${row.priority}`, { defaultValue: row.priority }) },
+                        ]}
+                      />
+                    )}
                   />
                 </Box>
               )}
@@ -1919,7 +2060,7 @@ export default function PlantInstanceDetailPage() {
                         label: t('pages.tasks.completedAt'),
                         render: (row) => row.completed_at
                           ? new Date(row.completed_at).toLocaleDateString(i18n.language === 'de' ? 'de-DE' : 'en-US')
-                          : '\u2014',
+                          : '—',
                         searchValue: (row) => row.completed_at ?? '',
                         hideBelowBreakpoint: 'md',
                       },
@@ -1929,6 +2070,29 @@ export default function PlantInstanceDetailPage() {
                     onRowClick={(row) => navigate(`/aufgaben/tasks/${row.key}`)}
                     ariaLabel={t('pages.plantInstances.taskTabDoneSection')}
                     searchable
+                    mobileCardRenderer={(row) => (
+                      <MobileCard
+                        title={row.name}
+                        subtitle={row.completed_at
+                          ? new Date(row.completed_at).toLocaleDateString(i18n.language === 'de' ? 'de-DE' : 'en-US')
+                          : undefined}
+                        chips={
+                          <>
+                            <Chip
+                              size="small"
+                              label={t(`enums.taskStatus.${row.status}`, { defaultValue: row.status })}
+                              color={taskStatusColor(row.status)}
+                              variant="outlined"
+                            />
+                            <Chip
+                              size="small"
+                              label={t(`enums.taskCategory.${row.category}`, { defaultValue: row.category })}
+                              variant="outlined"
+                            />
+                          </>
+                        }
+                      />
+                    )}
                   />
                 </Box>
               )}
@@ -1961,7 +2125,7 @@ export default function PlantInstanceDetailPage() {
                   label={t('pages.plantInstances.cultivarKey')}
                   helperText={t('pages.plantInstances.cultivarKeyHelper')}
                   options={[
-                    { value: '', label: '\u2014' },
+                    { value: '', label: '—' },
                     ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
                   ]}
                 />
@@ -1985,7 +2149,7 @@ export default function PlantInstanceDetailPage() {
                   label={t('entities.site')}
                   helperText={t('pages.plantInstances.siteHelper')}
                   options={[
-                    { value: '', label: '\u2014' },
+                    { value: '', label: '—' },
                     ...sitesList.map((s) => ({ value: s.key, label: s.name })),
                   ]}
                 />
@@ -2004,7 +2168,7 @@ export default function PlantInstanceDetailPage() {
                   helperText={t('pages.plantInstances.slotHelper')}
                   disabled={!editLocationKey}
                   options={[
-                    { value: '', label: '\u2014' },
+                    { value: '', label: '—' },
                     ...slotsList.map((s) => ({
                       value: s.key,
                       label: s.currently_occupied
@@ -2027,7 +2191,15 @@ export default function PlantInstanceDetailPage() {
                 {t('pages.plantInstances.sectionSetupDesc')}
               </Typography>
               <FormRow>
-                <FormNumberField name="container_volume_liters" control={control} label={t('pages.plantInstances.containerVolumeLiters')} helperText={t('pages.plantInstances.containerVolumeLitersHelper')} min={0.1} max={500} />
+                <FormNumberField
+                  name="container_volume_liters"
+                  control={control}
+                  label={t('pages.plantInstances.containerVolumeLiters')}
+                  helperText={t('pages.plantInstances.containerVolumeLitersHelper')}
+                  min={0.1}
+                  max={500}
+                  suffix="L"
+                />
                 <SubstrateSelectField
                   name="substrate_key"
                   control={control}
@@ -2064,34 +2236,11 @@ export default function PlantInstanceDetailPage() {
       />
 
       {/* Assign Plan Dialog */}
-      <Dialog open={assignDialogOpen} onClose={() => setAssignDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{t('pages.nutrientPlans.assignPlan')}</DialogTitle>
-        <DialogContent>
-          <form onSubmit={handleAssignSubmit(onAssignPlan)}>
-            <FormSelectField
-              name="plan_key"
-              control={assignControl}
-              label={t('entities.nutrientPlan')}
-              options={availablePlans.map((p) => ({
-                value: p.key,
-                label: `${p.name}${p.is_template ? ` (${t('pages.nutrientPlans.isTemplate')})` : ''}`,
-              }))}
-              required
-            />
-            <FormTextField
-              name="assigned_by"
-              control={assignControl}
-              label={t('pages.nutrientPlans.assignedBy')}
-              required
-            />
-            <FormActions
-              onCancel={() => setAssignDialogOpen(false)}
-              loading={assignSaving}
-              saveLabel={t('pages.nutrientPlans.assignPlan')}
-            />
-          </form>
-        </DialogContent>
-      </Dialog>
+      <NutrientPlanAssignDialog
+        open={assignDialogOpen}
+        onClose={() => setAssignDialogOpen(false)}
+        onAssign={onAssignPlan}
+      />
 
       {plant && (
         <PlantTagDialog

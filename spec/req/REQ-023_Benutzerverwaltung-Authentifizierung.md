@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.7 (Service Accounts & RBAC-Erweiterung)
+Version: 1.8 (Security-Hardening: PII-Minimierung, Enumeration-Schutz, RS256-Roadmap)
 Abhängigkeit: REQ-024 v1.4 (Permission-Matrix)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.4 (Permission-Matrix)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.8 | 2026-03-18 | **Security-Hardening (IT-Security-Review):** (1) SEC-M-001: PII-Minimierung im JWT-Payload — `email` und `display_name` entfernt, nur `sub`, `tenant_roles`, `is_platform_admin` im Access Token. (2) SEC-H-009: Account-Enumeration-Schutz bei Registrierung — generische Antwort bei existierender E-Mail. (3) SEC-M-002: RS256/ES256-Migrationsplan dokumentiert, JWT-Secret >= 256 Bit. |
 | 1.7 | 2026-03-17 | **Service Accounts, RBAC-Erweiterung & Tenant-Notfallverwaltung:** (1) `account_type: Literal['human', 'service']` auf User-Modell. Service Accounts als eigenständige, nicht-interaktive Konten für Third-Party-Systeme (Home Assistant, Grafana, CI/CD). Keine Passwort/SSO-Fähigkeit, API-Key-only. Tenant-scoped oder Platform-scoped. ServiceAccountEngine, ServiceAccountService, 15 neue API-Endpoints. Rate-Limit und IP-Allowlist pro Service Account. (2) Tenant-Notfallverwaltung: Emergency-Admin-Ernennung bei verwaisten Tenants (`orphaned_since`), Tenant-Suspendierung/Reaktivierung, User-Suspendierung/Reaktivierung durch Platform-Admin. 7 neue Admin-API-Endpoints. Celery-Task für Verwaist-Erkennung. |
 | 1.6 | 2026-03-16 | **Platform-Admin-Rolle:** Neues Konzept Platform-Tenant (`is_platform: true`) als Träger der KA-Admin-Berechtigung. Platform-Admins verwalten globale Stammdaten, `tenant_has_access`-Zuweisungen und Promotions. User kann gleichzeitig Platform-Admin und regulärer Tenant-Nutzer sein. Neue User Stories, JWT-Erweiterung (`is_platform_admin`), Dependency `is_platform_admin`. |
 | 1.5 | 2026-02-28 | Home Assistant Integration: `ha_url` + `ha_token_encrypted` auf User-Modell, neuer Tab „Integrationen" in AccountSettingsPage, Verbindungstest-Endpoint. Temperatureinheit: Verweis auf `temperature_unit` in UserPreference (REQ-020 v1.2). |
@@ -76,7 +77,7 @@ Diese Spezifikation verwendet **Authlib** (aktiv maintained) anstelle von `pytho
 | Library | `python-jose` + `passlib` | `authlib` + `passlib` | `python-jose` unmaintained seit 2022; Authlib bietet OIDC/PKCE built-in |
 | Access Token TTL | 1 Stunde | **15 Minuten** | Kürzeres Fenster bei Token-Kompromittierung; Refresh-Token-Mechanismus kompensiert UX |
 | Refresh Token | Nicht spezifiziert | 30 Tage (persistent) oder 24h (Session), HttpOnly Cookie, Rotation, steuerbar via „Angemeldet bleiben" | Erforderlich für 15-Min-Access-Tokens ohne ständige Neuanmeldung; Session-Cookie als sicherer Standard für geteilte Geräte |
-| Token Payload | `sub`, `exp`, `type` | `sub`, `email`, `display_name`, `tenant_roles`, `exp`, `iat`, `type` | Mandanten-Rollen für REQ-024 im Token; reduziert DB-Lookups |
+| Token Payload | `sub`, `exp`, `type` | `sub`, `tenant_roles`, `is_platform_admin`, `exp`, `iat`, `type` | Mandanten-Rollen für REQ-024 im Token; PII-Minimierung (SEC-M-001): kein email/display_name |
 
 **Kernkonzepte:**
 
@@ -119,7 +120,8 @@ oidc_providers:
 | Refresh Token (persistent) | 30 Tage | HttpOnly Secure Cookie (`Expires` gesetzt) | Rotation bei Nutzung (altes Token wird invalidiert) |
 | Refresh Token (Session) | Browser-Session | HttpOnly Secure Session-Cookie (kein `Expires`/`Max-Age`) | Rotation bei Nutzung |
 
-- **Access Token:** Enthält `sub` (user_key), `email`, `display_name`, `tenant_roles` (Mapping tenant_key → role). Kurzlebig, wird bei jedem API-Request als `Authorization: Bearer <token>` mitgesendet.
+- **Access Token:** Enthält `sub` (user_key), `tenant_roles` (Mapping tenant_key → role), `exp`, `iat`, `type`. Kurzlebig, wird bei jedem API-Request als `Authorization: Bearer <token>` mitgesendet.
+  - **PII-Minimierung (SEC-M-001):** `email` und `display_name` werden **nicht** im JWT-Payload übertragen, um die Exposition personenbezogener Daten bei Token-Leaks zu minimieren. Diese Daten werden bei Bedarf über `GET /api/v1/users/me` abgefragt (gecacht im Frontend-State).
 - **Refresh Token:** Wird als HttpOnly/Secure/SameSite=Lax Cookie gespeichert. Bei Nutzung wird ein neues Refresh-Token-Paar ausgestellt und das alte invalidiert (Token-Rotation verhindert Token-Diebstahl).
 - **Token-Revocation:** Logout invalidiert alle Refresh Tokens des Nutzers. Optional: "Von allen Geräten abmelden" invalidiert alle Sessions.
 
@@ -446,8 +448,12 @@ class PasswordEngine:
 
 class TokenEngine:
     def create_access_token(self, user: User, tenant_roles: dict[str, str]) -> str: ...
-        # Payload: { sub: user_key, email, display_name, tenant_roles, exp, iat, type: "access" }
+        # Payload: { sub: user_key, tenant_roles, is_platform_admin, exp, iat, type: "access" }
+        # PII-Minimierung (SEC-M-001): KEIN email/display_name im Payload
         # Algorithmus: HS256 (via authlib.jose.jwt.encode), Lebensdauer: 15 Minuten
+        # Migration zu RS256/ES256 (SEC-M-002): Langfristig geplant — ermöglicht Token-Validierung
+        # ohne Shared Secret. Voraussetzung: JWK-Rotation-Infrastruktur. Kurzfristig:
+        # JWT-Secret MUSS >= 256 Bit sein, Secret-Rotation über ENV-Variable mit Overlap-Periode.
 
     def create_refresh_token(self) -> tuple[str, str]: ...
         # Gibt (raw_token, token_hash) zurück
@@ -524,6 +530,10 @@ class AuthService:
         # 3. Erstellt User (status: unverified)
         # 4. Sendet Verifizierungs-E-Mail
         # 5. Erstellt persönlichen Default-Tenant (REQ-024)
+        # SEC-H-009 (Account-Enumeration-Schutz): Bei bereits existierender E-Mail wird
+        # die gleiche generische Antwort zurückgegeben ("Verifizierungs-E-Mail gesendet").
+        # An die existierende Adresse wird stattdessen eine Info-Mail gesendet:
+        # "Jemand hat versucht, ein Konto mit Ihrer E-Mail zu erstellen."
 
     async def login_local(self, email: str, password: str, remember_me: bool = False) -> TokenPair: ...
         # 1. Prüft Throttle (LoginThrottleEngine)

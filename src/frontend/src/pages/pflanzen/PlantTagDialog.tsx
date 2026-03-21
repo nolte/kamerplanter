@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
@@ -31,6 +33,8 @@ interface PlantTagDialogProps {
 const nfcSupported = typeof window !== 'undefined' && 'NDEFReader' in window;
 
 export default function PlantTagDialog({ open, onClose, plantKey, plantName }: PlantTagDialogProps) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
   const notification = useNotification();
   const [tab, setTab] = useState(0);
@@ -108,7 +112,7 @@ export default function PlantTagDialog({ open, onClose, plantKey, plantName }: P
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth data-testid="plant-tag-dialog">
+    <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="sm" fullWidth data-testid="plant-tag-dialog">
       <DialogTitle>{t('pages.plantInstances.tag.title')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

@@ -198,7 +198,7 @@
 | Temperatur Nacht (°C) | 12–20 | `requirement_profiles.temperature_night_c` |
 | Luftfeuchtigkeit Tag (%) | 40–65 (hohe Luftfeuchtigkeit > 80% Botrytis-Risiko) | `requirement_profiles.humidity_day_percent` |
 | Luftfeuchtigkeit Nacht (%) | 50–70 | `requirement_profiles.humidity_night_percent` |
-| VPD-Ziel (kPa) | 1.0–1.8 | `requirement_profiles.vpd_target_kpa` |
+| VPD-Ziel (kPa) | 0.9–1.5 (bei VPD > 1.5 kPa und Temperaturen > 30 °C Bewässerungsintervall auf täglich verkürzen) | `requirement_profiles.vpd_target_kpa` |
 | CO₂ (ppm) | 400 (ambient outdoor) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 1 (Ampeln) bis 2 (Beete); bei Hitze täglich | `requirement_profiles.irrigation_frequency_days` |
 | Gießmenge (ml/Pflanze) | 200–500 (Ampeln deutlich mehr) | `requirement_profiles.irrigation_volume_ml_per_plant` |

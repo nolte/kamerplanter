@@ -395,7 +395,7 @@ ern und im Fruehjahr wieder einpflanzen.
 | Kartoffel | Solanum tuberosum | Beide Knollengewaechse, Konkurrenz um Platz im Boden, gemeinsame Bodenschaedlinge | mild | `incompatible_with` |
 | Lauch / Porree | Allium porrum | Naehrstoffkonkurrenz (beide brauchen viel Kalium) | mild | `incompatible_with` |
 | Mais | Zea mays | Starke Beschattung, Wasserkonkurrenz | mild | `incompatible_with` |
-| Karotte | Daucus carota | Naehrstoffkonkurrenz, aehnliche Wurzeltiefe (beide Pfahlwurzler) | mild | `incompatible_with` |
+| Karotte | Daucus carota subsp. sativus | Naehrstoffkonkurrenz um Bor und Mangan im Wurzelbereich; beide tiefwurzelnde Gemuese verdraengen sich gegenseitig bei geringer Bodentiefe | mild | `incompatible_with` |
 
 ### 6.4 Familien-Kompatibilitaet
 

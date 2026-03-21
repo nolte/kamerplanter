@@ -1,4 +1,6 @@
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
@@ -27,10 +29,12 @@ export default function ConfirmDialog({
   destructive = false,
   loading = false,
 }: ConfirmDialogProps) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
 
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth role="alertdialog" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-description" data-testid="confirm-dialog">
+    <Dialog fullScreen={fullScreen} open={open} onClose={onCancel} maxWidth="sm" fullWidth role="alertdialog" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-description" data-testid="confirm-dialog">
       <DialogTitle id="confirm-dialog-title">{title}</DialogTitle>
       <DialogContent>
         <DialogContentText id="confirm-dialog-description">{message}</DialogContentText>

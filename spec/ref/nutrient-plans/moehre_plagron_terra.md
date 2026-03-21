@@ -15,12 +15,15 @@
 | Name | Moehre (Direktsaat Fruehjahr) -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Saisonplan fuer Moehren (Nantes-Typ) bei Direktsaat im Fruehling. Plagron Terra-Linie mit 3 Produkten. Schwachzehrer-Strategie mit Kalium-Betonung (Wurzelgemuese). KEIN frischer organischer Duenger (Beinigkeit!). Terra Bloom statt Terra Grow in der Hauptwachstumsphase wegen K>N-Anforderung. Annuell, Direktsaat Maerz--April, Ernte Juli--Oktober. | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | moehre, karotte, carrot, daucus, plagron, terra, erde, outdoor, schwachzehrer, wurzelgemuese, direktsaat | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (annuell, kein Neustart) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -131,7 +134,8 @@ Moehren sind im Steckbrief als Mittelzehrer (medium_feeder) klassifiziert, reagi
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer) |
 
@@ -154,7 +158,8 @@ Moehren sind im Steckbrief als Mittelzehrer (medium_feeder) klassifiziert, reagi
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer) |
 
@@ -177,7 +182,8 @@ Moehren sind im Steckbrief als Mittelzehrer (medium_feeder) klassifiziert, reagi
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6 |
+| target_ec_ms | 0.6  |
+| reference_ec_ms | 0.6  |
 | target_ph | 6.5 |
 | Terra Bloom ml/L | 2.0 (Schwachzehrer-Dosis, K-betont) |
 | Pure Zym ml/L | 1.0 |
@@ -204,7 +210,8 @@ Moehren sind im Steckbrief als Mittelzehrer (medium_feeder) klassifiziert, reagi
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer) |
 
@@ -297,6 +304,7 @@ Bei 1 Laufmeter Moehrenreihe (ca. 20--25 Pflanzen), 0.5 L Giessloessung pro Duen
   "name": "M\u00f6hre (Direktsaat Fr\u00fchjahr) \u2014 Plagron Terra",
   "description": "Saisonplan f\u00fcr M\u00f6hren (Nantes-Typ) bei Direktsaat. Plagron Terra-Linie, 2 Produkte. K-betonte Schwachzehrer-Strategie (Terra Bloom statt Terra Grow). KEIN frischer organischer D\u00fcnger. 18 Wochen (M\u00e4rz\u2013August).",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -346,6 +354,7 @@ Bei 1 Laufmeter Moehrenreihe (ca. 20--25 Pflanzen), 0.5 L Giessloessung pro Duen
       "enabled": true,
       "notes": "Kein D\u00fcnger. Feiner Spr\u00fchstrahl, Samen nicht ausschwemmen.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.02}
@@ -376,6 +385,7 @@ Bei 1 Laufmeter Moehrenreihe (ca. 20--25 Pflanzen), 0.5 L Giessloessung pro Duen
       "enabled": true,
       "notes": "Kein D\u00fcnger. Gleichm\u00e4\u00dfige Feuchtigkeit.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.03}
@@ -406,6 +416,7 @@ Bei 1 Laufmeter Moehrenreihe (ca. 20--25 Pflanzen), 0.5 L Giessloessung pro Duen
       "enabled": true,
       "notes": "Terra Bloom + Pure Zym. Reihenfolge: Terra Bloom \u2192 Pure Zym \u2192 pH pr\u00fcfen. Nicht \u00fcber das Kraut gie\u00dfen (Alternaria).",
       "target_ec_ms": 0.6,
+      "reference_ec_ms": 0.6,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 2.0, "optional": false},
@@ -447,6 +458,7 @@ Bei 1 Laufmeter Moehrenreihe (ca. 20--25 Pflanzen), 0.5 L Giessloessung pro Duen
       "enabled": true,
       "notes": "Kein D\u00fcnger. Nur bei Trockenheit gie\u00dfen. Vor Ernte 2\u20133 Tage Pause.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.3}

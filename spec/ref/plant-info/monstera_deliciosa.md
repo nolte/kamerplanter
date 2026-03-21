@@ -28,7 +28,7 @@
 <!-- MN-001: dormancy_required: false ist biologisch korrekt -- Monstera hat keine obligate Ruhephase (keine Knospenruhe, kein Laubeinzug). Die saisonale Wachstumsverlangsamung im mitteleuropaeischen Winter (Nov-Feb) durch reduziertes Tageslicht (DLI 1-3 mol/m²/d) wird als kulturpraktische DORMANCY-Phase im Naehrstoffplan abgebildet (vgl. REQ-003 v2.3). -->
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
 | USDA Zonen | 10a, 10b, 11a, 11b, 12a, 12b | `species.hardiness_zones` |
-| Frostempfindlichkeit | tender | `species.frost_sensitivity` |
+| Frostempfindlichkeit | sensitive | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 10 C, optimal 18-27 C. Bei unter 12 C Wachstumsstillstand. | `species.hardiness_detail` |
 | Heimat | Tropische Regenwaelder Suedmexikos bis Panama | `species.native_habitat` |
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
@@ -381,7 +381,7 @@ Entfaellt (reine Zimmerpflanze). Fruchtfolge und Mischkultur sind Konzepte des F
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,frost_sensitivity,nutrient_demand_level,green_manure_suitable,traits,air_purification_score
-Monstera deliciosa,Fensterblatt;Swiss Cheese Plant;Monstera,Araceae,Monstera,perennial,day_neutral,vine,aerial,10a;10b;11a;11b;12a;12b,0.0,Tropische Regenwaelder Suedmexikos bis Panama,tender,medium_feeder,false,ornamental,0.5
+Monstera deliciosa,Fensterblatt;Swiss Cheese Plant;Monstera,Araceae,Monstera,perennial,day_neutral,vine,aerial,10a;10b;11a;11b;12a;12b,0.0,Tropische Regenwaelder Suedmexikos bis Panama,sensitive,medium_feeder,false,ornamental,0.5
 ```
 
 ### 8.2 BotanicalFamily CSV-Zeile (falls noch nicht vorhanden)

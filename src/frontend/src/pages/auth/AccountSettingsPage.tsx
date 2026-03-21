@@ -25,6 +25,8 @@ import Chip from '@mui/material/Chip';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
@@ -115,6 +117,8 @@ interface TabDef {
 }
 
 export default function AccountSettingsPage() {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -128,6 +132,7 @@ export default function AccountSettingsPage() {
       return [
         { key: 'profile', label: t('pages.auth.tabProfile') },
         { key: 'experience', label: t('pages.auth.tabExperience') },
+        { key: 'ha', label: t('pages.auth.tabIntegrations') },
       ];
     }
     return [
@@ -1276,7 +1281,7 @@ export default function AccountSettingsPage() {
       )}
 
       {/* Create API Key Dialog */}
-      <Dialog open={newKeyDialogOpen} onClose={() => setNewKeyDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog fullScreen={fullScreen} open={newKeyDialogOpen} onClose={() => setNewKeyDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('pages.auth.createApiKey')}</DialogTitle>
         <DialogContent>
           <TextField
@@ -1297,7 +1302,7 @@ export default function AccountSettingsPage() {
       </Dialog>
 
       {/* HA Reset Dialog */}
-      <Dialog open={haResetOpen} onClose={() => setHaResetOpen(false)}>
+      <Dialog fullScreen={fullScreen} open={haResetOpen} onClose={() => setHaResetOpen(false)}>
         <DialogTitle>{t('pages.admin.resetToDefaults')}</DialogTitle>
         <DialogContent>
           <DialogContentText>{t('pages.admin.resetConfirm')}</DialogContentText>

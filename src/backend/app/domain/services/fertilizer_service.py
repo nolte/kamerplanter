@@ -26,8 +26,8 @@ class FertilizerService:
         fert = self._repo.get_by_key(key)
         if fert is None:
             raise NotFoundError("Fertilizer", key)
-        if tenant_key:
-            verify_tenant_ownership(fert, tenant_key, "Fertilizer")
+        if tenant_key and fert.tenant_key not in ("", tenant_key):
+            raise NotFoundError("Fertilizer", key)
         return fert
 
     def create_fertilizer(self, fertilizer: Fertilizer) -> Fertilizer:

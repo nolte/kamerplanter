@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=./schemas/plant_info.schema.yaml
 # Plant-info seed data from spec/ref/plant-info/*.md — Outdoor batch 1.
 #
 # Covers 30 plant-info documents (allium_cepa through foeniculum_vulgare).
@@ -37,25 +38,6 @@ new_families:
       Hahnenfussgewaechse umfassen Anemone, Clematis, Delphinium, Ranunculus.
       Viele Arten enthalten Protoanemonin (hautreizend). Ueberwiegend insektenbestaubt.
     rotation_category: ornamental
-
-  - name: Asparagaceae
-    common_name_de: Spargelgewaechse
-    common_name_en: Asparagus family
-    order: Asparagales
-    typical_nutrient_demand: heavy
-    frost_tolerance: hardy
-    typical_root_depth: deep
-    typical_growth_forms: [herb]
-    common_pests: [asparagus_beetle, aphids]
-    common_diseases: [rust, fusarium]
-    pollination_type: [insect, wind]
-    soil_ph_preference:
-      min_ph: 6.0
-      max_ph: 7.5
-    description: >-
-      Spargelgewaechse mit Spargel, Agave und vielen Zierpflanzen.
-      Mehrjaehrige Stauden mit kraeftigem Wurzelsystem.
-    rotation_category: vegetable
 
   - name: Saxifragaceae
     common_name_de: Steinbrechgewaechse
@@ -748,6 +730,7 @@ species_enrichment:
     mature_height_cm: "80"
     mature_width_cm: "50"
     sowing_indoor_weeks_before_last_frost: 10
+    sowing_outdoor_after_last_frost_days: 14
     harvest_months: [7, 8, 9, 10]
     bloom_months: [6, 7, 8]
     pruning_type: summer_pruning
@@ -851,7 +834,7 @@ species_enrichment:
     sowing_indoor_weeks_before_last_frost: 4
     sowing_outdoor_after_last_frost_days: 14
     direct_sow_months: [5, 6]
-    harvest_months: [6, 7, 8, 9, 10]
+    harvest_months: [7, 8, 9, 10]
     bloom_months: [6, 7, 8, 9]
 
   "Daucus carota":

@@ -10,6 +10,7 @@ import AddIcon from '@mui/icons-material/Add';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -123,6 +124,23 @@ export default function SubstrateListPage() {
         emptyIllustration={kamiLocations}
         tableState={tableState}
         ariaLabel={t('pages.substrates.title')}
+        mobileCardRenderer={(r) => (
+          <MobileCard
+            title={(lang === 'en' ? r.name_en : r.name_de) || r.brand || t(`enums.substrateType.${r.type}`)}
+            subtitle={r.brand || undefined}
+            chips={
+              <>
+                <Chip label={t(`enums.substrateType.${r.type}`)} size="small" />
+                {r.is_mix && <Chip label={t('pages.substrates.mix')} size="small" color="info" variant="outlined" />}
+                {r.reusable && <Chip label={t('pages.substrates.reusable')} size="small" color="success" />}
+              </>
+            }
+            fields={[
+              { label: t('pages.substrates.phBase'), value: r.ph_base.toFixed(1) },
+              { label: t('pages.substrates.ecBase'), value: r.ec_base_ms.toFixed(2) },
+            ]}
+          />
+        )}
       />
       <SubstrateCreateDialog
         open={createOpen}

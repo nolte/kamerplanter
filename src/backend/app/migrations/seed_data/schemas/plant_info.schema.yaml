@@ -1,0 +1,377 @@
+# JSON Schema for plant_info*.yaml and adventskalender.yaml (composite plant data)
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "plant_info.schema.yaml"
+title: "Plant Info Seed Data"
+description: "Composite schema for plant info documents that enrich species, add cultivars, growth phases, companion planting, and IPM data"
+type: object
+
+properties:
+  new_families:
+    type: array
+    items:
+      $ref: "#/$defs/botanical_family"
+  new_species_family_map:
+    type: object
+    description: "Map of scientific_name -> family_name for new species"
+    additionalProperties:
+      type: string
+  new_species:
+    type: array
+    items:
+      $ref: "#/$defs/species"
+  enrich_species:
+    type: array
+    items:
+      $ref: "#/$defs/species_enrichment"
+  cultivars:
+    type: array
+    items:
+      $ref: "#/$defs/cultivar"
+  growth_phases:
+    type: array
+    items:
+      $ref: "#/$defs/species_phases"
+  companion_planting:
+    $ref: "#/$defs/companion_planting_data"
+  new_pests:
+    type: array
+    items:
+      $ref: "#/$defs/pest"
+  new_diseases:
+    type: array
+    items:
+      $ref: "#/$defs/disease"
+  new_treatments:
+    type: array
+    items:
+      $ref: "#/$defs/treatment"
+  pest_species_edges:
+    type: array
+    items:
+      type: array
+      prefixItems:
+        - type: string
+          description: "Pest scientific/common name"
+        - type: string
+          description: "Species scientific name"
+      minItems: 2
+      maxItems: 2
+  disease_species_edges:
+    type: array
+    items:
+      type: array
+      prefixItems:
+        - type: string
+          description: "Disease name"
+        - type: string
+          description: "Species scientific name"
+      minItems: 2
+      maxItems: 2
+  treatment_pest_edges:
+    type: array
+    items:
+      type: array
+      prefixItems:
+        - type: string
+          description: "Treatment name"
+        - type: string
+          description: "Pest scientific/common name"
+      minItems: 2
+      maxItems: 2
+  treatment_disease_edges:
+    type: array
+    items:
+      type: array
+      prefixItems:
+        - type: string
+          description: "Treatment name"
+        - type: string
+          description: "Disease name"
+      minItems: 2
+      maxItems: 2
+
+additionalProperties: false
+
+$defs:
+  botanical_family:
+    type: object
+    properties:
+      name: { type: string }
+      common_name_de: { type: string }
+      common_name_en: { type: string }
+      order: { type: string }
+      typical_nutrient_demand:
+        type: string
+        enum: [heavy, medium, light]
+      frost_tolerance:
+        type: string
+        enum: [sensitive, moderate, hardy, very_hardy]
+      typical_root_depth:
+        type: string
+        enum: [shallow, medium, deep]
+      typical_growth_forms:
+        type: array
+        items:
+          type: string
+          enum: [herb, shrub, tree, vine, groundcover]
+      common_pests:
+        type: array
+        items: { type: string }
+      common_diseases:
+        type: array
+        items: { type: string }
+      pollination_type:
+        type: array
+        items:
+          type: string
+          enum: [insect, wind, self]
+      soil_ph_preference:
+        type: object
+        properties:
+          min_ph: { type: number, minimum: 0, maximum: 14 }
+          max_ph: { type: number, minimum: 0, maximum: 14 }
+        required: [min_ph, max_ph]
+      description: { type: string }
+      rotation_category:
+        type: string
+        enum: [fruit, root, leaf, legume, allium, herb, fiber, ornamental, green_manure, cereal]
+    required: [name, common_name_de, common_name_en, order, typical_nutrient_demand,
+               frost_tolerance, typical_root_depth, typical_growth_forms,
+               pollination_type, soil_ph_preference, description, rotation_category]
+    additionalProperties: false
+
+  species:
+    type: object
+    properties:
+      scientific_name: { type: string }
+      common_names:
+        type: array
+        items: { type: string }
+        minItems: 1
+      genus: { type: string }
+      growth_habit:
+        type: string
+        enum: [herb, shrub, tree, vine, groundcover]
+      root_type:
+        type: string
+        enum: [fibrous, taproot, tuberous, bulbous, corm]
+      hardiness_zones:
+        type: array
+        items:
+          type: string
+          pattern: "^\\d{1,2}[ab]$"
+      native_habitat: { type: string }
+      allelopathy_score:
+        type: number
+        minimum: 0
+        maximum: 1
+      base_temp:
+        type: number
+        minimum: 0
+        maximum: 40
+      frost_sensitivity:
+        type: string
+        enum: [sensitive, moderate, hardy, very_hardy]
+      allows_harvest: { type: boolean }
+      sowing_indoor_weeks_before_last_frost:
+        type: [integer, "null"]
+      sowing_outdoor_after_last_frost_days:
+        type: [integer, "null"]
+      direct_sow_months:
+        type: array
+        items: { type: integer, minimum: 1, maximum: 12 }
+      harvest_months:
+        type: array
+        items: { type: integer, minimum: 1, maximum: 12 }
+      bloom_months:
+        type: array
+        items: { type: integer, minimum: 1, maximum: 12 }
+      container_suitable:
+        type: string
+        enum: ["yes", limited, "no"]
+      recommended_container_volume_l: { type: string }
+      min_container_depth_cm: { type: integer, minimum: 0 }
+      mature_height_cm: { type: string }
+      mature_width_cm: { type: string }
+      spacing_cm: { type: string }
+      indoor_suitable:
+        type: string
+        enum: ["yes", limited, "no"]
+      balcony_suitable:
+        type: string
+        enum: ["yes", limited, "no"]
+      greenhouse_recommended: { type: boolean }
+      support_required: { type: boolean }
+      nutrient_demand_level:
+        type: string
+        enum: [heavy_feeder, medium_feeder, light_feeder, nitrogen_fixer]
+    required: [scientific_name, common_names, genus, growth_habit, root_type]
+    additionalProperties: true
+
+  species_enrichment:
+    type: object
+    description: "Partial species update — scientific_name is the key, all other fields are optional overrides"
+    properties:
+      scientific_name: { type: string }
+    required: [scientific_name]
+    additionalProperties: true
+
+  cultivar:
+    type: object
+    properties:
+      name: { type: string }
+      species_name:
+        type: string
+        description: "Scientific name of the parent species"
+      breeder: { type: string }
+      description: { type: string }
+      traits:
+        type: array
+        items:
+          type: string
+          enum: [disease_resistant, pest_resistant, high_yield, compact, drought_tolerant,
+                 cold_hardy, heat_tolerant, early_maturing, long_season, ornamental,
+                 heirloom, hybrid, f1]
+      cycle_type:
+        type: string
+        enum: [annual, biennial, perennial]
+      photoperiod_type:
+        type: string
+        enum: [short_day, long_day, day_neutral]
+      typical_yield: { type: string }
+      days_to_maturity:
+        type: [integer, "null"]
+        minimum: 0
+      flavor_profile: { type: string }
+      flower_color: { type: string }
+      fruit_color: { type: string }
+      resistance_to:
+        type: array
+        items: { type: string }
+      notes: { type: string }
+      tags:
+        type: array
+        items: { type: string }
+    required: [name, species_name]
+    additionalProperties: true
+
+  species_phases:
+    type: object
+    properties:
+      species_name:
+        type: string
+        description: "Scientific name of the species"
+      cycle_type:
+        type: string
+        enum: [annual, biennial, perennial]
+      typical_lifespan_years:
+        type: [integer, "null"]
+      dormancy_required: { type: boolean }
+      vernalization_required: { type: boolean }
+      photoperiod_type:
+        type: string
+        enum: [short_day, long_day, day_neutral]
+      phases:
+        type: array
+        items:
+          type: object
+          properties:
+            name:
+              type: string
+              enum: [germination, seedling, vegetative, flowering, flushing, dormancy,
+                     harvest, sprouting, budding, fruiting, ripening, senescence, corm_ripening]
+            display_name: { type: string }
+            typical_duration_days: { type: integer, minimum: 1 }
+            sequence_order: { type: integer, minimum: 1 }
+            stress_tolerance:
+              type: string
+              enum: [low, medium, high]
+            allows_harvest: { type: boolean }
+            is_terminal: { type: boolean }
+          required: [name, display_name, typical_duration_days, sequence_order,
+                     stress_tolerance, allows_harvest, is_terminal]
+          additionalProperties: false
+        minItems: 1
+    required: [species_name, phases]
+    additionalProperties: false
+
+  companion_planting_data:
+    type: object
+    properties:
+      compatible:
+        type: array
+        items:
+          type: array
+          prefixItems:
+            - type: string
+            - type: string
+            - type: number
+              minimum: 0
+              maximum: 1
+          minItems: 3
+          maxItems: 3
+      incompatible:
+        type: array
+        items:
+          type: object
+          properties:
+            species_a: { type: string }
+            species_b: { type: string }
+            reason: { type: string }
+          required: [species_a, species_b, reason]
+    additionalProperties: false
+
+  pest:
+    type: object
+    properties:
+      scientific_name: { type: string }
+      common_name: { type: string }
+      pest_type:
+        type: string
+        enum: [insect, arachnid, gastropod, nematode, mammal]
+      lifecycle_days: { type: integer, minimum: 1 }
+      optimal_temp_min: { type: number }
+      optimal_temp_max: { type: number }
+      detection_difficulty:
+        type: string
+        enum: [easy, medium, hard]
+    required: [scientific_name, common_name, pest_type]
+    additionalProperties: false
+
+  disease:
+    type: object
+    properties:
+      name: { type: string }
+      pathogen_type:
+        type: string
+        enum: [fungal, bacterial, viral, physiological, oomycete]
+      symptoms:
+        type: array
+        items: { type: string }
+      affected_parts:
+        type: array
+        items:
+          type: string
+          enum: [leaf, stem, root, flower, fruit]
+      optimal_temp_min: { type: number }
+      optimal_temp_max: { type: number }
+      optimal_humidity_min: { type: number }
+      optimal_humidity_max: { type: number }
+    required: [name, pathogen_type]
+    additionalProperties: true
+
+  treatment:
+    type: object
+    properties:
+      name: { type: string }
+      treatment_type:
+        type: string
+        enum: [cultural, biological, chemical, mechanical]
+      active_ingredient: { type: string }
+      application_method:
+        type: string
+        enum: [spray, drench, granular, release, cultural]
+      safety_interval_days: { type: integer, minimum: 0 }
+      notes: { type: string }
+    required: [name, treatment_type]
+    additionalProperties: true

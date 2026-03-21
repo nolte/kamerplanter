@@ -311,6 +311,24 @@ class TestCalculateBars:
         assert flowering_bars[0].end_date == date(2026, 6, 30)
         assert flowering_bars[1].start_date == date(2026, 9, 1)
 
+    def test_growth_fills_non_bloom_months_for_ornamental_without_sowing(self, engine, frost_config):
+        """Indoor ornamental without sowing: growth fills all non-bloom months."""
+        sp = _make_species(
+            allows_harvest=False,
+            bloom_months=[10, 11, 12, 1, 2, 3],  # Cyclamen pattern
+        )
+        bars = engine.calculate_bars(sp, frost_config, 2026)
+        growth_bars = [b for b in bars if b.phase == "growth"]
+        bloom_bars = [b for b in bars if b.phase == "flowering"]
+        # Wrap-around bloom (10,3) is clipped at year-end -> Oct-Dec only
+        assert len(bloom_bars) == 1
+        assert bloom_bars[0].start_date == date(2026, 10, 1)
+        assert bloom_bars[0].end_date == date(2026, 12, 31)
+        # Growth fills remaining months: Jan-Sep
+        assert len(growth_bars) == 1
+        assert growth_bars[0].start_date == date(2026, 1, 1)
+        assert growth_bars[0].end_date == date(2026, 9, 30)
+
     def test_wrap_around_harvest_single_bar(self, engine, frost_config):
         """Wrap-around harvest months clipped at year end."""
         sp = _make_species(

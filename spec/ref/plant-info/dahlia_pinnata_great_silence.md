@@ -498,8 +498,8 @@ Dahlia pinnata,Dahlie;Garten-Dahlie;Dahlia;Garden Dahlia,Asteraceae,Dahlia,peren
 ### 8.2 Cultivar CSV-Zeile ('Great Silence')
 
 ```csv
-name,parent_species,breeder,breeding_year,traits,days_to_maturity,disease_resistances,seed_type,photoperiod_type
-Great Silence,Dahlia pinnata,Peter Komen,2018,"informal_decorative;dark_blend;coral_pink;golden_center;long_stems;bee_friendly;cut_flower",90,,clone,
+name,parent_species,breeder,breeding_year,traits,days_to_maturity,disease_resistances,seed_type
+Great Silence,Dahlia pinnata,Peter Komen,2018,"informal_decorative;dark_blend;coral_pink;golden_center;long_stems;bee_friendly;cut_flower",90,,clone
 ```
 
 > **ADS-Klassifikation 'Great Silence':** 3113 (3 = Informal Decorative; 1 = Bloom-Größe BB 10–15 cm; 1 = Dark Blend Farbe; 3 = Dritte Untergruppe). RHS-Registrierung: Dahlia 'Great Silence' (D) — Bedding/Dekorative Gruppe.

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=./schemas/plant_info.schema.yaml
 # Plant-info seed data from spec/ref/plant-info/*.md (32 documents, 28 species).
 #
 # Adds 1 new botanical family (Iridaceae), 4 new species, enriches 24 existing
@@ -42,6 +43,7 @@ new_species:
   - scientific_name: "Dahlia pinnata"
     common_names: [Dahlie, Dahlia, Garden Dahlia]
     genus: Dahlia
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: tuberous
     hardiness_zones: [8a, 8b, 9a, 9b, 10a, 10b, 11a]
@@ -69,6 +71,7 @@ new_species:
   - scientific_name: "Petunia x hybrida"
     common_names: [Garten-Petunie, Garden Petunia, Petunia]
     genus: Petunia
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -78,10 +81,10 @@ new_species:
     frost_sensitivity: sensitive
     allows_harvest: false
     sowing_indoor_weeks_before_last_frost: 11
-    sowing_outdoor_after_last_frost_days: null
+    sowing_outdoor_after_last_frost_days: 14
     direct_sow_months: []
     harvest_months: []
-    bloom_months: [5, 6, 7, 8, 9, 10]
+    bloom_months: [6, 7, 8, 9, 10]
     container_suitable: "yes"
     recommended_container_volume_l: "5-15"
     min_container_depth_cm: 20
@@ -101,6 +104,7 @@ new_species:
       - Mexican Shell Flower
       - Peacock Flower
     genus: Tigridia
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: corm
     hardiness_zones: [7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b]
@@ -133,6 +137,7 @@ new_species:
       - Celeriac
       - Turnip-rooted Celery
     genus: Apium
+    plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: tuberous
     hardiness_zones: [5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
@@ -142,7 +147,7 @@ new_species:
     frost_sensitivity: moderate
     allows_harvest: true
     sowing_indoor_weeks_before_last_frost: 11
-    sowing_outdoor_after_last_frost_days: null
+    sowing_outdoor_after_last_frost_days: 14
     direct_sow_months: []
     harvest_months: [9, 10, 11]
     bloom_months: []
@@ -312,6 +317,7 @@ species_enrichment:
     balcony_suitable: "yes"
     frost_sensitivity: hardy
     sowing_indoor_weeks_before_last_frost: 12
+    sowing_outdoor_after_last_frost_days: -28
     bloom_months: [3, 4, 5, 6, 9, 10]
 
 # ==============================================================================
@@ -814,7 +820,7 @@ growth_phases:
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
-        light_ppfd_target: 200
+        light_ppfd_target: 100  # W-005: 200→100 (shade plant, 200 PPFD causes leaf burn)
         photoperiod_hours: 12.0
         temperature_day_c: 22.0
         temperature_night_c: 18.0

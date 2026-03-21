@@ -5,6 +5,7 @@ import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -117,6 +118,25 @@ export default function TreatmentListPage() {
         emptyIllustration={kamiIpm}
         tableState={tableState}
         ariaLabel={t('pages.ipm.treatmentsTitle')}
+        mobileCardRenderer={(r) => (
+          <MobileCard
+            title={r.name}
+            subtitle={r.active_ingredient ?? undefined}
+            chips={
+              <Chip
+                label={t(`enums.treatmentType.${r.treatment_type}`)}
+                size="small"
+                color={treatmentTypeColor[r.treatment_type] ?? 'default'}
+              />
+            }
+            fields={[
+              { label: t('pages.ipm.applicationMethod'), value: t(`enums.ipmApplicationMethod.${r.application_method}`) },
+              ...(r.safety_interval_days > 0
+                ? [{ label: t('pages.ipm.safetyIntervalDays'), value: `${r.safety_interval_days}\u202f${t('pages.ipm.days')}` }]
+                : []),
+            ]}
+          />
+        )}
       />
       <TreatmentCreateDialog
         open={createOpen}

@@ -9,6 +9,8 @@ import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
@@ -34,6 +36,8 @@ interface Props {
 }
 
 export default function SpeciesWorkflowsSection({ speciesKey }: Props) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
   const navigate = useNavigate();
   const notification = useNotification();
@@ -231,7 +235,7 @@ export default function SpeciesWorkflowsSection({ speciesKey }: Props) {
       )}
 
       {/* Create empty workflow dialog */}
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog fullScreen={fullScreen} open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('pages.species.createWorkflow')}</DialogTitle>
         <DialogContent>
           <TextField
@@ -256,8 +260,7 @@ export default function SpeciesWorkflowsSection({ speciesKey }: Props) {
       </Dialog>
 
       {/* Duplicate workflow dialog */}
-      <Dialog
-        open={!!duplicateSource}
+      <Dialog fullScreen={fullScreen} open={!!duplicateSource}
         onClose={() => setDuplicateSource(null)}
         maxWidth="sm"
         fullWidth

@@ -6,7 +6,7 @@ Kategorie: Architektur Unterkategorie: API-Design, Security, Deployment Fokus: B
 Technologie: Python, FastAPI, ArangoDB, React, TypeScript, MUI, Docker
 Status: Produktionsreif
 Priorität: Kritisch
-Version: 2.2
+Version: 2.3
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-27
 Tags: [architecture, api-first, security, scalability, separation-of-concerns, layered-architecture, rate-limiting, csp, mqtt-security, audit-trail, dsgvo]
@@ -151,7 +151,7 @@ from datetime import date
 
 class GDDCalculator:
     """Growing Degree Days Calculation Service"""
-    
+
     def calculate_gdd(
         self,
         temp_min: float,
@@ -160,18 +160,18 @@ class GDDCalculator:
     ) -> float:
         """
         Berechnet Growing Degree Days nach Standard-Formel.
-        
+
         Args:
             temp_min: Tagesminimum in °C
             temp_max: Tagesmaximum in °C
             base_temp: Basistemperatur der Pflanze in °C
-        
+
         Returns:
             GDD-Wert (0 wenn negativ)
         """
         avg_temp = (temp_min + temp_max) / 2
         return max(0, avg_temp - base_temp)
-    
+
     def calculate_cumulative_gdd(
         self,
         plant_id: str,
@@ -180,12 +180,12 @@ class GDDCalculator:
     ) -> float:
         """
         Summiert GDD über einen Zeitraum aus ArangoDB-Sensordaten.
-        
+
         Args:
             plant_id: UUID der Pflanze
             start_date: Startdatum
             end_date: Enddatum
-        
+
         Returns:
             Kumulierter GDD-Wert
         """
@@ -221,7 +221,7 @@ class IrrigationRuleEngine:
     - VPD
     - Wetterdaten
     """
-    
+
     def should_irrigate(
         self,
         plant_id: str,
@@ -232,24 +232,24 @@ class IrrigationRuleEngine:
             (should_irrigate, reason)
         """
         plant = self.repo.get_plant(plant_id)
-        
+
         # Phasenspezifische Schwellenwerte
         threshold = self._get_moisture_threshold(
             plant.current_phase,
             plant.species.water_needs
         )
-        
+
         if current_moisture < threshold:
             return (
                 True,
                 f"Moisture {current_moisture}% below threshold {threshold}%"
             )
-        
+
         # VPD-Check
         vpd = self._calculate_current_vpd(plant.location_id)
         if vpd > 1.5 and current_moisture < 60:
             return (True, "High VPD detected, preventive irrigation")
-        
+
         return (False, "No irrigation needed")
 ```
 
@@ -276,7 +276,7 @@ async def create_plant(
 ) -> PlantResponse:
     """
     Erstellt eine neue Pflanze im System.
-    
+
     Geschäftsregeln (Backend):
     - Validiert Substrat-Kompatibilität
     - Prüft Mischkultur-Kompatibilität am Standort
@@ -284,7 +284,7 @@ async def create_plant(
     - Erstellt initiale Aufgaben
     """
     service = PlantService(db)
-    
+
     try:
         plant = service.create_plant(
             species_id=plant_data.species_id,
@@ -399,7 +399,7 @@ class PlantRepository:
     def __init__(self, client: ArangoClient):
         self._client = client
         self._db = client.db('agrotech_db', username='user', password='pass')
-    
+
     def get_plant_by_id(self, plant_id: str) -> Plant:
         aql = """
         FOR p IN plants
@@ -730,7 +730,7 @@ services:
       - VITE_API_URL=http://localhost:8000
     depends_on:
       - backend
-  
+
   backend:
     build: ./backend
     ports:
@@ -742,7 +742,7 @@ services:
       - arangodb
     volumes:
       - ./backend:/app  # Hot reload
-  
+
   arangodb:
     image: arangodb:3.11
     ports:
@@ -837,6 +837,54 @@ spec:
             memory: "256Mi"
 ```
 
+### 7.2a Kubernetes Security Contexts & Network Policies
+
+<!-- Quelle: IT-Security-Review SEC-M-004 -->
+
+Alle Kubernetes-Deployments MÜSSEN Security Contexts definieren, um die Angriffsfläche bei Container-Kompromittierung zu minimieren.
+
+**Pod Security Context (alle Deployments):**
+
+```yaml
+spec:
+  template:
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: app
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+```
+
+**Network Policies:**
+
+| Quelle | Ziel | Erlaubt | Begründung |
+|--------|------|---------|-----------|
+| Frontend | Backend (Port 8000) | Ja | API-Aufrufe |
+| Backend | ArangoDB (Port 8529) | Ja | Datenbankzugriff |
+| Backend | TimescaleDB (Port 5432) | Ja | Sensordaten |
+| Backend | Redis (Port 6379) | Ja | Cache + Celery-Broker |
+| Celery-Worker | ArangoDB, TimescaleDB, Redis | Ja | Task-Ausführung |
+| Frontend | ArangoDB, TimescaleDB, Redis | **Nein** | NFR-001 §2: Kein direkter DB-Zugriff |
+| Alle | Internet (Egress) | Nur Backend + Celery | OAuth-Callbacks, Weather-API, InvenTree, Sentry |
+
+**Anforderungen:**
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| KS-001 | Alle Container MÜSSEN als non-root User laufen (`runAsNonRoot: true`). | MUSS |
+| KS-002 | Privilege Escalation MUSS deaktiviert sein (`allowPrivilegeEscalation: false`). | MUSS |
+| KS-003 | Alle Linux Capabilities MÜSSEN entfernt werden (`drop: ["ALL"]`). | MUSS |
+| KS-004 | Network Policies MÜSSEN den Zugriff zwischen Pods auf das Notwendige beschränken. | MUSS |
+| KS-005 | Egress-Traffic SOLL auf bekannte Ziele beschränkt werden (OAuth-Provider, Weather-API, InvenTree). | SOLL |
+
 ### 7.3 Unabhängige Skalierung
 
 ```yaml
@@ -902,18 +950,18 @@ async def monitor_requests(request: Request, call_next):
     start_time = time.time()
     response = await call_next(request)
     duration = time.time() - start_time
-    
+
     api_requests_total.labels(
         method=request.method,
         endpoint=request.url.path,
         status=response.status_code
     ).inc()
-    
+
     api_request_duration.labels(
         method=request.method,
         endpoint=request.url.path
     ).observe(duration)
-    
+
     return response
 ```
 
@@ -948,7 +996,7 @@ async def create_plant(plant_data: PlantCreate):
         location_id=plant_data.location_id,
         user_id=current_user.id
     )
-    
+
     try:
         plant = service.create_plant(plant_data)
         logger.info(
@@ -1022,6 +1070,41 @@ Sentry überträgt bei Fehler-Reports potenziell personenbezogene Daten (IP-Adre
 | SE-004 | Sentry MUSS entweder als Self-Hosted-Instanz ODER über ein EU-Rechenzentrum betrieben werden. Bei Nutzung von Sentry SaaS (US) MUSS ein Auftragsverarbeitungsvertrag (AVV) nach Art. 28 DSGVO abgeschlossen und das EU-US Data Privacy Framework als Rechtsgrundlage dokumentiert werden. | MUSS |
 | SE-005 | Bei Widerruf der Einwilligung MUSS Sentry sofort deaktiviert werden (kein Nachladen, kein Tracking bis zum nächsten Seitenaufruf). | MUSS |
 
+### 8.4 Security-Audit-Log
+
+<!-- Quelle: IT-Security-Review SEC-H-007 -->
+
+Sicherheitsrelevante Ereignisse MÜSSEN in einem dedizierten Security-Audit-Log protokolliert werden. Das Audit-Log ist **append-only** und getrennt vom operativen Application-Log.
+
+**Pflicht-Events:**
+
+| Event-Typ | Trigger | Erfasste Daten |
+|-----------|---------|---------------|
+| `auth.login.success` | Erfolgreicher Login (lokal/SSO) | user_key, provider, ip (anonymisiert nach 7d) |
+| `auth.login.failure` | Fehlgeschlagener Login | email (gehasht), ip, reason |
+| `auth.logout` | Logout | user_key |
+| `auth.lockout` | Account-Lockout nach Fehlversuchen | email (gehasht), ip, lockout_until |
+| `auth.password_reset` | Passwort zurückgesetzt | user_key |
+| `auth.api_key.created` | API-Key erstellt | user_key, key_prefix, scope |
+| `auth.api_key.revoked` | API-Key widerrufen | user_key, key_prefix |
+| `authz.role_change` | Rolle geändert (Tenant oder Platform) | user_key, tenant_key, old_role, new_role, changed_by |
+| `authz.permission_denied` | Autorisierung verweigert | user_key, resource, action |
+| `data.erasure.requested` | Kontolöschung beantragt | user_key |
+| `data.erasure.completed` | Kontolöschung abgeschlossen | erasure_key, anonymized_collections |
+| `data.export.requested` | Datenexport beantragt | user_key |
+| `admin.user.suspended` | User suspendiert | target_user_key, suspended_by |
+| `admin.tenant.suspended` | Tenant suspendiert | tenant_key, suspended_by |
+
+**Anforderungen:**
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| AL-001 | Security-Audit-Events MÜSSEN über structlog mit dediziertem Logger (`security_audit`) geloggt werden. | MUSS |
+| AL-002 | Audit-Events MÜSSEN mindestens 1 Jahr aufbewahrt werden (NFR-011 R-06). | MUSS |
+| AL-003 | Audit-Log-Einträge DÜRFEN NICHT nachträglich verändert oder gelöscht werden (append-only). | MUSS |
+| AL-004 | IP-Adressen in Audit-Events MÜSSEN nach 7 Tagen anonymisiert werden (NFR-011 R-03). | MUSS |
+| AL-005 | Bei mehr als 10 `auth.login.failure`-Events pro Minute für dieselbe IP SOLL eine Alert-Notification an den Platform-Admin ausgelöst werden. | SOLL |
+
 ---
 
 ## 9. Qualitätssicherungs-Anforderungen
@@ -1037,7 +1120,7 @@ class TestPlantService:
     @pytest.fixture
     def service(self, mock_db):
         return PlantService(mock_db)
-    
+
     def test_create_plant_validates_substrate_compatibility(self, service):
         """Substrat-Kompatibilität wird geprüft"""
         with pytest.raises(ValidationError, match="incompatible substrate"):
@@ -1045,7 +1128,7 @@ class TestPlantService:
                 species_id="acidic-loving-plant",
                 location_id="alkaline-substrate-location"
             )
-    
+
     def test_create_plant_checks_companion_planting(self, service):
         """Mischkultur-Kompatibilität wird geprüft"""
         # Tomate und Kartoffel sind inkompatibel
@@ -1069,15 +1152,15 @@ describe('PlantForm', () => {
   it('submits data to API and handles success', async () => {
     const mockCreate = vi.fn().mockResolvedValue({ id: '123' });
     mockApiClient.plants.create = mockCreate;
-    
+
     render(<PlantForm />);
-    
+
     await userEvent.selectOptions(
       screen.getByLabelText('Species'),
       'tomato'
     );
     await userEvent.click(screen.getByText('Create Plant'));
-    
+
     await waitFor(() => {
       expect(mockCreate).toHaveBeenCalledWith({
         species_id: 'tomato',
@@ -1085,16 +1168,16 @@ describe('PlantForm', () => {
       });
     });
   });
-  
+
   it('displays backend validation errors', async () => {
     mockApiClient.plants.create = vi.fn().mockRejectedValue({
       status: 400,
       data: { detail: 'Incompatible substrate' }
     });
-    
+
     render(<PlantForm />);
     await userEvent.click(screen.getByText('Create Plant'));
-    
+
     expect(
       await screen.findByText('Incompatible substrate')
     ).toBeInTheDocument();
@@ -1119,11 +1202,11 @@ class TestAPIContract:
         }
         plant_create = PlantCreate(**valid_data)
         assert plant_create.species_id == "uuid-format"
-        
+
         # Invalide Daten werden abgelehnt
         with pytest.raises(ValidationError):
             PlantCreate(species_id="invalid")  # Fehlt location_id
-    
+
     def test_plant_response_schema(self):
         """API-Response entspricht PlantResponse-Schema"""
         response_data = {
@@ -1270,13 +1353,13 @@ const aql = `
 ### Definition of Done
 
 - [ ] **Architektur-Compliance**
-    
+
     - [ ] Keine Frontend-Komponente importiert ArangoDB-Driver (arangojs/python-arango)
     - [ ] Keine Business-Logic in Frontend-Code
     - [ ] Alle AQL-Queries ausschließlich in Backend-Repositories
     - [ ] Klare Schichten-Trennung in Projektstruktur sichtbar
 - [ ] **API-Design**
-    
+
     - [ ] OpenAPI 3.0 Spezifikation vorhanden
     - [ ] Alle Endpoints dokumentiert (Swagger UI)
     - [ ] API-Versionierung implementiert (`/api/v1/`)
@@ -1295,19 +1378,19 @@ const aql = `
     - [ ] Sentry erst nach Einwilligung initialisiert, PII-Scrubbing aktiv (§8.3)
     - [ ] DSFA für Sensordaten vor Inbetriebnahme durchgeführt (§6.7)
 - [ ] **Deployment**
-    
+
     - [ ] Frontend und Backend getrennt deploybar
     - [ ] Separate Docker-Container
     - [ ] Kubernetes Deployments für Frontend/Backend/ArangoDB
     - [ ] HPA (Horizontal Pod Autoscaler) konfiguriert
 - [ ] **Testing**
-    
+
     - [ ] Backend Unit Tests >= 80% Coverage
     - [ ] API Contract Tests vorhanden
     - [ ] Frontend Component Tests vorhanden
     - [ ] Integration Tests mit Mock-Backend
 - [ ] **Monitoring**
-    
+
     - [ ] Prometheus Metrics exportiert
     - [ ] Strukturiertes JSON-Logging
     - [ ] Frontend Error Tracking (Sentry)
@@ -1442,13 +1525,13 @@ API Contracts bleiben stabil, interne Architektur kann sich ändern.
 # Beispiel: Wetterstation-Integration
 class WeatherStationAdapter:
     """Externe Wetterstation nutzt die gleiche API"""
-    
+
     def __init__(self, api_key: str):
         self.client = ApiClient(
             base_url="https://api.agrotech.example.com",
             api_key=api_key
         )
-    
+
     def report_sensor_reading(
         self,
         location_id: str,

@@ -240,11 +240,11 @@ Hinweis: Bohnen als Stickstoff-Fixierer (Knollchenbakterien/Rhizobien an den Wur
 
 | Produkt | Marke | Typ | Ausbringrate | Saison | Geeignet fuer |
 |---------|-------|-----|-------------|--------|-------------|
-| Reifkompost | Eigenerzeugung | organisch | 2--3 L/m2 | Fruehjahr (Einarbeitung vor Saat) | nitrogen_fixer |
-| Kalimagnesia (Patentkali) | K+S | mineralisch-natuerlich | 30--50 g/m2 | Fruehjahr (Einarbeitung) | nitrogen_fixer |
+| Reifkompost | Eigenerzeugung | organisch | 2--3 L/m2 | Fruehjahr (Einarbeitung vor Saat) | light (N-Fixierer) |
+| Kalimagnesia (Patentkali) | K+S | mineralisch-natuerlich | 30--50 g/m2 | Fruehjahr (Einarbeitung) | light (N-Fixierer) |
 | Gesteinsmehl (Basalt/Diabas) | Oscorna / div. | mineralisch-natuerlich | 100--150 g/m2 | Fruehjahr | alle (Spurenelemente) |
-| Holzasche (unbehandelt) | Eigenerzeugung | mineralisch-natuerlich (K-betont) | 30--50 g/m2 | Herbst | nitrogen_fixer |
-| Beinwelljauche | Eigenerzeugung | organisch (K-betont) | 1:10 verduennt, 0.5 L/m2 | Juli--August, alle 21 Tage | nitrogen_fixer (K fuer Huelsenbildung) |
+| Holzasche (unbehandelt) | Eigenerzeugung | mineralisch-natuerlich (K-betont) | 30--50 g/m2 | Herbst | light (N-Fixierer) |
+| Beinwelljauche | Eigenerzeugung | organisch (K-betont) | 1:10 verduennt, 0.5 L/m2 | Juli--August, alle 21 Tage | light (N-Fixierer, K fuer Huelsenbildung) |
 
 Hinweis: KEINEN Stickstoff-Duenger verwenden! Die Knollchenbakterien (Rhizobium leguminosarum) an den Bohnenwurzeln fixieren atmosphaerischen Stickstoff. Nur P + K + Spurenelemente zuführen.
 
@@ -404,7 +404,7 @@ Nicht anwendbar -- Gartenbohne ist eine einjaehrige Pflanze und ueberlebt keinen
 | Knoblauch | Allium sativum | Wie Zwiebel -- hemmt Rhizobium-Symbiose | moderate | `incompatible_with` |
 | Lauch | Allium porrum | Wie Zwiebel -- hemmt Rhizobium-Symbiose | moderate | `incompatible_with` |
 | Fenchel | Foeniculum vulgare | Allelopathische Hemmung | moderate | `incompatible_with` |
-| Erbse | Pisum sativum | Gleiche Familie -- gemeinsame Krankheiten (Fusarium, BCMV), Naehrstoffkonkurrenz | moderate | `incompatible_with` |
+| Erbse | Pisum sativum | Gleiche Familie -- gemeinsame Krankheiten (Fusarium, BCMV), Konkurrenz um Rhizobium-Staemme | mild | `incompatible_with` |
 | Sonnenblume | Helianthus annuus | Allelopathie (Sonnenblumen-Wurzelausscheidungen hemmen Bohnen) | mild | `incompatible_with` |
 
 ### 6.4 Familien-Kompatibilitaet

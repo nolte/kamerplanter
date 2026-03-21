@@ -26,7 +26,7 @@
 | Winterhaerte-Detail | Winterlauch-Sorten vertragen Froeste bis -15 degC und koennen den ganzen Winter im Boden stehen bleiben. Sommerlauch-Sorten sind weniger frosthart (bis -5 degC). In Mitteleuropa je nach Sorte ganzjaehrig im Freiland kultivierbar (Sommer- und Wintertypen). | `species.hardiness_detail` |
 | Heimat | Mittelmeerraum, Vorderasien (abgeleitet von Allium ampeloprasum) | `species.native_habitat` |
 | Allelopathie-Score | 0.2 (leichte Hemmwirkung auf Leguminosen durch Allicin-aehnliche Verbindungen) | `species.allelopathy_score` |
-| Naehrstoffbedarf-Stufe | heavy (Starkzehrer) | `species.nutrient_demand_level` |
+| Naehrstoffbedarf-Stufe | heavy_feeder (Starkzehrer) | `species.nutrient_demand_level` |
 | Gruenduengung geeignet | false | `species.green_manure_suitable` |
 | Traits | edible | `species.traits` |
 
@@ -361,7 +361,7 @@ Winterlauch-Sorten (z.B. 'Blaugruener Winter', 'Carentan') sind bis -15 degC win
 
 | Feld | Wert |
 |------|------|
-| Naehrstoffbedarf | Starkzehrer (heavy) |
+| Naehrstoffbedarf | Starkzehrer (heavy_feeder) |
 | Fruchtfolge-Kategorie | Lauch-/Zwiebelgewaechse (Alliaceae/Amaryllidaceae) |
 | Empfohlene Vorfrucht | Huelsenfruechte (Fabaceae) oder Gruenduengung -- lockerer, stickstoffangereicherter Boden |
 | Empfohlene Nachfrucht | Schwachzehrer (Feldsalat, Spinat) oder Mittelzehrer (Moehre, Salat) |

@@ -220,6 +220,7 @@ def get_nutrient_plan_service() -> NutrientPlanService:
         get_nutrient_plan_repo(),
         get_fertilizer_repo(),
         NutrientPlanValidator(),
+        site_repo=get_site_repo(),
     )
 
 

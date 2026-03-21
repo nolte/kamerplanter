@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -8,21 +9,16 @@ import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import Link from '@mui/material/Link';
 import CircularProgress from '@mui/material/CircularProgress';
-import MenuItem from '@mui/material/MenuItem';
-import TextField from '@mui/material/TextField';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
 import ScienceIcon from '@mui/icons-material/Science';
 import DeleteIcon from '@mui/icons-material/Delete';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import { Link as RouterLink } from 'react-router-dom';
 import PhaseGanttChart from '@/pages/duengung/PhaseGanttChart';
 import PhaseDetailGantt from '@/pages/duengung/PhaseDetailGantt';
+import NutrientPlanAssignDialog from '@/pages/duengung/NutrientPlanAssignDialog';
 import WateringCalendarView from './WateringCalendarView';
+import { fetchWaterMixRecommendationsBatch } from '@/api/endpoints/nutrient-plans';
 import type {
-  NutrientPlan,
   Fertilizer,
   PlantingRunStatus,
   WateringScheduleCalendarResponse,
@@ -34,19 +30,14 @@ interface PlantingRunNutrientWateringTabProps {
   runStatus: PlantingRunStatus | undefined;
   wateringLoading: boolean;
   assignedPlan: Record<string, unknown> | null;
-  nutrientPlans: NutrientPlan[];
-  selectedPlanKey: string;
-  assigning: boolean;
-  assignDialogOpen: boolean;
   nutrientData: RunNutrientData;
   fertilizers: Fertilizer[];
   wateringCalendar: WateringScheduleCalendarResponse | null;
   quickConfirming: string | null;
   phaseTimelines: SpeciesPhaseTimeline[];
-  onSetSelectedPlanKey: (key: string) => void;
-  onOpenAssignDialog: () => void;
-  onCloseAssignDialog: () => void;
-  onAssignPlan: () => Promise<void>;
+  planKey: string | null;
+  siteKey: string | null;
+  onAssignPlan: (planKey: string) => Promise<void>;
   onOpenRemovePlan: () => void;
   onQuickConfirm: (date: string, channelId?: string, stateKey?: string) => Promise<void>;
   onOpenConfirmDialog: (dateStr: string, channelId?: string) => void;
@@ -56,18 +47,13 @@ export default function PlantingRunNutrientWateringTab({
   runStatus,
   wateringLoading,
   assignedPlan,
-  nutrientPlans,
-  selectedPlanKey,
-  assigning,
-  assignDialogOpen,
   nutrientData,
   fertilizers,
   wateringCalendar,
   quickConfirming,
   phaseTimelines,
-  onSetSelectedPlanKey,
-  onOpenAssignDialog,
-  onCloseAssignDialog,
+  planKey,
+  siteKey,
   onAssignPlan,
   onOpenRemovePlan,
   onQuickConfirm,
@@ -75,6 +61,25 @@ export default function PlantingRunNutrientWateringTab({
 }: PlantingRunNutrientWateringTabProps) {
   const { t } = useTranslation();
   const { currentDosages, currentWeek, adaptedEntries } = nutrientData;
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+
+  // Fetch recommended RO% for each phase entry when plan + site are available
+  const [recommendedRoMap, setRecommendedRoMap] = useState<Map<number, number>>(new Map());
+  useEffect(() => {
+    if (!planKey || !siteKey) {
+      setRecommendedRoMap(new Map());
+      return;
+    }
+    fetchWaterMixRecommendationsBatch(planKey, siteKey)
+      .then((result) => {
+        const map = new Map<number, number>();
+        for (const rec of result.recommendations) {
+          map.set(rec.sequence_order, rec.recommendation.recommended_ro_percent);
+        }
+        setRecommendedRoMap(map);
+      })
+      .catch(() => setRecommendedRoMap(new Map()));
+  }, [planKey, siteKey]);
 
   return (
     <Box role="tabpanel" aria-labelledby="tab-nutrient-watering" data-testid="nutrient-watering-tab">
@@ -104,7 +109,7 @@ export default function PlantingRunNutrientWateringTab({
                   variant="outlined"
                   size="small"
                   startIcon={<ScienceIcon />}
-                  onClick={onOpenAssignDialog}
+                  onClick={() => setAssignDialogOpen(true)}
                   disabled={runStatus === 'completed' || runStatus === 'cancelled'}
                 >
                   {t('pages.nutrientPlans.assignPlan')}
@@ -128,7 +133,7 @@ export default function PlantingRunNutrientWateringTab({
               <Button
                 variant="contained"
                 startIcon={<ScienceIcon />}
-                onClick={onOpenAssignDialog}
+                onClick={() => setAssignDialogOpen(true)}
                 disabled={runStatus === 'completed' || runStatus === 'cancelled'}
               >
                 {t('pages.nutrientPlans.assignPlan')}
@@ -151,6 +156,16 @@ export default function PlantingRunNutrientWateringTab({
                 )}
               </Typography>
             </Box>
+          )}
+
+          {/* Hint when water config is missing — RO% in Gantt will be empty */}
+          {planKey && siteKey && recommendedRoMap.size === 0 && (
+            <Alert severity="info" sx={{ mt: 1, mb: 1 }}>
+              {t('pages.nutrientPlans.waterMix.noWaterConfig', { siteName: '' })}
+              <Link component={RouterLink} to={`/standorte/sites/${siteKey}`} sx={{ ml: 0.5 }}>
+                {t('pages.nutrientPlans.waterMix.configureSite')}
+              </Link>
+            </Alert>
           )}
 
           {/* Gantt charts */}
@@ -176,6 +191,7 @@ export default function PlantingRunNutrientWateringTab({
                         fertilizers={fertilizers}
                         title={t('pages.gantt.vegetativeDetail')}
                         currentWeek={currentWeek}
+                        recommendedRoMap={recommendedRoMap}
                       />
                     )}
                     {flowerEntries.length > 0 && (
@@ -184,6 +200,7 @@ export default function PlantingRunNutrientWateringTab({
                         fertilizers={fertilizers}
                         title={t('pages.gantt.floweringDetail')}
                         currentWeek={currentWeek}
+                        recommendedRoMap={recommendedRoMap}
                       />
                     )}
                   </Box>
@@ -224,42 +241,15 @@ export default function PlantingRunNutrientWateringTab({
       )}
 
       {/* Assign Plan Dialog */}
-      <Dialog open={assignDialogOpen} onClose={onCloseAssignDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>{t('pages.nutrientPlans.assignPlan')}</DialogTitle>
-        <DialogContent>
-          <TextField
-            select
-            label={t('entities.nutrientPlan')}
-            value={selectedPlanKey}
-            onChange={(e) => onSetSelectedPlanKey(e.target.value)}
-            fullWidth
-            sx={{ mt: 1 }}
-            data-testid="plan-select"
-          >
-            {nutrientPlans.map((plan) => (
-              <MenuItem key={plan.key} value={plan.key}>
-                {plan.name}
-              </MenuItem>
-            ))}
-          </TextField>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={onCloseAssignDialog}>
-            {t('common.cancel')}
-          </Button>
-          <Button
-            variant="contained"
-            onClick={async () => {
-              await onAssignPlan();
-              onCloseAssignDialog();
-            }}
-            disabled={!selectedPlanKey || assigning}
-            data-testid="assign-plan-button"
-          >
-            {assigning ? <CircularProgress size={20} /> : t('pages.nutrientPlans.assignPlan')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <NutrientPlanAssignDialog
+        open={assignDialogOpen}
+        onClose={() => setAssignDialogOpen(false)}
+        onAssign={async (planKey) => {
+          await onAssignPlan(planKey);
+          setAssignDialogOpen(false);
+        }}
+
+      />
     </Box>
   );
 }

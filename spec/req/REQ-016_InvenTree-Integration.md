@@ -338,8 +338,9 @@ class InvenTreeConnection(BaseModel):
 
     name: str
     base_url: HttpUrl
-    api_token: str = Field(exclude=True)  # Nie in API-Responses
+    api_token: str = Field(exclude=True)  # Nie in API-Responses; AES-256-verschlüsselt gespeichert (Fernet, analog ha_token_encrypted in REQ-023)
     is_active: bool = True
+    verify_ssl: bool = True  # TLS-Zertifikat des InvenTree-Servers validieren; nur bei Self-Signed auf false setzen
     sync_interval_minutes: int = Field(default=60, ge=5, le=1440)
     push_interval_minutes: int = Field(default=5, ge=1, le=60)
     last_health_check_at: datetime | None = None
@@ -1348,6 +1349,19 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 | Connection-Config | Admin | Admin | Admin |
 | References & Sync | Mitglied | Mitglied | — |
 | Equipment | Mitglied | Mitglied | Admin |
+
+### 4.1 Sicherheitsanforderungen für InvenTree-Anbindung
+
+<!-- Quelle: IT-Security-Review SEC-H-005 -->
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| IT-001 | Der InvenTree API-Token MUSS mit AES-256 (Fernet) verschlüsselt in ArangoDB gespeichert werden. Entschlüsselung erfolgt ausschließlich zur Laufzeit im Service-Layer. | MUSS |
+| IT-002 | API-Token DÜRFEN NICHT in API-Responses, Logs oder Fehler-Traces erscheinen (Pydantic `Field(exclude=True)`, structlog-Filter). | MUSS |
+| IT-003 | HTTPS-Zertifikate des InvenTree-Servers MÜSSEN standardmäßig validiert werden (`verify_ssl: true`). Deaktivierung nur explizit und mit UI-Warnung. | MUSS |
+| IT-004 | Token-Rotation SOLL unterstützt werden: Endpoint zum Aktualisieren des API-Tokens ohne Neuanlage der Connection. | SOLL |
+| IT-005 | Kamerplanter→InvenTree-Requests MÜSSEN auf 60 req/min pro Connection begrenzt werden (Client-seitiges Rate-Limiting). | MUSS |
+| IT-006 | Health-Check-Endpoint (`/inventree/connections/{key}/health`) DARF NICHT offenlegen, ob die URL eine gültige InvenTree-Instanz ist, wenn die Authentication fehlschlägt — generische Fehlermeldung. | MUSS |
 
 ## 5. Abhängigkeiten
 

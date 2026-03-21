@@ -19,20 +19,19 @@ class TokenEngine:
     def create_access_token(
         self,
         user_key: str,
-        email: str,
-        display_name: str,
         expire_minutes: int = 15,
         tenant_roles: dict[str, str] | None = None,
+        is_platform_admin: bool = False,
     ) -> TokenPair:
         now = int(time.time())
         payload = {
             "sub": user_key,
-            "email": email,
-            "display_name": display_name,
             "tenant_roles": tenant_roles or {},
+            "is_platform_admin": is_platform_admin,
             "exp": now + (expire_minutes * 60),
             "iat": now,
             "jti": str(uuid.uuid4()),
+            "type": "access",
         }
         header = {"alg": self._algorithm}
         token = authlib_jwt.encode(header, payload, self._secret_key)
@@ -53,12 +52,12 @@ class TokenEngine:
 
         return TokenPayload(
             sub=claims["sub"],
-            email=claims["email"],
-            display_name=claims["display_name"],
             tenant_roles=claims.get("tenant_roles", {}),
+            is_platform_admin=claims.get("is_platform_admin", False),
             exp=claims["exp"],
             iat=claims["iat"],
             jti=claims["jti"],
+            type=claims.get("type", "access"),
         )
 
     def create_refresh_token(self) -> tuple[str, str]:

@@ -417,7 +417,7 @@ export default function FertilizerGanttChart({
   if (groups.length === 0 || totalWeeks === 0) return null;
 
   const hasVolumeToggle = tank != null || groups.some((g) => g.method !== 'fertigation');
-  const labelWidth = isMobile ? 120 : 160;
+  const labelWidth = isMobile ? 100 : 160;
   const weeks = Array.from({ length: visibleCount }, (_, i) => visibleStart + i);
 
   // Cycle restart separator style (dashed left border on the restart week)
@@ -541,12 +541,12 @@ export default function FertilizerGanttChart({
                 )}
               </Box>
 
-              <Box sx={{ overflowX: 'auto' }}>
+              <Box sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', mx: isMobile ? -1 : 0 }}>
                 <Box
                   sx={{
                     display: 'grid',
                     gridTemplateColumns: `${labelWidth}px repeat(${visibleCount}, 1fr)`,
-                    minWidth: labelWidth + visibleCount * 48,
+                    minWidth: labelWidth + visibleCount * (isMobile ? 32 : 48),
                     gap: 0,
                   }}
                 >

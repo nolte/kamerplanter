@@ -1,0 +1,256 @@
+# JSON Schema for fertilizer YAML files (fertilizers.yaml, plagron.yaml, gardol.yaml)
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "fertilizers.schema.yaml"
+title: "Fertilizers & Nutrient Plans Seed Data"
+description: "Schema for fertilizer products and nutrient plan definitions"
+type: object
+
+properties:
+  fertilizers:
+    type: array
+    items:
+      $ref: "#/$defs/fertilizer"
+  nutrient_plans:
+    type: array
+    items:
+      $ref: "#/$defs/nutrient_plan"
+
+additionalProperties: false
+
+$defs:
+  fertilizer:
+    type: object
+    properties:
+      product_name:
+        type: string
+      brand:
+        type: string
+      fertilizer_type:
+        type: string
+        enum: [base, supplement, booster, biological, ph_adjuster, organic, silicate]
+      is_organic:
+        type: boolean
+      tank_safe:
+        type: boolean
+      recommended_application:
+        type: string
+        enum: [fertigation, drench, foliar, top_dress, any]
+      npk_ratio:
+        type: array
+        items:
+          type: number
+          minimum: 0
+        minItems: 3
+        maxItems: 3
+      ec_contribution_per_ml:
+        type: number
+        minimum: 0
+      ec_contribution_uncertain:
+        type: boolean
+        description: "True if EC contribution is estimated, not measured"
+      max_dose_ml_per_liter:
+        type: number
+        minimum: 0
+      mixing_priority:
+        type: integer
+        minimum: 0
+        description: "Lower number = add first. CalMag before sulfates."
+      ph_effect:
+        type: string
+        enum: [acidic, alkaline, neutral]
+      bioavailability:
+        type: string
+        enum: [immediate, slow_release, microbial_dependent]
+      notes:
+        type: string
+    required: [product_name, brand, fertilizer_type, is_organic, tank_safe,
+               recommended_application, npk_ratio, ec_contribution_per_ml,
+               mixing_priority, ph_effect, bioavailability]
+    additionalProperties: false
+
+  nutrient_plan:
+    type: object
+    properties:
+      name:
+        type: string
+      description:
+        type: string
+      recommended_substrate_type:
+        type: string
+        enum: [soil, coco, clay_pebbles, perlite, living_soil, peat, rockwool_slab,
+               rockwool_plug, vermiculite, none, orchid_bark, pon_mineral, sphagnum,
+               hydro_solution]
+      reference_substrate_type:
+        type: string
+        enum: [soil, coco, clay_pebbles, perlite, living_soil, peat, rockwool_slab,
+               rockwool_plug, vermiculite, none, orchid_bark, pon_mineral, sphagnum,
+               hydro_solution]
+        description: "Substrate type the EC values are calibrated for"
+      author:
+        type: string
+      is_template:
+        type: boolean
+      version:
+        type: string
+      tags:
+        type: array
+        items:
+          type: string
+      water_mix_ratio_ro_percent:
+        type: [integer, "null"]
+        minimum: 0
+        maximum: 100
+      cycle_restart_from_sequence:
+        type: [integer, "null"]
+        minimum: 1
+        description: "Sequence order to restart from for perennial cycles"
+      watering_schedule:
+        oneOf:
+          - $ref: "#/$defs/watering_schedule"
+          - type: "null"
+      phase_entries:
+        type: array
+        items:
+          $ref: "#/$defs/phase_entry"
+    required: [name, description, recommended_substrate_type, author, is_template,
+               version, tags, phase_entries]
+    additionalProperties: false
+
+  watering_schedule:
+    type: object
+    properties:
+      schedule_mode:
+        type: string
+        enum: [weekdays, interval]
+      interval_days:
+        type: integer
+        minimum: 1
+      weekdays:
+        type: array
+        items:
+          type: string
+          enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+      preferred_time:
+        type: string
+        pattern: "^\\d{2}:\\d{2}$"
+      application_method:
+        type: string
+        enum: [fertigation, drench, foliar, top_dress, any]
+      reminder_hours_before:
+        type: integer
+        minimum: 0
+      times_per_day:
+        type: integer
+        minimum: 1
+    required: [schedule_mode, preferred_time, application_method]
+    additionalProperties: false
+
+  phase_entry:
+    type: object
+    properties:
+      phase_name:
+        type: string
+        enum: [germination, seedling, vegetative, flowering, flushing, dormancy,
+               harvest, sprouting, budding, fruiting, ripening, senescence, corm_ripening]
+      sequence_order:
+        type: integer
+        minimum: 1
+      week_start:
+        type: integer
+        minimum: 1
+      week_end:
+        type: integer
+        minimum: 1
+      is_recurring:
+        type: boolean
+      npk_ratio:
+        type: array
+        items:
+          type: [number, "null"]
+          minimum: 0
+        minItems: 3
+        maxItems: 3
+      reference_ec_ms:
+        type: number
+        minimum: 0
+        maximum: 10
+        description: "EC target in context of plan's reference_substrate_type"
+      notes:
+        type: string
+      watering_schedule_override:
+        oneOf:
+          - $ref: "#/$defs/watering_schedule"
+          - type: "null"
+      delivery_channels:
+        type: array
+        items:
+          $ref: "#/$defs/delivery_channel"
+    required: [phase_name, sequence_order, week_start, week_end, npk_ratio,
+               delivery_channels]
+    additionalProperties: false
+
+  delivery_channel:
+    type: object
+    properties:
+      channel_id:
+        type: string
+      label:
+        type: string
+      application_method:
+        type: string
+        enum: [fertigation, drench, foliar, top_dress, any]
+      target_ec_ms:
+        type: number
+        minimum: 0
+      target_ph:
+        type: number
+        minimum: 0
+        maximum: 14
+      drench_params:
+        oneOf:
+          - $ref: "#/$defs/drench_params"
+          - type: "null"
+      fertigation_params:
+        oneOf:
+          - $ref: "#/$defs/fertigation_params"
+          - type: "null"
+      fertilizer_dosages:
+        type: array
+        items:
+          $ref: "#/$defs/fertilizer_dosage"
+    required: [channel_id, label, application_method, target_ec_ms, target_ph,
+               fertilizer_dosages]
+    additionalProperties: false
+
+  drench_params:
+    type: object
+    properties:
+      volume_per_feeding_liters:
+        type: number
+        minimum: 0
+    required: [volume_per_feeding_liters]
+    additionalProperties: false
+
+  fertigation_params:
+    type: object
+    properties:
+      flow_rate_ml_per_min:
+        type: number
+        minimum: 0
+      duration_minutes:
+        type: number
+        minimum: 0
+    additionalProperties: false
+
+  fertilizer_dosage:
+    type: object
+    properties:
+      fertilizer_product_name:
+        type: string
+      ml_per_liter:
+        type: number
+        minimum: 0
+      notes:
+        type: string
+    required: [fertilizer_product_name, ml_per_liter]
+    additionalProperties: false

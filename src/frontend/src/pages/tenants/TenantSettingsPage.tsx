@@ -18,12 +18,15 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import LinkIcon from '@mui/icons-material/Link';
 import * as tenantApi from '@/api/endpoints/tenants';
 import { useAppSelector } from '@/store/hooks';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import EmptyState from '@/components/common/EmptyState';
 import { parseApiError } from '@/api/errors';
@@ -32,6 +35,8 @@ import type { Membership, Invitation } from '@/api/types';
 export default function TenantSettingsPage() {
   const { t } = useTranslation();
   const { enqueueSnackbar } = useSnackbar();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const activeTenant = useAppSelector((s) => s.tenants.activeTenant);
   const { isAdmin } = useTenantPermissions();
   const tabSlugs = useMemo(
@@ -126,6 +131,37 @@ export default function TenantSettingsPage() {
           <CardContent>
             {members.length === 0 ? (
               <EmptyState message={t('pages.tenants.noMembers')} />
+            ) : isMobile ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {members.map((m) => (
+                  <MobileCard
+                    key={m.key}
+                    title={m.display_name || '\u2014'}
+                    subtitle={m.email}
+                    chips={
+                      <Chip
+                        label={t(`enums.tenantRole.${m.role}`)}
+                        size="small"
+                        color={m.role === 'admin' ? 'primary' : 'default'}
+                      />
+                    }
+                    trailing={
+                      isAdmin ? (
+                        <Tooltip title={t('pages.tenants.removeMember')}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRemoveMember(m.key)}
+                            aria-label={t('pages.tenants.removeMember')}
+                            data-testid={`remove-member-${m.key}`}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      ) : undefined
+                    }
+                  />
+                ))}
+              </Box>
             ) : (
               <Table size="small" aria-label={t('pages.tenants.tabMembers')}>
                 <TableHead>

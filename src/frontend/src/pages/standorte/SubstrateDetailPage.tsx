@@ -17,6 +17,7 @@ import { useLocalFavorites } from '@/hooks/useLocalFavorites';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
@@ -373,6 +374,16 @@ export default function SubstrateDetailPage() {
           onRowClick={(r) => navigate(`/standorte/substrates/batches/${r.key}`)}
           tableState={batchTableState}
           ariaLabel={t('pages.batches.title')}
+          mobileCardRenderer={(r) => (
+            <MobileCard
+              title={r.batch_id}
+              subtitle={r.mixed_on}
+              fields={[
+                { label: t('pages.batches.volume'), value: `${r.volume_liters} L` },
+                { label: t('pages.batches.cyclesUsed'), value: String(r.cycles_used) },
+              ]}
+            />
+          )}
         />
       </Box>
 

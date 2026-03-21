@@ -1,0 +1,79 @@
+# JSON Schema for botanical_families.yaml
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "botanical_families.schema.yaml"
+title: "Botanical Families Seed Data"
+description: "Schema for botanical family definitions"
+type: object
+
+properties:
+  families:
+    type: array
+    items:
+      $ref: "#/$defs/botanical_family"
+
+required: [families]
+additionalProperties: false
+
+$defs:
+  botanical_family:
+    type: object
+    properties:
+      name:
+        type: string
+        description: "Scientific family name (e.g. Solanaceae)"
+      common_name_de:
+        type: string
+      common_name_en:
+        type: string
+      order:
+        type: string
+        description: "Taxonomic order (e.g. Solanales)"
+      typical_nutrient_demand:
+        type: string
+        enum: [heavy, medium, light]
+      frost_tolerance:
+        type: string
+        enum: [sensitive, moderate, hardy, very_hardy]
+      typical_root_depth:
+        type: string
+        enum: [shallow, medium, deep]
+      typical_growth_forms:
+        type: array
+        items:
+          type: string
+          enum: [herb, shrub, tree, vine, groundcover]
+      common_pests:
+        type: array
+        items:
+          type: string
+      common_diseases:
+        type: array
+        items:
+          type: string
+      pollination_type:
+        type: array
+        items:
+          type: string
+          enum: [insect, wind, self]
+      soil_ph_preference:
+        type: object
+        properties:
+          min_ph:
+            type: number
+            minimum: 0
+            maximum: 14
+          max_ph:
+            type: number
+            minimum: 0
+            maximum: 14
+        required: [min_ph, max_ph]
+        additionalProperties: false
+      description:
+        type: string
+      rotation_category:
+        type: string
+        enum: [fruit, root, leaf, legume, allium, herb, fiber, ornamental, green_manure, cereal]
+    required: [name, common_name_de, common_name_en, order, typical_nutrient_demand,
+               frost_tolerance, typical_root_depth, typical_growth_forms,
+               pollination_type, soil_ph_preference, description, rotation_category]
+    additionalProperties: false

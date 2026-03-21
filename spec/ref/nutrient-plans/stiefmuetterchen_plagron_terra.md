@@ -15,12 +15,15 @@
 | Name | Stiefmuetterchen (Fruehjahrsaussaat) -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Saisonplan fuer Stiefmuetterchen (Viola x wittrockiana) bei Fruehjahrsaussaat im Februar. Plagron Terra-Linie mit 3 Produkten. Einfacher Schwachzehrer-Plan: Indoor-Aussaat Feb/Maerz, Abhaertung April, Hauptbluete Mai--Juli, Seneszenz durch Sommerhitze ab August. Annuell -- kein Zyklus-Neustart. Blueten essbar (ASPCA safe). | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | stiefmuetterchen, viola, pansy, plagron, terra, erde, outdoor, schwachzehrer, essbare-blueten, zierpflanze | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (annuell, kein Neustart) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -141,7 +144,8 @@ Stiefmuetterchen sind Schwachzehrer und reagieren empfindlich auf Ueberduengung.
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 5.8 |
 | fertilizer_dosages | [] (leer) |
 
@@ -164,7 +168,8 @@ Stiefmuetterchen sind Schwachzehrer und reagieren empfindlich auf Ueberduengung.
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.5 |
+| target_ec_ms | 0.5  |
+| reference_ec_ms | 0.5  |
 | target_ph | 5.8 |
 | Terra Grow ml/L | 1.5 (Viertel-Dosis, Schwachzehrer) |
 | Pure Zym ml/L | -- (noch nicht) |
@@ -188,7 +193,8 @@ Stiefmuetterchen sind Schwachzehrer und reagieren empfindlich auf Ueberduengung.
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6 |
+| target_ec_ms | 0.6  |
+| reference_ec_ms | 0.6  |
 | target_ph | 5.8 |
 | Terra Grow ml/L | 2.5 (halbe Dosis) |
 | Pure Zym ml/L | 1.0 |
@@ -214,7 +220,8 @@ Stiefmuetterchen sind Schwachzehrer und reagieren empfindlich auf Ueberduengung.
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.7 |
+| target_ec_ms | 0.7  |
+| reference_ec_ms | 0.7  |
 | target_ph | 5.8 |
 | Terra Bloom ml/L | 3.0 |
 | Pure Zym ml/L | 1.0 |
@@ -241,7 +248,8 @@ Stiefmuetterchen sind Schwachzehrer und reagieren empfindlich auf Ueberduengung.
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.0 |
 | fertilizer_dosages | [] (leer) |
 
@@ -372,6 +380,7 @@ Botrytis cinerea ist die wichtigste Krankheit bei Stiefmuetterchen, besonders be
   "name": "Stiefmütterchen (Frühjahrsaussaat) — Plagron Terra",
   "description": "Saisonplan für Stiefmütterchen (Viola x wittrockiana) bei Frühjahrsaussaat. Plagron Terra-Linie mit 3 Produkten. Indoor-Aussaat Feb/März, Hauptblüte Mai–Juli, Seneszenz durch Sommerhitze ab August. Schwachzehrer, annuell kultiviert. Blüten essbar.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -421,6 +430,7 @@ Botrytis cinerea ist die wichtigste Krankheit bei Stiefmuetterchen, besonders be
       "enabled": true,
       "notes": "Kein Dünger. Leichtes Sprühen, Substrat gleichmäßig feucht.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 5.8,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.02}
@@ -451,6 +461,7 @@ Botrytis cinerea ist die wichtigste Krankheit bei Stiefmuetterchen, besonders be
       "enabled": true,
       "notes": "Terra Grow Viertel-Dosis. Schwachzehrer — weniger ist mehr.",
       "target_ec_ms": 0.5,
+      "reference_ec_ms": 0.5,
       "target_ph": 5.8,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 1.5, "optional": false}
@@ -483,6 +494,7 @@ Botrytis cinerea ist die wichtigste Krankheit bei Stiefmuetterchen, besonders be
       "enabled": true,
       "notes": "Terra Grow halbe Dosis + Pure Zym. Reihenfolge: Terra Grow → Pure Zym → pH prüfen. Terra Grow puffert auf pH 6.0–6.5 (Selbstpufferung).",
       "target_ec_ms": 0.6,
+      "reference_ec_ms": 0.6,
       "target_ph": 5.8,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 2.5, "optional": false},
@@ -516,6 +528,7 @@ Botrytis cinerea ist die wichtigste Krankheit bei Stiefmuetterchen, besonders be
       "enabled": true,
       "notes": "Terra Bloom + Pure Zym. Reihenfolge: Terra Bloom → Pure Zym → pH prüfen. Terra Bloom puffert auf pH 6.0–6.5 (Selbstpufferung).",
       "target_ec_ms": 0.7,
+      "reference_ec_ms": 0.7,
       "target_ph": 5.8,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 3.0, "optional": false},
@@ -557,6 +570,7 @@ Botrytis cinerea ist die wichtigste Krankheit bei Stiefmuetterchen, besonders be
       "enabled": true,
       "notes": "Kein Dünger. Nur bei Trockenheit gießen.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.1}

@@ -21,6 +21,7 @@ import IconButton from '@mui/material/IconButton';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
@@ -733,6 +734,17 @@ export default function TankDetailPage() {
             tableState={statesTableState}
             variant="simple"
             ariaLabel={t('pages.tanks.tabStates')}
+            mobileCardRenderer={(r) => (
+              <MobileCard
+                title={r.recorded_at ? new Date(r.recorded_at).toLocaleString() : '\u2014'}
+                fields={[
+                  ...(r.ph != null ? [{ label: 'pH', value: String(r.ph) }] : []),
+                  ...(r.ec_ms != null ? [{ label: 'EC (mS/cm)', value: String(r.ec_ms) }] : []),
+                  ...(r.water_temp_celsius != null ? [{ label: t('pages.tanks.waterTemp'), value: `${r.water_temp_celsius} \u00B0C` }] : []),
+                  ...(r.fill_level_percent != null ? [{ label: t('pages.tanks.fillLevel'), value: `${r.fill_level_percent}%` }] : []),
+                ]}
+              />
+            )}
           />
         </Box>
       )}
@@ -753,6 +765,22 @@ export default function TankDetailPage() {
                   tableState={dueTableState}
                   variant="simple"
                   ariaLabel={t('pages.tanks.dueMaintenances')}
+                  mobileCardRenderer={(r) => (
+                    <MobileCard
+                      title={t(`enums.maintenanceType.${r.maintenance_type}`)}
+                      subtitle={new Date(r.next_due).toLocaleDateString()}
+                      chips={
+                        <Chip
+                          label={t(`enums.maintenanceStatus.${r.status}`)}
+                          size="small"
+                          color={r.status === 'overdue' ? 'error' : r.status === 'due_soon' ? 'warning' : 'success'}
+                        />
+                      }
+                      fields={[
+                        { label: t('pages.tanks.priority'), value: t(`enums.maintenancePriority.${r.priority}`) },
+                      ]}
+                    />
+                  )}
                 />
               </CardContent>
             </Card>
@@ -776,6 +804,16 @@ export default function TankDetailPage() {
             tableState={logsTableState}
             variant="simple"
             ariaLabel={t('pages.tanks.maintenanceHistory')}
+            mobileCardRenderer={(r) => (
+              <MobileCard
+                title={t(`enums.maintenanceType.${r.maintenance_type}`)}
+                subtitle={r.performed_at ? new Date(r.performed_at).toLocaleString() : undefined}
+                fields={[
+                  ...(r.performed_by ? [{ label: t('pages.tanks.performedBy'), value: r.performed_by }] : []),
+                  ...(r.duration_minutes != null ? [{ label: t('pages.tanks.duration'), value: `${r.duration_minutes} min` }] : []),
+                ]}
+              />
+            )}
           />
         </Box>
       )}
@@ -799,6 +837,22 @@ export default function TankDetailPage() {
             tableState={schedulesTableState}
             variant="simple"
             ariaLabel={t('pages.tanks.tabSchedules')}
+            mobileCardRenderer={(r) => (
+              <MobileCard
+                title={t(`enums.maintenanceType.${r.maintenance_type}`)}
+                chips={
+                  <Chip
+                    label={r.is_active ? t('common.yes') : t('common.no')}
+                    size="small"
+                    color={r.is_active ? 'success' : 'default'}
+                  />
+                }
+                fields={[
+                  { label: t('pages.tanks.intervalDays'), value: String(r.interval_days) },
+                  { label: t('pages.tanks.priority'), value: t(`enums.maintenancePriority.${r.priority}`) },
+                ]}
+              />
+            )}
           />
         </Box>
       )}
@@ -829,6 +883,18 @@ export default function TankDetailPage() {
             tableState={fillsTableState}
             variant="simple"
             ariaLabel={t('pages.tanks.tabFills')}
+            mobileCardRenderer={(r: TankFillEvent) => (
+              <MobileCard
+                title={r.filled_at ? new Date(r.filled_at).toLocaleString() : '\u2014'}
+                chips={<Chip label={t(`enums.fillType.${r.fill_type}`)} size="small" />}
+                fields={[
+                  { label: t('pages.tanks.volumeLiters'), value: `${r.volume_liters} L` },
+                  ...(r.measured_ec_ms != null ? [{ label: 'EC (mS/cm)', value: String(r.measured_ec_ms) }] : []),
+                  ...(r.measured_ph != null ? [{ label: 'pH', value: String(r.measured_ph) }] : []),
+                  ...(r.water_source ? [{ label: t('pages.tanks.waterSource'), value: t(`enums.waterSource.${r.water_source}`) }] : []),
+                ]}
+              />
+            )}
           />
         </Box>
       )}

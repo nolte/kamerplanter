@@ -102,6 +102,7 @@ def _build_phase_entries(
                 sulfur_ppm=entry_data.get("sulfur_ppm"),
                 iron_ppm=entry_data.get("iron_ppm"),
                 boron_ppm=entry_data.get("boron_ppm"),
+                reference_ec_ms=entry_data.get("reference_ec_ms"),
                 notes=entry_data.get("notes"),
                 watering_schedule_override=_build_watering_schedule(
                     entry_data.get("watering_schedule_override"),
@@ -120,6 +121,7 @@ def _build_nutrient_plan(raw: dict[str, Any]) -> NutrientPlan:
         name=raw["name"],
         description=raw.get("description", ""),
         recommended_substrate_type=raw.get("recommended_substrate_type"),
+        reference_substrate_type=raw.get("reference_substrate_type", "soil"),
         author=raw.get("author", ""),
         is_template=raw.get("is_template", False),
         version=raw.get("version", "1.0"),
@@ -131,6 +133,8 @@ def _build_nutrient_plan(raw: dict[str, Any]) -> NutrientPlan:
 
 def run_seed_nutrient_plans_outdoor() -> None:
     """Create outdoor Plagron Terra nutrient plans."""
+    from app.migrations.seed_upsert_helpers import upsert_nutrient_plan_with_entries
+
     data = load_yaml("nutrient_plans_outdoor.yaml")
     fert_repo = get_fertilizer_repo()
     plan_repo = get_nutrient_plan_repo()
@@ -149,83 +153,15 @@ def run_seed_nutrient_plans_outdoor() -> None:
         )
         return
 
-    # ── Create nutrient plans ──
+    # ── Upsert nutrient plans ──
     existing_plans, _ = plan_repo.get_all(offset=0, limit=200)
     existing_plan_map = {p.name: p for p in existing_plans}
 
     raw_plans = data["nutrient_plans"]
     for raw_plan in raw_plans:
         plan = _build_nutrient_plan(raw_plan)
-
-        if plan.name in existing_plan_map:
-            existing = existing_plan_map[plan.name]
-            plan_key = existing.key or ""
-            existing_entries = plan_repo.get_phase_entries(plan_key)
-            if existing_entries:
-                # Backfill missing entries by sequence_order
-                existing_seqs = {e.sequence_order for e in existing_entries}
-                desired = _build_phase_entries(
-                    raw_plan.get("phase_entries", []),
-                    fert_keys,
-                )
-                missing = [e for e in desired if e.sequence_order not in existing_seqs]
-                if not missing:
-                    logger.info(
-                        "plan_exists",
-                        name=plan.name,
-                        entries=len(existing_entries),
-                    )
-                    continue
-                for entry in missing:
-                    entry.plan_key = plan_key
-                    dosage_count = sum(len(ch.fertilizer_dosages) for ch in entry.delivery_channels)
-                    created_entry = plan_repo.create_phase_entry(entry)
-                    logger.info(
-                        "phase_entry_backfilled",
-                        plan=plan.name,
-                        phase=entry.phase_name,
-                        seq=entry.sequence_order,
-                        week=f"{entry.week_start}-{entry.week_end}",
-                        dosages=dosage_count,
-                        key=created_entry.key,
-                    )
-                logger.info(
-                    "plan_backfill_complete",
-                    name=plan.name,
-                    added=len(missing),
-                    total=len(existing_entries) + len(missing),
-                )
-                continue
-            logger.info(
-                "plan_exists_no_entries",
-                name=plan.name,
-                key=plan_key,
-            )
-        else:
-            created_plan = plan_repo.create(plan)
-            plan_key = created_plan.key or ""
-            logger.info(
-                "plan_created",
-                name=plan.name,
-                key=plan_key,
-            )
-
-        entries = _build_phase_entries(
-            raw_plan.get("phase_entries", []),
-            fert_keys,
-        )
-        for entry in entries:
-            entry.plan_key = plan_key
-            dosage_count = sum(len(ch.fertilizer_dosages) for ch in entry.delivery_channels)
-            created_entry = plan_repo.create_phase_entry(entry)
-            logger.info(
-                "phase_entry_created",
-                plan=plan.name,
-                phase=entry.phase_name,
-                week=f"{entry.week_start}-{entry.week_end}",
-                dosages=dosage_count,
-                key=created_entry.key,
-            )
+        entries = _build_phase_entries(raw_plan.get("phase_entries", []), fert_keys)
+        upsert_nutrient_plan_with_entries(plan_repo, plan, entries, existing_plan_map)
 
     logger.info(
         "seed_nutrient_plans_outdoor_complete",

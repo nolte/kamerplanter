@@ -2021,6 +2021,9 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Q10-Lösungsalter:** Temperaturkorrigiertes Lösungsalter (Degradation verdoppelt sich pro 10°C über 20°C-Referenz)
 - [ ] **Substratspezifische pH-Bereiche:** `PH_RANGES_BY_SUBSTRATE` für Irrigation-Tanks (Coco: 5.8–6.2, Erde: 6.0–6.8, Living Soil: 6.2–6.8)
 - [ ] **Lichtdichtheit:** `is_light_proof` auf TankDefinition als primärer Faktor für Algenrisiko-Score
+<!-- Quelle: Tabellen-Analyse UI-NFR-010 §7.2, §8.1 -->
+- [ ] **Listenansicht-Filter:** TankFillEvent-Liste bietet Zeitraum-Filter (Datums-Range: `?date_from=...&date_to=...`) und optionalen Befüllungstyp-Filter (Enum-Chip: full_change, top_up, additive_only); WateringEvent-Liste bietet Zeitraum-Filter; Tank-Liste bietet optionalen Standort-Filter (Site-Dropdown); alle URL-persistiert (UI-NFR-010 §7.2)
+- [ ] **Tablet-Spaltenprioritäten:** TankList blendet auf Tablet „Letzte Befüllung" aus; WateringEvent-Liste blendet Notizen aus; Primärspalten: Name/Datum, Standort/Tank, Volumen (UI-NFR-010 §8.1)
 - [ ] **FertilizerSnapshot Feststoffe:** `g_per_liter` für Top-Dress/Trockendünger neben `ml_per_liter`
 - [ ] **Seed-Daten CalMag:** Top-Up bei Coco/Osmose enthält CalMag (CEC-Sättigung)
 - [ ] **Differenzierte Kalibrierungsintervalle:** Kalibrierungsintervall nach Tank-Typ und Sondenplatzierung (Rezirkulation inline: 7d, Nährstoff: 14d, Irrigation: 21d, Reservoir: 28d)

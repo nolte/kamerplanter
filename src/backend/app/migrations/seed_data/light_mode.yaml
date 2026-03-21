@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=./schemas/light_mode.schema.yaml
 system_user:
   key: system-user
   email: system@kamerplanter.example

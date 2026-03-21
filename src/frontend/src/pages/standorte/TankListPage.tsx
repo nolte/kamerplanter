@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import AddIcon from '@mui/icons-material/Add';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -78,6 +80,16 @@ export default function TankListPage() {
         emptyIllustration={kamiTanks}
         tableState={tableState}
         ariaLabel={t('pages.tanks.title')}
+        mobileCardRenderer={(r) => (
+          <MobileCard
+            title={r.name}
+            chips={<Chip label={t(`enums.tankType.${r.tank_type}`)} size="small" />}
+            fields={[
+              { label: t('pages.tanks.volumeLiters'), value: `${r.volume_liters} L` },
+              { label: t('pages.tanks.material'), value: t(`enums.tankMaterial.${r.material}`) },
+            ]}
+          />
+        )}
       />
       <TankCreateDialog
         open={createOpen}

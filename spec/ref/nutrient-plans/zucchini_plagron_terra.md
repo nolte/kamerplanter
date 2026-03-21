@@ -15,12 +15,15 @@
 | Name | Zucchini -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Saisonplan fuer Zucchini (Buschtyp) mit Indoor-Vorkultur ab Mitte April und Freilandkultur ab Mitte Mai. Plagron Terra-Linie mit 5 Produkten. Klassischer Starkzehrer mit extrem schnellem Wachstum und hohem N-Bedarf in der vegetativen Phase, hohem K-Bedarf ab Fruchtbildung. Dauertraeger mit kontinuierlicher Ernte Juni--Oktober. Einjaehrige Kultur, kein Zyklus-Neustart. 22 Wochen Gesamtdauer (Mitte April--Mitte September). | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | zucchini, courgette, cucurbita, pepo, starkzehrer, plagron, terra, erde, outdoor, gewaechshaus | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (einjaehrig, kein Neustart) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -141,7 +144,8 @@ Zucchini sind Starkzehrer mit hoher EC-Toleranz (bis 2.8 mS/cm in Hydrokultur, S
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.2 |
 | fertilizer_dosages | [] (leer -- kein Duenger) |
 
@@ -165,7 +169,8 @@ Zucchini sind Starkzehrer mit hoher EC-Toleranz (bis 2.8 mS/cm in Hydrokultur, S
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6 |
+| target_ec_ms | 0.6  |
+| reference_ec_ms | 0.6  |
 | target_ph | 6.2 |
 | Terra Grow ml/L | 1.5 (Viertel-Dosis) |
 | Power Roots ml/L | 1.0 |
@@ -191,7 +196,8 @@ Zucchini sind Starkzehrer mit hoher EC-Toleranz (bis 2.8 mS/cm in Hydrokultur, S
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.5 |
+| target_ec_ms | 1.5  |
+| reference_ec_ms | 1.5  |
 | target_ph | 6.2 |
 | Terra Grow ml/L | 5.0 (volle Dosis) |
 | Power Roots ml/L | 1.0 |
@@ -219,7 +225,8 @@ Zucchini sind Starkzehrer mit hoher EC-Toleranz (bis 2.8 mS/cm in Hydrokultur, S
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 2.0 |
+| target_ec_ms | 2.0  |
+| reference_ec_ms | 2.0  |
 | target_ph | 6.2 |
 | Terra Bloom ml/L | 5.0 |
 | Pure Zym ml/L | 1.0 |
@@ -244,7 +251,8 @@ Zucchini sind Starkzehrer mit hoher EC-Toleranz (bis 2.8 mS/cm in Hydrokultur, S
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.8 |
+| target_ec_ms | 1.8  |
+| reference_ec_ms | 1.8  |
 | target_ph | 6.2 |
 | Terra Bloom ml/L | 4.0 (reduziert) |
 | Pure Zym ml/L | 1.0 |
@@ -271,7 +279,8 @@ Zucchini sind Starkzehrer mit hoher EC-Toleranz (bis 2.8 mS/cm in Hydrokultur, S
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.2 |
 | Pure Zym ml/L | 1.0 |
 | fertilizer_dosages | Pure Zym only |
@@ -430,6 +439,7 @@ Die haeufigste Krankheit bei Zucchini. Tritt ab Hochsommer (August) fast immer a
   "name": "Zucchini \u2014 Plagron Terra",
   "description": "Saisonplan f\u00fcr Zucchini (Buschtyp) mit Indoor-Vorkultur ab Mitte April und Freilandkultur ab Mitte Mai. Plagron Terra-Linie mit 5 Produkten. Starkzehrer, 22 Wochen (April\u2013September).",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -479,6 +489,7 @@ Die haeufigste Krankheit bei Zucchini. Tritt ab Hochsommer (August) fast immer a
       "enabled": true,
       "notes": "Nur Wasser. Feine Spr\u00fchung, Substrat gleichm\u00e4\u00dfig feucht halten.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.2,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.03}
@@ -517,6 +528,7 @@ Die haeufigste Krankheit bei Zucchini. Tritt ab Hochsommer (August) fast immer a
       "enabled": true,
       "notes": "Terra Grow Viertel-Dosis + Power Roots",
       "target_ec_ms": 0.6,
+      "reference_ec_ms": 0.6,
       "target_ph": 6.2,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 1.5, "optional": false},
@@ -550,6 +562,7 @@ Die haeufigste Krankheit bei Zucchini. Tritt ab Hochsommer (August) fast immer a
       "enabled": true,
       "notes": "Terra Grow + alle Additive. Reihenfolge: Terra Grow \u2192 Power Roots \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen",
       "target_ec_ms": 1.5,
+      "reference_ec_ms": 1.5,
       "target_ph": 6.2,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 5.0, "optional": false},
@@ -585,6 +598,7 @@ Die haeufigste Krankheit bei Zucchini. Tritt ab Hochsommer (August) fast immer a
       "enabled": true,
       "notes": "Terra Bloom + Additive. Reihenfolge: Terra Bloom \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen",
       "target_ec_ms": 2.0,
+      "reference_ec_ms": 2.0,
       "target_ph": 6.2,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 5.0, "optional": false},
@@ -619,6 +633,7 @@ Die haeufigste Krankheit bei Zucchini. Tritt ab Hochsommer (August) fast immer a
       "enabled": true,
       "notes": "Reduzierter Terra Bloom. Kein Sugar Royal.",
       "target_ec_ms": 1.8,
+      "reference_ec_ms": 1.8,
       "target_ph": 6.2,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 4.0, "optional": false},
@@ -660,6 +675,7 @@ Die haeufigste Krankheit bei Zucchini. Tritt ab Hochsommer (August) fast immer a
       "enabled": true,
       "notes": "Nur Wasser + Pure Zym. Kein D\u00fcnger.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.2,
       "fertilizer_dosages": [
         {"fertilizer_key": "<pure_zym_key>", "ml_per_liter": 1.0, "optional": false}

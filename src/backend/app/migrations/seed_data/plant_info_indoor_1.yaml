@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=./schemas/plant_info.schema.yaml
 # Indoor plant seed data batch 1 — from spec/ref/plant-info/*.md (30 documents).
 #
 # Adds 15 new botanical families, 29 new species, enriches 1 existing species
@@ -341,6 +342,7 @@ new_species:
   - scientific_name: "Adiantum raddianum"
     common_names: [Frauenhaarfarn, Delta Maidenhair Fern]
     genus: Adiantum
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -362,6 +364,7 @@ new_species:
   - scientific_name: "Aechmea fasciata"
     common_names: [Lanzenrosette, Silbervasenbromelien, Silver Vase Plant, Urn Plant]
     genus: Aechmea
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -369,6 +372,7 @@ new_species:
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
     allows_harvest: false
+    bloom_months: [6, 7, 8, 9]
     container_suitable: "yes"
     recommended_container_volume_l: "2-5"
     min_container_depth_cm: 15
@@ -383,6 +387,7 @@ new_species:
   - scientific_name: "Aeschynanthus radicans"
     common_names: [Schamblume, Lippenstiftpflanze, Lipstick Plant]
     genus: Aeschynanthus
+    plant_category: indoor_houseplant
     growth_habit: vine
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b, 12a]
@@ -390,6 +395,7 @@ new_species:
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
     allows_harvest: false
+    bloom_months: [6, 7, 8, 9]
     container_suitable: "yes"
     recommended_container_volume_l: "2-5"
     min_container_depth_cm: 12
@@ -404,6 +410,7 @@ new_species:
   - scientific_name: "Aglaonema commutatum"
     common_names: [Kolbenfaden, Chinese Evergreen]
     genus: Aglaonema
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -411,6 +418,7 @@ new_species:
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
     allows_harvest: false
+    bloom_months: [7, 8]
     container_suitable: "yes"
     recommended_container_volume_l: "3-10"
     min_container_depth_cm: 15
@@ -425,6 +433,7 @@ new_species:
   - scientific_name: "Alocasia x amazonica"
     common_names: [Pfeilblatt, Alocasia Polly, Amazonian Elephant Ear]
     genus: Alocasia
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: tuberous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -446,6 +455,7 @@ new_species:
   - scientific_name: "Aloe vera"
     common_names: [Echte Aloe, Wüstenlilie, Aloe Vera, True Aloe, Burn Plant]
     genus: Aloe
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [9b, 10a, 10b, 11a, 11b, 12a]
@@ -453,6 +463,7 @@ new_species:
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
     allows_harvest: false
+    bloom_months: [2, 3, 4]
     container_suitable: "yes"
     recommended_container_volume_l: "3-10"
     min_container_depth_cm: 15
@@ -467,6 +478,7 @@ new_species:
   - scientific_name: "Anthurium andraeanum"
     common_names: [Flamingoblume, Anthurie, Flamingo Flower, Painter's Palette]
     genus: Anthurium
+    plant_category: indoor_houseplant
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -474,6 +486,7 @@ new_species:
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
     allows_harvest: false
+    bloom_months: [2, 3, 4, 5, 6, 7, 8, 9]
     container_suitable: "yes"
     recommended_container_volume_l: "2-8"
     min_container_depth_cm: 15
@@ -488,6 +501,7 @@ new_species:
   - scientific_name: "Aphelandra squarrosa"
     common_names: [Glanzkölbchen, Zebrakraut, Zebra Plant]
     genus: Aphelandra
+    plant_category: indoor_houseplant
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [11a, 11b, 12a]
@@ -495,6 +509,7 @@ new_species:
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
     allows_harvest: false
+    bloom_months: [8, 9, 10, 11]
     container_suitable: "yes"
     recommended_container_volume_l: "3-8"
     min_container_depth_cm: 15
@@ -509,6 +524,7 @@ new_species:
   - scientific_name: "Ardisia crenata"
     common_names: [Spitzblume, Korallenbeere, Coralberry, Christmas Berry]
     genus: Ardisia
+    plant_category: indoor_houseplant
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b]
@@ -516,6 +532,7 @@ new_species:
     allelopathy_score: 0.0
     frost_sensitivity: moderate
     allows_harvest: false
+    bloom_months: [5, 6, 7]
     container_suitable: "yes"
     recommended_container_volume_l: "3-10"
     min_container_depth_cm: 20
@@ -530,6 +547,7 @@ new_species:
   - scientific_name: "Asparagus setaceus"
     common_names: [Feder-Spargel, Asparagus Fern, Lace Fern]
     genus: Asparagus
+    plant_category: indoor_houseplant
     growth_habit: vine
     root_type: tuberous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -537,6 +555,7 @@ new_species:
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
     allows_harvest: false
+    bloom_months: [7, 8, 9]
     container_suitable: "yes"
     recommended_container_volume_l: "3-10"
     min_container_depth_cm: 15
@@ -551,6 +570,7 @@ new_species:
   - scientific_name: "Aspidistra elatior"
     common_names: [Schusterpalme, Gusseisenpflanze, Cast Iron Plant, Bar Room Plant]
     genus: Aspidistra
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b, 11a]
@@ -572,6 +592,7 @@ new_species:
   - scientific_name: "Asplenium nidus"
     common_names: [Nestfarn, Bird's Nest Fern]
     genus: Asplenium
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -593,6 +614,7 @@ new_species:
   - scientific_name: "Beaucarnea recurvata"
     common_names: [Elefantenfuß, Flaschenbaum, Ponytail Palm, Elephant Foot Tree]
     genus: Beaucarnea
+    plant_category: succulent_cactus
     growth_habit: tree
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -614,6 +636,7 @@ new_species:
   - scientific_name: "Begonia rex-cultorum"
     common_names: [Blattbegonie, Königsbegonie, Rex Begonia, Painted-Leaf Begonia]
     genus: Begonia
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -635,6 +658,7 @@ new_species:
   - scientific_name: "Begonia semperflorens"
     common_names: [Eisbegonie, Gottesauge, Wax Begonia, Bedding Begonia]
     genus: Begonia
+    plant_category: balcony_plant
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -642,6 +666,7 @@ new_species:
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
     allows_harvest: false
+    bloom_months: [5, 6, 7, 8, 9, 10]
     container_suitable: "yes"
     recommended_container_volume_l: "1-5"
     min_container_depth_cm: 12
@@ -656,6 +681,7 @@ new_species:
   - scientific_name: "Cattleya hybrida"
     common_names: [Cattleya-Orchidee, Corsage Orchid, Queen of Orchids]
     genus: Cattleya
+    plant_category: orchid
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -663,6 +689,7 @@ new_species:
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
     allows_harvest: false
+    bloom_months: [10, 11, 12, 1, 2]
     container_suitable: "yes"
     recommended_container_volume_l: "1-3"
     min_container_depth_cm: 10
@@ -677,6 +704,7 @@ new_species:
   - scientific_name: "Ceropegia woodii"
     common_names: [Leuchterblume, String of Hearts, Rosary Vine, Chain of Hearts]
     genus: Ceropegia
+    plant_category: succulent_cactus
     growth_habit: vine
     root_type: tuberous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -684,6 +712,7 @@ new_species:
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
     allows_harvest: false
+    bloom_months: [7, 8, 9, 10]
     container_suitable: "yes"
     recommended_container_volume_l: "1-3"
     min_container_depth_cm: 8
@@ -698,6 +727,7 @@ new_species:
   - scientific_name: "Chamaedorea elegans"
     common_names: [Bergpalme, Mexikanische Bergpalme, Parlour Palm, Neanthe Bella Palm]
     genus: Chamaedorea
+    plant_category: tropical_foliage
     growth_habit: tree
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -719,6 +749,7 @@ new_species:
   - scientific_name: "Clivia miniata"
     common_names: [Clivie, Riemenblatt, Bush Lily, Natal Lily]
     genus: Clivia
+    plant_category: indoor_houseplant
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a]
@@ -726,6 +757,7 @@ new_species:
     allelopathy_score: 0.0
     frost_sensitivity: moderate
     allows_harvest: false
+    bloom_months: [2, 3, 4, 5]
     container_suitable: "yes"
     recommended_container_volume_l: "3-10"
     min_container_depth_cm: 20
@@ -740,6 +772,7 @@ new_species:
   - scientific_name: "Codiaeum variegatum"
     common_names: [Croton, Wunderstrauch, Garden Croton, "Joseph's Coat"]
     genus: Codiaeum
+    plant_category: tropical_foliage
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [11a, 11b, 12a, 12b]
@@ -761,6 +794,7 @@ new_species:
   - scientific_name: "Coffea arabica"
     common_names: [Kaffeepflanze, Arabica-Kaffee, Coffee Plant, Arabian Coffee]
     genus: Coffea
+    plant_category: indoor_houseplant
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b, 12a, 12b]
@@ -783,6 +817,7 @@ new_species:
   - scientific_name: "Crassula ovata"
     common_names: [Geldbaum, Pfennigbaum, Jade Plant, Money Plant]
     genus: Crassula
+    plant_category: succulent_cactus
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -805,6 +840,7 @@ new_species:
   - scientific_name: "Ctenanthe burle-marxii"
     common_names: [Fischgräten-Gebetsblume, Ctenanthe, Fishbone Prayer Plant, Never Never Plant]
     genus: Ctenanthe
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -826,6 +862,7 @@ new_species:
   - scientific_name: "Curio rowleyanus"
     common_names: [Perlenschnur, Erbsenpflanze, String of Pearls, Rosary Plant]
     genus: Curio
+    plant_category: succulent_cactus
     growth_habit: vine
     root_type: fibrous
     hardiness_zones: [9b, 10a, 10b, 11a, 11b, 12a, 12b]
@@ -848,6 +885,7 @@ new_species:
   - scientific_name: "Cyclamen persicum"
     common_names: [Alpenveilchen, Cyclamen, Persian Cyclamen]
     genus: Cyclamen
+    plant_category: indoor_houseplant
     growth_habit: herb
     root_type: tuberous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a]
@@ -870,6 +908,7 @@ new_species:
   - scientific_name: "Dendrobium nobile"
     common_names: [Dendrobium-Orchidee, Edle Dendrobie, Bambusorchidee, Noble Dendrobium]
     genus: Dendrobium
+    plant_category: orchid
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -892,6 +931,7 @@ new_species:
   - scientific_name: "Dieffenbachia seguine"
     common_names: [Dieffenbachie, Stumme Bohne, Dumb Cane, Leopard Lily]
     genus: Dieffenbachia
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -913,6 +953,7 @@ new_species:
   - scientific_name: "Dracaena angolensis"
     common_names: [Zylindrische Sansevierie, Afrikanischer Speer, African Spear, Cylindrical Snake Plant]
     genus: Dracaena
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -934,6 +975,7 @@ new_species:
   - scientific_name: "Dracaena marginata"
     common_names: [Madagassischer Drachenbaum, Rotsaum-Drachenbaum, Madagascar Dragon Tree]
     genus: Dracaena
+    plant_category: tropical_foliage
     growth_habit: tree
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]

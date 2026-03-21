@@ -1,17 +1,34 @@
+# -- Default pod-level security context applied to all controllers (SEC-M-004)
+defaultPodOptions:
+  securityContext:
+    runAsNonRoot: true
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
 controllers:
   backend:
     type: deployment
-    replicas: 2
+    replicas: 1
     strategy: RollingUpdate
     rollingUpdate:
       surge: 1
       unavailable: 0
+    pod:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
     containers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-backend
           tag: latest
           pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
         env:
           ARANGODB_HOST: kamerplanter-arangodb
           ARANGODB_PORT: "8529"
@@ -54,17 +71,26 @@ controllers:
 
   frontend:
     type: deployment
-    replicas: 2
+    replicas: 1
     strategy: RollingUpdate
     rollingUpdate:
       surge: 1
       unavailable: 0
+    pod:
+      securityContext:
+        runAsUser: 101
+        runAsGroup: 101
     containers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-frontend
           tag: latest
           pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
         env:
           VITE_BACKEND_URL: "http://kamerplanter-backend:8000"
         probes:
@@ -101,12 +127,21 @@ controllers:
   arangodb:
     type: statefulset
     replicas: 1
+    pod:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
     containers:
       main:
         image:
           repository: arangodb
-          tag: "3.11"
+          tag: "3.12.8"
           pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
         env:
           ARANGO_ROOT_PASSWORD: rootpassword
         probes:
@@ -176,6 +211,11 @@ configMaps:
                 proxy_set_header X-Forwarded-Proto $scheme;
             }
 
+            # Runtime config — never cache (regenerated on each container start)
+            location = /runtime-config.js {
+                add_header Cache-Control "no-store, no-cache, must-revalidate";
+            }
+
             location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
                 expires 1y;
                 add_header Cache-Control "public, immutable";
@@ -215,6 +255,47 @@ persistence:
           - path: /etc/nginx/conf.d/default.conf
             subPath: default.conf
             readOnly: true
+
+  # -- tmpfs mounts for readOnlyRootFilesystem support (SEC-M-004)
+  nginx-cache:
+    enabled: true
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 64Mi
+    advancedMounts:
+      frontend:
+        main:
+          - path: /var/cache/nginx
+
+  nginx-run:
+    enabled: true
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 1Mi
+    advancedMounts:
+      frontend:
+        main:
+          - path: /var/run
+
+  nginx-tmp:
+    enabled: true
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 16Mi
+    advancedMounts:
+      frontend:
+        main:
+          - path: /tmp
+
+  backend-tmp:
+    enabled: true
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 64Mi
+    advancedMounts:
+      backend:
+        main:
+          - path: /tmp
 
 ingress: {}
 

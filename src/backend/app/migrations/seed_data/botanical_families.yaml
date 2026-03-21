@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=./schemas/botanical_families.schema.yaml
 families:
   - name: Solanaceae
     common_name_de: "Nachtschattengewächse"
@@ -42,6 +43,21 @@ families:
     pollination_type: [insect]
     soil_ph_preference: {min_ph: 6.0, max_ph: 7.5}
     description: "Aromatische Kräuter wie Basilikum, Minze, Thymian und Rosmarin. Ätherische Öle."
+    rotation_category: herb
+
+  - name: Verbenaceae
+    common_name_de: "Eisenkrautgewächse"
+    common_name_en: Verbena family
+    order: Lamiales
+    typical_nutrient_demand: medium
+    frost_tolerance: sensitive
+    typical_root_depth: medium
+    typical_growth_forms: [herb, shrub]
+    common_pests: [aphids, whitefly]
+    common_diseases: [Mehltau]
+    pollination_type: [insect]
+    soil_ph_preference: {min_ph: 6.0, max_ph: 7.5}
+    description: "Eisenkrautgewächse mit Verbena, Lantana und Aloysia (Zitronenverbene). Oft aromatisch."
     rotation_category: herb
 
   - name: Apiaceae
@@ -157,12 +173,16 @@ families:
     typical_nutrient_demand: light
     frost_tolerance: moderate
     typical_root_depth: shallow
-    typical_growth_forms: [herb]
-    common_pests: [spider_mites, mealybug]
-    common_diseases: ["Wurzelfäule"]
-    pollination_type: [insect, self]
-    soil_ph_preference: {min_ph: 6.0, max_ph: 7.0}
-    description: "Diverse Familie mit Grünlilie, Dracaena, Agave, Spargel und Hyazinthe."
+    typical_growth_forms: [herb, shrub]
+    common_pests: [spider_mites, mealybug, asparagus_beetle]
+    common_diseases: [root_rot, rust, fusarium]
+    pollination_type: [insect, self, wind]
+    soil_ph_preference: {min_ph: 6.0, max_ph: 7.5}
+    description: >-
+      Grosse und heterogene Familie (ca. 2900 Arten). Typische Zimmerpflanzen
+      (Dracaena, Sansevieria, Chlorophytum — Schwachzehrer, frostempfindlich)
+      und Nutzpflanzen (Spargel — Starkzehrer, winterhart bis -20°C).
+      Artspezifische Pflegedaten beachten.
     rotation_category: ornamental
 
   - name: Bromeliaceae
@@ -210,6 +230,25 @@ families:
     description: "Veilchen und Stiefmütterchen. Kühleliebend, essbare Blüten, Schwachzehrer."
     rotation_category: ornamental
 
+  - name: Geraniaceae
+    common_name_de: "Storchschnabelgewächse"
+    common_name_en: Geranium family
+    order: Geraniales
+    typical_nutrient_demand: medium
+    frost_tolerance: sensitive
+    typical_root_depth: shallow
+    typical_growth_forms: [herb, shrub]
+    common_pests: [aphids, whitefly, spider_mites, vine_weevil]
+    common_diseases: [botrytis, powdery_mildew, rust, bacterial_blight]
+    pollination_type: [insect]
+    soil_ph_preference: {min_ph: 6.0, max_ph: 7.0}
+    description: >-
+      Familie mit Pelargonium (Balkon-/Zimmergeranien, frostempfindlich,
+      Herkunft Suedafrika) und Geranium (winterharte Storchschnabel-Stauden).
+      Pelargonium wird umgangssprachlich faelschlich als 'Geranie' bezeichnet.
+      Gute Drainage essentiell, Staunaesse vermeiden.
+    rotation_category: ornamental
+
 rotation_edges:
   - [Fabaceae, Solanaceae, 2, 0.95, nitrogen_fixation]
   - [Fabaceae, Brassicaceae, 2, 0.90, nitrogen_fixation]
@@ -218,6 +257,9 @@ rotation_edges:
   - [Brassicaceae, Fabaceae, 2, 0.85, soil_structure]
   - [Apiaceae, Brassicaceae, 2, 0.80, pest_break]
   - [Solanaceae, Fabaceae, 3, 0.85, nitrogen_fixation]
+  - [Solanaceae, Brassicaceae, 3, 0.70, pest_break]
+  - [Solanaceae, Apiaceae, 2, 0.75, pest_break]
+  - [Solanaceae, Cucurbitaceae, 3, 0.60, pest_break]
   - [Cucurbitaceae, Fabaceae, 3, 0.85, nitrogen_fixation]
   - [Cannabaceae, Fabaceae, 3, 0.85, nitrogen_fixation]
   - [Asteraceae, Solanaceae, 2, 0.75, pest_break]

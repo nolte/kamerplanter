@@ -885,16 +885,68 @@ pages.privacy.objection.title: "Widerspruch"
 **Nicht in Scope (bewusst ausgeklammert):**
 - Art. 13/14 Informationspflichten: Datenschutzerklärung als statisches Dokument, nicht als Feature
 - Art. 30 Verzeichnis von Verarbeitungstätigkeiten: Organisationsdokument, nicht Software-Feature
-- Art. 35 Datenschutz-Folgenabschätzung (DSFA): Separates Bewertungsdokument
+- Art. 35 Datenschutz-Folgenabschätzung (DSFA): Separates Bewertungsdokument (siehe NFR-001 §6.7)
 - Art. 28 Auftragsverarbeitungsverträge (AVV): Vertragliche, nicht technische Anforderung
-- Cookie-/Consent-Banner für technisch notwendige Cookies (Refresh Token = funktional)
 - DSGVO-Export pro Tenant (REQ-024 Out-of-Scope, zukünftige Erweiterung)
+
+---
+
+## 9. Datenschutz-Bewertung externer Dienste
+
+<!-- Quelle: IT-Security-Review SEC-H-008 -->
+
+Kamerplanter kommuniziert mit mehreren externen Diensten. Für jeden Dienst MUSS eine Datenschutz-Bewertung dokumentiert werden, die die übertragenen Daten, Rechtsgrundlage und Schutzmaßnahmen beschreibt.
+
+| Dienst | Übertragene Daten | Rechtsgrundlage | Schutzmaßnahmen | Consent-pflichtig |
+|--------|-------------------|-----------------|-----------------|-------------------|
+| **GBIF** (REQ-011) | Artname (Suchanfrage) | Art. 6(1)(a) Einwilligung | Keine PII übertragen; `external_enrichment`-Consent | Ja |
+| **Perenual** (REQ-011) | Artname (Suchanfrage) | Art. 6(1)(a) Einwilligung | Keine PII übertragen; `external_enrichment`-Consent | Ja |
+| **HaveIBeenPwned** (REQ-023) | SHA-1-Prefix (5 Zeichen) des Passwort-Hashs | Art. 6(1)(a) Einwilligung | k-Anonymity — kein Rückschluss auf Passwort möglich; `hibp_check`-Consent | Ja |
+| **Sentry** (NFR-001 §8.3) | IP (anon.), User-Agent, Stack-Traces, URLs | Art. 6(1)(a) Einwilligung | PII-Scrubbing, EU-Hosting oder AVV; `error_tracking`-Consent | Ja |
+| **DWD / OpenWeatherMap / Open-Meteo** (REQ-005) | GPS-Koordinaten des Standorts (Site.latitude/longitude) | Art. 6(1)(b) Vertragserfüllung | Koordinaten auf 2 Dezimalstellen gerundet (~1 km Genauigkeit); kein Personenbezug | Nein |
+| **InvenTree** (REQ-016) | Produktreferenzen, Bestandsänderungen | Art. 6(1)(b) Vertragserfüllung | Self-Hosted; kein externer Dienst im Regelfall | Nein |
+| **OAuth-Provider** (REQ-023) | E-Mail, Name (vom Provider empfangen) | Art. 6(1)(b) Vertragserfüllung | Nur bei explizitem Nutzer-Login; Daten vom Provider kontrolliert | Nein (funktional) |
+
+**Anforderungen:**
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| DP-001 | Externe API-Aufrufe DÜRFEN NUR nach Prüfung der Consent-Pflicht erfolgen. Consent-pflichtige Dienste MÜSSEN die `require_consent()`-Dependency verwenden. | MUSS |
+| DP-002 | GPS-Koordinaten MÜSSEN vor Übertragung an Wetter-APIs auf maximal 2 Dezimalstellen gerundet werden. | MUSS |
+| DP-003 | Bei Nutzung von Sentry SaaS MUSS ein AVV nach Art. 28 DSGVO vorliegen (siehe NFR-001 §8.3 SE-004). | MUSS |
+
+---
+
+## 10. TTDSG-Konformität (Cookie-/Speicher-Einwilligung)
+
+<!-- Quelle: IT-Security-Review SEC-M-007 -->
+
+Das Telemediengesetz (TTDSG) §25 unterscheidet zwischen technisch notwendigen und nicht-notwendigen Zugriffen auf die Endeinrichtung des Nutzers (Cookies, localStorage, sessionStorage).
+
+**Klassifikation der Speicherzugriffe in Kamerplanter:**
+
+| Speicherzugriff | Zweck | TTDSG-Kategorie | Einwilligung nötig |
+|----------------|-------|-----------------|-------------------|
+| `refresh_token` (HttpOnly Cookie) | Authentifizierung | Technisch notwendig (§25 Abs. 2 Nr. 2) | Nein |
+| `csrf_token` (Cookie) | CSRF-Schutz | Technisch notwendig | Nein |
+| `i18next` (localStorage) | Spracheinstellung | Technisch notwendig | Nein |
+| `theme` (localStorage) | Dark/Light-Mode | Technisch notwendig | Nein |
+| `redux_state` (sessionStorage) | App-State | Technisch notwendig | Nein |
+| Sentry SDK (localStorage, Cookies) | Fehler-Tracking | **Nicht notwendig** | **Ja** (`error_tracking`-Consent) |
+
+**Anforderungen:**
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| TT-001 | Technisch notwendige Cookies/Storage-Zugriffe DÜRFEN OHNE Einwilligung gesetzt werden. | Info |
+| TT-002 | Sentry und alle zukünftigen Tracking-/Analyse-Dienste DÜRFEN Cookies/Storage ERST NACH expliziter Einwilligung nutzen (ConsentEngine `error_tracking`). | MUSS |
+| TT-003 | Ein Cookie-/Einwilligungs-Banner ist NICHT erforderlich, solange ausschließlich technisch notwendige Speicherzugriffe erfolgen. Bei Aktivierung von Sentry oder Analytics MUSS ein Einwilligungs-Dialog implementiert werden (UI-NFR-013). | BEDINGT |
 
 ---
 
 **Dokumenten-Ende**
 
-**Version**: 1.0
+**Version**: 1.1
 **Status**: Entwurf
-**Datum**: 2026-02-27
-**Security-Review**: Adressiert SEC-K-001, SEC-K-003
+**Datum**: 2026-03-18
+**Security-Review**: Adressiert SEC-K-001, SEC-K-003, SEC-H-008, SEC-M-005, SEC-M-007

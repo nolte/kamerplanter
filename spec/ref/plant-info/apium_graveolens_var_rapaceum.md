@@ -397,7 +397,7 @@ Knollensellerie wird vor dem Winter geerntet und eingelagert. Ausgewachsene Pfla
 
 | Verwandte Familie | Beziehung | Geteilte Risiken | KA-Edge |
 |-------------------|-----------|-------------------|---------|
-| Apiaceae (mit sich selbst) | `shares_pest_risk` | Septoria, Cercospora, Selleriefliege (Acidia heraclei), Moehrenfliege (Psila rosae) | `shares_pest_risk` |
+| Apiaceae (mit sich selbst) | `shares_pest_risk` | Septoria, Cercospora, Selleriefliege (Euleia heraclei), Moehrenfliege (Psila rosae) | `shares_pest_risk` |
 
 ---
 

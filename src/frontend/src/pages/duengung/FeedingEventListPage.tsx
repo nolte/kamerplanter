@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import AddIcon from '@mui/icons-material/Add';
 import SpaIcon from '@mui/icons-material/Spa';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -150,6 +151,34 @@ export default function FeedingEventListPage() {
         emptyIllustration={kamiFertilizer}
         tableState={tableState}
         ariaLabel={t('pages.feedingEvents.title')}
+        mobileCardRenderer={(r) => {
+          const plant = plantMap.get(r.plant_key);
+          const plantName = plant?.plant_name || plant?.instance_id || r.plant_key;
+          return (
+            <MobileCard
+              title={plantName}
+              subtitle={r.timestamp ? new Date(r.timestamp).toLocaleString() : undefined}
+              chips={
+                <>
+                  <Chip
+                    label={t(`enums.applicationMethod.${r.application_method}`)}
+                    size="small"
+                    variant="outlined"
+                  />
+                  {r.is_supplemental && (
+                    <Chip label={t('common.yes')} size="small" color="info" />
+                  )}
+                </>
+              }
+              fields={[
+                { label: t('pages.feedingEvents.volumeApplied'), value: `${r.volume_applied_liters} L` },
+                ...(r.measured_ec_after != null
+                  ? [{ label: t('pages.feedingEvents.ecAfter'), value: `${r.measured_ec_after} mS/cm` }]
+                  : []),
+              ]}
+            />
+          );
+        }}
       />
       <FeedingEventCreateDialog
         open={createOpen}

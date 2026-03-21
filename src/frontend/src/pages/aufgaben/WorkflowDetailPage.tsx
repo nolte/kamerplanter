@@ -24,6 +24,8 @@ import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
@@ -68,6 +70,8 @@ const editSchema = z.object({
 type EditFormData = z.infer<typeof editSchema>;
 
 export default function WorkflowDetailPage() {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { key } = useParams<{ key: string }>();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -533,8 +537,7 @@ export default function WorkflowDetailPage() {
       )}
 
       {/* Add Activity from Catalog Dialog */}
-      <Dialog
-        open={addDialogOpen}
+      <Dialog fullScreen={fullScreen} open={addDialogOpen}
         onClose={() => setAddDialogOpen(false)}
         maxWidth="md"
         fullWidth

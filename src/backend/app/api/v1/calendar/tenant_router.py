@@ -92,6 +92,7 @@ def get_sowing_calendar(
                 species_key=e.species_key,
                 species_name=e.species_name,
                 common_name=e.common_name,
+                plant_category=e.plant_category,
                 bars=[
                     SowingBarSchema(
                         phase=b.phase,

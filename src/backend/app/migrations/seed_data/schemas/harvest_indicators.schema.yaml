@@ -1,0 +1,42 @@
+# JSON Schema for harvest_indicators.yaml
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "harvest_indicators.schema.yaml"
+title: "Harvest Indicators Seed Data"
+description: "Schema for harvest readiness indicator definitions"
+type: object
+
+properties:
+  harvest_indicators:
+    type: array
+    items:
+      $ref: "#/$defs/harvest_indicator"
+
+required: [harvest_indicators]
+additionalProperties: false
+
+$defs:
+  harvest_indicator:
+    type: object
+    properties:
+      indicator_type:
+        type: string
+        enum: [trichome, color, brix, size, days_since_flowering, aroma, texture, foliage]
+      measurement_unit:
+        type: string
+        description: "E.g. percentage_milky, brix_degrees, diameter_cm"
+      measurement_method:
+        type: string
+        description: "E.g. visual, magnification_60x, refractometer, caliper, penetrometer, olfactory"
+      observation_frequency:
+        type: string
+        enum: [daily, weekly, biweekly]
+      reliability_score:
+        type: number
+        minimum: 0
+        maximum: 1
+      species_name:
+        type: string
+        description: "Scientific name of the species this indicator applies to"
+    required: [indicator_type, measurement_unit, measurement_method,
+               observation_frequency, reliability_score, species_name]
+    additionalProperties: false
