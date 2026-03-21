@@ -15,12 +15,15 @@
 | Name | Petersilie (1. Jahr Blattkultur) -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Saisonplan fuer Petersilie (Petroselinum crispum) im 1. Anbaujahr (Blattkultur). Plagron Terra-Linie mit 2 Produkten: Terra Grow + Pure Zym. Mittelzehrer mit halber Herstellerdosis. Zweijaerig, aber nur 1. Jahr fuer Blatternte nutzbar -- im 2. Jahr schiesst die Pflanze und wird unbrauchbar (bitter, holzig). Bedeckt saeen (Furanocumarine in Samenschale), notorisch langsame Keimung (3--4 Wochen). Indoor-Vorkultur ab Maerz, Freiland ab Mai, kontinuierliche Blatternte Mai--November. | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | petersilie, petroselinum, parsley, plagron, terra, erde, kraeutergarten, mittelzehrer, outdoor, indoor, biennale | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (1. Jahr Blattkultur, kein Neustart -- 2. Jahr unbrauchbar) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -133,7 +136,8 @@ Petersilie ist ein Mittelzehrer -- sie vertraegt mehr als Schwachzehrer wie Basi
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.0 |
 | fertilizer_dosages | [] (leer) |
 
@@ -156,7 +160,8 @@ Petersilie ist ein Mittelzehrer -- sie vertraegt mehr als Schwachzehrer wie Basi
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.5 |
+| target_ec_ms | 0.5  |
+| reference_ec_ms | 0.5  |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 1.5 (Viertel-Dosis) |
 | Pure Zym ml/L | -- (noch nicht) |
@@ -180,7 +185,8 @@ Petersilie ist ein Mittelzehrer -- sie vertraegt mehr als Schwachzehrer wie Basi
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6 |
+| target_ec_ms | 0.6  |
+| reference_ec_ms | 0.6  |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 2.5 (halbe Dosis) |
 | Pure Zym ml/L | 1.0 |
@@ -204,7 +210,8 @@ Petersilie ist ein Mittelzehrer -- sie vertraegt mehr als Schwachzehrer wie Basi
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.5 |
+| target_ec_ms | 0.5  |
+| reference_ec_ms | 0.5  |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 2.0 (reduziert) |
 | Pure Zym ml/L | 1.0 |
@@ -229,7 +236,8 @@ Petersilie ist ein Mittelzehrer -- sie vertraegt mehr als Schwachzehrer wie Basi
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.0 |
 | fertilizer_dosages | [] (leer) |
 
@@ -340,6 +348,7 @@ Bei einer Petersilienpflanze im 3L-Topf/Beet, 0.3 L Giessloessung pro Duengung:
   "name": "Petersilie (1. Jahr Blattkultur) \u2014 Plagron Terra",
   "description": "Saisonplan f\u00fcr Petersilie (Petroselinum crispum) im 1. Anbaujahr (Blattkultur). Plagron Terra-Linie mit 2 Produkten. Mittelzehrer mit halber Herstellerdosis. Zweij\u00e4hrig, aber nur 1. Jahr nutzbar \u2014 im 2. Jahr schie\u00dft die Pflanze. Bedeckt s\u00e4en (Furanocumarine in Samenschale), langsame Keimung (3\u20134 Wochen). Kontinuierliche Blatternte Mai\u2013November.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -389,6 +398,7 @@ Bei einer Petersilienpflanze im 3L-Topf/Beet, 0.3 L Giessloessung pro Duengung:
       "enabled": true,
       "notes": "Kein D\u00fcnger. Substrat feucht halten, nicht austrocknen lassen.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.05}
@@ -419,6 +429,7 @@ Bei einer Petersilienpflanze im 3L-Topf/Beet, 0.3 L Giessloessung pro Duengung:
       "enabled": true,
       "notes": "Terra Grow Viertel-Dosis. Mittelzehrer \u2014 moderate Versorgung.",
       "target_ec_ms": 0.5,
+      "reference_ec_ms": 0.5,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 1.5, "optional": false}
@@ -451,6 +462,7 @@ Bei einer Petersilienpflanze im 3L-Topf/Beet, 0.3 L Giessloessung pro Duengung:
       "enabled": true,
       "notes": "Halbe Dosis Terra Grow + Pure Zym. Reihenfolge: Terra Grow \u2192 Pure Zym \u2192 pH pr\u00fcfen.",
       "target_ec_ms": 0.6,
+      "reference_ec_ms": 0.6,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 2.5, "optional": false},
@@ -484,6 +496,7 @@ Bei einer Petersilienpflanze im 3L-Topf/Beet, 0.3 L Giessloessung pro Duengung:
       "enabled": true,
       "notes": "Reduzierter Terra Grow + Pure Zym. Sp\u00e4tsaison-Dosierung.",
       "target_ec_ms": 0.5,
+      "reference_ec_ms": 0.5,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 2.0, "optional": false},
@@ -525,6 +538,7 @@ Bei einer Petersilienpflanze im 3L-Topf/Beet, 0.3 L Giessloessung pro Duengung:
       "enabled": true,
       "notes": "Kein D\u00fcnger. Nur bei Trockenheit gie\u00dfen.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.2}

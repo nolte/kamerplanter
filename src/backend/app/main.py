@@ -62,6 +62,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     run_seed_plant_info_extended()
 
+    from app.migrations.seed_fertilizers import run_seed_fertilizers
+
+    run_seed_fertilizers()
+
     from app.migrations.seed_plagron import run_seed_plagron
 
     run_seed_plagron()
@@ -75,6 +79,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
 
     run_seed_nutrient_plans_outdoor()
+
+    from app.migrations.seed_nutrient_plans_ro import run_seed_nutrient_plans_ro
+
+    run_seed_nutrient_plans_ro()
 
     from app.migrations.seed_activities import run_seed_activities
 

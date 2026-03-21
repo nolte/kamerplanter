@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Alert from '@mui/material/Alert';
@@ -48,6 +50,8 @@ export default function WateringConfirmDialog({
   suggestedVolumeLiters,
   volumeHint,
 }: Props) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -103,13 +107,11 @@ export default function WateringConfirmDialog({
   };
 
   return (
-    <Dialog
-      open={open}
+    <Dialog fullScreen={fullScreen} open={open}
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
-      data-testid="watering-confirm-dialog"
-    >
+      data-testid="watering-confirm-dialog">
       <DialogTitle>{t('pages.wateringSchedule.confirm')}</DialogTitle>
       <DialogContent>
         {result ? (

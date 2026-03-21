@@ -1,0 +1,135 @@
+# JSON Schema for species.yaml
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "species.schema.yaml"
+title: "Species Seed Data"
+description: "Schema for species definitions"
+type: object
+
+properties:
+  species:
+    type: array
+    items:
+      $ref: "#/$defs/species"
+
+required: [species]
+additionalProperties: false
+
+$defs:
+  species:
+    type: object
+    properties:
+      scientific_name:
+        type: string
+        description: "Binomial name (e.g. Solanum lycopersicum)"
+      common_names:
+        type: array
+        items:
+          type: string
+        minItems: 1
+      family:
+        type: string
+        description: "Botanical family name (must match a families entry)"
+      genus:
+        type: string
+      growth_habit:
+        type: string
+        enum: [herb, shrub, tree, vine, groundcover]
+      root_type:
+        type: string
+        enum: [fibrous, taproot, tuberous, bulbous, corm]
+      base_temp:
+        type: number
+        description: "Base temperature for GDD calculation in Celsius"
+        minimum: 0
+        maximum: 40
+      hardiness_zones:
+        type: array
+        items:
+          type: string
+          pattern: "^\\d{1,2}[ab]$"
+      native_habitat:
+        type: string
+      allelopathy_score:
+        type: number
+        minimum: 0
+        maximum: 1
+      # Outdoor sowing fields
+      sowing_indoor_weeks_before_last_frost:
+        type: [integer, "null"]
+        minimum: 0
+      sowing_outdoor_after_last_frost_days:
+        type: [integer, "null"]
+        minimum: 0
+      direct_sow_months:
+        type: array
+        items:
+          type: integer
+          minimum: 1
+          maximum: 12
+      harvest_months:
+        type: array
+        items:
+          type: integer
+          minimum: 1
+          maximum: 12
+      bloom_months:
+        type: array
+        items:
+          type: integer
+          minimum: 1
+          maximum: 12
+      frost_sensitivity:
+        type: string
+        enum: [sensitive, moderate, hardy, very_hardy]
+      allows_harvest:
+        type: boolean
+      # Container & placement
+      container_suitable:
+        type: string
+        enum: ["yes", limited, "no"]
+      recommended_container_volume_l:
+        type: string
+        description: "Range string, e.g. '10--20' or '5-15'"
+      min_container_depth_cm:
+        type: integer
+        minimum: 0
+      mature_height_cm:
+        type: string
+        description: "Range string, e.g. '50--200'"
+      mature_width_cm:
+        type: string
+        description: "Range string, e.g. '40--60'"
+      spacing_cm:
+        type: string
+        description: "Range string, e.g. '50--80'"
+      indoor_suitable:
+        type: string
+        enum: ["yes", limited, "no"]
+      balcony_suitable:
+        type: string
+        enum: ["yes", limited, "no"]
+      greenhouse_recommended:
+        type: boolean
+      support_required:
+        type: boolean
+      # Nutrient demand
+      nutrient_demand_level:
+        type: string
+        enum: [heavy_feeder, medium_feeder, light_feeder, nitrogen_fixer]
+      green_manure:
+        type: boolean
+      # Pruning
+      pruning:
+        type: object
+        properties:
+          pruning_required:
+            type: boolean
+          pruning_season:
+            type: string
+          pruning_notes:
+            type: string
+        additionalProperties: false
+      hardiness_detail:
+        type: string
+    required: [scientific_name, common_names, family, genus, growth_habit, root_type]
+    additionalProperties: true

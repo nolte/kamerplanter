@@ -7,7 +7,7 @@ Kategorie: Bewässerung & Düngung
 Fokus: Nutzpflanze (Indoor/Hydro)
 Technologie: Python, ArangoDB, Regelbasierte Logik
 Status: Entwurf
-Version: 3.2 (Perenniale Nährstoffpläne, DORMANCY-Phase, Zyklusfähigkeit)
+Version: 3.4 (Normalisierte EC-Dosierung mit Runtime-Berechnung)
 ```
 
 ## 1. Business Case
@@ -34,6 +34,10 @@ Das System verwaltet die gesamte Nährstoffversorgung von der Planung bis zur Do
 7. pH-Korrektur (pH Down/Up) als letzter Schritt
 
 **Hinweis:** Die obige Liste ist ein Beispiel fuer eine typische Reihenfolge. Die Zuordnung A/B variiert je nach Hersteller. Die **tatsächliche Reihenfolge** im System wird ausschliesslich über das `mixing_priority`-Feld des Fertilizer-Modells gesteuert — nicht durch diese Liste.
+
+**Automatische Mischverhältnis-Empfehlung (Osmose/Leitungswasser):**
+
+Nutzer mit Osmose-Anlage stehen vor der Frage: *Wieviel Osmosewasser soll ich zumischen?* Die Antwort hängt von drei Faktoren ab: dem Leitungswasser (EC, Ca/Mg, Chlor), der aktuellen Wachstumsphase (unterschiedliche Ziel-EC) und dem Substrat (unterschiedlicher EC-Headroom-Bedarf). Das System berechnet automatisch das optimale Mischverhältnis und zeigt dem Nutzer eine begründete Empfehlung mit Alternativen — pro Phase im Nährstoffplan und beim Tankbefüllen. Ziel: Maximale Nährstoffverfügbarkeit bei minimalem CalMag-Supplement und sicherem Chlor-Niveau.
 
 **CalMag-Korrektur aus Wasserquelle:**
 
@@ -1142,6 +1146,128 @@ class WaterMixCalculator:
                 'CalMag-Supplement empfohlen' if (ca_deficit > 10 or mg_deficit > 5)
                 else 'Wasser enthält ausreichend Ca/Mg'
             ),
+        }
+
+    @staticmethod
+    def recommend_mix_ratio(
+        tap_profile: dict,
+        ro_profile: dict,
+        target_ec_ms: float,
+        target_calcium_ppm: float = 150.0,
+        target_magnesium_ppm: float = 50.0,
+        substrate_type: Optional[str] = None,
+    ) -> dict:
+        """
+        Empfiehlt das optimale Mischverhältnis Osmose/Leitungswasser für die
+        bestmögliche Nährstoffaufnahme in der aktuellen Phase und Pflanzenart.
+
+        Die Empfehlung optimiert drei Ziele gleichzeitig:
+        1. **EC-Budget maximieren:** Je niedriger die Basis-EC des Mischwassers,
+           desto mehr EC-Budget steht für Dünger zur Verfügung.
+           Formel: available_ec = target_ec - effective_water_ec
+        2. **CalMag-Kosten minimieren:** Je höher der Leitungswasser-Anteil,
+           desto weniger CalMag-Supplement wird benötigt (spart EC-Budget und Kosten).
+        3. **Chlor/Chloramin vermeiden:** Hohe Werte (>0.5 ppm) schädigen
+           Wurzelmikrobiom — höherer RO-Anteil reduziert diese.
+
+        Algorithmus:
+        - Iteriert RO-Anteile von 0% bis 100% in 5%-Schritten
+        - Berechnet pro Schritt: effective_ec, available_ec_for_nutrients,
+          Ca/Mg-Defizit, Chlor-Belastung
+        - Wählt den niedrigsten RO-Anteil, der folgende Bedingungen erfüllt:
+          a) available_ec >= 60% der target_ec (genug Raum für Dünger)
+          b) effective_chlorine < 0.5 ppm (Wurzelschutz)
+          c) effective_chloramine < 0.3 ppm (Wurzelschutz)
+        - Bei Substrat-Typ Anpassung: Hydro benötigt mehr EC-Headroom (70%),
+          Soil toleriert weniger (50%), Coco = Standard (60%)
+
+        Args:
+            tap_profile: TapWaterProfile-Daten der Site (REQ-002)
+            ro_profile: RoWaterProfile-Daten der Site (REQ-002)
+            target_ec_ms: Ziel-EC der aktuellen Phase (aus NutrientPlanPhaseEntry
+                          oder DeliveryChannel)
+            target_calcium_ppm: Ca-Zielwert der Phase (Default: 150 ppm)
+            target_magnesium_ppm: Mg-Zielwert der Phase (Default: 50 ppm)
+            substrate_type: Optional — SubstrateType für substratspezifische
+                            EC-Headroom-Anpassung
+
+        Returns:
+            dict mit:
+            - recommended_ro_percent: int (0–100, in 5er-Schritten)
+            - effective_ec_ms: float (resultierende Wasser-EC)
+            - available_ec_for_nutrients_ms: float (verbleibendes EC-Budget)
+            - ec_headroom_percent: float (available_ec / target_ec × 100)
+            - calmag_needed: bool (ob CalMag-Supplement nötig)
+            - calcium_deficit_ppm: float
+            - magnesium_deficit_ppm: float
+            - chlorine_warning: bool (effective_chlorine > 0.5 ppm)
+            - reasoning: str (Begründung der Empfehlung für UI-Anzeige)
+            - alternatives: list[dict] (2-3 alternative RO-Anteile mit Trade-offs,
+              z.B. [{ro_percent: 60, note: "Weniger CalMag nötig, aber weniger EC-Budget"},
+                    {ro_percent: 90, note: "Maximales EC-Budget, aber volles CalMag nötig"}])
+
+        Beispiel:
+            Leitungswasser EC 0.6 mS, Ca 80 ppm, Mg 20 ppm, Chlor 0.3 ppm
+            Phase: Flowering, target_ec 1.8 mS, target_ca 200 ppm
+            → recommended_ro_percent: 50
+            → reasoning: "50% Osmose empfohlen: Basis-EC 0.31 mS lässt 1.49 mS
+               für Dünger (83% Headroom). CalMag-Supplement für 160 ppm Ca-Defizit
+               nötig. Chlor im sicheren Bereich (0.15 ppm)."
+        """
+        # EC-Headroom-Schwelle nach Substrat
+        substrate_headroom = {
+            'hydro_solution': 0.70,
+            'deep_water_culture': 0.70,
+            'aeroponics': 0.70,
+            'coco': 0.60,
+            'soil': 0.50,
+            'living_soil': 0.50,
+        }
+        min_headroom = substrate_headroom.get(substrate_type, 0.60)
+
+        # Iteration über RO-Anteile
+        best = None
+        for ro_pct in range(0, 101, 5):
+            effective = WaterMixCalculator.calculate_effective_water(
+                tap_profile, ro_profile, ro_pct
+            )
+            eff_ec = effective['effective_ec_ms']
+            available_ec = target_ec_ms - eff_ec
+            headroom = available_ec / target_ec_ms if target_ec_ms > 0 else 0
+
+            chlorine_ok = (effective.get('effective_chlorine_ppm') or 0) < 0.5
+            chloramine_ok = (effective.get('effective_chloramine_ppm') or 0) < 0.3
+
+            if available_ec > 0 and headroom >= min_headroom and chlorine_ok and chloramine_ok:
+                if best is None:
+                    best = (ro_pct, effective, available_ec, headroom)
+                break  # Niedrigster RO-Anteil der alle Bedingungen erfüllt
+
+        # Fallback: 80% RO wenn nichts passt (z.B. extrem hartes Wasser)
+        if best is None:
+            best = (80, WaterMixCalculator.calculate_effective_water(
+                tap_profile, ro_profile, 80
+            ), target_ec_ms * 0.8, 0.8)
+
+        ro_pct, effective, available_ec, headroom = best
+        calmag = WaterMixCalculator.suggest_calmag_correction(
+            effective.get('effective_calcium_ppm'),
+            effective.get('effective_magnesium_ppm'),
+            target_calcium_ppm,
+            target_magnesium_ppm,
+        )
+
+        return {
+            'recommended_ro_percent': ro_pct,
+            'effective_ec_ms': round(effective['effective_ec_ms'], 3),
+            'available_ec_for_nutrients_ms': round(available_ec, 3),
+            'ec_headroom_percent': round(headroom * 100, 1),
+            'calmag_needed': calmag['calmag_needed'],
+            'calcium_deficit_ppm': calmag['calcium_deficit_ppm'],
+            'magnesium_deficit_ppm': calmag['magnesium_deficit_ppm'],
+            'chlorine_warning': (effective.get('effective_chlorine_ppm') or 0) > 0.5,
+            'reasoning': str,  # Generiert aus den Werten
+            'alternatives': list,  # 2-3 alternative RO-Anteile mit Trade-offs
         }
 
 class FlushingProtocol(BaseModel):
@@ -2837,6 +2963,229 @@ FOR event, fe IN 1..1 OUTBOUND DOCUMENT(CONCAT("PlantInstance/", @plant_key)) FE
   }
 ```
 
+## 4b. Normalisierte EC-Dosierung mit Runtime-Berechnung
+
+**User Story:** "Als Gärtner möchte ich einen einzigen Nährstoffplan verwenden, egal ob ich mit Leitungswasser, Osmosewasser oder einer Mischung arbeite — das System soll die Dosierungen automatisch an mein Wasser anpassen und fehlende Mineralien (CalMag) ergänzen."
+
+### Motivation
+
+Seed-Daten und Template-Pläne speichern derzeit **absolute Dosierungen** (ml/L), die implizit eine bestimmte Wasserqualität voraussetzen. Das führt zu drei Problemen:
+
+1. **RO-Pläne sind Duplikate:** Für jedes Wasser-Szenario (Leitungswasser, Osmose, Misch) existieren separate YAML-Dateien mit manuell angepasstem CalMag und leicht veränderten EC-Zielen
+2. **Keine dynamische Anpassung:** Der Nutzer erhält Fixwerte unabhängig von seinem tatsächlichen Wasser-EC
+3. **CalMag-Lücke bei RO:** Reines Osmosewasser enthält keine Mineralien (Ca, Mg) — diese müssen supplementiert werden, aber die erforderliche Menge hängt vom Mischverhältnis ab
+
+### Konzept: Referenzdosierung + 3-Stufen-Pipeline
+
+#### 4b.1 Seed-Daten: Normalisierte Referenzdosierung
+
+Nährstoffpläne speichern Dosierungen als **Herstellerreferenz bei EC 0.0** (reines Osmosewasser). Die `ml_per_liter`-Werte definieren die **Proportionen** zwischen den Produkten, nicht die finale Ausbringungsmenge.
+
+**Neue/erweiterte Felder auf `NutrientPlanPhaseEntry`:**
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|-------------|
+| `target_ec_ms` | `float` | Ja (>0 für aktive Phasen) | Gesamt-Ziel-EC der Phase (Endwert nach Mischung) |
+| `target_calcium_ppm` | `float` | Nein (empfohlen) | Calcium-Bedarf der Phase in ppm |
+| `target_magnesium_ppm` | `float` | Nein (empfohlen) | Magnesium-Bedarf der Phase in ppm |
+| `reference_base_ec` | `float` | Nein (Default: 0.0) | Basis-EC für die Referenzdosierungen (0.0 = reines RO) |
+
+**Änderung `target_ec_ms` auf DeliveryChannel:**
+Das bisherige `target_ec_ms` auf Channel-Ebene wird zum **berechneten Wert** — gesetzt durch die Runtime-Pipeline. Das Phasen-Level `target_ec_ms` wird zur **Single Source of Truth** für das Gesamt-EC-Ziel. Channel-Level `target_ec_ms` bleibt als optionaler Override erhalten (z.B. für Foliar-Channels mit niedrigerem EC).
+
+**Beispiel — Vegetative Phase bei `reference_base_ec: 0.0`:**
+```yaml
+- phase_name: vegetative
+  target_ec_ms: 1.5
+  target_calcium_ppm: 150
+  target_magnesium_ppm: 50
+  reference_base_ec: 0.0
+  delivery_channels:
+    - channel_id: tank-fertigation
+      fertilizer_dosages:
+        - product_name: "Rhino Skin"
+          ml_per_liter: 2.0     # Referenzdosis bei EC 0.0
+        - product_name: "pH Perfect Micro"
+          ml_per_liter: 4.0
+        - product_name: "pH Perfect Grow"
+          ml_per_liter: 4.0
+        - product_name: "pH Perfect Bloom"
+          ml_per_liter: 4.0
+```
+
+#### 4b.2 Runtime-Pipeline: 3-Stufen-Berechnung
+
+Die Berechnung erfolgt zur Laufzeit basierend auf den Wasserdaten des Nutzers (hinterlegt auf der Site, REQ-002):
+
+```
+Stufe 1: WaterMixCalculator        →  Effektives Wasser (EC, Ca, Mg)
+Stufe 2: CalMag-Korrektur          →  Mineralienlücke schließen
+Stufe 3: EcBudgetCalculator        →  Dosierungen proportional skalieren
+```
+
+**Stufe 1 — Effektives Wasser** (existiert: `WaterMixCalculator.calculate_effective_water`):
+```
+Eingabe:  TapWaterProfile (EC 0.45, Ca 80ppm, Mg 15ppm)
+          + RoWaterProfile (EC 0.02)
+          + Mischverhältnis (60% RO)
+Ausgabe:  EffectiveWaterProfile (EC 0.19, Ca 32ppm, Mg 6ppm)
+```
+
+**Stufe 2 — CalMag-Korrektur** (existiert: `WaterMixCalculator.suggest_calmag_correction`):
+```
+Eingabe:  Effektiv Ca/Mg + Phase target_calcium_ppm/target_magnesium_ppm
+Ausgabe:  CalMagCorrection (Ca-Defizit 118ppm, Mg-Defizit 44ppm)
+          → CalMag-Dosis berechnen (z.B. 1.2 ml/L, EC +0.12)
+```
+
+**Stufe 3 — Dosierungs-Skalierung** (existiert: `EcBudgetCalculator.calculate`):
+```
+Eingabe:  target_ec = 1.5 (aus Phase)
+          base_water_ec = 0.19 (aus Stufe 1)
+          calmag_ec = 0.12 (aus Stufe 2)
+          Referenz-Rezeptur: {Micro: 4, Grow: 4, Bloom: 4} ml/L
+
+Berechnung:
+          ec_net = 1.5 - 0.19 - 0.12 - 0.03(pH-Reserve) = 1.16
+          Referenz-EC: 4×0.15 + 4×0.10 + 4×0.10 = 1.40
+          Skalierungsfaktor k = 1.16 / 1.40 = 0.83
+
+Ausgabe:  Micro: 4.0 × 0.83 = 3.32 ml/L
+          Grow:  4.0 × 0.83 = 3.32 ml/L
+          Bloom: 4.0 × 0.83 = 3.32 ml/L
+          + CalMag: 1.2 ml/L (injiziert)
+```
+
+**Proportionserhaltung:** Die Verhältnisse zwischen den Basisdüngern bleiben immer identisch — nur die absolute Menge wird an das verfügbare EC-Budget angepasst.
+
+#### 4b.3 CalMag-Automatik: Regeln
+
+| Bedingung | Aktion |
+|-----------|--------|
+| `effective_ca < target_calcium_ppm` ODER `effective_mg < target_magnesium_ppm` | CalMag-Dosis aus Defizit berechnen, EC vom Budget abziehen |
+| `ro_percent >= 80%` | Warnung: "Kein pH-Puffer (KH~0) — pH nach dem Mischen prüfen" |
+| `substrate = coco` UND `cycles_used = 0` | CalMag-Dosis +20% (bestehend: `FRESH_COCO_CALMAG_BOOST`) |
+| `target_calcium_ppm` oder `target_magnesium_ppm` nicht gesetzt | CalMag-Berechnung übersprungen, Warnung generiert |
+
+**Ca:Mg-Ratio-Validierung:** Ideal 3:1 bis 4:1. Warnung bei Ratio < 2.0 oder > 5.0 (bestehend in `suggest_calmag_correction`).
+
+#### 4b.4 Wasser-Szenarien und erwartetes Verhalten
+
+| Szenario | Base EC | CalMag | Skalierung | Ergebnis |
+|----------|---------|--------|------------|----------|
+| 100% RO (EC 0.0) | 0.00 | Volle Dosis | ~0.98× | CalMag kompensiert fehlende Mineralien |
+| 60% RO (EC 0.19) | 0.19 | Teilweise | ~0.88× | Mischung reduziert Ca/Mg-Defizit |
+| Weiches Leitungswasser (EC 0.2) | 0.20 | Wenig/Kein | ~0.87× | Wasser liefert teilweise Ca/Mg |
+| Normales Leitungswasser (EC 0.45) | 0.45 | Keins | ~0.73× | Weniger Headroom, Proportionen bleiben |
+| Hartes Leitungswasser (EC 0.8) | 0.80 | Keins | ~0.48× | Deutlich reduzierte Dosierungen |
+
+#### 4b.5 API-Endpunkt: Dosierungsberechnung
+
+**Neuer Endpoint:**
+```
+POST /api/v1/t/{tenant_slug}/nutrient-plans/{plan_key}/calculate-dosages
+```
+
+**Request:**
+```json
+{
+  "site_key": "site-001",
+  "phase_sequence_order": 3,
+  "channel_id": "tank-fertigation",
+  "volume_liters": 50.0,
+  "ro_percent_override": null
+}
+```
+
+Der Endpoint liest automatisch `TapWaterProfile` und `RoWaterProfile` von der referenzierten Site. `ro_percent_override` erlaubt eine manuelle Überschreibung des empfohlenen RO-Anteils.
+
+**Response:**
+```json
+{
+  "phase_name": "vegetative",
+  "target_ec_ms": 1.5,
+  "effective_water": {
+    "ec_ms": 0.19,
+    "calcium_ppm": 32,
+    "magnesium_ppm": 6,
+    "ro_percent_used": 60
+  },
+  "calmag_correction": {
+    "needs_correction": true,
+    "calcium_deficit_ppm": 118,
+    "magnesium_deficit_ppm": 44,
+    "product_name": "CalMag",
+    "dose_ml_per_liter": 1.2,
+    "ec_contribution": 0.12
+  },
+  "ec_budget": {
+    "ec_base_water": 0.19,
+    "ec_calmag": 0.12,
+    "ec_ph_reserve": 0.03,
+    "ec_fertilizers": 1.16,
+    "ec_final": 1.50,
+    "scaling_factor": 0.83
+  },
+  "dosages": [
+    {"product_name": "CalMag", "ml_per_liter": 1.20, "total_ml": 60.0, "source": "auto_calmag"},
+    {"product_name": "Rhino Skin", "ml_per_liter": 2.00, "total_ml": 100.0, "source": "reference"},
+    {"product_name": "pH Perfect Micro", "ml_per_liter": 3.32, "total_ml": 166.0, "source": "scaled"},
+    {"product_name": "pH Perfect Grow", "ml_per_liter": 3.32, "total_ml": 166.0, "source": "scaled"},
+    {"product_name": "pH Perfect Bloom", "ml_per_liter": 3.32, "total_ml": 166.0, "source": "scaled"}
+  ],
+  "mixing_instructions": [
+    "1. 50L Wasser vorbereiten (60% RO / 40% Leitungswasser, Basis-EC: 0.19 mS)",
+    "2. CalMag zugeben: 60.0 ml (1.20 ml/L) — gründlich rühren",
+    "3. Rhino Skin zugeben: 100.0 ml (2.00 ml/L) — 5 min warten",
+    "4. pH Perfect Micro zugeben: 166.0 ml (3.32 ml/L) — gründlich rühren",
+    "5. pH Perfect Grow zugeben: 166.0 ml (3.32 ml/L) — gründlich rühren",
+    "6. pH Perfect Bloom zugeben: 166.0 ml (3.32 ml/L) — gründlich rühren",
+    "7. pH messen und ggf. korrigieren — 5 min warten",
+    "8. EC-Endwert prüfen (Ziel: 1.50 mS)"
+  ],
+  "warnings": []
+}
+```
+
+**Dosage `source`-Feld:**
+- `reference`: Unveränderte Referenzdosis (Produkte mit `ec_contribution_per_ml = 0`, z.B. Silikat)
+- `scaled`: Proportional skalierte Dosis (Basisdünger)
+- `auto_calmag`: Automatisch berechnete CalMag-Ergänzung
+
+#### 4b.6 Seed-Daten-Migration
+
+Die bestehenden Seed-Pläne werden wie folgt migriert:
+
+1. **`target_ec_ms` auf Phase-Ebene:** Wird aus dem Tank-Fertigation-Channel übernommen (höchster EC-Wert der Channels)
+2. **`target_calcium_ppm` / `target_magnesium_ppm`:** Werden ergänzt (Cannabis-Defaults: Seedling 80/30, Vegetative 150/50, Flowering 200/60)
+3. **`reference_base_ec: 0.0`:** Wird auf alle Phase-Entries gesetzt
+4. **RO-Plan-Varianten (`nutrient_plans_ro.yaml`):** Werden als separate Dateien **beibehalten** (Abwärtskompatibilität), aber als `deprecated` getaggt. Langfristig werden sie durch die Runtime-Berechnung ersetzt.
+
+#### 4b.7 UI-Integration
+
+**NutrientPlanDetailPage — Dosierungsrechner-Tab:**
+Ein neuer Tab "Dosierungsrechner" auf der NutrientPlanDetailPage zeigt die berechneten Dosierungen basierend auf der zugeordneten Site:
+
+- **Site-Auswahl:** Dropdown mit allen Sites des Tenants (Pre-Fill wenn Plan einem Run mit Site zugeordnet ist)
+- **Wasser-Info-Box:** Zeigt Tap-EC, RO-EC, empfohlenes Mischverhältnis, effektive Wasserparameter
+- **Phasen-Übersicht:** Für jede Phase ein expandierbarer Bereich mit:
+  - Referenzdosierungen (grau, "Herstellerangabe")
+  - **Berechnete Dosierungen** (hervorgehoben, "Für dein Wasser")
+  - CalMag-Ergänzung (wenn nötig, mit Erklärung)
+  - EC-Budget-Visualisierung (Segmented Bar)
+  - Misch-Anleitung (Step-by-Step)
+- **Kein-Wasser-Fallback:** Wenn keine Site oder kein Wasserprofil hinterlegt ist, werden die Referenzdosierungen angezeigt mit Hinweis: "Wasserprofil auf der Site hinterlegen für automatische Dosierungsanpassung"
+
+**WateringConfirmDialog / TankFillDialog:**
+Diese Dialoge zeigen die **berechneten** Dosierungen statt der statischen Referenzwerte.
+
+#### 4b.8 Abwärtskompatibilität
+
+- Pläne ohne `reference_base_ec` behandeln `ml_per_liter` als finale Dosierung (Legacy-Verhalten)
+- Pläne ohne `target_calcium_ppm`/`target_magnesium_ppm` überspringen die CalMag-Automatik
+- Der neue Endpoint ist optional — bestehende Endpoints (`/validate`, `/current-dosages`) bleiben unverändert
+- Channel-Level `target_ec_ms` bleibt als Override erhalten
+
 ## 5. Authentifizierung & Autorisierung
 
 > **Hinweis (SEC-H-001):** Dieser Abschnitt wurde nachträglich ergänzt, um die Auth-Anforderungen
@@ -2901,7 +3250,11 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Vollständigkeits-Validierung:** Warnung bei fehlenden Pflichtphasen (seedling, vegetative, flowering)
 - [ ] **EC-Budget-Validierung:** Abgleich Dünger-EC-Summe vs. Ziel-EC pro Phase-Entry (Toleranz ±0.3 mS)
 - [ ] **Plan-Filterung:** Filter nach Substrattyp, Tags und Template-Status
-- [ ] **Düngemittel-Filterung:** Düngemittel-Tabelle filterbar nach Dünger-Typ (`fertilizer_type`), Hersteller (`brand`, Teilstring-Suche), Tank-Sicherheit (`tank_safe`) und Bio-Zertifizierung (`is_organic`). Alle Filter optional und kombinierbar (AND-Verknüpfung).
+- [ ] **Düngemittel-Filterung:** Düngemittel-Tabelle filterbar nach Dünger-Typ (`fertilizer_type`), Hersteller (`brand`, Teilstring-Suche), Tank-Sicherheit (`tank_safe`) und Bio-Zertifizierung (`is_organic`). Alle Filter optional und kombinierbar (AND-Verknüpfung). Filter als Chip-Gruppe oberhalb der Tabelle dargestellt (UI-NFR-010 §7.1).
+<!-- Quelle: Tabellen-Analyse UI-NFR-010 §7.2, §8.1, §9.2 -->
+- [ ] **FeedingEvent-Filter:** FeedingEvent-Liste bietet Zeitraum-Filter (Datums-Range: `?date_from=...&date_to=...`) und optionalen Run-Filter (Dropdown); URL-persistiert (UI-NFR-010 §7.2)
+- [ ] **Tablet-Spaltenprioritäten:** FertilizerList blendet auf Tablet EC-Beitrag und Tank-Sicherheit aus; FeedingEvent-Liste blendet Notizen aus; Primärspalten: Name/Datum, Typ/Run, Hersteller/EC-Ist (UI-NFR-010 §8.1)
+- [ ] **Düngeprotokoll-Export:** FeedingEvent-Liste bietet CSV-Export der gefilterten Ansicht (EC/pH-Verlauf) für Düngedokumentation (UI-NFR-010 §9.2)
 - [ ] **Dünger-Planzuordnung (Reverse Lookup):** Auf der Düngemittel-Detailseite und optional in der Listenansicht muss der Nutzer auf einen Blick erkennen können, in welchen Nährstoffplänen ein Dünger verwendet wird. Die Zuordnung wird über die `USES_FERTILIZER`-Kanten (NutrientPlanPhaseEntry → Fertilizer) per Reverse-Graph-Traversal ermittelt. Anzeige als klickbare Chips/Links mit Planname, die direkt zur NutrientPlanDetailPage navigieren. Wird ein Dünger in keinem Plan verwendet, wird dies explizit angezeigt (z.B. "Keinem Plan zugeordnet").
 - [ ] **Gantt-Diagramm:** Nährstoffplan als interaktives Gantt-Diagramm mit Wochen-Zeitachse und Dünger-Zeilen
 - [ ] **Gantt-Phasen-Header:** Zusammenfassende Phasenbalken über den Dünger-Zeilen mit EC/pH-Beschriftung
@@ -2949,9 +3302,28 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **NutrientPlan water_mix_ratio_ro_percent:** Optionales Feld (0–100) auf NutrientPlan speicher-/lesbar
 - [ ] **WaterMixCalculator.calculate_effective_water:** Gewichteter Durchschnitt aller 8 Wasserparameter aus Mischverhältnis korrekt berechnet
 - [ ] **WaterMixCalculator.suggest_calmag_correction:** CalMag-Defizit basierend auf effektivem Ca/Mg vs. Phasen-Zielwert berechnet
+- [ ] **WaterMixCalculator.recommend_mix_ratio:** Optimales RO/Leitungswasser-Verhältnis pro Phase empfohlen (EC-Headroom, CalMag-Minimierung, Chlor-Schutz)
+- [ ] **Mischverhältnis-Empfehlung phasenspezifisch:** Unterschiedliche Empfehlungen für Seedling (niedrige EC) vs. Flowering (hohe EC) vs. Dormancy
+- [ ] **Mischverhältnis-Empfehlung substratspezifisch:** Hydro 70% EC-Headroom, Coco 60%, Soil 50%
+- [ ] **Mischverhältnis-Empfehlung API-Endpoint:** GET `/nutrient-plans/{key}/phases/{phase}/water-mix-recommendation` liefert Empfehlung basierend auf Plan-Phase + Site-Wasserprofil
+- [ ] **Mischverhältnis-Empfehlung Alternativen:** Response enthält 2-3 alternative RO-Anteile mit Trade-off-Beschreibung
+- [ ] **Mischverhältnis-Empfehlung UI:** Empfehlung in NutrientPlan-Phase-Editor und TankFill-Dialog sichtbar (InfoBox mit Empfehlung + Begründung)
 - [ ] **Auto-Default base_water_ec_ms:** Wenn NutrientPlan `water_mix_ratio_ro_percent` gesetzt und Site `water_source` vorhanden, wird `base_water_ec_ms` automatisch berechnet
 - [ ] **CalMag-Empfehlung:** Bei Osmose-Anteil >50% und Ca <40 ppm wird CalMag-Supplement empfohlen
 - [ ] **base_water_ec_ms Range:** Obergrenze 1.5 mS (statt 1.0) für hartes Leitungswasser
+- [ ] **Normalisierte Referenzdosierung (NED-01):** Seed-Pläne speichern `reference_base_ec: 0.0` und `target_ec_ms` auf Phase-Ebene
+- [ ] **Phase-Level target_ec_ms (NED-02):** `target_ec_ms` wird von Channel-Ebene auf Phase-Ebene als Single Source of Truth hochgezogen
+- [ ] **Phase-Level Ca/Mg-Ziele (NED-03):** `target_calcium_ppm` und `target_magnesium_ppm` auf NutrientPlanPhaseEntry speicher-/lesbar
+- [ ] **Calculate-Dosages Endpoint (NED-04):** `POST /t/{slug}/nutrient-plans/{key}/calculate-dosages` liefert skalierte Dosierungen basierend auf Site-Wasserprofil
+- [ ] **3-Stufen-Pipeline (NED-05):** WaterMix → CalMag-Korrektur → EC-Budget-Skalierung in korrekter Reihenfolge
+- [ ] **CalMag-Automatik (NED-06):** Bei Ca/Mg-Defizit wird CalMag automatisch injiziert, EC vom Budget abgezogen
+- [ ] **Proportionserhaltung (NED-07):** Basisdünger-Verhältnisse bleiben bei Skalierung identisch (Skalierungsfaktor k einheitlich)
+- [ ] **Kein-Wasser-Fallback (NED-08):** Ohne Site/Wasserprofil werden unveränderte Referenzdosierungen zurückgegeben
+- [ ] **RO-Warnung (NED-09):** Bei RO-Anteil >= 80% Warnung bezüglich fehlender pH-Pufferkapazität
+- [ ] **Dosage-Source-Feld (NED-10):** Jede Dosierung enthält `source` (reference/scaled/auto_calmag) zur Nachvollziehbarkeit
+- [ ] **Misch-Anleitung (NED-11):** Step-by-Step `mixing_instructions` werden generiert (Reihenfolge nach `mixing_priority`)
+- [ ] **Abwärtskompatibilität (NED-12):** Pläne ohne `reference_base_ec` verwenden Legacy-Verhalten (ml/L = Enddosis)
+- [ ] **UI Dosierungsrechner (NED-13):** NutrientPlanDetailPage zeigt berechnete Dosierungen mit Site-Auswahl und EC-Budget-Visualisierung
 
 ### Testszenarien:
 
@@ -2998,7 +3370,39 @@ THEN:
   - Mitigation: "CalMag zuerst, 5min warten, dann Bittersalz"
 ```
 
-**Szenario 5: Inventar-Warnung**
+**Szenario 5: Mischverhältnis-Empfehlung pro Phase**
+```
+GIVEN: Site mit Leitungswasser EC 0.6 mS, Ca 80 ppm, Mg 20 ppm, Chlor 0.3 ppm
+       RO-Anlage vorhanden (Rest-EC 0.02 mS)
+       NutrientPlan "Cannabis Coco" mit Phase "flowering" (target_ec 1.8 mS, target_ca 200 ppm)
+WHEN: WaterMixCalculator.recommend_mix_ratio() aufgerufen
+THEN:
+  - recommended_ro_percent: 50 (niedrigster Wert mit ≥60% EC-Headroom)
+  - effective_ec_ms: 0.31 mS
+  - available_ec_for_nutrients_ms: 1.49 mS (83% Headroom)
+  - calmag_needed: true (Ca-Defizit 160 ppm)
+  - chlorine_warning: false (0.15 ppm < 0.5 Grenzwert)
+  - alternatives enthalten z.B. [
+      {ro_percent: 30, note: "Weniger CalMag, aber nur 72% EC-Headroom"},
+      {ro_percent: 80, note: "Maximales EC-Budget (94%), aber volles CalMag nötig"}
+    ]
+  - reasoning erklärt Trade-off zwischen EC-Budget und CalMag-Bedarf
+```
+
+**Szenario 5b: Mischverhältnis bei weichem vs. hartem Wasser**
+```
+GIVEN: Weiches Wasser (EC 0.15 mS, Ca 20 ppm)
+       Phase "seedling" (target_ec 0.8 mS)
+WHEN: recommend_mix_ratio()
+THEN: recommended_ro_percent: 0 (reines Leitungswasser reicht — EC bereits niedrig genug)
+
+GIVEN: Hartes Wasser (EC 0.9 mS, Ca 180 ppm, Chlor 0.8 ppm)
+       Phase "flowering" (target_ec 1.8 mS)
+WHEN: recommend_mix_ratio()
+THEN: recommended_ro_percent: 70 (Chlor >0.5 ppm erzwingt höheren RO-Anteil)
+```
+
+**Szenario 6: Inventar-Warnung**
 ```
 GIVEN: FloraGro Stock: 250ml, durchschnittlicher Verbrauch: 150ml/Woche
 WHEN: Wöchentlicher Inventory-Check
@@ -3353,10 +3757,64 @@ THEN:
   - Optional: Spalte oder Badge zeigt Anzahl der zugeordneten Pläne pro Dünger
 ```
 
+**Szenario 28: Normalisierte Dosierung — 100% RO-Wasser**
+```
+GIVEN: NutrientPlan "Cannabis GMB" mit Phase "vegetative":
+       target_ec_ms=1.5, target_calcium_ppm=150, target_magnesium_ppm=50,
+       reference_base_ec=0.0
+       Referenzdosierungen: Micro 4ml/L, Grow 4ml/L, Bloom 4ml/L
+       Site mit RO-Anlage (EC 0.02), Leitungswasser (EC 0.45, Ca 80ppm, Mg 15ppm)
+WHEN: POST /calculate-dosages mit ro_percent_override=100
+THEN:
+  - effective_water.ec_ms: 0.02
+  - calmag_correction.needs_correction: true
+  - calmag_correction.calcium_deficit_ppm: 150
+  - calmag_correction.dose_ml_per_liter: ~1.5
+  - ec_budget.scaling_factor: ~0.93 (mehr Headroom, aber CalMag-EC abgezogen)
+  - dosages enthält CalMag (source: auto_calmag) + skalierte Basisdünger
+  - warnings enthält "RO >= 80%: Kein pH-Puffer — pH nach Mischung prüfen"
+```
+
+**Szenario 29: Normalisierte Dosierung — Hartes Leitungswasser ohne RO**
+```
+GIVEN: Gleicher Plan wie Szenario 28
+       Site OHNE RO-Anlage, Leitungswasser (EC 0.80, Ca 160ppm, Mg 40ppm)
+WHEN: POST /calculate-dosages (kein RO verfügbar)
+THEN:
+  - effective_water.ec_ms: 0.80
+  - effective_water.ro_percent_used: 0
+  - calmag_correction.needs_correction: false (Ca 160 >= 150, Mg 40 >= 50 ist knapp)
+  - ec_budget.scaling_factor: ~0.48 (wenig Headroom)
+  - Basisdünger auf ~48% der Referenzdosis reduziert
+  - warnings enthält Hinweis auf eingeschränkten EC-Headroom
+```
+
+**Szenario 30: Normalisierte Dosierung — Legacy-Plan ohne reference_base_ec**
+```
+GIVEN: Alter NutrientPlan ohne reference_base_ec und target_calcium_ppm
+WHEN: POST /calculate-dosages
+THEN:
+  - Referenzdosierungen werden unverändert zurückgegeben (keine Skalierung)
+  - warnings: "Plan enthält keine Referenz-Normalisierung — Dosierungen unverändert"
+  - dosages[*].source: "reference" für alle Einträge
+```
+
+**Szenario 31: Normalisierte Dosierung — Kein Wasserprofil auf Site**
+```
+GIVEN: NutrientPlan mit reference_base_ec=0.0
+       Site ohne hinterlegtes TapWaterProfile
+WHEN: POST /calculate-dosages
+THEN:
+  - Referenzdosierungen unverändert zurückgegeben
+  - warnings: "Kein Wasserprofil auf der Site hinterlegt — Referenzdosierungen angezeigt"
+  - calmag_correction: null
+  - ec_budget.scaling_factor: 1.0
+```
+
 ---
 
 **Hinweise für RAG-Integration:**
-- Keywords: Düngung, NPK, EC, pH, Misch-Reihenfolge, Flushing, Runoff, Salzakkumulation, Nährstoffplan, NutrientPlan, Lifecycle-Plan, Phase-Entry, Dosierung, Plan-Zuweisung, Klonen, Deep-Copy, EC-Budget, Vollständigkeits-Validierung, Gantt-Diagramm, Gantt-Chart, Timeline, Zeitplan, Dünge-Timeline, Hover-Tooltip, Phasen-Farbcodierung, Dünger-Zeilen, Gießplan, WateringSchedule, Gießtermin, Wochentag, Intervall, ScheduleMode, WateringScheduleEngine, RUN_FOLLOWS_PLAN, Gießplan-Workflow, Foliar-Warnung, Blattdüngung-Blüte, Schimmelrisiko, Multi-Channel, DeliveryChannel, Ausbringungskanal, Fertigation, Drench, Foliar, TopDress, FertigationParams, DrenchParams, FoliarParams, TopDressParams, Channel-Schedule, Channel-EC-Override, Tank-Safe, get_due_channels, get_effective_channels, DeliveryChannelValidator, migrate-to-channels, channel_id, Dünger-Planzuordnung, Reverse-Lookup, USES_FERTILIZER
+- Keywords: Düngung, NPK, EC, pH, Misch-Reihenfolge, Flushing, Runoff, Salzakkumulation, Nährstoffplan, NutrientPlan, Lifecycle-Plan, Phase-Entry, Dosierung, Plan-Zuweisung, Klonen, Deep-Copy, EC-Budget, Vollständigkeits-Validierung, Gantt-Diagramm, Gantt-Chart, Timeline, Zeitplan, Dünge-Timeline, Hover-Tooltip, Phasen-Farbcodierung, Dünger-Zeilen, Gießplan, WateringSchedule, Gießtermin, Wochentag, Intervall, ScheduleMode, WateringScheduleEngine, RUN_FOLLOWS_PLAN, Gießplan-Workflow, Foliar-Warnung, Blattdüngung-Blüte, Schimmelrisiko, Multi-Channel, DeliveryChannel, Ausbringungskanal, Fertigation, Drench, Foliar, TopDress, FertigationParams, DrenchParams, FoliarParams, TopDressParams, Channel-Schedule, Channel-EC-Override, Tank-Safe, get_due_channels, get_effective_channels, DeliveryChannelValidator, migrate-to-channels, channel_id, Dünger-Planzuordnung, Reverse-Lookup, USES_FERTILIZER, Normalisierte-Dosierung, reference_base_ec, target_calcium_ppm, target_magnesium_ppm, CalMag-Automatik, Skalierungsfaktor, Proportionserhaltung, calculate-dosages, 3-Stufen-Pipeline, Osmosewasser, RO-Wasser, CalMag-Korrektur
 - Fachbegriffe: Elektrische Leitfähigkeit, Ausfällung, Chelat, Huminsäure, Osmose, Feeding-Schedule, Nutrient-Profile
 - Verknüpfung: Zentral für REQ-003 (Phasen-NPK, NutrientProfile vs. NutrientPlan), REQ-005 (EC-Sensorik), REQ-007 (Pre-Harvest)
 - Chemische Formeln: CaSO4, NO3-, Ca2+, Fe-EDTA

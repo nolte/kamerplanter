@@ -15,12 +15,15 @@
 | Name | Rosenkohl -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Saisonplan fuer Rosenkohl mit Indoor-Vorkultur ab Maerz und Freilandkultur ab Mai. Plagron Terra-Linie mit 5 Produkten (kein PK 13-14 -- Rosenkohl wird vor Bluete geerntet). Klassischer Starkzehrer mit sehr langer Kulturdauer (30 Wochen). N-Duengung ab August stoppen fuer kompakte Roeschen. Frost verbessert Geschmack. Einjaehrige Kultur, kein Zyklus-Neustart. | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | rosenkohl, brussels-sprouts, brassica, oleracea, gemmifera, starkzehrer, plagron, terra, erde, outdoor | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (einjaehrig, kein Neustart) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -141,7 +144,8 @@ Rosenkohl ist ein Starkzehrer mit moderater EC-Toleranz (bis 2.0 mS/cm in Erdkul
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer -- kein Duenger) |
 
@@ -165,7 +169,8 @@ Rosenkohl ist ein Starkzehrer mit moderater EC-Toleranz (bis 2.0 mS/cm in Erdkul
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6 |
+| target_ec_ms | 0.6  |
+| reference_ec_ms | 0.6  |
 | target_ph | 6.5 |
 | Terra Grow ml/L | 1.5 (Viertel-Dosis) |
 | Power Roots ml/L | 1.0 |
@@ -192,7 +197,8 @@ Rosenkohl ist ein Starkzehrer mit moderater EC-Toleranz (bis 2.0 mS/cm in Erdkul
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.5 |
+| target_ec_ms | 1.5  |
+| reference_ec_ms | 1.5  |
 | target_ph | 6.5 |
 | Terra Grow ml/L | 5.0 (volle Dosis) |
 | Power Roots ml/L | 1.0 |
@@ -205,7 +211,8 @@ Rosenkohl ist ein Starkzehrer mit moderater EC-Toleranz (bis 2.0 mS/cm in Erdkul
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.0 |
+| target_ec_ms | 1.0  |
+| reference_ec_ms | 1.0  |
 | target_ph | 6.5 |
 | Terra Bloom ml/L | 3.0 (reduziert) |
 | Pure Zym ml/L | 1.0 |
@@ -231,7 +238,8 @@ Rosenkohl ist ein Starkzehrer mit moderater EC-Toleranz (bis 2.0 mS/cm in Erdkul
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.0 |
+| target_ec_ms | 1.0  |
+| reference_ec_ms | 1.0  |
 | target_ph | 6.5 |
 | Terra Bloom ml/L | 3.0 (reduziert) |
 | Pure Zym ml/L | 1.0 |
@@ -258,7 +266,8 @@ Rosenkohl ist ein Starkzehrer mit moderater EC-Toleranz (bis 2.0 mS/cm in Erdkul
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | Pure Zym ml/L | 1.0 |
 | fertilizer_dosages | Pure Zym only |
@@ -418,6 +427,7 @@ Rosenkohl ist **sehr winterhart** (bis -15 degC):
   "name": "Rosenkohl \u2014 Plagron Terra",
   "description": "Saisonplan f\u00fcr Rosenkohl mit Indoor-Vorkultur ab M\u00e4rz und Freilandkultur ab Mai. Plagron Terra-Linie mit 5 Produkten (kein PK 13-14). Starkzehrer mit sehr langer Kulturdauer, 30 Wochen (M\u00e4rz\u2013November). N-Stopp ab August f\u00fcr kompakte R\u00f6schen.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -467,6 +477,7 @@ Rosenkohl ist **sehr winterhart** (bis -15 degC):
       "enabled": true,
       "notes": "Nur Wasser. Feine Spr\u00fchung, Substrat gleichm\u00e4\u00dfig feucht halten. Dunkelkeimer \u2013 abdecken!",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.03}
@@ -505,6 +516,7 @@ Rosenkohl ist **sehr winterhart** (bis -15 degC):
       "enabled": true,
       "notes": "Terra Grow Viertel-Dosis + Power Roots",
       "target_ec_ms": 0.6,
+      "reference_ec_ms": 0.6,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 1.5, "optional": false},
@@ -538,6 +550,7 @@ Rosenkohl ist **sehr winterhart** (bis -15 degC):
       "enabled": true,
       "notes": "Terra Grow + alle Additive (W9\u2013W19). Ab W20 N-Stopp: Wechsel auf naehrloesung-reife!",
       "target_ec_ms": 1.5,
+      "reference_ec_ms": 1.5,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 5.0, "optional": false},
@@ -554,6 +567,7 @@ Rosenkohl ist **sehr winterhart** (bis -15 degC):
       "enabled": true,
       "notes": "Ab W20 (N-Stopp): nur Terra Bloom + Pure Zym. Kein Terra Grow, kein Sugar Royal!",
       "target_ec_ms": 1.0,
+      "reference_ec_ms": 1.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 3.0, "optional": false},
@@ -587,6 +601,7 @@ Rosenkohl ist **sehr winterhart** (bis -15 degC):
       "enabled": true,
       "notes": "Nur Terra Bloom + Pure Zym. Kein N-betontes Produkt.",
       "target_ec_ms": 1.0,
+      "reference_ec_ms": 1.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 3.0, "optional": false},
@@ -628,6 +643,7 @@ Rosenkohl ist **sehr winterhart** (bis -15 degC):
       "enabled": true,
       "notes": "Nur Wasser + Pure Zym. Kein D\u00fcnger.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<pure_zym_key>", "ml_per_liter": 1.0, "optional": false}

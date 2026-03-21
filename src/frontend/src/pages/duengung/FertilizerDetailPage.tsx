@@ -24,6 +24,8 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import AddIcon from '@mui/icons-material/Add';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
@@ -35,6 +37,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import EmptyState from '@/components/common/EmptyState';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useTableLocalState } from '@/hooks/useTableState';
 import { useTabUrl } from '@/hooks/useTabUrl';
@@ -179,6 +182,8 @@ function EditSection({
 }
 
 export default function FertilizerDetailPage() {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { key } = useParams<{ key: string }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -503,6 +508,8 @@ export default function FertilizerDetailPage() {
         value={tab}
         onChange={(_, v) => setTab(v)}
         sx={{ mb: 2 }}
+        variant="scrollable"
+        scrollButtons="auto"
         aria-label={fertilizer.product_name}
       >
         <Tab label={t('pages.fertilizers.tabDetails')} data-testid="tab-details" />
@@ -779,6 +786,23 @@ export default function FertilizerDetailPage() {
               tableState={stocksTableState}
               variant="simple"
               ariaLabel={t('pages.fertilizers.tabStock')}
+              mobileCardRenderer={(r) => (
+                <MobileCard
+                  title={`${r.current_volume_ml.toLocaleString()} ml`}
+                  subtitle={r.purchase_date ? new Date(r.purchase_date).toLocaleDateString() : undefined}
+                  fields={[
+                    ...(r.expiry_date
+                      ? [{ label: t('pages.fertilizers.expiryDate'), value: new Date(r.expiry_date).toLocaleDateString() }]
+                      : []),
+                    ...(r.batch_number
+                      ? [{ label: t('pages.fertilizers.batchNumber'), value: r.batch_number }]
+                      : []),
+                    ...(r.cost_per_liter != null
+                      ? [{ label: t('pages.fertilizers.costPerLiter'), value: `${r.cost_per_liter.toFixed(2)} \u20ac/L` }]
+                      : []),
+                  ]}
+                />
+              )}
             />
           )}
         </Box>
@@ -1010,8 +1034,7 @@ export default function FertilizerDetailPage() {
       )}
 
       {/* Stock creation dialog */}
-      <Dialog
-        open={stockDialogOpen}
+      <Dialog fullScreen={fullScreen} open={stockDialogOpen}
         onClose={() => { setStockDialogOpen(false); stockForm.reset(); }}
         maxWidth="sm"
         fullWidth

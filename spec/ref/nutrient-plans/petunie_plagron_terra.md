@@ -15,12 +15,15 @@
 | Name | Petunie -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Saisonplan fuer Garten-Petunien (Petunia x hybrida) mit Indoor-Voranzucht ab Februar und Freilandkultur ab Mai. Plagron Terra-Linie mit 4 Produkten. Mittelzehrer bis Starkzehrer (heavy_feeder laut Steckbrief) mit hohem P/K-Bedarf in der Dauerbluete und kritischem Eisenbedarf. Annuell in Mitteleuropa -- kein Zyklus-Neustart. Balkonkasten, Ampel und Beet. Dauerbluete Mai--Oktober. Mitte-Sommer-Rueckschnitt (Juli) foerdert zweite Bluetenwelle. Ungiftig (ASPCA safe). | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | petunie, petunia, solanaceae, plagron, terra, erde, outdoor, balkon, ampel, mittelzehrer, starkzehrer, zierpflanze, dauerblueher | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (annuell, kein Neustart) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -142,7 +145,8 @@ Petunien sind laut Steckbrief Starkzehrer (heavy_feeder) mit EC-Optimum **1.2--2
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 5.8 |
 | fertilizer_dosages | [] (leer) |
 
@@ -165,7 +169,8 @@ Petunien sind laut Steckbrief Starkzehrer (heavy_feeder) mit EC-Optimum **1.2--2
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6 |
+| target_ec_ms | 0.6  |
+| reference_ec_ms | 0.6  |
 | target_ph | 5.8 |
 | Terra Grow ml/L | 2.5 (halbe Dosis) |
 | Pure Zym ml/L | -- (noch nicht) |
@@ -192,7 +197,8 @@ Petunien sind laut Steckbrief Starkzehrer (heavy_feeder) mit EC-Optimum **1.2--2
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.8 |
+| target_ec_ms | 0.8  |
+| reference_ec_ms | 0.8  |
 | target_ph | 5.8 |
 | Terra Grow ml/L | 5.0 (volle Dosis) |
 | Pure Zym ml/L | 1.0 |
@@ -219,7 +225,8 @@ Petunien sind laut Steckbrief Starkzehrer (heavy_feeder) mit EC-Optimum **1.2--2
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.9 |
+| target_ec_ms | 0.9  |
+| reference_ec_ms | 0.9  |
 | target_ph | 5.8 |
 | Terra Bloom ml/L | 5.0 |
 | Pure Zym ml/L | 1.0 |
@@ -249,7 +256,8 @@ Petunien sind laut Steckbrief Starkzehrer (heavy_feeder) mit EC-Optimum **1.2--2
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.0 |
 | fertilizer_dosages | [] (leer) |
 
@@ -378,6 +386,7 @@ Fuer vegetativ vermehrte Sorten (Surfinia, Supertunia, Wave):
   "name": "Petunie \u2014 Plagron Terra",
   "description": "Saisonplan f\u00fcr Garten-Petunien (Petunia \u00d7 hybrida) mit Indoor-Voranzucht ab Februar. Plagron Terra-Linie mit 4 Produkten. Mittelzehrer bis Starkzehrer mit kritischem Eisenbedarf. Dauerbl\u00fcte Mai\u2013Oktober. Annuell in Mitteleuropa. Balkonkasten, Ampel und Beet.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -427,6 +436,7 @@ Fuer vegetativ vermehrte Sorten (Surfinia, Supertunia, Wave):
       "enabled": true,
       "notes": "Kein D\u00fcnger. Leichtes Spr\u00fchen, Substrat gleichm\u00e4\u00dfig feucht.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 5.8,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.02}
@@ -457,6 +467,7 @@ Fuer vegetativ vermehrte Sorten (Surfinia, Supertunia, Wave):
       "enabled": true,
       "notes": "Terra Grow halbe Dosis. Schwach starten, Jungpflanzen nicht \u00fcberd\u00fcngen.",
       "target_ec_ms": 0.6,
+      "reference_ec_ms": 0.6,
       "target_ph": 5.8,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 2.5, "optional": false}
@@ -489,6 +500,7 @@ Fuer vegetativ vermehrte Sorten (Surfinia, Supertunia, Wave):
       "enabled": true,
       "notes": "Terra Grow + Pure Zym + Sugar Royal. Reihenfolge: Terra Grow \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen.",
       "target_ec_ms": 0.8,
+      "reference_ec_ms": 0.8,
       "target_ph": 5.8,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 5.0, "optional": false},
@@ -523,6 +535,7 @@ Fuer vegetativ vermehrte Sorten (Surfinia, Supertunia, Wave):
       "enabled": true,
       "notes": "Terra Bloom + Pure Zym + Sugar Royal. Reihenfolge: Terra Bloom \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen. pH unter 6.2 halten (Eisenverf\u00fcgbarkeit)!",
       "target_ec_ms": 0.9,
+      "reference_ec_ms": 0.9,
       "target_ph": 5.8,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 5.0, "optional": false},
@@ -565,6 +578,7 @@ Fuer vegetativ vermehrte Sorten (Surfinia, Supertunia, Wave):
       "enabled": true,
       "notes": "Kein D\u00fcnger. Nur bei Trockenheit gie\u00dfen.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.2}

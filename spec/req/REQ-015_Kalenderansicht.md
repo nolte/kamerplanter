@@ -7,7 +7,7 @@ Kategorie: Visualisierung & Integration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React (FullCalendar), iCalendar (RFC 5545)
 Status: Entwurf
-Version: 1.4 (Zierpflanzen-Aussaatkalender + Agrarbiologie-Review)
+Version: 1.5 (Security-Hardening: Feed-Token-Hashing, Tenant-Scoping, Revocation)
 ```
 
 ## 1. Business Case
@@ -58,26 +58,42 @@ Jede `CalendarEventCategory` hat eine fest zugeordnete Farbe für konsistente vi
   - Collection: `calendar_feeds`
   - Properties:
     - `name: str` (z.B. "Mein Hauptkalender", "Nur Zelt 1 kritisch")
-    - `token: str` (URL-sicherer Random-Token, 32 Zeichen, hex)
+    - `token_hash: str` (SHA-256-Hash des Feed-Tokens; Klartext wird nur bei Erstellung einmalig angezeigt)
     - `filters: CalendarFeedFilters` (embedded, siehe Python-Modelle)
     - `include_timeline: bool` (Timeline-Events in Feed einschließen, Default: false)
     - `alarm_enabled: bool` (VALARM in Events einschließen, Default: true)
+    - `is_active: bool` (Default: true — deaktivierte Feeds liefern 403)
+    - `expires_at: Optional[datetime]` (optionales Ablaufdatum; `null` = unbegrenzt gültig)
+    - `tenant_key: str` (Feed ist an einen Tenant gebunden — verhindert Cross-Tenant-Datenzugriff)
     - `created_at: datetime`
     - `updated_at: datetime`
     - `last_accessed_at: Optional[datetime]` (für Monitoring toter Feeds)
 
 ### Edges:
 
-- **`owns_feed`** — (Zukünftig: `users → calendar_feeds`, aktuell ohne Auth global)
-  - Vorbereitet für JWT-Auth, aktuell werden alle Feeds global behandelt
-  - Edge-Collection angelegt aber erst mit Auth-Modul aktiv genutzt
+- **`owns_feed`** — `users → calendar_feeds` (1:N, User besitzt Feed)
+  - Feed-Token-Zugriff liefert nur Daten des zugeordneten Users/Tenants
 
 ### Indizes:
 
 ```
 calendar_feeds:
-  - PERSISTENT INDEX on [token] UNIQUE    -- Feed-Lookup via URL-Token
+  - PERSISTENT INDEX on [token_hash] UNIQUE    -- Feed-Lookup via Token-Hash
+  - PERSISTENT INDEX on [tenant_key]           -- Tenant-Scoping
 ```
+
+### Sicherheitsanforderungen für iCal-Feeds
+
+<!-- Quelle: IT-Security-Review SEC-H-004 -->
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| CF-001 | Feed-Token MUSS als SHA-256-Hash gespeichert werden (analog zu API-Keys in REQ-023). Der Klartext-Token wird nur bei Erstellung einmalig angezeigt. | MUSS |
+| CF-002 | Jeder Feed MUSS an genau einen User und einen Tenant gebunden sein. Der Feed-Endpunkt liefert ausschließlich Events dieses Tenants. | MUSS |
+| CF-003 | Feed-Token MÜSSEN über die Feed-Verwaltung (UI) revozierbar sein (`is_active = false`). | MUSS |
+| CF-004 | Feed-Endpunkte MÜSSEN dem Rate-Limiting-Tier "Anonym" (30 req/min pro IP, NFR-001 §6.3) unterliegen. | MUSS |
+| CF-005 | Feeds SOLLEN ein optionales Ablaufdatum (`expires_at`) unterstützen. Abgelaufene Feeds liefern HTTP 410 Gone. | SOLL |
+| CF-006 | Feed-Inhalte DÜRFEN KEINE personenbezogenen Daten enthalten (keine Nutzernamen, E-Mails). Event-Titel und Beschreibungen verwenden nur Sachdaten (Pflanzenname, Aufgabentyp). | MUSS |
 
 ### AQL — Multi-Source-Aggregation:
 

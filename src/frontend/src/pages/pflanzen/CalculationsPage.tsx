@@ -10,6 +10,7 @@ import Alert from '@mui/material/Alert';
 import Grid from '@mui/material/Grid';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
+import MobileCard from '@/components/common/MobileCard';
 import { useApiError } from '@/hooks/useApiError';
 import * as calcApi from '@/api/endpoints/calculations';
 import type { VPDResponse, GDDResponse, PhotoperiodScheduleEntry, SlotCapacityResponse, SunTimesResponse } from '@/api/types';
@@ -210,6 +211,17 @@ export default function CalculationsPage() {
                     getRowKey={(s) => String(s.day)}
                     variant="simple"
                     ariaLabel={t('pages.calculations.photoperiod')}
+                    mobileCardRenderer={(s) => (
+                      <MobileCard
+                        title={`Day ${s.day}`}
+                        subtitle={`${s.photoperiod_hours.toFixed(1)} h`}
+                        fields={[
+                          { label: 'On', value: s.lights_on },
+                          { label: 'Off', value: s.lights_off },
+                          { label: 'DLI', value: s.dli.toFixed(2) },
+                        ]}
+                      />
+                    )}
                   />
                 </Box>
               )}

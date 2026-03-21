@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import type { ChipProps } from '@mui/material/Chip';
 import AddIcon from '@mui/icons-material/Add';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -115,6 +116,30 @@ export default function PlantingRunListPage() {
         emptyIllustration={kamiPlantingRuns}
         tableState={tableState}
         ariaLabel={t('pages.plantingRuns.title')}
+        mobileCardRenderer={(r) => (
+          <MobileCard
+            title={r.name}
+            subtitle={r.started_at ? new Date(r.started_at).toLocaleDateString() : undefined}
+            chips={
+              <>
+                <Chip
+                  label={t(`enums.plantingRunStatus.${r.status}`)}
+                  size="small"
+                  color={statusColor[r.status] ?? 'default'}
+                />
+                <Chip
+                  label={t(`enums.plantingRunType.${r.run_type}`)}
+                  size="small"
+                  variant="outlined"
+                />
+              </>
+            }
+            fields={[
+              { label: t('pages.plantingRuns.plannedQuantity'), value: String(r.planned_quantity) },
+              { label: t('pages.plantingRuns.actualQuantity'), value: String(r.actual_quantity) },
+            ]}
+          />
+        )}
       />
       <PlantingRunCreateDialog
         open={createOpen}

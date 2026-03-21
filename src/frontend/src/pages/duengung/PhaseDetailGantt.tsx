@@ -9,6 +9,9 @@ import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import AddIcon from '@mui/icons-material/Add';
+import Button from '@mui/material/Button';
 import { alpha, useTheme, type Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import type { NutrientPlanPhaseEntry, Fertilizer, ApplicationMethod } from '@/api/types';
@@ -23,6 +26,12 @@ interface Props {
   title: string;
   currentWeek?: number;
   onEntriesChange?: (updatedEntries: NutrientPlanPhaseEntry[]) => void;
+  /** Remove a fertilizer from all entries/channels in this group. */
+  onRemoveFertilizer?: (fertilizerKey: string, isAuto: boolean) => void;
+  /** Add a fertilizer to a delivery channel. */
+  onAddFertilizer?: (entryKey: string, channelId: string) => void;
+  /** Recommended RO% per sequence_order (fallback when entry has no explicit value). */
+  recommendedRoMap?: Map<number, number>;
 }
 
 interface FertRow {
@@ -33,12 +42,17 @@ interface FertRow {
   weekMap: Map<number, number>;
 }
 
+interface RoValue {
+  percent: number;
+  isRecommended: boolean;  // true = from water-mix engine, false = explicitly stored
+}
+
 interface ChannelGroup {
   groupKey: 'auto' | 'manual';
   label: string;
   isAuto: boolean;
   ecMap: Map<number, number | null>;
-  roMap: Map<number, number | null>;
+  roMap: Map<number, RoValue | null>;
   phMap: Map<number, number | null>;
   fertRows: FertRow[];
   weekStart: number;
@@ -112,7 +126,7 @@ function findBestEntryForEdit(
   return best;
 }
 
-export default function PhaseDetailGantt({ entries, fertilizers, title, currentWeek, onEntriesChange }: Props) {
+export default function PhaseDetailGantt({ entries, fertilizers, title, currentWeek, onEntriesChange, onRemoveFertilizer, onAddFertilizer, recommendedRoMap }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -168,8 +182,13 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
             group.ecMap.set(w, null);
           }
           // RO% is entry-level — collect once per entry/week (not per channel)
-          if (entry.water_mix_ratio_ro_percent != null) {
-            group.roMap.set(w, entry.water_mix_ratio_ro_percent);
+          // Fallback: use recommended value from water mix engine if no explicit value stored
+          const explicitRo = entry.water_mix_ratio_ro_percent;
+          const recommendedRo = recommendedRoMap?.get(entry.sequence_order);
+          if (explicitRo != null) {
+            group.roMap.set(w, { percent: explicitRo, isRecommended: false });
+          } else if (recommendedRo != null) {
+            group.roMap.set(w, { percent: recommendedRo, isRecommended: true });
           } else if (!group.roMap.has(w)) {
             group.roMap.set(w, null);
           }
@@ -203,7 +222,7 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
     }
 
     return [...groupMap.values()].sort((a, b) => (a.isAuto === b.isAuto ? 0 : a.isAuto ? -1 : 1));
-  }, [sorted, fertilizers, t]);
+  }, [sorted, fertilizers, t, recommendedRoMap]);
 
   const handleMove = useCallback(
     (groupKey: 'auto' | 'manual', fertKey: string, direction: 'up' | 'down') => {
@@ -348,7 +367,7 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
   const globalEnd = Math.max(...sorted.map((e) => e.week_end));
   const totalWeeks = globalEnd - globalStart + 1;
   const weeks = Array.from({ length: totalWeeks }, (_, i) => globalStart + i);
-  const labelWidth = isMobile ? 110 : 150;
+  const labelWidth = isMobile ? 90 : 150;
 
   const phaseColor = PHASE_COLORS[sorted[0].phase_name] ?? theme.palette.grey[600];
 
@@ -374,18 +393,36 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                 color={group.isAuto ? 'primary' : 'default'}
                 variant="outlined"
               />
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
                 {group.label}
               </Typography>
+              {onAddFertilizer && (() => {
+                const autoMethods = new Set<ApplicationMethod>(['fertigation']);
+                for (const entry of sorted) {
+                  const ch = entry.delivery_channels.find((c) => autoMethods.has(c.application_method) === group.isAuto);
+                  if (ch) {
+                    return (
+                      <Button
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={() => onAddFertilizer(entry.key, ch.channel_id)}
+                      >
+                        {t('pages.nutrientPlans.addFertilizer')}
+                      </Button>
+                    );
+                  }
+                }
+                return null;
+              })()}
             </Box>
 
             {/* Gantt grid */}
-            <Box sx={{ overflowX: 'auto' }}>
+            <Box sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', mx: isMobile ? -1 : 0 }}>
               <Box
                 sx={{
                   display: 'grid',
                   gridTemplateColumns: `${labelWidth}px repeat(${totalWeeks}, 1fr)`,
-                  minWidth: labelWidth + totalWeeks * 40,
+                  minWidth: labelWidth + totalWeeks * (isMobile ? 28 : 40),
                   gap: 0,
                 }}
               >
@@ -599,9 +636,9 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                       </Typography>
                     </Box>
                     {weeks.map((w) => {
-                      const ro = group.roMap.get(w);
-                      const hasRo = group.roMap.has(w) && ro != null && ro > 0;
-                      const isHatched = group.roMap.has(w) && (ro == null || ro === 0);
+                      const roVal = group.roMap.get(w);
+                      const hasRo = group.roMap.has(w) && roVal != null;
+                      const isHatched = group.roMap.has(w) && roVal == null;
                       const cellEditing = isEditing(w, group.groupKey, 'ro');
                       return (
                         <Box
@@ -648,25 +685,41 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                                 />
                               )}
                               {hasRo && (
-                                <Box
-                                  sx={{
-                                    width: '100%',
-                                    height: 22,
-                                    bgcolor: alpha(WATER_COLOR, 0.15 + (ro / 100) * 0.35),
-                                    borderRadius: 0.5,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                  }}
+                                <Tooltip
+                                  title={roVal.isRecommended
+                                    ? t('pages.gantt.roRecommended')
+                                    : t('pages.gantt.roExplicit')}
+                                  arrow
+                                  placement="top"
                                 >
-                                  <Typography
-                                    variant="caption"
-                                    sx={{ fontSize: '0.65rem', fontWeight: 600, lineHeight: 1 }}
-                                    color="primary.dark"
+                                  <Box
+                                    sx={{
+                                      width: '100%',
+                                      height: 22,
+                                      bgcolor: alpha(WATER_COLOR, 0.12 + (roVal.percent / 100) * 0.35),
+                                      borderRadius: 0.5,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      ...(roVal.isRecommended && {
+                                        border: `1px dashed ${alpha(WATER_COLOR, 0.5)}`,
+                                      }),
+                                    }}
                                   >
-                                    {ro}%
-                                  </Typography>
-                                </Box>
+                                    <Typography
+                                      variant="caption"
+                                      sx={{
+                                        fontSize: '0.65rem',
+                                        fontWeight: 600,
+                                        lineHeight: 1,
+                                        ...(roVal.isRecommended && { fontStyle: 'italic' }),
+                                      }}
+                                      color="primary.dark"
+                                    >
+                                      {roVal.percent}%
+                                    </Typography>
+                                  </Box>
+                                </Tooltip>
                               )}
                             </>
                           )}
@@ -770,6 +823,7 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                     canReorder={editable}
                     onMoveUp={() => handleMove(group.groupKey, row.fertKey, 'up')}
                     onMoveDown={() => handleMove(group.groupKey, row.fertKey, 'down')}
+                    onRemove={onRemoveFertilizer ? () => onRemoveFertilizer(row.fertKey, group.isAuto) : undefined}
                     editing={editing}
                     editValue={editValue}
                     groupKey={group.groupKey}
@@ -863,6 +917,7 @@ function FertilizerRow({
   canReorder,
   onMoveUp,
   onMoveDown,
+  onRemove,
   editing,
   editValue,
   groupKey,
@@ -882,6 +937,7 @@ function FertilizerRow({
   canReorder: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  onRemove?: () => void;
   editing: EditingCell | null;
   editValue: string;
   groupKey: 'auto' | 'manual';
@@ -932,7 +988,7 @@ function FertilizerRow({
             </IconButton>
           </Box>
         )}
-        <Box sx={{ minWidth: 0 }}>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
           <Typography variant="caption" noWrap sx={{ fontWeight: 600, display: 'block' }} color="text.secondary">
             {row.name}
           </Typography>
@@ -942,6 +998,16 @@ function FertilizerRow({
             </Typography>
           )}
         </Box>
+        {onRemove && (
+          <IconButton
+            size="small"
+            color="error"
+            onClick={onRemove}
+            sx={{ flexShrink: 0, p: 0.25, opacity: 0.5, '&:hover': { opacity: 1 } }}
+          >
+            <DeleteOutlineIcon sx={{ fontSize: 14 }} />
+          </IconButton>
+        )}
       </Box>
       {weeks.map((w) => {
         const ml = row.weekMap.get(w);

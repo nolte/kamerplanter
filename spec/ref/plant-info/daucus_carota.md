@@ -394,7 +394,7 @@ Moehren haben je nach Cultivar unterschiedliche Resistenzen, besonders gegen Alt
 | Sellerie | Apium graveolens | Gleiche Familie -- gemeinsame Krankheiten (Septoria, Alternaria), Naehrstoffkonkurrenz | moderate | `incompatible_with` |
 | Petersilie | Petroselinum crispum | Gleiche Familie -- gemeinsame Schaedlinge (Moehrenfliege) und Krankheiten | moderate | `incompatible_with` |
 | Fenchel | Foeniculum vulgare | Gleiche Familie + allelopathische Wirkung, hemmt Moehrenwachstum | severe | `incompatible_with` |
-| Rote Bete | Beta vulgaris | Naehrstoffkonkurrenz, aehnliche Wurzeltiefe | mild | `incompatible_with` |
+| Rote Bete | Beta vulgaris subsp. vulgaris | Konkurrenz um Bor und Mangan im Wurzelbereich; beide tiefwurzelnde Gemuese verdraengen sich gegenseitig bei geringer Bodentiefe | mild | `incompatible_with` |
 
 ### 6.4 Familien-Kompatibilitaet
 

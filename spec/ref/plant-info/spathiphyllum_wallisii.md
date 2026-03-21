@@ -74,7 +74,7 @@
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Luftreinigungs-Score | 0.9 | `species.air_purification_score` |
+| Luftreinigungs-Score | 0.7 (reduziert gegenueber NASA-Laborscore 0.9; Cummings & Waring 2020 zeigen vernachlaessigbaren Effekt bei realistischen Pflanzendichten) | `species.air_purification_score` |
 | Entfernte Schadstoffe | formaldehyde, benzene, trichloroethylene, xylene, ammonia | `species.removes_compounds` |
 
 **Hinweis:** Spathiphyllum war einer der Spitzenreiter in der NASA Clean Air Study (Wolverton 1989). Es ist eine der wenigen Pflanzen, die alle fuenf getesteten Schadstoffe filtern, einschliesslich Ammoniak. Die Phytoremediation erfolgt sowohl ueber die Blaetter als auch ueber die Wurzelzone (Rhizosphaere). Caveat: Bei realistischen Pflanzendichten in Wohnraeumen ist der Effekt vernachlaessigbar (Cummings & Waring 2020).
@@ -386,7 +386,7 @@ Entfaellt (reine Zimmerpflanze). Fruchtfolge und Mischkultur sind Konzepte des F
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,frost_sensitivity,nutrient_demand_level,green_manure_suitable,traits,air_purification_score
-Spathiphyllum wallisii,Einblatt;Friedenslilie;Peace Lily;White Sails,Araceae,Spathiphyllum,perennial,day_neutral,herb,fibrous,10b;11a;11b;12a;12b,0.0,Tropische Regenwaelder Kolumbiens und Venezuelas,sensitive,light_feeder,false,ornamental,0.9
+Spathiphyllum wallisii,Einblatt;Friedenslilie;Peace Lily;White Sails,Araceae,Spathiphyllum,perennial,day_neutral,herb,fibrous,10b;11a;11b;12a;12b,0.0,Tropische Regenwaelder Kolumbiens und Venezuelas,sensitive,light_feeder,false,ornamental,0.7
 ```
 
 ### 8.2 BotanicalFamily CSV-Zeile (identisch mit Monstera -- Araceae)

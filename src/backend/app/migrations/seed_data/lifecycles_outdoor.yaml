@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=./schemas/lifecycles.schema.yaml
 # Lifecycle configurations and growth phases for 38 outdoor species.
 # Phase names in English, display_name in German.
 # Durations calibrated for Central Europe (USDA Zone 7).

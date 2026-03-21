@@ -292,7 +292,7 @@ Wartezeit: Nach jeder Zugabe 1--2 Minuten ruehren/zirkulieren lassen, bevor das 
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Pflege-Stil | herb_tropical | `care_profiles.care_style` |
+| Pflege-Stil | outdoor_perennial | `care_profiles.care_style` |
 | Giessintervall Sommer (Tage) | 2--3 | `care_profiles.watering_interval_days` |
 | Winter-Multiplikator | -- (Freiland: Dormanz, kein Giessen; Topf: sehr selten, nur Austrocknung verhindern) | `care_profiles.winter_watering_multiplier` |
 | Giessmethode | drench_and_drain | `care_profiles.watering_method` |

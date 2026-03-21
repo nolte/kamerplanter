@@ -6,9 +6,9 @@ Kategorie: UI-Verhalten Unterkategorie: Tabellen, Listen, Datenvisualisierung
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.0
+Version: 1.1
 Autor: Business Analyst - Agrotech
-Datum: 2026-02-26
+Datum: 2026-03-18
 Tags: [tabellen, tables, sortierung, filter, suche, pagination, responsive, selektion, barrierefreiheit]
 Abhängigkeiten: [UI-NFR-001, UI-NFR-002, UI-NFR-003, UI-NFR-004, UI-NFR-005, UI-NFR-006, UI-NFR-007]
 Betroffene Module: [Frontend, Mobile]
@@ -316,10 +316,162 @@ Tabellenansichten bilden ihren Zustand in der URL ab. Beispiel:
 
 ---
 
+## 7. Domänenspezifische Filter-Matrix
+
+<!-- Quelle: Tabellen-Analyse-Report 2026-03-18 (L-001) -->
+
+R-008 definiert spaltenspezifische Filter als KANN-Anforderung. Dieser Abschnitt konkretisiert, **welche** Filter für **welche** Entität bereitgestellt werden SOLLEN, um die häufigsten Nutzer-Fragen direkt über die Listenansicht beantwortbar zu machen. Filter werden als Chip-Gruppe oberhalb der Tabelle (unterhalb des Suchfelds) dargestellt.
+
+### 7.1 Filter-Darstellung
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-041 | Spaltenspezifische Filter SOLLEN als MUI `Chip`-Gruppe mit Dropdown-Auswahl dargestellt werden. | SOLL |
+| R-042 | Enum-basierte Filter (Status, Phase, Typ) SOLLEN als Single-Select-Chip-Gruppe dargestellt werden — ein Klick auf den aktiven Chip deaktiviert den Filter. | SOLL |
+| R-043 | Zeitraum-Filter SOLLEN als Datums-Range-Picker (Von/Bis) dargestellt werden. | SOLL |
+| R-044 | Alle aktiven Filter MÜSSEN als URL-Query-Parameter abgebildet werden (vgl. §4). | MUSS |
+| R-045 | Filter-Werte SOLLEN über die i18n-Schlüssel `enums.<enumName>.<value>` lokalisiert werden (vgl. UI-NFR-007). | SOLL |
+
+### 7.2 Filter pro Entität
+
+| Entität | REQ | Filter | Typ | URL-Parameter | Stufe |
+|---------|-----|--------|-----|---------------|-------|
+| **PlantInstance** | REQ-003 | Wachstumsphase | Enum-Chip (`germination`, `seedling`, `vegetative`, `flowering`, `harvest`, `drying`, `curing`) | `phase` | SOLL |
+| PlantInstance | REQ-003 | Standort (Site) | Dropdown (Referenz) | `site_key` | SOLL |
+| PlantInstance | REQ-003 | Pflanzdurchlauf (Run) | Dropdown (Referenz) | `run_key` | KANN |
+| **Task** | REQ-006 | Status | Enum-Chip (`pending`, `in_progress`, `completed`, `skipped`, `dormant`) | `status` | SOLL |
+| Task | REQ-006 | Zuweisung | Toggle „Meine Aufgaben" / „Alle Aufgaben" | `assigned_to=me` | SOLL |
+| Task | REQ-006 | Priorität | Enum-Chip (`low`, `medium`, `high`, `critical`) | `priority` | KANN |
+| Task | REQ-006 | Kategorie | Enum-Chip (`watering`, `feeding`, `training`, `inspection`, `harvest`, `maintenance`, `seasonal`, `phenological`) | `category` | KANN |
+| Task | REQ-006 | Fälligkeitszeitraum | Datums-Range | `due_from`, `due_to` | KANN |
+| Task | REQ-006 | Tags | Chip-Autocomplete (Freitext) | `tag` | KANN |
+| **HarvestBatch** | REQ-007 | Erntezeitraum | Datums-Range | `harvested_from`, `harvested_to` | SOLL |
+| HarvestBatch | REQ-007 | Qualitätsgrad | Enum-Chip (`A+`, `A`, `B`, `C`) | `grade` | KANN |
+| HarvestBatch | REQ-007 | Erntetyp | Enum-Chip (`full`, `partial`, `continuous`) | `harvest_type` | KANN |
+| **Pest** | REQ-010 | Befallstyp | Enum-Chip (`insect`, `mite`, `fungus`, `bacteria`, `virus`, `nematode`) | `pest_type` | SOLL |
+| **Disease** | REQ-010 | Krankheitstyp | Enum-Chip (`fungal`, `bacterial`, `viral`, `physiological`, `nutrient_deficiency`) | `disease_type` | SOLL |
+| **Treatment** | REQ-010 | Behandlungsmethode | Enum-Chip (`cultural`, `biological`, `chemical`) | `method` | SOLL |
+| Treatment | REQ-010 | Karenz-Status | Toggle „Aktive Karenz" / „Alle" | `karenz_active=true` | SOLL |
+| **FeedingEvent** | REQ-004 | Zeitraum | Datums-Range | `date_from`, `date_to` | SOLL |
+| FeedingEvent | REQ-004 | Pflanzdurchlauf (Run) | Dropdown (Referenz) | `run_key` | KANN |
+| **Fertilizer** | REQ-004 | Dünger-Typ | Enum-Chip (`base`, `supplement`, `booster`, `biological`, `ph_adjuster`, `organic`) | `fertilizer_type` | SOLL |
+| Fertilizer | REQ-004 | Bio-Zertifizierung | Toggle „Nur Bio" | `is_organic=true` | KANN |
+| Fertilizer | REQ-004 | Tank-Sicherheit | Toggle „Nur tanksicher" | `tank_safe=true` | KANN |
+| **NutrientPlan** | REQ-004 | Substrattyp | Enum-Chip | `substrate_type` | KANN |
+| NutrientPlan | REQ-004 | Vorlage | Toggle „Nur Vorlagen" | `is_template=true` | KANN |
+| **PlantingRun** | REQ-013 | Status | Enum-Chip (`planned`, `active`, `harvesting`, `completed`, `cancelled`) | `status` | SOLL |
+| PlantingRun | REQ-013 | Standort (Site) | Dropdown (Referenz) | `site_key` | KANN |
+| **Tank** | REQ-014 | Standort (Site) | Dropdown (Referenz) | `site_key` | KANN |
+| **TankFillEvent** | REQ-014 | Zeitraum | Datums-Range | `date_from`, `date_to` | SOLL |
+| TankFillEvent | REQ-014 | Befüllungstyp | Enum-Chip (`full_change`, `top_up`, `additive_only`) | `fill_type` | KANN |
+| **WateringEvent** | REQ-014 | Zeitraum | Datums-Range | `date_from`, `date_to` | SOLL |
+| **Substrate** | REQ-019 | Substrattyp | Enum-Chip (13 Werte, vgl. REQ-019) | `substrate_type` | SOLL |
+| **Species** | REQ-001 | Botanische Familie | Dropdown (Referenz) | `family_key` | KANN |
+| **ImportJob** | REQ-012 | Import-Status | Enum-Chip (`pending`, `validated`, `imported`, `failed`) | `status` | SOLL |
+| **Membership** | REQ-024 | Rolle | Enum-Chip (`admin`, `grower`, `viewer`) | `role` | KANN |
+| **WorkflowTemplate** | REQ-006 | Kategorie | Enum-Chip | `category` | KANN |
+
+### 7.3 CSV-Import-Vorschautabelle (REQ-012 Sonderfall)
+
+<!-- Quelle: Tabellen-Analyse-Report 2026-03-18 (L-004) -->
+
+Die Import-Vorschautabelle hat besondere Anforderungen, die über die Standard-DataTable hinausgehen:
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-046 | Jede Zeile MUSS einen visuellen Validierungsstatus anzeigen: grün (valid), rot (invalid), gelb (duplicate). | MUSS |
+| R-047 | Fehlerhafte Felder innerhalb einer Zeile SOLLEN farblich hervorgehoben werden (roter Rand). | SOLL |
+| R-048 | Ein Zeilen-Status-Filter SOLL bereitgestellt werden: „Nur Fehler anzeigen" / „Nur Duplikate" / „Alle". | SOLL |
+| R-049 | Einzelne Zeilen SOLLEN über eine Checkbox vom Import ausschließbar sein („Zeile überspringen"). | SOLL |
+| R-050 | Oberhalb der Vorschautabelle MUSS eine Zusammenfassung angezeigt werden: „X gültig, Y fehlerhaft, Z Duplikate". | MUSS |
+
+---
+
+## 8. Tablet-Spaltenprioritäten
+
+<!-- Quelle: Tabellen-Analyse-Report 2026-03-18 (L-003) -->
+
+R-020 fordert, dass auf Tablet (≤1024px) weniger wichtige Spalten ausgeblendet werden. Dieser Abschnitt definiert die Spaltenprioritäten pro Listenansicht. Spalten mit `hideBelowBreakpoint: 'md'` werden auf Tablet ausgeblendet, Spalten mit `hideBelowBreakpoint: 'lg'` nur auf großen Tablets.
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-051 | Jede ListPage MUSS für jede Spalte eine Priorität definieren: **primär** (immer sichtbar), **sekundär** (ab `md` ausblenden) oder **tertiär** (ab `lg` ausblenden). | SOLL |
+| R-052 | Primärspalten MÜSSEN den Datensatz eindeutig identifizierbar und die Kernfrage der Listenansicht beantwortbar machen (max. 3–4 Spalten). | MUSS |
+
+### 8.1 Spaltenprioritäten pro Listenansicht
+
+| ListPage | Primär (immer sichtbar) | Sekundär (`hideBelowBreakpoint: 'md'`) | Tertiär (`hideBelowBreakpoint: 'lg'`) |
+|----------|------------------------|----------------------------------------|---------------------------------------|
+| **PlantInstance** | Name, Sorte, Phase | Standort, Pflanzdatum | Instanz-ID, Entfernt-am |
+| **Task** | Name, Status, Fälligkeit | Priorität, Zugewiesen an | Kategorie, Erstellt-am |
+| **HarvestBatch** | Batch-ID, Datum, Gewicht | Qualität, Erntetyp | Pflanzen-Key |
+| **PlantingRun** | Name, Status, Anzahl Pflanzen | Species, Standort | Start-/Enddatum |
+| **FertilizerList** | Name, Typ, Hersteller | NPK-Verhältnis | EC-Beitrag, Tank-Sicherheit |
+| **FeedingEvent** | Datum, Run/Pflanze, EC-Ist | EC-Soll, pH | Notizen |
+| **TankList** | Name, Standort, Volumen | EC, pH | Letzte Befüllung |
+| **PestList** | Deutscher Name, Typ | Wissenschaftl. Name | Wirtspflanzen |
+| **DiseaseList** | Deutscher Name, Typ | Wissenschaftl. Name | Symptome |
+| **TreatmentList** | Name, Methode, Wirkstoff | Karenzzeit | Hersteller |
+| **SubstrateList** | Name, Typ, pH | EC, Standort | Erstellt-am |
+| **SpeciesList** | Deutscher Name, Familie | Wissenschaftl. Name | Nährstoffbedarf |
+| **WorkflowTemplate** | Name, Kategorie | Beschreibung | Erstellt-am |
+| **WateringEvent** | Datum, Tank, Volumen | pH, EC | Notizen |
+| **ImportJob** | Dateiname, Status, Datum | Gültige/Fehlerhafte Zeilen | — |
+| **Membership** | Nutzername, Rolle | E-Mail | Beitrittsdatum |
+
+---
+
+## 9. Daten-Export
+
+<!-- Quelle: Tabellen-Analyse-Report 2026-03-18 (L-005) -->
+
+### 9.1 Allgemeine Export-Regeln
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-053 | Listenansichten KÖNNEN einen Export-Button anbieten, der die aktuell gefilterte/sortierte Ansicht als Datei herunterlädt. | KANN |
+| R-054 | Unterstützte Exportformate SOLLEN mindestens CSV umfassen. PDF ist optional. | SOLL |
+| R-055 | Der Export MUSS die aktuell aktiven Filter und die aktuelle Sortierung berücksichtigen — nicht die Gesamtdatenmenge. | MUSS |
+| R-056 | Der Export-Button SOLL in der Toolbar neben dem Suchfeld platziert werden (Icon: Download). | SOLL |
+| R-057 | Bei aktiver Zeilen-Selektion (§2.7) SOLL der Export nur die selektierten Zeilen exportieren. | SOLL |
+
+### 9.2 Compliance-relevante Exporte (Priorität)
+
+Folgende Exporte haben fachlichen Compliance-Bezug und SOLLEN priorisiert implementiert werden:
+
+| Entität | REQ | Exportformat | Begründung |
+|---------|-----|-------------|------------|
+| HarvestBatch | REQ-007 | CSV + PDF | CanG-Dokumentation: Erntemengen, Qualität, Rückverfolgbarkeit |
+| TreatmentApplication | REQ-010 | CSV + PDF | Pflanzenschutz-Protokoll mit Karenzzeiten |
+| FeedingEvent | REQ-004 | CSV | Düngeprotokoll (EC/pH-Verlauf) |
+
+---
+
+## 10. Akzeptanzkriterien — Ergänzungen
+
+Die folgenden Akzeptanzkriterien ergänzen §5:
+
+- [ ] **Domänenspezifische Filter (§7)**
+    - [ ] PlantInstance-Listenansicht bietet Phase-Filter als Chip-Gruppe
+    - [ ] Task-Listenansicht bietet Status-Filter und „Meine Aufgaben"-Toggle
+    - [ ] Alle SOLL-Filter aus §7.2 sind implementiert
+    - [ ] Filter-Werte sind URL-persistiert und teilbar
+    - [ ] Filter-Werte sind i18n-lokalisiert (DE/EN)
+- [ ] **Tablet-Spaltenprioritäten (§8)**
+    - [ ] Alle ListPages definieren `hideBelowBreakpoint` für sekundäre/tertiäre Spalten
+    - [ ] Auf Tablet (≤1024px) sind max. 3–4 Primärspalten sichtbar
+- [ ] **Import-Vorschautabelle (§7.3)**
+    - [ ] Zeilenweiser Validierungsstatus (grün/rot/gelb) ist sichtbar
+    - [ ] Status-Filter und Zusammenfassung sind vorhanden
+- [ ] **Export (§9)**
+    - [ ] Compliance-relevante Exporte (HarvestBatch, TreatmentApplication) sind als CSV/PDF verfügbar
+
+---
+
 **Dokumenten-Ende**
 
-**Version**: 1.0
+**Version**: 1.1
 **Status**: Entwurf
-**Letzte Aktualisierung**: 2026-02-26
+**Letzte Aktualisierung**: 2026-03-18
 **Review**: Pending
 **Genehmigung**: Pending

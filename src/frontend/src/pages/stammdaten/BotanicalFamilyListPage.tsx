@@ -11,6 +11,8 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchBotanicalFamilies } from '@/store/slices/botanicalFamiliesSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import type { BotanicalFamily } from '@/api/types';
+import Chip from '@mui/material/Chip';
+import MobileCard from '@/components/common/MobileCard';
 import BotanicalFamilyCreateDialog from './BotanicalFamilyCreateDialog';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
 
@@ -98,6 +100,37 @@ export default function BotanicalFamilyListPage() {
         emptyIllustration={kamiMasterdata}
         tableState={tableState}
         ariaLabel={t('pages.botanicalFamilies.title')}
+        mobileCardRenderer={(r) => (
+          <MobileCard
+            title={r.name}
+            subtitle={
+              i18n.language === 'en'
+                ? r.common_name_en || r.common_name_de
+                : r.common_name_de || r.common_name_en
+            }
+            chips={
+              <>
+                <Chip
+                  label={t(`enums.nutrientDemand.${r.typical_nutrient_demand}`)}
+                  size="small"
+                  variant="outlined"
+                />
+                <Chip
+                  label={t(`enums.frostTolerance.${r.frost_tolerance}`)}
+                  size="small"
+                  variant="outlined"
+                />
+                {r.rotation_category && (
+                  <Chip label={r.rotation_category} size="small" variant="outlined" />
+                )}
+              </>
+            }
+            fields={[
+              { label: t('pages.botanicalFamilies.rootDepth'), value: t(`enums.rootDepth.${r.typical_root_depth}`) },
+              { label: t('pages.botanicalFamilies.speciesCount'), value: r.species_count },
+            ]}
+          />
+        )}
       />
 
       <BotanicalFamilyCreateDialog

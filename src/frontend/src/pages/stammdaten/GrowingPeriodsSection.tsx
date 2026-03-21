@@ -117,18 +117,15 @@ function computeTimeline(period: GrowingPeriod, isOrnamental: boolean): Timeline
   }
 
   // 2. Outdoor planting (Direktsaat)
-  let latestSowEnd: number | null = indoorEndMonth;
   if (period.direct_sow_months.length > 0) {
     for (const [s, e] of monthsToRanges(period.direct_sow_months)) {
       const start = indoorEndMonth != null && s <= indoorEndMonth ? indoorEndMonth + 1 : s;
       if (start > e) continue;
       bars.push({ phase: 'outdoor_planting', startMonth: start, endMonth: e, fromYear: null });
-      latestSowEnd = Math.max(latestSowEnd ?? 0, e);
     }
   } else if (period.sowing_outdoor_after_last_frost_days != null) {
     const startMonth = DEFAULT_LAST_FROST_MONTH;
     bars.push({ phase: 'outdoor_planting', startMonth, endMonth: startMonth, fromYear: null });
-    latestSowEnd = Math.max(latestSowEnd ?? 0, startMonth);
   }
 
   // 3. Terminal phase (harvest or flowering)
@@ -141,26 +138,74 @@ function computeTimeline(period: GrowingPeriod, isOrnamental: boolean): Timeline
     ? (period.bloom_from_year ?? null)
     : (period.harvest_from_year ?? null);
 
-  let earliestTerminal: number | null = null;
+  // Build occupied-months set for sowing to use in terminal clipping
+  const sowBars = bars.filter((b) => b.phase === 'indoor_sowing' || b.phase === 'outdoor_planting');
+
   if (terminalMonths.length > 0) {
     for (const [s, e] of monthsToRanges(terminalMonths)) {
       let start = s;
-      if (latestSowEnd != null && start <= latestSowEnd && e > latestSowEnd) {
-        start = latestSowEnd + 1;
+      // Clip terminal start to after the sowing range it overlaps with.
+      // Year-crossing exception: if terminal range is entirely before the
+      // sowing range (e.g. harvest Jun-Aug, sow Oct-Nov), keep as-is.
+      for (const sow of sowBars) {
+        if (start >= sow.startMonth && start <= sow.endMonth && e > sow.endMonth) {
+          start = sow.endMonth + 1;
+        }
       }
       if (start > e) continue;
       bars.push({ phase: terminalPhase, startMonth: start, endMonth: e, fromYear: terminalFromYear });
-      if (earliestTerminal == null || start < earliestTerminal) earliestTerminal = start;
     }
   }
 
-  // 4. Growth — explicit growth_months preferred, otherwise gap-fill
+  // 4. Growth — explicit growth_months preferred, otherwise circular per-range gap-fill
   if (period.growth_months.length > 0) {
     for (const [s, e] of monthsToRanges(period.growth_months)) {
       bars.push({ phase: 'growth', startMonth: s, endMonth: e, fromYear: null });
     }
-  } else if (latestSowEnd != null && earliestTerminal != null && earliestTerminal > latestSowEnd + 1) {
-    bars.push({ phase: 'growth', startMonth: latestSowEnd + 1, endMonth: earliestTerminal - 1, fromYear: null });
+  } else {
+    const termBars = bars.filter((b) => b.phase === 'harvest' || b.phase === 'flowering');
+
+    if (sowBars.length > 0 && termBars.length > 0) {
+      // Build set of months occupied by sowing or terminal bars
+      const occupied = new Set<number>();
+      for (const bar of [...sowBars, ...termBars]) {
+        for (let m = bar.startMonth; m <= bar.endMonth; m++) occupied.add(m);
+      }
+
+      // For each sowing bar, trace forward circularly until hitting an
+      // occupied month (terminal or another sow range). Unoccupied months
+      // in between become growth. This handles year-crossing naturally.
+      const growthSet = new Set<number>();
+      for (const sow of sowBars) {
+        for (let offset = 1; offset <= 11; offset++) {
+          const m = ((sow.endMonth - 1 + offset) % 12) + 1;
+          if (occupied.has(m)) break;
+          growthSet.add(m);
+        }
+      }
+
+      // Convert collected growth months to ranges
+      const sortedGrowth = [...growthSet].sort((a, b) => a - b);
+      for (const [s, e] of monthsToRanges(sortedGrowth)) {
+        bars.push({ phase: 'growth', startMonth: s, endMonth: e, fromYear: null });
+      }
+    }
+
+    // 4-fallback: No sowing bars but terminal bars exist (indoor ornamentals).
+    // Fill all non-terminal months with growth.
+    if (sowBars.length === 0 && termBars.length > 0) {
+      const terminalSet = new Set<number>();
+      for (const bar of termBars) {
+        for (let m = bar.startMonth; m <= bar.endMonth; m++) terminalSet.add(m);
+      }
+      const growthMonths: number[] = [];
+      for (let m = 1; m <= 12; m++) {
+        if (!terminalSet.has(m)) growthMonths.push(m);
+      }
+      for (const [s, e] of monthsToRanges(growthMonths)) {
+        bars.push({ phase: 'growth', startMonth: s, endMonth: e, fromYear: null });
+      }
+    }
   }
 
   // Also show bloom for non-ornamental if bloom_months exist and we used harvest as terminal

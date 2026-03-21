@@ -410,7 +410,7 @@ Nicht anwendbar -- Erbsen sind einjaehrige Kulturpflanzen. Die Pflanzen sterben 
 | Lauch / Porree | Allium porrum | Wie andere Allium-Arten: negative Wechselwirkung mit Rhizobium | moderate | `incompatible_with` |
 | Tomate | Solanum lycopersicum | Unterschiedliche Wasserbeduerfnisse, Erbsen moegen es kuehler | mild | `incompatible_with` |
 | Kartoffel | Solanum tuberosum | Konkurrenz um Platz und Licht, gemeinsame Bodenschaedlinge | mild | `incompatible_with` |
-| Buschbohne / Stangenbohne | Phaseolus vulgaris | Gleiche Familie, Konkurrenz um Rhizobium-Staemme, gemeinsame Krankheiten | moderate | `incompatible_with` |
+| Buschbohne / Stangenbohne | Phaseolus vulgaris | Gleiche Familie, Konkurrenz um Rhizobium-Staemme, gemeinsame Krankheiten (Fusarium, BCMV) | mild | `incompatible_with` |
 
 ### 6.4 Familien-Kompatibilitaet
 

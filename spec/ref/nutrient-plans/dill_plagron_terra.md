@@ -15,12 +15,15 @@
 | Name | Dill (Direktsaat) -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Minimalistischer Naehrstoffplan fuer Dill (Schwachzehrer). Nur Terra Grow + Pure Zym. Schnelle Kultur (8--12 Wochen). Direktsaat ab April, Pfahlwurzel vertraegt kein Umtopfen! Staffelsaat alle 3--4 Wochen fuer kontinuierliche Ernte. Bewusst niedrige Dosierung -- ueberduengter Dill schmeckt fad. | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | dill, anethum, gurkenkraut, plagron, terra, erde, kraeutergarten, schwachzehrer, outdoor, direktsaat, schnellkultur | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (annuell, kein Neustart -- Staffelsaat als neue Aussaat) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -133,7 +136,8 @@ Manuelle Giessduengung per Giesskanne. Minimale Volumina (Schwachzehrer, Freilan
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.0 |
 | fertilizer_dosages | [] (leer) |
 
@@ -156,7 +160,8 @@ Manuelle Giessduengung per Giesskanne. Minimale Volumina (Schwachzehrer, Freilan
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.4 |
+| target_ec_ms | 0.4  |
+| reference_ec_ms | 0.4  |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 1.5 (Viertel-Dosis) |
 | Pure Zym ml/L | -- (noch nicht) |
@@ -180,7 +185,8 @@ Manuelle Giessduengung per Giesskanne. Minimale Volumina (Schwachzehrer, Freilan
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.5 |
+| target_ec_ms | 0.5  |
+| reference_ec_ms | 0.5  |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 2.0 (halbe Dosis, Schwachzehrer) |
 | Pure Zym ml/L | 1.0 |
@@ -204,7 +210,8 @@ Manuelle Giessduengung per Giesskanne. Minimale Volumina (Schwachzehrer, Freilan
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.0 |
 | fertilizer_dosages | [] (leer) |
 
@@ -228,7 +235,8 @@ Manuelle Giessduengung per Giesskanne. Minimale Volumina (Schwachzehrer, Freilan
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.0 |
 | fertilizer_dosages | [] (leer) |
 
@@ -333,6 +341,7 @@ Bei 4 Staffelsaat-Zyklen pro Jahr: ~4 ml Terra Grow, ~2 ml Pure Zym.
   "name": "Dill (Direktsaat) \u2014 Plagron Terra",
   "description": "Minimalistischer N\u00e4hrstoffplan f\u00fcr Dill (Schwachzehrer). Schnelle Kultur (12 Wochen). Direktsaat, kein Pikieren (Pfahlwurzel). Staffelsaat alle 3\u20134 Wochen. Nur Terra Grow + Pure Zym. Bewusst niedrige Dosierung \u2014 \u00fcberd\u00fcngter Dill schmeckt fad.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -382,6 +391,7 @@ Bei 4 Staffelsaat-Zyklen pro Jahr: ~4 ml Terra Grow, ~2 ml Pure Zym.
       "enabled": true,
       "notes": "Kein D\u00fcnger. Substrat gleichm\u00e4\u00dfig feucht.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.02}
@@ -412,6 +422,7 @@ Bei 4 Staffelsaat-Zyklen pro Jahr: ~4 ml Terra Grow, ~2 ml Pure Zym.
       "enabled": true,
       "notes": "Terra Grow Viertel-Dosis. Schwachzehrer \u2014 weniger ist mehr.",
       "target_ec_ms": 0.4,
+      "reference_ec_ms": 0.4,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 1.5, "optional": false}
@@ -444,6 +455,7 @@ Bei 4 Staffelsaat-Zyklen pro Jahr: ~4 ml Terra Grow, ~2 ml Pure Zym.
       "enabled": true,
       "notes": "Halbe Dosis Terra Grow + Pure Zym. NICHT \u00fcberdosieren!",
       "target_ec_ms": 0.5,
+      "reference_ec_ms": 0.5,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 2.0, "optional": false},
@@ -477,6 +489,7 @@ Bei 4 Staffelsaat-Zyklen pro Jahr: ~4 ml Terra Grow, ~2 ml Pure Zym.
       "enabled": true,
       "notes": "Kein D\u00fcnger. Nur Wasser.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.1}
@@ -515,6 +528,7 @@ Bei 4 Staffelsaat-Zyklen pro Jahr: ~4 ml Terra Grow, ~2 ml Pure Zym.
       "enabled": true,
       "notes": "Kein D\u00fcnger. Nur bei Trockenheit.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.1}

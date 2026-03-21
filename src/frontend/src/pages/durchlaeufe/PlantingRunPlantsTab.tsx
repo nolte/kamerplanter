@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
+import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import EmptyState from '@/components/common/EmptyState';
 import { useNavigate } from 'react-router-dom';
@@ -50,6 +52,19 @@ export default function PlantingRunPlantsTab({
           onRowClick={(r) => navigate(`/pflanzen/plant-instances/${r.key}`)}
           variant="simple"
           ariaLabel={t('pages.plantingRuns.tabPlants')}
+          mobileCardRenderer={(r) => (
+            <MobileCard
+              title={r.instance_id}
+              subtitle={r.planted_on}
+              chips={
+                <Chip label={r.current_phase} size="small" color="primary" />
+              }
+              fields={[
+                ...(r.removed_on ? [{ label: t('pages.plantInstances.removedOn'), value: r.removed_on }] : []),
+                ...(r.detached_at ? [{ label: t('pages.plantingRuns.detached'), value: t('common.yes') }] : []),
+              ]}
+            />
+          )}
         />
       )}
     </Box>

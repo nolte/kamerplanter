@@ -47,8 +47,16 @@ class ArangoPlantInstanceRepository(IPlantInstanceRepository, BaseArangoReposito
         return created
 
     def update(self, key: PlantID, plant: PlantInstance) -> PlantInstance:
-        doc = BaseArangoRepository.update(self, key, plant)
-        return PlantInstance(**self._resolve_phase_name(doc))
+        # Use exclude_none=False so nullable fields (location_key, slot_key, etc.)
+        # can be explicitly set to null.  keep_none=False tells ArangoDB to remove
+        # the attribute from the document when the value is null.
+        data = plant.model_dump(by_alias=True, exclude_none=False, mode="json")
+        data.pop("_key", None)
+        data.pop("created_at", None)
+        data.pop("updated_at", None)
+        data["updated_at"] = datetime.now(UTC).isoformat()
+        result = self.collection.update({"_key": key, **data}, return_new=True, keep_none=False)
+        return PlantInstance(**self._resolve_phase_name(self._from_doc(result["new"])))
 
     def delete(self, key: PlantID) -> bool:
         plant_id = f"{col.PLANT_INSTANCES}/{key}"

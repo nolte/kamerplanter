@@ -1,0 +1,75 @@
+# JSON Schema for activities.yaml
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "activities.schema.yaml"
+title: "Activities Seed Data"
+description: "Schema for activity definitions (training, pruning, etc.)"
+type: object
+
+properties:
+  activities:
+    type: array
+    items:
+      $ref: "#/$defs/activity"
+
+required: [activities]
+additionalProperties: false
+
+$defs:
+  activity:
+    type: object
+    properties:
+      name:
+        type: string
+      name_de:
+        type: string
+      description:
+        type: string
+      description_de:
+        type: string
+      category:
+        type: string
+        enum: [training_hst, training_lst, pruning, ausgeizen, transplant,
+               harvest_prep, propagation, inspection, general]
+      stress_level:
+        type: string
+        enum: [none, low, medium, high]
+      skill_level:
+        type: string
+        enum: [beginner, intermediate, advanced]
+      recovery_days_default:
+        type: integer
+        minimum: 0
+      recovery_days_by_species:
+        type: object
+        additionalProperties:
+          type: integer
+          minimum: 0
+      species_compatible:
+        type: array
+        items:
+          type: string
+        description: "List of compatible species names (empty = all)"
+      forbidden_phases:
+        type: array
+        items:
+          type: string
+          enum: [germination, seedling, vegetative, flowering, flushing, dormancy,
+                 harvest, sprouting, budding, fruiting, ripening, senescence, corm_ripening]
+      tools_required:
+        type: array
+        items:
+          type: string
+      estimated_duration_minutes:
+        type: integer
+        minimum: 1
+      sort_order:
+        type: integer
+        minimum: 0
+      tags:
+        type: array
+        items:
+          type: string
+    required: [name, name_de, description, description_de, category, stress_level,
+               skill_level, recovery_days_default, forbidden_phases,
+               estimated_duration_minutes, sort_order, tags]
+    additionalProperties: false

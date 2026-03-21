@@ -1,0 +1,71 @@
+# JSON Schema for companion_planting.yaml
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "companion_planting.schema.yaml"
+title: "Companion Planting Seed Data"
+description: "Schema for companion planting compatibility data"
+type: object
+
+properties:
+  compatible:
+    type: array
+    items:
+      type: array
+      description: "[species_a, species_b, score]"
+      items: false
+      prefixItems:
+        - type: string
+          description: "Scientific name of species A"
+        - type: string
+          description: "Scientific name of species B"
+        - type: number
+          minimum: 0
+          maximum: 1
+          description: "Compatibility score (0=neutral, 1=highly beneficial)"
+      minItems: 3
+      maxItems: 3
+
+  incompatible:
+    type: array
+    items:
+      $ref: "#/$defs/incompatible_pair"
+
+  family_pest_risk:
+    type: array
+    items:
+      $ref: "#/$defs/family_pest_risk"
+
+additionalProperties: false
+
+$defs:
+  incompatible_pair:
+    type: object
+    properties:
+      species_a:
+        type: string
+      species_b:
+        type: string
+      reason:
+        type: string
+    required: [species_a, species_b, reason]
+    additionalProperties: false
+
+  family_pest_risk:
+    type: object
+    properties:
+      family_a:
+        type: string
+      family_b:
+        type: string
+      shared_pests:
+        type: array
+        items:
+          type: string
+      shared_diseases:
+        type: array
+        items:
+          type: string
+      risk_level:
+        type: string
+        enum: [low, medium, high]
+    required: [family_a, family_b, shared_pests, shared_diseases, risk_level]
+    additionalProperties: false

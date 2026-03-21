@@ -1426,6 +1426,24 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 | Import-History | Admin | — | — |
 | Template-Download | Ja | — | — |
 
+### 5.1 Sicherheitsanforderungen für CSV-Import
+
+<!-- Quelle: IT-Security-Review SEC-M-008 -->
+
+CSV-Dateien können bösartigen Inhalt transportieren. Die folgenden Sicherheitsmaßnahmen MÜSSEN implementiert werden:
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| CI-001 | CSV-Import MUSS auf die Rolle **Admin** beschränkt sein (keine Grower/Viewer). | MUSS |
+| CI-002 | Maximale Dateigröße: **10 MB** (erzwungen via FastAPI `UploadFile` und NFR-001 §6.5 EV-004). | MUSS |
+| CI-003 | Maximale Zeilenanzahl: **10.000 Zeilen** pro Import-Job. Dateien mit mehr Zeilen werden mit Validierungsfehler abgelehnt. | MUSS |
+| CI-004 | **CSV-Injection-Sanitisierung:** Zellenwerte die mit `=`, `+`, `-`, `@`, `\t`, `\r` beginnen, MÜSSEN bei der Validierung als `SUSPICIOUS_CONTENT`-Warnung markiert werden. Das führende Zeichen wird beim Import automatisch entfernt (Prefix-Stripping). | MUSS |
+| CI-005 | **MIME-Type-Validierung:** Upload MUSS `text/csv`, `text/plain`, `application/csv` oder `application/vnd.ms-excel` akzeptieren. Alle anderen MIME-Types werden abgelehnt (415 Unsupported Media Type). | MUSS |
+| CI-006 | **Encoding-Validierung:** Nur UTF-8, UTF-8-BOM, Latin-1 (ISO-8859-1) und Windows-1252 werden akzeptiert. Dateien mit Null-Bytes oder Steuerzeichen (außer `,`, `\n`, `\r`, `\t`) werden abgelehnt. | MUSS |
+| CI-007 | Rate-Limiting: Maximal **5 Uploads pro Stunde** pro User (NFR-001 §6.3 Tier "CSV-Upload"). | MUSS |
+| CI-008 | Hochgeladene CSV-Dateien MÜSSEN nach Abschluss des Imports (Status `completed` oder `failed`) innerhalb von **24 Stunden** gelöscht werden. | MUSS |
+| CI-009 | AQL-Injection-Schutz: Alle Zellenwerte MÜSSEN über parametrisierte AQL-Queries (`@variable`-Binding) eingefügt werden. String-Konkatenation in AQL ist verboten. | MUSS |
+
 ## 6. Abhängigkeiten
 
 **Benötigt:**
@@ -1454,10 +1472,10 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Zeilen-Validierung:** Jede Zeile wird gegen Spaltendefinitionen und Cross-Field-Regeln geprüft
 - [ ] **Duplikaterkennung:** Abgleich gegen bestehende Datenbank-Einträge per Identifikationsmerkmale
 - [ ] **Konfigurierbare Duplikatstrategie:** skip/update/fail pro Import wählbar
-- [ ] **Vorschau-Tabelle:** MUI DataGrid mit Farbkodierung, Filterung, Sortierung
+- [ ] **Vorschau-Tabelle:** MUI DataGrid mit Farbkodierung, Filterung, Sortierung; zeilenweiser Validierungsstatus (grün/rot/gelb), fehlerhafte Felder farblich hervorgehoben, Status-Filter („Nur Fehler" / „Nur Duplikate" / „Alle"), einzelne Zeilen per Checkbox vom Import ausschließbar, Zusammenfassung „X gültig, Y fehlerhaft, Z Duplikate" oberhalb der Tabelle (UI-NFR-010 §7.3, R-046–R-050)
 - [ ] **Fehlerdetails:** Pro-Zeile/Pro-Feld-Fehlermeldungen mit Codes
 - [ ] **Ergebnis-Anzeige:** Statistiken (created/updated/skipped/failed) nach Abschluss
-- [ ] **Import-Historie:** Übersicht aller bisherigen Import-Jobs mit Filterung
+- [ ] **Import-Historie:** Übersicht aller bisherigen Import-Jobs mit Status-Filter (Enum-Chip: pending, validated, imported, failed); URL-Parameter `?status=...` (UI-NFR-010 §7.2)
 - [ ] **CSV-Templates:** Herunterladbare Vorlagen mit Header und Beispielzeile pro Entität
 - [ ] **Dateivalidierung:** Größenlimit (10 MB), Dateityp (.csv), Encoding-Prüfung
 - [ ] **Abbruch:** Import-Jobs im Status preview_ready können abgebrochen werden

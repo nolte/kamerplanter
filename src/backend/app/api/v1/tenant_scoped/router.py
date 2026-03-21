@@ -16,12 +16,14 @@ from app.api.v1.feeding_events.tenant_router import router as tenant_feeding_eve
 from app.api.v1.fertilizers.tenant_router import router as tenant_fertilizers_router
 from app.api.v1.harvest.tenant_router import router as tenant_harvest_router
 from app.api.v1.ipm.tenant_router import router as tenant_ipm_router
+from app.api.v1.locations.tenant_router import router as tenant_locations_router
 from app.api.v1.nutrient_calculations.router import router as nutrient_calculations_router
 from app.api.v1.nutrient_plans.tenant_router import router as tenant_nutrient_plans_router
 from app.api.v1.onboarding.tenant_router import router as tenant_onboarding_router
 from app.api.v1.plant_instances.tenant_router import router as tenant_plants_router
 from app.api.v1.planting_runs.tenant_router import router as tenant_planting_runs_router
 from app.api.v1.sites.tenant_router import router as tenant_sites_router
+from app.api.v1.slots.tenant_router import router as tenant_slots_router
 from app.api.v1.starter_kits.tenant_router import router as tenant_starter_kits_router
 from app.api.v1.tanks.tenant_router import router as tenant_tanks_router
 from app.api.v1.tasks.tenant_router import router as tenant_tasks_router
@@ -37,6 +39,8 @@ tenant_scoped_router = APIRouter(
 # Mount tenant-scoped resource routers
 # These routers enforce tenant isolation via get_current_tenant() dependency.
 tenant_scoped_router.include_router(tenant_sites_router)
+tenant_scoped_router.include_router(tenant_locations_router)
+tenant_scoped_router.include_router(tenant_slots_router)
 tenant_scoped_router.include_router(tenant_plants_router)
 tenant_scoped_router.include_router(tenant_planting_runs_router)
 tenant_scoped_router.include_router(tenant_tanks_router)

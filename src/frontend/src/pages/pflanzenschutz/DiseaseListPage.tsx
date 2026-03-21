@@ -5,6 +5,7 @@ import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -105,6 +106,24 @@ export default function DiseaseListPage() {
         emptyIllustration={kamiIpm}
         tableState={tableState}
         ariaLabel={t('pages.ipm.diseasesTitle')}
+        mobileCardRenderer={(r) => (
+          <MobileCard
+            title={r.scientific_name}
+            subtitle={r.common_name}
+            chips={
+              <Chip
+                label={t(`enums.pathogenType.${r.pathogen_type}`)}
+                size="small"
+                color={pathogenTypeColor[r.pathogen_type] ?? 'default'}
+              />
+            }
+            fields={[
+              ...(r.incubation_period_days != null
+                ? [{ label: t('pages.ipm.incubationPeriodDays'), value: `${r.incubation_period_days}\u202f${t('pages.ipm.days')}` }]
+                : []),
+            ]}
+          />
+        )}
       />
       <DiseaseCreateDialog
         open={createOpen}

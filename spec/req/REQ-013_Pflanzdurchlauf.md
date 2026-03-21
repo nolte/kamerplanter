@@ -1583,6 +1583,10 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **NutrientPlan-Zuweisung:** NutrientPlan kann einem PlantingRun zugewiesen werden (`RUN_FOLLOWS_PLAN`-Edge)
 - [ ] **NutrientPlan-Cascade:** Bei Zuweisung werden bestehende Pflanzen im Run automatisch mit `FOLLOWS_PLAN`-Edges verknüpft (sofern kein Entry-Level-Override)
 - [ ] **NutrientPlan-Entfernung:** Entfernung der Run-Zuweisung entfernt auch die kaskadierten `FOLLOWS_PLAN`-Edges
+<!-- Quelle: Tabellen-Analyse UI-NFR-010 §7.2, §2.7 -->
+- [ ] **Listenansicht-Filter:** PlantingRun-Liste bietet Status-Filter (Enum-Chip: planned, active, harvesting, completed, cancelled) und optionalen Standort-Filter (Site-Dropdown); URL-Parameter `?status=...&site_key=...` (UI-NFR-010 §7.2)
+- [ ] **Bulk-Aktionen-UI:** PlantingRun-DetailPage bietet Checkbox-Selektion auf den Run-Pflanzen für Batch-Phasenübergang, Batch-Entfernung und Batch-Ernte mit Aktionsleiste (UI-NFR-010 R-025–R-028)
+- [ ] **Tablet-Spaltenprioritäten:** PlantingRun-ListPage blendet auf Tablet Start-/Enddatum aus; Primärspalten: Name, Status, Anzahl Pflanzen (UI-NFR-010 §8.1)
 - [ ] **Entry-Level-Override:** PlantingRunEntry.nutrient_plan_key überschreibt den Run-Level-Plan für die jeweilige Art (Mischkultur-Support)
 - [ ] **create-plants-Cascade:** Bei Pflanzen-Erstellung werden automatisch `FOLLOWS_PLAN`-Edges erzeugt (Entry-Override > Run-Level)
 - [ ] **Gießkalender-Endpoint:** GET watering-schedule liefert nächste 14 Tage mit Phasengruppen und Dosierungen

@@ -56,14 +56,40 @@ Click **Add Site** (top right). A form opens.
 
 ### Step 4: Configure Water Source (optional, Intermediate and above)
 
-If you use tap water or a reverse osmosis system, enter the water values. The system will later calculate your EC budget and CalMag requirements automatically:
+If you use tap water or a reverse osmosis system, enter the water values. The system will automatically calculate your EC budget, CalMag requirements, and mixing recommendations.
 
-- **Tap water EC** (mS/cm): Typically 0.3–0.8 in Central Europe
-- **Tap water pH**: Typically 7.0–8.0
-- **Has RO system**: Enable this if you have a reverse osmosis unit
+#### Tap Water Profile
+
+| Field | Unit | Typical Range | Description |
+|-------|------|--------------|-------------|
+| EC | mS/cm | 0.3–0.8 | Electrical conductivity — indicates total mineral content |
+| pH | — | 7.0–8.0 | Acidity of the water |
+| General Hardness (GH) | ppm CaCO3 | 100–350 | Sum of dissolved minerals (Ca + Mg) |
+| Carbonate Hardness (KH) | ppm CaCO3 | 80–250 | Buffer capacity of the water (Alkalinity) |
+| Calcium (Ca) | mg/L | 30–120 | Important for CalMag calculation |
+| Magnesium (Mg) | mg/L | 5–30 | Important for CalMag calculation |
+| Chlorine | mg/L | 0–0.3 | At > 0.1 mg/L, let water stand or filter |
+| Chloramine | mg/L | 0 | Rarely used in Europe |
+
+#### Additional Options
+
+- **Has RO system**: Enable this if you have a reverse osmosis unit. The system will then calculate mixing ratios for tap and RO water.
+- **Measurement date**: Date of the water analysis. Kamerplanter warns you if the analysis is older than 12 months.
+- **Source note**: Free text for the origin of the values (e.g. "City Water Report 2025").
 
 !!! tip "Finding your water values"
-    Your tap water EC can be found on your water supplier's website or measured with an inexpensive EC meter.
+    Your local water utility typically provides a free drinking water analysis — often as a PDF download on their website. In many countries, water suppliers are legally required to publish these values.
+
+    **Examples (Germany):**
+
+    - **Hamburg**: [hamburgwasser.de/wasser](https://www.hamburgwasser.de/wasser) — postal code lookup under "Mein Trinkwasser"
+    - **Berlin**: berliner-wasserbetriebe.de — water quality by postal code
+    - **Munich**: swm.de — drinking water analysis by supply area
+
+    Alternatively, you can measure the values yourself: an EC/TDS meter (from approx. 15 EUR) provides the EC value, a pH meter the pH. For calcium and magnesium, drop tests (GH/KH test kits from aquarium supplies, from approx. 8 EUR) are an affordable option.
+
+!!! warning "Why accurate water values matter"
+    Kamerplanter uses your water values to calculate the **EC budget** (how much room is left for fertilizer) and the **CalMag correction** (whether additional calcium/magnesium is needed). Inaccurate values lead to wrong fertilization recommendations — in the worst case, over- or under-fertilization.
 
 ### Step 5: Save
 

@@ -8,6 +8,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import Chip from '@mui/material/Chip';
 import DataTable, { type Column } from '@/components/common/DataTable';
+import MobileCard from '@/components/common/MobileCard';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { useTableLocalState } from '@/hooks/useTableState';
 import GrowthPhaseDialog from './GrowthPhaseDialog';
@@ -126,6 +127,22 @@ export default function GrowthPhaseListSection({ lifecycleKey }: Props) {
         getRowKey={(r) => r.key}
         tableState={tableState}
         ariaLabel={t('pages.growthPhases.title')}
+        mobileCardRenderer={(r) => (
+          <MobileCard
+            title={r.display_name || r.name}
+            subtitle={`#${r.sequence_order} — ${r.typical_duration_days}d`}
+            chips={
+              <>
+                {r.is_terminal && <Chip label={t('pages.growthPhases.isTerminal')} size="small" color="warning" />}
+                {r.allows_harvest && <Chip label={t('pages.growthPhases.allowsHarvest')} size="small" color="success" />}
+              </>
+            }
+            fields={[
+              { label: t('pages.growthPhases.stressTolerance'), value: t(`enums.stressTolerance.${r.stress_tolerance}`) },
+              ...(r.watering_interval_days != null ? [{ label: t('pages.growthPhases.wateringInterval'), value: `${r.watering_interval_days}d` }] : []),
+            ]}
+          />
+        )}
       />
 
       <GrowthPhaseDialog

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Alert from '@mui/material/Alert';
@@ -19,6 +21,7 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 import type { NutrientPlanPhaseEntry } from '@/api/types';
+import WaterMixRecommendationBox from './WaterMixRecommendationBox';
 
 const phaseNames = ['germination', 'seedling', 'vegetative', 'flowering', 'flushing', 'dormancy', 'harvest'] as const;
 
@@ -50,16 +53,20 @@ interface Props {
   planKey: string;
   entry?: NutrientPlanPhaseEntry | null;
   onSaved: () => void;
+  siteKey?: string | null;
+  substrateType?: string;
 }
 
-export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSaved }: Props) {
+export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSaved, siteKey, substrateType }: Props) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
   const isEdit = !!entry;
 
-  const { control, handleSubmit, reset, watch } = useForm<FormData>({
+  const { control, handleSubmit, reset, watch, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       phase_name: 'germination',
@@ -162,7 +169,7 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         {isEdit
           ? t('pages.nutrientPlans.editEntry')
@@ -278,6 +285,18 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
               helperText={t('pages.nutrientPlans.roPercentHelper')}
             />
           </FormRow>
+          {siteKey && (
+            <WaterMixRecommendationBox
+              planKey={planKey}
+              sequenceOrder={entry?.sequence_order ?? watch('sequence_order')}
+              siteKey={siteKey}
+              substrateType={substrateType}
+              onApply={(roPercent) => {
+                setValue('water_mix_ratio_ro_percent', roPercent, { shouldDirty: true });
+              }}
+            />
+          )}
+
           <FormRow>
             <FormNumberField
               name="calcium_ppm"

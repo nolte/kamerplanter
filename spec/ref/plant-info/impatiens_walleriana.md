@@ -58,14 +58,16 @@
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Giftig für Katzen | false | `species.toxicity.is_toxic_cats` |
-| Giftig für Hunde | false | `species.toxicity.is_toxic_dogs` |
+| Giftig für Katzen | false (ASPCA: nicht gelistet als toxisch) | `species.toxicity.is_toxic_cats` |
+| Giftig für Hunde | false (ASPCA: nicht gelistet als toxisch) | `species.toxicity.is_toxic_dogs` |
 | Giftig für Kinder | false | `species.toxicity.is_toxic_children` |
 | Giftige Pflanzenteile | — | `species.toxicity.toxic_parts` |
-| Giftige Inhaltsstoffe | — | `species.toxicity.toxic_compounds` |
-| Schweregrad | none | `species.toxicity.severity` |
+| Giftige Inhaltsstoffe | — (milde Saponine und Oxalsaeure in Blaettern und Stengeln; Verzehr groesserer Mengen kann leichte Magen-Darm-Beschwerden verursachen) | `species.toxicity.toxic_compounds` |
+| Schweregrad | very_low (niedrig toxisch; milde Symptome bei Verzehr groesserer Mengen moeglich) | `species.toxicity.severity` |
 | Kontaktallergen | false | `species.allergen_info.contact_allergen` |
 | Pollenallergen | false | `species.allergen_info.pollen_allergen` |
+
+<!-- AB-015: Impatiens walleriana ist nicht auf der ASPCA-Toxizitaetsliste, gilt aber laut Plant Addicts als niedrig toxisch. Milde Symptome (Uebelkeit, Erbrechen) nur bei Verzehr groesserer Mengen. Fuer praktische Zwecke als ungefaehrlich einzustufen. -->
 
 ### 1.5 Rückschnitt
 

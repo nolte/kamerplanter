@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import { useForm } from 'react-hook-form';
@@ -11,7 +13,7 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import ShowAllFieldsToggle from '@/components/common/ShowAllFieldsToggle';
-import WaterSourceSection from '@/components/water/WaterSourceSection';
+import WaterSourceSection, { TAP_WATER_DEFAULTS, RO_WATER_DEFAULTS } from '@/components/water/WaterSourceSection';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -35,6 +37,8 @@ interface Props {
 }
 
 export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -42,8 +46,8 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
   const { showAllOverride, toggleShowAll, level } = useExpertiseLevel();
   const [waterConfig, setWaterConfig] = useState<SiteWaterConfig>({
     has_ro_system: false,
-    tap_water_profile: null,
-    ro_water_profile: null,
+    tap_water_profile: { ...TAP_WATER_DEFAULTS },
+    ro_water_profile: { ...RO_WATER_DEFAULTS },
   });
 
   const { control, handleSubmit, reset } = useForm<FormData>({
@@ -54,14 +58,13 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
   const onSubmit = async (data: FormData) => {
     try {
       setSaving(true);
-      const hasWaterData = waterConfig.tap_water_profile || waterConfig.has_ro_system;
       await api.createSite({
         ...data,
-        water_config: hasWaterData ? waterConfig : undefined,
+        water_config: waterConfig,
       });
       notification.success(t('common.create'));
       reset();
-      setWaterConfig({ has_ro_system: false, tap_water_profile: null, ro_water_profile: null });
+      setWaterConfig({ has_ro_system: false, tap_water_profile: { ...TAP_WATER_DEFAULTS }, ro_water_profile: { ...RO_WATER_DEFAULTS } });
       onCreated();
     } catch (err) {
       handleError(err);
@@ -73,7 +76,7 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
   const fc = siteFieldConfig;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{t('pages.sites.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>

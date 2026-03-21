@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -16,6 +15,7 @@ import SensorsIcon from '@mui/icons-material/Sensors';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
@@ -28,6 +28,7 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import WaterSourceSection, { TAP_WATER_DEFAULTS, RO_WATER_DEFAULTS } from '@/components/water/WaterSourceSection';
 import LocationTreeSection from './LocationTreeSection';
 import SiteRunsSection from './SiteRunsSection';
 import SensorCreateDialog from './SensorCreateDialog';
@@ -37,7 +38,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSite, clearCurrent } from '@/store/slices/sitesSlice';
 import * as api from '@/api/endpoints/sites';
 import * as tankApi from '@/api/endpoints/tanks';
-import type { Sensor } from '@/api/types';
+import type { Sensor, SiteWaterConfig } from '@/api/types';
 
 const schema = z.object({
   name: z.string().min(1),
@@ -62,6 +63,11 @@ export default function SiteDetailPage() {
   const [sensorDialogOpen, setSensorDialogOpen] = useState(false);
   const [editSensor, setEditSensor] = useState<Sensor | undefined>(undefined);
   const [deleteSensorKey, setDeleteSensorKey] = useState<string | null>(null);
+  const [waterConfig, setWaterConfig] = useState<SiteWaterConfig>({
+    has_ro_system: false,
+    tap_water_profile: { ...TAP_WATER_DEFAULTS },
+    ro_water_profile: { ...RO_WATER_DEFAULTS },
+  });
   const sensorTableState = useTableLocalState({ defaultSort: { column: 'name', direction: 'asc' } });
 
   const { control, handleSubmit, reset, formState: { isDirty } } = useForm<FormData>({
@@ -90,6 +96,12 @@ export default function SiteDetailPage() {
   useEffect(() => {
     if (current) {
       reset({ name: current.name, climate_zone: current.climate_zone, total_area_m2: current.total_area_m2, timezone: current.timezone ?? 'UTC' });
+      const wc = current.water_config;
+      setWaterConfig({
+        has_ro_system: wc?.has_ro_system ?? false,
+        tap_water_profile: wc?.tap_water_profile ?? { ...TAP_WATER_DEFAULTS },
+        ro_water_profile: wc?.ro_water_profile ?? { ...RO_WATER_DEFAULTS },
+      });
     }
   }, [current, reset]);
 
@@ -97,7 +109,10 @@ export default function SiteDetailPage() {
     if (!key) return;
     try {
       setSaving(true);
-      await api.updateSite(key, data);
+      await api.updateSite(key, {
+        ...data,
+        water_config: waterConfig,
+      });
       notification.success(t('common.save'));
       dispatch(fetchSite(key));
     } catch (err) {
@@ -156,52 +171,19 @@ export default function SiteDetailPage() {
           </CardContent>
         </Card>
 
+        <Card variant="outlined">
+          <CardContent>
+            <WaterSourceSection
+              value={waterConfig}
+              onChange={setWaterConfig}
+              warnings={current?.water_config_warnings}
+            />
+          </CardContent>
+        </Card>
+
         <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
       </Box>
-
-      {/* Water config read-only display */}
-      {current?.water_config?.tap_water_profile && (
-        <Box sx={{ mt: 3, maxWidth: 600 }}>
-          <Card variant="outlined">
-            <CardContent>
-              <Typography variant="subtitle1" gutterBottom fontWeight="medium">
-                {t('pages.sites.water.waterConfig')}
-              </Typography>
-
-              {/* Warnings */}
-              {(current.water_config_warnings ?? []).map((w) => (
-                <Alert
-                  key={w.code}
-                  severity={w.severity === 'warning' ? 'warning' : 'info'}
-                  sx={{ mb: 1 }}
-                >
-                  {w.message}
-                </Alert>
-              ))}
-
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 1, alignItems: 'baseline' }}>
-                <Typography variant="body2" color="text.secondary">
-                  {t('pages.sites.water.ecMs')}:
-                </Typography>
-                <Typography variant="body2">
-                  {current.water_config.tap_water_profile.ec_ms} mS/cm
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {t('pages.sites.water.ph')}:
-                </Typography>
-                <Typography variant="body2">
-                  {current.water_config.tap_water_profile.ph}
-                </Typography>
-              </Box>
-
-              {current.water_config.has_ro_system && (
-                <Chip label={t('pages.sites.water.hasRoSystem')} size="small" color="primary" sx={{ mt: 1.5 }} />
-              )}
-            </CardContent>
-          </Card>
-        </Box>
-      )}
 
       {/* Sensors */}
       <Box sx={{ mt: 4 }}>
@@ -244,6 +226,22 @@ export default function SiteDetailPage() {
             getRowKey={(r) => r.key}
             tableState={sensorTableState}
             ariaLabel={t('pages.sensors.title')}
+            mobileCardRenderer={(r) => (
+              <MobileCard
+                title={r.name}
+                subtitle={r.ha_entity_id || undefined}
+                chips={
+                  <Chip
+                    label={r.is_active ? t('common.yes') : t('common.no')}
+                    size="small"
+                    color={r.is_active ? 'success' : 'default'}
+                  />
+                }
+                fields={[
+                  { label: t('pages.sensors.metricType'), value: r.metric_type },
+                ]}
+              />
+            )}
           />
         )}
       </Box>

@@ -13,6 +13,8 @@ import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
@@ -31,6 +33,8 @@ import type { Species, CompatibleSpecies, IncompatibleSpecies } from '@/api/type
 import { kamiMasterdata } from '@/assets/brand/illustrations';
 
 export default function CompanionPlantingPage() {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -220,7 +224,7 @@ export default function CompanionPlantingPage() {
         </Box>
       )}
 
-      <Dialog open={!!dialogType} onClose={() => setDialogType(null)} maxWidth="sm" fullWidth>
+      <Dialog fullScreen={fullScreen} open={!!dialogType} onClose={() => setDialogType(null)} maxWidth="sm" fullWidth>
         <DialogTitle>
           {dialogType === 'compatible'
             ? t('pages.companionPlanting.addCompatible')

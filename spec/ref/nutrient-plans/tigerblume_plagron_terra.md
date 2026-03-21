@@ -15,12 +15,15 @@
 | Name | Tigerblume -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Saisonplan fuer Tigerblume (Tigridia pavonia) mit Knollen-Vorkultur ab Maerz und Freilandkultur ab Mai. Plagron Terra-Linie mit 3 Produkten. Schwach-/Mittelzehrer mit niedrigem Naehrstoffbedarf. Vorkeimen indoor Maerz--April, Auspflanzen nach Eisheiligen (Mitte Mai), kurze Bluetezeit Juli--September. Perennierend via Knolleneinlagerung (DORMANCY = frostfreie Trockenlagerung 10--13 degC). Zyklus-Neustart ab Sequenz 1 (Vorkeimen). 22 Wochen aktive Saison (Maerz--September) + 30 Wochen Dormanz. WICHTIG: Tigridia-Kormen bei 10--13 degC lagern, NICHT bei 4--8 degC wie Dahlien! | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
 | Tags | tigerblume, tigridia, pfauenblume, iridaceae, plagron, terra, erde, outdoor, schwachzehrer, zierpflanze, knollengewaeechs | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | 1 (perennierend via Knolle -- Neustart bei Vorkeimen im Fruehling) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -141,7 +144,8 @@ Tigridia pavonia ist ein Schwach-/Mittelzehrer. Ziel-EC der Gesamtloesung: **0.3
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.3 |
 | fertilizer_dosages | [] (leer) |
 
@@ -164,7 +168,8 @@ Tigridia pavonia ist ein Schwach-/Mittelzehrer. Ziel-EC der Gesamtloesung: **0.3
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6 |
+| target_ec_ms | 0.6  |
+| reference_ec_ms | 0.6  |
 | target_ph | 6.3 |
 | Terra Grow ml/L | 2.0 (unter halbe Dosis, Schwachzehrer) |
 | Pure Zym ml/L | 1.0 |
@@ -188,7 +193,8 @@ Tigridia pavonia ist ein Schwach-/Mittelzehrer. Ziel-EC der Gesamtloesung: **0.3
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.7 |
+| target_ec_ms | 0.7  |
+| reference_ec_ms | 0.7  |
 | target_ph | 6.3 |
 | Terra Bloom ml/L | 2.5 (niedrige Dosis, Schwachzehrer) |
 | Pure Zym ml/L | 1.0 |
@@ -214,7 +220,8 @@ Tigridia pavonia ist ein Schwach-/Mittelzehrer. Ziel-EC der Gesamtloesung: **0.3
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.3 |
 | fertilizer_dosages | [] (leer) |
 
@@ -238,7 +245,8 @@ Tigridia pavonia ist ein Schwach-/Mittelzehrer. Ziel-EC der Gesamtloesung: **0.3
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | null |
 | fertilizer_dosages | [] (leer) |
 
@@ -351,6 +359,7 @@ Bei einer Tigridia-Gruppe (5 Knollen) im 10-L-Kuebel, 0.3 L Giessloessung pro Du
   "name": "Tigerblume \u2014 Plagron Terra",
   "description": "Saisonplan f\u00fcr Tigerblume (Tigridia pavonia) mit Knollen-Vorkultur ab M\u00e4rz und Freilandkultur ab Mai. Plagron Terra-Linie mit 3 Produkten. Schwach-/Mittelzehrer, perennierend via Knolle. 22 Wochen aktive Saison + 30 Wochen Dormanz. Kormen bei 10\u201313\u00b0C lagern (nicht 4\u20138\u00b0C).",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -400,6 +409,7 @@ Bei einer Tigridia-Gruppe (5 Knollen) im 10-L-Kuebel, 0.3 L Giessloessung pro Du
       "enabled": true,
       "notes": "Kein D\u00fcnger. Erst gie\u00dfen wenn Triebe sichtbar (5\u201310 cm). Substrat nur leicht feucht.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.3,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.15}
@@ -430,6 +440,7 @@ Bei einer Tigridia-Gruppe (5 Knollen) im 10-L-Kuebel, 0.3 L Giessloessung pro Du
       "enabled": true,
       "notes": "Terra Grow niedrige Dosis + Pure Zym. Reihenfolge: Terra Grow \u2192 Pure Zym \u2192 pH pr\u00fcfen.",
       "target_ec_ms": 0.6,
+      "reference_ec_ms": 0.6,
       "target_ph": 6.3,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 2.0, "optional": false},
@@ -463,6 +474,7 @@ Bei einer Tigridia-Gruppe (5 Knollen) im 10-L-Kuebel, 0.3 L Giessloessung pro Du
       "enabled": true,
       "notes": "Terra Bloom niedrige Dosis + Pure Zym. Reihenfolge: Terra Bloom \u2192 Pure Zym \u2192 pH pr\u00fcfen.",
       "target_ec_ms": 0.7,
+      "reference_ec_ms": 0.7,
       "target_ph": 6.3,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 2.5, "optional": false},
@@ -504,6 +516,7 @@ Bei einer Tigridia-Gruppe (5 Knollen) im 10-L-Kuebel, 0.3 L Giessloessung pro Du
       "enabled": true,
       "notes": "Kein D\u00fcnger. Stark reduziertes Gie\u00dfen. Knollenreifung durch Trockenheit f\u00f6rdern.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.3,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.2}

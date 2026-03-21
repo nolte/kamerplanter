@@ -87,6 +87,7 @@ class SowingCalendarEntrySchema(BaseModel):
     species_name: str
     common_name: str = ""
     link_species_key: str = ""
+    plant_category: str | None = None
     bars: list[SowingBarSchema] = Field(default_factory=list)
 
 

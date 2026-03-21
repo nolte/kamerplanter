@@ -59,9 +59,22 @@ def update_plant(
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
-    service.get_plant(key, tenant_key=ctx.tenant_key)
-    plant = PlantInstance(**body.model_dump(), tenant_key=ctx.tenant_key)
-    updated = service.update_plant(key, plant)
+    existing = service.get_plant(key, tenant_key=ctx.tenant_key)
+    # Merge: keep server-managed fields from existing, apply user-editable fields from body
+    update_data = body.model_dump()
+    existing.instance_id = update_data["instance_id"]
+    existing.species_key = update_data["species_key"]
+    existing.cultivar_key = update_data.get("cultivar_key")
+    existing.site_key = update_data.get("site_key")
+    existing.location_key = update_data.get("location_key")
+    existing.slot_key = update_data.get("slot_key")
+    existing.substrate_batch_key = update_data.get("substrate_batch_key")
+    existing.substrate_key = update_data.get("substrate_key")
+    existing.plant_name = update_data.get("plant_name")
+    existing.planted_on = update_data["planted_on"]
+    existing.container_volume_liters = update_data.get("container_volume_liters")
+    existing.substrate_type_override = update_data.get("substrate_type_override")
+    updated = service.update_plant(key, existing)
     return _to_response(updated, service)
 
 

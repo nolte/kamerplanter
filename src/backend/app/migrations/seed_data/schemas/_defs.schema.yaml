@@ -1,0 +1,281 @@
+# Shared definitions for Kamerplanter seed data schemas.
+# Referenced via $ref from individual schema files.
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "_defs.schema.yaml"
+
+$defs:
+  # ── Enums (from src/backend/app/common/enums.py) ─────────────────────────
+
+  growth_habit:
+    type: string
+    enum: [herb, shrub, tree, vine, groundcover]
+
+  root_type:
+    type: string
+    enum: [fibrous, taproot, tuberous, bulbous, corm]
+
+  root_depth:
+    type: string
+    enum: [shallow, medium, deep]
+
+  cycle_type:
+    type: string
+    enum: [annual, biennial, perennial]
+
+  photoperiod_type:
+    type: string
+    enum: [short_day, long_day, day_neutral]
+
+  frost_tolerance:
+    type: string
+    enum: [sensitive, moderate, hardy, very_hardy]
+
+  suitability:
+    type: string
+    enum: ["yes", limited, "no"]
+
+  nutrient_demand_level:
+    type: string
+    enum: [heavy_feeder, medium_feeder, light_feeder, nitrogen_fixer]
+
+  # Simplified version for botanical families (heavy/medium/light)
+  nutrient_demand_simple:
+    type: string
+    enum: [heavy, medium, light]
+
+  stress_tolerance:
+    type: string
+    enum: [low, medium, high]
+
+  fertilizer_type:
+    type: string
+    enum: [base, supplement, booster, biological, ph_adjuster, organic, silicate]
+
+  ph_effect:
+    type: string
+    enum: [acidic, alkaline, neutral]
+
+  application_method:
+    type: string
+    enum: [fertigation, drench, foliar, top_dress, any]
+
+  bioavailability:
+    type: string
+    enum: [immediate, slow_release, microbial_dependent]
+
+  phase_name:
+    type: string
+    enum: [germination, seedling, vegetative, flowering, flushing, dormancy, harvest,
+           sprouting, budding, fruiting, ripening, senescence, corm_ripening]
+
+  substrate_type:
+    type: string
+    enum: [soil, coco, clay_pebbles, perlite, living_soil, peat, rockwool_slab,
+           rockwool_plug, vermiculite, none, orchid_bark, pon_mineral, sphagnum,
+           hydro_solution]
+
+  schedule_mode:
+    type: string
+    enum: [weekdays, interval]
+
+  activity_category:
+    type: string
+    enum: [training_hst, training_lst, pruning, ausgeizen, transplant, harvest_prep,
+           propagation, inspection, general]
+
+  stress_level:
+    type: string
+    enum: [none, low, medium, high]
+
+  skill_level:
+    type: string
+    enum: [beginner, intermediate, advanced]
+
+  task_category:
+    type: string
+    enum: [training, pruning, ausgeizen, transplant, feeding, ipm, harvest,
+           observation, maintenance, care_reminder, seasonal, phenological]
+
+  task_trigger_type:
+    type: string
+    enum: [phase_entry, days_after_phase, days_after_planting, absolute_date,
+           manual, conditional, gdd_threshold, seasonal_month, phenological]
+
+  site_type:
+    type: string
+    enum: [outdoor, greenhouse, indoor, windowsill, balcony, grow_tent]
+
+  starter_kit_difficulty:
+    type: string
+    enum: [beginner, intermediate, advanced]
+
+  harvest_indicator_type:
+    type: string
+    enum: [trichome, color, brix, size, days_since_flowering, aroma, texture, foliage]
+
+  pollination_type:
+    type: string
+    enum: [insect, wind, self]
+
+  rotation_category:
+    type: string
+    enum: [fruit, root, leaf, legume, allium, herb, fiber, ornamental, green_manure, cereal]
+
+  plant_trait:
+    type: string
+    enum: [disease_resistant, pest_resistant, high_yield, compact, drought_tolerant,
+           cold_hardy, heat_tolerant, early_maturing, long_season, ornamental,
+           heirloom, hybrid, f1]
+
+  pathogen_type:
+    type: string
+    enum: [fungal, bacterial, viral, physiological, oomycete]
+
+  treatment_type:
+    type: string
+    enum: [cultural, biological, chemical, mechanical]
+
+  treatment_application_method:
+    type: string
+    enum: [spray, drench, granular, release, cultural]
+
+  growth_system:
+    type: string
+    enum: [indoor, outdoor, greenhouse]
+
+  # ── Reusable Compound Types ───────────────────────────────────────────────
+
+  range_string:
+    description: "Range as string, e.g. '50--200' or '5-15'"
+    type: string
+    pattern: "^\\d+(\\.\\d+)?\\s*[-–—]+\\s*\\d+(\\.\\d+)?$"
+
+  hardiness_zone:
+    type: string
+    pattern: "^\\d{1,2}[ab]$"
+
+  npk_ratio:
+    type: array
+    items:
+      type: number
+      minimum: 0
+    minItems: 3
+    maxItems: 3
+
+  soil_ph_preference:
+    type: object
+    properties:
+      min_ph:
+        type: number
+        minimum: 0
+        maximum: 14
+      max_ph:
+        type: number
+        minimum: 0
+        maximum: 14
+    required: [min_ph, max_ph]
+    additionalProperties: false
+
+  i18n_string:
+    type: object
+    properties:
+      de: { type: string }
+      en: { type: string }
+    required: [de]
+    additionalProperties: false
+
+  watering_schedule:
+    type: object
+    properties:
+      schedule_mode:
+        $ref: "#/$defs/schedule_mode"
+      interval_days:
+        type: integer
+        minimum: 1
+      weekdays:
+        type: array
+        items:
+          type: string
+          enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+      preferred_time:
+        type: string
+        pattern: "^\\d{2}:\\d{2}$"
+      application_method:
+        $ref: "#/$defs/application_method"
+      reminder_hours_before:
+        type: integer
+        minimum: 0
+      times_per_day:
+        type: integer
+        minimum: 1
+    required: [schedule_mode, preferred_time, application_method]
+    additionalProperties: false
+
+  fertilizer_dosage:
+    type: object
+    properties:
+      fertilizer_product_name:
+        type: string
+      ml_per_liter:
+        type: number
+        minimum: 0
+      notes:
+        type: string
+    required: [fertilizer_product_name, ml_per_liter]
+    additionalProperties: false
+
+  drench_params:
+    type: object
+    properties:
+      volume_per_feeding_liters:
+        type: number
+        minimum: 0
+    required: [volume_per_feeding_liters]
+    additionalProperties: false
+
+  fertigation_params:
+    type: object
+    properties:
+      flow_rate_ml_per_min:
+        type: number
+        minimum: 0
+      duration_minutes:
+        type: number
+        minimum: 0
+    additionalProperties: false
+
+  delivery_channel:
+    type: object
+    properties:
+      channel_id:
+        type: string
+      label:
+        type: string
+      application_method:
+        $ref: "#/$defs/application_method"
+      target_ec_ms:
+        type: number
+        minimum: 0
+      target_ph:
+        type: number
+        minimum: 0
+        maximum: 14
+      drench_params:
+        oneOf:
+          - $ref: "#/$defs/drench_params"
+          - type: "null"
+      fertigation_params:
+        oneOf:
+          - $ref: "#/$defs/fertigation_params"
+          - type: "null"
+      fertilizer_dosages:
+        type: array
+        items:
+          $ref: "#/$defs/fertilizer_dosage"
+    required: [channel_id, label, application_method, target_ec_ms, target_ph, fertilizer_dosages]
+    additionalProperties: false
+
+  month_number:
+    type: integer
+    minimum: 1
+    maximum: 12

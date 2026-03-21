@@ -15,4 +15,8 @@ COPY . .
 
 EXPOSE 5173
 
+COPY docker-entrypoint.dev.sh /docker-entrypoint.dev.sh
+RUN chmod +x /docker-entrypoint.dev.sh
+
+ENTRYPOINT ["/docker-entrypoint.dev.sh"]
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

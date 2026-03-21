@@ -2526,6 +2526,10 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Dark-Period-Timer:** Optional 24-48h Dunkelphase vor Ernte
 - [ ] **Harvest-Kalender:** Vorschau auf nächste Ernten (14 Tage)
 - [ ] **Grade-Distribution:** Statistik über A+/A/B/C-Batches
+<!-- Quelle: Tabellen-Analyse UI-NFR-010 §7.2, §9.2 -->
+- [ ] **Listenansicht-Filter:** HarvestBatch-Liste bietet Erntezeitraum-Filter (Datums-Range: `?harvested_from=...&harvested_to=...`), optionale Qualitätsgrad- und Erntetyp-Filter (Enum-Chips); alle URL-persistiert (UI-NFR-010 §7.2)
+- [ ] **Tablet-Spaltenprioritäten:** HarvestBatch-ListPage blendet auf Tablet Pflanzen-Key aus; Primärspalten: Batch-ID, Datum, Gewicht (UI-NFR-010 §8.1)
+- [ ] **Compliance-Export:** HarvestBatch-Liste bietet CSV- und PDF-Export der gefilterten Ansicht für CanG-Dokumentation (Erntemengen, Qualität, Seed-to-Shelf-Rückverfolgbarkeit); UI-NFR-010 §9.2
 - [ ] **Karenzzeit-Gate:** Batch-Erstellung prüft automatisch REQ-010 IPM-Treatment-Log auf offene Karenzzeiten
 - [ ] **Paprika bedingt klimakterisch:** WEAKLY_CLIMACTERIC-Kategorie für Paprika im Farbumschlag
 - [ ] **Melonen-Differenzierung:** Wassermelone → nicht-klimakterisch, Cantaloupe/Honeydew → klimakterisch

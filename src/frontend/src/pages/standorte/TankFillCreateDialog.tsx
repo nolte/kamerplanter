@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Alert from '@mui/material/Alert';
@@ -17,6 +19,7 @@ import FormRow from '@/components/form/FormRow';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/tanks';
+import WaterMixRecommendationBox from '@/pages/duengung/WaterMixRecommendationBox';
 
 const fillTypes = ['full_change', 'top_up', 'adjustment'] as const;
 const waterSources = ['tap', 'osmose', 'mixed', 'rainwater', 'distilled', 'well'] as const;
@@ -41,16 +44,21 @@ interface Props {
   onClose: () => void;
   tankKey: string;
   onCreated: () => void;
+  siteKey?: string | null;
+  nutrientPlanKey?: string | null;
+  currentSequenceOrder?: number;
 }
 
-export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated }: Props) {
+export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated, siteKey, nutrientPlanKey, currentSequenceOrder }: Props) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
 
-  const { control, handleSubmit, reset, watch } = useForm<FormData>({
+  const { control, handleSubmit, reset, watch, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       fill_type: 'full_change',
@@ -98,13 +106,11 @@ export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated
   };
 
   return (
-    <Dialog
-      open={open}
+    <Dialog fullScreen={fullScreen} open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      data-testid="tank-fill-create-dialog"
-    >
+      data-testid="tank-fill-create-dialog">
       <DialogTitle>{t('pages.tanks.recordFill')}</DialogTitle>
       <DialogContent>
         {warnings.length > 0 && warnings.map((w, i) => (
@@ -149,16 +155,28 @@ export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated
             />
           </FormRow>
           {waterSource === 'mixed' && (
-            <FormNumberField
-              name="water_mix_ratio_ro_percent"
-              control={control}
-              label={t('pages.tanks.roPercent')}
-              helperText={t('pages.tanks.roPercentHelper')}
-              suffix="%"
-              inputMode="numeric"
-              min={0}
-              max={100}
-            />
+            <>
+              <FormNumberField
+                name="water_mix_ratio_ro_percent"
+                control={control}
+                label={t('pages.tanks.roPercent')}
+                helperText={t('pages.tanks.roPercentHelper')}
+                suffix="%"
+                inputMode="numeric"
+                min={0}
+                max={100}
+              />
+              {siteKey && nutrientPlanKey && currentSequenceOrder && (
+                <WaterMixRecommendationBox
+                  planKey={nutrientPlanKey}
+                  sequenceOrder={currentSequenceOrder}
+                  siteKey={siteKey}
+                  onApply={(roPercent) => {
+                    setValue('water_mix_ratio_ro_percent', roPercent, { shouldDirty: true });
+                  }}
+                />
+              )}
+            </>
           )}
 
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 1 }}>

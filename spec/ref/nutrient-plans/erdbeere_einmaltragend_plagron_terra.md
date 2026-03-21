@@ -15,12 +15,15 @@
 | Name | Erdbeere (einmaltragend) -- Plagron Terra | `nutrient_plans.name` |
 | Beschreibung | Jahresplan fuer einmaltragende Erdbeeren im Topf/Kuebel (Balkon, Terrasse). Plagron Terra-Linie mit 5 Produkten. Saisonaler Zyklus: Maerz--Oktober Duengung, November--Februar Winterruhe. Erster Durchlauf mit Bewurzelungs-/Etablierungsphase, ab Jahr 2 zyklisch. | `nutrient_plans.description` |
 | Substrattyp | SOIL | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.1 | `nutrient_plans.version` |
 | Tags | erdbeere, fragaria, einmaltragend, plagron, terra, erde, outdoor, topf, balkon | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | 3 (VEGETATIVE Fruehjahr) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -133,7 +136,8 @@ Erdbeeren sind salzempfindlich. Ziel-EC der Gesamtloesung: **0.5--1.0 mS/cm** (i
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.0 |
 | fertilizer_dosages | Power Roots 1 ml/L (optional), Pure Zym 1 ml/L (optional) |
 
@@ -156,7 +160,8 @@ Erdbeeren sind salzempfindlich. Ziel-EC der Gesamtloesung: **0.5--1.0 mS/cm** (i
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.5 |
+| target_ec_ms | 0.5  |
+| reference_ec_ms | 0.5  |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 2.5 (halbe Dosis) |
 | Power Roots ml/L | 1.0 |
@@ -182,7 +187,8 @@ Erdbeeren sind salzempfindlich. Ziel-EC der Gesamtloesung: **0.5--1.0 mS/cm** (i
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.8 |
+| target_ec_ms | 0.8  |
+| reference_ec_ms | 0.8  |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 4.0 (80% der Plagron-Empfehlung) |
 | Power Roots ml/L | 1.0 |
@@ -209,7 +215,8 @@ Erdbeeren sind salzempfindlich. Ziel-EC der Gesamtloesung: **0.5--1.0 mS/cm** (i
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.9 |
+| target_ec_ms | 0.9  |
+| reference_ec_ms | 0.9  |
 | target_ph | 5.8 |
 | Terra Bloom ml/L | 4.0 |
 | Pure Zym ml/L | 1.0 |
@@ -234,7 +241,8 @@ Erdbeeren sind salzempfindlich. Ziel-EC der Gesamtloesung: **0.5--1.0 mS/cm** (i
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.7 |
+| target_ec_ms | 0.7  |
+| reference_ec_ms | 0.7  |
 | target_ph | 5.8 |
 | Terra Bloom ml/L | 3.0 (reduziert) |
 | Pure Zym ml/L | 1.0 |
@@ -259,7 +267,8 @@ Erdbeeren sind salzempfindlich. Ziel-EC der Gesamtloesung: **0.5--1.0 mS/cm** (i
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.0 |
 | Pure Zym ml/L | 1.0 |
 | fertilizer_dosages | Pure Zym only |
@@ -284,7 +293,8 @@ Erdbeeren sind salzempfindlich. Ziel-EC der Gesamtloesung: **0.5--1.0 mS/cm** (i
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6 |
+| target_ec_ms | 0.6  |
+| reference_ec_ms | 0.6  |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 3.0 (reduziert) |
 | Pure Zym ml/L | 1.0 |
@@ -309,7 +319,8 @@ Erdbeeren sind salzempfindlich. Ziel-EC der Gesamtloesung: **0.5--1.0 mS/cm** (i
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0 |
+| target_ec_ms | 0.0  |
+| reference_ec_ms | 0.0  |
 | target_ph | 6.0 |
 | fertilizer_dosages | [] (leer) |
 
@@ -429,6 +440,7 @@ Erdbeeren sind zwar selbstfruchtbar, aber fuer optimalen Fruchtansatz und gleich
   "name": "Erdbeere (einmaltragend) \u2014 Plagron Terra",
   "description": "Jahresplan f\u00fcr einmaltragende Erdbeeren im Topf/K\u00fcbel. Plagron Terra-Linie mit 5 Produkten. Saisonaler Zyklus: M\u00e4rz\u2013Oktober D\u00fcngung, November\u2013Februar Winterruhe.",
   "recommended_substrate_type": "soil",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.1",
@@ -478,6 +490,7 @@ Erdbeeren sind zwar selbstfruchtbar, aber fuer optimalen Fruchtansatz und gleich
       "enabled": true,
       "notes": "Kein Basisdünger. Power Roots + Pure Zym optional.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<power_roots_key>", "ml_per_liter": 1.0, "optional": true},
@@ -511,6 +524,7 @@ Erdbeeren sind zwar selbstfruchtbar, aber fuer optimalen Fruchtansatz und gleich
       "enabled": true,
       "notes": "Terra Grow halbe Dosis + Additive",
       "target_ec_ms": 0.5,
+      "reference_ec_ms": 0.5,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 2.5, "optional": false},
@@ -545,6 +559,7 @@ Erdbeeren sind zwar selbstfruchtbar, aber fuer optimalen Fruchtansatz und gleich
       "enabled": true,
       "notes": "Terra Grow + alle Additive. Reihenfolge: Terra Grow \u2192 Power Roots \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen",
       "target_ec_ms": 0.8,
+      "reference_ec_ms": 0.8,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 4.0, "optional": false},
@@ -581,6 +596,7 @@ Erdbeeren sind zwar selbstfruchtbar, aber fuer optimalen Fruchtansatz und gleich
       "enabled": true,
       "notes": "Terra Bloom + Additive. Reihenfolge: Terra Bloom \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen",
       "target_ec_ms": 0.9,
+      "reference_ec_ms": 0.9,
       "target_ph": 5.8,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 4.0, "optional": false},
@@ -615,6 +631,7 @@ Erdbeeren sind zwar selbstfruchtbar, aber fuer optimalen Fruchtansatz und gleich
       "enabled": true,
       "notes": "Reduzierter Terra Bloom. Kein Sugar Royal (organischer N unerwuenscht waehrend Fruchtreife).",
       "target_ec_ms": 0.7,
+      "reference_ec_ms": 0.7,
       "target_ph": 5.8,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_bloom_key>", "ml_per_liter": 3.0, "optional": false},
@@ -656,6 +673,7 @@ Erdbeeren sind zwar selbstfruchtbar, aber fuer optimalen Fruchtansatz und gleich
       "enabled": true,
       "notes": "Nur Wasser + Pure Zym. Kein D\u00fcnger.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<pure_zym_key>", "ml_per_liter": 1.0, "optional": false}
@@ -696,6 +714,7 @@ Erdbeeren sind zwar selbstfruchtbar, aber fuer optimalen Fruchtansatz und gleich
       "enabled": true,
       "notes": "Reduzierter Terra Grow + Pure Zym. Kein Sugar Royal, kein Power Roots.",
       "target_ec_ms": 0.6,
+      "reference_ec_ms": 0.6,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 3.0, "optional": false},
@@ -737,6 +756,7 @@ Erdbeeren sind zwar selbstfruchtbar, aber fuer optimalen Fruchtansatz und gleich
       "enabled": true,
       "notes": "Kein D\u00fcnger. Nur bei Trockenheit gie\u00dfen.",
       "target_ec_ms": 0.0,
+      "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.5}

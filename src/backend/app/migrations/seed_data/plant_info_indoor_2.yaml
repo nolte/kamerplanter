@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=./schemas/plant_info.schema.yaml
 # Plant-info seed data from spec/ref/plant-info/*.md (30 indoor plant documents).
 #
 # Adds 15 new botanical families, 29 new species, enriches 29 species with
@@ -908,11 +909,11 @@ new_species:
     base_temp: 10.0
     frost_sensitivity: sensitive
     allows_harvest: false
-    sowing_indoor_weeks_before_last_frost: 11
-    sowing_outdoor_after_last_frost_days: null
+    sowing_indoor_weeks_before_last_frost: 10
+    sowing_outdoor_after_last_frost_days: 14
     direct_sow_months: []
     harvest_months: []
-    bloom_months: [5, 6, 7, 8, 9, 10]
+    bloom_months: [6, 7, 8, 9, 10]
     container_suitable: "yes"
     recommended_container_volume_l: "2-8"
     min_container_depth_cm: 15

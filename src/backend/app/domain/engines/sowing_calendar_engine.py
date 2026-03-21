@@ -1,5 +1,7 @@
 """Sowing calendar engine — calculates time bars for species sowing/harvest/bloom phases."""
 
+from __future__ import annotations
+
 from datetime import date, timedelta
 
 from pydantic import BaseModel, model_validator
@@ -35,6 +37,7 @@ class SowingCalendarEntry(BaseModel):
     species_name: str
     common_name: str = ""
     link_species_key: str = ""
+    plant_category: str | None = None
     bars: list[SowingBar] = []
 
 
@@ -63,6 +66,7 @@ class SpeciesData(BaseModel):
     traits: list[PlantTrait] = []
     allows_harvest: bool = True
     frost_sensitivity: FrostTolerance | None = None
+    plant_category: str | None = None
     # ── Explicit growing periods (preferred) ──
     growing_periods: list[GrowingPeriodData] = []
     # ── Legacy flat fields — auto-converted to single period ──
@@ -257,7 +261,11 @@ class SowingCalendarEngine:
                     )
                 )
         else:
-            # 4-auto: fill ALL gaps to ensure a contiguous timeline
+            # 4-auto: per-sow-bar gap-fill with date precision.
+            # For each sowing bar, find the nearest future terminal or sowing
+            # bar and fill the gap with growth.  For year-crossing scenarios
+            # (e.g. sow Oct → harvest Jun), also fill from Jan 1 to the
+            # earliest "prior" terminal.
             indoor_bars = [b for b in bars if b.phase == "indoor_sowing"]
             planting_bars = [b for b in bars if b.phase == "outdoor_planting"]
             terminal_bars = [b for b in bars if b.phase in ("harvest", "flowering")]
@@ -277,34 +285,65 @@ class SowingCalendarEngine:
                         )
                     )
 
-            # 4b. Gap between planting end (or indoor end) and harvest/bloom start
+            # 4b. Per sowing bar: fill gap to nearest future terminal
             source_bars = planting_bars or indoor_bars
             if source_bars and terminal_bars:
-                latest_source_end = max(b.end_date for b in source_bars)
-                future_terminals = [b for b in terminal_bars if b.start_date > latest_source_end]
-                if future_terminals:
-                    earliest_future = min(b.start_date for b in future_terminals)
-                    growth_start = latest_source_end + timedelta(days=1)
-                    growth_end = earliest_future - timedelta(days=1)
-                    if growth_start < growth_end:
-                        bars.append(
-                            SowingBar(
-                                phase="growth",
-                                color=PHASE_COLORS["growth"],
-                                start_date=growth_start,
-                                end_date=growth_end,
-                                label="growth",
-                            )
+                for sb in source_bars:
+                    future_terminals = [
+                        b for b in terminal_bars if b.start_date > sb.end_date
+                    ]
+                    if future_terminals:
+                        nearest = min(future_terminals, key=lambda b: b.start_date)
+                        # Don't fill past another sowing bar
+                        other_sow_before = [
+                            s for s in source_bars
+                            if s is not sb
+                            and s.start_date > sb.end_date
+                            and s.start_date < nearest.start_date
+                        ]
+                        end_limit = (
+                            min(s.start_date for s in other_sow_before) - timedelta(days=1)
+                            if other_sow_before
+                            else nearest.start_date - timedelta(days=1)
                         )
+                        growth_start = sb.end_date + timedelta(days=1)
+                        if growth_start <= end_limit:
+                            bars.append(
+                                SowingBar(
+                                    phase="growth",
+                                    color=PHASE_COLORS["growth"],
+                                    start_date=growth_start,
+                                    end_date=end_limit,
+                                    label="growth",
+                                )
+                            )
+                    else:
+                        # No future terminal — year-crossing scenario.
+                        # Fill growth from sow end to Dec 31.
+                        growth_start = sb.end_date + timedelta(days=1)
+                        year_end = date(year, 12, 31)
+                        if growth_start <= year_end:
+                            bars.append(
+                                SowingBar(
+                                    phase="growth",
+                                    color=PHASE_COLORS["growth"],
+                                    start_date=growth_start,
+                                    end_date=year_end,
+                                    label="growth",
+                                )
+                            )
 
-            # 4c. Year-crossing period: harvest/bloom BEFORE planting in the calendar
-            #     (e.g. Winterweizen: sow Oct/Nov, harvest Jul/Aug next year).
-            #     Fill growth from Jan 1 to earliest terminal start.
+            # 4c. Year-crossing: fill Jan 1 to earliest terminal that is
+            #     before all sowing bars (i.e. the "wrapped" terminal).
             if source_bars and terminal_bars:
                 earliest_source = min(b.start_date for b in source_bars)
-                prior_terminals = [b for b in terminal_bars if b.end_date < earliest_source]
+                prior_terminals = [
+                    b for b in terminal_bars if b.end_date < earliest_source
+                ]
                 if prior_terminals:
-                    earliest_terminal = min(b.start_date for b in prior_terminals)
+                    earliest_terminal = min(
+                        b.start_date for b in prior_terminals
+                    )
                     if earliest_terminal > date(year, 1, 1):
                         bars.append(
                             SowingBar(
@@ -312,6 +351,32 @@ class SowingCalendarEngine:
                                 color=PHASE_COLORS["growth"],
                                 start_date=date(year, 1, 1),
                                 end_date=earliest_terminal - timedelta(days=1),
+                                label="growth",
+                            )
+                        )
+
+            # 4-fallback: No sowing bars but terminal bars exist (indoor ornamentals).
+            # Fill all non-terminal months with growth.
+            if not sowing_bars and terminal_bars:
+                terminal_months_set: set[int] = set()
+                for tb in terminal_bars:
+                    sm = tb.start_date.month
+                    em = tb.end_date.month
+                    if sm <= em:
+                        terminal_months_set.update(range(sm, em + 1))
+                    else:
+                        terminal_months_set.update(range(sm, 13))
+                        terminal_months_set.update(range(1, em + 1))
+                growth_months_list = sorted(m for m in range(1, 13) if m not in terminal_months_set)
+                if growth_months_list:
+                    for ps, pe in _split_into_periods(growth_months_list):
+                        ds, de = _period_dates(year, ps, pe)
+                        bars.append(
+                            SowingBar(
+                                phase="growth",
+                                color=PHASE_COLORS["growth"],
+                                start_date=ds,
+                                end_date=de,
                                 label="growth",
                             )
                         )
@@ -356,6 +421,7 @@ class SowingCalendarEngine:
                         species_name=sp.scientific_name,
                         common_name=label,
                         link_species_key=sp.key,
+                        plant_category=sp.plant_category,
                         bars=bars,
                     )
                 )

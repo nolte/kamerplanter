@@ -26,7 +26,7 @@
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
 | USDA Zonen | 10a, 10b, 11a, 11b, 12a, 12b | `species.hardiness_zones` |
-| Frostempfindlichkeit | tender | `species.frost_sensitivity` |
+| Frostempfindlichkeit | sensitive | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Nicht frosthart. Mindesttemperatur 15 C, optimal 18-27 C. Keine Temperaturen unter 13 C. | `species.hardiness_detail` |
 | Heimat | Tropische Regenwaelder Mittel- und Suedamerikas (Mexiko bis Bolivien), Karibik | `species.native_habitat` |
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |

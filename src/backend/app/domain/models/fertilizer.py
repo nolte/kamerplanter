@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -46,13 +47,13 @@ class Fertilizer(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def validate_tank_safe_application(self) -> Fertilizer:
+    def validate_tank_safe_application(self) -> Self:
         if not self.tank_safe and self.recommended_application == ApplicationMethod.FERTIGATION:
             raise ValueError("Fertilizer marked as not tank-safe cannot have fertigation as recommended application")
         return self
 
     @model_validator(mode="after")
-    def validate_storage_temp(self) -> Fertilizer:
+    def validate_storage_temp(self) -> Self:
         if (
             self.storage_temp_min is not None
             and self.storage_temp_max is not None
@@ -76,7 +77,7 @@ class FertilizerStock(BaseModel):
     model_config = {"populate_by_name": True}
 
     @model_validator(mode="after")
-    def validate_dates(self) -> FertilizerStock:
+    def validate_dates(self) -> Self:
         if self.purchase_date is not None and self.expiry_date is not None and self.expiry_date <= self.purchase_date:
             raise ValueError("expiry_date must be after purchase_date")
         return self

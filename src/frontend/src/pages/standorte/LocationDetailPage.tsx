@@ -13,6 +13,7 @@ import GrassIcon from '@mui/icons-material/Grass';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
@@ -451,6 +452,18 @@ export default function LocationDetailPage() {
                 onRowClick={(r) => navigate(`/durchlaeufe/planting-runs/${r.key}`)}
                 tableState={runTableState}
                 ariaLabel={t('pages.locations.assignedRuns')}
+                mobileCardRenderer={(r) => (
+                  <MobileCard
+                    title={r.name}
+                    chips={
+                      <Chip label={t(`enums.plantingRunStatus.${r.status}`)} size="small" color={runStatusColor[r.status] ?? 'default'} />
+                    }
+                    fields={[
+                      { label: t('pages.plantingRuns.runType'), value: t(`enums.plantingRunType.${r.run_type}`) },
+                      { label: t('pages.locations.plantCount'), value: `${runPlantCounts.get(r.key) ?? r.actual_quantity} ${t('entities.plantInstances')}` },
+                    ]}
+                  />
+                )}
               />
             )}
             {standaloneInstances.length > 0 && (
@@ -472,6 +485,15 @@ export default function LocationDetailPage() {
                   onRowClick={(r) => navigate(`/pflanzen/plant-instances/${r.key}`)}
                   tableState={instanceTableState}
                   ariaLabel={t('pages.locations.standalonePlants')}
+                  mobileCardRenderer={(r) => (
+                    <MobileCard
+                      title={r.plant_name || r.instance_id}
+                      subtitle={r.planted_on ? new Date(r.planted_on).toLocaleDateString() : undefined}
+                      chips={
+                        <Chip label={t(`enums.phaseName.${r.current_phase}`)} size="small" variant="outlined" />
+                      }
+                    />
+                  )}
                 />
               </Box>
             )}
@@ -505,6 +527,15 @@ export default function LocationDetailPage() {
             onRowClick={(r) => navigate(`/standorte/locations/${r.key}`)}
             tableState={childTableState}
             ariaLabel={t('pages.locations.sublocations')}
+            mobileCardRenderer={(r) => (
+              <MobileCard
+                title={r.name}
+                subtitle={r.location_type_key || undefined}
+                fields={[
+                  { label: t('pages.locations.area'), value: `${r.area_m2} m\u00B2` },
+                ]}
+              />
+            )}
           />
         )}
       </Box>
@@ -523,7 +554,30 @@ export default function LocationDetailPage() {
             onAction={() => setSlotCreateOpen(true)}
           />
         ) : (
-          <DataTable columns={slotColumns} rows={slots} getRowKey={(r) => r.key} onRowClick={(r) => navigate(`/standorte/slots/${r.key}`)} tableState={slotTableState} ariaLabel={t('pages.slots.title')} />
+          <DataTable
+            columns={slotColumns}
+            rows={slots}
+            getRowKey={(r) => r.key}
+            onRowClick={(r) => navigate(`/standorte/slots/${r.key}`)}
+            tableState={slotTableState}
+            ariaLabel={t('pages.slots.title')}
+            mobileCardRenderer={(r) => (
+              <MobileCard
+                title={r.slot_id}
+                subtitle={`(${r.position[0]}, ${r.position[1]})`}
+                chips={
+                  <Chip
+                    label={r.currently_occupied ? t('common.yes') : t('common.no')}
+                    size="small"
+                    color={r.currently_occupied ? 'warning' : 'default'}
+                  />
+                }
+                fields={[
+                  { label: t('pages.slots.capacity'), value: String(r.capacity_plants) },
+                ]}
+              />
+            )}
+          />
         )}
       </Box>
 
@@ -611,6 +665,17 @@ export default function LocationDetailPage() {
           getRowKey={(r) => r.key}
           tableState={wateringTableState}
           ariaLabel={t('pages.wateringEvents.title')}
+          mobileCardRenderer={(r) => (
+            <MobileCard
+              title={r.watered_at ? new Date(r.watered_at).toLocaleString() : '\u2014'}
+              chips={<Chip label={t(`enums.applicationMethod.${r.application_method}`)} size="small" />}
+              fields={[
+                { label: t('pages.wateringEvents.volumeLiters'), value: `${r.volume_liters} L` },
+                { label: t('pages.wateringEvents.plantKeys'), value: String(r.plant_keys.length) },
+                ...(r.water_source ? [{ label: t('pages.wateringEvents.waterSource'), value: t(`enums.waterSource.${r.water_source}`) }] : []),
+              ]}
+            />
+          )}
         />
 
         <WateringEventCreateDialog
@@ -664,6 +729,22 @@ export default function LocationDetailPage() {
             getRowKey={(r) => r.key}
             tableState={sensorTableState}
             ariaLabel={t('pages.sensors.title')}
+            mobileCardRenderer={(r) => (
+              <MobileCard
+                title={r.name}
+                subtitle={r.ha_entity_id || undefined}
+                chips={
+                  <Chip
+                    label={r.is_active ? t('common.yes') : t('common.no')}
+                    size="small"
+                    color={r.is_active ? 'success' : 'default'}
+                  />
+                }
+                fields={[
+                  { label: t('pages.sensors.metricType'), value: r.metric_type },
+                ]}
+              />
+            )}
           />
         )}
       </Box>

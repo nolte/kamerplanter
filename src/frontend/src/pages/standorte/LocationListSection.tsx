@@ -5,6 +5,8 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import AddIcon from '@mui/icons-material/Add';
+import Chip from '@mui/material/Chip';
+import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import LocationCreateDialog from './LocationCreateDialog';
 import { useApiError } from '@/hooks/useApiError';
@@ -84,6 +86,21 @@ export default function LocationListSection({ siteKey }: Props) {
         getRowKey={(r) => r.key}
         tableState={tableState}
         ariaLabel={t('pages.locations.title')}
+        mobileCardRenderer={(r) => (
+          <MobileCard
+            title={r.name}
+            subtitle={tankNameByLocation.get(r.key) || undefined}
+            chips={
+              <>
+                <Chip label={t(`enums.lightType.${r.light_type}`)} size="small" />
+                <Chip label={t(`enums.irrigationSystem.${r.irrigation_system}`)} size="small" variant="outlined" />
+              </>
+            }
+            fields={[
+              { label: t('pages.locations.area'), value: `${r.area_m2} m\u00B2` },
+            ]}
+          />
+        )}
       />
       <LocationCreateDialog
         siteKey={siteKey}

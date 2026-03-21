@@ -1,9 +1,11 @@
+# yaml-language-server: $schema=./schemas/fertilizers.schema.yaml
 nutrient_plans:
 - name: Buschbohne — Plagron Terra (Leguminose)
   description: 'Minimaldüngungs-Plan für Buschbohne (Phaseolus vulgaris) als N-Fixierer. KEIN Terra Grow! Nur Terra Bloom
     (P+K) in niedriger Dosis. Rhizobium-Symbiose liefert Stickstoff. Direktsaat nach Eisheiligen, 10–14 Wochen Kulturzeit.
     WARNUNG: Rohe Bohnen sind giftig (Phasin)!'
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -81,6 +83,7 @@ nutrient_plans:
     - 0.0
     - 1.0
     - 2.0
+    reference_ec_ms: 0.5
     notes: 'Terra Bloom Viertel-Dosis (1.5 ml/L) + Pure Zym. Nur P+K-Versorgung — Rhizobium liefert N. Anhäufelung: 5–8 cm
       Erde an Stängelbasis. Alle 14 Tage düngen.'
     delivery_channels:
@@ -104,6 +107,7 @@ nutrient_plans:
     - 0.0
     - 2.0
     - 3.0
+    reference_ec_ms: 0.6
     notes: Terra Bloom niedrige Dosis (2 ml/L) + Pure Zym. P+K für Blüte und Hülsenbildung. Hitze über 30°C = Blütenabwurf!
       Gleichmäßig gießen (alle 2 Tage). Alle 14 Tage düngen.
     delivery_channels:
@@ -142,6 +146,7 @@ nutrient_plans:
   description: 'Zweiteiliger Plan: Freiland-Wurzelaufbau (Mai–Oktober) + Treiberei im Dunkeln (Nov–Dez). Plagron Terra-Linie,
     3 Produkte. Mittelzehrer. 28 Wochen Gesamtdauer.'
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -199,6 +204,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.5
     notes: Vereinzeln auf 25–30 cm. Viertel-Dosis Terra Grow (1.5 ml/L). Alle 14 Tage düngen.
     delivery_channels:
     - channel_id: naehrloesung-wachstum
@@ -219,6 +225,7 @@ nutrient_plans:
     - 2.0
     - 2.0
     - 4.0
+    reference_ec_ms: 0.65
     notes: 'W8–12: Terra Grow 2.5 ml/L + Pure Zym. Ab W13: Umstellung auf Terra Bloom 2.5 ml/L (K-betont für Wurzeleinlagerung)
       + Pure Zym. Alle 14 Tage düngen. Ab W18 Düngung einstellen (4 Wochen vor Rodung). Blütenstängel sofort entfernen!'
     delivery_channels:
@@ -292,6 +299,7 @@ nutrient_plans:
     aktive Saison + 20 Wochen Dormanz. Geeignet für Cultivare: Armateras, Hapet Daydream, Lavender Perfection, Great Silence,
     Embassy.'
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -352,6 +360,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.8
     is_recurring: true
     calcium_ppm: 100.0
     magnesium_ppm: 40.0
@@ -381,6 +390,7 @@ nutrient_plans:
     - 2.0
     - 2.0
     - 4.0
+    reference_ec_ms: 0.9
     is_recurring: true
     calcium_ppm: 100.0
     magnesium_ppm: 40.0
@@ -454,6 +464,7 @@ nutrient_plans:
     (Pfahlwurzel). Staffelsaat alle 3–4 Wochen. Nur Terra Grow + Pure Zym. Bewusst niedrige Dosierung — überdüngter Dill schmeckt
     fad.
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -511,6 +522,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.4
     notes: Viertel-Dosis Terra Grow (1.5 ml/L). Vereinzeln auf 15–20 cm. Nur bei Nährstoffmangel düngen — Kompost im Boden
       genügt oft. Max. 1x düngen.
     delivery_channels:
@@ -532,6 +544,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.5
     notes: Haupterntephase. Halbe Dosis Terra Grow (2.0 ml/L) + Pure Zym. Blattspitzen ernten verzögert Schossen. NICHT überdosieren
       — überdüngter Dill schmeckt fad! Alle 3 Wochen 1x düngen.
     delivery_channels:
@@ -596,6 +609,7 @@ nutrient_plans:
     Bloom (P+K) in Viertel-Dosis. Rhizobium-Symbiose liefert Stickstoff. Direktsaat ab März, 12–16 Wochen Kulturzeit. Leidet
     ab 25°C.
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -673,6 +687,7 @@ nutrient_plans:
     - 0.0
     - 1.0
     - 2.0
+    reference_ec_ms: 0.5
     notes: Terra Bloom Viertel-Dosis (1.25 ml/L) + Pure Zym. Minimale P+K-Versorgung — Rhizobium liefert N. Aktives Rankenwachstum.
       Alle 14 Tage düngen. Optimale Temperatur 14–20°C.
     delivery_channels:
@@ -696,6 +711,7 @@ nutrient_plans:
     - 0.0
     - 2.0
     - 3.0
+    reference_ec_ms: 0.5
     notes: 'Terra Bloom Viertel-Dosis (1.25 ml/L) + Pure Zym. P+K für Blüte und Hülsenbildung. Hitze über 25°C = Blütenabwurf!
       Gleichmäßig gießen. Alle 14 Tage düngen. Bei Hitze: Mulch 5 cm.'
     delivery_channels:
@@ -734,6 +750,7 @@ nutrient_plans:
   description: Saisonplan für Salatgurken und Einlegegurken mit Indoor-Vorkultur ab April und Gewächshaus-/Freilandkultur
     ab Mitte Mai. Plagron Terra-Linie mit 6 Produkten inkl. PK 13-14 Fruchtbooster. Starkzehrer, 22 Wochen (April–September).
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -791,6 +808,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.6
     notes: Viertel-Dosis Terra Grow (1.5 ml/L). NICHT pikieren – empfindliche Wurzeln! Power Roots fördert Wurzelentwicklung.
       EC zügig steigern (Starkzehrer).
     watering_schedule_override:
@@ -821,6 +839,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 1.5
     notes: Volle Dosis Terra Grow (5 ml/L). Kräftiger Blatt- und Rankenaufbau. Abhärtung ab Woche 7. Auspflanzen nach Eisheiligen
       (ca. 15. Mai). Rankhilfe aufstellen, Mulch ausbringen.
     delivery_channels:
@@ -849,6 +868,7 @@ nutrient_plans:
     - 2.0
     - 2.0
     - 4.0
+    reference_ec_ms: 1.8
     calcium_ppm: 165.0
     magnesium_ppm: 50.0
     notes: Umstellung auf Terra Bloom (5 ml/L). Power Roots absetzen. PK 13-14 (0.5 ml/L) NUR in Woche 10–11 als einmaliger
@@ -880,6 +900,7 @@ nutrient_plans:
     - 2.0
     - 2.0
     - 4.0
+    reference_ec_ms: 1.5
     calcium_ppm: 175.0
     magnesium_ppm: 50.0
     notes: Reduzierter Terra Bloom (4 ml/L). Kein Sugar Royal (organischer N verschlechtert Fruchtqualität). Kein PK 13-14.
@@ -898,7 +919,7 @@ nutrient_plans:
         ml_per_liter: 4.0
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: flushing
+  - phase_name: harvest
     sequence_order: 6
     week_start: 21
     week_end: 22
@@ -929,6 +950,7 @@ nutrient_plans:
   description: Saisonplan für Winterlauch mit langer Vorkultur ab Februar und Freilandpflanzung ab Mai/Juni. Plagron Terra-Linie
     mit 5 Produkten. Starkzehrer, 34 Wochen (Februar–Oktober, Ernte bis März). K-betonte Düngung ab August für Winterhärte.
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -987,6 +1009,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.6
     notes: Viertel-Dosis Terra Grow (1.5 ml/L), alle 2 Wochen. Lange Voranzucht (8 Wochen). Power Roots fördert Wurzelentwicklung.
       Abhärtung ab April. Pflanzung wenn Sämling bleistiftdick (6–8 mm, 15–20 cm).
     watering_schedule_override:
@@ -1017,6 +1040,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 1.5
     notes: 'Phase 1 (W12–19, Mai–Juli): Volle Dosis Terra Grow (5 ml/L), N-betont für Schaftwachstum. Power Roots bis W14.
       Pure Zym + Sugar Royal ab W14. Anhäufeln 1. Etappe Juli. Phase 2 (W20–26, Aug–Sep): Wechsel auf Terra Bloom (4 ml/L),
       K-betont für Winterhärte. Sugar Royal absetzen (kein N mehr!). Anhäufeln 2. + 3. Etappe. Kulturschutznetze kontrollieren.'
@@ -1081,6 +1105,7 @@ nutrient_plans:
   description: Saisonplan für Mangold (Schnitt-/Stielmangold) mit Vorkultur ab Ende März oder Direktsaat ab Mitte April. Plagron
     Terra-Linie mit 5 Produkten. Mittelzehrer, 18 Wochen (April–September). Kontinuierliche Blatternte.
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -1139,6 +1164,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.5
     notes: Viertel-Dosis Terra Grow (1.5 ml/L). Vereinzeln auf 25–30 cm Abstand. Power Roots fördert Wurzelentwicklung.
     watering_schedule_override:
       schedule_mode: interval
@@ -1168,6 +1194,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 1.2
     notes: Moderate Dosis Terra Grow (4 ml/L) – Mittelzehrer, nicht überdosieren! Pure Zym + Sugar Royal (halbe Dosis 0.5
       ml/L). Power Roots bis W8. Erste Blatternte ab W8–9 möglich. Mulchen empfohlen.
     delivery_channels:
@@ -1197,6 +1224,7 @@ nutrient_plans:
     - 2.0
     - 2.0
     - 4.0
+    reference_ec_ms: 1.0
     notes: 'Terra Bloom reduziert (3 ml/L). K-betont für Blattqualität. Kein Sugar Royal (N-Reduktion). Kontinuierliche Blatternte:
       max. 2–3 äußere Blätter, Herz stehen lassen. Alle 7–10 Tage ernten. Schosser sofort entfernen.'
     delivery_channels:
@@ -1212,7 +1240,7 @@ nutrient_plans:
         ml_per_liter: 3.0
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: flushing
+  - phase_name: harvest
     sequence_order: 5
     week_start: 17
     week_end: 18
@@ -1244,6 +1272,7 @@ nutrient_plans:
   description: Saisonplan für Möhren (Nantes-Typ) bei Direktsaat. Plagron Terra-Linie, 2 Produkte. K-betonte Schwachzehrer-Strategie
     (Terra Bloom statt Terra Grow). KEIN frischer organischer Dünger. 18 Wochen (März–August).
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -1319,6 +1348,7 @@ nutrient_plans:
     - 2.0
     - 2.0
     - 4.0
+    reference_ec_ms: 0.6
     notes: Terra Bloom 2 ml/L (K-betont für Wurzelbildung) + Pure Zym. Alle 14 Tage düngen. N bewusst niedrig — üppiges Kraut
       auf Kosten der Wurzel vermeiden! Anhäufeln bei sichtbarer Wurzelschulter. Gleichmäßig gießen.
     delivery_channels:
@@ -1364,6 +1394,7 @@ nutrient_plans:
   description: Saisonplan für Paprika (Gemüse-Paprika) mit Indoor-Vorkultur ab Februar und Freilandkultur ab Mitte Mai. Plagron
     Terra-Linie mit 6 Produkten inkl. PK 13-14 Blütebooster. Starkzehrer (Solanaceae), 30 Wochen (Februar–September).
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -1421,6 +1452,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.6
     notes: Viertel-Dosis Terra Grow (1.5 ml/L). Pikieren nach 2. Blattpaar. Paprika wächst langsam – Geduld! Kühlere Nachttemperaturen
       (16–18°C) fördern stöckigen Wuchs. Power Roots fördert Wurzelentwicklung.
     watering_schedule_override:
@@ -1451,6 +1483,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 1.5
     notes: Volle Dosis Terra Grow (5 ml/L). Kräftiger Stamm- und Blattaufbau. Abhärtung ab Woche 14. Auspflanzen nach Eisheiligen
       (ca. 15. Mai), Stützstab setzen, Pflanzabstand 40–50 cm.
     delivery_channels:
@@ -1479,6 +1512,7 @@ nutrient_plans:
     - 2.0
     - 2.0
     - 4.0
+    reference_ec_ms: 1.8
     calcium_ppm: 165.0
     magnesium_ppm: 50.0
     notes: Umstellung auf Terra Bloom (5 ml/L). Power Roots absetzen. PK 13-14 (0.5 ml/L) NUR in Woche 19–20 als Fruchtansatz-Boost.
@@ -1510,6 +1544,7 @@ nutrient_plans:
     - 2.0
     - 2.0
     - 4.0
+    reference_ec_ms: 1.5
     calcium_ppm: 165.0
     magnesium_ppm: 55.0
     notes: Reduzierter Terra Bloom (4 ml/L). Kein Sugar Royal, kein PK 13-14. Regelmäßig ernten fördert Neuansatz. Grüne Früchte
@@ -1527,7 +1562,7 @@ nutrient_plans:
         ml_per_liter: 4.0
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: flushing
+  - phase_name: harvest
     sequence_order: 6
     week_start: 29
     week_end: 30
@@ -1560,6 +1595,7 @@ nutrient_plans:
     Mittelzehrer mit halber Herstellerdosis. Zweijährig, aber nur 1. Jahr nutzbar — im 2. Jahr schießt die Pflanze. Bedeckt
     säen (Furanocumarine in Samenschale), langsame Keimung (3–4 Wochen). Kontinuierliche Blatternte Mai–November.
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -1617,6 +1653,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.5
     notes: Viertel-Dosis Terra Grow (1.5 ml/L). Pikieren ab 2. echtem Blattpaar. Tiefe Töpfe wegen Pfahlwurzel. Ab Mitte April
       Abhärtung. Alle 14 Tage düngen. Pure Zym erst ab VEGETATIVE.
     delivery_channels:
@@ -1638,6 +1675,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.6
     notes: 'Halbe Dosis Terra Grow (2.5 ml/L) + Pure Zym. Hauptwachstum der Blattrosette. Kontinuierliche Blatternte: äußere
       Blätter von außen nach innen, Herzblätter stehen lassen. Alle 14 Tage düngen.'
     delivery_channels:
@@ -1661,6 +1699,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.5
     notes: Reduzierter Terra Grow (2.0 ml/L) + Pure Zym. Fortgesetzte Blatternte bei nachlassendem Wachstum. Ab September
       alle 3 Wochen düngen. Petersilie verträgt leichte Fröste bis -8 °C — Ernteperiode mit Vlies verlängerbar.
     delivery_channels:
@@ -1707,6 +1746,7 @@ nutrient_plans:
     4 Produkten. Mittelzehrer bis Starkzehrer mit kritischem Eisenbedarf. Dauerblüte Mai–Oktober. Annuell in Mitteleuropa.
     Balkonkasten, Ampel und Beet.
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -1766,6 +1806,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.6
     calcium_ppm: 60.0
     magnesium_ppm: 25.0
     notes: Halbe Dosis Terra Grow (2.5 ml/L). Pikieren nach 1. Laubblattpaar in 7–9 cm Töpfe. Kühle Nächte 15–18°C für kompakten
@@ -1789,6 +1830,7 @@ nutrient_plans:
     - 2.0
     - 1.0
     - 2.0
+    reference_ec_ms: 0.8
     calcium_ppm: 100.0
     magnesium_ppm: 40.0
     notes: Volle Dosis Terra Grow (5 ml/L) + Pure Zym + Sugar Royal. Umtopfen in Endgefäße. Abhärtung ab Mitte April, Auspflanzen
@@ -1816,6 +1858,7 @@ nutrient_plans:
     - 1.0
     - 2.0
     - 3.0
+    reference_ec_ms: 0.9
     calcium_ppm: 120.0
     magnesium_ppm: 50.0
     notes: Terra Bloom 5 ml/L + Pure Zym + Sugar Royal. K-betonte Düngung für Blütenansatz und Farbintensität. Wöchentlich
@@ -1866,6 +1909,7 @@ nutrient_plans:
   description: Minimalplan für Radieschen. 5 Wochen Gesamtkultur, fast keine Düngung. Optional 1x Terra Bloom halbe Dosis.
     Einfachster Plan im System. Sukzessionskultur März–September.
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -1922,6 +1966,7 @@ nutrient_plans:
     - 2.0
     - 2.0
     - 4.0
+    reference_ec_ms: 0.5
     notes: Optional 1x Terra Bloom 1.5 ml/L (halbe Dosis) in Woche 3 — NUR bei magerem Boden. Normalerweise keine Düngung
       nötig. Vereinzeln auf 3–5 cm. Gleichmäßig gießen!
     delivery_channels:
@@ -1960,6 +2005,7 @@ nutrient_plans:
     Produkten (kein PK 13-14). Starkzehrer mit sehr langer Kulturdauer, 30 Wochen (März–November). N-Stopp ab August für kompakte
     Röschen.
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -2015,6 +2061,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.6
     notes: Viertel-Dosis Terra Grow (1.5 ml/L). Pikieren nach 2. Blattpaar. Kühlere Temperaturen (12–18°C). Power Roots fördert
       Wurzelentwicklung.
     watering_schedule_override:
@@ -2045,6 +2092,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 2.0
+    reference_ec_ms: 1.5
     notes: 'Volle Dosis Terra Grow (5 ml/L) bis W19. Auspflanzen nach Eisheiligen (60×60 cm). Köpfen W18–20 (Triebspitze entfernen).
       N-STOPP ab W20: Terra Grow + Sugar Royal absetzen, Umstellung auf Terra Bloom (3 ml/L). Zu viel N → lockere, bittere
       Röschen.'
@@ -2086,6 +2134,7 @@ nutrient_plans:
     - 2.0
     - 2.0
     - 3.0
+    reference_ec_ms: 1.0
     notes: Reduzierter Terra Bloom (3 ml/L). Röschen reifen von unten nach oben. Frost verbessert Geschmack (Stärke → Zucker).
       Ernte bei 2–3 cm Durchmesser, fest geschlossen. Untere Blätter sukzessive entfernen. Rosenkohl verträgt bis -15°C.
     delivery_channels:
@@ -2101,7 +2150,7 @@ nutrient_plans:
         ml_per_liter: 3.0
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: flushing
+  - phase_name: harvest
     sequence_order: 5
     week_start: 29
     week_end: 30
@@ -2134,6 +2183,7 @@ nutrient_plans:
     2 Produkten. Indoor-Vorkultur Maerz, Auspflanzen April, Ernte Mai–Juni. Mittelzehrer, 10 Wochen. Nitratakkumulation vermeiden:
     N-Reduktion vor Ernte.'
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -2190,6 +2240,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.5
     notes: Viertel-Dosis Terra Grow. Pikierte Jungpflanzen bei kühlen 14–18 °C. Alle 14 Tage düngen. Pure Zym erst ab VEGETATIVE.
     delivery_channels:
     - channel_id: naehrloesung-wachstum
@@ -2210,6 +2261,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 2.0
+    reference_ec_ms: 0.6
     notes: 'Halbe Dosis Terra Grow + Pure Zym. Aktiver Blattaufbau, Kopfbildung. Auspflanzen ins Freiland ab April. Tipburn-Prävention:
       Luftzirkulation sicherstellen. Alle 14 Tage düngen.'
     delivery_channels:
@@ -2233,6 +2285,7 @@ nutrient_plans:
     - 2.0
     - 1.0
     - 2.0
+    reference_ec_ms: 0.5
     notes: 'Reduzierte Terra Grow Dosis (Viertel-Dosis). Nitrat-Reduktion vor Ernte! Letzte Düngung mind. 7 Tage vor Ernte.
       Kopfsalat morgens ernten. Pflücksalat: äußere Blätter laufend ernten.'
     delivery_channels:
@@ -2252,6 +2305,7 @@ nutrient_plans:
   description: 'Perennierend-zyklischer Nährstoffplan für Schnittlauch (Allium schoenoprasum). Schwachzehrer, winterhart bis
     −30°C. Jährlicher Zyklus: Vegetativ → Blüte → Dormanz. Zyklus-Neustart ab VEGETATIVE. Nur Terra Grow + Pure Zym.'
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -2310,6 +2364,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.5
     notes: Nur bei Erstaussaat. Viertel-Dosis Terra Grow (1.5 ml/L). Junge Halme 3–5 cm. Noch keine Ernte. Alle 3–4 Wochen
       düngen.
     delivery_channels:
@@ -2331,6 +2386,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.6
     is_recurring: true
     notes: Haupterntephase. Halbe Dosis Terra Grow (2.0 ml/L) + Pure Zym. Ernteschnitt 3 cm über Boden. Nach jedem Schnitt
       leicht nachdüngen. 2–3 Schnitte pro Saison. Alle 3–4 Wochen düngen. Wiederholt sich jährlich nach Dormanz (Zyklus-Neustart).
@@ -2399,6 +2455,7 @@ nutrient_plans:
     Terra-Linie mit 5 Produkten. Starkzehrer mit sehr langer Kulturzeit, hohem Ca/K-Bedarf und Bor-Empfindlichkeit. 32 Wochen
     (Februar–Oktober).
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -2456,6 +2513,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.6
     calcium_ppm: 80.0
     magnesium_ppm: 30.0
     notes: Viertel-Dosis Terra Grow (1.5 ml/L). Pikieren nach 2. Blattpaar. Temperaturen NIE unter 10°C (Vernalisation/Schoss-Gefahr!).
@@ -2488,6 +2546,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 1.5
     calcium_ppm: 150.0
     magnesium_ppm: 50.0
     notes: Volle Dosis Terra Grow (5 ml/L). Auspflanzung nach Eisheiligen (ca. 15. Mai), flach pflanzen. Kräftiger Blattrosetten-Aufbau.
@@ -2518,6 +2577,7 @@ nutrient_plans:
     - 2.0
     - 2.0
     - 4.0
+    reference_ec_ms: 1.8
     calcium_ppm: 180.0
     magnesium_ppm: 60.0
     notes: Umstellung auf Terra Bloom (5 ml/L). K-betonte Düngung für Knollenqualität. Power Roots absetzen. Äußere Blätter
@@ -2547,6 +2607,7 @@ nutrient_plans:
     - 2.0
     - 2.0
     - 4.0
+    reference_ec_ms: 1.2
     calcium_ppm: 150.0
     magnesium_ppm: 50.0
     notes: 'Reduzierter Terra Bloom (3 ml/L). Kein Sugar Royal. Ernte wenn Knolle 10–15 cm Durchmesser, vor starkem Frost.
@@ -2564,7 +2625,7 @@ nutrient_plans:
         ml_per_liter: 3.0
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: flushing
+  - phase_name: harvest
     sequence_order: 6
     week_start: 31
     week_end: 32
@@ -2597,6 +2658,7 @@ nutrient_plans:
     Terra-Linie mit 3 Produkten. Schwach-/Mittelzehrer, perennierend via Knolle. 22 Wochen aktive Saison + 30 Wochen Dormanz.
     Kormen bei 10–13°C lagern (nicht 4–8°C).
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -2656,6 +2718,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.6
     is_recurring: true
     calcium_ppm: 60.0
     magnesium_ppm: 20.0
@@ -2682,6 +2745,7 @@ nutrient_plans:
     - 2.0
     - 2.0
     - 4.0
+    reference_ec_ms: 0.7
     is_recurring: true
     calcium_ppm: 60.0
     magnesium_ppm: 30.0
@@ -2751,6 +2815,7 @@ nutrient_plans:
   description: Saisonplan für Zucchini (Buschtyp) mit Indoor-Vorkultur ab Mitte April und Freilandkultur ab Mitte Mai. Plagron
     Terra-Linie mit 5 Produkten. Starkzehrer, 22 Wochen (April–September).
   recommended_substrate_type: soil
+  reference_substrate_type: soil
   author: Kamerplanter Referenzdaten
   is_template: true
   version: '1.0'
@@ -2807,6 +2872,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 0.6
     notes: Viertel-Dosis Terra Grow (1.5 ml/L). Nicht pikieren (empfindliche Wurzeln). Power Roots fördert Wurzelentwicklung.
       Abhärtung beginnt Ende Woche 4.
     watering_schedule_override:
@@ -2837,6 +2903,7 @@ nutrient_plans:
     - 3.0
     - 1.0
     - 3.0
+    reference_ec_ms: 1.5
     notes: Volle Dosis Terra Grow (5 ml/L). Extrem schnelles Blattwachstum. Auspflanzen nach Eisheiligen (ca. 15. Mai). Pflanzabstand
       mind. 80–100 cm. Bei sehr wüchsigen Pflanzen auf 6–7 ml/L steigern.
     delivery_channels:
@@ -2865,6 +2932,7 @@ nutrient_plans:
     - 2.0
     - 2.0
     - 4.0
+    reference_ec_ms: 2.0
     calcium_ppm: 165.0
     magnesium_ppm: 50.0
     notes: 'Umstellung auf Terra Bloom (5 ml/L). Power Roots absetzen. Bestaeubung sicherstellen (Insekten oder Handbestaeubung).
@@ -2893,6 +2961,7 @@ nutrient_plans:
     - 2.0
     - 2.0
     - 4.0
+    reference_ec_ms: 1.8
     calcium_ppm: 165.0
     magnesium_ppm: 50.0
     notes: 'Reduzierter Terra Bloom (4 ml/L). Kein Sugar Royal. Kontinuierliche Ernte alle 2–3 Tage bei 15–25 cm Fruchtlänge.
@@ -2911,7 +2980,7 @@ nutrient_plans:
         ml_per_liter: 4.0
       - product_name: Pure Zym
         ml_per_liter: 1.0
-  - phase_name: flushing
+  - phase_name: harvest
     sequence_order: 6
     week_start: 21
     week_end: 22

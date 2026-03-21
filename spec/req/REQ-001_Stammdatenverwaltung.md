@@ -1324,6 +1324,9 @@ Schreibzugriff für **Tenant-Admins**. Lesezugriff für alle Mitglieder des Tena
 - [ ] **API-Export:** GraphQL/REST-Endpoint für externe Nutzung der Stammdaten
 - [ ] **Bulk-Import:** CSV/JSON-Import für initiale Datenbefüllung
 - [ ] **Kulturdatenblätter:** Automatische Generierung von Pflege-Empfehlungen aus Stammdaten
+<!-- Quelle: Tabellen-Analyse UI-NFR-010 §7.2, §8.1 -->
+- [ ] **Listenansicht-Filter:** Species-Liste bietet optionalen Familien-Filter (Dropdown: BotanicalFamily-Referenz); URL-Parameter `?family_key=...` (UI-NFR-010 §7.2)
+- [ ] **Tablet-Spaltenprioritäten:** SpeciesList blendet auf Tablet Nährstoffbedarf aus; Primärspalten: Deutscher Name, Familie (UI-NFR-010 §8.1)
 <!-- Quelle: Stammdaten-Scoping v4.0 -->
 - [ ] **Stammdaten-Scoping — origin-Feld:** Species und Cultivars haben ein `origin`-Feld (system/enrichment/import/tenant) und ein optionales `tenant_key`-Feld
 - [ ] **Stammdaten-Scoping — tenant_has_access:** Edge Collection `tenant_has_access` (Species→Tenant) steuert Sichtbarkeit globaler Stammdaten pro Tenant

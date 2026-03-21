@@ -242,8 +242,8 @@ Dahlien als Knollenstauden werden im Jahresrhythmus betrieben. Der Zyklus beginn
 | Photoperiode (Stunden) | 0 (Dunkelheit) | `requirement_profiles.photoperiod_hours` |
 | Temperatur Tag (°C) | 5–10 | `requirement_profiles.temperature_day_c` |
 | Temperatur Nacht (°C) | 4–8 (nie unter 2 °C — Knolle erfriert!) | `requirement_profiles.temperature_night_c` |
-| Luftfeuchtigkeit Tag (%) | 65–75 (zu trocken = Austrocknung der Knolle; zu feucht = Fäulnis) | `requirement_profiles.humidity_day_percent` |
-| Luftfeuchtigkeit Nacht (%) | 65–75 | `requirement_profiles.humidity_night_percent` |
+| Luftfeuchtigkeit Tag (%) | 60–75 (zu trocken = Austrocknung der Knolle; zu feucht = Fäulnis) | `requirement_profiles.humidity_day_percent` |
+| Luftfeuchtigkeit Nacht (%) | 60–75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | null (nicht anwendbar — Knollen ohne aktiven Gaswechsel; kein Steuerungsparameter) | `requirement_profiles.vpd_target_kpa` |
 | CO₂ (ppm) | 400 (Keller-Standard) | `requirement_profiles.co2_ppm` |
 | Gießintervall (Tage) | 30 (monatliche Sichtkontrolle; bei Schrumpfen leicht anfeuchten, nie nass) | `requirement_profiles.irrigation_frequency_days` |
@@ -379,7 +379,7 @@ Dahlien als Knollenstauden werden im Jahresrhythmus betrieben. Der Zyklus beginn
 | Sep | Letzte Düngung | Einmalig kaliumreich für Knollenreife; dann keine Düngung mehr | mittel |
 | Okt | Erster Frost | Abwarten bis erster Frost das Laub schwärzt; Knollen 7–14 Tage danach erst ausgraben (Knolle reift nach) | hoch |
 | Nov | Knollen ausgraben | Vorsichtig mit Grabegabel; 10–15 cm Stängelrest lassen; 1–2 Wochen an frostfreiem Ort trocknen | hoch |
-| Nov | Knollen einlagern | In Holzkisten mit trockenem Torf, Perlite oder Zeitungspapier; 5–10 °C, dunkel, 65–75 % Luftfeuchte | hoch |
+| Nov | Knollen einlagern | In Holzkisten mit trockenem Torf, Perlite oder Zeitungspapier; 5–10 °C, dunkel, 60–75 % Luftfeuchte | hoch |
 | Dez | Monatskontrolle | Knollen auf Fäulnis und Austrocknung prüfen | niedrig |
 
 ### 4.3 Überwinterung

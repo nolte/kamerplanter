@@ -671,6 +671,10 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Alert-System:** Push-Benachrichtigungen bei kritischem Befallsdruck (Schwellenwert konfigurierbar)
 - [ ] **Wetter-Integration:** Risiko-Scores für pilzliche Erreger basierend auf RLF/Temperatur (z.B. Mehltau-Warnung bei >80% RLF)
 - [ ] **Behandlungs-Tracking:** Efficacy-Rating kann nach Behandlung erfasst werden (Wirksam/Teilweise/Unwirksam)
+<!-- Quelle: Tabellen-Analyse UI-NFR-010 §7.2, §9.2 -->
+- [ ] **Listenansicht-Filter:** Pest-Liste bietet Befallstyp-Filter (Enum-Chip: insect, mite, fungus, bacteria, virus, nematode); Disease-Liste bietet Krankheitstyp-Filter; Treatment-Liste bietet Behandlungsmethode-Filter (cultural, biological, chemical) und Karenz-Status-Toggle („Aktive Karenz" / „Alle"); alle URL-persistiert (UI-NFR-010 §7.2)
+- [ ] **Tablet-Spaltenprioritäten:** Pest/Disease-ListPages blenden auf Tablet wissenschaftl. Namen aus; Treatment-ListPage blendet Hersteller aus; Primärspalten: dt. Name, Typ, Methode/Wirkstoff (UI-NFR-010 §8.1)
+- [ ] **Compliance-Export:** TreatmentApplication-Liste bietet CSV- und PDF-Export der gefilterten Ansicht für Pflanzenschutz-Protokolle mit Karenzzeiten (UI-NFR-010 §9.2)
 - [ ] **Batch-Traceability:** Alle Behandlungen sind mit erntefähigen Batches verknüpft (für Seed-to-Shelf-Tracking aus REQ-008)
 - [ ] **Prävention-Score:** Dashboard zeigt präventive Gesundheits-Indikatoren (z.B. "Letzte Inspektion vor 5 Tagen, Risiko: Mittel")
 <!-- Quelle: Cannabis Indoor Grower Review G-010 -->

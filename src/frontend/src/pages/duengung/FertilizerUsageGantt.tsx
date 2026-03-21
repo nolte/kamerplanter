@@ -98,7 +98,7 @@ export default function FertilizerUsageGantt({ planUsage }: FertilizerUsageGantt
     );
   }
 
-  const labelWidth = isMobile ? 120 : 160;
+  const labelWidth = isMobile ? 100 : 160;
   const weeks = Array.from({ length: totalWeeks }, (_, i) => i + 1);
 
   return (
@@ -108,12 +108,12 @@ export default function FertilizerUsageGantt({ planUsage }: FertilizerUsageGantt
           {t('pages.fertilizers.usedInPlans')}
         </Typography>
 
-        <Box sx={{ overflowX: 'auto' }}>
+        <Box sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', mx: isMobile ? -1 : 0 }}>
           <Box
             sx={{
               display: 'grid',
               gridTemplateColumns: `${labelWidth}px repeat(${totalWeeks}, 1fr)`,
-              minWidth: labelWidth + totalWeeks * 32,
+              minWidth: labelWidth + totalWeeks * (isMobile ? 22 : 32),
               gap: 0,
             }}
           >

@@ -20,6 +20,8 @@ import StopCircleIcon from '@mui/icons-material/StopCircle';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import EditIcon from '@mui/icons-material/Edit';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
@@ -52,7 +54,6 @@ import * as siteApi from '@/api/endpoints/sites';
 import * as tankApi from '@/api/endpoints/tanks';
 import { quickConfirmWatering } from '@/api/endpoints/wateringConfirm';
 import type {
-  NutrientPlan,
   NutrientPlanPhaseEntry,
   Fertilizer,
   SpeciesPhaseTimeline,
@@ -78,6 +79,8 @@ const statusColor: Record<PlantingRunStatus, ChipProps['color']> = {
 const TAB_SLUGS = ['details', 'plants', 'phases', 'nutrient-watering', 'activity-plan'] as const;
 
 export default function PlantingRunDetailPage() {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { key } = useParams<{ key: string }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -104,10 +107,7 @@ export default function PlantingRunDetailPage() {
   const [siteKeyFromLocation, setSiteKeyFromLocation] = useState<string | null>(null);
 
   // Nutrient plan / watering state
-  const [nutrientPlans, setNutrientPlans] = useState<NutrientPlan[]>([]);
   const [assignedPlan, setAssignedPlan] = useState<Record<string, unknown> | null>(null);
-  const [selectedPlanKey, setSelectedPlanKey] = useState('');
-  const [assigning, setAssigning] = useState(false);
   const [wateringCalendar, setWateringCalendar] = useState<WateringScheduleCalendarResponse | null>(null);
   const [wateringLoading, setWateringLoading] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -115,7 +115,6 @@ export default function PlantingRunDetailPage() {
   const [confirmChannelId, setConfirmChannelId] = useState<string | undefined>(undefined);
   const [quickConfirming, setQuickConfirming] = useState<string | null>(null);
   const [removePlanOpen, setRemovePlanOpen] = useState(false);
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
 
   // Volume suggestion from first plant in run
   const firstPlantKey = plants.length > 0 ? plants[0].key : undefined;
@@ -226,19 +225,16 @@ export default function PlantingRunDetailPage() {
     if (!key) return;
     setWateringLoading(true);
     try {
-      const [plans, planResult, calendar, timelines] = await Promise.all([
-        planApi.fetchNutrientPlans(0, 200),
+      const [planResult, calendar, timelines] = await Promise.all([
         runApi.getRunNutrientPlan(key).catch(() => ({ plan: null })),
         runApi.getWateringSchedule(key, 90).catch(() => null),
         runApi.getPhaseTimeline(key).catch(() => [] as SpeciesPhaseTimeline[]),
       ]);
-      setNutrientPlans(plans);
       setAssignedPlan(planResult.plan);
       setWateringCalendar(calendar);
       setPhaseTimelines(timelines);
       if (planResult.plan) {
         const planKey = (planResult.plan as { key?: string }).key ?? '';
-        setSelectedPlanKey(planKey);
         if (planKey) {
           const [fetchedEntries, ferts] = await Promise.all([
             planApi.fetchPhaseEntries(planKey),
@@ -336,18 +332,11 @@ export default function PlantingRunDetailPage() {
     }
   };
 
-  const onAssignPlan = async () => {
-    if (!key || !selectedPlanKey) return;
-    try {
-      setAssigning(true);
-      await runApi.assignNutrientPlan(key, selectedPlanKey);
-      notification.success(t('pages.wateringSchedule.assignPlan'));
-      loadWateringData();
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setAssigning(false);
-    }
+  const onAssignPlan = async (planKey: string) => {
+    if (!key) return;
+    await runApi.assignNutrientPlan(key, planKey);
+    notification.success(t('pages.wateringSchedule.assignPlan'));
+    loadWateringData();
   };
 
   const onRemovePlan = async () => {
@@ -356,7 +345,6 @@ export default function PlantingRunDetailPage() {
       await runApi.removeRunNutrientPlan(key);
       notification.success(t('pages.wateringSchedule.removePlan'));
       setAssignedPlan(null);
-      setSelectedPlanKey('');
       setWateringCalendar(null);
       loadWateringData();
     } catch (err) {
@@ -529,6 +517,7 @@ export default function PlantingRunDetailPage() {
           run={run}
           entries={entries}
           entryColumns={entryColumns}
+          speciesMap={speciesMap}
           assignedPlan={assignedPlan}
           locationName={locationName}
           fertilizers={fertilizers}
@@ -578,18 +567,13 @@ export default function PlantingRunDetailPage() {
           runStatus={run?.status}
           wateringLoading={wateringLoading}
           assignedPlan={assignedPlan}
-          nutrientPlans={nutrientPlans}
-          selectedPlanKey={selectedPlanKey}
-          assigning={assigning}
-          assignDialogOpen={assignDialogOpen}
           nutrientData={nutrientData}
           fertilizers={fertilizers}
           wateringCalendar={wateringCalendar}
           quickConfirming={quickConfirming}
           phaseTimelines={phaseTimelines}
-          onSetSelectedPlanKey={setSelectedPlanKey}
-          onOpenAssignDialog={() => setAssignDialogOpen(true)}
-          onCloseAssignDialog={() => setAssignDialogOpen(false)}
+          planKey={(assignedPlan as { key?: string })?.key ?? null}
+          siteKey={siteKeyFromLocation}
           onAssignPlan={onAssignPlan}
           onOpenRemovePlan={() => setRemovePlanOpen(true)}
           onQuickConfirm={onQuickConfirm}
@@ -651,8 +635,7 @@ export default function PlantingRunDetailPage() {
         destructive
       />
 
-      <Dialog
-        open={endRunOpen}
+      <Dialog fullScreen={fullScreen} open={endRunOpen}
         onClose={() => setEndRunOpen(false)}
         maxWidth="xs"
         fullWidth

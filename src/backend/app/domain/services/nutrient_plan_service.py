@@ -1,11 +1,20 @@
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
 from app.domain.engines.delivery_channel_engine import DeliveryChannelValidator
+from app.domain.engines.dosage_calculation_engine import (
+    DosageCalculationEngine,
+    DosageCalculationInput,
+    DosageCalculationResult,
+)
 from app.domain.engines.nutrient_plan_engine import NutrientPlanValidator, resolve_effective_entry
+from app.domain.engines.water_mix_engine import WaterMixCalculator
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
+from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.models.fertilizer import Fertilizer
 from app.domain.models.nutrient_plan import DeliveryChannel, NutrientPlan, NutrientPlanPhaseEntry
+from app.domain.models.site import RoWaterProfile
 
 
 class NutrientPlanService:
@@ -14,10 +23,14 @@ class NutrientPlanService:
         repo: INutrientPlanRepository,
         fert_repo: IFertilizerRepository,
         validator: NutrientPlanValidator,
+        site_repo: ISiteRepository | None = None,
     ) -> None:
         self._repo = repo
         self._fert_repo = fert_repo
         self._validator = validator
+        self._site_repo = site_repo
+        self._water_calc = WaterMixCalculator()
+        self._dosage_engine = DosageCalculationEngine()
 
     # ── Plan CRUD ────────────────────────────────────────────────────
 
@@ -47,6 +60,7 @@ class NutrientPlanService:
             "name",
             "description",
             "recommended_substrate_type",
+            "reference_substrate_type",
             "author",
             "is_template",
             "version",
@@ -87,6 +101,11 @@ class NutrientPlanService:
             "npk_ratio",
             "calcium_ppm",
             "magnesium_ppm",
+            "target_ec_ms",
+            "reference_ec_ms",
+            "target_calcium_ppm",
+            "target_magnesium_ppm",
+            "reference_base_ec",
             "notes",
             "delivery_channels",
             "is_recurring",
@@ -335,3 +354,344 @@ class NutrientPlanService:
                 }
             )
         return result
+
+    # ── Dosage calculation (REQ-004 §4b) ────────────────────────────
+
+    def calculate_dosages(
+        self,
+        tenant_key: str,
+        plan_key: NutrientPlanKey,
+        sequence_order: int,
+        site_key: str,
+        volume_liters: float = 10.0,
+        channel_id: str | None = None,
+        ro_percent_override: int | None = None,
+    ) -> DosageCalculationResult:
+        """Calculate runtime dosages for a phase entry based on site water profile.
+
+        Orchestrates the 3-stage pipeline:
+        1. WaterMixCalculator -> effective water profile
+        2. CalMag correction -> fill mineral gaps
+        3. EC budget scaling -> scale dosages proportionally
+        """
+        if self._site_repo is None:
+            raise ValidationError("Site repository not configured.")
+
+        # Load plan with tenant isolation
+        plan = self.get_plan(plan_key, tenant_key=tenant_key)
+
+        # Find phase entry by sequence_order
+        entries = self._repo.get_phase_entries(plan_key)
+        entry = None
+        for e in entries:
+            if e.sequence_order == sequence_order:
+                entry = e
+                break
+        if entry is None:
+            raise NotFoundError("NutrientPlanPhaseEntry", f"sequence_order={sequence_order}")
+
+        # Load site with tenant isolation
+        site = self._site_repo.get_site_by_key(site_key)
+        if site is None:
+            raise NotFoundError("Site", site_key)
+        if tenant_key and hasattr(site, "tenant_key") and site.tenant_key != tenant_key:
+            raise NotFoundError("Site", site_key)
+
+        # Extract water profiles; use RO defaults if system is enabled but no profile stored
+        tap_water = None
+        ro_water = None
+        if site.water_config:
+            tap_water = site.water_config.tap_water_profile
+            if site.water_config.has_ro_system:
+                ro_water = site.water_config.ro_water_profile or RoWaterProfile()
+
+        # Load all fertilizer products referenced in the channel
+        fertilizer_lookup = self._load_fertilizer_lookup(entry)
+
+        # Find CalMag product
+        calmag_product = self._find_calmag_product()
+
+        # Determine substrate type
+        substrate_type = ""
+        if plan.recommended_substrate_type is not None:
+            substrate_type = (
+                plan.recommended_substrate_type.value
+                if hasattr(plan.recommended_substrate_type, "value")
+                else str(plan.recommended_substrate_type)
+            )
+        if not substrate_type:
+            substrate_type = "coco"
+
+        # Resolve plan reference substrate type
+        plan_ref_substrate = (
+            plan.reference_substrate_type.value
+            if hasattr(plan.reference_substrate_type, "value")
+            else str(plan.reference_substrate_type)
+        ) if plan.reference_substrate_type else "soil"
+
+        # Build input and run engine
+        calc_input = DosageCalculationInput(
+            phase_entry=entry,
+            channel_id=channel_id,
+            volume_liters=volume_liters,
+            tap_water=tap_water,
+            ro_water=ro_water,
+            ro_percent_override=ro_percent_override,
+            substrate_type=substrate_type,
+            calmag_product=calmag_product,
+            fertilizer_lookup=fertilizer_lookup,
+            plan_reference_substrate_type=plan_ref_substrate,
+        )
+
+        return self._dosage_engine.calculate(calc_input)
+
+    def _load_fertilizer_lookup(self, entry: NutrientPlanPhaseEntry) -> dict[str, Fertilizer]:
+        """Load all fertilizer products referenced in a phase entry's channels."""
+        lookup: dict[str, Fertilizer] = {}
+        for ch in entry.delivery_channels:
+            for dosage in ch.fertilizer_dosages:
+                if dosage.fertilizer_key not in lookup:
+                    fert = self._fert_repo.get_by_key(dosage.fertilizer_key)
+                    if fert is not None:
+                        lookup[dosage.fertilizer_key] = fert
+        return lookup
+
+    def _find_calmag_product(self) -> Fertilizer | None:
+        """Find a CalMag supplement product in the fertilizer catalog."""
+        # Search for supplement products with "CalMag" in the name
+        ferts, _ = self._fert_repo.get_all(offset=0, limit=100, filters={"fertilizer_type": "supplement"})
+        for fert in ferts:
+            if "calmag" in fert.product_name.lower():
+                return fert
+        return None
+
+    # ── Water mix recommendation ──────────────────────────────────────
+
+    def get_water_mix_recommendation(
+        self,
+        tenant_key: str,
+        plan_key: NutrientPlanKey,
+        sequence_order: int,
+        site_key: str,
+        substrate_type_override: str | None = None,
+    ) -> dict:
+        """Calculate optimal RO/tap water mix ratio for a phase entry.
+
+        Loads the nutrient plan, phase entry, and site water config, then
+        delegates to WaterMixCalculator.recommend_mix_ratio().
+
+        Raises ValidationError if the site has no RO system configured.
+        """
+        if self._site_repo is None:
+            raise ValidationError("Site repository not configured.")
+
+        # Load plan with tenant isolation
+        plan = self.get_plan(plan_key, tenant_key=tenant_key)
+
+        # Load entries and find matching sequence_order
+        entries = self._repo.get_phase_entries(plan_key)
+        entry = None
+        for e in entries:
+            if e.sequence_order == sequence_order:
+                entry = e
+                break
+        if entry is None:
+            raise NotFoundError("NutrientPlanPhaseEntry", f"sequence_order={sequence_order}")
+
+        # Load site with tenant isolation
+        site = self._site_repo.get_site_by_key(site_key)
+        if site is None:
+            raise NotFoundError("Site", site_key)
+        if tenant_key and hasattr(site, "tenant_key") and site.tenant_key != tenant_key:
+            raise NotFoundError("Site", site_key)
+
+        # Validate RO system
+        if site.water_config is None or not site.water_config.has_ro_system:
+            raise ValidationError("Site does not have an RO system configured.")
+        if site.water_config.tap_water_profile is None:
+            raise ValidationError("Site does not have a tap water profile configured.")
+
+        # Use stored RO profile or default values for a standard RO membrane
+        ro = site.water_config.ro_water_profile or RoWaterProfile()
+
+        # Determine target EC from delivery channels or entry
+        target_ec = 0.0
+        for ch in entry.delivery_channels or []:
+            if ch.target_ec_ms is not None:
+                target_ec = ch.target_ec_ms
+                break
+
+        if target_ec <= 0:
+            raise ValidationError(
+                "No target EC configured for this phase entry. Set target_ec_ms on a delivery channel."
+            )
+
+        # Determine substrate type
+        substrate_type = substrate_type_override or ""
+        if not substrate_type and plan.recommended_substrate_type is not None:
+            substrate_type = (
+                plan.recommended_substrate_type.value
+                if hasattr(plan.recommended_substrate_type, "value")
+                else str(plan.recommended_substrate_type)
+            )
+        if not substrate_type:
+            substrate_type = "coco"  # sensible default
+
+        # Target Ca/Mg from phase entry
+        target_ca = entry.calcium_ppm or 0.0
+        target_mg = entry.magnesium_ppm or 0.0
+
+        phase_name_str = (
+            entry.phase_name.value
+            if hasattr(entry.phase_name, "value")
+            else str(entry.phase_name)
+        )
+        recommendation = self._water_calc.recommend_mix_ratio(
+            tap=site.water_config.tap_water_profile,
+            ro=ro,
+            target_ec_ms=target_ec,
+            substrate_type=substrate_type,
+            target_ca_ppm=target_ca,
+            target_mg_ppm=target_mg,
+            phase_name=phase_name_str,
+        )
+
+        return {
+            "recommendation": recommendation.model_dump(),
+            "plan_name": plan.name,
+            "plan_key": plan.key,
+            "phase_name": entry.phase_name.value,
+            "sequence_order": entry.sequence_order,
+            "site_name": site.name,
+            "site_key": site.key,
+        }
+
+    def get_water_mix_recommendations_batch(
+        self,
+        tenant_key: str,
+        plan_key: NutrientPlanKey,
+        site_key: str,
+        substrate_type_override: str | None = None,
+    ) -> dict:
+        """Calculate optimal RO/tap water mix ratio for ALL phase entries of a plan.
+
+        Loads plan, entries, and site once, then iterates all entries that have
+        delivery channels with a target EC > 0. Entries without target EC are
+        silently skipped.
+
+        Returns empty recommendations list if the site has no RO system.
+        """
+        if self._site_repo is None:
+            raise ValidationError("Site repository not configured.")
+
+        # Load plan with tenant isolation
+        plan = self.get_plan(plan_key, tenant_key=tenant_key)
+
+        # Load site with tenant isolation
+        site = self._site_repo.get_site_by_key(site_key)
+        if site is None:
+            raise NotFoundError("Site", site_key)
+        if tenant_key and hasattr(site, "tenant_key") and site.tenant_key != tenant_key:
+            raise NotFoundError("Site", site_key)
+
+        # If no RO system or no tap water profile, return empty recommendations
+        if (
+            site.water_config is None
+            or not site.water_config.has_ro_system
+            or site.water_config.tap_water_profile is None
+        ):
+            return {
+                "recommendations": [],
+                "site_name": site.name,
+                "site_key": site.key,
+                "plan_name": plan.name,
+                "plan_key": plan.key,
+            }
+
+        tap = site.water_config.tap_water_profile
+        # Use stored RO profile or default values for a standard RO membrane
+        ro = site.water_config.ro_water_profile or RoWaterProfile()
+
+        # Determine substrate type once
+        substrate_type = substrate_type_override or ""
+        if not substrate_type and plan.recommended_substrate_type is not None:
+            substrate_type = (
+                plan.recommended_substrate_type.value
+                if hasattr(plan.recommended_substrate_type, "value")
+                else str(plan.recommended_substrate_type)
+            )
+        if not substrate_type:
+            substrate_type = "coco"
+
+        # Load all entries once
+        entries = self._repo.get_phase_entries(plan_key)
+
+        # Build target EC per entry; entries without explicit EC inherit from
+        # the nearest neighbour (by sequence_order) so every phase gets a
+        # water-mix recommendation.
+        def _extract_target_ec(entry) -> float:  # noqa: ANN001
+            for ch in entry.delivery_channels or []:
+                if ch.target_ec_ms is not None and ch.target_ec_ms > 0:
+                    return ch.target_ec_ms
+            return 0.0
+
+        sorted_entries = sorted(entries, key=lambda e: e.sequence_order)
+        entry_ecs: dict[int, float] = {}
+        for e in sorted_entries:
+            ec = _extract_target_ec(e)
+            if ec > 0:
+                entry_ecs[e.sequence_order] = ec
+
+        # Fill gaps: propagate from nearest neighbour with a known EC
+        if entry_ecs:
+            known_seqs = sorted(entry_ecs.keys())
+            for e in sorted_entries:
+                if e.sequence_order in entry_ecs:
+                    continue
+                # Find closest sequence_order that has a target EC
+                closest = min(known_seqs, key=lambda s: abs(s - e.sequence_order))
+                entry_ecs[e.sequence_order] = entry_ecs[closest]
+
+        recommendations: list[dict] = []
+        for entry in sorted_entries:
+            target_ec = entry_ecs.get(entry.sequence_order, 0.0)
+            if target_ec <= 0:
+                continue
+
+            target_ca = entry.calcium_ppm or 0.0
+            target_mg = entry.magnesium_ppm or 0.0
+
+            phase_name_str = (
+                entry.phase_name.value
+                if hasattr(entry.phase_name, "value")
+                else str(entry.phase_name)
+            )
+            recommendation = self._water_calc.recommend_mix_ratio(
+                tap=tap,
+                ro=ro,
+                target_ec_ms=target_ec,
+                substrate_type=substrate_type,
+                target_ca_ppm=target_ca,
+                target_mg_ppm=target_mg,
+                phase_name=phase_name_str,
+            )
+
+            recommendations.append(
+                {
+                    "recommendation": recommendation.model_dump(),
+                    "plan_name": plan.name,
+                    "plan_key": plan.key,
+                    "phase_name": entry.phase_name.value,
+                    "sequence_order": entry.sequence_order,
+                    "site_name": site.name,
+                    "site_key": site.key,
+                }
+            )
+
+        return {
+            "recommendations": recommendations,
+            "site_name": site.name,
+            "site_key": site.key,
+            "plan_name": plan.name,
+            "plan_key": plan.key,
+        }

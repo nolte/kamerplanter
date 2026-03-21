@@ -15,6 +15,7 @@
 | Name | Guzmania lingulata -- Gardol Gruenpflanzenduenger | `nutrient_plans.name` |
 | Beschreibung | Lebenszyklus-Plan fuer Guzmania lingulata (Bromelie) in Orchideensubstrat. Einzelduenger-Konzept mit Gardol Gruenpflanzenduenger (NPK 6-4-6) auf 1/4-Dosis reduziert. Monokarper Lebenszyklus: Kindel-Etablierung, vegetatives Wachstum (~1 Jahr), Bluete, Seneszenz mit Kindel-Bildung. Kein saisonaler Zyklus -- linearer Durchlauf (~2 Jahre). Ausschliesslich weiches Wasser (Regenwasser/destilliert) verwenden. | `nutrient_plans.description` |
 | Substrattyp | ORCHID_BARK | `nutrient_plans.recommended_substrate_type` |
+| Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
 | Version | 1.0 | `nutrient_plans.version` |
@@ -23,6 +24,8 @@
 
 <!-- Weiches Wasser ist PFLICHT bei Bromelien: Kalkablagerungen verstopfen die Trichome (Saugschuppen) irreversibel. Leitungswasser ist nur bei sehr weichem Wasser (<5 dH) akzeptabel. Bei RO-/Regenwasser ist KEIN CalMag-Supplement noetig -- Bromelien sind extreme Schwachzehrer und benoetigen minimales Ca/Mg. -->
 | Zyklus-Neustart ab Sequenz | null (kein Neustart -- monokarper Lebenszyklus; Mutterpflanze stirbt nach Bluete, Kindel = neue Pflanzeninstanz) | `nutrient_plans.cycle_restart_from_sequence` |
+
+> **Substratunabhaengig:** Die EC-Zielwerte in diesem Plan sind fuer Erdsubstrat (SOIL) kalibriert. Bei Verwendung anderer Substrate (Coco, Hydro) werden die Werte automatisch ueber den SubstrateEcAdapter angepasst.
 
 ### 1.1 Giessplan (WateringSchedule)
 
@@ -161,7 +164,8 @@ Geschaetzter EC-Beitrag: **~0,06 mS/cm pro ml/L** (Herstellerangabe fehlt, Schae
 |------|------|
 | channel_id | wasser-pur |
 | application_method | drench |
-| target_ec_ms | null (keine Duengung, weiches Wasser EC ~0,0-0,1 mS/cm) |
+| target_ec_ms | null (keine Duengung, weiches Wasser EC ~0,0-0,1 mS/cm)  |
+| reference_ec_ms | null (keine Duengung, weiches Wasser EC ~0,0-0,1 mS/cm)  |
 | target_ph | 5.5 (Substrat-pH-Optimum fuer Bromelien, nicht Giesswasser-pH) |
 | fertilizer_dosages | [] (leer) |
 
@@ -183,7 +187,8 @@ Geschaetzter EC-Beitrag: **~0,06 mS/cm pro ml/L** (Herstellerangabe fehlt, Schae
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.3 |
+| target_ec_ms | 0.3  |
+| reference_ec_ms | 0.3  |
 | target_ph | 5.5 (Substrat-pH-Optimum) |
 | Gardol ml/L | 1.0 (1/4-Dosis) |
 | EC-Beitrag | ~0,06 mS/cm |
@@ -193,7 +198,8 @@ Geschaetzter EC-Beitrag: **~0,06 mS/cm pro ml/L** (Herstellerangabe fehlt, Schae
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.2 |
+| target_ec_ms | 0.2  |
+| reference_ec_ms | 0.2  |
 | target_ph | 5.5 |
 | Gardol ml/L | 0.5 (1/8-Dosis) |
 | EC-Beitrag | ~0,03 mS/cm |
@@ -217,7 +223,8 @@ Geschaetzter EC-Beitrag: **~0,06 mS/cm pro ml/L** (Herstellerangabe fehlt, Schae
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.3 |
+| target_ec_ms | 0.3  |
+| reference_ec_ms | 0.3  |
 | target_ph | 5.5 |
 | Gardol ml/L | 1.0 (1/4-Dosis) |
 | EC-Beitrag | ~0,06 mS/cm |
@@ -243,7 +250,8 @@ Geschaetzter EC-Beitrag: **~0,06 mS/cm pro ml/L** (Herstellerangabe fehlt, Schae
 |------|------|
 | channel_id | wasser-pur |
 | application_method | drench |
-| target_ec_ms | null (keine Duengung, weiches Wasser EC ~0,0-0,1 mS/cm) |
+| target_ec_ms | null (keine Duengung, weiches Wasser EC ~0,0-0,1 mS/cm)  |
+| reference_ec_ms | null (keine Duengung, weiches Wasser EC ~0,0-0,1 mS/cm)  |
 | target_ph | 5.5 (Substrat-pH-Optimum) |
 | fertilizer_dosages | [] (leer) |
 
@@ -300,6 +308,7 @@ Legende: --- = keine Duengung, === = 1/4-Dosis (1 ml/L Gardol)
   "name": "Guzmania lingulata — Gardol Grünpflanzendünger",
   "description": "Lebenszyklus-Plan für Guzmania lingulata (Bromelie) in Orchideensubstrat. Einzeldünger-Konzept mit Gardol Grünpflanzendünger (NPK 6-4-6) auf 1/4-Dosis reduziert. Monokarper Lebenszyklus: Kindel → vegetatives Wachstum (~1 Jahr) → Blüte → Seneszenz. Ausschließlich weiches Wasser (Regenwasser/destilliert) verwenden.",
   "recommended_substrate_type": "orchid_bark",
+  "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
   "version": "1.0",
@@ -349,6 +358,7 @@ Legende: --- = keine Duengung, === = 1/4-Dosis (1 ml/L Gardol)
       "enabled": true,
       "notes": "Nur weiches Wasser, kein Dünger. Substrat leicht feucht halten. Trichter minimal befüllen (20–30 ml). DRENCH = Substratbewässerung.",
       "target_ec_ms": null,
+      "reference_ec_ms": null,
       "target_ph": 5.5,
       "fertilizer_dosages": [],
       "method_params": {
@@ -383,6 +393,7 @@ Legende: --- = keine Duengung, === = 1/4-Dosis (1 ml/L Gardol)
       "enabled": true,
       "notes": "Primäre Nährstoffzufuhr über den zentralen Rosettentrichter. 50 ml Düngerlösung (1 ml/L Gardol in weichem Wasser). Trichterwasser alle 4–6 Wochen komplett austauschen. Kein Trichterwasser unter 18 °C.",
       "target_ec_ms": 0.3,
+      "reference_ec_ms": 0.3,
       "target_ph": 5.5,
       "fertilizer_dosages": [
         {
@@ -403,6 +414,7 @@ Legende: --- = keine Duengung, === = 1/4-Dosis (1 ml/L Gardol)
       "enabled": true,
       "notes": "Sekundäre Nährstoffzufuhr über Trichome. 0,5 ml/L Gardol fein auf Blätter sprühen. Nicht auf Blütenstand. Stehende Tropfen vermeiden — bei geringer Luftzirkulation Blattflecken-Risiko (Helminthosporium). Morgens sprühen, damit Blätter tagsüber abtrocknen. Alternative wenn Trichter trocken gehalten wird (Winter).",
       "target_ec_ms": 0.2,
+      "reference_ec_ms": 0.2,
       "target_ph": 5.5,
       "fertilizer_dosages": [
         {
@@ -443,6 +455,7 @@ Legende: --- = keine Duengung, === = 1/4-Dosis (1 ml/L Gardol)
       "enabled": true,
       "notes": "Primäre Nährstoffzufuhr über Rosettentrichter. 50 ml Düngerlösung. Nicht auf Blütenstand gießen. Trichterwasser alle 4–6 Wochen erneuern.",
       "target_ec_ms": 0.3,
+      "reference_ec_ms": 0.3,
       "target_ph": 5.5,
       "fertilizer_dosages": [
         {
@@ -490,6 +503,7 @@ Legende: --- = keine Duengung, === = 1/4-Dosis (1 ml/L Gardol)
       "enabled": true,
       "notes": "Nur weiches Wasser, kein Dünger. Minimales Volumen. Mutterpflanze im Rückgang, Trichter meist geschlossen. Substrat nur leicht feucht halten.",
       "target_ec_ms": null,
+      "reference_ec_ms": null,
       "target_ph": 5.5,
       "fertilizer_dosages": [],
       "method_params": {

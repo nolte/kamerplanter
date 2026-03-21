@@ -219,6 +219,25 @@ class AccountLockedError(KamerplanterError):
         )
 
 
+class PayloadTooLargeError(KamerplanterError):
+    def __init__(self, max_bytes: int) -> None:
+        max_mb = max_bytes / (1024 * 1024)
+        super().__init__(
+            message=f"File exceeds maximum allowed size of {max_mb:.0f} MB.",
+            error_code="PAYLOAD_TOO_LARGE",
+            status_code=413,
+        )
+
+
+class UnsupportedMediaTypeError(KamerplanterError):
+    def __init__(self, content_type: str, allowed: list[str]) -> None:
+        super().__init__(
+            message=f"Unsupported file type. Allowed types: {', '.join(allowed)}.",
+            error_code="UNSUPPORTED_MEDIA_TYPE",
+            status_code=415,
+        )
+
+
 class EmailNotVerifiedError(KamerplanterError):
     def __init__(self) -> None:
         super().__init__(

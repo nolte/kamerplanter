@@ -1,0 +1,38 @@
+# JSON Schema for location_types.yaml
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "location_types.schema.yaml"
+title: "Location Types Seed Data"
+description: "Schema for system location type definitions"
+type: object
+
+properties:
+  location_types:
+    type: array
+    items:
+      $ref: "#/$defs/location_type"
+
+required: [location_types]
+additionalProperties: false
+
+$defs:
+  location_type:
+    type: object
+    properties:
+      key:
+        type: string
+        pattern: "^[a-z_]+$"
+      name:
+        type: string
+        description: "German display name"
+      name_en:
+        type: string
+      is_indoor:
+        type: boolean
+      icon:
+        type: string
+        description: "MUI icon name (e.g. Park, MeetingRoom, Warehouse)"
+      sort_order:
+        type: integer
+        minimum: 0
+    required: [key, name, name_en, is_indoor, icon, sort_order]
+    additionalProperties: false

@@ -6,6 +6,7 @@ from app.common.enums import (
     FrostTolerance,
     GrowthHabit,
     NutrientDemandLevel,
+    PlantCategory,
     PlantTrait,
     RootType,
     Suitability,
@@ -117,6 +118,7 @@ class Species(BaseModel):
     harvest_from_year: int | None = Field(default=None, ge=1, le=10)
     bloom_from_year: int | None = Field(default=None, ge=1, le=10)
     frost_sensitivity: FrostTolerance | None = None
+    plant_category: PlantCategory | None = None
     nutrient_demand_level: NutrientDemandLevel | None = None
     green_manure_suitable: bool = False
     pruning_months: list[int] = Field(default_factory=list)
