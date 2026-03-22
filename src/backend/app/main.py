@@ -34,6 +34,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     setup_logging(settings.debug)
     logger.info("startup", app=settings.app_name, version=settings.app_version)
 
+    # Check for default secrets in production
+    if not settings.debug:
+        _insecure: list[str] = []
+        if settings.jwt_secret_key == "change-me-in-production-use-openssl-rand-hex-32":
+            _insecure.append("jwt_secret_key")
+        if settings.arangodb_password == "rootpassword":
+            _insecure.append("arangodb_password")
+        if _insecure:
+            msg = (
+                "FATAL: Default secrets detected for: "
+                f"{', '.join(_insecure)}. "
+                "Set proper values via environment variables "
+                "before running in production."
+            )
+            logger.critical("insecure_defaults", fields=_insecure)
+            raise SystemExit(msg)
+
     conn = get_connection()
     db = conn.connect()
     ensure_collections(db)

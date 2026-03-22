@@ -5,11 +5,12 @@ from app.api.v1.location_types.schemas import (
     LocationTypeResponse,
     LocationTypeUpdate,
 )
+from app.common.auth import get_current_user
 from app.common.dependencies import get_location_type_service
 from app.domain.models.location_type import LocationType
 from app.domain.services.location_type_service import LocationTypeService
 
-router = APIRouter(prefix="/location-types", tags=["location-types"])
+router = APIRouter(prefix="/location-types", tags=["location-types"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("", response_model=list[LocationTypeResponse])
