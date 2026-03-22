@@ -21,6 +21,7 @@ from app.common.error_handlers import (
     validation_error_handler,
 )
 from app.common.exceptions import KamerplanterError
+from app.common.middleware import request_id_middleware
 from app.config.logging import setup_logging
 from app.config.settings import settings
 from app.data_access.arango.collections import ensure_collections
@@ -130,6 +131,12 @@ async def security_headers_middleware(request: Request, call_next) -> Response: 
     if not settings.debug:
         response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
     return response
+
+
+# Request-ID middleware — registered AFTER security_headers so it runs FIRST (LIFO)
+@app.middleware("http")
+async def _request_id_middleware(request: Request, call_next) -> Response:  # type: ignore[type-arg]
+    return await request_id_middleware(request, call_next)
 
 
 app.add_middleware(

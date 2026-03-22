@@ -322,9 +322,126 @@ describe('onboardingSlice', () => {
 
 ---
 
+## E2E Tests (Selenium)
+
+End-to-end tests verify complete user workflows through a real browser. They use Selenium WebDriver with the Page Object pattern and generate Markdown test protocols with screenshots (NFR-008).
+
+### Prerequisites
+
+```bash
+pip install -r tests/e2e/requirements.txt
+```
+
+Dependencies: `selenium>=4.25.0`, `webdriver-manager>=4.0.0`, `pytest>=8.3.0`.
+
+### Running Locally
+
+Tests run against a local application instance with a local Chrome/Firefox browser:
+
+```bash
+# Default: Chrome headless against localhost:5173
+pytest tests/e2e/ -v
+
+# Firefox
+pytest tests/e2e/ --browser firefox -v
+
+# Custom base URL (e.g. Docker Compose dev stack on port 8080)
+pytest tests/e2e/ --base-url http://localhost:8080 -v
+
+# With test protocol generation (NFR-008 §4.4)
+pytest tests/e2e/ --generate-protocol
+```
+
+Reports and screenshots are saved to `test-reports/<timestamp>/`.
+
+### Dedicated Docker Environment
+
+A dedicated Docker Compose stack runs the complete application plus Selenium Grid in an isolated network — no host ports needed, runs in parallel with Kind/Skaffold without conflicts.
+
+```bash
+# Recommended: wrapper script (starts stack, collects logs, tears down)
+./scripts/run-e2e.sh
+
+# Or manually:
+docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit
+docker compose -f docker-compose.e2e.yml down -v
+```
+
+The stack includes:
+
+| Service | Purpose |
+|---------|---------|
+| `arangodb` | Isolated test database (`kamerplanter_e2e`) |
+| `valkey` | Redis-compatible cache/queue |
+| `backend` | FastAPI application |
+| `celery-worker` | Background task processing |
+| `frontend` | React app served via nginx |
+| `selenium-hub` | Selenium Grid hub |
+| `chrome` | Chrome node (up to 4 parallel sessions) |
+| `e2e-tests` | Test runner container |
+
+Reports are written to `./test-reports/<timestamp>/` on the host:
+
+- `protokoll.md` — Markdown test protocol with results and inline screenshots
+- `screenshots/` — all screenshots (explicit checkpoints + automatic failure captures)
+- `logs/` — container logs for all services (backend, frontend, selenium, arangodb, ...)
+
+**How it works:** The test runner connects to Chrome via Selenium Grid (`SELENIUM_REMOTE_URL`), and reaches the frontend via Docker's internal network (`E2E_BASE_URL=http://frontend:80`). The `conftest.py` browser fixture automatically switches between local and remote WebDriver based on the `SELENIUM_REMOTE_URL` environment variable.
+
+### Test Structure
+
+```
+tests/e2e/
+├── conftest.py              # Browser fixtures, CLI options, screenshot capture
+├── protocol_plugin.py       # Markdown protocol report generator (NFR-008 §4.4)
+├── requirements.txt         # E2E Python dependencies
+├── Dockerfile               # Test runner container for Docker Compose
+├── pages/
+│   ├── base_page.py         # BasePage with shared Selenium utilities
+│   ├── login_page.py        # Page objects (one per screen)
+│   └── ...
+├── test_req001_*.py         # Tests organized by requirement
+├── test_req006_*.py
+└── ...
+```
+
+### Page Object Pattern
+
+All page objects inherit from `BasePage` and use `data-testid` locators:
+
+```python
+from .base_page import BasePage
+from selenium.webdriver.common.by import By
+
+class LoginPage(BasePage):
+    PATH = "/login"
+    USERNAME_INPUT = (By.CSS_SELECTOR, "[data-testid='email-input'] input")
+    PASSWORD_INPUT = (By.CSS_SELECTOR, "[data-testid='password-input'] input")
+    SUBMIT_BUTTON = (By.CSS_SELECTOR, "[data-testid='login-submit']")
+
+    def login(self, email: str, password: str):
+        self.navigate(self.PATH)
+        self.wait_for_element(self.USERNAME_INPUT).send_keys(email)
+        self.wait_for_element(self.PASSWORD_INPUT).send_keys(password)
+        self.wait_for_element_clickable(self.SUBMIT_BUTTON).click()
+```
+
+### Screenshots
+
+Screenshots are captured automatically on failure and can be taken explicitly during tests:
+
+```python
+class TestDashboard:
+    def test_dashboard_loads(self, screenshot, browser, base_url):
+        browser.get(base_url)
+        screenshot("001_dashboard_loaded", "Dashboard after initial load")
+```
+
+---
+
 ## Common Rules for Both Test Suites
 
-- Tests run in CI on every push to `main` and every pull request.
+- Tests run in CI on every push to `develop` and every pull request.
 - New features require at least one unit test for the business logic.
 - Bug fixes require a regression test that reproduces the bug.
 - No `.skip` or `.only` in merged tests without a comment and issue reference.

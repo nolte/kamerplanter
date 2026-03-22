@@ -39,20 +39,73 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=False,
         help="Generate a test protocol report (NFR-008 §4.4)",
     )
+    parser.addoption(
+        "--app-mode",
+        default=os.environ.get("KAMERPLANTER_MODE", "full"),
+        choices=["light", "full"],
+        help="Application mode — 'light' skips auth-dependent tests (default: full)",
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Register custom markers."""
+    config.addinivalue_line(
+        "markers",
+        "requires_auth: mark test as requiring full auth mode (skipped in light mode)",
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Auto-skip tests marked ``requires_auth`` when running in light mode."""
+    if config.getoption("--app-mode") == "light":
+        skip_light = pytest.mark.skip(reason="requires full auth mode (running in light mode)")
+        for item in items:
+            if "requires_auth" in item.keywords:
+                item.add_marker(skip_light)
 
 
 @pytest.fixture(scope="session")
 def base_url(request: pytest.FixtureRequest) -> str:
-    """Return the base URL for the application under test."""
-    return request.config.getoption("--base-url")
+    """Return the base URL for the application under test.
+
+    ``E2E_BASE_URL`` env var takes precedence (set by docker-compose.e2e.yml).
+    """
+    return os.environ.get("E2E_BASE_URL") or request.config.getoption("--base-url")
 
 
 @pytest.fixture(scope="session")
 def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
-    """Create a headless browser session for the entire test run (NFR-008 §3.1)."""
-    browser_name = request.config.getoption("--browser")
+    """Create a headless browser session for the entire test run (NFR-008 §3.1).
 
-    if browser_name == "firefox":
+    When ``SELENIUM_REMOTE_URL`` is set (e.g. in docker-compose.e2e.yml),
+    a Remote WebDriver connecting to Selenium Grid is used.  Otherwise a
+    local browser is started as before.
+    """
+    browser_name = request.config.getoption("--browser")
+    remote_url = os.environ.get("SELENIUM_REMOTE_URL")
+
+    if remote_url:
+        # ── Remote WebDriver (Selenium Grid / Docker) ──────────
+        if browser_name == "firefox":
+            options = webdriver.FirefoxOptions()
+            options.add_argument("--headless")
+            options.add_argument("--width=1920")
+            options.add_argument("--height=1080")
+            options.set_preference("intl.accept_languages", "de-DE,de")
+        else:
+            options = webdriver.ChromeOptions()
+            options.add_argument("--headless=new")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--window-size=1920,1080")
+            options.add_argument("--lang=de-DE")
+        driver = webdriver.Remote(
+            command_executor=remote_url,
+            options=options,
+        )
+    elif browser_name == "firefox":
+        # ── Local Firefox ──────────────────────────────────────
         options = webdriver.FirefoxOptions()
         options.add_argument("--headless")
         options.add_argument("--width=1920")
@@ -66,6 +119,7 @@ def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
             service = FirefoxService()
         driver = webdriver.Firefox(service=service, options=options)
     else:
+        # ── Local Chrome ───────────────────────────────────────
         options = webdriver.ChromeOptions()
         options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
@@ -89,16 +143,40 @@ def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
             service = ChromeService()
         driver = webdriver.Chrome(service=service, options=options)
 
+    # Export browser name for the protocol plugin metadata
+    os.environ["E2E_BROWSER"] = browser_name
+
     driver.implicitly_wait(10)
+
+    # Set German locale in localStorage so i18next picks it up (detection
+    # order: localStorage → navigator).  We need to navigate to the origin
+    # first so that localStorage is bound to the correct domain.
+    url = os.environ.get("E2E_BASE_URL") or request.config.getoption("--base-url")
+    driver.get(url)
+    driver.execute_script(
+        "window.localStorage.setItem('kamerplanter-lang', 'de');"
+    )
+
     yield driver
     driver.quit()
 
 
 @pytest.fixture(scope="session")
-def screenshot_dir() -> Path:
-    """Create and return the screenshot output directory for this run (NFR-008 §4.2)."""
-    timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
-    path = Path("test-reports") / timestamp / "screenshots"
+def screenshot_dir(request: pytest.FixtureRequest) -> Path:
+    """Return the screenshot directory, shared with protocol_plugin (NFR-008 §4.2).
+
+    When ``--generate-protocol`` is active the directory is provided by the
+    protocol plugin so that screenshots and the Markdown report live in the
+    same timestamped folder.  Otherwise a standalone directory is created.
+    """
+    protocol_dir: Path | None = getattr(
+        request.config, "_protocol_output_dir", None
+    )
+    if protocol_dir is not None:
+        path = protocol_dir / "screenshots"
+    else:
+        timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+        path = Path("test-reports") / timestamp / "screenshots"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -108,22 +186,57 @@ def screenshot(
     request: pytest.FixtureRequest,
     browser: webdriver.Remote,
     screenshot_dir: Path,
-) -> None:  # noqa: PT004 — yield fixture without value is intentional
-    """Auto-capture a screenshot on test failure (NFR-008 §3.4 checkpoint 4 & 5)."""
+):
+    """Provide a callable ``screenshot(name, description)`` for explicit checkpoints.
 
-    def _capture(name: str) -> Path:
+    This fixture is autouse — it always runs to ensure:
+    1. ``request.node._screenshot_capture`` is available (legacy pattern)
+    2. Failure screenshots are captured automatically (NFR-008 §3.4)
+
+    Usage in tests — new style (preferred)::
+
+        def test_dashboard_loads(self, screenshot, dashboard):
+            dashboard.open()
+            screenshot("001_dashboard-overview", "Dashboard after initial load")
+
+    Usage in tests — legacy style (still supported)::
+
+        def test_tank_list(self, request, tank_list):
+            capture = request.node._screenshot_capture
+            capture("req014_001_tank_list")
+    """
+    from .protocol_plugin import ScreenshotEntry
+
+    def _capture(name: str, description: str = "") -> Path:
         filename = f"{name}.png"
         filepath = screenshot_dir / filename
         browser.save_screenshot(str(filepath))
+
+        # Register with protocol plugin for report generation
+        screenshots_list = getattr(request.node, "_protocol_screenshots", [])
+        screenshots_list.append(
+            ScreenshotEntry(
+                filename=filename,
+                description=description or name.replace("_", " "),
+                test_nodeid=request.node.nodeid,
+            )
+        )
+        request.node._protocol_screenshots = screenshots_list  # type: ignore[attr-defined]
         return filepath
 
+    # Make capture available via both the fixture return value and the node attribute
     request.node._screenshot_capture = _capture  # type: ignore[attr-defined]
-    yield
+
+    yield _capture
+
     # After test — capture on failure
     report = getattr(request.node, "_report", None)
     if report and report.failed:
         test_name = request.node.name.replace("[", "_").replace("]", "_")
-        _capture(f"FAILURE_{test_name}")
+        _capture(
+            f"FAILURE_{test_name}",
+            f"Automatischer Screenshot nach Fehler in {test_name}",
+        )
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
