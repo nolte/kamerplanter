@@ -1,13 +1,11 @@
 from fastapi import APIRouter, Depends, Query
 
-from app.api.v1.starter_kits.schemas import ApplyKitRequest, StarterKitResponse
+from app.api.v1.starter_kits.schemas import StarterKitResponse
 from app.common.auth import get_current_user
-from app.common.dependencies import get_onboarding_service, get_starter_kit_service
-from app.domain.models.user import User
-from app.domain.services.onboarding_service import OnboardingService
+from app.common.dependencies import get_starter_kit_service
 from app.domain.services.starter_kit_service import StarterKitService
 
-router = APIRouter(prefix="/starter-kits", tags=["starter-kits"])
+router = APIRouter(prefix="/starter-kits", tags=["starter-kits"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("", response_model=list[StarterKitResponse])
@@ -26,19 +24,3 @@ def get_starter_kit(
 ):
     kit = service.get_kit_by_id(kit_id)
     return StarterKitResponse(key=kit.key or "", **kit.model_dump(exclude={"key"}))
-
-
-@router.post("/{kit_id}/apply")
-def apply_starter_kit(
-    kit_id: str,
-    body: ApplyKitRequest,
-    user: User = Depends(get_current_user),
-    onboarding: OnboardingService = Depends(get_onboarding_service),
-):
-    result = onboarding.complete_wizard(
-        user_key=user.key,
-        kit_id=kit_id,
-        site_name=body.site_name,
-        plant_count=body.plant_count,
-    )
-    return result

@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 
-from app.api.v1.watering_logs.router import _log_response
 from app.api.v1.watering_logs.schemas import (
+    ResolvedFertilizer,
+    ResolvedPlant,
     WateringConfirmRequest,
     WateringConfirmResponse,
     WateringLogCreate,
@@ -18,6 +19,29 @@ from app.domain.models.watering_log import WateringLog
 from app.domain.services.watering_log_service import WateringLogService
 
 router = APIRouter(tags=["watering-logs"])
+
+
+def _log_response(
+    log: WateringLog,
+    plant_name_map: dict[str, str] | None = None,
+    fert_name_map: dict[str, str] | None = None,
+) -> WateringLogResponse:
+    resolved = []
+    if plant_name_map:
+        for pk in log.plant_keys:
+            name = plant_name_map.get(pk, pk)
+            resolved.append(ResolvedPlant(key=pk, name=name))
+    resolved_ferts = []
+    if fert_name_map:
+        for fu in log.fertilizers_used:
+            name = fert_name_map.get(fu.fertilizer_key, fu.fertilizer_key)
+            resolved_ferts.append(ResolvedFertilizer(key=fu.fertilizer_key, name=name, ml_per_liter=fu.ml_per_liter))
+    return WateringLogResponse(
+        key=log.key or "",
+        resolved_plants=resolved,
+        resolved_fertilizers=resolved_ferts,
+        **log.model_dump(exclude={"key"}),
+    )
 
 
 @router.post("/watering-logs", response_model=WateringLogWithWarnings, status_code=201)

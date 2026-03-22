@@ -69,7 +69,6 @@ def run_seed_auth() -> None:
     logger.info(
         "demo_seed_complete",
         email=demo["email"],
-        password=demo["password"],
         tenant_slug=slug,
     )
 

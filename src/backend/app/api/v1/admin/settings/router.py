@@ -81,13 +81,14 @@ def test_ha_connection(
             ha_version=data.get("version"),
         )
     except httpx.ConnectError:
-        return HATestResponse(success=False, message=f"Cannot connect to {url}.")
+        return HATestResponse(success=False, message="Cannot connect to Home Assistant.")
     except httpx.TimeoutException:
-        return HATestResponse(success=False, message=f"Connection to {url} timed out.")
+        return HATestResponse(success=False, message="Connection to Home Assistant timed out.")
     except httpx.HTTPStatusError as e:
-        return HATestResponse(success=False, message=f"HTTP {e.response.status_code}: {e.response.text[:200]}")
-    except Exception as e:
-        return HATestResponse(success=False, message=str(e)[:300])
+        msg = f"HTTP {e.response.status_code}: Home Assistant returned an error."
+        return HATestResponse(success=False, message=msg)
+    except Exception:
+        return HATestResponse(success=False, message="An unexpected error occurred while testing the connection.")
 
 
 @router.delete("/home-assistant", status_code=204)

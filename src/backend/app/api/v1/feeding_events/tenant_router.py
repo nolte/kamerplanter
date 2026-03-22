@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, Query
 
-from app.api.v1.feeding_events.router import _event_response
 from app.api.v1.feeding_events.schemas import (
     FeedingEventCreate,
     FeedingEventResponse,
@@ -13,6 +12,10 @@ from app.domain.models.tenant_context import TenantContext
 from app.domain.services.feeding_service import FeedingService
 
 router = APIRouter(prefix="/feeding-events", tags=["feeding-events"])
+
+
+def _event_response(e: FeedingEvent) -> FeedingEventResponse:
+    return FeedingEventResponse(key=e.key or "", **e.model_dump(exclude={"key"}))
 
 
 @router.get("", response_model=list[FeedingEventResponse])
