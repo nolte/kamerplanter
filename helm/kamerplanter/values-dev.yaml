@@ -147,3 +147,113 @@ ingress:
             pathType: Prefix
             service:
               identifier: frontend
+
+# -- Dev overrides for NetworkPolicies: frontend on port 5173, backend needs HA access
+networkpolicies:
+  frontend:
+    controller: frontend
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress:
+        - {}
+      egress:
+        # Backend API (dev proxy)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: backend
+          ports:
+            - protocol: TCP
+              port: 8000
+        # DNS resolution
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+        # Vite HMR websocket (dev only — connects back to itself)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: frontend
+          ports:
+            - protocol: TCP
+              port: 5173
+
+  backend:
+    controller: backend
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: frontend
+          ports:
+            - protocol: TCP
+              port: 8000
+        - ports:
+            - protocol: TCP
+              port: 8000
+      egress:
+        # ArangoDB
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: arangodb
+          ports:
+            - protocol: TCP
+              port: 8529
+        # Valkey (Redis)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: valkey
+          ports:
+            - protocol: TCP
+              port: 6379
+        # DNS resolution
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+        # Home Assistant (in-cluster, dev only)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: homeassistant
+          ports:
+            - protocol: TCP
+              port: 8123
+        # External APIs + SMTP
+        - to:
+            - ipBlock:
+                cidr: 0.0.0.0/0
+                except:
+                  - 10.0.0.0/8
+                  - 172.16.0.0/12
+                  - 192.168.0.0/16
+          ports:
+            - protocol: TCP
+              port: 443
+            - protocol: TCP
+              port: 80
+            - protocol: TCP
+              port: 587
+            - protocol: TCP
+              port: 465

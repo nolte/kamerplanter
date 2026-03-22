@@ -299,6 +299,133 @@ persistence:
 
 ingress: {}
 
+# -- NetworkPolicies: restrict pod-to-pod traffic to least-privilege (SEC-M-005)
+networkpolicies:
+  # Frontend: accept external ingress, only talk to backend + DNS
+  frontend:
+    controller: frontend
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress:
+        # Allow traffic from any source (Ingress controller, NodePort, etc.)
+        - {}
+      egress:
+        # Backend API proxy
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: backend
+          ports:
+            - protocol: TCP
+              port: 8000
+        # DNS resolution
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+
+  # Backend: accept from frontend, talk to ArangoDB + Valkey + DNS + external
+  backend:
+    controller: backend
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress:
+        # From frontend (nginx proxy)
+        - from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: frontend
+          ports:
+            - protocol: TCP
+              port: 8000
+        # From Ingress controller (direct API access via ingress)
+        - ports:
+            - protocol: TCP
+              port: 8000
+      egress:
+        # ArangoDB
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: arangodb
+          ports:
+            - protocol: TCP
+              port: 8529
+        # Valkey (Redis)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: valkey
+          ports:
+            - protocol: TCP
+              port: 6379
+        # DNS resolution
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+        # External APIs (GBIF, Perenual, weather, SMTP, Home Assistant, OIDC)
+        - to:
+            - ipBlock:
+                cidr: 0.0.0.0/0
+                except:
+                  - 10.0.0.0/8
+                  - 172.16.0.0/12
+                  - 192.168.0.0/16
+          ports:
+            - protocol: TCP
+              port: 443
+            - protocol: TCP
+              port: 80
+            - protocol: TCP
+              port: 587
+            - protocol: TCP
+              port: 465
+
+  # ArangoDB: only accept from backend, no egress needed
+  arangodb:
+    controller: arangodb
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: backend
+          ports:
+            - protocol: TCP
+              port: 8529
+      egress:
+        # DNS only (for cluster-internal resolution)
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+
 valkey:
   dataStorage:
     enabled: true
