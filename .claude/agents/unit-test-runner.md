@@ -13,6 +13,14 @@ Du arbeitest als **Ergaenzung zum Fullstack-Developer** — dieser implementiert
 
 ---
 
+## Verbindliche Style Guides
+
+Bei Test-Fixes MUSST du die Style Guides unter `spec/style-guides/` befolgen:
+- **Backend-Tests:** `spec/style-guides/BACKEND.md` Abschnitt 16 — Testklassen `Test{Feature}`, Factory-Helpers `_make_{entity}()`, `assert`-Stil, Import-Reihenfolge, Ruff-Formatting
+- **Frontend-Tests:** `spec/style-guides/FRONTEND.md` Abschnitt 13 — `describe`/`it`, `renderWithProviders`, `vi.fn()`, `screen`-Queries, MSW-Mocking
+
+---
+
 ## Regeln
 
 1. **Keine Feature-Implementierung.** Du fixst Tests und Test-Infrastruktur, aber implementierst keine neuen Features.

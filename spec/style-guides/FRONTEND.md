@@ -13,8 +13,8 @@
 |------|-------|--------|
 | **ESLint** | Linting (JS/TS Regeln + React Hooks) | `eslint.config.js` |
 | **TypeScript** | Statische Typanalyse (strict) | `tsconfig.json` |
-| **Prettier** | Code-Formatierung | via `eslint-config-prettier` |
-| **Vitest** | Unit-/Komponententests | `vite.config.ts` |
+| **Prettier** | Code-Formatierung | `.prettierrc` + `eslint-config-prettier` |
+| **Vitest** | Unit-/Komponententests | `vitest.config.ts` |
 
 ### 1.1 ESLint-Konfiguration
 
@@ -41,7 +41,19 @@ export default tseslint.config(
 - `react-hooks/exhaustive-deps` — Vollstaendige Dependency-Arrays
 - `@typescript-eslint/no-unused-vars` — Unbenutzte Variablen (ausser `_`-Praefix)
 
-### 1.2 TypeScript strict-Modus
+### 1.2 Prettier-Konfiguration
+
+```json
+{
+  "singleQuote": true,
+  "semi": true,
+  "tabWidth": 2,
+  "trailingComma": "all",
+  "printWidth": 100
+}
+```
+
+### 1.3 TypeScript strict-Modus
 
 ```json
 {
@@ -55,7 +67,7 @@ export default tseslint.config(
 }
 ```
 
-### 1.3 CI-Pruefung
+### 1.4 CI-Pruefung
 
 ```bash
 npx eslint src/            # Linting
@@ -69,38 +81,101 @@ npx vitest run             # Tests
 
 ```
 src/frontend/src/
-├── api/                             # API-Schicht (RTK Query / Fetch)
-│   └── {feature}Api.ts
-├── app/                             # App-Setup
-│   ├── store.ts                     # Redux Store
-│   └── hooks.ts                     # Typisierte App-Hooks
+├── api/                             # API-Schicht
+│   ├── client.ts                    # Axios-Client + Tenant-Interceptor
+│   ├── endpoints/                   # API-Funktionen pro Feature
+│   │   ├── species.ts
+│   │   ├── sites.ts
+│   │   └── ...                      # 24 Endpoint-Module
+│   ├── errors.ts                    # ApiError-Klasse, parseApiError()
+│   ├── types.ts                     # Alle TypeScript-Interfaces (API DTOs)
+│   └── index.ts                     # Barrel Export
+├── auth/                            # Authentifizierung
+│   ├── AuthProvider.tsx             # JWT-Refresh + 401-Interceptor
+│   ├── ProtectedRoute.tsx           # Auth-Guard (Light-Modus Bypass)
+│   └── PublicOnlyRoute.tsx          # Guard fuer Login/Register
 ├── components/                      # Wiederverwendbare UI-Komponenten
-│   ├── common/                      # Layout, Navigation, Generics
+│   ├── common/                      # ErrorDisplay, LoadingSkeleton, etc.
+│   ├── form/                        # FormTextField, FormSelectField, etc.
+│   ├── layout/                      # Breadcrumbs, Sidebar, TenantSwitcher
 │   └── {feature}/                   # Feature-spezifische Komponenten
-├── features/                        # Redux Slices + Feature-Logik
-│   └── {feature}/
-│       └── {feature}Slice.ts
-├── hooks/                           # Custom Hooks (global)
-│   └── use{Feature}.ts
+├── config/
+│   └── mode.ts                      # isLightMode Check
+├── hooks/                           # Custom Hooks (21 Stueck)
+│   ├── useExpertiseLevel.ts
+│   ├── useNotification.ts           # notistack-Wrapper
+│   ├── useApiError.ts               # API-Fehlerbehandlung
+│   └── ...
 ├── i18n/                            # Internationalisierung
-│   ├── i18n.ts                      # i18next-Setup
+│   ├── i18n.ts                      # i18next-Setup (DE Default)
 │   └── locales/
-│       ├── de/                      # Deutsch (Default)
-│       │   └── translation.json
-│       └── en/
-│           └── translation.json
+│       ├── de/translation.json      # Deutsch (Default)
+│       └── en/translation.json      # Englisch
+├── layouts/
+│   ├── MainLayout.tsx               # AppBar + Sidebar + <Outlet/>
+│   └── Sidebar.tsx                  # Navigation (Expertise-Level Tiering)
 ├── pages/                           # Seitenkomponenten (je Route)
-│   └── {Feature}Page.tsx
+│   ├── DashboardPage.tsx
+│   ├── auth/                        # Login, Register, AccountSettings
+│   ├── stammdaten/                  # Species, Cultivar, Family (11 Seiten)
+│   ├── standorte/                   # Site, Location, Substrate, Tank
+│   ├── pflanzen/                    # PlantInstance, Calculations
+│   ├── durchlaeufe/                 # PlantingRun
+│   ├── duengung/                    # Fertilizer, NutrientPlan
+│   ├── pflanzenschutz/              # IPM, Pest, Disease, Treatment
+│   ├── ernte/                       # Harvest
+│   ├── aufgaben/                    # Tasks
+│   ├── kalender/                    # Calendar
+│   ├── pflege/                      # Care Reminders
+│   ├── tenants/                     # Tenant-Verwaltung
+│   └── onboarding/                  # Wizard (5 Schritte)
+├── routes/
+│   ├── AppRoutes.tsx                # Router-Definition (Lazy Routes)
+│   └── breadcrumbs.ts               # Breadcrumb-Pfad-Mappings
+├── store/
+│   ├── store.ts                     # configureStore() mit 22 Reducern
+│   ├── hooks.ts                     # useAppDispatch, useAppSelector
+│   └── slices/                      # 22 Redux Toolkit Slices
+│       └── speciesSlice.ts
 ├── test/                            # Test-Utilities
-│   └── helpers.tsx                  # renderWithProviders, Mock-Stores
-├── theme/                           # MUI-Theme
-│   └── theme.ts
-├── types/                           # Geteilte TypeScript-Typen
-│   └── {feature}.ts
+│   ├── helpers.tsx                  # renderWithProviders
+│   ├── setup.ts                     # vitest + MSW Setup
+│   └── mocks/
+│       ├── server.ts                # MSW setupServer
+│       └── handlers.ts              # MSW Request-Handler
+├── theme/
+│   ├── theme.ts                     # createTheme (Light/Dark)
+│   ├── palette.ts                   # lightPalette, darkPalette
+│   ├── typography.ts                # Font-Stacks
+│   ├── tokens.ts                    # Breakpoints, Spacing, Radii
+│   └── ThemeContext.tsx             # Theme-Provider + useThemeMode
+├── validation/
+│   └── schemas.ts                   # Zod-Schemas (Formularvalidierung)
 ├── utils/                           # Hilfsfunktionen
-│   └── {utility}.ts
-├── App.tsx                          # Root-Komponente + Routing
-└── main.tsx                         # Entry Point
+├── App.tsx                          # Redux Provider + Theme + Router + i18n
+└── main.tsx                         # Entry Point (React.StrictMode)
+```
+
+### 2.1 Path-Alias
+
+```json
+// tsconfig.json
+{
+  "compilerOptions": {
+    "paths": { "@/*": ["src/*"] }
+  }
+}
+```
+
+**Alle Imports** verwenden den `@/` Alias statt relativer Pfade:
+
+```typescript
+// RICHTIG
+import { useAppDispatch } from '@/store/hooks';
+import type { Species } from '@/api/types';
+
+// FALSCH
+import { useAppDispatch } from '../../../store/hooks';
 ```
 
 ---
@@ -115,7 +190,7 @@ src/frontend/src/
 | Komponenten | `PascalCase` | `PlantCard.tsx`, `CareProfileEditDialog.tsx` |
 | Hooks | `camelCase` mit `use` Praefix | `useExpertiseLevel.ts` |
 | Redux Slices | `camelCase` + `Slice` Suffix | `speciesSlice.ts` |
-| API | `camelCase` + `Api` Suffix | `speciesApi.ts` |
+| API Endpoints | `camelCase` | `species.ts` (in `api/endpoints/`) |
 | Typen | `camelCase` | `species.ts` |
 | Utils | `camelCase` | `formatDate.ts` |
 | Tests | `{dateiname}.test.tsx` | `PlantCard.test.tsx` |
@@ -398,120 +473,246 @@ function SpeciesPage() {
 
 ---
 
-## 10. Formular-Pattern
+## 10. API-Schicht
 
-```tsx
-function SpeciesCreateDialog({ open, onClose }: DialogProps) {
-  const { t } = useTranslation();
-  const [formData, setFormData] = useState<SpeciesCreate>(INITIAL_STATE);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+### 10.1 Axios-Client
 
-  const handleChange = (field: keyof SpeciesCreate) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setFormData((prev) => ({ ...prev, [field]: e.target.value }));
-      setErrors((prev) => ({ ...prev, [field]: '' }));  // Fehler bei Eingabe loeschen
-    };
+```typescript
+// api/client.ts — Zwei Clients: global + tenant-scoped
+import axios from 'axios';
 
-  const handleSubmit = async () => {
-    const validationErrors = validate(formData);
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
-    await dispatch(createSpecies(formData));
-    onClose();
-  };
+// Globale Endpunkte (/api/v1/species, /api/v1/auth/...)
+export const client = axios.create({
+  baseURL: '/api/v1',
+  headers: { 'Content-Type': 'application/json' },
+});
 
-  return (
-    <Dialog open={open} onClose={onClose}>
-      <DialogTitle>{t('pages.species.createTitle')}</DialogTitle>
-      <DialogContent>
-        <TextField
-          label={t('pages.species.scientificName')}
-          value={formData.scientific_name}
-          onChange={handleChange('scientific_name')}
-          error={!!errors.scientific_name}
-          helperText={errors.scientific_name}
-          required
-          fullWidth
-        />
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>{t('common.cancel')}</Button>
-        <Button variant="contained" onClick={handleSubmit}>{t('common.save')}</Button>
-      </DialogActions>
-    </Dialog>
-  );
+// Tenant-scoped Endpunkte (/api/v1/t/{slug}/...)
+export const tenantClient = axios.create({
+  baseURL: '/api/v1',
+  headers: { 'Content-Type': 'application/json' },
+});
+
+// Interceptor: Tenant-Slug automatisch voranstellen
+tenantClient.interceptors.request.use((config) => {
+  const slug = getActiveTenantSlug();
+  if (slug && config.url && !config.url.startsWith('/t/')) {
+    config.url = `/t/${slug}${config.url}`;
+  }
+  return config;
+});
+```
+
+### 10.2 Endpoint-Funktionen
+
+```typescript
+// api/endpoints/species.ts
+import { client } from '@/api/client';
+import type { Species, SpeciesCreate, PaginatedResponse } from '@/api/types';
+
+export async function listSpecies(offset = 0, limit = 50) {
+  const { data } = await client.get<PaginatedResponse<Species>>('/species', {
+    params: { offset, limit },
+  });
+  return data;
+}
+
+export async function updateSpecies(key: string, payload: SpeciesCreate) {
+  const { data } = await client.put<Species>(`/species/${key}`, payload);
+  return data;
 }
 ```
 
 **Regeln:**
-- MUI `Dialog` + `TextField` fuer Formulare
-- Lokaler State fuer Formular-Daten
-- Fehler-Objekt pro Feld
-- Validierung vor Submit
-- `fullWidth` auf TextField-Feldern
+- Async-Funktionen, Generic `<ReturnType>` auf Axios-Call
+- `{ data }` Destructuring aus Response
+- `client` fuer globale, `tenantClient` fuer tenant-scoped Endpunkte
+- Typen aus `@/api/types` importieren
+
+### 10.3 Fehlerbehandlung
+
+```typescript
+// api/errors.ts
+export class ApiError extends Error {
+  errorId: string;
+  errorCode: string;
+  statusCode: number;
+}
+
+export function parseApiError(error: unknown): string {
+  if (isApiError(error)) return error.message;
+  if (error instanceof Error) return error.message;
+  return 'An unknown error occurred.';
+}
+
+// In Komponenten: useApiError Hook
+const { handleError } = useApiError();
+try {
+  await updateSpecies(key, data);
+} catch (err) {
+  handleError(err);  // Zeigt Toast + loggt
+}
+```
 
 ---
 
-## 11. Error Handling
+## 11. Formular-Pattern (react-hook-form + Zod)
 
-### 11.1 API-Fehler
+### 11.1 Schema-Definition
+
+```typescript
+// validation/schemas.ts
+import { z } from 'zod';
+
+export const speciesSchema = z.object({
+  scientific_name: z.string().min(1, 'Required'),
+  family_key: z.string().nullable(),
+  growth_habit: z.enum(['herb', 'shrub', 'tree']),
+});
+
+export type SpeciesFormData = z.infer<typeof speciesSchema>;
+```
+
+### 11.2 Formular-Komponente
 
 ```tsx
-// In createAsyncThunk — Fehler werden automatisch im Slice behandelt
-export const fetchSpecies = createAsyncThunk(
-  'species/fetchAll',
-  async (params, { rejectWithValue }) => {
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { speciesSchema, type SpeciesFormData } from '@/validation/schemas';
+import { FormTextField, FormSelectField, FormActions } from '@/components/form';
+
+export default function SpeciesForm({ species, onSave }: SpeciesFormProps) {
+  const { t } = useTranslation();
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { isDirty },
+  } = useForm<SpeciesFormData>({
+    resolver: zodResolver(speciesSchema),
+    defaultValues: { scientific_name: species?.scientific_name ?? '' },
+  });
+
+  const onSubmit = async (data: SpeciesFormData) => {
+    await onSave(data);
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <FormTextField name="scientific_name" control={control} label={t('labels.species.scientificName')} required />
+      <FormSelectField name="growth_habit" control={control} label={t('labels.species.growthHabit')} options={[...]} />
+      <FormActions isDirty={isDirty} onReset={() => reset()} />
+    </form>
+  );
+}
+```
+
+### 11.3 Formular-Feld-Komponenten
+
+Wiederverwendbare Wrapper um MUI + react-hook-form `Controller`:
+
+| Komponente | MUI-Basis | Zweck |
+|-----------|-----------|-------|
+| `FormTextField` | TextField | Text-/Zahleneingabe |
+| `FormSelectField` | Select | Dropdown-Auswahl |
+| `FormNumberField` | TextField (type=number) | Numerische Eingabe |
+| `FormDateField` | DatePicker | Datumsauswahl |
+| `FormMultiSelectField` | Autocomplete | Mehrfachauswahl |
+| `FormChipInput` | ChipInput | String-Array Eingabe |
+| `FormSwitchField` | Switch | Boolean-Toggle |
+| `FormActions` | Button-Gruppe | Speichern/Zuruecksetzen |
+
+```tsx
+// Internes Pattern jeder Form-Komponente
+<Controller
+  name={name}
+  control={control}
+  render={({ field, fieldState: { error } }) => (
+    <TextField
+      {...field}
+      value={field.value ?? ''}
+      error={!!error}
+      helperText={error?.message ?? helperText}
+      fullWidth
+      sx={{ mb: 2 }}
+      data-testid={`form-field-${name}`}
+    />
+  )}
+/>
+```
+
+**Regeln:**
+- Zod-Schema definiert Validierung (nicht manuell im Handler)
+- `zodResolver` verbindet Schema mit react-hook-form
+- `FormActions` zeigt Speichern-Button nur wenn `isDirty`
+- `UnsavedChangesGuard` warnt bei Navigation mit ungespeicherten Aenderungen
+- `data-testid` auf allen interaktiven Elementen
+
+---
+
+## 12. Error Handling
+
+### 12.1 Toast-Benachrichtigungen (notistack)
+
+```tsx
+import { useNotification } from '@/hooks/useNotification';
+
+function SpeciesForm() {
+  const { success, error } = useNotification();
+
+  const handleSave = async () => {
     try {
-      const response = await api.get('/api/v1/species');
-      return response.data;
-    } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      await updateSpecies(key, data);
+      success(t('common.saved'));
+    } catch (err) {
+      error(parseApiError(err));
     }
-  }
-);
+  };
+}
 ```
 
-### 11.2 Toast/Snackbar fuer User-Feedback
-
-```tsx
-// Zentrale Snackbar-Komponente in Layout
-<Snackbar open={!!error} message={error} severity="error" />
-```
+**Auto-Hide Zeiten:**
+- Success: 5s
+- Error: kein Auto-Hide (manuell schliessen)
+- Warning: 8s
+- Max 3 Toasts gleichzeitig (unten rechts)
 
 ---
 
-## 12. Tests
+## 13. Tests
 
-### 12.1 Datei-Konvention
+### 13.1 Datei-Konvention
 
 ```
-src/test/helpers.tsx          # renderWithProviders + Mock-Store Setup
-src/pages/SpeciesPage.test.tsx # Seiten-Tests (co-located)
-src/components/PlantCard.test.tsx # Komponenten-Tests (co-located)
+src/test/helpers.tsx              # renderWithProviders + Mock-Store Setup
+src/test/setup.ts                 # vitest + MSW Setup, jest-dom Matchers
+src/test/mocks/server.ts          # MSW setupServer
+src/test/mocks/handlers.ts        # MSW Request-Handler
+src/test/components/*.test.tsx    # Komponenten-Tests
+src/test/pages/*.test.tsx         # Seiten-Tests
+src/test/hooks/*.test.tsx         # Hook-Tests
+src/test/a11y/*.test.tsx          # Accessibility-Tests
 ```
 
-### 12.2 Test-Pattern
+### 13.2 Test-Pattern
 
 ```tsx
 import { describe, it, expect, vi } from 'vitest';
-import { renderWithProviders } from '../test/helpers';
+import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { renderWithProviders } from '@/test/helpers';
 
 describe('PlantCard', () => {
   it('renders plant name', () => {
-    const { getByText } = renderWithProviders(
-      <PlantCard plant={mockPlant} onSelect={vi.fn()} />
-    );
-    expect(getByText('Monstera deliciosa')).toBeInTheDocument();
+    renderWithProviders(<PlantCard plant={mockPlant} onSelect={vi.fn()} />);
+    expect(screen.getByText('Monstera deliciosa')).toBeInTheDocument();
   });
 
   it('calls onSelect when clicked', async () => {
+    const user = userEvent.setup();
     const onSelect = vi.fn();
-    const { getByRole } = renderWithProviders(
-      <PlantCard plant={mockPlant} onSelect={onSelect} />
-    );
-    await userEvent.click(getByRole('button'));
+    renderWithProviders(<PlantCard plant={mockPlant} onSelect={onSelect} />);
+    await user.click(screen.getByRole('button'));
     expect(onSelect).toHaveBeenCalledWith(mockPlant.key);
   });
 });
@@ -519,33 +720,94 @@ describe('PlantCard', () => {
 
 **Regeln:**
 - `describe`/`it` Bloecke (vitest)
-- `renderWithProviders` aus `test/helpers.tsx` (enthaelt Redux Store + i18n + Theme)
+- `renderWithProviders` aus `@/test/helpers` (enthaelt Redux Store + i18n + Theme + Router)
 - `vi.fn()` fuer Mocks
-- `@testing-library/react` Queries
+- `screen` Queries bevorzugt: `getByRole`, `getByLabelText` (nicht `getByText`)
+- `userEvent.setup()` fuer Interaktionen
 
-### 12.3 Test-Helper Setup
+### 13.3 API-Mocking (MSW)
+
+```typescript
+// test/mocks/handlers.ts
+import { http, HttpResponse } from 'msw';
+
+export const handlers = [
+  http.get('/api/v1/species', () =>
+    HttpResponse.json({ items: [mockSpecies], total: 1, offset: 0, limit: 50 }),
+  ),
+  http.post('/api/v1/species', async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json({ key: 'new-key', ...body }, { status: 201 });
+  }),
+];
+```
+
+- MSW faengt HTTP-Requests ab (kein Backend noetig)
+- Handlers in `test/mocks/handlers.ts`
+- Auto-Reset zwischen Tests (`server.resetHandlers()`)
+
+### 13.4 Test-Helper Setup
 
 ```tsx
 // test/helpers.tsx — MUSS userPreferences Reducer enthalten
 export function renderWithProviders(
   ui: React.ReactElement,
-  { preloadedState, ...options }: RenderOptions = {}
+  { store = createTestStore(), route = '/' } = {},
 ) {
-  const store = configureStore({
-    reducer: {
-      species: speciesReducer,
-      userPreferences: userPreferencesReducer, // Pflicht fuer useExpertiseLevel
-      // ...
-    },
-    preloadedState,
+  const router = createMemoryRouter([{ path: '*', element: ui }], {
+    initialEntries: [route],
   });
-  return render(<Provider store={store}>{ui}</Provider>, options);
+  return {
+    store,
+    ...render(
+      <Provider store={store}>
+        <ThemeContextProvider>
+          <SnackbarProvider>
+            <RouterProvider router={router} />
+          </SnackbarProvider>
+        </ThemeContextProvider>
+      </Provider>,
+    ),
+  };
+}
+```
+
+### 13.5 Accessibility-Tests (vitest-axe)
+
+```tsx
+import { axe } from 'vitest-axe';
+
+it('has no critical a11y violations', async () => {
+  const { container } = renderWithProviders(<DashboardPage />);
+  const results = await axe(container);
+  expect(results.violations.filter(v => v.impact === 'critical')).toEqual([]);
+});
+```
+
+### 13.6 Coverage-Schwellen
+
+```typescript
+// vitest.config.ts
+coverage: {
+  provider: 'v8',
+  thresholds: { statements: 80, branches: 80, functions: 80, lines: 80 },
 }
 ```
 
 ---
 
-## 13. Expertise-Level System (REQ-021)
+## 14. Accessibility (a11y)
+
+- **vitest-axe**: Automatisierte a11y-Pruefung (keine kritischen Violations)
+- **data-testid**: Auf allen interaktiven Elementen
+- **Role-Based Queries** in Tests: `getByRole('button')`, `getByLabelText()` bevorzugt
+- **ARIA-Attribute**: `role`, `aria-label`, `aria-describedby` auf komplexen Komponenten
+- **Keyboard-Navigation**: Alle Dialoge/Menues per Tastatur bedienbar
+- **Farbkontrast**: MUI-Paletten WCAG AA konform
+
+---
+
+## 15. Expertise-Level System (REQ-021)
 
 ```tsx
 import { ExpertiseFieldWrapper } from '../components/common/ExpertiseFieldWrapper';
@@ -563,7 +825,21 @@ import { fieldConfigs } from '../config/fieldConfigs';
 
 ---
 
-## 14. Zusammenfassung der Pruefkette
+## 16. Node-Version & Build
+
+**`.tool-versions`**: `nodejs 25.1.0` (asdf)
+
+```bash
+npm run dev         # Vite Dev-Server (Port 5173, API-Proxy → localhost:8000)
+npm run build       # tsc -b && vite build → dist/
+npm run lint        # ESLint
+npm run format      # Prettier
+npm run test        # vitest run
+```
+
+---
+
+## 17. Zusammenfassung der Pruefkette
 
 ```
 Code-Aenderung
