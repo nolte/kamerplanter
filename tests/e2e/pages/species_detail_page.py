@@ -29,7 +29,7 @@ class SpeciesDetailPage(BasePage):
     LIFECYCLE_FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
 
     # Growth phase locators
-    PHASE_CREATE_BUTTON = (By.XPATH, "//button[contains(text(), 'Phase erstellen')]")
+    PHASE_CREATE_BUTTON = (By.XPATH, "//button[contains(normalize-space(.), 'Phase erstellen')]")
     PHASE_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
@@ -225,8 +225,10 @@ class SpeciesDetailPage(BasePage):
                 self.set_field(field, value)
 
     def submit_phase_form(self) -> None:
+        # Target the submit button inside the create-dialog (GrowthPhaseDialog)
+        # to avoid hitting the lifecycle config form's submit button
         self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
+            (By.CSS_SELECTOR, "[data-testid='create-dialog'] [data-testid='form-submit-button']")
         ).click()
 
     def click_phase_row(self, index: int) -> None:

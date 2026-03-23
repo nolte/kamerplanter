@@ -1,0 +1,104 @@
+version: "3"
+
+vars:
+  CLUSTER_NAME: kamerplanter
+  HA_POD: homeassistant-0
+  HA_NS: default
+  HA_COMP_PATH: /config/custom_components/kamerplanter
+
+tasks:
+  # ── Development Environment ─────────────────────────────────
+
+  setup:
+    desc: Create Kind cluster and install prerequisites
+    cmds:
+      - ./scripts/dev-setup.sh
+
+  teardown:
+    desc: Tear down Kind cluster
+    cmds:
+      - ./scripts/dev-teardown.sh
+
+  dev:
+    desc: Start full Skaffold dev loop
+    cmds:
+      - skaffold dev
+
+  dev:backend:
+    desc: Start Skaffold dev loop (backend only)
+    cmds:
+      - skaffold dev -p backend-only
+
+  # ── System Tuning ───────────────────────────────────────────
+
+  fix:inotify:
+    desc: Increase inotify limits (fixes 'too many open files' in Skaffold)
+    cmds:
+      - sudo sysctl fs.inotify.max_user_watches=524288
+      - sudo sysctl fs.inotify.max_user_instances=512
+      - echo -e "fs.inotify.max_user_watches=524288\nfs.inotify.max_user_instances=512" | sudo tee /etc/sysctl.d/90-inotify.conf
+    status:
+      - test $(cat /proc/sys/fs/inotify/max_user_watches) -ge 524288
+      - test $(cat /proc/sys/fs/inotify/max_user_instances) -ge 512
+
+  # ── Home Assistant Integration ──────────────────────────────
+
+  ha:deploy:
+    desc: Deploy HA custom integration to running HA pod
+    cmds:
+      - kubectl cp src/ha-integration/custom_components/kamerplanter/ {{.HA_NS}}/{{.HA_POD}}:{{.HA_COMP_PATH}}/
+      - kubectl exec -n {{.HA_NS}} {{.HA_POD}} -- rm -rf {{.HA_COMP_PATH}}/__pycache__
+      - kubectl delete pod {{.HA_POD}} -n {{.HA_NS}}
+
+  # ── Backend ─────────────────────────────────────────────────
+
+  lint:backend:
+    desc: Run ruff linter on backend code
+    dir: src/backend
+    cmds:
+      - ruff check .
+
+  test:backend:
+    desc: Run backend pytest suite
+    dir: src/backend
+    cmds:
+      - python -m pytest tests/ {{.CLI_ARGS}}
+
+  # ── Frontend ────────────────────────────────────────────────
+
+  lint:frontend:
+    desc: Run ESLint on frontend code
+    dir: src/frontend
+    cmds:
+      - npx eslint src/
+
+  typecheck:
+    desc: Run TypeScript type check (no emit)
+    dir: src/frontend
+    cmds:
+      - npx tsc --noEmit
+
+  test:frontend:
+    desc: Run frontend vitest suite
+    dir: src/frontend
+    cmds:
+      - npx vitest run {{.CLI_ARGS}}
+
+  # ── E2E Tests ───────────────────────────────────────────────
+
+  test:e2e:
+    desc: Run Selenium E2E tests
+    cmds:
+      - ./scripts/run-e2e.sh {{.CLI_ARGS}}
+
+  # ── Documentation ───────────────────────────────────────────
+
+  docs:serve:
+    desc: Serve MkDocs documentation locally
+    cmds:
+      - mkdocs serve
+
+  docs:build:
+    desc: Build MkDocs documentation
+    cmds:
+      - mkdocs build

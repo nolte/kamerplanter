@@ -59,27 +59,31 @@ class TestBotanicalFamilyEnumTranslations:
         if not row_data:
             pytest.skip("No row data available")
 
-        # Collect all cell texts to check for raw English enum keys
-        raw_english_enums = {
-            "light", "medium", "heavy",  # nutrient demand
-            "sensitive", "moderate", "hardy", "very_hardy",  # frost tolerance
-            "shallow", "deep",  # root depth
+        headers = family_list.get_column_headers()
+
+        # Map raw English enum keys to the columns they can appear in.
+        # The botanical family table columns are:
+        # 0: Name, 1: Common name, 2: Nutrient demand, 3: Frost tolerance,
+        # 4: Root depth, 5: Species count, 6: Rotation category
+        # Only check enum-specific columns (indices 2, 3, 4) to avoid
+        # false positives from names, descriptions or other text columns.
+        raw_english_enums_by_column: dict[int, set[str]] = {
+            2: {"light", "medium", "heavy"},         # nutrient demand
+            3: {"sensitive", "moderate", "very_hardy"},  # frost tolerance
+            4: {"shallow", "deep"},                   # root depth
         }
+        # Note: "hardy" is excluded because DE translation is also "Hardy"
+        # (same word in both languages). "medium" in column 4 (root depth)
+        # is distinct from column 2 (nutrient demand) — Mittel vs Mittelzehrer.
 
-        all_cells = []
         for row in row_data:
-            all_cells.extend(row)
-
-        cell_text_lower = " ".join(all_cells).lower()
-
-        # Verify no raw English enum values are shown (they should be translated)
-        for raw in raw_english_enums:
-            # Only check if it appears as a standalone cell value, not as part of a name
-            for row in row_data:
-                for cell in row:
-                    if cell.strip().lower() == raw:
+            for col_idx, enum_set in raw_english_enums_by_column.items():
+                if col_idx < len(row):
+                    cell_value = row[col_idx].strip().lower()
+                    if cell_value in enum_set:
                         pytest.fail(
-                            f"Raw English enum '{raw}' found in table. "
+                            f"Raw English enum '{cell_value}' found in column "
+                            f"{col_idx} ({headers[col_idx] if col_idx < len(headers) else '?'}). "
                             "Expected German translation."
                         )
 
@@ -134,7 +138,7 @@ class TestCultivarTraitTranslations:
         species_list.click_row(0)
         species_list.wait_for_url_contains("/stammdaten/species/")
 
-        species_detail.click_tab_by_label("SORTEN")
+        species_detail.click_tab_by_label("Sorten")
         time.sleep(1)
 
         if species_detail.get_cultivar_count() == 0:

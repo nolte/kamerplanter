@@ -104,6 +104,12 @@ def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
             command_executor=remote_url,
             options=options,
         )
+        # Enable local file uploads to remote Selenium Grid nodes.
+        # Without this, send_keys(file_path) on file inputs fails because
+        # the file only exists on the test host, not inside the Grid node.
+        from selenium.webdriver.remote.file_detector import LocalFileDetector
+
+        driver.file_detector = LocalFileDetector()
     elif browser_name == "firefox":
         # ── Local Firefox ──────────────────────────────────────
         options = webdriver.FirefoxOptions()

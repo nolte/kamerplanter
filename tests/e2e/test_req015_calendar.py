@@ -486,9 +486,10 @@ class TestCalendarFeedManagement:
         calendar: CalendarPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-015-031: Attempt to create feed without a name shows validation error.
+        """TC-015-031: Attempt to create feed without a name — save button is disabled.
 
-        Verifies the dialog stays open and the save button is disabled or an error is shown.
+        The frontend disables the save button via ``disabled={!newFeedName.trim()}``.
+        Verifies the dialog stays open and the save button is disabled.
         """
         capture = request.node._screenshot_capture
         calendar.open()
@@ -496,12 +497,19 @@ class TestCalendarFeedManagement:
         calendar.toggle_feeds_section()
         calendar.click_create_feed()
 
-        # Leave name empty and click save
-        capture("req015_031_empty_name_before_save", "Empty name before attempting save")
-        calendar.save_feed()
-        capture("req015_031_after_empty_save", "After attempting save with empty name")
+        capture("req015_031_empty_name_before_save", "Empty name — save button state")
 
-        # Dialog should remain open (validation prevents creation)
-        assert calendar.is_create_feed_dialog_visible(), (
-            "Expected dialog to stay open when name is empty (validation error)"
+        # Save button should be disabled when the name is empty
+        from selenium.webdriver.common.by import By
+        save_btn = calendar.driver.find_element(*CalendarPage.FEED_SAVE_BTN)
+        assert not save_btn.is_enabled(), (
+            "Expected save button to be disabled when feed name is empty"
         )
+
+        # Dialog should remain open
+        assert calendar.is_create_feed_dialog_visible(), (
+            "Expected dialog to stay open when name is empty (save button disabled)"
+        )
+
+        capture("req015_031_after_empty_check", "Dialog still open with disabled save")
+        calendar.cancel_feed()

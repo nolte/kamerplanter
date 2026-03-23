@@ -112,7 +112,7 @@ class TestSpeciesDetailPage:
     def test_display_species_detail_with_tabs(
         self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage
     ) -> None:
-        """TC-REQ-001-038: Display species detail page with three tabs."""
+        """TC-REQ-001-038: Display species detail page with tabs."""
         species_list.open()
         if species_list.get_row_count() == 0:
             pytest.skip("No species in database")
@@ -124,10 +124,12 @@ class TestSpeciesDetailPage:
         assert title, "Page title should show species name"
 
         tabs = species_detail.get_tab_labels()
-        tabs_upper = [t.upper() for t in tabs]
-        assert len(tabs) >= 3, f"Expected at least 3 tabs, got {tabs}"
-        assert "BEARBEITEN" in tabs_upper, f"Expected 'Bearbeiten' tab, got {tabs}"
-        assert "SORTEN" in tabs_upper, f"Expected 'Sorten' tab, got {tabs}"
+        # Species detail has 5 tabs: Bearbeiten, Aussaat & Ernte, Sorten,
+        # Lebenszyklus-Konfiguration, Workflows
+        tabs_upper = [t.strip().upper() for t in tabs if t.strip()]
+        assert len(tabs_upper) >= 3, f"Expected at least 3 tabs, got {tabs}"
+        assert any("BEARBEITEN" in t for t in tabs_upper), f"Expected 'Bearbeiten' tab, got {tabs}"
+        assert any("SORTEN" in t for t in tabs_upper), f"Expected 'Sorten' tab, got {tabs}"
         assert any("LEBENSZYKLUS" in t for t in tabs_upper), f"Expected 'Lebenszyklus' tab, got {tabs}"
         assert species_detail.has_delete_button(), "Delete button should be visible"
 

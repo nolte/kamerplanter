@@ -1141,6 +1141,7 @@
       "durationDays": "Dauer (Tage)",
       "daysShort": "T",
       "plantsLabel": "Pflanzen",
+      "plantsPerPhase": "Pflanzen pro Phase",
       "daysOfTypical": "Tag {{current}} von {{typical}}",
       "sectionBasics": "Basis",
       "substrateBatch": "Substratcharge",
@@ -1159,7 +1160,9 @@
       "adoptSkipped": "{{count}} Pflanzen wurden übersprungen (bereits einem Durchlauf zugeordnet).",
       "adoptError": "Fehler beim Aufnehmen der Pflanzen.",
       "noAvailablePlants": "Keine verfügbaren Pflanzen vorhanden.",
-      "selectedCount": "{{count}} ausgewählt"
+      "selectedCount": "{{count}} ausgewählt",
+      "daysRemaining": "noch {{count}} Tage",
+      "overdue": "{{count}} Tage überfällig"
     },
     "tanks": {
       "title": "Tanks",

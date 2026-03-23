@@ -37,21 +37,13 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-STEP_URL_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_URL, default="http://localhost:8000"): str,
-    }
-)
-
-STEP_AUTH_SCHEMA = vol.Schema(
-    {
-        vol.Optional(CONF_API_KEY): str,
-    }
-)
-
 
 class KamerplanterConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Kamerplanter."""
+    """Handle a config flow for Kamerplanter.
+
+    Step 1 (user): URL + API key — validates connection and credentials.
+    Step 2 (tenant): Tenant selection from available tenants.
+    """
 
     VERSION = 1
 
@@ -66,78 +58,94 @@ class KamerplanterConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Step 1: Enter Kamerplanter URL."""
+        """Step 1: Enter Kamerplanter URL and API key."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
             self._base_url = user_input[CONF_URL].rstrip("/")
+            self._api_key = user_input.get(CONF_API_KEY) or None
             session = async_get_clientsession(self.hass)
-            api = KamerplanterApi(base_url=self._base_url, session=session)
 
+            # Probe health endpoint (no auth needed)
+            api_no_auth = KamerplanterApi(
+                base_url=self._base_url, session=session
+            )
             try:
-                health = await api.async_get_health()
+                health = await api_no_auth.async_get_health()
                 self._server_version = health.get("version", "unknown")
                 server_mode = health.get("mode", "full")
                 self._light_mode = server_mode == "light"
             except KamerplanterConnectionError:
                 errors["base"] = "cannot_connect"
-            else:
-                if self._light_mode:
-                    # Light mode: no auth needed, skip to creating entry
-                    return self._create_entry()
-                return await self.async_step_auth()
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=self._user_schema(),
+                    errors=errors,
+                )
 
-        return self.async_show_form(
-            step_id="user",
-            data_schema=STEP_URL_SCHEMA,
-            errors=errors,
-        )
-
-    async def async_step_auth(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Step 2: Configure authentication."""
-        errors: dict[str, str] = {}
-
-        if user_input is not None:
-            self._api_key = user_input.get(CONF_API_KEY)
-            session = async_get_clientsession(self.hass)
+            # Light mode (REQ-027): LightAuthProvider skips authentication,
+            # so the API key is optional. Full mode requires a valid API key.
             api = KamerplanterApi(
                 base_url=self._base_url,
                 session=session,
                 api_key=self._api_key,
             )
+            if not self._light_mode:
+                if not self._api_key:
+                    errors["base"] = "invalid_auth"
+                    return self.async_show_form(
+                        step_id="user",
+                        data_schema=self._user_schema(),
+                        errors=errors,
+                    )
+                try:
+                    await api.async_get_current_user()
+                except KamerplanterAuthError:
+                    errors["base"] = "invalid_auth"
+                    return self.async_show_form(
+                        step_id="user",
+                        data_schema=self._user_schema(),
+                        errors=errors,
+                    )
 
+            # Fetch available tenants
             try:
-                await api.async_get_current_user()
-            except KamerplanterAuthError:
-                errors["base"] = "invalid_auth"
+                self._tenants = await api.async_get_tenants()
             except KamerplanterConnectionError:
                 errors["base"] = "cannot_connect"
-            else:
-                # Fetch tenants for next step
-                try:
-                    self._tenants = await api.async_get_tenants()
-                except KamerplanterConnectionError:
-                    errors["base"] = "cannot_connect"
-                else:
-                    if len(self._tenants) <= 1:
-                        # Single tenant or no tenants, skip tenant selection
-                        return self._create_entry(
-                            tenant_slug=self._tenants[0]["slug"] if self._tenants else None
-                        )
-                    return await self.async_step_tenant()
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=self._user_schema(),
+                    errors=errors,
+                )
+
+            if not self._tenants:
+                errors["base"] = "no_tenants"
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=self._user_schema(),
+                    errors=errors,
+                )
+
+            # Single tenant: auto-select, skip step 2
+            if len(self._tenants) == 1:
+                return self._create_entry(
+                    tenant_slug=self._tenants[0]["slug"]
+                )
+
+            # Multiple tenants: show selection
+            return await self.async_step_tenant()
 
         return self.async_show_form(
-            step_id="auth",
-            data_schema=STEP_AUTH_SCHEMA,
+            step_id="user",
+            data_schema=self._user_schema(),
             errors=errors,
         )
 
     async def async_step_tenant(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Step 3: Select tenant."""
+        """Step 2: Select tenant."""
         if user_input is not None:
             return self._create_entry(tenant_slug=user_input[CONF_TENANT_SLUG])
 
@@ -148,6 +156,18 @@ class KamerplanterConfigFlow(ConfigFlow, domain=DOMAIN):
             }
         )
         return self.async_show_form(step_id="tenant", data_schema=schema)
+
+    @staticmethod
+    def _user_schema() -> vol.Schema:
+        """Build schema for step 1 (URL + API key)."""
+        return vol.Schema(
+            {
+                vol.Required(
+                    CONF_URL, default="http://localhost:8000"
+                ): str,
+                vol.Optional(CONF_API_KEY): str,
+            }
+        )
 
     def _create_entry(self, tenant_slug: str | None = None) -> ConfigFlowResult:
         title = "Kamerplanter"

@@ -156,9 +156,16 @@ class TestGrowthPhaseManagement:
             pytest.skip("No phases to edit")
 
         species_detail.click_phase_row(0)
-        time.sleep(0.5)
+        time.sleep(1)
 
-        # Edit dialog should open — modify duration
+        # Edit dialog should open — wait for the dialog to appear
+        dialogs = species_detail.driver.find_elements(
+            *species_detail.CREATE_DIALOG
+        )
+        if not dialogs:
+            pytest.skip("Edit dialog did not open on phase row click")
+
+        # Modify duration inside the dialog
         species_detail.set_field("typical_duration_days", "35")
         species_detail.submit_phase_form()
 

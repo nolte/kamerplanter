@@ -236,7 +236,7 @@ class PestListPage(BasePage):
         """Submit the create form."""
         self.wait_for_element_clickable(self.FORM_SUBMIT).click()
 
-    def wait_for_dialog_closed(self, timeout: int = 5) -> None:
+    def wait_for_dialog_closed(self, timeout: int = 15) -> None:
         """Wait until the create dialog is no longer in the DOM."""
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC

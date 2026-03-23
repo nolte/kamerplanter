@@ -101,7 +101,7 @@ class KamerplanterApi:
     async def async_get_locations(self, site_key: str) -> list[dict[str, Any]]:
         """Fetch locations for a site."""
         return await self._request(
-            "GET", "/api/v1/locations", params={"site_key": site_key}
+            "GET", f"{self._tenant_prefix}/locations", params={"site_key": site_key}
         )
 
     async def async_get_location_tree(self, site_key: str) -> list[dict[str, Any]]:
@@ -157,7 +157,7 @@ class KamerplanterApi:
         """Fetch child locations for a parent location."""
         return await self._request(
             "GET",
-            "/api/v1/locations",
+            f"{self._tenant_prefix}/locations",
             params={"site_key": site_key, "parent_location_key": parent_key},
         )
 
@@ -322,7 +322,7 @@ class KamerplanterApi:
         """Fetch plant instances at slots belonging to a location."""
         try:
             slots = await self._request(
-                "GET", "/api/v1/slots", params={"location_key": location_key}
+                "GET", f"{self._tenant_prefix}/slots", params={"location_key": location_key}
             )
             plants: list[dict[str, Any]] = []
             all_plants = await self.async_get_plants()

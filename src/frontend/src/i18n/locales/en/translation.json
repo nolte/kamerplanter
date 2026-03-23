@@ -1141,6 +1141,7 @@
       "durationDays": "Duration (Days)",
       "daysShort": "d",
       "plantsLabel": "plants",
+      "plantsPerPhase": "Plants per phase",
       "daysOfTypical": "Day {{current}} of {{typical}}",
       "sectionBasics": "Basics",
       "substrateBatch": "Substrate Batch",
@@ -1159,7 +1160,9 @@
       "adoptSkipped": "{{count}} plants were skipped (already assigned to a run).",
       "adoptError": "Failed to adopt plants.",
       "noAvailablePlants": "No available plants found.",
-      "selectedCount": "{{count}} selected"
+      "selectedCount": "{{count}} selected",
+      "daysRemaining": "{{count}} days left",
+      "overdue": "{{count}} days overdue"
     },
     "tanks": {
       "title": "Tanks",

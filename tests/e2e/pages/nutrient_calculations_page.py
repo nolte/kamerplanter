@@ -101,6 +101,42 @@ class NutrientCalculationsPage(BasePage):
         alerts = card.find_elements(By.CSS_SELECTOR, ".MuiAlert-root")
         return [a.text for a in alerts if a.is_displayed() and a.text]
 
+    def _get_any_result_in_card(self, card) -> list[str]:
+        """Return result texts from a card: in-card Alerts OR global Snackbar/error.
+
+        After a calculation, the result can appear as:
+        - MuiAlert-root inside the card (success)
+        - MuiSnackbar (error from handleError)
+        - MuiAlert inside a Snackbar (error notification)
+        """
+        # First check in-card alerts
+        in_card = self._get_alert_texts_in_card(card)
+        if in_card:
+            return in_card
+        # Fallback: check for any snackbar / notistack notification
+        snackbars = self.driver.find_elements(
+            By.CSS_SELECTOR,
+            ".MuiSnackbar-root .MuiAlert-message, "
+            "#notistack-snackbar, "
+            "[class*='notistack-MuiContent']",
+        )
+        return [s.text for s in snackbars if s.is_displayed() and s.text]
+
+    def wait_for_card_result_or_snackbar(self, heading: str, timeout: int = 20) -> list[str]:
+        """Wait for either in-card Alert or global Snackbar after a calculation.
+
+        Returns the result texts (from either source).
+        """
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        card = self._get_card_by_heading(heading)
+
+        def _has_result(_driver):
+            return len(self._get_any_result_in_card(card)) > 0
+
+        WebDriverWait(self.driver, timeout).until(_has_result)
+        return self._get_any_result_in_card(card)
+
     # ── Mixing Protocol ────────────────────────────────────────────────
 
     def fill_mixing_protocol(

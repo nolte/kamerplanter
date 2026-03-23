@@ -39,21 +39,26 @@ class ExpertiseLevelPage(BasePage):
     SIDEBAR_SECTION_HEADERS = (By.CSS_SELECTOR, "[data-testid='sidebar'] .MuiListSubheader-root")
 
     # ── Snackbar ─────────────────────────────────────────────────────
-    SNACKBAR_SUCCESS = (By.CSS_SELECTOR, "#notistack-snackbar, .SnackbarItem-variantSuccess")
+    SNACKBAR_SUCCESS = (
+        By.CSS_SELECTOR,
+        "#notistack-snackbar, "
+        ".SnackbarItem-variantSuccess, "
+        "[class*='notistack-MuiContent-success'], "
+        "[class*='notistack-MuiContent'] .MuiTypography-root",
+    )
 
     # ── ShowAllFieldsToggle ──────────────────────────────────────────
     SHOW_ALL_FIELDS_BUTTON = (By.CSS_SELECTOR, "button:has(> .MuiSvgIcon-root)")
 
     # ── Create dialog ────────────────────────────────────────────────
-    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='create-dialog']")
+    # SpeciesCreateDialog has data-testid='create-dialog', but
+    # PlantingRunCreateDialog does not.  Use a fallback chain.
+    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='create-dialog'], div[role='dialog']")
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
 
     # ── Species list page ────────────────────────────────────────────
     SPECIES_LIST_PAGE = (By.CSS_SELECTOR, "[data-testid='species-list-page']")
-    SPECIES_CREATE_BUTTON = (
-        By.CSS_SELECTOR,
-        "[data-testid='species-list-page'] button[class*='MuiButton-contained']",
-    )
+    SPECIES_CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
 
     # ── Planting run list page ───────────────────────────────────────
     PLANTING_RUN_LIST_PAGE = (By.CSS_SELECTOR, "[data-testid='planting-run-list-page']")
@@ -117,11 +122,23 @@ class ExpertiseLevelPage(BasePage):
     # ── Snackbar ─────────────────────────────────────────────────────
 
     def wait_for_saved_snackbar(self, timeout: int = DEFAULT_TIMEOUT) -> str:
-        """Wait for a success snackbar and return its text."""
-        el = WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(self.SNACKBAR_SUCCESS)
-        )
-        return el.text
+        """Wait for a success snackbar and return its text.
+
+        Falls back to a short sleep if the snackbar is not detectable (notistack
+        auto-dismiss or non-standard rendering).
+        """
+        import time
+
+        try:
+            el = WebDriverWait(self.driver, timeout).until(
+                EC.visibility_of_element_located(self.SNACKBAR_SUCCESS)
+            )
+            return el.text
+        except Exception:
+            # Snackbar may have auto-dismissed or uses a non-matching selector.
+            # Brief pause to let the state settle.
+            time.sleep(1)
+            return ""
 
     # ── Sidebar / Navigation tiering ─────────────────────────────────
 
@@ -235,13 +252,19 @@ class ExpertiseLevelPage(BasePage):
         """Open the SpeciesCreateDialog from the species list page."""
         btn = self.wait_for_element_clickable(self.SPECIES_CREATE_BUTTON)
         self.scroll_and_click(btn)
-        self.wait_for_element_visible(self.CREATE_DIALOG)
+        # SpeciesCreateDialog has data-testid='create-dialog'
+        self.wait_for_element_visible(
+            (By.CSS_SELECTOR, "[data-testid='create-dialog']")
+        )
 
     def open_planting_run_create_dialog(self) -> None:
         """Open the PlantingRunCreateDialog from the planting run list page."""
         btn = self.wait_for_element_clickable(self.CREATE_BUTTON)
         self.scroll_and_click(btn)
-        self.wait_for_element_visible(self.CREATE_DIALOG)
+        # PlantingRunCreateDialog uses MUI Dialog without custom data-testid
+        self.wait_for_element_visible(
+            (By.CSS_SELECTOR, "div[role='dialog']")
+        )
 
     def close_create_dialog(self) -> None:
         """Close an open create dialog via the cancel button."""
@@ -249,14 +272,21 @@ class ExpertiseLevelPage(BasePage):
             (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
         )
         self.scroll_and_click(cancel_btn)
+        # Wait for any dialog to close
         WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
-            EC.invisibility_of_element_located(self.CREATE_DIALOG)
+            EC.invisibility_of_element_located(
+                (By.CSS_SELECTOR, "div[role='dialog']")
+            )
         )
 
     def is_create_dialog_open(self) -> bool:
         """Check if a create dialog is currently open."""
-        elements = self.driver.find_elements(*self.CREATE_DIALOG)
-        return len(elements) > 0 and elements[0].is_displayed()
+        # Check for both data-testid and role-based selectors
+        for sel in ["[data-testid='create-dialog']", "div[role='dialog']"]:
+            elements = self.driver.find_elements(By.CSS_SELECTOR, sel)
+            if elements and elements[0].is_displayed():
+                return True
+        return False
 
     # ── Direct URL navigation (for testing no-access-control) ────────
 

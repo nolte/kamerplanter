@@ -135,7 +135,13 @@ class OnboardingWizardPage(BasePage):
                 return
 
         # Final fallback: wait for step welcome (may already be visible after last click)
-        self.wait_for_element(self.STEP_WELCOME, timeout=5)
+        try:
+            self.wait_for_element(self.STEP_WELCOME, timeout=5)
+        except Exception:
+            # If we still can't get to step 1, try a hard reload of the page
+            self.navigate(self.PATH)
+            self.wait_for_element(self.WIZARD)
+            self.wait_for_loading_complete()
 
     # ── Wizard-level queries ───────────────────────────────────────────
 
