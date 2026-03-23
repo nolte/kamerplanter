@@ -122,7 +122,10 @@ class DosageCalculationEngine:
         # channel-level is optional override. Apply substrate conversion if needed.
         channel, channel_id = self._resolve_channel(entry, inp.channel_id)
         target_ec, ref_ec, substrate_corrected = self._resolve_target_ec(
-            entry, channel, inp.plan_reference_substrate_type, inp.substrate_type,
+            entry,
+            channel,
+            inp.plan_reference_substrate_type,
+            inp.substrate_type,
         )
 
         if target_ec <= 0:
@@ -172,11 +175,7 @@ class DosageCalculationEngine:
                 ro_percent_used = entry.water_mix_ratio_ro_percent
             else:
                 # Use WaterMixCalculator to recommend optimal mix
-                phase_name_str = (
-                    entry.phase_name.value
-                    if hasattr(entry.phase_name, "value")
-                    else str(entry.phase_name)
-                )
+                phase_name_str = entry.phase_name.value if hasattr(entry.phase_name, "value") else str(entry.phase_name)
                 recommendation = self._water_calc.recommend_mix_ratio(
                     tap=inp.tap_water,
                     ro=inp.ro_water,
@@ -359,7 +358,10 @@ class DosageCalculationEngine:
                 return 0.0, ref_ec, False
             if plan_ref_substrate != runtime_substrate:
                 effective_ec = self._substrate_adapter.convert_ec(
-                    ref_ec, plan_ref_substrate, runtime_substrate, phase_name,
+                    ref_ec,
+                    plan_ref_substrate,
+                    runtime_substrate,
+                    phase_name,
                 )
                 return effective_ec, ref_ec, True
             return ref_ec, ref_ec, False

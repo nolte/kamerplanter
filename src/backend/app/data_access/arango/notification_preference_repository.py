@@ -14,9 +14,7 @@ from app.domain.models.notification import NotificationPreferences
 NOTIFICATION_PREFERENCES = "notification_preferences"
 
 
-class ArangoNotificationPreferenceRepository(
-    INotificationPreferenceRepository, BaseArangoRepository
-):
+class ArangoNotificationPreferenceRepository(INotificationPreferenceRepository, BaseArangoRepository):
     """ArangoDB-backed notification preference repository.
 
     Uses deterministic _key = 'notifpref_{user_key}' for upsert semantics.

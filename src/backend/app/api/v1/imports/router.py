@@ -12,12 +12,14 @@ router = APIRouter(prefix="/import", tags=["import"], dependencies=[Depends(get_
 
 # SEC-M-008: Upload security constants
 MAX_UPLOAD_SIZE_BYTES = 10_485_760  # 10 MB
-ALLOWED_MIME_TYPES = frozenset({
-    "text/csv",
-    "text/plain",
-    "application/csv",
-    "application/vnd.ms-excel",
-})
+ALLOWED_MIME_TYPES = frozenset(
+    {
+        "text/csv",
+        "text/plain",
+        "application/csv",
+        "application/vnd.ms-excel",
+    }
+)
 
 
 def _job_response(job: ImportJob) -> ImportJobResponse:

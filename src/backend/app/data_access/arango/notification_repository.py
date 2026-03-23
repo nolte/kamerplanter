@@ -89,11 +89,7 @@ class ArangoNotificationRepository(INotificationRepository, BaseArangoRepository
 
     def mark_read(self, key: str, read_at: datetime) -> Notification | None:
         """Mark a notification as read."""
-        query = (
-            f"UPDATE @key WITH {{ read_at: @read_at, updated_at: @read_at }} "
-            f"IN {NOTIFICATIONS} "
-            f"RETURN NEW"
-        )
+        query = f"UPDATE @key WITH {{ read_at: @read_at, updated_at: @read_at }} IN {NOTIFICATIONS} RETURN NEW"
         cursor = self._db.aql.execute(
             query,
             bind_vars={"key": key, "read_at": read_at.isoformat()},
@@ -105,11 +101,7 @@ class ArangoNotificationRepository(INotificationRepository, BaseArangoRepository
 
     def mark_acted(self, key: str, acted_at: datetime) -> Notification | None:
         """Mark a notification action as performed."""
-        query = (
-            f"UPDATE @key WITH {{ acted_at: @acted_at, updated_at: @acted_at }} "
-            f"IN {NOTIFICATIONS} "
-            f"RETURN NEW"
-        )
+        query = f"UPDATE @key WITH {{ acted_at: @acted_at, updated_at: @acted_at }} IN {NOTIFICATIONS} RETURN NEW"
         cursor = self._db.aql.execute(
             query,
             bind_vars={"key": key, "acted_at": acted_at.isoformat()},
@@ -160,12 +152,7 @@ class ArangoNotificationRepository(INotificationRepository, BaseArangoRepository
 
         filter_clause = " AND ".join(filters)
 
-        query = (
-            f"RETURN LENGTH("
-            f"FOR doc IN {NOTIFICATIONS} "
-            f"FILTER {filter_clause} "
-            f"RETURN 1)"
-        )
+        query = f"RETURN LENGTH(FOR doc IN {NOTIFICATIONS} FILTER {filter_clause} RETURN 1)"
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return next(cursor, 0)
 

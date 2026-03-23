@@ -294,8 +294,7 @@ class PlantingRunService:
             # Check not in another active run
             existing_runs = self._repo.get_runs_for_plant(pk)
             in_active_run = any(
-                r.status in (PlantingRunStatus.ACTIVE, PlantingRunStatus.HARVESTING)
-                for r in existing_runs
+                r.status in (PlantingRunStatus.ACTIVE, PlantingRunStatus.HARVESTING) for r in existing_runs
             )
             if in_active_run:
                 skipped.append({"plant_key": pk, "reason": "Already in an active run"})

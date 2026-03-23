@@ -150,9 +150,7 @@ class TestEscalateOverdueNotifications:
 
         mock_service = MagicMock()
         mock_engine = MagicMock()
-        mock_engine.escalate_overdue = AsyncMock(
-            return_value={"escalated": 1}
-        )
+        mock_engine.escalate_overdue = AsyncMock(return_value={"escalated": 1})
         mock_service._engine = mock_engine
         _mock_dependencies.get_notification_service.return_value = mock_service
 

@@ -28,9 +28,7 @@ class ArangoFertilizerRepository(IFertilizerRepository, BaseArangoRepository):
         filter_clauses = []
         if tenant_key:
             bind_vars["tenant_key"] = tenant_key
-            filter_clauses.append(
-                '(doc.tenant_key == @tenant_key OR doc.tenant_key == "" OR doc.tenant_key == null)'
-            )
+            filter_clauses.append('(doc.tenant_key == @tenant_key OR doc.tenant_key == "" OR doc.tenant_key == null)')
         if filters:
             for i, (field, value) in enumerate(filters.items()):
                 bind_vars[f"val{i}"] = value

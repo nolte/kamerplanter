@@ -74,17 +74,11 @@ class NotificationPreferencesRequest(BaseModel):
     """Request body for updating notification preferences."""
 
     channels: dict[str, ChannelPreference] = Field(default_factory=dict)
-    quiet_hours: QuietHoursPreference = Field(
-        default_factory=QuietHoursPreference
-    )
+    quiet_hours: QuietHoursPreference = Field(default_factory=QuietHoursPreference)
     batching: BatchingPreference = Field(default_factory=BatchingPreference)
-    escalation: EscalationPreference = Field(
-        default_factory=EscalationPreference
-    )
+    escalation: EscalationPreference = Field(default_factory=EscalationPreference)
     type_overrides: dict[str, TypeOverride] = Field(default_factory=dict)
-    daily_summary: DailySummaryPreference = Field(
-        default_factory=DailySummaryPreference
-    )
+    daily_summary: DailySummaryPreference = Field(default_factory=DailySummaryPreference)
 
 
 class NotificationPreferencesResponse(BaseModel):
@@ -95,17 +89,11 @@ class NotificationPreferencesResponse(BaseModel):
     key: str | None = None
     user_key: str
     channels: dict[str, ChannelPreference] = Field(default_factory=dict)
-    quiet_hours: QuietHoursPreference = Field(
-        default_factory=QuietHoursPreference
-    )
+    quiet_hours: QuietHoursPreference = Field(default_factory=QuietHoursPreference)
     batching: BatchingPreference = Field(default_factory=BatchingPreference)
-    escalation: EscalationPreference = Field(
-        default_factory=EscalationPreference
-    )
+    escalation: EscalationPreference = Field(default_factory=EscalationPreference)
     type_overrides: dict[str, TypeOverride] = Field(default_factory=dict)
-    daily_summary: DailySummaryPreference = Field(
-        default_factory=DailySummaryPreference
-    )
+    daily_summary: DailySummaryPreference = Field(default_factory=DailySummaryPreference)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

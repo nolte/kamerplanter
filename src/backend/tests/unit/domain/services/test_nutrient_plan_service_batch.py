@@ -122,7 +122,10 @@ class TestGetWaterMixRecommendationsBatch:
     """Tests for the batch water mix recommendation method."""
 
     def test_returns_recommendations_for_all_entries_with_target_ec(
-        self, service, mock_repo, mock_site_repo,
+        self,
+        service,
+        mock_repo,
+        mock_site_repo,
     ):
         """Should return one recommendation per entry that has target EC."""
         plan = _make_plan_mock()
@@ -137,7 +140,9 @@ class TestGetWaterMixRecommendationsBatch:
         mock_site_repo.get_site_by_key.return_value = site
 
         result = service.get_water_mix_recommendations_batch(
-            tenant_key="t1", plan_key="plan1", site_key="site1",
+            tenant_key="t1",
+            plan_key="plan1",
+            site_key="site1",
         )
 
         assert len(result["recommendations"]) == 2
@@ -172,7 +177,9 @@ class TestGetWaterMixRecommendationsBatch:
         mock_site_repo.get_site_by_key.return_value = site
 
         result = service.get_water_mix_recommendations_batch(
-            tenant_key="t1", plan_key="plan1", site_key="site1",
+            tenant_key="t1",
+            plan_key="plan1",
+            site_key="site1",
         )
 
         # All 3 entries get recommendations (seq 2 + 3 inherit EC 1.2 from seq 1)
@@ -193,7 +200,9 @@ class TestGetWaterMixRecommendationsBatch:
         mock_site_repo.get_site_by_key.return_value = site
 
         result = service.get_water_mix_recommendations_batch(
-            tenant_key="t1", plan_key="plan1", site_key="site1",
+            tenant_key="t1",
+            plan_key="plan1",
+            site_key="site1",
         )
 
         assert result["recommendations"] == []
@@ -206,7 +215,9 @@ class TestGetWaterMixRecommendationsBatch:
 
         with pytest.raises(NotFoundError):
             service.get_water_mix_recommendations_batch(
-                tenant_key="t1", plan_key="missing", site_key="site1",
+                tenant_key="t1",
+                plan_key="missing",
+                site_key="site1",
             )
 
     def test_raises_not_found_for_missing_site(self, service, mock_repo, mock_site_repo):
@@ -217,7 +228,9 @@ class TestGetWaterMixRecommendationsBatch:
 
         with pytest.raises(NotFoundError):
             service.get_water_mix_recommendations_batch(
-                tenant_key="t1", plan_key="plan1", site_key="missing",
+                tenant_key="t1",
+                plan_key="plan1",
+                site_key="missing",
             )
 
     def test_raises_not_found_for_wrong_tenant_site(self, service, mock_repo, mock_site_repo):
@@ -230,7 +243,9 @@ class TestGetWaterMixRecommendationsBatch:
 
         with pytest.raises(NotFoundError):
             service.get_water_mix_recommendations_batch(
-                tenant_key="t1", plan_key="plan1", site_key="site1",
+                tenant_key="t1",
+                plan_key="plan1",
+                site_key="site1",
             )
 
     def test_raises_validation_error_without_site_repo(self, mock_repo, mock_fert_repo, mock_validator):
@@ -241,7 +256,9 @@ class TestGetWaterMixRecommendationsBatch:
 
         with pytest.raises(ValidationError, match="Site repository not configured"):
             svc.get_water_mix_recommendations_batch(
-                tenant_key="t1", plan_key="plan1", site_key="site1",
+                tenant_key="t1",
+                plan_key="plan1",
+                site_key="site1",
             )
 
     def test_substrate_type_override_used(self, service, mock_repo, mock_site_repo):
@@ -274,7 +291,9 @@ class TestGetWaterMixRecommendationsBatch:
         mock_site_repo.get_site_by_key.return_value = site
 
         result = service.get_water_mix_recommendations_batch(
-            tenant_key="t1", plan_key="plan1", site_key="site1",
+            tenant_key="t1",
+            plan_key="plan1",
+            site_key="site1",
         )
 
         assert result["recommendations"] == []
@@ -290,7 +309,9 @@ class TestGetWaterMixRecommendationsBatch:
         mock_site_repo.get_site_by_key.return_value = site
 
         result = service.get_water_mix_recommendations_batch(
-            tenant_key="t1", plan_key="plan1", site_key="site1",
+            tenant_key="t1",
+            plan_key="plan1",
+            site_key="site1",
         )
 
         rec = result["recommendations"][0]["recommendation"]
@@ -311,7 +332,9 @@ class TestGetWaterMixRecommendationsBatch:
         mock_site_repo.get_site_by_key.return_value = site
 
         service.get_water_mix_recommendations_batch(
-            tenant_key="t1", plan_key="plan1", site_key="site1",
+            tenant_key="t1",
+            plan_key="plan1",
+            site_key="site1",
         )
 
         # Plan loaded once (via get_plan which calls get_by_key)

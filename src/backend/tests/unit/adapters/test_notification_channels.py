@@ -100,9 +100,7 @@ class TestEmailNotificationChannel:
 
     @pytest.mark.asyncio
     async def test_send_exception_caught(self, channel, mock_email_service):
-        mock_email_service.send_notification_email.side_effect = (
-            ConnectionError("SMTP down")
-        )
+        mock_email_service.send_notification_email.side_effect = ConnectionError("SMTP down")
         notification = _make_notification()
         config = {"email": "user@example.com"}
 
@@ -193,7 +191,9 @@ class TestHomeAssistantNotificationChannel:
             urgency=NotificationUrgency.HIGH,
             actions=[
                 NotificationAction(
-                    action_id="done", title="Done", uri="/tasks",
+                    action_id="done",
+                    title="Done",
+                    uri="/tasks",
                 ),
             ],
         )
@@ -353,7 +353,8 @@ class TestAppriseNotificationChannel:
 
         assert result.success is True
         mock_ap_instance.add.assert_called_once_with(
-            "tgram://bot/chat", tag=None,
+            "tgram://bot/chat",
+            tag=None,
         )
         mock_ap_instance.notify.assert_called_once()
         call_kwargs = mock_ap_instance.notify.call_args[1]
@@ -453,7 +454,10 @@ class TestChannelRegistryIntegration:
             registry.register(ch)
 
         assert set(registry.all_keys()) == {
-            "in_app", "email", "home_assistant", "apprise",
+            "in_app",
+            "email",
+            "home_assistant",
+            "apprise",
         }
         assert len(registry.get_available()) == 4
 

@@ -60,9 +60,7 @@ class NotificationService:
 
         parsed_actions = []
         if actions:
-            parsed_actions = [
-                NotificationAction(**a) for a in actions
-            ]
+            parsed_actions = [NotificationAction(**a) for a in actions]
 
         notification = Notification(
             notification_type=notification_type,
@@ -109,9 +107,7 @@ class NotificationService:
                     "due_today": NotificationUrgency.NORMAL,
                     "upcoming": NotificationUrgency.LOW,
                 }
-                urgency = urgency_map.get(
-                    task.get("urgency", "normal"), NotificationUrgency.NORMAL
-                )
+                urgency = urgency_map.get(task.get("urgency", "normal"), NotificationUrgency.NORMAL)
 
                 notification = Notification(
                     notification_type=f"care.{task.get('reminder_type', 'watering')}",
@@ -191,9 +187,7 @@ class NotificationService:
         # Verify the requesting user owns this notification
         if user_key and notif.user_key and notif.user_key != user_key:
             return None
-        return self._notification_repo.mark_read(
-            notification_key, datetime.now(UTC)
-        )
+        return self._notification_repo.mark_read(notification_key, datetime.now(UTC))
 
     def mark_acted(
         self,
@@ -211,9 +205,7 @@ class NotificationService:
         # Verify the requesting user owns this notification
         if user_key and notif.user_key and notif.user_key != user_key:
             return None
-        return self._notification_repo.mark_acted(
-            notification_key, datetime.now(UTC)
-        )
+        return self._notification_repo.mark_acted(notification_key, datetime.now(UTC))
 
     # ── Preferences ───────────────────────────────────────────────────
 
@@ -245,9 +237,7 @@ class NotificationService:
                 healthy = await channel.health_check()
             except Exception:
                 healthy = False
-                logger.exception(
-                    "channel_health_check_failed", channel=channel.channel_key
-                )
+                logger.exception("channel_health_check_failed", channel=channel.channel_key)
 
             statuses.append(
                 {
@@ -294,9 +284,7 @@ class NotificationService:
                 "error": result.error,
             }
         except Exception as exc:
-            logger.exception(
-                "test_notification_failed", channel=channel_key
-            )
+            logger.exception("test_notification_failed", channel=channel_key)
             return {
                 "status": "error",
                 "channel_key": channel_key,

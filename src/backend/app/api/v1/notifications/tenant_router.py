@@ -36,10 +36,7 @@ def _notification_response(n) -> NotificationResponse:
         body=n.body,
         urgency=n.urgency,
         data=n.data,
-        actions=[
-            {"action_id": a.action_id, "title": a.title, "uri": a.uri}
-            for a in n.actions
-        ],
+        actions=[{"action_id": a.action_id, "title": a.title, "uri": a.uri} for a in n.actions],
         image_url=n.image_url,
         group_key=n.group_key,
         channels_sent=n.channels_sent,

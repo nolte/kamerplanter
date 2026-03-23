@@ -25,9 +25,7 @@ def mock_engine():
             "channels_failed": [],
         }
     )
-    engine.notify_batch = AsyncMock(
-        return_value={"status": "batch_complete", "sent": 3, "failed": 0}
-    )
+    engine.notify_batch = AsyncMock(return_value={"status": "batch_complete", "sent": 3, "failed": 0})
     engine._channel_registry = MagicMock()
     engine._channel_registry.get_available.return_value = []
     return engine

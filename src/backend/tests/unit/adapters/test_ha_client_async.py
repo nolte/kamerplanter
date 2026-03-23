@@ -29,7 +29,8 @@ class TestFireEvent:
             mock_cls.return_value = mock_ac
 
             result = await client.fire_event(
-                "kamerplanter_care", {"plant": "tomato"},
+                "kamerplanter_care",
+                {"plant": "tomato"},
             )
 
             assert result == {"message": "Event fired."}
@@ -72,7 +73,9 @@ class TestCreatePersistentNotification:
             mock_cls.return_value = mock_ac
 
             await client.create_persistent_notification(
-                title="Test", message="Hello", notification_id="n123",
+                title="Test",
+                message="Hello",
+                notification_id="n123",
             )
 
             mock_ac.post.assert_called_once_with(
@@ -124,7 +127,9 @@ class TestCallService:
             mock_cls.return_value = mock_ac
 
             result = await client.call_service(
-                "notify", "mobile_app", {"message": "hi"},
+                "notify",
+                "mobile_app",
+                {"message": "hi"},
             )
 
             assert result == [{"entity_id": "light.kitchen"}]

@@ -34,9 +34,7 @@ def dispatch_due_care_notifications() -> dict:
 
     today = date.today()
     today_start = datetime(today.year, today.month, today.day, tzinfo=UTC)
-    today_end = datetime(
-        today.year, today.month, today.day, 23, 59, 59, tzinfo=UTC
-    )
+    today_end = datetime(today.year, today.month, today.day, 23, 59, 59, tzinfo=UTC)
 
     # Find all pending/in-progress care reminder tasks due today
     all_tasks, _ = task_repo.get_all(offset=0, limit=500)
@@ -115,9 +113,7 @@ def dispatch_due_care_notifications() -> dict:
             continue
 
         try:
-            result = asyncio.run(
-                service.send_care_notifications(tenant_key, tenant_tasks)
-            )
+            result = asyncio.run(service.send_care_notifications(tenant_key, tenant_tasks))
             total_users_notified += result.get("users_notified", 0)
             total_sent += result.get("total_sent", 0)
         except Exception:
@@ -172,9 +168,7 @@ def escalate_overdue_notifications() -> dict:
             continue
 
         try:
-            result = asyncio.run(
-                service._engine.escalate_overdue(tenant_key)
-            )
+            result = asyncio.run(service._engine.escalate_overdue(tenant_key))
             escalated = result.get("escalated", 0)
             total_escalated += escalated
             tenants_processed += 1
@@ -289,9 +283,7 @@ def send_daily_summary() -> dict:
         if overdue:
             parts.append(f"Overdue ({len(overdue)}): {', '.join(overdue[:5])}")
         if due_today:
-            parts.append(
-                f"Due today ({len(due_today)}): {', '.join(due_today[:5])}"
-            )
+            parts.append(f"Due today ({len(due_today)}): {', '.join(due_today[:5])}")
 
         if not parts:
             continue
@@ -299,9 +291,7 @@ def send_daily_summary() -> dict:
         body = "\n".join(parts)
         title = f"Daily care summary: {len(overdue) + len(due_today)} tasks"
 
-        urgency = (
-            NotificationUrgency.HIGH if overdue else NotificationUrgency.NORMAL
-        )
+        urgency = NotificationUrgency.HIGH if overdue else NotificationUrgency.NORMAL
 
         try:
             asyncio.run(

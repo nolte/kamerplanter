@@ -121,7 +121,9 @@ class HomeAssistantNotificationChannel(INotificationChannel):
     # ── Internal helpers ─────────────────────────────────────────────
 
     async def _fire_event(
-        self, notification: Notification, errors: list[str],
+        self,
+        notification: Notification,
+        errors: list[str],
     ) -> None:
         event_type = notification.ha_event_type or "kamerplanter_notification"
         event_data = {
@@ -148,7 +150,9 @@ class HomeAssistantNotificationChannel(INotificationChannel):
             errors.append(msg)
 
     async def _create_persistent(
-        self, notification: Notification, errors: list[str],
+        self,
+        notification: Notification,
+        errors: list[str],
     ) -> None:
         notification_id = f"kamerplanter_{notification.key or 'unknown'}"
         try:

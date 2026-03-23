@@ -10,9 +10,7 @@ from app.domain.services.site_service import SiteService
 router = APIRouter(prefix="/slots", tags=["slots"])
 
 
-def _verify_slot_tenant(
-    key: str, ctx: TenantContext, service: SiteService
-) -> Slot:
+def _verify_slot_tenant(key: str, ctx: TenantContext, service: SiteService) -> Slot:
     """Get a slot and verify it belongs to a location whose site is owned by the tenant."""
     slot = service.get_slot(key)
     loc = service.get_location(slot.location_key)

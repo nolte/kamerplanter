@@ -20,10 +20,10 @@ from app.domain.models.notification import (
 logger = structlog.get_logger(__name__)
 
 _URGENCY_EMOJI: dict[NotificationUrgency, str] = {
-    NotificationUrgency.LOW: "&#8505;&#65039;",      # info
-    NotificationUrgency.NORMAL: "&#9989;",            # check
-    NotificationUrgency.HIGH: "&#9888;&#65039;",      # warning
-    NotificationUrgency.CRITICAL: "&#128680;",        # rotating light
+    NotificationUrgency.LOW: "&#8505;&#65039;",  # info
+    NotificationUrgency.NORMAL: "&#9989;",  # check
+    NotificationUrgency.HIGH: "&#9888;&#65039;",  # warning
+    NotificationUrgency.CRITICAL: "&#128680;",  # rotating light
 }
 
 _URGENCY_COLOR: dict[NotificationUrgency, str] = {
@@ -138,15 +138,9 @@ class EmailNotificationChannel(INotificationChannel):
         title = escape(notification.title)
         body = escape(notification.body).replace("\n", "<br>")
 
-        font = (
-            "-apple-system, BlinkMacSystemFont, "
-            "'Segoe UI', Roboto, sans-serif"
-        )
+        font = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
         wrapper = f"font-family: {font}; max-width: 600px; margin: 0 auto"
-        header = (
-            f"background-color: {color}; color: white; "
-            f"padding: 16px 24px; border-radius: 8px 8px 0 0"
-        )
+        header = f"background-color: {color}; color: white; padding: 16px 24px; border-radius: 8px 8px 0 0"
         content = (
             "padding: 24px; background-color: #f9f9f9; "
             "border: 1px solid #e0e0e0; border-top: none; "
@@ -186,15 +180,9 @@ class EmailNotificationChannel(INotificationChannel):
                 f"{body}</p></div>"
             )
 
-        font = (
-            "-apple-system, BlinkMacSystemFont, "
-            "'Segoe UI', Roboto, sans-serif"
-        )
+        font = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
         wrapper = f"font-family: {font}; max-width: 600px; margin: 0 auto"
-        header = (
-            "background-color: #4CAF50; color: white; "
-            "padding: 16px 24px; border-radius: 8px 8px 0 0"
-        )
+        header = "background-color: #4CAF50; color: white; padding: 16px 24px; border-radius: 8px 8px 0 0"
         content = (
             "padding: 16px; background-color: #f9f9f9; "
             "border: 1px solid #e0e0e0; border-top: none; "
