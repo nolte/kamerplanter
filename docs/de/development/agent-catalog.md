@@ -1,744 +1,728 @@
 ---
 title: Agent-Katalog
-description: Uebersicht aller verfuegbaren Claude Code Agents im Kamerplanter-Projekt
+description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Projekt
 ---
 
 # Agent-Katalog
 
-Uebersicht aller verfuegbaren Claude Code Agents im Kamerplanter-Projekt.
-Jeder Agent ist ein spezialisierter KI-Assistent mit einer klar definierten Rolle, eigenem Workflow und spezifischen Werkzeugen.
+Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Projekt für autonome Feature-Implementierung, Requirements Engineering, Code-Reviews und Dokumentation.
 
-!!! info "Stand: 17.03.2026 — 22 Agents registriert"
-    Dieser Katalog wird vom `agent-catalog-generator` Agent automatisch erstellt.
-    Aktualisierung: `/agent agent-catalog-generator`
+!!! info "Stand: 2026-03-23 — 27 Agents registriert"
+    Dieser Katalog wird vom `agent-catalog-generator` Agent automatisch erstellt und aktualisiert.
 
 ---
 
 ## Schnellreferenz
 
-| Agent | Modell | Aufgabe | Output |
-|-------|:------:|---------|--------|
-| `agrobiology-requirements-reviewer` | sonnet | Prueft botanische Korrektheit | Agrar-Review |
-| `cannabis-indoor-grower-reviewer` | sonnet | Prueft Growzelt-Praxistauglichkeit | Grower-Review |
-| `casual-houseplant-user-reviewer` | sonnet | Prueft Laien-Tauglichkeit | Casual-User-Review |
-| `code-security-reviewer` | sonnet | Prueft Code auf Sicherheitsluecken | Security-Findings + Fixes |
-| `e2e-testcase-extractor` | opus | Extrahiert E2E-Testfaelle aus Specs | Testfall-Dokumente |
-| `frontend-design-reviewer` | sonnet | Bewertet UI/UX & Responsive Design | Design-Review |
-| `frontend-usability-optimizer` | sonnet | Optimiert bestehende UI-Komponenten | Verbesserte React/MUI-Seiten |
-| `fullstack-developer` | opus | Implementiert Features (Backend + Frontend) | Produktiver Code |
-| `gemini-graphic-prompt-generator` | sonnet | Erstellt Bildgenerierungs-Prompts | Prompt-Dokumente |
-| `ha-integration-requirements-engineer` | sonnet | Leitet HA-Integrationsanforderungen ab | HA-REQ-Dokumente |
-| `it-security-requirements-reviewer` | sonnet | Prueft Anforderungen auf Security/DSGVO | Security-Review |
-| `mkdocs-documentation` | opus | Erstellt mehrsprachige MkDocs-Doku | Dokumentations-Seiten |
-| `outdoor-garden-planner-reviewer` | sonnet | Prueft Freiland-/Garten-Tauglichkeit | Garten-Review |
-| `plant-info-document-generator` | sonnet | Generiert Pflanzen-Steckbriefe | Import-Dokumente |
-| `png-to-transparent-svg` | — | Konvertiert PNG zu transparentem SVG | SVG-Dateien |
-| `requirements-contradiction-analyzer` | sonnet | Prueft Anforderungen auf Widersprueche | Widerspruchs-Report |
-| `selenium-test-generator` | sonnet | Generiert NFR-008-konforme Selenium-Tests | Python-Test-Code |
-| `selenium-test-reviewer` | sonnet | Ueberprueft E2E-Tests auf NFR-008-Konformitaet | Compliance-Report |
-| `smart-home-ha-reviewer` | sonnet | Prueft HA-Integrations-Architektur | HA-Review |
-| `target-audience-analyzer` | sonnet | Analysiert Zielgruppen & Marktpotenziale | Zielgruppen-Report |
-| `tech-stack-architect` | sonnet | Validiert Tech-Stack gegen Anforderungen | Stack-Review |
-| `agent-catalog-generator` | haiku | Generiert Uebersicht aller Agents | Katalog-Markdown |
+| Agent | Modell | Aufgabe | Kategorie |
+|-------|--------|---------|----------|
+| `agent-catalog-generator` | haiku | Generiert diesen Katalog | Dokumentation |
+| `agrobiology-requirements-reviewer` | sonnet | Botanische Fachprüfung von Anforderungen | Analyse & Review |
+| `cannabis-indoor-grower-reviewer` | sonnet | Cannabis-Anbau-Spezifikation validieren | Analyse & Review |
+| `casual-houseplant-user-reviewer` | sonnet | Laien-Tauglichkeit von Zimmerpflanzenfunktionen | Analyse & Review |
+| `code-security-reviewer` | sonnet | Code-Security-Audit (OWASP Top 10) | Analyse & Review |
+| `e2e-testcase-extractor` | sonnet | E2E-Testfälle aus Spezifikationen ableiten | Testing & QA |
+| `frontend-design-reviewer` | sonnet | UI/UX, Responsive Design, Kiosk-Modus prüfen | Design & Grafik |
+| `frontend-usability-optimizer` | sonnet | React/MUI-Komponenten für bessere UX optimieren | Design & Grafik |
+| `fullstack-developer` | opus | Features Backend+Frontend implementieren | Entwicklung |
+| `gemini-graphic-prompt-generator` | sonnet | Gemini-Prompts für Icons und Illustrationen | Design & Grafik |
+| `growing-phase-auditor` | sonnet | Pflanzenphasen-Daten validieren und korrigieren | Testing & QA |
+| `ha-integration-requirements-engineer` | sonnet | Home Assistant Integrations-Anforderungen ableiten | Analyse & Review |
+| `ha-integration-sync` | opus | HA-Integration mit Backend-API synchronisieren | Entwicklung |
+| `it-security-requirements-reviewer` | sonnet | Security & DSGVO in Anforderungen prüfen | Analyse & Review |
+| `mkdocs-documentation` | sonnet | MkDocs-Dokumentation erstellen und pflegen | Dokumentation |
+| `outdoor-garden-planner-reviewer` | sonnet | Freiland-Garten-Anforderungen validieren | Analyse & Review |
+| `plant-info-document-generator` | sonnet | Detaillierte Pflanzen-Steckbriefe recherchieren | Dokumentation |
+| `png-to-transparent-svg` | haiku | PNG mit Schachbrett-Hintergrund zu transparentem SVG | Entwicklung |
+| `pr-to-develop` | sonnet | GitHub Pull Request für develop vorbereiten | Entwicklung |
+| `requirements-contradiction-analyzer` | sonnet | Widersprüche in Anforderungen finden (RAG) | Analyse & Review |
+| `seed-data-validator` | sonnet | YAML-Seed-Daten auf Qualität prüfen | Testing & QA |
+| `selenium-test-generator` | opus | NFR-008-konforme Selenium-E2E-Tests generieren | Testing & QA |
+| `selenium-test-reviewer` | sonnet | Selenium-Tests auf Qualität und Wartbarkeit prüfen | Testing & QA |
+| `smart-home-ha-reviewer` | sonnet | HA-Integration gegen Spezifikation prüfen | Analyse & Review |
+| `target-audience-analyzer` | sonnet | Zielgruppen und Marktpotenzial analysieren | Analyse & Review |
+| `tech-stack-architect` | sonnet | Tech-Stack gegen Anforderungen validieren | Analyse & Review |
+| `unit-test-runner` | sonnet | Unit-Tests + statische Analyse ausführen | Testing & QA |
 
 ---
 
 ## Agents nach Kategorie
 
-=== "Persona-Reviews"
-
-    Spezialisierte Zielgruppen-Perspektiven, die Anforderungen aus Sicht eines konkreten Nutzertyps pruefen.
-
-    | Agent | Persona | Fokus |
-    |-------|---------|-------|
-    | [`cannabis-indoor-grower-reviewer`](#cannabis-indoor-grower-reviewer) | Professioneller Indoor-Grower | Growzelt-Workflow, Ertrags-/Qualitaetsoptimierung |
-    | [`casual-houseplant-user-reviewer`](#casual-houseplant-user-reviewer) | Planloser Zimmerpflanzen-Besitzer | Minimalaufwand, Verstaendlichkeit, Erinnerungen |
-    | [`outdoor-garden-planner-reviewer`](#outdoor-garden-planner-reviewer) | Ambitionierte Gartenbesitzerin | Beetplanung, Fruchtfolge, Ueberwinterung |
-    | [`smart-home-ha-reviewer`](#smart-home-ha-reviewer) | Smart-Home-Enthusiast | HA-Integration, MQTT, Sensoren, Aktoren |
-    | [`frontend-design-reviewer`](#frontend-design-reviewer) | Frontend-Designer | Responsive Design, Kiosk-Modus, Barrierefreiheit |
-
-=== "Fachliche Reviews"
-
-    Experten-Reviews fuer spezifische Fachdisziplinen.
+=== "Analyse & Review"
 
     | Agent | Fokus |
     |-------|-------|
-    | [`agrobiology-requirements-reviewer`](#agrobiology-requirements-reviewer) | Botanische & agronomische Korrektheit |
-    | [`it-security-requirements-reviewer`](#it-security-requirements-reviewer) | Datensparsamkeit, Auth, DSGVO, sichere Architektur |
-    | [`requirements-contradiction-analyzer`](#requirements-contradiction-analyzer) | Widersprueche in Anforderungen |
-    | [`tech-stack-architect`](#tech-stack-architect) | Technologie-Stack-Validierung |
-    | [`target-audience-analyzer`](#target-audience-analyzer) | Zielgruppen & Marktpotenziale |
+    | [`agrobiology-requirements-reviewer`](#agrobiology-requirements-reviewer) | Botanische Korrektheit, Indoor/Hydroponik, VPD, Lichttechnik |
+    | [`cannabis-indoor-grower-reviewer`](#cannabis-indoor-grower-reviewer) | Cannabis-Anbau Legality, Spezifikation |
+    | [`casual-houseplant-user-reviewer`](#casual-houseplant-user-reviewer) | Laien-Bedienbarkeit, Zimmerpflanzenpflege |
+    | [`code-security-reviewer`](#code-security-reviewer) | OWASP Top 10, Auth, Tenant-Isolation, Injection |
+    | [`ha-integration-requirements-engineer`](#ha-integration-requirements-engineer) | Home Assistant Entity-Mappings, Coordinatoren |
+    | [`it-security-requirements-reviewer`](#it-security-requirements-reviewer) | Auth, Autorisierung, DSGVO, Datensparsamkeit |
+    | [`outdoor-garden-planner-reviewer`](#outdoor-garden-planner-reviewer) | Freiland, Überwinterung, Fruchtfolge, Gemeinschaftsgarten |
+    | [`requirements-contradiction-analyzer`](#requirements-contradiction-analyzer) | Widersprüche, Konsistenz, RAG-Analyse |
+    | [`smart-home-ha-reviewer`](#smart-home-ha-reviewer) | Home Assistant Spezifikation, Integration |
+    | [`target-audience-analyzer`](#target-audience-analyzer) | Zielgruppen, Marktpotenzial, Personas |
+    | [`tech-stack-architect`](#tech-stack-architect) | Tech-Stack-Validierung, Abhängigkeiten |
 
 === "Entwicklung"
 
-    Agents die produktiven Code schreiben oder bestehenden Code verbessern.
-
     | Agent | Fokus |
     |-------|-------|
-    | [`fullstack-developer`](#fullstack-developer) | Backend + Frontend Feature-Implementierung |
-    | [`frontend-usability-optimizer`](#frontend-usability-optimizer) | Usability-Optimierung bestehender UI-Komponenten |
-    | [`code-security-reviewer`](#code-security-reviewer) | Security-Audit und -Fixes im Code |
+    | [`fullstack-developer`](#fullstack-developer) | Features Backend+Frontend, FastAPI, React |
+    | [`ha-integration-sync`](#ha-integration-sync) | HA-Integration mit API synchronisieren |
+    | [`png-to-transparent-svg`](#png-to-transparent-svg) | PNG→SVG mit Transparenz-Konvertierung |
+    | [`pr-to-develop`](#pr-to-develop) | GitHub PR vorbereiten mit CI-Validierung |
 
 === "Testing & QA"
 
-    Testfall-Ableitung, Test-Generierung und Test-Review.
+    | Agent | Fokus |
+    |-------|-------|
+    | [`e2e-testcase-extractor`](#e2e-testcase-extractor) | E2E-Testfälle aus Spezifikationen ableiten |
+    | [`growing-phase-auditor`](#growing-phase-auditor) | Pflanzenphasen-Daten validieren |
+    | [`seed-data-validator`](#seed-data-validator) | YAML-Seed-Daten-Qualität |
+    | [`selenium-test-generator`](#selenium-test-generator) | Selenium E2E-Tests generieren |
+    | [`selenium-test-reviewer`](#selenium-test-reviewer) | Selenium-Tests reviewen |
+    | [`unit-test-runner`](#unit-test-runner) | Unit-Tests + statische Analyse ausführen |
+
+=== "Design & Grafik"
 
     | Agent | Fokus |
     |-------|-------|
-    | [`e2e-testcase-extractor`](#e2e-testcase-extractor) | E2E-Testfall-Ableitung aus Specs |
-    | [`selenium-test-generator`](#selenium-test-generator) | Selenium-Test-Code-Generierung |
-    | [`selenium-test-reviewer`](#selenium-test-reviewer) | NFR-008-Compliance-Pruefung |
+    | [`frontend-design-reviewer`](#frontend-design-reviewer) | Responsive Design, Kiosk-Modus, Touch-Targets |
+    | [`frontend-usability-optimizer`](#frontend-usability-optimizer) | Form-Usability, Labels, Hilfstexte, Mobile-First |
+    | [`gemini-graphic-prompt-generator`](#gemini-graphic-prompt-generator) | Gemini Image Generation Prompts |
 
-=== "Requirements Engineering"
-
-    Ableitung und Spezifikation von Anforderungen.
+=== "Dokumentation"
 
     | Agent | Fokus |
     |-------|-------|
-    | [`ha-integration-requirements-engineer`](#ha-integration-requirements-engineer) | HA-Integrationsanforderungen aus REQs ableiten |
-
-=== "Dokumentation & Content"
-
-    Dokumentation, Pflanzen-Steckbriefe und Katalog-Pflege.
-
-    | Agent | Fokus |
-    |-------|-------|
-    | [`mkdocs-documentation`](#mkdocs-documentation) | Endnutzer- & Entwickler-Dokumentation |
-    | [`plant-info-document-generator`](#plant-info-document-generator) | Pflanzen-Informationsdokumente |
-    | [`agent-catalog-generator`](#agent-catalog-generator) | Agent-Katalog-Generierung |
-
-=== "Grafik & Assets"
-
-    Visuelle Assets erstellen und konvertieren.
-
-    | Agent | Fokus |
-    |-------|-------|
-    | [`gemini-graphic-prompt-generator`](#gemini-graphic-prompt-generator) | Gemini-Bildgenerierungs-Prompts |
-    | [`png-to-transparent-svg`](#png-to-transparent-svg) | PNG-zu-SVG-Konvertierung mit Transparenz |
+    | [`agent-catalog-generator`](#agent-catalog-generator) | Diesen Katalog generieren |
+    | [`mkdocs-documentation`](#mkdocs-documentation) | MkDocs-Dokumentation erstellen |
+    | [`plant-info-document-generator`](#plant-info-document-generator) | Pflanzen-Steckbriefe recherchieren |
 
 ---
 
 ## Agent-Details
 
-### `agrobiology-requirements-reviewer`
+### `agent-catalog-generator`
 
-| | |
-|---|---|
-| **Modell** | sonnet |
-| **Tools** | Read, Write, Glob, Grep |
-| **Output** | `spec/requirements-analysis/agrobiology-review.md` |
+**Modell:** haiku | **Tools:** Read, Write, Glob, Grep
 
-**Rolle:** Agrarbiologie-Experte mit 20+ Jahren Indoor-Anbau-Erfahrung (Zimmerpflanzen, Hydroponik, CEA), der Anforderungen auf botanische und agronomische Korrektheit prueft.
+**Rolle:** Technical Writer, der alle Agent-Definitionen systematisch einliest und einen kompakten, entwicklerfreundlichen Katalog generiert.
 
 ??? example "Wann einsetzen?"
-    - Anforderungen auf biologische Korrektheit ueberpruefen
-    - Licht-Parameter (PPFD vs. Lux) validieren
-    - VPD, EC, pH-Spezifikationen ueberpruefen
-    - Pflanzenschutz (IPM) und Toxizitaet bewerten
-    - Datenquellen fuer botanische Inhalte validieren
+    - Nach dem Hinzufügen neuer Agents zu `.claude/agents/`
+    - Beim Onboarding neuer Entwickler
+    - Zur zentralen Agenten-Referenz pflegen
 
 **Workflow:**
+1. Alle Agent-Definitionen aus `.claude/agents/*.md` einlesen
+2. YAML-Frontmatter und Markdown-Body analysieren
+3. Agents nach Kategorie gruppieren und sortieren
+4. Dokumentations-Katalog mit Tabellen, Tabs und Details generieren
+5. RAG-optimierte Metadaten einfügen
 
-1. Liest alle Anforderungsdokumente
-2. Klassifiziert nach Anbaukontext (Indoor, Gewaechshaus, Outdoor, Hydroponik)
-3. Prueft Taxonomie/Nomenklatur (wissenschaftliche Korrektheit)
-4. Validiert Licht-Parameter (PPFD statt Lux, DLI, Photoperiodismus)
-5. Prueft Klima-Spezifikationen (VPD, Temperatur-DIF, Luftfeuchtigkeit)
-6. Ueberprueft Substrate, Bewaesserung, EC/pH
-7. Bewertet Pflanzenschutz-Anforderungen (IPM, Schaedlinge, Krankheiten)
-8. Erstellt Report mit fachlichen Fehlern, Unvollstaendigkeiten, Messbarkeit
+**Output:** `docs/de/development/agent-catalog.md` — Dieser Katalog mit Übersicht, Tabellen, Kategorisierung und Entscheidungshilfe
+
+---
+
+### `agrobiology-requirements-reviewer`
+
+**Modell:** sonnet | **Tools:** Read, Write, Glob, Grep
+
+**Rolle:** Agrarbiologie-Experte mit 20+ Jahren Praxis in Indoor-Anbau, Hydroponik, Zimmerpflanzen und geschütztem Anbau, der Anforderungen auf biologische Korrektheit und Vollständigkeit prüft.
+
+??? example "Wann einsetzen?"
+    - Anforderungen für Indoor-Anbau, Hydroponik, Zimmerpflanzen
+    - Licht-Parameter (PPFD, DLI), VPD, EC-Werte, Substrate
+    - Pflanzenschutz, Phänologie, Phasensteuerung
+
+**Workflow:**
+1. Anforderungsdokumente einlesen und klassifizieren (Indoor/Hydroponik/Outdoor)
+2. Biologische Korrektheit prüfen (Licht, Temperatur, VPD, Substrate)
+3. Vollständigkeitschecklisten abarbeiten (Zimmerpflanzen, Hydroponik, IPM)
+4. Datenquelle-Verfügbarkeit bewerten
+5. Report mit Findings (Fehler/Unvollständig/Ungenau) erstellen
+
+**Output:** `spec/requirements-analysis/agrobiology-review.md` — Detaillierter Report mit botanischen Findings, Korrekturvorschlägen und Datenquellen
 
 ---
 
 ### `cannabis-indoor-grower-reviewer`
 
-| | |
-|---|---|
-| **Modell** | sonnet |
-| **Tools** | Read, Write, Glob, Grep |
-| **Output** | `spec/requirements-analysis/cannabis-indoor-grower-review.md` |
+**Modell:** sonnet | **Tools:** Read, Write, Glob, Grep
 
-**Rolle:** Professioneller Indoor-Cannabis-Gaertner mit 10+ Jahren Growzelt-Erfahrung, der Anforderungen auf Praxistauglichkeit fuer den kompletten Grow-Zyklus (Keimung bis Cure) prueft.
+**Rolle:** Cannabis-Anbau-Spezialist der Spezifikationen auf Legalität, Durchführbarkeit und Best-Practice-Konformität prüft.
 
 ??? example "Wann einsetzen?"
-    - Pruefen ob der komplette Cannabis-Lebenszyklus abbildbar ist
-    - Post-Harvest (Trocknung, Curing) Spezifikationen bewerten
-    - Naehrstoff-Mixing-Workflow auf Praxistauglichkeit pruefen
-    - Training-Methoden (Topping, LST, SCROG) als planbare Aktionen bewerten
-    - Ertrags-Metriken (g/Watt, g/m2) und Run-Vergleich validieren
-    - CanG-Compliance pruefen (Pflanzenzahl-Limits)
+    - Cannabis-Anbau-Features spezifizieren oder validieren
+    - Legale Anforderungen (CanG, PflSchG) prüfen
+    - Indoor-Growing-Spezifikation reviewen
 
 **Workflow:**
+1. Alle Cannabis-spezifischen Anforderungen identifizieren
+2. Legale Grundlagen prüfen (CanG Lizenzpflicht, PflSchG Karenzzeiten)
+3. Genetische Daten, Phänotypen, Terpene bewerten
+4. Growing-Parameter (Photoperiode, VPD, EC) validieren
+5. Report mit Legal-Checks und Best-Practice-Abweichungen
 
-1. Liest alle Anforderungsdokumente
-2. Ordnet Anforderungen 10 Grower-Workflows zu (Keimung, Veg, Bluete, Ernte, Cure, Naehrstoffe, Umgebung, IPM, Genetik, Tracking)
-3. Prueft Grow-Lifecycle-Abdeckung (Keimung bis Cure komplett?)
-4. Bewertet Naehrstoff-Workflow (Mixing, Runoff, Feeding-Charts)
-5. Validiert Umgebungskontrolle (VPD-zentrisch, LED-spezifisch)
-6. Prueft Genetik/Pheno-Hunting-Workflow und Run-Vergleich
-7. Erstellt Report mit Workflow-Coverage-Matrix und Ertrags-Relevanz-Matrix
+**Output:** `spec/requirements-analysis/cannabis-grower-review.md` — Legalitäts-Check, Growing-Parameter-Validierung, Risiko-Bewertung
 
 ---
 
 ### `casual-houseplant-user-reviewer`
 
-| | |
-|---|---|
-| **Modell** | sonnet |
-| **Tools** | Read, Write, Glob, Grep |
-| **Output** | `spec/requirements-analysis/casual-houseplant-user-review.md` |
+**Modell:** sonnet | **Tools:** Read, Write, Glob, Grep
 
-**Rolle:** Planloser Zimmerpflanzen-Besitzer ohne gruenen Daumen, der die App nur nutzt um seine 3 Pflanzen am Leben zu erhalten. Prueft ob die App fuer die breite Masse alltagstauglich, verstaendlich und motivierend ist.
+**Rolle:** Planloser Zimmerpflanzenbesitzer ohne grünen Daumen, der Anforderungen auf Alltagstauglichkeit und Anfänger-Freundlichkeit prüft.
 
 ??? example "Wann einsetzen?"
-    - Onboarding-Huerden fuer Laien identifizieren
-    - Fachbegriffe auf Verstaendlichkeit pruefen
-    - Aufwand-Nutzen-Verhaeltnis bewerten (>5 Min/Woche = zu viel)
-    - Giess-Erinnerungen und 1-Tap-Bestaetigungen validieren
-    - Overkill-Faktor bewerten (wie viele REQs sind fuer 3 Zimmerpflanzen irrelevant?)
-    - Vergleich mit Konkurrenz (Planta, Greg)
+    - Anforderungen für Casual User (Laien)
+    - Onboarding, Gießerinnerungen, Problem-Erkennung testen
+    - Sprache und Verständlichkeit bewerten
+    - Aufwand-Nutzen-Verhältnis prüfen
 
 **Workflow:**
+1. Alle Anforderungen aus Laien-Perspektive lesen
+2. Dealbreaker-Features identifizieren (z.B. Foto-Erkennung)
+3. Frustrierendes und Überforderendes markieren
+4. Aufwand pro Woche schätzen
+5. Konkurrenz-Vergleich (Planta, Greg) durchführen
+6. Report mit Dealbreakern, Optimierungen, Aufwand-Analyse
 
-1. Liest alle Anforderungsdokumente
-2. Bewertet jede Anforderung: "Verstehe ich das? Brauche ich das? Kann ich das bedienen?"
-3. Prueft Onboarding (<2 Min bis erste Pflanze), Giessen (Push + 1-Tap), Standort (keine PPFD-Werte)
-4. Erstellt Fachbegriff-Audit (EC, VPD, Substrat, Cultivar etc.)
-5. Bewertet Feature-Relevanz fuer Zimmerpflanzen-Laien (14 von 25 REQs als irrelevant erwartet)
-6. Erstellt Report mit Aufwand-Analyse, Dealbreakern und Konkurrenz-Vergleich
+**Output:** `spec/requirements-analysis/casual-houseplant-user-review.md` — Laien-Perspektive, Dealbreaker, Aufwand-Analyse, Konkurrenz-Vergleich
 
 ---
 
 ### `code-security-reviewer`
 
-| | |
-|---|---|
-| **Modell** | sonnet |
-| **Tools** | Read, Edit, Bash, Glob, Grep |
-| **Output** | `spec/requirements-analysis/code-security-review.md` + Fixes im Code |
+**Modell:** sonnet | **Tools:** Read, Edit, Bash, Glob, Grep
 
-**Rolle:** Application Security Engineer, der implementierten Backend- und Frontend-Code auf OWASP Top 10, Injection, Auth-Bypass, Tenant-Isolation, Secret Leaks und unsichere Kryptographie prueft und Schwachstellen direkt behebt.
+**Rolle:** Application Security Engineer, der implementiertem Backend- und Frontend-Code auf OWASP-Top-10-Schwachstellen prüft und behebt.
 
 ??? example "Wann einsetzen?"
-    - Implementierten Code auf Security-Probleme pruefen (nach Feature-Entwicklung)
-    - AQL-Injection-Risiken in Repository-Queries finden
-    - Tenant-Isolation-Verletzungen identifizieren
-    - JWT/Passwort-Handling validieren
-    - CORS, Security Headers, Error Responses pruefen
-    - Frontend auf XSS, Token-Handling, Auth-Guards pruefen
+    - Nach Feature-Implementierung durch Fullstack-Developer
+    - Injection, Auth-Bypass, Tenant-Isolation, Secret Leaks prüfen
+    - Security-Fixes implementieren
+    - Vor Production-Deployment
 
 **Workflow:**
+1. Backend- und Frontend-Code analysieren (Discovery)
+2. OWASP-A01 bis A10 systematisch prüfen
+3. Tenant-Isolation, RBAC, JWT, Secrets validieren
+4. Kritische Schwachstellen (P0/P1) sofort beheben
+5. Security-Report mit behobenen und offenen Punkten
 
-1. Liest Referenz-Specs (REQ-023, REQ-024, NFR-001, NFR-006)
-2. Scannt Backend: API-Router, Auth, Tenant-Guard, Repositories, Services
-3. Scannt Frontend: API-Client, Redux State, Routing, Komponenten
-4. Prueft 9 Kategorien: Injection, Auth, Access Control, Misconfiguration, Crypto, Input Validation, Rate Limiting, Logging, Frontend Security
-5. Behebt P0/P1-Schwachstellen direkt im Code
-6. Erstellt Report mit Tenant-Isolation-Matrix und priorisierten Findings
+**Output:** `spec/requirements-analysis/code-security-review.md` — Security-Audit, P0/P1/P2/P3 Findings, Compliance-Matrix
 
 ---
 
 ### `e2e-testcase-extractor`
 
-| | |
-|---|---|
-| **Modell** | opus |
-| **Tools** | Alle |
-| **Output** | `spec/test-cases/TC-{REQ-ID}.md` |
+**Modell:** sonnet | **Tools:** Read, Write, Glob, Grep
 
-**Rolle:** QA-Architekt, der Anforderungsdokumente systematisch auf testbare Szenarien analysiert und E2E-Testfall-Dokumente aus Nutzer-Perspektive ableitet.
+**Rolle:** Elite QA-Architekt, der E2E-Testfälle aus Spezifikationen aus der Endbenutzerperspektive (Browser-Sicht) systematisch ableitet.
 
 ??? example "Wann einsetzen?"
-    - Testfaelle aus REQ-Dokumenten extrahieren
-    - Testabdeckungs-Luecken identifizieren
-    - Traceability zwischen Requirements und Tests etablieren
-    - RAG-optimierte Testfall-Dokumentation erstellen
+    - Spezifikationen vorliegen und Testfälle benötigt
+    - Testabdeckung gegen Spec abgleichen
+    - RAG-optimierte Testfall-Dokumente erstellen
+    - Requirement-Traceability etablieren
 
 **Workflow:**
+1. Spezifikationen einlesen und nach testbaren Szenarien decomposieren
+2. Für jedes UI-Element Test Cases ableiten (Happy Path + Fehler)
+3. Testfälle strukturieren: Preconditions → Test Steps → Expected Results
+4. RAG-Metadaten (Frontmatter, Tags) hinzufügen
+5. Strukturierte Testfall-Dateien generieren
 
-1. Liest Anforderungsdokumente (REQ-\*/NFR-\*)
-2. Zerlegt Anforderungen in testbare Szenarien (Happy Path, Edge Cases, Fehler)
-3. Leitet aus Nutzer-Sicht ab: Was sieht/klickt/erwartet der Anwender im Browser?
-4. Strukturiert Testfaelle nach TC-ID, Prioritaet, Kategorie
-5. Optimiert fuer RAG-Retrieval durch Semantics, Tags, Cross-References
+**Output:** `spec/test-cases/TC-{REQ-ID}.md` — RAG-optimierte Testfall-Dokumente mit Traceability
 
 ---
 
 ### `frontend-design-reviewer`
 
-| | |
-|---|---|
-| **Modell** | sonnet |
-| **Tools** | Read, Write, Glob, Grep |
-| **Output** | `spec/requirements-analysis/frontend-design-review.md` |
+**Modell:** sonnet | **Tools:** Read, Write, Glob, Grep
 
-**Rolle:** Frontend-Designer mit 15+ Jahren Responsive-Design- und Touch-Expertise fuer raue Arbeitsumgebungen (Gewaechshaus, Growraum).
+**Rolle:** Frontend-Designer mit 15+ Jahren Erfahrung in Responsive Design, Kiosk-Systemen und Touch-Interfaces für raue Arbeitsumgebungen.
 
 ??? example "Wann einsetzen?"
-    - UI/UX-Anforderungen auf Responsive Design pruefen (Mobile/Tablet/Desktop)
-    - Kiosk-Modus-Tauglichkeit bewerten (verschmutzte Haende, Handschuhe, Nase)
-    - Barrierefreiheit (WCAG 2.1 AA) ueberpruefen
-    - Touch-Target-Dimensionierungen validieren
-    - Design-System-Konformitaet pruefen
+    - UI/UX-Anforderungen reviewen
+    - Responsive Design (Mobile/Tablet/Desktop/Kiosk)
+    - Touch-Target-Größen validieren
+    - Kiosk-Modus mit verschmutzten Händen testen
 
 **Workflow:**
+1. Alle Anforderungen nach Bedienkontext klassifizieren
+2. Responsive Design prüfen (Breakpoints, Fluid Grids)
+3. Kiosk-Modus bewerten (64–72px Touch-Targets, Vereinfachung)
+4. Mobile Vor-Ort-Szenarien validieren
+5. Report mit Design-Findings und Wireframe-Vorschlägen
 
-1. Liest alle Anforderungsdokumente und Frontend-Code
-2. Klassifiziert nach Bedienkontext (Desktop/Mobile/Tablet/Kiosk)
-3. Prueft Responsive Design (Breakpoints, Layout-Adaptation, Typografie)
-4. Bewertet Kiosk-Modus: Touch-Targets (min. 64x64px), vereinfachte Interaktion
-5. Validiert Barrierefreiheit (Tastatur, ARIA, Kontraste)
-6. Erstellt Design-Review-Report mit Touch-Target-Audit
+**Output:** `spec/requirements-analysis/frontend-design-review.md` — Responsive-Matrix, Kiosk-Detailbewertung, Touch-Target-Audit, Wireframes
 
 ---
 
 ### `frontend-usability-optimizer`
 
-| | |
-|---|---|
-| **Modell** | sonnet |
-| **Tools** | Read, Write, Edit, Bash, Glob, Grep |
-| **Output** | Optimierter React/MUI-Code + Compliance-Report |
+**Modell:** sonnet | **Tools:** Read, Write, Edit, Bash, Glob, Grep
 
-**Rolle:** UX-Engineer und Frontend-Spezialist, der bestehende React/MUI-Formulare, Dialoge, Detail-Seiten und Listenansichten fuer maximale Usability optimiert. Arbeitet NUR auf bereits implementiertem Code.
+**Rolle:** UX-Engineer, der React/MUI-Komponenten nach Mobile-First-Prinzip für bessere Usability optimiert (Labels, Hilfstexte, Validierung, Layout).
 
 ??? example "Wann einsetzen?"
-    - Feldanordnung, Gruppierung und Labels in Formularen verbessern
-    - Hilfstexte, Einheiten und Validierungs-Feedback ergaenzen
-    - Leerzustaende und Ladezustaende implementieren
-    - Responsive Layout und Tab-Reihenfolge optimieren
-    - UI-NFR-Compliance sicherstellen (nach Fullstack-Developer)
+    - Nach Fullstack-Developer Feature-Implementierung
+    - Formulare und Dialoge optimieren
+    - Fachbegriff-Erklärungen (Tooltips) hinzufügen
+    - Responsive Layouts verbessern
 
 **Workflow:**
+1. Code einlesen und Usability-Probleme identifizieren
+2. Beschreibende Texte und Hilfstexte ergänzen
+3. Feldanordnung und Validierung optimieren
+4. Mobile-First Progressive Enhancement umsetzen
+5. UI-NFR-Compliance-Prüfung durchführen
+6. Tests durchführen und Zusammenfassung ausgeben
 
-1. Liest bestehenden Code und zugehoerige UI-NFR-Specs
-2. Identifiziert Usability-Probleme anhand Checklisten (Formulare, Darstellung, Accessibility, i18n)
-3. Implementiert Verbesserungen direkt im Code (Edit/Write)
-4. Ergaenzt i18n-Keys in DE + EN
-5. Fuehrt UI-NFR-Compliance-Pruefung durch (MUSS/SOLL/KANN)
-6. Verifiziert mit `tsc --noEmit` und `eslint`
+**Output:** Optimierter Code in `src/frontend/` + Zusammenfassung mit Usability-Verbesserungen und Compliance-Checks
 
 ---
 
 ### `fullstack-developer`
 
-| | |
-|---|---|
-| **Modell** | opus |
-| **Tools** | Read, Write, Edit, Bash, Glob, Grep |
-| **Output** | Produktionsreifer Code |
+**Modell:** opus | **Tools:** Read, Write, Edit, Bash, Glob, Grep
 
-**Rolle:** Senior Full-Stack-Entwickler mit vollstaendiger Produktions-Expertise im definierten Tech-Stack (Python/FastAPI/ArangoDB/React/Kubernetes).
+**Rolle:** Senior Full-Stack-Entwickler, der Features vollständig (Backend FastAPI + Frontend React) unter strikter Einhaltung aller NFRs umsetzt.
 
 ??? example "Wann einsetzen?"
-    - Features implementieren (Backend + Frontend komplett)
-    - APIs entwerfen und bauen
-    - React-Komponenten entwickeln
-    - Datenbankschemas designen (ArangoDB/TimescaleDB)
-    - Celery-Tasks und Helm-Charts erstellen
-    - Bestehenden Code refactoren
+    - Features implementieren (Backend+Frontend)
+    - APIs entwerfen und schreiben
+    - Datenbankschemas erstellen
+    - React-Komponenten bauen
+    - Celery-Tasks schreiben
 
 **Workflow:**
+1. Anforderungs-Spezifikationen einlesen
+2. Backend: ArangoDB-Modelle, APIs, Services, Tests
+3. Frontend: React-Komponenten, Redux-Slices, Tests
+4. Alle NFRs und UI-NFRs einhalten
+5. Unit-Tests schreiben und validieren
 
-1. Liest relevante Anforderungsdokumente und NFRs
-2. Implementiert Backend: FastAPI-Router, Pydantic-Models, Services/Engines, ArangoDB-Repositories
-3. Schreibt Fehlerbehandlung (NFR-006), Resilience-Patterns (NFR-007), Logging (structlog)
-4. Implementiert Frontend: React-Komponenten mit TypeScript strict, Redux, MUI, i18n
-5. Schreibt Tests (pytest Backend, vitest Frontend)
-6. Erstellt Helm-Charts (bjw-s/common) mit Health Checks
-7. Validiert Ruff/ESLint, TypeScript strict
+**Output:** Produktionsreife Implementierung in Backend + Frontend mit Tests, der `unit-test-runner` kann grün werden
 
 ---
 
 ### `gemini-graphic-prompt-generator`
 
-| | |
-|---|---|
-| **Modell** | sonnet |
-| **Tools** | Read, Write, Glob, Grep |
-| **Output** | `spec/ref/graphic-prompts/<typ>_<name>.md` |
+**Modell:** sonnet | **Tools:** Read, Write, Glob, Grep
 
-**Rolle:** Visual Design Director und Prompt Engineer, der praezise Gemini-Bildgenerierungs-Prompts im Kamerplanter Corporate Design erstellt (Primary Green #2e7d32/#66bb6a, Secondary Indigo #5c6bc0/#9fa8da).
+**Rolle:** Visual Design Director, der präzise, produktionsreife Google Gemini Prompts für Icons, Illustrationen und Marketing-Material generiert.
 
 ??? example "Wann einsetzen?"
-    - App-Icons, Logos, Feature-Icons erstellen
-    - Illustrationen fuer Leerseiten, Onboarding, 404-Seiten
-    - Hero-Banner und Marketing-Material
-    - Badges, Patterns, Diagramme
-    - Light/Dark-Mode-Varianten von Grafiken
+    - Icons und Illustrationen für die App
+    - Onboarding-Bilder, Leerseiten-Grafiken
+    - Corporate-Design-Grafiken (Grün #2e7d32)
+    - Light/Dark-Mode-Varianten
 
 **Workflow:**
+1. Design-Anforderungen analysieren
+2. Kamerplanter Corporate Design anwenden (Farben, Stil)
+3. Gemini-Prompts mit Design-Details schreiben
+4. Light/Dark-Mode-Varianten spezifizieren
+5. Qualitäts-Kriterien (Transparenz, Auflösung) definieren
 
-1. Liest Kami-Charakter-Referenz (PFLICHT) und ggf. Theme-Dateien
-2. Klassifiziert Grafiktyp (app-icon, illustration, empty-state, onboarding, hero, badge, etc.)
-3. Konstruiert Prompt: Stil-Anweisung + exakte Hex-Farbwerte + Motivbeschreibung + Komposition + Negative Prompts
-4. Erstellt Light/Dark-Varianten mit modusgerechtem Kontrast
-5. Generiert Prompt-Dokument mit Nachbearbeitungs-Checkliste
+**Output:** Gemini Image Generation Prompts für Designer/Marketing — z.B. für Icons, Illustrationen
+
+---
+
+### `growing-phase-auditor`
+
+**Modell:** sonnet | **Tools:** Read, Write, Edit, Glob, Grep, Bash, WebSearch, WebFetch
+
+**Rolle:** Gartenbau-Wissenschaftler, der Wachstumsphasen-Daten (bloom_months, harvest_months, etc.) in Seed-YAML auf biologische Korrektheit und chronologische Konsistenz prüft.
+
+??? example "Wann einsetzen?"
+    - Pflanzenphasen-Daten validieren und korrigieren
+    - bloom_months, direct_sow_months, harvest_months prüfen
+    - Biologische Plausibilität (Eisheiligen, Frost, Vernalisation)
+    - YAML-Dateien direkt korrigieren
+
+**Workflow:**
+1. Alle Seed-YAML-Dateien einlesen
+2. Gegen 5 Prüfregeln validieren (Lückenloses, Biologie, Plausibilität)
+3. Korrektur-Vorschläge mit WebSearch-Verifikation
+4. YAML-Dateien direkt mit Edit-Tool korrigieren
+5. Report mit Findings und Korrektionen erstellen
+
+**Output:** Korrigierte YAML-Dateien + `spec/requirements-analysis/growing-phase-audit.md` mit Findings und Verifikation
 
 ---
 
 ### `ha-integration-requirements-engineer`
 
-| | |
-|---|---|
-| **Modell** | sonnet |
-| **Tools** | Read, Write, Glob, Grep |
-| **Output** | `spec/ha-integration/HA-REQ-{nnn}_{kurztitel}.md` |
+**Modell:** sonnet | **Tools:** Read, Write, Glob, Grep
 
-**Rolle:** Senior HA Custom Integration Entwickler mit Agrar-IoT-Spezialisierung, der aus bestehenden REQ-Dokumenten konkrete, implementierbare HA-Integrationsanforderungen ableitet. Nutzt das Drei-Seiten-Modell (A: KP->HA Export, B: HA->KP Import, C: KP->HA Aktorik).
+**Rolle:** Home Assistant Specialist mit 8+ Jahren HACS-Integration-Entwicklung, der aus REQ-Dokumenten konkrete HA-Integrations-Anforderungen ableitet.
 
 ??? example "Wann einsetzen?"
-    - Aus REQ-Dokumenten HA-spezifische Entity-Mappings ableiten
-    - Coordinator-Strukturen und Polling-Intervalle entwerfen
-    - Event-Schemas (MQTT) fuer zeitkritische Zustandsaenderungen spezifizieren
-    - Automation-Blueprints aus Domaenenlogik ableiten
-    - Backend-API-Erweiterungen fuer HA-Integration identifizieren
+    - Home Assistant Integration planen
+    - Entity-Mappings und Coordinators entwerfen
+    - Service-Calls spezifizieren
     - HA-CUSTOM-INTEGRATION.md erweitern
 
 **Workflow:**
+1. REQ-Dokumente einlesen
+2. Drei-Seiten-Modell anwenden (Export A, Import B, Control C)
+3. Entity-Taxonomien definieren
+4. Coordinator-Datenstrukturen entwerfen
+5. API-Anforderungen spezifizieren
 
-1. Liest bestehende HA-Integrations-Spec und Review-Ergebnisse
-2. Analysiert Ziel-REQ-Dokumente auf Domaenen-Events, berechnete Werte, Schwellwerte
-3. Designed Entity-Taxonomie (sensor, binary_sensor, calendar, todo, button, number, select)
-4. Prueft API-Abhaengigkeiten (existiert der Endpoint? Neuer noetig?)
-5. Definiert Steuerungsgrenze (Seite C: KP steuert vs. HA regelt)
-6. Erstellt Automation-Blueprints als YAML
-7. Bewertet Optionalitaet und Degradationsverhalten
+**Output:** `spec/ha-integration/HA-CUSTOM-INTEGRATION.md` — Entity-Mappings, Coordinators, Services, Events
+
+---
+
+### `ha-integration-sync`
+
+**Modell:** opus | **Tools:** Read, Write, Edit, Bash, Glob, Grep
+
+**Rolle:** Home Assistant Integration Developer, der die kamerplanter-ha Custom Integration mit der aktuellen Backend-API synchronisiert, ohne bestehende Fachlogik zu verändern.
+
+??? example "Wann einsetzen?"
+    - Backend-API ändern sich (neue Endpunkte)
+    - HA-Integration muss nachgezogen werden
+    - API-Schemas ändern sich
+
+**Workflow:**
+1. Backend-API-Endpunkte erfassen
+2. HA-API-Client (api.py) analysieren
+3. Delta-Analyse durchführen (neue/geänderte Endpunkte)
+4. Koordinator-, Sensor-, Service-Code anpassen
+5. HA-Integration deployen
+
+**Output:** Aktualisierte HA-Integration-Dateien + Deploy-Anweisungen
 
 ---
 
 ### `it-security-requirements-reviewer`
 
-| | |
-|---|---|
-| **Modell** | sonnet |
-| **Tools** | Read, Write, Glob, Grep |
-| **Output** | `spec/requirements-analysis/it-security-review.md` |
+**Modell:** sonnet | **Tools:** Read, Write, Glob, Grep
 
-**Rolle:** IT-Security-Architekt und Datenschutzexperte mit 15+ Jahren Praxis (OWASP, IAM, DSGVO, Kryptographie), der Anforderungsdokumente auf Sicherheitsluecken, fehlende Zugriffskontrollen und DSGVO-Konformitaet prueft.
+**Rolle:** IT-Security-Architekt mit 15+ Jahren Erfahrung, der Anforderungen auf Sicherheit, Datenschutz und DSGVO-Compliance prüft.
 
 ??? example "Wann einsetzen?"
-    - Datensparsamkeit (Art. 5 DSGVO) pruefen: Werden nur notwendige Daten erfasst?
-    - Auth-Luecken finden: Endpunkte ohne definierte Zugriffskontrolle
-    - RBAC-Vollstaendigkeit validieren: Berechtigungsmatrix lueckenlos?
-    - DSGVO-Betroffenenrechte (Art. 12-22) auf Vollstaendigkeit pruefen
-    - API-Sicherheit: Input-Validierung, CORS, Rate Limiting
-    - Verschluesselung und Secret Management bewerten
+    - Anforderungen auf Sicherheitslücken prüfen
+    - Authentifizierung, Autorisierung, Encryption
+    - DSGVO-Compliance validieren
+    - Datensparsamkeit prüfen
 
 **Workflow:**
+1. Alle Anforderungen einlesen
+2. Sicherheits-Index erstellen (Daten, Zugriff, Schnittstellen)
+3. Datenschutz-Anforderungen (DSGVO Art. 15–21) validieren
+4. OWASP ASVS gegen Specs abgleichen
+5. Report mit Security-Lücken und DSGVO-Empfehlungen
 
-1. Liest Referenz-Specs (REQ-023, REQ-024, NFR-001, NFR-006) als Soll-Zustand
-2. Erstellt Sicherheitsindex aller Anforderungen (Daten, Zugriffskontrolle, Schnittstellen)
-3. Prueft Datensparsamkeit, Authentifizierung, Autorisierung, API-Sicherheit
-4. Prueft Verschluesselung, Secret Management, Infrastruktur
-5. Validiert DSGVO-Konformitaet (Betroffenenrechte, Einwilligung, AVV)
-6. Erstellt Report mit Datensparsamkeits-Matrix, Autorisierungs-Matrix, DSGVO-Checkliste
+**Output:** `spec/requirements-analysis/it-security-review.md` — Sicherheitsbewertung, DSGVO-Audit, Empfehlungen
 
 ---
 
 ### `mkdocs-documentation`
 
-| | |
-|---|---|
-| **Modell** | opus |
-| **Tools** | Read, Write, Edit, Bash, Glob, Grep |
-| **Output** | `docs/` (DE + EN) |
+**Modell:** sonnet | **Tools:** Read, Write, Edit, Bash, Glob, Grep
 
-**Rolle:** Technical Writer mit MkDocs-Material-Expertise, der endnutzerfreundliche, mehrsprachige Dokumentation erstellt und pflegt.
+**Rolle:** Technical Writer und Documentation Engineer, der endnutzerfreundliche, mehrsprachige Dokumentation im MkDocs-Material-Format erstellt und pflegt.
 
 ??? example "Wann einsetzen?"
-    - Endnutzer-Dokumentation (User Guides, Tutorials)
-    - Architektur-Dokumentation (ADRs, Developer Guides)
-    - API-Dokumentation aus Docstrings generieren
-    - Dokumentations-Versionierung (mike)
-    - Mehrsprachigkeit (DE/EN) verwalten
+    - Dokumentationsseiten erstellen/aktualisieren
+    - ADRs (Architecture Decision Records) schreiben
+    - Guides und Tutorials verfassen
+    - API-Docs generieren
 
 **Workflow:**
+1. Dokumentation im MkDocs-Material-Format schreiben
+2. Deutsch und Englisch parallel (i18n)
+3. Mermaid-Diagramme für Visualisierungen verwenden
+4. mkdocstrings für API-Docs aus Docstrings
+5. lokale mkdocs-Vorschau testen
 
-1. Liest Spezifikationen auf fachliche Inhalte
-2. Erstellt Seitenstruktur (DE/EN parallel)
-3. Schreibt aufgabenorientierte Endnutzer-Docs mit Screenshots
-4. Erstellt Architecture Decision Records (ADRs)
-5. Konfiguriert mkdocs.yml mit Material-Theme und Plugins
-6. Setzt Versionierung mit mike auf
+**Output:** `docs/de/` und `docs/en/` — Benutzer- und Admin-Dokumentation
 
 ---
 
 ### `outdoor-garden-planner-reviewer`
 
-| | |
-|---|---|
-| **Modell** | sonnet |
-| **Tools** | Read, Write, Glob, Grep |
-| **Output** | `spec/requirements-analysis/outdoor-garden-planner-review.md` |
+**Modell:** sonnet | **Tools:** Read, Write, Glob, Grep
 
-**Rolle:** Passionierte Hobbygartnerin mit 400 m2 Hausgarten + 80 m2 Gemeinschaftsgarten-Parzelle (15 Jahre Erfahrung, ~120 Pflanzen), die Anforderungen auf Freiland-Tauglichkeit prueft.
+**Rolle:** Ambitionierte Hobbygärtnerin mit 15 Jahren Freiland-Garten + 80m² Gemeinschaftsgarten-Parzelle, die Anforderungen auf Praktikabilität und Alltags-Relevanz prüft.
 
 ??? example "Wann einsetzen?"
-    - Beetplanung und 4-Jahres-Fruchtfolge validieren
-    - Ueberwinterungsmanagement pruefen (Frostschutz, Knollen ausgraben, Kuebelpflanzen einraeumen)
-    - Mehrjaehrige Pflanzen (Stauden, Obstbaeume, Beerensstraeucher) ueber Jahre verfolgen
-    - Gemeinschaftsgarten-Koordination bewerten (Giessdienst, Aufgabenverteilung, Parzellen)
-    - Saisonkalender und phaenologische Zeiger pruefen
-    - Organische Duengung (Kompost, Brennnesseljauche) statt EC-Werte
+    - Freiland-Anbau-Features reviewen
+    - Überwinterung, Fruchtfolge, Mischkultur validieren
+    - Gemeinschaftsgarten-Funktionen prüfen
+    - Seasonal Planning und Phenologie-Integration
 
 **Workflow:**
+1. Anforderungen aus Hobbygärtner-Perspektive lesen
+2. Gartenleben-Workflows identifizieren
+3. Freiland-Alltagstauglichkeit bewerten
+4. Fruchtfolge, Überwinterung, Mischkultur-Features validieren
+5. Report mit praktischen Hinweisen und Verbesserungsvorschlägen
 
-1. Liest alle Anforderungsdokumente
-2. Ordnet Anforderungen 8 Gartenalltags-Workflows zu (Jahresplanung, Voranzucht, Auspflanzen, Pflege, Ueberwinterung, Mehrjaehrige, Gemeinschaftsgarten, Dokumentation)
-3. Prueft Beetplanung, Mischkultur, Fruchtfolge
-4. Bewertet Ueberwinterungs-Features (Winterhaerte-Ampel, Frostwarnung, Knollen-Zyklus)
-5. Validiert Gemeinschaftsgarten-Features (Multi-Tenancy, Giessdienst-Rotation)
-6. Erstellt Report mit Saisonkalender, Ueberwinterungs-Checkliste, Gemeinschaftsgarten-Anforderungen
+**Output:** `spec/requirements-analysis/outdoor-garden-planner-review.md` — Hobbygärtner-Perspektive, Praxis-Feedback
 
 ---
 
 ### `plant-info-document-generator`
 
-| | |
-|---|---|
-| **Modell** | sonnet |
-| **Tools** | Read, Write, Glob, Grep, WebSearch, WebFetch |
-| **Output** | `spec/ref/plant-info/<scientific_name_snake_case>.md` |
+**Modell:** sonnet | **Tools:** Read, Write, Glob, Grep, WebSearch, WebFetch
 
-**Rolle:** Agrar-Botaniker und Pflanzenberater mit 20+ Jahren Praxis, der detaillierte Pflanzen-Informationsdokumente fuer den Kamerplanter-Datenimport (REQ-012) generiert.
+**Rolle:** Agrar-Botaniker mit 20+ Jahren Praxis (Gärtnerei, Indoor-Growing, Schrebergarten), der detaillierte Pflanzen-Steckbriefe recherchiert und dokumentiert.
 
 ??? example "Wann einsetzen?"
-    - Pflanzen-Steckbriefe fuer den Datenimport erstellen
-    - Botanische Daten (Taxonomie, Phasen, Naehrstoffe) recherchieren
-    - IPM-Informationen (Schaedlinge, Nuetzlinge, Behandlungen) zusammenstellen
-    - Fruchtfolge- und Mischkultur-Empfehlungen dokumentieren
-    - Pflegeprofile (CareProfile, OverwinteringProfile) fuer Arten erstellen
-    - CSV-Import-Daten (REQ-012-kompatibel) generieren
+    - Pflanzen-Steckbriefe für Datenbank erstellen
+    - Kultur-, Dünge- und Pflegeinformationen recherchieren
+    - Import-Dokumente (REQ-012) erzeugen
+    - Botanische Daten zusammenstellen
 
 **Workflow:**
+1. Nutzereingabe analysieren (Pflanzenname, Liste)
+2. Wissenschaftliche Namen recherchieren
+3. Taxonomie, Phasen, Nährstoffe, IPM, Mischkultur erfassen
+4. Quellen verifizieren (RHS, USDA, DWD)
+5. Strukturiertes Dokument für Datenimport ausgeben
 
-1. Identifiziert Pflanzenart (wissenschaftlicher Name, Familie, Gattung)
-2. Recherchiert via WebSearch: Taxonomie, Phasen, Naehrstoffe, IPM, Pflege, Mischkultur
-3. Erstellt strukturiertes Dokument mit KA-Feldnamen-Referenzen
-4. Dokumentiert Duengerprodukte (mineralisch + organisch, mit Marken)
-5. Generiert CSV-Import-Zeilen fuer Species und Cultivars
-6. Markiert Datenluecken mit `<!-- DATEN FEHLEN -->`
+**Output:** Detaillierte Pflanzen-Informationsdokumente für Datenimport
 
 ---
 
 ### `png-to-transparent-svg`
 
-| | |
-|---|---|
-| **Modell** | — (erbt vom Parent) |
-| **Tools** | Read, Write, Bash, Glob |
-| **Output** | SVG-Dateien neben den Quell-PNGs |
+**Modell:** haiku | **Tools:** Read, Write, Bash, Glob
 
-**Rolle:** Bildverarbeitungs-Spezialist fuer die Konvertierung von PNG-Bildern mit eingebranntem Schachbrett-Hintergrund (fake transparency) in saubere SVGs mit echter Transparenz.
+**Rolle:** Bildverarbeitungs-Spezialist, der PNG-Bilder mit Schachbrett-Hintergrund in saubere SVGs mit echter Transparenz konvertiert.
 
 ??? example "Wann einsetzen?"
-    - PNGs aus KI-Bildgeneratoren (Gemini, DALL-E, Midjourney) konvertieren
-    - Screenshots mit Schachbrett-Hintergrund bereinigen
-    - PNGs mit einfarbigem Hintergrund transparent machen
-    - Batch-Konvertierung mehrerer PNGs zu SVG
+    - KI-generierte Icons mit Schachbrett-Hintergrund konvertieren
+    - Gemini/DALL-E/Midjourney Images zu SVG
+    - Screenshots mit Schachbrett zu SVG
 
 **Workflow:**
+1. PNG-Input analysieren (Alpha-Kanal prüfen)
+2. Schachbrettmuster erkennen und entfernen
+3. Bereinigtes PNG mit echter Alpha-Transparenz erzeugen
+4. PNG mit vtracer zu SVG vektorisieren
+5. SVG-Datei speichern
 
-1. Analysiert PNG: Alpha-Kanal, Ecken-Analyse (Schachbrett? Einfarbig? Bereits transparent?)
-2. Entfernt Schachbrett-Pixel (Spread<=8, Min-Brightness>195 → transparent)
-3. Speichert bereinigtes PNG mit echtem Alpha-Kanal
-4. Vektorisiert mit vtracer (color mode, stacked hierarchy)
-5. Validiert SVG: Hintergrund-Pfad entfernt? Dateigroesse akzeptabel?
-6. Erstellt Ergebnis-Report (Pixel entfernt, SVG-Groesse)
+**Output:** Transparente SVG-Dateien → `assets/icons/` oder benutzerdefinierter Zielordner
+
+---
+
+### `pr-to-develop`
+
+**Modell:** sonnet | **Tools:** Read, Bash, Glob, Grep
+
+**Rolle:** Release Engineer, der GitHub Pull Requests von Feature-Branches nach `develop` mit CI-Validierung und aussagekräftiger Dokumentation vorbereitet.
+
+??? example "Wann einsetzen?"
+    - Feature-Branch ist fertig implementiert
+    - PR nach develop erstellen
+    - CI-Tests validieren (GitHub Actions)
+    - Code-Review vorbereiten
+
+**Workflow:**
+1. Branch-Analyse (Commits seit develop)
+2. Geänderte Dateien analysieren (Backend/Frontend/Spec)
+3. REQ/NFR-Nummern identifizieren
+4. PR-Titel und ausführliche Beschreibung erstellen
+5. Labels setzen und auf CI warten
+
+**Output:** GitHub Pull Request nach `develop` mit Titel, Beschreibung, Labels, CI-Status
 
 ---
 
 ### `requirements-contradiction-analyzer`
 
-| | |
-|---|---|
-| **Modell** | sonnet |
-| **Tools** | Read, Write, Glob, Grep, Bash |
-| **Output** | `spec/requirements-analysis/contradiction-report.md` + `requirements-index.json` |
+**Modell:** sonnet | **Tools:** Read, Write, Glob, Grep, Bash
 
-**Rolle:** Requirements Engineer, der Anforderungsdokumente nach Widerspruechen, Luecken und Qualitaetsproblemen prueft.
+**Rolle:** Requirements Engineer, der Anforderungsdokumente mittels RAG auf Widersprüche zwischen funktionalen und non-funktionalen Anforderungen systematisch analysiert.
 
 ??? example "Wann einsetzen?"
-    - Anforderungen auf Konsistenz pruefen (FA vs. NFA)
-    - Widersprueche zwischen Requirements und Stack identifizieren
-    - Nicht messbare NFAs praezisieren
-    - Anforderungsqualitaet sicherstellen vor Implementierung
+    - Anforderungen auf Konsistenz prüfen
+    - Widersprüche finden (FA vs. NFA)
+    - Spezifikations-Quality sicherstellen
+    - QA-Vorbereitung
 
 **Workflow:**
+1. Alle Anforderungs-Dokumente einlesen (RAG-Retrieval)
+2. Anforderungen klassifizieren (FA/NFA)
+3. Anforderungs-Index aufbauen
+4. Systematisch auf Widersprüche prüfen
+5. Report mit Widerspruch-Findings generieren
 
-1. Sammelt alle Dokumente (spec/req/, spec/nfr/, spec/ui-nfr/)
-2. Klassifiziert Anforderungen (Funktional, Performance, Sicherheit, Usability)
-3. Erstellt Anforderungs-Index mit eindeutigen IDs
-4. Prueft auf 6 Widerspruchstypen (direkt, implizit, Priorisierung, Scope, zeitlich, zwischen NFAs)
-5. Bewertet nach Schweregrad (Kritisch/Hoch/Mittel/Niedrig)
-6. Erstellt Report mit Loesungsoptionen und maschinenlesbarem Index
+**Output:** `spec/requirements-analysis/contradiction-analysis.md` — Widersprüche, Inkonsistenzen, Empfehlungen
+
+---
+
+### `seed-data-validator`
+
+**Modell:** sonnet | **Tools:** Read, Write, Glob, Grep, Bash, WebSearch, WebFetch
+
+**Rolle:** Datenqualitäts-Ingenieur, der YAML-Seed-Daten auf Vollständigkeit, Konsistenz, referenzielle Integrität und botanische Plausibilität prüft.
+
+??? example "Wann einsetzen?"
+    - Seed-Daten auf Qualität prüfen
+    - Fehlende Pflichtfelder finden
+    - Schema-Konformität validieren
+    - Dünger-Produkte verifizieren (3-Quellen-Check)
+
+**Workflow:**
+1. YAML-Seed-Dateien einlesen
+2. Schema-Konformität prüfen
+3. Referenzielle Integrität validieren
+4. Botanische Plausibilität bewerten (optional Agrobiology-Reviewer)
+5. Multi-Source-Verifikation (Hersteller, SDS, Händler)
+6. Report mit Data Quality Findings
+
+**Output:** `spec/requirements-analysis/seed-data-validation.md` — Datenqualitäts-Report mit Findings
 
 ---
 
 ### `selenium-test-generator`
 
-| | |
-|---|---|
-| **Modell** | sonnet |
-| **Tools** | Read, Write, Edit, Glob, Grep, Bash |
-| **Output** | `tests/e2e/` (Python-Selenium-Tests) |
+**Modell:** opus | **Tools:** Read, Write, Edit, Glob, Grep, Bash
 
-**Rolle:** QA-Ingenieur, der aus Testfall-Dokumenten oder Anforderungen NFR-008-konforme Python-Selenium-Tests mit Page-Object-Pattern generiert.
+**Rolle:** QA-Ingenieur und Selenium-Experte, der NFR-008-konforme Python-Selenium-Tests mit Page-Object-Pattern und Screenshot-Checkpoints generiert.
 
 ??? example "Wann einsetzen?"
-    - Selenium-E2E-Tests generieren oder erweitern
-    - Test-Code aus Testfall-Dokumenten erzeugen
-    - Page Objects fuer neue Seiten/Workflows erstellen
-    - Testprotokoll-Generierung implementieren
+    - E2E-Tests generieren aus Testfall-Dokumenten
+    - Selenium-Tests für Features schreiben
+    - Testfall-Dokumente in Python-Tests konvertieren
 
 **Workflow:**
+1. NFR-008 und Testfall-Dokumente lesen
+2. Anforderungen analysieren (testbar)
+3. Page-Objects erstellen
+4. Test-Klassen mit pytest generieren
+5. Screenshot- und Protokoll-Funktionalität integrieren
+6. Tests lokal validieren
 
-1. Liest NFR-008 und Anforderungsdokumente
-2. Erstellt conftest.py mit Browser-Fixture und CLI-Optionen
-3. Generiert ProtocolPlugin fuer Testprotokoll-Generierung
-4. Erstellt BasePage und Feature-spezifische Page Objects
-5. Schreibt Test-Klassen mit Screenshot-Checkpoints an 4 definierten Stellen
-6. Validiert Struktur und Screenshot-Abdeckung
+**Output:** `tests/e2e/test_*.py` — NFR-008-konforme Selenium-Tests mit Protokoll-Generierung
 
 ---
 
 ### `selenium-test-reviewer`
 
-| | |
-|---|---|
-| **Modell** | sonnet |
-| **Tools** | Read, Edit, Grep, Glob, Bash |
-| **Output** | `test-reports/nfr-008-compliance-report.md` |
+**Modell:** sonnet | **Tools:** Read, Write, Edit, Glob, Grep, Bash
 
-**Rolle:** Senior QA-Ingenieur, der existierende Selenium-Tests auf NFR-008-Konformitaet, Code-Qualitaet und Best Practices prueft.
+**Rolle:** QA-Spezialist, der vorhandene Selenium-Tests auf Qualität, Wartbarkeit, Flakiness und NFR-008-Konformität reviewt und optimiert.
 
 ??? example "Wann einsetzen?"
-    - Existierende Tests auf NFR-008-Compliance ueberpruefen
-    - Test-Code debuggen und reparieren
-    - Anti-Patterns beheben (`time.sleep`, fragile Locators, direkte `find_element` in Tests)
+    - Selenium-Tests auf Qualität prüfen
+    - Test-Flakiness reduzieren
+    - Page-Object-Struktur optimieren
+    - NFR-008-Compliance validieren
 
 **Workflow:**
+1. Bestehende Selenium-Tests analysieren
+2. Auf NFR-008-Anforderungen prüfen
+3. Flakiness-Probleme identifizieren
+4. Code-Qualität, Wartbarkeit optimieren
+5. Report mit Empfehlungen erstellen
 
-1. Findet Tests unter `tests/e2e/`
-2. Prueft Verzeichnisstruktur (conftest.py, protocol_plugin.py, base_page.py)
-3. Validiert conftest.py auf CLI-Optionen, Browser-Fixture, Screenshot-Fixture
-4. Prueft Kernfunktions-Abdeckung (REQ-001/002/003/009)
-5. Auditet Screenshot-Checkpoints
-6. Identifiziert Code-Anti-Patterns
-7. Erstellt Compliance-Report
+**Output:** Optimierte Selenium-Tests + Qualitäts-Report
 
 ---
 
 ### `smart-home-ha-reviewer`
 
-| | |
-|---|---|
-| **Modell** | sonnet |
-| **Tools** | Read, Write, Glob, Grep |
-| **Output** | `spec/requirements-analysis/smart-home-ha-integration-review.md` |
+**Modell:** sonnet | **Tools:** Read, Write, Glob, Grep
 
-**Rolle:** Smart-Home-Enthusiast mit HA OS (300+ Entitaeten), 2 Growzelten und Gewaechshaus, der Anforderungen auf bidirektionale Home-Assistant-Integration prueft. Trennt klar zwischen Kamerplanter HA Custom Integration (HACS) und Kamerplanter-Backend-Anforderungen.
+**Rolle:** Home Assistant Integration Reviewer, der die kamerplanter-ha Custom Integration gegen Spezifikation und Best Practices prüft.
 
 ??? example "Wann einsetzen?"
-    - HA-Integrationsarchitektur bewerten (Seite A/B/C)
-    - Entitaeten-Export nach HA pruefen (Sensoren, Binary-Sensoren, Calendar)
-    - Sensor-Import aus HA validieren (Entity-Mapping, Fallback)
-    - Aktor-Steuerungsgrenze definieren (KP vs. HA)
-    - Optionalitaet sicherstellen (alles ohne HA nutzbar?)
-    - Ausfallverhalten bei HA-Offline bewerten
+    - HA-Integration gegen Spec validieren
+    - Entity-Mappings prüfen
+    - Coordinator-Logik reviewen
+    - Service-Calls und Events validieren
 
 **Workflow:**
+1. HA-Integration Code analysieren
+2. Gegen HA-CUSTOM-INTEGRATION.md prüfen
+3. Entity-Taxonomien validieren
+4. Coordinator-Datenfluss überprüfen
+5. Report mit Konformität und Optimierungen
 
-1. Liest alle Anforderungsdokumente
-2. Ordnet jede Anforderung einer Integrationsrichtung zu (A: KP->HA, B: HA->KP, C: Aktoren, nicht HA-relevant)
-3. Prueft API-Tauglichkeit fuer HA Custom Integration (Stabiliaet, Versionierung, Bulk-Endpoints)
-4. Bewertet Sensor-Import (Entity-Mapping, Polling, Fallback, Daten-Provenance)
-5. Definiert Steuerungsgrenze (Sollwert-Modell vs. Direktsteuerung)
-6. Erstellt Report mit Entitaeten-Landkarte, Optionalitaets-Checkliste, Automation-Blueprints
+**Output:** `spec/ha-integration/HA-REVIEW.md` — HA-Integration Review mit Findings
 
 ---
 
 ### `target-audience-analyzer`
 
-| | |
-|---|---|
-| **Modell** | sonnet |
-| **Tools** | Read, Write, Glob, Grep |
-| **Output** | `spec/requirements-analysis/target-audience-report.md` |
+**Modell:** sonnet | **Tools:** Read, Write, Glob, Grep
 
-**Rolle:** Produkt-Stratege mit AgriTech-Expertise, der Anforderungsdokumente auf implizite und explizite Zielgruppen analysiert.
+**Rolle:** Markt- und UX-Analyst, der die Zielgruppen, Personas und Marktpotenziale der Anwendung systematisch analysiert und dokumentiert.
 
 ??? example "Wann einsetzen?"
-    - Zielgruppen-Profile aus Anforderungen ableiten
-    - Unterversorgte Nutzergruppen identifizieren
-    - Neue Marktsegmente erkunden (Urban Farming, Vertical Farming, Hobbyanbau)
-    - Nutzer-Personas entwickeln
+    - Zielgruppen-Profiling
+    - Marktpotenzial-Analyse
+    - Personas entwickeln
+    - User-Research-Daten sammeln
 
 **Workflow:**
+1. Anforderungen und Kontexte analysieren
+2. Potenzielle Zielgruppen identifizieren
+3. Personas mit Zielen, Schmerzpunkten, Motivation erstellen
+4. Marktgröße und -potential schätzen
+5. Report mit Personas und Marktanalyse
 
-1. Liest alle Anforderungsdokumente vollstaendig
-2. Extrahiert explizite Zielgruppen-Signale (Rollenbezeichnungen)
-3. Leitet implizite Zielgruppen ab (Komplexitaet, Skalierung, Automatisierungsgrad)
-4. Erstellt Nutzergruppen-Profile mit Betriebsgroesse, technischer Affinitaet, Kernbeduerfnis
-5. Identifiziert unterversorgte Gruppen (Betriebstyp, Domaene, Rolle)
-6. Bewertet Potenziale nach Marktgroesse, Zahlungsbereitschaft, Anpassungsaufwand
-7. Erstellt Zielgruppen x Anwendungsgebiete-Matrix
+**Output:** `spec/requirements-analysis/target-audience-analysis.md` — Zielgruppen-Analyse, Personas, Marktpotenzial
 
 ---
 
 ### `tech-stack-architect`
 
-| | |
-|---|---|
-| **Modell** | sonnet |
-| **Tools** | Read, Write, Glob, Grep, WebSearch, WebFetch |
-| **Output** | `spec/requirements-analysis/tech-stack-review.md` |
+**Modell:** sonnet | **Tools:** Read, Write, Glob, Grep
 
-**Rolle:** Software- und Infrastruktur-Architekt mit 15+ Jahren Erfahrung, der den Tech-Stack systematisch gegen alle Anforderungen validiert.
+**Rolle:** Tech-Architekt, der den definierten Tech-Stack (FastAPI, React, ArangoDB, Redis, Kubernetes) gegen Anforderungen validiert und Technologie-Entscheidungen begründet.
 
 ??? example "Wann einsetzen?"
-    - Tech-Stack gegen funktionale und non-funktionale Anforderungen pruefen
-    - Technologie-Luecken identifizieren
-    - Versionskompatibilitaet ueberpruefen
-    - Architektur-Risiken bewerten
-    - Alternativen-Analysen durchfuehren
+    - Tech-Stack gegen Anforderungen validieren
+    - Technology-Choice-Decisions reviewen
+    - Dependency-Management prüfen
+    - Architektur-Entscheidungen dokumentieren
 
 **Workflow:**
+1. Anforderungen und NFRs einlesen
+2. Tech-Stack definieren (Backend, Frontend, Datenbanken, Infra)
+3. Anforderungen gegen Stack abgleichen
+4. Alternative Technologies bewerten
+5. Report mit Validierung und Begründungen
 
-1. Liest alle Anforderungsdokumente und `spec/stack.md`
-2. Erstellt Anforderungs-Register mit Stack-Implikationen
-3. Prueft Abdeckungsmatrix (jede Anforderung <-> Technologie)
-4. Bewertet jede Technologie nach Reife, Community, Betriebskomplexitaet, Security
-5. Analysiert Architektur-Patterns (Schichtenarchitektur, Persistenz, Caching)
-6. Identifiziert Risiken (Vendor Lock-in, EOL, Skill-Gaps)
-7. Prueft Querschnittsthemen (Auth, Secret Management, Monitoring, Backup)
-8. Erstellt Massnahmen-Plan mit Alternativen-Analysen
+**Output:** `spec/stack.md` oder Technology Decision Record — Tech-Stack-Validierung mit Begründungen
 
 ---
 
-### `agent-catalog-generator`
+### `unit-test-runner`
 
-| | |
-|---|---|
-| **Modell** | haiku |
-| **Tools** | Read, Write, Glob, Grep |
-| **Output** | `docs/de/development/agent-catalog.md` |
+**Modell:** sonnet | **Tools:** Read, Edit, Bash, Glob, Grep
 
-**Rolle:** Technical Writer, der alle Agent-Definitionen liest und ein kompaktes Katalogdokument generiert.
+**Rolle:** QA-Engineer und Test-Spezialist, der Unit-Tests (pytest, vitest) und statische Analyse (Ruff, ESLint, TypeScript) ausführt, Fehler analysiert und Fixes vorschlägt.
 
 ??? example "Wann einsetzen?"
-    - Onboarding neuer Entwickler
-    - Nach Hinzufuegen neuer Agents
-    - Zur Pflege einer zentralen Agent-Referenz
+    - Nach Feature-Implementierung durch Fullstack-Developer
+    - Unit-Tests ausführen und Fehler fixen
+    - Statische Analyse (Linting) durchführen
+    - Merge-Readiness validieren
 
 **Workflow:**
+1. Backend-Ruff (lint + format) ausführen
+2. Frontend-TypeScript und ESLint ausführen
+3. Backend-Unit-Tests (pytest) ausführen
+4. Frontend-Unit-Tests (vitest) ausführen
+5. Test-Fehler analysieren und minimal fixe implementieren
+6. Regressions-Check durchführen
+7. Report mit Test-Ergebnissen und Merge-Status
 
-1. Liest alle Agent-Definitionen aus `.claude/agents/*.md`
-2. Extrahiert Metadaten (Name, Modell, Tools, Beschreibung)
-3. Klassifiziert Agents nach Kategorie
-4. Erstellt Schnellreferenz und Einsatz-Entscheidungshilfe
-5. Generiert Katalogdokument mit Statistiken
+**Output:** Test-Ergebnisse + Testbericht — grüne Tests oder Fehleranalyse mit Fixes
 
 ---
 
@@ -746,156 +730,101 @@ Jeder Agent ist ein spezialisierter KI-Assistent mit einer klar definierten Roll
 
 !!! tip "Welchen Agent brauche ich?"
 
-    | Ich moechte... | Agent |
+    | Ich möchte... | Agent |
     |----------------|-------|
-    | ...ein Feature implementieren (Backend + Frontend) | `fullstack-developer` |
-    | ...bestehende UI-Seiten benutzerfreundlicher machen | `frontend-usability-optimizer` |
-    | ...implementierten Code auf Sicherheit pruefen | `code-security-reviewer` |
-    | ...den Tech-Stack gegen Anforderungen pruefen | `tech-stack-architect` |
-    | ...Anforderungen auf Widersprueche pruefen | `requirements-contradiction-analyzer` |
-    | ...Anforderungen auf Security/DSGVO pruefen | `it-security-requirements-reviewer` |
-    | ...fachliche Korrektheit (Botanik) pruefen | `agrobiology-requirements-reviewer` |
-    | ...aus Sicht eines Indoor-Growers pruefen | `cannabis-indoor-grower-reviewer` |
-    | ...aus Sicht eines Zimmerpflanzen-Laien pruefen | `casual-houseplant-user-reviewer` |
-    | ...aus Sicht einer Gartenplanerin pruefen | `outdoor-garden-planner-reviewer` |
-    | ...UI/UX und Kiosk-Modus pruefen | `frontend-design-reviewer` |
-    | ...HA-Integrationsarchitektur pruefen | `smart-home-ha-reviewer` |
-    | ...HA-Integrationsanforderungen ableiten | `ha-integration-requirements-engineer` |
-    | ...Zielgruppen und Marktpotenziale analysieren | `target-audience-analyzer` |
-    | ...E2E-Testfaelle aus Specs ableiten | `e2e-testcase-extractor` |
+    | ...den Tech-Stack gegen Anforderungen validieren | `tech-stack-architect` |
+    | ...Anforderungen auf Widersprüche prüfen | `requirements-contradiction-analyzer` |
+    | ...E2E-Testfälle aus Specs ableiten | `e2e-testcase-extractor` |
     | ...Selenium-Tests generieren | `selenium-test-generator` |
-    | ...bestehende Selenium-Tests reviewen | `selenium-test-reviewer` |
-    | ...Dokumentation erstellen/aktualisieren | `mkdocs-documentation` |
-    | ...Pflanzen-Steckbriefe generieren | `plant-info-document-generator` |
-    | ...Grafik-Prompts fuer Gemini erstellen | `gemini-graphic-prompt-generator` |
-    | ...PNG mit Schachbrett in SVG konvertieren | `png-to-transparent-svg` |
-    | ...eine Uebersicht aller Agents generieren | `agent-catalog-generator` |
+    | ...Selenium-Tests auf Qualität prüfen | `selenium-test-reviewer` |
+    | ...botanische Korrektheit der Anforderungen prüfen | `agrobiology-requirements-reviewer` |
+    | ...UI/UX und Kiosk-Modus validieren | `frontend-design-reviewer` |
+    | ...Formulare benutzerfreundlicher machen | `frontend-usability-optimizer` |
+    | ...Cannabis-Anbau-Anforderungen validieren | `cannabis-indoor-grower-reviewer` |
+    | ...Zielgruppen und Marktpotenzial analysieren | `target-audience-analyzer` |
+    | ...Freiland-Garten-Anforderungen prüfen | `outdoor-garden-planner-reviewer` |
+    | ...Laien-Tauglichkeit für Zimmerpflanzen-Features | `casual-houseplant-user-reviewer` |
+    | ...Home Assistant Integration planen | `ha-integration-requirements-engineer` |
+    | ...HA-Integration mit API synchronisieren | `ha-integration-sync` |
+    | ...HA-Integration gegen Spec prüfen | `smart-home-ha-reviewer` |
+    | ...Security-Anforderungen prüfen | `it-security-requirements-reviewer` |
+    | ...implementierten Code auf Sicherheit prüfen | `code-security-reviewer` |
+    | ...Features implementieren (Backend + Frontend) | `fullstack-developer` |
+    | ...Unit-Tests und statische Analyse ausführen | `unit-test-runner` |
+    | ...Pflanzenphasen-Daten validieren | `growing-phase-auditor` |
+    | ...Seed-Daten auf Qualität prüfen | `seed-data-validator` |
+    | ...Pflanzen-Steckbriefe recherchieren | `plant-info-document-generator` |
+    | ...MkDocs-Dokumentation erstellen | `mkdocs-documentation` |
+    | ...GitHub PR nach develop vorbereiten | `pr-to-develop` |
+    | ...Gemini Image Generation Prompts erstellen | `gemini-graphic-prompt-generator` |
+    | ...PNG mit Schachbrett zu SVG konvertieren | `png-to-transparent-svg` |
+    | ...Agenten-Katalog aktualisieren | `agent-catalog-generator` |
 
 ---
 
-## Workflow-Phasen: Typische Einsatzreihenfolge
+## Hinweise für Entwickler
 
-### Phase 1: Spezifikation & Review
-
-```mermaid
-graph LR
-    SPEC["Anforderungsdokumente<br/>(spec/)"]
-
-    SPEC --> RCA["requirements-contradiction-analyzer"]
-    SPEC --> ARR["agrobiology-requirements-reviewer"]
-    SPEC --> ISR["it-security-requirements-reviewer"]
-    SPEC --> TSA["tech-stack-architect"]
-    SPEC --> TAA["target-audience-analyzer"]
-```
-
-Die Analyse-Agents laufen **parallel** auf den Spezifikationen und identifizieren Luecken, Widersprueche und Risiken.
-
-### Phase 2: Persona-Reviews
-
-```mermaid
-graph LR
-    SPEC["Anforderungsdokumente"]
-
-    SPEC --> CIG["cannabis-indoor-grower-reviewer"]
-    SPEC --> CHU["casual-houseplant-user-reviewer"]
-    SPEC --> OGP["outdoor-garden-planner-reviewer"]
-    SPEC --> SHA["smart-home-ha-reviewer"]
-    SPEC --> FDR["frontend-design-reviewer"]
-```
-
-Persona-Reviews laufen **parallel** und pruefen ob alle Zielgruppen abgedeckt sind. Ergebnisse fliessen als Spec-Erweiterungen zurueck.
-
-### Phase 3: HA-Integration
-
-```mermaid
-graph LR
-    SHA["smart-home-ha-reviewer<br/><i>Review</i>"]
-    SHA --> HIRE["ha-integration-requirements-engineer<br/><i>Anforderungen ableiten</i>"]
-```
-
-Der HA-Requirements-Engineer baut auf dem Review des Smart-Home-Reviewers auf.
-
-### Phase 4: Implementierung
-
-```mermaid
-graph LR
-    SPEC["Spezifikationen + Reviews"]
-    SPEC --> FSD["fullstack-developer<br/><i>Feature-Implementierung</i>"]
-    FSD --> FUO["frontend-usability-optimizer<br/><i>UX-Optimierung</i>"]
-    FSD --> CSR["code-security-reviewer<br/><i>Security-Audit</i>"]
-```
-
-Fullstack-Developer implementiert, danach optimiert der Usability-Optimizer die UI und der Code-Security-Reviewer prueft die Sicherheit.
-
-### Phase 5: Testing
-
-```mermaid
-graph LR
-    SPEC["Spezifikationen"]
-    SPEC --> TCE["e2e-testcase-extractor<br/><i>Testfall-Ableitung</i>"]
-    TCE --> STG["selenium-test-generator<br/><i>Test-Implementierung</i>"]
-    STG --> STR["selenium-test-reviewer<br/><i>QA-Validierung</i>"]
-```
-
-Testfaelle werden aus Specs abgeleitet, als Selenium-Tests implementiert und dann auf Konformitaet geprueft.
-
-### Phase 6: Dokumentation & Assets
-
-```mermaid
-graph LR
-    FSD["Implementierter Code"]
-    FSD --> MKD["mkdocs-documentation<br/><i>Nutzer-Docs</i>"]
-    FSD --> PIG["plant-info-document-generator<br/><i>Pflanzen-Daten</i>"]
-    FSD --> GPG["gemini-graphic-prompt-generator<br/><i>Grafik-Prompts</i>"]
-    GPG --> PTS["png-to-transparent-svg<br/><i>SVG-Konvertierung</i>"]
-```
+- **Agent starten:** `/agent <agent-name>` im Claude Code Chat
+- **Reports:** Analyse-Agents schreiben zu `spec/requirements-analysis/`, Selenium-Reports zu `test-reports/`, Testfälle zu `spec/test-cases/`, Doku zu `docs/`
+- **Modellwahl:** `opus` = höchste Qualität (komplexe Features), `sonnet` = Preis-Leistung (Review, Analyse), `haiku` = schnell & günstig (einfache Tasks)
+- **Tool-Verfügbarkeit:** Nicht alle Agents haben alle Tools — z.B. `png-to-transparent-svg` hat kein Edit-Tool
 
 ---
 
-## Hinweise fuer Entwickler
+## Agent-Abhängigkeiten und Workflow-Vorschläge
 
-**Agent starten:**
+```mermaid
+graph LR
+    A["Spezifikation<br/>(REQ/NFR)"] --> B["tech-stack-architect<br/>requirements-contradiction-analyzer"]
+    B --> C["agrobiology-requirements-reviewer<br/>cannabis-indoor-grower-reviewer<br/>casual-houseplant-user-reviewer<br/>it-security-requirements-reviewer"]
+    C --> D["e2e-testcase-extractor"]
+    D --> E["fullstack-developer"]
+    E --> F["unit-test-runner"]
+    F --> G["code-security-reviewer"]
+    G --> H["pr-to-develop"]
+    H --> I["GitHub Actions / CI"]
 
-```bash
-# Im Claude Code Chat:
-/agent <name>
+    E -.-> J["frontend-design-reviewer<br/>frontend-usability-optimizer"]
+    E -.-> K["ha-integration-sync"]
+    E -.-> L["growing-phase-auditor"]
+    L -.-> M["seed-data-validator"]
+
+    D -.-> N["selenium-test-generator"]
+    N -.-> O["selenium-test-reviewer"]
+    O -.-> P["unit-test-runner"]
+
+    A -.-> Q["ha-integration-requirements-engineer"]
+    Q -.-> K
+    K -.-> R["smart-home-ha-reviewer"]
+
+    A -.-> S["mkdocs-documentation"]
+    A -.-> T["plant-info-document-generator"]
+    A -.-> U["target-audience-analyzer<br/>outdoor-garden-planner-reviewer"]
+
+    V["Icon/Grafik-Anforderungen"] -.-> W["gemini-graphic-prompt-generator"]
+    W -.-> X["png-to-transparent-svg"]
 ```
 
-**Report-Ablage:**
-
-| Agent-Typ | Ablageort |
-|-----------|-----------|
-| Analyse-/Review-Agents | `spec/requirements-analysis/` |
-| HA-Integration | `spec/ha-integration/` |
-| Selenium-Test-Reports | `test-reports/` |
-| Testfall-Dokumente | `spec/test-cases/` |
-| Pflanzen-Steckbriefe | `spec/ref/plant-info/` |
-| Grafik-Prompts | `spec/ref/graphic-prompts/` |
-| Dokumentation | `docs/` |
-
-**Modellwahl:**
-
-| Modell | Staerke | Agents |
-|--------|--------|--------|
-| **opus** | Hoechste Qualitaet — Implementierung, komplexe Analyse | `fullstack-developer`, `e2e-testcase-extractor`, `mkdocs-documentation` |
-| **sonnet** | Preis-Leistung — Reviews, Reports, Analysen, UX-Optimierung | 18 Agents |
-| **haiku** | Schnell & guenstig — einfache, strukturierte Aufgaben | `agent-catalog-generator` |
-| **—** (erbt) | Kein eigenes Modell, erbt vom Eltern-Kontext | `png-to-transparent-svg` |
+**Legende:**
+- Durchgezogene Pfeile: Standard-Workflow (Spec → Implementation → QA → PR)
+- Gepunktete Pfeile: Parallele oder optionale Workflows (Design, HA, Doku, Grafik)
 
 ---
 
-## Statistik
+## Kategorien-Übersicht
 
-| Metrik | Wert |
-|--------|:----:|
-| Gesamt Agents | **22** |
-| Persona-Reviews | 5 |
-| Fachliche Reviews | 5 |
-| Entwicklung & Security | 3 |
-| Testing & QA | 3 |
-| Requirements Engineering | 1 |
-| Dokumentation & Content | 3 |
-| Grafik & Assets | 2 |
-| Modell: opus | 3 |
-| Modell: sonnet | 18 |
-| Modell: haiku | 1 |
+**Analyse & Review (11 Agents):** Bewerten Anforderungen und Code gegen Qualitätskriterien. Keine Implementierung.
+
+**Entwicklung (4 Agents):** Schreiben oder optimieren produktiven Code und Integrations-Code.
+
+**Testing & QA (6 Agents):** Erzeugen, validieren oder führen Tests aus. Sichern Qualität.
+
+**Design & Grafik (3 Agents):** UI/UX-Optimierung und Asset-Generierung.
+
+**Dokumentation (3 Agents):** Erstellen und pflegen Dokumentation und Steckbriefe.
+
+---
+
+**Katalog aktualisiert:** 2026-03-23
+**Agents dokumentiert:** 27
+**Generiert von:** `agent-catalog-generator`
