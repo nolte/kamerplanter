@@ -47,6 +47,7 @@ services:
       CORS_ORIGINS: '["http://frontend"]'
       DEBUG: "false"
       REQUIRE_EMAIL_VERIFICATION: "false"
+      JWT_SECRET_KEY: e2e-test-jwt-secret-not-for-production
       KAMERPLANTER_MODE: light
     depends_on:
       arangodb:
@@ -70,6 +71,7 @@ services:
       ARANGODB_USERNAME: root
       ARANGODB_PASSWORD: e2e-test-password
       REDIS_URL: redis://valkey:6379/0
+      JWT_SECRET_KEY: e2e-test-jwt-secret-not-for-production
       KAMERPLANTER_MODE: light
     depends_on:
       arangodb:

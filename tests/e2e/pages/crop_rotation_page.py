@@ -16,17 +16,17 @@ class CropRotationPage(BasePage):
     PATH = "/stammdaten/crop-rotation"
 
     PAGE_TITLE = (By.CSS_SELECTOR, "[data-testid='page-title']")
-    FAMILY_SELECT = (By.CSS_SELECTOR, ".MuiSelect-select")
+    FAMILY_SELECT = (By.CSS_SELECTOR, "[data-testid='from-family-select'] .MuiSelect-select")
     SUCCESSOR_LIST = (By.CSS_SELECTOR, ".MuiList-root .MuiListItem-root")
-    ADD_SUCCESSOR_BTN = (By.XPATH, "//button[contains(text(), 'Nachfolger')]")
+    ADD_SUCCESSOR_BTN = (By.CSS_SELECTOR, "[data-testid='add-successor-button']")
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
 
     # Dialog locators
-    DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root")
-    DIALOG_TARGET_SELECT = (By.CSS_SELECTOR, ".MuiDialog-root .MuiSelect-select")
-    DIALOG_WAIT_YEARS = (By.CSS_SELECTOR, ".MuiDialog-root input[type='number']")
-    DIALOG_CREATE_BTN = (By.XPATH, "//div[contains(@class, 'MuiDialog-root')]//button[contains(text(), 'Erstellen')]")
-    DIALOG_CANCEL_BTN = (By.XPATH, "//div[contains(@class, 'MuiDialog-root')]//button[contains(text(), 'Abbrechen')]")
+    DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    DIALOG_TARGET_SELECT = (By.CSS_SELECTOR, "[data-testid='to-family-select'] .MuiSelect-select")
+    DIALOG_WAIT_YEARS = (By.CSS_SELECTOR, "[data-testid='wait-years-input'] input")
+    DIALOG_CREATE_BTN = (By.XPATH, "//div[@role='dialog']//button[contains(text(), 'Erstellen')]")
+    DIALOG_CANCEL_BTN = (By.XPATH, "//div[@role='dialog']//button[contains(text(), 'Abbrechen')]")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -41,8 +41,12 @@ class CropRotationPage(BasePage):
         return self.wait_for_element(self.PAGE_TITLE).text
 
     def select_family(self, family_name: str) -> None:
+        from selenium.webdriver.common.keys import Keys
+        # Ensure any previously open dropdown is closed first
+        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        time.sleep(0.3)
         select = self.wait_for_element_clickable(self.FAMILY_SELECT)
-        self.scroll_and_click(select)
+        self.driver.execute_script("arguments[0].click();", select)
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{family_name}')]")
         )
@@ -51,11 +55,13 @@ class CropRotationPage(BasePage):
 
     def get_family_options(self) -> list[str]:
         select = self.wait_for_element_clickable(self.FAMILY_SELECT)
-        self.scroll_and_click(select)
+        self.driver.execute_script("arguments[0].click();", select)
+        time.sleep(0.3)
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
         texts = [o.text for o in options]
         from selenium.webdriver.common.keys import Keys
         self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        time.sleep(0.3)
         return texts
 
     def get_successor_count(self) -> int:
@@ -77,8 +83,11 @@ class CropRotationPage(BasePage):
         return btn.is_enabled()
 
     def select_dialog_target(self, family_name: str) -> None:
+        from selenium.webdriver.common.keys import Keys
+        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        time.sleep(0.3)
         select = self.wait_for_element_clickable(self.DIALOG_TARGET_SELECT)
-        self.scroll_and_click(select)
+        self.driver.execute_script("arguments[0].click();", select)
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{family_name}')]")
         )
@@ -86,11 +95,13 @@ class CropRotationPage(BasePage):
 
     def get_dialog_target_options(self) -> list[str]:
         select = self.wait_for_element_clickable(self.DIALOG_TARGET_SELECT)
-        self.scroll_and_click(select)
+        self.driver.execute_script("arguments[0].click();", select)
+        time.sleep(0.3)
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
         texts = [o.text for o in options]
         from selenium.webdriver.common.keys import Keys
         self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        time.sleep(0.3)
         return texts
 
     def set_dialog_wait_years(self, years: str) -> None:

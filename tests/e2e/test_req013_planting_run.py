@@ -398,13 +398,13 @@ class TestPlantingRunDetailPage:
             *PlantingRunDetailPage.PAGE
         ).is_displayed(), "Expected [data-testid='planting-run-detail-page'] to be visible"
 
-    def test_detail_page_has_three_tabs(
+    def test_detail_page_has_five_tabs(
         self,
         run_list: PlantingRunListPage,
         run_detail: PlantingRunDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-013-016: Detail page renders 3 tabs: Details, Plants, Edit."""
+        """TC-REQ-013-016: Detail page renders 5 tabs: Details, Plants, Phases, Nutrient/Watering, Activity Plan."""
         capture = request.node._screenshot_capture
         run_list.open()
 
@@ -416,11 +416,11 @@ class TestPlantingRunDetailPage:
         capture("req013_016_tabs_visible")  # Checkpoint: Page Load
 
         tab_labels = run_detail.get_tab_labels()
-        assert len(tab_labels) == 3, (
-            f"Expected exactly 3 tabs, got {len(tab_labels)}: {tab_labels}"
+        assert len(tab_labels) == 5, (
+            f"Expected exactly 5 tabs, got {len(tab_labels)}: {tab_labels}"
         )
 
-    def test_tab_navigation_between_details_plants_edit(
+    def test_tab_navigation_between_all_tabs(
         self,
         run_list: PlantingRunListPage,
         run_detail: PlantingRunDetailPage,
@@ -450,12 +450,12 @@ class TestPlantingRunDetailPage:
             "Expected tab 1 (Plants) to be active after clicking"
         )
 
-        # Tab 2 – Edit
+        # Tab 2 – Phases
         run_detail.click_tab(2)
         time.sleep(0.3)
-        capture("req013_017_tab_edit")  # Checkpoint: after switching to tab 2
+        capture("req013_017_tab_phases")  # Checkpoint: after switching to tab 2
         assert run_detail.get_active_tab_index() == 2, (
-            "Expected tab 2 (Edit) to be active after clicking"
+            "Expected tab 2 (Phases) to be active after clicking"
         )
 
     def test_status_chip_visible_on_detail_page(
@@ -562,7 +562,7 @@ class TestPlantingRunEditForm:
         run_detail: PlantingRunDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-013-021: Edit tab form is pre-filled with the existing run name."""
+        """TC-REQ-013-021: Edit dialog form is pre-filled with the existing run name."""
         capture = request.node._screenshot_capture
         run_list.open()
 
@@ -573,9 +573,9 @@ class TestPlantingRunEditForm:
         run_list.wait_for_url_contains("/durchlaeufe/planting-runs/")
         page_title = run_detail.get_page_title()
 
-        run_detail.click_tab(2)
+        run_detail.open_edit_dialog()
         time.sleep(0.4)
-        capture("req013_021_edit_tab_open")  # Checkpoint: Page Load (tab 2)
+        capture("req013_021_edit_dialog_open")  # Checkpoint: edit dialog open
 
         name_value = run_detail.get_edit_form_name_value()
         assert name_value, (
@@ -585,13 +585,13 @@ class TestPlantingRunEditForm:
             f"Expected Name field value '{name_value}' to match page title '{page_title}'"
         )
 
-    def test_edit_form_cancel_stays_on_detail_page(
+    def test_edit_form_cancel_closes_dialog(
         self,
         run_list: PlantingRunListPage,
         run_detail: PlantingRunDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-013-022: Cancel in edit form navigates to tab 0 without saving changes."""
+        """TC-REQ-013-022: Cancel in edit dialog closes it without saving changes."""
         capture = request.node._screenshot_capture
         run_list.open()
 
@@ -600,10 +600,10 @@ class TestPlantingRunEditForm:
 
         run_list.click_row(0)
         run_list.wait_for_url_contains("/durchlaeufe/planting-runs/")
-        run_detail.click_tab(2)
+
+        run_detail.open_edit_dialog()
         time.sleep(0.3)
 
-        original_name = run_detail.get_edit_form_name_value()
         run_detail.fill_name("Unsaved Modified Name")
         capture("req013_022_form_modified")  # Checkpoint: before cancel
 
@@ -611,9 +611,9 @@ class TestPlantingRunEditForm:
         time.sleep(0.3)
         capture("req013_022_after_cancel")  # Checkpoint: after cancel
 
-        # Should return to tab 0 (Details)
-        assert run_detail.get_active_tab_index() == 0, (
-            "Expected cancel to switch back to tab 0 (Details)"
+        # Dialog should be closed
+        assert not run_detail.is_edit_dialog_open(), (
+            "Expected edit dialog to close after clicking cancel"
         )
 
 

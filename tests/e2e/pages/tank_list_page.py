@@ -19,7 +19,7 @@ class TankListPage(BasePage):
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
     TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
-    SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input']")
+    SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
     SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
     RESET_FILTERS = (By.CSS_SELECTOR, "[data-testid='reset-filters-button']")
@@ -37,10 +37,10 @@ class TankListPage(BasePage):
     FORM_TANK_TYPE = (By.CSS_SELECTOR, "[data-testid='form-field-tank_type'] .MuiSelect-select")
     FORM_VOLUME = (By.CSS_SELECTOR, "[data-testid='form-field-volume_liters'] input")
     FORM_MATERIAL = (By.CSS_SELECTOR, "[data-testid='form-field-material'] .MuiSelect-select")
-    FORM_HAS_LID = (By.CSS_SELECTOR, "[data-testid='form-field-has_lid'] input[type='checkbox']")
-    FORM_HAS_AIR_PUMP = (By.CSS_SELECTOR, "[data-testid='form-field-has_air_pump'] input[type='checkbox']")
-    FORM_HAS_CIRCULATION_PUMP = (By.CSS_SELECTOR, "[data-testid='form-field-has_circulation_pump'] input[type='checkbox']")
-    FORM_HAS_HEATER = (By.CSS_SELECTOR, "[data-testid='form-field-has_heater'] input[type='checkbox']")
+    FORM_HAS_LID = (By.CSS_SELECTOR, "[data-testid='form-field-has_lid'] .MuiSwitch-root")
+    FORM_HAS_AIR_PUMP = (By.CSS_SELECTOR, "[data-testid='form-field-has_air_pump'] .MuiSwitch-root")
+    FORM_HAS_CIRCULATION_PUMP = (By.CSS_SELECTOR, "[data-testid='form-field-has_circulation_pump'] .MuiSwitch-root")
+    FORM_HAS_HEATER = (By.CSS_SELECTOR, "[data-testid='form-field-has_heater'] .MuiSwitch-root")
     FORM_NOTES = (By.CSS_SELECTOR, "[data-testid='form-field-notes'] textarea")
     FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
     FORM_CANCEL = (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
@@ -185,7 +185,9 @@ class TankListPage(BasePage):
         self.scroll_and_click(el)
 
     def is_has_lid_checked(self) -> bool:
-        el = self.driver.find_element(*self.FORM_HAS_LID)
+        el = self.driver.find_element(
+            By.CSS_SELECTOR, "[data-testid='form-field-has_lid'] input[type='checkbox']"
+        )
         return el.is_selected()
 
     def fill_notes(self, notes: str) -> None:

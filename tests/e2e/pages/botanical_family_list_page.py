@@ -20,7 +20,7 @@ class BotanicalFamilyListPage(BasePage):
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
     TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
-    SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input']")
+    SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
     SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
     RESET_FILTERS = (By.CSS_SELECTOR, "[data-testid='reset-filters-button']")
@@ -119,13 +119,11 @@ class BotanicalFamilyListPage(BasePage):
     def search(self, term: str) -> None:
         """Type a search term into the search field."""
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        search_input.clear()
-        search_input.send_keys(term)
+        self.clear_and_fill(search_input, term)
 
     def clear_search(self) -> None:
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        search_input.clear()
-        search_input.send_keys(Keys.BACKSPACE)
+        self.clear_and_fill(search_input, "")
 
     def has_search_chip(self) -> bool:
         return len(self.driver.find_elements(*self.SEARCH_CHIP)) > 0

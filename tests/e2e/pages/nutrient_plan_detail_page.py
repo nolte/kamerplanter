@@ -156,20 +156,17 @@ class NutrientPlanDetailPage(BasePage):
     def fill_name(self, name: str) -> None:
         """Fill the plan name field."""
         el = self.wait_for_element_clickable(self.FORM_NAME)
-        el.clear()
-        el.send_keys(name)
+        self.clear_and_fill(el, name)
 
     def fill_author(self, author: str) -> None:
         """Fill the author field."""
         el = self.wait_for_element_clickable(self.FORM_AUTHOR)
-        el.clear()
-        el.send_keys(author)
+        self.clear_and_fill(el, author)
 
     def fill_version(self, version: str) -> None:
         """Fill the version field."""
         el = self.wait_for_element_clickable(self.FORM_VERSION)
-        el.clear()
-        el.send_keys(version)
+        self.clear_and_fill(el, version)
 
     def get_name_field_value(self) -> str:
         """Return the current value of the name input field."""

@@ -45,12 +45,14 @@ class TestSeedDataFamilies:
         self, family_list: BotanicalFamilyListPage
     ) -> None:
         """TC-REQ-001-085: Verify seed data — 9 botanical families with correct attributes."""
-        family_list.open()
-
-        names = family_list.get_first_column_texts()
         for expected_name in SEED_FAMILIES:
-            assert expected_name in names, (
-                f"Seed family '{expected_name}' not found in list. Got: {names}"
+            family_list.open()
+            family_list.search(expected_name)
+            time.sleep(0.5)
+
+            names = family_list.get_first_column_texts()
+            assert any(expected_name in n for n in names), (
+                f"Seed family '{expected_name}' not found after search. Got: {names}"
             )
 
 

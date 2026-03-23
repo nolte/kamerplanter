@@ -101,7 +101,7 @@ class TestCompleteWorkflow:
         # Step 5: Create lifecycle config
         tabs = species_detail.get_tab_labels()
         lifecycle_tab = next(
-            (i for i, t in enumerate(tabs) if "Lebenszyklus" in t), None
+            (i for i, t in enumerate(tabs) if "LEBENSZYKLUS" in t.upper()), None
         )
         if lifecycle_tab is not None:
             species_detail.click_tab(lifecycle_tab)
