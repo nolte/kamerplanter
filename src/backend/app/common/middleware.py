@@ -20,7 +20,7 @@ async def request_id_middleware(request: Request, call_next) -> Response:  # typ
             # Validate that the incoming value is a proper UUID
             parsed = uuid.UUID(incoming_id, version=4)
             request_id = str(parsed)
-        except (ValueError, AttributeError):
+        except (ValueError, AttributeError):  # fmt: skip
             request_id = str(uuid.uuid4())
     else:
         request_id = str(uuid.uuid4())

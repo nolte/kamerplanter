@@ -19,13 +19,18 @@ class HomeAssistantClient:
         url = f"{self._base_url}/api/events/{event_type}"
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             resp = await client.post(
-                url, json=event_data, headers=self._headers,
+                url,
+                json=event_data,
+                headers=self._headers,
             )
             resp.raise_for_status()
             return resp.json()
 
     async def create_persistent_notification(
-        self, title: str, message: str, notification_id: str,
+        self,
+        title: str,
+        message: str,
+        notification_id: str,
     ) -> None:
         """POST /api/services/persistent_notification/create."""
         url = f"{self._base_url}/api/services/persistent_notification/create"
@@ -47,13 +52,18 @@ class HomeAssistantClient:
             resp.raise_for_status()
 
     async def call_service(
-        self, domain: str, service: str, service_data: dict,
+        self,
+        domain: str,
+        service: str,
+        service_data: dict,
     ) -> dict:
         """POST /api/services/{domain}/{service} — generic service call."""
         url = f"{self._base_url}/api/services/{domain}/{service}"
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             resp = await client.post(
-                url, json=service_data, headers=self._headers,
+                url,
+                json=service_data,
+                headers=self._headers,
             )
             resp.raise_for_status()
             return resp.json()
@@ -93,7 +103,7 @@ class HomeAssistantClient:
         if state_str not in ("unavailable", "unknown", ""):
             try:
                 value = float(state_str)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError):  # fmt: skip
                 value = None
         return {
             "value": value,

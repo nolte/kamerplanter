@@ -24,9 +24,7 @@ from app.domain.models.notification import (
 logger = structlog.get_logger()
 
 # Notification types that bypass quiet hours
-_QUIET_HOURS_BYPASS_TYPES: frozenset[str] = frozenset(
-    {"sensor.alert", "weather.frost"}
-)
+_QUIET_HOURS_BYPASS_TYPES: frozenset[str] = frozenset({"sensor.alert", "weather.frost"})
 
 # Dedup key TTL in seconds (24 hours)
 _DEDUP_TTL_SECONDS: int = 86400
@@ -97,9 +95,7 @@ class NotificationEngine:
         prefs = self._load_preferences(user_key)
 
         # 3. Quiet hours
-        if self._is_quiet_hours(prefs) and not self._ignores_quiet_hours(
-            notification, prefs
-        ):
+        if self._is_quiet_hours(prefs) and not self._ignores_quiet_hours(notification, prefs):
             log.info("notification_queued_quiet_hours")
             notification.status = NotificationStatus.PENDING
             notification.user_key = user_key
@@ -134,9 +130,7 @@ class NotificationEngine:
         results: list[ChannelResult] = []
 
         for channel_key in channel_keys:
-            result = await self._send_to_channel(
-                channel_key, notification, prefs
-            )
+            result = await self._send_to_channel(channel_key, notification, prefs)
             results.append(result)
             if result.success:
                 channels_sent.append(channel_key)
@@ -148,11 +142,7 @@ class NotificationEngine:
         notification.tenant_key = tenant_key
         notification.channels_sent = channels_sent
         notification.channels_failed = channels_failed
-        notification.status = (
-            NotificationStatus.DELIVERED
-            if channels_sent
-            else NotificationStatus.FAILED
-        )
+        notification.status = NotificationStatus.DELIVERED if channels_sent else NotificationStatus.FAILED
         saved = self._notification_repo.create(notification)
 
         # 7. Dedup key
@@ -203,9 +193,7 @@ class NotificationEngine:
 
             if channel.supports_batching:
                 try:
-                    result = await channel.send_batch(
-                        notifications, channel_config
-                    )
+                    result = await channel.send_batch(notifications, channel_config)
                     if result.success:
                         total_sent += len(notifications)
                     else:
@@ -217,14 +205,10 @@ class NotificationEngine:
                         )
                 except Exception:
                     total_failed += len(notifications)
-                    logger.exception(
-                        "batch_channel_exception", channel=channel_key
-                    )
+                    logger.exception("batch_channel_exception", channel=channel_key)
             else:
                 for notif in notifications:
-                    result = await self._send_to_channel(
-                        channel_key, notif, prefs
-                    )
+                    result = await self._send_to_channel(channel_key, notif, prefs)
                     if result.success:
                         total_sent += 1
                     else:
@@ -349,7 +333,7 @@ class NotificationEngine:
 
         try:
             tz = ZoneInfo(prefs.quiet_hours.timezone)
-        except (KeyError, ValueError):
+        except (KeyError, ValueError):  # fmt: skip
             tz = ZoneInfo("Europe/Berlin")
 
         now_local = datetime.now(tz).time()
@@ -382,9 +366,7 @@ class NotificationEngine:
         """Build default preferences for users without configuration."""
         return NotificationPreferences(
             channels={
-                "home_assistant": ChannelPreference(
-                    enabled=True, priority=10
-                ),
+                "home_assistant": ChannelPreference(enabled=True, priority=10),
             },
             quiet_hours=QuietHoursPreference(
                 enabled=True,
