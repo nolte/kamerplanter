@@ -3,8 +3,22 @@ import { ApiError } from './errors';
 import type { ApiErrorResponse } from './types';
 import { isLightMode } from '@/config/mode';
 
-const ACTIVE_TENANT_KEY = 'kp_active_tenant_slug';
 const LIGHT_MODE_SLUG = 'mein-garten';
+
+/**
+ * Active tenant slug, kept in sync by tenantSlice.
+ * This avoids reading a stale value from localStorage before
+ * loadMyTenants has validated the persisted slug.
+ */
+let _activeTenantSlug: string | null = null;
+
+export function setActiveTenantSlug(slug: string | null) {
+  _activeTenantSlug = slug;
+}
+
+export function getActiveTenantSlug(): string | null {
+  return _activeTenantSlug;
+}
 
 const client = axios.create({
   baseURL: '/api/v1',
@@ -39,16 +53,7 @@ const tenantClient = axios.create({
 });
 
 tenantClient.interceptors.request.use((config) => {
-  let slug: string | null = null;
-  if (isLightMode) {
-    slug = LIGHT_MODE_SLUG;
-  } else {
-    try {
-      slug = window.localStorage.getItem(ACTIVE_TENANT_KEY);
-    } catch {
-      // localStorage unavailable (e.g. SSR)
-    }
-  }
+  const slug = isLightMode ? LIGHT_MODE_SLUG : _activeTenantSlug;
   if (slug && config.url && !config.url.startsWith('/t/')) {
     config.url = `/t/${slug}${config.url}`;
   }

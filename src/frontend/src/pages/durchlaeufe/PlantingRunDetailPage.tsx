@@ -19,6 +19,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import StopCircleIcon from '@mui/icons-material/StopCircle';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import EditIcon from '@mui/icons-material/Edit';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -40,6 +41,7 @@ import PlantingRunDetailsTab from './PlantingRunDetailsTab';
 import PlantingRunPlantsTab from './PlantingRunPlantsTab';
 import PlantingRunNutrientWateringTab from './PlantingRunNutrientWateringTab';
 import PlantingRunEditDialog from './PlantingRunEditDialog';
+import AdoptPlantsDialog from './AdoptPlantsDialog';
 import { useRunNutrientData } from '@/hooks/useRunNutrientData';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -100,6 +102,7 @@ export default function PlantingRunDetailPage() {
   const [endRunStatus, setEndRunStatus] = useState<'completed' | 'cancelled'>('cancelled');
   const [batchTransitionOpen, setBatchTransitionOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [adoptDialogOpen, setAdoptDialogOpen] = useState(false);
 
   // Species/cultivar name resolution for entries table
   const [speciesMap, setSpeciesMap] = useState<Map<string, string>>(new Map());
@@ -380,7 +383,6 @@ export default function PlantingRunDetailPage() {
     { id: 'species', label: t('entities.species'), render: (r) => speciesMap.get(r.species_key) ?? r.species_key, searchValue: (r) => speciesMap.get(r.species_key) ?? r.species_key },
     { id: 'cultivar', label: t('entities.cultivar'), render: (r) => r.cultivar_key ? (speciesMap.get(r.cultivar_key) ?? r.cultivar_key) : '\u2014', searchValue: (r) => r.cultivar_key ? (speciesMap.get(r.cultivar_key) ?? '') : '' },
     { id: 'quantity', label: t('pages.plantingRuns.quantity'), render: (r) => r.quantity, align: 'right' },
-    { id: 'role', label: t('pages.plantingRuns.role'), render: (r) => t(`enums.entryRole.${r.role}`), searchValue: (r) => t(`enums.entryRole.${r.role}`) },
     { id: 'idPrefix', label: t('pages.plantingRuns.idPrefix'), render: (r) => r.id_prefix },
     { id: 'spacing', label: t('pages.plantingRuns.spacing'), render: (r) => r.spacing_cm ? `${r.spacing_cm} cm` : '\u2014', align: 'right' },
   ];
@@ -455,6 +457,16 @@ export default function PlantingRunDetailPage() {
           </Tooltip>
         </Box>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {(run?.status === 'planned' || run?.status === 'active') && (
+            <Button
+              variant="outlined"
+              startIcon={<PersonAddIcon />}
+              onClick={() => setAdoptDialogOpen(true)}
+              data-testid="adopt-plants-button"
+            >
+              {t('pages.plantingRuns.adoptPlants')}
+            </Button>
+          )}
           {run?.status === 'planned' && (
             <>
               <Button
@@ -537,6 +549,7 @@ export default function PlantingRunDetailPage() {
           plantColumns={plantColumns}
           runStatus={run?.status}
           onCreatePlants={() => setCreatePlantsOpen(true)}
+          onAdoptPlants={() => setAdoptDialogOpen(true)}
         />
       )}
 
@@ -602,6 +615,22 @@ export default function PlantingRunDetailPage() {
           onSaved={(updated) => {
             setRun(updated);
             setEditDialogOpen(false);
+            load();
+          }}
+        />
+      )}
+
+      {key && (
+        <AdoptPlantsDialog
+          open={adoptDialogOpen}
+          onClose={() => setAdoptDialogOpen(false)}
+          runKey={key}
+          adoptFn={runApi.adoptPlants}
+          onAdopted={(count) => {
+            setAdoptDialogOpen(false);
+            notification.success(
+              t('pages.plantingRuns.plantsAdopted', { count }),
+            );
             load();
           }}
         />

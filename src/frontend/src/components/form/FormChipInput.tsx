@@ -50,7 +50,7 @@ export default function FormChipInput<T extends FieldValues>({
         };
 
         return (
-          <Box sx={{ mb: 2 }}>
+          <Box sx={{ mb: 2 }} data-testid={`form-field-${name}`}>
             <TextField
               label={label}
               placeholder={placeholder}

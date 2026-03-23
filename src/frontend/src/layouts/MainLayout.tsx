@@ -19,6 +19,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import Sidebar from './Sidebar';
 import Breadcrumbs from '@/components/layout/Breadcrumbs';
 import LanguageSelector from '@/components/layout/LanguageSelector';
+import NotificationBell from '@/components/layout/NotificationBell';
 import TenantSwitcher from '@/components/layout/TenantSwitcher';
 import ThemeToggle from '@/components/layout/ThemeToggle';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -118,6 +119,7 @@ export default function MainLayout() {
           {!isLightMode && <TenantSwitcher />}
           <LanguageSelector />
           <ThemeToggle />
+          <NotificationBell />
 
           {/* User menu — full mode: avatar + dropdown; light mode: settings icon only */}
           {isLightMode ? (

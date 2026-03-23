@@ -82,6 +82,7 @@ import {
 import type { HATestResponse } from '@/api/endpoints/adminSettings';
 import { parseApiError } from '@/api/errors';
 import { isLightMode, isFullMode, KAMERPLANTER_MODE } from '@/config/mode';
+import NotificationSettingsTab from './NotificationSettingsTab';
 import type {
   AuthProviderInfo,
   SessionInfo,
@@ -132,6 +133,7 @@ export default function AccountSettingsPage() {
       return [
         { key: 'profile', label: t('pages.auth.tabProfile') },
         { key: 'experience', label: t('pages.auth.tabExperience') },
+        { key: 'notifications', label: t('pages.auth.tabNotifications') },
         { key: 'ha', label: t('pages.auth.tabIntegrations') },
       ];
     }
@@ -141,6 +143,7 @@ export default function AccountSettingsPage() {
       { key: 'sessions', label: t('pages.auth.tabSessions') },
       { key: 'apikeys', label: t('pages.auth.tabApiKeys') },
       { key: 'experience', label: t('pages.auth.tabExperience') },
+      { key: 'notifications', label: t('pages.auth.tabNotifications') },
       { key: 'ha', label: t('pages.auth.tabIntegrations') },
       { key: 'platform', label: t('pages.auth.tabPlatform') },
       { key: 'account', label: t('pages.auth.tabAccount') },
@@ -824,6 +827,9 @@ export default function AccountSettingsPage() {
           </Card>
         </Box>
       )}
+
+      {/* ── Notifications Tab ── */}
+      {activeTab === 'notifications' && <NotificationSettingsTab />}
 
       {/* ── Admin Tab ── */}
       {activeTab === 'ha' && (

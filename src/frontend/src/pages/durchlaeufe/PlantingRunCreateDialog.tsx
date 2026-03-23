@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -11,8 +11,21 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
+import Checkbox from '@mui/material/Checkbox';
+import Chip from '@mui/material/Chip';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import TextField from '@mui/material/TextField';
+import InputAdornment from '@mui/material/InputAdornment';
+import Alert from '@mui/material/Alert';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
 import type { Control, UseFormSetValue } from 'react-hook-form';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -24,6 +37,8 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import ShowAllFieldsToggle from '@/components/common/ShowAllFieldsToggle';
+import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import EmptyState from '@/components/common/EmptyState';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -31,14 +46,14 @@ import { plantingRunFieldConfig } from '@/config/fieldConfigs';
 import * as runApi from '@/api/endpoints/plantingRuns';
 import * as speciesApi from '@/api/endpoints/species';
 import * as sitesApi from '@/api/endpoints/sites';
+import * as plantApi from '@/api/endpoints/plantInstances';
 import LocationTreeSelect from '@/components/form/LocationTreeSelect';
-import type { Species, Cultivar, Site } from '@/api/types';
+import type { Species, Cultivar, Site, PlantInstance } from '@/api/types';
 
 const entrySchema = z.object({
   species_key: z.string().min(1),
   cultivar_key: z.string().nullable().optional(),
   quantity: z.number().min(1),
-  role: z.string(),
   id_prefix: z.string().regex(/^[A-Z]{2,5}$/),
   spacing_cm: z.number().nullable().optional(),
   notes: z.string().nullable().optional(),
@@ -46,14 +61,14 @@ const entrySchema = z.object({
 
 const schema = z.object({
   name: z.string().min(1).max(200),
-  run_type: z.enum(['monoculture', 'clone', 'mixed_culture']),
+  run_type: z.enum(['monoculture', 'clone']),
   site_key: z.string().nullable().optional(),
   location_key: z.string().nullable().optional(),
   substrate_batch_key: z.string().nullable().optional(),
   planned_start_date: z.string().nullable().optional(),
   source_plant_key: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
-  entries: z.array(entrySchema).min(1),
+  entries: z.array(entrySchema),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -69,7 +84,6 @@ interface EntryRowProps {
   control: Control<FormData>;
   setValue: UseFormSetValue<FormData>;
   speciesList: Species[];
-  roles: { value: string; label: string }[];
   onRemove: () => void;
   canRemove: boolean;
 }
@@ -78,7 +92,7 @@ function toPrefix(name: string): string {
   return name.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 3);
 }
 
-function EntryRow({ index, control, setValue, speciesList, roles, onRemove, canRemove }: EntryRowProps) {
+function EntryRow({ index, control, setValue, speciesList, onRemove, canRemove }: EntryRowProps) {
   const { t } = useTranslation();
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
   const [cultivarsLoading, setCultivarsLoading] = useState(false);
@@ -163,14 +177,6 @@ function EntryRow({ index, control, setValue, speciesList, roles, onRemove, canR
           helperText={t('pages.plantingRuns.idPrefixHelper')}
         />
       </Box>
-      <Box sx={{ width: 140 }}>
-        <FormSelectField
-          name={`entries.${index}.role`}
-          control={control}
-          label={t('pages.plantingRuns.role')}
-          options={roles}
-        />
-      </Box>
       <Tooltip title={t('pages.plantingRuns.removeEntry')}>
         <span>
           <IconButton
@@ -197,6 +203,12 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
   const [saving, setSaving] = useState(false);
   const [speciesList, setSpeciesList] = useState<Species[]>([]);
   const [sitesList, setSitesList] = useState<Site[]>([]);
+  const [adoptMode, setAdoptMode] = useState(false);
+  const [availablePlants, setAvailablePlants] = useState<PlantInstance[]>([]);
+  const [plantsLoading, setPlantsLoading] = useState(false);
+  const [plantsError, setPlantsError] = useState<string | null>(null);
+  const [selectedPlants, setSelectedPlants] = useState<Set<string>>(new Set());
+  const [plantSearch, setPlantSearch] = useState('');
   const { showAllOverride, toggleShowAll, level } = useExpertiseLevel();
 
   const { control, handleSubmit, reset, setValue } = useForm<FormData>({
@@ -210,7 +222,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
       planned_start_date: new Date().toISOString().split('T')[0],
       source_plant_key: null,
       notes: null,
-      entries: [{ species_key: '', cultivar_key: null, quantity: 1, role: 'primary', id_prefix: '', spacing_cm: null, notes: null }],
+      entries: [{ species_key: '', cultivar_key: null, quantity: 1, id_prefix: '', spacing_cm: null, notes: null }],
     },
   });
 
@@ -229,8 +241,12 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
         planned_start_date: new Date().toISOString().split('T')[0],
         source_plant_key: null,
         notes: null,
-        entries: [{ species_key: '', cultivar_key: null, quantity: 1, role: 'primary', id_prefix: '', spacing_cm: null, notes: null }],
+        entries: [{ species_key: '', cultivar_key: null, quantity: 1, id_prefix: '', spacing_cm: null, notes: null }],
       });
+      setAdoptMode(false);
+      setSelectedPlants(new Set());
+      setPlantSearch('');
+      setPlantsError(null);
       speciesApi.listSpecies(0, 200).then((r) => setSpeciesList(r.items)).catch(() => {});
       sitesApi.listSites(0, 200).then(setSitesList).catch(() => {});
     }
@@ -242,10 +258,60 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
     }
   }, [siteKey, setValue]);
 
+  useEffect(() => {
+    if (adoptMode) {
+      // Clear entries so zod validation doesn't block on empty species_key/id_prefix
+      setValue('entries', []);
+      setPlantsLoading(true);
+      setPlantsError(null);
+      plantApi
+        .listPlantInstances(0, 200)
+        .then((allPlants) => {
+          setAvailablePlants(allPlants.filter((p) => !p.removed_on));
+        })
+        .catch(() => {
+          setAvailablePlants([]);
+          setPlantsError(t('common.loadingError'));
+        })
+        .finally(() => setPlantsLoading(false));
+    } else {
+      // Restore default entry when switching back
+      setValue('entries', [{ species_key: '', cultivar_key: null, quantity: 1, id_prefix: '', spacing_cm: null, notes: null }]);
+    }
+  }, [adoptMode, t, setValue]);
+
+  const filteredPlants = useMemo(() => {
+    if (!plantSearch.trim()) return availablePlants;
+    const lower = plantSearch.toLowerCase();
+    return availablePlants.filter(
+      (p) =>
+        p.instance_id.toLowerCase().includes(lower) ||
+        (p.plant_name ?? '').toLowerCase().includes(lower) ||
+        p.current_phase.toLowerCase().includes(lower),
+    );
+  }, [availablePlants, plantSearch]);
+
+  const handleTogglePlant = (key: string) => {
+    setSelectedPlants((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const handleSelectAllPlants = () => {
+    if (selectedPlants.size === filteredPlants.length) {
+      setSelectedPlants(new Set());
+    } else {
+      setSelectedPlants(new Set(filteredPlants.map((p) => p.key)));
+    }
+  };
+
   const onSubmit = async (data: FormData) => {
     try {
       setSaving(true);
-      await runApi.createPlantingRun({
+      const created = await runApi.createPlantingRun({
         name: data.name,
         run_type: data.run_type,
         location_key: data.location_key || undefined,
@@ -253,17 +319,27 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
         planned_start_date: data.planned_start_date || undefined,
         source_plant_key: data.source_plant_key || undefined,
         notes: data.notes || undefined,
-        entries: data.entries.map((e) => ({
-          species_key: e.species_key,
-          cultivar_key: e.cultivar_key || undefined,
-          quantity: e.quantity,
-          role: e.role as 'primary' | 'companion' | 'trap_crop',
-          id_prefix: e.id_prefix,
-          spacing_cm: e.spacing_cm ?? undefined,
-          notes: e.notes || undefined,
-        })),
+        entries: adoptMode
+          ? undefined
+          : data.entries.map((e) => ({
+              species_key: e.species_key,
+              cultivar_key: e.cultivar_key || undefined,
+              quantity: e.quantity,
+              id_prefix: e.id_prefix,
+              spacing_cm: e.spacing_cm ?? undefined,
+              notes: e.notes || undefined,
+            })),
       });
-      notification.success(t('common.create'));
+
+      if (adoptMode && created.key && selectedPlants.size > 0) {
+        const result = await runApi.adoptPlants(created.key, Array.from(selectedPlants));
+        notification.success(
+          t('pages.plantingRuns.plantsAdopted', { count: result.adopted_count }),
+        );
+      } else {
+        notification.success(t('common.create'));
+      }
+
       reset();
       onCreated();
     } catch (err) {
@@ -276,13 +352,6 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
   const runTypes = [
     { value: 'monoculture', label: t('enums.plantingRunType.monoculture') },
     { value: 'clone', label: t('enums.plantingRunType.clone') },
-    { value: 'mixed_culture', label: t('enums.plantingRunType.mixed_culture') },
-  ];
-
-  const roles = [
-    { value: 'primary', label: t('enums.entryRole.primary') },
-    { value: 'companion', label: t('enums.entryRole.companion') },
-    { value: 'trap_crop', label: t('enums.entryRole.trap_crop') },
   ];
 
   const fc = plantingRunFieldConfig;
@@ -335,13 +404,15 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
           </ExpertiseFieldWrapper>
 
           {/* expert */}
-          <ExpertiseFieldWrapper minLevel={fc.substrate_batch_key.level}>
-            <FormTextField
-              name="substrate_batch_key"
-              control={control}
-              label={t('pages.plantingRuns.substrateBatch')}
-            />
-          </ExpertiseFieldWrapper>
+          {!adoptMode && (
+            <ExpertiseFieldWrapper minLevel={fc.substrate_batch_key.level}>
+              <FormTextField
+                name="substrate_batch_key"
+                control={control}
+                label={t('pages.plantingRuns.substrateBatch')}
+              />
+            </ExpertiseFieldWrapper>
+          )}
           {runType === 'clone' && (
             <ExpertiseFieldWrapper minLevel={fc.source_plant_key.level}>
               <FormTextField
@@ -354,37 +425,149 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
           )}
 
           <Divider sx={{ my: 2 }} />
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-            {t('pages.plantingRuns.entries')}
+          <FormControlLabel
+            control={
+              <Switch
+                checked={adoptMode}
+                onChange={(e) => setAdoptMode(e.target.checked)}
+                data-testid="adopt-mode-toggle"
+              />
+            }
+            label={t('pages.plantingRuns.adoptAfterCreate')}
+          />
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2, ml: 6 }}>
+            {t('pages.plantingRuns.adoptAfterCreateDesc')}
           </Typography>
 
-          {fields.map((field, index) => (
-            <EntryRow
-              key={field.id}
-              index={index}
-              control={control}
-              setValue={setValue}
-              speciesList={speciesList}
-              roles={roles}
-              onRemove={() => remove(index)}
-              canRemove={fields.length > 1}
-            />
-          ))}
+          {adoptMode ? (
+            <>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                {t('pages.plantingRuns.adoptPlants')}
+              </Typography>
 
-          <Button
-            startIcon={<AddIcon />}
-            onClick={() =>
-              append({ species_key: '', cultivar_key: null, quantity: 1, role: 'primary', id_prefix: '', spacing_cm: null, notes: null })
-            }
-            sx={{ mb: 2 }}
-          >
-            {t('pages.plantingRuns.addEntry')}
-          </Button>
+              {plantsError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {plantsError}
+                </Alert>
+              )}
+
+              {plantsLoading ? (
+                <LoadingSkeleton variant="table" />
+              ) : availablePlants.length === 0 ? (
+                <EmptyState message={t('pages.plantingRuns.noAvailablePlants')} />
+              ) : (
+                <>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    placeholder={t('common.search')}
+                    value={plantSearch}
+                    onChange={(e) => setPlantSearch(e.target.value)}
+                    sx={{ mb: 1 }}
+                    slotProps={{
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SearchIcon />
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                    data-testid="adopt-search"
+                  />
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Button size="small" onClick={handleSelectAllPlants} data-testid="adopt-select-all">
+                      {selectedPlants.size === filteredPlants.length
+                        ? t('common.deselectAll')
+                        : t('common.selectAll')}
+                    </Button>
+                    <Typography variant="caption" color="text.secondary">
+                      {t('pages.plantingRuns.selectedCount', { count: selectedPlants.size })}
+                    </Typography>
+                  </Box>
+
+                  <List
+                    dense
+                    sx={{
+                      maxHeight: 300,
+                      overflow: 'auto',
+                      border: 1,
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                    }}
+                    data-testid="adopt-plants-list"
+                  >
+                    {filteredPlants.map((plant) => (
+                      <ListItem key={plant.key} disablePadding>
+                        <ListItemButton onClick={() => handleTogglePlant(plant.key)} dense>
+                          <ListItemIcon sx={{ minWidth: 36 }}>
+                            <Checkbox
+                              edge="start"
+                              checked={selectedPlants.has(plant.key)}
+                              tabIndex={-1}
+                              disableRipple
+                              inputProps={{ 'aria-label': plant.instance_id }}
+                            />
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={plant.plant_name ?? plant.instance_id}
+                            secondary={plant.instance_id !== (plant.plant_name ?? plant.instance_id) ? plant.instance_id : undefined}
+                          />
+                          <Chip
+                            label={plant.current_phase}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                            sx={{ ml: 1 }}
+                          />
+                        </ListItemButton>
+                      </ListItem>
+                    ))}
+                  </List>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                {t('pages.plantingRuns.entries')}
+              </Typography>
+
+              {fields.map((field, index) => (
+                <EntryRow
+                  key={field.id}
+                  index={index}
+                  control={control}
+                  setValue={setValue}
+                  speciesList={speciesList}
+                  onRemove={() => remove(index)}
+                  canRemove={fields.length > 1}
+                />
+              ))}
+
+              <Button
+                startIcon={<AddIcon />}
+                onClick={() =>
+                  append({ species_key: '', cultivar_key: null, quantity: 1, id_prefix: '', spacing_cm: null, notes: null })
+                }
+                sx={{ mb: 2 }}
+              >
+                {t('pages.plantingRuns.addEntry')}
+              </Button>
+            </>
+          )}
 
           {level !== 'expert' && (
             <ShowAllFieldsToggle showAll={showAllOverride} onToggle={toggleShowAll} />
           )}
-          <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
+
+          <FormActions
+            onCancel={onClose}
+            loading={saving}
+            saveLabel={t('common.create')}
+            disabled={adoptMode && selectedPlants.size === 0}
+          />
         </form>
       </DialogContent>
     </Dialog>

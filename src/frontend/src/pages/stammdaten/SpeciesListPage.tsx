@@ -303,6 +303,7 @@ export default function SpeciesListPage() {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setCreateOpen(true)}
+          data-testid="create-button"
         >
           {t('pages.species.create')}
         </Button>
