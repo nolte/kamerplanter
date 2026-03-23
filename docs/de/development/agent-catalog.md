@@ -723,7 +723,7 @@ Jeder Agent ist ein spezialisierter KI-Assistent mit einer klar definierten Roll
 |---|---|
 | **Modell** | haiku |
 | **Tools** | Read, Write, Glob, Grep |
-| **Output** | `docs/agent-catalog.md` |
+| **Output** | `docs/de/development/agent-catalog.md` |
 
 **Rolle:** Technical Writer, der alle Agent-Definitionen liest und ein kompaktes Katalogdokument generiert.
 
