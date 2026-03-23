@@ -176,6 +176,22 @@ def get_planting_run_repo() -> ArangoPlantingRunRepository:
     return ArangoPlantingRunRepository(get_db())
 
 
+def get_plant_diary_repo():
+    from app.data_access.arango.plant_diary_repository import ArangoPlantDiaryRepository
+
+    return ArangoPlantDiaryRepository(get_db())
+
+
+def get_plant_diary_service():
+    from app.domain.services.plant_diary_service import PlantDiaryService
+
+    return PlantDiaryService(
+        diary_repo=get_plant_diary_repo(),
+        run_repo=get_planting_run_repo(),
+        plant_repo=get_plant_repo(),
+    )
+
+
 def get_planting_run_service() -> PlantingRunService:
     from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
 
@@ -609,6 +625,48 @@ def get_activity_plan_service():
         planting_run_repo=get_planting_run_repo(),
         species_repo=get_species_repo(),
         family_repo=get_family_repo(),
+    )
+
+
+# ── REQ-030 Notification dependencies ────────────────────────────────
+
+
+def get_notification_repo():
+    from app.data_access.arango.notification_repository import ArangoNotificationRepository
+
+    return ArangoNotificationRepository(get_db())
+
+
+def get_notification_preference_repo():
+    from app.data_access.arango.notification_preference_repository import (
+        ArangoNotificationPreferenceRepository,
+    )
+
+    return ArangoNotificationPreferenceRepository(get_db())
+
+
+def _get_redis_client():
+    """Get a Redis client for notification dedup and caching."""
+    import redis
+
+    return redis.Redis.from_url(settings.redis_url, decode_responses=True)
+
+
+def get_notification_service():
+    from app.domain.engines.notification_channel_registry import NotificationChannelRegistry
+    from app.domain.engines.notification_engine import NotificationEngine
+    from app.domain.services.notification_service import NotificationService
+
+    engine = NotificationEngine(
+        notification_repo=get_notification_repo(),
+        preference_repo=get_notification_preference_repo(),
+        channel_registry=NotificationChannelRegistry,
+        redis_client=_get_redis_client(),
+    )
+    return NotificationService(
+        engine=engine,
+        notification_repo=get_notification_repo(),
+        preference_repo=get_notification_preference_repo(),
     )
 
 

@@ -249,14 +249,14 @@ Care-Reminder-Tasks werden **direkt** vom `CareReminderEngine` erstellt — sie 
 ### Edges:
 
 ```
-has_care_profile:  plant_instances → care_profiles       (1:1, PlantInstance hat CareProfile)
-confirms_care:     care_confirmations → care_profiles    (N:1, Bestätigung gehört zu Profil)
-care_event_for:    care_confirmations → plant_instances   (N:1, Bestätigung bezieht sich auf Pflanze)
+has_care_profile:  planting_runs|plant_instances → care_profiles       (1:1, Dual-Support REQ-013 v2.0: Run primaer, standalone Plant als Fallback)
+confirms_care:     care_confirmations → care_profiles                 (N:1, Bestaetigung gehoert zu Profil)
+care_event_for:    care_confirmations → planting_runs|plant_instances  (N:1, Dual-Support: Bestaetigung bezieht sich auf Run oder standalone Plant)
 ```
 
 <!-- Quelle: Outdoor-Garden-Planner Review G-002 -->
 ```
-has_overwintering_profile:  plant_instances → overwintering_profiles  (1:1)
+has_overwintering_profile:  planting_runs|plant_instances → overwintering_profiles  (1:1, Dual-Support REQ-013 v2.0)
 overwinters_at:             overwintering_profiles → locations         (N:1, Winterquartier)
 ```
 
@@ -271,7 +271,7 @@ care_confirmations:
   - PERSISTENT INDEX on [action]
 
 has_care_profile:
-  - PERSISTENT INDEX on [_from] UNIQUE  (jede PlantInstance maximal ein CareProfile)
+  - PERSISTENT INDEX on [_from] UNIQUE  (jeder Run/standalone Plant maximal ein CareProfile)
 ```
 
 ### AQL-Beispiellogik:
@@ -281,28 +281,35 @@ has_care_profile:
 LET today = DATE_ISO8601(DATE_NOW())
 LET current_month = DATE_MONTH(DATE_NOW())
 
-FOR plant IN plant_instances
+// Dual-Support (REQ-013 v2.0): Iteriert ueber aktive Runs + standalone Plants
+FOR entity IN UNION_DISTINCT(
+    (FOR r IN planting_runs FILTER r.status IN ['active', 'harvesting'] RETURN r),
+    (FOR p IN plant_instances FILTER p.removed_on == null
+        LET in_run = LENGTH(FOR run, e IN 1..1 INBOUND p run_contains FILTER e.detached_at == null RETURN 1)
+        FILTER in_run == 0
+        RETURN p)
+)
   // Hole CareProfile
   LET profile = FIRST(
-    FOR cp IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+    FOR cp IN 1..1 OUTBOUND entity GRAPH 'kamerplanter_graph'
       OPTIONS { edgeCollections: ['has_care_profile'] }
       RETURN cp
   )
   FILTER profile != null
 
-  // Hole aktuelle Phase
+  // Hole aktuelle Phase (liegt auf dem Run oder standalone Plant)
   LET phase = FIRST(
-    FOR p IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+    FOR p IN 1..1 OUTBOUND entity GRAPH 'kamerplanter_graph'
       OPTIONS { edgeCollections: ['current_phase'] }
       RETURN p
   )
 
-  // Letzte Bestätigungen pro Typ
+  // Letzte Bestaetigungen pro Typ
   LET last_watering = FIRST(
     FOR cc IN care_confirmations
       FILTER cc.reminder_type == 'watering'
       FOR edge IN care_event_for
-        FILTER edge._from == cc._id AND edge._to == plant._id
+        FILTER edge._from == cc._id AND edge._to == entity._id
         FILTER cc.action == 'confirmed'
         SORT cc.confirmed_at DESC
         LIMIT 1
@@ -312,7 +319,7 @@ FOR plant IN plant_instances
     FOR cc IN care_confirmations
       FILTER cc.reminder_type == 'fertilizing'
       FOR edge IN care_event_for
-        FILTER edge._from == cc._id AND edge._to == plant._id
+        FILTER edge._from == cc._id AND edge._to == entity._id
         FILTER cc.action == 'confirmed'
         SORT cc.confirmed_at DESC
         LIMIT 1

@@ -203,32 +203,29 @@ class PlantingRunService:
                             initial_phases[entry.species_key] = (first.key or "", first.name)
 
         now = datetime.now(UTC)
+
+        # Resolve initial phase for the run (from first entry's species)
+        phase_key = ""
+        phase_name = "seedling"
+        if entries:
+            pk, pn = initial_phases.get(entries[0].species_key, ("", "seedling"))
+            phase_key = pk
+            phase_name = pn
+
         created_plants = []
         for i, spec in enumerate(plant_specs):
             slot_key = available_slots[i].key if i < len(available_slots) else None
-            phase_key, phase_name = initial_phases.get(spec["species_key"], ("", "seedling"))
+            # REQ-013 v2.0: Plants do NOT get their own phase — phase lives on the Run
             plant = PlantInstance(
                 instance_id=spec["instance_id"],
                 species_key=spec["species_key"],
                 cultivar_key=spec.get("cultivar_key"),
                 slot_key=slot_key,
                 planted_on=date.today(),
-                current_phase_key=phase_key or None,
-                current_phase_started_at=now,
             )
             created = self._plant_repo.create(plant)
             if created.key:
                 self._repo.link_run_to_plant(run_key, created.key)
-                # Create initial phase history entry
-                if self._phase_repo:
-                    history = PhaseHistory(
-                        plant_instance_key=created.key,
-                        phase_key=phase_key,
-                        phase_name=phase_name,
-                        entered_at=now,
-                        transition_reason="initial",
-                    )
-                    self._phase_repo.create_phase_history(history)
             # Mark slot as occupied
             if slot_key and self._site_repo:
                 slot = available_slots[i]
@@ -236,11 +233,24 @@ class PlantingRunService:
                 self._site_repo.update_slot(slot_key, slot)
             created_plants.append(created)
 
-        # Transition to active
+        # Transition to active and set run-level phase
         run.actual_quantity = len(created_plants)
         run.status = PlantingRunStatus.ACTIVE
-        run.started_at = datetime.now(UTC)
+        run.started_at = now
+        run.current_phase_key = phase_key or None
+        run.current_phase_started_at = now
         self._repo.update(run_key, run)
+
+        # Create initial phase history on the RUN (not on plants)
+        if self._phase_repo and phase_key:
+            history = PhaseHistory(
+                plant_instance_key=run_key,  # reused field for run_key
+                phase_key=phase_key,
+                phase_name=phase_name,
+                entered_at=now,
+                transition_reason="initial",
+            )
+            self._phase_repo.create_phase_history(history)
 
         return {
             "run_key": run_key,
@@ -248,6 +258,81 @@ class PlantingRunService:
             "plant_keys": [p.key for p in created_plants if p.key],
             "instance_ids": [p.instance_id for p in created_plants],
             "slots_assigned": min(len(available_slots), len(created_plants)),
+        }
+
+    def adopt_plants(self, run_key: PlantingRunKey, plant_keys: list[str]) -> dict:
+        """Adopt existing standalone PlantInstances into the run.
+
+        Validates:
+        - Run must be planned or active
+        - Each plant must not be in another active run
+        - Each plant must not be removed
+        - Species must match the run's entry
+        """
+        run = self.get_run(run_key)
+        if run.status not in (PlantingRunStatus.PLANNED, PlantingRunStatus.ACTIVE):
+            raise InvalidRunStateError("adopt_plants", run.status.value)
+
+        entries = self._repo.get_entries(run_key)
+        allowed_species = {e.species_key for e in entries}
+
+        adopted: list[str] = []
+        skipped: list[dict] = []
+
+        for pk in plant_keys:
+            plant = self._plant_repo.get_by_key(pk)
+            if plant is None:
+                skipped.append({"plant_key": pk, "reason": "Plant not found"})
+                continue
+            if plant.removed_on is not None:
+                skipped.append({"plant_key": pk, "reason": "Plant is removed"})
+                continue
+            if allowed_species and plant.species_key not in allowed_species:
+                skipped.append({"plant_key": pk, "reason": f"Species {plant.species_key} does not match run entry"})
+                continue
+
+            # Check not in another active run
+            existing_runs = self._repo.get_runs_for_plant(pk)
+            in_active_run = any(
+                r.status in (PlantingRunStatus.ACTIVE, PlantingRunStatus.HARVESTING) for r in existing_runs
+            )
+            if in_active_run:
+                skipped.append({"plant_key": pk, "reason": "Already in an active run"})
+                continue
+
+            # Link plant to run
+            self._repo.link_run_to_plant(run_key, pk)
+
+            # Clear plant-level phase (run phase takes over)
+            plant.current_phase_key = None
+            plant.current_phase_started_at = None
+            self._plant_repo.update(pk, plant)
+
+            adopted.append(pk)
+
+        # Update quantities
+        if adopted:
+            run.actual_quantity = (run.actual_quantity or 0) + len(adopted)
+            # If run was planned and now has plants, transition to active
+            if run.status == PlantingRunStatus.PLANNED:
+                now = datetime.now(UTC)
+                run.status = PlantingRunStatus.ACTIVE
+                run.started_at = now
+                # Set initial phase from first adopted plant if run has none
+                if not run.current_phase_key:
+                    first_plant = self._plant_repo.get_by_key(adopted[0])
+                    if first_plant and first_plant.current_phase_key:
+                        run.current_phase_key = first_plant.current_phase_key
+                        run.current_phase_started_at = now
+            self._repo.update(run_key, run)
+
+        return {
+            "run_key": run_key,
+            "adopted_count": len(adopted),
+            "adopted_keys": adopted,
+            "skipped": skipped,
+            "run_status": run.status.value,
+            "run_phase": run.current_phase_key,
         }
 
     # ── Slot helpers ────────────────────────────────────────────────────
@@ -301,48 +386,50 @@ class PlantingRunService:
                 available_slots[i].currently_occupied = True
                 self._site_repo.update_slot(available_slots[i].key, available_slots[i])
 
-    def batch_transition(
+    def transition(
         self,
         run_key: PlantingRunKey,
         target_phase_key: str,
-        target_phase_name: str,
-        exclude_keys: set[str] | None = None,
+        target_phase_name: str = "",
     ) -> dict:
-        """Batch phase transition for all eligible plants in the run."""
+        """Run-level phase transition — all plants in the run share this phase.
+
+        REQ-013 v2.0: The phase lives on the PlantingRun, not on individual
+        PlantInstances. No per-plant exclude is possible.
+        """
         run = self.get_run(run_key)
         if run.status not in (PlantingRunStatus.ACTIVE, PlantingRunStatus.HARVESTING):
-            raise InvalidRunStateError("batch_transition", run.status.value)
+            raise InvalidRunStateError("transition", run.status.value)
 
-        plants = self._repo.get_run_plants(run_key, include_detached=False)
-        eligible, skipped = self._engine.filter_transition_eligible(
-            plants,
-            target_phase_name,
-            exclude_keys,
-        )
+        now = datetime.now(UTC)
+        previous_phase = run.current_phase_key
 
-        transitioned = []
-        failed = []
-        for plant in eligible:
-            plant_key = plant.get("_key", "")
-            try:
-                existing = self._plant_repo.get_by_key(plant_key)
-                if existing:
-                    existing.current_phase_key = target_phase_key
-                    existing.current_phase_started_at = datetime.now(UTC)
-                    self._plant_repo.update(plant_key, existing)
-                    transitioned.append(plant_key)
-            except Exception:
-                failed.append(plant_key)
+        # Close open phase history on the run
+        if self._phase_repo and previous_phase:
+            self._phase_repo.close_open_phase_history_for_entity(run_key, now)
+
+        # Update run-level phase
+        run.current_phase_key = target_phase_key
+        run.current_phase_started_at = now
+        self._repo.update(run_key, run)
+
+        # Create new phase history entry on the run
+        if self._phase_repo:
+            history = PhaseHistory(
+                plant_instance_key=run_key,  # reused field for run_key
+                phase_key=target_phase_key,
+                phase_name=target_phase_name,
+                entered_at=now,
+                transition_reason="manual",
+            )
+            self._phase_repo.create_phase_history(history)
 
         return {
             "run_key": run_key,
-            "target_phase": target_phase_name,
-            "transitioned_count": len(transitioned),
-            "skipped_count": len(skipped),
-            "failed_count": len(failed),
-            "transitioned_keys": transitioned,
-            "skipped_keys": [p.get("_key", "") for p in skipped],
-            "failed_keys": failed,
+            "previous_phase": previous_phase,
+            "new_phase": target_phase_key,
+            "new_phase_name": target_phase_name,
+            "transitioned_at": now.isoformat(),
         }
 
     def batch_remove(
@@ -652,9 +739,47 @@ class PlantingRunService:
         self.get_run(run_key)
         return self._repo.get_run_plants(run_key, include_detached)
 
-    def detach_plant(self, run_key: PlantingRunKey, plant_key: PlantID, reason: str) -> None:
-        self.get_run(run_key)
+    def detach_plant(
+        self,
+        run_key: PlantingRunKey,
+        plant_key: PlantID,
+        reason: str,
+        category: str = "other",
+    ) -> dict:
+        """Detach a plant from the run, making it standalone.
+
+        REQ-013 v2.0: Copies the run's current phase to the plant so it
+        can be managed independently after detach.
+        """
+        run = self.get_run(run_key)
         self._repo.detach_plant(run_key, plant_key, reason)
+
+        # Copy run's current phase to the standalone plant
+        copied_phase = None
+        plant = self._plant_repo.get_by_key(plant_key)
+        if plant and run.current_phase_key:
+            plant.current_phase_key = run.current_phase_key
+            plant.current_phase_started_at = run.current_phase_started_at
+            self._plant_repo.update(plant_key, plant)
+            copied_phase = run.current_phase_key
+
+            # Create a standalone phase history entry for the plant
+            if self._phase_repo:
+                history = PhaseHistory(
+                    plant_instance_key=plant_key,
+                    phase_key=run.current_phase_key,
+                    phase_name="",
+                    entered_at=run.current_phase_started_at or datetime.now(UTC),
+                    transition_reason="detach_from_run",
+                )
+                self._phase_repo.create_phase_history(history)
+
+        return {
+            "plant_key": plant_key,
+            "detached_from_run": run_key,
+            "copied_phase": copied_phase,
+            "standalone": True,
+        }
 
     def get_runs_for_plant(self, plant_key: PlantID) -> list[PlantingRun]:
         return self._repo.get_runs_for_plant(plant_key)

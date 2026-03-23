@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, Query
 
-from app.api.v1.fertilizers.router import _fert_response
 from app.api.v1.fertilizers.schemas import (
     FertilizerCreate,
     FertilizerResponse,
@@ -19,6 +18,10 @@ from app.domain.models.tenant_context import TenantContext
 from app.domain.services.fertilizer_service import FertilizerService
 
 router = APIRouter(prefix="/fertilizers", tags=["fertilizers"])
+
+
+def _fert_response(f: Fertilizer) -> FertilizerResponse:
+    return FertilizerResponse(key=f.key or "", **f.model_dump(exclude={"key"}))
 
 
 @router.get("", response_model=list[FertilizerResponse])

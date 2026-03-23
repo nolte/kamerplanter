@@ -97,6 +97,26 @@ class BasePage:
         except ElementNotInteractableException:
             self.driver.execute_script("arguments[0].click();", element)
 
+    def clear_and_fill(self, element: WebElement, value: str) -> None:
+        """Reliably clear an input element and type a new value.
+
+        Uses JavaScript to clear the field value and dispatch native input/change
+        events so that React controlled components pick up the change.  This
+        works around ``InvalidElementStateException`` and ``Keys.CONTROL + "a"``
+        failures in headless Chrome via Selenium Grid (Remote WebDriver).
+        """
+        self.driver.execute_script(
+            "var el = arguments[0];"
+            "var nativeInputValueSetter = Object.getOwnPropertyDescriptor("
+            "  window.HTMLInputElement.prototype, 'value').set || "
+            "  Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;"
+            "nativeInputValueSetter.call(el, '');"
+            "el.dispatchEvent(new Event('input', {bubbles: true}));"
+            "el.dispatchEvent(new Event('change', {bubbles: true}));",
+            element,
+        )
+        element.send_keys(value)
+
     # ── Screenshots ───────────────────────────────────────────────────────
 
     def take_screenshot(self, name: str, output_dir: Path) -> Path:

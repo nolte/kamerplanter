@@ -15,7 +15,7 @@ class TankDetailPage(BasePage):
     PAGE = (By.CSS_SELECTOR, "[data-testid='tank-detail-page']")
 
     # Delete button (always visible)
-    DELETE_BUTTON = (By.XPATH, "//button[.//span[contains(@class,'MuiButton-startIcon')] and contains(.,'Löschen') or contains(.,'Delete')]")
+    DELETE_BUTTON = (By.CSS_SELECTOR, "[data-testid='tank-delete-button']")
 
     # ── Tab locators ───────────────────────────────────────────────────
     TABS = (By.CSS_SELECTOR, "button[role='tab']")
@@ -29,7 +29,7 @@ class TankDetailPage(BasePage):
     DETAIL_TABLES = (By.CSS_SELECTOR, "[data-testid='tank-detail-page'] .MuiCard-root")
 
     # ── Tab 1 – States ─────────────────────────────────────────────────
-    RECORD_STATE_BUTTON = (By.XPATH, "//button[contains(., 'Zustand erfassen') or contains(., 'Record State')]")
+    RECORD_STATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='tank-record-state-button']")
     STATES_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
     STATES_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
@@ -45,7 +45,7 @@ class TankDetailPage(BasePage):
     STATE_FORM_CANCEL = (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
 
     # ── Tab 2 – Maintenance ────────────────────────────────────────────
-    LOG_MAINTENANCE_BUTTON = (By.XPATH, "//button[contains(., 'Wartung erfassen') or contains(., 'Log Maintenance')]")
+    LOG_MAINTENANCE_BUTTON = (By.CSS_SELECTOR, "[data-testid='tank-log-maintenance-button']")
     MAINTENANCE_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
     MAINTENANCE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
@@ -63,12 +63,15 @@ class TankDetailPage(BasePage):
     SCHEDULES_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
     SCHEDULES_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
-    # ── Tab 4 – Edit form ──────────────────────────────────────────────
+    # ── Tab 4 – Fills ────────────────────────────────────────────────────
+    # (Tab for tank fill events – no specific locators needed beyond data-table)
+
+    # ── Tab 5 – Edit form ──────────────────────────────────────────────
     EDIT_FORM_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-name'] input")
     EDIT_FORM_TANK_TYPE = (By.CSS_SELECTOR, "[data-testid='form-field-tank_type'] .MuiSelect-select")
     EDIT_FORM_VOLUME = (By.CSS_SELECTOR, "[data-testid='form-field-volume_liters'] input")
     EDIT_FORM_MATERIAL = (By.CSS_SELECTOR, "[data-testid='form-field-material'] .MuiSelect-select")
-    EDIT_FORM_HAS_LID = (By.CSS_SELECTOR, "[data-testid='form-field-has_lid'] input[type='checkbox']")
+    EDIT_FORM_HAS_LID = (By.CSS_SELECTOR, "[data-testid='form-field-has_lid'] .MuiSwitch-root")
     EDIT_FORM_NOTES = (By.CSS_SELECTOR, "[data-testid='form-field-notes'] textarea")
     EDIT_FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
     EDIT_FORM_CANCEL = (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
@@ -267,7 +270,7 @@ class TankDetailPage(BasePage):
         rows = self.driver.find_elements(*self.SCHEDULES_ROWS)
         return len(rows)
 
-    # ── Edit tab (tab=4) ───────────────────────────────────────────────
+    # ── Edit tab (tab=5) ───────────────────────────────────────────────
 
     def get_edit_name_value(self) -> str:
         """Return the current value of the Name field in the edit form."""

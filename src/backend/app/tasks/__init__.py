@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 
 from app.config.settings import settings
 
@@ -65,6 +66,23 @@ celery_app.conf.update(
         "runoff-trend-check-daily": {
             "task": "app.tasks.tank_maintenance_tasks.check_runoff_trends",
             "schedule": 86400,
+        },
+        # REQ-030 Notification tasks
+        "notifications-dispatch-care-daily": {
+            "task": "notifications.dispatch_due_care",
+            "schedule": crontab(hour=6, minute=5),
+        },
+        "notifications-escalate-overdue": {
+            "task": "notifications.escalate_overdue",
+            "schedule": crontab(hour=12, minute=0),
+        },
+        "notifications-daily-summary": {
+            "task": "notifications.send_daily_summary",
+            "schedule": crontab(hour=6, minute=30),
+        },
+        "notifications-email-digests": {
+            "task": "notifications.send_email_digests",
+            "schedule": crontab(hour=7, minute=0),
         },
     },
 )

@@ -45,7 +45,10 @@
     "yesterday": "Yesterday",
     "tomorrow": "Tomorrow",
     "addFavorite": "Add to favorites",
-    "removeFavorite": "Remove from favorites"
+    "removeFavorite": "Remove from favorites",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "loadingError": "Failed to load data."
   },
   "table": {
     "showing": "Showing {{from}}–{{to}} of {{total}} entries",
@@ -270,6 +273,7 @@
       "tabExperience": "Experience",
       "tabPlatform": "Platform Mode",
       "tabAdmin": "Administration",
+      "tabNotifications": "Notifications",
       "tabIntegrations": "Integrations",
       "tabAccount": "Account",
       "smartHome": {
@@ -1145,7 +1149,17 @@
       "editTitle": "Edit Planting Run",
       "editDesc": "Adjust the basic settings of this planting run.",
       "editSectionDesc": "Name, start date, and location of the run.",
-      "tabNutrientWatering": "Fertilization & Watering"
+      "tabNutrientWatering": "Fertilization & Watering",
+      "adoptPlants": "Adopt Plants",
+      "adoptPlantsDesc": "Select existing plants to adopt into this run. Only plants not currently assigned to an active run can be adopted.",
+      "adoptAfterCreate": "Adopt existing plants",
+      "adoptAfterCreateDesc": "After creating the run, select and adopt existing plants into it.",
+      "adoptSelected": "Adopt {{count}} plants",
+      "plantsAdopted": "{{count}} plants adopted successfully.",
+      "adoptSkipped": "{{count}} plants were skipped (already assigned to a run).",
+      "adoptError": "Failed to adopt plants.",
+      "noAvailablePlants": "No available plants found.",
+      "selectedCount": "{{count}} selected"
     },
     "tanks": {
       "title": "Tanks",
@@ -2079,6 +2093,52 @@
       "503": {
         "title": "Under Maintenance",
         "message": "The service is currently being maintained. Please try again shortly."
+      }
+    },
+    "notifications": {
+      "title": "Notifications",
+      "markAllRead": "Mark all read",
+      "empty": "No notifications",
+      "loadMore": "Load more",
+      "justNow": "Just now",
+      "minutesAgo": "{{count}} min ago",
+      "hoursAgo": "{{count}} hr ago",
+      "daysAgo": "{{count}} days ago",
+      "settings": {
+        "title": "Notifications",
+        "channels": "Channels",
+        "channelsDesc": "Choose which channels you want to receive notifications through. Home Assistant is the recommended primary channel.",
+        "channelHomeAssistant": "Home Assistant",
+        "channelEmail": "Email",
+        "channelPwa": "Browser Push",
+        "channelApprise": "Apprise (Telegram, Slack, ...)",
+        "channelNotConfigured": "Not configured",
+        "channelAvailable": "Available",
+        "persistentNotification": "HA Persistent Notifications",
+        "mobilePush": "Mobile Push (Companion App)",
+        "ttsEnabled": "Text-to-Speech (TTS)",
+        "ttsEntityId": "Speaker Entity",
+        "emailAddress": "Email address",
+        "emailDigestMode": "Delivery mode",
+        "emailImmediate": "Immediate",
+        "emailDaily": "Daily digest",
+        "appriseUrls": "Apprise URLs (one per line)",
+        "quietHours": "Quiet hours",
+        "quietHoursDesc": "During quiet hours no notifications will be delivered (except critical alerts like frost or sensor warnings).",
+        "quietHoursStart": "From",
+        "quietHoursEnd": "Until",
+        "batching": "Batching",
+        "batchingDesc": "Multiple due reminders within the batching window will be combined into a single notification.",
+        "batchingWindow": "Batching window (minutes)",
+        "escalation": "Escalation",
+        "escalationDesc": "Overdue watering reminders will be re-sent after configured days with increasing urgency.",
+        "escalationWatering": "Re-send overdue watering reminders",
+        "dailySummary": "Daily summary",
+        "dailySummaryDesc": "Receive a daily overview of all pending care tasks.",
+        "dailySummaryTime": "Time",
+        "testSend": "Send test",
+        "testSuccess": "Test notification sent",
+        "testFailed": "Test failed"
       }
     },
     "pflege": {

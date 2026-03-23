@@ -186,10 +186,10 @@ Single Source of Truth für substratspezifische Flush-Dauern ist `REQ-004 Flushi
 ```
 has_harvest_indicator:       species → harvest_indicators
 has_stage:                   harvest_indicators → ripeness_stages
-observed_for_harvest:        plant_instances → harvest_observations
+observed_for_harvest:        planting_runs|plant_instances → harvest_observations   // Dual-Support (REQ-013 v2.0)
 uses_indicator:              harvest_observations → harvest_indicators
-underwent_protocol:          plant_instances → pre_harvest_protocols
-harvested_as:                plant_instances → batches
+underwent_protocol:          planting_runs|plant_instances → pre_harvest_protocols  // Dual-Support
+harvested_as:                planting_runs|plant_instances → batches                // Dual-Support (Run primaer via run_produced)
 assessed_by:                 batches → quality_assessments
 has_yield_metric:            batches → yield_metrics
 stored_in:                   batches → storage_locations          // Übergabe an REQ-008
@@ -201,11 +201,13 @@ triggered_by:                pre_harvest_protocols → harvest_observations
 
 **Erntebereitschaft mit Multi-Indicator-Aggregation:**
 ```aql
-// Hole Pflanze und zugehörige Harvest-Indikatoren über Species
-LET plant = DOCUMENT('plant_instances', @plant_id)
+// Dual-Support (REQ-013 v2.0): entity_id = planting_runs/... oder plant_instances/...
+LET entity = DOCUMENT(@entity_id)
+// Species-Aufloesung: Bei Runs ueber has_entry → entry_for_species, bei Plants ueber belongs_to_species
 LET species = FIRST(
-  FOR v IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
-    OPTIONS { edgeCollections: ['belongs_to_species'] }
+  FOR v IN 1..2 OUTBOUND entity GRAPH 'kamerplanter_graph'
+    OPTIONS { edgeCollections: ['belongs_to_species', 'has_entry', 'entry_for_species'] }
+    FILTER IS_SAME_COLLECTION('species', v)
     RETURN v
 )
 

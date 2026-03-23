@@ -47,27 +47,6 @@ class PlantingRunEngine:
                 seq += 1
         return result
 
-    def filter_transition_eligible(
-        self,
-        plants: list[dict],
-        target_phase: str,
-        exclude_keys: set[str] | None = None,
-    ) -> tuple[list[dict], list[dict]]:
-        """Split plants into eligible and skipped for phase transition.
-
-        Returns (eligible, skipped).
-        """
-        eligible = []
-        skipped = []
-        exclude = exclude_keys or set()
-        for plant in plants:
-            key = plant.get("_key", "")
-            if key in exclude or plant.get("removed_on") is not None or plant.get("current_phase") == target_phase:
-                skipped.append(plant)
-            else:
-                eligible.append(plant)
-        return eligible, skipped
-
     def validate_run_type_constraints(
         self,
         run_type: PlantingRunType,
@@ -83,6 +62,3 @@ class PlantingRunEngine:
         elif run_type == PlantingRunType.MONOCULTURE:
             if len(entries) != 1:
                 raise ValueError("Monoculture runs must have exactly one entry.")
-        elif run_type == PlantingRunType.MIXED_CULTURE:
-            if len(entries) < 2:
-                raise ValueError("Mixed culture runs require at least two entries.")

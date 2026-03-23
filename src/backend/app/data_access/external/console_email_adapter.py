@@ -25,3 +25,10 @@ class ConsoleEmailAdapter(IEmailService):
             name=display_name,
             reset_url=url,
         )
+
+    def send_notification_email(self, to_email: str, subject: str, html_body: str) -> None:
+        logger.info(
+            "email_notification",
+            to=to_email,
+            subject=subject,
+        )

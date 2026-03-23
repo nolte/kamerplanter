@@ -45,7 +45,10 @@
     "yesterday": "Gestern",
     "tomorrow": "Morgen",
     "addFavorite": "Als Favorit markieren",
-    "removeFavorite": "Favorit entfernen"
+    "removeFavorite": "Favorit entfernen",
+    "selectAll": "Alle auswählen",
+    "deselectAll": "Auswahl aufheben",
+    "loadingError": "Fehler beim Laden der Daten."
   },
   "table": {
     "showing": "Zeigt {{from}}–{{to}} von {{total}} Einträgen",
@@ -271,6 +274,7 @@
       "tabExperience": "Erfahrungsstufe",
       "tabPlatform": "Plattform-Modus",
       "tabAdmin": "Administration",
+      "tabNotifications": "Benachrichtigungen",
       "tabIntegrations": "Integrationen",
       "tabAccount": "Konto",
       "smartHome": {
@@ -1145,7 +1149,17 @@
       "editTitle": "Durchlauf bearbeiten",
       "editDesc": "Passen Sie die grundlegenden Einstellungen dieses Durchlaufs an.",
       "editSectionDesc": "Name, Startdatum und Standort des Durchlaufs.",
-      "tabNutrientWatering": "Düngung & Bewässerung"
+      "tabNutrientWatering": "Düngung & Bewässerung",
+      "adoptPlants": "Pflanzen aufnehmen",
+      "adoptPlantsDesc": "Wählen Sie vorhandene Pflanzen aus, die in diesen Durchlauf aufgenommen werden sollen. Nur Pflanzen, die noch keinem aktiven Durchlauf zugeordnet sind, können aufgenommen werden.",
+      "adoptAfterCreate": "Bestehende Pflanzen aufnehmen",
+      "adoptAfterCreateDesc": "Nach dem Erstellen des Durchlaufs vorhandene Pflanzen auswählen und aufnehmen.",
+      "adoptSelected": "{{count}} Pflanzen aufnehmen",
+      "plantsAdopted": "{{count}} Pflanzen erfolgreich aufgenommen.",
+      "adoptSkipped": "{{count}} Pflanzen wurden übersprungen (bereits einem Durchlauf zugeordnet).",
+      "adoptError": "Fehler beim Aufnehmen der Pflanzen.",
+      "noAvailablePlants": "Keine verfügbaren Pflanzen vorhanden.",
+      "selectedCount": "{{count}} ausgewählt"
     },
     "tanks": {
       "title": "Tanks",
@@ -2079,6 +2093,52 @@
       "503": {
         "title": "Wartungsarbeiten",
         "message": "Der Dienst wird gerade gewartet. Bitte versuchen Sie es in Kürze erneut."
+      }
+    },
+    "notifications": {
+      "title": "Benachrichtigungen",
+      "markAllRead": "Alle gelesen",
+      "empty": "Keine Benachrichtigungen",
+      "loadMore": "Mehr laden",
+      "justNow": "Gerade eben",
+      "minutesAgo": "vor {{count}} Min.",
+      "hoursAgo": "vor {{count}} Std.",
+      "daysAgo": "vor {{count}} Tagen",
+      "settings": {
+        "title": "Benachrichtigungen",
+        "channels": "Kanaele",
+        "channelsDesc": "Waehle aus, ueber welche Kanaele du Benachrichtigungen erhalten moechtest. Home Assistant ist der empfohlene primaere Kanal.",
+        "channelHomeAssistant": "Home Assistant",
+        "channelEmail": "E-Mail",
+        "channelPwa": "Browser Push",
+        "channelApprise": "Apprise (Telegram, Slack, ...)",
+        "channelNotConfigured": "Nicht konfiguriert",
+        "channelAvailable": "Verfuegbar",
+        "persistentNotification": "HA Persistent Notifications",
+        "mobilePush": "Mobile Push (Companion App)",
+        "ttsEnabled": "Sprachansage (TTS)",
+        "ttsEntityId": "Lautsprecher-Entity",
+        "emailAddress": "E-Mail-Adresse",
+        "emailDigestMode": "Zustellmodus",
+        "emailImmediate": "Sofort",
+        "emailDaily": "Taegliche Zusammenfassung",
+        "appriseUrls": "Apprise-URLs (eine pro Zeile)",
+        "quietHours": "Ruhezeiten",
+        "quietHoursDesc": "Waehrend der Ruhezeiten werden keine Benachrichtigungen zugestellt (ausser kritische Alarme wie Frost oder Sensorwarnungen).",
+        "quietHoursStart": "Von",
+        "quietHoursEnd": "Bis",
+        "batching": "Zusammenfassung",
+        "batchingDesc": "Mehrere faellige Erinnerungen werden innerhalb des Sammel-Zeitfensters zu einer Benachrichtigung zusammengefasst.",
+        "batchingWindow": "Sammel-Zeitfenster (Minuten)",
+        "escalation": "Eskalation",
+        "escalationDesc": "Ueberfaellige Giess-Erinnerungen werden nach konfigurierten Tagen erneut gesendet mit steigender Dringlichkeit.",
+        "escalationWatering": "Ueberfaellige Giess-Erinnerungen erneut senden",
+        "dailySummary": "Taegliche Zusammenfassung",
+        "dailySummaryDesc": "Erhalte taeglich eine Uebersicht aller anstehenden Pflegeaufgaben.",
+        "dailySummaryTime": "Uhrzeit",
+        "testSend": "Test senden",
+        "testSuccess": "Test-Benachrichtigung gesendet",
+        "testFailed": "Test fehlgeschlagen"
       }
     },
     "pflege": {

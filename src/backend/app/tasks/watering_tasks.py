@@ -152,7 +152,7 @@ def _find_last_completed_date(task_repo, run_key: str, task_prefix: str):
             try:
                 completed = datetime.fromisoformat(t["completed_at"])
                 return completed.date()
-            except ValueError, TypeError:
+            except (ValueError, TypeError):  # fmt: skip
                 pass
             break
     return None

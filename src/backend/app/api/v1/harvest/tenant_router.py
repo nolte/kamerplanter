@@ -1,12 +1,5 @@
 from fastapi import APIRouter, Depends, Query
 
-from app.api.v1.harvest.router import (
-    _batch_response,
-    _indicator_response,
-    _observation_response,
-    _quality_response,
-    _yield_response,
-)
 from app.api.v1.harvest.schemas import (
     HarvestBatchCreate,
     HarvestBatchResponse,
@@ -33,6 +26,26 @@ from app.domain.models.tenant_context import TenantContext
 from app.domain.services.harvest_service import HarvestService
 
 router = APIRouter(prefix="/harvest", tags=["harvest"])
+
+
+def _indicator_response(i: HarvestIndicator) -> HarvestIndicatorResponse:
+    return HarvestIndicatorResponse(key=i.key or "", **i.model_dump(exclude={"key"}))
+
+
+def _observation_response(o: HarvestObservation) -> ObservationResponse:
+    return ObservationResponse(key=o.key or "", **o.model_dump(exclude={"key"}))
+
+
+def _batch_response(b: HarvestBatch) -> HarvestBatchResponse:
+    return HarvestBatchResponse(key=b.key or "", **b.model_dump(exclude={"key"}))
+
+
+def _quality_response(q: QualityAssessment) -> QualityAssessmentResponse:
+    return QualityAssessmentResponse(key=q.key or "", **q.model_dump(exclude={"key"}))
+
+
+def _yield_response(y: YieldMetric) -> YieldMetricResponse:
+    return YieldMetricResponse(key=y.key or "", **y.model_dump(exclude={"key"}))
 
 
 @router.get("/indicators", response_model=list[HarvestIndicatorResponse])

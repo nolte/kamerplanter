@@ -68,3 +68,6 @@ class SmtpEmailAdapter(IEmailService):
         <p>This link expires in 1 hour. If you did not request this, ignore this email.</p>
         """
         self._send(to_email, "Kamerplanter — Password Reset", html)
+
+    def send_notification_email(self, to_email: str, subject: str, html_body: str) -> None:
+        self._send(to_email, subject, html_body)

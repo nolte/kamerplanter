@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import time
-
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 
@@ -22,7 +19,7 @@ class FertilizerListPage(BasePage):
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
     TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
-    SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input']")
+    SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
     SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
     RESET_FILTERS = (By.CSS_SELECTOR, "[data-testid='reset-filters-button']")
@@ -96,14 +93,12 @@ class FertilizerListPage(BasePage):
     def search(self, term: str) -> None:
         """Type a search term into the table search field."""
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        search_input.clear()
-        search_input.send_keys(term)
+        self.clear_and_fill(search_input, term)
 
     def clear_search(self) -> None:
         """Clear the search field."""
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        search_input.clear()
-        search_input.send_keys(Keys.BACKSPACE)
+        self.clear_and_fill(search_input, "")
 
     def has_search_chip(self) -> bool:
         """Return True if the search chip is visible."""
@@ -145,14 +140,12 @@ class FertilizerListPage(BasePage):
     def fill_product_name(self, name: str) -> None:
         """Fill the product name field."""
         el = self.wait_for_element_clickable(self.FORM_PRODUCT_NAME)
-        el.clear()
-        el.send_keys(name)
+        self.clear_and_fill(el, name)
 
     def fill_brand(self, brand: str) -> None:
         """Fill the brand field."""
         el = self.wait_for_element_clickable(self.FORM_BRAND)
-        el.clear()
-        el.send_keys(brand)
+        self.clear_and_fill(el, brand)
 
     def fill_npk(self, n: float, p: float, k: float) -> None:
         """Fill the NPK N, P, K fields."""
@@ -162,26 +155,22 @@ class FertilizerListPage(BasePage):
             (self.FORM_NPK_K, str(k)),
         ]:
             el = self.wait_for_element_clickable(locator)
-            el.clear()
-            el.send_keys(value)
+            self.clear_and_fill(el, value)
 
     def fill_ec_contribution(self, value: float) -> None:
         """Fill the EC contribution field."""
         el = self.wait_for_element_clickable(self.FORM_EC_CONTRIBUTION)
-        el.clear()
-        el.send_keys(str(value))
+        self.clear_and_fill(el, str(value))
 
     def fill_mixing_priority(self, value: int) -> None:
         """Fill the mixing priority field."""
         el = self.wait_for_element_clickable(self.FORM_MIXING_PRIORITY)
-        el.clear()
-        el.send_keys(str(value))
+        self.clear_and_fill(el, str(value))
 
     def fill_notes(self, notes: str) -> None:
         """Fill the notes textarea."""
         el = self.wait_for_element_clickable(self.FORM_NOTES)
-        el.clear()
-        el.send_keys(notes)
+        self.clear_and_fill(el, notes)
 
     def select_fertilizer_type(self, value_text: str) -> None:
         """Open the fertilizer type select and pick an option."""

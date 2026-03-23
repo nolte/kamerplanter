@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .base_page import BasePage
@@ -19,7 +18,7 @@ class NutrientPlanListPage(BasePage):
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
     TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
-    SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input']")
+    SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
     SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
     RESET_FILTERS = (By.CSS_SELECTOR, "[data-testid='reset-filters-button']")
@@ -97,14 +96,12 @@ class NutrientPlanListPage(BasePage):
     def search(self, term: str) -> None:
         """Type a search term into the table search field."""
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        search_input.clear()
-        search_input.send_keys(term)
+        self.clear_and_fill(search_input, term)
 
     def clear_search(self) -> None:
         """Clear the search field."""
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        search_input.clear()
-        search_input.send_keys(Keys.BACKSPACE)
+        self.clear_and_fill(search_input, "")
 
     def has_search_chip(self) -> bool:
         """Return True if the search chip is visible."""
@@ -142,20 +139,17 @@ class NutrientPlanListPage(BasePage):
     def fill_name(self, name: str) -> None:
         """Fill the plan name field."""
         el = self.wait_for_element_clickable(self.FORM_NAME)
-        el.clear()
-        el.send_keys(name)
+        self.clear_and_fill(el, name)
 
     def fill_description(self, description: str) -> None:
         """Fill the description textarea."""
         el = self.wait_for_element_clickable(self.FORM_DESCRIPTION)
-        el.clear()
-        el.send_keys(description)
+        self.clear_and_fill(el, description)
 
     def fill_author(self, author: str) -> None:
         """Fill the author field."""
         el = self.wait_for_element_clickable(self.FORM_AUTHOR)
-        el.clear()
-        el.send_keys(author)
+        self.clear_and_fill(el, author)
 
     def select_substrate_type(self, value_text: str) -> None:
         """Open the substrate type select and pick an option."""

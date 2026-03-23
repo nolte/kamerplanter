@@ -6,11 +6,12 @@ from app.api.v1.profiles.schemas import (
     RequirementProfileCreate,
     RequirementProfileResponse,
 )
+from app.common.auth import get_current_user
 from app.common.dependencies import get_phase_service
 from app.domain.models.phase import NutrientProfile, RequirementProfile
 from app.domain.services.phase_service import PhaseService
 
-router = APIRouter(prefix="/profiles", tags=["profiles"])
+router = APIRouter(prefix="/profiles", tags=["profiles"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/requirements/{phase_key}", response_model=RequirementProfileResponse)

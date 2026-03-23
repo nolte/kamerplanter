@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.common.enums import EntryRole, PlantingRunStatus, PlantingRunType
+from app.common.enums import PlantingRunStatus, PlantingRunType
 from app.domain.models.planting_run import ALLOWED_STATUS_TRANSITIONS, PlantingRun, PlantingRunEntry
 
 
@@ -23,10 +23,6 @@ class TestPlantingRun:
         )
         assert run.source_plant_key == "plant_123"
 
-    def test_mixed_culture(self):
-        run = PlantingRun(name="Mixed Bed", run_type=PlantingRunType.MIXED_CULTURE)
-        assert run.run_type == PlantingRunType.MIXED_CULTURE
-
     def test_invalid_status(self):
         with pytest.raises(ValidationError):
             PlantingRun(name="Test", run_type=PlantingRunType.MONOCULTURE, status="invalid")
@@ -44,7 +40,6 @@ class TestPlantingRunEntry:
     def test_valid_entry(self):
         entry = PlantingRunEntry(species_key="sp1", quantity=10, id_prefix="TOM")
         assert entry.quantity == 10
-        assert entry.role == EntryRole.PRIMARY
 
     def test_invalid_prefix_lowercase(self):
         with pytest.raises(ValidationError, match="id_prefix"):
@@ -65,24 +60,6 @@ class TestPlantingRunEntry:
     def test_quantity_zero(self):
         with pytest.raises(ValidationError):
             PlantingRunEntry(species_key="sp1", quantity=0, id_prefix="TOM")
-
-    def test_companion_role(self):
-        entry = PlantingRunEntry(
-            species_key="sp1",
-            quantity=3,
-            id_prefix="BAS",
-            role=EntryRole.COMPANION,
-        )
-        assert entry.role == EntryRole.COMPANION
-
-    def test_trap_crop_role(self):
-        entry = PlantingRunEntry(
-            species_key="sp1",
-            quantity=2,
-            id_prefix="NAS",
-            role=EntryRole.TRAP_CROP,
-        )
-        assert entry.role == EntryRole.TRAP_CROP
 
     def test_spacing(self):
         entry = PlantingRunEntry(species_key="sp1", quantity=5, id_prefix="TOM", spacing_cm=30.0)

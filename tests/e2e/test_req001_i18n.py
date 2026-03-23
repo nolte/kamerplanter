@@ -134,7 +134,7 @@ class TestCultivarTraitTranslations:
         species_list.click_row(0)
         species_list.wait_for_url_contains("/stammdaten/species/")
 
-        species_detail.click_tab_by_label("Sorten")
+        species_detail.click_tab_by_label("SORTEN")
         time.sleep(1)
 
         if species_detail.get_cultivar_count() == 0:

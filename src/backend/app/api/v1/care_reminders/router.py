@@ -8,11 +8,12 @@ from app.api.v1.care_reminders.schemas import (
     ConfirmRequest,
     SnoozeRequest,
 )
+from app.common.auth import get_current_user
 from app.common.dependencies import get_care_reminder_service
 from app.common.enums import ReminderType
 from app.domain.services.care_reminder_service import CareReminderService
 
-router = APIRouter(prefix="/care-reminders", tags=["care-reminders"])
+router = APIRouter(prefix="/care-reminders", tags=["care-reminders"], dependencies=[Depends(get_current_user)])
 
 
 def _profile_to_response(p) -> CareProfileResponse:

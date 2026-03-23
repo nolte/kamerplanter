@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.species.schemas import SpeciesCreate, SpeciesListResponse, SpeciesResponse
+from app.common.auth import get_current_user
 from app.common.dependencies import get_family_repo, get_species_service
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.domain.models.species import Species
 from app.domain.services.species_service import SpeciesService
 
-router = APIRouter(prefix="/species", tags=["species"])
+router = APIRouter(prefix="/species", tags=["species"], dependencies=[Depends(get_current_user)])
 
 
 def _species_response(s: Species, family_repo: ArangoBotanicalFamilyRepository) -> SpeciesResponse:

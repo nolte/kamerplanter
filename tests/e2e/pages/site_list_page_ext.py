@@ -34,7 +34,7 @@ class SiteListPageExt(BasePage):
     # ── DataTable locators (from DataTable.tsx) ────────────────────────
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
     TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
-    SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input']")
+    SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
     SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
     RESET_FILTERS = (By.CSS_SELECTOR, "[data-testid='reset-filters-button']")
@@ -62,6 +62,13 @@ class SiteListPageExt(BasePage):
         self.navigate(self.PATH)
         self.wait_for_element(self.PAGE)
         self.wait_for_loading_complete()
+        # Wait for data table to render (either rows or empty state)
+        import time
+        for _ in range(20):
+            if (self.driver.find_elements(*self.TABLE_ROWS)
+                    or self.driver.find_elements(*self.EMPTY_STATE)):
+                break
+            time.sleep(0.25)
         return self
 
     # ── Table queries ──────────────────────────────────────────────────
@@ -193,8 +200,11 @@ class SiteListPageExt(BasePage):
 
     def is_create_dialog_open(self) -> bool:
         """Check whether the create dialog form fields are visible."""
-        elements = self.driver.find_elements(*self.FORM_NAME)
-        return bool(elements) and elements[0].is_displayed()
+        try:
+            elements = self.driver.find_elements(*self.FORM_NAME)
+            return bool(elements) and elements[0].is_displayed()
+        except Exception:
+            return False
 
     def get_name_field_value(self) -> str:
         el = self.wait_for_element(self.FORM_NAME)

@@ -424,10 +424,14 @@ class NutrientPlanService:
 
         # Resolve plan reference substrate type
         plan_ref_substrate = (
-            plan.reference_substrate_type.value
-            if hasattr(plan.reference_substrate_type, "value")
-            else str(plan.reference_substrate_type)
-        ) if plan.reference_substrate_type else "soil"
+            (
+                plan.reference_substrate_type.value
+                if hasattr(plan.reference_substrate_type, "value")
+                else str(plan.reference_substrate_type)
+            )
+            if plan.reference_substrate_type
+            else "soil"
+        )
 
         # Build input and run engine
         calc_input = DosageCalculationInput(
@@ -541,11 +545,7 @@ class NutrientPlanService:
         target_ca = entry.calcium_ppm or 0.0
         target_mg = entry.magnesium_ppm or 0.0
 
-        phase_name_str = (
-            entry.phase_name.value
-            if hasattr(entry.phase_name, "value")
-            else str(entry.phase_name)
-        )
+        phase_name_str = entry.phase_name.value if hasattr(entry.phase_name, "value") else str(entry.phase_name)
         recommendation = self._water_calc.recommend_mix_ratio(
             tap=site.water_config.tap_water_profile,
             ro=ro,
@@ -661,11 +661,7 @@ class NutrientPlanService:
             target_ca = entry.calcium_ppm or 0.0
             target_mg = entry.magnesium_ppm or 0.0
 
-            phase_name_str = (
-                entry.phase_name.value
-                if hasattr(entry.phase_name, "value")
-                else str(entry.phase_name)
-            )
+            phase_name_str = entry.phase_name.value if hasattr(entry.phase_name, "value") else str(entry.phase_name)
             recommendation = self._water_calc.recommend_mix_ratio(
                 tap=tap,
                 ro=ro,

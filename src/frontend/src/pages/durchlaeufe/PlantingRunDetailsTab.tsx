@@ -280,7 +280,7 @@ export default function PlantingRunDetailsTab({
                 title={speciesMap.get(r.species_key) ?? r.species_key}
                 subtitle={r.cultivar_key ? (speciesMap.get(r.cultivar_key) ?? r.cultivar_key) : undefined}
                 chips={
-                  <Chip label={t(`enums.entryRole.${r.role}`)} size="small" variant="outlined" />
+                  <Chip label={r.id_prefix} size="small" variant="outlined" />
                 }
                 fields={[
                   { label: t('pages.plantingRuns.quantity'), value: String(r.quantity) },

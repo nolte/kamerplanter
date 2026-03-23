@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, Query
 
-from app.api.v1.tanks.router import _fill_event_response, _tank_response
 from app.api.v1.tanks.schemas import (
     ActiveNutrientPlanResponse,
     ActivePlanFertilizerInfo,
@@ -41,6 +40,14 @@ from app.domain.services.sensor_service import SensorService
 from app.domain.services.tank_service import TankService
 
 router = APIRouter(prefix="/tanks", tags=["tanks"])
+
+
+def _tank_response(t: Tank) -> TankResponse:
+    return TankResponse(key=t.key or "", **t.model_dump(exclude={"key"}))
+
+
+def _fill_event_response(e: TankFillEvent) -> TankFillEventResponse:
+    return TankFillEventResponse(key=e.key or "", **e.model_dump(exclude={"key"}))
 
 
 @router.get("/maintenance/due", response_model=list[DueMaintenanceResponse])

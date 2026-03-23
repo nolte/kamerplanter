@@ -11,11 +11,12 @@ from app.api.v1.substrates.schemas import (
     SubstrateMixRequest,
     SubstrateResponse,
 )
+from app.common.auth import get_current_user
 from app.common.dependencies import get_substrate_service
 from app.domain.models.substrate import MixComponent, Substrate, SubstrateBatch
 from app.domain.services.substrate_service import SubstrateService
 
-router = APIRouter(prefix="/substrates", tags=["substrates"])
+router = APIRouter(prefix="/substrates", tags=["substrates"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("", response_model=list[SubstrateResponse])

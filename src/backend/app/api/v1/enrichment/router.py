@@ -13,10 +13,11 @@ from app.api.v1.enrichment.schemas import (
     SyncTriggerRequest,
     SyncTriggerResponse,
 )
+from app.common.auth import get_current_user
 from app.common.dependencies import get_enrichment_service
 from app.domain.services.enrichment_service import EnrichmentService
 
-router = APIRouter(prefix="/enrichment", tags=["enrichment"])
+router = APIRouter(prefix="/enrichment", tags=["enrichment"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/sources", response_model=list[SourceResponse])

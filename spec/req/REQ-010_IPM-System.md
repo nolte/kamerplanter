@@ -53,12 +53,12 @@ Das System unterscheidet zwischen:
 
 ### Edge Collections:
 ```aql
-// Edge Collection: inspected_by (plant_instances → inspections)
+// Edge Collection: inspected_by (planting_runs|plant_instances → inspections)  // Dual-Support (REQ-013 v2.0)
 // Edge Collection: detected (inspections → pests / diseases)
 // Edge Collection: shows_symptom (pests / diseases → symptoms)
 // Edge Collection: treated_with (pests / diseases → treatments)
 // Edge Collection: applied_as (treatments → treatment_applications)
-// Edge Collection: to_plant (treatment_applications → plant_instances)
+// Edge Collection: to_run (treatment_applications → planting_runs)            // REQ-013 v2.0: Run-Level (ex to_plant)
 // Edge Collection: controls (beneficial_organisms → pests)
 // Edge Collection: vulnerable_to (growth_phases → pests / diseases)
 // Edge Collection: resistant_to (species → pests / diseases)
@@ -80,9 +80,13 @@ Das System unterscheidet zwischen:
 LET cutoff = DATE_SUBTRACT(DATE_NOW(), 90, "days")
 FOR slot IN slots
     FILTER slot._key == @slot_id
+    // Dual-Support: Inspections liegen auf Runs oder standalone Plants
     FOR plant IN 1..1 INBOUND slot GRAPH 'kamerplanter_graph'
         OPTIONS { edgeCollections: ['placed_in'] }
-        FOR inspection IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+        // Pflanze im Run? → Inspection ueber Run. Standalone? → direkt.
+        LET run = FIRST(FOR r, e IN 1..1 INBOUND plant run_contains FILTER e.detached_at == null RETURN r)
+        LET entity = run != null ? run : plant
+        FOR inspection IN 1..1 OUTBOUND entity GRAPH 'kamerplanter_graph'
             OPTIONS { edgeCollections: ['inspected_by'] }
             FILTER inspection.timestamp > cutoff
             FOR pest IN 1..1 OUTBOUND inspection GRAPH 'kamerplanter_graph'
@@ -98,8 +102,14 @@ FOR slot IN slots
 ```aql
 LET cutoff_7d = DATE_SUBTRACT(DATE_NOW(), 7, "days")
 LET cutoff_14d = DATE_SUBTRACT(DATE_NOW(), 14, "days")
-FOR plant IN plant_instances
-    FOR inspection IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+// Dual-Support (REQ-013 v2.0): Ueber Runs + standalone Plants
+FOR entity IN UNION_DISTINCT(
+    (FOR r IN planting_runs FILTER r.status IN ['active', 'harvesting'] RETURN r),
+    (FOR p IN plant_instances FILTER p.removed_on == null
+        LET in_run = LENGTH(FOR run, e IN 1..1 INBOUND p run_contains FILTER e.detached_at == null RETURN 1)
+        FILTER in_run == 0 RETURN p)
+)
+    FOR inspection IN 1..1 OUTBOUND entity GRAPH 'kamerplanter_graph'
         OPTIONS { edgeCollections: ['inspected_by'] }
         FILTER inspection.pressure_level IN ['medium', 'high']
             AND inspection.timestamp > cutoff_7d

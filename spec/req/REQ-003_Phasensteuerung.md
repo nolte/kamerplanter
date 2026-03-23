@@ -123,20 +123,23 @@ next_phase:         growth_phases      -> growth_phases
 governed_by:        growth_phases      -> phase_transition_rules
 requires_profile:   growth_phases      -> requirement_profiles
 uses_nutrients:     requirement_profiles -> nutrient_profiles
-current_phase:      plant_instances    -> growth_phases
-phase_history:      plant_instances    -> phase_histories
-was_phase:          phase_histories    -> growth_phases
-has_season:         plant_instances    -> seasonal_cycles
+current_phase:      planting_runs|plant_instances  -> growth_phases       (Dual-Support: Run primaer, standalone Plant als Fallback; REQ-013 v2.0)
+phase_history:      planting_runs|plant_instances  -> phase_histories     (Dual-Support)
+was_phase:          phase_histories                -> growth_phases
+has_season:         planting_runs|plant_instances  -> seasonal_cycles     (Dual-Support)
 season_history:     seasonal_cycles    -> phase_histories    (Zuordnung Phase-History zu Saison)
 ```
 
 ### AQL-Beispiellogik:
 
-**Nächste Phase mit Ressourcen-Profil laden:**
-```aql
-LET plant = DOCUMENT('plant_instances', @plant_id)
+**Naechste Phase mit Ressourcen-Profil laden:**
 
-FOR current_phase IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+> **Dual-Support (REQ-013 v2.0):** `@entity_id` kann ein `planting_runs/{key}` oder ein `plant_instances/{key}` sein. Innerhalb eines aktiven Runs wird die Phase auf dem Run verwaltet; standalone PlantInstances verwalten ihre eigene Phase.
+
+```aql
+LET entity = DOCUMENT(@entity_id)   // planting_runs/... oder plant_instances/...
+
+FOR current_phase IN 1..1 OUTBOUND entity GRAPH 'kamerplanter_graph'
     OPTIONS { edgeCollections: ['current_phase'] }
     FOR next IN 1..1 OUTBOUND current_phase GRAPH 'kamerplanter_graph'
         OPTIONS { edgeCollections: ['next_phase'] }
@@ -153,14 +156,19 @@ FOR current_phase IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
 ```
 
 **Auto-Transition Kandidaten finden (zeitbasiert):**
+
+> **Dual-Support (REQ-013 v2.0):** Primaer werden aktive PlantingRuns iteriert. Zusaetzlich standalone PlantInstances (nicht in aktivem Run).
+
 ```aql
-FOR plant IN plant_instances
-    FOR phase IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+// 1. Aktive Runs pruefen
+FOR run IN planting_runs
+    FILTER run.status IN ['active', 'harvesting']
+    FOR phase IN 1..1 OUTBOUND run GRAPH 'kamerplanter_graph'
         OPTIONS { edgeCollections: ['current_phase'] }
         FOR rule IN 1..1 OUTBOUND phase GRAPH 'kamerplanter_graph'
             OPTIONS { edgeCollections: ['governed_by'] }
             FILTER rule.trigger_type == 'time_based'
-            FOR history IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+            FOR history IN 1..1 OUTBOUND run GRAPH 'kamerplanter_graph'
                 OPTIONS { edgeCollections: ['phase_history'] }
                 FILTER history.exited_at == null
                 FOR hist_phase IN 1..1 OUTBOUND history GRAPH 'kamerplanter_graph'
@@ -169,24 +177,32 @@ FOR plant IN plant_instances
                     LET actual_duration = DATE_DIFF(history.entered_at, DATE_NOW(), 'days')
                     FILTER actual_duration >= rule.auto_transition_after_days
                     RETURN {
-                        plant_id: plant._key,
+                        entity_type: 'run',
+                        entity_key: run._key,
                         current_phase: phase.name,
                         planned_duration: rule.auto_transition_after_days,
                         actual_duration: actual_duration
                     }
+
+// 2. Standalone Plants pruefen (nicht in aktivem Run)
+// Analog mit FOR plant IN plant_instances, gefiltert auf Plants ohne aktive run_contains-Edge
 ```
 
-**VPD-Optimierung für aktuelle Phase:**
+**VPD-Optimierung fuer aktuelle Phase:**
+
+> **Dual-Support:** `@entity_id` = Run oder standalone Plant. Location wird bei Runs ueber `run_at_location` aufgeloest, bei standalone Plants ueber `placed_in` → Slot → Location.
+
 ```aql
-LET plant = DOCUMENT('plant_instances', @plant_id)
+LET entity = DOCUMENT(@entity_id)   // planting_runs/... oder plant_instances/...
 LET one_hour_ago = DATE_SUBTRACT(DATE_NOW(), 1, 'hours')
 
-FOR phase IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+FOR phase IN 1..1 OUTBOUND entity GRAPH 'kamerplanter_graph'
     OPTIONS { edgeCollections: ['current_phase'] }
     FOR req IN 1..1 OUTBOUND phase GRAPH 'kamerplanter_graph'
         OPTIONS { edgeCollections: ['requires_profile'] }
-        FOR slot IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
-            OPTIONS { edgeCollections: ['placed_in'] }
+        // Location-Aufloesung: Run → run_at_location → Location, oder Plant → placed_in → Slot → Location
+        FOR location IN 1..2 OUTBOUND entity GRAPH 'kamerplanter_graph'
+            OPTIONS { edgeCollections: ['run_at_location', 'placed_in', 'has_slot'] }
             FOR location IN 1..1 INBOUND slot GRAPH 'kamerplanter_graph'
                 OPTIONS { edgeCollections: ['has_slot'] }
                 FOR sensor IN 1..1 OUTBOUND location GRAPH 'kamerplanter_graph'
@@ -212,7 +228,7 @@ FOR phase IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
 ```aql
 // Vergleicht Ertrag und Phasen-Dauern über mehrere Saisons einer Pflanze
 FOR season IN seasonal_cycles
-    FILTER season.plant_instance_key == @plant_key
+    FILTER season.entity_key == @entity_key   // planting_run_key oder plant_instance_key (Dual-Support)
     SORT season.season_number ASC
     LET phase_durations = (
         FOR history IN phase_histories
@@ -252,9 +268,15 @@ class TransitionTrigger(str, Enum):
     GDD_BASED = "gdd_based"  # Growing Degree Days — biologisch akkurater als Kalendertage
 
 class PhaseTransitionEngine(BaseModel):
-    """Steuert Übergänge zwischen Wachstumsphasen"""
+    """Steuert Uebergaenge zwischen Wachstumsphasen.
 
-    plant_id: str
+    Dual-Support (REQ-013 v2.0): entity_id kann ein planting_runs-Key oder
+    ein plant_instances-Key sein. Bei Runs wird die Phase fuer alle Pflanzen
+    im Run gesetzt; bei standalone Plants nur fuer die einzelne Pflanze.
+    """
+
+    entity_id: str         # planting_runs/{key} oder plant_instances/{key}
+    entity_type: str       # 'run' oder 'plant'
     current_phase: str
     phase_entered_at: datetime
     auto_transition_days: Optional[int] = None

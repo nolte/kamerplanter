@@ -17,7 +17,7 @@ class SpeciesListPage(BasePage):
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
     TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
-    SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input']")
+    SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SHOWING_COUNT = (By.CSS_SELECTOR, "[data-testid='showing-count']")
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
     NEXT_PAGE = (By.CSS_SELECTOR, "[aria-label='Go to next page']")

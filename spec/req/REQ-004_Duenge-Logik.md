@@ -379,7 +379,7 @@ CONTAINS:              Fertilizer -> Component            {amount_percent: float
 INCOMPATIBLE_WITH:     Fertilizer -> Fertilizer           {severity: str, reason: str}
 MIXED_AFTER:           Fertilizer -> Fertilizer           {min_wait_minutes: int}
 USES_DOSAGE:           GrowthPhase -> Fertilizer          {ml_per_liter: float, frequency: str}
-FED_BY:                PlantInstance -> FeedingEvent       {}
+FED_BY:                PlantingRun|PlantInstance -> FeedingEvent       {}  // Dual-Support (REQ-013 v2.0): Run primaer, standalone Plant als Fallback
 USED:                  FeedingEvent -> Fertilizer          {ml_applied: float}
 TRIGGERED_BY:          FeedingEvent -> WateringEvent       {}  // REQ-014 — FeedingEvent wurde aus WateringEvent erzeugt
 PRESCRIBES:            FeedingSchedule -> Fertilizer       {}
@@ -389,7 +389,7 @@ FOR_FERTILIZER:        MixingInstruction -> Fertilizer     {}
 // Nährstoffplan-Verwaltung
 HAS_PHASE_ENTRY:       NutrientPlan -> NutrientPlanPhaseEntry      {sequence: int}
 USES_FERTILIZER:       NutrientPlanPhaseEntry -> Fertilizer        {ml_per_liter: float, optional: bool}
-FOLLOWS_PLAN:          PlantInstance -> NutrientPlan               {assigned_at: datetime, assigned_by: str}
+FOLLOWS_PLAN:          PlantInstance -> NutrientPlan               {assigned_at: datetime, assigned_by: str}  // Nur fuer standalone Plants (REQ-013 v2.0); Runs nutzen RUN_FOLLOWS_PLAN
 CLONED_FROM:           NutrientPlan -> NutrientPlan                {cloned_at: datetime}
 
 // Gießplan-Workflow: PlantingRun → NutrientPlan Zuweisung (REQ-013 Integration)

@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, Query, Response
 
-from app.api.v1.tasks.router import _ACTIVITY_TO_TASK_CATEGORY, _task_response, _tt_response, _we_response, _wf_response
 from app.api.v1.tasks.schemas import (
     BatchAssignRequest,
     BatchDeleteRequest,
@@ -35,6 +34,35 @@ from app.domain.models.tenant_context import TenantContext
 from app.domain.services.task_service import TaskService
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
+
+
+def _wf_response(wt: WorkflowTemplate) -> WorkflowTemplateResponse:
+    return WorkflowTemplateResponse(key=wt.key or "", **wt.model_dump(exclude={"key"}))
+
+
+def _tt_response(tt: TaskTemplate) -> TaskTemplateResponse:
+    return TaskTemplateResponse(key=tt.key or "", **tt.model_dump(exclude={"key"}))
+
+
+def _task_response(t: Task) -> TaskResponse:
+    return TaskResponse(key=t.key or "", **t.model_dump(exclude={"key"}))
+
+
+def _we_response(we) -> WorkflowExecutionResponse:
+    return WorkflowExecutionResponse(key=we.key or "", **we.model_dump(exclude={"key"}))
+
+
+_ACTIVITY_TO_TASK_CATEGORY: dict[str, str] = {
+    "training_hst": "training",
+    "training_lst": "training",
+    "pruning": "pruning",
+    "ausgeizen": "ausgeizen",
+    "transplant": "transplant",
+    "harvest_prep": "harvest",
+    "propagation": "maintenance",
+    "inspection": "observation",
+    "general": "maintenance",
+}
 
 
 # ── Workflow Templates ──
@@ -232,6 +260,17 @@ def get_task_queue(
 ):
     tasks = service.get_task_queue(plant_key)
     return [_task_response(t) for t in tasks]
+
+
+@router.post("/generate-care-reminders")
+def generate_care_reminders_now(
+    ctx: TenantContext = Depends(get_current_tenant),
+):
+    """Manually trigger care reminder task generation (same as daily Celery beat)."""
+    from app.tasks.care_tasks import generate_due_care_reminders
+
+    result = generate_due_care_reminders()
+    return result
 
 
 @router.get("/overdue", response_model=list[TaskResponse])

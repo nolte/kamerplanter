@@ -3,37 +3,62 @@ from datetime import UTC
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.v1.plant_instances.schemas import ActiveChannelResponse
-from app.api.v1.planting_runs.router import _entry_response, _run_response
+from app.api.v1.planting_runs.diary_schemas import (
+    DiaryEntryCreateRequest,
+    DiaryEntryResponse,
+    DiaryEntryUpdateRequest,
+    RunDiaryEntryResponse,
+)
 from app.api.v1.planting_runs.schemas import (
+    AdoptPlantsRequest,
+    AdoptPlantsResponse,
     BatchCreatePlantsResponse,
     BatchRemoveRequest,
     BatchRemoveResponse,
-    BatchTransitionRequest,
-    BatchTransitionResponse,
     BatchUpdatePhaseDatesRequest,
     BatchUpdatePhaseDatesResponse,
     DetachPlantRequest,
+    DetachPlantResponse,
     EntryCreate,
     EntryResponse,
     EntryUpdate,
     NutrientPlanAssignRequest,
     NutrientPlanAssignResponse,
+    PhaseSummary,
     PlantingRunCreate,
     PlantingRunResponse,
     PlantingRunUpdate,
     PlantInRunResponse,
+    RunTransitionRequest,
+    RunTransitionResponse,
     WateringScheduleCalendarResponse,
 )
 from app.common.auth import get_current_tenant
-from app.common.dependencies import get_nutrient_plan_service, get_planting_run_service, get_species_repo
+from app.common.dependencies import (
+    get_nutrient_plan_service,
+    get_plant_diary_service,
+    get_planting_run_service,
+    get_species_repo,
+)
 from app.common.enums import PlantingRunStatus
 from app.domain.interfaces.species_repository import ISpeciesRepository
+from app.domain.models.plant_diary_entry import PlantDiaryEntry
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.nutrient_plan_service import NutrientPlanService
+from app.domain.services.plant_diary_service import PlantDiaryService
 from app.domain.services.planting_run_service import PlantingRunService
 
 router = APIRouter(prefix="/planting-runs", tags=["planting-runs"])
+
+
+def _run_response(r: PlantingRun, phase_summary: dict | None = None) -> PlantingRunResponse:
+    ps = PhaseSummary(**phase_summary) if phase_summary else None
+    return PlantingRunResponse(key=r.key or "", phase_summary=ps, **r.model_dump(exclude={"key"}))
+
+
+def _entry_response(e: PlantingRunEntry) -> EntryResponse:
+    return EntryResponse(key=e.key or "", **e.model_dump(exclude={"key"}))
 
 
 @router.get("", response_model=list[PlantingRunResponse])
@@ -173,6 +198,18 @@ def batch_create_plants(
     return BatchCreatePlantsResponse(**result)
 
 
+@router.post("/{key}/adopt-plants", response_model=AdoptPlantsResponse)
+def adopt_plants(
+    key: str,
+    body: AdoptPlantsRequest,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PlantingRunService = Depends(get_planting_run_service),
+):
+    service.get_run(key, tenant_key=ctx.tenant_key)
+    result = service.adopt_plants(key, body.plant_keys)
+    return AdoptPlantsResponse(**result)
+
+
 @router.get("/{key}/phase-timeline")
 def get_phase_timeline(
     key: str,
@@ -189,17 +226,16 @@ def get_phase_timeline(
     return timelines
 
 
-@router.post("/{key}/batch-transition", response_model=BatchTransitionResponse)
-def batch_transition(
+@router.post("/{key}/transition", response_model=RunTransitionResponse)
+def transition_run(
     key: str,
-    body: BatchTransitionRequest,
+    body: RunTransitionRequest,
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     service.get_run(key, tenant_key=ctx.tenant_key)
-    exclude = set(body.exclude_keys) if body.exclude_keys else None
-    result = service.batch_transition(key, body.target_phase_key, body.target_phase_name, exclude)
-    return BatchTransitionResponse(**result)
+    result = service.transition(key, body.target_phase_key, body.target_phase_name)
+    return RunTransitionResponse(**result)
 
 
 @router.patch("/{key}/batch-update-phase-dates", response_model=BatchUpdatePhaseDatesResponse)
@@ -257,7 +293,7 @@ def list_plants(
     ]
 
 
-@router.post("/{key}/plants/{plant_key}/detach", status_code=204)
+@router.post("/{key}/plants/{plant_key}/detach", response_model=DetachPlantResponse)
 def detach_plant(
     key: str,
     plant_key: str,
@@ -266,7 +302,8 @@ def detach_plant(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     service.get_run(key, tenant_key=ctx.tenant_key)
-    service.detach_plant(key, plant_key, body.reason)
+    result = service.detach_plant(key, plant_key, body.reason)
+    return DetachPlantResponse(**result)
 
 
 @router.post("/{key}/nutrient-plan", response_model=NutrientPlanAssignResponse, status_code=201)
@@ -347,3 +384,156 @@ def get_watering_schedule(
     service.get_run(key, tenant_key=ctx.tenant_key)
     result = service.get_watering_schedule(key, days_ahead)
     return WateringScheduleCalendarResponse(**result)
+
+
+# ── Plant diary endpoints ────────────────────────────────────────────
+
+
+def _diary_response(entry: PlantDiaryEntry) -> DiaryEntryResponse:
+    return DiaryEntryResponse(
+        key=entry.key or "",
+        plant_key=entry.plant_key,
+        entry_type=entry.entry_type,
+        title=entry.title,
+        text=entry.text,
+        photo_refs=entry.photo_refs,
+        tags=entry.tags,
+        measurements=entry.measurements,
+        created_by=entry.created_by,
+        created_at=entry.created_at,
+        updated_at=entry.updated_at,
+    )
+
+
+@router.get(
+    "/{key}/plants/{plant_key}/diary",
+    response_model=list[DiaryEntryResponse],
+)
+def list_plant_diary_entries(
+    key: str,
+    plant_key: str,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PlantingRunService = Depends(get_planting_run_service),
+    diary_service: PlantDiaryService = Depends(get_plant_diary_service),
+):
+    service.get_run(key, tenant_key=ctx.tenant_key)
+    entries, _total = diary_service.list_entries_for_plant(plant_key, offset, limit)
+    return [_diary_response(e) for e in entries]
+
+
+@router.post(
+    "/{key}/plants/{plant_key}/diary",
+    response_model=DiaryEntryResponse,
+    status_code=201,
+)
+def create_plant_diary_entry(
+    key: str,
+    plant_key: str,
+    body: DiaryEntryCreateRequest,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PlantingRunService = Depends(get_planting_run_service),
+    diary_service: PlantDiaryService = Depends(get_plant_diary_service),
+):
+    service.get_run(key, tenant_key=ctx.tenant_key)
+    entry = PlantDiaryEntry(
+        tenant_key=ctx.tenant_key,
+        created_by=ctx.user_key,
+        **body.model_dump(),
+    )
+    created = diary_service.create_entry(plant_key, entry, run_key=key)
+    return _diary_response(created)
+
+
+@router.get(
+    "/{key}/plants/{plant_key}/diary/{entry_key}",
+    response_model=DiaryEntryResponse,
+)
+def get_plant_diary_entry(
+    key: str,
+    plant_key: str,
+    entry_key: str,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PlantingRunService = Depends(get_planting_run_service),
+    diary_service: PlantDiaryService = Depends(get_plant_diary_service),
+):
+    service.get_run(key, tenant_key=ctx.tenant_key)
+    entry = diary_service.get_entry(entry_key)
+    return _diary_response(entry)
+
+
+@router.put(
+    "/{key}/plants/{plant_key}/diary/{entry_key}",
+    response_model=DiaryEntryResponse,
+)
+def update_plant_diary_entry(
+    key: str,
+    plant_key: str,
+    entry_key: str,
+    body: DiaryEntryUpdateRequest,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PlantingRunService = Depends(get_planting_run_service),
+    diary_service: PlantDiaryService = Depends(get_plant_diary_service),
+):
+    service.get_run(key, tenant_key=ctx.tenant_key)
+    data = body.model_dump(exclude_none=True)
+    updated = diary_service.update_entry(entry_key, data)
+    return _diary_response(updated)
+
+
+@router.delete(
+    "/{key}/plants/{plant_key}/diary/{entry_key}",
+    status_code=204,
+)
+def delete_plant_diary_entry(
+    key: str,
+    plant_key: str,
+    entry_key: str,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PlantingRunService = Depends(get_planting_run_service),
+    diary_service: PlantDiaryService = Depends(get_plant_diary_service),
+):
+    service.get_run(key, tenant_key=ctx.tenant_key)
+    diary_service.delete_entry(entry_key)
+
+
+@router.get(
+    "/{key}/diary",
+    response_model=list[RunDiaryEntryResponse],
+)
+def list_run_diary_entries(
+    key: str,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PlantingRunService = Depends(get_planting_run_service),
+    diary_service: PlantDiaryService = Depends(get_plant_diary_service),
+):
+    service.get_run(key, tenant_key=ctx.tenant_key)
+    entries, _total = diary_service.list_entries_for_run(key, offset, limit)
+    results = []
+    for item in entries:
+        diary_data = item.get("diary_entry", {})
+        diary_resp = DiaryEntryResponse(
+            key=diary_data.get("_key", diary_data.get("key", "")),
+            plant_key=diary_data.get("plant_key", ""),
+            entry_type=diary_data.get("entry_type", "note"),
+            title=diary_data.get("title"),
+            text=diary_data.get("text", ""),
+            photo_refs=diary_data.get("photo_refs", []),
+            tags=diary_data.get("tags", []),
+            measurements=diary_data.get("measurements"),
+            created_by=diary_data.get("created_by", ""),
+            created_at=diary_data.get("created_at"),
+            updated_at=diary_data.get("updated_at"),
+        )
+        results.append(
+            RunDiaryEntryResponse(
+                plant_key=item.get("plant_key", ""),
+                plant_id=item.get("plant_id", ""),
+                plant_name=item.get("plant_name"),
+                diary_entry=diary_resp,
+            )
+        )
+    return results

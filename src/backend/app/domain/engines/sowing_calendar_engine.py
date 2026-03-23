@@ -289,17 +289,14 @@ class SowingCalendarEngine:
             source_bars = planting_bars or indoor_bars
             if source_bars and terminal_bars:
                 for sb in source_bars:
-                    future_terminals = [
-                        b for b in terminal_bars if b.start_date > sb.end_date
-                    ]
+                    future_terminals = [b for b in terminal_bars if b.start_date > sb.end_date]
                     if future_terminals:
                         nearest = min(future_terminals, key=lambda b: b.start_date)
                         # Don't fill past another sowing bar
                         other_sow_before = [
-                            s for s in source_bars
-                            if s is not sb
-                            and s.start_date > sb.end_date
-                            and s.start_date < nearest.start_date
+                            s
+                            for s in source_bars
+                            if s is not sb and s.start_date > sb.end_date and s.start_date < nearest.start_date
                         ]
                         end_limit = (
                             min(s.start_date for s in other_sow_before) - timedelta(days=1)
@@ -337,13 +334,9 @@ class SowingCalendarEngine:
             #     before all sowing bars (i.e. the "wrapped" terminal).
             if source_bars and terminal_bars:
                 earliest_source = min(b.start_date for b in source_bars)
-                prior_terminals = [
-                    b for b in terminal_bars if b.end_date < earliest_source
-                ]
+                prior_terminals = [b for b in terminal_bars if b.end_date < earliest_source]
                 if prior_terminals:
-                    earliest_terminal = min(
-                        b.start_date for b in prior_terminals
-                    )
+                    earliest_terminal = min(b.start_date for b in prior_terminals)
                     if earliest_terminal > date(year, 1, 1):
                         bars.append(
                             SowingBar(

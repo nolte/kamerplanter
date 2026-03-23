@@ -33,7 +33,7 @@ def _navigate_to_lifecycle_tab(
     species_list.wait_for_url_contains("/stammdaten/species/")
     tabs = species_detail.get_tab_labels()
     lifecycle_tab = next(
-        (i for i, t in enumerate(tabs) if "Lebenszyklus" in t), None
+        (i for i, t in enumerate(tabs) if "LEBENSZYKLUS" in t.upper()), None
     )
     if lifecycle_tab is None:
         pytest.skip("Lifecycle tab not found")

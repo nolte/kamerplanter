@@ -8,7 +8,8 @@ Tests cover:
   - Tab 1 (States): record state dialog, pH/EC/temp values, states table
   - Tab 2 (Maintenance): log maintenance dialog, type selection, history table
   - Tab 3 (Schedules): schedules table display
-  - Tab 4 (Edit): edit form prefilled, save, cancel
+  - Tab 4 (Fills): tank fill events
+  - Tab 5 (Edit): edit form prefilled, save, cancel
 - Delete flow
 - Error handling: 404 for unknown keys
 
@@ -399,13 +400,13 @@ class TestTankDetailPage:
             *TankDetailPage.PAGE
         ).is_displayed(), "Expected [data-testid='tank-detail-page'] to be visible"
 
-    def test_detail_page_has_five_tabs(
+    def test_detail_page_has_six_tabs(
         self,
         tank_list: TankListPage,
         tank_detail: TankDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-014-017: Tank detail page renders 5 tabs: Details, States, Maintenance, Schedules, Edit."""
+        """TC-REQ-014-017: Tank detail page renders 6 tabs: Details, States, Maintenance, Schedules, Fills, Edit."""
         capture = request.node._screenshot_capture
         tank_list.open()
 
@@ -417,8 +418,8 @@ class TestTankDetailPage:
         capture("req014_017_tabs_visible")  # Checkpoint: Page Load
 
         tab_labels = tank_detail.get_tab_labels()
-        assert len(tab_labels) == 5, (
-            f"Expected exactly 5 tabs, got {len(tab_labels)}: {tab_labels}"
+        assert len(tab_labels) == 6, (
+            f"Expected exactly 6 tabs, got {len(tab_labels)}: {tab_labels}"
         )
 
     def test_tab_navigation_through_all_tabs(
@@ -427,7 +428,7 @@ class TestTankDetailPage:
         tank_detail: TankDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-014-018: Clicking each of the 5 tabs shows the corresponding panel."""
+        """TC-REQ-014-018: Clicking each of the 6 tabs shows the corresponding panel."""
         capture = request.node._screenshot_capture
         tank_list.open()
 
@@ -438,7 +439,7 @@ class TestTankDetailPage:
         tank_list.wait_for_url_contains("/standorte/tanks/")
         capture("req014_018_tab_0_details")  # Checkpoint: tab 0 (default)
 
-        for tab_index in range(1, 5):
+        for tab_index in range(1, 6):
             tank_detail.click_tab(tab_index)
             time.sleep(0.3)
             active = tank_detail.get_active_tab_index()
@@ -497,9 +498,10 @@ class TestTankDetailPage:
         assert card_text, (
             "Expected non-empty card text in tank details tab"
         )
-        # At least one of the known tank-type labels should appear
-        tank_type_labels = ["Nährstofflösung", "Gießwasser", "Reservoir", "Rezirkulation",
-                            "nutrient", "irrigation", "recirculation"]
+        # At least one of the known tank-type labels should appear (DE or EN translations)
+        tank_type_labels = ["Nährstoff", "Bewässerung", "Reservoir", "Rezirkulation",
+                            "Stammlösung", "nutrient", "irrigation", "recirculation",
+                            "stock_solution"]
         has_type_label = any(label in card_text for label in tank_type_labels)
         assert has_type_label, (
             f"Expected at least one tank type label in details card, card text: {card_text[:200]}"
@@ -761,7 +763,7 @@ class TestTankSchedulesTab:
 # ── TC-REQ-014-030 to TC-REQ-014-031: Edit Form ───────────────────────────────
 
 class TestTankEditForm:
-    """TC-REQ-014-030 to TC-REQ-014-031: Edit form in TankDetailPage (tab 4)."""
+    """TC-REQ-014-030 to TC-REQ-014-031: Edit form in TankDetailPage (tab 5)."""
 
     def test_edit_form_prefilled_with_tank_name(
         self,
@@ -780,7 +782,7 @@ class TestTankEditForm:
         tank_list.wait_for_url_contains("/standorte/tanks/")
         page_title = tank_detail.get_page_title()
 
-        tank_detail.click_tab(4)  # Edit tab
+        tank_detail.click_tab(5)  # Edit tab
         time.sleep(0.4)
         capture("req014_030_edit_tab_open")  # Checkpoint: tab 4 visible
 
@@ -807,7 +809,7 @@ class TestTankEditForm:
 
         tank_list.click_row(0)
         tank_list.wait_for_url_contains("/standorte/tanks/")
-        tank_detail.click_tab(4)
+        tank_detail.click_tab(5)
         time.sleep(0.3)
 
         original_name = tank_detail.get_edit_name_value()

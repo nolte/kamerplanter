@@ -21,15 +21,14 @@ class TestErrorDisplay:
         """Navigating to an unknown route shows the NotFound page."""
         page.navigate("/this-route-does-not-exist-e2e-test")
         el = page.wait_for_element(
-            (By.CSS_SELECTOR, "[data-testid='not-found-page']")
+            (By.CSS_SELECTOR, "[data-testid='error-page']")
         )
-        assert el.is_displayed(), "NotFound page should be visible"
+        assert el.is_displayed(), "Error page should be visible"
 
-        # The page title or body should indicate a 404 / not-found state
-        heading = page.driver.find_element(By.TAG_NAME, "h1")
+        # The page title or body should indicate a 404 state
         page_text = el.text
-        assert "404" in page_text or "not found" in heading.text.lower(), (
-            "Page should display 404 text or 'not found' heading"
+        assert "404" in page_text, (
+            "Page should display 404 text"
         )
 
     def test_nonexistent_entity(self, page: BasePage) -> None:
@@ -39,14 +38,14 @@ class TestErrorDisplay:
         page.wait_for_element(
             (
                 By.CSS_SELECTOR,
-                "[data-testid='error-display'], [data-testid='not-found-page']",
+                "[data-testid='error-display'], [data-testid='error-page']",
             )
         )
         error_elements = page.driver.find_elements(
             By.CSS_SELECTOR, "[data-testid='error-display']"
         )
         not_found_elements = page.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='not-found-page']"
+            By.CSS_SELECTOR, "[data-testid='error-page']"
         )
         assert (
             len(error_elements) > 0 or len(not_found_elements) > 0

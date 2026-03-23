@@ -19,6 +19,7 @@ import { useTableUrlState } from '@/hooks/useTableState';
 import type { PlantInstance, Species, Cultivar, Site, Location, Slot } from '@/api/types';
 import { listSpecies, listCultivars } from '@/api/endpoints/species';
 import { listSites, listLocations, getSlot } from '@/api/endpoints/sites';
+import { listPlantingRuns, listRunPlants } from '@/api/endpoints/plantingRuns';
 import MobileCard from '@/components/common/MobileCard';
 import PlantInstanceCreateDialog, { type PlantInstanceDuplicateData } from './PlantInstanceCreateDialog';
 import { kamiPlants } from '@/assets/brand/illustrations';
@@ -36,6 +37,7 @@ export default function PlantInstanceListPage() {
   const [siteMap, setSiteMap] = useState<Map<string, Site>>(new Map());
   const [locationMap, setLocationMap] = useState<Map<string, Location>>(new Map());
   const [slotMap, setSlotMap] = useState<Map<string, Slot>>(new Map());
+  const [plantRunMap, setPlantRunMap] = useState<Map<string, { runKey: string; runName: string }>>(new Map());
   const tableState = useTableUrlState({ defaultSort: { column: 'plantedOn', direction: 'desc' } });
 
   useEffect(() => {
@@ -59,6 +61,22 @@ export default function PlantInstanceListPage() {
       setLocationMap(lm);
     }).catch(() => {});
   }, [dispatch]);
+
+  // Load plant→run mapping
+  useEffect(() => {
+    listPlantingRuns(0, 200).then(async (runs) => {
+      const map = new Map<string, { runKey: string; runName: string }>();
+      const results = await Promise.all(
+        runs.map((r) => listRunPlants(r.key).then((plants) => ({ run: r, plants })).catch(() => ({ run: r, plants: [] as { key: string }[] }))),
+      );
+      for (const { run, plants } of results) {
+        for (const p of plants) {
+          map.set(p.key, { runKey: run.key, runName: run.name });
+        }
+      }
+      setPlantRunMap(map);
+    }).catch(() => {});
+  }, []);
 
   // Load cultivars for species that have instances with cultivar_key
   useEffect(() => {
@@ -187,6 +205,28 @@ export default function PlantInstanceListPage() {
       searchValue: (r) => t(`enums.phaseName.${r.current_phase}`, { defaultValue: r.current_phase }),
     },
     {
+      id: 'plantingRun',
+      label: t('entities.plantingRun'),
+      render: (r) => {
+        const runInfo = plantRunMap.get(r.key);
+        if (!runInfo) return '\u2014';
+        return (
+          <Chip
+            label={runInfo.runName}
+            size="small"
+            color="secondary"
+            variant="outlined"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/durchlaeufe/${runInfo.runKey}`);
+            }}
+            clickable
+          />
+        );
+      },
+      searchValue: (r) => plantRunMap.get(r.key)?.runName ?? '',
+    },
+    {
       id: 'removedOn',
       label: t('pages.plantInstances.removedOn'),
       render: (r) => r.removed_on ?? '\u2014',
@@ -227,6 +267,7 @@ export default function PlantInstanceListPage() {
     const cultivar = r.cultivar_key ? cultivarMap.get(r.cultivar_key) : null;
     const slot = r.slot_key ? slotMap.get(r.slot_key) : null;
     const location = slot ? locationMap.get(slot.location_key) : null;
+    const runInfo = plantRunMap.get(r.key);
     const phaseColorMap: Record<string, 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'info' | 'error'> = {
       germination: 'info', seedling: 'success', vegetative: 'primary', flowering: 'warning', harvest: 'secondary',
     };
@@ -235,11 +276,21 @@ export default function PlantInstanceListPage() {
         title={r.plant_name ?? r.instance_id}
         subtitle={species ? `${species.common_names[0] ?? species.scientific_name}${cultivar ? ` \u2014 ${cultivar.name}` : ''}` : undefined}
         chips={
-          <Chip
-            label={t(`enums.phaseName.${r.current_phase}`, { defaultValue: r.current_phase })}
-            size="small"
-            color={phaseColorMap[r.current_phase] ?? 'default'}
-          />
+          <>
+            <Chip
+              label={t(`enums.phaseName.${r.current_phase}`, { defaultValue: r.current_phase })}
+              size="small"
+              color={phaseColorMap[r.current_phase] ?? 'default'}
+            />
+            {runInfo && (
+              <Chip
+                label={runInfo.runName}
+                size="small"
+                color="secondary"
+                variant="outlined"
+              />
+            )}
+          </>
         }
         fields={[
           ...(location ? [{ label: t('entities.location'), value: location.name }] : []),
@@ -247,7 +298,7 @@ export default function PlantInstanceListPage() {
         ]}
       />
     );
-  }, [speciesMap, cultivarMap, slotMap, locationMap, t]);
+  }, [speciesMap, cultivarMap, slotMap, locationMap, plantRunMap, t]);
 
   return (
     <Box data-testid="plant-instance-list-page">

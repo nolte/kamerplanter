@@ -95,6 +95,30 @@ fill_tank:
         text:
           multiline: true
 
+confirm_care:
+  name: Pflegeerinnerung bestätigen
+  description: >-
+    Bestätigt eine Pflegeerinnerung als erledigt. Wird von Actionable Notifications
+    der Companion App aufgerufen.
+  fields:
+    notification_key:
+      name: Notification-Key
+      description: Key der zu bestätigenden Notification.
+      required: true
+      example: "notif_20260321_abc123"
+      selector:
+        text:
+    action:
+      name: Aktion
+      default: "confirmed"
+      selector:
+        select:
+          options:
+            - label: "Erledigt"
+              value: "confirmed"
+            - label: "Übersprungen"
+              value: "skipped"
+
 water_channel:
   name: Ausführungskanal gießen
   description: >-

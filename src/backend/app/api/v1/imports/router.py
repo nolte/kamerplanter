@@ -1,22 +1,25 @@
 from fastapi import APIRouter, Depends, Form, Query, Response, UploadFile
 
 from app.api.v1.imports.schemas import ImportJobResponse
+from app.common.auth import get_current_user
 from app.common.dependencies import get_import_service
 from app.common.enums import DuplicateStrategy, EntityType
 from app.common.exceptions import PayloadTooLargeError, UnsupportedMediaTypeError
 from app.domain.models.import_job import ImportJob
 from app.domain.services.import_service import ImportService
 
-router = APIRouter(prefix="/import", tags=["import"])
+router = APIRouter(prefix="/import", tags=["import"], dependencies=[Depends(get_current_user)])
 
 # SEC-M-008: Upload security constants
 MAX_UPLOAD_SIZE_BYTES = 10_485_760  # 10 MB
-ALLOWED_MIME_TYPES = frozenset({
-    "text/csv",
-    "text/plain",
-    "application/csv",
-    "application/vnd.ms-excel",
-})
+ALLOWED_MIME_TYPES = frozenset(
+    {
+        "text/csv",
+        "text/plain",
+        "application/csv",
+        "application/vnd.ms-excel",
+    }
+)
 
 
 def _job_response(job: ImportJob) -> ImportJobResponse:

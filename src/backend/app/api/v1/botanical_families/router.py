@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.botanical_families.schemas import FamilyCreate, FamilyResponse
 from app.api.v1.species.schemas import SpeciesResponse
+from app.common.auth import get_current_user
 from app.common.dependencies import get_family_repo
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.domain.models.botanical_family import BotanicalFamily
 
-router = APIRouter(prefix="/botanical-families", tags=["botanical-families"])
+router = APIRouter(prefix="/botanical-families", tags=["botanical-families"], dependencies=[Depends(get_current_user)])
 
 
 def _family_response(f: BotanicalFamily, repo: ArangoBotanicalFamilyRepository) -> FamilyResponse:

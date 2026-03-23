@@ -104,9 +104,7 @@ class CsvParser:
         for row_idx, row in enumerate(reader, start=1):
             # SEC-M-008: Row count limit
             if row_idx > MAX_DATA_ROWS:
-                raise ValueError(
-                    f"CSV file exceeds maximum of {MAX_DATA_ROWS} data rows"
-                )
+                raise ValueError(f"CSV file exceeds maximum of {MAX_DATA_ROWS} data rows")
 
             normalized = {}
             for key, value in row.items():
@@ -116,8 +114,7 @@ class CsvParser:
                     # SEC-M-008: CSV injection sanitization (check before strip)
                     if raw and raw[0] in CSV_INJECTION_PREFIXES:
                         warnings.append(
-                            f"Row {row_idx}, field '{norm_key}': "
-                            f"SUSPICIOUS_CONTENT — leading character stripped"
+                            f"Row {row_idx}, field '{norm_key}': SUSPICIOUS_CONTENT — leading character stripped"
                         )
                         raw = raw[1:]
                     normalized[norm_key] = raw.strip()

@@ -4,11 +4,10 @@ import pytest
 
 from app.domain.engines.water_mix_engine import (
     CA_MG_RATIO_MIN_RO_BUMP,
-    CA_MG_RATIO_WARN,
-    CHLORAMINE_LIMIT_PPM,
-    CHLORINE_LIMIT_PPM,
-    CHLORINE_LIMIT_LIVING_PPM,
     CHLORAMINE_LIMIT_LIVING_PPM,
+    CHLORAMINE_LIMIT_PPM,
+    CHLORINE_LIMIT_LIVING_PPM,
+    CHLORINE_LIMIT_PPM,
     DEFAULT_HEADROOM,
     FALLBACK_RO_PERCENT,
     FLUSH_MIN_RO_PERCENT,
@@ -50,7 +49,10 @@ class TestRecommendMixRatio:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.2, substrate_type="coco",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.2,
+            substrate_type="coco",
         )
 
         assert result.recommended_ro_percent == 0
@@ -64,7 +66,10 @@ class TestRecommendMixRatio:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.2, substrate_type="hydro_solution",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.2,
+            substrate_type="hydro_solution",
         )
 
         # Hydro needs 95% headroom → almost pure RO needed
@@ -79,7 +84,10 @@ class TestRecommendMixRatio:
         ro = _make_ro(ec_ms=0.03)
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=0.8, substrate_type="hydro_solution",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=0.8,
+            substrate_type="hydro_solution",
         )
 
         assert result.recommended_ro_percent >= 70
@@ -91,7 +99,10 @@ class TestRecommendMixRatio:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="soil",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.5,
+            substrate_type="soil",
         )
 
         # At 0% RO, chlorine = 1.5 > 0.5 limit
@@ -106,7 +117,10 @@ class TestRecommendMixRatio:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="soil",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.5,
+            substrate_type="soil",
         )
 
         # At 0% RO, chloramine = 0.8 > 0.3 limit
@@ -120,10 +134,16 @@ class TestRecommendMixRatio:
         ro = _make_ro()
 
         soil_result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.2, substrate_type="soil",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.2,
+            substrate_type="soil",
         )
         hydro_result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.2, substrate_type="hydro_solution",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.2,
+            substrate_type="hydro_solution",
         )
 
         assert soil_result.recommended_ro_percent <= hydro_result.recommended_ro_percent
@@ -135,7 +155,10 @@ class TestRecommendMixRatio:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.2, substrate_type="unknown_substrate",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.2,
+            substrate_type="unknown_substrate",
         )
 
         assert result.min_headroom_ratio == DEFAULT_HEADROOM
@@ -147,8 +170,12 @@ class TestRecommendMixRatio:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.2, substrate_type="coco",
-            target_ca_ppm=60.0, target_mg_ppm=15.0,
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.2,
+            substrate_type="coco",
+            target_ca_ppm=60.0,
+            target_mg_ppm=15.0,
         )
 
         assert result.calmag_correction is not None
@@ -163,7 +190,10 @@ class TestRecommendMixRatio:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.2, substrate_type="coco",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.2,
+            substrate_type="coco",
         )
 
         assert result.calmag_correction is None
@@ -175,7 +205,10 @@ class TestRecommendMixRatio:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.2, substrate_type="coco",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.2,
+            substrate_type="coco",
         )
 
         # Should have at least 1 alternative (could have up to 3)
@@ -192,7 +225,10 @@ class TestRecommendMixRatio:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.2, substrate_type="coco",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.2,
+            substrate_type="coco",
         )
 
         assert len(result.reasoning) > 0
@@ -204,7 +240,10 @@ class TestRecommendMixRatio:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="coco",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.5,
+            substrate_type="coco",
         )
 
         # Verify consistency
@@ -260,7 +299,10 @@ class TestRecommendMixRatio:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.2, substrate_type="coco",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.2,
+            substrate_type="coco",
         )
 
         assert result.recommended_ro_percent % 5 == 0
@@ -273,7 +315,10 @@ class TestRecommendMixRatio:
         ro = _make_ro(ec_ms=0.4)
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=0.5, substrate_type="hydro_solution",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=0.5,
+            substrate_type="hydro_solution",
         )
 
         # Nothing can meet all criteria, so fallback
@@ -290,7 +335,10 @@ class TestLivingSoilPath:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="living_soil",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.5,
+            substrate_type="living_soil",
         )
 
         # EC headroom fields should be 0 (not applicable)
@@ -306,7 +354,10 @@ class TestLivingSoilPath:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="living_soil",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.5,
+            substrate_type="living_soil",
         )
 
         assert result.recommended_ro_percent == 0
@@ -318,7 +369,10 @@ class TestLivingSoilPath:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="living_soil",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.5,
+            substrate_type="living_soil",
         )
 
         # 0.2 * (1 - X/100) < 0.1 → X > 50
@@ -331,7 +385,10 @@ class TestLivingSoilPath:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="living_soil",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.5,
+            substrate_type="living_soil",
         )
 
         # 200 * (1 - X/100) <= 80 → X >= 60
@@ -344,7 +401,10 @@ class TestLivingSoilPath:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.0, substrate_type="living_soil",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.0,
+            substrate_type="living_soil",
             phase_name="flushing",
         )
 
@@ -357,7 +417,10 @@ class TestLivingSoilPath:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="living_soil",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.5,
+            substrate_type="living_soil",
         )
 
         assert "chloramine" in result.reasoning.lower()
@@ -369,7 +432,10 @@ class TestLivingSoilPath:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.0, substrate_type="sphagnum",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.0,
+            substrate_type="sphagnum",
         )
 
         # Sphagnum has alk limit 10 ppm → 30 * (1-X/100) <= 10 → X >= 67
@@ -387,7 +453,10 @@ class TestAlkalinityConstraint:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=2.0, substrate_type="coco",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=2.0,
+            substrate_type="coco",
         )
 
         # EC headroom is fine at 0%, but alkalinity 162 > 80 coco limit
@@ -402,7 +471,10 @@ class TestAlkalinityConstraint:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="coco",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.5,
+            substrate_type="coco",
         )
 
         assert result.recommended_ro_percent == 0
@@ -414,10 +486,16 @@ class TestAlkalinityConstraint:
         ro = _make_ro()
 
         coco = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="coco",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.5,
+            substrate_type="coco",
         )
         soil = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="soil",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.5,
+            substrate_type="soil",
         )
 
         # Coco should need more RO than soil for same alkalinity
@@ -431,12 +509,16 @@ class TestCaMgRatioConstraint:
         """Ca:Mg > 5:1 should bump RO% by at least CA_MG_RATIO_MIN_RO_BUMP."""
         calc = WaterMixCalculator()
         # Ca:Mg = 72:7 ≈ 10.3:1
-        tap = _make_tap(ec_ms=0.2, calcium_ppm=72, magnesium_ppm=7,
-                        alkalinity_ppm=30, chlorine_ppm=0.0, chloramine_ppm=0.0)
+        tap = _make_tap(
+            ec_ms=0.2, calcium_ppm=72, magnesium_ppm=7, alkalinity_ppm=30, chlorine_ppm=0.0, chloramine_ppm=0.0
+        )
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=2.0, substrate_type="coco",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=2.0,
+            substrate_type="coco",
         )
 
         # Even though EC and alkalinity are fine, Ca:Mg forces min RO
@@ -446,12 +528,16 @@ class TestCaMgRatioConstraint:
     def test_healthy_ca_mg_ratio_no_bump(self):
         """Ca:Mg = 4:1 should not add extra RO%."""
         calc = WaterMixCalculator()
-        tap = _make_tap(ec_ms=0.2, calcium_ppm=60, magnesium_ppm=15,
-                        alkalinity_ppm=30, chlorine_ppm=0.0, chloramine_ppm=0.0)
+        tap = _make_tap(
+            ec_ms=0.2, calcium_ppm=60, magnesium_ppm=15, alkalinity_ppm=30, chlorine_ppm=0.0, chloramine_ppm=0.0
+        )
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=2.0, substrate_type="coco",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=2.0,
+            substrate_type="coco",
         )
 
         assert result.recommended_ro_percent == 0
@@ -464,8 +550,12 @@ class TestCaMgRatioConstraint:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="coco",
-            target_ca_ppm=200, target_mg_ppm=30,  # 6.7:1
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.5,
+            substrate_type="coco",
+            target_ca_ppm=200,
+            target_mg_ppm=30,  # 6.7:1
         )
 
         assert result.calmag_correction is not None
@@ -480,8 +570,12 @@ class TestCaMgRatioConstraint:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=1.5, substrate_type="coco",
-            target_ca_ppm=30, target_mg_ppm=30,  # 1:1
+            tap=tap,
+            ro=ro,
+            target_ec_ms=1.5,
+            substrate_type="coco",
+            target_ca_ppm=30,
+            target_mg_ppm=30,  # 1:1
         )
 
         assert result.calmag_correction is not None
@@ -500,7 +594,10 @@ class TestFlushPhaseConstraint:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=2.0, substrate_type="coco",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=2.0,
+            substrate_type="coco",
             phase_name="flushing",
         )
 
@@ -514,7 +611,10 @@ class TestFlushPhaseConstraint:
         ro = _make_ro()
 
         result = calc.recommend_mix_ratio(
-            tap=tap, ro=ro, target_ec_ms=2.0, substrate_type="coco",
+            tap=tap,
+            ro=ro,
+            target_ec_ms=2.0,
+            substrate_type="coco",
             phase_name="flowering",
         )
 

@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from datetime import date, datetime
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from app.common.enums import EntryRole, PlantingRunStatus, PlantingRunType
+from app.common.enums import PlantingRunStatus, PlantingRunType
 
 ALLOWED_STATUS_TRANSITIONS: dict[PlantingRunStatus, list[PlantingRunStatus]] = {
     PlantingRunStatus.PLANNED: [PlantingRunStatus.ACTIVE, PlantingRunStatus.CANCELLED],
@@ -19,7 +21,6 @@ class PlantingRunEntry(BaseModel):
     species_key: str
     cultivar_key: str | None = None
     quantity: int = Field(ge=1)
-    role: EntryRole = EntryRole.PRIMARY
     id_prefix: str = Field(pattern=r"^[A-Z]{2,5}$")
     spacing_cm: float | None = Field(default=None, ge=0)
     notes: str | None = None
@@ -37,6 +38,9 @@ class PlantingRun(BaseModel):
     status: PlantingRunStatus = PlantingRunStatus.PLANNED
     planned_quantity: int = Field(default=0, ge=0)
     actual_quantity: int = Field(default=0, ge=0)
+    current_phase_key: str | None = None
+    current_phase_started_at: datetime | None = None
+    lifecycle_config_key: str | None = None
     location_key: str | None = None
     substrate_batch_key: str | None = None
     planned_start_date: date | None = None

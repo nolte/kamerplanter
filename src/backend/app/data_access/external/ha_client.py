@@ -12,6 +12,62 @@ class HomeAssistantClient:
         self._headers = {"Authorization": f"Bearer {token}"}
         self._timeout = timeout
 
+    # ── Async methods (for notification engine) ──────────────────────
+
+    async def fire_event(self, event_type: str, event_data: dict) -> dict:
+        """POST /api/events/{event_type} — fires a custom event in HA."""
+        url = f"{self._base_url}/api/events/{event_type}"
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(
+                url,
+                json=event_data,
+                headers=self._headers,
+            )
+            resp.raise_for_status()
+            return resp.json()
+
+    async def create_persistent_notification(
+        self,
+        title: str,
+        message: str,
+        notification_id: str,
+    ) -> None:
+        """POST /api/services/persistent_notification/create."""
+        url = f"{self._base_url}/api/services/persistent_notification/create"
+        payload = {
+            "title": title,
+            "message": message,
+            "notification_id": notification_id,
+        }
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(url, json=payload, headers=self._headers)
+            resp.raise_for_status()
+
+    async def dismiss_persistent_notification(self, notification_id: str) -> None:
+        """POST /api/services/persistent_notification/dismiss."""
+        url = f"{self._base_url}/api/services/persistent_notification/dismiss"
+        payload = {"notification_id": notification_id}
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(url, json=payload, headers=self._headers)
+            resp.raise_for_status()
+
+    async def call_service(
+        self,
+        domain: str,
+        service: str,
+        service_data: dict,
+    ) -> dict:
+        """POST /api/services/{domain}/{service} — generic service call."""
+        url = f"{self._base_url}/api/services/{domain}/{service}"
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(
+                url,
+                json=service_data,
+                headers=self._headers,
+            )
+            resp.raise_for_status()
+            return resp.json()
+
     def list_sensor_entities(self) -> list[dict]:
         """GET /api/states -> all sensor.* entities with attributes."""
         url = f"{self._base_url}/api/states"
@@ -47,7 +103,7 @@ class HomeAssistantClient:
         if state_str not in ("unavailable", "unknown", ""):
             try:
                 value = float(state_str)
-            except ValueError, TypeError:
+            except (ValueError, TypeError):  # fmt: skip
                 value = None
         return {
             "value": value,

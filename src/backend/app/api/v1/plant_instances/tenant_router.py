@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, Query
 
-from app.api.v1.plant_instances.router import _to_response
 from app.api.v1.plant_instances.schemas import (
     ActiveChannelResponse,
     AssignNutrientPlanRequest,
@@ -18,6 +17,16 @@ from app.domain.services.plant_instance_service import PlantInstanceService
 from app.domain.services.planting_run_service import PlantingRunService
 
 router = APIRouter(prefix="/plant-instances", tags=["plant-instances"])
+
+
+def _to_response(p: PlantInstance, service: PlantInstanceService) -> PlantResponse:
+    """Convert PlantInstance to PlantResponse, resolving phase name from key."""
+    phase_name = service.resolve_phase_name(p.current_phase_key) if p.current_phase_key else ""
+    return PlantResponse(
+        key=p.key or "",
+        current_phase=phase_name,
+        **p.model_dump(exclude={"key"}),
+    )
 
 
 @router.get("", response_model=list[PlantResponse])

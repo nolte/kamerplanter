@@ -26,7 +26,7 @@ class TestBotanicalFamilyListPage:
         headers = family_list.get_column_headers()
 
         assert "Name" in headers, f"Expected 'Name' column, got {headers}"
-        assert any("Deutscher Name" in h for h in headers), f"Expected 'Deutscher Name', got {headers}"
+        assert any("Name" in h for h in headers), f"Expected 'Gebräuchlicher Name' column, got {headers}"
         assert any("hrstoffbedarf" in h for h in headers), f"Expected 'Nährstoffbedarf', got {headers}"
 
         row_count = family_list.get_row_count()

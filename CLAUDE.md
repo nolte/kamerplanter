@@ -49,6 +49,16 @@ Documentation is written in **German**; source code must be in **English only** 
 | REQ-027 | Light-Modus (Anonymer Zugang) | Plattform & Deployment |
 | REQ-028 | Mischkultur & Companion Planting | Pflanzenplanung |
 
+## Verbindliche Style Guides
+
+All code MUST follow the style guides in `spec/style-guides/`:
+
+- **Backend (Python/FastAPI):** `spec/style-guides/BACKEND.md` — 5-layer architecture, naming conventions, Pydantic patterns, Service/Engine/Repository patterns, error handling, enums, logging, Celery tasks, tests, docstrings, typing, imports
+- **Frontend (React/TypeScript/MUI):** `spec/style-guides/FRONTEND.md` — component patterns, props typing, Redux Toolkit, custom hooks (useMemo obligation), MUI styling, routing, i18n, API layer, form patterns, tests, accessibility
+- **Helm/Kubernetes:** `spec/style-guides/HELM.md` — bjw-s/common chart, values.yaml conventions, security patterns, NetworkPolicies, health checks, persistence, Skaffold integration
+
+These style guides take precedence over general best practices. When existing code conflicts with a style guide, the style guide wins for new code.
+
 ## Key Architectural Decisions
 
 These constraints are documented across multiple files and must be respected when implementing:
