@@ -18,6 +18,7 @@ from .const import (
     DOMAIN,
     PLATFORMS,
     SERVICE_CLEAR_CACHE,
+    SERVICE_CONFIRM_CARE,
     SERVICE_FILL_TANK,
     SERVICE_REFRESH,
     SERVICE_WATER_CHANNEL,
@@ -88,6 +89,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: KamerplanterConfigEntry
             hass.services.async_remove(DOMAIN, SERVICE_CLEAR_CACHE)
             hass.services.async_remove(DOMAIN, SERVICE_FILL_TANK)
             hass.services.async_remove(DOMAIN, SERVICE_WATER_CHANNEL)
+            hass.services.async_remove(DOMAIN, SERVICE_CONFIRM_CARE)
     return unload_ok
 
 
@@ -448,7 +450,56 @@ async def _async_register_services(hass: HomeAssistant) -> None:
         except Exception:
             _LOGGER.exception("Failed to create watering log for plant %s", plant_key)
 
+    async def handle_confirm_care(call: ServiceCall) -> None:
+        """Handle the confirm_care service call (REQ-030).
+
+        Confirms a care reminder notification as completed or skipped.
+        Called by HA Companion App actionable notification buttons.
+        """
+        notification_key = call.data.get("notification_key")
+        if not notification_key:
+            _LOGGER.error(
+                "No notification_key provided. Received data: %s",
+                dict(call.data),
+            )
+            return
+
+        action = call.data.get("action", "confirmed")
+
+        # Find API instance from first config entry
+        entry = hass.config_entries.async_entries(DOMAIN)[0]
+        data = hass.data[DOMAIN].get(entry.entry_id)
+        if not data:
+            _LOGGER.error("No Kamerplanter instance found")
+            return
+
+        api: KamerplanterApi = data["api"]
+
+        _LOGGER.info(
+            "Confirming care reminder %s with action '%s'",
+            notification_key, action,
+        )
+
+        try:
+            result = await api.async_confirm_care_reminder(
+                notification_key=notification_key,
+                action=action,
+            )
+            _LOGGER.info(
+                "Care reminder %s confirmed: %s",
+                notification_key, result,
+            )
+
+            # Refresh task coordinators to reflect updated state
+            for coordinator in data["coordinators"].values():
+                await coordinator.async_request_refresh()
+        except Exception:
+            _LOGGER.exception(
+                "Failed to confirm care reminder %s", notification_key
+            )
+
     hass.services.async_register(DOMAIN, SERVICE_REFRESH, handle_refresh)
     hass.services.async_register(DOMAIN, SERVICE_CLEAR_CACHE, handle_clear_cache)
     hass.services.async_register(DOMAIN, SERVICE_FILL_TANK, handle_fill_tank)
     hass.services.async_register(DOMAIN, SERVICE_WATER_CHANNEL, handle_water_channel)
+    hass.services.async_register(DOMAIN, SERVICE_CONFIRM_CARE, handle_confirm_care)

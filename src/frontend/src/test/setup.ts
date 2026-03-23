@@ -3,6 +3,7 @@ import 'vitest-axe/extend-expect';
 import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
 import { server } from './mocks/server';
+import { setActiveTenantSlug } from '@/api/client';
 import '@/i18n';
 
 beforeAll(() => {
@@ -10,11 +11,7 @@ beforeAll(() => {
 });
 beforeEach(() => {
   // Set tenant slug for tenantClient before each test
-  try {
-    window.localStorage.setItem('kp_active_tenant_slug', 'test-tenant');
-  } catch {
-    // Fallback for environments without localStorage
-  }
+  setActiveTenantSlug('test-tenant');
 });
 afterEach(() => {
   cleanup();

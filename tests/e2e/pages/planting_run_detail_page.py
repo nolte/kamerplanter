@@ -41,12 +41,14 @@ class PlantingRunDetailPage(BasePage):
     PLANTS_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
     PLANTS_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
-    # ── Tab 2 – Edit form ──────────────────────────────────────────────
-    FORM_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-name'] input")
-    FORM_NOTES = (By.CSS_SELECTOR, "[data-testid='form-field-notes'] input")
-    FORM_PLANNED_START = (By.CSS_SELECTOR, "[data-testid='form-field-planned_start_date'] input")
-    FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
-    FORM_CANCEL = (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
+    # ── Edit dialog (opened via edit button) ────────────────────────────
+    EDIT_BUTTON = (By.CSS_SELECTOR, "[data-testid='edit-button']")
+    EDIT_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    FORM_NAME = (By.CSS_SELECTOR, "div[role='dialog'] [data-testid='form-field-name'] input")
+    FORM_NOTES = (By.CSS_SELECTOR, "div[role='dialog'] [data-testid='form-field-notes'] input")
+    FORM_PLANNED_START = (By.CSS_SELECTOR, "div[role='dialog'] [data-testid='form-field-planned_start_date'] input")
+    FORM_SUBMIT = (By.CSS_SELECTOR, "div[role='dialog'] [data-testid='form-submit-button']")
+    FORM_CANCEL = (By.CSS_SELECTOR, "div[role='dialog'] [data-testid='form-cancel-button']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -177,7 +179,16 @@ class PlantingRunDetailPage(BasePage):
         """Return True if the ConfirmDialog is currently visible."""
         return len(self.driver.find_elements(*self.CONFIRM_DIALOG)) > 0
 
-    # ── Edit tab (tab=2) ───────────────────────────────────────────────
+    # ── Edit dialog ───────────────────────────────────────────────────
+
+    def open_edit_dialog(self) -> None:
+        """Click the Edit button and wait for the edit dialog to open."""
+        self.wait_for_element_clickable(self.EDIT_BUTTON).click()
+        self.wait_for_element_visible(self.EDIT_DIALOG)
+
+    def is_edit_dialog_open(self) -> bool:
+        """Return True if the edit dialog is currently visible."""
+        return len(self.driver.find_elements(*self.EDIT_DIALOG)) > 0
 
     def get_name_field_value(self) -> str:
         """Return the current value of the Name input in the edit form."""

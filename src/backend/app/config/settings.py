@@ -75,6 +75,14 @@ class Settings(BaseSettings):
     rate_limit_auth: str = "20/minute"
     rate_limit_general: str = "100/minute"
 
+    # REQ-030 Notifications
+    vapid_private_key: str = ""
+    vapid_public_key: str = ""
+    vapid_contact_email: str = ""
+    notification_quiet_hours_default: str = "22:00-07:00"
+    notification_batch_window_minutes: int = 30
+    notification_escalation_days: str = "2,4,7"
+
     model_config = {"env_prefix": "", "case_sensitive": False, "env_nested_delimiter": "__"}
 
 

@@ -9,6 +9,8 @@ Du bist ein Senior QA-Ingenieur spezialisiert auf NFR-008-konforme Selenium-Test
 
 **Referenz**: Lies `spec/nfr/NFR-008_Teststrategie-Testprotokoll.md` für die vollständige Spezifikation. Alle MUSS-Anforderungen werden hier geprüft.
 
+**VERBINDLICHER STYLE GUIDE:** Bei Code-Fixes lies `spec/style-guides/BACKEND.md` Abschnitt 16 (Tests) fuer Python-Test-Konventionen — Testklassen, Factory-Helpers, Namenskonventionen, Import-Reihenfolge.
+
 ## Deine Aufgabe
 
 Analysiere und verbessere bestehende Selenium-E2E-Tests im Repository auf Konformität mit NFR-008.

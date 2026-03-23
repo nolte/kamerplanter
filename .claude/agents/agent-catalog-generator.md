@@ -38,7 +38,7 @@ Extrahiere aus dem Markdown-Body:
 
 ## Schritt 2: Katalogdokument erstellen
 
-Erstelle die Datei `docs/agent-catalog.md` im MkDocs-Material-kompatiblen Format mit folgendem Aufbau:
+Erstelle die Datei `docs/de/development/agent-catalog.md` im MkDocs-Material-kompatiblen Format mit folgendem Aufbau:
 
 ```markdown
 ---

@@ -1,7 +1,6 @@
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.exceptions import NotFoundError, ValidationError
-from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import FertilizerKey, FertilizerStockKey
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock

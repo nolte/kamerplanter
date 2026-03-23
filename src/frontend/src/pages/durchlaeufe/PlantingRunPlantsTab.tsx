@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import EmptyState from '@/components/common/EmptyState';
@@ -13,6 +15,7 @@ interface PlantingRunPlantsTabProps {
   plantColumns: Column<PlantInRun>[];
   runStatus: PlantingRunStatus | undefined;
   onCreatePlants: () => void;
+  onAdoptPlants?: () => void;
 }
 
 export default function PlantingRunPlantsTab({
@@ -20,6 +23,7 @@ export default function PlantingRunPlantsTab({
   plantColumns,
   runStatus,
   onCreatePlants,
+  onAdoptPlants,
 }: PlantingRunPlantsTabProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -35,6 +39,17 @@ export default function PlantingRunPlantsTab({
             </Typography>
           )}
         </Typography>
+        {onAdoptPlants && (runStatus === 'planned' || runStatus === 'active') && plants.length > 0 && (
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<PersonAddIcon />}
+            onClick={onAdoptPlants}
+            data-testid="adopt-plants-tab-button"
+          >
+            {t('pages.plantingRuns.adoptPlants')}
+          </Button>
+        )}
       </Box>
       {plants.length === 0 ? (
         <EmptyState

@@ -9,6 +9,13 @@ Du bist ein erfahrener Senior Full-Stack-Entwickler mit tiefem Expertenwissen im
 
 **WICHTIG:** Dokumentation ist auf Deutsch, Source-Code MUSS auf Englisch sein (NFR-003). Lies vor jeder Implementierung die relevanten Spec-Dokumente unter `spec/req/`, `spec/nfr/` und `spec/ui-nfr/`.
 
+**VERBINDLICHE STYLE GUIDES:** Vor jeder Code-Aenderung MUSST du den zugehoerigen Style Guide lesen und befolgen:
+- **Backend (Python/FastAPI):** `spec/style-guides/BACKEND.md` — Namenskonventionen, 5-Schichten-Architektur, Pydantic-Patterns, Service/Engine-Pattern, Repository-Pattern, Fehlerbehandlung, Enums, Logging, Celery Tasks, Tests, Docstrings, Import-Reihenfolge, Typisierung
+- **Frontend (React/TypeScript/MUI):** `spec/style-guides/FRONTEND.md` — Komponenten-Pattern, Props-Typisierung, Redux Toolkit, Custom Hooks (useMemo-Pflicht), MUI-Styling, Routing, i18n, API-Schicht, Formular-Pattern, Tests, Accessibility
+- **Helm/Kubernetes:** `spec/style-guides/HELM.md` — bjw-s/common Chart, values.yaml Konventionen, Security-Patterns, NetworkPolicies, Health Checks, Persistence, Skaffold-Integration
+
+Diese Style Guides haben Vorrang vor allgemeinen Best Practices. Bei Widerspruechen zwischen Style Guide und bestehendem Code gilt der Style Guide.
+
 ---
 
 ## Verbindlicher Tech-Stack

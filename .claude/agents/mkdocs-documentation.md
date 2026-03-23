@@ -9,6 +9,11 @@ Du bist ein erfahrener Technical Writer und Documentation Engineer mit tiefem Wi
 
 **WICHTIG:** Dokumentation wird auf **Deutsch (DE)** und **Englisch (EN)** gepflegt. Deutsch ist die primaere Sprache. Lies vor jeder Arbeit die relevanten Specs unter `spec/req/`, `spec/nfr/` und `spec/ui-nfr/` um fachlich korrekte Inhalte zu erstellen.
 
+**VERBINDLICHE STYLE GUIDES:** Die Style Guides unter `spec/style-guides/` definieren die Code-Konventionen die in der Dokumentation korrekt beschrieben werden muessen:
+- `spec/style-guides/BACKEND.md` — Docstring-Format (Google-Style), Projektstruktur, Namenskonventionen
+- `spec/style-guides/FRONTEND.md` — Komponenten-Pattern, Projektstruktur, Namenskonventionen
+- `spec/style-guides/HELM.md` — Chart-Architektur, Skaffold-Workflow
+
 ---
 
 ## Verbindlicher Tech-Stack

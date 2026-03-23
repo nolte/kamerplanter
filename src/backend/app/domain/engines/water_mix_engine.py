@@ -330,21 +330,32 @@ class WaterMixCalculator:
 
         # Build reasoning
         reasoning = self._build_reasoning(
-            best_ro, best_effective, target_ec_ms, substrate_type,
-            min_headroom, available_ec, alk_limit, is_flush,
+            best_ro,
+            best_effective,
+            target_ec_ms,
+            substrate_type,
+            min_headroom,
+            available_ec,
+            alk_limit,
+            is_flush,
             ca_mg_min_ro,
         )
 
         # Generate alternatives (±10%, ±20% from optimal, clamped to 0-100)
         alternatives = self._build_alternatives(
-            best_ro, candidates, min_headroom, target_ec_ms,
+            best_ro,
+            candidates,
+            min_headroom,
+            target_ec_ms,
         )
 
         # CalMag correction
         calmag: CalMagCorrection | None = None
         if target_ca_ppm > 0 or target_mg_ppm > 0:
             calmag = self.suggest_calmag_correction(
-                best_effective, target_ca_ppm, target_mg_ppm,
+                best_effective,
+                target_ca_ppm,
+                target_mg_ppm,
             )
 
         return WaterMixRecommendation(
@@ -430,7 +441,9 @@ class WaterMixCalculator:
         calmag: CalMagCorrection | None = None
         if target_ca_ppm > 0 or target_mg_ppm > 0:
             calmag = self.suggest_calmag_correction(
-                best_effective, target_ca_ppm, target_mg_ppm,
+                best_effective,
+                target_ca_ppm,
+                target_mg_ppm,
             )
 
         return WaterMixRecommendation(
@@ -462,9 +475,7 @@ class WaterMixCalculator:
         parts: list[str] = []
 
         if is_flush:
-            parts.append(
-                f"Flush phase: {ro_pct}% RO recommended to wash out accumulated salts."
-            )
+            parts.append(f"Flush phase: {ro_pct}% RO recommended to wash out accumulated salts.")
         elif ro_pct == 0:
             parts.append(
                 f"No RO water needed. Tap water EC ({effective.ec_ms:.2f} mS/cm) "
@@ -481,8 +492,7 @@ class WaterMixCalculator:
                 f"(requires {min_headroom:.0%} EC headroom)."
             )
             parts.append(
-                f"Effective base water EC: {effective.ec_ms:.2f} mS/cm, "
-                f"leaving {available_ec:.2f} mS/cm for nutrients."
+                f"Effective base water EC: {effective.ec_ms:.2f} mS/cm, leaving {available_ec:.2f} mS/cm for nutrients."
             )
 
         # Alkalinity note
@@ -538,15 +548,13 @@ class WaterMixCalculator:
 
             if offset < 0:
                 trade_off = (
-                    f"Less RO ({alt_ro}%): saves RO water but only "
-                    f"{headroom:.0%} EC headroom (min {min_headroom:.0%})."
+                    f"Less RO ({alt_ro}%): saves RO water but only {headroom:.0%} EC headroom (min {min_headroom:.0%})."
                 )
                 if eff.chlorine_ppm >= CHLORINE_LIMIT_PPM:
                     trade_off += " Chlorine exceeds limit."
             else:
                 trade_off = (
-                    f"More RO ({alt_ro}%): cleaner base water with "
-                    f"{headroom:.0%} EC headroom but uses more RO water."
+                    f"More RO ({alt_ro}%): cleaner base water with {headroom:.0%} EC headroom but uses more RO water."
                 )
                 if headroom > 0.9:
                     trade_off += " May need more CalMag supplementation."

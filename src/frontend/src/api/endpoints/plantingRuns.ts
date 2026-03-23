@@ -1,5 +1,6 @@
 import { tenantClient as client } from '../client';
 import type {
+  AdoptPlantsResponse,
   BatchCreatePlantsResponse,
   BatchRemoveRequest,
   BatchRemoveResponse,
@@ -107,6 +108,17 @@ export async function batchCreatePlants(
 ): Promise<BatchCreatePlantsResponse> {
   const { data } = await client.post<BatchCreatePlantsResponse>(
     `${BASE}/${runKey}/create-plants`,
+  );
+  return data;
+}
+
+export async function adoptPlants(
+  runKey: string,
+  plantKeys: string[],
+): Promise<AdoptPlantsResponse> {
+  const { data } = await client.post<AdoptPlantsResponse>(
+    `${BASE}/${runKey}/adopt-plants`,
+    { plant_keys: plantKeys },
   );
   return data;
 }

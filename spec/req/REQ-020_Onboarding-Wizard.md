@@ -237,7 +237,7 @@ includes_species:        starter_kits → species              (Kit enthält Spe
 includes_cultivar:       starter_kits → cultivars             (Kit enthält Cultivar)
 includes_template:       starter_kits → workflow_templates     (Kit enthält WorkflowTemplate)
 includes_nutrient_plan:  starter_kits → nutrient_plans         (Kit empfiehlt NutrientPlan)
-created_by_wizard:       onboarding_states → plant_instances   (Wizard hat PlantInstance erstellt)
+created_by_wizard:       onboarding_states → planting_runs     (Wizard erstellt PlantingRun, nicht einzelne Plants; REQ-013 v2.0)
 user_favorites:          users → species | nutrient_plans | fertilizers  (User hat Entität favorisiert)
 ```
 

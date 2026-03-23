@@ -536,11 +536,11 @@ contains:          WorkflowTemplates -> TaskTemplates        {sequence: int}
 requires_phase:    TaskTemplates -> GrowthPhases
 depends_on:        TaskTemplates -> TaskDependencies -> TaskTemplates
 incompatible_with: TaskTemplates -> TaskTemplates             // Nicht zusammen ausführbar
-follows:           PlantInstances -> WorkflowTemplates
-executing:         PlantInstances -> WorkflowExecutions
+follows:           PlantingRuns|PlantInstances -> WorkflowTemplates       (Dual-Support: Run primaer, standalone Plant als Fallback; REQ-013 v2.0)
+executing:         PlantingRuns|PlantInstances -> WorkflowExecutions    (Dual-Support)
 generated:         WorkflowExecutions -> Tasks
 instance_of:       Tasks -> TaskTemplates
-has_task:          PlantInstances -> Tasks
+has_task:          PlantingRuns|PlantInstances -> Tasks                 (Dual-Support: Run primaer, standalone Plant als Fallback)
 blocks:            Tasks -> Tasks                             // Konkrete Dependency-Chain
 completed_by:      Tasks -> Users                             {timestamp: datetime}
 assigned_to:       Tasks -> Users                             {assigned_at: datetime, assigned_by: str}
@@ -552,9 +552,9 @@ cloned_from:       Tasks -> Tasks                             // Referenz auf Qu
 recurs_from:       Tasks -> Tasks                             // Referenz auf Eltern-Recurring-Task
 
 // Training-Plan (Canopy Management) — G-004:
-has_training_event:       Tasks -> TrainingEvents                // Task erzeugt TrainingEvent bei Completion
-training_on:              TrainingEvents -> PlantInstances       // An welcher Pflanze trainiert wurde
-has_canopy_measurement:   PlantInstances -> CanopyMeasurements   // Canopy-Messwert-Zeitreihe
+has_training_event:       Tasks -> TrainingEvents                           // Task erzeugt TrainingEvent bei Completion
+training_on:              TrainingEvents -> PlantingRuns                    // An welchem Run trainiert wurde (REQ-013 v2.0: Run-Level)
+has_canopy_measurement:   PlantingRuns -> CanopyMeasurements                // Canopy-Messwert-Zeitreihe (Run-Level)
 triggered_by_training:    Tasks -> TrainingEvents                // Follow-up-Task referenziert auslösendes Event
 
 // Phänologische Trigger — G-005:
@@ -567,8 +567,15 @@ observed_at_site:         PhenologicalEvents -> Sites            // An welchem S
 **Task-Queue mit Priorisierung:**
 ```aql
 // Task-Queue: Alle pending Tasks mit Priorisierung
-FOR plant IN PlantInstances
-  FOR task IN 1..1 OUTBOUND plant GRAPH 'kamerplanter_graph'
+// Dual-Support (REQ-013 v2.0): Primaer ueber aktive Runs, zusaetzlich standalone Plants
+FOR entity IN UNION_DISTINCT(
+    (FOR r IN planting_runs FILTER r.status IN ['active', 'harvesting'] RETURN r),
+    (FOR p IN plant_instances FILTER p.removed_on == null
+        LET in_run = LENGTH(FOR run, e IN 1..1 INBOUND p run_contains FILTER e.detached_at == null RETURN 1)
+        FILTER in_run == 0  // Nur standalone Plants
+        RETURN p)
+)
+  FOR task IN 1..1 OUTBOUND entity GRAPH 'kamerplanter_graph'
     OPTIONS { edgeCollections: ['has_task'] }
     FILTER task.status == 'pending'
 

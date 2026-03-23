@@ -46,9 +46,9 @@ export type PlantTrait =
   | 'heirloom'
   | 'hybrid'
   | 'f1';
-export type PlantingRunType = 'monoculture' | 'clone' | 'mixed_culture';
+export type PlantingRunType = 'monoculture' | 'clone';
 export type PlantingRunStatus = 'planned' | 'active' | 'harvesting' | 'completed' | 'cancelled';
-export type EntryRole = 'primary' | 'companion' | 'trap_crop';
+export type DiaryEntryType = 'observation' | 'problem' | 'milestone' | 'measurement' | 'photo' | 'note';
 export type FertilizerType = 'base' | 'supplement' | 'booster' | 'biological' | 'ph_adjuster' | 'organic' | 'silicate';
 export type PhEffect = 'acidic' | 'alkaline' | 'neutral';
 export type ApplicationMethod = 'fertigation' | 'drench' | 'foliar' | 'top_dress' | 'any';
@@ -868,7 +868,6 @@ export interface PlantingRunEntry {
   species_key: string;
   cultivar_key: string | null;
   quantity: number;
-  role: EntryRole;
   id_prefix: string;
   spacing_cm: number | null;
   notes: string | null;
@@ -880,10 +879,24 @@ export interface PlantingRunEntryCreate {
   species_key: string;
   cultivar_key?: string | null;
   quantity: number;
-  role?: EntryRole;
   id_prefix: string;
   spacing_cm?: number | null;
   notes?: string | null;
+}
+
+export interface PlantDiaryEntry {
+  key: string;
+  tenant_key: string;
+  plant_key: string;
+  entry_type: DiaryEntryType;
+  title: string | null;
+  text: string;
+  photo_refs: string[];
+  tags: string[];
+  measurements: Record<string, unknown> | null;
+  created_by: string;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 export interface PhaseSummary {
@@ -928,6 +941,9 @@ export interface PlantingRun {
   status: PlantingRunStatus;
   planned_quantity: number;
   actual_quantity: number;
+  current_phase_key: string | null;
+  current_phase_started_at: string | null;
+  lifecycle_config_key: string | null;
   location_key: string | null;
   substrate_batch_key: string | null;
   planned_start_date: string | null;
@@ -964,6 +980,19 @@ export interface BatchCreatePlantsResponse {
   plant_keys: string[];
   instance_ids: string[];
   slots_assigned: number;
+}
+
+export interface AdoptPlantsRequest {
+  plant_keys: string[];
+}
+
+export interface AdoptPlantsResponse {
+  run_key: string;
+  adopted_count: number;
+  adopted_keys: string[];
+  skipped: Array<{ key: string; reason: string }>;
+  run_status: string;
+  run_phase: string | null;
 }
 
 export interface BatchTransitionRequest {
@@ -3441,4 +3470,119 @@ export interface AdminUserMembership {
 export interface AdminAddUserToTenantRequest {
   tenant_key: string;
   role: TenantRole;
+}
+
+// ── Notifications (REQ-030) ──────────────────────────────────────────
+
+export type NotificationUrgency = 'low' | 'normal' | 'high' | 'critical';
+export type NotificationStatusValue = 'pending' | 'delivered' | 'failed';
+
+export interface NotificationAction {
+  action_id: string;
+  title: string;
+  uri: string | null;
+}
+
+export interface NotificationResponse {
+  key: string;
+  tenant_key: string;
+  user_key: string;
+  notification_type: string;
+  title: string;
+  body: string;
+  urgency: NotificationUrgency;
+  data: Record<string, unknown>;
+  actions: NotificationAction[];
+  image_url: string | null;
+  group_key: string | null;
+  channels_sent: string[];
+  channels_failed: string[];
+  status: NotificationStatusValue;
+  read_at: string | null;
+  acted_at: string | null;
+  escalation_level: number;
+  parent_notification_key: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface NotificationListResponse {
+  items: NotificationResponse[];
+  total: number;
+  unread_count: number;
+}
+
+export interface UnreadCountResponse {
+  unread_count: number;
+}
+
+export interface ChannelPreference {
+  enabled: boolean;
+  priority: number;
+  config: Record<string, unknown>;
+}
+
+export interface QuietHoursPreference {
+  enabled: boolean;
+  start: string;
+  end: string;
+  timezone: string;
+}
+
+export interface BatchingPreference {
+  enabled: boolean;
+  window_minutes: number;
+  max_batch_size: number;
+}
+
+export interface EscalationPreference {
+  watering_enabled: boolean;
+  escalation_days: number[];
+}
+
+export interface TypeOverride {
+  channels: string[];
+  ignore_quiet_hours: boolean;
+}
+
+export interface DailySummaryPreference {
+  enabled: boolean;
+  time: string;
+  channel: string;
+}
+
+export interface NotificationPreferencesResponse {
+  key: string | null;
+  user_key: string;
+  channels: Record<string, ChannelPreference>;
+  quiet_hours: QuietHoursPreference;
+  batching: BatchingPreference;
+  escalation: EscalationPreference;
+  type_overrides: Record<string, TypeOverride>;
+  daily_summary: DailySummaryPreference;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface NotificationPreferencesRequest {
+  channels: Record<string, ChannelPreference>;
+  quiet_hours: QuietHoursPreference;
+  batching: BatchingPreference;
+  escalation: EscalationPreference;
+  type_overrides: Record<string, TypeOverride>;
+  daily_summary: DailySummaryPreference;
+}
+
+export interface ChannelStatusResponse {
+  channel_key: string;
+  healthy: boolean;
+  supports_actions: boolean;
+  supports_batching: boolean;
+}
+
+export interface TestNotificationResponse {
+  status: string;
+  channel_key: string;
+  success: boolean;
+  error: string | null;
 }

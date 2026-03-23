@@ -248,7 +248,7 @@ class GBIFAdapter(ExternalSourceAdapter):
         try:
             response = self._client.get("/species/match", params={"name": "Plantae", "kingdom": "Plantae"})
             return response.status_code == 200
-        except HTTPStatusError, RequestError:
+        except (HTTPStatusError, RequestError):  # fmt: skip
             return False
 
     @staticmethod

@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from app.common.auth import get_current_user
 from app.common.dependencies import get_enrichment_service
 from app.common.enums import AuthType, SyncStatus, SyncTrigger
 from app.domain.models.enrichment import (
@@ -15,6 +16,7 @@ from app.domain.models.enrichment import (
     FieldMapping,
     SyncRun,
 )
+from app.domain.models.user import User
 
 
 @pytest.fixture
@@ -23,13 +25,20 @@ def mock_service():
 
 
 @pytest.fixture
-def client(mock_service):
+def _mock_user():
+    return User(_key="test_user", email="test@example.com", display_name="Test User")
+
+
+@pytest.fixture
+def client(mock_service, _mock_user):
     with patch("app.main.get_connection"), patch("app.main.ensure_collections"):
         from app.main import app
 
         app.dependency_overrides[get_enrichment_service] = lambda: mock_service
+        app.dependency_overrides[get_current_user] = lambda: _mock_user
         yield TestClient(app, raise_server_exceptions=False)
         app.dependency_overrides.pop(get_enrichment_service, None)
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.fixture

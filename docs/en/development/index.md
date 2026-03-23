@@ -8,3 +8,4 @@ This section is for developers contributing to Kamerplanter or running the syste
 - [Code Standards](code-standards.md) — NFR-003, Ruff, ESLint
 - [Testing](testing.md) — pytest (backend), vitest (frontend)
 - [Debugging](debugging.md) — debugpy, browser DevTools
+- [Agent Catalog](agent-catalog.md) — Claude Code agents in the project

@@ -1,24 +1,19 @@
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.ipm.schemas import (
     DiseaseCreate,
     DiseaseResponse,
     DiseaseUpdate,
-    HarvestSafetyResponse,
-    InspectionCreate,
     InspectionResponse,
-    KarenzPeriodResponse,
     PestCreate,
     PestResponse,
     PestUpdate,
-    TreatmentApplicationCreate,
     TreatmentApplicationResponse,
     TreatmentCreate,
     TreatmentResponse,
     TreatmentUpdate,
 )
+from app.common.auth import get_current_user
 from app.common.dependencies import get_ipm_service
 from app.domain.models.ipm import (
     Disease,
@@ -29,7 +24,7 @@ from app.domain.models.ipm import (
 )
 from app.domain.services.ipm_service import IpmService
 
-router = APIRouter(prefix="/ipm", tags=["ipm"])
+router = APIRouter(prefix="/ipm", tags=["ipm"], dependencies=[Depends(get_current_user)])
 
 
 def _pest_response(p: Pest) -> PestResponse:
@@ -161,89 +156,3 @@ def update_treatment(key: str, body: TreatmentUpdate, service: IpmService = Depe
 @router.delete("/treatments/{key}", status_code=204)
 def delete_treatment(key: str, service: IpmService = Depends(get_ipm_service)):
     service.delete_treatment(key)
-
-
-# -- Inspections --
-
-
-@router.post("/plants/{plant_key}/inspections", response_model=InspectionResponse, status_code=201)
-def create_inspection(
-    plant_key: str,
-    body: InspectionCreate,
-    service: IpmService = Depends(get_ipm_service),
-):
-    inspection = Inspection(**body.model_dump())
-    created = service.create_inspection(plant_key, inspection)
-    return _inspection_response(created)
-
-
-@router.get("/plants/{plant_key}/inspections", response_model=list[InspectionResponse])
-def list_inspections(
-    plant_key: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
-    service: IpmService = Depends(get_ipm_service),
-):
-    inspections, _ = service.get_inspections(plant_key, offset, limit)
-    return [_inspection_response(i) for i in inspections]
-
-
-# -- Treatment Applications --
-
-
-@router.post(
-    "/plants/{plant_key}/treatment-applications",
-    response_model=TreatmentApplicationResponse,
-    status_code=201,
-)
-def create_treatment_application(
-    plant_key: str,
-    body: TreatmentApplicationCreate,
-    service: IpmService = Depends(get_ipm_service),
-):
-    app = TreatmentApplication(**body.model_dump())
-    created = service.create_treatment_application(plant_key, app)
-    return _application_response(created)
-
-
-@router.get("/plants/{plant_key}/treatment-applications", response_model=list[TreatmentApplicationResponse])
-def list_treatment_applications(
-    plant_key: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
-    service: IpmService = Depends(get_ipm_service),
-):
-    apps, _ = service.get_applications(plant_key, offset, limit)
-    return [_application_response(a) for a in apps]
-
-
-# -- Karenz / Harvest Safety --
-
-
-@router.get("/plants/{plant_key}/karenz", response_model=list[KarenzPeriodResponse])
-def get_karenz_periods(plant_key: str, service: IpmService = Depends(get_ipm_service)):
-    return service.get_karenz_periods(plant_key)
-
-
-@router.get("/plants/{plant_key}/harvest-safety", response_model=HarvestSafetyResponse)
-def check_harvest_safety(
-    plant_key: str,
-    planned_date: str | None = None,
-    service: IpmService = Depends(get_ipm_service),
-):
-    pd = datetime.fromisoformat(planned_date) if planned_date else None
-    can_harvest, blocking = service.check_harvest_safety(plant_key, pd)
-    return HarvestSafetyResponse(can_harvest=can_harvest, blocking_treatments=blocking)
-
-
-# -- Inspection Schedule --
-
-
-@router.get("/plants/{plant_key}/inspection-schedule")
-def get_inspection_schedule(
-    plant_key: str,
-    current_phase: str = Query("vegetative"),
-    pressure_level: str = Query("none"),
-    service: IpmService = Depends(get_ipm_service),
-):
-    return service.get_inspection_schedule(plant_key, current_phase, pressure_level)

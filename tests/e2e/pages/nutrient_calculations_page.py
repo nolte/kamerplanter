@@ -80,10 +80,7 @@ class NutrientCalculationsPage(BasePage):
             )
         el = inputs[input_index]
         self.scroll_and_click(el)
-        # Triple-click to select all, then overwrite
-        from selenium.webdriver.common.action_chains import ActionChains
-        ActionChains(self.driver).triple_click(el).perform()
-        el.send_keys(str(value))
+        self.clear_and_fill(el, str(value))
 
     def _fill_text_input_in_card(self, card, value: str) -> None:
         """Clear and fill the first text input (non-number) within a card."""
@@ -92,8 +89,7 @@ class NutrientCalculationsPage(BasePage):
             raise ValueError("No text input found in card")
         el = inputs[0]
         self.scroll_and_click(el)
-        el.clear()
-        el.send_keys(value)
+        self.clear_and_fill(el, value)
 
     def _click_button_in_card(self, card) -> None:
         """Click the contained Button inside a card."""
@@ -126,8 +122,7 @@ class NutrientCalculationsPage(BasePage):
         if text_inputs:
             el = text_inputs[0]
             self.scroll_and_click(el)
-            el.clear()
-            el.send_keys(fertilizer_keys)
+            self.clear_and_fill(el, fertilizer_keys)
 
     def click_calculate_mixing_protocol(self) -> None:
         """Click the calculate button in the Mixing Protocol panel."""
@@ -159,23 +154,23 @@ class NutrientCalculationsPage(BasePage):
         days_until_harvest: int = 14,
     ) -> None:
         """Fill all input fields in the Flushing panel."""
-        card = self._get_card_by_heading("Aussp")  # "Ausspülung" / "Flushing"
+        card = self._get_card_by_heading("Spülung")  # "Spülung" / "Flushing"
         self._fill_number_input_in_card(card, 0, current_ec)
         self._fill_number_input_in_card(card, 1, float(days_until_harvest))
 
     def click_calculate_flushing(self) -> None:
         """Click the calculate button in the Flushing panel."""
-        card = self._get_card_by_heading("Aussp")
+        card = self._get_card_by_heading("Spülung")
         self._click_button_in_card(card)
 
     def get_flushing_alerts(self) -> list[str]:
         """Return Alert texts from the Flushing result area."""
-        card = self._get_card_by_heading("Aussp")
+        card = self._get_card_by_heading("Spülung")
         return self._get_alert_texts_in_card(card)
 
     def flushing_has_schedule_table(self) -> bool:
         """Return True if a schedule data table appeared in the Flushing card."""
-        card = self._get_card_by_heading("Aussp")
+        card = self._get_card_by_heading("Spülung")
         tables = card.find_elements(By.CSS_SELECTOR, "[data-testid='data-table']")
         return len(tables) > 0
 
@@ -191,18 +186,18 @@ class NutrientCalculationsPage(BasePage):
         runoff_vol: float = 0.2,
     ) -> None:
         """Fill all input fields in the Runoff Analysis panel."""
-        card = self._get_card_by_heading("Abfluss")
+        card = self._get_card_by_heading("Ablauf")
         for idx, val in enumerate([input_ec, runoff_ec, input_ph, runoff_ph, input_vol, runoff_vol]):
             self._fill_number_input_in_card(card, idx, val)
 
     def click_calculate_runoff(self) -> None:
         """Click the calculate button in the Runoff Analysis panel."""
-        card = self._get_card_by_heading("Abfluss")
+        card = self._get_card_by_heading("Ablauf")
         self._click_button_in_card(card)
 
     def get_runoff_alerts(self) -> list[str]:
         """Return Alert texts from the Runoff Analysis result area."""
-        card = self._get_card_by_heading("Abfluss")
+        card = self._get_card_by_heading("Ablauf")
         return self._get_alert_texts_in_card(card)
 
     def runoff_health_is(self, health: str) -> bool:
@@ -210,7 +205,7 @@ class NutrientCalculationsPage(BasePage):
 
         *health* should be one of 'success', 'warning', 'error'.
         """
-        card = self._get_card_by_heading("Abfluss")
+        card = self._get_card_by_heading("Ablauf")
         alerts = card.find_elements(By.CSS_SELECTOR, f".MuiAlert-color{health.capitalize()}")
         return any(a.is_displayed() for a in alerts)
 

@@ -5,10 +5,15 @@ from app.api.v1.family_relationships.schemas import (
     FamilyIncompatibleSet,
     PestRiskSet,
 )
+from app.common.auth import get_current_user
 from app.common.dependencies import get_graph_repo
 from app.data_access.arango.graph_repository import ArangoGraphRepository
 
-router = APIRouter(prefix="/family-relationships", tags=["family-relationships"])
+router = APIRouter(
+    prefix="/family-relationships",
+    tags=["family-relationships"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get("/families/{family_key}/pest-risks")

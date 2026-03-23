@@ -22,7 +22,7 @@ class PlantInstanceListExt(BasePage):
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
     TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
-    SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input']")
+    SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
     SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
     RESET_FILTERS = (By.CSS_SELECTOR, "[data-testid='reset-filters-button']")

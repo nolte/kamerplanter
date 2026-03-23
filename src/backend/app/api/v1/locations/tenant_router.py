@@ -13,9 +13,7 @@ from app.domain.services.site_service import SiteService
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 
-def _verify_location_tenant(
-    key: str, ctx: TenantContext, service: SiteService
-) -> Location:
+def _verify_location_tenant(key: str, ctx: TenantContext, service: SiteService) -> Location:
     """Get a location and verify it belongs to a site owned by the tenant."""
     loc = service.get_location(key)
     service.get_site(loc.site_key, tenant_key=ctx.tenant_key)

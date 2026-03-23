@@ -17,6 +17,7 @@ from app.api.v1.fertilizers.tenant_router import router as tenant_fertilizers_ro
 from app.api.v1.harvest.tenant_router import router as tenant_harvest_router
 from app.api.v1.ipm.tenant_router import router as tenant_ipm_router
 from app.api.v1.locations.tenant_router import router as tenant_locations_router
+from app.api.v1.notifications.tenant_router import router as tenant_notifications_router
 from app.api.v1.nutrient_calculations.router import router as nutrient_calculations_router
 from app.api.v1.nutrient_plans.tenant_router import router as tenant_nutrient_plans_router
 from app.api.v1.onboarding.tenant_router import router as tenant_onboarding_router
@@ -57,4 +58,5 @@ tenant_scoped_router.include_router(tenant_calendar_router)
 tenant_scoped_router.include_router(tenant_starter_kits_router)
 tenant_scoped_router.include_router(tenant_onboarding_router)
 tenant_scoped_router.include_router(tenant_favorites_router)
+tenant_scoped_router.include_router(tenant_notifications_router)
 tenant_scoped_router.include_router(tenant_user_preferences_router)

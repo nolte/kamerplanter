@@ -8,11 +8,12 @@ from app.api.v1.activity_plans.schemas import (
     TaskTemplateResponse,
     TaskTemplateUpdateRequest,
 )
+from app.common.auth import get_current_user
 from app.common.dependencies import get_activity_plan_service, get_task_repo
 from app.common.exceptions import NotFoundError, ValidationError
 from app.domain.services.activity_plan_service import ActivityPlanService
 
-router = APIRouter(prefix="/activity-plans", tags=["activity-plans"])
+router = APIRouter(prefix="/activity-plans", tags=["activity-plans"], dependencies=[Depends(get_current_user)])
 
 
 def _build_response(

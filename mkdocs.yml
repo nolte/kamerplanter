@@ -113,6 +113,7 @@ plugins:
             Code-Standards: Code Standards
             Testen: Testing
             Debugging: Debugging
+            Agent-Katalog: Agent Catalog
             API: API
             Authentifizierung: Authentication
             Fehlerbehandlung: Error Handling
@@ -239,6 +240,7 @@ nav:
       - Code-Standards: de/development/code-standards.md
       - Testen: de/development/testing.md
       - Debugging: de/development/debugging.md
+      - Agent-Katalog: de/development/agent-catalog.md
   - API:
       - de/api/index.md
       - Überblick: de/api/overview.md

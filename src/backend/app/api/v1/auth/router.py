@@ -214,11 +214,12 @@ def oauth_callback(
         ip_address,
     )
 
-    # We redirect to the frontend with the access token as a query param.
-    # The frontend reads it and stores it, then navigates to the dashboard.
+    # Redirect to frontend with the access token in the URL fragment (not query param).
+    # Fragment is never sent to the server, never logged by proxies, and not stored in
+    # browser history for cross-origin requests. The frontend JS reads window.location.hash.
     frontend_callback = (
         f"{service._frontend_url}/auth/callback"
-        f"?access_token={token_pair.access_token}"
+        f"#access_token={token_pair.access_token}"
         f"&expires_in={token_pair.expires_in}"
     )
 

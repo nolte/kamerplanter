@@ -536,6 +536,8 @@ Verwende die `screenshot()`-Fixture: `screenshot("NNN_beschreibung")`
 
 ## Coding-Regeln
 
+**VERBINDLICHER STYLE GUIDE:** Lies `spec/style-guides/BACKEND.md` Abschnitt 16 (Tests) fuer Python-Test-Konventionen — Testklassen `Test{Feature}`, Factory-Helpers `_make_{entity}()`, beschreibende `assert`-Messages. Der E2E-Test-Code folgt denselben Python-Namenskonventionen wie der Backend-Code (snake_case, UPPER_SNAKE_CASE Konstanten, Google-Style Docstrings).
+
 - Verwende IMMER `WebDriverWait` mit expliziten Waits — NIEMALS `time.sleep()`
 - Verwende Locator-Priorität: `data-testid` > `id` > `CSS` > `XPath`
 - Jeder Test hat einen Docstring mit TC-Nummer und Beschreibung

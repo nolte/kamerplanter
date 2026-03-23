@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/tool
 import * as tenantApi from '@/api/endpoints/tenants';
 import type { TenantWithRole, TenantCreate } from '@/api/types';
 import { isLightMode } from '@/config/mode';
+import { setActiveTenantSlug } from '@/api/client';
 
 interface TenantState {
   activeTenant: TenantWithRole | null;
@@ -51,6 +52,7 @@ const tenantSlice = createSlice({
       const tenant = state.myTenants.find((t) => t.slug === slug);
       if (tenant) {
         state.activeTenant = tenant;
+        setActiveTenantSlug(slug);
         try {
           localStorage.setItem(ACTIVE_TENANT_KEY, slug);
         } catch {
@@ -61,6 +63,7 @@ const tenantSlice = createSlice({
     clearTenants(state) {
       state.activeTenant = null;
       state.myTenants = [];
+      setActiveTenantSlug(null);
       try {
         localStorage.removeItem(ACTIVE_TENANT_KEY);
       } catch {
@@ -83,12 +86,16 @@ const tenantSlice = createSlice({
           ? action.payload.find((t) => t.slug === persistedSlug)
           : null;
         state.activeTenant = persisted ?? action.payload[0] ?? null;
-        if (state.activeTenant) {
-          try {
-            localStorage.setItem(ACTIVE_TENANT_KEY, state.activeTenant.slug);
-          } catch {
-            // ignore
+        const resolvedSlug = state.activeTenant?.slug ?? null;
+        setActiveTenantSlug(resolvedSlug);
+        try {
+          if (resolvedSlug) {
+            localStorage.setItem(ACTIVE_TENANT_KEY, resolvedSlug);
+          } else {
+            localStorage.removeItem(ACTIVE_TENANT_KEY);
           }
+        } catch {
+          // ignore
         }
       })
       .addCase(loadMyTenants.rejected, (state, action) => {

@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.growth_phases.schemas import PhaseCreate, PhaseResponse
+from app.common.auth import get_current_user
 from app.common.dependencies import get_phase_service
 from app.domain.models.lifecycle import GrowthPhase
 from app.domain.services.phase_service import PhaseService
 
-router = APIRouter(prefix="/growth-phases", tags=["growth-phases"])
+router = APIRouter(prefix="/growth-phases", tags=["growth-phases"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("", response_model=list[PhaseResponse])

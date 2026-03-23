@@ -58,7 +58,7 @@ class SpeciesDetailPage(BasePage):
     def click_tab_by_label(self, label: str) -> None:
         tabs = self.driver.find_elements(*self.TABS)
         for tab in tabs:
-            if tab.text == label:
+            if tab.text.upper() == label.upper():
                 self.scroll_and_click(tab)
                 return
         raise ValueError(f"Tab '{label}' not found")

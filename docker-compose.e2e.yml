@@ -1,0 +1,140 @@
+##
+## Kamerplanter – E2E Test Environment (Docker Compose)
+##
+## Runs the full application stack + Selenium Grid + test runner
+## in an isolated network. No host ports required — runs in parallel
+## with Kind/Skaffold without conflicts.
+##
+## Usage:
+##   docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit
+##
+## Reports are written to ./test-reports/ on the host.
+##
+
+services:
+  # ── ArangoDB ──────────────────────────────────────────────
+  arangodb:
+    image: arangodb:3.11
+    environment:
+      ARANGO_ROOT_PASSWORD: e2e-test-password
+    healthcheck:
+      test: ["CMD", "arangosh", "--server.password", "e2e-test-password", "--javascript.execute-string", "db._version()"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  # ── Valkey (Redis-compatible) ────────────────────────────
+  valkey:
+    image: valkey/valkey:8-alpine
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Backend (FastAPI) ────────────────────────────────────
+  backend:
+    build:
+      context: ./src/backend
+    environment:
+      ARANGODB_HOST: arangodb
+      ARANGODB_PORT: "8529"
+      ARANGODB_DATABASE: kamerplanter_e2e
+      ARANGODB_USERNAME: root
+      ARANGODB_PASSWORD: e2e-test-password
+      REDIS_URL: redis://valkey:6379/0
+      CORS_ORIGINS: '["http://frontend"]'
+      DEBUG: "false"
+      REQUIRE_EMAIL_VERIFICATION: "false"
+      JWT_SECRET_KEY: e2e-test-jwt-secret-not-for-production
+      KAMERPLANTER_MODE: light
+    depends_on:
+      arangodb:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/api/v1/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  # ── Celery Worker ────────────────────────────────────────
+  celery-worker:
+    build:
+      context: ./src/backend
+    environment:
+      ARANGODB_HOST: arangodb
+      ARANGODB_PORT: "8529"
+      ARANGODB_DATABASE: kamerplanter_e2e
+      ARANGODB_USERNAME: root
+      ARANGODB_PASSWORD: e2e-test-password
+      REDIS_URL: redis://valkey:6379/0
+      JWT_SECRET_KEY: e2e-test-jwt-secret-not-for-production
+      KAMERPLANTER_MODE: light
+    depends_on:
+      arangodb:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    command: celery -A app.tasks worker --loglevel=info
+
+  # ── Frontend (React + nginx) ─────────────────────────────
+  frontend:
+    build:
+      context: ./src/frontend
+    environment:
+      KAMERPLANTER_MODE: light
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:80/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Selenium Hub ─────────────────────────────────────────
+  selenium-hub:
+    image: selenium/hub:4.25
+    environment:
+      SE_SESSION_REQUEST_TIMEOUT: "300"
+      SE_NODE_SESSION_TIMEOUT: "300"
+      SE_OTEL_TRACES_EXPORTER: none
+
+  # ── Chrome Node ──────────────────────────────────────────
+  chrome:
+    image: selenium/node-chrome:4.25
+    depends_on:
+      - selenium-hub
+    environment:
+      SE_EVENT_BUS_HOST: selenium-hub
+      SE_EVENT_BUS_PUBLISH_PORT: 4442
+      SE_EVENT_BUS_SUBSCRIBE_PORT: 4443
+      SE_NODE_MAX_SESSIONS: 4
+      SE_NODE_OVERRIDE_MAX_SESSIONS: "true"
+      SE_OTEL_TRACES_EXPORTER: none
+    shm_size: "2gb"
+
+  # ── E2E Test Runner ──────────────────────────────────────
+  e2e-tests:
+    build:
+      context: ./tests/e2e
+    environment:
+      SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
+      E2E_BASE_URL: http://frontend:80
+      KAMERPLANTER_MODE: light
+    depends_on:
+      frontend:
+        condition: service_healthy
+      chrome:
+        condition: service_started
+    volumes:
+      - ./test-reports:/app/test-reports
+    entrypoint:
+      - pytest
+      - --tb=short
+      - --generate-protocol
+      - --base-url=http://frontend:80
+      - --app-mode=light

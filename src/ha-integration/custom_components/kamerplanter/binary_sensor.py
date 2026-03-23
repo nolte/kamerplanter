@@ -16,7 +16,11 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .coordinator import KamerplanterAlertCoordinator, KamerplanterLocationCoordinator
+from .coordinator import (
+    KamerplanterAlertCoordinator,
+    KamerplanterLocationCoordinator,
+    KamerplanterTaskCoordinator,
+)
 from .sensor import _slugify_key, location_device_info, plant_device_info, server_device_info
 
 
@@ -65,8 +69,14 @@ async def async_setup_entry(
                 )
 
     # Global sensor offline — under server device
+    srv_dev = server_device_info(entry)
     entities.append(
-        SensorOfflineSensor(alert_coordinator, entry, server_device_info(entry))
+        SensorOfflineSensor(alert_coordinator, entry, srv_dev)
+    )
+
+    # Care overdue — true when at least one task is overdue (REQ-030)
+    entities.append(
+        CareOverdueSensor(alert_coordinator, entry, srv_dev)
     )
 
     async_add_entities(entities)
@@ -204,6 +214,45 @@ class LocationNeedsAttentionSensor(
             )
         else:
             self._attr_is_on = False
+        self.async_write_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last and last.state not in ("unknown", "unavailable", ""):
+            self._attr_is_on = last.state == "on"
+            self.async_write_ha_state()
+
+
+class CareOverdueSensor(CoordinatorEntity, RestoreEntity, BinarySensorEntity):
+    """Binary sensor indicating at least one care task is overdue (REQ-030)."""
+
+    _attr_has_entity_name = True
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_icon = "mdi:watering-can-outline"
+
+    def __init__(
+        self,
+        coordinator: KamerplanterAlertCoordinator,
+        entry: ConfigEntry,
+        device_info: DeviceInfo,
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_kp_care_overdue"
+        self.entity_id = "binary_sensor.kp_care_overdue"
+        self._attr_name = "Care Overdue"
+        self._attr_device_info = device_info
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        if self.coordinator.data:
+            self._attr_is_on = len(self.coordinator.data) > 0
+            self._attr_extra_state_attributes = {
+                "overdue_count": len(self.coordinator.data),
+            }
+        else:
+            self._attr_is_on = False
+            self._attr_extra_state_attributes = {"overdue_count": 0}
         self.async_write_ha_state()
 
     async def async_added_to_hass(self) -> None:

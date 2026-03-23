@@ -2,11 +2,11 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Query, Request
 
-from app.api.v1.calendar.router import _feed_response
 from app.api.v1.calendar.schemas import (
     CalendarEventSchema,
     CalendarEventsResponse,
     CalendarFeedCreateRequest,
+    CalendarFeedFiltersSchema,
     CalendarFeedResponse,
     CalendarFeedUpdateRequest,
     FrostConfigSchema,
@@ -28,6 +28,28 @@ from app.domain.models.tenant_context import TenantContext
 from app.domain.services.calendar_service import CalendarService
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
+
+
+def _feed_response(
+    feed: CalendarFeed,
+    request: Request,
+) -> CalendarFeedResponse:
+    base_url = str(request.base_url).rstrip("/")
+    ical_url = f"{base_url}/api/v1/calendar/feeds/{feed.key}/feed.ics?token={feed.token}"
+    return CalendarFeedResponse(
+        key=feed.key or "",
+        name=feed.name,
+        token=feed.token,
+        user_key=feed.user_key,
+        filters=CalendarFeedFiltersSchema(
+            categories=[c.value for c in feed.filters.categories],
+            site_key=feed.filters.site_key,
+        ),
+        is_active=feed.is_active,
+        ical_url=ical_url,
+        created_at=feed.created_at,
+        updated_at=feed.updated_at,
+    )
 
 
 @router.get("/events")

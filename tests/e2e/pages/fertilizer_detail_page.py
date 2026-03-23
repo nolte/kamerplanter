@@ -121,26 +121,22 @@ class FertilizerDetailPage(BasePage):
     def fill_product_name(self, name: str) -> None:
         """Clear and fill the product name field in the edit form."""
         el = self.wait_for_element_clickable(self.FORM_PRODUCT_NAME)
-        el.clear()
-        el.send_keys(name)
+        self.clear_and_fill(el, name)
 
     def fill_brand(self, brand: str) -> None:
         """Clear and fill the brand field in the edit form."""
         el = self.wait_for_element_clickable(self.FORM_BRAND)
-        el.clear()
-        el.send_keys(brand)
+        self.clear_and_fill(el, brand)
 
     def fill_mixing_priority(self, value: int) -> None:
         """Clear and fill the mixing priority field."""
         el = self.wait_for_element_clickable(self.FORM_MIXING_PRIORITY)
-        el.clear()
-        el.send_keys(str(value))
+        self.clear_and_fill(el, str(value))
 
     def fill_notes(self, notes: str) -> None:
         """Clear and fill the notes textarea."""
         el = self.wait_for_element_clickable(self.FORM_NOTES)
-        el.clear()
-        el.send_keys(notes)
+        self.clear_and_fill(el, notes)
 
     def get_product_name_field_value(self) -> str:
         """Return the current value of the product_name field."""

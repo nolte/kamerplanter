@@ -119,6 +119,7 @@ Setze die Delta-Liste um. Beachte dabei:
 - Type-Hints: `dict[str, Any]`, `list[...]`, `str | None` (nicht Optional)
 - Docstrings auf allen public methods
 - Keine externen Dependencies (nur HA Core + aiohttp)
+- **Style-Guide-Referenz:** Fuer Backend-API-Verstaendnis lies `spec/style-guides/BACKEND.md` — insbesondere Abschnitte zu Namenskonventionen, Router-Setup, Tenant-Scoped Routing und Pydantic-Schemas. Der HA-Code selbst folgt HA-Konventionen, aber die API-Anbindung muss die Backend-Patterns korrekt widerspiegeln.
 
 ### Deployment-Workflow:
 Nach Abschluss der Aenderungen weise den Benutzer darauf hin, dass die HA-Integration manuell deployed werden muss:

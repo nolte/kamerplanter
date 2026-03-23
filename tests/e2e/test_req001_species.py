@@ -124,10 +124,11 @@ class TestSpeciesDetailPage:
         assert title, "Page title should show species name"
 
         tabs = species_detail.get_tab_labels()
+        tabs_upper = [t.upper() for t in tabs]
         assert len(tabs) >= 3, f"Expected at least 3 tabs, got {tabs}"
-        assert "Bearbeiten" in tabs, f"Expected 'Bearbeiten' tab, got {tabs}"
-        assert "Sorten" in tabs, f"Expected 'Sorten' tab, got {tabs}"
-        assert any("Lebenszyklus" in t for t in tabs), f"Expected 'Lebenszyklus' tab, got {tabs}"
+        assert "BEARBEITEN" in tabs_upper, f"Expected 'Bearbeiten' tab, got {tabs}"
+        assert "SORTEN" in tabs_upper, f"Expected 'Sorten' tab, got {tabs}"
+        assert any("LEBENSZYKLUS" in t for t in tabs_upper), f"Expected 'Lebenszyklus' tab, got {tabs}"
         assert species_detail.has_delete_button(), "Delete button should be visible"
 
     def test_edit_species_data(
