@@ -209,8 +209,8 @@ Eskalation ist **nur fuer Giess-Erinnerungen** aktiv — eine nicht gegossene Pf
 //   Verbindet Notification mit dem ausloesenden Task (REQ-006/REQ-022)
 //   Felder: notification_type, created_at
 
-// Edge Collection: notification_for_plant (notifications → plant_instances)
-//   Verbindet Notification mit betroffenen Pflanzen (fuer Batching)
+// Edge Collection: notification_for_run (notifications → planting_runs)
+//   Verbindet Notification mit betroffenen Runs (REQ-013 v2.0: Run-Level, ex notification_for_plant)
 
 // Edge Collection: user_has_notification_prefs (users → notification_preferences)
 //   1:1, Nutzer hat Benachrichtigungseinstellungen
