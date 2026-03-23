@@ -1,6 +1,6 @@
 import pytest
 
-from app.common.enums import EntryRole, PlantingRunStatus, PlantingRunType
+from app.common.enums import PlantingRunStatus, PlantingRunType
 from app.common.exceptions import InvalidStatusTransitionError
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.models.planting_run import PlantingRunEntry
@@ -59,10 +59,10 @@ class TestGeneratePlantIds:
         assert ids[19] == "TENT01_TOM_20"
         assert len(set(ids)) == 20  # all unique
 
-    def test_mixed_culture_different_prefixes(self, engine):
+    def test_multiple_entries_different_prefixes(self, engine):
         entries = [
             PlantingRunEntry(species_key="sp1", quantity=3, id_prefix="TOM"),
-            PlantingRunEntry(species_key="sp2", quantity=2, id_prefix="BAS", role=EntryRole.COMPANION),
+            PlantingRunEntry(species_key="sp2", quantity=2, id_prefix="BAS"),
         ]
         result = engine.generate_plant_ids("BED01", entries, set())
         assert len(result) == 5
@@ -96,42 +96,6 @@ class TestGeneratePlantIds:
         assert result[0]["cultivar_key"] == "cv1"
 
 
-class TestFilterTransitionEligible:
-    def test_basic_split(self, engine):
-        plants = [
-            {"_key": "p1", "current_phase": "seedling", "removed_on": None},
-            {"_key": "p2", "current_phase": "vegetative", "removed_on": None},
-            {"_key": "p3", "current_phase": "vegetative", "removed_on": None},
-        ]
-        eligible, skipped = engine.filter_transition_eligible(plants, "vegetative")
-        assert len(eligible) == 1
-        assert eligible[0]["_key"] == "p1"
-        assert len(skipped) == 2
-
-    def test_exclude_keys(self, engine):
-        plants = [
-            {"_key": "p1", "current_phase": "seedling", "removed_on": None},
-            {"_key": "p2", "current_phase": "seedling", "removed_on": None},
-        ]
-        eligible, skipped = engine.filter_transition_eligible(plants, "vegetative", exclude_keys={"p1"})
-        assert len(eligible) == 1
-        assert eligible[0]["_key"] == "p2"
-        assert len(skipped) == 1
-
-    def test_removed_plants_skipped(self, engine):
-        plants = [
-            {"_key": "p1", "current_phase": "seedling", "removed_on": "2026-01-01"},
-        ]
-        eligible, skipped = engine.filter_transition_eligible(plants, "vegetative")
-        assert len(eligible) == 0
-        assert len(skipped) == 1
-
-    def test_empty_list(self, engine):
-        eligible, skipped = engine.filter_transition_eligible([], "vegetative")
-        assert eligible == []
-        assert skipped == []
-
-
 class TestValidateRunTypeConstraints:
     def test_clone_without_source_raises(self, engine):
         entries = [PlantingRunEntry(species_key="sp1", quantity=5, id_prefix="CL")]
@@ -154,21 +118,9 @@ class TestValidateRunTypeConstraints:
         with pytest.raises(ValueError, match="exactly one"):
             engine.validate_run_type_constraints(PlantingRunType.MONOCULTURE, entries)
 
-    def test_mixed_single_entry_raises(self, engine):
-        entries = [PlantingRunEntry(species_key="sp1", quantity=5, id_prefix="TOM")]
-        with pytest.raises(ValueError, match="at least two"):
-            engine.validate_run_type_constraints(PlantingRunType.MIXED_CULTURE, entries)
-
     def test_valid_monoculture(self, engine):
         entries = [PlantingRunEntry(species_key="sp1", quantity=20, id_prefix="TOM")]
         engine.validate_run_type_constraints(PlantingRunType.MONOCULTURE, entries)
-
-    def test_valid_mixed(self, engine):
-        entries = [
-            PlantingRunEntry(species_key="sp1", quantity=10, id_prefix="TOM"),
-            PlantingRunEntry(species_key="sp2", quantity=5, id_prefix="BAS", role=EntryRole.COMPANION),
-        ]
-        engine.validate_run_type_constraints(PlantingRunType.MIXED_CULTURE, entries)
 
     def test_valid_clone(self, engine):
         entries = [PlantingRunEntry(species_key="sp1", quantity=10, id_prefix="CL")]

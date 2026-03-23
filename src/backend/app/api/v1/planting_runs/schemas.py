@@ -44,7 +44,6 @@ class EntryCreate(BaseModel):
     species_key: str
     cultivar_key: str | None = None
     quantity: int = Field(ge=1)
-    role: str = "primary"
     id_prefix: str = Field(pattern=r"^[A-Z]{2,5}$")
     spacing_cm: float | None = Field(default=None, ge=0)
     notes: str | None = None
@@ -54,7 +53,6 @@ class EntryUpdate(BaseModel):
     species_key: str | None = None
     cultivar_key: str | None = None
     quantity: int | None = Field(default=None, ge=1)
-    role: str | None = None
     id_prefix: str | None = Field(default=None, pattern=r"^[A-Z]{2,5}$")
     spacing_cm: float | None = Field(default=None, ge=0)
     notes: str | None = None
@@ -66,7 +64,6 @@ class EntryResponse(BaseModel):
     species_key: str
     cultivar_key: str | None
     quantity: int
-    role: str
     id_prefix: str
     spacing_cm: float | None
     notes: str | None
@@ -102,6 +99,9 @@ class PlantingRunResponse(BaseModel):
     status: str
     planned_quantity: int
     actual_quantity: int
+    current_phase_key: str | None = None
+    current_phase_started_at: datetime | None = None
+    lifecycle_config_key: str | None = None
     location_key: str | None
     substrate_batch_key: str | None
     planned_start_date: date | None
@@ -125,21 +125,31 @@ class BatchCreatePlantsResponse(BaseModel):
     slots_assigned: int = 0
 
 
-class BatchTransitionRequest(BaseModel):
-    target_phase_key: str
-    target_phase_name: str
-    exclude_keys: list[str] | None = None
+class AdoptPlantsRequest(BaseModel):
+    plant_keys: list[str] = Field(min_length=1)
 
 
-class BatchTransitionResponse(BaseModel):
+class AdoptPlantsResponse(BaseModel):
     run_key: str
-    target_phase: str
-    transitioned_count: int
-    skipped_count: int
-    failed_count: int
-    transitioned_keys: list[str]
-    skipped_keys: list[str]
-    failed_keys: list[str]
+    adopted_count: int
+    adopted_keys: list[str]
+    skipped: list[dict]
+    run_status: str
+    run_phase: str | None
+
+
+class RunTransitionRequest(BaseModel):
+    target_phase_key: str
+    target_phase_name: str = ""
+    override_reason: str | None = None
+
+
+class RunTransitionResponse(BaseModel):
+    run_key: str
+    previous_phase: str | None
+    new_phase: str
+    new_phase_name: str = ""
+    transitioned_at: str
 
 
 class BatchRemoveRequest(BaseModel):
@@ -169,6 +179,13 @@ class BatchUpdatePhaseDatesResponse(BaseModel):
 
 class DetachPlantRequest(BaseModel):
     reason: str
+
+
+class DetachPlantResponse(BaseModel):
+    plant_key: str
+    detached_from_run: str
+    copied_phase: str | None
+    standalone: bool
 
 
 class PlantInRunResponse(BaseModel):

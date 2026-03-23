@@ -493,7 +493,7 @@ class CalendarAggregationEngine:
                     planted_date = planted_on_raw
                 diff_days = (now.date() - planted_date).days
                 current_week = diff_days // 7 + 1 if diff_days >= 0 else None
-            except ValueError, TypeError:
+            except (ValueError, TypeError):
                 current_week = None
         else:
             current_week = None
@@ -696,7 +696,7 @@ class CalendarAggregationEngine:
         else:
             try:
                 dt = datetime.fromisoformat(value)
-            except ValueError, TypeError:
+            except (ValueError, TypeError):
                 return None
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC)

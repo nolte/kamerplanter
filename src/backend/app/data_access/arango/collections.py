@@ -99,6 +99,13 @@ WATERING_LOGS = "watering_logs"
 # Activities (Stammdaten)
 ACTIVITIES = "activities"
 
+# REQ-013 v2.0 Plant Diary
+PLANT_DIARY_ENTRIES = "plant_diary_entries"
+
+# REQ-030 Notifications
+NOTIFICATIONS = "notifications"
+NOTIFICATION_PREFERENCES = "notification_preferences"
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -168,6 +175,9 @@ DOCUMENT_COLLECTIONS = [
     LOCATION_TYPES,
     WATERING_LOGS,
     ACTIVITIES,
+    NOTIFICATIONS,
+    NOTIFICATION_PREFERENCES,
+    PLANT_DIARY_ENTRIES,
 ]
 
 # Edge collections
@@ -290,6 +300,15 @@ LOG_FERTILIZER = "log_fertilizer"
 # Activity edges
 TASK_USES_ACTIVITY = "task_uses_activity"
 
+# REQ-030 Notification edges
+NOTIFIED_ABOUT_TASK = "notified_about_task"
+NOTIFIED_ABOUT_PLANT = "notified_about_plant"
+
+# REQ-013 v2.0 Plant Diary / Run-level edges
+HAS_DIARY_ENTRY = "has_diary_entry"
+TO_RUN = "to_run"
+NOTIFICATION_FOR_RUN = "notification_for_run"
+
 # Watering Schedule edges
 RUN_FOLLOWS_PLAN = "run_follows_plan"
 
@@ -404,6 +423,11 @@ EDGE_COLLECTIONS = [
     WATERING_FROM,
     GENERATED_TASK,
     TASK_USES_ACTIVITY,
+    NOTIFIED_ABOUT_TASK,
+    NOTIFIED_ABOUT_PLANT,
+    HAS_DIARY_ENTRY,
+    TO_RUN,
+    NOTIFICATION_FOR_RUN,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -496,12 +520,12 @@ GRAPH_EDGE_DEFINITIONS = [
     },
     {
         "edge_collection": CURRENT_PHASE,
-        "from_vertex_collections": [PLANT_INSTANCES],
+        "from_vertex_collections": [PLANT_INSTANCES, PLANTING_RUNS],
         "to_vertex_collections": [GROWTH_PHASES],
     },
     {
         "edge_collection": PHASE_HISTORY_EDGE,
-        "from_vertex_collections": [PLANT_INSTANCES],
+        "from_vertex_collections": [PLANT_INSTANCES, PLANTING_RUNS],
         "to_vertex_collections": [PHASE_HISTORIES],
     },
     {
@@ -581,7 +605,7 @@ GRAPH_EDGE_DEFINITIONS = [
     },
     {
         "edge_collection": FED_BY,
-        "from_vertex_collections": [PLANT_INSTANCES],
+        "from_vertex_collections": [PLANT_INSTANCES, PLANTING_RUNS],
         "to_vertex_collections": [FEEDING_EVENTS],
     },
     {
@@ -632,7 +656,7 @@ GRAPH_EDGE_DEFINITIONS = [
     # REQ-010 IPM
     {
         "edge_collection": INSPECTED_BY,
-        "from_vertex_collections": [PLANT_INSTANCES],
+        "from_vertex_collections": [PLANT_INSTANCES, PLANTING_RUNS],
         "to_vertex_collections": [INSPECTIONS],
     },
     {
@@ -719,7 +743,7 @@ GRAPH_EDGE_DEFINITIONS = [
     },
     {
         "edge_collection": HAS_TASK,
-        "from_vertex_collections": [PLANT_INSTANCES],
+        "from_vertex_collections": [PLANT_INSTANCES, PLANTING_RUNS],
         "to_vertex_collections": [TASKS],
     },
     {
@@ -833,7 +857,7 @@ GRAPH_EDGE_DEFINITIONS = [
     # REQ-022 Care Reminders
     {
         "edge_collection": HAS_CARE_PROFILE,
-        "from_vertex_collections": [PLANT_INSTANCES],
+        "from_vertex_collections": [PLANT_INSTANCES, PLANTING_RUNS],
         "to_vertex_collections": [CARE_PROFILES],
     },
     {
@@ -936,6 +960,33 @@ GRAPH_EDGE_DEFINITIONS = [
         "edge_collection": GENERATED_TASK,
         "from_vertex_collections": [MAINTENANCE_SCHEDULES],
         "to_vertex_collections": [TASKS],
+    },
+    # REQ-030 Notifications
+    {
+        "edge_collection": NOTIFIED_ABOUT_TASK,
+        "from_vertex_collections": [NOTIFICATIONS],
+        "to_vertex_collections": [TASKS],
+    },
+    {
+        "edge_collection": NOTIFIED_ABOUT_PLANT,
+        "from_vertex_collections": [NOTIFICATIONS],
+        "to_vertex_collections": [PLANT_INSTANCES],
+    },
+    # REQ-013 v2.0 Plant Diary / Run-level edges
+    {
+        "edge_collection": HAS_DIARY_ENTRY,
+        "from_vertex_collections": [PLANT_INSTANCES],
+        "to_vertex_collections": [PLANT_DIARY_ENTRIES],
+    },
+    {
+        "edge_collection": TO_RUN,
+        "from_vertex_collections": [TREATMENT_APPLICATIONS],
+        "to_vertex_collections": [PLANTING_RUNS],
+    },
+    {
+        "edge_collection": NOTIFICATION_FOR_RUN,
+        "from_vertex_collections": [NOTIFICATIONS],
+        "to_vertex_collections": [PLANTING_RUNS],
     },
 ]
 
@@ -1103,6 +1154,21 @@ def ensure_collections(db: StandardDatabase) -> None:
     # REQ-015 Calendar indexes
     calendar_feeds_col = db.collection(CALENDAR_FEEDS)
     calendar_feeds_col.add_hash_index(fields=["token"], unique=True)
+
+    # REQ-013 v2.0 Plant Diary indexes
+    plant_diary_entries_col = db.collection(PLANT_DIARY_ENTRIES)
+    plant_diary_entries_col.add_hash_index(fields=["plant_key"], unique=False)
+    plant_diary_entries_col.add_hash_index(fields=["tenant_key"], unique=False)
+    plant_diary_entries_col.add_hash_index(fields=["entry_type"], unique=False)
+
+    # REQ-030 Notification indexes
+    notifications_col = db.collection(NOTIFICATIONS)
+    notifications_col.add_hash_index(fields=["user_key", "tenant_key"], unique=False)
+    notifications_col.add_hash_index(fields=["notification_type"], unique=False)
+    notifications_col.add_hash_index(fields=["created_at"], unique=False)
+
+    notification_prefs_col = db.collection(NOTIFICATION_PREFERENCES)
+    notification_prefs_col.add_hash_index(fields=["user_key"], unique=True)
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):

@@ -75,7 +75,7 @@ class PerenualAdapter(ExternalSourceAdapter):
         try:
             response = self._client.get("/species-list", params=self._params(q="Rosa", page=1))
             return response.status_code == 200
-        except HTTPStatusError, RequestError:
+        except (HTTPStatusError, RequestError):
             return False
 
     @staticmethod

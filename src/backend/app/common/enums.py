@@ -197,7 +197,6 @@ class PlantTrait(StrEnum):
 class PlantingRunType(StrEnum):
     MONOCULTURE = "monoculture"
     CLONE = "clone"
-    MIXED_CULTURE = "mixed_culture"
 
 
 class PlantingRunStatus(StrEnum):
@@ -208,10 +207,13 @@ class PlantingRunStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
-class EntryRole(StrEnum):
-    PRIMARY = "primary"
-    COMPANION = "companion"
-    TRAP_CROP = "trap_crop"
+class DiaryEntryType(StrEnum):
+    OBSERVATION = "observation"
+    PROBLEM = "problem"
+    MILESTONE = "milestone"
+    MEASUREMENT = "measurement"
+    PHOTO = "photo"
+    NOTE = "note"
 
 
 class TankType(StrEnum):
