@@ -402,3 +402,44 @@ class KamerplanterApi:
             )
         except KamerplanterApiError:
             return []
+
+    # --- Notification endpoints (REQ-030) ---
+
+    async def async_get_notifications(
+        self, limit: int = 50, unread_only: bool = False
+    ) -> list[dict[str, Any]]:
+        """Fetch notifications for the current user."""
+        params: dict[str, Any] = {"limit": limit}
+        if unread_only:
+            params["unread_only"] = "true"
+        return await self._request(
+            "GET", f"{self._tenant_prefix}/notifications/", params=params
+        )
+
+    async def async_get_notification_count(self) -> int:
+        """Fetch unread notification count."""
+        result = await self._request(
+            "GET", f"{self._tenant_prefix}/notifications/count"
+        )
+        return int(result.get("count", 0))
+
+    async def async_confirm_care_reminder(
+        self, notification_key: str, action: str = "confirmed"
+    ) -> dict[str, Any]:
+        """Confirm a care reminder notification via actionable button."""
+        return await self._request(
+            "POST",
+            f"{self._tenant_prefix}/notifications/{notification_key}/act",
+            params={"action_id": f"confirm_{action}"},
+            json={"action": action},
+        )
+
+    async def async_mark_notification_read(
+        self, notification_key: str
+    ) -> dict[str, Any]:
+        """Mark a notification as read."""
+        return await self._request(
+            "POST",
+            f"{self._tenant_prefix}/notifications/{notification_key}/read",
+            json={},
+        )

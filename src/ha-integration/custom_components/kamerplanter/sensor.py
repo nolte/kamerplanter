@@ -21,7 +21,12 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .coordinator import KamerplanterLocationCoordinator, KamerplanterPlantCoordinator
+from .coordinator import (
+    KamerplanterAlertCoordinator,
+    KamerplanterLocationCoordinator,
+    KamerplanterPlantCoordinator,
+    KamerplanterTaskCoordinator,
+)
 
 
 def _slugify_key(key: str) -> str:
@@ -165,6 +170,8 @@ async def async_setup_entry(
     plant_coord: KamerplanterPlantCoordinator = data["coordinators"]["plants"]
     run_coord = data["coordinators"].get("runs")
     loc_coord: KamerplanterLocationCoordinator = data["coordinators"]["locations"]
+    task_coord: KamerplanterTaskCoordinator = data["coordinators"]["tasks"]
+    alert_coord: KamerplanterAlertCoordinator = data["coordinators"]["alerts"]
 
     entities: list[SensorEntity] = []
 
@@ -350,6 +357,14 @@ async def async_setup_entry(
                 entities.append(
                     TankVolumeSensor(loc_coord, entry, tank_key, loc_key, t_dev)
                 )
+
+    # --- Task / care notification sensors (REQ-030) ---
+    srv_dev = server_device_info(entry)
+    entities.extend([
+        TasksDueTodaySensor(task_coord, alert_coord, entry, srv_dev),
+        TasksOverdueSensor(alert_coord, entry, srv_dev),
+        NextWateringSensor(task_coord, entry, srv_dev),
+    ])
 
     async_add_entities(entities)
 
@@ -1568,3 +1583,236 @@ class TankVolumeSensor(KpSensorBase):
             return
         self._attr_native_value = tank.get("volume_liters")
         self.async_write_ha_state()
+
+
+# --- Task / care notification sensors (REQ-030) ---
+
+
+class TasksDueTodaySensor(CoordinatorEntity, RestoreEntity, SensorEntity):
+    """Sensor showing the number of tasks due today."""
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:clipboard-text-clock"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(
+        self,
+        task_coordinator: KamerplanterTaskCoordinator,
+        alert_coordinator: KamerplanterAlertCoordinator,
+        entry: ConfigEntry,
+        device_info: DeviceInfo,
+    ) -> None:
+        super().__init__(task_coordinator)
+        self._alert_coordinator = alert_coordinator
+        self._attr_unique_id = f"{entry.entry_id}_kp_tasks_due_today"
+        self.entity_id = "sensor.kp_tasks_due_today"
+        self._attr_name = "Tasks Due Today"
+        self._attr_device_info = device_info
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        today = date.today().isoformat()
+        due_today: list[dict[str, Any]] = []
+        overdue_count = 0
+        upcoming_count = 0
+
+        if self.coordinator.data:
+            for task in self.coordinator.data:
+                due = task.get("due_date", "")
+                if due == today:
+                    due_today.append(task)
+                elif due and due < today:
+                    overdue_count += 1
+                elif due and due > today:
+                    upcoming_count += 1
+
+        # Also count overdue from alert coordinator
+        if self._alert_coordinator.data:
+            overdue_count = max(overdue_count, len(self._alert_coordinator.data))
+
+        self._attr_native_value = len(due_today)
+
+        # Build summary and plant list
+        plant_names: list[str] = []
+        plants_detail: list[dict[str, str]] = []
+        for task in due_today:
+            name = task.get("plant_name") or task.get("name", "")
+            category = task.get("category", "")
+            if name:
+                plant_names.append(name)
+            plants_detail.append({
+                "name": name,
+                "task_key": task.get("key", ""),
+                "category": category,
+                "plant_key": task.get("plant_key", ""),
+            })
+
+        summary = ", ".join(plant_names) if plant_names else "Keine Aufgaben heute"
+        self._attr_extra_state_attributes = {
+            "summary": summary,
+            "plants": plants_detail,
+            "urgency_counts": {
+                "overdue": overdue_count,
+                "due_today": len(due_today),
+                "upcoming": upcoming_count,
+            },
+        }
+        self.async_write_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last and last.state not in ("unknown", "unavailable", ""):
+            try:
+                self._attr_native_value = int(last.state)
+            except (ValueError, TypeError):
+                self._attr_native_value = 0
+            self.async_write_ha_state()
+        if self.coordinator.data:
+            self._handle_coordinator_update()
+
+
+class TasksOverdueSensor(CoordinatorEntity, RestoreEntity, SensorEntity):
+    """Sensor showing the number of overdue tasks."""
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:clipboard-alert"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(
+        self,
+        coordinator: KamerplanterAlertCoordinator,
+        entry: ConfigEntry,
+        device_info: DeviceInfo,
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_kp_tasks_overdue"
+        self.entity_id = "sensor.kp_tasks_overdue"
+        self._attr_name = "Tasks Overdue"
+        self._attr_device_info = device_info
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        if not self.coordinator.data:
+            self._attr_native_value = 0
+            self._attr_extra_state_attributes = {
+                "plants": [],
+                "oldest_overdue_days": 0,
+            }
+            self.async_write_ha_state()
+            return
+
+        today = date.today()
+        plants: list[dict[str, str]] = []
+        oldest_days = 0
+
+        for alert in self.coordinator.data:
+            due = alert.get("due_date", "")
+            plant_name = alert.get("plant_name") or alert.get("name", "")
+            plant_key = alert.get("plant_key", "")
+            plants.append({
+                "name": plant_name,
+                "plant_key": plant_key,
+                "due_date": due,
+                "task_key": alert.get("key", ""),
+            })
+            if due:
+                try:
+                    due_date = date.fromisoformat(due)
+                    days_overdue = (today - due_date).days
+                    if days_overdue > oldest_days:
+                        oldest_days = days_overdue
+                except (ValueError, TypeError):
+                    pass
+
+        self._attr_native_value = len(self.coordinator.data)
+        self._attr_extra_state_attributes = {
+            "plants": plants,
+            "oldest_overdue_days": oldest_days,
+        }
+        self.async_write_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last and last.state not in ("unknown", "unavailable", ""):
+            try:
+                self._attr_native_value = int(last.state)
+            except (ValueError, TypeError):
+                self._attr_native_value = 0
+            self.async_write_ha_state()
+        if self.coordinator.data:
+            self._handle_coordinator_update()
+
+
+class NextWateringSensor(CoordinatorEntity, RestoreEntity, SensorEntity):
+    """Sensor showing the next plant due for watering."""
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:watering-can"
+
+    def __init__(
+        self,
+        coordinator: KamerplanterTaskCoordinator,
+        entry: ConfigEntry,
+        device_info: DeviceInfo,
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_kp_next_watering"
+        self.entity_id = "sensor.kp_next_watering"
+        self._attr_name = "Next Watering"
+        self._attr_device_info = device_info
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        if not self.coordinator.data:
+            self._attr_native_value = None
+            self._attr_extra_state_attributes = {}
+            self.async_write_ha_state()
+            return
+
+        # Find the earliest watering task by due_date
+        watering_keywords = {"watering", "giessen", "water", "bewässerung"}
+        earliest_task: dict[str, Any] | None = None
+        earliest_due: str | None = None
+
+        for task in self.coordinator.data:
+            category = (task.get("category") or "").lower()
+            name = (task.get("name") or task.get("title") or "").lower()
+            is_watering = (
+                category in watering_keywords
+                or any(kw in name for kw in watering_keywords)
+            )
+            if not is_watering:
+                continue
+            due = task.get("due_date", "")
+            if due and (earliest_due is None or due < earliest_due):
+                earliest_due = due
+                earliest_task = task
+
+        if earliest_task:
+            plant_name = (
+                earliest_task.get("plant_name")
+                or earliest_task.get("name")
+                or "Unknown"
+            )
+            self._attr_native_value = plant_name
+            self._attr_extra_state_attributes = {
+                "due_date": earliest_due or "",
+                "plant_key": earliest_task.get("plant_key", ""),
+                "task_key": earliest_task.get("key", ""),
+            }
+        else:
+            self._attr_native_value = None
+            self._attr_extra_state_attributes = {}
+
+        self.async_write_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last and last.state not in ("unknown", "unavailable", ""):
+            self._attr_native_value = last.state
+            self.async_write_ha_state()
+        if self.coordinator.data:
+            self._handle_coordinator_update()
