@@ -315,6 +315,39 @@ class LiveStateResponse(BaseModel):
 # ── Active Nutrient Plan schemas ──────────────────────────────────
 
 
+# ── EC Dilution schemas ──────────────────────────────────────────
+
+
+class EcDilutionRequest(BaseModel):
+    current_ec_ms: float = Field(gt=0, description="Current EC of the tank solution (mS/cm)")
+    target_ec_ms: float = Field(gt=0, description="Desired target EC (mS/cm)")
+    current_volume_liters: float | None = Field(
+        default=None,
+        gt=0,
+        description="Current volume in the tank (L). Defaults to tank's nominal volume.",
+    )
+    ro_ec_ms: float = Field(
+        default=0.02,
+        ge=0,
+        description="EC of the RO/dilution water (mS/cm). Default 0.02.",
+    )
+
+
+class EcDilutionResponse(BaseModel):
+    ro_volume_liters: float
+    final_volume_liters: float
+    dilution_factor: float
+    feasible: bool
+    reason: str
+    current_volume_liters: float
+    current_ec_ms: float
+    target_ec_ms: float
+    ro_ec_ms: float
+
+
+# ── Active Nutrient Plan schemas ──────────────────────────────────
+
+
 class ActivePlanFertilizerInfo(BaseModel):
     key: str
     product_name: str
