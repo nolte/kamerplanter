@@ -138,7 +138,7 @@ Das System nutzt **Retrieval-Augmented Generation**, um Antworten auf der eigene
 | Ebene | Datenquelle | Umfang | Personenbezug | Aktualisierung |
 |-------|-------------|--------|---------------|----------------|
 | 1. **Globale Stammdaten** | Species, Cultivar, GrowthPhase, NutrientProfile, Pest, Disease | Tenant-unabhaengig | Kein Personenbezug | Woechentlich (Celery) |
-| 2. **Regelwissen** | VPD-Zielwerte, EC-Grenzen je Phase, Mischsicherheitsregeln, Phasenuebergangs-Bedingungen | Fest kodiert (YAML) | Kein Personenbezug | Bei Deployment |
+| 2. **Regelwissen (Thematische Guides)** | Querschnittswissen aus `spec/knowledge/` (§2.3): Diagnostik, Duengung, Bewaesserung, Phasen-Best-Practices, Outdoor-Planung, Anfaenger-Tipps | Kuratierte YAML-Dateien (~30-50 Guides) | Kein Personenbezug | Bei Deployment + woechentlicher Reindex |
 | 3. **Tenant-Kontext** | Aktiver PlantingRun, Phase, Messwerte (EC, pH, VPD), aktive IPM-Events, letzte FeedingEvents | Tenant-scoped | Indirekt (Nutzer-Aktivitaet) | Echtzeit (pro Anfrage) |
 | 4. **Nutzer-Pflanzdaten** | Pflegehistorie, Ernteresultate, CareConfirmations, PlantDiaryEntry | Tenant- + User-scoped | Ja (Consent erforderlich) | Echtzeit (pro Anfrage) |
 
@@ -158,12 +158,157 @@ Das System nutzt **Retrieval-Augmented Generation**, um Antworten auf der eigene
 | `growth_phases` | Phasenname, Dauer, VPD-Ziele, Licht-/Temperatur-Anforderungen | ~200 |
 | `pests` | Name, Symptome, Bekaempfungsmethoden | ~100 |
 | `diseases` | Name, Symptome, Behandlung, Praevention | ~100 |
-| `care_rules` (YAML) | Regelbasierte Entscheidungslogik (EC-Grenzen, VPD-Bereiche, Phasentipps) | ~200 |
+| `care_rules` (YAML) | Thematische Guides aus `spec/knowledge/` (Diagnostik, Duengung, Phasen, Outdoor, etc.) — siehe §2.3 | ~200 |
 
 - **Chunk-Groesse:** 512 Tokens, Overlap: 64 Tokens
 - **Aktualisierung:** Woechentlich via Celery-Task (`reindex_vector_chunks`)
 
-### 2.3 Retrieval-Strategie
+### 2.3 Architekturentscheidung: Strukturierter Kontext statt pflanzenspezifischer RAG-Dokumente
+
+**Entscheidung:** Die Wissensbasis besteht NICHT aus hunderten separater RAG-Dokumente pro Pflanzenart (z.B. "Tomate-Duengung.md", "Basilikum-Licht.md"). Stattdessen wird ein zweistufiger Ansatz verfolgt:
+
+1. **Pflanzenspezifisches Wissen** kommt aus den **strukturierten Stammdaten** in ArangoDB (Species, Cultivar, GrowthPhase, NutrientProfile, CareProfile, IPM-Daten) — diese werden zur Laufzeit als Kontext in den System-Prompt injiziert (Ebene 3+4 in §2.1) und als Vektoren indexiert (Ebene 1 in §2.1).
+
+2. **Querschnittswissen** (themenuebergreifende Expertise, die nicht pflanzenspezifisch ist) wird als kuratierte **Thematische Guides** in YAML-Dateien gepflegt und als "Regelwissen" (Ebene 2 in §2.1) in pgvector vektorisiert.
+
+**Begruendung:**
+
+| Ansatz | Pflanzenspezifische RAG-Dokumente | Strukturierter Kontext + Thematische Guides |
+|--------|-----------------------------------|---------------------------------------------|
+| Datenmenge | ~500 Arten × ~10 Themen = 5.000+ Dokumente | ~500 ArangoDB-Dokumente (existieren bereits) + ~30-50 Guides |
+| Pflege | Jede Sorte/Art einzeln aktuell halten | Stammdaten zentral in ArangoDB, Guides thematisch |
+| Duplikation | Hohe Redundanz (z.B. "VPD in Bluete" in jedem Nachtschatten-Dokument) | Keine — ein Guide "VPD-Optimierung" fuer alle Arten |
+| Praezision | Generische Texte, keine Nutzerdaten | LLM kombiniert allgemeines Wissen mit konkreten IST-Werten des Nutzers |
+| Konsistenz | Kann von Stammdaten abweichen | Stammdaten = Single Source of Truth |
+
+**Thematische Guides (`spec/knowledge/`):**
+
+Kuratierte YAML-Dateien mit Expertenwissen, das sich NICHT aus den Stammdaten ableiten laesst. Geschaetzter Umfang: 30-50 Dateien, ~200 Chunks nach Vektorisierung.
+
+```
+spec/knowledge/
+├── diagnostik/
+│   ├── naehrstoffmangel-symptome.yaml       # N/P/K/Ca/Mg/Fe Mangel- und Ueberschuss-Erkennung
+│   ├── ph-ec-abweichungen.yaml              # Ursachen und Massnahmen bei pH/EC-Drift
+│   ├── schaedlings-fruehzeichen.yaml        # Optische Indikatoren fuer Befall
+│   └── wurzelgesundheit.yaml                # Wurzelfaeule, Sauerstoffmangel, Biofilm
+├── umwelt/
+│   ├── vpd-optimierung.yaml                 # VPD-Zonen, Leaf-Temperature-Offset, Entfeuchtung
+│   ├── licht-grundlagen.yaml                # PPFD, DLI, Lichtspektren, Photoperiode
+│   ├── temperatur-steuerung.yaml            # Tag/Nacht-Differenz, Hitze-/Kaeltestress
+│   ├── co2-anreicherung.yaml                # Schwellenwerte, Sicherheit, Kosten-Nutzen
+│   └── luftzirkulation.yaml                 # Ventilator-Platzierung, Schimmelpr√§vention
+├── duengung/
+│   ├── ec-management-hydroponik.yaml        # EC-Ziele pro Phase, Flush-Protokoll
+│   ├── ec-management-erde.yaml              # Boden-EC, Auswaschen, Nachdüngung
+│   ├── organische-duengung-freiland.yaml    # Kompost, Mulch, Gruenduengung, Bodenanalyse
+│   ├── calmag-korrektur.yaml                # Wasserhaerte, RO-Wasser, CalMag-Bedarf
+│   ├── mischsicherheit.yaml                 # Faellungsreaktionen, Mischreihenfolge
+│   └── pk-boost-timing.yaml                 # Bluete-Phasen, Trichom-Reife, Flush-Zeitpunkt
+├── bewaesserung/
+│   ├── giess-strategien-substrat.yaml       # Frequenz nach Substrat (Erde, Coco, Hydro, Pon)
+│   ├── ueberwaesserung-erkennen.yaml        # Symptome, Drainage, Topfgroesse
+│   └── wasserqualitaet.yaml                 # Chlor, Schwermetalle, RO-Aufbereitung
+├── phasen/
+│   ├── keimung-best-practices.yaml          # Methoden, Temperatur, Feuchtigkeit
+│   ├── vegetative-optimierung.yaml          # Training (LST, Topping, FIM), Wachstumsraten
+│   ├── bluete-management.yaml               # Lichtumstellung, Stretch, Trichom-Kontrolle
+│   ├── ernte-timing.yaml                    # Reifeindikatoren, Trocknungsmethoden
+│   └── ueberwintern-freiland.yaml           # Winterschutz, Einlagern, Fruehjahrspflege
+├── outdoor/
+│   ├── saisonplanung.yaml                   # Voranzucht, Eisheilige, Aussaatkalender
+│   ├── mischkultur-praxis.yaml              # Companion Planting, Beetplanung
+│   ├── fruchtfolge-grundlagen.yaml          # Starkzehrer-Rotation, Gruenduengung
+│   └── wetter-reaktionen.yaml              # Frost, Hitze, Sturm — Sofortmassnahmen
+└── allgemein/
+    ├── anfaenger-erste-schritte.yaml        # Einstieg ohne Vorkenntnisse
+    ├── fehler-vermeiden.yaml                # Top-10 Anfaengerfehler
+    └── ertragsoptimierung.yaml              # Fortgeschrittene Techniken
+```
+
+**YAML-Format der Guides:**
+
+```yaml
+# spec/knowledge/diagnostik/naehrstoffmangel-symptome.yaml
+---
+title: Naehrstoffmangel und -ueberschuss erkennen
+category: diagnostik
+tags: [naehrstoffe, mangel, ueberschuss, blaetter, symptome]
+expertise_level: [beginner, intermediate, expert]  # Fuer welche Levels relevant
+applicable_phases: [seedling, vegetative, flowering]  # Phasenrelevanz
+chunks:
+  - id: mangel-stickstoff
+    title: Stickstoff (N) Mangel
+    content: |
+      Symptome: Aeltere (untere) Blaetter werden gleichmaessig hellgruen bis gelb.
+      Fortschreitet von unten nach oben. Wachstum verlangsamt sich deutlich.
+      Ursachen: Zu niedriger EC, pH ausserhalb 5.5-6.5 (Hydro) / 6.0-7.0 (Erde),
+      zu seltene Duengung, Wurzelprobleme.
+      Massnahmen:
+      - EC um 0.2-0.4 mS/cm erhoehen
+      - pH pruefen und korrigieren
+      - Stickstoffbetonte Naehrloesung verwenden (hoeherer N-Anteil)
+      - In Erde: Hornmehl oder Blutmehl als Sofortmassnahme
+    metadata:
+      nutrient: nitrogen
+      deficiency_type: mobile
+      severity_indicator: lower_leaves_yellowing
+
+  - id: mangel-phosphor
+    title: Phosphor (P) Mangel
+    content: |
+      Symptome: Blaetter werden dunkelgruen mit violetten/purpurnen Verfaerbungen,
+      besonders an Stielen und Blattunterseiten. Wachstum stockt.
+      Haeufig bei niedrigen Temperaturen (< 18°C Wurzelzone).
+      Massnahmen:
+      - Wurzelzonen-Temperatur pruefen (> 18°C)
+      - pH auf 6.0-6.5 korrigieren (P-Verfuegbarkeit)
+      - Phosphorbetonte Naehrloesung
+    metadata:
+      nutrient: phosphorus
+      deficiency_type: mobile
+      severity_indicator: purple_stems
+
+  # ... weitere Naehrstoffe (K, Ca, Mg, Fe, Mn, Zn, B, Cu, Mo, S)
+```
+
+**Vektorisierung der Guides:**
+
+Die YAML-Guides werden durch den Celery-Task `reindex_vector_chunks` (§4.8) gelesen und als `source_type: 'care_rule'` in `ai_vector_chunks` indexiert. Jeder `chunk` in der YAML-Datei wird zu einem separaten Vektor-Eintrag:
+
+- `source_type`: `'care_rule'`
+- `source_key`: `'{category}/{filename}#{chunk_id}'` (z.B. `'diagnostik/naehrstoffmangel-symptome#mangel-stickstoff'`)
+- `chunk_text`: Zusammenfuegung von `title` + `content`
+- `metadata`: Merge aus Guide-Level-Tags und Chunk-Level-Metadata
+
+**Wie das Zusammenspiel funktioniert (Beispiel):**
+
+```
+Nutzer fragt: "Meine unteren Blätter werden gelb, was kann ich tun?"
+
+1. Context-Builder (Ebene 3): Holt IST-Zustand aus ArangoDB
+   → Art: Cannabis sativa 'Northern Lights'
+   → Phase: Flowering, Tag 21
+   → EC: 1.2 mS/cm, pH: 5.8, VPD: 1.1 kPa
+
+2. RAG-Retriever (Ebene 1+2): Findet relevante Vektoren
+   → Stammdaten-Chunk: "Cannabis sativa, Solanaceae, Flowering-Phase NPK 5-15-14"
+   → Guide-Chunk: "Stickstoff-Mangel: untere Blaetter gelb, EC erhoehen..."
+   → Guide-Chunk: "Bluete-Management: N-Bedarf sinkt ab Woche 3..."
+
+3. LLM kombiniert:
+   → "Deine Northern Lights ist in Woche 3 der Blüte. Gelbe untere
+      Blätter können auf N-Mangel hindeuten, ABER: In der späten Blüte
+      ist ein natürlicher N-Abbau in den unteren Blättern normal.
+      Dein EC liegt bei 1.2 — das ist für Woche 3 Flowering etwas
+      niedrig. Empfehlung: EC auf 1.4-1.6 anheben, NICHT den
+      N-Anteil erhöhen (PK-Phase). Wenn mehr als 30% der Blätter
+      betroffen sind, leichten N-Boost erwägen."
+```
+
+Ohne die Thematischen Guides wuerde der LLM nur die Stammdaten kennen (Art, Phase, EC) aber nicht das Expertenwissen (N-Abbau ist in Bluete normal, EC-Ziele pro Woche). Ohne den strukturierten Kontext wuerde der LLM nur generische Tipps geben (N-Mangel = mehr duengen) ohne die konkrete Situation des Nutzers zu kennen.
+
+### 2.4 Retrieval-Strategie
 
 1. Nutzer-Frage (oder Kontext-Beschreibung fuer Tips) wird mit demselben Embedding-Modell vektorisiert
 2. Cosine-Similarity-Suche auf `ai_vector_chunks` (pgvector `<=>` Operator)
@@ -1633,17 +1778,24 @@ def generate_daily_tips(self) -> dict:
 def reindex_vector_chunks(self) -> dict:
     """Reindexiert die Vektordatenbank (woechentlich).
 
-    Laedt alle Species, Cultivars, GrowthPhases, Pests und Diseases
-    aus ArangoDB, erzeugt Embeddings und speichert sie in pgvector.
+    Zwei Quellen werden indexiert:
+    1. Globale Stammdaten (Ebene 1): Species, Cultivars, GrowthPhases,
+       Pests, Diseases aus ArangoDB — source_type je nach Collection.
+    2. Thematische Guides (Ebene 2): YAML-Dateien aus spec/knowledge/ —
+       source_type='care_rule', source_key='{category}/{file}#{chunk_id}'.
+       Jeder chunks[]-Eintrag wird als separater Vektor indexiert.
     """
     import asyncio
     from app.dependencies import get_rag_retriever, get_species_repo
 
     async def _reindex():
         retriever = get_rag_retriever()
-        # Species, Cultivars, Pests, Diseases aus ArangoDB laden
-        # Fuer jede Entitaet: Text zusammenbauen, in 512-Token-Chunks teilen,
-        # embedden und in ai_vector_chunks speichern (UPSERT)
+        # 1. ArangoDB-Stammdaten: Species, Cultivars, Pests, Diseases laden,
+        #    Text zusammenbauen, in 512-Token-Chunks teilen,
+        #    embedden und in ai_vector_chunks speichern (UPSERT)
+        # 2. YAML-Guides: spec/knowledge/**/*.yaml lesen,
+        #    chunks[]-Eintraege als einzelne Vektoren indexieren
+        #    (source_type='care_rule', metadata aus Guide + Chunk merged)
         ...
 
     return asyncio.run(_reindex())
