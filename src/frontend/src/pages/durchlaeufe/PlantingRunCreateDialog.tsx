@@ -103,6 +103,7 @@ function EntryRow({ index, control, setValue, speciesList, onRemove, canRemove }
 
   useEffect(() => {
     if (!speciesKey) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state when species cleared
       setCultivarList([]);
       autoPrefix.current = '';
       return;

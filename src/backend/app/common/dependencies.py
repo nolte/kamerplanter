@@ -79,6 +79,7 @@ from app.domain.services.watering_log_service import WateringLogService
 from app.domain.services.watering_service import WateringService
 
 _connection: ArangoConnection | None = None
+_timescale_connection = None
 
 
 def get_connection() -> ArangoConnection:
@@ -86,6 +87,17 @@ def get_connection() -> ArangoConnection:
     if _connection is None:
         _connection = ArangoConnection(settings)
     return _connection
+
+
+def get_timescale_connection():
+    from app.data_access.timescale.connection import TimescaleConnection
+
+    global _timescale_connection
+    if not settings.timescaledb_enabled:
+        return None
+    if _timescale_connection is None:
+        _timescale_connection = TimescaleConnection(settings)
+    return _timescale_connection
 
 
 def get_db() -> StandardDatabase:
@@ -577,6 +589,23 @@ def get_ha_client():
     return HomeAssistantClient(str(url), str(effective["ha_access_token"]), int(effective["ha_timeout"]))
 
 
+def get_observation_repo():
+    conn = get_timescale_connection()
+    if conn is None:
+        from app.data_access.timescale.null_observation_repository import NullObservationRepository
+
+        return NullObservationRepository()
+    from app.data_access.timescale.observation_repository import TimescaleObservationRepository
+
+    return TimescaleObservationRepository(conn.pool)
+
+
+def get_observation_service():
+    from app.domain.services.observation_service import ObservationService
+
+    return ObservationService(get_observation_repo(), get_sensor_repo())
+
+
 def get_sensor_service():
     from app.domain.services.sensor_service import SensorService
 
@@ -670,8 +699,16 @@ def get_notification_service():
     )
 
 
+def close_timescale_connection() -> None:
+    global _timescale_connection
+    if _timescale_connection is not None:
+        _timescale_connection.close()
+        _timescale_connection = None
+
+
 def close_connection() -> None:
     global _connection
+    close_timescale_connection()
     if _connection is not None:
         _connection.close()
         _connection = None

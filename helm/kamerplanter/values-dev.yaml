@@ -28,6 +28,12 @@ controllers:
           KAMERPLANTER_MODE: "light"
           HA_URL: "http://homeassistant:8123"
           HA_ACCESS_TOKEN: ""
+          TIMESCALEDB_ENABLED: "true"
+          TIMESCALEDB_HOST: kamerplanter-timescaledb
+          TIMESCALEDB_PORT: "5432"
+          TIMESCALEDB_DATABASE: kamerplanter_sensors
+          TIMESCALEDB_USERNAME: postgres
+          TIMESCALEDB_PASSWORD: devpassword
         probes:
           liveness:
             enabled: true
@@ -126,12 +132,168 @@ controllers:
           globalMounts:
             - path: /var/lib/arangodb3
 
+  celery-worker:
+    replicas: 1
+    strategy: Recreate
+    pod:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+    containers:
+      main:
+        securityContext:
+          readOnlyRootFilesystem: false
+        env:
+          ARANGODB_HOST: kamerplanter-arangodb
+          ARANGODB_PORT: "8529"
+          ARANGODB_DATABASE: kamerplanter
+          ARANGODB_USERNAME: root
+          ARANGODB_PASSWORD: rootpassword
+          REDIS_URL: redis://kamerplanter-valkey:6379/0
+          KAMERPLANTER_MODE: "light"
+          HA_URL: "http://homeassistant:8123"
+          HA_ACCESS_TOKEN: ""
+          TIMESCALEDB_ENABLED: "true"
+          TIMESCALEDB_HOST: kamerplanter-timescaledb
+          TIMESCALEDB_PORT: "5432"
+          TIMESCALEDB_DATABASE: kamerplanter_sensors
+          TIMESCALEDB_USERNAME: postgres
+          TIMESCALEDB_PASSWORD: devpassword
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["celery", "-A", "app.tasks", "inspect", "ping", "--timeout", "10"]
+              initialDelaySeconds: 60
+              periodSeconds: 30
+              timeoutSeconds: 15
+              failureThreshold: 5
+          readiness:
+            enabled: false
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: "1"
+            memory: 512Mi
+
+  celery-beat:
+    replicas: 1
+    strategy: Recreate
+    pod:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+    containers:
+      main:
+        securityContext:
+          readOnlyRootFilesystem: false
+        env:
+          ARANGODB_HOST: kamerplanter-arangodb
+          ARANGODB_PORT: "8529"
+          ARANGODB_DATABASE: kamerplanter
+          ARANGODB_USERNAME: root
+          ARANGODB_PASSWORD: rootpassword
+          REDIS_URL: redis://kamerplanter-valkey:6379/0
+          KAMERPLANTER_MODE: "light"
+          TIMESCALEDB_ENABLED: "true"
+          TIMESCALEDB_HOST: kamerplanter-timescaledb
+          TIMESCALEDB_PORT: "5432"
+          TIMESCALEDB_DATABASE: kamerplanter_sensors
+          TIMESCALEDB_USERNAME: postgres
+          TIMESCALEDB_PASSWORD: devpassword
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["sh", "-c", "test -f /tmp/celerybeat-schedule"]
+              initialDelaySeconds: 60
+              periodSeconds: 60
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: false
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+
+  # -- TimescaleDB (dev only — StatefulSet like ArangoDB)
+  timescaledb:
+    type: statefulset
+    replicas: 1
+    pod:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 0
+    containers:
+      main:
+        image:
+          repository: timescale/timescaledb
+          tag: "2.17.2-pg16"
+          pullPolicy: IfNotPresent
+        securityContext:
+          readOnlyRootFilesystem: false
+        env:
+          POSTGRES_DB: kamerplanter_sensors
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: devpassword
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["pg_isready", "-U", "postgres"]
+              initialDelaySeconds: 30
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["pg_isready", "-U", "postgres"]
+              initialDelaySeconds: 15
+              periodSeconds: 5
+              timeoutSeconds: 3
+              failureThreshold: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+    statefulset:
+      volumeClaimTemplates:
+        - name: data
+          accessMode: ReadWriteOnce
+          size: 2Gi
+          globalMounts:
+            - path: /var/lib/postgresql/data
+
 service:
   frontend:
     controller: frontend
     ports:
       http:
         port: 5173
+  timescaledb:
+    controller: timescaledb
+    ports:
+      postgresql:
+        port: 5432
 
 ingress:
   main:
@@ -232,7 +394,7 @@ networkpolicies:
               port: 53
             - protocol: TCP
               port: 53
-        # Home Assistant (in-cluster, dev only)
+        # Home Assistant (in-cluster)
         - to:
             - podSelector:
                 matchLabels:
@@ -240,6 +402,23 @@ networkpolicies:
           ports:
             - protocol: TCP
               port: 8123
+        # Home Assistant (external, e.g. DuckDNS on local network)
+        - to:
+            - ipBlock:
+                cidr: 0.0.0.0/0
+          ports:
+            - protocol: TCP
+              port: 8123
+            - protocol: TCP
+              port: 443
+        # TimescaleDB
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: timescaledb
+          ports:
+            - protocol: TCP
+              port: 5432
         # External APIs + SMTP
         - to:
             - ipBlock:
@@ -257,3 +436,109 @@ networkpolicies:
               port: 587
             - protocol: TCP
               port: 465
+
+  celery-worker:
+    controller: celery-worker
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress: []
+      egress:
+        # ArangoDB
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: arangodb
+          ports:
+            - protocol: TCP
+              port: 8529
+        # Valkey (Redis)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: valkey
+          ports:
+            - protocol: TCP
+              port: 6379
+        # DNS resolution
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+        # Home Assistant (in-cluster)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: homeassistant
+          ports:
+            - protocol: TCP
+              port: 8123
+        # Home Assistant (external)
+        - to:
+            - ipBlock:
+                cidr: 0.0.0.0/0
+          ports:
+            - protocol: TCP
+              port: 8123
+            - protocol: TCP
+              port: 443
+        # TimescaleDB
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: timescaledb
+          ports:
+            - protocol: TCP
+              port: 5432
+        # External APIs + SMTP
+        - to:
+            - ipBlock:
+                cidr: 0.0.0.0/0
+                except:
+                  - 10.0.0.0/8
+                  - 172.16.0.0/12
+                  - 192.168.0.0/16
+          ports:
+            - protocol: TCP
+              port: 443
+            - protocol: TCP
+              port: 80
+            - protocol: TCP
+              port: 587
+            - protocol: TCP
+              port: 465
+
+  celery-beat:
+    controller: celery-beat
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress: []
+      egress:
+        # Valkey (Redis — to submit tasks)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: valkey
+          ports:
+            - protocol: TCP
+              port: 6379
+        # DNS resolution
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53

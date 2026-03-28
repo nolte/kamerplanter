@@ -42,6 +42,25 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # ── TimescaleDB (optional) ─────────────────────────────────
+  timescaledb:
+    image: timescale/timescaledb:2.17.2-pg16
+    profiles: ["timescaledb"]
+    environment:
+      POSTGRES_DB: ${TIMESCALEDB_DATABASE:-kamerplanter_sensors}
+      POSTGRES_USER: ${TIMESCALEDB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${TIMESCALEDB_PASSWORD:-changeme}
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TIMESCALEDB_USERNAME:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   # ── Backend (FastAPI) ─────────────────────────────────────
   backend:
     image: ghcr.io/nolte/kamerplanter-backend:__VERSION__
@@ -56,6 +75,12 @@ services:
       DEBUG: ${DEBUG}
       REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION}
       KAMERPLANTER_MODE: light
+      TIMESCALEDB_ENABLED: ${TIMESCALEDB_ENABLED:-false}
+      TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
+      TIMESCALEDB_DATABASE: ${TIMESCALEDB_DATABASE:-kamerplanter_sensors}
+      TIMESCALEDB_USERNAME: ${TIMESCALEDB_USERNAME:-postgres}
+      TIMESCALEDB_PASSWORD: ${TIMESCALEDB_PASSWORD:-changeme}
     ports:
       - "8000:8000"
     depends_on:
@@ -79,6 +104,12 @@ services:
       ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
       REDIS_URL: ${REDIS_URL}
       KAMERPLANTER_MODE: light
+      TIMESCALEDB_ENABLED: ${TIMESCALEDB_ENABLED:-false}
+      TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
+      TIMESCALEDB_DATABASE: ${TIMESCALEDB_DATABASE:-kamerplanter_sensors}
+      TIMESCALEDB_USERNAME: ${TIMESCALEDB_USERNAME:-postgres}
+      TIMESCALEDB_PASSWORD: ${TIMESCALEDB_PASSWORD:-changeme}
     depends_on:
       - arangodb
       - valkey
@@ -96,6 +127,12 @@ services:
       ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
       REDIS_URL: ${REDIS_URL}
       KAMERPLANTER_MODE: light
+      TIMESCALEDB_ENABLED: ${TIMESCALEDB_ENABLED:-false}
+      TIMESCALEDB_HOST: timescaledb
+      TIMESCALEDB_PORT: "5432"
+      TIMESCALEDB_DATABASE: ${TIMESCALEDB_DATABASE:-kamerplanter_sensors}
+      TIMESCALEDB_USERNAME: ${TIMESCALEDB_USERNAME:-postgres}
+      TIMESCALEDB_PASSWORD: ${TIMESCALEDB_PASSWORD:-changeme}
     depends_on:
       - arangodb
       - valkey
@@ -119,3 +156,4 @@ services:
 volumes:
   arangodb_data:
   valkey_data:
+  timescaledb_data:

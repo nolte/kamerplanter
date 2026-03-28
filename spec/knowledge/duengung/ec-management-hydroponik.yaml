@@ -1,0 +1,161 @@
+---
+title: EC-Management in Hydroponik und Kokos
+category: duengung
+tags: [ec, hydroponik, kokos, naehrloesung, reservoir, drain-to-waste, rezirkulierend, flush]
+expertise_level: [intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: ec-grundlagen
+    title: EC verstehen — Elektrische Leitfaehigkeit erklaert
+    content: |
+      EC (Electrical Conductivity) misst die Konzentration geloester Salze
+      (Ionen) in der Naehrloesung. Einheit: mS/cm (Millisiemens pro Zentimeter).
+      Alternative Einheiten:
+      - ppm (parts per million): EC × 500 (USA-Skala) oder EC × 700 (EU-Skala)
+        → ACHTUNG: Zwei verschiedene Umrechnungsfaktoren je nach Hersteller!
+        ppm ist mehrdeutig, mS/cm ist eindeutig. Immer in mS/cm arbeiten.
+      - µS/cm = mS/cm × 1000 (Mikrosiemens)
+      EC-Netto berechnen (die eigentlich relevante Groesse):
+      EC-Netto = Ziel-EC minus Basis-Wasser-EC
+      Beispiel: Ziel-EC 1.4, Leitungswasser hat EC 0.4
+      → Duenger fuer EC-Netto 1.0 zusetzen
+      Bei RO-Wasser (EC ~0.0): EC-Netto ≈ Ziel-EC (nach CalMag-Zugabe
+      typisch EC 0.3-0.4 als Basis).
+      EC sagt NICHT welche Naehrstoffe in der Loesung sind — nur die
+      Gesamtkonzentration. Eine Loesung mit EC 1.5 aus reinem NaCl ist
+      sehr anders als EC 1.5 aus ausgewogenem Duenger. Daher ist EC nur
+      in Kombination mit bekannter Duenger-Zusammensetzung aussagekraeftig.
+    metadata:
+      topic: ec_basics
+      unit: mS_per_cm
+
+  - id: ec-phasen-zielwerte
+    title: EC-Zielwerte nach Phase (Hydro/Coco)
+    content: |
+      Empfohlene EC-Netto-Zielwerte (nach Abzug Basis-Wasser-EC):
+      Keimlinge / Stecklinge: 0.4-0.6 mS/cm
+      - Sehr empfindliche Wurzeln, hoher EC verbrennt sofort
+      - Nur leichte Naehrloesung oder klares Wasser mit CalMag
+      Frueher Vegetativ (Woche 1-2): 0.6-0.8 mS/cm
+      - Wurzelsystem entwickelt sich, langsam steigern
+      Spaeter Vegetativ (Woche 3+): 0.8-1.4 mS/cm
+      - Je nach Pflanzengroesse und Art anpassen
+      - Starkzehrer (Cannabis, Tomate): oberer Bereich
+      - Leichtzehrer (Salat, Kraeuter): unterer Bereich
+      Fruehe Bluete (Stretch, Woche 1-3): 1.2-1.6 mS/cm
+      - Noch N-betont, Pflanze waechst stark
+      Peak Bluete (Woche 4-6): 1.4-2.0 mS/cm
+      - Hoechster Naehrstoffbedarf, PK-Booster zusetzen
+      Spaete Bluete/Abreife (Woche 7-8+): 0.8-1.2 mS/cm
+      - Langsam reduzieren, Pflanze bereitet sich auf Ernte vor
+      Flush (letzte 1-2 Wochen): 0.0-0.4 mS/cm
+      - Nur pH-angepasstes Wasser (oder minimale Naehrstoffe)
+      Diese Werte sind Richtwerte — Sorten unterscheiden sich stark.
+      Immer mit niedrigerem EC starten und bei guter Reaktion steigern.
+    metadata:
+      topic: ec_phase_targets
+      unit: mS_per_cm
+
+  - id: ec-messung-monitoring
+    title: EC-Messung und Monitoring-Protokoll
+    content: |
+      Messhaeufigkeit:
+      - Hydroponik (DWC, NFT): Taeglich (EC aendert sich schnell)
+      - Coco (Drain-to-Waste): Alle 2-3 Tage (Input UND Runoff messen)
+      - Coco (Automatik-Bewaesserung): Input-EC fest einstellen, Runoff
+        2x/Woche kontrollieren
+      Was messen:
+      1. Input-EC: EC der Naehrloesung die der Pflanze gegeben wird
+      2. Reservoir-EC: EC im Vorratsbehälter (aendert sich durch Verdunstung)
+      3. Runoff-EC: EC des Ablaufwassers (zeigt Zustand in der Wurzelzone)
+      Interpretation:
+      - Runoff-EC ≈ Input-EC (±0.2): Gleichgewicht, alles ok
+      - Runoff-EC > Input-EC + 0.3: Salzanreicherung → EC reduzieren oder Flush
+      - Runoff-EC < Input-EC - 0.3: Pflanze nimmt mehr als zugeführt →
+        EC leicht erhoehen
+      Kamerplanter-Integration: EC-Werte als Messwerte erfassen (REQ-005),
+      Abweichungen vom Zielbereich generieren Warn-Aufgaben (REQ-006).
+      EC-Trend ueber Zeit ist aussagekraeftiger als Einzelmessung.
+    metadata:
+      topic: ec_monitoring
+      frequency: [daily_hydro, biweekly_coco]
+
+  - id: reservoir-management
+    title: Reservoir-Management (Rezirkulierend)
+    content: |
+      Reservoir-Groesse: Mindestens 10-20 Liter pro Pflanze.
+      Groessere Reservoirs sind stabiler (pH und EC driften langsamer).
+      Wasser-Nachfuellen (Top-Off):
+      - Wenn Wasserstand sinkt (Pflanze verbraucht Wasser):
+        NUR mit pH-angepasstem Wasser ohne Naehrstoffe nachfuellen
+      - Warum: Pflanze nimmt Wasser schneller auf als Naehrstoffe →
+        Loesung wird konzentrierter (EC-Creep). Mit Naehrloesung
+        nachfuellen wuerde das noch verschlimmern.
+      - Ausnahme: Wenn EC SINKT (Pflanze nimmt mehr Naehrstoffe als
+        Wasser auf) → mit leichter Naehrloesung nachfuellen
+      Kompletter Reservoir-Wechsel:
+      - Alle 7-14 Tage (oder wenn EC >30% ueber Zielwert trotz Top-Off)
+      - Komplett leeren, ausspuelen, frische Naehrloesung ansetzen
+      - Gelegenheit zum Reinigen von Algen/Biofilm
+      Wassertemperatur: 18-22°C im Reservoir. Ueber 24°C: Pythium-Risiko
+      steigt, Sauerstoffgehalt sinkt. Loesung: Wasserchiller, Reservoir
+      isolieren (Styropor), nicht im direkten Licht stehen.
+      Abdeckung: Reservoir IMMER lichtdicht abdecken (verhindert Algen).
+    metadata:
+      topic: reservoir_management
+      system: recirculating
+      min_volume_per_plant_liters: 10
+
+  - id: drain-to-waste
+    title: Drain-to-Waste (DTW) Strategie fuer Coco
+    content: |
+      Drain-to-Waste ist die Standard-Bewaesserungsstrategie fuer Coco/Kokos:
+      Prinzip: Naehrloesung wird durch das Substrat gegossen, ueberschuessiges
+      Ablaufwasser (Drain/Runoff) wird aufgefangen und verworfen.
+      Runoff-Ziel: 10-20% des Input-Volumens soll als Runoff ablaufen.
+      - Zu wenig Runoff (<5%): Salzanreicherung im Substrat
+      - Zu viel Runoff (>30%): Naehrstoff-Verschwendung
+      Frequenz in Coco:
+      - Saemlinge: 1x/Tag
+      - Vegetativ: 2-3x/Tag
+      - Bluete: 3-5x/Tag (bei kleinen Toepfen bis 7x)
+      - Autoflower: wie photoperiodisch, nach Groesse
+      Coco darf NIE komplett austrocknen (anders als Erde):
+      - Trockenes Coco wird hydrophob (wasserabweisend)
+      - Trockenes Coco setzt gebundene Salze frei → EC-Spike
+      - Dauer-Feuchtigkeit in Coco ist kein Problem (anders als Erde,
+        da Coco natuerlich gut belueftet)
+      Coco immer mit Naehrloesung giessen (nie nur Wasser):
+      - Coco hat hohe CEC und bindet Kationen (Ca, Mg, K)
+      - Reines Wasser wuerde Naehrstoffe aus dem Substrat waschen
+      - Ausnahme: Flush vor der Ernte (bewusst entnaehren)
+    metadata:
+      topic: drain_to_waste
+      substrate: coco
+      runoff_target_percent: [10, 20]
+
+  - id: flush-protokoll
+    title: Flush-Protokoll — Wann und wie richtig spuelen
+    content: |
+      Es gibt zwei Arten von Flush:
+      1. Korrektur-Flush (bei Salzanreicherung/Ueberdüngung):
+         - Anlass: Runoff-EC deutlich hoeher als Input-EC, Blattspitzen-Burn
+         - Methode: 3× Topfvolumen mit pH-angepasstem Wasser (EC <0.3)
+           durch das Substrat spuelen
+         - In Hydro: Reservoir komplett leeren, mit reinem Wasser fuellen,
+           2-4 Stunden laufen lassen, dann frische Naehrloesung ansetzen
+         - Danach: Mit 50-75% der normalen EC weiterduengen, langsam steigern
+      2. Ernte-Flush (vor der Ernte):
+         - Umstritten! Wissenschaftliche Evidenz duenn, aber weit verbreitet.
+         - Befuerworter: Pflanze baut Naehrstoff-Reserven ab, "reinerer"
+           Geschmack, weissere Asche beim Verbrennen
+         - Gegner: Pflanze lagert keine Dunger-Salze in Blueten ein,
+           Flush stresst Pflanze und reduziert Qualitaet/Ertrag
+         - Praxis-Kompromiss: EC in letzten 1-2 Wochen stark reduzieren
+           (0.2-0.4 mS/cm) statt komplett auf 0. In Coco: 5-7 Tage.
+           In DWC: 3-5 Tage. In Erde: 10-14 Tage (langsame Auswaschung).
+         - Vergilbende Blaetter waehrend des Flush sind NORMAL und erwuenscht
+           (Pflanze verbraucht interne N-Reserven).
+    metadata:
+      topic: flush_protocol
+      types: [corrective, pre_harvest]

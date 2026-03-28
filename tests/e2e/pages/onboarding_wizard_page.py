@@ -389,13 +389,10 @@ class OnboardingWizardPage(BasePage):
         time.sleep(0.5)  # Allow React state to update border styling
 
     def is_kit_selected(self, kit_id: str) -> bool:
-        """Return True if the given kit card has a primary-coloured border.
+        """Return True if the given kit card is in selected state.
 
-        Checks multiple selection indicators:
-        - border-width 2px (MUI primary border) — also checks border-top-width
-        - border-color matching theme primary
-        - aria-selected attribute
-        - CSS class indicating selection
+        Primarily checks data-selected attribute (set in StarterKitStep.tsx),
+        with CSS border fallbacks for resilience.
         """
         import time
         time.sleep(0.3)  # Allow React state to settle
@@ -405,37 +402,35 @@ class OnboardingWizardPage(BasePage):
             return False
         el = elements[0]
 
+        # Primary check: data-selected attribute (most reliable)
+        data_selected = el.get_attribute("data-selected")
+        if data_selected == "true":
+            return True
+        if data_selected == "false":
+            return False
+
+        # Fallback: CSS border checks on parent Card element
         def _check_border(candidate) -> bool:
-            """Check if element has 2px border (selected state)."""
-            # border-width may return "2px" or "2px 2px 2px 2px" or just ""
             border = candidate.value_of_css_property("border-width") or ""
             if "2px" in border:
                 return True
-            # Check individual sides (some browsers return shorthand differently)
             border_top = candidate.value_of_css_property("border-top-width") or ""
             if border_top == "2px":
                 return True
-            # Check border-color for primary theme color
             border_color = candidate.value_of_css_property("border-color") or ""
-            # Primary green #4CAF50 => rgb(76, 175, 80), MUI blue => rgb(25, 118, 210)
             if "76, 175, 80" in border_color or "25, 118, 210" in border_color:
                 return True
             return False
 
-        # Check the element itself
-        if _check_border(el):
-            return True
-        # Check ancestor Card — the border is set on the Card sx prop
-        try:
-            card = el.find_element(By.XPATH, "./ancestor::div[contains(@class, 'MuiCard-root')]")
-            if _check_border(card):
-                return True
-        except Exception:
-            pass
-        # Check parent element (CardActionArea is inside Card)
         try:
             parent = el.find_element(By.XPATH, "./..")
             if _check_border(parent):
+                return True
+        except Exception:
+            pass
+        try:
+            card = el.find_element(By.XPATH, "./ancestor::div[contains(@class, 'MuiCard-root')]")
+            if _check_border(card):
                 return True
         except Exception:
             pass
@@ -443,7 +438,6 @@ class OnboardingWizardPage(BasePage):
         aria = el.get_attribute("aria-pressed") or el.get_attribute("aria-selected")
         if aria == "true":
             return True
-        # Check for selected class
         classes = el.get_attribute("class") or ""
         return "selected" in classes.lower()
 

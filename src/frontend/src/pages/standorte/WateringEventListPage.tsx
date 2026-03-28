@@ -74,6 +74,16 @@ function usePlantResolver(events: WateringEvent[]) {
 
 // ── Detail Dialog ──────────────────────────────────────────────────
 
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+  if (value == null) return null;
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+      <Typography variant="body2" color="text.secondary">{label}</Typography>
+      <Typography variant="body2">{value}</Typography>
+    </Box>
+  );
+}
+
 interface DetailDialogProps {
   event: WateringEvent | null;
   open: boolean;
@@ -89,14 +99,6 @@ function WateringEventDetailDialog({ event, open, onClose, getPlantsForEvent }: 
   if (!event) return null;
 
   const plants = getPlantsForEvent(event);
-
-  const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) =>
-    value != null ? (
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-        <Typography variant="body2" color="text.secondary">{label}</Typography>
-        <Typography variant="body2">{value}</Typography>
-      </Box>
-    ) : null;
 
   return (
     <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>

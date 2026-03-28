@@ -13,15 +13,11 @@ import { verifyEmail } from '@/api/endpoints/auth';
 export default function EmailVerificationPage() {
   const { t } = useTranslation();
   const { token } = useParams<{ token: string }>();
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [error, setError] = useState('');
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>(() => token ? 'loading' : 'error');
+  const [error, setError] = useState(() => token ? '' : t('pages.auth.invalidToken'));
 
   useEffect(() => {
-    if (!token) {
-      setStatus('error');
-      setError(t('pages.auth.invalidToken'));
-      return;
-    }
+    if (!token) return;
 
     verifyEmail(token)
       .then(() => setStatus('success'))

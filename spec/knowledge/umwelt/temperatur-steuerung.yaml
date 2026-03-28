@@ -1,0 +1,133 @@
+---
+title: Temperatur-Steuerung fuer optimales Pflanzenwachstum
+category: umwelt
+tags: [temperatur, hitzestress, kaeltestress, tag-nacht, dif, wurzelzone, frost, abhaertung, eisheilige]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [germination, seedling, vegetative, flowering, harvest]
+chunks:
+  - id: temperatur-zielwerte
+    title: Optimale Temperaturbereiche nach Wachstumsphase
+    content: |
+      Richtwerte fuer die meisten Kulturpflanzen (Indoor):
+      Keimung: 24-28°C (Substrat-Temperatur entscheidend, Heizkabel/Matte nutzen)
+      Saemling: 22-26°C Tag, 18-22°C Nacht
+      Vegetativ: 22-28°C Tag, 18-22°C Nacht
+      Bluete: 20-26°C Tag, 18-22°C Nacht (kuehler in spaeter Bluete foerdert
+      Farb- und Aromaentwicklung bei vielen Arten)
+      Ernte/Trocknung: 15-20°C, 55-65% RH (langsame Trocknung = beste Qualitaet)
+      Wurzelzone: 18-22°C optimal (siehe diagnostik/wurzelgesundheit)
+      Zimmerpflanzen: 18-24°C ganzjaehrig fuer tropische Arten.
+      Wuestenartige (Kakteen, Sukkulenten) vertragen 12-35°C.
+      Winterruhe bei vielen Arten: 10-15°C fuer 6-8 Wochen (Orchideen,
+      Clivia, Cyclamen brauchen kuehle Phase fuer Blueteinduktion).
+      Outdoor: Bodentemperatur messen fuer Aussaat-Entscheidung.
+      Minimum 8-10°C Bodentemp fuer Direktsaat Gemuese,
+      12-15°C fuer waermeliebende Arten (Tomate, Paprika, Kuerbis).
+    metadata:
+      topic: temperature_targets
+      unit: celsius
+
+  - id: tag-nacht-differenz
+    title: Tag/Nacht-Temperaturdifferenz (DIF)
+    content: |
+      DIF = Tag-Temperatur minus Nacht-Temperatur.
+      Positiver DIF (Tag waermer als Nacht): Normal, foerdert
+      Streckungswachstum (laengere Internodien). Typisch +5-8°C.
+      Negativer DIF (Nacht waermer als Tag): Produziert kompaktere
+      Pflanzen mit kuerzeren Internodien. In kommerziellen Gewaechshaeusern
+      genutzt als Alternative zu chemischen Wachstumsregulatoren.
+      Technik: Morgens vor/bei Sonnenaufgang Temperatur kurz absenken
+      (DROP-Technik, 2-3 Stunden, -5°C unter Nacht-Temp).
+      Nuller DIF (Tag ≈ Nacht): Kein signifikanter Einfluss auf Stretching.
+      Praxisempfehlung Indoor:
+      - Vegetativ: +4-6°C DIF (moderates Stretching erwuenscht)
+      - Fruehe Bluete (Stretch-Phase): +6-8°C DIF (Pflanze streckt sich)
+      - Spaete Bluete: +2-4°C DIF (kompakte Buds, weniger Stretch)
+      - Maximum empfohlen: +10°C (groesserer DIF = Stress)
+      Kamerplanter zeigt DIF in der Umgebungsuebersicht wenn Tag/Nacht-Sensoren
+      konfiguriert sind (REQ-005).
+    metadata:
+      topic: dif_temperature
+      types: [positive, negative, zero]
+
+  - id: hitzestress
+    title: Hitzestress erkennen und bekaempfen
+    content: |
+      Symptome ab >30°C (artenabhaengig):
+      - Blaetter rollen sich nach oben (Verdunstungsschutz)
+      - Blattraender trocknen aus und werden braun
+      - Welken trotz feuchtem Substrat (Transpiration > Wasseraufnahme)
+      - Blueten fallen ab (Tomate: Pollensterilitaet ab 35°C)
+      - Cannabis: "Foxtailing" — Blueten wachsen turmartig statt kompakt
+      - Gemuese: Schossen/Bolting (Salat, Spinat bilden Bluetenstaengel)
+      - Generell: Beschleunigte Alterung, reduzierte Qualitaet
+      Sofortmassnahmen Indoor:
+      - Lichtabstand erhoehen oder dimmen (weniger Strahlungswaerme)
+      - Abluft maximieren / Klimaanlage
+      - Morgens/abends giessen (nicht in der Hitze — Wurzelkochung)
+      - CO2-Anreicherung erlaubt hoehere Temperaturen (bis 32°C bei 1200 ppm)
+      Sofortmassnahmen Outdoor:
+      - Schattier-Netz (30-50% Beschattung)
+      - Mulch (kuehlt Boden um 5-8°C)
+      - Morgens frueh giessen (nicht Blaetter benetzen bei Sonne!)
+      - Weisse Toepfe statt schwarze (reflektieren Waerme)
+      Erholung: Pflanzen erholen sich in 2-5 Tagen wenn Temperatur
+      wieder im Normalbereich. Stark geschaedigte Blaetter nicht entfernen
+      bis neues Wachstum sichtbar ist.
+    metadata:
+      topic: heat_stress
+      threshold_celsius: 30
+
+  - id: kaeltestress
+    title: Kaeltestress und Frostschaeden
+    content: |
+      Symptome bei zu niedrigen Temperaturen:
+      10-15°C (tropische Arten): Wachstum stoppt, Blaetter werden
+      dunkelgruen, violette Verfaerbungen (P-Lockout), Stecklinge
+      bewurzeln nicht.
+      5-10°C: Kälteschaden bei tropischen Zimmerpflanzen.
+      Blaetter werden braun/schwarz (Kaltbrand), haengen schlaff herunter.
+      Typisch nach Transport im Winter oder bei Fenster-Zugluft.
+      <5°C: Viele Gemuese-Arten werden geschaedigt.
+      0°C: Frost — Eiskristalle in Zellen zerstoeren Zellwaende.
+      Symptome: Blaetter werden glasig/wässrig, dann braun/schwarz.
+      Frostschaeden an Gehoelzen: Rinde platzt, Kambium braun.
+      Erholung nach Kaeltestress (nicht Frost):
+      - Pflanze langsam waermer stellen (nicht abrupt aufwaermen!)
+      - Nicht giessen bis Substrat auf >15°C
+      - Kein Duenger fuer 1-2 Wochen
+      - Braune Blaetter NICHT sofort entfernen (schuetzen noch)
+      - Geduld — Erholung kann 2-4 Wochen dauern
+      Vorbeugung: Kein Kauf von Zimmerpflanzen im Winter ohne Schutz-
+      verpackung. Pflanzen nicht nahe kalter Fenster stellen (Zugluft!).
+    metadata:
+      topic: cold_stress
+      threshold_celsius: 15
+      frost_threshold: 0
+
+  - id: frost-outdoor
+    title: Frostschutz und Eisheilige im Freiland
+    content: |
+      Eisheilige (Mitteleuropa): 11.-15. Mai (Mamertus bis Sophia).
+      Traditionell letzter moeglicher Spaetfrost. Waermeliebende Pflanzen
+      (Tomate, Paprika, Bohne, Kuerbis, Basilikum) NICHT vor den
+      Eisheiligen auspflanzen.
+      Phaenologische Indikatoren (zuverlaessiger als Kalender):
+      - Forsythienbluete: Fruehling beginnt, erste Aussaaten moeglich
+      - Apfelbluete: Boden warm genug fuer mittel-waermeliebende Arten
+      - Holunderbluete: Kein Frost mehr zu erwarten, alles auspflanzen
+      Frostschutz-Methoden:
+      - Vlies/Gartenvlies (17g/m²): Schuetzt bis -2 bis -4°C
+      - Doppellagiges Vlies: bis -6°C
+      - Tunnel/Folie: Hoehere Schutzwirkung, aber Lueftung noetig tagsuefer
+      - Mulch: Schuetzt Wurzeln, nicht oberirdische Teile
+      - Abendliches Giessen vor Frost: Wasser gibt Waerme ab beim Gefrieren
+      - Frostkerzen/Oeloefen: Im Erwerbsobstbau bei Spätfrost
+      Abhaertung (Hardening off): 7-10 Tage vor dem Auspflanzen
+      Jungpflanzen taeglich 2-4 Stunden laenger draussen stellen.
+      Erst geschuetzt (Halbschatten), dann zunehmend exponiert.
+      Macht Pflanzen widerstandsfaehiger gegen Kaelte und Wind.
+    metadata:
+      topic: frost_protection
+      eisheilige: [may_11, may_15]
+      region: central_europe

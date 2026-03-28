@@ -18,15 +18,11 @@ export default function InvitationAcceptPage() {
   const [params] = useSearchParams();
   const token = params.get('token');
 
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>(() => token ? 'loading' : 'error');
+  const [error, setError] = useState<string | null>(() => token ? null : t('pages.auth.invalidToken'));
 
   useEffect(() => {
-    if (!token) {
-      setStatus('error');
-      setError(t('pages.auth.invalidToken'));
-      return;
-    }
+    if (!token) return;
 
     tenantApi
       .acceptInvitation(token)

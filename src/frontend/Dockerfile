@@ -1,9 +1,9 @@
 # Stage 1: Build
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --prefer-offline 2>/dev/null || npm install
 
 COPY . .
 RUN npm run build

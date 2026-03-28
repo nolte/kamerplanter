@@ -158,8 +158,10 @@ export default function PlantingRunDetailsTab({
 
   // Phase & harvest estimation
   const currentPhaseEntry = phaseTimelines[0]?.phases.find((p) => p.status === 'current') ?? null;
+  // eslint-disable-next-line react-hooks/purity -- Date.now() during render is intentional for display-only elapsed time
+  const now = Date.now();
   const daysInPhase = currentPhaseEntry?.actual_entered_at
-    ? Math.floor((Date.now() - new Date(currentPhaseEntry.actual_entered_at).getTime()) / 86400000)
+    ? Math.floor((now - new Date(currentPhaseEntry.actual_entered_at).getTime()) / 86400000)
     : null;
 
   const totalDays = phaseTimelines[0]?.phases.reduce((sum, p) => sum + p.typical_duration_days, 0) ?? 0;
@@ -168,7 +170,7 @@ export default function PlantingRunDetailsTab({
     ? new Date(new Date(startDate).getTime() + totalDays * 86400000)
     : null;
   const daysRemaining = estimatedHarvestDate
-    ? Math.ceil((estimatedHarvestDate.getTime() - Date.now()) / 86400000)
+    ? Math.ceil((estimatedHarvestDate.getTime() - now) / 86400000)
     : null;
 
   const monthName = (m: number) =>

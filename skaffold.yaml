@@ -51,6 +51,10 @@ deploy:
           controllers.backend.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_backend}}"
           controllers.frontend.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_frontend}}"
           controllers.frontend.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_frontend}}"
+          controllers.celery-worker.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_backend}}"
+          controllers.celery-worker.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_backend}}"
+          controllers.celery-beat.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_backend}}"
+          controllers.celery-beat.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_backend}}"
 
           valkey.dataStorage.enabled: true
           valkey.dataStorage.size: 1Gi
@@ -76,6 +80,11 @@ portForward:
     namespace: default
     port: 8529
     localPort: 8529
+  - resourceType: service
+    resourceName: kamerplanter-timescaledb
+    namespace: default
+    port: 5432
+    localPort: 5432
 
 profiles:
   - name: backend-only

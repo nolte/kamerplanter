@@ -159,6 +159,11 @@ class AlertResponse(BaseModel):
     severity: str
     message: str
     value: float
+    limit: float | None = None
+    limit_min: float | None = None
+    limit_max: float | None = None
+    factors: list[str] | None = None
+    temp: float | None = None
 
 
 class DueMaintenanceResponse(BaseModel):

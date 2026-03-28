@@ -114,14 +114,17 @@ export default function CareConfirmDialog({
     });
 
     if (rows.length > 0) {
+      /* eslint-disable react-hooks/set-state-in-effect -- apply presets when dialog opens */
       setFertilizerRows(rows);
       setFeedingExpanded(true);
       setPresetsApplied(true);
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [open, presetsApplied, hasPresets, defaultDosages, fertilizers]);
 
   // Reset state when dialog closes; pre-fill volume when it opens
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- dialog open/close reset */
     if (!open) {
       setNotes('');
       setVolumeLiters('');
@@ -133,6 +136,7 @@ export default function CareConfirmDialog({
     } else if (defaultVolumeLiters != null) {
       setVolumeLiters(String(defaultVolumeLiters));
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [open, defaultVolumeLiters]);
 
   const handleAddFertilizer = useCallback(() => {

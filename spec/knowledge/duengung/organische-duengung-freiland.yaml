@@ -1,0 +1,176 @@
+---
+title: Organische Duengung im Freiland
+category: duengung
+tags: [organisch, kompost, hornmehl, gruenduengung, bodenanalyse, mulch, jauche, freiland, outdoor]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [vegetative, flowering, harvest]
+chunks:
+  - id: grundduengung-fruehjahr
+    title: Grundduengung im Fruehjahr
+    content: |
+      Die Grundduengung vor der Saison legt die Naehrstoff-Basis fuer
+      das gesamte Gartenjahr:
+      Zeitpunkt: Maerz-April, sobald Boden bearbeitbar (Kruemelprobe:
+      Erde in der Hand zerbroeselt, klebt nicht).
+      Standardrezept pro m²:
+      - 3-5 Liter reifer Kompost (Humusaufbau, Mikroleben, Grundnaehrstoffe)
+      - 50-80g Hornspäne ODER Hornmehl (Stickstoff-Depot)
+        Hornmehl: fein gemahlen, Freisetzung in 4-6 Wochen
+        Hornspäne: grob, Freisetzung ueber 2-4 Monate
+      - 100-150g Urgesteinsmehl (Spurenelemente, Silizium, pH-Pufferung)
+      - Optional: 50g Kalimagnesia (Patentkali) fuer K und Mg
+      Einarbeitung: Leicht in die oberen 5-10cm einharken, NICHT tief
+      umgraben (zerstoert Bodenstruktur und Mikrobiom).
+      Starkzehrer-Beete (Tomate, Kohl, Kuerbis): Doppelte Kompostmenge,
+      zusaetzlich Rindermist oder Pferdemist (nur gut verrottet!).
+      Schwachzehrer-Beete (Bohne, Erbse, Kraeuter): Nur Kompost, kein
+      zusaetzliches Stickstoff-Depot (Leguminosen fixieren eigenen N).
+    metadata:
+      topic: spring_base_fertilization
+      timing: march_april
+      unit: per_square_meter
+
+  - id: kompost-qualitaet
+    title: Kompost-Qualitaet und Anwendung
+    content: |
+      Guter Kompost ist das wichtigste organische Duengemittel:
+      Qualitaets-Merkmale:
+      - Farbe: Dunkelbraun bis schwarz
+      - Geruch: Frisch, erdig, waldbodenaehnlich (NICHT faulig oder sauer)
+      - Struktur: Krümelig, nicht matschig, keine erkennbaren Ausgangs-
+        materialien mehr
+      - Temperatur: Raumtemperatur (Heissrotte abgeschlossen)
+      - Reife-Test: Kresse-Test — Kresse auf Kompost aussaeen, keimt und
+        waechst normal → Kompost reif. Keimt nicht oder stirbt → zu frisch.
+      Naehrstoff-Gehalt (ungefaehr):
+      - N: 1-2%, P: 0.5-1%, K: 0.5-1.5%
+      - EC (1:2 Extrakt): 0.5-2.0 mS/cm
+      - pH: 6.5-8.0
+      Aufwandmengen:
+      - Starkzehrer: 5-8 L/m²/Jahr
+      - Mittelzehrer: 3-5 L/m²/Jahr
+      - Schwachzehrer: 1-3 L/m²/Jahr
+      - Maximal: 10 L/m²/Jahr (mehr fuehrt zu Naehrstoff-Ueberschuss,
+        besonders Phosphor und Kalium)
+      Achtung: Kompost allein liefert oft zu wenig Stickstoff fuer
+      Starkzehrer → Ergaenzung mit Hornmehl oder Brennnessel-Jauche.
+    metadata:
+      topic: compost_quality
+      npk_approx: [1.5, 0.75, 1.0]
+
+  - id: gruenduengung
+    title: Gruenduengung — Bodenverbesserung durch Pflanzen
+    content: |
+      Gruenduengung (Zwischenfrucht) verbessert den Boden ohne externe
+      Inputs. Pflanzen werden angebaut und vor der Samenreife eingearbeitet.
+      Stickstoff-Fixierer (Leguminosen):
+      - Klee (Trifolium): N-Fixierung 80-150 kg/ha, winterhart
+      - Lupine: N-Fixierung 100-200 kg/ha, Tiefwurzler
+      - Ackerbohne/Wicke: N-Fixierung 80-150 kg/ha
+      Boden-Lockerer (Tiefwurzler):
+      - Oelrettich: Bricht Verdichtungen auf, bis 150cm Wurzeltiefe
+      - Lupine: Tiefwurzler + N-Fixierer (Doppelnutzen)
+      Biofumigation (Schaedlingsunterdrueckung):
+      - Senf (Sinapis alba): Senfoel hemmt Nematoden, schnellwuechsig
+      - Tagetes: Stark nematizid, 3 Monate Standzeit optimal
+      Bienenweide:
+      - Phacelia: Attraktiv fuer Bestäuber, neutral in der Fruchtfolge
+        (keine Verwandtschaft mit Gemuese-Familien)
+      - Buchweizen: Schnelle Bluete, P-Mobilisierer
+      Timing:
+      - Fruehjahr (Maerz-April): Vor Hauptkultur, 4-6 Wochen Wachstum
+      - Herbst (August-Oktober): Nach Ernte, ueber Winter stehen lassen
+        oder vor Frost einarbeiten
+      Einarbeitung: 2-3 Wochen vor Aussaat/Pflanzung der Folgekultur
+      oberflaechlich mulchen oder leicht einarbeiten.
+    metadata:
+      topic: green_manure
+      types: [nitrogen_fixers, soil_looseners, biofumigation, bee_pasture]
+
+  - id: bodenanalyse
+    title: Bodenanalyse verstehen und anwenden
+    content: |
+      Professionelle Bodenanalyse alle 3-5 Jahre (oder bei Neuanlage):
+      Probenahme:
+      - 15-20 Einstiche ueber die Flaeche verteilt (Zickzack-Muster)
+      - Tiefe: 0-30cm (Krumenschicht)
+      - Mischen, 500g Mischprobe ans Labor senden
+      - Zeitpunkt: Herbst nach Ernte oder Fruehjahr vor Duengung
+      Standard-Analyse liefert:
+      - pH-Wert (CaCl2): Optimal 6.0-7.0 fuer die meisten Gemuese
+      - Phosphor (P2O5): Gehaltsklasse A-E
+      - Kalium (K2O): Gehaltsklasse A-E
+      - Magnesium: Gehaltsklasse A-E
+      - Humus-Gehalt: >3% ist gut, >5% sehr gut
+      - Bodenart: Sand/Lehm/Ton-Anteil
+      Interpretation Gehaltsklassen:
+      - A: Sehr niedrig → stark aufduengen
+      - B: Niedrig → aufduengen
+      - C: Optimal → Erhaltungsduengung
+      - D: Hoch → Duengung reduzieren
+      - E: Sehr hoch → KEINE Duengung mit diesem Element
+      Haeufiger Fehler: Phosphor-Ueberschuss (Gehaltsklasse D-E) durch
+      jaehrelanges Kompostieren ohne Analyse. P akkumuliert im Boden!
+      Kosten: ~25-50€ bei LUFA (Landwirtschaftliche Untersuchungs- und
+      Forschungsanstalt) oder privaten Labors.
+    metadata:
+      topic: soil_analysis
+      frequency_years: [3, 5]
+      parameters: [ph, phosphorus, potassium, magnesium, humus]
+
+  - id: jauche-bruehe
+    title: Pflanzenjauche und Bruehe selbst herstellen
+    content: |
+      Brennnessel-Jauche (Stickstoff-Booster):
+      - 1kg frische Brennnesseln + 10L Wasser (Regenwasser ideal)
+      - 10-14 Tage gaeren lassen, taeglich umruehren
+      - Fertig wenn keine Blasen mehr aufsteigen
+      - Verduennung: 1:10 mit Wasser zum Giessen
+      - Wirkung: Stickstoff + Eisen + Silizium, staerkt Pflanze
+      - Geruch: Stark! Im Garten ansetzen, nicht auf Balkon.
+      Beinwell-Jauche (Kalium-Booster):
+      - Wie Brennnessel, aber mit Beinwell (Symphytum officinale)
+      - Reich an Kalium → ideal ab Bluetebeginn fuer Fruchtbildung
+      - Verduennung: 1:10 zum Giessen
+      Ackerschachtelhalm-Bruehe (Pflanzenstärkung):
+      - 150g getrockneter Schachtelhalm + 10L Wasser
+      - 24h einweichen, dann 30 Min kochen, abkuehlen, filtern
+      - Verduennung: 1:5 als Blattspray
+      - Wirkung: Kieselsaeure staerkt Zellwaende → Mehltau-Vorbeugung
+      - KEINE Jauche (wird gekocht, nicht vergoren)
+      Allgemeine Regeln:
+      - Jauchen nie auf Blaetter spruehen (Verbrennungsgefahr)
+      - Jauchen nie unverdünnt anwenden
+      - Nicht bei Hitze giessen (morgens oder abends)
+      - Nur waehrend Wachstumsperiode (April-September)
+    metadata:
+      topic: plant_teas
+      types: [nettle_slurry, comfrey_slurry, horsetail_decoction]
+
+  - id: mulchen-techniken
+    title: Mulchen — Bodenschutz und Naehrstoff-Kreislauf
+    content: |
+      Mulch bedeckt den nackten Boden und bietet vielfaeltige Vorteile:
+      Vorteile:
+      - Feuchtigkeit halten (Verdunstung reduziert um 50-70%)
+      - Unkraut unterdruecken (Lichtblockade)
+      - Bodentemperatur regulieren (kuehler im Sommer, waermer im Winter)
+      - Bodenlebewesen foerdern (Regenwuermer, Mikrobiom)
+      - Erosionsschutz bei Starkregen
+      - Naehrstoffe freisetzen bei Zersetzung
+      Mulch-Materialien:
+      - Rasenschnitt: Duenn auftragen (3-5cm, angetrocknet), N-reich.
+        Zu dick → Faeulnis, Schnecken-Paradies
+      - Stroh: 5-10cm, ideal fuer Erdbeeren und Tomaten. N-arm → kann
+        kurzzeitig N aus dem Boden binden (N-Sperre)
+      - Holzhäcksel: 5-8cm, nur auf Wegen und unter Gehoelzen. Auf
+        Gemuese-Beeten: Starke N-Sperre (Verrottung verbraucht N)
+      - Laub: 5-10cm, im Herbst auf Beete. Eichenlaub versauert (fuer
+        Heidelbeeren und Rhododendron gut).
+      - Mischkultur-Mulch: Beinwell-Blaetter zwischen Tomaten (K-reich)
+      Wichtig: Mulch nicht direkt an Pflanzenstengel druecken (Faeulnis!).
+      2-3cm Abstand zum Stengel lassen ("Mulch-Vulkan" vermeiden).
+    metadata:
+      topic: mulching
+      materials: [grass_clippings, straw, wood_chips, leaves]
+      moisture_reduction_percent: [50, 70]

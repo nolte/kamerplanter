@@ -1,0 +1,182 @@
+---
+title: VPD-Optimierung (Vapor Pressure Deficit)
+category: umwelt
+tags: [vpd, dampfdruckdefizit, luftfeuchtigkeit, temperatur, transpiration, blattemperatur, entfeuchtung]
+expertise_level: [intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering]
+chunks:
+  - id: vpd-erklaerung
+    title: Was ist VPD und warum ist es wichtig
+    content: |
+      VPD (Vapor Pressure Deficit / Dampfdruckdefizit) beschreibt die
+      Differenz zwischen dem maximal moeglichen Wasserdampfgehalt der Luft
+      und dem tatsaechlichen Gehalt. Einheit: kPa (Kilopascal).
+      VPD ist DER zentrale Umweltparameter fuer optimales Pflanzenwachstum,
+      weil er direkt die Transpiration (Wasserverdunstung ueber Blaetter)
+      steuert:
+      - Niedriger VPD (<0.4 kPa): Luft fast gesaettigt, Pflanze kann kaum
+        transpirieren → kein Naehrstofftransport, Schimmelrisiko hoch
+      - Optimaler VPD (0.8-1.2 kPa): Pflanze transpiriert gesund, Stomata
+        sind offen, CO2-Aufnahme und Naehrstofftransport optimal
+      - Hoher VPD (>1.6 kPa): Luft zu trocken, Pflanze schliesst Stomata
+        zum Selbstschutz → Photosynthese stoppt, Wachstum reduziert,
+        Stressreaktionen, Blattrand-Verbrennung
+      VPD vereint Temperatur und Luftfeuchtigkeit in EINER Kennzahl.
+      Daher ist VPD aussagekraeftiger als RH allein: 60% RH bei 20°C ist
+      voellig anders als 60% RH bei 30°C.
+    metadata:
+      topic: vpd_basics
+      unit: kPa
+
+  - id: vpd-berechnung
+    title: VPD-Berechnung (Tetens-Formel)
+    content: |
+      VPD-Berechnung in zwei Schritten:
+      1. Saettigungsdampfdruck (SVP) bei Blatttemperatur berechnen:
+         SVP = 0.6108 × exp((17.27 × T_blatt) / (T_blatt + 237.3))
+         Ergebnis in kPa.
+      2. VPD berechnen:
+         VPD = SVP - (SVP_luft × RH / 100)
+         Wobei SVP_luft mit Lufttemperatur berechnet wird.
+      Vereinfacht (wenn Blatttemperatur ≈ Lufttemperatur):
+         VPD = SVP × (1 - RH/100)
+      Beispiel: 25°C Luft, 60% RH:
+      - SVP(25°C) = 3.17 kPa
+      - VPD = 3.17 × (1 - 0.60) = 1.27 kPa → optimal fuer Vegetative Phase
+      Praxistipp: Blatttemperatur ist typischerweise 1-3°C unter Lufttemperatur
+      (durch Transpiration gekuehlt). Bei LED-Beleuchtung ist der Offset
+      groesser als bei HPS (weniger Infrarot-Strahlung). Blatttemperatur
+      mit Infrarot-Thermometer messen fuer praezisen VPD.
+      Kamerplanter berechnet VPD automatisch aus den Sensordaten (REQ-005).
+    metadata:
+      topic: vpd_calculation
+      formula: tetens
+
+  - id: vpd-zielwerte
+    title: VPD-Zielwerte nach Wachstumsphase
+    content: |
+      Empfohlene VPD-Bereiche (basierend auf Blatt-VPD):
+      Saemlinge und Stecklinge: 0.4-0.8 kPa
+      - Junge Pflanzen haben wenig Wurzelmasse und koennen hohen
+        Wasserverlust nicht kompensieren. Niedrigen VPD halten.
+      - Typisch: 24°C, 70-80% RH → VPD ~0.6 kPa
+      Vegetative Phase: 0.8-1.2 kPa
+      - Pflanze wächst aktiv, braucht gute Transpiration fuer
+        Naehrstofftransport und Photosynthese.
+      - Typisch: 25°C, 55-65% RH → VPD ~1.0 kPa
+      Fruehe Bluete: 1.0-1.4 kPa
+      - Bluetenbildung beginnt, leicht erhoehter VPD foerdert
+        Harz-/Oelproduktion und haertet die Pflanze ab.
+      - Typisch: 24°C, 50-60% RH → VPD ~1.1 kPa
+      Spaete Bluete: 1.2-1.6 kPa
+      - Schimmelrisiko reduzieren! Dichte Blueten und Fruechte sind
+        anfaellig bei hoher Feuchtigkeit. VPD hoch halten.
+      - Typisch: 22°C, 45-55% RH → VPD ~1.3 kPa
+      ACHTUNG: Diese Werte gelten fuer Indoor mit voller Kontrolle.
+      Outdoor ist VPD-Kontrolle nur bedingt moeglich (Gewaechshaus,
+      Folientunnel). Zimmerpflanzen brauchen keine VPD-Optimierung —
+      normale Raumklima-Verbesserung (Schale mit Wasser, Gruppierung) reicht.
+    metadata:
+      topic: vpd_targets
+      unit: kPa
+
+  - id: vpd-erhoehen
+    title: VPD erhoehen (Luft trockener machen)
+    content: |
+      VPD erhoehen bedeutet: die Differenz zwischen moeglichem und
+      aktuellem Wasserdampfgehalt vergroessern. Noetig wenn VPD zu niedrig
+      (Schimmelrisiko, traege Pflanze).
+      Methoden:
+      1. Luftfeuchtigkeit senken:
+         - Entfeuchter (effektivste Methode): Kondensations-Entfeuchter
+           ab 200W fuer typische Growzelte (1.2×1.2m). Energie bedenken.
+         - Abluft erhoehen: Mehr Luftaustausch bringt trockenere Aussenluft
+           (nur wenn Aussenluft trockener als Innenluft!)
+         - Nasse Oberflaechen reduzieren: Kein stehendes Wasser, Auffangschalen
+           leeren, nasses Substrat weniger oft giessen
+      2. Temperatur erhoehen:
+         - Waermere Luft kann mehr Wasser aufnehmen → bei gleichem RH
+           steigt der VPD
+         - Heizung oder Lampen-Waerme nutzen
+      Typische Situation: Spaete Bluete, dichte Buds, Nachttemperatur
+      faellt und RH steigt auf 75%+ → Botrytis-Gefahr!
+      Loesung: Entfeuchter + leichte Luftzirkulation (kein Wind direkt
+      auf Blueten, aber keine stagnierenden Lufttaschen).
+    metadata:
+      topic: increase_vpd
+      methods: [dehumidifier, ventilation, temperature]
+
+  - id: vpd-senken
+    title: VPD senken (Luft feuchter machen)
+    content: |
+      VPD senken bedeutet: Luft feuchter machen. Noetig wenn VPD zu hoch
+      (trockene Luft, Stomata schliessen, Wachstum stoppt).
+      Methoden:
+      1. Luftfeuchtigkeit erhoehen:
+         - Ultraschall-Luftbefeuchter: Effektiv, aber Kalk-Ablagerungen
+           moeglich (destilliertes Wasser oder RO-Wasser verwenden)
+         - Nasse Handtuecher / Verdunster: Low-Tech, fuer kleine Raeume
+         - Pflanzen gruppieren: Pflanzen erhoehen RH durch Transpiration
+         - Groessere Pflanzen: Mehr Blattmasse = mehr Transpiration = hoeherer RH
+      2. Temperatur senken:
+         - Kuehlung senkt VPD (Luft kann weniger Wasser aufnehmen bei
+           gleicher absoluter Feuchte)
+         - Lichtabstand vergroessern (weniger Strahlungswaerme)
+         - Nachttemperatur natuerlich nutzen
+      Typische Situation: Saemlinge/Stecklinge unter starker Beleuchtung,
+      25-30°C, nur 40% RH → VPD 2.0+ kPa, Saemling vertrocknet.
+      Loesung: Feuchtigkeitskuppel (Dome) ueber Saemling → RH 80-90%,
+      VPD 0.4-0.8 kPa. Taeglich kurz lueften gegen Schimmel.
+    metadata:
+      topic: decrease_vpd
+      methods: [humidifier, grouping, temperature_reduction]
+
+  - id: vpd-nacht
+    title: VPD-Management in der Nachtphase
+    content: |
+      Nachts ist VPD besonders kritisch:
+      - Temperatur sinkt → SVP sinkt → bei gleicher absoluter Feuchte
+        steigt der RH stark an → VPD faellt
+      - Stomata sind geschlossen → keine Transpiration → Pflanze kann
+        nicht aktiv Feuchtigkeit abgeben
+      - Kondenswasser bildet sich auf Blaettern und Blueten → Schimmelrisiko!
+      Tag/Nacht-Differential (DIF) beachten:
+      - Maximal 5-8°C Differenz zwischen Tag und Nacht anstreben
+      - Groessere Differenz = staerkerer RH-Anstieg nachts
+      Massnahmen fuer stabile Nacht-VPD:
+      - Entfeuchter auf Timer: Laeuft waehrend der gesamten Dunkelphase
+      - Leichte Lueftung: Sanfter Luftstrom verhindert Kondenswasser auf
+        Pflanzenoberflaechen (oscillating fan auf niedrigster Stufe)
+      - Nacht-Heizung: Leichte Erwaermung (+2-3°C) haelt RH niedriger
+      - Keine Bewaesserung kurz vor Dunkelphase (Verdunstung erhoht RH)
+      Zielwert nachts: VPD nicht unter 0.6 kPa fallen lassen
+      (auch wenn tagsuefer 1.0-1.4 kPa angestrebt werden).
+    metadata:
+      topic: night_vpd
+      risk: condensation
+
+  - id: vpd-messfehler
+    title: Haeufige VPD-Messfehler vermeiden
+    content: |
+      Fehler 1: Messung am falschen Ort
+      - Sensor muss auf Pflanzen-Hoehe (Canopy Level) sein, nicht an der
+        Wand oder unter der Lampe. Temperatur variiert stark nach Hoehe
+        und Abstand zur Lichtquelle.
+      - Bei mehreren Pflanzen: Sensor in der Mitte des Canopys.
+      Fehler 2: Blatttemperatur ignorieren
+      - VPD sollte mit Blatt-VPD berechnet werden, nicht Luft-VPD.
+        Blatttemperatur ist 1-3°C unter Lufttemperatur (aktive Transpiration).
+      - Bei LED-Beleuchtung: Blaetter sind oft 2-4°C kuehler als Luft
+        (weniger Infrarot als HPS). Luft-VPD von 1.2 kann Blatt-VPD von
+        0.9 bedeuten → trotz scheinbar optimalem VPD ist es zu niedrig!
+      - Infrarot-Thermometer auf Blatt richten fuer genaue Blatttemperatur.
+      Fehler 3: Durchschnitt statt Extremwerte
+      - RH-Spitzen waehrend der Nacht oder beim Giessen koennen kurzzeitig
+        kondensationsfoerdernd sein. Nur den Tages-Durchschnitt zu betrachten
+        uebersieht gefaehrliche Peaks.
+      Fehler 4: VPD-Tabelle statt Berechnung
+      - VPD-Tabellen nehmen Blatttemp = Lufttemp an. Das ist ungenau.
+        Kamerplanter berechnet Blatt-VPD mit Leaf-Temperature-Offset (REQ-005).
+    metadata:
+      topic: measurement_errors
+      correction: leaf_temperature_offset

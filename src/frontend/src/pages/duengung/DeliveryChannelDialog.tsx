@@ -75,6 +75,7 @@ export default function DeliveryChannelDialog({
 
   useEffect(() => {
     if (open) {
+      /* eslint-disable react-hooks/set-state-in-effect -- dialog open/close reset */
       if (existingChannel) {
         setChannelId(existingChannel.channel_id);
         setLabel(existingChannel.label);
@@ -138,6 +139,7 @@ export default function DeliveryChannelDialog({
         setTimesPerDay(1);
       }
       setActiveStep(0);
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [open, existingChannel]);
 

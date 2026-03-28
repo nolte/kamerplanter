@@ -1,0 +1,138 @@
+---
+title: EC-Management in Erde und organischen Substraten
+category: duengung
+tags: [ec, erde, boden, salz, flush, organisch, vorduengung, cec, top-dressing]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering]
+chunks:
+  - id: boden-ec-messung
+    title: Boden-EC richtig messen
+    content: |
+      Boden-EC kann nicht direkt mit einem EC-Meter gemessen werden.
+      Zwei Methoden:
+      1:2 Extrakt-Methode (Standard):
+      - 1 Teil Substrat + 2 Teile destilliertes Wasser
+      - 30 Minuten ruehren/stehen lassen, filtern
+      - Filtrat mit EC-Meter messen
+      - Gesunder Bereich: 0.5-1.5 mS/cm (1:2 Extrakt)
+      - Ueber 2.0 mS/cm: Versalzung wahrscheinlich
+      Pour-Through-Methode (einfacher):
+      - Substrat gut durchfeuchten (Kapazitaet erreichen)
+      - 1 Stunde warten
+      - 100-200ml destilliertes Wasser langsam aufgiessen
+      - Ablaufwasser auffangen und EC messen
+      - Gesunder Bereich: 1.0-3.0 mS/cm (Pour-Through)
+      Bodenprobe beim Labor (genaueste Methode):
+      - Professionelle Bodenanalyse alle 2-3 Jahre (Outdoor)
+      - Liefert einzelne Naehrstoffe, pH, Humusgehalt, CEC
+      - Kosten: ~30-50€ bei landwirtschaftlichen Untersuchungsaemtern
+    metadata:
+      topic: soil_ec_measurement
+      methods: [extract_1_2, pour_through, lab_analysis]
+
+  - id: vorgeduengte-erde
+    title: Vorgeduengte Erden und ihre EC-Dynamik
+    content: |
+      Hochwertige Blumenerden (z.B. BioBizz, Canna Terra, Plagron) sind
+      fuer 3-6 Wochen vorgeduengt:
+      - Frische Erde hat EC 1.0-2.0 (1:2 Extrakt)
+      - In den ersten 2-4 Wochen: KEIN zusaetzlicher Duenger noetig
+      - Pflanzen in vorgeduengter Erde zeigen Verbrennungen wenn sofort
+        mit voller Staerke geduengt wird
+      Empfehlung:
+      - Woche 1-3: Nur Wasser (pH-angepasst)
+      - Woche 4-5: 25-50% der empfohlenen Duengerkonzentration starten
+      - Ab Woche 6: Auf volle Staerke steigern (nach Bedarf)
+      Billige Erden ("Discounter-Blumenerde"):
+      - Oft kaum vorgeduengt, ungleichmaessige Qualitaet
+      - Kann Trauermucken-Larven oder Unkrautsamen enthalten
+      - Fuer Saemling und Anzucht: Spezielle Anzuchterde verwenden
+        (niedrigerer EC, feinere Struktur)
+      Erde mischen (Expert-Level):
+      - 60% Basis-Erde + 20% Perlit + 10% Wurmhumus + 10% Kokos
+      - Selbst gemischt → volle Kontrolle ueber Naehrstoffgehalt
+    metadata:
+      topic: pre_fertilized_soil
+      duration_weeks: [3, 6]
+
+  - id: salzanreicherung-erkennen
+    title: Salzanreicherung in Erde erkennen und beheben
+    content: |
+      Symptome von Salzanreicherung (Ueberdüngung in Erde):
+      - Weisse Krusten auf der Substrat-Oberflaeche
+      - Weisse Ablagerungen am Topfrand (Salz-Ausblühungen)
+      - Blattspitzen-Verbrennung (braune, trockene Spitzen)
+      - Blattraender werden braun und knusprig
+      - Dunkelgruene, klauenartig gebogene Blaetter (N-Ueberschuss)
+      - Wurzeln werden braun (Salzschaden)
+      Ursachen:
+      - Zu haeufige oder zu konzentrierte Duengung
+      - Kein/wenig Durchlauf (immer nur oberflaechlich giessen)
+      - Hartes Leitungswasser (hoher EC-Ausgangswert)
+      - Tontopf/Terracotta: Salze sammeln sich im poroesen Material
+      Behebung:
+      - Flush: 3× Topfvolumen mit pH-angepasstem Wasser durchspuelen.
+        In Badewanne oder Dusche — Ablauf muss frei sein.
+      - 7-10 Tage nur Wasser, dann mit 50% der Normaldosis weiterduengen
+      - Weisse Krusten auf Oberflaeche: Obere 1-2cm Substrat entfernen
+        und durch frische Erde ersetzen
+      Vorbeugung: Immer 10-20% Durchlauf beim Giessen, regelmaessig
+      mit klarem Wasser giessen (jeder 3.-4. Durchgang ohne Duenger).
+    metadata:
+      topic: salt_buildup
+      symptoms: [white_crust, tip_burn, dark_leaves]
+
+  - id: top-dressing-liquid
+    title: Top-Dressing vs. Fluessigduengung in Erde
+    content: |
+      Fluessigduenger (liquid feeding):
+      - Schnelle Verfuegbarkeit (Stunden bis 1-2 Tage)
+      - Dosierung bei jedem Giessen anpassbar
+      - Risiko: Ueberduengung bei falscher Dosierung
+      - Empfohlen fuer: Indoor-Topfkultur, schnelles Reagieren auf Mangel
+      - Frequenz: Bei jedem 2.-3. Giessen oder kontinuierlich niedrig dosiert
+      Top-Dressing (trockener Duenger auf Substrat-Oberflaeche):
+      - Langsame Freisetzung ueber Wochen
+      - Weniger Ueberduengungs-Risiko
+      - Natuerlicher, bodenahnlicher Naehrstofffluss
+      - Empfohlen fuer: Outdoor, grosse Toepfe, organischer Anbau
+      - Typisch: Hornspäne, Guano, Wurmhumus, Gesteinsmehl
+      Slow-Release Duenger (Langzeitduenger):
+      - Osmocote-Typ: Kugeln mit Harzummantelung, 3-9 Monate Freisetzung
+      - Unkontrollierbar: Temperaturabhaengige Freisetzung
+        (heiss = schneller → Ueberdüngung bei Hitzewelle)
+      - Fuer Zierpflanzen ok, fuer Nutzpflanzen/Cannabis nicht empfohlen
+        (keine phasenspezifische Anpassung moeglich)
+      Kombination: Top-Dressing als Basis (z.B. Wurmhumus monatlich) +
+      Fluessigduenger fuer Feinabstimmung (wöchentlich).
+    metadata:
+      topic: feeding_methods_soil
+      methods: [liquid, top_dressing, slow_release]
+
+  - id: cec-verstehen
+    title: CEC — Kationenaustauschkapazitaet verstehen
+    content: |
+      CEC (Cation Exchange Capacity) beschreibt wie viele positiv geladene
+      Ionen (Kationen) ein Substrat binden und wieder abgeben kann.
+      Hohe CEC (gut):
+      - Tonhaltige Erde, Kompost, Humus, Vermiculite
+      - Speichert Naehrstoffe und gibt sie langsam ab
+      - Puffert gegen Ueberdüngung
+      - Risiko: Kann auch Schaedliches speichern (Schwermetalle)
+      Niedrige CEC:
+      - Sandiger Boden, Perlit, Steinwolle
+      - Naehrstoffe werden schnell ausgewaschen
+      - Haefigere Duengung noetig, aber leichter zu korrigieren
+      Coco-Spezialfall:
+      - Mittlere CEC, aber bindet bevorzugt Ca und Mg (verdraengt K und Na)
+      - Neues Coco "frisst" Calcium und Magnesium aus der Naehrloesung
+      - Daher: Neues Coco IMMER mit CalMag-Loesung vorpuffern
+        (Einweichen in EC 1.0 CalMag-Loesung fuer 8-24h, dann spuelen)
+      - Nach Vorpufferung stabilisiert sich CEC und Naehrstoff-Management
+        funktioniert vorhersagbar
+      Praxis: Je hoeher die CEC des Substrats, desto traeger reagiert es
+      auf Aenderungen und desto schwieriger ist schnelle Korrektur.
+    metadata:
+      topic: cation_exchange_capacity
+      high_cec: [clay, compost, humus, vermiculite]
+      low_cec: [sand, perlite, rockwool]

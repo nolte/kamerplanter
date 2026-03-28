@@ -24,6 +24,7 @@ export default function NotificationBell() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch, setState is inside callback
     void fetchCount();
     intervalRef.current = setInterval(() => void fetchCount(), POLL_INTERVAL_MS);
     return () => {

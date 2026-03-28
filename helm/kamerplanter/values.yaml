@@ -188,6 +188,166 @@ controllers:
           globalMounts:
             - path: /var/lib/arangodb3
 
+  celery-worker:
+    type: deployment
+    replicas: 1
+    strategy: RollingUpdate
+    rollingUpdate:
+      surge: 1
+      unavailable: 0
+    pod:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+    containers:
+      main:
+        image:
+          repository: ghcr.io/nolte/kamerplanter-backend
+          tag: latest
+          pullPolicy: IfNotPresent
+        command: ["celery"]
+        args: ["-A", "app.tasks", "worker", "--loglevel=info", "--concurrency=2"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        env:
+          ARANGODB_HOST: kamerplanter-arangodb
+          ARANGODB_PORT: "8529"
+          ARANGODB_DATABASE: kamerplanter
+          ARANGODB_USERNAME: root
+          ARANGODB_PASSWORD: rootpassword
+          REDIS_URL: redis://kamerplanter-valkey:6379/0
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["celery", "-A", "app.tasks", "inspect", "ping", "--timeout", "5"]
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 10
+              failureThreshold: 3
+          readiness:
+            enabled: false
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
+  celery-beat:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    pod:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+    containers:
+      main:
+        image:
+          repository: ghcr.io/nolte/kamerplanter-backend
+          tag: latest
+          pullPolicy: IfNotPresent
+        command: ["celery"]
+        args: ["-A", "app.tasks", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        env:
+          ARANGODB_HOST: kamerplanter-arangodb
+          ARANGODB_PORT: "8529"
+          ARANGODB_DATABASE: kamerplanter
+          ARANGODB_USERNAME: root
+          ARANGODB_PASSWORD: rootpassword
+          REDIS_URL: redis://kamerplanter-valkey:6379/0
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["sh", "-c", "test -f /tmp/celerybeat-schedule"]
+              initialDelaySeconds: 30
+              periodSeconds: 60
+              timeoutSeconds: 5
+              failureThreshold: 3
+          readiness:
+            enabled: false
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+
+  # -- TimescaleDB (optional — disabled by default, enable via values override)
+  # timescaledb:
+  #   type: statefulset
+  #   replicas: 1
+  #   pod:
+  #     securityContext:
+  #       runAsUser: 999
+  #       runAsGroup: 999
+  #       fsGroup: 999
+  #   containers:
+  #     main:
+  #       image:
+  #         repository: timescale/timescaledb
+  #         tag: "2.17.2-pg16"
+  #         pullPolicy: IfNotPresent
+  #       securityContext:
+  #         allowPrivilegeEscalation: false
+  #         capabilities:
+  #           drop: ["ALL"]
+  #       env:
+  #         POSTGRES_DB: kamerplanter_sensors
+  #         POSTGRES_USER: postgres
+  #         POSTGRES_PASSWORD: changeme
+  #       probes:
+  #         liveness:
+  #           enabled: true
+  #           custom: true
+  #           spec:
+  #             exec:
+  #               command: ["pg_isready", "-U", "postgres"]
+  #             initialDelaySeconds: 30
+  #             periodSeconds: 10
+  #             timeoutSeconds: 5
+  #             failureThreshold: 5
+  #         readiness:
+  #           enabled: true
+  #           custom: true
+  #           spec:
+  #             exec:
+  #               command: ["pg_isready", "-U", "postgres"]
+  #             initialDelaySeconds: 15
+  #             periodSeconds: 5
+  #             timeoutSeconds: 3
+  #             failureThreshold: 5
+  #       resources:
+  #         requests:
+  #           cpu: 250m
+  #           memory: 512Mi
+  #         limits:
+  #           cpu: "1"
+  #           memory: 1Gi
+  #   statefulset:
+  #     volumeClaimTemplates:
+  #       - name: data
+  #         accessMode: ReadWriteOnce
+  #         size: 10Gi
+  #         globalMounts:
+  #           - path: /var/lib/postgresql/data
+
 configMaps:
   frontend-nginx:
     enabled: true
@@ -297,6 +457,26 @@ persistence:
         main:
           - path: /tmp
 
+  celery-worker-tmp:
+    enabled: true
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 64Mi
+    advancedMounts:
+      celery-worker:
+        main:
+          - path: /tmp
+
+  celery-beat-tmp:
+    enabled: true
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 16Mi
+    advancedMounts:
+      celery-beat:
+        main:
+          - path: /tmp
+
 ingress: {}
 
 # -- NetworkPolicies: restrict pod-to-pod traffic to least-privilege (SEC-M-005)
@@ -380,6 +560,14 @@ networkpolicies:
               port: 53
             - protocol: TCP
               port: 53
+        # TimescaleDB (optional — only effective when timescaledb controller is deployed)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: timescaledb
+          ports:
+            - protocol: TCP
+              port: 5432
         # External APIs (GBIF, Perenual, weather, SMTP, Home Assistant, OIDC)
         - to:
             - ipBlock:
@@ -398,7 +586,98 @@ networkpolicies:
             - protocol: TCP
               port: 465
 
-  # ArangoDB: only accept from backend, no egress needed
+  # Celery worker: no ingress needed, same egress as backend
+  celery-worker:
+    controller: celery-worker
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress: []
+      egress:
+        # ArangoDB
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: arangodb
+          ports:
+            - protocol: TCP
+              port: 8529
+        # Valkey (Redis)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: valkey
+          ports:
+            - protocol: TCP
+              port: 6379
+        # DNS resolution
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+        # TimescaleDB
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: timescaledb
+          ports:
+            - protocol: TCP
+              port: 5432
+        # External APIs (SMTP, Home Assistant, weather)
+        - to:
+            - ipBlock:
+                cidr: 0.0.0.0/0
+                except:
+                  - 10.0.0.0/8
+                  - 172.16.0.0/12
+                  - 192.168.0.0/16
+          ports:
+            - protocol: TCP
+              port: 443
+            - protocol: TCP
+              port: 80
+            - protocol: TCP
+              port: 587
+            - protocol: TCP
+              port: 465
+
+  # Celery beat: no ingress needed, only Redis + DNS
+  celery-beat:
+    controller: celery-beat
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress: []
+      egress:
+        # Valkey (Redis — to submit tasks)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: valkey
+          ports:
+            - protocol: TCP
+              port: 6379
+        # DNS resolution
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+
+  # ArangoDB: accept from backend + celery-worker, no egress needed
   arangodb:
     controller: arangodb
     policyTypes:
@@ -410,6 +689,9 @@ networkpolicies:
             - podSelector:
                 matchLabels:
                   app.kubernetes.io/controller: backend
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: celery-worker
           ports:
             - protocol: TCP
               port: 8529

@@ -121,6 +121,8 @@ class TankEngine:
                         "severity": severity,
                         "message": f"pH {state.ph:.1f} below range [{ph_min}–{ph_max}] for {tt.value}",
                         "value": state.ph,
+                        "limit_min": ph_min,
+                        "limit_max": ph_max,
                     }
                 )
             elif state.ph > ph_max:
@@ -131,6 +133,8 @@ class TankEngine:
                         "severity": severity,
                         "message": f"pH {state.ph:.1f} above range [{ph_min}–{ph_max}] for {tt.value}",
                         "value": state.ph,
+                        "limit_min": ph_min,
+                        "limit_max": ph_max,
                     }
                 )
 
@@ -149,6 +153,7 @@ class TankEngine:
                             f"(was {last_fill_event.measured_ph:.1f}, now {state.ph:.1f})"
                         ),
                         "value": drift,
+                        "limit": threshold,
                     }
                 )
 
@@ -162,6 +167,7 @@ class TankEngine:
                         "severity": "high",
                         "message": f"EC {state.ec_ms:.1f} mS exceeds limit {ec_limit} for {tt.value}",
                         "value": state.ec_ms,
+                        "limit": ec_limit,
                     }
                 )
 
@@ -176,6 +182,7 @@ class TankEngine:
                                 f"EC {state.ec_ms:.1f} deviates {deviation_pct:.0f}% from target {target_ec_ms:.1f}"
                             ),
                             "value": state.ec_ms,
+                            "limit": target_ec_ms,
                         }
                     )
                 elif deviation_pct > 20:
@@ -187,6 +194,7 @@ class TankEngine:
                                 f"EC {state.ec_ms:.1f} deviates {deviation_pct:.0f}% from target {target_ec_ms:.1f}"
                             ),
                             "value": state.ec_ms,
+                            "limit": target_ec_ms,
                         }
                     )
 
@@ -202,6 +210,7 @@ class TankEngine:
                         "severity": "critical",
                         "message": f"Water temp {temp:.1f}°C — critical for {tt.value}",
                         "value": temp,
+                        "limit": thresholds["warm_crit"],
                     }
                 )
             elif temp >= thresholds["warm_warn"]:
@@ -211,6 +220,7 @@ class TankEngine:
                         "severity": "medium",
                         "message": f"Water temp {temp:.1f}°C — warm for {tt.value}",
                         "value": temp,
+                        "limit": thresholds["warm_warn"],
                     }
                 )
 
@@ -221,6 +231,7 @@ class TankEngine:
                         "severity": "critical",
                         "message": f"Water temp {temp:.1f}°C — critically cold for {tt.value}",
                         "value": temp,
+                        "limit": thresholds["cold_crit"],
                     }
                 )
             elif temp <= thresholds["cold_warn"]:
@@ -230,6 +241,7 @@ class TankEngine:
                         "severity": "medium",
                         "message": f"Water temp {temp:.1f}°C — cold for {tt.value}",
                         "value": temp,
+                        "limit": thresholds["cold_warn"],
                     }
                 )
 
@@ -243,6 +255,7 @@ class TankEngine:
                         "severity": "critical",
                         "message": f"Dissolved oxygen {do:.1f} mg/L — critically low",
                         "value": do,
+                        "limit": 4.0,
                     }
                 )
             elif do < 6:
@@ -252,6 +265,7 @@ class TankEngine:
                         "severity": "medium",
                         "message": f"Dissolved oxygen {do:.1f} mg/L — suboptimal",
                         "value": do,
+                        "limit": 6.0,
                     }
                 )
 
@@ -288,6 +302,7 @@ class TankEngine:
                         "severity": "critical",
                         "message": f"ORP {state.orp_mv} mV — pathogen risk (< 250 mV)",
                         "value": state.orp_mv,
+                        "limit": 250,
                     }
                 )
             elif state.orp_mv < 650:
@@ -297,6 +312,7 @@ class TankEngine:
                         "severity": "medium",
                         "message": f"ORP {state.orp_mv} mV — sterilization suboptimal (< 650 mV)",
                         "value": state.orp_mv,
+                        "limit": 650,
                     }
                 )
 
@@ -308,6 +324,7 @@ class TankEngine:
                     "severity": "medium",
                     "message": f"Fill level {state.fill_level_percent:.0f}% — refill needed",
                     "value": state.fill_level_percent,
+                    "limit": FILL_LEVEL_LOW_PERCENT,
                 }
             )
 
@@ -333,27 +350,24 @@ class TankEngine:
         if tank.is_light_proof:
             return []
 
-        risk_factors = 0
+        factors: list[str] = []
         if not tank.has_lid:
-            risk_factors += 1
+            factors.append("no_lid")
         if state.water_temp_celsius is not None and state.water_temp_celsius > 22:
-            risk_factors += 1
+            factors.append("warm_water")
         if tank.tank_type in (TankType.NUTRIENT, TankType.RECIRCULATION):
-            risk_factors += 1
+            factors.append("nutrient_rich")
 
-        if risk_factors >= 2:
-            severity = "high" if risk_factors >= 3 else "medium"
+        if len(factors) >= 2:
+            severity = "high" if len(factors) >= 3 else "medium"
             return [
                 {
                     "type": "algae_risk",
                     "severity": severity,
-                    "message": (
-                        f"Algae risk ({risk_factors} factors: not light-proof, "
-                        f"{'no lid, ' if not tank.has_lid else ''}"
-                        f"{'warm water, ' if state.water_temp_celsius and state.water_temp_celsius > 22 else ''}"
-                        f"{'nutrient-rich' if tank.tank_type in (TankType.NUTRIENT, TankType.RECIRCULATION) else ''})"
-                    ),
-                    "value": risk_factors,
+                    "message": f"Algae risk: not light-proof, {', '.join(factors)}",
+                    "value": len(factors),
+                    "factors": factors,
+                    "temp": state.water_temp_celsius,
                 }
             ]
         return []

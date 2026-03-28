@@ -1,0 +1,276 @@
+---
+title: Fruchtfolge-Grundlagen fuer den Freilandanbau
+category: outdoor
+tags: [fruchtfolge, crop-rotation, starkzehrer, mittelzehrer, schwachzehrer, gruenduengung, bodenpflege, pflanzenfamilien]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [vegetative, flowering, harvest]
+chunks:
+  - id: warum-fruchtfolge
+    title: Warum Fruchtfolge unverzichtbar ist
+    content: |
+      Fruchtfolge (Crop Rotation) ist das wichtigste Prinzip im nachhaltigen Freilandanbau.
+      Wer ueber Jahre dieselbe Kultur am selben Ort anbaut, bekommt unweigerlich Probleme:
+      1. Bodenmuedigkeit (Replant Disease): Artspezifische Wurzelausscheidungen reichern
+         sich an und hemmen das Wachstum der gleichen Art. Besonders stark bei Rosen,
+         Erdbeeren und Kohlgewaechsen. Ertragsrueckgang um 20-50% moeglich.
+      2. Schaderreger-Akkumulation: Bodenbuertige Pilze, Bakterien und Nematoden
+         ueberwintern im Boden und vermehren sich bei jeder Wiederholung:
+         - Kohlhernie (Plasmodiophora brassicae): Sporen 15-20 Jahre im Boden lebensfaehig!
+         - Kartoffelnematode (Globodera): Ohne Fruchtfolge exponentielle Vermehrung
+         - Verticillium-Welke: Breites Wirtsspektrum (Tomate, Erdbeere, Kartoffel)
+      3. Einseitiger Naehrstoffentzug: Starkzehrer bauen Jahr fuer Jahr dieselben
+         Naehrstoffe ab, waehrend andere ueberschuessig bleiben. Boden wird unausgewogen.
+      4. Bodenstrukturverschlechterung: Ohne Wechsel von tief- und flachwurzelnden
+         Kulturen verdichtet sich der Boden, die Humusbildung stagniert.
+      Goldene Regel: Keine Pflanze aus derselben botanischen Familie innerhalb von
+      3-4 Jahren am selben Standort. In Kamerplanter wird dies durch den CropRotationPlan
+      pro Beet ueberwacht und bei Verstoessen automatisch gewarnt (REQ-002).
+      Fruchtfolge ist KEIN optionaler Tipp — es ist die Grundlage jedes funktionierenden
+      Gemuesegartens. Selbst kleine Gaerten (2-3 Beete) sollten rotieren.
+    metadata:
+      importance: critical
+      minimum_rotation_years: 3
+      diseases_prevented: [clubroot, nematodes, verticillium, replant_disease]
+
+  - id: vierjahres-rotation
+    title: Das 4-Jahres-Rotationsschema
+    content: |
+      Das klassische Vierjahresschema teilt Kulturen nach ihrem Naehrstoffbedarf in
+      vier Gruppen ein. Jedes Beet durchlaeuft alle vier Stadien in fester Reihenfolge.
+      Jahr 1 — Starkzehrer (Heavy Feeder):
+      Hoher Stickstoff- und Kaliumbedarf. Frische Kompost-/Mistgabe im Fruehjahr.
+      Kulturen: Tomate, Kohl (alle Arten), Kuerbis, Zucchini, Mais, Gurke, Sellerie,
+      Lauch, Kartoffel. Duengung: 5-8 L Kompost/m² + organischer Vollduenger.
+      Jahr 2 — Mittelzehrer (Medium Feeder):
+      Moderater Bedarf, profitiert von Restnaehrstoffen des Vorjahres.
+      Kulturen: Moehre, Zwiebel, Rote Bete, Salat, Fenchel, Kohlrabi, Mangold, Knoblauch.
+      Duengung: 2-3 L Kompost/m², keine frische Mistgabe.
+      Jahr 3 — Schwachzehrer (Light Feeder):
+      Geringer Bedarf, viele fixieren selbst Stickstoff (Leguminosen).
+      Kulturen: Buschbohne, Erbse, Kraeuter, Radieschen, Feldsalat, Spinat.
+      Duengung: Keine oder minimal (1 L Kompost/m²). Leguminosen fixieren 20-80 kg N/ha.
+      Jahr 4 — Gruenduengung (Green Manure):
+      Beet wird nicht mit Gemuese bestellt, sondern mit Gruenduengungspflanzen eingesaet.
+      Boden regeneriert sich, Humus wird aufgebaut, Bodenlebewesen erholen sich.
+      Kulturen: Phacelia, Lupine, Klee, Senf, Buchweizen, Winterroggen.
+      Anschliessend: Oberflaechlich einarbeiten (nicht untergraben!), dann wieder mit
+      Starkzehrern beginnen (Jahr 1).
+      Fuer kleine Gaerten (3 Beete): Das Gruenduengungsjahr kann mit Schwachzehrern
+      kombiniert werden (Erbsen + Untersaat Klee), dann reicht ein 3-Jahres-Zyklus.
+    metadata:
+      cycle_years: 4
+      groups: [heavy_feeder, medium_feeder, light_feeder, green_manure]
+      compost_per_m2_liters: [8, 3, 1, 0]
+
+  - id: familien-rotation-solanaceae
+    title: Familien-Rotation — Nachtschattengewaechse (Solanaceae)
+    content: |
+      Die Nachtschatten-Familie erfordert die strengste Fruchtfolge wegen gemeinsamer
+      Krankheiten, die alle Familienmitglieder befallen.
+      Familienmitglieder im Garten:
+      Tomate, Paprika, Chili, Aubergine, Kartoffel, Physalis (Andenbeere), Tomatillo
+      Strikte 4-Jahres-Rotation (Minimum 3 Jahre):
+      - Phytophthora infestans (Kraut- und Braunfaeule): Befaellt ALLE Solanaceae.
+        Ueberdauert im Boden auf Kartoffel-Durchwuchs. Sporenflug bei feucht-warmem Wetter.
+      - Alternaria solani (Duenrrfleckenkrankheit): Aehnliches Wirtsspektrum.
+      - Kartoffelnematoden (Globodera rostochiensis/pallida): Zysten bleiben 15-20 Jahre
+        im Boden keimfaehig. Fruchtfolge allein reicht bei starkem Befall nicht —
+        resistente Kartoffelsorten waehlen.
+      - Tabakmosaikvirus (TMV): Uebertragung durch Beruehrung, Werkzeug, Saatgut.
+        Haende waschen zwischen Tomate und Paprika. Nicht rauchen beim Gaertnern!
+      Praxis-Tipps:
+      - Kartoffel und Tomate NIE direkt nacheinander am selben Ort
+      - Kartoffel windabwaerts von Tomate pflanzen (Phytophthora-Sporen = windverbreitet)
+      - Gewaechshaus: Besonders problematisch — enge Fruchtfolge kaum moeglich.
+        Loesung: Boden austauschen (alle 3-4 Jahre), Veredelung auf resistente Unterlagen,
+        oder Topf-/Sackkultur mit frischem Substrat jedes Jahr.
+      - Kein Kartoffel-Durchwuchs dulden — jede vergessene Knolle ist Phytophthora-Reservoir
+      In Kamerplanter: Solanaceae-Familienzugehoerigkeit wird automatisch erkannt.
+      CropRotationPlan warnt bei Rotation < 4 Jahre fuer diese Familie.
+    metadata:
+      family: solanaceae
+      rotation_years_minimum: 4
+      key_diseases: [phytophthora, alternaria, nematodes, tmv]
+      severity: critical
+
+  - id: familien-rotation-brassicaceae
+    title: Familien-Rotation — Kreuzbluetler (Brassicaceae)
+    content: |
+      Die Kreuzbluetler-Familie umfasst viele beliebte Gemuese und einige Gruenduengungspflanzen.
+      Hauptproblem: Kohlhernie, eine bodenbuertige Pilzkrankheit ohne wirksame Bekaempfung.
+      Familienmitglieder im Garten:
+      Weisskohl, Rotkohl, Blumenkohl, Brokkoli, Rosenkohl, Gruenkohl, Kohlrabi,
+      Pak Choi, Chinakohl, Rettich, Radieschen, Ruebsen, Senf, Rucola, Kresse, Meerrettich
+      Achtung: Senf und Rucola sind Kreuzbluetler! Wer Senf als Gruenduengung verwendet,
+      muss dies in der Kohlrotation beruecksichtigen.
+      3-4 Jahre Rotation (Minimum):
+      - Kohlhernie (Plasmodiophora brassicae): Sporen 15-20 Jahre im Boden! Bei Befall
+        ist der Standort fuer Jahrzehnte fuer Kohl unbrauchbar. Praevention ist alles.
+        Symptome: Verdickte, keulenfoermige Wurzeln, Welke trotz Feuchtigkeit.
+        Gegenmassnahme: pH > 7.2 hemmt den Erreger (Kalkung!), resistente Sorten.
+      - Kohlfliegenlarve (Delia radicum): Eiablage am Wurzelhals.
+        Gegenmassnahme: Kohlkragen aus Pappe/Filz um Setzlinge, Kulturschutznetz.
+      - Falscher Mehltau (Hyaloperonospora): Befaellt alle Brassicaceae.
+      - Erdfloh: Winzige Loecher in Blaettern. Feucht halten (Erdfloh mag Trockenheit),
+        Vliesabdeckung in den ersten 4 Wochen nach Pflanzung.
+      Besonderheit Gruenduengung: Phacelia oder Buchweizen statt Senf verwenden,
+      wenn Kohl im Rotationsplan vorkommt. Senf als Gruenduengung = Kohlhernie-Risiko!
+      Meerrettich und Ruebsen: Oft vergessen, dass sie Kreuzbluetler sind. In der
+      Rotationsplanung beruecksichtigen.
+    metadata:
+      family: brassicaceae
+      rotation_years_minimum: 3
+      key_diseases: [clubroot, cabbage_fly, downy_mildew, flea_beetle]
+      severity: high
+
+  - id: familien-rotation-weitere
+    title: Familien-Rotation — Doldenblütler, Huelsenfruchtler und weitere
+    content: |
+      Apiaceae (Doldenblütler):
+      Moehre, Petersilie, Sellerie, Pastinake, Dill, Fenchel, Koriander, Liebstoeckel
+      - 3 Jahre Rotation. Moehrenfliege (Psila rosae) und Selleriefliege ueberwintern
+        im Boden. Moehrenfliege: Kulturschutznetz (Maschenweite < 1.3 mm) ist der
+        beste Schutz. Fruchtfolge allein reicht bei hohem Druck nicht.
+      - Petersilie nach Petersilie: Bodenmuedigkeit bereits nach 1 Jahr!
+        Mindestens 4 Jahre Anbaupause.
+      Fabaceae (Huelsenfruchtler/Leguminosen):
+      Buschbohne, Stangenbohne, Erbse, Puffbohne, Klee, Lupine, Wicke, Linse
+      - 2-3 Jahre Rotation. Weniger wegen Krankheiten, mehr wegen spezifischer
+        Schadinsekten (Bohnenkaefer, Erbsenwickler).
+      - Sonderstellung: Leguminosen sind die BESTEN Vorkulturen fuer Starkzehrer,
+        da sie 20-80 kg N/ha im Boden hinterlassen. Ideal: Erbse → Kohl, Bohne → Tomate.
+      - Klee und Lupine als Gruenduengung zaehlen zur Leguminosen-Rotation!
+      Cucurbitaceae (Kuerbisgewaechse):
+      Kuerbis, Zucchini, Gurke, Melone, Patisson
+      - 3 Jahre Rotation. Mehltau (Erysiphe, Sphaerotheca) und Fusarium.
+      - Gurke braucht besonders gute Bodenvorbereitung (Mistbeet-Tradition hat Grund!).
+      Amaranthaceae (ehem. Chenopodiaceae):
+      Rote Bete, Mangold, Spinat, Amaranth, Quinoa
+      - 2-3 Jahre Rotation. Cercospora-Blattflecken, Ruebennematode.
+      - Spinat vor Kohl: Guter Vorkulturpartner (Saponine unterdruecken Bodenkeime).
+      Liliaceae/Amaryllidaceae (Zwiebelgewaechse):
+      Zwiebel, Knoblauch, Lauch, Schnittlauch, Schalotte
+      - 3-4 Jahre Rotation. Lauchmotte, Zwiebelfliege, Fusarium.
+    metadata:
+      families: [apiaceae, fabaceae, cucurbitaceae, amaranthaceae, amaryllidaceae]
+      rotation_years: [3, 3, 3, 3, 4]
+
+  - id: vorkultur-nachkultur
+    title: Vorkultur und Nachkultur — Doppelnutzung pro Saison
+    content: |
+      In Mitteleuropa ist die Vegetationsperiode lang genug fuer zwei Kulturen nacheinander
+      im selben Beet (Vorkultur + Hauptkultur, oder Hauptkultur + Nachkultur).
+      Klassische Vorkultur-Hauptkultur-Kombinationen:
+      - Radieschen (Maerz-April) → Buschbohne (Mai-Juni): Radieschen 4-6 Wochen,
+        dann Bohne in das frei gewordene Beet. Beide Schwachzehrer.
+      - Feldsalat/Spinat (Maerz) → Tomate (Mai): Salat geerntet bevor Tomate ausgepflanzt wird.
+      - Fruehkartoffel (Maerz) → Gruenduengung oder Feldsalat (Juli-August): Fruehkartoffel
+        Mitte Juni geerntet, sofort Nachkultur oder Gruenduengung.
+      - Erbse (Maerz-April) → Gruenkohl (Juni-Juli): Erbse als N-Lieferant, Gruenkohl als Starkzehrer.
+      Klassische Hauptkultur-Nachkultur-Kombinationen:
+      - Fruehkohl (Mai-Juli) → Feldsalat (August): Kohl im Juli geerntet, sofort Feldsalat saeen.
+      - Zwiebel (Maerz-August) → Spinat (September): Spinat als Winterkultur moeglich.
+      - Buschbohne (Mai-Juli) → Postelein/Asia-Salat (August): Ernte bis in den Winter.
+      Regeln:
+      - Vor- und Nachkultur MUESSEN aus verschiedenen Familien stammen
+      - Vorkultur soll keine Krankheiten fuer die Hauptkultur hinterlassen
+      - Zeitfenster realistisch planen: Mindestens 1 Woche Umbruchpause
+      - Boden zwischen den Kulturen lockern (Grabgabel), nicht umgraben
+      - Kompost nur vor Starkzehrern einarbeiten, nicht zwischen Kulturen
+      In Kamerplanter: Pre-Crop und Post-Crop koennen im CropRotationPlan hinterlegt
+      werden. Der Kalender zeigt automatisch die Termine fuer Umbruch und Nachsaat.
+    metadata:
+      technique: relay_cropping
+      time_gap_weeks: 1
+      months: [3, 4, 5, 6, 7, 8, 9]
+
+  - id: gruenduengung-detail
+    title: Gruenduengung — Arten, Zeitpunkt und Wirkung
+    content: |
+      Gruenduengung ist die wichtigste Massnahme fuer langfristige Bodenfruchtbarkeit.
+      Sie ersetzt den Naehrstoffentzug durch Gemuese, baut Humus auf, lockert den Boden
+      und unterdrueckt Unkraut.
+      Sommergruenduengung (Aussaat April-August, nicht winterhart):
+      - Phacelia (Bueschelschoen): Keine Verwandtschaft mit Gemuese! Universell einsetzbar.
+        Gute Bienenweide. Abfrierend bei -5°C. Aussaat bis August.
+      - Buchweizen: Schnellwuechsig (6-8 Wochen bis Bluete), lockt Nuetzlinge an.
+        Phosphor-Mobilisierer (macht im Boden gebundenes P pflanzenverfuegbar).
+      - Oelrettich: Tiefwurzler (bis 150 cm!), bricht Verdichtungen auf. ACHTUNG: Kreuzbluetler —
+        nicht vor/nach Kohl verwenden!
+      - Gelbsenf: Schnellwuechsig, unterdrueckt Nematoden. ACHTUNG: Kreuzbluetler!
+      Wintergruenduengung (Aussaat August-Oktober, winterhart):
+      - Winterroggen: Winterhart bis -25°C, dichte Wurzelmasse, guter Erosionsschutz.
+        Im Fruehjahr 3-4 Wochen vor Pflanzung abmaehen und einarbeiten.
+      - Inkarnatklee: Leguminose, fixiert 80-120 kg N/ha. Aussaat bis September.
+        Friert regional aus, sicherheitshalber mit Winterroggen mischen.
+      - Winterwicke: Leguminose, fixiert 60-100 kg N/ha. Klettert an Winterroggen hoch
+        (ideale Mischung: Landsberger Gemenge = Winterroggen + Inkarnatklee + Winterwicke).
+      - Feldsalat: Zaehlt auch als Gruenduengung, wenn nicht geerntet — bedeckt den Boden.
+      Einarbeitung: Gruenmasse oberflaechlich einarbeiten (Grabgabel, Grubber), NICHT
+      tief untergraben. 2-4 Wochen Rottephase abwarten vor der naechsten Aussaat.
+      N-Fixierung: Nur Leguminosen fixieren Stickstoff. Phacelia, Senf und Roggen
+      konservieren vorhandene Naehrstoffe, fuegen aber keinen neuen Stickstoff hinzu.
+    metadata:
+      species_summer: [phacelia, buckwheat, oil_radish, mustard]
+      species_winter: [winter_rye, crimson_clover, winter_vetch]
+      nitrogen_fixation_kg_ha: [0, 0, 0, 0, 0, 120, 100]
+
+  - id: dauerkultur-ausnahmen
+    title: Dauerkulturen — Ausnahmen von der Fruchtfolge
+    content: |
+      Manche Kulturen stehen ueber Jahre am selben Ort und sind von der Rotation
+      ausgenommen. Sie erfordern eigene Beete, die nicht in den Rotationsplan einfliessen.
+      Klassische Dauerkulturen:
+      - Spargel: 8-15 Jahre am selben Standort. Tiefgruendiger, sandiger Boden.
+        Eigenes Spargelbeet anlegen, nicht in den Rotationsplan aufnehmen.
+      - Rhabarber: 6-10 Jahre. Halbschatten moeglich, humoser Boden. Naehrstoffreich
+        duengen (Starkzehrer trotz Dauerkultur — jaehrlich Kompost nachlegen).
+      - Erdbeere: 3-4 Jahre, dann Standortwechsel noetig (Verticillium, Bodenmuedigkeit).
+        KEIN Anbau nach Kartoffel oder Tomate (Verticillium-Risiko)!
+      - Kraeuter (mehrjaehrig): Rosmarin, Thymian, Salbei, Oregano, Schnittlauch,
+        Liebstoeckel. Eigenes Kraeuterbeet oder Hochbeet. Gelegentlich Erde austauschen.
+      - Beerensträucher: Himbeere, Brombeere, Johannisbeere, Stachelbeere.
+        10+ Jahre am Standort moeglich. Jaehrlich mulchen (Rindenmulch, Stroh).
+      Mischung Dauerkultur + Rotation:
+      - In Erdbeerbeet-Gaengen: Knoblauch pflanzen (Botrytis-Praevention, siehe Mischkultur)
+      - Unter Beerensträuchern: Walderdbeere oder Taubnessel als Bodendecker
+      - Spargelbeet-Rand: Tomaten profitieren vom windgeschuetzten, warmen Mikroklima
+      In Kamerplanter: Dauerkulturbeete werden im CropRotationPlan als excluded_from_rotation
+      markiert. Die Rotationswarnung wird fuer diese Beete deaktiviert, aber
+      Naehrstoff-Monitoring (REQ-004) bleibt aktiv.
+    metadata:
+      perennial_crops: [asparagus, rhubarb, strawberry, herbs, berries]
+      years_at_location: [15, 10, 4, 10, 10]
+      excluded_from_rotation: true
+
+  - id: haeufige-fehler-fruchtfolge
+    title: Haeufige Fehler bei der Fruchtfolge
+    content: |
+      Selbst erfahrene Gaertner machen bei der Fruchtfolge Fehler. Die haeufigsten
+      Probleme und wie man sie vermeidet:
+      Fehler 1: Familienzugehoerigkeit ignorieren
+      - "Kartoffel und Tomate sind doch ganz verschieden!" — Nein, beide Solanaceae.
+      - "Radieschen ist doch kein Kohl!" — Doch, beides Brassicaceae.
+      - Loesung: Familienzugehoerigkeit in den Stammdaten pruefen (REQ-001), Kamerplanter
+        warnt automatisch bei Familienkonflikt.
+      Fehler 2: Gruenduengung als Familie vergessen
+      - Senf als Gruenduengung → dann Kohl im Fruehjahr = Kohlhernie-Risiko!
+      - Lupine als Gruenduengung → dann Bohne = Leguminose nach Leguminose
+      - Loesung: Phacelia ist IMMER sicher (keine Verwandtschaft mit Gemuese)
+      Fehler 3: Kein Gruenduengungsjahr einplanen
+      - "Ich brauche jedes Beet, fuer Gruenduengung ist kein Platz"
+      - Folge: Humus sinkt, Bodenstruktur verschlechtert sich, Ertraege sinken langfristig
+      - Loesung: Mindestens Zwischengruenduengung (6-8 Wochen nach Ernte bis zum Winter)
+      Fehler 4: Zu wenige Beete fuer echte Rotation
+      - Bei nur 2 Beeten ist eine 4-Jahres-Rotation nicht moeglich
+      - Loesung: 3 Beete Minimum (3-Jahres-Zyklus), besser 4. Oder Hochbeete ergaenzen.
+      Fehler 5: Durchwuchs und Ausfallpflanzen ignorieren
+      - Vergessene Kartoffelknollen keimen naechstes Jahr und brechen die Rotation
+      - Tomatensamen aus Kompost ueberleben und keimen im naechsten Jahr
+      - Loesung: Durchwuchs konsequent entfernen, Kompost heiss genug fuehren (>65°C)
+      Fehler 6: Nur Hauptkultur beruecksichtigen
+      - Vorkultur und Nachkultur muessen ebenfalls in die Familienrotation einbezogen werden
+      - Chinakohl (Brassicaceae) als Nachkultur nach Kohlrabi (Brassicaceae) = falsch
+    metadata:
+      error_count: 6
+      critical_errors: [family_ignorance, green_manure_family, volunteer_plants]

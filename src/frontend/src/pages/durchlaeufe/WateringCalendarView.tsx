@@ -196,6 +196,7 @@ export default function WateringCalendarView({
         const endStr = p.actual_exited_at ?? p.projected_end;
         if (!startStr) continue;
         const startTs = new Date(startStr).getTime();
+        // eslint-disable-next-line react-hooks/purity -- Date.now() fallback for open-ended phase is intentional
         const endTs = endStr ? new Date(endStr).getTime() : Date.now() + 365 * 86400000;
         if (dayTs >= startTs && dayTs <= endTs) {
           map.set(day, {

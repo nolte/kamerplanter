@@ -71,6 +71,16 @@ class Settings(BaseSettings):
     ha_access_token: str = ""  # Long-Lived Access Token
     ha_timeout: int = 10  # HTTP timeout in seconds
 
+    # TimescaleDB (optional — for sensor time-series)
+    timescaledb_enabled: bool = False
+    timescaledb_host: str = "localhost"
+    timescaledb_port: int = 5432
+    timescaledb_database: str = "kamerplanter_sensors"
+    timescaledb_username: str = "postgres"
+    timescaledb_password: str = "changeme"
+    timescaledb_pool_min_size: int = 2
+    timescaledb_pool_max_size: int = 10
+
     # Rate limiting
     rate_limit_auth: str = "20/minute"
     rate_limit_general: str = "100/minute"

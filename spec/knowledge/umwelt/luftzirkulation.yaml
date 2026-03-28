@@ -1,0 +1,138 @@
+---
+title: Luftzirkulation und Belueftung
+category: umwelt
+tags: [luft, ventilator, abluft, zuluft, schimmel, unterdruck, aktivkohle, luftaustausch, wind]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering]
+chunks:
+  - id: warum-luftzirkulation
+    title: Warum Luftzirkulation entscheidend ist
+    content: |
+      Pflanzen brauchen Luftbewegung fuer mehrere Prozesse:
+      1. CO2-Nachschub: Photosynthese verbraucht CO2 direkt an der
+         Blattoberflaeche. Ohne Luftbewegung entsteht eine CO2-arme
+         Grenzschicht (Boundary Layer) → Photosynthese wird limitiert.
+      2. Transpiration: Leichte Luftbewegung entfernt feuchte Luft von
+         der Blattoberflaeche und foerdert gesunde Transpiration.
+      3. Stengel-Staerkung: Mechanischer Reiz durch Wind regt Thigmotropismus
+         an — Stengel werden dicker und stabiler. Pflanzen ohne Wind werden
+         duenn und brechen leicht unter eigenem Gewicht.
+      4. Schimmelvorbeugung: Stagnierende Luft + hohe Feuchtigkeit =
+         Botrytis (Grauschimmel) und Mehltau. Luftbewegung reduziert
+         lokale Feuchtigkeitsnester, besonders im dichten Canopy und an
+         Blueten/Fruechten.
+      5. Temperaturverteilung: Ohne Luftbewegung entstehen Hotspots
+         unter der Lampe und kalte Zonen in den Ecken. Umluft gleicht aus.
+      6. Schaedlingshemmung: Leichter Wind erschwert fliegenden Schaedlingen
+         (Trauermucken, Weisse Fliege) die Landung auf Pflanzen.
+    metadata:
+      topic: air_circulation_importance
+      benefits: [co2_supply, transpiration, stem_strength, mold_prevention, temperature_distribution]
+
+  - id: umluft-ventilatoren
+    title: Umluft-Ventilatoren richtig einsetzen
+    content: |
+      Oszillierende Ventilatoren (Schwenk-Ventilatoren):
+      - Empfohlen fuer Growzelte und kleine Raeume
+      - Oszillation verteilt Luft gleichmaessig, kein Dauer-Wind auf
+        eine Pflanze (Wind-Burn / Windschaden)
+      - Staerke: Blaetter sollen sich sanft bewegen, nicht flattern
+      - Mindestens 1 Ventilator pro Zelt, besser 2 (oben und unten)
+      Platzierung:
+      - Nicht direkt AUF Pflanzen richten (besonders nicht auf Blueten!)
+      - Ueber oder unter dem Canopy platzieren fuer indirekten Luftstrom
+      - In Ecken aufstellen um tote Zonen zu vermeiden
+      - Bei dichtem Canopy: Clip-Ventilator auf Canopy-Hoehe fuer
+        Luftbewegung INNERHALB des Blattwerks
+      Windstaerke-Test: Blaetter sollten sich sanft wiegen, wie bei
+      leichter Brise. Wenn sich Blaetter umklappen oder die Pflanze
+      staendig in eine Richtung gebogen wird → zu stark.
+      Windschaden erkennen: Blattraender trocknen aus (aehnlich wie
+      Naehrstoff-Burn), Blaetter klauen sich nach unten auf der dem Wind
+      zugewandten Seite. Ventilator schwaecher stellen oder weiter weg.
+    metadata:
+      topic: oscillating_fans
+      placement: indirect
+
+  - id: abluft-zuluft
+    title: Abluft und Zuluft — Luftaustausch richtig dimensionieren
+    content: |
+      Growzelte und geschlossene Raeume brauchen aktiven Luftaustausch:
+      Dimensionierung:
+      - Gesamtes Raumvolumen sollte alle 1-3 Minuten ausgetauscht werden
+      - Berechnung: Raumvolumen (m³) × 20-60 = benoetigte m³/h Abluftleistung
+      - Beispiel: 1.2 × 1.2 × 2.0m Zelt = 2.88m³ → Abluft: ~60-170 m³/h
+      - Faustformel: Abluftleistung in m³/h = 60× Raumvolumen in m³
+      Negativer Druck (Unterdruck):
+      - Abluft staerker als Zuluft → leichter Unterdruck im Zelt
+      - Vorteile: Luft wird NUR durch Filter angesogen (kontrollierter
+        Eintritt), Geruch entweicht nicht unkontrolliert
+      - Test: Zeltwände ziehen sich leicht nach innen → Unterdruck ok
+      Zuluft:
+      - Passive Zuluft: Oeffnungen im Zelt unten (Frischluft stroemt nach)
+      - Aktive Zuluft: Eigener Luefter, ggf. mit HEPA-Filter (Schutz vor
+        Schaedlingen und Sporen von aussen)
+      Aktivkohle-Filter:
+      - An der Abluft montiert fuer Geruchsfilterung
+      - Lebensdauer: 12-24 Monate (abhaengig von Feuchtigkeit und Belastung)
+      - Immer im Betrieb trocken halten (Feuchtigkeit zerstoert Aktivkohle)
+      - Dimensionierung: m³/h des Filters ≥ m³/h des Abluft-Luefters
+    metadata:
+      topic: exhaust_intake
+      principle: negative_pressure
+
+  - id: schimmel-praevention-luft
+    title: Schimmelvorbeugung durch Luftmanagement
+    content: |
+      Botrytis cinerea (Grauschimmel) ist die haeufigste und gefaehrlichste
+      Pilzerkrankung in Indoor-Grows, besonders in der spaeten Bluete.
+      Risikofaktoren:
+      - RH >60% in der Bluete (besonders nachts)
+      - Stagnierende Luft um dichte Blueten/Fruechte
+      - Grosse Temperatur-Schwankungen (Kondenswasser!)
+      - Abgestorbenes Pflanzenmaterial im Canopy
+      Vorbeugung durch Luftmanagement:
+      - Luftbewegung um und durch das Canopy (sanft, aber konstant)
+      - RH in spaeter Bluete unter 55% halten (Entfeuchter!)
+      - Keine "toten Ecken" ohne Luftbewegung
+      - Pflanzen nicht zu dicht stellen (Abstand fuer Luftdurchlass)
+      - Defoliation: Grosse Fan Leaves die Luftstrom blockieren entfernen
+        (nur bei erfahrenen Growern in der Bluete)
+      - Nachttemperatur nicht zu stark abfallen lassen (DIF max 5-8°C)
+      - Bewaesserung morgens/vormittags, nicht vor der Dunkelphase
+      Erkennung: Graues/braunes Fuzz auf Blueten/Fruechten, Bluete
+      wird innen braun und matschig. Befallene Teile sofort grosszuegig
+      herausschneiden (5cm ueber sichtbarem Befall). Nicht schuetteln
+      (verbreitet Sporen!). Werkzeug desinfizieren zwischen Schnitten.
+    metadata:
+      topic: mold_prevention
+      primary_pathogen: botrytis_cinerea
+      critical_rh: 60
+
+  - id: outdoor-wind
+    title: Windschutz und Luftbewegung im Freiland
+    content: |
+      Outdoor-Pflanzen brauchen natuerliche Luftbewegung, aber Schutz
+      vor extremem Wind:
+      Windschutz-Methoden:
+      - Hecken (beste Loesung): Bremsen Wind ab ohne Verwirbelungen.
+        Durchlaessige Hecke besser als solide Mauer (Mauer erzeugt
+        Turbulenzen auf der Leeseite).
+      - Windschutznetze: 50-60% Winddurchlass ideal
+      - Lage nutzen: Suedseite von Gebaeuden, geschuetzte Ecken
+      - Fuer Kuebelpflanzen: Bei Sturm an geschuetzte Stelle ruecken
+      Reihenausrichtung:
+      - Hauptwindrichtung quer zu den Reihen → gleichmaessige Durchlueftung
+      - Bei starkem Wind: Reihen parallel zum Wind → weniger mechanischer Stress
+      Windschaden erkennen:
+      - Zerfetzte Blaetter, abgebrochene Triebe
+      - Einseitiges Wachstum (Windschur-Formen bei Dauerwind)
+      - Austrocknung auf der dem Wind zugewandten Seite
+      Positive Effekte von Wind:
+      - Natuerliche Bestaeubung (Wind-Bestaeubung bei Mais, Getreide)
+      - Kraeftigere Staemme (Thigmotropismus)
+      - Abtransport von Krankheitssporen (wenn gute Durchlueftung)
+      - Reduzierter Schaedlingsdruck (fliegende Insekten)
+    metadata:
+      topic: outdoor_wind
+      protection: [hedges, windbreak_nets, building_shelter]

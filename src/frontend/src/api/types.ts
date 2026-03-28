@@ -1196,6 +1196,11 @@ export interface TankAlert {
   severity: string;
   message: string;
   value: number;
+  limit?: number;
+  limit_min?: number;
+  limit_max?: number;
+  factors?: string[];
+  temp?: number;
 }
 
 // ── TankFillEvent types ──────────────────────────────────────────────
@@ -1326,6 +1331,42 @@ export interface LiveStateResponse {
   errors: Array<{ entity_id: string; error: string }>;
   source: string;
   message?: string | null;
+}
+
+// ── Observations / Sensor Readings (TimescaleDB) ───────────────────
+
+export interface SensorReadingResponse {
+  time: string;
+  sensor_key: string;
+  sensor_type: string;
+  value: number;
+  unit: string | null;
+  source: string;
+  quality_score: number | null;
+  raw_value: number | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface AggregatedReadingResponse {
+  bucket: string;
+  sensor_key: string;
+  sensor_type: string;
+  avg_value: number;
+  min_value: number;
+  max_value: number;
+  sample_count: number;
+}
+
+export type SensorReadingItem = SensorReadingResponse | AggregatedReadingResponse;
+
+export interface ReadingsListResponse {
+  items: SensorReadingItem[];
+  total: number;
+  resolution: string;
+}
+
+export interface TimeseriesStatusResponse {
+  available: boolean;
 }
 
 // ── REQ-004 Fertilizer types ────────────────────────────────────────

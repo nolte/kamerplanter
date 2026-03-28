@@ -1,0 +1,234 @@
+---
+title: Schaedlinge fruehzeitig erkennen
+category: diagnostik
+tags: [schaedlinge, spinnmilben, thrips, trauermucken, blattlaeuse, weisse-fliege, schildlaeuse, wolllaeuse, ipm, frueherkennung]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: spinnmilben-erkennung
+    title: Spinnmilben (Tetranychidae) frueh erkennen
+    content: |
+      Erste Anzeichen (oft uebersehen):
+      - Feine helle Punkte (Stippling) auf Blattoberseiten — wie mit Nadel gestochen
+      - Blaetter wirken stumpf/matt statt glaenzig
+      - Winzige helle oder roetliche Punkte auf Blattunterseiten (die Milben selbst,
+        0.3-0.5mm gross — Lupe noetig!)
+      Fortgeschrittener Befall:
+      - Feine Gespinste (Webs) an Blattachseln und zwischen Blaettern
+      - Blaetter werden bronzefarben, vertrocknen, fallen ab
+      - Bei starkem Befall: komplette Pflanze eingesponnen
+      Wo suchen: IMMER Blattunterseiten pruefen! Besonders an den aeltesten
+      Blaettern und in der Naehe der Mittelrippe. Spinnmilben lieben
+      trockene, warme Bedingungen (>25°C, <50% RH).
+      Sofortmassnahmen:
+      - Befallene Blaetter entfernen und entsorgen (nicht kompostieren)
+      - Pflanze abduschen (Oberseite UND Unterseite gruendlich)
+      - Luftfeuchtigkeit erhoehen auf 60-70% (hemmt Vermehrung)
+      - Raubmilben einsetzen: Phytoseiulus persimilis (fressen nur Spinnmilben)
+        oder Amblyseius californicus (auch vorbeugend)
+      - Neem-Oel oder Kaliseife als Kontakt-Spray bei starkem Befall
+      Vorbeugung: RH ueber 55% halten, neue Pflanzen 2 Wochen in Quarantaene.
+    metadata:
+      pest: spider_mites
+      family: Tetranychidae
+      difficulty: common
+      environment_preference: hot_dry
+
+  - id: thrips-erkennung
+    title: Thrips (Thysanoptera) frueh erkennen
+    content: |
+      Erste Anzeichen:
+      - Silbrig-graue Streifen und Flecken auf Blattoberseiten
+      - Winzige schwarze Kotpunkte auf Blaettern
+      - Blaetter wirken "verkratzt" oder "geschliffen"
+      - Bei Blueten: braune Flecken, deformierte Bluetenblaetter
+      Thrips sind winzig (1-2mm), laenglich, schnell. Farbe: gelblich bis braun.
+      Fliegen kurze Strecken — verbreiten sich schnell.
+      Wo suchen: Blattunterseiten, in Bluetenknospen, in eingerollten jungen
+      Blaettern. Blaues oder gelbes Klebefallen (Sticky Traps) zeigen
+      Befall frueh an — blaue Fallen sind fuer Thrips effektiver als gelbe.
+      Sofortmassnahmen:
+      - Blaue Klebefallen aufhaengen (Monitoring UND Reduktion)
+      - Spinosad-basiertes Spray (biologisch, sehr effektiv gegen Thrips)
+      - Raubmilben: Amblyseius cucumeris (vorbeugend, frisst Thrips-Larven)
+      - Neem-Oel als systemisches Giessen (wird ueber Wurzel aufgenommen)
+      - Befallene Bluetenknospen entfernen
+      Thrips uebertragen Pflanzenviren (z.B. Tomatenbronzfleckenvirus TSWV).
+      Schnelle Bekaempfung daher besonders wichtig.
+    metadata:
+      pest: thrips
+      order: Thysanoptera
+      difficulty: common
+      vector_for: [TSWV, INSV]
+
+  - id: trauermucken-erkennung
+    title: Trauermucken (Sciaridae) frueh erkennen
+    content: |
+      Erste Anzeichen:
+      - Kleine schwarze Fliegen (2-4mm) die beim Giessen aus dem Substrat
+        auffliegen. Traege Flieger, laufen gern auf der Substrat-Oberflaeche.
+      - Gelbe Klebefallen nahe der Substrat-Oberflaeche fangen Adulte.
+      - Saemlings-Welke: Keimlinge kippen um, Stiel wird duenn an der Basis
+        (Larven fressen Feinwurzeln und Stiel-Basis).
+      Die Larven (weiss, glasig, 5-7mm, schwarzer Kopf) leben im feuchten
+      Substrat und fressen Wurzeln und organische Substanz.
+      Schaden: Bei Jungpflanzen und Stecklingen gefaehrlich. Bei grossen
+      Pflanzen eher laestig als schaedlich (ausser bei Massenbefall).
+      Sofortmassnahmen:
+      - Substrat ABTROCKNEN lassen (Larven brauchen Feuchtigkeit)
+      - Gelbe Klebefallen fuer Adulte (Bodennah aufstellen)
+      - Nematoden (Steinernema feltiae) giessen — biologisch, sehr effektiv
+      - BTi (Bacillus thuringiensis israelensis) giessen: Mosquito Bits
+      - Quarzsand-Schicht (5mm) auf Substrat — verhindert Eiablage
+      - Neem-Oel als Substrat-Drench
+      Vorbeugung: Nicht uebergiessen, Substrat zwischen Giess-Durchgaengen
+      antrocknen lassen. Offene Kompost-Saecke schliessen.
+    metadata:
+      pest: fungus_gnats
+      family: Sciaridae
+      difficulty: common
+      environment_preference: moist_substrate
+
+  - id: blattlaeuse-erkennung
+    title: Blattlaeuse (Aphidoidea) frueh erkennen
+    content: |
+      Erste Anzeichen:
+      - Kleine gruene, schwarze oder weisse Insekten (1-3mm) in Kolonien
+        an Triebspitzen, jungen Blaettern und Blattunterseiten
+      - Klebrige Ablagerungen auf Blaettern (Honigtau/Honeydew)
+      - Eingerollte oder verkrueppelte junge Blaetter
+      - Ameisen auf der Pflanze (Ameisen "melken" Blattlaeuse fuer Honigtau)
+      Blattlaeuse vermehren sich explosionsartig — ein Weibchen produziert
+      bis zu 80 lebende Nachkommen ohne Befruchtung (Parthenogenese).
+      Bei Ueberpopulation bilden sich gefluegelte Formen die neue Pflanzen besiedeln.
+      Wo suchen: Triebspitzen, junge Blaetter (noch weich), Blattunterseiten,
+      Blueten-Stiele. Laeuse bevorzugen stickstoffreiches, weiches Gewebe.
+      Sofortmassnahmen:
+      - Stark befallene Triebspitzen abschneiden
+      - Abspruehen mit starkem Wasserstrahl (draussen)
+      - Kaliseife / Schmierseife-Spray (20ml Kaliseife + 1L Wasser)
+      - Marienkaefer und -larven (Adalia bipunctata) — fressen 50-100 Laeuse/Tag
+      - Florfliegenlarven (Chrysoperla carnea) — sehr gefraessig
+      - Neem-Oel als Kontaktspray und systemisch
+      Bei Zimmerpflanzen: Quarantaene sofort, Seifenwasser-Spray reicht oft.
+    metadata:
+      pest: aphids
+      superfamily: Aphidoidea
+      difficulty: easy
+      reproduction: parthenogenesis
+
+  - id: weisse-fliege-erkennung
+    title: Weisse Fliege (Aleyrodoidea) frueh erkennen
+    content: |
+      Erste Anzeichen:
+      - Winzige weisse "Motten" (1-2mm) die beim Beruehren der Pflanze
+        in einer Wolke auffliegen
+      - Weisse ovale Schuppen auf Blattunterseiten (Larven/Puppen)
+      - Honigtau auf Blaettern → fuehrt zu Russtaupilzen (schwarzer Belag)
+      - Blaetter vergilben und fallen vorzeitig ab
+      Zwei Hauptarten: Gewaechshaus-Weisse-Fliege (Trialeurodes vaporariorum)
+      und Tabakmottenschildlaus (Bemisia tabaci) — letztere uebertraegt Viren.
+      Wo suchen: Blattunterseiten, besonders an jungen Blaettern.
+      Gelbe Klebefallen auf Pflanzen-Hoehe fuer Monitoring.
+      Sofortmassnahmen:
+      - Gelbe Klebefallen (fangen Adulte)
+      - Schlupfwespen: Encarsia formosa (biologische Bekaempfung, sehr effektiv
+        im Gewaechshaus)
+      - Kaliseife-Spray gegen Larven und Adulte
+      - Neem-Oel als systemisches Giessen
+      - Bei starkem Befall: Pyrethrum-basiertes Spray (abends, da lichtempfindlich)
+      Vorbeugung: Engmaschige Insektenschutznetze an Lueftungsoeffnungen.
+      Keine Unkraeuter in der Naehe (Wirtspflanzen entfernen).
+    metadata:
+      pest: whitefly
+      superfamily: Aleyrodoidea
+      difficulty: moderate
+      vector_for: [TYLCV, ToCV]
+
+  - id: schildlaeuse-erkennung
+    title: Schildlaeuse (Coccoidea) frueh erkennen
+    content: |
+      Erste Anzeichen:
+      - Kleine braune, ovale oder runde "Beulen" an Stengeln, Blattadern
+        und Blattunterseiten (2-5mm). Wirken wie Pflanzenmaterial, werden
+        oft uebersehen.
+      - Klebrige Ablagerungen (Honigtau)
+      - Blaetter vergilben, Pflanze kuemmert
+      - Russtaupilz auf Honigtau-Ablagerungen
+      Schildlaeuse sind von einem Schild geschuetzt → Kontaktmittel wirken
+      nur im Larvenstadium ("Crawler"), nicht auf adulte Tiere unter dem Schild.
+      Wo suchen: Stengel, Blattachseln, Blattunterseiten entlang der Adern,
+      an Rinde von Gehoelzen. Besonders bei Citrus, Oleander, Ficus, Orchideen.
+      Sofortmassnahmen:
+      - Einzelne Tiere mechanisch mit Zahnstocher oder Wattestäbchen
+        (in Alkohol getaucht) entfernen
+      - Oelbasierte Sprays (Raps-Oel, Paraffin-Oel) ersticken die Tiere
+        unter ihrem Schild
+      - Neem-Oel systemisch und als Kontaktspray
+      - Schlupfwespen (Metaphycus, Coccophagus) bei starkem Befall
+      - Stark befallene Pflanzenteile zurueckschneiden
+      Hartnackig! Mehrere Behandlungen im 7-10 Tage-Abstand noetig,
+      um Crawler-Stadien zu erwischen.
+    metadata:
+      pest: scale_insects
+      superfamily: Coccoidea
+      difficulty: hard
+      protection: waxy_shield
+
+  - id: wolllaeuse-erkennung
+    title: Woll- und Schmierlaeuse (Pseudococcidae) frueh erkennen
+    content: |
+      Erste Anzeichen:
+      - Weisse, watteartige Klumpen an Blattachseln, Triebspitzen und
+        Blattunterseiten
+      - Bei Wurzelbefall (Wurzel-Wolllaeuse): weisse Klumpen an Wurzeln,
+        erst beim Umtopfen sichtbar
+      - Honigtau und nachfolgend Russtaupilz
+      - Pflanze kuemmert, waechst langsam
+      Wolllaeuse sind mit einer Wachsschicht geschuetzt. Weibchen sind
+      fluegellos und bewegen sich kaum. Maennchen haben Fluegel.
+      Wo suchen: Blattachseln (wo Blatt am Stengel ansetzt), unter
+      Blatthautchen, an Wurzelhals, in Bluetenknospen. Bei Kakteen:
+      zwischen Rippen und unter Dornen. Bei Orchideen: in Blattscheiden.
+      Sofortmassnahmen:
+      - Wattestäbchen mit Isopropanol (70%) abtupfen
+      - Pflanze gruendlich abduschen (lauwarm)
+      - Kaliseife-Spray mit etwas Isopropanol (5ml auf 1L)
+      - Neem-Oel systemisch als Giess-Loesung (wirkt auch gegen Wurzel-Wolllaeuse)
+      - Australischer Marienkaefer (Cryptolaemus montrouzieri) — der
+        "Wolllauszerstoerer", sehr effektiv
+      Behandlung alle 5-7 Tage wiederholen fuer mindestens 3 Wochen,
+      da Eier geschuetzt in den Wachsfaeden liegen.
+    metadata:
+      pest: mealybugs
+      family: Pseudococcidae
+      difficulty: moderate
+      protection: waxy_coating
+
+  - id: gelbtafel-monitoring
+    title: Klebefallen-Monitoring richtig einsetzen
+    content: |
+      Klebefallen (Sticky Traps) sind das wichtigste Fruehwarn-System:
+      Gelbe Klebefallen fangen:
+      - Trauermucken (Sciaridae) — bodennah aufhaengen
+      - Weisse Fliege (Aleyrodoidea)
+      - Gefluegelte Blattlaeuse
+      - Minierfliegen (Liriomyza)
+      Blaue Klebefallen fangen:
+      - Thrips (Thysanoptera) — effektiver als gelb fuer Thrips
+      Platzierung:
+      - Auf Pflanzen-Hoehe (nicht ueber oder weit entfernt)
+      - 1 Falle pro 10-20m² im Gewaechshaus
+      - Bodennah zusaetzlich fuer Trauermucken
+      - Nahe Eingangsbereich und Lueftung (erste Einflugstelle)
+      Auswertung:
+      - Woechentlich pruefen und zaehlen (Monitoring-Protokoll)
+      - Steigende Fangzahlen = Befall aufbauen → sofort handeln
+      - Falle ersetzen wenn >50% Flaeche belegt
+      Klebefallen allein bekaempfen NICHT — sie sind Monitoring-Werkzeuge.
+      Aber sie zeigen Befall Tage bis Wochen vor sichtbaren Pflanzenschaeden.
+      In Kamerplanter: Fangzahlen als Inspection-Eintrag dokumentieren (REQ-010).
+    metadata:
+      tool: sticky_traps
+      colors: [yellow, blue]
+      purpose: monitoring

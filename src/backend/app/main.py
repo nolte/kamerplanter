@@ -120,6 +120,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     backfill_tenant_key(db)
 
+    # TimescaleDB init (optional)
+    if settings.timescaledb_enabled:
+        from app.common.dependencies import get_timescale_connection
+        from app.data_access.timescale.schema import ensure_timescale_schema
+
+        ts_conn = get_timescale_connection()
+        if ts_conn:
+            ts_conn.connect()
+            ensure_timescale_schema(ts_conn.pool)
+            logger.info("timescaledb_ready")
+        else:
+            logger.warning("timescaledb_enabled_but_connection_failed")
+
     yield
 
     close_connection()
@@ -168,13 +181,18 @@ app.include_router(api_router)
 
 
 @app.get("/api/health", tags=["health"])
-def root_health() -> dict[str, str]:
+def root_health() -> dict:
     """Root-level health endpoint for M2M consumers (HA integration)."""
-    return {
+    result: dict = {
         "status": "healthy",
         "version": settings.app_version,
         "mode": settings.kamerplanter_mode,
     }
+    if settings.timescaledb_enabled:
+        from app.common.dependencies import get_observation_repo
+
+        result["timescaledb"] = "available" if get_observation_repo().is_available() else "unavailable"
+    return result
 
 
 # Static file serving for task photo uploads

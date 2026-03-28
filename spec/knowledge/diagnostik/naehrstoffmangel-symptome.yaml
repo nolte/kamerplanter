@@ -1,0 +1,361 @@
+---
+title: Naehrstoffmangel und -ueberschuss erkennen
+category: diagnostik
+tags: [naehrstoffe, mangel, ueberschuss, blaetter, symptome, chlorose, nekrose, npk, calcium, magnesium, eisen]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: mangel-stickstoff
+    title: Stickstoff (N) Mangel
+    content: |
+      Symptome: Aeltere (untere) Blaetter werden gleichmaessig hellgruen bis gelb.
+      Fortschreitet von unten nach oben, da Stickstoff mobil ist und zu jungen
+      Blaettern umverlagert wird. Wachstum verlangsamt sich deutlich, Stiele
+      werden duenn, Pflanze wirkt blass und schwaechlich.
+      Ursachen: Zu niedriger EC, pH ausserhalb 5.5-6.5 (Hydro) bzw. 6.0-7.0 (Erde),
+      zu seltene Duengung, Wurzelprobleme, kalte Wurzelzone (<18°C),
+      ueberwaessertes Substrat (Sauerstoffmangel an Wurzeln).
+      Massnahmen:
+      - EC um 0.2-0.4 mS/cm erhoehen
+      - pH pruefen und in optimalen Bereich korrigieren
+      - Stickstoffbetonte Naehrloesung verwenden (hoeherer N-Anteil)
+      - In Erde: Hornmehl (langsam) oder Blutmehl (schnell) als Sofortmassnahme
+      - Wurzelzone pruefen — gesunde weisse Wurzeln noetig fuer Aufnahme
+      Abgrenzung: Natuerlicher N-Abbau in unteren Blaettern waehrend spaeter
+      Bluete ist normal und kein Mangel. In der Abreife (letzte 2 Wochen)
+      ist Vergilbung sogar erwuenscht.
+    metadata:
+      nutrient: nitrogen
+      symbol: N
+      deficiency_type: mobile
+      severity_indicator: lower_leaves_yellowing
+      affected_leaves: old
+
+  - id: mangel-phosphor
+    title: Phosphor (P) Mangel
+    content: |
+      Symptome: Blaetter werden dunkelgruen mit violetten/purpurnen Verfaerbungen,
+      besonders an Stielen und Blattunterseiten. Wachstum stockt, Bluete wird
+      verzoegert. Bei starkem Mangel: braune Flecken, Blattabwurf.
+      Phosphor ist mobil — Symptome beginnen an aelteren Blaettern.
+      Haeufig bei niedrigen Temperaturen (<18°C Wurzelzone), da P-Aufnahme
+      temperaturabhaengig ist. Auch bei pH unter 5.5 oder ueber 7.0 stark
+      eingeschraenkt (Phosphat-Lockout).
+      Ursachen: Kalte Wurzelzone, falscher pH, tatsaechlicher P-Mangel in
+      Naehrloesung, Zink-Ueberschuss blockiert P-Aufnahme.
+      Massnahmen:
+      - Wurzelzonen-Temperatur pruefen und auf >18°C bringen
+      - pH auf 6.0-6.5 korrigieren (optimale P-Verfuegbarkeit)
+      - Phosphorbetonte Naehrloesung oder PK-Booster zusetzen
+      - In Erde: Knochenmehl einarbeiten (langsame Freisetzung)
+      Achtung: Purpurne Stiele koennen auch genetisch bedingt sein —
+      nur in Kombination mit Wachstumsstockung ist es ein Mangelsymptom.
+    metadata:
+      nutrient: phosphorus
+      symbol: P
+      deficiency_type: mobile
+      severity_indicator: purple_stems
+      affected_leaves: old
+
+  - id: mangel-kalium
+    title: Kalium (K) Mangel
+    content: |
+      Symptome: Blattraender werden braun und trocken (Randnekrose), beginnt
+      an aelteren Blaettern. Blaetter koennen sich nach oben woelben.
+      Pflanzen werden anfaelliger fuer Krankheiten und Trockenstress.
+      Fruchtqualitaet leidet — kleinere Fruechte, geringerer Zuckergehalt.
+      Kalium ist mobil und wird zu jungen Blaettern umverlagert.
+      Ursachen: Zu niedrige Kalium-Konzentration, Calcium-Ueberschuss
+      (Ca/K-Antagonismus), zu hoher EC mit wenig K-Anteil, pH >7.0.
+      Massnahmen:
+      - Kaliumsulfat (K2SO4) zusetzen
+      - PK-Booster in der Bluete erhoehen
+      - pH pruefen (optimal 5.8-6.5)
+      - In Erde: Patentkali oder Beinwell-Jauche (kaliumreich)
+      Besonders kritisch in der Bluete/Fruchtbildung, da K fuer
+      Fruchtentwicklung, Zucker- und Staerketransport essenziell ist.
+      Vorbeugung: Kaliumbetontes Duengeschema ab Bluetebeginn.
+    metadata:
+      nutrient: potassium
+      symbol: K
+      deficiency_type: mobile
+      severity_indicator: leaf_edge_necrosis
+      affected_leaves: old
+
+  - id: mangel-calcium
+    title: Calcium (Ca) Mangel
+    content: |
+      Symptome: Neue Blaetter (oben) verformen sich, kräuseln sich, zeigen
+      braune nekrotische Flecken. Wachstumspunkte sterben ab. Bei Tomaten:
+      Bluetenendfaeule (braune Flecken am Fruchtboden). Bei Cannabis:
+      braune Flecken auf neuen Blaettern, verformte Triebspitzen.
+      Calcium ist IMMOBIL — Symptome zeigen sich immer zuerst an den
+      juengsten Pflanzenteilen und Wachstumspunkten.
+      Ursachen: RO-Wasser ohne CalMag-Zusatz, zu weiches Leitungswasser,
+      pH unter 5.5 (Ca-Lockout), zu hohe Kalium- oder Ammonium-Duengung
+      (verdraengt Ca), ungleichmaessige Bewaesserung (Blossom End Rot).
+      Massnahmen:
+      - CalMag-Praeparat zusetzen (IMMER vor Base-Nutrients mischen!)
+      - pH auf 6.0-6.5 korrigieren
+      - Bewaesserung gleichmaessig halten (Schwankungen vermeiden)
+      - EC des Ausgangswassers pruefen — RO-Wasser braucht immer CalMag
+      Ziel-Ca: 150-250 ppm im Hydro-System, Ca:Mg-Verhaeltnis 3:1 bis 4:1.
+    metadata:
+      nutrient: calcium
+      symbol: Ca
+      deficiency_type: immobile
+      severity_indicator: new_growth_deformed
+      affected_leaves: new
+
+  - id: mangel-magnesium
+    title: Magnesium (Mg) Mangel
+    content: |
+      Symptome: Intervenale Chlorose an aelteren Blaettern — Blattadern
+      bleiben gruen, Flaeche dazwischen wird gelb. Klassisches
+      "Weihnachtsbaum-Muster". Bei starkem Mangel werden Blaetter komplett
+      gelb und fallen ab. Magnesium ist mobil.
+      Sehr haeufig in der Bluete, wenn Kalium-Bedarf steigt (K/Mg-Antagonismus).
+      Ursachen: Zu wenig Mg in Naehrloesung, Kalium-Ueberschuss,
+      pH unter 5.5, kalte Wurzelzone, RO-Wasser ohne CalMag.
+      Massnahmen:
+      - CalMag-Praeparat zusetzen (enthalt Ca UND Mg)
+      - Bittersalz-Blattspray (Epsom Salt): 5g/L, abends aufspruehen
+        fuer schnelle Soforthilfe (Mg wird ueber Blaetter aufgenommen)
+      - pH auf 6.0-6.5 korrigieren
+      - Kalium-Duengung pruefen — zu viel K blockiert Mg-Aufnahme
+      Bittersalz (MgSO4) ist die schnellste Soforthilfe bei akutem
+      Mg-Mangel. Blattapplikation wirkt innerhalb von 2-3 Tagen.
+    metadata:
+      nutrient: magnesium
+      symbol: Mg
+      deficiency_type: mobile
+      severity_indicator: interveinal_chlorosis
+      affected_leaves: old
+
+  - id: mangel-schwefel
+    title: Schwefel (S) Mangel
+    content: |
+      Symptome: Aehnlich wie Stickstoff-Mangel, aber an JUNGEN Blaettern
+      (Schwefel ist nur begrenzt mobil). Gleichmaessige Aufhellung der neuen
+      Blaetter, ohne dass Adern sichtbar gruener bleiben. Stiele koennen
+      sich violett verfaerben. Wachstum verlangsamt sich.
+      Selten bei mineralischer Duengung (Sulfate in vielen Duengern).
+      Haeufiger bei reiner organischer Duengung oder wenn ausschliesslich
+      Nitrat-basierte N-Quellen verwendet werden.
+      Ursachen: Fehlendes Sulfat in Naehrloesung, sehr reines Wasser
+      ohne Sulfat-Anteil, pH-Extremwerte.
+      Massnahmen:
+      - Kaliumsulfat (K2SO4) oder Magnesiumsulfat (MgSO4) zusetzen
+      - Bittersalz (Epsom Salt) liefert Mg UND S
+      - pH pruefen und korrigieren
+      Abgrenzung zu N-Mangel: S-Mangel betrifft NEUE Blaetter zuerst,
+      N-Mangel ALTE Blaetter zuerst. Das ist der wichtigste Unterschied.
+    metadata:
+      nutrient: sulfur
+      symbol: S
+      deficiency_type: semi_mobile
+      severity_indicator: new_leaves_pale
+      affected_leaves: new
+
+  - id: mangel-eisen
+    title: Eisen (Fe) Mangel
+    content: |
+      Symptome: Markante intervenale Chlorose an JUNGEN Blaettern —
+      Blattadern bleiben scharf gruen, Flaechen dazwischen werden gelb
+      bis fast weiss. Eisen ist immobil. Bei starkem Mangel: gesamtes
+      neues Wachstum fast weiss/bleich.
+      Haeufigste Ursache ist NICHT tatsaechlicher Fe-Mangel, sondern
+      pH-bedingter Lockout: Ueber pH 6.5 (Hydro) bzw. 7.0 (Erde) faellt
+      die Eisen-Verfuegbarkeit dramatisch ab. Chelat-Form entscheidend:
+      Fe-DTPA stabil bis pH 7.0, Fe-EDDHA bis pH 9.0.
+      Ursachen: pH zu hoch (>6.5), Ueberwaesserung (anaerobe Bedingungen),
+      Phosphor-Ueberschuss, Mangan-Ueberschuss, kalkhaltiges Giesswasser.
+      Massnahmen:
+      - pH auf 5.5-6.0 senken (wichtigste Massnahme!)
+      - Fe-Chelat (DTPA oder EDDHA) als Blattspray oder Wurzelduengung
+      - Kalkanteil im Wasser pruefen
+      - Drainage verbessern (Sauerstoff an Wurzeln)
+      In 90% der Faelle reicht pH-Korrektur allein aus.
+    metadata:
+      nutrient: iron
+      symbol: Fe
+      deficiency_type: immobile
+      severity_indicator: new_leaves_interveinal_chlorosis
+      affected_leaves: new
+
+  - id: mangel-mangan
+    title: Mangan (Mn) Mangel
+    content: |
+      Symptome: Aehnlich wie Eisenmangel — intervenale Chlorose an jungen
+      Blaettern, aber weniger scharf abgegrenzt. Gelbe Flecken zwischen
+      den Adern, die sich zu braunen nekrotischen Punkten entwickeln
+      koennen. Blaetter wirken "gesprenkelt".
+      Mangan ist immobil. Tritt oft zusammen mit Fe-Mangel auf, da beide
+      vom gleichen pH-Bereich abhaengen.
+      Ursachen: pH ueber 6.5, kalkhaltiges Substrat, Eisen-Ueberschuss
+      (Fe/Mn-Antagonismus), kalte Wurzelzone.
+      Massnahmen:
+      - pH auf 5.5-6.2 senken
+      - Mn-haltigen Mikronaehrstoff-Mix zusetzen
+      - Mangansulfat als Blattspray (0.5-1 g/L)
+      Abgrenzung zu Fe-Mangel: Mn-Mangel zeigt eher diffuse gesprenkelte
+      Chlorose, Fe-Mangel zeigt scharfe gruene Adern auf gelbem Grund.
+      In der Praxis treten beide oft gemeinsam auf (gleiche pH-Ursache).
+    metadata:
+      nutrient: manganese
+      symbol: Mn
+      deficiency_type: immobile
+      severity_indicator: speckled_chlorosis
+      affected_leaves: new
+
+  - id: mangel-zink
+    title: Zink (Zn) Mangel
+    content: |
+      Symptome: Junge Blaetter bleiben klein, sind deformiert, zeigen
+      intervenale Chlorose. Internodien (Abstaende zwischen Blattknoten)
+      werden sehr kurz — "Rosetten-Bildung". Blattraender koennen sich
+      wellig verformen. Zink ist immobil.
+      Ursachen: pH ueber 7.0, Phosphor-Ueberschuss (P blockiert Zn-Aufnahme),
+      kalkhaltiger Boden, Kälte.
+      Massnahmen:
+      - pH auf 5.5-6.5 korrigieren
+      - Zinksulfat als Blattspray (0.5 g/L)
+      - Phosphor-Duengung reduzieren falls ueberhoeht
+      - Cheliertes Zink ueber Wurzel zusetzen
+      Abgrenzung: Zn-Mangel zeigt charakteristische Kleinblaettrigkeit
+      und kurze Internodien, was bei Fe- oder Mn-Mangel nicht auftritt.
+    metadata:
+      nutrient: zinc
+      symbol: Zn
+      deficiency_type: immobile
+      severity_indicator: small_deformed_new_leaves
+      affected_leaves: new
+
+  - id: mangel-bor
+    title: Bor (B) Mangel
+    content: |
+      Symptome: Wachstumspunkte sterben ab (aehnlich Ca-Mangel), Stiele
+      werden hohl und bruechig, Wurzeln werden braun. Bei Wurzelgemuese:
+      Hohlherzigkeit (Rettich, Sellerie). Blaetter werden dick und
+      sproede, neue Blaetter verformen sich.
+      Bor ist immobil. Tritt besonders bei Trockenheit auf, da Bor
+      mit dem Wasserstrom transportiert wird (Massenfluss).
+      Ursachen: Trockenheit, pH ueber 6.5, kalkarmer Boden, hohe
+      Kalium-Gaben, sandiger Boden (Auswaschung).
+      Massnahmen:
+      - Borax als Blattspray (0.1-0.2 g/L) — VORSICHT, schmaler Grat
+        zwischen Mangel und Toxizitaet!
+      - Gleichmaessige Bewaesserung sicherstellen
+      - pH korrigieren
+      Achtung: Bor-Ueberschuss (Toxizitaet) zeigt sich als Blattrand-
+      Nekrose. Dosierung sehr genau einhalten — Bor hat den schmalsten
+      Toleranzbereich aller Mikronaehrstoffe.
+    metadata:
+      nutrient: boron
+      symbol: B
+      deficiency_type: immobile
+      severity_indicator: hollow_stems_dead_growing_tips
+      affected_leaves: new
+
+  - id: mangel-kupfer
+    title: Kupfer (Cu) Mangel
+    content: |
+      Symptome: Junge Blaetter werden dunkelgruen, welken und rollen sich
+      ein. Blaetter wirken schlaff trotz ausreichender Bewaesserung.
+      Triebspitzen koennen absterben. Bei Getreide: "Weissspitzigkeit".
+      Kupfer ist immobil. Selten bei normaler Duengung.
+      Ursachen: Sehr hoher pH (>7.0), torfige Boeden (binden Cu stark),
+      Zink- oder Eisen-Ueberschuss, sehr hohe organische Substanz.
+      Massnahmen:
+      - pH korrigieren
+      - Kupfersulfat in sehr geringer Dosis (0.1-0.2 g/L Blattspray)
+      - Kupfer-Chelat ueber Wurzel
+      Achtung: Cu-Ueberschuss ist toxisch fuer Wurzeln und Bodenleben.
+      Nur bei gesicherter Diagnose supplementieren. Cu akkumuliert im
+      Boden und wird nicht ausgewaschen.
+    metadata:
+      nutrient: copper
+      symbol: Cu
+      deficiency_type: immobile
+      severity_indicator: wilting_dark_new_leaves
+      affected_leaves: new
+
+  - id: mangel-molybdaen
+    title: Molybdaen (Mo) Mangel
+    content: |
+      Symptome: Aeltere Blaetter zeigen unregelmaessige gelbe Flecken,
+      Blattraender rollen sich nach oben ("Loeffelform"). Aehnelt
+      Stickstoff-Mangel, da Mo fuer die Nitrat-Reduktase benoetigt wird
+      (ohne Mo kann die Pflanze Nitrat nicht verwerten).
+      Mo ist der einzige Mikronaehrstoff der bei NIEDRIGEM pH schlechter
+      verfuegbar ist — unter pH 5.5 wird Mo festgelegt.
+      Ursachen: pH unter 5.5 (haeufigste Ursache), saure Boeden,
+      Sulfat-Ueberschuss (S/Mo-Antagonismus).
+      Massnahmen:
+      - pH auf 6.0-6.5 ERHOEHEN (Ausnahme: sonst wird pH gesenkt)
+      - Natriummolybdat als Blattspray (0.02-0.05 g/L)
+      - Kalkung bei saurem Boden
+      Sehr selten bei Indoor-Anbau mit mineralischer Duengung.
+      Haeufiger bei Outdoor in sauren Boeden, besonders bei Leguminosen
+      (Mo wird fuer Knöllchenbakterien-Aktivitaet benoetigt).
+    metadata:
+      nutrient: molybdenum
+      symbol: Mo
+      deficiency_type: mobile
+      severity_indicator: cupped_mottled_old_leaves
+      affected_leaves: old
+
+  - id: ueberschuss-allgemein
+    title: Naehrstoff-Ueberschuss (Toxizitaet) erkennen
+    content: |
+      Allgemeine Ueberschuss-Symptome:
+      - Blattspitzen-Verbrennung (Tip Burn): Klassisches Zeichen fuer zu hohen EC
+        oder Salzanreicherung. Braune, trockene Spitzen an vielen Blaettern.
+      - Naehrstoff-Lockout: Ueberschuss eines Elements blockiert Aufnahme anderer.
+        Z.B. zu viel Kalium blockiert Calcium und Magnesium.
+      - Dunkelgruene, klauenartig nach unten gebogene Blaetter: N-Ueberschuss
+        ("Nitrogen Toxicity", "The Claw"). Pflanze ist ueberduengt.
+      Haeufige Ueberschuss-Probleme:
+      - Stickstoff-Ueberschuss: Dunkelgruene Blaetter, Klauen, verzoegerte Bluete,
+        anfaellig fuer Schaedlinge. EC senken, mit klarem Wasser spuelen.
+      - Kalium-Ueberschuss: Blockiert Ca und Mg. Zeigt sich als sekundaerer
+        Ca/Mg-Mangel trotz ausreichender Versorgung.
+      - Phosphor-Ueberschuss: Blockiert Zn, Fe, Cu. Zeigt sich als Mikro-Mangel.
+      Generelle Massnahme bei Ueberschuss:
+      1. EC der Naehrloesung sofort reduzieren
+      2. Bei starkem Ueberschuss: Flush mit pH-angepasstem, klarem Wasser
+         (3x Topfvolumen in Erde, Reservoir-Wechsel in Hydro)
+      3. Danach mit reduzierter Konzentration (50-75% der Normaldosis) weiterduengen
+      4. pH-Wert pruefen — Lockout ist haeufiger als echter Ueberschuss
+    metadata:
+      type: toxicity
+      severity_indicator: tip_burn_dark_clawing
+      affected_leaves: all
+
+  - id: diagnose-checkliste
+    title: Systematische Mangel-Diagnose Checkliste
+    content: |
+      Schritt-fuer-Schritt Diagnose bei Blattsymptomen:
+      1. WO treten Symptome auf?
+         - Untere/aeltere Blaetter → mobiler Naehrstoff (N, P, K, Mg, Mo)
+         - Obere/juengere Blaetter → immobiler Naehrstoff (Ca, Fe, Mn, Zn, Cu, B, S)
+      2. WELCHE Art von Symptom?
+         - Gleichmaessige Vergilbung → N (alt) oder S (jung)
+         - Intervenale Chlorose → Mg (alt) oder Fe/Mn (jung)
+         - Blattrand-Nekrose → K (alt) oder B-Toxizitaet
+         - Purpur-Verfaerbung → P (alt) oder genetisch
+         - Deformation/Kleinwuchs → Zn oder Ca (jung)
+         - Absterben der Triebspitze → Ca oder B
+      3. VORHER pruefen (haeufigste Ursachen fuer ALLE Symptome):
+         - pH-Wert: 80% aller "Maengel" sind pH-bedingter Lockout!
+         - EC-Wert: Zu hoch (Verbrennung) oder zu niedrig (Hunger)?
+         - Wurzelgesundheit: Braune Wurzeln nehmen keine Naehrstoffe auf
+         - Bewaesserung: Ueberwaesserung verursacht Sauerstoffmangel an Wurzeln
+         - Temperatur: Kalte Wurzelzone (<18°C) hemmt Aufnahme aller Naehrstoffe
+      4. EINE Massnahme aendern und 5-7 Tage warten. Nicht mehrere Parameter
+         gleichzeitig aendern — sonst weiss man nicht, was geholfen hat.
+      Betroffene Blaetter erholen sich oft NICHT — Erfolg zeigt sich
+      am neuen Wachstum (gesunde neue Blaetter = Problem geloest).
+    metadata:
+      type: diagnostic_guide
+      approach: systematic

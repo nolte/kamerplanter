@@ -122,6 +122,7 @@ export default function DataTable<T>({
   // Sync external search changes back to input
   useEffect(() => {
     if (tableState && tableState.search !== searchInput && tableState.search !== debouncedSearch) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync external search state back to local input
       setSearchInput(tableState.search);
     }
   }, [tableState?.search]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -142,6 +143,7 @@ export default function DataTable<T>({
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial DOM measurement for scroll shadows
     updateScrollShadow();
     el.addEventListener('scroll', updateScrollShadow);
     window.addEventListener('resize', updateScrollShadow);

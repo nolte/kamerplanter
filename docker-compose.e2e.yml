@@ -33,6 +33,20 @@ services:
       timeout: 3s
       retries: 5
 
+  # ── TimescaleDB (optional) ─────────────────────────────────
+  timescaledb:
+    image: timescale/timescaledb:2.17.2-pg16
+    profiles: ["timescaledb"]
+    environment:
+      POSTGRES_DB: kamerplanter_sensors_e2e
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: e2e-test-password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   # ── Backend (FastAPI) ────────────────────────────────────
   backend:
     build:
