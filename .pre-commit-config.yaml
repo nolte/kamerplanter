@@ -29,17 +29,20 @@ repos:
         types: [python]
 
   # ── Frontend (TypeScript/React) ────────────────────────────────────────
+  # These hooks require node_modules — run locally only.
+  # In CI, frontend linting runs via .github/workflows/frontend.yml (npm ci + eslint + tsc).
+  # To skip in CI: set SKIP=frontend-eslint,frontend-tsc
   - repo: local
     hooks:
       - id: frontend-eslint
         name: ESLint (frontend)
-        entry: bash -c 'cd src/frontend && npx eslint --no-error-on-unmatched-pattern "${@/#src\/frontend\//}"' --
+        entry: bash -c 'test -d src/frontend/node_modules || exit 0; cd src/frontend && npx eslint --no-error-on-unmatched-pattern "${@/#src\/frontend\//}"' --
         language: system
         files: ^src/frontend/src/.*\.(ts|tsx)$
         types_or: [ts, tsx]
       - id: frontend-tsc
         name: TypeScript check (frontend)
-        entry: bash -c 'cd src/frontend && npx tsc --noEmit'
+        entry: bash -c 'test -d src/frontend/node_modules || exit 0; cd src/frontend && npx tsc --noEmit'
         language: system
         files: ^src/frontend/src/.*\.(ts|tsx)$
         pass_filenames: false
