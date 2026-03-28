@@ -167,8 +167,11 @@ chunks:
       - VPD sollte mit Blatt-VPD berechnet werden, nicht Luft-VPD.
         Blatttemperatur ist 1-3°C unter Lufttemperatur (aktive Transpiration).
       - Bei LED-Beleuchtung: Blaetter sind oft 2-4°C kuehler als Luft
-        (weniger Infrarot als HPS). Luft-VPD von 1.2 kann Blatt-VPD von
-        0.9 bedeuten → trotz scheinbar optimalem VPD ist es zu niedrig!
+        (weniger Infrarot als HPS).
+      - Bei HPS-Beleuchtung: Blaetter koennen 0-2°C WAERMER als Luft sein
+        (hohe IR-Strahlung). HPS-Nutzer unterschaetzen daher den Blatt-VPD.
+      - Beispiel LED: Luft-VPD von 1.2 kann Blatt-VPD von 0.9 bedeuten
+        → trotz scheinbar optimalem VPD ist es zu niedrig!
       - Infrarot-Thermometer auf Blatt richten fuer genaue Blatttemperatur.
       Fehler 3: Durchschnitt statt Extremwerte
       - RH-Spitzen waehrend der Nacht oder beim Giessen koennen kurzzeitig

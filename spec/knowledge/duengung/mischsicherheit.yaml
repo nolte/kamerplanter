@@ -148,13 +148,15 @@ chunks:
       Neben der Calcium-Sulfat-Problematik gibt es weitere Kombinationen, die zu
       Ausfaellungen, Wirkungsverlust oder unerwuenschten Reaktionen fuehren:
 
-      Calcium + Phosphate (bei pH >6,5): Calciumphosphat (Ca3(PO4)2) faellt aus.
+      Calcium + Phosphate (bei pH >6,0 erhoehtes Risiko, kritisch ab pH >6,3):
+      Calciumphosphat (Ca3(PO4)2) faellt aus.
       Besonders relevant beim Mischen von CalMag mit PK-Boostern in kleinen Volumen.
       Loesung: In grossem Wasservolumen verduennen, pH unter 6,5 halten.
 
       Eisen-Chelate (DTPA/EDDHA) + pH <4 oder >7,5: Chelate zersetzen sich ausserhalb
       ihres stabilen pH-Bereichs und Eisen faellt als braunes Fe(OH)3 aus. DTPA stabil
-      bei pH 4-7, EDDHA stabil bei pH 4-9.
+      bei pH 4-7 (in der Praxis: Fe-Verfuegbarkeit sichergestellt bis pH 6.5-7.0;
+      bei pH-Drift ueber 6.5 auf Fe-EDDHA wechseln). EDDHA stabil bei pH 4-9.
 
       Kupfer + hoher pH (>7): Kupferhydroxid faellt aus (blaeuliche Truebung). In
       organischen Systemen mit pH >6,5 Kupfermangel moeglich trotz Zugabe.
@@ -223,7 +225,8 @@ chunks:
       Anwendungsbereiche:
       - Reservoir-Desinfektion: Zwischen Naehrloeungswechseln 3 ml/L (3%) ins
         leere Reservoir, 1h einwirken lassen, abspuelen
-      - Pythium-Praevention: 1-2 ml/L (3%) in die laufende Naehrloesung, alle 2-3 Tage
+      - Pythium-Praevention: 0,3-0,5 ml/L (3%) in die laufende Naehrloesung, alle 3-5 Tage
+        (hoehere Dosierungen von 1-2 ml/L nur fuer Reservoir-Desinfektion OHNE Pflanzen)
       - Sauerstoffanreicherung: H2O2 zerfaellt in H2O + O, erhoehter geloester Sauerstoff
 
       KRITISCH — Kompatibilitaet mit Nuetzlingen:
@@ -292,8 +295,9 @@ chunks:
 
       Anwendungszeitpunkt: IMMER bei ausgeschaltetem Licht (Indoor) oder am fruehen
       Morgen/spaeten Abend (Outdoor). Grund: Wassertropfen auf Blaettern bei starkem
-      Licht wirken als Linse und verursachen Brandflecken. Zudem sind die Spaltoeaffnungen
-      (Stomata) bei Dunkelheit/kuehlen Temperaturen offener, was die Aufnahme verbessert.
+      Licht wirken als Linse und verursachen Brandflecken. Zudem trocknet das Spray
+      bei kuehlen Temperaturen und weniger Licht langsamer — laengere Kontaktzeit
+      verbessert die Aufnahme durch die Cuticula (Wachsschicht der Blattoberflaeche).
 
       Surfactants (Netzmittel): Blattoberflaechen sind wasserabweisend (Cuticula). Ein
       Netzmittel (z.B. Yucca-Extrakt, 0,5 ml/L oder ein Tropfen Spuelmittel pro Liter)

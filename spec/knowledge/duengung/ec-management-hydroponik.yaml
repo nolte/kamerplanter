@@ -1,161 +1,327 @@
 ---
 title: EC-Management in Hydroponik und Kokos
 category: duengung
-tags: [ec, hydroponik, kokos, naehrloesung, reservoir, drain-to-waste, rezirkulierend, flush]
+tags: [ec, hydroponik, kokos, leitfaehigkeit, naehrloesung, drain-to-waste, rezirkulierend, spuelung, kalibrierung]
 expertise_level: [intermediate, expert]
 applicable_phases: [seedling, vegetative, flowering, harvest]
 chunks:
-  - id: ec-grundlagen
-    title: EC verstehen — Elektrische Leitfaehigkeit erklaert
+  - id: ec-grundlagen-hydroponik
+    title: Was ist EC und warum ist sie entscheidend?
     content: |
-      EC (Electrical Conductivity) misst die Konzentration geloester Salze
-      (Ionen) in der Naehrloesung. Einheit: mS/cm (Millisiemens pro Zentimeter).
-      Alternative Einheiten:
-      - ppm (parts per million): EC × 500 (USA-Skala) oder EC × 700 (EU-Skala)
-        → ACHTUNG: Zwei verschiedene Umrechnungsfaktoren je nach Hersteller!
-        ppm ist mehrdeutig, mS/cm ist eindeutig. Immer in mS/cm arbeiten.
-      - µS/cm = mS/cm × 1000 (Mikrosiemens)
-      EC-Netto berechnen (die eigentlich relevante Groesse):
-      EC-Netto = Ziel-EC minus Basis-Wasser-EC
-      Beispiel: Ziel-EC 1.4, Leitungswasser hat EC 0.4
-      → Duenger fuer EC-Netto 1.0 zusetzen
-      Bei RO-Wasser (EC ~0.0): EC-Netto ≈ Ziel-EC (nach CalMag-Zugabe
-      typisch EC 0.3-0.4 als Basis).
-      EC sagt NICHT welche Naehrstoffe in der Loesung sind — nur die
-      Gesamtkonzentration. Eine Loesung mit EC 1.5 aus reinem NaCl ist
-      sehr anders als EC 1.5 aus ausgewogenem Duenger. Daher ist EC nur
-      in Kombination mit bekannter Duenger-Zusammensetzung aussagekraeftig.
-    metadata:
-      topic: ec_basics
-      unit: mS_per_cm
+      EC (Electrical Conductivity, elektrische Leitfaehigkeit) misst die Gesamtkonzentration
+      geloester Salze in einer Naehrloesung, angegeben in mS/cm (Millisiemens pro Zentimeter).
+      Je hoeher die EC, desto mehr Naehrstoffe sind geloest. Reines Wasser hat eine EC von 0,0;
+      Leitungswasser liegt je nach Region bei 0,2-0,8 mS/cm.
 
-  - id: ec-phasen-zielwerte
-    title: EC-Zielwerte nach Phase (Hydro/Coco)
-    content: |
-      Empfohlene EC-Netto-Zielwerte (nach Abzug Basis-Wasser-EC):
-      Keimlinge / Stecklinge: 0.4-0.6 mS/cm
-      - Sehr empfindliche Wurzeln, hoher EC verbrennt sofort
-      - Nur leichte Naehrloesung oder klares Wasser mit CalMag
-      Frueher Vegetativ (Woche 1-2): 0.6-0.8 mS/cm
-      - Wurzelsystem entwickelt sich, langsam steigern
-      Spaeter Vegetativ (Woche 3+): 0.8-1.4 mS/cm
-      - Je nach Pflanzengroesse und Art anpassen
-      - Starkzehrer (Cannabis, Tomate): oberer Bereich
-      - Leichtzehrer (Salat, Kraeuter): unterer Bereich
-      Fruehe Bluete (Stretch, Woche 1-3): 1.2-1.6 mS/cm
-      - Noch N-betont, Pflanze waechst stark
-      Peak Bluete (Woche 4-6): 1.4-2.0 mS/cm
-      - Hoechster Naehrstoffbedarf, PK-Booster zusetzen
-      Spaete Bluete/Abreife (Woche 7-8+): 0.8-1.2 mS/cm
-      - Langsam reduzieren, Pflanze bereitet sich auf Ernte vor
-      Flush (letzte 1-2 Wochen): 0.0-0.4 mS/cm
-      - Nur pH-angepasstes Wasser (oder minimale Naehrstoffe)
-      Diese Werte sind Richtwerte — Sorten unterscheiden sich stark.
-      Immer mit niedrigerem EC starten und bei guter Reaktion steigern.
-    metadata:
-      topic: ec_phase_targets
-      unit: mS_per_cm
+      Die EC ist der wichtigste Steuerparameter in Hydroponik und Kokos, da die Pflanzen
+      ausschliesslich ueber die Naehrloesung versorgt werden. Zu niedrige EC fuehrt zu
+      Mangelerscheinungen und langsamem Wachstum, zu hohe EC verursacht Naehrstoffverbrennung
+      (Blattspitzenbrand, braune Raender) und osmotischen Stress.
 
-  - id: ec-messung-monitoring
-    title: EC-Messung und Monitoring-Protokoll
-    content: |
-      Messhaeufigkeit:
-      - Hydroponik (DWC, NFT): Taeglich (EC aendert sich schnell)
-      - Coco (Drain-to-Waste): Alle 2-3 Tage (Input UND Runoff messen)
-      - Coco (Automatik-Bewaesserung): Input-EC fest einstellen, Runoff
-        2x/Woche kontrollieren
-      Was messen:
-      1. Input-EC: EC der Naehrloesung die der Pflanze gegeben wird
-      2. Reservoir-EC: EC im Vorratsbehälter (aendert sich durch Verdunstung)
-      3. Runoff-EC: EC des Ablaufwassers (zeigt Zustand in der Wurzelzone)
-      Interpretation:
-      - Runoff-EC ≈ Input-EC (±0.2): Gleichgewicht, alles ok
-      - Runoff-EC > Input-EC + 0.3: Salzanreicherung → EC reduzieren oder Flush
-      - Runoff-EC < Input-EC - 0.3: Pflanze nimmt mehr als zugeführt →
-        EC leicht erhoehen
-      Kamerplanter-Integration: EC-Werte als Messwerte erfassen (REQ-005),
-      Abweichungen vom Zielbereich generieren Warn-Aufgaben (REQ-006).
-      EC-Trend ueber Zeit ist aussagekraeftiger als Einzelmessung.
+      Wichtig: EC misst nur die Gesamtkonzentration, nicht das Verhaeltnis einzelner Elemente.
+      Eine EC von 1,5 mS/cm kann ein perfektes oder ein voellig falsches Naehrstoffverhaeltnis
+      bedeuten. Daher muss EC immer zusammen mit dem korrekten Duengerrezept betrachtet werden.
+
+      Faustregel: Pflanzen in der Wachstumsphase vertragen hoehere EC als Jungpflanzen.
+      Stress (Hitze, Krankheit, Umtopfen) erfordert eine temporaere EC-Reduktion um 20-30%.
     metadata:
-      topic: ec_monitoring
-      frequency: [daily_hydro, biweekly_coco]
+      measurement_unit: mS/cm
+      pure_water_ec: "0.0"
+      tap_water_ec_range: "0.2-0.8"
+
+  - id: ec-net-berechnung
+    title: EC-net-Berechnung und Ausgangswasser
+    content: |
+      EC-net ist der zentrale Begriff fuer die korrekte Dosierung: EC-net = Ziel-EC minus
+      Ausgangswasser-EC. Wenn das Leitungswasser bereits eine EC von 0,4 mS/cm hat und die
+      Ziel-EC 1,2 mS/cm betraegt, darf nur 0,8 mS/cm an Duenger hinzugefuegt werden.
+
+      Bei Umkehrosmose-Wasser (RO) mit EC nahe 0,0 muss die gesamte EC durch Duenger
+      aufgebaut werden — zuerst CalMag (ca. 0,3-0,4 mS/cm), dann Basis-Duenger fuer den Rest.
+
+      Mischrechnungen fuer RO/Leitungswasser-Blends: EC(Mix) = (EC_RO x Anteil_RO) +
+      (EC_Tap x Anteil_Tap). Bei 50% RO (0,0) und 50% Tap (0,6): EC(Mix) = 0,3 mS/cm.
+
+      Haeufiger Fehler: Die EC des Ausgangswassers wird nicht abgezogen. Ergebnis ist eine
+      Ueberdosierung, die sich erst nach Tagen durch Blattschaeden zeigt. Daher immer zuerst
+      das Ausgangswasser messen, EC notieren, und erst dann die Ziel-EC berechnen.
+
+      Tipp: Ausgangswasser-EC kann saisonal schwanken (Fruehling hoeher durch Schneeschmelze).
+      Mindestens monatlich pruefen, idealerweise bei jeder Reservoir-Befuellung.
+    metadata:
+      formula: "EC_net = EC_target - EC_base_water"
+      ro_water_ec: "0.0-0.02"
+
+  - id: ec-phasenziele-hydroponik
+    title: EC-Zielwerte nach Wachstumsphase
+    content: |
+      Die optimale EC steigt mit dem Naehrstoffbedarf der Pflanze ueber ihren Lebenszyklus.
+      Folgende Richtwerte gelten fuer die meisten Kulturpflanzen in Hydroponik/Kokos:
+
+      Saemling/Steckling (Woche 1-2): 0,4-0,8 mS/cm. Junge Wurzeln sind empfindlich,
+      hohe EC verursacht Wurzelschaeden. Bei Stecklingen erst duengen, wenn neue Wurzeln
+      sichtbar sind (ca. 5-7 Tage nach Bewurzelung).
+
+      Vegetative Phase: 0,8-1,4 mS/cm. Stufenweise erhoehen: Woche 1-2 bei 0,8, dann
+      woechentlich um 0,1-0,2 steigern. Starkes vegetatives Wachstum erfordert hoeheren
+      Stickstoffanteil (hoehere N-Ratio im Duenger).
+
+      Fruehe Bluete (Stretch, Woche 1-3): 1,2-1,6 mS/cm. Uebergang von N-betont zu
+      P/K-betont. Stretch-Phase hat hohen Energiebedarf.
+
+      Volle Bluete (Woche 4-6): 1,4-2,0 mS/cm. Hoechster Naehrstoffbedarf. PK-Boost
+      erhoehen die EC zusaetzlich — Gesamt-EC im Auge behalten.
+
+      Spaete Bluete/Flush (letzte 1-2 Wochen): 0,0-0,4 mS/cm. Spuelung mit klarem Wasser
+      oder stark verduennter Loesung. Ziel: Naehrstoffreserven in der Pflanze abbauen.
+
+      Achtung: Leichtzehrer (Salate, Kraeuter) benoetigen 30-50% weniger EC als Starkzehrer.
+    metadata:
+      seedling_ec: "0.4-0.8"
+      vegetative_ec: "0.8-1.4"
+      early_flower_ec: "1.2-1.6"
+      peak_flower_ec: "1.4-2.0"
+      flush_ec: "0.0-0.4"
+
+  - id: ec-monitoring-frequenz
+    title: Messfrequenz und Monitoring-Routine
+    content: |
+      Die Messfrequenz haengt vom Medium und System ab:
+
+      Hydroponik (DWC, NFT, Aeroponik): Taeglich messen, idealerweise morgens vor dem
+      Lichtzyklus. In rezirkulierenden Systemen kann die EC innerhalb von 24 Stunden um
+      0,2-0,5 mS/cm schwanken. Bei Hitzewellen (>30 Grad) zweimal taeglich pruefen.
+
+      Kokos: Alle 2-3 Tage messen, sowohl Zulauf als auch Ablauf. Die Differenz zwischen
+      Zulauf-EC und Ablauf-EC zeigt, ob die Pflanze Naehrstoffe aufnimmt oder Salze
+      akkumuliert. Ablauf-EC sollte maximal 0,3-0,5 mS/cm ueber Zulauf-EC liegen.
+
+      Drain-Monitoring: Bei Drain-to-Waste-Systemen den Ablauf (Runoff) messen. Methode:
+      Naehrloesung mit bekannter EC giessen, Ablaufwasser in Schale auffangen, EC messen.
+      Ablauf-EC > 2x Zulauf-EC = sofort spuelen.
+
+      Protokoll fuehren: Datum, Zulauf-EC, Ablauf-EC, pH, Wassertemperatur. Trends erkennen
+      bevor Probleme sichtbar werden. Ein stetig steigender Ablauf-EC ueber 5-7 Tage
+      signalisiert Salzakkumulation, auch wenn die Pflanze noch gesund aussieht.
+
+      Automatische EC-Sensoren (z.B. Bluelab Guardian) ermoeglichen Echtzeit-Monitoring.
+      Achtung: Auch automatische Sensoren muessen regelmaessig kalibriert werden.
+    metadata:
+      hydro_frequency: daily
+      coco_frequency: every_2_3_days
+      drain_ec_max_ratio: "2x"
+
+  - id: ec-creep-rezirkulierend
+    title: EC-Drift in rezirkulierenden Systemen
+    content: |
+      In rezirkulierenden Hydroponiksystemen (DWC, NFT, Ebbe-Flut) tritt ein Phaenomen
+      auf, das als EC-Drift oder EC-Creep bekannt ist: Die EC steigt oder faellt ueber
+      die Zeit, obwohl keine Naehrstoffe hinzugefuegt werden.
+
+      EC steigt: Die Pflanze nimmt mehr Wasser als Naehrstoffe auf (typisch bei Hitze,
+      niedriger Luftfeuchtigkeit, starker Transpiration). Das Volumen sinkt, die
+      Naehrstoffkonzentration steigt. Gegenmassnahme: Mit reinem Wasser auffuellen
+      (nicht mit Naehrloesung!), bis die Ziel-EC erreicht ist.
+
+      EC sinkt: Die Pflanze nimmt ueberproportional viele Naehrstoffe auf (typisch bei
+      starkem Wachstum, kuehlen Bedingungen). Die EC faellt schneller als das Volumen.
+      Gegenmassnahme: Naehrloesung nachfuellen, um die Ziel-EC zu halten.
+
+      Kritisch: Wenn die EC steigt und gleichzeitig der pH faellt, ist das ein starkes
+      Signal fuer Ueberduengung — sofort einen Teilwasserwechsel durchfuehren (50%
+      ablassen, mit frischer, korrekt dosierter Loesung auffuellen).
+
+      Praxis-Regel: Nie mehr als 50% des Reservoirvolumens durch Auffuellen ersetzen.
+      Bei staerkeren Abweichungen besser einen vollstaendigen Reservoirwechsel machen.
+      Vollwechsel alle 7-10 Tage ist Standard in den meisten Hydroponiksystemen.
+    metadata:
+      full_change_interval_days: "7-10"
+      max_topoff_ratio: "50%"
+
+  - id: dtw-vs-rezirkulierend
+    title: Drain-to-Waste vs. rezirkulierende EC-Strategie
+    content: |
+      Die Wahl zwischen Drain-to-Waste (DTW) und rezirkulierend beeinflusst die
+      EC-Management-Strategie grundlegend:
+
+      Drain-to-Waste (Kokos, Perlite, Steinwolle): Jede Bewaesserung ist frisch
+      dosiert. Vorteil: Konstante EC und pH, kein Naehrstoff-Ungleichgewicht ueber Zeit.
+      Nachteil: Hoehere Duengerkosten, Abwasserentsorgung. Ziel-Drain: 10-20% Ueberlauf
+      (Runoff) bei jeder Bewaesserung, um Salzakkumulation zu verhindern.
+
+      Rezirkulierend (DWC, NFT, Ebbe-Flut): Naehrloesung wird wiederverwendet.
+      Vorteil: Wassersparend, geringere Duengerkosten. Nachteil: EC-Drift, pH-Drift,
+      Naehrstoff-Ungleichgewicht (selektive Aufnahme), Risiko von Pathogenen (Pythium).
+
+      DTW-EC-Strategie: Zulauf-EC = Ziel-EC. Einfach und zuverlaessig. Bei Ablauf-EC
+      mehr als 0,5 ueber Zulauf: Flush-Durchgang mit halber EC oder reinem Wasser.
+
+      Rezirkulierend-EC-Strategie: Reservoir-EC = Ziel-EC. Taeglich messen und korrigieren.
+      Top-off-Regel: Wenn EC gestiegen, mit Wasser auffuellen. Wenn EC gesunken, mit
+      staerkerer Naehrloesung auffuellen (max. 1,5x Ziel-EC als Konzentrat).
+
+      Hybridansatz: Rezirkulierend mit regelmaessigem Wechsel (alle 7 Tage) kombiniert
+      die Vorteile beider Systeme. Zwischen den Wechseln nur mit Wasser oder leichter
+      Loesung auffuellen.
+    metadata:
+      dtw_runoff_target: "10-20%"
+      recirc_change_days: "7"
 
   - id: reservoir-management
-    title: Reservoir-Management (Rezirkulierend)
+    title: Reservoir-Management und Wasserwechsel
     content: |
-      Reservoir-Groesse: Mindestens 10-20 Liter pro Pflanze.
-      Groessere Reservoirs sind stabiler (pH und EC driften langsamer).
-      Wasser-Nachfuellen (Top-Off):
-      - Wenn Wasserstand sinkt (Pflanze verbraucht Wasser):
-        NUR mit pH-angepasstem Wasser ohne Naehrstoffe nachfuellen
-      - Warum: Pflanze nimmt Wasser schneller auf als Naehrstoffe →
-        Loesung wird konzentrierter (EC-Creep). Mit Naehrloesung
-        nachfuellen wuerde das noch verschlimmern.
-      - Ausnahme: Wenn EC SINKT (Pflanze nimmt mehr Naehrstoffe als
-        Wasser auf) → mit leichter Naehrloesung nachfuellen
-      Kompletter Reservoir-Wechsel:
-      - Alle 7-14 Tage (oder wenn EC >30% ueber Zielwert trotz Top-Off)
-      - Komplett leeren, ausspuelen, frische Naehrloesung ansetzen
-      - Gelegenheit zum Reinigen von Algen/Biofilm
-      Wassertemperatur: 18-22°C im Reservoir. Ueber 24°C: Pythium-Risiko
-      steigt, Sauerstoffgehalt sinkt. Loesung: Wasserchiller, Reservoir
-      isolieren (Styropor), nicht im direkten Licht stehen.
-      Abdeckung: Reservoir IMMER lichtdicht abdecken (verhindert Algen).
-    metadata:
-      topic: reservoir_management
-      system: recirculating
-      min_volume_per_plant_liters: 10
+      Das Reservoir ist das Herzstueck jedes Hydroponiksystems. Korrekte Verwaltung
+      verhindert Naehrstoffprobleme, Pathogenbefall und pH-Instabilitaet.
 
-  - id: drain-to-waste
-    title: Drain-to-Waste (DTW) Strategie fuer Coco
-    content: |
-      Drain-to-Waste ist die Standard-Bewaesserungsstrategie fuer Coco/Kokos:
-      Prinzip: Naehrloesung wird durch das Substrat gegossen, ueberschuessiges
-      Ablaufwasser (Drain/Runoff) wird aufgefangen und verworfen.
-      Runoff-Ziel: 10-20% des Input-Volumens soll als Runoff ablaufen.
-      - Zu wenig Runoff (<5%): Salzanreicherung im Substrat
-      - Zu viel Runoff (>30%): Naehrstoff-Verschwendung
-      Frequenz in Coco:
-      - Saemlinge: 1x/Tag
-      - Vegetativ: 2-3x/Tag
-      - Bluete: 3-5x/Tag (bei kleinen Toepfen bis 7x)
-      - Autoflower: wie photoperiodisch, nach Groesse
-      Coco darf NIE komplett austrocknen (anders als Erde):
-      - Trockenes Coco wird hydrophob (wasserabweisend)
-      - Trockenes Coco setzt gebundene Salze frei → EC-Spike
-      - Dauer-Feuchtigkeit in Coco ist kein Problem (anders als Erde,
-        da Coco natuerlich gut belueftet)
-      Coco immer mit Naehrloesung giessen (nie nur Wasser):
-      - Coco hat hohe CEC und bindet Kationen (Ca, Mg, K)
-      - Reines Wasser wuerde Naehrstoffe aus dem Substrat waschen
-      - Ausnahme: Flush vor der Ernte (bewusst entnaehren)
-    metadata:
-      topic: drain_to_waste
-      substrate: coco
-      runoff_target_percent: [10, 20]
+      Groesse: Mindestens 5 Liter pro Pflanze, besser 10-15 Liter. Groessere Reservoirs
+      puffern Schwankungen besser ab. Faustregel: Je kleiner das Reservoir, desto haeufiger
+      messen und korrigieren.
 
-  - id: flush-protokoll
-    title: Flush-Protokoll — Wann und wie richtig spuelen
-    content: |
-      Es gibt zwei Arten von Flush:
-      1. Korrektur-Flush (bei Salzanreicherung/Ueberdüngung):
-         - Anlass: Runoff-EC deutlich hoeher als Input-EC, Blattspitzen-Burn
-         - Methode: 3× Topfvolumen mit pH-angepasstem Wasser (EC <0.3)
-           durch das Substrat spuelen
-         - In Hydro: Reservoir komplett leeren, mit reinem Wasser fuellen,
-           2-4 Stunden laufen lassen, dann frische Naehrloesung ansetzen
-         - Danach: Mit 50-75% der normalen EC weiterduengen, langsam steigern
-      2. Ernte-Flush (vor der Ernte):
-         - Umstritten! Wissenschaftliche Evidenz duenn, aber weit verbreitet.
-         - Befuerworter: Pflanze baut Naehrstoff-Reserven ab, "reinerer"
-           Geschmack, weissere Asche beim Verbrennen
-         - Gegner: Pflanze lagert keine Dunger-Salze in Blueten ein,
-           Flush stresst Pflanze und reduziert Qualitaet/Ertrag
-         - Praxis-Kompromiss: EC in letzten 1-2 Wochen stark reduzieren
-           (0.2-0.4 mS/cm) statt komplett auf 0. In Coco: 5-7 Tage.
-           In DWC: 3-5 Tage. In Erde: 10-14 Tage (langsame Auswaschung).
-         - Vergilbende Blaetter waehrend des Flush sind NORMAL und erwuenscht
-           (Pflanze verbraucht interne N-Reserven).
+      Vollstaendiger Wechsel: Alle 7-10 Tage komplett ablassen und neu ansetzen. Vor dem
+      Neubefuellen das Reservoir mit klarem Wasser und ggf. H2O2 (3%, 3 ml/L) desinfizieren.
+      Reihenfolge beim Ansetzen: 1) Wasser temperieren (18-22 Grad), 2) CalMag zugeben und
+      verruehren, 3) Basis A zugeben und verruehren, 4) Basis B zugeben und verruehren,
+      5) Zusaetze (PK-Boost, Enzyme etc.), 6) pH einstellen (5,5-6,5), 7) EC kontrollieren.
+
+      Wassertemperatur: Optimal 18-22 Grad Celsius. Ueber 25 Grad sinkt der Sauerstoffgehalt
+      drastisch und Pythium-Risiko steigt. Unter 15 Grad verlangsamt sich die Naehrstoffaufnahme.
+      Wassertemperatur-Controller (Chiller) sind in DWC fast obligatorisch.
+
+      Belueftung: In DWC-Systemen mindestens 1 Watt Luftpumpenleistung pro 4 Liter
+      Reservoirvolumen. Geloester Sauerstoff (DO) sollte ueber 6 mg/L liegen. Sauerstoff
+      foerdert Wurzelgesundheit und Naehrstoffaufnahme.
     metadata:
-      topic: flush_protocol
-      types: [corrective, pre_harvest]
+      min_volume_per_plant_l: "5-15"
+      water_temp_optimal_c: "18-22"
+      water_temp_max_c: "25"
+      dissolved_oxygen_min_mg_l: "6"
+
+  - id: flush-protokoll-hydroponik
+    title: Flush-Protokoll fuer Hydroponik und Kokos
+    content: |
+      Spuelen (Flushing) entfernt ueberschuessige Salze aus dem Medium und/oder der Pflanze.
+      Es gibt zwei Anlaesse: Notfall-Flush (bei Ueberduengung) und Ernte-Flush (Geschmack).
+
+      Notfall-Flush (Ueberduengung/Lockout): Sofort durchfuehren, wenn Blattspitzenbrand,
+      dunkle/krallende Blaetter oder EC-Ablauf > 2x Zulauf. Methode DTW: 3x Topfvolumen
+      mit pH-adjustiertem Wasser (5,8-6,0) durchspuelen. Methode Rezirkulierend: Reservoir
+      komplett ablassen, mit reinem pH-Wasser befuellen, 24h zirkulieren, dann frische
+      Naehrloesung mit 50% der vorherigen EC ansetzen.
+
+      Ernte-Flush: Umstritten in der Wissenschaft, aber gaengige Praxis. In Hydroponik:
+      Letzte 5-7 Tage vor der Ernte nur pH-adjustiertes Wasser ohne Naehrstoffe.
+      In Kokos: Letzte 7-10 Tage mit EC 0,0-0,2.
+
+      Spuelmittel (Flush-Produkte): Chelat-basierte Produkte binden ueberschuessige Salze.
+      Optional, nicht zwingend erforderlich. Alternativ reines Wasser verwenden.
+
+      Wichtig: Nach einem Notfall-Flush die EC langsam wieder aufbauen. Nicht sofort zur
+      vollen EC zurueckkehren — mit 50% starten und ueber 3-5 Tage steigern. Die Pflanze
+      braucht Zeit, sich zu erholen.
+
+      Indikatoren fuer erfolgreichen Flush: Ablauf-EC nahe Zulauf-EC, Blaetter werden
+      heller (Stickstoff wird mobilisiert), kein neuer Blattschaden.
+    metadata:
+      emergency_flush_volume: "3x_pot_volume"
+      harvest_flush_hydro_days: "5-7"
+      harvest_flush_coco_days: "7-10"
+      post_flush_restart_ec: "50%"
+
+  - id: ec-meter-kalibrierung
+    title: EC-Meter Kalibrierung und Pflege
+    content: |
+      Ein unkalibriertes EC-Meter ist schlimmer als gar keines — es vermittelt falsche
+      Sicherheit. Regelmaessige Kalibrierung ist Pflicht.
+
+      2-Punkt-Kalibrierung: Standard sind 1,413 mS/cm und 2,764 mS/cm Referenzloesungen.
+      Zuerst die niedrigere, dann die hoehere Loesung. Zwischen den Loesungen die Sonde
+      mit destilliertem Wasser abspuelen und trockentupfen (nicht reiben!).
+
+      Kalibrierungsintervall: In professionellen Setups woechentlich, bei Hobbyanwendung
+      mindestens alle 2 Wochen. Nach einem Sturz oder laengerem Nichtgebrauch sofort
+      neu kalibrieren.
+
+      Lagerung: EC-Sonden trocken lagern (im Gegensatz zu pH-Sonden, die feucht bleiben
+      muessen). Schutzkappe aufsetzen. Vor der Messung kurz in destilliertem Wasser
+      einweichen (30 Sekunden).
+
+      Reinigung: Bei Ablagerungen auf der Sonde (weisser Belag) in Essig (5%) fuer
+      30 Minuten einlegen, dann mit destilliertem Wasser abspuelen. Bei starker
+      Verschmutzung spezielle Elektrodenreiniger verwenden.
+
+      Temperaturkompensation: Gute EC-Meter haben automatische Temperaturkompensation
+      (ATC). Die EC einer Loesung steigt um ca. 2% pro Grad Celsius. Ohne ATC bei
+      exakt 25 Grad messen (Referenztemperatur) oder manuell korrigieren.
+
+      Guenstige Geraete (unter 20 Euro) verlieren schneller die Kalibrierung. Investition
+      in ein Markengeraet (Bluelab, Hanna, Apera) lohnt sich langfristig.
+    metadata:
+      calibration_points: ["1.413", "2.764"]
+      calibration_interval: weekly
+      temp_coefficient_per_degree: "2%"
+      reference_temp_c: "25"
+
+  - id: ec-sortentoleranz
+    title: Sortenspezifische EC-Toleranz
+    content: |
+      Nicht alle Pflanzen vertragen die gleiche EC. Die genetische Veranlagung bestimmt
+      die Naehrstofftoleranz massgeblich:
+
+      Leichtzehrer (EC 0,6-1,0 mS/cm): Salate, Kraeuter (Basilikum, Koriander, Dill),
+      Erdbeeren, Microgreens. Reagieren empfindlich auf Ueberdosierung. Erste Anzeichen:
+      Blattrandnekrosen, gestauchtes Wachstum.
+
+      Mittelzehrer (EC 1,0-1,6 mS/cm): Die meisten Gemuesesorten (Paprika, Gurken, Bohnen),
+      Cannabis (vegetativ), Zierpflanzen. Vertragen moderate Schwankungen.
+
+      Starkzehrer (EC 1,4-2,2 mS/cm): Tomaten, Cannabis (Bluete), Kuerbisgewaechse,
+      Rosen. Koennen und brauchen hohe Naehrstoffkonzentrationen fuer optimalen Ertrag.
+
+      Sorten innerhalb einer Art: Auch innerhalb einer Spezies gibt es Unterschiede.
+      Sativa-dominante Cannabis-Sorten sind oft empfindlicher als Indica-dominante.
+      Cherry-Tomaten vertragen weniger EC als Fleischtomaten.
+
+      Praxis-Ansatz: Immer mit der niedrigeren EC starten und beobachten. Gesunde Pflanzen
+      mit dunkelgruenem Laub und gutem Wachstum = EC passt. Hellgruene Blaetter und
+      langsames Wachstum bei korrektem pH = EC erhoehen. Blattspitzenbrand oder
+      uebermaessig dunkelgruene, krallende Blaetter = EC sofort senken.
+
+      Tipp: Neue Sorten immer mit 70% der empfohlenen EC starten und ueber 1-2 Wochen
+      steigern. Die Pflanze zeigt zuverlaessig, wann die Obergrenze erreicht ist.
+    metadata:
+      light_feeders_ec: "0.6-1.0"
+      medium_feeders_ec: "1.0-1.6"
+      heavy_feeders_ec: "1.4-2.2"
+
+  - id: ec-temperatur-interaktion
+    title: EC und Temperatur-Wechselwirkung
+    content: |
+      Temperatur beeinflusst sowohl die EC-Messung als auch die Naehrstoffaufnahme der
+      Pflanze. Beide Effekte muessen beruecksichtigt werden.
+
+      Messeffekt: Die Leitfaehigkeit einer Loesung steigt mit der Temperatur (ca. +2%
+      pro Grad ueber 25 Grad Celsius). Ohne automatische Temperaturkompensation (ATC)
+      zeigt ein Meter bei 30 Grad eine 10% hoehere EC als bei 25 Grad — obwohl die
+      Naehrstoffkonzentration identisch ist. Hochwertige Geraete kompensieren automatisch.
+
+      Aufnahme-Effekt bei Hitze (>28 Grad Umgebung): Pflanzen transpirieren staerker und
+      nehmen verhaeltnismaessig mehr Wasser als Naehrstoffe auf. Die EC im Medium steigt.
+      Gegenmassnahme: Ziel-EC um 10-20% senken, Bewaesserungsfrequenz erhoehen, kleinere
+      Gaben statt grosse.
+
+      Aufnahme-Effekt bei Kaelte (<18 Grad Wurzelzone): Die Naehrstoffaufnahme verlangsamt
+      sich. Calcium- und Phosphor-Aufnahme sind besonders temperaturempfindlich. Calcium-Mangel
+      bei kalten Wurzeln ist haeufig, obwohl genug Ca in der Loesung ist.
+      Gegenmassnahme: Wurzelzone warmhalten (Heizmatte, >18 Grad), EC leicht senken.
+
+      Optimaler Bereich: Naehrloesung 18-22 Grad, Umgebung 22-28 Grad (Tag), 18-22 Grad
+      (Nacht). In diesem Bereich ist die Naehrstoffaufnahme am effizientesten und die
+      EC-Management-Richtwerte gelten wie angegeben.
+
+      Sommer-Strategie: Bei anhaltend hohen Temperaturen (>30 Grad) EC um 20-30% reduzieren,
+      haeufiger mit kleineren Mengen bewaessern, ggf. Wasserchiller einsetzen.
+    metadata:
+      optimal_solution_temp_c: "18-22"
+      optimal_ambient_day_c: "22-28"
+      optimal_ambient_night_c: "18-22"
+      heat_ec_reduction: "10-20%"

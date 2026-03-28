@@ -31,9 +31,9 @@ chunks:
     content: |
       PPFD-Richtwerte nach Pflanzengruppe und Phase:
       Zimmerpflanzen (Schatten-tolerant):
-      - Schattig: 50-100 PPFD (Farn, Sansevieria, ZZ-Pflanze)
-      - Hell ohne Sonne: 100-200 PPFD (Monstera, Philodendron, Pothos)
-      - Hell mit etwas Sonne: 200-400 PPFD (Ficus, Strelitzia, Alocasia)
+      - Schattig (Minimum fuer dauerhaftes Ueberleben): 50-100 PPFD (Farn, Sansevieria, ZZ-Pflanze)
+      - Hell ohne direkte Sonne (Wachstumsoptimum): 200-400 PPFD (Monstera, Philodendron, Pothos)
+      - Hell mit etwas Sonne: 200-600 PPFD (Ficus, Strelitzia, Alocasia)
       Kraeuter und Salat: 200-400 PPFD, DLI 12-17 mol/m²/d
       Gemuese (Tomate, Paprika, Gurke): 400-600 PPFD, DLI 20-30 mol/m²/d
       Cannabis:
@@ -86,7 +86,8 @@ chunks:
       Die Photoperiode (Verhaeltnis Licht:Dunkelheit) steuert bei vielen
       Pflanzen die Bluete:
       Kurztagspflanzen (bluehen bei kurzen Tagen / langer Nacht):
-      - Cannabis (photoperiodisch): Bluete bei <13h Licht (typisch 12/12)
+      - Cannabis (photoperiodisch): Bluete bei ununterbrochener Dunkelphase >10-12h
+        (Indoor typisch 12/12-Timer). Trigger ist die Nachtlaenge, nicht die Taglaenge.
       - Weihnachtsstern, Chrysantheme, Reis, Sojabohne
       - UNKRITISCH unterbrechungsfreie Dunkelphase — selbst kurze
         Licht-Unterbrechung (Taschenlampe!) kann Bluete stoeren

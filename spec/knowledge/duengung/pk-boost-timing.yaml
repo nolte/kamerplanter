@@ -85,8 +85,10 @@ chunks:
         Kurzer Flush reicht, da kein Puffermedium vorhanden.
       - Kokos: 7-10 Tage mit EC 0,0-0,2. Kokos haelt mehr Naehrstoffe als Hydro
         (KAK), daher laengerer Flush noetig.
-      - Erde: 10-14 Tage mit reinem Wasser. Erde hat die hoechste Pufferkapazitaet,
-        Naehrstoffe werden am langsamsten ausgewaschen.
+      - Erde (mineralisch geduengt, ohne lebende Biologie): 10-14 Tage mit reinem Wasser.
+        Erde hat die hoechste Pufferkapazitaet, Naehrstoffe werden am langsamsten ausgewaschen.
+      - Erde (mit Mykorrhiza/organischer Biologie): 5-7 Tage genuegen.
+        Laengerer Flush schaedigt das Bodenleben und die Mykorrhiza-Symbiose.
 
       Visuelle Indikatoren waehrend des Flush:
       - Blaetter beginnen zu vergilben (Stickstoff wird mobilisiert — erwuenscht!)
@@ -303,7 +305,7 @@ chunks:
       natuerlichen Blueteprogression statt an festen Wochenschemata.
 
       Cannabis Outdoor (Mitteleuropa, ~50 Grad N):
-      - Blueteinduktion: Ab Mitte August (Tageslaenge <14h)
+      - Blueteinduktion: Ab Mitte/Ende August (ununterbrochene Nachtlaenge >10-12h)
       - Stretch: Mitte August bis Anfang September (2-3 Wochen)
       - PK-Boost Start: Anfang September (nach sichtbarem Stretch-Ende)
       - PK-Boost Peak: Mitte September bis Anfang Oktober

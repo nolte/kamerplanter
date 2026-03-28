@@ -51,7 +51,8 @@ chunks:
       - Blaue Klebefallen aufhaengen (Monitoring UND Reduktion)
       - Spinosad-basiertes Spray (biologisch, sehr effektiv gegen Thrips)
       - Raubmilben: Amblyseius cucumeris (vorbeugend, frisst Thrips-Larven)
-      - Neem-Oel als systemisches Giessen (wird ueber Wurzel aufgenommen)
+      - Neem-Oel als Kontakt-Blattspray (Substratdrench hemmt Trauermücken-Larven,
+        aber keine systemische Anti-Thrips-Wirkung)
       - Befallene Bluetenknospen entfernen
       Thrips uebertragen Pflanzenviren (z.B. Tomatenbronzfleckenvirus TSWV).
       Schnelle Bekaempfung daher besonders wichtig.
@@ -62,7 +63,7 @@ chunks:
       vector_for: [TSWV, INSV]
 
   - id: trauermucken-erkennung
-    title: Trauermucken (Sciaridae) frueh erkennen
+    title: Trauermucken (Bradysia spp., Sciaridae) frueh erkennen
     content: |
       Erste Anzeichen:
       - Kleine schwarze Fliegen (2-4mm) die beim Giessen aus dem Substrat
@@ -85,6 +86,7 @@ chunks:
       antrocknen lassen. Offene Kompost-Saecke schliessen.
     metadata:
       pest: fungus_gnats
+      genus: Bradysia
       family: Sciaridae
       difficulty: common
       environment_preference: moist_substrate

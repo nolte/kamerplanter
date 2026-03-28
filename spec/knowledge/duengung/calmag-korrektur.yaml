@@ -1,139 +1,326 @@
 ---
 title: CalMag-Korrektur und Wasserhaerte-Management
 category: duengung
-tags: [calmag, calcium, magnesium, wasserhaerte, ro-wasser, gh, kokos, coco, mischreihenfolge]
+tags: [calmag, calcium, magnesium, wasserhaerte, ro-wasser, kokos, praezipitation, mischungsreihenfolge, mangelsymptome]
 expertise_level: [beginner, intermediate, expert]
-applicable_phases: [seedling, vegetative, flowering]
+applicable_phases: [seedling, vegetative, flowering, harvest]
 chunks:
-  - id: calmag-warum-wichtig
-    title: Warum CalMag so wichtig ist
+  - id: calmag-grundlagen
+    title: Warum CalMag unverzichtbar ist
     content: |
-      Calcium (Ca) und Magnesium (Mg) sind sekundaere Makronaehrstoffe,
-      die oft uebersehen werden, aber fuer gesundes Pflanzenwachstum
-      essenziell sind:
-      Calcium:
-      - Zellwand-Aufbau (Strukturstabilitaet)
-      - Membran-Integritaet
-      - Enzym-Aktivierung
-      - Transport nur im Xylem (mit Wasserstrom) → immobil!
-      - Mangel zeigt sich an neuen Blaettern/Triebspitzen
-      Magnesium:
-      - Zentralatom im Chlorophyll (ohne Mg keine Photosynthese!)
-      - Enzym-Aktivator (300+ Enzyme)
-      - Energie-Stoffwechsel (ATP-Mg-Komplexe)
-      - Mobil → Mangel zeigt sich an aelteren Blaettern
-      Ideales Ca:Mg-Verhaeltnis: 3:1 bis 4:1 (bezogen auf ppm).
-      Typische CalMag-Produkte liefern ca. 3.2:1 (Ca:Mg).
-      In hartem Leitungswasser ist das Verhaeltnis oft natuerlich gegeben.
-      In RO-Wasser fehlt beides komplett und muss zugesetzt werden.
-      CalMag ist KEIN optionales Supplement — es ist Pflichtprogramm bei
-      weichem Wasser und RO-Wasser.
-    metadata:
-      topic: calmag_importance
-      ratio_ca_mg: [3, 1]
+      Calcium (Ca) und Magnesium (Mg) sind essentielle sekundaere Pflanzenaehrstoffe,
+      die haeufig in zu geringer Menge verfuegbar sind — besonders bei Verwendung von
+      Umkehrosmose-Wasser (RO) oder in Kokos-Substraten.
 
-  - id: wasserhaerte-einordnen
-    title: Wasserhaerte verstehen und einordnen
-    content: |
-      Gesamthaerte (GH / °dH) misst den Calcium- und Magnesium-Gehalt:
-      Umrechnungen:
-      - 1°dH = 17.8 mg/L CaCO3
-      - 1°dH ≈ 7.14 mg/L Ca oder ≈ 4.33 mg/L Mg
-      - Oder einfacher: GH × 17.8 = ppm CaCO3
-      Haerte-Klassifikation:
-      - <4°dH (0-70 ppm CaCO3): Sehr weich → IMMER CalMag noetig
-      - 4-8°dH (70-140 ppm): Weich → CalMag oft noetig
-      - 8-14°dH (140-250 ppm): Mittelhart → meist ausreichend Ca/Mg
-      - 14-21°dH (250-375 ppm): Hart → kein CalMag noetig, aber hoher EC
-      - >21°dH (>375 ppm): Sehr hart → Verschneidung mit RO oder komplett
-        RO nutzen (zu hoher Basis-EC)
-      Wo finde ich meine Wasserhaerte?
-      - Wasserversorger (Jahresbericht oder Website)
-      - Eigene Messung mit GH-Tropfentest (Aquaristik-Zubehoer, ~5€)
-      - EC-Meter gibt Hinweis (EC 0.3 ≈ 8°dH, EC 0.5 ≈ 14°dH ungefaehr)
-      Kamerplanter speichert die Wasserquelle pro Standort (REQ-014):
-      TapWaterProfile mit EC, pH, GH, KH und CalMag-Empfehlung.
+      Calcium-Funktionen: Zellwandstabilitaet und -struktur, Zellteilung (besonders
+      im Neuwuchs), Enzymaktivierung, Signalgebung bei Stressreaktionen. Calcium ist
+      im Phloem nahezu immobil — es kann nicht von alten zu neuen Blaettern transportiert
+      werden. Daher zeigt sich Mangel immer zuerst an jungen Blaettern und Triebspitzen.
+
+      Magnesium-Funktionen: Zentralatom im Chlorophyll-Molekuel (essentiell fuer
+      Photosynthese), Enzymaktivierung (ueber 300 Enzyme), ATP-Synthese, Phosphor-
+      Transport in der Pflanze. Magnesium ist mobil im Phloem — bei Mangel verlagert
+      die Pflanze Mg von alten zu jungen Blaettern. Mangel zeigt sich daher an aelteren
+      Blaettern zuerst (Interkostalchlorose: Blattadern bleiben gruen, Flaeche
+      dazwischen wird gelb).
+
+      Bedarf: Die meisten Kulturpflanzen benoetigen 150-250 ppm Ca und 50-80 ppm Mg
+      in der Naehrloesung (Hydroponik/Kokos). Das entspricht einer EC von ca. 0,3-0,5
+      mS/cm allein durch CalMag. Bei Leitungswasser, das bereits Calcium und Magnesium
+      enthaelt, muss die Ergaenzung entsprechend reduziert werden.
     metadata:
-      topic: water_hardness
-      unit: degrees_dh
-      classification: [very_soft, soft, medium, hard, very_hard]
+      calcium_ppm_target: "150-250"
+      magnesium_ppm_target: "50-80"
+      calmag_ec_contribution: "0.3-0.5"
+      calcium_mobility: immobile
+      magnesium_mobility: mobile
 
   - id: ro-wasser-calmag
     title: RO-Wasser und CalMag-Supplementierung
     content: |
-      RO-Wasser (Umkehrosmose): EC nahe 0, kein Ca, kein Mg, kein Puffer.
-      IMMER CalMag zusetzen bevor Base-Nutrients kommen!
-      CalMag-Dosierung fuer RO-Wasser:
-      - Ziel: EC 0.3-0.4 mS/cm nach CalMag (vor Base-Nutrients)
-      - Das entspricht ca. 100-150 ppm Ca und 30-50 ppm Mg
-      - Typische Dosierung: 1-2 ml/L CalMag-Produkt (herstellerabhaengig)
-      Mischreihenfolge (KRITISCH):
-      1. RO-Wasser in Behaelter
-      2. CalMag zusetzen und umruehren (→ EC pruefen: ~0.3-0.4)
-      3. Base-Nutrient Part A zusetzen und umruehren
-      4. Base-Nutrient Part B zusetzen und umruehren
-      5. Zusaetze (PK-Boost, Enzyme, etc.)
-      6. pH messen und korrigieren (pH-Down/-Up) → IMMER zuletzt!
-      WARUM CalMag ZUERST: Calcium reagiert mit Sulfaten aus Part B.
-      Wenn CalMag nach Part B kommt → Calciumsulfat-Ausfaellung (Gips) →
-      Calcium nicht mehr pflanzenverfuegbar, Loesung trueb.
-      RO-Wasser hat keinen pH-Puffer (keine KH): pH ist extrem instabil
-      und aendert sich stark bei kleinsten Saeure/Base-Zugaben. CalMag
-      mit Carbonat-Anteil stabilisiert pH etwas.
-    metadata:
-      topic: ro_water_calmag
-      target_ec_after_calmag: [0.3, 0.4]
-      mixing_order: [calmag, part_a, part_b, additives, ph_adjustment]
+      Umkehrosmose-Wasser (RO) hat eine EC nahe 0,0 mS/cm — es enthaelt praktisch
+      keine Mineralstoffe. Ohne CalMag-Ergaenzung entstehen innerhalb von 1-2 Wochen
+      schwere Mangelerscheinungen.
 
-  - id: coco-calmag-spezial
-    title: CalMag-Besonderheiten bei Coco/Kokos
-    content: |
-      Coco hat eine hohe CEC (Kationenaustauschkapazitaet) und bindet
-      bevorzugt zweiwertige Kationen — besonders Calcium (Ca²⁺) und
-      Magnesium (Mg²⁺).
-      Problem bei neuem, unbehandeltem Coco:
-      - Coco-Fasern sind mit Natrium (Na⁺) und Kalium (K⁺) gesaettigt
-      - Wenn Naehrloesung durchfliesst: Coco tauscht Na/K gegen Ca/Mg aus
-      - Resultat: Pflanze bekommt weniger Ca/Mg als in der Input-Loesung
-      - Kann zu Ca/Mg-Mangel fuehren TROTZ korrekter Dosierung
-      Loesung — Coco vorpuffern:
-      1. Neues Coco in CalMag-Loesung einweichen (EC 1.0, 8-24 Stunden)
-      2. Gruendlich mit Naehrloesung oder CalMag-Wasser spuelen
-      3. EC des Ablaufs pruefen (sollte nahe Input-EC sein)
-      4. Coco ist jetzt mit Ca/Mg gesaettigt und gibt diese nicht mehr ab
-      Fertig gepuffertes Coco (z.B. Canna Coco Professional Plus):
-      - Bereits werkseitig mit Ca gepuffert und gespuelt
-      - Deutlich weniger Ca/Mg-Probleme, Aufpreis lohnt sich
-      Laufende CalMag-Versorgung in Coco:
-      - Immer 0.3-0.5 mS/cm CalMag als Basis-EC VOR Base-Nutrients
-      - Coco nie mit reinem Wasser giessen (wascht Ca/Mg aus der CEC)
-    metadata:
-      topic: coco_calmag
-      pre_buffering: required_for_new_coco
+      Standard-Dosierung fuer reines RO-Wasser:
+      - CalMag-Produkt (z.B. Canna CalMag, GHE CalMag): 0,3-0,5 ml/L als Ausgangspunkt,
+        EC-Zielwert 0,3-0,4 mS/cm nach CalMag-Zugabe
+      - Zuerst CalMag ins Wasser geben und verruehren, dann EC messen
+      - Erst danach Basis-Duenger (A+B) bis zur Gesamt-Ziel-EC dosieren
 
-  - id: calmag-mangel-diagnose
-    title: Ca- und Mg-Mangel unterscheiden und behandeln
-    content: |
-      Calcium-Mangel:
-      - Symptome an NEUEN Blaettern (immobil!)
-      - Blattkraeuseln, braune nekrotische Flecken auf jungen Blaettern
-      - Wachstumspunkte sterben ab
-      - Bei Tomate: Bluetenendfaeule (brauner Fleck am Fruchtboden)
-      - Sofortmassnahme: CalMag-Zugabe erhoehen, pH auf 6.0-6.5 korrigieren
-      - Blattspray wenig wirksam (Ca wird ueber Transpiration transportiert,
-        nicht Phloem) → Wurzelduengung ist effektiver
-      Magnesium-Mangel:
-      - Symptome an ALTEN Blaettern (mobil!)
-      - Intervenale Chlorose: Blattadern gruen, Flaechen dazwischen gelb
-      - Haeufig in der Bluete (Kalium-Ueberschuss verdraengt Mg)
-      - Sofortmassnahme: Bittersalz-Blattspray (5g MgSO4 pro Liter)
-        → wirkt innerhalb 2-3 Tagen (Mg wird ueber Blaetter aufgenommen!)
-      - CalMag ueber Wurzel fuer langfristige Korrektur
-      Kombinierter Mangel (haeufig bei RO-Wasser ohne CalMag):
-      - Neue UND alte Blaetter betroffen
-      - Wachstum stockt komplett
-      - CalMag sofort zusetzen, EC 0.3-0.5 als Basis
+      RO/Leitungswasser-Mischung: Haeufig wird RO mit Leitungswasser gemischt, um
+      eine kontrollierte Ausgangsbasis zu schaffen. Typische Mischverhaeltnisse:
+      - 100% RO (EC 0,0): Volle CalMag-Dosis (0,3-0,5 ml/L)
+      - 70% RO + 30% Tap: Reduzierte CalMag-Dosis (0,1-0,3 ml/L), abhaengig von
+        der Haerte des Leitungswassers
+      - 50/50: Oft ist keine zusaetzliche CalMag-Gabe noetig, wenn das Leitungswasser
+        mittelhart ist (>12 dGH). Trotzdem Ca:Mg-Verhaeltnis pruefen.
+
+      Kamerplanter-Referenz: Die Wasserquellen-Konfiguration (REQ-014) speichert RO-Anteil
+      und Leitungswasser-Parameter (EC, pH, GH). Das System berechnet den CalMag-Bedarf
+      ueber den WaterMixCalculator automatisch (REQ-004 v3.1). Die 4-stufige Kaskade
+      (explizit->Plan->Standort->manuell) stellt sicher, dass immer die beste verfuegbare
+      Wasserinformation verwendet wird.
     metadata:
-      topic: calmag_deficiency_diagnosis
-      calcium: immobile_new_leaves
-      magnesium: mobile_old_leaves
+      pure_ro_ec: "0.0"
+      calmag_dose_ml_per_l: "0.3-0.5"
+      target_ec_after_calmag: "0.3-0.4"
+
+  - id: wasserhaerte-calcium-magnesium
+    title: Wasserhaerte und Ca/Mg-Gehalt des Leitungswassers
+    content: |
+      Die Gesamthaerte (GH, deutsche Haertegrade dGH) des Leitungswassers zeigt den
+      kombinierten Calcium- und Magnesium-Gehalt an. Die Umrechnung ist wichtig fuer
+      die korrekte CalMag-Dosierung.
+
+      Umrechnungen:
+      - 1 dGH = 10 mg/L CaO = 7,14 mg/L Ca = 17,86 mg/L CaCO3
+      - Weiches Wasser: <8 dGH (Ca <57 mg/L) — CalMag-Zugabe noetig
+      - Mittelhartes Wasser: 8-14 dGH (Ca 57-100 mg/L) — ggf. reduziert CalMag
+      - Hartes Wasser: >14 dGH (Ca >100 mg/L) — meist kein CalMag noetig, evtl. sogar
+        RO-Verschnitt ratsam um Ueberdosierung zu vermeiden
+
+      Karbonataerte (KH) vs. Gesamthaerte (GH): KH misst Hydrogencarbonat (HCO3-),
+      das den pH-Wert puffert. Hohe KH (>12 dKH) macht pH-Senkung schwierig. GH misst
+      Ca+Mg. Beides erfragen beim lokalen Wasserversorger (online verfuegbar) oder mit
+      Tropfentest (JBL, Sera, API) selbst messen.
+
+      Ideale Ca:Mg-Ratio: 3:1 bis 4:1 (nach Gewicht). Leitungswasser hat oft ein
+      unguenstiges Verhaeltnis (z.B. 10:1 bei sehr kalkhaltigem Wasser). In diesem Fall
+      trotz hoher GH ggf. Mg ergaenzen (Bittersalz = MgSO4, 0,5-1 g/L).
+
+      Wasseranalyse bestellen: Die meisten Wasserversorger veroeffentlichen jaehrliche
+      Analysen online. Relevante Werte: Ca, Mg, Na, Cl, SO4, HCO3, EC, pH. Mit diesen
+      Daten kann das Kamerplanter-System (TapWaterProfile in REQ-002) den CalMag-Bedarf
+      automatisch berechnen.
+    metadata:
+      soft_water_dgh: "<8"
+      medium_water_dgh: "8-14"
+      hard_water_dgh: ">14"
+      ideal_ca_mg_ratio: "3:1 to 4:1"
+      dgh_to_ca_factor: "7.14 mg/L per dGH"
+
+  - id: calmag-mischungsreihenfolge
+    title: CalMag IMMER vor Basis-Duenger — Mischungsreihenfolge
+    content: |
+      Die Reihenfolge beim Mischen von Naehrloesungen ist nicht optional — sie ist
+      chemisch zwingend. CalMag muss IMMER als erstes Naehrstoffprodukt ins Wasser
+      gegeben werden (nach optionalem Silikat).
+
+      Warum die Reihenfolge kritisch ist: Calcium reagiert mit Sulfaten zu Calciumsulfat
+      (Gips, CaSO4), das als weisser Niederschlag ausfaellt und nicht mehr pflanzenverfuegbar
+      ist. Viele Basis-Duenger (besonders Teil B) enthalten Magnesiumsulfat (MgSO4) und
+      andere Sulfate. Wird CalMag nach oder gleichzeitig mit Teil B zugegeben, reagiert
+      ein Teil des Calciums sofort mit den Sulfaten und faellt aus.
+
+      Korrekte Mischreihenfolge:
+      1) Wasser temperieren (18-22 Grad Celsius)
+      2) Optional: Silikat (bei pH >7 zugeben, loest sich nur alkalisch)
+      3) CalMag-Produkt zugeben, 30 Sekunden verruehren
+      4) Basis-Duenger Teil A zugeben (enthaelt meist Ca-Nitrat), verruehren
+      5) Basis-Duenger Teil B zugeben (enthaelt meist Mg-Sulfat, Phosphate), verruehren
+      6) Zusaetze (PK-Boost, Enzyme, Vitamine), jeweils einzeln und verruehren
+      7) pH einstellen (pH-Down oder pH-Up)
+      8) EC kontrollieren
+
+      Zwischen den Schritten jeweils 30 Sekunden verruehren, damit sich jedes Produkt
+      vollstaendig loest bevor das naechste zugegeben wird. Nie zwei Konzentrate
+      gleichzeitig oder unverduennt zusammengiessen.
+
+      Kamerplanter-Relevanz: Der MixingSafetyValidator (REQ-004) erzwingt diese
+      Reihenfolge in der Software und warnt bei falscher Sequenz.
+    metadata:
+      mixing_order: [water, silicate, calmag, base_a, base_b, additives, ph_adjust]
+      precipitation_risk: calcium_sulfate_gypsum
+      stir_time_seconds: "30"
+
+  - id: calcium-mangel-erkennen
+    title: Calciummangel erkennen und behandeln
+    content: |
+      Calciummangel ist einer der haeufigsten Naehrstoffmaengel, besonders in Hydroponik,
+      Kokos und bei schnell wachsenden Pflanzen. Da Calcium im Phloem immobil ist,
+      zeigen sich Symptome immer am Neuwuchs.
+
+      Fruehe Symptome:
+      - Junge Blaetter rollen sich ein oder woelben sich nach oben
+      - Blattspitzen der jungen Blaetter werden braun und trocken
+      - Neuer Wuchs erscheint verzerrt oder verkrueppelt
+      - Wachstumspunkte (Triebspitzen) koennen absterben
+
+      Fortgeschrittene Symptome:
+      - Braune, nekrotische Flecken auf jungen Blaettern
+      - Blueten fallen ab oder verkuemmern
+      - Bluethenendfaeule bei Tomaten (schwarzer Fleck am Fruchtboden)
+      - Wurzeln braun und kurz (gesunde Wurzeln sind weiss und lang)
+
+      Haeufige Ursachen (auch bei ausreichend Ca in der Loesung!):
+      - Zu niedrige Luftfeuchtigkeit: Calcium wird ueber den Transpirationsstrom
+        transportiert. Bei <40% rH erreicht weniger Ca die Triebspitzen.
+      - Zu hohe EC: Osmotischer Stress hemmt Ca-Aufnahme
+      - pH zu niedrig (<5,5): Ca-Verfuegbarkeit sinkt stark
+      - Kalte Wurzelzone (<18 Grad): Ca-Aufnahme verlangsamt sich
+      - Ueberschuss an K oder NH4: Kompetitive Hemmung der Ca-Aufnahme
+
+      Sofortmassnahmen: pH auf 5,8-6,2 korrigieren, EC um 20% senken, CalMag-Produkt
+      zugeben (0,3-0,5 ml/L), Luftfeuchtigkeit auf 50-65% bringen,
+      Wurzelzonen-Temperatur pruefen (>18 Grad). Blattspray mit Ca (CaCl2, 0,4-0,5%)
+      als Notmassnahme — wirkt innerhalb von 24-48 Stunden am bespruheten Gewebe.
+    metadata:
+      symptom_location: new_growth
+      optimal_ph_for_ca: "5.8-6.2"
+      optimal_rh_percent: "50-65"
+      min_root_temp_c: "18"
+      foliar_cacl2_percent: "0.4-0.5"
+
+  - id: magnesium-mangel-erkennen
+    title: Magnesiummangel erkennen und behandeln
+    content: |
+      Magnesiummangel ist der zweithaeufigste Sekundaernaehrstoffmangel. Da Magnesium
+      im Phloem mobil ist, zeigen sich Symptome an den aelteren, unteren Blaettern
+      zuerst — die Pflanze verlagert Mg zum Neuwuchs.
+
+      Symptome:
+      - Interkostalchlorose an aelteren Blaettern: Die Flaeche zwischen den Blattadern
+        wird gelb bis hellgruen, waehrend die Adern selbst gruen bleiben. Typisches
+        "Fischgraetenmuster".
+      - In fortgeschrittenen Faellen werden die gelben Bereiche braun und nekrotisch
+      - Blaetter rollen sich nach oben
+      - Generell schwaches, blasses Erscheinungsbild
+      - Rote/violette Stiele (auch durch Phosphormangel oder Genetik moeglich)
+
+      Abgrenzung: Stickstoffmangel vergilbt das gesamte Blatt gleichmaessig (inkl.
+      Adern). Eisenmangel zeigt Interkostalchlorose an JUNGEN Blaettern (Fe ist immobil).
+      Mg-Mangel zeigt Interkostalchlorose an ALTEN Blaettern. Diese Unterscheidung ist
+      diagnostisch entscheidend.
+
+      Ursachen:
+      - Zu wenig Mg in der Naehrloesung (haeufigste Ursache bei RO-Wasser)
+      - pH zu niedrig (<5,5) oder zu hoch (>7,0): Mg-Verfuegbarkeit eingeschraenkt
+      - Ueberschuss an Calcium oder Kalium: Kompetitive Hemmung
+      - Kokos ohne ausreichend CalMag-Supplementierung
+
+      Behandlung:
+      - CalMag-Produkt erhoehen (0,1-0,2 ml/L mehr als bisher)
+      - Bittersalz (Magnesiumsulfat, MgSO4): 0,5-1 g/L als Wurzelduengung
+      - Bittersalz-Blattspray: 2-3 g/L, 1-2 Anwendungen im Abstand von 5 Tagen
+      - pH auf 5,8-6,5 korrigieren
+      - Ca:Mg-Verhaeltnis pruefen — sollte 3:1 bis 4:1 sein
+    metadata:
+      symptom_location: old_growth
+      diagnostic_pattern: interveinal_chlorosis
+      epsom_salt_root_g_per_l: "0.5-1"
+      epsom_salt_foliar_g_per_l: "2-3"
+      optimal_ph_for_mg: "5.8-6.5"
+
+  - id: kokos-calmag-besonderheit
+    title: Kokos-Substrat und der erhoehte CalMag-Bedarf
+    content: |
+      Kokos (Coir) hat eine natuerliche Kationenaustauschkapazitaet (KAK), die bevorzugt
+      Calcium und Magnesium bindet und im Gegenzug Natrium und Kalium freisetzt. Dieser
+      Austauschprozess ist der Hauptgrund fuer den erhoehten CalMag-Bedarf in Kokos.
+
+      Gepuffertes vs. ungepuffertes Kokos:
+      - Gepuffert (buffered): Wurde werkseitig mit Calciumnitrat-Loesung gespuelt. Die
+        KAK-Stellen sind bereits mit Ca gesaettigt. CalMag-Bedarf ist geringer als bei
+        ungepuffertem Kokos, aber immer noch hoeher als in Erde oder Steinwolle.
+      - Ungepuffert: Die KAK-Stellen sind mit Natrium (Na) und Kalium (K) beladen.
+        Beim ersten Giessen mit Naehrloesung werden Na/K freigesetzt und Ca/Mg gebunden.
+        Resultat: Ca/Mg-Mangel trotz korrekter Dosierung in der Naehrloesung.
+        Selbst puffern: Ungepuffertes Kokos 8-24h in CalMag-Loesung einweichen
+        (EC 1.0, pH 5.8-6.0), dann mit Naehrloesung spuelen bis Ablauf-EC stabil.
+
+      CalMag-Dosierung fuer Kokos:
+      - Ungepuffertes Kokos: 0,5-0,8 ml/L CalMag als Basis, EC ca. 0,4-0,6 mS/cm
+        allein durch CalMag. Die ersten 2-3 Wochen erhoehte Dosis, bis die KAK
+        gesaettigt ist.
+      - Gepuffertes Kokos: 0,3-0,5 ml/L CalMag, Standard-Dosierung.
+      - Mit hartem Leitungswasser (>14 dGH): Reduziert oder entfaellt, da das
+        Leitungswasser bereits Ca/Mg liefert.
+
+      Praxis-Test: Ablauf-EC nach dem Giessen messen. Wenn Ablauf-EC niedriger als
+      Zulauf-EC in den ersten Tagen bei neuem Kokos: Das Kokos bindet aktiv Naehrstoffe.
+      Hoeher dosieren bis Zulauf-EC ungefaehr gleich Ablauf-EC.
+
+      Qualitaetsmerkmal: Hochwertiges Kokos (z.B. Canna Coco, BioBizz Coco, Plagron)
+      ist immer gepuffert und gewaschen (niedriger Na-Gehalt <1 mmol/L). Billiges Kokos
+      aus dem Baumarkt ist oft ungepuffert und kann EC >2,0 mS/cm an Natrium enthalten.
+    metadata:
+      buffered_calmag_ml_per_l: "0.3-0.5"
+      unbuffered_calmag_ml_per_l: "0.5-0.8"
+      unbuffered_saturation_weeks: "2-3"
+      max_sodium_mmol_l: "<1"
+
+  - id: ph-calmag-verfuegbarkeit
+    title: pH und CalMag-Verfuegbarkeit
+    content: |
+      Der pH-Wert der Naehrloesung und des Mediums bestimmt massgeblich, wie viel des
+      zugegebenen Calciums und Magnesiums tatsaechlich pflanzenverfuegbar ist. Selbst
+      bei perfekter Dosierung kann ein falscher pH zu Mangel fuehren.
+
+      Calcium-Verfuegbarkeit nach pH:
+      - pH 5,0-5,4: Stark eingeschraenkt, Lockout beginnt
+      - pH 5,5-6,5: Optimale Verfuegbarkeit (Maximum bei pH 6,0-6,2)
+      - pH 6,5-7,0: Noch gut verfuegbar
+      - pH >7,0: Calcium faellt als Calciumphosphat oder Calciumcarbonat aus
+
+      Magnesium-Verfuegbarkeit nach pH:
+      - pH <5,5: Eingeschraenkt
+      - pH 5,5-6,5: Optimal
+      - pH >7,0: Zunehmend eingeschraenkt
+
+      Gemeinsamer Optimalbereich: pH 5,8-6,2 fuer Hydroponik und Kokos, pH 6,0-6,5
+      fuer Erde. In diesem Bereich sind sowohl Ca als auch Mg gut verfuegbar.
+
+      pH-Drift und CalMag: CalMag-Produkte (besonders Calciumnitrat-basierte) koennen
+      den pH erhoehen. Nach CalMag-Zugabe immer pH kontrollieren und ggf. mit pH-Down
+      (Phosphorsaeure oder Salpetersaeure) korrigieren. Zitronensaeure als pH-Down
+      vermeiden — sie cheliert Calcium und macht es teilweise unverfuegbar.
+
+      Boden-pH und Kalkung: In sauren Boeden (pH <5,5) wird Calcium durch Kalkung
+      (Kohlensaurer Kalk, Algenkalk) gleichzeitig mit der pH-Korrektur zugefuehrt.
+      Dolomitkalk liefert zusaetzlich Magnesium (ca. 10-15% MgO). Dosierung: 150-300
+      g/m2 bei pH 5,0-5,5, in die oberen 10 cm einarbeiten. Wirkung ueber 4-8 Wochen.
+    metadata:
+      optimal_ph_hydro: "5.8-6.2"
+      optimal_ph_soil: "6.0-6.5"
+      ca_lockout_ph: "<5.5"
+      dolomite_lime_g_per_m2: "150-300"
+      dolomite_lime_mgo_percent: "10-15"
+
+  - id: wasserquellen-kaskade
+    title: Wasserquellen-Defaults und CalMag-Automatisierung
+    content: |
+      Das Kamerplanter-System verwendet eine 4-stufige Kaskade (REQ-014 v1.4) fuer
+      Wasserquellen-Informationen, um die CalMag-Korrektur moeglichst automatisiert
+      zu berechnen:
+
+      Stufe 1 — Explizite Angabe: Der Nutzer gibt bei jeder Mischung manuell die
+      Wasserwerte an (EC, pH, Ca, Mg, RO-Anteil). Hoechste Praezision, aber aufwaendig.
+
+      Stufe 2 — Naehrplan-Vorgabe: Der Naehrplan (NutrientPlan) enthaelt ein
+      water_mix_ratio_ro_percent und verknuepfte Wasserparameter. Wird automatisch
+      verwendet, wenn keine explizite Angabe vorliegt.
+
+      Stufe 3 — Standort-Default: Die Standort-Konfiguration (Site) enthaelt ein
+      TapWaterProfile und RoWaterProfile mit EC, pH, GH, KH und allen relevanten
+      Ionen. Diese Werte werden beim Onboarding oder in den Standort-Einstellungen
+      erfasst.
+
+      Stufe 4 — Manuelle Eingabe: Fallback, wenn keine automatisierten Daten vorliegen.
+      Das System fordert den Nutzer zur Eingabe auf.
+
+      CalMag-Automatisierung: Der WaterMixCalculator (REQ-004 v3.1) berechnet aus den
+      Wasserquellen-Daten den effektiven Ca/Mg-Gehalt des Mischwassers und schlaegt
+      eine CalMag-Korrektur vor (suggest_calmag_correction). Dabei wird beruecksichtigt:
+      - RO-Anteil im Mischwasser
+      - Ca/Mg-Gehalt des Leitungswassers (aus GH oder Direktmessung)
+      - Ziel-Ca/Mg der aktuellen Phase
+      - Medium-Faktor (Kokos erhaelt 20-30% Aufschlag)
+
+      Praxis: Bei der Standort-Einrichtung die Wasserwerte vom Versorger eintragen.
+      Danach berechnet das System den CalMag-Bedarf automatisch fuer jede Mischung.
+      Empfehlung: Einmal jaehrlich die Wasserwerte aktualisieren (Versorger-Report).
+    metadata:
+      cascade_levels: 4
+      coco_calmag_surcharge_percent: "20-30"
+      water_update_interval: yearly

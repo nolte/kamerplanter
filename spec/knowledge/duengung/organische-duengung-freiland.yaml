@@ -1,176 +1,398 @@
 ---
 title: Organische Duengung im Freiland
 category: duengung
-tags: [organisch, kompost, hornmehl, gruenduengung, bodenanalyse, mulch, jauche, freiland, outdoor]
+tags: [organisch, freiland, kompost, hornmehl, gruenduengung, bodenanalyse, mulch, jauche, mykorrhiza, saisonkalender]
 expertise_level: [beginner, intermediate, expert]
-applicable_phases: [vegetative, flowering, harvest]
+applicable_phases: [seedling, vegetative, flowering, harvest]
 chunks:
   - id: grundduengung-fruehjahr
     title: Grundduengung im Fruehjahr
     content: |
-      Die Grundduengung vor der Saison legt die Naehrstoff-Basis fuer
-      das gesamte Gartenjahr:
-      Zeitpunkt: Maerz-April, sobald Boden bearbeitbar (Kruemelprobe:
-      Erde in der Hand zerbroeselt, klebt nicht).
-      Standardrezept pro m²:
-      - 3-5 Liter reifer Kompost (Humusaufbau, Mikroleben, Grundnaehrstoffe)
-      - 50-80g Hornspäne ODER Hornmehl (Stickstoff-Depot)
-        Hornmehl: fein gemahlen, Freisetzung in 4-6 Wochen
-        Hornspäne: grob, Freisetzung ueber 2-4 Monate
-      - 100-150g Urgesteinsmehl (Spurenelemente, Silizium, pH-Pufferung)
-      - Optional: 50g Kalimagnesia (Patentkali) fuer K und Mg
-      Einarbeitung: Leicht in die oberen 5-10cm einharken, NICHT tief
-      umgraben (zerstoert Bodenstruktur und Mikrobiom).
-      Starkzehrer-Beete (Tomate, Kohl, Kuerbis): Doppelte Kompostmenge,
-      zusaetzlich Rindermist oder Pferdemist (nur gut verrottet!).
-      Schwachzehrer-Beete (Bohne, Erbse, Kraeuter): Nur Kompost, kein
-      zusaetzliches Stickstoff-Depot (Leguminosen fixieren eigenen N).
+      Die Grundduengung im Fruehjahr legt die Naehrstoffbasis fuer die gesamte
+      Vegetationsperiode. Sie erfolgt 2-4 Wochen vor der Pflanzung/Aussaat, sobald
+      der Boden bearbeitbar ist (typisch Maerz-April).
+
+      Standardrezept pro Quadratmeter:
+      - Reifer Kompost: 3-5 Liter (ca. 2-3 cm Schicht)
+      - Hornmehl oder Hornspaene: 80-120 g/m2 (als Stickstoffquelle)
+      - Gesteinsmehl (Basalt oder Diabas): 100-200 g/m2 (Spurenelemente, Silizium)
+      - Kalimagnesia (Patentkali): 50-80 g/m2 bei Kaliumbedarf lt. Bodenanalyse
+
+      Einarbeitung: Kompost und feste Duenger oberflaechlich einharken (obere 5-10 cm),
+      nicht tief untergraben. Die Bodenorganismen im Oberboden zersetzen das Material
+      am effizientesten. Tiefes Umgraben zerstoert die Bodenstruktur und Mykorrhiza-Netze.
+
+      Starkzehrer (Tomaten, Kuerbis, Kohl): Obere Dosierung waehlen, ggf. zusaetzlich
+      2-3 L/m2 Wurmhumus. Mittelzehrer (Paprika, Salate, Moehren): Mittlere Dosierung.
+      Schwachzehrer (Kraeuter, Bohnen, Erbsen): Nur Kompost, kein Hornmehl — Leguminosen
+      fixieren eigenen Stickstoff ueber Rhizobien.
+
+      Timing: Nicht zu frueh ausbringen — bei Frost und Naesse werden Naehrstoffe
+      ausgewaschen, bevor die Pflanzen sie nutzen koennen. Bodentemperatur sollte
+      mindestens 8-10 Grad Celsius betragen, da die mikrobielle N-Mineralisierung
+      von Hornprodukten unter 8 Grad nahezu stoppt. Eine Maerz-Gabe bei 5 Grad
+      zeigt erst 4-6 Wochen spaeter Wirkung — fuer sofortige Wirkung erst ab
+      April ausbringen wenn der Boden sich erwaermt hat.
     metadata:
-      topic: spring_base_fertilization
-      timing: march_april
-      unit: per_square_meter
+      timing: March_April
+      compost_rate_l_per_m2: "3-5"
+      horn_meal_g_per_m2: "80-120"
+      rock_flour_g_per_m2: "100-200"
+      min_soil_temp_c: "8"
 
   - id: kompost-qualitaet
-    title: Kompost-Qualitaet und Anwendung
+    title: Kompost — Qualitaet, Anwendung und C/N-Verhaeltnis
     content: |
-      Guter Kompost ist das wichtigste organische Duengemittel:
-      Qualitaets-Merkmale:
-      - Farbe: Dunkelbraun bis schwarz
-      - Geruch: Frisch, erdig, waldbodenaehnlich (NICHT faulig oder sauer)
-      - Struktur: Krümelig, nicht matschig, keine erkennbaren Ausgangs-
-        materialien mehr
-      - Temperatur: Raumtemperatur (Heissrotte abgeschlossen)
-      - Reife-Test: Kresse-Test — Kresse auf Kompost aussaeen, keimt und
-        waechst normal → Kompost reif. Keimt nicht oder stirbt → zu frisch.
-      Naehrstoff-Gehalt (ungefaehr):
-      - N: 1-2%, P: 0.5-1%, K: 0.5-1.5%
-      - EC (1:2 Extrakt): 0.5-2.0 mS/cm
-      - pH: 6.5-8.0
+      Kompost ist das Rueckgrat der organischen Freilandduengung. Qualitaet und Reifegrad
+      bestimmen, ob er nuetzt oder schadet.
+
+      Reifetest: Eine Handvoll Kompost sollte angenehm erdig riechen (nicht faulig oder
+      nach Ammoniak), kruemelig-feucht sein (nicht matschig), und eine dunkelbraune bis
+      schwarze Farbe haben. Kressetest: Kressesamen auf feuchtem Kompost aussaeen — bei
+      reifem Kompost keimen sie innerhalb von 3-5 Tagen gleichmaessig.
+
+      C/N-Verhaeltnis: Das Kohlenstoff-zu-Stickstoff-Verhaeltnis bestimmt die
+      Zersetzungsgeschwindigkeit. Reifer Kompost: C/N 15-20:1 (ideal). Unreifer Kompost:
+      C/N > 25:1 — entzieht dem Boden Stickstoff (Stickstoff-Raub/N-Immobilisierung),
+      da Mikroorganismen N fuer die Zersetzung benoetigen. Ergebnis: Gelbliche Blaetter
+      trotz Duengung.
+
       Aufwandmengen:
-      - Starkzehrer: 5-8 L/m²/Jahr
-      - Mittelzehrer: 3-5 L/m²/Jahr
-      - Schwachzehrer: 1-3 L/m²/Jahr
-      - Maximal: 10 L/m²/Jahr (mehr fuehrt zu Naehrstoff-Ueberschuss,
-        besonders Phosphor und Kalium)
-      Achtung: Kompost allein liefert oft zu wenig Stickstoff fuer
-      Starkzehrer → Ergaenzung mit Hornmehl oder Brennnessel-Jauche.
+      - Neuanlage/ausgelaugte Boeden: 5-8 L/m2 (einmalig)
+      - Jaehrliche Erhaltung: 2-3 L/m2
+      - Starkzehrer-Beete: 3-5 L/m2
+      - Hochbeete (Nachfuellung): 5-10 L/m2 im Fruehjahr (Absackung ausgleichen)
+
+      Eigener vs. gekaufter Kompost: Eigenkompost ist kostenlos, aber die Qualitaet
+      schwankt. Gekaufter RAL-guetezertifizierter Kompost hat garantierte Naehrstoffwerte
+      und ist schadstofffrei. Fuer kritische Kulturen (Gemuese, Kraeuter) ist zertifizierter
+      Kompost vorzuziehen.
+
+      Achtung: Kompost ist kein Vollduenger. Er liefert vor allem Kalium und Spurenelemente,
+      aber vergleichsweise wenig Stickstoff und Phosphor. Hornmehl ergaenzt den N-Bedarf,
+      Knochenmehl den P-Bedarf.
     metadata:
-      topic: compost_quality
-      npk_approx: [1.5, 0.75, 1.0]
+      cn_ratio_ideal: "15-20:1"
+      annual_rate_l_per_m2: "2-3"
+      heavy_feeder_rate_l_per_m2: "3-5"
+
+  - id: hornmehl-hornspaene
+    title: Hornmehl und Hornspaene — Organische Stickstoffquellen
+    content: |
+      Hornmehl und Hornspaene sind die wichtigsten organischen Stickstoffduenger im
+      Freiland. Sie bestehen aus gemahlenem Rinderhorn (ca. 12-14% N) und unterscheiden
+      sich nur in der Koernung und damit der Freisetzungsgeschwindigkeit.
+
+      Hornmehl (fein gemahlen, <1 mm): Schnelle Freisetzung ueber 2-4 Wochen. Ideal
+      fuer Kopfduengung waehrend der Vegetationsperiode, wenn Pflanzen sichtbaren
+      N-Mangel zeigen (hellgruene bis gelbe aeltere Blaetter). Dosierung: 50-80 g/m2
+      als Kopfduengung, leicht einharken und waessern.
+
+      Hornspaene (grob, 1-5 mm): Langsame Freisetzung ueber 4-8 Wochen. Ideal fuer
+      Grundduengung im Fruehjahr und Hochbeet-Schichtung. Dosierung: 80-120 g/m2.
+
+      Hornschrot (mittel): Kompromiss, Freisetzung 3-6 Wochen. Vielseitig einsetzbar.
+
+      Anwendungsregeln:
+      - Immer leicht in die oberen 2-5 cm einarbeiten (nicht auf der Oberflaeche liegen
+        lassen — trocknet aus und fault bei Naesse)
+      - Nach dem Einarbeiten gruendlich waessern
+      - Nicht direkt an Stiel oder Wurzelhals streuen (Verbrennungsgefahr)
+      - Letzte Gabe spaetestens August (Stauden, Gehoelze: kein Herbst-N!)
+      - Wirkung pH-abhaengig: Unter pH 5,5 verlangsamt sich die mikrobielle Umsetzung
+
+      Alternative: Schafwollpellets (ca. 10-12% N) als vegane Alternative, zusaetzlich
+      Kalium und Schwefel. Langsamere Freisetzung als Hornmehl. Dosierung: 100-150 g/m2.
+    metadata:
+      nitrogen_content_percent: "12-14"
+      horn_meal_release_weeks: "2-4"
+      horn_chips_release_weeks: "4-8"
+      horn_meal_dose_g_per_m2: "50-80"
+      horn_chips_dose_g_per_m2: "80-120"
+
+  - id: mulchen-materialien
+    title: Mulchen — Materialien, Schichtdicke und Stickstoffraub
+    content: |
+      Mulchen ist gleichzeitig Bodenverbesserung, Feuchtigkeitsschutz, Unkrautunterdrueckung
+      und indirekte Duengung. Die Materialwahl bestimmt den Effekt.
+
+      Geeignete Mulchmaterialien (mit Naehrstoffbeitrag):
+      - Rasenschnitt (angewelkt!): 2-3 cm, C/N ca. 15:1, schnelle N-Freisetzung.
+        Nie dicker als 5 cm und nie frisch — fault sonst und bildet eine undurchlaessige
+        Schicht. Immer 1-2 Tage anwelken lassen.
+      - Stroh: 5-10 cm, C/N ca. 80:1, kaum Naehrstoffbeitrag aber hervorragende
+        Bodenbedeckung. Achtung: Hohes C/N bindet Boden-N (Stickstoffraub). Vor dem
+        Mulchen mit Stroh extra Hornmehl geben (30-50 g/m2).
+      - Laub (zerkleinert): 5-8 cm, C/N variabel. Eichenlaub sauer (pH-senkend),
+        gut fuer Heidelbeeren. Nusslaub meiden (Juglone hemmen Wachstum).
+      - Holzhaecksel: 5-10 cm, C/N 400-500:1, nur auf Wegen oder als Baumscheiben-Mulch.
+        Nie in Beete einarbeiten — extremer Stickstoffraub! Auf der Oberflaeche ist der
+        Effekt akzeptabel, da die Zersetzung nur an der Unterseite stattfindet.
+
+      Stickstoffraub (N-Immobilisierung): Materialien mit C/N > 30:1 entziehen dem Boden
+      Stickstoff waehrend der Zersetzung. Gegenmassnahme: Pro 10 cm kohlenstoffreichem Mulch
+      zusaetzlich 50-80 g/m2 Hornmehl ausbringen.
+
+      Wichtig: Mulchschicht immer 5 cm Abstand zum Pflanzenstiel halten, um Faulebildung
+      und Schneckenbefall am Stiel zu vermeiden.
+    metadata:
+      grass_clippings_thickness_cm: "2-3"
+      straw_thickness_cm: "5-10"
+      straw_cn_ratio: "80:1"
+      extra_horn_meal_for_high_cn: "30-50 g/m2"
+      stem_clearance_cm: "5"
 
   - id: gruenduengung
-    title: Gruenduengung — Bodenverbesserung durch Pflanzen
+    title: Gruenduengung — Arten, Timing und Einarbeitung
     content: |
-      Gruenduengung (Zwischenfrucht) verbessert den Boden ohne externe
-      Inputs. Pflanzen werden angebaut und vor der Samenreife eingearbeitet.
-      Stickstoff-Fixierer (Leguminosen):
-      - Klee (Trifolium): N-Fixierung 80-150 kg/ha, winterhart
-      - Lupine: N-Fixierung 100-200 kg/ha, Tiefwurzler
-      - Ackerbohne/Wicke: N-Fixierung 80-150 kg/ha
-      Boden-Lockerer (Tiefwurzler):
-      - Oelrettich: Bricht Verdichtungen auf, bis 150cm Wurzeltiefe
-      - Lupine: Tiefwurzler + N-Fixierer (Doppelnutzen)
-      Biofumigation (Schaedlingsunterdrueckung):
-      - Senf (Sinapis alba): Senfoel hemmt Nematoden, schnellwuechsig
-      - Tagetes: Stark nematizid, 3 Monate Standzeit optimal
-      Bienenweide:
-      - Phacelia: Attraktiv fuer Bestäuber, neutral in der Fruchtfolge
-        (keine Verwandtschaft mit Gemuese-Familien)
-      - Buchweizen: Schnelle Bluete, P-Mobilisierer
-      Timing:
-      - Fruehjahr (Maerz-April): Vor Hauptkultur, 4-6 Wochen Wachstum
-      - Herbst (August-Oktober): Nach Ernte, ueber Winter stehen lassen
-        oder vor Frost einarbeiten
-      Einarbeitung: 2-3 Wochen vor Aussaat/Pflanzung der Folgekultur
-      oberflaechlich mulchen oder leicht einarbeiten.
+      Gruenduengung (Zwischenfrucht/Deckfrucht) baut Bodenfruchtbarkeit auf, verhindert
+      Erosion, unterdrueckt Unkraut und liefert organische Substanz. Sie ist ein zentrales
+      Element der Fruchtfolge (Starkzehrer->Mittelzehrer->Schwachzehrer->Gruenduengung).
+
+      Leguminosen (N-Fixierer):
+      - Luzerne (Medicago sativa): Tiefwurzler bis 3m, exzellente Bodenlockerung,
+        fixiert 150-300 kg N/ha. Mehrjaehrig, ideal fuer laengere Brachen.
+      - Inkarnatklee (Trifolium incarnatum): Winterhart, fixiert 80-150 kg N/ha.
+        Aussaat August-September, Einarbeitung April-Mai.
+      - Blaue Lupine (Lupinus angustifolius): Saure Boeden (pH 5-6,5), Tiefwurzler,
+        fixiert 100-200 kg N/ha. Aussaat April-Mai.
+      - Weissklee (Trifolium repens): Niedrig, trittfest, ideal als Untersaat zwischen
+        Reihen. Fixiert 50-100 kg N/ha.
+
+      Nicht-Leguminosen:
+      - Phacelia (Phacelia tanacetifolia): Bienenweide, keine Verwandtschaft zu
+        Kulturpflanzen (keine Fruchtfolgeprobleme), friert bei -8 Grad ab.
+        Aussaat April-September.
+      - Gelbsenf (Sinapis alba): Schnellwuechsig (6-8 Wochen), Nematodenunterdrueckung.
+        Nicht vor Kohlgewaechsen (gleiche Familie!). Aussaat Maerz-September.
+      - Oelrettich: Tiefwurzler, bricht Verdichtungen auf. Aussaat Juni-August.
+
+      Einarbeitung: 2-4 Wochen vor der Folgepflanzung oberflaechlich mulchen oder
+      einarbeiten (obere 5-10 cm). Nicht unterpfluegen — anaerobe Faeulnis verhindert
+      Naehrstofffreisetzung. Gruene Masse vor der Samenreife einarbeiten.
     metadata:
-      topic: green_manure
-      types: [nitrogen_fixers, soil_looseners, biofumigation, bee_pasture]
+      clover_n_fixation_kg_ha: "80-150"
+      lupine_n_fixation_kg_ha: "100-200"
+      incorporation_before_planting_weeks: "2-4"
+      incorporation_depth_cm: "5-10"
 
   - id: bodenanalyse
-    title: Bodenanalyse verstehen und anwenden
+    title: Bodenanalyse — Was testen, wie interpretieren
     content: |
-      Professionelle Bodenanalyse alle 3-5 Jahre (oder bei Neuanlage):
-      Probenahme:
-      - 15-20 Einstiche ueber die Flaeche verteilt (Zickzack-Muster)
-      - Tiefe: 0-30cm (Krumenschicht)
-      - Mischen, 500g Mischprobe ans Labor senden
-      - Zeitpunkt: Herbst nach Ernte oder Fruehjahr vor Duengung
-      Standard-Analyse liefert:
-      - pH-Wert (CaCl2): Optimal 6.0-7.0 fuer die meisten Gemuese
-      - Phosphor (P2O5): Gehaltsklasse A-E
-      - Kalium (K2O): Gehaltsklasse A-E
-      - Magnesium: Gehaltsklasse A-E
-      - Humus-Gehalt: >3% ist gut, >5% sehr gut
-      - Bodenart: Sand/Lehm/Ton-Anteil
-      Interpretation Gehaltsklassen:
-      - A: Sehr niedrig → stark aufduengen
-      - B: Niedrig → aufduengen
-      - C: Optimal → Erhaltungsduengung
-      - D: Hoch → Duengung reduzieren
-      - E: Sehr hoch → KEINE Duengung mit diesem Element
-      Haeufiger Fehler: Phosphor-Ueberschuss (Gehaltsklasse D-E) durch
-      jaehrelanges Kompostieren ohne Analyse. P akkumuliert im Boden!
-      Kosten: ~25-50€ bei LUFA (Landwirtschaftliche Untersuchungs- und
-      Forschungsanstalt) oder privaten Labors.
-    metadata:
-      topic: soil_analysis
-      frequency_years: [3, 5]
-      parameters: [ph, phosphorus, potassium, magnesium, humus]
+      Eine professionelle Bodenanalyse ist die Grundlage fuer gezielte, bedarfsgerechte
+      Duengung. Ohne Bodenanalyse ist jede Duengung Raterei.
 
-  - id: jauche-bruehe
-    title: Pflanzenjauche und Bruehe selbst herstellen
-    content: |
-      Brennnessel-Jauche (Stickstoff-Booster):
-      - 1kg frische Brennnesseln + 10L Wasser (Regenwasser ideal)
-      - 10-14 Tage gaeren lassen, taeglich umruehren
-      - Fertig wenn keine Blasen mehr aufsteigen
-      - Verduennung: 1:10 mit Wasser zum Giessen
-      - Wirkung: Stickstoff + Eisen + Silizium, staerkt Pflanze
-      - Geruch: Stark! Im Garten ansetzen, nicht auf Balkon.
-      Beinwell-Jauche (Kalium-Booster):
-      - Wie Brennnessel, aber mit Beinwell (Symphytum officinale)
-      - Reich an Kalium → ideal ab Bluetebeginn fuer Fruchtbildung
-      - Verduennung: 1:10 zum Giessen
-      Ackerschachtelhalm-Bruehe (Pflanzenstärkung):
-      - 150g getrockneter Schachtelhalm + 10L Wasser
-      - 24h einweichen, dann 30 Min kochen, abkuehlen, filtern
-      - Verduennung: 1:5 als Blattspray
-      - Wirkung: Kieselsaeure staerkt Zellwaende → Mehltau-Vorbeugung
-      - KEINE Jauche (wird gekocht, nicht vergoren)
-      Allgemeine Regeln:
-      - Jauchen nie auf Blaetter spruehen (Verbrennungsgefahr)
-      - Jauchen nie unverdünnt anwenden
-      - Nicht bei Hitze giessen (morgens oder abends)
-      - Nur waehrend Wachstumsperiode (April-September)
-    metadata:
-      topic: plant_teas
-      types: [nettle_slurry, comfrey_slurry, horsetail_decoction]
+      Probenahme: Im Fruehjahr (Maerz-April) vor der Grundduengung. 10-15 Einstiche
+      gleichmaessig ueber das Beet verteilt, obere 30 cm, mischen, 500g als Mischprobe
+      ins Labor schicken. Verschiedene Beete separat beproben.
 
-  - id: mulchen-techniken
-    title: Mulchen — Bodenschutz und Naehrstoff-Kreislauf
-    content: |
-      Mulch bedeckt den nackten Boden und bietet vielfaeltige Vorteile:
-      Vorteile:
-      - Feuchtigkeit halten (Verdunstung reduziert um 50-70%)
-      - Unkraut unterdruecken (Lichtblockade)
-      - Bodentemperatur regulieren (kuehler im Sommer, waermer im Winter)
-      - Bodenlebewesen foerdern (Regenwuermer, Mikrobiom)
-      - Erosionsschutz bei Starkregen
-      - Naehrstoffe freisetzen bei Zersetzung
-      Mulch-Materialien:
-      - Rasenschnitt: Duenn auftragen (3-5cm, angetrocknet), N-reich.
-        Zu dick → Faeulnis, Schnecken-Paradies
-      - Stroh: 5-10cm, ideal fuer Erdbeeren und Tomaten. N-arm → kann
-        kurzzeitig N aus dem Boden binden (N-Sperre)
-      - Holzhäcksel: 5-8cm, nur auf Wegen und unter Gehoelzen. Auf
-        Gemuese-Beeten: Starke N-Sperre (Verrottung verbraucht N)
-      - Laub: 5-10cm, im Herbst auf Beete. Eichenlaub versauert (fuer
-        Heidelbeeren und Rhododendron gut).
-      - Mischkultur-Mulch: Beinwell-Blaetter zwischen Tomaten (K-reich)
-      Wichtig: Mulch nicht direkt an Pflanzenstengel druecken (Faeulnis!).
-      2-3cm Abstand zum Stengel lassen ("Mulch-Vulkan" vermeiden).
+      Standard-Analyse (Grunduntersuchung):
+      - pH-Wert: Optimal 6,0-7,0 fuer die meisten Gemuese. Unter 5,5: Kalken. Ueber 7,5:
+        Schwefel oder sauren Kompost einarbeiten.
+      - Phosphor (P2O5): Versorgungsstufe A (sehr niedrig) bis E (sehr hoch).
+        Ziel: Stufe C (optimal). Ueberdosierung (Stufe D/E) ist haeufig in Gartenboeden.
+      - Kalium (K2O): Wie Phosphor in Stufen. Leichte Boeden verlieren K schneller.
+      - Magnesium (Mg): Wichtig fuer Photosynthese. Mg-Mangel haeufig auf sauren Sandboeden.
+      - Humusgehalt: Optimal 4-8% im Gemuesegarten. Unter 2% dringend Kompost zugeben.
+      - Bodenart: Sand/Lehm/Ton-Anteil bestimmt Wasser- und Naehrstoffhaltekapazitaet.
+
+      Erweiterte Analyse (empfohlen alle 3-5 Jahre): Spurenelemente (Fe, Mn, Zn, Cu, B),
+      KAK (Kationenaustauschkapazitaet), Stickstoff (Nmin).
+
+      Labore: LUFA (Landwirtschaftliche Untersuchungs- und Forschungsanstalt) in jedem
+      Bundesland. Kosten: 20-50 Euro fuer Grunduntersuchung. Ergebnis in 2-3 Wochen.
+
+      Interpretation: Das Labor liefert Duengeempfehlungen mit. Wichtig: Die Empfehlungen
+      gelten fuer konventionelle Mineraldungung — bei organischer Duengung die Mengen
+      anpassen (organische Duenger haben niedrigere Naehrstoffgehalte und langsamere
+      Verfuegbarkeit).
     metadata:
-      topic: mulching
-      materials: [grass_clippings, straw, wood_chips, leaves]
-      moisture_reduction_percent: [50, 70]
+      sampling_depth_cm: "30"
+      sample_count: "10-15"
+      optimal_ph: "6.0-7.0"
+      optimal_humus_percent: "4-8"
+      analysis_interval_years: "3-5"
+      cost_eur: "20-50"
+
+  - id: flaechenbasierte-dosierung
+    title: Flaechenbasierte Dosierung (g/m2 und L/m2)
+    content: |
+      Im Freiland wird nicht pro Pflanze dosiert, sondern pro Flaeche. Dies ermoeglicht
+      eine gleichmaessige Bodenversorgung unabhaengig von der Pflanzendichte.
+
+      Umrechnung: 100 g/m2 = 1 kg pro 10 m2. Bei einem 1,2 m breiten Beet von 5 m Laenge
+      (6 m2) werden fuer 80 g/m2 Hornmehl insgesamt 480 g benoetigt.
+
+      Typische Aufwandmengen fuer Starkzehrer (pro Vegetationsperiode):
+      - Kompost: 3-5 L/m2 (Grundduengung Fruehjahr)
+      - Hornmehl: 80-120 g/m2 (aufgeteilt in 2-3 Gaben)
+      - Gesteinsmehl: 100-200 g/m2 (1x im Fruehjahr)
+      - Holzasche: 50-100 g/m2 (max. 1x jaehrlich, Kalium + Kalk)
+      - Algenkalk: 100-200 g/m2 (pH-Korrektur, Calcium)
+      - Organischer Vollduenger (Pellets): lt. Herstellerangabe, typisch 80-150 g/m2
+
+      Fluessigduenger (Jauche, Komposttee): 1-3 L/m2 bei jeder Gabe, verduennt 1:10
+      bis 1:20. Alle 2-3 Wochen waehrend der Hauptwachstumszeit.
+
+      Praxistipp Dosierungshilfe: Ein gehaeufter Essloeffel Hornmehl = ca. 15 g.
+      Eine 10-Liter-Giesskanne mit Jauche 1:10 reicht fuer ca. 3-5 m2.
+
+      Hochbeete: 20-30% hoehere Dosierung als Freilandbeete, da Hochbeete schneller
+      auslaugen (bessere Drainage, hoehere Bodentemperatur = schnellerer Abbau).
+
+      Toepfe/Kuebel im Freien: Nicht flaechenbasiert dosieren, sondern nach Topfvolumen.
+      Faustregel: Pro 10 Liter Erdvolumen die Menge fuer 0,1 m2 verwenden.
+    metadata:
+      compost_l_per_m2: "3-5"
+      horn_meal_g_per_m2: "80-120"
+      rock_flour_g_per_m2: "100-200"
+      raised_bed_increase: "20-30%"
+
+  - id: jauche-bruehe-komposttee
+    title: Pflanzenjauchen, Bruehen und Komposttee
+    content: |
+      Selbst hergestellte Pflanzenjauchen und -bruehen sind kostenlose, wirksame
+      Duenger und Pflanzenstarkungsmittel. Sie liefern Naehrstoffe, Spurenelemente
+      und bioaktive Substanzen.
+
+      Brennnesseljauche (Stickstoff-betont):
+      - Herstellung: 1 kg frische Brennnesseln (vor Bluete) in 10 L Wasser, 10-14 Tage
+        gaeren lassen, taeglich umruehren. Fertig wenn nicht mehr schaeumend.
+      - Anwendung: 1:10 verduennt giessen (1 L Jauche auf 10 L Wasser), alle 2 Wochen.
+        Als Blattspray 1:20 verduennt.
+      - Wirkung: Ca. 0,5% N, plus Eisen, Kieselsaeure. Staerkt Pflanzengewebe.
+
+      Beinwelljauche (Kalium-betont):
+      - Herstellung: Wie Brennnesseljauche, 1 kg Beinwellblaetter auf 10 L Wasser.
+      - Anwendung: 1:10 verduennt, ideal waehrend Bluete und Fruchtbildung.
+      - Wirkung: Hoher Kaliumgehalt, foerdert Fruchtqualitaet und Reife.
+
+      Schachtelhalmbruehe (Kieselsaeure, Pflanzenschutz):
+      - Herstellung: 100 g getrockneten Schachtelhalm in 1 L Wasser 24h einweichen,
+        dann 30 min koecheln lassen. Abseihen und abkuehlen.
+      - Anwendung: 1:5 verduennt als Blattspray, vorbeugend gegen Pilzkrankheiten.
+      - Wirkung: Kieselsaeure staerkt Zellwaende, erschwert Pilzbefall.
+
+      Komposttee (AACT — Actively Aerated Compost Tea):
+      - Herstellung: 1 Schaufel reifen Kompost in Jutesack, in 10 L Wasser haengen,
+        24-48h mit Luftpumpe belueften. Sofort verwenden (nicht lagern!).
+      - Anwendung: Unverduennt giessen oder 1:5 als Blattspray.
+      - Wirkung: Milliarden nuetzlicher Mikroorganismen, foerdert Bodenleben.
+
+      Achtung: Alle Jauchen riechen intensiv. Im staedtischen Umfeld Nachbarn informieren.
+      Niemals unverduennt anwenden — Wurzelverbrennung!
+    metadata:
+      nettle_dilution: "1:10"
+      comfrey_dilution: "1:10"
+      horsetail_dilution: "1:5"
+      fermentation_days: "10-14"
+
+  - id: mykorrhiza
+    title: Mykorrhiza-Inokulation
+    content: |
+      Mykorrhiza-Pilze sind symbiotische Partner der Pflanzenwurzeln. Sie vergroessern
+      das Wurzelsystem effektiv um das 10-100-fache und verbessern die Aufnahme von
+      Phosphor, Zink, Kupfer und Wasser dramatisch.
+
+      Typen:
+      - Arbuskulaere Mykorrhiza (AM): Die wichtigste Gruppe fuer Gemuese, Kraeuter und
+        die meisten Kulturpflanzen. 80% aller Landpflanzen bilden AM-Symbiosen.
+      - Ektomykorrhiza (EM): Fuer Baeume und Straeucher (Eiche, Birke, Kiefer).
+        Nicht relevant fuer Gemuesegaerten.
+
+      Nicht-mykorrhizierende Familien: Kreuzbluetler (Kohl, Rettich, Senf), Gaensefuss-
+      gewaechse (Spinat, Rote Bete, Mangold) und Knoeterichgewaechse (Buchweizen, Rhabarber)
+      bilden KEINE Mykorrhiza. Inokulation ist hier nutzlos und Geldverschwendung.
+
+      Anwendung: Inokulum (Granulat oder Pulver) direkt an die Wurzelzone bringen — beim
+      Pflanzen in das Pflanzloch geben oder bei Aussaat in die Saatfurche streuen. Auf
+      der Erdoberflaeche ist es wirkungslos, da die Sporen Wurzelkontakt brauchen.
+
+      Foerderung bestehender Mykorrhiza:
+      - Boden nicht umgraben (zerreisst Pilznetzwerk)
+      - Kein ueberschuessiger Phosphor-Duenger (>Stufe C hemmt Mykorrhiza-Bildung)
+      - Keine Fungizide anwenden
+      - Dauerbegrunung/Mulch statt nackter Boden
+      - Fruchtfolge mit mykorrhizierenden Arten
+
+      Ertragssteigerung durch Mykorrhiza: Studien zeigen 10-25% Mehrertraege bei Tomaten,
+      Paprika und Gurken in nicht-sterilen Freilandboeden. Effekt ist groesser auf
+      naehrstoffarmen und trockenen Boeden.
+    metadata:
+      non_mycorrhizal_families: [Brassicaceae, Chenopodiaceae, Polygonaceae]
+      yield_increase_percent: "10-25"
+      root_extension_factor: "10-100x"
+
+  - id: saisonaler-duengekalender
+    title: Saisonaler Duengekalender (Maerz bis Oktober)
+    content: |
+      Ein strukturierter Duengekalender verhindert Ueber- und Unterduengung und stellt
+      sicher, dass Naehrstoffe zum richtigen Zeitpunkt verfuegbar sind.
+
+      Maerz: Bodenanalyse durchfuehren (falls nicht im Herbst geschehen). Kompost und
+      Gesteinsmehl auf die Beete ausbringen, sobald der Boden frostfrei und abgetrocknet
+      ist. Gruenduengung von Winterbedeckung einarbeiten (2-4 Wochen vor Pflanzung).
+
+      April: Grundduengung mit Hornmehl/Hornspaenen fuer Starkzehrer-Beete. Mykorrhiza-
+      Inokulum beim Pflanzen von Vorkultur-Setzlingen. Komposttee als Bodenaktivator.
+
+      Mai (nach Eisheiligen): Waermeliebende Kulturen pflanzen. Mulchschicht ausbringen
+      (5-8 cm). Erste Brennnesseljauche ansetzen. Phacelia oder Klee als Untersaat
+      zwischen den Reihen saeen.
+
+      Juni: Kopfduengung mit Hornmehl fuer Starkzehrer (50 g/m2). Brennnesseljauche
+      alle 2 Wochen. Beinwelljauche fuer bluehende/fruchtende Kulturen starten.
+
+      Juli: Zweite Kopfduengung fuer langstehende Kulturen (Tomaten, Paprika, Kuerbis).
+      Kalimagnesia (30-50 g/m2) fuer Fruchtqualitaet. Schachtelhalmbruehe vorbeugend
+      spritzen bei feucht-warmer Witterung.
+
+      August: Letzte Stickstoffgabe fuer einjaehrige Kulturen. Stauden und Gehoelze:
+      KEIN Stickstoff mehr (Frosthaerte!). Abgeerntete Beete sofort mit Gruenduengung
+      bestellen.
+
+      September: Herbstkompost auf abgeraeumte Beete (2-3 L/m2). Wintergruenduengung
+      aussaeen (Inkarnatklee, Winterroggen). Holzasche (50 g/m2) fuer Kalium.
+
+      Oktober: Letzte Aufraeum-Arbeiten. Mulch auf Winterbeete. Keine Duengung mehr.
+      Boden ruht bis zum Fruehjahr.
+    metadata:
+      last_nitrogen_month: August
+      green_manure_autumn: [Inkarnatklee, Winterroggen]
+      autumn_compost_l_per_m2: "2-3"
+
+  - id: mischkultur-naehrstoffdynamik
+    title: Companion Planting und Naehrstoffdynamik
+    content: |
+      Mischkultur (Companion Planting) nutzt die unterschiedlichen Naehrstoffbeduerfnisse
+      und -beitraege von Pflanzen fuer gegenseitigen Nutzen. Aus Duengesicht sind
+      folgende Kombinationen besonders relevant:
+
+      Leguminosen als Stickstofflieferanten: Bohnen und Erbsen fixieren atmosphaerischen
+      Stickstoff ueber Rhizobien-Bakterien in ihren Wurzelknoellchen. Nachbarpflanzen
+      profitieren teilweise bereits waehrend der Kultur, voll nach der Einarbeitung.
+      Klassiker: Mais + Stangenbohnen + Kuerbis (Milpa/Drei Schwestern).
+
+      Tiefwurzler + Flachwurzler: Kombinieren erschliesst verschiedene Bodenhorizonte.
+      Tomaten (tiefe Pfahlwurzel) + Basilikum (flache Wurzeln) konkurrieren nicht um
+      dieselben Naehrstoffe. Tiefwurzler holen Naehrstoffe aus unteren Schichten und
+      machen sie ueber Laubfall/Kompostierung verfuegbar.
+
+      Starkzehrer neben Schwachzehrern: Dosierungskompromiss notwendig. Nicht einheitlich
+      duengen, sondern gezielt an der Starkzehrer-Seite mehr geben. Alternativ: Starkzehrer
+      in die Mitte des Beetes, Schwachzehrer an den Rand.
+
+      Allelopathie beachten: Manche Pflanzen hemmen das Wachstum ihrer Nachbarn durch
+      Wurzelausscheidungen. Walnuss (Juglon) hemmt Tomaten. Fenchel hemmt viele
+      Gemuesesorten. Sonnenblumen koennen Boden fuer Nachfolger belasten.
+
+      Naehrstoff-Konkurrenz minimieren: Gleiche Naehrstoff-Hauptbedarfe (z.B. zwei
+      Starkzehrer) nebeneinander fuehren zu Konkurrenz. Abwechseln: Starkzehrer,
+      Mittelzehrer, Schwachzehrer, Leguminose innerhalb eines Beetes.
+
+      Duengestrategie bei Mischkultur: Grundduengung gleichmaessig, Kopfduengung gezielt
+      an Starkzehrer. Fluessigduenger direkt an den Wurzelbereich der beduerftigen Pflanze
+      giessen, nicht flaechig verteilen.
+    metadata:
+      milpa_crops: [Mais, Stangenbohnen, Kuerbis]
+      legume_n_benefit: partial_during_growth_full_after_incorporation

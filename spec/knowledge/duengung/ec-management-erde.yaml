@@ -1,138 +1,289 @@
 ---
 title: EC-Management in Erde und organischen Substraten
 category: duengung
-tags: [ec, erde, boden, salz, flush, organisch, vorduengung, cec, top-dressing]
+tags: [ec, erde, organisch, boden, salzakkumulation, spuelung, kationenaustausch, kompost, langzeitduenger]
 expertise_level: [beginner, intermediate, expert]
-applicable_phases: [seedling, vegetative, flowering]
+applicable_phases: [seedling, vegetative, flowering, harvest]
 chunks:
-  - id: boden-ec-messung
-    title: Boden-EC richtig messen
+  - id: ec-messung-erde-methoden
+    title: EC-Messmethoden fuer Erde und organische Substrate
     content: |
-      Boden-EC kann nicht direkt mit einem EC-Meter gemessen werden.
-      Zwei Methoden:
-      1:2 Extrakt-Methode (Standard):
-      - 1 Teil Substrat + 2 Teile destilliertes Wasser
-      - 30 Minuten ruehren/stehen lassen, filtern
-      - Filtrat mit EC-Meter messen
-      - Gesunder Bereich: 0.5-1.5 mS/cm (1:2 Extrakt)
-      - Ueber 2.0 mS/cm: Versalzung wahrscheinlich
-      Pour-Through-Methode (einfacher):
-      - Substrat gut durchfeuchten (Kapazitaet erreichen)
-      - 1 Stunde warten
-      - 100-200ml destilliertes Wasser langsam aufgiessen
-      - Ablaufwasser auffangen und EC messen
-      - Gesunder Bereich: 1.0-3.0 mS/cm (Pour-Through)
-      Bodenprobe beim Labor (genaueste Methode):
-      - Professionelle Bodenanalyse alle 2-3 Jahre (Outdoor)
-      - Liefert einzelne Naehrstoffe, pH, Humusgehalt, CEC
-      - Kosten: ~30-50€ bei landwirtschaftlichen Untersuchungsaemtern
-    metadata:
-      topic: soil_ec_measurement
-      methods: [extract_1_2, pour_through, lab_analysis]
+      In Erde kann die EC nicht direkt im Medium gemessen werden wie in Hydroponik.
+      Stattdessen gibt es zwei Standardmethoden:
 
-  - id: vorgeduengte-erde
-    title: Vorgeduengte Erden und ihre EC-Dynamik
-    content: |
-      Hochwertige Blumenerden (z.B. BioBizz, Canna Terra, Plagron) sind
-      fuer 3-6 Wochen vorgeduengt:
-      - Frische Erde hat EC 1.0-2.0 (1:2 Extrakt)
-      - In den ersten 2-4 Wochen: KEIN zusaetzlicher Duenger noetig
-      - Pflanzen in vorgeduengter Erde zeigen Verbrennungen wenn sofort
-        mit voller Staerke geduengt wird
-      Empfehlung:
-      - Woche 1-3: Nur Wasser (pH-angepasst)
-      - Woche 4-5: 25-50% der empfohlenen Duengerkonzentration starten
-      - Ab Woche 6: Auf volle Staerke steigern (nach Bedarf)
-      Billige Erden ("Discounter-Blumenerde"):
-      - Oft kaum vorgeduengt, ungleichmaessige Qualitaet
-      - Kann Trauermucken-Larven oder Unkrautsamen enthalten
-      - Fuer Saemling und Anzucht: Spezielle Anzuchterde verwenden
-        (niedrigerer EC, feinere Struktur)
-      Erde mischen (Expert-Level):
-      - 60% Basis-Erde + 20% Perlit + 10% Wurmhumus + 10% Kokos
-      - Selbst gemischt → volle Kontrolle ueber Naehrstoffgehalt
-    metadata:
-      topic: pre_fertilized_soil
-      duration_weeks: [3, 6]
+      1:2-Extrakt-Methode: 1 Teil Erde mit 2 Teilen destilliertem Wasser mischen,
+      30 Minuten stehen lassen, gelegentlich umruehren, durch Kaffeefilter oder Tuch
+      filtern und die EC des Filtrats messen. Diese Methode ist labortauglich und
+      reproduzierbar. Gesunde Werte: 0,5-1,5 mS/cm im Filtrat.
 
-  - id: salzanreicherung-erkennen
-    title: Salzanreicherung in Erde erkennen und beheben
-    content: |
-      Symptome von Salzanreicherung (Ueberdüngung in Erde):
-      - Weisse Krusten auf der Substrat-Oberflaeche
-      - Weisse Ablagerungen am Topfrand (Salz-Ausblühungen)
-      - Blattspitzen-Verbrennung (braune, trockene Spitzen)
-      - Blattraender werden braun und knusprig
-      - Dunkelgruene, klauenartig gebogene Blaetter (N-Ueberschuss)
-      - Wurzeln werden braun (Salzschaden)
-      Ursachen:
-      - Zu haeufige oder zu konzentrierte Duengung
-      - Kein/wenig Durchlauf (immer nur oberflaechlich giessen)
-      - Hartes Leitungswasser (hoher EC-Ausgangswert)
-      - Tontopf/Terracotta: Salze sammeln sich im poroesen Material
-      Behebung:
-      - Flush: 3× Topfvolumen mit pH-angepasstem Wasser durchspuelen.
-        In Badewanne oder Dusche — Ablauf muss frei sein.
-      - 7-10 Tage nur Wasser, dann mit 50% der Normaldosis weiterduengen
-      - Weisse Krusten auf Oberflaeche: Obere 1-2cm Substrat entfernen
-        und durch frische Erde ersetzen
-      Vorbeugung: Immer 10-20% Durchlauf beim Giessen, regelmaessig
-      mit klarem Wasser giessen (jeder 3.-4. Durchgang ohne Duenger).
-    metadata:
-      topic: salt_buildup
-      symptoms: [white_crust, tip_burn, dark_leaves]
+      Pour-Through-Methode (Durchlaufmethode): 1 Stunde nach dem normalen Giessen
+      200-300 ml destilliertes Wasser auf die Erdoberflaeche giessen und das ablaufende
+      Wasser in einer Schale auffangen. EC des Ablaufs messen. Vorteil: Stoert die
+      Pflanze nicht, schnell durchfuehrbar. Nachteil: Weniger praezise als 1:2-Extrakt.
 
-  - id: top-dressing-liquid
-    title: Top-Dressing vs. Fluessigduengung in Erde
-    content: |
-      Fluessigduenger (liquid feeding):
-      - Schnelle Verfuegbarkeit (Stunden bis 1-2 Tage)
-      - Dosierung bei jedem Giessen anpassbar
-      - Risiko: Ueberduengung bei falscher Dosierung
-      - Empfohlen fuer: Indoor-Topfkultur, schnelles Reagieren auf Mangel
-      - Frequenz: Bei jedem 2.-3. Giessen oder kontinuierlich niedrig dosiert
-      Top-Dressing (trockener Duenger auf Substrat-Oberflaeche):
-      - Langsame Freisetzung ueber Wochen
-      - Weniger Ueberduengungs-Risiko
-      - Natuerlicher, bodenahnlicher Naehrstofffluss
-      - Empfohlen fuer: Outdoor, grosse Toepfe, organischer Anbau
-      - Typisch: Hornspäne, Guano, Wurmhumus, Gesteinsmehl
-      Slow-Release Duenger (Langzeitduenger):
-      - Osmocote-Typ: Kugeln mit Harzummantelung, 3-9 Monate Freisetzung
-      - Unkontrollierbar: Temperaturabhaengige Freisetzung
-        (heiss = schneller → Ueberdüngung bei Hitzewelle)
-      - Fuer Zierpflanzen ok, fuer Nutzpflanzen/Cannabis nicht empfohlen
-        (keine phasenspezifische Anpassung moeglich)
-      Kombination: Top-Dressing als Basis (z.B. Wurmhumus monatlich) +
-      Fluessigduenger fuer Feinabstimmung (wöchentlich).
-    metadata:
-      topic: feeding_methods_soil
-      methods: [liquid, top_dressing, slow_release]
+      Direkte Boden-EC-Tester (Stab-Messgeraete): Messen die EC im feuchten Boden
+      direkt. Guenstige Geraete sind sehr ungenau. Professionelle In-situ-Sonden
+      (z.B. Teros 12) sind praezise, aber teuer (>200 Euro).
 
-  - id: cec-verstehen
-    title: CEC — Kationenaustauschkapazitaet verstehen
-    content: |
-      CEC (Cation Exchange Capacity) beschreibt wie viele positiv geladene
-      Ionen (Kationen) ein Substrat binden und wieder abgeben kann.
-      Hohe CEC (gut):
-      - Tonhaltige Erde, Kompost, Humus, Vermiculite
-      - Speichert Naehrstoffe und gibt sie langsam ab
-      - Puffert gegen Ueberdüngung
-      - Risiko: Kann auch Schaedliches speichern (Schwermetalle)
-      Niedrige CEC:
-      - Sandiger Boden, Perlit, Steinwolle
-      - Naehrstoffe werden schnell ausgewaschen
-      - Haefigere Duengung noetig, aber leichter zu korrigieren
-      Coco-Spezialfall:
-      - Mittlere CEC, aber bindet bevorzugt Ca und Mg (verdraengt K und Na)
-      - Neues Coco "frisst" Calcium und Magnesium aus der Naehrloesung
-      - Daher: Neues Coco IMMER mit CalMag-Loesung vorpuffern
-        (Einweichen in EC 1.0 CalMag-Loesung fuer 8-24h, dann spuelen)
-      - Nach Vorpufferung stabilisiert sich CEC und Naehrstoff-Management
-        funktioniert vorhersagbar
-      Praxis: Je hoeher die CEC des Substrats, desto traeger reagiert es
-      auf Aenderungen und desto schwieriger ist schnelle Korrektur.
+      Messfrequenz: Alle 2-4 Wochen mit der 1:2-Methode oder Pour-Through. Haeufiger
+      bei Verwendung von Mineraldungern. Bei reiner Kompost-/Langzeitduengung reicht
+      monatlich. Nach einem Flush sofort kontrollieren.
     metadata:
-      topic: cation_exchange_capacity
-      high_cec: [clay, compost, humus, vermiculite]
-      low_cec: [sand, perlite, rockwool]
+      method_1_2_healthy_range: "0.5-1.5"
+      measurement_interval: every_2_4_weeks
+
+  - id: ec-richtwerte-erde
+    title: Gesunde EC-Bereiche in Erde
+    content: |
+      Erde hat durch ihre Pufferkapazitaet und den Kationenaustausch ein komplexeres
+      EC-Verhalten als hydroponische Medien. Die Werte unterscheiden sich je nach Methode:
+
+      1:2-Extrakt: 0,5-1,5 mS/cm ist der gesunde Bereich fuer die meisten Kulturpflanzen.
+      Unter 0,3 mS/cm deutet auf Naehrstoffarmut hin. Ueber 2,0 mS/cm signalisiert
+      Versalzung und erfordert sofortiges Handeln.
+
+      Pour-Through: 1,0-2,5 mS/cm ist normal. Werte ueber 3,5 mS/cm sind kritisch.
+
+      Phasenabhaengige Richtwerte (1:2-Methode):
+      - Saemling/Jungpflanze: 0,3-0,6 mS/cm
+      - Vegetativ (aktives Wachstum): 0,6-1,2 mS/cm
+      - Bluete/Fruchtbildung: 0,8-1,5 mS/cm
+      - Spaete Reife/Ernte: 0,4-0,8 mS/cm
+
+      Substratunterschiede: Torfbasierte Erden haben eine niedrigere Ausgangs-EC als
+      lehmige Boeden. Kokos-Erde-Mischungen verhalten sich aehnlich wie reine Erde,
+      aber mit schnellerer Drainage und geringerer Pufferung.
+
+      Wichtig: Erde puffert starke EC-Schwankungen besser als Hydroponik. Daher sind
+      kurzfristige Spitzen weniger kritisch, aber langfristige Akkumulation gefaehrlicher,
+      weil sie im Boden gespeichert wird und schwerer zu korrigieren ist.
+    metadata:
+      extract_1_2_healthy: "0.5-1.5"
+      extract_1_2_danger: ">2.0"
+      pour_through_healthy: "1.0-2.5"
+      pour_through_danger: ">3.5"
+
+  - id: salzakkumulation-erkennen
+    title: Salzakkumulation erkennen und verhindern
+    content: |
+      Salzakkumulation ist das haeufigste Duengungsproblem in Erde und entsteht durch
+      ueberschuessige Mineralduenger, die nicht von der Pflanze aufgenommen werden.
+
+      Visuelle Anzeichen:
+      - Weisse oder gelbliche Kruste auf der Erdoberflaeche (Salzausbluehungen)
+      - Weisser Belag am Topfrand oder an Abflusslochern
+      - Blattspitzenbrand: Braune, trockene Blattspitzen, besonders an aelteren Blaettern
+      - Blattraender werden braun und rollen sich nach oben
+      - Generell gestauchtes, verkuemmertes Wachstum trotz ausreichend Licht und Wasser
+
+      Pflanzenspezifische Symptome:
+      - Tomaten: Blossom End Rot (Bluethenendfaeule) wird durch Salzstress verschlimmert
+      - Cannabis: Krallende Blaetter (Claw), uebermaessig dunkelgruenes Laub
+      - Kraeuter: Bitterer Geschmack, verholzende Stiele
+
+      Ursachen: Zu haeufiges Duengen mit Mineraldungern, zu geringe Wassermengen
+      (kein Durchlauf), hartes Leitungswasser ohne Ausgleich, Topf zu klein (Salze
+      konzentrieren sich), fehlende Drainage.
+
+      Praevention: Bei jeder 3.-4. Bewaesserung 10-20% Durchlauf erzeugen. Topfgroesse
+      an Pflanze anpassen. EC-Zulauf kennen und nicht ueberschreiten. Im Zweifel weniger
+      duengen — Unterduengung ist in Erde leichter korrigierbar als Ueberduengung.
+    metadata:
+      drain_every_nth_watering: "3-4"
+      target_runoff: "10-20%"
+
+  - id: flush-erde
+    title: Spuelung von Erde bei Salzueberschuss
+    content: |
+      Wenn die Boden-EC zu hoch ist oder Verbrennungssymptome auftreten, muss die Erde
+      gespuelt werden. Die Methode unterscheidet sich deutlich von der Hydroponik-Spuelung.
+
+      Standard-Flush: 3x das Topfvolumen an pH-adjustiertem Wasser (6,0-6,5) langsam
+      durch den Topf giessen. Bei einem 10-Liter-Topf also 30 Liter Wasser. Langsam
+      giessen, damit das Wasser gleichmaessig durch die Erde fliesst und nicht an den
+      Raendern vorbeilaeuft (Channeling).
+
+      Schritt-fuer-Schritt:
+      1) Topf auf ein Gitter oder erhoehte Flaeche stellen (Ablauf muss frei fliessen)
+      2) Wasser mit pH 6,0-6,5 temperieren (Raumtemperatur)
+      3) Langsam in mehreren Durchgaengen giessen, jeweils warten bis Ablauf kommt
+      4) Am Ende den Ablauf messen — EC sollte unter 1,0 mS/cm liegen
+      5) Wenn Ablauf-EC noch zu hoch: Vorgang mit 1-2x Topfvolumen wiederholen
+
+      Nachsorge: 2-3 Tage nicht duengen, nur mit klarem Wasser giessen. Dann mit 50%
+      der ueblichen Duengerdosis neu starten und langsam steigern. Erde trocknet nach
+      Flush langsamer — Ueberwasserungsgefahr beachten!
+
+      Achtung: Flush waescht auch nuetzliche Mikroorganismen und Spurenelemente aus.
+      Nach dem Flush Mykorrhiza-Inokulum und ggf. Komposttee zugeben, um das Bodenleben
+      wiederherzustellen.
+    metadata:
+      flush_volume: "3x_pot_volume"
+      target_drain_ec: "<1.0"
+      post_flush_rest_days: "2-3"
+      restart_dose: "50%"
+
+  - id: langzeitduenger-ec
+    title: Langzeitduenger und ihre EC-Beitraege
+    content: |
+      Langzeit- und Depotduenger (Controlled Release Fertilizer, CRF) setzen Naehrstoffe
+      ueber Wochen bis Monate frei. Ihre EC-Beitraege sind schwer zu messen, da die
+      Freisetzung temperaturabhaengig und kontinuierlich erfolgt.
+
+      Osmocote, Basacote und aehnliche: Kunstharzummantelte Koerner, Freisetzung ueber
+      3-12 Monate je nach Produkt. Bei hoeheren Temperaturen schnellere Freisetzung —
+      im Sommer kann die EC unerwartet steigen. Nicht zusaetzlich mit Mineraldungern
+      duengen, es sei denn, Mangelsymptome treten auf.
+
+      Hornmehl/Hornspaene: Rein organisch, Freisetzung durch mikrobielle Zersetzung
+      ueber 2-8 Wochen (Mehl schneller als Spaene). EC-Beitrag schwer messbar, da die
+      freigesetzten Naehrstoffe sofort im Bodenkomplex gebunden werden.
+
+      Kompost: Hochwertiger Kompost hat eine EC von 1,5-3,0 mS/cm (gemessen als
+      1:2-Extrakt). In Mischungen mit Erde (1:3 bis 1:5) traegt Kompost ca. 0,3-0,8
+      mS/cm zur Gesamt-EC bei. Frischer Kompost hat hoehere EC als gut gereifter.
+
+      Wurmhumus: EC typischerweise 1,0-2,0 mS/cm (1:2-Extrakt). Hervorragend als
+      Top-Dressing (2-3 cm Schicht), da Naehrstoffe langsam mit dem Giesswasser
+      eingewaschen werden.
+
+      Praxis-Tipp: Bei Verwendung von Langzeitduengern die zusaetzliche Fluessigduengung
+      um 30-50% reduzieren. Alle 4 Wochen Pour-Through-EC messen, um Akkumulation
+      fruehzeitig zu erkennen.
+    metadata:
+      compost_ec_1_2: "1.5-3.0"
+      worm_castings_ec_1_2: "1.0-2.0"
+      liquid_feed_reduction_with_crf: "30-50%"
+
+  - id: organisch-vs-mineralisch-ec
+    title: Organische vs. mineralische Duenger und EC-Verhalten
+    content: |
+      Organische und mineralische Duenger verhalten sich in Bezug auf EC grundlegend
+      unterschiedlich. Das Verstaendnis dieser Unterschiede ist entscheidend fuer
+      korrektes EC-Management in Erde.
+
+      Mineralische Duenger (Salze): Sofort in Loesung, sofort messbar per EC-Meter.
+      Schnelle Verfuegbarkeit fuer die Pflanze, aber auch schnelle Akkumulation bei
+      Ueberdosierung. NPK-Verhaeltnis exakt steuerbar. EC steigt linear mit der Dosierung.
+
+      Organische Duenger: Muessen erst durch Bodenorganismen mineralisiert werden.
+      EC steigt verzoegert (Tage bis Wochen). Frisch angesetzte organische Fluessigduenger
+      (Brennnesseljauche, Komposttee) haben eine messbare EC, aber ein Grossteil der
+      Naehrstoffe ist noch in organischer, nicht pflanzenverfuegbarer Form gebunden.
+      EC-Messung unterschaetzt den tatsaechlichen Naehrstoffgehalt.
+
+      Mischduengung (organisch + mineralisch): Haeufig in der Praxis, aber EC-Management
+      wird komplex. Die mineralische Komponente ist sofort messbar, die organische nicht.
+      Risiko der Ueberdosierung, wenn man die EC nur nach der mineralischen Komponente
+      steuert und die organische Nachlieferung nicht beruecksichtigt.
+
+      Empfehlung: In reinen Erdesystemen organische Duenger bevorzugen und EC als
+      Kontroll-Werkzeug nutzen (Ueberwachung auf Akkumulation), nicht als primaeres
+      Dosierungs-Werkzeug. Die Pflanze und visuelle Beobachtung sind in organischen
+      Systemen wichtiger als exakte EC-Werte.
+    metadata:
+      mineral_availability: immediate
+      organic_availability: days_to_weeks
+
+  - id: kationenaustausch-cec
+    title: Kationenaustauschkapazitaet (KAK/CEC) in Erde
+    content: |
+      Die Kationenaustauschkapazitaet (KAK, englisch CEC) ist die Faehigkeit des Bodens,
+      positiv geladene Ionen (Kationen) wie Ca2+, Mg2+, K+, NH4+ zu binden und bei
+      Bedarf an die Pflanzenwurzeln abzugeben. Sie wird in cmol(+)/kg oder mval/100g
+      angegeben.
+
+      Hohe KAK (20-40 cmol/kg): Tonige Boeden, Humus-reiche Erde, Kompost. Speichern
+      viele Naehrstoffe, puffern pH-Schwankungen gut. Duenger werden langsam freigesetzt.
+      Vorteil: Weniger haeufig duengen noetig. Nachteil: Salzanreicherung schwerer zu
+      korrigieren, Flush weniger effektiv.
+
+      Niedrige KAK (5-15 cmol/kg): Sandige Boeden, Torf, Kokos. Halten wenig Naehrstoffe
+      fest, geben sie schnell ab. Vorteil: Flush wirkt schnell und effektiv.
+      Nachteil: Haeufiger duengen noetig, pH-Schwankungen groesser.
+
+      Praktische Relevanz fuer EC-Management: In Boeden mit hoher KAK kann die gemessene
+      EC niedrig sein, obwohl genug Naehrstoffe im Boden gespeichert sind (gebunden an
+      Tonminerale und Humus). Umgekehrt kann in sandigen Boeden die EC trotz Duengung
+      schnell sinken, weil Naehrstoffe ausgewaschen werden.
+
+      Kokos und KAK: Kokos hat eine natuerliche KAK, die bevorzugt Calcium und Magnesium
+      bindet (und Natrium/Kalium freisetzt). Daher braucht Kokos immer Extra-CalMag.
+      Vorbehandelte (gepufferte) Kokos wurde bereits mit Calciumnitrat gespuelt, um die
+      KAK-Stellen mit Calcium zu saettigen. Ungepufferte Kokos kann anfangs Ca/Mg-Mangel
+      verursachen, obwohl die Naehrloesung ausreichend dosiert ist.
+    metadata:
+      high_cec_range: "20-40"
+      low_cec_range: "5-15"
+      unit: "cmol(+)/kg"
+
+  - id: saisonale-ec-anpassung-outdoor
+    title: Saisonale EC-Anpassung im Freiland
+    content: |
+      Im Freiland unterliegt das EC-Management zusaetzlichen Einfluessen, die in
+      Indoor-Systemen nicht auftreten: Regen, Temperatur, Bodenleben-Aktivitaet und
+      natuerliche Naehrstoff-Mineralisierung.
+
+      Fruehling (Maerz-Mai): Boden erwaermt sich, Bodenorganismen werden aktiv und
+      mineralisieren organisches Material. EC steigt natuerlich. Grundduengung mit
+      Kompost und Langzeitduenger ausbringen. Boden-EC pruefen bevor zusaetzlich
+      geduengt wird — oft reicht die Fruehjahrsmineralisierung fuer die ersten Wochen.
+
+      Sommer (Juni-August): Hoehere Temperaturen beschleunigen sowohl die Mineralisierung
+      als auch die Verdunstung. Bei Trockenheit steigt die Boden-EC (Salze konzentrieren
+      sich). Bei Starkregen faellt sie (Auswaschung). Regelmaessiger giessen bei
+      Hitze, um Salzkonzentrierung zu verhindern. Fluessigduenger alle 1-2 Wochen.
+
+      Herbst (September-Oktober): Abnehmende Temperaturen verlangsamen das Bodenleben.
+      Letzte Duengung spaetestens 4-6 Wochen vor Ernte. Keine Stickstoff-Duengung
+      nach August fuer Stauden und Gehoelze (verhindert Frostschaeden durch zu
+      spaetes Wachstum).
+
+      Regen-Effekt: Starkregen waescht insbesondere Nitrat (NO3-) und Kalium aus dem
+      Oberboden. Nach ergiebigem Regen (>30mm) ggf. leicht nachduengen. Hochbeete
+      und Toepfe sind staerker betroffen als gewachsener Boden.
+
+      Mulchschicht: Eine 5-10 cm Mulchschicht reguliert die Boden-EC indirekt: Sie
+      reduziert Verdunstung (weniger Salzkonzentrierung), foerdert Bodenleben
+      (gleichmaessigere Mineralisierung) und puffert Regenauswirkungen.
+    metadata:
+      last_fertilization_before_harvest_weeks: "4-6"
+      no_nitrogen_after: August
+      heavy_rain_threshold_mm: "30"
+      mulch_thickness_cm: "5-10"
+
+  - id: top-dressing-vs-fluessig
+    title: Top-Dressing vs. Fluessigduenger in Erde
+    content: |
+      In Erde stehen zwei Hauptmethoden der Naehrstoffzufuhr zur Verfuegung, die sich
+      in Geschwindigkeit, Dosierbarkeit und EC-Einfluss unterscheiden:
+
+      Top-Dressing (Oberflaechenduengung): Feste Duenger (Kompost, Wurmhumus, Hornmehl,
+      Gesteinsmehl, Guano) werden auf die Erdoberflaeche gestreut und leicht eingearbeitet.
+      Naehrstoffe werden mit jedem Giessen langsam eingewaschen. EC-Einfluss: Langsam und
+      gleichmaessig, kaum Gefahr der ploetzlichen EC-Spitze. Ideal fuer organische
+      Langzeit-Ernaehrung.
+
+      Dosierung Top-Dressing (pro 10 Liter Topf):
+      - Wurmhumus: 1-2 Essloeffel alle 2-3 Wochen
+      - Hornmehl: 1 Teeloeffel alle 4-6 Wochen
+      - Knochenmehl: 1 Teeloeffel alle 6-8 Wochen
+      - Gesteinsmehl (Basalt): 1 Teeloeffel alle 8-12 Wochen
+      - Bat Guano (P-reich): 1 Teeloeffel in der Bluete alle 3-4 Wochen
+
+      Fluessigduenger: Organisch (Brennnesseljauche, Komposttee, fertige Bio-Duenger)
+      oder mineralisch (NPK-Salzloesungen). Sofortige oder schnelle Wirkung, direkte
+      EC-Kontrolle moeglich. Hoehere Gefahr der Ueberduengung bei Mineraldungern.
+
+      Optimale Kombination: Organisches Top-Dressing als Basis (alle 2-4 Wochen) plus
+      leichte Fluessigduengung (50% Dosis) bei Bedarf. EC alle 2 Wochen per Pour-Through
+      kontrollieren. Diese Methode nutzt die Pufferung der Erde optimal und vermeidet
+      Salzakkumulation.
+
+      Giessen nach Top-Dressing: Immer gruendlich waessern nach Ausbringung, damit die
+      Naehrstoffe in die Wurzelzone gelangen und nicht auf der Oberflaeche verkrusten.
+    metadata:
+      method: combined
+      top_dressing_interval: every_2_4_weeks
+      liquid_feed_dose_reduction: "50%"
+      monitoring_interval: every_2_weeks

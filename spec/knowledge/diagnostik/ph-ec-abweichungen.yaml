@@ -44,7 +44,21 @@ chunks:
       - Organische Saeure aus Wurzelexsudaten
       - Zersetzungsprozesse im Substrat (Torf, Kokos)
       - Nitrifikation: Bodenbakterien wandeln NH4+ in NO3- um → produziert H+
-      Massnahme: pH-Up (Kaliumhydroxid oder Kaliumsilikat)
+      Massnahme: pH-Up (Kaliumhydroxid oder Kaliumsilikat).
+      Hinweis: Kaliumsilikat liefert zusaetzlich Kalium (~50-100 mg/L K pro
+      1 ml/L). Bei haeufiger Verwendung als pH-Up kann Kalium-Anreicherung
+      entstehen und sekundaer Ca/Mg-Mangel ausloesen (K/Mg-Antagonismus).
+      NH4:NO3-Verhaeltnis und pH-Drift:
+      - Ammonium-betonter Duenger (NH4:NO3 > 1:3) → pH sinkt schnell
+      - Nitrat-betonter Duenger (NH4:NO3 < 1:5) → pH steigt langsam
+      - Empfohlen fuer Hydro/Coco: NH4:NO3 = 1:5 bis 1:10
+      - Hoher NH4-Anteil verdraengt zudem Ca und Mg an der Wurzel
+      KH (Karbonathärte) und pH-Pufferung:
+      - Hohe KH (>12°dKH) bedeutet viel Hydrogencarbonat (HCO3-) →
+        puffert den pH nach oben, braucht mehr pH-Down fuer gleiche Senkung
+      - Niedrige KH (<4°dKH): pH instabil, aendert sich leicht
+      - RO-Wasser hat KH nahe 0 → pH extrem instabil (CO2 aus der Luft
+        kann pH auf 5.5-6.0 senken, CalMag hebt ihn wieder leicht)
       Starker pH-Drift (>0.5 pro Tag in Hydro): Reservoir zu klein,
       Naehrloesung zu verduennt, oder Wurzelproblem. Normalerweise
       stabil bei 0.1-0.3 Drift pro Tag.
@@ -56,7 +70,7 @@ chunks:
     title: EC-Zielwerte nach Wachstumsphase
     content: |
       EC-Zielwerte (Input-EC netto, nach Abzug Basis-Wasser-EC):
-      - Saemling/Steckling: 0.4-0.8 mS/cm (sehr empfindlich!)
+      - Saemling/Steckling: 0.4-0.6 mS/cm (sehr empfindlich!)
       - Vegetative Phase: 0.8-1.4 mS/cm (steigend mit Pflanzenmasse)
       - Fruehe Bluete: 1.2-1.6 mS/cm (Stretch-Phase, noch N-betont)
       - Peak Bluete: 1.4-2.0 mS/cm (PK-betont, maximaler Bedarf)

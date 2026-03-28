@@ -136,7 +136,7 @@ chunks:
     title: Schwefel (S) Mangel
     content: |
       Symptome: Aehnlich wie Stickstoff-Mangel, aber an JUNGEN Blaettern
-      (Schwefel ist nur begrenzt mobil). Gleichmaessige Aufhellung der neuen
+      (Schwefel ist immobil). Gleichmaessige Aufhellung der neuen
       Blaetter, ohne dass Adern sichtbar gruener bleiben. Stiele koennen
       sich violett verfaerben. Wachstum verlangsamt sich.
       Selten bei mineralischer Duengung (Sulfate in vielen Duengern).
@@ -153,7 +153,7 @@ chunks:
     metadata:
       nutrient: sulfur
       symbol: S
-      deficiency_type: semi_mobile
+      deficiency_type: immobile
       severity_indicator: new_leaves_pale
       affected_leaves: new
 
@@ -238,8 +238,11 @@ chunks:
       werden hohl und bruechig, Wurzeln werden braun. Bei Wurzelgemuese:
       Hohlherzigkeit (Rettich, Sellerie). Blaetter werden dick und
       sproede, neue Blaetter verformen sich.
-      Bor ist immobil. Tritt besonders bei Trockenheit auf, da Bor
-      mit dem Wasserstrom transportiert wird (Massenfluss).
+      Bor ist in den meisten Kulturpflanzen immobil (Ausnahme: Prunus, Malus —
+      dort ueber Zuckeralkohole im Phloem transportierbar). Bor wird im Xylem
+      mit dem Wasserstrom transportiert (Massenfluss). Bei Trockenheit ist die
+      Transpiration reduziert → weniger Massenfluss → weniger B gelangt zu den
+      Wachstumspunkten → Mangelsymptome verschlimmern sich.
       Ursachen: Trockenheit, pH ueber 6.5, kalkarmer Boden, hohe
       Kalium-Gaben, sandiger Boden (Auswaschung).
       Massnahmen:
@@ -268,7 +271,7 @@ chunks:
       Zink- oder Eisen-Ueberschuss, sehr hohe organische Substanz.
       Massnahmen:
       - pH korrigieren
-      - Kupfersulfat in sehr geringer Dosis (0.1-0.2 g/L Blattspray)
+      - Kupfersulfat in sehr geringer Dosis (0.01-0.05 g/L Blattspray)
       - Kupfer-Chelat ueber Wurzel
       Achtung: Cu-Ueberschuss ist toxisch fuer Wurzeln und Bodenleben.
       Nur bei gesicherter Diagnose supplementieren. Cu akkumuliert im
@@ -301,8 +304,42 @@ chunks:
     metadata:
       nutrient: molybdenum
       symbol: Mo
-      deficiency_type: mobile
+      deficiency_type: immobile
       severity_indicator: cupped_mottled_old_leaves
+      affected_leaves: old
+
+  - id: toxizitaet-mangan
+    title: Mangan-Toxizitaet (haeufig bei saurem Substrat)
+    content: |
+      Mangan-Ueberschuss ist eine der haeufigsten Mikro-Toxizitaeten und
+      wird oft mit Calcium-Mangel oder Eisen-Mangel verwechselt.
+      Symptome:
+      - Braune Flecken/Punkte auf AELTEREN Blaettern (anders als Mn-Mangel!)
+      - Nekrotische Punkte entlang der Blattadern
+      - Blaetter werden chlorotisch mit braunen Sprenkeln
+      - Bei Cannabis: Oft verwechselt mit Ca-Mangel-Flecken
+      - Verzoegertes Wachstum, kleine Blaetter
+      Ursachen:
+      - pH unter 5.5 im Substrat (Mn-Loeslichkeit steigt exponentiell
+        bei sinkendem pH — bei pH 5.0 ist 10x mehr Mn verfuegbar als bei pH 6.0)
+      - Uebermaessige Mangansulfat-Duengung
+      - Anaerobe Bodenverhaeltnisse (Ueberwaesserung) reduzieren Mn(IV) zu
+        loeslichem Mn(II) → ploetzlich hohe Mn-Verfuegbarkeit
+      - Saure Torferden ohne Kalkung
+      Massnahmen:
+      - pH auf 6.0-6.5 ERHOEHEN (wichtigste Massnahme)
+      - Bewaesserung reduzieren (aerobe Bedingungen wiederherstellen)
+      - Kalkung bei Outdoor-Boeden (Dolomitkalk liefert Ca+Mg und hebt pH)
+      - In Hydro: Reservoir-Wechsel mit korrektem pH
+      Abgrenzung zu Ca-Mangel: Mn-Toxizitaet zeigt Flecken auf ALTEN
+      Blaettern, Ca-Mangel auf NEUEN. Mn-Toxizitaet zeigt punktfoermige
+      Nekrosen entlang der Adern, Ca-Mangel zeigt flaechige Nekrose.
+    metadata:
+      nutrient: manganese
+      symbol: Mn
+      type: toxicity
+      trigger: low_ph
+      severity_indicator: brown_spots_old_leaves
       affected_leaves: old
 
   - id: ueberschuss-allgemein

@@ -1,0 +1,148 @@
+---
+title: Bluete-Phase Management
+category: phasen
+tags: [bluete, flowering, stretch, pk-boost, trichome, photoperiode, bestaeubung, frucht, ernte-timing]
+expertise_level: [intermediate, expert]
+applicable_phases: [flowering]
+chunks:
+  - id: bluete-einleitung
+    title: Bluete einleiten und Stretch-Phase managen
+    content: |
+      Bluetausloesung bei photoperiodischen Pflanzen:
+      - Indoor: Licht-Timer auf 12/12 (12h Licht, 12h ununterbrochene Dunkelheit)
+      - Unkritisch unterbrechungsfreie Dunkelphase: Selbst kurzes Licht
+        (Taschenlampe, Handy-Display) kann Bluete stoeren oder Zwitter-Bildung
+        ausloesen (Hermaphroditen).
+      - Gruene LED/Lampe: Wird oft als "sicher" bezeichnet fuer Nachtarbeit.
+        Umstritten — besser komplett dunkel halten.
+      Der Stretch (Streckungsphase):
+      - Erste 2-3 Wochen nach Bluetausloesung
+      - Pflanze waechst 50-200% in der Hoehe (sortenabhaengig!)
+      - Sativa-Typen: Stark (100-200%), Indica: Moderat (50-100%)
+      - PLANEN: Vor Umstellung auf 12/12 pruefen ob genug Platz nach oben ist
+        (Faustregel: Pflanze wird doppelt so hoch wie bei Umstellung)
+      Naehrstoffe im Stretch: Noch N-betont (Pflanze waechst!),
+      aber Uebergang zu Bluete-Verhaeltnis beginnen. EC leicht steigern.
+      Training waehrend Stretch: Letzte Chance fuer Supercropping oder
+      SCROG-Einflechten. Danach verholzen die Triebe.
+    metadata:
+      topic: flower_initiation
+      stretch_height_increase_percent: [50, 200]
+
+  - id: bluete-woche-fuer-woche
+    title: Blueteverlauf Woche fuer Woche (8-10 Wochen typisch)
+    content: |
+      Woche 1-2 (Stretch + Vorblüte):
+      - Starkes Hoehenwachstum, Internodien strecken sich
+      - Erste Vorblüten (Pistille/Stempel) sichtbar an Nodien
+      - Naehrstoffe: Noch vegetativ-betont, EC 1.2-1.4
+      Woche 3-4 (Bud-Formation):
+      - Hoehenwachstum stoppt, Energie geht in Bluetenbildung
+      - Kleine Bluetencluster bilden sich an jedem Knoten
+      - PK-Boost starten (25-50% Dosis), EC 1.4-1.6
+      - Naehrstoff-Verhaeltnis: Weniger N, mehr P und K
+      Woche 5-6 (Bud Swell / Hauptbluete):
+      - Bluetenstaende werden groesser und dichter
+      - Hoechster Naehrstoffbedarf, EC 1.6-2.0
+      - PK-Boost volle Dosierung
+      - Harzproduktion (Trichome) nimmt zu
+      - Geruch wird intensiver (Aktivkohle-Filter pruefen)
+      Woche 7-8 (Reifung / Abreife):
+      - Bluetenstempel (Pistille) braeunen sich (50-70%)
+      - Trichome werden milchig
+      - EC reduzieren auf 1.0-1.4, PK-Boost absetzen
+      - Blaetter beginnen natuerlich zu vergilben (N-Abbau)
+      Woche 9-10 (Flush / Erntereif):
+      - Trichome milchig bis bernstein, Pistille 70-90% braun
+      - Flush: Nur pH-Wasser (EC 0.0-0.4)
+      - Blaetter deutlich vergilbt → normal
+    metadata:
+      topic: flowering_week_by_week
+      typical_duration_weeks: [8, 10]
+
+  - id: bluete-umwelt
+    title: Umweltbedingungen in der Bluete
+    content: |
+      Temperatur:
+      - Tag: 20-26°C (kuehler als Vegetativ, foerdert Qualitaet)
+      - Nacht: 18-22°C
+      - Spaete Bluete: 18-22°C Tag moglich (foerdert Farbentwicklung,
+        Terpene, verlangsamt Abbau)
+      - DIF: +2-4°C (weniger Stretch als in Veg)
+      Luftfeuchtigkeit:
+      - Woche 1-4: 50-60% RH
+      - Woche 5-8: 45-55% RH (Schimmelrisiko steigt mit dichten Buds!)
+      - Woche 9+: 40-50% RH (maximal trocken fuer Ernte-Vorbereitung)
+      VPD: 1.0-1.5 kPa (steigend zur spaeten Bluete)
+      Licht:
+      - PPFD: 600-1000 µmol/m²/s (Vollausstattung)
+      - DLI: 26-43 mol/m²/d (bei 12h Beleuchtung)
+      - Spektrum: Rot-betont foerdert Bluetenbildung
+      - Far-Red am Ende der Lichtphase (5-15 Min): Beschleunigt
+        Einschlafen (Emerson-Effekt), verlaengert effektive Lichtperiode
+      Luftzirkulation: KRITISCH in der Bluete!
+      - Dichte Bluetenstaende = Schimmel-Risiko (Botrytis)
+      - Sanfte Luft um und durch das Canopy
+      - Nicht direkt auf Blueten blasen (trocknet Trichome aus)
+    metadata:
+      topic: flowering_environment
+      rh_late_bloom: [40, 50]
+      ppfd: [600, 1000]
+
+  - id: hermaphroditen
+    title: Zwitterbildung (Hermaphroditen) erkennen und verhindern
+    content: |
+      Hermaphroditen (Zwitter) bilden sowohl weibliche als auch maennliche
+      Blueten an einer Pflanze. Bei Cannabis: Pollensäcke (Bananen/Nanners)
+      zwischen weiblichen Blueten → Selbstbestaeubung → Samen in Buds.
+      Stress-Ursachen fuer Zwitterbildung:
+      - Licht-Unterbrechung in der Dunkelphase (haeufigste Ursache!)
+      - Extreme Temperatur-Schwankungen (>15°C DIF)
+      - Trockenheits-Stress in der Bluete
+      - Hitzestress (>30°C ueber laengeren Zeitraum)
+      - Naehrstoff-Stress (starker Mangel oder Ueberschuss)
+      - Mechanischer Stress (Beschaedigung in spaeter Bluete)
+      - Genetische Veranlagung (instabile Genetik)
+      Erkennung:
+      - Pollensäcke: Kleine Kugeln an Stielen, gelblich-gruen
+      - Bananen/Nanners: Gelbliche laengliche Gebilde direkt in den Buds
+        (spaete Hermie, oft schwer zu sehen)
+      Massnahmen:
+      - Einzelne Pollensäcke: Mit Pinzette vorsichtig entfernen, nicht
+        schuetteln (Pollenverteilung!)
+      - Stark betroffene Pflanze: Sofort entfernen (rettet andere Pflanzen)
+      - Befruchtete Buds: Enthalten Samen, Qualitaet deutlich reduziert
+      Vorbeugung: Stabiles Environment, keine Lichtlecks, gute Genetik.
+    metadata:
+      topic: hermaphrodites
+      primary_cause: light_interruption
+
+  - id: bluete-gemuese
+    title: Bluete und Fruchtbildung bei Gemuese und Obst
+    content: |
+      Nicht nur Cannabis hat eine Bluete-Phase — die Prinzipien gelten fuer
+      alle fruchtbildenden Kulturen:
+      Tomate:
+      - Bluete ab 5.-6. Blatt-Etage, kontinuierlich
+      - Bestaeubung: Schuetteln der Pflanze oder elektrischer Bestaeubungsstab
+        (Indoor), Wind + Insekten (Outdoor)
+      - Kalium-betont duengen ab Fruchtansatz
+      - Fruchtansatz-Problem bei >35°C (Pollen-Sterilitaet)
+      Paprika/Chili:
+      - Aehnlich Tomate, aber erste Bluetenknospe ("Koenigsbluete") entfernen
+        fuer bessere Verzweigung (umstritten, aber verbreitet)
+      Gurke:
+      - Einhaeusig (maennliche + weibliche Blueten an einer Pflanze)
+      - Bestaeubung: Handbest√§ubung indoor oder Insekten outdoor
+      - Parthenokarpe Sorten (bilden Fruechte ohne Bestaeubung) fuer
+        Gewaechshaus bevorzugen
+      Kuerbis/Zucchini:
+      - Grosse separate maennliche und weibliche Blueten
+      - Handbestaeubung: Maennliche Bluete pfluecken, Pollen auf
+        weibliche Narbe tupfen (morgens, Blueten nur 1 Tag offen!)
+      Erdbeere:
+      - Bestaeubung durch Wind/Insekten, Indoor: Pinsel
+      - Erste Blueten der Saison entfernen staerkt die Pflanze
+    metadata:
+      topic: flowering_vegetables
+      crops: [tomato, pepper, cucumber, squash, strawberry]
