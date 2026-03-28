@@ -337,123 +337,83 @@ const PHASE_CARD_STYLES = `
   }
 `;
 
-const PHASE_EDITOR_STYLES = `
-  .kpp-editor__row {
-    margin-bottom: 16px;
+/**
+ * ha-form ready singleton (UI-NFR-015 §2.2).
+ */
+const _haFormReadyPhase = (async () => {
+  if (customElements.get("ha-form")) return;
+  await customElements.whenDefined("hui-entities-card");
+  const helpers = await window.loadCardHelpers?.();
+  if (helpers) {
+    const temp = await helpers.createCardElement({ type: "entities", entities: [] });
+    if (temp?.constructor?.getConfigElement) await temp.constructor.getConfigElement();
   }
-  .kpp-editor__label {
-    display: block;
-    font-weight: 500;
-    margin-bottom: 4px;
-    font-size: 0.9em;
-    color: var(--primary-text-color);
-  }
-  .kpp-editor__select,
-  .kpp-editor__input {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid var(--divider-color, #ccc);
-    border-radius: 8px;
-    background: var(--card-background-color, #fff);
-    color: var(--primary-text-color);
-    font-size: 0.95em;
-    box-sizing: border-box;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  .kpp-editor__select:focus,
-  .kpp-editor__input:focus {
-    border-color: var(--primary-color, #4caf50);
-  }
-`;
+  await customElements.whenDefined("ha-form");
+})();
+
+/**
+ * Build phase card editor schema.
+ * Filters include_entities to kp_*_phase_timeline sensors.
+ */
+function _buildPhaseSchema(hass) {
+  const timelineEntities = hass
+    ? Object.keys(hass.states).filter(
+        (id) => id.startsWith("sensor.kp_") && id.endsWith("_phase_timeline")
+      )
+    : [];
+  return [
+    { name: "entity", label: "Phase-Timeline-Sensor", required: true,
+      selector: { entity: { include_entities: timelineEntities } } },
+    { name: "title",  label: "Titel (optional)",
+      selector: { text: {} } },
+  ];
+}
 
 /* ================================================================== *
  *  Editor                                                             *
  * ================================================================== */
 
+/**
+ * Kamerplanter Phase Card Editor
+ * Uses ha-form + schema — identical pattern to official HA card editors
+ * (UI-NFR-015 §2.1). No Shadow DOM (UI-NFR-015 R-022).
+ */
 class KamerplanterPhaseCardEditor extends HTMLElement {
-  constructor() {
-    super();
-    this.attachShadow({ mode: "open" });
-  }
-
   setConfig(config) {
     this._config = { entity: "", title: "", ...config };
-    if (this._hass) this._render();
+    if (this._hass) this._scheduleRender();
   }
 
   set hass(hass) {
     this._hass = hass;
-    this._render();
+    this._scheduleRender();
   }
 
-  _getTimelineEntities() {
-    if (!this._hass) return [];
-    return Object.keys(this._hass.states)
-      .filter((id) => id.startsWith("sensor.kp_") && id.endsWith("_phase_timeline"))
-      .map((id) => ({
-        id,
-        name: this._hass.states[id].attributes.friendly_name || id,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+  async _scheduleRender() {
+    await _haFormReadyPhase;
+    this._render();
   }
 
   _render() {
     if (!this._config || !this._hass) return;
-    const root = this.shadowRoot;
 
-    if (!this._built) {
-      root.innerHTML = `
-        <style>${PHASE_EDITOR_STYLES}</style>
-        <div>
-          <div class="kpp-editor__row">
-            <label class="kpp-editor__label">Phase Timeline Sensor</label>
-            <select class="kpp-editor__select" id="entity"></select>
-          </div>
-          <div class="kpp-editor__row">
-            <label class="kpp-editor__label">Titel (optional)</label>
-            <input class="kpp-editor__input" id="title" type="text" placeholder="Phasen-Fortschritt" />
-          </div>
-        </div>
-      `;
-      root.getElementById("entity").addEventListener("change", (e) => {
-        this._config = { ...this._config, entity: e.target.value };
-        this._dispatch();
+    // Create ha-form once; reuse on subsequent renders (UI-NFR-015 R-020)
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.addEventListener("value-changed", (e) => {
+        this._config = e.detail.value;
+        this.dispatchEvent(new CustomEvent("config-changed", {
+          detail: { config: this._config },
+          bubbles: true,
+          composed: true,
+        }));
       });
-      root.getElementById("title").addEventListener("input", (e) => {
-        this._config = { ...this._config, title: e.target.value };
-        this._dispatch();
-      });
-      this._built = true;
+      this.appendChild(this._form);
     }
 
-    const select = root.getElementById("entity");
-    const entities = this._getTimelineEntities();
-    select.innerHTML = "";
-
-    const emptyOpt = document.createElement("option");
-    emptyOpt.value = "";
-    emptyOpt.textContent = "\u2014 Sensor ausw\u00e4hlen \u2014";
-    select.appendChild(emptyOpt);
-
-    for (const ent of entities) {
-      const opt = document.createElement("option");
-      opt.value = ent.id;
-      opt.textContent = ent.name;
-      select.appendChild(opt);
-    }
-    select.value = this._config.entity || "";
-
-    const titleEl = root.getElementById("title");
-    if (titleEl.value !== (this._config.title || "")) {
-      titleEl.value = this._config.title || "";
-    }
-  }
-
-  _dispatch() {
-    const event = new Event("config-changed", { bubbles: true, composed: true });
-    event.detail = { config: this._config };
-    this.dispatchEvent(event);
+    this._form.hass = this._hass;
+    this._form.schema = _buildPhaseSchema(this._hass);
+    this._form.data = this._config;
   }
 }
 

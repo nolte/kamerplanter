@@ -1,20 +1,40 @@
 /**
- * Ensure HA Lit components (ha-entity-picker, ha-textfield) are loaded.
+ * ha-form ready singleton (UI-NFR-015 §2.2).
  */
-const _haComponentsReadyMix = (async () => {
-  if (customElements.get("ha-entity-picker")) return;
+const _haFormReadyMix = (async () => {
+  if (customElements.get("ha-form")) return;
   await customElements.whenDefined("hui-entities-card");
   const helpers = await window.loadCardHelpers?.();
   if (helpers) {
     const temp = await helpers.createCardElement({ type: "entities", entities: [] });
-    if (temp && temp.constructor?.getConfigElement) await temp.constructor.getConfigElement();
+    if (temp?.constructor?.getConfigElement) await temp.constructor.getConfigElement();
   }
-  await customElements.whenDefined("ha-entity-picker");
+  await customElements.whenDefined("ha-form");
 })();
 
 /**
+ * Build mix card editor schema.
+ * Uses selector: { entity: { multiple: true } } — renders ha-entities-picker
+ * with native Add/Remove/Reorder, no manual list management needed
+ * (UI-NFR-015 §2.7).
+ */
+function _buildMixSchema(hass) {
+  const mixEntities = hass
+    ? Object.keys(hass.states).filter(
+        (id) => id.startsWith("sensor.kp_") && id.endsWith("_mix")
+      )
+    : [];
+  return [
+    { name: "title",    label: "Titel",          selector: { text: {} } },
+    { name: "entities", label: "Mix-Kan\u00e4le", required: true,
+      selector: { entity: { multiple: true, include_entities: mixEntities } } },
+  ];
+}
+
+/**
  * Kamerplanter Mix Card Editor
- * Uses ha-entity-picker and ha-textfield for native HA look & feel.
+ * Uses ha-form + schema — identical pattern to official HA card editors
+ * (UI-NFR-015 §2.1). No Shadow DOM (UI-NFR-015 R-022).
  */
 class KamerplanterMixCardEditor extends HTMLElement {
   setConfig(config) {
@@ -28,125 +48,30 @@ class KamerplanterMixCardEditor extends HTMLElement {
   }
 
   async _scheduleRender() {
-    await _haComponentsReadyMix;
+    await _haFormReadyMix;
     this._render();
-  }
-
-  _getMixEntityFilter() {
-    if (!this._hass) return [];
-    const selected = new Set(this._config.entities || []);
-    return Object.keys(this._hass.states)
-      .filter((id) => id.startsWith("sensor.kp_") && id.endsWith("_mix"))
-      .filter((id) => !selected.has(id));
   }
 
   _render() {
     if (!this._config || !this._hass) return;
 
-    // Clear previous content
-    this.innerHTML = "";
-
-    // Style
-    const style = document.createElement("style");
-    style.textContent = `
-      .editor-row { margin-bottom: 16px; }
-      .entity-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-      .entity-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--card-background-color, #fff); border: 1px solid var(--divider-color, #e0e0e0); border-radius: 8px; }
-      .entity-item ha-icon { color: var(--secondary-text-color); flex-shrink: 0; --mdc-icon-size: 20px; }
-      .entity-item span { flex: 1; font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .entity-item button { border: none; background: none; cursor: pointer; color: var(--error-color, #db4437); font-size: 1.1em; padding: 4px 6px; border-radius: 4px; }
-      .entity-item button:hover { background: rgba(219,68,55,0.08); }
-      .add-row { display: flex; gap: 8px; align-items: center; }
-      .add-row ha-entity-picker { flex: 1; }
-      button.add-btn { padding: 8px 16px; border: 1px solid var(--primary-color, #03a9f4); background: var(--primary-color, #03a9f4); color: #fff; border-radius: 8px; cursor: pointer; font-size: 0.85em; font-weight: 500; white-space: nowrap; flex-shrink: 0; }
-      button.add-btn:hover { opacity: 0.9; }
-      .section-label { font-size: 0.8em; font-weight: 600; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px; }
-      .hint { font-size: 0.75em; color: var(--secondary-text-color); font-style: italic; margin-top: 8px; }
-      ha-textfield { display: block; width: 100%; }
-      ha-entity-picker { display: block; }
-    `;
-    this.appendChild(style);
-
-    // Title field
-    const titleRow = document.createElement("div");
-    titleRow.className = "editor-row";
-    const titleEl = document.createElement("ha-textfield");
-    titleEl.label = "Titel";
-    titleEl.placeholder = "Mix Rezept";
-    titleEl.value = this._config.title || "";
-    titleRow.appendChild(titleEl);
-    this.appendChild(titleRow);
-
-    // Entity section
-    const entityRow = document.createElement("div");
-    entityRow.className = "editor-row";
-
-    const sectionLabel = document.createElement("div");
-    sectionLabel.className = "section-label";
-    sectionLabel.textContent = "Channel Sensoren";
-    entityRow.appendChild(sectionLabel);
-
-    // Build selected entity list
-    const listEl = document.createElement("div");
-    listEl.className = "entity-list";
-    for (const entityId of this._config.entities || []) {
-      const friendly = this._hass?.states[entityId]?.attributes?.friendly_name || entityId;
-      const item = document.createElement("div");
-      item.className = "entity-item";
-      item.innerHTML = `<ha-icon icon="mdi:flask-outline"></ha-icon><span>${friendly}</span><button data-entity="${entityId}">\u2715</button>`;
-      listEl.appendChild(item);
-    }
-    entityRow.appendChild(listEl);
-
-    // Add picker row
-    const addRow = document.createElement("div");
-    addRow.className = "add-row";
-    const addPicker = document.createElement("ha-entity-picker");
-    addPicker.hass = this._hass;
-    addPicker.label = "Sensor hinzuf\u00fcgen";
-    addPicker.allowCustomEntity = true;
-    addPicker.includeEntities = this._getMixEntityFilter();
-    addRow.appendChild(addPicker);
-    const addBtn = document.createElement("button");
-    addBtn.className = "add-btn";
-    addBtn.textContent = "+";
-    addRow.appendChild(addBtn);
-    entityRow.appendChild(addRow);
-
-    const hint = document.createElement("div");
-    hint.className = "hint";
-    hint.textContent = "Volumen wird direkt aus KA geladen (Tank/Gie\u00dfkanne). Freie Eingabe in der Card m\u00f6glich.";
-    entityRow.appendChild(hint);
-    this.appendChild(entityRow);
-
-    // Bind title
-    titleEl.addEventListener("input", (e) => {
-      this._config = { ...this._config, title: e.target.value };
-      this._fireChanged();
-    });
-
-    // Bind add button
-    addBtn.addEventListener("click", () => {
-      const val = addPicker.value;
-      if (val && !(this._config.entities || []).includes(val)) {
-        this._config = { ...this._config, entities: [...(this._config.entities || []), val] };
-        this._fireChanged();
-        this._render();
-      }
-    });
-
-    // Bind remove buttons
-    listEl.querySelectorAll("button[data-entity]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        this._config = { ...this._config, entities: (this._config.entities || []).filter((e) => e !== btn.dataset.entity) };
-        this._fireChanged();
-        this._render();
+    // Create ha-form once; reuse on subsequent renders (UI-NFR-015 R-020)
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.addEventListener("value-changed", (e) => {
+        this._config = e.detail.value;
+        this.dispatchEvent(new CustomEvent("config-changed", {
+          detail: { config: this._config },
+          bubbles: true,
+          composed: true,
+        }));
       });
-    });
-  }
+      this.appendChild(this._form);
+    }
 
-  _fireChanged() {
-    this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config }, bubbles: true, composed: true }));
+    this._form.hass = this._hass;
+    this._form.schema = _buildMixSchema(this._hass);
+    this._form.data = this._config;
   }
 }
 customElements.define("kamerplanter-mix-card-editor", KamerplanterMixCardEditor);

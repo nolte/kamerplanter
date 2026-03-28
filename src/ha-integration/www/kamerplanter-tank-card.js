@@ -1,22 +1,48 @@
 /**
- * Ensure HA Lit components (ha-entity-picker, ha-textfield) are loaded.
- * Custom cards must trigger this explicitly — HA lazy-loads these components.
+ * ha-form ready singleton — waits for ha-form which transitively loads
+ * ha-selector-entity → ha-entity-picker. No need to load ha-entity-picker
+ * directly (UI-NFR-015 §2.2).
  */
-const _haComponentsReady = (async () => {
-  if (customElements.get("ha-entity-picker")) return;
+const _haFormReady = (async () => {
+  if (customElements.get("ha-form")) return;
   await customElements.whenDefined("hui-entities-card");
   const helpers = await window.loadCardHelpers?.();
   if (helpers) {
-    // Creating a temporary entities card forces HA to load ha-entity-picker
     const temp = await helpers.createCardElement({ type: "entities", entities: [] });
-    if (temp && temp.constructor?.getConfigElement) await temp.constructor.getConfigElement();
+    if (temp?.constructor?.getConfigElement) await temp.constructor.getConfigElement();
   }
-  // Wait until actually defined
-  await customElements.whenDefined("ha-entity-picker");
+  await customElements.whenDefined("ha-form");
 })();
 
 /**
+ * Build tank card editor schema (UI-NFR-015 §2.3).
+ * Rebuilt on each render so include_entities stays current with hass.states.
+ */
+function _buildTankSchema(hass) {
+  const tankEntities = hass
+    ? Object.keys(hass.states).filter(
+        (id) => id.startsWith("sensor.kp_") && id.endsWith("_info")
+      )
+    : [];
+  return [
+    { name: "title",          label: "Titel (optional)",                        selector: { text: {} } },
+    { name: "tank_entity",    label: "Tank (Kamerplanter)",    required: true,   selector: { entity: { include_entities: tankEntities } } },
+    { name: "show_ph_tank",   label: "pH im Fass anzeigen",                      selector: { boolean: {} } },
+    { name: "show_ph_badge",  label: "pH als Badge anzeigen",                    selector: { boolean: {} } },
+    { name: "show_ec_tank",   label: "EC im Fass anzeigen",                      selector: { boolean: {} } },
+    { name: "show_ec_badge",  label: "EC als Badge anzeigen",                    selector: { boolean: {} } },
+    { name: "show_temp_tank", label: "Temperatur im Fass anzeigen",              selector: { boolean: {} } },
+    { name: "show_temp_badge",label: "Temperatur als Badge anzeigen",            selector: { boolean: {} } },
+    { name: "ph_entity",      label: "pH-Sensor (optional, \u00fcberschreibt KA)",       selector: { entity: { domain: ["sensor"] } } },
+    { name: "ec_entity",      label: "EC-Sensor (optional, \u00fcberschreibt KA)",       selector: { entity: { domain: ["sensor"] } } },
+    { name: "temp_entity",    label: "Temperatur-Sensor (optional, \u00fcberschreibt KA)", selector: { entity: { domain: ["sensor"] } } },
+  ];
+}
+
+/**
  * Kamerplanter Tank Card Editor
+ * Uses ha-form + schema — identical pattern to official HA card editors
+ * (UI-NFR-015 §2.1). No Shadow DOM (UI-NFR-015 R-022).
  */
 class KamerplanterTankCardEditor extends HTMLElement {
   setConfig(config) {
@@ -37,131 +63,30 @@ class KamerplanterTankCardEditor extends HTMLElement {
   }
 
   async _scheduleRender() {
-    await _haComponentsReady;
+    await _haFormReady;
     this._render();
-  }
-
-  _createPicker(label, value, opts) {
-    const el = document.createElement("ha-entity-picker");
-    el.hass = this._hass;
-    el.label = label;
-    el.allowCustomEntity = true;
-    if (value) el.value = value;
-    if (opts.includeEntities) el.includeEntities = opts.includeEntities;
-    if (opts.includeDomains) el.includeDomains = opts.includeDomains;
-    return el;
   }
 
   _render() {
     if (!this._config || !this._hass) return;
-    const c = this._config;
 
-    // Clear previous content
-    this.innerHTML = "";
-
-    // Style
-    const style = document.createElement("style");
-    style.textContent = `
-      .editor-row { margin-bottom: 16px; }
-      .section-label { font-size: 0.8em; font-weight: 600; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: 0.05em; margin: 20px 0 8px; }
-      .hint { font-size: 0.75em; color: var(--secondary-text-color); font-style: italic; margin-top: 4px; }
-      .display-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-      .display-row { display: flex; align-items: center; gap: 12px; }
-      .display-label { width: 50px; font-size: 0.85em; font-weight: 600; color: var(--primary-text-color); }
-      .cb { display: flex; align-items: center; gap: 4px; font-size: 0.82em; cursor: pointer; user-select: none; color: var(--primary-text-color); }
-      .cb input[type="checkbox"] { width: auto; margin: 0; cursor: pointer; accent-color: var(--primary-color); }
-      ha-entity-picker, ha-textfield { display: block; width: 100%; }
-    `;
-    this.appendChild(style);
-
-    // Title field
-    const titleRow = document.createElement("div");
-    titleRow.className = "editor-row";
-    const titleEl = document.createElement("ha-textfield");
-    titleEl.label = "Titel (optional)";
-    titleEl.placeholder = "Tank";
-    titleEl.value = c.title || "";
-    titleRow.appendChild(titleEl);
-    this.appendChild(titleRow);
-
-    // Tank entity picker — filter to kp_*_info sensors
-    const tankInfoEntities = Object.keys(this._hass.states)
-      .filter((id) => id.startsWith("sensor.kp_") && id.endsWith("_info"));
-    const tankRow = document.createElement("div");
-    tankRow.className = "editor-row";
-    const tankPicker = this._createPicker("Tank (Kamerplanter)", c.tank_entity, { includeEntities: tankInfoEntities });
-    tankRow.appendChild(tankPicker);
-    this.appendChild(tankRow);
-
-    // Display checkboxes
-    const sectionLabel1 = document.createElement("div");
-    sectionLabel1.className = "section-label";
-    sectionLabel1.textContent = "Anzeige der Messwerte";
-    this.appendChild(sectionLabel1);
-
-    const grid = document.createElement("div");
-    grid.className = "display-grid";
-    for (const [label, tankKey, badgeKey] of [["pH", "show_ph_tank", "show_ph_badge"], ["EC", "show_ec_tank", "show_ec_badge"], ["Temp", "show_temp_tank", "show_temp_badge"]]) {
-      const row = document.createElement("div");
-      row.className = "display-row";
-      row.innerHTML = `<span class="display-label">${label}</span><label class="cb"><input type="checkbox" data-key="${tankKey}" ${c[tankKey] !== false ? "checked" : ""}/> im Fass</label><label class="cb"><input type="checkbox" data-key="${badgeKey}" ${c[badgeKey] !== false ? "checked" : ""}/> Badge</label>`;
-      grid.appendChild(row);
+    // Create ha-form once; reuse on subsequent renders (UI-NFR-015 R-020)
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.addEventListener("value-changed", (e) => {
+        this._config = e.detail.value;
+        this.dispatchEvent(new CustomEvent("config-changed", {
+          detail: { config: this._config },
+          bubbles: true,
+          composed: true,
+        }));
+      });
+      this.appendChild(this._form);
     }
-    this.appendChild(grid);
 
-    // Sensor override section
-    const hint = document.createElement("div");
-    hint.className = "hint";
-    hint.textContent = "Sensoren werden automatisch aus KA \u00fcbernommen. \u00dcberschreiben optional:";
-    this.appendChild(hint);
-    const sectionLabel2 = document.createElement("div");
-    sectionLabel2.className = "section-label";
-    sectionLabel2.textContent = "HA-Sensoren (optional, \u00fcberschreibt KA)";
-    this.appendChild(sectionLabel2);
-
-    const phRow = document.createElement("div"); phRow.className = "editor-row";
-    const phPicker = this._createPicker("pH Sensor", c.ph_entity, { includeDomains: ["sensor"] });
-    phRow.appendChild(phPicker); this.appendChild(phRow);
-
-    const ecRow = document.createElement("div"); ecRow.className = "editor-row";
-    const ecPicker = this._createPicker("EC Sensor", c.ec_entity, { includeDomains: ["sensor"] });
-    ecRow.appendChild(ecPicker); this.appendChild(ecRow);
-
-    const tempRow = document.createElement("div"); tempRow.className = "editor-row";
-    const tempPicker = this._createPicker("Temperatur Sensor", c.temp_entity, { includeDomains: ["sensor"] });
-    tempRow.appendChild(tempPicker); this.appendChild(tempRow);
-
-    // Bind events
-    titleEl.addEventListener("input", (e) => {
-      this._config = { ...this._config, title: e.target.value };
-      this._fireChanged();
-    });
-
-    const bindPicker = (picker, key) => {
-      picker.addEventListener("value-changed", (e) => {
-        const val = e.detail?.value ?? "";
-        if (this._config[key] !== val) {
-          this._config = { ...this._config, [key]: val };
-          this._fireChanged();
-        }
-      });
-    };
-    bindPicker(tankPicker, "tank_entity");
-    bindPicker(phPicker, "ph_entity");
-    bindPicker(ecPicker, "ec_entity");
-    bindPicker(tempPicker, "temp_entity");
-
-    // Bind checkboxes
-    this.querySelectorAll("input[data-key]").forEach((cb) => {
-      cb.addEventListener("change", (e) => {
-        this._config = { ...this._config, [e.target.dataset.key]: e.target.checked };
-        this._fireChanged();
-      });
-    });
-  }
-
-  _fireChanged() {
-    this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config }, bubbles: true, composed: true }));
+    this._form.hass = this._hass;
+    this._form.schema = _buildTankSchema(this._hass);
+    this._form.data = this._config;
   }
 }
 customElements.define("kamerplanter-tank-card-editor", KamerplanterTankCardEditor);
