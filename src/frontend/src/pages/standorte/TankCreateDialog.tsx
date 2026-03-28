@@ -17,11 +17,12 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
+import LocationTreeSelect from '@/components/form/LocationTreeSelect';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/tanks';
 import * as sitesApi from '@/api/endpoints/sites';
-import type { Site, Location } from '@/api/types';
+import type { Site } from '@/api/types';
 
 const tankTypes = ['nutrient', 'irrigation', 'reservoir', 'recirculation', 'stock_solution'] as const;
 const materials = ['plastic', 'stainless_steel', 'glass', 'ibc'] as const;
@@ -58,7 +59,6 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
   const [sites, setSites] = useState<Site[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
   const [selectedSiteKey, setSelectedSiteKey] = useState('');
 
   const { control, handleSubmit, reset, setValue } = useForm<FormData>({
@@ -89,11 +89,6 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
   const handleSiteChange = (siteKey: string) => {
     setSelectedSiteKey(siteKey);
     setValue('location_key', null);
-    if (siteKey) {
-      sitesApi.listLocations(siteKey).then(setLocations).catch(() => setLocations([]));
-    } else {
-      setLocations([]);
-    }
   };
 
   const onSubmit = async (data: FormData) => {
@@ -103,7 +98,6 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
       notification.success(t('common.create'));
       reset();
       setSelectedSiteKey('');
-      setLocations([]);
       onCreated();
     } catch (err) {
       handleError(err);
@@ -164,32 +158,26 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 1 }}>
             {t('pages.tanks.sectionLocation')}
           </Typography>
-          <FormRow>
-            <TextField
-              select
-              label={t('pages.tanks.site')}
-              value={selectedSiteKey}
-              onChange={(e) => handleSiteChange(e.target.value)}
-              fullWidth
-              sx={{ mb: 2 }}
-              data-testid="form-field-site"
-            >
-              <MenuItem value="">{'\u2014'}</MenuItem>
-              {sites.map((s) => (
-                <MenuItem key={s.key} value={s.key}>{s.name}</MenuItem>
-              ))}
-            </TextField>
-            <FormSelectField
-              name="location_key"
-              control={control}
-              label={t('pages.tanks.location')}
-              disabled={!selectedSiteKey}
-              options={[
-                { value: '', label: '\u2014' },
-                ...locations.map((l) => ({ value: l.key, label: l.name })),
-              ]}
-            />
-          </FormRow>
+          <TextField
+            select
+            label={t('pages.tanks.site')}
+            value={selectedSiteKey}
+            onChange={(e) => handleSiteChange(e.target.value)}
+            fullWidth
+            sx={{ mb: 2 }}
+            data-testid="form-field-site"
+          >
+            <MenuItem value="">{'\u2014'}</MenuItem>
+            {sites.map((s) => (
+              <MenuItem key={s.key} value={s.key}>{s.name}</MenuItem>
+            ))}
+          </TextField>
+          <LocationTreeSelect
+            name="location_key"
+            control={control}
+            siteKey={selectedSiteKey || null}
+            label={t('pages.tanks.location')}
+          />
 
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 1 }}>
             {t('pages.tanks.equipment')}
