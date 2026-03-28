@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/images/banner.png" alt="Kamerplanter Banner" />
+</p>
+
 # Kamerplanter
 
 Kamerplanter is a plant lifecycle management system for indoor and outdoor growing — covering everything from seed to harvest. It supports vegetables, herbs, houseplants, and ornamentals with features like nutrient planning, phase tracking, sensor integration, and care reminders.
