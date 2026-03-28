@@ -49,6 +49,61 @@ Das Feature integriert einen KI-gestuetzten Assistenten in das bestehende Kamerp
 | 4 | **Anthropic Claude API** | Cloud | Datenuebertragung an Anthropic (USA) | Erforderlich | Pay-per-Token | `claude-haiku-3-5`, `claude-sonnet-4` |
 | 5 | **OpenAI-kompatible APIs** | Cloud oder Lokal | Abhaengig vom Anbieter | Abhaengig vom Anbieter | Variabel | LM Studio, vLLM, Together AI, Mistral AI |
 
+### 1.1.1 Hardware-Anforderungen fuer lokale Inference
+
+Die lokale KI-Nutzung (Ollama, llama.cpp) ist auf Consumer-Hardware realistisch. Der strukturierte Kontext aus ArangoDB + RAG-Chunks (§2.3) kompensiert die geringere Modellgroesse — ein 3B-Modell mit praezisem Kontext liefert bessere Pflanzen-Tips als ein 70B-Modell ohne Kontext.
+
+**Modell-Empfehlungen nach Hardware:**
+
+| Hardware-Profil | RAM/VRAM | Empfohlenes Modell | Quantisierung | Tip-Qualitaet | Chat-Qualitaet | Antwortzeit (Tip-Karten) |
+|----------------|----------|-------------------|---------------|---------------|----------------|--------------------------|
+| **Minimal** (Raspberry Pi 5, alte NUCs) | 8 GB RAM (CPU) | `llama3.2:3b` | Q4_K_M | Basis-Empfehlungen | Kurze Antworten, einfache Diagnosen | 15-30s |
+| **Standard** (Desktop/Laptop, 2020+) | 16 GB RAM (CPU) | `gemma3:4b` | Q4_K_M | Gute kontextbezogene Tips | Differenzierte Antworten | 10-20s |
+| **GPU-Einstieg** (GTX 1060 6GB, RX 580 8GB) | 6-8 GB VRAM | `mistral:7b` | Q4_K_M | Sehr gute Qualitaet | Nuancierte Diagnosen mit Fachbegriffen | 2-5s |
+| **GPU-Mittel** (RTX 3060 12GB, RX 6700 XT) | 12 GB VRAM | `llama3.1:8b` | Q6_K | Sehr gute Qualitaet | Detaillierte Erklaerungen, Mehrschritt-Diagnosen | 1-3s |
+| **GPU-Hoch** (RTX 3090/4070 Ti, 16GB+) | 16+ GB VRAM | `mistral-small:22b` | Q4_K_M | Nahe Cloud-Qualitaet | Komplexe Zusammenhaenge, Langzeitplanung | 2-5s |
+| **Cloud-Fallback** (kein lokales Modell) | — | `gpt-4o-mini` / `claude-haiku-3-5` | — | Cloud-Qualitaet | Beste Qualitaet | <1s |
+
+**Leistungscharakteristik nach Feature:**
+
+| Feature | Tokens (Input) | Tokens (Output) | CPU-only (7B) | GPU (7B) | Bewertung |
+|---------|---------------|-----------------|---------------|----------|-----------|
+| Tip-Karten (2-4 Tips, JSON) | ~800 (Kontext + RAG) | ~200 | 10-20s | 1-3s | Gut — Caching (4h Redis) reduziert Aufrufe massiv |
+| Chat-Einzelfrage | ~1.500 (System + RAG + Frage) | ~300 | 15-30s | 2-5s | Akzeptabel — Streaming (SSE) kaschiert Latenz |
+| Chat mit Historie (10 Nachrichten) | ~3.000 (System + RAG + History) | ~400 | 30-60s | 3-8s | Grenzwertig auf CPU — Context-Window-Limit beachten |
+| Celery Batch (50 Runs taeglich) | ~800 pro Run | ~200 pro Run | ~25 Min gesamt | ~3 Min gesamt | CPU problematisch bei vielen Runs |
+
+**Empfehlungen fuer Self-Hosted-Deployments:**
+
+1. **Onboarding-Default:** `gemma3:4b` — bester Kompromiss aus Qualitaet, Geschwindigkeit und RAM-Bedarf. Funktioniert auf den meisten Rechnern ab 2020 ohne GPU.
+2. **Raspberry Pi / NAS:** `llama3.2:3b` — einziges Modell das mit 8 GB RAM auf ARM64 zuverlaessig laeuft. Tips dauern laenger, aber Caching macht es tragbar.
+3. **GPU vorhanden:** `mistral:7b` oder `llama3.1:8b` — deutlich bessere Qualitaet und Geschwindigkeit. Lohnt sich ab 6 GB VRAM.
+4. **Batch-Generierung (Celery):** Bei >20 aktiven Runs und CPU-only Inference den Celery-Task `generate_daily_tips` auf Nachtzeit (bestehend: 06:00 UTC) verschieben und `max_concurrent_tips` konfigurierbar machen (Default: 5 parallel, CPU: 1 sequentiell).
+5. **Graceful Degradation:** Bei `AI_DEFAULT_PROVIDER=none` oder nicht erreichbarem Ollama werden regelbasierte Fallback-Tips generiert (§4.6 `_rule_based_fallback`) — das System ist nie ohne Empfehlungen.
+
+**Helm-Konfiguration fuer ressourcenbeschraenkte Umgebungen:**
+
+```yaml
+# helm/kamerplanter/values.yaml — Profil "minimal" (CPU-only, 8 GB RAM)
+ollama:
+  enabled: true
+  controllers:
+    main:
+      containers:
+        main:
+          env:
+            OLLAMA_MODELS: /models
+            OLLAMA_NUM_PARALLEL: "1"        # Keine parallelen Anfragen
+            OLLAMA_MAX_LOADED_MODELS: "1"   # Nur ein Modell im RAM
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: "4"          # Alle CPU-Kerne fuer Inference nutzen
+              memory: 4Gi       # 3B-Modell Q4 + Overhead
+```
+
 **Abgrenzung zu REQ-029:**
 - REQ-029 **identifiziert unbekannte** Pflanzen anhand von **Bildern** (Plant.id, PlantNet).
 - REQ-031 **beraet** zu bekannten Pflanzen auf Basis von **Stammdaten, Messwerten und Kontext** (LLM-basiert).
