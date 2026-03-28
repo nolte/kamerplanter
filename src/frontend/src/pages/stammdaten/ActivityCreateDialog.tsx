@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -78,6 +78,12 @@ export default function ActivityCreateDialog({ open, onClose, onCreated }: Props
       sort_order: 0,
     },
   });
+  useEffect(() => {
+    if (!open) {
+      reset();
+    }
+  }, [open, reset]);
+
 
   const speciesCompatible = watch('species_compatible');
 
