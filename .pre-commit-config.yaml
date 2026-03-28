@@ -13,25 +13,27 @@ repos:
       - id: check-merge-conflict
 
   # ── Backend (Python) ──────────────────────────────────────────────────
+  # Uses ruff via pip (not the pre-commit mirror) to support py314 target-version.
   - repo: local
     hooks:
       - id: ruff-lint
         name: ruff check (backend)
         entry: bash -c 'cd src/backend && ruff check --fix "${@/#src\/backend\//}"' --
-        language: system
+        language: python
+        additional_dependencies: ['ruff>=0.15.0']
         files: ^src/backend/.*\.py$
         types: [python]
       - id: ruff-format
         name: ruff format (backend)
         entry: bash -c 'cd src/backend && ruff format "${@/#src\/backend\//}"' --
-        language: system
+        language: python
+        additional_dependencies: ['ruff>=0.15.0']
         files: ^src/backend/.*\.py$
         types: [python]
 
   # ── Frontend (TypeScript/React) ────────────────────────────────────────
   # These hooks require node_modules — run locally only.
   # In CI, frontend linting runs via .github/workflows/frontend.yml (npm ci + eslint + tsc).
-  # To skip in CI: set SKIP=frontend-eslint,frontend-tsc
   - repo: local
     hooks:
       - id: frontend-eslint
