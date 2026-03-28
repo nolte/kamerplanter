@@ -286,14 +286,14 @@ class CalendarService:
             site = self._site_repo.get_site_by_key(site_key)
             if site:
                 return FrostConfig(
-                    last_frost_date=(site.last_frost_date_avg or date(year, 5, 15)).replace(year=year),
+                    last_frost_date=(site.last_frost_date_avg or date(year, 5, 1)).replace(year=year),
                     first_frost_date=(
                         site.first_frost_date_avg.replace(year=year) if site.first_frost_date_avg else None
                     ),
                     eisheilige_date=(site.eisheilige_date or date(year, 5, 15)).replace(year=year),
                 )
         return FrostConfig(
-            last_frost_date=date(year, 5, 15),
+            last_frost_date=date(year, 5, 1),
             eisheilige_date=date(year, 5, 15),
         )
 
