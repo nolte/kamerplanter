@@ -48,7 +48,8 @@
     "removeFavorite": "Remove from favorites",
     "selectAll": "Select all",
     "deselectAll": "Deselect all",
-    "loadingError": "Failed to load data."
+    "loadingError": "Failed to load data.",
+    "unknown": "Unknown"
   },
   "table": {
     "showing": "Showing {{from}}–{{to}} of {{total}} entries",
@@ -570,6 +571,9 @@
       "seasonalAdjustments": "Seasonal Adjustments",
       "noWateringGuide": "No watering guide available",
       "workflows": "Workflows",
+      "companionPlantingIntro": "Companion planting relationships of {{name}}: Which species benefit or inhibit each other.",
+      "cropRotationIntro": "Crop rotation for this species is managed through its botanical family. Here you can view recommended successor families and waiting periods.",
+      "noFamilyForCropRotation": "This species has no botanical family assigned. Please assign a family first to manage crop rotation.",
       "autoGenerate": "Auto-generate",
       "createWorkflow": "Create new workflow",
       "noWorkflows": "No workflows for this species yet. Auto-generate one or create one manually.",
@@ -911,6 +915,7 @@
       "phaseProfile": "Current Phase Profile",
       "noNutrientPlanHint": "No nutrient plan assigned — switch to the Nutrient Plan tab to assign one.",
       "days": "days",
+      "daysInPhase": "Days in Phase",
       "estimatedHarvest": "Estimated Harvest",
       "estimatedHarvestTooltip": "Estimate based on planting date plus the sum of all typical phase durations. Actual harvest may vary depending on growth.",
       "daysRemaining_one": "{{count}} day remaining",
