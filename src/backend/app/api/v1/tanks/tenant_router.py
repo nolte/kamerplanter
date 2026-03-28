@@ -9,6 +9,7 @@ from app.api.v1.tanks.schemas import (
     EcDilutionResponse,
     FeedsFromRequest,
     FillEventResultResponse,
+    HAEntitySuggestion,
     LiveStateResponse,
     MaintenanceLogCreate,
     MaintenanceLogResponse,
@@ -86,6 +87,14 @@ def create_tank(
     tank = Tank(**body.model_dump(), tenant_key=ctx.tenant_key)
     created = service.create_tank(tank)
     return _tank_response(created)
+
+
+@router.get("/ha-entities", response_model=list[HAEntitySuggestion])
+def list_ha_entities(
+    ctx: TenantContext = Depends(get_current_tenant),
+    sensor_service: SensorService = Depends(get_sensor_service),
+):
+    return sensor_service.get_ha_entities()
 
 
 @router.get("/{key}", response_model=TankResponse)

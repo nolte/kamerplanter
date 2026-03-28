@@ -37,6 +37,7 @@ const schema = z.object({
   name: z.string().min(1).max(200),
   metric_type: z.string().min(1),
   ha_entity_id: z.string().nullable(),
+  unit_of_measurement: z.string().nullable(),
   mqtt_topic: z.string().nullable(),
   is_active: z.boolean(),
 });
@@ -68,6 +69,7 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
       name: '',
       metric_type: 'ec_ms',
       ha_entity_id: null,
+      unit_of_measurement: null,
       mqtt_topic: null,
       is_active: true,
     },
@@ -80,6 +82,7 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
           name: sensor.name,
           metric_type: sensor.metric_type,
           ha_entity_id: sensor.ha_entity_id,
+          unit_of_measurement: sensor.unit_of_measurement ?? null,
           mqtt_topic: sensor.mqtt_topic,
           is_active: sensor.is_active,
         });
@@ -88,6 +91,7 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
           name: '',
           metric_type: context.parentType === 'tank' ? 'ec_ms' : 'temperature_celsius',
           ha_entity_id: null,
+          unit_of_measurement: null,
           mqtt_topic: null,
           is_active: true,
         });
@@ -104,6 +108,7 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
   const handleEntitySelect = (_event: unknown, entity: HAEntitySuggestion | null) => {
     if (!entity) return;
     setValue('ha_entity_id', entity.entity_id);
+    setValue('unit_of_measurement', entity.unit_of_measurement ?? null);
     if (entity.suggested_name) {
       setValue('name', entity.suggested_name);
     }
@@ -120,6 +125,7 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
           name: data.name,
           metric_type: data.metric_type,
           ha_entity_id: data.ha_entity_id || null,
+          unit_of_measurement: data.unit_of_measurement || null,
           mqtt_topic: data.mqtt_topic || null,
           is_active: data.is_active,
         });
@@ -129,6 +135,7 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
           name: data.name,
           metric_type: data.metric_type,
           ha_entity_id: data.ha_entity_id || null,
+          unit_of_measurement: data.unit_of_measurement || null,
           mqtt_topic: data.mqtt_topic || null,
         };
         switch (context.parentType) {
@@ -205,12 +212,14 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
               label: t(`enums.sensorMetricType.${v}`, { defaultValue: v }),
             }))}
           />
-          <FormTextField
-            name="ha_entity_id"
-            control={control}
-            label={t('pages.sensors.haEntityId')}
-            helperText={t('pages.sensors.haEntityIdHelper')}
-          />
+          {haEntities.length === 0 && (
+            <FormTextField
+              name="ha_entity_id"
+              control={control}
+              label={t('pages.sensors.haEntityId')}
+              helperText={t('pages.sensors.haEntityIdHelper')}
+            />
+          )}
           <FormTextField
             name="mqtt_topic"
             control={control}

@@ -76,6 +76,55 @@ class SensorService:
 
         return {"values": values, "errors": errors, "source": "ha_live"}
 
+    def get_ha_entities(self) -> list[dict]:
+        """Return HA sensor entities with inferred metric_type and suggested name."""
+        if not self._ha_client:
+            return []
+
+        device_class_map = {
+            "ph": "ph",
+            "ec": "ec_ms",
+            "electrical_conductivity": "ec_ms",
+            "temperature": "water_temp_celsius",
+            "humidity": "humidity_percent",
+            "carbon_dioxide": "co2_ppm",
+            "volatile_organic_compounds": "co2_ppm",
+        }
+        unit_map = {
+            "mS/cm": "ec_ms",
+            "µS/cm": "ec_ms",
+            "mS": "ec_ms",
+            "°C": "water_temp_celsius",
+            "°F": "water_temp_celsius",
+            "%": "fill_level_percent",
+            "ppm": "tds_ppm",
+            "pH": "ph",
+        }
+
+        entities = self._ha_client.list_sensor_entities()
+        result = []
+        for e in entities:
+            if e["entity_id"].startswith("sensor.kp_"):
+                continue
+            device_class = (e.get("device_class") or "").lower()
+            unit = e.get("unit_of_measurement") or ""
+            friendly = e.get("friendly_name") or e["entity_id"]
+
+            suggested_metric = device_class_map.get(device_class) or unit_map.get(unit)
+
+            result.append({
+                "entity_id": e["entity_id"],
+                "friendly_name": friendly,
+                "unit_of_measurement": e.get("unit_of_measurement"),
+                "device_class": e.get("device_class"),
+                "state": e.get("state"),
+                "suggested_metric_type": suggested_metric,
+                "suggested_name": friendly,
+            })
+
+        result.sort(key=lambda x: (x["suggested_metric_type"] is None, x["friendly_name"].lower()))
+        return result
+
     def get_live_state(self, tank_key: str) -> dict:
         """Read-through live query for a tank — NO persistence."""
         sensors = self._repo.find_by_tank(tank_key)

@@ -264,6 +264,7 @@ class SensorCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     metric_type: str
     ha_entity_id: str | None = None
+    unit_of_measurement: str | None = None
     mqtt_topic: str | None = None
     tank_key: str | None = None
 
@@ -272,6 +273,7 @@ class SensorUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     metric_type: str | None = None
     ha_entity_id: str | None = None
+    unit_of_measurement: str | None = None
     mqtt_topic: str | None = None
     is_active: bool | None = None
 
@@ -281,6 +283,7 @@ class SensorResponse(BaseModel):
     name: str
     metric_type: str
     ha_entity_id: str | None = None
+    unit_of_measurement: str | None = None
     mqtt_topic: str | None = None
     tank_key: str | None = None
     site_key: str | None = None
