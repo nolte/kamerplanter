@@ -5,3 +5,41 @@ repos:
       - id: end-of-file-fixer
       - id: trailing-whitespace
         args: ['--markdown-linebreak-ext=md']
+      - id: check-yaml
+        args: ['--allow-multiple-documents', '--unsafe']
+        exclude: ^helm/
+      - id: check-json
+        exclude: ^src/frontend/src/i18n/
+      - id: check-merge-conflict
+
+  # ── Backend (Python) ──────────────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: ruff-lint
+        name: ruff check (backend)
+        entry: bash -c 'cd src/backend && ruff check --fix "${@/#src\/backend\//}"' --
+        language: system
+        files: ^src/backend/.*\.py$
+        types: [python]
+      - id: ruff-format
+        name: ruff format (backend)
+        entry: bash -c 'cd src/backend && ruff format "${@/#src\/backend\//}"' --
+        language: system
+        files: ^src/backend/.*\.py$
+        types: [python]
+
+  # ── Frontend (TypeScript/React) ────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: frontend-eslint
+        name: ESLint (frontend)
+        entry: bash -c 'cd src/frontend && npx eslint --no-error-on-unmatched-pattern "${@/#src\/frontend\//}"' --
+        language: system
+        files: ^src/frontend/src/.*\.(ts|tsx)$
+        types_or: [ts, tsx]
+      - id: frontend-tsc
+        name: TypeScript check (frontend)
+        entry: bash -c 'cd src/frontend && npx tsc --noEmit'
+        language: system
+        files: ^src/frontend/src/.*\.(ts|tsx)$
+        pass_filenames: false
