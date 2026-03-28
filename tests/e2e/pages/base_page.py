@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
-from selenium.common.exceptions import ElementNotInteractableException
+from selenium.common.exceptions import (
+    ElementClickInterceptedException,
+    ElementNotInteractableException,
+    StaleElementReferenceException,
+)
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -75,10 +80,21 @@ class BasePage:
         """Return all elements matching the given ``data-testid``."""
         return self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='{testid}']")
 
+    def get_text_stable(self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT) -> str:
+        """Return text of *locator*, retrying on StaleElementReferenceException."""
+        deadline = time.time() + timeout
+        while True:
+            try:
+                el = self.wait_for_element_visible(locator, timeout=min(5, max(1, int(deadline - time.time()))))
+                return el.text
+            except StaleElementReferenceException:
+                if time.time() >= deadline:
+                    raise
+                time.sleep(0.2)
+
     def get_page_title(self) -> str:
         """Return the text content of the ``[data-testid='page-title']`` element."""
-        el = self.wait_for_element((By.CSS_SELECTOR, "[data-testid='page-title']"))
-        return el.text
+        return self.get_text_stable((By.CSS_SELECTOR, "[data-testid='page-title']"))
 
     def is_error_displayed(self) -> bool:
         """Check whether ``[data-testid='error-display']`` is visible."""
@@ -89,12 +105,30 @@ class BasePage:
 
     # ── Interactions ─────────────────────────────────────────────────────
 
+    def close_mui_dropdown(self, timeout: int = 5) -> None:
+        """Close any open MUI Select dropdown and wait until it is removed from the DOM."""
+        from selenium.common.exceptions import NoSuchElementException, TimeoutException
+        from selenium.webdriver.common.keys import Keys
+
+        if not self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']"):
+            return  # Already closed
+
+        # Dropdown is open — close it via Escape
+        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        try:
+            # Wait until ALL option elements are gone from the DOM
+            WebDriverWait(self.driver, timeout).until(
+                lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
+            )
+        except TimeoutException:
+            pass
+
     def scroll_and_click(self, element: WebElement) -> None:
         """Scroll an element into view and click it, falling back to JS click."""
         self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
         try:
             element.click()
-        except ElementNotInteractableException:
+        except (ElementNotInteractableException, ElementClickInterceptedException):
             self.driver.execute_script("arguments[0].click();", element)
 
     def clear_and_fill(self, element: WebElement, value: str) -> None:
@@ -107,9 +141,10 @@ class BasePage:
         """
         self.driver.execute_script(
             "var el = arguments[0];"
-            "var nativeInputValueSetter = Object.getOwnPropertyDescriptor("
-            "  window.HTMLInputElement.prototype, 'value').set || "
-            "  Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;"
+            "var proto = el.tagName === 'TEXTAREA'"
+            "  ? window.HTMLTextAreaElement.prototype"
+            "  : window.HTMLInputElement.prototype;"
+            "var nativeInputValueSetter = Object.getOwnPropertyDescriptor(proto, 'value').set;"
             "nativeInputValueSetter.call(el, '');"
             "el.dispatchEvent(new Event('input', {bubbles: true}));"
             "el.dispatchEvent(new Event('change', {bubbles: true}));",

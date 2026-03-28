@@ -1288,6 +1288,7 @@ export interface Sensor {
   name: string;
   metric_type: string;
   ha_entity_id: string | null;
+  unit_of_measurement: string | null;
   mqtt_topic: string | null;
   tank_key: string | null;
   site_key: string | null;
@@ -1299,6 +1300,7 @@ export interface SensorCreate {
   name: string;
   metric_type: string;
   ha_entity_id?: string | null;
+  unit_of_measurement?: string | null;
   mqtt_topic?: string | null;
   tank_key?: string | null;
 }
@@ -1307,6 +1309,7 @@ export interface SensorUpdate {
   name?: string;
   metric_type?: string;
   ha_entity_id?: string | null;
+  unit_of_measurement?: string | null;
   mqtt_topic?: string | null;
   is_active?: boolean;
 }

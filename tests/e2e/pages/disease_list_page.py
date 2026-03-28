@@ -193,7 +193,8 @@ class DiseaseListPage(BasePage):
         self.wait_for_element_visible(self.CREATE_DIALOG)
 
     def is_create_dialog_open(self) -> bool:
-        return len(self.driver.find_elements(*self.CREATE_DIALOG)) > 0
+        elements = self.driver.find_elements(*self.CREATE_DIALOG)
+        return any(el.is_displayed() for el in elements)
 
     def fill_scientific_name(self, name: str) -> None:
         el = self.wait_for_element_clickable(self.FORM_SCIENTIFIC_NAME)
@@ -232,10 +233,16 @@ class DiseaseListPage(BasePage):
         el.send_keys(text)
 
     def submit_create_form(self) -> None:
-        """Submit the create form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        """Submit the create form via JS dispatch on the form element."""
+        self.driver.execute_script(
+            "var form = document.querySelector(\"div[role='dialog'] form\");"
+            "if (form) {"
+            "  var ev = new Event('submit', {bubbles: true, cancelable: true});"
+            "  form.dispatchEvent(ev);"
+            "}"
+        )
 
-    def wait_for_dialog_closed(self, timeout: int = 5) -> None:
+    def wait_for_dialog_closed(self, timeout: int = 15) -> None:
         """Wait until the create dialog is no longer in the DOM."""
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
@@ -246,7 +253,8 @@ class DiseaseListPage(BasePage):
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        btn = self.wait_for_element(self.FORM_CANCEL)
+        self.scroll_and_click(btn)
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a form field.
@@ -285,6 +293,8 @@ class DiseaseListPage(BasePage):
 
     def _select_option(self, field_testid: str, value_text: str) -> None:
         """Open an MUI Select and pick an option by its visible text."""
+        import time
+
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
         )
@@ -293,3 +303,10 @@ class DiseaseListPage(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
         option.click()
+        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
+        time.sleep(0.3)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.3)

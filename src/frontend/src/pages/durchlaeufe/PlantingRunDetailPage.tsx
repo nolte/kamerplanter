@@ -65,9 +65,16 @@ import type {
   PlantingRunStatus,
   WateringScheduleCalendarResponse,
   Site,
+  Species,
+  Cultivar,
 } from '@/api/types';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
+import Accordion from '@mui/material/Accordion';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import List from '@mui/material/List';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemText from '@mui/material/ListItemText';
 
 const statusColor: Record<PlantingRunStatus, ChipProps['color']> = {
   planned: 'default',
@@ -136,6 +143,10 @@ export default function PlantingRunDetailPage() {
   // Site list for edit dialog
   const [sitesList, setSitesList] = useState<Site[]>([]);
 
+  // Full species/cultivar data for details tab
+  const [speciesDataForTab, setSpeciesDataForTab] = useState<Species | null>(null);
+  const [cultivarDataForTab, setCultivarDataForTab] = useState<Cultivar | null>(null);
+
   // Derived nutrient data via custom hook
   const nutrientData = useRunNutrientData(planEntries, phaseTimelines, run?.started_at);
 
@@ -178,21 +189,33 @@ export default function PlantingRunDetailPage() {
       setEntries(e);
       const uniqueSpeciesKeys = [...new Set(e.map((entry) => entry.species_key))];
       const nameMap = new Map<string, string>();
+      let firstSpecies: Species | null = null;
+      let firstCultivar: Cultivar | null = null;
       await Promise.all(
         uniqueSpeciesKeys.map(async (sk) => {
           try {
             const sp = await speciesApi.getSpecies(sk);
             nameMap.set(sk, sp.common_names?.length > 0 ? sp.common_names[0] : sp.scientific_name);
+            // Store full species for the first entry (monoculture detail card)
+            if (!firstSpecies && e.length > 0 && e[0].species_key === sk) {
+              firstSpecies = sp;
+            }
             for (const ent of e.filter((en) => en.species_key === sk && en.cultivar_key)) {
               try {
                 const cv = await speciesApi.getCultivar(sk, ent.cultivar_key!);
                 nameMap.set(ent.cultivar_key!, cv.name);
+                // Store full cultivar for the first entry
+                if (!firstCultivar && e.length > 0 && e[0].cultivar_key === ent.cultivar_key) {
+                  firstCultivar = cv;
+                }
               } catch { /* ok */ }
             }
           } catch { /* ok */ }
         }),
       );
       setSpeciesMap(nameMap);
+      setSpeciesDataForTab(firstSpecies);
+      setCultivarDataForTab(firstCultivar);
       try {
         const p = await runApi.listRunPlants(key, true);
         setPlants(p);
@@ -257,9 +280,9 @@ export default function PlantingRunDetailPage() {
     }
   }, [key, handleError]);
 
-  // Load watering data for details tab (tab 0) and nutrient+watering tab (tab 3)
+  // Load watering data for details tab (tab 0), phases tab (tab 2), and nutrient+watering tab (tab 3)
   useEffect(() => {
-    if (tab === 0 || tab === 3) {
+    if (tab === 0 || tab === 2 || tab === 3) {
       loadWateringData();
     }
   }, [tab, loadWateringData]);
@@ -389,7 +412,7 @@ export default function PlantingRunDetailPage() {
 
   const plantColumns: Column<PlantInRun>[] = [
     { id: 'instanceId', label: t('pages.plantInstances.instanceId'), render: (r) => r.instance_id },
-    { id: 'currentPhase', label: t('pages.plantInstances.currentPhase'), render: (r) => <Chip label={r.current_phase} size="small" color="primary" />, searchValue: (r) => r.current_phase },
+    { id: 'currentPhase', label: t('pages.plantInstances.currentPhase'), render: (r) => r.current_phase ? <Chip label={r.current_phase} size="small" color="primary" /> : '\u2014', searchValue: (r) => r.current_phase ?? '' },
     { id: 'plantedOn', label: t('pages.plantInstances.plantedOn'), render: (r) => r.planted_on },
     { id: 'removedOn', label: t('pages.plantInstances.removedOn'), render: (r) => r.removed_on ?? '\u2014' },
     { id: 'detached', label: t('pages.plantingRuns.detached'), render: (r) => r.detached_at ? t('common.yes') : '\u2014' },
@@ -539,6 +562,9 @@ export default function PlantingRunDetailPage() {
           wateringCanLiters={wateringCanLiters}
           tankVolumeLiters={resolvedTank?.volumeLiters ?? null}
           tankName={resolvedTank?.name ?? null}
+          phaseTimelines={phaseTimelines}
+          speciesData={speciesDataForTab}
+          cultivarData={cultivarDataForTab}
         />
       )}
 
@@ -556,21 +582,82 @@ export default function PlantingRunDetailPage() {
       {/* Tab 2: Phases */}
       {tab === 2 && key && (
         <Box role="tabpanel" aria-labelledby="tab-phases" data-testid="phases-tab-content">
+          {/* Prominent phase timeline */}
           {phaseTimelines.length > 0 && phaseTimelines[0].phases.length > 0 && (
-            <Card sx={{ mb: 3 }}>
-              <CardContent>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  {t('pages.plantingRuns.phaseTimeline')}
-                </Typography>
-                <PhaseKamiTimeline phases={phaseTimelines[0].phases} speciesName={phaseTimelines[0].species_name} />
-              </CardContent>
-            </Card>
+            <Box sx={{ mb: 3, p: { xs: 1.5, sm: 2 }, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>
+              <PhaseKamiTimeline phases={phaseTimelines[0].phases} speciesName={phaseTimelines[0].species_name} />
+            </Box>
           )}
           <RunPhaseEditor
             runKey={key}
             isActive={run?.status === 'active' || run?.status === 'harvesting'}
             onPhaseDatesChanged={loadWateringData}
           />
+
+          {/* Plant instances grouped by current phase */}
+          {plants.length > 0 && (() => {
+            const grouped = plants.reduce<Record<string, PlantInRun[]>>((acc, p) => {
+              const phase = p.current_phase || t('common.unknown');
+              if (!acc[phase]) acc[phase] = [];
+              acc[phase].push(p);
+              return acc;
+            }, {});
+            const phaseOrder = phaseTimelines.length > 0
+              ? phaseTimelines[0].phases.map((ph) => ph.display_name || ph.phase_name)
+              : [];
+            const sortedPhases = Object.keys(grouped).sort((a, b) => {
+              const ia = phaseOrder.indexOf(a);
+              const ib = phaseOrder.indexOf(b);
+              if (ia === -1 && ib === -1) return a.localeCompare(b);
+              if (ia === -1) return 1;
+              if (ib === -1) return -1;
+              return ia - ib;
+            });
+            return (
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  {t('pages.plantingRuns.plantsPerPhase')}
+                </Typography>
+                {sortedPhases.map((phase) => (
+                  <Accordion key={phase} defaultExpanded disableGutters>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip
+                          label={phase}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                        />
+                        <Typography variant="body2" color="text.secondary">
+                          ({grouped[phase].length})
+                        </Typography>
+                      </Box>
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ p: 0 }}>
+                      <List dense disablePadding>
+                        {grouped[phase].map((p) => (
+                          <ListItemButton
+                            key={p.key}
+                            onClick={() => navigate(`/pflanzen/plant-instances/${p.key}`)}
+                            data-testid={`phase-plant-${p.key}`}
+                          >
+                            <ListItemText
+                              primary={p.plant_name || p.instance_id}
+                              secondary={[
+                                p.planted_on,
+                                p.detached_at ? t('pages.plantingRuns.detached') : null,
+                                p.removed_on ? t('pages.plantInstances.removedOn') + ': ' + p.removed_on : null,
+                              ].filter(Boolean).join(' · ')}
+                            />
+                          </ListItemButton>
+                        ))}
+                      </List>
+                    </AccordionDetails>
+                  </Accordion>
+                ))}
+              </Box>
+            );
+          })()}
         </Box>
       )}
 

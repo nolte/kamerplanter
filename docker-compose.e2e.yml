@@ -134,6 +134,9 @@ services:
       - ./test-reports:/app/test-reports
     entrypoint:
       - pytest
+      - -n
+      - "4"
+      - --dist=loadfile
       - --tb=short
       - --generate-protocol
       - --base-url=http://frontend:80

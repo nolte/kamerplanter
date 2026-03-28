@@ -300,13 +300,8 @@ class PlantingRunService:
                 skipped.append({"plant_key": pk, "reason": "Already in an active run"})
                 continue
 
-            # Link plant to run
+            # Link plant to run (plant keeps its current phase)
             self._repo.link_run_to_plant(run_key, pk)
-
-            # Clear plant-level phase (run phase takes over)
-            plant.current_phase_key = None
-            plant.current_phase_started_at = None
-            self._plant_repo.update(pk, plant)
 
             adopted.append(pk)
 
@@ -318,12 +313,12 @@ class PlantingRunService:
                 now = datetime.now(UTC)
                 run.status = PlantingRunStatus.ACTIVE
                 run.started_at = now
-                # Set initial phase from first adopted plant if run has none
-                if not run.current_phase_key:
-                    first_plant = self._plant_repo.get_by_key(adopted[0])
-                    if first_plant and first_plant.current_phase_key:
-                        run.current_phase_key = first_plant.current_phase_key
-                        run.current_phase_started_at = now
+            # Set initial run phase from first adopted plant if run has none
+            if not run.current_phase_key:
+                first_plant = self._plant_repo.get_by_key(adopted[0])
+                if first_plant and first_plant.current_phase_key:
+                    run.current_phase_key = first_plant.current_phase_key
+                    run.current_phase_started_at = first_plant.current_phase_started_at or datetime.now(UTC)
             self._repo.update(run_key, run)
 
         return {
@@ -528,8 +523,10 @@ class PlantingRunService:
             sk = p.get("species_key", "")
             species_plants.setdefault(sk, []).append(p)
 
-        # Unique species from entries
+        # Unique species from entries; fall back to plants when no entries exist
         species_keys = list({e.species_key for e in entries})
+        if not species_keys:
+            species_keys = list({sk for sk in species_plants if sk})
 
         timelines = []
         for species_key in species_keys:

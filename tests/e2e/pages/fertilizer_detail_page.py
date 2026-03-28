@@ -24,9 +24,12 @@ class FertilizerDetailPage(BasePage):
     TAB_STOCK = (By.XPATH, "//button[@role='tab'][2]")
     TAB_EDIT = (By.XPATH, "//button[@role='tab'][3]")
 
-    # Detail view (Tab 0) — table rows inside the Card
-    DETAIL_TABLE = (By.CSS_SELECTOR, "[data-testid='fertilizer-detail-page'] table")
-    DETAIL_ROWS = (By.CSS_SELECTOR, "[data-testid='fertilizer-detail-page'] table tbody tr")
+    # Detail view (Tab 0) — DetailRow components rendered as flex Boxes (no <table>)
+    # Each DetailRow has a label Typography (text.secondary) and a value Box.
+    DETAIL_LABELS = (
+        By.CSS_SELECTOR,
+        "[data-testid='fertilizer-detail-page'] .MuiTypography-body2[class*='textSecondary']",
+    )
 
     # Stock tab (Tab 1)
     STOCK_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
@@ -84,23 +87,41 @@ class FertilizerDetailPage(BasePage):
     # ── Details tab (Tab 0) ────────────────────────────────────────────
 
     def get_detail_row_value(self, label_text: str) -> str:
-        """Return the value cell text for a detail table row matching the given label."""
-        rows = self.driver.find_elements(*self.DETAIL_ROWS)
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if len(cells) >= 2 and cells[0].text.strip() == label_text:
-                return cells[1].text.strip()
+        """Return the value for a detail row matching the given label.
+
+        The FertilizerDetailPage renders DetailRow components as flex Boxes
+        (not table rows).  Each DetailRow has a label Typography and a sibling
+        value Box.
+        """
+        labels = self.driver.find_elements(*self.DETAIL_LABELS)
+        for lbl in labels:
+            if lbl.text.strip() == label_text:
+                # The value is in the next sibling element
+                parent = lbl.find_element(By.XPATH, "./..")
+                value_box = parent.find_elements(By.CSS_SELECTOR, ":scope > div:last-child")
+                if value_box:
+                    return value_box[0].text.strip()
         return ""
 
     def get_all_detail_labels(self) -> list[str]:
-        """Return all label cell texts from the detail table."""
-        rows = self.driver.find_elements(*self.DETAIL_ROWS)
-        labels = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                labels.append(cells[0].text.strip())
-        return labels
+        """Return all detail label texts from the detail view.
+
+        DetailRow components use Typography.body2 with color text.secondary for
+        labels, rendered in flex layout (no ``<table>``).  We also look for
+        section headings (h6/subtitle2) and any caption-style text that acts as
+        a property label.
+        """
+        # Primary: DetailRow labels
+        labels_els = self.driver.find_elements(*self.DETAIL_LABELS)
+        labels = [el.text.strip() for el in labels_els if el.text.strip()]
+        if labels:
+            return labels
+        # Fallback: any Typography caption used as labels on the detail tab
+        captions = self.driver.find_elements(
+            By.CSS_SELECTOR,
+            "[data-testid='fertilizer-detail-page'] .MuiTypography-caption",
+        )
+        return [c.text.strip() for c in captions if c.text.strip()]
 
     # ── Stock tab (Tab 1) ──────────────────────────────────────────────
 

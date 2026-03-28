@@ -187,6 +187,7 @@ export default function PlantInstanceListPage() {
       id: 'currentPhase',
       label: t('pages.plantInstances.currentPhase'),
       render: (r) => {
+        if (!r.current_phase) return <Typography variant="body2" color="text.secondary">{'\u2014'}</Typography>;
         const phaseColorMap: Record<string, 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'info' | 'error'> = {
           germination: 'info',
           seedling: 'success',
@@ -202,7 +203,7 @@ export default function PlantInstanceListPage() {
           />
         );
       },
-      searchValue: (r) => t(`enums.phaseName.${r.current_phase}`, { defaultValue: r.current_phase }),
+      searchValue: (r) => r.current_phase ? t(`enums.phaseName.${r.current_phase}`, { defaultValue: r.current_phase }) : '',
     },
     {
       id: 'plantingRun',
@@ -277,11 +278,13 @@ export default function PlantInstanceListPage() {
         subtitle={species ? `${species.common_names[0] ?? species.scientific_name}${cultivar ? ` \u2014 ${cultivar.name}` : ''}` : undefined}
         chips={
           <>
-            <Chip
-              label={t(`enums.phaseName.${r.current_phase}`, { defaultValue: r.current_phase })}
-              size="small"
-              color={phaseColorMap[r.current_phase] ?? 'default'}
-            />
+            {r.current_phase ? (
+              <Chip
+                label={t(`enums.phaseName.${r.current_phase}`, { defaultValue: r.current_phase })}
+                size="small"
+                color={phaseColorMap[r.current_phase] ?? 'default'}
+              />
+            ) : null}
             {runInfo && (
               <Chip
                 label={runInfo.runName}

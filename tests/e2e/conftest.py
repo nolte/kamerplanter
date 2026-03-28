@@ -75,7 +75,11 @@ def base_url(request: pytest.FixtureRequest) -> str:
 
 @pytest.fixture(scope="session")
 def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
-    """Create a headless browser session for the entire test run (NFR-008 §3.1).
+    """Create a headless browser session per xdist worker (NFR-008 §3.1).
+
+    With pytest-xdist, ``scope="session"`` means one session per worker
+    process — each of the N workers gets exactly one browser.  Without
+    xdist, all tests share a single browser as before.
 
     When ``SELENIUM_REMOTE_URL`` is set (e.g. in docker-compose.e2e.yml),
     a Remote WebDriver connecting to Selenium Grid is used.  Otherwise a
@@ -104,6 +108,12 @@ def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
             command_executor=remote_url,
             options=options,
         )
+        # Enable local file uploads to remote Selenium Grid nodes.
+        # Without this, send_keys(file_path) on file inputs fails because
+        # the file only exists on the test host, not inside the Grid node.
+        from selenium.webdriver.remote.file_detector import LocalFileDetector
+
+        driver.file_detector = LocalFileDetector()
     elif browser_name == "firefox":
         # ── Local Firefox ──────────────────────────────────────
         options = webdriver.FirefoxOptions()

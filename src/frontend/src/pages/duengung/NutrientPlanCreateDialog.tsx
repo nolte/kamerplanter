@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -99,6 +99,12 @@ export default function NutrientPlanCreateDialog({ open, onClose, onCreated }: P
       reminder_hours_before: 2,
     },
   });
+  useEffect(() => {
+    if (!open) {
+      reset();
+    }
+  }, [open, reset]);
+
 
   const scheduleMode = watch('schedule_mode');
   const weekdaySchedule = watch('weekday_schedule');

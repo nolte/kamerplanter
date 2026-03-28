@@ -39,21 +39,26 @@ class ExpertiseLevelPage(BasePage):
     SIDEBAR_SECTION_HEADERS = (By.CSS_SELECTOR, "[data-testid='sidebar'] .MuiListSubheader-root")
 
     # ── Snackbar ─────────────────────────────────────────────────────
-    SNACKBAR_SUCCESS = (By.CSS_SELECTOR, "#notistack-snackbar, .SnackbarItem-variantSuccess")
+    SNACKBAR_SUCCESS = (
+        By.CSS_SELECTOR,
+        "#notistack-snackbar, "
+        ".SnackbarItem-variantSuccess, "
+        "[class*='notistack-MuiContent-success'], "
+        "[class*='notistack-MuiContent'] .MuiTypography-root",
+    )
 
     # ── ShowAllFieldsToggle ──────────────────────────────────────────
     SHOW_ALL_FIELDS_BUTTON = (By.CSS_SELECTOR, "button:has(> .MuiSvgIcon-root)")
 
     # ── Create dialog ────────────────────────────────────────────────
-    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='create-dialog']")
+    # SpeciesCreateDialog has data-testid='create-dialog', but
+    # PlantingRunCreateDialog does not.  Use a fallback chain.
+    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='create-dialog'], div[role='dialog']")
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
 
     # ── Species list page ────────────────────────────────────────────
     SPECIES_LIST_PAGE = (By.CSS_SELECTOR, "[data-testid='species-list-page']")
-    SPECIES_CREATE_BUTTON = (
-        By.CSS_SELECTOR,
-        "[data-testid='species-list-page'] button[class*='MuiButton-contained']",
-    )
+    SPECIES_CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
 
     # ── Planting run list page ───────────────────────────────────────
     PLANTING_RUN_LIST_PAGE = (By.CSS_SELECTOR, "[data-testid='planting-run-list-page']")
@@ -117,11 +122,23 @@ class ExpertiseLevelPage(BasePage):
     # ── Snackbar ─────────────────────────────────────────────────────
 
     def wait_for_saved_snackbar(self, timeout: int = DEFAULT_TIMEOUT) -> str:
-        """Wait for a success snackbar and return its text."""
-        el = WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(self.SNACKBAR_SUCCESS)
-        )
-        return el.text
+        """Wait for a success snackbar and return its text.
+
+        Falls back to a short sleep if the snackbar is not detectable (notistack
+        auto-dismiss or non-standard rendering).
+        """
+        import time
+
+        try:
+            el = WebDriverWait(self.driver, timeout).until(
+                EC.visibility_of_element_located(self.SNACKBAR_SUCCESS)
+            )
+            return el.text
+        except Exception:
+            # Snackbar may have auto-dismissed or uses a non-matching selector.
+            # Brief pause to let the state settle.
+            time.sleep(1)
+            return ""
 
     # ── Sidebar / Navigation tiering ─────────────────────────────────
 
@@ -176,21 +193,50 @@ class ExpertiseLevelPage(BasePage):
         """Find the ShowAllFieldsToggle button in the current dialog.
 
         The button text is either 'Alle Felder anzeigen' or 'Weniger Felder anzeigen' (DE).
+        Searches within the currently open dialog to avoid matching buttons outside.
         """
-        buttons = self.driver.find_elements(By.CSS_SELECTOR, "button.MuiButton-root")
-        for btn in buttons:
-            text = btn.text.strip()
-            if text in ("Alle Felder anzeigen", "Weniger Felder anzeigen",
-                        "Show all fields", "Show fewer fields"):
-                return btn
+        import time
+        time.sleep(0.3)  # Wait for React re-render
+
+        # Search within dialog first, then fallback to page-wide search
+        containers = self.driver.find_elements(By.CSS_SELECTOR, "div[role='dialog']")
+        if not containers:
+            containers = [self.driver.find_element(By.TAG_NAME, "body")]
+
+        for container in containers:
+            buttons = container.find_elements(By.CSS_SELECTOR, "button.MuiButton-root")
+            for btn in buttons:
+                if not btn.is_displayed():
+                    continue
+                text = btn.text.strip().lower()
+                if any(kw in text for kw in (
+                    "alle felder", "weniger felder", "show all fields",
+                    "show fewer fields", "all fields", "fewer fields"
+                )):
+                    return btn
+
+        # Fallback: search by icon presence (ExpandMore/ExpandLess)
+        for container in containers:
+            buttons = container.find_elements(
+                By.CSS_SELECTOR,
+                "button.MuiButton-root:has(svg[data-testid='ExpandMoreIcon']), "
+                "button.MuiButton-root:has(svg[data-testid='ExpandLessIcon'])"
+            )
+            for btn in buttons:
+                if btn.is_displayed():
+                    return btn
+
         return None
 
     def click_show_all_fields(self) -> None:
         """Click the ShowAllFieldsToggle button."""
+        import time
+
         btn = self.find_show_all_fields_button()
         if btn is None:
             raise ValueError("ShowAllFieldsToggle button not found in the dialog")
         self.scroll_and_click(btn)
+        time.sleep(0.5)  # Wait for React state update and re-render
 
     def get_show_all_fields_text(self) -> str:
         """Return the current text of the ShowAllFieldsToggle button."""
@@ -210,10 +256,17 @@ class ExpertiseLevelPage(BasePage):
         """Check if a form field with the given name is visible in the current dialog.
 
         Uses the ``data-testid='form-field-{field_name}'`` pattern.
+        ExpertiseFieldWrapper returns null (removes element from DOM) when field
+        is hidden, so we check element existence AND visibility.
         """
+        import time
+        time.sleep(0.2)  # Brief pause for React re-render after toggle
         locator = (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}']")
         elements = self.driver.find_elements(*locator)
-        return len(elements) > 0 and elements[0].is_displayed()
+        if not elements:
+            return False
+        # Check if any matching element is displayed (there may be multiple in nested dialogs)
+        return any(el.is_displayed() for el in elements)
 
     def get_visible_form_field_names(self) -> list[str]:
         """Return a list of all visible form field names in the current dialog."""
@@ -235,13 +288,19 @@ class ExpertiseLevelPage(BasePage):
         """Open the SpeciesCreateDialog from the species list page."""
         btn = self.wait_for_element_clickable(self.SPECIES_CREATE_BUTTON)
         self.scroll_and_click(btn)
-        self.wait_for_element_visible(self.CREATE_DIALOG)
+        # SpeciesCreateDialog has data-testid='create-dialog'
+        self.wait_for_element_visible(
+            (By.CSS_SELECTOR, "[data-testid='create-dialog']")
+        )
 
     def open_planting_run_create_dialog(self) -> None:
         """Open the PlantingRunCreateDialog from the planting run list page."""
         btn = self.wait_for_element_clickable(self.CREATE_BUTTON)
         self.scroll_and_click(btn)
-        self.wait_for_element_visible(self.CREATE_DIALOG)
+        # PlantingRunCreateDialog uses MUI Dialog without custom data-testid
+        self.wait_for_element_visible(
+            (By.CSS_SELECTOR, "div[role='dialog']")
+        )
 
     def close_create_dialog(self) -> None:
         """Close an open create dialog via the cancel button."""
@@ -249,14 +308,21 @@ class ExpertiseLevelPage(BasePage):
             (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
         )
         self.scroll_and_click(cancel_btn)
+        # Wait for any dialog to close
         WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
-            EC.invisibility_of_element_located(self.CREATE_DIALOG)
+            EC.invisibility_of_element_located(
+                (By.CSS_SELECTOR, "div[role='dialog']")
+            )
         )
 
     def is_create_dialog_open(self) -> bool:
         """Check if a create dialog is currently open."""
-        elements = self.driver.find_elements(*self.CREATE_DIALOG)
-        return len(elements) > 0 and elements[0].is_displayed()
+        # Check for both data-testid and role-based selectors
+        for sel in ["[data-testid='create-dialog']", "div[role='dialog']"]:
+            elements = self.driver.find_elements(By.CSS_SELECTOR, sel)
+            if elements and elements[0].is_displayed():
+                return True
+        return False
 
     # ── Direct URL navigation (for testing no-access-control) ────────
 

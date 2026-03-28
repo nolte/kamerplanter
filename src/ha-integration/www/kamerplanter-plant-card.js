@@ -433,164 +433,77 @@ const CARD_STYLES = `
   }
 `;
 
-const EDITOR_STYLES = `
-  .kp-editor__row {
-    margin-bottom: 16px;
+/**
+ * ha-form ready singleton (UI-NFR-015 §2.2).
+ */
+const _haFormReadyPlant = (async () => {
+  if (customElements.get("ha-form")) return;
+  await customElements.whenDefined("hui-entities-card");
+  const helpers = await window.loadCardHelpers?.();
+  if (helpers) {
+    const temp = await helpers.createCardElement({ type: "entities", entities: [] });
+    if (temp?.constructor?.getConfigElement) await temp.constructor.getConfigElement();
   }
-  .kp-editor__label {
-    display: block;
-    font-weight: 500;
-    margin-bottom: 4px;
-    font-size: 0.9em;
-    color: var(--primary-text-color);
-  }
-  .kp-editor__select,
-  .kp-editor__input {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid var(--divider-color, #ccc);
-    border-radius: 8px;
-    background: var(--card-background-color, #fff);
-    color: var(--primary-text-color);
-    font-size: 0.95em;
-    box-sizing: border-box;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  .kp-editor__select:focus,
-  .kp-editor__input:focus {
-    border-color: var(--primary-color, #4caf50);
-  }
-  .kp-editor__hint {
-    font-size: 0.75em;
-    color: var(--secondary-text-color);
-    margin-top: 4px;
-  }
-`;
+  await customElements.whenDefined("ha-form");
+})();
+
+/**
+ * Build plant card editor schema.
+ * Uses selector: { device: { integration: "kamerplanter" } } to filter
+ * to Kamerplanter Plant Instance / Planting Run devices natively.
+ */
+const PLANT_CARD_SCHEMA = [
+  { name: "device_id", label: "Pflanze / Planting Run", required: true,
+    selector: { device: { integration: "kamerplanter" } } },
+  { name: "title",     label: "Titel (optional)",
+    selector: { text: {} } },
+];
 
 /* ================================================================== *
  *  Editor                                                             *
  * ================================================================== */
 
+/**
+ * Kamerplanter Plant Card Editor
+ * Uses ha-form + schema — identical pattern to official HA card editors
+ * (UI-NFR-015 §2.1). No Shadow DOM (UI-NFR-015 R-022).
+ */
 class KamerplanterPlantCardEditor extends HTMLElement {
-  constructor() {
-    super();
-    this.attachShadow({ mode: "open" });
-  }
-
-  /** @param {object} config */
   setConfig(config) {
     this._config = { device_id: "", title: "", ...config };
-    if (this._hass) this._render();
+    if (this._hass) this._scheduleRender();
   }
 
-  /** @param {object} hass */
   set hass(hass) {
     this._hass = hass;
-    this._render();
+    this._scheduleRender();
   }
 
-  /**
-   * Discover active Kamerplanter plant/run devices via hass.entities.
-   * Approach: find sensor.kp_*_phase entities, resolve their device_id,
-   * filter by device model, exclude unavailable/unknown states.
-   */
-  _getKpDevices() {
-    if (!this._hass) return [];
-    const entities = this._hass.entities || {};
-    const states = this._hass.states || {};
-    const devices = this._hass.devices || {};
-
-    /* Collect device_ids from _phase sensors that have an active state */
-    const INACTIVE_STATES = new Set(["unavailable", "unknown", "", "None"]);
-    const activeDeviceIds = new Set();
-
-    for (const ent of Object.values(entities)) {
-      const eid = ent.entity_id || "";
-      /* Match sensor.kp_{key}_phase but not _phase_timeline, _days_in_phase, _next_phase */
-      if (!eid.match(/^sensor\.kp_\w+_phase$/)) continue;
-      const st = states[eid];
-      if (!st || INACTIVE_STATES.has(st.state)) continue;
-      if (ent.device_id) activeDeviceIds.add(ent.device_id);
-    }
-
-    /* Resolve device info, filter for Plant Instance / Planting Run */
-    const result = [];
-    for (const devId of activeDeviceIds) {
-      const dev = devices[devId];
-      if (!dev) continue;
-      const model = (dev.model || "").toLowerCase();
-      if (!model.includes("plant instance") && !model.includes("planting run")) continue;
-      result.push({ id: devId, name: dev.name_by_user || dev.name || devId, model: dev.model || "" });
-    }
-
-    return result.sort((a, b) => a.name.localeCompare(b.name));
+  async _scheduleRender() {
+    await _haFormReadyPlant;
+    this._render();
   }
 
   _render() {
     if (!this._config || !this._hass) return;
-    const root = this.shadowRoot;
 
-    /* Only rebuild DOM once; subsequent calls just update values */
-    if (!this._built) {
-      root.innerHTML = `
-        <style>${EDITOR_STYLES}</style>
-        <div>
-          <div class="kp-editor__row">
-            <label class="kp-editor__label">Pflanze / Planting Run</label>
-            <select class="kp-editor__select" id="device"></select>
-            <div class="kp-editor__hint" id="hint"></div>
-          </div>
-          <div class="kp-editor__row">
-            <label class="kp-editor__label">Titel (optional)</label>
-            <input class="kp-editor__input" id="title" type="text" placeholder="Pflanzen-Phasen" />
-          </div>
-        </div>
-      `;
-      root.getElementById("device").addEventListener("change", (e) => {
-        this._config = { ...this._config, device_id: e.target.value };
-        this._dispatch();
+    // Create ha-form once; reuse on subsequent renders (UI-NFR-015 R-020)
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.addEventListener("value-changed", (e) => {
+        this._config = e.detail.value;
+        this.dispatchEvent(new CustomEvent("config-changed", {
+          detail: { config: this._config },
+          bubbles: true,
+          composed: true,
+        }));
       });
-      root.getElementById("title").addEventListener("input", (e) => {
-        this._config = { ...this._config, title: e.target.value };
-        this._dispatch();
-      });
-      this._built = true;
+      this.appendChild(this._form);
     }
 
-    /* Update device options */
-    const select = root.getElementById("device");
-    const devices = this._getKpDevices();
-    const prev = select.value;
-    select.innerHTML = "";
-
-    const emptyOpt = document.createElement("option");
-    emptyOpt.value = "";
-    emptyOpt.textContent = "-- Bitte ausw\u00e4hlen --";
-    select.appendChild(emptyOpt);
-
-    for (const dev of devices) {
-      const opt = document.createElement("option");
-      opt.value = dev.id;
-      opt.textContent = dev.name_by_user || dev.name || dev.id;
-      select.appendChild(opt);
-    }
-    select.value = this._config.device_id || "";
-
-    root.getElementById("hint").textContent =
-      devices.length === 0 ? "Keine Kamerplanter Plant/Run Devices gefunden." : "";
-
-    /* Update title */
-    const titleEl = root.getElementById("title");
-    if (titleEl.value !== (this._config.title || "")) {
-      titleEl.value = this._config.title || "";
-    }
-  }
-
-  _dispatch() {
-    const event = new Event("config-changed", { bubbles: true, composed: true });
-    event.detail = { config: this._config };
-    this.dispatchEvent(event);
+    this._form.hass = this._hass;
+    this._form.schema = PLANT_CARD_SCHEMA;
+    this._form.data = this._config;
   }
 }
 
@@ -652,7 +565,7 @@ class KamerplanterPlantCard extends HTMLElement {
     const devices = hass.devices || {};
     for (const ent of Object.values(entities)) {
       const eid = ent.entity_id || "";
-      if (!eid.match(/^sensor\.kp_\w+_phase$/)) continue;
+      if (!eid.match(/^sensor\.kp_\w+_phase_timeline$/)) continue;
       const st = states[eid];
       if (!st || st.state === "unavailable" || st.state === "unknown") continue;
       const dev = devices[ent.device_id];

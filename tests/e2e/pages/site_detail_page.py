@@ -69,7 +69,15 @@ class SiteDetailPage(BasePage):
 
     def is_error_shown(self) -> bool:
         elements = self.driver.find_elements(*self.ERROR_DISPLAY)
-        return bool(elements) and elements[0].is_displayed()
+        if bool(elements) and elements[0].is_displayed():
+            return True
+        # Also check for the dedicated error page (SPA 404 redirect)
+        error_page = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='error-page']")
+        if bool(error_page) and error_page[0].is_displayed():
+            return True
+        # Also check for router error page
+        router_error = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='router-error-page']")
+        return bool(router_error) and router_error[0].is_displayed()
 
     # ── Form interactions ──────────────────────────────────────────────
 
@@ -89,6 +97,9 @@ class SiteDetailPage(BasePage):
 
     def select_type(self, value_text: str) -> None:
         """Open the MUI Select for 'type' and pick an option by visible text."""
+        import time
+        from selenium.webdriver.common.keys import Keys
+
         select_el = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "[data-testid='form-field-type'] .MuiSelect-select")
         )
@@ -97,6 +108,13 @@ class SiteDetailPage(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
         option.click()
+        # Dismiss MUI Select backdrop/popover
+        time.sleep(0.3)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     def submit_form(self) -> None:
         self.wait_for_element_clickable(self.FORM_SUBMIT).click()

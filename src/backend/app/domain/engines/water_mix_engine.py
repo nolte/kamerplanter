@@ -51,6 +51,14 @@ class WaterMixRecommendation(BaseModel):
     calmag_correction: CalMagCorrection | None = None
 
 
+class EcDilutionResult(BaseModel):
+    ro_volume_liters: float
+    final_volume_liters: float
+    dilution_factor: float
+    feasible: bool
+    reason: str
+
+
 class WaterSourceWarning(BaseModel):
     code: str
     message: str
@@ -240,6 +248,56 @@ class WaterMixCalculator:
             ca_mg_ratio=ca_mg_ratio,
             ca_mg_ratio_warning=ca_mg_warning,
             needs_correction=ca_deficit > 0 or mg_deficit > 0,
+        )
+
+    def calculate_ec_dilution(
+        self,
+        current_volume_liters: float,
+        current_ec_ms: float,
+        target_ec_ms: float,
+        ro_ec_ms: float = 0.0,
+    ) -> EcDilutionResult:
+        """Calculate how much RO water to add to lower EC to a target value.
+
+        Formula: V_ro = V1 * (EC1 - EC_target) / (EC_target - EC_ro)
+
+        Preconditions:
+        - target_ec_ms < current_ec_ms  (otherwise no dilution needed)
+        - target_ec_ms > ro_ec_ms       (otherwise physically not achievable)
+        """
+        if target_ec_ms >= current_ec_ms:
+            return EcDilutionResult(
+                ro_volume_liters=0.0,
+                final_volume_liters=current_volume_liters,
+                dilution_factor=1.0,
+                feasible=False,
+                reason="Target EC is not lower than current EC — no dilution needed.",
+            )
+        if target_ec_ms <= ro_ec_ms:
+            return EcDilutionResult(
+                ro_volume_liters=0.0,
+                final_volume_liters=current_volume_liters,
+                dilution_factor=1.0,
+                feasible=False,
+                reason=(
+                    f"Target EC ({target_ec_ms} mS/cm) is at or below RO water EC "
+                    f"({ro_ec_ms} mS/cm) — not achievable by dilution alone."
+                ),
+            )
+
+        ro_volume = current_volume_liters * (current_ec_ms - target_ec_ms) / (target_ec_ms - ro_ec_ms)
+        final_volume = current_volume_liters + ro_volume
+        dilution_factor = final_volume / current_volume_liters
+
+        return EcDilutionResult(
+            ro_volume_liters=round(ro_volume, 2),
+            final_volume_liters=round(final_volume, 2),
+            dilution_factor=round(dilution_factor, 3),
+            feasible=True,
+            reason=(
+                f"Add {ro_volume:.1f} L of RO water to {current_volume_liters:.1f} L "
+                f"to lower EC from {current_ec_ms} to {target_ec_ms} mS/cm."
+            ),
         )
 
     def recommend_mix_ratio(

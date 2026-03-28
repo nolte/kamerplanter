@@ -273,3 +273,103 @@ class TestValidateAll:
         assert "gh_plausibility" in codes
         assert "measurement_age" in codes
         assert "ro_membrane" in codes
+
+
+# ── EC Dilution Tests ─────────────────────────────────────────────
+
+
+class TestEcDilution:
+    def setup_method(self):
+        self.calc = WaterMixCalculator()
+
+    def test_basic_dilution(self):
+        """10L at 2.0 mS/cm diluted to 1.0 mS/cm with pure RO (0.0)."""
+        result = self.calc.calculate_ec_dilution(
+            current_volume_liters=10.0,
+            current_ec_ms=2.0,
+            target_ec_ms=1.0,
+            ro_ec_ms=0.0,
+        )
+        assert result.feasible is True
+        assert result.ro_volume_liters == 10.0
+        assert result.final_volume_liters == 20.0
+        assert result.dilution_factor == 2.0
+
+    def test_dilution_with_nonzero_ro_ec(self):
+        """10L at 2.0 mS/cm to 1.0 mS/cm with RO at 0.02 mS/cm."""
+        result = self.calc.calculate_ec_dilution(
+            current_volume_liters=10.0,
+            current_ec_ms=2.0,
+            target_ec_ms=1.0,
+            ro_ec_ms=0.02,
+        )
+        assert result.feasible is True
+        # V_ro = 10 * (2.0 - 1.0) / (1.0 - 0.02) = 10 / 0.98 ≈ 10.20
+        assert result.ro_volume_liters == pytest.approx(10.20, abs=0.01)
+        assert result.final_volume_liters == pytest.approx(20.20, abs=0.01)
+
+    def test_target_higher_than_current(self):
+        """Target EC >= current EC: not feasible."""
+        result = self.calc.calculate_ec_dilution(
+            current_volume_liters=10.0,
+            current_ec_ms=1.0,
+            target_ec_ms=2.0,
+        )
+        assert result.feasible is False
+        assert result.ro_volume_liters == 0.0
+        assert "no dilution needed" in result.reason.lower()
+
+    def test_target_equal_to_current(self):
+        """Target EC == current EC: not feasible."""
+        result = self.calc.calculate_ec_dilution(
+            current_volume_liters=10.0,
+            current_ec_ms=1.5,
+            target_ec_ms=1.5,
+        )
+        assert result.feasible is False
+
+    def test_target_below_ro_ec(self):
+        """Target EC <= RO EC: physically impossible."""
+        result = self.calc.calculate_ec_dilution(
+            current_volume_liters=10.0,
+            current_ec_ms=2.0,
+            target_ec_ms=0.01,
+            ro_ec_ms=0.02,
+        )
+        assert result.feasible is False
+        assert "not achievable" in result.reason.lower()
+
+    def test_target_equal_to_ro_ec(self):
+        """Target EC == RO EC: boundary — not feasible (would require infinite RO)."""
+        result = self.calc.calculate_ec_dilution(
+            current_volume_liters=10.0,
+            current_ec_ms=2.0,
+            target_ec_ms=0.02,
+            ro_ec_ms=0.02,
+        )
+        assert result.feasible is False
+
+    def test_small_dilution(self):
+        """Small EC reduction requires little RO water."""
+        result = self.calc.calculate_ec_dilution(
+            current_volume_liters=50.0,
+            current_ec_ms=1.5,
+            target_ec_ms=1.4,
+            ro_ec_ms=0.0,
+        )
+        assert result.feasible is True
+        # V_ro = 50 * (1.5 - 1.4) / (1.4 - 0.0) = 50 * 0.1 / 1.4 ≈ 3.57
+        assert result.ro_volume_liters == pytest.approx(3.57, abs=0.01)
+
+    def test_reason_contains_volumes(self):
+        """Feasible result reason includes volume and EC values."""
+        result = self.calc.calculate_ec_dilution(
+            current_volume_liters=20.0,
+            current_ec_ms=3.0,
+            target_ec_ms=1.5,
+            ro_ec_ms=0.0,
+        )
+        assert result.feasible is True
+        assert "20.0 L" in result.reason
+        assert "3.0" in result.reason
+        assert "1.5" in result.reason

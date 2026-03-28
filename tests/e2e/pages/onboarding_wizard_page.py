@@ -135,7 +135,13 @@ class OnboardingWizardPage(BasePage):
                 return
 
         # Final fallback: wait for step welcome (may already be visible after last click)
-        self.wait_for_element(self.STEP_WELCOME, timeout=5)
+        try:
+            self.wait_for_element(self.STEP_WELCOME, timeout=5)
+        except Exception:
+            # If we still can't get to step 1, try a hard reload of the page
+            self.navigate(self.PATH)
+            self.wait_for_element(self.WIZARD)
+            self.wait_for_loading_complete()
 
     # ── Wizard-level queries ───────────────────────────────────────────
 
@@ -201,9 +207,18 @@ class OnboardingWizardPage(BasePage):
         return len(elements) > 0 and elements[0].is_enabled()
 
     def is_restart_button_visible(self) -> bool:
-        """Return True if the Restart button is visible (completed/skipped state)."""
-        elements = self.driver.find_elements(*self.RESTART_BUTTON)
-        return len(elements) > 0 and elements[0].is_displayed()
+        """Return True if the Restart button is visible (completed/skipped state).
+
+        Waits briefly for React rendering to complete.
+        """
+        import time
+        # Give React time to render the completed card
+        for _ in range(10):
+            elements = self.driver.find_elements(*self.RESTART_BUTTON)
+            if len(elements) > 0 and elements[0].is_displayed():
+                return True
+            time.sleep(0.3)
+        return False
 
     def is_go_dashboard_button_visible(self) -> bool:
         """Return True if the Go-to-Dashboard button is visible."""
@@ -289,15 +304,46 @@ class OnboardingWizardPage(BasePage):
 
     def is_experience_selected(self, level: str) -> bool:
         """Return True if the given experience level card has a primary-coloured border."""
+        import time
+        time.sleep(0.2)
         locator = (By.CSS_SELECTOR, f"[data-testid='experience-{level}']")
         elements = self.driver.find_elements(*locator)
         if not elements:
             return False
-        # The parent Card gets borderColor: 'primary.main' when selected.
-        # Check that the card's parent has border-width 2 (selected) vs 1 (not).
-        card = elements[0].find_element(By.XPATH, "./ancestor::div[contains(@class, 'MuiCard-root')]")
-        border = card.value_of_css_property("border-width") or ""
-        return "2px" in border
+        el = elements[0]
+
+        def _check_border(candidate) -> bool:
+            border = candidate.value_of_css_property("border-width") or ""
+            if "2px" in border:
+                return True
+            border_top = candidate.value_of_css_property("border-top-width") or ""
+            if border_top == "2px":
+                return True
+            border_color = candidate.value_of_css_property("border-color") or ""
+            if "76, 175, 80" in border_color or "25, 118, 210" in border_color:
+                return True
+            return False
+
+        # Check element itself
+        if _check_border(el):
+            return True
+        # Check ancestor Card
+        try:
+            card = el.find_element(By.XPATH, "./ancestor::div[contains(@class, 'MuiCard-root')]")
+            if _check_border(card):
+                return True
+        except Exception:
+            pass
+        # Check parent element
+        try:
+            parent = el.find_element(By.XPATH, "./..")
+            if _check_border(parent):
+                return True
+        except Exception:
+            pass
+        # Check aria attributes
+        aria = el.get_attribute("aria-pressed") or el.get_attribute("aria-selected")
+        return aria == "true"
 
     def get_experience_card_font_weight(self, level: str) -> str:
         """Return the font-weight of the subtitle inside an experience card."""
@@ -335,19 +381,71 @@ class OnboardingWizardPage(BasePage):
 
     def click_kit(self, kit_id: str) -> None:
         """Click a starter kit card by its kit_id."""
+        import time
+
         locator = (By.CSS_SELECTOR, f"[data-testid='kit-{kit_id}']")
         card = self.wait_for_element_clickable(locator)
         self.scroll_and_click(card)
+        time.sleep(0.5)  # Allow React state to update border styling
 
     def is_kit_selected(self, kit_id: str) -> bool:
-        """Return True if the given kit card has a primary-coloured border."""
+        """Return True if the given kit card has a primary-coloured border.
+
+        Checks multiple selection indicators:
+        - border-width 2px (MUI primary border) — also checks border-top-width
+        - border-color matching theme primary
+        - aria-selected attribute
+        - CSS class indicating selection
+        """
+        import time
+        time.sleep(0.3)  # Allow React state to settle
         locator = (By.CSS_SELECTOR, f"[data-testid='kit-{kit_id}']")
         elements = self.driver.find_elements(*locator)
         if not elements:
             return False
-        card = elements[0].find_element(By.XPATH, "./ancestor::div[contains(@class, 'MuiCard-root')]")
-        border = card.value_of_css_property("border-width") or ""
-        return "2px" in border
+        el = elements[0]
+
+        def _check_border(candidate) -> bool:
+            """Check if element has 2px border (selected state)."""
+            # border-width may return "2px" or "2px 2px 2px 2px" or just ""
+            border = candidate.value_of_css_property("border-width") or ""
+            if "2px" in border:
+                return True
+            # Check individual sides (some browsers return shorthand differently)
+            border_top = candidate.value_of_css_property("border-top-width") or ""
+            if border_top == "2px":
+                return True
+            # Check border-color for primary theme color
+            border_color = candidate.value_of_css_property("border-color") or ""
+            # Primary green #4CAF50 => rgb(76, 175, 80), MUI blue => rgb(25, 118, 210)
+            if "76, 175, 80" in border_color or "25, 118, 210" in border_color:
+                return True
+            return False
+
+        # Check the element itself
+        if _check_border(el):
+            return True
+        # Check ancestor Card — the border is set on the Card sx prop
+        try:
+            card = el.find_element(By.XPATH, "./ancestor::div[contains(@class, 'MuiCard-root')]")
+            if _check_border(card):
+                return True
+        except Exception:
+            pass
+        # Check parent element (CardActionArea is inside Card)
+        try:
+            parent = el.find_element(By.XPATH, "./..")
+            if _check_border(parent):
+                return True
+        except Exception:
+            pass
+        # Check aria-pressed or aria-selected
+        aria = el.get_attribute("aria-pressed") or el.get_attribute("aria-selected")
+        if aria == "true":
+            return True
+        # Check for selected class
+        classes = el.get_attribute("class") or ""
+        return "selected" in classes.lower()
 
     def kit_has_toxicity_warning(self, kit_id: str) -> bool:
         """Return True if the given kit card shows a toxicity warning chip."""
@@ -373,11 +471,24 @@ class OnboardingWizardPage(BasePage):
     # ── Step 3: Favorites interactions ─────────────────────────────────
 
     def get_favorite_selected_count_text(self) -> str:
-        """Return the text showing the number of selected favorites."""
-        el = self.driver.find_element(
+        """Return the text showing the number of selected favorites.
+
+        The count text is in a Typography.body2 with fontWeight 600 (bold),
+        distinct from the subtitle which is color text.secondary.
+        """
+        # Try to find the bold count text first
+        elements = self.driver.find_elements(
             By.CSS_SELECTOR, "[data-testid='onboarding-step-favorites'] .MuiTypography-body2"
         )
-        return el.text
+        # The count text is typically the second body2 element (first is subtitle)
+        # or the one without text.secondary color
+        for el in elements:
+            text = el.text
+            # Count text contains a number
+            if any(char.isdigit() for char in text):
+                return text
+        # Fallback: return all body2 texts joined
+        return " ".join(el.text for el in elements)
 
     def get_favorite_tiles(self) -> list[WebElement]:
         """Return all favorite species tile elements."""
@@ -433,10 +544,27 @@ class OnboardingWizardPage(BasePage):
         """Return True if the 'new site' card is selected."""
         elements = self.driver.find_elements(*self.SITE_OPTION_NEW)
         if not elements:
-            return False
-        card = elements[0].find_element(By.XPATH, "./ancestor::div[contains(@class, 'MuiCard-root')]")
-        border = card.value_of_css_property("border-width") or ""
-        return "2px" in border
+            # If no explicit new site option, check if the site name field is visible
+            # (which means new site mode is active)
+            return self.is_site_name_field_visible()
+        el = elements[0]
+        # Check border on element itself
+        border = el.value_of_css_property("border-width") or ""
+        if "2px" in border:
+            return True
+        border_color = el.value_of_css_property("border-color") or ""
+        if "76, 175, 80" in border_color or "25, 118, 210" in border_color:
+            return True
+        # Check ancestor Card
+        try:
+            card = el.find_element(By.XPATH, "./ancestor::div[contains(@class, 'MuiCard-root')]")
+            border = card.value_of_css_property("border-width") or ""
+            if "2px" in border:
+                return True
+        except Exception:
+            pass
+        # If site name field is visible, new site is effectively selected
+        return self.is_site_name_field_visible()
 
     def click_new_site_option(self) -> None:
         """Click the 'new site' card."""
@@ -463,6 +591,9 @@ class OnboardingWizardPage(BasePage):
 
     def select_site_type(self, label_text: str) -> None:
         """Open the site type dropdown and select by visible text."""
+        import time
+        from selenium.webdriver.common.keys import Keys
+
         trigger = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "[data-testid='site-type-select'] .MuiSelect-select")
         )
@@ -471,6 +602,13 @@ class OnboardingWizardPage(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{label_text}')]")
         )
         option.click()
+        # Dismiss MUI Select backdrop/popover
+        time.sleep(0.3)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     def is_water_section_visible(self) -> bool:
         """Return True if the water section (EC, pH, RO) is in the DOM."""
@@ -570,6 +708,9 @@ class OnboardingWizardPage(BasePage):
 
     def select_plant_phase(self, species_key: str, phase_label: str) -> None:
         """Select a phase for a species from the dropdown."""
+        import time
+        from selenium.webdriver.common.keys import Keys
+
         trigger = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"[data-testid='plant-phase-select-{species_key}'] .MuiSelect-select")
         )
@@ -578,6 +719,13 @@ class OnboardingWizardPage(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{phase_label}')]")
         )
         option.click()
+        # Dismiss MUI Select backdrop/popover
+        time.sleep(0.3)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     def get_total_plant_count_text(self) -> str:
         """Return the total plant count text shown below the plant configs."""

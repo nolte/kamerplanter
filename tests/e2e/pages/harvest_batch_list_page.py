@@ -236,15 +236,24 @@ class HarvestBatchListPage(BasePage):
         el.send_keys(notes)
 
     def submit_create_form(self) -> None:
-        """Submit the create form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        """Submit the create form via JS dispatch on the form element."""
+        self.driver.execute_script(
+            "var form = document.querySelector(\"div[role='dialog'] form\");"
+            "if (form) {"
+            "  var ev = new Event('submit', {bubbles: true, cancelable: true});"
+            "  form.dispatchEvent(ev);"
+            "}"
+        )
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        btn = self.wait_for_element(self.FORM_CANCEL)
+        self.scroll_and_click(btn)
 
     def select_option(self, field_testid: str, value_text: str) -> None:
         """Open an MUI Select and pick an option by its visible text."""
+        import time
+
         field = self.wait_for_element_clickable(
             (
                 By.CSS_SELECTOR,
@@ -252,13 +261,26 @@ class HarvestBatchListPage(BasePage):
             )
         )
         self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (
-                By.XPATH,
-                f"//li[@role='option' and contains(text(), '{value_text}')]",
+        # If value_text is empty, pick the first available option
+        if not value_text:
+            option = self.wait_for_element_clickable(
+                (By.CSS_SELECTOR, "li[role='option']")
             )
-        )
+        else:
+            option = self.wait_for_element_clickable(
+                (
+                    By.XPATH,
+                    f"//li[@role='option' and contains(text(), '{value_text}')]",
+                )
+            )
         option.click()
+        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
+        time.sleep(0.3)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a form field."""

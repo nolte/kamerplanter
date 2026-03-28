@@ -29,7 +29,7 @@ class SpeciesDetailPage(BasePage):
     LIFECYCLE_FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
 
     # Growth phase locators
-    PHASE_CREATE_BUTTON = (By.XPATH, "//button[contains(text(), 'Phase erstellen')]")
+    PHASE_CREATE_BUTTON = (By.XPATH, "//button[contains(normalize-space(.), 'Phase erstellen')]")
     PHASE_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
@@ -86,6 +86,8 @@ class SpeciesDetailPage(BasePage):
         el.send_keys(Keys.ENTER)
 
     def select_option(self, field_name: str, value_text: str) -> None:
+        import time
+
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] .MuiSelect-select")
         )
@@ -94,6 +96,13 @@ class SpeciesDetailPage(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
         option.click()
+        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
+        time.sleep(0.3)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     def click_save(self) -> None:
         self.wait_for_element_clickable(self.FORM_SUBMIT).click()
@@ -225,8 +234,10 @@ class SpeciesDetailPage(BasePage):
                 self.set_field(field, value)
 
     def submit_phase_form(self) -> None:
+        # Target the submit button inside the create-dialog (GrowthPhaseDialog)
+        # to avoid hitting the lifecycle config form's submit button
         self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
+            (By.CSS_SELECTOR, "[data-testid='create-dialog'] [data-testid='form-submit-button']")
         ).click()
 
     def click_phase_row(self, index: int) -> None:

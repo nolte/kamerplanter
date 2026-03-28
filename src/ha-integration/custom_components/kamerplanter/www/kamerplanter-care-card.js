@@ -17,6 +17,82 @@
 
 const CARD_VERSION = "1.0.0";
 
+/**
+ * ha-form ready singleton (UI-NFR-015 §2.2).
+ */
+const _haFormReadyCare = (async () => {
+  if (customElements.get("ha-form")) return;
+  await customElements.whenDefined("hui-entities-card");
+  const helpers = await window.loadCardHelpers?.();
+  if (helpers) {
+    const temp = await helpers.createCardElement({ type: "entities", entities: [] });
+    if (temp?.constructor?.getConfigElement) await temp.constructor.getConfigElement();
+  }
+  await customElements.whenDefined("ha-form");
+})();
+
+/**
+ * Care card editor schema — static, no entity filtering needed since
+ * entity_due / entity_overdue are fixed global sensors.
+ */
+const CARE_CARD_SCHEMA = [
+  { name: "title",          label: "Titel",                              selector: { text: {} } },
+  { name: "upcoming_days",  label: "Vorschau Tage",                      selector: { number: { min: 1, max: 14, step: 1 } } },
+  { name: "entity_due",     label: "F\u00e4llig-Heute Sensor (optional)", selector: { entity: { domain: ["sensor"] } } },
+  { name: "entity_overdue", label: "\u00dcberf\u00e4llig Sensor (optional)", selector: { entity: { domain: ["sensor"] } } },
+];
+
+/**
+ * Kamerplanter Care Card Editor
+ * Uses ha-form + schema — identical pattern to official HA card editors
+ * (UI-NFR-015 §2.1). No Shadow DOM (UI-NFR-015 R-022).
+ */
+class KamerplanterCareCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = {
+      title: "Kamerplanter Pflege",
+      upcoming_days: 3,
+      entity_due: "sensor.kp_tasks_due_today",
+      entity_overdue: "sensor.kp_tasks_overdue",
+      ...config,
+    };
+    if (this._hass) this._scheduleRender();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._scheduleRender();
+  }
+
+  async _scheduleRender() {
+    await _haFormReadyCare;
+    this._render();
+  }
+
+  _render() {
+    if (!this._config || !this._hass) return;
+
+    // Create ha-form once; reuse on subsequent renders (UI-NFR-015 R-020)
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.addEventListener("value-changed", (e) => {
+        this._config = e.detail.value;
+        this.dispatchEvent(new CustomEvent("config-changed", {
+          detail: { config: this._config },
+          bubbles: true,
+          composed: true,
+        }));
+      });
+      this.appendChild(this._form);
+    }
+
+    this._form.hass = this._hass;
+    this._form.schema = CARE_CARD_SCHEMA;
+    this._form.data = this._config;
+  }
+}
+customElements.define("kamerplanter-care-card-editor", KamerplanterCareCardEditor);
+
 class KamerplanterCareCard extends HTMLElement {
   static get properties() {
     return {
@@ -44,7 +120,7 @@ class KamerplanterCareCard extends HTMLElement {
   }
 
   static getConfigElement() {
-    return undefined;
+    return document.createElement("kamerplanter-care-card-editor");
   }
 
   static getStubConfig() {

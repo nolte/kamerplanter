@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -65,6 +65,12 @@ export default function SubstrateCreateDialog({ open, onClose, onCreated }: Prop
       max_reuse_cycles: 3,
     },
   });
+  useEffect(() => {
+    if (!open) {
+      reset();
+    }
+  }, [open, reset]);
+
 
   const onSubmit = async (data: FormData) => {
     try {

@@ -34,6 +34,7 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
+import LocationTreeSelect from '@/components/form/LocationTreeSelect';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -51,7 +52,6 @@ import type {
   MaintenanceSchedule,
   DueMaintenance,
   Site,
-  Location,
   Sensor,
   LiveStateResponse,
 } from '@/api/types';
@@ -132,7 +132,6 @@ export default function TankDetailPage() {
   const [editSchedule, setEditSchedule] = useState<MaintenanceSchedule | undefined>(undefined);
   const [deleteScheduleKey, setDeleteScheduleKey] = useState<string | null>(null);
   const [sites, setSites] = useState<Site[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
   const [selectedSiteKey, setSelectedSiteKey] = useState('');
   const [siteName, setSiteName] = useState('');
   const [locationName, setLocationName] = useState('');
@@ -205,23 +204,19 @@ export default function TankDetailPage() {
       if (tankData.location_key) {
         try {
           const loc = await sitesApi.getLocation(tankData.location_key);
-          setLocationName(loc.name);
+          setLocationName(loc.path || loc.name);
           const site = allSites.find((s) => s.key === loc.site_key);
           setSiteName(site?.name ?? '');
           setSelectedSiteKey(loc.site_key);
-          const locs = await sitesApi.listLocations(loc.site_key);
-          setLocations(locs);
         } catch {
           setLocationName('');
           setSiteName('');
           setSelectedSiteKey('');
-          setLocations([]);
         }
       } else {
         setLocationName('');
         setSiteName('');
         setSelectedSiteKey('');
-        setLocations([]);
       }
 
       const [ls, al, st, ml, dm, sc, fe, sn] = await Promise.all([
@@ -294,11 +289,6 @@ export default function TankDetailPage() {
   const handleSiteChange = (siteKey: string) => {
     setSelectedSiteKey(siteKey);
     setValue('location_key', null, { shouldDirty: true });
-    if (siteKey) {
-      sitesApi.listLocations(siteKey).then(setLocations).catch(() => setLocations([]));
-    } else {
-      setLocations([]);
-    }
   };
 
   const handleLiveQuery = async () => {
@@ -965,32 +955,26 @@ export default function TankDetailPage() {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {t('pages.tanks.sectionLocationDesc')}
               </Typography>
-              <FormRow>
-                <TextField
-                  select
-                  label={t('pages.tanks.site')}
-                  value={selectedSiteKey}
-                  onChange={(e) => handleSiteChange(e.target.value)}
-                  fullWidth
-                  sx={{ mb: 2 }}
-                  data-testid="form-field-site"
-                >
-                  <MenuItem value="">{'\u2014'}</MenuItem>
-                  {sites.map((s) => (
-                    <MenuItem key={s.key} value={s.key}>{s.name}</MenuItem>
-                  ))}
-                </TextField>
-                <FormSelectField
-                  name="location_key"
-                  control={control}
-                  label={t('pages.tanks.location')}
-                  disabled={!selectedSiteKey}
-                  options={[
-                    { value: '', label: '\u2014' },
-                    ...locations.map((l) => ({ value: l.key, label: l.name })),
-                  ]}
-                />
-              </FormRow>
+              <TextField
+                select
+                label={t('pages.tanks.site')}
+                value={selectedSiteKey}
+                onChange={(e) => handleSiteChange(e.target.value)}
+                fullWidth
+                sx={{ mb: 2 }}
+                data-testid="form-field-site"
+              >
+                <MenuItem value="">{'\u2014'}</MenuItem>
+                {sites.map((s) => (
+                  <MenuItem key={s.key} value={s.key}>{s.name}</MenuItem>
+                ))}
+              </TextField>
+              <LocationTreeSelect
+                name="location_key"
+                control={control}
+                siteKey={selectedSiteKey || null}
+                label={t('pages.tanks.location')}
+              />
             </CardContent>
           </Card>
 

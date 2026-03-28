@@ -48,7 +48,8 @@
     "removeFavorite": "Favorit entfernen",
     "selectAll": "Alle auswählen",
     "deselectAll": "Auswahl aufheben",
-    "loadingError": "Fehler beim Laden der Daten."
+    "loadingError": "Fehler beim Laden der Daten.",
+    "unknown": "Unbekannt"
   },
   "table": {
     "showing": "Zeigt {{from}}–{{to}} von {{total}} Einträgen",
@@ -570,6 +571,9 @@
       "seasonalAdjustments": "Saisonale Anpassungen",
       "noWateringGuide": "Kein Gießplan hinterlegt",
       "workflows": "Workflows",
+      "companionPlantingIntro": "Mischkultur-Beziehungen von {{name}}: Welche Arten sich gegenseitig fördern oder hemmen.",
+      "cropRotationIntro": "Die Fruchtfolge dieser Art wird über ihre Botanische Familie gesteuert. Hier siehst du empfohlene Nachfolgefamilien und Wartezeiten.",
+      "noFamilyForCropRotation": "Diese Art ist keiner Botanischen Familie zugeordnet. Ordne zuerst eine Familie zu, um Fruchtfolgen verwalten zu können.",
       "autoGenerate": "Auto-generieren",
       "createWorkflow": "Neuen Workflow erstellen",
       "noWorkflows": "Noch keine Workflows für diese Art. Lasse einen automatisch generieren oder erstelle einen manuell.",
@@ -911,6 +915,7 @@
       "phaseProfile": "Aktuelles Phasenprofil",
       "noNutrientPlanHint": "Kein Nährstoffplan zugewiesen. Wechseln Sie zum Tab Nährstoffplan, um einen zuzuweisen.",
       "days": "Tage",
+      "daysInPhase": "Tage in Phase",
       "estimatedHarvest": "Geschätzter Erntetag",
       "estimatedHarvestTooltip": "Schätzung basierend auf Pflanzdatum + Summe der typischen Phasendauern. Tatsächliche Ernte kann je nach Wachstum abweichen.",
       "daysRemaining_one": "{{count}} Tag verbleibend",
@@ -1141,6 +1146,7 @@
       "durationDays": "Dauer (Tage)",
       "daysShort": "T",
       "plantsLabel": "Pflanzen",
+      "plantsPerPhase": "Pflanzen pro Phase",
       "daysOfTypical": "Tag {{current}} von {{typical}}",
       "sectionBasics": "Basis",
       "substrateBatch": "Substratcharge",
@@ -1159,7 +1165,9 @@
       "adoptSkipped": "{{count}} Pflanzen wurden übersprungen (bereits einem Durchlauf zugeordnet).",
       "adoptError": "Fehler beim Aufnehmen der Pflanzen.",
       "noAvailablePlants": "Keine verfügbaren Pflanzen vorhanden.",
-      "selectedCount": "{{count}} ausgewählt"
+      "selectedCount": "{{count}} ausgewählt",
+      "daysRemaining": "noch {{count}} Tage",
+      "overdue": "{{count}} Tage überfällig"
     },
     "tanks": {
       "title": "Tanks",
