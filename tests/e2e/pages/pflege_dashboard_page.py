@@ -355,12 +355,22 @@ class PflegeDashboardPage(BasePage):
 
     def select_care_style(self, style_label: str) -> None:
         """Open the care style dropdown and select by visible label."""
+        import time
+        from selenium.webdriver.common.keys import Keys
+
         select_el = self.wait_for_element_clickable(self.CARE_STYLE_SELECT)
         self.scroll_and_click(select_el)
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{style_label}')]")
         )
         option.click()
+        # Dismiss MUI Select backdrop/popover
+        time.sleep(0.3)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     def click_save_profile(self) -> None:
         """Click the save button in the profile dialog."""

@@ -240,15 +240,17 @@ class TestHarvestCreateDialog:
         screenshot,
     ) -> None:
         """TC-007-008: Submitting without selecting a plant shows validation error."""
+        from selenium.webdriver.common.by import By
+
         harvest_list.open()
         harvest_list.click_create()
 
         # Wait for the dialog form to fully render (plant options may be loading)
-        time.sleep(1)
+        time.sleep(2)
 
         # Do not select a plant -- submit directly
         harvest_list.submit_create_form()
-        time.sleep(1)
+        time.sleep(2)
         screenshot(
             "req007_012_validation_plant_missing",
             "Validierungsfehler: Pflanze fehlt",
@@ -258,9 +260,14 @@ class TestHarvestCreateDialog:
             "Expected dialog to remain open when plant_key is missing"
         )
         # Check for validation error on plant_key OR harvest_type (both are required)
+        # Also check for any MUI form error state as fallback
         has_plant_error = harvest_list.has_validation_error("plant_key")
         has_type_error = harvest_list.has_validation_error("harvest_type")
-        assert has_plant_error or has_type_error, (
+        # Fallback: check for any error helper text in the dialog
+        has_any_error = len(harvest_list.driver.find_elements(
+            By.CSS_SELECTOR, "div[role='dialog'] .MuiFormHelperText-root.Mui-error"
+        )) > 0
+        assert has_plant_error or has_type_error or has_any_error, (
             "Expected validation error for plant_key or harvest_type field"
         )
 

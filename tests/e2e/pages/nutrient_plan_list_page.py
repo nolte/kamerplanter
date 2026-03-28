@@ -41,8 +41,8 @@ class NutrientPlanListPage(BasePage):
     def open(self) -> NutrientPlanListPage:
         """Navigate to the nutrient plan list and wait for it to load."""
         self.navigate(self.PATH)
-        self.wait_for_element(self.PAGE)
-        self.wait_for_loading_complete()
+        self.wait_for_element(self.PAGE, timeout=20)
+        self.wait_for_loading_complete(timeout=20)
         return self
 
     # ── Table interactions ─────────────────────────────────────────────
@@ -153,6 +153,9 @@ class NutrientPlanListPage(BasePage):
 
     def select_substrate_type(self, value_text: str) -> None:
         """Open the substrate type select and pick an option."""
+        import time
+        from selenium.webdriver.common.keys import Keys
+
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "[data-testid='form-field-recommended_substrate_type'] .MuiSelect-select")
         )
@@ -161,21 +164,30 @@ class NutrientPlanListPage(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
         option.click()
+        # Dismiss MUI Select backdrop/popover
+        time.sleep(0.3)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     def toggle_is_template(self) -> None:
         """Toggle the is_template switch."""
-        switch = self.wait_for_element_clickable(
+        switch = self.wait_for_element(
             (By.CSS_SELECTOR, "[data-testid='form-field-is_template'] input[type='checkbox']")
         )
         self.scroll_and_click(switch)
 
     def submit_create_form(self) -> None:
         """Submit the create form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        btn = self.wait_for_element(self.FORM_SUBMIT)
+        self.scroll_and_click(btn)
 
     def cancel_create_form(self) -> None:
         """Cancel the create form."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        btn = self.wait_for_element(self.FORM_CANCEL)
+        self.scroll_and_click(btn)
 
     def get_name_field_value(self) -> str:
         """Return the current value of the name input field."""

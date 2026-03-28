@@ -91,6 +91,9 @@ class SpeciesListPage(BasePage):
         el.send_keys(value)
 
     def select_option(self, field_name: str, value_text: str) -> None:
+        import time
+        from selenium.webdriver.common.keys import Keys
+
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] .MuiSelect-select")
         )
@@ -99,6 +102,13 @@ class SpeciesListPage(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
         option.click()
+        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
+        time.sleep(0.3)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     def add_chip(self, field_name: str, value: str) -> None:
         from selenium.webdriver.common.keys import Keys

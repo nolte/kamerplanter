@@ -75,7 +75,11 @@ def base_url(request: pytest.FixtureRequest) -> str:
 
 @pytest.fixture(scope="session")
 def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
-    """Create a headless browser session for the entire test run (NFR-008 §3.1).
+    """Create a headless browser session per xdist worker (NFR-008 §3.1).
+
+    With pytest-xdist, ``scope="session"`` means one session per worker
+    process — each of the N workers gets exactly one browser.  Without
+    xdist, all tests share a single browser as before.
 
     When ``SELENIUM_REMOTE_URL`` is set (e.g. in docker-compose.e2e.yml),
     a Remote WebDriver connecting to Selenium Grid is used.  Otherwise a

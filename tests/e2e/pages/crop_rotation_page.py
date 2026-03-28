@@ -41,27 +41,28 @@ class CropRotationPage(BasePage):
         return self.wait_for_element(self.PAGE_TITLE).text
 
     def select_family(self, family_name: str) -> None:
-        from selenium.webdriver.common.keys import Keys
-        # Ensure any previously open dropdown is closed first
-        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        time.sleep(0.3)
+        from selenium.webdriver.support.ui import WebDriverWait
+        self.close_mui_dropdown()
         select = self.wait_for_element_clickable(self.FAMILY_SELECT)
-        self.driver.execute_script("arguments[0].click();", select)
+        self.scroll_and_click(select)
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{family_name}')]")
         )
-        option.click()
+        self.scroll_and_click(option)
+        # Wait for options to be removed from DOM (natural close after selection)
+        WebDriverWait(self.driver, 5).until(
+            lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
+        )
         time.sleep(1)  # Wait for successors to load
 
     def get_family_options(self) -> list[str]:
+        self.close_mui_dropdown()
         select = self.wait_for_element_clickable(self.FAMILY_SELECT)
-        self.driver.execute_script("arguments[0].click();", select)
-        time.sleep(0.3)
+        self.scroll_and_click(select)
+        self.wait_for_element_visible((By.CSS_SELECTOR, "li[role='option']"), timeout=10)
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
-        texts = [o.text for o in options]
-        from selenium.webdriver.common.keys import Keys
-        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        time.sleep(0.3)
+        texts = [o.text for o in options if o.text]
+        self.close_mui_dropdown()
         return texts
 
     def get_successor_count(self) -> int:
@@ -75,7 +76,10 @@ class CropRotationPage(BasePage):
         return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
     def click_add_successor(self) -> None:
-        self.wait_for_element_clickable(self.ADD_SUCCESSOR_BTN).click()
+        self.close_mui_dropdown()
+        time.sleep(0.5)  # Wait for MUI animation to complete before clicking
+        btn = self.wait_for_element_clickable(self.ADD_SUCCESSOR_BTN)
+        self.scroll_and_click(btn)
         self.wait_for_element_visible(self.DIALOG)
 
     def is_dialog_create_button_enabled(self) -> bool:
@@ -83,25 +87,26 @@ class CropRotationPage(BasePage):
         return btn.is_enabled()
 
     def select_dialog_target(self, family_name: str) -> None:
-        from selenium.webdriver.common.keys import Keys
-        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        time.sleep(0.3)
+        from selenium.webdriver.support.ui import WebDriverWait
+        self.close_mui_dropdown()
         select = self.wait_for_element_clickable(self.DIALOG_TARGET_SELECT)
-        self.driver.execute_script("arguments[0].click();", select)
+        self.scroll_and_click(select)
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{family_name}')]")
         )
-        option.click()
+        self.scroll_and_click(option)
+        WebDriverWait(self.driver, 5).until(
+            lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
+        )
 
     def get_dialog_target_options(self) -> list[str]:
+        self.close_mui_dropdown()
         select = self.wait_for_element_clickable(self.DIALOG_TARGET_SELECT)
-        self.driver.execute_script("arguments[0].click();", select)
-        time.sleep(0.3)
+        self.scroll_and_click(select)
+        self.wait_for_element_visible((By.CSS_SELECTOR, "li[role='option']"), timeout=10)
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
-        texts = [o.text for o in options]
-        from selenium.webdriver.common.keys import Keys
-        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        time.sleep(0.3)
+        texts = [o.text for o in options if o.text]
+        self.close_mui_dropdown()
         return texts
 
     def set_dialog_wait_years(self, years: str) -> None:
@@ -110,7 +115,11 @@ class CropRotationPage(BasePage):
         el.send_keys(years)
 
     def click_dialog_create(self) -> None:
-        self.wait_for_element_clickable(self.DIALOG_CREATE_BTN).click()
+        self.close_mui_dropdown()
+        btn = self.wait_for_element_clickable(self.DIALOG_CREATE_BTN)
+        self.scroll_and_click(btn)
 
     def click_dialog_cancel(self) -> None:
-        self.wait_for_element_clickable(self.DIALOG_CANCEL_BTN).click()
+        self.close_mui_dropdown()
+        btn = self.wait_for_element_clickable(self.DIALOG_CANCEL_BTN)
+        self.scroll_and_click(btn)

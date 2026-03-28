@@ -86,6 +86,9 @@ class LocationDetailPage(BasePage):
 
     def select_light_type(self, value_text: str) -> None:
         """Open the 'light_type' MUI Select and pick by visible text."""
+        import time
+        from selenium.webdriver.common.keys import Keys
+
         select_el = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "[data-testid='form-field-light_type'] .MuiSelect-select")
         )
@@ -94,9 +97,19 @@ class LocationDetailPage(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
         option.click()
+        # Dismiss MUI Select backdrop/popover
+        time.sleep(0.3)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     def select_irrigation_system(self, value_text: str) -> None:
         """Open the 'irrigation_system' MUI Select and pick by visible text."""
+        import time
+        from selenium.webdriver.common.keys import Keys
+
         select_el = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "[data-testid='form-field-irrigation_system'] .MuiSelect-select")
         )
@@ -105,6 +118,13 @@ class LocationDetailPage(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
         option.click()
+        # Dismiss MUI Select backdrop/popover
+        time.sleep(0.3)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     def submit_form(self) -> None:
         self.wait_for_element_clickable(self.FORM_SUBMIT).click()
