@@ -230,10 +230,10 @@ async def async_setup_entry(
                 RunPhaseTimelineSensor(run_coord, entry, key, dev),
                 RunNextPhaseSensor(run_coord, entry, key, dev),
             ])
-            # Run channel sensors — current week only
-            current_entries = run.get(
-                "_current_phase_entries", run.get("_phase_entries", [])
-            )
+            # Run channel sensors — discover from ALL phase entries so entities
+            # exist for every channel; _handle_coordinator_update filters to
+            # the current week dynamically.
+            current_entries = run.get("_phase_entries", [])
             channel_labels: dict[str, str] = {}
             channel_dosages: dict[str, dict[str, float]] = {}
             channel_volumes: dict[str, float | None] = {}
@@ -336,6 +336,12 @@ async def async_setup_entry(
                     entities.append(
                         LocationTankSensor(loc_coord, entry, loc_key, tank_key, dev)
                     )
+                    if tank.get("volume_liters"):
+                        entities.append(
+                            LocationTankVolumeSensor(
+                                loc_coord, entry, loc_key, tank_key, dev
+                            )
+                        )
 
     # --- Standalone Tank devices ---
     seen_tanks: set[str] = set()
@@ -1382,6 +1388,54 @@ class LocationChannelSensor(_LocationSensorBase):
                 self._attr_native_value = 0
                 self._attr_extra_state_attributes = {}
         self.async_write_ha_state()
+
+
+class LocationTankVolumeSensor(_LocationSensorBase):
+    """Tank volume sensor — exposes assigned tank capacity in liters."""
+
+    _attr_icon = "mdi:barrel"
+    _attr_device_class = SensorDeviceClass.VOLUME
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfVolume.LITERS
+
+    def __init__(
+        self,
+        coordinator: Any,
+        entry: ConfigEntry,
+        location_key: str,
+        tank_key: str,
+        dev: DeviceInfo,
+    ) -> None:
+        slug = _slugify_key(tank_key)
+        super().__init__(coordinator, entry, location_key, f"tank_{slug}_volume", dev)
+        self._tank_key = tank_key
+        self._attr_name = "Tank Volume"
+
+    def _find_tank(self) -> dict[str, Any] | None:
+        resource = self._find_resource()
+        if not resource:
+            return None
+        for tank in resource.get("_tanks", []):
+            if tank.get("key") == self._tank_key:
+                return tank
+        return None
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        tank = self._find_tank()
+        if tank:
+            self._attr_native_value = tank.get("volume_liters")
+            self._attr_extra_state_attributes = {
+                "tank_key": self._tank_key,
+                "tank_name": tank.get("name", ""),
+                "tank_type": tank.get("tank_type"),
+            }
+        else:
+            self._attr_native_value = None
+        self.async_write_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        await CoordinatorEntity.async_added_to_hass(self)
 
 
 class LocationTankSensor(_LocationSensorBase):
