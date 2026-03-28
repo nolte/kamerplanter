@@ -112,15 +112,17 @@ class SensorService:
 
             suggested_metric = device_class_map.get(device_class) or unit_map.get(unit)
 
-            result.append({
-                "entity_id": e["entity_id"],
-                "friendly_name": friendly,
-                "unit_of_measurement": e.get("unit_of_measurement"),
-                "device_class": e.get("device_class"),
-                "state": e.get("state"),
-                "suggested_metric_type": suggested_metric,
-                "suggested_name": friendly,
-            })
+            result.append(
+                {
+                    "entity_id": e["entity_id"],
+                    "friendly_name": friendly,
+                    "unit_of_measurement": e.get("unit_of_measurement"),
+                    "device_class": e.get("device_class"),
+                    "state": e.get("state"),
+                    "suggested_metric_type": suggested_metric,
+                    "suggested_name": friendly,
+                }
+            )
 
         result.sort(key=lambda x: (x["suggested_metric_type"] is None, x["friendly_name"].lower()))
         return result
