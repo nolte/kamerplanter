@@ -1,37 +1,505 @@
 # yaml-language-server: $schema=./schemas/companion_planting.schema.yaml
 compatible:
+  # ===================================================================
+  # EXISTING ENTRIES (original 16 pairs)
+  # ===================================================================
+
+  # Tomate + Basilikum (Whitefly deterrent, flavor enhancement)
   - [Solanum lycopersicum, Ocimum basilicum, 0.9]
   - [Ocimum basilicum, Solanum lycopersicum, 0.9]
+  # Tomate + Karotte
   - [Solanum lycopersicum, Daucus carota, 0.75]
   - [Daucus carota, Solanum lycopersicum, 0.75]
+  # Tomate + Tagetes (nematode suppression)
   - [Solanum lycopersicum, Tagetes erecta, 0.8]
   - [Tagetes erecta, Solanum lycopersicum, 0.8]
+  # Paprika + Basilikum
   - [Capsicum annuum, Ocimum basilicum, 0.85]
   - [Ocimum basilicum, Capsicum annuum, 0.85]
+  # Gurke + Dill
   - [Cucumis sativus, Anethum graveolens, 0.8]
   - [Anethum graveolens, Cucumis sativus, 0.8]
+  # Gurke + Bohne
   - [Cucumis sativus, Phaseolus vulgaris, 0.75]
   - [Phaseolus vulgaris, Cucumis sativus, 0.75]
+  # Salat + Radieschen
   - [Lactuca sativa, Raphanus sativus, 0.8]
   - [Raphanus sativus, Lactuca sativa, 0.8]
+  # Three Sisters: Mais + Bohne
   - [Zea mays, Phaseolus vulgaris, 0.9]
   - [Phaseolus vulgaris, Zea mays, 0.9]
+  # Three Sisters: Mais + Kuerbis
   - [Zea mays, Cucurbita pepo, 0.85]
   - [Cucurbita pepo, Zea mays, 0.85]
+  # Three Sisters: Bohne + Kuerbis
   - [Phaseolus vulgaris, Cucurbita pepo, 0.8]
   - [Cucurbita pepo, Phaseolus vulgaris, 0.8]
+  # Cannabis + Basilikum
   - [Cannabis sativa, Ocimum basilicum, 0.8]
   - [Ocimum basilicum, Cannabis sativa, 0.8]
+  # Cannabis + Lavendel
   - [Cannabis sativa, Lavandula angustifolia, 0.75]
   - [Lavandula angustifolia, Cannabis sativa, 0.75]
+  # Minze + Kohl (cabbage moth deterrent)
   - [Mentha piperita, Brassica oleracea var. capitata, 0.7]
   - [Brassica oleracea var. capitata, Mentha piperita, 0.7]
+  # Thymian + Kohl
   - [Thymus vulgaris, Brassica oleracea var. capitata, 0.7]
   - [Brassica oleracea var. capitata, Thymus vulgaris, 0.7]
+  # Karotte + Erbse
   - [Daucus carota, Pisum sativum, 0.8]
   - [Pisum sativum, Daucus carota, 0.8]
 
+  # ===================================================================
+  # CLASSIC VEGETABLE COMPANIONS
+  # ===================================================================
+
+  # Karotte + Zwiebel (Moehrenfliege/Zwiebelfliege gegenseitig abwehrend)
+  - [Daucus carota, Allium cepa, 0.9]
+  - [Allium cepa, Daucus carota, 0.9]
+  # Karotte + Lauch (gleicher Mechanismus wie Zwiebel)
+  - [Daucus carota, Allium porrum, 0.85]
+  - [Allium porrum, Daucus carota, 0.85]
+  # Karotte + Schnittlauch
+  - [Daucus carota, Allium schoenoprasum, 0.8]
+  - [Allium schoenoprasum, Daucus carota, 0.8]
+  # Tomate + Sellerie (gegenseitige Wachstumsfoerderung)
+  - [Solanum lycopersicum, Apium graveolens, 0.85]
+  - [Apium graveolens, Solanum lycopersicum, 0.85]
+  # Tomate + Petersilie
+  - [Solanum lycopersicum, Petroselinum crispum, 0.75]
+  - [Petroselinum crispum, Solanum lycopersicum, 0.75]
+  # Tomate + Salat (Bodenbeschattung)
+  - [Solanum lycopersicum, Lactuca sativa, 0.7]
+  - [Lactuca sativa, Solanum lycopersicum, 0.7]
+  # Tomate + Spinat (Bodenbeschattung, unterschiedliche Wurzeltiefe)
+  - [Solanum lycopersicum, Spinacia oleracea, 0.7]
+  - [Spinacia oleracea, Solanum lycopersicum, 0.7]
+  # Kohl + Sellerie (Erdfloh-Abwehr, Kohlweissling-Verwirrung)
+  - [Brassica oleracea var. capitata, Apium graveolens, 0.85]
+  - [Apium graveolens, Brassica oleracea var. capitata, 0.85]
+  # Brokkoli + Sellerie
+  - [Brassica oleracea var. italica, Apium graveolens, 0.8]
+  - [Apium graveolens, Brassica oleracea var. italica, 0.8]
+  # Blumenkohl + Sellerie
+  - [Brassica oleracea var. botrytis, Apium graveolens, 0.8]
+  - [Apium graveolens, Brassica oleracea var. botrytis, 0.8]
+  # Erdbeere + Knoblauch (Grauschimmel-Praevention)
+  - [Fragaria x ananassa, Allium sativum, 0.85]
+  - [Allium sativum, Fragaria x ananassa, 0.85]
+  # Erdbeere + Zwiebel
+  - [Fragaria x ananassa, Allium cepa, 0.8]
+  - [Allium cepa, Fragaria x ananassa, 0.8]
+  # Erdbeere + Salat (gute Beet-Partner)
+  - [Fragaria x ananassa, Lactuca sativa, 0.7]
+  - [Lactuca sativa, Fragaria x ananassa, 0.7]
+  # Erdbeere + Spinat
+  - [Fragaria x ananassa, Spinacia oleracea, 0.7]
+  - [Spinacia oleracea, Fragaria x ananassa, 0.7]
+  # Kartoffel + Meerrettich — not in species list, skip
+  # Kartoffel + Bohne (N-Fixierung fuer Starkzehrer)
+  - [Solanum tuberosum, Phaseolus vulgaris, 0.8]
+  - [Phaseolus vulgaris, Solanum tuberosum, 0.8]
+  # Kartoffel + Spinat (Bodenbeschattung)
+  - [Solanum tuberosum, Spinacia oleracea, 0.7]
+  - [Spinacia oleracea, Solanum tuberosum, 0.7]
+  # Kartoffel + Mais (unterschiedliche Wurzeltiefen)
+  - [Solanum tuberosum, Zea mays, 0.65]
+  - [Zea mays, Solanum tuberosum, 0.65]
+  # Gurke + Salat
+  - [Cucumis sativus, Lactuca sativa, 0.75]
+  - [Lactuca sativa, Cucumis sativus, 0.75]
+  # Gurke + Sellerie
+  - [Cucumis sativus, Apium graveolens, 0.7]
+  - [Apium graveolens, Cucumis sativus, 0.7]
+  # Gurke + Erbse (N-Fixierung)
+  - [Cucumis sativus, Pisum sativum, 0.75]
+  - [Pisum sativum, Cucumis sativus, 0.75]
+  # Gurke + Mais (Windschutz)
+  - [Cucumis sativus, Zea mays, 0.7]
+  - [Zea mays, Cucumis sativus, 0.7]
+  # Erbse + Salat
+  - [Pisum sativum, Lactuca sativa, 0.7]
+  - [Lactuca sativa, Pisum sativum, 0.7]
+  # Erbse + Radieschen
+  - [Pisum sativum, Raphanus sativus, 0.75]
+  - [Raphanus sativus, Pisum sativum, 0.75]
+  # Erbse + Mais (N-Fixierung + Rankhilfe)
+  - [Pisum sativum, Zea mays, 0.8]
+  - [Zea mays, Pisum sativum, 0.8]
+  # Erbse + Spinat
+  - [Pisum sativum, Spinacia oleracea, 0.7]
+  - [Spinacia oleracea, Pisum sativum, 0.7]
+  # Bohne + Sellerie
+  - [Phaseolus vulgaris, Apium graveolens, 0.7]
+  - [Apium graveolens, Phaseolus vulgaris, 0.7]
+  # Bohne + Salat
+  - [Phaseolus vulgaris, Lactuca sativa, 0.7]
+  - [Lactuca sativa, Phaseolus vulgaris, 0.7]
+  # Spinat + Radieschen (schnelle Ernte, Bodenbeschattung)
+  - [Spinacia oleracea, Raphanus sativus, 0.75]
+  - [Raphanus sativus, Spinacia oleracea, 0.75]
+  # Salat + Karotte (Bodenbeschattung)
+  - [Lactuca sativa, Daucus carota, 0.7]
+  - [Daucus carota, Lactuca sativa, 0.7]
+  # Salat + Erdbeere — already above
+  # Kohlrabi + Salat
+  - [Brassica oleracea var. gongylodes, Lactuca sativa, 0.75]
+  - [Lactuca sativa, Brassica oleracea var. gongylodes, 0.75]
+  # Kohlrabi + Radieschen
+  - [Brassica oleracea var. gongylodes, Raphanus sativus, 0.7]
+  - [Raphanus sativus, Brassica oleracea var. gongylodes, 0.7]
+  # Kohlrabi + Erbse
+  - [Brassica oleracea var. gongylodes, Pisum sativum, 0.75]
+  - [Pisum sativum, Brassica oleracea var. gongylodes, 0.75]
+  # Mangold + Bohne
+  - [Beta vulgaris subsp. vulgaris, Phaseolus vulgaris, 0.7]
+  - [Phaseolus vulgaris, Beta vulgaris subsp. vulgaris, 0.7]
+  # Mangold + Karotte
+  - [Beta vulgaris subsp. vulgaris, Daucus carota, 0.65]
+  - [Daucus carota, Beta vulgaris subsp. vulgaris, 0.65]
+  # Mangold + Radieschen
+  - [Beta vulgaris subsp. vulgaris, Raphanus sativus, 0.7]
+  - [Raphanus sativus, Beta vulgaris subsp. vulgaris, 0.7]
+  # Aubergine + Bohne (N-Fixierung)
+  - [Solanum melongena, Phaseolus vulgaris, 0.75]
+  - [Phaseolus vulgaris, Solanum melongena, 0.75]
+  # Aubergine + Spinat
+  - [Solanum melongena, Spinacia oleracea, 0.65]
+  - [Spinacia oleracea, Solanum melongena, 0.65]
+  # Paprika + Karotte
+  - [Capsicum annuum, Daucus carota, 0.7]
+  - [Daucus carota, Capsicum annuum, 0.7]
+  # Paprika + Tomate (gleiche Klimaansprueche)
+  - [Capsicum annuum, Solanum lycopersicum, 0.7]
+  - [Solanum lycopersicum, Capsicum annuum, 0.7]
+  # Rucola + Salat
+  - [Eruca vesicaria, Lactuca sativa, 0.7]
+  - [Lactuca sativa, Eruca vesicaria, 0.7]
+  # Rosenkohl + Sellerie
+  - [Brassica oleracea var. gemmifera, Apium graveolens, 0.8]
+  - [Apium graveolens, Brassica oleracea var. gemmifera, 0.8]
+  # Gruenkohl + Bohne
+  - [Brassica oleracea var. sabellica, Phaseolus vulgaris, 0.75]
+  - [Phaseolus vulgaris, Brassica oleracea var. sabellica, 0.75]
+  # Gruenkohl + Erbse
+  - [Brassica oleracea var. sabellica, Pisum sativum, 0.75]
+  - [Pisum sativum, Brassica oleracea var. sabellica, 0.75]
+  # Spargel + Tomate (Spargelkaefer-Abwehr)
+  - [Asparagus officinalis, Solanum lycopersicum, 0.8]
+  - [Solanum lycopersicum, Asparagus officinalis, 0.8]
+  # Spargel + Petersilie
+  - [Asparagus officinalis, Petroselinum crispum, 0.7]
+  - [Petroselinum crispum, Asparagus officinalis, 0.7]
+
+  # ===================================================================
+  # LEGUME N-FIXATION PARTNERS (Bohnen/Erbsen neben Starkzehrern)
+  # ===================================================================
+
+  # Ackerbohne + Kartoffel
+  - [Vicia faba, Solanum tuberosum, 0.8]
+  - [Solanum tuberosum, Vicia faba, 0.8]
+  # Ackerbohne + Kohl
+  - [Vicia faba, Brassica oleracea var. capitata, 0.75]
+  - [Brassica oleracea var. capitata, Vicia faba, 0.75]
+  # Ackerbohne + Mais
+  - [Vicia faba, Zea mays, 0.75]
+  - [Zea mays, Vicia faba, 0.75]
+  # Bohne + Mais — already in Three Sisters above
+  # Bohne + Kartoffel — already above
+  # Erbse + Kohl
+  - [Pisum sativum, Brassica oleracea var. capitata, 0.75]
+  - [Brassica oleracea var. capitata, Pisum sativum, 0.75]
+  # Erbse + Brokkoli
+  - [Pisum sativum, Brassica oleracea var. italica, 0.7]
+  - [Brassica oleracea var. italica, Pisum sativum, 0.7]
+
+  # ===================================================================
+  # HERBS AS PEST DETERRENTS
+  # ===================================================================
+
+  # Basilikum + Gurke
+  - [Ocimum basilicum, Cucumis sativus, 0.75]
+  - [Cucumis sativus, Ocimum basilicum, 0.75]
+  # Basilikum + Aubergine (Blattlaus-Abwehr)
+  - [Ocimum basilicum, Solanum melongena, 0.8]
+  - [Solanum melongena, Ocimum basilicum, 0.8]
+  # Rosmarin + Kohl (Kohlweissling-Abwehr)
+  - [Salvia rosmarinus, Brassica oleracea var. capitata, 0.8]
+  - [Brassica oleracea var. capitata, Salvia rosmarinus, 0.8]
+  # Rosmarin + Bohne (Bohnenkaefer-Abwehr)
+  - [Salvia rosmarinus, Phaseolus vulgaris, 0.75]
+  - [Phaseolus vulgaris, Salvia rosmarinus, 0.75]
+  # Rosmarin + Karotte (Moehrenfliege)
+  - [Salvia rosmarinus, Daucus carota, 0.75]
+  - [Daucus carota, Salvia rosmarinus, 0.75]
+  # Salbei + Kohl (Kohlweissling-Abwehr)
+  - [Salvia officinalis, Brassica oleracea var. capitata, 0.8]
+  - [Brassica oleracea var. capitata, Salvia officinalis, 0.8]
+  # Salbei + Karotte (Moehrenfliege)
+  - [Salvia officinalis, Daucus carota, 0.75]
+  - [Daucus carota, Salvia officinalis, 0.75]
+  # Salbei + Tomate
+  - [Salvia officinalis, Solanum lycopersicum, 0.7]
+  - [Solanum lycopersicum, Salvia officinalis, 0.7]
+  # Lavendel + Kohl (Blattlaus-Abwehr)
+  - [Lavandula angustifolia, Brassica oleracea var. capitata, 0.75]
+  - [Brassica oleracea var. capitata, Lavandula angustifolia, 0.75]
+  # Lavendel + Erdbeere
+  - [Lavandula angustifolia, Fragaria x ananassa, 0.7]
+  - [Fragaria x ananassa, Lavandula angustifolia, 0.7]
+  # Lavendel + Rose (Blattlaus-Abwehr)
+  - [Lavandula angustifolia, Rosa spp., 0.8]
+  - [Rosa spp., Lavandula angustifolia, 0.8]
+  # Dill + Kohl (Nuetzlingsanziehung: Schlupfwespen)
+  - [Anethum graveolens, Brassica oleracea var. capitata, 0.75]
+  - [Brassica oleracea var. capitata, Anethum graveolens, 0.75]
+  # Dill + Salat
+  - [Anethum graveolens, Lactuca sativa, 0.7]
+  - [Lactuca sativa, Anethum graveolens, 0.7]
+  # Koriander + Tomate (Blattlaus-Abwehr)
+  - [Coriandrum sativum, Solanum lycopersicum, 0.75]
+  - [Solanum lycopersicum, Coriandrum sativum, 0.75]
+  # Koriander + Kartoffel (Kartoffelkaefer-Abwehr)
+  - [Coriandrum sativum, Solanum tuberosum, 0.7]
+  - [Solanum tuberosum, Coriandrum sativum, 0.7]
+  # Koriander + Spinat
+  - [Coriandrum sativum, Spinacia oleracea, 0.65]
+  - [Spinacia oleracea, Coriandrum sativum, 0.65]
+  # Petersilie + Tomate
+  # (already above)
+  # Petersilie + Karotte (Nuetzlingsanziehung)
+  - [Petroselinum crispum, Daucus carota, 0.7]
+  - [Daucus carota, Petroselinum crispum, 0.7]
+  # Schnittlauch + Karotte (Moehrenfliege)
+  # (already above)
+  # Schnittlauch + Tomate
+  - [Allium schoenoprasum, Solanum lycopersicum, 0.7]
+  - [Solanum lycopersicum, Allium schoenoprasum, 0.7]
+  # Schnittlauch + Erdbeere
+  - [Allium schoenoprasum, Fragaria x ananassa, 0.75]
+  - [Fragaria x ananassa, Allium schoenoprasum, 0.75]
+  # Oregano + Gurke (Schadinsekten-Abwehr)
+  - [Origanum vulgare, Cucumis sativus, 0.7]
+  - [Cucumis sativus, Origanum vulgare, 0.7]
+  # Oregano + Paprika
+  - [Origanum vulgare, Capsicum annuum, 0.7]
+  - [Capsicum annuum, Origanum vulgare, 0.7]
+  # Bohnenkraut + Bohne (klassische Kombination, Bohnenlaus-Abwehr)
+  - [Satureja hortensis, Phaseolus vulgaris, 0.85]
+  - [Phaseolus vulgaris, Satureja hortensis, 0.85]
+  # Bohnenkraut + Ackerbohne
+  - [Satureja hortensis, Vicia faba, 0.8]
+  - [Vicia faba, Satureja hortensis, 0.8]
+  # Kamille + Kohl (Wachstumsfoerderung)
+  - [Matricaria chamomilla, Brassica oleracea var. capitata, 0.7]
+  - [Brassica oleracea var. capitata, Matricaria chamomilla, 0.7]
+  # Kamille + Zwiebel
+  - [Matricaria chamomilla, Allium cepa, 0.65]
+  - [Allium cepa, Matricaria chamomilla, 0.65]
+  # Zitronenmelisse + Tomate (Bestaeubung, Duft)
+  - [Melissa officinalis, Solanum lycopersicum, 0.65]
+  - [Solanum lycopersicum, Melissa officinalis, 0.65]
+  # Minze + Kohl — already above
+  # Minze + Tomate (Blattlaus-Abwehr)
+  - [Mentha piperita, Solanum lycopersicum, 0.7]
+  - [Solanum lycopersicum, Mentha piperita, 0.7]
+  # Estragon + Aubergine
+  - [Artemisia dracunculus, Solanum melongena, 0.65]
+  - [Solanum melongena, Artemisia dracunculus, 0.65]
+  # Liebstoeckel + Bohne (allgemeine Wachstumsfoerderung)
+  - [Levisticum officinale, Phaseolus vulgaris, 0.65]
+  - [Phaseolus vulgaris, Levisticum officinale, 0.65]
+
+  # ===================================================================
+  # TAGETES / CALENDULA AS UNIVERSAL COMPANIONS (nematode suppression)
+  # ===================================================================
+
+  # Tagetes + Kartoffel (Nematoden)
+  - [Tagetes erecta, Solanum tuberosum, 0.85]
+  - [Solanum tuberosum, Tagetes erecta, 0.85]
+  # Tagetes + Erdbeere
+  - [Tagetes erecta, Fragaria x ananassa, 0.8]
+  - [Fragaria x ananassa, Tagetes erecta, 0.8]
+  # Tagetes + Kohl
+  - [Tagetes erecta, Brassica oleracea var. capitata, 0.75]
+  - [Brassica oleracea var. capitata, Tagetes erecta, 0.75]
+  # Tagetes + Gurke
+  - [Tagetes erecta, Cucumis sativus, 0.75]
+  - [Cucumis sativus, Tagetes erecta, 0.75]
+  # Tagetes + Bohne
+  - [Tagetes erecta, Phaseolus vulgaris, 0.75]
+  - [Phaseolus vulgaris, Tagetes erecta, 0.75]
+  # Tagetes + Karotte
+  - [Tagetes erecta, Daucus carota, 0.8]
+  - [Daucus carota, Tagetes erecta, 0.8]
+  # Tagetes patula + Tomate (Nematoden, Weisse Fliege)
+  - [Tagetes patula, Solanum lycopersicum, 0.85]
+  - [Solanum lycopersicum, Tagetes patula, 0.85]
+  # Tagetes patula + Paprika
+  - [Tagetes patula, Capsicum annuum, 0.8]
+  - [Capsicum annuum, Tagetes patula, 0.8]
+  # Tagetes patula + Kartoffel
+  - [Tagetes patula, Solanum tuberosum, 0.8]
+  - [Solanum tuberosum, Tagetes patula, 0.8]
+  # Ringelblume + Tomate (Schadinsekten-Abwehr, Nuetzlingsanziehung)
+  - [Calendula officinalis, Solanum lycopersicum, 0.8]
+  - [Solanum lycopersicum, Calendula officinalis, 0.8]
+  # Ringelblume + Gurke
+  - [Calendula officinalis, Cucumis sativus, 0.75]
+  - [Cucumis sativus, Calendula officinalis, 0.75]
+  # Ringelblume + Kohl (Kohlweissling-Ablenkung)
+  - [Calendula officinalis, Brassica oleracea var. capitata, 0.75]
+  - [Brassica oleracea var. capitata, Calendula officinalis, 0.75]
+  # Ringelblume + Kartoffel
+  - [Calendula officinalis, Solanum tuberosum, 0.7]
+  - [Solanum tuberosum, Calendula officinalis, 0.7]
+  # Ringelblume + Erdbeere
+  - [Calendula officinalis, Fragaria x ananassa, 0.7]
+  - [Fragaria x ananassa, Calendula officinalis, 0.7]
+
+  # ===================================================================
+  # ALLIUM (Zwiebel/Lauch) AS PEST DETERRENTS
+  # ===================================================================
+
+  # Zwiebel + Erdbeere — already above
+  # Zwiebel + Salat
+  - [Allium cepa, Lactuca sativa, 0.7]
+  - [Lactuca sativa, Allium cepa, 0.7]
+  # Zwiebel + Tomate
+  - [Allium cepa, Solanum lycopersicum, 0.7]
+  - [Solanum lycopersicum, Allium cepa, 0.7]
+  # Zwiebel + Rote Bete/Mangold
+  - [Allium cepa, Beta vulgaris subsp. vulgaris, 0.7]
+  - [Beta vulgaris subsp. vulgaris, Allium cepa, 0.7]
+  # Knoblauch + Tomate (Spinnmilben-Abwehr)
+  - [Allium sativum, Solanum lycopersicum, 0.8]
+  - [Solanum lycopersicum, Allium sativum, 0.8]
+  # Knoblauch + Karotte
+  - [Allium sativum, Daucus carota, 0.8]
+  - [Daucus carota, Allium sativum, 0.8]
+  # Knoblauch + Salat
+  - [Allium sativum, Lactuca sativa, 0.7]
+  - [Lactuca sativa, Allium sativum, 0.7]
+  # Knoblauch + Rose (Blattlaus-Abwehr)
+  - [Allium sativum, Rosa spp., 0.85]
+  - [Rosa spp., Allium sativum, 0.85]
+  # Lauch + Erdbeere
+  - [Allium porrum, Fragaria x ananassa, 0.75]
+  - [Fragaria x ananassa, Allium porrum, 0.75]
+  # Lauch + Sellerie
+  - [Allium porrum, Apium graveolens, 0.7]
+  - [Apium graveolens, Allium porrum, 0.7]
+  # Lauch + Tomate
+  - [Allium porrum, Solanum lycopersicum, 0.7]
+  - [Solanum lycopersicum, Allium porrum, 0.7]
+
+  # ===================================================================
+  # FRUIT / BERRY COMPANIONS
+  # ===================================================================
+
+  # Himbeere + Knoblauch
+  - [Rubus idaeus, Allium sativum, 0.7]
+  - [Allium sativum, Rubus idaeus, 0.7]
+  # Heidelbeere + Rhododendron (gleiche Bodenansprueche, saurer Boden)
+  - [Vaccinium corymbosum, Rhododendron spp., 0.7]
+  - [Rhododendron spp., Vaccinium corymbosum, 0.7]
+  # Weinrebe + Lavendel
+  - [Vitis vinifera, Lavandula angustifolia, 0.7]
+  - [Lavandula angustifolia, Vitis vinifera, 0.7]
+
+  # ===================================================================
+  # CANNABIS-SPECIFIC COMPANIONS
+  # ===================================================================
+
+  # Cannabis + Kamille (Wachstumsfoerderung, Bestaeubungshilfe)
+  - [Cannabis sativa, Matricaria chamomilla, 0.7]
+  - [Matricaria chamomilla, Cannabis sativa, 0.7]
+  # Cannabis + Koriander (Blattlaus-/Spinnmilben-Abwehr)
+  - [Cannabis sativa, Coriandrum sativum, 0.75]
+  - [Coriandrum sativum, Cannabis sativa, 0.75]
+  # Cannabis + Dill (Nuetzlingsanziehung: Schlupfwespen)
+  - [Cannabis sativa, Anethum graveolens, 0.7]
+  - [Anethum graveolens, Cannabis sativa, 0.7]
+  # Cannabis + Tagetes (Nematoden)
+  - [Cannabis sativa, Tagetes erecta, 0.8]
+  - [Tagetes erecta, Cannabis sativa, 0.8]
+  # Cannabis + Minze (Schadinsekten-Abwehr, CAVE: Minze breitet sich stark aus)
+  - [Cannabis sativa, Mentha piperita, 0.65]
+  - [Mentha piperita, Cannabis sativa, 0.65]
+
+  # ===================================================================
+  # GREEN MANURE / COVER CROP COMPANIONS
+  # ===================================================================
+
+  # Phacelia + fast alles (universelle Bienenweide, kein Kreuzbestaeubungsrisiko)
+  - [Phacelia tanacetifolia, Solanum lycopersicum, 0.7]
+  - [Solanum lycopersicum, Phacelia tanacetifolia, 0.7]
+  - [Phacelia tanacetifolia, Cucumis sativus, 0.7]
+  - [Cucumis sativus, Phacelia tanacetifolia, 0.7]
+  - [Phacelia tanacetifolia, Brassica oleracea var. capitata, 0.7]
+  - [Brassica oleracea var. capitata, Phacelia tanacetifolia, 0.7]
+  # Kapuzinerkresse + Tomate (Blattlausfalle)
+  - [Tropaeolum majus, Solanum lycopersicum, 0.8]
+  - [Solanum lycopersicum, Tropaeolum majus, 0.8]
+  # Kapuzinerkresse + Gurke
+  - [Tropaeolum majus, Cucumis sativus, 0.75]
+  - [Cucumis sativus, Tropaeolum majus, 0.75]
+  # Kapuzinerkresse + Kohl (Blattlausfalle)
+  - [Tropaeolum majus, Brassica oleracea var. capitata, 0.8]
+  - [Brassica oleracea var. capitata, Tropaeolum majus, 0.8]
+  # Kapuzinerkresse + Kuerbis
+  - [Tropaeolum majus, Cucurbita pepo, 0.7]
+  - [Cucurbita pepo, Tropaeolum majus, 0.7]
+  # Sonnenblume + Gurke (Windschutz, Bestaeubung)
+  - [Helianthus annuus, Cucumis sativus, 0.7]
+  - [Cucumis sativus, Helianthus annuus, 0.7]
+  # Sonnenblume + Mais
+  - [Helianthus annuus, Zea mays, 0.65]
+  - [Zea mays, Helianthus annuus, 0.65]
+  # Sonnenblume + Bohne
+  - [Helianthus annuus, Phaseolus vulgaris, 0.7]
+  - [Phaseolus vulgaris, Helianthus annuus, 0.7]
+  # Senf + Kartoffel (Nematoden-Abwehr als Zwischenfrucht)
+  - [Sinapis alba, Solanum tuberosum, 0.7]
+  - [Solanum tuberosum, Sinapis alba, 0.7]
+
+  # ===================================================================
+  # ADDITIONAL OUTDOOR PAIRS
+  # ===================================================================
+
+  # Rhabarber + Kohl (Erdfloh-Abwehr durch Oxalsaeure)
+  - [Rheum rhabarbarum, Brassica oleracea var. capitata, 0.65]
+  - [Brassica oleracea var. capitata, Rheum rhabarbarum, 0.65]
+  # Chicorée + Karotte
+  - [Cichorium intybus, Daucus carota, 0.65]
+  - [Daucus carota, Cichorium intybus, 0.65]
+  # Pastinake + Radieschen
+  - [Pastinaca sativa, Raphanus sativus, 0.7]
+  - [Raphanus sativus, Pastinaca sativa, 0.7]
+  # Pastinake + Erbse
+  - [Pastinaca sativa, Pisum sativum, 0.7]
+  - [Pisum sativum, Pastinaca sativa, 0.7]
+  # Melone + Mais (Windschutz)
+  - [Cucumis melo, Zea mays, 0.7]
+  - [Zea mays, Cucumis melo, 0.7]
+  # Kuerbis + Mais — already in Three Sisters
+  # Kuerbis + Bohne — already in Three Sisters
+  # Kuerbis Cucurbita maxima + Mais
+  - [Cucurbita maxima, Zea mays, 0.85]
+  - [Zea mays, Cucurbita maxima, 0.85]
+  # Kuerbis Cucurbita maxima + Bohne
+  - [Cucurbita maxima, Phaseolus vulgaris, 0.8]
+  - [Phaseolus vulgaris, Cucurbita maxima, 0.8]
+  # Hopfen + Bohne (Rankhilfe, N-Fixierung)
+  - [Humulus lupulus, Phaseolus vulgaris, 0.65]
+  - [Phaseolus vulgaris, Humulus lupulus, 0.65]
+
 incompatible:
+  # ===================================================================
+  # EXISTING ENTRIES
+  # ===================================================================
+
   - species_a: Foeniculum vulgare
     species_b: Solanum lycopersicum
     reason: "Strong allelopathy — fennel inhibits nightshades"
@@ -47,6 +515,279 @@ incompatible:
   - species_a: Solanum lycopersicum
     species_b: Solanum tuberosum
     reason: "Same family, shared diseases (Phytophthora)"
+
+  # ===================================================================
+  # FENNEL (allelopathic to most plants)
+  # ===================================================================
+
+  - species_a: Foeniculum vulgare
+    species_b: Daucus carota
+    reason: "Allelopathy — fennel root exudates (furanocoumarins) inhibit carrot growth; shared carrot fly (Psila rosae)"
+  - species_a: Daucus carota
+    species_b: Foeniculum vulgare
+    reason: "Allelopathy — fennel root exudates (furanocoumarins) inhibit carrot growth; shared carrot fly (Psila rosae)"
+  - species_a: Foeniculum vulgare
+    species_b: Pisum sativum
+    reason: "Allelopathy — fennel inhibits legume germination"
+  - species_a: Pisum sativum
+    species_b: Foeniculum vulgare
+    reason: "Allelopathy — fennel inhibits legume germination"
+  - species_a: Foeniculum vulgare
+    species_b: Cucumis sativus
+    reason: "Allelopathy — fennel root exudates inhibit cucurbits"
+  - species_a: Cucumis sativus
+    species_b: Foeniculum vulgare
+    reason: "Allelopathy — fennel root exudates inhibit cucurbits"
+  - species_a: Foeniculum vulgare
+    species_b: Capsicum annuum
+    reason: "Allelopathy — fennel inhibits nightshades"
+  - species_a: Capsicum annuum
+    species_b: Foeniculum vulgare
+    reason: "Allelopathy — fennel inhibits nightshades"
+  - species_a: Foeniculum vulgare
+    species_b: Spinacia oleracea
+    reason: "Allelopathy — fennel root exudates inhibit growth"
+  - species_a: Spinacia oleracea
+    species_b: Foeniculum vulgare
+    reason: "Allelopathy — fennel root exudates inhibit growth"
+  - species_a: Foeniculum vulgare
+    species_b: Brassica oleracea var. capitata
+    reason: "Allelopathy — fennel inhibits brassicas"
+  - species_a: Brassica oleracea var. capitata
+    species_b: Foeniculum vulgare
+    reason: "Allelopathy — fennel inhibits brassicas"
+  - species_a: Foeniculum vulgare
+    species_b: Lactuca sativa
+    reason: "Allelopathy — fennel inhibits lettuce germination"
+  - species_a: Lactuca sativa
+    species_b: Foeniculum vulgare
+    reason: "Allelopathy — fennel inhibits lettuce germination"
+
+  # ===================================================================
+  # KARTOFFEL + TOMATE (already above, add reverse)
+  # ===================================================================
+
+  - species_a: Solanum tuberosum
+    species_b: Solanum lycopersicum
+    reason: "Same family, shared diseases (Phytophthora, Alternaria)"
+
+  # ===================================================================
+  # BOHNE/ERBSE + ALLIUM (growth inhibition from allium root exudates)
+  # ===================================================================
+
+  - species_a: Phaseolus vulgaris
+    species_b: Allium cepa
+    reason: "Allium root exudates inhibit legume nodule bacteria"
+  - species_a: Allium cepa
+    species_b: Phaseolus vulgaris
+    reason: "Allium root exudates inhibit legume nodule bacteria"
+  - species_a: Phaseolus vulgaris
+    species_b: Allium porrum
+    reason: "Allium root exudates inhibit legume nodule bacteria"
+  - species_a: Allium porrum
+    species_b: Phaseolus vulgaris
+    reason: "Allium root exudates inhibit legume nodule bacteria"
+  - species_a: Phaseolus vulgaris
+    species_b: Allium sativum
+    reason: "Allium root exudates inhibit legume nodule bacteria"
+  - species_a: Allium sativum
+    species_b: Phaseolus vulgaris
+    reason: "Allium root exudates inhibit legume nodule bacteria"
+  - species_a: Pisum sativum
+    species_b: Allium cepa
+    reason: "Allium root exudates inhibit legume nodule bacteria"
+  - species_a: Allium cepa
+    species_b: Pisum sativum
+    reason: "Allium root exudates inhibit legume nodule bacteria"
+  - species_a: Pisum sativum
+    species_b: Allium porrum
+    reason: "Allium root exudates inhibit legume nodule bacteria"
+  - species_a: Allium porrum
+    species_b: Pisum sativum
+    reason: "Allium root exudates inhibit legume nodule bacteria"
+  - species_a: Pisum sativum
+    species_b: Allium sativum
+    reason: "Allium root exudates inhibit legume growth"
+  - species_a: Allium sativum
+    species_b: Pisum sativum
+    reason: "Allium root exudates inhibit legume growth"
+  - species_a: Vicia faba
+    species_b: Allium cepa
+    reason: "Allium root exudates inhibit legume nodule bacteria"
+  - species_a: Allium cepa
+    species_b: Vicia faba
+    reason: "Allium root exudates inhibit legume nodule bacteria"
+  - species_a: Vicia faba
+    species_b: Allium sativum
+    reason: "Allium root exudates inhibit legume nodule bacteria"
+  - species_a: Allium sativum
+    species_b: Vicia faba
+    reason: "Allium root exudates inhibit legume nodule bacteria"
+
+  # ===================================================================
+  # GURKE + TOMATE (different climate needs, disease transfer)
+  # ===================================================================
+
+  - species_a: Cucumis sativus
+    species_b: Solanum lycopersicum
+    reason: "Conflicting climate preferences in outdoor cultivation (different optimal VPD targets); acceptable under controlled indoor/greenhouse conditions"
+  - species_a: Solanum lycopersicum
+    species_b: Cucumis sativus
+    reason: "Conflicting climate preferences in outdoor cultivation (different optimal VPD targets); acceptable under controlled indoor/greenhouse conditions"
+
+  # ===================================================================
+  # DILL + KAROTTE (Apiaceae cross-pollination)
+  # ===================================================================
+
+  - species_a: Anethum graveolens
+    species_b: Daucus carota
+    reason: "Same family (Apiaceae) — cross-pollination risk if both flower"
+  - species_a: Daucus carota
+    species_b: Anethum graveolens
+    reason: "Same family (Apiaceae) — cross-pollination risk if both flower"
+  # Dill + Fenchel
+  - species_a: Anethum graveolens
+    species_b: Foeniculum vulgare
+    reason: "Same family (Apiaceae) — cross-pollination, allelopathy"
+  - species_a: Foeniculum vulgare
+    species_b: Anethum graveolens
+    reason: "Same family (Apiaceae) — cross-pollination, allelopathy"
+
+  # ===================================================================
+  # KARTOFFEL + SONNENBLUME (allelopathic)
+  # ===================================================================
+
+  - species_a: Solanum tuberosum
+    species_b: Helianthus annuus
+    reason: "Sunflower allelopathy inhibits potato growth"
+  - species_a: Helianthus annuus
+    species_b: Solanum tuberosum
+    reason: "Sunflower allelopathy inhibits potato growth"
+
+  # ===================================================================
+  # BRASSICACEAE INTRA-FAMILY (Kohlhernie cross-contamination)
+  # ===================================================================
+
+  - species_a: Brassica oleracea var. capitata
+    species_b: Brassica oleracea var. italica
+    reason: "Same species — shared clubroot (Kohlhernie), same pests"
+  - species_a: Brassica oleracea var. italica
+    species_b: Brassica oleracea var. capitata
+    reason: "Same species — shared clubroot (Kohlhernie), same pests"
+  - species_a: Brassica oleracea var. capitata
+    species_b: Brassica oleracea var. botrytis
+    reason: "Same species — shared clubroot (Kohlhernie), same pests"
+  - species_a: Brassica oleracea var. botrytis
+    species_b: Brassica oleracea var. capitata
+    reason: "Same species — shared clubroot (Kohlhernie), same pests"
+  - species_a: Brassica oleracea var. capitata
+    species_b: Brassica oleracea var. gemmifera
+    reason: "Same species — shared clubroot (Kohlhernie), same pests"
+  - species_a: Brassica oleracea var. gemmifera
+    species_b: Brassica oleracea var. capitata
+    reason: "Same species — shared clubroot (Kohlhernie), same pests"
+  - species_a: Brassica oleracea var. italica
+    species_b: Brassica oleracea var. botrytis
+    reason: "Same species — shared clubroot (Kohlhernie), same pests"
+  - species_a: Brassica oleracea var. botrytis
+    species_b: Brassica oleracea var. italica
+    reason: "Same species — shared clubroot (Kohlhernie), same pests"
+  - species_a: Brassica oleracea var. italica
+    species_b: Brassica oleracea var. gemmifera
+    reason: "Same species — shared clubroot (Kohlhernie), same pests"
+  - species_a: Brassica oleracea var. gemmifera
+    species_b: Brassica oleracea var. italica
+    reason: "Same species — shared clubroot (Kohlhernie), same pests"
+  - species_a: Brassica oleracea var. botrytis
+    species_b: Brassica oleracea var. gemmifera
+    reason: "Same species — shared clubroot (Kohlhernie), same pests"
+  - species_a: Brassica oleracea var. gemmifera
+    species_b: Brassica oleracea var. botrytis
+    reason: "Same species — shared clubroot (Kohlhernie), same pests"
+
+  # ===================================================================
+  # ADDITIONAL NIGHTSHADE CONFLICTS (Solanaceae intra-family)
+  # ===================================================================
+
+  - species_a: Solanum tuberosum
+    species_b: Capsicum annuum
+    reason: "Same family (Solanaceae) — shared diseases, Kartoffelkaefer"
+  - species_a: Capsicum annuum
+    species_b: Solanum tuberosum
+    reason: "Same family (Solanaceae) — shared diseases, Kartoffelkaefer"
+  - species_a: Solanum tuberosum
+    species_b: Solanum melongena
+    reason: "Same family (Solanaceae) — shared diseases (Verticillium, Phytophthora)"
+  - species_a: Solanum melongena
+    species_b: Solanum tuberosum
+    reason: "Same family (Solanaceae) — shared diseases (Verticillium, Phytophthora)"
+  - species_a: Solanum lycopersicum
+    species_b: Solanum melongena
+    reason: "Same family (Solanaceae) — shared diseases and pests"
+  - species_a: Solanum melongena
+    species_b: Solanum lycopersicum
+    reason: "Same family (Solanaceae) — shared diseases and pests"
+
+  # ===================================================================
+  # ADDITIONAL KNOWN INCOMPATIBILITIES
+  # ===================================================================
+
+  # Kartoffel + Gurke (Mehltau-Uebertragung)
+  - species_a: Solanum tuberosum
+    species_b: Cucumis sativus
+    reason: "Shared mildew susceptibility, nutrient competition"
+  - species_a: Cucumis sativus
+    species_b: Solanum tuberosum
+    reason: "Shared mildew susceptibility, nutrient competition"
+  # Kartoffel + Kuerbis
+  - species_a: Solanum tuberosum
+    species_b: Cucurbita pepo
+    reason: "Nutrient competition, both heavy feeders"
+  - species_a: Cucurbita pepo
+    species_b: Solanum tuberosum
+    reason: "Nutrient competition, both heavy feeders"
+  # Tomate + Fenchel (already have Fenchel+Tomate above, add reverse for completeness)
+  - species_a: Solanum lycopersicum
+    species_b: Foeniculum vulgare
+    reason: "Allelopathy — fennel inhibits nightshades"
+  - species_a: Phaseolus vulgaris
+    species_b: Foeniculum vulgare
+    reason: "Allelopathy — fennel inhibits legumes"
+  # Salat + Petersilie (umstritten, aber haeufig als negativ gelistet)
+  - species_a: Lactuca sativa
+    species_b: Petroselinum crispum
+    reason: "Growth inhibition reported in traditional companion planting"
+  - species_a: Petroselinum crispum
+    species_b: Lactuca sativa
+    reason: "Growth inhibition reported in traditional companion planting"
+  # Tomate + Kohlrabi
+  - species_a: Solanum lycopersicum
+    species_b: Brassica oleracea var. gongylodes
+    reason: "Nutrient competition — both heavy feeders"
+  - species_a: Brassica oleracea var. gongylodes
+    species_b: Solanum lycopersicum
+    reason: "Nutrient competition — both heavy feeders"
+  # Erbse + Tomate (different soil needs, Verticillium risk)
+  - species_a: Pisum sativum
+    species_b: Solanum lycopersicum
+    reason: "Different soil pH needs, shared Verticillium susceptibility"
+  - species_a: Solanum lycopersicum
+    species_b: Pisum sativum
+    reason: "Different soil pH needs, shared Verticillium susceptibility"
+  # Rucola + Kohl (same family, shared pests)
+  - species_a: Eruca vesicaria
+    species_b: Brassica oleracea var. capitata
+    reason: "Same family (Brassicaceae) — shared pests (Erdfloehe, Kohlweissling)"
+  - species_a: Brassica oleracea var. capitata
+    species_b: Eruca vesicaria
+    reason: "Same family (Brassicaceae) — shared pests (Erdfloehe, Kohlweissling)"
+  # Senf + Kohl (same family)
+  - species_a: Sinapis alba
+    species_b: Brassica oleracea var. capitata
+    reason: "Same family (Brassicaceae) — shared clubroot risk"
+  - species_a: Brassica oleracea var. capitata
+    species_b: Sinapis alba
+    reason: "Same family (Brassicaceae) — shared clubroot risk"
 
 family_pest_risk:
   - family_a: Solanaceae

@@ -1,0 +1,833 @@
+# Care profiles for ~60 most common species
+# Used by CareReminderEngine (REQ-022) for automated care reminders
+# Generated from plant-info reference documents
+
+care_profiles:
+
+  # ============================================================================
+  # INDOOR HOUSEPLANTS — Tropical & Foliage (~25 species)
+  # ============================================================================
+
+  "Monstera deliciosa":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 12
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4, 5]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Prefers bright indirect light. Aerial roots benefit from a moss pole. Wipe large leaves regularly to prevent dust buildup."
+
+  "Epipremnum aureum":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 12
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 21
+    repotting_interval_months: 18
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4, 5, 6]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Extremely tolerant of low light. Prune leggy vines to encourage bushier growth. Propagates easily in water."
+
+  "Spathiphyllum wallisii":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 8
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 18
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4, 5]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Drooping leaves signal thirst. Sensitive to fluoride in tap water — prefer filtered or rainwater. Remove spent flower stalks at the base."
+
+  "Ficus elastica":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 7
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Large glossy leaves collect dust easily — wipe weekly. Milky sap is irritating; wear gloves when pruning. Tolerates some direct morning sun."
+
+  "Ficus lyrata":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 12
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 7
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 7
+    pruning_season: [3, 4, 5]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Sensitive to drafts and temperature changes. Rotate weekly for even growth. Brown spots often indicate overwatering or inconsistent watering."
+
+  "Ficus benjamina":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 12
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Notorious for leaf drop when moved. Once positioned, avoid moving. Susceptible to scale insects — check leaf undersides regularly."
+
+  "Dracaena trifasciata":
+    watering_interval_summer_days: 14
+    watering_interval_winter_days: 28
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 21
+    repotting_interval_months: 36
+    pest_check_interval_days: 21
+    rotation_interval_days: 30
+    pruning_season: [3, 4, 5]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "One of the most drought-tolerant houseplants. Overwatering is the primary killer — let soil dry completely between waterings. Tolerates low light."
+
+  "Chlorophytum comosum":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 21
+    repotting_interval_months: 12
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4, 5, 6]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Fast grower that becomes rootbound quickly. Brown leaf tips indicate low humidity or fluoride sensitivity. Remove runners to redirect energy to mother plant."
+
+  "Pilea peperomioides":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 12
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 18
+    pest_check_interval_days: 14
+    rotation_interval_days: 7
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Rotate frequently for symmetrical growth — leaves lean strongly toward light. Remove basal pups to propagate or let them fill out the pot."
+
+  "Zamioculcas zamiifolia":
+    watering_interval_summer_days: 14
+    watering_interval_winter_days: 28
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 21
+    repotting_interval_months: 36
+    pest_check_interval_days: 21
+    rotation_interval_days: 30
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Extremely drought-tolerant thanks to rhizomatous roots. Yellow leaves almost always indicate overwatering. Tolerates very low light conditions."
+
+  "Aloe vera":
+    watering_interval_summer_days: 14
+    watering_interval_winter_days: 28
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 30
+    repotting_interval_months: 24
+    pest_check_interval_days: 21
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Succulent care — well-draining soil essential. Bright indirect or direct light. Remove offsets (pups) to propagate. Gel from mature leaves has medicinal uses."
+
+  "Crassula ovata":
+    watering_interval_summer_days: 14
+    watering_interval_winter_days: 28
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 30
+    repotting_interval_months: 36
+    pest_check_interval_days: 21
+    rotation_interval_days: 30
+    pruning_season: [3, 4, 5]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Jade plant — succulent that can live for decades. Bright light with some direct sun. Let soil dry fully between waterings. Prune for compact, tree-like shape."
+
+  "Philodendron hederaceum":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 12
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 18
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4, 5, 6]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Heart-leaf philodendron — very forgiving. Trail in a hanging pot or train up a moss pole. Yellowing leaves usually mean overwatering."
+
+  "Maranta leuconeura":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 8
+    fertilizing_interval_days: 21
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 7
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Prayer plant — leaves fold up at night. Sensitive to hard water and low humidity. Use filtered or rainwater. Group with other plants for humidity."
+
+  "Calathea orbifolia":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 8
+    fertilizing_interval_days: 21
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 7
+    repotting_interval_months: 24
+    pest_check_interval_days: 7
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Among the most humidity-demanding houseplants. Crispy leaf edges indicate low humidity. Use only filtered, distilled, or rainwater — very sensitive to minerals and chlorine."
+
+  "Aspidistra elatior":
+    watering_interval_summer_days: 10
+    watering_interval_winter_days: 18
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 36
+    pest_check_interval_days: 21
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Cast iron plant — nearly indestructible. Tolerates deep shade, neglect, and temperature extremes. Very slow grower; rarely needs repotting."
+
+  "Dieffenbachia seguine":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 12
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 18
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Dumb cane — toxic sap causes oral irritation. Wear gloves when handling. Loses lower leaves naturally; can be air-layered to rejuvenate leggy plants."
+
+  "Schefflera arboricola":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 12
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4, 5]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Umbrella plant — tolerates moderate light. Prune to maintain bushy shape. Sticky residue on leaves may indicate scale or mealybug infestation."
+
+  "Yucca elephantipes":
+    watering_interval_summer_days: 10
+    watering_interval_winter_days: 21
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 21
+    repotting_interval_months: 36
+    pest_check_interval_days: 21
+    rotation_interval_days: 30
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Tolerates dry indoor air well. Prefers bright light including some direct sun. Overwatering causes root rot — water only when top half of soil is dry."
+
+  "Dypsis lutescens":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9, 10]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Areca palm — excellent natural humidifier. Brown frond tips indicate low humidity or mineral buildup. Flush soil periodically to prevent salt accumulation."
+
+  "Howea forsteriana":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 12
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 36
+    pest_check_interval_days: 14
+    rotation_interval_days: 30
+    pruning_season: []
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Kentia palm — very slow-growing and shade-tolerant. Sensitive to overwatering and repotting. Only repot when truly rootbound. Never cut the central growing tip."
+
+  "Chamaedorea elegans":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 21
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Parlor palm — one of the best low-light palms. Susceptible to spider mites in dry air. Mist regularly or use a pebble tray for humidity."
+
+  "Strelitzia reginae":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 36
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Bird of paradise — needs bright direct light to flower indoors (rare). Large leaves split naturally in wind; indoors this is cosmetic only. Heavy feeder during growing season."
+
+  "Alocasia x amazonica":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 7
+    repotting_interval_months: 18
+    pest_check_interval_days: 7
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: [11, 12, 1, 2]
+    notes: "May go dormant in winter, losing all leaves — this is normal. Keep rhizome barely moist and warm. Very prone to spider mites; inspect undersides weekly."
+
+  "Begonia rex-cultorum":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 18
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Rex begonia — do NOT mist directly on leaves as it promotes powdery mildew. Use a pebble tray for humidity instead. Prefers bright indirect light; avoid direct sun."
+
+  # ============================================================================
+  # VEGETABLES (~20 species)
+  # ============================================================================
+
+  "Solanum lycopersicum":
+    watering_interval_summer_days: 2
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 14
+    fertilizing_months: [5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: [5, 6, 7, 8]
+    dormancy_months: []
+    notes: "Annual. Water at the base to avoid blight. Remove suckers (Geiztriebe) regularly for indeterminate varieties. Heavy feeder — high potassium from fruiting stage onward."
+
+  "Capsicum annuum":
+    watering_interval_summer_days: 2
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 14
+    fertilizing_months: [5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: [5, 6]
+    dormancy_months: []
+    notes: "Annual outdoors. Keep soil consistently moist but not waterlogged. Pinch first flower bud (Koenigsbluete) to encourage branching. Aphid-prone — check regularly."
+
+  "Cucumis sativus":
+    watering_interval_summer_days: 2
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 14
+    fertilizing_months: [5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: [6, 7, 8]
+    dormancy_months: []
+    notes: "Annual. Very thirsty — needs consistent moisture. Mulch to retain soil moisture. Train vertically to save space. Bitter fruit indicates irregular watering or heat stress."
+
+  "Cucurbita pepo":
+    watering_interval_summer_days: 2
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 14
+    fertilizing_months: [5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: [6, 7, 8]
+    dormancy_months: []
+    notes: "Annual. Harvest zucchini young (15-20 cm) for best flavor. Water at the base — wet leaves promote powdery mildew. Heavy feeder. Needs plenty of space."
+
+  "Phaseolus vulgaris":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual. Nitrogen-fixer — light fertilizing only, no extra nitrogen needed. Sow directly after last frost. Harvest regularly to encourage continued production."
+
+  "Pisum sativum":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [4, 5, 6, 7]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual. Nitrogen-fixer — minimal fertilizer. Prefers cool conditions; sow early. Provide support for climbing varieties. Harvest promptly for tender peas."
+
+  "Lactuca sativa":
+    watering_interval_summer_days: 2
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual. Bolts quickly in heat — grow in partial shade during summer. Succession sow every 2-3 weeks for continuous harvest. Light feeder. Slug-prone."
+
+  "Daucus carota":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 28
+    fertilizing_months: [4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual/biennial. Direct sow only — does not transplant well. Keep soil consistently moist for germination. Avoid fresh manure which causes forking. Companion: onions deter carrot fly."
+
+  "Raphanus sativus":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 0
+    fertilizing_months: []
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual. Very fast grower (harvest in 25-35 days). No fertilizer needed for short cycle. Keep evenly moist — irregular watering causes cracking. Good catch crop between rows."
+
+  "Spinacia oleracea":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 9, 10]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual. Cool-season crop — bolts in heat above 25 C. Sow in spring or late summer/autumn for best results. Rich in oxalic acid — rotate with non-Chenopodiaceae."
+
+  "Allium cepa":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual/biennial. Stop watering and fertilizing once bulbs start swelling and tops fall over. Good companion for carrots. Long day types need 14+ hours light to bulb."
+
+  "Solanum tuberosum":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [4, 5, 6, 7]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual. Earth up (anhaeufeln) regularly to prevent green tubers. Watch for late blight (Krautfaeule) in wet weather. Stop watering 2 weeks before harvest."
+
+  "Brassica oleracea var. italica":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 14
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual. Heavy feeder (Starkzehrer). Harvest main head before flowers open; side shoots continue producing. Net against cabbage white butterfly. Likes consistent moisture."
+
+  "Brassica oleracea var. botrytis":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 14
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual. Heavy feeder. Blanch curds by folding leaves over them to keep white. More finicky than broccoli — consistent temperatures essential. Net against caterpillars."
+
+  "Brassica oleracea var. capitata":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 14
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual/biennial. Heavy feeder. Consistent watering prevents cracking heads. Late varieties are best for storage and sauerkraut. Net against cabbage white."
+
+  "Brassica oleracea var. gemmifera":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 14
+    fertilizing_months: [5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: [9, 10]
+    dormancy_months: []
+    notes: "Biennial grown as annual. Heavy feeder with long growing season. Pinch growing tip in September to redirect energy to sprouts. Frost improves flavor. Stake tall plants."
+
+  "Beta vulgaris subsp. vulgaris":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual/biennial. Medium feeder (Mittelzehrer). Sow successionally for continuous harvest. Young leaves edible as greens. Keep evenly moist — irregular watering causes woodiness."
+
+  "Allium porrum":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 14
+    fertilizing_months: [5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual/biennial. Heavy feeder. Earth up regularly to blanch the white stem. Leek moth can be a problem — use fleece covers. Winter varieties tolerate hard frosts."
+
+  # ============================================================================
+  # HERBS (~10 species)
+  # ============================================================================
+
+  "Ocimum basilicum":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 5
+    fertilizing_interval_days: 14
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: [5, 6, 7, 8, 9]
+    dormancy_months: []
+    notes: "Annual. Pinch flower buds to prolong leaf production. Needs warmth — minimum 12 C. Water in the morning to avoid root rot. Harvest from the top to encourage branching."
+
+  "Petroselinum crispum":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 5
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [4, 5, 6, 7, 8, 9, 10]
+    dormancy_months: []
+    notes: "Biennial — flowers and dies in second year. Slow to germinate (2-4 weeks). Harvest outer stems first. Tolerates partial shade. Rich in vitamins and iron."
+
+  "Mentha piperita":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 12
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3, 4, 5, 6, 7, 8]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Perennial. Very invasive — always grow in containers, even when planting in beds (sink pot into ground). Cut back hard in spring. Harvest before flowering for best aroma."
+
+  "Salvia officinalis":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 36
+    pest_check_interval_days: 21
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Perennial sub-shrub. Mediterranean — prefers dry, well-drained soil. Prune after flowering to prevent woodiness. Replace plants every 3-4 years as they become woody."
+
+  "Salvia rosmarinus":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 36
+    pest_check_interval_days: 21
+    rotation_interval_days: 0
+    pruning_season: [4, 5]
+    dormancy_months: [12, 1, 2]
+    notes: "Perennial. Mediterranean — drought-tolerant once established. Overwatering is the main killer. Needs very well-drained soil. Not fully hardy — protect below -10 C or overwinter indoors."
+
+  "Thymus vulgaris":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 36
+    pest_check_interval_days: 21
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Perennial sub-shrub. Mediterranean — needs excellent drainage and full sun. Prune lightly after flowering. Never cut into old wood — it will not regrow from bare stems."
+
+  "Coriandrum sativum":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual. Bolts very quickly in heat. Succession sow every 2-3 weeks. Direct sow only — hates transplanting. Let some plants flower for coriander seeds. Prefers cooler conditions."
+
+  "Anethum graveolens":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual. Direct sow — does not transplant well due to taproot. Let some plants flower and self-seed for next year. Companion for cucumbers. Keep away from fennel (cross-pollination)."
+
+  "Lavandula angustifolia":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 0
+    fertilizing_months: []
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 36
+    pest_check_interval_days: 21
+    rotation_interval_days: 0
+    pruning_season: [3, 4, 8]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Perennial sub-shrub. Needs no fertilizer — poor soil produces more aromatic oils. Prune after flowering (August) and lightly in spring. Never cut into old wood. Excellent drainage essential."
+
+  "Origanum vulgare":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 24
+    pest_check_interval_days: 21
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Perennial. Mediterranean — prefers dry, well-drained soil and full sun. Cut back hard in spring before new growth. Harvest just before flowering for peak aroma. Self-seeds readily."
+
+  # ============================================================================
+  # FRUIT (~5 species)
+  # ============================================================================
+
+  "Fragaria x ananassa":
+    watering_interval_summer_days: 2
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 12
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: [8, 9]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Perennial (replace every 3 years). Remove runners unless propagating. Mulch with straw to keep fruit clean and reduce slugs. Net against birds. Renovate beds after harvest."
+
+  "Rubus idaeus":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [2, 3, 10, 11]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Perennial cane fruit. Summer-bearing: prune fruited canes after harvest. Autumn-bearing: cut all canes to ground in late winter. Train on wires. Mulch generously."
+
+  "Vaccinium corymbosum":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 28
+    fertilizing_months: [3, 4, 5, 6, 7]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 36
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [2, 3]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Perennial shrub. MUST have acidic soil (pH 4.0-5.5) — use ericaceous compost. Rainwater preferred (tap water raises pH). Net against birds. Prune old wood in late winter."
+
+  "Malus domestica":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 30
+    fertilizing_months: [3, 4, 5, 6]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [1, 2, 3]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Perennial tree. Winter prune for shape; summer prune for size control. Thin fruit clusters to one per cluster for larger apples. Most varieties need a pollination partner. Watch for scab and codling moth."
+
+  "Vitis vinifera":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 28
+    fertilizing_months: [3, 4, 5, 6, 7]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [1, 2, 6, 7]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Perennial vine. Essential to prune hard in late winter (spur or cane pruning). Summer-prune excess growth. Train on wires or pergola. Watch for mildew in humid conditions. Deep roots — drought-tolerant once established."
