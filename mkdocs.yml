@@ -102,12 +102,15 @@ plugins:
             Dashboard: Dashboard
             Onboarding-Wizard: Onboarding Wizard
             Light-Modus: Light Mode
+            KI-Assistent: AI Assistant
+            KI-Provider einrichten: AI Provider Setup
             Architektur: Architecture
             Überblick: Overview
             Backend: Backend
             Frontend: Frontend
             Datenbank: Database
             Infrastruktur: Infrastructure
+            KI-Architektur: AI Architecture
             Entwicklung: Development
             Lokales Setup: Local Setup
             Code-Standards: Code Standards
@@ -129,6 +132,7 @@ plugins:
             Fehlerbehebung: Troubleshooting
             Pflanzendaten per AI: AI Plant Data Pipeline
             Home Assistant Integration: Home Assistant Integration
+            RAG-Wissensbasis: RAG Knowledge Base
             Referenz: Reference
             API-Referenz: API Reference
             Datenbankschema: Database Schema
@@ -227,6 +231,8 @@ nav:
       - Dashboard: de/user-guide/dashboard.md
       - Onboarding-Wizard: de/user-guide/onboarding.md
       - Light-Modus: de/user-guide/light-mode.md
+      - KI-Assistent: de/user-guide/ai-assistant.md
+      - KI-Provider einrichten: de/user-guide/ai-providers.md
   - Architektur:
       - de/architecture/index.md
       - Überblick: de/architecture/overview.md
@@ -234,6 +240,7 @@ nav:
       - Frontend: de/architecture/frontend.md
       - Datenbank: de/architecture/database.md
       - Infrastruktur: de/architecture/infrastructure.md
+      - KI-Architektur: de/architecture/ai-architecture.md
   - Entwicklung:
       - de/development/index.md
       - Lokales Setup: de/development/local-setup.md
@@ -260,6 +267,7 @@ nav:
       - Fehlerbehebung: de/guides/troubleshooting.md
       - Pflanzendaten per AI: de/guides/ai-plant-data-pipeline.md
       - Home Assistant Integration: de/guides/home-assistant-integration.md
+      - RAG-Wissensbasis: de/guides/rag-knowledge-base.md
   - Referenz:
       - de/reference/index.md
       - API-Referenz: de/reference/api-reference.md
