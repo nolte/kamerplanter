@@ -104,6 +104,11 @@ plugins:
             Light-Modus: Light Mode
             KI-Assistent: AI Assistant
             KI-Provider einrichten: AI Provider Setup
+            Umgebungssteuerung: Actuator Control
+            Mandanten & Gaerten: Tenants & Gardens
+            Pflegeerinnerungen: Care Reminders
+            Vermehrung: Propagation
+            Datenschutz (DSGVO): Privacy (GDPR)
             Architektur: Architecture
             Überblick: Overview
             Backend: Backend
@@ -133,6 +138,10 @@ plugins:
             Pflanzendaten per AI: AI Plant Data Pipeline
             Home Assistant Integration: Home Assistant Integration
             RAG-Wissensbasis: RAG Knowledge Base
+            Service Accounts: Service Accounts
+            Datenaufbewahrung: Data Retention
+            Mischkultur: Companion Planting
+            Nachernte: Post-Harvest
             Referenz: Reference
             API-Referenz: API Reference
             Datenbankschema: Database Schema
@@ -233,6 +242,11 @@ nav:
       - Light-Modus: de/user-guide/light-mode.md
       - KI-Assistent: de/user-guide/ai-assistant.md
       - KI-Provider einrichten: de/user-guide/ai-providers.md
+      - Umgebungssteuerung: de/user-guide/actuator-control.md
+      - Mandanten & Gaerten: de/user-guide/tenants.md
+      - Pflegeerinnerungen: de/user-guide/care-reminders.md
+      - Vermehrung: de/user-guide/propagation.md
+      - Datenschutz (DSGVO): de/user-guide/privacy.md
   - Architektur:
       - de/architecture/index.md
       - Überblick: de/architecture/overview.md
@@ -253,6 +267,7 @@ nav:
       - Überblick: de/api/overview.md
       - Authentifizierung: de/api/authentication.md
       - Fehlerbehandlung: de/api/error-handling.md
+      - Service Accounts: de/api/service-accounts.md
   - Deployment:
       - de/deployment/index.md
       - Kubernetes: de/deployment/kubernetes.md
@@ -268,6 +283,9 @@ nav:
       - Pflanzendaten per AI: de/guides/ai-plant-data-pipeline.md
       - Home Assistant Integration: de/guides/home-assistant-integration.md
       - RAG-Wissensbasis: de/guides/rag-knowledge-base.md
+      - Datenaufbewahrung: de/guides/data-retention.md
+      - Mischkultur: de/guides/companion-planting.md
+      - Nachernte: de/guides/post-harvest.md
   - Referenz:
       - de/reference/index.md
       - API-Referenz: de/reference/api-reference.md
