@@ -1,5 +1,8 @@
 # Umgebungssteuerung & Aktorik
 
+!!! warning "Noch nicht implementiert"
+    Diese Funktion ist **spezifiziert aber noch nicht implementiert** (REQ-018). Die Dokumentation beschreibt das geplante Verhalten. Aktuell existiert nur die Home-Assistant-Kommunikationsschicht (Sensor-Daten lesen). Die Regel-Engine, Zeitplaene, Hysterese und Aktor-Steuerung fehlen noch im Code.
+
 Kamerplanter schliesst den Regelkreis zwischen Sensorik und Aktorik: Das System misst Temperatur, Luftfeuchtigkeit, CO₂ und VPD, bewertet diese Werte anhand deiner Regeln und steuert dann Geraete wie Luefter, Befeuchter oder Bewasserungsventile automatisch. Du kannst jederzeit manuell eingreifen und Automatiken temporaer uebersteuern.
 
 ---

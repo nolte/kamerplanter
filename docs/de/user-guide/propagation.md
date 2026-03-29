@@ -1,5 +1,8 @@
 # Vermehrungsmanagement
 
+!!! warning "Noch nicht implementiert"
+    Diese Funktion ist **spezifiziert aber noch nicht implementiert** (REQ-017). Die Dokumentation beschreibt das geplante Verhalten. Aktuell existieren Familien-Beziehungen und Artenstammdaten mit Vermehrungsmethoden, aber der Abstammungsgraph (`descended_from`-Edges), Klon-Tracking und Veredelungs-Kompatibilitaetspruefung fehlen noch.
+
 Kamerplanter dokumentiert die genetische Abstammung deiner Pflanzen lueckenlos: Welche Mutterpflanze lieferte den Steckling? Welche zwei Elternpflanzen wurden gekreuzt? Ueber welche Unterlage wurde eine Sorte veredelt? Der **Abstammungsgraph** macht diese Beziehungen sichtbar und prueft automatisch Veredelungskompatibilitaet.
 
 ---

@@ -1,5 +1,8 @@
 # Propagation Management
 
+!!! warning "Not yet implemented"
+    This feature is **specified but not yet implemented** (REQ-017). This documentation describes the planned behavior. Currently family relationships and species propagation metadata exist, but the lineage graph (`descended_from` edges), clone tracking, and graft compatibility checks are not yet coded.
+
 Kamerplanter tracks the genetic lineage of your plants completely: which mother plant provided the cutting? Which two parent plants were crossed? Which rootstock was a variety grafted onto? The **lineage graph** makes these relationships visible and automatically checks graft compatibility.
 
 ---

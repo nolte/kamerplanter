@@ -1,5 +1,8 @@
 # Nachernte: Trocknung, Curing & Lagerung
 
+!!! info "Teilweise implementiert"
+    Die **Ernte-Erfassung** (HarvestBatch, Qualitaetsbewertung, Ertrags-Metriken) ist vollstaendig implementiert. Die **Trocknungs- und Curing-Phasen** (Zustandsmaschine, Umgebungs-Monitoring waehrend Trocknung) sind spezifiziert aber noch nicht als separate Phasen im Code abgebildet.
+
 Die Nachernte-Phase beginnt mit dem Schnitt und endet, wenn Ihr Produkt gelagert oder
 verarbeitet wird. Kamerplanter begleitet diesen Prozess mit Protokoll-Vorlagen,
 Qualitaetsbewertungen und Umgebungs-Monitoring — so behalten Sie die Kontrolle ueber

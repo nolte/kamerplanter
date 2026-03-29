@@ -1,5 +1,8 @@
 # Environment Control & Actuators
 
+!!! warning "Not yet implemented"
+    This feature is **specified but not yet implemented** (REQ-018). This documentation describes the planned behavior. Currently only the Home Assistant communication layer exists (reading sensor data). The rule engine, schedules, hysteresis, and actuator control are not yet coded.
+
 Kamerplanter closes the control loop between sensors and actuators: the system measures temperature, humidity, CO₂ and VPD, evaluates these values against your rules, and then automatically controls devices like fans, humidifiers or irrigation valves. You can manually intervene at any time and temporarily override automations.
 
 ---

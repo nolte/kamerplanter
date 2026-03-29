@@ -1,5 +1,8 @@
 # Post-Harvest: Drying, Curing & Storage
 
+!!! info "Partially implemented"
+    **Harvest recording** (HarvestBatch, quality assessment, yield metrics) is fully implemented. **Drying and curing phases** (state machine, environment monitoring during drying) are specified but not yet modeled as separate phases in the code.
+
 The post-harvest phase begins at cutting and ends when your product is stored or
 processed. Kamerplanter accompanies this process with protocol templates, quality
 assessments, and environment monitoring — so you stay in control of quality, aroma,
