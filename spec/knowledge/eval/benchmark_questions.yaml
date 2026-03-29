@@ -1,0 +1,1437 @@
+# RAG Quality Benchmark — Kamerplanter KI-Assistent (REQ-031)
+#
+# 100 kuratierte Frage-Antwort-Paare fuer automatisierte RAG-Qualitaetsmessung.
+# Jede Frage hat erwartete Themen (MUSS vorkommen) und Ausschluss-Themen
+# (DARF NICHT vorkommen = Halluzination/Fehldiagnose).
+#
+# Scoring:
+#   topic_hit:  +1 pro expected_topics Treffer in der Antwort
+#   topic_miss: -0.5 pro expected_topics das NICHT in der Antwort vorkommt
+#   false_positive: -2 pro expected_NOT das in der Antwort vorkommt (Halluzination)
+#   score = (topic_hits - topic_misses - false_positives) / max_possible
+#
+# Kategorien: diagnostik, duengung, bewaesserung, ipm, phasen, umwelt,
+#             companion_planting, ernte, pflege, anfaenger
+
+---
+version: "1.0"
+language: de
+eval_model: "claude-haiku-4-5"  # LLM-as-Judge fuer Freitextbewertung
+min_pass_score: 0.70  # Benchmark gilt als bestanden ab 70%
+
+questions:
+
+  # ===========================================================================
+  # DIAGNOSTIK — Naehrstoffmangel & Symptome (15 Fragen)
+  # ===========================================================================
+
+  - id: diag-001
+    category: diagnostik
+    difficulty: beginner
+    question: "Meine unteren Blaetter werden gelb, die oberen sind noch gruen. Was fehlt?"
+    context:
+      species: null  # Allgemeine Frage
+      phase: vegetative
+    expected_topics:
+      - stickstoff_mangel
+      - mobile_naehrstoffe
+      - untere_blaetter
+      - ec_pruefen
+    expected_NOT:
+      - eisen_mangel  # Fe zeigt sich an NEUEN Blaettern
+      - calcium_mangel  # Ca zeigt sich an NEUEN Blaettern
+      - ueberwaesserung  # Moeglich, aber nicht primaere Diagnose bei diesem Symptom
+
+  - id: diag-002
+    category: diagnostik
+    difficulty: intermediate
+    question: "Meine Cannabis-Pflanze zeigt gelbe Blaetter unten in Woche 7 der Bluete. EC ist 1.4 in Coco."
+    context:
+      species: Cannabis sativa
+      phase: flowering
+      week: 7
+      ec: 1.4
+      substrate: coco
+    expected_topics:
+      - natuerlicher_n_abbau
+      - spaete_bluete_normal
+      - abreife
+    expected_NOT:
+      - sofort_ec_erhoehen  # In Woche 7 ist Vergilbung erwuenscht
+      - stickstoff_mangel_behandeln  # Nicht behandeln in spaeter Bluete
+
+  - id: diag-003
+    category: diagnostik
+    difficulty: intermediate
+    question: "Neue Blaetter meiner Tomate haben braune Flecken und die Triebspitzen kueseln sich. pH 6.2 in Erde."
+    context:
+      species: Solanum lycopersicum
+      phase: vegetative
+      substrate: soil
+      ph: 6.2
+    expected_topics:
+      - calcium_mangel
+      - immobiler_naehrstoff
+      - neue_blaetter
+      - gleichmaessige_bewaesserung
+    expected_NOT:
+      - magnesium_mangel  # Mg zeigt sich an ALTEN Blaettern
+      - eisen_mangel  # Fe zeigt intervenale Chlorose, keine Flecken
+
+  - id: diag-004
+    category: diagnostik
+    difficulty: expert
+    question: "Intervenale Chlorose an aelteren Blaettern, Blattadern bleiben gruen. Cannabis in Coco, EC 1.6, pH 5.8, Woche 4 Bluete."
+    context:
+      species: Cannabis sativa
+      phase: flowering
+      week: 4
+      ec: 1.6
+      ph: 5.8
+      substrate: coco
+    expected_topics:
+      - magnesium_mangel
+      - kalium_antagonismus
+      - bittersalz_blattspray
+      - calmag
+    expected_NOT:
+      - eisen_mangel  # Fe zeigt sich an JUNGEN Blaettern
+      - stickstoff_mangel  # N zeigt gleichmaessige Vergilbung, nicht intervenal
+
+  - id: diag-005
+    category: diagnostik
+    difficulty: beginner
+    question: "Meine Monstera hat braune Blattspitzen. Was mache ich falsch?"
+    context:
+      species: Monstera deliciosa
+      phase: vegetative
+    expected_topics:
+      - luftfeuchtigkeit_zu_niedrig
+      - ueberduengung_moeglich
+      - leitungswasser_chlor
+    expected_NOT:
+      - vpd_optimierung  # Zu technisch fuer Zimmerpflanze
+      - ec_messen  # Nicht relevant fuer Zimmerpflanzen-Anfaenger
+
+  - id: diag-006
+    category: diagnostik
+    difficulty: intermediate
+    question: "Alle meine Pflanzen im Hydro-System zeigen Mangelsymptome obwohl EC stimmt. pH ist 7.2."
+    context:
+      phase: vegetative
+      ec: 1.2
+      ph: 7.2
+      substrate: hydro
+    expected_topics:
+      - ph_lockout
+      - ph_zu_hoch
+      - eisen_mangel_wahrscheinlich
+      - ph_senken
+    expected_NOT:
+      - mehr_duenger  # EC stimmt ja, Problem ist pH
+
+  - id: diag-007
+    category: diagnostik
+    difficulty: expert
+    question: "Braune Flecken auf aelteren Blaettern, pH im Coco-Runoff ist 5.0. Welcher Ueberschuss?"
+    context:
+      phase: vegetative
+      ph: 5.0
+      substrate: coco
+    expected_topics:
+      - mangan_toxizitaet
+      - ph_zu_niedrig
+      - ph_erhoehen
+    expected_NOT:
+      - calcium_mangel  # Ca zeigt sich an neuen Blaettern
+      - magnesium_mangel  # Mg zeigt intervenale Chlorose
+
+  - id: diag-008
+    category: diagnostik
+    difficulty: beginner
+    question: "Meine Pflanze welkt obwohl die Erde nass ist."
+    context:
+      substrate: soil
+    expected_topics:
+      - ueberwaesserung
+      - wurzelfaeule
+      - sauerstoffmangel
+      - drainage_pruefen
+    expected_NOT:
+      - mehr_giessen  # Erde ist bereits nass!
+      - unterwaesserung
+
+  - id: diag-009
+    category: diagnostik
+    difficulty: intermediate
+    question: "Mein Basilikum hat weisse pudrige Flecken auf den Blaettern."
+    context:
+      species: Ocimum basilicum
+      phase: vegetative
+    expected_topics:
+      - echter_mehltau
+      - luftzirkulation_verbessern
+      - befallene_blaetter_entfernen
+    expected_NOT:
+      - falscher_mehltau  # Falscher Mehltau zeigt sich an Unterseite
+      - naehrstoffmangel
+
+  - id: diag-010
+    category: diagnostik
+    difficulty: intermediate
+    question: "Meine Erdbeer-Fruechte haben braune Flecken am Boden."
+    context:
+      species: Fragaria x ananassa
+      phase: flowering
+    expected_topics:
+      - bluetenendfaeule
+      - calcium
+      - gleichmaessige_bewaesserung
+    expected_NOT:
+      - schimmel  # BER ist kein Schimmel sondern Ca-Transport-Problem
+      - fungizid
+
+  - id: diag-011
+    category: diagnostik
+    difficulty: expert
+    question: "Weisse Wurzeln sind braun und schleimig geworden, Reservoir-Temperatur 26°C."
+    context:
+      substrate: dwc
+      water_temp: 26
+    expected_topics:
+      - pythium
+      - wurzelfaeule
+      - wassertemperatur_senken
+      - sauerstoff
+      - h2o2
+    expected_NOT:
+      - ueberduengung
+      - ph_problem
+
+  - id: diag-012
+    category: diagnostik
+    difficulty: beginner
+    question: "Kleine schwarze Fliegen kommen aus der Erde wenn ich giesse."
+    context:
+      substrate: soil
+    expected_topics:
+      - trauermucken
+      - substrat_abtrocknen
+      - gelbtafeln
+      - nematoden_steinernema
+    expected_NOT:
+      - spinnmilben
+      - thrips
+
+  - id: diag-013
+    category: diagnostik
+    difficulty: intermediate
+    question: "Silbrige Streifen und schwarze Punkte auf den Blaettern meiner Pflanze."
+    context:
+      phase: vegetative
+    expected_topics:
+      - thrips
+      - blaue_klebefallen
+      - spinosad
+      - raubmilben
+    expected_NOT:
+      - spinnmilben  # Spinnmilben zeigen Stippling, nicht silbrige Streifen
+      - naehrstoffmangel
+
+  - id: diag-014
+    category: diagnostik
+    difficulty: expert
+    question: "Mein pH driftet jeden Tag um 0.5 nach oben im DWC-Reservoir."
+    context:
+      substrate: dwc
+    expected_topics:
+      - nitrat_aufnahme
+      - algenbildung
+      - reservoir_groesse
+      - karbonataerte
+    expected_NOT:
+      - wurzelfaeule  # pH-Drift nach oben ist normal bei gesundem Wachstum
+
+  - id: diag-015
+    category: diagnostik
+    difficulty: intermediate
+    question: "Runoff-EC ist 3.2 bei Input-EC 1.4 in Coco."
+    context:
+      substrate: coco
+      ec_input: 1.4
+      ec_runoff: 3.2
+    expected_topics:
+      - salzanreicherung
+      - flush_noetig
+      - ec_reduzieren
+    expected_NOT:
+      - ec_erhoehen
+      - alles_ok
+
+  # ===========================================================================
+  # DUENGUNG — EC, Mischen, CalMag (15 Fragen)
+  # ===========================================================================
+
+  - id: dueng-001
+    category: duengung
+    difficulty: beginner
+    question: "Muss ich CalMag verwenden wenn ich Osmosewasser nutze?"
+    context:
+      water_type: ro
+    expected_topics:
+      - ja_immer
+      - calcium_magnesium_fehlt
+      - ec_03_04
+      - vor_base_nutrients
+    expected_NOT:
+      - optional
+      - nicht_noetig
+
+  - id: dueng-002
+    category: duengung
+    difficulty: intermediate
+    question: "In welcher Reihenfolge mische ich meine Naehrloesung?"
+    expected_topics:
+      - wasser_zuerst
+      - silikat_vor_calmag
+      - calmag_vor_part_a
+      - part_a_vor_part_b
+      - ph_zuletzt
+    expected_NOT:
+      - reihenfolge_egal
+
+  - id: dueng-003
+    category: duengung
+    difficulty: expert
+    question: "Meine Naehrloesung ist trueb geworden nachdem ich CalMag und Part B gleichzeitig zugegeben habe."
+    expected_topics:
+      - calciumsulfat_ausfaellung
+      - gips
+      - falsche_mischreihenfolge
+      - calcium_nicht_verfuegbar
+    expected_NOT:
+      - normal
+      - weiter_verwenden
+
+  - id: dueng-004
+    category: duengung
+    difficulty: intermediate
+    question: "Welche EC soll ich in der Bluete Woche 5 meiner Cannabis-Pflanze in Coco anpeilen?"
+    context:
+      species: Cannabis sativa
+      phase: flowering
+      week: 5
+      substrate: coco
+    expected_topics:
+      - ec_14_20
+      - pk_boost
+      - peak_bloom
+    expected_NOT:
+      - ec_unter_10  # Zu niedrig fuer Peak Bloom
+      - flush  # Noch nicht — erst 2 Wochen vor Ernte
+
+  - id: dueng-005
+    category: duengung
+    difficulty: beginner
+    question: "Mein Leitungswasser hat EC 0.6. Muss ich da etwas beachten?"
+    expected_topics:
+      - basis_ec_abziehen
+      - ec_net_berechnen
+      - wasserhaerte_pruefen
+    expected_NOT:
+      - ro_anlage_kaufen  # EC 0.6 ist ok, kein RO noetig
+
+  - id: dueng-006
+    category: duengung
+    difficulty: intermediate
+    question: "Wann starte ich den PK-Boost bei Cannabis?"
+    context:
+      species: Cannabis sativa
+      phase: flowering
+    expected_topics:
+      - woche_3_4
+      - nach_stretch
+      - halbe_dosis_starten
+      - ec_beachten
+    expected_NOT:
+      - sofort_bei_umstellung  # Nicht in Woche 1!
+      - volle_dosis_sofort
+
+  - id: dueng-007
+    category: duengung
+    difficulty: expert
+    question: "Kann ich Wasserstoffperoxid zusammen mit Mykorrhiza verwenden?"
+    expected_topics:
+      - nein_inkompatibel
+      - h2o2_toetet_nuetzlinge
+      - entweder_oder
+    expected_NOT:
+      - ja_kein_problem
+      - kombinierbar
+
+  - id: dueng-008
+    category: duengung
+    difficulty: beginner
+    question: "Wie oft soll ich meine Zimmerpflanze duengen?"
+    expected_topics:
+      - wachstumsperiode
+      - maerz_oktober
+      - alle_2_4_wochen
+      - halbe_dosis
+      - winter_nicht_duengen
+    expected_NOT:
+      - ec_messen  # Zu technisch fuer Zimmerpflanzen-Anfaenger
+      - woechentlich  # Zu oft fuer die meisten Zimmerpflanzen
+
+  - id: dueng-009
+    category: duengung
+    difficulty: intermediate
+    question: "Was ist der Unterschied zwischen Hornmehl und Hornspaenen?"
+    expected_topics:
+      - koernung
+      - hornmehl_schneller
+      - hornspaene_langsamer
+      - stickstoff_quelle
+    expected_NOT:
+      - gleich  # Sind nicht gleich!
+      - phosphor  # Hornprodukte liefern primaer N, nicht P
+
+  - id: dueng-010
+    category: duengung
+    difficulty: expert
+    question: "Mein Coco ist neu und ungepuffert. Was muss ich tun?"
+    context:
+      substrate: coco
+    expected_topics:
+      - calmag_loesung_einweichen
+      - kationenaustausch
+      - natrium_kalium_auswaschen
+      - ph_58_60
+    expected_NOT:
+      - sofort_pflanzen  # Ohne Pufferung → Ca/Mg-Mangel
+      - nur_waessern
+
+  - id: dueng-011
+    category: duengung
+    difficulty: intermediate
+    question: "Meine Tomaten im Freiland wachsen langsam. Bodenanalyse zeigt pH 5.2."
+    context:
+      species: Solanum lycopersicum
+      substrate: soil
+      ph: 5.2
+    expected_topics:
+      - ph_zu_niedrig
+      - kalken
+      - aluminium_toxizitaet_moeglich
+      - naehrstoff_verfuegbarkeit
+    expected_NOT:
+      - ph_senken  # pH ist schon zu niedrig!
+      - mehr_duengen_sofort
+
+  - id: dueng-012
+    category: duengung
+    difficulty: beginner
+    question: "Weisse Kruste auf der Erde meiner Zimmerpflanze — was ist das?"
+    expected_topics:
+      - salzanreicherung
+      - ueberduengung
+      - hartes_wasser
+      - durchspuelen
+    expected_NOT:
+      - schimmel  # Weisse Kruste = Salz, nicht Schimmel (Schimmel ist flauschig)
+      - normal
+
+  - id: dueng-013
+    category: duengung
+    difficulty: intermediate
+    question: "Soll ich vor der Ernte flushen? Ist das wissenschaftlich belegt?"
+    expected_topics:
+      - umstritten
+      - guelph_studie
+      - kompromiss
+      - ec_reduzieren
+    expected_NOT:
+      - auf_jeden_fall  # Nicht eindeutig belegt
+      - auf_keinen_fall  # Auch nicht definitiv widerlegt
+
+  - id: dueng-014
+    category: duengung
+    difficulty: expert
+    question: "Mein pH driftet bei Ammonium-betontem Duenger staendig nach unten."
+    expected_topics:
+      - ammonium_senkt_ph
+      - nh4_no3_verhaeltnis
+      - nitrat_betont_waehlen
+    expected_NOT:
+      - ph_up_verwenden  # Symptom behandeln statt Ursache
+      - normal
+
+  - id: dueng-015
+    category: duengung
+    difficulty: intermediate
+    question: "Kann ich Bittersalz als Blattspray verwenden?"
+    expected_topics:
+      - ja_magnesium
+      - 5g_pro_liter
+      - abends_spruehen
+      - schnelle_aufnahme
+    expected_NOT:
+      - nicht_empfohlen
+      - nur_wurzelduengung
+
+  # ===========================================================================
+  # BEWAESSERUNG (10 Fragen)
+  # ===========================================================================
+
+  - id: wasser-001
+    category: bewaesserung
+    difficulty: beginner
+    question: "Wie oft soll ich meine Zimmerpflanze giessen?"
+    expected_topics:
+      - fingertest
+      - nicht_nach_zeitplan
+      - substrat_pruefen
+      - topfgewicht
+    expected_NOT:
+      - jeden_montag
+      - taeglich
+
+  - id: wasser-002
+    category: bewaesserung
+    difficulty: intermediate
+    question: "Wie oft muss ich in Coco giessen?"
+    context:
+      substrate: coco
+    expected_topics:
+      - hochfrequenz
+      - 3_5_mal_taeglich_bluete
+      - nie_austrocknen
+      - immer_mit_naehrloesung
+    expected_NOT:
+      - wie_erde  # Coco ist fundamental anders als Erde!
+      - einmal_taeglich_reicht
+
+  - id: wasser-003
+    category: bewaesserung
+    difficulty: beginner
+    question: "Meine Pflanze haengt schlaff und der Topf ist schwer. Ueberwaesserung?"
+    expected_topics:
+      - ja_wahrscheinlich
+      - schwerer_topf
+      - nicht_giessen
+      - austrocknen_lassen
+    expected_NOT:
+      - mehr_giessen
+      - unterwaesserung
+
+  - id: wasser-004
+    category: bewaesserung
+    difficulty: intermediate
+    question: "Kann ich Regenwasser fuer meine Pflanzen verwenden?"
+    expected_topics:
+      - ja_gut_geeignet
+      - weich
+      - calmag_noetig
+      - dunkel_lagern
+    expected_NOT:
+      - nein_nicht_geeignet
+      - gefaehrlich
+
+  - id: wasser-005
+    category: bewaesserung
+    difficulty: beginner
+    question: "Brauche ich einen Topf mit Loch am Boden?"
+    expected_topics:
+      - ja_unbedingt
+      - drainage
+      - uebertopf
+      - staunaesse
+    expected_NOT:
+      - optional
+      - nicht_noetig
+
+  - id: wasser-006
+    category: bewaesserung
+    difficulty: intermediate
+    question: "Wie funktioniert Bewaesserung bei Pon/Lechuza?"
+    context:
+      substrate: pon
+    expected_topics:
+      - wasserstandsanzeiger
+      - trockenphase
+      - wicking_prinzip
+      - nicht_uebergiessen
+    expected_NOT:
+      - wie_erde  # Pon ist Semi-Hydro, nicht Erde
+
+  - id: wasser-007
+    category: bewaesserung
+    difficulty: beginner
+    question: "Hilft eine Kiesschicht am Topfboden fuer bessere Drainage?"
+    expected_topics:
+      - nein_mythos
+      - perched_water_table
+      - staunaesse
+      - perlit_stattdessen
+    expected_NOT:
+      - ja_empfohlen  # Ist ein verbreiteter Mythos!
+
+  - id: wasser-008
+    category: bewaesserung
+    difficulty: intermediate
+    question: "Mein Leitungswasser hat Chlor. Schadet das meinen Pflanzen?"
+    expected_topics:
+      - 24_stunden_abstehen
+      - verfluchtigt
+      - aktivkohlefilter
+      - chloramin_anders
+    expected_NOT:
+      - egal  # Chlor kann Bodenleben schaedigen
+      - gefaehrlich  # In normalen Mengen nicht akut gefaehrlich
+
+  - id: wasser-009
+    category: bewaesserung
+    difficulty: expert
+    question: "Wie berechne ich das Mischungsverhaeltnis RO-Wasser zu Leitungswasser?"
+    expected_topics:
+      - basis_ec_zielwert
+      - mischrechnung
+      - 02_04_ec
+    expected_NOT:
+      - immer_100_ro  # Mischung ist oft besser
+
+  - id: wasser-010
+    category: bewaesserung
+    difficulty: beginner
+    question: "Soll ich morgens oder abends giessen?"
+    expected_topics:
+      - morgens_bevorzugt
+      - outdoor_morgens
+      - indoor_vor_lichtphase
+    expected_NOT:
+      - mittags  # Schlechtester Zeitpunkt (Verdunstung)
+
+  # ===========================================================================
+  # UMWELT — VPD, Licht, Temperatur, CO2, Growzelt (15 Fragen)
+  # ===========================================================================
+
+  - id: umwelt-001
+    category: umwelt
+    difficulty: intermediate
+    question: "Was ist VPD und warum ist es wichtiger als Luftfeuchtigkeit allein?"
+    expected_topics:
+      - dampfdruckdefizit
+      - temperatur_und_rh
+      - transpiration
+      - eine_kennzahl
+    expected_NOT:
+      - nur_rh_messen_reicht  # Das ist der ganze Punkt — RH allein reicht nicht
+
+  - id: umwelt-002
+    category: umwelt
+    difficulty: intermediate
+    question: "VPD in meinem Zelt ist 0.5 kPa in der Bluete. Was muss ich tun?"
+    context:
+      phase: flowering
+      vpd: 0.5
+    expected_topics:
+      - vpd_zu_niedrig
+      - schimmelrisiko
+      - entfeuchter_einschalten
+      - abluft_erhoehen
+    expected_NOT:
+      - alles_ok  # 0.5 ist viel zu niedrig fuer Bluete!
+
+  - id: umwelt-003
+    category: umwelt
+    difficulty: beginner
+    question: "Welches Fenster ist am besten fuer meine Zimmerpflanzen?"
+    expected_topics:
+      - suedfenster_hell
+      - ostfenster_morgensonne
+      - nordfenster_wenig_licht
+      - abstand_wichtig
+    expected_NOT:
+      - ppfd_messen  # Zu technisch fuer Anfaenger
+
+  - id: umwelt-004
+    category: umwelt
+    difficulty: intermediate
+    question: "Wie viel PPFD brauche ich fuer Cannabis in der Bluete?"
+    context:
+      species: Cannabis sativa
+      phase: flowering
+    expected_topics:
+      - 600_1000_ppfd
+      - dli
+      - lichtabstand
+    expected_NOT:
+      - 200_reicht  # Viel zu wenig fuer Bluete
+
+  - id: umwelt-005
+    category: umwelt
+    difficulty: expert
+    question: "Lohnt sich CO2-Anreicherung in meinem 1.2x1.2m Zelt mit 400W LED?"
+    expected_topics:
+      - licht_zuerst
+      - ppfd_pruefen
+      - nur_bei_600_plus
+      - kosten_nutzen
+    expected_NOT:
+      - auf_jeden_fall  # Bei 400W LED ist PPFD oft grenzwertig
+
+  - id: umwelt-006
+    category: umwelt
+    difficulty: beginner
+    question: "Meine Pflanze waechst lang und duenn zum Licht. Was stimmt nicht?"
+    expected_topics:
+      - vergeilen
+      - zu_wenig_licht
+      - naeher_ans_fenster
+      - pflanzenlampe
+    expected_NOT:
+      - ueberduengung
+      - ueberwaesserung
+
+  - id: umwelt-007
+    category: umwelt
+    difficulty: intermediate
+    question: "Temperatur in meinem Zelt erreicht 33°C im Sommer. Was kann ich tun?"
+    context:
+      temperature: 33
+    expected_topics:
+      - licht_dimmen
+      - abluft_maximum
+      - lichtphase_nachts
+      - klimaanlage
+    expected_NOT:
+      - eiswuerfel  # Unsinnig und kontraproduktiv
+
+  - id: umwelt-008
+    category: umwelt
+    difficulty: expert
+    question: "Wie stelle ich meinen Entfeuchter und die Abluft in der spaeten Bluete ein?"
+    context:
+      phase: late_flowering
+    expected_topics:
+      - entfeuchter_dauerbetrieb
+      - rh_unter_55
+      - abluft_hoch
+      - vpd_12_16
+      - botrytis_risiko
+    expected_NOT:
+      - entfeuchter_aus  # In spaeter Bluete PFLICHT!
+      - rh_60_ok  # Zu hoch fuer spaete Bluete
+
+  - id: umwelt-009
+    category: umwelt
+    difficulty: intermediate
+    question: "Nachts steigt die Luftfeuchtigkeit in meinem Zelt auf 75%. Ist das ein Problem?"
+    context:
+      phase: flowering
+      rh_night: 75
+    expected_topics:
+      - ja_problematisch
+      - kondenswasser
+      - botrytis
+      - entfeuchter_nachts
+      - heizung_leicht
+    expected_NOT:
+      - normal  # 75% RH nachts in Bluete ist gefaehrlich
+
+  - id: umwelt-010
+    category: umwelt
+    difficulty: intermediate
+    question: "Welche Abluft-Groesse brauche ich fuer ein 120x120x200 Zelt?"
+    expected_topics:
+      - 300_400_m3h
+      - raumvolumen_berechnung
+      - aktivkohlefilter_reserve
+    expected_NOT:
+      - 100_reicht  # Viel zu klein
+
+  - id: umwelt-011
+    category: umwelt
+    difficulty: beginner
+    question: "Brauche ich einen Ventilator in meinem Growzelt?"
+    expected_topics:
+      - ja_unbedingt
+      - luftzirkulation
+      - stengel_staerkung
+      - schimmel_vorbeugung
+    expected_NOT:
+      - optional
+      - nicht_noetig
+
+  - id: umwelt-012
+    category: umwelt
+    difficulty: expert
+    question: "Mein Blatt-VPD zeigt 0.9 kPa aber mein Luft-VPD zeigt 1.3 kPa in der Vegetativen Phase unter LED. Welcher Wert zaehlt?"
+    expected_topics:
+      - blatt_vpd
+      - led_offset
+      - blaetter_kuehler
+      - infrarot_thermometer
+    expected_NOT:
+      - luft_vpd_nehmen  # Blatt-VPD ist der relevantere Wert
+
+  - id: umwelt-013
+    category: umwelt
+    difficulty: intermediate
+    question: "Meine Saemslinge vertrocknen unter der LED. Was mache ich falsch?"
+    context:
+      phase: seedling
+    expected_topics:
+      - vpd_zu_hoch
+      - humidity_dome
+      - licht_dimmen
+      - abstand_erhoehen
+    expected_NOT:
+      - mehr_giessen_allein  # Umgebung anpassen ist wichtiger
+
+  - id: umwelt-014
+    category: umwelt
+    difficulty: beginner
+    question: "LED oder HPS — was ist besser fuer den Anbau?"
+    expected_topics:
+      - led_effizienter
+      - led_weniger_waerme
+      - led_empfohlen
+      - hps_guenstiger_anschaffung
+    expected_NOT:
+      - hps_besser  # LED ist Stand der Technik
+
+  - id: umwelt-015
+    category: umwelt
+    difficulty: expert
+    question: "Wie stelle ich meine Klimasteuerung ein damit nachts kein Kondenswasser auf den Buds entsteht?"
+    context:
+      phase: late_flowering
+    expected_topics:
+      - entfeuchter_nacht
+      - heizung_2_3_grad
+      - umluft_niedrigste_stufe
+      - dif_reduzieren
+    expected_NOT:
+      - abluft_aus_nachts  # Abluft nie komplett aus
+
+  # ===========================================================================
+  # IPM — Schaedlinge & Krankheiten (10 Fragen)
+  # ===========================================================================
+
+  - id: ipm-001
+    category: ipm
+    difficulty: beginner
+    question: "Feine Gespinste auf der Blattunterseite meiner Pflanze — was ist das?"
+    expected_topics:
+      - spinnmilben
+      - blattunterseite
+      - rh_erhoehen
+      - raubmilben
+      - abduschen
+    expected_NOT:
+      - thrips  # Thrips zeigen silbrige Streifen, keine Gespinste
+      - normal
+
+  - id: ipm-002
+    category: ipm
+    difficulty: intermediate
+    question: "Graubrauner Schimmel auf meinen Cannabis-Buds — was tun?"
+    context:
+      species: Cannabis sativa
+      phase: flowering
+    expected_topics:
+      - botrytis
+      - grosszuegig_herausschneiden
+      - nicht_schuetteln
+      - rh_senken
+      - luftzirkulation
+    expected_NOT:
+      - fungizid_spritzen  # Nicht auf Buds in der Bluete!
+      - abwarten
+
+  - id: ipm-003
+    category: ipm
+    difficulty: intermediate
+    question: "Wann darf ich nach einer Neem-Oel-Behandlung ernten?"
+    expected_topics:
+      - karenzzeit
+      - 1_3_tage
+      - sicherheitsabstand
+    expected_NOT:
+      - sofort  # Karenzzeit einhalten!
+      - gar_nicht  # Neem hat kurze Karenzzeit
+
+  - id: ipm-004
+    category: ipm
+    difficulty: beginner
+    question: "Kann ich Marienkaefer gegen Blattlaeuse einsetzen?"
+    expected_topics:
+      - ja_effektiv
+      - adalia_bipunctata
+      - 50_100_laeuse_pro_tag
+      - larven_effektiver
+    expected_NOT:
+      - nein
+      - nur_chemisch
+
+  - id: ipm-005
+    category: ipm
+    difficulty: intermediate
+    question: "Mein Kohl hat verdickte Wurzeln und kuemmert. Was ist das?"
+    context:
+      species: Brassica oleracea
+    expected_topics:
+      - kohlhernie
+      - plasmodiophora
+      - ph_erhoehen
+      - fruchtfolge
+    expected_NOT:
+      - nematoden  # Kohlhernie ≠ Nematoden
+      - oomycet  # Plasmodiophora ist ein Protist, kein Oomycet
+
+  - id: ipm-006
+    category: ipm
+    difficulty: expert
+    question: "Ist Spinosad bienenvertraeglich?"
+    expected_topics:
+      - nein_bienengiftig
+      - abends_anwenden
+      - nach_bienenflug
+      - getrocknet_sicher
+    expected_NOT:
+      - ja_sicher
+      - egal
+
+  - id: ipm-007
+    category: ipm
+    difficulty: intermediate
+    question: "Wie beuge ich Mehltau vor?"
+    expected_topics:
+      - luftzirkulation
+      - nicht_nass_blaetter
+      - netzschwefel
+      - kaliumbicarbonat
+      - resistente_sorten
+    expected_NOT:
+      - nicht_vermeidbar
+
+  - id: ipm-008
+    category: ipm
+    difficulty: beginner
+    question: "Klebrige Tropfen auf den Blaettern meiner Zimmerpflanze — Schaedlinge?"
+    expected_topics:
+      - honigtau
+      - blattlaeuse
+      - schildlaeuse
+      - wolllaeuse
+      - blattunterseite_pruefen
+    expected_NOT:
+      - normal  # Honigtau ist IMMER ein Schaedlings-Indikator
+      - guttation  # Guttation nur an Blattspitzen/Raendern morgens
+
+  - id: ipm-009
+    category: ipm
+    difficulty: intermediate
+    question: "Meine Kartoffeln haben braune Flecken auf den Blaettern und es ist feucht-warm."
+    context:
+      species: Solanum tuberosum
+    expected_topics:
+      - krautfaeule
+      - phytophthora
+      - befallene_teile_entfernen
+      - kupfer_praeparat
+    expected_NOT:
+      - naehrstoffmangel
+      - harmlos
+
+  - id: ipm-010
+    category: ipm
+    difficulty: expert
+    question: "Kann ich Trichogramma-Schlupfwespen gegen Kohlweisslinge einsetzen?"
+    expected_topics:
+      - ja_biologisch
+      - ei_parasitierung
+      - rechtzeitig_aussetzen
+      - vorbeugend
+    expected_NOT:
+      - nein
+      - nur_chemisch
+
+  # ===========================================================================
+  # PHASEN & ERNTE (10 Fragen)
+  # ===========================================================================
+
+  - id: phase-001
+    category: phasen
+    difficulty: beginner
+    question: "Wie keime ich Samen am besten?"
+    expected_topics:
+      - papiertuch_methode
+      - 24_28_grad
+      - feucht_nicht_nass
+      - dunkel
+    expected_NOT:
+      - direkt_in_erde_immer  # Papiertuech ist zuverlaessiger
+
+  - id: phase-002
+    category: phasen
+    difficulty: intermediate
+    question: "Wann kann ich meine Cannabis-Pflanze toppen?"
+    context:
+      species: Cannabis sativa
+      phase: vegetative
+    expected_topics:
+      - ab_4_5_nodenpaar
+      - nur_vegetativ
+      - nicht_in_bluete
+      - erholungszeit
+    expected_NOT:
+      - jederzeit  # NUR in vegetativer Phase
+      - autoflower_empfohlen  # Bei Autoflower nicht empfohlen
+
+  - id: phase-003
+    category: phasen
+    difficulty: intermediate
+    question: "Woran erkenne ich den optimalen Erntezeitpunkt bei Cannabis?"
+    context:
+      species: Cannabis sativa
+    expected_topics:
+      - trichome
+      - milchig_trueb
+      - bernstein_anteil
+      - lupe_mikroskop
+    expected_NOT:
+      - nach_kalender_allein  # Trichome sind der beste Indikator
+      - pistillen_allein  # Pistillen sind weniger zuverlaessig
+
+  - id: phase-004
+    category: phasen
+    difficulty: beginner
+    question: "Wann kann ich Tomaten ins Freie pflanzen?"
+    context:
+      species: Solanum lycopersicum
+    expected_topics:
+      - nach_eisheiligen
+      - mitte_mai
+      - abhaerten
+      - frostempfindlich
+    expected_NOT:
+      - april  # Zu frueh, Frostrisiko!
+      - maerz
+
+  - id: phase-005
+    category: phasen
+    difficulty: intermediate
+    question: "Mein Cannabis hat nach der Umstellung auf 12/12 stark gestreckt. Ist das normal?"
+    context:
+      species: Cannabis sativa
+      phase: flowering
+    expected_topics:
+      - ja_stretch
+      - 50_200_prozent
+      - normal
+      - 2_3_wochen
+    expected_NOT:
+      - problem  # Stretch ist voellig normal
+      - stress
+
+  - id: phase-006
+    category: phasen
+    difficulty: intermediate
+    question: "Wie trockne ich Cannabis nach der Ernte richtig?"
+    context:
+      species: Cannabis sativa
+    expected_topics:
+      - 15_20_grad
+      - 55_65_rh
+      - dunkel
+      - 7_14_tage
+      - zweige_knacken
+    expected_NOT:
+      - schnell_trocknen  # Langsam ist besser!
+      - ofen  # Zerstoert Terpene
+
+  - id: phase-007
+    category: phasen
+    difficulty: beginner
+    question: "Muss ich meine Dahlien im Herbst ausgraben?"
+    expected_topics:
+      - ja_nicht_frosthart
+      - nach_erstem_frost
+      - knollen_einlagern
+      - 5_8_grad
+    expected_NOT:
+      - im_boden_lassen  # Erfrieren bei Frost!
+
+  - id: phase-008
+    category: phasen
+    difficulty: intermediate
+    question: "Wann ernte ich meine Karotten?"
+    context:
+      species: Daucus carota
+    expected_topics:
+      - schulterdurchmesser
+      - 70_120_tage_nach_aussaat
+      - frost_verbessert_geschmack
+    expected_NOT:
+      - nach_bluete  # Karotten bluehen im Erntejahr nicht!
+
+  - id: phase-009
+    category: phasen
+    difficulty: beginner
+    question: "Wann ernte ich Basilikum am besten?"
+    context:
+      species: Ocimum basilicum
+    expected_topics:
+      - vor_bluete
+      - morgens
+      - ueber_blattpaar_schneiden
+      - regelmaessig_ernten
+    expected_NOT:
+      - nach_bluete  # Geschmack wird schlechter nach Bluete
+      - komplett_abschneiden
+
+  - id: phase-010
+    category: phasen
+    difficulty: intermediate
+    question: "Was ist Curing bei Cannabis und warum ist es wichtig?"
+    context:
+      species: Cannabis sativa
+    expected_topics:
+      - fermentierung_im_glas
+      - 62_rh
+      - burping
+      - chlorophyll_abbau
+      - terpene
+      - 4_8_wochen
+    expected_NOT:
+      - unnoetig
+      - optional
+
+  # ===========================================================================
+  # COMPANION PLANTING & FRUCHTFOLGE (10 Fragen)
+  # ===========================================================================
+
+  - id: comp-001
+    category: companion_planting
+    difficulty: beginner
+    question: "Was kann ich neben Tomaten pflanzen?"
+    context:
+      species: Solanum lycopersicum
+    expected_topics:
+      - basilikum
+      - tagetes
+      - karotte
+      - sellerie
+    expected_NOT:
+      - kartoffel  # Phytophthora-Uebertragung!
+      - fenchel  # Allelopathisch
+
+  - id: comp-002
+    category: companion_planting
+    difficulty: intermediate
+    question: "Warum soll Fenchel nicht neben andere Gemuese?"
+    expected_topics:
+      - allelopathie
+      - wurzelexsudate
+      - hemmt_wachstum
+    expected_NOT:
+      - kreuzbestaeubung_mit_allem  # Nur mit Dill moeglich
+
+  - id: comp-003
+    category: companion_planting
+    difficulty: beginner
+    question: "Was sind die Drei Schwestern?"
+    expected_topics:
+      - mais_bohne_kuerbis
+      - milpa
+      - n_fixierung
+      - stuetzfunktion
+      - bodenbeschattung
+    expected_NOT:
+      - tomate_basilikum_karotte  # Das ist keine Three Sisters
+
+  - id: comp-004
+    category: companion_planting
+    difficulty: intermediate
+    question: "Warum soll ich Kartoffeln und Tomaten nicht nebeneinander pflanzen?"
+    expected_topics:
+      - gleiche_familie
+      - solanaceae
+      - phytophthora
+      - kraut_knollenfaeule
+    expected_NOT:
+      - kein_problem  # Ist ein echtes Problem!
+
+  - id: comp-005
+    category: companion_planting
+    difficulty: intermediate
+    question: "Was ist Fruchtfolge und warum ist sie wichtig?"
+    expected_topics:
+      - 4_jahres_zyklus
+      - starkzehrer_mittelzehrer_schwachzehrer
+      - gruenduengung
+      - bodenschaedlinge_brechen
+    expected_NOT:
+      - nicht_noetig  # Fruchtfolge ist essentiell
+
+  - id: comp-006
+    category: companion_planting
+    difficulty: beginner
+    question: "Welche Blumen helfen im Gemuese-Beet gegen Schaedlinge?"
+    expected_topics:
+      - tagetes
+      - ringelblume
+      - nematoden
+      - bestauber
+    expected_NOT:
+      - keine  # Tagetes ist wissenschaftlich belegt
+
+  - id: comp-007
+    category: companion_planting
+    difficulty: intermediate
+    question: "Kann ich Gurken und Tomaten zusammen im Gewaechshaus anbauen?"
+    expected_topics:
+      - moeglich_indoor
+      - unterschiedliche_klimaansprueche_outdoor
+      - unter_kontrollierten_bedingungen_ok
+    expected_NOT:
+      - auf_keinen_fall  # Im Gewaechshaus ist es gaengige Praxis
+
+  - id: comp-008
+    category: companion_planting
+    difficulty: beginner
+    question: "Warum sollte ich Kohl nicht jedes Jahr am gleichen Platz anbauen?"
+    expected_topics:
+      - kohlhernie
+      - 3_4_jahre_pause
+      - brassicaceae
+      - bodenschaedlinge
+    expected_NOT:
+      - kein_problem
+      - jaehrlich_ok
+
+  - id: comp-009
+    category: companion_planting
+    difficulty: intermediate
+    question: "Was ist Gruenduengung und welche Pflanzen eignen sich?"
+    expected_topics:
+      - phacelia
+      - klee
+      - lupine
+      - senf
+      - n_fixierung
+      - bodenlockerung
+    expected_NOT:
+      - chemischer_duenger  # Gruenduengung ist das Gegenteil
+
+  - id: comp-010
+    category: companion_planting
+    difficulty: intermediate
+    question: "Welche Kraeuter helfen gegen Schaedlinge im Beet?"
+    expected_topics:
+      - lavendel
+      - rosmarin
+      - basilikum
+      - geruchsverwirrung
+    expected_NOT:
+      - keine_wirkung  # Aromatische Kraeuter haben belegte Schutzwirkung
+
+  # ===========================================================================
+  # PFLEGE & ANFAENGER (15 Fragen)
+  # ===========================================================================
+
+  - id: pflege-001
+    category: anfaenger
+    difficulty: beginner
+    question: "Ich habe keinen gruenen Daumen. Welche Pflanze ueberlebt bei mir?"
+    expected_topics:
+      - pothos
+      - sansevieria
+      - zamioculcas
+      - robust
+      - wenig_licht
+    expected_NOT:
+      - calathea  # Schwierig, nicht fuer Anfaenger!
+      - orchidee
+
+  - id: pflege-002
+    category: anfaenger
+    difficulty: beginner
+    question: "Was ist der haeufigste Fehler bei Zimmerpflanzen?"
+    expected_topics:
+      - uebergiessen
+      - zu_viel_wasser
+      - wurzelfaeule
+    expected_NOT:
+      - zu_wenig_giessen  # Uebergiessen ist #1, nicht Untergiessen
+
+  - id: pflege-003
+    category: anfaenger
+    difficulty: beginner
+    question: "Soll ich meine Pflanze in einen groesseren Topf umtopfen?"
+    expected_topics:
+      - nicht_zu_gross
+      - 2_3_cm_groesser
+      - wurzeln_pruefen
+    expected_NOT:
+      - je_groesser_desto_besser  # Zu grosse Toepfe sind ein Problem!
+
+  - id: pflege-004
+    category: pflege
+    difficulty: beginner
+    question: "Meine Pflanze hat gelbe Blaetter unten. Muss ich mir Sorgen machen?"
+    expected_topics:
+      - natuerlich_normal
+      - alte_blaetter
+      - entfernen
+    expected_NOT:
+      - sofort_duengen
+      - pflanze_stirbt
+
+  - id: pflege-005
+    category: pflege
+    difficulty: beginner
+    question: "Wann soll ich meine Zimmerpflanze umtopfen?"
+    expected_topics:
+      - fruehling
+      - wurzeln_aus_loechern
+      - wachstumsperiode
+    expected_NOT:
+      - winter  # Nicht in der Ruhephase!
+      - jederzeit
+
+  - id: pflege-006
+    category: pflege
+    difficulty: beginner
+    question: "Welche Erde soll ich fuer meine Monstera verwenden?"
+    context:
+      species: Monstera deliciosa
+    expected_topics:
+      - blumenerde
+      - perlit_beimischen
+      - drainage
+    expected_NOT:
+      - kakteenerde  # Zu trocken fuer Monstera
+      - reine_erde_ohne_zusatz
+
+  - id: pflege-007
+    category: pflege
+    difficulty: beginner
+    question: "Soll ich meine Pflanze im Winter duengen?"
+    expected_topics:
+      - nein
+      - ruhephase
+      - wachstum_gestoppt
+      - fruehling_starten
+    expected_NOT:
+      - ja_normal_weiter
+      - ganzjaehrig
+
+  - id: pflege-008
+    category: pflege
+    difficulty: intermediate
+    question: "Meine Orchidee bluet nicht mehr. Was kann ich tun?"
+    expected_topics:
+      - temperaturreiz
+      - kuehle_nacht
+      - geduld
+      - licht_pruefen
+    expected_NOT:
+      - mehr_duengen  # Ist selten die Ursache
+      - aufgeben
+
+  - id: pflege-009
+    category: pflege
+    difficulty: beginner
+    question: "Was ist das einfachste Gemuese fuer Anfaenger?"
+    expected_topics:
+      - radieschen
+      - salat
+      - tomaten_busch
+      - basilikum
+    expected_NOT:
+      - artischocke  # Zu schwierig
+      - spargel  # Dauert Jahre
+
+  - id: pflege-010
+    category: pflege
+    difficulty: intermediate
+    question: "Mein Rosmarin wird von innen braun und kahl. Was stimmt nicht?"
+    context:
+      species: Salvia rosmarinus
+    expected_topics:
+      - verholzung
+      - nicht_ins_alte_holz_schneiden
+      - regelmaessig_ernten
+      - licht
+    expected_NOT:
+      - wurzelfaeule  # Rosmarin ist trockenheitstolerant
+      - mehr_giessen
+
+  - id: pflege-011
+    category: pflege
+    difficulty: beginner
+    question: "Wie oft soll ich meine Pflanzen auf Schaedlinge kontrollieren?"
+    expected_topics:
+      - woechentlich
+      - blattunterseiten
+      - frueherkennung
+    expected_NOT:
+      - monatlich_reicht  # Woechentlich ist Standard
+      - nie_noetig
+
+  - id: pflege-012
+    category: pflege
+    difficulty: intermediate
+    question: "Meine Calathea bekommt braune Blattspitzen. Was mache ich falsch?"
+    context:
+      species: Calathea orbifolia
+    expected_topics:
+      - luftfeuchtigkeit
+      - leitungswasser_chlor
+      - kalkempfindlich
+      - regenwasser
+    expected_NOT:
+      - normal  # Braune Spitzen bei Calathea sind IMMER ein Pflegeproblem
+      - ueberduengung  # Selten bei Calathea — Wasser ist der Hauptfaktor
+
+  - id: pflege-013
+    category: pflege
+    difficulty: beginner
+    question: "Ich moechte Krauter auf der Fensterbank anbauen. Welche eignen sich?"
+    expected_topics:
+      - basilikum
+      - schnittlauch
+      - petersilie
+      - suedfenster
+    expected_NOT:
+      - rosmarin_einfach  # Rosmarin auf Fensterbank ist schwierig (zu wenig Licht)
+
+  - id: pflege-014
+    category: pflege
+    difficulty: intermediate
+    question: "Wie ueberweintere ich meine Kuebelpflanzen?"
+    expected_topics:
+      - frostfrei
+      - kuehler_raum
+      - wenig_giessen
+      - kein_duenger
+      - hell
+    expected_NOT:
+      - warm_stellen  # Kuebelpflanzen brauchen kuehle Ueberwinterung
+      - normal_weiter
+
+  - id: pflege-015
+    category: pflege
+    difficulty: beginner
+    question: "Braucht meine Pflanze wirklich eine Pflanzenlampe im Winter?"
+    expected_topics:
+      - abhaengig_von_art
+      - nordfenster_ja
+      - suedfenster_meist_ok
+      - winter_kurze_tage
+    expected_NOT:
+      - nie_noetig  # Bei Nordfenster im Winter oft doch noetig
+      - immer_noetig  # Bei Suedfenster meist nicht
