@@ -348,6 +348,117 @@ controllers:
   #         globalMounts:
   #           - path: /var/lib/postgresql/data
 
+  # -- VectorDB (optional — PostgreSQL + pgvector for AI/RAG, disabled by default)
+  # vectordb:
+  #   type: statefulset
+  #   replicas: 1
+  #   pod:
+  #     securityContext:
+  #       runAsUser: 999
+  #       runAsGroup: 999
+  #       fsGroup: 999
+  #   containers:
+  #     main:
+  #       image:
+  #         repository: kamerplanter-vectordb
+  #         tag: latest
+  #         pullPolicy: IfNotPresent
+  #       securityContext:
+  #         allowPrivilegeEscalation: false
+  #         capabilities:
+  #           drop: ["ALL"]
+  #       env:
+  #         POSTGRES_DB: kamerplanter_vectors
+  #         POSTGRES_USER: postgres
+  #         POSTGRES_PASSWORD: changeme
+  #       probes:
+  #         liveness:
+  #           enabled: true
+  #           custom: true
+  #           spec:
+  #             exec:
+  #               command: ["pg_isready", "-U", "postgres"]
+  #             initialDelaySeconds: 30
+  #             periodSeconds: 10
+  #             timeoutSeconds: 5
+  #             failureThreshold: 5
+  #         readiness:
+  #           enabled: true
+  #           custom: true
+  #           spec:
+  #             exec:
+  #               command: ["pg_isready", "-U", "postgres"]
+  #             initialDelaySeconds: 15
+  #             periodSeconds: 5
+  #             timeoutSeconds: 3
+  #             failureThreshold: 5
+  #       resources:
+  #         requests:
+  #           cpu: 50m
+  #           memory: 128Mi
+  #         limits:
+  #           cpu: 500m
+  #           memory: 512Mi
+  #   statefulset:
+  #     volumeClaimTemplates:
+  #       - name: data
+  #         accessMode: ReadWriteOnce
+  #         size: 2Gi
+  #         globalMounts:
+  #           - path: /var/lib/postgresql/data
+
+  # -- Embedding Service (optional — sentence-transformers CPU inference, disabled by default)
+  # embedding-service:
+  #   type: deployment
+  #   replicas: 1
+  #   pod:
+  #     securityContext:
+  #       runAsUser: 1000
+  #       runAsGroup: 1000
+  #   containers:
+  #     main:
+  #       image:
+  #         repository: ghcr.io/nolte/kamerplanter-embedding-service
+  #         tag: latest
+  #         pullPolicy: IfNotPresent
+  #       securityContext:
+  #         allowPrivilegeEscalation: false
+  #         readOnlyRootFilesystem: true
+  #         capabilities:
+  #           drop: ["ALL"]
+  #       env:
+  #         EMBEDDING_MODEL: "all-MiniLM-L6-v2"
+  #       probes:
+  #         liveness:
+  #           enabled: true
+  #           custom: true
+  #           spec:
+  #             httpGet:
+  #               path: /health
+  #               port: 8080
+  #             initialDelaySeconds: 60
+  #             periodSeconds: 30
+  #             timeoutSeconds: 10
+  #             failureThreshold: 3
+  #         readiness:
+  #           enabled: true
+  #           custom: true
+  #           spec:
+  #             httpGet:
+  #               path: /health
+  #               port: 8080
+  #             initialDelaySeconds: 30
+  #             periodSeconds: 10
+  #             timeoutSeconds: 5
+  #             failureThreshold: 5
+  #       resources:
+  #         requests:
+  #           cpu: 250m
+  #           memory: 512Mi
+  #         limits:
+  #           cpu: "2"
+  #           memory: 2Gi
+
 configMaps:
   frontend-nginx:
     enabled: true
@@ -477,6 +588,25 @@ persistence:
         main:
           - path: /tmp
 
+  # -- Knowledge data volume (shared between init container and main containers)
+  # knowledge:
+  #   enabled: true
+  #   type: emptyDir
+  #   sizeLimit: 10Mi
+  #   advancedMounts:
+  #     backend:
+  #       knowledge:
+  #         - path: /target
+  #       main:
+  #         - path: /app/knowledge
+  #           readOnly: true
+  #     celery-worker:
+  #       knowledge:
+  #         - path: /target
+  #       main:
+  #         - path: /app/knowledge
+  #           readOnly: true
+
 ingress: {}
 
 # -- NetworkPolicies: restrict pod-to-pod traffic to least-privilege (SEC-M-005)
@@ -568,6 +698,22 @@ networkpolicies:
           ports:
             - protocol: TCP
               port: 5432
+        # VectorDB (optional — only effective when vectordb controller is deployed)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: vectordb
+          ports:
+            - protocol: TCP
+              port: 5432
+        # Embedding Service (optional — only effective when embedding-service controller is deployed)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: embedding-service
+          ports:
+            - protocol: TCP
+              port: 8080
         # External APIs (GBIF, Perenual, weather, SMTP, Home Assistant, OIDC)
         - to:
             - ipBlock:
@@ -630,6 +776,22 @@ networkpolicies:
           ports:
             - protocol: TCP
               port: 5432
+        # VectorDB
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: vectordb
+          ports:
+            - protocol: TCP
+              port: 5432
+        # Embedding Service
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: embedding-service
+          ports:
+            - protocol: TCP
+              port: 8080
         # External APIs (SMTP, Home Assistant, weather)
         - to:
             - ipBlock:

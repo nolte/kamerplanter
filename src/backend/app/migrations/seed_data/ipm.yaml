@@ -673,7 +673,7 @@ treatments:
       mites — maintain distance from biocontrol releases.
 
   - name: Potassium Bicarbonate
-    treatment_type: chemical
+    treatment_type: biological
     active_ingredient: potassium bicarbonate
     application_method: spray
     safety_interval_days: 0
@@ -728,7 +728,7 @@ treatments:
       ensuring no slugs are already inside the protected area.
 
   - name: Slug Pellets (Ferric Phosphate)
-    treatment_type: chemical
+    treatment_type: biological
     active_ingredient: iron(III) phosphate
     application_method: granular
     safety_interval_days: 0

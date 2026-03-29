@@ -81,6 +81,19 @@ class Settings(BaseSettings):
     timescaledb_pool_min_size: int = 2
     timescaledb_pool_max_size: int = 10
 
+    # VectorDB (optional — PostgreSQL + pgvector for AI/RAG)
+    vectordb_enabled: bool = False
+    vectordb_host: str = "localhost"
+    vectordb_port: int = 5432
+    vectordb_database: str = "kamerplanter_vectors"
+    vectordb_username: str = "postgres"
+    vectordb_password: str = "changeme"
+    vectordb_pool_min_size: int = 1
+    vectordb_pool_max_size: int = 5
+    knowledge_path: str = "/app/knowledge"
+    embedding_service_url: str = "http://embedding-service:8080"
+    embedding_model: str = "all-MiniLM-L6-v2"
+
     # Rate limiting
     rate_limit_auth: str = "20/minute"
     rate_limit_general: str = "100/minute"

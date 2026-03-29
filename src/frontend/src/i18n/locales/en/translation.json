@@ -1333,7 +1333,20 @@
       "orpTooltip": "ORP (Oxidation-Reduction Potential): measure of water disinfection effectiveness in mV. Optimal 300–500 mV.",
       "dissolvedOxygenTooltip": "Dissolved oxygen: oxygen content in water in mg/L. Optimal 5–8 mg/L for healthy root growth.",
       "liveValuesDesc": "Fetch current sensor values directly from Home Assistant. Values are not saved — they are only recorded as a measurement after clicking 'Adopt all'.",
-      "sensorsDesc": "Sensors link tank measurement points to Home Assistant entities or MQTT topics for automatic readings."
+      "sensorsDesc": "Sensors link tank measurement points to Home Assistant entities or MQTT topics for automatic readings.",
+      "tabEdit": "Edit",
+      "tabsAriaLabel": "Tank navigation",
+      "properties": "Tank Properties",
+      "deleted": "Tank deleted.",
+      "tankTypeHelper": "Determines the function and default parameters of the tank (e.g. nutrient solution, irrigation, stock solution).",
+      "materialHelper": "Affects durability, cleanability, and compatibility with chemicals.",
+      "hasLidHelper": "A lid reduces evaporation and prevents contamination from dust, insects, or light.",
+      "hasAirPumpHelper": "An air pump with diffuser increases the oxygen content in the water — important for healthy root growth.",
+      "hasCirculationPumpHelper": "A circulation pump ensures even distribution of nutrients and prevents stagnation of the solution.",
+      "hasHeaterHelper": "An aquarium heater keeps the water temperature stable — optimal 18–22 °C for most crops.",
+      "isLightProofHelper": "Light-proof tanks prevent algae growth, which consumes nutrients and damages roots.",
+      "hasUvSterilizerHelper": "A UV-C sterilizer kills bacteria, algae, and fungal spores in the water — reduces pathogens without chemicals.",
+      "hasOzoneGeneratorHelper": "Ozonates the water and oxidizes organic compounds — enhances disinfection; ozone must be broken down before the plant zone."
     },
     "fertilizers": {
       "title": "Fertilizers",

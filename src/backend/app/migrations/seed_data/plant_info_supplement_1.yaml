@@ -14,8 +14,7 @@
 #   frost_sensitivity: "tender" -> "sensitive", "half_hardy" -> "moderate",
 #     "very_hardy" -> "hardy" (enum has sensitive/moderate/hardy only)
 #   root_type: "aerial" -> "fibrous", "rhizomatous" -> "fibrous"
-#   nutrient_demand_level: "heavy_feeder" -> "heavy", "medium_feeder" -> "medium",
-#     "light_feeder" -> "light"
+#   nutrient_demand_level: uses heavy_feeder, medium_feeder, light_feeder enum values
 #
 # NOTE: Dahlia x cultorum species already exists in plant_info_outdoor_2.yaml or
 #   species.yaml — only cultivars are added here. If the species does not exist
@@ -47,7 +46,7 @@ new_species:
     hardiness_zones: ["5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b"]
     allelopathy_score: 0.2
     frost_sensitivity: hardy
-    nutrient_demand_level: heavy
+    nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]
     propagation_methods: [seed]
@@ -86,7 +85,7 @@ new_species:
     hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b", "10a", "10b"]
     allelopathy_score: 0.0
     frost_sensitivity: moderate
-    nutrient_demand_level: medium
+    nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [edible]
     propagation_methods: [seed]
@@ -124,7 +123,7 @@ new_species:
     hardiness_zones: ["2a", "2b", "3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b"]
     allelopathy_score: 0.0
     frost_sensitivity: hardy
-    nutrient_demand_level: heavy
+    nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible, cold_hardy]
     propagation_methods: [seed]
@@ -162,7 +161,7 @@ new_species:
     hardiness_zones: ["11a", "11b", "12a", "12b"]
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
-    nutrient_demand_level: medium
+    nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     traits: [ornamental]
     propagation_methods: [cutting_leaf, seed, division]
@@ -197,7 +196,7 @@ new_species:
     hardiness_zones: ["10a", "10b", "11a", "11b"]
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
-    nutrient_demand_level: light
+    nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [ornamental]
     propagation_methods: [cutting_stem]
@@ -233,7 +232,7 @@ new_species:
     hardiness_zones: ["8a", "8b", "9a", "9b", "10a", "10b", "11a"]
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
-    nutrient_demand_level: heavy
+    nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [ornamental, bee_friendly]
     propagation_methods: [division, cutting_stem]

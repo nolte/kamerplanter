@@ -80,6 +80,7 @@ from app.domain.services.watering_service import WateringService
 
 _connection: ArangoConnection | None = None
 _timescale_connection = None
+_vectordb_connection = None
 
 
 def get_connection() -> ArangoConnection:
@@ -98,6 +99,17 @@ def get_timescale_connection():
     if _timescale_connection is None:
         _timescale_connection = TimescaleConnection(settings)
     return _timescale_connection
+
+
+def get_vectordb_connection():
+    from app.data_access.vectordb.connection import VectorDbConnection
+
+    global _vectordb_connection
+    if not settings.vectordb_enabled:
+        return None
+    if _vectordb_connection is None:
+        _vectordb_connection = VectorDbConnection(settings)
+    return _vectordb_connection
 
 
 def get_db() -> StandardDatabase:
@@ -706,9 +718,17 @@ def close_timescale_connection() -> None:
         _timescale_connection = None
 
 
+def close_vectordb_connection() -> None:
+    global _vectordb_connection
+    if _vectordb_connection is not None:
+        _vectordb_connection.close()
+        _vectordb_connection = None
+
+
 def close_connection() -> None:
     global _connection
     close_timescale_connection()
+    close_vectordb_connection()
     if _connection is not None:
         _connection.close()
         _connection = None

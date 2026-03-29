@@ -42,6 +42,26 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # ── VectorDB (optional — PostgreSQL + pgvector for AI/RAG) ──
+  vectordb:
+    build:
+      context: ./docker/vectordb
+    profiles: ["vectordb"]
+    environment:
+      POSTGRES_DB: ${VECTORDB_DATABASE:-kamerplanter_vectors}
+      POSTGRES_USER: ${VECTORDB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${VECTORDB_PASSWORD:-changeme}
+    ports:
+      - "5433:5432"
+    volumes:
+      - vectordb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${VECTORDB_USERNAME:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   # ── TimescaleDB (optional) ─────────────────────────────────
   timescaledb:
     image: timescale/timescaledb:2.17.2-pg16
@@ -81,6 +101,14 @@ services:
       TIMESCALEDB_DATABASE: ${TIMESCALEDB_DATABASE:-kamerplanter_sensors}
       TIMESCALEDB_USERNAME: ${TIMESCALEDB_USERNAME:-postgres}
       TIMESCALEDB_PASSWORD: ${TIMESCALEDB_PASSWORD:-changeme}
+      VECTORDB_ENABLED: ${VECTORDB_ENABLED:-false}
+      VECTORDB_HOST: vectordb
+      VECTORDB_PORT: "5432"
+      VECTORDB_DATABASE: ${VECTORDB_DATABASE:-kamerplanter_vectors}
+      VECTORDB_USERNAME: ${VECTORDB_USERNAME:-postgres}
+      VECTORDB_PASSWORD: ${VECTORDB_PASSWORD:-changeme}
+    volumes:
+      - ./spec/knowledge:/app/knowledge:ro
     ports:
       - "8000:8000"
     depends_on:
@@ -110,6 +138,14 @@ services:
       TIMESCALEDB_DATABASE: ${TIMESCALEDB_DATABASE:-kamerplanter_sensors}
       TIMESCALEDB_USERNAME: ${TIMESCALEDB_USERNAME:-postgres}
       TIMESCALEDB_PASSWORD: ${TIMESCALEDB_PASSWORD:-changeme}
+      VECTORDB_ENABLED: ${VECTORDB_ENABLED:-false}
+      VECTORDB_HOST: vectordb
+      VECTORDB_PORT: "5432"
+      VECTORDB_DATABASE: ${VECTORDB_DATABASE:-kamerplanter_vectors}
+      VECTORDB_USERNAME: ${VECTORDB_USERNAME:-postgres}
+      VECTORDB_PASSWORD: ${VECTORDB_PASSWORD:-changeme}
+    volumes:
+      - ./spec/knowledge:/app/knowledge:ro
     depends_on:
       - arangodb
       - valkey
@@ -133,6 +169,12 @@ services:
       TIMESCALEDB_DATABASE: ${TIMESCALEDB_DATABASE:-kamerplanter_sensors}
       TIMESCALEDB_USERNAME: ${TIMESCALEDB_USERNAME:-postgres}
       TIMESCALEDB_PASSWORD: ${TIMESCALEDB_PASSWORD:-changeme}
+      VECTORDB_ENABLED: ${VECTORDB_ENABLED:-false}
+      VECTORDB_HOST: vectordb
+      VECTORDB_PORT: "5432"
+      VECTORDB_DATABASE: ${VECTORDB_DATABASE:-kamerplanter_vectors}
+      VECTORDB_USERNAME: ${VECTORDB_USERNAME:-postgres}
+      VECTORDB_PASSWORD: ${VECTORDB_PASSWORD:-changeme}
     depends_on:
       - arangodb
       - valkey
@@ -157,3 +199,4 @@ volumes:
   arangodb_data:
   valkey_data:
   timescaledb_data:
+  vectordb_data:

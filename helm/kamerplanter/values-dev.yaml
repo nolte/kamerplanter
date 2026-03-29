@@ -11,6 +11,13 @@ controllers:
       securityContext:
         runAsUser: 0
         runAsGroup: 0
+    initContainers:
+      knowledge:
+        image:
+          repository: kamerplanter-knowledge
+          tag: latest
+          pullPolicy: IfNotPresent
+        command: ["sh", "-c", "cp -r /knowledge/* /target/"]
     containers:
       main:
         securityContext:
@@ -34,6 +41,13 @@ controllers:
           TIMESCALEDB_DATABASE: kamerplanter_sensors
           TIMESCALEDB_USERNAME: postgres
           TIMESCALEDB_PASSWORD: devpassword
+          VECTORDB_ENABLED: "true"
+          VECTORDB_HOST: kamerplanter-vectordb
+          VECTORDB_PORT: "5432"
+          VECTORDB_DATABASE: kamerplanter_vectors
+          VECTORDB_USERNAME: postgres
+          VECTORDB_PASSWORD: devpassword
+          EMBEDDING_SERVICE_URL: "http://kamerplanter-embedding-service:8080"
         probes:
           liveness:
             enabled: true
@@ -139,6 +153,13 @@ controllers:
       securityContext:
         runAsUser: 0
         runAsGroup: 0
+    initContainers:
+      knowledge:
+        image:
+          repository: kamerplanter-knowledge
+          tag: latest
+          pullPolicy: IfNotPresent
+        command: ["sh", "-c", "cp -r /knowledge/* /target/"]
     containers:
       main:
         securityContext:
@@ -159,6 +180,13 @@ controllers:
           TIMESCALEDB_DATABASE: kamerplanter_sensors
           TIMESCALEDB_USERNAME: postgres
           TIMESCALEDB_PASSWORD: devpassword
+          VECTORDB_ENABLED: "true"
+          VECTORDB_HOST: kamerplanter-vectordb
+          VECTORDB_PORT: "5432"
+          VECTORDB_DATABASE: kamerplanter_vectors
+          VECTORDB_USERNAME: postgres
+          VECTORDB_PASSWORD: devpassword
+          EMBEDDING_SERVICE_URL: "http://kamerplanter-embedding-service:8080"
         probes:
           liveness:
             enabled: true
@@ -205,6 +233,12 @@ controllers:
           TIMESCALEDB_DATABASE: kamerplanter_sensors
           TIMESCALEDB_USERNAME: postgres
           TIMESCALEDB_PASSWORD: devpassword
+          VECTORDB_ENABLED: "true"
+          VECTORDB_HOST: kamerplanter-vectordb
+          VECTORDB_PORT: "5432"
+          VECTORDB_DATABASE: kamerplanter_vectors
+          VECTORDB_USERNAME: postgres
+          VECTORDB_PASSWORD: devpassword
         probes:
           liveness:
             enabled: true
@@ -239,7 +273,7 @@ controllers:
       main:
         image:
           repository: timescale/timescaledb
-          tag: "2.17.2-pg16"
+          tag: "2.26.0-pg16"
           pullPolicy: IfNotPresent
         securityContext:
           readOnlyRootFilesystem: false
@@ -283,17 +317,151 @@ controllers:
           globalMounts:
             - path: /var/lib/postgresql/data
 
+  embedding-service:
+    replicas: 1
+    strategy: Recreate
+    pod:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+    containers:
+      main:
+        image:
+          repository: kamerplanter-embedding-service
+          tag: latest
+          pullPolicy: IfNotPresent
+        securityContext:
+          readOnlyRootFilesystem: false
+        env:
+          EMBEDDING_MODEL: "all-MiniLM-L6-v2"
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: 8080
+              initialDelaySeconds: 10
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 10
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /ready
+                port: 8080
+              initialDelaySeconds: 10
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 30
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            cpu: "2"
+            memory: 2Gi
+
+  vectordb:
+    type: statefulset
+    replicas: 1
+    pod:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+    containers:
+      main:
+        image:
+          repository: kamerplanter-vectordb
+          tag: latest
+          pullPolicy: IfNotPresent
+        securityContext:
+          readOnlyRootFilesystem: false
+        env:
+          POSTGRES_DB: kamerplanter_vectors
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: devpassword
+          PGDATA: /var/lib/postgresql/data/pgdata
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["pg_isready", "-U", "postgres"]
+              initialDelaySeconds: 30
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["pg_isready", "-U", "postgres"]
+              initialDelaySeconds: 15
+              periodSeconds: 5
+              timeoutSeconds: 3
+              failureThreshold: 5
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+    statefulset:
+      volumeClaimTemplates:
+        - name: data
+          accessMode: ReadWriteOnce
+          size: 1Gi
+          globalMounts:
+            - path: /var/lib/postgresql/data
+
 service:
   frontend:
     controller: frontend
     ports:
       http:
         port: 5173
+  embedding-service:
+    controller: embedding-service
+    ports:
+      http:
+        port: 8080
   timescaledb:
     controller: timescaledb
     ports:
       postgresql:
         port: 5432
+  vectordb:
+    controller: vectordb
+    ports:
+      postgresql:
+        port: 5432
+
+persistence:
+  knowledge:
+    enabled: true
+    type: emptyDir
+    sizeLimit: 10Mi
+    advancedMounts:
+      backend:
+        knowledge:
+          - path: /target
+        main:
+          - path: /app/knowledge
+            readOnly: true
+      celery-worker:
+        knowledge:
+          - path: /target
+        main:
+          - path: /app/knowledge
+            readOnly: true
 
 ingress:
   main:
@@ -419,6 +587,22 @@ networkpolicies:
           ports:
             - protocol: TCP
               port: 5432
+        # VectorDB
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: vectordb
+          ports:
+            - protocol: TCP
+              port: 5432
+        # Embedding Service
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: embedding-service
+          ports:
+            - protocol: TCP
+              port: 8080
         # External APIs + SMTP
         - to:
             - ipBlock:
@@ -497,6 +681,22 @@ networkpolicies:
           ports:
             - protocol: TCP
               port: 5432
+        # VectorDB
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: vectordb
+          ports:
+            - protocol: TCP
+              port: 5432
+        # Embedding Service
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: embedding-service
+          ports:
+            - protocol: TCP
+              port: 8080
         # External APIs + SMTP
         - to:
             - ipBlock:
@@ -531,6 +731,36 @@ networkpolicies:
           ports:
             - protocol: TCP
               port: 6379
+        # DNS resolution
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+
+  embedding-service:
+    controller: embedding-service
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: backend
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: celery-worker
+          ports:
+            - protocol: TCP
+              port: 8080
+      egress:
         # DNS resolution
         - to:
             - namespaceSelector: {}

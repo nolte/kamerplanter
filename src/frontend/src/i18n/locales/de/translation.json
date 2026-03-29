@@ -1333,7 +1333,20 @@
       "orpTooltip": "ORP (Oxidations-Reduktions-Potenzial): Maß für die Desinfektionswirkung des Wassers in mV. Optimal 300–500 mV.",
       "dissolvedOxygenTooltip": "Gelöster Sauerstoff: Sauerstoffgehalt im Wasser in mg/L. Optimal 5–8 mg/L für gesundes Wurzelwachstum.",
       "liveValuesDesc": "Aktuelle Sensorwerte direkt aus Home Assistant abrufen. Die Werte werden nicht gespeichert — erst nach \"Alle übernehmen\" werden sie als Messung erfasst.",
-      "sensorsDesc": "Sensoren verbinden Tankmesspunkte mit Home Assistant Entities oder MQTT-Topics für automatische Messungen."
+      "sensorsDesc": "Sensoren verbinden Tankmesspunkte mit Home Assistant Entities oder MQTT-Topics für automatische Messungen.",
+      "tabEdit": "Bearbeiten",
+      "tabsAriaLabel": "Tank-Navigation",
+      "properties": "Tankeigenschaften",
+      "deleted": "Tank gelöscht.",
+      "tankTypeHelper": "Bestimmt Funktion und Standardparameter des Tanks (z.B. Nährlösung, Bewässerung, Vorratslösung).",
+      "materialHelper": "Einfluss auf Langlebigkeit, Reinigbarkeit und Kompatibilität mit Chemikalien.",
+      "hasLidHelper": "Deckel reduziert Verdunstung und verhindert Verschmutzung durch Staub, Insekten oder Lichteinfall.",
+      "hasAirPumpHelper": "Luftpumpe mit Diffusor erhöht den Sauerstoffgehalt im Wasser — wichtig für gesundes Wurzelwachstum.",
+      "hasCirculationPumpHelper": "Umwälzpumpe sorgt für gleichmäßige Nährstoffverteilung und verhindert Stagnation der Lösung.",
+      "hasHeaterHelper": "Aquarienheizer hält die Wassertemperatur konstant — optimal 18–22 °C für die meisten Kulturen.",
+      "isLightProofHelper": "Lichtdichte Tanks verhindern Algenwachstum, das Nährstoffe verbraucht und Wurzeln schädigt.",
+      "hasUvSterilizerHelper": "UV-C-Strahler tötet Bakterien, Algen und Pilzsporen im Wasser ab — reduziert Pathogene ohne Chemikalien.",
+      "hasOzoneGeneratorHelper": "Ozonat das Wasser und oxidiert organische Verbindungen — stärkt die Desinfektion, muss vor Pflanzenbereich abgebaut sein."
     },
     "fertilizers": {
       "title": "Düngemittel",

@@ -27,6 +27,18 @@ build:
             dest: /app
           - src: "src/**/*.css"
             dest: /app
+    - image: kamerplanter-vectordb
+      context: docker/vectordb
+      docker:
+        dockerfile: Dockerfile
+    - image: kamerplanter-knowledge
+      context: .
+      docker:
+        dockerfile: docker/knowledge/Dockerfile
+    - image: kamerplanter-embedding-service
+      context: docker/embedding-service
+      docker:
+        dockerfile: Dockerfile
     - image: kamerplanter-ha-integration
       context: src/ha-integration
       docker:
@@ -55,6 +67,15 @@ deploy:
           controllers.celery-worker.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_backend}}"
           controllers.celery-beat.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_backend}}"
           controllers.celery-beat.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_backend}}"
+
+          controllers.vectordb.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_vectordb}}"
+          controllers.vectordb.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_vectordb}}"
+          controllers.backend.initContainers.knowledge.image.repository: "{{.IMAGE_REPO_kamerplanter_knowledge}}"
+          controllers.backend.initContainers.knowledge.image.tag: "{{.IMAGE_TAG_kamerplanter_knowledge}}"
+          controllers.celery-worker.initContainers.knowledge.image.repository: "{{.IMAGE_REPO_kamerplanter_knowledge}}"
+          controllers.celery-worker.initContainers.knowledge.image.tag: "{{.IMAGE_TAG_kamerplanter_knowledge}}"
+          controllers.embedding-service.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_embedding_service}}"
+          controllers.embedding-service.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_embedding_service}}"
 
           valkey.dataStorage.enabled: true
           valkey.dataStorage.size: 1Gi
@@ -85,6 +106,11 @@ portForward:
     namespace: default
     port: 5432
     localPort: 5432
+  - resourceType: service
+    resourceName: kamerplanter-vectordb
+    namespace: default
+    port: 5432
+    localPort: 5433
 
 profiles:
   - name: backend-only

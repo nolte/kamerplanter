@@ -133,6 +133,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         else:
             logger.warning("timescaledb_enabled_but_connection_failed")
 
+    # VectorDB init (optional — PostgreSQL + pgvector for AI/RAG)
+    if settings.vectordb_enabled:
+        from app.common.dependencies import get_vectordb_connection
+        from app.data_access.vectordb.schema import ensure_vectordb_schema
+
+        vec_conn = get_vectordb_connection()
+        if vec_conn:
+            vec_conn.connect()
+            ensure_vectordb_schema(vec_conn.pool)
+            logger.info("vectordb_ready")
+        else:
+            logger.warning("vectordb_enabled_but_connection_failed")
+
     yield
 
     close_connection()
@@ -192,6 +205,11 @@ def root_health() -> dict:
         from app.common.dependencies import get_observation_repo
 
         result["timescaledb"] = "available" if get_observation_repo().is_available() else "unavailable"
+    if settings.vectordb_enabled:
+        from app.common.dependencies import get_vectordb_connection
+
+        vec_conn = get_vectordb_connection()
+        result["vectordb"] = "available" if vec_conn and vec_conn.is_connected() else "unavailable"
     return result
 
 

@@ -339,6 +339,7 @@ class PathogenType(StrEnum):
     VIRAL = "viral"
     PHYSIOLOGICAL = "physiological"
     OOMYCETE = "oomycete"
+    PROTIST = "protist"
 
 
 class PlantPart(StrEnum):
@@ -386,6 +387,7 @@ class HarvestIndicatorType(StrEnum):
     BRIX = "brix"
     SIZE = "size"
     DAYS_SINCE_FLOWERING = "days_since_flowering"
+    DAYS_SINCE_SOWING = "days_since_sowing"
     AROMA = "aroma"
     TEXTURE = "texture"
     FOLIAGE = "foliage"

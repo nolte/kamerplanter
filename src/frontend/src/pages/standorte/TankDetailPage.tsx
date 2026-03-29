@@ -306,7 +306,7 @@ export default function TankDetailPage() {
     try {
       setSaving(true);
       await tankApi.updateTank(key, { ...data, location_key: data.location_key || null });
-      notification.success(t('common.save'));
+      notification.success(t('common.saved'));
       load();
     } catch (err) {
       handleError(err);
@@ -319,7 +319,7 @@ export default function TankDetailPage() {
     if (!key) return;
     try {
       await tankApi.deleteTank(key);
-      notification.success(t('common.delete'));
+      notification.success(t('pages.tanks.deleted'));
       navigate('/standorte/tanks');
     } catch (err) {
       handleError(err);
@@ -389,12 +389,12 @@ export default function TankDetailPage() {
 
   // Column definitions for data tables
   const stateColumns: Column<TankState>[] = [
-    { id: 'recordedAt', label: t('pages.tanks.recordedAt'), render: (r) => r.recorded_at ? new Date(r.recorded_at).toLocaleString() : '\u2014' },
-    { id: 'ph', label: 'pH', render: (r) => r.ph ?? '\u2014', align: 'right' },
-    { id: 'ec', label: 'EC (mS/cm)', render: (r) => r.ec_ms ?? '\u2014', align: 'right' },
-    { id: 'temp', label: t('pages.tanks.waterTemp'), render: (r) => r.water_temp_celsius != null ? `${r.water_temp_celsius} °C` : '\u2014', align: 'right' },
-    { id: 'fillLevel', label: t('pages.tanks.fillLevel'), render: (r) => r.fill_level_percent != null ? `${r.fill_level_percent}%` : '\u2014', align: 'right' },
-    { id: 'tds', label: 'TDS (ppm)', render: (r) => r.tds_ppm ?? '\u2014', align: 'right' },
+    { id: 'recordedAt', label: t('pages.tanks.recordedAt'), render: (r) => r.recorded_at ? new Date(r.recorded_at).toLocaleString() : '—' },
+    { id: 'ph', label: 'pH', render: (r) => r.ph ?? '—', align: 'right' },
+    { id: 'ec', label: 'EC (mS/cm)', render: (r) => r.ec_ms ?? '—', align: 'right' },
+    { id: 'temp', label: t('pages.tanks.waterTemp'), render: (r) => r.water_temp_celsius != null ? `${r.water_temp_celsius} °C` : '—', align: 'right' },
+    { id: 'fillLevel', label: t('pages.tanks.fillLevel'), render: (r) => r.fill_level_percent != null ? `${r.fill_level_percent}%` : '—', align: 'right' },
+    { id: 'tds', label: 'TDS (ppm)', render: (r) => r.tds_ppm ?? '—', align: 'right' },
   ];
 
   const dueColumns: Column<DueMaintenance>[] = [
@@ -410,10 +410,10 @@ export default function TankDetailPage() {
 
   const logColumns: Column<MaintenanceLog>[] = [
     { id: 'type', label: t('pages.tanks.maintenanceType'), render: (r) => t(`enums.maintenanceType.${r.maintenance_type}`), searchValue: (r) => t(`enums.maintenanceType.${r.maintenance_type}`) },
-    { id: 'performedAt', label: t('pages.tanks.performedAt'), render: (r) => r.performed_at ? new Date(r.performed_at).toLocaleString() : '\u2014' },
-    { id: 'performedBy', label: t('pages.tanks.performedBy'), render: (r) => r.performed_by || '\u2014' },
-    { id: 'duration', label: t('pages.tanks.duration'), render: (r) => r.duration_minutes != null ? `${r.duration_minutes} min` : '\u2014', align: 'right' },
-    { id: 'notes', label: t('pages.tanks.notes'), render: (r) => r.notes || '\u2014' },
+    { id: 'performedAt', label: t('pages.tanks.performedAt'), render: (r) => r.performed_at ? new Date(r.performed_at).toLocaleString() : '—' },
+    { id: 'performedBy', label: t('pages.tanks.performedBy'), render: (r) => r.performed_by || '—' },
+    { id: 'duration', label: t('pages.tanks.duration'), render: (r) => r.duration_minutes != null ? `${r.duration_minutes} min` : '—', align: 'right' },
+    { id: 'notes', label: t('pages.tanks.notes'), render: (r) => r.notes || '—' },
   ];
 
   const scheduleColumns: Column<MaintenanceSchedule>[] = [
@@ -522,13 +522,20 @@ export default function TankDetailPage() {
         )}
       </Box>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }} variant="scrollable" scrollButtons="auto">
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        sx={{ mb: 2 }}
+        variant="scrollable"
+        scrollButtons="auto"
+        aria-label={t('pages.tanks.tabsAriaLabel')}
+      >
         <Tab label={t('pages.tanks.tabDetails')} />
         <Tab label={t('pages.tanks.tabStates')} />
         <Tab label={t('pages.tanks.tabMaintenance')} />
         <Tab label={t('pages.tanks.tabSchedules')} />
         <Tab label={t('pages.tanks.tabFills')} />
-        <Tab label={t('common.edit')} />
+        <Tab label={t('pages.tanks.tabEdit')} />
       </Tabs>
 
       {/* Tab 0: Details */}
@@ -574,7 +581,7 @@ export default function TankDetailPage() {
           <Card sx={{ mb: 2 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                {t('pages.tanks.tabDetails')}
+                {t('pages.tanks.properties')}
               </Typography>
               <Grid container spacing={2}>
                 <Grid size={{ xs: 6, sm: 4, md: 3 }}>
@@ -594,7 +601,7 @@ export default function TankDetailPage() {
                   <Typography variant="body2" fontWeight={500}>
                     {siteName && locationName
                       ? `${siteName} / ${locationName}`
-                      : siteName || '\u2014'}
+                      : siteName || '—'}
                   </Typography>
                 </Grid>
               </Grid>
@@ -931,7 +938,7 @@ export default function TankDetailPage() {
                       <TableRow key={s.key}>
                         <TableCell>{s.name}</TableCell>
                         <TableCell>{s.metric_type}</TableCell>
-                        <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{s.ha_entity_id || '\u2014'}</TableCell>
+                        <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{s.ha_entity_id || '—'}</TableCell>
                         <TableCell align="right">
                           <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
                             <IconButton
@@ -1017,7 +1024,7 @@ export default function TankDetailPage() {
               ariaLabel={t('pages.tanks.tabStates')}
               mobileCardRenderer={(r) => (
                 <MobileCard
-                  title={r.recorded_at ? new Date(r.recorded_at).toLocaleString() : '\u2014'}
+                  title={r.recorded_at ? new Date(r.recorded_at).toLocaleString() : '—'}
                   fields={[
                     ...(r.ph != null ? [{ label: 'pH', value: String(r.ph) }] : []),
                     ...(r.ec_ms != null ? [{ label: 'EC (mS/cm)', value: String(r.ec_ms) }] : []),
@@ -1188,12 +1195,12 @@ export default function TankDetailPage() {
           ) : (
             <DataTable
               columns={[
-                { id: 'filledAt', label: t('pages.tanks.filledAt'), render: (r: TankFillEvent) => r.filled_at ? new Date(r.filled_at).toLocaleString() : '\u2014' },
+                { id: 'filledAt', label: t('pages.tanks.filledAt'), render: (r: TankFillEvent) => r.filled_at ? new Date(r.filled_at).toLocaleString() : '—' },
                 { id: 'fillType', label: t('pages.tanks.fillType'), render: (r: TankFillEvent) => t(`enums.fillType.${r.fill_type}`), searchValue: (r: TankFillEvent) => t(`enums.fillType.${r.fill_type}`) },
                 { id: 'volume', label: t('pages.tanks.volumeLiters'), render: (r: TankFillEvent) => `${r.volume_liters} L`, align: 'right' as const },
-                { id: 'ec', label: 'EC (mS/cm)', render: (r: TankFillEvent) => r.measured_ec_ms != null ? `${r.measured_ec_ms}` : '\u2014', align: 'right' as const },
-                { id: 'ph', label: 'pH', render: (r: TankFillEvent) => r.measured_ph ?? '\u2014', align: 'right' as const },
-                { id: 'waterSource', label: t('pages.tanks.waterSource'), render: (r: TankFillEvent) => r.water_source ? t(`enums.waterSource.${r.water_source}`) : '\u2014' },
+                { id: 'ec', label: 'EC (mS/cm)', render: (r: TankFillEvent) => r.measured_ec_ms != null ? `${r.measured_ec_ms}` : '—', align: 'right' as const },
+                { id: 'ph', label: 'pH', render: (r: TankFillEvent) => r.measured_ph ?? '—', align: 'right' as const },
+                { id: 'waterSource', label: t('pages.tanks.waterSource'), render: (r: TankFillEvent) => r.water_source ? t(`enums.waterSource.${r.water_source}`) : '—' },
               ]}
               rows={fillEvents}
               getRowKey={(r: TankFillEvent) => r.key}
@@ -1202,7 +1209,7 @@ export default function TankDetailPage() {
               ariaLabel={t('pages.tanks.tabFills')}
               mobileCardRenderer={(r: TankFillEvent) => (
                 <MobileCard
-                  title={r.filled_at ? new Date(r.filled_at).toLocaleString() : '\u2014'}
+                  title={r.filled_at ? new Date(r.filled_at).toLocaleString() : '—'}
                   chips={<Chip label={t(`enums.fillType.${r.fill_type}`)} size="small" />}
                   fields={[
                     { label: t('pages.tanks.volumeLiters'), value: `${r.volume_liters} L` },
@@ -1222,7 +1229,7 @@ export default function TankDetailPage() {
         <Box
           component="form"
           onSubmit={handleSubmit(onSave)}
-          sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}
+          sx={{ maxWidth: { xs: '100%', md: 900, xl: 1100 }, display: 'flex', flexDirection: 'column', gap: 4 }}
         >
           <Typography variant="body2" color="text.secondary">
             {t('pages.tanks.editIntro')}
@@ -1248,6 +1255,8 @@ export default function TankDetailPage() {
                   name="tank_type"
                   control={control}
                   label={t('pages.tanks.tankType')}
+                  helperText={t('pages.tanks.tankTypeHelper')}
+                  required
                   options={tankTypes.map((v) => ({
                     value: v,
                     label: t(`enums.tankType.${v}`),
@@ -1257,6 +1266,8 @@ export default function TankDetailPage() {
                   name="material"
                   control={control}
                   label={t('pages.tanks.material')}
+                  helperText={t('pages.tanks.materialHelper')}
+                  required
                   options={materials.map((v) => ({
                     value: v,
                     label: t(`enums.tankMaterial.${v}`),
@@ -1271,6 +1282,7 @@ export default function TankDetailPage() {
                 suffix="L"
                 inputMode="decimal"
                 min={0.1}
+                required
               />
             </CardContent>
           </Card>
@@ -1292,7 +1304,7 @@ export default function TankDetailPage() {
                 sx={{ mb: 2 }}
                 data-testid="form-field-site"
               >
-                <MenuItem value="">{'\u2014'}</MenuItem>
+                <MenuItem value="">—</MenuItem>
                 {sites.map((s) => (
                   <MenuItem key={s.key} value={s.key}>{s.name}</MenuItem>
                 ))}
@@ -1319,11 +1331,13 @@ export default function TankDetailPage() {
                   name="has_lid"
                   control={control}
                   label={t('pages.tanks.hasLid')}
+                  helperText={t('pages.tanks.hasLidHelper')}
                 />
                 <FormSwitchField
                   name="has_air_pump"
                   control={control}
                   label={t('pages.tanks.hasAirPump')}
+                  helperText={t('pages.tanks.hasAirPumpHelper')}
                 />
               </FormRow>
               <FormRow>
@@ -1331,11 +1345,13 @@ export default function TankDetailPage() {
                   name="has_circulation_pump"
                   control={control}
                   label={t('pages.tanks.hasCirculationPump')}
+                  helperText={t('pages.tanks.hasCirculationPumpHelper')}
                 />
                 <FormSwitchField
                   name="has_heater"
                   control={control}
                   label={t('pages.tanks.hasHeater')}
+                  helperText={t('pages.tanks.hasHeaterHelper')}
                 />
               </FormRow>
               <FormRow>
@@ -1343,17 +1359,20 @@ export default function TankDetailPage() {
                   name="is_light_proof"
                   control={control}
                   label={t('pages.tanks.isLightProof')}
+                  helperText={t('pages.tanks.isLightProofHelper')}
                 />
                 <FormSwitchField
                   name="has_uv_sterilizer"
                   control={control}
                   label={t('pages.tanks.hasUvSterilizer')}
+                  helperText={t('pages.tanks.hasUvSterilizerHelper')}
                 />
               </FormRow>
               <FormSwitchField
                 name="has_ozone_generator"
                 control={control}
                 label={t('pages.tanks.hasOzoneGenerator')}
+                helperText={t('pages.tanks.hasOzoneGeneratorHelper')}
               />
             </CardContent>
           </Card>
