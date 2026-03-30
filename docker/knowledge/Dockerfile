@@ -1,4 +1,4 @@
-FROM busybox:1.37
+FROM busybox:1.37.0
 
 COPY spec/knowledge/ /knowledge/
 

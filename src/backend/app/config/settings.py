@@ -92,7 +92,15 @@ class Settings(BaseSettings):
     vectordb_pool_max_size: int = 5
     knowledge_path: str = "/app/knowledge"
     embedding_service_url: str = "http://embedding-service:8080"
-    embedding_model: str = "all-MiniLM-L6-v2"
+    embedding_model: str = "paraphrase-multilingual-MiniLM-L12-v2"
+
+    # LLM (optional — for RAG knowledge assistant)
+    llm_provider: str = "anthropic"  # anthropic | ollama | openai_compatible
+    llm_api_url: str = ""  # Required for ollama / openai_compatible
+    llm_api_key: str = ""  # Required for anthropic / openai_compatible
+    llm_model: str = "claude-sonnet-4-20250514"
+    llm_max_tokens: int = 1024
+    llm_temperature: float = 0.3
 
     # Rate limiting
     rate_limit_auth: str = "20/minute"

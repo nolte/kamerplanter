@@ -185,6 +185,8 @@ controllers:
         - name: data
           accessMode: ReadWriteOnce
           size: 5Gi
+          annotations:
+            helm.sh/resource-policy: keep
           globalMounts:
             - path: /var/lib/arangodb3
 
@@ -427,7 +429,7 @@ controllers:
   #         capabilities:
   #           drop: ["ALL"]
   #       env:
-  #         EMBEDDING_MODEL: "all-MiniLM-L6-v2"
+  #         EMBEDDING_MODEL: "paraphrase-multilingual-MiniLM-L12-v2"
   #       probes:
   #         liveness:
   #           enabled: true
@@ -714,6 +716,14 @@ networkpolicies:
           ports:
             - protocol: TCP
               port: 8080
+        # Ollama subchart (optional — only effective when ollama.enabled is true)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: ollama
+          ports:
+            - protocol: TCP
+              port: 11434
         # External APIs (GBIF, Perenual, weather, SMTP, Home Assistant, OIDC)
         - to:
             - ipBlock:
@@ -874,3 +884,7 @@ valkey:
   dataStorage:
     enabled: true
     size: 1Gi
+
+# -- Ollama subchart (optional — local LLM inference, disabled by default)
+ollama:
+  enabled: false

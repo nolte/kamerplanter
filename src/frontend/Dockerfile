@@ -9,7 +9,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Serve with nginx
-FROM nginx:1.27-alpine
+FROM nginx:1.28-alpine
 
 LABEL org.opencontainers.image.description="Kamerplanter frontend UI for plant lifecycle management"
 

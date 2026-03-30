@@ -50,6 +50,7 @@ manifests:
       - deploy/ha
 
 deploy:
+  statusCheckDeadlineSeconds: 900
   kubectl: {}
   helm:
     releases:
@@ -79,6 +80,7 @@ deploy:
 
           valkey.dataStorage.enabled: true
           valkey.dataStorage.size: 1Gi
+          valkey.dataStorage.keepPvc: true
 
 portForward:
   - resourceType: service
@@ -111,6 +113,16 @@ portForward:
     namespace: default
     port: 5432
     localPort: 5433
+  - resourceType: service
+    resourceName: kamerplanter-embedding-service
+    namespace: default
+    port: 8080
+    localPort: 8080
+  - resourceType: service
+    resourceName: kamerplanter-ollama
+    namespace: default
+    port: 11434
+    localPort: 11434
 
 profiles:
   - name: backend-only

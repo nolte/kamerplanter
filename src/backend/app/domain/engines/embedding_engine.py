@@ -7,7 +7,7 @@ logger = structlog.get_logger(__name__)
 class EmbeddingEngine:
     """Generates text embeddings via an external embedding service."""
 
-    def __init__(self, service_url: str, model_name: str = "all-MiniLM-L6-v2") -> None:
+    def __init__(self, service_url: str, model_name: str = "paraphrase-multilingual-MiniLM-L12-v2") -> None:
         self._service_url = service_url.rstrip("/")
         self._model_name = model_name
 

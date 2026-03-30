@@ -35,3 +35,6 @@ site/
 
 # TypeScript build info
 *.tsbuildinfo
+
+# RAG eval results (generated)
+spec/knowledge/eval/eval_results.json

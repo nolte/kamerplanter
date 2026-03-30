@@ -48,6 +48,11 @@ controllers:
           VECTORDB_USERNAME: postgres
           VECTORDB_PASSWORD: devpassword
           EMBEDDING_SERVICE_URL: "http://kamerplanter-embedding-service:8080"
+          LLM_PROVIDER: "ollama"
+          LLM_API_URL: "http://kamerplanter-ollama:11434"
+          LLM_MODEL: "gemma3:4b"
+          LLM_MAX_TOKENS: "1024"
+          LLM_TEMPERATURE: "0.3"
         probes:
           liveness:
             enabled: true
@@ -143,6 +148,8 @@ controllers:
         - name: data
           accessMode: ReadWriteOnce
           size: 2Gi
+          annotations:
+            helm.sh/resource-policy: keep
           globalMounts:
             - path: /var/lib/arangodb3
 
@@ -187,6 +194,11 @@ controllers:
           VECTORDB_USERNAME: postgres
           VECTORDB_PASSWORD: devpassword
           EMBEDDING_SERVICE_URL: "http://kamerplanter-embedding-service:8080"
+          LLM_PROVIDER: "ollama"
+          LLM_API_URL: "http://kamerplanter-ollama:11434"
+          LLM_MODEL: "gemma3:4b"
+          LLM_MAX_TOKENS: "1024"
+          LLM_TEMPERATURE: "0.3"
         probes:
           liveness:
             enabled: true
@@ -314,6 +326,8 @@ controllers:
         - name: data
           accessMode: ReadWriteOnce
           size: 2Gi
+          annotations:
+            helm.sh/resource-policy: keep
           globalMounts:
             - path: /var/lib/postgresql/data
 
@@ -333,7 +347,7 @@ controllers:
         securityContext:
           readOnlyRootFilesystem: false
         env:
-          EMBEDDING_MODEL: "all-MiniLM-L6-v2"
+          EMBEDDING_MODEL: "paraphrase-multilingual-MiniLM-L12-v2"
         probes:
           liveness:
             enabled: true
@@ -419,6 +433,8 @@ controllers:
         - name: data
           accessMode: ReadWriteOnce
           size: 1Gi
+          annotations:
+            helm.sh/resource-policy: keep
           globalMounts:
             - path: /var/lib/postgresql/data
 
@@ -603,6 +619,14 @@ networkpolicies:
           ports:
             - protocol: TCP
               port: 8080
+        # Ollama (subchart)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: ollama
+          ports:
+            - protocol: TCP
+              port: 11434
         # External APIs + SMTP
         - to:
             - ipBlock:
@@ -697,6 +721,14 @@ networkpolicies:
           ports:
             - protocol: TCP
               port: 8080
+        # Ollama (subchart)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: ollama
+          ports:
+            - protocol: TCP
+              port: 11434
         # External APIs + SMTP
         - to:
             - ipBlock:
@@ -772,3 +804,20 @@ networkpolicies:
               port: 53
             - protocol: TCP
               port: 53
+
+# -- Ollama subchart configuration
+# Models are pulled manually after deploy: kubectl exec deploy/kamerplanter-ollama -- ollama pull gemma3:4b
+ollama:
+  enabled: true
+  persistentVolume:
+    enabled: true
+    size: 20Gi
+    annotations:
+      helm.sh/resource-policy: keep
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: "4"
+      memory: 8Gi

@@ -1,6 +1,6 @@
 # Development Dockerfile for Kamerplanter frontend
 # Runs Vite dev server with HMR
-FROM node:22-alpine
+FROM node:24-alpine
 
 LABEL org.opencontainers.image.description="Kamerplanter frontend UI (development with Vite HMR)"
 

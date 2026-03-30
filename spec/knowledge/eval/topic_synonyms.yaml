@@ -9,56 +9,56 @@ topics:
 
   # === DIAGNOSTIK: Naehrstoffe ===
   stickstoff_mangel:
-    pattern: "(?i)stickstoff|nitrogen|N[- ]?Mangel|Stickstoffmangel"
-    de: [Stickstoff, Stickstoffmangel, N-Mangel, Nitrogen]
+    pattern: "(?i)stickstoff|nitrogen|N[- ]?Mangel|Stickstoffmangel|Stickstoff.*fehlt|zu.*wenig.*N\\b"
+    de: [Stickstoff, Stickstoffmangel, N-Mangel, Nitrogen, Stickstoff fehlt]
 
   mobile_naehrstoffe:
-    pattern: "(?i)mobil|umverlag|aelter.*Blaett|unten.*zuerst"
-    de: [mobil, Umverlagerung, aeltere Blaetter, von unten nach oben]
+    pattern: "(?i)mobil|umverlag|verlagert|transportiert|aelter.*Blaett|unten.*zuerst|von.*unten.*nach.*oben"
+    de: [mobil, Umverlagerung, verlagert, transportiert, aeltere Blaetter, von unten nach oben]
 
   untere_blaetter:
-    pattern: "(?i)unter.*Blaett|aelter.*Blaett|Blaett.*unten"
-    de: [untere Blaetter, aeltere Blaetter]
+    pattern: "(?i)unter.*Blaett|unter.*Blatt|aelter.*Blaett|aelter.*Blatt|Blaett.*unten|Blatt.*unten|unteren.*Blaett"
+    de: [untere Blaetter, unteres Blatt, aeltere Blaetter, aelteres Blatt, unteren Blaetter]
 
   ec_pruefen:
-    pattern: "(?i)EC.*prue|EC.*mess|Leitfaehigkeit.*prue"
-    de: [EC pruefen, EC messen, Leitfaehigkeit]
+    pattern: "(?i)EC.*prue|EC.*mess|EC.*kontroll|EC.*check|EC[- ]?Wert|Leitfaehigkeit"
+    de: [EC pruefen, EC messen, EC kontrollieren, EC-Wert, Leitfaehigkeit]
 
   natuerlicher_n_abbau:
-    pattern: "(?i)natuerlich.*Abbau|normal.*Vergilb|Abreife|spaete.*Bluete.*normal"
-    de: [natuerlicher Abbau, normal in spaeter Bluete, Abreife]
+    pattern: "(?i)natuerlich.*Abbau|natuerlich.*Prozess|normal.*Vergilb|normal.*Erscheinung|Abreife|spaete.*Bluete.*normal|Ende.*Bluete.*normal|Seneszenz"
+    de: [natuerlicher Abbau, natuerlicher Prozess, normal in spaeter Bluete, Abreife, Seneszenz, normale Erscheinung]
 
   spaete_bluete_normal:
-    pattern: "(?i)spaete.*Bluete.*normal|Woche.*7.*8.*normal|erwuenscht"
-    de: [spaete Bluete, normal, erwuenscht]
+    pattern: "(?i)spaete.*Bluete.*normal|Woche.*[67].*8.*normal|erwuenscht|Ende.*Bluete|letzte.*Wochen.*normal|kein.*Grund.*Sorge|nicht.*behandeln"
+    de: [spaete Bluete, normal, erwuenscht, Ende der Bluete, kein Grund zur Sorge]
 
   abreife:
-    pattern: "(?i)Abreife|Reifung|letzte.*Wochen"
-    de: [Abreife, Reifung]
+    pattern: "(?i)Abreife|Reifung|Erntereife|letzte.*Wochen|Seneszenz|Alterung|natuerlich.*Absterben"
+    de: [Abreife, Reifung, Erntereife, Seneszenz, letzte Wochen]
 
   calcium_mangel:
     pattern: "(?i)calcium|Ca[- ]?Mangel|Calciummangel"
     de: [Calcium, Calciummangel, Ca-Mangel]
 
   immobiler_naehrstoff:
-    pattern: "(?i)immobil|nicht.*mobil|junge.*Blaett|neue.*Blaett"
-    de: [immobil, nicht mobil, junge Blaetter, neue Blaetter]
+    pattern: "(?i)immobil|nicht.*mobil|nicht.*verlagert|junge.*Blaett|junge.*Blatt|neue.*Blaett|neue.*Blatt|obere.*Blaett"
+    de: [immobil, nicht mobil, nicht verlagert, junge Blaetter, neue Blaetter, obere Blaetter]
 
   neue_blaetter:
-    pattern: "(?i)neue.*Blaett|junge.*Blaett|Triebspitz|Neuwuchs"
-    de: [neue Blaetter, junge Blaetter, Triebspitzen]
+    pattern: "(?i)neue.*Blaett|neue.*Blatt|junge.*Blaett|junge.*Blatt|Triebspitz|Neuwuchs|obere.*Blaett|obere.*Blatt|Wachstumspunkt"
+    de: [neue Blaetter, junge Blaetter, Triebspitzen, Neuwuchs, obere Blaetter, Wachstumspunkte]
 
   gleichmaessige_bewaesserung:
-    pattern: "(?i)gleichmaessig.*giess|regelmaessig.*wasser|Schwankung.*vermeid"
-    de: [gleichmaessig giessen, regelmaessig, Schwankungen vermeiden]
+    pattern: "(?i)gleichmaessig.*giess|gleichmaessig.*bewaesser|regelmaessig.*wasser|regelmaessig.*giess|Schwankung.*vermeid|konstant.*bewaesser|konstant.*feucht|Bewaesserung.*gleichmaessig"
+    de: [gleichmaessig giessen, gleichmaessig bewaessern, regelmaessig, Schwankungen vermeiden, konstant bewaessern]
 
   magnesium_mangel:
     pattern: "(?i)magnesium|Mg[- ]?Mangel|Magnesiummangel|Bittersalz"
     de: [Magnesium, Magnesiummangel, Mg-Mangel, Bittersalz]
 
   kalium_antagonismus:
-    pattern: "(?i)Kalium.*Antagonis|K/Mg|Kalium.*verdraeng|Kalium.*blockier"
-    de: [Kalium-Antagonismus, K verdraengt Mg]
+    pattern: "(?i)Kalium.*Antagonis|K/Mg|K.*Mg.*Antagonis|Kalium.*verdraeng|Kalium.*blockier|K.*blockiert.*Mg|hohe.*Kalium|Kalium.*Ueberschuss|K.*Ueberschuss|Kalium.*hemmt"
+    de: [Kalium-Antagonismus, K verdraengt Mg, K blockiert Mg, Kalium-Ueberschuss, hoher Kaliumgehalt]
 
   bittersalz_blattspray:
     pattern: "(?i)Bittersalz|Epsom|MgSO4|Blattspray.*Mg"
@@ -82,8 +82,8 @@ topics:
 
   # === DIAGNOSTIK: pH/EC ===
   ph_lockout:
-    pattern: "(?i)pH[- ]?Lockout|Lockout|pH.*block|nicht.*verfuegbar.*pH"
-    de: [pH-Lockout, Lockout, nicht verfuegbar]
+    pattern: "(?i)pH[- ]?Lockout|Lockout|pH.*block|nicht.*verfuegbar.*pH|pH.*Bereich.*Aufnahme|gesperrt|Verfuegbarkeit.*pH"
+    de: [pH-Lockout, Lockout, nicht verfuegbar, gesperrt, Verfuegbarkeit]
 
   ph_zu_hoch:
     pattern: "(?i)pH.*zu.*hoch|pH.*ueber|pH.*senken"
@@ -106,8 +106,8 @@ topics:
     de: [Salzanreicherung, Versalzung]
 
   flush_noetig:
-    pattern: "(?i)Flush|spuelen|durchspuelen|3.*Topfvolumen"
-    de: [Flush, spuelen, durchspuelen]
+    pattern: "(?i)Flush|spuelen|durchspuelen|3.*Topfvolumen|mit.*klarem.*Wasser|Substrat.*waschen"
+    de: [Flush, spuelen, durchspuelen, mit klarem Wasser spuelen]
 
   ec_reduzieren:
     pattern: "(?i)EC.*reduzier|EC.*senken|EC.*verringer|weniger.*Duenger"
@@ -261,12 +261,12 @@ topics:
 
   # === BEWAESSERUNG ===
   fingertest:
-    pattern: "(?i)Fingertest|Finger.*Erde|2.*3.*cm.*tief|Finger.*steck"
-    de: [Fingertest, Finger in die Erde]
+    pattern: "(?i)Fingertest|Finger.*Erde|Finger.*Substrat|2.*3.*cm.*tief|Finger.*steck|Finger.*pruef"
+    de: [Fingertest, Finger in die Erde, Finger ins Substrat, mit dem Finger pruefen]
 
   nicht_nach_zeitplan:
-    pattern: "(?i)nicht.*Zeitplan|nicht.*jeden.*Montag|nach.*Bedarf|nicht.*regelmaessig"
-    de: [nicht nach Zeitplan, nach Bedarf]
+    pattern: "(?i)nicht.*Zeitplan|nicht.*jeden.*Montag|nach.*Bedarf|nicht.*regelmaessig|individuell|je.*nach.*Pflanze|kein.*fester.*Rhythmus"
+    de: [nicht nach Zeitplan, nach Bedarf, individuell, kein fester Rhythmus]
 
   substrat_pruefen:
     pattern: "(?i)Substrat.*pruef|Erde.*pruef|Feuchtigkeit.*pruef"
@@ -346,8 +346,8 @@ topics:
 
   # === UMWELT ===
   dampfdruckdefizit:
-    pattern: "(?i)Dampfdruck|Vapor.*Pressure|VPD.*erklaer|VPD.*ist"
-    de: [Dampfdruckdefizit, Vapor Pressure Deficit]
+    pattern: "(?i)Dampfdruck|Vapor.*Pressure|VPD.*erklaer|VPD.*ist|VPD.*steht.*fuer|VPD.*bedeutet|VPD.*beschreibt"
+    de: [Dampfdruckdefizit, Vapor Pressure Deficit, VPD steht fuer, VPD beschreibt]
 
   temperatur_und_rh:
     pattern: "(?i)Temperatur.*Feuchtig|Temperatur.*RH|beides|kombiniert"
@@ -499,8 +499,8 @@ topics:
     de: [Luftzirkulation, Belueftung, Ventilator]
 
   karenzzeit:
-    pattern: "(?i)Karenz|Wartezeit|Safety.*Interval|Pre.*Harvest"
-    de: [Karenzzeit, Wartezeit, Safety Interval]
+    pattern: "(?i)Karenz|Wartezeit|Safety.*Interval|Pre.*Harvest|Sicherheitsabstand|Tage.*vor.*Ernte|warten.*Ernte"
+    de: [Karenzzeit, Wartezeit, Safety Interval, Sicherheitsabstand, Tage vor Ernte]
 
   plasmodiophora:
     pattern: "(?i)Plasmodiophora|Protist|kein.*Oomycet"
@@ -556,8 +556,8 @@ topics:
     de: [Papiertuch-Methode, Paper Towel]
 
   trichome:
-    pattern: "(?i)Trichom|Harzdruese|Lupen|Mikroskop|milchig|trueb|bernstein"
-    de: [Trichome, Lupe, milchig, bernstein]
+    pattern: "(?i)Trichom|Harzdruese|Harzkoepfchen|Lupen|Mikroskop|milchig|trueb|bernstein|Harz"
+    de: [Trichome, Lupe, milchig, bernstein, Harzdruesen, Harzkoepfchen]
 
   milchig_trueb:
     pattern: "(?i)milchig|trueb|weiss.*Trichom|opak"
@@ -750,8 +750,8 @@ topics:
     de: [Zamioculcas, ZZ-Pflanze]
 
   robust:
-    pattern: "(?i)robust|pflegeleicht|unkaputtbar|verzeiht|einfach"
-    de: [robust, pflegeleicht, unkaputtbar]
+    pattern: "(?i)robust|pflegeleicht|unkaputtbar|verzeiht|einfach|anspruchslos|genuegsam|widerstandsfaehig|unkompliziert"
+    de: [robust, pflegeleicht, unkaputtbar, anspruchslos, genuegsam, unkompliziert]
 
   wenig_licht:
     pattern: "(?i)wenig.*Licht|Schatten|dunkel.*Ecke|Nord"

@@ -17,7 +17,7 @@ _session = None
 _tokenizer = None
 _ready = False
 
-DEFAULT_MODEL = os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+DEFAULT_MODEL = os.environ.get("EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2")
 ONNX_PATH = Path(f"/app/models/onnx/{DEFAULT_MODEL}")
 
 
