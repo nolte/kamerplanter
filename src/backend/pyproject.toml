@@ -2,6 +2,7 @@
 name = "kamerplanter-backend"
 version = "1.0.0"
 description = "Kamerplanter agricultural management system backend"
+license = "MIT"
 requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.115.0",
