@@ -3,15 +3,9 @@ FROM python:3.14-slim
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir --root-user-action=ignore \
-    fastapi>=0.115.0 \
-    "uvicorn[standard]>=0.32.0" \
-    onnxruntime>=1.20.0 \
-    transformers>=4.46.0 \
-    numpy \
-    sentencepiece \
-    protobuf \
-    huggingface-hub>=0.26.0
+COPY requirements.txt .
+# hadolint ignore=DL3013
+RUN pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
 
 # Download pre-converted ONNX models at build time (no PyTorch needed)
 # Optional: set HF_TOKEN for faster downloads (free account sufficient)
