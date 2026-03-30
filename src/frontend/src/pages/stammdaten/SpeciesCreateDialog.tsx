@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -19,6 +19,8 @@ import FormRow from '@/components/form/FormRow';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import ShowAllFieldsToggle from '@/components/common/ShowAllFieldsToggle';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
+import { useAppDispatch } from '@/store/hooks';
+import { resetShowAllFields } from '@/store/slices/uiSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { speciesFieldConfig } from '@/config/fieldConfigs';
@@ -67,9 +69,15 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
+  const dispatch = useAppDispatch();
   const [saving, setSaving] = useState(false);
   const [families, setFamilies] = useState<BotanicalFamily[]>([]);
   const { showAllOverride, toggleShowAll, level } = useExpertiseLevel();
+
+  const handleClose = useCallback(() => {
+    dispatch(resetShowAllFields());
+    onClose();
+  }, [dispatch, onClose]);
 
   const { control, handleSubmit, reset } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -130,7 +138,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
   const fc = speciesFieldConfig;
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="create-dialog">
+    <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="sm" fullWidth data-testid="create-dialog">
       <DialogTitle>{t('pages.species.create')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -398,7 +406,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
           {level !== 'expert' && (
             <ShowAllFieldsToggle showAll={showAllOverride} onToggle={toggleShowAll} />
           )}
-          <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
+          <FormActions onCancel={handleClose} loading={saving} saveLabel={t('common.create')} />
         </form>
       </DialogContent>
     </Dialog>

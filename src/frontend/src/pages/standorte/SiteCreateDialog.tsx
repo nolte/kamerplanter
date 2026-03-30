@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -15,6 +15,8 @@ import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import ShowAllFieldsToggle from '@/components/common/ShowAllFieldsToggle';
 import WaterSourceSection, { TAP_WATER_DEFAULTS, RO_WATER_DEFAULTS } from '@/components/water/WaterSourceSection';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
+import { useAppDispatch } from '@/store/hooks';
+import { resetShowAllFields } from '@/store/slices/uiSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { siteFieldConfig } from '@/config/fieldConfigs';
@@ -42,8 +44,14 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
+  const dispatch = useAppDispatch();
   const [saving, setSaving] = useState(false);
   const { showAllOverride, toggleShowAll, level } = useExpertiseLevel();
+
+  const handleClose = useCallback(() => {
+    dispatch(resetShowAllFields());
+    onClose();
+  }, [dispatch, onClose]);
   const [waterConfig, setWaterConfig] = useState<SiteWaterConfig>({
     has_ro_system: false,
     tap_water_profile: { ...TAP_WATER_DEFAULTS },
@@ -82,7 +90,7 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
   const fc = siteFieldConfig;
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>{t('pages.sites.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
@@ -106,7 +114,7 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
           {level !== 'expert' && (
             <ShowAllFieldsToggle showAll={showAllOverride} onToggle={toggleShowAll} />
           )}
-          <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
+          <FormActions onCancel={handleClose} loading={saving} saveLabel={t('common.create')} />
         </form>
       </DialogContent>
     </Dialog>
