@@ -1,0 +1,109 @@
+---
+title: Pilzkrankheiten erkennen und behandeln
+category: diagnostik
+tags: [pilzkrankheiten, mehltau, botrytis, grauschimmel, septoria, alternaria, pilz, fungizid, luftzirkulation]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [vegetative, flowering, harvest]
+chunks:
+  - id: echter-mehltau
+    title: Echter Mehltau (Erysiphaceae) erkennen und bekaempfen
+    content: |
+      Symptome: Weisser, pudriger Belag auf Blattoberseiten. Sieht aus wie
+      Mehl oder Puderzucker auf den Blaettern. Beginnt als kleine weisse
+      Flecken, breitet sich schnell auf ganze Blaetter, Stengel und
+      Bluetenknospen aus. Befallene Blaetter vergilben, trocknen ein und
+      sterben ab.
+      Erreger: Verschiedene Arten (Erysiphe, Podosphaera, Oidium) — jeweils
+      wirtsspezifisch. Mehltau von Gurke befaellt nicht Tomate und umgekehrt.
+      Beguestigende Bedingungen:
+      - Warme Tage (20-30°C) und kuehle Naechte (hohe Tag-Nacht-Differenz)
+      - TROCKENE Blattoberflaechen bei hoher Umgebungsfeuchte (70-80% RH)
+      - Schlechte Luftzirkulation (Stauluft)
+      - Dichte Bepflanzung
+      - Stickstoff-Ueberduengung (weiches, anfaelliges Gewebe)
+      Sofortmassnahmen:
+      - Befallene Blaetter sofort entfernen und im Muell entsorgen
+        (NICHT kompostieren — Sporen ueberleben)
+      - Luftzirkulation verbessern (Ventilator, Pflanzen auslichten)
+      - Pflanzabstaende vergroessern
+      - Milch-Spray: 1 Teil Milch zu 9 Teile Wasser, vorbeugend und bei
+        leichtem Befall (Casein wirkt antimykotisch)
+      - Backpulver-Spray: 1 TL Natron + 1 L Wasser + Tropfen Spuelmittel
+      - Netzschwefel (bio-konform, vorbeugend, nicht bei >30°C)
+      - Kaliumhydrogencarbonat (z.B. Vitisan) — bio-zugelassen
+      Vorbeugung:
+      - Gute Luftzirkulation (wichtigste Massnahme)
+      - Pflanzen nicht zu dicht setzen
+      - Morgens giessen (Blaetter trocknen tagsüber)
+      - Resistente Sorten waehlen wenn verfuegbar
+      Abgrenzung zu Falschem Mehltau: Echter Mehltau sitzt auf der
+      Blattoberseite (abwischbar). Falscher Mehltau zeigt grau-violetten
+      Belag auf der Blattunterseite und gelbe Flecken oben.
+    metadata:
+      pathogen: powdery_mildew
+      family: Erysiphaceae
+      environment_preference: warm_dry_days_cool_nights
+      difficulty: common
+
+  - id: falscher-mehltau
+    title: Falscher Mehltau (Peronosporaceae) erkennen
+    content: |
+      Symptome: Gelbe bis braune eckige Flecken auf Blattoberseiten,
+      begrenzt durch Blattadern. Auf der Blattunterseite grau-violetter
+      bis weisser Sporenrasen. Befallene Blaetter sterben schnell ab.
+      Haeufig bei: Gurke, Salat, Spinat, Weinrebe, Basilikum, Zwiebel.
+      Beguestigende Bedingungen (GEGENTEIL von Echtem Mehltau!):
+      - Nasse Blaetter (Regen, Beregnung von oben, Spruehnebel)
+      - Kuehle Temperaturen (10-20°C)
+      - Hohe Luftfeuchtigkeit (>80%)
+      - Laengere Blattnaeseperioden (6+ Stunden)
+      Sofortmassnahmen:
+      - Befallene Blaetter sofort entfernen
+      - NICHT von oben giessen — nur Boden bewaessern
+      - Luftzirkulation verbessern
+      - Kupferpraeparate (bio-zugelassen, vorbeugend)
+      - Phosphonat-basierte Praeparate (kurativ)
+      Vorbeugung:
+      - Nur von unten bewaessern (Tropfbewaesserung)
+      - Morgens giessen damit Blaetter schnell trocknen
+      - Pflanzen auslichten fuer Luftzirkulation
+      - Resistente Sorten waehlen
+    metadata:
+      pathogen: downy_mildew
+      family: Peronosporaceae
+      environment_preference: cool_wet
+      difficulty: moderate
+
+  - id: grauschimmel-botrytis
+    title: Grauschimmel (Botrytis cinerea) erkennen
+    content: |
+      Symptome: Grauer, pelziger Schimmelrasen auf Bluetenteilen, Fruechten,
+      Blaettern oder Stengeln. Befallenes Gewebe wird weich und matschig.
+      Bei Cannabis: "Bud Rot" — Blueten werden von innen braun und matschig,
+      grauer Schimmel sichtbar wenn man die Bluete oeffnet.
+      Haeufig bei: Cannabis (Bluetenfaeule), Erdbeere, Tomate, Weintraube,
+      Salat, Schnittblumen.
+      Beguestigende Bedingungen:
+      - Hohe Luftfeuchtigkeit (>60% RH) waehrend der Bluete
+      - Schlechte Luftzirkulation in dichten Bestaenden
+      - Grosse, dichte Bluetenstaende (Cannabis Indica-lastige Sorten)
+      - Verletztes oder abstirbendes Gewebe (Eintrittspforte)
+      - Temperatur 15-25°C mit hoher Feuchte
+      Sofortmassnahmen:
+      - Befallene Pflanzenteile SOFORT grosszuegig abschneiden
+        (2-3 cm ins gesunde Gewebe hinein)
+      - Schere zwischen Schnitten desinfizieren (Isopropanol)
+      - Bei Cannabis: Befallene Blueten komplett entfernen, NICHT rauchen!
+        (Gesundheitsgefahr durch Mykotoxine)
+      - Luftfeuchtigkeit sofort unter 50% senken (Entfeuchter)
+      - Luftzirkulation maximieren (Ventilatoren)
+      Vorbeugung:
+      - RH unter 50% in der spaeten Bluete (Cannabis)
+      - Ausreichende Luftbewegung
+      - Abgestorbene Blaetter regelmaessig entfernen
+      - Pflanzen nicht verletzen (Eintrittspforte fuer Botrytis)
+    metadata:
+      pathogen: botrytis
+      species: Botrytis cinerea
+      environment_preference: humid_cool
+      difficulty: common

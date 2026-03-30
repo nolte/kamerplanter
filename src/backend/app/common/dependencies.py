@@ -711,6 +711,58 @@ def get_notification_service():
     )
 
 
+# ── Knowledge / RAG dependencies ──────────────────────────────────
+
+
+def get_llm_adapter():
+    from app.data_access.external.anthropic_llm_adapter import AnthropicLlmAdapter
+    from app.data_access.external.ollama_llm_adapter import OllamaLlmAdapter
+    from app.data_access.external.openai_compatible_llm_adapter import OpenAiCompatibleLlmAdapter
+    from app.domain.interfaces.llm_adapter import ILlmAdapter
+
+    provider = settings.llm_provider
+    adapter: ILlmAdapter
+    if provider == "ollama":
+        adapter = OllamaLlmAdapter(
+            api_url=settings.llm_api_url or "http://ollama:11434",
+            model=settings.llm_model,
+        )
+    elif provider == "openai_compatible":
+        adapter = OpenAiCompatibleLlmAdapter(
+            api_url=settings.llm_api_url,
+            api_key=settings.llm_api_key,
+            model=settings.llm_model,
+        )
+    else:
+        adapter = AnthropicLlmAdapter(
+            api_key=settings.llm_api_key,
+            model=settings.llm_model,
+        )
+    return adapter
+
+
+def get_knowledge_service():
+    from app.domain.engines.embedding_engine import EmbeddingEngine
+    from app.domain.services.knowledge_service import KnowledgeService
+
+    vec_conn = get_vectordb_connection()
+    if not vec_conn or not settings.vectordb_enabled:
+        return None
+
+    from app.data_access.vectordb.vector_chunk_repository import VectorChunkRepository
+
+    return KnowledgeService(
+        embedding_engine=EmbeddingEngine(
+            service_url=settings.embedding_service_url,
+            model_name=settings.embedding_model,
+        ),
+        chunk_repo=VectorChunkRepository(vec_conn.pool),
+        llm_adapter=get_llm_adapter(),
+        max_tokens=settings.llm_max_tokens,
+        temperature=settings.llm_temperature,
+    )
+
+
 def close_timescale_connection() -> None:
     global _timescale_connection
     if _timescale_connection is not None:

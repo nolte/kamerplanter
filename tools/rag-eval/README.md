@@ -14,6 +14,7 @@ Die folgenden Services muessen laufen (z.B. via `skaffold dev`):
 | Ollama | `localhost:11434` | Lokale LLM-Inferenz |
 
 Die VectorDB muss bereits indexiert sein (`reindex_vector_chunks` Task muss mindestens einmal gelaufen sein).
+Anleitung zum manuellen Reindexieren: siehe [RAG-Wissensbasis — Reindexierung](../../docs/de/guides/rag-knowledge-base.md#wissensbasis-reindexieren-operatorentwickler).
 
 Ollama muss ein Modell geladen haben:
 

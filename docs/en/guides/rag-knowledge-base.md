@@ -196,6 +196,64 @@ The new guide is included in the vector database at the next re-index cycle (dai
 
 ---
 
+## Reindexing the Knowledge Base (Operator/Developer)
+
+After modifying knowledge YAML files under `spec/knowledge/`, the vectors in pgvector must be recomputed. This happens automatically once a week (Sunday 03:00 UTC) but can also be triggered manually.
+
+### Prerequisites
+
+- Knowledge YAML files are mounted in the container at `/app/knowledge` (automatic with Skaffold deployment)
+- VectorDB (pgvector) and Embedding Service must be running
+- `vectordb_enabled: true` in the backend configuration
+
+### Workflow: Edit chunk → deploy → reindex → test
+
+```bash
+# 1. Edit knowledge YAML files
+#    e.g. spec/knowledge/diagnostik/naehrstoffmangel-symptome.yaml
+
+# 2. Redeploy (so the files are available in the container)
+skaffold dev   # or: skaffold run
+
+# 3. Trigger the Celery reindex task manually
+kubectl exec -it deploy/celery-worker -- \
+  celery -A app.tasks call app.tasks.vector_indexing_tasks.reindex_vector_chunks
+
+# 4. Run the benchmark (optional, recommended)
+cd tools/rag-eval
+source ~/.venvs/rag-eval/bin/activate
+python eval_rag.py
+```
+
+### Alternative: Trigger the task via Python interpreter
+
+```bash
+kubectl exec -it deploy/celery-worker -- python -c "
+from app.tasks.vector_indexing_tasks import reindex_vector_chunks
+result = reindex_vector_chunks.delay()
+print(f'Task ID: {result.id}')
+"
+```
+
+### What happens during reindex?
+
+1. All YAML files under `/app/knowledge` are read
+2. Each chunk is vectorized using the embedding model (`paraphrase-multilingual-MiniLM-L12-v2`, 384 dimensions)
+3. Vectors are upserted into `ai_vector_chunks` (existing chunks are updated, new ones added)
+4. The task returns a summary: number of files, number of chunks, duration
+
+!!! tip "Fast feedback loop"
+    For iterative knowledge base improvement, use this cycle:
+
+    1. Run benchmark → identify failures
+    2. Add or improve chunks in the YAML files
+    3. Deploy and reindex
+    4. Re-run benchmark → verify score improvement
+
+    See `tools/rag-eval/README.md` for benchmark tool details.
+
+---
+
 ## Frequently Asked Questions
 
 ??? question "Can the AI search the internet for additional information?"

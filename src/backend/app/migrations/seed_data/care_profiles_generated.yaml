@@ -1,6 +1,14 @@
-# Care profiles for ~60 most common species
+# Care profiles for 174 species (indoor, outdoor, herbs, fruit, ornamental)
 # Used by CareReminderEngine (REQ-022) for automated care reminders
 # Generated from plant-info reference documents
+# Reviewed by agrobiology expert (2026-03-30)
+#
+# dormancy_months semantics:
+#   []                    — no true dormancy (tropical evergreens, annuals)
+#   [11, 12, 1, 2]        — true winter dormancy or cold rest needed (outdoor perennials,
+#                           succulents/cacti needing cool rest, bloom-induction plants)
+#   other patterns         — special cycles (e.g. Cyclamen summer dormancy [5-9],
+#                           Lithops dual dormancy [5-8,12-3], Dahlia frost lift [10-3])
 
 care_profiles:
 
@@ -19,8 +27,8 @@ care_profiles:
     pest_check_interval_days: 14
     rotation_interval_days: 14
     pruning_season: [3, 4, 5]
-    dormancy_months: [11, 12, 1, 2]
-    notes: "Prefers bright indirect light. Aerial roots benefit from a moss pole. Wipe large leaves regularly to prevent dust buildup."
+    dormancy_months: []
+    notes: "Prefers bright indirect light. Aerial roots benefit from a moss pole. Wipe large leaves regularly to prevent dust buildup. Toxic to dogs and cats (calcium oxalate crystals)."
 
   "Epipremnum aureum":
     watering_interval_summer_days: 7
@@ -33,8 +41,8 @@ care_profiles:
     pest_check_interval_days: 14
     rotation_interval_days: 14
     pruning_season: [3, 4, 5, 6]
-    dormancy_months: [11, 12, 1, 2]
-    notes: "Extremely tolerant of low light. Prune leggy vines to encourage bushier growth. Propagates easily in water."
+    dormancy_months: []
+    notes: "Extremely tolerant of low light. Prune leggy vines to encourage bushier growth. Propagates easily in water. Toxic to dogs and cats (calcium oxalate crystals)."
 
   "Spathiphyllum wallisii":
     watering_interval_summer_days: 5
@@ -47,8 +55,8 @@ care_profiles:
     pest_check_interval_days: 14
     rotation_interval_days: 14
     pruning_season: [3, 4, 5]
-    dormancy_months: [11, 12, 1, 2]
-    notes: "Drooping leaves signal thirst. Sensitive to fluoride in tap water — prefer filtered or rainwater. Remove spent flower stalks at the base."
+    dormancy_months: []
+    notes: "Drooping leaves signal thirst. Sensitive to fluoride in tap water — prefer filtered or rainwater. Remove spent flower stalks at the base. Toxic to dogs and cats (calcium oxalate crystals)."
 
   "Ficus elastica":
     watering_interval_summer_days: 7
@@ -61,7 +69,7 @@ care_profiles:
     pest_check_interval_days: 14
     rotation_interval_days: 14
     pruning_season: [3, 4]
-    dormancy_months: [11, 12, 1, 2]
+    dormancy_months: []
     notes: "Large glossy leaves collect dust easily — wipe weekly. Milky sap is irritating; wear gloves when pruning. Tolerates some direct morning sun."
 
   "Ficus lyrata":
@@ -75,7 +83,7 @@ care_profiles:
     pest_check_interval_days: 14
     rotation_interval_days: 7
     pruning_season: [3, 4, 5]
-    dormancy_months: [11, 12, 1, 2]
+    dormancy_months: []
     notes: "Sensitive to drafts and temperature changes. Rotate weekly for even growth. Brown spots often indicate overwatering or inconsistent watering."
 
   "Ficus benjamina":
@@ -89,7 +97,7 @@ care_profiles:
     pest_check_interval_days: 14
     rotation_interval_days: 0
     pruning_season: [3, 4]
-    dormancy_months: [11, 12, 1, 2]
+    dormancy_months: []
     notes: "Notorious for leaf drop when moved. Once positioned, avoid moving. Susceptible to scale insects — check leaf undersides regularly."
 
   "Dracaena trifasciata":
@@ -103,8 +111,8 @@ care_profiles:
     pest_check_interval_days: 21
     rotation_interval_days: 30
     pruning_season: [3, 4, 5]
-    dormancy_months: [11, 12, 1, 2]
-    notes: "One of the most drought-tolerant houseplants. Overwatering is the primary killer — let soil dry completely between waterings. Tolerates low light."
+    dormancy_months: []
+    notes: "One of the most drought-tolerant houseplants. Overwatering is the primary killer — let soil dry completely between waterings. Tolerates low light. Toxic to dogs and cats (saponins)."
 
   "Chlorophytum comosum":
     watering_interval_summer_days: 5
@@ -117,7 +125,7 @@ care_profiles:
     pest_check_interval_days: 14
     rotation_interval_days: 14
     pruning_season: [3, 4, 5, 6]
-    dormancy_months: [11, 12, 1, 2]
+    dormancy_months: []
     notes: "Fast grower that becomes rootbound quickly. Brown leaf tips indicate low humidity or fluoride sensitivity. Remove runners to redirect energy to mother plant."
 
   "Pilea peperomioides":
@@ -131,7 +139,7 @@ care_profiles:
     pest_check_interval_days: 14
     rotation_interval_days: 7
     pruning_season: [3, 4]
-    dormancy_months: [11, 12, 1, 2]
+    dormancy_months: []
     notes: "Rotate frequently for symmetrical growth — leaves lean strongly toward light. Remove basal pups to propagate or let them fill out the pot."
 
   "Zamioculcas zamiifolia":
@@ -145,7 +153,7 @@ care_profiles:
     pest_check_interval_days: 21
     rotation_interval_days: 30
     pruning_season: [3, 4]
-    dormancy_months: [11, 12, 1, 2]
+    dormancy_months: []
     notes: "Extremely drought-tolerant thanks to rhizomatous roots. Yellow leaves almost always indicate overwatering. Tolerates very low light conditions."
 
   "Aloe vera":
@@ -187,8 +195,8 @@ care_profiles:
     pest_check_interval_days: 14
     rotation_interval_days: 14
     pruning_season: [3, 4, 5, 6]
-    dormancy_months: [11, 12, 1, 2]
-    notes: "Heart-leaf philodendron — very forgiving. Trail in a hanging pot or train up a moss pole. Yellowing leaves usually mean overwatering."
+    dormancy_months: []
+    notes: "Heart-leaf philodendron — very forgiving. Trail in a hanging pot or train up a moss pole. Yellowing leaves usually mean overwatering. Toxic to dogs and cats (calcium oxalate crystals)."
 
   "Maranta leuconeura":
     watering_interval_summer_days: 5
@@ -201,7 +209,7 @@ care_profiles:
     pest_check_interval_days: 7
     rotation_interval_days: 14
     pruning_season: [3, 4]
-    dormancy_months: [11, 12, 1, 2]
+    dormancy_months: []
     notes: "Prayer plant — leaves fold up at night. Sensitive to hard water and low humidity. Use filtered or rainwater. Group with other plants for humidity."
 
   "Calathea orbifolia":
@@ -215,7 +223,7 @@ care_profiles:
     pest_check_interval_days: 7
     rotation_interval_days: 14
     pruning_season: [3, 4]
-    dormancy_months: [11, 12, 1, 2]
+    dormancy_months: []
     notes: "Among the most humidity-demanding houseplants. Crispy leaf edges indicate low humidity. Use only filtered, distilled, or rainwater — very sensitive to minerals and chlorine."
 
   "Aspidistra elatior":
@@ -229,7 +237,7 @@ care_profiles:
     pest_check_interval_days: 21
     rotation_interval_days: 0
     pruning_season: [3, 4]
-    dormancy_months: [11, 12, 1, 2]
+    dormancy_months: []
     notes: "Cast iron plant — nearly indestructible. Tolerates deep shade, neglect, and temperature extremes. Very slow grower; rarely needs repotting."
 
   "Dieffenbachia seguine":
@@ -243,7 +251,7 @@ care_profiles:
     pest_check_interval_days: 14
     rotation_interval_days: 14
     pruning_season: [3, 4]
-    dormancy_months: [11, 12, 1, 2]
+    dormancy_months: []
     notes: "Dumb cane — toxic sap causes oral irritation. Wear gloves when handling. Loses lower leaves naturally; can be air-layered to rejuvenate leggy plants."
 
   "Schefflera arboricola":
@@ -257,7 +265,7 @@ care_profiles:
     pest_check_interval_days: 14
     rotation_interval_days: 14
     pruning_season: [3, 4, 5]
-    dormancy_months: [11, 12, 1, 2]
+    dormancy_months: []
     notes: "Umbrella plant — tolerates moderate light. Prune to maintain bushy shape. Sticky residue on leaves may indicate scale or mealybug infestation."
 
   "Yucca elephantipes":
@@ -271,7 +279,7 @@ care_profiles:
     pest_check_interval_days: 21
     rotation_interval_days: 30
     pruning_season: [3, 4]
-    dormancy_months: [11, 12, 1, 2]
+    dormancy_months: []
     notes: "Tolerates dry indoor air well. Prefers bright light including some direct sun. Overwatering causes root rot — water only when top half of soil is dry."
 
   "Dypsis lutescens":
@@ -285,7 +293,7 @@ care_profiles:
     pest_check_interval_days: 14
     rotation_interval_days: 14
     pruning_season: []
-    dormancy_months: [11, 12, 1, 2]
+    dormancy_months: []
     notes: "Areca palm — excellent natural humidifier. Brown frond tips indicate low humidity or mineral buildup. Flush soil periodically to prevent salt accumulation."
 
   "Howea forsteriana":
@@ -299,7 +307,7 @@ care_profiles:
     pest_check_interval_days: 14
     rotation_interval_days: 30
     pruning_season: []
-    dormancy_months: [11, 12, 1, 2]
+    dormancy_months: []
     notes: "Kentia palm — very slow-growing and shade-tolerant. Sensitive to overwatering and repotting. Only repot when truly rootbound. Never cut the central growing tip."
 
   "Chamaedorea elegans":
@@ -313,7 +321,7 @@ care_profiles:
     pest_check_interval_days: 14
     rotation_interval_days: 14
     pruning_season: []
-    dormancy_months: [11, 12, 1, 2]
+    dormancy_months: []
     notes: "Parlor palm — one of the best low-light palms. Susceptible to spider mites in dry air. Mist regularly or use a pebble tray for humidity."
 
   "Strelitzia reginae":
@@ -327,7 +335,7 @@ care_profiles:
     pest_check_interval_days: 14
     rotation_interval_days: 14
     pruning_season: [3, 4]
-    dormancy_months: [11, 12, 1, 2]
+    dormancy_months: []
     notes: "Bird of paradise — needs bright direct light to flower indoors (rare). Large leaves split naturally in wind; indoors this is cosmetic only. Heavy feeder during growing season."
 
   "Alocasia x amazonica":
@@ -355,7 +363,7 @@ care_profiles:
     pest_check_interval_days: 14
     rotation_interval_days: 14
     pruning_season: [3, 4]
-    dormancy_months: [11, 12, 1, 2]
+    dormancy_months: []
     notes: "Rex begonia — do NOT mist directly on leaves as it promotes powdery mildew. Use a pebble tray for humidity instead. Prefers bright indirect light; avoid direct sun."
 
   # ============================================================================
@@ -374,7 +382,7 @@ care_profiles:
     rotation_interval_days: 0
     pruning_season: [5, 6, 7, 8]
     dormancy_months: []
-    notes: "Annual. Water at the base to avoid blight. Remove suckers (Geiztriebe) regularly for indeterminate varieties. Heavy feeder — high potassium from fruiting stage onward."
+    notes: "Annual. Water at the base to avoid blight. Remove suckers (Geiztriebe) regularly for indeterminate varieties. Heavy feeder — high potassium from fruiting stage onward. Leaves and green fruits contain solanine — toxic if ingested."
 
   "Capsicum annuum":
     watering_interval_summer_days: 2
@@ -786,9 +794,9 @@ care_profiles:
     repotting_interval_months: 0
     pest_check_interval_days: 14
     rotation_interval_days: 0
-    pruning_season: [2, 3, 10, 11]
+    pruning_season: [2, 3, 7, 8, 10, 11]
     dormancy_months: [11, 12, 1, 2]
-    notes: "Perennial cane fruit. Summer-bearing: prune fruited canes after harvest. Autumn-bearing: cut all canes to ground in late winter. Train on wires. Mulch generously."
+    notes: "Perennial cane fruit. Summer-bearing: prune fruited canes immediately after harvest (July/Aug), tie in new canes. Autumn-bearing: cut all canes to ground in late winter. Train on wires. Mulch generously."
 
   "Vaccinium corymbosum":
     watering_interval_summer_days: 3
@@ -802,7 +810,7 @@ care_profiles:
     rotation_interval_days: 0
     pruning_season: [2, 3]
     dormancy_months: [11, 12, 1, 2]
-    notes: "Perennial shrub. MUST have acidic soil (pH 4.0-5.5) — use ericaceous compost. Rainwater preferred (tap water raises pH). Net against birds. Prune old wood in late winter."
+    notes: "Perennial shrub. MUST have acidic soil (pH 4.0-5.5) — use ericaceous compost. Use only acidic fertilizer (rhododendron/ericaceous feed); standard fertilizers raise pH. No nitrogen after July (soft growth overwinters poorly). Rainwater preferred (tap water raises pH). Net against birds. Prune old wood in late winter."
 
   "Malus domestica":
     watering_interval_summer_days: 5
@@ -831,3 +839,1679 @@ care_profiles:
     pruning_season: [1, 2, 6, 7]
     dormancy_months: [11, 12, 1, 2]
     notes: "Perennial vine. Essential to prune hard in late winter (spur or cane pruning). Summer-prune excess growth. Train on wires or pergola. Watch for mildew in humid conditions. Deep roots — drought-tolerant once established."
+
+  # ============================================================================
+  # INDOOR HOUSEPLANTS — Tropical & Foliage (additional species)
+  # ============================================================================
+
+  "Aeschynanthus radicans":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 18
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Lipstick plant — trailing epiphyte. Bright indirect light triggers the tubular red flowers. Let top 2 cm dry between waterings. High humidity preferred (50%+). Prune leggy stems in spring to encourage branching."
+
+  "Aglaonema commutatum":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Chinese evergreen — one of the best low-light houseplants. Tolerates neglect well. Avoid cold drafts below 15 C. Variegated forms need slightly more light. Toxic to pets."
+
+  "Anthurium andraeanum":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 7
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: []
+    notes: "Flamingo flower — needs high humidity (60%+) and bright indirect light to bloom. Use orchid-like airy substrate. Water when top 2-3 cm dry. Wipe glossy leaves weekly for photosynthesis."
+
+  "Aphelandra squarrosa":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 7
+    repotting_interval_months: 18
+    pest_check_interval_days: 7
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Zebra plant — dramatically drops leaves if soil dries out or humidity drops. Keep consistently moist but not soggy. High humidity essential (60%+). Cut back after flowering to promote bushier growth."
+
+  "Ardisia crenata":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Coral berry — decorative red berries persist for months. Needs cool winter rest (10-15 C) to set flower buds. Avoid direct sun. Keep evenly moist. Berries are mildly toxic."
+
+  "Asparagus setaceus":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 0
+    repotting_interval_months: 18
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Asparagus fern — not a true fern. Yellowing and needle drop indicate dry air or dry roots. Mist regularly. Has tuberous roots that store water. Cut back old yellowed fronds at the base."
+
+  "Beaucarnea recurvata":
+    watering_interval_summer_days: 14
+    watering_interval_winter_days: 28
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 21
+    repotting_interval_months: 36
+    pest_check_interval_days: 21
+    rotation_interval_days: 30
+    pruning_season: []
+    dormancy_months: []
+    notes: "Ponytail palm — succulent, not a true palm. Swollen trunk (caudex) stores water. Very drought-tolerant. Overwatering causes root rot. Prefers bright light. Extremely slow growing."
+
+  "Ceropegia woodii":
+    watering_interval_summer_days: 10
+    watering_interval_winter_days: 21
+    fertilizing_interval_days: 21
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "String of hearts — semi-succulent trailing plant. Has tubers along stems that store water. Let soil dry between waterings. Bright indirect light for best variegation. Easily propagated from tubers or cuttings."
+
+  "Clivia miniata":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 21
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 48
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: [10, 11, 12, 1]
+    notes: "Needs 6-8 weeks cold winter rest (8-12 C) with minimal water to initiate flowering. Do NOT repot unless severely rootbound — flowers best when pot-bound. Tolerates shade. Toxic to pets."
+
+  "Codiaeum variegatum":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 7
+    repotting_interval_months: 24
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Croton — drops leaves dramatically if moved, exposed to cold drafts, or underwatered. Once positioned, do not move. Needs bright direct light for vivid colors. Very prone to spider mites in dry air."
+
+  "Coffea arabica":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 18
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Coffee plant — likes bright indirect light, consistent moisture, and acidic soil (pH 6.0-6.5). May produce fragrant white flowers and berries after 3-5 years. Sensitive to hard water."
+
+  "Ctenanthe burle-marxii":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 8
+    fertilizing_interval_days: 21
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 7
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Prayer plant relative — similar care to Calathea. High humidity essential (60%+). Use filtered or rainwater. Crispy leaf edges indicate low humidity or mineral sensitivity. Avoid direct sun."
+
+  "Curio rowleyanus":
+    watering_interval_summer_days: 10
+    watering_interval_winter_days: 21
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "String of pearls — succulent. Spherical leaves store water; overwatering is the primary killer. Needs very well-draining soil. Bright indirect light. Water only when pearls start to look slightly deflated."
+
+  "Dracaena angolensis":
+    watering_interval_summer_days: 14
+    watering_interval_winter_days: 28
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 21
+    repotting_interval_months: 36
+    pest_check_interval_days: 21
+    rotation_interval_days: 30
+    pruning_season: []
+    dormancy_months: []
+    notes: "Cylindrical snake plant — extremely drought-tolerant. Cylindrical leaves distinguish it from D. trifasciata. Same care as snake plant: let soil dry completely. Overwatering causes mushy stems."
+
+  "Dracaena marginata":
+    watering_interval_summer_days: 10
+    watering_interval_winter_days: 18
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4, 5]
+    dormancy_months: []
+    notes: "Dragon tree — loses lower leaves naturally as it grows, forming a bare trunk. Can be cut back to any height and will resprout. Sensitive to fluoride in water — use filtered water. Brown tips are common."
+
+  "Fatsia japonica":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Japanese aralia — tolerates cool rooms (down to 5 C) and shade. Fast grower that can become leggy; prune hard in spring to rejuvenate. Large palmate leaves need regular cleaning."
+
+  "Fittonia albivenis":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 18
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4, 5, 6]
+    dormancy_months: []
+    notes: "Nerve plant — dramatically wilts when thirsty but recovers quickly after watering. Needs high humidity; excellent terrarium plant. Pinch growing tips to encourage bushier growth. Avoid direct sun."
+
+  "Goeppertia lancifolia":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 8
+    fertilizing_interval_days: 21
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 7
+    repotting_interval_months: 24
+    pest_check_interval_days: 7
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Rattlesnake calathea — distinctive wavy leaf edges with dark spots. Same care as other calatheas: filtered water, high humidity, no direct sun. Remove brown-edged leaves at the base."
+
+  "Goeppertia makoyana":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 8
+    fertilizing_interval_days: 21
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 7
+    repotting_interval_months: 24
+    pest_check_interval_days: 7
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Peacock calathea — striking patterned leaves. Extremely sensitive to tap water minerals and low humidity. Use rainwater or distilled water only. Avoid temperatures below 16 C."
+
+  "Goeppertia orbifolia":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 8
+    fertilizing_interval_days: 21
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 7
+    repotting_interval_months: 24
+    pest_check_interval_days: 7
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Orbifolia calathea — large round leaves with silver-green stripes. Among the most humidity-demanding calatheas. Keep soil evenly moist but never waterlogged. Sensitive to fluoride and chlorine."
+
+  "Hedera helix":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 18
+    pest_check_interval_days: 7
+    rotation_interval_days: 14
+    pruning_season: [3, 4, 5, 6]
+    dormancy_months: []
+    notes: "English ivy — evergreen, no dormancy. Prefers cool conditions (15-20 C). Extremely prone to spider mites in warm, dry rooms — mist frequently or use a pebble tray (but ensure good air circulation to avoid Botrytis). Toxic to dogs and cats (hederin, falcarinol). Trim regularly to keep bushy. Invasive outdoors in some regions."
+
+  "Hoya carnosa":
+    watering_interval_summer_days: 10
+    watering_interval_winter_days: 18
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 36
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Wax plant — semi-succulent. Do NOT remove old flower spurs (peduncles) as new flowers emerge from the same spot. Blooms best when rootbound. Bright indirect light for flowering. Very sensitive to overwatering."
+
+  "Livistona chinensis":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 36
+    pest_check_interval_days: 14
+    rotation_interval_days: 30
+    pruning_season: []
+    dormancy_months: []
+    notes: "Chinese fan palm — slow-growing, elegant. Only remove completely brown fronds. Brown frond tips are normal in indoor conditions. Sensitive to overwatering. Prefers bright indirect light."
+
+  "Monstera adansonii":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 18
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4, 5]
+    dormancy_months: []
+    notes: "Swiss cheese vine — smaller and faster-growing than M. deliciosa. Needs support to climb or trails beautifully from a hanging pot. Higher humidity needs than M. deliciosa. Water when top 3 cm dry."
+
+  "Oxalis triangularis":
+    watering_interval_summer_days: 0
+    watering_interval_winter_days: 5
+    fertilizing_interval_days: 14
+    fertilizing_months: [9, 10, 11, 12, 1, 2, 3, 4, 5]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: [6, 7, 8]
+    notes: "Purple shamrock — bulbous geophyte with heat-induced summer dormancy. When leaves die back in summer, stop watering for 4-6 weeks, store cool and dark. Resume watering in late summer/autumn — new growth will emerge quickly. Folds leaves at night and in low light."
+
+  "Pachira aquatica":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4, 5]
+    dormancy_months: []
+    notes: "Money tree — stores water in the trunk base. Let soil dry between waterings. Tolerates moderate to bright indirect light. Often sold with braided trunks. Prune to maintain shape."
+
+  "Peperomia obtusifolia":
+    watering_interval_summer_days: 10
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4, 5]
+    dormancy_months: []
+    notes: "Baby rubber plant — semi-succulent with thick leaves that store water. Let soil dry between waterings. Very forgiving of low light. Compact grower; pinch tips to keep bushy. Non-toxic to pets."
+
+  "Platycerium bifurcatum":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Staghorn fern — epiphyte, mount on board or hang in basket with sphagnum moss. Soak in water for 15-20 min weekly. Do NOT remove brown shield fronds — they protect the root ball. Bright indirect light."
+
+  "Plectranthus verticillatus":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 12
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4, 5, 6]
+    dormancy_months: []
+    notes: "Swedish ivy — fast-growing trailer. Pinch tips regularly for bushier growth. Easy to propagate from stem cuttings. Prefers bright indirect light; leggy growth indicates too little light."
+
+  "Rhipsalis baccifera":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 0
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Mistletoe cactus — epiphytic jungle cactus. Unlike desert cacti, prefers humidity and indirect light. Use orchid or epiphytic mix. Keep slightly moist; never bone dry. Trails beautifully from hanging pots."
+
+  "Soleirolia soleirolii":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 5
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 0
+    repotting_interval_months: 12
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Baby tears — tiny-leaved creeping ground cover. Needs consistently moist soil and high humidity. Excellent terrarium plant. Can be invasive in the right conditions. Trim edges to keep contained."
+
+  "Stephanotis floribunda":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Madagascar jasmine — fragrant white flowers in summer. Needs cool winter rest (12-15 C) for flower bud initiation. Needs trellis or hoop support. Do not move once buds form — bud drop."
+
+  "Stromanthe sanguinea":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 8
+    fertilizing_interval_days: 21
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 7
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Triostar — prayer plant relative with stunning pink-red leaf undersides. Same care as Calathea: high humidity, filtered water, no direct sun. Brown leaf edges indicate dry air or mineral buildup."
+
+  "Syngonium podophyllum":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 18
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4, 5, 6]
+    dormancy_months: []
+    notes: "Arrowhead vine — juvenile leaves are arrow-shaped, mature leaves develop lobes. Prune to keep compact or let it climb. Very adaptable to various light conditions. Toxic — keep away from pets."
+
+  "Tradescantia zebrina":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 12
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4, 5, 6]
+    dormancy_months: []
+    notes: "Wandering dude — fast-growing trailer. Pinch tips and trim leggy stems regularly. Propagates instantly in water. Bright light intensifies purple coloring. Becomes sparse in low light — rejuvenate by re-rooting cuttings."
+
+  "Zantedeschia aethiopica":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: [10, 11, 12, 1]
+    notes: "Calla lily — goes dormant after flowering. Reduce water as leaves yellow; stop completely during dormancy. Store rhizome dry and cool. Resume watering in spring. Needs consistently moist soil when actively growing."
+
+  # ============================================================================
+  # INDOOR HOUSEPLANTS — Ferns
+  # ============================================================================
+
+  "Adiantum raddianum":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 5
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 0
+    repotting_interval_months: 18
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Maidenhair fern — the most humidity-demanding common fern. Never let soil dry out completely. Brown, crispy fronds are irreversible — cut them off and improve humidity. Ideal for bathrooms."
+
+  "Asplenium nidus":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 8
+    fertilizing_interval_days: 21
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 7
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: []
+    notes: "Bird's nest fern — do NOT water into the central rosette (causes rot). Water around the edges. Wipe fronds to remove dust. Keep away from drafts. More tolerant of lower humidity than other ferns."
+
+  "Nephrolepis exaltata":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 0
+    repotting_interval_months: 18
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Boston fern — classic hanging fern. Drops leaflets when stressed (dry air, underwatering). Needs consistent moisture and humidity (50%+). Cut back brown fronds at base in spring. Excellent air purifier."
+
+  # ============================================================================
+  # INDOOR HOUSEPLANTS — Bromeliads
+  # ============================================================================
+
+  "Aechmea fasciata":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: []
+    notes: "Urn plant — keep the central cup (tank) filled with fresh water, flush monthly. The mother rosette dies after flowering but produces offsets (pups). Detach pups when 1/3 mother size."
+
+  "Neoregelia carolinae":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: []
+    notes: "Blushing bromeliad — center turns red before flowering. Keep tank filled with rainwater. Mother plant dies after flowering; separate pups. Grows well mounted on branches or in orchid mix."
+
+  "Vriesea splendens":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: []
+    notes: "Flaming sword — spectacular red flower spike lasts weeks. Fill central tank with soft water; flush regularly to prevent stagnation. Prefers bright indirect light. Mother rosette dies after flowering; grow on pups."
+
+  "Tillandsia usneoides":
+    watering_interval_summer_days: 2
+    watering_interval_winter_days: 5
+    fertilizing_interval_days: 30
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 21
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Spanish moss — rootless air plant, no substrate needed. Preferred method: soak fully in water for 20-30 min every 2-3 days (summer) or weekly (winter), then hang to dry within 4 hours (prevent rot). Misting alone is insufficient in dry rooms. Good air circulation essential — trapped moisture causes rot (black/dark brown color). Hang in bright indirect light. Gray color is normal (trichomes)."
+
+  # ============================================================================
+  # INDOOR HOUSEPLANTS — Orchids
+  # ============================================================================
+
+  "Phalaenopsis spp.":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9, 10]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Moth orchid — soak in water for 10-15 min, then drain completely. Green roots = hydrated, silver/white = needs water. After flowering, cut spike above a node for potential rebloom. Use bark-based orchid mix."
+
+  "Dendrobium nobile":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Dendrobium orchid — NEEDS cold winter rest (10-15 C day, 5-10 C night) with reduced watering to initiate flowering. Do not remove old leafless canes — they may still flower. Bright light year-round."
+
+  "Cattleya hybrida":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Cattleya orchid — needs bright light including some direct morning sun to flower. Water thoroughly then let medium dry almost completely. Pseudobulbs store water. Repot when new growth begins. Use coarse bark mix."
+
+  # ============================================================================
+  # INDOOR HOUSEPLANTS — Succulents & Cacti (additional species)
+  # ============================================================================
+
+  "Echeveria elegans":
+    watering_interval_summer_days: 10
+    watering_interval_winter_days: 21
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 21
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Mexican snowball — do NOT get water on the rosette (removes protective farina coating and causes rot). Bottom-water or drench around edges. Needs full sun for compact growth. Etiolation = too little light."
+
+  "Haworthiopsis fasciata":
+    watering_interval_summer_days: 10
+    watering_interval_winter_days: 21
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 21
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Zebra plant succulent — more shade-tolerant than most succulents. Prefers bright indirect light; direct sun can cause leaf bleaching. Produces offsets freely. Compact rosette rarely exceeds 10 cm."
+
+  "Sedum morganianum":
+    watering_interval_summer_days: 10
+    watering_interval_winter_days: 21
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 36
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Burro's tail — fragile leaves detach at the slightest touch. Avoid moving or handling the plant. Each fallen leaf can propagate. Trailing succulent, best in hanging pots. Full sun for best coloration."
+
+  "Gymnocalycium mihanovichii":
+    watering_interval_summer_days: 14
+    watering_interval_winter_days: 28
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 36
+    pest_check_interval_days: 21
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Moon cactus — colorful top is grafted onto a rootstock (usually Hylocereus). Lifespan limited by graft compatibility (2-5 years). Avoid direct midday sun — the colorful part lacks chlorophyll. Keep dry in winter."
+
+  "Lithops spp.":
+    watering_interval_summer_days: 0
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 0
+    fertilizing_months: []
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 48
+    pest_check_interval_days: 30
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: [5, 6, 7, 8, 12, 1, 2, 3]
+    notes: "Living stones — CRITICAL watering cycle: water ONLY in autumn (Sep-Nov) when old leaf pair splits open. NEVER water in summer (dormancy) or winter (splitting/moulting phase — water causes double bodies to rot). Overwatering is fatal. Full sun minimum 4h direct. The 0-day intervals mean: rely only on the autumn window. No fertilizer ever."
+
+  "Mammillaria spp.":
+    watering_interval_summer_days: 10
+    watering_interval_winter_days: 28
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 24
+    pest_check_interval_days: 21
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Pincushion cactus — large genus with varied needs. Most need cool, dry winter rest (5-10 C) to flower. Flowers form a ring (crown) around the top. Well-draining cactus mix essential. Full sun."
+
+  "Opuntia microdasys":
+    watering_interval_summer_days: 14
+    watering_interval_winter_days: 28
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 36
+    pest_check_interval_days: 21
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Bunny ears cactus — covered in tiny glochids (hair-like spines) that are extremely irritating. Handle with thick gloves or folded newspaper. Full sun. Cool, dry winter rest. Very drought-tolerant."
+
+  "Kalanchoe blossfeldiana":
+    watering_interval_summer_days: 10
+    watering_interval_winter_days: 18
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 18
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Flaming Katy — short-day plant. To rebloom, provide 14 hours darkness daily for 6 weeks starting October (cover with opaque box; NO artificial light interruptions, even briefly). During this induction phase: no fertilizer, minimal water. Remove spent flower stalks. Let soil dry well between waterings; reduce further in winter."
+
+  "Kalanchoe daigremontiana":
+    watering_interval_summer_days: 10
+    watering_interval_winter_days: 21
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Mother of thousands — produces plantlets along leaf edges that drop and root everywhere. Can be invasive in pots. Full sun to bright indirect light. Very drought-tolerant. Toxic to pets."
+
+  # ============================================================================
+  # INDOOR HOUSEPLANTS — Specialty & Seasonal
+  # ============================================================================
+
+  "Cyclamen persicum":
+    watering_interval_summer_days: 0
+    watering_interval_winter_days: 3
+    fertilizing_interval_days: 14
+    fertilizing_months: [10, 11, 12, 1, 2, 3]
+    misting_recommended: false
+    cleaning_interval_days: 7
+    repotting_interval_months: 12
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: [5, 6, 7, 8, 9]
+    notes: "Winter bloomer — reverse cycle. Flowers Oct-Mar, then goes dormant in summer. Water from below only (subirrigation); never wet the tuber crown — causes crown rot. Ideal temperature 12-15 C; above 18 C plants decline quickly. During summer dormancy (May-Sep): stop watering, store tuber dry in cool shade. Resume watering carefully in September — do not overwater dormant tuber."
+
+  "Euphorbia pulcherrima":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 8
+    fertilizing_interval_days: 14
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 12
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Poinsettia — to recolor bracts, needs 14 hours uninterrupted darkness daily from October for 8 weeks (no light leaks at all, even briefly). No drafts, no temperatures below 15 C. Milky latex sap is a mild irritant. Cut back hard in spring (March/April) to 10-15 cm; new growth will flush. Reduce watering in winter decoration phase."
+
+  "Gardenia jasminoides":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 7
+    repotting_interval_months: 24
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Gardenia — extremely demanding. Needs acidic soil (pH 5.0-6.0), high humidity, consistent temperature (18-22 C). Bud drop from any change (moving, drafts, temperature swings). Use rainwater. Iron chlorosis common."
+
+  "Hibiscus rosa-sinensis":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 7
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9, 10]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 18
+    pest_check_interval_days: 7
+    rotation_interval_days: 14
+    pruning_season: [2, 3]
+    dormancy_months: []
+    notes: "Tropical hibiscus — heavy feeder, fertilize weekly during bloom season. Needs bright light for flowering. Hard pruning in late winter encourages branching. Very prone to aphids, whitefly, spider mites."
+
+  "Hippeastrum hybridum":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 36
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: []
+    dormancy_months: [9, 10, 11]
+    notes: "Amaryllis — 3-phase cycle: (1) Flowering Dec-Mar: water regularly. (2) Leaf growth Apr-Aug: water and fertilize to rebuild bulb. (3) Induced rest Sep-Nov: stop watering, store cool (15-18 C) and dark. Resume watering Oct-Nov to trigger next flowering cycle. No cold stratification needed. Plant with 1/3 bulb above soil."
+
+  "Jasminum polyanthum":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Winter jasmine — intensely fragrant. Needs cool winter rest (5-10 C) for 6-8 weeks to initiate flower buds. Needs trellis support. Prune after flowering. Can be placed outdoors in summer."
+
+  "Rhododendron simsii":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 5
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: true
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [4, 5]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Indoor azalea — needs acidic soil (pH 4.5-5.5), cool temperatures (max 18 C), and consistent moisture. Never let root ball dry out completely. Use rainwater only. Place outdoors in summer shade. Prune after flowering."
+
+  "Schlumbergera truncata":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 14
+    fertilizing_months: [4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [2, 3]
+    notes: "Christmas cactus — jungle epiphyte, NOT a desert cactus. Needs more water than true cacti. To trigger blooming: from September, provide 6 weeks of cool temperatures (10-15 C) and 12+ hours of uninterrupted darkness. Once buds form, maintain consistent conditions — do not move or rotate (causes bud drop). After flowering (Feb-Mar), allow brief rest: reduce water for 4-6 weeks, then resume normal care. Watch for root and stem mealybugs (Pseudococcus) hiding in the substrate — white cottony masses at stem bases indicate infestation."
+
+  "Streptocarpus ionanthus":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9, 10]
+    misting_recommended: false
+    cleaning_interval_days: 7
+    repotting_interval_months: 12
+    pest_check_interval_days: 14
+    rotation_interval_days: 7
+    pruning_season: []
+    dormancy_months: [12, 1, 2]
+    notes: "African violet — water from below or use a wick system. Cold water on leaves causes brown spots. Bright indirect light; flowers best under grow lights (12-14h). Remove spent flowers at the base. Peat-based mix."
+
+  "Streptocarpus hybridus":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9, 10]
+    misting_recommended: false
+    cleaning_interval_days: 7
+    repotting_interval_months: 12
+    pest_check_interval_days: 14
+    rotation_interval_days: 7
+    pruning_season: []
+    dormancy_months: [12, 1, 2]
+    notes: "Cape primrose — similar care to African violet. Blooms prolifically in bright indirect light. Remove spent flower stalks at base. Propagates easily from leaf sections. Keep evenly moist but not waterlogged."
+
+  "Begonia semperflorens":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 12
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: []
+    notes: "Wax begonia — compact bedding plant also grown as houseplant. Continuous bloomer in good light. Pinch tips for bushier growth. Avoid wetting leaves (powdery mildew). Propagates easily from stem cuttings."
+
+  # ============================================================================
+  # OUTDOOR — Additional Vegetables
+  # ============================================================================
+
+  "Allium sativum":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual/biennial. Plant cloves Oct-Nov (autumn garlic) or Feb-Mar (spring garlic). Stop watering when lower leaves yellow. Scapes on hardneck varieties are edible — remove for larger bulbs. Good companion for strawberries."
+
+  "Apium graveolens var. rapaceum":
+    watering_interval_summer_days: 2
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 14
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Celeriac — heavy feeder with long growing season (start indoors Feb-Mar). Needs consistent, generous watering. Remove outer lower leaves in August to encourage bulb growth. Celery leaf spot prone."
+
+  "Asparagus officinalis":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [10, 11]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Perennial — do NOT harvest first 2 years; let ferns develop to strengthen crowns. Harvest season Apr-Jun (8 weeks max), then let ferns grow. Cut ferns back in autumn when yellowed. Beds productive 15-20 years."
+
+  "Brassica oleracea var. sabellica":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 5
+    fertilizing_interval_days: 14
+    fertilizing_months: [5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Kale — biennial grown as annual. Heavy feeder (Starkzehrer). Frost improves flavor by converting starch to sugar. Harvest lower leaves first. Net against cabbage white butterfly. Tolerates light frosts to -15 C."
+
+  "Pastinaca sativa":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 28
+    fertilizing_months: [4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Biennial grown as annual. Direct sow only — slow to germinate (3-4 weeks). Frost improves sweetness. Can overwinter in ground and harvest as needed. Foliage causes phototoxic skin burns in sunlight — wear gloves."
+
+  "Rheum rhabarbarum":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: [10, 11, 12, 1, 2]
+    notes: "Perennial. Do NOT harvest first year. Harvest stalks by twisting and pulling (not cutting) April-June only. Remove flower stalks immediately. Leaves are toxic (oxalic acid). Mulch with compost in autumn."
+
+  # ============================================================================
+  # OUTDOOR — Additional Herbs
+  # ============================================================================
+
+  "Levisticum officinale":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [10, 11, 12, 1, 2]
+    notes: "Lovage — large perennial herb growing up to 2 m. Very vigorous once established. Cut back after flowering to encourage fresh leaves. All parts edible. Celery-like flavor. Deep roots; drought-tolerant once established."
+
+  "Melissa officinalis":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 24
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3, 4, 7, 8]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Lemon balm — perennial. Self-seeds aggressively; remove flower heads to control spread. Cut back hard twice per season for fresh growth. Best aroma before flowering. Tolerates partial shade."
+
+  "Satureja hortensis":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Summer savory — annual. Direct sow after last frost. Harvest before or during flowering for best flavor. Good companion for beans. Light feeder. Prefers full sun and well-drained soil."
+
+  # ============================================================================
+  # OUTDOOR — Green Manure & Companion Plants
+  # ============================================================================
+
+  "Phacelia tanacetifolia":
+    watering_interval_summer_days: 0
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 0
+    fertilizing_months: []
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 0
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual green manure. Excellent bee forage. Sow Mar-Sep; fast-growing. Cut and incorporate before flowering for maximum nitrogen. Not related to any vegetable family — breaks disease cycles. Frost-tender."
+
+  "Sinapis alba":
+    watering_interval_summer_days: 0
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 0
+    fertilizing_months: []
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 0
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "White mustard — fast-growing green manure. Sow Aug-Sep for overwintering cover. Brassica family — do NOT use before/after other brassicas (clubroot risk). Suppresses nematodes. Winter-kills below -5 C."
+
+  "Medicago sativa":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 0
+    fertilizing_months: []
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 0
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Alfalfa — perennial nitrogen-fixer with deep taproot (2+ m). Excellent soil improver. Cut 2-3 times per season. Leave as green manure for 1-2 years for maximum soil improvement. Drought-tolerant once established."
+
+  "Lupinus polyphyllus":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 0
+    fertilizing_months: []
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [7, 8]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Perennial lupine — nitrogen-fixer. Spectacular flower spikes. Deadhead after flowering for potential second flush. Self-seeds readily. Prefers acidic to neutral soil. Toxic seeds. Prone to aphids."
+
+  "Tropaeolum majus":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 0
+    fertilizing_months: []
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual nasturtium — do NOT fertilize (poor soil = more flowers, rich soil = all leaves). Edible flowers and leaves (peppery). Excellent trap crop for aphids and cabbage whites. Direct sow after frost."
+
+  "Calendula officinalis":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 0
+    fertilizing_months: []
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual pot marigold — self-seeds prolifically. Deadhead for continuous flowering. Edible petals. Attracts beneficial insects. Good companion for vegetables (repels nematodes). Tolerates poor soil."
+
+  "Tagetes patula":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "French marigold — annual. Excellent companion plant: roots exude thiophenes that repel nematodes. Plant among tomatoes, peppers, and brassicas. Deadhead for continuous bloom. Easy from seed."
+
+  # ============================================================================
+  # OUTDOOR — Additional Fruit & Berries
+  # ============================================================================
+
+  "Prunus avium":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 30
+    fertilizing_months: [3, 4, 5, 6]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [7, 8]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Sweet cherry — prune in SUMMER only (reduces disease risk, unlike most fruit trees). Needs a pollination partner (check compatibility groups). Net against birds. Watch for cherry fruit fly and Monilia."
+
+  "Prunus domestica":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 30
+    fertilizing_months: [3, 4, 5, 6]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [7, 8]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Plum — prune in summer to reduce silver leaf disease risk. Thin fruit in June for larger plums. Most varieties self-fertile but crop better with a partner. Watch for plum moth and Monilia (brown rot)."
+
+  "Pyrus communis":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 30
+    fertilizing_months: [3, 4, 5, 6]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [1, 2, 3]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Pear — winter prune like apple. Most varieties need a pollination partner. Harvest slightly unripe and ripen indoors. Watch for pear rust (orange spots from Juniper alternate host) and fire blight."
+
+  "Ribes rubrum":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [11, 12, 1, 2]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Red currant — prune in winter: remove oldest branches (4+ years), keep 8-10 main shoots. Fruits on 2-3 year old wood. Mulch generously. Net against birds. Self-fertile but crops better with partner."
+
+  "Ribes uva-crispa":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: [11, 12, 1, 2]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Gooseberry — prune to open center for air circulation (reduces mildew). Very prone to powdery mildew — choose resistant varieties. Thin fruit in May for larger berries. Self-fertile. Thorny — wear gloves."
+
+  "Rubus fruticosus agg.":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [9, 10, 11]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Blackberry — floricane varieties: remove fruited canes after harvest, tie in new canes. Primocane varieties: cut all canes to ground in late winter. Very vigorous; train on wires. Mulch heavily."
+
+  "Sambucus nigra":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 30
+    fertilizing_months: [3, 4, 5, 6]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [1, 2, 3]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Elderberry — very vigorous native shrub. Harvest flowers June-July for cordial, berries Aug-Sep (MUST be cooked — raw are mildly toxic). Prune hard in winter; responds well to renovation. Self-fertile."
+
+  "Cornus mas":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 30
+    fertilizing_months: [3, 4, 5, 6]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 21
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Cornelian cherry — flowers very early (Feb-Mar) before leaves. Fruit ripens Aug-Sep when fully dark red. Needs a second tree for cross-pollination. Very low maintenance once established. Drought-tolerant."
+
+  # ============================================================================
+  # OUTDOOR — Ornamental Perennials
+  # ============================================================================
+
+  "Anemone hupehensis":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Autumn anemone — flowers Aug-Oct. Spreads by runners; can be vigorous once established. Cut back dead stems in spring. Protect in first winter with mulch. Partial shade to sun. Dislikes disturbance."
+
+  "Astilbe chinensis":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Perennial. Needs consistently moist soil — never let dry out. Thrives in partial to full shade. Leave dried flower plumes for winter interest. Divide every 3-4 years in spring. Compost-rich soil preferred."
+
+  "Clematis spp.":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [2, 3, 5, 6]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Perennial climber — pruning group is CRITICAL: Group 1 (spring-flowering, e.g. montana, alpina): prune ONLY after flowering (May-June), never in winter. Group 2 (large-flowered, e.g. Nelly Moser): light prune Feb to next healthy bud; after first flush, cut back for second bloom. Group 3 (late-flowering, e.g. viticella, Jackmanii): hard prune to 30 cm in Feb-Mar. Identify group before pruning! Feet in shade, head in sun."
+
+  "Dahlia pinnata":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 14
+    fertilizing_months: [5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: [10, 11, 12, 1, 2, 3]
+    notes: "Tuberous perennial — NOT frost-hardy. Lift tubers after first frost, dry, and store in cool frost-free location (5-10 C). Plant out after last frost (May). Pinch growing tip for bushier plants. Deadhead regularly."
+
+  "Dahlia x cultorum":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 14
+    fertilizing_months: [5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: [10, 11, 12, 1, 2, 3]
+    notes: "Garden dahlia — same care as D. pinnata. Heavy feeder, especially during flowering. Stake tall varieties. Slug-prone in spring. Divide tubers in spring before planting out. Each division needs an eye (bud)."
+
+  "Delphinium elatum":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: [7, 8]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Perennial. Stake tall varieties before they topple. Cut back to ground after first flowering for a second flush in autumn. Extremely slug-prone in spring. Full sun, rich soil. All parts toxic."
+
+  "Echinacea purpurea":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Purple coneflower — drought-tolerant prairie perennial. Leave seed heads for birds in winter. Cut back in spring. Do not over-fertilize (reduces flowering). Full sun. Attracts bees and butterflies."
+
+  "Geranium sanguineum":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 21
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Bloody cranesbill — extremely reliable, long-flowering perennial. Drought-tolerant once established. Excellent ground cover. Cut back after main flowering for fresh foliage and potential rebloom. Very low maintenance."
+
+  "Helleborus niger":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 30
+    fertilizing_months: [3, 4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [12, 1]
+    dormancy_months: []
+    notes: "Christmas rose — flowers Dec-Mar. Remove old leaves in winter to showcase flowers and reduce disease. Prefers partial shade and humus-rich, limy soil. Dislikes transplanting. Slug-prone. All parts toxic."
+
+  "Hemerocallis spp.":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [10, 11]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Daylily — each flower lasts one day but plants produce many buds. Remove spent scapes. Extremely tough and adaptable. Divide every 3-5 years. Full sun to partial shade. Drought-tolerant once established."
+
+  "Hosta spp.":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: [10, 11]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Perennial shade plant — slug MAGNET. Use slug pellets, beer traps, or copper tape. Remove flower scapes after blooming. Blue varieties lose color in too much sun. Divide in spring or autumn. Humus-rich, moist soil."
+
+  "Hydrangea macrophylla":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3, 7, 8]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Perennial shrub. Blue flowers in acidic soil (pH < 5.5 + aluminium sulfate), pink in alkaline. Blooms on previous year's wood — DO NOT prune hard in spring. Only remove dead wood in March. Main pruning: after flowering (July/Aug), cut spent flower heads to next healthy bud pair. Severe spring pruning = no flowers that year. Very thirsty; mulch generously."
+
+  "Paeonia lactiflora":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [10, 11]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Peony — long-lived perennial (50+ years). Plant eyes exactly 3-5 cm deep; too deep = no flowers. Do NOT move once established. Support heavy double flowers with peony rings. Ants on buds are harmless (eating nectar). Cut foliage in autumn."
+
+  "Phlox paniculata":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Garden phlox — very prone to powdery mildew. Choose resistant varieties. Thin stems in spring for air circulation (remove 1/3 of shoots). Water at the base, never overhead. Deadhead for extended bloom."
+
+  "Rosa spp.":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 14
+    fertilizing_months: [3, 4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Prune in spring when forsythia blooms. Hybrid teas: prune hard (3-5 buds). Shrub roses: lighter pruning. Remove crossing/dead branches. Deadhead repeat-bloomers. Full sun, good air circulation reduces black spot/mildew."
+
+  # ============================================================================
+  # OUTDOOR — Ornamental Shrubs & Trees
+  # ============================================================================
+
+  "Buxus sempervirens":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 14
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 7
+    rotation_interval_days: 0
+    pruning_season: [5, 6, 8, 9]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Boxwood — evergreen hedge/topiary. Clip twice per year (June + September). Box blight (Cylindrocladium) is devastating — remove affected branches immediately, disinfect tools. Box moth caterpillars — check inside regularly."
+
+  "Forsythia x intermedia":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 30
+    fertilizing_months: [4, 5, 6]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 21
+    rotation_interval_days: 0
+    pruning_season: [4, 5]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Forsythia — prune immediately AFTER flowering (flowers on previous year's wood). Remove 1/3 of oldest stems at ground level for rejuvenation. Phenological indicator: forsythia bloom signals time to prune roses."
+
+  "Ligustrum vulgare":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 30
+    fertilizing_months: [3, 4, 5, 6]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [6, 7, 8, 9]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Privet — semi-evergreen hedge. Clip 2-3 times per growing season. Very vigorous; tolerates hard renovation pruning. Berries are toxic. Adapts to almost any soil and exposure. Wildlife-friendly when allowed to flower."
+
+  "Rhododendron spp.":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 7
+    fertilizing_interval_days: 21
+    fertilizing_months: [3, 4, 5, 6, 7]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [5, 6]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "MUST have acidic soil (pH 4.5-5.5). Use ericaceous compost and rainwater. Deadhead spent flowers by snapping off carefully (do not damage new buds below). Shallow roots — mulch but do not dig around base. Partial shade."
+
+  "Syringa vulgaris":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 30
+    fertilizing_months: [3, 4, 5, 6]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [5, 6]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Lilac — prune immediately after flowering (flowers on previous year's wood). Deadhead spent panicles. Remove suckers to prevent spreading. Needs cold winter for flower bud initiation. Full sun for best flowering."
+
+  "Viburnum opulus":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 30
+    fertilizing_months: [3, 4, 5, 6]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [6, 7]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Guelder rose — native shrub. White lacecap flowers May-June, red berries autumn. Prune after flowering. Very prone to viburnum beetle (skeletonized leaves). Tolerates wet soil. Excellent wildlife plant."
+
+  "Weigela florida":
+    watering_interval_summer_days: 5
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 30
+    fertilizing_months: [3, 4, 5, 6]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [6, 7]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Deciduous shrub — prune immediately after flowering. Remove 1/3 of oldest stems at ground level each year for rejuvenation. Flowers on previous year's wood. Full sun for best flowering. Attracts hummingbirds."
+
+  # ============================================================================
+  # OUTDOOR — Bedding & Container Plants
+  # ============================================================================
+
+  "Pelargonium zonale":
+    watering_interval_summer_days: 3
+    watering_interval_winter_days: 10
+    fertilizing_interval_days: 7
+    fertilizing_months: [4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 7
+    repotting_interval_months: 12
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Zonal geranium — not frost-hardy. Overwinter in cool, bright location (5-10 C). Deadhead regularly for continuous bloom. Weekly feeding during season essential. Cut back 1/3 in spring. Let soil dry slightly between waterings."
+
+  "Petunia x hybrida":
+    watering_interval_summer_days: 2
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 7
+    fertilizing_months: [5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 7
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [7]
+    dormancy_months: []
+    notes: "Annual. Heavy feeder — weekly liquid fertilizer essential for non-stop bloom. Deadhead regularly. Cut back by half in July if plants become leggy for renewed flush. Thrives in containers and hanging baskets."
+
+  "Impatiens walleriana":
+    watering_interval_summer_days: 2
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 14
+    fertilizing_months: [5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: []
+    notes: "Annual. One of the best shade bedding plants. Self-cleaning (no deadheading needed). Wilts quickly when dry but recovers fast. Susceptible to downy mildew — avoid wetting foliage. Frost-tender."
+
+  "Tigridia pavonia":
+    watering_interval_summer_days: 4
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 14
+    fertilizing_months: [5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 0
+    repotting_interval_months: 0
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: []
+    dormancy_months: [10, 11, 12, 1, 2, 3]
+    notes: "Tiger flower — bulbous perennial, NOT frost-hardy. Each spectacular flower lasts only one day. Lift bulbs in autumn and store frost-free like gladiolus. Plant out after last frost. Full sun, well-drained soil."

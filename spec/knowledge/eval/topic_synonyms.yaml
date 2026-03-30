@@ -806,8 +806,8 @@ topics:
     de: [Luftfeuchtigkeit, RH, Feuchtigkeit]
 
   leitungswasser_chlor:
-    pattern: "(?i)Leitungswasser|Chlor|Kalk|Fluorid"
-    de: [Leitungswasser, Chlor, Kalk]
+    pattern: "(?i)Leitungswasser|Chlor|Kalk|Fluorid|abstehen.*lassen|gefiltert.*Wasser|Wasser.*filtert|Regenwasser|Wasserqualitaet"
+    de: [Leitungswasser, Chlor, Kalk, Fluorid, abstehen lassen, gefiltertes Wasser, Regenwasser]
 
   kalkempfindlich:
     pattern: "(?i)kalkempfindlich|Kalk.*schaed|empfindlich.*Kalk|weiches.*Wasser"
@@ -975,8 +975,8 @@ topics:
     de: [aktivkohlefilter reserve]
 
   algenbildung:
-    pattern: "(?i)algenbildung"
-    de: [algenbildung]
+    pattern: "(?i)Algen|Algenbild|Algenblue|Algenwachstum|gruener.*Belag"
+    de: [Algen, Algenbildung, Algenwachstum, gruener Belag]
 
   alles_ok:
     pattern: "(?i)alles"
@@ -1019,8 +1019,8 @@ topics:
     de: [basis ec zielwert]
 
   befallene_blaetter_entfernen:
-    pattern: "(?i)befallene.*blaetter.*entfernen"
-    de: [befallene blaetter entfernen]
+    pattern: "(?i)befallen.*entfern|befallen.*abschneid|befallen.*Blaett.*entfern|kranke.*Blaett.*entfern|infiziert.*entfern|herausschneid|abschneid.*befallen"
+    de: [befallene Blaetter entfernen, befallene abschneiden, herausschneiden, infizierte entfernen]
 
   befallene_teile_entfernen:
     pattern: "(?i)befallene.*teile.*entfernen"
@@ -1035,12 +1035,12 @@ topics:
     de: [blattunterseiten]
 
   blaue_klebefallen:
-    pattern: "(?i)blaue.*klebefallen"
-    de: [blaue klebefallen]
+    pattern: "(?i)blaue.*Klebe|blaue.*Falle|blaue.*Sticky|Blue.*Sticky|blaue.*Leimfalle"
+    de: [blaue Klebefallen, blaue Fallen, blaue Leimfallen, Blue Sticky Traps]
 
   bluetenendfaeule:
-    pattern: "(?i)bluetenendfaeule"
-    de: [bluetenendfaeule]
+    pattern: "(?i)Bluetenendfaeule|Blossom.*End.*Rot|BER|Fruchtboden.*braun|braun.*Fruchtboden|Frucht.*Unterseite.*braun|Frucht.*Ende.*braun|Endfaeule"
+    de: [Bluetenendfaeule, Blossom End Rot, BER, braune Fruchtunterseite, Endfaeule]
 
   blumenerde:
     pattern: "(?i)blumenerde"
@@ -1087,8 +1087,8 @@ topics:
     de: [direkt in erde immer]
 
   drainage_pruefen:
-    pattern: "(?i)drainage.*pruefen"
-    de: [drainage pruefen]
+    pattern: "(?i)Drainage.*pruef|Drainage.*verbesser|Drainage.*sicherstell|Ablauf.*pruef|Abfluss.*pruef|Abfluss.*Loch|Drainage.*Loch|Drainage.*erhoeh"
+    de: [Drainage pruefen, Drainage verbessern, Abflussloch, Drainage sicherstellen]
 
   dunkel:
     pattern: "(?i)dunkel"
@@ -1115,8 +1115,8 @@ topics:
     de: [ec unter 10]
 
   echter_mehltau:
-    pattern: "(?i)echter.*mehltau"
-    de: [echter mehltau]
+    pattern: "(?i)Echter.*Mehltau|Echt.*Mehltau|Powdery.*Mildew|Erysiphe|Podosphaera|Oidium|weiss.*pudrig|pudrig.*weiss|Mehl.*Belag|Puder.*Belag|weiss.*Belag.*Blatt"
+    de: [Echter Mehltau, Powdery Mildew, Erysiphe, Podosphaera, weisser pudriger Belag]
 
   egal:
     pattern: "(?i)egal"
@@ -1131,8 +1131,8 @@ topics:
     de: [einmal taeglich reicht]
 
   eisen_mangel_wahrscheinlich:
-    pattern: "(?i)eisen.*mangel.*wahrscheinlich"
-    de: [eisen mangel wahrscheinlich]
+    pattern: "(?i)Eisen.*Mangel|Fe.*Mangel|Eisenmangel|Eisen.*wahrscheinlich|Fe.*Lockout"
+    de: [Eisenmangel, Fe-Mangel, Eisen-Lockout, wahrscheinlich Eisenmangel]
 
   eiswuerfel:
     pattern: "(?i)eiswuerfel"
@@ -1163,8 +1163,8 @@ topics:
     de: [falsche mischreihenfolge]
 
   falscher_mehltau:
-    pattern: "(?i)falscher.*mehltau"
-    de: [falscher mehltau]
+    pattern: "(?i)Falscher.*Mehltau|Downy.*Mildew|Peronospora|Peronosporaceae|Blattunterseite.*grau|grau.*Unterseite"
+    de: [Falscher Mehltau, Downy Mildew, Peronospora]
 
   feucht_nicht_nass:
     pattern: "(?i)feucht.*nicht.*nass"
@@ -1207,8 +1207,8 @@ topics:
     de: [gefaehrlich]
 
   gelbtafeln:
-    pattern: "(?i)gelbtafeln"
-    de: [gelbtafeln]
+    pattern: "(?i)Gelbtafel|Gelbsticker|gelbe.*Klebe|gelbe.*Falle|gelbe.*Leimtafel|Sticky.*Trap|Yellow.*Trap|gelbe.*Sticker"
+    de: [Gelbtafeln, Gelbsticker, gelbe Klebefallen, Sticky Traps, gelbe Leimtafeln]
 
   getrocknet_sicher:
     pattern: "(?i)getrocknet.*sicher"
@@ -1231,8 +1231,8 @@ topics:
     de: [guttation]
 
   h2o2:
-    pattern: "(?i)h2o2"
-    de: [h2o2]
+    pattern: "(?i)H2O2|Wasserstoffperoxid|Peroxid|Hydrogen.*Peroxid"
+    de: [H2O2, Wasserstoffperoxid, Peroxid]
 
   harmlos:
     pattern: "(?i)harmlos"
@@ -1343,8 +1343,8 @@ topics:
     de: [kalken]
 
   karbonataerte:
-    pattern: "(?i)karbonataerte"
-    de: [karbonataerte]
+    pattern: "(?i)Karbonataerte|Carbonathaerte|KH|dKH|Hydrogencarbonat|HCO3|Pufferkapazitaet|Alkalin"
+    de: [Karbonataerte, KH, dKH, Hydrogencarbonat, Pufferkapazitaet]
 
   kein_problem:
     pattern: "(?i)kein.*problem"
@@ -1411,12 +1411,12 @@ topics:
     de: [luft vpd nehmen]
 
   luftfeuchtigkeit_zu_niedrig:
-    pattern: "(?i)luftfeuchtigkeit.*niedrig"
-    de: [luftfeuchtigkeit zu niedrig]
+    pattern: "(?i)Luftfeuchtigkeit.*niedrig|Luftfeuchtigkeit.*gering|Luftfeuchtigkeit.*zu.*tief|RH.*zu.*niedrig|RH.*zu.*gering|trockene.*Luft|Luft.*zu.*trocken|Heizungsluft|Feuchtigkeit.*fehlt|Luftbefeuchter"
+    de: [Luftfeuchtigkeit zu niedrig, trockene Luft, zu trockene Raumluft, Heizungsluft, Luftbefeuchter]
 
   luftzirkulation_verbessern:
-    pattern: "(?i)luftzirkulation.*verbessern"
-    de: [luftzirkulation verbessern]
+    pattern: "(?i)Luftzirkulation.*verbesser|Luftzirkulation.*erhoeh|Belueftung.*verbesser|Ventilator|Luft.*zirkul|Luftbewegung|Pflanzen.*auslicht|Pflanzenabstand.*erhoeh|Stauluft|Luftstrom"
+    de: [Luftzirkulation verbessern, Belueftung, Ventilator, Pflanzen auslichten, Luftstrom]
 
   maerz:
     pattern: "(?i)maerz"
@@ -1507,8 +1507,8 @@ topics:
     de: [nein nicht geeignet]
 
   nematoden_steinernema:
-    pattern: "(?i)nematoden.*steinernema"
-    de: [nematoden steinernema]
+    pattern: "(?i)Steinernema|Nematoden.*gies|Nematoden.*Substrat|SF.*Nematoden|Nuetz.*Nematod|biologisch.*Nematod"
+    de: [Steinernema, Steinernema feltiae, Nematoden giessen, SF-Nematoden, Nuetzlingsnematoden]
 
   netzschwefel:
     pattern: "(?i)netzschwefel"
@@ -1551,8 +1551,8 @@ topics:
     de: [nie noetig]
 
   nitrat_aufnahme:
-    pattern: "(?i)nitrat.*aufnahme"
-    de: [nitrat aufnahme]
+    pattern: "(?i)Nitrat.*Aufnahme|Nitrat.*aufnimm|NO3.*Aufnahme|Anionen.*Aufnahme|Pflanze.*nimmt.*Nitrat|Pflanze.*nimmt.*Naehrstoff|Pflanze.*nimmt.*Anion|aktiv.*Wachstum.*pH"
+    de: [Nitrat-Aufnahme, NO3-Aufnahme, Pflanze nimmt Nitrat auf, aktives Wachstum hebt pH]
 
   nitrat_betont_waehlen:
     pattern: "(?i)nitrat.*betont.*waehlen"
@@ -1671,8 +1671,8 @@ topics:
     de: [problem]
 
   pythium:
-    pattern: "(?i)pythium"
-    de: [pythium]
+    pattern: "(?i)Pythium|P\\..*aphanidermatum|P\\..*ultimum"
+    de: [Pythium, P. aphanidermatum, P. ultimum]
 
   raumvolumen_berechnung:
     pattern: "(?i)raumvolumen.*berechnung"
@@ -1691,8 +1691,8 @@ topics:
     de: [reine erde ohne zusatz]
 
   reservoir_groesse:
-    pattern: "(?i)reservoir.*groesse"
-    de: [reservoir groesse]
+    pattern: "(?i)Reservoir.*groesse|Reservoir.*klein|Reservoir.*gross|Reservoir.*Volumen|Reservoir.*Liter|mehr.*Wasser.*Reservoir|groesser.*Reservoir|10.*20.*Liter"
+    de: [Reservoirgroesse, Reservoir zu klein, mehr Wasser, 10-20 Liter pro Pflanze]
 
   resistente_sorten:
     pattern: "(?i)resistente.*sorten"
@@ -1719,12 +1719,12 @@ topics:
     de: [ruhephase]
 
   sauerstoff:
-    pattern: "(?i)sauerstoff"
-    de: [sauerstoff]
+    pattern: "(?i)Sauerstoff|O2|Dissolved.*Oxygen|DO|Luftstein|Belueftung.*Wasser|Luft.*Wurzel"
+    de: [Sauerstoff, O2, Dissolved Oxygen, Luftstein, Belueftung]
 
   sauerstoffmangel:
-    pattern: "(?i)sauerstoffmangel"
-    de: [sauerstoffmangel]
+    pattern: "(?i)Sauerstoffmangel|Sauerstoff.*mangel|Sauerstoff.*fehlt|O2.*Mangel|anaerob|Sauerstoff.*arm|zu.*wenig.*Sauerstoff|zu.*wenig.*O2"
+    de: [Sauerstoffmangel, O2-Mangel, anaerob, zu wenig Sauerstoff]
 
   schimmel:
     pattern: "(?i)schimmel"
@@ -1763,8 +1763,8 @@ topics:
     de: [sofort duengen]
 
   sofort_ec_erhoehen:
-    pattern: "(?i)sofort.*ec.*erhoehen"
-    de: [sofort ec erhoehen]
+    pattern: "(?i)sofort.*EC.*erhoeh|EC.*sofort.*erhoeh|EC.*erhoeh.*sofort|EC.*hochfahr|mehr.*Duenger.*geben"
+    de: [sofort EC erhoehen, EC hochfahren, mehr Duenger geben]
 
   sofort_pflanzen:
     pattern: "(?i)sofort.*pflanzen"
@@ -1775,16 +1775,16 @@ topics:
     de: [spargel]
 
   spinosad:
-    pattern: "(?i)spinosad"
-    de: [spinosad]
+    pattern: "(?i)Spinosad|Spintor|Conserve|Captain.*Jack|biologisch.*Insektizid.*Thrips"
+    de: [Spinosad, Spintor, Captain Jacks]
 
   stengel_staerkung:
     pattern: "(?i)stengel.*staerkung"
     de: [stengel staerkung]
 
   stickstoff_mangel_behandeln:
-    pattern: "(?i)stickstoff.*mangel.*behandeln"
-    de: [stickstoff mangel behandeln]
+    pattern: "(?i)Stickstoff.*Mangel.*behandel|N.*Mangel.*behandel|Stickstoff.*zusetzen|mehr.*Stickstoff|N.*erhoeh|Stickstoff.*erhoeh|stickstoffbetont.*dueng"
+    de: [Stickstoffmangel behandeln, mehr Stickstoff, N erhoehen]
 
   stress:
     pattern: "(?i)stress"
@@ -1795,8 +1795,8 @@ topics:
     de: [stuetzfunktion]
 
   substrat_abtrocknen:
-    pattern: "(?i)substrat.*abtrocknen"
-    de: [substrat abtrocknen]
+    pattern: "(?i)Substrat.*abtrock|Erde.*abtrock|Substrat.*trock|seltener.*gies|weniger.*gies|austrock.*lassen|trocken.*lassen|Gies.*reduzier"
+    de: [Substrat abtrocknen, Erde abtrocknen, seltener giessen, austrocknen lassen]
 
   suedfenster_hell:
     pattern: "(?i)suedfenster.*hell"
@@ -1827,8 +1827,8 @@ topics:
     de: [ueberduengung]
 
   ueberduengung_moeglich:
-    pattern: "(?i)ueberduengung.*moeglich"
-    de: [ueberduengung moeglich]
+    pattern: "(?i)Ueberdueng|zu.*viel.*Duenger|Salzanreicher|Duenger.*reduzier|Duenger.*weniger|EC.*zu.*hoch|Duengerkonzentration|ueberduengt"
+    de: [Ueberduengung, zu viel Duenger, Salzanreicherung, Duenger reduzieren, ueberduengt]
 
   uebergiessen:
     pattern: "(?i)uebergiessen"
@@ -1879,8 +1879,8 @@ topics:
     de: [wasserstandsanzeiger]
 
   wassertemperatur_senken:
-    pattern: "(?i)wassertemperatur.*senken"
-    de: [wassertemperatur senken]
+    pattern: "(?i)Wassertemperatur.*senk|Temperatur.*senk|Temperatur.*reduzier|Wasser.*kueh|Chiller|unter.*22|unter.*24|Temperatur.*Reservoir|Reservoir.*Temperatur|Wasserchiller|kuehlen"
+    de: [Wassertemperatur senken, Temperatur reduzieren, kuehlen, Chiller, unter 22 Grad]
 
   weich:
     pattern: "(?i)weich"
@@ -1915,8 +1915,8 @@ topics:
     de: [wurzelexsudate]
 
   wurzelfaeule:
-    pattern: "(?i)wurzelfaeule"
-    de: [wurzelfaeule]
+    pattern: "(?i)Wurzelfaeule|Wurzel.*faeule|Wurzel.*faulen|Wurzel.*braun|Wurzel.*schleimig|Root.*Rot|faulig.*Wurzel"
+    de: [Wurzelfaeule, Wurzel faulen, braune Wurzeln, Root Rot]
 
   wurzeln_aus_loechern:
     pattern: "(?i)wurzeln.*aus.*loechern"

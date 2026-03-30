@@ -388,28 +388,33 @@ class OnboardingWizardPage(BasePage):
         self.scroll_and_click(card)
         time.sleep(0.5)  # Allow React state to update border styling
 
-    def is_kit_selected(self, kit_id: str) -> bool:
+    def is_kit_selected(self, kit_id: str, timeout: int = 3) -> bool:
         """Return True if the given kit card is in selected state.
 
-        Primarily checks data-selected attribute (set in StarterKitStep.tsx),
-        with CSS border fallbacks for resilience.
+        Waits up to *timeout* seconds for the data-selected='true' attribute,
+        then falls back to CSS border checks on the parent Card element.
         """
-        import time
-        time.sleep(0.3)  # Allow React state to settle
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        selected_locator = (
+            By.CSS_SELECTOR,
+            f"[data-testid='kit-{kit_id}'][data-selected='true']",
+        )
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                EC.presence_of_element_located(selected_locator)
+            )
+            return True
+        except Exception:
+            pass
+
+        # Fallback: CSS border checks on parent Card element
         locator = (By.CSS_SELECTOR, f"[data-testid='kit-{kit_id}']")
         elements = self.driver.find_elements(*locator)
         if not elements:
             return False
         el = elements[0]
 
-        # Primary check: data-selected attribute (most reliable)
-        data_selected = el.get_attribute("data-selected")
-        if data_selected == "true":
-            return True
-        if data_selected == "false":
-            return False
-
-        # Fallback: CSS border checks on parent Card element
         def _check_border(candidate) -> bool:
             border = candidate.value_of_css_property("border-width") or ""
             if "2px" in border:
@@ -434,7 +439,6 @@ class OnboardingWizardPage(BasePage):
                 return True
         except Exception:
             pass
-        # Check aria-pressed or aria-selected
         aria = el.get_attribute("aria-pressed") or el.get_attribute("aria-selected")
         if aria == "true":
             return True
@@ -754,11 +758,21 @@ class OnboardingWizardPage(BasePage):
         Clicks an experience level card before advancing so that the wizard
         registers a user interaction on Step 1.  When *experience_level* is
         ``None`` the already-selected default (beginner) is clicked.
+        Deselects any pre-selected kit to ensure a clean state for tests.
         """
         self.wait_for_element(self.STEP_WELCOME)
         self.select_experience_level(experience_level or "beginner")
         self.click_next()
         self.wait_for_element(self.STEP_KIT)
+        self._deselect_all_kits()
+
+    def _deselect_all_kits(self) -> None:
+        """Deselect any currently selected kit cards (clean state for tests)."""
+        import time
+        selected = self.driver.find_elements(By.CSS_SELECTOR, "[data-selected='true']")
+        for kit in selected:
+            self.scroll_and_click(kit)
+            time.sleep(0.3)
 
     def advance_to_step_favorites(self) -> None:
         """Navigate from Step 2 to Step 3 (Favorites)."""

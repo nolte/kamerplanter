@@ -100,6 +100,17 @@ chunks:
       - Bewaesserung gleichmaessig halten (Schwankungen vermeiden)
       - EC des Ausgangswassers pruefen — RO-Wasser braucht immer CalMag
       Ziel-Ca: 150-250 ppm im Hydro-System, Ca:Mg-Verhaeltnis 3:1 bis 4:1.
+      WICHTIG — Abgrenzung zu anderen Maengeln:
+      - Ca-Mangel zeigt sich IMMER an NEUEN/JUNGEN Blaettern und Triebspitzen
+        (Ca ist immobil). Wenn ALTE Blaetter betroffen → kein Ca-Mangel.
+      - Verwechslung mit Eisenmangel: Fe zeigt intervenale Chlorose (gruene
+        Adern, gelbe Flaeche), Ca zeigt Nekrose und Deformation. Fe betrifft
+        auch neue Blaetter, aber OHNE Nekrose.
+      - Bei Tomate/Erdbeere: Braune Flecken am Fruchtboden =
+        Bluetenendfaeule (Blossom End Rot, BER) — immer Ca-bezogen,
+        oft durch ungleichmaessige Bewaesserung ausgeloest, nicht durch
+        Ca-Mangel in der Naehrloesung. Gleichmaessige Bewaesserung ist
+        die wichtigste Massnahme gegen BER.
     metadata:
       nutrient: calcium
       symbol: Ca
@@ -125,6 +136,15 @@ chunks:
       - Kalium-Duengung pruefen — zu viel K blockiert Mg-Aufnahme
       Bittersalz (MgSO4) ist die schnellste Soforthilfe bei akutem
       Mg-Mangel. Blattapplikation wirkt innerhalb von 2-3 Tagen.
+      WICHTIG — Abgrenzung:
+      - Mg-Mangel zeigt intervenale Chlorose an ALTEN/AELTEREN Blaettern
+        (Mg ist mobil). Wenn JUNGE Blaetter betroffen → eher Fe oder Mn.
+      - Verwechslung mit Kalium-Mangel: K-Mangel zeigt Blattrand-Nekrose
+        (braune Raender), Mg-Mangel zeigt intervenale Chlorose
+        (gruene Adern, gelbe Flaeche). Das ist ein klarer Unterschied.
+      - Mg-Mangel in der Bluete ist sehr haeufig weil PK-Booster viel
+        Kalium enthalten und K die Mg-Aufnahme verdraengt (K/Mg-Antagonismus).
+        CalMag-Zugabe und/oder Bittersalz-Blattspray loesen das Problem.
     metadata:
       nutrient: magnesium
       symbol: Mg
@@ -334,6 +354,10 @@ chunks:
       Abgrenzung zu Ca-Mangel: Mn-Toxizitaet zeigt Flecken auf ALTEN
       Blaettern, Ca-Mangel auf NEUEN. Mn-Toxizitaet zeigt punktfoermige
       Nekrosen entlang der Adern, Ca-Mangel zeigt flaechige Nekrose.
+      SCHLUESSELREGEL: Wenn braune Flecken auf ALTEN Blaettern UND pH
+      unter 5.5 im Runoff → Mangan-Toxizitaet ist die wahrscheinlichste
+      Diagnose, NICHT Eisenmangel oder Calciummangel. pH erhoehen auf
+      6.0-6.5 ist die wichtigste Massnahme.
     metadata:
       nutrient: manganese
       symbol: Mn
@@ -369,6 +393,41 @@ chunks:
       severity_indicator: tip_burn_dark_clawing
       affected_leaves: all
 
+  - id: spaetbluete-seneszenz
+    title: Natuerliche Seneszenz in der Spaetbluete (kein Mangel!)
+    content: |
+      In der spaeten Bluete (ab Woche 6-7 bei Cannabis, letzte 2-3 Wochen
+      vor der Ernte) ist Vergilbung der unteren Blaetter NORMAL und
+      ERWUENSCHT. Das ist kein Naehrstoffmangel, sondern natuerliche
+      Abreife (Seneszenz).
+      Was passiert: Die Pflanze verlagert Stickstoff und andere mobile
+      Naehrstoffe aus alten Blaettern in die Blueten/Fruechte. Die unteren
+      Blaetter werden geopfert um die Ernte zu versorgen. Dieser Prozess
+      ist bei vielen Kulturpflanzen normal (Cannabis, Tomate, Mais, Weizen).
+      Woran erkennt man Seneszenz vs. echten N-Mangel:
+      - Seneszenz: Ab Woche 6-7 der Bluete, gleichmaessig von unten nach
+        oben fortschreitend, Blueten/Fruechte entwickeln sich normal,
+        obere Blaetter bleiben gruen und gesund
+      - Echter N-Mangel: Tritt in frueheren Phasen auf, Wachstum stockt,
+        Blueten/Fruechte entwickeln sich schlecht, auch obere Blaetter
+        werden blass
+      NICHT behandeln: In der spaeten Bluete die EC NICHT erhoehen oder
+      extra Stickstoff geben. Das wuerde:
+      - Den Geschmack verschlechtern (Chlorophyll-Abbau gewuenscht)
+      - Die Reifung verzoegern
+      - Das Flush-Ergebnis verschlechtern
+      Bei Cannabis: Die letzten 1-2 Wochen wird ohnehin nur noch mit
+      klarem Wasser gespuelt (Flush). Vergilbung in dieser Phase zeigt
+      an, dass der Flush funktioniert.
+      Ausnahme: Wenn auch die oberen Blaetter und Blueten betroffen sind
+      oder die Pflanze erst in Woche 3-4 steht, DANN ist es echter Mangel.
+    metadata:
+      type: differential_diagnosis
+      trigger: late_bloom
+      approach: do_not_treat
+      severity_indicator: lower_leaves_yellowing_late_bloom
+      affected_leaves: old
+
   - id: diagnose-checkliste
     title: Systematische Mangel-Diagnose Checkliste
     content: |
@@ -393,6 +452,15 @@ chunks:
          gleichzeitig aendern — sonst weiss man nicht, was geholfen hat.
       Betroffene Blaetter erholen sich oft NICHT — Erfolg zeigt sich
       am neuen Wachstum (gesunde neue Blaetter = Problem geloest).
+      ENTSCHEIDUNGSBAUM — Schnelldiagnose:
+      a) Symptome an ALTEN Blaettern + gleichmaessig gelb → Stickstoff (N)
+      b) Symptome an ALTEN Blaettern + intervenale Chlorose → Magnesium (Mg)
+      c) Symptome an ALTEN Blaettern + Blattrand braun → Kalium (K)
+      d) Symptome an ALTEN Blaettern + braune Punkte + niedriger pH → Mangan-TOXIZITAET
+      e) Symptome an NEUEN Blaettern + Deformation/Nekrose → Calcium (Ca)
+      f) Symptome an NEUEN Blaettern + intervenale Chlorose → Eisen (Fe)
+      g) Symptome an NEUEN Blaettern + gleichmaessig blass → Schwefel (S)
+      h) Spaete Bluete (Woche 6+) + untere gelb + Blueten gesund → SENESZENZ (normal!)
     metadata:
       type: diagnostic_guide
       approach: systematic

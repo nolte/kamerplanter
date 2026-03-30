@@ -196,6 +196,64 @@ Der neue Guide wird beim nächsten Reindex-Zyklus (täglich, 06:00 Uhr UTC) in d
 
 ---
 
+## Wissensbasis reindexieren (Operator/Entwickler)
+
+Nach Änderungen an den Knowledge-YAML-Dateien unter `spec/knowledge/` müssen die Vektoren in pgvector neu berechnet werden. Das passiert automatisch wöchentlich (Sonntag 03:00 UTC), kann aber auch manuell angestoßen werden.
+
+### Voraussetzungen
+
+- Die Knowledge-YAML-Dateien sind im Container unter `/app/knowledge` gemountet (passiert automatisch bei Skaffold-Deployment)
+- VectorDB (pgvector) und Embedding-Service müssen laufen
+- `vectordb_enabled: true` in der Backend-Konfiguration
+
+### Workflow: Chunk ändern → deployen → reindexieren → testen
+
+```bash
+# 1. Knowledge-YAML-Dateien bearbeiten
+#    z.B. spec/knowledge/diagnostik/naehrstoffmangel-symptome.yaml
+
+# 2. Neu deployen (damit die Dateien im Container ankommen)
+skaffold dev   # oder: skaffold run
+
+# 3. Celery-Task manuell triggern
+kubectl exec -it deploy/celery-worker -- \
+  celery -A app.tasks call app.tasks.vector_indexing_tasks.reindex_vector_chunks
+
+# 4. Benchmark laufen lassen (optional, empfohlen)
+cd tools/rag-eval
+source ~/.venvs/rag-eval/bin/activate
+python eval_rag.py
+```
+
+### Alternative: Task direkt im Python-Interpreter auslösen
+
+```bash
+kubectl exec -it deploy/celery-worker -- python -c "
+from app.tasks.vector_indexing_tasks import reindex_vector_chunks
+result = reindex_vector_chunks.delay()
+print(f'Task ID: {result.id}')
+"
+```
+
+### Was passiert beim Reindex?
+
+1. Alle YAML-Dateien unter `/app/knowledge` werden gelesen
+2. Jeder Chunk wird mit dem Embedding-Modell vektorisiert (`paraphrase-multilingual-MiniLM-L12-v2`, 384 Dimensionen)
+3. Vektoren werden per Upsert in `ai_vector_chunks` geschrieben (bestehende Chunks werden aktualisiert, neue hinzugefügt)
+4. Der Task gibt eine Zusammenfassung zurück: Anzahl Dateien, Anzahl Chunks, Dauer
+
+!!! tip "Schneller Feedback-Loop"
+    Für die iterative Verbesserung der Wissensbasis empfiehlt sich dieser Zyklus:
+
+    1. Benchmark laufen lassen → Failures identifizieren
+    2. Fehlende oder ungenaue Chunks in den YAML-Dateien ergänzen/verbessern
+    3. Deployen und reindexieren
+    4. Benchmark erneut laufen lassen → Score-Verbesserung prüfen
+
+    Details zum Benchmark-Tool: siehe `tools/rag-eval/README.md`
+
+---
+
 ## Häufige Fragen
 
 ??? question "Kann die KI außerhalb der Wissensbasis recherchieren (Internet-Suche)?"

@@ -158,6 +158,47 @@ chunks:
       topic: meter_calibration
       equipment: [ph_meter, ec_meter]
 
+  - id: ph-drift-dwc-details
+    title: pH-Drift nach oben in DWC — Ursachen und Loesungen
+    content: |
+      Der pH-Wert driftet in DWC-Systemen (Deep Water Culture) haeufig
+      nach oben. Das hat mehrere spezifische Ursachen:
+      1. Nitrat-Aufnahme durch die Pflanze:
+         Gesunde Pflanzen nehmen Nitrat (NO3-) auf und geben im Austausch
+         OH- oder HCO3- ab → pH steigt. Das ist normal und zeigt an dass
+         die Pflanze aktiv waechst. Staerkerer pH-Anstieg = staerkeres
+         Wachstum. Ein Drift von 0.1-0.3 pro Tag ist normal.
+      2. Algenbildung im Reservoir:
+         Algen verbrauchen CO2 → pH steigt (gleicher Effekt wie in einem
+         See bei Algenblüte). Licht faellt auf das Reservoir oder auf die
+         Schlaeuche. Gruener Belag sichtbar.
+         Loesung: Reservoir und Schlaeuche lichtdicht abdecken. Netcup-
+         Oeffnungen abdecken. Schwarze/weisse Schlaeuche verwenden.
+      3. Reservoir zu klein:
+         Zu wenig Wasser pro Pflanze → pH aendert sich schneller da die
+         Pufferkapazitaet geringer ist. Kleine Mengen Wurzelexsudate
+         haben ueberproportional grossen Einfluss.
+         Loesung: Mindestens 10-20 Liter pro Pflanze. Grosses Reservoir
+         = stabiler pH = weniger Nachregeln.
+      4. Karbonataerte (KH) des Ausgangswassers:
+         Hohe KH (>12°dKH) puffert den pH stark nach oben. Das Wasser
+         "wehrt sich" gegen pH-Senkung, braucht viel mehr pH-Down.
+         Niedrige KH (<4°dKH) macht den pH instabil — kleine Mengen
+         pH-Down/Up haben grossen Effekt.
+         RO-Wasser (KH nahe 0) ist extrem instabil.
+         Loesung: Bei hoher KH mehr pH-Down verwenden (Phosphorsaeure),
+         KH des Leitungswassers messen lassen, ggf. Verschnitt mit
+         RO-Wasser um KH auf 4-8°dKH zu bringen.
+      Normaler Drift: 0.1-0.3 pro Tag → nur nachregeln.
+      Starker Drift: >0.5 pro Tag → Ursache finden (Reservoir, Algen, KH).
+      Wenn der pH SINKT statt zu steigen: Moeglicherweise Wurzelproblem
+      (anaerobe Bakterien produzieren Saeure) oder zu hoher NH4-Anteil
+      im Duenger.
+    metadata:
+      topic: ph_drift_dwc
+      system: dwc
+      direction: up
+
   - id: substrat-ph-pufferung
     title: pH-Pufferung verschiedener Substrate
     content: |
