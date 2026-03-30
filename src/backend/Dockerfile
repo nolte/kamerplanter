@@ -1,6 +1,10 @@
 FROM python:3.14-slim AS base
 
-LABEL org.opencontainers.image.description="Kamerplanter backend API for plant lifecycle management"
+LABEL org.opencontainers.image.title="kamerplanter-backend" \
+      org.opencontainers.image.description="Kamerplanter backend API for plant lifecycle management" \
+      org.opencontainers.image.source="https://github.com/nolte/kamerplanter" \
+      org.opencontainers.image.vendor="Kamerplanter" \
+      org.opencontainers.image.licenses="UNLICENSED"
 
 WORKDIR /app
 

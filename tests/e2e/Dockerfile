@@ -1,5 +1,11 @@
 FROM python:3.14-slim
 
+LABEL org.opencontainers.image.title="kamerplanter-e2e-tests" \
+      org.opencontainers.image.description="Kamerplanter Selenium E2E test runner" \
+      org.opencontainers.image.source="https://github.com/nolte/kamerplanter" \
+      org.opencontainers.image.vendor="Kamerplanter" \
+      org.opencontainers.image.licenses="UNLICENSED"
+
 WORKDIR /app
 
 COPY requirements.txt .

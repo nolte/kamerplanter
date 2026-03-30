@@ -11,7 +11,11 @@ RUN npm run build
 # Stage 2: Serve with nginx
 FROM nginx:1.28-alpine
 
-LABEL org.opencontainers.image.description="Kamerplanter frontend UI for plant lifecycle management"
+LABEL org.opencontainers.image.title="kamerplanter-frontend" \
+      org.opencontainers.image.description="Kamerplanter frontend UI for plant lifecycle management" \
+      org.opencontainers.image.source="https://github.com/nolte/kamerplanter" \
+      org.opencontainers.image.vendor="Kamerplanter" \
+      org.opencontainers.image.licenses="UNLICENSED"
 
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf

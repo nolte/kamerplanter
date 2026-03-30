@@ -1,5 +1,11 @@
 FROM postgres:17-bookworm
 
+LABEL org.opencontainers.image.title="kamerplanter-vectordb" \
+      org.opencontainers.image.description="PostgreSQL with pgvector extension for Kamerplanter RAG embeddings" \
+      org.opencontainers.image.source="https://github.com/nolte/kamerplanter" \
+      org.opencontainers.image.vendor="Kamerplanter" \
+      org.opencontainers.image.licenses="UNLICENSED"
+
 # Install pgvector extension from source — build tools are purged after install
 # hadolint ignore=DL3003,DL3008
 RUN apt-get update && \
