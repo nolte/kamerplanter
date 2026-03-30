@@ -89,7 +89,7 @@ def embed_text(text: str, service_url: str, model: str = "paraphrase-multilingua
 def search_chunks(
     embedding: list[float],
     dsn: str,
-    top_k: int = 5,
+    top_k: int = 10,
 ) -> list[dict]:
     """Query pgvector for similar chunks."""
     embedding_str = f"[{','.join(str(v) for v in embedding)}]"
@@ -212,7 +212,7 @@ def evaluate_question(
     vectordb_dsn: str,
     ollama_url: str,
     ollama_model: str,
-    top_k: int = 5,
+    top_k: int = 10,
 ) -> QuestionResult:
     """Evaluate a single benchmark question through the full RAG pipeline."""
     q_id = question.get("id", "unknown")
@@ -276,7 +276,7 @@ def run_eval(
     ollama_url: str,
     ollama_model: str,
     categories: list[str] | None = None,
-    top_k: int = 5,
+    top_k: int = 10,
 ) -> EvalResult:
     """Run the full topic-match benchmark."""
     eval_path = Path(eval_dir)

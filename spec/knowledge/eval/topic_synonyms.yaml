@@ -864,3 +864,1076 @@ topics:
   hell:
     pattern: "(?i)hell|Licht.*brauch|Fenster|beleucht"
     de: [hell, Licht, Fenster]
+
+  # === AUTO-GENERATED: Missing topic definitions ===
+  02_04_ec:
+    pattern: "(?i)02.*04"
+    de: [02 04 ec]
+
+  100_reicht:
+    pattern: "(?i)100.*reicht"
+    de: [100 reicht]
+
+  15_20_grad:
+    pattern: "(?i)15.*20.*grad"
+    de: [15 20 grad]
+
+  1_3_tage:
+    pattern: "(?i)1.*3.*tage"
+    de: [1 3 tage]
+
+  200_reicht:
+    pattern: "(?i)200.*reicht"
+    de: [200 reicht]
+
+  24_28_grad:
+    pattern: "(?i)24.*28.*grad"
+    de: [24 28 grad]
+
+  2_3_wochen:
+    pattern: "(?i)2.*3.*wochen"
+    de: [2 3 wochen]
+
+  300_400_m3h:
+    pattern: "(?i)300.*400.*m3h"
+    de: [300 400 m3h]
+
+  3_5_mal_taeglich_bluete:
+    pattern: "(?i)3.*5.*mal.*taeglich"
+    de: [3 5 mal taeglich bluete]
+
+  4_8_wochen:
+    pattern: "(?i)4.*8.*wochen"
+    de: [4 8 wochen]
+
+  50_100_laeuse_pro_tag:
+    pattern: "(?i)50.*100.*laeuse.*pro"
+    de: [50 100 laeuse pro tag]
+
+  50_200_prozent:
+    pattern: "(?i)50.*200.*prozent"
+    de: [50 200 prozent]
+
+  55_65_rh:
+    pattern: "(?i)55.*65"
+    de: [55 65 rh]
+
+  5_8_grad:
+    pattern: "(?i)5.*8.*grad"
+    de: [5 8 grad]
+
+  5g_pro_liter:
+    pattern: "(?i)pro.*liter"
+    de: [5g pro liter]
+
+  7_14_tage:
+    pattern: "(?i)7.*14.*tage"
+    de: [7 14 tage]
+
+  ab_4_5_nodenpaar:
+    pattern: "(?i)4.*5.*nodenpaar"
+    de: [ab 4 5 nodenpaar]
+
+  abends_spruehen:
+    pattern: "(?i)abends.*spruehen"
+    de: [abends spruehen]
+
+  abhaengig_von_art:
+    pattern: "(?i)abhaengig.*von.*art"
+    de: [abhaengig von art]
+
+  abluft_aus_nachts:
+    pattern: "(?i)abluft.*aus.*nachts"
+    de: [abluft aus nachts]
+
+  abluft_hoch:
+    pattern: "(?i)abluft.*hoch"
+    de: [abluft hoch]
+
+  abluft_maximum:
+    pattern: "(?i)abluft.*maximum"
+    de: [abluft maximum]
+
+  abstand_erhoehen:
+    pattern: "(?i)abstand.*erhoehen"
+    de: [abstand erhoehen]
+
+  abstand_wichtig:
+    pattern: "(?i)abstand.*wichtig"
+    de: [abstand wichtig]
+
+  abwarten:
+    pattern: "(?i)abwarten"
+    de: [abwarten]
+
+  adalia_bipunctata:
+    pattern: "(?i)adalia.*bipunctata"
+    de: [adalia bipunctata]
+
+  aktivkohlefilter_reserve:
+    pattern: "(?i)aktivkohlefilter.*reserve"
+    de: [aktivkohlefilter reserve]
+
+  algenbildung:
+    pattern: "(?i)algenbildung"
+    de: [algenbildung]
+
+  alles_ok:
+    pattern: "(?i)alles"
+    de: [alles ok]
+
+  aluminium_toxizitaet_moeglich:
+    pattern: "(?i)aluminium.*toxizitaet.*moeglich"
+    de: [aluminium toxizitaet moeglich]
+
+  april:
+    pattern: "(?i)april"
+    de: [april]
+
+  artischocke:
+    pattern: "(?i)artischocke"
+    de: [artischocke]
+
+  auf_jeden_fall:
+    pattern: "(?i)auf.*jeden.*fall"
+    de: [auf jeden fall]
+
+  auf_keinen_fall:
+    pattern: "(?i)auf.*keinen.*fall"
+    de: [auf keinen fall]
+
+  aufgeben:
+    pattern: "(?i)aufgeben"
+    de: [aufgeben]
+
+  austrocknen_lassen:
+    pattern: "(?i)austrocknen.*lassen"
+    de: [austrocknen lassen]
+
+  autoflower_empfohlen:
+    pattern: "(?i)autoflower.*empfohlen"
+    de: [autoflower empfohlen]
+
+  basis_ec_zielwert:
+    pattern: "(?i)basis.*ec.*zielwert"
+    de: [basis ec zielwert]
+
+  befallene_blaetter_entfernen:
+    pattern: "(?i)befallene.*blaetter.*entfernen"
+    de: [befallene blaetter entfernen]
+
+  befallene_teile_entfernen:
+    pattern: "(?i)befallene.*teile.*entfernen"
+    de: [befallene teile entfernen]
+
+  blattunterseite:
+    pattern: "(?i)blattunterseite"
+    de: [blattunterseite]
+
+  blattunterseiten:
+    pattern: "(?i)blattunterseiten"
+    de: [blattunterseiten]
+
+  blaue_klebefallen:
+    pattern: "(?i)blaue.*klebefallen"
+    de: [blaue klebefallen]
+
+  bluetenendfaeule:
+    pattern: "(?i)bluetenendfaeule"
+    de: [bluetenendfaeule]
+
+  blumenerde:
+    pattern: "(?i)blumenerde"
+    de: [blumenerde]
+
+  bodenbeschattung:
+    pattern: "(?i)bodenbeschattung"
+    de: [bodenbeschattung]
+
+  bodenlockerung:
+    pattern: "(?i)bodenlockerung"
+    de: [bodenlockerung]
+
+  bodenschaedlinge:
+    pattern: "(?i)bodenschaedlinge"
+    de: [bodenschaedlinge]
+
+  botrytis_risiko:
+    pattern: "(?i)botrytis.*risiko"
+    de: [botrytis risiko]
+
+  calathea:
+    pattern: "(?i)calathea"
+    de: [calathea]
+
+  calcium:
+    pattern: "(?i)calcium"
+    de: [calcium]
+
+  calcium_nicht_verfuegbar:
+    pattern: "(?i)calcium.*nicht.*verfuegbar"
+    de: [calcium nicht verfuegbar]
+
+  calmag_noetig:
+    pattern: "(?i)calmag.*noetig"
+    de: [calmag noetig]
+
+  chemischer_duenger:
+    pattern: "(?i)chemischer.*duenger"
+    de: [chemischer duenger]
+
+  direkt_in_erde_immer:
+    pattern: "(?i)direkt.*erde.*immer"
+    de: [direkt in erde immer]
+
+  drainage_pruefen:
+    pattern: "(?i)drainage.*pruefen"
+    de: [drainage pruefen]
+
+  dunkel:
+    pattern: "(?i)dunkel"
+    de: [dunkel]
+
+  durchspuelen:
+    pattern: "(?i)durchspuelen"
+    de: [durchspuelen]
+
+  ec_beachten:
+    pattern: "(?i)ec.*beachten"
+    de: [ec beachten]
+
+  ec_erhoehen:
+    pattern: "(?i)ec.*erhoehen"
+    de: [ec erhoehen]
+
+  ec_messen:
+    pattern: "(?i)ec.*messen"
+    de: [ec messen]
+
+  ec_unter_10:
+    pattern: "(?i)10.*unter"
+    de: [ec unter 10]
+
+  echter_mehltau:
+    pattern: "(?i)echter.*mehltau"
+    de: [echter mehltau]
+
+  egal:
+    pattern: "(?i)egal"
+    de: [egal]
+
+  ei_parasitierung:
+    pattern: "(?i)parasitierung"
+    de: [ei parasitierung]
+
+  einmal_taeglich_reicht:
+    pattern: "(?i)einmal.*taeglich.*reicht"
+    de: [einmal taeglich reicht]
+
+  eisen_mangel_wahrscheinlich:
+    pattern: "(?i)eisen.*mangel.*wahrscheinlich"
+    de: [eisen mangel wahrscheinlich]
+
+  eiswuerfel:
+    pattern: "(?i)eiswuerfel"
+    de: [eiswuerfel]
+
+  entfernen:
+    pattern: "(?i)entfernen"
+    de: [entfernen]
+
+  entfeuchter_aus:
+    pattern: "(?i)entfeuchter.*aus"
+    de: [entfeuchter aus]
+
+  entfeuchter_nacht:
+    pattern: "(?i)entfeuchter.*nacht"
+    de: [entfeuchter nacht]
+
+  entfeuchter_nachts:
+    pattern: "(?i)entfeuchter.*nachts"
+    de: [entfeuchter nachts]
+
+  erholungszeit:
+    pattern: "(?i)erholungszeit"
+    de: [erholungszeit]
+
+  falsche_mischreihenfolge:
+    pattern: "(?i)falsche.*mischreihenfolge"
+    de: [falsche mischreihenfolge]
+
+  falscher_mehltau:
+    pattern: "(?i)falscher.*mehltau"
+    de: [falscher mehltau]
+
+  feucht_nicht_nass:
+    pattern: "(?i)feucht.*nicht.*nass"
+    de: [feucht nicht nass]
+
+  flush:
+    pattern: "(?i)flush"
+    de: [flush]
+
+  frueherkennung:
+    pattern: "(?i)frueherkennung"
+    de: [frueherkennung]
+
+  fruehling_starten:
+    pattern: "(?i)fruehling.*starten"
+    de: [fruehling starten]
+
+  fungizid:
+    pattern: "(?i)fungizid"
+    de: [fungizid]
+
+  fungizid_spritzen:
+    pattern: "(?i)fungizid.*spritzen"
+    de: [fungizid spritzen]
+
+  ganzjaehrig:
+    pattern: "(?i)ganzjaehrig"
+    de: [ganzjaehrig]
+
+  gar_nicht:
+    pattern: "(?i)gar.*nicht"
+    de: [gar nicht]
+
+  geduld:
+    pattern: "(?i)geduld"
+    de: [geduld]
+
+  gefaehrlich:
+    pattern: "(?i)gefaehrlich"
+    de: [gefaehrlich]
+
+  gelbtafeln:
+    pattern: "(?i)gelbtafeln"
+    de: [gelbtafeln]
+
+  getrocknet_sicher:
+    pattern: "(?i)getrocknet.*sicher"
+    de: [getrocknet sicher]
+
+  gips:
+    pattern: "(?i)gips"
+    de: [gips]
+
+  gleich:
+    pattern: "(?i)gleich"
+    de: [gleich]
+
+  gleiche_familie:
+    pattern: "(?i)gleiche.*familie"
+    de: [gleiche familie]
+
+  guttation:
+    pattern: "(?i)guttation"
+    de: [guttation]
+
+  h2o2:
+    pattern: "(?i)h2o2"
+    de: [h2o2]
+
+  harmlos:
+    pattern: "(?i)harmlos"
+    de: [harmlos]
+
+  hartes_wasser:
+    pattern: "(?i)hartes.*wasser"
+    de: [hartes wasser]
+
+  heizung_leicht:
+    pattern: "(?i)heizung.*leicht"
+    de: [heizung leicht]
+
+  hemmt_wachstum:
+    pattern: "(?i)hemmt.*wachstum"
+    de: [hemmt wachstum]
+
+  hps_besser:
+    pattern: "(?i)hps.*besser"
+    de: [hps besser]
+
+  im_boden_lassen:
+    pattern: "(?i)boden.*lassen"
+    de: [im boden lassen]
+
+  immer_100_ro:
+    pattern: "(?i)100.*immer"
+    de: [immer 100 ro]
+
+  immer_noetig:
+    pattern: "(?i)immer.*noetig"
+    de: [immer noetig]
+
+  indoor_vor_lichtphase:
+    pattern: "(?i)indoor.*vor.*lichtphase"
+    de: [indoor vor lichtphase]
+
+  ja_biologisch:
+    pattern: "(?i)ja.*biologisch"
+    de: [ja biologisch]
+
+  ja_effektiv:
+    pattern: "(?i)ja.*effektiv"
+    de: [ja effektiv]
+
+  ja_empfohlen:
+    pattern: "(?i)ja.*empfohlen"
+    de: [ja empfohlen]
+
+  ja_kein_problem:
+    pattern: "(?i)ja.*kein.*problem"
+    de: [ja kein problem]
+
+  ja_magnesium:
+    pattern: "(?i)ja.*magnesium"
+    de: [ja magnesium]
+
+  ja_nicht_frosthart:
+    pattern: "(?i)ja.*nicht.*frosthart"
+    de: [ja nicht frosthart]
+
+  ja_normal_weiter:
+    pattern: "(?i)ja.*normal.*weiter"
+    de: [ja normal weiter]
+
+  ja_problematisch:
+    pattern: "(?i)ja.*problematisch"
+    de: [ja problematisch]
+
+  ja_sicher:
+    pattern: "(?i)ja.*sicher"
+    de: [ja sicher]
+
+  ja_stretch:
+    pattern: "(?i)ja.*stretch"
+    de: [ja stretch]
+
+  ja_wahrscheinlich:
+    pattern: "(?i)ja.*wahrscheinlich"
+    de: [ja wahrscheinlich]
+
+  jaehrlich_ok:
+    pattern: "(?i)jaehrlich"
+    de: [jaehrlich ok]
+
+  je_groesser_desto_besser:
+    pattern: "(?i)groesser.*desto.*besser"
+    de: [je groesser desto besser]
+
+  jeden_montag:
+    pattern: "(?i)jeden.*montag"
+    de: [jeden montag]
+
+  jederzeit:
+    pattern: "(?i)jederzeit"
+    de: [jederzeit]
+
+  kakteenerde:
+    pattern: "(?i)kakteenerde"
+    de: [kakteenerde]
+
+  kaliumbicarbonat:
+    pattern: "(?i)kaliumbicarbonat"
+    de: [kaliumbicarbonat]
+
+  kalken:
+    pattern: "(?i)kalken"
+    de: [kalken]
+
+  karbonataerte:
+    pattern: "(?i)karbonataerte"
+    de: [karbonataerte]
+
+  kein_problem:
+    pattern: "(?i)kein.*problem"
+    de: [kein problem]
+
+  keine:
+    pattern: "(?i)keine"
+    de: [keine]
+
+  keine_wirkung:
+    pattern: "(?i)keine.*wirkung"
+    de: [keine wirkung]
+
+  knollen_einlagern:
+    pattern: "(?i)knollen.*einlagern"
+    de: [knollen einlagern]
+
+  kombinierbar:
+    pattern: "(?i)kombinierbar"
+    de: [kombinierbar]
+
+  komplett_abschneiden:
+    pattern: "(?i)komplett.*abschneiden"
+    de: [komplett abschneiden]
+
+  kompromiss:
+    pattern: "(?i)kompromiss"
+    de: [kompromiss]
+
+  kosten_nutzen:
+    pattern: "(?i)kosten.*nutzen"
+    de: [kosten nutzen]
+
+  kraut_knollenfaeule:
+    pattern: "(?i)kraut.*knollenfaeule"
+    de: [kraut knollenfaeule]
+
+  kreuzbestaeubung_mit_allem:
+    pattern: "(?i)kreuzbestaeubung.*mit.*allem"
+    de: [kreuzbestaeubung mit allem]
+
+  kuehle_nacht:
+    pattern: "(?i)kuehle.*nacht"
+    de: [kuehle nacht]
+
+  larven_effektiver:
+    pattern: "(?i)larven.*effektiver"
+    de: [larven effektiver]
+
+  licht:
+    pattern: "(?i)licht"
+    de: [licht]
+
+  licht_pruefen:
+    pattern: "(?i)licht.*pruefen"
+    de: [licht pruefen]
+
+  licht_zuerst:
+    pattern: "(?i)licht.*zuerst"
+    de: [licht zuerst]
+
+  luft_vpd_nehmen:
+    pattern: "(?i)luft.*vpd.*nehmen"
+    de: [luft vpd nehmen]
+
+  luftfeuchtigkeit_zu_niedrig:
+    pattern: "(?i)luftfeuchtigkeit.*niedrig"
+    de: [luftfeuchtigkeit zu niedrig]
+
+  luftzirkulation_verbessern:
+    pattern: "(?i)luftzirkulation.*verbessern"
+    de: [luftzirkulation verbessern]
+
+  maerz:
+    pattern: "(?i)maerz"
+    de: [maerz]
+
+  mehr_duengen:
+    pattern: "(?i)mehr.*duengen"
+    de: [mehr duengen]
+
+  mehr_duengen_sofort:
+    pattern: "(?i)mehr.*duengen.*sofort"
+    de: [mehr duengen sofort]
+
+  mehr_duenger:
+    pattern: "(?i)mehr.*duenger"
+    de: [mehr duenger]
+
+  mehr_giessen:
+    pattern: "(?i)mehr.*giessen"
+    de: [mehr giessen]
+
+  mehr_giessen_allein:
+    pattern: "(?i)mehr.*giessen.*allein"
+    de: [mehr giessen allein]
+
+  milpa:
+    pattern: "(?i)milpa"
+    de: [milpa]
+
+  mischrechnung:
+    pattern: "(?i)mischrechnung"
+    de: [mischrechnung]
+
+  mittags:
+    pattern: "(?i)mittags"
+    de: [mittags]
+
+  mitte_mai:
+    pattern: "(?i)mitte.*mai"
+    de: [mitte mai]
+
+  monatlich_reicht:
+    pattern: "(?i)monatlich.*reicht"
+    de: [monatlich reicht]
+
+  morgens:
+    pattern: "(?i)morgens"
+    de: [morgens]
+
+  nach_bienenflug:
+    pattern: "(?i)nach.*bienenflug"
+    de: [nach bienenflug]
+
+  nach_bluete:
+    pattern: "(?i)nach.*bluete"
+    de: [nach bluete]
+
+  nach_erstem_frost:
+    pattern: "(?i)nach.*erstem.*frost"
+    de: [nach erstem frost]
+
+  nach_kalender_allein:
+    pattern: "(?i)nach.*kalender.*allein"
+    de: [nach kalender allein]
+
+  nach_stretch:
+    pattern: "(?i)nach.*stretch"
+    de: [nach stretch]
+
+  naeher_ans_fenster:
+    pattern: "(?i)naeher.*ans.*fenster"
+    de: [naeher ans fenster]
+
+  naehrstoff_verfuegbarkeit:
+    pattern: "(?i)naehrstoff.*verfuegbarkeit"
+    de: [naehrstoff verfuegbarkeit]
+
+  naehrstoffmangel:
+    pattern: "(?i)naehrstoffmangel"
+    de: [naehrstoffmangel]
+
+  nein:
+    pattern: "(?i)nein"
+    de: [nein]
+
+  nein_nicht_geeignet:
+    pattern: "(?i)nein.*nicht.*geeignet"
+    de: [nein nicht geeignet]
+
+  nematoden_steinernema:
+    pattern: "(?i)nematoden.*steinernema"
+    de: [nematoden steinernema]
+
+  netzschwefel:
+    pattern: "(?i)netzschwefel"
+    de: [netzschwefel]
+
+  nicht_empfohlen:
+    pattern: "(?i)nicht.*empfohlen"
+    de: [nicht empfohlen]
+
+  nicht_giessen:
+    pattern: "(?i)nicht.*giessen"
+    de: [nicht giessen]
+
+  nicht_in_bluete:
+    pattern: "(?i)nicht.*bluete"
+    de: [nicht in bluete]
+
+  nicht_ins_alte_holz_schneiden:
+    pattern: "(?i)nicht.*ins.*alte.*holz"
+    de: [nicht ins alte holz schneiden]
+
+  nicht_nass_blaetter:
+    pattern: "(?i)nicht.*nass.*blaetter"
+    de: [nicht nass blaetter]
+
+  nicht_noetig:
+    pattern: "(?i)nicht.*noetig"
+    de: [nicht noetig]
+
+  nicht_uebergiessen:
+    pattern: "(?i)nicht.*uebergiessen"
+    de: [nicht uebergiessen]
+
+  nicht_vermeidbar:
+    pattern: "(?i)nicht.*vermeidbar"
+    de: [nicht vermeidbar]
+
+  nie_noetig:
+    pattern: "(?i)nie.*noetig"
+    de: [nie noetig]
+
+  nitrat_aufnahme:
+    pattern: "(?i)nitrat.*aufnahme"
+    de: [nitrat aufnahme]
+
+  nitrat_betont_waehlen:
+    pattern: "(?i)nitrat.*betont.*waehlen"
+    de: [nitrat betont waehlen]
+
+  nordfenster_ja:
+    pattern: "(?i)nordfenster.*ja"
+    de: [nordfenster ja]
+
+  nordfenster_wenig_licht:
+    pattern: "(?i)nordfenster.*wenig.*licht"
+    de: [nordfenster wenig licht]
+
+  normal:
+    pattern: "(?i)normal"
+    de: [normal]
+
+  normal_weiter:
+    pattern: "(?i)normal.*weiter"
+    de: [normal weiter]
+
+  nur_bei_600_plus:
+    pattern: "(?i)600.*nur.*bei"
+    de: [nur bei 600 plus]
+
+  nur_chemisch:
+    pattern: "(?i)nur.*chemisch"
+    de: [nur chemisch]
+
+  nur_rh_messen_reicht:
+    pattern: "(?i)nur.*messen.*reicht"
+    de: [nur rh messen reicht]
+
+  nur_vegetativ:
+    pattern: "(?i)nur.*vegetativ"
+    de: [nur vegetativ]
+
+  nur_waessern:
+    pattern: "(?i)nur.*waessern"
+    de: [nur waessern]
+
+  nur_wurzelduengung:
+    pattern: "(?i)nur.*wurzelduengung"
+    de: [nur wurzelduengung]
+
+  ofen:
+    pattern: "(?i)ofen"
+    de: [ofen]
+
+  oomycet:
+    pattern: "(?i)oomycet"
+    de: [oomycet]
+
+  optional:
+    pattern: "(?i)optional"
+    de: [optional]
+
+  orchidee:
+    pattern: "(?i)orchidee"
+    de: [orchidee]
+
+  ostfenster_morgensonne:
+    pattern: "(?i)ostfenster.*morgensonne"
+    de: [ostfenster morgensonne]
+
+  outdoor_morgens:
+    pattern: "(?i)outdoor.*morgens"
+    de: [outdoor morgens]
+
+  peak_bloom:
+    pattern: "(?i)peak.*bloom"
+    de: [peak bloom]
+
+  perlit_beimischen:
+    pattern: "(?i)perlit.*beimischen"
+    de: [perlit beimischen]
+
+  pflanze_stirbt:
+    pattern: "(?i)pflanze.*stirbt"
+    de: [pflanze stirbt]
+
+  pflanzenlampe:
+    pattern: "(?i)pflanzenlampe"
+    de: [pflanzenlampe]
+
+  ph_58_60:
+    pattern: "(?i)58.*60"
+    de: [ph 58 60]
+
+  ph_problem:
+    pattern: "(?i)ph.*problem"
+    de: [ph problem]
+
+  ph_up_verwenden:
+    pattern: "(?i)ph.*verwenden"
+    de: [ph up verwenden]
+
+  phosphor:
+    pattern: "(?i)phosphor"
+    de: [phosphor]
+
+  pistillen_allein:
+    pattern: "(?i)pistillen.*allein"
+    de: [pistillen allein]
+
+  ppfd_messen:
+    pattern: "(?i)ppfd.*messen"
+    de: [ppfd messen]
+
+  ppfd_pruefen:
+    pattern: "(?i)ppfd.*pruefen"
+    de: [ppfd pruefen]
+
+  problem:
+    pattern: "(?i)problem"
+    de: [problem]
+
+  pythium:
+    pattern: "(?i)pythium"
+    de: [pythium]
+
+  raumvolumen_berechnung:
+    pattern: "(?i)raumvolumen.*berechnung"
+    de: [raumvolumen berechnung]
+
+  rechtzeitig_aussetzen:
+    pattern: "(?i)rechtzeitig.*aussetzen"
+    de: [rechtzeitig aussetzen]
+
+  reihenfolge_egal:
+    pattern: "(?i)reihenfolge.*egal"
+    de: [reihenfolge egal]
+
+  reine_erde_ohne_zusatz:
+    pattern: "(?i)reine.*erde.*ohne.*zusatz"
+    de: [reine erde ohne zusatz]
+
+  reservoir_groesse:
+    pattern: "(?i)reservoir.*groesse"
+    de: [reservoir groesse]
+
+  resistente_sorten:
+    pattern: "(?i)resistente.*sorten"
+    de: [resistente sorten]
+
+  rh_60_ok:
+    pattern: "(?i)60"
+    de: [rh 60 ok]
+
+  ringelblume:
+    pattern: "(?i)ringelblume"
+    de: [ringelblume]
+
+  ro_anlage_kaufen:
+    pattern: "(?i)ro.*anlage.*kaufen"
+    de: [ro anlage kaufen]
+
+  rosmarin_einfach:
+    pattern: "(?i)rosmarin.*einfach"
+    de: [rosmarin einfach]
+
+  ruhephase:
+    pattern: "(?i)ruhephase"
+    de: [ruhephase]
+
+  sauerstoff:
+    pattern: "(?i)sauerstoff"
+    de: [sauerstoff]
+
+  sauerstoffmangel:
+    pattern: "(?i)sauerstoffmangel"
+    de: [sauerstoffmangel]
+
+  schimmel:
+    pattern: "(?i)schimmel"
+    de: [schimmel]
+
+  schimmel_vorbeugung:
+    pattern: "(?i)schimmel.*vorbeugung"
+    de: [schimmel vorbeugung]
+
+  schnell_trocknen:
+    pattern: "(?i)schnell.*trocknen"
+    de: [schnell trocknen]
+
+  schnelle_aufnahme:
+    pattern: "(?i)schnelle.*aufnahme"
+    de: [schnelle aufnahme]
+
+  schwerer_topf:
+    pattern: "(?i)schwerer.*topf"
+    de: [schwerer topf]
+
+  sicherheitsabstand:
+    pattern: "(?i)sicherheitsabstand"
+    de: [sicherheitsabstand]
+
+  sofort:
+    pattern: "(?i)sofort"
+    de: [sofort]
+
+  sofort_bei_umstellung:
+    pattern: "(?i)sofort.*bei.*umstellung"
+    de: [sofort bei umstellung]
+
+  sofort_duengen:
+    pattern: "(?i)sofort.*duengen"
+    de: [sofort duengen]
+
+  sofort_ec_erhoehen:
+    pattern: "(?i)sofort.*ec.*erhoehen"
+    de: [sofort ec erhoehen]
+
+  sofort_pflanzen:
+    pattern: "(?i)sofort.*pflanzen"
+    de: [sofort pflanzen]
+
+  spargel:
+    pattern: "(?i)spargel"
+    de: [spargel]
+
+  spinosad:
+    pattern: "(?i)spinosad"
+    de: [spinosad]
+
+  stengel_staerkung:
+    pattern: "(?i)stengel.*staerkung"
+    de: [stengel staerkung]
+
+  stickstoff_mangel_behandeln:
+    pattern: "(?i)stickstoff.*mangel.*behandeln"
+    de: [stickstoff mangel behandeln]
+
+  stress:
+    pattern: "(?i)stress"
+    de: [stress]
+
+  stuetzfunktion:
+    pattern: "(?i)stuetzfunktion"
+    de: [stuetzfunktion]
+
+  substrat_abtrocknen:
+    pattern: "(?i)substrat.*abtrocknen"
+    de: [substrat abtrocknen]
+
+  suedfenster_hell:
+    pattern: "(?i)suedfenster.*hell"
+    de: [suedfenster hell]
+
+  suedfenster_meist_ok:
+    pattern: "(?i)suedfenster.*meist"
+    de: [suedfenster meist ok]
+
+  taeglich:
+    pattern: "(?i)taeglich"
+    de: [taeglich]
+
+  tomate_basilikum_karotte:
+    pattern: "(?i)tomate.*basilikum.*karotte"
+    de: [tomate basilikum karotte]
+
+  trockenphase:
+    pattern: "(?i)trockenphase"
+    de: [trockenphase]
+
+  ueber_blattpaar_schneiden:
+    pattern: "(?i)ueber.*blattpaar.*schneiden"
+    de: [ueber blattpaar schneiden]
+
+  ueberduengung:
+    pattern: "(?i)ueberduengung"
+    de: [ueberduengung]
+
+  ueberduengung_moeglich:
+    pattern: "(?i)ueberduengung.*moeglich"
+    de: [ueberduengung moeglich]
+
+  uebergiessen:
+    pattern: "(?i)uebergiessen"
+    de: [uebergiessen]
+
+  unnoetig:
+    pattern: "(?i)unnoetig"
+    de: [unnoetig]
+
+  unterschiedliche_klimaansprueche_outdoor:
+    pattern: "(?i)unterschiedliche.*klimaansprueche.*outdoor"
+    de: [unterschiedliche klimaansprueche outdoor]
+
+  unterwaesserung:
+    pattern: "(?i)unterwaesserung"
+    de: [unterwaesserung]
+
+  verholzung:
+    pattern: "(?i)verholzung"
+    de: [verholzung]
+
+  volle_dosis_sofort:
+    pattern: "(?i)volle.*dosis.*sofort"
+    de: [volle dosis sofort]
+
+  vorbeugend:
+    pattern: "(?i)vorbeugend"
+    de: [vorbeugend]
+
+  vpd_optimierung:
+    pattern: "(?i)vpd.*optimierung"
+    de: [vpd optimierung]
+
+  vpd_zu_hoch:
+    pattern: "(?i)vpd.*hoch"
+    de: [vpd zu hoch]
+
+  wachstum_gestoppt:
+    pattern: "(?i)wachstum.*gestoppt"
+    de: [wachstum gestoppt]
+
+  warm_stellen:
+    pattern: "(?i)warm.*stellen"
+    de: [warm stellen]
+
+  wasserstandsanzeiger:
+    pattern: "(?i)wasserstandsanzeiger"
+    de: [wasserstandsanzeiger]
+
+  wassertemperatur_senken:
+    pattern: "(?i)wassertemperatur.*senken"
+    de: [wassertemperatur senken]
+
+  weich:
+    pattern: "(?i)weich"
+    de: [weich]
+
+  weiter_verwenden:
+    pattern: "(?i)weiter.*verwenden"
+    de: [weiter verwenden]
+
+  wicking_prinzip:
+    pattern: "(?i)wicking.*prinzip"
+    de: [wicking prinzip]
+
+  wie_erde:
+    pattern: "(?i)wie.*erde"
+    de: [wie erde]
+
+  winter:
+    pattern: "(?i)winter"
+    de: [winter]
+
+  winter_kurze_tage:
+    pattern: "(?i)winter.*kurze.*tage"
+    de: [winter kurze tage]
+
+  woechentlich:
+    pattern: "(?i)woechentlich"
+    de: [woechentlich]
+
+  wurzelexsudate:
+    pattern: "(?i)wurzelexsudate"
+    de: [wurzelexsudate]
+
+  wurzelfaeule:
+    pattern: "(?i)wurzelfaeule"
+    de: [wurzelfaeule]
+
+  wurzeln_aus_loechern:
+    pattern: "(?i)wurzeln.*aus.*loechern"
+    de: [wurzeln aus loechern]
+
+  zu_viel_wasser:
+    pattern: "(?i)viel.*wasser"
+    de: [zu viel wasser]
+
+  zu_wenig_giessen:
+    pattern: "(?i)wenig.*giessen"
+    de: [zu wenig giessen]
+
+  zu_wenig_licht:
+    pattern: "(?i)wenig.*licht"
+    de: [zu wenig licht]
+
+  zweige_knacken:
+    pattern: "(?i)zweige.*knacken"
+    de: [zweige knacken]

@@ -93,6 +93,25 @@ class KnowledgeIngestor:
             source_key = f"{category}/{file_stem}#{chunk_id}"
             chunk_metadata = {**file_metadata, **(chunk.get("metadata") or {})}
 
+            # Enrich embedding text with metadata for better retrieval
+            meta_parts = []
+            for key in (
+                "nutrient",
+                "symbol",
+                "deficiency_type",
+                "affected_leaves",
+                "severity_indicator",
+                "type",
+                "trigger",
+                "approach",
+            ):
+                val = chunk_metadata.get(key)
+                if val:
+                    meta_parts.append(f"{key}: {val}")
+            embed_text = text
+            if meta_parts:
+                embed_text = f"{text}\n\n{' | '.join(meta_parts)}"
+
             chunks_data.append(
                 {
                     "source_key": source_key,
@@ -102,7 +121,7 @@ class KnowledgeIngestor:
                     "metadata": chunk_metadata,
                 }
             )
-            texts.append(text)
+            texts.append(embed_text)
 
         if not texts:
             return 0
