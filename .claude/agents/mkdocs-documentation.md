@@ -60,13 +60,15 @@ docs/
 │   │   ├── tanks.md                  # Tankmanagement (REQ-014)
 │   │   ├── calendar.md               # Kalenderansicht (REQ-015)
 │   │   ├── propagation.md            # Vermehrungsmanagement (REQ-017)
-│   │   └── environment-control.md    # Umgebungssteuerung (REQ-018)
+│   │   ├── environment-control.md    # Umgebungssteuerung (REQ-018)
+│   │   └── knowledge-assistant.md    # KI-Wissensassistent (Knowledge API)
 │   ├── architecture/
 │   │   ├── index.md
 │   │   ├── overview.md
 │   │   ├── backend.md
 │   │   ├── frontend.md
 │   │   ├── database.md
+│   │   ├── ai-rag-pipeline.md        # RAG-Architektur, LLM-Adapter, Embedding, pgvector
 │   │   └── infrastructure.md
 │   ├── development/
 │   │   ├── index.md
@@ -728,13 +730,24 @@ Verwende Mermaid fuer alle technischen Diagramme:
             Redis[(Redis)]
         end
 
+        subgraph "AI / RAG Layer (optional)"
+            pgvector[(pgvector)]
+            EmbeddingService[Embedding Service<br/>ONNX Runtime]
+            LLM[LLM Adapter<br/>Anthropic / Ollama / OpenAI]
+        end
+
         Web --> Traefik
         Mobile --> Traefik
         Traefik --> Backend
         Backend --> ArangoDB
         Backend --> TimescaleDB
         Backend --> Redis
+        Backend --> pgvector
+        Backend --> EmbeddingService
+        Backend --> LLM
         Worker --> ArangoDB
+        Worker --> pgvector
+        Worker --> EmbeddingService
         Beat --> Redis
     ```
 ```
@@ -772,6 +785,9 @@ Verwende Mermaid fuer alle technischen Diagramme:
 *[CI/CD]: Continuous Integration / Continuous Deployment
 *[CRUD]: Create, Read, Update, Delete
 *[AQL]: ArangoDB Query Language
+*[RAG]: Retrieval-Augmented Generation — KI-Antwortgenerierung mit abgerufenen Kontextdaten
+*[LLM]: Large Language Model — Grosses Sprachmodell
+*[ONNX]: Open Neural Network Exchange — Offenes Format fuer ML-Modelle
 ```
 
 ---

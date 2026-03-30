@@ -1,6 +1,6 @@
 ---
 name: fullstack-developer
-description: Erfahrener Full-Stack-Entwickler der Anforderungsdokumente unter Berücksichtigung des definierten Tech-Stacks (Python 3.14+, FastAPI >=0.115, ArangoDB, TimescaleDB, Redis, Celery, React 19, TypeScript 5.9, MUI 7, Redux Toolkit, react-router-dom v7, Vite 6, Flutter, Kubernetes/Helm) in produktionsreifen Code umsetzt. Aktiviere diesen Agenten wenn Features implementiert, APIs erstellt, Datenbankschemas entworfen, Celery-Tasks geschrieben, React-Komponenten gebaut, Helm-Charts erstellt oder bestehender Code refactored werden soll. Beachtet stets die Non-Funktionalen Anforderungen (NFR-001 bis NFR-010) und UI-NFRs (UI-NFR-001 bis UI-NFR-012).
+description: Erfahrener Full-Stack-Entwickler der Anforderungsdokumente unter Berücksichtigung des definierten Tech-Stacks (Python 3.14+, FastAPI >=0.115, ArangoDB, TimescaleDB, Redis, Celery, pgvector/PostgreSQL 17, ONNX-Embedding-Service, LLM-Adapter (Anthropic/Ollama/OpenAI-kompatibel), React 19, TypeScript 5.9, MUI 7, Redux Toolkit, react-router-dom v7, Vite 6, Flutter, Kubernetes/Helm) in produktionsreifen Code umsetzt. Aktiviere diesen Agenten wenn Features implementiert, APIs erstellt, Datenbankschemas entworfen, Celery-Tasks geschrieben, React-Komponenten gebaut, RAG-Pipelines erweitert, LLM-Adapter implementiert, Helm-Charts erstellt oder bestehender Code refactored werden soll. Beachtet stets die Non-Funktionalen Anforderungen (NFR-001 bis NFR-010) und UI-NFRs (UI-NFR-001 bis UI-NFR-012).
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: opus
 ---
@@ -32,6 +32,19 @@ Diese Style Guides haben Vorrang vor allgemeinen Best Practices. Bei Widerspruec
 - **ArangoDB 3.11+** — Multi-Model: Dokumente UND Graphen. AQL für Queries. Named Graph: `kamerplanter_graph`
 - **TimescaleDB 2.13+** — für alle Zeitreihendaten (Sensordaten, Messungen). Hypertables, Retention Policies, Continuous Aggregates
 - **Redis 7.2+** — Caching mit TTL, Pub/Sub, Rate Limiting
+- **PostgreSQL 17 + pgvector 0.8.0** — VectorDB für KI/RAG (optional). Cosine Similarity Search, IVFFlat-Index, 384-dimensionale Embeddings
+
+### KI/AI (optional — RAG-basierte Wissensdatenbank)
+- **Embedding Service** — Eigener ONNX-Runtime-Microservice (kein PyTorch). Modell: `paraphrase-multilingual-MiniLM-L12-v2` (384 Dims). API auf Port 8080 (`/embed`, `/health`, `/ready`)
+- **LLM-Adapter** — Multi-Provider über `ILlmAdapter` Interface (`domain/interfaces/llm_adapter.py`):
+  - `AnthropicLlmAdapter` — Anthropic Messages API via httpx (Default: `claude-sonnet-4-20250514`)
+  - `OllamaLlmAdapter` — Lokales Ollama via REST API (Default: `llama3`)
+  - `OpenAiCompatibleLlmAdapter` — Jeder OpenAI-kompatible Endpunkt (vLLM, LM Studio, llama.cpp)
+- **Keine SDK-Abhängigkeit** — Alle LLM-Adapter nutzen `httpx` direkt
+- **Knowledge Base** — YAML-Dateien unter `spec/knowledge/` (pre-chunked, ~30 Dateien, 8 Fachbereiche)
+- **KnowledgeIngestor** — Batch-Embedding + Upsert in pgvector, wöchentlich via Celery Beat
+- **KnowledgeService** — RAG-Pipeline: Semantic Search + LLM-Generierung mit Kontext-Prompt
+- **VectorChunkRepository** — psycopg3 + ConnectionPool für pgvector-Zugriff
 
 ### Frontend
 - **React 19** — Funktionale Komponenten, Hooks, TypeScript strict mode. Kein Class-basiertes React
@@ -89,13 +102,14 @@ src/
 │   │   │   └── retry.py              # Retry with Exponential Backoff (NFR-007)
 │   │   ├── domain/
 │   │   │   ├── models/                # Pydantic v2 Domain Models
-│   │   │   ├── interfaces/            # ABC Interfaces for Adapters
-│   │   │   ├── services/              # Business Logic Services
-│   │   │   ├── engines/               # Domain Engines (Phase Transitions, Validators, etc.)
+│   │   │   ├── interfaces/            # ABC Interfaces for Adapters (inkl. ILlmAdapter)
+│   │   │   ├── services/              # Business Logic Services (inkl. KnowledgeService)
+│   │   │   ├── engines/               # Domain Engines (inkl. EmbeddingEngine, KnowledgeIngestor)
 │   │   │   └── calculators/           # Domain Calculators (VPD, GDD, Nutrients, etc.)
 │   │   ├── data_access/
 │   │   │   ├── arango/                # ArangoDB Repositories
-│   │   │   └── external/              # External Adapters (GBIF, Perenual, HA)
+│   │   │   ├── external/              # External Adapters (GBIF, Perenual, HA, LLM-Adapter)
+│   │   │   └── vectordb/             # pgvector Connection, Schema, VectorChunkRepository
 │   │   ├── migrations/                # Database Migrations
 │   │   └── tasks/                     # Celery Tasks
 │   ├── tests/                         # pytest + pytest-asyncio
@@ -139,7 +153,7 @@ src/
 ## 5-Schichten-Architektur (NFR-001 — Kritisch)
 
 ```
-Presentation (Frontend) → API (FastAPI) → Business Logic (Services/Engines) → Data Access (Repositories) → Persistence (ArangoDB/TimescaleDB/Redis)
+Presentation (Frontend) → API (FastAPI) → Business Logic (Services/Engines) → Data Access (Repositories) → Persistence (ArangoDB/TimescaleDB/Redis/pgvector)
 ```
 
 **Verbotene Kopplungen:**
@@ -237,6 +251,9 @@ CLOSED → (5 Fehler) → OPEN → (30s Timeout) → HALF-OPEN → (3 Erfolge) �
 | Redis | Cache-Bypass, direkt aus ArangoDB |
 | TimescaleDB | Sensordaten puffern, "Daten verzögert" im UI |
 | Celery Worker | Synchrone Fallback-Verarbeitung für kritische Tasks |
+| VectorDB/pgvector | Knowledge-API liefert HTTP 503, Rest des Systems funktioniert normal |
+| Embedding Service | Knowledge-API liefert HTTP 503 |
+| LLM Provider | RAG-Ask nicht verfügbar, Semantic Search weiterhin möglich |
 
 ### Rate Limiting (MUSS)
 - Global: 1.000 req/min
@@ -553,6 +570,14 @@ class Settings(BaseSettings):
     arango_database: str = "kamerplanter_db"
     redis_url: str = "redis://redis:6379"
     celery_broker_url: str = "redis://redis:6379/0"
+    # VectorDB / AI (optional)
+    vectordb_host: str = "vectordb"
+    vectordb_port: int = 5432
+    vectordb_database: str = "kamerplanter_vectors"
+    embedding_service_url: str = "http://kamerplanter-embedding-service:8080"
+    embedding_model: str = "paraphrase-multilingual-MiniLM-L12-v2"
+    knowledge_path: str = "/app/knowledge"
+    llm_provider: str = "ollama"  # anthropic | ollama | openai_compatible
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 ```
 
@@ -744,6 +769,10 @@ Sicherheitsrelevante Aspekte:
 - Hardcodierte URLs, Ports oder Credentials
 - Ungetestete Endpoints
 - ArangoDB-Queries ohne Index auf gefilterten Feldern
+- f-strings in pgvector SQL-Queries (Injection!)
+- API-Keys/Secrets für LLM-Provider im Code (nur via Environment Variables)
+- PyTorch-Abhängigkeit im Embedding Service (nur ONNX Runtime)
+- Direkte SDK-Abhängigkeit für LLM-Adapter (nur httpx)
 - Stack-Traces oder DB-Details in API-Fehler-Responses (NFR-006)
 - Netzwerkaufrufe ohne explizite Timeouts (NFR-007)
 - Direkten Hex-/RGB-Farbwerte in React-Komponenten (UI-NFR-006)

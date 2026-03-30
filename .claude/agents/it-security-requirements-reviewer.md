@@ -210,13 +210,45 @@ Prüfe gegen den Soll-Zustand aus REQ-024:
 - Ist eine Datenschutzerklärung referenziert?
 
 #### Auftragsverarbeitung
-- Werden Drittanbieter-Dienste identifiziert? (GBIF, Perenual, HaveIBeenPwned, OIDC-Provider)
+- Werden Drittanbieter-Dienste identifiziert? (GBIF, Perenual, HaveIBeenPwned, OIDC-Provider, **Anthropic API**, **OpenAI-kompatible LLM-Provider**)
 - Ist für jeden Drittanbieter geprüft ob ein AVV (Auftragsverarbeitungsvertrag) nötig ist?
 - Werden Daten in Drittländer übertragen? (Schrems II, Angemessenheitsbeschluss)
+- **LLM-Cloud-Provider**: Werden User-Fragen an Cloud-LLMs (Anthropic, OpenAI) übertragen? Falls ja — Einwilligung nötig, Datenminimierung prüfen
+- **Ollama-Option**: Ist eine rein lokale LLM-Option (Ollama) als DSGVO-konforme Alternative spezifiziert?
 
 ---
 
-### 2.7 Infrastruktur-Sicherheit
+### 2.7 KI/AI-Sicherheit (RAG-Pipeline)
+
+#### Datenschutz bei LLM-Nutzung
+- Werden **Nutzerfragen** an externe LLM-Provider (Anthropic, OpenAI) gesendet?
+  - Falls ja: Ist eine **Einwilligung** (Art. 6 DSGVO) für diese Datenübertragung spezifiziert?
+  - Enthält die Nutzerfrage potenziell **personenbezogene Daten** (Pflanzennamen = unkritisch, aber Standortdaten, Nutzernamen)?
+  - Ist eine **lokale LLM-Alternative** (Ollama) als Privacy-First-Option definiert?
+- Werden Token-Usage-Daten oder Request-Logs gespeichert? Falls ja — Löschfristen?
+
+#### Prompt Injection
+- Ist definiert wie User-Input vom System-Prompt getrennt wird?
+- Wird das Risiko benannt, dass manipulierte Wissensdaten (Knowledge YAML) den LLM-Output beeinflussen können?
+- Werden LLM-Antworten als **nicht vertrauenswürdig** behandelt? (keine Ausführung als Code, keine Speicherung als Fakt)
+
+#### API Key Management
+- Sind API-Keys für LLM-Provider (Anthropic API Key, OpenAI API Key) als **Kubernetes Secrets** spezifiziert?
+- Sind Rotationsstrategien für LLM-API-Keys definiert?
+- Werden API-Keys in Logs oder Error-Responses maskiert?
+
+#### Zugriffskontrolle auf Knowledge API
+- Sind die Knowledge-Endpunkte (`/api/v1/knowledge/search`, `/api/v1/knowledge/ask`) als **öffentlich** markiert und begründet?
+- Falls öffentlich: Rate Limiting ausreichend um Missbrauch (LLM-Cost-Inflation) zu verhindern?
+- Werden LLM-Kosten pro Tenant/User begrenzt oder überwacht?
+
+#### Vektor-Datenbank
+- Sind die Wissensdaten in pgvector nur **redaktionell kuratierte** Inhalte (keine User-generierten Daten)?
+- Ist sichergestellt dass keine personenbezogenen Daten in die Vektordatenbank gelangen?
+
+---
+
+### 2.8 Infrastruktur-Sicherheit
 
 #### Container & Kubernetes
 - Laufen Container als **non-root**?
@@ -253,6 +285,7 @@ Erstelle `spec/requirements-analysis/it-security-review.md`:
 | Authentifizierung | ⭐⭐⭐⭐⭐ | |
 | Autorisierung / RBAC | ⭐⭐⭐⭐⭐ | |
 | Tenant-Isolation | ⭐⭐⭐⭐⭐ | |
+| KI/AI-Sicherheit | ⭐⭐⭐⭐⭐ | LLM-Datenschutz, Prompt Injection, API Key Mgmt |
 | API-Sicherheit | ⭐⭐⭐⭐⭐ | |
 | Verschlüsselung | ⭐⭐⭐⭐⭐ | |
 | DSGVO-Konformität | ⭐⭐⭐⭐⭐ | |

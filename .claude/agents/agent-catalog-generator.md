@@ -131,7 +131,7 @@ Verwende MkDocs-Material Admonition (`!!! tip`):
 | ...UI/UX und Kiosk-Modus prüfen | `frontend-design-reviewer` |
 | ...Zielgruppen und Marktpotenzial analysieren | `target-audience-analyzer` |
 | ...MkDocs-Dokumentation erstellen | `mkdocs-documentation` |
-| ...Features implementieren (Backend + Frontend) | `fullstack-developer` |
+| ...Features implementieren (Backend + Frontend + KI/RAG) | `fullstack-developer` |
 | ...eine Übersicht aller Agents generieren | `agent-catalog-generator` |
 
 ---
