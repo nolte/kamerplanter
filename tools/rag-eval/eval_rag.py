@@ -35,7 +35,7 @@ VECTORDB_DSN = os.environ.get(
 )
 OLLAMA_URL = os.environ.get("LLM_API_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("LLM_MODEL", "gemma3:4b")
-EVAL_DATA_DIR = os.environ.get("EVAL_DATA_DIR", str(Path(__file__).parent / "../../spec/knowledge/eval"))
+EVAL_DATA_DIR = os.environ.get("EVAL_DATA_DIR", str(Path(__file__).parent / "../../tests/rag-eval"))
 
 RAG_SYSTEM_PROMPT = (
     "Du bist ein Pflanzenberater. Antworte auf Deutsch, kurz und fachlich korrekt. "

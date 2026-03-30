@@ -37,4 +37,4 @@ site/
 *.tsbuildinfo
 
 # RAG eval results (generated)
-spec/knowledge/eval/eval_results.json
+tests/rag-eval/eval_results.json

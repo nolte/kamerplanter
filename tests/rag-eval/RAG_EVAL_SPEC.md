@@ -222,7 +222,7 @@ Das Woerterbuch mappt semantische Topics auf erkennbare Keywords/Phrasen
 in der Antwort. Wird als separate YAML-Datei gepflegt:
 
 ```yaml
-# spec/knowledge/eval/topic_synonyms.yaml
+# tests/rag-eval/topic_synonyms.yaml
 topics:
   stickstoff_mangel:
     de: [Stickstoff, Stickstoffmangel, N-Mangel, nitrogen, gelbe untere Blaetter]
