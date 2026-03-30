@@ -1,6 +1,7 @@
 FROM postgres:17-bookworm
 
-# Install pgvector extension
+# Install pgvector extension from source — build tools are purged after install
+# hadolint ignore=DL3003,DL3008
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
