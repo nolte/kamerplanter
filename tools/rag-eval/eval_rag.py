@@ -53,25 +53,118 @@ OLLAMA_URL = os.environ.get("LLM_API_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("LLM_MODEL", "gemma3:4b")
 EVAL_DATA_DIR = os.environ.get("EVAL_DATA_DIR", str(Path(__file__).parent / "../../tests/rag-eval"))
 
-_SYSTEM_PROMPTS: dict[str, str] = {
-    "de": (
-        "Du bist ein Pflanzenberater. Antworte auf Deutsch, kurz und fachlich korrekt. "
-        "Nenne: 1) Diagnose (Naehrstoff/Schaedling), 2) ob mobil/immobil und welche Blaetter betroffen, "
-        "3) Ursachen (pH, EC pruefen), 4) Massnahmen. "
-        "Nenne NUR die wahrscheinlichste Diagnose, nicht was es NICHT ist. "
-        "Nutze NUR den Kontext. Erfinde nichts."
-    ),
-    "en": (
-        "You are a plant care advisor. Answer concisely and technically correct. "
-        "State: 1) Diagnosis (nutrient/pest), 2) whether mobile/immobile and which leaves affected, "
-        "3) Causes (check pH, EC), 4) Remedies. "
-        "State ONLY the most likely diagnosis, not what it is NOT. "
-        "Use ONLY the provided context. Do not make up facts. "
-        "Answer in the SAME LANGUAGE as the user's question."
-    ),
+_EXTRACTION_SUFFIX = {
+    "de": "Zitiere konkrete Schritte, Werte und Reihenfolgen aus dem Kontext. Nutze NUR den Kontext. Erfinde nichts.",
+    "en": "Quote specific steps, values, and sequences from the context. Use ONLY the provided context. Do not make up facts.",
 }
 
+_TYPED_PROMPTS: dict[str, dict[str, str]] = {
+    "diagnosis": {
+        "de": (
+            "Du bist ein Pflanzenberater. Antworte auf Deutsch, kurz und fachlich korrekt. "
+            "Nenne: 1) Diagnose (Naehrstoff/Schaedling), 2) ob mobil/immobil und welche Blaetter betroffen, "
+            "3) Ursachen (pH, EC pruefen), 4) Massnahmen. "
+            "Nenne NUR die wahrscheinlichste Diagnose, nicht was es NICHT ist. "
+        ),
+        "en": (
+            "You are a plant care advisor. Answer concisely and technically correct. "
+            "State: 1) Diagnosis (nutrient/pest), 2) whether mobile/immobile and which leaves affected, "
+            "3) Causes (check pH, EC), 4) Remedies. "
+            "State ONLY the most likely diagnosis, not what it is NOT. "
+            "Answer in the SAME LANGUAGE as the user's question. "
+        ),
+    },
+    "howto": {
+        "de": (
+            "Du bist ein Pflanzenberater. Antworte auf Deutsch, kurz und praktisch. "
+            "Gib eine konkrete Schritt-fuer-Schritt-Anleitung. "
+            "Nenne exakte Werte (Mengen, Temperaturen, Zeiten, Reihenfolgen) aus dem Kontext. "
+            "Nummeriere die Schritte. "
+            "WICHTIG: Verwende KEINE Diagnose-Struktur. Antworte NICHT mit '1) Diagnose', "
+            "'2) Mobil/Immobil'. Gib stattdessen eine praktische Anleitung. "
+        ),
+        "en": (
+            "You are a plant care advisor. Answer concisely and practically. "
+            "Provide a concrete step-by-step guide. "
+            "State exact values (amounts, temperatures, times, sequences) from the context. "
+            "Number the steps. "
+            "IMPORTANT: Do NOT use a diagnosis structure. Do NOT answer with '1) Diagnosis', "
+            "'2) Mobile/Immobile'. Instead, provide a practical guide. "
+            "Answer in the SAME LANGUAGE as the user's question. "
+        ),
+    },
+    "factual": {
+        "de": (
+            "Du bist ein Pflanzenberater. Antworte auf Deutsch, kurz und fachlich korrekt. "
+            "Beantworte die Frage direkt mit konkreten Fakten, Werten und Empfehlungen aus dem Kontext. "
+            "Erklaere kurz warum. "
+            "WICHTIG: Verwende KEINE Diagnose-Struktur. Antworte NICHT mit '1) Diagnose', "
+            "'2) Mobil/Immobil', '3) Ursachen', '4) Massnahmen'. "
+            "Beantworte die Frage stattdessen direkt und erklaerend. "
+        ),
+        "en": (
+            "You are a plant care advisor. Answer concisely and technically correct. "
+            "Answer the question directly with concrete facts, values, and recommendations from the context. "
+            "Briefly explain why. "
+            "IMPORTANT: Do NOT use a diagnosis structure. Do NOT answer with '1) Diagnosis', "
+            "'2) Mobile/Immobile', '3) Causes', '4) Remedies'. "
+            "Instead, answer the question directly and explanatorily. "
+            "Answer in the SAME LANGUAGE as the user's question. "
+        ),
+    },
+}
+
+# Question type auto-detection keywords
+_HOWTO_PATTERNS = re.compile(
+    r"(?i)(reihenfolge|wie\s+(mische|mach|starte|bereite|soll\s+ich|trockne|keime|berechne|stelle|ueberw[ei]nter|pflege)|"
+    r"schritt|anleitung|wann\s+(starte|beginne|soll|kann\s+ich|ernte|pflanze)|"
+    r"how\s+(do|should|to)|step|procedure|order|"
+    r"welche.*reihenfolge|in\s+welcher|wie\s+oft|wie\s+viel|wie\s+lange|"
+    r"muss\s+ich|brauche\s+ich|kann\s+ich.*verwenden|soll\s+ich.*duengen|"
+    r"soll\s+ich.*giessen|wie\s+funktioniert|"
+    r"wie\s+stelle\s+ich|wie\s+beuge|tipps)",
+)
+_DIAGNOSIS_PATTERNS = re.compile(
+    r"(?i)(gelb|braun|welk|fleck|symptom|mangel|schae?dling|krank|"
+    r"trueb|runoff|drift|fliegen|streifen|krusten|klebrig|"
+    r"yellow|brown|wilt|spot|deficien|pest|disease|"
+    r"haengt.*schlaff|kuemmer|Gespinst|Schimmel|faul|"
+    r"stirbt|verfaerb|vergilb|was.*fehlt|was.*stimmt.*nicht|was.*ist.*das)",
+)
+
+
+def _classify_question(question: dict) -> str:
+    """Determine question type: 'diagnosis', 'howto', or 'factual'.
+
+    Uses explicit question_type field if set, otherwise auto-detects from
+    question text with keyword heuristics.
+    """
+    explicit = question.get("question_type")
+    if explicit in ("diagnosis", "howto", "factual"):
+        return explicit
+
+    q_text = question.get("question", "")
+
+    if _HOWTO_PATTERNS.search(q_text):
+        return "howto"
+    if _DIAGNOSIS_PATTERNS.search(q_text):
+        return "diagnosis"
+    return "factual"
+
+
+def _get_system_prompt(question_type: str, lang: str) -> str:
+    """Build system prompt from question type + extraction suffix."""
+    base = _TYPED_PROMPTS.get(question_type, _TYPED_PROMPTS["factual"])
+    prompt = base.get(lang, base["de"])
+    suffix = _EXTRACTION_SUFFIX.get(lang, _EXTRACTION_SUFFIX["de"])
+    return prompt + suffix
+
+
 # Backward compatibility
+_SYSTEM_PROMPTS: dict[str, str] = {
+    "de": _get_system_prompt("diagnosis", "de"),
+    "en": _get_system_prompt("diagnosis", "en"),
+}
 RAG_SYSTEM_PROMPT = _SYSTEM_PROMPTS["de"]
 
 _LANG_TO_TSCONFIG: dict[str, str] = {"de": "german", "en": "english"}
@@ -256,7 +349,7 @@ def llm_generate(
                 {"role": "user", "content": user_message},
             ],
             "stream": False,
-            "options": {"num_predict": 512, "temperature": 0.1},
+            "options": {"num_predict": 768, "temperature": 0.1},
         },
         timeout=300.0,
     )
@@ -392,7 +485,8 @@ def evaluate_question(
     user_message += f"Frage: {q_text}"
 
     try:
-        system_prompt = _SYSTEM_PROMPTS.get(prompt_language, _SYSTEM_PROMPTS["de"])
+        q_type = _classify_question(question)
+        system_prompt = _get_system_prompt(q_type, prompt_language)
         answer = llm_generate(system_prompt, user_message, ollama_url, ollama_model)
     except Exception as exc:
         print(f"  LLM error for {q_id}: {exc}", file=sys.stderr)
@@ -413,7 +507,7 @@ def evaluate_question(
         topic_hits=hits,
         topic_misses=misses,
         false_positives=fps,
-        answer=answer[:500],
+        answer=answer[:2000],
         chunks_used=len(chunks),
         chunk_sources=[c["source_key"] for c in chunks],
     )
@@ -546,8 +640,9 @@ def run_eval(
             errors += 1
             continue
         if not retrieval_only:
+            q_type = _classify_question(question)
             status = "PASS" if result.score >= min_pass else "FAIL"
-            print(f"  [{len(results) + 1:3d}/{len(questions)}] {result.id:<20s} {result.score:.2f}  {status}")
+            print(f"  [{len(results) + 1:3d}/{len(questions)}] {result.id:<20s} {result.score:.2f}  {status}  ({q_type})")
             if result.topic_misses:
                 print(f"           misses: {', '.join(result.topic_misses)}")
             if result.false_positives:
