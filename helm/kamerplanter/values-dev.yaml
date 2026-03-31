@@ -347,7 +347,7 @@ controllers:
         securityContext:
           readOnlyRootFilesystem: false
         env:
-          EMBEDDING_MODEL: "paraphrase-multilingual-MiniLM-L12-v2"
+          EMBEDDING_MODEL: "multilingual-e5-base"
         probes:
           liveness:
             enabled: true
@@ -374,10 +374,10 @@ controllers:
         resources:
           requests:
             cpu: 100m
-            memory: 512Mi
+            memory: 1536Mi
           limits:
             cpu: "2"
-            memory: 2Gi
+            memory: 4Gi
 
   vectordb:
     type: statefulset
@@ -814,10 +814,21 @@ ollama:
     size: 20Gi
     annotations:
       helm.sh/resource-policy: keep
+  ollama:
+    models:
+      run:
+        - gemma3:4b
+  extraEnv:
+    - name: OLLAMA_NUM_PARALLEL
+      value: "1"
+    - name: OLLAMA_MAX_LOADED_MODELS
+      value: "1"
+    - name: OLLAMA_KEEP_ALIVE
+      value: "10m"
   resources:
     requests:
-      cpu: 500m
-      memory: 2Gi
+      cpu: "2"
+      memory: 4Gi
     limits:
-      cpu: "4"
-      memory: 8Gi
+      cpu: "6"
+      memory: 10Gi
