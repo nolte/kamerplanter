@@ -126,8 +126,7 @@ The following table lists all available router groups. In full mode, `auth`, `oi
 | Companion Planting | `/companion-planting` | Mixed cultivation recommendations | REQ-028 |
 | Crop Rotation | `/crop-rotation` | Rotation validation | REQ-002 |
 | IPM (global) | `/ipm` | Pests, diseases, treatments — master data | REQ-010 |
-| Calculations | `/calculations` | EC/VPD calculations | REQ-004 |
-| Nutrient Calculations | `/nutrient-calculations` | Nutrient solution calculations | REQ-004 |
+| Calculations | `/calculations` | EC/VPD/sun position calculations, vernalization, slot capacity | REQ-004 |
 | Care Reminders | `/care-reminders` | Automated care schedules | REQ-022 |
 | Starter Kits | `/starter-kits` | Preconfigured packages | REQ-020 |
 | Import | `/import` | CSV import for master data | REQ-012 |
@@ -161,6 +160,7 @@ The following table lists all available router groups. In full mode, `auth`, `oi
 | Starter Kits | `/starter-kits` | Kit application for tenants | REQ-020 |
 | User Preferences | `/user-preferences` | Experience level, language | REQ-021 |
 | Favorites | `/favorites` | Plant favorites and nutrient plan matching | — |
+| Nutrient Calculations | `/nutrient-calculations` | Mixing protocol, flushing, runoff, mixing safety, water mix, EC budget | REQ-004 |
 | Notifications | `/notifications` | Notifications, preferences, test delivery | REQ-022 |
 | Observations | `/observations` | Sensor data CRUD (TimescaleDB) | REQ-005 |
 

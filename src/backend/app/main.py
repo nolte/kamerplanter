@@ -41,6 +41,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             _insecure.append("jwt_secret_key")
         if settings.arangodb_password == "rootpassword":
             _insecure.append("arangodb_password")
+        if settings.timescaledb_enabled and settings.timescaledb_password == "changeme":
+            _insecure.append("timescaledb_password")
+        if settings.vectordb_enabled and settings.vectordb_password == "changeme":
+            _insecure.append("vectordb_password")
         if _insecure:
             msg = (
                 "FATAL: Default secrets detected for: "
@@ -156,6 +160,9 @@ app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     lifespan=lifespan,
+    docs_url="/api/v1/docs",
+    redoc_url="/api/v1/redoc",
+    openapi_url="/api/v1/openapi.json",
 )
 
 # Rate limiting

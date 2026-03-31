@@ -44,7 +44,7 @@ Der gesamte Graph heißt `kamerplanter_graph` und enthält alle Kanten-Collectio
 
 ### Dokument-Collections
 
-Die Datenbank enthält **44 Dokument-Collections**. Ausgewählte Collections nach Domäne:
+Die Datenbank enthält **54 Dokument-Collections** und **75 Kanten-Collections**. Ausgewählte Collections nach Domäne:
 
 **Stammdaten (REQ-001)**
 

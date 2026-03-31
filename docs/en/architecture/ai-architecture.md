@@ -454,9 +454,9 @@ backend:
 
 ## References
 
-- [REQ-031 — AI Assistant & Plant Advisory](https://github.com/nolte/kamerplanter/blob/main/spec/req/REQ-031_KI-Assistent-Pflanzenberatung.md)
-- [REQ-011 — External Master Data Enrichment (Adapter Pattern)](https://github.com/nolte/kamerplanter/blob/main/spec/req/REQ-011_Externe-Stammdatenanreicherung.md)
-- [REQ-025 — Privacy & GDPR](https://github.com/nolte/kamerplanter/blob/main/spec/req/REQ-025_Datenschutz.md)
+- [REQ-031 — AI Assistant & Plant Advisory](../../../spec/req/REQ-031_KI-Assistent-Pflanzenberatung.md)
+- [REQ-011 — External Master Data Enrichment (Adapter Pattern)](../../../spec/req/REQ-011_Externe-Stammdatenanreicherung.md)
+- [REQ-025 — Privacy & GDPR](../../../spec/req/REQ-025_Datenschutz.md)
 - [Understanding the RAG Knowledge Base](../guides/rag-knowledge-base.md)
 - [AI Assistant](../user-guide/ai-assistant.md)
 - [pgvector Documentation](https://github.com/pgvector/pgvector)

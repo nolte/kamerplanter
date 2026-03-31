@@ -1,5 +1,8 @@
 # Datenschutz & DSGVO
 
+!!! warning "Noch nicht implementiert"
+    Die auf dieser Seite beschriebenen DSGVO-Funktionen (REQ-025) sind **spezifiziert, aber noch nicht implementiert**. Diese Dokumentation beschreibt das geplante Verhalten.
+
 Kamerplanter ist nach dem Prinzip **Datenschutz durch Technikgestaltung** (Privacy by Design) entwickelt. Du hast die volle Kontrolle ueber deine persoenlichen Daten: Du kannst sie jederzeit exportieren, berichtigen oder loeschen lassen. Alle Betroffenenrechte nach DSGVO Art. 15–21 sind als Self-Service-Funktionen direkt in deinem Konto erreichbar.
 
 ---

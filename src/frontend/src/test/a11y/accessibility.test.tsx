@@ -15,10 +15,8 @@ describe('Accessibility (axe)', () => {
 
   it('DashboardPage has no critical a11y violations', async () => {
     const { container } = renderWithProviders(<DashboardPage />);
-    await waitFor(async () => {
-      const results = await axe(container);
-      expect(results.violations.filter((v) => v.impact === 'critical')).toEqual([]);
-    });
+    const results = await axe(container);
+    expect(results.violations.filter((v) => v.impact === 'critical')).toEqual([]);
   });
 
   it('NotFoundPage has no critical a11y violations', async () => {

@@ -1,5 +1,8 @@
 # Privacy & GDPR
 
+!!! warning "Not yet implemented"
+    The GDPR features described on this page (REQ-025) are **specified but not yet implemented**. This documentation describes the planned behaviour.
+
 Kamerplanter is built on the principle of **Privacy by Design**. You have full control over your personal data: you can export, correct or have it deleted at any time. All data subject rights under GDPR Art. 15–21 are available as self-service features directly in your account.
 
 ---

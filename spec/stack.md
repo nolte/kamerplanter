@@ -41,7 +41,7 @@ Status: Produktionsreif Priorität: Kritisch
 ┌────────────────────────▼────────────────────────────────────────┐
 │                      DATA LAYER                                 │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │   ArangoDB   │  │ TimescaleDB  │  │    Redis     │         │
+│  │   ArangoDB   │  │ TimescaleDB  │  │    Valkey    │         │
 │  │ Multi-Model  │  │  Time-Series │  │    Cache     │         │
 │  └──────────────┘  └──────────────┘  └──────────────┘         │
 └─────────────────────────────────────────────────────────────────┘
@@ -262,10 +262,10 @@ class PlantResponse(BaseModel):
 
 ### 2.3 Asynchrone Task-Verarbeitung
 
-#### Celery + Redis
+#### Celery + Valkey
 
 - **Celery**: >= 5.4.0
-- **Redis**: >= 5.2.0 (als Broker & Result Backend)
+- **Valkey**: >= 8.0 (Redis-kompatibel, als Broker & Result Backend)
 
 **Use Cases**:
 
@@ -549,11 +549,11 @@ SELECT add_retention_policy('sensor_readings', INTERVAL '90 days');
 - **Trendanalysen** (Wachstumsverlauf)
 - **Anomalie-Erkennung** (Sensor-Ausfall, Extremwerte)
 
-### 3.3 Redis (Cache & Session Store)
+### 3.3 Valkey (Cache & Session Store)
 
 #### Version & Verwendung
 
-- **Version**: >= 7.2
+- **Version**: >= 8.0 (Redis-kompatibel)
 - **Modi**:
     - Cache (TTL-basiert)
     - Session Store

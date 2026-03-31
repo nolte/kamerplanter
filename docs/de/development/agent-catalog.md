@@ -7,7 +7,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 
 Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Projekt für autonome Feature-Implementierung, Requirements Engineering, Code-Reviews und Dokumentation.
 
-!!! info "Stand: 2026-03-23 — 27 Agents registriert"
+!!! info "Stand: 2026-03-31 — 30 Agents registriert"
     Dieser Katalog wird vom `agent-catalog-generator` Agent automatisch erstellt und aktualisiert.
 
 ---
@@ -21,6 +21,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 | `cannabis-indoor-grower-reviewer` | sonnet | Cannabis-Anbau-Spezifikation validieren | Analyse & Review |
 | `casual-houseplant-user-reviewer` | sonnet | Laien-Tauglichkeit von Zimmerpflanzenfunktionen | Analyse & Review |
 | `code-security-reviewer` | sonnet | Code-Security-Audit (OWASP Top 10) | Analyse & Review |
+| `docs-freshness-checker` | sonnet | Dokumentation auf Aktualität und Vollständigkeit prüfen | Dokumentation |
 | `e2e-testcase-extractor` | sonnet | E2E-Testfälle aus Spezifikationen ableiten | Testing & QA |
 | `frontend-design-reviewer` | sonnet | UI/UX, Responsive Design, Kiosk-Modus prüfen | Design & Grafik |
 | `frontend-usability-optimizer` | sonnet | React/MUI-Komponenten für bessere UX optimieren | Design & Grafik |
@@ -29,12 +30,14 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 | `growing-phase-auditor` | sonnet | Pflanzenphasen-Daten validieren und korrigieren | Testing & QA |
 | `ha-integration-requirements-engineer` | sonnet | Home Assistant Integrations-Anforderungen ableiten | Analyse & Review |
 | `ha-integration-sync` | opus | HA-Integration mit Backend-API synchronisieren | Entwicklung |
+| `i18n-completeness-checker` | haiku | i18n-Übersetzungen auf Vollständigkeit prüfen | Testing & QA |
 | `it-security-requirements-reviewer` | sonnet | Security & DSGVO in Anforderungen prüfen | Analyse & Review |
 | `mkdocs-documentation` | sonnet | MkDocs-Dokumentation erstellen und pflegen | Dokumentation |
 | `outdoor-garden-planner-reviewer` | sonnet | Freiland-Garten-Anforderungen validieren | Analyse & Review |
 | `plant-info-document-generator` | sonnet | Detaillierte Pflanzen-Steckbriefe recherchieren | Dokumentation |
 | `png-to-transparent-svg` | haiku | PNG mit Schachbrett-Hintergrund zu transparentem SVG | Entwicklung |
 | `pr-to-develop` | sonnet | GitHub Pull Request für develop vorbereiten | Entwicklung |
+| `rag-eval-runner` | sonnet | RAG-Quality-Benchmark ausführen und analysieren | Testing & QA |
 | `requirements-contradiction-analyzer` | sonnet | Widersprüche in Anforderungen finden (RAG) | Analyse & Review |
 | `seed-data-validator` | sonnet | YAML-Seed-Daten auf Qualität prüfen | Testing & QA |
 | `selenium-test-generator` | opus | NFR-008-konforme Selenium-E2E-Tests generieren | Testing & QA |
@@ -79,6 +82,8 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
     |-------|-------|
     | [`e2e-testcase-extractor`](#e2e-testcase-extractor) | E2E-Testfälle aus Spezifikationen ableiten |
     | [`growing-phase-auditor`](#growing-phase-auditor) | Pflanzenphasen-Daten validieren |
+    | [`i18n-completeness-checker`](#i18n-completeness-checker) | i18n-Übersetzungen auf Vollständigkeit prüfen |
+    | [`rag-eval-runner`](#rag-eval-runner) | RAG-Quality-Benchmark ausführen und analysieren |
     | [`seed-data-validator`](#seed-data-validator) | YAML-Seed-Daten-Qualität |
     | [`selenium-test-generator`](#selenium-test-generator) | Selenium E2E-Tests generieren |
     | [`selenium-test-reviewer`](#selenium-test-reviewer) | Selenium-Tests reviewen |
@@ -97,6 +102,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
     | Agent | Fokus |
     |-------|-------|
     | [`agent-catalog-generator`](#agent-catalog-generator) | Diesen Katalog generieren |
+    | [`docs-freshness-checker`](#docs-freshness-checker) | Doku auf Aktualität und Vollständigkeit prüfen |
     | [`mkdocs-documentation`](#mkdocs-documentation) | MkDocs-Dokumentation erstellen |
     | [`plant-info-document-generator`](#plant-info-document-generator) | Pflanzen-Steckbriefe recherchieren |
 
@@ -217,6 +223,31 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 
 ---
 
+### `docs-freshness-checker`
+
+**Modell:** sonnet | **Tools:** Read, Glob, Grep, Bash
+
+**Rolle:** Documentation Quality Engineer, der die bestehende Dokumentation (docs/de/, docs/en/) und ADRs auf Aktualität, Vollständigkeit und Konsistenz mit dem implementierten Code prüft.
+
+??? example "Wann einsetzen?"
+    - Dokumentation auf Veraltung prüfen
+    - Fehlende Doku-Seiten für implementierte Features identifizieren
+    - DE/EN-Parität sicherstellen
+    - Doku-Qualität vor Release überprüfen
+
+**Workflow:**
+1. Implementierungsstand ermitteln (API-Router, Domain-Models, Frontend-Seiten)
+2. Dokumentationsstruktur laden (docs/de, docs/en, ADRs)
+3. API-Dokumentation vs. Code abgleichen (implementiert/dokumentiert)
+4. User-Guide-Vollständigkeit prüfen (Features haben Doku?)
+5. DE/EN-Parität validieren (Datei- und Inhalts-Vergleich)
+6. ADR-Aktualität überprüfen (Status, Technologie-Referenzen)
+7. Tote Links und Code-Referenzen finden
+
+**Output:** `spec/requirements-analysis/docs-freshness-report.md` — Report mit API-Lücken, User-Guide-Fehlern, Parität-Violations, ADR-Befunden, toten Links
+
+---
+
 ### `e2e-testcase-extractor`
 
 **Modell:** sonnet | **Tools:** Read, Write, Glob, Grep
@@ -302,12 +333,12 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 
 **Workflow:**
 1. Anforderungs-Spezifikationen einlesen
-2. Backend: ArangoDB-Modelle, APIs, Services, Tests
+2. Backend: ArangoDB-Models, APIs, Services, Tests
 3. Frontend: React-Komponenten, Redux-Slices, Tests
 4. Alle NFRs und UI-NFRs einhalten
 5. Unit-Tests schreiben und validieren
 
-**Output:** Produktionsreife Implementierung in Backend + Frontend mit Tests, der `unit-test-runner` kann grün werden
+**Output:** Production-ready Implementation in Backend + Frontend mit Tests; der `unit-test-runner` sollte grün sein
 
 ---
 
@@ -319,8 +350,8 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 
 ??? example "Wann einsetzen?"
     - Icons und Illustrationen für die App
-    - Onboarding-Bilder, Leerseiten-Grafiken
-    - Corporate-Design-Grafiken (Grün #2e7d32)
+    - Onboarding-Bilder, Empty-State-Grafiken
+    - Corporate Design Grafiken (grün #2e7d32)
     - Light/Dark-Mode-Varianten
 
 **Workflow:**
@@ -328,7 +359,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 2. Kamerplanter Corporate Design anwenden (Farben, Stil)
 3. Gemini-Prompts mit Design-Details schreiben
 4. Light/Dark-Mode-Varianten spezifizieren
-5. Qualitäts-Kriterien (Transparenz, Auflösung) definieren
+5. Qualitätskriterien definieren (Transparenz, Auflösung)
 
 **Output:** Gemini Image Generation Prompts für Designer/Marketing — z.B. für Icons, Illustrationen
 
@@ -338,22 +369,22 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 
 **Modell:** sonnet | **Tools:** Read, Write, Edit, Glob, Grep, Bash, WebSearch, WebFetch
 
-**Rolle:** Gartenbau-Wissenschaftler, der Wachstumsphasen-Daten (bloom_months, harvest_months, etc.) in Seed-YAML auf biologische Korrektheit und chronologische Konsistenz prüft.
+**Rolle:** Horticultural Scientist, der Pflanzenphasen-Daten (bloom_months, harvest_months, etc.) in Seed-YAML auf biologische Korrektheit und chronologische Konsistenz prüft.
 
 ??? example "Wann einsetzen?"
     - Pflanzenphasen-Daten validieren und korrigieren
     - bloom_months, direct_sow_months, harvest_months prüfen
-    - Biologische Plausibilität (Eisheiligen, Frost, Vernalisation)
+    - Biologische Plausibilität (Spätfröste, Frostdaten, Vernalisierung)
     - YAML-Dateien direkt korrigieren
 
 **Workflow:**
 1. Alle Seed-YAML-Dateien einlesen
-2. Gegen 5 Prüfregeln validieren (Lückenloses, Biologie, Plausibilität)
-3. Korrektur-Vorschläge mit WebSearch-Verifikation
-4. YAML-Dateien direkt mit Edit-Tool korrigieren
-5. Report mit Findings und Korrektionen erstellen
+2. Gegen 5 Check-Regeln validieren (Lücken, Biologie, Plausibilität)
+3. Korrekturvorschläge mit WebSearch-Verifizierung
+4. YAML-Dateien direkt mit dem Edit-Tool korrigieren
+5. Report mit Findings und Verifizierungen erstellen
 
-**Output:** Korrigierte YAML-Dateien + `spec/requirements-analysis/growing-phase-audit.md` mit Findings und Verifikation
+**Output:** Korrigierte YAML-Dateien + `spec/requirements-analysis/growing-phase-audit.md` mit Findings und Verifizierung
 
 ---
 
@@ -361,11 +392,11 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 
 **Modell:** sonnet | **Tools:** Read, Write, Glob, Grep
 
-**Rolle:** Home Assistant Specialist mit 8+ Jahren HACS-Integration-Entwicklung, der aus REQ-Dokumenten konkrete HA-Integrations-Anforderungen ableitet.
+**Rolle:** Home Assistant Spezialist mit 8+ Jahren HACS-Integration-Entwicklung, der aus REQ-Dokumenten konkrete HA-Integrations-Anforderungen ableitet.
 
 ??? example "Wann einsetzen?"
     - Home Assistant Integration planen
-    - Entity-Mappings und Coordinators entwerfen
+    - Entity-Mappings und Coordinatoren entwerfen
     - Service-Calls spezifizieren
     - HA-CUSTOM-INTEGRATION.md erweitern
 
@@ -376,7 +407,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 4. Coordinator-Datenstrukturen entwerfen
 5. API-Anforderungen spezifizieren
 
-**Output:** `spec/ha-integration/HA-CUSTOM-INTEGRATION.md` — Entity-Mappings, Coordinators, Services, Events
+**Output:** `spec/ha-integration/HA-CUSTOM-INTEGRATION.md` — Entity-Mappings, Coordinatoren, Services, Events
 
 ---
 
@@ -384,21 +415,44 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 
 **Modell:** opus | **Tools:** Read, Write, Edit, Bash, Glob, Grep
 
-**Rolle:** Home Assistant Integration Developer, der die kamerplanter-ha Custom Integration mit der aktuellen Backend-API synchronisiert, ohne bestehende Fachlogik zu verändern.
+**Rolle:** Home Assistant Integration Developer, der die kamerplanter-ha Custom Integration mit der aktuellen Backend-API synchronisiert, ohne bestehende Domain-Logik zu verändern.
 
 ??? example "Wann einsetzen?"
-    - Backend-API ändern sich (neue Endpunkte)
-    - HA-Integration muss nachgezogen werden
-    - API-Schemas ändern sich
+    - Backend-APIs ändern (neue Endpoints)
+    - HA-Integration muss aktualisiert werden
+    - API-Schemas ändern
 
 **Workflow:**
-1. Backend-API-Endpunkte erfassen
+1. Backend-API-Endpoints erfassen
 2. HA-API-Client (api.py) analysieren
-3. Delta-Analyse durchführen (neue/geänderte Endpunkte)
-4. Koordinator-, Sensor-, Service-Code anpassen
+3. Delta-Analyse durchführen (neue/geänderte Endpoints)
+4. Coordinator, Sensor und Service-Code anpassen
 5. HA-Integration deployen
 
 **Output:** Aktualisierte HA-Integration-Dateien + Deploy-Anweisungen
+
+---
+
+### `i18n-completeness-checker`
+
+**Modell:** haiku | **Tools:** Read, Glob, Grep, Bash
+
+**Rolle:** i18n-Qualitätsprüfer für React/TypeScript-Anwendungen mit react-i18next, der Übersetzungsdateien auf Vollständigkeit und Konsistenz prüft.
+
+??? example "Wann einsetzen?"
+    - Übersetzungen auf Lücken prüfen
+    - Fehlende Sprachen/Keys identifizieren
+    - Ungenutzte Keys finden
+    - Inkonsistente Strukturen erkennen
+
+**Workflow:**
+1. Beide Übersetzungsdateien (DE/EN) laden und Keys extrahieren
+2. Key-Vergleich durchführen (fehlend in EN/DE, strukturelle Unterschiede)
+3. Frontend-Code nach i18n-Key-Verwendung durchsuchen
+4. Qualitätsprüfungen durchführen (leere Werte, identische DE/EN, Placeholder-Konsistenz)
+5. Report mit Kategorisierung nach Schweregrad ausgeben
+
+**Output:** `spec/requirements-analysis/i18n-completeness-report.md` — Fehlende Keys, verwaiste Keys, identische Werte, leere Einträge
 
 ---
 
@@ -536,6 +590,31 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 5. Labels setzen und auf CI warten
 
 **Output:** GitHub Pull Request nach `develop` mit Titel, Beschreibung, Labels, CI-Status
+
+---
+
+### `rag-eval-runner`
+
+**Modell:** sonnet | **Tools:** Read, Write, Edit, Bash, Glob, Grep
+
+**Rolle:** RAG-Quality-Engineer mit Expertise in Information Retrieval, LLM-Evaluation und Knowledge-Base-Optimierung, der den Kamerplanter RAG-Benchmark ausführt und optimiert.
+
+??? example "Wann einsetzen?"
+    - RAG-Evaluierungen ausführen (Smoke oder Full)
+    - Fehler systematisch klassifizieren (Retrieval, Generation, Synonyme, Knowledge-Gap)
+    - Wissensqualität verbessern
+    - Regressionen erkennen und beheben
+
+**Workflow:**
+1. Infrastruktur-Check (Embedding Service, Ollama, VectorDB)
+2. Vorheriges Ergebnis sichern, Smoke-Test ausführen
+3. Bei Bedarf Full Benchmark durchführen
+4. Ergebnisse laden und Trend-Vergleich machen
+5. Fehler nach Entscheidungsbaum klassifizieren (Synonym-Gap, Generation-Miss, Retrieval-Miss, Knowledge-Gap)
+6. Priorisierte Verbesserungsmassnahmen vorschlagen
+7. Optionale Quick-Fixes anwenden (Synonym erweitern, Fragen anpassen, Knowledge-Chunks erstellen)
+
+**Output:** `tests/rag-eval/eval_report.md` — Fehlerklassifizierung, Kategorie-Trend, priorisierte Verbesserungsmassnahmen
 
 ---
 
@@ -751,9 +830,12 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
     | ...implementierten Code auf Sicherheit prüfen | `code-security-reviewer` |
     | ...Features implementieren (Backend + Frontend) | `fullstack-developer` |
     | ...Unit-Tests und statische Analyse ausführen | `unit-test-runner` |
+    | ...RAG-Evaluierungen durchführen und optimieren | `rag-eval-runner` |
     | ...Pflanzenphasen-Daten validieren | `growing-phase-auditor` |
     | ...Seed-Daten auf Qualität prüfen | `seed-data-validator` |
+    | ...i18n-Übersetzungen auf Vollständigkeit prüfen | `i18n-completeness-checker` |
     | ...Pflanzen-Steckbriefe recherchieren | `plant-info-document-generator` |
+    | ...Dokumentation auf Aktualität prüfen | `docs-freshness-checker` |
     | ...MkDocs-Dokumentation erstellen | `mkdocs-documentation` |
     | ...GitHub PR nach develop vorbereiten | `pr-to-develop` |
     | ...Gemini Image Generation Prompts erstellen | `gemini-graphic-prompt-generator` |
@@ -797,7 +879,11 @@ graph LR
     Q -.-> K
     K -.-> R["smart-home-ha-reviewer"]
 
+    E -.-> RAG["rag-eval-runner"]
+    E -.-> I18N["i18n-completeness-checker"]
+
     A -.-> S["mkdocs-documentation"]
+    A -.-> FRESH["docs-freshness-checker"]
     A -.-> T["plant-info-document-generator"]
     A -.-> U["target-audience-analyzer<br/>outdoor-garden-planner-reviewer"]
 
@@ -807,7 +893,7 @@ graph LR
 
 **Legende:**
 - Durchgezogene Pfeile: Standard-Workflow (Spec → Implementation → QA → PR)
-- Gepunktete Pfeile: Parallele oder optionale Workflows (Design, HA, Doku, Grafik)
+- Gepunktete Pfeile: Parallele oder optionale Workflows (Design, HA, Doku, Grafik, QA)
 
 ---
 
@@ -817,14 +903,14 @@ graph LR
 
 **Entwicklung (4 Agents):** Schreiben oder optimieren produktiven Code und Integrations-Code.
 
-**Testing & QA (6 Agents):** Erzeugen, validieren oder führen Tests aus. Sichern Qualität.
+**Testing & QA (8 Agents):** Erzeugen, validieren oder führen Tests aus. Sichern Qualität.
 
 **Design & Grafik (3 Agents):** UI/UX-Optimierung und Asset-Generierung.
 
-**Dokumentation (3 Agents):** Erstellen und pflegen Dokumentation und Steckbriefe.
+**Dokumentation (4 Agents):** Erstellen und pflegen Dokumentation und Steckbriefe.
 
 ---
 
-**Katalog aktualisiert:** 2026-03-23
-**Agents dokumentiert:** 27
+**Katalog aktualisiert:** 2026-03-31
+**Agents dokumentiert:** 30
 **Generiert von:** `agent-catalog-generator`

@@ -10,10 +10,15 @@ from app.api.v1.knowledge.schemas import (
     KnowledgeChunkResponse,
     KnowledgeSearchResponse,
 )
+from app.common.auth import get_current_user
 from app.common.dependencies import get_knowledge_service
 from app.domain.services.knowledge_service import KnowledgeService
 
-router = APIRouter(prefix="/knowledge", tags=["knowledge"])
+router = APIRouter(
+    prefix="/knowledge",
+    tags=["knowledge"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 def _require_knowledge_service(
@@ -41,7 +46,7 @@ def search_knowledge(
     """Semantic search over the knowledge base.
 
     Embeds the query and returns the most similar chunks from the vector store.
-    Does not require authentication — knowledge base is publicly accessible.
+    Requires authentication to prevent unauthenticated embedding service abuse.
     """
     chunks = service.search(q, top_k=top_k, doc_language=doc_language)
     return KnowledgeSearchResponse(
@@ -71,7 +76,7 @@ def ask_knowledge(
     """RAG question answering — retrieves context and generates an LLM answer.
 
     Embeds the question, retrieves relevant chunks, builds a context prompt,
-    and sends it to the configured LLM provider. Does not require authentication.
+    and sends it to the configured LLM provider. Requires authentication.
     """
     answer = service.ask(
         body.question,

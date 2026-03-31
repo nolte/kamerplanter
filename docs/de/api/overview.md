@@ -126,8 +126,7 @@ Die folgende Tabelle listet alle verfügbaren Router-Gruppen. Im Full-Modus sind
 | Companion-Planting | `/companion-planting` | Mischkultur-Empfehlungen | REQ-028 |
 | Fruchtfolge | `/crop-rotation` | Rotationsvalidierung | REQ-002 |
 | IPM (global) | `/ipm` | Schädlinge, Krankheiten, Behandlungen — Stammdaten | REQ-010 |
-| Berechnungen | `/calculations` | EC/VPD-Berechnungen | REQ-004 |
-| Nährstoffberechnungen | `/nutrient-calculations` | Nährstofflösungs-Berechnungen | REQ-004 |
+| Berechnungen | `/calculations` | EC/VPD/Sonnenstands-Berechnungen, Vernalisierung, Slot-Kapazität | REQ-004 |
 | Pflegeerinnerungen | `/care-reminders` | Automatische Pflegepläne | REQ-022 |
 | Starter-Kits | `/starter-kits` | Vorkonfigurierte Pakete | REQ-020 |
 | Import | `/import` | CSV-Import für Stammdaten | REQ-012 |
@@ -161,6 +160,7 @@ Die folgende Tabelle listet alle verfügbaren Router-Gruppen. Im Full-Modus sind
 | Starter-Kits | `/starter-kits` | Kit-Anwendung für Mandanten | REQ-020 |
 | Nutzerpräferenzen | `/user-preferences` | Erfahrungsstufe, Sprache | REQ-021 |
 | Favoriten | `/favorites` | Pflanzen-Favoriten und Nährstoffplan-Matching | — |
+| Nährstoffberechnungen | `/nutrient-calculations` | Mischprotokoll, Spülung, Runoff, Mischsicherheit, Wassermischung, EC-Budget | REQ-004 |
 | Benachrichtigungen | `/notifications` | Benachrichtigungen, Präferenzen, Test-Versand | REQ-022 |
 | Beobachtungen | `/observations` | Sensordaten-CRUD (TimescaleDB) | REQ-005 |
 

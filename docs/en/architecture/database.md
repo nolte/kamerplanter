@@ -44,7 +44,7 @@ The entire graph is called `kamerplanter_graph` and contains all edge collection
 
 ### Document Collections
 
-The database contains **44 document collections**. Selected collections by domain:
+The database contains **54 document collections** and **75 edge collections**. Selected collections by domain:
 
 **Master Data (REQ-001)**
 

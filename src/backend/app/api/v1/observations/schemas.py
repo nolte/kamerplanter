@@ -6,9 +6,9 @@ from pydantic import BaseModel, Field
 
 class SensorReadingCreate(BaseModel):
     value: float
-    sensor_type: str
-    unit: str | None = None
-    source: str = "manual"
+    sensor_type: str = Field(min_length=1, max_length=50)
+    unit: str | None = Field(default=None, max_length=20)
+    source: str = Field(default="manual", max_length=50)
     quality_score: float | None = Field(default=None, ge=0.0, le=1.0)
     raw_value: float | None = None
     metadata: dict[str, Any] | None = None
