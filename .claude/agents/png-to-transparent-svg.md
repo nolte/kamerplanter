@@ -2,6 +2,7 @@
 name: png-to-transparent-svg
 description: Konvertiert PNG-Bilder mit eingebranntem Schachbrett-Hintergrund (fake transparency) in saubere SVGs mit echter Transparenz. Erkennt und entfernt automatisch Schachbrettmuster aus den RGB-Daten, erzeugt ein bereinigtes PNG und vektorisiert es anschliessend mit vtracer. Aktiviere diesen Agenten wenn PNG-Bilder aus KI-Bildgeneratoren (Gemini, DALL-E, Midjourney) oder Screenshots mit Schachbrett-Hintergrund in transparente SVGs konvertiert werden sollen.
 tools: Read, Write, Bash, Glob
+model: sonnet
 ---
 
 # Rolle

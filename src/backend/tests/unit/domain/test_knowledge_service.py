@@ -6,7 +6,7 @@ import pytest
 
 from app.data_access.vectordb.vector_chunk_repository import VectorChunk
 from app.domain.interfaces.llm_adapter import LlmResponse
-from app.domain.services.knowledge_service import KnowledgeService
+from app.domain.services.knowledge_service import _SYSTEM_PROMPTS, KnowledgeService
 
 
 def _make_chunk(title: str = "Test Guide", score: float = 0.9) -> VectorChunk:
@@ -23,7 +23,7 @@ def _make_chunk(title: str = "Test Guide", score: float = 0.9) -> VectorChunk:
 @pytest.fixture
 def mock_embedding():
     engine = MagicMock()
-    engine.embed.return_value = [0.1] * 384
+    engine.embed.return_value = [0.1] * 768
     return engine
 
 
@@ -51,17 +51,17 @@ def service(mock_embedding, mock_repo, mock_llm):
 class TestSearch:
     def test_search_returns_chunks(self, service, mock_embedding, mock_repo):
         chunks = [_make_chunk("VPD Guide"), _make_chunk("EC Guide", score=0.8)]
-        mock_repo.search.return_value = chunks
+        mock_repo.hybrid_search.return_value = chunks
 
         result = service.search("What is VPD?", top_k=3)
 
         assert len(result) == 2
         assert result[0].title == "VPD Guide"
-        mock_embedding.embed.assert_called_once_with("What is VPD?")
-        mock_repo.search.assert_called_once()
+        mock_embedding.embed.assert_called_once_with("What is VPD?", prefix="query: ")
+        mock_repo.hybrid_search.assert_called_once()
 
     def test_search_empty(self, service, mock_repo):
-        mock_repo.search.return_value = []
+        mock_repo.hybrid_search.return_value = []
 
         result = service.search("nonexistent topic")
 
@@ -71,7 +71,7 @@ class TestSearch:
 class TestAsk:
     def test_ask_returns_answer(self, service, mock_repo, mock_llm):
         chunks = [_make_chunk("VPD Guide")]
-        mock_repo.search.return_value = chunks
+        mock_repo.hybrid_search.return_value = chunks
         mock_llm.generate.return_value = LlmResponse(
             content="VPD is the vapor pressure deficit.",
             model="claude-sonnet-4-20250514",
@@ -93,7 +93,7 @@ class TestAsk:
         assert call_args[1]["temperature"] == 0.2
 
     def test_ask_no_context_returns_no_knowledge(self, service, mock_repo, mock_llm):
-        mock_repo.search.return_value = []
+        mock_repo.hybrid_search.return_value = []
 
         answer = service.ask("Something completely unknown")
 
@@ -108,7 +108,7 @@ class TestAsk:
             _make_chunk("Guide B", score=0.85),
             _make_chunk("Guide C", score=0.75),
         ]
-        mock_repo.search.return_value = chunks
+        mock_repo.hybrid_search.return_value = chunks
         mock_llm.generate.return_value = LlmResponse(
             content="Combined answer.",
             model="llama3",
@@ -118,6 +118,97 @@ class TestAsk:
         answer = service.ask("Complex question", top_k=3)
 
         assert len(answer.sources) == 3
+
+
+class TestLanguageParams:
+    def test_search_with_doc_language_passes_to_repo(self, service, mock_repo):
+        mock_repo.hybrid_search.return_value = []
+
+        service.search("test", doc_language="en")
+
+        call_kwargs = mock_repo.hybrid_search.call_args
+        assert call_kwargs[1]["language"] == "en"
+
+    def test_search_default_doc_language(self, service, mock_repo):
+        mock_repo.hybrid_search.return_value = []
+
+        service.search("test")
+
+        call_kwargs = mock_repo.hybrid_search.call_args
+        assert call_kwargs[1]["language"] == "de"
+
+    def test_ask_with_prompt_language_de_uses_german_prompt(
+        self,
+        service,
+        mock_repo,
+        mock_llm,
+    ):
+        mock_repo.hybrid_search.return_value = [_make_chunk()]
+        mock_llm.generate.return_value = LlmResponse(
+            content="Antwort",
+            model="test",
+            usage={},
+        )
+
+        service.ask("Was ist VPD?", prompt_language="de")
+
+        system_prompt = mock_llm.generate.call_args[0][0]
+        assert system_prompt == _SYSTEM_PROMPTS["de"]
+        assert "Antworte auf Deutsch" in system_prompt
+
+    def test_ask_with_prompt_language_en_uses_english_prompt(
+        self,
+        service,
+        mock_repo,
+        mock_llm,
+    ):
+        mock_repo.hybrid_search.return_value = [_make_chunk()]
+        mock_llm.generate.return_value = LlmResponse(
+            content="Answer",
+            model="test",
+            usage={},
+        )
+
+        service.ask("What is VPD?", prompt_language="en")
+
+        system_prompt = mock_llm.generate.call_args[0][0]
+        assert system_prompt == _SYSTEM_PROMPTS["en"]
+        assert "SAME LANGUAGE" in system_prompt
+
+    def test_ask_defaults_from_constructor(self, mock_embedding, mock_repo, mock_llm):
+        mock_repo.hybrid_search.return_value = [_make_chunk()]
+        mock_llm.generate.return_value = LlmResponse(
+            content="Answer",
+            model="test",
+            usage={},
+        )
+
+        svc = KnowledgeService(
+            embedding_engine=mock_embedding,
+            chunk_repo=mock_repo,
+            llm_adapter=mock_llm,
+            default_doc_language="en",
+            default_prompt_language="en",
+        )
+        svc.ask("test question")
+
+        # Doc language default should be "en"
+        assert mock_repo.hybrid_search.call_args[1]["language"] == "en"
+        # Prompt language default should be "en"
+        system_prompt = mock_llm.generate.call_args[0][0]
+        assert system_prompt == _SYSTEM_PROMPTS["en"]
+
+    def test_ask_doc_language_override(self, service, mock_repo, mock_llm):
+        mock_repo.hybrid_search.return_value = [_make_chunk()]
+        mock_llm.generate.return_value = LlmResponse(
+            content="Answer",
+            model="test",
+            usage={},
+        )
+
+        service.ask("test", doc_language="all")
+
+        assert mock_repo.hybrid_search.call_args[1]["language"] == "all"
 
 
 class TestBuildContext:

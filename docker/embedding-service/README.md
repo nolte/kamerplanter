@@ -1,15 +1,26 @@
 # Embedding Service
 
-Lightweight embedding microservice for the Kamerplanter Knowledge API (REQ-021). Produces vector embeddings from text using ONNX Runtime — no PyTorch dependency required.
+Lightweight embedding microservice for the Kamerplanter Knowledge API. Produces vector embeddings from text using ONNX Runtime — no PyTorch dependency required.
 
 ## Models
 
-Two sentence-transformer models are downloaded at build time:
+Multiple sentence-transformer models are available as build targets (see ADR-006):
 
-| Model | Purpose | Dimensions |
-|-------|---------|------------|
-| `paraphrase-multilingual-MiniLM-L12-v2` | Primary — German knowledge base | 384 |
-| `all-MiniLM-L6-v2` | English fallback | 384 |
+| Model | Purpose | Dimensions | Build Target |
+|-------|---------|------------|--------------|
+| `multilingual-e5-base` | **Primary** — German knowledge base, hybrid search | 768 | `e5-base` (default) |
+| `multilingual-e5-small` | Fallback — resource-constrained environments | 384 | `e5-small` |
+| `multilingual-e5-large` | High-quality — maximum retrieval accuracy | 1024 | `e5-large` |
+| `paraphrase-multilingual-MiniLM-L12-v2` | Legacy baseline | 384 | `minilm` |
+
+### E5 Prefix Convention
+
+E5 models use asymmetric encoding — queries and documents require different prefixes:
+
+- **Queries:** `"query: " + text`
+- **Documents/Passages:** `"passage: " + text`
+
+Pass the prefix via the `prefix` field in the `/embed` request.
 
 ## API
 
@@ -24,7 +35,8 @@ Two sentence-transformer models are downloaded at build time:
 ```json
 {
   "texts": ["Tomaten brauchen viel Sonne"],
-  "model": "paraphrase-multilingual-MiniLM-L12-v2"
+  "model": "multilingual-e5-base",
+  "prefix": "query: "
 }
 ```
 
@@ -32,7 +44,7 @@ Two sentence-transformer models are downloaded at build time:
 
 | Environment Variable | Default | Description |
 |---------------------|---------|-------------|
-| `EMBEDDING_MODEL` | `paraphrase-multilingual-MiniLM-L12-v2` | Model to load at startup |
+| `EMBEDDING_MODEL` | `multilingual-e5-base` | Model to load at startup |
 | `HF_TOKEN` | _(empty)_ | Optional Hugging Face token for faster downloads |
 
 ## Stack
@@ -44,7 +56,12 @@ Two sentence-transformer models are downloaded at build time:
 ## Build & Run
 
 ```bash
+# Default (e5-base, 768 dim):
 docker build -t kamerplanter-embedding-service .
+
+# Specific target (e5-small, 384 dim):
+docker build --target e5-small -t kamerplanter-embedding-service .
+
 docker run -p 8080:8080 kamerplanter-embedding-service
 ```
 

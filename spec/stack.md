@@ -51,7 +51,7 @@ Status: Produktionsreif Priorität: Kritisch
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
 │  │   pgvector   │  │  Embedding   │  │ LLM Adapter  │         │
 │  │ PostgreSQL17 │  │ Service(ONNX)│  │ (Anthropic / │         │
-│  │  VectorDB    │  │  MiniLM-L12  │  │ Ollama/vLLM) │         │
+│  │  VectorDB    │  │   E5-base    │  │ Ollama/vLLM) │         │
 │  └──────────────┘  └──────────────┘  └──────────────┘         │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -635,8 +635,9 @@ Alle KI-Komponenten sind **optional** — das System funktioniert vollständig o
 
 - **Basis**: PostgreSQL >= 17 (Bookworm)
 - **Extension**: pgvector 0.8.0
-- **Embedding-Dimensionen**: 384 (paraphrase-multilingual-MiniLM-L12-v2)
-- **Index**: IVFFlat mit Cosine-Distanz (`vector_cosine_ops`, `lists = 10`)
+- **Embedding-Dimensionen**: 768 (multilingual-e5-base, siehe ADR-006)
+- **Index**: HNSW mit Cosine-Distanz (`vector_cosine_ops`)
+- **Hybrid Search**: Reciprocal Rank Fusion (RRF) — kombiniert Vektor-Similarity (Cosine) mit Full-Text-Search (BM25 via PostgreSQL `tsvector`). Default-Gewichtung: 0.5 Vektor / 0.5 Text
 - **Docker**: Custom Image (`docker/vectordb/Dockerfile`) basierend auf `postgres:17-bookworm`
 - **Docker Compose Profile**: `vectordb` (opt-in)
 
@@ -652,14 +653,17 @@ CREATE TABLE ai_vector_chunks (
     title       TEXT NOT NULL,
     content     TEXT NOT NULL,
     metadata    JSONB DEFAULT '{}',
-    embedding   vector(384) NOT NULL,
-    created_at  TIMESTAMPTZ DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ DEFAULT NOW()
+    embedding    vector(768) NOT NULL,
+    search_text  tsvector GENERATED ALWAYS AS (to_tsvector('german', title || ' ' || content)) STORED,
+    created_at   TIMESTAMPTZ DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX idx_ai_chunks_embedding
-    ON ai_vector_chunks USING ivfflat (embedding vector_cosine_ops)
-    WITH (lists = 10);
+    ON ai_vector_chunks USING hnsw (embedding vector_cosine_ops);
+
+CREATE INDEX idx_ai_chunks_search_text
+    ON ai_vector_chunks USING gin (search_text);
 ```
 
 **Migrations**: Automatisch via `VectorDbConnection` + `schema.py` (Tracking-Tabelle `schema_migrations`).
@@ -668,8 +672,9 @@ CREATE INDEX idx_ai_chunks_embedding
 
 - **Runtime**: ONNX Runtime >= 1.20 (CPU-only, kein PyTorch)
 - **Tokenizer**: HuggingFace Transformers >= 4.46 (nur Tokenizer, kein Torch)
-- **Primärmodell**: `paraphrase-multilingual-MiniLM-L12-v2` (384 Dimensionen, multilingual DE/EN)
-- **Fallback-Modell**: `all-MiniLM-L6-v2` (384 Dimensionen, englisch)
+- **Primärmodell**: `multilingual-e5-base` (768 Dimensionen, multilingual DE/EN, siehe ADR-006)
+- **Fallback-Modell**: `multilingual-e5-small` (384 Dimensionen, multilingual, für ressourcenarme Umgebungen)
+- **E5-Prefix-Konvention**: Queries mit `"query: "` Prefix, Dokumente mit `"passage: "` Prefix
 - **API**: FastAPI-Microservice auf Port 8080 (`/embed`, `/health`, `/ready`)
 - **Pooling**: Mean Pooling + L2-Normalisierung
 - **Max Token Length**: 512 (Truncation)
@@ -680,9 +685,9 @@ CREATE INDEX idx_ai_chunks_embedding
 # Embedding-Aufruf (Backend → Embedding Service)
 embedding_engine = EmbeddingEngine(
     service_url="http://kamerplanter-embedding-service:8080",
-    model_name="paraphrase-multilingual-MiniLM-L12-v2",
+    model_name="multilingual-e5-base",
 )
-vector = embedding_engine.embed("Stickstoffmangel erkennen")  # → list[float], len=384
+vector = embedding_engine.embed("query: Stickstoffmangel erkennen")  # → list[float], len=768
 ```
 
 **Begründung ONNX statt PyTorch**:
@@ -2262,7 +2267,7 @@ spec:
 | Paket | Version | Zweck |
 |-------|---------|-------|
 | `authlib` | >= 1.3.0 | JWT (HS256), OAuth2 Client, OIDC Discovery, PKCE |
-| `passlib[bcrypt]` | >= 1.7.4 | Passwort-Hashing (Bcrypt, Cost Factor 12) |
+| `bcrypt` | >= 4.0 | Passwort-Hashing (Bcrypt direkt, Cost Factor 12, siehe ADR-004) |
 | `slowapi` | >= 0.1.9 | Rate Limiting (IP-basiert, nutzt Redis) |
 | `cryptography` | >= 42.0 | Fernet/AES-256 für Provider-Secret-Verschlüsselung |
 
@@ -2322,7 +2327,7 @@ prometheus-client>=0.19.0
 
 # Auth & Security (REQ-023)
 authlib>=1.3.0                    # JWT (HS256), OAuth2 Client, OIDC Discovery, PKCE — ersetzt python-jose
-passlib[bcrypt]>=1.7.4            # Passwort-Hashing (Bcrypt, Cost 12)
+bcrypt>=4.0                       # Passwort-Hashing (bcrypt direkt, siehe ADR-004)
 slowapi>=0.1.9                    # Rate Limiting (nutzt Redis als Backend)
 cryptography>=42.0                # Fernet/AES-256 für Provider-Secret-Verschlüsselung
 

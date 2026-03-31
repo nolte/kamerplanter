@@ -1,5 +1,8 @@
 # Service Accounts & API Keys
 
+!!! warning "Not yet implemented"
+    Service Accounts are specified (REQ-023 v1.7) but **not yet implemented**. This page describes the planned behavior. The endpoints documented here are not yet available.
+
 Service Accounts enable machine-to-machine (M2M) communication between external systems
 and the Kamerplanter API — without using personal user credentials. Typical use cases
 are Home Assistant, Grafana, CI/CD pipelines, and automated monitoring systems.
