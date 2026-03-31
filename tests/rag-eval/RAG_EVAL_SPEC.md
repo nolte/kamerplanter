@@ -241,7 +241,72 @@ topics:
 
 ---
 
-## 8. Metriken-Dashboard (REQ-009)
+## 8. CLI-Referenz (`tools/rag-eval/eval_rag.py`)
+
+Standalone-Runner ohne Backend-Abhaengigkeit — verbindet sich direkt mit Embedding Service, VectorDB und Ollama.
+
+### Parameter
+
+| Parameter | Default | Beschreibung |
+|-----------|---------|-------------|
+| `--smoke` | false | Schneller Smoke-Test: bricht beim ersten Fehler ab |
+| `--resume` | false | Setzt unterbrochenen Lauf fort (laedt `eval_results_partial.json`, ueberspringt bereits evaluierte Fragen) |
+| `--categories` | alle | Nur bestimmte Kategorien evaluieren (z.B. `diagnostik duengung`) |
+| `--retrieval-only` | false | Zeigt nur abgerufene Chunks ohne LLM-Generierung (Retrieval-Debugging) |
+| `--top-k` | 5 | Anzahl der RAG-Chunks pro Frage |
+| `--doc-language` | kein Filter | Chunks nach Sprache filtern: `de`, `en` oder `all` |
+| `--prompt-language` | `de` | Sprache des System-Prompts fuer das LLM (`de` oder `en`) |
+| `--model` | `gemma3:4b` | Ollama-Modellname |
+| `--embedding-url` | `http://localhost:8080` | Embedding Service URL |
+| `--ollama-url` | `http://localhost:11434` | Ollama API URL |
+| `--vectordb-dsn` | `localhost:5433` | PostgreSQL DSN fuer VectorDB |
+| `--output`, `-o` | `eval_results.json` im Eval-Dir | Ausgabepfad fuer Ergebnis-JSON |
+
+### Umgebungsvariablen
+
+Werden als Defaults verwendet wenn kein CLI-Argument gesetzt ist:
+
+| Variable | Default |
+|----------|---------|
+| `EMBEDDING_SERVICE_URL` | `http://localhost:8080` |
+| `VECTORDB_DSN` | `host=localhost port=5433 dbname=kamerplanter_vectors ...` |
+| `LLM_API_URL` | `http://localhost:11434` |
+| `LLM_MODEL` | `gemma3:4b` |
+| `EVAL_DATA_DIR` | `tests/rag-eval/` |
+
+### Typische Workflows
+
+```bash
+# Vollstaendiger Benchmark
+python tools/rag-eval/eval_rag.py
+
+# Schneller Smoke-Test vor vollem Lauf
+python tools/rag-eval/eval_rag.py --smoke
+
+# Unterbrochenen Lauf fortsetzen (z.B. nach Ctrl+C oder Timeout)
+python tools/rag-eval/eval_rag.py --resume
+
+# Nur Diagnostik-Fragen mit mehr Chunks
+python tools/rag-eval/eval_rag.py --categories diagnostik --top-k 10
+
+# Retrieval debuggen ohne LLM-Kosten
+python tools/rag-eval/eval_rag.py --retrieval-only --categories duengung
+
+# Englische Chunks mit englischem Prompt
+python tools/rag-eval/eval_rag.py --doc-language en --prompt-language en
+```
+
+### Resume-Mechanismus
+
+Bei jedem evaluierten Frage-Ergebnis wird `eval_results_partial.json` geschrieben. Bei `--resume`:
+1. Laedt vorherige Ergebnisse aus `eval_results_partial.json`
+2. Ueberspringt alle Fragen deren ID bereits evaluiert wurde
+3. Mergt alte + neue Ergebnisse fuer den finalen Score
+4. Bei `--smoke` wird Resume ignoriert (Smoke ist ohnehin schnell)
+
+---
+
+## 9. Metriken-Dashboard (REQ-009)
 
 Im Admin-Dashboard (oder Grafana) anzeigen:
 - RAG-Score Trend (Zeitreihe, letzte 12 Wochen)

@@ -7,10 +7,26 @@ No dependency on the Kamerplanter backend — connects directly to:
   - LLM / Ollama (HTTP)
 
 Usage:
-  python eval_rag.py
-  python eval_rag.py --categories diagnostik duengung
-  python eval_rag.py --ollama-url http://localhost:11434 --model gemma3:4b
-  python eval_rag.py --output results.json
+  python eval_rag.py                                     # Full benchmark (100 questions)
+  python eval_rag.py --smoke                             # Quick smoke test (abort on first failure)
+  python eval_rag.py --resume                            # Resume interrupted run from partial results
+  python eval_rag.py --categories diagnostik duengung    # Only specific categories
+  python eval_rag.py --retrieval-only                    # Debug retrieval without LLM generation
+  python eval_rag.py --top-k 10                          # Retrieve more chunks (default: 5)
+  python eval_rag.py --doc-language de                   # Filter chunks by language (de/en/all)
+  python eval_rag.py --prompt-language en                # System prompt language (default: de)
+  python eval_rag.py --model gemma3:4b                   # Use specific Ollama model
+  python eval_rag.py --output results.json               # Custom output path
+  python eval_rag.py --embedding-url http://host:8080    # Custom embedding service URL
+  python eval_rag.py --ollama-url http://host:11434      # Custom Ollama URL
+  python eval_rag.py --vectordb-dsn "host=... dbname=..."  # Custom PostgreSQL DSN
+
+Environment variables (used as defaults when CLI args are not provided):
+  EMBEDDING_SERVICE_URL   Embedding service URL        (default: http://localhost:8080)
+  VECTORDB_DSN            PostgreSQL connection string  (default: localhost:5433/kamerplanter_vectors)
+  LLM_API_URL             Ollama API URL               (default: http://localhost:11434)
+  LLM_MODEL               Ollama model name            (default: gemma3:4b)
+  EVAL_DATA_DIR           Directory with benchmark YAML (default: tests/rag-eval/)
 """
 
 import argparse
@@ -37,13 +53,28 @@ OLLAMA_URL = os.environ.get("LLM_API_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("LLM_MODEL", "gemma3:4b")
 EVAL_DATA_DIR = os.environ.get("EVAL_DATA_DIR", str(Path(__file__).parent / "../../tests/rag-eval"))
 
-RAG_SYSTEM_PROMPT = (
-    "Du bist ein Pflanzenberater. Antworte auf Deutsch, kurz und fachlich korrekt. "
-    "Nenne: 1) Diagnose (Naehrstoff/Schaedling), 2) ob mobil/immobil und welche Blaetter betroffen, "
-    "3) Ursachen (pH, EC pruefen), 4) Massnahmen. "
-    "Nenne NUR die wahrscheinlichste Diagnose, nicht was es NICHT ist. "
-    "Nutze NUR den Kontext. Erfinde nichts."
-)
+_SYSTEM_PROMPTS: dict[str, str] = {
+    "de": (
+        "Du bist ein Pflanzenberater. Antworte auf Deutsch, kurz und fachlich korrekt. "
+        "Nenne: 1) Diagnose (Naehrstoff/Schaedling), 2) ob mobil/immobil und welche Blaetter betroffen, "
+        "3) Ursachen (pH, EC pruefen), 4) Massnahmen. "
+        "Nenne NUR die wahrscheinlichste Diagnose, nicht was es NICHT ist. "
+        "Nutze NUR den Kontext. Erfinde nichts."
+    ),
+    "en": (
+        "You are a plant care advisor. Answer concisely and technically correct. "
+        "State: 1) Diagnosis (nutrient/pest), 2) whether mobile/immobile and which leaves affected, "
+        "3) Causes (check pH, EC), 4) Remedies. "
+        "State ONLY the most likely diagnosis, not what it is NOT. "
+        "Use ONLY the provided context. Do not make up facts. "
+        "Answer in the SAME LANGUAGE as the user's question."
+    ),
+}
+
+# Backward compatibility
+RAG_SYSTEM_PROMPT = _SYSTEM_PROMPTS["de"]
+
+_LANG_TO_TSCONFIG: dict[str, str] = {"de": "german", "en": "english"}
 
 
 # ── Data classes ────────────────────────────────────────────────────
@@ -59,6 +90,7 @@ class QuestionResult:
     false_positives: list[str]
     answer: str = ""
     chunks_used: int = 0
+    chunk_sources: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -75,11 +107,16 @@ class EvalResult:
 # ── Service clients (no backend imports) ────────────────────────────
 
 
-def embed_text(text: str, service_url: str, model: str = "paraphrase-multilingual-MiniLM-L12-v2") -> list[float]:
+def embed_text(
+    text: str,
+    service_url: str,
+    model: str = "multilingual-e5-base",
+    prefix: str = "",
+) -> list[float]:
     """Call the embedding service to get a vector."""
     resp = httpx.post(
         f"{service_url}/embed",
-        json={"texts": [text], "model": model},
+        json={"texts": [text], "model": model, "prefix": prefix},
         timeout=60.0,
     )
     resp.raise_for_status()
@@ -90,25 +127,115 @@ def search_chunks(
     embedding: list[float],
     dsn: str,
     top_k: int = 10,
+    query_text: str = "",
+    doc_language: str | None = None,
 ) -> list[dict]:
-    """Query pgvector for similar chunks."""
+    """Hybrid search combining vector cosine similarity and BM25 full-text search.
+
+    Uses Reciprocal Rank Fusion (RRF) to merge rankings from both methods.
+    Falls back to pure vector search if query_text is empty.
+    """
     embedding_str = f"[{','.join(str(v) for v in embedding)}]"
-    sql = """
-        SELECT source_key, source_type, title, content, metadata,
-               1 - (embedding <=> %s::vector) AS score
-        FROM ai_vector_chunks
-        ORDER BY embedding <=> %s::vector
+
+    # Build language filter clause
+    lang_filter = ""
+    lang_params: list = []
+    if doc_language and doc_language != "all":
+        lang_filter = "AND language = %s"
+        lang_params = [doc_language]
+
+    if not query_text:
+        # Pure vector search fallback
+        sql = f"""
+            SELECT source_key, source_type, title, content, metadata,
+                   1 - (embedding <=> %s::vector) AS score
+            FROM ai_vector_chunks
+            WHERE TRUE {lang_filter}
+            ORDER BY embedding <=> %s::vector
+            LIMIT %s
+        """
+        with psycopg.connect(dsn) as conn:
+            rows = conn.execute(
+                sql, (embedding_str, *lang_params, embedding_str, top_k),
+            ).fetchall()
+        return [
+            {"source_key": r[0], "title": r[2], "content": r[3], "score": float(r[5])}
+            for r in rows
+        ]
+
+    # Select tsquery regconfig based on doc language
+    query_regconfig = _LANG_TO_TSCONFIG.get(doc_language, "german") if doc_language and doc_language != "all" else "german"
+
+    # Hybrid search with RRF
+    sql = f"""
+        WITH vector_results AS (
+            SELECT source_key, source_type, title, content, metadata,
+                   1 - (embedding <=> %s::vector) AS cosine_score,
+                   ROW_NUMBER() OVER (ORDER BY embedding <=> %s::vector) AS vector_rank
+            FROM ai_vector_chunks
+            WHERE TRUE {lang_filter}
+            ORDER BY embedding <=> %s::vector
+            LIMIT 50
+        ),
+        text_results AS (
+            SELECT source_key, source_type, title, content, metadata,
+                   ts_rank_cd(search_text, to_tsquery(%s::regconfig, %s)) AS text_score,
+                   ROW_NUMBER() OVER (
+                       ORDER BY ts_rank_cd(search_text, to_tsquery(%s::regconfig, %s)) DESC
+                   ) AS text_rank
+            FROM ai_vector_chunks
+            WHERE search_text @@ to_tsquery(%s::regconfig, %s)
+            {lang_filter}
+            ORDER BY text_score DESC
+            LIMIT 50
+        )
+        SELECT
+            COALESCE(v.source_key, t.source_key) AS source_key,
+            COALESCE(v.source_type, t.source_type) AS source_type,
+            COALESCE(v.title, t.title) AS title,
+            COALESCE(v.content, t.content) AS content,
+            COALESCE(v.metadata, t.metadata) AS metadata,
+            COALESCE(v.cosine_score, 0) AS cosine_score,
+            (
+                0.3 / (60.0 + COALESCE(v.vector_rank, 51))
+                + 0.7 / (60.0 + COALESCE(t.text_rank, 51))
+            ) AS rrf_score
+        FROM vector_results v
+        FULL OUTER JOIN text_results t ON v.source_key = t.source_key
+        ORDER BY rrf_score DESC
         LIMIT %s
     """
+    # Build OR-based tsquery with both umlaut variants for German stemmer compatibility
+    # Filter common German stop words that add noise to OR queries
+    _stop = {"meine", "mein", "eine", "sind", "noch", "nicht", "wird", "werden",
+             "kann", "wie", "was", "die", "der", "das", "den", "dem", "des",
+             "ein", "und", "oder", "aber", "auch", "nach", "bei", "mit",
+             "von", "aus", "hat", "haben", "ist", "war", "sehr", "schon"}
+    words = [w for w in re.findall(r"[a-zA-ZäöüÄÖÜßa-z]{3,}", query_text)
+             if w.lower() not in _stop]
+    terms = set()
+    for w in words:
+        terms.add(w)
+        # digraph→umlaut (Blaetter→Blätter)
+        w_umlaut = w
+        for digraph, umlaut in [("ae", "ä"), ("oe", "ö"), ("ue", "ü"),
+                                 ("Ae", "Ä"), ("Oe", "Ö"), ("Ue", "Ü")]:
+            w_umlaut = w_umlaut.replace(digraph, umlaut)
+        if w_umlaut != w:
+            terms.add(w_umlaut)
+    or_query = " | ".join(sorted(terms)) if terms else query_text
     with psycopg.connect(dsn) as conn:
-        rows = conn.execute(sql, (embedding_str, embedding_str, top_k)).fetchall()
+        rows = conn.execute(
+            sql,
+            (embedding_str, embedding_str, *lang_params, embedding_str,
+             query_regconfig, or_query, query_regconfig, or_query,
+             query_regconfig, or_query, *lang_params, top_k),
+        ).fetchall()
+
     return [
-        {
-            "source_key": r[0],
-            "title": r[2],
-            "content": r[3],
-            "score": float(r[5]),
-        }
+        {"source_key": r[0], "title": r[2], "content": r[3],
+         "score": float(r[6]),  # rrf_score (column 7), not cosine_score (column 6)
+         "cosine_score": float(r[5])}
         for r in rows
     ]
 
@@ -213,6 +340,9 @@ def evaluate_question(
     ollama_url: str,
     ollama_model: str,
     top_k: int = 10,
+    retrieval_only: bool = False,
+    doc_language: str | None = None,
+    prompt_language: str = "de",
 ) -> QuestionResult:
     """Evaluate a single benchmark question through the full RAG pipeline."""
     q_id = question.get("id", "unknown")
@@ -231,8 +361,26 @@ def evaluate_question(
 
     # 1. Retrieve
     query = f"{q_text} {context_str}".strip()
-    embedding = embed_text(query, embedding_url)
-    chunks = search_chunks(embedding, vectordb_dsn, top_k)
+    embedding = embed_text(query, embedding_url, prefix="query: ")
+    chunks = search_chunks(embedding, vectordb_dsn, top_k, query_text=query, doc_language=doc_language)
+
+    if retrieval_only:
+        print(f"\n  {'─' * 60}")
+        print(f"  {q_id}: {q_text}")
+        print(f"  Expected topics: {', '.join(expected_topics)}")
+        print(f"  Retrieved {len(chunks)} chunks:")
+        for i, c in enumerate(chunks, 1):
+            print(f"    [{i}] {c['source_key']:<40s} score={c['score']:.4f}")
+            print(f"        {c['title']}")
+            # Show first 120 chars of content for quick inspection
+            preview = c["content"].replace("\n", " ")[:120]
+            print(f"        {preview}...")
+        return QuestionResult(
+            id=q_id, category=category, score=0.0,
+            topic_hits=[], topic_misses=expected_topics,
+            false_positives=[], answer="[retrieval-only]", chunks_used=len(chunks),
+            chunk_sources=[c["source_key"] for c in chunks],
+        )
 
     # 2. Generate
     chunk_texts = "\n\n---\n\n".join(
@@ -244,7 +392,8 @@ def evaluate_question(
     user_message += f"Frage: {q_text}"
 
     try:
-        answer = llm_generate(RAG_SYSTEM_PROMPT, user_message, ollama_url, ollama_model)
+        system_prompt = _SYSTEM_PROMPTS.get(prompt_language, _SYSTEM_PROMPTS["de"])
+        answer = llm_generate(system_prompt, user_message, ollama_url, ollama_model)
     except Exception as exc:
         print(f"  LLM error for {q_id}: {exc}", file=sys.stderr)
         answer = ""
@@ -266,7 +415,67 @@ def evaluate_question(
         false_positives=fps,
         answer=answer[:500],
         chunks_used=len(chunks),
+        chunk_sources=[c["source_key"] for c in chunks],
     )
+
+
+def _write_partial(results: list[QuestionResult], min_pass: float, path: str, errors: int = 0) -> None:
+    """Write intermediate results after each question so progress survives crashes."""
+    cat_scores: dict[str, list[float]] = {}
+    for r in results:
+        cat_scores.setdefault(r.category, []).append(r.score)
+    category_avgs = {cat: sum(s) / len(s) for cat, s in cat_scores.items()}
+    total_score = sum(r.score for r in results) / len(results) if results else 0.0
+
+    output = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "partial": True,
+        "method": "topic_match",
+        "total_score": round(total_score, 4),
+        "passed": total_score >= min_pass,
+        "min_pass_score": min_pass,
+        "category_scores": {k: round(v, 4) for k, v in category_avgs.items()},
+        "questions_evaluated": len(results),
+        "errors": errors,
+        "results": [
+            {
+                "id": r.id,
+                "category": r.category,
+                "score": round(r.score, 2),
+                "topic_hits": r.topic_hits,
+                "topic_misses": r.topic_misses,
+                "false_positives": r.false_positives,
+                "answer": r.answer,
+                "chunk_sources": r.chunk_sources,
+            }
+            for r in results
+        ],
+    }
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(output, f, indent=2, ensure_ascii=False)
+
+
+def _load_partial_results(partial_path: str) -> list[QuestionResult]:
+    """Load previously saved partial results for resume support."""
+    path = Path(partial_path)
+    if not path.exists():
+        return []
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    results = []
+    for r in data.get("results", []):
+        results.append(QuestionResult(
+            id=r["id"],
+            category=r["category"],
+            score=r["score"],
+            topic_hits=r.get("topic_hits", []),
+            topic_misses=r.get("topic_misses", []),
+            false_positives=r.get("false_positives", []),
+            answer=r.get("answer", ""),
+            chunks_used=0,
+            chunk_sources=r.get("chunk_sources", []),
+        ))
+    return results
 
 
 def run_eval(
@@ -277,11 +486,23 @@ def run_eval(
     ollama_model: str,
     categories: list[str] | None = None,
     top_k: int = 10,
+    smoke: bool = False,
+    retrieval_only: bool = False,
+    doc_language: str | None = None,
+    prompt_language: str = "de",
+    resume: bool = False,
 ) -> EvalResult:
-    """Run the full topic-match benchmark."""
+    """Run the full topic-match benchmark.
+
+    If *smoke* is True, load smoke_questions.yaml instead and abort on the
+    first failing question (fast gate before a full benchmark run).
+    If *retrieval_only* is True, skip LLM generation and only show retrieved chunks.
+    If *resume* is True, load eval_results_partial.json and skip already-evaluated questions.
+    """
     eval_path = Path(eval_dir)
 
-    with open(eval_path / "benchmark_questions.yaml", encoding="utf-8") as f:
+    questions_file = "smoke_questions.yaml" if smoke else "benchmark_questions.yaml"
+    with open(eval_path / questions_file, encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
     with open(eval_path / "topic_synonyms.yaml", encoding="utf-8") as f:
@@ -292,20 +513,54 @@ def run_eval(
     if categories:
         questions = [q for q in questions if q.get("category") in categories]
 
-    print(f"Running {len(questions)} questions against {ollama_model} ...\n")
+    # Partial results file — written after every question so progress survives crashes
+    partial_path = str(Path(eval_dir) / "eval_results_partial.json")
 
+    # Resume: load previous results and skip already-evaluated questions
     results: list[QuestionResult] = []
-    for i, question in enumerate(questions, 1):
-        result = evaluate_question(
-            question, synonyms, embedding_url, vectordb_dsn, ollama_url, ollama_model, top_k
-        )
-        status = "PASS" if result.score >= min_pass else "FAIL"
-        print(f"  [{i:3d}/{len(questions)}] {result.id:<20s} {result.score:.2f}  {status}")
-        if result.topic_misses:
-            print(f"           misses: {', '.join(result.topic_misses)}")
-        if result.false_positives:
-            print(f"           FPs:    {', '.join(result.false_positives)}")
+    completed_ids: set[str] = set()
+    errors = 0
+    if resume and not smoke:
+        previous = _load_partial_results(partial_path)
+        if previous:
+            results.extend(previous)
+            completed_ids = {r.id for r in previous}
+            print(f"[RESUME] Loaded {len(previous)} previous results, skipping completed questions.\n")
+
+    remaining = [q for q in questions if q.get("id", "unknown") not in completed_ids]
+
+    label = "SMOKE" if smoke else ("RESUME" if completed_ids else "FULL")
+    print(f"[{label}] Running {len(remaining)}/{len(questions)} questions against {ollama_model} ...\n")
+
+    for i, question in enumerate(remaining, 1):
+        try:
+            result = evaluate_question(
+                question, synonyms, embedding_url, vectordb_dsn, ollama_url, ollama_model, top_k,
+                retrieval_only=retrieval_only,
+                doc_language=doc_language,
+                prompt_language=prompt_language,
+            )
+        except Exception as exc:
+            q_id = question.get("id", "unknown")
+            print(f"  [{len(results) + 1:3d}/{len(questions)}] {q_id:<20s} ERROR  {type(exc).__name__}: {exc!s:.80s}")
+            errors += 1
+            continue
+        if not retrieval_only:
+            status = "PASS" if result.score >= min_pass else "FAIL"
+            print(f"  [{len(results) + 1:3d}/{len(questions)}] {result.id:<20s} {result.score:.2f}  {status}")
+            if result.topic_misses:
+                print(f"           misses: {', '.join(result.topic_misses)}")
+            if result.false_positives:
+                print(f"           FPs:    {', '.join(result.false_positives)}")
         results.append(result)
+
+        # Write partial results after every question
+        if not smoke:
+            _write_partial(results, min_pass, partial_path, errors)
+
+        if smoke and result.score < min_pass:
+            print(f"\n  SMOKE FAILED on {result.id} — aborting (full benchmark not worthwhile)")
+            break
 
     # Aggregate
     cat_scores: dict[str, list[float]] = {}
@@ -315,7 +570,14 @@ def run_eval(
 
     total_score = sum(r.score for r in results) / len(results) if results else 0.0
     failures = [
-        {"id": r.id, "score": round(r.score, 2), "misses": r.topic_misses, "fps": r.false_positives, "answer": r.answer}
+        {
+            "id": r.id,
+            "score": round(r.score, 2),
+            "misses": r.topic_misses,
+            "fps": r.false_positives,
+            "answer": r.answer,
+            "chunk_sources": r.chunk_sources,
+        }
         for r in results
         if r.score < min_pass
     ]
@@ -342,7 +604,15 @@ def main() -> None:
     parser.add_argument("--model", default=OLLAMA_MODEL, help="LLM model name")
     parser.add_argument("--eval-dir", default=EVAL_DATA_DIR, help="Directory with benchmark YAML files")
     parser.add_argument("--categories", nargs="*", help="Only evaluate these categories")
+    parser.add_argument("--smoke", action="store_true", help="Run only smoke-test golden-file questions (fast sanity check)")
+    parser.add_argument("--retrieval-only", action="store_true", help="Show retrieved chunks per question without LLM generation (debug retrieval)")
     parser.add_argument("--top-k", type=int, default=5, help="Number of RAG chunks to retrieve")
+    parser.add_argument("--doc-language", default=None, choices=["de", "en", "all"],
+                        help="Filter knowledge chunks by language (default: no filter)")
+    parser.add_argument("--prompt-language", default="de", choices=["de", "en"],
+                        help="System prompt language for LLM (default: de)")
+    parser.add_argument("--resume", action="store_true",
+                        help="Resume from eval_results_partial.json, skipping already-evaluated questions")
     parser.add_argument("--output", "-o", default=None, help="Output JSON path (default: eval_results.json in eval dir)")
     args = parser.parse_args()
 
@@ -359,6 +629,11 @@ def main() -> None:
         ollama_model=args.model,
         categories=args.categories,
         top_k=args.top_k,
+        smoke=args.smoke,
+        retrieval_only=args.retrieval_only,
+        doc_language=args.doc_language,
+        prompt_language=args.prompt_language,
+        resume=args.resume,
     )
 
     # Print summary
