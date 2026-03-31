@@ -1,5 +1,7 @@
 """Knowledge / RAG API endpoints — semantic search and question answering."""
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.v1.knowledge.schemas import (
@@ -30,6 +32,10 @@ def _require_knowledge_service(
 def search_knowledge(
     q: str = Query(min_length=1, max_length=500, description="Search query"),
     top_k: int = Query(default=5, ge=1, le=50, description="Number of results"),
+    doc_language: Literal["de", "en", "all"] | None = Query(
+        default=None,
+        description="Filter chunks by language. None uses server default.",
+    ),
     service: KnowledgeService = Depends(_require_knowledge_service),
 ) -> KnowledgeSearchResponse:
     """Semantic search over the knowledge base.
@@ -37,7 +43,7 @@ def search_knowledge(
     Embeds the query and returns the most similar chunks from the vector store.
     Does not require authentication — knowledge base is publicly accessible.
     """
-    chunks = service.search(q, top_k=top_k)
+    chunks = service.search(q, top_k=top_k, doc_language=doc_language)
     return KnowledgeSearchResponse(
         query=q,
         results=[
@@ -48,10 +54,12 @@ def search_knowledge(
                 content=c.content,
                 score=c.score,
                 metadata=c.metadata,
+                language=c.language,
             )
             for c in chunks
         ],
         total=len(chunks),
+        doc_language=doc_language,
     )
 
 
@@ -65,7 +73,12 @@ def ask_knowledge(
     Embeds the question, retrieves relevant chunks, builds a context prompt,
     and sends it to the configured LLM provider. Does not require authentication.
     """
-    answer = service.ask(body.question, top_k=body.top_k)
+    answer = service.ask(
+        body.question,
+        top_k=body.top_k,
+        doc_language=body.doc_language,
+        prompt_language=body.prompt_language,
+    )
     return KnowledgeAskResponse(
         answer=answer.answer,
         model=answer.model,
@@ -78,6 +91,7 @@ def ask_knowledge(
                 content=c.content,
                 score=c.score,
                 metadata=c.metadata,
+                language=c.language,
             )
             for c in answer.sources
         ],
