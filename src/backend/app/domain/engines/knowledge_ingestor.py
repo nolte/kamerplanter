@@ -3,7 +3,7 @@ from pathlib import Path
 import structlog
 import yaml
 
-from app.data_access.vectordb.vector_chunk_repository import VectorChunkRepository
+from app.data_access.vectordb.vector_chunk_repository import LANG_TO_TSCONFIG, VectorChunkRepository
 from app.domain.engines.embedding_engine import EmbeddingEngine
 
 logger = structlog.get_logger(__name__)
@@ -71,6 +71,8 @@ class KnowledgeIngestor:
             return 0
 
         category = data.get("category", yaml_file.parent.name)
+        language = data.get("language", "de")
+        ts_config = LANG_TO_TSCONFIG.get(language, "simple")
         file_stem = yaml_file.stem
         file_metadata = {
             "category": category,
@@ -119,6 +121,8 @@ class KnowledgeIngestor:
                     "title": title,
                     "content": content,
                     "metadata": chunk_metadata,
+                    "language": language,
+                    "ts_config": ts_config,
                 }
             )
             texts.append(embed_text)
@@ -126,8 +130,8 @@ class KnowledgeIngestor:
         if not texts:
             return 0
 
-        # Batch embed all texts at once
-        embeddings = self._embedding.embed_batch(texts)
+        # Batch embed all texts at once (E5 models require "passage: " prefix for documents)
+        embeddings = self._embedding.embed_batch(texts, prefix="passage: ")
 
         # Attach embeddings and batch upsert
         for chunk_dict, embedding in zip(chunks_data, embeddings, strict=True):

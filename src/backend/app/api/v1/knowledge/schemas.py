@@ -1,5 +1,7 @@
 """Pydantic v2 schemas for the knowledge/RAG API endpoints."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -12,6 +14,7 @@ class KnowledgeChunkResponse(BaseModel):
     content: str = Field(description="Text content of the chunk")
     score: float = Field(description="Cosine similarity score (0.0 to 1.0)")
     metadata: dict = Field(default_factory=dict, description="Additional metadata")
+    language: str = Field(default="de", description="Language of the chunk (de, en)")
 
     model_config = {"from_attributes": True}
 
@@ -22,6 +25,7 @@ class KnowledgeSearchResponse(BaseModel):
     query: str = Field(description="The original search query")
     results: list[KnowledgeChunkResponse] = Field(description="Matching chunks ordered by relevance")
     total: int = Field(description="Number of results returned")
+    doc_language: str | None = Field(default=None, description="Language filter applied")
 
 
 class KnowledgeAskRequest(BaseModel):
@@ -29,6 +33,14 @@ class KnowledgeAskRequest(BaseModel):
 
     question: str = Field(min_length=3, max_length=2000, description="The question to answer")
     top_k: int = Field(default=5, ge=1, le=20, description="Number of context chunks to retrieve")
+    doc_language: Literal["de", "en", "all"] | None = Field(
+        default=None,
+        description="Filter chunks by language. None uses server default.",
+    )
+    prompt_language: Literal["de", "en"] | None = Field(
+        default=None,
+        description="System prompt language for LLM thinking. None uses server default.",
+    )
 
 
 class KnowledgeAskResponse(BaseModel):

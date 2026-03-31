@@ -760,6 +760,8 @@ def get_knowledge_service():
         llm_adapter=get_llm_adapter(),
         max_tokens=settings.llm_max_tokens,
         temperature=settings.llm_temperature,
+        default_doc_language=settings.rag_doc_language,
+        default_prompt_language=settings.rag_prompt_language,
     )
 
 
