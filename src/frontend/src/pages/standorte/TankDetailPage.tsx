@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -48,6 +48,7 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
+import MuiLink from '@mui/material/Link';
 import * as tankApi from '@/api/endpoints/tanks';
 import * as sitesApi from '@/api/endpoints/sites';
 import * as observationsApi from '@/api/endpoints/observations';
@@ -466,13 +467,16 @@ export default function TankDetailPage() {
           variant="outlined"
           color="default"
         />
-        {siteName && (
+        {siteName && selectedSiteKey && (
           <Chip
             icon={<PlaceIcon sx={{ fontSize: 16 }} />}
             label={locationName ? `${siteName} / ${locationName}` : siteName}
             size="small"
             variant="outlined"
             color="default"
+            component={RouterLink}
+            to={`/standorte/sites/${selectedSiteKey}`}
+            clickable
           />
         )}
         {overdueDueCount > 0 && (
@@ -564,9 +568,21 @@ export default function TankDetailPage() {
                 <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                   <Typography variant="caption" color="text.secondary">{t('pages.tanks.site')} / {t('pages.tanks.location')}</Typography>
                   <Typography variant="body2" fontWeight={500}>
-                    {siteName && locationName
-                      ? `${siteName} / ${locationName}`
-                      : siteName || '—'}
+                    {selectedSiteKey ? (
+                      <>
+                        <MuiLink component={RouterLink} to={`/standorte/sites/${selectedSiteKey}`} underline="hover">
+                          {siteName}
+                        </MuiLink>
+                        {locationName && (
+                          <>
+                            {' / '}
+                            <MuiLink component={RouterLink} to={`/standorte/locations/${tank.location_key}`} underline="hover">
+                              {locationName}
+                            </MuiLink>
+                          </>
+                        )}
+                      </>
+                    ) : '—'}
                   </Typography>
                 </Grid>
               </Grid>
