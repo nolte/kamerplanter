@@ -1,5 +1,22 @@
-# Dev Dockerfile — uses pre-downloaded model from models/ directory.
+# Dev Dockerfile — downloads model via multi-stage build (no local models/ needed).
 # For production multi-model builds see Dockerfile.
+
+# ── Download stage (reuses dl-base + dl-e5-base from Dockerfile) ────
+FROM python:3.14-slim AS dl-base
+# hadolint ignore=DL3013
+RUN pip install --no-cache-dir --root-user-action=ignore huggingface-hub sentencepiece
+
+FROM dl-base AS dl-e5-base
+RUN python -c "\
+from huggingface_hub import snapshot_download; \
+snapshot_download('intfloat/multilingual-e5-base', \
+    local_dir='/model', \
+    allow_patterns=['onnx/model.onnx', 'tokenizer*', 'special_tokens*', \
+                    'sentencepiece*', 'config.json'])" && \
+    mv /model/onnx/model.onnx /model/model.onnx && \
+    rm -rf /model/onnx /model/.cache
+
+# ── Runtime ─────────────────────────────────────────────────────────
 FROM python:3.14-slim
 
 WORKDIR /app
@@ -8,7 +25,7 @@ COPY requirements.txt .
 # hadolint ignore=DL3013
 RUN pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
 
-COPY models/multilingual-e5-base/ /app/models/onnx/multilingual-e5-base/
+COPY --from=dl-e5-base /model/ /app/models/onnx/multilingual-e5-base/
 COPY main.py .
 
 EXPOSE 8080

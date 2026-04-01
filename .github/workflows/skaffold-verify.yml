@@ -55,12 +55,12 @@ jobs:
 
       - name: Skaffold diagnose
         if: steps.check.outputs.exists == 'true'
-        run: skaffold diagnose -m kp
+        run: skaffold diagnose
 
       - name: Skaffold render
         if: steps.check.outputs.exists == 'true'
         run: |
-          skaffold render -m kp --output rendered-manifests.yaml || true
+          skaffold render --output rendered-manifests.yaml || true
 
       - name: Upload rendered manifests
         uses: actions/upload-artifact@v4
