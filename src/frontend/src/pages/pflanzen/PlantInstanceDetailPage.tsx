@@ -825,7 +825,6 @@ export default function PlantInstanceDetailPage() {
             {t('pages.plantInstances.tag.button')}
           </Button>
           <Button
-            variant="outlined"
             startIcon={<QrCode2Icon />}
             onClick={() => setLabelDialogOpen(true)}
             data-testid="label-button"
