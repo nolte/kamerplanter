@@ -15,10 +15,10 @@ graph TB
     end
 
     subgraph "API Layer (FastAPI)"
-        AR[/api/v1/t/{slug}/ai/tips]
-        AC[/api/v1/t/{slug}/ai/chat]
-        AD[/api/v1/t/{slug}/ai/diagnose]
-        APC[/api/v1/t/{slug}/ai/providers]
+        AR["/api/v1/t/slug/ai/tips"]
+        AC["/api/v1/t/slug/ai/chat"]
+        AD["/api/v1/t/slug/ai/diagnose"]
+        APC["/api/v1/t/slug/ai/providers"]
     end
 
     subgraph "Business Logic"
