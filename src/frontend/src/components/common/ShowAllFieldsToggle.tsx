@@ -17,6 +17,7 @@ export default function ShowAllFieldsToggle({ showAll, onToggle }: ShowAllFields
       onClick={onToggle}
       startIcon={showAll ? <ExpandLessIcon /> : <ExpandMoreIcon />}
       sx={{ mb: 1 }}
+      data-testid="show-all-fields-toggle"
     >
       {showAll ? t('common.showFewerFields') : t('common.showAllFields')}
     </Button>

@@ -78,6 +78,10 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "smoke: mark test as part of the smoke test suite (core functionality)",
     )
+    config.addinivalue_line(
+        "markers",
+        "core_crud: mark test as part of the core CRUD suite (species, cultivar, site CRUD for average users)",
+    )
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

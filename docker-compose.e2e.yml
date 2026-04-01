@@ -157,6 +157,32 @@ services:
       - --base-url=http://frontend:80
       - --app-mode=light
 
+  # ── E2E Core CRUD Tests (species, cultivar, sites) ─────
+  e2e-core-crud:
+    build:
+      context: ./tests/e2e
+    environment:
+      SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
+      E2E_BASE_URL: http://frontend:80
+      KAMERPLANTER_MODE: light
+    depends_on:
+      frontend:
+        condition: service_healthy
+      chrome:
+        condition: service_started
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ./test-reports:/app/test-reports
+    profiles: ["core-crud"]
+    entrypoint:
+      - pytest
+      - -m
+      - core_crud
+      - --tb=short
+      - --generate-protocol
+      - --base-url=http://frontend:80
+      - --app-mode=light
+
   # ── E2E Smoke Tests (fast ~2min) ────────────────────────
   e2e-smoke:
     build:

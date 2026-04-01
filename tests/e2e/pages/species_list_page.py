@@ -75,6 +75,7 @@ class SpeciesListPage(BasePage):
     def click_create(self) -> None:
         self.wait_for_element_clickable(self.CREATE_BUTTON).click()
         self.wait_for_element_visible(self.CREATE_DIALOG)
+        self.expand_all_fields()
 
     def fill_scientific_name(self, name: str) -> None:
         el = self.wait_for_element_clickable(

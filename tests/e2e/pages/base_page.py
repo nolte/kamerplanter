@@ -152,6 +152,17 @@ class BasePage:
         )
         element.send_keys(value)
 
+    # ── Expertise level helpers ─────────────────────────────────────────────
+
+    SHOW_ALL_FIELDS_TOGGLE = (By.CSS_SELECTOR, "[data-testid='show-all-fields-toggle']")
+
+    def expand_all_fields(self, timeout: int = 5) -> None:
+        """Click the 'Show all fields' toggle if present (for beginner mode)."""
+        toggles = self.driver.find_elements(*self.SHOW_ALL_FIELDS_TOGGLE)
+        if toggles and toggles[0].is_displayed():
+            self.scroll_and_click(toggles[0])
+            time.sleep(0.3)
+
     # ── Screenshots ───────────────────────────────────────────────────────
 
     def take_screenshot(self, name: str, output_dir: Path) -> Path:
