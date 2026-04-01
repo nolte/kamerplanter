@@ -1,0 +1,93 @@
+@media print {
+  /* Page setup */
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide navigation and chrome */
+  nav,
+  aside,
+  header,
+  .MuiDrawer-root,
+  .MuiAppBar-root,
+  .MuiFab-root,
+  .MuiTooltip-popper,
+  .MuiSnackbar-root,
+  .MuiSpeedDial-root,
+  .MuiTab-root,
+  .MuiTabs-root,
+  [data-testid='sidebar'],
+  [data-testid='app-bar'],
+  [data-testid='print-button'],
+  [role='navigation'],
+  [role='tablist'] {
+    display: none !important;
+  }
+
+  /* Main content full width */
+  main,
+  [role='main'] {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Force light colors */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Table handling */
+  tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  /* Avoid orphaned headings — keep heading with the content that follows */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  .MuiTypography-h5,
+  .MuiTypography-h6,
+  .MuiTypography-subtitle1,
+  .MuiTypography-subtitle2 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Avoid breaking inside cards and alert blocks */
+  .MuiCard-root,
+  .MuiAlert-root,
+  .MuiPaper-root {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Hide interactive-only elements (action buttons, icon buttons, FABs).
+     Use .no-print on any custom element that should be suppressed. */
+  .MuiIconButton-root,
+  .MuiButton-root,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Suppress URL expansion after links — URLs add noise to printed documents */
+  a[href]::after {
+    content: none;
+  }
+}

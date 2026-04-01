@@ -109,6 +109,7 @@ plugins:
             Pflegeerinnerungen: Care Reminders
             Vermehrung: Propagation
             Datenschutz (DSGVO): Privacy (GDPR)
+            Druckansichten & Export: Print & Export
             Architektur: Architecture
             Überblick: Overview
             Backend: Backend
@@ -247,6 +248,7 @@ nav:
       - Pflegeerinnerungen: de/user-guide/care-reminders.md
       - Vermehrung: de/user-guide/propagation.md
       - Datenschutz (DSGVO): de/user-guide/privacy.md
+      - Druckansichten & Export: de/user-guide/print-export.md
   - Architektur:
       - de/architecture/index.md
       - Überblick: de/architecture/overview.md
