@@ -1934,6 +1934,8 @@
       "speciesOrType": "Species / Type",
       "assignedPlants": "Assigned Plants",
       "allSpecies": "All species",
+      "searchWorkflows": "Search workflows...",
+      "totalDurationDays": "{{count}} days",
       "editIntro": "Edit the properties of this task. Name, category, scheduling, and assignment can be adjusted.",
       "sectionTask": "Task",
       "sectionTaskDesc": "Name, instruction, and category of the task.",
@@ -1975,7 +1977,15 @@
       "bulkResultPartial": "{{action}}: {{success}} done, {{failed}} failed",
       "bulkResultSuccess": "{{action}}: {{count}} task(s) successful",
       "daysOffsetHelper": "Days after phase start",
-      "sequenceOrderHelper": "Position in workflow (0 = first)"
+      "sequenceOrderHelper": "Position in workflow (0 = first)",
+      "instantiateGroupRuns": "Planting Runs",
+      "instantiateGroupPlants": "Standalone Plants",
+      "instantiateTarget": "Plant or Planting Run",
+      "instantiateIntroNew": "Select a plant or planting run to assign the tasks from this workflow.",
+      "instantiatingProgress": "Instantiating {{current}}/{{total}} plants...",
+      "instantiatedCount": "Workflow instantiated for {{count}} plants.",
+      "runPlantCount": "{{count}} plants",
+      "plantedOn": "Planted on"
     },
     "ipm": {
       "title": "Plant Protection",

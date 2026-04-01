@@ -1934,6 +1934,8 @@
       "speciesOrType": "Art / Sorte",
       "assignedPlants": "Zugewiesene Pflanzen",
       "allSpecies": "Alle Arten",
+      "searchWorkflows": "Workflows durchsuchen...",
+      "totalDurationDays": "{{count}} Tage",
       "editIntro": "Bearbeiten Sie die Eigenschaften dieser Aufgabe. Name, Kategorie, Zeitplanung und Zuordnung können angepasst werden.",
       "sectionTask": "Aufgabe",
       "sectionTaskDesc": "Name, Anweisung und Kategorie der Aufgabe.",
@@ -1975,7 +1977,15 @@
       "bulkResultPartial": "{{action}}: {{success}} erledigt, {{failed}} fehlgeschlagen",
       "bulkResultSuccess": "{{action}}: {{count}} Aufgabe(n) erfolgreich",
       "daysOffsetHelper": "Tage nach Phasenbeginn",
-      "sequenceOrderHelper": "Reihenfolge im Workflow (0 = zuerst)"
+      "sequenceOrderHelper": "Reihenfolge im Workflow (0 = zuerst)",
+      "instantiateGroupRuns": "Durchläufe",
+      "instantiateGroupPlants": "Einzelpflanzen",
+      "instantiateTarget": "Pflanze oder Durchlauf",
+      "instantiateIntroNew": "Wählen Sie eine Pflanze oder einen Durchlauf, um die Aufgaben dieses Workflows zuzuweisen.",
+      "instantiatingProgress": "Instanziiere {{current}}/{{total}} Pflanzen...",
+      "instantiatedCount": "Workflow für {{count}} Pflanzen instanziiert.",
+      "runPlantCount": "{{count}} Pflanzen",
+      "plantedOn": "Gepflanzt am"
     },
     "ipm": {
       "title": "Pflanzenschutz",

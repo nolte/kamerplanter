@@ -107,6 +107,9 @@ const TaskDetailPage = lazy(() => import('@/pages/aufgaben/TaskDetailPage'));
 const WorkflowDetailPage = lazy(
   () => import('@/pages/aufgaben/WorkflowDetailPage'),
 );
+const WorkflowTemplateListPage = lazy(
+  () => import('@/pages/aufgaben/WorkflowTemplateListPage'),
+);
 
 // REQ-015 Kalender
 const CalendarPage = lazy(() => import('@/pages/kalender/CalendarPage'));
@@ -623,7 +626,11 @@ export const router = createBrowserRouter(
           />
           <Route
             path="aufgaben/workflows"
-            element={<Navigate to="/stammdaten/species" replace />}
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <WorkflowTemplateListPage />
+              </Suspense>
+            }
           />
           <Route
             path="aufgaben/activity-plans"
