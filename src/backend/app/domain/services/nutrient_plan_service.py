@@ -194,9 +194,6 @@ class NutrientPlanService:
         channel_validations: list[dict] = []
         all_channels_valid = True
 
-        # EC budget per entry — aggregate from channel dosages
-        ec_budgets: list[dict] = []
-
         for entry in entries:
             # Load fertilizers for all channels in this entry
             ferts: dict[str, object] = {}
@@ -208,37 +205,7 @@ class NutrientPlanService:
                             if fert is not None:
                                 ferts[dosage.fertilizer_key] = fert
 
-            # Calculate EC budget for this entry
-            calculated_ec = 0.0
-            for ch in entry.delivery_channels or []:
-                for dosage in ch.fertilizer_dosages:
-                    fert = ferts.get(dosage.fertilizer_key)
-                    if fert is not None:
-                        ec_per_ml = getattr(fert, "ec_contribution_per_ml", 0.0)
-                        calculated_ec += dosage.ml_per_liter * ec_per_ml
-
-            # Use the first channel's target_ec as reference, or 0
-            target_ec = 0.0
-            for ch in entry.delivery_channels or []:
-                if ch.target_ec_ms is not None:
-                    target_ec = ch.target_ec_ms
-                    break
-
-            delta = calculated_ec - target_ec
-            ec_valid = target_ec == 0 or abs(delta) < 0.5
-            ec_budgets.append(
-                {
-                    "entry_key": entry.key,
-                    "phase_name": entry.phase_name.value,
-                    "valid": ec_valid,
-                    "target_ec": target_ec,
-                    "calculated_ec": round(calculated_ec, 3),
-                    "delta": round(delta, 3),
-                    "message": "OK" if ec_valid else f"EC delta {delta:+.2f} exceeds tolerance",
-                }
-            )
-
-            # Channel validation
+            # Channel validation (includes per-channel EC budget)
             if entry.delivery_channels:
                 ch_result = channel_validator.validate_channels(
                     entry.delivery_channels,
@@ -256,7 +223,6 @@ class NutrientPlanService:
 
         return {
             "completeness": completeness,
-            "ec_budgets": ec_budgets,
             "channel_validations": channel_validations,
             "valid": completeness["complete"] and all_channels_valid,
         }

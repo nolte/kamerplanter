@@ -2554,7 +2554,8 @@
         "valid": "Alle Kanäle gültig",
         "invalid": "Kanalprobleme gefunden",
         "ecBudget": "EC-Budget",
-        "noIssues": "Keine Probleme"
+        "noIssues": "Keine Probleme",
+        "tolerance": "Toleranz"
       },
       "multiChannelActive": "Multi-Kanal-Modus aktiv — Kanäle über die Detailseite verwalten",
       "channelIdExists": "Kanal-ID bereits vorhanden",

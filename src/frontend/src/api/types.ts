@@ -1595,7 +1595,7 @@ export interface ChannelValidation {
   channel_id: string;
   label: string;
   issues: string[];
-  ec_budget: { target: number; calculated: number; delta: number } | null;
+  ec_budget: { target: number; calculated: number; delta: number; tolerance: number } | null;
 }
 
 export interface NutrientPlanPhaseEntry {
@@ -2053,15 +2053,6 @@ export interface EcBudgetResponse {
 
 export interface PlanValidationResult {
   completeness: { complete: boolean; issues: string[] };
-  ec_budgets: Array<{
-    entry_key: string;
-    phase_name: string;
-    valid: boolean;
-    target_ec: number;
-    calculated_ec: number;
-    delta: number;
-    message: string;
-  }>;
   channel_validations: Array<{
     entry_key: string;
     phase_name: string;

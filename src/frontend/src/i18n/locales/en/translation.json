@@ -2554,7 +2554,8 @@
         "valid": "All channels valid",
         "invalid": "Channel issues found",
         "ecBudget": "EC Budget",
-        "noIssues": "No issues"
+        "noIssues": "No issues",
+        "tolerance": "Tolerance"
       },
       "multiChannelActive": "Multi-channel mode active — manage channels from the detail page",
       "channelIdExists": "Channel ID already exists",

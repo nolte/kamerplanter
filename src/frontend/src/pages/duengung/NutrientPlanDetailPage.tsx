@@ -1142,44 +1142,7 @@ export default function NutrientPlanDetailPage() {
                 </CardContent>
               </Card>
 
-              <Card sx={{ mb: 2 }}>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    {t('pages.nutrientPlans.ecBudgets')}
-                  </Typography>
-                  {(validation.ec_budgets ?? []).map((budget, i) => (
-                    <Alert
-                      key={i}
-                      severity={budget.valid ? 'success' : 'error'}
-                      sx={{ mb: 0.5 }}
-                      action={
-                        <Tooltip title={t('common.edit')}>
-                          <IconButton
-                            size="small"
-                            onClick={() => {
-                              const entry = entries.find((e) => e.key === budget.entry_key);
-                              if (!entry) return;
-                              setTab(0);
-                              setExpandedEntries((prev) => new Set(prev).add(entry.key));
-                              setEditingEntry(entry);
-                              setEntryDialogOpen(true);
-                            }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      }
-                    >
-                      <strong>{t(`enums.phaseName.${budget.phase_name}`)}</strong>:{' '}
-                      {budget.message} ({t('pages.nutrientPlans.targetEc')}: {budget.target_ec},{' '}
-                      {t('pages.nutrientPlans.calculatedEc')}: {budget.calculated_ec.toFixed(2)},{' '}
-                      {t('pages.nutrientPlans.delta')}: {budget.delta.toFixed(2)})
-                    </Alert>
-                  ))}
-                </CardContent>
-              </Card>
-
-              {/* Channel Validations */}
+              {/* Channel Validations with EC Budget */}
               {(validation.channel_validations ?? []).length > 0 && (
                 <Card>
                   <CardContent>
@@ -1187,8 +1150,8 @@ export default function NutrientPlanDetailPage() {
                       {t('pages.deliveryChannels.validation.title')}
                     </Typography>
                     {(validation.channel_validations ?? []).map((cv, i) => (
-                      <Box key={i} sx={{ mb: 1 }}>
-                        <Typography variant="subtitle2">
+                      <Box key={i} sx={{ mb: 2 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
                           {t(`enums.phaseName.${cv.phase_name}`)}
                         </Typography>
                         {(cv.channel_results ?? []).map((cr, j) => (
@@ -1206,8 +1169,6 @@ export default function NutrientPlanDetailPage() {
                                     const channel = entry.delivery_channels.find(
                                       (ch) => ch.channel_id === cr.channel_id,
                                     );
-                                    setTab(0);
-                                    setExpandedEntries((prev) => new Set(prev).add(entry.key));
                                     if (channel) {
                                       onEditChannel(entry.key, channel);
                                     }
@@ -1223,7 +1184,11 @@ export default function NutrientPlanDetailPage() {
                               ? t('pages.deliveryChannels.validation.noIssues')
                               : cr.issues.join('; ')}
                             {cr.ec_budget && (
-                              <> ({t('pages.deliveryChannels.validation.ecBudget')}: {cr.ec_budget.target} / {cr.ec_budget.calculated})</>
+                              <Box component="span" sx={{ display: 'block', mt: 0.5, fontSize: '0.85em' }}>
+                                EC: {cr.ec_budget.calculated.toFixed(2)} / {cr.ec_budget.target} mS
+                                {' '}({t('pages.nutrientPlans.delta')}: {cr.ec_budget.delta > 0 ? '+' : ''}{cr.ec_budget.delta.toFixed(2)},
+                                {' '}{t('pages.deliveryChannels.validation.tolerance')}: ±{cr.ec_budget.tolerance.toFixed(2)})
+                              </Box>
                             )}
                           </Alert>
                         ))}
