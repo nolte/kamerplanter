@@ -790,6 +790,27 @@ export default function TankDetailPage() {
             </Card>
           )}
 
+          {/* Sensor History Charts — only when sensors are configured */}
+          {tsAvailable && sensors.filter((s) => s.ha_entity_id && s.is_active).length > 0 && (
+            <Card variant="outlined" sx={{ mt: 2 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  {t('pages.tanks.sensorHistory')}
+                </Typography>
+                {sensors
+                  .filter((s) => s.ha_entity_id && s.is_active)
+                  .map((s) => (
+                    <SensorHistoryChart
+                      key={s.key}
+                      sensorKey={s.key}
+                      sensorName={s.name}
+                      metricType={s.metric_type}
+                      unit={s.unit_of_measurement}
+                    />
+                  ))}
+              </CardContent>
+            </Card>
+          )}
 
         </Box>
       )}
@@ -1266,28 +1287,6 @@ export default function TankDetailPage() {
               )}
             </CardContent>
           </Card>
-
-          {/* Sensor History Charts */}
-          {tsAvailable && sensors.filter((s) => s.ha_entity_id && s.is_active).length > 0 && (
-            <Card variant="outlined">
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  {t('pages.tanks.sensorHistory')}
-                </Typography>
-                {sensors
-                  .filter((s) => s.ha_entity_id && s.is_active)
-                  .map((s) => (
-                    <SensorHistoryChart
-                      key={s.key}
-                      sensorKey={s.key}
-                      sensorName={s.name}
-                      metricType={s.metric_type}
-                      unit={s.unit_of_measurement}
-                    />
-                  ))}
-              </CardContent>
-            </Card>
-          )}
 
           <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
           <FormActions
