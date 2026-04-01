@@ -11,7 +11,7 @@ anyio==4.12.1
     #   watchfiles
 astral==3.2
     # via kamerplanter-backend (pyproject.toml)
-authlib==1.6.8
+authlib==1.6.9
     # via kamerplanter-backend (pyproject.toml)
 bcrypt==5.0.0
     # via kamerplanter-backend (pyproject.toml)

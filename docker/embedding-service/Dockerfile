@@ -13,6 +13,7 @@
 # ── Shared base for downloads ────────────────────────────────────────
 
 FROM python:3.14-slim AS dl-base
+# hadolint ignore=DL3013
 RUN pip install --no-cache-dir --root-user-action=ignore huggingface-hub sentencepiece
 
 # ── Download stages (cached independently) ───────────────────────────
