@@ -171,13 +171,11 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
         if not include_detached:
             query += "  FILTER e.detached_at == null\n"
         query += f"""  LET v = DOCUMENT(e._to)
-          LET run = DOCUMENT(@run_id)
-          LET plant_gp = DOCUMENT(CONCAT('{col.GROWTH_PHASES}/', v.current_phase_key))
-          LET run_gp = DOCUMENT(CONCAT('{col.GROWTH_PHASES}/', run.current_phase_key))
+          LET gp = DOCUMENT(CONCAT('{col.GROWTH_PHASES}/', v.current_phase_key))
           RETURN MERGE(v, {{
             _edge_detached_at: e.detached_at,
             _edge_detach_reason: e.detach_reason,
-            current_phase: plant_gp != null ? plant_gp.name : (run_gp != null ? run_gp.name : '')
+            current_phase: gp != null ? gp.name : ''
           }})"""
         bind_vars = {
             "run_id": f"{col.PLANTING_RUNS}/{run_key}",

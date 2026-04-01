@@ -389,6 +389,8 @@ export interface LocationTreeNode {
   depth: number;
   parent_location_key: string | null;
   slot_count: number;
+  active_plant_count: number;
+  tank_name: string | null;
   children: LocationTreeNode[];
 }
 

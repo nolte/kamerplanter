@@ -52,7 +52,7 @@ import * as tankApi from '@/api/endpoints/tanks';
 import * as sitesApi from '@/api/endpoints/sites';
 import * as observationsApi from '@/api/endpoints/observations';
 import SensorHistoryChart from '@/components/sensors/SensorHistoryChart';
-import CircularProgress from '@mui/material/CircularProgress';
+import TankStateChart from '@/components/tanks/TankStateChart';
 import type {
   Tank,
   TankState,
@@ -63,7 +63,6 @@ import type {
   DueMaintenance,
   Site,
   Sensor,
-  LiveStateResponse,
 } from '@/api/types';
 import TankStateCreateDialog from './TankStateCreateDialog';
 import MaintenanceLogDialog from './MaintenanceLogDialog';
@@ -181,9 +180,6 @@ export default function TankDetailPage() {
   const [siteName, setSiteName] = useState('');
   const [locationName, setLocationName] = useState('');
   const [sensors, setSensors] = useState<Sensor[]>([]);
-  const [liveState, setLiveState] = useState<LiveStateResponse | null>(null);
-  const [liveLoading, setLiveLoading] = useState(false);
-  const [adoptingAll, setAdoptingAll] = useState(false);
   const [sensorDialogOpen, setSensorDialogOpen] = useState(false);
   const [editSensor, setEditSensor] = useState<Sensor | undefined>(undefined);
   const [deleteSensorKey, setDeleteSensorKey] = useState<string | null>(null);
@@ -343,37 +339,6 @@ export default function TankDetailPage() {
     setValue('location_key', null, { shouldDirty: true });
   };
 
-  const handleLiveQuery = async () => {
-    if (!key) return;
-    setLiveLoading(true);
-    try {
-      const result = await tankApi.getLiveState(key);
-      setLiveState(result);
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setLiveLoading(false);
-    }
-  };
-
-  const handleAdoptAll = async () => {
-    if (!key || !liveState) return;
-    setAdoptingAll(true);
-    try {
-      const payload: Record<string, unknown> = { source: 'ha_live' };
-      for (const [metric, entry] of Object.entries(liveState.values)) {
-        payload[metric] = entry.value;
-      }
-      await tankApi.recordState(key, payload as Parameters<typeof tankApi.recordState>[1]);
-      notification.success(t('pages.tanks.adopted'));
-      setLiveState(null);
-      load();
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setAdoptingAll(false);
-    }
-  };
 
   const onDeleteSensor = async () => {
     if (!deleteSensorKey) return;
@@ -825,170 +790,7 @@ export default function TankDetailPage() {
             </Card>
           )}
 
-          {/* Live Query */}
-          <Card sx={{ mb: 2 }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 1 }}>
-                <Typography variant="h6">{t('pages.tanks.liveValues')}</Typography>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleLiveQuery}
-                  disabled={liveLoading}
-                  startIcon={liveLoading ? <CircularProgress size={16} /> : undefined}
-                  data-testid="tank-live-query-button"
-                >
-                  {t('pages.tanks.liveQuery')}
-                </Button>
-              </Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: liveState ? 2 : 0 }}>
-                {t('pages.tanks.liveValuesDesc')}
-              </Typography>
-              {liveState && liveState.source === 'unavailable' && (
-                <Alert severity="info" sx={{ mt: 1 }}>{t('pages.tanks.noHaConfigured')}</Alert>
-              )}
-              {liveState && liveState.source === 'ha_live' && Object.keys(liveState.values).length === 0 && sensors.length === 0 && (
-                <Alert severity="info" sx={{ mt: 1 }}>{t('pages.tanks.noSensors')}</Alert>
-              )}
-              {liveState && liveState.source === 'ha_live' && Object.keys(liveState.values).length > 0 && (
-                <>
-                  <Table size="small" aria-label={t('pages.tanks.liveValues')}>
-                    <TableBody>
-                      {Object.entries(liveState.values).map(([metric, entry]) => {
-                        const freshness = getFreshness(entry.last_changed);
-                        return (
-                          <TableRow key={metric}>
-                            <TableCell component="th">{metric}{entry.unit ? ` (${entry.unit})` : ''}</TableCell>
-                            <TableCell>
-                              {entry.value}
-                              <Chip
-                                label={freshness.minutes != null ? t(`pages.tanks.${freshness.key}`, { minutes: freshness.minutes }) : t(`pages.tanks.${freshness.key}`)}
-                                size="small"
-                                color={freshness.color}
-                                variant="outlined"
-                                sx={{ ml: 1 }}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                  <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button
-                      variant="contained"
-                      onClick={handleAdoptAll}
-                      disabled={adoptingAll}
-                      startIcon={adoptingAll ? <CircularProgress size={16} /> : undefined}
-                      data-testid="tank-adopt-all-button"
-                    >
-                      {t('pages.tanks.adoptAllReadings')}
-                    </Button>
-                  </Box>
-                </>
-              )}
-              {liveState && liveState.errors && liveState.errors.length > 0 && (
-                <Box sx={{ mt: 1 }}>
-                  {liveState.errors.map((err, i) => (
-                    <Alert key={i} severity="warning" sx={{ mb: 0.5 }}>
-                      {err.entity_id}: {err.error}
-                    </Alert>
-                  ))}
-                </Box>
-              )}
-            </CardContent>
-          </Card>
 
-          {/* Sensors */}
-          <Card sx={{ mb: 2 }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, flexWrap: 'wrap', gap: 1 }}>
-                <Typography variant="h6">{t('pages.tanks.sensors')}</Typography>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => { setEditSensor(undefined); setSensorDialogOpen(true); }}
-                  data-testid="tank-add-sensor-button"
-                >
-                  {t('pages.tanks.addSensor')}
-                </Button>
-              </Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: sensors.length > 0 ? 2 : 1 }}>
-                {t('pages.tanks.sensorsDesc')}
-              </Typography>
-              {sensors.length === 0 && (
-                <EmptyState
-                  message={t('pages.tanks.noSensors')}
-                  actionLabel={t('pages.tanks.addSensor')}
-                  onAction={() => { setEditSensor(undefined); setSensorDialogOpen(true); }}
-                />
-              )}
-              {sensors.length > 0 && (
-                <Table size="small" aria-label={t('pages.tanks.sensors')}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>{t('pages.tanks.sensorColumnName')}</TableCell>
-                      <TableCell>{t('pages.tanks.sensorColumnMetric')}</TableCell>
-                      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{t('pages.tanks.sensorColumnEntity')}</TableCell>
-                      <TableCell align="right">{t('pages.tanks.sensorColumnActions')}</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {sensors.map((s) => (
-                      <TableRow key={s.key}>
-                        <TableCell>{s.name}</TableCell>
-                        <TableCell>{s.metric_type}</TableCell>
-                        <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{s.ha_entity_id || '—'}</TableCell>
-                        <TableCell align="right">
-                          <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-                            <IconButton
-                              size="small"
-                              onClick={() => { setEditSensor(s); setSensorDialogOpen(true); }}
-                              aria-label={t('common.edit')}
-                              data-testid={`sensor-edit-${s.key}`}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => setDeleteSensorKey(s.key)}
-                              aria-label={t('common.delete')}
-                              data-testid={`sensor-delete-${s.key}`}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Sensor History Charts */}
-          {tsAvailable && sensors.filter((s) => s.ha_entity_id && s.is_active).length > 0 && (
-            <Card sx={{ mb: 2 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  {t('pages.tanks.sensorHistory')}
-                </Typography>
-                {sensors
-                  .filter((s) => s.ha_entity_id && s.is_active)
-                  .map((s) => (
-                    <SensorHistoryChart
-                      key={s.key}
-                      sensorKey={s.key}
-                      sensorName={s.name}
-                      metricType={s.metric_type}
-                      unit={s.unit_of_measurement}
-                    />
-                  ))}
-              </CardContent>
-            </Card>
-          )}
         </Box>
       )}
 
@@ -1007,6 +809,7 @@ export default function TankDetailPage() {
               {t('pages.tanks.recordState')}
             </Button>
           </Box>
+          {states.length >= 2 && <TankStateChart states={states} />}
           {states.length === 0 ? (
             <EmptyState
               message={t('pages.tanks.noMeasurements')}
@@ -1026,8 +829,8 @@ export default function TankDetailPage() {
                 <MobileCard
                   title={r.recorded_at ? new Date(r.recorded_at).toLocaleString() : '—'}
                   fields={[
-                    ...(r.ph != null ? [{ label: 'pH', value: String(r.ph) }] : []),
-                    ...(r.ec_ms != null ? [{ label: 'EC (mS/cm)', value: String(r.ec_ms) }] : []),
+                    ...(r.ph != null ? [{ label: t('enums.sensorMetricType.ph'), value: String(r.ph) }] : []),
+                    ...(r.ec_ms != null ? [{ label: t('enums.sensorMetricType.ec_ms'), value: String(r.ec_ms) }] : []),
                     ...(r.water_temp_celsius != null ? [{ label: t('pages.tanks.waterTemp'), value: `${r.water_temp_celsius} \u00B0C` }] : []),
                     ...(r.fill_level_percent != null ? [{ label: t('pages.tanks.fillLevel'), value: `${r.fill_level_percent}%` }] : []),
                   ]}
@@ -1394,6 +1197,97 @@ export default function TankDetailPage() {
               />
             </CardContent>
           </Card>
+
+          {/* Sensors */}
+          <Card variant="outlined">
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                <Typography variant="h6">{t('pages.tanks.sensors')}</Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => { setEditSensor(undefined); setSensorDialogOpen(true); }}
+                  data-testid="tank-add-sensor-button"
+                >
+                  {t('pages.tanks.addSensor')}
+                </Button>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: sensors.length > 0 ? 2 : 1 }}>
+                {t('pages.tanks.sensorsDesc')}
+              </Typography>
+              {sensors.length === 0 && (
+                <EmptyState
+                  message={t('pages.tanks.noSensors')}
+                  actionLabel={t('pages.tanks.addSensor')}
+                  onAction={() => { setEditSensor(undefined); setSensorDialogOpen(true); }}
+                />
+              )}
+              {sensors.length > 0 && (
+                <Table size="small" aria-label={t('pages.tanks.sensors')}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>{t('pages.tanks.sensorColumnName')}</TableCell>
+                      <TableCell>{t('pages.tanks.sensorColumnMetric')}</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{t('pages.tanks.sensorColumnEntity')}</TableCell>
+                      <TableCell align="right">{t('pages.tanks.sensorColumnActions')}</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {sensors.map((s) => (
+                      <TableRow key={s.key}>
+                        <TableCell>{s.name}</TableCell>
+                        <TableCell>{s.metric_type}</TableCell>
+                        <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{s.ha_entity_id || '—'}</TableCell>
+                        <TableCell align="right">
+                          <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+                            <IconButton
+                              size="small"
+                              onClick={() => { setEditSensor(s); setSensorDialogOpen(true); }}
+                              aria-label={t('common.edit')}
+                              data-testid={`sensor-edit-${s.key}`}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => setDeleteSensorKey(s.key)}
+                              aria-label={t('common.delete')}
+                              data-testid={`sensor-delete-${s.key}`}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Sensor History Charts */}
+          {tsAvailable && sensors.filter((s) => s.ha_entity_id && s.is_active).length > 0 && (
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  {t('pages.tanks.sensorHistory')}
+                </Typography>
+                {sensors
+                  .filter((s) => s.ha_entity_id && s.is_active)
+                  .map((s) => (
+                    <SensorHistoryChart
+                      key={s.key}
+                      sensorKey={s.key}
+                      sensorName={s.name}
+                      metricType={s.metric_type}
+                      unit={s.unit_of_measurement}
+                    />
+                  ))}
+              </CardContent>
+            </Card>
+          )}
 
           <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
           <FormActions
