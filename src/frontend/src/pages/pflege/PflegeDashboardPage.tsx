@@ -18,6 +18,7 @@ import PlaceIcon from '@mui/icons-material/Place';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import EditIcon from '@mui/icons-material/Edit';
 import PageTitle from '@/components/layout/PageTitle';
+import PrintButton from '@/components/common/PrintButton';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -25,6 +26,7 @@ import { fetchDashboard, fetchProfile } from '@/store/slices/careRemindersSlice'
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as careApi from '@/api/endpoints/careReminders';
+import { downloadCareChecklistPdf } from '@/api/endpoints/print';
 import type { CareDashboardEntry, ReminderType, CareProfile } from '@/api/types';
 import { kamiCare } from '@/assets/brand/illustrations';
 import CareProfileEditDialog from './components/CareProfileEditDialog';
@@ -308,8 +310,24 @@ export default function PflegeDashboardPage() {
 
   return (
     <Box data-testid="pflege-dashboard-page">
-      <PageTitle title={t('pages.pflege.title')} />
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 1,
+          mb: 0,
+        }}
+      >
+        <PageTitle title={t('pages.pflege.title')} sx={{ mb: 0 }} />
+        <PrintButton
+          onPrint={() => downloadCareChecklistPdf()}
+          filename="care-checklist.pdf"
+          label={t('print.careChecklist')}
+        />
+      </Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3, mt: 1 }}>
         {t('pages.pflege.subtitle')}
       </Typography>
 

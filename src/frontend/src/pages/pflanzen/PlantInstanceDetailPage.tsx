@@ -47,8 +47,10 @@ import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import LocationTreeSelect from '@/components/form/LocationTreeSelect';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
 import PhaseTransitionDialog from './PhaseTransitionDialog';
 import PlantTagDialog from './PlantTagDialog';
+import { PlantLabelDialog } from '@/components/print/PlantLabelDialog';
 import PlantPhaseTimeline from './PlantPhaseTimeline';
 import ProfilesSection from './ProfilesSection';
 import PhaseHistoryTable from '@/pages/durchlaeufe/PhaseHistoryTable';
@@ -109,6 +111,7 @@ export default function PlantInstanceDetailPage() {
   const [removeOpen, setRemoveOpen] = useState(false);
   const [transitionOpen, setTransitionOpen] = useState(false);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [labelDialogOpen, setLabelDialogOpen] = useState(false);
   const [tab, setTab] = useTabUrl(['info', 'phases', 'nutrient-plan', 'watering-log', 'care', 'activity-plan', 'tasks', 'edit']);
   const [saving, setSaving] = useState(false);
   const [species, setSpecies] = useState<Species | null>(null);
@@ -820,6 +823,16 @@ export default function PlantInstanceDetailPage() {
             size="small"
           >
             {t('pages.plantInstances.tag.button')}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<QrCode2Icon />}
+            onClick={() => setLabelDialogOpen(true)}
+            data-testid="label-button"
+            size="small"
+            aria-label={t('print.printLabels')}
+          >
+            {t('print.printLabelsShort')}
           </Button>
           <Button
             startIcon={<SwapHorizIcon />}
@@ -2248,6 +2261,15 @@ export default function PlantInstanceDetailPage() {
           onClose={() => setTagDialogOpen(false)}
           plantKey={plant.key}
           plantName={plant.plant_name ?? plant.instance_id}
+        />
+      )}
+
+      {plant && (
+        <PlantLabelDialog
+          open={labelDialogOpen}
+          onClose={() => setLabelDialogOpen(false)}
+          plantKeys={[plant.key]}
+          plantNames={{ [plant.key]: plant.plant_name ?? plant.instance_id }}
         />
       )}
 

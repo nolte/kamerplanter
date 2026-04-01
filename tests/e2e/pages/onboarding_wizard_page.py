@@ -106,39 +106,48 @@ class OnboardingWizardPage(BasePage):
         return self
 
     def _ensure_step_one(self) -> None:
-        """Reset the wizard to Step 1 if it resumed on a later step or shows the completed card."""
+        """Reset the wizard to Step 1, always clearing backend state.
+
+        Always uses the Restart path (Restart button or Skip → Restart) so that
+        backend state (``plant_configs``, ``selected_site_key``, etc.) is
+        fully cleared before each test starts.
+        """
         import time
 
-        # Case 1: completed / skipped card — click Restart
+        # Case 1: completed / skipped card — click Restart directly
         restart_els = self.driver.find_elements(*self.RESTART_BUTTON)
         if restart_els and restart_els[0].is_displayed():
             self.scroll_and_click(restart_els[0])
-            # After restart the wizard reloads at step 0; wait for step 1 content
             self.wait_for_element(self.STEP_WELCOME)
             self.wait_for_loading_complete()
             return
 
-        # Case 2: already on step 1
-        if self.is_step_welcome_visible():
+        # Case 2: wizard is active (step 1..N) — Skip → Restart to clear backend state
+        skip_els = self.driver.find_elements(*self.SKIP_BUTTON)
+        if skip_els and skip_els[0].is_displayed():
+            self.scroll_and_click(skip_els[0])
+            # Skip redirects to /pflanzen/plant-instances
+            try:
+                self.wait_for_url_contains("/pflanzen", timeout=10)
+            except Exception:
+                pass
+            # Navigate back to wizard which now shows the completed card
+            self.navigate(self.PATH)
+            self.wait_for_element(self.WIZARD)
+            self.wait_for_loading_complete()
+            time.sleep(0.5)
+            restart_els2 = self.driver.find_elements(*self.RESTART_BUTTON)
+            if restart_els2 and restart_els2[0].is_displayed():
+                self.scroll_and_click(restart_els2[0])
+                self.wait_for_element(self.STEP_WELCOME)
+                self.wait_for_loading_complete()
             return
 
-        # Case 3: resumed on step > 1 — click Back until Step 1 is visible
-        # Guard against infinite loops with a maximum of 10 iterations (wizard has at most 7 steps)
-        for _ in range(10):
-            back_els = self.driver.find_elements(*self.BACK_BUTTON)
-            if not back_els or not back_els[0].is_displayed() or not back_els[0].is_enabled():
-                break
-            self.scroll_and_click(back_els[0])
-            # Brief pause to let the React state update render
-            time.sleep(0.15)
-            if self.is_step_welcome_visible():
-                return
-
-        # Final fallback: wait for step welcome (may already be visible after last click)
+        # Fallback: already clean (no skip/restart buttons visible = fresh state)
         try:
             self.wait_for_element(self.STEP_WELCOME, timeout=5)
         except Exception:
-            # If we still can't get to step 1, try a hard reload of the page
+            # Hard reload as last resort
             self.navigate(self.PATH)
             self.wait_for_element(self.WIZARD)
             self.wait_for_loading_complete()
@@ -576,9 +585,10 @@ class OnboardingWizardPage(BasePage):
 
     def set_site_name(self, name: str) -> None:
         """Clear and type a new site name."""
-        el = self.wait_for_element_clickable(self.SITE_NAME_FIELD)
-        el.clear()
-        el.send_keys(name)
+        # Wait for presence first (field may render slightly after the step container)
+        el = self.wait_for_element(self.SITE_NAME_FIELD)
+        self.scroll_and_click(el)
+        self.clear_and_fill(el, name)
 
     def get_site_type_value(self) -> str:
         """Return the current visible text of the site type selector."""

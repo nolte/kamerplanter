@@ -6,7 +6,7 @@ LABEL org.opencontainers.image.title="kamerplanter-frontend-dev" \
       org.opencontainers.image.description="Kamerplanter frontend UI (development with Vite HMR)" \
       org.opencontainers.image.source="https://github.com/nolte/kamerplanter" \
       org.opencontainers.image.vendor="Kamerplanter" \
-      org.opencontainers.image.licenses="UNLICENSED"
+      org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app
 

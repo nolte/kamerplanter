@@ -11,7 +11,9 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import AddIcon from '@mui/icons-material/Add';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
 import PageTitle from '@/components/layout/PageTitle';
+import { PlantLabelDialog } from '@/components/print/PlantLabelDialog';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchPlantInstances } from '@/store/slices/plantInstancesSlice';
@@ -31,6 +33,7 @@ export default function PlantInstanceListPage() {
   const { items, loading } = useAppSelector((s) => s.plantInstances);
   const [createOpen, setCreateOpen] = useState(false);
   const [duplicateData, setDuplicateData] = useState<PlantInstanceDuplicateData | undefined>();
+  const [labelDialogOpen, setLabelDialogOpen] = useState(false);
   const [hideRemoved, setHideRemoved] = useState(true);
   const [speciesMap, setSpeciesMap] = useState<Map<string, Species>>(new Map());
   const [cultivarMap, setCultivarMap] = useState<Map<string, Cultivar>>(new Map());
@@ -114,6 +117,16 @@ export default function PlantInstanceListPage() {
   const filteredItems = useMemo(
     () => (hideRemoved ? items.filter((p) => !p.removed_on) : items),
     [items, hideRemoved],
+  );
+
+  const labelPlantKeys = useMemo(
+    () => filteredItems.map((p) => p.key),
+    [filteredItems],
+  );
+
+  const labelPlantNames = useMemo(
+    () => Object.fromEntries(filteredItems.map((p) => [p.key, p.plant_name ?? p.instance_id])),
+    [filteredItems],
   );
 
   const columns: Column<PlantInstance>[] = [
@@ -305,14 +318,46 @@ export default function PlantInstanceListPage() {
 
   return (
     <Box data-testid="plant-instance-list-page">
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          flexWrap: 'wrap',
+          gap: 1,
+          mb: 1,
+        }}
+      >
         <PageTitle title={t('pages.plantInstances.title')} />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <FormControlLabel
-            control={<Switch checked={hideRemoved} onChange={(_, v) => setHideRemoved(v)} size="small" />}
+            control={
+              <Switch checked={hideRemoved} onChange={(_, v) => setHideRemoved(v)} size="small" />
+            }
             label={t('pages.plantInstances.hideRemoved')}
+            sx={{ mr: 0 }}
           />
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setDuplicateData(undefined); setCreateOpen(true); }} data-testid="create-button">
+          <Tooltip title={t('print.printLabels')}>
+            <span>
+              <IconButton
+                onClick={() => setLabelDialogOpen(true)}
+                disabled={filteredItems.length === 0}
+                aria-label={t('print.printLabels')}
+                data-testid="label-button"
+              >
+                <QrCode2Icon />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              setDuplicateData(undefined);
+              setCreateOpen(true);
+            }}
+            data-testid="create-button"
+          >
             {t('pages.plantInstances.create')}
           </Button>
         </Box>
@@ -335,6 +380,12 @@ export default function PlantInstanceListPage() {
         onClose={() => { setCreateOpen(false); setDuplicateData(undefined); }}
         onCreated={() => { setCreateOpen(false); setDuplicateData(undefined); dispatch(fetchPlantInstances({})); }}
         duplicateFrom={duplicateData}
+      />
+      <PlantLabelDialog
+        open={labelDialogOpen}
+        onClose={() => setLabelDialogOpen(false)}
+        plantKeys={labelPlantKeys}
+        plantNames={labelPlantNames}
       />
     </Box>
   );

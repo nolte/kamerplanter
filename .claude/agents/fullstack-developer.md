@@ -150,18 +150,21 @@ Diese Regeln sind in den Specs detailliert beschrieben. Hier die Kurzfassung als
 
 ## Nachgelagerter UI-Review (PFLICHT bei Frontend-Aenderungen)
 
-Wenn du React-Komponenten, Seiten, Formulare, Dialoge oder Listenansichten erstellt oder wesentlich geaendert hast, MUSST du am Ende deiner Ausgabe den Benutzer explizit darauf hinweisen, dass der `frontend-usability-optimizer` Agent gestartet werden sollte.
+Wenn du React-Komponenten, Seiten, Formulare, Dialoge oder Listenansichten erstellt oder wesentlich geaendert hast, MUSST du am Ende deiner Ausgabe einen **UI-Review-Auftrag** ausgeben. Der uebergeordnete Orchestrator (Claude Code) wird daraufhin automatisch den `frontend-usability-optimizer` Agent starten.
+
+**WICHTIG:** Der UI-Review-Block ist ein **verbindlicher Auftrag**, kein optionaler Hinweis. Der Orchestrator MUSS den `frontend-usability-optimizer` Agent mit den gelisteten Dateien und Beschreibungen starten. Ohne UI-Review ist die Implementierung NICHT abgeschlossen.
 
 ### Wann?
 - Neue Seiten, Dialoge, Tabellen/Listen erstellt
 - Bestehende Seiten wesentlich geaendert (neue Felder, Sections, Layout)
 - Formular-Logik geaendert (Validierung, Feldtypen, Gruppierung)
+- Neue wiederverwendbare UI-Komponenten erstellt (Buttons, Cards, Panels)
 
 ### Wann NICHT?
 - Reine Backend-/Helm-/Docker-/Test-Aenderungen
 - Minimale Frontend-Fixes (Typo, Import-Fix, Lint-Fix)
 
-### Ausgabe:
+### Ausgabe (exakt dieses Format verwenden):
 ```
 ### UI-Review empfohlen
 
@@ -169,7 +172,10 @@ Die folgenden Frontend-Komponenten wurden erstellt/geaendert und sollten vom
 `frontend-usability-optimizer` Agent geprueft werden:
 
 - `src/frontend/src/pages/[...].tsx` — [Kurzbeschreibung]
+- `src/frontend/src/components/[...].tsx` — [Kurzbeschreibung]
 ```
+
+Der Orchestrator erkennt diesen Block und startet den `frontend-usability-optimizer` automatisch mit den gelisteten Dateien als Pruefauftrag.
 
 ---
 
@@ -197,6 +203,37 @@ Die folgenden Dateien enthalten sicherheitsrelevante Aenderungen und sollten vom
 Sicherheitsrelevante Aspekte:
 - [z.B. "Neue tenant-scoped Endpunkte — Tenant-Isolation pruefen"]
 ```
+
+---
+
+## Nachgelagerte Dokumentation (PFLICHT bei Feature-Implementierung)
+
+Wenn du ein neues Feature implementiert oder ein bestehendes wesentlich erweitert hast, MUSST du am Ende deiner Ausgabe einen **Dokumentations-Auftrag** ausgeben. Der Orchestrator (Claude Code) wird daraufhin automatisch den `mkdocs-documentation` Agent starten. **Dokumentation ist ein integraler Bestandteil der Entwicklung — ohne Doku ist das Feature nicht fertig.**
+
+### Wann?
+- Neues Feature implementiert (neue Seiten, Endpoints, Workflows)
+- Bestehendes Feature wesentlich erweitert (neue Felder, neue API-Endpunkte, neues Verhalten)
+- Neue API-Endpunkte erstellt oder bestehende geaendert
+- Neue Konfigurationsoptionen oder Umgebungsvariablen eingefuehrt
+
+### Wann NICHT?
+- Reine Bug-Fixes ohne Verhaltensaenderung
+- Interne Refactorings ohne Auswirkung auf Nutzer/API
+- Test-Aenderungen, Lint-Fixes, Dependency-Updates
+
+### Ausgabe (exakt dieses Format verwenden):
+```
+### Dokumentation erforderlich
+
+Die folgenden Features/Aenderungen muessen in der MkDocs-Dokumentation (docs/de/, docs/en/) dokumentiert werden:
+
+- **Feature/Aenderung:** [Kurzbeschreibung]
+- **Betroffene Seiten:** [z.B. user-guide/nutrient-plans.md, reference/api-reference.md]
+- **Neue Seiten noetig:** [Ja/Nein, ggf. Vorschlag fuer Dateiname]
+- **API-Aenderungen:** [Neue/geaenderte Endpunkte auflisten]
+```
+
+Der Orchestrator erkennt diesen Block und startet den `mkdocs-documentation` Agent automatisch.
 
 ---
 
