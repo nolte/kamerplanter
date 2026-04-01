@@ -126,6 +126,7 @@ plugins:
             API: API
             Authentifizierung: Authentication
             Fehlerbehandlung: Error Handling
+            Betriebsprofile: Deployment Profiles
             Deployment: Deployment
             Kubernetes: Kubernetes
             Helm Charts: Helm Charts
@@ -272,6 +273,7 @@ nav:
       - Service Accounts: de/api/service-accounts.md
   - Deployment:
       - de/deployment/index.md
+      - Betriebsprofile: de/deployment/betriebsprofile.md
       - Kubernetes: de/deployment/kubernetes.md
       - Helm Charts: de/deployment/helm.md
       - ArgoCD: de/deployment/argocd.md
