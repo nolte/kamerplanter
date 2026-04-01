@@ -28,6 +28,7 @@ questions:
   - id: diag-001
     category: diagnostik
     difficulty: beginner
+    question_type: diagnosis
     question: "Meine unteren Blaetter werden gelb, die oberen sind noch gruen. Was fehlt?"
     context:
       species: null  # Allgemeine Frage
@@ -45,6 +46,7 @@ questions:
   - id: diag-002
     category: diagnostik
     difficulty: intermediate
+    question_type: diagnosis
     question: "Meine Cannabis-Pflanze zeigt gelbe Blaetter unten in Woche 7 der Bluete. EC ist 1.4 in Coco."
     context:
       species: Cannabis sativa
@@ -63,6 +65,7 @@ questions:
   - id: diag-003
     category: diagnostik
     difficulty: intermediate
+    question_type: diagnosis
     question: "Neue Blaetter meiner Tomate haben braune Flecken und die Triebspitzen kueseln sich. pH 6.2 in Erde."
     context:
       species: Solanum lycopersicum
@@ -81,6 +84,7 @@ questions:
   - id: diag-004
     category: diagnostik
     difficulty: expert
+    question_type: diagnosis
     question: "Intervenale Chlorose an aelteren Blaettern, Blattadern bleiben gruen. Cannabis in Coco, EC 1.6, pH 5.8, Woche 4 Bluete."
     context:
       species: Cannabis sativa
@@ -101,6 +105,7 @@ questions:
   - id: diag-005
     category: diagnostik
     difficulty: beginner
+    question_type: diagnosis
     question: "Meine Monstera hat braune Blattspitzen. Was mache ich falsch?"
     context:
       species: Monstera deliciosa
@@ -116,6 +121,7 @@ questions:
   - id: diag-006
     category: diagnostik
     difficulty: intermediate
+    question_type: diagnosis
     question: "Alle meine Pflanzen im Hydro-System zeigen Mangelsymptome obwohl EC stimmt. pH ist 7.2."
     context:
       phase: vegetative
@@ -133,6 +139,7 @@ questions:
   - id: diag-007
     category: diagnostik
     difficulty: expert
+    question_type: diagnosis
     question: "Braune Flecken auf aelteren Blaettern, pH im Coco-Runoff ist 5.0. Welcher Ueberschuss?"
     context:
       phase: vegetative
@@ -149,6 +156,7 @@ questions:
   - id: diag-008
     category: diagnostik
     difficulty: beginner
+    question_type: diagnosis
     question: "Meine Pflanze welkt obwohl die Erde nass ist."
     context:
       substrate: soil
@@ -164,6 +172,7 @@ questions:
   - id: diag-009
     category: diagnostik
     difficulty: intermediate
+    question_type: diagnosis
     question: "Mein Basilikum hat weisse pudrige Flecken auf den Blaettern."
     context:
       species: Ocimum basilicum
@@ -179,6 +188,7 @@ questions:
   - id: diag-010
     category: diagnostik
     difficulty: intermediate
+    question_type: diagnosis
     question: "Meine Erdbeer-Fruechte haben braune Flecken am Boden."
     context:
       species: Fragaria x ananassa
@@ -194,6 +204,7 @@ questions:
   - id: diag-011
     category: diagnostik
     difficulty: expert
+    question_type: diagnosis
     question: "Weisse Wurzeln sind braun und schleimig geworden, Reservoir-Temperatur 26°C."
     context:
       substrate: dwc
@@ -211,6 +222,7 @@ questions:
   - id: diag-012
     category: diagnostik
     difficulty: beginner
+    question_type: diagnosis
     question: "Kleine schwarze Fliegen kommen aus der Erde wenn ich giesse."
     context:
       substrate: soil
@@ -226,6 +238,7 @@ questions:
   - id: diag-013
     category: diagnostik
     difficulty: intermediate
+    question_type: diagnosis
     question: "Silbrige Streifen und schwarze Punkte auf den Blaettern meiner Pflanze."
     context:
       phase: vegetative
@@ -241,6 +254,7 @@ questions:
   - id: diag-014
     category: diagnostik
     difficulty: expert
+    question_type: diagnosis
     question: "Mein pH driftet jeden Tag um 0.5 nach oben im DWC-Reservoir."
     context:
       substrate: dwc
@@ -255,6 +269,7 @@ questions:
   - id: diag-015
     category: diagnostik
     difficulty: intermediate
+    question_type: diagnosis
     question: "Runoff-EC ist 3.2 bei Input-EC 1.4 in Coco."
     context:
       substrate: coco
@@ -275,6 +290,7 @@ questions:
   - id: dueng-001
     category: duengung
     difficulty: beginner
+    question_type: factual
     question: "Muss ich CalMag verwenden wenn ich Osmosewasser nutze?"
     context:
       water_type: ro
@@ -290,6 +306,7 @@ questions:
   - id: dueng-002
     category: duengung
     difficulty: intermediate
+    question_type: howto
     question: "In welcher Reihenfolge mische ich meine Naehrloesung?"
     expected_topics:
       - wasser_zuerst
@@ -303,6 +320,7 @@ questions:
   - id: dueng-003
     category: duengung
     difficulty: expert
+    question_type: diagnosis
     question: "Meine Naehrloesung ist trueb geworden nachdem ich CalMag und Part B gleichzeitig zugegeben habe."
     expected_topics:
       - calciumsulfat_ausfaellung
@@ -316,6 +334,7 @@ questions:
   - id: dueng-004
     category: duengung
     difficulty: intermediate
+    question_type: diagnosis
     question: "Welche EC soll ich in der Bluete Woche 5 meiner Cannabis-Pflanze in Coco anpeilen?"
     context:
       species: Cannabis sativa
@@ -333,6 +352,7 @@ questions:
   - id: dueng-005
     category: duengung
     difficulty: beginner
+    question_type: factual
     question: "Mein Leitungswasser hat EC 0.6. Muss ich da etwas beachten?"
     expected_topics:
       - basis_ec_abziehen
@@ -344,6 +364,7 @@ questions:
   - id: dueng-006
     category: duengung
     difficulty: intermediate
+    question_type: howto
     question: "Wann starte ich den PK-Boost bei Cannabis?"
     context:
       species: Cannabis sativa
@@ -360,6 +381,7 @@ questions:
   - id: dueng-007
     category: duengung
     difficulty: expert
+    question_type: factual
     question: "Kann ich Wasserstoffperoxid zusammen mit Mykorrhiza verwenden?"
     expected_topics:
       - nein_inkompatibel
@@ -372,6 +394,7 @@ questions:
   - id: dueng-008
     category: duengung
     difficulty: beginner
+    question_type: howto
     question: "Wie oft soll ich meine Zimmerpflanze duengen?"
     expected_topics:
       - wachstumsperiode
@@ -386,6 +409,7 @@ questions:
   - id: dueng-009
     category: duengung
     difficulty: intermediate
+    question_type: factual
     question: "Was ist der Unterschied zwischen Hornmehl und Hornspaenen?"
     expected_topics:
       - koernung
@@ -399,6 +423,7 @@ questions:
   - id: dueng-010
     category: duengung
     difficulty: expert
+    question_type: howto
     question: "Mein Coco ist neu und ungepuffert. Was muss ich tun?"
     context:
       substrate: coco
@@ -414,6 +439,7 @@ questions:
   - id: dueng-011
     category: duengung
     difficulty: intermediate
+    question_type: diagnosis
     question: "Meine Tomaten im Freiland wachsen langsam. Bodenanalyse zeigt pH 5.2."
     context:
       species: Solanum lycopersicum
@@ -431,6 +457,7 @@ questions:
   - id: dueng-012
     category: duengung
     difficulty: beginner
+    question_type: diagnosis
     question: "Weisse Kruste auf der Erde meiner Zimmerpflanze — was ist das?"
     expected_topics:
       - salzanreicherung
@@ -444,6 +471,7 @@ questions:
   - id: dueng-013
     category: duengung
     difficulty: intermediate
+    question_type: factual
     question: "Soll ich vor der Ernte flushen? Ist das wissenschaftlich belegt?"
     expected_topics:
       - umstritten
@@ -457,6 +485,7 @@ questions:
   - id: dueng-014
     category: duengung
     difficulty: expert
+    question_type: diagnosis
     question: "Mein pH driftet bei Ammonium-betontem Duenger staendig nach unten."
     expected_topics:
       - ammonium_senkt_ph
@@ -469,6 +498,7 @@ questions:
   - id: dueng-015
     category: duengung
     difficulty: intermediate
+    question_type: howto
     question: "Kann ich Bittersalz als Blattspray verwenden?"
     expected_topics:
       - ja_magnesium
@@ -486,6 +516,7 @@ questions:
   - id: wasser-001
     category: bewaesserung
     difficulty: beginner
+    question_type: howto
     question: "Wie oft soll ich meine Zimmerpflanze giessen?"
     expected_topics:
       - fingertest
@@ -499,6 +530,7 @@ questions:
   - id: wasser-002
     category: bewaesserung
     difficulty: intermediate
+    question_type: howto
     question: "Wie oft muss ich in Coco giessen?"
     context:
       substrate: coco
@@ -514,6 +546,7 @@ questions:
   - id: wasser-003
     category: bewaesserung
     difficulty: beginner
+    question_type: diagnosis
     question: "Meine Pflanze haengt schlaff und der Topf ist schwer. Ueberwaesserung?"
     expected_topics:
       - ja_wahrscheinlich
@@ -527,6 +560,7 @@ questions:
   - id: wasser-004
     category: bewaesserung
     difficulty: intermediate
+    question_type: factual
     question: "Kann ich Regenwasser fuer meine Pflanzen verwenden?"
     expected_topics:
       - ja_gut_geeignet
@@ -540,6 +574,7 @@ questions:
   - id: wasser-005
     category: bewaesserung
     difficulty: beginner
+    question_type: factual
     question: "Brauche ich einen Topf mit Loch am Boden?"
     expected_topics:
       - ja_unbedingt
@@ -553,6 +588,7 @@ questions:
   - id: wasser-006
     category: bewaesserung
     difficulty: intermediate
+    question_type: howto
     question: "Wie funktioniert Bewaesserung bei Pon/Lechuza?"
     context:
       substrate: pon
@@ -567,6 +603,7 @@ questions:
   - id: wasser-007
     category: bewaesserung
     difficulty: beginner
+    question_type: factual
     question: "Hilft eine Kiesschicht am Topfboden fuer bessere Drainage?"
     expected_topics:
       - nein_mythos
@@ -579,6 +616,7 @@ questions:
   - id: wasser-008
     category: bewaesserung
     difficulty: intermediate
+    question_type: diagnosis
     question: "Mein Leitungswasser hat Chlor. Schadet das meinen Pflanzen?"
     expected_topics:
       - 24_stunden_abstehen
@@ -592,6 +630,7 @@ questions:
   - id: wasser-009
     category: bewaesserung
     difficulty: expert
+    question_type: howto
     question: "Wie berechne ich das Mischungsverhaeltnis RO-Wasser zu Leitungswasser?"
     expected_topics:
       - basis_ec_zielwert
@@ -603,6 +642,7 @@ questions:
   - id: wasser-010
     category: bewaesserung
     difficulty: beginner
+    question_type: factual
     question: "Soll ich morgens oder abends giessen?"
     expected_topics:
       - morgens_bevorzugt
@@ -618,6 +658,7 @@ questions:
   - id: umwelt-001
     category: umwelt
     difficulty: intermediate
+    question_type: factual
     question: "Was ist VPD und warum ist es wichtiger als Luftfeuchtigkeit allein?"
     expected_topics:
       - dampfdruckdefizit
@@ -630,6 +671,7 @@ questions:
   - id: umwelt-002
     category: umwelt
     difficulty: intermediate
+    question_type: diagnosis
     question: "VPD in meinem Zelt ist 0.5 kPa in der Bluete. Was muss ich tun?"
     context:
       phase: flowering
@@ -645,6 +687,7 @@ questions:
   - id: umwelt-003
     category: umwelt
     difficulty: beginner
+    question_type: factual
     question: "Welches Fenster ist am besten fuer meine Zimmerpflanzen?"
     expected_topics:
       - suedfenster_hell
@@ -657,6 +700,7 @@ questions:
   - id: umwelt-004
     category: umwelt
     difficulty: intermediate
+    question_type: factual
     question: "Wie viel PPFD brauche ich fuer Cannabis in der Bluete?"
     context:
       species: Cannabis sativa
@@ -671,6 +715,7 @@ questions:
   - id: umwelt-005
     category: umwelt
     difficulty: expert
+    question_type: factual
     question: "Lohnt sich CO2-Anreicherung in meinem 1.2x1.2m Zelt mit 400W LED?"
     expected_topics:
       - licht_zuerst
@@ -683,6 +728,7 @@ questions:
   - id: umwelt-006
     category: umwelt
     difficulty: beginner
+    question_type: diagnosis
     question: "Meine Pflanze waechst lang und duenn zum Licht. Was stimmt nicht?"
     expected_topics:
       - vergeilen
@@ -696,6 +742,7 @@ questions:
   - id: umwelt-007
     category: umwelt
     difficulty: intermediate
+    question_type: howto
     question: "Temperatur in meinem Zelt erreicht 33°C im Sommer. Was kann ich tun?"
     context:
       temperature: 33
@@ -710,6 +757,7 @@ questions:
   - id: umwelt-008
     category: umwelt
     difficulty: expert
+    question_type: howto
     question: "Wie stelle ich meinen Entfeuchter und die Abluft in der spaeten Bluete ein?"
     context:
       phase: late_flowering
@@ -726,6 +774,7 @@ questions:
   - id: umwelt-009
     category: umwelt
     difficulty: intermediate
+    question_type: diagnosis
     question: "Nachts steigt die Luftfeuchtigkeit in meinem Zelt auf 75%. Ist das ein Problem?"
     context:
       phase: flowering
@@ -742,6 +791,7 @@ questions:
   - id: umwelt-010
     category: umwelt
     difficulty: intermediate
+    question_type: factual
     question: "Welche Abluft-Groesse brauche ich fuer ein 120x120x200 Zelt?"
     expected_topics:
       - 300_400_m3h
@@ -753,6 +803,7 @@ questions:
   - id: umwelt-011
     category: umwelt
     difficulty: beginner
+    question_type: diagnosis
     question: "Brauche ich einen Ventilator in meinem Growzelt?"
     expected_topics:
       - ja_unbedingt
@@ -766,6 +817,7 @@ questions:
   - id: umwelt-012
     category: umwelt
     difficulty: expert
+    question_type: factual
     question: "Mein Blatt-VPD zeigt 0.9 kPa aber mein Luft-VPD zeigt 1.3 kPa in der Vegetativen Phase unter LED. Welcher Wert zaehlt?"
     expected_topics:
       - blatt_vpd
@@ -778,6 +830,7 @@ questions:
   - id: umwelt-013
     category: umwelt
     difficulty: intermediate
+    question_type: diagnosis
     question: "Meine Saemslinge vertrocknen unter der LED. Was mache ich falsch?"
     context:
       phase: seedling
@@ -792,6 +845,7 @@ questions:
   - id: umwelt-014
     category: umwelt
     difficulty: beginner
+    question_type: factual
     question: "LED oder HPS — was ist besser fuer den Anbau?"
     expected_topics:
       - led_effizienter
@@ -804,6 +858,7 @@ questions:
   - id: umwelt-015
     category: umwelt
     difficulty: expert
+    question_type: howto
     question: "Wie stelle ich meine Klimasteuerung ein damit nachts kein Kondenswasser auf den Buds entsteht?"
     context:
       phase: late_flowering
@@ -822,6 +877,7 @@ questions:
   - id: ipm-001
     category: ipm
     difficulty: beginner
+    question_type: diagnosis
     question: "Feine Gespinste auf der Blattunterseite meiner Pflanze — was ist das?"
     expected_topics:
       - spinnmilben
@@ -836,6 +892,7 @@ questions:
   - id: ipm-002
     category: ipm
     difficulty: intermediate
+    question_type: diagnosis
     question: "Graubrauner Schimmel auf meinen Cannabis-Buds — was tun?"
     context:
       species: Cannabis sativa
@@ -853,6 +910,7 @@ questions:
   - id: ipm-003
     category: ipm
     difficulty: intermediate
+    question_type: diagnosis
     question: "Wann darf ich nach einer Neem-Oel-Behandlung ernten?"
     expected_topics:
       - karenzzeit
@@ -865,6 +923,7 @@ questions:
   - id: ipm-004
     category: ipm
     difficulty: beginner
+    question_type: diagnosis
     question: "Kann ich Marienkaefer gegen Blattlaeuse einsetzen?"
     expected_topics:
       - ja_effektiv
@@ -878,6 +937,7 @@ questions:
   - id: ipm-005
     category: ipm
     difficulty: intermediate
+    question_type: diagnosis
     question: "Mein Kohl hat verdickte Wurzeln und kuemmert. Was ist das?"
     context:
       species: Brassica oleracea
@@ -893,6 +953,7 @@ questions:
   - id: ipm-006
     category: ipm
     difficulty: expert
+    question_type: factual
     question: "Ist Spinosad bienenvertraeglich?"
     expected_topics:
       - nein_bienengiftig
@@ -906,6 +967,7 @@ questions:
   - id: ipm-007
     category: ipm
     difficulty: intermediate
+    question_type: howto
     question: "Wie beuge ich Mehltau vor?"
     expected_topics:
       - luftzirkulation
@@ -919,6 +981,7 @@ questions:
   - id: ipm-008
     category: ipm
     difficulty: beginner
+    question_type: diagnosis
     question: "Klebrige Tropfen auf den Blaettern meiner Zimmerpflanze — Schaedlinge?"
     expected_topics:
       - honigtau
@@ -933,6 +996,7 @@ questions:
   - id: ipm-009
     category: ipm
     difficulty: intermediate
+    question_type: diagnosis
     question: "Meine Kartoffeln haben braune Flecken auf den Blaettern und es ist feucht-warm."
     context:
       species: Solanum tuberosum
@@ -948,6 +1012,7 @@ questions:
   - id: ipm-010
     category: ipm
     difficulty: expert
+    question_type: diagnosis
     question: "Kann ich Trichogramma-Schlupfwespen gegen Kohlweisslinge einsetzen?"
     expected_topics:
       - ja_biologisch
@@ -965,6 +1030,7 @@ questions:
   - id: phase-001
     category: phasen
     difficulty: beginner
+    question_type: howto
     question: "Wie keime ich Samen am besten?"
     expected_topics:
       - papiertuch_methode
@@ -977,6 +1043,7 @@ questions:
   - id: phase-002
     category: phasen
     difficulty: intermediate
+    question_type: howto
     question: "Wann kann ich meine Cannabis-Pflanze toppen?"
     context:
       species: Cannabis sativa
@@ -993,6 +1060,7 @@ questions:
   - id: phase-003
     category: phasen
     difficulty: intermediate
+    question_type: diagnosis
     question: "Woran erkenne ich den optimalen Erntezeitpunkt bei Cannabis?"
     context:
       species: Cannabis sativa
@@ -1008,6 +1076,7 @@ questions:
   - id: phase-004
     category: phasen
     difficulty: beginner
+    question_type: howto
     question: "Wann kann ich Tomaten ins Freie pflanzen?"
     context:
       species: Solanum lycopersicum
@@ -1023,6 +1092,7 @@ questions:
   - id: phase-005
     category: phasen
     difficulty: intermediate
+    question_type: diagnosis
     question: "Mein Cannabis hat nach der Umstellung auf 12/12 stark gestreckt. Ist das normal?"
     context:
       species: Cannabis sativa
@@ -1039,6 +1109,7 @@ questions:
   - id: phase-006
     category: phasen
     difficulty: intermediate
+    question_type: howto
     question: "Wie trockne ich Cannabis nach der Ernte richtig?"
     context:
       species: Cannabis sativa
@@ -1055,6 +1126,7 @@ questions:
   - id: phase-007
     category: phasen
     difficulty: beginner
+    question_type: diagnosis
     question: "Muss ich meine Dahlien im Herbst ausgraben?"
     expected_topics:
       - ja_nicht_frosthart
@@ -1067,6 +1139,7 @@ questions:
   - id: phase-008
     category: phasen
     difficulty: intermediate
+    question_type: diagnosis
     question: "Wann ernte ich meine Karotten?"
     context:
       species: Daucus carota
@@ -1080,6 +1153,7 @@ questions:
   - id: phase-009
     category: phasen
     difficulty: beginner
+    question_type: diagnosis
     question: "Wann ernte ich Basilikum am besten?"
     context:
       species: Ocimum basilicum
@@ -1095,6 +1169,7 @@ questions:
   - id: phase-010
     category: phasen
     difficulty: intermediate
+    question_type: factual
     question: "Was ist Curing bei Cannabis und warum ist es wichtig?"
     context:
       species: Cannabis sativa
@@ -1116,6 +1191,7 @@ questions:
   - id: comp-001
     category: companion_planting
     difficulty: beginner
+    question_type: factual
     question: "Was kann ich neben Tomaten pflanzen?"
     context:
       species: Solanum lycopersicum
@@ -1131,6 +1207,7 @@ questions:
   - id: comp-002
     category: companion_planting
     difficulty: intermediate
+    question_type: factual
     question: "Warum soll Fenchel nicht neben andere Gemuese?"
     expected_topics:
       - allelopathie
@@ -1142,6 +1219,7 @@ questions:
   - id: comp-003
     category: companion_planting
     difficulty: beginner
+    question_type: factual
     question: "Was sind die Drei Schwestern?"
     expected_topics:
       - mais_bohne_kuerbis
@@ -1155,6 +1233,7 @@ questions:
   - id: comp-004
     category: companion_planting
     difficulty: intermediate
+    question_type: factual
     question: "Warum soll ich Kartoffeln und Tomaten nicht nebeneinander pflanzen?"
     expected_topics:
       - gleiche_familie
@@ -1167,6 +1246,7 @@ questions:
   - id: comp-005
     category: companion_planting
     difficulty: intermediate
+    question_type: factual
     question: "Was ist Fruchtfolge und warum ist sie wichtig?"
     expected_topics:
       - 4_jahres_zyklus
@@ -1179,6 +1259,7 @@ questions:
   - id: comp-006
     category: companion_planting
     difficulty: beginner
+    question_type: factual
     question: "Welche Blumen helfen im Gemuese-Beet gegen Schaedlinge?"
     expected_topics:
       - tagetes
@@ -1191,6 +1272,7 @@ questions:
   - id: comp-007
     category: companion_planting
     difficulty: intermediate
+    question_type: factual
     question: "Kann ich Gurken und Tomaten zusammen im Gewaechshaus anbauen?"
     expected_topics:
       - moeglich_indoor
@@ -1202,6 +1284,7 @@ questions:
   - id: comp-008
     category: companion_planting
     difficulty: beginner
+    question_type: factual
     question: "Warum sollte ich Kohl nicht jedes Jahr am gleichen Platz anbauen?"
     expected_topics:
       - kohlhernie
@@ -1215,6 +1298,7 @@ questions:
   - id: comp-009
     category: companion_planting
     difficulty: intermediate
+    question_type: factual
     question: "Was ist Gruenduengung und welche Pflanzen eignen sich?"
     expected_topics:
       - phacelia
@@ -1229,6 +1313,7 @@ questions:
   - id: comp-010
     category: companion_planting
     difficulty: intermediate
+    question_type: factual
     question: "Welche Kraeuter helfen gegen Schaedlinge im Beet?"
     expected_topics:
       - lavendel
@@ -1245,6 +1330,7 @@ questions:
   - id: pflege-001
     category: anfaenger
     difficulty: beginner
+    question_type: factual
     question: "Ich habe keinen gruenen Daumen. Welche Pflanze ueberlebt bei mir?"
     expected_topics:
       - pothos
@@ -1259,6 +1345,7 @@ questions:
   - id: pflege-002
     category: anfaenger
     difficulty: beginner
+    question_type: factual
     question: "Was ist der haeufigste Fehler bei Zimmerpflanzen?"
     expected_topics:
       - uebergiessen
@@ -1270,6 +1357,7 @@ questions:
   - id: pflege-003
     category: anfaenger
     difficulty: beginner
+    question_type: howto
     question: "Soll ich meine Pflanze in einen groesseren Topf umtopfen?"
     expected_topics:
       - nicht_zu_gross
@@ -1281,6 +1369,7 @@ questions:
   - id: pflege-004
     category: pflege
     difficulty: beginner
+    question_type: factual
     question: "Meine Pflanze hat gelbe Blaetter unten. Muss ich mir Sorgen machen?"
     expected_topics:
       - natuerlich_normal
@@ -1293,6 +1382,7 @@ questions:
   - id: pflege-005
     category: pflege
     difficulty: beginner
+    question_type: howto
     question: "Wann soll ich meine Zimmerpflanze umtopfen?"
     expected_topics:
       - fruehling
@@ -1305,6 +1395,7 @@ questions:
   - id: pflege-006
     category: pflege
     difficulty: beginner
+    question_type: factual
     question: "Welche Erde soll ich fuer meine Monstera verwenden?"
     context:
       species: Monstera deliciosa
@@ -1319,6 +1410,7 @@ questions:
   - id: pflege-007
     category: pflege
     difficulty: beginner
+    question_type: factual
     question: "Soll ich meine Pflanze im Winter duengen?"
     expected_topics:
       - nein
@@ -1332,6 +1424,7 @@ questions:
   - id: pflege-008
     category: pflege
     difficulty: intermediate
+    question_type: diagnosis
     question: "Meine Orchidee bluet nicht mehr. Was kann ich tun?"
     expected_topics:
       - temperaturreiz
@@ -1345,6 +1438,7 @@ questions:
   - id: pflege-009
     category: pflege
     difficulty: beginner
+    question_type: factual
     question: "Was ist das einfachste Gemuese fuer Anfaenger?"
     expected_topics:
       - radieschen
@@ -1358,6 +1452,7 @@ questions:
   - id: pflege-010
     category: pflege
     difficulty: intermediate
+    question_type: diagnosis
     question: "Mein Rosmarin wird von innen braun und kahl. Was stimmt nicht?"
     context:
       species: Salvia rosmarinus
@@ -1373,6 +1468,7 @@ questions:
   - id: pflege-011
     category: pflege
     difficulty: beginner
+    question_type: howto
     question: "Wie oft soll ich meine Pflanzen auf Schaedlinge kontrollieren?"
     expected_topics:
       - woechentlich
@@ -1385,6 +1481,7 @@ questions:
   - id: pflege-012
     category: pflege
     difficulty: intermediate
+    question_type: diagnosis
     question: "Meine Calathea bekommt braune Blattspitzen. Was mache ich falsch?"
     context:
       species: Calathea orbifolia
@@ -1400,6 +1497,7 @@ questions:
   - id: pflege-013
     category: pflege
     difficulty: beginner
+    question_type: factual
     question: "Ich moechte Krauter auf der Fensterbank anbauen. Welche eignen sich?"
     expected_topics:
       - basilikum
@@ -1412,6 +1510,7 @@ questions:
   - id: pflege-014
     category: pflege
     difficulty: intermediate
+    question_type: howto
     question: "Wie ueberweintere ich meine Kuebelpflanzen?"
     expected_topics:
       - frostfrei
@@ -1426,6 +1525,7 @@ questions:
   - id: pflege-015
     category: pflege
     difficulty: beginner
+    question_type: factual
     question: "Braucht meine Pflanze wirklich eine Pflanzenlampe im Winter?"
     expected_topics:
       - abhaengig_von_art

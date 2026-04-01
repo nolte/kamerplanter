@@ -1,5 +1,6 @@
 ---
 title: Haeufige Zimmerpflanzen-Probleme diagnostizieren
+language: de
 category: diagnostik
 tags: [zimmerpflanzen, monstera, ficus, braune-spitzen, luftfeuchtigkeit, leitungswasser, chlor, ueberduengung, zimmerpflege, anfaenger]
 expertise_level: [beginner, intermediate]
@@ -20,8 +21,11 @@ chunks:
          - Kieselsteinschale mit Wasser unter den Topf (Verdunstung)
          - Regelmaessig besprühen hilft kurzfristig, reicht aber nicht aus
          - NICHT in die Naehe von Heizkoerpern stellen
-      2. Ueberduengung moeglich:
-         Zimmerpflanzen brauchen viel weniger Duenger als Nutzpflanzen.
+      2. Ueberduengung (bei Monstera, Ficus — NICHT bei Calathea):
+         Bei Zimmerpflanzen wie Monstera oder Ficus kann Ueberduengung
+         braune Spitzen verursachen. Bei Calathea ist Ueberduengung
+         hingegen selten die Ursache — hier sind fast immer Wasser-
+         qualitaet und Luftfeuchtigkeit die Hauptfaktoren.
          Zu viel Duenger fuehrt zu Salzanreicherung im Substrat und
          verbrennt die Blattspitzen.
          Massnahmen:
@@ -32,10 +36,14 @@ chunks:
       3. Leitungswasser mit Chlor/Kalk/Fluorid:
          Empfindliche Pflanzen (Calathea, Dracaena, Maranta, Spathiphyllum)
          reagieren auf Chlor und Fluorid im Leitungswasser mit braunen Spitzen.
+         Calathea ist besonders kalkempfindlich — hartes Leitungswasser mit
+         viel Kalk ist eine der Hauptursachen fuer braune Spitzen bei Calathea.
          Massnahmen:
-         - Wasser 24h offen stehen lassen (Chlor entgast)
-         - Regenwasser oder gefiltertes Wasser verwenden
+         - Regenwasser verwenden (ideal — weich, kalkfrei, kostenlos)
+         - Oder gefiltertes Wasser / abgekochtes Wasser nutzen
+         - Leitungswasser mindestens 24h offen stehen lassen (Chlor entgast)
          - Mindestens zimmerwarmes Wasser verwenden (nie kalt)
+         - Bei sehr hartem Wasser: destilliertes Wasser oder RO-Wasser mischen
       Braune Spitzen koennen NICHT rueckgaengig gemacht werden — abschneiden
       (knapp vor der braunen Stelle, nicht ins gruene Gewebe). Erfolg zeigt
       sich an neuen Blaettern ohne braune Spitzen.
@@ -64,8 +72,11 @@ chunks:
       3. Natuerliches Altern:
          - Einzelne alte, untere Blaetter werden gelb und fallen ab
          - Obere Blaetter und neues Wachstum sind gesund
-         Das ist NORMAL und kein Problem. Nur wenn viele Blaetter
-         gleichzeitig vergilben, liegt ein Problem vor.
+         Das ist NORMAL und kein Grund zur Sorge. Die gelben Blaetter
+         einfach entfernen (abzupfen oder abschneiden) — das sieht
+         nicht nur besser aus, sondern beugt auch Schimmelbildung vor.
+         Nur wenn viele Blaetter gleichzeitig vergilben, liegt ein
+         echtes Problem vor.
       4. Zugluft/Temperaturschock:
          - Nach dem Kauf oder Standortwechsel
          - Pflanze steht im kalten Luftzug (Fenster, Tuer)

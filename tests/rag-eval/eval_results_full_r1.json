@@ -1,0 +1,1431 @@
+{
+  "timestamp": "2026-04-01T01:59:47.969533+00:00",
+  "method": "topic_match",
+  "total_score": 0.0025,
+  "passed": false,
+  "min_pass_score": 0.7,
+  "category_scores": {
+    "diagnostik": 0.0,
+    "duengung": 0.0,
+    "bewaesserung": 0.0,
+    "umwelt": 0.0,
+    "ipm": 0.0,
+    "phasen": 0.0,
+    "companion_planting": 0.0,
+    "anfaenger": 0.0,
+    "pflege": 0.0208
+  },
+  "questions_evaluated": 100,
+  "failures": [
+    {
+      "id": "diag-001",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "stickstoff_mangel",
+        "mobile_naehrstoffe",
+        "untere_blaetter",
+        "ec_pruefen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "diag-002",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "natuerlicher_n_abbau",
+        "spaete_bluete_normal",
+        "abreife"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "diag-003",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "calcium_mangel",
+        "immobiler_naehrstoff",
+        "neue_blaetter",
+        "gleichmaessige_bewaesserung"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "diag-004",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "magnesium_mangel",
+        "kalium_antagonismus",
+        "bittersalz_blattspray",
+        "calmag"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "diag-005",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "luftfeuchtigkeit_zu_niedrig",
+        "ueberduengung_moeglich",
+        "leitungswasser_chlor"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "diag-006",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "ph_lockout",
+        "ph_zu_hoch",
+        "eisen_mangel_wahrscheinlich",
+        "ph_senken"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "diag-007",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "mangan_toxizitaet",
+        "ph_zu_niedrig",
+        "ph_erhoehen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "diag-008",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "ueberwaesserung",
+        "wurzelfaeule",
+        "sauerstoffmangel",
+        "drainage_pruefen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "diag-009",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "echter_mehltau",
+        "luftzirkulation_verbessern",
+        "befallene_blaetter_entfernen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "diag-010",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "bluetenendfaeule",
+        "calcium",
+        "gleichmaessige_bewaesserung"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "diag-011",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "pythium",
+        "wurzelfaeule",
+        "wassertemperatur_senken",
+        "sauerstoff",
+        "h2o2"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "diag-012",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "trauermucken",
+        "substrat_abtrocknen",
+        "gelbtafeln",
+        "nematoden_steinernema"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "diag-013",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "thrips",
+        "blaue_klebefallen",
+        "spinosad",
+        "raubmilben"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "diag-014",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "nitrat_aufnahme",
+        "algenbildung",
+        "reservoir_groesse",
+        "karbonataerte"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "diag-015",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "salzanreicherung",
+        "flush_noetig",
+        "ec_reduzieren"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "dueng-001",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "ja_immer",
+        "calcium_magnesium_fehlt",
+        "ec_03_04",
+        "vor_base_nutrients"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "dueng-002",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "wasser_zuerst",
+        "silikat_vor_calmag",
+        "calmag_vor_part_a",
+        "part_a_vor_part_b",
+        "ph_zuletzt"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "dueng-003",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "calciumsulfat_ausfaellung",
+        "gips",
+        "falsche_mischreihenfolge",
+        "calcium_nicht_verfuegbar"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "dueng-004",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "ec_14_20",
+        "pk_boost",
+        "peak_bloom"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "dueng-005",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "basis_ec_abziehen",
+        "ec_net_berechnen",
+        "wasserhaerte_pruefen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "dueng-006",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "woche_3_4",
+        "nach_stretch",
+        "halbe_dosis_starten",
+        "ec_beachten"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "dueng-007",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "nein_inkompatibel",
+        "h2o2_toetet_nuetzlinge",
+        "entweder_oder"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "dueng-008",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "wachstumsperiode",
+        "maerz_oktober",
+        "alle_2_4_wochen",
+        "halbe_dosis",
+        "winter_nicht_duengen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "dueng-009",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "koernung",
+        "hornmehl_schneller",
+        "hornspaene_langsamer",
+        "stickstoff_quelle"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "dueng-010",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "calmag_loesung_einweichen",
+        "kationenaustausch",
+        "natrium_kalium_auswaschen",
+        "ph_58_60"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "dueng-011",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "ph_zu_niedrig",
+        "kalken",
+        "aluminium_toxizitaet_moeglich",
+        "naehrstoff_verfuegbarkeit"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "dueng-012",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "salzanreicherung",
+        "ueberduengung",
+        "hartes_wasser",
+        "durchspuelen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "dueng-013",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "umstritten",
+        "guelph_studie",
+        "kompromiss",
+        "ec_reduzieren"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "dueng-014",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "ammonium_senkt_ph",
+        "nh4_no3_verhaeltnis",
+        "nitrat_betont_waehlen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "dueng-015",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "ja_magnesium",
+        "5g_pro_liter",
+        "abends_spruehen",
+        "schnelle_aufnahme"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "wasser-001",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "fingertest",
+        "nicht_nach_zeitplan",
+        "substrat_pruefen",
+        "topfgewicht"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "wasser-002",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "hochfrequenz",
+        "3_5_mal_taeglich_bluete",
+        "nie_austrocknen",
+        "immer_mit_naehrloesung"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "wasser-003",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "ja_wahrscheinlich",
+        "schwerer_topf",
+        "nicht_giessen",
+        "austrocknen_lassen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "wasser-004",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "ja_gut_geeignet",
+        "weich",
+        "calmag_noetig",
+        "dunkel_lagern"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "wasser-005",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "ja_unbedingt",
+        "drainage",
+        "uebertopf",
+        "staunaesse"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "wasser-006",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "wasserstandsanzeiger",
+        "trockenphase",
+        "wicking_prinzip",
+        "nicht_uebergiessen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "wasser-007",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "nein_mythos",
+        "perched_water_table",
+        "staunaesse",
+        "perlit_stattdessen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "wasser-008",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "24_stunden_abstehen",
+        "verfluchtigt",
+        "aktivkohlefilter",
+        "chloramin_anders"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "wasser-009",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "basis_ec_zielwert",
+        "mischrechnung",
+        "02_04_ec"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "wasser-010",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "morgens_bevorzugt",
+        "outdoor_morgens",
+        "indoor_vor_lichtphase"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "umwelt-001",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "dampfdruckdefizit",
+        "temperatur_und_rh",
+        "transpiration",
+        "eine_kennzahl"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "umwelt-002",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "vpd_zu_niedrig",
+        "schimmelrisiko",
+        "entfeuchter_einschalten",
+        "abluft_erhoehen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "umwelt-003",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "suedfenster_hell",
+        "ostfenster_morgensonne",
+        "nordfenster_wenig_licht",
+        "abstand_wichtig"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "umwelt-004",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "600_1000_ppfd",
+        "dli",
+        "lichtabstand"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "umwelt-005",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "licht_zuerst",
+        "ppfd_pruefen",
+        "nur_bei_600_plus",
+        "kosten_nutzen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "umwelt-006",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "vergeilen",
+        "zu_wenig_licht",
+        "naeher_ans_fenster",
+        "pflanzenlampe"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "umwelt-007",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "licht_dimmen",
+        "abluft_maximum",
+        "lichtphase_nachts",
+        "klimaanlage"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "umwelt-008",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "entfeuchter_dauerbetrieb",
+        "rh_unter_55",
+        "abluft_hoch",
+        "vpd_12_16",
+        "botrytis_risiko"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "umwelt-009",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "ja_problematisch",
+        "kondenswasser",
+        "botrytis",
+        "entfeuchter_nachts",
+        "heizung_leicht"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "umwelt-010",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "300_400_m3h",
+        "raumvolumen_berechnung",
+        "aktivkohlefilter_reserve"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "umwelt-011",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "ja_unbedingt",
+        "luftzirkulation",
+        "stengel_staerkung",
+        "schimmel_vorbeugung"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "umwelt-012",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "blatt_vpd",
+        "led_offset",
+        "blaetter_kuehler",
+        "infrarot_thermometer"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "umwelt-013",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "vpd_zu_hoch",
+        "humidity_dome",
+        "licht_dimmen",
+        "abstand_erhoehen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "umwelt-014",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "led_effizienter",
+        "led_weniger_waerme",
+        "led_empfohlen",
+        "hps_guenstiger_anschaffung"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "umwelt-015",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "entfeuchter_nacht",
+        "heizung_2_3_grad",
+        "umluft_niedrigste_stufe",
+        "dif_reduzieren"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "ipm-001",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "spinnmilben",
+        "blattunterseite",
+        "rh_erhoehen",
+        "raubmilben",
+        "abduschen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "ipm-002",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "botrytis",
+        "grosszuegig_herausschneiden",
+        "nicht_schuetteln",
+        "rh_senken",
+        "luftzirkulation"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "ipm-003",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "karenzzeit",
+        "1_3_tage",
+        "sicherheitsabstand"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "ipm-004",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "ja_effektiv",
+        "adalia_bipunctata",
+        "50_100_laeuse_pro_tag",
+        "larven_effektiver"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "ipm-005",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "kohlhernie",
+        "plasmodiophora",
+        "ph_erhoehen",
+        "fruchtfolge"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "ipm-006",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "nein_bienengiftig",
+        "abends_anwenden",
+        "nach_bienenflug",
+        "getrocknet_sicher"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "ipm-007",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "luftzirkulation",
+        "nicht_nass_blaetter",
+        "netzschwefel",
+        "kaliumbicarbonat",
+        "resistente_sorten"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "ipm-008",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "honigtau",
+        "blattlaeuse",
+        "schildlaeuse",
+        "wolllaeuse",
+        "blattunterseite_pruefen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "ipm-009",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "krautfaeule",
+        "phytophthora",
+        "befallene_teile_entfernen",
+        "kupfer_praeparat"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "ipm-010",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "ja_biologisch",
+        "ei_parasitierung",
+        "rechtzeitig_aussetzen",
+        "vorbeugend"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "phase-001",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "papiertuch_methode",
+        "24_28_grad",
+        "feucht_nicht_nass",
+        "dunkel"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "phase-002",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "ab_4_5_nodenpaar",
+        "nur_vegetativ",
+        "nicht_in_bluete",
+        "erholungszeit"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "phase-003",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "trichome",
+        "milchig_trueb",
+        "bernstein_anteil",
+        "lupe_mikroskop"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "phase-004",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "nach_eisheiligen",
+        "mitte_mai",
+        "abhaerten",
+        "frostempfindlich"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "phase-005",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "ja_stretch",
+        "50_200_prozent",
+        "normal",
+        "2_3_wochen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "phase-006",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "15_20_grad",
+        "55_65_rh",
+        "dunkel",
+        "7_14_tage",
+        "zweige_knacken"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "phase-007",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "ja_nicht_frosthart",
+        "nach_erstem_frost",
+        "knollen_einlagern",
+        "5_8_grad"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "phase-008",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "schulterdurchmesser",
+        "70_120_tage_nach_aussaat",
+        "frost_verbessert_geschmack"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "phase-009",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "vor_bluete",
+        "morgens",
+        "ueber_blattpaar_schneiden",
+        "regelmaessig_ernten"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "phase-010",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "fermentierung_im_glas",
+        "62_rh",
+        "burping",
+        "chlorophyll_abbau",
+        "terpene",
+        "4_8_wochen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "comp-001",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "basilikum",
+        "tagetes",
+        "karotte",
+        "sellerie"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "comp-002",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "allelopathie",
+        "wurzelexsudate",
+        "hemmt_wachstum"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "comp-003",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "mais_bohne_kuerbis",
+        "milpa",
+        "n_fixierung",
+        "stuetzfunktion",
+        "bodenbeschattung"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "comp-004",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "gleiche_familie",
+        "solanaceae",
+        "phytophthora",
+        "kraut_knollenfaeule"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "comp-005",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "4_jahres_zyklus",
+        "starkzehrer_mittelzehrer_schwachzehrer",
+        "gruenduengung",
+        "bodenschaedlinge_brechen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "comp-006",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "tagetes",
+        "ringelblume",
+        "nematoden",
+        "bestauber"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "comp-007",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "moeglich_indoor",
+        "unterschiedliche_klimaansprueche_outdoor",
+        "unter_kontrollierten_bedingungen_ok"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "comp-008",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "kohlhernie",
+        "3_4_jahre_pause",
+        "brassicaceae",
+        "bodenschaedlinge"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "comp-009",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "phacelia",
+        "klee",
+        "lupine",
+        "senf",
+        "n_fixierung",
+        "bodenlockerung"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "comp-010",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "lavendel",
+        "rosmarin",
+        "basilikum",
+        "geruchsverwirrung"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-001",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "pothos",
+        "sansevieria",
+        "zamioculcas",
+        "robust",
+        "wenig_licht"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-002",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "uebergiessen",
+        "zu_viel_wasser",
+        "wurzelfaeule"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-003",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "nicht_zu_gross",
+        "2_3_cm_groesser",
+        "wurzeln_pruefen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-004",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "natuerlich_normal",
+        "alte_blaetter",
+        "entfernen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-005",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "fruehling",
+        "wurzeln_aus_loechern",
+        "wachstumsperiode"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-006",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "blumenerde",
+        "perlit_beimischen",
+        "drainage"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-007",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "nein",
+        "ruhephase",
+        "wachstum_gestoppt",
+        "fruehling_starten"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-008",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "temperaturreiz",
+        "kuehle_nacht",
+        "geduld",
+        "licht_pruefen"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-009",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "radieschen",
+        "salat",
+        "tomaten_busch",
+        "basilikum"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-010",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "verholzung",
+        "nicht_ins_alte_holz_schneiden",
+        "regelmaessig_ernten",
+        "licht"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-011",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "woechentlich",
+        "blattunterseiten",
+        "frueherkennung"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-012",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "luftfeuchtigkeit",
+        "leitungswasser_chlor",
+        "kalkempfindlich",
+        "regenwasser"
+      ],
+      "fps": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-013",
+      "score": 0.25,
+      "question_type": "factual",
+      "misses": [
+        "basilikum",
+        "schnittlauch",
+        "petersilie"
+      ],
+      "fps": [],
+      "answer": "Für den Anbau von Kräutern auf der Fensterbank empfehle ich Ihnen folgende Sorten, basierend auf den Informationen aus den bereitgestellten Kontexten:\n\n*   **Rosmarin (Salvia rosmarinus):** Rosmarin ist aufgrund seiner Frosthärte und seiner Toleranz gegenüber trockeneren Bedingungen gut für die Anbau auf der Fensterbank geeignet. Er benötigt einen sonnigen Standort (Suedwand) und eine gute Drainage. Da er als Dauerkultur gilt, ist er auch für den langfristigen Anbau auf der Fensterbank geeignet.\n*   **Thymian (Thymus vulgaris):** Thymian ist winterhart und trockentolerant, was ihn ideal für die Anbau auf der Fensterbank macht. Er bevorzugt einen sonnigen Standort und eine gute Drainage.\n*   **Salbei (Salvia officinalis):** Salbei ist ebenfalls winterhart und kann gut in einem Hochbeet oder Topf kultiviert werden. Er benötigt einen sonnigen Standort und eine regelmäßige Rückschnitt.\n*   **Lavendel (Lavandula angustifolia):** Lavendel ist winterhart bis -15°C und eignet sich gut für die Anbau auf der Fensterbank. Er benötigt einen sonnigen Standort und eine gute Drainage.\n\n**Warum diese Kräuter?**\n\nDiese Kräuter sind aufgrund ihrer Winterhärte, ihrer Toleranz gegenüber verschiedenen Lichtverhältnissen und ihrer Anpassungsfähigkeit an Topfkulturen für die Anbau auf der Fensterbank geeignet. Sie passen in die Kategorie der mehrjährigen Kräuter, die im Kontext als eigenständige Beete empfohlen werden (Rosmarin, Thymian, Salbei, Lavendel).\n\n**Wichtige Hinweise:**\n\n*   **Standort:** Wählen Sie einen sonnigen Standort, idealerweise eine Suedwand, um die Wärme optimal zu nutzen.\n*   **Boden:** Verwenden Sie einen durchlässigen Boden, um Staunässe zu vermeiden.\n*   **EC-Toleranz:** Beginnen Sie mit einer niedrigeren EC-Konzentration (0,6-1,0 mS/cm) und beobachten Sie die Pflanzen sorgfältig. Erhöhen Sie die EC nur, wenn die Pflanzen gesund und kräftig wachsen.\n*   **Sortenvielfalt:** Eine Mischung verschiedener Kräuterarten kann das Risiko von Schädlingsbefall und Krankheiten",
+      "chunk_sources": [
+        "outdoor/mischkultur-praxis#kraeuterstreifen-schaedlingsbarriere",
+        "outdoor/fruchtfolge-grundlagen#dauerkultur-ausnahmen",
+        "outdoor/saisonplanung#monatskalender-sommer-herbst",
+        "outdoor/wetter-reaktionen#mikroklimazonen",
+        "duengung/ec-management-hydroponik#ec-sortentoleranz"
+      ]
+    },
+    {
+      "id": "pflege-014",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "frostfrei",
+        "kuehler_raum",
+        "wenig_giessen",
+        "kein_duenger",
+        "hell"
+      ],
+      "fps": [],
+      "answer": "Um Ihre Kuebelpflanzen vor dem Winter zu schützen, sollten Sie die folgenden Maßnahmen ergreifen, basierend auf den Informationen in den bereitgestellten Kontexten:\n\n1.  **Gruppieren:** Pflanzen in Töpfen sollten zu Gruppen zusammengefasst werden, um eine bessere Wärmespeicherung zu gewährleisten.\n2.  **Isolierung:** Die Töpfe sollten mit Noppenfolie oder Luftpolsterfolie in 2-3 Lagen gewickelt werden, oder in einen größeren Topf mit Styropor-Chips gestellt werden. Der Topf sollte mit Styropor-Platte oder Holzbrett vom Boden isoliert werden.\n3.  **Oberirdische Schutzmaßnahmen:** Die Kronen der Pflanzen sollten mit Vlies oder Jute umwickelt werden – **NICHT mit Plastikfolie**, da dies zu Kondenswasserbildung und Fäulnis führen kann.\n4.  **Windschutz:** Stellen Sie die Kuebel an eine Hauswand, idealerweise an der Südseite, um den Windschutz zu gewährleisten.\n\n**Warum diese Maßnahmen?** Kuebelpflanzen sind durch den dünnen Topfwand besonders anfällig für Frostschäden. Die genannten Schutzmaßnahmen dienen dazu, die Wurzeln vor direkter Kälte und Feuchtigkeit zu schützen, die zu Frostschäden führen können.\n\n**Zusätzliche Hinweise:** Beachten Sie, dass der Winterschutz nicht zu früh entfernt werden sollte (bis Mitte Mai), um Eisheiligen zu überstehen.\n",
+      "chunk_sources": [
+        "phasen/ueberwintern-freiland#kuebelpflanzen-ueberwintern",
+        "phasen/ueberwintern-freiland#fruehjahr-auspacken",
+        "allgemein/fehler-vermeiden#fehler-topfgroesse",
+        "outdoor/wetter-reaktionen#hitze-ueber-30-grad",
+        "outdoor/saisonplanung#monatskalender-sommer-herbst"
+      ]
+    },
+    {
+      "id": "pflege-015",
+      "score": 0.0,
+      "question_type": "factual",
+      "misses": [
+        "abhaengig_von_art",
+        "nordfenster_ja",
+        "suedfenster_meist_ok",
+        "winter_kurze_tage"
+      ],
+      "fps": [],
+      "answer": "Im Winter leiden viele Zimmerpflanzen unter zu wenig Licht. Der Kontext weist darauf hin, dass Pflanzen, die sich zum Licht strecken, eine zu dunkle Umgebung haben (“braeetter/verbrannte Flecken auf sonnenzugewandter Seite → zu hell”, “Blaeetter werden kleiner → zu dunkel”). Eine Pflanzenlampe kann hier eine Lösung sein, um die fehlende Lichtmenge zu kompensieren und die Pflanze zu unterstützen. Die Empfehlung lautet: “Bei zu wenig Licht: Naeher ans Fenster oder LED-Pflanzenlampe”.",
+      "chunk_sources": [
+        "allgemein/fehler-vermeiden#fehler-standort",
+        "allgemein/anfaenger-erste-schritte#fuenf-grundbeduerfnisse",
+        "umwelt/licht-grundlagen#photoperiode",
+        "allgemein/anfaenger-erste-schritte#erste-pflanze-waehlen",
+        "phasen/ueberwintern-freiland#winterhaerte-ampel"
+      ]
+    }
+  ]
+}

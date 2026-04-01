@@ -262,51 +262,73 @@ System-Prompt-Anpassungen, Modell-Wechsel, Temperature, Chunk-Anzahl
 
 ## Phase 6: Quick-Fixes anwenden (nur nach Ruecksprache)
 
-Wenn der Nutzer es wuenscht, kannst du folgende Fixes direkt anwenden:
+Der rag-eval-runner darf nur **SYNONYM_GAP** und **QUESTION_AMBIGUITY** Fixes selbst anwenden.
+Fuer **KNOWLEDGE_GAP**, **RETRIEVAL_MISS** (Tag/Titel-Optimierung) und **Chunk-Kontamination** (FALSE_POSITIVE)
+muss der **knowledge-chunk-author** Agent gestartet werden — er hat die Domaenenexpertise und die
+Qualitaetssicherungs-Pipeline fuer Knowledge-Chunks.
 
-### SYNONYM_GAP beheben
+### SYNONYM_GAP beheben (selbst, AUTOMATISCH)
 
-Oeffne `tests/rag-eval/topic_synonyms.yaml` und erweitere den betroffenen Topic-Eintrag:
+SYNONYM_GAP-Fixes werden **ohne Rueckfrage** direkt angewandt. Das sind reine Pattern-Erweiterungen
+die keine fachliche Aenderung darstellen — die LLM-Antwort enthielt die korrekte Information bereits,
+nur der Matcher hat sie nicht erkannt.
+
+**Vorgehen fuer JEDEN SYNONYM_GAP:**
+
+1. Lies die LLM-Antwort (`answer` im Failure-Eintrag) und identifiziere die Formulierung die der
+   Nutzer-Antwort-Text fuer den missed Topic verwendet
+2. Oeffne `tests/rag-eval/topic_synonyms.yaml` und lies das aktuelle `pattern` fuer den Topic
+3. Erweitere das Pattern so dass es die tatsaechliche LLM-Formulierung matcht:
+   - Regex-Alternativen hinzufuegen: `(?i)alt|neu_1|neu_2`
+   - Flexiblere Wort-Abstands-Patterns: `wort_a.*wort_b` statt `wort_a\s+wort_b`
+   - Umlaute in beiden Formen: `(?i)ue|ü` wo relevant
+4. `de`-Keywords-Liste ebenfalls ergaenzen
+5. **Validierung:** Pruefe dass das erweiterte Pattern NICHT zu breit wird (keine False Positives
+   in expected_NOT-Topics anderer Fragen). Grep das neue Pattern gegen alle Knowledge-Chunks und
+   gegen die expected_NOT-Listen aller Fragen die diesen Topic verwenden.
 
 ```yaml
-topics:
-  stickstoff_mangel:
-    pattern: "(?i)stickstoff|nitrogen|N[- ]?Mangel|..."   # Regex erweitern
-    de: [Stickstoff, Stickstoffmangel, N-Mangel, ...]     # Keywords ergaenzen
+# Beispiel: Topic "nordfenster_ja" matched nicht gegen "Am Nordfenster ist Zusatzlicht sinnvoll"
+# Vorher:
+nordfenster_ja:
+  pattern: '(?i)nordfenster.*ja'
+  de: [nordfenster ja]
+
+# Nachher:
+nordfenster_ja:
+  pattern: '(?i)nordfenster.*(?:ja|sinnvoll|empfehl|lohnt|Zusatzlicht|Pflanzenlampe)'
+  de: [nordfenster ja, nordfenster sinnvoll, nordfenster Zusatzlicht]
 ```
 
-Nach dem Fix: gezielter Re-Run der betroffenen Kategorie zur Verifikation.
+**WICHTIG:** Synonym-Patterns nur broadenen wenn die LLM-Antwort die Information semantisch korrekt
+enthaelt. Wenn die Information faktisch fehlt, ist es KEIN SYNONYM_GAP sondern ein GENERATION_MISS.
 
-### KNOWLEDGE_GAP beheben
+Nach allen SYNONYM_GAP-Fixes: Gezielter Re-Run der betroffenen Kategorie zur Verifikation.
 
-Erstelle neue Chunks im bestehenden Format. **Referenz-Format:**
-
-```yaml
-# In spec/knowledge/[kategorie]/[datei].yaml
-# Fuelle die chunks-Liste auf
-chunks:
-  - id: [kategorie]-[kurzname]          # z.B. mangel-calcium
-    title: "[Titel des Chunks]"
-    content: |
-      Symptome: ...
-      Ursachen: ...
-      Massnahmen:
-      - ...
-      - ...
-      Abgrenzung: ...
-    metadata:
-      nutrient: calcium               # Fachspezifische Keys je nach Kategorie
-      symbol: Ca
-      deficiency_type: immobile
-      severity_indicator: new_leaves_deformed
-      affected_leaves: new
-```
-
-**WICHTIG:** Nach Knowledge-Aenderungen muss die Ingestion-Pipeline neu laufen (Embedding + pgvector-Insert) bevor ein Re-Eval sinnvoll ist.
-
-### QUESTION_AMBIGUITY beheben
+### QUESTION_AMBIGUITY beheben (selbst)
 
 Passe `tests/rag-eval/benchmark_questions.yaml` an — praezisiere die Frage oder justiere `expected_topics`/`expected_NOT`.
+
+### KNOWLEDGE_GAP / RETRIEVAL_MISS / Chunk-Kontamination → knowledge-chunk-author delegieren
+
+Erstelle den Gap-Report (Phase 5) und empfehle dem Nutzer den **knowledge-chunk-author** Agent zu starten.
+Der Report in `tests/rag-eval/eval_report.md` dient dem knowledge-chunk-author als Eingabe.
+
+Der knowledge-chunk-author:
+1. Liest den Gap-Report und die Benchmark-Fragen
+2. Leitet fachliche Inhalte aus den Spezifikationen ab (`spec/req/`, `spec/nfr/`)
+3. Validiert gegen Topic-Synonym-Patterns (exakter Regex-Match)
+4. Erstellt/erweitert Knowledge-Chunks mit botanischer Fachtiefe
+5. Meldet welche Dateien geaendert wurden und dass Ingestion + Re-Eval noetig ist
+
+**Workflow-Kette:**
+```
+rag-eval-runner (Test + Analyse)
+    → eval_report.md (Gap-Report)
+        → knowledge-chunk-author (Knowledge erstellen/verbessern)
+            → POST /ingest (Ingestion)
+                → rag-eval-runner (Re-Eval zur Verifikation)
+```
 
 ---
 

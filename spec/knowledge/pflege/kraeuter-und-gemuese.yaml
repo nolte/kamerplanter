@@ -1,0 +1,133 @@
+---
+title: Kraeuter- und Gemuese-Pflege fuer Einsteiger
+language: de
+category: pflege
+tags: [kraeuter, gemuese, anfaenger, fensterbank, basilikum, schnittlauch, petersilie, rosmarin, radieschen, salat, tomate, balkon, indoor]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: kraeuter-fensterbank
+    title: Kraeuter auf der Fensterbank anbauen — Welche eignen sich?
+    content: |
+      Die besten Kraeuter fuer die Fensterbank:
+      Basilikum: Der Klassiker fuer die Kueche. Braucht viel Licht
+      (Suedfenster!) und gleichmaessige Feuchtigkeit. Nicht von oben
+      giessen, Triebspitzen regelmaessig ernten (foerdert buschiges
+      Wachstum). Waermeliebend, nicht unter 15 Grad.
+      Schnittlauch: Sehr pflegeleicht, vertraegt auch Halbschatten
+      (Ost-/Westfenster). Regelmaessig schneiden, waechst immer nach.
+      Uebersteht auch kuehle Fensterplaetze. Ideal fuer Anfaenger.
+      Petersilie: Robust, vertraegt Halbschatten. Braucht 2-3 Wochen
+      zum Keimen (Geduld!). Aeussere Stiele zuerst ernten, Herz
+      stehen lassen fuer Nachwuchs. Zweisjaehrig.
+      Minze: Waechst fast ueberall, auch am Nordfenster. ACHTUNG:
+      Wuchert stark — immer einzeln im Topf halten, nie mit anderen
+      Kraeutern zusammen.
+      Wichtig: Kraeuter brauchen viel Licht! Ein Suedfenster mit
+      mindestens 4-5 Stunden direkter Sonne ist ideal. Am Nordfenster
+      wird es fuer die meisten Kraeuter zu dunkel (ausser Minze,
+      Schnittlauch). LED-Pflanzenlampe kann helfen.
+      NICHT fuer die Fensterbank geeignet:
+      - Rosmarin: Braucht zu viel Licht und frische Luft, wird drinnen
+        schnell von Mehltau befallen. Besser auf dem Balkon.
+      - Thymian: Aehnlich wie Rosmarin, braucht volle Sonne und gute
+        Belueftung, leidet drinnen.
+    metadata:
+      topic: windowsill_herbs
+      light: south_window
+      difficulty: beginner
+
+  - id: rosmarin-pflege-probleme
+    title: Rosmarin wird braun und kahl — Ursachen und Loesung
+    content: |
+      Rosmarin (Salvia rosmarinus) wird von innen braun und kahl?
+      Das sind die haeufigsten Ursachen:
+      1. Verholzung: Rosmarin verholzt naturgemaess von unten nach oben.
+         Aeltere Triebe werden holzig und braun, Blaetter fallen im Inneren
+         ab. Das ist biologisch normal, aber ohne Gegenmassnahmen wird der
+         Strauch innen kahl und nur an den Triebspitzen gruen.
+      2. Zu wenig Licht: Rosmarin ist eine Mittelmeerpflanze und braucht
+         volle Sonne (mindestens 6 Stunden direkt). Zu wenig Licht
+         verstaerkt die Verkahlung dramatisch. Drinnen auf der Fensterbank
+         bekommt Rosmarin fast nie genug Licht.
+      3. Zu wenig Luftzirkulation: Stehende Luft foerdert Mehltau und
+         Blattverlust. Rosmarin braucht frische Luft.
+      Wichtigste Regel: Nicht ins alte Holz schneiden! Rosmarin treibt
+      aus verholztem, braunem Holz NICHT mehr aus. Wird in altes Holz
+      geschnitten, bleibt ein kahler Stumpf. Immer nur die gruenen,
+      weichen Triebspitzen kuerzen.
+      Loesung:
+      - Regelmaessig ernten: Alle 2-3 Wochen Triebspitzen ernten oder
+        kuerzen. Das foerdert Verzweigung und verhindert Verkahlung.
+        Je regelmaessiger geerntet wird, desto buschiger bleibt der Rosmarin.
+      - Volle Sonne: Draussen an den sonnigsten Platz stellen.
+      - Jaehrlicher Formschnitt: Im Fruehling (Maerz-April) ein Drittel
+        der gruenen Triebe kuerzen — aber nie ins braune Holz!
+      - Bei stark verkahlten Pflanzen: Leider kaum zu retten. Besser
+        einen Steckling von einer gruenen Triebspitze machen und neu
+        heranziehen.
+    metadata:
+      topic: rosemary_care
+      species: Salvia rosmarinus
+      problem: woody_growth
+      difficulty: intermediate
+
+  - id: anfaenger-gemuese-empfehlung
+    title: Das einfachste Gemuese fuer Anfaenger
+    content: |
+      Diese Gemuese sind ideal fuer Anfaenger — schnelle Erfolge, wenig
+      Aufwand, auch auf dem Balkon oder kleinem Garten moeglich:
+      Radieschen: Das absolut einfachste Gemuese ueberhaupt. Samen direkt
+      in die Erde, nach 4-6 Wochen ernten. Funktioniert in jedem Topf
+      oder Beet. Keine besondere Pflege noetig. Auch fuer Kinder perfekt.
+      Mehrmals im Jahr saeebar (Maerz-September).
+      Salat (Pflicksalat, Rucola): Einfach, schnelle Ernte (4-6 Wochen
+      fuer Pflicksalat). Waechst auch im Halbschatten. Pflicksalat: Aeussere
+      Blaetter ernten, Herz waechst nach. Rucola keimt in 5 Tagen.
+      Ideal fuer Balkonkaesten.
+      Tomaten (Buschtomate/Balkontomate): Buschtomaten (z.B. 'Balkonstar',
+      'Tiny Tim') brauchen kein Ausgeizen, werden nur 40-60cm hoch und
+      passen in einen 10-Liter-Topf. Ertrag ist sichtbar und motivierend.
+      Sonniger Standort wichtig (Suedbalkone ideal). Ab Mai nach draussen.
+      Basilikum: Dual-Use — Kraut UND Gemuese-Begleiter. Schnelle Keimung,
+      schnelles Wachstum, nuetzlich in der Kueche. Waermeliebend, erst ab
+      Mai aussaeen oder Jungpflanze kaufen. Triebspitzen regelmaessig
+      ernten foerdert buschiges Wachstum.
+      NICHT fuer Anfaenger geeignet:
+      - Artischocke (braucht viel Platz, Ernte erst im 2. Jahr)
+      - Spargel (dauert 3 Jahre bis zur ersten Ernte)
+      - Aubergine (braucht viel Waerme und Erfahrung)
+    metadata:
+      topic: beginner_vegetables
+      difficulty: beginner
+      suitable_for: [balcony, small_garden, container]
+
+  - id: schaedlingskontrolle-routine
+    title: Schaedlingskontrolle bei Zimmerpflanzen und Kraeutern
+    content: |
+      Wie oft kontrollieren? Woechentlich — einmal pro Woche reicht,
+      aber es muss regelmaessig sein. Schaedlinge vermehren sich
+      exponentiell; was heute 5 Laeuse sind, koennen in 2 Wochen
+      hunderte sein. Frueherkennung ist der Schluessel zur einfachen
+      Bekaempfung.
+      Wo genau schauen:
+      - Blattunterseiten: Das ist der wichtigste Kontrollpunkt!
+        Spinnmilben, Blattlaeuse, Weisse Fliege und Thrips sitzen
+        bevorzugt auf den Blattunterseiten. Blatt umdrehen und
+        genau hinschauen (Lupe hilft).
+      - Blattachseln: Wo das Blatt am Stengel ansetzt — Lieblingsplatz
+        fuer Wolllaeuse und Schildlaeuse.
+      - Triebspitzen: Junge, weiche Blaetter ziehen Blattlaeuse an.
+      - Substrat-Oberflaeche: Trauermucken (kleine schwarze Fliegen).
+      - Unterseite des Topfes: Asseln, Schnecken (bei Balkonpflanzen).
+      Gelbe Klebefallen in der Naehe der Pflanzen helfen als Frühwarn-
+      System — steigende Fangzahlen deuten auf Befall hin.
+      Wann besonders aufpassen:
+      - Nach dem Kauf neuer Pflanzen (2 Wochen Quarantaene!)
+      - Im Winter (trockene Heizungsluft foerdert Spinnmilben)
+      - Im Fruehling (Schädlinge werden mit steigender Temperatur aktiv)
+    metadata:
+      topic: pest_inspection_routine
+      frequency: weekly
+      key_spots: [leaf_undersides, leaf_axils, shoot_tips]
+      difficulty: beginner

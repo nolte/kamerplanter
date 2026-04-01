@@ -121,7 +121,7 @@ jupyter notebook rag_eval.ipynb
 
 ## Ausgabe
 
-Beide Varianten schreiben `eval_results.json`:
+Beide Varianten schreiben `test-reports/rag-eval/eval_results.json`:
 
 ```json
 {

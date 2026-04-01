@@ -1,0 +1,204 @@
+{
+  "timestamp": "2026-04-01T12:05:43.753034+00:00",
+  "partial": true,
+  "method": "topic_match",
+  "total_score": 0.0,
+  "passed": false,
+  "min_pass_score": 0.7,
+  "category_scores": {
+    "pflege": 0.0
+  },
+  "questions_evaluated": 12,
+  "errors": 0,
+  "results": [
+    {
+      "id": "pflege-004",
+      "category": "pflege",
+      "score": 0.0,
+      "question_type": "factual",
+      "topic_hits": [],
+      "topic_misses": [
+        "natuerlich_normal",
+        "alte_blaetter",
+        "entfernen"
+      ],
+      "false_positives": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-005",
+      "category": "pflege",
+      "score": 0.0,
+      "question_type": "factual",
+      "topic_hits": [],
+      "topic_misses": [
+        "fruehling",
+        "wurzeln_aus_loechern",
+        "wachstumsperiode"
+      ],
+      "false_positives": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-006",
+      "category": "pflege",
+      "score": 0.0,
+      "question_type": "factual",
+      "topic_hits": [],
+      "topic_misses": [
+        "blumenerde",
+        "perlit_beimischen",
+        "drainage"
+      ],
+      "false_positives": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-007",
+      "category": "pflege",
+      "score": 0.0,
+      "question_type": "factual",
+      "topic_hits": [],
+      "topic_misses": [
+        "nein",
+        "ruhephase",
+        "wachstum_gestoppt",
+        "fruehling_starten"
+      ],
+      "false_positives": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-008",
+      "category": "pflege",
+      "score": 0.0,
+      "question_type": "factual",
+      "topic_hits": [],
+      "topic_misses": [
+        "temperaturreiz",
+        "kuehle_nacht",
+        "geduld",
+        "licht_pruefen"
+      ],
+      "false_positives": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-009",
+      "category": "pflege",
+      "score": 0.0,
+      "question_type": "factual",
+      "topic_hits": [],
+      "topic_misses": [
+        "radieschen",
+        "salat",
+        "tomaten_busch",
+        "basilikum"
+      ],
+      "false_positives": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-010",
+      "category": "pflege",
+      "score": 0.0,
+      "question_type": "factual",
+      "topic_hits": [],
+      "topic_misses": [
+        "verholzung",
+        "nicht_ins_alte_holz_schneiden",
+        "regelmaessig_ernten",
+        "licht"
+      ],
+      "false_positives": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-011",
+      "category": "pflege",
+      "score": 0.0,
+      "question_type": "factual",
+      "topic_hits": [],
+      "topic_misses": [
+        "woechentlich",
+        "blattunterseiten",
+        "frueherkennung"
+      ],
+      "false_positives": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-012",
+      "category": "pflege",
+      "score": 0.0,
+      "question_type": "factual",
+      "topic_hits": [],
+      "topic_misses": [
+        "luftfeuchtigkeit",
+        "leitungswasser_chlor",
+        "kalkempfindlich",
+        "regenwasser"
+      ],
+      "false_positives": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-013",
+      "category": "pflege",
+      "score": 0.0,
+      "question_type": "factual",
+      "topic_hits": [],
+      "topic_misses": [
+        "basilikum",
+        "schnittlauch",
+        "petersilie",
+        "suedfenster"
+      ],
+      "false_positives": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-014",
+      "category": "pflege",
+      "score": 0.0,
+      "question_type": "factual",
+      "topic_hits": [],
+      "topic_misses": [
+        "frostfrei",
+        "kuehler_raum",
+        "wenig_giessen",
+        "kein_duenger",
+        "hell"
+      ],
+      "false_positives": [],
+      "answer": "",
+      "chunk_sources": []
+    },
+    {
+      "id": "pflege-015",
+      "category": "pflege",
+      "score": 0.0,
+      "question_type": "factual",
+      "topic_hits": [],
+      "topic_misses": [
+        "abhaengig_von_art",
+        "nordfenster_ja",
+        "suedfenster_meist_ok",
+        "winter_kurze_tage"
+      ],
+      "false_positives": [],
+      "answer": "",
+      "chunk_sources": []
+    }
+  ]
+}
