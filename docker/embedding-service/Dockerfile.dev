@@ -1,0 +1,16 @@
+# Dev Dockerfile — uses pre-downloaded model from models/ directory.
+# For production multi-model builds see Dockerfile.
+FROM python:3.14-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+# hadolint ignore=DL3013
+RUN pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
+
+COPY models/multilingual-e5-base/ /app/models/onnx/multilingual-e5-base/
+COPY main.py .
+
+EXPOSE 8080
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]

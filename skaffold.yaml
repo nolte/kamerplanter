@@ -1,11 +1,15 @@
+# ── KP (Kamerplanter Core) ──────────────────────────────────────────
+# Backend, Frontend, Celery, ArangoDB, TimescaleDB, Valkey, HA
+# Usage: skaffold dev -m kp
 apiVersion: skaffold/v4beta13
 kind: Config
 metadata:
-  name: kamerplanter
+  name: kp
 
 build:
   local:
     push: false
+    useBuildkit: true
   artifacts:
     - image: kamerplanter-backend
       context: src/backend
@@ -27,18 +31,6 @@ build:
             dest: /app
           - src: "src/**/*.css"
             dest: /app
-    - image: kamerplanter-vectordb
-      context: docker/vectordb
-      docker:
-        dockerfile: Dockerfile
-    - image: kamerplanter-knowledge
-      context: .
-      docker:
-        dockerfile: docker/knowledge/Dockerfile
-    - image: kamerplanter-embedding-service
-      context: docker/embedding-service
-      docker:
-        dockerfile: Dockerfile
     - image: kamerplanter-ha-integration
       context: src/ha-integration
       docker:
@@ -50,7 +42,7 @@ manifests:
       - deploy/ha
 
 deploy:
-  statusCheckDeadlineSeconds: 900
+  statusCheckDeadlineSeconds: 1800
   kubectl: {}
   helm:
     releases:
@@ -68,16 +60,6 @@ deploy:
           controllers.celery-worker.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_backend}}"
           controllers.celery-beat.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_backend}}"
           controllers.celery-beat.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_backend}}"
-
-          controllers.vectordb.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_vectordb}}"
-          controllers.vectordb.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_vectordb}}"
-          controllers.backend.initContainers.knowledge.image.repository: "{{.IMAGE_REPO_kamerplanter_knowledge}}"
-          controllers.backend.initContainers.knowledge.image.tag: "{{.IMAGE_TAG_kamerplanter_knowledge}}"
-          controllers.celery-worker.initContainers.knowledge.image.repository: "{{.IMAGE_REPO_kamerplanter_knowledge}}"
-          controllers.celery-worker.initContainers.knowledge.image.tag: "{{.IMAGE_TAG_kamerplanter_knowledge}}"
-          controllers.embedding-service.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_embedding_service}}"
-          controllers.embedding-service.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_embedding_service}}"
-
           valkey.dataStorage.enabled: true
           valkey.dataStorage.size: 1Gi
           valkey.dataStorage.keepPvc: true
@@ -108,38 +90,23 @@ portForward:
     namespace: default
     port: 5432
     localPort: 5432
-  - resourceType: service
-    resourceName: kamerplanter-vectordb
-    namespace: default
-    port: 5432
-    localPort: 5433
-  - resourceType: service
-    resourceName: kamerplanter-embedding-service
-    namespace: default
-    port: 8080
-    localPort: 8080
-  - resourceType: service
-    resourceName: kamerplanter-ollama
-    namespace: default
-    port: 11434
-    localPort: 11434
 
 profiles:
   - name: backend-only
     patches:
-      # Remove frontend build artifact
+      # Remove frontend build artifact (index 1)
       - op: remove
         path: /build/artifacts/1
-      # Remove frontend port forward (index 2: homeassistant=0, backend=1, frontend=2, arangodb=3)
+      # Remove frontend port forward (index 2: homeassistant=0, backend=1, frontend=2)
       - op: remove
         path: /portForward/2
 
   - name: frontend-only
     patches:
-      # Remove backend build artifact
+      # Remove backend build artifact (index 0)
       - op: remove
         path: /build/artifacts/0
-      # Remove backend port forward (index 1: homeassistant=0, backend=1, frontend=2, arangodb=3)
+      # Remove backend port forward (index 1: homeassistant=0, backend=1)
       - op: remove
         path: /portForward/1
 
@@ -151,3 +118,74 @@ profiles:
           DEBUGPY_ENABLED: "true"
     activation:
       - command: debug
+---
+# ── KI (Knowledge/AI Stack) ─────────────────────────────────────────
+# Knowledge-Service, Embedding-Service, VectorDB
+# Usage: skaffold dev -m ki
+# Services: kamerplanter-ki-knowledge-service, kamerplanter-ki-vectordb, kamerplanter-ki-embedding-service
+apiVersion: skaffold/v4beta13
+kind: Config
+metadata:
+  name: ki
+
+build:
+  local:
+    push: false
+    useBuildkit: true
+  artifacts:
+    - image: kamerplanter-vectordb
+      context: docker/vectordb
+      docker:
+        dockerfile: Dockerfile
+    - image: kamerplanter-knowledge
+      context: .
+      docker:
+        dockerfile: docker/knowledge/Dockerfile
+    - image: kamerplanter-knowledge-service
+      context: src/knowledge-service
+      docker:
+        dockerfile: Dockerfile.dev
+      sync:
+        manual:
+          - src: "app/**/*.py"
+            dest: /app
+    - image: kamerplanter-embedding-service
+      context: docker/embedding-service
+      docker:
+        dockerfile: Dockerfile.dev
+
+deploy:
+  statusCheckDeadlineSeconds: 1800
+  helm:
+    releases:
+      - name: kamerplanter-ki
+        chartPath: helm/kamerplanter
+        valuesFiles:
+          - helm/kamerplanter/values-dev-ki.yaml
+        namespace: default
+        setValueTemplates:
+          controllers.vectordb.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_vectordb}}"
+          controllers.vectordb.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_vectordb}}"
+          controllers.knowledge-service.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_knowledge_service}}"
+          controllers.knowledge-service.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_knowledge_service}}"
+          controllers.knowledge-service.initContainers.knowledge.image.repository: "{{.IMAGE_REPO_kamerplanter_knowledge}}"
+          controllers.knowledge-service.initContainers.knowledge.image.tag: "{{.IMAGE_TAG_kamerplanter_knowledge}}"
+          controllers.embedding-service.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_embedding_service}}"
+          controllers.embedding-service.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_embedding_service}}"
+
+portForward:
+  - resourceType: service
+    resourceName: kamerplanter-ki-vectordb
+    namespace: default
+    port: 5432
+    localPort: 5433
+  - resourceType: service
+    resourceName: kamerplanter-ki-knowledge-service
+    namespace: default
+    port: 8000
+    localPort: 8090
+  - resourceType: service
+    resourceName: kamerplanter-ki-embedding-service
+    namespace: default
+    port: 8080
+    localPort: 8080

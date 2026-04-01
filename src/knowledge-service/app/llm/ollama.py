@@ -3,11 +3,11 @@
 import httpx
 import structlog
 
-from app.domain.interfaces.llm_adapter import ILlmAdapter, LlmResponse
+from app.llm.interface import ILlmAdapter, LlmResponse
 
 logger = structlog.get_logger(__name__)
 
-_TIMEOUT_SECONDS = 120.0
+_TIMEOUT_SECONDS = 600.0
 
 
 class OllamaLlmAdapter(ILlmAdapter):

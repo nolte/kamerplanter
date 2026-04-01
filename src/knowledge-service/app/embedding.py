@@ -1,3 +1,5 @@
+"""Generates text embeddings via an external embedding service."""
+
 import httpx
 import structlog
 
@@ -12,30 +14,12 @@ class EmbeddingEngine:
         self._model_name = model_name
 
     def embed(self, text: str, *, prefix: str = "") -> list[float]:
-        """Generate a normalized embedding for the given text.
-
-        Args:
-            text: Input text to embed.
-            prefix: Optional prefix prepended to text before tokenization.
-                    E5 models expect ``"query: "`` for queries and
-                    ``"passage: "`` for documents.
-
-        Returns:
-            Normalized embedding vector.
-        """
+        """Embed a single text. Returns a list of floats."""
         result = self.embed_batch([text], prefix=prefix)
         return result[0]
 
     def embed_batch(self, texts: list[str], *, prefix: str = "") -> list[list[float]]:
-        """Generate normalized embeddings for a batch of texts.
-
-        Args:
-            texts: List of input texts to embed.
-            prefix: Optional prefix prepended to each text before tokenization.
-
-        Returns:
-            List of normalized embedding vectors.
-        """
+        """Embed multiple texts in a single request. Returns list of embedding vectors."""
         response = httpx.post(
             f"{self._service_url}/embed",
             json={"texts": texts, "model": self._model_name, "prefix": prefix},

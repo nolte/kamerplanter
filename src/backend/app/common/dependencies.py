@@ -80,7 +80,6 @@ from app.domain.services.watering_service import WateringService
 
 _connection: ArangoConnection | None = None
 _timescale_connection = None
-_vectordb_connection = None
 
 
 def get_connection() -> ArangoConnection:
@@ -99,17 +98,6 @@ def get_timescale_connection():
     if _timescale_connection is None:
         _timescale_connection = TimescaleConnection(settings)
     return _timescale_connection
-
-
-def get_vectordb_connection():
-    from app.data_access.vectordb.connection import VectorDbConnection
-
-    global _vectordb_connection
-    if not settings.vectordb_enabled:
-        return None
-    if _vectordb_connection is None:
-        _vectordb_connection = VectorDbConnection(settings)
-    return _vectordb_connection
 
 
 def get_db() -> StandardDatabase:
@@ -519,6 +507,23 @@ def get_care_reminder_service() -> CareReminderService:
     )
 
 
+# ── REQ-032 Print dependencies ──────────────────────────────────────
+
+
+def get_print_service():
+    from app.domain.services.print_service import PrintService
+
+    return PrintService(
+        nutrient_plan_service=get_nutrient_plan_service(),
+        care_reminder_service=get_care_reminder_service(),
+        fertilizer_repo=get_fertilizer_repo(),
+        plant_repo=get_plant_repo(),
+        species_repo=get_species_repo(),
+        site_repo=get_site_repo(),
+        app_base_url=settings.app_base_url,
+    )
+
+
 # ── REQ-012 Import dependencies ──────────────────────────────────────
 
 
@@ -711,58 +716,17 @@ def get_notification_service():
     )
 
 
-# ── Knowledge / RAG dependencies ──────────────────────────────────
+# ── Knowledge Service client ─────────────────────────────────────
 
 
-def get_llm_adapter():
-    from app.data_access.external.anthropic_llm_adapter import AnthropicLlmAdapter
-    from app.data_access.external.ollama_llm_adapter import OllamaLlmAdapter
-    from app.data_access.external.openai_compatible_llm_adapter import OpenAiCompatibleLlmAdapter
-    from app.domain.interfaces.llm_adapter import ILlmAdapter
-
-    provider = settings.llm_provider
-    adapter: ILlmAdapter
-    if provider == "ollama":
-        adapter = OllamaLlmAdapter(
-            api_url=settings.llm_api_url or "http://ollama:11434",
-            model=settings.llm_model,
-        )
-    elif provider == "openai_compatible":
-        adapter = OpenAiCompatibleLlmAdapter(
-            api_url=settings.llm_api_url,
-            api_key=settings.llm_api_key,
-            model=settings.llm_model,
-        )
-    else:
-        adapter = AnthropicLlmAdapter(
-            api_key=settings.llm_api_key,
-            model=settings.llm_model,
-        )
-    return adapter
-
-
-def get_knowledge_service():
-    from app.domain.engines.embedding_engine import EmbeddingEngine
-    from app.domain.services.knowledge_service import KnowledgeService
-
-    vec_conn = get_vectordb_connection()
-    if not vec_conn or not settings.vectordb_enabled:
+def get_knowledge_client():
+    """Return a KnowledgeServiceClient or None if disabled."""
+    if not settings.knowledge_service_enabled:
         return None
 
-    from app.data_access.vectordb.vector_chunk_repository import VectorChunkRepository
+    from app.data_access.external.knowledge_service_client import KnowledgeServiceClient
 
-    return KnowledgeService(
-        embedding_engine=EmbeddingEngine(
-            service_url=settings.embedding_service_url,
-            model_name=settings.embedding_model,
-        ),
-        chunk_repo=VectorChunkRepository(vec_conn.pool),
-        llm_adapter=get_llm_adapter(),
-        max_tokens=settings.llm_max_tokens,
-        temperature=settings.llm_temperature,
-        default_doc_language=settings.rag_doc_language,
-        default_prompt_language=settings.rag_prompt_language,
-    )
+    return KnowledgeServiceClient(base_url=settings.knowledge_service_url)
 
 
 def close_timescale_connection() -> None:
@@ -772,17 +736,9 @@ def close_timescale_connection() -> None:
         _timescale_connection = None
 
 
-def close_vectordb_connection() -> None:
-    global _vectordb_connection
-    if _vectordb_connection is not None:
-        _vectordb_connection.close()
-        _vectordb_connection = None
-
-
 def close_connection() -> None:
     global _connection
     close_timescale_connection()
-    close_vectordb_connection()
     if _connection is not None:
         _connection.close()
         _connection = None

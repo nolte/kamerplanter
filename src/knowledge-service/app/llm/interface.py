@@ -1,4 +1,4 @@
-"""Abstract interface for LLM adapters (NFR-001 layer separation)."""
+"""Abstract interface for LLM adapters."""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -14,7 +14,7 @@ class LlmResponse:
 
 
 class ILlmAdapter(ABC):
-    """Interface for LLM providers — implementations live in data_access/external/."""
+    """Interface for LLM providers."""
 
     @abstractmethod
     def generate(

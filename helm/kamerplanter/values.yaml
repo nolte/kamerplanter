@@ -881,6 +881,7 @@ networkpolicies:
               port: 53
 
 valkey:
+  enabled: true
   dataStorage:
     enabled: true
     size: 1Gi

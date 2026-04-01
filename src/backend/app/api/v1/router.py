@@ -90,8 +90,8 @@ api_router.include_router(activities_router)
 api_router.include_router(activity_plans_router)
 api_router.include_router(observations_router)
 
-# ── Knowledge / RAG (conditional on vectordb) ──────────────────────
-if settings.vectordb_enabled:
+# ── Knowledge / RAG (conditional on knowledge service) ────────────
+if settings.knowledge_service_enabled:
     from app.api.v1.knowledge.router import router as knowledge_router
 
     api_router.include_router(knowledge_router)

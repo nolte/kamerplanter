@@ -18,7 +18,6 @@ celery_app.conf.update(
         "app.tasks.sensor_ingestion_tasks",
         "app.tasks.tank_maintenance_tasks",
         "app.tasks.tenant_tasks",
-        "app.tasks.vector_indexing_tasks",
         "app.tasks.vernalization_updates",
         "app.tasks.watering_tasks",
     ],
@@ -113,11 +112,4 @@ if settings.timescaledb_enabled:
     celery_app.conf.beat_schedule["sensor-ingest-ha-5min"] = {
         "task": "app.tasks.sensor_ingestion_tasks.ingest_ha_readings",
         "schedule": 300,
-    }
-
-# VectorDB knowledge reindexing (conditional)
-if settings.vectordb_enabled:
-    celery_app.conf.beat_schedule["vector-reindex-weekly"] = {
-        "task": "app.tasks.vector_indexing_tasks.reindex_vector_chunks",
-        "schedule": crontab(hour=3, minute=0, day_of_week=0),  # Sunday 03:00 UTC
     }

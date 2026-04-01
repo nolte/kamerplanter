@@ -17,7 +17,7 @@ _session = None
 _tokenizer = None
 _ready = False
 
-DEFAULT_MODEL = os.environ.get("EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2")
+DEFAULT_MODEL = os.environ.get("EMBEDDING_MODEL", "multilingual-e5-base")
 ONNX_PATH = Path(f"/app/models/onnx/{DEFAULT_MODEL}")
 
 
@@ -40,6 +40,7 @@ def _normalize(embeddings):
 class EmbedRequest(BaseModel):
     texts: list[str]
     model: str = DEFAULT_MODEL
+    prefix: str = ""
 
 
 class EmbedResponse(BaseModel):
@@ -82,8 +83,10 @@ def embed(req: EmbedRequest) -> EmbedResponse:
 
         return JSONResponse(status_code=503, content={"status": "loading"})
 
+    texts = [f"{req.prefix}{t}" for t in req.texts] if req.prefix else req.texts
+
     encoded = _tokenizer(
-        req.texts, padding=True, truncation=True, max_length=512, return_tensors="np"
+        texts, padding=True, truncation=True, max_length=512, return_tensors="np"
     )
 
     inputs = {

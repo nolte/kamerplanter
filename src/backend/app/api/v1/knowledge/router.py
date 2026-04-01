@@ -1,4 +1,4 @@
-"""Knowledge / RAG API endpoints — semantic search and question answering."""
+"""Knowledge / RAG API endpoints -- proxies to the Knowledge Service microservice."""
 
 from typing import Literal
 
@@ -11,8 +11,8 @@ from app.api.v1.knowledge.schemas import (
     KnowledgeSearchResponse,
 )
 from app.common.auth import get_current_user
-from app.common.dependencies import get_knowledge_service
-from app.domain.services.knowledge_service import KnowledgeService
+from app.common.dependencies import get_knowledge_client
+from app.data_access.external.knowledge_service_client import KnowledgeServiceClient
 
 router = APIRouter(
     prefix="/knowledge",
@@ -21,16 +21,16 @@ router = APIRouter(
 )
 
 
-def _require_knowledge_service(
-    service: KnowledgeService | None = Depends(get_knowledge_service),
-) -> KnowledgeService:
+def _require_knowledge_client(
+    client: KnowledgeServiceClient | None = Depends(get_knowledge_client),
+) -> KnowledgeServiceClient:
     """Dependency that returns 503 when the knowledge service is unavailable."""
-    if service is None:
+    if client is None:
         raise HTTPException(
             status_code=503,
-            detail="Knowledge service is not available. VectorDB is not enabled.",
+            detail="Knowledge service is not available.",
         )
-    return service
+    return client
 
 
 @router.get("/search", response_model=KnowledgeSearchResponse)
@@ -41,63 +41,36 @@ def search_knowledge(
         default=None,
         description="Filter chunks by language. None uses server default.",
     ),
-    service: KnowledgeService = Depends(_require_knowledge_service),
+    client: KnowledgeServiceClient = Depends(_require_knowledge_client),
 ) -> KnowledgeSearchResponse:
-    """Semantic search over the knowledge base.
-
-    Embeds the query and returns the most similar chunks from the vector store.
-    Requires authentication to prevent unauthenticated embedding service abuse.
-    """
-    chunks = service.search(q, top_k=top_k, doc_language=doc_language)
+    """Semantic search over the knowledge base (proxied to Knowledge Service)."""
+    data = client.search(q, top_k=top_k, doc_language=doc_language)
     return KnowledgeSearchResponse(
-        query=q,
-        results=[
-            KnowledgeChunkResponse(
-                source_key=c.source_key,
-                source_type=c.source_type,
-                title=c.title,
-                content=c.content,
-                score=c.score,
-                metadata=c.metadata,
-                language=c.language,
-            )
-            for c in chunks
-        ],
-        total=len(chunks),
-        doc_language=doc_language,
+        query=data["query"],
+        results=[KnowledgeChunkResponse(**r) for r in data["results"]],
+        total=data["total"],
+        doc_language=data.get("doc_language"),
     )
 
 
 @router.post("/ask", response_model=KnowledgeAskResponse)
 def ask_knowledge(
     body: KnowledgeAskRequest,
-    service: KnowledgeService = Depends(_require_knowledge_service),
+    client: KnowledgeServiceClient = Depends(_require_knowledge_client),
 ) -> KnowledgeAskResponse:
-    """RAG question answering — retrieves context and generates an LLM answer.
-
-    Embeds the question, retrieves relevant chunks, builds a context prompt,
-    and sends it to the configured LLM provider. Requires authentication.
-    """
-    answer = service.ask(
+    """RAG question answering (proxied to Knowledge Service)."""
+    context_dict = body.context.model_dump(exclude_none=True) if body.context else None
+    data = client.ask(
         body.question,
         top_k=body.top_k,
         doc_language=body.doc_language,
         prompt_language=body.prompt_language,
+        context=context_dict,
     )
     return KnowledgeAskResponse(
-        answer=answer.answer,
-        model=answer.model,
-        usage=answer.usage,
-        sources=[
-            KnowledgeChunkResponse(
-                source_key=c.source_key,
-                source_type=c.source_type,
-                title=c.title,
-                content=c.content,
-                score=c.score,
-                metadata=c.metadata,
-                language=c.language,
-            )
-            for c in answer.sources
-        ],
+        answer=data["answer"],
+        question_type=data.get("question_type", "factual"),
+        model=data["model"],
+        usage=data["usage"],
+        sources=[KnowledgeChunkResponse(**s) for s in data["sources"]],
     )

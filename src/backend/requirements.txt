@@ -73,6 +73,8 @@ idna==3.11
     #   email-validator
     #   httpx
     #   requests
+jinja2>=3.1
+    # via kamerplanter-backend (pyproject.toml)
 kombu==5.6.2
     # via celery
 limits==5.8.0
@@ -165,6 +167,10 @@ watchfiles==1.1.1
     # via uvicorn
 wcwidth==0.6.0
     # via prompt-toolkit
+weasyprint>=62.0
+    # via kamerplanter-backend (pyproject.toml)
+qrcode[pil]>=8.0
+    # via kamerplanter-backend (pyproject.toml)
 websockets==16.0
     # via uvicorn
 wrapt==2.1.1

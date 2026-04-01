@@ -3,7 +3,7 @@
 import httpx
 import structlog
 
-from app.domain.interfaces.llm_adapter import ILlmAdapter, LlmResponse
+from app.llm.interface import ILlmAdapter, LlmResponse
 
 logger = structlog.get_logger(__name__)
 

@@ -1,10 +1,12 @@
+"""Reads YAML knowledge files and indexes them into the vector database."""
+
 from pathlib import Path
 
 import structlog
 import yaml
 
-from app.data_access.vectordb.vector_chunk_repository import LANG_TO_TSCONFIG, VectorChunkRepository
-from app.domain.engines.embedding_engine import EmbeddingEngine
+from app.embedding import EmbeddingEngine
+from app.vectordb.repository import LANG_TO_TSCONFIG, VectorChunkRepository
 
 logger = structlog.get_logger(__name__)
 
@@ -12,15 +14,7 @@ SOURCE_TYPE = "care_rule"
 
 
 class KnowledgeIngestor:
-    """Reads YAML knowledge files and indexes them into the vector database.
-
-    Each YAML file contains a list of pre-chunked entries under `chunks[]`.
-    Each chunk becomes one row in ai_vector_chunks with:
-      - source_key: '{category}/{filename}#{chunk_id}'
-      - source_type: 'care_rule'
-      - title/content from the chunk
-      - metadata merged from file-level + chunk-level
-    """
+    """Reads YAML knowledge files and indexes them into the vector database."""
 
     def __init__(
         self,
@@ -33,10 +27,7 @@ class KnowledgeIngestor:
         self._knowledge_path = Path(knowledge_path)
 
     def ingest_all(self) -> dict:
-        """Ingest all YAML files from the knowledge directory.
-
-        Returns summary dict with counts.
-        """
+        """Index all YAML files under the knowledge path. Returns summary dict."""
         if not self._knowledge_path.exists():
             logger.warning("knowledge_path_not_found", path=str(self._knowledge_path))
             return {"status": "skipped", "reason": "knowledge_path_not_found"}
@@ -54,15 +45,11 @@ class KnowledgeIngestor:
             total_chunks += count
             total_files += 1
 
-        logger.info(
-            "knowledge_ingest_complete",
-            files=total_files,
-            chunks=total_chunks,
-        )
+        logger.info("knowledge_ingest_complete", files=total_files, chunks=total_chunks)
         return {"status": "ok", "files": total_files, "chunks": total_chunks}
 
     def _ingest_file(self, yaml_file: Path) -> int:
-        """Parse one YAML file, embed all chunks, batch-upsert into VectorDB."""
+        """Parse a single YAML file and upsert its chunks. Returns chunk count."""
         with open(yaml_file, encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
@@ -81,7 +68,6 @@ class KnowledgeIngestor:
             "applicable_phases": data.get("applicable_phases", []),
         }
 
-        # Build texts for batch embedding
         chunks_data = []
         texts = []
         for chunk in data["chunks"]:
@@ -95,7 +81,6 @@ class KnowledgeIngestor:
             source_key = f"{category}/{file_stem}#{chunk_id}"
             chunk_metadata = {**file_metadata, **(chunk.get("metadata") or {})}
 
-            # Enrich embedding text with metadata for better retrieval
             meta_parts = []
             for key in (
                 "nutrient",
@@ -130,18 +115,12 @@ class KnowledgeIngestor:
         if not texts:
             return 0
 
-        # Batch embed all texts at once (E5 models require "passage: " prefix for documents)
         embeddings = self._embedding.embed_batch(texts, prefix="passage: ")
 
-        # Attach embeddings and batch upsert
         for chunk_dict, embedding in zip(chunks_data, embeddings, strict=True):
             chunk_dict["embedding"] = embedding
 
         count = self._repo.upsert_batch(chunks_data)
 
-        logger.info(
-            "knowledge_file_ingested",
-            file=f"{category}/{file_stem}",
-            chunks=count,
-        )
+        logger.info("knowledge_file_ingested", file=f"{category}/{file_stem}", chunks=count)
         return count

@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     # REQ-027 Light-Modus
     kamerplanter_mode: Literal["light", "full"] = "full"
 
+    # REQ-032 Print: base URL for QR codes on plant labels
+    app_base_url: str = "http://localhost:5173"
+
     perenual_api_key: str = ""
     trefle_api_key: str = ""
     enrichment_http_timeout: int = 30
@@ -81,30 +84,9 @@ class Settings(BaseSettings):
     timescaledb_pool_min_size: int = 2
     timescaledb_pool_max_size: int = 10
 
-    # VectorDB (optional — PostgreSQL + pgvector for AI/RAG)
-    vectordb_enabled: bool = False
-    vectordb_host: str = "localhost"
-    vectordb_port: int = 5432
-    vectordb_database: str = "kamerplanter_vectors"
-    vectordb_username: str = "postgres"
-    vectordb_password: str = "changeme"
-    vectordb_pool_min_size: int = 1
-    vectordb_pool_max_size: int = 5
-    knowledge_path: str = "/app/knowledge"
-    embedding_service_url: str = "http://embedding-service:8080"
-    embedding_model: str = "multilingual-e5-base"
-
-    # LLM (optional — for RAG knowledge assistant)
-    llm_provider: str = "anthropic"  # anthropic | ollama | openai_compatible
-    llm_api_url: str = ""  # Required for ollama / openai_compatible
-    llm_api_key: str = ""  # Required for anthropic / openai_compatible
-    llm_model: str = "claude-sonnet-4-20250514"
-    llm_max_tokens: int = 1024
-    llm_temperature: float = 0.3
-
-    # RAG language defaults (per-request overridable via API)
-    rag_doc_language: str = "de"  # "de" | "en" | "all"
-    rag_prompt_language: str = "de"  # "de" | "en"
+    # Knowledge Service (optional — standalone RAG microservice)
+    knowledge_service_enabled: bool = False
+    knowledge_service_url: str = "http://knowledge-service:8000"
 
     # Rate limiting
     rate_limit_auth: str = "20/minute"

@@ -1,17 +1,22 @@
+"""VectorDB connection pool management."""
+
 import structlog
 from psycopg_pool import ConnectionPool
 
-from app.config.settings import Settings
+from app.config import Settings
 
 logger = structlog.get_logger(__name__)
 
 
 class VectorDbConnection:
+    """Manages a psycopg connection pool to the pgvector database."""
+
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._pool: ConnectionPool | None = None
 
     def connect(self) -> ConnectionPool:
+        """Create and open the connection pool. Returns the pool."""
         if self._pool is not None:
             return self._pool
 
@@ -40,17 +45,20 @@ class VectorDbConnection:
 
     @property
     def pool(self) -> ConnectionPool:
+        """Return the pool, connecting lazily if needed."""
         if self._pool is None:
             return self.connect()
         return self._pool
 
     def close(self) -> None:
+        """Close the connection pool."""
         if self._pool is not None:
             self._pool.close()
             self._pool = None
             logger.info("vectordb_disconnected")
 
     def is_connected(self) -> bool:
+        """Check if the pool is alive with a simple SELECT 1."""
         if self._pool is None:
             return False
         try:

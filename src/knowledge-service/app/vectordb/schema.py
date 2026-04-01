@@ -1,3 +1,5 @@
+"""VectorDB schema migration runner."""
+
 from pathlib import Path
 
 import psycopg
