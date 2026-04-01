@@ -88,9 +88,9 @@ class NutrientPlanValidator:
             for i in range(1, len(sorted_entries)):
                 prev = sorted_entries[i - 1]
                 curr = sorted_entries[i]
-                if curr.week_start > prev.week_end + 1:
+                if curr.week_start > prev.week_end:
                     issues.append(f"Week gap: week {prev.week_end} to {curr.week_start}")
-                if curr.week_start <= prev.week_end:
+                if curr.week_start < prev.week_end:
                     issues.append(
                         f"Overlapping weeks: {prev.phase_name.value} (W{prev.week_start}-{prev.week_end}) "
                         f"and {curr.phase_name.value} (W{curr.week_start}-{curr.week_end})"
