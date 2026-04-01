@@ -960,9 +960,17 @@ export default function PlantInstanceDetailPage() {
                     {assignedSlot ? t('entities.slot') : t('entities.location')}
                   </Typography>
                   <Typography variant="body1">
-                    {assignedSlot
-                      ? `${assignedLocation.name} / ${assignedSlot.slot_id}`
-                      : assignedLocation.name}
+                    <Link component={RouterLink} to={`/standorte/locations/${assignedLocation.key}`} underline="hover">
+                      {assignedLocation.name}
+                    </Link>
+                    {assignedSlot && (
+                      <>
+                        {' / '}
+                        <Link component={RouterLink} to={`/standorte/slots/${assignedSlot.key}`} underline="hover">
+                          {assignedSlot.slot_id}
+                        </Link>
+                      </>
+                    )}
                   </Typography>
                 </Box>
               )}
