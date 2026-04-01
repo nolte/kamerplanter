@@ -41,6 +41,7 @@ def pflege(browser: WebDriver, base_url: str) -> PflegeDashboardPage:
 class TestPflegeDashboardPageLoad:
     """TC-022-001 to TC-022-004: Dashboard page load and basic display."""
 
+    @pytest.mark.smoke
     def test_dashboard_page_renders(
         self,
         pflege: PflegeDashboardPage,

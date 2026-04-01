@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.firefox.service import Service as FirefoxService
@@ -47,11 +48,35 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
+# Import protocol_plugin — works both in-repo (as package) and in Docker (flat).
+# pytest's conftest loader prevents normal import mechanisms from working
+# reliably, so we use importlib with an explicit path as fallback.
+import importlib.util as _ilu
+import sys as _sys
+
+_pp_path = Path(__file__).parent / "protocol_plugin.py"
+_pp_spec = _ilu.spec_from_file_location("protocol_plugin", _pp_path)
+_pp_mod = _ilu.module_from_spec(_pp_spec)  # type: ignore[arg-type]
+_sys.modules["protocol_plugin"] = _pp_mod
+_pp_spec.loader.exec_module(_pp_mod)  # type: ignore[union-attr]
+ProtocolGenerator = _pp_mod.ProtocolGenerator
+ScreenshotEntry = _pp_mod.ScreenshotEntry
+TestResult = _pp_mod.TestResult
+
+# ── Protocol plugin state ─────────────────────────────────────────────────
+_protocol_generator: ProtocolGenerator | None = None  # type: ignore[assignment]
+_protocol_output_dir: Path | None = None
+
+
 def pytest_configure(config: pytest.Config) -> None:
     """Register custom markers."""
     config.addinivalue_line(
         "markers",
         "requires_auth: mark test as requiring full auth mode (skipped in light mode)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "smoke: mark test as part of the smoke test suite (core functionality)",
     )
 
 
@@ -186,7 +211,7 @@ def screenshot_dir(request: pytest.FixtureRequest) -> Path:
         path = protocol_dir / "screenshots"
     else:
         timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
-        path = Path("test-reports") / timestamp / "screenshots"
+        path = Path("test-reports") / "e2e" / timestamp / "screenshots"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -215,8 +240,6 @@ def screenshot(
             capture = request.node._screenshot_capture
             capture("req014_001_tank_list")
     """
-    from .protocol_plugin import ScreenshotEntry
-
     def _capture(name: str, description: str = "") -> Path:
         filename = f"{name}.png"
         filepath = screenshot_dir / filename
@@ -251,8 +274,52 @@ def screenshot(
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item: pytest.Item) -> None:
-    """Attach the test report to the item node for the screenshot fixture (NFR-008 §3.4)."""
+    """Attach the test report to the item node for the screenshot fixture (NFR-008 §3.4).
+
+    Also record results for the protocol generator.
+    """
     outcome = yield
     report = outcome.get_result()
     if report.when == "call":
         item._report = report  # type: ignore[attr-defined]
+
+        # ── Protocol recording ────────────────────────────────────
+        if _protocol_generator is not None:
+            outcome_str = "passed" if not report.failed else "failed"
+            if report.skipped:
+                outcome_str = "skipped"
+            message = str(report.longrepr) if report.failed else ""
+            docstring = ""
+            if item.obj and item.obj.__doc__:
+                docstring = item.obj.__doc__.strip().split("\n")[0]
+            screenshots: list[ScreenshotEntry] = getattr(
+                item, "_protocol_screenshots", []
+            )
+            _protocol_generator.add_result(
+                TestResult(
+                    nodeid=item.nodeid,
+                    outcome=outcome_str,
+                    duration=report.duration,
+                    message=message,
+                    docstring=docstring,
+                    screenshots=screenshots,
+                )
+            )
+
+
+def pytest_sessionstart(session: pytest.Session) -> None:
+    """Initialize protocol generator if --generate-protocol is active."""
+    global _protocol_generator, _protocol_output_dir
+    if session.config.getoption("--generate-protocol", default=False):
+        timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+        _protocol_output_dir = Path("test-reports") / "e2e" / timestamp
+        _protocol_generator = ProtocolGenerator()
+        _protocol_generator.start_time = datetime.now(tz=timezone.utc)
+        session.config._protocol_output_dir = _protocol_output_dir  # type: ignore[attr-defined]
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Write the test protocol at the end of the session."""
+    if _protocol_generator is not None and _protocol_output_dir is not None:
+        path = _protocol_generator.generate(_protocol_output_dir)
+        print(f"\nTestprotokoll geschrieben: {path}")

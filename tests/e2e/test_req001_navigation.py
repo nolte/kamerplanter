@@ -24,6 +24,7 @@ def page(browser: WebDriver, base_url: str) -> BasePage:
 class TestNavigationAndRouting:
     """TC-REQ-001-001 to TC-REQ-001-005: Navigation and routing."""
 
+    @pytest.mark.smoke
     def test_navigate_to_botanical_families(
         self, page: BasePage, browser: WebDriver
     ) -> None:
@@ -37,6 +38,7 @@ class TestNavigationAndRouting:
         title = page.get_page_title()
         assert "Botanische Familien" in title, f"Expected 'Botanische Familien', got '{title}'"
 
+    @pytest.mark.smoke
     def test_navigate_to_species(
         self, page: BasePage, browser: WebDriver
     ) -> None:

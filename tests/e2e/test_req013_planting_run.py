@@ -44,6 +44,7 @@ def run_detail(browser: WebDriver, base_url: str) -> PlantingRunDetailPage:
 class TestPlantingRunListPage:
     """TC-REQ-013-001 to TC-REQ-013-010: PlantingRunListPage operations."""
 
+    @pytest.mark.smoke
     def test_list_page_loads_with_correct_testid(
         self,
         run_list: PlantingRunListPage,

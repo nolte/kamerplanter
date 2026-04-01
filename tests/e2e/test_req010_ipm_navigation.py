@@ -44,6 +44,7 @@ def treatment_list(browser: WebDriver, base_url: str) -> TreatmentListPage:
 class TestIpmNavigation:
     """Cross-page navigation between IPM catalog pages."""
 
+    @pytest.mark.smoke
     def test_navigate_to_pest_list(
         self,
         pest_list: PestListPage,
@@ -60,6 +61,7 @@ class TestIpmNavigation:
             f"Expected URL to contain 'pflanzenschutz/pests', got {pest_list.driver.current_url}"
         )
 
+    @pytest.mark.smoke
     def test_navigate_to_disease_list(
         self,
         disease_list: DiseaseListPage,

@@ -23,10 +23,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pytest
-
 # ── Spec resolution ──────────────────────────────────────────────────────────
 
+# Resolve repo root — in-repo: tests/e2e/protocol_plugin.py → 3 levels up.
+# In Docker container: /app/protocol_plugin.py → spec/ doesn't exist, so
+# spec resolution gracefully degrades (returns None).
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _SPEC_REQ_DIR = _REPO_ROOT / "spec" / "req"
 _SPEC_TC_DIR = _REPO_ROOT / "spec" / "e2e-testcases"
@@ -42,6 +43,8 @@ def _find_req_spec(req_num: str) -> tuple[str, str] | None:
 
     Returns (relative_path, title) or None.
     """
+    if not _SPEC_REQ_DIR.is_dir():
+        return None
     for f in _SPEC_REQ_DIR.iterdir():
         if f.name.startswith(f"REQ-{req_num}") and f.suffix == ".md":
             # Extract title from filename: REQ-001_Stammdatenverwaltung.md → Stammdatenverwaltung
@@ -56,6 +59,8 @@ def _find_tc_spec(req_num: str) -> tuple[str, str] | None:
 
     Returns (relative_path, title_from_frontmatter) or None.
     """
+    if not _SPEC_TC_DIR.is_dir():
+        return None
     tc_file = _SPEC_TC_DIR / f"TC-REQ-{req_num}.md"
     if not tc_file.exists():
         return None
@@ -437,71 +442,3 @@ def _git(*args: str) -> str:
         return result.stdout.strip() or "n/a"
     except Exception:
         return "n/a"
-
-
-# ── pytest plugin hooks ──────────────────────────────────────────────────────
-
-_generator: ProtocolGenerator | None = None
-_output_dir: Path | None = None
-
-
-def pytest_configure(config: pytest.Config) -> None:
-    global _generator, _output_dir
-    if config.getoption("--generate-protocol", default=False):
-        timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
-        _output_dir = Path("test-reports") / timestamp
-        _generator = ProtocolGenerator()
-        # Store on config so conftest.py can access the same output directory
-        config._protocol_output_dir = _output_dir  # type: ignore[attr-defined]
-
-
-def pytest_sessionstart(session: pytest.Session) -> None:
-    if _generator is not None:
-        _generator.start_time = datetime.now(tz=timezone.utc)
-
-
-def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo) -> None:  # type: ignore[type-arg]
-    if _generator is None or call.when != "call":
-        return
-
-    outcome = "passed" if call.excinfo is None else "failed"
-    message = ""
-    if call.excinfo is not None:
-        message = str(call.excinfo.value)
-
-    # Extract docstring from test function
-    docstring = ""
-    if item.obj and item.obj.__doc__:
-        docstring = item.obj.__doc__.strip().split("\n")[0]
-
-    # Collect screenshots registered during this test
-    screenshots: list[ScreenshotEntry] = getattr(
-        item, "_protocol_screenshots", []
-    )
-
-    _generator.add_result(
-        TestResult(
-            nodeid=item.nodeid,
-            outcome=outcome,
-            duration=call.duration,
-            message=message,
-            docstring=docstring,
-            screenshots=screenshots,
-        )
-    )
-
-
-def pytest_runtest_logreport(report: pytest.TestReport) -> None:
-    if _generator is None:
-        return
-    if report.when == "call" and report.skipped:
-        for r in reversed(_generator.results):
-            if r.nodeid == report.nodeid:
-                r.outcome = "skipped"
-                break
-
-
-def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
-    if _generator is not None and _output_dir is not None:
-        path = _generator.generate(_output_dir)
-        print(f"\nTestprotokoll geschrieben: {path}")

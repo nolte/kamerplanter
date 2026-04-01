@@ -38,6 +38,7 @@ def _navigate_to_first_species_cultivar_tab(
 class TestCultivarListSection:
     """TC-REQ-001-042 to TC-REQ-001-044: Cultivar list within species detail."""
 
+    @pytest.mark.smoke
     def test_display_cultivars_tab(
         self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage
     ) -> None:

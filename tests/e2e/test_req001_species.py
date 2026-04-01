@@ -24,6 +24,7 @@ def species_detail(browser: WebDriver, base_url: str) -> SpeciesDetailPage:
 class TestSpeciesListPage:
     """TC-REQ-001-029 to TC-REQ-001-032: Species list display and navigation."""
 
+    @pytest.mark.smoke
     def test_display_species_in_data_table(
         self, species_list: SpeciesListPage
     ) -> None:

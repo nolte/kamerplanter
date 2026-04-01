@@ -99,6 +99,7 @@ def _navigate_to_first_location_detail(
 class TestSiteListPage:
     """TC-REQ-002-001 to TC-REQ-002-012: Site list renders and supports operations."""
 
+    @pytest.mark.smoke
     def test_site_list_page_loads(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
@@ -112,6 +113,7 @@ class TestSiteListPage:
             "TC-REQ-002-001 FAIL: Page title should not be empty after navigation to /standorte/sites"
         )
 
+    @pytest.mark.smoke
     def test_site_list_has_data_table(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
