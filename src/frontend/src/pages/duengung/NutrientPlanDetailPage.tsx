@@ -59,11 +59,13 @@ import DosageCalculatorTab from './DosageCalculatorTab';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
+import PrintButton from '@/components/common/PrintButton';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useLocalFavorites } from '@/hooks/useLocalFavorites';
 import WateringLogCreateDialog from '@/pages/giessprotokoll/WateringLogCreateDialog';
 import * as planApi from '@/api/endpoints/nutrient-plans';
+import { downloadNutrientPlanPdf } from '@/api/endpoints/print';
 import * as fertApi from '@/api/endpoints/fertilizers';
 import type {
   NutrientPlan,
@@ -972,21 +974,31 @@ export default function NutrientPlanDetailPage() {
         sx={{
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 1,
           mb: 2,
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <PageTitle title={plan.name} sx={{ mb: 0 }} />
           {key && (
-            <Tooltip title={t('pages.nutrientPlans.favToggle')}>
-              <IconButton
-                onClick={() => toggleFavorite(key)}
-                sx={{ color: isFavorite(key) ? 'warning.main' : 'action.disabled' }}
-              >
-                {isFavorite(key) ? <StarIcon /> : <StarBorderIcon />}
-              </IconButton>
-            </Tooltip>
+            <>
+              <Tooltip title={t('pages.nutrientPlans.favToggle')}>
+                <IconButton
+                  onClick={() => toggleFavorite(key)}
+                  aria-label={t('pages.nutrientPlans.favToggle')}
+                  sx={{ color: isFavorite(key) ? 'warning.main' : 'action.disabled' }}
+                >
+                  {isFavorite(key) ? <StarIcon /> : <StarBorderIcon />}
+                </IconButton>
+              </Tooltip>
+              <PrintButton
+                onPrint={() => downloadNutrientPlanPdf(key)}
+                filename={`nutrient-plan-${key}.pdf`}
+                label={t('print.nutrientPlan')}
+              />
+            </>
           )}
           {plan.is_template && (
             <Chip label={t('pages.nutrientPlans.isTemplate')} size="small" color="primary" />
@@ -1005,6 +1017,7 @@ export default function NutrientPlanDetailPage() {
           color="error"
           startIcon={<DeleteIcon />}
           onClick={() => setDeleteOpen(true)}
+          data-testid="delete-nutrient-plan-button"
         >
           {t('common.delete')}
         </Button>

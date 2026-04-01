@@ -4,10 +4,12 @@ import reducer, {
   setSidebarOpen,
   setBreadcrumbs,
   setGlobalLoading,
+  toggleShowAllFields,
+  resetShowAllFields,
 } from '@/store/slices/uiSlice';
 
 describe('uiSlice', () => {
-  const initialState = { sidebarOpen: true, breadcrumbs: [], globalLoading: false };
+  const initialState = { sidebarOpen: true, breadcrumbs: [], globalLoading: false, showAllFieldsOverride: false };
 
   it('has correct initial state', () => {
     expect(reducer(undefined, { type: 'unknown' })).toEqual(initialState);
@@ -34,5 +36,19 @@ describe('uiSlice', () => {
   it('setGlobalLoading updates loading', () => {
     const state = reducer(initialState, setGlobalLoading(true));
     expect(state.globalLoading).toBe(true);
+  });
+
+  it('toggleShowAllFields flips override state', () => {
+    const state = reducer(initialState, toggleShowAllFields());
+    expect(state.showAllFieldsOverride).toBe(true);
+    const state2 = reducer(state, toggleShowAllFields());
+    expect(state2.showAllFieldsOverride).toBe(false);
+  });
+
+  it('resetShowAllFields resets to false', () => {
+    const toggled = reducer(initialState, toggleShowAllFields());
+    expect(toggled.showAllFieldsOverride).toBe(true);
+    const reset = reducer(toggled, resetShowAllFields());
+    expect(reset.showAllFieldsOverride).toBe(false);
   });
 });

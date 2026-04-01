@@ -1,0 +1,379 @@
+---
+title: PK-Boost Timing in der Bluete
+language: de
+category: duengung
+tags: [pk-boost, phosphor, kalium, bluete, trichome, dosierung, flush, autoflower, ernte, timing]
+expertise_level: [intermediate, expert]
+applicable_phases: [flowering, harvest]
+chunks:
+  - id: pk-boost-grundlagen
+    title: Was ist ein PK-Boost und wofuer wird er eingesetzt?
+    content: |
+      Ein PK-Boost ist ein Zusatzduenger mit erhoehtem Phosphor- (P) und Kaliumgehalt (K),
+      der waehrend der Bluetephase zusaetzlich zur Basis-Naehrloesung verabreicht wird.
+      Ziel ist die Maximierung von Blueten-/Fruchtbildung, Ertrag und Qualitaet.
+
+      Phosphor (P) in der Bluete: Essentiell fuer Energietransfer (ATP), DNA/RNA-Synthese,
+      Blueteninduktion und Samenbildung. Erhoehter Bedarf ab Blutebeginn, Maximum in der
+      mittleren Bluete. Phosphormangel in der Bluete fuehrt zu kleinen, lockeren Blueten
+      und deutlich reduziertem Ertrag.
+
+      Kalium (K) in der Bluete: Reguliert Wasserhaushalt (Stomata), aktiviert Enzyme
+      fuer Zucker-/Staerkeproduktion, foerdert den Transport von Assimilaten in die
+      Blueten/Fruechte. Kalium ist der "Qualitaets-Naehrstoff" — er verbessert Geschmack,
+      Aroma, Farbe und Haltbarkeit von Fruechten.
+
+      Typische PK-Verhaeltnisse kommerzieller Produkte:
+      - PK 13-14 (z.B. Canna): 0-13-14 (kein Stickstoff)
+      - PK 9-18 (z.B. Advanced Nutrients): Mehr K als P
+      - PK 10-10: Ausgeglichen, fuer moderate Anwendung
+      - Monokaliumphosphat (MKP): 0-52-34, hochkonzentriert, sparsam dosieren
+
+      Wichtig: PK-Boost ist ein ZUSATZ, kein Ersatz fuer Basis-Duenger. Die Basis-
+      Naehrloesung liefert weiterhin N, Ca, Mg und Spurenelemente. Der PK-Boost
+      erhoeht nur die P/K-Fraktion fuer den gesteigerten Bedarf in der Bluete.
+    metadata:
+      purpose: increased_PK_during_flowering
+      common_ratios: ["0-13-14", "0-9-18", "0-10-10", "0-52-34"]
+
+  - id: pk-boost-startzeitpunkt
+    title: Wann mit dem PK-Boost beginnen
+    content: |
+      Das richtige Timing beim Start des PK-Boosts ist entscheidend. Zu frueh schadet
+      mehr als es nuetzt, zu spaet verschenkt Ertragspotenzial.
+
+      Standard-Zeitpunkt: Woche 3-4 der Bluete, NACHDEM der Stretch (vertikales
+      Streckungswachstum) abgeschlossen ist. Der Stretch dauert typischerweise 1-3
+      Wochen nach Umstellung auf 12/12 Licht (Photoperiode). Waehrend des Stretchs
+      braucht die Pflanze noch verhaeltnismaessig viel Stickstoff fuer vegetatives
+      Wachstum — PK-Boost waere hier kontraproduktiv.
+
+      Visuelle Indikatoren fuer den Start:
+      - Vertikales Wachstum hat aufgehoert (Stretch ist vorbei)
+      - Erste sichtbare Blueten-Cluster (Calyxe) bilden sich
+      - Weisse Faeden (Stigmen/Narben) sind deutlich sichtbar
+      - Die Pflanze wechselt vom "nach oben wachsen" zum "nach aussen fuellen"
+
+      Phasenabhaengige Dosierung:
+      - Woche 3-4 (Start): 25-50% der empfohlenen Dosis. Beobachten.
+      - Woche 4-5: 50-75% der empfohlenen Dosis, wenn keine Stresssymptome.
+      - Woche 5-6: 75-100% der empfohlenen Dosis (Peak-Bluete).
+      - Woche 6-7: 50-75% (Dosis reduzieren, Flush vorbereiten).
+      - Woche 7-8+ (letzte 2 Wochen): PK-Boost stoppen, nur noch Basis oder Flush.
+
+      Achtung: Diese Timeline gilt fuer 8-9-woechige Blutesorten. Bei 10-12-woechigen
+      Sorten (z.B. viele Sativa-Hybriden) den Zeitrahmen proportional strecken.
+      Bei 6-7-woechigen Sorten (z.B. einige Indica) komprimieren.
+    metadata:
+      typical_start_week: "3-4"
+      stretch_duration_weeks: "1-3"
+      peak_dose_week: "5-6"
+      stop_weeks_before_harvest: "2"
+
+  - id: pk-boost-stoppen-flush
+    title: PK-Boost stoppen und Flush einleiten
+    content: |
+      Das korrekte Beenden des PK-Boosts und die Ueberleitung in die Flush-Phase ist
+      genauso wichtig wie der Start. Zu spaetes Stoppen fuehrt zu Naehrstoffueberschuss
+      in der Pflanze, der Geschmack und Rauchqualitaet negativ beeinflusst.
+
+      Zeitpunkt zum Stoppen:
+      - 2-3 Wochen vor der geplanten Ernte den PK-Boost komplett absetzen
+      - 1-2 Wochen vor der Ernte mit dem Flush beginnen (abhaengig vom Medium)
+
+      Medium-spezifischer Flush:
+      - Hydroponik (DWC, NFT): 5-7 Tage reines, pH-adjustiertes Wasser (EC 0,0-0,1).
+        Kurzer Flush reicht, da kein Puffermedium vorhanden.
+      - Kokos: 7-10 Tage mit EC 0,0-0,2. Kokos haelt mehr Naehrstoffe als Hydro
+        (KAK), daher laengerer Flush noetig.
+      - Erde (mineralisch geduengt, ohne lebende Biologie): 10-14 Tage mit reinem Wasser.
+        Erde hat die hoechste Pufferkapazitaet, Naehrstoffe werden am langsamsten ausgewaschen.
+      - Erde (mit Mykorrhiza/organischer Biologie): 5-7 Tage genuegen.
+        Laengerer Flush schaedigt das Bodenleben und die Mykorrhiza-Symbiose.
+
+      Visuelle Indikatoren waehrend des Flush:
+      - Blaetter beginnen zu vergilben (Stickstoff wird mobilisiert — erwuenscht!)
+      - Blattraender werden leicht braun/lila (Phosphor-Mobilisierung)
+      - Blueten reifen weiter, nehmen aber kaum noch an Masse zu
+      - Fanleaves (grosse Sonnenblaetter) fallen teilweise ab
+
+      Hinweis zur Wissenschaft: Die Notwendigkeit des Pre-Harvest-Flush ist wissenschaftlich
+      umstritten. Eine Studie der University of Guelph (2020) fand keinen signifikanten
+      Unterschied in der chemischen Zusammensetzung. Viele Grower berichten dennoch von
+      subjektiv besserem Geschmack nach Flush. Konservative Empfehlung: Mindestens PK-Boost
+      rechtzeitig stoppen, Flush optional je nach persoenlicher Praeferenz.
+    metadata:
+      pk_stop_weeks_before_harvest: "2-3"
+      flush_hydro_days: "5-7"
+      flush_coco_days: "7-10"
+      flush_soil_days: "10-14"
+
+  - id: trichome-reife-indikator
+    title: Trichom-Reife als Timing-Indikator
+    content: |
+      Trichome (Harzdrüsen) sind der zuverlaessigste Indikator fuer den Reifezustand
+      und damit fuer das optimale Erntezeitfenster. Sie bestimmen, wann der PK-Boost
+      gestoppt und der Flush eingeleitet werden sollte.
+
+      Beobachtung: Handlupe (60-100x Vergroesserung) oder USB-Mikroskop auf die
+      Blueten (nicht Blaetter) richten. Trichom-Koepfchen beurteilen:
+
+      Stadium 1 — Klare Trichome: Glasig-transparent. Pflanze ist unreif, PK-Boost
+      weiterfuehren. Noch 2-4 Wochen bis zur Ernte.
+
+      Stadium 2 — Milchig-truebe Trichome: Weisslich-opak, wie Milchglas. Hoechster
+      THC-Gehalt (bei Cannabis), maximale Potenz. Wenn 70-80% der Trichome milchig
+      sind: PK-Boost stoppen, Flush einleiten.
+
+      Stadium 3 — Bernsteinfarbene Trichome: Gelb-braune Verfaerbung. THC wird zu
+      CBN abgebaut (sedativer Effekt). Bei Gemuese/Obst: ueberreif, Qualitaetsverlust.
+
+      Optimaler Erntezeitpunkt (Cannabis): 70-90% milchig + 10-30% bernstein.
+      Fuer energetischen Effekt: Mehr milchig (80-90%). Fuer koerperbetont: Mehr
+      bernstein (20-30%).
+
+      PK-Boost-Timing anhand Trichome:
+      - Alle klar: PK-Boost auf Peak-Dosis (75-100%)
+      - Erste milchige: PK-Boost auf 50% reduzieren
+      - 50% milchig: PK-Boost stoppen
+      - 70% milchig: Flush starten
+      - 80-90% milchig + 10-20% bernstein: Ernten
+
+      Fuer andere Kulturen: Fruchtreife-Indikatoren je nach Art beachten (Tomaten:
+      Farbumschlag, Paprika: Fruchtgroesse und Farbe, Gurken: Groesse vor Gelbfaerbung).
+    metadata:
+      magnification_x: "60-100"
+      observe_location: flowers_not_leaves
+      harvest_window_milky_percent: "70-90"
+      harvest_window_amber_percent: "10-30"
+
+  - id: pk-dosierung-ec-management
+    title: PK-Boost Dosierung und EC-Management
+    content: |
+      PK-Boost erhoeht die Gesamt-EC der Naehrloesung. Diesen EC-Beitrag nicht
+      unterschaetzen — er kann leicht zu Ueberduengung fuehren, wenn die Basis-EC
+      nicht angepasst wird.
+
+      EC-Beitrag typischer PK-Produkte:
+      - PK 13-14 (Standarddosis 1 ml/L): ca. +0,3-0,5 mS/cm
+      - Monokaliumphosphat (1 g/L): ca. +0,7-1,0 mS/cm (hochkonzentriert!)
+      - Organische PK-Booster (Bat Guano Fluessig): ca. +0,1-0,3 mS/cm
+
+      EC-Kompensation: Wenn die Ziel-EC in der Bluete 1,6 mS/cm betraegt und der
+      PK-Boost 0,4 mS/cm beitraegt, muss die Basis-Naehrloesung auf 1,2 mS/cm
+      reduziert werden. Die Gesamt-EC darf die Phasen-Ziel-EC nicht ueberschreiten.
+
+      Praxis-Vorgehen:
+      1) Basis-Naehrloesung ansetzen (EC etwas niedriger als Ziel)
+      2) PK-Boost zugeben
+      3) Gesamt-EC messen
+      4) Falls EC zu hoch: Mit Wasser verduennen, NICHT den PK-Boost teilweise entfernen
+      5) pH-Wert kontrollieren (PK-Produkte koennen pH senken)
+
+      Haeufiger Fehler: Basis-EC beibehalten UND PK-Boost obendrauf dosieren. Ergebnis:
+      EC-Spitze von 2,0+ mS/cm, Blattspitzenbrand, Naehrstoff-Lockout. Besonders
+      gefaehrlich bei empfindlichen Sorten (Leichtzehrer, Sativa-dominante Genetiken).
+
+      Empfehlung: Mit 50% der Hersteller-Empfehlung starten. Nur wenn die Pflanze
+      nach 3-5 Tagen keine Stresszeichen zeigt, auf 75% und dann 100% steigern.
+      Pflanzenbeobachtung ist wichtiger als das Etikett.
+    metadata:
+      pk_13_14_ec_per_ml: "0.3-0.5"
+      mkp_ec_per_g: "0.7-1.0"
+      starting_dose: "50%"
+      increase_interval_days: "3-5"
+
+  - id: pk-ueberdosierung-erkennen
+    title: PK-Ueberdosierung erkennen und korrigieren
+    content: |
+      PK-Ueberdosierung ist einer der haeufigsten Fehler in der Bluete. Die Symptome
+      werden oft faelschlicherweise als andere Probleme diagnostiziert.
+
+      Symptome der Phosphor-Ueberdosierung:
+      - Dunkelgruene, fast schwarz-gruene Blaetter
+      - Blattspitzenbrand (braune, trockene Spitzen)
+      - Blaetter klauen/krallen sich nach unten
+      - Zink-, Eisen- und Kupfer-Mangelsymptome (P-Ueberschuss blockiert Spurenelemente)
+      - Blaetter werden steif und sproede
+      - Calcium- und Magnesium-Aufnahme wird gehemmt
+
+      Symptome der Kalium-Ueberdosierung:
+      - Aehnlich wie P-Ueberschuss: Blattspitzenbrand
+      - Calcium- und Magnesium-Mangel (kompetitive Hemmung)
+      - Interkostalchlorose (aehnelt Mg-Mangel, ist aber K-induziert)
+      - Wurzelschaeden bei starker Ueberdosierung
+      - Salzkrusten auf der Substrat-Oberflaeche
+
+      Abgrenzung: Die Symptome ueberlappen stark mit echtem Ca/Mg-Mangel. Diagnose-
+      Schluessel: Wenn Ca/Mg-Supplementierung nicht hilft und EC hoch ist (>2,0 mS/cm),
+      liegt wahrscheinlich PK-Ueberschuss vor, der Ca/Mg blockiert.
+
+      Sofortmassnahmen:
+      1) PK-Boost sofort stoppen
+      2) EC der Naehrloesung um 30-40% reduzieren
+      3) In Hydroponik: Reservoirwechsel mit reduzierter EC (nur Basis, kein PK)
+      4) In Kokos/Erde: Flush mit 2-3x Topfvolumen pH-adjustiertem Wasser
+      5) Nach 3-5 Tagen Erholung: Basis-Naehrloesung ohne PK-Boost fuer 1 Woche
+      6) PK-Boost erst wieder einfuehren, wenn Pflanze gesund, bei 25% der vorherigen Dosis
+
+      Langzeitfolge: In der Bluete kann eine PK-Ueberdosierung irreversiblen Ertrags-
+      und Qualitaetsverlust verursachen, da beschaedigte Bluetenteile nicht regenerieren.
+    metadata:
+      phosphorus_excess_sign: dark_leaves_clawing
+      potassium_excess_sign: leaf_tip_burn_with_interveinal_chlorosis
+      ec_reduction: "30-40%"
+      flush_volume: "2-3x_pot_volume"
+      recovery_days: "3-5"
+
+  - id: pk-boost-nicht-fuer-alle
+    title: PK-Boost — Nicht fuer alle Pflanzen noetig
+    content: |
+      PK-Boost ist kein Universalmittel. Viele Pflanzen brauchen keinen zusaetzlichen
+      PK-Boost und reagieren sogar negativ darauf.
+
+      Pflanzen die von PK-Boost profitieren:
+      - Cannabis (alle Sorten): Deutlicher Ertragszuwachs bei korrektem Timing
+      - Tomaten: Groessere, schmackhaftere Fruechte
+      - Paprika und Chili: Mehr und schwaerfere Fruechte
+      - Erdbeeren: Suessere Fruechte, laengere Erntephase
+      - Kuerbisgewaechse: Groessere Fruechte
+
+      Pflanzen die KEINEN PK-Boost brauchen:
+      - Blattgemuese (Salat, Spinat, Mangold): Hoeherer PK foerdert vorzeitige
+        Bluete (Schiessen), was die Ernte ruiniert
+      - Kraeuter (Basilikum, Petersilie, Koriander): Werden durch P/K-Ueberschuss
+        bitter und schiessen schneller
+      - Wurzelgemuese (Moehren, Radieschen): Basis-Duengung reicht
+      - Microgreens und Sprossen: Wachsen zu kurz fuer PK-Boost-Relevanz
+
+      Pflanzen mit reduziertem PK-Bedarf:
+      - Bohnen und Erbsen (Leguminosen): Fixieren eigenen Stickstoff, moderate Basis-
+        Duengung plus leichter PK-Boost (50% Dosis) bei Huelsen-Bildung reicht
+      - Zierpflanzen: Abhaengig von Art. Bluetenpflanzen (Rosen, Dahlien) profitieren,
+        Gruenpflanzen (Farne, Monstera) nicht.
+
+      Generelle Regel: PK-Boost nur fuer Pflanzen, bei denen Blueten oder Fruechte
+      das Ernteziel sind. Bei Blaettern, Wurzeln oder Stengeln als Ernteziel: Kein PK-Boost,
+      stattdessen ausgewogene oder N-betonte Ernaehrung beibehalten.
+    metadata:
+      benefit_crops: [cannabis, tomatoes, peppers, strawberries, squash]
+      avoid_crops: [lettuce, spinach, herbs, microgreens]
+      reduced_dose_crops: [legumes, ornamental_flowers]
+
+  - id: pk-autoflower-timing
+    title: PK-Boost Timing bei Autoflowern
+    content: |
+      Autoflowering Sorten (Selbstblueher) haben einen komprimierten Lebenszyklus
+      von typischerweise 8-12 Wochen gesamt (Saemling bis Ernte). Das PK-Boost-Timing
+      muss entsprechend angepasst werden.
+
+      Autoflower-Lebenszyklus (typisch):
+      - Woche 1-2: Saemling (keine Duengung oder sehr leicht, EC 0,3-0,5)
+      - Woche 3-4: Vegetativ (EC 0,6-1,0, N-betont)
+      - Woche 5: Uebergang / Pre-Flower (Stretch beginnt)
+      - Woche 6-7: Fruehe Bluete (Stretch endet, Blueten bilden sich)
+      - Woche 8-9: Peak-Bluete (maximale Bluetenentwicklung)
+      - Woche 10-11: Spaete Bluete / Reife
+      - Woche 11-12: Flush und Ernte
+
+      PK-Boost-Timing fuer Autoflower:
+      - Woche 6 (nach Stretch): PK-Boost Start bei 25-50% Dosis
+      - Woche 7-8: PK-Boost bei 50-75% Dosis (Peak)
+      - Woche 9: PK-Boost auf 25-50% reduzieren
+      - Woche 10: PK-Boost stoppen
+      - Woche 11-12: Flush
+
+      Besonderheiten bei Autoflowern:
+      - KEIN ueraggressives Feeding: Autoflower haben genetisch bedingt oft kleinere
+        Wurzelsysteme und vertragen weniger EC als photoperiodische Sorten.
+        Maximale EC selten ueber 1,4-1,6 mS/cm.
+      - Kein Stress: Jeder Stress (auch durch Ueberduengung) kostet Ertrag, da keine
+        Moeglichkeit besteht, die vegetative Phase zu verlaengern.
+      - Beobachtung ist alles: Autoflower-Sorten variieren stark in ihrer Bluetedauer.
+        Trichom-Beobachtung (milchig/bernstein) ist zuverlaessiger als Wochen-Zaehlung.
+    metadata:
+      total_lifecycle_weeks: "8-12"
+      pk_start_week: "6"
+      pk_peak_weeks: "7-8"
+      pk_stop_week: "10"
+      max_ec: "1.4-1.6"
+
+  - id: pk-outdoor-timing
+    title: PK-Boost Timing im Freiland
+    content: |
+      Im Freiland folgt die Bluete dem natuerlichen Lichtzyklus und variiert je nach
+      Breitengrad, Sorte und Klima. Das PK-Boost-Timing orientiert sich an der
+      natuerlichen Blueteprogression statt an festen Wochenschemata.
+
+      Cannabis Outdoor (Mitteleuropa, ~50 Grad N):
+      - Blueteinduktion: Ab Mitte/Ende August (ununterbrochene Nachtlaenge >10-12h)
+      - Stretch: Mitte August bis Anfang September (2-3 Wochen)
+      - PK-Boost Start: Anfang September (nach sichtbarem Stretch-Ende)
+      - PK-Boost Peak: Mitte September bis Anfang Oktober
+      - PK-Boost Stop: Mitte Oktober
+      - Ernte: Ende Oktober bis Anfang November (sortenabhaengig)
+
+      Fruchtgemuese Outdoor:
+      - Tomaten: PK-Boost ab Erscheinen der ersten Bluetentrauben, durchgehend
+        bis 2 Wochen vor letzter Ernte. Kalimagnesia (40-60 g/m²) als Top-Dressing
+        alle 3-4 Wochen zusaetzlich zur Fluessigduengung.
+      - Paprika: Ab Fruchtansatz (ca. Juni/Juli) bis September.
+      - Kuerbis: Ab Fruchtansatz bis Reife. Bei Riesenkuerbissen hohe PK-Dosen.
+
+      Organischer PK-Boost im Freiland:
+      - Beinwelljauche: 1:10 verduennt, alle 2 Wochen (kaliumreich)
+      - Knochenmehl: 50-80 g/m² als Top-Dressing zu Bluetebeginn (phosphorreich)
+      - Bat Guano (Phosphor-reich): 30-50 g/m² zu Bluetebeginn
+      - Holzasche: 30-50 g/m² (kaliumreich, pH-erhoehend — Vorsicht bei Kalkboeden)
+      - Bananenschalen-Duenger (getrocknet/gemahlen): 50 g/m², kaliumreich
+
+      Wetter-Anpassung: Bei Kuehlperioden (<15 Grad nachts) PK-Aufnahme reduziert.
+      Blattspray mit PK-Loesung kann bei kuehlen Wurzelzonen die Versorgung unterstuetzen.
+    metadata:
+      cannabis_outdoor_pk_start: early_September
+      cannabis_outdoor_harvest: late_October
+      tomato_pk_start: first_flower_truss
+      bone_meal_g_per_m2: "50-80"
+      comfrey_tea_dilution: "1:10"
+
+  - id: pk-flush-wissenschaft
+    title: Flush vor der Ernte — Wissenschaft und Praxis
+    content: |
+      Der Pre-Harvest-Flush (Spuelung vor der Ernte) nach dem PK-Boost ist ein
+      kontroverses Thema. Hier die Fakten und die praktische Empfehlung.
+
+      Wissenschaftliche Datenlage:
+      - Studie Univ. of Guelph (Danziger & Bernstein, 2020): Cannabis-Pflanzen wurden
+        0, 7 und 14 Tage geflusht. Kein signifikanter Unterschied in Mineralgehalt,
+        THC, Terpen-Profil oder Rauchqualitaet in Blind-Tests. Ertrag war identisch.
+      - Studie zur Tomatenqualitaet: Flushing erhoehte den Zuckergehalt leicht
+        (weniger Wasseraufnahme konzentriert Zucker), aber reduzierte den Gesamtertrag.
+
+      Argumente FUER den Flush:
+      - Subjektive Grower-Erfahrung: Glatterer Rauch, weissere Asche, besserer Geschmack
+      - Schadet nie (wenn kurz genug): 5-7 Tage Flush verursachen keinen Ertragsverlust
+      - Kostenersparnis: Weniger Duenger in den letzten Wochen
+      - Risikominimierung: Verhindert Naehrstoff-Ablagerungen im Endprodukt
+
+      Argumente GEGEN den Flush:
+      - Fehlende wissenschaftliche Evidenz fuer Qualitaetsverbesserung
+      - Ertragsverlust bei zu langem Flush (>2 Wochen)
+      - Stress fuer die Pflanze in einer kritischen Reifephase
+
+      Praktische Empfehlung:
+      - PK-Boost auf jeden Fall 2-3 Wochen vor Ernte stoppen (unbestritten sinnvoll)
+      - Letzte 1-2 Wochen: Basis-Naehrloesung bei 50% EC ODER reines Wasser
+      - Erde: Laengerer Flush sinnvoller als in Hydroponik (Salzpufferung im Boden)
+      - Hydroponik: 5-7 Tage reichen voellig aus
+      - Keinesfalls laenger als 2 Wochen flushen — die Pflanze baut Chlorophyll
+        und Proteine ab, was Blattgewebe und ggf. Geschmack negativ beeinflusst
+
+      Im Kamerplanter-System wird der Flush als Phase-Transition oder manuell
+      ueber die Watering-Schedule (ScheduleMode) gesteuert. Die ReadinessEngine
+      (REQ-007) beruecksichtigt Trichom-Reife als Ernte-Indikator.
+    metadata:
+      guelph_study_year: "2020"
+      recommended_flush_days_hydro: "5-7"
+      recommended_flush_days_soil: "10-14"
+      max_flush_days: "14"
+      pk_stop_before_harvest_weeks: "2-3"

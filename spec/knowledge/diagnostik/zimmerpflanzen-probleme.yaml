@@ -1,0 +1,111 @@
+---
+title: Haeufige Zimmerpflanzen-Probleme diagnostizieren
+language: de
+category: diagnostik
+tags: [zimmerpflanzen, monstera, ficus, braune-spitzen, luftfeuchtigkeit, leitungswasser, chlor, ueberduengung, zimmerpflege, anfaenger]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative]
+chunks:
+  - id: braune-blattspitzen-zimmerpflanze
+    title: Braune Blattspitzen bei Zimmerpflanzen (Monstera, Calathea, Farn & Co.)
+    content: |
+      Braune, trockene Blattspitzen sind das haeufigste Problem bei
+      Zimmerpflanzen. Die drei wahrscheinlichsten Ursachen:
+      1. Luftfeuchtigkeit zu niedrig (haeufigste Ursache):
+         Zimmerpflanzen aus tropischen Regionen (Monstera, Calathea, Alocasia,
+         Farne, Maranta) brauchen 50-70% Luftfeuchtigkeit. In beheizten
+         Raeumen liegt die RH oft bei 20-35% — viel zu niedrig.
+         Massnahmen:
+         - Luftbefeuchter aufstellen (effektivste Loesung)
+         - Pflanzen gruppieren (erhoehen gegenseitig die Luftfeuchte)
+         - Kieselsteinschale mit Wasser unter den Topf (Verdunstung)
+         - Regelmaessig besprühen hilft kurzfristig, reicht aber nicht aus
+         - NICHT in die Naehe von Heizkoerpern stellen
+      2. Ueberduengung (bei Monstera, Ficus — NICHT bei Calathea):
+         Bei Zimmerpflanzen wie Monstera oder Ficus kann Ueberduengung
+         braune Spitzen verursachen. Bei Calathea ist Ueberduengung
+         hingegen selten die Ursache — hier sind fast immer Wasser-
+         qualitaet und Luftfeuchtigkeit die Hauptfaktoren.
+         Zu viel Duenger fuehrt zu Salzanreicherung im Substrat und
+         verbrennt die Blattspitzen.
+         Massnahmen:
+         - Duenger-Dosierung halbieren (besser zu wenig als zu viel)
+         - Im Winter GAR NICHT duengen (Ruhephase)
+         - Substrat mit klarem Wasser durchspuelen (Flush)
+         - EC unter 1.0 mS/cm halten (bei Zimmerpflanzen)
+      3. Leitungswasser mit Chlor/Kalk/Fluorid:
+         Empfindliche Pflanzen (Calathea, Dracaena, Maranta, Spathiphyllum)
+         reagieren auf Chlor und Fluorid im Leitungswasser mit braunen Spitzen.
+         Calathea ist besonders kalkempfindlich — hartes Leitungswasser mit
+         viel Kalk ist eine der Hauptursachen fuer braune Spitzen bei Calathea.
+         Massnahmen:
+         - Regenwasser verwenden (ideal — weich, kalkfrei, kostenlos)
+         - Oder gefiltertes Wasser / abgekochtes Wasser nutzen
+         - Leitungswasser mindestens 24h offen stehen lassen (Chlor entgast)
+         - Mindestens zimmerwarmes Wasser verwenden (nie kalt)
+         - Bei sehr hartem Wasser: destilliertes Wasser oder RO-Wasser mischen
+      Braune Spitzen koennen NICHT rueckgaengig gemacht werden — abschneiden
+      (knapp vor der braunen Stelle, nicht ins gruene Gewebe). Erfolg zeigt
+      sich an neuen Blaettern ohne braune Spitzen.
+    metadata:
+      type: houseplant_diagnostic
+      common_species: [Monstera, Calathea, Alocasia, Dracaena, Fern]
+      severity_indicator: brown_leaf_tips
+      difficulty: beginner
+
+  - id: zimmerpflanze-gelbe-blaetter
+    title: Gelbe Blaetter bei Zimmerpflanzen
+    content: |
+      Gelbe Blaetter bei Zimmerpflanzen — haeufigste Ursachen:
+      1. Ueberwaesserung (Ursache Nr. 1 fuer Zimmerpflanzen-Tod!):
+         - Substrat ist staendig nass, Untersetzer steht voll Wasser
+         - Blaetter werden gleichmaessig gelb, haengen schlaff
+         - Erde riecht modrig, faulig
+         Loesung: Seltener giessen! Fingerprobe: Erst giessen wenn die
+         oberen 2-3 cm Substrat trocken sind. Wasser im Untersetzer
+         nach 30 Minuten weggiessen.
+      2. Zu wenig Licht:
+         - Pflanze steht weit vom Fenster entfernt
+         - Blaetter werden blass-gelb, duenn, Pflanze wird "langbeinig"
+         Loesung: Naeher ans Fenster ruecken (kein direktes Suedlicht
+         fuer Schattenpflanzen). Pflanzenlicht im Winter.
+      3. Natuerliches Altern:
+         - Einzelne alte, untere Blaetter werden gelb und fallen ab
+         - Obere Blaetter und neues Wachstum sind gesund
+         Das ist NORMAL und kein Grund zur Sorge. Die gelben Blaetter
+         einfach entfernen (abzupfen oder abschneiden) — das sieht
+         nicht nur besser aus, sondern beugt auch Schimmelbildung vor.
+         Nur wenn viele Blaetter gleichzeitig vergilben, liegt ein
+         echtes Problem vor.
+      4. Zugluft/Temperaturschock:
+         - Nach dem Kauf oder Standortwechsel
+         - Pflanze steht im kalten Luftzug (Fenster, Tuer)
+         Loesung: Windgeschuetzten Standort waehlen, keine kalten Zugluft.
+    metadata:
+      type: houseplant_diagnostic
+      severity_indicator: yellow_leaves
+      difficulty: beginner
+
+  - id: zimmerpflanze-blaetter-haengen
+    title: Schlaffe haengende Blaetter bei Zimmerpflanzen
+    content: |
+      Schlaffe Blaetter haben zwei gegensaetzliche Ursachen:
+      1. Zu trocken (Unterwaesserung):
+         - Substrat ist komplett ausgetrocknet, zieht sich vom Topfrand
+         - Blaetter haengen schlaff, sind aber nicht verfaerbt
+         - Topf fuehlt sich federleicht an
+         Loesung: Gruendlich durchgiessen oder Topf 10-15 Min. in Wasser
+         stellen (Tauchen). Pflanze erholt sich innerhalb von Stunden.
+      2. Zu nass (Ueberwaesserung + Wurzelfaeule):
+         - Substrat ist nass/matschig, riecht modrig
+         - Blaetter haengen UND werden gelb/weich
+         - Topf ist schwer (voller Wasser)
+         Loesung: SOFORT aufhoeren zu giessen. Topf aus Uebersetzer nehmen.
+         Bei Faeulnis-Geruch: Umtopfen, matschige Wurzeln abschneiden,
+         frisches, trockenes Substrat verwenden.
+      Unterscheidung: Fingerprobe! Trockenes Substrat → mehr giessen.
+      Nasses Substrat → Wurzelproblem, weniger giessen.
+    metadata:
+      type: houseplant_diagnostic
+      severity_indicator: wilting_leaves
+      difficulty: beginner

@@ -58,6 +58,7 @@ def workflow_detail(browser: WebDriver, base_url: str) -> WorkflowDetailPage:
 class TestTaskNavigation:
     """Navigation between task queue and task detail pages."""
 
+    @pytest.mark.smoke
     def test_queue_to_detail_and_back(
         self,
         task_queue: TaskQueuePage,

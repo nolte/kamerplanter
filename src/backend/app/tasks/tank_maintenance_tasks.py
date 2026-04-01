@@ -96,6 +96,86 @@ def generate_tank_maintenance_tasks() -> dict:
     return {"created": created_count, "skipped": skipped_count}
 
 
+@celery_app.task(name="app.tasks.tank_maintenance_tasks.sync_tank_states_from_ha")
+def sync_tank_states_from_ha() -> dict:
+    """Poll HA sensors for all tanks and persist TankState in ArangoDB.
+
+    Runs every 5 minutes. For each tank that has linked sensors with
+    ha_entity_id, queries HA for current values and creates a TankState
+    record. This keeps the alert engine and state history up-to-date.
+    """
+    from datetime import UTC, datetime
+
+    from app.common.dependencies import get_ha_client, get_sensor_repo, get_tank_repo
+    from app.domain.models.tank import TankState
+
+    ha_client = get_ha_client()
+    if ha_client is None:
+        return {"status": "skipped", "reason": "ha_not_configured"}
+
+    sensor_repo = get_sensor_repo()
+    tank_repo = get_tank_repo()
+
+    tanks, _total = tank_repo.get_all(offset=0, limit=1000)
+    updated = 0
+    skipped = 0
+    errors: list[dict] = []
+
+    for tank in tanks:
+        if not tank.key:
+            continue
+
+        sensors = sensor_repo.find_by_tank(tank.key)
+        if not sensors:
+            skipped += 1
+            continue
+
+        # Only process sensors with HA entity IDs
+        ha_sensors = [s for s in sensors if s.ha_entity_id]
+        if not ha_sensors:
+            skipped += 1
+            continue
+
+        now = datetime.now(tz=UTC)
+        values: dict[str, float] = {}
+
+        for sensor in ha_sensors:
+            try:
+                result = ha_client.get_state(sensor.ha_entity_id)  # type: ignore[arg-type]
+                if result and result["value"] is not None:
+                    values[sensor.metric_type] = result["value"]
+            except Exception as exc:
+                errors.append({"tank_key": tank.key, "entity_id": sensor.ha_entity_id, "error": str(exc)})
+
+        if not values:
+            continue
+
+        state = TankState(
+            tank_key=tank.key,
+            recorded_at=now,
+            ph=values.get("ph"),
+            ec_ms=values.get("ec_ms"),
+            water_temp_celsius=values.get("water_temp_celsius"),
+            tds_ppm=values.get("tds_ppm"),
+            dissolved_oxygen_mgl=values.get("dissolved_oxygen_mgl"),
+            orp_mv=int(values["orp_mv"]) if "orp_mv" in values else None,
+            fill_level_liters=values.get("fill_level_liters"),
+            fill_level_percent=values.get("fill_level_percent"),
+            source="ha_auto",
+        )
+        tank_repo.create_state(state)
+        updated += 1
+        logger.debug("tank_state_synced", tank_key=tank.key, values=list(values.keys()))
+
+    logger.info(
+        "tank_state_sync_completed",
+        tanks_updated=updated,
+        tanks_skipped=skipped,
+        errors=len(errors),
+    )
+    return {"updated": updated, "skipped": skipped, "errors": len(errors)}
+
+
 @celery_app.task(name="app.tasks.tank_maintenance_tasks.check_tank_alerts")
 def check_tank_alerts() -> dict:
     """Hourly check of all tanks for alert conditions.

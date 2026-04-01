@@ -48,6 +48,7 @@ Documentation is written in **German**; source code must be in **English only** 
 | REQ-025 | Datenschutz & Betroffenenrechte (DSGVO) | Plattform & Datenschutz |
 | REQ-027 | Light-Modus (Anonymer Zugang) | Plattform & Deployment |
 | REQ-028 | Mischkultur & Companion Planting | Pflanzenplanung |
+| REQ-032 | Druckansichten & Export | Ausgabe & Dokumentation |
 
 ## Verbindliche Style Guides
 

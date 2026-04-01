@@ -1,0 +1,309 @@
+---
+title: Growzelt-Klimasteuerung — Geraete richtig einstellen
+language: de
+category: umwelt
+tags: [growzelt, klima, entfeuchter, abluft, ventilator, heizung, klimaanlage, vpd-regelung, temperatur, luftfeuchtigkeit, setup]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering]
+chunks:
+  - id: zelt-klima-ueberblick
+    title: Klimasteuerung im Growzelt — die 4 Stellschrauben
+    content: |
+      Im Growzelt steuert man das Klima ueber vier Geraete-Gruppen:
+      1. ABLUFT (Inline-Luefter + Aktivkohlefilter): Transportiert warme,
+         feuchte, verbrauchte Luft nach draussen. Hauptwerkzeug fuer
+         Temperatur- UND Feuchtigkeits-Senkung. Erzeugt Unterdruck.
+      2. UMLUFT (Clip-/Schwenk-Ventilatoren): Verteilt Luft gleichmaessig
+         im Zelt. Verhindert Hotspots, Schimmel, CO2-Grenzschicht.
+         Staerkt Stengel durch mechanischen Reiz.
+      3. ENTFEUCHTER: Senkt die Luftfeuchtigkeit aktiv. Unverzichtbar in
+         der spaeten Bluete wenn dichte Buds Feuchtigkeit einschliessen
+         und Botrytis-Risiko steigt. Produziert Abwaerme (erhoht Temperatur leicht).
+      4. BEFEUCHTER (Ultraschall/Verdunster): Erhoht die Luftfeuchtigkeit.
+         Hauptsaechlich fuer Saemlings-/Stecklingsphase und trockene
+         Wintermonate. Nicht noetig wenn Pflanzen gross genug sind
+         (grosse Pflanzen erhohen RH durch Transpiration selbst).
+      Zusaetzlich: Heizung (Winter), Klimaanlage/Split (Sommer),
+      CO2-Flasche (fortgeschritten).
+      Kamerplanter-Relevanz: REQ-018 (Umgebungssteuerung & Aktorik) steuert
+      diese Geraete ueber Home Assistant / MQTT. Regeln mit Hysterese
+      verhindern staendiges Ein/Aus-Schalten (Oszillation).
+    metadata:
+      topic: climate_control_overview
+      devices: [exhaust_fan, oscillating_fan, dehumidifier, humidifier]
+
+  - id: vpd-zu-hoch-massnahmen
+    title: "VPD zu hoch — Luft ist zu trocken"
+    content: |
+      Warnschwelle: VPD ueber 1.2 kPa (Vegetativ, Optimum verlassen) oder
+      ueber 1.4 kPa (Bluete). Kritisch: VPD ueber 1.5 kPa (Vegetativ) oder
+      ueber 1.6 kPa (Bluete) — Pflanze schliesst Stomata, Photosynthese
+      stoppt, Blaetter rollen sich, Blattspitzen werden braun/knusprig.
+      Ursache: Luft zu trocken (RH zu niedrig) und/oder Temperatur zu hoch.
+      Massnahmen in Reihenfolge:
+      1. BEFEUCHTER einschalten oder Stufe erhoehen
+         → Direkteste Methode um RH zu erhoehen und VPD zu senken
+      2. ABLUFT-Drehzahl REDUZIEREN (Dimmer/Stufenregler)
+         → Weniger Luftaustausch = feuchte Luft bleibt laenger im Zelt
+         → Achtung: Temperatur kann steigen wenn weniger gekuehlt wird
+      3. Licht DIMMEN oder Abstand erhoehen
+         → Weniger Strahlungswaerme = niedrigere Blatttemperatur = niedrigerer VPD
+         → Trade-off: Weniger Licht = weniger Wachstum
+      4. Nasse Handtuecher ins Zelt haengen (Notloesung)
+         → Verdunstungsflaeche erhoht RH um 5-10% in kleinen Zelten
+      5. Pflanzen gruppieren (mehrere Pflanzen transpirieren mehr)
+      NICHT: Pflanzen bespruehen als VPD-Loesung — Effekt haelt nur Minuten,
+      nasse Blaetter unter Licht = Verbrennungsgefahr, Schimmelrisiko.
+    metadata:
+      topic: vpd_too_high
+      target_action: increase_humidity_or_decrease_temperature
+      devices: [humidifier, exhaust_fan, light_dimmer]
+
+  - id: vpd-zu-niedrig-massnahmen
+    title: "VPD zu niedrig — Luft ist zu feucht"
+    content: |
+      Symptom: VPD unter 0.6 kPa (Vegetativ) oder unter 0.8 kPa (Bluete).
+      Pflanze transpiriert kaum, Naehrstofftransport stockt, Wachstum
+      verlangsamt sich, Schimmelrisiko steigt massiv.
+      Ursache: Luft zu feucht (RH zu hoch) und/oder Temperatur zu niedrig.
+      Massnahmen in Reihenfolge:
+      1. ENTFEUCHTER einschalten oder Stufe erhoehen
+         → Direkteste Methode um RH zu senken und VPD zu erhoehen
+         → Nebeneffekt: Entfeuchter produziert Abwaerme (+1-3°C) was VPD
+           zusaetzlich erhoht (doppelter Effekt, positiv)
+      2. ABLUFT-Drehzahl ERHOEHEN
+         → Mehr Luftaustausch bringt trockenere Aussenluft herein
+         → ABER: Nur effektiv wenn Aussenluft trockener als Zeltluft ist!
+           Im Sommer bei schwueler Aussenluft wirkungslos.
+         → Abluft kuehlt auch → kann VPD senken statt erhoehen (Gegeneffekt!)
+      3. HEIZUNG einschalten (leicht, +2-3°C)
+         → Erhoehte Lufttemperatur steigert Saettigungsdampfdruck (SVP);
+           bei gleicher absoluter Feuchte faellt die relative Feuchte → VPD steigt
+         → Besonders nachts wirksam wenn Temperatur abfaellt
+      4. BEFEUCHTER ausschalten (offensichtlich, aber wird vergessen)
+      5. Bewaesserung reduzieren / nicht vor Nachtphase giessen
+         → Weniger Verdunstung aus dem Substrat
+      Kritisch in der spaeten Bluete: VPD unter 0.8 kPa + dichte Buds
+      = Botrytis-Garantie. Entfeuchter ist hier PFLICHT, nicht optional.
+    metadata:
+      topic: vpd_too_low
+      target_action: decrease_humidity_or_increase_temperature
+      devices: [dehumidifier, exhaust_fan, heater]
+
+  - id: temperatur-zu-hoch-massnahmen
+    title: "Temperatur ueber 30°C — Hitzestress verhindern"
+    content: |
+      Symptom: Blaetter rollen sich, welken trotz feuchtem Substrat,
+      Blueten fallen ab (Tomate), Foxtailing (Cannabis), Wachstumsstopp.
+      Massnahmen in Reihenfolge (vom Einfachsten zum Aufwaendigsten):
+      1. LICHT DIMMEN (schnellste Massnahme)
+         → 10-20% Dimmen reduziert Temperatur um 2-4°C
+         → Temporaer akzeptabel, nicht als Dauerloesung
+      2. ABLUFT auf Maximum
+         → Maximaler Luftaustausch transportiert Waerme ab
+         → Nur effektiv wenn Aussenluft kuehler als Zeltluft
+      3. Lichtphase in die NACHT verlegen
+         → Lampen laufen nachts (kuehler), Dunkelphase tags
+         → Reduziert Spitzentemperatur um 3-8°C im Sommer
+         → Bei Cannabis 12/12: Licht z.B. 20:00-08:00 statt 08:00-20:00
+      4. KLIMAANLAGE / Split-Geraet
+         → Einzige Loesung wenn Aussentemperatur ebenfalls hoch ist
+         → Teuer aber effektiv. Split-Geraet kuehlt ohne CO2 zu entfernen.
+      5. CO2-Supplementation erlaubt hoehere Temperaturen
+         → Bei 1200 ppm CO2 tolerieren Pflanzen bis 30-32°C
+         → Nur in Kombination mit genuegend Licht (>800 PPFD) sinnvoll
+      NICHT: Eiswuerfel ins Zelt (Kondenswasser, Schimmel, kurzlebig).
+      NICHT: Zelttuer offen lassen (Unterdruck weg, Geruch, Lichtleck).
+    metadata:
+      topic: temperature_too_high
+      threshold_celsius: 30
+      devices: [light_dimmer, exhaust_fan, air_conditioner]
+
+  - id: temperatur-zu-niedrig-massnahmen
+    title: "Temperatur unter 18°C — Kaeltestress verhindern"
+    content: |
+      Symptom: Violette Stiele/Blaetter (P-Lockout), Wachstumsstopp,
+      Wurzelprobleme (Pythium bei kaltem nassem Substrat), Samen keimen nicht.
+      Besonders kritisch: Nachts und im Winter.
+      Massnahmen in Reihenfolge:
+      1. HEIZUNG im Zelt (Oelradiator oder Heizluefter)
+         → Oelradiator: Gleichmaessige Waerme, kein Geblase, sicher
+         → Heizluefter: Schnell, aber trocknet Luft aus (RH sinkt).
+           ACHTUNG BRANDGEFAHR: Heizluefter NICHT unbeaufsichtigt im Zelt
+           betreiben — Heizwendel erreicht 80-150°C, Zeltmaterial (Nylon/Oxford)
+           ist entflammbar! Oelradiator ist die sichere Wahl fuer Dauerbetrieb.
+         → Thermostat-gesteuert auf 20-22°C einstellen
+         → NICHT direkt auf Pflanzen richten
+      2. ABLUFT-Drehzahl REDUZIEREN oder Timer-Betrieb
+         → Weniger kalte Aussenluft = waermeres Zelt
+         → Intervall-Betrieb: 15 Min an, 15 Min aus
+         → Achtung: CO2 und Feuchtigkeit steigen bei weniger Abluft
+      3. HEIZMATTE unter Toepfe (besonders fuer Saemling/Stecklinge)
+         → Wurzelzone auf 24-28°C waehrend Keimung
+         → Auf 20-22°C waehrend Vegetativ/Bluete
+         → Thermostat obligatorisch (Ueberhitzung moeglich!)
+      4. Lampen-Abwaerme NUTZEN
+         → HPS erzeugt viel Abwaerme → im Winter vorteilhaft
+         → LED erzeugt weniger Waerme → Heizung eher noetig
+      5. Zelt ISOLIEREN (Thermovorhang, Styropor unter dem Zelt)
+         → Reduziert Waermeverlust an kalten Kellerboden/-waende
+    metadata:
+      topic: temperature_too_low
+      threshold_celsius: 18
+      devices: [heater, heat_mat, exhaust_fan]
+
+  - id: nacht-klimamanagement
+    title: "Nachtphase — die kritischste Zeit im Zelt"
+    content: |
+      Nachts ist das Klima im Zelt am schwierigsten zu kontrollieren:
+      - Temperatur sinkt (kein Licht/Lampenwaerme)
+      - RH steigt stark (kuehle Luft haelt weniger Feuchtigkeit absolut,
+        aber die relative Feuchtigkeit steigt → Tau/Kondenswasser)
+      - Stomata geschlossen → keine Transpiration → kein CO2-Verbrauch
+      - Kondenswasser auf Blaettern und Blueten → Botrytis-Hauptrisiko
+      Geraete-Einstellungen fuer die Nacht:
+      ENTFEUCHTER: Laeuft die GESAMTE Nacht. Timer so einstellen dass er
+      30 Min VOR Licht-Aus startet und 30 Min NACH Licht-An stoppt.
+      Idealerweise hygrostat-gesteuert auf Ziel-RH (z.B. <55% in Bluete).
+      ABLUFT: Auf niedrige Stufe oder Intervall-Betrieb (5 Min an / 10 Min aus).
+      Komplettes Abschalten riskant (Feuchtigkeit staut sich).
+      UMLUFT: Auf niedrigste Stufe. NICHT ausschalten — Luftbewegung
+      verhindert Kondenswasser auf Blattoberflaechen. Sanftes Wogen reicht.
+      HEIZUNG: Leichte Nacht-Heizung (+2-3°C ueber Minimum) ist die
+      effektivste Massnahme gegen naechtlichen RH-Anstieg. Haelt RH
+      niedriger als Entfeuchter allein.
+      Ziel: Nacht-VPD nicht unter 0.6 kPa.
+      DIF phasenabhaengig: Vegetativ/fruehe Bluete max 6-8°C,
+      spaete Bluete max 2-4°C (kompakte Buds, weniger Stretch).
+    metadata:
+      topic: night_climate
+      critical_risk: condensation_botrytis
+      devices: [dehumidifier, exhaust_fan, heater, oscillating_fan]
+
+  - id: geraete-nach-phase
+    title: Geraete-Einstellungen nach Wachstumsphase
+    content: |
+      SAEMLING / STECKLING (Woche 1-2):
+      - Humidity Dome oder Befeuchter: RH 70-80%
+      - Abluft: Minimal oder aus (Dome haelt Feuchtigkeit)
+      - Umluft: Sehr sanft oder aus unter Dome
+      - Entfeuchter: Aus
+      - Temperatur: 24-28°C (Heizmatte unter Propagator)
+      - VPD-Ziel: 0.4-0.8 kPa
+      VEGETATIV (Woche 3-8):
+      - Befeuchter: Nur wenn RH unter 50% faellt
+      - Abluft: Mittlere Stufe, Unterdruck sichtbar (Waende leicht eingezogen)
+      - Umluft: 1-2 Ventilatoren, sanftes Blattwogen
+      - Entfeuchter: Nur bei RH >65%
+      - Temperatur: 22-28°C
+      - VPD-Ziel: 0.8-1.2 kPa
+      FRUEHE BLUETE / STRETCH (Woche 1-3 Bluete):
+      - Befeuchter: Normalerweise aus (Pflanzen transpirieren genug)
+      - Abluft: Mittlere bis hohe Stufe
+      - Umluft: 2 Ventilatoren, einer auf Canopy-Hoehe
+      - Entfeuchter: Ab RH >60% einschalten
+      - Temperatur: 22-26°C
+      - VPD-Ziel: 1.0-1.4 kPa
+      SPAETE BLUETE (Woche 4-8+ Bluete):
+      - Befeuchter: AUS (definitiv!)
+      - Abluft: Hohe Stufe (maximaler Luftaustausch)
+      - Umluft: Maximum, aber NICHT direkt auf Blueten
+      - Entfeuchter: PFLICHT, Dauerbetrieb, Ziel RH <55%
+      - Temperatur: 20-24°C Tag, 18-20°C Nacht
+      - VPD-Ziel: 1.2-1.6 kPa (Schimmel-Praevention)
+    metadata:
+      topic: device_settings_per_phase
+      phases: [seedling, vegetative, early_flower, late_flower]
+
+  - id: typische-zelt-setups
+    title: Typische Growzelt-Setups und Geraete-Dimensionierung
+    content: |
+      KLEINES ZELT (60×60×160 cm, ~0.58 m³):
+      - 1-2 Pflanzen, 100-250W LED
+      - Abluft: 100 m³/h Inline-Luefter (z.B. 100mm) + Aktivkohlefilter
+      - Umluft: 1× kleiner Clip-Ventilator
+      - Entfeuchter: Kleiner Peltier-Entfeuchter (300-500ml/Tag) oder
+        Raumentfeuchter im selben Raum
+      - Befeuchter: Kleiner USB-Befeuchter oder Schale mit Wasser
+      MITTLERES ZELT (120×120×200 cm, ~2.88 m³):
+      - 4-6 Pflanzen, 400-600W LED
+      - Abluft: 300-400 m³/h Inline-Luefter (150mm) + Aktivkohlefilter
+      - Umluft: 2× oszillierende Clip-Ventilatoren (oben + unten)
+      - Entfeuchter: Kompressor-Entfeuchter 10-20 L/Tag
+      - Befeuchter: Ultraschall-Befeuchter 3-5 L Kapazitaet
+      - Optional: Heizung (500-1000W Oelradiator) im Winter
+      GROSSES ZELT (240×120×200 cm, ~5.76 m³):
+      - 8-12 Pflanzen, 800-1200W LED
+      - Abluft: 600-800 m³/h Inline-Luefter (200mm) + Aktivkohlefilter
+      - Umluft: 2-3 oszillierende Ventilatoren + 1 Bodenventilator
+      - Entfeuchter: Kompressor-Entfeuchter 20-30 L/Tag
+      - Befeuchter: Ultraschall 5-8 L oder industrieller Nebler
+      - Klimaanlage: Split-Geraet empfohlen im Sommer
+      Faustformel Abluft: Raumvolumen × 60 = m³/h Minimum (HPS-Beleuchtung).
+      Bei LED: Faktor 30-40 reicht oft (weniger Abwaerme).
+      Bei Aktivkohlefilter: +20% Leistungsreserve (Filter bremst Luftstrom).
+      Pro 90°-Bogen im Abluftkanal: -10-15% Leistung einrechnen.
+    metadata:
+      topic: tent_setups
+      sizes: [60x60, 120x120, 240x120]
+
+  - id: controller-automatisierung
+    title: Klimasteuerung automatisieren — Controller und Smart Home
+    content: |
+      Manuelle Klimakontrolle funktioniert, ist aber fehleranfaellig
+      (vergessen Entfeuchter nachts einzuschalten, Abluft zu hoch bei CO2).
+      Automatisierungsstufen:
+      STUFE 1 — Zeitschaltuhren (Anfaenger):
+      - Licht: Timer (12/12 oder 18/6) — Minimum
+      - Abluft: Timer (Intervall nachts: 5 Min an, 10 Min aus)
+      - Entfeuchter: Eingebauter Hygrostat (Ziel-RH einstellen)
+      - Kosten: ~30-50€
+      STUFE 2 — Klimacontroller (Fortgeschritten):
+      - Inkbird ITC-608T oder aehnlich: Temperatur + RH in einem Geraet
+      - Steuert Heizung und Kuehlung per Thermostat
+      - Steuert Be-/Entfeuchtung per Hygrostat
+      - Hysterese einstellbar (z.B. ±1°C, ±3% RH) — verhindert schnelles
+        Ein/Aus-Schalten
+      - Kosten: ~50-100€
+      STUFE 3 — VPD-Controller / Smart Home (Expert):
+      - Pulse Pro, TrolMaster, oder Home Assistant + Sensoren
+      - Berechnet VPD aus Temperatur + RH und steuert Geraete auf Ziel-VPD
+      - Kamerplanter + Home Assistant Integration (REQ-018):
+        Sensor→Kamerplanter→Regel→HA→Aktor (Entfeuchter, Luefter, Heizung)
+      - Prioritaetssystem: Manuell > Sicherheit > Sensor-Regeln > Zeitplaene
+      - Graceful Degradation: Bei HA-Ausfall → Fallback auf Celery-Tasks
+      - Kosten: ~200-500€ (Controller) oder DIY mit HA (~100-200€ Sensoren)
+    metadata:
+      topic: automation_levels
+      levels: [timer, climate_controller, smart_home]
+      kamerplanter_feature: REQ-018
+
+  - id: fehlerdiagnose-checkliste
+    title: "Klima stimmt nicht — systematische Fehlersuche"
+    content: |
+      Wenn das Klima trotz laufender Geraete nicht stimmt:
+      TEMPERATUR ZU HOCH TROTZ ABLUFT AUF MAXIMUM:
+      - Aussentemperatur pruefen: Wenn draussen >30°C hilft Abluft nicht
+      - Lampe zu nah oder zu hell? PPFD messen, ggf. dimmen
+      - Abluft-Kanal: Ist der Schlauch geknickt oder zu lang? (Leistungsverlust!)
+      - Aktivkohlefilter verstopft? (Alter >18 Monate → Widerstand steigt)
+      - Zelt in direkter Sonne oder neben Heizung?
+      FEUCHTIGKEIT ZU HOCH TROTZ ENTFEUCHTER:
+      - Entfeuchter-Kapazitaet zu klein? (Faustregel: min. 10 L/Tag pro 3 m³)
+      - Wassertank des Entfeuchters voll? (Geraet schaltet ab!)
+      - Substrat zu nass? (Erde/Coco verdunsten staendig Wasser ins Zelt)
+      - Zu viele grosse Pflanzen? (Transpiration erhoht RH massiv)
+      - Abluft GLEICHZEITIG mit Entfeuchter laeuft → entfeuchtet nur
+        um sofort feuchte Aussenluft nachzuziehen. Loesung: Entfeuchter
+        im Umluft-Modus (Abluft reduzieren waehrend Entfeuchter laeuft)
+      TEMPERATUR SCHWANKT STARK (>8°C Tag/Nacht):
+      - Heizung fuer Nacht mit Thermostat nachrüsten
+      - Zelt isolieren (Unterlage, Thermovorhang)
+      - Kleinere DIF anstreben (positiver Effekt auf Pflanzengesundheit)
+      SENSOR-PROBLEM AUSSCHLIESSEN:
+      - Sensor auf Canopy-Hoehe? (Nicht am Boden, nicht an der Wand)
+      - Sensor kalibriert? (RH-Sensoren driften nach 6-12 Monaten)
+      - Zweitsensor als Kontrolle verwenden
+    metadata:
+      topic: troubleshooting
+      common_issues: [temp_high, rh_high, temp_swing, sensor_drift]

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Autocomplete from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
@@ -82,10 +82,10 @@ export default function SubstrateSelectField<T extends FieldValues>({
   const useEntities = substrates.length > 0;
   const allOptions: SubstrateOption[] = useEntities ? substrates : typeOnlyFallbacks;
 
-  const displayName = (s: SubstrateOption) => {
+  const displayName = useCallback((s: SubstrateOption) => {
     if (isTypeOnly(s)) return t(`enums.substrateType.${s.type}`);
     return (isDE ? s.name_de : s.name_en) || s.brand || t(`enums.substrateType.${s.type}`);
-  };
+  }, [isDE, t]);
 
   const sortedOptions = useMemo(() => {
     const filtered = favFilterActive && hasFavorites
@@ -97,7 +97,7 @@ export default function SubstrateSelectField<T extends FieldValues>({
       if (aFav !== bFav) return aFav - bFav;
       return displayName(a).localeCompare(displayName(b));
     });
-  }, [allOptions, favFilterActive, hasFavorites, isFavorite]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allOptions, favFilterActive, hasFavorites, isFavorite, displayName]);
 
   return (
     <Controller

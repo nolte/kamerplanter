@@ -175,14 +175,39 @@ Skaffold richtet folgende Port-Forwardings ein:
 | ArangoDB | 8529 | 8529 |
 | Home Assistant | 8123 | 8123 |
 
-### Skaffold-Profile
+### Skaffold-Profile und -Module
 
-| Profil | Verwendung |
-|--------|-----------|
-| (default) | Backend + Frontend |
-| `backend-only` | Nur Backend, kein Frontend-Image-Build |
-| `frontend-only` | Nur Frontend, kein Backend-Image-Build |
-| `debug` | Backend mit debugpy (Remote-Debugging Port 5678) |
+Die `skaffold.yaml` enthält zwei Konfigurationen: die Hauptkonfiguration (Backend + Frontend) mit Profilen und ein separates **KI-Modul** fuer den Knowledge/AI-Stack.
+
+| Profil / Modul | Befehl | Komponenten |
+|----------------|--------|-------------|
+| (default) | `skaffold dev` | Backend + Frontend |
+| `backend-only` | `skaffold dev -p backend-only` | Nur Backend, kein Frontend-Image-Build |
+| `frontend-only` | `skaffold dev -p frontend-only` | Nur Frontend, kein Backend-Image-Build |
+| `debug` | `skaffold debug` | Backend mit debugpy (Remote-Debugging Port 5678) |
+| **`ki`** (Modul) | `skaffold dev -m ki` | Knowledge-Service, Embedding-Service, VectorDB (TimescaleDB + pgvector) |
+
+#### KI-Modul
+
+Das KI-Modul (`-m ki`) ist eine eigenstaendige Skaffold-Konfiguration im selben `skaffold.yaml`. Es deployt den RAG/AI-Stack unabhaengig von der Hauptapplikation:
+
+- **Knowledge-Service** — RAG-API mit Wissensbasis-Ingestion (Port `8090`)
+- **Embedding-Service** — Vektor-Embedding via ONNX (Port `8080`)
+- **VectorDB** — TimescaleDB mit pgvector-Extension (Port `5433`)
+
+```bash
+# Hauptapp + KI-Stack gleichzeitig starten
+skaffold dev -m kamerplanter,ki --port-forward
+
+# Nur KI-Stack (z.B. fuer RAG-Entwicklung)
+skaffold dev -m ki --port-forward
+```
+
+| Dienst | Cluster-Port | Lokaler Port |
+|--------|-------------|-------------|
+| VectorDB (TimescaleDB) | 5432 | 5433 |
+| Knowledge-Service | 8000 | 8090 |
+| Embedding-Service | 8080 | 8080 |
 
 !!! warning "Skaffold ist der einzige Entwicklungsworkflow"
     Kein manuelles `docker build`, `docker push` oder `kubectl apply`. Skaffold übernimmt alles. Direktes `kubectl`-Patching von Deployments wird beim nächsten `skaffold dev`-Lauf überschrieben.

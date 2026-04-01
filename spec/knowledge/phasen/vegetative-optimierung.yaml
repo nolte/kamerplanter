@@ -1,0 +1,145 @@
+---
+title: Vegetative Phase optimieren
+language: de
+category: phasen
+tags: [vegetativ, training, lst, topping, scrog, defoliation, transplanting, wachstum, internodien]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [vegetative]
+chunks:
+  - id: veg-ziele
+    title: Ziele der vegetativen Phase
+    content: |
+      Die vegetative Phase legt das Fundament fuer die gesamte Ernte:
+      Primaere Ziele:
+      1. Starkes Wurzelsystem: Je groesser und gesuender die Wurzeln,
+         desto mehr Naehrstoffe und Wasser kann die Pflanze aufnehmen
+      2. Kraeftiger Hauptstamm: Traegt spaeter schwere Blueten/Fruechte
+      3. Viele Seitentriebe: Mehr Triebspitzen = mehr Blueten-/Frucht-Ansaetze
+      4. Gesunde Blattmasse: Blaetter sind Photosynthese-Fabriken
+      5. Kompakte Struktur: Gleichmaessiges Canopy = gleichmaessige Lichtverteilung
+      Umgebung in der vegetativen Phase:
+      - Licht: 18/6 Indoor (fuer photoperiodische Pflanzen), 400-600 PPFD
+      - Temperatur: 22-28°C Tag, 18-22°C Nacht
+      - VPD: 0.8-1.2 kPa
+      - EC: 0.8-1.4 mS/cm (steigend mit Pflanzengroesse)
+      - Naehrstoffe: N-betont (Verhaeltnis ca. 3-1-2 NPK)
+      Dauer: Indoor flexibel (4-12 Wochen je nach Methode und Ziel).
+      Outdoor: Durch Jahreszeit bestimmt (Fruehjahr bis Sommersonnenwende).
+      Autoflower: Vegetative Phase nur 2-4 Wochen (keine Kontrolle moeglich).
+    metadata:
+      topic: vegetative_goals
+      light_schedule: "18/6"
+      ppfd: [400, 600]
+
+  - id: training-lst
+    title: LST — Low Stress Training
+    content: |
+      LST ist die sicherste Trainingsmethode (fuer alle Erfahrungsstufen):
+      Prinzip: Triebe sanft nach unten biegen und fixieren, um ein
+      gleichmaessiges, flaches Canopy zu erzeugen. Alle Triebspitzen
+      erhalten gleich viel Licht.
+      Methode:
+      1. Weichen, beschichteten Draht oder Pflanzenbinder verwenden
+         (kein duenner Draht — schneidet in Stengel!)
+      2. Haupttrieb sanft zur Seite biegen (45-90°), am Topfrand fixieren
+      3. Seitentriebe ebenso in verschiedene Richtungen leiten
+      4. Alle 2-3 Tage anpassen (Triebe wachsen zurueck nach oben)
+      5. Ziel: Alle Triebspitzen auf gleicher Hoehe
+      Vorteile:
+      - Kein Stress, keine Erholungszeit
+      - Geeignet fuer Autoflower (kein Wachstumsstop!)
+      - Mehr Lichtpenetration → mehr Ertrag
+      - Bessere Luftzirkulation im Canopy
+      Wann: Ab dem 3.-4. Nodenpaar, waehrend der gesamten vegetativen Phase.
+      In der Bluete nur noch leichte Anpassungen (Triebe werden verholzt).
+      Kamerplanter: Training als Aufgabe im Workflow-System (REQ-006),
+      LST wird nicht durch HST-Validator blockiert (REQ-006).
+    metadata:
+      topic: low_stress_training
+      difficulty: beginner
+      recovery_days: 0
+
+  - id: training-topping-fim
+    title: Topping und FIM — Verzweigung erzwingen
+    content: |
+      Topping (Kappen):
+      - Haupttrieb ueber dem 4.-5. Nodenpaar abschneiden (sterile Schere!)
+      - Aus den beiden darunter liegenden Seitenaugen wachsen zwei neue
+        Haupttriebe → Pflanze wird buschiger
+      - Erholungszeit: 3-7 Tage (kein Wachstum waehrend Heilung)
+      - Kann wiederholt werden (jedes Topping verdoppelt die Spitzen)
+      - 2× Topping = 4 Haupttriebe, 3× = 8 Haupttriebe
+      FIM (Fuck I Missed / Pinching):
+      - 80% der neuen Wachstumsspitze abkneifen (statt sauber schneiden)
+      - Ungenauerer Schnitt erzeugt 3-8 neue Triebspitzen (mehr als Topping)
+      - Erholungszeit: 3-5 Tage
+      - Unberechenbarer als Topping (manchmal nur 2 Triebe)
+      Wichtige Regeln:
+      - NUR in der vegetativen Phase! HST-Validator in Kamerplanter
+        blockiert Topping/FIM in der Bluete (REQ-006)
+      - Pflanze muss mindestens 4-5 Nodenpaare haben (genug Reserven)
+      - Nicht auf gestresste oder kranke Pflanzen anwenden
+      - NICHT bei Autoflowern empfohlen (zu kurze Veg-Phase fuer Erholung)
+      - Werkzeug desinfizieren (Isopropanol 70%)
+    metadata:
+      topic: topping_fim
+      difficulty: intermediate
+      recovery_days: [3, 7]
+      phase_restriction: vegetative_only
+
+  - id: training-scrog
+    title: SCROG — Screen of Green
+    content: |
+      SCROG nutzt ein horizontales Netz/Gitter ueber den Pflanzen:
+      Aufbau:
+      - Netz mit 5-10cm Maschenweite auf 30-40cm Hoehe ueber Substrat
+      - Material: Garten-Rankgitter, Drahtgitter, Nylonnetz
+      - Hoehe anpassen: Netz sollte 15-20cm unter der Lampe-Unterkante sein
+        (nach Stretch-Phase)
+      Methode:
+      1. Pflanzen wachsen durch das Netz nach oben
+      2. Triebe die ueber das Netz wachsen werden sanft unter das Netz
+         zurueckgebogen und durch die naechste Masche gefuehrt
+      3. Wiederholen bis ~70% der Netzflaeche gefuellt ist
+      4. Auf Bluete umschalten (12/12)
+      5. Waehrend Stretch: Letzte Triebe einflechten
+      6. Ab Woche 2-3 Bluete: Nicht mehr einflechten (Triebe verholzt)
+      Vorteile:
+      - Perfekt gleichmaessiges Canopy → maximale Lichtnutzung
+      - Jeder Trieb bekommt gleich viel Licht
+      - Ertraegsteigerung 20-40% gegenueber untrainierter Pflanze
+      - Ideal fuer kleine Growzelte (1-4 Pflanzen fuellen den Raum)
+      Kombination: Topping (4-8 Haupttriebe erzeugen) + SCROG
+      (gleichmaessig verteilen) = Optimum.
+    metadata:
+      topic: scrog
+      difficulty: intermediate
+      mesh_size_cm: [5, 10]
+
+  - id: umtopfen
+    title: Umtopfen — Wann und wie richtig
+    content: |
+      Wann umtopfen:
+      - Wurzeln wachsen aus Drainage-Loechern
+      - Pflanze trocknet innerhalb von 1-2 Tagen komplett aus
+      - Wachstum stagniert trotz guter Pflege
+      - Wurzelballen beim Austopfen: dicht, kreisend, kaum Substrat sichtbar
+      Wie umtopfen:
+      1. Neuen Topf waehlen: Max. 2-3cm groesserer DURCHMESSER
+         (nicht doppelt so gross! Zu viel nasses Substrat = Wurzelfaeule)
+      2. Frisches Substrat vorbereiten (anfeuchten, nicht nass)
+      3. Pflanze 1-2h vor dem Umtopfen giessen (Wurzelballen haelt zusammen)
+      4. Pflanze vorsichtig aus altem Topf loesen (umdrehen, klopfen)
+      5. Wurzelballen leicht auflockern (Finger oder Gabel an der Aussenseite)
+      6. Ringwurzeln aufbrechen oder abschneiden
+      7. In neuen Topf setzen: Stengelbasis 1-2cm unter Topfrand
+      8. Substrat auffuellen, leicht andruecken (nicht verdichten!)
+      9. Anguss: Einmal gruendlich durchgiessen
+      10. 3-5 Tage nicht duengen (Umtopf-Stress, neue Wurzelspitzen empfindlich)
+      Timing: Fruehling (Beginn der Wachstumsphase) ist ideal.
+      NICHT umtopfen: In der Bluete, bei kranken Pflanzen (erst behandeln),
+      oder im Winter (Zimmerpflanzen in Ruhephase).
+    metadata:
+      topic: repotting
+      pot_size_increase_cm: [2, 3]
+      timing: spring_or_early_veg

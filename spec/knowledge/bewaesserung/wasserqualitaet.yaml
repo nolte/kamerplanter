@@ -1,0 +1,144 @@
+---
+title: Wasserqualitaet fuer Pflanzen
+language: de
+category: bewaesserung
+tags: [wasser, leitungswasser, ro-wasser, regenwasser, chlor, chloramin, wasserhaerte, ph, temperatur, schwermetalle]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [seedling, vegetative, flowering]
+chunks:
+  - id: leitungswasser-parameter
+    title: Leitungswasser — wichtige Parameter
+    content: |
+      Leitungswasser variiert stark je nach Region. Relevante Parameter:
+      EC (Leitfaehigkeit): 0.1-0.8 mS/cm typisch.
+      - Unter 0.3: Weiches Wasser, gut fuer die meisten Pflanzen
+      - 0.3-0.5: Mittel, oft ideal
+      - Ueber 0.5: Hart, hoher Basis-EC reduziert Spielraum fuer Duenger
+      pH: 6.5-8.5 (gesetzlich). Meist 7.0-8.0 → muss fuer Hydro/Coco
+      auf 5.5-6.5 gesenkt werden (pH-Down).
+      GH (Gesamthaerte): 4-30°dH je nach Region.
+      - Unter 8°dH: CalMag-Supplementierung noetig
+      - 8-14°dH: Meist ausreichend Ca/Mg
+      - Ueber 14°dH: Hoher Basis-EC, evtl. mit RO verschneiden
+      KH (Karbonathärte): Pufferkapazitaet. Hohe KH → pH sinkt nur langsam
+      (braucht mehr pH-Down). Niedrige KH → pH instabil.
+      Chlor/Chloramin: Desinfektionsmittel im Trinkwasser.
+      Wo finde ich die Werte? Jahresbericht des Wasserversorgers
+      (oft online), oder eigene Messung (EC/pH-Meter, GH-Tropfentest).
+      Kamerplanter speichert Wasserquelle pro Standort mit allen Parametern
+      (TapWaterProfile in REQ-002/REQ-014).
+    metadata:
+      topic: tap_water
+      parameters: [ec, ph, gh, kh, chlorine]
+
+  - id: chlor-chloramin
+    title: Chlor und Chloramin im Leitungswasser behandeln
+    content: |
+      Chlor (Cl2):
+      - In den meisten deutschen Wasserwerken: 0.1-0.3 mg/L
+      - VERFLUCHTIGT sich: Wasser 24 Stunden offen stehen lassen
+        oder kraeftig belueften (Luftstein fuer 1-2 Stunden)
+      - Unschaedlich in geringen Mengen, aber toetet nuetzliche
+        Mikroorganismen im Substrat (Mykorrhiza, Trichoderma)
+      Chloramin (NH2Cl):
+      - Stabile Verbindung, verfluchtigt NICHT durch Stehenlassen!
+      - In Deutschland selten, in USA/UK haeufig
+      - Entfernung: Aktivkohle-Wasserfilter oder Vitamin C
+        (Ascorbinsaeure, 1g pro 400L neutralisiert Chloramin)
+      - Oder: RO-Anlage entfernt Chloramin zuverlaessig
+      Praxisempfehlung:
+      - Fuer normale Zimmerpflanzen: Wasser 24h stehen lassen reicht
+      - Fuer empfindliche Kulturen, Hydro, organischen Anbau mit
+        lebender Biologie: Aktivkohle-Filter oder RO
+      - Wer nicht weiss ob Chlor oder Chloramin: Wasserversorger fragen
+        oder pauschal Aktivkohle-Filter nutzen
+    metadata:
+      topic: chlorine_chloramine
+      chlorine_removal: [standing_24h, aeration, carbon_filter]
+      chloramine_removal: [carbon_filter, vitamin_c, ro]
+
+  - id: ro-wasser
+    title: Umkehrosmose-Wasser (RO) — Vor- und Nachteile
+    content: |
+      RO-Wasser hat EC nahe 0 (0.00-0.05 mS/cm), pH instabil (~7, aber
+      kaum gepuffert), keine Mineralien.
+      Vorteile:
+      - Volle Kontrolle: Man weiss genau was drin ist (nichts)
+      - Kein Kalk, kein Chlor, keine Schwermetalle
+      - Ideale Basis fuer praezise Naehrloesung
+      - Noetig bei sehr hartem Leitungswasser (>20°dH)
+      Nachteile:
+      - IMMER CalMag zusetzen (kein Ca, kein Mg in RO-Wasser)
+      - pH extrem instabil (keine KH-Pufferung)
+      - Wasserverschwendung: Typisch 3:1 bis 4:1 (3-4L Abwasser pro 1L RO)
+      - Membran muss alle 2-3 Jahre getauscht werden (~30-80€)
+      - Anschaffung: 50-150€ fuer Hobby-RO-Anlage
+      RO-Anlage dimensionieren:
+      - Hobby (1-10 Pflanzen): 50-100 GPD (gallons per day) reicht
+      - Fortgeschritten (Growzelt): 100-200 GPD
+      - TDS-Meter am Ausgang: Membran tauschen wenn RO-Wasser >10 ppm
+      Misch-Verhaeltnis RO + Leitungswasser:
+      - Ziel: Basis-EC 0.2-0.4 mS/cm (natuerliches CalMag aus Leitungswasser)
+      - Kamerplanter berechnet water_mix_ratio_ro_percent (REQ-014)
+    metadata:
+      topic: ro_water
+      ec_range: [0.00, 0.05]
+      waste_ratio: [3, 4]
+
+  - id: regenwasser
+    title: Regenwasser — kostenlose Alternative
+    content: |
+      Frisch gefallenes Regenwasser ist weich (EC 0.01-0.1 mS/cm), leicht sauer
+      (pH 5.5-6.5) und frei von Chlor/Kalk — ideal fuer die meisten Pflanzen.
+      Achtung: Nach laengerem Lagern in offenen Behaeltern steigt der pH durch
+      CO2-Ausgasung auf 6.5-7.5. Gelagertes Regenwasser vor Nutzung pH pruefen.
+      Vorteile:
+      - Kostenlos und nachhaltig
+      - Natuerlich weich (wie RO, aber ohne Energiekosten)
+      - pH nahe dem idealen Bereich fuer die meisten Pflanzen
+      - Enthaelt natuerlich geloesten Stickstoff (aus Atmosphaere)
+      Nachteile und Risiken:
+      - CalMag-Supplementierung noetig (wie bei RO)
+      - Qualitaet schwankt (Vogelkot, Pollen, Staub, Dachchemikalien)
+      - Lagerung: Algenbildung in Licht → dunkel und kuehl lagern
+      - Stehend → Bakterien-Wachstum → regelmaessig erneuern
+      - Erste 5 Minuten Regen: Dach-Schmutz → Vorlauf abfliessen lassen
+      - Bitumen-/Kupfer-Daecher: Schwermetall-Kontamination moeglich
+      Lagerung:
+      - Dunkle, geschlossene Behaelter (IBC, Regentonne mit Deckel)
+      - Mueckennetz am Zulauf (keine Brutstelle fuer Muecken!)
+      - Alle 2-4 Wochen EC und pH pruefen
+      - Vor Nutzung in Hydro: Filtern (Grobfilter + 5µm fuer Tropfer)
+      Fuer Zimmerpflanzen und Garten: Ohne Bedenken nutzbar.
+      Fuer Hydro: Mit Vorsicht, Qualitaet pruefen.
+    metadata:
+      topic: rainwater
+      ec_range: [0.01, 0.1]
+      ph_range: [5.5, 6.5]
+
+  - id: wassertemperatur
+    title: Wassertemperatur beim Giessen
+    content: |
+      Optimale Giess-Wassertemperatur: 18-22°C (Raumtemperatur).
+      Zu kalt (<15°C):
+      - Kaelteschock fuer Wurzeln (besonders tropische Pflanzen)
+      - Naehrstoffaufnahme wird reduziert
+      - Wurzelwachstum stoppt voruebergehend
+      - Im Sommer: Leitungswasser kann nach langem Stehen in der Leitung
+        kuehl sein → kurz laufen lassen oder abstehen
+      Zu warm (>25°C):
+      - In Hydro: Sauerstoff-Gehalt sinkt → Pythium-Risiko
+      - In Erde: Grundsaetzlich weniger problematisch als zu kalt
+      Praxistipps:
+      - Giess-Wasser in Giesskannen im selben Raum wie Pflanzen lagern
+        → nimmt automatisch Raumtemperatur an
+      - Winter: Leitungswasser kann sehr kalt sein (5-10°C) →
+        NICHT direkt auf tropische Pflanzen! Erst auf Raumtemperatur
+        bringen (1-2 Stunden stehen lassen)
+      - Hydro-Reservoir: Aquarium-Heizstab auf 20°C einstellen (Winter),
+        Wasserchiller auf 20°C (Sommer bei >24°C Raumtemperatur)
+    metadata:
+      topic: water_temperature
+      optimal_celsius: [18, 22]
+      cold_threshold: 15
+      warm_threshold: 25

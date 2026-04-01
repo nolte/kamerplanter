@@ -1,0 +1,112 @@
+---
+title: Ueberwaesserung erkennen und beheben
+language: de
+category: bewaesserung
+tags: [ueberwaesserung, unterwaesserung, welken, drainage, wurzelfaeule, topfgroesse, symptome]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, flowering]
+chunks:
+  - id: symptome-ueberwaesserung
+    title: Symptome von Ueberwaesserung
+    content: |
+      Ueberwaesserung ist die HAEUFIGSTE Todesursache fuer Zimmerpflanzen
+      und Saemlinge. Erkennung:
+      - Blaetter haengen schlaff herunter (DROOPING, nicht Wilting)
+        → wichtiger Unterschied: drooping = schwer und voll, wilting = trocken
+      - Blaetter fuehlen sich weich und aufgedunsen an
+      - Vergilbung beginnt an unteren Blaettern, breitet sich nach oben aus
+      - Substrat ist nass, Topf ist schwer
+      - Stengelbasis wird weich oder braun (erste Faeulnis)
+      - Trauermucken (kleine schwarze Fliegen) → lieben dauernasse Erde
+      - Muffiger Geruch aus dem Substrat
+      - Wachstum stoppt oder verlangsamt sich deutlich
+      - Schimmel auf der Substrat-Oberflaeche
+      Warum ist Ueberwaesserung so schaedlich?
+      Nicht das Wasser selbst toetet — sondern der SAUERSTOFFMANGEL.
+      Wurzeln brauchen O2 fuer Naehrstoffaufnahme und Zellatmung.
+      Dauerhaft nasses Substrat verdraengt alle Luft aus den Poren.
+      Ohne Sauerstoff sterben Wurzeln ab → Wurzelfaeule → Pflanze kann
+      kein Wasser mehr aufnehmen → Pflanze welkt TROTZ nassem Substrat.
+      Das ist das Paradox: Ueberwaesserte Pflanze zeigt Welke-Symptome.
+    metadata:
+      topic: overwatering_symptoms
+      cause: oxygen_deprivation
+
+  - id: unterschied-ueber-unter
+    title: Ueberwaesserung vs. Unterwaesserung unterscheiden
+    content: |
+      Beide zeigen haengende Blaetter — aber der Unterschied ist kritisch:
+      UEBERWAESSERUNG:
+      - Topf ist SCHWER
+      - Substrat ist NASS
+      - Blaetter sind WEICH und aufgedunsen
+      - Vergilbung an unteren Blaettern
+      - Stengel kann weich werden
+      - Erholung: Substrat austrocknen lassen (Tage bis Wochen)
+      UNTERWAESSERUNG:
+      - Topf ist LEICHT
+      - Substrat ist TROCKEN, zieht sich von Topfrand zurueck
+      - Blaetter sind DUENN, papierartig, knusprig an den Raendern
+      - Blaetter rollen sich ein (Verdunstungsschutz)
+      - Stengel ist trocken aber fest
+      - Erholung: Durchdringend giessen, Pflanze erholt sich in Stunden
+      SCHNELL-TEST: Topf anheben.
+      - Schwer + haengende Blaetter = Ueberwaesserung
+      - Leicht + haengende Blaetter = Unterwaesserung
+      Unterwaesserte Pflanzen erholen sich fast immer innerhalb von
+      24 Stunden nach gruendlichem Giessen. Ueberwaesserte Pflanzen
+      brauchen Tage bis Wochen — und wenn Wurzelfaeule eingesetzt hat,
+      ist die Rettung schwierig.
+    metadata:
+      topic: overwatering_vs_underwatering
+      quick_test: weight
+
+  - id: ursachen-ueberwaesserung
+    title: Haeufige Ursachen fuer Ueberwaesserung
+    content: |
+      1. Zu haeufiges Giessen: "Meine Pflanze sieht traurig aus → Wasser!"
+         Nein! Erst pruefen OB Substrat trocken ist (Finger-Test).
+      2. Topf zu gross: Kleine Pflanze in riesigem Topf → Substrat bleibt
+         wochenlang nass, Wurzeln koennen Wasser nicht nutzen. Beim Umtopfen
+         maximal 2-3cm groesseren Durchmesser waehlen.
+      3. Keine Drainage-Loecher: Wasser sammelt sich am Topfboden.
+         Absolutes No-Go. JEDER Topf braucht Abflussloecher.
+      4. Staunasser Untersetzer: Wasser im Untersetzer nicht stehen lassen.
+         30 Minuten nach dem Giessen Ueberstand entfernen.
+      5. Verdichtetes Substrat: Alte Erde verliert Struktur, wird matschig,
+         haelt zu viel Wasser. Loesung: Perlit beimischen (20-30%) oder
+         frisches Substrat beim naechsten Umtopfen.
+      6. Wenig Licht + wenig Waerme: Pflanze transpiriert kaum →
+         Substrat trocknet nicht ab. Im Winter seltener giessen!
+      7. Mythos "Drainage-Schicht": Steine/Blähton unter der Erde im Topf
+         VERBESSERN die Drainage NICHT — sie erzeugen eine "perched water
+         table" (Staunaesse) ueber der Schicht. Lieber mehr Perlit
+         ins gesamte Substrat mischen.
+    metadata:
+      topic: overwatering_causes
+      top_cause: watering_schedule_instead_of_checking
+
+  - id: rettung-ueberwaesserung
+    title: Notfall-Protokoll bei Ueberwaesserung
+    content: |
+      Leichter Fall (Pflanze haengt, Substrat nass, aber kein Geruch):
+      1. Giessen SOFORT stoppen
+      2. Topf aus Uebertopf/Untersetzer nehmen (Wasser muss ablaufen)
+      3. An warmen, hellen Ort stellen (foerdert Verdunstung)
+      4. Substrat komplett abtrocknen lassen (auch wenn es Tage dauert)
+      5. Erst wieder giessen wenn Finger-Test "trocken" zeigt
+      Schwerer Fall (Fauliger Geruch, braune Stengelbasis, Schimmel):
+      1. Pflanze aus Topf nehmen, Substrat vorsichtig entfernen
+      2. Wurzeln inspizieren: Braun/schleimig = Wurzelfaeule
+      3. Alle kranken Wurzeln abschneiden (sterilisierte Schere)
+      4. Gesunde Wurzeln in 3% H2O2-Loesung tauchen (10 Min)
+      5. In frisches, trockenes Substrat umtopfen (mit Perlit!)
+      6. Kleinerer Topf als vorher (weniger Wurzeln = weniger Topfvolumen)
+      7. NICHT giessen fuer 3-5 Tage nach dem Umtopfen
+      8. Danach sehr vorsichtig giessen (wenig, nur wenn trocken)
+      Prognose: Leichter Fall → volle Erholung in 1-2 Wochen.
+      Schwerer Fall mit Wurzelfaeule → 50/50 Chance, Erholung 3-6 Wochen.
+      Wenn >80% der Wurzeln befallen → kaum zu retten.
+    metadata:
+      topic: overwatering_rescue
+      urgency: [mild, severe]

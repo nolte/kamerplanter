@@ -106,39 +106,48 @@ class OnboardingWizardPage(BasePage):
         return self
 
     def _ensure_step_one(self) -> None:
-        """Reset the wizard to Step 1 if it resumed on a later step or shows the completed card."""
+        """Reset the wizard to Step 1, always clearing backend state.
+
+        Always uses the Restart path (Restart button or Skip → Restart) so that
+        backend state (``plant_configs``, ``selected_site_key``, etc.) is
+        fully cleared before each test starts.
+        """
         import time
 
-        # Case 1: completed / skipped card — click Restart
+        # Case 1: completed / skipped card — click Restart directly
         restart_els = self.driver.find_elements(*self.RESTART_BUTTON)
         if restart_els and restart_els[0].is_displayed():
             self.scroll_and_click(restart_els[0])
-            # After restart the wizard reloads at step 0; wait for step 1 content
             self.wait_for_element(self.STEP_WELCOME)
             self.wait_for_loading_complete()
             return
 
-        # Case 2: already on step 1
-        if self.is_step_welcome_visible():
+        # Case 2: wizard is active (step 1..N) — Skip → Restart to clear backend state
+        skip_els = self.driver.find_elements(*self.SKIP_BUTTON)
+        if skip_els and skip_els[0].is_displayed():
+            self.scroll_and_click(skip_els[0])
+            # Skip redirects to /pflanzen/plant-instances
+            try:
+                self.wait_for_url_contains("/pflanzen", timeout=10)
+            except Exception:
+                pass
+            # Navigate back to wizard which now shows the completed card
+            self.navigate(self.PATH)
+            self.wait_for_element(self.WIZARD)
+            self.wait_for_loading_complete()
+            time.sleep(0.5)
+            restart_els2 = self.driver.find_elements(*self.RESTART_BUTTON)
+            if restart_els2 and restart_els2[0].is_displayed():
+                self.scroll_and_click(restart_els2[0])
+                self.wait_for_element(self.STEP_WELCOME)
+                self.wait_for_loading_complete()
             return
 
-        # Case 3: resumed on step > 1 — click Back until Step 1 is visible
-        # Guard against infinite loops with a maximum of 10 iterations (wizard has at most 7 steps)
-        for _ in range(10):
-            back_els = self.driver.find_elements(*self.BACK_BUTTON)
-            if not back_els or not back_els[0].is_displayed() or not back_els[0].is_enabled():
-                break
-            self.scroll_and_click(back_els[0])
-            # Brief pause to let the React state update render
-            time.sleep(0.15)
-            if self.is_step_welcome_visible():
-                return
-
-        # Final fallback: wait for step welcome (may already be visible after last click)
+        # Fallback: already clean (no skip/restart buttons visible = fresh state)
         try:
             self.wait_for_element(self.STEP_WELCOME, timeout=5)
         except Exception:
-            # If we still can't get to step 1, try a hard reload of the page
+            # Hard reload as last resort
             self.navigate(self.PATH)
             self.wait_for_element(self.WIZARD)
             self.wait_for_loading_complete()
@@ -388,17 +397,27 @@ class OnboardingWizardPage(BasePage):
         self.scroll_and_click(card)
         time.sleep(0.5)  # Allow React state to update border styling
 
-    def is_kit_selected(self, kit_id: str) -> bool:
-        """Return True if the given kit card has a primary-coloured border.
+    def is_kit_selected(self, kit_id: str, timeout: int = 3) -> bool:
+        """Return True if the given kit card is in selected state.
 
-        Checks multiple selection indicators:
-        - border-width 2px (MUI primary border) — also checks border-top-width
-        - border-color matching theme primary
-        - aria-selected attribute
-        - CSS class indicating selection
+        Waits up to *timeout* seconds for the data-selected='true' attribute,
+        then falls back to CSS border checks on the parent Card element.
         """
-        import time
-        time.sleep(0.3)  # Allow React state to settle
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        selected_locator = (
+            By.CSS_SELECTOR,
+            f"[data-testid='kit-{kit_id}'][data-selected='true']",
+        )
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                EC.presence_of_element_located(selected_locator)
+            )
+            return True
+        except Exception:
+            pass
+
+        # Fallback: CSS border checks on parent Card element
         locator = (By.CSS_SELECTOR, f"[data-testid='kit-{kit_id}']")
         elements = self.driver.find_elements(*locator)
         if not elements:
@@ -406,44 +425,32 @@ class OnboardingWizardPage(BasePage):
         el = elements[0]
 
         def _check_border(candidate) -> bool:
-            """Check if element has 2px border (selected state)."""
-            # border-width may return "2px" or "2px 2px 2px 2px" or just ""
             border = candidate.value_of_css_property("border-width") or ""
             if "2px" in border:
                 return True
-            # Check individual sides (some browsers return shorthand differently)
             border_top = candidate.value_of_css_property("border-top-width") or ""
             if border_top == "2px":
                 return True
-            # Check border-color for primary theme color
             border_color = candidate.value_of_css_property("border-color") or ""
-            # Primary green #4CAF50 => rgb(76, 175, 80), MUI blue => rgb(25, 118, 210)
             if "76, 175, 80" in border_color or "25, 118, 210" in border_color:
                 return True
             return False
 
-        # Check the element itself
-        if _check_border(el):
-            return True
-        # Check ancestor Card — the border is set on the Card sx prop
-        try:
-            card = el.find_element(By.XPATH, "./ancestor::div[contains(@class, 'MuiCard-root')]")
-            if _check_border(card):
-                return True
-        except Exception:
-            pass
-        # Check parent element (CardActionArea is inside Card)
         try:
             parent = el.find_element(By.XPATH, "./..")
             if _check_border(parent):
                 return True
         except Exception:
             pass
-        # Check aria-pressed or aria-selected
+        try:
+            card = el.find_element(By.XPATH, "./ancestor::div[contains(@class, 'MuiCard-root')]")
+            if _check_border(card):
+                return True
+        except Exception:
+            pass
         aria = el.get_attribute("aria-pressed") or el.get_attribute("aria-selected")
         if aria == "true":
             return True
-        # Check for selected class
         classes = el.get_attribute("class") or ""
         return "selected" in classes.lower()
 
@@ -578,9 +585,10 @@ class OnboardingWizardPage(BasePage):
 
     def set_site_name(self, name: str) -> None:
         """Clear and type a new site name."""
-        el = self.wait_for_element_clickable(self.SITE_NAME_FIELD)
-        el.clear()
-        el.send_keys(name)
+        # Wait for presence first (field may render slightly after the step container)
+        el = self.wait_for_element(self.SITE_NAME_FIELD)
+        self.scroll_and_click(el)
+        self.clear_and_fill(el, name)
 
     def get_site_type_value(self) -> str:
         """Return the current visible text of the site type selector."""
@@ -760,11 +768,21 @@ class OnboardingWizardPage(BasePage):
         Clicks an experience level card before advancing so that the wizard
         registers a user interaction on Step 1.  When *experience_level* is
         ``None`` the already-selected default (beginner) is clicked.
+        Deselects any pre-selected kit to ensure a clean state for tests.
         """
         self.wait_for_element(self.STEP_WELCOME)
         self.select_experience_level(experience_level or "beginner")
         self.click_next()
         self.wait_for_element(self.STEP_KIT)
+        self._deselect_all_kits()
+
+    def _deselect_all_kits(self) -> None:
+        """Deselect any currently selected kit cards (clean state for tests)."""
+        import time
+        selected = self.driver.find_elements(By.CSS_SELECTOR, "[data-selected='true']")
+        for kit in selected:
+            self.scroll_and_click(kit)
+            time.sleep(0.3)
 
     def advance_to_step_favorites(self) -> None:
         """Navigate from Step 2 to Step 3 (Favorites)."""

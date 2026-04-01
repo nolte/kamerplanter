@@ -47,6 +47,7 @@ export default function CropRotationPage() {
 
   useEffect(() => {
     if (!selectedKey) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- set loading before async fetch
     setLoading(true);
     rotationApi
       .getSuccessors(selectedKey)

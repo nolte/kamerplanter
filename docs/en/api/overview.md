@@ -97,7 +97,6 @@ Health endpoints require no authentication and are intended for Kubernetes liven
 ```
 GET /api/v1/health/live    → {"status": "alive"}
 GET /api/v1/health/ready   → {"status": "ready", "database": true}
-GET /api/health            → {"status": "healthy", "version": "...", "mode": "..."}
 ```
 
 ---
@@ -106,38 +105,72 @@ GET /api/health            → {"status": "healthy", "version": "...", "mode": "
 
 The following table lists all available router groups. In full mode, `auth`, `oidc-providers`, and `platform-admin` routes are additionally active.
 
+### Global Endpoints
+
 | Group | Path Prefix | Description | REQ |
 |-------|------------|-------------|-----|
 | Authentication | `/auth` | Login, registration, tokens, OAuth (full mode only) | REQ-023 |
-| Users | `/users` | Own profile, change password | REQ-023 |
-| Tenants | `/tenants` | Tenant CRUD, memberships | REQ-024 |
-| Tenant Scope | `/t/{slug}/...` | All tenant-scoped resources | REQ-024 |
+| Users | `/users` | Own profile, password, sessions | REQ-023 |
+| Tenants | `/tenants` | Tenant CRUD, memberships, invitations | REQ-024 |
 | Botanical Families | `/botanical-families` | Plant family master data | REQ-001 |
 | Species | `/species` | Plant species master data | REQ-001 |
-| Cultivars | `/cultivars` | Cultivar variants | REQ-001 |
-| Locations | `/sites`, `/locations`, `/slots` | Location and slot hierarchy | REQ-002 |
+| Cultivars | `/species/{key}/cultivars` | Cultivar variants (nested under species) | REQ-001 |
+| Lifecycle Configs | `/species/{key}/lifecycle` | Lifecycle configurations per species | REQ-003 |
+| Growth Phases | `/growth-phases` | Global phase definitions | REQ-003 |
+| Plant Phases | `/plant-instances/{key}/phases` | Phase transitions for individual plants | REQ-003 |
+| Profiles | `/profiles` | Requirement and nutrient profiles | REQ-004 |
+| Location Types | `/location-types` | Location type master data | REQ-002 |
 | Substrates | `/substrates` | Substrate types and batches | REQ-019 |
-| Plant Instances | `/plant-instances` | Individual plant tracking | REQ-001 |
-| Phase Control | `/phases`, `/growth-phases` | Growth phases and transitions | REQ-003 |
-| Planting Runs | `/planting-runs` | Batch management | REQ-013 |
-| Tanks | `/tanks` | Tank states and fills | REQ-014 |
-| Fertilizers | `/fertilizers` | Fertilizer master data | REQ-004 |
-| Nutrient Plans | `/nutrient-plans` | EC-based nutrition plans | REQ-004 |
-| Watering Events | `/watering-events` | Irrigation log | REQ-004 |
-| IPM | `/ipm` | Pest and disease management | REQ-010 |
-| Harvest | `/harvest` | Harvest documentation and pre-harvest interval gate | REQ-007 |
-| Tasks | `/tasks` | Task planning and workflows | REQ-006 |
-| Care Reminders | `/care-reminders` | Automated care schedules | REQ-022 |
-| Calendar | `/calendar` | iCal feeds and calendar events | REQ-015 |
-| Onboarding | `/onboarding` | Setup wizard | REQ-020 |
-| Starter Kits | `/starter-kits` | Preconfigured packages | REQ-020 |
-| User Preferences | `/user-preferences` | Experience level, language | REQ-021 |
-| Calculations | `/calculations` | EC/VPD calculations | REQ-004 |
 | Enrichment | `/enrichment` | GBIF/Perenual data enrichment | REQ-011 |
-| Import | `/imports` | CSV import for master data | REQ-012 |
+| Family Relationships | `/family-relationships` | Pest risks and compatibility per plant family | REQ-001 |
 | Companion Planting | `/companion-planting` | Mixed cultivation recommendations | REQ-028 |
 | Crop Rotation | `/crop-rotation` | Rotation validation | REQ-002 |
+| IPM (global) | `/ipm` | Pests, diseases, treatments — master data | REQ-010 |
+| Calculations | `/calculations` | EC/VPD/sun position calculations, vernalization, slot capacity | REQ-004 |
+| Care Reminders | `/care-reminders` | Automated care schedules | REQ-022 |
+| Starter Kits | `/starter-kits` | Preconfigured packages | REQ-020 |
+| Import | `/import` | CSV import for master data | REQ-012 |
+| Activities | `/activities` | Activity definitions (watering, fertilizing, etc.) | REQ-006 |
+| Activity Plans | `/activity-plans` | Activity plan generation and application | REQ-006 |
+| Knowledge Base | `/knowledge` | RAG-based search and AI answers (optional) | — |
+| Observations | `/observations` | TimescaleDB status | REQ-005 |
 | Health | `/health` | Liveness and readiness | — |
+| Mode | `/mode` | Current deployment mode (full/light) | REQ-027 |
+
+### Tenant-Scoped Endpoints (`/t/{slug}/...`)
+
+| Group | Path Prefix | Description | REQ |
+|-------|------------|-------------|-----|
+| Sites | `/sites` | Site CRUD, location hierarchy, sensors | REQ-002 |
+| Locations | `/locations` | Areas and sub-locations | REQ-002 |
+| Slots | `/slots` | Slot management within locations | REQ-002 |
+| Plant Instances | `/plant-instances` | Individual plant tracking | REQ-001 |
+| Planting Runs | `/planting-runs` | Batch management, phases, diary | REQ-013 |
+| Tanks | `/tanks` | Tank states, fills, maintenance, sensors | REQ-014 |
+| Fertilizers | `/fertilizers` | Fertilizers, stocks, incompatibilities | REQ-004 |
+| Nutrient Plans | `/nutrient-plans` | EC-based nutrition plans, channels, dosages | REQ-004 |
+| Feeding Events | `/feeding-events` | Fertilization event documentation | REQ-004 |
+| Watering Events | `/watering-events` | Irrigation log with confirmation | REQ-004 |
+| Watering Logs | `/watering-logs` | Detailed irrigation protocol | REQ-004 |
+| IPM (tenant) | `/ipm` | Tenant-specific inspections and treatments | REQ-010 |
+| Harvest | `/harvest` | Harvest documentation and pre-harvest interval gate | REQ-007 |
+| Tasks | `/tasks` | Task planning, workflows, queue | REQ-006 |
+| Calendar | `/calendar` | iCal feeds, sowing calendar, season overview | REQ-015 |
+| Onboarding | `/onboarding` | Setup wizard | REQ-020 |
+| Starter Kits | `/starter-kits` | Kit application for tenants | REQ-020 |
+| User Preferences | `/user-preferences` | Experience level, language | REQ-021 |
+| Favorites | `/favorites` | Plant favorites and nutrient plan matching | — |
+| Nutrient Calculations | `/nutrient-calculations` | Mixing protocol, flushing, runoff, mixing safety, water mix, EC budget | REQ-004 |
+| Notifications | `/notifications` | Notifications, preferences, test delivery | REQ-022 |
+| Observations | `/observations` | Sensor data CRUD (TimescaleDB) | REQ-005 |
+
+### Admin Endpoints
+
+| Group | Path Prefix | Description | REQ |
+|-------|------------|-------------|-----|
+| Platform Admin | `/admin/platform` | Statistics, tenant and user management | REQ-024 |
+| OIDC Providers | `/admin/oidc-providers` | Federated authentication providers | REQ-023 |
+| Settings | `/admin/settings` | Home Assistant configuration | REQ-018 |
 
 ---
 
@@ -208,4 +241,5 @@ Every API response includes the following security headers:
 
 - [Authentication](authentication.md) — Token workflow and API keys
 - [Error Handling](error-handling.md) — Error structure and error codes
+- [Service Accounts](service-accounts.md) — M2M access (planned, not yet implemented)
 - [Local Development Setup](../development/local-setup.md) — Running the backend locally

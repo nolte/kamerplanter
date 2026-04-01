@@ -175,14 +175,39 @@ Skaffold sets up the following port forwardings:
 | ArangoDB | 8529 | 8529 |
 | Home Assistant | 8123 | 8123 |
 
-### Skaffold Profiles
+### Skaffold Profiles and Modules
 
-| Profile | Usage |
-|---------|-------|
-| (default) | Backend + Frontend |
-| `backend-only` | Backend only, no frontend image build |
-| `frontend-only` | Frontend only, no backend image build |
-| `debug` | Backend with debugpy (remote debugging port 5678) |
+The `skaffold.yaml` contains two configurations: the main configuration (backend + frontend) with profiles and a separate **KI module** for the Knowledge/AI stack.
+
+| Profile / Module | Command | Components |
+|-----------------|---------|------------|
+| (default) | `skaffold dev` | Backend + Frontend |
+| `backend-only` | `skaffold dev -p backend-only` | Backend only, no frontend image build |
+| `frontend-only` | `skaffold dev -p frontend-only` | Frontend only, no backend image build |
+| `debug` | `skaffold debug` | Backend with debugpy (remote debugging port 5678) |
+| **`ki`** (module) | `skaffold dev -m ki` | Knowledge Service, Embedding Service, VectorDB (TimescaleDB + pgvector) |
+
+#### KI Module
+
+The KI module (`-m ki`) is a standalone Skaffold configuration in the same `skaffold.yaml`. It deploys the RAG/AI stack independently from the main application:
+
+- **Knowledge Service** — RAG API with knowledge base ingestion (port `8090`)
+- **Embedding Service** — Vector embedding via ONNX (port `8080`)
+- **VectorDB** — TimescaleDB with pgvector extension (port `5433`)
+
+```bash
+# Main app + KI stack simultaneously
+skaffold dev -m kamerplanter,ki --port-forward
+
+# KI stack only (e.g. for RAG development)
+skaffold dev -m ki --port-forward
+```
+
+| Service | Cluster Port | Local Port |
+|---------|-------------|-----------|
+| VectorDB (TimescaleDB) | 5432 | 5433 |
+| Knowledge Service | 8000 | 8090 |
+| Embedding Service | 8080 | 8080 |
 
 !!! warning "Skaffold is the only development workflow"
     No manual `docker build`, `docker push`, or `kubectl apply`. Skaffold handles everything. Direct `kubectl` patching of deployments will be overwritten on the next `skaffold dev` run.

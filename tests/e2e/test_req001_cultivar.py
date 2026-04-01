@@ -38,6 +38,8 @@ def _navigate_to_first_species_cultivar_tab(
 class TestCultivarListSection:
     """TC-REQ-001-042 to TC-REQ-001-044: Cultivar list within species detail."""
 
+    @pytest.mark.smoke
+    @pytest.mark.core_crud
     def test_display_cultivars_tab(
         self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage
     ) -> None:
@@ -48,6 +50,7 @@ class TestCultivarListSection:
         count = species_detail.get_cultivar_count()
         assert count >= 0, "Cultivar section should render"
 
+    @pytest.mark.core_crud
     def test_click_cultivar_row_navigates_to_detail(
         self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage
     ) -> None:
@@ -66,6 +69,7 @@ class TestCultivarListSection:
 class TestCultivarCreateDialog:
     """TC-REQ-001-045 to TC-REQ-001-047: Cultivar creation and validation."""
 
+    @pytest.mark.core_crud
     def test_create_cultivar_with_all_fields(
         self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage
     ) -> None:

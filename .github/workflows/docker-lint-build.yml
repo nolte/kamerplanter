@@ -10,6 +10,8 @@ on:
       - 'src/frontend/Dockerfile'
       - 'src/frontend/Dockerfile.*'
       - 'src/frontend/**'
+      - 'docker/**'
+      - 'spec/knowledge/**'
 
 jobs:
   changes:
@@ -17,6 +19,9 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      vectordb: ${{ steps.filter.outputs.vectordb }}
+      knowledge: ${{ steps.filter.outputs.knowledge }}
+      embedding-service: ${{ steps.filter.outputs.embedding-service }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -31,6 +36,13 @@ jobs:
               - 'src/frontend/Dockerfile'
               - 'src/frontend/Dockerfile.*'
               - 'src/frontend/**'
+            vectordb:
+              - 'docker/vectordb/**'
+            knowledge:
+              - 'docker/knowledge/**'
+              - 'spec/knowledge/**'
+            embedding-service:
+              - 'docker/embedding-service/**'
 
   hadolint:
     runs-on: ubuntu-latest
@@ -46,6 +58,21 @@ jobs:
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: src/frontend/Dockerfile
+
+      - name: Lint vectordb Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/vectordb/Dockerfile
+
+      - name: Lint knowledge Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/knowledge/Dockerfile
+
+      - name: Lint embedding-service Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/embedding-service/Dockerfile
 
   build-backend:
     needs: [changes, hadolint]
@@ -81,6 +108,63 @@ jobs:
         with:
           context: src/frontend
           file: src/frontend/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-vectordb:
+    needs: [changes, hadolint]
+    if: needs.changes.outputs.vectordb == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build vectordb image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: docker/vectordb
+          file: docker/vectordb/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-knowledge:
+    needs: [changes, hadolint]
+    if: needs.changes.outputs.knowledge == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build knowledge image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/knowledge/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-embedding-service:
+    needs: [changes, hadolint]
+    if: needs.changes.outputs.embedding-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build embedding-service image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: docker/embedding-service
+          file: docker/embedding-service/Dockerfile
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max

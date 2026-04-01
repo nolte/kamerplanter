@@ -439,7 +439,88 @@ class TestDashboard:
 
 ---
 
-## Gemeinsame Regeln für beide Test-Suites
+## RAG-Qualitaetsbenchmark
+
+Ein Standalone-Runner (`tools/rag-eval/eval_rag.py`) misst die Antwortqualitaet der RAG-Pipeline unabhaengig vom Backend. Er verbindet sich direkt mit Embedding Service, VectorDB (pgvector) und Ollama.
+
+### Voraussetzungen
+
+- Embedding Service laeuft (Standard: `http://localhost:8080`)
+- VectorDB (PostgreSQL mit pgvector) laeuft (Standard: `localhost:5433`)
+- Ollama laeuft mit geladenem Modell (Standard: `gemma3:4b`)
+
+### Tests ausfuehren
+
+```bash
+# Vollstaendiger Benchmark (100 Fragen)
+python tools/rag-eval/eval_rag.py
+
+# Schneller Smoke-Test (bricht beim ersten Fehler ab)
+python tools/rag-eval/eval_rag.py --smoke
+
+# Unterbrochenen Lauf fortsetzen
+python tools/rag-eval/eval_rag.py --resume
+
+# Nur bestimmte Kategorien
+python tools/rag-eval/eval_rag.py --categories diagnostik duengung
+
+# Retrieval debuggen ohne LLM-Generierung
+python tools/rag-eval/eval_rag.py --retrieval-only
+```
+
+### CLI-Parameter
+
+| Parameter | Default | Beschreibung |
+|-----------|---------|-------------|
+| `--smoke` | - | Schneller Smoke-Test, bricht beim ersten Fehler ab |
+| `--resume` | - | Setzt unterbrochenen Lauf fort (laedt `eval_results_partial.json`) |
+| `--categories` | alle | Nur bestimmte Kategorien evaluieren |
+| `--retrieval-only` | - | Zeigt abgerufene Chunks ohne LLM-Generierung |
+| `--top-k` | 5 | Anzahl der RAG-Chunks pro Frage |
+| `--doc-language` | kein Filter | Chunks nach Sprache filtern (`de`/`en`/`all`) |
+| `--prompt-language` | `de` | Sprache des System-Prompts (`de`/`en`) |
+| `--model` | `gemma3:4b` | Ollama-Modellname |
+| `--embedding-url` | `http://localhost:8080` | Embedding Service URL |
+| `--ollama-url` | `http://localhost:11434` | Ollama API URL |
+| `--vectordb-dsn` | `localhost:5433` | PostgreSQL DSN fuer VectorDB |
+| `--output`, `-o` | `eval_results.json` | Ausgabepfad fuer Ergebnis-JSON |
+
+### Umgebungsvariablen
+
+Werden als Defaults verwendet wenn kein CLI-Argument gesetzt ist:
+
+| Variable | Default |
+|----------|---------|
+| `EMBEDDING_SERVICE_URL` | `http://localhost:8080` |
+| `VECTORDB_DSN` | `host=localhost port=5433 dbname=kamerplanter_vectors ...` |
+| `LLM_API_URL` | `http://localhost:11434` |
+| `LLM_MODEL` | `gemma3:4b` |
+| `EVAL_DATA_DIR` | `tests/rag-eval/` |
+
+### Resume-Mechanismus
+
+Nach jeder evaluierten Frage wird `eval_results_partial.json` geschrieben. Bei `--resume` werden vorherige Ergebnisse geladen und bereits evaluierte Fragen uebersprungen. Alte und neue Ergebnisse werden fuer den finalen Score zusammengefuehrt.
+
+### Scoring
+
+Jede Frage wird gegen erwartete Topics (`expected_topics`) und Ausschluss-Topics (`expected_NOT`) geprueft. Der Gesamtscore ist der Durchschnitt aller Einzelscores — ab 70% gilt der Benchmark als bestanden.
+
+### Testdaten
+
+```
+tests/rag-eval/
+├── benchmark_questions.yaml   # 100 kuratierte Fragen mit erwarteten Topics
+├── smoke_questions.yaml       # Schnelle Smoke-Test-Teilmenge
+├── topic_synonyms.yaml        # Synonym-Woerterbuch fuer Topic-Matching
+├── eval_results.json          # Letztes vollstaendiges Ergebnis
+└── RAG_EVAL_SPEC.md           # Detaillierte Framework-Spezifikation
+```
+
+Detaillierte Spezifikation des Frameworks: `tests/rag-eval/RAG_EVAL_SPEC.md`
+
+---
+
+## Gemeinsame Regeln fuer beide Test-Suites
 
 - Tests laufen in CI bei jedem Push auf `develop` und bei jedem Pull Request.
 - Neue Features erfordern mindestens einen Unit-Test für die Business-Logik.

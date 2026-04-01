@@ -14,6 +14,7 @@ Kubernetes is worth it if you already run a cluster or want to manage multiple s
 
 ## In this section
 
+- [Deployment Profiles](deployment-profiles.md) — Which components do I need? Comparing Minimal to SaaS
 - [Kubernetes](kubernetes.md) — Cluster prerequisites and deploying Kamerplanter
 - [Helm Charts](helm.md) — Chart structure, configuration, and customization
 - [CI/CD](ci-cd.md) — Automated builds and deployments with GitHub Actions

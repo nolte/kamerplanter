@@ -145,6 +145,9 @@ The daily light integral is the total light quantity over a day. It is calculate
 
 ## Outdoor Sensors: Setting Up a Weather API
 
+!!! warning "Not yet implemented"
+    Weather API integration (DWD, OpenWeatherMap, Open-Meteo) is **specified (REQ-005 v2.3) but not yet implemented**. The following sections describe the planned behavior. Currently outdoor measurements are only captured via Home Assistant or manual entry.
+
 If you have no outdoor sensor, you can retrieve climate data from a weather service.
 
 ### Step 1: Enter Location Coordinates

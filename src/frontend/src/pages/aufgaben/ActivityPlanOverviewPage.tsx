@@ -48,6 +48,7 @@ export default function ActivityPlanOverviewPage() {
     for (const sp of speciesList) {
       if (previews.has(sp.key)) continue;
 
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- set loading placeholder before async fetch
       setPreviews((prev) => new Map(prev).set(sp.key, { species: sp, plan: null, loading: true, cultivarCount: null }));
 
       const planPromise = activityPlanApi

@@ -8,20 +8,28 @@ import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
+import Grid from '@mui/material/Grid';
 import Table from '@mui/material/Table';
+import TableHead from '@mui/material/TableHead';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableRow from '@mui/material/TableRow';
+import Tooltip from '@mui/material/Tooltip';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Alert from '@mui/material/Alert';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import OpacityIcon from '@mui/icons-material/Opacity';
+import PlaceIcon from '@mui/icons-material/Place';
+import BuildIcon from '@mui/icons-material/Build';
 import IconButton from '@mui/material/IconButton';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import MobileCard from '@/components/common/MobileCard';
+import EmptyState from '@/components/common/EmptyState';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
@@ -42,6 +50,8 @@ import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import * as tankApi from '@/api/endpoints/tanks';
 import * as sitesApi from '@/api/endpoints/sites';
+import * as observationsApi from '@/api/endpoints/observations';
+import SensorHistoryChart from '@/components/sensors/SensorHistoryChart';
 import CircularProgress from '@mui/material/CircularProgress';
 import type {
   Tank,
@@ -105,6 +115,41 @@ function getFreshness(recordedAt: string | null): { color: 'success' | 'warning'
   return { color: 'error', key: 'freshStale' };
 }
 
+function getPhStatus(ph: number | null): 'success' | 'warning' | 'error' | 'default' {
+  if (ph == null) return 'default';
+  if (ph >= 5.5 && ph <= 6.5) return 'success';
+  if ((ph >= 5.0 && ph < 5.5) || (ph > 6.5 && ph <= 7.0)) return 'warning';
+  return 'error';
+}
+
+function getEcStatus(ec: number | null): 'success' | 'warning' | 'error' | 'default' {
+  if (ec == null) return 'default';
+  if (ec >= 0.5 && ec <= 3.0) return 'success';
+  if ((ec > 0 && ec < 0.5) || (ec > 3.0 && ec <= 4.0)) return 'warning';
+  return 'error';
+}
+
+function getTempStatus(temp: number | null): 'success' | 'warning' | 'error' | 'default' {
+  if (temp == null) return 'default';
+  if (temp >= 18 && temp <= 22) return 'success';
+  if ((temp >= 15 && temp < 18) || (temp > 22 && temp <= 26)) return 'warning';
+  return 'error';
+}
+
+function getDoStatus(doVal: number | null): 'success' | 'warning' | 'error' | 'default' {
+  if (doVal == null) return 'default';
+  if (doVal >= 5 && doVal <= 8) return 'success';
+  if ((doVal >= 3 && doVal < 5) || (doVal > 8 && doVal <= 10)) return 'warning';
+  return 'error';
+}
+
+const statusBorderColor: Record<string, string> = {
+  success: 'success.main',
+  warning: 'warning.main',
+  error: 'error.main',
+  default: 'divider',
+};
+
 export default function TankDetailPage() {
   const { key } = useParams<{ key: string }>();
   const { t } = useTranslation();
@@ -142,6 +187,7 @@ export default function TankDetailPage() {
   const [sensorDialogOpen, setSensorDialogOpen] = useState(false);
   const [editSensor, setEditSensor] = useState<Sensor | undefined>(undefined);
   const [deleteSensorKey, setDeleteSensorKey] = useState<string | null>(null);
+  const [tsAvailable, setTsAvailable] = useState(false);
 
   const statesTableState = useTableLocalState({ defaultSort: { column: 'recordedAt', direction: 'desc' } });
   const dueTableState = useTableLocalState({ defaultSort: { column: 'nextDue', direction: 'asc' } });
@@ -249,12 +295,18 @@ export default function TankDetailPage() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    observationsApi.getTimeseriesStatus()
+      .then((s) => setTsAvailable(s.available))
+      .catch(() => setTsAvailable(false));
+  }, []);
+
   const onSave = async (data: EditFormData) => {
     if (!key) return;
     try {
       setSaving(true);
       await tankApi.updateTank(key, { ...data, location_key: data.location_key || null });
-      notification.success(t('common.save'));
+      notification.success(t('common.saved'));
       load();
     } catch (err) {
       handleError(err);
@@ -267,7 +319,7 @@ export default function TankDetailPage() {
     if (!key) return;
     try {
       await tankApi.deleteTank(key);
-      notification.success(t('common.delete'));
+      notification.success(t('pages.tanks.deleted'));
       navigate('/standorte/tanks');
     } catch (err) {
       handleError(err);
@@ -337,12 +389,12 @@ export default function TankDetailPage() {
 
   // Column definitions for data tables
   const stateColumns: Column<TankState>[] = [
-    { id: 'recordedAt', label: t('pages.tanks.recordedAt'), render: (r) => r.recorded_at ? new Date(r.recorded_at).toLocaleString() : '\u2014' },
-    { id: 'ph', label: 'pH', render: (r) => r.ph ?? '\u2014', align: 'right' },
-    { id: 'ec', label: 'EC (mS/cm)', render: (r) => r.ec_ms ?? '\u2014', align: 'right' },
-    { id: 'temp', label: t('pages.tanks.waterTemp'), render: (r) => r.water_temp_celsius != null ? `${r.water_temp_celsius} °C` : '\u2014', align: 'right' },
-    { id: 'fillLevel', label: t('pages.tanks.fillLevel'), render: (r) => r.fill_level_percent != null ? `${r.fill_level_percent}%` : '\u2014', align: 'right' },
-    { id: 'tds', label: 'TDS (ppm)', render: (r) => r.tds_ppm ?? '\u2014', align: 'right' },
+    { id: 'recordedAt', label: t('pages.tanks.recordedAt'), render: (r) => r.recorded_at ? new Date(r.recorded_at).toLocaleString() : '—' },
+    { id: 'ph', label: 'pH', render: (r) => r.ph ?? '—', align: 'right' },
+    { id: 'ec', label: 'EC (mS/cm)', render: (r) => r.ec_ms ?? '—', align: 'right' },
+    { id: 'temp', label: t('pages.tanks.waterTemp'), render: (r) => r.water_temp_celsius != null ? `${r.water_temp_celsius} °C` : '—', align: 'right' },
+    { id: 'fillLevel', label: t('pages.tanks.fillLevel'), render: (r) => r.fill_level_percent != null ? `${r.fill_level_percent}%` : '—', align: 'right' },
+    { id: 'tds', label: 'TDS (ppm)', render: (r) => r.tds_ppm ?? '—', align: 'right' },
   ];
 
   const dueColumns: Column<DueMaintenance>[] = [
@@ -358,10 +410,10 @@ export default function TankDetailPage() {
 
   const logColumns: Column<MaintenanceLog>[] = [
     { id: 'type', label: t('pages.tanks.maintenanceType'), render: (r) => t(`enums.maintenanceType.${r.maintenance_type}`), searchValue: (r) => t(`enums.maintenanceType.${r.maintenance_type}`) },
-    { id: 'performedAt', label: t('pages.tanks.performedAt'), render: (r) => r.performed_at ? new Date(r.performed_at).toLocaleString() : '\u2014' },
-    { id: 'performedBy', label: t('pages.tanks.performedBy'), render: (r) => r.performed_by || '\u2014' },
-    { id: 'duration', label: t('pages.tanks.duration'), render: (r) => r.duration_minutes != null ? `${r.duration_minutes} min` : '\u2014', align: 'right' },
-    { id: 'notes', label: t('pages.tanks.notes'), render: (r) => r.notes || '\u2014' },
+    { id: 'performedAt', label: t('pages.tanks.performedAt'), render: (r) => r.performed_at ? new Date(r.performed_at).toLocaleString() : '—' },
+    { id: 'performedBy', label: t('pages.tanks.performedBy'), render: (r) => r.performed_by || '—' },
+    { id: 'duration', label: t('pages.tanks.duration'), render: (r) => r.duration_minutes != null ? `${r.duration_minutes} min` : '—', align: 'right' },
+    { id: 'notes', label: t('pages.tanks.notes'), render: (r) => r.notes || '—' },
   ];
 
   const scheduleColumns: Column<MaintenanceSchedule>[] = [
@@ -403,15 +455,21 @@ export default function TankDetailPage() {
   if (error) return <ErrorDisplay error={error} />;
   if (!tank) return <ErrorDisplay error={t('errors.notFound')} />;
 
+  const overdueDueCount = dueMaintenances.filter((d) => d.status === 'overdue' || d.status === 'due_soon').length;
+
   return (
     <Box data-testid="tank-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
+
+      {/* Header: title + delete */}
       <Box
         sx={{
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 2,
+          alignItems: 'flex-start',
+          mb: 1,
+          flexWrap: 'wrap',
+          gap: 1,
         }}
       >
         <PageTitle title={tank.name} />
@@ -421,23 +479,72 @@ export default function TankDetailPage() {
           startIcon={<DeleteIcon />}
           onClick={() => setDeleteOpen(true)}
           data-testid="tank-delete-button"
+          size="small"
+          sx={{ mt: { xs: 0, sm: 0.5 } }}
         >
           {t('common.delete')}
         </Button>
       </Box>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }} variant="scrollable" scrollButtons="auto">
+      {/* Quick-info chips under the title */}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+        <Chip
+          icon={<OpacityIcon sx={{ fontSize: 16 }} />}
+          label={`${t('pages.tanks.quickInfoType')}: ${t(`enums.tankType.${tank.tank_type}`)}`}
+          size="small"
+          variant="outlined"
+          color="default"
+        />
+        <Chip
+          label={`${tank.volume_liters} L`}
+          size="small"
+          variant="outlined"
+          color="default"
+        />
+        {siteName && (
+          <Chip
+            icon={<PlaceIcon sx={{ fontSize: 16 }} />}
+            label={locationName ? `${siteName} / ${locationName}` : siteName}
+            size="small"
+            variant="outlined"
+            color="default"
+          />
+        )}
+        {overdueDueCount > 0 && (
+          <Chip
+            icon={<BuildIcon sx={{ fontSize: 16 }} />}
+            label={t('pages.tanks.quickInfoDueMaint', { count: overdueDueCount })}
+            size="small"
+            color="warning"
+            onClick={() => setTab(2)}
+            sx={{ cursor: 'pointer' }}
+          />
+        )}
+      </Box>
+
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        sx={{ mb: 2 }}
+        variant="scrollable"
+        scrollButtons="auto"
+        aria-label={t('pages.tanks.tabsAriaLabel')}
+      >
         <Tab label={t('pages.tanks.tabDetails')} />
         <Tab label={t('pages.tanks.tabStates')} />
         <Tab label={t('pages.tanks.tabMaintenance')} />
         <Tab label={t('pages.tanks.tabSchedules')} />
         <Tab label={t('pages.tanks.tabFills')} />
-        <Tab label={t('common.edit')} />
+        <Tab label={t('pages.tanks.tabEdit')} />
       </Tabs>
 
       {/* Tab 0: Details */}
       {tab === 0 && (
         <Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t('pages.tanks.detailsIntro')}
+          </Typography>
+
           {alerts.length > 0 && (
             <Box sx={{ mb: 2 }}>
               {alerts.map((a, i) => (
@@ -446,145 +553,282 @@ export default function TankDetailPage() {
                   severity={severityColor[a.severity] ?? 'info'}
                   sx={{ mb: 1 }}
                 >
-                  {t(`tankAlerts.${a.type}`, { value: a.value, defaultValue: a.message })}
+                  {a.type === 'algae_risk' && a.factors ? (
+                    <>
+                      {t('tankAlerts.algae_risk_title')}
+                      <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                        <li>{t('tankAlerts.algae_factor_not_light_proof')}</li>
+                        {a.factors.includes('no_lid') && (
+                          <li>{t('tankAlerts.algae_factor_no_lid')}</li>
+                        )}
+                        {a.factors.includes('warm_water') && (
+                          <li>{t('tankAlerts.algae_factor_warm_water', { temp: a.temp })}</li>
+                        )}
+                        {a.factors.includes('nutrient_rich') && (
+                          <li>{t('tankAlerts.algae_factor_nutrient_rich')}</li>
+                        )}
+                      </ul>
+                    </>
+                  ) : (
+                    t(`tankAlerts.${a.type}`, { value: a.value, limit: a.limit, limit_min: a.limit_min, limit_max: a.limit_max, defaultValue: a.message })
+                  )}
                 </Alert>
               ))}
             </Box>
           )}
+
+          {/* Tank Properties Grid */}
           <Card sx={{ mb: 2 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                {t('pages.tanks.tabDetails')}
+                {t('pages.tanks.properties')}
               </Typography>
-              <Table size="small" aria-label={t('pages.tanks.tabDetails')}>
-                <TableBody>
-                  <TableRow>
-                    <TableCell component="th">{t('pages.tanks.tankType')}</TableCell>
-                    <TableCell>{t(`enums.tankType.${tank.tank_type}`)}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell component="th">{t('pages.tanks.volumeLiters')}</TableCell>
-                    <TableCell>{tank.volume_liters} L</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell component="th">{t('pages.tanks.material')}</TableCell>
-                    <TableCell>{t(`enums.tankMaterial.${tank.material}`)}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell component="th">{t('pages.tanks.site')} / {t('pages.tanks.location')}</TableCell>
-                    <TableCell>
-                      {siteName && locationName
-                        ? `${siteName} / ${locationName}`
-                        : '\u2014'}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell component="th">{t('pages.tanks.equipment')}</TableCell>
-                    <TableCell>
-                      {(() => {
-                        const chips = [
-                          tank.has_lid && <Chip key="lid" label={t('pages.tanks.hasLid')} size="small" sx={{ mr: 0.5, mb: 0.5 }} />,
-                          tank.has_air_pump && <Chip key="air" label={t('pages.tanks.hasAirPump')} size="small" sx={{ mr: 0.5, mb: 0.5 }} />,
-                          tank.has_circulation_pump && <Chip key="circ" label={t('pages.tanks.hasCirculationPump')} size="small" sx={{ mr: 0.5, mb: 0.5 }} />,
-                          tank.has_heater && <Chip key="heat" label={t('pages.tanks.hasHeater')} size="small" sx={{ mr: 0.5, mb: 0.5 }} />,
-                          tank.is_light_proof && <Chip key="light" label={t('pages.tanks.isLightProof')} size="small" sx={{ mr: 0.5, mb: 0.5 }} />,
-                          tank.has_uv_sterilizer && <Chip key="uv" label={t('pages.tanks.hasUvSterilizer')} size="small" sx={{ mr: 0.5, mb: 0.5 }} />,
-                          tank.has_ozone_generator && <Chip key="ozone" label={t('pages.tanks.hasOzoneGenerator')} size="small" sx={{ mr: 0.5, mb: 0.5 }} />,
-                        ].filter(Boolean);
-                        return chips.length > 0 ? chips : '\u2014';
-                      })()}
-                    </TableCell>
-                  </TableRow>
-                  {tank.notes && (
-                    <TableRow>
-                      <TableCell component="th">{t('pages.tanks.notes')}</TableCell>
-                      <TableCell>{tank.notes}</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+                  <Typography variant="caption" color="text.secondary">{t('pages.tanks.tankType')}</Typography>
+                  <Typography variant="body2" fontWeight={500}>{t(`enums.tankType.${tank.tank_type}`)}</Typography>
+                </Grid>
+                <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+                  <Typography variant="caption" color="text.secondary">{t('pages.tanks.volumeLiters')}</Typography>
+                  <Typography variant="body2" fontWeight={500}>{tank.volume_liters} L</Typography>
+                </Grid>
+                <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+                  <Typography variant="caption" color="text.secondary">{t('pages.tanks.material')}</Typography>
+                  <Typography variant="body2" fontWeight={500}>{t(`enums.tankMaterial.${tank.material}`)}</Typography>
+                </Grid>
+                <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+                  <Typography variant="caption" color="text.secondary">{t('pages.tanks.site')} / {t('pages.tanks.location')}</Typography>
+                  <Typography variant="body2" fontWeight={500}>
+                    {siteName && locationName
+                      ? `${siteName} / ${locationName}`
+                      : siteName || '—'}
+                  </Typography>
+                </Grid>
+              </Grid>
+              {(() => {
+                const equipChips = [
+                  tank.has_lid && <Chip key="lid" label={t('pages.tanks.hasLid')} size="small" />,
+                  tank.has_air_pump && <Chip key="air" label={t('pages.tanks.hasAirPump')} size="small" />,
+                  tank.has_circulation_pump && <Chip key="circ" label={t('pages.tanks.hasCirculationPump')} size="small" />,
+                  tank.has_heater && <Chip key="heat" label={t('pages.tanks.hasHeater')} size="small" />,
+                  tank.is_light_proof && <Chip key="light" label={t('pages.tanks.isLightProof')} size="small" />,
+                  tank.has_uv_sterilizer && <Chip key="uv" label={t('pages.tanks.hasUvSterilizer')} size="small" />,
+                  tank.has_ozone_generator && <Chip key="ozone" label={t('pages.tanks.hasOzoneGenerator')} size="small" />,
+                ].filter(Boolean);
+                return equipChips.length > 0 ? (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                      {t('pages.tanks.equipment')}
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {equipChips}
+                    </Box>
+                  </Box>
+                ) : null;
+              })()}
+              {tank.notes && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                    {t('pages.tanks.notes')}
+                  </Typography>
+                  <Typography variant="body2">{tank.notes}</Typography>
+                </Box>
+              )}
             </CardContent>
           </Card>
+
+          {/* Current State — color-coded value cards */}
           {latestState && (
             <Card sx={{ mb: 2 }}>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  {t('pages.tanks.latestState')}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                  <Typography variant="h6">{t('pages.tanks.latestState')}</Typography>
                   <Chip
                     label={t(`pages.tanks.source${latestState.source === 'manual' ? 'Manual' : latestState.source === 'ha_auto' ? 'HaAuto' : latestState.source === 'ha_live' ? 'HaLive' : latestState.source === 'mqtt_auto' ? 'MqttAuto' : 'Manual'}`)}
                     size="small"
                     color={sourceChipColor[latestState.source] ?? 'default'}
-                    sx={{ ml: 1 }}
                   />
-                </Typography>
-                <Table size="small" aria-label={t('pages.tanks.latestState')}>
-                  <TableBody>
-                    {latestState.ph != null && (
-                      <TableRow>
-                        <TableCell component="th">pH</TableCell>
-                        <TableCell>{latestState.ph}</TableCell>
-                      </TableRow>
-                    )}
-                    {latestState.ec_ms != null && (
-                      <TableRow>
-                        <TableCell component="th">EC (mS/cm)</TableCell>
-                        <TableCell>{latestState.ec_ms}</TableCell>
-                      </TableRow>
-                    )}
-                    {latestState.water_temp_celsius != null && (
-                      <TableRow>
-                        <TableCell component="th">{t('pages.tanks.waterTemp')}</TableCell>
-                        <TableCell>{latestState.water_temp_celsius} °C</TableCell>
-                      </TableRow>
-                    )}
-                    {latestState.fill_level_percent != null && (
-                      <TableRow>
-                        <TableCell component="th">{t('pages.tanks.fillLevel')}</TableCell>
-                        <TableCell>
+                  {latestState.recorded_at && (() => {
+                    const freshness = getFreshness(latestState.recorded_at);
+                    return (
+                      <Chip
+                        label={freshness.minutes != null
+                          ? t(`pages.tanks.${freshness.key}`, { minutes: freshness.minutes })
+                          : t(`pages.tanks.${freshness.key}`)}
+                        size="small"
+                        color={freshness.color}
+                        variant="outlined"
+                      />
+                    );
+                  })()}
+                  {latestState.recorded_at && (
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(latestState.recorded_at).toLocaleString()}
+                    </Typography>
+                  )}
+                </Box>
+                <Grid container spacing={1.5}>
+                  {latestState.ph != null && (() => {
+                    const status = getPhStatus(latestState.ph);
+                    return (
+                      <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+                        <Box
+                          sx={{
+                            p: 1.5,
+                            border: '2px solid',
+                            borderColor: statusBorderColor[status],
+                            borderRadius: 1,
+                            bgcolor: 'background.paper',
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary">pH</Typography>
+                            <Tooltip title={t('pages.tanks.phTooltip')} arrow>
+                              <InfoOutlinedIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} tabIndex={0} />
+                            </Tooltip>
+                          </Box>
+                          <Typography variant="h5" fontWeight={700} color={`${status}.main`}>
+                            {latestState.ph}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">5.5–6.5</Typography>
+                        </Box>
+                      </Grid>
+                    );
+                  })()}
+                  {latestState.ec_ms != null && (() => {
+                    const status = getEcStatus(latestState.ec_ms);
+                    return (
+                      <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+                        <Box
+                          sx={{
+                            p: 1.5,
+                            border: '2px solid',
+                            borderColor: statusBorderColor[status],
+                            borderRadius: 1,
+                            bgcolor: 'background.paper',
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary">EC</Typography>
+                            <Tooltip title={t('pages.tanks.ecTooltip')} arrow>
+                              <InfoOutlinedIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} tabIndex={0} />
+                            </Tooltip>
+                          </Box>
+                          <Typography variant="h5" fontWeight={700} color={`${status}.main`}>
+                            {latestState.ec_ms}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">mS/cm</Typography>
+                        </Box>
+                      </Grid>
+                    );
+                  })()}
+                  {latestState.water_temp_celsius != null && (() => {
+                    const status = getTempStatus(latestState.water_temp_celsius);
+                    return (
+                      <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+                        <Box
+                          sx={{
+                            p: 1.5,
+                            border: '2px solid',
+                            borderColor: statusBorderColor[status],
+                            borderRadius: 1,
+                            bgcolor: 'background.paper',
+                          }}
+                        >
+                          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                            {t('pages.tanks.waterTempShort')}
+                          </Typography>
+                          <Typography variant="h5" fontWeight={700} color={`${status}.main`}>
+                            {latestState.water_temp_celsius}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">°C &nbsp;(18–22)</Typography>
+                        </Box>
+                      </Grid>
+                    );
+                  })()}
+                  {latestState.fill_level_percent != null && (
+                    <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+                      <Box
+                        sx={{
+                          p: 1.5,
+                          border: '2px solid',
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          bgcolor: 'background.paper',
+                        }}
+                      >
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                          {t('pages.tanks.fillLevel')}
+                        </Typography>
+                        <Typography variant="h5" fontWeight={700}>
                           {latestState.fill_level_percent}%
-                          {latestState.fill_level_liters != null && ` (${latestState.fill_level_liters} L)`}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {latestState.dissolved_oxygen_mgl != null && (
-                      <TableRow>
-                        <TableCell component="th">{t('pages.tanks.dissolvedOxygen')}</TableCell>
-                        <TableCell>{latestState.dissolved_oxygen_mgl} mg/L</TableCell>
-                      </TableRow>
-                    )}
-                    {latestState.orp_mv != null && (
-                      <TableRow>
-                        <TableCell component="th">{t('pages.tanks.orp')}</TableCell>
-                        <TableCell>{latestState.orp_mv} mV</TableCell>
-                      </TableRow>
-                    )}
-                    {latestState.recorded_at && (() => {
-                      const freshness = getFreshness(latestState.recorded_at);
-                      return (
-                        <TableRow>
-                          <TableCell component="th">{t('pages.tanks.recordedAt')}</TableCell>
-                          <TableCell>
-                            {new Date(latestState.recorded_at).toLocaleString()}
-                            <Chip
-                              label={freshness.minutes != null ? t(`pages.tanks.${freshness.key}`, { minutes: freshness.minutes }) : t(`pages.tanks.${freshness.key}`)}
-                              size="small"
-                              color={freshness.color}
-                              variant="outlined"
-                              sx={{ ml: 1 }}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })()}
-                  </TableBody>
-                </Table>
+                        </Typography>
+                        {latestState.fill_level_liters != null && (
+                          <Typography variant="caption" color="text.secondary">{latestState.fill_level_liters} L</Typography>
+                        )}
+                      </Box>
+                    </Grid>
+                  )}
+                  {latestState.dissolved_oxygen_mgl != null && (() => {
+                    const status = getDoStatus(latestState.dissolved_oxygen_mgl);
+                    return (
+                      <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+                        <Box
+                          sx={{
+                            p: 1.5,
+                            border: '2px solid',
+                            borderColor: statusBorderColor[status],
+                            borderRadius: 1,
+                            bgcolor: 'background.paper',
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary">{t('pages.tanks.dissolvedOxygenShort')}</Typography>
+                            <Tooltip title={t('pages.tanks.dissolvedOxygenTooltip')} arrow>
+                              <InfoOutlinedIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} tabIndex={0} />
+                            </Tooltip>
+                          </Box>
+                          <Typography variant="h5" fontWeight={700} color={`${status}.main`}>
+                            {latestState.dissolved_oxygen_mgl}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">mg/L &nbsp;(5–8)</Typography>
+                        </Box>
+                      </Grid>
+                    );
+                  })()}
+                  {latestState.orp_mv != null && (
+                    <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+                      <Box
+                        sx={{
+                          p: 1.5,
+                          border: '2px solid',
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          bgcolor: 'background.paper',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                          <Typography variant="caption" color="text.secondary">ORP</Typography>
+                          <Tooltip title={t('pages.tanks.orpTooltip')} arrow>
+                            <InfoOutlinedIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} tabIndex={0} />
+                          </Tooltip>
+                        </Box>
+                        <Typography variant="h5" fontWeight={700}>
+                          {latestState.orp_mv}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">mV &nbsp;(300–500)</Typography>
+                      </Box>
+                    </Grid>
+                  )}
+                </Grid>
               </CardContent>
             </Card>
           )}
+
           {/* Live Query */}
-          <Card>
+          <Card sx={{ mb: 2 }}>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: liveState ? 2 : 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 1 }}>
                 <Typography variant="h6">{t('pages.tanks.liveValues')}</Typography>
                 <Button
                   variant="outlined"
@@ -597,6 +841,9 @@ export default function TankDetailPage() {
                   {t('pages.tanks.liveQuery')}
                 </Button>
               </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: liveState ? 2 : 0 }}>
+                {t('pages.tanks.liveValuesDesc')}
+              </Typography>
               {liveState && liveState.source === 'unavailable' && (
                 <Alert severity="info" sx={{ mt: 1 }}>{t('pages.tanks.noHaConfigured')}</Alert>
               )}
@@ -651,10 +898,11 @@ export default function TankDetailPage() {
               )}
             </CardContent>
           </Card>
+
           {/* Sensors */}
-          <Card sx={{ mt: 2 }}>
+          <Card sx={{ mb: 2 }}>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: sensors.length > 0 ? 2 : 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, flexWrap: 'wrap', gap: 1 }}>
                 <Typography variant="h6">{t('pages.tanks.sensors')}</Typography>
                 <Button
                   variant="outlined"
@@ -665,23 +913,39 @@ export default function TankDetailPage() {
                   {t('pages.tanks.addSensor')}
                 </Button>
               </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: sensors.length > 0 ? 2 : 1 }}>
+                {t('pages.tanks.sensorsDesc')}
+              </Typography>
               {sensors.length === 0 && (
-                <Alert severity="info">{t('pages.tanks.noSensors')}</Alert>
+                <EmptyState
+                  message={t('pages.tanks.noSensors')}
+                  actionLabel={t('pages.tanks.addSensor')}
+                  onAction={() => { setEditSensor(undefined); setSensorDialogOpen(true); }}
+                />
               )}
               {sensors.length > 0 && (
                 <Table size="small" aria-label={t('pages.tanks.sensors')}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>{t('pages.tanks.sensorColumnName')}</TableCell>
+                      <TableCell>{t('pages.tanks.sensorColumnMetric')}</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{t('pages.tanks.sensorColumnEntity')}</TableCell>
+                      <TableCell align="right">{t('pages.tanks.sensorColumnActions')}</TableCell>
+                    </TableRow>
+                  </TableHead>
                   <TableBody>
                     {sensors.map((s) => (
                       <TableRow key={s.key}>
                         <TableCell>{s.name}</TableCell>
                         <TableCell>{s.metric_type}</TableCell>
-                        <TableCell>{s.ha_entity_id || '\u2014'}</TableCell>
+                        <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{s.ha_entity_id || '—'}</TableCell>
                         <TableCell align="right">
                           <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
                             <IconButton
                               size="small"
                               onClick={() => { setEditSensor(s); setSensorDialogOpen(true); }}
                               aria-label={t('common.edit')}
+                              data-testid={`sensor-edit-${s.key}`}
                             >
                               <EditIcon fontSize="small" />
                             </IconButton>
@@ -690,6 +954,7 @@ export default function TankDetailPage() {
                               color="error"
                               onClick={() => setDeleteSensorKey(s.key)}
                               aria-label={t('common.delete')}
+                              data-testid={`sensor-delete-${s.key}`}
                             >
                               <DeleteIcon fontSize="small" />
                             </IconButton>
@@ -702,12 +967,37 @@ export default function TankDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Sensor History Charts */}
+          {tsAvailable && sensors.filter((s) => s.ha_entity_id && s.is_active).length > 0 && (
+            <Card sx={{ mb: 2 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  {t('pages.tanks.sensorHistory')}
+                </Typography>
+                {sensors
+                  .filter((s) => s.ha_entity_id && s.is_active)
+                  .map((s) => (
+                    <SensorHistoryChart
+                      key={s.key}
+                      sensorKey={s.key}
+                      sensorName={s.name}
+                      metricType={s.metric_type}
+                      unit={s.unit_of_measurement}
+                    />
+                  ))}
+              </CardContent>
+            </Card>
+          )}
         </Box>
       )}
 
       {/* Tab 1: States */}
       {tab === 1 && (
         <Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t('pages.tanks.statesIntro')}
+          </Typography>
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
             <Button
               variant="contained"
@@ -717,31 +1007,43 @@ export default function TankDetailPage() {
               {t('pages.tanks.recordState')}
             </Button>
           </Box>
-          <DataTable
-            columns={stateColumns}
-            rows={states}
-            getRowKey={(r) => r.key}
-            tableState={statesTableState}
-            variant="simple"
-            ariaLabel={t('pages.tanks.tabStates')}
-            mobileCardRenderer={(r) => (
-              <MobileCard
-                title={r.recorded_at ? new Date(r.recorded_at).toLocaleString() : '\u2014'}
-                fields={[
-                  ...(r.ph != null ? [{ label: 'pH', value: String(r.ph) }] : []),
-                  ...(r.ec_ms != null ? [{ label: 'EC (mS/cm)', value: String(r.ec_ms) }] : []),
-                  ...(r.water_temp_celsius != null ? [{ label: t('pages.tanks.waterTemp'), value: `${r.water_temp_celsius} \u00B0C` }] : []),
-                  ...(r.fill_level_percent != null ? [{ label: t('pages.tanks.fillLevel'), value: `${r.fill_level_percent}%` }] : []),
-                ]}
-              />
-            )}
-          />
+          {states.length === 0 ? (
+            <EmptyState
+              message={t('pages.tanks.noMeasurements')}
+              description={t('pages.tanks.noMeasurementsDesc')}
+              actionLabel={t('pages.tanks.recordState')}
+              onAction={() => setStateDialogOpen(true)}
+            />
+          ) : (
+            <DataTable
+              columns={stateColumns}
+              rows={states}
+              getRowKey={(r) => r.key}
+              tableState={statesTableState}
+              variant="simple"
+              ariaLabel={t('pages.tanks.tabStates')}
+              mobileCardRenderer={(r) => (
+                <MobileCard
+                  title={r.recorded_at ? new Date(r.recorded_at).toLocaleString() : '—'}
+                  fields={[
+                    ...(r.ph != null ? [{ label: 'pH', value: String(r.ph) }] : []),
+                    ...(r.ec_ms != null ? [{ label: 'EC (mS/cm)', value: String(r.ec_ms) }] : []),
+                    ...(r.water_temp_celsius != null ? [{ label: t('pages.tanks.waterTemp'), value: `${r.water_temp_celsius} \u00B0C` }] : []),
+                    ...(r.fill_level_percent != null ? [{ label: t('pages.tanks.fillLevel'), value: `${r.fill_level_percent}%` }] : []),
+                  ]}
+                />
+              )}
+            />
+          )}
         </Box>
       )}
 
       {/* Tab 2: Maintenance */}
       {tab === 2 && (
         <Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t('pages.tanks.maintenanceIntro')}
+          </Typography>
           {dueMaintenances.length > 0 && (
             <Card sx={{ mb: 2 }}>
               <CardContent>
@@ -787,30 +1089,42 @@ export default function TankDetailPage() {
           <Typography variant="h6" gutterBottom>
             {t('pages.tanks.maintenanceHistory')}
           </Typography>
-          <DataTable
-            columns={logColumns}
-            rows={maintenanceLogs}
-            getRowKey={(r) => r.key}
-            tableState={logsTableState}
-            variant="simple"
-            ariaLabel={t('pages.tanks.maintenanceHistory')}
-            mobileCardRenderer={(r) => (
-              <MobileCard
-                title={t(`enums.maintenanceType.${r.maintenance_type}`)}
-                subtitle={r.performed_at ? new Date(r.performed_at).toLocaleString() : undefined}
-                fields={[
-                  ...(r.performed_by ? [{ label: t('pages.tanks.performedBy'), value: r.performed_by }] : []),
-                  ...(r.duration_minutes != null ? [{ label: t('pages.tanks.duration'), value: `${r.duration_minutes} min` }] : []),
-                ]}
-              />
-            )}
-          />
+          {maintenanceLogs.length === 0 ? (
+            <EmptyState
+              message={t('pages.tanks.noMaintenanceLogs')}
+              description={t('pages.tanks.noMaintenanceLogsDesc')}
+              actionLabel={t('pages.tanks.logMaintenance')}
+              onAction={() => setMaintenanceDialogOpen(true)}
+            />
+          ) : (
+            <DataTable
+              columns={logColumns}
+              rows={maintenanceLogs}
+              getRowKey={(r) => r.key}
+              tableState={logsTableState}
+              variant="simple"
+              ariaLabel={t('pages.tanks.maintenanceHistory')}
+              mobileCardRenderer={(r) => (
+                <MobileCard
+                  title={t(`enums.maintenanceType.${r.maintenance_type}`)}
+                  subtitle={r.performed_at ? new Date(r.performed_at).toLocaleString() : undefined}
+                  fields={[
+                    ...(r.performed_by ? [{ label: t('pages.tanks.performedBy'), value: r.performed_by }] : []),
+                    ...(r.duration_minutes != null ? [{ label: t('pages.tanks.duration'), value: `${r.duration_minutes} min` }] : []),
+                  ]}
+                />
+              )}
+            />
+          )}
         </Box>
       )}
 
       {/* Tab 3: Schedules */}
       {tab === 3 && (
         <Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t('pages.tanks.schedulesIntro')}
+          </Typography>
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
             <Button
               variant="contained"
@@ -820,36 +1134,48 @@ export default function TankDetailPage() {
               {t('pages.tanks.createSchedule')}
             </Button>
           </Box>
-          <DataTable
-            columns={scheduleColumns}
-            rows={schedules}
-            getRowKey={(r) => r.key}
-            tableState={schedulesTableState}
-            variant="simple"
-            ariaLabel={t('pages.tanks.tabSchedules')}
-            mobileCardRenderer={(r) => (
-              <MobileCard
-                title={t(`enums.maintenanceType.${r.maintenance_type}`)}
-                chips={
-                  <Chip
-                    label={r.is_active ? t('common.yes') : t('common.no')}
-                    size="small"
-                    color={r.is_active ? 'success' : 'default'}
-                  />
-                }
-                fields={[
-                  { label: t('pages.tanks.intervalDays'), value: String(r.interval_days) },
-                  { label: t('pages.tanks.priority'), value: t(`enums.maintenancePriority.${r.priority}`) },
-                ]}
-              />
-            )}
-          />
+          {schedules.length === 0 ? (
+            <EmptyState
+              message={t('pages.tanks.noSchedules')}
+              description={t('pages.tanks.noSchedulesDesc')}
+              actionLabel={t('pages.tanks.createSchedule')}
+              onAction={() => { setEditSchedule(undefined); setScheduleDialogOpen(true); }}
+            />
+          ) : (
+            <DataTable
+              columns={scheduleColumns}
+              rows={schedules}
+              getRowKey={(r) => r.key}
+              tableState={schedulesTableState}
+              variant="simple"
+              ariaLabel={t('pages.tanks.tabSchedules')}
+              mobileCardRenderer={(r) => (
+                <MobileCard
+                  title={t(`enums.maintenanceType.${r.maintenance_type}`)}
+                  chips={
+                    <Chip
+                      label={r.is_active ? t('common.yes') : t('common.no')}
+                      size="small"
+                      color={r.is_active ? 'success' : 'default'}
+                    />
+                  }
+                  fields={[
+                    { label: t('pages.tanks.intervalDays'), value: String(r.interval_days) },
+                    { label: t('pages.tanks.priority'), value: t(`enums.maintenancePriority.${r.priority}`) },
+                  ]}
+                />
+              )}
+            />
+          )}
         </Box>
       )}
 
       {/* Tab 4: Fills */}
       {tab === 4 && (
         <Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t('pages.tanks.fillsIntro')}
+          </Typography>
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
             <Button
               variant="contained"
@@ -859,33 +1185,42 @@ export default function TankDetailPage() {
               {t('pages.tanks.recordFill')}
             </Button>
           </Box>
-          <DataTable
-            columns={[
-              { id: 'filledAt', label: t('pages.tanks.filledAt'), render: (r: TankFillEvent) => r.filled_at ? new Date(r.filled_at).toLocaleString() : '\u2014' },
-              { id: 'fillType', label: t('pages.tanks.fillType'), render: (r: TankFillEvent) => t(`enums.fillType.${r.fill_type}`), searchValue: (r: TankFillEvent) => t(`enums.fillType.${r.fill_type}`) },
-              { id: 'volume', label: t('pages.tanks.volumeLiters'), render: (r: TankFillEvent) => `${r.volume_liters} L`, align: 'right' as const },
-              { id: 'ec', label: 'EC (mS/cm)', render: (r: TankFillEvent) => r.measured_ec_ms != null ? `${r.measured_ec_ms}` : '\u2014', align: 'right' as const },
-              { id: 'ph', label: 'pH', render: (r: TankFillEvent) => r.measured_ph ?? '\u2014', align: 'right' as const },
-              { id: 'waterSource', label: t('pages.tanks.waterSource'), render: (r: TankFillEvent) => r.water_source ? t(`enums.waterSource.${r.water_source}`) : '\u2014' },
-            ]}
-            rows={fillEvents}
-            getRowKey={(r: TankFillEvent) => r.key}
-            tableState={fillsTableState}
-            variant="simple"
-            ariaLabel={t('pages.tanks.tabFills')}
-            mobileCardRenderer={(r: TankFillEvent) => (
-              <MobileCard
-                title={r.filled_at ? new Date(r.filled_at).toLocaleString() : '\u2014'}
-                chips={<Chip label={t(`enums.fillType.${r.fill_type}`)} size="small" />}
-                fields={[
-                  { label: t('pages.tanks.volumeLiters'), value: `${r.volume_liters} L` },
-                  ...(r.measured_ec_ms != null ? [{ label: 'EC (mS/cm)', value: String(r.measured_ec_ms) }] : []),
-                  ...(r.measured_ph != null ? [{ label: 'pH', value: String(r.measured_ph) }] : []),
-                  ...(r.water_source ? [{ label: t('pages.tanks.waterSource'), value: t(`enums.waterSource.${r.water_source}`) }] : []),
-                ]}
-              />
-            )}
-          />
+          {fillEvents.length === 0 ? (
+            <EmptyState
+              message={t('pages.tanks.noFills')}
+              description={t('pages.tanks.noFillsDesc')}
+              actionLabel={t('pages.tanks.recordFill')}
+              onAction={() => setFillDialogOpen(true)}
+            />
+          ) : (
+            <DataTable
+              columns={[
+                { id: 'filledAt', label: t('pages.tanks.filledAt'), render: (r: TankFillEvent) => r.filled_at ? new Date(r.filled_at).toLocaleString() : '—' },
+                { id: 'fillType', label: t('pages.tanks.fillType'), render: (r: TankFillEvent) => t(`enums.fillType.${r.fill_type}`), searchValue: (r: TankFillEvent) => t(`enums.fillType.${r.fill_type}`) },
+                { id: 'volume', label: t('pages.tanks.volumeLiters'), render: (r: TankFillEvent) => `${r.volume_liters} L`, align: 'right' as const },
+                { id: 'ec', label: 'EC (mS/cm)', render: (r: TankFillEvent) => r.measured_ec_ms != null ? `${r.measured_ec_ms}` : '—', align: 'right' as const },
+                { id: 'ph', label: 'pH', render: (r: TankFillEvent) => r.measured_ph ?? '—', align: 'right' as const },
+                { id: 'waterSource', label: t('pages.tanks.waterSource'), render: (r: TankFillEvent) => r.water_source ? t(`enums.waterSource.${r.water_source}`) : '—' },
+              ]}
+              rows={fillEvents}
+              getRowKey={(r: TankFillEvent) => r.key}
+              tableState={fillsTableState}
+              variant="simple"
+              ariaLabel={t('pages.tanks.tabFills')}
+              mobileCardRenderer={(r: TankFillEvent) => (
+                <MobileCard
+                  title={r.filled_at ? new Date(r.filled_at).toLocaleString() : '—'}
+                  chips={<Chip label={t(`enums.fillType.${r.fill_type}`)} size="small" />}
+                  fields={[
+                    { label: t('pages.tanks.volumeLiters'), value: `${r.volume_liters} L` },
+                    ...(r.measured_ec_ms != null ? [{ label: 'EC (mS/cm)', value: String(r.measured_ec_ms) }] : []),
+                    ...(r.measured_ph != null ? [{ label: 'pH', value: String(r.measured_ph) }] : []),
+                    ...(r.water_source ? [{ label: t('pages.tanks.waterSource'), value: t(`enums.waterSource.${r.water_source}`) }] : []),
+                  ]}
+                />
+              )}
+            />
+          )}
         </Box>
       )}
 
@@ -894,7 +1229,7 @@ export default function TankDetailPage() {
         <Box
           component="form"
           onSubmit={handleSubmit(onSave)}
-          sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 4 }}
+          sx={{ maxWidth: { xs: '100%', md: 900, xl: 1100 }, display: 'flex', flexDirection: 'column', gap: 4 }}
         >
           <Typography variant="body2" color="text.secondary">
             {t('pages.tanks.editIntro')}
@@ -920,6 +1255,8 @@ export default function TankDetailPage() {
                   name="tank_type"
                   control={control}
                   label={t('pages.tanks.tankType')}
+                  helperText={t('pages.tanks.tankTypeHelper')}
+                  required
                   options={tankTypes.map((v) => ({
                     value: v,
                     label: t(`enums.tankType.${v}`),
@@ -929,6 +1266,8 @@ export default function TankDetailPage() {
                   name="material"
                   control={control}
                   label={t('pages.tanks.material')}
+                  helperText={t('pages.tanks.materialHelper')}
+                  required
                   options={materials.map((v) => ({
                     value: v,
                     label: t(`enums.tankMaterial.${v}`),
@@ -943,6 +1282,7 @@ export default function TankDetailPage() {
                 suffix="L"
                 inputMode="decimal"
                 min={0.1}
+                required
               />
             </CardContent>
           </Card>
@@ -964,7 +1304,7 @@ export default function TankDetailPage() {
                 sx={{ mb: 2 }}
                 data-testid="form-field-site"
               >
-                <MenuItem value="">{'\u2014'}</MenuItem>
+                <MenuItem value="">—</MenuItem>
                 {sites.map((s) => (
                   <MenuItem key={s.key} value={s.key}>{s.name}</MenuItem>
                 ))}
@@ -991,11 +1331,13 @@ export default function TankDetailPage() {
                   name="has_lid"
                   control={control}
                   label={t('pages.tanks.hasLid')}
+                  helperText={t('pages.tanks.hasLidHelper')}
                 />
                 <FormSwitchField
                   name="has_air_pump"
                   control={control}
                   label={t('pages.tanks.hasAirPump')}
+                  helperText={t('pages.tanks.hasAirPumpHelper')}
                 />
               </FormRow>
               <FormRow>
@@ -1003,11 +1345,13 @@ export default function TankDetailPage() {
                   name="has_circulation_pump"
                   control={control}
                   label={t('pages.tanks.hasCirculationPump')}
+                  helperText={t('pages.tanks.hasCirculationPumpHelper')}
                 />
                 <FormSwitchField
                   name="has_heater"
                   control={control}
                   label={t('pages.tanks.hasHeater')}
+                  helperText={t('pages.tanks.hasHeaterHelper')}
                 />
               </FormRow>
               <FormRow>
@@ -1015,17 +1359,20 @@ export default function TankDetailPage() {
                   name="is_light_proof"
                   control={control}
                   label={t('pages.tanks.isLightProof')}
+                  helperText={t('pages.tanks.isLightProofHelper')}
                 />
                 <FormSwitchField
                   name="has_uv_sterilizer"
                   control={control}
                   label={t('pages.tanks.hasUvSterilizer')}
+                  helperText={t('pages.tanks.hasUvSterilizerHelper')}
                 />
               </FormRow>
               <FormSwitchField
                 name="has_ozone_generator"
                 control={control}
                 label={t('pages.tanks.hasOzoneGenerator')}
+                helperText={t('pages.tanks.hasOzoneGeneratorHelper')}
               />
             </CardContent>
           </Card>

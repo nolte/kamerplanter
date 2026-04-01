@@ -9,12 +9,14 @@ interface UiState {
   sidebarOpen: boolean;
   breadcrumbs: BreadcrumbItem[];
   globalLoading: boolean;
+  showAllFieldsOverride: boolean;
 }
 
 const initialState: UiState = {
   sidebarOpen: typeof window !== 'undefined' ? window.innerWidth >= 768 : true,
   breadcrumbs: [],
   globalLoading: false,
+  showAllFieldsOverride: false,
 };
 
 const uiSlice = createSlice({
@@ -33,9 +35,21 @@ const uiSlice = createSlice({
     setGlobalLoading(state, action: PayloadAction<boolean>) {
       state.globalLoading = action.payload;
     },
+    toggleShowAllFields(state) {
+      state.showAllFieldsOverride = !state.showAllFieldsOverride;
+    },
+    resetShowAllFields(state) {
+      state.showAllFieldsOverride = false;
+    },
   },
 });
 
-export const { toggleSidebar, setSidebarOpen, setBreadcrumbs, setGlobalLoading } =
-  uiSlice.actions;
+export const {
+  toggleSidebar,
+  setSidebarOpen,
+  setBreadcrumbs,
+  setGlobalLoading,
+  toggleShowAllFields,
+  resetShowAllFields,
+} = uiSlice.actions;
 export default uiSlice.reducer;

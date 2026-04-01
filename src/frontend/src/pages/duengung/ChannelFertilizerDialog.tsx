@@ -62,8 +62,10 @@ export default function ChannelFertilizerDialog({
   // Add mode: multi-select state
   const [drafts, setDrafts] = useState<DraftDosage[]>([]);
 
+  // Reset form state when dialog opens — standard dialog reset pattern
   useEffect(() => {
     if (open) {
+      /* eslint-disable react-hooks/set-state-in-effect -- dialog open/close reset */
       if (existingDosage) {
         setEditMlPerLiter(existingDosage.ml_per_liter.toString());
         setEditOptional(existingDosage.optional);
@@ -73,6 +75,7 @@ export default function ChannelFertilizerDialog({
         setEditOptional(false);
         setDrafts([]);
       }
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [open, existingDosage]);
 

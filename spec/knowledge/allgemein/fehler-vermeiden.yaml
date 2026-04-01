@@ -1,0 +1,164 @@
+---
+title: Top-Fehler vermeiden
+language: de
+category: allgemein
+tags: [fehler, anfaenger, ueberwaesserung, standort, topf, drainage, duenger, schaedlinge, ph, geduld]
+expertise_level: [beginner, intermediate]
+applicable_phases: [seedling, vegetative, flowering, harvest]
+chunks:
+  - id: fehler-uebergiessen
+    title: "Fehler #1: Uebergiessen — der Pflanzenkiller Nr. 1"
+    content: |
+      70-80% aller Zimmerpflanzen-Tode gehen auf Ueberwaesserung zurueck.
+      Warum wir uebergiessen:
+      - "Die Pflanze sieht traurig aus" → Wir giessen aus Sorge
+      - Zeitplan-Giessen ("jeden Montag") statt Bedarfs-Giessen
+      - Angst vor Trockenheit (dabei vertragen die meisten Pflanzen
+        kurze Trockenheit VIEL besser als Dauernasse)
+      Warum es so schaedlich ist:
+      - Wurzeln brauchen Sauerstoff. Nasse Erde = kein Sauerstoff.
+      - Ohne Sauerstoff sterben Wurzeln → Wurzelfaeule → Pflanze kann
+        KEIN Wasser mehr aufnehmen → welkt → wir giessen NOCH MEHR
+        → Teufelskreis → Pflanze stirbt
+      Goldene Regel: "When in doubt, don't water."
+      Im Zweifel NICHT giessen. Einen Tag zu spaet giessen ist harmlos.
+      Einen Tag zu frueh giessen kann schaden.
+      Fingertest: Finger 2-3cm in die Erde. Feucht → NICHT giessen.
+      Trocken → Giessen, aber richtig (bis Wasser unten rauslaeuft).
+    metadata:
+      topic: overwatering
+      rank: 1
+      fatality_rate_percent: [70, 80]
+
+  - id: fehler-standort
+    title: "Fehler #2: Falscher Standort"
+    content: |
+      Jede Pflanze hat Lichtbeduerfnisse — und die meisten bekommen zu wenig:
+      Typische Fehler:
+      - Licht-hungrige Pflanze (Ficus, Strelitzia) in dunkler Ecke
+        → Vergeilen (lange, duenne Triebe), Blattverlust
+      - Schattenliebende Pflanze (Farn, Calathea) in voller Sonne
+        → Sonnenbrand (braune, knusprige Flecken)
+      - Pflanze 2-3m vom Fenster entfernt (sieht hell aus fuer uns,
+        ist aber DUNKEL fuer die Pflanze — Licht nimmt exponentiell ab!)
+      Diagnose:
+      - Pflanze streckt sich zum Licht (lange Internodien) → zu dunkel
+      - Braune/verbrannte Flecken auf sonnenzugewandter Seite → zu hell
+      - Blaetter werden kleiner → zu dunkel
+      - Blaetter verlieren Farbe/Muster (Buntblatt wird gruen) → zu dunkel
+      Loesung:
+      - Pflanze passend zum Fenster waehlen (siehe umwelt/licht-grundlagen)
+      - Probestellung: 2-4 Wochen am neuen Standort beobachten
+      - Bei zu wenig Licht: Naeher ans Fenster oder LED-Pflanzenlampe
+      - Zugluft beachten: Nicht neben offenes Fenster im Winter
+      - Heizung beachten: Trockene Heizungsluft schadet vielen Pflanzen
+    metadata:
+      topic: wrong_location
+      rank: 2
+
+  - id: fehler-topfgroesse
+    title: "Fehler #3: Topf zu gross"
+    content: |
+      Intuition sagt: Grosser Topf = viel Platz = glueckliche Pflanze.
+      Realitaet: Grosser Topf = viel NASSE Erde die nie abtrocknet =
+      Wurzelfaeule.
+      Warum: Kleine Wurzeln koennen das Wasser in einem grossen Topf
+      nicht schnell genug aufnehmen. Die Erde bleibt wochenlang nass.
+      Und nasse Erde ohne Wurzeln = Anaerobe Bedingungen = Faeulnis.
+      Richtige Topfgroesse:
+      - Beim Umtopfen: Max. 2-3cm groesserer Durchmesser als der alte Topf
+      - Pflanze passt gerade so rein (Wurzelballen fuellt 60-70% des Topfs)
+      - Lieber zu klein als zu gross — dann nochmal umtopfen wenn noetig
+      Ausnahmen:
+      - Schnellwachser (Monstera, Philodendron): Koennen groessere Spruenge
+        vertragen (3-5cm groesserer Durchmesser)
+      - Outdoor-Kuebelpflanzen: Groessere Toepfe ok (schnellere Verdunstung
+        durch Sonne und Wind)
+      Saemlinge: Starten in kleinen Toepfen (5-8cm Durchmesser) und
+      stufenweise vergroessern. NICHT direkt in den Endtopf pflanzen.
+    metadata:
+      topic: pot_too_big
+      rank: 3
+      max_size_increase_cm: [2, 3]
+
+  - id: fehler-drainage
+    title: "Fehler #4: Keine Drainage"
+    content: |
+      Toepfe ohne Drainage-Loecher sind Pflanzen-Fallen:
+      Wasser hat keinen Abfluss → sammelt sich am Topfboden →
+      Dauernasse Zone → Wurzelfaeule (selbst bei vorsichtigem Giessen).
+      Haeufige Szenarien:
+      - Huebscher Uebertopf ohne Loch → Pflanze direkt reingestellt
+        → Wasser sammelt sich unbemerkt → Wurzeln ertrinken
+      - "Drainage-Schicht" aus Steinen am Topfboden → HILFT NICHT!
+        Erzeugt eine "perched water table" (Staunaesse ueber den Steinen).
+        Physik: Wasser wandert nicht freiwillig von feinerem in groeberes
+        Material bis es gesaettigt ist.
+      Loesung:
+      - Innentopf mit Loechern IN Uebertopf stellen
+      - 30 Minuten nach dem Giessen: Uebertopf kontrollieren und
+        stehendes Wasser ausgiessen
+      - Oder: Loecher in den Topf bohren (Keramik-Bohrer fuer Ton)
+      - Untersetzter verwenden und ueberschuessiges Wasser abgiessen
+      Fuer absolute Anfaenger: Toepfe mit Wasserstandsanzeiger
+      (z.B. Lechuza-Toepfe) nehmen viel Unsicherheit raus.
+    metadata:
+      topic: no_drainage
+      rank: 4
+      myth: gravel_drainage_layer
+
+  - id: fehler-ph-ignorieren
+    title: "Fehler #8: pH ignorieren (Indoor-Grower)"
+    content: |
+      Fuer Zimmerpflanzen in Erde: pH ist selten ein Problem (Erde puffert).
+      Fuer Hydro/Coco-Grower: pH ist ALLES.
+      Das Problem: Bei falschem pH sind Naehrstoffe zwar in der Loesung,
+      aber die Pflanze kann sie NICHT aufnehmen (Lockout). Es sieht aus
+      wie ein Mangel, aber mehr Duenger hilft nicht — weil das Problem
+      der pH ist, nicht die Menge.
+      Haeufiger Fehler: "Ich duenge genug aber die Pflanze zeigt Mangel-
+      symptome" → pH nicht gemessen → pH ist 7.5 → Eisen-Lockout →
+      intervenale Chlorose an jungen Blaettern.
+      Zielwerte:
+      - Hydro/Coco: pH 5.5-6.5 (optimal 5.8-6.2)
+      - Erde: pH 6.0-7.0 (selten anpassen noetig)
+      Empfehlung:
+      - pH-Meter ist NICHT optional fuer Hydro/Coco-Grower!
+      - Regelmaessig kalibrieren (mindestens monatlich)
+      - pH-Wert bei JEDEM Giessen/Anmischen pruefen
+      - Guenstige Kombi-Geraete (pH + EC) ab ~30€
+      Fuer Zimmerpflanzen-Anfaenger: pH ignorieren ist ok solange
+      Erde verwendet wird und normales Leitungswasser zum Giessen.
+    metadata:
+      topic: ph_ignored
+      rank: 8
+      critical_for: [hydro, coco]
+      less_critical_for: [soil]
+
+  - id: fehler-ungeduld
+    title: "Fehler #9: Ungeduld — zu viel aendern, zu wenig beobachten"
+    content: |
+      Pflanzen sind langsam. Probleme entwickeln sich ueber Tage bis Wochen.
+      Korrekturen brauchen genauso lange um zu wirken.
+      Der typische Anfaenger-Zyklus:
+      Tag 1: "Blaetter werden gelb!" → EC erhoehen
+      Tag 2: "Keine Besserung!" → pH aendern
+      Tag 3: "Immer noch gelb!" → Duenger wechseln
+      Tag 4: "Jetzt auch braune Spitzen!" → Flush
+      Tag 5: Pflanze ist total verwirrt und gestresst
+      Die bessere Strategie:
+      1. Problem identifizieren (Diagnose-Checkliste nutzen)
+      2. EINE Massnahme ergreifen
+      3. 5-7 TAGE WARTEN und beobachten
+      4. Altes Laub erholt sich NICHT — Erfolg zeigt sich am NEUEN Wachstum
+      5. Nach 7 Tagen: Hat neues Wachstum sich verbessert? Ja → weiter so.
+         Nein → Naechste Massnahme aendern.
+      Die beste Faehigkeit eines guten Gaertners ist nicht Handeln,
+      sondern BEOBACHTEN. 5 Minuten taegliches Hinschauen verhindern
+      mehr Probleme als alle Produkte der Welt.
+      In Kamerplanter: Pflegehistorie und Messwert-Verlauf helfen,
+      Aenderungen zu tracken und Muster zu erkennen (REQ-005, REQ-022).
+    metadata:
+      topic: impatience
+      rank: 9
+      key_message: one_change_then_wait

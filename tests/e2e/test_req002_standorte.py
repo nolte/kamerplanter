@@ -99,6 +99,8 @@ def _navigate_to_first_location_detail(
 class TestSiteListPage:
     """TC-REQ-002-001 to TC-REQ-002-012: Site list renders and supports operations."""
 
+    @pytest.mark.smoke
+    @pytest.mark.core_crud
     def test_site_list_page_loads(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
@@ -112,6 +114,8 @@ class TestSiteListPage:
             "TC-REQ-002-001 FAIL: Page title should not be empty after navigation to /standorte/sites"
         )
 
+    @pytest.mark.smoke
+    @pytest.mark.core_crud
     def test_site_list_has_data_table(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
@@ -166,6 +170,7 @@ class TestSiteListPage:
             "TC-REQ-002-004 FAIL: Create button should be visible on the site list page"
         )
 
+    @pytest.mark.core_crud
     def test_site_list_create_dialog_opens(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
@@ -294,6 +299,7 @@ class TestSiteListPage:
                 f"TC-REQ-002-010 FAIL: After reset, expected {initial_count} rows, got {reset_count}"
             )
 
+    @pytest.mark.core_crud
     def test_site_list_row_click_navigates_to_detail(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
@@ -344,6 +350,7 @@ class TestSiteListPage:
 class TestSiteDetailPage:
     """TC-REQ-002-013 to TC-REQ-002-022: Site detail page edit form and sub-sections."""
 
+    @pytest.mark.core_crud
     def test_site_detail_page_loads(
         self,
         site_list: SiteListPageExt,
@@ -411,6 +418,7 @@ class TestSiteDetailPage:
             "TC-REQ-002-015 FAIL: Cancel button (form-cancel-button) should be visible"
         )
 
+    @pytest.mark.core_crud
     def test_site_detail_edit_name_field(
         self,
         site_list: SiteListPageExt,
@@ -482,6 +490,7 @@ class TestSiteDetailPage:
             "TC-REQ-002-018 FAIL: The Locations DataTable should be visible on the site detail page"
         )
 
+    @pytest.mark.core_crud
     def test_site_detail_delete_dialog_opens(
         self,
         site_list: SiteListPageExt,
@@ -599,6 +608,7 @@ class TestSiteDetailPage:
 class TestLocationDetailPage:
     """TC-REQ-002-023 to TC-REQ-002-030: Location detail edit and sub-sections."""
 
+    @pytest.mark.core_crud
     def test_location_detail_page_loads(
         self,
         site_list: SiteListPageExt,
@@ -669,6 +679,7 @@ class TestLocationDetailPage:
             "TC-REQ-002-025 FAIL: Cancel button should be visible on location detail page"
         )
 
+    @pytest.mark.core_crud
     def test_location_detail_edit_name(
         self,
         site_list: SiteListPageExt,
@@ -695,6 +706,7 @@ class TestLocationDetailPage:
         )
         location_detail.cancel_form()
 
+    @pytest.mark.core_crud
     def test_location_detail_delete_dialog(
         self,
         site_list: SiteListPageExt,

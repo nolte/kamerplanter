@@ -58,6 +58,7 @@ export default function FertilizerListPage() {
 
   useEffect(() => {
     if (tableState.search !== searchInput && tableState.search !== debouncedSearch) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync external search state back to local input
       setSearchInput(tableState.search);
     }
   }, [tableState.search]); // eslint-disable-line react-hooks/exhaustive-deps

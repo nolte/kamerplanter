@@ -1,0 +1,148 @@
+---
+title: Zimmerpflanzen-Grundpflege im Jahresverlauf
+language: de
+category: pflege
+tags: [zimmerpflanzen, umtopfen, winter, ruhephase, substrat, pflanzenlampe, kuebelpflanzen, ueberwintern, monstera, tropisch, anfaenger]
+expertise_level: [beginner, intermediate]
+applicable_phases: [vegetative, flowering]
+chunks:
+  - id: zimmerpflanze-umtopfen
+    title: Zimmerpflanzen umtopfen — Wann und Wie
+    content: |
+      Wann umtopfen? Im Fruehling (Maerz-Mai), zu Beginn der Wachstumsperiode.
+      Die Pflanze kann dann schnell neue Wurzeln bilden und sich erholen.
+      NICHT im Herbst oder Winter umtopfen — die Pflanze waechst kaum und
+      nasses, frisches Substrat kann zu Wurzelfaeule fuehren.
+      Zeichen dass umgetopft werden muss:
+      - Wurzeln wachsen aus den Abzugsloechern heraus (Wurzeln aus Loechern
+        = klassisches Signal)
+      - Pflanze waechst trotz Duengung nicht mehr
+      - Wasser laeuft sofort durch ohne aufgenommen zu werden
+      - Topf platzt fast (bei Plastiktoepfen sichtbar verformt)
+      - Pflanze kippt um (kopflastig)
+      Wie umtopfen:
+      1. Neuen Topf waehlen: Nur 2-3cm groesser als der alte (nicht groesser!)
+      2. Drainage-Schicht: Tonscherben oder Blaehton auf den Boden
+      3. Pflanze vorsichtig herausnehmen, alte Erde abschuetteln
+      4. Verfaulte oder vertrocknete Wurzeln abschneiden
+      5. In frisches Substrat setzen, angiessen
+      6. 1-2 Wochen nicht duengen (frische Erde hat Naehrstoffe)
+      Faustregel: Alle 1-2 Jahre umtopfen. Schnellwachsende Pflanzen
+      (Monstera, Pothos) jaehrlich, langsame (Sansevieria, ZZ) alle 2-3 Jahre.
+    metadata:
+      topic: repotting_houseplants
+      best_season: spring
+      difficulty: beginner
+
+  - id: substrat-tropische-zimmerpflanzen
+    title: Das richtige Substrat fuer tropische Zimmerpflanzen
+    content: |
+      Tropische Zimmerpflanzen (Monstera, Philodendron, Alocasia, Calathea,
+      Pothos, Farn) brauchen lockeres, gut drainierendes aber feuchtigkeits-
+      haltendes Substrat.
+      Empfehlung: Hochwertige Blumenerde + Perlit beimischen (20-30%).
+      Perlit lockert das Substrat auf, verbessert die Drainage und
+      verhindert Staunaesse — die haeufigste Todesursache bei Zimmerpflanzen.
+      Fuer Monstera (und aehnliche Araceae):
+      - Basis: Universelle Blumenerde (torfreduziert, gute Qualitaet)
+      - Auflockerung: 20-30% Perlit beimischen fuer bessere Drainage
+      - Optional: 10% Orchideen-Rinde (groebere Stuecke) fuer Belueftung
+      - Der Topf MUSS Abzugsloechern haben — Drainage ist entscheidend
+      NICHT verwenden:
+      - Kakteenerde ist NICHT geeignet fuer Monstera und tropische Pflanzen —
+        sie trocknet zu schnell aus und haelt zu wenig Feuchtigkeit.
+        Kakteenerde ist nur fuer Sukkulenten und Kakteen gedacht.
+      - Reine Gartenerde (zu schwer, verdichtet, keine Drainage)
+      - Billig-Erde ohne Strukturmaterial (verkrustet, wird anaerob)
+      Faustregel: Tropische Pflanzen moegen "fluffy" Substrat — locker,
+      luftig, feucht aber nie nass. Wie ein ausgedrueckter Schwamm.
+    metadata:
+      topic: tropical_houseplant_substrate
+      species: [Monstera, Philodendron, Alocasia, Calathea]
+      difficulty: beginner
+
+  - id: winter-ruhephase-zimmerpflanzen
+    title: Winter-Ruhephase bei Zimmerpflanzen
+    content: |
+      Im Winter (November-Februar) gehen die meisten Zimmerpflanzen in
+      eine Ruhephase. Das Wachstum ist gestoppt oder stark verlangsamt
+      weil weniger Licht und kuerzere Tage zur Verfuegung stehen.
+      Pflege anpassen:
+      1. NICHT duengen: Kein Duenger im Winter! Das Wachstum ist gestoppt,
+         die Pflanze kann die Naehrstoffe nicht verarbeiten. Ueberschuessiger
+         Duenger reichert sich als Salz im Substrat an und schaedigt Wurzeln.
+         Im Fruehling wieder starten — ab Maerz, wenn neues Wachstum sichtbar
+         wird, kann wieder geduengt werden.
+      2. Weniger giessen: Pflanzen verdunsten weniger bei weniger Licht und
+         kuehler Raumtemperatur. Substrat trocknet langsamer. Fingerprobe
+         ist wichtiger denn je — lieber zu trocken als zu nass.
+      3. Keine Umtopf-Aktionen: Bis zum Fruehling warten.
+      4. Standort pruefen: Pflanze naeher ans Fenster ruecken (jeder cm zaehlt).
+      5. Heizungsluft: Trocknet die Luft aus (20-30% RH). Luftbefeuchter
+         aufstellen oder Pflanzen gruppieren.
+      Ausnahmen: Winterblueher (Weihnachtsstern, Azalee, Orchidee) und
+      Pflanzen unter Pflanzenlampen haben keine Ruhephase — normal weiter pflegen.
+    metadata:
+      topic: winter_dormancy_houseplants
+      months: [november, december, january, february]
+      difficulty: beginner
+
+  - id: pflanzenlampe-winter-zimmerpflanzen
+    title: Braucht meine Zimmerpflanze eine Pflanzenlampe im Winter?
+    content: |
+      Ob eine Pflanzenlampe im Winter noetig ist, haengt von der Pflanze
+      und dem Standort ab — es ist abhaengig von der Art und dem Fenster.
+      Im Winter herrschen kurze Tage (nur 8-9 Stunden Tageslicht in
+      Mitteleuropa, davon oft bewoelkt). Viele Zimmerpflanzen bekommen
+      dann zu wenig Licht.
+      Nordfenster: Ja, eine Pflanzenlampe ist hier im Winter fast immer
+      sinnvoll. Nordfenster bekommen nur diffuses Licht (50-150 PPFD im
+      Sommer, im Winter noch weniger). Ohne Zusatzlicht kuemmern die
+      meisten Pflanzen. Nur echte Schattenpflanzen (Sansevieria, ZZ)
+      ueberstehen den Winter am Nordfenster ohne Lampe.
+      Suedfenster: Meist reicht das natuerliche Licht auch im Winter —
+      am Suedfenster ist meist genug Licht fuer die meisten Zimmerpflanzen,
+      solange die Pflanze direkt am Fenster steht. Aber: 2m vom Suedfenster
+      entfernt kann es schon zu dunkel sein.
+      Ost-/Westfenster: Grenzwertig im Winter. Lichtliebende Pflanzen
+      (Ficus, Strelitzia, Citrus) profitieren von einer LED-Ergaenzung.
+      Pflanzenlampen-Empfehlung:
+      - LED-Vollspektrum (weisses Licht, 3500-5000K) — auch dekorativ
+      - 10-14 Stunden pro Tag (mit Zeitschaltuhr)
+      - 20-40cm Abstand zur Pflanze
+      - Fuer reine Ueberwinterung reichen 100-200 PPFD
+    metadata:
+      topic: grow_light_winter
+      context: houseplants
+      difficulty: beginner
+
+  - id: kuebelpflanzen-winter-pflege
+    title: Kuebelpflanzen richtig ueberwintern
+    content: |
+      Kuebelpflanzen wie Oleander, Citrus, Olive, Fuchsie, Engelstrompete
+      oder Pelargonie sind nicht frosthart und muessen vor dem ersten Frost
+      ins Winterquartier.
+      Das ideale Winterquartier:
+      - Frostfrei: Temperatur zwischen 5-10 Grad Celsius, kein Frost
+      - Kuehler Raum: NICHT ins warme Wohnzimmer! Kuebelpflanzen brauchen
+        kuehle Ueberwinterung (Keller mit Fenster, Garage, Treppenhaus,
+        unbeheizter Wintergarten)
+      - Hell: Moeglichst viel Licht. Dunkle Keller nur fuer laubabwerfende
+        Arten (Fuchsie, Engelstrompete). Immergruene (Oleander, Citrus)
+        MUESSEN hell stehen
+      Pflege im Winterquartier:
+      - Wenig giessen: Substrat darf nicht komplett austrocknen, aber nur
+        sparsam giessen. Alle 2-4 Wochen pruefen. Staunaesse unbedingt
+        vermeiden — reduzierter Stoffwechsel kann Naesse nicht verarbeiten.
+      - Kein Duenger: Absolut kein Duenger waehrend der Ueberwinterung!
+        Erst wieder duengen wenn die Pflanze im Fruehling neu austreibt.
+      - Schaedlinge kontrollieren: Schildlaeuse und Wolllaeuse lieben
+        das trockene Winterquartier. Regelmaessig kontrollieren.
+      - Blaetter fallen ab? Bei laubabwerfenden Arten normal. Bei immer-
+        gruenen: zu dunkel oder zu warm → Standort korrigieren.
+      Rausstellung: Nach den Eisheiligen (ab Mitte Mai). Erst 7-10 Tage
+      im Halbschatten abhaerten, dann an den endgueltigen Standort.
+    metadata:
+      topic: container_plant_overwintering
+      temperature_celsius: [5, 10]
+      difficulty: beginner

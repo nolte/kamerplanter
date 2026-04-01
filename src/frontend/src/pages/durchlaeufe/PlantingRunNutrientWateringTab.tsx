@@ -67,6 +67,7 @@ export default function PlantingRunNutrientWateringTab({
   const [recommendedRoMap, setRecommendedRoMap] = useState<Map<number, number>>(new Map());
   useEffect(() => {
     if (!planKey || !siteKey) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state when keys cleared
       setRecommendedRoMap(new Map());
       return;
     }

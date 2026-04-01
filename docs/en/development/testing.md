@@ -439,6 +439,87 @@ class TestDashboard:
 
 ---
 
+## RAG Quality Benchmark
+
+A standalone runner (`tools/rag-eval/eval_rag.py`) measures the response quality of the RAG pipeline independently of the backend. It connects directly to the Embedding Service, VectorDB (pgvector), and Ollama.
+
+### Prerequisites
+
+- Embedding Service running (default: `http://localhost:8080`)
+- VectorDB (PostgreSQL with pgvector) running (default: `localhost:5433`)
+- Ollama running with a loaded model (default: `gemma3:4b`)
+
+### Running Tests
+
+```bash
+# Full benchmark (100 questions)
+python tools/rag-eval/eval_rag.py
+
+# Quick smoke test (aborts on first failure)
+python tools/rag-eval/eval_rag.py --smoke
+
+# Resume an interrupted run
+python tools/rag-eval/eval_rag.py --resume
+
+# Only specific categories
+python tools/rag-eval/eval_rag.py --categories diagnostik duengung
+
+# Debug retrieval without LLM generation
+python tools/rag-eval/eval_rag.py --retrieval-only
+```
+
+### CLI Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--smoke` | - | Quick smoke test, aborts on first failure |
+| `--resume` | - | Resume interrupted run (loads `eval_results_partial.json`) |
+| `--categories` | all | Only evaluate specific categories |
+| `--retrieval-only` | - | Show retrieved chunks without LLM generation |
+| `--top-k` | 5 | Number of RAG chunks to retrieve per question |
+| `--doc-language` | no filter | Filter chunks by language (`de`/`en`/`all`) |
+| `--prompt-language` | `de` | System prompt language (`de`/`en`) |
+| `--model` | `gemma3:4b` | Ollama model name |
+| `--embedding-url` | `http://localhost:8080` | Embedding service URL |
+| `--ollama-url` | `http://localhost:11434` | Ollama API URL |
+| `--vectordb-dsn` | `localhost:5433` | PostgreSQL DSN for VectorDB |
+| `--output`, `-o` | `eval_results.json` | Output path for result JSON |
+
+### Environment Variables
+
+Used as defaults when no CLI argument is provided:
+
+| Variable | Default |
+|----------|---------|
+| `EMBEDDING_SERVICE_URL` | `http://localhost:8080` |
+| `VECTORDB_DSN` | `host=localhost port=5433 dbname=kamerplanter_vectors ...` |
+| `LLM_API_URL` | `http://localhost:11434` |
+| `LLM_MODEL` | `gemma3:4b` |
+| `EVAL_DATA_DIR` | `tests/rag-eval/` |
+
+### Resume Mechanism
+
+After each evaluated question, `eval_results_partial.json` is written. With `--resume`, previous results are loaded and already-evaluated questions are skipped. Old and new results are merged for the final score.
+
+### Scoring
+
+Each question is checked against expected topics (`expected_topics`) and exclusion topics (`expected_NOT`). The overall score is the average of all individual scores — the benchmark passes at 70% or above.
+
+### Test Data
+
+```
+tests/rag-eval/
+├── benchmark_questions.yaml   # 100 curated questions with expected topics
+├── smoke_questions.yaml       # Quick smoke test subset
+├── topic_synonyms.yaml        # Synonym dictionary for topic matching
+├── eval_results.json          # Last complete result
+└── RAG_EVAL_SPEC.md           # Detailed framework specification
+```
+
+Detailed framework specification: `tests/rag-eval/RAG_EVAL_SPEC.md`
+
+---
+
 ## Common Rules for Both Test Suites
 
 - Tests run in CI on every push to `develop` and every pull request.

@@ -16,6 +16,7 @@ def dashboard(browser: WebDriver, base_url: str) -> DashboardPage:
 class TestDashboard:
     """Dashboard page loads and displays quick actions."""
 
+    @pytest.mark.smoke
     def test_dashboard_loads(self, dashboard: DashboardPage) -> None:
         """Page loads successfully and shows a welcome message."""
         dashboard.open()
@@ -28,6 +29,7 @@ class TestDashboard:
         welcome = dashboard.get_welcome_text()
         assert welcome, "Welcome message should be visible"
 
+    @pytest.mark.smoke
     def test_quick_actions_present(self, dashboard: DashboardPage) -> None:
         """All 6 quick-action cards are rendered."""
         dashboard.open()

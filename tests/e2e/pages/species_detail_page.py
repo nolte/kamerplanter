@@ -42,7 +42,7 @@ class SpeciesDetailPage(BasePage):
         return self
 
     def get_title(self) -> str:
-        return self.wait_for_element(self.PAGE_TITLE).text
+        return self.get_text_stable(self.PAGE_TITLE)
 
     # ── Tabs ───────────────────────────────────────────────────────────
 
@@ -72,9 +72,14 @@ class SpeciesDetailPage(BasePage):
         return el.get_attribute("value") or ""
 
     def set_field(self, field_name: str, value: str) -> None:
-        el = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input")
-        )
+        # Try input first, fall back to textarea (multiline fields)
+        locator_input = (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input")
+        locator_textarea = (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] textarea:not([aria-hidden])")
+        elements = self.driver.find_elements(*locator_input)
+        if elements:
+            el = self.wait_for_element_clickable(locator_input)
+        else:
+            el = self.wait_for_element_clickable(locator_textarea)
         el.clear()
         el.send_keys(value)
 

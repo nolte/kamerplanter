@@ -88,6 +88,160 @@ pests:
     optimal_temp_max: 30.0
     detection_difficulty: hard
 
+  # --- Outdoor-focused pests (new) ---
+
+  - scientific_name: Pieris brassicae
+    common_name: Large Cabbage White  # Großer Kohlweißling
+    pest_type: insect
+    lifecycle_days: 40
+    optimal_temp_min: 15.0
+    optimal_temp_max: 25.0
+    detection_difficulty: easy
+
+  - scientific_name: Pieris rapae
+    common_name: Small Cabbage White  # Kleiner Kohlweißling
+    pest_type: insect
+    lifecycle_days: 35
+    optimal_temp_min: 15.0
+    optimal_temp_max: 25.0
+    detection_difficulty: easy
+
+  - scientific_name: Leptinotarsa decemlineata
+    common_name: Colorado Potato Beetle  # Kartoffelkäfer
+    pest_type: insect
+    lifecycle_days: 50
+    optimal_temp_min: 18.0
+    optimal_temp_max: 28.0
+    detection_difficulty: easy
+
+  - scientific_name: Cydia pomonella
+    common_name: Codling Moth  # Apfelwickler
+    pest_type: insect
+    lifecycle_days: 60
+    optimal_temp_min: 16.0
+    optimal_temp_max: 26.0
+    detection_difficulty: hard
+
+  - scientific_name: Acrolepiopsis assectella
+    common_name: Leek Moth  # Lauchmotte
+    pest_type: insect
+    lifecycle_days: 45
+    optimal_temp_min: 15.0
+    optimal_temp_max: 25.0
+    detection_difficulty: medium
+
+  - scientific_name: Psila rosae
+    common_name: Carrot Rust Fly  # Möhrenfliege
+    pest_type: insect
+    lifecycle_days: 60
+    optimal_temp_min: 14.0
+    optimal_temp_max: 22.0
+    detection_difficulty: hard
+
+  - scientific_name: Delia antiqua
+    common_name: Onion Fly  # Zwiebelfliege
+    pest_type: insect
+    lifecycle_days: 50
+    optimal_temp_min: 15.0
+    optimal_temp_max: 22.0
+    detection_difficulty: hard
+
+  - scientific_name: Delia radicum
+    common_name: Cabbage Root Fly  # Kohlfliege
+    pest_type: insect
+    lifecycle_days: 55
+    optimal_temp_min: 14.0
+    optimal_temp_max: 22.0
+    detection_difficulty: hard
+
+  - scientific_name: Rhagoletis cerasi
+    common_name: Cherry Fruit Fly  # Kirschfruchtfliege
+    pest_type: insect
+    lifecycle_days: 365
+    optimal_temp_min: 16.0
+    optimal_temp_max: 25.0
+    detection_difficulty: hard
+
+  - scientific_name: Cydalima perspectalis
+    common_name: Box Tree Moth  # Buchsbaumzünsler
+    pest_type: insect
+    lifecycle_days: 50
+    optimal_temp_min: 18.0
+    optimal_temp_max: 30.0
+    detection_difficulty: medium
+
+  - scientific_name: Anthonomus rubi
+    common_name: Strawberry Blossom Weevil  # Erdbeerblütenstecher
+    pest_type: insect
+    lifecycle_days: 365
+    optimal_temp_min: 14.0
+    optimal_temp_max: 22.0
+    detection_difficulty: medium
+
+  - scientific_name: Otiorhynchus sulcatus
+    common_name: Black Vine Weevil  # Dickmaulrüssler
+    pest_type: insect
+    lifecycle_days: 365
+    optimal_temp_min: 12.0
+    optimal_temp_max: 24.0
+    detection_difficulty: medium
+
+  - scientific_name: Aleyrodes proletella
+    common_name: Cabbage Whitefly  # Kohlmottenschildlaus
+    pest_type: insect
+    lifecycle_days: 35
+    optimal_temp_min: 18.0
+    optimal_temp_max: 28.0
+    detection_difficulty: easy
+
+  - scientific_name: Agriotes spp.
+    common_name: Wireworm  # Drahtwurm
+    pest_type: insect
+    lifecycle_days: 1460
+    optimal_temp_min: 10.0
+    optimal_temp_max: 22.0
+    detection_difficulty: hard
+
+  - scientific_name: Ostrinia nubilalis
+    common_name: European Corn Borer  # Maiszünsler
+    pest_type: insect
+    lifecycle_days: 60
+    optimal_temp_min: 18.0
+    optimal_temp_max: 30.0
+    detection_difficulty: medium
+
+  - scientific_name: Myzus persicae
+    common_name: Green Peach Aphid  # Grüne Pfirsichblattlaus
+    pest_type: insect
+    lifecycle_days: 12
+    optimal_temp_min: 18.0
+    optimal_temp_max: 26.0
+    detection_difficulty: easy
+
+  - scientific_name: Macrosiphum euphorbiae
+    common_name: Potato Aphid  # Kartoffelblattlaus
+    pest_type: insect
+    lifecycle_days: 14
+    optimal_temp_min: 18.0
+    optimal_temp_max: 25.0
+    detection_difficulty: easy
+
+  - scientific_name: Mamestra brassicae
+    common_name: Cabbage Moth  # Kohleule
+    pest_type: insect
+    lifecycle_days: 50
+    optimal_temp_min: 15.0
+    optimal_temp_max: 25.0
+    detection_difficulty: medium
+
+  - scientific_name: Plutella xylostella
+    common_name: Diamondback Moth  # Kohlschabe
+    pest_type: insect
+    lifecycle_days: 30
+    optimal_temp_min: 18.0
+    optimal_temp_max: 28.0
+    detection_difficulty: medium
+
 diseases:
   - scientific_name: Erysiphe spp.
     common_name: Powdery Mildew
@@ -100,7 +254,7 @@ diseases:
     common_name: Botrytis (Grey Mold)
     pathogen_type: fungal
     incubation_period_days: 3
-    environmental_triggers: [high_humidity, low_temperature]
+    environmental_triggers: [high_humidity, cool_temperature, poor_air_circulation, condensation]  # optimal 15-22°C, NOT cold
     affected_plant_parts: [flower, fruit, leaf]
 
   - scientific_name: Fusarium oxysporum
@@ -145,8 +299,157 @@ diseases:
     environmental_triggers: [cool_wet, prolonged_moisture]
     affected_plant_parts: [leaf, stem, fruit]
 
+  # --- New diseases (outdoor-focused) ---
+
+  - scientific_name: Plasmodiophora brassicae
+    common_name: Clubroot  # Kohlhernie
+    pathogen_type: protist  # Phytomyxea, NOT an oomycete — phosphonates ineffective
+    incubation_period_days: 21
+    environmental_triggers: [acidic_soil, waterlogged_soil, warm_soil]
+    affected_plant_parts: [root]
+
+  - scientific_name: Verticillium dahliae
+    common_name: Verticillium Wilt  # Verticillium-Welke
+    pathogen_type: fungal
+    incubation_period_days: 14
+    environmental_triggers: [cool_soil, overwatering]
+    affected_plant_parts: [root, stem, leaf]
+
+  - scientific_name: Monilinia fructigena
+    common_name: Brown Rot (Fruit)  # Monilia-Fruchtfäule
+    pathogen_type: fungal
+    incubation_period_days: 5
+    environmental_triggers: [high_humidity, warm_temperature, wound_entry]
+    affected_plant_parts: [fruit, flower]
+
+  - scientific_name: Monilinia laxa
+    common_name: Blossom Blight  # Monilia-Spitzendürre
+    pathogen_type: fungal
+    incubation_period_days: 7
+    environmental_triggers: [cool_wet, prolonged_moisture]
+    affected_plant_parts: [flower, stem]
+
+  - scientific_name: Venturia inaequalis
+    common_name: Apple Scab  # Apfelschorf
+    pathogen_type: fungal
+    incubation_period_days: 10
+    environmental_triggers: [cool_wet, prolonged_leaf_wetness]
+    affected_plant_parts: [leaf, fruit]
+
+  - scientific_name: Puccinia spp.
+    common_name: Rust  # Rost
+    pathogen_type: fungal
+    incubation_period_days: 7
+    environmental_triggers: [high_humidity, warm_temperature, dew]
+    affected_plant_parts: [leaf, stem]
+
+  - scientific_name: Septoria lycopersici
+    common_name: Septoria Leaf Spot  # Septoria-Blattflecken
+    pathogen_type: fungal
+    incubation_period_days: 7
+    environmental_triggers: [high_humidity, warm_temperature, splash_water]
+    affected_plant_parts: [leaf]
+
+  - scientific_name: Alternaria solani
+    common_name: Early Blight  # Dürrfleckenkrankheit
+    pathogen_type: fungal
+    incubation_period_days: 5
+    environmental_triggers: [warm_temperature, alternating_wet_dry, nutrient_deficiency]
+    affected_plant_parts: [leaf, stem, fruit]
+
+  - scientific_name: Guignardia bidwellii
+    common_name: Black Rot (Grape)  # Schwarzfäule
+    pathogen_type: fungal
+    incubation_period_days: 14
+    environmental_triggers: [warm_temperature, prolonged_moisture]
+    affected_plant_parts: [leaf, fruit]
+
+  - scientific_name: Erwinia amylovora
+    common_name: Fire Blight  # Feuerbrand
+    pathogen_type: bacterial
+    incubation_period_days: 7
+    environmental_triggers: [warm_temperature, high_humidity, rain_during_bloom]
+    affected_plant_parts: [flower, stem, leaf]
+
+  - scientific_name: Sclerotinia sclerotiorum
+    common_name: White Mold  # Weißstängeligkeit
+    pathogen_type: fungal
+    incubation_period_days: 7
+    environmental_triggers: [cool_wet, dense_canopy, poor_air_circulation]
+    affected_plant_parts: [stem, leaf, flower]
+
+  - scientific_name: Pseudoperonospora cubensis
+    common_name: Cucurbit Downy Mildew  # Falscher Mehltau (Gurke)
+    pathogen_type: oomycete
+    incubation_period_days: 5
+    environmental_triggers: [cool_wet, high_humidity, dew]
+    affected_plant_parts: [leaf]
+
+  - scientific_name: Phytophthora ramorum
+    common_name: Ramorum Blight  # Triebsterben
+    pathogen_type: oomycete
+    incubation_period_days: 10
+    environmental_triggers: [cool_wet, prolonged_moisture]
+    affected_plant_parts: [leaf, stem]
+
+  - scientific_name: Rhizoctonia solani
+    common_name: Damping Off  # Umfallkrankheit
+    pathogen_type: fungal
+    incubation_period_days: 3
+    environmental_triggers: [overwatering, cool_soil, dense_sowing]
+    affected_plant_parts: [root, stem]
+
+  - scientific_name: Claviceps purpurea
+    common_name: Ergot  # Mutterkorn
+    pathogen_type: fungal
+    incubation_period_days: 14
+    environmental_triggers: [cool_wet, prolonged_moisture]
+    affected_plant_parts: [flower, fruit]
+
+  - scientific_name: Plasmopara viticola
+    common_name: Grapevine Downy Mildew  # Falscher Mehltau (Rebe)
+    pathogen_type: oomycete
+    incubation_period_days: 7
+    environmental_triggers: [warm_temperature, high_humidity, rain]
+    affected_plant_parts: [leaf, fruit, flower]
+
+  - scientific_name: Erysiphe necator  # syn. Uncinula necator (veraltet seit 2002)
+    common_name: Grapevine Powdery Mildew  # Echter Mehltau (Rebe)
+    pathogen_type: fungal
+    incubation_period_days: 7
+    environmental_triggers: [warm_temperature, low_humidity, poor_air_circulation]
+    affected_plant_parts: [leaf, fruit, flower]
+
+  - scientific_name: Taphrina deformans
+    common_name: Peach Leaf Curl  # Kräuselkrankheit
+    pathogen_type: fungal
+    incubation_period_days: 14
+    environmental_triggers: [cool_wet, spring_rain]
+    affected_plant_parts: [leaf, fruit]
+
+  - scientific_name: Pseudomonas syringae
+    common_name: Bacterial Canker  # Bakterienbrand
+    pathogen_type: bacterial
+    incubation_period_days: 10
+    environmental_triggers: [cool_wet, frost_damage, wound_entry]
+    affected_plant_parts: [stem, leaf, fruit]
+
+  - scientific_name: Cucumber mosaic virus
+    common_name: Cucumber Mosaic Virus  # Gurkenmosaikvirus
+    pathogen_type: viral
+    incubation_period_days: 10
+    environmental_triggers: [aphid_transmission, mechanical_transmission]
+    affected_plant_parts: [leaf, fruit]
+
+  - scientific_name: Armillaria mellea
+    common_name: Honey Fungus  # Hallimasch
+    pathogen_type: fungal
+    incubation_period_days: 30
+    environmental_triggers: [waterlogged_soil, stressed_trees]
+    affected_plant_parts: [root, stem]
+
 treatments:
-  # Cultural (4)
+  # Cultural (4) — existing
   - name: Crop Rotation
     treatment_type: cultural
     application_method: cultural
@@ -167,7 +470,7 @@ treatments:
     application_method: cultural
     description: "Adjust temperature, humidity, and ventilation"
 
-  # Biological (3)
+  # Biological (3) — existing
   - name: Phytoseiulus persimilis
     treatment_type: biological
     application_method: release
@@ -183,7 +486,7 @@ treatments:
     application_method: spray
     description: "Biological insecticide for caterpillar control"
 
-  # Mechanical (2)
+  # Mechanical (2) — existing
   - name: Sticky Traps
     treatment_type: mechanical
     application_method: cultural
@@ -194,7 +497,7 @@ treatments:
     application_method: cultural
     description: "Manual removal of pests"
 
-  # Chemical (3)
+  # Chemical (3) — existing
   - name: Pyrethrin
     treatment_type: chemical
     active_ingredient: pyrethrin
@@ -223,7 +526,7 @@ treatments:
     treatment_type: chemical
     active_ingredient: phosphorous acid
     application_method: drench
-    safety_interval_days: 14
+    safety_interval_days: 21  # EU-Standard for food crops (21-28d depending on crop)
     dosage_per_liter: 3.0
     protective_equipment: [gloves, goggles]
     description: >-
@@ -254,7 +557,253 @@ treatments:
       on contact. No residual activity — must contact pest directly.
       Safe for beneficial insects once dry. Repeat every 5-7 days.
 
+  # --- New treatments ---
+
+  # Biological — beneficial organisms
+  - name: Trichogramma spp. (Egg Parasitoids)
+    treatment_type: biological
+    application_method: release
+    description: >-
+      Trichogramma-Schlupfwespen — tiny parasitic wasps that lay eggs
+      inside pest moth eggs (Pieris, Cydia, Ostrinia). Applied as
+      cards with parasitized eggs, 3-5 releases at 7-day intervals.
+      100,000-200,000 wasps per 1,000 m². Effective against cabbage
+      white, codling moth, and corn borer.
+
+  - name: Heterorhabditis bacteriophora (Nematodes)
+    treatment_type: biological
+    application_method: drench
+    description: >-
+      Beneficial nematodes for biological control of black vine weevil
+      larvae (Otiorhynchus sulcatus) and other soil-dwelling grubs.
+      Applied as drench at 500,000 nematodes per m². Optimal soil
+      temperature 12-25°C. Apply in evening or overcast conditions
+      (UV-sensitive). Larvae die within 48-72 hours. Best applied
+      Aug-Oct when larvae are actively feeding.
+
+  - name: Amblyseius swirskii
+    treatment_type: biological
+    application_method: release
+    description: >-
+      Predatory mite (Raubmilbe) effective against thrips larvae and
+      whitefly eggs/larvae. Release rate: 50-100 per m². Optimal
+      conditions: 20-28°C, >60% RH. Also feeds on pollen as
+      alternative food source, allowing preventive establishment.
+      Compatible with most biological control agents.
+
+  - name: Chrysoperla carnea (Lacewing Larvae)
+    treatment_type: biological
+    application_method: release
+    description: >-
+      Florfliegen-Larven — voracious predators of aphids, also
+      effective against small caterpillars, mealybugs, thrips, and
+      spider mites. Each larva consumes 200-500 aphids during
+      development. Release rate: 5-10 larvae per m². Larvae active
+      for 2-3 weeks. Can be applied to specific hotspots.
+
+  - name: Adalia bipunctata (Two-Spot Ladybird)
+    treatment_type: biological
+    application_method: release
+    description: >-
+      Marienkäfer — classic biological aphid control. Adults and
+      larvae both consume aphids. One larva eats up to 400 aphids
+      during development. Release rate: 5-20 per m² depending on
+      infestation level. Adults may fly away in outdoor settings;
+      larval releases are more reliable for targeted control.
+
+  - name: Bacillus subtilis
+    treatment_type: biological
+    active_ingredient: bacillus subtilis
+    application_method: spray
+    safety_interval_days: 0
+    dosage_per_liter: 2.0
+    protective_equipment: [gloves]
+    description: >-
+      Biological fungicide effective against powdery mildew, botrytis,
+      and various soil-borne pathogens. Colonizes plant surfaces and
+      competes with pathogenic fungi. Preventive application most
+      effective — spray every 7-10 days. Safe for beneficial insects.
+      No harvest waiting period (Karenzzeit). Approved for organic
+      farming.
+
+  - name: Trichoderma harzianum
+    treatment_type: biological
+    active_ingredient: trichoderma harzianum
+    application_method: drench
+    safety_interval_days: 0
+    dosage_per_liter: 1.0
+    protective_equipment: [gloves]
+    description: >-
+      Biological soil fungicide. Beneficial fungus that colonizes
+      the rhizosphere and protects roots against Fusarium, Pythium,
+      Rhizoctonia, and other soil pathogens. Apply as drench or mix
+      into growing media. Preventive use most effective. Also promotes
+      root growth. Approved for organic farming.
+
+  # Chemical — fungicides
+  - name: Copper Fungicide (Bordeaux Mixture)
+    treatment_type: chemical
+    active_ingredient: copper sulfate + calcium hydroxide
+    application_method: spray
+    safety_interval_days: 21
+    dosage_per_liter: 5.0
+    protective_equipment: [gloves, mask, goggles]
+    description: >-
+      Kupferpräparat (Bordeauxbrühe) — broad-spectrum contact
+      fungicide effective against downy mildew, late blight, fire
+      blight, bacterial canker, and many other fungal/bacterial
+      diseases. Preventive only — does not cure existing infections.
+      IMPORTANT: Copper accumulates in soil; max 3 kg Cu/ha/year
+      (EU organic limit). Do not apply above 25°C or in direct
+      sunlight (phytotoxicity risk). Harmful to aquatic organisms.
+
+  - name: Sulfur (Wettable)
+    treatment_type: chemical
+    active_ingredient: elemental sulfur
+    application_method: spray
+    safety_interval_days: 7
+    dosage_per_liter: 3.0
+    protective_equipment: [gloves, mask]
+    description: >-
+      Netzschwefel — contact fungicide primarily for powdery mildew
+      control. Also effective against rust, apple scab, and some
+      mites. Apply preventively at 7-10 day intervals. Do NOT apply
+      above 30°C (leaf burn risk) or within 14 days of oil-based
+      sprays. Approved for organic farming. Harmful to predatory
+      mites — maintain distance from biocontrol releases.
+
+  - name: Potassium Bicarbonate
+    treatment_type: biological
+    active_ingredient: potassium bicarbonate
+    application_method: spray
+    safety_interval_days: 0
+    dosage_per_liter: 5.0
+    protective_equipment: [gloves]
+    description: >-
+      Kaliumhydrogencarbonat — mild fungicide effective against
+      powdery mildew. Changes leaf surface pH to inhibit spore
+      germination. Very low toxicity, no harvest waiting period.
+      Apply every 7-10 days. Can cause leaf burn at high
+      concentrations on sensitive plants. Approved for organic farming.
+
+  # Mechanical — barriers and traps
+  - name: Crop Protection Netting (0.8mm)
+    treatment_type: mechanical
+    application_method: cultural
+    description: >-
+      Kulturschutznetz — fine mesh netting (0.8mm Maschenweite) as
+      physical barrier against cabbage white butterfly, carrot rust
+      fly, cabbage root fly, onion fly, leek moth, and flea beetles.
+      Install immediately after sowing/transplanting. Edges must be
+      buried or weighted to prevent entry. Remove for pollinator
+      access on flowering crops. Reusable for multiple seasons.
+
+  - name: Pheromone Trap (Codling Moth)
+    treatment_type: mechanical
+    application_method: cultural
+    description: >-
+      Pheromonfalle Apfelwickler — species-specific lure traps for
+      monitoring and mass trapping of Cydia pomonella. Place 1 trap
+      per 3-5 trees at head height (1.5-2m) from May to September.
+      Replace pheromone lures every 6-8 weeks. Primarily a monitoring
+      tool — combine with other methods for effective control.
+
+  - name: Pheromone Trap (Cherry Fruit Fly)
+    treatment_type: mechanical
+    application_method: cultural
+    description: >-
+      Pheromonfalle Kirschfruchtfliege — yellow sticky traps with
+      ammonium attractant for Rhagoletis cerasi monitoring and mass
+      trapping. Hang in tree canopy from mid-May. 4-6 traps per tree
+      for mass trapping. Check weekly and replace when covered.
+
+  - name: Slug Fence (Copper Barrier)
+    treatment_type: mechanical
+    application_method: cultural
+    description: >-
+      Schneckenzaun (Kupferband) — copper barriers that deter slugs
+      through galvanic reaction with slug slime. Install around raised
+      beds or individual plant groups. Height minimum 5cm. Keep
+      vegetation from bridging the barrier. Effective but requires
+      ensuring no slugs are already inside the protected area.
+
+  - name: Slug Pellets (Ferric Phosphate)
+    treatment_type: biological
+    active_ingredient: iron(III) phosphate
+    application_method: granular
+    safety_interval_days: 0
+    protective_equipment: [gloves]
+    description: >-
+      Schneckenkorn (Eisen-III-Phosphat) — slug and snail control
+      approved for organic farming. Slugs stop feeding immediately
+      after ingestion and die within 3-6 days. Apply 5 g/m² evenly.
+      Safe for hedgehogs, pets, and soil organisms. Breaks down into
+      iron and phosphate — natural soil components. Reapply after
+      heavy rain.
+
+  - name: Granulovirus (CpGV)
+    treatment_type: biological
+    application_method: spray
+    safety_interval_days: 0
+    description: >-
+      Apfelwickler-Granulovirus — highly specific biological
+      insecticide against codling moth (Cydia pomonella) larvae.
+      Larvae ingest virus particles on treated fruit surface and die
+      within 3-5 days. Apply at egg hatching (monitor with pheromone
+      traps). 3-4 applications at 8-day intervals. Harmless to all
+      non-target organisms. Approved for organic farming.
+
+  - name: Kaolin Clay (Surround)
+    treatment_type: mechanical
+    application_method: spray
+    description: >-
+      Kaolin-Tonerde — particle film technology. Creates a white
+      protective layer on fruit and leaves that deters pest feeding
+      and egg-laying. Effective against codling moth, cherry fruit
+      fly, apple sawfly, and many other pests. Also reduces sunburn
+      on fruit. Apply before pest flight begins. Reapply after rain.
+      Washes off at harvest. Approved for organic farming.
+
+  - name: Beer Trap (Slug)
+    treatment_type: mechanical
+    application_method: cultural
+    description: >-
+      Bierfalle — simple slug trap using shallow containers sunk
+      into the ground and filled with beer. Yeast scent attracts
+      slugs. Empty and refill every 2-3 days. Note: also attracts
+      slugs from surrounding area — use in combination with barriers,
+      not as sole control method. Place at bed edges, not in the
+      middle of plantings.
+
+  - name: Horticultural Oil (Mineral Oil)
+    treatment_type: chemical
+    active_ingredient: paraffin oil
+    application_method: spray
+    safety_interval_days: 7
+    dosage_per_liter: 15.0
+    protective_equipment: [gloves]
+    description: >-
+      Paraffinöl — suffocating contact insecticide/acaricide effective
+      against scale insects, mealybug, whitefly eggs, and overwintering
+      pest stages. Winter application (dormant season) at 2-3% on
+      fruit trees against overwintering eggs. Summer application at
+      1-1.5% with caution (phytotoxicity risk above 25°C). Do NOT
+      combine with sulfur sprays (14-day gap minimum).
+
+  - name: Diatomaceous Earth
+    treatment_type: mechanical
+    application_method: granular
+    description: >-
+      Kieselgur — fossilized diatom powder that damages insect
+      exoskeletons through abrasion, causing dehydration. Effective
+      against crawling insects: flea beetles, ants, slugs (partial),
+      and various stored-product pests. Apply as dust around plant
+      bases or on leaves. Loses effectiveness when wet — reapply
+      after rain. Wear mask during application (respiratory irritant).
+      Approved for organic farming.
+
 pest_treatments:
+  # Existing mappings
   - [Phytoseiulus persimilis, Spider Mites]
   - [Pyrethrin, Spider Mites]
   - [Neem Oil, Spider Mites]
@@ -274,7 +823,69 @@ pest_treatments:
   - [Insecticidal Soap (Potassium Salts), Mealybug]
   - [Hand Removal, Slug]
 
+  # New mappings — outdoor pests
+  - [Bacillus thuringiensis (Bt), Large Cabbage White]
+  - [Trichogramma spp. (Egg Parasitoids), Large Cabbage White]
+  - [Crop Protection Netting (0.8mm), Large Cabbage White]
+  - [Bacillus thuringiensis (Bt), Small Cabbage White]
+  - [Trichogramma spp. (Egg Parasitoids), Small Cabbage White]
+  - [Crop Protection Netting (0.8mm), Small Cabbage White]
+  - [Neem Oil, Colorado Potato Beetle]
+  - [Spinosad, Colorado Potato Beetle]
+  - [Hand Removal, Colorado Potato Beetle]
+  - [Granulovirus (CpGV), Codling Moth]
+  - [Pheromone Trap (Codling Moth), Codling Moth]
+  - [Kaolin Clay (Surround), Codling Moth]
+  - [Trichogramma spp. (Egg Parasitoids), Codling Moth]
+  - [Crop Protection Netting (0.8mm), Leek Moth]
+  - [Bacillus thuringiensis (Bt), Leek Moth]
+  - [Spinosad, Leek Moth]
+  - [Crop Protection Netting (0.8mm), Carrot Rust Fly]
+  - [Crop Rotation, Carrot Rust Fly]
+  - [Crop Protection Netting (0.8mm), Onion Fly]
+  - [Crop Rotation, Onion Fly]
+  - [Crop Protection Netting (0.8mm), Cabbage Root Fly]
+  - [Crop Rotation, Cabbage Root Fly]
+  - [Pheromone Trap (Cherry Fruit Fly), Cherry Fruit Fly]
+  - [Kaolin Clay (Surround), Cherry Fruit Fly]
+  - [Crop Protection Netting (0.8mm), Cherry Fruit Fly]
+  - [Bacillus thuringiensis (Bt), Box Tree Moth]
+  - [Spinosad, Box Tree Moth]
+  - [Hand Removal, Box Tree Moth]
+  - [Crop Protection Netting (0.8mm), Strawberry Blossom Weevil]
+  - [Heterorhabditis bacteriophora (Nematodes), Black Vine Weevil]
+  - [Neem Oil, Black Vine Weevil]
+  - [Insecticidal Soap (Potassium Salts), Cabbage Whitefly]
+  - [Crop Protection Netting (0.8mm), Cabbage Whitefly]
+  - [Crop Rotation, Wireworm]
+  - [Trichogramma spp. (Egg Parasitoids), European Corn Borer]
+  - [Bacillus thuringiensis (Bt), European Corn Borer]
+  - [Chrysoperla carnea (Lacewing Larvae), Green Peach Aphid]
+  - [Adalia bipunctata (Two-Spot Ladybird), Green Peach Aphid]
+  - [Insecticidal Soap (Potassium Salts), Green Peach Aphid]
+  - [Chrysoperla carnea (Lacewing Larvae), Potato Aphid]
+  - [Adalia bipunctata (Two-Spot Ladybird), Potato Aphid]
+  - [Insecticidal Soap (Potassium Salts), Potato Aphid]
+  - [Bacillus thuringiensis (Bt), Cabbage Moth]
+  - [Crop Protection Netting (0.8mm), Cabbage Moth]
+  - [Bacillus thuringiensis (Bt), Diamondback Moth]
+  - [Spinosad, Diamondback Moth]
+  - [Crop Protection Netting (0.8mm), Diamondback Moth]
+  - [Amblyseius swirskii, Thrips]
+  - [Amblyseius swirskii, Whitefly]
+  - [Chrysoperla carnea (Lacewing Larvae), Aphids]
+  - [Adalia bipunctata (Two-Spot Ladybird), Aphids]
+  - [Crop Protection Netting (0.8mm), Flea Beetle]
+  - [Diatomaceous Earth, Flea Beetle]
+  - [Slug Pellets (Ferric Phosphate), Slug]
+  - [Slug Fence (Copper Barrier), Slug]
+  - [Beer Trap (Slug), Slug]
+  - [Horticultural Oil (Mineral Oil), Scale Insects]
+  - [Horticultural Oil (Mineral Oil), Mealybug]
+  - [Chrysoperla carnea (Lacewing Larvae), Mealybug]
+
 disease_treatments:
+  # Existing mappings
   - [Environmental Control, Powdery Mildew]
   - [Environmental Control, Botrytis (Grey Mold)]
   - [Environmental Control, Downy Mildew]
@@ -287,7 +898,77 @@ disease_treatments:
   - [Phosphonate (Phosphorous Acid), Downy Mildew]
   - [Phosphonate (Phosphorous Acid), Late Blight]
 
+  # New mappings — outdoor diseases
+  - [Sulfur (Wettable), Powdery Mildew]
+  - [Potassium Bicarbonate, Powdery Mildew]
+  - [Bacillus subtilis, Powdery Mildew]
+  - [Bacillus subtilis, Botrytis (Grey Mold)]
+  - [Trichoderma harzianum, Fusarium Wilt]
+  - [Crop Rotation, Fusarium Wilt]
+  - [Copper Fungicide (Bordeaux Mixture), Downy Mildew]
+  - [Trichoderma harzianum, Root Rot]
+  - [Copper Fungicide (Bordeaux Mixture), Late Blight]
+  - [Resistant Varieties, Late Blight]
+  - [Crop Rotation, Clubroot]
+  - [Resistant Varieties, Clubroot]
+  - [Crop Rotation, Verticillium Wilt]
+  - [Resistant Varieties, Verticillium Wilt]
+  - [Sanitation, Brown Rot (Fruit)]
+  - [Copper Fungicide (Bordeaux Mixture), Brown Rot (Fruit)]
+  - [Sanitation, Blossom Blight]
+  - [Copper Fungicide (Bordeaux Mixture), Blossom Blight]
+  - [Sulfur (Wettable), Apple Scab]
+  - [Copper Fungicide (Bordeaux Mixture), Apple Scab]
+  - [Resistant Varieties, Apple Scab]
+  - [Sulfur (Wettable), Rust]
+  - [Resistant Varieties, Rust]
+  - [Copper Fungicide (Bordeaux Mixture), Septoria Leaf Spot]
+  - [Sanitation, Septoria Leaf Spot]
+  - [Crop Rotation, Septoria Leaf Spot]
+  - [Copper Fungicide (Bordeaux Mixture), Early Blight]
+  - [Crop Rotation, Early Blight]
+  - [Resistant Varieties, Early Blight]
+  - [Copper Fungicide (Bordeaux Mixture), Black Rot (Grape)]
+  - [Sanitation, Black Rot (Grape)]
+  - [Copper Fungicide (Bordeaux Mixture), Fire Blight]
+  - [Sanitation, Fire Blight]
+  - [Resistant Varieties, Fire Blight]
+  - [Sanitation, White Mold]
+  - [Crop Rotation, White Mold]
+  - [Environmental Control, White Mold]
+  - [Copper Fungicide (Bordeaux Mixture), Cucurbit Downy Mildew]
+  - [Resistant Varieties, Cucurbit Downy Mildew]
+  - [Phosphonate (Phosphorous Acid), Ramorum Blight]
+  - [Sanitation, Ramorum Blight]
+  - [Trichoderma harzianum, Damping Off]
+  - [Sanitation, Damping Off]
+  - [Environmental Control, Damping Off]
+  - [Copper Fungicide (Bordeaux Mixture), Grapevine Downy Mildew]
+  - [Phosphonate (Phosphorous Acid), Grapevine Downy Mildew]
+  - [Sulfur (Wettable), Grapevine Powdery Mildew]
+  - [Potassium Bicarbonate, Grapevine Powdery Mildew]
+  - [Copper Fungicide (Bordeaux Mixture), Peach Leaf Curl]
+  - [Copper Fungicide (Bordeaux Mixture), Bacterial Canker]
+  - [Sanitation, Bacterial Canker]
+  - [Resistant Varieties, Cucumber Mosaic Virus]
+  - [Sanitation, Honey Fungus]
+
 contraindications:
+  # Existing
   - [Phytoseiulus persimilis, Pyrethrin]
   - [Encarsia formosa, Pyrethrin]
   - [Phytoseiulus persimilis, Spinosad]
+
+  # New contraindications
+  - [Amblyseius swirskii, Pyrethrin]
+  - [Amblyseius swirskii, Spinosad]
+  - [Chrysoperla carnea (Lacewing Larvae), Pyrethrin]
+  - [Chrysoperla carnea (Lacewing Larvae), Spinosad]
+  - [Adalia bipunctata (Two-Spot Ladybird), Pyrethrin]
+  - [Adalia bipunctata (Two-Spot Ladybird), Spinosad]
+  - [Encarsia formosa, Spinosad]
+  - [Phytoseiulus persimilis, Sulfur (Wettable)]
+  - [Amblyseius swirskii, Sulfur (Wettable)]
+  - [Horticultural Oil (Mineral Oil), Sulfur (Wettable)]
+  - [Trichogramma spp. (Egg Parasitoids), Pyrethrin]
+  - [Trichogramma spp. (Egg Parasitoids), Spinosad]

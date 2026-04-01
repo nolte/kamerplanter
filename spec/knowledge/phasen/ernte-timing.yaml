@@ -1,0 +1,178 @@
+---
+title: Ernte-Timing und Nacherntebehandlung
+language: de
+category: phasen
+tags: [ernte, harvest, trichome, trocknung, curing, karenz, reife, lagerung, nacherntebehandlung]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [harvest]
+chunks:
+  - id: reife-indikatoren-gemuese
+    title: Reife-Indikatoren fuer Gemuese und Obst
+    content: |
+      Tomate:
+      - Farbe: Gleichmaessig rot (oder sortentyp. Farbe), kein Gruen am Stiel
+      - Festigkeit: Leicht nachgebend bei sanftem Druck
+      - Stielbruch: Loest sich leicht von der Pflanze am Sollbruchstelle
+      - Aroma: Intensiver Tomatengeruch am Stielansatz
+      Paprika/Chili:
+      - Farbumschlag: Gruen → Gelb/Rot (je nach Sorte). Gruene Paprika
+        sind unreif — essbar, aber weniger Vitamine und Geschmack.
+      - Festigkeit: Feste, glaenzende Haut
+      - Chili-Schaerfe: Steigt mit Reife (mehr Capsaicin bei voller Farbentwicklung)
+      Gurke: Groesse sortenabhaengig (Salatgurke 25-30cm, Einlegegurke 6-10cm).
+      NICHT ueberreif werden lassen (werden bitter, Kerne gross).
+      Salat: Vor dem Schossen ernten! Wenn der Stengel sich streckt und
+      Bluetenknospen bildet → zu spaet, Blaetter werden bitter.
+      Kuerbis/Zucchini: Zucchini bei 15-20cm (zart). Kuerbis: Klopfprobe
+      (hohl = reif), Stiel vertrocknet, Schale mit Fingernagel nicht
+      mehr einritzbar. Kuerbis 2 Wochen vor Frost ernten.
+      Wurzelgemuese: Schulter-Test (oberer Teil ragt aus Erde). Karotten:
+      1.5-2.5cm Durchmesser. Frost verbessert Geschmack (Staerke→Zucker).
+    metadata:
+      topic: harvest_indicators_vegetables
+      crops: [tomato, pepper, cucumber, lettuce, squash, root_vegetables]
+
+  - id: ernte-kraeuter
+    title: Kraeuter richtig ernten
+    content: |
+      Zeitpunkt: Morgens nach Abtrocknen des Taus. Aetherische Oele sind
+      morgens am konzentriertesten (vor der Mittagshitze).
+      Vor der Bluete ernten (fuer Kuechennutzung): Die meisten Kraeuter
+      werden milder/bitterer nach der Bluete. Staendiges Ernten/Pinchen
+      verzoegert die Bluete und foerdert buschiges Wachstum.
+      Basilikum:
+      - Immer ueber einem Blattpaar schneiden (2 neue Triebe wachsen nach)
+      - Bluetenansaetze frueh entfernen
+      - Maximal 1/3 der Pflanze auf einmal ernten
+      Petersilie/Koriander:
+      - Aeussere Stiele zuerst (Herz wachsen lassen)
+      - Koriander: Blaetter vor Bluete, Samen nach Reife (Koriandersamen)
+      Rosmarin/Thymian/Lavendel:
+      - Triebspitzen schneiden (foerdert Verzweigung)
+      - Nicht ins alte Holz schneiden (treibt nicht neu aus!)
+      - Lavendel: 1/3 nach Bluete zurueckschneiden, nie ins Holz
+      Schnittlauch: Bodennah abschneiden (waechst komplett nach)
+      Minze: Aggressiver Wuchs — gerne grosszuegig ernten.
+      Im Topf halten (Auslaeufer!)
+      Konservierung: Trocknen (haengen, Doerrautomat 35-40°C), Einfrieren
+      (gehackt in Eiswuerfel-Form mit Wasser/Oel), Oel/Essig ansetzen.
+    metadata:
+      topic: herb_harvesting
+      best_time: morning
+      rule: before_flowering
+
+  - id: trocknung-cannabis
+    title: Cannabis-Trocknung (Slow Dry)
+    content: |
+      Optimale Trocknungsbedingungen:
+      - Temperatur: 15-20°C (langsam und schonend)
+      - Luftfeuchtigkeit: 55-65% RH
+      - Dunkelheit: Licht baut Cannabinoide und Terpene ab
+      - Leichte Luftzirkulation: Ventilator an Wand (NICHT auf Pflanzen!),
+        nur zur Verhinderung stagnierender Luft
+      - Dauer: 7-14 Tage (je langsamer desto besser)
+      Methoden:
+      - Ganze Pflanze (Ideal): Kopfueber aufhaengen, langsamste Trocknung,
+        Blaetter schuetzen Blueten
+      - Einzelne Aeste: An Schnur/Draht aufhaengen
+      - Trocknungsnetz/Drying Rack: Fuer kleine Mengen oder wenn kein
+        Platz zum Aufhaengen
+      Fertig-Indikator:
+      - Kleine Zweige: Brechen/Knacken (nicht biegen) bei 90° → fertig
+      - Grosse Zweige: Biegen sich noch leicht → ok (Feintrocknung im Glas)
+      - Blueten fuehlen sich aussen trocken an, aber nicht broeselig
+      Zu schnelle Trocknung (>25°C, <45% RH): Heu-Geruch, harscher Rauch,
+      Terpene zerstoert. Chlorophyll nicht abgebaut.
+      Zu langsame Trocknung (>70% RH): Schimmelrisiko! Taeglich inspizieren.
+    metadata:
+      topic: cannabis_drying
+      temperature_celsius: [15, 20]
+      rh_percent: [55, 65]
+      duration_days: [7, 14]
+
+  - id: curing-cannabis
+    title: Cannabis-Curing (Fermentierung im Glas)
+    content: |
+      Nach der Trocknung beginnt das Curing — der wichtigste Schritt fuer
+      Geschmack, Geruch und Glatte des Rauchs:
+      Methode:
+      1. Getrocknete Blueten in luftdichte Glaeser fuellen (Mason Jars)
+         — 75% voll, nicht pressen
+      2. Boveda/Integra Boost Pack einlegen (62% RH) → stabilisiert
+         Feuchtigkeit automatisch
+      3. Erste Woche: 2-3× taeglich oeffnen und 15 Minuten lueften
+         ("Burping"). Geruch pruefen: Ammoniak = zu feucht = Schimmelrisiko!
+      4. Woche 2-4: 1× taeglich oeffnen und lueften
+      5. Ab Woche 4: 1-2× pro Woche oeffnen
+      6. Minimum Curing: 2-4 Wochen. Optimal: 4-8 Wochen.
+         Premium: 2-6 Monate (Terpen-Entwicklung setzt sich fort).
+      Warum Curing hilft:
+      - Chlorophyll wird abgebaut (kein Heu-Geruch/-Geschmack mehr)
+      - Terpene reifen und entwickeln sich weiter
+      - Rauch wird glatter (weniger harsch auf Hals/Lunge)
+      - Feuchtigkeit gleicht sich im Bud aus (aussen=innen)
+      Lagerung nach Curing: Dunkle, kuehle Glaeser (15-20°C).
+      Boveda-Pack austauschen wenn ausgehaertet. Haltbarkeit: 6-12 Monate
+      ohne signifikanten Potenz-Verlust bei korrekter Lagerung.
+    metadata:
+      topic: cannabis_curing
+      target_rh: 62
+      min_weeks: 2
+      optimal_weeks: [4, 8]
+
+  - id: karenz-gate
+    title: Karenzzeit — Sicherheitsabstand vor der Ernte
+    content: |
+      Karenzzeit (Wartezeit/Pre-Harvest Interval): Obligatorischer Zeitraum
+      zwischen der letzten Pflanzenschutz-Behandlung und der Ernte.
+      Zweck: Rueckstaende von Pflanzenschutzmitteln muessen unter den
+      gesetzlichen Hoechstwert (MRL) abgebaut sein.
+      Typische Karenzzeiten (Beispiele):
+      - Neem-Oel: 1-3 Tage (biologisch, baut schnell ab)
+      - Pyrethrum: 1-2 Tage
+      - Spinosad: 1-3 Tage
+      - Kupfer-Praeparate: 14-28 Tage (Vorsicht bei Gemuese!)
+      - Schwefel: 7-14 Tage
+      - Systemische Fungizide: 14-35 Tage
+      In Kamerplanter: Karenz-Gate (REQ-007, REQ-010):
+      - System blockiert Ernte-Erstellung wenn aktive Behandlungen
+        die Karenzzeit nicht eingehalten haben
+      - KarenzViolationError (HTTP 422) bei Versuch einer Ernte
+        vor Ablauf der Karenzzeit
+      - IPM-SafetyIntervalValidator prueft automatisch
+      Wichtig: Karenzzeiten gelten auch fuer biologische Mittel!
+      "Bio" bedeutet nicht "keine Wartezeit". Auch Neem-Oel und
+      Pyrethrum haben Rueckstaende die abgebaut werden muessen.
+      Bei Cannabis besonders relevant: Keine zugelassenen PSM,
+      daher strengste Standards anwenden.
+    metadata:
+      topic: pre_harvest_interval
+      kamerplanter_feature: karenz_gate
+      http_error: 422
+
+  - id: ethylen-nachernte
+    title: Ethylen — Reife-Steuerung und Lagerungsrisiko
+    content: |
+      Ethylen (C2H4) ist ein pflanzliches Reifehormon das nach der Ernte
+      weiterhin Fruechte beeinflusst:
+      Ethylen-Produzenten (hohe Freisetzung):
+      - Apfel, Banane, Tomate, Avocado, Pfirsich, Birne
+      - Ein reifer Apfel kann ganze Kisten unreifer Tomaten reifen lassen
+      Ethylen-Empfindliche Kulturen (reagieren stark):
+      - Salat (Vergilbung, Blattverlust), Brokkoli (Vergilbung)
+      - Gurke (beschleunigte Alterung), Karotte (Bitterkeit)
+      - Erdbeere (beschleunigte Ueberreife und Schimmel)
+      - Schnittblumen (vorzeitiges Welken)
+      Praxis-Konsequenzen:
+      - Ethylen-Produzenten GETRENNT von empfindlichen Kulturen lagern
+      - Tomate: Ethylen-Trigger fuer gleichmaessige Abreife (Buendel-Reife).
+        Gruene Tomaten mit reifem Apfel in Papiertüte → Rotfaerbung in 5-7 Tagen.
+      - Cannabis: Ethylen nicht relevant (Trichom-basierte Reife, keine
+        klimakterische Frucht). Aber: Ernte nicht neben reifen Fruechten
+        trocknen (Terpene koennen durch Ethylen beeinflusst werden).
+      - Kuehlschrank: Aepfel und Tomaten NICHT zusammen mit Salat lagern.
+      Belueftung der Lagerstelle reduziert Ethylen-Anreicherung.
+    metadata:
+      topic: ethylene
+      high_producers: [apple, banana, tomato, avocado]
+      sensitive: [lettuce, broccoli, cucumber, strawberry]

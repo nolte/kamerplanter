@@ -39,6 +39,7 @@ def fertilizer_detail(browser: WebDriver, base_url: str) -> FertilizerDetailPage
 class TestFertilizerListPage:
     """TC-REQ-004-001 to TC-REQ-004-012: Fertilizer list display and interaction."""
 
+    @pytest.mark.smoke
     def test_fertilizer_list_page_loads(
         self, fertilizer_list: FertilizerListPage, request: pytest.FixtureRequest
     ) -> None:

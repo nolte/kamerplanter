@@ -97,6 +97,7 @@ export default function PlantPhaseTimeline({ plant, history, speciesName }: Prop
 
   useEffect(() => {
     if (!plant.species_key) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset loading when no species
       setLoading(false);
       return;
     }

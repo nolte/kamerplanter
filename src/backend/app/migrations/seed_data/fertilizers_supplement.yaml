@@ -1,0 +1,403 @@
+# yaml-language-server: $schema=./schemas/fertilizers.schema.yaml
+# Zusätzliche Dünger-Marken: Canna, BioBizz, Hesi, GHE/Terra Aquatica.
+#
+# Quellen:
+#   Canna: https://www.canna.com/en/product-overview
+#   BioBizz: https://www.biobizz.com/products/
+#   Hesi: https://www.hesi.nl/en/products
+#   Terra Aquatica (ehem. GHE): https://www.terraaquatica.com/products/
+
+fertilizers:
+  # ══════════════════════════════════════════════════════════════════════════════
+  # CANNA
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  # ── Base Nutrients ─────────────────────────────────────────────────────────
+  - product_name: "Canna Terra Vega"
+    brand: "Canna"
+    fertilizer_type: base
+    is_organic: false
+    tank_safe: true
+    recommended_application: drench
+    npk_ratio: [3.0, 1.0, 4.0]
+    ec_contribution_per_ml: 0.12
+    mixing_priority: 20
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Einkomponenten-Basisdünger für die vegetative Phase in Erde.
+      NPK 3-1-4, mit Spurenelementen. 2–5 ml/L je nach Wachstumsphase.
+      Enthält ausreichend Ca/Mg für Leitungswasser (EC 0.3–0.5).
+      Nicht für Coco — dafür Canna Coco A+B verwenden.
+
+  - product_name: "Canna Terra Flores"
+    brand: "Canna"
+    fertilizer_type: base
+    is_organic: false
+    tank_safe: true
+    recommended_application: drench
+    npk_ratio: [2.0, 3.0, 5.0]
+    ec_contribution_per_ml: 0.12
+    mixing_priority: 20
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Einkomponenten-Basisdünger für die Blütephase in Erde.
+      NPK 2-3-5, erhöhter PK-Anteil für Blütenbildung. 2–5 ml/L.
+      Enthält ausreichend Ca/Mg für Leitungswasser.
+
+  - product_name: "Canna Coco A"
+    brand: "Canna"
+    fertilizer_type: base
+    is_organic: false
+    tank_safe: true
+    recommended_application: fertigation
+    npk_ratio: [5.0, 0.0, 1.0]  # Corrected per Canna official datasheet
+    ec_contribution_per_ml: 0.15
+    mixing_priority: 10
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      CalMag-reiche Komponente des Canna Coco 2-Part-Systems.
+      IMMER zuerst hinzufügen, vor Part B (CalMag vor Sulfaten).
+      Speziell für Coco-Substrat formuliert — kompensiert
+      Ca/Mg-Bindung durch Kokos-Kationenaustausch. 1–4 ml/L.
+
+  - product_name: "Canna Coco B"
+    brand: "Canna"
+    fertilizer_type: base
+    is_organic: false
+    tank_safe: true
+    recommended_application: fertigation
+    npk_ratio: [1.0, 4.0, 2.0]
+    ec_contribution_per_ml: 0.15
+    mixing_priority: 20
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      PK-reiche Komponente des Canna Coco 2-Part-Systems.
+      Nach Part A hinzufügen. 1–4 ml/L, immer gleiches Verhältnis
+      wie Part A (1:1). Enthält Schwefel und Phosphor.
+
+  # ── Supplements & Boosters ──────────────────────────────────────────────────
+  - product_name: "Canna CalMag Agent"
+    brand: "Canna"
+    fertilizer_type: supplement
+    is_organic: false
+    tank_safe: true
+    recommended_application: fertigation
+    npk_ratio: [3.0, 0.0, 0.0]
+    ec_contribution_per_ml: 0.08
+    mixing_priority: 8
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Calcium-Magnesium-Supplement (Ca 3.3%, Mg 1.0%, N 3.0%).
+      Für weiches Wasser oder RO-Wasser. VOR Basisdüngern zugeben.
+      Dosierung: 1–2 ml/L. Stabilisiert pH-Pufferkapazität.
+
+  - product_name: "Canna PK 13/14"
+    brand: "Canna"
+    fertilizer_type: booster
+    is_organic: false
+    tank_safe: true
+    recommended_application: fertigation
+    npk_ratio: [0.0, 13.0, 14.0]
+    ec_contribution_per_ml: 0.30
+    mixing_priority: 30
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Hochkonzentrierter PK-Booster für die Blütephase.
+      NUR in Woche 4–5 der Blüte verwenden (1–2 Wochen max).
+      0.5–1.5 ml/L. ACHTUNG: Sehr hoher EC-Beitrag!
+      Überdosierung führt zu Salzstress und Nährstoffblockade.
+
+  - product_name: "Canna Rhizotonic"
+    brand: "Canna"
+    fertilizer_type: supplement
+    is_organic: false
+    tank_safe: false
+    recommended_application: drench
+    npk_ratio: [0.6, 0.2, 0.6]
+    ec_contribution_per_ml: 0.02
+    mixing_priority: 40
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Algenbasierter Wurzelstimulator (Oligosaccharide + Vitamine).
+      1–4 ml/L bei Stecklingen, Umtopfen und Stresssituationen.
+      Woche 1–3 des Zyklus. Kann als Blattspray (2.5 ml/L)
+      bei Stecklingen angewendet werden.
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # BIOBIZZ
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  # ── Base Nutrients ─────────────────────────────────────────────────────────
+  - product_name: "BioBizz Bio-Grow"
+    brand: "BioBizz"
+    fertilizer_type: base
+    is_organic: true
+    tank_safe: false
+    recommended_application: drench
+    npk_ratio: [4.0, 3.0, 6.0]
+    ec_contribution_per_ml: 0.08
+    mixing_priority: 20
+    ph_effect: acidic
+    bioavailability: slow_release
+    notes: >-
+      Organischer Basisdünger aus Zuckerrübenextrakt (Vinasse).
+      NPK 4-3-6. Für vegetative Phase und als Hintergrunddünger in
+      der Blüte (1–2 ml/L). Fördert Bodenleben. 2–4 ml/L Vegi.
+      NICHT für rezirkulierende Hydro (Biofilm-Gefahr).
+
+  - product_name: "BioBizz Bio-Bloom"
+    brand: "BioBizz"
+    fertilizer_type: base
+    is_organic: true
+    tank_safe: false
+    recommended_application: drench
+    npk_ratio: [2.0, 8.0, 4.0]  # Corrected per BioBizz 2024 datasheet
+    ec_contribution_per_ml: 0.06
+    mixing_priority: 20
+    ph_effect: acidic
+    bioavailability: slow_release
+    notes: >-
+      Organischer Blütedünger mit Kaliumhumat und Spurenelementen.
+      NPK 2-8-4. 2–4 ml/L während der gesamten Blütephase.
+      Enthält natürliche Wachstumshormone und Aminosäuren.
+      Optimal in Kombination mit Bio-Grow (1–2 ml/L Background).
+
+  # ── Supplements ─────────────────────────────────────────────────────────────
+  - product_name: "BioBizz Top-Max"
+    brand: "BioBizz"
+    fertilizer_type: supplement
+    is_organic: true
+    tank_safe: false
+    recommended_application: drench
+    npk_ratio: [0.1, 0.1, 1.0]
+    ec_contribution_per_ml: 0.01
+    mixing_priority: 40
+    ph_effect: neutral
+    bioavailability: slow_release
+    notes: >-
+      Organischer Blütenstimulator aus Huminsäure und Fulvinsäure.
+      Erhöht Nährstoffaufnahme und Fruchtzuckerproduktion.
+      1–4 ml/L ab Blütebeginn bis Ernte. Kein signifikanter
+      EC-Beitrag. Verbessert Geschmack und Aroma.
+
+  - product_name: "BioBizz Root-Juice"
+    brand: "BioBizz"
+    fertilizer_type: biological
+    is_organic: true
+    tank_safe: false
+    recommended_application: drench
+    npk_ratio: [0.0, 0.0, 0.0]
+    ec_contribution_per_ml: 0.0
+    mixing_priority: 50
+    ph_effect: neutral
+    bioavailability: microbial_dependent
+    notes: >-
+      Organischer Wurzelstimulator mit Mykorrhiza und Huminsäuren.
+      1–4 ml/L in den ersten 4–6 Wochen. Fördert Wurzelmasse
+      und Nährstoffaufnahme. Ideal bei Umtopfen und Stecklingen.
+
+  - product_name: "BioBizz Acti-Vera"
+    brand: "BioBizz"
+    fertilizer_type: supplement
+    is_organic: true
+    tank_safe: false
+    recommended_application: drench
+    npk_ratio: [0.0, 0.0, 0.0]
+    ec_contribution_per_ml: 0.0
+    mixing_priority: 40
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Aloe-Vera-basiertes Pflanzenstärkungsmittel. Enthält
+      Enzyme, Aminosäuren und Mono-/Polysaccharide. 2–5 ml/L
+      als Gießzusatz oder Blattspray. Stärkt Immunabwehr und
+      Stresstoleranz. Gesamter Zyklus anwendbar.
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # HESI
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  # ── Base Nutrients ─────────────────────────────────────────────────────────
+  - product_name: "Hesi TNT Complex"
+    brand: "Hesi"
+    fertilizer_type: base
+    is_organic: false
+    tank_safe: true
+    recommended_application: drench
+    npk_ratio: [3.0, 2.0, 3.0]
+    ec_contribution_per_ml: 0.10
+    mixing_priority: 20
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Mineralischer Wachstumsdünger mit Vitaminen und Aminosäuren.
+      NPK 3-2-3 + Spurenelemente. 5 ml/L in der vegetativen Phase.
+      Enthält auch B-Vitamine zur Stressreduktion. Für Erde.
+      Coco-Variante: Hesi Coco verwenden.
+
+  - product_name: "Hesi Bloom Complex"
+    brand: "Hesi"
+    fertilizer_type: base
+    is_organic: false
+    tank_safe: true
+    recommended_application: drench
+    npk_ratio: [2.0, 3.0, 4.0]
+    ec_contribution_per_ml: 0.10
+    mixing_priority: 20
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Mineralischer Blütedünger mit Vitaminen und Spurenelementen.
+      NPK 2-3-4. 5 ml/L während der gesamten Blütephase.
+      Enthält Enzyme und Aminosäuren für verbesserte
+      Nährstoffaufnahme. Für Erde.
+
+  # ── Boosters ────────────────────────────────────────────────────────────────
+  - product_name: "Hesi Phosphorus Plus"
+    brand: "Hesi"
+    fertilizer_type: booster
+    is_organic: false
+    tank_safe: true
+    recommended_application: fertigation
+    npk_ratio: [0.0, 7.0, 5.0]
+    ec_contribution_per_ml: 0.15
+    mixing_priority: 30
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      PK-Booster für maximale Blütenentwicklung. NPK 0-7-5.
+      2.5 ml/L ab Woche 3 der Blüte bis 2 Wochen vor Ernte.
+      Ergänzt Bloom Complex um zusätzliches Phosphor und Kalium.
+
+  # ── Supplements ─────────────────────────────────────────────────────────────
+  - product_name: "Hesi Root Complex"
+    brand: "Hesi"
+    fertilizer_type: supplement
+    is_organic: false
+    tank_safe: true
+    recommended_application: drench
+    npk_ratio: [0.0, 0.0, 1.0]
+    ec_contribution_per_ml: 0.02
+    mixing_priority: 40
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Wurzelstimulator mit Vitaminen, Aminosäuren, Enzymen und
+      Pflanzenzuckern. 5 ml/L in den ersten 2–3 Wochen und bei
+      Umtopfen. Auch für Stecklinge geeignet. Kann als
+      Blattspray (2.5 ml/L) angewendet werden.
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # TERRA AQUATICA (ehem. GHE — General Hydroponics Europe)
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  # ── Base Nutrients (TriPart / Flora Series) ────────────────────────────────
+  - product_name: "TriPart Micro"
+    brand: "Terra Aquatica"
+    fertilizer_type: base
+    is_organic: false
+    tank_safe: true
+    recommended_application: fertigation
+    npk_ratio: [5.0, 0.0, 1.0]
+    ec_contribution_per_ml: 0.15
+    mixing_priority: 10
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      CalMag-Basiskomponente des TriPart 3-Part-Systems (ehem. FloraMicro).
+      Ca 5%, Mg 1.5%, Fe, Mn, B, Zn, Mo, Cu. IMMER zuerst hinzufügen
+      (vor Grow und Bloom). 0.5–4 ml/L je nach Phase.
+      Hardwater-Version für Leitungswasser >0.5 EC verfügbar.
+
+  - product_name: "TriPart Grow"
+    brand: "Terra Aquatica"
+    fertilizer_type: base
+    is_organic: false
+    tank_safe: true
+    recommended_application: fertigation
+    npk_ratio: [3.0, 1.0, 6.0]
+    ec_contribution_per_ml: 0.10
+    mixing_priority: 20
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Wachstumskomponente des TriPart-Systems (ehem. FloraGro).
+      NPK 3-1-6 + Magnesium. Nach Micro, vor Bloom hinzufügen.
+      0.5–4 ml/L. Höhere Dosis in der vegetativen Phase,
+      reduziert in der Blüte (1 ml/L als Background-N).
+
+  - product_name: "TriPart Bloom"
+    brand: "Terra Aquatica"
+    fertilizer_type: base
+    is_organic: false
+    tank_safe: true
+    recommended_application: fertigation
+    npk_ratio: [0.0, 5.0, 4.0]
+    ec_contribution_per_ml: 0.10
+    mixing_priority: 30
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Blütekomponente des TriPart-Systems (ehem. FloraBloom).
+      NPK 0-5-4 + Magnesium + Schwefel. Nach Micro und Grow
+      hinzufügen. 0.5–4 ml/L. Primäre PK-Quelle.
+      In der vegetativen Phase minimal dosieren (0.5 ml/L).
+
+  # ── Supplements & Boosters ──────────────────────────────────────────────────
+  - product_name: "TriPart CalMag"
+    brand: "Terra Aquatica"
+    fertilizer_type: supplement
+    is_organic: false
+    tank_safe: true
+    recommended_application: fertigation
+    npk_ratio: [5.0, 0.0, 0.0]
+    ec_contribution_per_ml: 0.10
+    mixing_priority: 8
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Identisch mit "CalMag" (Terra Aquatica). Calcium-Magnesium-
+      Supplement (Ca 3.2%, Mg 1.2%, N 5%). Für RO-Wasser und
+      Coco-Substrate. VOR Basisdüngern zugeben. 0.5–1.5 ml/L.
+
+  - product_name: "Ripen"
+    brand: "Terra Aquatica"
+    fertilizer_type: booster
+    is_organic: false
+    tank_safe: true
+    recommended_application: fertigation
+    npk_ratio: [0.0, 6.0, 5.0]
+    ec_contribution_per_ml: 0.12
+    mixing_priority: 30
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Reifebeschleuniger und Spätblüte-Booster (ehem. FloraKleen Ripen).
+      Hoher PK-Gehalt signalisiert Pflanze das Saisonende.
+      4–6 ml/L in den letzten 10 Tagen vor der Ernte.
+      Ersetzt ALLE Basisdünger. Danach Flush mit reinem Wasser.
+
+  - product_name: "Diamond Nectar"
+    brand: "Terra Aquatica"
+    fertilizer_type: supplement
+    is_organic: true
+    tank_safe: true
+    recommended_application: fertigation
+    npk_ratio: [0.0, 0.0, 0.0]
+    ec_contribution_per_ml: 0.0
+    mixing_priority: 40
+    ph_effect: neutral
+    bioavailability: immediate
+    notes: >-
+      Fulvinsäure-Konzentrat (ehem. GHE Diamond Nectar). Natürlicher
+      Chelator — verbessert Nährstoffverfügbarkeit und Transport.
+      1–3 ml/L gesamter Zyklus. Besonders effektiv in Hydro und Coco.
+      Cheliert Mikronährstoffe (Fe, Mn, Zn) für bessere Aufnahme.
+      Auch als Blattspray (1 ml/L) wirksam.

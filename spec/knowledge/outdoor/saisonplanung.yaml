@@ -1,0 +1,314 @@
+---
+title: Saisonplanung fuer den Freilandanbau
+language: de
+category: outdoor
+tags: [saisonplanung, aussaat, voranzucht, eisheilige, phaenologie, kalender, frostschutz, saisonverlaengerung]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [germination, seedling, vegetative, flowering, harvest]
+chunks:
+  - id: voranzucht-indoor
+    title: Voranzucht auf der Fensterbank und unter Kunstlicht
+    content: |
+      Die Voranzucht im Haus verschafft einen Wachstumsvorsprung von 4-8 Wochen
+      gegenueber der Direktsaat ins Freiland. Beginn je nach Art:
+      - Januar-Februar: Paprika, Chili, Aubergine (brauchen 8-10 Wochen bis zum Auspflanzen)
+      - Maerz: Tomate, Physalis, Kohlarten (6-8 Wochen Vorsprung)
+      - April: Kuerbis, Zucchini, Gurke (3-4 Wochen, nicht zu frueh — werden sonst geil)
+      Optimale Keimtemperatur fuer Nachtschattengewaechse: 22-26°C (Heizmatte empfohlen).
+      Licht: Mindestens 12h taeglich, suedliches Fenster oder Pflanzenlampe (>150 umol/m²/s PPFD).
+      Ohne Zusatzlicht werden Saeumlinge etioliert (lang, duenn, blass).
+      Substrat: Naehrstoffarme Anzuchterde (EC < 1.0 mS/cm), keine Duengererde.
+      Pikieren: Nach Entwicklung des ersten echten Blattpaares in groessere Toepfe (7-9 cm).
+      Feuchtigkeit: Gleichmaessig feucht, nie staunass — Umluftventilator beugt Umfallkrankheit vor.
+      Temperatur nach Keimung: Auf 18-20°C absenken, damit Saeumlinge kompakt bleiben.
+    metadata:
+      months: [1, 2, 3, 4]
+      location: indoor
+      technique: pre_cultivation
+
+  - id: abhaerten-jungpflanzen
+    title: Abhaerten (Hardening Off) vor dem Auspflanzen
+    content: |
+      Jungpflanzen aus der Voranzucht muessen zwingend abgehaertet werden, bevor sie
+      dauerhaft ins Freiland kommen. Ohne Abhaertung drohen Sonnenbrand, Windschaden
+      und Kaeltestress — im schlimmsten Fall sterben die Pflanzen ab.
+      Abhaertungsprotokoll (10-14 Tage vor geplantem Auspflanztermin):
+      - Tag 1-3: 2-3 Stunden an geschuetztem, schattigen Ort draussen
+      - Tag 4-6: 4-5 Stunden, mit etwas direkter Morgensonne
+      - Tag 7-9: 6-8 Stunden, zunehmend volle Sonne
+      - Tag 10-12: Ganztags draussen, nachts noch reinholen bei < 10°C
+      - Tag 13-14: Tag und Nacht draussen (sofern frostfrei)
+      Wichtig: Bei Wind, Starkregen oder Temperaturen unter 5°C sofort zurueckholen.
+      Giessen reduzieren (nicht austrocknen lassen, aber weniger als indoor) —
+      leichter Trockenstress staerkt die Wurzeln und das Stengelgewebe.
+      Waehrend der Abhaertung nicht duengen, damit die Pflanze sich auf Anpassung
+      konzentriert. Erst 1 Woche nach dem Auspflanzen die erste Freilandduengung geben.
+    metadata:
+      months: [4, 5]
+      duration_days: 14
+      technique: hardening_off
+
+  - id: aussaatkalender-kaltkeimer
+    title: Aussaatkalender — Kaltkeimer und Winteraussaat
+    content: |
+      Kaltkeimer (Kaeltekeimer, Frostkeimer) benoetigen eine Kaelteperiode von 4-12 Wochen
+      bei 0-5°C, um die Samenruhe (Dormanz) zu brechen. Ohne Stratifikation keimen sie
+      nicht oder nur sehr unzuverlaessig.
+      Typische Kaltkeimer im Garten:
+      - Baerlauch: Aussaat September-November, keimt im Fruehjahr
+      - Engelwurz (Angelica): Frischsaat Herbst, Keimdauer bis 6 Monate
+      - Eisenhut (Aconitum): Oktober-Januar aussaeen, giftig — Handschuhe tragen
+      - Schluesselblume (Primula veris): Oktober-Dezember
+      - Christrose (Helleborus): Sofort nach Samenreife (Juni-Juli), keimt naechstes Fruehjahr
+      - Kuechenschelle (Pulsatilla): November-Januar
+      Methode Freiland: Samen in Toepfe mit Anzuchterde, flach abdecken, draussen
+      an geschuetzter Stelle aufstellen (Nordseite von Mauern). Vor Maeuseschutz
+      und Austrocknung schuetzen (gelochte Folie oder feines Gitter).
+      Methode Kuehlschrank (kuenstliche Stratifikation): Samen auf feuchtem Sand oder
+      Kuechenpapier in Plastikbeutel, 4-8 Wochen bei 2-5°C im Gemuesefach.
+      Anschliessend normal bei 15-20°C zum Keimen aufstellen.
+      In Kamerplanter: Kaltkeimer werden als cold_stratification=true in den Stammdaten
+      markiert, der Aussaatkalender beruecksichtigt dies automatisch.
+    metadata:
+      months: [9, 10, 11, 12, 1]
+      technique: cold_stratification
+      seed_treatment: required
+
+  - id: aussaatkalender-fruehgemuese
+    title: Aussaatkalender — Fruehgemuese unter Glas und Vlies
+    content: |
+      Ab Maerz koennen kaeltetolerante Gemuese direkt ins Freiland gesaet werden,
+      sofern der Boden bearbeitbar ist und mit Vlies/Folie geschuetzt wird.
+      Direktsaat Maerz-April (vertragen leichten Frost bis -3°C):
+      - Radieschen: Saattiefe 1 cm, Reihenabstand 15 cm, Ernte nach 4-6 Wochen
+      - Feldsalat / Spinat: Breitwuerfig oder Reihen 20 cm, bei Bodentemperatur ab 5°C
+      - Erbsen: 3-5 cm tief, Reihenabstand 40 cm, Kletterhilfe ab 30 cm Hoehe
+      - Mairuepe / Rettich: 1-2 cm tief, vertraegt Kaelte gut
+      - Puffbohne (Dicke Bohne): Februar-Maerz, 5 cm tief, sehr frosthart (bis -8°C)
+      - Petersilie: Ab Maerz, keimt langsam (3-4 Wochen), Geduld!
+      Vliesabdeckung (17 g/m²) erhoet die Bodentemperatur um 2-4°C und beschleunigt
+      die Keimung um 1-2 Wochen. Vlies bei Sonnenschein tagsueber lueften, damit
+      die Pflanzen nicht ueberhitzen (>25°C unter Vlies moeglich).
+      Fruehbeet / Kalter Kasten: Saatbeginn bereits ab Februar fuer Salat, Kohlrabi,
+      Radieschen. Tagsueber lueften ab 15°C Innentemperatur. Nachts Deckel schliessen.
+      Bodentemperatur mit Thermometer pruefen — Mindestens 8°C fuer zuverlaessige Keimung
+      der meisten Fruehgemuese.
+    metadata:
+      months: [2, 3, 4]
+      frost_tolerance: moderate
+      technique: direct_sow
+
+  - id: aussaatkalender-warmkeimer
+    title: Aussaatkalender — Waermeliebende Kulturen nach den Eisheiligen
+    content: |
+      Waermeliebende Kulturen duerfen erst nach den Eisheiligen (11.-15. Mai in
+      Mitteleuropa) ins ungeschuetzte Freiland. Spaetfrost ist der haeufigste Grund
+      fuer Totalverluste bei Tomate, Paprika, Kuerbis und Bohnen.
+      Auspflanzen ab Mitte Mai:
+      - Tomate: Tiefpflanzen (Stengel bis zum ersten Blatt eingraben — bildet Adventivwurzeln)
+      - Paprika / Chili: Waermster Platz im Garten, Windschutz, EC 1.5-2.5 mS/cm
+      - Gurke: Empfindlich unter 12°C Bodentemperatur, Mulch mit schwarzer Folie vorwaermen
+      - Kuerbis / Zucchini: 1 m Pflanzabstand, enormer Naehrstoffbedarf (Starkzehrer)
+      - Stangenbohne / Buschbohne: Direktsaat ab Bodentemperatur 12°C, Saattiefe 3 cm
+      - Mais: Ab Mitte Mai, 5 cm tief, Blockpflanzung (4x4 Reihen) fuer Windbestaeubung
+      - Basilikum: Absolut frostempfindlich, stirbt unter 5°C
+      Direktsaat waermeliebender Kulturen:
+      Bohne und Mais koennen direkt gesaet werden, Tomate und Paprika nur als Jungpflanze
+      (Voranzucht ab Februar/Maerz). Kuerbis und Zucchini: beides moeglich, aber Voranzucht
+      bringt 2-3 Wochen Vorsprung.
+      Bodenvorbereitung: 2-3 Wochen vor dem Pflanzen schwarze Mulchfolie auslegen —
+      erhoet die Bodentemperatur um 3-6°C. Reife Kompostgabe (3-5 L/m²) einarbeiten.
+    metadata:
+      months: [5, 6]
+      frost_tolerance: none
+      technique: transplant
+
+  - id: eisheilige-letzter-frost
+    title: Eisheilige und Spaetfrostgefahr
+    content: |
+      Die Eisheiligen (Mamertus, Pankratius, Servatius, Bonifatius, Kalte Sophie)
+      fallen auf den 11.-15. Mai und markieren traditionell das Ende der Spaetfrostgefahr
+      in Mitteleuropa. Meteorologisch ist die Bauernregel statistisch bestaetigt:
+      In Sueddeutschland treten bis Mitte Mai in 30% der Jahre noch Nachtfroeste auf.
+      Regelwerk fuer die Praxis:
+      - Vor dem 15. Mai: KEINE frostempfindlichen Kulturen ohne Schutz auspflanzen
+      - Frostempfindlich (ab 0°C Schaden): Tomate, Paprika, Gurke, Zucchini, Bohne, Basilikum
+      - Bedingt frosthart (vertragen kurz -2 bis -3°C): Salat, Kohlrabi, Erbse, Kartoffel
+      - Frosthart (bis -5°C und kaelter): Spinat, Feldsalat, Lauch, Rosenkohl, Gruenkohl
+      Regionale Unterschiede beachten: In Norddeutschland und Kuestennaehe ist der
+      letzte Frost oft schon Ende April vorbei. Im Alpenvorland, in Taelern und
+      Kaltluftsenken kann Frost noch bis Ende Mai auftreten.
+      Kaltluftsenken: Kalte Luft fliesst hangabwaerts und sammelt sich in Mulden —
+      hier kann es 3-5°C kaelter sein als am Hang. Empfindliche Kulturen am Hang
+      oder an suedexponierten Waenden pflanzen.
+      In Kamerplanter: Der frost_date_last-Wert im Standort-Profil steuert die
+      Aussaatempfehlung und den Eisheiligen-Hinweis im Kalender.
+    metadata:
+      months: [4, 5]
+      risk: late_frost
+      region: central_europe
+
+  - id: phaenologische-indikatoren
+    title: Phaenologische Zeiger fuer Aussaat und Pflanzung
+    content: |
+      Die phaenologische Beobachtung ersetzt starre Kalendertermine durch natuerliche
+      Zeigerereignisse, die den tatsaechlichen Vegetationsstand widerspiegeln. Dies ist
+      zuverlaessiger als Datumsangaben, da die Natur regionale und jaehrliche Schwankungen
+      automatisch beruecksichtigt.
+      Wichtige phaenologische Indikatoren (REQ-006):
+      - Forsythienbluete (Erstfruehling, ca. Maerz-April):
+        Kartoffeln legen, Moehren saeen, Rosen schneiden, Rasen erste Duengung
+      - Apfelbluete (Vollfruehling, ca. April-Mai):
+        Waermeliebende Kulturen in geschuetzter Lage auspflanzen, Bohnen saeen
+      - Holunderbluete (Fruehsommer, ca. Mai-Juni):
+        Kein Frost mehr — alle Kulturen koennen ins Freiland, Heuernte
+      - Lindenbuete (Hochsommer, ca. Juni-Juli):
+        Zweite Aussaat von Buschbohnen, Herbstgemueseaussaat beginnen
+      - Fruchtreife Schwarzer Holunder (Spaetsommer, ca. August-September):
+        Herbstpflanzungen vorbereiten, Gruenduengung auf abgeerntete Beete saeen
+      - Blattverfaerbung Stieleiche (Vollherbst, ca. Oktober):
+        Letzte Ernten, Wintergemuese abdecken, Beete winterfest machen
+      Dokumentation: Eigene Beobachtungen notieren und Jahr fuer Jahr vergleichen —
+      so baut man ein lokales phaenologisches Kalender auf. In Kamerplanter koennen
+      PhenologicalEvent-Eintraege als Trigger fuer Aufgaben konfiguriert werden.
+    metadata:
+      phenological_indicators: [forsythia, apple, elderflower, linden, elderberry, oak]
+      trigger_type: phenological
+
+  - id: monatskalender-fruehjahr
+    title: Monatskalender Maerz bis Mai — Fruehjahrsarbeiten
+    content: |
+      Maerz:
+      - Bodenbearbeitung: Sobald die Handprobe gelingt (Erde kruemelt, klebt nicht),
+        Beete lockern (Grabgabel, nicht umgraben). Kompost einarbeiten (3-5 L/m²).
+      - Aussaat im Haus: Tomate, Paprika, Aubergine, Kohlarten (falls nicht im Feb. geschehen)
+      - Direktsaat Freiland: Spinat, Feldsalat, Radieschen, Erbse, Puffbohne
+      - Fruehbeet/Gewaechshaus: Salat, Kohlrabi, Rettich
+      - Obstbaeume: Schnitt abschliessen vor Austrieb, Leimringe kontrollieren
+      April:
+      - Aussaat im Haus: Kuerbis, Zucchini, Gurke (ab Monatsmitte, max. 3-4 Wochen vor Auspflanzen)
+      - Direktsaat: Moehre, Zwiebel (Steckzwiebeln), Rote Bete, Mangold, Petersilie
+      - Kartoffeln legen: Ab Forsythienbluete, 10 cm tief, 40x70 cm Abstand
+      - Erdbeeren: Unkraut entfernen, Strohmulch ausbringen
+      - Kompost: Umsetzen und fuer Ausbringung vorbereiten
+      Mai:
+      - Vor Eisheiligen (bis 15.5.): Jungpflanzen abhaerten, Vlies bereithalten
+      - Nach Eisheiligen: Alle waermeliebenden Kulturen auspflanzen
+      - Sukzessionssaat: Buschbohne, Salat, Radieschen (alle 2-3 Wochen wiederholen)
+      - Mulchen: Frisch gepflanzte Beete mit 5-8 cm Strohmulch abdecken
+      - Schadkontrolle: Schnecken (Bierfallen, Schneckenkorn), Blattlaeuse pruefen
+    metadata:
+      months: [3, 4, 5]
+      season: spring
+
+  - id: monatskalender-sommer-herbst
+    title: Monatskalender Juni bis Oktober — Sommer und Erntezeit
+    content: |
+      Juni:
+      - Nachsaaten: Buschbohne (2. Satz), Salat, Radieschen, Moehre (fuer Herbsternte)
+      - Tomaten: Ausgeizen (Seitentriebe entfernen), Stuetzen aufstellen, Mulchen
+      - Bewaesserung: Morgens giessen (nie ueber Blatt!), Tropfbewaesserung ideal
+      - Kartoffeln: Anhaeufeln wenn Kraut 20 cm hoch, Krautfaeule beobachten
+      Juli:
+      - Erntestart: Zucchini, Buschbohne, Erbse, Fruehkartoffel, Salat, Radieschen
+      - Herbstaussaat starten: Gruenkohl, Chinakohl, Pak Choi, Winterrettich
+      - Gruenduengung: Auf abgeernteten Beeten sofort Phacelia oder Buchweizen saeen
+      - Hitzemanagement: Schattiernetze, Mulch nachfuellen, Abendbewaesserung bei > 30°C
+      August:
+      - Haupterntezeit: Tomate, Paprika, Gurke, Kuerbis, Bohne, Zwiebel, Knoblauch
+      - Wintergemuese saeen: Feldsalat, Winterpostelein, Spinat (fuer Herbst/Winter)
+      - Erdbeeren: Ableger abtrennen und neu pflanzen (optimaler Zeitpunkt!)
+      September:
+      - Ernte: Kuerbis (wenn Stiel verholzt), Kartoffel (Kraut abgestorben), Aepfel
+      - Gruenduengung: Winterharte Sorten saeen (Winterroggen, Inkarnatklee, Winterwicke)
+      - Bodenanalyse: Idealer Zeitpunkt fuer pH- und Naehrstoffbestimmung
+      Oktober:
+      - Letzte Ernten: Rosenkohl, Gruenkohl (werden nach erstem Frost suesser!)
+      - Beetvorbereitung: Mulch auftragen, Laub als Winterschutz, NICHT umgraben
+      - Kompost: Letzte Gabe reifen Kompost auf Dauerkulturbeete
+      - Werkzeug: Reinigen, oelen, einwintern
+    metadata:
+      months: [6, 7, 8, 9, 10]
+      season: summer_autumn
+
+  - id: sukzessionssaat
+    title: Sukzessionssaat fuer durchgehende Ernte
+    content: |
+      Sukzessionssaat (gestaffelte Aussaat) bedeutet, dieselbe Kultur alle 2-4 Wochen
+      erneut auszusaeen, um eine kontinuierliche Ernte ueber die gesamte Saison zu
+      erreichen statt einer einmaligen Schwemme.
+      Ideal fuer Sukzessionssaat geeignete Kulturen:
+      - Salat/Pflucksalat: Alle 2 Wochen, April bis August (im Sommer schossfeste Sorten!)
+      - Radieschen: Alle 2-3 Wochen, Maerz bis September
+      - Buschbohne: 3 Saetze (Mai, Juni, Juli) fuer Ernte Juni bis Oktober
+      - Rucola: Alle 3 Wochen, Maerz bis September (im Sommer halbschattig)
+      - Spinat: Fruehjahr (Maerz-April) und Herbst (August-September), Sommerpause (schosst)
+      - Moehre: 3 Saetze (Maerz, Mai, Juni) fuer Ernte Juli bis November
+      - Dill / Koriander: Alle 3-4 Wochen, April bis August
+      Planung: Nicht mehr als 2-3 laufende Meter pro Aussaat-Satz fuer einen 2-Personen-Haushalt.
+      Lieber oefter wenig saeen als einmal viel und dann Ueberschuss kompostieren.
+      Lagerung vs. Sukzession: Bei Moehren, Rote Bete und Zwiebeln kann statt Sukzession
+      auch ein einmaliger Satz mit Einlagerung ueber Winter sinnvoll sein.
+      In Kamerplanter: SuccessionPlan-Knoten dokumentieren die geplanten Intervalle
+      pro Kultur und Beet, der Kalender erinnert automatisch an den naechsten Aussaattermin.
+    metadata:
+      technique: succession_sowing
+      interval_weeks: [2, 3, 4]
+      months: [3, 4, 5, 6, 7, 8, 9]
+
+  - id: saisonverlaengerung
+    title: Saisonverlaengerung — Fruehbeet, Vlies und Gewaechshaus
+    content: |
+      Mit einfachen Mitteln laesst sich die Anbausaison um 4-8 Wochen verlaengern
+      (2-4 Wochen frueher beginnen, 2-4 Wochen laenger ernten).
+      Gartenvlies (17-30 g/m²):
+      - Temperaturerhoehung: +2 bis +4°C Bodentemperatur, Frostschutz bis -3°C
+      - Direkt auf Pflanzen legen oder als Tunnel auf Boegen spannen
+      - Lichtdurchlaessigkeit 85-95%, Regenwasser laesst es durch
+      - Nachteile: Bei Sturm fixieren (Erdanker, Steine), bei Hitze lueften
+      Fruehbeet / Kalter Kasten:
+      - Einfachste Bauform: Holzrahmen + altes Fenster, Suedausrichtung
+      - Bodenwaerme durch Pferdemist-Schicht unter der Erde (Mistbeet): +8-12°C
+      - Start ab Februar moeglich fuer Salat, Radieschen, Kohlrabi
+      - Lueften ab 18°C Innentemperatur, bei Frost nachts Deckel + Vlies
+      Folientunnel / Gewaechshaus:
+      - Saisonverlaengerung: Februar bis November (ungeheizt), ganzjaehrig (beheizt)
+      - Tomate und Paprika: 4-6 Wochen laengere Ernte als im Freiland
+      - Probleme: Ueberhitzung im Sommer (Lueftung!), Bodenermuedung (Fruchtwechsel!)
+      - Winternutzung: Feldsalat, Asia-Salate, Postelein — ohne Heizung bis -10°C
+      Schwarze Mulchfolie: Erwaermt den Boden um 3-6°C, unterdrueckt Unkraut,
+      haelt Feuchtigkeit. Ideal fuer Kuerbis, Melone, Gurke. Vor Pflanzung 2 Wochen
+      auslegen, dann Pflanzloecher schneiden.
+    metadata:
+      technique: season_extension
+      tools: [fleece, cold_frame, tunnel, greenhouse, mulch_film]
+      temperature_gain_celsius: [2, 4, 6, 12]
+
+  - id: herbstarbeiten-vorbereitung
+    title: Herbstarbeiten und Vorbereitung fuer das naechste Jahr
+    content: |
+      Die Herbstarbeit entscheidet ueber den Erfolg der naechsten Saison. Wer im Oktober
+      und November gruendlich vorbereitet, hat im Fruehjahr einen grossen Vorsprung.
+      Bodenanalyse (September-Oktober):
+      - pH-Wert und Grundnaehrstoffe (N, P, K, Mg) alle 3-4 Jahre testen lassen
+      - Proben aus 20-30 cm Tiefe, von mehreren Stellen im Beet mischen
+      - Ergebnis bestimmt Kalkung und Duengerstrategie fuer naechstes Jahr
+      - Kalkung (wenn pH < 6.0) im Herbst ausbringen — braucht Monate zum Wirken
+      Gruenduengung:
+      - Auf alle abgeernteten Beete sofort Gruenduengung saeen
+      - Winterharte Sorten: Winterroggen, Inkarnatklee, Winterwicke (Aussaat bis Oktober)
+      - Abfrierende Sorten: Phacelia, Senf, Buchweizen (Aussaat bis September)
+      - Nicht umbrechen! Im Fruehjahr oberflaechlich einarbeiten oder als Mulch liegen lassen
+      Beetvorbereitung:
+      - NICHT umgraben im Herbst — zerstoert Bodenstruktur und Bodenlebewesen
+      - Stattdessen: 5-10 cm Mulch (Laub, Stroh, halbfertiger Kompost) auftragen
+      - Reifer Kompost (3-5 L/m²) als Deckschicht auf Dauerkulturbeete
+      - Schwerer Boden (Ton/Lehm): Gruendliche Herbstkalkung, Gruenduengung mit Tiefwurzlern (Lupine)
+      Weitere Aufgaben:
+      - Saatgut bestellen (Dezember-Januar sind beliebte Sorten oft ausverkauft)
+      - Fruchtfolgeplan fuer naechstes Jahr erstellen (CropRotationPlan in Kamerplanter)
+      - Werkzeug reinigen, Scheren schaerfen, Gewaechshaus desinfizieren
+    metadata:
+      months: [9, 10, 11]
+      season: autumn
+      tasks: [soil_analysis, green_manure, bed_preparation, tool_maintenance]

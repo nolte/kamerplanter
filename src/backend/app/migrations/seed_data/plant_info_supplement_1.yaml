@@ -1,0 +1,1507 @@
+# yaml-language-server: $schema=./schemas/plant_info.schema.yaml
+# Supplement seed data for 9 species/cultivars missing from plant_info_*.yaml
+# Generated from spec/ref/plant-info/*.md reference documents.
+#
+# Covers:
+#   3 outdoor vegetables: Allium porrum, Beta vulgaris subsp. vulgaris,
+#     Brassica oleracea var. gemmifera
+#   2 indoor plants: Saintpaulia ionantha (Streptocarpus ionanthus),
+#     Syngonium podophyllum
+#   4 Dahlia cultivars: Embassy, Hapet Daydream, Armateras, Lavender Perfection
+#     (all under Dahlia x cultorum)
+#
+# Enum mappings applied:
+#   frost_sensitivity: "tender" -> "sensitive", "half_hardy" -> "moderate",
+#     "very_hardy" -> "hardy" (enum has sensitive/moderate/hardy only)
+#   root_type: "aerial" -> "fibrous", "rhizomatous" -> "fibrous"
+#   nutrient_demand_level: uses heavy_feeder, medium_feeder, light_feeder enum values
+#
+# NOTE: Dahlia x cultorum species already exists in plant_info_outdoor_2.yaml or
+#   species.yaml — only cultivars are added here. If the species does not exist
+#   yet, the new_species entry below will create it.
+
+# ==============================================================================
+# S1  NEW SPECIES -> FAMILY MAP (5 new species)
+# ==============================================================================
+
+new_species_family_map:
+  "Allium porrum": Amaryllidaceae
+  "Beta vulgaris subsp. vulgaris": Amaranthaceae
+  "Brassica oleracea var. gemmifera": Brassicaceae
+  "Streptocarpus ionanthus": Gesneriaceae
+  "Syngonium podophyllum": Araceae
+  "Dahlia x cultorum": Asteraceae
+
+# ==============================================================================
+# S2  NEW SPECIES (6)
+# ==============================================================================
+
+new_species:
+  - scientific_name: "Allium porrum"
+    common_names: ["Porree", "Lauch", "Winterlauch", "Leek", "Garden Leek"]
+    genus: Allium
+    growth_habit: herb
+    root_type: fibrous
+    native_habitat: "Mittelmeerraum, Vorderasien"
+    hardiness_zones: ["5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b"]
+    allelopathy_score: 0.2
+    frost_sensitivity: hardy
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [seed]
+    propagation_difficulty: medium
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+    spacing_cm: "15"
+    mature_height_cm: "80"
+    mature_width_cm: "10"
+    sowing_indoor_weeks_before_last_frost: 10
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [3, 4, 5]
+    harvest_months: [8, 9, 10, 11, 12, 1, 2, 3]
+    bloom_months: [6, 7]
+    pruning_type: none
+    toxicity:
+      is_toxic_cats: true
+      is_toxic_dogs: true
+      is_toxic_children: false
+      toxic_parts: [leaf, stem, root]
+      toxic_compounds: ["N-propyl disulfide"]
+      severity: moderate
+    allergen_info:
+      contact_allergen: false
+      pollen_allergen: false
+
+  - scientific_name: "Beta vulgaris subsp. vulgaris"
+    common_names: ["Rote Bete", "Rote Ruebe", "Rote Beete", "Beetroot", "Red Beet", "Table Beet"]
+    genus: Beta
+    growth_habit: herb
+    root_type: taproot
+    native_habitat: "Mittelmeerraum, Westasien"
+    hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b", "10a", "10b"]
+    allelopathy_score: 0.0
+    frost_sensitivity: moderate
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    traits: [edible]
+    propagation_methods: [seed]
+    propagation_difficulty: easy
+    container_suitable: "yes"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    spacing_cm: "10"
+    mature_height_cm: "40"
+    mature_width_cm: "25"
+    sowing_indoor_weeks_before_last_frost: 4
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [4, 5, 6, 7]
+    harvest_months: [7, 8, 9, 10, 11]
+    bloom_months: [6, 7]
+    pruning_type: none
+    toxicity:
+      is_toxic_cats: false
+      is_toxic_dogs: false
+      is_toxic_children: false
+      toxic_compounds: ["Oxalic acid", "Nitrate"]
+      severity: none
+    allergen_info:
+      contact_allergen: false
+      pollen_allergen: false
+
+  - scientific_name: "Brassica oleracea var. gemmifera"
+    common_names: ["Rosenkohl", "Kohlsprossen", "Brussels Sprouts", "Sprouts"]
+    genus: Brassica
+    growth_habit: herb
+    root_type: taproot
+    native_habitat: "Nordwesteuropa (Belgien)"
+    hardiness_zones: ["2a", "2b", "3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b"]
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    traits: [edible, cold_hardy]
+    propagation_methods: [seed]
+    propagation_difficulty: intermediate
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: true
+    spacing_cm: "50"
+    mature_height_cm: "100"
+    mature_width_cm: "60"
+    sowing_indoor_weeks_before_last_frost: 6
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [4, 5]
+    harvest_months: [10, 11, 12, 1, 2, 3]
+    pruning_type: summer_pruning
+    pruning_months: [8, 9]
+    toxicity:
+      is_toxic_cats: false
+      is_toxic_dogs: false
+      is_toxic_children: false
+      severity: none
+    allergen_info:
+      contact_allergen: false
+      pollen_allergen: false
+
+  - scientific_name: "Streptocarpus ionanthus"
+    common_names: ["Usambaraveilchen", "Afrikanisches Veilchen", "African Violet"]
+    genus: Streptocarpus
+    plant_category: tropical_foliage
+    growth_habit: herb
+    root_type: fibrous
+    native_habitat: "Tansania, Kenia (Usambaragebirge)"
+    hardiness_zones: ["11a", "11b", "12a", "12b"]
+    allelopathy_score: 0.0
+    frost_sensitivity: sensitive
+    nutrient_demand_level: medium_feeder
+    green_manure_suitable: false
+    traits: [ornamental]
+    propagation_methods: [cutting_leaf, seed, division]
+    propagation_difficulty: easy
+    container_suitable: "yes"
+    recommended_container_volume_l: 1
+    min_container_depth_cm: 8
+    indoor_suitable: "yes"
+    balcony_suitable: "no"
+    greenhouse_recommended: false
+    support_required: false
+    mature_height_cm: "20"
+    mature_width_cm: "40"
+    bloom_months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    pruning_type: none
+    toxicity:
+      is_toxic_cats: false
+      is_toxic_dogs: false
+      is_toxic_children: false
+      severity: none
+    allergen_info:
+      contact_allergen: false
+      pollen_allergen: false
+
+  - scientific_name: "Syngonium podophyllum"
+    common_names: ["Pfeilblatt", "Dreieckspflanze", "Arrowhead Plant", "Arrowhead Vine"]
+    genus: Syngonium
+    plant_category: tropical_foliage
+    growth_habit: vine
+    root_type: fibrous
+    native_habitat: "Mexiko bis Bolivien"
+    hardiness_zones: ["10a", "10b", "11a", "11b"]
+    allelopathy_score: 0.0
+    frost_sensitivity: sensitive
+    nutrient_demand_level: light_feeder
+    green_manure_suitable: false
+    traits: [ornamental]
+    propagation_methods: [cutting_stem]
+    propagation_difficulty: easy
+    container_suitable: "yes"
+    recommended_container_volume_l: 5
+    min_container_depth_cm: 15
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+    mature_height_cm: "180"
+    mature_width_cm: "60"
+    pruning_type: spring_pruning
+    pruning_months: [3, 4]
+    toxicity:
+      is_toxic_cats: true
+      is_toxic_dogs: true
+      is_toxic_children: true
+      toxic_parts: [leaf, stem, sap]
+      toxic_compounds: ["Calcium oxalate raphides"]
+      severity: moderate
+    allergen_info:
+      contact_allergen: true
+      pollen_allergen: false
+
+  - scientific_name: "Dahlia x cultorum"
+    common_names: ["Dahlie", "Garten-Dahlie", "Dahlia", "Garden Dahlia"]
+    genus: Dahlia
+    growth_habit: herb
+    root_type: tuberous
+    native_habitat: "Mexiko, Mittelamerika (Hochland, 1500-3000 m)"
+    hardiness_zones: ["8a", "8b", "9a", "9b", "10a", "10b", "11a"]
+    allelopathy_score: 0.0
+    frost_sensitivity: sensitive
+    nutrient_demand_level: heavy_feeder
+    green_manure_suitable: false
+    traits: [ornamental, bee_friendly]
+    propagation_methods: [division, cutting_stem]
+    propagation_difficulty: moderate
+    container_suitable: limited
+    indoor_suitable: "no"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: true
+    spacing_cm: "60"
+    mature_height_cm: "120"
+    mature_width_cm: "60"
+    sowing_indoor_weeks_before_last_frost: 4
+    sowing_outdoor_after_last_frost_days: 0
+    direct_sow_months: [5, 6]
+    bloom_months: [7, 8, 9, 10]
+    pruning_type: after_harvest
+    pruning_months: [5, 6, 10]
+    toxicity:
+      is_toxic_cats: true
+      is_toxic_dogs: true
+      is_toxic_children: false
+      toxic_parts: [leaf, stem, tuber]
+      toxic_compounds: ["Sesquiterpene lactones", "Polyacetylenes"]
+      severity: mild
+    allergen_info:
+      contact_allergen: true
+      pollen_allergen: true
+
+# ==============================================================================
+# S3  LIFECYCLE CONFIGS
+# ==============================================================================
+
+lifecycle_configs:
+  "Allium porrum":
+    cycle_type: biennial
+    photoperiod_type: long_day
+    vernalization_required: true
+
+  "Beta vulgaris subsp. vulgaris":
+    cycle_type: biennial
+    photoperiod_type: long_day
+    vernalization_required: true
+
+  "Brassica oleracea var. gemmifera":
+    cycle_type: biennial
+    photoperiod_type: long_day
+    vernalization_required: true
+
+  "Streptocarpus ionanthus":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+
+  "Syngonium podophyllum":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+
+  "Dahlia x cultorum":
+    cycle_type: perennial
+    photoperiod_type: short_day
+
+# ==============================================================================
+# S4  GROWTH PHASES
+# ==============================================================================
+
+growth_phases:
+  "Allium porrum":
+    - name: germination
+      order: 1
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 10
+      duration_days_max: 20
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 0
+        dli_target_mol: 0
+        photoperiod_hours: 0
+        temperature_day_c: 18.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 80
+        humidity_night_percent: 85
+        vpd_target_kpa: 0.5
+        co2_ppm: 400
+        irrigation_frequency_days: 1
+        irrigation_volume_ml_per_plant: 10
+      nutrient_profile:
+        npk_ratio: "0-0-0"
+        ec_min: 0.0
+        ec_max: 0.0
+        ph_min: 6.0
+        ph_max: 7.0
+
+    - name: seedling
+      order: 2
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 42
+      duration_days_max: 56
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 225
+        dli_target_mol: 13
+        photoperiod_hours: 15
+        temperature_day_c: 17.0
+        temperature_night_c: 12.0
+        humidity_day_percent: 63
+        humidity_night_percent: 68
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 2
+        irrigation_volume_ml_per_plant: 28
+      nutrient_profile:
+        npk_ratio: "1-1-1"
+        ec_min: 0.6
+        ec_max: 1.0
+        ph_min: 6.0
+        ph_max: 7.0
+        ca_ppm: 80
+        mg_ppm: 30
+        s_ppm: 20
+        fe_ppm: 2
+
+    - name: vegetative
+      order: 3
+      is_terminal: false
+      is_harvest_allowed: true
+      duration_days_min: 90
+      duration_days_max: 150
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 300
+        dli_target_mol: 16
+        photoperiod_hours: 15
+        temperature_day_c: 20.0
+        temperature_night_c: 13.0
+        humidity_day_percent: 63
+        humidity_night_percent: 68
+        vpd_target_kpa: 1.1
+        co2_ppm: 400
+        irrigation_frequency_days: 3
+        irrigation_volume_ml_per_plant: 350
+      nutrient_profile:
+        npk_ratio: "3-1-3"
+        ec_min: 1.4
+        ec_max: 2.0
+        ph_min: 6.0
+        ph_max: 7.0
+        ca_ppm: 120
+        mg_ppm: 50
+        s_ppm: 35
+        fe_ppm: 3
+
+    - name: harvest
+      order: 4
+      is_terminal: true
+      is_harvest_allowed: true
+      duration_days_min: 30
+      duration_days_max: 90
+      stress_tolerance: high
+      description: "Freiland-Winterernte; keine aktive Pflege. Ernte bei Bedarf."
+      requirement_profile:
+        light_ppfd_target: 0
+        dli_target_mol: 0
+        photoperiod_hours: 0
+        temperature_day_c: 5.0
+        temperature_night_c: -5.0
+        humidity_day_percent: 70
+        humidity_night_percent: 75
+        vpd_target_kpa: 0.0
+        co2_ppm: 400
+        irrigation_frequency_days: 0
+        irrigation_volume_ml_per_plant: 0
+      nutrient_profile:
+        npk_ratio: "0-0-0"
+        ec_min: 0.0
+        ec_max: 0.0
+        ph_min: 6.0
+        ph_max: 7.0
+        ca_ppm: 0
+        mg_ppm: 0
+        s_ppm: 0
+        fe_ppm: 0
+
+  "Beta vulgaris subsp. vulgaris":
+    - name: germination
+      order: 1
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 10
+      duration_days_max: 14
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 0
+        dli_target_mol: 0
+        photoperiod_hours: 0
+        temperature_day_c: 16.0
+        temperature_night_c: 11.0
+        humidity_day_percent: 73
+        humidity_night_percent: 78
+        vpd_target_kpa: 0.5
+        co2_ppm: 400
+        irrigation_frequency_days: 3
+        irrigation_volume_ml_per_plant: 18
+      nutrient_profile:
+        npk_ratio: "0-0-0"
+        ec_min: 0.0
+        ec_max: 0.0
+        ph_min: 6.0
+        ph_max: 7.0
+
+    - name: seedling
+      order: 2
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 14
+      duration_days_max: 21
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 225
+        dli_target_mol: 11
+        photoperiod_hours: 14
+        temperature_day_c: 18.0
+        temperature_night_c: 13.0
+        humidity_day_percent: 63
+        humidity_night_percent: 68
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 3
+        irrigation_volume_ml_per_plant: 35
+      nutrient_profile:
+        npk_ratio: "1-1-1"
+        ec_min: 0.4
+        ec_max: 0.8
+        ph_min: 6.0
+        ph_max: 7.0
+        ca_ppm: 60
+        mg_ppm: 30
+        s_ppm: 20
+        fe_ppm: 2
+
+    - name: vegetative
+      order: 3
+      is_terminal: false
+      is_harvest_allowed: true
+      duration_days_min: 35
+      duration_days_max: 60
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 300
+        dli_target_mol: 14
+        photoperiod_hours: 14
+        temperature_day_c: 20.0
+        temperature_night_c: 13.0
+        humidity_day_percent: 63
+        humidity_night_percent: 68
+        vpd_target_kpa: 1.1
+        co2_ppm: 400
+        irrigation_frequency_days: 3
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: "2-1-3"
+        ec_min: 1.0
+        ec_max: 1.6
+        ph_min: 6.0
+        ph_max: 7.0
+        ca_ppm: 100
+        mg_ppm: 50
+        s_ppm: 30
+        fe_ppm: 3
+
+    - name: harvest
+      order: 4
+      is_terminal: true
+      is_harvest_allowed: true
+      duration_days_min: 14
+      duration_days_max: 30
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 200
+        dli_target_mol: 8
+        photoperiod_hours: 12
+        temperature_day_c: 13.0
+        temperature_night_c: 3.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 4
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: "1-1-2"
+        ec_min: 0.6
+        ec_max: 1.0
+        ph_min: 6.0
+        ph_max: 7.0
+        ca_ppm: 80
+        mg_ppm: 30
+        s_ppm: 20
+        fe_ppm: 2
+
+  "Brassica oleracea var. gemmifera":
+    - name: germination
+      order: 1
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 5
+      duration_days_max: 14
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 0
+        dli_target_mol: 0
+        photoperiod_hours: 0
+        temperature_day_c: 20.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 80
+        humidity_night_percent: 85
+        vpd_target_kpa: 0.6
+        co2_ppm: 400
+        irrigation_frequency_days: 2
+        irrigation_volume_ml_per_plant: 10
+      nutrient_profile:
+        npk_ratio: "0-0-0"
+        ec_min: 0.0
+        ec_max: 0.0
+        ph_min: 6.5
+        ph_max: 7.0
+
+    - name: seedling
+      order: 2
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 28
+      duration_days_max: 42
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 225
+        dli_target_mol: 13
+        photoperiod_hours: 15
+        temperature_day_c: 18.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 65
+        humidity_night_percent: 70
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 3
+        irrigation_volume_ml_per_plant: 55
+      nutrient_profile:
+        npk_ratio: "1-1-1"
+        ec_min: 0.5
+        ec_max: 0.8
+        ph_min: 6.2
+        ph_max: 6.8
+        ca_ppm: 80
+        mg_ppm: 30
+        s_ppm: 30
+        fe_ppm: 2
+
+    - name: vegetative
+      order: 3
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 60
+      duration_days_max: 90
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        dli_target_mol: 20
+        photoperiod_hours: 16
+        temperature_day_c: 19.0
+        temperature_night_c: 13.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 1.0
+        co2_ppm: 500
+        irrigation_frequency_days: 3
+        irrigation_volume_ml_per_plant: 350
+      nutrient_profile:
+        npk_ratio: "3-1-2"
+        ec_min: 1.4
+        ec_max: 2.0
+        ph_min: 6.2
+        ph_max: 6.8
+        ca_ppm: 150
+        mg_ppm: 50
+        s_ppm: 50
+        fe_ppm: 4
+
+    - name: sprout_formation
+      order: 4
+      is_terminal: false
+      is_harvest_allowed: true
+      duration_days_min: 60
+      duration_days_max: 90
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 300
+        dli_target_mol: 14
+        photoperiod_hours: 12
+        temperature_day_c: 14.0
+        temperature_night_c: 6.0
+        humidity_day_percent: 65
+        humidity_night_percent: 73
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 4
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: "2-2-3"
+        ec_min: 1.6
+        ec_max: 2.2
+        ph_min: 6.2
+        ph_max: 6.8
+        ca_ppm: 180
+        mg_ppm: 60
+        s_ppm: 50
+        fe_ppm: 4
+
+    - name: harvest
+      order: 5
+      is_terminal: true
+      is_harvest_allowed: true
+      duration_days_min: 30
+      duration_days_max: 90
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 100
+        dli_target_mol: 5
+        photoperiod_hours: 9
+        temperature_day_c: 5.0
+        temperature_night_c: -5.0
+        humidity_day_percent: 70
+        humidity_night_percent: 80
+        vpd_target_kpa: 0.5
+        co2_ppm: 400
+        irrigation_frequency_days: 7
+        irrigation_volume_ml_per_plant: 100
+      nutrient_profile:
+        npk_ratio: "0-0-0"
+        ec_min: 0.0
+        ec_max: 0.0
+        ph_min: 6.2
+        ph_max: 6.8
+
+  "Streptocarpus ionanthus":
+    - name: rooting
+      order: 1
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 42
+      duration_days_max: 56
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 75
+        dli_target_mol: 7
+        photoperiod_hours: 13
+        temperature_day_c: 24.0
+        temperature_night_c: 21.0
+        humidity_day_percent: 75
+        humidity_night_percent: 75
+        vpd_target_kpa: 0.6
+        co2_ppm: 500
+        irrigation_frequency_days: 6
+        irrigation_volume_ml_per_plant: 35
+      nutrient_profile:
+        npk_ratio: "0-0-0"
+        ec_min: 0.0
+        ec_max: 0.0
+        ph_min: 6.0
+        ph_max: 6.5
+
+    - name: seedling
+      order: 2
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 56
+      duration_days_max: 84
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 115
+        dli_target_mol: 10
+        photoperiod_hours: 15
+        temperature_day_c: 23.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 65
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.7
+        co2_ppm: 600
+        irrigation_frequency_days: 5
+        irrigation_volume_ml_per_plant: 55
+      nutrient_profile:
+        npk_ratio: "2-1-1"
+        ec_min: 0.5
+        ec_max: 0.8
+        ph_min: 6.0
+        ph_max: 6.5
+        ca_ppm: 60
+        mg_ppm: 30
+        fe_ppm: 2
+
+    - name: vegetative
+      order: 3
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 28
+      duration_days_max: 56
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 150
+        dli_target_mol: 13
+        photoperiod_hours: 15
+        temperature_day_c: 23.0
+        temperature_night_c: 20.0
+        humidity_day_percent: 58
+        humidity_night_percent: 63
+        vpd_target_kpa: 0.8
+        co2_ppm: 600
+        irrigation_frequency_days: 6
+        irrigation_volume_ml_per_plant: 75
+      nutrient_profile:
+        npk_ratio: "3-1-2"
+        ec_min: 0.8
+        ec_max: 1.2
+        ph_min: 6.0
+        ph_max: 6.5
+        ca_ppm: 100
+        mg_ppm: 50
+        fe_ppm: 2
+
+    - name: flowering
+      order: 4
+      is_terminal: false
+      is_harvest_allowed: true
+      duration_days_min: 30
+      duration_days_max: 90
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 200
+        dli_target_mol: 16
+        photoperiod_hours: 15
+        temperature_day_c: 22.0
+        temperature_night_c: 19.0
+        humidity_day_percent: 58
+        humidity_night_percent: 63
+        vpd_target_kpa: 0.8
+        co2_ppm: 600
+        irrigation_frequency_days: 7
+        irrigation_volume_ml_per_plant: 75
+      nutrient_profile:
+        npk_ratio: "1-2-2"
+        ec_min: 0.8
+        ec_max: 1.2
+        ph_min: 6.0
+        ph_max: 6.5
+        ca_ppm: 100
+        mg_ppm: 50
+        fe_ppm: 2
+
+    - name: rest
+      order: 5
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 21
+      duration_days_max: 42
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 115
+        dli_target_mol: 9
+        photoperiod_hours: 13
+        temperature_day_c: 20.0
+        temperature_night_c: 17.0
+        humidity_day_percent: 58
+        humidity_night_percent: 63
+        vpd_target_kpa: 0.9
+        co2_ppm: 500
+        irrigation_frequency_days: 9
+        irrigation_volume_ml_per_plant: 50
+      nutrient_profile:
+        npk_ratio: "0-0-0"
+        ec_min: 0.0
+        ec_max: 0.4
+        ph_min: 6.0
+        ph_max: 6.5
+
+  "Syngonium podophyllum":
+    - name: active_growth
+      order: 1
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 180
+      duration_days_max: 210
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 250
+        dli_target_mol: 11
+        photoperiod_hours: 14
+        temperature_day_c: 23.0
+        temperature_night_c: 19.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.7
+        co2_ppm: 400
+        irrigation_frequency_days: 9
+        irrigation_volume_ml_per_plant: 275
+      nutrient_profile:
+        npk_ratio: "3-1-2"
+        ec_min: 0.6
+        ec_max: 1.0
+        ph_min: 5.5
+        ph_max: 6.5
+        ca_ppm: 80
+        mg_ppm: 30
+
+    - name: winter_rest
+      order: 2
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 120
+      duration_days_max: 150
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 190
+        dli_target_mol: 8
+        photoperiod_hours: 12
+        temperature_day_c: 19.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 12
+        irrigation_volume_ml_per_plant: 140
+      nutrient_profile:
+        npk_ratio: "0-0-0"
+        ec_min: 0.0
+        ec_max: 0.3
+        ph_min: 5.5
+        ph_max: 6.5
+
+  "Dahlia x cultorum":
+    - name: dormancy
+      order: 1
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 120
+      duration_days_max: 150
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 0
+        dli_target_mol: 0
+        photoperiod_hours: 0
+        temperature_day_c: 7.0
+        temperature_night_c: 7.0
+        humidity_day_percent: 68
+        humidity_night_percent: 68
+        co2_ppm: 400
+        irrigation_frequency_days: 0
+        irrigation_volume_ml_per_plant: 0
+      nutrient_profile:
+        npk_ratio: "0-0-0"
+        ec_min: 0.0
+        ec_max: 0.0
+        ph_min: 6.0
+        ph_max: 7.0
+
+    - name: sprouting
+      order: 2
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 21
+      duration_days_max: 42
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 175
+        dli_target_mol: 12
+        photoperiod_hours: 13
+        temperature_day_c: 18.0
+        temperature_night_c: 14.0
+        humidity_day_percent: 58
+        humidity_night_percent: 63
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 6
+        irrigation_volume_ml_per_plant: 300
+      nutrient_profile:
+        npk_ratio: "1-1-1"
+        ec_min: 0.4
+        ec_max: 0.8
+        ph_min: 6.2
+        ph_max: 7.0
+        ca_ppm: 80
+        mg_ppm: 30
+
+    - name: vegetative
+      order: 3
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 28
+      duration_days_max: 56
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 600
+        dli_target_mol: 30
+        photoperiod_hours: 15
+        temperature_day_c: 23.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 53
+        humidity_night_percent: 63
+        vpd_target_kpa: 1.2
+        co2_ppm: 400
+        irrigation_frequency_days: 3
+        irrigation_volume_ml_per_plant: 750
+      nutrient_profile:
+        npk_ratio: "3-1-2"
+        ec_min: 1.4
+        ec_max: 2.0
+        ph_min: 6.2
+        ph_max: 7.0
+        ca_ppm: 150
+        mg_ppm: 50
+        s_ppm: 40
+        fe_ppm: 3
+
+    - name: flowering
+      order: 4
+      is_terminal: false
+      is_harvest_allowed: false
+      duration_days_min: 60
+      duration_days_max: 120
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 800
+        dli_target_mol: 35
+        photoperiod_hours: 13
+        temperature_day_c: 23.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 50
+        humidity_night_percent: 60
+        vpd_target_kpa: 1.2
+        co2_ppm: 400
+        irrigation_frequency_days: 2
+        irrigation_volume_ml_per_plant: 1000
+      nutrient_profile:
+        npk_ratio: "1-2-3"
+        ec_min: 1.6
+        ec_max: 2.2
+        ph_min: 6.2
+        ph_max: 7.0
+        ca_ppm: 150
+        mg_ppm: 60
+        s_ppm: 40
+        fe_ppm: 3
+
+    - name: senescence
+      order: 5
+      is_terminal: true
+      is_harvest_allowed: true  # Knollenernte nach erstem Frost
+      duration_days_min: 14
+      duration_days_max: 21
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 100
+        dli_target_mol: 5
+        photoperiod_hours: 10
+        temperature_day_c: 10.0
+        temperature_night_c: 2.0
+        humidity_day_percent: 60
+        humidity_night_percent: 70
+        co2_ppm: 400
+        irrigation_frequency_days: 7
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: "0-0-0"
+        ec_min: 0.0
+        ec_max: 0.0
+        ph_min: 6.0
+        ph_max: 7.0
+
+# ==============================================================================
+# S5  CULTIVARS
+# ==============================================================================
+
+cultivars:
+  "Allium porrum":
+    - name: "Blaugruener Winter"
+      traits: [winter_hardy, late_maturing]
+      days_to_maturity: 200
+      seed_type: open_pollinated
+    - name: "Carentan"
+      traits: [winter_hardy, heirloom, thick_shaft]
+      days_to_maturity: 180
+      seed_type: open_pollinated
+    - name: "Hannibal"
+      traits: [early_maturing, summer_type]
+      days_to_maturity: 120
+      seed_type: f1_hybrid
+
+  "Beta vulgaris subsp. vulgaris":
+    - name: "Boro F1"
+      traits: [disease_resistant, uniform, bolt_resistant]
+      days_to_maturity: 55
+      seed_type: f1_hybrid
+    - name: "Pablo F1"
+      traits: [disease_resistant, smooth_skin]
+      days_to_maturity: 58
+      seed_type: f1_hybrid
+    - name: "Chioggia"
+      traits: [heirloom, bicolor_rings, bolt_resistant]
+      days_to_maturity: 55
+      seed_type: open_pollinated
+
+  "Brassica oleracea var. gemmifera":
+    - name: "Groninger"
+      traits: [heirloom, late_maturing]
+      days_to_maturity: 180
+      seed_type: open_pollinated
+    - name: "Crispus F1"
+      traits: [disease_resistant, compact, early_maturing]
+      days_to_maturity: 150
+      disease_resistances: [clubroot]
+      seed_type: f1_hybrid
+    - name: "Nautic F1"
+      traits: [disease_resistant, high_yield]
+      days_to_maturity: 160
+      disease_resistances: [clubroot]
+      seed_type: f1_hybrid
+    - name: "Hilds Ideal"
+      traits: [heirloom, uniform_sprouts]
+      days_to_maturity: 175
+      seed_type: open_pollinated
+
+  "Streptocarpus ionanthus":
+    - name: "Optimara Little Maya"
+      traits: [miniature, compact, pink_flowers]
+      days_to_maturity: 90
+      seed_type: cultivar
+    - name: "Rob's Sassy Kassy"
+      traits: [semi_miniature, chimera, pink_white_stripes]
+      days_to_maturity: 90
+      seed_type: cultivar
+    - name: "Ness Golden Chalice"
+      traits: [standard, frilled, yellow_toned_white]
+      days_to_maturity: 90
+      seed_type: cultivar
+
+  "Syngonium podophyllum":
+    - name: "Neon Robusta"
+      traits: [ornamental, pink, compact]
+      seed_type: clone
+    - name: "Pixie"
+      traits: [ornamental, compact, dwarf]
+      seed_type: clone
+    - name: "Imperial White"
+      traits: [ornamental, variegated, white_green]
+      seed_type: clone
+    - name: "Albo-Variegatum"
+      traits: [ornamental, variegated, white_splashed]
+      seed_type: clone
+
+  "Dahlia x cultorum":
+    - name: "Embassy"
+      breeder: null
+      traits: [ornamental, bee_friendly, cut_flower, bicolor]
+      days_to_maturity: 90
+      seed_type: clone
+      flower_color: "deep purple-red with white underside"
+      flower_diameter_cm: 10
+      flower_type: "SD (Small Decorative)"
+      mature_height_cm: 110
+
+    - name: "Hapet Daydream"
+      breeder: null
+      breeding_year: 2020
+      traits: [ornamental, bee_friendly, fragrant, cut_flower]
+      days_to_maturity: 90
+      seed_type: clone
+      flower_color: "fuchsia-pink with golden-cream center"
+      flower_diameter_cm: 9
+      flower_type: "Decorative / Ball"
+      mature_height_cm: 110
+
+    - name: "Armateras"
+      breeder: "A.C. Koot"
+      breeding_year: 2012
+      traits: [ornamental, bee_friendly, cut_flower]
+      days_to_maturity: 90
+      seed_type: clone
+      flower_color: "vibrant pink with yellow center"
+      flower_diameter_cm: 14
+      flower_type: "Decorative"
+      mature_height_cm: 100
+
+    - name: "Lavender Perfection"
+      breeder: null
+      traits: [ornamental, bee_friendly, fragrant, cut_flower, dinner_plate]
+      days_to_maturity: 95
+      seed_type: clone
+      flower_color: "lavender-pink to mauve-lilac"
+      flower_diameter_cm: 23
+      flower_type: "Formal Decorative (Dinner Plate)"
+      mature_height_cm: 130
+
+# ==============================================================================
+# S6  COMPANION PLANTING
+# ==============================================================================
+
+companion_planting:
+  compatible:
+    # Allium porrum
+    - source: "Allium porrum"
+      target: "Daucus carota"
+      score: 0.9
+      reason: "Klassische Mischkultur: gegenseitige Schaedlingsabwehr (Moehrenfliege vs. Lauchmotte)"
+    - source: "Allium porrum"
+      target: "Apium graveolens"
+      score: 0.8
+      reason: "Gegenseitige Schaedlingsabwehr, aehnliche Kulturbeduerfnisse"
+    - source: "Allium porrum"
+      target: "Fragaria x ananassa"
+      score: 0.8
+      reason: "Verschiedene Wurzeltiefen, gute Bodennutzung"
+    - source: "Allium porrum"
+      target: "Solanum lycopersicum"
+      score: 0.7
+      reason: "Lauch wehrt Weisse Fliege ab, aehnliche Standortansprueche"
+    - source: "Allium porrum"
+      target: "Lactuca sativa"
+      score: 0.8
+      reason: "Schnelle Zwischenkultur zwischen Lauch-Reihen"
+
+    # Beta vulgaris subsp. vulgaris
+    - source: "Beta vulgaris subsp. vulgaris"
+      target: "Allium cepa"
+      score: 0.9
+      reason: "Gegenseitige Schaedlingsabwehr (Erdfloh), Dufttarnung"
+    - source: "Beta vulgaris subsp. vulgaris"
+      target: "Allium sativum"
+      score: 0.8
+      reason: "Pilzabwehr durch Allicin, Schaedlingsabwehr"
+    - source: "Beta vulgaris subsp. vulgaris"
+      target: "Phaseolus vulgaris"
+      score: 0.8
+      reason: "Stickstoffversorgung, verschiedene Wurzeltiefen"
+    - source: "Beta vulgaris subsp. vulgaris"
+      target: "Lactuca sativa"
+      score: 0.8
+      reason: "Schnelle Zwischenkultur, Bodenbeschattung"
+
+    # Brassica oleracea var. gemmifera
+    - source: "Brassica oleracea var. gemmifera"
+      target: "Apium graveolens"
+      score: 0.9
+      reason: "Sellerie-Duft schreckt Kohlweisslinge ab"
+    - source: "Brassica oleracea var. gemmifera"
+      target: "Solanum lycopersicum"
+      score: 0.8
+      reason: "Tomaten-Duft vertreibt Kohlweisslinge"
+    - source: "Brassica oleracea var. gemmifera"
+      target: "Spinacia oleracea"
+      score: 0.8
+      reason: "Bodenbeschattung, schnelle Zwischenkultur"
+    - source: "Brassica oleracea var. gemmifera"
+      target: "Tagetes patula"
+      score: 0.8
+      reason: "Nematoden-Abwehr, Bestauber anlocken"
+
+    # Streptocarpus ionanthus (indoor companions)
+    - source: "Streptocarpus ionanthus"
+      target: "Fittonia albivenis"
+      score: 0.7
+      reason: "Aehnliche Feuchtigkeitsanforderungen, optische Ergaenzung"
+
+    # Dahlia x cultorum
+    - source: "Dahlia x cultorum"
+      target: "Tagetes erecta"
+      score: 0.8
+      reason: "Nematodenabwehr durch tiefes Wurzelsystem, Bestauber-Anlockung"
+    - source: "Dahlia x cultorum"
+      target: "Calendula officinalis"
+      score: 0.7
+      reason: "Nuetzlingsfoerderung, Schaedlingsablenkung"
+
+  incompatible:
+    # Allium porrum
+    - source: "Allium porrum"
+      target: "Pisum sativum"
+      score: 0.3
+      reason: "Allicin-aehnliche Verbindungen hemmen Rhizobium-Aktivitaet"
+    - source: "Allium porrum"
+      target: "Phaseolus vulgaris"
+      score: 0.3
+      reason: "Negative Wechselwirkung mit Knollchenbakterien"
+    - source: "Allium porrum"
+      target: "Allium cepa"
+      score: 0.3
+      reason: "Gleiche Familie, gemeinsame Schaedlinge und Krankheiten"
+
+    # Beta vulgaris subsp. vulgaris
+    - source: "Beta vulgaris subsp. vulgaris"
+      target: "Spinacia oleracea"
+      score: 0.3
+      reason: "Gleiche Familie, gemeinsame Krankheiten (Falscher Mehltau)"
+    # Beta + Lauch: Klassische Mischkultur (gegenseitige Schaedlingsabwehr)
+    # Entfernt: Falsche Inkompatibilitaet — siehe Agrobiology-Review F-013
+
+    # Brassica oleracea var. gemmifera
+    - source: "Brassica oleracea var. gemmifera"
+      target: "Sinapis alba"
+      score: 0.2
+      reason: "Gleiche Familie, geteilte Krankheiten (Kohlhernie)"
+    - source: "Brassica oleracea var. gemmifera"
+      target: "Raphanus sativus"
+      score: 0.3
+      reason: "Gleiche Familie, Kohlhernie-Uebertragung"
+    # Rosenkohl + Erdbeere: Kein Inkompatibilitaetsbeleg (entfernt per Agrobiology-Review F-012)
+
+# ==============================================================================
+# S7  PEST EDGES (species -> pest)
+# ==============================================================================
+
+pest_edges:
+  "Allium porrum":
+    - pest: "Acrolepiopsis assectella"
+      common_name: "Lauchmotte"
+      severity: high
+      affected_parts: [leaf, stem]
+      phases: [vegetative]
+    - pest: "Phytomyza gymnostoma"
+      common_name: "Lauchminierfliege"
+      severity: high
+      affected_parts: [leaf, stem]
+      phases: [vegetative]
+    - pest: "Thrips tabaci"
+      common_name: "Zwiebelthrips"
+      severity: medium
+      affected_parts: [leaf]
+      phases: [vegetative]
+
+  "Beta vulgaris subsp. vulgaris":
+    - pest: "Pegomya hyoscyami"
+      common_name: "Ruebenfliege"
+      severity: medium
+      affected_parts: [leaf]
+      phases: [vegetative]
+    - pest: "Chaetocnema concinna"
+      common_name: "Erdfloh"
+      severity: medium
+      affected_parts: [leaf]
+      phases: [seedling, vegetative]
+    - pest: "Aphis fabae"
+      common_name: "Schwarze Bohnenlaus"
+      severity: medium
+      affected_parts: [leaf, stem]
+      phases: [vegetative]
+
+  "Brassica oleracea var. gemmifera":
+    - pest: "Pieris brassicae"
+      common_name: "Kohlweissling"
+      severity: high
+      affected_parts: [leaf]
+      phases: [vegetative]
+    - pest: "Delia radicum"
+      common_name: "Kohlfliege"
+      severity: high
+      affected_parts: [root]
+      phases: [seedling, vegetative]
+    - pest: "Brevicoryne brassicae"
+      common_name: "Kohlblattlaus"
+      severity: medium
+      affected_parts: [leaf]
+      phases: [vegetative]
+    - pest: "Mamestra brassicae"
+      common_name: "Kohleule"
+      severity: medium
+      affected_parts: [leaf, fruit]
+      phases: [vegetative]
+
+  "Streptocarpus ionanthus":
+    - pest: "Planococcus citri"
+      common_name: "Wollaus"
+      severity: medium
+      affected_parts: [stem, leaf, root]
+      phases: [vegetative, flowering]
+    - pest: "Phytonemus pallidus"
+      common_name: "Zyklamen-Milbe"
+      severity: high
+      affected_parts: [leaf, flower]
+      phases: [vegetative, flowering]
+    - pest: "Thysanoptera"
+      common_name: "Thrips"
+      severity: medium
+      affected_parts: [flower, leaf]
+      phases: [flowering]
+
+  "Syngonium podophyllum":
+    - pest: "Tetranychus urticae"
+      common_name: "Spinnmilbe"
+      severity: medium
+      affected_parts: [leaf]
+      phases: [active_growth]
+    - pest: "Pseudococcus spp."
+      common_name: "Schmierlaus"
+      severity: medium
+      affected_parts: [stem, leaf]
+      phases: [active_growth]
+
+  "Dahlia x cultorum":
+    - pest: "Tetranychus urticae"
+      common_name: "Spinnmilbe"
+      severity: medium
+      affected_parts: [leaf]
+      phases: [vegetative, flowering]
+    - pest: "Aphidoidea"
+      common_name: "Blattlaus"
+      severity: medium
+      affected_parts: [stem, leaf, flower]
+      phases: [vegetative, flowering]
+    - pest: "Arion spp."
+      common_name: "Nacktschnecke"
+      severity: high
+      affected_parts: [leaf, stem]
+      phases: [sprouting, vegetative]
+
+# ==============================================================================
+# S8  DISEASE EDGES (species -> disease)
+# ==============================================================================
+
+disease_edges:
+  "Allium porrum":
+    - disease: "Puccinia allii"
+      common_name: "Porreerost"
+      type: fungal
+      severity: high
+      phases: [vegetative]
+    - disease: "Fusarium oxysporum"
+      common_name: "Fusarium-Faeule"
+      type: fungal
+      severity: high
+      phases: [vegetative]
+
+  "Beta vulgaris subsp. vulgaris":
+    - disease: "Cercospora beticola"
+      common_name: "Cercospora-Blattflecken"
+      type: fungal
+      severity: high
+      phases: [vegetative]
+    - disease: "Peronospora farinosa"
+      common_name: "Falscher Mehltau"
+      type: fungal
+      severity: medium
+      phases: [seedling, vegetative]
+
+  "Brassica oleracea var. gemmifera":
+    - disease: "Plasmodiophora brassicae"
+      common_name: "Kohlhernie"
+      type: protist
+      severity: high
+      phases: [seedling, vegetative]
+    - disease: "Peronospora parasitica"
+      common_name: "Falscher Mehltau"
+      type: fungal
+      severity: medium
+      phases: [vegetative]
+    - disease: "Botrytis cinerea"
+      common_name: "Grauschimmel"
+      type: fungal
+      severity: medium
+      phases: [sprout_formation]
+
+  "Streptocarpus ionanthus":
+    - disease: "Pythium spp."
+      common_name: "Wurzelfaeule"
+      type: fungal
+      severity: high
+      phases: [rooting, seedling, vegetative, flowering, rest]
+    - disease: "Botrytis cinerea"
+      common_name: "Grauschimmel"
+      type: fungal
+      severity: medium
+      phases: [flowering]
+    - disease: "Oidium spp."
+      common_name: "Echter Mehltau"
+      type: fungal
+      severity: medium
+      phases: [vegetative]
+
+  "Syngonium podophyllum":
+    - disease: "Pythium spp."
+      common_name: "Wurzelfaeule"
+      type: fungal
+      severity: high
+      phases: [active_growth, winter_rest]
+
+  "Dahlia x cultorum":
+    - disease: "Botrytis cinerea"
+      common_name: "Grauschimmel"
+      type: fungal
+      severity: medium
+      phases: [flowering, senescence]
+    - disease: "Erysiphe cichoracearum"
+      common_name: "Echter Mehltau"
+      type: fungal
+      severity: medium
+      phases: [vegetative, flowering]
+    - disease: "Dahlia mosaic virus"
+      common_name: "Dahlienmosaikvirus"
+      type: viral
+      severity: high
+      phases: [vegetative, flowering]
+
+# ==============================================================================
+# S9  CARE PROFILES
+# ==============================================================================
+
+care_profiles:
+  "Allium porrum":
+    care_style: custom
+    watering_interval_days: 3
+    watering_method: drench_and_drain
+    fertilizing_interval_days: 14
+    fertilizing_active_months: [5, 6, 7, 8, 9]
+    pest_check_interval_days: 7
+    humidity_check_enabled: false
+
+  "Beta vulgaris subsp. vulgaris":
+    care_style: custom
+    watering_interval_days: 3
+    watering_method: drench_and_drain
+    fertilizing_interval_days: 21
+    fertilizing_active_months: [5, 6, 7, 8, 9]
+    pest_check_interval_days: 7
+    humidity_check_enabled: false
+
+  "Brassica oleracea var. gemmifera":
+    care_style: custom
+    watering_interval_days: 3
+    watering_method: drench_and_drain
+    fertilizing_interval_days: 14
+    fertilizing_active_months: [5, 6, 7, 8]
+    pest_check_interval_days: 7
+    humidity_check_enabled: false
+
+  "Streptocarpus ionanthus":
+    care_style: calathea
+    watering_interval_days: 5
+    winter_watering_multiplier: 1.5
+    watering_method: bottom_water
+    fertilizing_interval_days: 14
+    fertilizing_active_months: [3, 4, 5, 6, 7, 8, 9, 10]
+    repotting_interval_months: 12
+    pest_check_interval_days: 14
+    humidity_check_enabled: true
+
+  "Syngonium podophyllum":
+    care_style: tropical
+    watering_interval_days: 9
+    winter_watering_multiplier: 1.5
+    watering_method: drench_and_drain
+    fertilizing_interval_days: 28
+    fertilizing_active_months: [3, 4, 5, 6, 7, 8, 9]
+    repotting_interval_months: 15
+    pest_check_interval_days: 14
+    humidity_check_enabled: false
+
+  "Dahlia x cultorum":
+    care_style: custom
+    watering_interval_days: 3
+    watering_method: drench_and_drain
+    fertilizing_interval_days: 14
+    fertilizing_active_months: [5, 6, 7, 8, 9]
+    pest_check_interval_days: 7
+    humidity_check_enabled: false

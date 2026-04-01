@@ -67,8 +67,8 @@ export default function TenantSettingsPage() {
   }, [slug, isAdmin]);
 
   useEffect(() => {
-    loadMembers();
-    loadInvitations();
+    void loadMembers(); // eslint-disable-line react-hooks/set-state-in-effect -- async function, setState is after await
+    void loadInvitations();
   }, [loadMembers, loadInvitations]);
 
   const handleInviteEmail = async () => {

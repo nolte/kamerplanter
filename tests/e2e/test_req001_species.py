@@ -24,6 +24,8 @@ def species_detail(browser: WebDriver, base_url: str) -> SpeciesDetailPage:
 class TestSpeciesListPage:
     """TC-REQ-001-029 to TC-REQ-001-032: Species list display and navigation."""
 
+    @pytest.mark.smoke
+    @pytest.mark.core_crud
     def test_display_species_in_data_table(
         self, species_list: SpeciesListPage
     ) -> None:
@@ -37,6 +39,7 @@ class TestSpeciesListPage:
         row_count = species_list.get_row_count()
         assert row_count >= 0, "Species table should render"
 
+    @pytest.mark.core_crud
     def test_click_species_row_navigates_to_detail(
         self, species_list: SpeciesListPage
     ) -> None:
@@ -64,6 +67,7 @@ class TestSpeciesCreateDialog:
 
         assert species_list.is_create_dialog_open(), "Create dialog should be open"
 
+    @pytest.mark.core_crud
     def test_create_species_with_valid_data(
         self, species_list: SpeciesListPage
     ) -> None:
@@ -109,6 +113,7 @@ class TestSpeciesCreateDialog:
 class TestSpeciesDetailPage:
     """TC-REQ-001-038 to TC-REQ-001-041: Species detail, edit, delete."""
 
+    @pytest.mark.core_crud
     def test_display_species_detail_with_tabs(
         self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage
     ) -> None:
@@ -133,6 +138,7 @@ class TestSpeciesDetailPage:
         assert any("LEBENSZYKLUS" in t for t in tabs_upper), f"Expected 'Lebenszyklus' tab, got {tabs}"
         assert species_detail.has_delete_button(), "Delete button should be visible"
 
+    @pytest.mark.core_crud
     def test_edit_species_data(
         self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage
     ) -> None:
@@ -145,12 +151,13 @@ class TestSpeciesDetailPage:
         species_list.wait_for_url_contains("/stammdaten/species/")
 
         unique = uuid.uuid4().hex[:6]
-        species_detail.set_field("native_habitat", f"E2E-Updated {unique}")
+        species_detail.set_field("description", f"E2E-Updated {unique}")
         species_detail.click_save()
 
         time.sleep(1)
         assert "/stammdaten/species/" in species_detail.driver.current_url
 
+    @pytest.mark.core_crud
     def test_delete_species_with_confirmation(
         self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
         browser: WebDriver, base_url: str,

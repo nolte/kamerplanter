@@ -91,6 +91,11 @@ tasks:
     cmds:
       - ./scripts/run-e2e.sh {{.CLI_ARGS}}
 
+  test:e2e:smoke:
+    desc: Run Selenium E2E smoke tests (core functionality, ~2min)
+    cmds:
+      - ./scripts/run-e2e.sh --smoke {{.CLI_ARGS}}
+
   # ── Documentation ───────────────────────────────────────────
 
   docs:serve:

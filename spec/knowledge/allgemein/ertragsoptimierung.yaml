@@ -1,0 +1,143 @@
+---
+title: Ertragsoptimierung fuer Fortgeschrittene
+language: de
+category: allgemein
+tags: [ertrag, optimierung, licht, canopy, vpd, naehrstoffe, genetik, ipm, datengetrieben]
+expertise_level: [intermediate, expert]
+applicable_phases: [vegetative, flowering, harvest]
+chunks:
+  - id: licht-maximierung
+    title: Licht-Maximierung als Ertragshebel Nr. 1
+    content: |
+      Licht ist der wichtigste ertragsbestimmende Faktor:
+      Grundformel: Mehr (nutzbares) Licht = mehr Photosynthese = mehr Biomasse
+      Optimierungen:
+      - PPFD gleichmaessig verteilen: Mitte des Zelts hat oft 800+ PPFD
+        waehrend Ecken nur 400 bekommen. Bar-style LEDs verteilen besser
+        als einzelne COB-Lampen.
+      - Reflektierende Waende: Weisse Farbe (~90% Reflexion) oder Mylar.
+        KEINE Alufolie (Hotspots, nur ~60% Reflexion).
+      - DLI als Zielgroesse: Nicht nur PPFD, sondern DLI maximieren.
+        Autoflower: 18-20h Beleuchtung = hoeherer DLI als 12h bei
+        gleicher PPFD.
+      - Lichtabstand optimieren: So nah wie moeglich OHNE Licht-Burn.
+        PPFD-Meter am Canopy-Level messen.
+      - Defoliation (Expert): Grosse Fan-Leaves entfernen die Licht von
+        Blueten-Standorten blockieren. VORSICHT: Nur erfahrene Grower,
+        nur in Vegetativ und frueh in der Bluete.
+      Diminishing Returns: Ab ~1000 PPFD (ohne CO2) flacht die Kurve ab.
+      Mit CO2 (1200 ppm): Bis ~1500 PPFD effektiv nutzbar.
+      Kosten-Effizienz: Hoechster ROI durch Lampen-Upgrade (LED statt HPS
+      spart 40% Strom bei gleichem oder besserem Ertrag).
+    metadata:
+      topic: light_maximization
+      priority: 1
+      max_ppfd_no_co2: 1000
+
+  - id: canopy-management
+    title: Canopy-Management — gleichmaessiges Kronendach
+    content: |
+      Ziel: Jede Triebspitze bekommt die gleiche Lichtmenge.
+      Ungleichmaessiges Canopy = grosse obere Buds die Licht blockieren +
+      viele kleine "Larf"-Buds unten die nie richtig entwickeln.
+      Techniken (aufsteigend nach Komplexitaet):
+      1. LST: Aeste sanft biegen und fixieren → flaches Canopy
+      2. Topping + LST: 4-8 gleichgrosse Haupttriebe statt 1 Cola
+      3. SCROG: Netz erzwingt perfekt gleichmaessiges Canopy
+      4. Mainlining/Manifolding: Pflanze wird zu symmetrischem "Y"
+         trainiert, jeder Arm gleich stark → gleichmaessige Buds
+      Lollipopping (Expert):
+      - Alle Seitentriebe und Wachstum im unteren Drittel der Pflanze
+        entfernen (Woche 1-2 der Bluete)
+      - Pflanze konzentriert Energie auf obere Bluetenstande
+      - Nur sinnvoll bei ausreichend Licht von oben
+      - Nicht bei Autoflowern (zu wenig Erholungszeit)
+      Pflanzenabstand:
+      - Zu dicht: Pflanzen kaempfen um Licht, Schimmelrisiko steigt
+      - Zu weit: Licht faellt auf leere Flaeche → Verschwendung
+      - Ideal: Canopy bedeckt 80-90% der Anbauflaeche zum Bluetebeginn
+    metadata:
+      topic: canopy_management
+      techniques: [lst, topping, scrog, mainlining, lollipopping]
+
+  - id: umwelt-feintuning
+    title: Umwelt-Feintuning — VPD, Temperatur, CO2
+    content: |
+      Nachdem Licht und Canopy optimiert sind, kommt das Umwelt-Feintuning:
+      VPD-Optimierung (groesster einzelner Hebel nach Licht):
+      - VPD-Controller oder Smart-Home-Integration (REQ-018) fuer
+        automatische VPD-Regelung
+      - Blatt-VPD messen, nicht nur Luft-VPD
+      - Phase-spezifische VPD-Ziele einhalten (siehe umwelt/vpd-optimierung)
+      Temperatur-Strategie:
+      - DIF nutzen: Positiver DIF fuer Stretch (fruehe Bluete),
+        reduzierter DIF fuer Kompaktheit (spaete Bluete)
+      - Nachttemperatur spaete Bluete: 18-20°C fuer bessere Terpene
+        und Farbentwicklung (Anthocyane bei kuehlen Naechten)
+      CO2-Supplementation:
+      - Nur NACH Licht-Optimierung sinnvoll (>600 PPFD minimum)
+      - Bei 1200 ppm CO2: Temperatur kann auf 28-30°C erhoeht werden
+        (Pflanze nutzt CO2 effizienter bei Waerme)
+      - EC und Naehrstoff-Bedarf steigen bei CO2-Supplementation
+      Der "Sweet Spot":
+      - 28°C Tag, 20°C Nacht, VPD 1.2 kPa, 1000 PPFD, 1200 ppm CO2,
+        EC 1.8, pH 5.8 in Coco → nahe-optimale Bedingungen
+      - In der Praxis: Selten alles gleichzeitig perfekt. Priorisieren:
+        Licht > VPD > Temperatur > CO2
+    metadata:
+      topic: environment_fine_tuning
+      priority_order: [light, vpd, temperature, co2]
+
+  - id: datengetrieben
+    title: Datengetriebenes Growen — aus jeder Runde lernen
+    content: |
+      Der groesste Vorteil eines Systems wie Kamerplanter: Systematisches
+      Lernen aus historischen Daten.
+      Was tracken:
+      - EC und pH bei jedem Giessen (Input + Runoff)
+      - Umweltdaten kontinuierlich: Temperatur, RH, VPD (Sensoren, REQ-005)
+      - PPFD am Canopy (bei Lampen- oder Hoehen-Aenderung)
+      - Naehrstoff-Wechsel und Zusaetze (FeedingEvent, REQ-004)
+      - Training-Massnahmen und deren Zeitpunkt (Tasks, REQ-006)
+      - Ernte-Ergebnis: Gewicht (nass und trocken), Qualitaet (REQ-007)
+      Run-ueber-Run-Vergleich:
+      - Gleiche Sorte, verschiedene Runs → Was hat sich geaendert?
+      - EC in Run 3 vs Run 2: War der hoehere EC besser oder schlechter?
+      - Erntezeitpunkt: 8 vs 9 Wochen → welcher Run hatte bessere Qualitaet?
+      - Defoliation vs nicht: Messbarer Ertrags-Unterschied?
+      Kamerplanter-Features:
+      - PlantingRun (REQ-013): Jeder Durchlauf ist eine dokumentierte Einheit
+      - Phasensteuerung (REQ-003): Dauer jeder Phase wird erfasst
+      - Dashboard (REQ-009): Verlaufs-Graphen fuer Trend-Analyse
+      - KI-Assistent (REQ-031): Analysiert historische Daten und gibt
+        Optimierungsvorschlaege basierend auf eigenen Ergebnissen
+      Grundsatz: Was nicht gemessen wird, kann nicht verbessert werden.
+    metadata:
+      topic: data_driven_growing
+      kamerplanter_features: [REQ-005, REQ-006, REQ-007, REQ-013, REQ-031]
+
+  - id: genetik-auswahl
+    title: Genetik-Auswahl — das Potenzial bestimmen
+    content: |
+      "Genetics sets the ceiling, environment determines how close you get."
+      Sorten-Auswahl nach Ziel:
+      - Maximaler Ertrag: Indica-dominante Hybride, kommerzielle
+        Hochleistungssorten, bewiesene Genetik
+      - Maximale Qualitaet/Aroma: Terpene-reiche Sorten, oft geringerer
+        Ertrag, laengere Bluetedauer
+      - Anfaenger: Autoflower (einfach, schnell, verzeihend) oder
+        robuste Hybride (nicht die launische Haze-Genetik)
+      - Begrenzter Platz: Indica-dominant (kompakt) oder Autoflower
+      Phenotype Hunting (Expert):
+      - Aus einer Packung Samen: Jeder Same ist ein Individuum
+      - Bester Phenotyp: Hoechster Ertrag, bestes Aroma, schnellste Bluete
+      - Selektieren: Beste Pflanze als Mutterpflanze → Stecklinge
+      - Kamerplanter: Lineage-Graph (REQ-017) trackt Klone und Generationen
+      Gemuese-Sorten-Auswahl:
+      - Resistenz-Eigenschaften: F1-Hybriden oft resistenter gegen Krankheiten
+      - Klimaanpassung: Fruehe Sorten fuer kurze Sommer, spaete fuer warme Regionen
+      - Geschmack vs Ertrag: Alte Sorten oft geschmackvoller, moderne ertragreicher
+      - Samenfeste Sorten: Eigene Saat gewinnen moeglich (bei F1-Hybriden nicht)
+    metadata:
+      topic: genetics_selection
+      principle: genetics_sets_ceiling

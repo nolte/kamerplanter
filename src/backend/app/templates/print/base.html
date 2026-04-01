@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="{{ locale|default('de') }}">
+<head>
+    <meta charset="utf-8">
+    <title>{{ title|default('Kamerplanter') }}</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 20mm 15mm 25mm 15mm;
+            @top-left {
+                content: "Kamerplanter";
+                font-size: 8pt;
+                color: #666;
+            }
+            @top-right {
+                content: "{{ generated_date|default('') }}";
+                font-size: 8pt;
+                color: #666;
+            }
+            @bottom-center {
+                content: "Seite " counter(page) " / " counter(pages);
+                font-size: 8pt;
+                color: #666;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 10pt;
+            line-height: 1.4;
+            color: #1a1a1a;
+        }
+
+        .page-header {
+            border-bottom: 2px solid #2e7d32;
+            padding-bottom: 8mm;
+            margin-bottom: 8mm;
+        }
+
+        .page-header h1 {
+            font-size: 18pt;
+            font-weight: 700;
+            color: #2e7d32;
+            margin-bottom: 2mm;
+        }
+
+        .page-header .subtitle {
+            font-size: 10pt;
+            color: #555;
+        }
+
+        .page-header .meta {
+            font-size: 8pt;
+            color: #888;
+            margin-top: 2mm;
+        }
+
+        h2 {
+            font-size: 13pt;
+            font-weight: 600;
+            color: #2e7d32;
+            margin-top: 6mm;
+            margin-bottom: 3mm;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 1mm;
+        }
+
+        h3 {
+            font-size: 11pt;
+            font-weight: 600;
+            color: #333;
+            margin-top: 4mm;
+            margin-bottom: 2mm;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 4mm;
+            font-size: 9pt;
+        }
+
+        table th {
+            background-color: #e8f5e9;
+            color: #1b5e20;
+            font-weight: 600;
+            text-align: left;
+            padding: 2mm 3mm;
+            border: 0.5pt solid #c8e6c9;
+        }
+
+        table td {
+            padding: 1.5mm 3mm;
+            border: 0.5pt solid #e0e0e0;
+            vertical-align: top;
+        }
+
+        table tr:nth-child(even) td {
+            background-color: #fafafa;
+        }
+
+        .info-box {
+            background-color: #f1f8e9;
+            border: 1px solid #c5e1a5;
+            border-radius: 2mm;
+            padding: 3mm 4mm;
+            margin-bottom: 4mm;
+            font-size: 9pt;
+        }
+
+        .info-box .label {
+            font-weight: 600;
+            color: #33691e;
+        }
+
+        .notes {
+            background-color: #fff9c4;
+            border: 1px solid #fff176;
+            border-radius: 2mm;
+            padding: 3mm 4mm;
+            margin-top: 4mm;
+            font-size: 9pt;
+            font-style: italic;
+        }
+
+        .checkbox {
+            display: inline-block;
+            width: 4mm;
+            height: 4mm;
+            border: 0.5pt solid #555;
+            margin-right: 2mm;
+            vertical-align: middle;
+        }
+
+        .urgency-overdue {
+            color: #c62828;
+            font-weight: 700;
+        }
+
+        .urgency-due_today {
+            color: #e65100;
+            font-weight: 600;
+        }
+
+        .urgency-upcoming {
+            color: #2e7d32;
+        }
+
+        .section-spacer {
+            margin-top: 6mm;
+        }
+
+        .handwritten-area {
+            border: 1px dashed #bdbdbd;
+            min-height: 30mm;
+            margin-top: 4mm;
+            padding: 2mm;
+        }
+
+        .handwritten-area .label {
+            font-size: 8pt;
+            color: #999;
+        }
+
+        {% block extra_styles %}{% endblock %}
+    </style>
+</head>
+<body>
+    {% block content %}{% endblock %}
+</body>
+</html>

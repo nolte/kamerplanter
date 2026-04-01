@@ -1,0 +1,143 @@
+---
+title: Ueberwintern von Freilandpflanzen
+language: de
+category: phasen
+tags: [ueberwintern, frost, winterschutz, winterhaerte, knollen, dahlien, kuebelpflanzen, dormanz, eisheilige]
+expertise_level: [beginner, intermediate, expert]
+applicable_phases: [harvest]
+chunks:
+  - id: winterhaerte-ampel
+    title: Winterhaerte-Ampel verstehen
+    content: |
+      Die Winterhaerte-Ampel (REQ-022) klassifiziert Pflanzen in drei Stufen:
+      GRUEN — Winterhart bis zur Klimazone:
+      - Uebersteht den Winter ohne Schutz im Freiland
+      - Beispiele: Rosen, Lavendel, Hosta, Taglilie, Paeonie, Forsythie
+      - Trotzdem: Frisch gepflanzte Exemplare im ersten Winter schuetzen!
+      GELB — Bedingt winterhart (braucht Schutz):
+      - Ueberlebt mit Schutzmassnahmen (Vlies, Mulch, Reisig)
+      - Beispiele: Clematis, Hortensie (manche Sorten), Feige, Kiwi,
+        Rosmarin, Lavendel (in rauen Lagen)
+      - Risiko: Kahlfroeeste (Frost ohne Schneedecke) und Wechselfroeeste
+      ROT — Nicht winterhart (muss rein):
+      - Ueberlebt keinen Frost, muss frostfrei ueberwintert werden
+      - Beispiele: Oleander, Citrus, Olive, Pelargonie, Fuchsie,
+        alle tropischen Zimmerpflanzen, Dahlien (Knollen raus!)
+      - Kamerplanter speichert frost_sensitivity pro Species und berechnet
+        die Ampel basierend auf Klimazone des Standorts (REQ-022)
+      USDA-Zonen (vereinfacht fuer Mitteleuropa):
+      - Zone 6b (-20.6 bis -17.8°C): Alpenregion, Mittelgebirge
+      - Zone 7a (-17.8 bis -15°C): Sueddeutschland Inland
+      - Zone 7b (-15 bis -12.2°C): Rheingraben, Norddeutsche Kueste
+      - Zone 8a (-12.2 bis -9.4°C): Mild (Bodensee, Niederrhein, Inseln)
+    metadata:
+      topic: hardiness_traffic_light
+      levels: [green, yellow, red]
+      kamerplanter_feature: winterhaerte_ampel
+
+  - id: winterschutz-beet
+    title: Winterschutz fuer Beete und Stauden
+    content: |
+      Bodenschutz (fuer alle Beete empfohlen):
+      - Mulch: 10-15cm Laub, Stroh oder Rindenmulch. Schuetzt Wurzeln
+        vor Frost und Austrocknung. Im Fruehjahr beiseite raeumen.
+      - Reisig (Nadelzweige): Locker auf Beete legen. Schuetzt vor
+        Kahlfrost und haelt Schnee (natuerliche Isolation).
+      Stauden-Schutz:
+      - Nicht im Herbst zurueckschneiden! Oberirdische Teile schuetzen
+        die Wurzelzone. Erst im Fruehjahr schneiden.
+      - Empfindliche Stauden: Laub-Haufen ueber dem Wurzelbereich
+      - Graeser: Zusammenbinden (Feuchtigkeit dringt nicht ins Herz)
+      Rosen-Winterschutz:
+      - Veredelungsstelle mit Erde anhaeufen (10-15cm)
+      - Reisig ueber angehaeufte Erde
+      - Alternativ: Jutesack ueberstuelpen (luftdurchlaessig!)
+      - Stammrosen: Krone in Vlies einpacken, Stamm mit Jute
+      Immergruene Pflanzen (Rhododendron, Buchs, Kirschlorbeer):
+      - BRAUCHEN Wasser im Winter (Verdunstung ueber Blaetter!)
+      - Bei frostfreien Tagen giessen (Frosttrockniss verhindern)
+      - Schattierung mit Vlies bei starker Wintersonne + Frost
+        (Sonne erwaermt Blatt, Nachfrost zerstoert aufgetautes Gewebe)
+    metadata:
+      topic: winter_protection_beds
+      mulch_depth_cm: [10, 15]
+
+  - id: kuebelpflanzen-ueberwintern
+    title: Kuebelpflanzen im Freien ueberwintern
+    content: |
+      Kuebelpflanzen sind gefaehrdeter als Beetpflanzen:
+      - Wurzeln sind nur durch duenne Topfwand vor Frost geschuetzt
+      - Wurzeln erfrieren schneller als oberirdische Teile
+      - Regel: Kuebelpflanze ist 1-2 Zonen weniger frosthart als im Beet
+      Schutzmassnahmen (fuer "gelbe" Ampel-Pflanzen im Kuebel):
+      1. Toepfe gruppieren: Masse haelt Waerme besser
+      2. Isolierung: Topf in Noppenfolie/Luftpolsterfolie wickeln
+         (2-3 Lagen), oder Topf in groesseren Topf mit Styropor-Chips
+      3. Boden-Isolation: Styropor-Platte oder Holzbrett unter den Topf
+         (kein direkter Kontakt mit gefrorenem Boden/Beton!)
+      4. Oberirdisch: Vlies oder Jute um die Krone (NICHT Plastikfolie
+         — Kondenswasser → Faeulnis)
+      5. Windschutz: An Hauswand stellen (Suedseite ideal)
+      Kuebelpflanzen die REIN muessen (rote Ampel):
+      - VOR dem ersten Frost reinholen
+      - Auf Schaedlinge kontrollieren (Quarantaene!)
+      - Kuehler, heller Raum: 5-12°C, moeglichst hell
+      - Wenig giessen (Substrat nicht komplett austrocknen!)
+      - KEIN Duenger (Ruhephase)
+    metadata:
+      topic: container_overwintering
+      rule: 1_to_2_zones_less_hardy
+
+  - id: knollen-einlagern
+    title: Knollen und Zwiebeln fuer den Winter einlagern
+    content: |
+      Geophyten (Knollen-/Zwiebelgewaechse) die nicht frosthart sind
+      muessen ausgegraben und frostfrei ueberwintert werden:
+      Dahlien:
+      - Zeitpunkt: Nach dem ersten Frost (oberirdische Teile erfrieren)
+      - Ausgraben: Grosszuegig mit Grabgabel, Knollen nicht beschaedigen
+      - Stiele auf 10-15cm kuerzen
+      - Erde vorsichtig entfernen (nicht waschen!)
+      - 2-3 Tage trocknen lassen (kopfueber, damit Wasser aus Stiel ablaeuft)
+      - Einlagern: In Kiste mit trockenem Sand, Torf oder Zeitungspapier
+      - Lagerung: 5-8°C, frostfrei, dunkel, trocken (Keller, Garage)
+      - Monatlich kontrollieren: Faeulnis? → Befallene Teile abschneiden.
+        Zu trocken/schrumpelig? → Leicht bespruehen.
+      Gladiolen: Aehnlich wie Dahlien. 6 Wochen nach Bluete ausgraben.
+      Canna: Wie Dahlien, aber etwas waermer lagern (8-12°C).
+      Begonien-Knollen: Ausgraben, trocknen, in Torf bei 8-10°C.
+      Kamerplanter: Knollen-Zyklus (REQ-022) mit 6 Status:
+      planted → dormant → lifted → stored → checking → replanted
+    metadata:
+      topic: bulb_storage
+      temperature_celsius: [5, 8]
+      plants: [dahlia, gladiolus, canna, begonia]
+
+  - id: fruehjahr-auspacken
+    title: Fruehjahr — Winterschutz entfernen
+    content: |
+      Winterschutz NICHT zu frueh entfernen — Spaetfroeeste bis Mitte Mai
+      (Eisheilige) moeglich!
+      Stufenweises Auspacken (Maerz-Mai):
+      Maerz (wenn kein Dauerfrost mehr):
+      - Mulch von Stauden-Herzen lockern (nicht komplett entfernen)
+      - Rosen-Anhaeufelung langsam abtragen
+      - Graeser aufbinden und alte Halme zurueckschneiden
+      April:
+      - Winterschutz-Vlies an milden Tagen oeffnen/entfernen
+      - Mulch auf 3-5cm reduzieren (schuetzt noch vor Spaetfrost)
+      - Rueckschnitt: Erfrorene Teile abschneiden (braunes/totes Holz).
+        BIS INS LEBENDE schneiden (gruener Kern sichtbar).
+      - NICHT zu frueh schneiden bei unklarem Frost-Schaden — warten bis
+        neuer Austrieb sichtbar ist, dann totes Material entfernen
+      Nach Eisheiligen (ab 15. Mai):
+      - Kuebelpflanzen aus dem Winterquartier rausstellen
+      - VORSICHTIG: Erst Halbschatten fuer 7-10 Tage (Abhaertung!)
+        Direkte Sonne nach Winterquartier → Sonnenbrand auf Blaettern
+      - Frosch-empfindliche Pflanzen (Tomate, Kuerbis, Basilikum) auspflanzen
+      - Eingelagerte Knollen (Dahlien) ab April antreiben (feucht, warm),
+        ab Mai auspflanzen
+    metadata:
+      topic: spring_uncovering
+      eisheilige: may_15
+      approach: gradual

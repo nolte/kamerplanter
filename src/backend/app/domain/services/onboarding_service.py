@@ -264,8 +264,23 @@ class OnboardingService:
         return OnboardingState(**doc)
 
     def reset_wizard(self, user_key: str) -> OnboardingState:
-        """Reset wizard to initial state, allowing re-run."""
+        """Reset wizard to initial state, allowing re-run.
+
+        Also removes any favorites that were added during onboarding
+        (source='onboarding') so the favorites step starts fresh.
+        """
         state = self.get_state(user_key)
+
+        # Clear onboarding-sourced favorites so fetchExistingFavorites returns empty
+        fav_keys_to_remove = list(state.favorite_species_keys or []) + list(state.favorite_nutrient_plan_keys or [])
+        if fav_keys_to_remove:
+            from app.domain.services.favorites_service import FavoritesService
+
+            fav_service = FavoritesService(self._db)
+            for key in fav_keys_to_remove:
+                with contextlib.suppress(Exception):
+                    fav_service.remove_favorite(user_key, key)
+
         data = state.model_dump()
         data.update(
             {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -40,6 +40,8 @@ import ShowAllFieldsToggle from '@/components/common/ShowAllFieldsToggle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
+import { useAppDispatch } from '@/store/hooks';
+import { resetShowAllFields } from '@/store/slices/uiSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { plantingRunFieldConfig } from '@/config/fieldConfigs';
@@ -103,6 +105,7 @@ function EntryRow({ index, control, setValue, speciesList, onRemove, canRemove }
 
   useEffect(() => {
     if (!speciesKey) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state when species cleared
       setCultivarList([]);
       autoPrefix.current = '';
       return;
@@ -209,7 +212,13 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
   const [plantsError, setPlantsError] = useState<string | null>(null);
   const [selectedPlants, setSelectedPlants] = useState<Set<string>>(new Set());
   const [plantSearch, setPlantSearch] = useState('');
+  const dispatch = useAppDispatch();
   const { showAllOverride, toggleShowAll, level } = useExpertiseLevel();
+
+  const handleClose = useCallback(() => {
+    dispatch(resetShowAllFields());
+    onClose();
+  }, [dispatch, onClose]);
 
   const { control, handleSubmit, reset, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -357,7 +366,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
   const fc = plantingRunFieldConfig;
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle>{t('pages.plantingRuns.create')}</DialogTitle>
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
@@ -563,7 +572,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
           )}
 
           <FormActions
-            onCancel={onClose}
+            onCancel={handleClose}
             loading={saving}
             saveLabel={t('common.create')}
             disabled={adoptMode && selectedPlants.size === 0}
