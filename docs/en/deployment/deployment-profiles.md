@@ -451,3 +451,4 @@ Kamerplanter works fully without AI. When `AI_DEFAULT_PROVIDER=none` is set (or 
 - [Home Assistant Integration](../guides/home-assistant-integration.md) — Sensor and actuator integration
 - [Environment Variables](../reference/environment-variables.md) — Complete variable reference
 - [Kubernetes](kubernetes.md) — Cluster setup and deployment
+- [Infrastructure — Skaffold Profiles](../architecture/infrastructure.md#skaffold-profiles-and-modules) — Skaffold modules (`-m ki`) for the AI stack

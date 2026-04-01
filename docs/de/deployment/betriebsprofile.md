@@ -451,3 +451,4 @@ Kamerplanter funktioniert vollstaendig ohne KI. Wenn `AI_DEFAULT_PROVIDER=none` 
 - [Home Assistant Integration](../guides/home-assistant-integration.md) — Sensor- und Aktor-Anbindung
 - [Umgebungsvariablen](../reference/environment-variables.md) — Vollstaendige Variablenreferenz
 - [Kubernetes](kubernetes.md) — Cluster-Setup und Deployment
+- [Infrastruktur — Skaffold-Profile](../architecture/infrastructure.md#skaffold-profile-und-module) — Skaffold-Module (`-m ki`) fuer den KI-Stack
