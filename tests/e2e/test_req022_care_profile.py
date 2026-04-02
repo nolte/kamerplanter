@@ -1,24 +1,26 @@
-"""E2E tests for REQ-022 -- Care Profile Edit Dialog (TC-022-018 to TC-022-029).
+"""E2E tests for REQ-022 — Care Profile Edit Dialog.
 
-Tests cover:
-- CareProfileEditDialog: open from card, care style select, sliders
-- Task type toggles: watering, fertilizing, repotting, pest_check, humidity, location
-- Conditional fields: humidity interval visibility, location months visibility
-- Adaptive learning toggle
-- Fertilizing active months (month chips)
-- Save and cancel actions
-- Reset to defaults
-
-NFR-008 ss3.4 screenshot checkpoints at:
-1. Page Load
-2. Before significant actions
-3. After significant actions
-4. Error states
+Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-022.md):
+  TC-REQ-022-001  ->  TC-022-018  CareProfileEditDialog oeffnet sich von der ReminderCard aus
+  TC-REQ-022-002  ->  TC-022-018  CareProfileEditDialog zeigt Pflegestil-Dropdown
+  TC-REQ-022-003  ->  TC-022-018  CareProfileEditDialog hat Speichern, Abbrechen, Reset Buttons
+  TC-REQ-022-004  ->  TC-022-019  Giessintervall-Slider aendern und speichern
+  TC-REQ-022-005  ->  TC-022-021  Aktive Duengemonate per Monats-Chips konfigurieren
+  TC-REQ-022-006  ->  TC-022-021  Klick auf Monats-Toggle aendert Auswahl
+  TC-REQ-022-007  ->  TC-022-024  Luftfeuchte-Check Toggle aktiviert Intervall-Slider
+  TC-REQ-022-008  ->  TC-022-022  Standort-Check deaktivieren blendet Monats-Konfiguration aus
+  TC-REQ-022-009  ->  TC-022-025  Adaptive-Learning Toggle deaktivieren
+  TC-REQ-022-010  ->  TC-022-027  Care-Style-Dropdown listet alle Stile auf
+  TC-REQ-022-011  ->  TC-022-018  Abbrechen schliesst Dialog ohne Speichern
+  TC-REQ-022-012  ->  TC-022-019  Speichern schliesst Dialog und aktualisiert Dashboard
+  TC-REQ-022-013  ->  TC-022-018  Profil-Dialog zeigt Aufgabentyp-Toggles
+  TC-REQ-022-014  ->  TC-022-018  Profil-Dialog zeigt Giessmethode-Dropdown
 """
 
 from __future__ import annotations
 
-import time
+from pathlib import Path
+from typing import Callable
 
 import pytest
 from selenium.webdriver.common.by import By
@@ -27,7 +29,7 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from .pages.pflege_dashboard_page import PflegeDashboardPage
 
 
-# -- Fixtures ----------------------------------------------------------------
+# -- Fixtures -----------------------------------------------------------------
 
 
 @pytest.fixture
@@ -42,7 +44,6 @@ def _get_first_card_plant_key(pflege: PflegeDashboardPage) -> str:
     if not cards:
         pytest.skip("No care cards available -- cannot test profile editing")
     testid = cards[0].get_attribute("data-testid") or ""
-    # Format: care-card-care-{plant_key}-{reminder_type}
     suffix = testid.replace("care-card-care-", "")
     parts = suffix.rsplit("-", 1)
     if len(parts) < 2:
@@ -50,157 +51,204 @@ def _get_first_card_plant_key(pflege: PflegeDashboardPage) -> str:
     return parts[0]
 
 
-# -- TC-022-018: Open CareProfileEditDialog ----------------------------------
+# -- TC-022-018: Open CareProfileEditDialog ------------------------------------
 
 
 class TestCareProfileEditDialogOpen:
-    """TC-022-018: Opening the CareProfileEditDialog from a ReminderCard."""
+    """Opening the CareProfileEditDialog from a ReminderCard (Spec: TC-022-018)."""
 
+    @pytest.mark.core_crud
     def test_edit_profile_button_opens_dialog(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-018: Clicking edit-profile on a card opens the CareProfileEditDialog."""
+        """TC-REQ-022-001: Clicking edit-profile on a card opens the CareProfileEditDialog.
+
+        Spec: TC-022-018 -- CareProfileEditDialog oeffnet sich von der ReminderCard aus.
+        """
         pflege.open()
-        screenshot("req022_018_before_edit_profile", "Vor Klick auf Profil bearbeiten")
+        screenshot(
+            "TC-REQ-022-001_before-edit-profile",
+            "Pflege dashboard before clicking edit profile",
+        )
 
         plant_key = _get_first_card_plant_key(pflege)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
-        screenshot("req022_018_profile_dialog_open", "CareProfileEditDialog geoeffnet")
-
-        assert pflege.is_profile_dialog_open(), (
-            "Expected CareProfileEditDialog to be visible after clicking edit button"
+        screenshot(
+            "TC-REQ-022-001_profile-dialog-open",
+            "CareProfileEditDialog opened",
         )
 
+        assert pflege.is_profile_dialog_open(), (
+            "TC-REQ-022-001 FAIL: Expected CareProfileEditDialog to be visible"
+        )
+
+    @pytest.mark.core_crud
     def test_profile_dialog_shows_care_style_select(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-018: CareProfileEditDialog shows the care style dropdown."""
-        pflege.open()
-        plant_key = _get_first_card_plant_key(pflege)
-        pflege.click_edit_profile_on_card(plant_key)
-        pflege.wait_for_profile_dialog()
+        """TC-REQ-022-002: CareProfileEditDialog shows the care style dropdown.
 
-        screenshot("req022_018b_care_style_select", "CareProfileEditDialog Pflegestil-Dropdown")
-
-        style_selects = pflege.driver.find_elements(*PflegeDashboardPage.CARE_STYLE_SELECT)
-        assert len(style_selects) > 0, (
-            "Expected care style select [data-testid='care-style-select'] in profile dialog"
-        )
-
-    def test_profile_dialog_has_save_cancel_reset_buttons(
-        self,
-        pflege: PflegeDashboardPage,
-        screenshot,
-    ) -> None:
-        """TC-022-018: CareProfileEditDialog has Save, Cancel, and Reset buttons."""
-        pflege.open()
-        plant_key = _get_first_card_plant_key(pflege)
-        pflege.click_edit_profile_on_card(plant_key)
-        pflege.wait_for_profile_dialog()
-
-        screenshot("req022_018c_dialog_actions", "CareProfileEditDialog Aktions-Buttons")
-
-        save_btns = pflege.driver.find_elements(*PflegeDashboardPage.SAVE_PROFILE_BUTTON)
-        cancel_btns = pflege.driver.find_elements(*PflegeDashboardPage.CANCEL_BUTTON)
-        reset_btns = pflege.driver.find_elements(*PflegeDashboardPage.RESET_PROFILE_BUTTON)
-
-        assert len(save_btns) > 0, "Expected save button in profile dialog"
-        assert len(cancel_btns) > 0, "Expected cancel button in profile dialog"
-        assert len(reset_btns) > 0, "Expected reset button in profile dialog"
-
-
-# -- TC-022-019 to TC-022-021: Sliders and Interval Controls ----------------
-
-
-class TestCareProfileSliders:
-    """TC-022-019 to TC-022-021: Interval sliders and fertilizing months."""
-
-    def test_watering_interval_slider_present(
-        self,
-        pflege: PflegeDashboardPage,
-        screenshot,
-    ) -> None:
-        """TC-022-019: Watering interval slider is visible when watering task is enabled."""
-        pflege.open()
-        plant_key = _get_first_card_plant_key(pflege)
-        pflege.click_edit_profile_on_card(plant_key)
-        pflege.wait_for_profile_dialog()
-
-        screenshot("req022_019_watering_slider", "CareProfileEditDialog Giessintervall-Slider")
-
-        sliders = pflege.driver.find_elements(*PflegeDashboardPage.WATERING_INTERVAL_SLIDER)
-        assert len(sliders) > 0, (
-            "Expected watering interval slider [data-testid='watering-interval-slider']"
-        )
-
-    def test_fertilizing_active_months_displayed(
-        self,
-        pflege: PflegeDashboardPage,
-        screenshot,
-    ) -> None:
-        """TC-022-021: Fertilizing active months toggle buttons are displayed."""
+        Spec: TC-022-018 -- CareProfileEditDialog zeigt Pflegestil-Dropdown.
+        """
         pflege.open()
         plant_key = _get_first_card_plant_key(pflege)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
         screenshot(
-            "req022_021_fertilizing_months",
-            "CareProfileEditDialog Aktive Duengemonate",
+            "TC-REQ-022-002_care-style-select",
+            "CareProfileEditDialog with care style dropdown",
+        )
+
+        style_selects = pflege.driver.find_elements(*PflegeDashboardPage.CARE_STYLE_SELECT)
+        assert len(style_selects) > 0, (
+            "TC-REQ-022-002 FAIL: Expected care style select in profile dialog"
+        )
+
+    @pytest.mark.core_crud
+    def test_profile_dialog_has_save_cancel_reset_buttons(
+        self,
+        pflege: PflegeDashboardPage,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-REQ-022-003: CareProfileEditDialog has Save, Cancel, and Reset buttons.
+
+        Spec: TC-022-018 -- CareProfileEditDialog hat Speichern, Abbrechen, Reset Buttons.
+        """
+        pflege.open()
+        plant_key = _get_first_card_plant_key(pflege)
+        pflege.click_edit_profile_on_card(plant_key)
+        pflege.wait_for_profile_dialog()
+
+        screenshot(
+            "TC-REQ-022-003_dialog-actions",
+            "CareProfileEditDialog action buttons",
+        )
+
+        save_btns = pflege.driver.find_elements(*PflegeDashboardPage.SAVE_PROFILE_BUTTON)
+        cancel_btns = pflege.driver.find_elements(*PflegeDashboardPage.CANCEL_BUTTON)
+        reset_btns = pflege.driver.find_elements(*PflegeDashboardPage.RESET_PROFILE_BUTTON)
+
+        assert len(save_btns) > 0, "TC-REQ-022-003 FAIL: Expected save button in profile dialog"
+        assert len(cancel_btns) > 0, "TC-REQ-022-003 FAIL: Expected cancel button in profile dialog"
+        assert len(reset_btns) > 0, "TC-REQ-022-003 FAIL: Expected reset button in profile dialog"
+
+
+# -- TC-022-019 to TC-022-021: Sliders and Interval Controls ------------------
+
+
+class TestCareProfileSliders:
+    """Interval sliders and fertilizing months (Spec: TC-022-019, TC-022-021)."""
+
+    @pytest.mark.core_crud
+    def test_watering_interval_slider_present(
+        self,
+        pflege: PflegeDashboardPage,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-REQ-022-004: Watering interval slider is visible when watering task is enabled.
+
+        Spec: TC-022-019 -- Giessintervall-Slider aendern und speichern.
+        """
+        pflege.open()
+        plant_key = _get_first_card_plant_key(pflege)
+        pflege.click_edit_profile_on_card(plant_key)
+        pflege.wait_for_profile_dialog()
+
+        screenshot(
+            "TC-REQ-022-004_watering-slider",
+            "CareProfileEditDialog watering interval slider",
+        )
+
+        sliders = pflege.driver.find_elements(*PflegeDashboardPage.WATERING_INTERVAL_SLIDER)
+        assert len(sliders) > 0, (
+            "TC-REQ-022-004 FAIL: Expected watering interval slider"
+        )
+
+    @pytest.mark.core_crud
+    def test_fertilizing_active_months_displayed(
+        self,
+        pflege: PflegeDashboardPage,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-REQ-022-005: Fertilizing active months toggle buttons are displayed.
+
+        Spec: TC-022-021 -- Aktive Duengemonate per Monats-Chips konfigurieren.
+        """
+        pflege.open()
+        plant_key = _get_first_card_plant_key(pflege)
+        pflege.click_edit_profile_on_card(plant_key)
+        pflege.wait_for_profile_dialog()
+
+        screenshot(
+            "TC-REQ-022-005_fertilizing-months",
+            "CareProfileEditDialog active fertilizing months",
         )
 
         month_groups = pflege.driver.find_elements(*PflegeDashboardPage.FERTILIZING_ACTIVE_MONTHS)
         assert len(month_groups) > 0, (
-            "Expected fertilizing active months [data-testid='fertilizing-active-months']"
+            "TC-REQ-022-005 FAIL: Expected fertilizing active months element"
         )
 
+    @pytest.mark.core_crud
     def test_fertilizing_month_click_toggles_selection(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-021: Clicking a month toggle button changes its selection state."""
+        """TC-REQ-022-006: Clicking a month toggle button changes its selection state.
+
+        Spec: TC-022-021 -- Aktive Duengemonate per Monats-Chips konfigurieren.
+        """
         pflege.open()
         plant_key = _get_first_card_plant_key(pflege)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
         initial_months = pflege.get_fertilizing_active_month_values()
-        screenshot("req022_021b_months_before_click", "Duengemonate vor Klick")
+        screenshot(
+            "TC-REQ-022-006_months-before-click",
+            "Fertilizing months before clicking",
+        )
 
-        # Pick a month that is currently NOT selected to toggle it on,
-        # or one that IS selected to toggle it off.
-        target_month = 11  # November - often not in default active months
+        target_month = 11  # November
         pflege.click_fertilizing_month(target_month)
-        time.sleep(0.3)
+        pflege.wait_for_loading_complete()
 
-        screenshot("req022_021c_months_after_click", "Duengemonate nach Klick auf Monat 11")
+        screenshot(
+            "TC-REQ-022-006_months-after-click",
+            "Fertilizing months after clicking month 11",
+        )
 
         updated_months = pflege.get_fertilizing_active_month_values()
         assert updated_months != initial_months, (
-            f"Expected month selection to change after clicking month {target_month}. "
+            f"TC-REQ-022-006 FAIL: Expected month selection to change after clicking month {target_month}. "
             f"Before: {initial_months}, After: {updated_months}"
         )
 
 
-# -- TC-022-022 to TC-022-024: Conditional Fields (Toggles) -----------------
+# -- TC-022-022 to TC-022-024: Conditional Fields (Toggles) -------------------
 
 
 class TestCareProfileConditionalFields:
-    """TC-022-022 to TC-022-024: Toggle switches controlling conditional field visibility."""
+    """Toggle switches controlling conditional field visibility (Spec: TC-022-022 to TC-022-025)."""
 
+    @pytest.mark.core_crud
     def test_humidity_check_toggle_controls_interval_visibility(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-024: Toggling humidity check shows/hides the interval slider."""
+        """TC-REQ-022-007: Toggling humidity check shows/hides the interval slider.
+
+        Spec: TC-022-024 -- Luftfeuchte-Check Toggle aktiviert bedingt Intervall-Slider.
+        """
         pflege.open()
         plant_key = _get_first_card_plant_key(pflege)
         pflege.click_edit_profile_on_card(plant_key)
@@ -208,36 +256,39 @@ class TestCareProfileConditionalFields:
 
         was_enabled = pflege.is_humidity_check_enabled()
         screenshot(
-            "req022_024_humidity_toggle_initial",
-            f"Luftfeuchte-Toggle Ausgangszustand (enabled={was_enabled})",
+            "TC-REQ-022-007_humidity-toggle-initial",
+            f"Humidity toggle initial state (enabled={was_enabled})",
         )
 
         pflege.toggle_humidity_check()
-        time.sleep(0.3)
+        pflege.wait_for_loading_complete()
 
         is_now_enabled = pflege.is_humidity_check_enabled()
         screenshot(
-            "req022_024_humidity_toggle_after",
-            f"Luftfeuchte-Toggle nach Klick (enabled={is_now_enabled})",
+            "TC-REQ-022-007_humidity-toggle-after",
+            f"Humidity toggle after click (enabled={is_now_enabled})",
         )
 
         assert is_now_enabled != was_enabled, (
-            f"Expected humidity check toggle to change state. "
+            f"TC-REQ-022-007 FAIL: Expected humidity check toggle to change state. "
             f"Before: {was_enabled}, After: {is_now_enabled}"
         )
 
-        # When enabled, the interval slider should be visible
         if is_now_enabled:
             assert pflege.is_humidity_interval_visible(), (
-                "Expected humidity interval slider to be visible when toggle is ON"
+                "TC-REQ-022-007 FAIL: Expected humidity interval slider to be visible when toggle is ON"
             )
 
+    @pytest.mark.core_crud
     def test_location_check_toggle_controls_months_visibility(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-022/023: Toggling location check shows/hides the months configuration."""
+        """TC-REQ-022-008: Toggling location check shows/hides the months configuration.
+
+        Spec: TC-022-022 / TC-022-023 -- Standort-Check deaktivieren/aktivieren.
+        """
         pflege.open()
         plant_key = _get_first_card_plant_key(pflege)
         pflege.click_edit_profile_on_card(plant_key)
@@ -245,38 +296,38 @@ class TestCareProfileConditionalFields:
 
         was_enabled = pflege.is_location_check_enabled()
         screenshot(
-            "req022_022_location_toggle_initial",
-            f"Standort-Check Toggle Ausgangszustand (enabled={was_enabled})",
+            "TC-REQ-022-008_location-toggle-initial",
+            f"Location check toggle initial state (enabled={was_enabled})",
         )
 
         pflege.toggle_location_check()
-        time.sleep(0.3)
+        pflege.wait_for_loading_complete()
 
         is_now_enabled = pflege.is_location_check_enabled()
         screenshot(
-            "req022_022_location_toggle_after",
-            f"Standort-Check Toggle nach Klick (enabled={is_now_enabled})",
+            "TC-REQ-022-008_location-toggle-after",
+            f"Location check toggle after click (enabled={is_now_enabled})",
         )
 
         assert is_now_enabled != was_enabled, (
-            f"Expected location check toggle to change state. "
+            f"TC-REQ-022-008 FAIL: Expected location check toggle to change state. "
             f"Before: {was_enabled}, After: {is_now_enabled}"
         )
 
         if is_now_enabled:
             assert pflege.is_location_check_months_visible(), (
-                "Expected location check months to be visible when toggle is ON"
+                "TC-REQ-022-008 FAIL: Expected location check months to be visible when toggle is ON"
             )
 
+    @pytest.mark.core_crud
     def test_adaptive_learning_toggle(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-025: Toggling adaptive learning switch changes its state.
+        """TC-REQ-022-009: Toggling adaptive learning switch changes its state.
 
-        NOTE: The adaptive learning switch is inside the 'Advanced' accordion.
-        This test expands the accordion first before interacting with the toggle.
+        Spec: TC-022-025 -- Adaptive-Learning Toggle deaktivieren.
         """
         pflege.open()
         plant_key = _get_first_card_plant_key(pflege)
@@ -289,122 +340,160 @@ class TestCareProfileConditionalFields:
         )
         if accordions:
             pflege.scroll_and_click(accordions[0])
-            time.sleep(0.3)
+            pflege.wait_for_loading_complete()
 
-        screenshot("req022_025_adaptive_learning_initial", "Adaptive Learning Toggle Ausgangszustand")
+        screenshot(
+            "TC-REQ-022-009_adaptive-learning-initial",
+            "Adaptive Learning Toggle initial state",
+        )
 
         was_enabled = pflege.is_adaptive_learning_enabled()
         pflege.toggle_adaptive_learning()
-        time.sleep(0.3)
+        pflege.wait_for_loading_complete()
 
         is_now_enabled = pflege.is_adaptive_learning_enabled()
-        screenshot("req022_025_adaptive_learning_after", "Adaptive Learning Toggle nach Klick")
+        screenshot(
+            "TC-REQ-022-009_adaptive-learning-after",
+            "Adaptive Learning Toggle after click",
+        )
 
         assert is_now_enabled != was_enabled, (
-            f"Expected adaptive learning toggle to change state. "
+            f"TC-REQ-022-009 FAIL: Expected adaptive learning toggle to change state. "
             f"Before: {was_enabled}, After: {is_now_enabled}"
         )
 
 
-# -- TC-022-027 to TC-022-029: Care Style Change ----------------------------
+# -- TC-022-027 to TC-022-029: Care Style Change ------------------------------
 
 
 class TestCareStyleChange:
-    """TC-022-027 to TC-022-029: Changing care style in profile dialog."""
+    """Changing care style in profile dialog (Spec: TC-022-027)."""
 
+    @pytest.mark.core_crud
     def test_care_style_dropdown_lists_all_styles(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-027: Care style dropdown lists all available styles."""
+        """TC-REQ-022-010: Care style dropdown lists all available styles.
+
+        Spec: TC-022-027 -- Care-Style-Wechsel zeigt Bestaetigung und setzt alle Intervalle zurueck.
+        """
         pflege.open()
         plant_key = _get_first_card_plant_key(pflege)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
-        # Click to open the dropdown
         select_el = pflege.wait_for_element_clickable(PflegeDashboardPage.CARE_STYLE_SELECT)
         pflege.scroll_and_click(select_el)
-        time.sleep(0.3)
+        pflege.wait_for_loading_complete()
 
-        screenshot("req022_027_care_style_dropdown", "CareStyle-Dropdown geoeffnet")
+        screenshot(
+            "TC-REQ-022-010_care-style-dropdown",
+            "CareStyle dropdown opened",
+        )
 
         options = pflege.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
         option_texts = [opt.text for opt in options]
 
         assert len(options) >= 5, (
-            f"Expected at least 5 care style options, got {len(options)}: {option_texts}"
+            f"TC-REQ-022-010 FAIL: Expected at least 5 care style options, "
+            f"got {len(options)}: {option_texts}"
         )
 
-        # Close dropdown by pressing Escape
+        # Close dropdown
         pflege.driver.find_element(By.TAG_NAME, "body").click()
-        time.sleep(0.2)
 
 
-# -- Profile Dialog Save and Cancel ------------------------------------------
+# -- Profile Dialog Save and Cancel --------------------------------------------
 
 
 class TestCareProfileSaveCancel:
-    """Profile dialog save and cancel actions."""
+    """Profile dialog save and cancel actions (Spec: TC-022-018, TC-022-019)."""
 
+    @pytest.mark.core_crud
     def test_cancel_closes_dialog_without_saving(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-018: Cancelling profile dialog closes it without saving."""
+        """TC-REQ-022-011: Cancelling profile dialog closes it without saving.
+
+        Spec: TC-022-018 -- CareProfileEditDialog -- Abbrechen schliesst Dialog.
+        """
         pflege.open()
         plant_key = _get_first_card_plant_key(pflege)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
-        screenshot("req022_018d_before_cancel", "CareProfileEditDialog vor Abbrechen")
+        screenshot(
+            "TC-REQ-022-011_before-cancel",
+            "CareProfileEditDialog before cancel",
+        )
 
         pflege.click_cancel_profile()
         pflege.wait_for_dialog_closed()
 
-        screenshot("req022_018e_after_cancel", "Nach Abbrechen des CareProfileEditDialog")
-
-        assert not pflege.is_profile_dialog_open(), (
-            "Expected profile dialog to close after clicking cancel"
+        screenshot(
+            "TC-REQ-022-011_after-cancel",
+            "After cancelling CareProfileEditDialog",
         )
 
+        assert not pflege.is_profile_dialog_open(), (
+            "TC-REQ-022-011 FAIL: Expected profile dialog to close after clicking cancel"
+        )
+
+    @pytest.mark.core_crud
     def test_save_closes_dialog_and_refreshes_dashboard(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-019: Saving profile dialog closes it and refreshes the dashboard."""
+        """TC-REQ-022-012: Saving profile dialog closes it and refreshes the dashboard.
+
+        Spec: TC-022-019 -- Giessintervall-Slider aendern und speichern.
+        """
         pflege.open()
         plant_key = _get_first_card_plant_key(pflege)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
-        screenshot("req022_019b_before_save", "CareProfileEditDialog vor Speichern")
-
-        pflege.click_save_profile()
-        time.sleep(1)  # Wait for API call
-
-        screenshot("req022_019c_after_save", "Nach Speichern des CareProfileEditDialog")
-
-        # Dialog should close after successful save
-        assert not pflege.is_profile_dialog_open(), (
-            "Expected profile dialog to close after clicking save"
+        screenshot(
+            "TC-REQ-022-012_before-save",
+            "CareProfileEditDialog before save",
         )
 
+        pflege.click_save_profile()
+        pflege.wait_for_loading_complete()
+
+        screenshot(
+            "TC-REQ-022-012_after-save",
+            "After saving CareProfileEditDialog",
+        )
+
+        assert not pflege.is_profile_dialog_open(), (
+            "TC-REQ-022-012 FAIL: Expected profile dialog to close after clicking save"
+        )
+
+    @pytest.mark.core_crud
     def test_task_type_toggles_are_present(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-018: Profile dialog shows task type toggle switches."""
+        """TC-REQ-022-013: Profile dialog shows task type toggle switches.
+
+        Spec: TC-022-018 -- CareProfileEditDialog zeigt Aufgabentyp-Toggles.
+        """
         pflege.open()
         plant_key = _get_first_card_plant_key(pflege)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
-        screenshot("req022_018f_task_toggles", "CareProfileEditDialog Aufgabentyp-Toggles")
+        screenshot(
+            "TC-REQ-022-013_task-toggles",
+            "CareProfileEditDialog task type toggles",
+        )
 
         for locator_name, locator in [
             ("watering", PflegeDashboardPage.AUTO_CREATE_WATERING_SWITCH),
@@ -414,23 +503,30 @@ class TestCareProfileSaveCancel:
         ]:
             elements = pflege.driver.find_elements(*locator)
             assert len(elements) > 0, (
-                f"Expected task type toggle for '{locator_name}' to be present"
+                f"TC-REQ-022-013 FAIL: Expected task type toggle for '{locator_name}'"
             )
 
+    @pytest.mark.core_crud
     def test_watering_method_select_present(
         self,
         pflege: PflegeDashboardPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-022-018: Profile dialog shows watering method dropdown."""
+        """TC-REQ-022-014: Profile dialog shows watering method dropdown.
+
+        Spec: TC-022-018 -- CareProfileEditDialog zeigt Giessmethode-Dropdown.
+        """
         pflege.open()
         plant_key = _get_first_card_plant_key(pflege)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
-        screenshot("req022_018g_watering_method", "CareProfileEditDialog Giessmethode")
+        screenshot(
+            "TC-REQ-022-014_watering-method",
+            "CareProfileEditDialog watering method dropdown",
+        )
 
         method_selects = pflege.driver.find_elements(*PflegeDashboardPage.WATERING_METHOD_SELECT)
         assert len(method_selects) > 0, (
-            "Expected watering method select [data-testid='watering-method-select']"
+            "TC-REQ-022-014 FAIL: Expected watering method select element"
         )

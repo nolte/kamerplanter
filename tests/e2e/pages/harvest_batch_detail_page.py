@@ -426,3 +426,8 @@ class HarvestBatchDetailPage(BasePage):
         """Return True if a success snackbar is visible."""
         els = self.driver.find_elements(*self.SNACKBAR)
         return any(el.is_displayed() for el in els) if els else False
+
+    def is_form_submit_visible(self) -> bool:
+        """Return True if the form submit button is present."""
+        els = self.driver.find_elements(*self.FORM_SUBMIT)
+        return len(els) > 0

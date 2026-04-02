@@ -40,9 +40,9 @@ class SiteDetailPage(BasePage):
     CONFIRM_CANCEL = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-cancel']")
 
     # ── Location sub-section ──────────────────────────────────────────
-    # The Location table is a nested DataTable rendered by LocationListSection
-    LOCATION_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    LOCATION_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    # LocationTreeSection uses MUI SimpleTreeView (TreeItem), not a DataTable.
+    LOCATION_TREE_SECTION = (By.CSS_SELECTOR, "[data-testid='add-location-button']")
+    LOCATION_TREE_ITEMS = (By.CSS_SELECTOR, "[role='treeitem']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -141,17 +141,47 @@ class SiteDetailPage(BasePage):
         elements = self.driver.find_elements(*self.CONFIRM_DIALOG)
         return bool(elements) and elements[0].is_displayed()
 
-    # ── Location sub-section ──────────────────────────────────────────
+    # ── Location sub-section (MUI SimpleTreeView) ──────────────────────
+
+    def wait_for_location_tree_loaded(self, timeout: int = 10) -> None:
+        """Wait until the LocationTreeSection finishes its async load.
+
+        The section shows its own LoadingSkeleton while fetching tree data.
+        Wait until either tree items appear OR the empty-state is rendered.
+        """
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        def _tree_or_empty(driver: WebDriver) -> bool:
+            items = driver.find_elements(*self.LOCATION_TREE_ITEMS)
+            empty = driver.find_elements(By.CSS_SELECTOR, "[data-testid='empty-state']")
+            # Also accept when no skeleton is present (loading finished)
+            skeletons = driver.find_elements(*self.LOADING_SKELETON)
+            skeleton_visible = any(s.is_displayed() for s in skeletons)
+            return bool(items) or bool(empty) or not skeleton_visible
+
+        WebDriverWait(self.driver, timeout).until(_tree_or_empty)
 
     def get_location_row_count(self) -> int:
-        rows = self.driver.find_elements(*self.LOCATION_TABLE_ROWS)
-        return len(rows)
+        """Count location tree items (TreeItem with role='treeitem')."""
+        self.wait_for_location_tree_loaded()
+        items = self.driver.find_elements(*self.LOCATION_TREE_ITEMS)
+        return len(items)
 
     def click_location_row(self, index: int) -> None:
-        rows = self.driver.find_elements(*self.LOCATION_TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Click the name-link inside a tree item to navigate to location detail.
 
-    def is_location_table_visible(self) -> bool:
-        elements = self.driver.find_elements(*self.LOCATION_TABLE)
+        The LocationTreeSection renders each node name as a Typography with
+        an onClick handler that navigates to ``/standorte/locations/{key}``.
+        """
+        items = self.driver.find_elements(*self.LOCATION_TREE_ITEMS)
+        if index < len(items):
+            # The clickable name is a Typography inside the TreeItem label
+            name_el = items[index].find_element(
+                By.CSS_SELECTOR, ".MuiTypography-body2"
+            )
+            self.scroll_and_click(name_el)
+
+    def is_location_section_visible(self) -> bool:
+        """Check if the LocationTreeSection is rendered (create button present)."""
+        elements = self.driver.find_elements(*self.LOCATION_TREE_SECTION)
         return bool(elements) and elements[0].is_displayed()

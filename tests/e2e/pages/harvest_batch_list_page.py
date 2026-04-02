@@ -300,6 +300,25 @@ class HarvestBatchListPage(BasePage):
         els = self.driver.find_elements(*self.SNACKBAR)
         return any(el.is_displayed() for el in els) if els else False
 
+    def is_page_visible(self) -> bool:
+        """Check whether the harvest list page container is displayed."""
+        els = self.driver.find_elements(*self.PAGE)
+        return len(els) > 0 and els[0].is_displayed()
+
+    def is_create_button_visible(self) -> bool:
+        """Check whether the create button is displayed."""
+        els = self.driver.find_elements(*self.CREATE_BUTTON)
+        return len(els) > 0 and els[0].is_displayed()
+
+    def has_any_dialog_error(self) -> bool:
+        """Check for any MUI error helper text inside the dialog."""
+        from selenium.webdriver.common.by import By
+
+        return len(self.driver.find_elements(
+            By.CSS_SELECTOR,
+            "div[role='dialog'] .MuiFormHelperText-root.Mui-error",
+        )) > 0
+
     def wait_for_dialog_closed(self, timeout: int = 10) -> None:
         """Wait until the create dialog is no longer visible."""
         from selenium.webdriver.support.ui import WebDriverWait

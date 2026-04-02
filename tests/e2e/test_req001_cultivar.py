@@ -83,6 +83,7 @@ class TestCultivarListSection:
         screenshot("TC-REQ-001-043_before-row-click", "Cultivar tab before clicking first cultivar row")
         species_detail.click_cultivar_row(0)
         species_detail.wait_for_url_contains("/cultivars/")
+        species_detail.wait_for_loading_complete()
         screenshot("TC-REQ-001-043_cultivar-detail", "Cultivar detail page after row click navigation")
 
         assert "/cultivars/" in species_detail.driver.current_url

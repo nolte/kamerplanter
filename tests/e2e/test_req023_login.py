@@ -1,17 +1,22 @@
-"""E2E tests for REQ-023 — Login flows (TC-023-009 to TC-023-019).
+"""E2E tests for REQ-023 — Login flows.
 
-Covers:
-  Login page: rendering, successful login, invalid credentials, remember-me,
-  SSO provider buttons, route guards, navigation links
-
-All tests follow NFR-008:
-  - Page-Object-Pattern (no direct find_element calls in tests)
-  - WebDriverWait only — no time.sleep()
-  - Screenshot at: Page Load / before action / after action / error state
-  - Descriptive assertion messages
+Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-023.md):
+  TC-REQ-023-001  ->  TC-023-009  Erfolgreicher lokaler Login (Happy Path)
+  TC-REQ-023-002  ->  TC-023-009  Login-Seite rendert mit Heading, Feldern und Links
+  TC-REQ-023-003  ->  TC-023-010  Login mit aktivierter 'Angemeldet bleiben'-Checkbox
+  TC-REQ-023-004  ->  TC-023-012  Login-Seite ohne aktivierte SSO-Provider
+  TC-REQ-023-005  ->  TC-023-013  Login mit falschem Passwort
+  TC-REQ-023-006  ->  TC-023-013  Login mit nicht existierender E-Mail
+  TC-REQ-023-007  ->  TC-023-016  Redirect von geschuetzter Route zu Login
+  TC-REQ-023-008  ->  TC-023-017  Redirect von Login zu Dashboard wenn bereits eingeloggt
+  TC-REQ-023-009  ->  TC-023-019  Passwort vergessen Link navigiert zu Reset
+  TC-REQ-023-010  ->  TC-023-006  Register-Link navigiert zu /register
 """
 
 from __future__ import annotations
+
+from pathlib import Path
+from typing import Callable
 
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -20,12 +25,12 @@ from .pages import LoginPage
 
 pytestmark = pytest.mark.requires_auth
 
-# ── Demo credentials ────────────────────────────────────────────────────────
+# -- Demo credentials ---------------------------------------------------------
 DEMO_EMAIL = "demo@kamerplanter.local"
 DEMO_PASSWORD = "demo-passwort-2024"
 
 
-# ── Fixtures ────────────────────────────────────────────────────────────────
+# -- Fixtures -----------------------------------------------------------------
 
 
 @pytest.fixture
@@ -34,7 +39,7 @@ def login_page(browser: WebDriver, base_url: str) -> LoginPage:
     return LoginPage(browser, base_url)
 
 
-# ── Helper: ensure logged out ───────────────────────────────────────────────
+# -- Helper: ensure logged out -------------------------------------------------
 
 
 def _ensure_logged_out(browser: WebDriver, base_url: str) -> None:
@@ -43,246 +48,330 @@ def _ensure_logged_out(browser: WebDriver, base_url: str) -> None:
     browser.get(f"{base_url}/login")
 
 
-# ── TC-023-009: Successful login ────────────────────────────────────────────
+# -- TC-023-009: Successful login ----------------------------------------------
 
 
 class TestLoginHappyPath:
-    """TC-023-009 to TC-023-010: Successful login flows."""
+    """Successful login flows (Spec: TC-023-009, TC-023-010)."""
 
+    @pytest.mark.smoke
+    @pytest.mark.requires_auth
     def test_login_page_renders(
         self,
         login_page: LoginPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-009a: Login page renders with heading, fields and links."""
+        """TC-REQ-023-002: Login page renders with heading, fields and links.
+
+        Spec: TC-023-009 -- Erfolgreicher lokaler Login (Happy Path) -- Seitenstruktur.
+        """
         _ensure_logged_out(login_page.driver, login_page.base_url)
         login_page.open()
-        screenshot("req023_001_login_page_loaded", "Login-Seite nach dem Laden")
+        screenshot(
+            "TC-REQ-023-002_login-page-loaded",
+            "Login page after initial load",
+        )
 
         heading = login_page.get_heading_text()
         assert heading == "Anmelden", (
-            f"Expected heading 'Anmelden', got: '{heading}'"
+            f"TC-REQ-023-002 FAIL: Expected heading 'Anmelden', got: '{heading}'"
         )
         assert login_page.is_register_link_visible(), (
-            "Expected register link to be visible on login page"
+            "TC-REQ-023-002 FAIL: Expected register link to be visible"
         )
         assert login_page.is_forgot_password_link_visible(), (
-            "Expected forgot-password link to be visible on login page"
+            "TC-REQ-023-002 FAIL: Expected forgot-password link to be visible"
         )
 
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_successful_login_with_demo_user(
         self,
         login_page: LoginPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-009: Successful local login with demo user redirects to /dashboard."""
+        """TC-REQ-023-001: Successful local login with demo user redirects to /dashboard.
+
+        Spec: TC-023-009 -- Erfolgreicher lokaler Login (Happy Path).
+        """
         _ensure_logged_out(login_page.driver, login_page.base_url)
         login_page.open()
-        screenshot("req023_002_login_before_submit", "Login-Seite vor dem Absenden")
+        screenshot(
+            "TC-REQ-023-001_login-before-submit",
+            "Login page before submitting",
+        )
 
         login_page.login(DEMO_EMAIL, DEMO_PASSWORD)
-        screenshot("req023_003_login_submitted", "Login abgesendet")
+        screenshot(
+            "TC-REQ-023-001_login-submitted",
+            "Login submitted",
+        )
 
         login_page.wait_for_url_contains("/dashboard")
-        screenshot("req023_004_login_success_dashboard", "Dashboard nach erfolgreichem Login")
+        screenshot(
+            "TC-REQ-023-001_login-success-dashboard",
+            "Dashboard after successful login",
+        )
 
         current_url = login_page.driver.current_url
         assert "/dashboard" in current_url, (
-            f"Expected redirect to /dashboard after login, got: {current_url}"
+            f"TC-REQ-023-001 FAIL: Expected redirect to /dashboard, got: {current_url}"
         )
         assert not login_page.is_error_alert_visible(), (
-            "No error alert should be visible after successful login"
+            "TC-REQ-023-001 FAIL: No error alert should be visible after successful login"
         )
 
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_login_with_remember_me(
         self,
         login_page: LoginPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-010: Login with remember-me checkbox activated."""
+        """TC-REQ-023-003: Login with remember-me checkbox activated.
+
+        Spec: TC-023-010 -- Login mit aktivierter 'Angemeldet bleiben'-Checkbox.
+        """
         _ensure_logged_out(login_page.driver, login_page.base_url)
         login_page.open()
 
-        # Checkbox should be unchecked by default
         assert not login_page.is_remember_me_checked(), (
-            "Remember-me checkbox should be unchecked by default"
+            "TC-REQ-023-003 FAIL: Remember-me checkbox should be unchecked by default"
         )
 
         login_page.login(DEMO_EMAIL, DEMO_PASSWORD, remember_me=True)
-        screenshot("req023_005_login_remember_me", "Login mit Angemeldet-bleiben")
+        screenshot(
+            "TC-REQ-023-003_login-remember-me",
+            "Login with remember-me activated",
+        )
 
         login_page.wait_for_url_contains("/dashboard")
         assert "/dashboard" in login_page.driver.current_url, (
-            "Expected redirect to /dashboard after login with remember-me"
+            "TC-REQ-023-003 FAIL: Expected redirect to /dashboard after login with remember-me"
         )
 
 
-# ── TC-023-012: Login page without SSO providers ────────────────────────────
+# -- TC-023-012: Login page without SSO providers -----------------------------
 
 
 class TestLoginSSOProviders:
-    """TC-023-011 to TC-023-012: SSO provider button display."""
+    """SSO provider button display (Spec: TC-023-011, TC-023-012)."""
 
+    @pytest.mark.smoke
+    @pytest.mark.requires_auth
     def test_login_page_without_sso_providers(
         self,
         login_page: LoginPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-012: Login page without active SSO providers shows no divider/buttons."""
+        """TC-REQ-023-004: Login page without active SSO providers shows no divider/buttons.
+
+        Spec: TC-023-012 -- Login-Seite ohne aktivierte SSO-Provider.
+        """
         _ensure_logged_out(login_page.driver, login_page.base_url)
         login_page.open()
-        screenshot("req023_006_login_no_sso", "Login-Seite ohne SSO-Provider")
+        screenshot(
+            "TC-REQ-023-004_login-no-sso",
+            "Login page without SSO providers",
+        )
 
-        # In standard dev setup, no OAuth providers are enabled
         oauth_buttons = login_page.get_oauth_buttons()
-        # If no SSO providers are configured, the divider should also be absent
         if len(oauth_buttons) == 0:
-            # The divider may or may not be present depending on implementation
-            # but no SSO buttons should appear
             assert len(oauth_buttons) == 0, (
-                "Expected no SSO buttons when no providers are configured"
+                "TC-REQ-023-004 FAIL: Expected no SSO buttons when no providers are configured"
             )
 
 
-# ── TC-023-013: Login with wrong password ───────────────────────────────────
+# -- TC-023-013: Login with wrong password ------------------------------------
 
 
 class TestLoginErrors:
-    """TC-023-013 to TC-023-015: Login error flows."""
+    """Login error flows (Spec: TC-023-013)."""
 
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_login_with_wrong_password(
         self,
         login_page: LoginPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-013: Login with wrong password shows error alert."""
+        """TC-REQ-023-005: Login with wrong password shows error alert.
+
+        Spec: TC-023-013 -- Login mit falschem Passwort.
+        """
         _ensure_logged_out(login_page.driver, login_page.base_url)
         login_page.open()
-        screenshot("req023_007_login_before_wrong_password", "Login vor falschem Passwort")
+        screenshot(
+            "TC-REQ-023-005_before-wrong-password",
+            "Login before wrong password",
+        )
 
         login_page.login(DEMO_EMAIL, "falsches-passwort-xyz")
-        screenshot("req023_008_login_wrong_password_submitted", "Falsches Passwort abgesendet")
+        screenshot(
+            "TC-REQ-023-005_wrong-password-submitted",
+            "Wrong password submitted",
+        )
 
-        # Wait briefly for the error to appear
         login_page.wait_for_element(LoginPage.ERROR_ALERT)
-        screenshot("req023_009_login_error_displayed", "Fehler-Alert nach falschem Passwort")
+        screenshot(
+            "TC-REQ-023-005_error-displayed",
+            "Error alert after wrong password",
+        )
 
         assert login_page.is_error_alert_visible(), (
-            "Expected error alert after login with wrong password"
+            "TC-REQ-023-005 FAIL: Expected error alert after login with wrong password"
         )
         error_msg = login_page.get_error_message()
         assert error_msg, (
-            "Expected non-empty error message after login with wrong password"
+            "TC-REQ-023-005 FAIL: Expected non-empty error message"
         )
         assert "/login" in login_page.driver.current_url, (
-            f"Expected to remain on /login, got: {login_page.driver.current_url}"
+            f"TC-REQ-023-005 FAIL: Expected to remain on /login, got: {login_page.driver.current_url}"
         )
 
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_login_with_nonexistent_email(
         self,
         login_page: LoginPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-013b: Login with non-existent email shows error alert."""
+        """TC-REQ-023-006: Login with non-existent email shows error alert.
+
+        Spec: TC-023-013 -- Login mit falschem Passwort (non-existent email variant).
+        """
         _ensure_logged_out(login_page.driver, login_page.base_url)
         login_page.open()
 
         login_page.login("nonexistent@example.com", "some-password-123")
         login_page.wait_for_element(LoginPage.ERROR_ALERT)
-        screenshot("req023_010_login_nonexistent_email", "Fehler bei nicht existierender E-Mail")
+        screenshot(
+            "TC-REQ-023-006_nonexistent-email",
+            "Error alert for non-existent email",
+        )
 
         assert login_page.is_error_alert_visible(), (
-            "Expected error alert after login with non-existent email"
+            "TC-REQ-023-006 FAIL: Expected error alert after login with non-existent email"
         )
         assert "/login" in login_page.driver.current_url, (
-            "Expected to remain on /login"
+            "TC-REQ-023-006 FAIL: Expected to remain on /login"
         )
 
 
-# ── TC-023-016 to TC-023-017: Route Guards ──────────────────────────────────
+# -- TC-023-016 to TC-023-017: Route Guards -----------------------------------
 
 
 class TestRouteGuards:
-    """TC-023-016 to TC-023-017: Route guard redirects."""
+    """Route guard redirects (Spec: TC-023-016, TC-023-017)."""
 
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_unauthenticated_redirect_to_login(
         self,
         login_page: LoginPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-016: Unauthenticated access to /dashboard redirects to /login."""
+        """TC-REQ-023-007: Unauthenticated access to /dashboard redirects to /login.
+
+        Spec: TC-023-016 -- Redirect von geschuetzter Route zu Login.
+        """
         _ensure_logged_out(login_page.driver, login_page.base_url)
         login_page.navigate("/dashboard")
 
         login_page.wait_for_url_contains("/login")
-        screenshot("req023_011_route_guard_redirect", "Redirect zu /login von geschuetzter Route")
-
-        assert "/login" in login_page.driver.current_url, (
-            f"Expected redirect to /login, got: {login_page.driver.current_url}"
+        screenshot(
+            "TC-REQ-023-007_route-guard-redirect",
+            "Redirect to /login from protected route",
         )
 
+        assert "/login" in login_page.driver.current_url, (
+            f"TC-REQ-023-007 FAIL: Expected redirect to /login, got: {login_page.driver.current_url}"
+        )
+
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_authenticated_redirect_from_login_to_dashboard(
         self,
         login_page: LoginPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-017: Authenticated user accessing /login is redirected to /dashboard."""
-        # First, log in
+        """TC-REQ-023-008: Authenticated user accessing /login is redirected to /dashboard.
+
+        Spec: TC-023-017 -- Redirect von Login/Register zu Dashboard wenn bereits eingeloggt.
+        """
         _ensure_logged_out(login_page.driver, login_page.base_url)
         login_page.open()
         login_page.login(DEMO_EMAIL, DEMO_PASSWORD)
         login_page.wait_for_url_contains("/dashboard")
 
-        # Now try to access /login again
         login_page.navigate("/login")
         login_page.wait_for_url_contains("/dashboard")
         screenshot(
-            "req023_012_public_only_redirect",
-            "Redirect von /login zu /dashboard fuer eingeloggten Nutzer",
+            "TC-REQ-023-008_public-only-redirect",
+            "Redirect from /login to /dashboard for logged-in user",
         )
 
         assert "/dashboard" in login_page.driver.current_url, (
-            f"Expected redirect to /dashboard, got: {login_page.driver.current_url}"
+            f"TC-REQ-023-008 FAIL: Expected redirect to /dashboard, got: {login_page.driver.current_url}"
         )
 
 
-# ── TC-023-019: Navigation links on login page ─────────────────────────────
+# -- TC-023-019: Navigation links on login page -------------------------------
 
 
 class TestLoginNavigation:
-    """TC-023-019: Navigation links from the login page."""
+    """Navigation links from the login page (Spec: TC-023-019, TC-023-006)."""
 
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_forgot_password_link_navigates_to_reset(
         self,
         login_page: LoginPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-019: 'Passwort vergessen?' link navigates to /password-reset."""
+        """TC-REQ-023-009: 'Passwort vergessen?' link navigates to /password-reset.
+
+        Spec: TC-023-019 -- Passwort vergessen -- Link auf Login-Seite.
+        """
         _ensure_logged_out(login_page.driver, login_page.base_url)
         login_page.open()
-        screenshot("req023_013_login_before_forgot_click", "Login vor Klick auf Passwort vergessen")
+        screenshot(
+            "TC-REQ-023-009_before-forgot-click",
+            "Login before clicking forgot password",
+        )
 
         login_page.click_forgot_password_link()
         login_page.wait_for_url_contains("/password-reset")
-        screenshot("req023_014_password_reset_page", "Passwort-Reset-Seite nach Navigation")
-
-        assert "/password-reset" in login_page.driver.current_url, (
-            f"Expected /password-reset, got: {login_page.driver.current_url}"
+        screenshot(
+            "TC-REQ-023-009_password-reset-page",
+            "Password reset page after navigation",
         )
 
+        assert "/password-reset" in login_page.driver.current_url, (
+            f"TC-REQ-023-009 FAIL: Expected /password-reset, got: {login_page.driver.current_url}"
+        )
+
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_register_link_navigates_to_register(
         self,
         login_page: LoginPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-006b: Register link on login page navigates to /register."""
+        """TC-REQ-023-010: Register link on login page navigates to /register.
+
+        Spec: TC-023-006 -- Link zu Login von der Registrierungsseite.
+        """
         _ensure_logged_out(login_page.driver, login_page.base_url)
         login_page.open()
 
         login_page.click_register_link()
         login_page.wait_for_url_contains("/register")
-        screenshot("req023_015_register_page", "Register-Seite nach Navigation von Login")
+        screenshot(
+            "TC-REQ-023-010_register-page",
+            "Register page after navigation from login",
+        )
 
         assert "/register" in login_page.driver.current_url, (
-            f"Expected /register, got: {login_page.driver.current_url}"
+            f"TC-REQ-023-010 FAIL: Expected /register, got: {login_page.driver.current_url}"
         )

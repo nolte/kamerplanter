@@ -58,6 +58,11 @@ class TaskDetailPage(BasePage):
         )
         return el.text
 
+    def get_page_text(self) -> str:
+        """Return the visible text content of the page container."""
+        el = self.wait_for_element(self.PAGE)
+        return el.text
+
     # ── Tabs ───────────────────────────────────────────────────────────
 
     def get_tab_labels(self) -> list[str]:

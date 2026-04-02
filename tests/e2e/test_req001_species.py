@@ -175,10 +175,12 @@ class TestSpeciesDetailPage:
         assert title, "Page title should show species name"
         tabs = species_detail.get_tab_labels()
         tabs_upper = [t.strip().upper() for t in tabs if t.strip()]
-        assert len(tabs_upper) >= 3, f"Expected at least 3 tabs, got {tabs}"
+        assert len(tabs_upper) >= 6, f"Expected at least 6 tabs, got {tabs}"
         assert any("BEARBEITEN" in t for t in tabs_upper), f"Expected 'Bearbeiten' tab, got {tabs}"
         assert any("SORTEN" in t for t in tabs_upper), f"Expected 'Sorten' tab, got {tabs}"
         assert any("LEBENSZYKLUS" in t for t in tabs_upper), f"Expected 'Lebenszyklus' tab, got {tabs}"
+        assert any("MISCHKULTUR" in t for t in tabs_upper), f"Expected 'Mischkultur' tab, got {tabs}"
+        assert any("FRUCHTFOLGE" in t for t in tabs_upper), f"Expected 'Fruchtfolge' tab, got {tabs}"
         assert species_detail.has_delete_button(), "Delete button should be visible"
 
     @pytest.mark.core_crud

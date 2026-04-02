@@ -1,0 +1,2 @@
+api=http://frontend:80/api/v1/t/mein-garten
+result={'site_key': '23498', 'location_key': '23542'}

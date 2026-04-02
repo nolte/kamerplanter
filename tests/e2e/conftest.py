@@ -46,6 +46,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         choices=["light", "full"],
         help="Application mode — 'light' skips auth-dependent tests (default: full)",
     )
+    parser.addoption(
+        "--resume",
+        default=None,
+        help="Resume a previous interrupted test run from checkpoint. "
+             "Pass the test-reports/e2e/<timestamp>/ directory path.",
+    )
 
 
 # Import protocol_plugin — works both in-repo (as package) and in Docker (flat).
@@ -85,12 +91,27 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """Auto-skip tests marked ``requires_auth`` when running in light mode."""
+    """Auto-skip tests based on app mode and resume state."""
     if config.getoption("--app-mode") == "light":
         skip_light = pytest.mark.skip(reason="requires full auth mode (running in light mode)")
         for item in items:
             if "requires_auth" in item.keywords:
                 item.add_marker(skip_light)
+
+    # Resume mode: skip tests that already passed in a previous run
+    resume_dir = config.getoption("--resume", default=None)
+    if resume_dir:
+        checkpoint = Path(resume_dir) / "checkpoint.jsonl"
+        if checkpoint.exists():
+            passed_nodeids = set()
+            for r in _load_checkpoint(checkpoint):
+                if r.outcome == "passed":
+                    passed_nodeids.add(r.nodeid)
+            if passed_nodeids:
+                skip_resume = pytest.mark.skip(reason="already passed in previous run (--resume)")
+                for item in items:
+                    if item.nodeid in passed_nodeids:
+                        item.add_marker(skip_resume)
 
 
 @pytest.fixture(scope="session")
@@ -134,23 +155,52 @@ def e2e_seed_data(base_url: str) -> dict:
         except urllib.error.HTTPError as e:
             return e.code, []
 
+    # Idempotent seed: check whether our named site already exists before
+    # creating a new one.  This avoids accumulating duplicate "E2E-Teststandort"
+    # entries across repeated test runs.
+    SITE_NAME = "E2E-Sonnengarten"
+    LOCATION_NAME = "E2E-Wohnzimmer"
+    SLOT_LOCATION_NAME = "E2E-Gewaechshaus"
+
     try:
-        # Create a Site
-        status, site = _post(f"{api}/sites", {"name": "E2E-Teststandort", "description": "Automatisch angelegt fuer E2E-Tests"})
-        if status == 201:
-            result["site_key"] = site["key"]
-            # Create a Location within that Site
-            loc_status, loc = _post(
-                f"{api}/locations",
-                {"name": "E2E-Testraum", "site_key": site["key"], "location_type_key": "room"},
-            )
-            if loc_status == 201:
-                result["location_key"] = loc["key"]
+        # Check for existing site by name
+        list_status, sites = _get(f"{api}/sites")
+        existing_site = None
+        if list_status == 200 and isinstance(sites, list):
+            existing_site = next((s for s in sites if s.get("name") == SITE_NAME), None)
+
+        if existing_site:
+            result["site_key"] = existing_site["key"]
+            # Ensure location exists within this site
+            tree_status, tree = _get(f"{api}/locations/tree?site_key={existing_site['key']}")
+            if tree_status == 200 and isinstance(tree, list) and tree:
+                result["location_key"] = tree[0]["key"]
         else:
-            # Site may already exist or API returned unexpected status — list existing
-            list_status, sites = _get(f"{api}/sites")
-            if list_status == 200 and isinstance(sites, list) and sites:
-                result["site_key"] = sites[0]["key"]
+            # Create a recognizable Site with realistic data
+            status, site = _post(f"{api}/sites", {
+                "name": SITE_NAME,
+                "description": "Automatisch angelegt fuer E2E-Tests — Balkon und Wohnzimmer",
+                "climate_zone": "8a",
+                "total_area_m2": 45,
+                "timezone": "Europe/Berlin",
+            })
+            if status == 201:
+                result["site_key"] = site["key"]
+                # Create two Locations with distinct types for tree/detail tests
+                loc_status, loc = _post(f"{api}/locations", {
+                    "name": LOCATION_NAME,
+                    "site_key": site["key"],
+                    "location_type_key": "room",
+                    "area_m2": 18,
+                })
+                if loc_status == 201:
+                    result["location_key"] = loc["key"]
+                _post(f"{api}/locations", {
+                    "name": SLOT_LOCATION_NAME,
+                    "site_key": site["key"],
+                    "location_type_key": "greenhouse",
+                    "area_m2": 12,
+                })
     except (urllib.error.URLError, OSError) as exc:
         result["error"] = str(exc)
 
@@ -359,31 +409,117 @@ def pytest_runtest_makereport(item: pytest.Item) -> None:
             screenshots: list[ScreenshotEntry] = getattr(
                 item, "_protocol_screenshots", []
             )
-            _protocol_generator.add_result(
-                TestResult(
-                    nodeid=item.nodeid,
-                    outcome=outcome_str,
-                    duration=report.duration,
-                    message=message,
-                    docstring=docstring,
-                    screenshots=screenshots,
-                )
+            result = TestResult(
+                nodeid=item.nodeid,
+                outcome=outcome_str,
+                duration=report.duration,
+                message=message,
+                docstring=docstring,
+                screenshots=screenshots,
             )
+            _protocol_generator.add_result(result)
+            # Incremental checkpoint — append to JSONL so partial results
+            # survive interrupts (Ctrl+C, crash, timeout).
+            _write_checkpoint(result)
+
+
+def _write_checkpoint(result: TestResult) -> None:
+    """Append a single test result to the JSONL checkpoint file.
+
+    Each line is a self-contained JSON object.  On interrupt the file
+    contains all results completed so far and can be used to:
+    1. Generate a partial protocol (``--generate-protocol``)
+    2. Resume a test run (``--resume``)
+    """
+    import json
+    if _protocol_output_dir is None:
+        return
+    checkpoint = _protocol_output_dir / "checkpoint.jsonl"
+    checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "nodeid": result.nodeid,
+        "outcome": result.outcome,
+        "duration": result.duration,
+        "message": result.message[:500] if result.message else "",
+        "docstring": result.docstring,
+        "screenshots": [
+            {"filename": s.filename, "description": s.description}
+            for s in result.screenshots
+        ],
+    }
+    with checkpoint.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+def _load_checkpoint(checkpoint_path: Path) -> list[TestResult]:
+    """Load results from a JSONL checkpoint file."""
+    import json
+    results: list[TestResult] = []
+    if not checkpoint_path.exists():
+        return results
+    for line in checkpoint_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        entry = json.loads(line)
+        results.append(TestResult(
+            nodeid=entry["nodeid"],
+            outcome=entry["outcome"],
+            duration=entry.get("duration", 0.0),
+            message=entry.get("message", ""),
+            docstring=entry.get("docstring", ""),
+            screenshots=[
+                ScreenshotEntry(
+                    filename=s["filename"],
+                    description=s["description"],
+                    test_nodeid=entry["nodeid"],
+                )
+                for s in entry.get("screenshots", [])
+            ],
+        ))
+    return results
+
+
+def _generate_protocol_safe() -> None:
+    """Generate the protocol from whatever results exist — safe to call on interrupt."""
+    if _protocol_generator is not None and _protocol_output_dir is not None:
+        try:
+            path = _protocol_generator.generate(_protocol_output_dir)
+            print(f"\nTestprotokoll geschrieben: {path}")
+        except Exception as exc:
+            print(f"\nWarnung: Protokoll-Generierung fehlgeschlagen: {exc}")
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
     """Initialize protocol generator if --generate-protocol is active."""
+    import atexit
     global _protocol_generator, _protocol_output_dir
+
     if session.config.getoption("--generate-protocol", default=False):
-        timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
-        _protocol_output_dir = Path("test-reports") / "e2e" / timestamp
-        _protocol_generator = ProtocolGenerator()
-        _protocol_generator.start_time = datetime.now(tz=timezone.utc)
+        resume_dir = session.config.getoption("--resume", default=None)
+        if resume_dir:
+            # Resume mode — load checkpoint from a previous interrupted run
+            resume_path = Path(resume_dir)
+            _protocol_output_dir = resume_path
+            _protocol_generator = ProtocolGenerator()
+            checkpoint = resume_path / "checkpoint.jsonl"
+            if checkpoint.exists():
+                loaded = _load_checkpoint(checkpoint)
+                _protocol_generator.results = loaded
+                _protocol_generator.start_time = datetime.now(tz=timezone.utc)
+                print(f"\nFortgesetzt mit {len(loaded)} Ergebnissen aus {checkpoint}")
+        else:
+            timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+            _protocol_output_dir = Path("test-reports") / "e2e" / timestamp
+            _protocol_generator = ProtocolGenerator()
+            _protocol_generator.start_time = datetime.now(tz=timezone.utc)
+
         session.config._protocol_output_dir = _protocol_output_dir  # type: ignore[attr-defined]
+
+        # Safety net: generate protocol even on unclean exit (Ctrl+C, crash)
+        atexit.register(_generate_protocol_safe)
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """Write the test protocol at the end of the session."""
-    if _protocol_generator is not None and _protocol_output_dir is not None:
-        path = _protocol_generator.generate(_protocol_output_dir)
-        print(f"\nTestprotokoll geschrieben: {path}")
+    _generate_protocol_safe()
