@@ -1,6 +1,6 @@
-"""Seed extended plant-info data from spec/ref/plant-info/*.md (185 documents).
+"""Seed extended plant-info data from spec/ref/plant-info/*.md and spec/plant-info/*.md.
 
-Loads 5 additional YAML files (plant_info_indoor_1/2/3, plant_info_outdoor_1/2)
+Loads 7 additional YAML files (plant_info_indoor_1/2/3/4, plant_info_outdoor_1/2/3)
 and seeds them using the same logic as seed_plant_info.py.
 
 All hardcoded data lives in seed_data/plant_info_indoor_*.yaml and
@@ -55,8 +55,10 @@ YAML_FILES = [
     "plant_info_indoor_1.yaml",
     "plant_info_indoor_2.yaml",
     "plant_info_indoor_3.yaml",
+    "plant_info_indoor_4.yaml",
     "plant_info_outdoor_1.yaml",
     "plant_info_outdoor_2.yaml",
+    "plant_info_outdoor_3.yaml",
 ]
 
 

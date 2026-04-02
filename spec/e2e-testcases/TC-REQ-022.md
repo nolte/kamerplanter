@@ -2,7 +2,7 @@
 req_id: REQ-022
 title: Einfache Pflegeerinnerungen fuer Zimmerpflanzen & Ueberwinterungsmanagement
 category: Pflege & Erinnerungen
-test_count: 68
+test_count: 86
 coverage_areas:
   - PflegeDashboardPage (/pflege) — Kartenansicht aller faelliger Erinnerungen
   - ReminderCard — Einzelne Erinnerungskarte mit Dringlichkeits-Badge
@@ -27,7 +27,12 @@ coverage_areas:
   - Ueberwinterungs-Erinnerungen (winter_protection, spring_uncover, tuber_dig)
   - Winterhaerte-Ampel-Widget im Dashboard
   - Fehlerbehandlung und Validierungsmeldungen
-generated: 2026-03-21
+  - OverwinteringProfile-Dialog (Anlegen, Bearbeiten, Loeschen, Abbrechen)
+  - Winterhaerte-Ampel in PlantInstance-Detailseite (gruen/gelb/rot + kein Profil)
+  - Knollen-Zyklus-Status-Anzeige (6 Statuses, Statuswechsel per Action-Button)
+  - Winterschutz-ReminderCard Anleitungstext und Bestaetigung
+  - Fruehlings-Erinnerungskarte Anleitungstext (Auswintern ab Datum)
+generated: 2026-04-02
 version: "2.4"
 ---
 
@@ -1837,19 +1842,538 @@ prominenten Ein-Tap-Bestaetigen-Button und einen dezenten Snooze-Link.
 
 ---
 
+## 23. UeberwinterungsProfil — CRUD (OverwinteringProfile-Dialog)
+
+### TC-022-069: OverwinteringProfile anlegen — Happy Path fuer Dahlie (dig_and_store)
+
+**Requirement**: REQ-022 § 2 — OverwinteringProfile Node, hardiness_rating='dig_and_store'
+**Priority**: Critical
+**Category**: Happy Path
+**Vorbedingungen**:
+- Nutzer ist eingeloggt als Tenant-Mitglied
+- Eine PlantInstance "Dahlie 'Bishop of Llandaff'" existiert und hat noch kein OverwinteringProfile
+- Nutzer befindet sich auf der PlantInstance-Detailseite dieser Pflanze
+
+**Testschritte**:
+1. Nutzer klickt auf den Tab oder Abschnitt "Ueberwinterung" auf der PlantInstance-Detailseite
+2. Nutzer sieht eine Schaltflaeche "Ueberwinterungsprofil anlegen" (oder vergleichbare leere Zustand Aktion)
+3. Nutzer klickt auf "Ueberwinterungsprofil anlegen"
+4. Ein Dialog "Ueberwinterungsprofil" oeffnet sich
+5. Nutzer waehlt im Dropdown "Winterhaerte" den Wert "Knollen ausgraben & einlagern" (hardiness_rating='dig_and_store')
+6. Nutzer waehlt im Dropdown "Winterschutz-Massnahme" den Wert "Ausgraben & Einlagern" (winter_action='dig_store')
+7. Nutzer setzt "Monat der Winterschutz-Aktion" auf "Oktober" (winter_action_month=10)
+8. Nutzer waehlt im Dropdown "Fruehlings-Aktion" den Wert "Neu einpflanzen" (spring_action='replant')
+9. Nutzer setzt "Monat der Fruehlings-Aktion" auf "Mai" (spring_action_month=5)
+10. Nutzer traegt im Feld "Lagermedium" den Wert "Sand" ein (storage_medium)
+11. Nutzer setzt "Kontrollintervall Lager (Tage)" auf 30 (storage_check_interval_days)
+12. Nutzer klickt "Speichern"
+
+**Erwartete Ergebnisse**:
+- Der Dialog schliesst sich nach dem Speichern
+- Eine Erfolgsmeldung (Snackbar) erscheint: "Ueberwinterungsprofil gespeichert"
+- Im Tab "Ueberwinterung" der PlantInstance-Detailseite wird das neu angelegte Profil angezeigt
+- Sichtbar sind: Winterhaerte "Knollen ausgraben & einlagern", Massnahme "Ausgraben & Einlagern", Monat Oktober, Fruehlings-Aktion "Neu einpflanzen" im Mai, Lagermedium "Sand", Kontrollintervall 30 Tage
+
+**Nachbedingungen**:
+- OverwinteringProfile fuer die Dahlie ist angelegt
+- Edge `has_overwintering_profile` verbindet PlantInstance mit OverwinteringProfile
+
+**Tags**: [req-022, overwintering-profile, anlegen, dig-and-store, dahlie, knollen, happy-path]
+
+---
+
+### TC-022-070: OverwinteringProfile anlegen — Kuebelplanze ins Winterquartier (frost_free)
+
+**Requirement**: REQ-022 § 2 — OverwinteringProfile Node, hardiness_rating='frost_free'
+**Priority**: High
+**Category**: Happy Path
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+- Eine PlantInstance "Oleander" hat noch kein OverwinteringProfile
+- Nutzer befindet sich auf der PlantInstance-Detailseite des Oleanders
+
+**Testschritte**:
+1. Nutzer oeffnet den OverwinteringProfile-Dialog fuer den Oleander
+2. Nutzer waehlt "Winterhaerte" = "Ins Winterquartier (5-12 Grad)" (hardiness_rating='frost_free')
+3. Nutzer waehlt "Winterschutz-Massnahme" = "Ins Haus bringen" (winter_action='move_indoors')
+4. Nutzer setzt "Monat der Winterschutz-Aktion" = "Oktober"
+5. Nutzer waehlt optional einen Standort aus dem Dropdown "Winterquartier" (winter_quarter_key)
+6. Nutzer traegt "Mindesttemperatur Winterquartier (Grad C)" = 5 ein (winter_quarter_temp_min)
+7. Nutzer traegt "Maximaltemperatur Winterquartier (Grad C)" = 12 ein (winter_quarter_temp_max)
+8. Nutzer waehlt "Lichtbedingungen Winterquartier" = "Hell" (winter_quarter_light='bright')
+9. Nutzer waehlt "Gießen im Winter" = "Reduziert" (winter_watering='reduced')
+10. Nutzer waehlt "Fruehlings-Aktion" = "Rausstellen" (spring_action='move_outdoors'), Monat Mai
+11. Nutzer klickt "Speichern"
+
+**Erwartete Ergebnisse**:
+- Dialog schliesst sich, Snackbar "Ueberwinterungsprofil gespeichert" erscheint
+- Im Tab "Ueberwinterung" sind alle eingegebenen Werte sichtbar, inkl. Winterquartier, Temperatur, Licht, Gießverhalten
+
+**Nachbedingungen**:
+- OverwinteringProfile mit hardiness_rating='frost_free' ist gespeichert
+
+**Tags**: [req-022, overwintering-profile, anlegen, frost-free, winterquartier, oleander, kuebelplanze]
+
+---
+
+### TC-022-071: OverwinteringProfile bearbeiten — Monat der Winterschutz-Aktion aendern
+
+**Requirement**: REQ-022 § 2 — OverwinteringProfile, winter_action_month aendern
+**Priority**: High
+**Category**: Dialog
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+- Eine PlantInstance hat ein OverwinteringProfile mit winter_action_month=10 (Oktober)
+- Nutzer befindet sich auf der PlantInstance-Detailseite
+
+**Testschritte**:
+1. Nutzer klickt auf den Tab "Ueberwinterung"
+2. Nutzer klickt auf "Bearbeiten" (Edit-Button) des angezeigten OverwinteringProfile
+3. Der OverwinteringProfile-Dialog oeffnet sich mit den bestehenden Werten vorbelegt
+4. Nutzer aendert "Monat der Winterschutz-Aktion" von "Oktober" auf "September"
+5. Nutzer klickt "Speichern"
+
+**Erwartete Ergebnisse**:
+- Dialog schliesst sich
+- Snackbar "Ueberwinterungsprofil aktualisiert" erscheint
+- Im Tab "Ueberwinterung" wird jetzt "September" als Winterschutz-Monat angezeigt (nicht mehr Oktober)
+
+**Nachbedingungen**:
+- OverwinteringProfile hat winter_action_month=9
+
+**Tags**: [req-022, overwintering-profile, bearbeiten, winter-action-month, september]
+
+---
+
+### TC-022-072: OverwinteringProfile bearbeiten — Lagermedium und Gießverhalten aendern
+
+**Requirement**: REQ-022 § 2 — OverwinteringProfile, storage_medium + winter_watering aendern
+**Priority**: Medium
+**Category**: Dialog
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+- Pflanze A (Canna) hat ein OverwinteringProfile mit storage_medium="Sand" und winter_watering='none'
+- Nutzer befindet sich auf der PlantInstance-Detailseite von Pflanze A
+
+**Testschritte**:
+1. Nutzer oeffnet den OverwinteringProfile-Dialog ueber "Bearbeiten"
+2. Nutzer aendert "Lagermedium" von "Sand" auf "Torf"
+3. Nutzer aendert "Gießen im Winter" von "Kein Gießen" auf "Minimal (alle 4-6 Wochen)"
+4. Nutzer klickt "Speichern"
+
+**Erwartete Ergebnisse**:
+- Dialog schliesst sich, Snackbar "Ueberwinterungsprofil aktualisiert" erscheint
+- Im Tab "Ueberwinterung" erscheinen die neuen Werte: Lagermedium "Torf", Gießen "Minimal"
+
+**Nachbedingungen**:
+- OverwinteringProfile hat storage_medium="Torf" und winter_watering='minimal'
+
+**Tags**: [req-022, overwintering-profile, bearbeiten, lagermedium, giesverhalten, canna]
+
+---
+
+### TC-022-073: OverwinteringProfile loeschen mit Bestaetigung
+
+**Requirement**: REQ-022 § 2 — OverwinteringProfile, Loeschen
+**Priority**: High
+**Category**: Dialog
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+- Pflanze A hat ein OverwinteringProfile
+
+**Testschritte**:
+1. Nutzer navigiert zum Tab "Ueberwinterung" der PlantInstance-Detailseite von Pflanze A
+2. Nutzer klickt auf "Loeschen" (Delete-Button) des OverwinteringProfile
+3. Ein Bestaetigungs-Dialog erscheint
+
+**Erwartete Ergebnisse**:
+- Der Bestaetigungs-Dialog zeigt einen Text wie: "Ueberwinterungsprofil loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden."
+- Buttons "Abbrechen" und "Loeschen" sind sichtbar
+- Nach Klick auf "Loeschen": Dialog schliesst sich, Snackbar "Ueberwinterungsprofil geloescht" erscheint
+- Im Tab "Ueberwinterung" erscheint nun der leere Zustand mit dem Aktions-Button "Ueberwinterungsprofil anlegen"
+
+**Nachbedingungen**:
+- OverwinteringProfile wurde entfernt; der leere Zustand ist im Tab sichtbar
+
+**Tags**: [req-022, overwintering-profile, loeschen, confirm-dialog, leerer-zustand]
+
+---
+
+### TC-022-074: OverwinteringProfile-Dialog — Abbrechen verwirft Aenderungen
+
+**Requirement**: REQ-022 § 2 — OverwinteringProfile Dialog, Abbrechen-Button
+**Priority**: Medium
+**Category**: Dialog
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+- Pflanze A hat ein OverwinteringProfile mit winter_action_month=10
+
+**Testschritte**:
+1. Nutzer oeffnet den OverwinteringProfile-Dialog fuer Pflanze A
+2. Nutzer aendert "Monat der Winterschutz-Aktion" von "Oktober" auf "September"
+3. Nutzer klickt "Abbrechen"
+
+**Erwartete Ergebnisse**:
+- Der Dialog schliesst sich ohne zu speichern
+- Im Tab "Ueberwinterung" wird weiterhin "Oktober" angezeigt (keine Aenderung)
+- Keine Snackbar erscheint
+
+**Nachbedingungen**:
+- OverwinteringProfile unveraendert (winter_action_month=10)
+
+**Tags**: [req-022, overwintering-profile, abbrechen, keine-aenderung, dialog]
+
+---
+
+## 24. Winterhaerte-Ampel in der PlantInstance-Detailseite
+
+### TC-022-075: Winterhaerte-Ampel zeigt "Gruen" fuer frostharte Pflanze in passender Klimazone
+
+**Requirement**: REQ-022 § 2 — Winterhaerte-Ampel, Ampel-Logik "Winterhart (gruen)"
+**Priority**: Critical
+**Category**: Detailansicht
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+- Pflanze A ist ein Schneeglöckchen (Species.frost_sensitivity='hardy', hardiness_zone_min="5a")
+- Der zugehoerige Site hat climate_zone="6b" (milde Klimazone, kein Problem)
+- Pflanze A hat ein OverwinteringProfile mit hardiness_rating='hardy'
+- Nutzer befindet sich auf der PlantInstance-Detailseite von Pflanze A
+
+**Testschritte**:
+1. Nutzer klickt auf den Tab "Ueberwinterung"
+2. Nutzer betrachtet die Winterhaerte-Ampel-Anzeige
+
+**Erwartete Ergebnisse**:
+- Ein gruenes Ampel-Element (oder gruenes Badge/Icon) ist sichtbar
+- Die Beschriftung lautet "Winterhart" oder aequivalent (i18n: enums.hardinessRating.hardy)
+- Der Hinweistext lautet sinngemaeß: "Kein Winterschutz erforderlich. Pflanze uebersteht den Winter im Freien."
+- Keine Winterschutz-Warnung ist auf der Seite sichtbar
+
+**Nachbedingungen**:
+- Kein Status geaendert
+
+**Tags**: [req-022, winterhaerte-ampel, gruen, hardy, schneeglöckchen, plant-detail, klimazone]
+
+---
+
+### TC-022-076: Winterhaerte-Ampel zeigt "Gelb" fuer bedingt frostharte Pflanze
+
+**Requirement**: REQ-022 § 2 — Winterhaerte-Ampel, Ampel-Logik "Schutz noetig (gelb)"
+**Priority**: Critical
+**Category**: Detailansicht
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+- Pflanze A ist eine Rose (Species.frost_sensitivity='half_hardy')
+- Pflanze A hat ein OverwinteringProfile mit hardiness_rating='needs_protection'
+- Nutzer befindet sich auf der PlantInstance-Detailseite von Pflanze A
+
+**Testschritte**:
+1. Nutzer klickt auf den Tab "Ueberwinterung"
+2. Nutzer betrachtet die Winterhaerte-Ampel-Anzeige
+
+**Erwartete Ergebnisse**:
+- Ein gelbes Ampel-Element (oder gelbes/orangenes Badge/Icon) ist sichtbar
+- Die Beschriftung lautet "Schutz noetig" oder aequivalent (i18n: enums.hardinessRating.needs_protection)
+- Der Hinweistext beschreibt empfohlene Massnahmen: z.B. "Mulch, Vlies oder Anhaeufeln empfohlen"
+- Die konfigurierte Winterschutz-Massnahme (winter_action) wird ebenfalls angezeigt
+
+**Nachbedingungen**:
+- Kein Status geaendert
+
+**Tags**: [req-022, winterhaerte-ampel, gelb, half-hardy, needs-protection, rose, plant-detail]
+
+---
+
+### TC-022-077: Winterhaerte-Ampel zeigt "Rot" fuer frostempfindliche Pflanze (muss rein)
+
+**Requirement**: REQ-022 § 2 — Winterhaerte-Ampel, Ampel-Logik "Muss rein (rot)"
+**Priority**: Critical
+**Category**: Detailansicht
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+- Pflanze A ist eine Dahlie (Species.frost_sensitivity='tender')
+- Pflanze A hat ein OverwinteringProfile mit hardiness_rating='dig_and_store'
+- Nutzer befindet sich auf der PlantInstance-Detailseite von Pflanze A
+
+**Testschritte**:
+1. Nutzer klickt auf den Tab "Ueberwinterung"
+2. Nutzer betrachtet die Winterhaerte-Ampel-Anzeige
+
+**Erwartete Ergebnisse**:
+- Ein rotes Ampel-Element (oder rotes Badge/Icon) ist sichtbar
+- Die Beschriftung lautet "Muss rein" oder "Knollen ausgraben" (i18n: enums.hardinessRating.dig_and_store)
+- Der Hinweistext beschreibt konkrete Handlungsanweisung: z.B. "Knollen ausgraben und frostfrei einlagern"
+- Die Ampelfarbe ist deutlich als Warnung erkennbar (MUI error.main oder aequivalent)
+
+**Nachbedingungen**:
+- Kein Status geaendert
+
+**Tags**: [req-022, winterhaerte-ampel, rot, tender, dig-and-store, dahlie, plant-detail, warnung]
+
+---
+
+### TC-022-078: Winterhaerte-Ampel fehlt wenn kein OverwinteringProfile vorhanden
+
+**Requirement**: REQ-022 § 2 — OverwinteringProfile, leerer Zustand im Tab
+**Priority**: Medium
+**Category**: Detailansicht
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+- Pflanze A ist eine Zimmerpflanze ohne OverwinteringProfile
+
+**Testschritte**:
+1. Nutzer klickt auf den Tab "Ueberwinterung" der PlantInstance-Detailseite von Pflanze A
+
+**Erwartete Ergebnisse**:
+- Kein Ampel-Element ist sichtbar
+- Ein leerer Zustand mit Text sinngemaeß "Kein Ueberwinterungsprofil vorhanden" wird angezeigt
+- Der Aktions-Button "Ueberwinterungsprofil anlegen" ist sichtbar
+
+**Nachbedingungen**:
+- Kein Status geaendert
+
+**Tags**: [req-022, winterhaerte-ampel, kein-profil, leerer-zustand, plant-detail]
+
+---
+
+## 25. Knollen-Zyklus-Status-Anzeige (tuber_status)
+
+### TC-022-079: Knollen-Zyklus-Status "Eingepflanzt" (planted) wird in PlantInstance-Detail angezeigt
+
+**Requirement**: REQ-022 § 2 — Knollen-/Zwiebel-Zyklus, tuber_status='planted'
+**Priority**: High
+**Category**: Detailansicht
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+- Pflanze A (Dahlie) hat ein OverwinteringProfile mit hardiness_rating='dig_and_store' und tuber_status='planted'
+- Aktueller Monat ist Mai
+
+**Testschritte**:
+1. Nutzer navigiert zur PlantInstance-Detailseite von Pflanze A
+2. Nutzer klickt auf den Tab "Ueberwinterung"
+3. Nutzer betrachtet die Knollen-Zyklus-Anzeige
+
+**Erwartete Ergebnisse**:
+- Ein Zyklus-Status-Element ist sichtbar (z.B. Fortschrittsanzeige, Badge oder Status-Chip)
+- Der aktuelle Status zeigt "Eingepflanzt" (tuber_status='planted')
+- Der naechste erwartete Status-Schritt ("Wachsend") ist erkennbar
+
+**Nachbedingungen**:
+- Kein Status geaendert
+
+**Tags**: [req-022, knollen-zyklus, tuber-status, planted, dahlie, plant-detail, mai]
+
+---
+
+### TC-022-080: Knollen-Zyklus-Status "Ausgraben ausstehend" (dig_pending) zeigt kritische Warnung
+
+**Requirement**: REQ-022 § 2 — Knollen-Zyklus, tuber_status='dig_pending', Prioritaet critical
+**Priority**: Critical
+**Category**: Detailansicht
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+- Pflanze A (Dahlie) hat tuber_status='dig_pending' (Ausgraben steht bevor, Frost naht)
+- Aktueller Monat ist Oktober
+
+**Testschritte**:
+1. Nutzer navigiert zur PlantInstance-Detailseite von Pflanze A
+2. Nutzer klickt auf den Tab "Ueberwinterung"
+
+**Erwartete Ergebnisse**:
+- Der Status-Chip oder Badge zeigt "Ausgraben ausstehend" (tuber_status='dig_pending')
+- Eine auffaellige Warnung (rot oder kritisch) ist sichtbar, z.B.: "Knollen muessen vor dem Frost ausgegraben werden!"
+- Auf der PflegeDashboardPage erscheint ebenfalls eine "tuber_dig"-Erinnerungskarte fuer diese Pflanze
+
+**Nachbedingungen**:
+- Kein Status geaendert
+
+**Tags**: [req-022, knollen-zyklus, dig-pending, kritische-warnung, oktober, frost, plant-detail]
+
+---
+
+### TC-022-081: Knollen-Zyklus-Status "Eingelagert" (stored) zeigt Lagerdetails
+
+**Requirement**: REQ-022 § 2 — Knollen-Zyklus, tuber_status='stored', Lagerdetails sichtbar
+**Priority**: High
+**Category**: Detailansicht
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+- Pflanze A (Dahlie) hat tuber_status='stored', storage_medium="Sand", storage_check_interval_days=30
+- Aktueller Monat ist Dezember
+
+**Testschritte**:
+1. Nutzer navigiert zur PlantInstance-Detailseite von Pflanze A
+2. Nutzer klickt auf den Tab "Ueberwinterung"
+
+**Erwartete Ergebnisse**:
+- Status-Anzeige zeigt "Eingelagert" (tuber_status='stored')
+- Lagerdetails sind sichtbar: "Lagermedium: Sand", "Kontrollintervall: 30 Tage"
+- Ein Hinweis zum naechsten Knollen-Kontroll-Datum ist sichtbar (basierend auf storage_check_interval_days und letzter Bestaetigung)
+
+**Nachbedingungen**:
+- Kein Status geaendert
+
+**Tags**: [req-022, knollen-zyklus, stored, lagerdetails, sand, dezember, plant-detail]
+
+---
+
+### TC-022-082: Knollen-Zyklus-Status manuell aktualisieren (z.B. "Trocknen" nach Ausgraben bestaetigen)
+
+**Requirement**: REQ-022 § 2 — Knollen-Zyklus, tuber_status von dig_pending nach drying
+**Priority**: High
+**Category**: Zustandswechsel
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+- Pflanze A (Dahlie) hat tuber_status='dig_pending'
+- Nutzer hat die Knollen ausgegraben und moechte den Status aktualisieren
+
+**Testschritte**:
+1. Nutzer navigiert zur PlantInstance-Detailseite von Pflanze A, Tab "Ueberwinterung"
+2. Nutzer sieht den Status "Ausgraben ausstehend" mit einem Action-Button "Ausgegraben — jetzt trocknen" (oder aequivalent)
+3. Nutzer klickt auf den Action-Button
+
+**Erwartete Ergebnisse**:
+- Der Status-Chip wechselt zu "Trocknen" (tuber_status='drying')
+- Eine Snackbar "Status aktualisiert: Dahlie trocknet" oder aequivalent erscheint
+- Der zugehoerige tuber_dig-Task auf der PflegeDashboardPage verschwindet oder wird als erledigt markiert
+
+**Nachbedingungen**:
+- OverwinteringProfile hat tuber_status='drying'
+
+**Tags**: [req-022, knollen-zyklus, status-wechsel, dig-pending, drying, action-button]
+
+---
+
+### TC-022-083: Alle sechs Knollen-Zyklus-Statuses sind in der Auswahl verfuegbar
+
+**Requirement**: REQ-022 § 2 — tuber_status Literal, 6 Werte
+**Priority**: Medium
+**Category**: Formvalidierung
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+- OverwinteringProfile-Dialog ist geoeffnet fuer eine Pflanze mit hardiness_rating='dig_and_store'
+
+**Testschritte**:
+1. Nutzer navigiert zum Feld "Knollen-Zyklus-Status" (tuber_status) im OverwinteringProfile-Dialog
+2. Nutzer oeffnet das Dropdown und betrachtet alle verfuegbaren Optionen
+
+**Erwartete Ergebnisse**:
+- Das Dropdown zeigt genau 6 Optionen:
+  - "Eingepflanzt" (planted)
+  - "Wachsend" (growing)
+  - "Ausgraben ausstehend" (dig_pending)
+  - "Trocknen" (drying)
+  - "Eingelagert" (stored)
+  - "Vorziehen" (pre_sprouting)
+- Das Feld ist nur sichtbar wenn hardiness_rating='dig_and_store' (nicht fuer andere Winterharte-Kategorien)
+
+**Nachbedingungen**:
+- Kein Status geaendert
+
+**Tags**: [req-022, knollen-zyklus, alle-statuses, dropdown, dig-and-store, formvalidierung]
+
+---
+
+## 26. Spezifische Erinnerungstexte fuer Ueberwinterungs-Aktionen
+
+### TC-022-084: Winterschutz-Erinnerungskarte zeigt "Einwintern bis Oktober" Hinweis
+
+**Requirement**: REQ-022 § 1 — Erinnerungstyp winter_protection, ReminderCard Anleitungstext
+**Priority**: High
+**Category**: Detailansicht
+**Vorbedingungen**:
+- Aktuelles Datum ist 3. Oktober (NH)
+- Pflanze A (Kuebelplanze Oleander) hat OverwinteringProfile mit winter_action='move_indoors', winter_action_month=10
+- Kein Winterschutz ist bisher ausgefuehrt worden (keine Bestaetigung)
+
+**Testschritte**:
+1. Nutzer navigiert zur PflegeDashboardPage `/pflege`
+2. Nutzer sucht die Winterschutz-Erinnerungskarte fuer Pflanze A (Erinnerungstyp: winter_protection)
+
+**Erwartete Ergebnisse**:
+- Eine ReminderCard fuer Pflanze A mit Erinnerungstyp "Winterschutz" erscheint
+- Das Dringlichkeits-Badge zeigt hohe Prioritaet (z.B. orange oder rot)
+- Der Anleitungstext lautet sinngemaeß: "Oleander ins Winterquartier bringen. Monat: Oktober."
+  (i18n-Key: pages.care.instructions.winter_protection mit plant_name und month interpoliert)
+- Der Bestaetigen-Button zeigt "Erledigt" oder "Eingewintert"
+
+**Nachbedingungen**:
+- Kein Status geaendert
+
+**Tags**: [req-022, winter-protection, reminder-card, einwintern, oktober, oleander, anleitungstext]
+
+---
+
+### TC-022-085: Fruehlings-Erinnerungskarte zeigt "Auswintern ab Maerz" Hinweis
+
+**Requirement**: REQ-022 § 1 — Erinnerungstyp spring_uncover, spring_action_month=3, ReminderCard
+**Priority**: High
+**Category**: Detailansicht
+**Vorbedingungen**:
+- Aktuelles Datum ist 5. Maerz (NH)
+- Pflanze A (Rose) hat OverwinteringProfile mit spring_action='uncover', spring_action_month=3
+- Pflanze A wurde im Oktober ordnungsgemaess eingewintert (Bestaetigung winter_protection vorhanden)
+
+**Testschritte**:
+1. Nutzer navigiert zur PflegeDashboardPage `/pflege`
+2. Nutzer sucht die Fruehlings-Erinnerungskarte fuer Pflanze A (Erinnerungstyp: spring_uncover)
+
+**Erwartete Ergebnisse**:
+- Eine ReminderCard fuer Pflanze A mit Erinnerungstyp "Frühlings-Auspacken" erscheint
+- Das Dringlichkeits-Badge zeigt "Heute fällig" oder entsprechendes
+- Der Anleitungstext lautet sinngemaeß: "Winterschutz bei [Pflanzennamen] entfernen. Monat: Maerz."
+  (i18n-Key: pages.care.instructions.spring_uncover mit plant_name und month interpoliert)
+- Der Bestaetigen-Button zeigt "Erledigt" oder "Ausgepflanzt"
+
+**Nachbedingungen**:
+- Kein Status geaendert
+
+**Tags**: [req-022, spring-uncover, reminder-card, auswintern, maerz, rose, fruehling, anleitungstext]
+
+---
+
+### TC-022-086: Winterschutz-Erinnerung bestaetigen — Status wechselt auf "Eingewintert"
+
+**Requirement**: REQ-022 § 1 — Ein-Tap-Bestaetigung winter_protection, CareConfirmation
+**Priority**: High
+**Category**: Zustandswechsel
+**Vorbedingungen**:
+- Aktuelles Datum ist 4. Oktober (NH)
+- Pflanze A hat eine faellige winter_protection-Erinnerung auf der PflegeDashboardPage
+- Nutzer navigiert zur PflegeDashboardPage
+
+**Testschritte**:
+1. Nutzer sieht die Winterschutz-ReminderCard fuer Pflanze A
+2. Nutzer klickt auf den Bestaetigen-Button "Erledigt"
+
+**Erwartete Ergebnisse**:
+- Die Winterschutz-Karte verschwindet sofort aus der Dashboard-Liste (optimistisches Update)
+- Eine Snackbar erscheint: "Winterschutz fuer [Pflanzennamen] bestaetigt"
+- Wenn Nutzer zur Bestaetigungshistorie navigiert: Ein Eintrag "Winterschutz — Bestaetigt — heute" ist sichtbar
+
+**Nachbedingungen**:
+- CareConfirmation mit reminder_type='winter_protection', action='confirmed' ist erstellt
+- Naechste winter_protection-Erinnerung fuer diese Pflanze wird erst im naechsten Oktober generiert
+
+**Tags**: [req-022, winter-protection, bestaetigung, optimistic-update, care-confirmation, oktober]
+
+---
+
 ## Abdeckungsmatrix
 
 | Spec-Abschnitt | Beschreibung | Testfall-IDs |
 |----------------|-------------|--------------|
 | § 1 Business Case — Care-Style-Presets | 9 Presets, Gießmethoden, Wasserqualitaets-Hinweise | TC-022-005, TC-022-006, TC-022-007, TC-022-028, TC-022-046, TC-022-047 |
-| § 1 Business Case — Erinnerungstypen (10 Typen) | watering, fertilizing, repotting, pest_check, location_check, humidity_check, winter_protection, spring_uncover, tuber_dig, storage_check | TC-022-012, TC-022-013, TC-022-014, TC-022-038, TC-022-039, TC-022-040, TC-022-043, TC-022-059, TC-022-061, TC-022-062 |
+| § 1 Business Case — Erinnerungstypen (10 Typen) | watering, fertilizing, repotting, pest_check, location_check, humidity_check, winter_protection, spring_uncover, tuber_dig, storage_check | TC-022-012, TC-022-013, TC-022-014, TC-022-038, TC-022-039, TC-022-040, TC-022-043, TC-022-059, TC-022-061, TC-022-062, TC-022-084, TC-022-085, TC-022-086 |
 | § 1 Business Case — Dünge-Guard | Saison + Dormanz-Phasen | TC-022-031, TC-022-032, TC-022-033, TC-022-034 |
 | § 1 Business Case — Adaptive Learning | 3 konsistente Signale, ±30% Grenze | TC-022-025, TC-022-052, TC-022-053 |
 | § 1 Business Case — Gießplan-Guard | Unterdrueckung bei aktivem WateringSchedule | TC-022-036, TC-022-037, TC-022-068 |
 | § 1 Business Case — Winter-Multiplikator | Saisonale Gießintervall-Anpassung | TC-022-046, TC-022-047 |
 | § 1 Business Case — Acclimatization-Faktor 1.3 | Gießintervall bei neuer Pflanze | TC-022-033, TC-022-035 |
-| § 2 ArangoDB — Winterhaerte-Ampel | Ampel-Logik, Guard fuer frostharte Pflanzen | TC-022-059, TC-022-060, TC-022-063, TC-022-064 |
-| § 2 ArangoDB — Knollen-Zyklus | 6 Status-Stufen, storage_check | TC-022-062 |
+| § 2 ArangoDB — OverwinteringProfile CRUD | Anlegen, Bearbeiten, Loeschen, Abbrechen | TC-022-069, TC-022-070, TC-022-071, TC-022-072, TC-022-073, TC-022-074 |
+| § 2 ArangoDB — Winterhaerte-Ampel (PlantInstance-Detail) | Gruen/Gelb/Rot, kein Profil vorhanden | TC-022-075, TC-022-076, TC-022-077, TC-022-078 |
+| § 2 ArangoDB — Winterhaerte-Ampel (Dashboard-Widget) | Ampel-Logik, Guard fuer frostharte Pflanzen | TC-022-059, TC-022-060, TC-022-063, TC-022-064 |
+| § 2 ArangoDB — Knollen-Zyklus (6 Statuses) | planted, growing, dig_pending, drying, stored, pre_sprouting | TC-022-079, TC-022-080, TC-022-081, TC-022-082, TC-022-083 |
 | § 2 ArangoDB — Deadheading-Guard | self_cleaning Cultivar | TC-022-065, TC-022-066 |
 | § 3 Technische Umsetzung — Auto-Generierung CareProfile | get_or_create_profile, Mapping-Logik | TC-022-048, TC-022-049 |
 | § 3 Technische Umsetzung — CareConfirmation-Interop | Gießplan-Bestaetigung erzeugt CareConfirmation | TC-022-068 |
@@ -1862,7 +2386,7 @@ prominenten Ein-Tap-Bestaetigen-Button und einen dezenten Snooze-Link.
 | § 5.2 Frontend — CareProfileEditDialog | Slider, Chips, Toggles, Speichern | TC-022-019 bis TC-022-026 |
 | § 5.2 Frontend — Care-Style-Wechsel | Bestaetigungs-Dialog, Reset aller Intervalle | TC-022-027, TC-022-028, TC-022-029 |
 | § 5.3 Frontend — REQ-021 Integration | Einsteiger-Pflegekarte, Naechste-Aktion | TC-022-067 |
-| § 5.4 Frontend — Optimistic Updates | Confirm/Snooze sofortige UI-Aktualisierung, Rollback | TC-022-012, TC-022-015, TC-022-016 |
+| § 5.4 Frontend — Optimistic Updates | Confirm/Snooze sofortige UI-Aktualisierung, Rollback | TC-022-012, TC-022-015, TC-022-016, TC-022-086 |
 | § 5.6 Frontend — Navigations-Tiering | Einsteiger Position 3, Experte Position 6 | TC-022-003, TC-022-004 |
 | § 6 Akzeptanzkriterien — Reset-Profile | Zuruecksetzen auf Species-Defaults | TC-022-030 |
 | § 6 Akzeptanzkriterien — Bestaetigungshistorie | history Endpunkt, Filter | TC-022-050, TC-022-051 |

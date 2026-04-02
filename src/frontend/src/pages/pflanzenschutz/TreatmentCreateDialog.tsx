@@ -104,6 +104,7 @@ export default function TreatmentCreateDialog({ open, onClose, onCreated }: Prop
             control={control}
             label={t('pages.ipm.treatmentName')}
             required
+            autoFocus
             helperText={t('pages.ipm.treatmentNameHelper')}
           />
           <FormSelectField

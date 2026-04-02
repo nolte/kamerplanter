@@ -242,6 +242,32 @@ pests:
     optimal_temp_max: 28.0
     detection_difficulty: medium
 
+  # --- Aquatic pests (Nymphaea) ---
+
+  - scientific_name: Rhopalosiphum nymphaeae
+    common_name: Water Lily Aphid  # Seerosenblattlaus
+    pest_type: insect
+    lifecycle_days: 14
+    optimal_temp_min: 18.0
+    optimal_temp_max: 28.0
+    detection_difficulty: easy
+
+  - scientific_name: Galerucella nymphaeae
+    common_name: Water Lily Leaf Beetle  # Seerosenblattkäfer
+    pest_type: insect
+    lifecycle_days: 45
+    optimal_temp_min: 16.0
+    optimal_temp_max: 26.0
+    detection_difficulty: medium
+
+  - scientific_name: Elophila nymphaeata
+    common_name: Brown China-mark Moth  # Seerosenzünsler
+    pest_type: insect
+    lifecycle_days: 60
+    optimal_temp_min: 15.0
+    optimal_temp_max: 25.0
+    detection_difficulty: medium
+
 diseases:
   - scientific_name: Erysiphe spp.
     common_name: Powdery Mildew
@@ -447,6 +473,45 @@ diseases:
     incubation_period_days: 30
     environmental_triggers: [waterlogged_soil, stressed_trees]
     affected_plant_parts: [root, stem]
+
+  # --- Dracaena-specific diseases ---
+
+  - scientific_name: Fusarium moniliforme
+    common_name: Fusarium Leaf Spot (Dracaena)
+    pathogen_type: fungal
+    incubation_period_days: 10
+    environmental_triggers: [waterlogging, poor_ventilation, wound_entry]
+    affected_plant_parts: [leaf]
+
+  - scientific_name: Erwinia carotovora
+    common_name: Soft Stem Rot (Erwinia)
+    pathogen_type: bacterial
+    incubation_period_days: 7
+    environmental_triggers: [overwatering, wound_entry]
+    affected_plant_parts: [stem, root]
+
+  - scientific_name: null
+    common_name: Fluoride Tip Burn
+    pathogen_type: physiological
+    incubation_period_days: 7
+    environmental_triggers: [fluoride_exposure, salt_accumulation, low_humidity]
+    affected_plant_parts: [leaf]
+
+  # --- Aquatic diseases (Nymphaea) ---
+
+  - scientific_name: Ramularia nymphaearum
+    common_name: Water Lily Leaf Spot (Ramularia)
+    pathogen_type: fungal
+    incubation_period_days: 10
+    environmental_triggers: [high_humidity, poor_air_circulation]
+    affected_plant_parts: [leaf]
+
+  - scientific_name: null
+    common_name: Rhizome Rot (Water Lily)
+    pathogen_type: bacterial
+    incubation_period_days: 21
+    environmental_triggers: [overwatering, anaerobic_substrate, wound_entry]
+    affected_plant_parts: [root]
 
 treatments:
   # Cultural (4) — existing
@@ -802,6 +867,57 @@ treatments:
       after rain. Wear mask during application (respiratory irritant).
       Approved for organic farming.
 
+  # --- Dracaena / indoor treatments ---
+
+  - name: Rubbing Alcohol Swab (70%)
+    treatment_type: mechanical
+    application_method: cultural
+    description: >-
+      Dab 70% isopropyl alcohol directly on mealybugs and scale insects
+      with cotton swab. Dissolves the waxy coating and kills on contact.
+      Test on a small leaf area first to check for phytotoxicity. No
+      safety interval (ornamental use only).
+
+  - name: Bacillus thuringiensis israelensis (Bti)
+    treatment_type: biological
+    active_ingredient: Bti toxin
+    application_method: drench
+    safety_interval_days: 0
+    description: >-
+      Biological control of fungus gnat larvae (Bradysia spp.). Applied
+      via irrigation water. Bti produces protein crystals toxic to
+      Diptera larvae but harmless to plants, pets, and beneficial
+      insects. Products: Gnatrol WDG, Solbac. Apply 2-3 times at
+      weekly intervals for best results.
+
+  # --- Aquatic treatments (Nymphaea) ---
+
+  - name: Submerge Leaves (Aphid Removal)
+    treatment_type: mechanical
+    application_method: cultural
+    description: >-
+      Push infested water lily leaves briefly underwater (10-15 sec).
+      Aphids fall off and are eaten by fish. Fully aquatic-safe, no
+      chemicals involved. Repeat weekly during infestation.
+
+  - name: Remove Infested Leaves (Aquatic)
+    treatment_type: cultural
+    application_method: cultural
+    description: >-
+      Cut heavily infested or diseased water plant leaves at the stalk
+      and dispose in household waste (not compost). Reduces pest and
+      pathogen reservoir. Fully aquatic-safe. The primary treatment
+      method for pond plants where chemical treatments are prohibited.
+
+  - name: Yellow Sticky Traps (Pond Edge)
+    treatment_type: mechanical
+    application_method: cultural
+    description: >-
+      Place yellow sticky traps 30-50 cm above water surface at pond
+      edge. Catches flying water lily aphids and beetles. Do NOT place
+      directly over water (risk of trapping beneficial insects and
+      birds). Monitoring and mass-trapping function.
+
 pest_treatments:
   # Existing mappings
   - [Phytoseiulus persimilis, Spider Mites]
@@ -952,6 +1068,25 @@ disease_treatments:
   - [Sanitation, Bacterial Canker]
   - [Resistant Varieties, Cucumber Mosaic Virus]
   - [Sanitation, Honey Fungus]
+
+  # Dracaena IPM edges
+  - [Bacillus subtilis, Fusarium Leaf Spot (Dracaena)]
+  - [Copper Fungicide (Bordeaux Mixture), Soft Stem Rot (Erwinia)]
+  - [Bacillus subtilis, Root Rot]
+  - [Rubbing Alcohol Swab (70%), Mealybug]
+  - [Rubbing Alcohol Swab (70%), Scale Insects]
+  - [Bacillus thuringiensis israelensis (Bti), Fungus Gnats]
+  - [Diatomaceous Earth, Fungus Gnats]
+
+  # Nymphaea IPM edges
+  - [Submerge Leaves (Aphid Removal), Water Lily Aphid]
+  - [Remove Infested Leaves (Aquatic), Water Lily Aphid]
+  - [Remove Infested Leaves (Aquatic), Water Lily Leaf Beetle]
+  - [Remove Infested Leaves (Aquatic), Brown China-mark Moth]
+  - [Yellow Sticky Traps (Pond Edge), Water Lily Aphid]
+  - [Yellow Sticky Traps (Pond Edge), Water Lily Leaf Beetle]
+  - [Remove Infested Leaves (Aquatic), Water Lily Leaf Spot (Ramularia)]
+  - [Remove Infested Leaves (Aquatic), Powdery Mildew]
 
 contraindications:
   # Existing

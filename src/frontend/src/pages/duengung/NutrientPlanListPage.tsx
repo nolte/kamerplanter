@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import StarIcon from '@mui/icons-material/Star';
@@ -152,6 +153,8 @@ export default function NutrientPlanListPage() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 1,
         }}
       >
         <PageTitle title={t('pages.nutrientPlans.title')} />
@@ -176,6 +179,9 @@ export default function NutrientPlanListPage() {
           </Button>
         </Box>
       </Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {t('pages.nutrientPlans.listIntro')}
+      </Typography>
       <DataTable
         columns={columns}
         rows={filteredPlans}

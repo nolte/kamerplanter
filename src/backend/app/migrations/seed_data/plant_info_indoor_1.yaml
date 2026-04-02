@@ -1263,7 +1263,7 @@ lifecycle_configs:
     cycle_type: perennial
     photoperiod_type: day_neutral
     typical_lifespan_years: 20
-    dormancy_required: false
+    dormancy_required: true
     vernalization_required: false
     vernalization_min_days: null
     critical_day_length_hours: null

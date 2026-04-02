@@ -585,6 +585,9 @@ class TaskService:
         else:
             tasks, _ = self._repo.get_pending_tasks(0, 200)
 
+        # Deduplicate care_reminder tasks: keep only the newest per entity_key + name suffix
+        tasks = self._deduplicate_care_tasks(tasks)
+
         task_dicts = [
             {
                 "key": t.key,
@@ -604,8 +607,45 @@ class TaskService:
         ready_keys = {d["key"] for d in ready_dicts}
         return [t for t in tasks if t.key in ready_keys]
 
+    @staticmethod
+    def _deduplicate_care_tasks(tasks: list[Task]) -> list[Task]:
+        """Remove duplicate care_reminder tasks for the same entity_key + name suffix.
+
+        Keeps the task with the most recent due_date (or created_at) per group.
+        This handles race conditions where concurrent Celery/API calls create duplicates.
+        """
+        result: list[Task] = []
+        care_groups: dict[str, list[Task]] = {}
+
+        for task in tasks:
+            if task.category == "care_reminder" and task.entity_key:
+                # Extract reminder type from name suffix (e.g. "PLANT — watering" → "watering")
+                parts = task.name.split("\u2014")
+                suffix = parts[-1].strip() if len(parts) > 1 else task.name
+                group_key = f"{task.entity_key}-{suffix}"
+                care_groups.setdefault(group_key, []).append(task)
+            else:
+                result.append(task)
+
+        for group in care_groups.values():
+            if len(group) == 1:
+                result.append(group[0])
+            else:
+                # Keep the newest by due_date, then created_at
+                def _sort_key(t):  # noqa: E501
+                    return (
+                        t.due_date or datetime.min.replace(tzinfo=UTC),
+                        t.created_at or datetime.min.replace(tzinfo=UTC),
+                    )
+
+                best = max(group, key=_sort_key)
+                result.append(best)
+
+        return result
+
     def get_overdue_tasks(self) -> list[Task]:
-        return self._repo.get_overdue_tasks()
+        tasks = self._repo.get_overdue_tasks()
+        return self._deduplicate_care_tasks(tasks)
 
     def get_tasks_for_plant(self, plant_key: str, status: str | None = None) -> list[Task]:
         """Convenience method for plant-specific task queries."""

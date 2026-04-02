@@ -145,6 +145,7 @@ export default function HarvestCreateDialog({
             control={control}
             label={t('pages.harvest.batchId')}
             helperText={t('pages.harvest.batchIdHelper')}
+            autoFocus
           />
           <FormSelectField
             name="harvest_type"

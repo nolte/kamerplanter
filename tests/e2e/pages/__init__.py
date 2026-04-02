@@ -45,6 +45,8 @@ from .tenant_create_page import TenantCreatePage
 from .tenant_settings_page import TenantSettingsPage
 from .tenant_switcher_page import TenantSwitcherPage
 from .treatment_list_page import TreatmentListPage
+from .watering_log_detail_page import WateringLogDetailPage
+from .watering_log_list_page import WateringLogListPage
 from .workflow_detail_page import WorkflowDetailPage
 from .workflow_list_page import WorkflowListPage
 
@@ -98,6 +100,8 @@ __all__ = [
     "TenantSettingsPage",
     "TenantSwitcherPage",
     "TreatmentListPage",
+    "WateringLogDetailPage",
+    "WateringLogListPage",
     "WorkflowDetailPage",
     "WorkflowListPage",
 ]

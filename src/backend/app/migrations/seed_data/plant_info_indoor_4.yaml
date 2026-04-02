@@ -1,0 +1,358 @@
+# yaml-language-server: $schema=./schemas/plant_info.schema.yaml
+# plant_info_indoor_4.yaml
+# Seed data for Dracaena fragrans (Corn Plant / Duftdracaena)
+# and enrichment of Dracaena marginata with updated spec data.
+# Source: spec/plant-info/drachenpalmen.md
+# Created: 2026-04-02
+
+# ==============================================================================
+# S1  NEW BOTANICAL FAMILIES
+# ==============================================================================
+# Asparagaceae already exists — no new families needed.
+
+# ==============================================================================
+# S2  SPECIES -> FAMILY MAPPING
+# ==============================================================================
+new_species_family_map:
+  "Dracaena fragrans": Asparagaceae
+
+# ==============================================================================
+# S3  NEW SPECIES
+# ==============================================================================
+new_species:
+  - scientific_name: "Dracaena fragrans"
+    common_names: "Duftdracaena;Maispalme;Corn Plant;Mass Cane;Happy Plant"
+    genus: Dracaena
+    growth_habit: tree
+    root_type: fibrous
+    hardiness_zones: "10b;11a;11b;12a;12b"
+    native_habitat: "Tropical Africa (Sudan, Mozambique, Angola)"
+    allelopathy_score: 0.0
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    container_suitable: "yes"
+    recommended_container_volume_l: "10-30"
+    min_container_depth_cm: 20
+    mature_height_cm: "150-300"
+    mature_width_cm: "50-100"
+    spacing_cm: "80"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: light_feeder
+    hardiness_detail: "No frost tolerance; damage from +5 C, death below 0 C. Tropical origin Sudan-Angola."
+    bloom_months: [5, 6]
+
+# ==============================================================================
+# S4  SPECIES ENRICHMENT
+# ==============================================================================
+species_enrichment:
+  "Dracaena marginata":
+    hardiness_detail: "No frost tolerance; damage from +5 C, death below 0 C."
+    bloom_months: [5, 6]
+    hardiness_zones: ["10a", "10b", "11a", "11b", "12a", "12b"]
+
+# ==============================================================================
+# S5  LIFECYCLE CONFIGS
+# ==============================================================================
+lifecycle_configs:
+  "Dracaena fragrans":
+    cycle_type: perennial
+    photoperiod_type: day_neutral
+    typical_lifespan_years: 25
+    dormancy_required: true
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: null
+
+# ==============================================================================
+# S6  ART-SPECIFIC GROWTH PHASES
+# ==============================================================================
+growth_phases:
+  "Dracaena fragrans":
+    - name: seedling
+      display_name: Rooting (Cutting / Repotting)
+      duration_days: 42
+      sequence_order: 1
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 100
+        photoperiod_hours: 13.0
+        temperature_day_c: 24.0
+        temperature_night_c: 21.0
+        humidity_day_percent: 72
+        humidity_night_percent: 75
+        vpd_target_kpa: 0.6
+        co2_ppm: 500
+        irrigation_frequency_days: 8.0
+        irrigation_volume_ml_per_plant: 150
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.2
+        calcium_ppm: null
+        magnesium_ppm: null
+
+    - name: vegetative
+      display_name: Juvenile (Acclimatization)
+      duration_days: 135
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 175
+        photoperiod_hours: 14.0
+        temperature_day_c: 23.0
+        temperature_night_c: 19.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.8
+        co2_ppm: 500
+        irrigation_frequency_days: 8.0
+        irrigation_volume_ml_per_plant: 300
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 0.5
+        target_ph: 6.2
+        calcium_ppm: 50
+        magnesium_ppm: 25
+
+    - name: active_growth
+      display_name: Active Growth (Spring-Summer)
+      duration_days: 195
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 275
+        photoperiod_hours: 14.0
+        temperature_day_c: 22.0
+        temperature_night_c: 17.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.9
+        co2_ppm: 600
+        irrigation_frequency_days: 7.0
+        irrigation_volume_ml_per_plant: 550
+      nutrient_profile:
+        npk_ratio: [3, 1, 2]
+        target_ec_ms: 0.7
+        target_ph: 6.2
+        calcium_ppm: 90
+        magnesium_ppm: 40
+
+    - name: dormancy
+      display_name: Winter Rest (Oct-Feb)
+      duration_days: 120
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: high
+      requirement_profile:
+        light_ppfd_target: 125
+        photoperiod_hours: 9.5
+        temperature_day_c: 18.0
+        temperature_night_c: 15.0
+        humidity_day_percent: 50
+        humidity_night_percent: 55
+        vpd_target_kpa: 1.1
+        co2_ppm: 500
+        irrigation_frequency_days: 17.0
+        irrigation_volume_ml_per_plant: 275
+      nutrient_profile:
+        npk_ratio: [0, 0, 0]
+        target_ec_ms: 0.0
+        target_ph: 6.2
+        calcium_ppm: null
+        magnesium_ppm: null
+
+# ==============================================================================
+# S7  CULTIVARS
+# ==============================================================================
+cultivars:
+  "Dracaena fragrans":
+    - name: Massangeana
+      traits: [ornamental]
+      seed_type: clone
+      description: "Yellow center stripe on leaves; most common trade variety (~90% of D. fragrans sold)"
+    - name: Janet Craig
+      traits: [ornamental, compact]
+      seed_type: clone
+      description: "Broad, dark-green glossy leaves without stripes; robust office plant"
+    - name: Lemon Lime
+      traits: [ornamental]
+      seed_type: clone
+      description: "Light-green and yellow striped pattern; vibrant fresh look"
+    - name: Warneckii
+      traits: [ornamental]
+      seed_type: clone
+      description: "Green leaves with white edge stripes; more shade-tolerant than other forms"
+
+# ==============================================================================
+# S8  NEW PESTS
+# ==============================================================================
+# All Dracaena pests (spider mites, mealybug, scale insects, fungus gnats,
+# thrips) already exist in ipm.yaml. No new pests needed.
+
+# ==============================================================================
+# S9  NEW DISEASES
+# ==============================================================================
+new_diseases:
+  - name: Fusarium Leaf Spot (Dracaena)
+    pathogen_type: fungal
+    symptoms: ["Water-soaked reddish-brown spots on young leaves", "Yellow margins possible"]
+    affected_parts: [leaf]
+    optimal_temp_min: 20.0
+    optimal_temp_max: 28.0
+    optimal_humidity_min: 70.0
+    optimal_humidity_max: 95.0
+
+  - name: Soft Stem Rot (Erwinia)
+    pathogen_type: bacterial
+    symptoms: ["Soft foul-smelling brown-black rot at stem base", "Plant collapse"]
+    affected_parts: [stem, root]
+    optimal_temp_min: 20.0
+    optimal_temp_max: 30.0
+    optimal_humidity_min: 80.0
+    optimal_humidity_max: 100.0
+
+  - name: Fluoride Tip Burn
+    pathogen_type: physiological
+    symptoms: ["Brown dry leaf tips", "No rot", "Progressive from tip inward"]
+    affected_parts: [leaf]
+
+# ==============================================================================
+# S10  NEW TREATMENTS
+# ==============================================================================
+new_treatments:
+  - name: Rubbing Alcohol Swab (70%)
+    treatment_type: mechanical
+    active_ingredient: "Isopropyl alcohol 70%"
+    application_method: cultural
+    safety_interval_days: 0
+    notes: "Dab directly on mealybugs and scale insects with cotton swab"
+
+  - name: Bacillus thuringiensis israelensis (Bti)
+    treatment_type: biological
+    active_ingredient: "Bti toxin"
+    application_method: drench
+    safety_interval_days: 0
+    notes: "Apply via irrigation water against fungus gnat larvae"
+
+  - name: Diatomaceous Earth
+    treatment_type: mechanical
+    active_ingredient: "Silicon dioxide (amorphous)"
+    application_method: granular
+    safety_interval_days: 0
+    notes: "Sprinkle on substrate surface; keep dry. Against fungus gnats and soil mites."
+
+# ==============================================================================
+# S11  PEST-SPECIES EDGES
+# ==============================================================================
+pest_species_edges:
+  - ["Spider Mites", "Dracaena fragrans"]
+  - ["Spider Mites", "Dracaena marginata"]
+  - ["Mealybug", "Dracaena fragrans"]
+  - ["Mealybug", "Dracaena marginata"]
+  - ["Scale Insects", "Dracaena fragrans"]
+  - ["Scale Insects", "Dracaena marginata"]
+  - ["Fungus Gnats", "Dracaena fragrans"]
+  - ["Fungus Gnats", "Dracaena marginata"]
+  - ["Thrips", "Dracaena fragrans"]
+  - ["Thrips", "Dracaena marginata"]
+
+# ==============================================================================
+# S12  DISEASE-SPECIES EDGES
+# ==============================================================================
+disease_species_edges:
+  - ["Fusarium Leaf Spot (Dracaena)", "Dracaena fragrans"]
+  - ["Fusarium Leaf Spot (Dracaena)", "Dracaena marginata"]
+  - ["Soft Stem Rot (Erwinia)", "Dracaena fragrans"]
+  - ["Soft Stem Rot (Erwinia)", "Dracaena marginata"]
+  - ["Root Rot", "Dracaena fragrans"]
+  - ["Root Rot", "Dracaena marginata"]
+  - ["Fluoride Tip Burn", "Dracaena fragrans"]
+  - ["Fluoride Tip Burn", "Dracaena marginata"]
+
+# ==============================================================================
+# S13  TREATMENT-PEST EDGES
+# ==============================================================================
+treatment_pest_edges:
+  - ["Neem Oil", "Spider Mites"]
+  - ["Neem Oil", "Mealybug"]
+  - ["Neem Oil", "Thrips"]
+  - ["Insecticidal Soap (Potassium Salts)", "Mealybug"]
+  - ["Insecticidal Soap (Potassium Salts)", "Thrips"]
+  - ["Rubbing Alcohol Swab (70%)", "Mealybug"]
+  - ["Rubbing Alcohol Swab (70%)", "Scale Insects"]
+  - ["Bacillus thuringiensis israelensis (Bti)", "Fungus Gnats"]
+  - ["Diatomaceous Earth", "Fungus Gnats"]
+
+# ==============================================================================
+# S14  TREATMENT-DISEASE EDGES
+# ==============================================================================
+treatment_disease_edges:
+  - ["Bacillus subtilis", "Fusarium Leaf Spot (Dracaena)"]
+  - ["Bacillus subtilis", "Root Rot"]
+  - ["Copper Fungicide (Bordeaux Mixture)", "Soft Stem Rot (Erwinia)"]
+
+# ==============================================================================
+# S15  COMPANION PLANTING
+# ==============================================================================
+companion_planting:
+  compatible:
+    # Dracaena marginata good partners (indoor)
+    - species_a: "Dracaena marginata"
+      species_b: "Epipremnum aureum"
+      score: 0.9
+    - species_a: "Dracaena marginata"
+      species_b: "Spathiphyllum wallisii"
+      score: 0.8
+    - species_a: "Dracaena marginata"
+      species_b: "Philodendron hederaceum"
+      score: 0.85
+    - species_a: "Dracaena marginata"
+      species_b: "Dracaena trifasciata"
+      score: 0.75
+    - species_a: "Dracaena marginata"
+      species_b: "Chlorophytum comosum"
+      score: 0.8
+    # Dracaena fragrans good partners (indoor)
+    - species_a: "Dracaena fragrans"
+      species_b: "Epipremnum aureum"
+      score: 0.9
+    - species_a: "Dracaena fragrans"
+      species_b: "Spathiphyllum wallisii"
+      score: 0.8
+    - species_a: "Dracaena fragrans"
+      species_b: "Philodendron hederaceum"
+      score: 0.85
+    - species_a: "Dracaena fragrans"
+      species_b: "Dracaena trifasciata"
+      score: 0.75
+    - species_a: "Dracaena fragrans"
+      species_b: "Chlorophytum comosum"
+      score: 0.8
+    # D. marginata + D. fragrans (same genus, compatible)
+    - species_a: "Dracaena marginata"
+      species_b: "Dracaena fragrans"
+      score: 0.85
+  incompatible:
+    # Dracaena incompatible partners
+    - species_a: "Dracaena marginata"
+      species_b: "Nephrolepis exaltata"
+      reason: "Ferns need constantly moist substrate and very high humidity (>70%); Dracaena needs regular drying out. Ferns can be fungus gnat reservoirs."
+    - species_a: "Dracaena fragrans"
+      species_b: "Nephrolepis exaltata"
+      reason: "Ferns need constantly moist substrate and very high humidity (>70%); Dracaena needs regular drying out. Ferns can be fungus gnat reservoirs."
+    - species_a: "Dracaena marginata"
+      species_b: "Phalaenopsis spp."
+      reason: "Orchids require specific orchid substrate (airy, bark-based) and immersion watering; substrates and watering methods are incompatible."
+    - species_a: "Dracaena fragrans"
+      species_b: "Phalaenopsis spp."
+      reason: "Orchids require specific orchid substrate (airy, bark-based) and immersion watering; substrates and watering methods are incompatible."

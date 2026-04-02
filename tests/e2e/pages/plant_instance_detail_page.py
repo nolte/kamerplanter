@@ -23,6 +23,8 @@ class PlantInstanceDetailPage(BasePage):
     CURRENT_PHASE = (By.CSS_SELECTOR, "[data-testid='current-phase']")
     PHASE_HISTORY = (By.CSS_SELECTOR, "[data-testid='phase-history']")
     PHASE_HISTORY_ROWS = (By.CSS_SELECTOR, "[data-testid='phase-history'] tbody tr")
+    PHASES_TAB = (By.CSS_SELECTOR, "[data-testid='phases-tab']")
+    PHASES_TAB_CONTENT = (By.CSS_SELECTOR, "[data-testid='phases-tab-content']")
 
     # Transition dialog
     TRANSITION_DIALOG = (By.CSS_SELECTOR, "[data-testid='phase-transition-dialog']")

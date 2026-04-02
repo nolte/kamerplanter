@@ -23,6 +23,7 @@ import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormChipInput from '@/components/form/FormChipInput';
+import FormTimeField from '@/components/form/FormTimeField';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -160,12 +161,16 @@ export default function NutrientPlanCreateDialog({ open, onClose, onCreated }: P
     <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{t('pages.nutrientPlans.create')}</DialogTitle>
       <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t('pages.nutrientPlans.createIntro')}
+        </Typography>
         <form onSubmit={handleSubmit(onSubmit)}>
           <FormTextField
             name="name"
             control={control}
             label={t('pages.nutrientPlans.name')}
             required
+            autoFocus
           />
           <FormTextField
             name="description"
@@ -277,38 +282,10 @@ export default function NutrientPlanCreateDialog({ open, onClose, onCreated }: P
               )}
 
               {/* Preferred Time */}
-              <Controller
+              <FormTimeField
                 name="preferred_time"
                 control={control}
-                render={({ field, fieldState: { error } }) => (
-                  <Box sx={{ mb: 2 }}>
-                    <label htmlFor="preferred-time">
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        {t('pages.wateringSchedule.preferredTime')}
-                      </Typography>
-                    </label>
-                    <input
-                      id="preferred-time"
-                      type="time"
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      data-testid="preferred-time-input"
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        fontSize: '1rem',
-                        border: error ? '1px solid red' : '1px solid rgba(0,0,0,0.23)',
-                        borderRadius: '4px',
-                      }}
-                    />
-                    {error?.message && (
-                      <Typography variant="caption" color="error">
-                        {error.message}
-                      </Typography>
-                    )}
-                  </Box>
-                )}
+                label={t('pages.wateringSchedule.preferredTime')}
               />
 
               {/* Application Method */}

@@ -691,7 +691,7 @@ export default function TaskQueuePage() {
         </Card>
       );
     },
-    [actionLoading, navigate, handleStart, handleComplete, handleSkip, t, plantNameMap, bulkMode, selectedKeys, toggleSelection],
+    [actionLoading, navigate, handleStart, handleComplete, handleSkip, t, i18n.language, plantNameMap, bulkMode, selectedKeys, toggleSelection],
   );
 
   const renderCareCard = useCallback(
@@ -867,7 +867,7 @@ export default function TaskQueuePage() {
 
   return (
     <Box data-testid="task-queue-page">
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1 }}>
         <PageTitle title={t('pages.tasks.queueTitle')} />
         <Box sx={{ display: 'flex', gap: 1 }}>
           {!bulkMode && (

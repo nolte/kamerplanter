@@ -110,6 +110,9 @@ export default function FertilizerCreateDialog({ open, onClose, onCreated }: Pro
     <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{t('pages.fertilizers.create')}</DialogTitle>
       <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t('pages.fertilizers.createIntro')}
+        </Typography>
         <form onSubmit={handleSubmit(onSubmit)}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 1 }}>
             {t('pages.fertilizers.sectionIdentification')}
@@ -119,6 +122,7 @@ export default function FertilizerCreateDialog({ open, onClose, onCreated }: Pro
             control={control}
             label={t('pages.fertilizers.productName')}
             required
+            autoFocus
           />
           <FormTextField
             name="brand"

@@ -9,11 +9,6 @@ import Chip from '@mui/material/Chip';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Grid from '@mui/material/Grid';
-import Table from '@mui/material/Table';
-import TableHead from '@mui/material/TableHead';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableRow from '@mui/material/TableRow';
 import Tooltip from '@mui/material/Tooltip';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
@@ -46,6 +41,8 @@ import LocationTreeSelect from '@/components/form/LocationTreeSelect';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useAppDispatch } from '@/store/hooks';
+import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import MuiLink from '@mui/material/Link';
@@ -154,6 +151,7 @@ export default function TankDetailPage() {
   const { key } = useParams<{ key: string }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
 
@@ -298,6 +296,19 @@ export default function TankDetailPage() {
       .catch(() => setTsAvailable(false));
   }, []);
 
+  // Dynamic breadcrumbs
+  useEffect(() => {
+    if (!tank) return;
+    dispatch(setBreadcrumbs([
+      { label: 'nav.dashboard', path: '/dashboard' },
+      { label: 'nav.tanks', path: '/standorte/tanks' },
+      { label: tank.name },
+    ]));
+  }, [tank, dispatch]);
+
+  // Clear dynamic breadcrumbs on unmount
+  useEffect(() => () => { dispatch(setBreadcrumbs([])); }, [dispatch]);
+
   const onSave = async (data: EditFormData) => {
     if (!key) return;
     try {
@@ -380,6 +391,35 @@ export default function TankDetailPage() {
     { id: 'performedBy', label: t('pages.tanks.performedBy'), render: (r) => r.performed_by || '—' },
     { id: 'duration', label: t('pages.tanks.duration'), render: (r) => r.duration_minutes != null ? `${r.duration_minutes} min` : '—', align: 'right' },
     { id: 'notes', label: t('pages.tanks.notes'), render: (r) => r.notes || '—' },
+  ];
+
+  const sensorColumns: Column<Sensor>[] = [
+    { id: 'name', label: t('pages.tanks.sensorColumnName'), render: (r) => r.name },
+    { id: 'metric_type', label: t('pages.tanks.sensorColumnMetric'), render: (r) => r.metric_type },
+    { id: 'ha_entity_id', label: t('pages.tanks.sensorColumnEntity'), render: (r) => r.ha_entity_id || '\u2014', hideBelowBreakpoint: 'md' },
+    {
+      id: 'actions', label: '', sortable: false, searchable: false, render: (r: Sensor) => (
+        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+          <IconButton
+            size="small"
+            onClick={(e) => { e.stopPropagation(); setEditSensor(r); setSensorDialogOpen(true); }}
+            aria-label={t('common.edit')}
+            data-testid={`sensor-edit-${r.key}`}
+          >
+            <EditIcon fontSize="small" />
+          </IconButton>
+          <IconButton
+            size="small"
+            color="error"
+            onClick={(e) => { e.stopPropagation(); setDeleteSensorKey(r.key); }}
+            aria-label={t('common.delete')}
+            data-testid={`sensor-delete-${r.key}`}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      ), align: 'right',
+    },
   ];
 
   const scheduleColumns: Column<MaintenanceSchedule>[] = [
@@ -1252,55 +1292,16 @@ export default function TankDetailPage() {
               <Typography variant="body2" color="text.secondary" sx={{ mb: sensors.length > 0 ? 2 : 1 }}>
                 {t('pages.tanks.sensorsDesc')}
               </Typography>
-              {sensors.length === 0 && (
-                <EmptyState
-                  message={t('pages.tanks.noSensors')}
-                  actionLabel={t('pages.tanks.addSensor')}
-                  onAction={() => { setEditSensor(undefined); setSensorDialogOpen(true); }}
-                />
-              )}
-              {sensors.length > 0 && (
-                <Table size="small" aria-label={t('pages.tanks.sensors')}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>{t('pages.tanks.sensorColumnName')}</TableCell>
-                      <TableCell>{t('pages.tanks.sensorColumnMetric')}</TableCell>
-                      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{t('pages.tanks.sensorColumnEntity')}</TableCell>
-                      <TableCell align="right">{t('pages.tanks.sensorColumnActions')}</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {sensors.map((s) => (
-                      <TableRow key={s.key}>
-                        <TableCell>{s.name}</TableCell>
-                        <TableCell>{s.metric_type}</TableCell>
-                        <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{s.ha_entity_id || '—'}</TableCell>
-                        <TableCell align="right">
-                          <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-                            <IconButton
-                              size="small"
-                              onClick={() => { setEditSensor(s); setSensorDialogOpen(true); }}
-                              aria-label={t('common.edit')}
-                              data-testid={`sensor-edit-${s.key}`}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => setDeleteSensorKey(s.key)}
-                              aria-label={t('common.delete')}
-                              data-testid={`sensor-delete-${s.key}`}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+              <DataTable
+                columns={sensorColumns}
+                rows={sensors}
+                getRowKey={(r) => r.key}
+                variant="simple"
+                ariaLabel={t('pages.tanks.sensors')}
+                emptyMessage={t('pages.tanks.noSensors')}
+                emptyActionLabel={t('pages.tanks.addSensor')}
+                onEmptyAction={() => { setEditSensor(undefined); setSensorDialogOpen(true); }}
+              />
             </CardContent>
           </Card>
 

@@ -81,6 +81,8 @@ export default function DiseaseListPage() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 1,
         }}
       >
         <PageTitle title={t('pages.ipm.diseasesTitle')} />

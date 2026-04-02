@@ -2,7 +2,7 @@
 req_id: REQ-024
 title: Mandantenverwaltung & Gemeinschaftsgärten
 category: Plattform & Kollaboration
-test_count: 82
+test_count: 93
 coverage_areas:
   - Tenant-Erstellung (TenantCreatePage — /tenants/create)
   - Tenant-Einstellungen (TenantSettingsPage — /t/{slug}/settings)
@@ -2097,6 +2097,314 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 ---
 
+## 19. Gießdienst-Rotation — Erweiterte Szenarien
+
+### TC-024-083: Aktuellen Diensthabenden anzeigen — "Wer ist heute dran?"
+
+**Requirement**: REQ-024 §1a.3 (Duty-Rotation anzeigen: alle Rollen), §2 DutyRotation (current_index), §1.1 Szenario 7
+**Priority**: High
+**Category**: Detailansicht
+**Preconditions**:
+- "Gießdienst Gemeinschaftsbeete" ist aktiv mit 4 Mitgliedern in Reihenfolge: Max (KW 10), Lisa (KW 11), Tom (KW 12), Anna (KW 13)
+- Aktuelle Woche ist KW 10 — Max ist diensthabend
+- Nutzer ist Gärtner (Max) und navigiert zur Dienstplan-Seite
+
+**Testschritte**:
+1. Max navigiert zur Dienstplan-Seite (`/t/gemeinschaftsgarten-sonnenschein/duty-rotations`)
+2. Max öffnet den Dienstplan "Gießdienst Gemeinschaftsbeete"
+
+**Erwartete Ergebnisse**:
+- Eine hervorgehobene Anzeige "Diese Woche: Max" (oder "Du bist diese Woche dran!") ist auf der Detailansicht sichtbar
+- Die nächsten geplanten Dienste sind in der Reihenfolge aufgelistet: KW 11 → Lisa, KW 12 → Tom, KW 13 → Anna
+- Der aktuelle Diensthabende (Max) ist visuell hervorgehoben (z.B. durch andersfarbigen Chip oder Hervorhebung)
+
+**Nachbedingungen**:
+- Kein Status geändert (nur Lesevorgang)
+
+**Tags**: [req-024, duty-rotation, current-duty, szenario-7, detailansicht]
+
+---
+
+### TC-024-084: Dienst als erledigt markieren — Happy Path
+
+**Requirement**: REQ-024 §1a.3 (Am Dienst teilnehmen: Admin, Grower), §1.1 Szenario 7 (Max bestätigt Gießdienst)
+**Priority**: High
+**Category**: Happy Path
+**Preconditions**:
+- Max ist in KW 10 der diensthabende Gärtner im "Gießdienst Gemeinschaftsbeete"
+- Max ist als Gärtner eingeloggt
+- Aktuelles Datum liegt in KW 10
+
+**Testschritte**:
+1. Max navigiert zur Dienstplan-Seite und öffnet den Dienstplan
+2. Max sieht den Button "Dienst erledigt" (oder "Gießdienst bestätigen") neben seinem aktuellen Dienst
+3. Max klickt "Dienst erledigt"
+4. Optionaler Bestätigungs-Dialog: Max gibt keinen zusätzlichen Kommentar ein
+5. Max bestätigt
+
+**Erwartete Ergebnisse**:
+- Der Dienst für KW 10 zeigt ein visuelles Erledigungs-Zeichen (Häkchen, grüne Markierung o.ä.)
+- Alle Mitglieder des Tenants sehen die Meldung: "Max hat die Gemeinschaftsbeete gegossen" (o.ä.) auf der Dienstplan-Seite
+- Der Dienstplan-Status für KW 10 wechselt von "Ausstehend" zu "Erledigt"
+
+**Nachbedingungen**:
+- Dienst-Eintrag für KW 10 ist als erledigt markiert
+
+**Tags**: [req-024, duty-rotation, confirm-duty, grower, happy-path, szenario-7]
+
+---
+
+### TC-024-085: Aktive Monate begrenzen Dienstplan-Anzeige (Winterpause)
+
+**Requirement**: REQ-024 §2 DutyRotation (active_months: z.B. [4,5,6,7,8,9,10])
+**Priority**: Medium
+**Category**: Zustandswechsel
+**Preconditions**:
+- "Gießdienst Gemeinschaftsbeete" ist aktiv mit `active_months: [4,5,6,7,8,9,10]` (nur April–Oktober)
+- Aktuelles Datum ist im Januar (Monat 1, außerhalb aktiver Monate)
+
+**Testschritte**:
+1. Nutzer navigiert zur Dienstplan-Seite
+2. Nutzer öffnet den Dienstplan "Gießdienst Gemeinschaftsbeete"
+
+**Erwartete Ergebnisse**:
+- Der Dienstplan zeigt einen Hinweis "Gießdienst ruht im Winter" oder "Kein aktiver Dienst bis April" (o.ä.)
+- Kein Mitglied wird für den aktuellen Monat als diensthabend angezeigt
+- Die nächste geplante Dienstperiode wird vorausschauend angezeigt (z.B. "Nächster Dienst: April")
+
+**Nachbedingungen**:
+- Kein Status geändert
+
+**Tags**: [req-024, duty-rotation, active-months, winterpause, zustandswechsel]
+
+---
+
+### TC-024-086: Dienstplan pausieren und reaktivieren als Admin
+
+**Requirement**: REQ-024 §2 DutyRotation (status: active / paused / archived)
+**Priority**: Medium
+**Category**: Zustandswechsel
+**Preconditions**:
+- "Gießdienst Gemeinschaftsbeete" hat Status "Aktiv"
+- Lisa ist Admin im Tenant
+
+**Testschritte**:
+1. Lisa navigiert zur Dienstplan-Seite und öffnet den Dienstplan
+2. Lisa klickt "Pausieren" (o.ä. Admin-Aktion)
+3. Bestätigung erscheint — Lisa bestätigt
+4. Lisa klickt anschließend "Reaktivieren"
+
+**Erwartete Ergebnisse**:
+- Nach "Pausieren": Dienstplan zeigt Status "Pausiert" — kein Mitglied wird als diensthabend angezeigt, kein "Tausch anfragen"-Button sichtbar
+- Nach "Reaktivieren": Dienstplan zeigt Status "Aktiv" — der planmäßig diensthabende Gärtner wird wieder angezeigt
+
+**Nachbedingungen**:
+- Dienstplan hat wieder Status "aktiv"
+
+**Tags**: [req-024, duty-rotation, pause, reactivate, admin, zustandswechsel]
+
+---
+
+## 20. Pinnwand — Erweiterte Szenarien
+
+### TC-024-087: Pinnwand-Beiträge chronologisch anzeigen mit verschiedenen Kategorien
+
+**Requirement**: REQ-024 §2 BulletinPost (category: info, alert, event, offer, request, general), §1.1 Szenario 8
+**Priority**: High
+**Category**: Listenansicht
+**Preconditions**:
+- Pinnwand des Tenants hat 4 Posts mit verschiedenen Kategorien:
+  - Tom (alert): "Schneckenalarm auf den Salatbeeten" (heute erstellt)
+  - Lisa (event): "Arbeitseinsatz Samstag 14.03." (gestern erstellt, angepinnt)
+  - Max (offer): "Zu viele Zucchini — wer will?" (vorgestern erstellt)
+  - Anna (info): "Komposthaufen ist fertig" (vor 3 Tagen erstellt)
+- Nutzer navigiert zur Pinnwand (`/t/gemeinschaftsgarten-sonnenschein/bulletin`)
+
+**Testschritte**:
+1. Nutzer öffnet die Pinnwand
+
+**Erwartete Ergebnisse**:
+- Lisas angepinnter Post "Arbeitseinsatz" erscheint ganz oben (pinned=true)
+- Die anderen Posts erscheinen darunter in umgekehrt-chronologischer Reihenfolge (neuester zuerst): Schneckenalarm, Zucchini, Kompost
+- Jeder Post zeigt einen Kategorie-Chip oder Kategorie-Farbe/Icon: alert=rot/Warnung, event=blau/Termin, offer=grün/Angebot, info=grau/Info
+- Jeder Post zeigt Autor-Name und Zeitstempel (relativ: "vor 5 Min.", "vor 1 Tag" o.ä.)
+
+**Nachbedingungen**:
+- Kein Status geändert
+
+**Tags**: [req-024, bulletin-board, chronological, kategorien, listenansicht, szenario-8]
+
+---
+
+### TC-024-088: Reaktion auf Pinnwand-Beitrag (👍)
+
+**Requirement**: REQ-024 §2 BulletinPost (reaction_counts: dict)
+**Priority**: Medium
+**Category**: Happy Path
+**Preconditions**:
+- Post "Schneckenalarm auf den Salatbeeten" existiert auf der Pinnwand mit `reaction_counts: {"👍": 2}`
+- Anna ist als Viewer eingeloggt (Reaktionen sind für alle Rollen möglich, da im Spec nicht explizit eingeschränkt)
+- Max ist als Gärtner eingeloggt
+
+**Testschritte**:
+1. Max öffnet den Post "Schneckenalarm"
+2. Max klickt auf das 👍-Reaktions-Symbol
+
+**Erwartete Ergebnisse**:
+- Der Reaktions-Zähler für 👍 erhöht sich von 2 auf 3
+- Das Reaktions-Symbol zeigt visuell, dass Max bereits reagiert hat (hervorgehoben)
+- Bei erneutem Klick: Reaktion wird zurückgenommen, Zähler wieder auf 2
+
+**Nachbedingungen**:
+- `reaction_counts["👍"]` = 3 (nach erstem Klick)
+
+**Tags**: [req-024, bulletin-reaction, happy-path, reaktion]
+
+---
+
+### TC-024-089: Admin löscht Post eines anderen Gärtners
+
+**Requirement**: REQ-024 §1a.3 (Post löschen: Admin alle Posts), AK-35
+**Priority**: High
+**Category**: Happy Path
+**Preconditions**:
+- Tom hat Post "Schneckenalarm" erstellt
+- Lisa ist Admin im Tenant (nicht Autor des Posts)
+
+**Testschritte**:
+1. Lisa navigiert zur Pinnwand
+2. Lisa klickt auf den "Löschen"-Button (oder Menü-Eintrag) bei Toms Post "Schneckenalarm"
+3. Bestätigungs-Dialog erscheint
+4. Lisa bestätigt
+
+**Erwartete Ergebnisse**:
+- Bestätigungs-Dialog erscheint (mit Toms Post-Titel als Warnung)
+- Nach Bestätigung: "Schneckenalarm"-Post verschwindet von der Pinnwand
+- Erfolgs-Snackbar erscheint (o.ä.)
+- Toms sonstiger Inhalt (andere Posts) bleibt unberührt
+
+**Nachbedingungen**:
+- BulletinPost hat `status: 'deleted'`
+
+**Tags**: [req-024, bulletin-delete, admin-all-posts, ak-35, happy-path]
+
+---
+
+### TC-024-090: Ernte-Angebot als Pinnwand-Post (category: offer) — Ernte teilen
+
+**Requirement**: REQ-024 §1 User Story "Ernte teilen", §2 BulletinPost (category: 'offer'), §1.1 Szenario 8
+**Priority**: Medium
+**Category**: Happy Path
+**Preconditions**:
+- Max ist Gärtner und hat überschüssige Zucchini geerntet
+- Max navigiert zur Pinnwand (`/t/gemeinschaftsgarten-sonnenschein/bulletin`)
+
+**Testschritte**:
+1. Max klickt "Neuer Beitrag"
+2. Max wählt Kategorie: "Angebot" (offer)
+3. Max gibt Titel ein: "Zucchini zu verschenken"
+4. Max gibt Text ein: "Zu viele Zucchini — wer will? Bitte einfach kommentieren."
+5. Max setzt optional ein Ablaufdatum: morgen (automatisches Ausblenden)
+6. Max klickt "Veröffentlichen"
+
+**Erwartete Ergebnisse**:
+- Post erscheint auf der Pinnwand mit Kategorie-Chip "Angebot" (grün o.ä.)
+- Ablaufdatum ist am Post sichtbar (z.B. "Läuft ab: morgen")
+- Alle Mitglieder sehen den Post (Gärtner können kommentieren, Viewer können lesen)
+
+**Nachbedingungen**:
+- BulletinPost mit `category: 'offer'`, `expires_at: morgen`, `status: 'active'` existiert
+
+**Tags**: [req-024, bulletin-offer, ernte-teilen, category-offer, happy-path]
+
+---
+
+## 21. Gemeinsame Einkaufsliste — Erweiterte Szenarien
+
+### TC-024-091: Einkaufsliste-Status-Workflow (offen → bestellt → geliefert)
+
+**Requirement**: REQ-024 §2 SharedShoppingList (status: open → ordered → delivered → closed)
+**Priority**: Medium
+**Category**: Zustandswechsel
+**Preconditions**:
+- "Saatgut-Sammelbestellung Frühjahr 2026" mit Status "Offen" und 5 Items existiert
+- Lisa ist Admin im Tenant
+
+**Testschritte**:
+1. Lisa öffnet die Einkaufsliste
+2. Lisa klickt "Als bestellt markieren" (o.ä. Admin-Aktion)
+3. Liste zeigt Status "Bestellt"
+4. Lisa klickt "Als geliefert markieren"
+5. Liste zeigt Status "Geliefert"
+6. Lisa klickt "Abschließen"
+
+**Erwartete Ergebnisse**:
+- Nach Schritt 2: Status-Badge wechselt zu "Bestellt" — Items können von Gärtnern nicht mehr hinzugefügt werden
+- Nach Schritt 4: Status-Badge wechselt zu "Geliefert" — Items können als abgeholt markiert werden
+- Nach Schritt 6: Status-Badge wechselt zu "Abgeschlossen" — alle Aktionen deaktiviert
+
+**Nachbedingungen**:
+- SharedShoppingList hat `status: 'closed'`
+
+**Tags**: [req-024, shopping-list, status-workflow, admin, zustandswechsel]
+
+---
+
+### TC-024-092: Item in Einkaufsliste abhaken (checked)
+
+**Requirement**: REQ-024 §2 SharedShoppingList (items[].checked: bool)
+**Priority**: Medium
+**Category**: Happy Path
+**Preconditions**:
+- "Saatgut-Sammelbestellung Frühjahr 2026" mit Status "Geliefert" existiert
+- Item "Tomatensamen Sungold (3 Tüten)" hat `checked: false`
+- Max hat das Item angefordert (`requested_by: Max`)
+- Max ist als Gärtner eingeloggt
+
+**Testschritte**:
+1. Max öffnet die Einkaufsliste
+2. Max klickt auf die Checkbox neben "Tomatensamen Sungold (3 Tüten)"
+
+**Erwartete Ergebnisse**:
+- Item zeigt Häkchen (checked=true) und erscheint visuell durchgestrichen oder grau markiert
+- Fortschrittsanzeige der Liste aktualisiert sich (z.B. "4 von 5 Items abgeholt")
+- Andere Mitglieder sehen die Änderung bei nächstem Laden der Seite
+
+**Nachbedingungen**:
+- Item hat `checked: true`
+
+**Tags**: [req-024, shopping-list-item, check-off, grower, happy-path]
+
+---
+
+### TC-024-093: Mehrere offene Einkaufslisten — Listenansicht
+
+**Requirement**: REQ-024 §2 SharedShoppingList, §1a.3 (Shopping-List anzeigen: alle Rollen)
+**Priority**: Low
+**Category**: Listenansicht
+**Preconditions**:
+- Tenant "Gemeinschaftsgarten Sonnenschein" hat 3 Einkaufslisten:
+  - "Saatgut-Sammelbestellung Frühjahr 2026" (Status: Offen, 5 Items)
+  - "Werkzeug-Pool" (Status: Bestellt, 2 Items)
+  - "Herbst-Bestellung 2025" (Status: Abgeschlossen, 8 Items)
+- Max ist Gärtner
+
+**Testschritte**:
+1. Max navigiert zur Einkaufslisten-Seite (`/t/gemeinschaftsgarten-sonnenschein/shopping-lists`)
+
+**Erwartete Ergebnisse**:
+- Alle 3 Listen sind sichtbar mit Name, Status-Badge und Item-Anzahl
+- Offene und bestellte Listen erscheinen oben (aktive Listen zuerst), abgeschlossene darunter (oder entsprechende Sortierung)
+- Kein "Neue Liste erstellen"-Button für Max (nur Admin darf Listen erstellen)
+- Max kann jede Liste öffnen (read-only-Ansicht oder Mitbearbeitung)
+
+**Nachbedingungen**:
+- Kein Status geändert
+
+**Tags**: [req-024, shopping-list, listenansicht, grower, mehrere-listen]
+
+---
+
 ## Abdeckungsmatrix
 
 | Spec-Abschnitt | Testfall-IDs |
@@ -2104,15 +2412,15 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 | §1 Kernkonzepte — Persönlicher Tenant | TC-024-001, TC-024-002 |
 | §1 Kernkonzepte — Organisations-Tenant erstellen | TC-024-003 – TC-024-007 |
 | §1 Einladungssystem (E-Mail, Link, OIDC) | TC-024-022 – TC-024-029, TC-024-079 |
-| §1.1 Szenarien (1–8) | TC-024-003, TC-024-033, TC-024-009, TC-024-079, TC-024-036, TC-024-071, TC-024-053, TC-024-058 |
+| §1.1 Szenarien (1–8) | TC-024-003, TC-024-033, TC-024-009, TC-024-079, TC-024-036, TC-024-071, TC-024-053 – TC-024-057 + TC-024-083 – TC-024-086 (Szenario 7), TC-024-058 + TC-024-087 – TC-024-090 (Szenario 8) |
 | §1a.1 Ressourcen-Permissions | TC-024-033 – TC-024-035, TC-024-037 – TC-024-039 |
 | §1a.2 Tenant-Verwaltungs-Permissions | TC-024-012 – TC-024-021, TC-024-029, TC-024-032, TC-024-040 – TC-024-041 |
-| §1a.3 Kollaborations-Permissions | TC-024-053 – TC-024-069 |
+| §1a.3 Kollaborations-Permissions | TC-024-053 – TC-024-069, TC-024-083 – TC-024-093 |
 | §1a.4 Platform-Rollen | TC-024-042 – TC-024-047, TC-024-051 – TC-024-052 |
 | §1a.5 Zuweisungsbasierte Write-Kontrolle | TC-024-033, TC-024-034, TC-024-038, TC-024-039 |
-| §2 DutyRotation / DutySwapRequest | TC-024-053 – TC-024-057 |
-| §2 BulletinPost / BulletinComment | TC-024-058 – TC-024-064 |
-| §2 SharedShoppingList | TC-024-065 – TC-024-069 |
+| §2 DutyRotation / DutySwapRequest | TC-024-053 – TC-024-057, TC-024-083 – TC-024-086 |
+| §2 BulletinPost / BulletinComment | TC-024-058 – TC-024-064, TC-024-087 – TC-024-090 |
+| §2 SharedShoppingList | TC-024-065 – TC-024-069, TC-024-091 – TC-024-093 |
 | §2 Stammdaten-Scoping (tenant_has_access) | TC-024-048 – TC-024-052 |
 | §3.1 TenantEngine (Slug, Name-Validierung) | TC-024-003 – TC-024-007, TC-024-075 – TC-024-077 |
 | §3.1 MembershipEngine (Letzter-Admin-Schutz) | TC-024-017, TC-024-019, TC-024-021 |
@@ -2128,6 +2436,9 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 | AK-29 – AK-44 (RBAC Permission-Matrix) | TC-024-033 – TC-024-044 |
 | AK-45 – AK-51 (Notfallverwaltung) | TC-024-042 – TC-024-047 |
 | FK-01 – FK-07 (Frontend-Kriterien) | TC-024-008, TC-024-009, TC-024-015, TC-024-023, TC-024-030, TC-024-013 – TC-024-014 |
+| Gießdienst-Rotation — Erweiterte Szenarien | TC-024-083 – TC-024-086 |
+| Pinnwand — Erweiterte Szenarien | TC-024-087 – TC-024-090 |
+| Gemeinsame Einkaufsliste — Erweiterte Szenarien | TC-024-091 – TC-024-093 |
 | Cross-Tenant-Isolation | TC-024-070, TC-024-071 |
 | Leere Zustände (Empty States) | TC-024-073, TC-024-074 |
 | Mobile-Ansicht | TC-024-072 |

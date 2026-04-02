@@ -1,5 +1,17 @@
 # E2E Test Case Extractor Memory
 
+## Coverage Analysis Results (2026-04-02)
+- Full analysis: `spec/e2e-testcases/COVERAGE-REPORT.md`
+- 1.654 Testfälle über 34 Dokumente (30 REQ + 4 NFR mit Browser-SuT)
+- **GESCHLOSSEN 2026-04-02**: TC-REQ-032.md erstellt — Druckansichten & Export v1.1, 47 TCs (TC-032-001 bis TC-032-047), 10 Gruppen
+- **GESCHLOSSEN 2026-04-02**: TC-REQ-013.md auf v2.0 aktualisiert — 3 Mischkultur-TCs entfernt, 15 neue TCs (Dual-Modell, PlantDiaryEntry, SuccessionPlan, Detach-Kategorie-Pflichtfeld), test_count=67
+- **GESCHLOSSEN 2026-04-02**: TC-REQ-021.md auf v1.2 aktualisiert — Beginner-Nav 5→8 Punkte, 8 neue TCs (TC-021-053 bis TC-021-060), test_count=60
+- Inhaltliche Lücken (sonst vollständige Docs): REQ-007 (Ernte-Fenster-Vorhersage/GDD)
+- **GESCHLOSSEN 2026-04-02**: REQ-022 Überwinterungsprofil — 18 neue TCs (TC-022-069 bis TC-022-086) in Gruppen 23/24/25/26, test_count=86
+- **GESCHLOSSEN 2026-04-02**: REQ-024 Kollaborations-Lücken — 11 neue TCs (TC-024-083 bis TC-024-093) in Gruppen 19/20/21 hinzugefügt, test_count=93
+- **GESCHLOSSEN 2026-04-02**: REQ-002 Wasseranalyse-Warnungen — 4 neue TCs (TC-002-063 bis TC-002-066) in Gruppe 20 hinzugefügt, test_count=66
+- **GESCHLOSSEN 2026-04-02**: REQ-006 phänolog. Trigger — 3 neue TCs (TC-006-073/-074/-075) in Gruppe 10b hinzugefügt, test_count=75
+
 ## Test Case Perspective Shift (2026-02-27)
 - User requested all test cases to be written from **end-user browser perspective only**
 - NO API calls, HTTP status codes, DB queries, or backend implementation details
@@ -399,7 +411,7 @@ Vollständig implementiert: Species, Site, Location
 - Platform-Tenant (`is_platform: true`): slug=`platform`, only one exists, enables cross-tenant powers
 - Seeded test tenants: "demo-garten" (personal, Admin), "gemeinschaftsgarten-sonnenschein" (organization, Admin)
 - 5 permission layers to test: (1) tenant role, (2) assignment-based write-control, (3) invitation permissions, (4) platform roles, (5) collaboration features (duty/bulletin/shopping)
-- 82 test cases in `spec/e2e-testcases/TC-REQ-024.md`
+- 93 test cases in `spec/e2e-testcases/TC-REQ-024.md` (TC-024-083 bis TC-024-093 ergänzt 2026-04-02)
 
 ## REQ-021 Erfahrungsstufen — Key Implementation Facts
 - AccountSettingsPage Tab "Erfahrungsstufe" (key `tabExperience`): ToggleButtonGroup (not segment control), `data-testid="experience-toggle-{level}"`

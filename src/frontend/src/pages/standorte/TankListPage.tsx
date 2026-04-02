@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
@@ -57,6 +58,8 @@ export default function TankListPage() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 1,
         }}
       >
         <PageTitle title={t('pages.tanks.title')} />
@@ -69,6 +72,9 @@ export default function TankListPage() {
           {t('pages.tanks.create')}
         </Button>
       </Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {t('pages.tanks.listIntro')}
+      </Typography>
       <DataTable
         columns={columns}
         rows={tanks}

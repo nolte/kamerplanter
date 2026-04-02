@@ -10,6 +10,7 @@ import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import FilterListOffIcon from '@mui/icons-material/FilterListOff';
@@ -191,6 +192,8 @@ export default function FertilizerListPage() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 1,
         }}
       >
         <PageTitle title={t('pages.fertilizers.title')} />
@@ -215,6 +218,9 @@ export default function FertilizerListPage() {
           </Button>
         </Box>
       </Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {t('pages.fertilizers.listIntro')}
+      </Typography>
 
       <Paper
         variant="outlined"

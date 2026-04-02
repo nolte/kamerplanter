@@ -114,6 +114,9 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
       data-testid="tank-create-dialog">
       <DialogTitle>{t('pages.tanks.create')}</DialogTitle>
       <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t('pages.tanks.createIntro')}
+        </Typography>
         <form onSubmit={handleSubmit(onSubmit)}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
             {t('pages.tanks.sectionIdentification')}
@@ -187,11 +190,13 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
               name="has_lid"
               control={control}
               label={t('pages.tanks.hasLid')}
+              helperText={t('pages.tanks.helperHasLid')}
             />
             <FormSwitchField
               name="has_air_pump"
               control={control}
               label={t('pages.tanks.hasAirPump')}
+              helperText={t('pages.tanks.helperHasAirPump')}
             />
           </FormRow>
           <FormRow>
@@ -199,11 +204,13 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
               name="has_circulation_pump"
               control={control}
               label={t('pages.tanks.hasCirculationPump')}
+              helperText={t('pages.tanks.helperHasCirculationPump')}
             />
             <FormSwitchField
               name="has_heater"
               control={control}
               label={t('pages.tanks.hasHeater')}
+              helperText={t('pages.tanks.helperHasHeater')}
             />
           </FormRow>
           <FormRow>
@@ -211,17 +218,20 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
               name="is_light_proof"
               control={control}
               label={t('pages.tanks.isLightProof')}
+              helperText={t('pages.tanks.helperIsLightProof')}
             />
             <FormSwitchField
               name="has_uv_sterilizer"
               control={control}
               label={t('pages.tanks.hasUvSterilizer')}
+              helperText={t('pages.tanks.helperHasUvSterilizer')}
             />
           </FormRow>
           <FormSwitchField
             name="has_ozone_generator"
             control={control}
             label={t('pages.tanks.hasOzoneGenerator')}
+            helperText={t('pages.tanks.helperHasOzoneGenerator')}
           />
 
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 1 }}>
