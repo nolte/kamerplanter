@@ -476,7 +476,7 @@ diseases:
 
   # --- Dracaena-specific diseases ---
 
-  - scientific_name: Fusarium moniliforme
+  - scientific_name: Fusarium solani
     common_name: Fusarium Leaf Spot (Dracaena)
     pathogen_type: fungal
     incubation_period_days: 10

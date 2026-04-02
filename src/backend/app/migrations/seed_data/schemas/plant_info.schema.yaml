@@ -19,18 +19,30 @@ properties:
     type: array
     items:
       $ref: "#/$defs/species"
-  enrich_species:
-    type: array
-    items:
+  species_enrichment:
+    type: object
+    description: "Dictionary of scientific_name -> patch fields for existing species"
+    additionalProperties:
       $ref: "#/$defs/species_enrichment"
   cultivars:
-    type: array
-    items:
-      $ref: "#/$defs/cultivar"
+    type: object
+    description: "Dictionary of species_name -> list of cultivar objects"
+    additionalProperties:
+      type: array
+      items:
+        $ref: "#/$defs/cultivar"
   growth_phases:
-    type: array
-    items:
-      $ref: "#/$defs/species_phases"
+    type: object
+    description: "Dictionary of species_name -> list of phase objects"
+    additionalProperties:
+      type: array
+      items:
+        $ref: "#/$defs/phase_entry"
+  lifecycle_configs:
+    type: object
+    description: "Dictionary of species_name -> lifecycle configuration"
+    additionalProperties:
+      $ref: "#/$defs/lifecycle_config"
   companion_planting:
     $ref: "#/$defs/companion_planting_data"
   new_pests:
@@ -255,44 +267,50 @@ $defs:
     required: [name, species_name]
     additionalProperties: true
 
-  species_phases:
+  lifecycle_config:
     type: object
     properties:
-      species_name:
-        type: string
-        description: "Scientific name of the species"
       cycle_type:
         type: string
         enum: [annual, biennial, perennial]
+      photoperiod_type:
+        type: string
+        enum: [short_day, long_day, day_neutral]
       typical_lifespan_years:
         type: [integer, "null"]
       dormancy_required: { type: boolean }
       vernalization_required: { type: boolean }
-      photoperiod_type:
+      vernalization_min_days:
+        type: [integer, "null"]
+      critical_day_length_hours:
+        type: [number, "null"]
+    required: [cycle_type, photoperiod_type]
+    additionalProperties: false
+
+  phase_entry:
+    type: object
+    properties:
+      name:
         type: string
-        enum: [short_day, long_day, day_neutral]
-      phases:
-        type: array
-        items:
-          type: object
-          properties:
-            name:
-              type: string
-              enum: [germination, seedling, vegetative, flowering, flushing, dormancy,
-                     harvest, sprouting, budding, fruiting, ripening, senescence, corm_ripening]
-            display_name: { type: string }
-            typical_duration_days: { type: integer, minimum: 1 }
-            sequence_order: { type: integer, minimum: 1 }
-            stress_tolerance:
-              type: string
-              enum: [low, medium, high]
-            allows_harvest: { type: boolean }
-            is_terminal: { type: boolean }
-          required: [name, display_name, typical_duration_days, sequence_order,
-                     stress_tolerance, allows_harvest, is_terminal]
-          additionalProperties: false
-        minItems: 1
-    required: [species_name, phases]
+        enum: [germination, seedling, vegetative, flowering, flushing, dormancy,
+               harvest, sprouting, budding, fruiting, ripening, senescence, corm_ripening,
+               active_growth, winter_rest, cool_rest, summer_rest]
+      display_name: { type: string }
+      duration_days: { type: integer, minimum: 1 }
+      sequence_order: { type: integer, minimum: 1 }
+      stress_tolerance:
+        type: string
+        enum: [low, medium, high]
+      allows_harvest: { type: boolean }
+      is_terminal: { type: boolean }
+      requirement_profile:
+        type: object
+        additionalProperties: true
+      nutrient_profile:
+        type: object
+        additionalProperties: true
+    required: [name, display_name, duration_days, sequence_order,
+               stress_tolerance, allows_harvest, is_terminal]
     additionalProperties: false
 
   companion_planting_data:
@@ -301,15 +319,22 @@ $defs:
       compatible:
         type: array
         items:
-          type: array
-          prefixItems:
-            - type: string
-            - type: string
-            - type: number
-              minimum: 0
-              maximum: 1
-          minItems: 3
-          maxItems: 3
+          oneOf:
+            - type: array
+              prefixItems:
+                - type: string
+                - type: string
+                - type: number
+                  minimum: 0
+                  maximum: 1
+              minItems: 3
+              maxItems: 3
+            - type: object
+              properties:
+                species_a: { type: string }
+                species_b: { type: string }
+                score: { type: number, minimum: 0, maximum: 1 }
+              required: [species_a, species_b, score]
       incompatible:
         type: array
         items:
@@ -344,7 +369,7 @@ $defs:
       name: { type: string }
       pathogen_type:
         type: string
-        enum: [fungal, bacterial, viral, physiological, oomycete]
+        enum: [fungal, bacterial, viral, physiological, oomycete, protist]
       symptoms:
         type: array
         items: { type: string }

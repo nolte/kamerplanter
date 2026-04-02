@@ -18,6 +18,36 @@ properties:
     type: array
     items:
       $ref: "#/$defs/treatment"
+  pest_treatments:
+    type: array
+    description: "Edges: [treatment_name, pest_name]"
+    items:
+      type: array
+      prefixItems:
+        - type: string
+        - type: string
+      minItems: 2
+      maxItems: 2
+  disease_treatments:
+    type: array
+    description: "Edges: [treatment_name, disease_name]"
+    items:
+      type: array
+      prefixItems:
+        - type: string
+        - type: string
+      minItems: 2
+      maxItems: 2
+  contraindications:
+    type: array
+    description: "Edges: [biological_agent, chemical_treatment]"
+    items:
+      type: array
+      prefixItems:
+        - type: string
+        - type: string
+      minItems: 2
+      maxItems: 2
 
 additionalProperties: false
 
@@ -49,20 +79,25 @@ $defs:
   disease:
     type: object
     properties:
-      name:
+      scientific_name:
+        type: string
+      common_name:
         type: string
       pathogen_type:
         type: string
-        enum: [fungal, bacterial, viral, physiological, oomycete]
-      symptoms:
+        enum: [fungal, bacterial, viral, physiological, oomycete, protist]
+      incubation_period_days:
+        type: integer
+        minimum: 1
+      environmental_triggers:
         type: array
         items:
           type: string
-      affected_parts:
+      affected_plant_parts:
         type: array
         items:
           type: string
-          enum: [leaf, stem, root, flower, fruit]
+          enum: [leaf, stem, root, flower, fruit, rhizome, tuber]
       optimal_temp_min:
         type: number
       optimal_temp_max:
@@ -83,7 +118,7 @@ $defs:
         type: array
         items:
           type: string
-    required: [name, pathogen_type]
+    required: [scientific_name, common_name, pathogen_type]
     additionalProperties: true
 
   treatment:

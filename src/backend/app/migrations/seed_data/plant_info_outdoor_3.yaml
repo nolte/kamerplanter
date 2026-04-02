@@ -45,11 +45,11 @@ new_species_family_map:
 # ==============================================================================
 new_species:
   - scientific_name: "Nymphaea alba"
-    common_names: "Weisse Seerose;White Water Lily;European White Waterlily"
+    common_names: [Weisse Seerose, White Water Lily, European White Waterlily]
     genus: Nymphaea
     growth_habit: herb
     root_type: fibrous  # rhizomatous -> fibrous
-    hardiness_zones: "4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b;10a;10b"
+    hardiness_zones: ["4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b", "10a", "10b"]
     native_habitat: "Europe, North Africa, temperate Asia"
     allelopathy_score: 0.0  # clamped from -0.2
     frost_sensitivity: hardy
@@ -57,13 +57,12 @@ new_species:
     sowing_indoor_weeks_before_last_frost: 10
     sowing_outdoor_after_last_frost_days: 21
     direct_sow_months: [5, 6]
-    harvest_months: [8, 9, 10]
     bloom_months: [6, 7, 8, 9]
     container_suitable: "yes"
-    recommended_container_volume_l: "20-40"
+    recommended_container_volume_l: "20--40"
     min_container_depth_cm: 60
-    mature_height_cm: "10-30"
-    mature_width_cm: "200-300"
+    mature_height_cm: "10--30"
+    mature_width_cm: "200--300"
     spacing_cm: "300"
     indoor_suitable: limited
     balcony_suitable: "yes"
@@ -179,7 +178,7 @@ growth_phases:
       duration_days: 75
       sequence_order: 4
       is_terminal: false
-      allows_harvest: true
+      allows_harvest: false  # P-005: ornamental — no harvestable product
       stress_tolerance: medium
       requirement_profile:
         light_ppfd_target: 1400
@@ -203,7 +202,7 @@ growth_phases:
       display_name: Senescence (Sep-Oct)
       duration_days: 42
       sequence_order: 5
-      is_terminal: true
+      is_terminal: false  # P-004: perennial — senescence is end of annual cycle, not plant death
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:

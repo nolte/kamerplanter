@@ -21,20 +21,20 @@ new_species_family_map:
 # ==============================================================================
 new_species:
   - scientific_name: "Dracaena fragrans"
-    common_names: "Duftdracaena;Maispalme;Corn Plant;Mass Cane;Happy Plant"
+    common_names: [Duftdracaena, Maispalme, Corn Plant, Mass Cane, Happy Plant]
     genus: Dracaena
     growth_habit: tree
     root_type: fibrous
-    hardiness_zones: "10b;11a;11b;12a;12b"
+    hardiness_zones: ["10b", "11a", "11b", "12a", "12b"]
     native_habitat: "Tropical Africa (Sudan, Mozambique, Angola)"
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
     allows_harvest: false
     container_suitable: "yes"
-    recommended_container_volume_l: "10-30"
+    recommended_container_volume_l: "10--30"
     min_container_depth_cm: 20
-    mature_height_cm: "150-300"
-    mature_width_cm: "50-100"
+    mature_height_cm: "150--300"
+    mature_width_cm: "50--100"
     spacing_cm: "80"
     indoor_suitable: "yes"
     balcony_suitable: limited
@@ -50,7 +50,7 @@ new_species:
 species_enrichment:
   "Dracaena marginata":
     hardiness_detail: "No frost tolerance; damage from +5 C, death below 0 C."
-    bloom_months: [5, 6]
+    bloom_months: []  # P-006: D. marginata rarely blooms indoors; omit to avoid false expectations
     hardiness_zones: ["10a", "10b", "11a", "11b", "12a", "12b"]
 
 # ==============================================================================
@@ -61,7 +61,7 @@ lifecycle_configs:
     cycle_type: perennial
     photoperiod_type: day_neutral
     typical_lifespan_years: 25
-    dormancy_required: true
+    dormancy_required: false  # Tropical evergreen — no true dormancy, only reduced winter growth
     vernalization_required: false
     vernalization_min_days: null
     critical_day_length_hours: null
@@ -160,7 +160,7 @@ growth_phases:
         temperature_night_c: 15.0
         humidity_day_percent: 50
         humidity_night_percent: 55
-        vpd_target_kpa: 1.1
+        vpd_target_kpa: 0.8  # P-002: lower VPD in dormancy to reduce transpiration stress
         co2_ppm: 500
         irrigation_frequency_days: 17.0
         irrigation_volume_ml_per_plant: 275
