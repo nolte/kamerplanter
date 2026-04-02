@@ -5,6 +5,14 @@
 ##   cp .env.example .env        # copy & edit passwords
 ##   docker-compose up -d
 ##
+## Optional profiles (not started by default):
+##   docker-compose --profile vectordb up -d      # PostgreSQL + pgvector for AI/RAG
+##   docker-compose --profile ollama up -d         # Local LLM inference (Ollama)
+##   docker-compose --profile timescaledb up -d    # Time-series DB for sensor data
+##
+## Multiple profiles can be combined:
+##   docker-compose --profile vectordb --profile ollama up -d
+##
 ## All credentials are read from .env (not hardcoded here).
 ## See .env.example for required variables.
 ##
