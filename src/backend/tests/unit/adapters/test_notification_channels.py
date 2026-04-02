@@ -216,6 +216,7 @@ class TestHomeAssistantNotificationChannel:
         config = {
             "tts_enabled": True,
             "tts_entity_id": "media_player.kitchen",
+            "mobile_push": False,
         }
 
         result = await channel.send(notification, config)
