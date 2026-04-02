@@ -185,3 +185,8 @@ class WorkflowListPage(BasePage):
     def is_dialog_open(self) -> bool:
         """Check whether any MUI dialog is open."""
         return len(self.driver.find_elements(*self.DIALOG)) > 0
+
+    def is_page_visible(self) -> bool:
+        """Check whether the workflow list page container is displayed."""
+        els = self.driver.find_elements(*self.PAGE)
+        return len(els) > 0 and els[0].is_displayed()

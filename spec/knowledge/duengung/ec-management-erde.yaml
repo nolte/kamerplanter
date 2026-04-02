@@ -2,7 +2,7 @@
 title: EC-Management in Erde und organischen Substraten
 language: de
 category: duengung
-tags: [ec, erde, organisch, boden, salzakkumulation, spuelung, kationenaustausch, kompost, langzeitduenger]
+tags: [ec, erde, organisch, boden, salzakkumulation, spuelung, kationenaustausch, kompost, langzeitduenger, ph-korrektur, kalkung, aluminium-toxizitaet]
 expertise_level: [beginner, intermediate, expert]
 applicable_phases: [seedling, vegetative, flowering, harvest]
 chunks:
@@ -288,3 +288,49 @@ chunks:
       top_dressing_interval: every_2_4_weeks
       liquid_feed_dose_reduction: "50%"
       monitoring_interval: every_2_weeks
+
+  - id: boden-ph-korrektur-kalkung
+    title: Boden-pH zu niedrig — Kalken und Aluminium-Toxizitaet
+    content: |
+      Ein zu niedriger Boden-pH (<5,5) ist eines der haeufigsten Probleme im Freiland und
+      in Toepfen mit Erde. Er beeinflusst die Naehrstoff-Verfuegbarkeit dramatisch und
+      kann zu Aluminium-Toxizitaet fuehren.
+
+      Symptome bei pH <5,5:
+      - Langsames, gestauchtes Wachstum trotz ausreichender Duengung
+      - Braune, kurze Wurzeln (geschaedigt durch loesliches Aluminium)
+      - Blaetter zeigen Mangelsymptome (besonders Calcium, Magnesium, Phosphor),
+        obwohl genug im Boden vorhanden ist — die Naehrstoff-Verfuegbarkeit sinkt
+        bei niedrigem pH drastisch
+      - Phosphor wird bei pH <5,5 als Aluminium- oder Eisenphosphat festgelegt (Lockout)
+
+      Aluminium-Toxizitaet: Bei Boden-pH unter 5,0 wird Aluminium (Al) aus Tonmineralen
+      freigesetzt und geht in loesliche, pflanzentoxische Form ueber. Aluminium-Toxizitaet
+      schaedigt die Wurzelspitzen, hemmt die Zellteilung und blockiert die Calcium-Aufnahme.
+      Besonders betroffen sind Tomaten, Bohnen und die meisten Gemuesesorten. Aluminium-
+      Toxizitaet ist auf sauren Sandboeden und bei jahrelanger Verwendung von sauer wirkenden
+      Mineraldüngern (z.B. Ammoniumsulfat) ein ernstes Problem.
+
+      Kalken als Gegenmassnahme:
+      - Kohlensaurer Kalk (CaCO3): 150-300 g/m2 bei pH 5,0-5,5, obere 10 cm einarbeiten.
+        Wirkung ueber 4-8 Wochen. Liefert Calcium und hebt den pH.
+      - Dolomitkalk (CaCO3 + MgCO3): 150-300 g/m2, liefert zusaetzlich 10-15% Magnesium.
+        Empfehlenswert wenn gleichzeitig Mg-Mangel vorliegt (haeufig bei sauren Boeden).
+      - Algenkalk: 100-200 g/m2, schnellere Wirkung als Gesteinskalke, liefert
+        Spurenelemente. Teurer, aber fuer den Hausgarten gut geeignet.
+
+      Wichtig: Nicht ueberkalken! pH ueber 7,5 verursacht Eisen- und Mangan-Mangel.
+      Immer Bodenanalyse als Grundlage. Nach dem Kalken 4-6 Wochen warten, dann pH
+      kontrollieren. Kalkung idealerweise im Herbst oder fruehen Fruehjahr.
+
+      Praxis fuer Tomaten im Freiland bei pH 5,2: Sofort kalken (Dolomitkalk 200-250 g/m2),
+      pH-Ziel 6,0-6,5 (optimal fuer Tomaten). Bis die Kalkung wirkt, Blattduengung mit
+      Calcium (Calciumchlorid 0,4-0,5%) als Soforthilfe. Keine weitere Saeure-wirkende
+      Duengung (kein Ammoniumsulfat, kein Schwefelsaurer Kali) bis pH korrigiert.
+    metadata:
+      critical_ph: "<5.5"
+      aluminum_toxic_ph: "<5.0"
+      lime_dose_g_per_m2: "150-300"
+      dolomite_mgo_percent: "10-15"
+      effect_weeks: "4-8"
+      tomato_optimal_ph: "6.0-6.5"

@@ -270,3 +270,24 @@ class TaskQueuePage(BasePage):
     def has_snackbar(self) -> bool:
         """Check if a snackbar is currently visible."""
         return len(self.driver.find_elements(*self.SNACKBAR)) > 0
+
+    # ── Element visibility helpers ────────────────────────────────────
+
+    def is_page_visible(self) -> bool:
+        """Check whether the task queue page container is displayed."""
+        els = self.driver.find_elements(*self.PAGE)
+        return len(els) > 0 and els[0].is_displayed()
+
+    def is_create_button_visible(self) -> bool:
+        """Check whether the create task button is displayed."""
+        els = self.driver.find_elements(*self.CREATE_TASK_BUTTON)
+        return len(els) > 0 and els[0].is_displayed()
+
+    def is_generate_reminders_visible(self) -> bool:
+        """Check whether the generate reminders button is displayed."""
+        els = self.driver.find_elements(*self.GENERATE_REMINDERS_BUTTON)
+        return len(els) > 0 and els[0].is_displayed()
+
+    def is_filter_visible(self, locator: tuple[str, str]) -> bool:
+        """Check whether a filter toggle element is present."""
+        return len(self.driver.find_elements(*locator)) > 0

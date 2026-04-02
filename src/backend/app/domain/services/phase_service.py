@@ -116,30 +116,35 @@ class PhaseService:
         if plant is None:
             raise NotFoundError("PlantInstance", plant_key)
 
-        days_in_phase = 0
-        if plant.current_phase_started_at:
-            from datetime import datetime
+        # Phase history is the source of truth for phase key and start time
+        history = self._repo.get_phase_history(plant_key)
+        active = next((h for h in history if h.exited_at is None), None)
 
-            delta = datetime.now(UTC) - plant.current_phase_started_at
+        phase_key = active.phase_key if active else plant.current_phase_key
+        phase_started_at = active.entered_at if active else plant.current_phase_started_at
+
+        days_in_phase = 0
+        if phase_started_at:
+            delta = datetime.now(UTC) - phase_started_at
             days_in_phase = delta.days
 
         next_phase = None
-        if plant.current_phase_key:
-            rules = self._repo.get_transition_rules(plant.current_phase_key)
+        if phase_key:
+            rules = self._repo.get_transition_rules(phase_key)
             if rules:
                 target = self._repo.get_phase_by_key(rules[0].to_phase_key)
                 if target:
                     next_phase = target.name
 
         phase_name = ""
-        if plant.current_phase_key:
-            phase = self._repo.get_phase_by_key(plant.current_phase_key)
+        if phase_key:
+            phase = self._repo.get_phase_by_key(phase_key)
             if phase:
                 phase_name = phase.name
 
         return {
             "phase": phase_name,
-            "phase_key": plant.current_phase_key,
+            "phase_key": phase_key,
             "days_in_phase": days_in_phase,
             "next_phase": next_phase,
         }

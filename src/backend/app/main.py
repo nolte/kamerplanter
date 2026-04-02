@@ -14,7 +14,7 @@ import app.data_access.external.gbif_adapter  # noqa: F401  register adapter
 import app.data_access.external.perenual_adapter  # noqa: F401  register adapter
 from app.api.v1.auth.router import limiter
 from app.api.v1.router import api_router
-from app.common.dependencies import close_connection, get_connection
+from app.common.dependencies import close_connection, get_connection, get_ha_client
 from app.common.error_handlers import (
     app_error_handler,
     unhandled_error_handler,
@@ -121,6 +121,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from app.migrations.backfill_tenant_key import backfill_tenant_key
 
     backfill_tenant_key(db)
+
+    # Register notification channels
+    from app.domain.engines.notification_channel_registry import NotificationChannelRegistry
+
+    ha_client = get_ha_client()
+    if ha_client is not None:
+        from app.data_access.external.ha_notification_channel import HomeAssistantNotificationChannel
+
+        NotificationChannelRegistry.register(HomeAssistantNotificationChannel(ha_client))
+        logger.info("notification_channel_registered", channel="home_assistant")
+
+    from app.data_access.external.apprise_notification_channel import AppriseNotificationChannel
+
+    NotificationChannelRegistry.register(AppriseNotificationChannel())
+    logger.info("notification_channel_registered", channel="apprise")
 
     # TimescaleDB init (optional)
     if settings.timescaledb_enabled:

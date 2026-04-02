@@ -1,20 +1,23 @@
-"""E2E tests for REQ-010 — Treatment List Page (TC-010-019 to TC-010-026).
+"""E2E tests for REQ-010 — Treatment List Page.
 
-Tests cover:
-- TreatmentListPage: list display, column headers, IPM hierarchy chip colors
-- TreatmentCreateDialog: biological happy path, chemical with karenz, validation
-- Karenz chip visibility (only when safety_interval_days > 0)
-
-NFR-008 SS3.4 screenshot checkpoints at:
-1. Page Load
-2. Before significant actions
-3. After significant actions
-4. Error states
+Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-010.md):
+  TC-REQ-010-024  ->  TC-010-019  Behandlungs-Listenansicht aufrufen
+  TC-REQ-010-025  ->  TC-010-019  Behandlungs-Listenansicht — Spalten pruefen
+  TC-REQ-010-026  ->  TC-010-019  Einleitungstext sichtbar
+  TC-REQ-010-027  ->  TC-010-019  Behandlungs-Liste — Suche filtert
+  TC-REQ-010-028  ->  TC-010-019  Behandlungs-Liste — Suche ohne Treffer
+  TC-REQ-010-029  ->  TC-010-019  Behandlungs-Liste — Sortierung per Spaltenklick
+  TC-REQ-010-030  ->  TC-010-019  Behandlungs-Liste — Zeigt-Zaehler
+  TC-REQ-010-031  ->  TC-010-023  Behandlung erstellen — Biologisch (Happy Path)
+  TC-REQ-010-032  ->  TC-010-024  Behandlung erstellen — Chemisch mit Karenzzeit
+  TC-REQ-010-033  ->  TC-010-025  Behandlung erstellen — Pflichtfeld 'Bezeichnung' leer
+  TC-REQ-010-034  ->  TC-010-023  Behandlung erstellen — Dialog abbrechen
 """
 
 from __future__ import annotations
 
-import time
+from pathlib import Path
+from typing import Callable
 import uuid
 
 import pytest
@@ -32,59 +35,79 @@ def treatment_list(browser: WebDriver, base_url: str) -> TreatmentListPage:
     return TreatmentListPage(browser, base_url)
 
 
-# -- TC-010-019 to TC-010-022: Treatment List Page ----------------------------
+# -- TC-REQ-010-024 to TC-REQ-010-030: Treatment List Page --------------------
 
 
 class TestTreatmentListPage:
-    """TC-010-019 to TC-010-022: TreatmentListPage display and interactions."""
+    """Treatment list display and interactions (Spec: TC-010-019, TC-010-020)."""
 
+    @pytest.mark.smoke
     def test_page_renders_with_correct_structure(
         self,
         treatment_list: TreatmentListPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-010-019: Treatment list page loads with title, table, and create button."""
+        """TC-REQ-010-024: Treatment list page loads with title, table, and create button.
+
+        Spec: TC-010-019 -- Behandlungs-Listenansicht aufrufen.
+        """
         treatment_list.open()
-        screenshot("req010_040_treatment_list_loaded", "Treatment list after initial load")
+        screenshot("TC-REQ-010-024_treatment-list-loaded", "Treatment list after initial load")
 
-        assert treatment_list.driver.find_element(
-            *TreatmentListPage.PAGE
-        ).is_displayed(), "Expected [data-testid='treatment-list-page'] to be visible"
+        page_el = treatment_list.wait_for_element(TreatmentListPage.PAGE)
+        assert page_el.is_displayed(), (
+            "TC-REQ-010-024 FAIL: Expected [data-testid='treatment-list-page'] to be visible"
+        )
+        btn_el = treatment_list.wait_for_element(TreatmentListPage.CREATE_BUTTON)
+        assert btn_el.is_displayed(), (
+            "TC-REQ-010-024 FAIL: Expected [data-testid='create-button'] to be visible"
+        )
 
-        btn = treatment_list.driver.find_element(*TreatmentListPage.CREATE_BUTTON)
-        assert btn.is_displayed(), "Expected [data-testid='create-button'] to be visible"
-
+    @pytest.mark.smoke
     def test_table_has_expected_column_headers(
         self,
         treatment_list: TreatmentListPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-010-019: DataTable renders with expected columns for treatments."""
+        """TC-REQ-010-025: DataTable renders with expected columns for treatments.
+
+        Spec: TC-010-019 -- Behandlungs-Listenansicht — Spalten pruefen.
+        """
         treatment_list.open()
-        screenshot("req010_041_treatment_table_columns", "Treatment table column headers")
+        screenshot("TC-REQ-010-025_treatment-table-columns", "Treatment table column headers")
 
         headers = treatment_list.get_column_headers()
-        assert len(headers) > 0, f"Expected column headers, got none. Headers: {headers}"
+        assert len(headers) > 0, (
+            f"TC-REQ-010-025 FAIL: Expected column headers, got none. Headers: {headers}"
+        )
 
+    @pytest.mark.smoke
     def test_intro_text_is_visible(
         self,
         treatment_list: TreatmentListPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-010-019: Introductory description text is visible."""
+        """TC-REQ-010-026: Introductory description text is visible.
+
+        Spec: TC-010-019 -- Einleitungstext sichtbar.
+        """
         treatment_list.open()
-        screenshot("req010_042_treatment_intro_text", "Treatment list intro text")
+        screenshot("TC-REQ-010-026_treatment-intro-text", "Treatment list intro text")
 
         assert treatment_list.has_intro_text(), (
-            "Expected introductory description text to be visible"
+            "TC-REQ-010-026 FAIL: Expected introductory description text to be visible"
         )
 
+    @pytest.mark.core_crud
     def test_search_filters_treatments(
         self,
         treatment_list: TreatmentListPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-010-019: Search filters treatment list."""
+        """TC-REQ-010-027: Search filters treatment list.
+
+        Spec: TC-010-019 -- Behandlungs-Liste — Suche filtert.
+        """
         treatment_list.open()
         initial_count = treatment_list.get_row_count()
 
@@ -94,35 +117,45 @@ class TestTreatmentListPage:
         first_name = treatment_list.get_first_column_texts()[0]
         search_term = first_name[:4]
 
-        screenshot("req010_043_treatment_before_search", "Treatment list before search")
+        screenshot("TC-REQ-010-027_before-search", "Treatment list before search")
         treatment_list.search(search_term)
-        time.sleep(0.5)
-        screenshot("req010_044_treatment_after_search", "Treatment list after search")
+        treatment_list.wait_for_loading_complete()
+        screenshot("TC-REQ-010-027_after-search", "Treatment list after search")
 
         filtered = treatment_list.get_first_column_texts()
         assert len(filtered) > 0, (
-            f"Expected results when searching for '{search_term}'"
+            f"TC-REQ-010-027 FAIL: Expected results when searching for '{search_term}'"
         )
 
+    @pytest.mark.core_crud
     def test_search_no_results(
         self,
         treatment_list: TreatmentListPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-010-019: Search with no match shows empty state."""
+        """TC-REQ-010-028: Search with no match shows empty state.
+
+        Spec: TC-010-019 -- Behandlungs-Liste — Suche ohne Treffer.
+        """
         treatment_list.open()
         treatment_list.search("XYZUnbekannt99")
-        time.sleep(0.5)
-        screenshot("req010_045_treatment_no_results", "Treatment search with no results")
+        treatment_list.wait_for_loading_complete()
+        screenshot("TC-REQ-010-028_treatment-no-results", "Treatment search with no results")
 
-        assert treatment_list.get_row_count() == 0, "Expected zero rows for non-matching search"
+        assert treatment_list.get_row_count() == 0, (
+            "TC-REQ-010-028 FAIL: Expected zero rows for non-matching search"
+        )
 
+    @pytest.mark.core_crud
     def test_sort_by_column(
         self,
         treatment_list: TreatmentListPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-010-019: Sorting by column header works."""
+        """TC-REQ-010-029: Sorting by column header works.
+
+        Spec: TC-010-019 -- Behandlungs-Liste — Sortierung per Spaltenklick.
+        """
         treatment_list.open()
 
         if treatment_list.get_row_count() == 0:
@@ -132,48 +165,61 @@ class TestTreatmentListPage:
         if not headers:
             pytest.skip("No column headers")
 
+        screenshot("TC-REQ-010-029_before-sort", "Treatment list before sorting")
         treatment_list.click_column_header(headers[0])
-        time.sleep(0.3)
-        screenshot("req010_046_treatment_sorted", "Treatment list after column sort")
+        treatment_list.wait_for_loading_complete()
+        screenshot("TC-REQ-010-029_after-sort", "Treatment list after column sort")
 
-        assert treatment_list.has_sort_chip(), "Expected sort chip after clicking column header"
+        assert treatment_list.has_sort_chip(), (
+            "TC-REQ-010-029 FAIL: Expected sort chip after clicking column header"
+        )
 
+    @pytest.mark.smoke
     def test_showing_count_displays_range(
         self,
         treatment_list: TreatmentListPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-010-019: Showing count text is visible."""
+        """TC-REQ-010-030: Showing count text is visible.
+
+        Spec: TC-010-019 -- Behandlungs-Liste — Zeigt-Zaehler.
+        """
         treatment_list.open()
 
         if treatment_list.get_row_count() == 0:
             pytest.skip("No treatments in database")
 
         showing_text = treatment_list.get_showing_count_text()
-        screenshot("req010_047_treatment_showing_count", "Treatment list showing count")
+        screenshot("TC-REQ-010-030_treatment-showing-count", "Treatment list showing count")
         assert "Zeigt" in showing_text or "von" in showing_text, (
-            f"Expected showing count text, got '{showing_text}'"
+            f"TC-REQ-010-030 FAIL: Expected showing count text, got '{showing_text}'"
         )
 
 
-# -- TC-010-023 to TC-010-026: Treatment Create Dialog -----------------------
+# -- TC-REQ-010-031 to TC-REQ-010-034: Treatment Create Dialog ----------------
 
 
 class TestTreatmentCreateDialog:
-    """TC-010-023 to TC-010-026: Treatment create dialog operations."""
+    """Treatment create dialog operations (Spec: TC-010-023, TC-010-024, TC-010-025)."""
 
+    @pytest.mark.core_crud
     def test_create_biological_treatment_happy_path(
         self,
         treatment_list: TreatmentListPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-010-023: Create biological treatment (happy path)."""
+        """TC-REQ-010-031: Create biological treatment (happy path).
+
+        Spec: TC-010-023 -- Behandlung erstellen — Biologische Behandlung (Happy Path).
+        """
         treatment_list.open()
-        screenshot("req010_048_before_bio_create", "Treatment list before creating biological")
+        screenshot("TC-REQ-010-031_before-bio-create", "Treatment list before creating biological")
 
         treatment_list.click_create()
-        assert treatment_list.is_create_dialog_open(), "Expected create dialog to be open"
-        screenshot("req010_049_treatment_dialog_open", "Treatment create dialog opened")
+        assert treatment_list.is_create_dialog_open(), (
+            "TC-REQ-010-031 FAIL: Expected create dialog to be open"
+        )
+        screenshot("TC-REQ-010-031_treatment-dialog-open", "Treatment create dialog opened")
 
         unique = uuid.uuid4().hex[:6]
         bio_name = f"E2E-Raubmilbe {unique}"
@@ -182,28 +228,34 @@ class TestTreatmentCreateDialog:
         treatment_list.fill_active_ingredient("Phytoseiulus persimilis")
         treatment_list.select_application_method("Freilassung")
         # safety_interval_days defaults to 0
-        screenshot("req010_050_bio_form_filled", "Biological treatment form filled")
+        screenshot("TC-REQ-010-031_bio-form-filled", "Biological treatment form filled")
 
         treatment_list.submit_create_form()
         treatment_list.wait_for_dialog_closed()
-        screenshot("req010_051_after_bio_create", "Treatment list after creating biological")
+        screenshot("TC-REQ-010-031_after-bio-create", "Treatment list after creating biological")
 
-        assert not treatment_list.is_create_dialog_open(), "Expected dialog to close"
+        assert not treatment_list.is_create_dialog_open(), (
+            "TC-REQ-010-031 FAIL: Expected dialog to close"
+        )
 
         names = treatment_list.get_first_column_texts()
         assert any(bio_name in n for n in names), (
-            f"Expected '{bio_name}' in treatment list, got {names}"
+            f"TC-REQ-010-031 FAIL: Expected '{bio_name}' in treatment list, got {names}"
         )
 
+    @pytest.mark.core_crud
     def test_create_chemical_treatment_with_karenz(
         self,
         treatment_list: TreatmentListPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-010-024: Create chemical treatment with safety interval and protective equipment."""
+        """TC-REQ-010-032: Create chemical treatment with safety interval and protective equipment.
+
+        Spec: TC-010-024 -- Behandlung erstellen — Chemische Behandlung mit Karenzzeit.
+        """
         treatment_list.open()
         treatment_list.click_create()
-        screenshot("req010_052_before_chem_create", "Treatment dialog for chemical treatment")
+        screenshot("TC-REQ-010-032_before-chem-create", "Treatment dialog for chemical treatment")
 
         unique = uuid.uuid4().hex[:6]
         chem_name = f"E2E-Pyrethrin {unique}"
@@ -215,69 +267,83 @@ class TestTreatmentCreateDialog:
         treatment_list.fill_dosage_per_liter(2.5)
         treatment_list.add_protective_equipment("Handschuhe")
         treatment_list.add_protective_equipment("Schutzbrille")
-        screenshot("req010_053_chem_form_filled", "Chemical treatment form filled with karenz")
+        screenshot("TC-REQ-010-032_chem-form-filled", "Chemical treatment form filled with karenz")
 
         treatment_list.submit_create_form()
         treatment_list.wait_for_dialog_closed()
-        screenshot("req010_054_after_chem_create", "Treatment list after creating chemical")
+        screenshot("TC-REQ-010-032_after-chem-create", "Treatment list after creating chemical")
 
-        assert not treatment_list.is_create_dialog_open(), "Expected dialog to close"
+        assert not treatment_list.is_create_dialog_open(), (
+            "TC-REQ-010-032 FAIL: Expected dialog to close"
+        )
 
         names = treatment_list.get_first_column_texts()
         assert any(chem_name in n for n in names), (
-            f"Expected '{chem_name}' in treatment list, got {names}"
+            f"TC-REQ-010-032 FAIL: Expected '{chem_name}' in treatment list, got {names}"
         )
 
+    @pytest.mark.core_crud
     def test_create_treatment_validation_name_required(
         self,
         treatment_list: TreatmentListPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-010-025: Validation error when name field is empty."""
+        """TC-REQ-010-033: Validation error when name field is empty.
+
+        Spec: TC-010-025 -- Behandlung erstellen — Pflichtfeld 'Bezeichnung' leer.
+        """
         from selenium.webdriver.common.by import By
 
         treatment_list.open()
         treatment_list.click_create()
-        time.sleep(0.5)
+        treatment_list.wait_for_loading_complete()
 
         # Submit without filling name
         treatment_list.submit_create_form()
-        time.sleep(1)
+        treatment_list.wait_for_loading_complete()
         screenshot(
-            "req010_055_treatment_validation_name",
+            "TC-REQ-010-033_treatment-validation-name",
             "Validation error for empty treatment name",
         )
 
-        assert treatment_list.is_create_dialog_open(), "Dialog should remain open"
+        assert treatment_list.is_create_dialog_open(), (
+            "TC-REQ-010-033 FAIL: Dialog should remain open"
+        )
         has_name_error = treatment_list.has_validation_error("name")
         # Fallback: any error helper text
         has_any_error = len(treatment_list.driver.find_elements(
             By.CSS_SELECTOR, "div[role='dialog'] .MuiFormHelperText-root.Mui-error"
         )) > 0
         assert has_name_error or has_any_error, (
-            "Expected validation error for 'name'"
+            "TC-REQ-010-033 FAIL: Expected validation error for 'name'"
         )
 
         treatment_list.cancel_create_form()
 
+    @pytest.mark.core_crud
     def test_create_treatment_cancel_discards_input(
         self,
         treatment_list: TreatmentListPage,
-        screenshot,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-010-023: Cancelling create dialog discards entered data."""
+        """TC-REQ-010-034: Cancelling create dialog discards entered data.
+
+        Spec: TC-010-023 -- Behandlung erstellen — Dialog abbrechen.
+        """
         treatment_list.open()
 
         treatment_list.click_create()
         treatment_list.fill_name("TestBehandlung")
-        screenshot("req010_056_treatment_before_cancel", "Treatment dialog before cancel")
+        screenshot("TC-REQ-010-034_treatment-before-cancel", "Treatment dialog before cancel")
 
         treatment_list.cancel_create_form()
-        time.sleep(0.5)
-        screenshot("req010_057_treatment_after_cancel", "Treatment list after cancel")
+        treatment_list.wait_for_loading_complete()
+        screenshot("TC-REQ-010-034_treatment-after-cancel", "Treatment list after cancel")
 
-        assert not treatment_list.is_create_dialog_open(), "Dialog should be closed"
+        assert not treatment_list.is_create_dialog_open(), (
+            "TC-REQ-010-034 FAIL: Dialog should be closed"
+        )
         current_names = treatment_list.get_first_column_texts()
         assert "TestBehandlung" not in current_names, (
-            "Cancelled treatment 'TestBehandlung' should not appear"
+            "TC-REQ-010-034 FAIL: Cancelled treatment 'TestBehandlung' should not appear"
         )

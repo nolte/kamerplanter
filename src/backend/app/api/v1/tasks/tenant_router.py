@@ -73,10 +73,17 @@ def list_workflows(
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     species_key: str | None = Query(None),
+    target_entity_type: str | None = Query(None),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
-    templates, _ = service.list_workflow_templates(offset, limit, species_key=species_key, tenant_key=ctx.tenant_key)
+    templates, _ = service.list_workflow_templates(
+        offset,
+        limit,
+        species_key=species_key,
+        tenant_key=ctx.tenant_key,
+        target_entity_type=target_entity_type,
+    )
     wf_keys = [wt.key for wt in templates if wt.key]
     usage_map = service.get_workflow_usage_stats(wf_keys) if wf_keys else {}
     result = []
@@ -84,7 +91,7 @@ def list_workflows(
         resp = _wf_response(wt)
         stats = usage_map.get(wt.key or "", {})
         resp.species_name = stats.get("species_name", "")
-        resp.assigned_plant_count = stats.get("plant_count", 0)
+        resp.assigned_entity_count = stats.get("entity_count", 0)
         result.append(resp)
     return result
 
@@ -145,6 +152,16 @@ def duplicate_workflow(
     return _wf_response(duplicated)
 
 
+@router.get("/workflows/{key}/executions")
+def list_workflow_executions(
+    key: str,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: TaskService = Depends(get_task_service),
+):
+    service.get_workflow_template(key, tenant_key=ctx.tenant_key)
+    return service.get_executions_for_template(key)
+
+
 @router.post("/workflows/{key}/instantiate", response_model=WorkflowExecutionResponse, status_code=201)
 def instantiate_workflow(
     key: str,
@@ -153,7 +170,11 @@ def instantiate_workflow(
     service: TaskService = Depends(get_task_service),
 ):
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
-    execution = service.instantiate_workflow(key, body.plant_key)
+    execution = service.instantiate_workflow(
+        key,
+        entity_key=body.entity_key,
+        entity_type=body.entity_type,
+    )
     return _we_response(execution)
 
 
@@ -225,18 +246,21 @@ def list_tasks(
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     status: str | None = None,
-    plant_key: str | None = None,
     category: str | None = None,
+    entity_type: str | None = None,
+    entity_key: str | None = None,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
     filters: dict[str, str] = {}
     if status:
         filters["status"] = status
-    if plant_key:
-        filters["plant_key"] = plant_key
     if category:
         filters["category"] = category
+    if entity_type:
+        filters["entity_type"] = entity_type
+    if entity_key:
+        filters["entity_key"] = entity_key
     tasks, _ = service.list_tasks(offset, limit, filters or None, tenant_key=ctx.tenant_key)
     return [_task_response(t) for t in tasks]
 
@@ -393,18 +417,46 @@ def complete_task(
         body.difficulty_rating,
         body.quality_rating,
     )
-    if (
-        completed.category == "care_reminder"
-        and completed.name
-        and completed.name.startswith("care:watering")
-        and completed.plant_key
-    ):
+    if completed.category == "care_reminder" and completed.entity_type == "plant_instance" and completed.entity_key:
+        from datetime import UTC, datetime
+
         from app.common.dependencies import get_care_reminder_service
+        from app.common.enums import ConfirmAction, ReminderType
+        from app.domain.models.care_reminder import CareConfirmation
 
         care_service = get_care_reminder_service()
-        profile = care_service._repo.get_profile_by_plant_key(completed.plant_key)
-        if profile is not None and profile.auto_create_watering_task:
-            care_service.ensure_next_watering_task(profile)
+        profile = care_service._repo.get_profile_by_plant_key(completed.entity_key)
+        if profile is not None:
+            rt_match = None
+            for rt in ReminderType:
+                if completed.name and completed.name.endswith(f"\u2014 {rt.value}"):
+                    rt_match = rt
+                    break
+            if rt_match is not None:
+                confirmation = CareConfirmation(
+                    plant_key=completed.entity_key,
+                    care_profile_key=profile.key or "",
+                    reminder_type=rt_match,
+                    action=ConfirmAction.CONFIRMED,
+                    confirmed_at=datetime.now(UTC),
+                    task_key=completed.key,
+                    notes=completed.completion_notes,
+                    interval_at_time=care_service._engine._get_interval_days(profile, rt_match),
+                )
+                created_conf = care_service._repo.create_confirmation(confirmation)
+                if created_conf.key and profile.key:
+                    care_service._repo.create_confirmation_edges(
+                        created_conf.key,
+                        profile.key,
+                        completed.entity_key,
+                    )
+                care_service.complete_care_task_with_log(
+                    completed.key or "",
+                    completed.entity_key,
+                    rt_match,
+                )
+            if rt_match == ReminderType.WATERING and profile.auto_create_watering_task:
+                care_service.ensure_next_watering_task(profile)
     return _task_response(completed)
 
 
@@ -416,7 +468,7 @@ def skip_task(
 ):
     service.get_task(key, tenant_key=ctx.tenant_key)
     skipped = service.skip_task(key)
-    if skipped.category == "care_reminder" and skipped.plant_key:
+    if skipped.category == "care_reminder" and skipped.entity_type == "plant_instance" and skipped.entity_key:
         from datetime import UTC, datetime
 
         from app.common.dependencies import get_care_reminder_service
@@ -424,7 +476,7 @@ def skip_task(
         from app.domain.models.care_reminder import CareConfirmation
 
         care_service = get_care_reminder_service()
-        profile = care_service._repo.get_profile_by_plant_key(skipped.plant_key)
+        profile = care_service._repo.get_profile_by_plant_key(skipped.entity_key)
         if profile is not None:
             rt_match = None
             for rt in ReminderType:
@@ -433,7 +485,7 @@ def skip_task(
                     break
             if rt_match is not None:
                 confirmation = CareConfirmation(
-                    plant_key=skipped.plant_key,
+                    plant_key=skipped.entity_key,
                     care_profile_key=profile.key or "",
                     reminder_type=rt_match,
                     action=ConfirmAction.SKIPPED,
@@ -443,7 +495,7 @@ def skip_task(
                 )
                 created_conf = care_service._repo.create_confirmation(confirmation)
                 if created_conf.key and profile.key:
-                    care_service._repo.create_confirmation_edges(created_conf.key, profile.key, skipped.plant_key)
+                    care_service._repo.create_confirmation_edges(created_conf.key, profile.key, skipped.entity_key)
     return _task_response(skipped)
 
 
@@ -455,7 +507,12 @@ def clone_task(
     service: TaskService = Depends(get_task_service),
 ):
     service.get_task(key, tenant_key=ctx.tenant_key)
-    cloned = service.clone_task(key, body.target_plant_key, body.due_date_offset_days)
+    cloned = service.clone_task(
+        key,
+        due_date_offset_days=body.due_date_offset_days,
+        target_entity_key=body.target_entity_key,
+        target_entity_type=body.target_entity_type,
+    )
     return _task_response(cloned)
 
 

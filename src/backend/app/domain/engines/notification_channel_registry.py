@@ -21,5 +21,9 @@ class NotificationChannelRegistry:
         return list(cls._channels.keys())
 
     @classmethod
+    def unregister(cls, channel_key: str) -> None:
+        cls._channels.pop(channel_key, None)
+
+    @classmethod
     def clear(cls) -> None:
         cls._channels = {}

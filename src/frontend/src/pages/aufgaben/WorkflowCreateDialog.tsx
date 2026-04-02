@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FormTextField from '@/components/form/FormTextField';
@@ -22,12 +28,14 @@ const categories = [
 ] as const;
 
 const difficultyLevels = ['beginner', 'intermediate', 'expert'] as const;
+const entityTypes = ['plant_instance', 'planting_run', 'location', 'tank'] as const;
 
 const schema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().nullable(),
   category: z.enum(categories),
   difficulty_level: z.enum(difficultyLevels),
+  target_entity_types: z.array(z.enum(entityTypes)).min(1),
   version: z.string(),
   tags: z.string(),
 });
@@ -55,6 +63,7 @@ export default function WorkflowCreateDialog({ open, onClose, onCreated }: Props
       description: null,
       category: 'maintenance',
       difficulty_level: 'intermediate',
+      target_entity_types: ['plant_instance'],
       version: '1.0',
       tags: '',
     },
@@ -74,6 +83,7 @@ export default function WorkflowCreateDialog({ open, onClose, onCreated }: Props
         description: data.description,
         category: data.category,
         difficulty_level: data.difficulty_level,
+        target_entity_types: data.target_entity_types,
         version: data.version,
         tags: data.tags ? data.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
       });
@@ -108,6 +118,33 @@ export default function WorkflowCreateDialog({ open, onClose, onCreated }: Props
             control={control}
             label={t('pages.tasks.difficultyLevel')}
             options={difficultyLevels.map((v) => ({ value: v, label: t(`enums.difficultyLevel.${v}`) }))}
+          />
+          <Controller
+            name="target_entity_types"
+            control={control}
+            render={({ field }) => (
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel>{t('pages.tasks.targetEntityTypes')}</InputLabel>
+                <Select
+                  {...field}
+                  multiple
+                  label={t('pages.tasks.targetEntityTypes')}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {(selected as string[]).map((v) => (
+                        <Chip key={v} label={t(`pages.tasks.entityTypes.${v}`)} size="small" />
+                      ))}
+                    </Box>
+                  )}
+                >
+                  {entityTypes.map((v) => (
+                    <MenuItem key={v} value={v}>
+                      {t(`pages.tasks.entityTypes.${v}`)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
           />
           <FormTextField name="version" control={control} label={t('pages.tasks.version')} />
           <FormTextField name="tags" control={control} label={t('pages.tasks.tags')} helperText={t('pages.tasks.tagsHelper')} />

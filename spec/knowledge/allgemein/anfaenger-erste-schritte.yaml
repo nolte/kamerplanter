@@ -10,25 +10,30 @@ chunks:
     title: Die richtige erste Pflanze waehlen
     content: |
       Nicht jede Pflanze ist fuer Anfaenger geeignet. Starten Sie mit
-      robusten, verzeihenden Arten:
+      robusten, pflegeleichten und verzeihenden Arten, die auch wenig
+      Licht und unregelmaessiges Giessen verzeihen:
       Indoor-Anfaenger (fast unkaputtbar):
-      - Pothos/Efeutute (Epipremnum aureum): Wenig Licht, selten giessen
-      - Sansevieria (Bogenhanf): Extrem trockenheitsresistent, kaum Licht
-      - Zamioculcas (ZZ-Pflanze): 2-3 Wochen ohne Wasser, wenig Licht
-      - Chlorophytum (Gruenlilie): Robust, zeigt Durst deutlich, Absenker
-      - Monstera deliciosa: Schnelles Wachstum, verzeiht Fehler, dekorativ
+      - Pothos/Efeutute (Epipremnum aureum): Kommt mit wenig Licht aus,
+        selten giessen, waechst in fast jeder Ecke. Ideal fuer dunkle
+        Raeume und Schatten-Standorte.
+      - Sansevieria (Bogenhanf): Extrem robust und trockenheitsresistent,
+        braucht kaum Licht und verzeiht wochenlange Vernachlaessigung.
+        Perfekt fuer Nordfenster und dunkle Ecken.
+      - Zamioculcas (ZZ-Pflanze): Ueberlebt 2-3 Wochen ohne Wasser,
+        braucht wenig Licht, anspruchslos und genuegsam. Eine der
+        widerstandsfaehigsten Zimmerpflanzen ueberhaupt.
+      - Chlorophytum (Gruenlilie): Robust, zeigt Durst deutlich durch
+        leicht haengende Blaetter, bildet dekorative Absenker.
+      - Monstera deliciosa: Schnelles Wachstum, verzeiht Fehler, dekorativ.
       Outdoor-Anfaenger (schnelle Erfolge):
       - Radieschen: Ernte in 4 Wochen, fast ueberall
       - Salat: Einfach, schnelle Ernte, Balkon-tauglich
       - Tomaten (Busch-Sorte): Sichtbarer Ertrag, motivierend
       - Basilikum: Schnell, nuetzlich in der Kueche
       - Sonnenblume: Gross, beeindruckend, Kinder-freundlich
-      NICHT fuer Anfaenger:
-      - Calathea/Maranta: Luftfeuchtigkeit-Diva, braune Blattspitzen
-      - Fittonia: Faellt dramatisch um bei Trockenheit (erschreckend!)
-      - Orchideen (manche): Komplexe Pflege, langsames Feedback
-      In Kamerplanter: Onboarding-Wizard (REQ-020) empfiehlt passende
-      Pflanzen und Starter-Kits basierend auf Erfahrungslevel.
+      Vermeiden Sie als Anfaenger anspruchsvolle Pflanzen, die hohe
+      Luftfeuchtigkeit brauchen oder empfindlich auf Pflegefehler
+      reagieren — diese sind eher etwas fuer Fortgeschrittene.
     metadata:
       topic: first_plant_selection
       difficulty: beginner
@@ -78,8 +83,8 @@ chunks:
         bessere Struktur)
       - Kakteen-/Sukkulenten-Erde: Fuer alle trockenheitsliebenden Pflanzen
         (draeniert schneller, weniger Faeulnis-Risiko)
-      - Orchideen-Substrat: Rindenstuecke, KEINE normale Erde!
-        (Orchideen-Wurzeln ersticken in Erde)
+      - Rinden-Substrat (fuer Epiphyten): Rindenstuecke statt normale Erde
+        (epiphytische Wurzeln ersticken in Erde)
       Einfacher Tipp: Wenn Sie unsicher sind, mischen Sie 20-30% Perlite
       (weisse Kuegelchen, im Gartencenter erhaeltlich) unter jede Erde.
       Perlite verbessert Drainage und Belueftung und verhindert
@@ -107,9 +112,6 @@ chunks:
       - Blaetter abstauben: Verbessert Lichtaufnahme. Feuchtes Tuch reicht.
       - Schaedlingskontrolle: Blattunterseiten, Blattachseln, Substrat-
         Oberflaeche genau anschauen.
-      Kamerplanter hilft: Pflegeerinnerungen (REQ-022) werden basierend
-      auf der Pflanzenart automatisch generiert. Die App sagt wann
-      gegossen, geduengt und kontrolliert werden sollte.
       Wichtigste Anfaenger-Regel: Beobachten ist wichtiger als Handeln.
       Die meisten Pflanzenprobleme entstehen durch zu viel "Pflege"
       (zu viel Wasser, zu viel Duenger), nicht durch zu wenig.

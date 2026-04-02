@@ -1,8 +1,15 @@
-"""E2E tests for REQ-001 — i18n and Display (TC-093 to TC-095)."""
+"""E2E tests for REQ-001 — i18n and Display.
+
+Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-001.md):
+  TC-REQ-001-093  ->  TC-001-053  i18n — Deutsche und englische Familiennamen werden korrekt angezeigt
+  TC-REQ-001-094  ->  TC-001-053  i18n — Wuchsform- und Wurzeltyp-Enums in deutscher Uebersetzung
+  TC-REQ-001-095  ->  TC-001-053  i18n — Cultivar-Trait-Chips zeigen deutsche Uebersetzungen
+"""
 
 from __future__ import annotations
 
-import time
+from pathlib import Path
+from typing import Callable
 
 import pytest
 from selenium.webdriver.common.by import By
@@ -44,16 +51,22 @@ TRAIT_DE = {
 
 
 class TestBotanicalFamilyEnumTranslations:
-    """TC-REQ-001-093: All enum values displayed in German translation."""
+    """All enum values displayed in German translation (Spec: TC-001-053)."""
 
+    @pytest.mark.smoke
     def test_botanical_family_enums_in_german(
-        self, family_list: BotanicalFamilyListPage
+        self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-093: Enum values in botanical family table are displayed in German."""
+        """TC-REQ-001-093: Enum values in botanical family table are displayed in German.
+
+        Spec: TC-001-053 -- i18n — Deutsche und englische Familiennamen werden korrekt angezeigt.
+        """
         family_list.open()
 
         if family_list.get_row_count() == 0:
             pytest.skip("No botanical families in database")
+
+        screenshot("TC-REQ-001-093_family-table", "Botanical family table with enum columns")
 
         row_data = family_list.get_row_texts()
         if not row_data:
@@ -82,23 +95,29 @@ class TestBotanicalFamilyEnumTranslations:
                     cell_value = row[col_idx].strip().lower()
                     if cell_value in enum_set:
                         pytest.fail(
-                            f"Raw English enum '{cell_value}' found in column "
+                            f"TC-REQ-001-093 FAIL: Raw English enum '{cell_value}' found in column "
                             f"{col_idx} ({headers[col_idx] if col_idx < len(headers) else '?'}). "
                             "Expected German translation."
                         )
 
 
 class TestSpeciesEnumTranslations:
-    """TC-REQ-001-094: Growth habit enums displayed in German on species list."""
+    """Growth habit enums displayed in German on species list (Spec: TC-001-053)."""
 
+    @pytest.mark.smoke
     def test_species_enums_in_german(
-        self, species_list: SpeciesListPage
+        self, species_list: SpeciesListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-094: Growth habit and root type enums in German."""
+        """TC-REQ-001-094: Growth habit and root type enums in German.
+
+        Spec: TC-001-053 -- i18n — Wuchsform- und Wurzeltyp-Enums in deutscher Uebersetzung.
+        """
         species_list.open()
 
         if species_list.get_row_count() == 0:
             pytest.skip("No species in database")
+
+        screenshot("TC-REQ-001-094_species-table", "Species table with enum columns")
 
         headers = species_list.get_column_headers()
 
@@ -118,18 +137,23 @@ class TestSpeciesEnumTranslations:
                 cell_text = cell.text.strip().lower()
                 if cell_text in raw_english_enums:
                     pytest.fail(
-                        f"Raw English enum '{cell_text}' found in species table. "
+                        f"TC-REQ-001-094 FAIL: Raw English enum '{cell_text}' found in species table. "
                         "Expected German translation."
                     )
 
 
 class TestCultivarTraitTranslations:
-    """TC-REQ-001-095: Cultivar trait chips show German translations."""
+    """Cultivar trait chips show German translations (Spec: TC-001-053)."""
 
+    @pytest.mark.smoke
     def test_cultivar_traits_in_german(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage
+        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-095: Cultivar trait chips show German translations."""
+        """TC-REQ-001-095: Cultivar trait chips show German translations.
+
+        Spec: TC-001-053 -- i18n — Cultivar-Trait-Chips zeigen deutsche Uebersetzungen.
+        """
         species_list.open()
 
         if species_list.get_row_count() == 0:
@@ -139,7 +163,8 @@ class TestCultivarTraitTranslations:
         species_list.wait_for_url_contains("/stammdaten/species/")
 
         species_detail.click_tab_by_label("Sorten")
-        time.sleep(1)
+        species_detail.wait_for_loading_complete()
+        screenshot("TC-REQ-001-095_cultivar-tab", "Species cultivar tab with trait chips")
 
         if species_detail.get_cultivar_count() == 0:
             pytest.skip("No cultivars for this species")
@@ -159,6 +184,6 @@ class TestCultivarTraitTranslations:
             chip_text = chip.text.strip().lower()
             if chip_text in raw_trait_keys:
                 pytest.fail(
-                    f"Raw trait key '{chip_text}' found as chip label. "
+                    f"TC-REQ-001-095 FAIL: Raw trait key '{chip_text}' found as chip label. "
                     "Expected German translation (e.g., 'Krankheitsresistent')."
                 )

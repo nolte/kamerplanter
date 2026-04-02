@@ -59,7 +59,7 @@ controllers:
           EMBEDDING_SERVICE_URL: "http://kamerplanter-ki-embedding-service:8080"
           EMBEDDING_MODEL: "multilingual-e5-base"
           LLM_PROVIDER: "ollama"
-          LLM_API_URL: "https://ollama.just-a-lab.duckdns.org"
+          LLM_API_URL: "http://192.168.178.130:31434"
           LLM_MODEL: "gemma3:12b"
           LLM_MAX_TOKENS: "1024"
           LLM_TEMPERATURE: "0.3"
@@ -311,13 +311,13 @@ networkpolicies:
               port: 53
             - protocol: TCP
               port: 53
-        # Local Ollama instance (LAN)
+        # Local Ollama instance (LAN, NodePort)
         - to:
             - ipBlock:
-                cidr: 192.168.178.166/32
+                cidr: 192.168.178.130/32
           ports:
             - protocol: TCP
-              port: 443
+              port: 31434
         # External LLM APIs (Anthropic, OpenAI-compatible)
         - to:
             - ipBlock:

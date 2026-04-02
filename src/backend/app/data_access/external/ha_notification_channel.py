@@ -59,12 +59,12 @@ class HomeAssistantNotificationChannel(INotificationChannel):
         # 1. Fire HA event (always — enables automations)
         await self._fire_event(notification, errors)
 
-        # 2. Persistent notification (opt-in via config)
-        if channel_config.get("persistent_notification", False):
+        # 2. Persistent notification (default: on — matches frontend default)
+        if channel_config.get("persistent_notification", True):
             await self._create_persistent(notification, errors)
 
-        # 3. Mobile push (opt-in via config)
-        if channel_config.get("mobile_push", False):
+        # 3. Mobile push (default: on — matches frontend default)
+        if channel_config.get("mobile_push", True):
             await self._send_mobile_push(notification, channel_config, errors)
 
         # 4. TTS (opt-in via config)

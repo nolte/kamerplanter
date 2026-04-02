@@ -32,6 +32,7 @@ import CoronavirusIcon from '@mui/icons-material/Coronavirus';
 import MedicationIcon from '@mui/icons-material/Medication';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import SettingsIcon from '@mui/icons-material/Settings';
 
@@ -123,6 +124,11 @@ export default function Sidebar({ open }: SidebarProps) {
           label: t('nav.taskQueue'),
           path: '/aufgaben/queue',
           icon: <TaskAltIcon />,
+        },
+        {
+          label: t('nav.workflows'),
+          path: '/aufgaben/workflows',
+          icon: <AccountTreeIcon />,
         },
       ],
     },

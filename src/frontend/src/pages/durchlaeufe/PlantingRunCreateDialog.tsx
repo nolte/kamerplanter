@@ -35,6 +35,7 @@ import FormSelectField from '@/components/form/FormSelectField';
 import FormDateField from '@/components/form/FormDateField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
+import SpeciesAutocompleteField from '@/components/form/SpeciesAutocompleteField';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import ShowAllFieldsToggle from '@/components/common/ShowAllFieldsToggle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
@@ -142,12 +143,12 @@ function EntryRow({ index, control, setValue, speciesList, onRemove, canRemove }
   return (
     <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1, flexWrap: 'wrap' }}>
       <Box sx={{ flex: 1, minWidth: 160 }}>
-        <FormSelectField
+        <SpeciesAutocompleteField
           name={`entries.${index}.species_key`}
           control={control}
           label={t('entities.species')}
           required
-          options={speciesList.map((s) => ({ value: s.key, label: s.scientific_name }))}
+          species={speciesList}
         />
       </Box>
       <Box sx={{ flex: 1, minWidth: 160 }}>

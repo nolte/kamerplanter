@@ -76,8 +76,7 @@ class LocationDetailPage(BasePage):
 
     def set_name(self, value: str) -> None:
         el = self.wait_for_element_clickable(self.FORM_NAME)
-        el.clear()
-        el.send_keys(value)
+        self.clear_and_fill(el, value)
 
     def set_area(self, value: str) -> None:
         el = self.wait_for_element_clickable(self.FORM_AREA)

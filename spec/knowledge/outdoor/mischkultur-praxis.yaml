@@ -24,9 +24,7 @@ chunks:
          die Hauptkultur bestaeuben (Erdbeere + Borretsch).
       Wichtig: Mischkultur ist kein Allheilmittel. Die positiven Effekte sind oft subtil
       (10-30% weniger Schaderreger, 5-15% mehr Ertrag). Bei starkem Schaedlingsbefall
-      ersetzt Mischkultur keine IPM-Massnahmen (REQ-010).
-      In Kamerplanter: Die Graphdatenbank speichert compatible_with und incompatible_with
-      Kanten zwischen Arten, die bei der Beetplanung als Empfehlung angezeigt werden.
+      ersetzt Mischkultur keine gezielten Pflanzenschutzmassnahmen.
     metadata:
       mechanism: [scent_masking, root_exudates, nutrient_complementarity, physical_support, pollination]
       evidence_level: moderate
@@ -66,10 +64,18 @@ chunks:
     content: |
       Diese Kombinationen sind durch langjaehrige Gaertnererfahrung und teilweise
       wissenschaftliche Studien belegt:
-      Tomate + Basilikum:
-      - Basilikum-Duft irritiert Weisse Fliege und Blattlaeuse
-      - Angeblich besserer Tomatengeschmack (wissenschaftlich umstritten)
-      - Praktisch: Beide brauchen Waerme, volle Sonne und regelmaessiges Giessen
+      Tomate + Basilikum + Karotte + Sellerie + Tagetes:
+      Tomaten sind gesellige Pflanzen mit vielen guten Partnern:
+      - Basilikum-Duft irritiert Weisse Fliege und Blattlaeuse. Praktisch: Beide brauchen
+        Waerme, volle Sonne und regelmaessiges Giessen.
+      - Karotten (Moehren) als Nachbarn nutzen eine andere Bodenschicht (Tiefwurzler vs.
+        Flachwurzler Tomate am Stamm), lockern den Boden und konkurrieren nicht.
+      - Sellerie zwischen Tomatenreihen verwirrt mit seinem starken Duft diverse Schaedlinge
+        und ist als Mittelzehrer genuegsam genug neben der Starkzehrer-Tomate.
+      - Tagetes am Beetrand schuetzt Tomaten vor Nematoden und Weisser Fliege.
+      ACHTUNG — Schlechte Nachbarn fuer Tomaten (unbedingt vermeiden!):
+      - Kartoffel NICHT neben Tomate pflanzen! Beide Solanaceae — Phytophthora-Uebertragung.
+      - Fenchel NICHT neben Tomate! Fenchel hemmt Tomatenwachstum durch Allelopathie.
       Karotte + Zwiebel/Lauch:
       - Moehrenfliege wird durch Zwiebelduft verwirrt und umgekehrt (Zwiebelfliege)
       - Alternierend in Reihen pflanzen (15-20 cm Reihenabstand)
@@ -97,26 +103,38 @@ chunks:
       Ebenso wichtig wie gute Partner zu kennen ist das Wissen um schaedliche
       Nachbarschaften. Manche Pflanzen hemmen sich gegenseitig durch Allelopathie
       (chemische Wuchshemmung), Krankheitsuebertragung oder Ressourcenkonkurrenz.
-      Stark allelopathische Pflanzen:
-      - Fenchel: Hemmt fast alle Nachbarn durch Wurzelausscheidungen. Immer isoliert
-        pflanzen oder am Beetrand mit 50 cm Abstand. Besonders schaedlich fuer Tomate und Bohne.
+      Stark allelopathische Pflanzen — Allelopathie und Wurzelexsudate:
+      - Fenchel: Scheidet durch seine Wurzelexsudate (Wurzelausscheidungen) Hemmstoffe aus,
+        die das Wachstum fast aller Nachbarn hemmen — Fenchel hemmt Wachstum von Tomate,
+        Bohne, Kohl und vielen anderen Gemuesen. Die Wuchshemmung (Allelopathie) wirkt
+        ueber den Boden. Fenchel daher immer isoliert pflanzen oder am Beetrand mit
+        mindestens 50 cm Abstand. Einzige Ausnahme: Fenchel kann mit Dill kreuzbestaeubend
+        sein, aber das ist KEIN Grund fuer die Isolierung — es sind die Wurzelexsudate.
       - Walnuss (Juglon): Im Wurzelbereich wachsen viele Gemuese schlecht.
         Beete mindestens 10-15 m entfernt anlegen.
-      Krankheitsuebertragung (gleiche Familie):
-      - Kartoffel neben Tomate: Phytophthora-Uebertragung (Kraut- und Braunfaeule).
-        Mindestens 5 m Abstand! Kartoffel immer WINDABWAERTS von Tomaten pflanzen.
+      Krankheitsuebertragung innerhalb der gleichen Familie:
+      - Kartoffel neben Tomate: Beide gehoeren zur gleichen Familie der Nachtschattengewaechse
+        (Solanaceae). Phytophthora infestans verursacht die gefuerchtete Krautfaeule
+        (auch Kraut- und Knollenfaeule oder Braunfaeule genannt) und befaellt alle
+        Solanaceae-Arten. Mindestens 5 m Abstand! Kartoffel immer WINDABWAERTS von
+        Tomaten pflanzen, da Phytophthora-Sporen windverbreitet sind.
       - Erdbeere neben Kartoffel: Verticillium-Welke, gegenseitige Ansteckung.
       - Kohlarten untereinander: Kohlhernie (Plasmodiophora) verbreitet sich.
         Nicht 3+ Kohlarten nebeneinander im selben Beet.
       Wuchshemmung durch Konkurrenz:
       - Bohne + Zwiebel/Lauch/Knoblauch: Allium-Arten hemmen die Knoellchenbakterien
         der Leguminosen und damit die Stickstofffixierung. Getrennt pflanzen.
-      - Gurke + Tomate: Gurke braucht hohe Luftfeuchtigkeit (>70%), Tomate niedrige (<60%).
-        Im Gewaechshaus raeumlich trennen oder Tomate draussen kultivieren.
+      - Gurke + Tomate im Freiland: Gurke und Tomate haben unterschiedliche Klimaansprueche.
+        Gurke braucht hohe Luftfeuchtigkeit (>70%), Tomate niedrige (<60%). Im Freiland
+        daher getrennt pflanzen. Im Gewaechshaus ist der gemeinsame Anbau moeglich und
+        gaengige Praxis: Unter kontrollierten Bedingungen ist die Kombination Gurke + Tomate
+        kein Problem — man kann die Belueftung steuern und Klimazonen trennen (Gurken hinten
+        feucht, Tomaten vorne trocken). Fazit: Unter kontrollierten Bedingungen im
+        Gewaechshaus funktioniert Gurke neben Tomate problemlos, im Freiland besser trennen.
       - Erbse + Bohne: Ueberraschend — beide Leguminosen, aber sie konkurrieren um
         dieselben Knoellchenbakterien. Besser nicht direkt nebeneinander.
-      In Kamerplanter: incompatible_with-Kanten warnen bei der Beetplanung automatisch,
-      wenn unguenstige Nachbarn gewaehlt werden.
+      Bei der Beetplanung sollte man unvertraegliche Nachbarschaften immer vermeiden
+      und den Pflanzplan entsprechend anpassen.
     metadata:
       mechanism: [allelopathy, disease_transfer, resource_competition]
       critical_combinations: [fennel_all, potato_tomato, bean_allium, cucumber_tomato]
@@ -208,10 +226,13 @@ chunks:
       evidence_level: high
 
   - id: kraeuterstreifen-schaedlingsbarriere
-    title: Aromatische Kraeuter als Schaedlingsbarriere
+    title: Lavendel, Rosmarin, Basilikum und weitere Kraeuter als Schaedlingsbarriere
     content: |
-      Mediterrane Kraeuter mit hohem Gehalt an aetherischen Oelen wirken als natuerliche
-      Schaedlingsbarriere durch Dufttarnung und Repellent-Effekte.
+      Die drei wirksamsten Kraeuter gegen Schaedlinge im Gemuesebeet sind Lavendel,
+      Rosmarin und Basilikum. Aromatische Kraeuter mit hohem Gehalt an aetherischen Oelen
+      wirken als natuerliche Schaedlingsbarriere. Das Grundprinzip ist Geruchsverwirrung
+      (auch Dufttarnung): Die intensiven aetherischen Oele ueberlagern den Duft der
+      Nutzpflanzen, sodass Schaedlinge ihre Wirtspflanze nicht mehr gezielt finden.
       Lavendel (Lavandula angustifolia):
       - Wirkt gegen: Blattlaeuse, Ameisen, Muecken, Kleidermotten
       - Platzierung: Beetumrandung, zwischen Rosenstoecken, an Sitzplaetzen
@@ -221,6 +242,11 @@ chunks:
       - Wirkt gegen: Kohlweissling, Moehrenfliege, Schnecken (bedingt)
       - Platzierung: Am Beetrand neben Kohl, Moehre, Bohne
       - In Mitteleuropa meist nicht winterhart — im Topf kultivieren und frostfrei ueberwintern
+      Basilikum (Ocimum basilicum):
+      - Wirkt gegen: Weisse Fliege, Blattlaeuse, Muecken, Thripse
+      - Platzierung: Zwischen Tomaten, Paprika und Gurken — ueberall wo Waerme herrscht
+      - Nicht winterhart, aber im Sommer eine der wirksamsten Duftbarrieren
+      - Regelmaessig Triebspitzen ernten foerdert buschigen Wuchs und staerkeren Duft
       Thymian (Thymus vulgaris):
       - Wirkt gegen: Kohlschabe, Blattlaeuse, Erdfloh
       - Platzierung: Niedrige Beetumrandung (15-30 cm Hoehe), zwischen Kohlarten
@@ -234,10 +260,13 @@ chunks:
       - Verschiedene Kraeuter mischen fuer breiteres Wirkspektrum
       - Regelmaessig ernten/zurueckschneiden — frischer Austrieb duftet am staerksten
       - Bluehende Kraeuter stehen lassen — locken Nuetzlinge an
+      Zusammenfassung: Lavendel, Rosmarin und Basilikum sind die wichtigsten Kraeuter
+      zur Schaedlingsabwehr im Gemuesegarten. Ergaenzt durch Thymian und Salbei ergibt
+      sich ein breites Wirkspektrum gegen die haeufigsten Schaedlinge.
       Einschraenkung: Duftbarrieren reduzieren Befall um 20-40%, ersetzen aber keine
-      direkten Massnahmen bei starkem Befall (Netze, Bt, Neem — siehe REQ-010).
+      direkten Massnahmen bei starkem Befall (Netze, Bt, Neem).
     metadata:
-      herbs: [lavender, rosemary, thyme, sage]
+      herbs: [lavender, rosemary, basil, thyme, sage]
       mechanism: scent_barrier
       effectiveness_reduction_percent: [20, 40]
 

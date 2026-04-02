@@ -23,9 +23,13 @@ chunks:
          Naehrstoffe ab, waehrend andere ueberschuessig bleiben. Boden wird unausgewogen.
       4. Bodenstrukturverschlechterung: Ohne Wechsel von tief- und flachwurzelnden
          Kulturen verdichtet sich der Boden, die Humusbildung stagniert.
+      Kernmechanismus: Durch den Wechsel der Pflanzenfamilien wird der Schaedlings-Zyklus
+      unterbrochen. Bodenschaedlinge und Krankheitserreger koennen sich nicht mehr von
+      Jahr zu Jahr an derselben Wirtspflanze vermehren — die Infektionskette wird
+      unterbrochen und der Befallsdruck sinkt.
       Goldene Regel: Keine Pflanze aus derselben botanischen Familie innerhalb von
-      3-4 Jahren am selben Standort. In Kamerplanter wird dies durch den CropRotationPlan
-      pro Beet ueberwacht und bei Verstoessen automatisch gewarnt (REQ-002).
+      3-4 Jahren am selben Standort. Mit einem 4-Jahres-Zyklus aus Starkzehrern,
+      Mittelzehrern, Schwachzehrern und Gruenduengung bleibt der Boden langfristig gesund.
       Fruchtfolge ist KEIN optionaler Tipp — es ist die Grundlage jedes funktionierenden
       Gemuesegartens. Selbst kleine Gaerten (2-3 Beete) sollten rotieren.
     metadata:
@@ -97,8 +101,9 @@ chunks:
   - id: familien-rotation-brassicaceae
     title: Familien-Rotation — Kreuzbluetler (Brassicaceae)
     content: |
-      Die Kreuzbluetler-Familie umfasst viele beliebte Gemuese und einige Gruenduengungspflanzen.
-      Hauptproblem: Kohlhernie, eine bodenbuertige Pilzkrankheit ohne wirksame Bekaempfung.
+      Die Kreuzbluetler-Familie (Brassicaceae) umfasst viele beliebte Gemuese und einige
+      Gruenduengungspflanzen. Hauptproblem: Kohlhernie und diverse Bodenschaedlinge —
+      bodenbuertige Pilzkrankheiten und Schaedlinge ohne wirksame direkte Bekaempfung.
       Familienmitglieder im Garten:
       Weisskohl, Rotkohl, Blumenkohl, Brokkoli, Rosenkohl, Gruenkohl, Kohlrabi,
       Pak Choi, Chinakohl, Rettich, Radieschen, Ruebsen, Senf, Rucola, Kresse, Meerrettich
@@ -186,11 +191,15 @@ chunks:
       months: [3, 4, 5, 6, 7, 8, 9]
 
   - id: gruenduengung-detail
-    title: Gruenduengung — Arten, Zeitpunkt und Wirkung
+    title: Gruenduengung — Phacelia, Klee, Lupine, Senf und weitere Gruenduengungspflanzen
     content: |
       Gruenduengung ist die wichtigste Massnahme fuer langfristige Bodenfruchtbarkeit.
-      Sie ersetzt den Naehrstoffentzug durch Gemuese, baut Humus auf, lockert den Boden
-      und unterdrueckt Unkraut.
+      Die wichtigsten Gruenduengungspflanzen sind Phacelia, Klee, Lupine und Senf.
+      Gruenduengung ersetzt den Naehrstoffentzug durch Gemuese, baut Humus auf, sorgt fuer
+      Bodenlockerung durch tiefe Durchwurzelung und unterdrueckt Unkraut.
+      Kernprinzip: Leguminosen wie Klee und Lupine betreiben N-Fixierung (Stickstoff-Fixierung)
+      mit Knoellchenbakterien. Nicht-Leguminosen wie Phacelia und Senf konservieren
+      vorhandene Naehrstoffe und sorgen fuer Bodenlockerung durch intensive Durchwurzelung.
       Sommergruenduengung (Aussaat April-August, nicht winterhart):
       - Phacelia (Bueschelschoen): Keine Verwandtschaft mit Gemuese! Universell einsetzbar.
         Gute Bienenweide. Abfrierend bei -5°C. Aussaat bis August.
@@ -202,8 +211,12 @@ chunks:
       Wintergruenduengung (Aussaat August-Oktober, winterhart):
       - Winterroggen: Winterhart bis -25°C, dichte Wurzelmasse, guter Erosionsschutz.
         Im Fruehjahr 3-4 Wochen vor Pflanzung abmaehen und einarbeiten.
-      - Inkarnatklee: Leguminose, fixiert 80-120 kg N/ha. Aussaat bis September.
+      - Inkarnatklee (Klee): Leguminose, fixiert 80-120 kg N/ha durch Stickstoff-Fixierung
+        (N-Fixierung) mit Knoellchenbakterien. Aussaat bis September.
         Friert regional aus, sicherheitshalber mit Winterroggen mischen.
+      - Lupine: Leguminose mit tiefer Pfahlwurzel. Fixiert 100-150 kg N/ha, lockert den
+        Boden bis 2 m Tiefe (Bodenlockerung) und macht Phosphor pflanzenverfuegbar.
+        Ideal fuer schwere, verdichtete Boeden. Auch als Sommergruenduengung moeglich.
       - Winterwicke: Leguminose, fixiert 60-100 kg N/ha. Klettert an Winterroggen hoch
         (ideale Mischung: Landsberger Gemenge = Winterroggen + Inkarnatklee + Winterwicke).
       - Feldsalat: Zaehlt auch als Gruenduengung, wenn nicht geerntet — bedeckt den Boden.
@@ -212,9 +225,10 @@ chunks:
       N-Fixierung: Nur Leguminosen fixieren Stickstoff. Phacelia, Senf und Roggen
       konservieren vorhandene Naehrstoffe, fuegen aber keinen neuen Stickstoff hinzu.
     metadata:
+      tags: [gruenduengung, green-manure, phacelia, klee, lupine, senf, n-fixierung, bodenlockerung, bodenfruchtbarkeit]
       species_summer: [phacelia, buckwheat, oil_radish, mustard]
-      species_winter: [winter_rye, crimson_clover, winter_vetch]
-      nitrogen_fixation_kg_ha: [0, 0, 0, 0, 0, 120, 100]
+      species_winter: [winter_rye, crimson_clover, lupine, winter_vetch]
+      nitrogen_fixation_kg_ha: [0, 0, 0, 0, 0, 120, 150, 100]
 
   - id: dauerkultur-ausnahmen
     title: Dauerkulturen — Ausnahmen von der Fruchtfolge

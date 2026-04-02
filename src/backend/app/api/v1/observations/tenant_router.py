@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.observations.schemas import (
+    AggregatedReadingResponse,
     BatchInsertResponse,
     ReadingsListResponse,
     SensorReadingBatchCreate,
@@ -11,7 +12,7 @@ from app.api.v1.observations.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_observation_service
-from app.domain.models.observation import SensorReading
+from app.domain.models.observation import AggregatedReading, SensorReading
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.observation_service import ObservationService
 
@@ -98,7 +99,35 @@ def get_sensor_readings(
     ctx: TenantContext = Depends(get_current_tenant),
     service: ObservationService = Depends(get_observation_service),
 ) -> ReadingsListResponse:
-    items = service.get_readings(sensor_key, start, end, ctx.tenant_key, resolution)
+    raw_items = service.get_readings(sensor_key, start, end, ctx.tenant_key, resolution)
+    if raw_items and isinstance(raw_items[0], AggregatedReading):
+        items: list[SensorReadingResponse] | list[AggregatedReadingResponse] = [
+            AggregatedReadingResponse(
+                bucket=r.bucket,
+                sensor_key=r.sensor_key,
+                sensor_type=r.sensor_type,
+                avg_value=r.avg_value,
+                min_value=r.min_value,
+                max_value=r.max_value,
+                sample_count=r.sample_count,
+            )
+            for r in raw_items  # type: ignore[union-attr]
+        ]
+    else:
+        items = [
+            SensorReadingResponse(
+                time=r.time,
+                sensor_key=r.sensor_key,
+                sensor_type=r.sensor_type,
+                value=r.value,
+                unit=r.unit,
+                source=r.source,
+                quality_score=r.quality_score,
+                raw_value=r.raw_value,
+                metadata=r.metadata,
+            )
+            for r in raw_items  # type: ignore[union-attr]
+        ]
     return ReadingsListResponse(items=items, total=len(items), resolution=resolution)
 
 

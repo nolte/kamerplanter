@@ -7,13 +7,14 @@ Kategorie: Benutzerführung
 Fokus: Frontend
 Technologie: React, TypeScript, MUI, Redux Toolkit
 Status: Entwurf
-Version: 1.1 (Quick-Add-Plant & fieldConfig-Korrektur)
+Version: 1.2 (Beginner-Navigation vollständig)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.2 | 2026-04-02 | Navigations-Tiering überarbeitet: Beginner-Set erweitert um Standorte, Kalender, Gießprotokoll und Pflege-Dashboard (vorher 5, jetzt 8 Menüpunkte). Designprinzip ergänzt: vollständiger Pflanzen-Workflow auch für Einsteiger. § 3.3 enthält jetzt Referenztabelle mit allen Pfaden/Levels und Sektions-Sichtbarkeit. Akzeptanzkriterium angepasst. |
 | 1.1 | 2026-02-27 | F-004 (Casual-Houseplant-Review): `description` und `growth_habit` von beginner → intermediate verschoben. Neuer Abschnitt 3.8 "Quick-Add-Plant (Beginner-Flow)" — Pflanze per Common-Name-Suche anlegen statt Stammdaten-CRUD. Neuer `quickAddPlantFieldConfig`. Akzeptanzkriterien ergänzt. |
 | 1.0 | 2026-02-24 | Erstversion |
 
@@ -41,7 +42,7 @@ Jedes Formularfeld wird im Frontend mit einem `expertiseLevel`-Attribut annotier
 Ausgeblendete Felder verschwinden nicht endgültig — ein "Mehr anzeigen"-Link unterhalb jedes Formulars erlaubt temporäres Einblenden aller Felder, ohne den Modus zu wechseln.
 
 **Navigation-Tiering:**
-Die Seitenleisten-Navigation wird abhängig vom Modus reduziert. Einsteiger sehen nur 5 Kernmenüpunkte, Fortgeschrittene 8, Experten alle.
+Die Seitenleisten-Navigation wird abhängig vom Modus reduziert. Einsteiger sehen 8 Kernmenüpunkte (inkl. Standorte, Kalender, Pflege und Gießprotokoll für einen vollständigen Pflanzen-Workflow), Fortgeschrittene zusätzlich Düngung und Stammdaten, Experten alle Menüpunkte (siehe § 3.3 Referenztabelle).
 
 **Intelligente Defaults:**
 Im Einsteiger-Modus werden ausgeblendete Felder mit sinnvollen Standardwerten befüllt (aus Species-Seed-Daten oder berechneten Defaults), sodass keine Information verloren geht. Species-abhängige Felder (z.B. `root_type`, `base_temp`, `allelopathy_score`) werden per Lookup aus den Species-Seed-Daten befüllt; statische Fallbacks greifen nur, wenn keine Species ausgewählt ist.
@@ -147,39 +148,75 @@ type FieldConfig<T extends string> = Record<T, FieldMeta>;
 
 ### 3.3 Navigations-Tiering
 
-**Einsteiger (5 Menüpunkte):**
-1. Dashboard
-2. Meine Pflanzen
-3. Aufgaben
-4. Kalender
-5. Einstellungen
+> **Designprinzip:** Auch Einsteiger müssen ihre Pflanzen verorten (Standorte), pflegen (Pflege-Dashboard, Gießprotokoll) und zeitlich planen (Kalender) können. Ein Nutzer, der keinen Standort anlegen kann, hat keinen vollständigen Workflow — deshalb gehören Standorte, Pflege-Dashboard, Gießprotokoll und Kalender zum Beginner-Set.
 
-**Fortgeschritten (8 Menüpunkte):**
+**Einsteiger (8 Menüpunkte + Einrichtung & Einstellungen):**
 1. Dashboard
-2. Meine Pflanzen
-3. Aufgaben
-4. Kalender
-5. Standorte
-6. Düngung
-7. Stammdaten
-8. Einstellungen
+2. Kalender
+3. Gießprotokoll
+4. Pflege-Dashboard
+5. Meine Pflanzen (PlantInstances)
+6. Aufgaben (Queue)
+7. Standorte (Sites)
+8. Einrichtung (Onboarding)
+9. Einstellungen
 
-**Experte (alle Menüpunkte):**
-1. Dashboard
-2. Pflanzen (PlantInstances)
-3. Durchläufe (PlantingRuns)
-4. Aufgaben & Workflows
-5. Kalender
-6. Standorte & Slots
-7. Düngung & Nährstoffe
-8. Tanks
-9. Substrate
-10. Stammdaten (Familien, Species, Cultivars)
-11. IPM / Pflanzenschutz
-12. Ernte & Post-Harvest
-13. Kalkulatoren
-14. Import / Enrichment
-15. Einstellungen
+**Fortgeschritten (zusätzlich zu Einsteiger):**
+10. Düngung (Düngemittel, Nährstoffpläne)
+11. Stammdaten (Familien, Arten)
+
+**Experte (alle Menüpunkte — zusätzlich zu Fortgeschritten):**
+12. Durchläufe (PlantingRuns)
+13. Workflows
+14. Substrate
+15. Tanks
+16. Kalkulatoren (Nährstoff, VPD, GDD)
+17. Stammdaten erweitert (Mischkultur, Fruchtfolge, Aktivitäten, Import)
+18. IPM / Pflanzenschutz (Schädlinge, Krankheiten, Behandlungen)
+19. Ernte
+
+**Referenztabelle — Pfade und minimales Level:**
+
+| Pfad | Einsteiger | Fortgeschritten | Experte | Begründung |
+|------|:----------:|:---------------:|:-------:|------------|
+| `/dashboard` | Sichtbar | Sichtbar | Sichtbar | Einstiegsseite |
+| `/kalender` | Sichtbar | Sichtbar | Sichtbar | Zeitplanung ist Grundfunktion |
+| `/giessprotokoll` | Sichtbar | Sichtbar | Sichtbar | Gieß-Tracking ist Kernbedürfnis |
+| `/pflege` | Sichtbar | Sichtbar | Sichtbar | Pflege-Dashboard (REQ-022) |
+| `/pflanzen/plant-instances` | Sichtbar | Sichtbar | Sichtbar | "Meine Pflanzen" — Kernfunktion |
+| `/aufgaben/queue` | Sichtbar | Sichtbar | Sichtbar | Anstehende Aufgaben |
+| `/standorte/sites` | Sichtbar | Sichtbar | Sichtbar | Standorte sind Grundinfrastruktur |
+| `/duengung/fertilizers` | — | Sichtbar | Sichtbar | Düngemittelverwaltung |
+| `/duengung/plans` | — | Sichtbar | Sichtbar | Nährstoffpläne |
+| `/stammdaten/botanical-families` | — | Sichtbar | Sichtbar | Pflanzenfamilien |
+| `/stammdaten/species` | — | Sichtbar | Sichtbar | Artenverwaltung |
+| `/durchlaeufe/planting-runs` | — | — | Sichtbar | Fortgeschrittenes Gruppenmanagement |
+| `/aufgaben/workflows` | — | — | Sichtbar | Workflow-Templates |
+| `/standorte/substrates` | — | — | Sichtbar | Substratverwaltung |
+| `/standorte/tanks` | — | — | Sichtbar | Tankmanagement |
+| `/pflanzen/calculations` | — | — | Sichtbar | VPD/GDD/Slot-Kalkulatoren |
+| `/duengung/calculations` | — | — | Sichtbar | Nährstoff-Kalkulatoren |
+| `/stammdaten/companion-planting` | — | — | Sichtbar | Mischkultur |
+| `/stammdaten/crop-rotation` | — | — | Sichtbar | Fruchtfolge |
+| `/stammdaten/activities` | — | — | Sichtbar | Aktivitäten-Stammdaten |
+| `/stammdaten/import` | — | — | Sichtbar | Datenimport |
+| `/pflanzenschutz/pests` | — | — | Sichtbar | Schädlinge |
+| `/pflanzenschutz/diseases` | — | — | Sichtbar | Krankheiten |
+| `/pflanzenschutz/treatments` | — | — | Sichtbar | Behandlungen |
+| `/ernte/batches` | — | — | Sichtbar | Ernteverwaltung |
+
+**Sektions-Sichtbarkeit:**
+
+| Sektion | Minimum-Level | Begründung |
+|---------|:------------:|------------|
+| Pflanzen | Einsteiger | Kernfunktion |
+| Aufgaben | Einsteiger | Kernfunktion |
+| Standorte | Einsteiger | Grundinfrastruktur — ohne Standort kein vollständiger Pflanzen-Workflow |
+| Düngung | Fortgeschritten | Erfordert Fachwissen (EC, pH, NPK) |
+| Stammdaten | Fortgeschritten | Taxonomie-Verwaltung |
+| Durchläufe | Experte | Fortgeschrittenes Batch-Management |
+| Pflanzenschutz | Experte | IPM-System mit Fachbegriffen |
+| Ernte | Experte | Erntemanagement mit Qualitätsbewertung |
 
 ### 3.4 Shared Components
 
@@ -413,7 +450,7 @@ pages.quickAdd.laterHint                → "Du kannst den botanischen Namen sp�
 - [ ] Ausgeblendete Felder erhalten sinnvolle Default-Werte (aus Seed-Daten oder feste Defaults)
 - [ ] Ein "Mehr anzeigen"-Link erlaubt temporäres Einblenden aller Felder ohne Modus-Wechsel
 - [ ] "Mehr anzeigen"-Zustand ist nicht persistiert (nur für aktuelle Dialog-Instanz)
-- [ ] Navigation wird auf Basis des Modus reduziert (5 / 8 / alle Menüpunkte)
+- [ ] Navigation wird auf Basis des Modus reduziert (8 Einsteiger / 11 Fortgeschritten / alle Menüpunkte gemäß § 3.3 Referenztabelle)
 - [ ] Einsteiger-Dünge-Ansicht zeigt Alltagssprache statt EC/pH-Werte
 - [ ] Bei Modus-Downgrade erscheint Warnung: "Einige Felder werden ausgeblendet, keine Daten gehen verloren"
 - [ ] Bei Modus-Upgrade werden sofort alle zusätzlichen Felder sichtbar

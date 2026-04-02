@@ -36,6 +36,7 @@ def generate_watering_tasks() -> dict:
         run_key = run_data["run_key"]
         schedule_data = run_data["watering_schedule"]
         run_name = run_data.get("run_name", run_key)
+        run_tenant_key = run_data.get("tenant_key", "")
 
         try:
             schedule = WateringSchedule(**schedule_data)
@@ -85,6 +86,7 @@ def generate_watering_tasks() -> dict:
                                 instruction=instruction,
                                 category=TaskCategory.FEEDING,
                                 planting_run_key=run_key,
+                                tenant_key=run_tenant_key,
                                 due_date=datetime(today.year, today.month, today.day, hour, minute, tzinfo=UTC),
                                 status=TaskStatus.PENDING,
                                 priority=TaskPriority.MEDIUM,
@@ -120,6 +122,7 @@ def generate_watering_tasks() -> dict:
             instruction=f"Scheduled watering for run {run_name}",
             category=TaskCategory.FEEDING,
             planting_run_key=run_key,
+            tenant_key=run_tenant_key,
             due_date=datetime(today.year, today.month, today.day, hour, minute, tzinfo=UTC),
             status=TaskStatus.PENDING,
             priority=TaskPriority.MEDIUM,

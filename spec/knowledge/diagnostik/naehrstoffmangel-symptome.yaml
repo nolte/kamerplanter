@@ -7,13 +7,20 @@ expertise_level: [beginner, intermediate, expert]
 applicable_phases: [seedling, vegetative, flowering, harvest]
 chunks:
   - id: mangel-stickstoff
-    title: Stickstoff (N) Mangel
+    title: Stickstoff (N) Mangel — untere Blaetter werden gelb
     content: |
-      Symptome: Aeltere (untere) Blaetter werden gleichmaessig hellgruen bis gelb.
-      Fortschreitet von unten nach oben, da Stickstoff mobil ist und zu jungen
-      Blaettern umverlagert wird. Wachstum verlangsamt sich deutlich, Stiele
-      werden duenn, Pflanze wirkt blass und schwaechlich.
-      Ursachen: Zu niedriger EC, pH ausserhalb 5.5-6.5 (Hydro) bzw. 6.0-7.0 (Erde),
+      Leitsymptom: Die unteren (aelteren) Blaetter werden gleichmaessig
+      hellgruen bis gelb, waehrend die oberen Blaetter noch gruen bleiben.
+      Das ist das klassische Bild eines Stickstoff-Mangels.
+      Stickstoff ist ein mobiler Naehrstoff — die Pflanze verlagert N aus
+      alten Blaettern zu jungen Blaettern. Deshalb vergilben die unteren
+      Blaetter zuerst und das Symptom schreitet von unten nach oben fort.
+      Wachstum verlangsamt sich deutlich, Stiele werden duenn, Pflanze
+      wirkt blass und schwaechlich.
+      Erste Schritte bei gelben unteren Blaettern:
+      - EC-Wert pruefen (EC messen!): Zu niedriger EC ist die haeufigste Ursache
+      - pH pruefen und in optimalen Bereich korrigieren (5.5-6.5 Hydro, 6.0-7.0 Erde)
+      Ursachen: Zu niedriger EC, pH ausserhalb des optimalen Bereichs,
       zu seltene Duengung, Wurzelprobleme, kalte Wurzelzone (<18°C),
       ueberwaessertes Substrat (Sauerstoffmangel an Wurzeln).
       Massnahmen:
@@ -22,9 +29,15 @@ chunks:
       - Stickstoffbetonte Naehrloesung verwenden (hoeherer N-Anteil)
       - In Erde: Hornmehl (langsam) oder Blutmehl (schnell) als Sofortmassnahme
       - Wurzelzone pruefen — gesunde weisse Wurzeln noetig fuer Aufnahme
-      Abgrenzung: Natuerlicher N-Abbau in unteren Blaettern waehrend spaeter
-      Bluete ist normal und kein Mangel. In der Abreife (letzte 2 Wochen)
-      ist Vergilbung sogar erwuenscht.
+      WICHTIG — Abgrenzung:
+      - N-Mangel zeigt GLEICHMAESSIGE Vergilbung des gesamten Blattes.
+        Wenn die Blattadern gruen bleiben und nur die Flaeche dazwischen
+        gelb wird (intervenale Chlorose) → das ist KEIN Stickstoff-Mangel,
+        sondern Magnesium-Mangel (an alten Blaettern) oder Eisen-Mangel
+        (an jungen Blaettern).
+      - Natuerlicher N-Abbau in unteren Blaettern waehrend spaeter
+        Bluete (ab Woche 6-7) ist normal und kein Mangel. In der Abreife
+        (letzte 2 Wochen) ist Vergilbung sogar erwuenscht.
     metadata:
       nutrient: nitrogen
       symbol: N
@@ -137,15 +150,24 @@ chunks:
       - Kalium-Duengung pruefen — zu viel K blockiert Mg-Aufnahme
       Bittersalz (MgSO4) ist die schnellste Soforthilfe bei akutem
       Mg-Mangel. Blattapplikation wirkt innerhalb von 2-3 Tagen.
-      WICHTIG — Abgrenzung:
+      WICHTIG — Abgrenzung (haeufige Verwechslungen vermeiden!):
       - Mg-Mangel zeigt intervenale Chlorose an ALTEN/AELTEREN Blaettern
         (Mg ist mobil). Wenn JUNGE Blaetter betroffen → eher Fe oder Mn.
+      - KEIN Eisen-Mangel: Eisen-Mangel (Fe) zeigt sich an JUNGEN/NEUEN
+        Blaettern, NICHT an alten. Wenn die intervenale Chlorose an
+        aelteren Blaettern auftritt, ist es Magnesium, NICHT Eisen.
+      - KEIN Stickstoff-Mangel: N-Mangel zeigt GLEICHMAESSIGE Vergilbung
+        des gesamten Blattes (Adern UND Flaeche werden gelb). Mg-Mangel
+        zeigt intervenale Chlorose (Adern bleiben GRUEN). Das ist ein
+        klarer Unterschied — bei gruenen Adern und gelber Flaeche ist
+        es Magnesium, nicht Stickstoff.
       - Verwechslung mit Kalium-Mangel: K-Mangel zeigt Blattrand-Nekrose
         (braune Raender), Mg-Mangel zeigt intervenale Chlorose
         (gruene Adern, gelbe Flaeche). Das ist ein klarer Unterschied.
       - Mg-Mangel in der Bluete ist sehr haeufig weil PK-Booster viel
-        Kalium enthalten und K die Mg-Aufnahme verdraengt (K/Mg-Antagonismus).
-        CalMag-Zugabe und/oder Bittersalz-Blattspray loesen das Problem.
+        Kalium enthalten und K die Mg-Aufnahme verdraengt (K/Mg-Antagonismus,
+        auch Kalium-Antagonismus genannt). CalMag-Zugabe und/oder
+        Bittersalz-Blattspray loesen das Problem.
     metadata:
       nutrient: magnesium
       symbol: Mg
@@ -352,13 +374,18 @@ chunks:
       - Bewaesserung reduzieren (aerobe Bedingungen wiederherstellen)
       - Kalkung bei Outdoor-Boeden (Dolomitkalk liefert Ca+Mg und hebt pH)
       - In Hydro: Reservoir-Wechsel mit korrektem pH
-      Abgrenzung zu Ca-Mangel: Mn-Toxizitaet zeigt Flecken auf ALTEN
-      Blaettern, Ca-Mangel auf NEUEN. Mn-Toxizitaet zeigt punktfoermige
-      Nekrosen entlang der Adern, Ca-Mangel zeigt flaechige Nekrose.
+      WICHTIG — Differentialdiagnose (haeufige Fehldiagnosen vermeiden!):
+      - KEIN Calcium-Mangel: Ca-Mangel zeigt sich an NEUEN/JUNGEN Blaettern
+        (Ca ist immobil). Mn-Toxizitaet zeigt Flecken auf ALTEN Blaettern.
+        Wenn ALTE Blaetter betroffen sind und der pH niedrig ist, ist es
+        KEINE Calcium-Mangel-Diagnose, sondern Mangan-Toxizitaet.
+      - KEIN Eisenmangel: Fe-Mangel zeigt sich an JUNGEN Blaettern.
+        Mn-Toxizitaet betrifft ALTE Blaetter.
+      - Mn-Toxizitaet zeigt punktfoermige Nekrosen entlang der Adern,
+        Ca-Mangel zeigt flaechige Nekrose an neuen Blaettern.
       SCHLUESSELREGEL: Wenn braune Flecken auf ALTEN Blaettern UND pH
       unter 5.5 im Runoff → Mangan-Toxizitaet ist die wahrscheinlichste
-      Diagnose, NICHT Eisenmangel oder Calciummangel. pH erhoehen auf
-      6.0-6.5 ist die wichtigste Massnahme.
+      Diagnose. pH auf 6.0-6.5 erhoehen ist die wichtigste Massnahme.
     metadata:
       nutrient: manganese
       symbol: Mn

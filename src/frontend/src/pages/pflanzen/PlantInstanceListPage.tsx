@@ -168,27 +168,61 @@ export default function PlantInstanceListPage() {
       id: 'location',
       label: t('entities.location'),
       render: (r) => {
-        if (!r.slot_key) return '\u2014';
-        const slot = slotMap.get(r.slot_key);
-        if (!slot) return '\u2014';
-        const location = locationMap.get(slot.location_key);
-        if (!location) return slot.slot_id;
-        const site = siteMap.get(location.site_key);
-        const parts = [site?.name, location.name, slot.slot_id].filter(Boolean);
-        return (
-          <Tooltip arrow title={parts.join(' \u203A ')}>
-            <span>{location.name}</span>
-          </Tooltip>
-        );
+        if (r.slot_key) {
+          const slot = slotMap.get(r.slot_key);
+          if (slot) {
+            const location = locationMap.get(slot.location_key);
+            if (!location) return slot.slot_id;
+            const site = siteMap.get(location.site_key);
+            const parts = [site?.name, location.name, slot.slot_id].filter(Boolean);
+            return (
+              <Tooltip arrow title={parts.join(' \u203A ')}>
+                <span>{location.name}</span>
+              </Tooltip>
+            );
+          }
+        }
+        // Fallback: resolve from location_key directly
+        if (r.location_key) {
+          const location = locationMap.get(r.location_key);
+          if (location) {
+            const site = siteMap.get(location.site_key);
+            const parts = [site?.name, location.name].filter(Boolean);
+            return (
+              <Tooltip arrow title={parts.join(' \u203A ')}>
+                <span>{location.name}</span>
+              </Tooltip>
+            );
+          }
+        }
+        if (r.site_key) {
+          const site = siteMap.get(r.site_key);
+          if (site) return site.name;
+        }
+        return '\u2014';
       },
       searchValue: (r) => {
-        if (!r.slot_key) return '';
-        const slot = slotMap.get(r.slot_key);
-        if (!slot) return '';
-        const location = locationMap.get(slot.location_key);
-        if (!location) return '';
-        const site = siteMap.get(location.site_key);
-        return [site?.name, location.name, slot.slot_id].filter(Boolean).join(' ');
+        if (r.slot_key) {
+          const slot = slotMap.get(r.slot_key);
+          if (slot) {
+            const location = locationMap.get(slot.location_key);
+            if (!location) return '';
+            const site = siteMap.get(location.site_key);
+            return [site?.name, location.name, slot.slot_id].filter(Boolean).join(' ');
+          }
+        }
+        if (r.location_key) {
+          const location = locationMap.get(r.location_key);
+          if (location) {
+            const site = siteMap.get(location.site_key);
+            return [site?.name, location.name].filter(Boolean).join(' ');
+          }
+        }
+        if (r.site_key) {
+          const site = siteMap.get(r.site_key);
+          if (site) return site.name;
+        }
+        return '';
       },
     },
     {
@@ -243,7 +277,8 @@ export default function PlantInstanceListPage() {
     {
       id: 'removedOn',
       label: t('pages.plantInstances.removedOn'),
-      render: (r) => r.removed_on ?? '\u2014',
+      render: (r) =>
+        r.removed_on ? new Date(r.removed_on).toLocaleDateString() : '\u2014',
     },
     {
       id: 'actions',
@@ -280,7 +315,7 @@ export default function PlantInstanceListPage() {
     const species = speciesMap.get(r.species_key);
     const cultivar = r.cultivar_key ? cultivarMap.get(r.cultivar_key) : null;
     const slot = r.slot_key ? slotMap.get(r.slot_key) : null;
-    const location = slot ? locationMap.get(slot.location_key) : null;
+    const location = slot ? locationMap.get(slot.location_key) : (r.location_key ? locationMap.get(r.location_key) : null);
     const runInfo = plantRunMap.get(r.key);
     const phaseColorMap: Record<string, 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'info' | 'error'> = {
       germination: 'info', seedling: 'success', vegetative: 'primary', flowering: 'warning', harvest: 'secondary',
@@ -329,6 +364,7 @@ export default function PlantInstanceListPage() {
         }}
       >
         <PageTitle title={t('pages.plantInstances.title')} />
+
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <FormControlLabel
             control={
@@ -362,6 +398,13 @@ export default function PlantInstanceListPage() {
           </Button>
         </Box>
       </Box>
+
+      {!loading && filteredItems.length > 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          {t('pages.plantInstances.intro')}
+        </Typography>
+      )}
+
       <DataTable
         columns={columns}
         rows={filteredItems}

@@ -51,4 +51,6 @@ class LocationTreeNode(BaseModel):
     depth: int = 0
     parent_location_key: str | None = None
     slot_count: int = 0
+    active_plant_count: int = 0
+    tank_name: str | None = None
     children: list[LocationTreeNode] = []

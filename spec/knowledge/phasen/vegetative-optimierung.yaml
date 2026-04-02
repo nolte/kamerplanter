@@ -60,10 +60,15 @@ chunks:
       recovery_days: 0
 
   - id: training-topping-fim
-    title: Topping und FIM — Verzweigung erzwingen
+    title: Topping und FIM — nur vegetativ anwenden, nicht in der Bluete
     content: |
-      Topping (Kappen):
+      Topping ist nur in der vegetativen Phase erlaubt. Voraussetzung: Die
+      Pflanze muss mindestens ab dem 4.-5. Nodenpaar (4-5 Blattknoten) haben,
+      damit genuegend Reserven vorhanden sind. Topping nur vegetativ durchfuehren
+      — nicht in der Bluete toppen! In der Bluete fehlt die Erholungszeit.
+      Topping (Kappen) — Anleitung:
       - Haupttrieb ueber dem 4.-5. Nodenpaar abschneiden (sterile Schere!)
+      - Ab 4-5 Nodenpaare ist die Pflanze stark genug fuer Topping
       - Aus den beiden darunter liegenden Seitenaugen wachsen zwei neue
         Haupttriebe → Pflanze wird buschiger
       - Erholungszeit: 3-7 Tage (kein Wachstum waehrend Heilung)
@@ -75,11 +80,12 @@ chunks:
       - Erholungszeit: 3-5 Tage
       - Unberechenbarer als Topping (manchmal nur 2 Triebe)
       Wichtige Regeln:
-      - NUR in der vegetativen Phase! HST-Validator in Kamerplanter
-        blockiert Topping/FIM in der Bluete (REQ-006)
+      - Nur vegetativ anwenden — nicht in der Bluete toppen! In der Bluete
+        fehlt der Pflanze die Zeit zur Erholung und der Ertrag sinkt.
       - Pflanze muss mindestens 4-5 Nodenpaare haben (genug Reserven)
       - Nicht auf gestresste oder kranke Pflanzen anwenden
-      - NICHT bei Autoflowern empfohlen (zu kurze Veg-Phase fuer Erholung)
+      - Bei Autoflowern besser LST statt Topping verwenden — die
+        vegetative Phase ist zu kurz fuer die noetige Erholungszeit.
       - Werkzeug desinfizieren (Isopropanol 70%)
     metadata:
       topic: topping_fim

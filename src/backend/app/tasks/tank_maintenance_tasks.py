@@ -63,9 +63,10 @@ def generate_tank_maintenance_tasks() -> dict:
             skipped_count += 1
             continue
 
-        # Resolve tank name for instruction
+        # Resolve tank name and tenant for instruction
         tank = tank_repo.get_by_key(tank_key)
         tank_label = tank.name if tank else tank_key
+        tank_tenant_key = tank.tenant_key if tank and hasattr(tank, "tenant_key") else ""
 
         due_date = now
         if last_log and last_log.performed_at:
@@ -80,6 +81,7 @@ def generate_tank_maintenance_tasks() -> dict:
                 schedule.instructions or f"Scheduled maintenance ({schedule.maintenance_type}) for tank '{tank_label}'"
             ),
             category=TaskCategory.MAINTENANCE,
+            tenant_key=tank_tenant_key,
             due_date=due_date,
             status=TaskStatus.PENDING,
             priority=task_priority,
@@ -301,6 +303,14 @@ def check_runoff_trends() -> dict:
             skipped += 1
             continue
 
+        # Resolve tenant from plant instance
+        plant_tenant_key = ""
+        from app.common.dependencies import get_plant_repo
+
+        plant = get_plant_repo().get_by_key(plant_key)
+        if plant is not None:
+            plant_tenant_key = plant.tenant_key
+
         task = Task(
             name=task_name,
             instruction=(
@@ -309,6 +319,7 @@ def check_runoff_trends() -> dict:
                 "Perform a flush to reduce salt buildup."
             ),
             category=TaskCategory.MAINTENANCE,
+            tenant_key=plant_tenant_key,
             due_date=datetime.now(UTC),
             status=TaskStatus.PENDING,
             priority=TaskPriority.HIGH,

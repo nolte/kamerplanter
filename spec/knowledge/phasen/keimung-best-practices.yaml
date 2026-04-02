@@ -7,21 +7,25 @@ expertise_level: [beginner, intermediate, expert]
 applicable_phases: [germination]
 chunks:
   - id: keimung-papiertuech
-    title: Papiertuech-Methode (Paper Towel Method)
+    title: Papiertuch-Methode (Paper Towel Method) — zuverlaessigste Keimmethode
     content: |
-      Zuverlaessigste Methode fuer wertvolle Samen:
-      1. Kuechenpapier (ungebleicht, ohne Muster) anfeuchten — feucht, nicht
-         triefend nass. Wasser ausdruecken bis es nicht mehr tropft.
+      Die Papiertuch-Methode ist die zuverlaessigste Methode fuer die Keimung
+      wertvoller Samen. Wichtigste Regel: Das Papiertuch muss feucht, nicht nass
+      sein — feucht, nicht triefend nass. Zu nass fuehrt zu Schimmel und Faeulnis.
+      Schritt-fuer-Schritt Papiertuch-Methode:
+      1. Kuechenpapier (ungebleicht, ohne Muster) anfeuchten — feucht, nicht nass.
+         Wasser ausdruecken bis es nicht mehr tropft.
       2. Samen auf eine Haelfte legen, andere Haelfte umklappen
       3. In Zip-Lock-Beutel oder zwischen zwei Teller legen (Feuchtigkeit halten)
-      4. An warmen Ort stellen: 24-28°C (auf Router, Kuehlschrank-Oberseite,
-         Heizmatte). KEIN direktes Licht.
-      5. Taeglich pruefen: Schimmel? → mehr Luft. Austrocknung? → Nachfeuchten.
+      4. An warmen Ort stellen: 24-28 Grad (auf Router, Kuehlschrank-Oberseite,
+         Heizmatte). Dunkel aufbewahren — KEIN direktes Licht.
+      5. Taeglich pruefen: Schimmel? → mehr Luft. Austrocknung? → Nachfeuchten,
+         dabei wieder nur feucht, nicht nass machen.
       6. Keimwurzel (Radicle) erscheint nach 1-5 Tagen (artenabhaengig)
       7. Umsetzen wenn Keimwurzel 1-2 cm lang ist — vorsichtig mit Pinzette!
          Keimwurzel nach UNTEN in vorbereitetes Loch (5mm tief) stecken.
-      Vorteile: Sichtbare Keimung, fruehe Erkennung tauber Samen,
-      kontrollierte Bedingungen.
+      Vorteile der Papiertuch-Methode: Sichtbare Keimung, fruehe Erkennung
+      tauber Samen, kontrollierte Bedingungen.
       Nachteile: Empfindliche Keimwurzeln koennen beim Umsetzen brechen.
       Sehr vorsichtig handhaben, Keimwurzel nicht beruehren.
     metadata:

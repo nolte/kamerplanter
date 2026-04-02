@@ -19,6 +19,10 @@ import CircularProgress from '@mui/material/CircularProgress';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import IconButton from '@mui/material/IconButton';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import Divider from '@mui/material/Divider';
 import { alpha } from '@mui/material/styles';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
@@ -28,10 +32,15 @@ import TimerIcon from '@mui/icons-material/Timer';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as activityPlanApi from '@/api/endpoints/activityPlans';
-import type { ActivityPlanResponse, TaskTemplateResponse } from '@/api/types';
+import * as taskApi from '@/api/endpoints/tasks';
+import type { ActivityPlanResponse, TaskTemplateResponse, TaskItem } from '@/api/types';
+
+// ── Shared color maps ───────────────────────────────────────────────
 
 const stressColors: Record<string, 'default' | 'success' | 'warning' | 'error'> = {
   none: 'default',
@@ -55,7 +64,8 @@ const categoryColors: Record<string, 'default' | 'primary' | 'secondary' | 'warn
 const STRESS_RANK: Record<string, number> = { none: 0, low: 1, medium: 2, high: 3 };
 const TOLERANCE_RANK: Record<string, number> = { low: 1, medium: 2, high: 3 };
 
-/** Group flat templates into phases for accordion display. */
+// ── Plan mode types ─────────────────────────────────────────────────
+
 interface PhaseGroup {
   phaseName: string;
   phaseDisplayName: string;
@@ -79,12 +89,78 @@ function groupByPhase(templates: TaskTemplateResponse[]): PhaseGroup[] {
     }
     map.get(key)!.templates.push(tt);
   }
-  // Sort each group by days_offset
   for (const group of map.values()) {
     group.templates.sort((a, b) => a.days_offset - b.days_offset);
   }
   return Array.from(map.values());
 }
+
+// ── Task group types (assigned tasks mode) ──────────────────────────
+
+interface TaskGroup {
+  name: string;
+  templateKey: string | null;
+  category: string;
+  stressLevel: string;
+  triggerPhase: string | null;
+  instruction: string;
+  tasks: TaskItem[];
+}
+
+function groupTasks(tasks: TaskItem[]): TaskGroup[] {
+  const map = new Map<string, TaskGroup>();
+  for (const task of tasks) {
+    const groupKey = task.template_key ?? task.name;
+    if (!map.has(groupKey)) {
+      map.set(groupKey, {
+        name: task.name,
+        templateKey: task.template_key,
+        category: task.category,
+        stressLevel: task.stress_level,
+        triggerPhase: task.trigger_phase,
+        instruction: task.instruction,
+        tasks: [],
+      });
+    }
+    map.get(groupKey)!.tasks.push(task);
+  }
+  return Array.from(map.values());
+}
+
+interface PhaseTaskGroups {
+  phaseName: string;
+  groups: TaskGroup[];
+}
+
+function groupTasksByPhase(taskGroups: TaskGroup[], t: (key: string) => string): PhaseTaskGroups[] {
+  const phaseMap = new Map<string, TaskGroup[]>();
+  for (const group of taskGroups) {
+    const phase = group.triggerPhase ?? '__none__';
+    if (!phaseMap.has(phase)) {
+      phaseMap.set(phase, []);
+    }
+    phaseMap.get(phase)!.push(group);
+  }
+  return Array.from(phaseMap.entries()).map(([phase, groups]) => ({
+    phaseName: phase === '__none__' ? t('pages.activityPlan.noPhase') : phase,
+    groups,
+  }));
+}
+
+type StatusColor = 'success' | 'info' | 'default' | 'error';
+
+function getCompletionColor(tasks: TaskItem[]): StatusColor {
+  const completed = tasks.filter((t) => t.status === 'completed').length;
+  const hasOverdue = tasks.some(
+    (t) => t.due_date && new Date(t.due_date) < new Date() && t.status !== 'completed' && t.status !== 'skipped',
+  );
+  if (hasOverdue) return 'error';
+  if (completed === tasks.length) return 'success';
+  if (tasks.some((t) => t.status === 'in_progress')) return 'info';
+  return 'default';
+}
+
+// ── Props ───────────────────────────────────────────────────────────
 
 interface Props {
   speciesKey: string;
@@ -96,13 +172,56 @@ interface Props {
   currentPhaseName?: string;
 }
 
+// ── Component ───────────────────────────────────────────────────────
+
 export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentPhaseName }: Props) {
   const { t, i18n } = useTranslation();
   const { success } = useNotification();
   const { handleError } = useApiError();
+
+  // Assigned tasks state
+  const [assignedTasks, setAssignedTasks] = useState<TaskItem[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
+  const [tasksLoaded, setTasksLoaded] = useState(false);
+
+  // Plan generation state (fallback)
   const [plan, setPlan] = useState<ActivityPlanResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
+
+  // ── Load assigned tasks ───────────────────────────────────────────
+
+  const loadAssignedTasks = useCallback(async () => {
+    if (!runKey && !plantKey) {
+      setLoadingTasks(false);
+      setTasksLoaded(true);
+      return;
+    }
+    setLoadingTasks(true);
+    try {
+      const filters: { entity_type?: string; entity_key?: string } = {};
+      if (runKey) {
+        filters.entity_type = 'planting_run';
+        filters.entity_key = runKey;
+      } else if (plantKey) {
+        filters.entity_type = 'plant_instance';
+        filters.entity_key = plantKey;
+      }
+      const tasks = await taskApi.listTasks(0, 200, filters);
+      setAssignedTasks(tasks);
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoadingTasks(false);
+      setTasksLoaded(true);
+    }
+  }, [runKey, plantKey, handleError]);
+
+  useEffect(() => {
+    loadAssignedTasks();
+  }, [loadAssignedTasks]);
+
+  // ── Plan generation (fallback) ────────────────────────────────────
 
   const handleGenerate = useCallback(async (forceRegenerate = false) => {
     setLoading(true);
@@ -119,16 +238,9 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
     }
   }, [speciesKey, handleError]);
 
-  // Auto-generate on mount
-  useEffect(() => {
-    if (speciesKey) {
-      handleGenerate();
-    }
-  }, [speciesKey]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleToggle = useCallback(async (templateKey: string) => {
     if (!plan) return;
-    const tt = plan.templates.find((t) => t.key === templateKey);
+    const tt = plan.templates.find((tmpl) => tmpl.key === templateKey);
     if (!tt) return;
     try {
       const updated = await activityPlanApi.updateTaskTemplate(templateKey, {
@@ -138,7 +250,7 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
         if (!prev) return prev;
         return {
           ...prev,
-          templates: prev.templates.map((t) => (t.key === templateKey ? updated : t)),
+          templates: prev.templates.map((tmpl) => (tmpl.key === templateKey ? updated : tmpl)),
         };
       });
     } catch (err) {
@@ -153,7 +265,7 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
         if (!prev) return prev;
         return {
           ...prev,
-          templates: prev.templates.filter((t) => t.key !== templateKey),
+          templates: prev.templates.filter((tmpl) => tmpl.key !== templateKey),
           total_activities: prev.total_activities - 1,
         };
       });
@@ -171,7 +283,7 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
         if (!prev) return prev;
         return {
           ...prev,
-          templates: prev.templates.map((t) => (t.key === templateKey ? updated : t)),
+          templates: prev.templates.map((tmpl) => (tmpl.key === templateKey ? updated : tmpl)),
         };
       });
     } catch (err) {
@@ -191,15 +303,22 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
       success(t('pages.activityPlan.successMessage', {
         count: result.total_tasks ?? result.created_count,
       }));
+      // Reload assigned tasks after applying
+      await loadAssignedTasks();
     } catch (err) {
       handleError(err);
     } finally {
       setApplying(false);
     }
-  }, [plan, runKey, plantKey, success, handleError, t]);
+  }, [plan, runKey, plantKey, success, handleError, t, loadAssignedTasks]);
 
+  // ── Computed values ───────────────────────────────────────────────
+
+  const hasAssignedTasks = assignedTasks.length > 0;
+  const taskGroups = useMemo(() => groupTasks(assignedTasks), [assignedTasks]);
+  const phaseTaskGroups = useMemo(() => groupTasksByPhase(taskGroups, t), [taskGroups, t]);
   const phaseGroups = useMemo(() => (plan ? groupByPhase(plan.templates) : []), [plan]);
-  const enabledCount = plan ? plan.templates.filter((t) => t.enabled).length : 0;
+  const enabledCount = plan ? plan.templates.filter((tmpl) => tmpl.enabled).length : 0;
 
   const applyLabel = runKey
     ? t('pages.activityPlan.applyToRun')
@@ -210,6 +329,142 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
     const phaseTolerance = TOLERANCE_RANK[tt.phase_stress_tolerance] ?? 2;
     return actStress > phaseTolerance;
   }, []);
+
+  // ── Loading state ─────────────────────────────────────────────────
+
+  if (loadingTasks && !tasksLoaded) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1, py: 6 }}>
+        <CircularProgress size={24} />
+        <Typography variant="body1" color="text.secondary">
+          {t('pages.activityPlan.loadingTasks')}
+        </Typography>
+      </Box>
+    );
+  }
+
+  // ── Assigned tasks view ───────────────────────────────────────────
+
+  if (hasAssignedTasks) {
+    return (
+      <Box>
+        {/* Header */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AssignmentIcon color="primary" />
+            <Typography variant="h6">
+              {t('pages.activityPlan.assignedTasks')}
+            </Typography>
+            <Chip
+              label={`${assignedTasks.filter((task) => task.status === 'completed').length}/${assignedTasks.length}`}
+              size="small"
+              color={getCompletionColor(assignedTasks)}
+            />
+          </Box>
+        </Box>
+
+        {/* Phase accordions with task groups */}
+        {phaseTaskGroups.map((phaseGroup) => {
+          const isCurrentPhase = currentPhaseName != null && phaseGroup.phaseName === currentPhaseName;
+          const phaseTasks = phaseGroup.groups.flatMap((g) => g.tasks);
+          const phaseCompleted = phaseTasks.filter((task) => task.status === 'completed').length;
+
+          return (
+            <Accordion
+              key={phaseGroup.phaseName}
+              defaultExpanded={isCurrentPhase || phaseGroup.groups.length > 0}
+              sx={isCurrentPhase ? (theme) => ({
+                border: 2,
+                borderColor: 'primary.main',
+                '& .MuiAccordionSummary-root': {
+                  bgcolor: alpha(theme.palette.primary.main, 0.08),
+                },
+                '& .MuiAccordionSummary-root.Mui-expanded': {
+                  bgcolor: alpha(theme.palette.primary.main, 0.08),
+                },
+              }) : undefined}
+            >
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    {t(`enums.phaseName.${phaseGroup.phaseName}`, phaseGroup.phaseName)}
+                  </Typography>
+                  {isCurrentPhase && (
+                    <Chip label={t('pages.activityPlan.currentPhase')} size="small" color="primary" />
+                  )}
+                  <Chip
+                    label={t('pages.activityPlan.completedOf', {
+                      completed: phaseCompleted,
+                      total: phaseTasks.length,
+                    })}
+                    size="small"
+                    color={getCompletionColor(phaseTasks)}
+                  />
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails>
+                <List disablePadding>
+                  {phaseGroup.groups.map((group, idx) => {
+                    const completedCount = group.tasks.filter((task) => task.status === 'completed').length;
+                    const totalCount = group.tasks.length;
+                    const completionColor = getCompletionColor(group.tasks);
+                    const instructionText = i18n.language === 'de'
+                      ? (group.tasks[0]?.instruction_de || group.instruction)
+                      : group.instruction;
+                    const displayName = i18n.language === 'de'
+                      ? (group.tasks[0]?.name_de || group.name)
+                      : group.name;
+
+                    return (
+                      <Box key={group.templateKey ?? group.name}>
+                        {idx > 0 && <Divider />}
+                        <ListItem sx={{ py: 1.5 }}>
+                          <ListItemText
+                            primary={
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                  {displayName}
+                                </Typography>
+                                <Chip
+                                  label={t(`enums.taskCategory.${group.category}`, group.category)}
+                                  size="small"
+                                  color={categoryColors[group.category] ?? 'default'}
+                                />
+                                <Chip
+                                  label={t(`enums.stressLevel.${group.stressLevel}`, group.stressLevel)}
+                                  size="small"
+                                  variant="outlined"
+                                  color={stressColors[group.stressLevel] ?? 'default'}
+                                />
+                                <Chip
+                                  icon={<CheckCircleOutlineIcon />}
+                                  label={t('pages.activityPlan.completedOf', {
+                                    completed: completedCount,
+                                    total: totalCount,
+                                  })}
+                                  size="small"
+                                  color={completionColor}
+                                  variant={completionColor === 'default' ? 'outlined' : 'filled'}
+                                />
+                              </Box>
+                            }
+                            secondary={instructionText || undefined}
+                            secondaryTypographyProps={{ sx: { mt: 0.5 } }}
+                          />
+                        </ListItem>
+                      </Box>
+                    );
+                  })}
+                </List>
+              </AccordionDetails>
+            </Accordion>
+          );
+        })}
+      </Box>
+    );
+  }
+
+  // ── Fallback: Generate plan flow ──────────────────────────────────
 
   return (
     <Box>
@@ -225,7 +480,7 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
       {!plan && !loading && (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 6 }}>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-            {t('pages.activityPlan.noActivities')}
+            {t('pages.activityPlan.noAssignedTasks')}
           </Typography>
           <Button
             variant="contained"
@@ -277,7 +532,7 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
 
           {/* Phase accordions */}
           {phaseGroups.map((group) => {
-            const phaseEnabled = group.templates.filter((t) => t.enabled).length;
+            const phaseEnabled = group.templates.filter((tmpl) => tmpl.enabled).length;
             const isCurrent = currentPhaseName != null && group.phaseName === currentPhaseName;
             const hasWarnings = group.templates.some(hasStressWarning);
             return (

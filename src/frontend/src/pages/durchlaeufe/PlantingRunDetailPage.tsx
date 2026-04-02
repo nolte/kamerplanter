@@ -686,8 +686,8 @@ export default function PlantingRunDetailPage() {
       )}
 
       {/* Tab 4: Activity Plan */}
-      {tab === 4 && run && entries.length > 0 && (
-        <ActivityPlanTab runKey={key!} speciesKey={entries[0]?.species_key ?? ''} />
+      {tab === 4 && run && (
+        <ActivityPlanTab runKey={key!} speciesKey={entries[0]?.species_key ?? plants[0]?.species_key ?? ''} />
       )}
 
       {/* ── Dialogs ── */}

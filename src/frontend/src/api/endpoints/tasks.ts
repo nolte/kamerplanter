@@ -16,6 +16,7 @@ import type {
   WorkflowAddTaskRequest,
   WorkflowExecution,
   WorkflowInstantiateRequest,
+  WorkflowTargetType,
   WorkflowTemplate,
   WorkflowTemplateCreate,
   WorkflowTemplateUpdate,
@@ -29,9 +30,11 @@ export async function listWorkflows(
   offset = 0,
   limit = 50,
   speciesKey?: string,
+  targetEntityType?: WorkflowTargetType,
 ): Promise<WorkflowTemplate[]> {
   const params: Record<string, unknown> = { offset, limit };
   if (speciesKey) params.species_key = speciesKey;
+  if (targetEntityType) params.target_entity_type = targetEntityType;
   const { data } = await client.get<WorkflowTemplate[]>(
     `${BASE}/workflows`,
     { params },
@@ -76,6 +79,28 @@ export async function duplicateWorkflow(key: string, name: string): Promise<Work
     `${BASE}/workflows/${key}/duplicate`,
     null,
     { params: { name } },
+  );
+  return data;
+}
+
+export interface WorkflowExecutionEnriched {
+  key: string;
+  entity_key: string;
+  entity_type: string;
+  entity_name: string;
+  plant_removed: boolean;
+  species_name: string;
+  completion_percentage: number;
+  on_schedule: boolean;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export async function listWorkflowExecutions(
+  key: string,
+): Promise<WorkflowExecutionEnriched[]> {
+  const { data } = await client.get<WorkflowExecutionEnriched[]>(
+    `${BASE}/workflows/${key}/executions`,
   );
   return data;
 }
@@ -137,12 +162,13 @@ export async function deleteTaskTemplate(key: string): Promise<void> {
 export async function listTasks(
   offset = 0,
   limit = 50,
-  filters?: { status?: string; plant_key?: string; category?: string },
+  filters?: { status?: string; category?: string; entity_type?: string; entity_key?: string },
 ): Promise<TaskItem[]> {
   const params: Record<string, string | number> = { offset, limit };
   if (filters?.status) params.status = filters.status;
-  if (filters?.plant_key) params.plant_key = filters.plant_key;
   if (filters?.category) params.category = filters.category;
+  if (filters?.entity_type) params.entity_type = filters.entity_type;
+  if (filters?.entity_key) params.entity_key = filters.entity_key;
   const { data } = await client.get<TaskItem[]>(BASE, { params });
   return data;
 }

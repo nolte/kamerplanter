@@ -1,21 +1,29 @@
-"""E2E tests for REQ-015 -- Kalenderansicht (TC-015-001 to TC-015-036).
+"""E2E tests for REQ-015 — Kalenderansicht.
 
-Tests cover:
-- Calendar page load with month view as default (TC-015-001)
-- Month navigation: next, previous, today button (TC-015-002, TC-015-003)
-- View switching: list, sowing, season, phases timeline (TC-015-004 to TC-015-007)
-- Category filter chips (TC-015-010, TC-015-011)
-- Event popover display (TC-015-022)
-- Feed management: create, validation, delete, toggle (TC-015-030 to TC-015-036)
-
-NFR-008 section 3.4 screenshot checkpoints at:
-1. Page Load
-2. Before significant actions
-3. After significant actions
-4. Error states
+Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-015.md):
+  TC-REQ-015-001  ->  TC-015-001  Kalenderseite aufrufen — Standardansicht Monat
+  TC-REQ-015-002  ->  TC-015-002  Monatsnavigation — Naechsten Monat aufrufen
+  TC-REQ-015-003  ->  TC-015-003  Monatsnavigation — Zurueck zum aktuellen Monat
+  TC-REQ-015-004  ->  TC-015-002  Monatsnavigation — Vorherigen Monat aufrufen
+  TC-REQ-015-005  ->  TC-015-004  Ansichtswechsel — Listenansicht
+  TC-REQ-015-006  ->  TC-015-005  Ansichtswechsel — Aussaatkalender-Tab
+  TC-REQ-015-007  ->  TC-015-006  Ansichtswechsel — Saisonuebersicht-Tab
+  TC-REQ-015-008  ->  TC-015-007  Phasen-Timeline-Ansicht aufrufen
+  TC-REQ-015-009  ->  TC-015-004  Ansichtswechsel — Zurueck zu Monat von Liste
+  TC-REQ-015-010  ->  TC-015-010  Kategorie-Filter — Chips sichtbar
+  TC-REQ-015-011  ->  TC-015-010  Kategorie-Filter — Chip-Klick toggled
+  TC-REQ-015-012  ->  TC-015-022  Event-Klick — Popover mit Details
+  TC-REQ-015-013  ->  TC-015-036  Feed-Bereich ein-/ausklappen
+  TC-REQ-015-014  ->  TC-015-030  Feed erstellen — Dialog oeffnet sich
+  TC-REQ-015-015  ->  TC-015-035  Feed erstellen — Dialog abbrechen
+  TC-REQ-015-016  ->  TC-015-030  Feed erstellen — Happy Path
+  TC-REQ-015-017  ->  TC-015-031  Feed erstellen — Validierung leerer Name
 """
 
 from __future__ import annotations
+
+from pathlib import Path
+from typing import Callable
 
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -25,7 +33,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from .pages.calendar_page import CalendarPage
 
 
-# -- Fixtures ----------------------------------------------------------------
+# -- Fixtures -----------------------------------------------------------------
 
 
 @pytest.fixture
@@ -34,33 +42,29 @@ def calendar(browser: WebDriver, base_url: str) -> CalendarPage:
     return CalendarPage(browser, base_url)
 
 
-# -- TC-015-001 to TC-015-003: Page load & month navigation ------------------
+# -- TC-REQ-015-001 to TC-REQ-015-004: Page load & month navigation -----------
 
 
 class TestCalendarPageLoad:
-    """TC-015-001 to TC-015-003: Calendar page load and month navigation."""
+    """Calendar page load and month navigation (Spec: TC-015-001, TC-015-002, TC-015-003)."""
 
+    @pytest.mark.smoke
     def test_calendar_page_loads_with_month_view(
         self,
         calendar: CalendarPage,
-        request: pytest.FixtureRequest,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-015-001: Calendar page loads and shows month view as default.
+        """TC-REQ-015-001: Calendar page loads and shows month view as default.
 
-        Verifies:
-        - data-testid='calendar-page' is visible
-        - View tabs are present (month, list, phases, sowing, season)
-        - Month navigation buttons (prev, next, today) are visible
-        - Month tab is the active/selected tab
+        Spec: TC-015-001 -- Kalenderseite aufrufen — Standardansicht Monat.
         """
-        capture = request.node._screenshot_capture
         calendar.open()
-        capture("req015_001_calendar_page_loaded", "Calendar page after initial load")
+        screenshot("TC-REQ-015-001_calendar-page-loaded", "Calendar page after initial load")
 
-        # Page container visible
-        assert calendar.driver.find_element(
-            *CalendarPage.PAGE
-        ).is_displayed(), "Expected [data-testid='calendar-page'] to be visible"
+        page_el = calendar.wait_for_element(CalendarPage.PAGE)
+        assert page_el.is_displayed(), (
+            "TC-REQ-015-001 FAIL: Expected [data-testid='calendar-page'] to be visible"
+        )
 
         # View tabs present
         for locator_name, locator in [
@@ -71,392 +75,388 @@ class TestCalendarPageLoad:
             ("season", CalendarPage.VIEW_TAB_SEASON),
         ]:
             tabs = calendar.driver.find_elements(*locator)
-            assert len(tabs) > 0, f"Expected '{locator_name}' view tab to be present"
+            assert len(tabs) > 0, (
+                f"TC-REQ-015-001 FAIL: Expected '{locator_name}' view tab to be present"
+            )
 
         # Navigation buttons visible
-        assert calendar.driver.find_element(
-            *CalendarPage.PREV_MONTH_BTN
-        ).is_displayed(), "Expected prev-month button to be visible"
-        assert calendar.driver.find_element(
-            *CalendarPage.NEXT_MONTH_BTN
-        ).is_displayed(), "Expected next-month button to be visible"
-        assert calendar.driver.find_element(
-            *CalendarPage.TODAY_BTN
-        ).is_displayed(), "Expected today button to be visible"
-
-        # Month tab is the active tab
-        active = calendar.get_active_tab_value()
-        assert active == "month", (
-            f"Expected month tab to be active by default, got: '{active}'"
+        assert calendar.driver.find_elements(*CalendarPage.PREV_MONTH_BTN), (
+            "TC-REQ-015-001 FAIL: Expected prev-month button to be visible"
+        )
+        assert calendar.driver.find_elements(*CalendarPage.NEXT_MONTH_BTN), (
+            "TC-REQ-015-001 FAIL: Expected next-month button to be visible"
+        )
+        assert calendar.driver.find_elements(*CalendarPage.TODAY_BTN), (
+            "TC-REQ-015-001 FAIL: Expected today button to be visible"
         )
 
+        active = calendar.get_active_tab_value()
+        assert active == "month", (
+            f"TC-REQ-015-001 FAIL: Expected month tab to be active by default, got: '{active}'"
+        )
+
+    @pytest.mark.core_crud
     def test_navigate_to_next_month(
         self,
         calendar: CalendarPage,
-        request: pytest.FixtureRequest,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-015-002: Click next-month arrow advances the displayed month.
+        """TC-REQ-015-002: Click next-month arrow advances the displayed month.
 
-        Verifies the month header text changes after clicking the next button.
+        Spec: TC-015-002 -- Monatsnavigation — Naechsten Monat aufrufen.
         """
-        capture = request.node._screenshot_capture
         calendar.open()
 
         header_before = calendar.get_month_header_text()
-        capture("req015_002_before_next_month", "Month header before navigation")
+        screenshot("TC-REQ-015-002_before-next-month", "Month header before navigation")
 
         calendar.click_next_month()
-        capture("req015_002_after_next_month", "Month header after clicking next")
+        screenshot("TC-REQ-015-002_after-next-month", "Month header after clicking next")
 
         header_after = calendar.get_month_header_text()
         assert header_before != header_after, (
-            f"Expected month header to change after clicking next, "
+            f"TC-REQ-015-002 FAIL: Expected month header to change, "
             f"before='{header_before}', after='{header_after}'"
         )
 
+    @pytest.mark.core_crud
     def test_navigate_back_to_today(
         self,
         calendar: CalendarPage,
-        request: pytest.FixtureRequest,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-015-003: Navigate forward then click Today to return to current month.
+        """TC-REQ-015-003: Navigate forward then click Today to return to current month.
 
-        Verifies the month header returns to the original value after clicking Today.
+        Spec: TC-015-003 -- Monatsnavigation — Zurueck zum aktuellen Monat.
         """
-        capture = request.node._screenshot_capture
         calendar.open()
 
         header_original = calendar.get_month_header_text()
 
-        # Navigate forward twice
         calendar.click_next_month()
         calendar.click_next_month()
         header_shifted = calendar.get_month_header_text()
-        capture("req015_003_shifted_forward", "After navigating 2 months forward")
+        screenshot("TC-REQ-015-003_shifted-forward", "After navigating 2 months forward")
 
         assert header_original != header_shifted, (
-            "Expected month header to differ after navigating forward"
+            "TC-REQ-015-003 FAIL: Expected month header to differ after navigating forward"
         )
 
-        # Click Today
         calendar.click_today()
-        capture("req015_003_after_today", "After clicking Today button")
+        screenshot("TC-REQ-015-003_after-today", "After clicking Today button")
 
         header_restored = calendar.get_month_header_text()
         assert header_restored == header_original, (
-            f"Expected Today button to restore original month, "
+            f"TC-REQ-015-003 FAIL: Expected Today to restore original month, "
             f"original='{header_original}', restored='{header_restored}'"
         )
 
+    @pytest.mark.core_crud
     def test_navigate_to_previous_month(
         self,
         calendar: CalendarPage,
-        request: pytest.FixtureRequest,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-015-002 (reverse): Click prev-month arrow goes to previous month.
+        """TC-REQ-015-004: Click prev-month arrow goes to previous month.
 
-        Verifies the month header text changes after clicking the prev button.
+        Spec: TC-015-002 -- Monatsnavigation — Vorherigen Monat aufrufen.
         """
-        capture = request.node._screenshot_capture
         calendar.open()
 
         header_before = calendar.get_month_header_text()
         calendar.click_prev_month()
-        capture("req015_002b_after_prev_month", "Month header after clicking prev")
+        screenshot("TC-REQ-015-004_after-prev-month", "Month header after clicking prev")
 
         header_after = calendar.get_month_header_text()
         assert header_before != header_after, (
-            f"Expected month header to change after clicking prev, "
+            f"TC-REQ-015-004 FAIL: Expected month header to change, "
             f"before='{header_before}', after='{header_after}'"
         )
 
 
-# -- TC-015-004 to TC-015-007: View switching ---------------------------------
+# -- TC-REQ-015-005 to TC-REQ-015-009: View switching -------------------------
 
 
 class TestCalendarViewSwitching:
-    """TC-015-004 to TC-015-007: Switch between calendar view modes."""
+    """Switch between calendar view modes (Spec: TC-015-004, TC-015-005, TC-015-006, TC-015-007)."""
 
+    @pytest.mark.core_crud
     def test_switch_to_list_view(
         self,
         calendar: CalendarPage,
-        request: pytest.FixtureRequest,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-015-004: Switch from month view to list view.
+        """TC-REQ-015-005: Switch from month view to list view.
 
-        Verifies the list tab becomes active and list events container is shown.
+        Spec: TC-015-004 -- Ansichtswechsel — Listenansicht.
         """
-        capture = request.node._screenshot_capture
         calendar.open()
-        capture("req015_004_before_list_switch", "Calendar in month view")
+        screenshot("TC-REQ-015-005_before-list-switch", "Calendar in month view")
 
         calendar.switch_to_list_view()
-        capture("req015_004_after_list_switch", "Calendar in list view")
+        screenshot("TC-REQ-015-005_after-list-switch", "Calendar in list view")
 
         active = calendar.get_active_tab_value()
         assert active == "list", (
-            f"Expected list tab to be active, got: '{active}'"
+            f"TC-REQ-015-005 FAIL: Expected list tab to be active, got: '{active}'"
         )
 
+    @pytest.mark.core_crud
     def test_switch_to_sowing_view(
         self,
         calendar: CalendarPage,
-        request: pytest.FixtureRequest,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-015-005: Switch to sowing calendar view.
+        """TC-REQ-015-006: Switch to sowing calendar view.
 
-        Verifies the sowing tab becomes active.
+        Spec: TC-015-005 -- Ansichtswechsel — Aussaatkalender-Tab.
         """
-        capture = request.node._screenshot_capture
         calendar.open()
 
         calendar.switch_to_sowing_view()
-        capture("req015_005_sowing_view", "Calendar in sowing calendar view")
+        screenshot("TC-REQ-015-006_sowing-view", "Calendar in sowing calendar view")
 
         active = calendar.get_active_tab_value()
         assert active == "sowing", (
-            f"Expected sowing tab to be active, got: '{active}'"
+            f"TC-REQ-015-006 FAIL: Expected sowing tab to be active, got: '{active}'"
         )
 
+    @pytest.mark.core_crud
     def test_switch_to_season_view(
         self,
         calendar: CalendarPage,
-        request: pytest.FixtureRequest,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-015-006: Switch to season overview view.
+        """TC-REQ-015-007: Switch to season overview view.
 
-        Verifies the season tab becomes active.
+        Spec: TC-015-006 -- Ansichtswechsel — Saisonuebersicht-Tab.
         """
-        capture = request.node._screenshot_capture
         calendar.open()
 
         calendar.switch_to_season_view()
-        capture("req015_006_season_view", "Calendar in season overview view")
+        screenshot("TC-REQ-015-007_season-view", "Calendar in season overview view")
 
         active = calendar.get_active_tab_value()
         assert active == "season", (
-            f"Expected season tab to be active, got: '{active}'"
+            f"TC-REQ-015-007 FAIL: Expected season tab to be active, got: '{active}'"
         )
 
+    @pytest.mark.core_crud
     def test_switch_to_phases_timeline_view(
         self,
         calendar: CalendarPage,
-        request: pytest.FixtureRequest,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-015-007: Switch to phases timeline view.
+        """TC-REQ-015-008: Switch to phases timeline view.
 
-        Verifies the phases tab becomes active.
+        Spec: TC-015-007 -- Phasen-Timeline-Ansicht aufrufen.
         """
-        capture = request.node._screenshot_capture
         calendar.open()
 
         calendar.switch_to_phases_view()
-        capture("req015_007_phases_view", "Calendar in phases timeline view")
+        screenshot("TC-REQ-015-008_phases-view", "Calendar in phases timeline view")
 
         active = calendar.get_active_tab_value()
         assert active == "phases", (
-            f"Expected phases tab to be active, got: '{active}'"
+            f"TC-REQ-015-008 FAIL: Expected phases tab to be active, got: '{active}'"
         )
 
+    @pytest.mark.core_crud
     def test_switch_back_to_month_from_list(
         self,
         calendar: CalendarPage,
-        request: pytest.FixtureRequest,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-015-004 (round-trip): Switch to list then back to month.
+        """TC-REQ-015-009: Switch to list then back to month.
 
-        Verifies view tabs are bidirectional.
+        Spec: TC-015-004 -- Ansichtswechsel — Zurueck zu Monat von Liste.
         """
-        capture = request.node._screenshot_capture
         calendar.open()
 
         calendar.switch_to_list_view()
-        assert calendar.get_active_tab_value() == "list", "Expected list tab active"
+        assert calendar.get_active_tab_value() == "list", (
+            "TC-REQ-015-009 FAIL: Expected list tab active"
+        )
 
         calendar.switch_to_month_view()
-        capture("req015_004b_back_to_month", "Back to month view from list")
+        screenshot("TC-REQ-015-009_back-to-month", "Back to month view from list")
 
         assert calendar.get_active_tab_value() == "month", (
-            "Expected month tab active after switching back"
+            "TC-REQ-015-009 FAIL: Expected month tab active after switching back"
         )
 
 
-# -- TC-015-010, TC-015-011: Category filtering ------------------------------
+# -- TC-REQ-015-010, TC-REQ-015-011: Category filtering -----------------------
 
 
 class TestCalendarCategoryFilter:
-    """TC-015-010 to TC-015-011: Category filter chip interactions."""
+    """Category filter chip interactions (Spec: TC-015-010)."""
 
+    @pytest.mark.smoke
     def test_category_filter_chips_are_present(
         self,
         calendar: CalendarPage,
-        request: pytest.FixtureRequest,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-015-010 (pre): Verify category filter chips are rendered on the calendar page."""
-        capture = request.node._screenshot_capture
+        """TC-REQ-015-010: Verify category filter chips are rendered on the calendar page.
+
+        Spec: TC-015-010 -- Kategorie-Filter — Einzelne Kategorie aktivieren.
+        """
         calendar.open()
-        capture("req015_010_category_filters", "Category filter chips visible")
+        screenshot("TC-REQ-015-010_category-filters", "Category filter chips visible")
 
         chips = calendar.get_category_filter_chips()
         assert len(chips) > 0, (
-            "Expected at least one category filter chip to be present"
+            "TC-REQ-015-010 FAIL: Expected at least one category filter chip"
         )
 
+    @pytest.mark.core_crud
     def test_category_filter_chip_click_toggles(
         self,
         calendar: CalendarPage,
-        request: pytest.FixtureRequest,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-015-010: Click a category filter chip to toggle it.
+        """TC-REQ-015-011: Click a category filter chip to toggle it.
 
-        Verifies the chip changes visual state when clicked.
+        Spec: TC-015-010 -- Kategorie-Filter — Einzelne Kategorie aktivieren.
         """
-        capture = request.node._screenshot_capture
         calendar.open()
 
         chips = calendar.get_category_filter_chips()
         if len(chips) == 0:
             pytest.skip("No category filter chips present; skipping toggle test")
 
-        # Get the first chip's testid to extract the category name
         first_chip = chips[0]
         testid = first_chip.get_attribute("data-testid") or ""
         category = testid.replace("category-filter-", "")
 
-        capture("req015_010_before_filter_toggle", "Before toggling category filter")
+        screenshot("TC-REQ-015-011_before-filter-toggle", "Before toggling category filter")
         calendar.click_category_filter(category)
-        capture("req015_010_after_filter_toggle", "After toggling category filter")
+        screenshot("TC-REQ-015-011_after-filter-toggle", "After toggling category filter")
 
-        # The chip should still exist (click toggles, does not remove)
         updated_chips = calendar.get_category_filter_chips()
         assert len(updated_chips) > 0, (
-            "Category filter chips should remain after toggle"
+            "TC-REQ-015-011 FAIL: Category filter chips should remain after toggle"
         )
 
 
-# -- TC-015-022: Event popover ------------------------------------------------
+# -- TC-REQ-015-012: Event popover --------------------------------------------
 
 
 class TestCalendarEventPopover:
-    """TC-015-022: Event interaction via popover."""
+    """Event interaction via popover (Spec: TC-015-022)."""
 
+    @pytest.mark.core_crud
     def test_day_cell_click_opens_popover(
         self,
         calendar: CalendarPage,
-        request: pytest.FixtureRequest,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-015-022: Click a day cell to potentially open a popover.
+        """TC-REQ-015-012: Click a day cell to potentially open a popover.
 
-        If events exist on a given day, a popover should appear with event details.
-        This test verifies the day cell is clickable; actual popover depends on data.
+        Spec: TC-015-022 -- Event-Klick — Popover mit Details.
         """
-        capture = request.node._screenshot_capture
         calendar.open()
-        capture("req015_022_before_day_click", "Calendar before clicking a day cell")
+        screenshot("TC-REQ-015-012_before-day-click", "Calendar before clicking a day cell")
 
-        # Try clicking day 15 (usually exists in any month)
         try:
             calendar.click_day_cell(15)
-            capture("req015_022_after_day_click", "After clicking day 15 cell")
+            screenshot("TC-REQ-015-012_after-day-click", "After clicking day 15 cell")
         except Exception:
-            # Day 15 may not be in the visible grid if the month has unusual layout
-            capture("req015_022_day_click_skipped", "Day cell click could not be performed")
+            screenshot("TC-REQ-015-012_day-click-skipped", "Day cell click could not be performed")
             pytest.skip("Day cell 15 not clickable; may not have events")
 
 
-# -- TC-015-030 to TC-015-036: Feed management --------------------------------
+# -- TC-REQ-015-013 to TC-REQ-015-017: Feed management ------------------------
 
 
 class TestCalendarFeedManagement:
-    """TC-015-030 to TC-015-036: iCal feed CRUD via calendar page."""
+    """iCal feed CRUD via calendar page (Spec: TC-015-030, TC-015-031, TC-015-035, TC-015-036)."""
 
+    @pytest.mark.core_crud
     def test_feeds_section_toggle(
         self,
         calendar: CalendarPage,
-        request: pytest.FixtureRequest,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-015-036: Toggle the iCal feeds section to expand/collapse.
+        """TC-REQ-015-013: Toggle the iCal feeds section to expand/collapse.
 
-        Verifies the feeds toggle button exists and can be clicked.
+        Spec: TC-015-036 -- Feed auflisten — Mehrere Feeds sichtbar.
         """
-        capture = request.node._screenshot_capture
         calendar.open()
-        capture("req015_036_before_feeds_toggle", "Calendar before toggling feeds section")
+        screenshot("TC-REQ-015-013_before-feeds-toggle", "Calendar before toggling feeds section")
 
         calendar.toggle_feeds_section()
-        capture("req015_036_after_feeds_toggle", "After toggling feeds section")
+        screenshot("TC-REQ-015-013_after-feeds-toggle", "After toggling feeds section")
 
-        # After expanding, the Create Feed button should be visible
         create_btns = calendar.driver.find_elements(*CalendarPage.CREATE_FEED_BTN)
         assert len(create_btns) > 0, (
-            "Expected Create Feed button to be visible after expanding feeds section"
+            "TC-REQ-015-013 FAIL: Expected Create Feed button after expanding feeds section"
         )
 
+    @pytest.mark.core_crud
     def test_create_feed_dialog_opens(
         self,
         calendar: CalendarPage,
-        request: pytest.FixtureRequest,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-015-030 (pre): Create Feed dialog opens when clicking the create button.
+        """TC-REQ-015-014: Create Feed dialog opens when clicking the create button.
 
-        Verifies the dialog with name input and save/cancel buttons appears.
+        Spec: TC-015-030 -- Feed erstellen — Happy Path (Dialog-Oeffnung).
         """
-        capture = request.node._screenshot_capture
         calendar.open()
 
         calendar.toggle_feeds_section()
-        capture("req015_030_feeds_expanded", "Feeds section expanded")
+        screenshot("TC-REQ-015-014_feeds-expanded", "Feeds section expanded")
 
         calendar.click_create_feed()
-        capture("req015_030_create_dialog_open", "Create feed dialog opened")
+        screenshot("TC-REQ-015-014_create-dialog-open", "Create feed dialog opened")
 
         assert calendar.is_create_feed_dialog_visible(), (
-            "Expected create feed dialog to be visible"
+            "TC-REQ-015-014 FAIL: Expected create feed dialog to be visible"
         )
 
-        # Name input should be present
         name_inputs = calendar.driver.find_elements(*CalendarPage.FEED_NAME_INPUT)
         assert len(name_inputs) > 0, (
-            "Expected feed name input field in dialog"
+            "TC-REQ-015-014 FAIL: Expected feed name input field in dialog"
         )
 
+    @pytest.mark.core_crud
     def test_create_feed_dialog_cancel(
         self,
         calendar: CalendarPage,
-        request: pytest.FixtureRequest,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-015-035: Cancel the create feed dialog.
+        """TC-REQ-015-015: Cancel the create feed dialog.
 
-        Verifies the dialog closes without creating a feed.
+        Spec: TC-015-035 -- Feed loeschen — Abbrechen.
         """
-        capture = request.node._screenshot_capture
         calendar.open()
 
         calendar.toggle_feeds_section()
         calendar.click_create_feed()
-        assert calendar.is_create_feed_dialog_visible(), "Dialog should be open"
+        assert calendar.is_create_feed_dialog_visible(), (
+            "TC-REQ-015-015 FAIL: Dialog should be open"
+        )
 
-        capture("req015_035_before_cancel", "Create feed dialog before cancel")
+        screenshot("TC-REQ-015-015_before-cancel", "Create feed dialog before cancel")
         calendar.cancel_feed()
-        capture("req015_035_after_cancel", "After cancelling create feed dialog")
+        screenshot("TC-REQ-015-015_after-cancel", "After cancelling create feed dialog")
 
-        # Dialog should be closed
         WebDriverWait(calendar.driver, 5).until(
             EC.invisibility_of_element_located(CalendarPage.CREATE_FEED_DIALOG)
         )
 
+    @pytest.mark.core_crud
     def test_create_feed_happy_path(
         self,
         calendar: CalendarPage,
-        request: pytest.FixtureRequest,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-015-030: Create a new iCal feed with a valid name.
+        """TC-REQ-015-016: Create a new iCal feed with a valid name.
 
-        Verifies:
-        - Dialog closes after saving
-        - New feed appears in the feed list
+        Spec: TC-015-030 -- Feed erstellen — Happy Path.
         """
-        capture = request.node._screenshot_capture
         calendar.open()
 
         calendar.toggle_feeds_section()
@@ -465,51 +465,46 @@ class TestCalendarFeedManagement:
 
         calendar.click_create_feed()
         calendar.enter_feed_name("E2E Test Feed")
-        capture("req015_030_feed_name_entered", "Feed name entered in dialog")
+        screenshot("TC-REQ-015-016_feed-name-entered", "Feed name entered in dialog")
 
         calendar.save_feed()
-        capture("req015_030_after_feed_save", "After saving new feed")
+        screenshot("TC-REQ-015-016_after-feed-save", "After saving new feed")
 
-        # Dialog should close
         WebDriverWait(calendar.driver, 10).until(
             EC.invisibility_of_element_located(CalendarPage.CREATE_FEED_DIALOG)
         )
 
-        # Feed list should now have one more item
         feeds_after = calendar.get_feed_items()
         assert len(feeds_after) >= count_before, (
-            f"Expected at least {count_before} feeds after creation, got {len(feeds_after)}"
+            f"TC-REQ-015-016 FAIL: Expected at least {count_before} feeds after creation, "
+            f"got {len(feeds_after)}"
         )
 
+    @pytest.mark.core_crud
     def test_create_feed_empty_name_validation(
         self,
         calendar: CalendarPage,
-        request: pytest.FixtureRequest,
+        screenshot: Callable[..., Path],
     ) -> None:
-        """TC-015-031: Attempt to create feed without a name — save button is disabled.
+        """TC-REQ-015-017: Attempt to create feed without a name — save button is disabled.
 
-        The frontend disables the save button via ``disabled={!newFeedName.trim()}``.
-        Verifies the dialog stays open and the save button is disabled.
+        Spec: TC-015-031 -- Feed erstellen — Validierung leerer Name.
         """
-        capture = request.node._screenshot_capture
         calendar.open()
 
         calendar.toggle_feeds_section()
         calendar.click_create_feed()
 
-        capture("req015_031_empty_name_before_save", "Empty name — save button state")
+        screenshot("TC-REQ-015-017_empty-name-before-save", "Empty name — save button state")
 
-        # Save button should be disabled when the name is empty
-        from selenium.webdriver.common.by import By
         save_btn = calendar.driver.find_element(*CalendarPage.FEED_SAVE_BTN)
         assert not save_btn.is_enabled(), (
-            "Expected save button to be disabled when feed name is empty"
+            "TC-REQ-015-017 FAIL: Expected save button to be disabled when feed name is empty"
         )
 
-        # Dialog should remain open
         assert calendar.is_create_feed_dialog_visible(), (
-            "Expected dialog to stay open when name is empty (save button disabled)"
+            "TC-REQ-015-017 FAIL: Expected dialog to stay open when name is empty"
         )
 
-        capture("req015_031_after_empty_check", "Dialog still open with disabled save")
+        screenshot("TC-REQ-015-017_after-empty-check", "Dialog still open with disabled save")
         calendar.cancel_feed()

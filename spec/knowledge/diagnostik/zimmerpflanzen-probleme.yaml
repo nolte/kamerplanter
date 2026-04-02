@@ -10,17 +10,22 @@ chunks:
     title: Braune Blattspitzen bei Zimmerpflanzen (Monstera, Calathea, Farn & Co.)
     content: |
       Braune, trockene Blattspitzen sind das haeufigste Problem bei
-      Zimmerpflanzen. Die drei wahrscheinlichsten Ursachen:
-      1. Luftfeuchtigkeit zu niedrig (haeufigste Ursache):
-         Zimmerpflanzen aus tropischen Regionen (Monstera, Calathea, Alocasia,
-         Farne, Maranta) brauchen 50-70% Luftfeuchtigkeit. In beheizten
-         Raeumen liegt die RH oft bei 20-35% — viel zu niedrig.
+      Zimmerpflanzen wie Monstera, Calathea, Alocasia und Farnen.
+      Die drei wahrscheinlichsten Ursachen:
+      1. Luftfeuchtigkeit zu niedrig — trockene Luft (haeufigste Ursache!):
+         Die Luftfeuchtigkeit ist zu niedrig. Trockene Raumluft und
+         Heizungsluft sind die Hauptursache fuer braune Blattspitzen
+         bei Zimmerpflanzen. Tropische Pflanzen (Monstera, Calathea,
+         Alocasia, Farne, Maranta) brauchen 50-70% Luftfeuchtigkeit.
+         In beheizten Raeumen liegt die RH oft bei nur 20-35% — viel
+         zu niedrig. Ein Luftbefeuchter ist die beste Loesung.
          Massnahmen:
-         - Luftbefeuchter aufstellen (effektivste Loesung)
+         - Luftbefeuchter aufstellen (effektivste Loesung gegen
+           zu niedrige Luftfeuchtigkeit / trockene Luft)
          - Pflanzen gruppieren (erhoehen gegenseitig die Luftfeuchte)
          - Kieselsteinschale mit Wasser unter den Topf (Verdunstung)
          - Regelmaessig besprühen hilft kurzfristig, reicht aber nicht aus
-         - NICHT in die Naehe von Heizkoerpern stellen
+         - NICHT in die Naehe von Heizkoerpern stellen (Heizungsluft trocknet)
       2. Ueberduengung (bei Monstera, Ficus — NICHT bei Calathea):
          Bei Zimmerpflanzen wie Monstera oder Ficus kann Ueberduengung
          braune Spitzen verursachen. Bei Calathea ist Ueberduengung
@@ -69,12 +74,14 @@ chunks:
          - Blaetter werden blass-gelb, duenn, Pflanze wird "langbeinig"
          Loesung: Naeher ans Fenster ruecken (kein direktes Suedlicht
          fuer Schattenpflanzen). Pflanzenlicht im Winter.
-      3. Natuerliches Altern:
+      3. Natuerliches Altern (haeufigste Ursache fuer gelbe untere Blaetter):
          - Einzelne alte, untere Blaetter werden gelb und fallen ab
          - Obere Blaetter und neues Wachstum sind gesund
-         Das ist NORMAL und kein Grund zur Sorge. Die gelben Blaetter
-         einfach entfernen (abzupfen oder abschneiden) — das sieht
+         Das ist NORMAL und kein Grund zur Sorge. Gelbe Blaetter
+         entfernen — einfach abschneiden oder abzupfen. Das sieht
          nicht nur besser aus, sondern beugt auch Schimmelbildung vor.
+         Empfehlung: Gelbe und abgestorbene Blaetter regelmaessig
+         entfernen, damit die Pflanze keine Energie verschwendet.
          Nur wenn viele Blaetter gleichzeitig vergilben, liegt ein
          echtes Problem vor.
       4. Zugluft/Temperaturschock:
@@ -87,7 +94,7 @@ chunks:
       difficulty: beginner
 
   - id: zimmerpflanze-blaetter-haengen
-    title: Schlaffe haengende Blaetter bei Zimmerpflanzen
+    title: Pflanze welkt obwohl Erde nass ist — Ueberwaesserung und Wurzelfaeule
     content: |
       Schlaffe Blaetter haben zwei gegensaetzliche Ursachen:
       1. Zu trocken (Unterwaesserung):
@@ -96,15 +103,27 @@ chunks:
          - Topf fuehlt sich federleicht an
          Loesung: Gruendlich durchgiessen oder Topf 10-15 Min. in Wasser
          stellen (Tauchen). Pflanze erholt sich innerhalb von Stunden.
-      2. Zu nass (Ueberwaesserung + Wurzelfaeule):
+      2. Pflanze welkt obwohl die Erde nass ist → Ueberwaesserung + Wurzelfaeule:
+         Wenn die Pflanze welkt obwohl die Erde feucht/nass ist, liegt fast
+         immer Ueberwaesserung vor. Durch zu haeufiges Giessen entsteht
+         Sauerstoffmangel an den Wurzeln, was zu Wurzelfaeule fuehrt.
+         Die Wurzeln faulen und koennen kein Wasser mehr aufnehmen — deshalb
+         welkt die Pflanze trotz nasser Erde. NICHT mehr giessen!
+         Anzeichen:
          - Substrat ist nass/matschig, riecht modrig
          - Blaetter haengen UND werden gelb/weich
          - Topf ist schwer (voller Wasser)
-         Loesung: SOFORT aufhoeren zu giessen. Topf aus Uebersetzer nehmen.
-         Bei Faeulnis-Geruch: Umtopfen, matschige Wurzeln abschneiden,
-         frisches, trockenes Substrat verwenden.
+         Massnahmen:
+         - SOFORT aufhoeren zu giessen
+         - Drainage pruefen: Hat der Topf Abflussloecher? Steht Wasser
+           im Untersetzer? Drainage verbessern ist entscheidend!
+         - Topf aus Uebersetzer nehmen, ueberschuessiges Wasser ablaufen lassen
+         - Bei Faeulnis-Geruch: Umtopfen, matschige Wurzeln abschneiden,
+           frisches, trockenes Substrat verwenden
+         - Kuenftig: Fingerprobe vor dem Giessen (erst giessen wenn obere
+           2-3 cm trocken sind)
       Unterscheidung: Fingerprobe! Trockenes Substrat → mehr giessen.
-      Nasses Substrat → Wurzelproblem, weniger giessen.
+      Nasses Substrat → Wurzelproblem, weniger giessen, Drainage pruefen.
     metadata:
       type: houseplant_diagnostic
       severity_indicator: wilting_leaves

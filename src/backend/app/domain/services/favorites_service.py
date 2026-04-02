@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from arango.database import StandardDatabase
+from arango.exceptions import DocumentInsertError
 
 from app.data_access.arango import collections as col
 
@@ -55,8 +56,20 @@ class FavoritesService:
             "target_type": target_collection,
             "favorited_at": now,
         }
-        result = self._db.collection(col.USER_FAVORITES).insert(edge_data, return_new=True)
-        return result.get("new", edge_data)
+        try:
+            result = self._db.collection(col.USER_FAVORITES).insert(edge_data, return_new=True)
+            return result.get("new", edge_data)
+        except DocumentInsertError as exc:
+            if exc.http_code == 409:
+                # Concurrent insert race — edge was created between check and insert
+                cursor = self._db.aql.execute(
+                    "FOR e IN user_favorites FILTER e._from == @f AND e._to == @t RETURN e",
+                    bind_vars={"f": from_id, "t": to_id},
+                )
+                rows = list(cursor)
+                if rows:
+                    return rows[0]
+            raise
 
     def remove_favorite(
         self,
@@ -207,7 +220,7 @@ class FavoritesService:
 
     def _resolve_collection(self, key: str) -> str | None:
         """Resolve which document collection a key belongs to."""
-        for collection_name in [col.SPECIES, col.NUTRIENT_PLANS, col.FERTILIZERS]:
+        for collection_name in [col.SPECIES, col.NUTRIENT_PLANS, col.FERTILIZERS, col.ACTIVITIES]:
             try:
                 if self._db.collection(collection_name).has(key):
                     return collection_name

@@ -442,12 +442,13 @@ export default function TaskQueuePage() {
     // Add tasks
     for (const task of taskQueue) {
       if (filterCategory && task.category !== filterCategory) continue;
-      if (filterPlantKey && task.plant_key !== filterPlantKey) continue;
+      const taskPlantKey = task.entity_type === 'plant_instance' ? task.entity_key : null;
+      if (filterPlantKey && taskPlantKey !== filterPlantKey) continue;
       items.push({
         id: `task-${task.key}`,
         source: 'task',
         task,
-        plantKey: task.plant_key ?? undefined,
+        plantKey: taskPlantKey ?? undefined,
         dueDate: task.due_date ? new Date(task.due_date) : undefined,
         urgency: getTaskUrgency(task, now),
       });
@@ -456,8 +457,8 @@ export default function TaskQueuePage() {
     // Add care reminders (skip those that already have a pending task to avoid duplication)
     const taskPlantTypes = new Set(
       taskQueue
-        .filter((t) => t.category === 'care_reminder' && t.plant_key)
-        .map((t) => `${t.plant_key}-${t.name?.split('\u2014')[1]?.trim()}`),
+        .filter((t) => t.category === 'care_reminder' && t.entity_type === 'plant_instance' && t.entity_key)
+        .map((t) => `${t.entity_key}-${t.name?.split('\u2014')[1]?.trim()}`),
     );
 
     for (const entry of careDashboard) {
@@ -527,7 +528,7 @@ export default function TaskQueuePage() {
   const renderTaskCard = useCallback(
     (task: TaskItem, urgency: UrgencyGroup) => {
       const isLoading = actionLoading === task.key;
-      const plantName = task.plant_key ? plantNameMap.get(task.plant_key) : undefined;
+      const plantName = (task.entity_type === 'plant_instance' && task.entity_key) ? plantNameMap.get(task.entity_key) : undefined;
       const isSelected = selectedKeys.has(task.key);
       const isPending = task.status === 'pending';
       const isInProgress = task.status === 'in_progress';
@@ -593,10 +594,10 @@ export default function TaskQueuePage() {
                       )}
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                      {plantName && task.plant_key && (
+                      {plantName && task.entity_key && task.entity_type === 'plant_instance' && (
                         <Link
                           component={RouterLink}
-                          to={`/pflanzen/plant-instances/${task.plant_key}`}
+                          to={`/pflanzen/plant-instances/${task.entity_key}`}
                           variant="caption"
                           color="text.secondary"
                           underline="hover"
