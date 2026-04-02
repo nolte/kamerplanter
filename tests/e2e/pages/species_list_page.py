@@ -28,8 +28,11 @@ class SpeciesListPage(BasePage):
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
 
-    def open(self) -> SpeciesListPage:
-        self.navigate(self.PATH)
+    def open(self, via_sidebar: bool = False) -> SpeciesListPage:
+        if via_sidebar:
+            self.navigate_via_sidebar(self.PATH)
+        else:
+            self.navigate(self.PATH)
         self.wait_for_element(self.PAGE)
         self.wait_for_loading_complete()
         return self
@@ -52,12 +55,18 @@ class SpeciesListPage(BasePage):
             self.scroll_and_click(rows[index])
 
     def click_row_by_name(self, name: str) -> None:
+        """Click the row whose scientific name matches *name*.
+
+        The species table has a star/favorite column at index 0 (empty text),
+        so we search across all cells rather than only the first one.
+        """
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         for row in rows:
             cells = row.find_elements(By.TAG_NAME, "td")
-            if cells and cells[0].text == name:
-                self.scroll_and_click(row)
-                return
+            for cell in cells:
+                if cell.text == name:
+                    self.scroll_and_click(row)
+                    return
         raise ValueError(f"Row with name '{name}' not found")
 
     def has_empty_state(self) -> bool:

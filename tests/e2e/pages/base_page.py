@@ -135,10 +135,13 @@ class BasePage:
         """Reliably clear an input element and type a new value.
 
         Uses JavaScript to clear the field value and dispatch native input/change
-        events so that React controlled components pick up the change.  This
-        works around ``InvalidElementStateException`` and ``Keys.CONTROL + "a"``
-        failures in headless Chrome via Selenium Grid (Remote WebDriver).
+        events so that React controlled components pick up the change.  After
+        the JS clear, verifies the field is actually empty — if React restored
+        the old value, falls back to Ctrl+A to select all before typing so
+        the new value replaces whatever is in the field.
         """
+        from selenium.webdriver.common.keys import Keys
+
         self.driver.execute_script(
             "var el = arguments[0];"
             "var proto = el.tagName === 'TEXTAREA'"
@@ -150,7 +153,32 @@ class BasePage:
             "el.dispatchEvent(new Event('change', {bubbles: true}));",
             element,
         )
+        time.sleep(0.15)
+
+        # Verify the field was actually cleared — React may have restored the
+        # old value from state before send_keys runs.
+        current = element.get_attribute("value") or ""
+        if current:
+            element.send_keys(Keys.CONTROL + "a")
+            time.sleep(0.05)
+
         element.send_keys(value)
+
+    # ── Sidebar navigation ─────────────────────────────────────────────────
+
+    def navigate_via_sidebar(self, path: str, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Navigate by clicking a sidebar link, simulating real user behavior.
+
+        Falls back to direct URL navigation if the sidebar item is not visible
+        (e.g. hidden by expertise level).
+        """
+        locator = (By.CSS_SELECTOR, f"[data-testid='nav-{path}']")
+        items = self.driver.find_elements(*locator)
+        if items and items[0].is_displayed():
+            self.scroll_and_click(items[0])
+            WebDriverWait(self.driver, timeout).until(EC.url_contains(path))
+        else:
+            self.navigate(path)
 
     # ── Expertise level helpers ─────────────────────────────────────────────
 

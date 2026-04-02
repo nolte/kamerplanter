@@ -102,6 +102,66 @@ def base_url(request: pytest.FixtureRequest) -> str:
     return os.environ.get("E2E_BASE_URL") or request.config.getoption("--base-url")
 
 
+@pytest.fixture(scope="session", autouse=True)
+def e2e_seed_data(base_url: str) -> dict:
+    """Create seed data (Site + Location) via backend API for E2E tests.
+
+    Runs once per session. Returns dict with created keys.
+    In light mode, uses the system tenant slug 'mein-garten'.
+    """
+    import json
+    import urllib.request
+    import urllib.error
+
+    api_base = base_url.rstrip("/")
+    tenant_slug = "mein-garten"
+    api = f"{api_base}/api/v1/t/{tenant_slug}"
+    result: dict = {}
+
+    def _post(url: str, data: dict) -> tuple[int, dict]:
+        body = json.dumps(data).encode()
+        req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return resp.status, json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            return e.code, {}
+
+    def _get(url: str) -> tuple[int, list | dict]:
+        try:
+            with urllib.request.urlopen(url, timeout=10) as resp:
+                return resp.status, json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            return e.code, []
+
+    try:
+        # Create a Site
+        status, site = _post(f"{api}/sites", {"name": "E2E-Teststandort", "description": "Automatisch angelegt fuer E2E-Tests"})
+        if status == 201:
+            result["site_key"] = site["key"]
+            # Create a Location within that Site
+            loc_status, loc = _post(
+                f"{api}/locations",
+                {"name": "E2E-Testraum", "site_key": site["key"], "location_type_key": "room"},
+            )
+            if loc_status == 201:
+                result["location_key"] = loc["key"]
+        else:
+            # Site may already exist or API returned unexpected status — list existing
+            list_status, sites = _get(f"{api}/sites")
+            if list_status == 200 and isinstance(sites, list) and sites:
+                result["site_key"] = sites[0]["key"]
+    except (urllib.error.URLError, OSError) as exc:
+        result["error"] = str(exc)
+
+    # Write debug log to test-reports for diagnosis
+    seed_log = Path("test-reports/e2e_seed_data.log")
+    seed_log.parent.mkdir(parents=True, exist_ok=True)
+    seed_log.write_text(f"api={api}\nresult={result}\n")
+
+    return result
+
+
 @pytest.fixture(scope="session")
 def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
     """Create a headless browser session per xdist worker (NFR-008 §3.1).

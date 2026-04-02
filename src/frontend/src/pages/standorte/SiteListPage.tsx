@@ -258,6 +258,7 @@ function SiteCard({ site, locationTypes }: SiteCardProps) {
             <Typography
               variant="subtitle1"
               component="span"
+              data-testid={`site-name-${site.key}`}
               sx={{ fontWeight: 600, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
               onClick={(e) => {
                 e.stopPropagation();
