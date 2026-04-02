@@ -60,9 +60,9 @@ Die Standort-Hierarchie bildet das zentrale Rückgrat aller räumlichen Zuordnun
 
 ---
 
-### TC-002-002: Site-Liste zeigt vorhandene Sites mit allen Spalten
+### TC-002-002: Site-Liste zeigt vorhandene Sites als Akkordeon-Karten
 
-**Requirement**: REQ-002 § 2 — Site-Properties (name, climate_zone, total_area_m2, timezone)
+**Requirement**: REQ-002 § 2 — Site-Properties (name, climate_zone, total_area_m2, timezone), § 6 — Hierarchische Struktur
 **Priority**: High
 **Category**: Listenansicht
 **Preconditions**:
@@ -71,19 +71,20 @@ Die Standort-Hierarchie bildet das zentrale Rückgrat aller räumlichen Zuordnun
 
 **Testschritte**:
 1. Nutzer navigiert zu `/standorte/sites`
-2. Nutzer betrachtet die DataTable
+2. Nutzer betrachtet die Kartenliste
 
 **Erwartete Ergebnisse**:
-- Tabelle zeigt Spalten: "Name", "Klimazone", "Gesamtfläche (m²)", "Zeitzone"
-- Zeile "Zuhause" zeigt: Name=Zuhause, Klimazone=8a, Gesamtfläche=50 m², Zeitzone=Europe/Berlin
-- Zeile "Gewächshaus" zeigt: Name=Gewächshaus, Klimazone=9b, Gesamtfläche=120 m², Zeitzone=UTC
-- Tabelle ist nach Name aufsteigend vorsortiert
-- Fußzeile zeigt "Zeigt 1–2 von 2 Einträgen"
+- Jeder Site wird als aufklappbare Karte (Card mit Collapse) angezeigt
+- Karten-Header zeigt: Name, Klimazone, Gesamtfläche (m²), Anzahl Bereiche
+- Klick auf den Karten-Header klappt den Inhalt auf/zu
+- Aufgeklappter Inhalt zeigt den Location-Baum (SimpleTreeView) mit verschachtelten Bereichen
+- Jeder Baumknoten zeigt: Icon (Typ), Name, Typ-Chip, Slot-/Pflanzenanzahl
+- Button "Standort erstellen" ist sichtbar
 
 **Nachbedingungen**:
 - Keine Daten verändert
 
-**Tags**: [REQ-002, site, listenansicht, datatable]
+**Tags**: [REQ-002, site, listenansicht, akkordeon, karten]
 
 ---
 

@@ -877,7 +877,7 @@ version: "4.0"
 - Browser navigiert zu `/stammdaten/species/{key}`
 - Seitenüberschrift zeigt den wissenschaftlichen Namen
 - Tab "Bearbeiten" ist aktiv und Bearbeitungsformular ist sichtbar
-- Weitere Tabs sind sichtbar: "Anbauperioden", "Sorten", "Lebenszyklus-Konfiguration", "Workflows"
+- Weitere Tabs sind sichtbar: "Aussaat & Ernte", "Sorten", "Lebenszyklus-Konfiguration", "Workflows", "Mischkultur", "Fruchtfolge"
 - Felder sind mit den aktuellen Werten vorbelegt
 
 **Postconditions**:

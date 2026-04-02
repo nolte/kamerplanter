@@ -1267,7 +1267,7 @@ questions:
       - nematoden
       - bestauber
     expected_NOT:
-      - keine  # Tagetes ist wissenschaftlich belegt
+      - keine_wirkung  # Tagetes ist wissenschaftlich belegt
 
   - id: comp-007
     category: companion_planting

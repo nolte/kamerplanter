@@ -108,8 +108,8 @@ topics:
     de: [Flush, spuelen, durchspuelen, mit klarem Wasser spuelen]
 
   ec_reduzieren:
-    pattern: '(?i)EC.*reduzier|EC.*senken|EC.*verringer|weniger.*Duenger'
-    de: [EC reduzieren, EC senken, weniger Duenger]
+    pattern: '(?i)EC.*reduzier|EC.*senken|EC.*verringer|weniger.*D[uü]nger|50.*%.*EC|halbe.*EC|EC.*halb|niedrig.*EC|D[uü]nger.*reduzier|Basis.*50.*%'
+    de: [EC reduzieren, EC senken, weniger Duenger, 50% EC, halbe EC, Duenger reduzieren]
 
   spinnmilben:
     pattern: '(?i)Spinnmilb|Tetranychus|spider.*mite|Gespinst'
@@ -212,8 +212,8 @@ topics:
     de: [entweder oder, nicht gleichzeitig]
 
   umstritten:
-    pattern: '(?i)umstritten|nicht.*eindeutig|wissenschaftlich.*nicht.*beleg|Debatte'
-    de: [umstritten, nicht eindeutig belegt, Debatte]
+    pattern: '(?i)umstritten|nicht.*eindeutig|wissenschaftlich.*nicht.*beleg|Debatte|kontrovers|keine.*eindeutig|nicht.*bewiesen|fehlende.*Evidenz|kein.*signifikant'
+    de: [umstritten, nicht eindeutig belegt, Debatte, kontrovers, fehlende Evidenz, nicht bewiesen]
 
   guelph_studie:
     pattern: '(?i)Guelph|Studie|Forschung.*Flush|University'
@@ -252,24 +252,24 @@ topics:
     de: [Kationenaustausch, CEC, KAK]
 
   natrium_kalium_auswaschen:
-    pattern: '(?i)Natrium.*auswaschen|Kalium.*auswaschen|Na.*K.*freisetz'
-    de: [Natrium auswaschen, Na/K freisetzen]
+    pattern: '(?i)Natrium.*auswaschen|Kalium.*auswaschen|Na.*K.*freisetz|Na.*freigesetzt|Natrium.*freiset|Na.*und.*K.*verdraeng|Na/K|Natrium.*Kalium.*belad|Na.*K.*belad|Natrium.*abgeb'
+    de: [Natrium auswaschen, Na/K freisetzen, Natrium freigesetzt, Na und K verdraengen]
 
   fingertest:
     pattern: '(?i)Fingertest|Finger.*Erde|Finger.*Substrat|2.*3.*cm.*tief|Finger.*steck|Finger.*pruef'
     de: [Fingertest, Finger in die Erde, Finger ins Substrat, mit dem Finger pruefen]
 
   nicht_nach_zeitplan:
-    pattern: '(?i)nicht.*Zeitplan|nicht.*jeden.*Montag|nach.*Bedarf|nicht.*regelmaessig|individuell|je.*nach.*Pflanze|kein.*fester.*Rhythmus'
-    de: [nicht nach Zeitplan, nach Bedarf, individuell, kein fester Rhythmus]
+    pattern: '(?i)nicht.*Zeitplan|nicht.*jeden.*Montag|nach.*Bedarf|nicht.*regelmaessig|individuell|je.*nach.*Pflanze|kein.*fester.*Rhythmus|haengt.*von.*ab|unterschiedlich|variiert|pauschal.*nicht|keine.*pauschale|nicht.*pauschal|abhaengig.*von|kommt.*darauf.*an'
+    de: [nicht nach Zeitplan, nach Bedarf, individuell, kein fester Rhythmus, haengt von ab, unterschiedlich, variiert, nicht pauschal, abhaengig von, kommt darauf an]
 
   substrat_pruefen:
-    pattern: '(?i)Substrat.*pruef|Erde.*pruef|Feuchtigkeit.*pruef'
-    de: [Substrat pruefen, Erde pruefen]
+    pattern: '(?i)Substrat.*pruef|Erde.*pruef|Feuchtigkeit.*pruef|Substrat.*test|Erde.*test|Substrat.*kontroll|ob.*trocken|Substrat.*fuehlen|Erde.*fuehlen|Boden.*pruef|Boden.*feucht'
+    de: [Substrat pruefen, Erde pruefen, Feuchtigkeit pruefen, Substrat testen, ob trocken, Boden pruefen, Bodenfeuchtigkeit]
 
   topfgewicht:
-    pattern: '(?i)Topf.*Gewicht|Topf.*heben|schwer.*leicht|Gewichts.*methode'
-    de: [Topfgewicht, Topf hochheben]
+    pattern: '(?i)Topf.*Gewicht|Topf.*heben|Topf.*anheben|schwer.*leicht|Gewichts.*methode|Gewicht.*Topf|Topf.*wiegen|leicht.*schwer'
+    de: [Topfgewicht, Topf hochheben, Topf anheben, Gewicht des Topfes, Topf wiegen]
 
   hochfrequenz:
     pattern: '(?i)hochfrequenz|mehrmals.*taeglich|3.*5.*mal|Fertigation'
@@ -292,20 +292,20 @@ topics:
     de: [dunkel lagern, Algen vermeiden]
 
   ja_unbedingt:
-    pattern: '(?i)ja.*unbedingt|Pflicht|muss|zwingend|essentiell'
-    de: [ja, unbedingt, Pflicht, muss]
+    pattern: '(?i)ja[,.]?\s*unbedingt|Pflicht|\bmuss\b|zwingend|essentiell|absolut.*notwendig|unverzichtbar|unbedingt.*noetig|auf.*jeden.*Fall|dringend.*empfohl|grundsaetzlich.*ja|wichtig.*dass|Abfluss.*Loch|Drainage.*Loch'
+    de: [ja unbedingt, Pflicht, muss, zwingend, essentiell, absolut notwendig, unverzichtbar, auf jeden Fall, dringend empfohlen, grundsaetzlich ja]
 
   drainage:
-    pattern: '(?i)Drainage|Abfluss|Ablauf.*Loch|Drainage.*Loch'
-    de: [Drainage, Abflussloch]
+    pattern: '(?i)Drainage|Abfluss|Ablauf.*Loch|Drainage.*Loch|Abzugsloch|Loch.*Boden|Loch.*Topf|Wasser.*ablauf|Wasser.*abfliess'
+    de: [Drainage, Abflussloch, Abzugsloch, Loch im Boden, Loch im Topf, Wasser ablaufen]
 
   uebertopf:
-    pattern: '(?i)Uebertopf|Innentopf|dekorativer.*Topf'
-    de: [Uebertopf, Innentopf]
+    pattern: '(?i)[Uu]ebertopf|Innentopf|dekorativer.*Topf|[Uu]ntersetzer.*leeren|[Uu]ntersetzer.*ausgiess|[Kk]aschpo|[Uu]eberstand.*abgiess'
+    de: [Uebertopf, Innentopf, dekorativer Topf, Untersetzer leeren, Kaschpo, Ueberstand abgiessen]
 
   staunaesse:
-    pattern: '(?i)Staunaesse|stehendes.*Wasser|Wasser.*Untersetzer'
-    de: [Staunaesse, stehendes Wasser]
+    pattern: '(?i)Staunaesse|stehendes.*Wasser|Wasser.*[Uu]ntersetzer|Wasser.*sammelt.*sich|Wasser.*staut'
+    de: [Staunaesse, stehendes Wasser, Wasser im Untersetzer, Wasser staut sich]
 
   nein_mythos:
     pattern: '(?i)Mythos|nicht.*empfohl|falsch|kontraproduktiv|perched'
@@ -544,8 +544,8 @@ topics:
     de: [Kupfer, Kupferpraeparat]
 
   papiertuch_methode:
-    pattern: '(?i)Papiertuch|Paper.*Towel|Kuechenpapier'
-    de: [Papiertuch-Methode, Paper Towel]
+    pattern: '(?i)Papiertuch|Paper.*Towel|Kuechenpapier|feuchte[smnr]?\s+Tuch'
+    de: [Papiertuch-Methode, Paper Towel, Kuechenpapier, feuchtes Tuch]
 
   trichome:
     pattern: '(?i)Trichom|Harzdruese|Harzkoepfchen|Lupen|Mikroskop|milchig|trueb|bernstein|Harz'
@@ -584,8 +584,8 @@ topics:
     de: [Schulterdurchmesser, 1.5-2.5cm]
 
   70_120_tage_nach_aussaat:
-    pattern: '(?i)70.*120.*Tage|Tage.*nach.*Aussaat|sortenabhaengig'
-    de: [70-120 Tage, nach Aussaat]
+    pattern: '(?i)70.*120.*Tage|Tage.*nach.*Aussaat|sortenabhaengig|10.*17.*Wochen|3.*4.*Monate.*nach.*Aussaat|Kulturzeit'
+    de: [70-120 Tage, nach Aussaat, 10-17 Wochen, Kulturzeit]
 
   frost_verbessert_geschmack:
     pattern: '(?i)Frost.*Geschmack|Frost.*suess|Staerke.*Zucker'
@@ -612,8 +612,8 @@ topics:
     de: [Burping, taeglich oeffnen und lueften]
 
   chlorophyll_abbau:
-    pattern: '(?i)Chlorophyll.*Abbau|Heu.*Geruch|gruen.*Geruch'
-    de: [Chlorophyll-Abbau, Heu-Geruch]
+    pattern: '(?i)Chlorophyll.*Abbau|Chlorophyll.*abbau|Chlorophyll.*abgebaut|Heu.*Geruch|gruen.*Geruch'
+    de: [Chlorophyll-Abbau, Chlorophyll abgebaut, Heu-Geruch]
 
   terpene:
     pattern: '(?i)Terpene|Aroma|Geruch.*Profil|Geschmack'
@@ -672,8 +672,8 @@ topics:
     de: [Gruenduengung, Zwischenfrucht]
 
   bodenschaedlinge_brechen:
-    pattern: '(?i)Schaedlings.*Zyklus|Krankheits.*Zyklus|break|unterbrich'
-    de: [Schaedlings-Zyklus brechen, unterbrechen]
+    pattern: '(?i)Schaedlings.*Zyklus|Krankheits.*Zyklus|break|unterbrich|Akkumulation.*verhinder|Vermehrung.*stopp|Befallsdruck.*sink|Infektionskette.*unterbr'
+    de: [Schaedlings-Zyklus brechen, unterbrechen, Akkumulation verhindern]
 
   nematoden:
     pattern: '(?i)Nematod|Fadenwurm|Meloidogyne'
@@ -684,16 +684,16 @@ topics:
     de: [Bestauber, Bienen, Hummeln]
 
   moeglich_indoor:
-    pattern: '(?i)Indoor.*moeglich|Gewaechshaus.*ok|kontrolliert.*Beding'
-    de: [Indoor moeglich, unter kontrollierten Bedingungen]
+    pattern: '(?i)Indoor.*moeglich|Gewaechshaus.*ok|kontrolliert.*Beding|Gewaechshaus.*moeglich|Gewaechshaus.*funktionier|Gewaechshaus.*gaengig|im.*Gewaechshaus.*zusammen'
+    de: [Indoor moeglich, Gewaechshaus moeglich, unter kontrollierten Bedingungen]
 
   unter_kontrollierten_bedingungen_ok:
-    pattern: '(?i)kontrolliert.*ok|Gewaechshaus.*kein.*Problem|Indoor.*kein.*Problem'
-    de: [unter kontrollierten Bedingungen ok]
+    pattern: '(?i)kontrolliert.*ok|Gewaechshaus.*kein.*Problem|Indoor.*kein.*Problem|kontrolliert.*Bedingung.*moeglich|kontrolliert.*Bedingung.*kein.*Problem|kontrolliert.*Bedingung.*funktionier|kontrolliert.*Bedingung.*problemlos|Belueftung.*steuern|Klima.*regulier|Klima.*kontroll|Zonen.*trenn'
+    de: [unter kontrollierten Bedingungen ok, unter kontrollierten Bedingungen kein Problem, Klima regulieren, Zonen trennen]
 
   3_4_jahre_pause:
-    pattern: '(?i)3.*4.*Jahr.*Pause|Anbaupause|nicht.*wiederhol'
-    de: [3-4 Jahre Pause, Anbaupause]
+    pattern: '(?i)3.*4.*Jahr.*Pause|3.*4.*Jahr.*Rotation|Anbaupause|nicht.*wiederhol|mindestens.*3.*Jahr|mindestens.*4.*Jahr'
+    de: [3-4 Jahre Pause, 3-4 Jahre Rotation, Anbaupause]
 
   brassicaceae:
     pattern: '(?i)Brassicaceae|Kreuzbluetl|Kohl.*Familie'
@@ -864,8 +864,8 @@ topics:
     de: [100 reicht]
 
   15_20_grad:
-    pattern: '(?i)15.*20.*[Gg]rad|15.*Celsius|18.*Celsius|Raumtemperatur|kuehl.*trocken'
-    de: [15-20 Grad, Raumtemperatur]
+    pattern: '(?i)15.*20.*[Gg]rad|15.*20.*°C|15.*Celsius|18.*Celsius|Raumtemperatur|kuehl.*trocken|15\s*bis\s*20|unter\s*20\s*Grad|niedrig.*Temperatur.*15|maximal\s*20\s*Grad'
+    de: [15-20 Grad, 15-20°C, Raumtemperatur, 15 bis 20 Grad]
 
   1_3_tage:
     pattern: '(?i)1.*3.*tage'
@@ -876,8 +876,8 @@ topics:
     de: [200 reicht]
 
   24_28_grad:
-    pattern: '(?i)24.*28.*grad'
-    de: [24 28 grad]
+    pattern: '(?i)24.*28.*[Gg]rad|24.*28.*°C|24.*28.*Celsius'
+    de: [24-28 Grad, 24-28°C]
 
   2_3_wochen:
     pattern: '(?i)2.*3.*[Ww]ochen|zwei.*drei.*Wochen|14.*21.*Tage'
@@ -908,28 +908,28 @@ topics:
     de: [55-65% RH, 55%, 60%]
 
   5_8_grad:
-    pattern: '(?i)5.*8.*[Gg]rad|5.*10.*[Gg]rad|frostfrei.*kuehl|kuehl.*lager'
-    de: [5-8 Grad, 5-10 Grad]
+    pattern: '(?i)5.*8.*[Gg]rad|5.*8.*°C|5.*10.*[Gg]rad|5.*10.*°C|frostfrei.*kuehl|kuehl.*lager'
+    de: [5-8 Grad, 5-8°C, 5-10 Grad]
 
   5g_pro_liter:
-    pattern: '(?i)pro.*liter'
-    de: [5g pro liter]
+    pattern: '(?i)\d+\s*g[/ ]L|\d+\s*g\s*pro\s*[Ll]iter|\d+\s*Gramm.*pro.*[Ll]iter|Gramm.*[Ll]iter'
+    de: [5g pro Liter, g/L, Gramm pro Liter, 5 g/L, 2-5 g/L]
 
   7_14_tage:
     pattern: '(?i)7.*14.*[Tt]age|eine.*zwei.*Woche|1.*2.*Wochen|10.*14.*Tage'
     de: [7-14 Tage, 1-2 Wochen]
 
   ab_4_5_nodenpaar:
-    pattern: '(?i)4.*5.*[Nn]oden|[Nn]oden.*4|[Nn]ode.*4|Blattknoten.*4|Blattknoten.*5|Blattpaare.*4|Blattpaare.*5|Internodien.*4|Blattknoten'
-    de: [4-5 Nodenpaar, 4 Knoten, 4-5 Blattpaare, Blattknoten]
+    pattern: '(?i)4.*5.*[Nn]oden|[Nn]oden.*4|[Nn]ode.*4|Blattknoten.*4|Blattknoten.*5|Blattpaare.*4|Blattpaare.*5|Internodien.*4|Blattknoten|mindestens.4.Knoten'
+    de: [4-5 Nodenpaar, 4 Knoten, 4-5 Blattpaare, Blattknoten, 4-5 Blattknoten]
 
   abends_spruehen:
-    pattern: '(?i)abends.*spruehen'
-    de: [abends spruehen]
+    pattern: '(?i)abends.*spr[uü]h|abends.*aufspr[uü]h|sp[aä]t.*Abend.*spr[uü]h|Licht.*aus.*spr[uü]h|ausgeschaltetem.*Licht|bei.*Dunkelheit.*spr[uü]h|am.*Abend|morgens.*fr[uü]h|fr[uü]hen.*Morgen'
+    de: [abends spruehen, abends aufspruehen, bei ausgeschaltetem Licht, am Abend, fruehen Morgen]
 
   abhaengig_von_art:
-    pattern: '(?i)abhaengig.*von.*art'
-    de: [abhaengig von art]
+    pattern: '(?i)abhaengig.*von.*(art|pflanze|standort)|haengt.*ab.*von.*(art|pflanze|standort)|kommt.*auf.*Pflanze.*an|kommt.*darauf.*an|je.*nach.*(Pflanze|Art|Standort)|art.*und.*standort|Pflanze.*und.*Standort|pauschal.*nicht|individuell|unterschiedlich.*je|nicht.*pauschal'
+    de: [abhaengig von art, kommt auf die Pflanze an, je nach Art, individuell]
 
   abluft_aus_nachts:
     pattern: '(?i)abluft.*aus.*nachts'
@@ -972,8 +972,8 @@ topics:
     de: [alles ok]
 
   aluminium_toxizitaet_moeglich:
-    pattern: '(?i)aluminium.*toxizitaet.*moeglich'
-    de: [aluminium toxizitaet moeglich]
+    pattern: '(?i)aluminium.*toxi|Al[- ]?Toxi|Aluminium.*l[oö]slich|Aluminium.*giftig|Aluminium.*freigesetzt|Aluminium.*schaed|Aluminium.*Gefahr|Aluminium.*mobilisier'
+    de: [Aluminium-Toxizitaet, Al-Toxizitaet, Aluminium loeslich, Aluminium mobilisiert]
 
   april:
     pattern: '(?i)april'
@@ -996,8 +996,8 @@ topics:
     de: [aufgeben]
 
   austrocknen_lassen:
-    pattern: '(?i)austrocknen.*lassen'
-    de: [austrocknen lassen]
+    pattern: '(?i)austrocknen.*lassen|trocknen.*lassen|abtrocknen.*lassen|Substrat.*trocken.*lassen|Erde.*trocken.*lassen|durchtrocknen.*lassen|erst.*wieder.*giess.*wenn.*trocken|komplett.*trocken'
+    de: [austrocknen lassen, trocknen lassen, abtrocknen lassen, Substrat trocknen lassen, Erde trocknen lassen, durchtrocknen lassen, erst wieder giessen wenn trocken, komplett trocknen]
 
   autoflower_empfohlen:
     pattern: '(?i)autoflower.*empfohlen'
@@ -1040,12 +1040,12 @@ topics:
     de: [Bodenbeschattung, Unkraut unterdruecken]
 
   bodenlockerung:
-    pattern: '(?i)bodenlockerung'
-    de: [bodenlockerung]
+    pattern: '(?i)Bodenlockerung|Boden.*locker|lockert.*Boden|Verdichtung.*aufbrech|Durchwurzel|Bodengefuege.*verbesser'
+    de: [Bodenlockerung, lockert den Boden, Verdichtungen aufbrechen]
 
   bodenschaedlinge:
-    pattern: '(?i)bodenschaedlinge'
-    de: [bodenschaedlinge]
+    pattern: '(?i)Bodenschaedling|bodenbuertig.*Schaedling|Schaedling.*im.*Boden|Nematod|Schaderreger.*Boden'
+    de: [Bodenschaedlinge, bodenbuertige Schaedlinge, Nematoden]
 
   botrytis_risiko:
     pattern: '(?i)Botrytis|Grauschimmel|Schimmel.*Risiko|Schimmel.*Gefahr|Faeulnis.*Risiko|Pilz.*Gefahr'
@@ -1080,8 +1080,8 @@ topics:
     de: [Drainage pruefen, Drainage verbessern, Abflussloch, Drainage sicherstellen]
 
   dunkel:
-    pattern: '(?i)dunkel'
-    de: [dunkel]
+    pattern: '(?i)dunkel|Dunkelheit|lichtgeschuetzt|kein.*Licht|ohne.*Licht|abdunkel|lichtfrei'
+    de: [dunkel, Dunkelheit, kein Licht, lichtgeschuetzt]
 
   durchspuelen:
     pattern: '(?i)durchspuelen'
@@ -1092,8 +1092,8 @@ topics:
     de: [ec beachten]
 
   ec_erhoehen:
-    pattern: '(?i)ec.*erhoehen'
-    de: [ec erhoehen]
+    pattern: '(?i)EC.{0,15}erhoeh|EC.{0,15}anheb|EC.{0,15}steiger|mehr\s+Duenger\s+geben'
+    de: [EC erhoehen, EC anheben, EC hochfahren, mehr Duenger geben]
 
   ec_messen:
     pattern: '(?i)ec.*messen'
@@ -1128,8 +1128,8 @@ topics:
     de: [eiswuerfel]
 
   entfernen:
-    pattern: '(?i)entfernen'
-    de: [entfernen]
+    pattern: '(?i)entfern|abschneid|abzupf|abtrenn|wegschneid|abreiss'
+    de: [entfernen, abschneiden, abzupfen, abtrennen]
 
   entfeuchter_aus:
     pattern: '(?i)entfeuchter.*aus'
@@ -1144,8 +1144,8 @@ topics:
     de: [entfeuchter nachts]
 
   erholungszeit:
-    pattern: '(?i)erholungszeit'
-    de: [erholungszeit]
+    pattern: '(?i)erholungszeit|Erholung|erholen|Recovery|Heilung'
+    de: [Erholungszeit, Erholung, Recovery, Heilung]
 
   falsche_mischreihenfolge:
     pattern: '(?i)falsche.*mischreihenfolge'
@@ -1156,8 +1156,8 @@ topics:
     de: [Falscher Mehltau, Downy Mildew, Peronospora]
 
   feucht_nicht_nass:
-    pattern: '(?i)feucht.*nicht.*nass'
-    de: [feucht nicht nass]
+    pattern: '(?i)feucht.*nicht.*nass|nicht.*zu.*nass|nicht.*triefend|leicht.*feucht.*nicht.*durchnaesst'
+    de: [feucht nicht nass, nicht zu nass, nicht triefend]
 
   flush:
     pattern: '(?i)flush'
@@ -1236,8 +1236,8 @@ topics:
     de: [leichte Heizung]
 
   hemmt_wachstum:
-    pattern: '(?i)hemmt.*wachstum'
-    de: [hemmt wachstum]
+    pattern: '(?i)hemmt.*Wachstum|hemmt.*Nachbar|Wachstum.*hemm|Wuchshemmung|Wachstum.*unterdrueck'
+    de: [hemmt Wachstum, hemmt Nachbarn, Wuchshemmung]
 
   hps_besser:
     pattern: '(?i)hps.*besser'
@@ -1252,8 +1252,8 @@ topics:
     de: [immer 100 ro]
 
   immer_noetig:
-    pattern: '(?i)immer.*noetig'
-    de: [immer noetig]
+    pattern: '(?i)immer.*noetig|immer.*braucht.*Lampe|jede.*Pflanze.*braucht.*Lampe|generell.*noetig|grundsaetzlich.*noetig|immer.*empfehlenswert|auf.*jeden.*Fall.*noetig|unbedingt.*noetig|in.*jedem.*Fall.*noetig'
+    de: [immer noetig, jede Pflanze braucht eine Lampe]
 
   indoor_vor_lichtphase:
     pattern: '(?i)(indoor|Zelt|Growroom).*vor.*Licht|vor.*Lampe|Lichtphase.*Beginn'
@@ -1276,8 +1276,8 @@ topics:
     de: [ja kein problem]
 
   ja_magnesium:
-    pattern: '(?i)ja.*magnesium'
-    de: [ja magnesium]
+    pattern: '(?i)ja.*[Mm]agnesium|[Mm]agnesium.*liefert|[Mm]agnesium.*Quelle|[Mm]agnesium.*versorgt|[Mm]agnesium.*enth[aä]lt|[Mm]agnesium.*Mg|Bittersalz.*ist.*[Mm]agnesium|Bittersalz.*MgSO4|Epsom.*[Mm]agnesium'
+    de: [ja Magnesium, Magnesium-Quelle, Magnesium liefert, Bittersalz ist Magnesiumsulfat]
 
   ja_nicht_frosthart:
     pattern: '(?i)nicht.*frosthart|frost.*empfindlich|erfrieren|nicht.*winterhart'
@@ -1300,8 +1300,8 @@ topics:
     de: [Stretch ist normal, voellig normal]
 
   ja_wahrscheinlich:
-    pattern: '(?i)ja.*wahrscheinlich'
-    de: [ja wahrscheinlich]
+    pattern: '(?i)ja[,.]?\s*(das\s+ist\s+)?wahrscheinlich|deutet.*auf.*[Uu]eberwaesserung|spricht.*fuer.*[Uu]eberwaesserung|typisch.*fuer.*[Uu]eberwaesserung|klingt.*nach.*[Uu]eberwaesserung|Anzeichen.*fuer.*[Uu]eberwaesserung|klassisch.*[Uu]eberwaesserung|hoechstwahrscheinlich.*[Uu]eberwaesserung'
+    de: [ja wahrscheinlich, deutet auf Ueberwaesserung, spricht fuer Ueberwaesserung, typisch fuer Ueberwaesserung, klingt nach Ueberwaesserung, Anzeichen fuer Ueberwaesserung, klassische Ueberwaesserung, hoechstwahrscheinlich Ueberwaesserung]
 
   jaehrlich_ok:
     pattern: '(?i)jaehrlich'
@@ -1328,8 +1328,8 @@ topics:
     de: [Kaliumbicarbonat, Backpulver]
 
   kalken:
-    pattern: '(?i)kalken'
-    de: [kalken]
+    pattern: '(?i)kalken|Kalk.*ausbring|Dolomitkalk|Algenkalk|kohlensaurer.*Kalk|Kalk.*zugeb|Kalkung|pH.*erh[oö]h.*Kalk|Kalk.*einarbeit'
+    de: [kalken, Dolomitkalk, Algenkalk, Kalkung, Kalk einarbeiten]
 
   karbonataerte:
     pattern: '(?i)Karbonataerte|Carbonathaerte|KH|dKH|Hydrogencarbonat|HCO3|Pufferkapazitaet|Alkalin'
@@ -1360,8 +1360,8 @@ topics:
     de: [komplett abschneiden]
 
   kompromiss:
-    pattern: '(?i)kompromiss'
-    de: [kompromiss]
+    pattern: '(?i)[Kk]ompromiss|Mittelweg|pragmatisch|konservativ.*Empfehlung|reduziert.*statt.*komplett|persoenlich.*Praeferenz|pers[oö]nlich.*Pr[aä]ferenz'
+    de: [Kompromiss, Mittelweg, pragmatisch, konservative Empfehlung, persoenliche Praeferenz]
 
   kosten_nutzen:
     pattern: '(?i)Kosten.*Nutzen|lohnt.*sich|wirtschaftlich|teuer|Investition'
@@ -1444,8 +1444,8 @@ topics:
     de: [mittags]
 
   mitte_mai:
-    pattern: '(?i)mitte.*mai'
-    de: [mitte mai]
+    pattern: '(?i)mitte.*mai|15.*Mai|ab.*Mai|Mai.*raus|Mai.*pflanzen|Mai.*Freiland'
+    de: [Mitte Mai, 15. Mai, ab Mai]
 
   monatlich_reicht:
     pattern: '(?i)monatlich.*reicht'
@@ -1480,16 +1480,16 @@ topics:
     de: [naeher ans fenster]
 
   naehrstoff_verfuegbarkeit:
-    pattern: '(?i)naehrstoff.*verfuegbarkeit'
-    de: [naehrstoff verfuegbarkeit]
+    pattern: '(?i)N[aä]hrstoff.*verf[uü]gbar|verf[uü]gbar.*N[aä]hrstoff|N[aä]hrstoff.*aufnahme.*eingeschr|N[aä]hrstoff.*blockier|N[aä]hrstoff.*festleg|Lockout|pH.*beeinflusst.*Aufnahme'
+    de: [Naehrstoff-Verfuegbarkeit, Naehrstoffaufnahme eingeschraenkt, Naehrstoff-Lockout]
 
   naehrstoffmangel:
     pattern: '(?i)naehrstoffmangel'
     de: [naehrstoffmangel]
 
   nein:
-    pattern: '(?i)nein|nicht|besser.*nicht|sollte.*nicht|keine.*Dueng'
-    de: [nein, nicht]
+    pattern: '(?i)\bnein\b|besser.*nicht|sollte.*nicht|keine.*Dueng|nicht.*empfehl|nicht.*ratsam|davon.*abrat'
+    de: [nein, besser nicht, sollte nicht, davon abraten, nicht empfehlenswert]
 
   nein_nicht_geeignet:
     pattern: '(?i)nein.*nicht.*geeignet'
@@ -1508,16 +1508,16 @@ topics:
     de: [nicht empfohlen]
 
   nicht_giessen:
-    pattern: '(?i)nicht.*giessen'
-    de: [nicht giessen]
+    pattern: '(?i)nicht.*giessen|Giessen.*stopp|Giessen.*einstell|sofort.*aufhoer.*giess|kein.*Wasser.*geb|Giessen.*unterlassen|Giessen.*pausier|Giess.*stopp|Giess.*Pause|mit.*Giessen.*wart'
+    de: [nicht giessen, Giessen stoppen, Giessen einstellen, sofort aufhoeren zu giessen, kein Wasser geben, Giessen pausieren, Giesspause, mit dem Giessen warten]
 
   nicht_in_bluete:
-    pattern: '(?i)nicht.*bluete'
-    de: [nicht in bluete]
+    pattern: '(?i)nicht.*[Bb]l[uü]te|niemals.*[Bb]l[uü]te|[Bb]l[uü]te.*vermeid|[Bb]l[uü]tephase.*tabu'
+    de: [nicht in Bluete, nicht in der Bluetephase]
 
   nicht_ins_alte_holz_schneiden:
-    pattern: '(?i)nicht.*ins.*alte.*Holz|nicht.*Holz.*schneid|nur.*gruen.*schneid'
-    de: [nicht ins alte Holz schneiden]
+    pattern: '(?i)nicht.*ins.*alte.*Holz|nicht.*Holz.*schneid|nur.*gruen.*schneid|altes.*Holz.*treibt.*nicht|verholzt.*nicht.*schneid|kein.*Schnitt.*ins.*Holz|nie.*ins.*braune.*Holz|nur.*gruene.*Trieb|nicht.*ins.*verholzte'
+    de: [nicht ins alte Holz schneiden, nur gruene Triebe kuerzen, altes Holz treibt nicht aus]
 
   nicht_nass_blaetter:
     pattern: '(?i)nicht.*nass.*Blaett|trockene.*Blaett|Blaett.*trocken.*halt'
@@ -1544,12 +1544,12 @@ topics:
     de: [Nitrat-Aufnahme, NO3-Aufnahme, Pflanze nimmt Nitrat auf, aktives Wachstum hebt pH]
 
   nitrat_betont_waehlen:
-    pattern: '(?i)nitrat.*betont.*waehlen'
-    de: [nitrat betont waehlen]
+    pattern: '(?i)nitrat.*betont|Nitrat.*basiert|Calciumnitrat.*basiert|NO3.*betont|Nitrat.*w[aä]hlen|auf.*Nitrat.*umsteig|Nitrat.*Duenger|nitrat.*haltig|Nitratform|Nitrat.*Stickstoff.*bevorzug'
+    de: [nitrat-betont, Nitrat-basiert, Calciumnitrat-basiert, Nitrat waehlen, Nitratform, auf Nitrat umsteigen]
 
   nordfenster_ja:
-    pattern: '(?i)nordfenster.*ja'
-    de: [nordfenster ja]
+    pattern: '(?i)nordfenster.*(ja|sinnvoll|empfehl|Lampe|Pflanzenlicht|hilfreich|noetig|braucht)|am.*Nordfenster.{0,40}(Lampe|Licht|sinnvoll|noetig|empfeh|hilf|Zusatz)|Nord.{0,20}(Zusatzlicht|Pflanzenlampe)|Nordfenster.{0,30}fast.*immer'
+    de: [nordfenster ja, nordfenster Pflanzenlampe sinnvoll, am Nordfenster Zusatzlicht]
 
   nordfenster_wenig_licht:
     pattern: '(?i)Nord.*Fenster|Nord.*wenig.*Licht|Nord.*Schatten|Nordseite'
@@ -1576,8 +1576,8 @@ topics:
     de: [nur rh messen reicht]
 
   nur_vegetativ:
-    pattern: '(?i)nur.*vegetativ'
-    de: [nur vegetativ]
+    pattern: '(?i)nur.*vegetativ|vegetative.*Phase|Wachstumsphase|waehrend.*Vegeta'
+    de: [nur vegetativ, vegetative Phase, Wachstumsphase]
 
   nur_waessern:
     pattern: '(?i)nur.*waessern'
@@ -1612,8 +1612,8 @@ topics:
     de: [outdoor morgens, Tau abtrocknen]
 
   peak_bloom:
-    pattern: '(?i)peak.*bloom'
-    de: [peak bloom]
+    pattern: '(?i)peak.*bloom|Peak.*Bl[uü]te|Hauptbl[uü]te|volle.*Bl[uü]te|Woche.*5.*6.*Bl[uü]te|maximale.*Bl[uü]ten'
+    de: [peak bloom, Peak-Bluete, Hauptbluete, volle Bluete, maximale Bluetenentwicklung]
 
   perlit_beimischen:
     pattern: '(?i)Perlit|Perlite|beimisch|zumisch|auflockern'
@@ -1628,16 +1628,16 @@ topics:
     de: [pflanzenlampe]
 
   ph_58_60:
-    pattern: '(?i)58.*60'
-    de: [ph 58 60]
+    pattern: '(?i)5[.,]8.*6[.,]0|pH.*5\.8|pH.*5,8'
+    de: [pH 5.8-6.0, pH 5,8-6,0, pH 5.8]
 
   ph_problem:
     pattern: '(?i)ph.*problem'
     de: [ph problem]
 
   ph_up_verwenden:
-    pattern: '(?i)ph.*verwenden'
-    de: [ph up verwenden]
+    pattern: '(?i)pH[- ]?Up.*verwend|pH[- ]?Up.*einset|pH[- ]?Up.*zugeb|nur.*pH.*Up|einfach.*pH.*anheb|pH.*hoch.*statt|pH.*erh[oö]h.*als.*L[oö]sung'
+    de: [pH-Up verwenden, pH-Up einsetzen, pH-Up zugeben]
 
   phosphor:
     pattern: '(?i)phosphor'
@@ -1728,12 +1728,12 @@ topics:
     de: [schnell trocknen]
 
   schnelle_aufnahme:
-    pattern: '(?i)schnelle.*aufnahme'
-    de: [schnelle aufnahme]
+    pattern: '(?i)schnelle.*[Aa]ufnahme|schnelle.*[Ww]irkung|schnelle.*[Ss]oforthilfe|schnell.*wirksam|direkt.*[uü]ber.*Blatt|Blatt.*schnell.*aufgenommen|umgeht.*Wurzel|Sofortmassnahme|akut.*Mangel.*schnell'
+    de: [schnelle Aufnahme, schnelle Wirkung, schnelle Soforthilfe, direkt ueber Blatt, Sofortmassnahme]
 
   schwerer_topf:
-    pattern: '(?i)schwerer.*topf'
-    de: [schwerer topf]
+    pattern: '(?i)schwer.*Topf|Topf.*schwer|Topf.*Gewicht.*hoch|Topf.*fuehlt.*sich.*schwer|schwer.*wenn.*anheb|Topf.*anheb.*schwer|nasses.*Substrat.*schwer'
+    de: [schwerer Topf, Topf ist schwer, Topf fuehlt sich schwer an, schwer wenn man anhebt, nasses Substrat schwer]
 
   sicherheitsabstand:
     pattern: '(?i)sicherheitsabstand'
@@ -1820,8 +1820,8 @@ topics:
     de: [Ueberduengung, zu viel Duenger, Salzanreicherung, Duenger reduzieren, ueberduengt]
 
   uebergiessen:
-    pattern: '(?i)uebergiessen'
-    de: [uebergiessen]
+    pattern: '(?i)uebergiessen|uebergies|ueberwaesser|zu.*viel.*gies|zu.*haeufig.*gies|zu.*oft.*gies'
+    de: [uebergiessen, ueberwaesserung, zu viel giessen, zu haeufig giessen]
 
   unnoetig:
     pattern: '(?i)unnoetig'
@@ -1832,8 +1832,8 @@ topics:
     de: [unterschiedliche Klimaansprueche]
 
   unterwaesserung:
-    pattern: '(?i)unterwaesserung'
-    de: [unterwaesserung]
+    pattern: '(?i)[Uu]nterwaesserung|[Uu]nterbew[aä]sser|zu.*wenig.*gegossen|zu.*wenig.*Wasser'
+    de: [Unterwaesserung, Unterbewässerung, zu wenig gegossen, zu wenig Wasser]
 
   verholzung:
     pattern: '(?i)[Vv]erholz|verholzt|holzig|alte.*Holz|alte.*Trieb'
@@ -1892,16 +1892,16 @@ topics:
     de: [winter]
 
   winter_kurze_tage:
-    pattern: '(?i)winter.*kurze.*tage'
-    de: [winter kurze tage]
+    pattern: '(?i)winter.*kurze.*tage|kurze.*tage.*winter|wenig.*tageslicht|weniger.*licht.*winter|winter.*wenig.*licht|8.*9.*stunden.*tageslicht|kuerzere.*tage|Tage.*kuerzer|Lichtmangel.*winter|winter.*Lichtmangel|Winter.*wenig(er)?.*Sonn|Tageslicht.*kurz'
+    de: [winter kurze tage, wenig Tageslicht, kuerzere Tage im Winter, Lichtmangel]
 
   woechentlich:
     pattern: '(?i)woechentlich|jede.*Woche|einmal.*Woche|alle.*7.*Tage'
     de: [woechentlich, jede Woche]
 
   wurzelexsudate:
-    pattern: '(?i)wurzelexsudate'
-    de: [wurzelexsudate]
+    pattern: '(?i)Wurzelexsudat|Wurzelausscheidung|root.*exudate'
+    de: [Wurzelexsudate, Wurzelausscheidungen]
 
   wurzelfaeule:
     pattern: '(?i)Wurzelfaeule|Wurzel.*faeule|Wurzel.*faulen|Wurzel.*braun|Wurzel.*schleimig|Root.*Rot|faulig.*Wurzel'
@@ -1912,8 +1912,8 @@ topics:
     de: [wurzeln aus loechern]
 
   zu_viel_wasser:
-    pattern: '(?i)viel.*wasser'
-    de: [zu viel wasser]
+    pattern: '(?i)viel.*wasser|ueberg(ie|ae)ss|ueberw(ae|a)esser|Staunae?sse|zu.*hae?ufig.*gie?ss|zu.*oft.*gie?ss'
+    de: [zu viel wasser, uebergiessen, ueberwaesserung, staunaesse]
 
   zu_wenig_giessen:
     pattern: '(?i)wenig.*giessen'
@@ -1924,5 +1924,5 @@ topics:
     de: [zu wenig licht]
 
   zweige_knacken:
-    pattern: '(?i)[Zz]weig.*knack|[Ss]tengel.*knack|snap|trocken.*genug'
-    de: [Zweige knacken, snap test]
+    pattern: '(?i)[Zz]weig.*knack|[Ss]tengel.*knack|[Kk]nack.*[Tt]est|snap.*test|brech.*statt.*bieg|knack.*statt.*bieg|trocken.*genug|[Aa]est.*brech'
+    de: [Zweige knacken, Knack-Test, snap test, brechen statt biegen]
