@@ -10,12 +10,8 @@ import Chip from '@mui/material/Chip';
 import Popover from '@mui/material/Popover';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
+import DataTable from '@/components/common/DataTable';
+import type { Column } from '@/components/common/DataTable';
 import Collapse from '@mui/material/Collapse';
 import TextField from '@mui/material/TextField';
 import Dialog from '@mui/material/Dialog';
@@ -749,68 +745,75 @@ export default function CalendarPage() {
 
   // ── Render list view ─────────────────────────────────────────────
 
-  const renderListView = () => {
-    if (sortedEvents.length === 0) {
-      return <EmptyState illustration={kamiCalendar} message={t('pages.calendar.noEvents')} />;
-    }
+  const listColumns = useMemo<Column<CalendarEvent>[]>(() => [
+    {
+      id: 'date',
+      label: t('common.createdAt'),
+      sortable: true,
+      sortFn: (a, b) => {
+        if (!a.start) return 1;
+        if (!b.start) return -1;
+        return new Date(a.start).getTime() - new Date(b.start).getTime();
+      },
+      searchable: true,
+      searchValue: (row) => formatEventDate(row.start),
+      render: (event) => (
+        <Typography variant="body2">
+          {formatEventDate(event.start)}
+          {!event.all_day && event.start && (
+            <Typography component="span" variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
+              {formatEventTime(event.start)}
+            </Typography>
+          )}
+        </Typography>
+      ),
+    },
+    {
+      id: 'title',
+      label: t('pages.calendar.title'),
+      sortable: true,
+      searchable: true,
+      searchValue: (row) => row.title,
+      render: (event) => <Typography variant="body2">{event.title}</Typography>,
+    },
+    {
+      id: 'category',
+      label: t('pages.calendar.categories'),
+      sortable: true,
+      searchValue: (row) => t(CATEGORY_I18N_KEYS[row.category as CalendarEventCategory] ?? 'pages.calendar.custom'),
+      render: (event) => (
+        <Chip
+          size="small"
+          label={t(CATEGORY_I18N_KEYS[event.category as CalendarEventCategory] ?? 'pages.calendar.custom')}
+          sx={{
+            bgcolor: event.color || CATEGORY_COLORS[event.category as CalendarEventCategory] || 'grey.500',
+            color: 'common.white',
+            fontWeight: 500,
+          }}
+        />
+      ),
+    },
+  ], [t, formatEventDate, formatEventTime]);
 
-    return (
-      <TableContainer component={Paper}>
-        <Table size="small" aria-label={t('pages.calendar.title')}>
-          <TableHead>
-            <TableRow>
-              <TableCell>{t('common.createdAt')}</TableCell>
-              <TableCell>{t('pages.calendar.title')}</TableCell>
-              <TableCell>{t('pages.calendar.categories')}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {sortedEvents.map((event) => (
-              <TableRow
-                key={event.id}
-                hover
-                sx={{ cursor: 'pointer' }}
-                onClick={(e) => {
-                  const link = getEventLink(event);
-                  if (link) {
-                    navigate(link);
-                  } else {
-                    handleEventClick(e, event);
-                  }
-                }}
-                data-testid={`calendar-list-event-${event.id}`}
-              >
-                <TableCell>
-                  <Typography variant="body2">
-                    {formatEventDate(event.start)}
-                    {!event.all_day && event.start && (
-                      <Typography component="span" variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
-                        {formatEventTime(event.start)}
-                      </Typography>
-                    )}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">{event.title}</Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    size="small"
-                    label={t(CATEGORY_I18N_KEYS[event.category as CalendarEventCategory] ?? 'pages.calendar.custom')}
-                    sx={{
-                      bgcolor: event.color || CATEGORY_COLORS[event.category as CalendarEventCategory] || 'grey.500',
-                      color: 'common.white',
-                      fontWeight: 500,
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    );
-  };
+  const handleListRowClick = useCallback((event: CalendarEvent) => {
+    const link = getEventLink(event);
+    if (link) {
+      navigate(link);
+    }
+  }, [navigate]);
+
+  const renderListView = () => (
+    <DataTable<CalendarEvent>
+      columns={listColumns}
+      rows={sortedEvents}
+      getRowKey={(event) => event.id}
+      onRowClick={handleListRowClick}
+      emptyMessage={t('pages.calendar.noEvents')}
+      emptyIllustration={kamiCalendar}
+      variant="simple"
+      ariaLabel={t('pages.calendar.title')}
+    />
+  );
 
   // ── Render feed item ─────────────────────────────────────────────
 
@@ -879,6 +882,9 @@ export default function CalendarPage() {
   return (
     <Box data-testid="calendar-page">
       <PageTitle title={t('pages.calendar.title')} />
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {t('pages.calendar.pageIntro')}
+      </Typography>
 
       {/* Toolbar: navigation + contextual filters */}
       <Box sx={{ mb: 2 }}>

@@ -46,7 +46,7 @@ def workflow_detail(browser: WebDriver, base_url: str) -> WorkflowDetailPage:
 
 
 @pytest.mark.skip(
-    reason="WorkflowListPage route /aufgaben/workflows redirects to /stammdaten/species — no standalone list page"
+    reason="WorkflowListPage route /aufgaben/workflows — breadcrumb parent corrected to /aufgaben/queue, list page not yet standalone"
 )
 class TestWorkflowTemplateListPage:
     """Workflow template list page operations (Spec: TC-006-034, TC-006-035)."""
@@ -196,7 +196,7 @@ class TestWorkflowTemplateListPage:
 
 
 @pytest.mark.skip(
-    reason="WorkflowListPage route /aufgaben/workflows redirects to /stammdaten/species — no standalone list page"
+    reason="WorkflowListPage route /aufgaben/workflows — breadcrumb parent corrected to /aufgaben/queue, list page not yet standalone"
 )
 class TestWorkflowGenerateFromSpecies:
     """Generate workflow from species dialog (Spec: TC-006-037)."""
@@ -233,7 +233,7 @@ class TestWorkflowGenerateFromSpecies:
 
 
 @pytest.mark.skip(
-    reason="WorkflowListPage route /aufgaben/workflows redirects to /stammdaten/species — no standalone list page"
+    reason="WorkflowListPage route /aufgaben/workflows — breadcrumb parent corrected to /aufgaben/queue, list page not yet standalone"
 )
 class TestWorkflowInstantiate:
     """Instantiate (apply) a workflow to a plant (Spec: TC-006-038)."""
@@ -270,7 +270,7 @@ class TestWorkflowInstantiate:
 
 
 @pytest.mark.skip(
-    reason="WorkflowListPage route /aufgaben/workflows redirects to /stammdaten/species — detail tests require list page for navigation"
+    reason="WorkflowListPage route /aufgaben/workflows — breadcrumb parent corrected to /aufgaben/queue, detail tests require list page for navigation"
 )
 class TestWorkflowDetailPage:
     """Workflow detail page operations (Spec: TC-006-039, TC-006-040)."""

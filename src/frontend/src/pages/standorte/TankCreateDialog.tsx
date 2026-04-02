@@ -182,8 +182,11 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
             label={t('pages.tanks.location')}
           />
 
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 1 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5, mt: 1 }}>
             {t('pages.tanks.equipment')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {t('pages.tanks.equipmentSectionIntro')}
           </Typography>
           <FormRow>
             <FormSwitchField

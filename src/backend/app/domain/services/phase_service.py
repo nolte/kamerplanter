@@ -122,6 +122,7 @@ class PhaseService:
 
         phase_key = active.phase_key if active else plant.current_phase_key
         phase_started_at = active.entered_at if active else plant.current_phase_started_at
+        cycle_number = active.cycle_number if active else 1
 
         days_in_phase = 0
         if phase_started_at:
@@ -137,16 +138,31 @@ class PhaseService:
                     next_phase = target.name
 
         phase_name = ""
+        lifecycle_key = None
         if phase_key:
             phase = self._repo.get_phase_by_key(phase_key)
             if phase:
                 phase_name = phase.name
+                lifecycle_key = phase.lifecycle_key
+
+        # Resolve lifecycle metadata
+        cycle_type: str | None = None
+        has_harvest_phase = False
+        if lifecycle_key:
+            lifecycle = self._repo.get_lifecycle_by_key(lifecycle_key)
+            if lifecycle:
+                cycle_type = lifecycle.cycle_type.value
+            phases = self._repo.get_phases_by_lifecycle(lifecycle_key)
+            has_harvest_phase = any(p.allows_harvest for p in phases)
 
         return {
             "phase": phase_name,
             "phase_key": phase_key,
             "days_in_phase": days_in_phase,
             "next_phase": next_phase,
+            "cycle_type": cycle_type,
+            "cycle_number": cycle_number,
+            "has_harvest_phase": has_harvest_phase,
         }
 
     def transition_phase(

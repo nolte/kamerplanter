@@ -188,6 +188,7 @@ def _build_lifecycle_configs(
             "vernalization_required": lc.get("vernalization_required", False),
             "vernalization_min_days": lc.get("vernalization_min_days"),
             "critical_day_length_hours": lc.get("critical_day_length_hours"),
+            "cycle_restart_phase_order": lc.get("cycle_restart_phase_order"),
         }
     return result
 
@@ -342,6 +343,7 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
         vernal = lc_cfg["vernalization_required"]
         vernal_days = lc_cfg["vernalization_min_days"]
         critical = lc_cfg["critical_day_length_hours"]
+        restart_order = lc_cfg.get("cycle_restart_phase_order")
 
         existing_lc = lifecycle_repo.get_lifecycle_by_species(sp_key)
         if existing_lc:
@@ -364,6 +366,7 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
                     vernalization_required=vernal,
                     vernalization_min_days=vernal_days,
                     critical_day_length_hours=critical,
+                    cycle_restart_phase_order=restart_order,
                 )
                 lifecycle_repo.update_lifecycle(lc_key, updated_lc)
                 logger.info("lifecycle_updated", species=sci_name, cycle=cycle.value)
@@ -483,6 +486,7 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
                 vernalization_required=vernal,
                 vernalization_min_days=vernal_days,
                 critical_day_length_hours=critical,
+                cycle_restart_phase_order=restart_order,
             )
             created_lc = lifecycle_repo.create_lifecycle(new_lc)
             lc_key = created_lc.key or ""
@@ -510,6 +514,7 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
                 sequence_order=p["sequence_order"],
                 is_terminal=p["is_terminal"],
                 allows_harvest=p["allows_harvest"],
+                is_recurring=p.get("is_recurring", False),
                 stress_tolerance=StressTolerance(p["stress_tolerance"]),
                 watering_interval_days=watering_interval,
             )

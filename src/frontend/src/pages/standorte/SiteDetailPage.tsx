@@ -36,6 +36,7 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSite, clearCurrent } from '@/store/slices/sitesSlice';
+import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as api from '@/api/endpoints/sites';
 import * as tankApi from '@/api/endpoints/tanks';
 import type { Sensor, SiteWaterConfig } from '@/api/types';
@@ -104,6 +105,19 @@ export default function SiteDetailPage() {
       });
     }
   }, [current, reset]);
+
+  // Dynamic breadcrumbs
+  useEffect(() => {
+    if (!current) return;
+    dispatch(setBreadcrumbs([
+      { label: 'nav.dashboard', path: '/dashboard' },
+      { label: 'nav.sites', path: '/standorte/sites' },
+      { label: current.name },
+    ]));
+  }, [current, dispatch]);
+
+  // Clear dynamic breadcrumbs on unmount
+  useEffect(() => () => { dispatch(setBreadcrumbs([])); }, [dispatch]);
 
   const onSubmit = async (data: FormData) => {
     if (!key) return;

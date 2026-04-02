@@ -559,15 +559,21 @@ export default function PlantInstanceDetailPage() {
   }, [currentGrowthPhase, assignedCultivar]);
 
   // Estimated harvest date: planted_on + sum(all growth phase durations)
+  // Perennials and plants without harvest phases do not show an estimated harvest date.
   const estimatedHarvest = useMemo(() => {
     if (!plant?.planted_on || growthPhases.length === 0 || plant.removed_on) return null;
+    // Perennials have recurring cycles — no single harvest endpoint
+    if (currentPhase?.cycle_type === 'perennial') return null;
+    // No harvest phase configured — nothing to estimate
+    if (currentPhase?.has_harvest_phase === false) return null;
+    if (!growthPhases.some((gp) => gp.allows_harvest)) return null;
     const totalDays = growthPhases.reduce((sum, gp) => sum + gp.typical_duration_days, 0);
     if (totalDays === 0) return null;
     const planted = new Date(plant.planted_on);
     const harvestDate = new Date(planted.getTime() + totalDays * 86400000);
     const daysRemaining = Math.ceil((harvestDate.getTime() - Date.now()) / 86400000);
     return { date: harvestDate, daysRemaining };
-  }, [plant?.planted_on, plant?.removed_on, growthPhases]);
+  }, [plant?.planted_on, plant?.removed_on, growthPhases, currentPhase?.cycle_type, currentPhase?.has_harvest_phase]);
 
   // Active nutrient plan phase entry for the current week (handles perennial cycle restarts)
   const activePhaseEntry = useMemo(() => {

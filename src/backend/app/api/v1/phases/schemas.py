@@ -14,6 +14,9 @@ class CurrentPhaseResponse(BaseModel):
     phase_key: str | None
     days_in_phase: int
     next_phase: str | None
+    cycle_type: str | None = None
+    cycle_number: int = 1
+    has_harvest_phase: bool = False
 
 
 class PhaseHistoryResponse(BaseModel):

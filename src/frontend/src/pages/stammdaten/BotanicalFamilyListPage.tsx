@@ -85,9 +85,11 @@ export default function BotanicalFamilyListPage() {
         </Button>
       </Box>
 
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {t('pages.botanicalFamilies.listIntro')}
-      </Typography>
+      {!loading && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t('pages.botanicalFamilies.listIntro')}
+        </Typography>
+      )}
 
       <DataTable
         columns={columns}

@@ -201,6 +201,7 @@ def _build_lifecycle_configs(
             "vernalization_required": lc.get("vernalization_required", False),
             "vernalization_min_days": lc.get("vernalization_min_days"),
             "critical_day_length_hours": lc.get("critical_day_length_hours"),
+            "cycle_restart_phase_order": lc.get("cycle_restart_phase_order"),
         }
     return result
 
@@ -342,6 +343,7 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
         vernal = lc_cfg.get("vernalization_required", False)
         vernal_days = lc_cfg.get("vernalization_min_days")
         critical = lc_cfg.get("critical_day_length_hours")
+        restart_order = lc_cfg.get("cycle_restart_phase_order")
 
         existing_lc = lifecycle_repo.get_lifecycle_by_species(sp_key)
         if existing_lc:
@@ -363,6 +365,7 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
                     vernalization_required=vernal,
                     vernalization_min_days=vernal_days,
                     critical_day_length_hours=critical,
+                    cycle_restart_phase_order=restart_order,
                 )
                 lifecycle_repo.update_lifecycle(lc_key, updated_lc)
                 logger.info("lifecycle_updated", species=sci_name, cycle=cycle.value)
@@ -495,6 +498,7 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
                 vernalization_required=vernal,
                 vernalization_min_days=vernal_days,
                 critical_day_length_hours=critical,
+                cycle_restart_phase_order=restart_order,
             )
             created_lc = lifecycle_repo.create_lifecycle(new_lc)
             lc_key = created_lc.key or ""
@@ -521,6 +525,7 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
                 sequence_order=p.get("sequence_order") or p.get("order", 1),
                 is_terminal=p.get("is_terminal", False),
                 allows_harvest=p.get("allows_harvest", p.get("is_harvest_allowed", False)),
+                is_recurring=p.get("is_recurring", False),
                 stress_tolerance=StressTolerance(p.get("stress_tolerance", "medium")),
                 watering_interval_days=watering_interval,
             )

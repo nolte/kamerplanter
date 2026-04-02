@@ -51,7 +51,9 @@
     "loadingError": "Failed to load data.",
     "favorites": "Favorites",
     "other": "Other",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "langDE": "German",
+    "langEN": "English"
   },
   "table": {
     "showing": "Showing {{from}}–{{to}} of {{total}} entries",
@@ -1268,6 +1270,7 @@
       "sectionFillBasics": "Fill Details",
       "sectionTargetValues": "Target Values",
       "sectionMeasuredValues": "Measured Values",
+      "equipmentSectionIntro": "Optional tank equipment — enable the devices you have.",
       "helperHasLid": "Lid reduces evaporation and blocks light (prevents algae growth)",
       "helperHasAirPump": "Air pump for oxygenating the nutrient solution",
       "helperHasCirculationPump": "Circulation pump for even nutrient distribution",
@@ -2154,6 +2157,7 @@
       "daysToHarvestHelper": "Estimated remaining days until harvest readiness",
       "sectionWeights": "Weights",
       "weightHelper": "Weight in grams (g)",
+      "noPlantsAvailable": "No plants found — create a plant first.",
       "scoreHelper": "Score 0–100 points",
       "trimWasteHelper": "Percentage of total yield lost to trimming",
       "sectionWeightsDesc": "Record wet and dry weights of the harvest batch.",
@@ -2672,6 +2676,7 @@
     },
     "calendar": {
       "title": "Calendar",
+      "pageIntro": "The calendar shows tasks, phase changes and care appointments. Switch between month, list, sowing calendar and season views.",
       "monthView": "Month View",
       "listView": "List View",
       "today": "Today",

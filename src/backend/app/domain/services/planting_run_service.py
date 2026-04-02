@@ -665,6 +665,7 @@ class PlantingRunService:
                     "species_key": species_key,
                     "species_name": None,
                     "lifecycle_key": lifecycle.key,
+                    "cycle_type": lifecycle.cycle_type.value,
                     "plant_count": len(sp_plants),
                     "phases": phase_entries,
                 }

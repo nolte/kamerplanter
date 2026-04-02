@@ -51,7 +51,9 @@
     "loadingError": "Fehler beim Laden der Daten.",
     "favorites": "Favoriten",
     "other": "Sonstige",
-    "unknown": "Unbekannt"
+    "unknown": "Unbekannt",
+    "langDE": "Deutsch",
+    "langEN": "Englisch"
   },
   "table": {
     "showing": "Zeigt {{from}}–{{to}} von {{total}} Einträgen",
@@ -1268,6 +1270,7 @@
       "sectionFillBasics": "Befüllung",
       "sectionTargetValues": "Zielwerte",
       "sectionMeasuredValues": "Messwerte",
+      "equipmentSectionIntro": "Optionale Ausstattung des Tanks — aktiviere die vorhandenen Geräte.",
       "helperHasLid": "Deckel reduziert Verdunstung und schützt vor Licht (Algenbildung)",
       "helperHasAirPump": "Belüftungspumpe für Sauerstoffversorgung der Nährlösung",
       "helperHasCirculationPump": "Umwälzpumpe für gleichmäßige Nährstoffverteilung",
@@ -2154,6 +2157,7 @@
       "daysToHarvestHelper": "Geschätzte verbleibende Tage bis zur Erntereife",
       "sectionWeights": "Gewichte",
       "weightHelper": "Gewicht in Gramm (g)",
+      "noPlantsAvailable": "Keine Pflanzen vorhanden — erstelle zuerst eine Pflanze.",
       "scoreHelper": "Bewertung 0–100 Punkte",
       "trimWasteHelper": "Prozentualer Anteil Verschnitt am Gesamtertrag",
       "sectionWeightsDesc": "Nass- und Trockengewichte der Erntecharge erfassen.",
@@ -2672,6 +2676,7 @@
     },
     "calendar": {
       "title": "Kalender",
+      "pageIntro": "Der Kalender zeigt Aufgaben, Phasenwechsel und Pflegetermine. Wechsle zwischen Monats-, Listen-, Aussaatkalender- und Saisonansicht.",
       "monthView": "Monatsansicht",
       "listView": "Listenansicht",
       "today": "Heute",

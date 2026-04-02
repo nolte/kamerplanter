@@ -270,7 +270,7 @@ class TestAccountSettingsTabs:
 
         tab_labels = account_page.get_tab_labels()
 
-        expected_tabs = ["Profil", "Sicherheit"]
+        expected_tabs = ["Profil", "Sicherheit", "Benachrichtigungen", "Erfahrung"]
         for expected in expected_tabs:
             assert any(expected in label for label in tab_labels), (
                 f"TC-REQ-023-030 FAIL: Expected tab '{expected}' in tab list, got: {tab_labels}"

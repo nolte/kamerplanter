@@ -78,6 +78,7 @@ class PhaseHistory(BaseModel):
     entered_at: datetime
     exited_at: datetime | None = None
     actual_duration_days: int | None = None
+    cycle_number: int = Field(default=1, ge=1)
     transition_reason: str = ""
     performance_score: float | None = Field(default=None, ge=0, le=100)
     created_at: datetime | None = None

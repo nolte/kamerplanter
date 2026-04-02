@@ -166,7 +166,11 @@ export default function PlantingRunDetailsTab({
 
   const totalDays = phaseTimelines[0]?.phases.reduce((sum, p) => sum + p.typical_duration_days, 0) ?? 0;
   const startDate = run.started_at ?? run.planned_start_date;
+  const timelineCycleType = phaseTimelines[0]?.cycle_type ?? null;
+  const hasHarvestPhase = phaseTimelines[0]?.phases.some((p) => p.phase_name === 'harvest') ?? false;
+  // Perennials and plants without a harvest phase do not have a meaningful estimated harvest date
   const estimatedHarvestDate = startDate && totalDays > 0
+    && timelineCycleType !== 'perennial' && hasHarvestPhase
     ? new Date(new Date(startDate).getTime() + totalDays * 86400000)
     : null;
   const daysRemaining = estimatedHarvestDate

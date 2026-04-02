@@ -564,6 +564,9 @@ export interface CurrentPhaseResponse {
   phase_key: string | null;
   days_in_phase: number;
   next_phase: string | null;
+  cycle_type: CycleType | null;
+  cycle_number: number;
+  has_harvest_phase: boolean;
 }
 
 export interface PhaseHistoryEntry {
@@ -927,6 +930,7 @@ export interface SpeciesPhaseTimeline {
   species_key: string;
   species_name: string | null;
   lifecycle_key: string;
+  cycle_type: CycleType | null;
   plant_count: number;
   phases: PhaseTimelineEntry[];
 }
