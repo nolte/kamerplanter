@@ -4,28 +4,30 @@
 
 # Kamerplanter
 
-Kamerplanter is a plant lifecycle management system for indoor and outdoor growing — covering everything from seed to harvest. It supports vegetables, herbs, houseplants, and ornamentals with features like nutrient planning, phase tracking, sensor integration, and care reminders.
+[![Backend CI](https://github.com/nolte/kamerplanter/actions/workflows/backend.yml/badge.svg)](https://github.com/nolte/kamerplanter/actions/workflows/backend.yml)
+[![Frontend CI](https://github.com/nolte/kamerplanter/actions/workflows/frontend.yml/badge.svg)](https://github.com/nolte/kamerplanter/actions/workflows/frontend.yml)
+[![Docker Lint & Build](https://github.com/nolte/kamerplanter/actions/workflows/docker-lint-build.yml/badge.svg)](https://github.com/nolte/kamerplanter/actions/workflows/docker-lint-build.yml)
+[![Skaffold Verify](https://github.com/nolte/kamerplanter/actions/workflows/skaffold-verify.yml/badge.svg)](https://github.com/nolte/kamerplanter/actions/workflows/skaffold-verify.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-nolte.github.io%2Fkamerplanter-blue)](https://nolte.github.io/kamerplanter/)
 
-**This project started as a vibe coding experiment** — built almost entirely through conversational AI prompting with Claude Code. The specifications, architecture, domain models, backend, frontend, Helm charts, and tests were all developed in this style. What began as an exploration of AI-assisted development grew into a fully functional agricultural management platform.
+Kamerplanter is a self-hosted plant lifecycle management system for indoor and outdoor growing — covering everything from seed to harvest.
 
-## Features
+Whether you're a **home grower** managing a grow tent, a **houseplant owner** trying to keep your plants alive, a **hobby gardener** planning raised beds and crop rotations, or running a **community garden** with shared responsibilities — Kamerplanter adapts to your experience level and scale. It supports vegetables, herbs, houseplants, and ornamentals with nutrient planning, growth phase tracking, adaptive care reminders, a knowledge assistant, and Home Assistant integration.
 
-- **Plant Master Data** — Species, cultivars, botanical families with companion planting and crop rotation graphs
-- **Growth Phase Tracking** — State machine (Germination > Seedling > Vegetative > Flowering > Harvest) with GDD, VPD, and photoperiod targets
-- **Nutrient Planning** — Fertilizer mixing with EC budgets, mixing order safety, flush protocols, and runoff analysis
-- **Tank Management** — Water source configuration (tap/RO/mixed), tank state tracking, and automated dosage calculation
-- **Planting Runs** — Batch management for plant groups with lifecycle tracking
-- **Care Reminders** — Adaptive watering/feeding schedules with 9 care presets, seasonal awareness, and learning from confirmations
-- **Task & Workflow Engine** — Template-based task generation with dependency resolution
-- **IPM (Pest Management)** — Integrated pest/disease tracking with Karenz safety intervals blocking harvest
-- **Harvest Management** — Quality scoring, yield metrics, and harvest readiness indicators
-- **Calendar** — Aggregated view of tasks, phases, and events with iCal export (RFC 5545)
-- **Sowing Calendar** — Frost-date-aware planting windows for outdoor growing
-- **Onboarding Wizard** — 5-step setup with 9 starter kits for quick start
-- **Experience Levels** — UI adapts complexity (beginner/intermediate/expert)
-- **Multi-Tenancy** — Personal gardens, community gardens, and commercial operations with role-based access
-- **Authentication** — Local accounts + OAuth2/OIDC federation (Google, GitHub, Apple)
-- **i18n** — German and English, with German as default
+## Why Kamerplanter?
+
+- **One place for everything** — master data, growth tracking, nutrient plans, pest management, and harvest in a single system instead of scattered spreadsheets and notes
+- **Knows your plants** — growth phase state machine with GDD, VPD, and photoperiod targets guides you through each stage. Perennial cycles and crop rotation built in.
+- **Takes care of reminders** — adaptive care schedules learn from your confirmations, adjust to seasons and hemispheres, and cover 9 care presets from tropical to cactus
+- **Calculates your nutrients** — fertilizer mixing with EC budgets, mixing order safety (CalMag before sulfates), flush protocols, tank management with tap/RO/mixed water sources
+- **Protects your harvest** — integrated pest management with Karenz safety intervals that block premature harvest, resistance tracking to prevent overuse of treatments
+- **Connects to your smart home** — Home Assistant custom integration for sensor data import and actuator control, closing the monitoring-to-action loop
+- **Answers your questions** — RAG-based knowledge assistant with pluggable LLM backends (Anthropic, Ollama, OpenAI-compatible) for plant care advice grounded in your data
+- **Scales from windowsill to community garden** — multi-tenancy with role-based access (admin/grower/viewer), personal and shared gardens, invitation system
+- **Adapts to your skill level** — beginner/intermediate/expert modes control UI complexity, navigation depth, and form field visibility
+- **Enriches your data automatically** — GBIF and Perenual adapters fill in botanical details, CSV import for bulk data, iCal export for your calendar app
+- **Self-hosted and private** — runs on your own hardware, no cloud dependency, GDPR-aware design with retention policies
 
 ## Tech Stack
 
@@ -33,197 +35,73 @@ Kamerplanter is a plant lifecycle management system for indoor and outdoor growi
 |-------|------------|
 | Backend | Python 3.14+, FastAPI, Celery, Authlib |
 | Frontend | React 19, TypeScript 5.9, MUI 7, Redux Toolkit, Vite 6 |
+| Knowledge Service | FastAPI, pgvector, ONNX embeddings, cross-encoder reranking |
 | Primary DB | ArangoDB 3.11+ (documents + graph) |
-| Time-Series DB | TimescaleDB 2.13+ (planned) |
-| Cache / Queue | Redis 7.2+ |
+| Vector DB | PostgreSQL 17 + pgvector |
+| Time-Series DB | TimescaleDB 2.13+ |
+| Cache / Queue | Redis 7.2+ (Valkey) |
+| Smart Home | Home Assistant custom integration |
 | Orchestration | Kubernetes, Helm, Skaffold |
+| Testing | pytest, vitest, Selenium E2E |
 
-## Prerequisites
-
-- [Docker](https://docs.docker.com/get-docker/) and Docker Compose — for the simple setup
-- [Skaffold](https://skaffold.dev/) + a local Kubernetes cluster (e.g. minikube, k3s, Docker Desktop) — for the full dev workflow
-- Node.js 25+ (managed via [asdf](https://asdf-vm.com/)) — for frontend development
-- Python 3.14+ — for backend development
-
-## Quick Start (Docker Compose)
-
-### From Release (pre-built images)
-
-Download the latest release assets from the [Releases page](https://github.com/nolte/kamerplante/releases):
+## Quick Start
 
 ```bash
-# Download docker-compose and .env template (replace VERSION)
-curl -LO https://github.com/nolte/kamerplante/releases/download/vVERSION/docker-compose-VERSION.yml
-curl -LO https://github.com/nolte/kamerplante/releases/download/vVERSION/.env.example-VERSION
-
-# Create your .env and set secure passwords
-cp .env.example-VERSION .env
+cp .env.example .env      # configure passwords
+docker compose up --build  # start all core services
 ```
 
-Edit `.env` and set secure passwords (at minimum `ARANGO_ROOT_PASSWORD` and `ARANGODB_PASSWORD`):
+Open http://localhost:8080 and log in with `demo@kamerplanter.local` / `demo-passwort-2024`.
+
+Optional services (AI assistant, time-series) can be enabled via [Docker Compose profiles](docker-compose.yml). For Kubernetes-based development with hot-reload, see the [Skaffold setup](#development) below.
+
+## Development
+
+Prerequisites: Docker, [Skaffold](https://skaffold.dev/), a local Kubernetes cluster (Kind/k3s/minikube), [Task](https://taskfile.dev/) (optional), Node.js 25+, Python 3.14+.
 
 ```bash
-# Generate a secure password
-openssl rand -base64 24
-
-# Start all services
-docker-compose -f docker-compose-VERSION.yml up -d
+task setup                                        # create Kind cluster
+skaffold dev --trigger=manual --port-forward      # full stack dev loop
 ```
 
-### From Source (local build)
+Common tasks via [Taskfile](Taskfile.yaml):
 
 ```bash
-# Copy the env template and set passwords
-cp .env.example .env
-
-# Start all services (builds from source)
-docker-compose up --build
-```
-
-### Configuration
-
-All credentials and settings are managed via a `.env` file. Docker Compose reads it automatically. See [`.env.example`](.env.example) for all available variables:
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ARANGO_ROOT_PASSWORD` | ArangoDB root password | `changeme` |
-| `ARANGODB_PASSWORD` | Password used by the application | `changeme` |
-| `ARANGODB_DATABASE` | Database name | `kamerplanter` |
-| `ARANGODB_USERNAME` | Database user | `root` |
-| `REDIS_URL` | Valkey/Redis connection URL | `redis://valkey:6379/0` |
-| `DEBUG` | Enable debug mode | `false` |
-| `REQUIRE_EMAIL_VERIFICATION` | Require email verification on signup | `false` |
-| `CORS_ORIGINS` | Allowed CORS origins (JSON array) | `["http://localhost:8080"]` |
-
-### Services
-
-Once running, these services are available:
-
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:8080 |
-| Backend API | http://localhost:8000 |
-| API Docs (Swagger) | http://localhost:8000/docs |
-| ArangoDB UI | http://localhost:8529 |
-
-The backend auto-creates the database, collections, and seeds demo data on first startup.
-
-**Demo login:** `demo@kamerplanter.local` / `demo-passwort-2024`
-
-## Development Setup (Skaffold + Kubernetes)
-
-Skaffold is the primary development tool — it handles building, deploying, and hot-reloading:
-
-```bash
-# Full stack (manual trigger — rebuild only when you press 'r')
-skaffold dev --trigger=manual --port-forward
-
-# Backend only
-skaffold dev --trigger=manual --port-forward -p backend-only
-
-# Frontend only
-skaffold dev --trigger=manual --port-forward -p frontend-only
-
-# With debugpy enabled
-skaffold debug --port-forward
-```
-
-Port forwards are configured automatically:
-
-| Service | Local Port |
-|---------|-----------|
-| Frontend | 3000 |
-| Backend API | 8000 |
-| ArangoDB UI | 8529 |
-| Home Assistant | 8123 |
-
-## Contributing / Git Workflow
-
-This project uses a branch-based workflow. The `main` branch is protected — all changes go through feature branches and pull requests.
-
-1. **Create a feature branch** from `develop`:
-   ```bash
-   git checkout develop
-   git pull origin develop
-   git checkout -b feature/my-new-feature
-   ```
-
-2. **Develop and commit** your changes on the feature branch.
-
-3. **Push and open a Pull Request** against `develop`:
-   ```bash
-   git push -u origin feature/my-new-feature
-   ```
-   Then open a PR on GitHub. Describe what the change does and link related issues or requirements (e.g. REQ-005).
-
-4. **Review and merge** — after CI checks pass and the PR is approved, merge via GitHub. Avoid pushing directly to `main` or `develop`.
-
-Branch naming conventions:
-
-| Prefix | Purpose | Example |
-|--------|---------|---------|
-| `feature/` | New functionality | `feature/req005-sensor-integration` |
-| `fix/` | Bug fixes | `fix/seed-data-validation` |
-| `chore/` | Maintenance, CI, deps | `chore/update-helm-chart` |
-| `docs/` | Documentation only | `docs/add-api-examples` |
-
-## Running Tests
-
-```bash
-# Backend (pytest)
-cd src/backend
-pip install -r requirements-dev.txt
-pytest
-
-# Frontend (vitest)
-cd src/frontend
-npm install
-npm test
+task test:backend       # pytest (821+ tests)
+task test:frontend      # vitest (198+ tests)
+task test:e2e           # Selenium E2E
+task lint:backend       # ruff
+task lint:frontend      # ESLint
+task ha:deploy          # deploy HA integration to pod
+task docs:serve         # MkDocs local preview
 ```
 
 ## Project Structure
 
 ```
-kamerplanter/
-  spec/               # Specifications (German)
-    req/              # 25 functional requirements (REQ-001 to REQ-027)
-    nfr/              # 11 non-functional requirements
-    stack.md          # Technology stack specification
-  src/
-    backend/          # Python/FastAPI backend
-      app/
-        api/v1/       # REST API routers
-        domain/       # Business logic (models, engines, services)
-        data_access/  # Repository implementations (ArangoDB)
-        migrations/   # Seed data and schema migrations
-        tasks/        # Celery background tasks
-      tests/          # pytest test suite
-    frontend/         # React/TypeScript frontend
-      src/
-        api/          # API client and types
-        pages/        # Feature pages
-        components/   # Shared components
-        store/        # Redux slices
-        i18n/         # Translations (de/en)
-  helm/               # Helm charts (backend, frontend, ArangoDB)
-  deploy/             # Kubernetes manifests
-  docker-compose.yml  # Simple local setup
-  skaffold.yaml       # Dev workflow orchestration
+spec/                     # Specifications (German, 28 REQs + 11 NFRs)
+src/
+  backend/                # Python/FastAPI backend (5-layer architecture)
+  frontend/               # React/TypeScript frontend
+  knowledge-service/      # RAG/AI microservice (vector search + LLM)
+  ha-integration/         # Home Assistant custom integration
+helm/                     # Helm charts (bjw-s/common)
+tests/e2e/                # Selenium E2E test suite
+docs/                     # MkDocs documentation (de/en)
 ```
 
-## Architecture
+## Documentation
 
-The system follows a strict 5-layer architecture:
+Full documentation (architecture, API reference, guides) is available at **[nolte.github.io/kamerplanter](https://nolte.github.io/kamerplanter/)**.
 
-```
-Frontend (React) --> REST API (FastAPI) --> Services --> Engines --> Repositories --> ArangoDB
-```
+## Contributing
 
-- **Engines** contain pure business logic (nutrient calculations, phase transitions, VPD formulas)
-- **Services** orchestrate engines and repositories
-- **Repositories** abstract database access behind interfaces
-- ArangoDB serves as a multi-model database — documents for entities, graphs for relationships (companion planting, genetic lineage, crop rotation)
+Feature branches from `develop`, PRs against `develop`. Prefixes: `feature/`, `fix/`, `chore/`, `docs/`.
+
+## Built with AI
+
+This project is a vibe coding experiment — built almost entirely through conversational AI prompting with [Claude Code](https://claude.ai/code). The specifications, architecture, domain models, backend, frontend, Helm charts, E2E tests, and documentation were all developed this way.
 
 ## License
 
-This project is not yet licensed. All rights reserved.
+MIT License. See [LICENSE](LICENSE) for details.
