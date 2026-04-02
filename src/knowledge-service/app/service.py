@@ -5,6 +5,7 @@ import structlog
 from app.embedding import EmbeddingEngine
 from app.llm.interface import ILlmAdapter, LlmResponse
 from app.prompt_engine import PromptEngine, QuestionType
+from app.reranker import RerankerEngine
 from app.vectordb.repository import VectorChunk, VectorChunkRepository
 
 logger = structlog.get_logger(__name__)
@@ -40,6 +41,9 @@ class KnowledgeService:
         llm_adapter: ILlmAdapter,
         prompt_engine: PromptEngine,
         *,
+        reranker: RerankerEngine | None = None,
+        reranker_initial_k: int = 20,
+        reranker_top_k: int = 5,
         max_tokens: int = 1024,
         temperature: float = 0.3,
         default_doc_language: str = "de",
@@ -49,6 +53,9 @@ class KnowledgeService:
         self._repo = chunk_repo
         self._llm = llm_adapter
         self._prompt_engine = prompt_engine
+        self._reranker = reranker
+        self._reranker_initial_k = reranker_initial_k
+        self._reranker_top_k = reranker_top_k
         self._max_tokens = max_tokens
         self._temperature = temperature
         self._default_doc_language = default_doc_language
@@ -63,9 +70,20 @@ class KnowledgeService:
     ) -> list[VectorChunk]:
         """Perform hybrid semantic + full-text search over the knowledge base."""
         effective_lang = doc_language or self._default_doc_language
-        logger.debug("knowledge_search", query=query, top_k=top_k, doc_language=effective_lang)
+
+        # Over-retrieve when reranker is available so it has more candidates
+        retrieve_k = self._reranker_initial_k if self._reranker and self._reranker.available else top_k
+
+        logger.debug("knowledge_search", query=query, top_k=top_k, retrieve_k=retrieve_k, doc_language=effective_lang)
         embedding = self._embedding.embed(query, prefix="query: ")
-        chunks = self._repo.hybrid_search(embedding, query, top_k=top_k, language=effective_lang, vector_weight=0.4)
+        chunks = self._repo.hybrid_search(embedding, query, top_k=retrieve_k, language=effective_lang, vector_weight=0.4)
+
+        # Re-rank if available
+        if self._reranker and self._reranker.available:
+            chunks = self._reranker.rerank(query, chunks, top_k=top_k)
+        else:
+            chunks = chunks[:top_k]
+
         logger.info("knowledge_search_complete", query=query, results=len(chunks))
         return chunks
 

@@ -228,6 +228,61 @@ class RagRetriever:
 
 ---
 
+## Re-Ranking Stage (Cross-Encoder)
+
+!!! note "Optional component"
+    Re-ranking is optional. Without a configured `RERANKER_URL`, the pipeline operates unchanged in hybrid-search-only mode. See [ADR-007](../adr/007-cross-encoder-reranking.md) for the rationale.
+
+### Position in the pipeline
+
+```
+Query → Hybrid Search (top_k=20) → Cross-Encoder Re-Rank (top_k=5) → LLM
+```
+
+The re-ranker sits **between retrieval and LLM generation**. Hybrid Search deliberately retrieves more chunks than are ultimately passed to the LLM (over-retrieval strategy): 20 candidates are retrieved, re-ordered by semantic relevance using the cross-encoder, and only the best 5 reach the LLM context window.
+
+### Why a cross-encoder?
+
+The Bi-Encoder (E5-base) and BM25 rank independently. Keyword-rich chunks receive a high BM25 score even when they are semantically unrelated to the query. The cross-encoder evaluates each query–chunk pair jointly and produces more precise relevance scores. This reduces the dominant error class **GENERATION_MISS** (LLM hallucination caused by irrelevant context).
+
+### Separate microservice (ONNX Runtime)
+
+The re-ranker runs as a standalone `reranker-service` — analogous to the embedding service:
+
+- **No PyTorch** in the container — only ONNX Runtime and the Hugging Face tokenizer
+- **Multi-stage Dockerfile:** model download and ONNX export in a cached build stage; the runtime image remains lean
+- **Port 8081**, FastAPI with two endpoints: `/rerank` (POST) and `/health` (GET)
+- **Model:** `BAAI/bge-reranker-v2-m3` — multilingual (DE/EN), 568M parameters, Apache-2.0 licence
+
+```mermaid
+sequenceDiagram
+    participant KS as Knowledge Service
+    participant RE as Reranker Service<br/>(Port 8081)
+
+    KS->>KS: Hybrid Search → 20 candidates
+    KS->>RE: POST /rerank<br/>{query, documents[20], top_k: 5}
+    RE->>RE: Cross-Encoder inference<br/>ONNX Runtime, ~500ms
+    RE-->>KS: {results: [{index, score, text}×5]}
+    KS->>KS: Sort chunks by score
+    KS->>KS: Build context for LLM
+```
+
+### Graceful degradation
+
+When `RERANKER_URL` is empty or not set, `RerankerEngine.available` returns `False`. In that case the original chunk list is truncated to `top_k` entries and passed directly to the LLM context. A timeout or HTTP error from the reranker service also triggers this fallback — with a `WARNING` log entry (`reranker_fallback`).
+
+### Resource requirements
+
+| Scenario | RAM | CPU | Latency/query |
+|----------|-----|-----|--------------|
+| Reranker active (20→5) | 1.5–4 GB | 1–2 cores | +~500ms |
+| Reranker disabled | 0 | 0 | 0ms |
+
+!!! tip "First Docker build"
+    The first build of the `reranker-service` image takes 10–15 minutes because `BAAI/bge-reranker-v2-m3` is downloaded and exported to ONNX via `optimum`. Subsequent builds use the cached layer and complete in seconds.
+
+---
+
 ## Context Builder
 
 The ContextBuilder fetches the current state of a plant or planting run from ArangoDB at runtime and formats it as structured text for the system prompt.
@@ -457,7 +512,10 @@ backend:
 - [REQ-031 — AI Assistant & Plant Advisory](../../../spec/req/REQ-031_KI-Assistent-Pflanzenberatung.md)
 - [REQ-011 — External Master Data Enrichment (Adapter Pattern)](../../../spec/req/REQ-011_Externe-Stammdatenanreicherung.md)
 - [REQ-025 — Privacy & GDPR](../../../spec/req/REQ-025_Datenschutz.md)
+- [ADR-006 — Embedding Model E5-base and Hybrid Search](../adr/006-embedding-model-e5-base-hybrid-search.md)
+- [ADR-007 — Cross-Encoder Re-Ranking for RAG Pipeline](../adr/007-cross-encoder-reranking.md)
 - [Understanding the RAG Knowledge Base](../guides/rag-knowledge-base.md)
 - [AI Assistant](../user-guide/ai-assistant.md)
 - [pgvector Documentation](https://github.com/pgvector/pgvector)
+- [BAAI/bge-reranker-v2-m3](https://huggingface.co/BAAI/bge-reranker-v2-m3)
 - [sentence-transformers/all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)

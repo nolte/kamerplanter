@@ -455,11 +455,25 @@ export default function TaskQueuePage() {
     }
 
     // Add care reminders (skip those that already have a pending task to avoid duplication)
-    const taskPlantTypes = new Set(
-      taskQueue
-        .filter((t) => t.category === 'care_reminder' && t.entity_type === 'plant_instance' && t.entity_key)
-        .map((t) => `${t.entity_key}-${t.name?.split('\u2014')[1]?.trim()}`),
-    );
+    // Build dedup set from care_reminder tasks keyed by entity_key + reminder type
+    const taskPlantTypes = new Set<string>();
+    // Also build a name-based dedup set for tasks missing entity_key (legacy data)
+    const taskNameTypes = new Set<string>();
+    for (const t of taskQueue) {
+      if (t.category !== 'care_reminder') continue;
+      const parts = t.name?.split('\u2014');
+      const reminderType = parts && parts.length > 1 ? parts[1].trim() : undefined;
+      if (!reminderType) continue;
+
+      if (t.entity_type === 'plant_instance' && t.entity_key) {
+        taskPlantTypes.add(`${t.entity_key}-${reminderType}`);
+      }
+      // Fallback: use the plant name prefix for matching (handles entity_key=null tasks)
+      const namePrefix = parts[0].trim();
+      if (namePrefix) {
+        taskNameTypes.add(`${namePrefix}-${reminderType}`);
+      }
+    }
 
     for (const entry of careDashboard) {
       if (entry.urgency === 'not_due') continue;
@@ -468,6 +482,9 @@ export default function TaskQueuePage() {
       // Skip if there's already a care_reminder task for this plant + type
       const typeKey = `${entry.plant_key}-${entry.reminder_type}`;
       if (taskPlantTypes.has(typeKey)) continue;
+      // Fallback: match by plant name from dashboard entry
+      const nameKey = `${entry.plant_name}-${entry.reminder_type}`;
+      if (taskNameTypes.has(nameKey)) continue;
 
       items.push({
         id: `care-${entry.plant_key}-${entry.reminder_type}`,

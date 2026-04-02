@@ -23,7 +23,7 @@ pytestmark = pytest.mark.requires_auth
 from .pages import RegisterPage
 
 # -- Demo credentials ---------------------------------------------------------
-DEMO_EMAIL = "demo@kamerplanter.local"
+DEMO_EMAIL = "demo@kamerplanter.example"
 
 
 # -- Fixtures -----------------------------------------------------------------

@@ -115,6 +115,12 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
 
 @pytest.fixture(scope="session")
+def app_mode(request: pytest.FixtureRequest) -> str:
+    """Return the current app mode ('light' or 'full')."""
+    return request.config.getoption("--app-mode")
+
+
+@pytest.fixture(scope="session")
 def base_url(request: pytest.FixtureRequest) -> str:
     """Return the base URL for the application under test.
 
@@ -123,47 +129,118 @@ def base_url(request: pytest.FixtureRequest) -> str:
     return os.environ.get("E2E_BASE_URL") or request.config.getoption("--base-url")
 
 
-@pytest.fixture(scope="session", autouse=True)
-def e2e_seed_data(base_url: str) -> dict:
-    """Create seed data (Site + Location) via backend API for E2E tests.
+# ── Demo user credentials (shared between seed fixture and auth tests) ────
+# Light mode uses demo@kamerplanter.local (inserted directly into DB, no validation).
+# Full mode registers via API with Pydantic EmailStr which rejects .local domains.
+DEMO_EMAIL_LIGHT = "demo@kamerplanter.local"
+DEMO_EMAIL_FULL = "demo@kamerplanter.example"
+DEMO_PASSWORD = "demo-passwort-2024"
+DEMO_DISPLAY_NAME = "Mein Garten"
 
-    Runs once per session. Returns dict with created keys.
-    In light mode, uses the system tenant slug 'mein-garten'.
-    """
+
+def _api_helpers(auth_token: str | None = None):
+    """Return (post, get) helper functions with optional Bearer auth."""
     import json
     import urllib.request
     import urllib.error
 
-    api_base = base_url.rstrip("/")
-    tenant_slug = "mein-garten"
-    api = f"{api_base}/api/v1/t/{tenant_slug}"
-    result: dict = {}
+    def _headers() -> dict[str, str]:
+        h: dict[str, str] = {"Content-Type": "application/json"}
+        if auth_token:
+            h["Authorization"] = f"Bearer {auth_token}"
+        return h
 
     def _post(url: str, data: dict) -> tuple[int, dict]:
         body = json.dumps(data).encode()
-        req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+        req = urllib.request.Request(url, data=body, headers=_headers())
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 return resp.status, json.loads(resp.read())
         except urllib.error.HTTPError as e:
-            return e.code, {}
+            try:
+                err_body = json.loads(e.read())
+            except Exception:
+                err_body = {}
+            return e.code, err_body
 
     def _get(url: str) -> tuple[int, list | dict]:
+        req = urllib.request.Request(url, headers=_headers())
         try:
-            with urllib.request.urlopen(url, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 return resp.status, json.loads(resp.read())
         except urllib.error.HTTPError as e:
-            return e.code, []
+            try:
+                err_body = json.loads(e.read())
+            except Exception:
+                err_body = []
+            return e.code, err_body
 
-    # Idempotent seed: check whether our named site already exists before
-    # creating a new one.  This avoids accumulating duplicate "E2E-Teststandort"
-    # entries across repeated test runs.
+    return _post, _get
+
+
+def _register_and_login(api_base: str) -> tuple[str, str]:
+    """Register the demo user (idempotent) and login to get a JWT token.
+
+    Returns (access_token, tenant_slug).
+    """
+    _post, _get = _api_helpers()
+
+    # Register — idempotent: returns 201 for new, 201 for existing (SEC-H-009)
+    _post(f"{api_base}/api/v1/auth/register", {
+        "email": DEMO_EMAIL_FULL,
+        "password": DEMO_PASSWORD,
+        "display_name": DEMO_DISPLAY_NAME,
+    })
+
+    # Login to get JWT
+    status, resp = _post(f"{api_base}/api/v1/auth/login", {
+        "email": DEMO_EMAIL_FULL,
+        "password": DEMO_PASSWORD,
+    })
+    if status != 200 or "access_token" not in resp:
+        raise RuntimeError(f"E2E seed login failed: status={status}, resp={resp}")
+
+    token = resp["access_token"]
+
+    # Discover tenant slug from user's tenants
+    _, _get_auth = _api_helpers(token)
+    _, tenants = _get_auth(f"{api_base}/api/v1/tenants/")
+    if not isinstance(tenants, list) or not tenants:
+        raise RuntimeError(f"E2E seed: no tenants found after registration: {tenants}")
+
+    tenant_slug = tenants[0]["slug"]
+    return token, tenant_slug
+
+
+@pytest.fixture(scope="session", autouse=True)
+def e2e_seed_data(base_url: str, app_mode: str) -> dict:
+    """Create seed data (Site + Location) via backend API for E2E tests.
+
+    Runs once per session.
+    - Light mode: uses the system tenant slug 'mein-garten' (no auth needed).
+    - Full mode: registers demo user, logs in to get JWT, discovers tenant slug.
+    """
+    api_base = base_url.rstrip("/")
+    result: dict = {}
+
+    # In full mode, register + login to get auth token and tenant slug
+    if app_mode == "full":
+        token, tenant_slug = _register_and_login(api_base)
+        result["access_token"] = token
+        result["tenant_slug"] = tenant_slug
+        _post, _get = _api_helpers(token)
+    else:
+        tenant_slug = "mein-garten"
+        result["tenant_slug"] = tenant_slug
+        _post, _get = _api_helpers()
+
+    api = f"{api_base}/api/v1/t/{tenant_slug}"
+
     SITE_NAME = "E2E-Sonnengarten"
     LOCATION_NAME = "E2E-Wohnzimmer"
     SLOT_LOCATION_NAME = "E2E-Gewaechshaus"
 
     try:
-        # Check for existing site by name
         list_status, sites = _get(f"{api}/sites")
         existing_site = None
         if list_status == 200 and isinstance(sites, list):
@@ -171,12 +248,10 @@ def e2e_seed_data(base_url: str) -> dict:
 
         if existing_site:
             result["site_key"] = existing_site["key"]
-            # Ensure location exists within this site
             tree_status, tree = _get(f"{api}/locations/tree?site_key={existing_site['key']}")
             if tree_status == 200 and isinstance(tree, list) and tree:
                 result["location_key"] = tree[0]["key"]
         else:
-            # Create a recognizable Site with realistic data
             status, site = _post(f"{api}/sites", {
                 "name": SITE_NAME,
                 "description": "Automatisch angelegt fuer E2E-Tests — Balkon und Wohnzimmer",
@@ -186,7 +261,6 @@ def e2e_seed_data(base_url: str) -> dict:
             })
             if status == 201:
                 result["site_key"] = site["key"]
-                # Create two Locations with distinct types for tree/detail tests
                 loc_status, loc = _post(f"{api}/locations", {
                     "name": LOCATION_NAME,
                     "site_key": site["key"],
@@ -201,20 +275,25 @@ def e2e_seed_data(base_url: str) -> dict:
                     "location_type_key": "greenhouse",
                     "area_m2": 12,
                 })
-    except (urllib.error.URLError, OSError) as exc:
+
+        # Skip onboarding wizard so the browser lands on /dashboard
+        _post(f"{api}/onboarding/skip", {})
+    except Exception as exc:
         result["error"] = str(exc)
 
-    # Write debug log to test-reports for diagnosis
     seed_log = Path("test-reports/e2e_seed_data.log")
     seed_log.parent.mkdir(parents=True, exist_ok=True)
-    seed_log.write_text(f"api={api}\nresult={result}\n")
+    seed_log.write_text(f"api={api}\nmode={app_mode}\nresult={result}\n")
 
     return result
 
 
 @pytest.fixture(scope="session")
-def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
+def browser(request: pytest.FixtureRequest, e2e_seed_data: dict) -> webdriver.Remote:
     """Create a headless browser session per xdist worker (NFR-008 §3.1).
+
+    Depends on ``e2e_seed_data`` to ensure the demo user exists before
+    attempting browser login in full mode.
 
     With pytest-xdist, ``scope="session"`` means one session per worker
     process — each of the N workers gets exactly one browser.  Without
@@ -306,8 +385,73 @@ def browser(request: pytest.FixtureRequest) -> webdriver.Remote:
         "window.localStorage.setItem('kamerplanter-lang', 'de');"
     )
 
+    # In full mode, log the browser in so non-auth tests can access the app.
+    # Auth-specific tests manage their own login/logout state.
+    if request.config.getoption("--app-mode") == "full":
+        _browser_login(driver, url)
+
     yield driver
     driver.quit()
+
+
+def _browser_login(driver: webdriver.Remote, base_url: str) -> None:
+    """Log into the app via the browser UI (full mode only).
+
+    Navigates to /login, fills credentials, submits, and waits for
+    redirect to /dashboard or /onboarding.
+    """
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+
+    driver.get(f"{base_url}/login")
+    wait = WebDriverWait(driver, 15)
+
+    email_input = wait.until(EC.presence_of_element_located(
+        (By.CSS_SELECTOR, "input[type='email']")
+    ))
+    email_input.clear()
+    email_input.send_keys(DEMO_EMAIL_FULL)
+
+    password_input = driver.find_element(By.CSS_SELECTOR, "input[type='password']")
+    password_input.clear()
+    password_input.send_keys(DEMO_PASSWORD)
+
+    submit_btn = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
+    submit_btn.click()
+
+    # Wait for successful redirect (dashboard or onboarding)
+    wait.until(lambda d: "/login" not in d.current_url)
+
+
+@pytest.fixture(autouse=True)
+def ensure_authenticated(
+    request: pytest.FixtureRequest,
+    browser: webdriver.Remote,
+    base_url: str,
+) -> None:
+    """Re-login the browser before each test if auth state was lost (full mode only).
+
+    Auth tests (requires_auth) that deliberately log out and test login flows
+    can break the session for subsequent non-auth tests on the same xdist worker.
+    This fixture detects a lost session by checking for the ``kp_refresh`` cookie
+    and re-logs in if needed.
+    """
+    if request.config.getoption("--app-mode") != "full":
+        return
+
+    # Skip for tests that explicitly manage their own auth state
+    if "requires_auth" in request.node.keywords:
+        return
+
+    # Check if refresh cookie still exists (= session alive)
+    cookies = browser.get_cookies()
+    has_refresh = any(c["name"] == "kp_refresh" for c in cookies)
+    if has_refresh:
+        return
+
+    # Session lost — re-login
+    _browser_login(browser, base_url)
 
 
 @pytest.fixture(scope="session")

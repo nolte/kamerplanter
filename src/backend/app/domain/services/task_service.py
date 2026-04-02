@@ -609,21 +609,20 @@ class TaskService:
 
     @staticmethod
     def _deduplicate_care_tasks(tasks: list[Task]) -> list[Task]:
-        """Remove duplicate care_reminder tasks for the same entity_key + name suffix.
+        """Remove duplicate care_reminder tasks for the same plant + reminder type.
 
-        Keeps the task with the most recent due_date (or created_at) per group.
-        This handles race conditions where concurrent Celery/API calls create duplicates.
+        Groups by full task name (e.g. "CANNA-0320-X90 — watering") which is
+        unique per plant+type. Within each group, prefers tasks with entity_key
+        set (newer format) over those without (legacy data), then by newest
+        due_date/created_at.
         """
         result: list[Task] = []
         care_groups: dict[str, list[Task]] = {}
 
         for task in tasks:
-            if task.category == "care_reminder" and task.entity_key:
-                # Extract reminder type from name suffix (e.g. "PLANT — watering" → "watering")
-                parts = task.name.split("\u2014")
-                suffix = parts[-1].strip() if len(parts) > 1 else task.name
-                group_key = f"{task.entity_key}-{suffix}"
-                care_groups.setdefault(group_key, []).append(task)
+            if task.category == "care_reminder":
+                # Group by full name — covers both entity_key and legacy tasks
+                care_groups.setdefault(task.name, []).append(task)
             else:
                 result.append(task)
 
@@ -631,9 +630,10 @@ class TaskService:
             if len(group) == 1:
                 result.append(group[0])
             else:
-                # Keep the newest by due_date, then created_at
+                # Prefer tasks with entity_key, then newest by due_date/created_at
                 def _sort_key(t):  # noqa: E501
                     return (
+                        1 if t.entity_key else 0,
                         t.due_date or datetime.min.replace(tzinfo=UTC),
                         t.created_at or datetime.min.replace(tzinfo=UTC),
                     )

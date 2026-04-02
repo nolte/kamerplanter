@@ -28,7 +28,12 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_model: str = "gemma3:12b"
     llm_max_tokens: int = 1024
-    llm_temperature: float = 0.3
+    llm_temperature: float = 0.1
+
+    # Reranker service (optional — disabled when URL is empty)
+    reranker_url: str = ""
+    reranker_initial_k: int = 20
+    reranker_top_k: int = 5
 
     # RAG language defaults
     rag_doc_language: str = "de"

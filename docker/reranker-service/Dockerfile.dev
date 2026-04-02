@@ -1,0 +1,30 @@
+# Dev Dockerfile — downloads bge-reranker-v2-m3 via multi-stage build.
+# For production multi-model builds see Dockerfile.
+
+# ── Download stage ─────────────────────────────────────────────────
+FROM python:3.14-slim AS dl-base
+# hadolint ignore=DL3013
+RUN pip install --no-cache-dir --root-user-action=ignore huggingface-hub optimum[onnxruntime] sentencepiece
+
+FROM dl-base AS dl-model
+RUN python -c "\
+from optimum.onnxruntime import ORTModelForSequenceClassification; \
+model = ORTModelForSequenceClassification.from_pretrained('BAAI/bge-reranker-v2-m3', export=True); \
+model.save_pretrained('/model')" && \
+    rm -rf /root/.cache
+
+# ── Runtime ─────────────────────────────────────────────────────────
+FROM python:3.14-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+# hadolint ignore=DL3013
+RUN pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
+
+COPY --from=dl-model /model/ /app/models/onnx/bge-reranker-v2-m3/
+COPY main.py .
+
+EXPOSE 8081
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8081"]
