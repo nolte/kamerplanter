@@ -444,10 +444,12 @@ def ensure_authenticated(
     if "requires_auth" in request.node.keywords:
         return
 
-    # Check if refresh cookie still exists (= session alive)
-    cookies = browser.get_cookies()
-    has_refresh = any(c["name"] == "kp_refresh" for c in cookies)
-    if has_refresh:
+    # Check if the browser ended up on the login page (= session lost).
+    # We cannot reliably check the kp_refresh cookie because it is scoped
+    # to path=/api/v1/auth and Selenium only returns cookies for the
+    # current page's path.
+    current = browser.current_url
+    if "/login" not in current:
         return
 
     # Session lost — re-login
