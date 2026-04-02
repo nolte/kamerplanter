@@ -26,7 +26,10 @@ const KP_PHASE_KAMI = {
   juvenile:    "/local/kami/timeline-kami-phase-juvenile.svg",
   climbing:    "/local/kami/timeline-kami-phase-climbing.svg",
   mature:      "/local/kami/timeline-kami-phase-mature.svg",
-  senescence:  "/local/kami/timeline-kami-phase-senescence.svg",
+  senescence:       "/local/kami/timeline-kami-phase-senescence.svg",
+  flushing:          "/local/kami/timeline-kami-phase-flushing.svg",
+  leaf_phase:        "/local/kami/timeline-kami-phase-leaf-phase.svg",
+  short_day_induction: "/local/kami/timeline-kami-phase-short-day-induction.svg",
 };
 
 const PHASE_LABELS = {
@@ -40,6 +43,9 @@ const PHASE_LABELS = {
   seedling: "S\u00e4mling",
   vegetative: "Vegetativ",
   flowering: "Bl\u00fcte",
+  flushing: "Sp\u00fclung",
+  leaf_phase: "Blattphase",
+  short_day_induction: "Kurztageinleitung",
 };
 
 /* ================================================================== *

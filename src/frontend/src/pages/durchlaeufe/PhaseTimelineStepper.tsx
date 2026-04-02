@@ -16,9 +16,9 @@ import * as runApi from '@/api/endpoints/plantingRuns';
 import type { SpeciesPhaseTimeline, PhaseTimelineEntry } from '@/api/types';
 import {
   kamiPhaseGermination, kamiPhaseSeedling, kamiPhaseVegetative,
-  kamiPhaseFlowering, kamiPhaseHarvest, kamiPhaseRipening,
-  kamiPhaseJuvenile, kamiPhaseClimbing, kamiPhaseMature, kamiPhaseDormancy,
-  kamiPhaseSenescence,
+  kamiPhaseFlowering, kamiPhaseFlushing, kamiPhaseHarvest, kamiPhaseLeafPhase,
+  kamiPhaseRipening, kamiPhaseJuvenile, kamiPhaseClimbing, kamiPhaseMature,
+  kamiPhaseDormancy, kamiPhaseSenescence, kamiPhaseShortDayInduction,
 } from '@/assets/brand/illustrations';
 
 const PHASE_IMAGES: Record<string, string> = {
@@ -26,6 +26,7 @@ const PHASE_IMAGES: Record<string, string> = {
   seedling: kamiPhaseSeedling,
   vegetative: kamiPhaseVegetative,
   flowering: kamiPhaseFlowering,
+  flushing: kamiPhaseFlushing,
   harvest: kamiPhaseHarvest,
   ripening: kamiPhaseRipening,
   fruiting: kamiPhaseRipening,
@@ -34,6 +35,8 @@ const PHASE_IMAGES: Record<string, string> = {
   mature: kamiPhaseMature,
   dormancy: kamiPhaseDormancy,
   senescence: kamiPhaseSenescence,
+  leaf_phase: kamiPhaseLeafPhase,
+  short_day_induction: kamiPhaseShortDayInduction,
 };
 
 interface Props {

@@ -16,13 +16,17 @@ import kamiDormancy from '@/assets/brand/illustrations/phases/timeline-kami-phas
 import kamiJuvenile from '@/assets/brand/illustrations/phases/timeline-kami-phase-juvenile.svg';
 import kamiClimbing from '@/assets/brand/illustrations/phases/timeline-kami-phase-climbing.svg';
 import kamiMature from '@/assets/brand/illustrations/phases/timeline-kami-phase-mature.svg';
+import kamiFlushing from '@/assets/brand/illustrations/phases/timeline-kami-phase-flushing.svg';
+import kamiLeafPhase from '@/assets/brand/illustrations/phases/timeline-kami-phase-leaf-phase.svg';
 import kamiSenescence from '@/assets/brand/illustrations/phases/timeline-kami-phase-senescence.svg';
+import kamiShortDayInduction from '@/assets/brand/illustrations/phases/timeline-kami-phase-short-day-induction.svg';
 
 const KAMI_PHASE_IMAGES: Record<string, string> = {
   germination: kamiGermination,
   seedling: kamiSeedling,
   vegetative: kamiVegetative,
   flowering: kamiFlowering,
+  flushing: kamiFlushing,
   ripening: kamiRipening,
   fruiting: kamiRipening,
   harvest: kamiHarvest,
@@ -55,6 +59,8 @@ const KAMI_PHASE_IMAGES: Record<string, string> = {
   winter_dormancy: kamiDormancy,
   dry_storage: kamiDormancy,
   winter_hull_change: kamiSenescence,
+  leaf_phase: kamiLeafPhase,
+  short_day_induction: kamiShortDayInduction,
 };
 
 const PHASE_COLORS: Record<string, string> = {
