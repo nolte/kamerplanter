@@ -213,8 +213,8 @@ export default function TaskDetailPage() {
       const fetched = await taskApi.getTask(key);
       setTask(fetched);
       setPhotoRefs(fetched.photo_refs ?? []);
-      if (fetched.plant_key) {
-        plantApi.getPlantInstance(fetched.plant_key)
+      if (fetched.entity_type === 'plant_instance' && fetched.entity_key) {
+        plantApi.getPlantInstance(fetched.entity_key)
           .then(async (p) => {
             setPlantName(p.plant_name || p.instance_id);
             try {
@@ -610,7 +610,7 @@ export default function TaskDetailPage() {
                   gap: 2.5,
                 }}
               >
-                {task.plant_key && (
+                {task.entity_type === 'plant_instance' && task.entity_key && (
                   <MetaItem label={t('pages.tasks.plant')}>
                     <Tooltip
                       arrow
@@ -642,14 +642,14 @@ export default function TaskDetailPage() {
                     >
                       <Link
                         component={RouterLink}
-                        to={`/pflanzen/plant-instances/${task.plant_key}`}
+                        to={`/pflanzen/plant-instances/${task.entity_key}`}
                         underline="hover"
                         variant="body2"
                         sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, fontWeight: 500 }}
                         data-testid="plant-link"
                       >
                         <LocalFloristIcon sx={{ fontSize: 16 }} />
-                        {plantName ?? task.plant_key}
+                        {plantName ?? task.entity_key}
                       </Link>
                     </Tooltip>
                   </MetaItem>
@@ -727,16 +727,6 @@ export default function TaskDetailPage() {
                     <Typography variant="body2">{t('pages.tasks.sourceWorkflow')}</Typography>
                   ) : task.watering_event_key ? (
                     <Typography variant="body2">{t('pages.tasks.sourceWateringSchedule')}</Typography>
-                  ) : task.planting_run_key ? (
-                    <Link
-                      component={RouterLink}
-                      to={`/durchlaeufe/planting-runs/${task.planting_run_key}`}
-                      underline="hover"
-                      variant="body2"
-                      sx={{ fontWeight: 500 }}
-                    >
-                      {t('pages.tasks.sourcePlantingRun')}
-                    </Link>
                   ) : task.category === 'care_reminder' ? (
                     <Typography variant="body2">{t('pages.tasks.sourceCareReminder')}</Typography>
                   ) : (

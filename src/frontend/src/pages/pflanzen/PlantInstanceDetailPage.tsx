@@ -268,7 +268,7 @@ export default function PlantInstanceDetailPage() {
       }
       // Load next pending watering task
       try {
-        const tasks = await taskApi.listTasks(0, 50, { plant_key: key, category: 'care_reminder', status: 'pending' });
+        const tasks = await taskApi.listTasks(0, 50, { entity_type: 'plant_instance', entity_key: key, category: 'care_reminder', status: 'pending' });
         const wateringTask = tasks.find((t) => t.name.endsWith('\u2014 watering'));
         setNextWateringTask(wateringTask ?? null);
       } catch {
@@ -334,7 +334,7 @@ export default function PlantInstanceDetailPage() {
   useEffect(() => {
     if (tab === 6 && key && plantTasks.length === 0) {
       setPlantTasksLoading(true);
-      taskApi.listTasks(0, 500, { plant_key: key })
+      taskApi.listTasks(0, 500, { entity_type: 'plant_instance', entity_key: key })
         .then(setPlantTasks)
         .catch(() => setPlantTasks([]))
         .finally(() => setPlantTasksLoading(false));
@@ -402,7 +402,7 @@ export default function PlantInstanceDetailPage() {
       notification.success(t('pages.plantInstances.wateringConfirmed'));
       // Refresh next watering task (confirming creates a new one)
       try {
-        const tasks = await taskApi.listTasks(0, 50, { plant_key: key, category: 'care_reminder', status: 'pending' });
+        const tasks = await taskApi.listTasks(0, 50, { entity_type: 'plant_instance', entity_key: key, category: 'care_reminder', status: 'pending' });
         const wt = tasks.find((t) => t.name.endsWith('\u2014 watering'));
         setNextWateringTask(wt ?? null);
       } catch {

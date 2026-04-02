@@ -191,10 +191,10 @@ export default function SpeciesWorkflowsSection({ speciesKey }: Props) {
                       {wf.total_duration_days > 0 && (
                         <Chip label={`${wf.total_duration_days}d`} size="small" variant="outlined" />
                       )}
-                      {wf.assigned_plant_count > 0 && (
+                      {wf.assigned_entity_count > 0 && (
                         <Chip
                           icon={<GroupWorkIcon />}
-                          label={t('pages.species.assignedPlantCount', { count: wf.assigned_plant_count })}
+                          label={t('pages.species.assignedPlantCount', { count: wf.assigned_entity_count })}
                           size="small"
                           color="primary"
                           variant="outlined"

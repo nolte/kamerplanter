@@ -69,19 +69,22 @@ export const fetchTasks = createAsyncThunk(
     offset,
     limit,
     status,
-    plantKey,
     category,
+    entityType,
+    entityKey,
   }: {
     offset?: number;
     limit?: number;
     status?: string;
-    plantKey?: string;
     category?: string;
+    entityType?: string;
+    entityKey?: string;
   } = {}) => {
     return api.listTasks(offset, limit, {
       status,
-      plant_key: plantKey,
       category,
+      entity_type: entityType,
+      entity_key: entityKey,
     });
   },
 );

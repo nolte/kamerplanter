@@ -2427,6 +2427,7 @@ export type TaskCategory =
 export type TriggerType = 'manual' | 'time_based' | 'event_based' | 'conditional';
 export type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
+export type WorkflowTargetType = 'plant_instance' | 'planting_run' | 'location' | 'tank';
 
 export interface WorkflowTemplate {
   key: string;
@@ -2444,7 +2445,8 @@ export interface WorkflowTemplate {
   species_key: string | null;
   species_name: string;
   total_duration_days: number;
-  assigned_plant_count: number;
+  assigned_entity_count: number;
+  target_entity_types: WorkflowTargetType[];
   created_at: string | null;
   updated_at: string | null;
 }
@@ -2461,6 +2463,7 @@ export interface WorkflowTemplateCreate {
   category?: string;
   tags?: string[];
   is_system?: boolean;
+  target_entity_types?: WorkflowTargetType[];
 }
 
 export interface WorkflowTemplateUpdate {
@@ -2472,6 +2475,7 @@ export interface WorkflowTemplateUpdate {
   difficulty_level?: string;
   category?: string;
   tags?: string[];
+  target_entity_types?: WorkflowTargetType[];
 }
 
 export interface ChecklistItem {
@@ -2565,7 +2569,8 @@ export interface TaskItem {
   instruction: string;
   instruction_de: string;
   category: string;
-  plant_key: string | null;
+  entity_key: string | null;
+  entity_type: string | null;
   due_date: string | null;
   scheduled_time: string | null;
   status: string;
@@ -2596,7 +2601,6 @@ export interface TaskItem {
   activity_key: string | null;
   template_key: string | null;
   workflow_execution_key: string | null;
-  planting_run_key: string | null;
   watering_event_key: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -2608,7 +2612,8 @@ export interface TaskItemCreate {
   instruction?: string;
   instruction_de?: string;
   category?: string;
-  plant_key?: string | null;
+  entity_key?: string | null;
+  entity_type?: string | null;
   due_date?: string | null;
   scheduled_time?: string | null;
   priority?: string;
@@ -2630,7 +2635,6 @@ export interface TaskItemUpdate {
   name?: string;
   instruction?: string;
   category?: string;
-  plant_key?: string | null;
   due_date?: string | null;
   scheduled_time?: string | null;
   priority?: string;
@@ -2663,7 +2667,8 @@ export interface TaskCompleteRequest {
 }
 
 export interface TaskCloneRequest {
-  target_plant_key?: string | null;
+  target_entity_key?: string | null;
+  target_entity_type?: string | null;
   due_date_offset_days?: number | null;
 }
 
@@ -2707,7 +2712,8 @@ export interface WorkflowAddTaskRequest {
 export interface WorkflowExecution {
   key: string;
   workflow_template_key: string;
-  plant_key: string;
+  entity_key: string;
+  entity_type: string;
   started_at: string | null;
   completed_at: string | null;
   completion_percentage: number;
@@ -2717,7 +2723,8 @@ export interface WorkflowExecution {
 }
 
 export interface WorkflowInstantiateRequest {
-  plant_key: string;
+  entity_key: string;
+  entity_type: WorkflowTargetType;
 }
 
 export interface HSTValidationResult {

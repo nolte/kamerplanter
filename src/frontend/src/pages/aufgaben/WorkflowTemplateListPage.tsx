@@ -22,7 +22,7 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
-import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -31,16 +31,12 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PageTitle from '@/components/layout/PageTitle';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
-import FormSelectField from '@/components/form/FormSelectField';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchWorkflows } from '@/store/slices/tasksSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
-import { useForm } from 'react-hook-form';
 import * as taskApi from '@/api/endpoints/tasks';
-import * as activityPlanApi from '@/api/endpoints/activityPlans';
-import * as speciesApi from '@/api/endpoints/species';
-import type { WorkflowTemplate, Species } from '@/api/types';
+import type { WorkflowTemplate } from '@/api/types';
 import WorkflowInstantiateDialog from './WorkflowInstantiateDialog';
 import WorkflowCreateDialog from './WorkflowCreateDialog';
 import { kamiTasks } from '@/assets/brand/illustrations';
@@ -48,10 +44,12 @@ import { kamiTasks } from '@/assets/brand/illustrations';
 function WorkflowCard({
   workflow,
   onInstantiate,
+  onDuplicate,
   onDelete,
 }: {
   workflow: WorkflowTemplate;
   onInstantiate: (key: string) => void;
+  onDuplicate: (key: string) => void;
   onDelete: (key: string) => void;
 }) {
   const { t } = useTranslation();
@@ -115,7 +113,7 @@ function WorkflowCard({
             )}
           </Box>
 
-          {/* Category + Difficulty chips */}
+          {/* Category + Difficulty + Entity Type chips */}
           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
             {workflow.category && (
               <Chip
@@ -133,6 +131,17 @@ function WorkflowCard({
                 variant="outlined"
               />
             )}
+            {workflow.target_entity_types
+              .filter((et) => et !== 'plant_instance')
+              .map((et) => (
+                <Chip
+                  key={et}
+                  label={t(`pages.tasks.entityTypes.${et}`, { defaultValue: et })}
+                  size="small"
+                  color="info"
+                  variant="outlined"
+                />
+              ))}
           </Box>
 
           {/* Badges row */}
@@ -173,10 +182,10 @@ function WorkflowCard({
 
           {/* Bottom info */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto' }}>
-            {workflow.assigned_plant_count > 0 && (
+            {workflow.assigned_entity_count > 0 && (
               <Chip
                 icon={<LocalFloristIcon />}
-                label={`${workflow.assigned_plant_count} ${t('pages.tasks.assignedPlants')}`}
+                label={`${workflow.assigned_entity_count} ${t('pages.tasks.assignedEntities')}`}
                 size="small"
                 color="primary"
                 variant="outlined"
@@ -199,6 +208,15 @@ function WorkflowCard({
             aria-label={t('pages.tasks.instantiateWorkflow')}
           >
             <PlayArrowIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={t('pages.tasks.duplicateWorkflow')}>
+          <IconButton
+            size="small"
+            onClick={() => onDuplicate(workflow.key)}
+            aria-label={t('pages.tasks.duplicateWorkflow')}
+          >
+            <ContentCopyIcon fontSize="small" />
           </IconButton>
         </Tooltip>
         <Tooltip
@@ -268,14 +286,11 @@ export default function WorkflowTemplateListPage() {
   const [instantiateKey, setInstantiateKey] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteKey, setDeleteKey] = useState<string | null>(null);
-  const [generateOpen, setGenerateOpen] = useState(false);
-  const [speciesList, setSpeciesList] = useState<Species[]>([]);
-  const [generating, setGenerating] = useState(false);
+  const [duplicateKey, setDuplicateKey] = useState<string | null>(null);
+  const [duplicateName, setDuplicateName] = useState('');
+  const [duplicating, setDuplicating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const generateForm = useForm<{ species_key: string }>({
-    defaultValues: { species_key: '' },
-  });
 
   useEffect(() => {
     dispatch(fetchWorkflows({}));
@@ -305,37 +320,27 @@ export default function WorkflowTemplateListPage() {
     }
   };
 
-  const handleOpenGenerate = async () => {
-    setGenerateOpen(true);
-    generateForm.reset({ species_key: '' });
-    if (speciesList.length === 0) {
-      try {
-        const r = await speciesApi.listSpecies(0, 500);
-        setSpeciesList(r.items);
-      } catch (err) {
-        handleError(err);
-      }
-    }
+  const handleOpenDuplicate = (key: string) => {
+    const wf = workflows.find((w) => w.key === key);
+    setDuplicateKey(key);
+    setDuplicateName(wf ? `${wf.name} (${t('common.copy')})` : '');
   };
 
-  const handleGenerate = async (data: { species_key: string }) => {
-    if (!data.species_key) return;
-    setGenerating(true);
+  const handleDuplicate = async () => {
+    if (!duplicateKey || !duplicateName.trim()) return;
+    setDuplicating(true);
     try {
-      const result = await activityPlanApi.generatePlan({
-        species_key: data.species_key,
-        force_regenerate: true,
-      });
-      notification.success(t('pages.tasks.workflowGenerated'));
-      setGenerateOpen(false);
+      await taskApi.duplicateWorkflow(duplicateKey, duplicateName.trim());
+      notification.success(t('pages.tasks.workflowDuplicated'));
+      setDuplicateKey(null);
       dispatch(fetchWorkflows({}));
-      navigate(`/aufgaben/workflows/${result.workflow_template_key}`);
     } catch (err) {
       handleError(err);
     } finally {
-      setGenerating(false);
+      setDuplicating(false);
     }
   };
+
 
   return (
     <Box data-testid="workflow-template-list-page">
@@ -351,14 +356,6 @@ export default function WorkflowTemplateListPage() {
       >
         <PageTitle title={t('pages.tasks.workflowsTitle')} />
         <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
-          <Button
-            variant="outlined"
-            startIcon={<AutoFixHighIcon />}
-            onClick={handleOpenGenerate}
-            data-testid="generate-workflow-button"
-          >
-            {t('pages.tasks.generateFromSpecies')}
-          </Button>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -436,6 +433,7 @@ export default function WorkflowTemplateListPage() {
               key={w.key}
               workflow={w}
               onInstantiate={setInstantiateKey}
+              onDuplicate={handleOpenDuplicate}
               onDelete={setDeleteKey}
             />
           ))}
@@ -447,6 +445,7 @@ export default function WorkflowTemplateListPage() {
         <WorkflowInstantiateDialog
           open={!!instantiateKey}
           workflowKey={instantiateKey}
+          targetEntityTypes={workflows.find((w) => w.key === instantiateKey)?.target_entity_types ?? ['plant_instance']}
           onClose={() => setInstantiateKey(null)}
           onInstantiated={() => {
             setInstantiateKey(null);
@@ -471,47 +470,50 @@ export default function WorkflowTemplateListPage() {
         destructive
       />
 
-      {/* Generate from Species Dialog */}
+      {/* Duplicate Workflow Dialog */}
       <Dialog
         fullScreen={fullScreen}
-        open={generateOpen}
-        onClose={() => setGenerateOpen(false)}
+        open={!!duplicateKey}
+        onClose={() => setDuplicateKey(null)}
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>{t('pages.tasks.generateFromSpecies')}</DialogTitle>
+        <DialogTitle>{t('pages.tasks.duplicateWorkflow')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {t('pages.tasks.generateFromSpeciesDescription')}
+            {t('pages.tasks.duplicateWorkflowDescription', {
+              name: workflows.find((w) => w.key === duplicateKey)?.name ?? '',
+            })}
           </Typography>
-          <form id="generate-form" onSubmit={generateForm.handleSubmit(handleGenerate)}>
-            <FormSelectField
-              name="species_key"
-              control={generateForm.control}
-              label={t('entities.species')}
-              required
-              options={speciesList.map((s) => ({
-                value: s.key,
-                label: `${s.common_names?.[0] ?? s.scientific_name} (${s.scientific_name})`,
-              }))}
-            />
-          </form>
+          <TextField
+            autoFocus
+            fullWidth
+            label={t('common.name')}
+            value={duplicateName}
+            onChange={(e) => setDuplicateName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && duplicateName.trim()) {
+                handleDuplicate();
+              }
+            }}
+            data-testid="duplicate-workflow-name"
+          />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setGenerateOpen(false)}>
+          <Button onClick={() => setDuplicateKey(null)}>
             {t('common.cancel')}
           </Button>
           <Button
-            type="submit"
-            form="generate-form"
             variant="contained"
-            disabled={generating}
-            startIcon={generating ? <CircularProgress size={20} /> : <AutoFixHighIcon />}
+            disabled={!duplicateName.trim() || duplicating}
+            onClick={handleDuplicate}
+            startIcon={duplicating ? <CircularProgress size={20} /> : <ContentCopyIcon />}
           >
-            {t('pages.tasks.generateButton')}
+            {t('pages.tasks.duplicateWorkflow')}
           </Button>
         </DialogActions>
       </Dialog>
+
     </Box>
   );
 }

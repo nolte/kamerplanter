@@ -22,24 +22,32 @@ import { useApiError } from '@/hooks/useApiError';
 import * as taskApi from '@/api/endpoints/tasks';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import * as plantingRunApi from '@/api/endpoints/plantingRuns';
+import * as siteApi from '@/api/endpoints/sites';
+import * as tankApi from '@/api/endpoints/tanks';
 import type {
   PlantInstance,
   PlantingRun,
   PlantInRun,
+  Location,
+  Tank,
   TaskTemplate,
+  WorkflowTargetType,
 } from '@/api/types';
 
 // ── Types ────────────────────────────────────────────────────────────
 
 type SelectionTarget =
   | { type: 'plant'; plant: PlantInstance }
-  | { type: 'run'; run: PlantingRun; plants: PlantInRun[] };
+  | { type: 'run'; run: PlantingRun; plants: PlantInRun[] }
+  | { type: 'location'; location: Location }
+  | { type: 'tank'; tank: Tank };
 
 // ── Props ────────────────────────────────────────────────────────────
 
 interface Props {
   open: boolean;
   workflowKey: string;
+  targetEntityTypes?: WorkflowTargetType[];
   onClose: () => void;
   onInstantiated: () => void;
 }
@@ -64,6 +72,7 @@ function formatDate(iso: string | null, locale: string): string {
 export default function WorkflowInstantiateDialog({
   open,
   workflowKey,
+  targetEntityTypes = ['plant_instance'],
   onClose,
   onInstantiated,
 }: Props) {
@@ -78,6 +87,8 @@ export default function WorkflowInstantiateDialog({
   const [runPlantsMap, setRunPlantsMap] = useState<
     Record<string, PlantInRun[]>
   >({});
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [tanks, setTanks] = useState<Tank[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
   const [selectedTarget, setSelectedTarget] = useState<SelectionTarget | null>(
     null,
@@ -97,15 +108,13 @@ export default function WorkflowInstantiateDialog({
 
     let cancelled = false;
 
-    const loadData = async () => {
+    const loadPlantData = async () => {
       setLoading(true);
       try {
-        // Load plants first — always needed
         const plantsData = await plantApi.listPlantInstances(0, 200);
         if (cancelled) return;
         setPlants(plantsData);
 
-        // Load runs separately — failure should not block plant display
         let activeRuns: PlantingRun[] = [];
         try {
           const runsData = await plantingRunApi.listPlantingRuns(0, 200);
@@ -114,12 +123,10 @@ export default function WorkflowInstantiateDialog({
             (r) => r.status === 'active' || r.status === 'harvesting',
           );
         } catch {
-          // Runs not available — continue with standalone plants only
           if (!cancelled) setLoading(false);
           return;
         }
 
-        // Load plants for each run — individual failures are tolerated
         const plantsMap: Record<string, PlantInRun[]> = {};
         await Promise.all(
           activeRuns.map(async (run) => {
@@ -127,14 +134,12 @@ export default function WorkflowInstantiateDialog({
               const runPlants = await plantingRunApi.listRunPlants(run.key);
               plantsMap[run.key] = runPlants;
             } catch {
-              // Skip this run if its plants can't be loaded
+              // Skip this run
             }
           }),
         );
 
         if (cancelled) return;
-
-        // Only include runs that have loaded plants
         setRuns(activeRuns.filter((r) => r.key in plantsMap));
         setRunPlantsMap(plantsMap);
       } catch (err) {
@@ -143,6 +148,51 @@ export default function WorkflowInstantiateDialog({
         if (!cancelled) setLoading(false);
       }
     };
+
+    const loadLocationData = async () => {
+      setLoading(true);
+      try {
+        const sites = await siteApi.listSites(0, 200);
+        if (cancelled) return;
+        const allLocations: Location[] = [];
+        await Promise.all(
+          sites.map(async (site) => {
+            try {
+              const locs = await siteApi.listLocations(site.key);
+              allLocations.push(...locs);
+            } catch {
+              // Skip this site
+            }
+          }),
+        );
+        if (!cancelled) setLocations(allLocations);
+      } catch (err) {
+        if (!cancelled) handleError(err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    const loadTankData = async () => {
+      setLoading(true);
+      try {
+        const tanksData = await tankApi.listTanks(0, 200);
+        if (!cancelled) setTanks(tanksData);
+      } catch (err) {
+        if (!cancelled) handleError(err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    // Load entities based on target types
+    const needsPlantData = targetEntityTypes.includes('plant_instance') || targetEntityTypes.includes('planting_run');
+    const needsLocationData = targetEntityTypes.includes('location');
+    const needsTankData = targetEntityTypes.includes('tank');
+
+    if (needsPlantData) loadPlantData();
+    if (needsLocationData) loadLocationData();
+    if (needsTankData) loadTankData();
 
     const loadTemplates = async () => {
       setLoadingTemplates(true);
@@ -156,44 +206,63 @@ export default function WorkflowInstantiateDialog({
       }
     };
 
-    loadData();
     loadTemplates();
 
     return () => {
       cancelled = true;
     };
-  }, [open, workflowKey, handleError]);
+  }, [open, workflowKey, targetEntityTypes, handleError]);
 
   // ── Build unified options ────────────────────────────────────────
 
   const options = useMemo<SelectionTarget[]>(() => {
-    // Collect all plant keys that belong to any run
-    const runPlantKeys = new Set<string>();
-    for (const runPlants of Object.values(runPlantsMap)) {
-      for (const p of runPlants) {
-        runPlantKeys.add(p.key);
+    const result: SelectionTarget[] = [];
+
+    const hasPlantInstance = targetEntityTypes.includes('plant_instance');
+    const hasPlantingRun = targetEntityTypes.includes('planting_run');
+    const hasLocation = targetEntityTypes.includes('location');
+    const hasTank = targetEntityTypes.includes('tank');
+
+    if (hasPlantInstance || hasPlantingRun) {
+      const runPlantKeys = new Set<string>();
+      for (const runPlants of Object.values(runPlantsMap)) {
+        for (const p of runPlants) {
+          runPlantKeys.add(p.key);
+        }
+      }
+
+      if (hasPlantingRun || hasPlantInstance) {
+        const runOptions: SelectionTarget[] = runs.map((run) => ({
+          type: 'run' as const,
+          run,
+          plants: (runPlantsMap[run.key] ?? []).filter(
+            (p) => !p.detached_at && !p.removed_on,
+          ),
+        }));
+        result.push(...runOptions);
+      }
+
+      if (hasPlantInstance) {
+        const standalonePlantOptions: SelectionTarget[] = plants
+          .filter((p) => !runPlantKeys.has(p.key) && !p.removed_on)
+          .map((plant) => ({
+            type: 'plant' as const,
+            plant,
+          }));
+        result.push(...standalonePlantOptions);
       }
     }
 
-    // Run options first
-    const runOptions: SelectionTarget[] = runs.map((run) => ({
-      type: 'run' as const,
-      run,
-      plants: (runPlantsMap[run.key] ?? []).filter(
-        (p) => !p.detached_at && !p.removed_on,
-      ),
-    }));
+    if (hasLocation) {
+      result.push(...locations.map((loc) => ({ type: 'location' as const, location: loc })));
+    }
 
-    // Standalone plant options (not in any run, not removed)
-    const standalonePlantOptions: SelectionTarget[] = plants
-      .filter((p) => !runPlantKeys.has(p.key) && !p.removed_on)
-      .map((plant) => ({
-        type: 'plant' as const,
-        plant,
-      }));
+    if (hasTank) {
+      result.push(...tanks.map((tank) => ({ type: 'tank' as const, tank })));
+    }
 
-    return [...runOptions, ...standalonePlantOptions];
-  }, [plants, runs, runPlantsMap]);
+    return result;
+  }, [plants, runs, runPlantsMap, locations, tanks, targetEntityTypes]);
 
   // ── Option label ─────────────────────────────────────────────────
 
@@ -203,10 +272,34 @@ export default function WorkflowInstantiateDialog({
         const count = option.plants.length;
         return `${option.run.name} (${t('pages.tasks.runPlantCount', { count })})`;
       }
-      const p = option.plant;
-      return p.plant_name
-        ? `${p.instance_id} - ${p.plant_name}`
-        : p.instance_id;
+      if (option.type === 'plant') {
+        const p = option.plant;
+        return p.plant_name
+          ? `${p.instance_id} - ${p.plant_name}`
+          : p.instance_id;
+      }
+      if (option.type === 'location') {
+        return option.location.name;
+      }
+      return option.tank.name;
+    },
+    [t],
+  );
+
+  // ── Group by ─────────────────────────────────────────────────────
+
+  const getGroupLabel = useCallback(
+    (option: SelectionTarget): string => {
+      switch (option.type) {
+        case 'run':
+          return t('pages.tasks.instantiateGroupRuns');
+        case 'plant':
+          return t('pages.tasks.instantiateGroupPlants');
+        case 'location':
+          return t('pages.tasks.instantiateGroupLocations');
+        case 'tank':
+          return t('pages.tasks.instantiateGroupTanks');
+      }
     },
     [t],
   );
@@ -222,11 +315,11 @@ export default function WorkflowInstantiateDialog({
     try {
       if (selectedTarget.type === 'plant') {
         await taskApi.instantiateWorkflow(workflowKey, {
-          plant_key: selectedTarget.plant.key,
+          entity_key: selectedTarget.plant.key,
+          entity_type: 'plant_instance',
         });
         notification.success(t('pages.tasks.workflowInstantiated'));
-      } else {
-        // Batch instantiation for run plants
+      } else if (selectedTarget.type === 'run') {
         const activePlants = selectedTarget.plants;
         const total = activePlants.length;
         let successCount = 0;
@@ -236,13 +329,13 @@ export default function WorkflowInstantiateDialog({
           setBatchProgress({ current: i + 1, total });
           try {
             await taskApi.instantiateWorkflow(workflowKey, {
-              plant_key: activePlants[i].key,
+              entity_key: activePlants[i].key,
+              entity_type: 'plant_instance',
             });
             successCount++;
           } catch (err) {
             const plantId = activePlants[i].instance_id;
             failures.push(plantId);
-            // Continue with remaining plants
             console.error(
               `Failed to instantiate workflow for plant ${plantId}:`,
               err,
@@ -265,6 +358,18 @@ export default function WorkflowInstantiateDialog({
             t('pages.tasks.instantiatedCount', { count: successCount }),
           );
         }
+      } else if (selectedTarget.type === 'location') {
+        await taskApi.instantiateWorkflow(workflowKey, {
+          entity_key: selectedTarget.location.key,
+          entity_type: 'location',
+        });
+        notification.success(t('pages.tasks.workflowInstantiated'));
+      } else if (selectedTarget.type === 'tank') {
+        await taskApi.instantiateWorkflow(workflowKey, {
+          entity_key: selectedTarget.tank.key,
+          entity_type: 'tank',
+        });
+        notification.success(t('pages.tasks.workflowInstantiated'));
       }
 
       onInstantiated();
@@ -297,6 +402,16 @@ export default function WorkflowInstantiateDialog({
   const isDisabled = !selectedTarget || saving;
   const locale = i18n.language === 'de' ? 'de-DE' : 'en-US';
 
+  const inputLabel = useMemo(() => {
+    if (targetEntityTypes.length === 1) {
+      const et = targetEntityTypes[0];
+      if (et === 'location' || et === 'tank') {
+        return t('pages.tasks.selectEntity');
+      }
+    }
+    return t('pages.tasks.instantiateTarget');
+  }, [targetEntityTypes, t]);
+
   return (
     <Dialog
       fullScreen={fullScreen}
@@ -314,11 +429,7 @@ export default function WorkflowInstantiateDialog({
         <Autocomplete<SelectionTarget>
           options={options}
           getOptionLabel={getOptionLabel}
-          groupBy={(option) =>
-            option.type === 'run'
-              ? t('pages.tasks.instantiateGroupRuns')
-              : t('pages.tasks.instantiateGroupPlants')
-          }
+          groupBy={getGroupLabel}
           loading={loading}
           disabled={saving}
           onChange={(_, value) => setSelectedTarget(value)}
@@ -328,6 +439,12 @@ export default function WorkflowInstantiateDialog({
             }
             if (option.type === 'plant' && value.type === 'plant') {
               return option.plant.key === value.plant.key;
+            }
+            if (option.type === 'location' && value.type === 'location') {
+              return option.location.key === value.location.key;
+            }
+            if (option.type === 'tank' && value.type === 'tank') {
+              return option.tank.key === value.tank.key;
             }
             return false;
           }}
@@ -378,45 +495,73 @@ export default function WorkflowInstantiateDialog({
               );
             }
 
-            const plant = option.plant;
+            if (option.type === 'plant') {
+              const plant = option.plant;
+              return (
+                <li key={liKey} {...restProps}>
+                  <Box sx={{ width: '100%' }}>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      flexWrap="wrap"
+                    >
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                        {plant.plant_name
+                          ? `${plant.instance_id} - ${plant.plant_name}`
+                          : plant.instance_id}
+                      </Typography>
+                      <Chip
+                        label={t(`enums.phase.${plant.current_phase}`)}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Stack>
+                    {plant.planted_on && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: 'block', mt: 0.5 }}
+                      >
+                        {t('pages.tasks.plantedOn')}:{' '}
+                        {formatDate(plant.planted_on, locale)}
+                      </Typography>
+                    )}
+                  </Box>
+                </li>
+              );
+            }
+
+            if (option.type === 'location') {
+              return (
+                <li key={liKey} {...restProps}>
+                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                    {option.location.name}
+                  </Typography>
+                </li>
+              );
+            }
+
+            // tank
             return (
               <li key={liKey} {...restProps}>
-                <Box sx={{ width: '100%' }}>
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    alignItems="center"
-                    flexWrap="wrap"
-                  >
-                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                      {plant.plant_name
-                        ? `${plant.instance_id} - ${plant.plant_name}`
-                        : plant.instance_id}
-                    </Typography>
-                    <Chip
-                      label={t(`enums.phase.${plant.current_phase}`)}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </Stack>
-                  {plant.planted_on && (
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ display: 'block', mt: 0.5 }}
-                    >
-                      {t('pages.tasks.plantedOn')}:{' '}
-                      {formatDate(plant.planted_on, locale)}
-                    </Typography>
-                  )}
-                </Box>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                    {option.tank.name}
+                  </Typography>
+                  <Chip
+                    label={t(`enums.tankType.${option.tank.tank_type}`)}
+                    size="small"
+                    variant="outlined"
+                  />
+                </Stack>
               </li>
             );
           }}
           renderInput={(params) => (
             <TextField
               {...params}
-              label={t('pages.tasks.instantiateTarget')}
+              label={inputLabel}
               required
               sx={{ mb: 2 }}
               slotProps={{

@@ -38,9 +38,15 @@ import AddIcon from '@mui/icons-material/Add';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
+import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import { useForm } from 'react-hook-form';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import PageTitle from '@/components/layout/PageTitle';
@@ -58,13 +64,26 @@ import * as taskApi from '@/api/endpoints/tasks';
 import * as activityApi from '@/api/endpoints/activities';
 import * as speciesApi from '@/api/endpoints/species';
 import type { WorkflowTemplate, TaskTemplate, Activity } from '@/api/types';
+import type { WorkflowExecutionEnriched } from '@/api/endpoints/tasks';
 import TaskTemplateDialog from './TaskTemplateDialog';
+import Autocomplete from '@mui/material/Autocomplete';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import LinearProgress from '@mui/material/LinearProgress';
+import * as favApi from '@/api/endpoints/favorites';
+
+const entityTypes = ['plant_instance', 'planting_run', 'location', 'tank'] as const;
 
 const editSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().nullable(),
   version: z.string(),
   tags: z.string(),
+  target_entity_types: z.array(z.enum(entityTypes)).min(1),
 });
 
 type EditFormData = z.infer<typeof editSchema>;
@@ -90,6 +109,10 @@ export default function WorkflowDetailPage() {
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [editTemplate, setEditTemplate] = useState<TaskTemplate | undefined>(undefined);
 
+  // Executions (assigned plants/runs)
+  const [executions, setExecutions] = useState<WorkflowExecutionEnriched[]>([]);
+  const [hideInactive, setHideInactive] = useState(true);
+
   // Add-from-catalog dialog state
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addTargetPhase, setAddTargetPhase] = useState<string>('');
@@ -102,6 +125,16 @@ export default function WorkflowDetailPage() {
   const [addDayOffset, setAddDayOffset] = useState(0);
   const [activityFilter, setActivityFilter] = useState('');
   const [expandedDesc, setExpandedDesc] = useState<string | null>(null);
+  const [catalogFilter, setCatalogFilter] = useState<'all' | 'favorites' | 'compatible'>('all');
+  const [activityFavKeys, setActivityFavKeys] = useState<Set<string>>(new Set());
+
+  // Species selection
+  type SpeciesOption = { key: string; scientific_name: string; common_names: string[]; plant_category: string | null; family_name: string | null };
+  const [allSpecies, setAllSpecies] = useState<SpeciesOption[]>([]);
+  const [speciesLoading, setSpeciesLoading] = useState(false);
+  const [selectedSpecies, setSelectedSpecies] = useState<SpeciesOption[]>([]);
+  const [favoriteKeys, setFavoriteKeys] = useState<Set<string>>(new Set());
+  const [speciesFilter, setSpeciesFilter] = useState<'all' | 'favorites'>('all');
 
   const {
     control,
@@ -112,6 +145,7 @@ export default function WorkflowDetailPage() {
     resolver: zodResolver(editSchema),
     defaultValues: {
       name: '', description: null, version: '1.0', tags: '',
+      target_entity_types: ['plant_instance'],
     },
   });
 
@@ -119,22 +153,25 @@ export default function WorkflowDetailPage() {
     if (!key) return;
     setLoading(true);
     try {
-      const [wf, tts] = await Promise.all([
+      const [wf, tts, execs] = await Promise.all([
         taskApi.getWorkflow(key),
         taskApi.listTaskTemplates(key),
+        taskApi.listWorkflowExecutions(key),
       ]);
       setWorkflow(wf);
       setTemplates(tts);
+      setExecutions(execs);
       reset({
         name: wf.name,
         description: wf.description,
         version: wf.version,
         tags: wf.tags.join(', '),
+        target_entity_types: (wf.target_entity_types ?? ['plant_instance']) as EditFormData['target_entity_types'],
       });
       // Build dynamic breadcrumbs
       const crumbs: { label: string; path?: string }[] = [
-        { label: 'nav.dashboard', path: '/dashboard' },
-        { label: 'nav.species', path: '/stammdaten/species' },
+        { label: 'nav.tasks', path: '/aufgaben' },
+        { label: 'pages.tasks.workflowsTitle', path: '/aufgaben/workflows' },
       ];
       if (wf.species_key) {
         try {
@@ -160,6 +197,28 @@ export default function WorkflowDetailPage() {
     return () => { dispatch(setBreadcrumbs([])); };
   }, [load, dispatch]);
 
+  // Load all species + favorites for the compatible-species picker
+  useEffect(() => {
+    if (!workflow) return;
+    setSpeciesLoading(true);
+    Promise.all([
+      speciesApi.listSpecies(0, 500),
+      favApi.listFavorites('species').catch(() => []),
+    ])
+      .then(([res, favs]) => {
+        const items: SpeciesOption[] = res.items.map((s) => ({
+          key: s.key, scientific_name: s.scientific_name, common_names: s.common_names,
+          plant_category: s.plant_category, family_name: s.family_name,
+        }));
+        setAllSpecies(items);
+        setFavoriteKeys(new Set(favs.map((f) => f.target_key)));
+        const compatNames = new Set(workflow.species_compatible ?? []);
+        setSelectedSpecies(items.filter((s) => compatNames.has(s.scientific_name) || compatNames.has(s.key)));
+      })
+      .catch(() => setAllSpecies([]))
+      .finally(() => setSpeciesLoading(false));
+  }, [workflow]);
+
   const onSave = async (data: EditFormData) => {
     if (!key) return;
     try {
@@ -169,6 +228,8 @@ export default function WorkflowDetailPage() {
         description: data.description,
         version: data.version,
         tags: data.tags ? data.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
+        target_entity_types: data.target_entity_types,
+        species_compatible: selectedSpecies.map((s) => s.scientific_name),
       });
       notification.success(t('pages.tasks.workflowUpdated'));
       load();
@@ -211,7 +272,7 @@ export default function WorkflowDetailPage() {
       if (!phaseMap.has(phase)) {
         const group = {
           phase,
-          displayName: tt.phase_display_name || phase,
+          displayName: tt.phase_display_name || (phase === '_unassigned' ? t('pages.tasks.unassignedPhase') : phase),
           durationDays: tt.phase_duration_days || 0,
           stressTolerance: tt.phase_stress_tolerance || '',
           templates: [] as TaskTemplate[],
@@ -226,7 +287,22 @@ export default function WorkflowDetailPage() {
       g.templates.sort((a, b) => a.days_offset - b.days_offset);
     }
     return groups;
-  }, [templates]);
+  }, [templates, t]);
+
+  // Filtered species options based on active filter
+  const filteredSpeciesOptions = useMemo(() => {
+    let filtered = allSpecies;
+    if (speciesFilter === 'favorites') {
+      filtered = filtered.filter((s) => favoriteKeys.has(s.key));
+    }
+    // Sort: favorites first, then alphabetically
+    return [...filtered].sort((a, b) => {
+      const aFav = favoriteKeys.has(a.key) ? 0 : 1;
+      const bFav = favoriteKeys.has(b.key) ? 0 : 1;
+      if (aFav !== bFav) return aFav - bFav;
+      return a.scientific_name.localeCompare(b.scientific_name);
+    });
+  }, [allSpecies, speciesFilter, favoriteKeys]);
 
   const handleToggleEnabled = useCallback(async (tt: TaskTemplate) => {
     try {
@@ -265,8 +341,12 @@ export default function WorkflowDetailPage() {
     if (allActivities.length > 0) return;
     setActivitiesLoading(true);
     try {
-      const list = await activityApi.listActivities();
+      const [list, favs] = await Promise.all([
+        activityApi.listActivities(),
+        favApi.listFavorites('activities').catch(() => []),
+      ]);
       setAllActivities(list);
+      setActivityFavKeys(new Set(favs.map((f) => f.target_key)));
     } catch (err) {
       handleError(err);
     } finally {
@@ -282,6 +362,7 @@ export default function WorkflowDetailPage() {
     setSelectedActivity(null);
     setAddDayOffset(0);
     setActivityFilter('');
+    setCatalogFilter('all');
     setExpandedDesc(null);
     setAddDialogOpen(true);
     loadActivities();
@@ -325,18 +406,89 @@ export default function WorkflowDetailPage() {
 
   // Filter activities for the dialog
   const filteredActivities = useMemo(() => {
-    if (!activityFilter) return allActivities;
-    const lower = activityFilter.toLowerCase();
-    return allActivities.filter((a) => {
-      const name = i18n.language === 'de' && a.name_de ? a.name_de : a.name;
-      const desc = i18n.language === 'de' && a.description_de ? a.description_de : a.description;
-      const cat = t(`enums.activityCategory.${a.category}`, a.category);
-      return name.toLowerCase().includes(lower)
-        || desc.toLowerCase().includes(lower)
-        || cat.toLowerCase().includes(lower)
-        || a.tags.some((tag) => tag.toLowerCase().includes(lower));
+    const compatSpecies = workflow?.species_compatible ?? [];
+
+    let filtered = allActivities;
+
+    // Apply catalog filter
+    if (catalogFilter === 'favorites') {
+      filtered = filtered.filter((a) => activityFavKeys.has(a.key));
+    } else if (catalogFilter === 'compatible') {
+      filtered = filtered.filter((a) => {
+        // Universal activities (empty species_compatible) always match
+        if (!a.species_compatible.length) return true;
+        // Check if any workflow species matches any activity species_compatible entry
+        return compatSpecies.some((ws) =>
+          a.species_compatible.some((as_) =>
+            ws.toLowerCase().includes(as_.toLowerCase()) || as_.toLowerCase().includes(ws.toLowerCase()),
+          ),
+        );
+      });
+    }
+
+    // Apply text search
+    if (activityFilter) {
+      const lower = activityFilter.toLowerCase();
+      filtered = filtered.filter((a) => {
+        const name = i18n.language === 'de' && a.name_de ? a.name_de : a.name;
+        const desc = i18n.language === 'de' && a.description_de ? a.description_de : a.description;
+        const cat = t(`enums.activityCategory.${a.category}`, a.category);
+        return name.toLowerCase().includes(lower)
+          || desc.toLowerCase().includes(lower)
+          || cat.toLowerCase().includes(lower)
+          || a.tags.some((tag) => tag.toLowerCase().includes(lower));
+      });
+    }
+
+    return filtered;
+  }, [allActivities, activityFilter, catalogFilter, activityFavKeys, workflow?.species_compatible, i18n.language, t]);
+
+  // Group executions: by planting_run if available, otherwise collect standalone plants
+  type RunGroup = {
+    groupKey: string;
+    run: { key: string; name: string; status: string } | null;
+    plants: { key: string; name: string; removed: boolean }[];
+    species_name: string;
+    avg_completion: number;
+    all_completed: boolean;
+    on_schedule: boolean;
+  };
+
+  const groupedByRun = useMemo((): RunGroup[] => {
+    // Deduplicate executions per entity (keep latest)
+    const latestPerEntity = new Map<string, WorkflowExecutionEnriched>();
+    for (const ex of executions) {
+      const existing = latestPerEntity.get(ex.entity_key);
+      if (!existing || (ex.started_at ?? ex.key) > (existing.started_at ?? existing.key)) {
+        latestPerEntity.set(ex.entity_key, ex);
+      }
+    }
+    const unique = Array.from(latestPerEntity.values());
+
+    // Group all executions as standalone entries (no run grouping needed)
+    const entries = unique;
+    const totalCompletion = entries.reduce((s, e) => s + e.completion_percentage, 0);
+    if (entries.length === 0) return [];
+
+    return [{
+      groupKey: '__all__',
+      run: null,
+      plants: entries.map((e) => ({ key: e.entity_key, name: e.entity_name, removed: e.plant_removed })),
+      species_name: entries[0]?.species_name ?? '',
+      avg_completion: totalCompletion / entries.length,
+      all_completed: entries.every((e) => e.completed_at !== null),
+      on_schedule: entries.every((e) => e.on_schedule),
+    }];
+  }, [executions]);
+
+  const filteredGroups = useMemo(() => {
+    if (!hideInactive) return groupedByRun;
+    return groupedByRun.filter((g) => {
+      if (g.all_completed) return false;
+      if (g.run && (g.run.status === 'cancelled' || g.run.status === 'completed')) return false;
+      return g.plants.some((p) => !p.removed);
     });
-  }, [allActivities, activityFilter, i18n.language, t]);
+  }, [groupedByRun, hideInactive]);
 
   const stressColors: Record<string, 'default' | 'success' | 'warning' | 'error'> = {
     none: 'default', low: 'success', medium: 'warning', high: 'error',
@@ -363,27 +515,190 @@ export default function WorkflowDetailPage() {
       </Tabs>
 
       {tab === 0 && (
-        <Card>
-          <CardContent>
-            <Table size="small" aria-label={t('pages.tasks.tabDetails')}>
-              <TableBody>
-                <TableRow><TableCell component="th">{t('pages.tasks.version')}</TableCell><TableCell>{workflow.version}</TableCell></TableRow>
-                {workflow.description && <TableRow><TableCell component="th">{t('common.description')}</TableCell><TableCell>{workflow.description}</TableCell></TableRow>}
-                {workflow.tags.length > 0 && (
-                  <TableRow><TableCell component="th">{t('pages.tasks.tags')}</TableCell><TableCell>{workflow.tags.map((tag) => <Chip key={tag} label={tag} size="small" sx={{ mr: 0.5 }} />)}</TableCell></TableRow>
-                )}
-                <TableRow><TableCell component="th">{t('pages.tasks.taskTemplates')}</TableCell><TableCell>{templates.length}</TableCell></TableRow>
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Card>
+            <CardContent>
+              <Table size="small" aria-label={t('pages.tasks.tabDetails')}>
+                <TableBody>
+                  <TableRow><TableCell component="th">{t('pages.tasks.version')}</TableCell><TableCell>{workflow.version}</TableCell></TableRow>
+                  {workflow.description && <TableRow><TableCell component="th">{t('common.description')}</TableCell><TableCell>{workflow.description}</TableCell></TableRow>}
+                  {workflow.tags.length > 0 && (
+                    <TableRow><TableCell component="th">{t('pages.tasks.tags')}</TableCell><TableCell>{workflow.tags.map((tag) => <Chip key={tag} label={tag} size="small" sx={{ mr: 0.5 }} />)}</TableCell></TableRow>
+                  )}
+                  <TableRow>
+                    <TableCell component="th">{t('pages.tasks.targetEntityTypes')}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                        {(workflow.target_entity_types ?? ['plant_instance']).map((et) => (
+                          <Chip
+                            key={et}
+                            label={t(`pages.tasks.entityTypes.${et}`, { defaultValue: et })}
+                            size="small"
+                            color="info"
+                            variant="outlined"
+                          />
+                        ))}
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                  {(workflow.species_compatible?.length ?? 0) > 0 && (
+                    <TableRow>
+                      <TableCell component="th">{t('pages.tasks.speciesCompatible')}</TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                          {workflow.species_compatible!.map((sp) => (
+                            <Chip key={sp} label={sp} size="small" variant="outlined" icon={<LocalFloristIcon />} />
+                          ))}
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  <TableRow><TableCell component="th">{t('pages.tasks.taskTemplates')}</TableCell><TableCell>{templates.length}</TableCell></TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Assigned Plants & Planting Runs */}
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="h6">
+                  {t('pages.tasks.assignedExecutions')}
+                  {' '}
+                  <Chip label={filteredGroups.length} size="small" color="primary" />
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      size="small"
+                      checked={hideInactive}
+                      onChange={(_, v) => setHideInactive(v)}
+                    />
+                  }
+                  label={t('pages.tasks.hideInactive')}
+                />
+              </Box>
+              {filteredGroups.length === 0 ? (
+                <Typography color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+                  {hideInactive && executions.length > 0
+                    ? t('pages.tasks.allExecutionsInactive')
+                    : t('pages.tasks.noExecutions')}
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>{t('pages.tasks.plantingRun')}</TableCell>
+                        <TableCell>{t('entities.species')}</TableCell>
+                        <TableCell>{t('pages.runs.plantCount')}</TableCell>
+                        <TableCell>{t('pages.tasks.progress')}</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {filteredGroups.map((g) => (
+                        <TableRow
+                          key={g.groupKey}
+                          sx={{ opacity: g.all_completed ? 0.5 : 1 }}
+                        >
+                          <TableCell>
+                            {g.run ? (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Typography
+                                  variant="body2"
+                                  component="a"
+                                  href={`/durchlaeufe/planting-runs/${g.run.key}`}
+                                  onClick={(e) => { e.preventDefault(); navigate(`/durchlaeufe/planting-runs/${g.run!.key}`); }}
+                                  sx={{ color: 'primary.main', textDecoration: 'none', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                                >
+                                  {g.run.name}
+                                </Typography>
+                                <Chip
+                                  label={t(`enums.plantingRunStatus.${g.run.status}`, g.run.status)}
+                                  size="small"
+                                  variant="outlined"
+                                  color={
+                                    g.run.status === 'active' || g.run.status === 'harvesting' ? 'success'
+                                      : g.run.status === 'cancelled' ? 'error'
+                                      : g.run.status === 'completed' ? 'default'
+                                      : 'warning'
+                                  }
+                                />
+                              </Box>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">
+                                {t('pages.runs.standalonePlants')}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" color="text.secondary">
+                              {g.species_name}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Tooltip
+                              title={g.plants.map((p) => p.name).join(', ')}
+                              arrow
+                              placement="top"
+                            >
+                              <Chip
+                                icon={<LocalFloristIcon />}
+                                label={g.plants.length}
+                                size="small"
+                                variant="outlined"
+                              />
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 120 }}>
+                              <LinearProgress
+                                variant="determinate"
+                                value={g.avg_completion}
+                                sx={{ flexGrow: 1, height: 6, borderRadius: 3 }}
+                                color={g.all_completed ? 'inherit' : g.on_schedule ? 'primary' : 'warning'}
+                              />
+                              <Typography variant="caption" sx={{ minWidth: 36, textAlign: 'right' }}>
+                                {Math.round(g.avg_completion)}%
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </CardContent>
+          </Card>
+        </Box>
       )}
 
       {tab === 1 && (
         <Box>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditTemplate(undefined); setTemplateDialogOpen(true); }}>
-              {t('pages.tasks.addTaskTemplate')}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 2 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<BuildOutlinedIcon />}
+              onClick={() => { setEditTemplate(undefined); setTemplateDialogOpen(true); }}
+            >
+              {t('pages.tasks.createManually')}
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => {
+                const first = phaseGroups[0];
+                if (first) {
+                  handleOpenAddFromCatalog(first.phase, first.displayName, first.durationDays, first.stressTolerance);
+                } else {
+                  handleOpenAddFromCatalog('_unassigned', t('pages.tasks.unassignedPhase'), 0, '');
+                }
+              }}
+            >
+              {t('pages.tasks.addActivityFromCatalog')}
             </Button>
           </Box>
 
@@ -458,6 +773,22 @@ export default function WorkflowDetailPage() {
                                     >
                                       <InfoOutlinedIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
                                     </Tooltip>
+                                  )}
+                                  {tt.activity_key ? (
+                                    <Chip
+                                      icon={<LocalFloristIcon sx={{ fontSize: 14 }} />}
+                                      label={t('pages.tasks.sourceCatalog')}
+                                      size="small"
+                                      color="success"
+                                      variant="outlined"
+                                    />
+                                  ) : (
+                                    <Chip
+                                      icon={<BuildOutlinedIcon sx={{ fontSize: 14 }} />}
+                                      label={t('pages.tasks.sourceManual')}
+                                      size="small"
+                                      variant="outlined"
+                                    />
                                   )}
                                   {tt.is_optional && (
                                     <Chip label={t('pages.activityPlan.optional')} size="small" color="warning" variant="outlined" />
@@ -547,7 +878,35 @@ export default function WorkflowDetailPage() {
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            {/* Search/Filter */}
+            {/* Filter chips */}
+            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+              <Chip
+                label={t('common.all')}
+                size="small"
+                variant={catalogFilter === 'all' ? 'filled' : 'outlined'}
+                color={catalogFilter === 'all' ? 'primary' : 'default'}
+                onClick={() => setCatalogFilter('all')}
+              />
+              <Chip
+                icon={<StarIcon fontSize="small" />}
+                label={t('common.favorites')}
+                size="small"
+                variant={catalogFilter === 'favorites' ? 'filled' : 'outlined'}
+                color={catalogFilter === 'favorites' ? 'warning' : 'default'}
+                onClick={() => setCatalogFilter('favorites')}
+              />
+              {(workflow?.species_compatible?.length ?? 0) > 0 && (
+                <Chip
+                  icon={<LocalFloristIcon fontSize="small" />}
+                  label={t('pages.tasks.compatibleOnly')}
+                  size="small"
+                  variant={catalogFilter === 'compatible' ? 'filled' : 'outlined'}
+                  color={catalogFilter === 'compatible' ? 'success' : 'default'}
+                  onClick={() => setCatalogFilter('compatible')}
+                />
+              )}
+            </Box>
+            {/* Search */}
             <TextField
               size="small"
               placeholder={t('pages.tasks.searchActivities')}
@@ -695,8 +1054,116 @@ export default function WorkflowDetailPage() {
                 <FormTextField name="description" control={control} label={t('common.description')} multiline rows={3} />
                 <FormTextField name="version" control={control} label={t('pages.tasks.version')} />
                 <FormTextField name="tags" control={control} label={t('pages.tasks.tags')} helperText={t('pages.tasks.tagsHelper')} />
+                <Controller
+                  name="target_entity_types"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControl fullWidth sx={{ mb: 2 }}>
+                      <InputLabel>{t('pages.tasks.targetEntityTypes')}</InputLabel>
+                      <Select
+                        {...field}
+                        multiple
+                        label={t('pages.tasks.targetEntityTypes')}
+                        renderValue={(selected) => (
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {(selected as string[]).map((v) => (
+                              <Chip key={v} label={t(`pages.tasks.entityTypes.${v}`)} size="small" />
+                            ))}
+                          </Box>
+                        )}
+                      >
+                        {entityTypes.map((v) => (
+                          <MenuItem key={v} value={v}>
+                            {t(`pages.tasks.entityTypes.${v}`)}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  )}
+                />
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>{t('pages.tasks.speciesCompatible')}</Typography>
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1.5 }}>
+                    <Chip
+                      label={t('common.all')}
+                      size="small"
+                      variant={speciesFilter === 'all' ? 'filled' : 'outlined'}
+                      color={speciesFilter === 'all' ? 'primary' : 'default'}
+                      onClick={() => setSpeciesFilter('all')}
+                    />
+                    <Chip
+                      icon={<StarIcon fontSize="small" />}
+                      label={t('common.favorites')}
+                      size="small"
+                      variant={speciesFilter === 'favorites' ? 'filled' : 'outlined'}
+                      color={speciesFilter === 'favorites' ? 'warning' : 'default'}
+                      onClick={() => setSpeciesFilter('favorites')}
+                    />
+                  </Box>
+                  <Autocomplete
+                    multiple
+                    options={filteredSpeciesOptions}
+                    value={selectedSpecies}
+                    onChange={(_, newValue) => setSelectedSpecies(newValue)}
+                    getOptionLabel={(opt) => {
+                      const common = opt.common_names?.[0];
+                      return common ? `${common} (${opt.scientific_name})` : opt.scientific_name;
+                    }}
+                    isOptionEqualToValue={(opt, val) => opt.key === val.key}
+                    loading={speciesLoading}
+                    groupBy={(opt) => opt.plant_category ? t(`enums.plantCategory.${opt.plant_category}`, { defaultValue: opt.plant_category }) : t('common.other')}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder={t('common.search')}
+                        helperText={t('pages.tasks.speciesCompatibleHelper')}
+                        slotProps={{
+                          input: {
+                            ...params.InputProps,
+                            endAdornment: (
+                              <>
+                                {speciesLoading ? <CircularProgress size={20} /> : null}
+                                {params.InputProps.endAdornment}
+                              </>
+                            ),
+                          },
+                        }}
+                      />
+                    )}
+                    renderOption={(props, opt) => {
+                      const { key: liKey, ...liProps } = props;
+                      const isFav = favoriteKeys.has(opt.key);
+                      return (
+                        <ListItem key={liKey} {...liProps} dense>
+                          <ListItemIcon sx={{ minWidth: 32 }}>
+                            {isFav ? <StarIcon fontSize="small" color="warning" /> : <StarBorderIcon fontSize="small" sx={{ opacity: 0.3 }} />}
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={opt.common_names?.[0] || opt.scientific_name}
+                            secondary={opt.common_names?.[0] ? opt.scientific_name : opt.family_name}
+                            slotProps={{ primary: { variant: 'body2' }, secondary: { variant: 'caption' } }}
+                          />
+                        </ListItem>
+                      );
+                    }}
+                    renderTags={(value, getTagProps) =>
+                      value.map((opt, index) => {
+                        const { key: tagKey, ...tagProps } = getTagProps({ index });
+                        return (
+                          <Chip
+                            key={tagKey}
+                            icon={favoriteKeys.has(opt.key) ? <StarIcon fontSize="small" /> : undefined}
+                            label={opt.common_names?.[0] || opt.scientific_name}
+                            size="small"
+                            {...tagProps}
+                          />
+                        );
+                      })
+                    }
+                  />
+                </Box>
                 <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
-                <FormActions onCancel={() => reset()} loading={saving} disabled={!isDirty} />
+                <FormActions onCancel={() => { reset(); setSelectedSpecies(allSpecies.filter((s) => (workflow?.species_compatible ?? []).includes(s.scientific_name) || (workflow?.species_compatible ?? []).includes(s.key))); }} loading={saving} disabled={!isDirty && selectedSpecies.map((s) => s.scientific_name).sort().join(',') === (workflow?.species_compatible ?? []).sort().join(',')} />
               </form>
             </CardContent>
           </Card>
