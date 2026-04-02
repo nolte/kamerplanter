@@ -403,6 +403,13 @@ class RipenessStage(StrEnum):
 # ── REQ-006 Tasks ──
 
 
+class WorkflowTargetType(StrEnum):
+    PLANT_INSTANCE = "plant_instance"
+    PLANTING_RUN = "planting_run"
+    LOCATION = "location"
+    TANK = "tank"
+
+
 class TaskStatus(StrEnum):
     PENDING = "pending"
     IN_PROGRESS = "in_progress"

@@ -8,6 +8,13 @@ from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.task import Task, TaskAuditEntry, TaskComment, TaskTemplate, WorkflowExecution, WorkflowTemplate
 
+ENTITY_TYPE_TO_COLLECTION: dict[str, str] = {
+    "plant_instance": col.PLANT_INSTANCES,
+    "planting_run": col.PLANTING_RUNS,
+    "location": col.LOCATIONS,
+    "tank": col.TANKS,
+}
+
 
 class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
     def __init__(self, db: StandardDatabase) -> None:
@@ -21,6 +28,7 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
         limit: int = 50,
         species_key: str | None = None,
         tenant_key: str | None = None,
+        target_entity_type: str | None = None,
     ) -> tuple[list[WorkflowTemplate], int]:
         filter_parts: list[str] = []
         bind_vars: dict = {}
@@ -30,6 +38,9 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
         if tenant_key:
             filter_parts.append("doc.tenant_key == @tenant_key")
             bind_vars["tenant_key"] = tenant_key
+        if target_entity_type:
+            filter_parts.append("(@target_entity_type IN doc.target_entity_types)")
+            bind_vars["target_entity_type"] = target_entity_type
         filt = ("FILTER " + " AND ".join(filter_parts)) if filter_parts else ""
         query = f"FOR doc IN {col.WORKFLOW_TEMPLATES} {filt} SORT doc.name LIMIT {offset}, {limit} RETURN doc"
         count_query = f"FOR doc IN {col.WORKFLOW_TEMPLATES} {filt} COLLECT WITH COUNT INTO total RETURN total"
@@ -174,8 +185,22 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
         doc = BaseArangoRepository.create(self, task)
         t = Task(**doc)
 
-        if task.plant_key:
-            self.create_edge(col.HAS_TASK, f"{col.PLANT_INSTANCES}/{task.plant_key}", f"{col.TASKS}/{t.key}")
+        # Create has_task edge from entity to task
+        entity_collection = None
+        entity_key = None
+        target_type = None
+        if task.entity_key and task.entity_type:
+            entity_collection = ENTITY_TYPE_TO_COLLECTION.get(task.entity_type)
+            entity_key = task.entity_key
+            target_type = task.entity_type
+
+        if entity_collection and entity_key:
+            self.create_edge(
+                col.HAS_TASK,
+                f"{entity_collection}/{entity_key}",
+                f"{col.TASKS}/{t.key}",
+                data={"target_type": target_type},
+            )
         if task.template_key:
             self.create_edge(col.INSTANCE_OF, f"{col.TASKS}/{t.key}", f"{col.TASK_TEMPLATES}/{task.template_key}")
         if task.workflow_execution_key:
@@ -204,8 +229,32 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
         return BaseArangoRepository.delete(self, key)
 
     def get_tasks_for_plant(self, plant_key: str, status: str | None = None) -> list[Task]:
-        query = f"FOR doc IN {col.TASKS} FILTER doc.plant_key == @plant_key"
+        query = f"FOR doc IN {col.TASKS} FILTER doc.entity_type == 'plant_instance' AND doc.entity_key == @plant_key"
         bind_vars: dict = {"plant_key": plant_key}
+        if status:
+            query += " FILTER doc.status == @status"
+            bind_vars["status"] = status
+        query += " SORT doc.due_date ASC RETURN doc"
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return [Task(**self._from_doc(doc)) for doc in cursor]
+
+    def get_tasks_for_entity(
+        self,
+        entity_type: str,
+        entity_key: str,
+        tenant_key: str,
+        status: str | None = None,
+    ) -> list[Task]:
+        query = (
+            f"FOR doc IN {col.TASKS} "
+            f"FILTER doc.entity_type == @entity_type AND doc.entity_key == @entity_key "
+            f"AND doc.tenant_key == @tenant_key"
+        )
+        bind_vars: dict = {
+            "entity_type": entity_type,
+            "entity_key": entity_key,
+            "tenant_key": tenant_key,
+        }
         if status:
             query += " FILTER doc.status == @status"
             bind_vars["status"] = status
@@ -252,9 +301,23 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
         result = coll.insert(data, return_new=True)
         we = WorkflowExecution(**self._from_doc(result["new"]))
 
-        plant_id = f"{col.PLANT_INSTANCES}/{execution.plant_key}"
-        wfe_id = f"{col.WORKFLOW_EXECUTIONS}/{we.key}"
-        self.create_edge(col.WF_EXECUTING, plant_id, wfe_id)
+        # Create wf_executing edge from entity to execution
+        entity_collection = None
+        entity_key = None
+        target_type = None
+        if execution.entity_key and execution.entity_type:
+            entity_collection = ENTITY_TYPE_TO_COLLECTION.get(execution.entity_type)
+            entity_key = execution.entity_key
+            target_type = execution.entity_type
+
+        if entity_collection and entity_key:
+            wfe_id = f"{col.WORKFLOW_EXECUTIONS}/{we.key}"
+            self.create_edge(
+                col.WF_EXECUTING,
+                f"{entity_collection}/{entity_key}",
+                wfe_id,
+                data={"target_type": target_type},
+            )
         return we
 
     def get_workflow_execution_by_key(self, key: WorkflowExecutionKey) -> WorkflowExecution | None:
@@ -377,7 +440,7 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
         query = (
             f"FOR t IN {col.TASKS} "
             f"FILTER t.status == 'dormant' "
-            f"AND t.plant_key == @plant_key "
+            f"AND t.entity_type == 'plant_instance' AND t.entity_key == @plant_key "
             f"AND (t.trigger_phase_override == @phase "
             f"OR (t.trigger_phase_override == null AND t.trigger_phase == @phase)) "
             f"RETURN t"
@@ -451,18 +514,63 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
               FILTER tt.workflow_template_key == wf_key
               RETURN tt._key
           )
-          LET plant_keys = (
+          LET entity_keys = (
             FOR t IN {col.TASKS}
-              FILTER t.template_key IN tt_keys AND t.plant_key != null
-              RETURN DISTINCT t.plant_key
+              FILTER t.template_key IN tt_keys AND t.entity_key != null
+              RETURN DISTINCT t.entity_key
           )
-          RETURN {{ wf_key: wf_key, species_name: species_name, plant_count: LENGTH(plant_keys) }}
+          RETURN {{ wf_key: wf_key, species_name: species_name, entity_count: LENGTH(entity_keys) }}
         """
         cursor = self._db.aql.execute(query, bind_vars={"wf_keys": wf_keys})
         result: dict[str, dict] = {}
         for row in cursor:
-            result[row["wf_key"]] = {"species_name": row["species_name"], "plant_count": row["plant_count"]}
+            result[row["wf_key"]] = {"species_name": row["species_name"], "entity_count": row["entity_count"]}
         return result
+
+    def get_executions_for_template(self, template_key: str) -> list[dict]:
+        """Return workflow executions for a template with enriched entity info."""
+        query = f"""
+        FOR we IN {col.WORKFLOW_EXECUTIONS}
+          FILTER we.workflow_template_key == @template_key
+          LET etype = we.entity_type
+          LET ekey = we.entity_key
+          LET plant = etype == 'plant_instance'
+            ? DOCUMENT(CONCAT('{col.PLANT_INSTANCES}/', ekey))
+            : null
+          LET loc = etype == 'location'
+            ? DOCUMENT(CONCAT('{col.LOCATIONS}/', ekey))
+            : null
+          LET tank = etype == 'tank'
+            ? DOCUMENT(CONCAT('{col.TANKS}/', ekey))
+            : null
+          LET run_doc = etype == 'planting_run'
+            ? DOCUMENT(CONCAT('{col.PLANTING_RUNS}/', ekey))
+            : null
+          LET sp = plant != null AND plant.species_key != null
+            ? DOCUMENT(CONCAT('{col.SPECIES}/', plant.species_key))
+            : null
+          LET species_name = sp != null
+            ? (LENGTH(sp.common_names) > 0 ? sp.common_names[0] : sp.scientific_name)
+            : ''
+          LET entity_name = plant != null
+            ? (plant.plant_name || plant.instance_id || ekey)
+            : (loc != null ? loc.name : (tank != null ? tank.name : (run_doc != null ? run_doc.name : ekey)))
+          SORT we.created_at DESC
+          RETURN {{
+            key: we._key,
+            entity_key: ekey,
+            entity_type: etype,
+            entity_name: entity_name,
+            plant_removed: plant != null AND plant.removed_on != null,
+            species_name: species_name,
+            completion_percentage: we.completion_percentage,
+            on_schedule: we.on_schedule,
+            started_at: we.started_at,
+            completed_at: we.completed_at
+          }}
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"template_key": template_key})
+        return list(cursor)
 
     # ── Batch ──
 

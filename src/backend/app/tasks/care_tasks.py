@@ -79,23 +79,33 @@ def generate_due_care_reminders() -> dict:
                 continue
 
             # Check if task already exists for this plant/type
+            # Skip if PENDING/IN_PROGRESS or COMPLETED today (avoid re-creation)
             name_suffix = f"\u2014 {rt.value}"
-            existing = task_repo.find_by_field("plant_key", plant_key)
+            existing = task_repo.find_by_field("entity_key", plant_key)
+            today_str = today.isoformat()
             already_exists = any(
                 t.get("category") == TaskCategory.CARE_REMINDER.value
                 and t.get("name", "").endswith(name_suffix)
-                and t.get("status") in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
+                and (
+                    t.get("status") in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
+                    or (
+                        t.get("status") == TaskStatus.COMPLETED.value
+                        and str(t.get("completed_at", ""))[:10] >= today_str
+                    )
+                )
                 for t in existing
             )
             if already_exists:
                 skipped_count += 1
                 continue
 
-            # Resolve plant name for user-friendly display
+            # Resolve plant name and tenant for user-friendly display
             plant_label = plant_key
+            plant_tenant_key = ""
             plant = plant_repo.get_by_key(plant_key)
             if plant is not None:
                 plant_label = plant.plant_name or plant.instance_id or plant_key
+                plant_tenant_key = plant.tenant_key
 
             rt_instructions = {
                 ReminderType.FERTILIZING: f"Fertilize {plant_label} according to care profile.",
@@ -109,7 +119,9 @@ def generate_due_care_reminders() -> dict:
                 name=f"{plant_label} \u2014 {rt.value}",
                 instruction=rt_instructions.get(rt, f"Care reminder: {rt.value} for {plant_label}."),
                 category=TaskCategory.CARE_REMINDER,
-                plant_key=plant_key,
+                entity_key=plant_key,
+                entity_type="plant_instance",
+                tenant_key=plant_tenant_key,
                 due_date=datetime(today.year, today.month, today.day, tzinfo=UTC),
                 status=TaskStatus.PENDING,
                 priority=TaskPriority.MEDIUM if urgency == "due_today" else TaskPriority.HIGH,

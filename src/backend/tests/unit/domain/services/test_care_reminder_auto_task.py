@@ -72,7 +72,8 @@ def test_creates_task_when_no_pending_exists(
         name="plant-1 \u2014 watering",
         instruction="Water plant-1 (every 7 days).",
         category=TaskCategory.CARE_REMINDER,
-        plant_key="plant-1",
+        entity_key="plant-1",
+        entity_type="plant_instance",
         status=TaskStatus.PENDING,
     )
 
@@ -82,7 +83,8 @@ def test_creates_task_when_no_pending_exists(
     mock_task_repo.create_task.assert_called_once()
     created = mock_task_repo.create_task.call_args[0][0]
     assert created.category == TaskCategory.CARE_REMINDER
-    assert created.plant_key == "plant-1"
+    assert created.entity_key == "plant-1"
+    assert created.entity_type == "plant_instance"
     assert "watering" in created.name
     assert "Water" in created.instruction
     assert "care:" not in created.instruction
@@ -126,7 +128,8 @@ def test_creates_task_regardless_of_auto_create_flag(
         name="plant-1 — watering",
         instruction="Water plant-1 (every 7 days).",
         category=TaskCategory.CARE_REMINDER,
-        plant_key="plant-1",
+        entity_key="plant-1",
+        entity_type="plant_instance",
         status=TaskStatus.PENDING,
     )
 
@@ -166,7 +169,8 @@ def test_due_date_calculated_from_last_confirmation(
         name="plant-1 — watering",
         instruction="Water plant-1 (every 7 days).",
         category=TaskCategory.CARE_REMINDER,
-        plant_key="plant-1",
+        entity_key="plant-1",
+        entity_type="plant_instance",
         status=TaskStatus.PENDING,
     )
 
@@ -198,7 +202,8 @@ def test_confirm_triggers_next_task_creation(
         name="plant-1 — watering",
         instruction="Water plant-1 (every 7 days).",
         category=TaskCategory.CARE_REMINDER,
-        plant_key="plant-1",
+        entity_key="plant-1",
+        entity_type="plant_instance",
         status=TaskStatus.PENDING,
     )
 
@@ -239,6 +244,7 @@ def test_resolves_plant_name_for_task_display(
     plant_mock = MagicMock()
     plant_mock.plant_name = "Monstera"
     plant_mock.instance_id = "PI-001"
+    plant_mock.tenant_key = "tenant-1"
     mock_plant_repo.get_by_key.return_value = plant_mock
 
     service = CareReminderService(mock_care_repo, engine, mock_task_repo, plant_repo=mock_plant_repo)
@@ -256,7 +262,8 @@ def test_resolves_plant_name_for_task_display(
         name="Monstera — watering",
         instruction="Water plant-1 (every 7 days).",
         category=TaskCategory.CARE_REMINDER,
-        plant_key="plant-1",
+        entity_key="plant-1",
+        entity_type="plant_instance",
         status=TaskStatus.PENDING,
     )
 

@@ -26,6 +26,7 @@ class WorkflowTemplateCreate(BaseModel):
     category: str = "maintenance"
     tags: list[str] = Field(default_factory=list)
     is_system: bool = False
+    target_entity_types: list[str] = Field(default_factory=lambda: ["plant_instance"])
 
 
 class WorkflowTemplateUpdate(BaseModel):
@@ -37,6 +38,7 @@ class WorkflowTemplateUpdate(BaseModel):
     difficulty_level: str | None = None
     category: str | None = None
     tags: list[str] | None = None
+    target_entity_types: list[str] | None = None
 
 
 class WorkflowTemplateResponse(BaseModel):
@@ -55,7 +57,8 @@ class WorkflowTemplateResponse(BaseModel):
     species_key: str | None = None
     species_name: str = ""
     total_duration_days: int = 0
-    assigned_plant_count: int = 0
+    assigned_entity_count: int = 0
+    target_entity_types: list[str] = Field(default_factory=lambda: ["plant_instance"])
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -150,7 +153,8 @@ class TaskCreate(BaseModel):
     instruction: str = ""
     instruction_de: str = ""
     category: str = "maintenance"
-    plant_key: str | None = None
+    entity_key: str | None = None
+    entity_type: str | None = None
     due_date: datetime | None = None
     scheduled_time: str | None = None
     priority: str = "medium"
@@ -172,7 +176,6 @@ class TaskUpdate(BaseModel):
     name: str | None = None
     instruction: str | None = None
     category: str | None = None
-    plant_key: str | None = None
     due_date: datetime | None = None
     scheduled_time: str | None = None
     priority: str | None = None
@@ -197,7 +200,8 @@ class TaskResponse(BaseModel):
     instruction: str
     instruction_de: str = ""
     category: str
-    plant_key: str | None = None
+    entity_key: str | None = None
+    entity_type: str | None = None
     due_date: datetime | None = None
     scheduled_time: str | None = None
     status: str
@@ -228,7 +232,6 @@ class TaskResponse(BaseModel):
     activity_key: str | None = None
     template_key: str | None = None
     workflow_execution_key: str | None = None
-    planting_run_key: str | None = None
     watering_event_key: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -249,7 +252,8 @@ class TaskCompleteRequest(BaseModel):
 
 
 class TaskCloneRequest(BaseModel):
-    target_plant_key: str | None = None
+    target_entity_key: str | None = None
+    target_entity_type: str | None = None
     due_date_offset_days: int | None = None
 
 
@@ -333,13 +337,15 @@ class HSTValidateRequest(BaseModel):
 
 
 class WorkflowInstantiateRequest(BaseModel):
-    plant_key: str
+    entity_key: str
+    entity_type: str
 
 
 class WorkflowExecutionResponse(BaseModel):
     key: str
     workflow_template_key: str
-    plant_key: str
+    entity_key: str = ""
+    entity_type: str = "plant_instance"
     started_at: datetime | None = None
     completed_at: datetime | None = None
     completion_percentage: float

@@ -323,6 +323,7 @@ class ArangoPlantingRunRepository(IPlantingRunRepository, BaseArangoRepository):
           RETURN {{
             run_key: run._key,
             run_name: run.name,
+            tenant_key: run.tenant_key,
             plan_key: run.nutrient_plan_key,
             watering_schedule: plan.watering_schedule
           }}
