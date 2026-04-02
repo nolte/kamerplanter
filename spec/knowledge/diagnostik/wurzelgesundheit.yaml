@@ -2,7 +2,7 @@
 title: Wurzelgesundheit beurteilen und wiederherstellen
 language: de
 category: diagnostik
-tags: [wurzeln, wurzelfaeule, pythium, fusarium, sauerstoff, ueberwaesserung, mykorrhiza, wurzelzone, temperatur]
+tags: [wurzeln, wurzelfaeule, pythium, fusarium, sauerstoff, sauerstoffmangel, ueberwaesserung, mykorrhiza, wurzelzone, temperatur, welkt-trotz-nass, drainage]
 expertise_level: [beginner, intermediate, expert]
 applicable_phases: [seedling, vegetative, flowering]
 chunks:
@@ -26,8 +26,13 @@ chunks:
       assessment: visual
 
   - id: wurzelfaeule-erkennung
-    title: Wurzelfaeule erkennen (Pythium, Phytophthora, Fusarium)
+    title: Pflanze welkt obwohl Erde nass ist — Wurzelfaeule erkennen
     content: |
+      LEITSYMPTOM: Die Pflanze welkt obwohl die Erde nass ist.
+      Wenn eine Pflanze welkt trotz feuchtem/nassem Substrat, ist
+      Wurzelfaeule (Root Rot) die wahrscheinlichste Ursache.
+      Die Wurzeln sind geschaedigt und koennen kein Wasser mehr aufnehmen,
+      obwohl genuegend Feuchtigkeit vorhanden ist.
       Fruehe Anzeichen:
       - Pflanze welkt trotz feuchtem Substrat (Schluesselsymptom!)
       - Wachstum stoppt ploetzlich
@@ -90,7 +95,11 @@ chunks:
       - Biofilm im Reservoir (Sauerstoff-zehrende Bakterien)
       Symptome: Pflanze welkt trotz Feuchtigkeit, Wachstum stoppt, Wurzeln
       werden braun (Vorstadium von Wurzelfaeule).
+      WICHTIG — Drainage pruefen! Schlechte Drainage ist die haeufigste
+      Ursache fuer Sauerstoffmangel und damit fuer Wurzelfaeule.
+      Drainage verbessern und sicherstellen ist die erste Massnahme.
       Loesungen:
+      - Drainage pruefen und verbessern: Abflussloecher offen?
       - Substrat: Perlit beimischen (20-30%) fuer Luftporen
       - Toepfe mit Drainage-Loechern, erhoehte Aufstellung fuer Ablauf
       - Hydro: Luftsteine (mind. 1W Pumpe pro 5L Reservoir)

@@ -2,7 +2,7 @@
 title: Zimmerpflanzen-Grundpflege im Jahresverlauf
 language: de
 category: pflege
-tags: [zimmerpflanzen, umtopfen, winter, ruhephase, substrat, pflanzenlampe, kuebelpflanzen, ueberwintern, monstera, tropisch, anfaenger]
+tags: [zimmerpflanzen, umtopfen, winter, ruhephase, substrat, pflanzenlampe, growlight, led, licht, nordfenster, kuebelpflanzen, ueberwintern, monstera, tropisch, anfaenger]
 expertise_level: [beginner, intermediate]
 applicable_phases: [vegetative, flowering]
 chunks:
@@ -10,9 +10,11 @@ chunks:
     title: Zimmerpflanzen umtopfen — Wann und Wie
     content: |
       Wann umtopfen? Im Fruehling (Maerz-Mai), zu Beginn der Wachstumsperiode.
-      Die Pflanze kann dann schnell neue Wurzeln bilden und sich erholen.
-      NICHT im Herbst oder Winter umtopfen — die Pflanze waechst kaum und
-      nasses, frisches Substrat kann zu Wurzelfaeule fuehren.
+      Das Fruehling ist die beste Zeit weil die Pflanze dann schnell neue
+      Wurzeln bilden und sich erholen kann. Waehrend der Wachstumsperiode
+      im Fruehling und Fruehsommer ist das Wurzelwachstum am staerksten.
+      Nicht in der Ruhephase (Herbst/kalte Monate) umtopfen — die Pflanze
+      waechst kaum und nasses, frisches Substrat kann zu Problemen fuehren.
       Zeichen dass umgetopft werden muss:
       - Wurzeln wachsen aus den Abzugsloechern heraus (Wurzeln aus Loechern
         = klassisches Signal)
@@ -88,24 +90,29 @@ chunks:
       difficulty: beginner
 
   - id: pflanzenlampe-winter-zimmerpflanzen
-    title: Braucht meine Zimmerpflanze eine Pflanzenlampe im Winter?
+    title: Pflanzenlampe im Winter — Braucht meine Zimmerpflanze Zusatzlicht?
     content: |
-      Ob eine Pflanzenlampe im Winter noetig ist, haengt von der Pflanze
-      und dem Standort ab — es ist abhaengig von der Art und dem Fenster.
-      Im Winter herrschen kurze Tage (nur 8-9 Stunden Tageslicht in
-      Mitteleuropa, davon oft bewoelkt). Viele Zimmerpflanzen bekommen
-      dann zu wenig Licht.
-      Nordfenster: Ja, eine Pflanzenlampe ist hier im Winter fast immer
-      sinnvoll. Nordfenster bekommen nur diffuses Licht (50-150 PPFD im
-      Sommer, im Winter noch weniger). Ohne Zusatzlicht kuemmern die
-      meisten Pflanzen. Nur echte Schattenpflanzen (Sansevieria, ZZ)
-      ueberstehen den Winter am Nordfenster ohne Lampe.
-      Suedfenster: Meist reicht das natuerliche Licht auch im Winter —
-      am Suedfenster ist meist genug Licht fuer die meisten Zimmerpflanzen,
-      solange die Pflanze direkt am Fenster steht. Aber: 2m vom Suedfenster
-      entfernt kann es schon zu dunkel sein.
+      Braucht meine Pflanze eine Pflanzenlampe im Winter? Das ist
+      abhaengig von der Art und dem Standort — eine pauschale Antwort
+      gibt es nicht.
+      Warum Winter problematisch ist: Im Winter herrschen kurze Tage
+      (nur 8-9 Stunden Tageslicht in Mitteleuropa, davon oft bewoelkt).
+      Das wenige Tageslicht reicht fuer viele Zimmerpflanzen nicht aus.
+      Nordfenster: Ja, am Nordfenster ist eine Pflanzenlampe im Winter
+      fast immer sinnvoll und empfehlenswert. Nordfenster bekommen nur
+      diffuses Licht (50-150 PPFD im Sommer, im Winter noch weniger).
+      Ohne Zusatzlicht kuemmern die meisten Pflanzen am Nordfenster.
+      Nur echte Schattenpflanzen (Sansevieria, ZZ) ueberstehen den
+      Winter am Nordfenster ohne Lampe.
+      Suedfenster: Am Suedfenster ist meist genug Licht, auch im Winter —
+      eine Pflanzenlampe ist hier meist nicht noetig, solange die Pflanze
+      direkt am Fenster steht. Aber: Schon 2m vom Suedfenster entfernt
+      kann es zu dunkel sein.
       Ost-/Westfenster: Grenzwertig im Winter. Lichtliebende Pflanzen
       (Ficus, Strelitzia, Citrus) profitieren von einer LED-Ergaenzung.
+      NICHT jede Pflanze braucht eine Pflanzenlampe — am Suedfenster
+      ist Zusatzlicht meist ueberfluessig. Aber am Nordfenster im
+      Winter ist eine Pflanzenlampe fast immer noetig.
       Pflanzenlampen-Empfehlung:
       - LED-Vollspektrum (weisses Licht, 3500-5000K) — auch dekorativ
       - 10-14 Stunden pro Tag (mit Zeitschaltuhr)
@@ -113,6 +120,7 @@ chunks:
       - Fuer reine Ueberwinterung reichen 100-200 PPFD
     metadata:
       topic: grow_light_winter
+      tags: [pflanzenlampe, growlight, led, winter, licht, nordfenster, suedfenster, zusatzlicht, zimmerpflanzen]
       context: houseplants
       difficulty: beginner
 

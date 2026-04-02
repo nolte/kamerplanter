@@ -122,9 +122,13 @@ chunks:
       Interpretation Runoff-EC:
       - Runoff-EC ≈ Input-EC (±0.2): Alles im Gleichgewicht
       - Runoff-EC deutlich hoeher (>0.5 ueber Input): Salzanreicherung
-        im Substrat → mit niedrigerer EC giessen oder Flush
-      - Runoff-EC deutlich niedriger: Substrat "frisst" Naehrstoffe →
-        EC erhoehen oder frisches Substrat bindet noch (normal bei neuem Coco)
+        im Substrat. EC NICHT erhoehen! Stattdessen: EC der Naehrloesung
+        reduzieren (EC senken) und/oder Flush durchfuehren. Beispiel:
+        Runoff-EC 3.2 bei Input-EC 1.4 → massive Salzanreicherung, Flush
+        noetig (3x Topfvolumen mit pH-angepasstem Wasser spuelen), danach
+        mit reduzierter EC (50-75%) weiterduengen.
+      - Runoff-EC deutlich niedriger: Substrat bindet Naehrstoffe →
+        bei Bedarf Input-EC leicht anpassen (normal bei neuem Coco)
       Interpretation Runoff-pH:
       - Runoff-pH ≈ Input-pH: Substrat puffert nicht
       - Runoff-pH niedriger: Substrat versauert (organische Zersetzung)

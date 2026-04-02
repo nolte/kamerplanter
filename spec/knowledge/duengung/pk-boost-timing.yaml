@@ -360,13 +360,17 @@ chunks:
       - Ertragsverlust bei zu langem Flush (>2 Wochen)
       - Stress fuer die Pflanze in einer kritischen Reifephase
 
-      Praktische Empfehlung:
+      Praktische Empfehlung — der Kompromiss:
+      Da die Datenlage umstritten ist, empfehlen wir einen pragmatischen Mittelweg:
       - PK-Boost auf jeden Fall 2-3 Wochen vor Ernte stoppen (unbestritten sinnvoll)
-      - Letzte 1-2 Wochen: Basis-Naehrloesung bei 50% EC ODER reines Wasser
+      - EC reduzieren statt komplett flushen: Letzte 1-2 Wochen die EC auf 50% der
+        normalen Dosierung senken (Duenger reduzieren) ODER reines Wasser verwenden
       - Erde: Laengerer Flush sinnvoller als in Hydroponik (Salzpufferung im Boden)
       - Hydroponik: 5-7 Tage reichen voellig aus
       - Keinesfalls laenger als 2 Wochen flushen — die Pflanze baut Chlorophyll
         und Proteine ab, was Blattgewebe und ggf. Geschmack negativ beeinflusst
+      Dieser Kompromiss — EC reduzieren statt abrupt stoppen — ist die persoenliche
+      Praeferenz vieler erfahrener Grower und schadet in keinem Fall.
 
       Im Kamerplanter-System wird der Flush als Phase-Transition oder manuell
       ueber die Watering-Schedule (ScheduleMode) gesteuert. Die ReadinessEngine

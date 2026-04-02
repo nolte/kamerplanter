@@ -9,17 +9,21 @@ chunks:
   - id: fehler-uebergiessen
     title: "Fehler #1: Uebergiessen — der Pflanzenkiller Nr. 1"
     content: |
-      70-80% aller Zimmerpflanzen-Tode gehen auf Ueberwaesserung zurueck.
+      Der haeufigste Fehler bei Zimmerpflanzen ist Uebergiessen — also
+      zu viel Wasser geben. 70-80% aller Zimmerpflanzen-Tode gehen auf
+      Ueberwaesserung zurueck. Es ist der Anfaengerfehler schlechthin.
       Warum wir uebergiessen:
       - "Die Pflanze sieht traurig aus" → Wir giessen aus Sorge
       - Zeitplan-Giessen ("jeden Montag") statt Bedarfs-Giessen
       - Angst vor Trockenheit (dabei vertragen die meisten Pflanzen
         kurze Trockenheit VIEL besser als Dauernasse)
-      Warum es so schaedlich ist:
+      Warum zu viel Wasser so schaedlich ist:
       - Wurzeln brauchen Sauerstoff. Nasse Erde = kein Sauerstoff.
       - Ohne Sauerstoff sterben Wurzeln → Wurzelfaeule → Pflanze kann
         KEIN Wasser mehr aufnehmen → welkt → wir giessen NOCH MEHR
         → Teufelskreis → Pflanze stirbt
+      Wurzelfaeule erkennen: Fauliger Geruch aus dem Topf, matschige
+      braune Wurzeln, Pflanze welkt obwohl die Erde feucht ist.
       Goldene Regel: "When in doubt, don't water."
       Im Zweifel NICHT giessen. Einen Tag zu spaet giessen ist harmlos.
       Einen Tag zu frueh giessen kann schaden.
@@ -57,18 +61,25 @@ chunks:
       rank: 2
 
   - id: fehler-topfgroesse
-    title: "Fehler #3: Topf zu gross"
+    title: "Fehler #3: Topf zu gross — warum nicht zu gross umtopfen"
     content: |
-      Intuition sagt: Grosser Topf = viel Platz = glueckliche Pflanze.
+      Soll ich meine Pflanze umtopfen? Ja, aber nicht zu gross! Ein
+      haeufiger Anfaengerfehler ist, einen viel zu grossen Topf zu waehlen.
       Realitaet: Grosser Topf = viel NASSE Erde die nie abtrocknet =
       Wurzelfaeule.
       Warum: Kleine Wurzeln koennen das Wasser in einem grossen Topf
       nicht schnell genug aufnehmen. Die Erde bleibt wochenlang nass.
       Und nasse Erde ohne Wurzeln = Anaerobe Bedingungen = Faeulnis.
-      Richtige Topfgroesse:
+      Wann umtopfen — Wurzeln pruefen:
+      - Wurzeln wachsen aus den Abzugsloechern heraus → hoechste Zeit
+      - Wurzelballen ist komplett durchwurzelt (beim Austopfen pruefen)
+      - Pflanze waechst kaum noch obwohl Licht und Wasser stimmen
+      - Erde trocknet extrem schnell aus (kaum noch Substrat, nur Wurzeln)
+      Richtige Topfgroesse — nicht zu gross:
       - Beim Umtopfen: Max. 2-3cm groesserer Durchmesser als der alte Topf
-      - Pflanze passt gerade so rein (Wurzelballen fuellt 60-70% des Topfs)
+      - Wurzelballen sollte 60-70% des neuen Topfs fuellen
       - Lieber zu klein als zu gross — dann nochmal umtopfen wenn noetig
+      - Schrittweise vergroessern, nicht von 10cm direkt auf 25cm springen
       Ausnahmen:
       - Schnellwachser (Monstera, Philodendron): Koennen groessere Spruenge
         vertragen (3-5cm groesserer Durchmesser)
@@ -156,8 +167,6 @@ chunks:
       Die beste Faehigkeit eines guten Gaertners ist nicht Handeln,
       sondern BEOBACHTEN. 5 Minuten taegliches Hinschauen verhindern
       mehr Probleme als alle Produkte der Welt.
-      In Kamerplanter: Pflegehistorie und Messwert-Verlauf helfen,
-      Aenderungen zu tracken und Muster zu erkennen (REQ-005, REQ-022).
     metadata:
       topic: impatience
       rank: 9

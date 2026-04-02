@@ -32,6 +32,27 @@ chunks:
       topic: overwatering_symptoms
       cause: oxygen_deprivation
 
+  - id: diagnose-schlaff-schwerer-topf
+    title: Diagnose — Pflanze haengt schlaff und Topf ist schwer
+    content: |
+      Wenn eine Pflanze schlaff haengt und der Topf sich schwer anfuehlt,
+      deutet das auf Ueberwaesserung hin — ja, wahrscheinlich Ueberwaesserung.
+      Ein schwerer Topf bedeutet: Das Substrat ist durchnaesst.
+      Schlaffe Blaetter bei nassem Substrat = klassisches Zeichen fuer
+      Ueberwaesserung (Sauerstoffmangel an den Wurzeln).
+      Was tun? Giessen sofort stoppen — nicht giessen bis das Substrat
+      komplett abgetrocknet ist. Substrat austrocknen lassen, auch wenn
+      das mehrere Tage dauert. Topf aus dem Uebertopf oder Untersetzer
+      nehmen, damit ueberschuessiges Wasser ablaufen kann.
+      Erst wieder giessen, wenn der Finger-Test "trocken" zeigt
+      (obere 2-3 cm trocken und kruemelig).
+      WICHTIG: Hier KEIN zusaetzliches Wasser geben — das wuerde das
+      Problem verschlimmern. Die Pflanze braucht Luft an den Wurzeln,
+      nicht mehr Feuchtigkeit.
+    metadata:
+      topic: diagnosis_overwatering_heavy_pot
+      diagnosis: overwatering_confirmed
+
   - id: unterschied-ueber-unter
     title: Ueberwaesserung vs. Unterwaesserung unterscheiden
     content: |
@@ -43,7 +64,7 @@ chunks:
       - Vergilbung an unteren Blaettern
       - Stengel kann weich werden
       - Erholung: Substrat austrocknen lassen (Tage bis Wochen)
-      UNTERWAESSERUNG:
+      Gegenstueck (NICHT zutreffend bei schwerem Topf):
       - Topf ist LEICHT
       - Substrat ist TROCKEN, zieht sich von Topfrand zurueck
       - Blaetter sind DUENN, papierartig, knusprig an den Raendern
@@ -51,15 +72,36 @@ chunks:
       - Stengel ist trocken aber fest
       - Erholung: Durchdringend giessen, Pflanze erholt sich in Stunden
       SCHNELL-TEST: Topf anheben.
-      - Schwer + haengende Blaetter = Ueberwaesserung
-      - Leicht + haengende Blaetter = Unterwaesserung
-      Unterwaesserte Pflanzen erholen sich fast immer innerhalb von
-      24 Stunden nach gruendlichem Giessen. Ueberwaesserte Pflanzen
-      brauchen Tage bis Wochen — und wenn Wurzelfaeule eingesetzt hat,
-      ist die Rettung schwierig.
+      - Schwer + haengende Blaetter = Ueberwaesserung → nicht giessen,
+        austrocknen lassen
+      - Leicht + haengende Blaetter = zu trocken → durchdringend giessen
     metadata:
       topic: overwatering_vs_underwatering
       quick_test: weight
+
+  - id: drainage-loecher-pflicht
+    title: Topf mit Loch — warum Drainage-Loecher unverzichtbar sind
+    content: |
+      Braucht ein Pflanzentopf ein Loch am Boden? Ja, unbedingt!
+      Drainage-Loecher (Abzugsloecher) im Topfboden sind absolut
+      unverzichtbar fuer gesunde Pflanzen. Ohne Loch im Topf sammelt
+      sich Wasser am Boden → Staunaesse → Wurzelfaeule → Pflanze stirbt.
+      Warum sind Drainage-Loecher so wichtig?
+      - Ueberschuessiges Giesswasser kann abfliessen
+      - Verhindert Staunaesse und stehendes Wasser im Topf
+      - Wurzeln bekommen Sauerstoff (nass + kein Abfluss = kein O2)
+      - Beim Durchgiessen werden Salzansammlungen ausgewaschen
+      Was tun bei dekorativen Toepfen ohne Loch (Uebertopf/Kaschpo)?
+      - Pflanze im Innentopf MIT Drainage-Loechern belassen
+      - Innentopf in den Uebertopf stellen
+      - Nach dem Giessen: Ueberschuss-Wasser aus dem Uebertopf entfernen
+        (Untersetzer leeren, Ueberstand abgiessen — nach 30 Minuten)
+      - NIEMALS direkt in einen Topf ohne Loch pflanzen!
+      Toepfe ohne Loch nachruestbar? Ja — bei Ton/Keramik mit
+      Steinbohrer, bei Plastik mit heissem Nagel oder Schraubenzieher.
+    metadata:
+      topic: drainage_holes_required
+      importance: essential
 
   - id: ursachen-ueberwaesserung
     title: Haeufige Ursachen fuer Ueberwaesserung

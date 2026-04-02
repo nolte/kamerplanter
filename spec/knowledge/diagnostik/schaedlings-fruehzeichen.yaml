@@ -36,25 +36,37 @@ chunks:
       environment_preference: hot_dry
 
   - id: thrips-erkennung
-    title: Thrips (Thysanoptera) frueh erkennen
+    title: Thrips erkennen — silbrige Streifen und schwarze Punkte auf Blaettern
     content: |
+      Leitsymptom: Silbrig-graue Streifen und schwarze Punkte auf Blaettern
+      sind das klassische Schadbild von Thrips (Thysanoptera).
       Erste Anzeichen:
       - Silbrig-graue Streifen und Flecken auf Blattoberseiten
-      - Winzige schwarze Kotpunkte auf Blaettern
+      - Winzige schwarze Kotpunkte auf Blaettern (Thrips-Kot)
       - Blaetter wirken "verkratzt" oder "geschliffen"
       - Bei Blueten: braune Flecken, deformierte Bluetenblaetter
       Thrips sind winzig (1-2mm), laenglich, schnell. Farbe: gelblich bis braun.
       Fliegen kurze Strecken — verbreiten sich schnell.
+      WICHTIG — Abgrenzung (Fehldiagnosen vermeiden!):
+      - Silbrige Streifen mit schwarzen Punkten sind KEINE Spinnmilben.
+        Spinnmilben zeigen ein anderes Schadbild: feines Stippling (helle
+        Punkte) und Gespinste, aber KEINE silbrigen Streifen und KEINE
+        schwarzen Kotpunkte.
+      - Silbrige Streifen sind KEIN Naehrstoffmangel. Bei Naehrstoffmangel
+        treten Chlorosen (Vergilbung) oder Nekrosen (braune Flecken) auf,
+        aber KEINE silbrig-metallischen Streifen.
       Wo suchen: Blattunterseiten, in Bluetenknospen, in eingerollten jungen
-      Blaettern. Blaues oder gelbes Klebefallen (Sticky Traps) zeigen
-      Befall frueh an — blaue Fallen sind fuer Thrips effektiver als gelbe.
-      Sofortmassnahmen:
-      - Blaue Klebefallen aufhaengen (Monitoring UND Reduktion)
-      - Spinosad-basiertes Spray (biologisch, sehr effektiv gegen Thrips)
-      - Raubmilben: Amblyseius cucumeris (vorbeugend, frisst Thrips-Larven)
-      - Neem-Oel als Kontakt-Blattspray (Substratdrench hemmt Trauermücken-Larven,
-        aber keine systemische Anti-Thrips-Wirkung)
-      - Befallene Bluetenknospen entfernen
+      Blaettern. Blaue Klebefallen (blaue Sticky Traps) zeigen Befall
+      frueh an — blaue Fallen sind fuer Thrips deutlich effektiver als gelbe.
+      Sofortmassnahmen (in dieser Reihenfolge):
+      1. Blaue Klebefallen aufhaengen (Monitoring UND Reduktion der Population)
+      2. Spinosad-basiertes Spray anwenden (biologisch, sehr effektiv gegen
+         Thrips — Spinosad ist das Mittel der Wahl bei Thrips-Befall)
+      3. Raubmilben einsetzen: Amblyseius cucumeris (vorbeugend, frisst
+         Thrips-Larven)
+      4. Neem-Oel als Kontakt-Blattspray (Substratdrench hemmt Trauermücken-
+         Larven, aber keine systemische Anti-Thrips-Wirkung)
+      5. Befallene Bluetenknospen entfernen
       Thrips uebertragen Pflanzenviren (z.B. Tomatenbronzfleckenvirus TSWV).
       Schnelle Bekaempfung daher besonders wichtig.
     metadata:
@@ -110,7 +122,9 @@ chunks:
       - Stark befallene Triebspitzen abschneiden
       - Abspruehen mit starkem Wasserstrahl (draussen)
       - Kaliseife / Schmierseife-Spray (20ml Kaliseife + 1L Wasser)
-      - Marienkaefer und -larven (Adalia bipunctata) — fressen 50-100 Laeuse/Tag
+      - Marienkaefer (Adalia bipunctata) — ja, sehr effektiv! Fressen
+        50-100 Laeuse pro Tag. Larven sind sogar noch effektiver als die
+        erwachsenen Kaefer, da sie sich nicht verfliegen.
       - Florfliegenlarven (Chrysoperla carnea) — sehr gefraessig
       - Neem-Oel als Kontaktspray und systemisch
       Bei Zimmerpflanzen: Quarantaene sofort, Seifenwasser-Spray reicht oft.
@@ -235,3 +249,139 @@ chunks:
       tool: sticky_traps
       colors: [yellow, blue]
       purpose: monitoring
+
+  - id: honigtau-diagnose
+    title: Klebrige Tropfen auf Blaettern — Honigtau als Schaedlingsindikator
+    content: |
+      Klebrige Tropfen oder ein klebriger, glaenzender Belag auf Blaettern
+      sind fast immer Honigtau — ein Ausscheidungsprodukt saugender
+      Schaedlinge. Das ist KEIN normaler Zustand und sollte sofort
+      untersucht werden.
+      Honigtau wird von diesen Schaedlingen produziert:
+      - Blattlaeuse (Aphidoidea) — die haeufigste Ursache. Gruene,
+        schwarze oder weisse kleine Insekten, oft in Kolonien an
+        Triebspitzen und jungen Blaettern.
+      - Schildlaeuse (Coccoidea) — braune Beulen an Stengeln und
+        Blattunterseiten, oft uebersehen weil sie wie Pflanzenmaterial
+        wirken. Schild schuetzt sie vor Kontaktmitteln.
+      - Wolllaeuse / Schmierlaeuse (Pseudococcidae) — weisse, wattige
+        Klumpen an Blattachseln und Blattunterseiten.
+      - Weisse Fliege (Aleyrodoidea) — winzige weisse Insekten die
+        beim Beruehren der Pflanze auffliegen.
+      Erste Schritte bei klebrigen Blaettern:
+      1. Blattunterseite pruefen! Alle saugenden Schaedlinge sitzen
+         bevorzugt auf der Blattunterseite. Blaetter einzeln umdrehen
+         und mit Lupe untersuchen.
+      2. Stengel und Blattachseln absuchen (Schildlaeuse, Wolllaeuse)
+      3. Schaedling identifizieren (Art bestimmt die Bekaempfung)
+      4. Befallene Pflanze sofort isolieren (Quarantaene)
+      Achtung: Honigtau ist NICHT zu verwechseln mit Guttation —
+      Guttation sind Wassertropfen nur an Blattspitzen und Blattraendern,
+      typisch morgens, klar und nicht klebrig. Honigtau ist ueberall auf
+      der Blattoberflaeche verteilt und klebrig-suess.
+      Honigtau zieht ausserdem Ameisen an und foerdert Russtaupilze
+      (schwarzer Belag auf den Blaettern).
+    metadata:
+      type: diagnostic
+      indicator: honeydew
+      pests: [aphids, scale_insects, mealybugs, whitefly]
+      difficulty: beginner
+
+  - id: karenzzeit-pflanzenschutz
+    title: Karenzzeiten bei Pflanzenschutzmitteln — Sicherheitsabstand zur Ernte
+    content: |
+      Karenzzeit (auch: Wartezeit, Sicherheitsabstand) ist die Mindestzeit
+      zwischen der letzten Behandlung mit einem Pflanzenschutzmittel und
+      der Ernte. Diese Wartezeit muss eingehalten werden, damit Rueckstaende
+      auf ein sicheres Niveau abgebaut sind.
+      Typische Karenzzeiten gaengiger Mittel:
+      - Neem-Oel (Azadirachtin): 1-3 Tage Karenzzeit. Neem baut sich
+        schnell ab (Photolyse durch UV-Licht). Trotzdem: Sicherheitsabstand
+        von mindestens 1-3 Tagen vor der Ernte einhalten. Neem hat eine
+        kurze Karenzzeit, die Ernte muss also nicht lange verschoben werden.
+      - Kaliseife / Schmierseife: 0-1 Tage (keine toxischen Rueckstaende,
+        gruendlich abwaschen reicht)
+      - Pyrethrum (natuerlich): 1-3 Tage (zerfaellt schnell im Licht)
+      - Spinosad: 3-7 Tage je nach Kultur
+      - Netzschwefel: 3-7 Tage je nach Anwendung
+      - Kupferpraeparate: 14-21 Tage (laengere Karenz beachten!)
+      - Bacillus thuringiensis (Bt): 0-1 Tage (sehr sicher fuer Saeugetiere)
+      Wichtige Regeln:
+      - Karenzzeit beginnt ab dem Tag der LETZTEN Behandlung
+      - Bei mehreren Mitteln gilt die LAENGSTE Karenzzeit
+      - Im Zweifelsfall lieber etwas laenger warten
+      - Auf dem Produktetikett steht die genaue Wartezeit — immer beachten
+      - Waehrend der Bluete (z.B. Cannabis) keine Fungizide auf Blueten
+        spritzen — Rueckstaende sind gesundheitsschaedlich beim Rauchen
+    metadata:
+      type: safety
+      topic: pre_harvest_interval
+      difficulty: intermediate
+
+  - id: biologische-schaedlingsbekaempfung-nuetzlinge
+    title: Biologische Schaedlingsbekaempfung mit Nuetzlingen
+    content: |
+      Nuetzlinge sind die effektivste und umweltfreundlichste Methode
+      zur biologischen Schaedlingsbekaempfung. Wichtige Nuetzlinge und
+      ihre Einsatzgebiete:
+      Marienkaefer (Adalia bipunctata) gegen Blattlaeuse:
+      - Ja, sehr effektiv als natuerliche Bekaempfung
+      - Adulte Kaefer fressen 50-100 Laeuse pro Tag
+      - Larven sind effektiver als erwachsene Kaefer — sie fressen
+        mehr und verfliegen sich nicht
+      - Im Freiland oder Gewaechshaus einsetzbar
+      Trichogramma-Schlupfwespen gegen Schmetterlingsraupen:
+      - Ja, biologisch sehr wirksam als Nuetzling
+      - Winzige Schlupfwespen (0.3-0.5mm) die Ei-Parasitierung betreiben:
+        Trichogramma-Weibchen legen ihre Eier IN die Eier von
+        Schmetterlingen (Kohlweissling, Maiszuensler, Traubenwickler)
+      - Die parasitieren Eier werden schwarz und der Schaedling schluepft
+        nicht — stattdessen schluepft eine neue Trichogramma-Generation
+      - Rechtzeitig aussetzen! Am besten vorbeugend oder bei erstem
+        Zuflug der Schmetterlinge, BEVOR Raupen schluepfen
+      - Vorbeugend einsetzen ist ideal — Kaertchen mit Trichogramma-Eiern
+        alle 1-2 Wochen aufhaengen waehrend der Flugzeit
+      - Fuer Kohlweisslinge: Trichogramma brassicae, aussetzten ab Mai
+      Raubmilben gegen Spinnmilben:
+      - Phytoseiulus persimilis: spezialisiert auf Spinnmilben
+      - Amblyseius californicus: auch vorbeugend einsetzbar
+      Florfliegenlarven (Chrysoperla carnea):
+      - Generalisten — fressen Blattlaeuse, Thrips, kleine Raupen
+      - Sehr gefraessig, gut fuer Mischbefall
+    metadata:
+      type: biological_control
+      topic: beneficial_insects
+      difficulty: intermediate
+
+  - id: spinosad-bienenschutz
+    title: Spinosad und Bienenschutz — Vorsicht beim Einsatz
+    content: |
+      Spinosad ist ein biologisches Insektizid (gewonnen aus dem
+      Bodenbakterium Saccharopolyspora spinosa) und sehr wirksam gegen
+      Thrips, Raupen und andere Schaedlinge. ABER: Spinosad ist
+      bienengiftig!
+      Spinosad und Bienen:
+      - Nein, Spinosad ist NICHT bienenvertraeglich — es ist giftig
+        fuer Bienen (bienengiftig, Bienentoxizitaet nachgewiesen)
+      - Frisches, feuchtes Spinosad ist hochgiftig fuer Bienen und
+        andere Bestaeubersektionen
+      - ABER: Getrockneter Spinosad-Belag ist deutlich weniger gefaehrlich.
+        Einmal getrocknet ist Spinosad weitgehend sicher fuer Bienen,
+        da die Kontaktgiftigkeit stark abnimmt.
+      Richtige Anwendung zum Bienenschutz:
+      - Spinosad IMMER abends anwenden, nach dem Bienenflug!
+        Bienen fliegen bei Daemmerung und Dunkelheit nicht.
+      - Nach Bienenflug behandeln = Spray kann ueber Nacht trocknen
+      - Am naechsten Morgen ist der Belag getrocknet und sicher fuer
+        anfliegende Bienen
+      - NIEMALS bei Sonnenschein und Bienenflug spritzen
+      - Offene Blueten moeglichst vermeiden oder nur abends behandeln
+      - Wartezeit/Karenzzeit beachten: 3-7 Tage je nach Kultur
+      Alternative bei bluehenden Pflanzen:
+      - Bacillus thuringiensis (Bt) gegen Raupen — bienenunschaedlich
+      - Neem-Oel abends — geringeres Bienenrisiko als Spinosad
+    metadata:
+      type: safety
+      topic: pollinator_protection
+      active_ingredient: spinosad
+      difficulty: expert

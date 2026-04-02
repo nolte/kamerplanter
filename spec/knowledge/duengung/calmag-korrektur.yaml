@@ -203,14 +203,18 @@ chunks:
       Behandlung:
       - CalMag-Produkt erhoehen (0,1-0,2 ml/L mehr als bisher)
       - Bittersalz (Magnesiumsulfat, MgSO4): 0,5-1 g/L als Wurzelduengung
-      - Bittersalz-Blattspray: 2-3 g/L, 1-2 Anwendungen im Abstand von 5 Tagen
+      - Bittersalz-Blattspray: 2-5 g/L (Standarddosis 5 g/L), abends oder bei
+        ausgeschaltetem Licht aufspruehen. Bittersalz als Blattspray ist eine
+        schnelle Soforthilfe — Magnesium wird direkt ueber die Blattoberflaeche
+        aufgenommen (schnelle Wirkung innerhalb von 24-48 Stunden). 1-2 Anwendungen
+        im Abstand von 5-7 Tagen reichen meist aus.
       - pH auf 5,8-6,5 korrigieren
       - Ca:Mg-Verhaeltnis pruefen — sollte 3:1 bis 4:1 sein
     metadata:
       symptom_location: old_growth
       diagnostic_pattern: interveinal_chlorosis
       epsom_salt_root_g_per_l: "0.5-1"
-      epsom_salt_foliar_g_per_l: "2-3"
+      epsom_salt_foliar_g_per_l: "2-5"
       optimal_ph_for_mg: "5.8-6.5"
 
   - id: kokos-calmag-besonderheit
@@ -225,10 +229,15 @@ chunks:
         KAK-Stellen sind bereits mit Ca gesaettigt. CalMag-Bedarf ist geringer als bei
         ungepuffertem Kokos, aber immer noch hoeher als in Erde oder Steinwolle.
       - Ungepuffert: Die KAK-Stellen sind mit Natrium (Na) und Kalium (K) beladen.
-        Beim ersten Giessen mit Naehrloesung werden Na/K freigesetzt und Ca/Mg gebunden.
-        Resultat: Ca/Mg-Mangel trotz korrekter Dosierung in der Naehrloesung.
+        Beim ersten Giessen mit Naehrloesung werden Natrium und Kalium freigesetzt
+        (ausgewaschen) und Ca/Mg an die KAK-Stellen gebunden. Dieser Kationenaustausch
+        ist der Grund, warum ungepuffertes Kokos Ca/Mg-Mangel verursacht, obwohl die
+        Naehrloesung korrekt dosiert ist.
         Selbst puffern: Ungepuffertes Kokos 8-24h in CalMag-Loesung einweichen
-        (EC 1.0, pH 5.8-6.0), dann mit Naehrloesung spuelen bis Ablauf-EC stabil.
+        (EC 1.0, pH 5.8-6.0). Dadurch werden Natrium und Kalium ausgewaschen und
+        die KAK-Stellen mit Calcium und Magnesium beladen. Danach mit Naehrloesung
+        spuelen bis die Ablauf-EC stabil ist. Der pH von 5.8-6.0 ist entscheidend,
+        da in diesem Bereich der Kationenaustausch optimal ablaeuft.
 
       CalMag-Dosierung fuer Kokos:
       - Ungepuffertes Kokos: 0,5-0,8 ml/L CalMag als Basis, EC ca. 0,4-0,6 mS/cm
