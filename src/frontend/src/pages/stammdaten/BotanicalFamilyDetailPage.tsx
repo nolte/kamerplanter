@@ -212,16 +212,18 @@ export default function BotanicalFamilyDetailPage() {
   return (
     <Box data-testid="botanical-family-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <PageTitle title={current?.name ?? t('entities.botanicalFamily')} />
-        <Button
-          color="error"
-          startIcon={<DeleteIcon />}
-          onClick={() => setDeleteOpen(true)}
-        >
-          {t('common.delete')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={current?.name ?? t('entities.botanicalFamily')}
+        action={
+          <Button
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => setDeleteOpen(true)}
+          >
+            {t('common.delete')}
+          </Button>
+        }
+      />
 
       <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
         <Typography variant="body2" color="text.secondary">

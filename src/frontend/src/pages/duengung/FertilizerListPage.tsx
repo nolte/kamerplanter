@@ -187,37 +187,31 @@ export default function FertilizerListPage() {
 
   return (
     <Box data-testid="fertilizer-list-page">
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 1,
-        }}
-      >
-        <PageTitle title={t('pages.fertilizers.title')} />
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {hasFavorites && (
-            <Tooltip title={t('pages.fertilizers.favFilter')}>
-              <IconButton
-                onClick={() => setFavFilterActive((p) => !p)}
-                color={favFilterActive ? 'warning' : 'default'}
-              >
-                <FilterListIcon />
-              </IconButton>
-            </Tooltip>
-          )}
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateOpen(true)}
-            data-testid="create-button"
-          >
-            {t('pages.fertilizers.create')}
-          </Button>
-        </Box>
-      </Box>
+      <PageTitle
+        title={t('pages.fertilizers.title')}
+        action={
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {hasFavorites && (
+              <Tooltip title={t('pages.fertilizers.favFilter')}>
+                <IconButton
+                  onClick={() => setFavFilterActive((p) => !p)}
+                  color={favFilterActive ? 'warning' : 'default'}
+                >
+                  <FilterListIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateOpen(true)}
+              data-testid="create-button"
+            >
+              {t('pages.fertilizers.create')}
+            </Button>
+          </Box>
+        }
+      />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.fertilizers.listIntro')}
       </Typography>

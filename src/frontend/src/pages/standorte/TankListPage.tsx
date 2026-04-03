@@ -53,25 +53,19 @@ export default function TankListPage() {
 
   return (
     <Box data-testid="tank-list-page">
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 1,
-        }}
-      >
-        <PageTitle title={t('pages.tanks.title')} />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateOpen(true)}
-          data-testid="create-button"
-        >
-          {t('pages.tanks.create')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={t('pages.tanks.title')}
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+            data-testid="create-button"
+          >
+            {t('pages.tanks.create')}
+          </Button>
+        }
+      />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.tanks.listIntro')}
       </Typography>

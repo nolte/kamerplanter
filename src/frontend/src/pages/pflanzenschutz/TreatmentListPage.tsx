@@ -88,25 +88,19 @@ export default function TreatmentListPage() {
 
   return (
     <Box data-testid="treatment-list-page">
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 1,
-        }}
-      >
-        <PageTitle title={t('pages.ipm.treatmentsTitle')} />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateOpen(true)}
-          data-testid="create-button"
-        >
-          {t('pages.ipm.createTreatment')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={t('pages.ipm.treatmentsTitle')}
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+            data-testid="create-button"
+          >
+            {t('pages.ipm.createTreatment')}
+          </Button>
+        }
+      />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.ipm.treatmentListIntro')}
       </Typography>

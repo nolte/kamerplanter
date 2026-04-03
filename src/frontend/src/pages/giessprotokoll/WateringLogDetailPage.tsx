@@ -168,31 +168,23 @@ export default function WateringLogDetailPage() {
   return (
     <Box data-testid="watering-log-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          mb: 0.5,
-        }}
-      >
-        <PageTitle
-          title={`${t('pages.wateringLogs.detail')} — ${loggedAtFormatted}`}
-        />
-        <Tooltip title={t('common.delete')}>
-          <Button
-            color="error"
-            variant="outlined"
-            startIcon={<DeleteIcon />}
-            onClick={() => setDeleteOpen(true)}
-            data-testid="delete-watering-log-button"
-            size="small"
-            sx={{ mt: 0.5, flexShrink: 0 }}
-          >
-            {t('common.delete')}
-          </Button>
-        </Tooltip>
-      </Box>
+      <PageTitle
+        title={`${t('pages.wateringLogs.detail')} — ${loggedAtFormatted}`}
+        action={
+          <Tooltip title={t('common.delete')}>
+            <Button
+              color="error"
+              variant="outlined"
+              startIcon={<DeleteIcon />}
+              onClick={() => setDeleteOpen(true)}
+              data-testid="delete-watering-log-button"
+              size="small"
+            >
+              {t('common.delete')}
+            </Button>
+          </Tooltip>
+        }
+      />
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }} aria-label={t('pages.wateringLogs.title')}>
         <Tab label={t('pages.wateringLogs.tabDetails')} data-testid="details-tab" id="tab-details" aria-controls="tabpanel-details" />

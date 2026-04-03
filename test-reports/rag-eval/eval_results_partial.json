@@ -1,204 +1,399 @@
 {
-  "timestamp": "2026-04-01T12:05:43.753034+00:00",
+  "timestamp": "2026-04-03T11:55:21.888822+00:00",
   "partial": true,
   "method": "topic_match",
-  "total_score": 0.0,
-  "passed": false,
+  "total_score": 0.7686,
+  "passed": true,
   "min_pass_score": 0.7,
   "category_scores": {
-    "pflege": 0.0
+    "diagnostik": 0.7778,
+    "duengung": 0.7
   },
-  "questions_evaluated": 12,
+  "questions_evaluated": 17,
   "errors": 0,
   "results": [
     {
-      "id": "pflege-004",
-      "category": "pflege",
-      "score": 0.0,
-      "question_type": "factual",
-      "topic_hits": [],
-      "topic_misses": [
-        "natuerlich_normal",
-        "alte_blaetter",
-        "entfernen"
+      "id": "diag-001",
+      "category": "diagnostik",
+      "score": 0.5,
+      "question_type": "diagnosis",
+      "topic_hits": [
+        "stickstoff_mangel",
+        "mobile_naehrstoffe",
+        "untere_blaetter",
+        "ec_pruefen"
       ],
-      "false_positives": [],
-      "answer": "",
-      "chunk_sources": []
+      "topic_misses": [],
+      "false_positives": [
+        "ueberwaesserung"
+      ],
+      "answer": "Basierend auf dem Kontext und deiner Beschreibung, dass die unteren Blätter gelb werden, während die oberen grün bleiben, ist die wahrscheinlichste Diagnose ein **Stickstoffmangel (N-Mangel)**.\n\n**1. Diagnose:** Stickstoffmangel (N-Mangel)\n\n**2. Mobil/Immobil und betroffene Blätter:** Stickstoff ist ein **mobiler** Nährstoff. Das bedeutet, die Pflanze verlagert Stickstoff aus älteren Blättern zu den neueren, um das Wachstum der jungen Blätter zu unterstützen. Daher sind die **unteren (älteren)** Blätter zuerst betroffen und die Vergilbung schreitet von unten nach oben fort.\n\n**3. Ursachen:**\n\n*   **EC-Wert:** Ein zu niedriger EC-Wert ist die häufigste Ursache für Nährstoffmängel.  Prüfe den EC-Wert und korrigiere ihn.\n*   **pH-Wert:** Ein pH-Wert außerhalb des optimalen Bereichs (5.5-6.5 im Hydroponiksystem, 6.0-7.0 in Erde) kann die Nährstoffaufnahme behindern.  Prüfe und korrigiere den pH-Wert.\n*   **Zu seltene Düngung:**  Die Pflanze erhält möglicherweise nicht genügend Stickstoff.\n*   **Wurzelprobleme:**  Gesunde, weiße Wurzeln sind notwendig, um Nährstoffe aufzunehmen.  Schäden an den Wurzeln können die Aufnahme beeinträchtigen.\n*   **Kalte Wurzelzone:** Eine Wurzelzone unter 18°C kann die Nährstoffaufnahme hemmen.\n*   **Überwässerung:**  Überwässerung kann zu Sauerstoffmangel an den Wurzeln führen, was die Nährstoffaufnahme beeinträchtigt.\n\n**4. Massnahmen:**\n\n*   **EC-Wert erhöhen:** Erhöhe den EC-Wert um 0.2-0.4 mS/cm.\n*   **pH-Wert korrigieren:**  Prüfe den pH-Wert und korrigiere ihn in den optimalen Bereich (5.5-6.5 Hydro, 6.0-7.0 Erde).\n*   **Stickstoffbetonte Nährlösung verwenden:** Verwende eine Nährlösung mit einem höheren Stickstoffanteil.\n*   **In Erde:** Verwende Hornmehl (langsam wirkend) oder Blutmehl (schnell wirkend) als Sofortmaßnahme.\n*   **Wurzelzone prüfen:**  Überprüfe die Wurzeln auf Gesundheit (weiße, gesunde Wurzeln sind wichtig).\n*   **Bewaesserung anpassen:** Vermeide Überwässerung, um Sauerstoffmangel an den Wurzeln zu verhindern.\n*  ",
+      "chunk_sources": [
+        "diagnostik/zimmerpflanzen-probleme#zimmerpflanze-gelbe-blaetter",
+        "diagnostik/naehrstoffmangel-symptome#mangel-stickstoff",
+        "diagnostik/naehrstoffmangel-symptome#spaetbluete-seneszenz",
+        "bewaesserung/ueberwaesserung-erkennen#unterschied-ueber-unter",
+        "diagnostik/naehrstoffmangel-symptome#diagnose-checkliste"
+      ]
     },
     {
-      "id": "pflege-005",
-      "category": "pflege",
-      "score": 0.0,
-      "question_type": "factual",
-      "topic_hits": [],
-      "topic_misses": [
-        "fruehling",
-        "wurzeln_aus_loechern",
-        "wachstumsperiode"
+      "id": "diag-002",
+      "category": "diagnostik",
+      "score": 0.5,
+      "question_type": "diagnosis",
+      "topic_hits": [
+        "natuerlicher_n_abbau",
+        "spaete_bluete_normal",
+        "abreife"
       ],
-      "false_positives": [],
-      "answer": "",
-      "chunk_sources": []
+      "topic_misses": [],
+      "false_positives": [
+        "stickstoff_mangel_behandeln"
+      ],
+      "answer": "Basierend auf den vorliegenden Informationen ist die wahrscheinlichste Diagnose eine natürliche Seneszenz (Abreife) der unteren Blätter. Hier ist eine detaillierte Analyse und die entsprechenden Maßnahmen:\n\n**1. Diagnose:** Natürliche Seneszenz (kein Nährstoffmangel)\n\n**2. Betroffene Blätter und Mobilität:** Die unteren (älteren) Blätter sind betroffen. Dies ist typisch für mobile Nährstoffe, die die Pflanze in die Blüten/Früchte verlagert.\n\n**3. Ursachen:**\n\n*   **Zeitpunkt:** Die Vergilbung tritt in Woche 7 der Blüte auf, was genau in den Zeitraum der natürlichen Seneszenz fällt (ab Woche 6-7).\n*   **Muster:** Die Vergilbung schreitet gleichmäßig von unten nach oben fort, was für Seneszenz typisch ist. Die oberen Blätter bleiben grün und gesund.\n*   **EC-Wert:** Der EC-Wert von 1.4 mS/cm in Kokos ist für die Peak-Blütephase (Woche 4-6) angemessen und liegt im empfohlenen Bereich (1.4-2.0 mS/cm).\n*   **Substrat:** Das Substrat ist Kokos, was die Wahrscheinlichkeit eines Nährstoffmangels aufgrund von pH-Problemen oder Wurzelschäden verringert, da Kokos eine gute Drainage und Belüftung bietet.\n\n**4. Maßnahmen:**\n\n*   **NICHT eingreifen:** Es ist wichtig, die natürliche Seneszenz nicht zu behandeln. Das Erhöhen der EC oder das Hinzufügen von zusätzlichem Stickstoff würde den Geschmack verschlechtern, die Reifung verzögern und das Flush-Ergebnis beeinträchtigen.\n*   **Flush-Routine beibehalten:** Da sich die Pflanze in der späten Blütephase befindet, wird empfohlen, in den letzten 1-2 Wochen mit klarem Wasser zu spülen (Flush). Die Vergilbung der unteren Blätter ist ein Zeichen dafür, dass der Flush-Prozess funktioniert.\n*   **pH-Wert überprüfen:** Obwohl Kokos eine gute Pufferwirkung hat, sollte der pH-Wert dennoch im optimalen Bereich (5.5-6.5 für Hydro, 6.0-7.0 für Erde) liegen, um eine optimale Nährstoffaufnahme sicherzustellen.\n*   **Beobachtung:** Achten Sie darauf, dass die Vergilbung nicht auf die oberen Blätter oder Blüten übergeht. Sollte dies der Fall sein, ",
+      "chunk_sources": [
+        "diagnostik/naehrstoffmangel-symptome#spaetbluete-seneszenz",
+        "diagnostik/naehrstoffmangel-symptome#mangel-stickstoff",
+        "duengung/ec-management-hydroponik#ec-phasenziele-hydroponik",
+        "duengung/ec-management-hydroponik#ec-sortentoleranz",
+        "diagnostik/pilzkrankheiten#grauschimmel-botrytis"
+      ]
     },
     {
-      "id": "pflege-006",
-      "category": "pflege",
-      "score": 0.0,
-      "question_type": "factual",
-      "topic_hits": [],
-      "topic_misses": [
-        "blumenerde",
-        "perlit_beimischen",
-        "drainage"
+      "id": "diag-003",
+      "category": "diagnostik",
+      "score": 0.5,
+      "question_type": "diagnosis",
+      "topic_hits": [
+        "calcium_mangel",
+        "immobiler_naehrstoff",
+        "neue_blaetter",
+        "gleichmaessige_bewaesserung"
       ],
-      "false_positives": [],
-      "answer": "",
-      "chunk_sources": []
+      "topic_misses": [],
+      "false_positives": [
+        "magnesium_mangel"
+      ],
+      "answer": "Basierend auf den vorliegenden Informationen und dem Kontext der Symptome, der betroffenen Pflanzenteile und der gegebenen pH-Werte, lautet die wahrscheinlichste Diagnose: **Calcium (Ca) Mangel**.\n\n**1. Diagnose:** Calcium (Ca) Mangel\n\n**2. Mobil/Immobil und betroffene Blätter:** Calcium ist ein **immobiler** Nährstoff. Das bedeutet, dass die Pflanze Calcium nicht aus älteren Blättern zu neuen Blättern transportieren kann. Daher zeigen sich die Symptome immer zuerst an den **jüngsten Blättern** und **Wachstumspunkten (Triebspitzen)**, wie in Ihrem Fall beschrieben. Die Kräuselung der Triebspitzen und die braunen Flecken auf den neuen Blättern sind typische Anzeichen.\n\n**3. Ursachen:**\n\n*   **pH-Wert:** Der pH-Wert von 6.2 in Erde ist zwar im akzeptablen Bereich, kann aber dennoch zu einem Ca-Lockout führen, wenn er nicht optimal ist. Ein pH-Wert unter 5.5 kann die Ca-Verfügbarkeit stark reduzieren.\n*   **Mögliche weitere Ursachen (die geprüft werden sollten):**\n    *   **CalMag-Mangel:** Obwohl der pH-Wert im akzeptablen Bereich liegt, könnte ein Mangel an Calcium und Magnesium im Substrat vorliegen, insbesondere wenn Sie RO-Wasser ohne CalMag-Zusatz verwenden.\n    *   **Ungerade Bewässerung:** Ungleichmäßige Bewässerung kann zu einem \"Blossom End Rot\" (BER) führen, das auch durch Calcium-Probleme ausgelöst wird.\n    *   **Hohe Kalium- oder Ammonium-Düngung:** Eine übermäßige Kalium- oder Ammonium-Düngung kann die Calciumaufnahme durch die Pflanze beeinträchtigen.\n    *   **Niedrige Luftfeuchtigkeit:** Bei zu niedriger Luftfeuchtigkeit (<40% rH) kann weniger Calcium zu den Triebspitzen transportiert werden.\n    *   **Hohe EC:** Ein zu hoher EC-Wert kann osmotischen Stress verursachen und die Calciumaufnahme hemmen.\n\n**4. Massnahmen:**\n\nHier sind konkrete Schritte und Empfehlungen, basierend auf dem Kontext, um den Calcium-Mangel zu beheben:\n\n*   **CalMag-Zusatz:** Fügen Sie ein CalMag-Präparat hinzu. **Wichtig:** Mischen Sie das CalMag-Präparat *immer* vor den Base-",
+      "chunk_sources": [
+        "diagnostik/naehrstoffmangel-symptome#mangel-calcium",
+        "duengung/calmag-korrektur#calcium-mangel-erkennen",
+        "diagnostik/naehrstoffmangel-symptome#diagnose-checkliste",
+        "diagnostik/naehrstoffmangel-symptome#mangel-stickstoff",
+        "diagnostik/pilzkrankheiten#krautfaeule-kartoffel-tomate"
+      ]
     },
     {
-      "id": "pflege-007",
-      "category": "pflege",
+      "id": "diag-004",
+      "category": "diagnostik",
       "score": 0.0,
       "question_type": "factual",
-      "topic_hits": [],
-      "topic_misses": [
-        "nein",
-        "ruhephase",
-        "wachstum_gestoppt",
-        "fruehling_starten"
+      "topic_hits": [
+        "magnesium_mangel",
+        "kalium_antagonismus",
+        "bittersalz_blattspray",
+        "calmag"
       ],
-      "false_positives": [],
-      "answer": "",
-      "chunk_sources": []
+      "topic_misses": [],
+      "false_positives": [
+        "eisen_mangel",
+        "stickstoff_mangel"
+      ],
+      "answer": "Basierend auf den vorliegenden Informationen liegt bei Ihrem Cannabis sativa in Woche 4 der Blütephase, mit einem EC-Wert von 1.6 und einem pH-Wert von 5.8 in Kokossubstrat, höchstwahrscheinlich ein Magnesiummangel (Mg-Mangel) vor. Dies wird durch die Beschreibung der Symptome – intervenale Chlorose an älteren Blättern, wobei die Blattadern grün bleiben – eindeutig bestätigt.\n\nHier sind die konkreten Schritte und Empfehlungen, die Sie basierend auf dem Kontext ergreifen sollten:\n\n1.  **Bestätigung der Diagnose:** Die Beschreibung der Symptome (intervenale Chlorose an älteren Blättern, grüne Blattadern) ist ein klares Zeichen für einen Magnesiummangel und schließt andere Mangelerscheinungen wie Stickstoff- oder Eisenmangel aus.  Die Abgrenzung zu einem Stickstoffmangel ist wichtig, da dieser das gesamte Blatt vergilbt (inklusive der Adern). Ein Eisenmangel betrifft junge Blätter, während der Magnesiummangel ältere Blätter befällt.\n\n2.  **Sofortmassnahme (Blattspray):**  Um schnell Abhilfe zu schaffen, sollten Sie ein Bittersalz-Blattspray (Epsom Salt, Magnesiumsulfat) anwenden.  Die empfohlene Dosis beträgt 5 g/L. Sprühen Sie die betroffenen Blätter abends oder bei ausgeschaltetem Licht auf.  Die Wirkung tritt innerhalb von 2-3 Tagen ein, da Magnesium über die Blattoberfläche schnell aufgenommen wird.  Eine Anwendung reicht in der Regel aus, eventuell kann eine zweite Anwendung in 5-7 Tagen sinnvoll sein.\n\n3.  **Wurzelduengung mit Bittersalz:** Ergänzend zum Blattspray sollten Sie Bittersalz (MgSO4) auch über die Wurzeln zuführen. Eine Dosis von 0,5-1 g/L ist empfehlenswert.\n\n4.  **CalMag-Supplementierung:** Erhöhen Sie die Dosierung Ihres CalMag-Produkts um 0,1-0,2 ml/L über die bisherige Menge. Dies stellt sicher, dass ausreichend Magnesium verfügbar ist.\n\n5.  **pH-Wert-Kontrolle:** Der pH-Wert von 5.8 liegt im optimalen Bereich (5.8-6.5 für Kokos).  Achten Sie darauf, diesen Wert zu halten, da ein zu niedriger oder zu hoher pH-Wert die Magnesiumverfügbarkeit einsc",
+      "chunk_sources": [
+        "diagnostik/naehrstoffmangel-symptome#mangel-magnesium",
+        "diagnostik/naehrstoffmangel-symptome#spaetbluete-seneszenz",
+        "diagnostik/naehrstoffmangel-symptome#mangel-stickstoff",
+        "duengung/ec-management-hydroponik#ec-phasenziele-hydroponik",
+        "duengung/calmag-korrektur#magnesium-mangel-erkennen"
+      ]
     },
     {
-      "id": "pflege-008",
-      "category": "pflege",
-      "score": 0.0,
-      "question_type": "factual",
-      "topic_hits": [],
+      "id": "diag-005",
+      "category": "diagnostik",
+      "score": 0.67,
+      "question_type": "diagnosis",
+      "topic_hits": [
+        "luftfeuchtigkeit_zu_niedrig",
+        "leitungswasser_chlor"
+      ],
       "topic_misses": [
-        "temperaturreiz",
-        "kuehle_nacht",
-        "geduld",
-        "licht_pruefen"
+        "ueberduengung_moeglich"
       ],
       "false_positives": [],
-      "answer": "",
-      "chunk_sources": []
+      "answer": "Basierend auf dem Kontext und der Beschreibung deiner Monstera-Situation (vegetative Phase) ist die wahrscheinlichste Diagnose: **Leitungswasser mit Chlor/Kalk/Fluorid**.\n\nHier ist eine detaillierte Analyse und die empfohlenen Massnahmen:\n\n**1. Diagnose:**\n\n*   **Naehrstoff/Schaedling:** Es handelt sich um eine Reaktion auf die Wasserqualität, nicht um einen Nährstoffmangel oder einen Schädling.\n*   **Mobil/Immobil:** Die Symptome sind immobil, d.h. sie sind ein dauerhaftes Merkmal der betroffenen Blätter und können nicht rückgängig gemacht werden.\n*   **Betroffene Blätter:** Die braunen Spitzen treten hauptsächlich an den älteren Blättern auf, da diese zuerst mit dem Leitungswasser in Kontakt kommen.\n\n**2. Ursachen (pH, EC prüfen):**\n\n*   Die Hauptursache ist die Verwendung von Leitungswasser, das Chlor, Kalk oder Fluorid enthält. Calathea (die auch oft mit Monsteras gehalten wird) ist besonders kalkempfindlich.\n*   Es ist nicht notwendig, den pH-Wert oder die EC (elektrische Leitfähigkeit) zu prüfen, da die Ursache direkt auf die Wasserzusammensetzung zurückzuführen ist.\n\n**3. Massnahmen:**\n\nHier sind die Massnahmen in der empfohlenen Reihenfolge, basierend auf dem Kontext:\n\n*   **Wasserquelle ändern (Priorität 1):**\n    *   **Regenwasser verwenden:** Dies ist die ideale Lösung, da Regenwasser weich, kalkfrei und kostenlos ist.\n    *   **Gefiltertes Wasser / abgekochtes Wasser nutzen:** Alternativ kannst du gefiltertes Wasser oder Wasser verwenden, das du mindestens 24 Stunden offen stehen gelassen hast, damit das Chlor entgast.\n    *   **Destilliertes Wasser oder RO-Wasser mischen:** Bei sehr hartem Leitungswasser ist dies eine Option.\n*   **Bewässerungstechnik anpassen:**\n    *   **Leitungswasser 24h offen stehen lassen:** Wenn du Leitungswasser verwenden musst, lasse es mindestens 24 Stunden offen stehen, damit das Chlor entgast.\n    *   **Zimmerwarmes Wasser verwenden:** Verwende immer mindestens zimmerwarmes Wasser, niemals kaltes Wasser.\n*   **Betroffene Bla",
+      "chunk_sources": [
+        "diagnostik/zimmerpflanzen-probleme#braune-blattspitzen-zimmerpflanze",
+        "pflege/zimmerpflanzen-grundpflege#substrat-tropische-zimmerpflanzen",
+        "diagnostik/pilzkrankheiten#krautfaeule-kartoffel-tomate",
+        "allgemein/fehler-vermeiden#fehler-standort",
+        "diagnostik/schaedlings-fruehzeichen#thrips-erkennung"
+      ]
     },
     {
-      "id": "pflege-009",
-      "category": "pflege",
-      "score": 0.0,
-      "question_type": "factual",
-      "topic_hits": [],
-      "topic_misses": [
-        "radieschen",
-        "salat",
-        "tomaten_busch",
-        "basilikum"
+      "id": "diag-006",
+      "category": "diagnostik",
+      "score": 1.0,
+      "question_type": "diagnosis",
+      "topic_hits": [
+        "ph_lockout",
+        "ph_zu_hoch",
+        "eisen_mangel_wahrscheinlich",
+        "ph_senken"
       ],
+      "topic_misses": [],
       "false_positives": [],
-      "answer": "",
-      "chunk_sources": []
+      "answer": "Okay, basierend auf den vorliegenden Informationen und der Beschreibung deiner Situation, hier eine detaillierte Analyse und Handlungsempfehlungen:\n\n**1. Diagnose:** EC-Creep\n\n**2. Betroffene Blätter & Mobil/Immobil:** Die Symptome (Mangelsymptome) sind ein Indiz für einen Nährstoffmangel, der durch den EC-Creep verursacht wird.  Da der EC steigt, obwohl die Pflanze Nährstoffe aufnimmt, werden die Nährstoffe im Reservoir immer konzentrierter.  Die Pflanzen können die Nährstoffe nicht mehr effektiv aufnehmen, was zu Mangelsymptomen führt.  Die Symptome zeigen sich an allen Blättern, da die Nährstoffverfügbarkeit im gesamten System beeinträchtigt ist.  Die Nährstoffe sind *mobil* im Reservoir, aber die Pflanzen können sie aufgrund der hohen Konzentration nicht mehr effektiv aufnehmen.\n\n**3. Ursachen (pH, EC prüfen):**\n\n*   **EC-Problem:** Der EC-Wert steigt täglich um 0.2+ mS/cm, was auf einen EC-Creep hindeutet. Der aktuelle EC-Wert von 1.2 ist wahrscheinlich der Zielwert, der überschritten wird.\n*   **Hohe Transpiration:** Die hohe Transpiration (wahrscheinlich aufgrund von Temperatur, niedrigem RH und/oder viel Licht) führt dazu, dass das Wasser schneller aufgenommen wird als die Nährstoffe, was die Konzentration im Reservoir erhöht.\n*   **pH:** Der pH-Wert von 7.2 ist wahrscheinlich im akzeptablen Bereich, aber er sollte dennoch regelmäßig überprüft und bei Bedarf angepasst werden. Ein pH-Wert außerhalb des optimalen Bereichs kann die Nährstoffaufnahme beeinträchtigen.\n*   **Reservoirgröße:** Es ist möglich, dass das Reservoir zu klein ist (weniger als 10-20 Liter pro Pflanze), was zu schnelleren EC- und pH-Schwankungen führt.\n\n**4. Maßnahmen (Konkrete Schritte, Reihenfolge, Werte):**\n\n1.  **Sofortmaßnahme: Nachfüllen mit reinem Wasser:** Fülle das Reservoir *ausschließlich* mit pH-angepasstem, reinem Wasser (nicht mit Nährlösung) nach, um den EC-Wert zu senken.  Ziel ist es, den EC-Wert wieder auf den ursprünglichen Zielwert von 1.2 mS/cm zu bringen.\n2.  **Transp",
+      "chunk_sources": [
+        "diagnostik/ph-ec-abweichungen#ec-creep-rezirkulierend",
+        "diagnostik/ph-ec-abweichungen#ph-drift-dwc-details",
+        "diagnostik/wurzelgesundheit#wurzelfaeule-erkennung",
+        "allgemein/anfaenger-erste-schritte#fuenf-grundbeduerfnisse",
+        "allgemein/fehler-vermeiden#fehler-standort"
+      ]
     },
     {
-      "id": "pflege-010",
-      "category": "pflege",
-      "score": 0.0,
-      "question_type": "factual",
-      "topic_hits": [],
-      "topic_misses": [
-        "verholzung",
-        "nicht_ins_alte_holz_schneiden",
-        "regelmaessig_ernten",
-        "licht"
+      "id": "diag-007",
+      "category": "diagnostik",
+      "score": 0.5,
+      "question_type": "diagnosis",
+      "topic_hits": [
+        "mangan_toxizitaet",
+        "ph_zu_niedrig",
+        "ph_erhoehen"
       ],
-      "false_positives": [],
-      "answer": "",
-      "chunk_sources": []
+      "topic_misses": [],
+      "false_positives": [
+        "calcium_mangel"
+      ],
+      "answer": "Basierend auf dem Kontext und der gegebenen Situation ist die wahrscheinlichste Diagnose ein **Mangan-Überschuss (Mn-Toxizität)**.\n\n**1. Diagnose:** Mangan-Überschuss (Mn-Toxizität)\n\n**2. Mobil/Immobil & Betroffene Blätter:** Mangan ist ein *mobiler* Nährstoff. Die Symptome zeigen sich auf **älteren Blättern**, was ein entscheidendes Merkmal für Mangan-Toxizität ist und eine Calcium- oder Eisenmangel-Diagnose ausschließt. Die Beschreibung \"braune Flecken/Punkte auf älteren Blättern\" und \"nekrotische Punkte entlang der Blattadern\" passen genau zu den Symptomen, die im Kontext für Mangan-Toxizität beschrieben werden.\n\n**3. Ursachen:**\n\n*   **pH-Wert:** Der pH-Wert des Coco-Substrats beträgt 5.0. Dies ist deutlich unter dem optimalen Bereich von 6.0-6.5. Der Kontext besagt, dass die Verfügbarkeit von Mangan mit sinkendem pH-Wert exponentiell steigt (\"bei pH 5.0 ist 10x mehr Mn verfügbar als bei pH 6.0\"). Dies ist die wahrscheinlichste Hauptursache.\n*   **Mögliche weitere Faktoren:** Obwohl nicht explizit erwähnt, könnten auch eine übermäßige Mangansulfat-Düngung oder anaerobe Bedingungen im Substrat (z.B. durch Überwässerung) zur Mn-Toxizität beitragen.\n\n**4. Massnahmen (in Reihenfolge der Priorität):**\n\n1.  **pH-Wert korrigieren:** Der wichtigste Schritt ist die Erhöhung des pH-Wertes auf den Bereich von 6.0-6.5. Dies reduziert die Manganlöslichkeit und -verfügbarkeit drastisch.  Dies kann durch Anpassung des pH-Wertes des Bewässerungswassers erreicht werden.\n2.  **Bewaesserung anpassen:**  Sicherstellen, dass das Substrat nicht überwässert wird, um anaerobe Bedingungen zu vermeiden. Eine gute Belüftung der Wurzelzone ist wichtig.\n3.  **Runoff-Analyse durchführen:** Nach der pH-Korrektur sollte eine Runoff-Analyse durchgeführt werden (gemäß [3]).  10-20% Ueberschuss giessen, Ablaufwasser auffangen, sofort pH und EC messen.  Der pH-Wert des Runoffs sollte idealerweise im Bereich von 6.0-6.5 liegen.\n4.  **EC-Wert pruefen:** EC-Wert des Runoffs messen. Sollte der Runoff-",
+      "chunk_sources": [
+        "diagnostik/naehrstoffmangel-symptome#ueberschuss-allgemein",
+        "diagnostik/naehrstoffmangel-symptome#toxizitaet-mangan",
+        "diagnostik/ph-ec-abweichungen#runoff-analyse",
+        "diagnostik/naehrstoffmangel-symptome#mangel-calcium",
+        "diagnostik/naehrstoffmangel-symptome#mangel-stickstoff"
+      ]
     },
     {
-      "id": "pflege-011",
-      "category": "pflege",
-      "score": 0.0,
-      "question_type": "factual",
-      "topic_hits": [],
-      "topic_misses": [
-        "woechentlich",
-        "blattunterseiten",
-        "frueherkennung"
+      "id": "diag-008",
+      "category": "diagnostik",
+      "score": 1.0,
+      "question_type": "diagnosis",
+      "topic_hits": [
+        "ueberwaesserung",
+        "wurzelfaeule",
+        "sauerstoffmangel",
+        "drainage_pruefen"
       ],
+      "topic_misses": [],
       "false_positives": [],
-      "answer": "",
-      "chunk_sources": []
+      "answer": "1) **Diagnose:** Ueberwaesserung mit Wurzelfaeule. Die wahrscheinlichste Ursache fuer eine welkende Pflanze mit nasser Erde ist Wurzelfaeule, ausgeloest durch Ueberwaesserung.\n\n2) **Mobilitaet und betroffene Blaetter:** Die Symptome sind systemisch, d.h. sie betreffen die gesamte Pflanze. Die unteren Blaetter zeigen wahrscheinlich zuerst Anzeichen der Vergilbung und werden weich. Es ist nicht auf bestimmte Blaetter beschraenkt. Die Wurzeln sind primaer betroffen, was sich in den oberirdischen Symptomen manifestiert.\n\n3) **Ursachen:**\n   * **Ueberwaesserung:** Die Erde ist dauerhaft nass/matschig und riecht modrig. Dies fuehrt zu Sauerstoffmangel im Wurzelbereich.\n   * **Sauerstoffmangel:** Die Wurzeln sterben ab, da sie keinen Sauerstoff bekommen.\n   * **Drainageprobleme:** Der Topf hat wahrscheinlich keine ausreichenden Abflussloecher oder das Wasser steht im Untersetzer.\n   * **Risikoumgebung:** Warme, sauerstoffarme Bedingungen foerdern das Wachstum von Wurzelfaeule-Erregern.\n   * **Fehlende Fingerprobe:** Es wird wahrscheinlich nach Zeitplan gegossen, anstatt den tatsaechlichen Feuchtigkeitsbedarf der Pflanze zu beurteilen.\n\n4) **Massnahmen:**\n   * **SOFORT aufhoeren zu giessen:** Dies ist der erste und wichtigste Schritt.\n   * **Drainage verbessern:** Den Topf aus dem Untersetzer nehmen, um sicherzustellen, dass Ueberschusswasser abfließen kann.  Pruefen Sie, ob der Topf Abflussloecher hat.\n   * **Umtopfen (bei Faeulnisgeruch):** Wenn ein fauliger Geruch wahrnehmbar ist, muss die Pflanze umgetopft werden. Dabei sind matschige, braune Wurzeln vorsichtig abzuschneiden. Verwenden Sie frisches, trockenes Substrat.\n   * **Fingerprobe einführen:** Vor jedem Giessen die oberen 2-3 cm des Substrats mit dem Finger pruefen. Erst giessen, wenn diese trockener sind.\n   * **Gewichtskontrolle:** Achten Sie auf das Gewicht des Topfes. Ein leichter Topf deutet auf trockene Erde hin, ein schwerer Topf auf nasse Erde.\n   * **\"When in doubt, don't water.\"**: Im Zweifel nicht gies",
+      "chunk_sources": [
+        "diagnostik/zimmerpflanzen-probleme#zimmerpflanze-blaetter-haengen",
+        "diagnostik/wurzelgesundheit#wurzelfaeule-erkennung",
+        "bewaesserung/ueberwaesserung-erkennen#symptome-ueberwaesserung",
+        "allgemein/fehler-vermeiden#fehler-uebergiessen",
+        "allgemein/anfaenger-erste-schritte#fuenf-grundbeduerfnisse"
+      ]
     },
     {
-      "id": "pflege-012",
-      "category": "pflege",
-      "score": 0.0,
-      "question_type": "factual",
-      "topic_hits": [],
-      "topic_misses": [
-        "luftfeuchtigkeit",
-        "leitungswasser_chlor",
-        "kalkempfindlich",
-        "regenwasser"
+      "id": "diag-009",
+      "category": "diagnostik",
+      "score": 1.0,
+      "question_type": "diagnosis",
+      "topic_hits": [
+        "echter_mehltau",
+        "luftzirkulation_verbessern",
+        "befallene_blaetter_entfernen"
       ],
+      "topic_misses": [],
       "false_positives": [],
-      "answer": "",
-      "chunk_sources": []
+      "answer": "1) **Diagnose:** Echter Mehltau (Erysiphaceae)\n\n2) **Mobil/Immobil & Betroffene Blätter:** Mobil. Der Befall beginnt als kleine weisse Flecken und breitet sich schnell auf ganze Blätter, Stengel und Blütenknospen aus. Zuerst sind die unteren, älteren Blätter betroffen, der Befall kann sich aber aufwärts ausbreiten.\n\n3) **Ursachen:** Basierend auf dem Kontext sind die wahrscheinlichsten Ursachen:\n    * **Tag-Nacht-Temperaturunterschied:** Warme Tage (20-30°C) und kühle Nächte begünstigen den Mehltau.\n    * **Trockene Blattoberflächen bei hoher Luftfeuchtigkeit:** Eine hohe Umgebungsfeuchtigkeit (70-80% RH) in Kombination mit trockenen Blattoberflächen schafft ideale Bedingungen.\n    * **Schlechte Luftzirkulation:** Stauluft fördert das Wachstum des Mehltaupilzes.\n    * **Stickstoff-Überdüngung:** Eine zu hohe Stickstoffzufuhr schwächt die Pflanzen und macht sie anfälliger.\n    * **pH-Wert und EC-Wert:** Obwohl nicht direkt als Ursache für Mehltau genannt, können ein ungünstiger pH-Wert (außerhalb von 5.5-6.5 für Hydrokultur oder 6.0-7.0 für Erde) und ein zu niedriger EC-Wert die Pflanze stressen und ihre Widerstandsfähigkeit verringern.\n\n4) **Massnahmen:**\n    * **Sofortmassnahmen:**\n        * **Entfernen befallener Blätter:** Entfernen Sie sofort alle Blätter mit weissen, pudrigen Flecken und entsorgen Sie diese im Müll (nicht kompostieren).\n        * **Luftzirkulation verbessern:** Sorgen Sie für eine bessere Luftzirkulation durch den Einsatz eines Ventilators oder durch Auslichten der Pflanzen.\n        * **Pflanzenabstand vergrössern:** Erhöhen Sie den Abstand zwischen den Pflanzen, um die Luftzirkulation zu verbessern.\n    * **Behandlung:**\n        * **Milch-Spray:** Sprühen Sie die Pflanzen mit einer Lösung aus 1 Teil Milch und 9 Teilen Wasser. Dies wirkt vorbeugend und bei leichtem Befall.\n        * **Backpulver-Spray:** Bereiten Sie eine Lösung aus 1 TL Natron, 1 Liter Wasser und ein paar Tropfen Spülmittel vor und sprühen Sie die Pflanzen damit.\n        * **N",
+      "chunk_sources": [
+        "diagnostik/pilzkrankheiten#echter-mehltau",
+        "diagnostik/pilzkrankheiten#falscher-mehltau",
+        "diagnostik/schaedlings-fruehzeichen#honigtau-diagnose",
+        "diagnostik/naehrstoffmangel-symptome#mangel-stickstoff",
+        "diagnostik/schaedlings-fruehzeichen#weisse-fliege-erkennung"
+      ]
     },
     {
-      "id": "pflege-013",
-      "category": "pflege",
-      "score": 0.0,
-      "question_type": "factual",
-      "topic_hits": [],
-      "topic_misses": [
-        "basilikum",
-        "schnittlauch",
-        "petersilie",
-        "suedfenster"
+      "id": "diag-010",
+      "category": "diagnostik",
+      "score": 1.0,
+      "question_type": "diagnosis",
+      "topic_hits": [
+        "bluetenendfaeule",
+        "calcium",
+        "gleichmaessige_bewaesserung"
       ],
+      "topic_misses": [],
       "false_positives": [],
-      "answer": "",
-      "chunk_sources": []
+      "answer": "1. **Diagnose:** Bluetenendfaeule (Blossom End Rot, BER)\n\n2. **Mobilitaet & Betroffene Blaetter:** Die Bluetenendfaeule betrifft die Fruechte (Erdbeerfruchtboden) und ist ein Zeichen fuer einen Calcium-Mangel. Calcium (Ca) ist IMMOBIL, was bedeutet, dass es sich nicht wie andere Naehrstoffe in der Pflanze verteilt. Daher zeigen sich die Symptome zuerst an den juengsten Pflanzenteilen, in diesem Fall den Fruchten. Es sind keine spezifischen Blaetter betroffen, sondern die Frucht selbst.\n\n3. **Ursachen:** Die wahrscheinlichste Ursache fuer die Bluetenendfaeule bei Erdbeeren ist eine ungleichmaessige Bewaesserung. Obwohl die Naehrloesung ausreichend Calcium enthalten kann, kann eine ungleichmaessige Bewaesserung dazu fuehren, dass die Frucht nicht ausreichend mit Calcium versorgt wird. Weitere moegliche Ursachen koennten sein:\n    *   **pH-Wert:** Ein zu niedriger pH-Wert (unter 5.5) kann zu einem Calcium-Lockout fuehren, bei dem die Pflanze Calcium nicht aufnehmen kann, obwohl es im Boden vorhanden ist.\n    *   **Nährstoffungleichgewicht:** Zu hohe Kalium- oder Ammonium-Duengung kann die Calciumaufnahme beeinträchtigen.\n    *   **RO-Wasser:** Verwendung von RO-Wasser ohne CalMag-Zusatz.\n\n4. **Massnahmen:**\n    *   **Bewaesserung korrigieren:** Die wichtigste Massnahme gegen Bluetenendfaeule ist eine gleichmaessige Bewaesserung. Vermeiden Sie Schwankungen in der Bodenfeuchtigkeit.\n    *   **pH-Wert anpassen:** Korrigieren Sie den pH-Wert des Bodens auf 6.0-6.5.\n    *   **CalMag-Praeparat:** Obwohl die Frucht bereits betroffen ist, kann die Zugabe eines CalMag-Praeparats in Zukunft helfen, die Calciumversorgung zu verbessern. Achten Sie darauf, das Praeparate vor den Base-Nutrients zu mischen.\n    *   **Nährstoffbalance:** Achten Sie auf ein ausgewogenes Naehrstoffverhaeltnis, insbesondere im Hinblick auf Kalium und Ammonium.\n    *   **Fruchtfolge:** Beachten Sie die Empfehlungen aus [3] zur Fruchtfolge, um den Boden langfristig gesund zu erhalten und den Befallsdruck z",
+      "chunk_sources": [
+        "diagnostik/pilzkrankheiten#krautfaeule-kartoffel-tomate",
+        "outdoor/wetter-reaktionen#starkregen-ueberflutung",
+        "outdoor/fruchtfolge-grundlagen#warum-fruchtfolge",
+        "diagnostik/naehrstoffmangel-symptome#mangel-calcium",
+        "diagnostik/pilzkrankheiten#kohlhernie"
+      ]
     },
     {
-      "id": "pflege-014",
-      "category": "pflege",
-      "score": 0.0,
-      "question_type": "factual",
-      "topic_hits": [],
-      "topic_misses": [
-        "frostfrei",
-        "kuehler_raum",
-        "wenig_giessen",
-        "kein_duenger",
-        "hell"
+      "id": "diag-011",
+      "category": "diagnostik",
+      "score": 1.0,
+      "question_type": "diagnosis",
+      "topic_hits": [
+        "pythium",
+        "wurzelfaeule",
+        "wassertemperatur_senken",
+        "sauerstoff",
+        "h2o2"
       ],
+      "topic_misses": [],
       "false_positives": [],
-      "answer": "",
-      "chunk_sources": []
+      "answer": "Okay, hier ist eine fachlich korrekte und ausführliche Diagnose und Massnahmenplan basierend auf dem Kontext:\n\n**1. Diagnose:**\n\nDie wahrscheinlichste Diagnose ist **Wurzelfaeule (Root Rot)**, verursacht höchstwahrscheinlich durch *Pythium spp.* oder *Phytophthora spp.*. Die Beschreibung \"weisse Wurzeln sind braun und schleimig geworden\" ist ein typisches Zeichen für eine Wurzelfaeule-Infektion.  Die Kombination aus braunen, schleimigen Wurzeln und dem Umstand, dass es sich um ein DWC-System (Deep Water Culture) handelt, verstärkt die Wahrscheinlichkeit für *Pythium spp.*.\n\n**2. Mobil/Immobil und betroffene Blätter:**\n\n*   **Immobil:** Die Wurzelfaeule betrifft primär das Wurzelsystem.\n*   **Betroffene Blätter:** Zunächst werden die Blätter fahlgrün und hängen, was ein frühes Symptom ist.  Im weiteren Verlauf kann es zu einem generellen Welken kommen, da die Wurzeln nicht mehr in der Lage sind, ausreichend Wasser und Nährstoffe zu transportieren.\n\n**3. Ursachen (pH, EC prüfen):**\n\nDie Hauptursache in diesem Fall ist ein **Sauerstoffmangel** im Reservoir, der durch die hohe Wassertemperatur (26°C) begünstigt wird.  Warmes Wasser enthält weniger gelösten Sauerstoff.  Zusätzlich ist die DWC-Methode anfällig für Sauerstoffmangel, da die Wurzeln direkt im Wasser wachsen.\n\n*   **pH-Wert:** Obwohl nicht direkt erwähnt, sollte der pH-Wert im Reservoir überprüft werden. Ein ungünstiger pH-Wert kann die Nährstoffaufnahme beeinträchtigen und die Pflanze schwächen, was sie anfälliger für Krankheiten macht. Der optimale pH-Wert für DWC liegt typischerweise zwischen 5,5 und 6,5.\n*   **EC-Wert:** Ebenso sollte der EC-Wert (Elektrische Leitfähigkeit) gemessen werden, um den Nährstoffgehalt im Reservoir zu überprüfen. Ein zu hoher oder zu niedriger EC-Wert kann die Pflanze stressen und die Anfälligkeit für Krankheiten erhöhen.\n\n**4. Massnahmen (in Reihenfolge der Priorität):**\n\nHier ist ein detaillierter Aktionsplan, der die Schritte aus dem Kontext kombiniert:\n\n1.  **Sofortmassnahm",
+      "chunk_sources": [
+        "diagnostik/wurzelgesundheit#wurzelfaeule-behandlung",
+        "diagnostik/wurzelgesundheit#wurzelfaeule-erkennung",
+        "diagnostik/wurzelgesundheit#gesunde-wurzeln",
+        "diagnostik/wurzelgesundheit#sauerstoff-wurzelzone",
+        "bewaesserung/ueberwaesserung-erkennen#rettung-ueberwaesserung"
+      ]
     },
     {
-      "id": "pflege-015",
-      "category": "pflege",
-      "score": 0.0,
-      "question_type": "factual",
-      "topic_hits": [],
+      "id": "diag-012",
+      "category": "diagnostik",
+      "score": 1.0,
+      "question_type": "diagnosis",
+      "topic_hits": [
+        "trauermucken",
+        "substrat_abtrocknen",
+        "gelbtafeln",
+        "nematoden_steinernema"
+      ],
+      "topic_misses": [],
+      "false_positives": [],
+      "answer": "1. **Diagnose:** Trauermücken (Bradysia spp.)\n\n2. **Mobil/Immobil & Betroffene Blätter:** Die Trauermücken sind mobil (die adulten Fliegen fliegen). Die Larven schädigen hauptsächlich die Wurzeln und den Stiel an der Basis, was sich indirekt auf alle Blätter auswirkt, da die Pflanze durch Wurzelschäden geschwächt wird.  Die Symptome zeigen sich an der gesamten Pflanze, nicht an einzelnen Blättern.\n\n3. **Ursachen:**\n    * **Feuchtigkeit:** Die Larven der Trauermücken benötigen feuchte Bedingungen zum Überleben. Häufiges Gießen oder mangelnde Drainage führen zu einer idealen Umgebung für die Vermehrung.\n    * **Substrat:** Das Substrat ist wahrscheinlich zu feucht. Ein pH-Wert und EC-Wert werden hier nicht direkt relevant, da das Hauptproblem die Feuchtigkeit ist.\n    * **Kontext:** Die Frage deutet darauf hin, dass die Pflanze in Erde (soil) steht, was ein häufiger Nährboden für Trauermückenlarven ist.\n\n4. **Massnahmen:**\n    * **Substrat abtrocknen lassen:**  Lassen Sie die oberste Schicht des Substrats vollständig austrocknen, bevor Sie erneut gießen. Dies reduziert die Feuchtigkeit, die die Larven benötigen.\n    * **Gelbe Klebefallen:** Stellen Sie gelbe Klebefallen in Bodennähe auf, um die adulten Trauermücken zu fangen.\n    * **Biologische Bekämpfung mit Nematoden:** Gießen Sie Nematoden (Steinernema feltiae) auf die Erde. Diese sind biologisch wirksam und fressen die Larven.\n    * **Bacillus thuringiensis israelensis (Bt):** Gießen Sie Bt (z.B. Mosquito Bits) auf die Erde. Dies ist ein biologisches Insektizid, das für die Larven schädlich ist.\n    * **Quarzsand-Schicht:** Bringen Sie eine 5mm dicke Schicht Quarzsand auf die Substratoberfläche auf. Dies erschwert die Eiablage der Trauermücken.\n    * **Neem-Öl:**  Verwenden Sie Neem-Öl als Substrat-Drench (Substratgiessung), um die Larven zu bekämpfen.\n    * **Zukünftige Prävention:** Gießen Sie nicht nach einem festen Zeitplan, sondern erst, wenn die obersten 2-3 cm des Substrats trocken sind (Fingerprobe). Verm",
+      "chunk_sources": [
+        "diagnostik/schaedlings-fruehzeichen#trauermucken-erkennung",
+        "diagnostik/zimmerpflanzen-probleme#zimmerpflanze-blaetter-haengen",
+        "allgemein/fehler-vermeiden#fehler-uebergiessen",
+        "diagnostik/wurzelgesundheit#wurzelfaeule-erkennung",
+        "diagnostik/schaedlings-fruehzeichen#weisse-fliege-erkennung"
+      ]
+    },
+    {
+      "id": "diag-013",
+      "category": "diagnostik",
+      "score": 1.0,
+      "question_type": "diagnosis",
+      "topic_hits": [
+        "thrips",
+        "blaue_klebefallen",
+        "spinosad",
+        "raubmilben"
+      ],
+      "topic_misses": [],
+      "false_positives": [],
+      "answer": "Basierend auf dem Kontext ist die wahrscheinlichste Diagnose ein Thripsbefall. Hier ist eine detaillierte Analyse und die empfohlenen Massnahmen:\n\n**1. Diagnose:** Thrips (Thysanoptera)\n\n**2. Betroffene Blätter und Mobil/Immobil:**\n\n*   **Betroffene Blätter:** Die Symptome (silbrige Streifen und schwarze Punkte) treten hauptsächlich auf den Blattoberseiten auf. Auch in Blattunterseiten, in Blütenknospen und eingerollten jungen Blättern können Thrips gefunden werden.\n*   **Mobil/Immobil:** Thrips sind mobil und bewegen sich schnell. Sie verbreiten sich leicht, was eine schnelle Bekämpfung erforderlich macht.\n\n**3. Ursachen (und was zu prüfen ist):**\n\n*   **Keine direkte Ursache im Sinne von pH oder EC:** Thripsbefall ist kein direktes Resultat von ungünstigen pH- oder EC-Werten. Allerdings können diese Faktoren die Pflanze schwächen und sie anfälliger für Schädlinge machen.\n*   **Zu prüfen:**\n    *   **pH-Wert:** Sollte im optimalen Bereich von 5.5-6.5 (Hydroponik) oder 6.0-7.0 (Erde) liegen.\n    *   **EC-Wert:** Sollte im optimalen Bereich liegen. Ein zu niedriger EC-Wert kann die Pflanze schwächen.\n    *   **Gesundheit der Pflanze:** Eine generell geschwächte Pflanze ist anfälliger für Schädlinge.\n\n**4. Massnahmen (in Reihenfolge):**\n\n1.  **Blaue Klebefallen aufhängen:** Dies dient sowohl der Überwachung des Befalls (Monitoring) als auch der Reduktion der Thrips-Population. Blaue Fallen sind effektiver als gelbe.\n2.  **Spinosad-basiertes Spray anwenden:** Dies ist das Mittel der Wahl zur Bekämpfung von Thrips. Es ist ein biologisches Insektizid und sehr effektiv.\n3.  **Raubmilben einsetzen (Amblyseius cucumeris):** Diese sind vorbeugend und fressen Thrips-Larven.\n4.  **Neem-Öl als Kontakt-Blattspray anwenden:** Dies wirkt als Kontaktmittel. Ein Substratdrench mit Neem-Öl bekämpft keine Thrips, sondern Trauermückenlarven.\n5.  **Befallene Blütenknospen entfernen:** Dies verhindert die weitere Ausbreitung des Befalls.\n6.  **Pflanze isolieren:** Um eine Ausbreitung auf",
+      "chunk_sources": [
+        "diagnostik/schaedlings-fruehzeichen#thrips-erkennung",
+        "diagnostik/naehrstoffmangel-symptome#mangel-stickstoff",
+        "diagnostik/zimmerpflanzen-probleme#zimmerpflanze-gelbe-blaetter",
+        "diagnostik/schaedlings-fruehzeichen#honigtau-diagnose",
+        "allgemein/fehler-vermeiden#fehler-standort"
+      ]
+    },
+    {
+      "id": "diag-014",
+      "category": "diagnostik",
+      "score": 1.0,
+      "question_type": "diagnosis",
+      "topic_hits": [
+        "nitrat_aufnahme",
+        "algenbildung",
+        "reservoir_groesse",
+        "karbonataerte"
+      ],
+      "topic_misses": [],
+      "false_positives": [],
+      "answer": "1) **Diagnose:** Starker pH-Drift nach oben aufgrund von Nitrat-Aufnahme durch die Pflanze und/oder Algenbildung im Reservoir.\n\n2) **Mobil/Immobil & Betroffene Blätter:** Der pH-Drift ist ein Problem des gesamten Systems (Reservoirs), nicht spezifisch für einzelne Blätter. Die Nitrat-Aufnahme ist ein natürlicher Prozess, der mit aktivem Wachstum verbunden ist. Algenbildung betrifft das gesamte Reservoir.\n\n3) **Ursachen:**\n   * **Nitrat-Aufnahme:** Die Pflanze nimmt Nitrat (NO3-) auf und gibt OH- oder HCO3- ab, was den pH-Wert erhöht. Ein Drift von 0.1-0.3 pro Tag ist normal, ein Drift von 0.5 pro Tag deutet auf ein starkes Wachstum hin, könnte aber auch auf andere Probleme hindeuten.\n   * **Algenbildung:** Algen verbrauchen CO2, was den pH-Wert erhöht. Dies wird durch Licht im Reservoir oder den Schläuchen begünstigt.\n   * **Reservoir-Größe:** Das Reservoir ist möglicherweise zu klein im Verhältnis zur Pflanze. Ein Reservoir von weniger als 10-20 Litern pro Pflanze kann zu schnelleren pH-Schwankungen führen.\n   * **Karbonathärte (KH):** Die Karbonathärte des Wassers könnte zu hoch sein (>12°dKH), was den pH-Wert stark nach oben puffert und die pH-Senkung erschwert.\n\n4) **Massnahmen (in Reihenfolge der Priorität und unter Berücksichtigung des Kontexts):**\n\n   * **Schritt 1: Beobachtung und Dokumentation (3 Tage):**  Gemäß [3] ist es wichtig, nicht zu überstürzt zu handeln.  Notieren Sie den täglichen pH-Wert und die EC. Beobachten Sie die Pflanze auf weitere Symptome.\n   * **Schritt 2: Lichtdicht machen (sofort):** Decken Sie das Reservoir und die Schläuche lichtdicht ab, um Algenbildung zu verhindern. Verwenden Sie schwarze oder weiße Schläuche. Dies ist eine einfache und schnelle Maßnahme, die [1] empfiehlt.\n   * **Schritt 3: Reservoirgröße prüfen (sofort):** Stellen Sie sicher, dass das Reservoir mindestens 10-20 Liter pro Pflanze fasst. Wenn das Reservoir zu klein ist, ist ein größerer Behälter die langfristige Lösung.\n   * **Schritt 4: KH-Wert messen (innerhalb ",
+      "chunk_sources": [
+        "diagnostik/ph-ec-abweichungen#ph-drift-dwc-details",
+        "duengung/ec-management-hydroponik#reservoir-management",
+        "allgemein/fehler-vermeiden#fehler-ungeduld",
+        "diagnostik/ph-ec-abweichungen#ph-drift-ursachen",
+        "diagnostik/ph-ec-abweichungen#ec-creep-rezirkulierend"
+      ]
+    },
+    {
+      "id": "diag-015",
+      "category": "diagnostik",
+      "score": 1.0,
+      "question_type": "diagnosis",
+      "topic_hits": [
+        "salzanreicherung",
+        "flush_noetig",
+        "ec_reduzieren"
+      ],
+      "topic_misses": [],
+      "false_positives": [],
+      "answer": "Okay, hier ist die Diagnose und die entsprechenden Maßnahmen basierend auf dem Kontext:\n\n**1. Diagnose:**\n\nEs liegt eine massive Salzanreicherung im Coco-Substrat vor. Der Runoff-EC (3.2) ist deutlich höher als der Input-EC (1.4) – eine Differenz von 1.8 mS/cm. Dies deutet auf eine deutliche Akkumulation von Salzen im Substrat hin.\n\n**2. Mobil/Immobil und betroffene Blätter:**\n\n*   **Mobil:** Da es sich um eine Salzakkumulation handelt, betrifft dies primär das gesamte Wurzelsystem und indirekt alle Pflanzenteile. Symptome können sich zunächst an den älteren Blättern zeigen, da diese zuerst die Salze transportieren. Es ist jedoch wahrscheinlich, dass sich die Auswirkungen auch auf jüngere Blätter ausweiten werden, wenn die Situation nicht korrigiert wird.\n*   **Betroffene Blätter:** Zunächst wahrscheinlich ältere Blätter, später auch jüngere.\n\n**3. Ursachen (pH, EC prüfen):**\n\n*   **pH:** Der Kontext gibt keine Informationen über den pH-Wert. Es ist wichtig, den pH-Wert des Input und Runoff zu messen, um sicherzustellen, dass er im optimalen Bereich liegt (wahrscheinlich zwischen 5.5 und 6.5 für Coco, basierend auf den Informationen zu Substratpufferung).\n*   **EC:** Die hohe Differenz zwischen Input-EC und Runoff-EC ist die Hauptursache. Dies deutet darauf hin, dass das Substrat die Nährstoffe nicht effektiv aufnimmt und stattdessen Salze ansammelt.\n*   **Weitere mögliche Ursachen (nicht direkt aus dem Kontext ableitbar, aber relevant):**\n    *   Überdüngung: Zu hohe Nährstoffkonzentration in der Nährlösung.\n    *   Schlechte Belüftung des Substrats: Kann die Salzaufnahme reduzieren.\n    *   Hohe Temperaturen: Können die Verdunstung erhöhen und die Salzkonzentration im Substrat steigern.\n\n**4. Maßnahmen:**\n\nBasierend auf dem Kontext sind folgende Maßnahmen erforderlich:\n\n*   **Sofortiger Flush:** Führe einen Flush durch, um die überschüssigen Salze aus dem Substrat zu entfernen. Gieße 3x das Topfvolumen mit pH-angepasstem Wasser (pH-Wert sollte im Bereich von 5.5-6",
+      "chunk_sources": [
+        "diagnostik/ph-ec-abweichungen#runoff-analyse",
+        "bewaesserung/giess-strategien-substrat#giessen-coco",
+        "diagnostik/ph-ec-abweichungen#substrat-ph-pufferung",
+        "duengung/ec-management-hydroponik#ec-monitoring-frequenz",
+        "bewaesserung/giess-strategien-substrat#giessen-hydro"
+      ]
+    },
+    {
+      "id": "dueng-001",
+      "category": "duengung",
+      "score": 1.0,
+      "question_type": "howto",
+      "topic_hits": [
+        "ja_immer",
+        "calcium_magnesium_fehlt",
+        "ec_03_04",
+        "vor_base_nutrients"
+      ],
+      "topic_misses": [],
+      "false_positives": [],
+      "answer": "Hier ist eine detaillierte Anleitung zur Verwendung von CalMag bei der Verwendung von Umkehrosmosewasser (RO), basierend auf den bereitgestellten Informationen:\n\n**1. Wasserquellen-Konfiguration und CalMag-Bedarf:**\n\n*   **RO-Wasser:** RO-Wasser hat eine EC von nahezu 0,0 mS/cm und enthält praktisch keine Mineralstoffe.\n*   **CalMag-Notwendigkeit:** Ohne CalMag-Ergänzung entstehen innerhalb von 1-2 Wochen schwere Mangelerscheinungen.\n*   **Standard-Dosierung:** Verwenden Sie eine CalMag-Dosis von 0,3-0,5 ml/L als Ausgangspunkt. Das Ziel ist eine EC von 0,3-0,4 mS/cm nach der CalMag-Zugabe.\n*   **Kamerplanter-System:** Nutzen Sie das System zur automatischen Berechnung des CalMag-Bedarfs über den WaterMixCalculator (REQ-004 v3.1). Die 4-stufige Kaskade (explizit->Plan->Standort->manuell) stellt sicher, dass die besten verfügbaren Wasserinformationen verwendet werden.\n*   **Standort-Einstellungen:** Tragen Sie die Wasserwerte vom Versorger in die Standort-Einstellungen ein, um eine automatische CalMag-Berechnung zu ermöglichen. Aktualisieren Sie die Wasserwerte jährlich (Versorger-Report).\n\n**2. Schritt-für-Schritt-Anleitung zur CalMag-Zubereitung mit RO-Wasser:**\n\n1.  **Wasser temperieren:** Bringen Sie das RO-Wasser auf eine Temperatur von 18-22 Grad Celsius.\n2.  **CalMag-Zugabe:** Geben Sie 0,3-0,5 ml CalMag-Produkt (z.B. Canna CalMag, GHE CalMag) pro Liter RO-Wasser hinzu.\n3.  **Verrühren:** Rühren Sie die Lösung gründlich für 30 Sekunden, um sicherzustellen, dass das CalMag vollständig gelöst ist.\n4.  **EC-Messung:** Messen Sie die EC der Lösung. Das Ziel ist ein Wert von 0,3-0,4 mS/cm. Passen Sie die CalMag-Dosierung bei Bedarf an, um diesen Wert zu erreichen.\n5.  **Basis-Dünger-Zugabe:** Geben Sie anschließend den Basis-Dünger (A+B) hinzu, bis die gewünschte Gesamt-EC erreicht ist.\n6.  **Verrühren:** Rühren Sie die Lösung erneut für 30 Sekunden, um alle Komponenten gut zu vermischen.\n7.  **pH-Anpassung:** Stellen Sie den pH-Wert ein (nicht im Kontext, aber wich",
+      "chunk_sources": [
+        "duengung/calmag-korrektur#ro-wasser-calmag",
+        "duengung/calmag-korrektur#wasserquellen-kaskade",
+        "duengung/calmag-korrektur#wasserhaerte-calcium-magnesium",
+        "duengung/calmag-korrektur#kokos-calmag-besonderheit",
+        "duengung/calmag-korrektur#calmag-mischungsreihenfolge"
+      ]
+    },
+    {
+      "id": "dueng-002",
+      "category": "duengung",
+      "score": 0.4,
+      "question_type": "howto",
+      "topic_hits": [
+        "part_a_vor_part_b",
+        "ph_zuletzt"
+      ],
       "topic_misses": [
-        "abhaengig_von_art",
-        "nordfenster_ja",
-        "suedfenster_meist_ok",
-        "winter_kurze_tage"
+        "wasser_zuerst",
+        "silikat_vor_calmag",
+        "calmag_vor_part_a"
       ],
       "false_positives": [],
-      "answer": "",
-      "chunk_sources": []
+      "answer": "Hier ist eine detaillierte Schritt-für-Schritt-Anleitung zur korrekten Mischreihenfolge Ihrer Nährlösung, basierend auf den bereitgestellten Informationen. Beachten Sie, dass die Reihenfolge chemisch notwendig ist und Abweichungen zu Ausfällungen führen können.\n\n**Schritt-für-Schritt-Anleitung zur Nährlösungsmischung:**\n\n1. **Wasser vorbereiten:** Beginnen Sie damit, das benötigte Wasservolumen in einem geeigneten Behälter vorzulegen. Die Wassertemperatur sollte zwischen 18 und 22 Grad Celsius liegen. Dies ist wichtig, um die Löslichkeit der Substanzen zu gewährleisten.\n2. **Optional: Silikat hinzufügen:** Wenn Sie Silikat verwenden, geben Sie dieses als nächstes hinzu. Beachten Sie, dass Silikat nur bei einem pH-Wert über 7 löslich ist. Rühren Sie nach der Zugabe des Silikats kräftig für mindestens 30 Sekunden.\n3. **CalMag-Produkt hinzufügen:** Geben Sie das CalMag-Produkt hinzu. Dies ist ein kritischer Schritt, da Calcium vor Sulfaten gelöst werden muss, um Ausfällungen zu vermeiden. Rühren Sie nach der Zugabe des CalMag-Produkts kräftig für mindestens 30 Sekunden.\n4. **Basis-Dünger Teil A hinzufügen:** Fügen Sie nun den Basis-Dünger Teil A hinzu. Dieser enthält typischerweise Calciumnitrat, Eisen-DTPA und Spurenelemente. Rühren Sie nach der Zugabe kräftig für mindestens 30 Sekunden.\n5. **Basis-Dünger Teil B hinzufügen:** Geben Sie als nächstes den Basis-Dünger Teil B hinzu. Dieser enthält typischerweise Magnesiumsulfat, Phosphate und Sulfate. Rühren Sie nach der Zugabe kräftig für mindestens 30 Sekunden.\n6. **Zusätze hinzufügen:** Fügen Sie nun alle gewünschten Zusätze hinzu, wie z.B. PK-Boost, Enzyme, Vitamine oder Aminosäuren. Geben Sie jeden Zusatz einzeln hinzu und rühren Sie nach jeder Zugabe für mindestens 30 Sekunden.\n7. **pH-Korrektur:** Passen Sie den pH-Wert mit pH-Down oder pH-Up an. Dies ist der letzte Schritt, bevor Sie die EC überprüfen. Rühren Sie nach der pH-Korrektur erneut für mindestens 30 Sekunden.\n8. **EC-Kontrolle:** Messen Sie die elektrisc",
+      "chunk_sources": [
+        "duengung/mischsicherheit#goldene-mischungsregel",
+        "duengung/calmag-korrektur#calmag-mischungsreihenfolge",
+        "duengung/mischsicherheit#calciumsulfat-praezipitation",
+        "duengung/ec-management-hydroponik#ec-grundlagen-hydroponik",
+        "bewaesserung/giess-strategien-substrat#giessen-coco"
+      ]
     }
   ]
 }

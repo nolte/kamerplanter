@@ -16,7 +16,7 @@ Usage:
 
 Environment variables (used as defaults when CLI args are not provided):
   KNOWLEDGE_SERVICE_URL   Knowledge Service URL           (default: http://localhost:8090)
-  EVAL_DATA_DIR           Directory with benchmark YAML   (default: tests/rag-eval/)
+  EVAL_DATA_DIR           Directory with benchmark YAML   (default: spec/rag-eval/)
   EVAL_OUTPUT_DIR         Directory for result files      (default: test-reports/rag-eval/)
 """
 
@@ -35,7 +35,7 @@ import yaml
 # ── Defaults (overridable via CLI args or env vars) ─────────────────
 
 KNOWLEDGE_SERVICE_URL = os.environ.get("KNOWLEDGE_SERVICE_URL", "http://localhost:8090")
-EVAL_DATA_DIR = os.environ.get("EVAL_DATA_DIR", str(Path(__file__).parent / "../../tests/rag-eval"))
+EVAL_DATA_DIR = os.environ.get("EVAL_DATA_DIR", str(Path(__file__).parent / "../../spec/rag-eval"))
 EVAL_OUTPUT_DIR = os.environ.get("EVAL_OUTPUT_DIR", str(Path(__file__).parent / "../../test-reports/rag-eval"))
 
 

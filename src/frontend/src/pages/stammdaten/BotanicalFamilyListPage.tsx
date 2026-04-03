@@ -73,17 +73,19 @@ export default function BotanicalFamilyListPage() {
 
   return (
     <Box data-testid="botanical-family-list-page">
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <PageTitle title={t('pages.botanicalFamilies.title')} />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateOpen(true)}
-          data-testid="create-button"
-        >
-          {t('pages.botanicalFamilies.create')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={t('pages.botanicalFamilies.title')}
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+            data-testid="create-button"
+          >
+            {t('pages.botanicalFamilies.create')}
+          </Button>
+        }
+      />
 
       {!loading && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

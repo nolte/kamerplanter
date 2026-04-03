@@ -468,29 +468,21 @@ export default function TankDetailPage() {
       <UnsavedChangesGuard dirty={isDirty} />
 
       {/* Header: title + delete */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          mb: 1,
-          flexWrap: 'wrap',
-          gap: 1,
-        }}
-      >
-        <PageTitle title={tank.name} />
-        <Button
-          variant="outlined"
-          color="error"
-          startIcon={<DeleteIcon />}
-          onClick={() => setDeleteOpen(true)}
-          data-testid="tank-delete-button"
-          size="small"
-          sx={{ mt: { xs: 0, sm: 0.5 } }}
-        >
-          {t('common.delete')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={tank.name}
+        action={
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => setDeleteOpen(true)}
+            data-testid="tank-delete-button"
+            size="small"
+          >
+            {t('common.delete')}
+          </Button>
+        }
+      />
 
       {/* Quick-info chips under the title */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>

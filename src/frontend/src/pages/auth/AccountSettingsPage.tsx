@@ -761,6 +761,7 @@ export default function AccountSettingsPage() {
                 exclusive
                 onChange={handleExperienceLevelChange}
                 fullWidth
+                orientation={fullScreen ? 'vertical' : 'horizontal'}
                 aria-label={t('pages.auth.experienceLevelTitle')}
               >
                 {EXPERIENCE_LEVELS.map(({ level, icon }) => (

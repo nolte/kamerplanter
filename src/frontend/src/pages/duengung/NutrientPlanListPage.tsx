@@ -148,37 +148,31 @@ export default function NutrientPlanListPage() {
 
   return (
     <Box data-testid="nutrient-plan-list-page">
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 1,
-        }}
-      >
-        <PageTitle title={t('pages.nutrientPlans.title')} />
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {hasFavorites && (
-            <Tooltip title={t('pages.nutrientPlans.favFilter')}>
-              <IconButton
-                onClick={() => setFavFilterActive((p) => !p)}
-                color={favFilterActive ? 'warning' : 'default'}
-              >
-                <FilterListIcon />
-              </IconButton>
-            </Tooltip>
-          )}
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateOpen(true)}
-            data-testid="create-button"
-          >
-            {t('pages.nutrientPlans.create')}
-          </Button>
-        </Box>
-      </Box>
+      <PageTitle
+        title={t('pages.nutrientPlans.title')}
+        action={
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {hasFavorites && (
+              <Tooltip title={t('pages.nutrientPlans.favFilter')}>
+                <IconButton
+                  onClick={() => setFavFilterActive((p) => !p)}
+                  color={favFilterActive ? 'warning' : 'default'}
+                >
+                  <FilterListIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateOpen(true)}
+              data-testid="create-button"
+            >
+              {t('pages.nutrientPlans.create')}
+            </Button>
+          </Box>
+        }
+      />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.nutrientPlans.listIntro')}
       </Typography>

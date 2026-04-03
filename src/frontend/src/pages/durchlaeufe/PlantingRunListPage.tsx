@@ -95,17 +95,19 @@ export default function PlantingRunListPage() {
 
   return (
     <Box data-testid="planting-run-list-page">
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-        <PageTitle title={t('pages.plantingRuns.title')} />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateOpen(true)}
-          data-testid="create-button"
-        >
-          {t('pages.plantingRuns.create')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={t('pages.plantingRuns.title')}
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+            data-testid="create-button"
+          >
+            {t('pages.plantingRuns.create')}
+          </Button>
+        }
+      />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.plantingRuns.listIntro')}
       </Typography>

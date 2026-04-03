@@ -810,56 +810,49 @@ export default function PlantInstanceDetailPage() {
   return (
     <Box data-testid="plant-instance-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: { xs: 'flex-start', sm: 'center' },
-          flexDirection: { xs: 'column', sm: 'row' },
-          gap: 1,
-          mb: 0.5,
-        }}
-      >
-        <PageTitle title={plant?.plant_name ?? plant?.instance_id ?? t('entities.plantInstance')} />
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flexShrink: 0 }}>
-          <Button
-            startIcon={<LabelIcon />}
-            onClick={() => setTagDialogOpen(true)}
-            data-testid="tag-button"
-            size="small"
-          >
-            {t('pages.plantInstances.tag.button')}
-          </Button>
-          <Button
-            startIcon={<QrCode2Icon />}
-            onClick={() => setLabelDialogOpen(true)}
-            data-testid="label-button"
-            size="small"
-            aria-label={t('print.printLabels')}
-          >
-            {t('print.printLabelsShort')}
-          </Button>
-          <Button
-            startIcon={<SwapHorizIcon />}
-            onClick={() => setTransitionOpen(true)}
-            disabled={!!plant?.removed_on}
-            data-testid="transition-button"
-            size="small"
-          >
-            {t('pages.phases.transition')}
-          </Button>
-          <Button
-            color="error"
-            startIcon={<RemoveCircleIcon />}
-            onClick={() => setRemoveOpen(true)}
-            disabled={!!plant?.removed_on}
-            data-testid="remove-button"
-            size="small"
-          >
-            {t('pages.plantInstances.remove')}
-          </Button>
-        </Box>
-      </Box>
+      <PageTitle
+        title={plant?.plant_name ?? plant?.instance_id ?? t('entities.plantInstance')}
+        action={
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flexShrink: 0 }}>
+            <Button
+              startIcon={<LabelIcon />}
+              onClick={() => setTagDialogOpen(true)}
+              data-testid="tag-button"
+              size="small"
+            >
+              {t('pages.plantInstances.tag.button')}
+            </Button>
+            <Button
+              startIcon={<QrCode2Icon />}
+              onClick={() => setLabelDialogOpen(true)}
+              data-testid="label-button"
+              size="small"
+              aria-label={t('print.printLabels')}
+            >
+              {t('print.printLabelsShort')}
+            </Button>
+            <Button
+              startIcon={<SwapHorizIcon />}
+              onClick={() => setTransitionOpen(true)}
+              disabled={!!plant?.removed_on}
+              data-testid="transition-button"
+              size="small"
+            >
+              {t('pages.phases.transition')}
+            </Button>
+            <Button
+              color="error"
+              startIcon={<RemoveCircleIcon />}
+              onClick={() => setRemoveOpen(true)}
+              disabled={!!plant?.removed_on}
+              data-testid="remove-button"
+              size="small"
+            >
+              {t('pages.plantInstances.remove')}
+            </Button>
+          </Box>
+        }
+      />
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }} variant="scrollable" scrollButtons="auto">
         <Tab label={t('pages.plantInstances.info')} />

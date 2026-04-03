@@ -106,12 +106,14 @@ export default function BatchDetailPage() {
   return (
     <>
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <PageTitle title={batch?.batch_id ?? t('entities.batch')} />
-        <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
-          {t('common.delete')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={batch?.batch_id ?? t('entities.batch')}
+        action={
+          <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
+            {t('common.delete')}
+          </Button>
+        }
+      />
 
       <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

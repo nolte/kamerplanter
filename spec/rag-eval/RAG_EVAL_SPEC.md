@@ -222,7 +222,7 @@ Das Woerterbuch mappt semantische Topics auf erkennbare Keywords/Phrasen
 in der Antwort. Wird als separate YAML-Datei gepflegt:
 
 ```yaml
-# tests/rag-eval/topic_synonyms.yaml
+# spec/rag-eval/topic_synonyms.yaml
 topics:
   stickstoff_mangel:
     de: [Stickstoff, Stickstoffmangel, N-Mangel, nitrogen, gelbe untere Blaetter]
@@ -272,7 +272,7 @@ Werden als Defaults verwendet wenn kein CLI-Argument gesetzt ist:
 | `VECTORDB_DSN` | `host=localhost port=5433 dbname=kamerplanter_vectors ...` |
 | `LLM_API_URL` | `http://localhost:11434` |
 | `LLM_MODEL` | `gemma3:4b` |
-| `EVAL_DATA_DIR` | `tests/rag-eval/` |
+| `EVAL_DATA_DIR` | `spec/rag-eval/` |
 
 ### Typische Workflows
 

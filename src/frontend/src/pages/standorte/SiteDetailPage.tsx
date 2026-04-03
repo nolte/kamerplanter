@@ -156,12 +156,14 @@ export default function SiteDetailPage() {
   return (
     <Box data-testid="site-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <PageTitle title={current?.name ?? t('entities.site')} />
-        <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
-          {t('common.delete')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={current?.name ?? t('entities.site')}
+        action={
+          <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
+            {t('common.delete')}
+          </Button>
+        }
+      />
 
       <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
         <Typography variant="body2" color="text.secondary">

@@ -356,23 +356,16 @@ export default function PflegeDashboardPage() {
 
   return (
     <Box data-testid="pflege-dashboard-page">
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: 1,
-          mb: 0,
-        }}
-      >
-        <PageTitle title={t('pages.pflege.title')} sx={{ mb: 0 }} />
-        <PrintButton
-          onPrint={() => downloadCareChecklistPdf()}
-          filename="care-checklist.pdf"
-          label={t('print.careChecklist')}
-        />
-      </Box>
+      <PageTitle
+        title={t('pages.pflege.title')}
+        action={
+          <PrintButton
+            onPrint={() => downloadCareChecklistPdf()}
+            filename="care-checklist.pdf"
+            label={t('print.careChecklist')}
+          />
+        }
+      />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3, mt: 1 }}>
         {t('pages.pflege.subtitle')}
       </Typography>

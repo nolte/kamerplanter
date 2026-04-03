@@ -793,8 +793,8 @@ Beide Endpunkte sind **öffentlich** (keine JWT-Authentifizierung erforderlich).
 
 Unter `tools/rag-eval/` liegt ein Evaluierungs-Framework:
 
-- **Benchmark-Fragen**: `tests/rag-eval/benchmark_questions.yaml` mit erwarteten Themen/Quellen
-- **Topic-Synonyme**: `tests/rag-eval/topic_synonyms.yaml` für Retrieval-Qualitätsmessung
+- **Benchmark-Fragen**: `spec/rag-eval/benchmark_questions.yaml` mit erwarteten Themen/Quellen
+- **Topic-Synonyme**: `spec/rag-eval/topic_synonyms.yaml` für Retrieval-Qualitätsmessung
 - **Eval-Script**: `tools/rag-eval/eval_rag.py` — automatisierte Qualitätsprüfung der RAG-Pipeline
 - **Notebook**: `tools/rag-eval/rag_eval.ipynb` — interaktive Analyse und Visualisierung
 

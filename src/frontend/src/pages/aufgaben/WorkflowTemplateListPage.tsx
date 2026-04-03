@@ -347,17 +347,9 @@ export default function WorkflowTemplateListPage() {
   return (
     <Box data-testid="workflow-template-list-page">
       {/* Header */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' },
-          justifyContent: 'space-between',
-          alignItems: { xs: 'stretch', sm: 'center' },
-          gap: 1,
-        }}
-      >
-        <PageTitle title={t('pages.tasks.workflowsTitle')} />
-        <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+      <PageTitle
+        title={t('pages.tasks.workflowsTitle')}
+        action={
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -366,8 +358,8 @@ export default function WorkflowTemplateListPage() {
           >
             {t('pages.tasks.createWorkflow')}
           </Button>
-        </Box>
-      </Box>
+        }
+      />
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.tasks.workflowsIntro')}

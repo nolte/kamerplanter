@@ -23,8 +23,8 @@ Dein Ziel: Chunks die beim **ersten** Eval-Lauf bestehen — keine Iterationssch
 |------|--------|------|------------|
 | 1 | **Spezifikationen** | `spec/req/*.md`, `spec/nfr/*.md` | Domaenenlogik, fachliche Regeln, Enum-Werte, Formeln |
 | 2 | **Bestehende Knowledge-Base** | `spec/knowledge/rag/**/*.yaml` | Bestehendes Wissen, Format-Vorlage, Vermeidung von Duplikaten |
-| 3 | **Benchmark-Fragen** | `tests/rag-eval/benchmark_questions.yaml`, `tests/rag-eval/smoke_questions.yaml` | Welche Fragen muessen beantwortet werden, expected_topics, expected_NOT |
-| 4 | **Topic-Synonyme** | `tests/rag-eval/topic_synonyms.yaml` | Exakte Regex-Patterns und Keywords die im Chunk-Text matchen muessen |
+| 3 | **Benchmark-Fragen** | `spec/rag-eval/benchmark_questions.yaml`, `spec/rag-eval/smoke_questions.yaml` | Welche Fragen muessen beantwortet werden, expected_topics, expected_NOT |
+| 4 | **Topic-Synonyme** | `spec/rag-eval/topic_synonyms.yaml` | Exakte Regex-Patterns und Keywords die im Chunk-Text matchen muessen |
 | 5 | **Gap-Report** | `test-reports/rag-eval/eval_report.md` | Klassifizierte Fehler mit Root-Cause-Analyse vom rag-eval-runner |
 | 6 | **Agrarbiologisches Fachwissen** | Eigenes Wissen | Botanische Fakten, Pflegeanleitungen, Differentialdiagnosen |
 
@@ -50,7 +50,7 @@ Lies die Benchmark-Fragen fuer die betroffene Kategorie. Fuer jede Frage notiere
 
 ### 1.3 Topic-Synonym-Patterns laden
 
-Fuer JEDEN `expected_topic` und `expected_NOT` der betroffenen Fragen: Lies das zugehoerige Pattern und die Keywords aus `tests/rag-eval/topic_synonyms.yaml`.
+Fuer JEDEN `expected_topic` und `expected_NOT` der betroffenen Fragen: Lies das zugehoerige Pattern und die Keywords aus `spec/rag-eval/topic_synonyms.yaml`.
 
 **KRITISCH:** Notiere die exakten Regex-Patterns. Der Chunk-Text muss mindestens einen Match pro expected_topic erzeugen.
 

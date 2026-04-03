@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import Popover from '@mui/material/Popover';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
@@ -185,6 +186,7 @@ export default function CalendarPage() {
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const [filtersExpanded, setFiltersExpanded] = useState(!fullScreen);
   const [selectedSiteKey, setSelectedSiteKey] = useState<string>('');
   const [selectedCategories, setSelectedCategories] = useState<Set<CalendarEventCategory>>(
     new Set(ALL_CATEGORIES),
@@ -970,26 +972,40 @@ export default function CalendarPage() {
 
       {/* Category filter chips — only relevant for month/list/phases views */}
       {viewMode !== 'sowing' && viewMode !== 'season' && (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }} role="group" aria-label={t('pages.calendar.categories')}>
-          {ALL_CATEGORIES.map((cat) => (
-            <Chip
-              key={cat}
-              label={t(CATEGORY_I18N_KEYS[cat])}
+        <>
+          {fullScreen && (
+            <Button
               size="small"
-              variant={selectedCategories.has(cat) ? 'filled' : 'outlined'}
-              onClick={() => toggleCategory(cat)}
-              data-testid={`category-filter-${cat}`}
-              sx={{
-                bgcolor: selectedCategories.has(cat) ? CATEGORY_COLORS[cat] : 'transparent',
-                color: selectedCategories.has(cat) ? 'common.white' : 'text.primary',
-                borderColor: CATEGORY_COLORS[cat],
-                '&:hover': {
-                  bgcolor: selectedCategories.has(cat) ? CATEGORY_COLORS[cat] : `${CATEGORY_COLORS[cat]}22`,
-                },
-              }}
-            />
-          ))}
-        </Box>
+              startIcon={<FilterListIcon />}
+              onClick={() => setFiltersExpanded((prev) => !prev)}
+              sx={{ mb: 1 }}
+            >
+              {t('pages.calendar.categories')} ({selectedCategories.size}/{ALL_CATEGORIES.length})
+            </Button>
+          )}
+          <Collapse in={filtersExpanded || !fullScreen}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }} role="group" aria-label={t('pages.calendar.categories')}>
+              {ALL_CATEGORIES.map((cat) => (
+                <Chip
+                  key={cat}
+                  label={t(CATEGORY_I18N_KEYS[cat])}
+                  size="small"
+                  variant={selectedCategories.has(cat) ? 'filled' : 'outlined'}
+                  onClick={() => toggleCategory(cat)}
+                  data-testid={`category-filter-${cat}`}
+                  sx={{
+                    bgcolor: selectedCategories.has(cat) ? CATEGORY_COLORS[cat] : 'transparent',
+                    color: selectedCategories.has(cat) ? 'common.white' : 'text.primary',
+                    borderColor: CATEGORY_COLORS[cat],
+                    '&:hover': {
+                      bgcolor: selectedCategories.has(cat) ? CATEGORY_COLORS[cat] : `${CATEGORY_COLORS[cat]}22`,
+                    },
+                  }}
+                />
+              ))}
+            </Box>
+          </Collapse>
+        </>
       )}
 
       {/* Calendar content */}

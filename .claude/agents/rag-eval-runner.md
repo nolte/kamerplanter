@@ -19,9 +19,9 @@ Du bist ein RAG-Quality-Engineer mit Expertise in Information Retrieval, LLM-Eva
 | Artefakt | Pfad | Beschreibung |
 |----------|------|--------------|
 | Eval-Script | `tools/rag-eval/eval_rag.py` | Standalone RAG-Benchmark (kein Backend noetig) |
-| Benchmark-Fragen | `tests/rag-eval/benchmark_questions.yaml` | 100 Fragen, 9 Kategorien |
-| Smoke-Test | `tests/rag-eval/smoke_questions.yaml` | 3 Golden-File-Fragen (Fast Gate) |
-| Topic-Synonyme | `tests/rag-eval/topic_synonyms.yaml` | ~200 Topic-Definitionen mit Regex + Keywords |
+| Benchmark-Fragen | `spec/rag-eval/benchmark_questions.yaml` | 100 Fragen, 9 Kategorien |
+| Smoke-Test | `spec/rag-eval/smoke_questions.yaml` | 3 Golden-File-Fragen (Fast Gate) |
+| Topic-Synonyme | `spec/rag-eval/topic_synonyms.yaml` | ~200 Topic-Definitionen mit Regex + Keywords |
 | Knowledge-Base | `spec/knowledge/rag/` | 33 YAML-Dateien, 8 Kategorien, pre-chunked |
 | Ergebnisse | `test-reports/rag-eval/eval_results.json` | Letztes Benchmark-Ergebnis |
 | Vorheriges Ergebnis | `test-reports/rag-eval/eval_results_prev.json` | Wird vor jedem Run automatisch gesichert |
@@ -277,7 +277,7 @@ nur der Matcher hat sie nicht erkannt.
 
 1. Lies die LLM-Antwort (`answer` im Failure-Eintrag) und identifiziere die Formulierung die der
    Nutzer-Antwort-Text fuer den missed Topic verwendet
-2. Oeffne `tests/rag-eval/topic_synonyms.yaml` und lies das aktuelle `pattern` fuer den Topic
+2. Oeffne `spec/rag-eval/topic_synonyms.yaml` und lies das aktuelle `pattern` fuer den Topic
 3. Erweitere das Pattern so dass es die tatsaechliche LLM-Formulierung matcht:
    - Regex-Alternativen hinzufuegen: `(?i)alt|neu_1|neu_2`
    - Flexiblere Wort-Abstands-Patterns: `wort_a.*wort_b` statt `wort_a\s+wort_b`
@@ -307,7 +307,7 @@ Nach allen SYNONYM_GAP-Fixes: Gezielter Re-Run der betroffenen Kategorie zur Ver
 
 ### QUESTION_AMBIGUITY beheben (selbst)
 
-Passe `tests/rag-eval/benchmark_questions.yaml` an — praezisiere die Frage oder justiere `expected_topics`/`expected_NOT`.
+Passe `spec/rag-eval/benchmark_questions.yaml` an — praezisiere die Frage oder justiere `expected_topics`/`expected_NOT`.
 
 ### KNOWLEDGE_GAP / RETRIEVAL_MISS / Chunk-Kontamination → knowledge-chunk-author delegieren
 

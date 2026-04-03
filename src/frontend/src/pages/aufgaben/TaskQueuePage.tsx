@@ -884,56 +884,58 @@ export default function TaskQueuePage() {
 
   return (
     <Box data-testid="task-queue-page">
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1 }}>
-        <PageTitle title={t('pages.tasks.queueTitle')} />
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          {!bulkMode && (
-            <>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={generateLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
-                onClick={handleGenerateCareReminders}
-                disabled={generateLoading}
-                data-testid="generate-reminders-button"
-              >
-                {t('pages.tasks.generateReminders')}
-              </Button>
-              {taskCount > 0 && (
+      <PageTitle
+        title={t('pages.tasks.queueTitle')}
+        action={
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {!bulkMode && (
+              <>
                 <Button
                   variant="outlined"
                   size="small"
-                  startIcon={<EditIcon />}
-                  onClick={() => setBulkMode(true)}
-                  data-testid="bulk-mode-button"
+                  startIcon={generateLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+                  onClick={handleGenerateCareReminders}
+                  disabled={generateLoading}
+                  data-testid="generate-reminders-button"
                 >
-                  {t('pages.tasks.bulkEdit')}
+                  {t('pages.tasks.generateReminders')}
                 </Button>
-              )}
+                {taskCount > 0 && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<EditIcon />}
+                    onClick={() => setBulkMode(true)}
+                    data-testid="bulk-mode-button"
+                  >
+                    {t('pages.tasks.bulkEdit')}
+                  </Button>
+                )}
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => setCreateOpen(true)}
+                  data-testid="create-task-button"
+                >
+                  {t('pages.tasks.createTask')}
+                </Button>
+              </>
+            )}
+            {bulkMode && (
               <Button
-                variant="contained"
+                variant="outlined"
                 size="small"
-                startIcon={<AddIcon />}
-                onClick={() => setCreateOpen(true)}
-                data-testid="create-task-button"
+                startIcon={<CloseIcon />}
+                onClick={exitBulkMode}
+                data-testid="exit-bulk-mode"
               >
-                {t('pages.tasks.createTask')}
+                {t('common.cancel')}
               </Button>
-            </>
-          )}
-          {bulkMode && (
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<CloseIcon />}
-              onClick={exitBulkMode}
-              data-testid="exit-bulk-mode"
-            >
-              {t('common.cancel')}
-            </Button>
-          )}
-        </Box>
-      </Box>
+            )}
+          </Box>
+        }
+      />
 
       {/* Bulk action bar */}
       {bulkMode && (

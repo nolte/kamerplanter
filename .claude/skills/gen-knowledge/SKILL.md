@@ -163,12 +163,12 @@ python3 -c "import yaml; yaml.safe_load(open('spec/knowledge/rag/{category}/{dat
 
 Falls das Thema diagnostisch ist (Kategorie `diagnostik` oder `duengung`):
 
-1. Pruefe ob `tests/rag-eval/benchmark_questions.yaml` Fragen enthaelt die das neue Dokument beantworten sollte
+1. Pruefe ob `spec/rag-eval/benchmark_questions.yaml` Fragen enthaelt die das neue Dokument beantworten sollte
 2. Falls ja: Notiere dem Nutzer welche Benchmark-Fragen nun besser beantwortet werden koennten
 3. Falls nein: Schlage 2-3 neue Benchmark-Fragen vor die zum neuen Dokument passen
 
 Falls das Thema neue Keywords einfuehrt:
-- Schlage Ergaenzungen fuer `tests/rag-eval/topic_synonyms.yaml` vor
+- Schlage Ergaenzungen fuer `spec/rag-eval/topic_synonyms.yaml` vor
 
 ## Qualitaetskriterien (die ein GUTES von einem MITTELMASSIGEN Dokument unterscheiden):
 

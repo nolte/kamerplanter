@@ -235,24 +235,17 @@ export default function HarvestBatchDetailPage() {
   return (
     <Box data-testid="harvest-batch-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 2,
-        }}
-      >
-        <PageTitle
-          title={batch.batch_id || t('pages.harvest.batchFallbackTitle')}
-        />
-        {batch.quality_grade && (
-          <Chip
-            label={t(`enums.qualityGrade.${batch.quality_grade}`)}
-            color="primary"
-          />
-        )}
-      </Box>
+      <PageTitle
+        title={batch.batch_id || t('pages.harvest.batchFallbackTitle')}
+        action={
+          batch.quality_grade ? (
+            <Chip
+              label={t(`enums.qualityGrade.${batch.quality_grade}`)}
+              color="primary"
+            />
+          ) : undefined
+        }
+      />
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab label={t('pages.harvest.tabDetails')} />

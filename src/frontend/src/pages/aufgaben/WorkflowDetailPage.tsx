@@ -501,12 +501,12 @@ export default function WorkflowDetailPage() {
   return (
     <Box data-testid="workflow-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <PageTitle title={workflow.name} />
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          {workflow.is_system && <Chip label={t('pages.tasks.systemWorkflow')} color="info" variant="outlined" />}
-        </Box>
-      </Box>
+      <PageTitle
+        title={workflow.name}
+        action={
+          workflow.is_system ? <Chip label={t('pages.tasks.systemWorkflow')} color="info" variant="outlined" /> : undefined
+        }
+      />
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab label={t('pages.tasks.tabDetails')} />

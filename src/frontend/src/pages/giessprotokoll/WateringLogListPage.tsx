@@ -170,23 +170,19 @@ export default function WateringLogListPage() {
 
   return (
     <Box data-testid="watering-log-list-page">
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <PageTitle title={t('pages.wateringLogs.title')} />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateOpen(true)}
-          data-testid="create-watering-log-button"
-        >
-          {t('pages.wateringLogs.create')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={t('pages.wateringLogs.title')}
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+            data-testid="create-watering-log-button"
+          >
+            {t('pages.wateringLogs.create')}
+          </Button>
+        }
+      />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.wateringLogs.description')}
       </Typography>
