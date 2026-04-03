@@ -583,6 +583,7 @@
       "workflowGenerated": "Workflow automatisch generiert.",
       "assignedPlantCount": "{{count}} Pflanze zugewiesen",
       "assignedPlantCount_other": "{{count}} Pflanzen zugewiesen",
+      "viewWorkflowAssignments": "Zugewiesene Pflanzen für \"{{name}}\" anzeigen",
       "duplicateWorkflow": "Workflow duplizieren",
       "duplicateWorkflowDescription": "Erstellt eine Kopie von \"{{name}}\" mit allen Aufgabenvorlagen. Du kannst die Kopie anschließend anpassen.",
       "workflowDuplicated": "Workflow dupliziert.",
@@ -1896,6 +1897,7 @@
       "systemWorkflow": "System",
       "unassignedPhase": "Ohne Phase",
       "instantiateWorkflow": "Workflow instanziieren",
+      "applyWorkflow": "Workflow zuweisen",
       "instantiateIntro": "Wählen Sie eine Pflanze, um die Aufgaben dieses Workflows zu erstellen.",
       "instantiate": "Instanziieren",
       "workflowInstantiated": "Workflow erfolgreich instanziiert. Aufgaben wurden erstellt.",
@@ -1968,6 +1970,7 @@
       "hideInactive": "Inaktive ausblenden",
       "allExecutionsInactive": "Alle Zuweisungen sind inaktiv. Schalten Sie den Filter aus, um sie anzuzeigen.",
       "noExecutions": "Dieser Workflow wurde noch keiner Pflanze zugewiesen.",
+      "usedByEntities": "Zugewiesen an {{count}} Pflanzen/Durchläufe",
       "plantingRun": "Pflanzdurchlauf",
       "progress": "Fortschritt",
       "removed": "Entfernt",
@@ -2533,7 +2536,12 @@
       "dormant": "Wartend",
       "statusAll": "Alle Aufgaben",
       "noPhase": "Ohne Phase",
-      "loadingTasks": "Aufgaben werden geladen..."
+      "loadingTasks": "Aufgaben werden geladen...",
+      "workflowHintTitle": "Wiederverwendbarer Workflow",
+      "workflowHintText": "Dieser Plan basiert auf einem Workflow-Template, das auch für andere Pflanzen dieser Art verwendet werden kann.",
+      "openWorkflow": "Workflow bearbeiten",
+      "basedOnWorkflow": "Basierend auf Workflow",
+      "viewWorkflows": "Workflows anzeigen"
     },
     "gantt": {
       "title": "Phasen-Zeitplan",

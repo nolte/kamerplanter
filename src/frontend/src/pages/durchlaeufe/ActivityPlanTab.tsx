@@ -34,6 +34,10 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import AlertTitle from '@mui/material/AlertTitle';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import LinkIcon from '@mui/icons-material/Link';
+import { Link } from 'react-router-dom';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as activityPlanApi from '@/api/endpoints/activityPlans';
@@ -350,7 +354,7 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
       <Box>
         {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <AssignmentIcon color="primary" />
             <Typography variant="h6">
               {t('pages.activityPlan.assignedTasks')}
@@ -360,6 +364,20 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
               size="small"
               color={getCompletionColor(assignedTasks)}
             />
+            {assignedTasks.some((task) => task.workflow_execution_key) && (
+              <Chip
+                icon={<LinkIcon />}
+                label={t('pages.activityPlan.basedOnWorkflow')}
+                size="small"
+                color="info"
+                variant="outlined"
+                component={Link}
+                to="/aufgaben/workflows"
+                clickable
+                data-testid="workflow-origin-chip"
+                aria-label={t('pages.activityPlan.viewWorkflows')}
+              />
+            )}
           </Box>
         </Box>
 
@@ -496,12 +514,40 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
 
       {plan && (
         <>
+          {/* Workflow hint banner */}
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <AlertTitle>{t('pages.activityPlan.workflowHintTitle')}</AlertTitle>
+            {t('pages.activityPlan.workflowHintText')}{' '}
+            <Link
+              to={`/aufgaben/workflows/${plan.workflow_template_key}`}
+              data-testid="workflow-hint-link"
+              style={{ color: 'inherit', fontWeight: 600 }}
+            >
+              {t('pages.activityPlan.openWorkflow')}
+            </Link>
+          </Alert>
+
           {/* Summary header */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              <Typography variant="h6">
-                {plan.name}
-              </Typography>
+              <Link
+                to={`/aufgaben/workflows/${plan.workflow_template_key}#templates`}
+                data-testid="workflow-plan-name-link"
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                <Typography
+                  variant="h6"
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    '&:hover': { color: 'primary.main' },
+                  }}
+                >
+                  {plan.name}
+                  <OpenInNewIcon sx={{ fontSize: 16, verticalAlign: 'middle' }} />
+                </Typography>
+              </Link>
               <Chip label={`${plan.total_duration_days}d`} size="small" variant="outlined" icon={<TimerIcon />} />
               <Chip
                 label={`${enabledCount}/${plan.total_activities}`}
@@ -641,7 +687,12 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
                                           enterTouchDelay={0}
                                           leaveTouchDelay={5000}
                                         >
-                                          <InfoOutlinedIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                                          <InfoOutlinedIcon
+                                            tabIndex={0}
+                                            role="button"
+                                            aria-label={t('common.description')}
+                                            sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }}
+                                          />
                                         </Tooltip>
                                       ) : null;
                                     })()}

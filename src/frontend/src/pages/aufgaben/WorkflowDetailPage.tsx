@@ -402,7 +402,7 @@ export default function WorkflowDetailPage() {
     } catch (err) {
       handleError(err);
     }
-  }, [selectedActivity, key, addTargetPhase, addDayOffset, templates, load, handleError, notification, t]);
+  }, [selectedActivity, key, addTargetPhase, addTargetPhaseDisplay, addTargetPhaseDays, addTargetPhaseStress, addDayOffset, templates, load, handleError, notification, t]);
 
   // Filter activities for the dialog
   const filteredActivities = useMemo(() => {

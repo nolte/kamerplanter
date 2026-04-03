@@ -583,6 +583,7 @@
       "workflowGenerated": "Workflow auto-generated.",
       "assignedPlantCount": "{{count}} plant assigned",
       "assignedPlantCount_other": "{{count}} plants assigned",
+      "viewWorkflowAssignments": "View assigned plants for \"{{name}}\"",
       "duplicateWorkflow": "Duplicate workflow",
       "duplicateWorkflowDescription": "Creates a copy of \"{{name}}\" with all task templates. You can then customize the copy.",
       "workflowDuplicated": "Workflow duplicated.",
@@ -1896,6 +1897,7 @@
       "systemWorkflow": "System",
       "unassignedPhase": "Unassigned",
       "instantiateWorkflow": "Instantiate Workflow",
+      "applyWorkflow": "Assign workflow",
       "instantiateIntro": "Select a plant to create the tasks from this workflow.",
       "instantiate": "Instantiate",
       "workflowInstantiated": "Workflow instantiated successfully. Tasks have been created.",
@@ -1968,6 +1970,7 @@
       "hideInactive": "Hide inactive",
       "allExecutionsInactive": "All assignments are inactive. Toggle the filter to show them.",
       "noExecutions": "This workflow has not been assigned to any plant yet.",
+      "usedByEntities": "Assigned to {{count}} plants/runs",
       "plantingRun": "Planting Run",
       "progress": "Progress",
       "removed": "Removed",
@@ -2533,7 +2536,12 @@
       "dormant": "Dormant",
       "statusAll": "All Tasks",
       "noPhase": "No Phase",
-      "loadingTasks": "Loading tasks..."
+      "loadingTasks": "Loading tasks...",
+      "workflowHintTitle": "Reusable workflow",
+      "workflowHintText": "This plan is based on a workflow template that can also be used for other plants of this species.",
+      "openWorkflow": "Edit workflow",
+      "basedOnWorkflow": "Based on workflow",
+      "viewWorkflows": "View workflows"
     },
     "gantt": {
       "title": "Phase Timeline",
