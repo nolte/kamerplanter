@@ -241,6 +241,7 @@ services:
       JWT_SECRET_KEY: e2e-test-jwt-secret-not-for-production
       KAMERPLANTER_MODE: full
       COOKIE_SECURE: "false"
+      RATE_LIMIT_AUTH: "200/minute"
     depends_on:
       arangodb:
         condition: service_healthy

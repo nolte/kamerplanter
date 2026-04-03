@@ -72,10 +72,11 @@ class AccountSettingsPage(BasePage):
         return [tab.text for tab in tabs if tab.is_displayed()]
 
     def click_tab(self, label: str) -> None:
-        """Click a tab by its label text."""
+        """Click a tab by its label text (case-insensitive)."""
         tabs = self.driver.find_elements(*self.TAB_BUTTONS)
+        target = label.lower()
         for tab in tabs:
-            if tab.text.strip() == label:
+            if tab.text.strip().lower() == target:
                 self.scroll_and_click(tab)
                 return
         msg = f"Tab '{label}' not found. Available: {self.get_tab_labels()}"
@@ -95,9 +96,15 @@ class AccountSettingsPage(BasePage):
         return el.get_attribute("value") or ""
 
     def set_display_name(self, name: str) -> None:
-        """Clear and type a new display name."""
+        """Clear and type a new display name.
+
+        Uses Ctrl+A instead of .clear() because React controlled inputs
+        do not reliably clear with the WebDriver clear() method.
+        """
+        from selenium.webdriver.common.keys import Keys
+
         field = self.wait_for_element(self.DISPLAY_NAME_INPUT)
-        field.clear()
+        field.send_keys(Keys.CONTROL, "a")
         field.send_keys(name)
 
     def get_email(self) -> str:

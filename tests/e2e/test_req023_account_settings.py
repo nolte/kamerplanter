@@ -79,7 +79,7 @@ class TestAccountSettingsProfile:
         assert len(tab_labels) > 0, (
             "TC-REQ-023-024 FAIL: Expected at least one tab in account settings"
         )
-        assert any("Profil" in label for label in tab_labels), (
+        assert any("profil" in label.lower() for label in tab_labels), (
             f"TC-REQ-023-024 FAIL: Expected 'Profil' tab, got: {tab_labels}"
         )
 

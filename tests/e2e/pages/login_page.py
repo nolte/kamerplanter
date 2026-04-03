@@ -101,9 +101,15 @@ class LoginPage(BasePage):
         field.send_keys(password)
 
     def toggle_remember_me(self) -> None:
-        """Click the remember-me checkbox."""
-        cb = self.wait_for_element_clickable(self.REMEMBER_ME_CHECKBOX)
-        self.scroll_and_click(cb)
+        """Click the remember-me checkbox.
+
+        MUI renders the actual <input> as hidden — click the visible
+        FormControlLabel instead.
+        """
+        label = self.wait_for_element_clickable(
+            (By.CSS_SELECTOR, ".MuiFormControlLabel-root")
+        )
+        self.scroll_and_click(label)
 
     def click_login(self) -> None:
         """Click the login/submit button."""

@@ -24,6 +24,20 @@ from .pages.onboarding_wizard_page import OnboardingWizardPage
 # -- Fixtures -----------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def reset_onboarding_state(request: pytest.FixtureRequest, e2e_seed_data: dict, base_url: str) -> None:
+    """Reset onboarding before tests that need a fresh wizard.
+
+    TestCompletedSkippedCard is excluded — it needs the completed state and
+    manages its own setup.
+    """
+    if request.node.cls is TestCompletedSkippedCard:
+        return
+    from .conftest import _e2e_api_post
+
+    _e2e_api_post(e2e_seed_data, base_url, "onboarding/reset")
+
+
 @pytest.fixture
 def wizard(browser: WebDriver, base_url: str) -> OnboardingWizardPage:
     """Return an OnboardingWizardPage bound to the test browser."""

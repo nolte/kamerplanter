@@ -288,6 +288,19 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
     return result
 
 
+def _e2e_api_post(e2e_seed_data: dict, base_url: str, path: str, data: dict | None = None) -> tuple[int, dict]:
+    """Make an authenticated POST to a tenant-scoped API endpoint.
+
+    Helper for test fixtures that need to call the backend API (e.g. resetting
+    onboarding state).  Works in both light and full mode.
+    """
+    token = e2e_seed_data.get("access_token")
+    slug = e2e_seed_data.get("tenant_slug", "mein-garten")
+    _post, _ = _api_helpers(token)
+    url = f"{base_url.rstrip('/')}/api/v1/t/{slug}/{path.lstrip('/')}"
+    return _post(url, data or {})
+
+
 @pytest.fixture(scope="session")
 def browser(request: pytest.FixtureRequest, e2e_seed_data: dict) -> webdriver.Remote:
     """Create a headless browser session per xdist worker (NFR-008 §3.1).
@@ -476,6 +489,25 @@ def screenshot_dir(request: pytest.FixtureRequest) -> Path:
     return path
 
 
+def _cdp_full_page_screenshot(driver: webdriver.Remote, filepath: Path) -> None:
+    """Capture a full-page screenshot via Chrome DevTools Protocol.
+
+    Falls back to the standard Selenium screenshot if CDP is not available
+    (e.g. Firefox or older drivers).
+    """
+    import base64
+
+    try:
+        result = driver.execute_cdp_cmd(
+            "Page.captureScreenshot",
+            {"captureBeyondViewport": True},
+        )
+        filepath.write_bytes(base64.b64decode(result["data"]))
+    except Exception:
+        # Fallback for non-Chrome browsers or remote grids without CDP
+        driver.save_screenshot(str(filepath))
+
+
 @pytest.fixture(autouse=True)
 def screenshot(
     request: pytest.FixtureRequest,
@@ -503,7 +535,7 @@ def screenshot(
     def _capture(name: str, description: str = "") -> Path:
         filename = f"{name}.png"
         filepath = screenshot_dir / filename
-        browser.save_screenshot(str(filepath))
+        _cdp_full_page_screenshot(browser, filepath)
 
         # Register with protocol plugin for report generation
         screenshots_list = getattr(request.node, "_protocol_screenshots", [])
