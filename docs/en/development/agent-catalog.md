@@ -614,7 +614,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 6. Suggest prioritized improvements
 7. Optionally apply quick fixes (extend synonyms, adjust questions, create knowledge chunks)
 
-**Output:** `tests/rag-eval/eval_report.md` — Error classification, category trends, prioritized improvements
+**Output:** `test-reports/rag-eval/eval_report.md` — Error classification, category trends, prioritized improvements
 
 ---
 

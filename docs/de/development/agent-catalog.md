@@ -614,7 +614,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 6. Priorisierte Verbesserungsmassnahmen vorschlagen
 7. Optionale Quick-Fixes anwenden (Synonym erweitern, Fragen anpassen, Knowledge-Chunks erstellen)
 
-**Output:** `tests/rag-eval/eval_report.md` — Fehlerklassifizierung, Kategorie-Trend, priorisierte Verbesserungsmassnahmen
+**Output:** `test-reports/rag-eval/eval_report.md` — Fehlerklassifizierung, Kategorie-Trend, priorisierte Verbesserungsmassnahmen
 
 ---
 

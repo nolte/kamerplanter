@@ -25,7 +25,7 @@ Dein Ziel: Chunks die beim **ersten** Eval-Lauf bestehen — keine Iterationssch
 | 2 | **Bestehende Knowledge-Base** | `spec/knowledge/rag/**/*.yaml` | Bestehendes Wissen, Format-Vorlage, Vermeidung von Duplikaten |
 | 3 | **Benchmark-Fragen** | `tests/rag-eval/benchmark_questions.yaml`, `tests/rag-eval/smoke_questions.yaml` | Welche Fragen muessen beantwortet werden, expected_topics, expected_NOT |
 | 4 | **Topic-Synonyme** | `tests/rag-eval/topic_synonyms.yaml` | Exakte Regex-Patterns und Keywords die im Chunk-Text matchen muessen |
-| 5 | **Gap-Report** | `tests/rag-eval/eval_report.md` | Klassifizierte Fehler mit Root-Cause-Analyse vom rag-eval-runner |
+| 5 | **Gap-Report** | `test-reports/rag-eval/eval_report.md` | Klassifizierte Fehler mit Root-Cause-Analyse vom rag-eval-runner |
 | 6 | **Agrarbiologisches Fachwissen** | Eigenes Wissen | Botanische Fakten, Pflegeanleitungen, Differentialdiagnosen |
 
 ---
@@ -34,7 +34,7 @@ Dein Ziel: Chunks die beim **ersten** Eval-Lauf bestehen — keine Iterationssch
 
 ### 1.1 Gap-Report lesen (wenn vorhanden)
 
-Lies `tests/rag-eval/eval_report.md`. Extrahiere:
+Lies `test-reports/rag-eval/eval_report.md`. Extrahiere:
 - Alle KNOWLEDGE_GAP-Eintraege (fehlende Chunks)
 - Alle RETRIEVAL_MISS-Eintraege (Chunk existiert aber wird nicht gefunden — evtl. Tags/Titel verbessern)
 - Alle GENERATION_MISS-Eintraege (Chunk existiert, wird retrieved, aber LLM generiert Topics nicht — Chunk-Text praezisieren)
