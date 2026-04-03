@@ -11,7 +11,7 @@ on:
       - 'src/frontend/Dockerfile.*'
       - 'src/frontend/**'
       - 'docker/**'
-      - 'spec/knowledge/**'
+      - 'spec/knowledge/rag/**'
 
 jobs:
   changes:
@@ -40,7 +40,7 @@ jobs:
               - 'docker/vectordb/**'
             knowledge:
               - 'docker/knowledge/**'
-              - 'spec/knowledge/**'
+              - 'spec/knowledge/rag/**'
             embedding-service:
               - 'docker/embedding-service/**'
 

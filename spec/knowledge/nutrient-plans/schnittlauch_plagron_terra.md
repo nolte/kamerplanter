@@ -4,7 +4,7 @@
 > **Pflanze:** Allium schoenoprasum (Schwachzehrer, Outdoor, perennierend)
 > **Produkte:** Plagron Terra Grow, Pure Zym
 > **Erstellt:** 2026-03-06
-> **Quellen:** spec/ref/products/plagron_terra_grow.md, spec/ref/products/plagron_pure_zym.md, spec/ref/plant-info/allium_schoenoprasum.md
+> **Quellen:** spec/knowledge/products/plagron_terra_grow.md, spec/knowledge/products/plagron_pure_zym.md, spec/knowledge/plants/allium_schoenoprasum.md
 
 ---
 
@@ -538,9 +538,9 @@ Bei einem Schnittlauch-Horst im 3--5 L Topf, 0.2 L Giessloessung pro Duengung, D
 
 | Entitaet | Referenz-Dokument | KA-Feld |
 |----------|-------------------|---------|
-| Fertilizer: Terra Grow | `spec/ref/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Pure Zym | `spec/ref/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
-| Species: Allium schoenoprasum | `spec/ref/plant-info/allium_schoenoprasum.md` | `species.scientific_name` |
+| Fertilizer: Terra Grow | `spec/knowledge/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Pure Zym | `spec/knowledge/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
+| Species: Allium schoenoprasum | `spec/knowledge/plants/allium_schoenoprasum.md` | `species.scientific_name` |
 | SubstrateType: SOIL | Built-in Enum | `nutrient_plans.recommended_substrate_type` |
 
 ---
@@ -566,9 +566,9 @@ Bei einem Schnittlauch-Horst im 3--5 L Topf, 0.2 L Giessloessung pro Duengung, D
 
 ## Quellenverzeichnis
 
-1. Plagron Terra Grow Produktdaten: `spec/ref/products/plagron_terra_grow.md`
-2. Plagron Pure Zym Produktdaten: `spec/ref/products/plagron_pure_zym.md`
-3. Schnittlauch Pflanzendaten: `spec/ref/plant-info/allium_schoenoprasum.md`
+1. Plagron Terra Grow Produktdaten: `spec/knowledge/products/plagron_terra_grow.md`
+2. Plagron Pure Zym Produktdaten: `spec/knowledge/products/plagron_pure_zym.md`
+3. Schnittlauch Pflanzendaten: `spec/knowledge/plants/allium_schoenoprasum.md`
 4. NutrientPlan Datenmodell: `src/backend/app/domain/models/nutrient_plan.py`
 5. PhaseName Enum: `src/backend/app/common/enums.py`
 

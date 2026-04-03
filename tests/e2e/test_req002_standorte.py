@@ -146,6 +146,7 @@ class TestSiteListPage:
             "TC-REQ-002-001 FAIL: Page title should not be empty after navigation to /standorte/sites"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.smoke
     @pytest.mark.core_crud
     def test_site_list_has_data_table(
@@ -289,6 +290,7 @@ class TestSiteListPage:
             f"TC-REQ-002-008 FAIL: Expected a search chip to appear after searching for '{search_term}'"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.skip(reason="Site list uses accordion cards — no DataTable sort (see TC-002-002 spec update)")
     def test_site_list_sort_by_column(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest

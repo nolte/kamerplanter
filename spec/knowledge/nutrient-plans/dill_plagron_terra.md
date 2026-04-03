@@ -4,7 +4,7 @@
 > **Pflanze:** Anethum graveolens (Schwachzehrer, Outdoor, annuell)
 > **Produkte:** Plagron Terra Grow, Pure Zym
 > **Erstellt:** 2026-03-06
-> **Quellen:** spec/ref/products/plagron_terra_grow.md, spec/ref/products/plagron_pure_zym.md, spec/ref/plant-info/anethum_graveolens.md
+> **Quellen:** spec/knowledge/products/plagron_terra_grow.md, spec/knowledge/products/plagron_pure_zym.md, spec/knowledge/plants/anethum_graveolens.md
 
 ---
 
@@ -541,9 +541,9 @@ Bei 4 Staffelsaat-Zyklen pro Jahr: ~4 ml Terra Grow, ~2 ml Pure Zym.
 
 | Entitaet | Referenz-Dokument | KA-Feld |
 |----------|-------------------|---------|
-| Fertilizer: Terra Grow | `spec/ref/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Pure Zym | `spec/ref/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
-| Species: Anethum graveolens | `spec/ref/plant-info/anethum_graveolens.md` | `species.scientific_name` |
+| Fertilizer: Terra Grow | `spec/knowledge/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Pure Zym | `spec/knowledge/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
+| Species: Anethum graveolens | `spec/knowledge/plants/anethum_graveolens.md` | `species.scientific_name` |
 | SubstrateType: SOIL | Built-in Enum | `nutrient_plans.recommended_substrate_type` |
 
 ---
@@ -569,9 +569,9 @@ Bei 4 Staffelsaat-Zyklen pro Jahr: ~4 ml Terra Grow, ~2 ml Pure Zym.
 
 ## Quellenverzeichnis
 
-1. Plagron Terra Grow Produktdaten: `spec/ref/products/plagron_terra_grow.md`
-2. Plagron Pure Zym Produktdaten: `spec/ref/products/plagron_pure_zym.md`
-3. Dill Pflanzendaten: `spec/ref/plant-info/anethum_graveolens.md`
+1. Plagron Terra Grow Produktdaten: `spec/knowledge/products/plagron_terra_grow.md`
+2. Plagron Pure Zym Produktdaten: `spec/knowledge/products/plagron_pure_zym.md`
+3. Dill Pflanzendaten: `spec/knowledge/plants/anethum_graveolens.md`
 4. NutrientPlan Datenmodell: `src/backend/app/domain/models/nutrient_plan.py`
 5. PhaseName Enum: `src/backend/app/common/enums.py`
 

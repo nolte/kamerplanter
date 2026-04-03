@@ -4,7 +4,7 @@
 > **Pflanze:** Phaseolus vulgaris (Schwachzehrer, Outdoor, annuell, N-Fixierer)
 > **Produkte:** Plagron Terra Bloom, Pure Zym
 > **Erstellt:** 2026-03-06
-> **Quellen:** spec/ref/products/plagron_terra_bloom.md, spec/ref/products/plagron_pure_zym.md, spec/ref/plant-info/phaseolus_vulgaris.md
+> **Quellen:** spec/knowledge/products/plagron_terra_bloom.md, spec/knowledge/products/plagron_pure_zym.md, spec/knowledge/plants/phaseolus_vulgaris.md
 
 ---
 
@@ -525,9 +525,9 @@ Bei einer Buschbohnen-Reihe (10 Pflanzen), 0.1 L Giessloessung pro Pflanze/Dueng
 
 | Entitaet | Referenz-Dokument | KA-Feld |
 |----------|-------------------|---------|
-| Fertilizer: Terra Bloom | `spec/ref/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Pure Zym | `spec/ref/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
-| Species: Phaseolus vulgaris | `spec/ref/plant-info/phaseolus_vulgaris.md` | `species.scientific_name` |
+| Fertilizer: Terra Bloom | `spec/knowledge/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Pure Zym | `spec/knowledge/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
+| Species: Phaseolus vulgaris | `spec/knowledge/plants/phaseolus_vulgaris.md` | `species.scientific_name` |
 | SubstrateType: SOIL | Built-in Enum | `nutrient_plans.recommended_substrate_type` |
 
 ---
@@ -555,9 +555,9 @@ Bei einer Buschbohnen-Reihe (10 Pflanzen), 0.1 L Giessloessung pro Pflanze/Dueng
 
 ## Quellenverzeichnis
 
-1. Plagron Terra Bloom Produktdaten: `spec/ref/products/plagron_terra_bloom.md`
-2. Plagron Pure Zym Produktdaten: `spec/ref/products/plagron_pure_zym.md`
-3. Phaseolus vulgaris Pflanzensteckbrief: `spec/ref/plant-info/phaseolus_vulgaris.md`
+1. Plagron Terra Bloom Produktdaten: `spec/knowledge/products/plagron_terra_bloom.md`
+2. Plagron Pure Zym Produktdaten: `spec/knowledge/products/plagron_pure_zym.md`
+3. Phaseolus vulgaris Pflanzensteckbrief: `spec/knowledge/plants/phaseolus_vulgaris.md`
 4. NutrientPlan Datenmodell: `src/backend/app/domain/models/nutrient_plan.py`
 5. PhaseName Enum: `src/backend/app/common/enums.py`
 

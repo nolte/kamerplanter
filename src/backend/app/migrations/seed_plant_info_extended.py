@@ -1,4 +1,4 @@
-"""Seed extended plant-info data from spec/ref/plant-info/*.md and spec/plant-info/*.md.
+"""Seed extended plant-info data from spec/knowledge/plants/*.md and spec/knowledge/plants/*.md.
 
 Loads 7 additional YAML files (plant_info_indoor_1/2/3/4, plant_info_outdoor_1/2/3)
 and seeds them using the same logic as seed_plant_info.py.
@@ -7,7 +7,7 @@ All hardcoded data lives in seed_data/plant_info_indoor_*.yaml and
 seed_data/plant_info_outdoor_*.yaml — this module contains only the loading,
 construction and seeding logic (reusing patterns from seed_plant_info).
 
-Sources: spec/ref/plant-info/*.md (185 plant-info documents)
+Sources: spec/knowledge/plants/*.md (185 plant-info documents)
 """
 
 import contextlib

@@ -4,7 +4,7 @@
 > **Pflanze:** Petunia x hybrida (Mittelzehrer bis Starkzehrer, Outdoor, annuell in Mitteleuropa)
 > **Produkte:** Plagron Terra Grow, Terra Bloom, Pure Zym, Sugar Royal
 > **Erstellt:** 2026-03-06
-> **Quellen:** spec/ref/products/plagron_terra_grow.md, spec/ref/products/plagron_terra_bloom.md, spec/ref/products/plagron_pure_zym.md, spec/ref/products/plagron_sugar_royal.md, spec/ref/plant-info/petunia_x_hybrida.md
+> **Quellen:** spec/knowledge/products/plagron_terra_grow.md, spec/knowledge/products/plagron_terra_bloom.md, spec/knowledge/products/plagron_pure_zym.md, spec/knowledge/products/plagron_sugar_royal.md, spec/knowledge/plants/petunia_x_hybrida.md
 
 ---
 
@@ -591,11 +591,11 @@ Fuer vegetativ vermehrte Sorten (Surfinia, Supertunia, Wave):
 
 | Entitaet | Referenz-Dokument | KA-Feld |
 |----------|-------------------|---------|
-| Fertilizer: Terra Grow | `spec/ref/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Terra Bloom | `spec/ref/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Pure Zym | `spec/ref/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Sugar Royal | `spec/ref/products/plagron_sugar_royal.md` | `fertilizer_dosages.fertilizer_key` |
-| Species: Petunia x hybrida | `spec/ref/plant-info/petunia_x_hybrida.md` | `species.scientific_name` |
+| Fertilizer: Terra Grow | `spec/knowledge/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Terra Bloom | `spec/knowledge/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Pure Zym | `spec/knowledge/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Sugar Royal | `spec/knowledge/products/plagron_sugar_royal.md` | `fertilizer_dosages.fertilizer_key` |
+| Species: Petunia x hybrida | `spec/knowledge/plants/petunia_x_hybrida.md` | `species.scientific_name` |
 | SubstrateType: SOIL | Built-in Enum | `nutrient_plans.recommended_substrate_type` |
 
 ---
@@ -620,11 +620,11 @@ Fuer vegetativ vermehrte Sorten (Surfinia, Supertunia, Wave):
 
 ## Quellenverzeichnis
 
-1. Plagron Terra Grow Produktdaten: `spec/ref/products/plagron_terra_grow.md`
-2. Plagron Terra Bloom Produktdaten: `spec/ref/products/plagron_terra_bloom.md`
-3. Plagron Pure Zym Produktdaten: `spec/ref/products/plagron_pure_zym.md`
-4. Plagron Sugar Royal Produktdaten: `spec/ref/products/plagron_sugar_royal.md`
-5. Petunia x hybrida Pflanzendaten: `spec/ref/plant-info/petunia_x_hybrida.md`
+1. Plagron Terra Grow Produktdaten: `spec/knowledge/products/plagron_terra_grow.md`
+2. Plagron Terra Bloom Produktdaten: `spec/knowledge/products/plagron_terra_bloom.md`
+3. Plagron Pure Zym Produktdaten: `spec/knowledge/products/plagron_pure_zym.md`
+4. Plagron Sugar Royal Produktdaten: `spec/knowledge/products/plagron_sugar_royal.md`
+5. Petunia x hybrida Pflanzendaten: `spec/knowledge/plants/petunia_x_hybrida.md`
 6. NutrientPlan Datenmodell: `src/backend/app/domain/models/nutrient_plan.py`
 7. PhaseName Enum: `src/backend/app/common/enums.py`
 

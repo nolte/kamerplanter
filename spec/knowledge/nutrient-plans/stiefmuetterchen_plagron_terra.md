@@ -4,7 +4,7 @@
 > **Pflanze:** Viola x wittrockiana (Schwachzehrer, Outdoor, annuell kultiviert)
 > **Produkte:** Plagron Terra Grow, Terra Bloom, Pure Zym
 > **Erstellt:** 2026-03-01
-> **Quellen:** spec/ref/products/plagron_terra_grow.md, spec/ref/products/plagron_terra_bloom.md, spec/ref/products/plagron_pure_zym.md, spec/ref/plant-info/viola_x_wittrockiana.md
+> **Quellen:** spec/knowledge/products/plagron_terra_grow.md, spec/knowledge/products/plagron_terra_bloom.md, spec/knowledge/products/plagron_pure_zym.md, spec/knowledge/plants/viola_x_wittrockiana.md
 
 ---
 
@@ -583,10 +583,10 @@ Botrytis cinerea ist die wichtigste Krankheit bei Stiefmuetterchen, besonders be
 
 | Entitaet | Referenz-Dokument | KA-Feld |
 |----------|-------------------|---------|
-| Fertilizer: Terra Grow | `spec/ref/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Terra Bloom | `spec/ref/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Pure Zym | `spec/ref/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
-| Species: Viola x wittrockiana | `spec/ref/plant-info/viola_x_wittrockiana.md` | `species.scientific_name` |
+| Fertilizer: Terra Grow | `spec/knowledge/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Terra Bloom | `spec/knowledge/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Pure Zym | `spec/knowledge/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
+| Species: Viola x wittrockiana | `spec/knowledge/plants/viola_x_wittrockiana.md` | `species.scientific_name` |
 | SubstrateType: SOIL | Built-in Enum | `nutrient_plans.recommended_substrate_type` |
 
 ---
@@ -611,10 +611,10 @@ Botrytis cinerea ist die wichtigste Krankheit bei Stiefmuetterchen, besonders be
 
 ## Quellenverzeichnis
 
-1. Plagron Terra Grow Produktdaten: `spec/ref/products/plagron_terra_grow.md`
-2. Plagron Terra Bloom Produktdaten: `spec/ref/products/plagron_terra_bloom.md`
-3. Plagron Pure Zym Produktdaten: `spec/ref/products/plagron_pure_zym.md`
-4. Viola x wittrockiana Pflanzendaten: `spec/ref/plant-info/viola_x_wittrockiana.md`
+1. Plagron Terra Grow Produktdaten: `spec/knowledge/products/plagron_terra_grow.md`
+2. Plagron Terra Bloom Produktdaten: `spec/knowledge/products/plagron_terra_bloom.md`
+3. Plagron Pure Zym Produktdaten: `spec/knowledge/products/plagron_pure_zym.md`
+4. Viola x wittrockiana Pflanzendaten: `spec/knowledge/plants/viola_x_wittrockiana.md`
 5. NutrientPlan Datenmodell: `src/backend/app/domain/models/nutrient_plan.py`
 6. PhaseName Enum: `src/backend/app/common/enums.py`
 

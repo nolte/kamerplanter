@@ -4,7 +4,7 @@
 > **Pflanze:** Allium porrum (Starkzehrer, Vorkultur Februar + Freiland ab Mai/Juni)
 > **Produkte:** Plagron Terra Grow, Terra Bloom, Power Roots, Pure Zym, Sugar Royal
 > **Erstellt:** 2026-03-06
-> **Quellen:** spec/ref/products/plagron_terra_*.md, spec/ref/products/plagron_power_roots.md, spec/ref/products/plagron_pure_zym.md, spec/ref/products/plagron_sugar_royal.md, spec/ref/plant-info/allium_porrum.md
+> **Quellen:** spec/knowledge/products/plagron_terra_*.md, spec/knowledge/products/plagron_power_roots.md, spec/knowledge/products/plagron_pure_zym.md, spec/knowledge/products/plagron_sugar_royal.md, spec/knowledge/plants/allium_porrum.md
 
 ---
 
@@ -578,24 +578,24 @@ Schossen (Bluete im 1. Jahr) wird ausgeloest durch:
 
 | Entitaet | Referenz-Dokument | KA-Feld |
 |----------|-------------------|---------|
-| Fertilizer: Terra Grow | `spec/ref/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Terra Bloom | `spec/ref/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Power Roots | `spec/ref/products/plagron_power_roots.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Pure Zym | `spec/ref/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Sugar Royal | `spec/ref/products/plagron_sugar_royal.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Terra Grow | `spec/knowledge/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Terra Bloom | `spec/knowledge/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Power Roots | `spec/knowledge/products/plagron_power_roots.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Pure Zym | `spec/knowledge/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Sugar Royal | `spec/knowledge/products/plagron_sugar_royal.md` | `fertilizer_dosages.fertilizer_key` |
 | SubstrateType: SOIL | Built-in Enum | `nutrient_plans.recommended_substrate_type` |
-| Species: Allium porrum | `spec/ref/plant-info/allium_porrum.md` | `species.scientific_name` |
+| Species: Allium porrum | `spec/knowledge/plants/allium_porrum.md` | `species.scientific_name` |
 
 ---
 
 ## Quellenverzeichnis
 
-1. Plagron Terra Grow Produktdaten: `spec/ref/products/plagron_terra_grow.md`
-2. Plagron Terra Bloom Produktdaten: `spec/ref/products/plagron_terra_bloom.md`
-3. Plagron Power Roots Produktdaten: `spec/ref/products/plagron_power_roots.md`
-4. Plagron Pure Zym Produktdaten: `spec/ref/products/plagron_pure_zym.md`
-5. Plagron Sugar Royal Produktdaten: `spec/ref/products/plagron_sugar_royal.md`
-6. Lauch (Porree) Pflanzensteckbrief: `spec/ref/plant-info/allium_porrum.md`
+1. Plagron Terra Grow Produktdaten: `spec/knowledge/products/plagron_terra_grow.md`
+2. Plagron Terra Bloom Produktdaten: `spec/knowledge/products/plagron_terra_bloom.md`
+3. Plagron Power Roots Produktdaten: `spec/knowledge/products/plagron_power_roots.md`
+4. Plagron Pure Zym Produktdaten: `spec/knowledge/products/plagron_pure_zym.md`
+5. Plagron Sugar Royal Produktdaten: `spec/knowledge/products/plagron_sugar_royal.md`
+6. Lauch (Porree) Pflanzensteckbrief: `spec/knowledge/plants/allium_porrum.md`
 7. NutrientPlan Datenmodell: `src/backend/app/domain/models/nutrient_plan.py`
 8. PhaseName Enum: `src/backend/app/common/enums.py`
 

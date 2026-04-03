@@ -22,7 +22,7 @@ Fuer jedes Duenger-Produkt muessen Daten aus folgenden Quellen-Kategorien abgegl
 | Prio | Quellen-Typ | Beispiele | Prueft |
 |------|-------------|-----------|--------|
 | 1 | **Hersteller-Website** | advancednutrients.com, plagron.com | NPK, Dosierung, Anwendung |
-| 2 | **Referenzdokument** (`spec/ref/products/`) | Bereits recherchierte Produktdaten | Alle Felder — als Baseline |
+| 2 | **Referenzdokument** (`spec/knowledge/products/`) | Bereits recherchierte Produktdaten | Alle Felder — als Baseline |
 | 3 | **Sicherheitsdatenblatt (SDS/SDB)** | Hersteller-Downloads, REACH-Datenbank | Zusammensetzung, CAS-Nummern, pH |
 | 4 | **Unabhaengiger Haendler** | growland.net, grow-shop24.de, amazon | NPK-Kreuzpruefung, Produktname |
 | 5 | **Feeding Charts** (offiziell) | Hersteller-PDF oder Online-Calculator | Dosierung pro Phase, EC-Beitrag |
@@ -33,7 +33,7 @@ Fuer jedes Duenger-Produkt muessen Daten aus folgenden Quellen-Kategorien abgegl
 Fuer jedes Produkt in `fertilizers.yaml`, `plagron.yaml`, `gardol.yaml` und weiteren Duenger-YAML-Dateien:
 
 **Schritt 1 — Referenzdokument laden:**
-- Pruefe ob unter `spec/ref/products/` ein Referenzdokument fuer das Produkt existiert
+- Pruefe ob unter `spec/knowledge/products/` ein Referenzdokument fuer das Produkt existiert
 - Wenn ja: Verwende es als **primaere Wahrheitsquelle** und gleiche YAML-Daten dagegen ab
 - Wenn nein: Markiere als `[REF-MISSING]` und fuehre Online-Verifikation durch
 
@@ -79,7 +79,7 @@ Fuer jedes verifizierte Produkt dokumentiere:
 | mixing_order | 20 | 20 | "nach Micro" | — | — | ✅ |
 
 **Quellen:**
-1. Ref-Dok: `spec/ref/products/an_ph_perfect_grow.md`
+1. Ref-Dok: `spec/knowledge/products/an_ph_perfect_grow.md`
 2. Hersteller: [URL]
 3. Haendler: [URL]
 4. Feeding Chart: [URL]
@@ -329,7 +329,7 @@ Fuer jede Species pruefe Abdeckung der Spec-Felder:
 - [ ] `ec_per_ml_per_liter` oder vergleichbarer Dosierungswert
 - [ ] `dilution_ratio` oder `dosage_ml_per_liter`
 - [ ] **Multi-Source-Verifikation durchgefuehrt** — siehe Produkt-Verifikations-Methodik oben
-- [ ] **Referenzdokument vorhanden** unter `spec/ref/products/` — wenn nicht: `[REF-MISSING]` markieren
+- [ ] **Referenzdokument vorhanden** unter `spec/knowledge/products/` — wenn nicht: `[REF-MISSING]` markieren
 
 ### 2.3 NutrientPlan-Vollstaendigkeit (gegen Spec REQ-004)
 
@@ -393,7 +393,7 @@ Pruefe Wertebereiche auf biologische Plausibilitaet:
 
 ## Phase 4: Report erstellen
 
-Erstelle `spec/requirements-analysis/seed-data-validation-report.md`:
+Erstelle `spec/analysis/seed-data-validation-report.md`:
 
 ```markdown
 # Seed-Daten Validierungsreport
@@ -545,7 +545,7 @@ Die folgenden [AGROBIO-CHECK] Findings sollten durch den Agrarbiologie-Experten 
 ...
 
 Empfohlener Pruefauftrag an den agrobiology-requirements-reviewer:
-> Bitte pruefe die im Seed-Data-Validation-Report markierten [AGROBIO-CHECK] Findings auf botanische Korrektheit. Der Report liegt unter `spec/requirements-analysis/seed-data-validation-report.md`.
+> Bitte pruefe die im Seed-Data-Validation-Report markierten [AGROBIO-CHECK] Findings auf botanische Korrektheit. Der Report liegt unter `spec/analysis/seed-data-validation-report.md`.
 ```
 
 ---

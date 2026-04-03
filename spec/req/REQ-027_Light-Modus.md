@@ -33,7 +33,7 @@ Abhängigkeit: REQ-023 v1.6, REQ-024 v1.3, REQ-025
 
 **Beschreibung:**
 
-Zwei Findings aus dem Casual-Houseplant-User-Review ([spec/requirements-analysis/casual-houseplant-user-review.md](../requirements-analysis/casual-houseplant-user-review.md)) motivieren diese Anforderung:
+Zwei Findings aus dem Casual-Houseplant-User-Review ([spec/analysis/casual-houseplant-user-review.md](../requirements-analysis/casual-houseplant-user-review.md)) motivieren diese Anforderung:
 
 - **N-002 (Registrierung als Pflicht vor dem ersten Nutzen):** Bevor ein Casual User irgendetwas tun kann, muss er sich registrieren, E-Mail verifizieren und einen Tenant erstellen — das ist ein Dealbreaker für jemanden mit 3 Zimmerpflanzen auf der Fensterbank.
 - **F-003 (Mandantenverwaltung und DSGVO-Formulare):** Concepts wie "Tenants", "Mitgliederverwaltung", "Consent-Banner" und "Datenschutz-Einstellungen" sind Overhead für Einzelnutzer auf lokalen Instanzen.

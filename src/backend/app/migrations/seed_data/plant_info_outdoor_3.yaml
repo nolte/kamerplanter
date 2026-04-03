@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=./schemas/plant_info.schema.yaml
 # plant_info_outdoor_3.yaml
 # Seed data for Nymphaea alba (White Water Lily) and hardy water lily cultivars.
-# Source: spec/plant-info/nymphaea_alba.md
+# Source: spec/knowledge/plants/nymphaea_alba.md
 # Created: 2026-04-02
 #
 # Enum mapping notes:

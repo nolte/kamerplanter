@@ -4,7 +4,7 @@
 > **Pflanze:** Chlorophytum comosum (light_feeder, perennial, Indoor/Erde)
 > **Produkt:** Gardol Gruenpflanzenduenger NPK 6-4-6 (Bauhaus)
 > **Erstellt:** 2026-03-01
-> **Quellen:** spec/ref/plant-info/chlorophytum_comosum.md, spec/ref/products/gardol_gruenpflanzenduenger.md
+> **Quellen:** spec/knowledge/plants/chlorophytum_comosum.md, spec/knowledge/products/gardol_gruenpflanzenduenger.md
 
 ---
 
@@ -482,8 +482,8 @@ Legende: --- = keine Duengung, ... = Vierteldosis (1 ml/L), ### = halbe Dosis (2
 
 | Entitaet | Referenz-Dokument | KA-Feld |
 |----------|-------------------|---------|
-| Fertilizer: Gardol Gruenpflanzenduenger | `spec/ref/products/gardol_gruenpflanzenduenger.md` | `fertilizer_dosages.fertilizer_key` |
-| Species: Chlorophytum comosum | `spec/ref/plant-info/chlorophytum_comosum.md` | Via `nutrient_plans` -> `uses_nutrient_plan` edge |
+| Fertilizer: Gardol Gruenpflanzenduenger | `spec/knowledge/products/gardol_gruenpflanzenduenger.md` | `fertilizer_dosages.fertilizer_key` |
+| Species: Chlorophytum comosum | `spec/knowledge/plants/chlorophytum_comosum.md` | Via `nutrient_plans` -> `uses_nutrient_plan` edge |
 | SubstrateType: SOIL | Built-in Enum | `nutrient_plans.recommended_substrate_type` |
 
 ---
@@ -513,14 +513,14 @@ Legende: --- = keine Duengung, ... = Vierteldosis (1 ml/L), ### = halbe Dosis (2
 
 **Keine Blattglaenzer:** Kein Blattglaenzer oder Blattreiniger auf Gruenlilie-Blaettern verwenden -- die feinen Blaetter vertragen das schlecht. Stattdessen bei Bedarf mit lauwarmem Wasser abbrausen.
 
-Die Toxizitaetsdaten der Pflanze sind im Steckbrief dokumentiert (vgl. `spec/ref/plant-info/chlorophytum_comosum.md`, Abschnitt 1.4).
+Die Toxizitaetsdaten der Pflanze sind im Steckbrief dokumentiert (vgl. `spec/knowledge/plants/chlorophytum_comosum.md`, Abschnitt 1.4).
 
 ---
 
 ## Quellenverzeichnis
 
-1. Chlorophytum comosum Pflanzensteckbrief: `spec/ref/plant-info/chlorophytum_comosum.md`
-2. Gardol Gruenpflanzenduenger Produktdaten: `spec/ref/products/gardol_gruenpflanzenduenger.md`
+1. Chlorophytum comosum Pflanzensteckbrief: `spec/knowledge/plants/chlorophytum_comosum.md`
+2. Gardol Gruenpflanzenduenger Produktdaten: `spec/knowledge/products/gardol_gruenpflanzenduenger.md`
 3. NutrientPlan Datenmodell: `src/backend/app/domain/models/nutrient_plan.py`
 4. PhaseName Enum: `src/backend/app/common/enums.py`
 5. ASPCA Animal Poison Control -- Spider Plant: https://www.aspca.org/pet-care/aspca-poison-control/toxic-and-non-toxic-plants/spider-plant

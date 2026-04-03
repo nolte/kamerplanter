@@ -6,7 +6,7 @@
 > **Zielgroesse:** 256x256px (primaer), skalierbar auf 64x64 und 512x512
 > **Format:** PNG (transparent), SVG-tauglich
 > **Einsatzort:** Phasen-Timeline in PlantInstanceDetailPage, Pflegeprofil-Badges, Dormanz-Anzeige, Zimmer- und Klettergewaeches-Profile, Seneszenz-Anzeige fuer annuelle Lebensende-Phase
-> **Referenz:** `spec/ref/graphic-prompts/timeline-kami-phasen.md` (Phasen 1–5), Design Guide Abschnitt 2.2 (Phasenfarben), REQ-003 (Phasensteuerung), REQ-022 (Pflegeerinnerungen)
+> **Referenz:** `spec/design/timeline-kami-phasen.md` (Phasen 1–5), Design Guide Abschnitt 2.2 (Phasenfarben), REQ-003 (Phasensteuerung), REQ-022 (Pflegeerinnerungen)
 
 ---
 
@@ -35,7 +35,7 @@ Alle stilistischen Regeln — Outline-Staerke, Topffarben, Gesichtskonstruktion,
 Flat-Vector-Stil, Kawaii-Einfluss, Kompositionsregeln — sind in der Originaldatei vollstaendig
 dokumentiert.
 
-Siehe: `spec/ref/graphic-prompts/timeline-kami-phasen.md`, Abschnitt "Gemeinsame Stilregeln"
+Siehe: `spec/design/timeline-kami-phasen.md`, Abschnitt "Gemeinsame Stilregeln"
 
 Die folgenden Prompts integrieren alle Stilregeln vollstaendig und sind copy-paste-fertig.
 

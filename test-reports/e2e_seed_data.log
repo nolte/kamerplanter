@@ -1,3 +1,3 @@
-api=http://frontend-full:80/api/v1/t/mein-garten
-mode=full
-result={'access_token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMzU1NSIsInRlbmFudF9yb2xlcyI6e30sImlzX3BsYXRmb3JtX2FkbWluIjpmYWxzZSwiZXhwIjoxNzc1MTY1ODM2LCJpYXQiOjE3NzUxNjQ5MzYsImp0aSI6Ijc2Mjg5ZTI5LWM3YTItNGVlNi04NjA0LWZlYjk1MDI0OGMzNyIsInR5cGUiOiJhY2Nlc3MifQ.46sjOD9m6HEfPWzwzzvN94AvtHY65BlNHJyYyBMRGJI', 'tenant_slug': 'mein-garten', 'site_key': '23688', 'location_key': '23720'}
+api=http://frontend:80/api/v1/t/mein-garten
+mode=light
+result={'tenant_slug': 'mein-garten', 'site_key': '24171', 'location_key': '24180'}

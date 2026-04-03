@@ -4,23 +4,23 @@
 **Erstellt:** 2026-03-06
 **Reviewer:** Agrarbiologie-Subagent (CEA / Indoor-Anbau / Vegetationssteuerung)
 **Reviewte Plaene:**
-- `spec/ref/nutrient-plans/paprika_plagron_terra.md`
-- `spec/ref/nutrient-plans/gurke_plagron_terra.md`
-- `spec/ref/nutrient-plans/zucchini_plagron_terra.md`
-- `spec/ref/nutrient-plans/rosenkohl_plagron_terra.md`
-- `spec/ref/nutrient-plans/sellerie_plagron_terra.md`
-- `spec/ref/nutrient-plans/lauch_plagron_terra.md`
+- `spec/knowledge/nutrient-plans/paprika_plagron_terra.md`
+- `spec/knowledge/nutrient-plans/gurke_plagron_terra.md`
+- `spec/knowledge/nutrient-plans/zucchini_plagron_terra.md`
+- `spec/knowledge/nutrient-plans/rosenkohl_plagron_terra.md`
+- `spec/knowledge/nutrient-plans/sellerie_plagron_terra.md`
+- `spec/knowledge/nutrient-plans/lauch_plagron_terra.md`
 
 **Referenz-Produktdaten:**
-- `spec/ref/products/plagron_terra_grow.md` (NPK 3-1-3, EC/ml 0.08 mS/cm)
-- `spec/ref/products/plagron_terra_bloom.md` (NPK 2-2-4, EC/ml 0.10 mS/cm)
+- `spec/knowledge/products/plagron_terra_grow.md` (NPK 3-1-3, EC/ml 0.08 mS/cm)
+- `spec/knowledge/products/plagron_terra_bloom.md` (NPK 2-2-4, EC/ml 0.10 mS/cm)
 
 **Referenz-Steckbriefe:**
-- `spec/ref/plant-info/capsicum_annuum.md`
-- `spec/ref/plant-info/cucumis_sativus.md`
-- `spec/ref/plant-info/brassica_oleracea_var_gemmifera.md`
-- `spec/ref/plant-info/apium_graveolens_var_rapaceum.md`
-- `spec/ref/plant-info/allium_porrum.md`
+- `spec/knowledge/plants/capsicum_annuum.md`
+- `spec/knowledge/plants/cucumis_sativus.md`
+- `spec/knowledge/plants/brassica_oleracea_var_gemmifera.md`
+- `spec/knowledge/plants/apium_graveolens_var_rapaceum.md`
+- `spec/knowledge/plants/allium_porrum.md`
 
 ---
 

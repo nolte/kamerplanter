@@ -4,7 +4,7 @@
 > **Pflanze:** Cucumis sativus (Starkzehrer, Indoor-Vorkultur + Gewaechshaus/Freiland ab Mai)
 > **Produkte:** Plagron Terra Grow, Terra Bloom, Power Roots, Pure Zym, Sugar Royal, PK 13-14
 > **Erstellt:** 2026-03-06
-> **Quellen:** spec/ref/products/plagron_terra_*.md, spec/ref/products/plagron_power_roots.md, spec/ref/products/plagron_pure_zym.md, spec/ref/products/plagron_sugar_royal.md, spec/ref/products/plagron_pk_13_14.md, spec/ref/plant-info/cucumis_sativus.md
+> **Quellen:** spec/knowledge/products/plagron_terra_*.md, spec/knowledge/products/plagron_power_roots.md, spec/knowledge/products/plagron_pure_zym.md, spec/knowledge/products/plagron_sugar_royal.md, spec/knowledge/products/plagron_pk_13_14.md, spec/knowledge/plants/cucumis_sativus.md
 
 ---
 
@@ -706,26 +706,26 @@ Echter Mehltau ist die haeufigste Gurkenkrankheit:
 
 | Entitaet | Referenz-Dokument | KA-Feld |
 |----------|-------------------|---------|
-| Fertilizer: Terra Grow | `spec/ref/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Terra Bloom | `spec/ref/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Power Roots | `spec/ref/products/plagron_power_roots.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Pure Zym | `spec/ref/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Sugar Royal | `spec/ref/products/plagron_sugar_royal.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: PK 13-14 | `spec/ref/products/plagron_pk_13_14.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Terra Grow | `spec/knowledge/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Terra Bloom | `spec/knowledge/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Power Roots | `spec/knowledge/products/plagron_power_roots.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Pure Zym | `spec/knowledge/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Sugar Royal | `spec/knowledge/products/plagron_sugar_royal.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: PK 13-14 | `spec/knowledge/products/plagron_pk_13_14.md` | `fertilizer_dosages.fertilizer_key` |
 | SubstrateType: SOIL | Built-in Enum | `nutrient_plans.recommended_substrate_type` |
-| Species: Cucumis sativus | `spec/ref/plant-info/cucumis_sativus.md` | `species.scientific_name` |
+| Species: Cucumis sativus | `spec/knowledge/plants/cucumis_sativus.md` | `species.scientific_name` |
 
 ---
 
 ## Quellenverzeichnis
 
-1. Plagron Terra Grow Produktdaten: `spec/ref/products/plagron_terra_grow.md`
-2. Plagron Terra Bloom Produktdaten: `spec/ref/products/plagron_terra_bloom.md`
-3. Plagron Power Roots Produktdaten: `spec/ref/products/plagron_power_roots.md`
-4. Plagron Pure Zym Produktdaten: `spec/ref/products/plagron_pure_zym.md`
-5. Plagron Sugar Royal Produktdaten: `spec/ref/products/plagron_sugar_royal.md`
-6. Plagron PK 13-14 Produktdaten: `spec/ref/products/plagron_pk_13_14.md`
-7. Gurke Pflanzensteckbrief: `spec/ref/plant-info/cucumis_sativus.md`
+1. Plagron Terra Grow Produktdaten: `spec/knowledge/products/plagron_terra_grow.md`
+2. Plagron Terra Bloom Produktdaten: `spec/knowledge/products/plagron_terra_bloom.md`
+3. Plagron Power Roots Produktdaten: `spec/knowledge/products/plagron_power_roots.md`
+4. Plagron Pure Zym Produktdaten: `spec/knowledge/products/plagron_pure_zym.md`
+5. Plagron Sugar Royal Produktdaten: `spec/knowledge/products/plagron_sugar_royal.md`
+6. Plagron PK 13-14 Produktdaten: `spec/knowledge/products/plagron_pk_13_14.md`
+7. Gurke Pflanzensteckbrief: `spec/knowledge/plants/cucumis_sativus.md`
 8. NutrientPlan Datenmodell: `src/backend/app/domain/models/nutrient_plan.py`
 9. PhaseName Enum: `src/backend/app/common/enums.py`
 

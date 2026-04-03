@@ -193,7 +193,7 @@ Das System nutzt **Retrieval-Augmented Generation**, um Antworten auf der eigene
 | Ebene | Datenquelle | Umfang | Personenbezug | Aktualisierung |
 |-------|-------------|--------|---------------|----------------|
 | 1. **Globale Stammdaten** | Species, Cultivar, GrowthPhase, NutrientProfile, Pest, Disease | Tenant-unabhaengig | Kein Personenbezug | Woechentlich (Celery) |
-| 2. **Regelwissen (Thematische Guides)** | Querschnittswissen aus `spec/knowledge/` (§2.3): Diagnostik, Duengung, Bewaesserung, Phasen-Best-Practices, Outdoor-Planung, Anfaenger-Tipps | Kuratierte YAML-Dateien (~30-50 Guides) | Kein Personenbezug | Bei Deployment + woechentlicher Reindex |
+| 2. **Regelwissen (Thematische Guides)** | Querschnittswissen aus `spec/knowledge/rag/` (§2.3): Diagnostik, Duengung, Bewaesserung, Phasen-Best-Practices, Outdoor-Planung, Anfaenger-Tipps | Kuratierte YAML-Dateien (~30-50 Guides) | Kein Personenbezug | Bei Deployment + woechentlicher Reindex |
 | 3. **Tenant-Kontext** | Aktiver PlantingRun, Phase, Messwerte (EC, pH, VPD), aktive IPM-Events, letzte FeedingEvents | Tenant-scoped | Indirekt (Nutzer-Aktivitaet) | Echtzeit (pro Anfrage) |
 | 4. **Nutzer-Pflanzdaten** | Pflegehistorie, Ernteresultate, CareConfirmations, PlantDiaryEntry | Tenant- + User-scoped | Ja (Consent erforderlich) | Echtzeit (pro Anfrage) |
 
@@ -213,7 +213,7 @@ Das System nutzt **Retrieval-Augmented Generation**, um Antworten auf der eigene
 | `growth_phases` | Phasenname, Dauer, VPD-Ziele, Licht-/Temperatur-Anforderungen | ~200 |
 | `pests` | Name, Symptome, Bekaempfungsmethoden | ~100 |
 | `diseases` | Name, Symptome, Behandlung, Praevention | ~100 |
-| `care_rules` (YAML) | Thematische Guides aus `spec/knowledge/` (Diagnostik, Duengung, Phasen, Outdoor, etc.) — siehe §2.3 | ~200 |
+| `care_rules` (YAML) | Thematische Guides aus `spec/knowledge/rag/` (Diagnostik, Duengung, Phasen, Outdoor, etc.) — siehe §2.3 | ~200 |
 
 - **Chunk-Groesse:** 512 Tokens, Overlap: 64 Tokens
 - **Aktualisierung:** Woechentlich via Celery-Task (`reindex_vector_chunks`)
@@ -236,12 +236,12 @@ Das System nutzt **Retrieval-Augmented Generation**, um Antworten auf der eigene
 | Praezision | Generische Texte, keine Nutzerdaten | LLM kombiniert allgemeines Wissen mit konkreten IST-Werten des Nutzers |
 | Konsistenz | Kann von Stammdaten abweichen | Stammdaten = Single Source of Truth |
 
-**Thematische Guides (`spec/knowledge/`):**
+**Thematische Guides (`spec/knowledge/rag/`):**
 
 Kuratierte YAML-Dateien mit Expertenwissen, das sich NICHT aus den Stammdaten ableiten laesst. Geschaetzter Umfang: 30-50 Dateien, ~200 Chunks nach Vektorisierung.
 
 ```
-spec/knowledge/
+spec/knowledge/rag/
 ├── diagnostik/
 │   ├── naehrstoffmangel-symptome.yaml       # N/P/K/Ca/Mg/Fe Mangel- und Ueberschuss-Erkennung
 │   ├── ph-ec-abweichungen.yaml              # Ursachen und Massnahmen bei pH/EC-Drift
@@ -284,7 +284,7 @@ spec/knowledge/
 **YAML-Format der Guides:**
 
 ```yaml
-# spec/knowledge/diagnostik/naehrstoffmangel-symptome.yaml
+# spec/knowledge/rag/diagnostik/naehrstoffmangel-symptome.yaml
 ---
 title: Naehrstoffmangel und -ueberschuss erkennen
 category: diagnostik
@@ -1836,7 +1836,7 @@ def reindex_vector_chunks(self) -> dict:
     Zwei Quellen werden indexiert:
     1. Globale Stammdaten (Ebene 1): Species, Cultivars, GrowthPhases,
        Pests, Diseases aus ArangoDB — source_type je nach Collection.
-    2. Thematische Guides (Ebene 2): YAML-Dateien aus spec/knowledge/ —
+    2. Thematische Guides (Ebene 2): YAML-Dateien aus spec/knowledge/rag/ —
        source_type='care_rule', source_key='{category}/{file}#{chunk_id}'.
        Jeder chunks[]-Eintrag wird als separater Vektor indexiert.
     """
@@ -1848,7 +1848,7 @@ def reindex_vector_chunks(self) -> dict:
         # 1. ArangoDB-Stammdaten: Species, Cultivars, Pests, Diseases laden,
         #    Text zusammenbauen, in 512-Token-Chunks teilen,
         #    embedden und in ai_vector_chunks speichern (UPSERT)
-        # 2. YAML-Guides: spec/knowledge/**/*.yaml lesen,
+        # 2. YAML-Guides: spec/knowledge/rag/**/*.yaml lesen,
         #    chunks[]-Eintraege als einzelne Vektoren indexieren
         #    (source_type='care_rule', metadata aus Guide + Chunk merged)
         ...

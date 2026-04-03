@@ -4,14 +4,14 @@
 **Datum:** 2026-03-06
 **Fokus:** Outdoor Freiland/Balkon, Erdkultur, Blattgemuese, Leguminosen, N-Fixierung, Lebensmittelsicherheit
 **Analysierte Dokumente:**
-- `spec/ref/nutrient-plans/mangold_plagron_terra.md` (v1.0)
-- `spec/ref/nutrient-plans/bohne_plagron_terra.md` (v1.0)
-- `spec/ref/nutrient-plans/erbse_plagron_terra.md` (v1.0)
-- `spec/ref/plant-info/beta_vulgaris_subsp_vulgaris.md` (v1.0)
-- `spec/ref/plant-info/phaseolus_vulgaris.md` (v1.0)
-- `spec/ref/plant-info/pisum_sativum.md` (v1.0)
-- `spec/ref/products/plagron_terra_grow.md` (v1.0)
-- `spec/ref/products/plagron_terra_bloom.md` (v1.0)
+- `spec/knowledge/nutrient-plans/mangold_plagron_terra.md` (v1.0)
+- `spec/knowledge/nutrient-plans/bohne_plagron_terra.md` (v1.0)
+- `spec/knowledge/nutrient-plans/erbse_plagron_terra.md` (v1.0)
+- `spec/knowledge/plants/beta_vulgaris_subsp_vulgaris.md` (v1.0)
+- `spec/knowledge/plants/phaseolus_vulgaris.md` (v1.0)
+- `spec/knowledge/plants/pisum_sativum.md` (v1.0)
+- `spec/knowledge/products/plagron_terra_grow.md` (v1.0)
+- `spec/knowledge/products/plagron_terra_bloom.md` (v1.0)
 
 ---
 
@@ -43,7 +43,7 @@
 
 **Schweregrad:** Gering (kein funktionaler Fehler, nur Inkonsistenz in der Darstellung)
 
-**Dokument:** `spec/ref/nutrient-plans/mangold_plagron_terra.md`, Abschnitt 4.3 (VEGETATIVE)
+**Dokument:** `spec/knowledge/nutrient-plans/mangold_plagron_terra.md`, Abschnitt 4.3 (VEGETATIVE)
 
 **Problem:**
 Das EC-Budget in Abschnitt 4.3 lautet:
@@ -72,7 +72,7 @@ Erklaerung erganzen: "`target_ec_ms: 1.2` ist ein Messziel fuer die Gesamtloesun
 
 **Schweregrad:** Mittel (gesundheitsrelevante Nuance fuer empfindliche Personengruppen)
 
-**Dokument:** `spec/ref/nutrient-plans/mangold_plagron_terra.md`, Abschnitt 6.3 (Nitrat-Kontrolle)
+**Dokument:** `spec/knowledge/nutrient-plans/mangold_plagron_terra.md`, Abschnitt 6.3 (Nitrat-Kontrolle)
 
 **Problem:**
 Das Dokument enthaelt in Abschnitt 6.3 folgende Aussage:
@@ -108,7 +108,7 @@ Verbesserte Formulierung:
 
 **Schweregrad:** Hinweis (fachliche Praezisierung empfohlen)
 
-**Dokument:** `spec/ref/nutrient-plans/mangold_plagron_terra.md`, Abschnitt 4.1 (EC-Budget-Tabelle)
+**Dokument:** `spec/knowledge/nutrient-plans/mangold_plagron_terra.md`, Abschnitt 4.1 (EC-Budget-Tabelle)
 
 **Problem:**
 In der EC-Budget-Tabelle ist Sugar Royal mit "NPK (9-0-0)" und EC/ml 0.02 mS/cm eingetragen. Die offizielle Plagron-Deklaration fuer Sugar Royal lautet nach dem Steckbrief "organisches N aus Aminosaeuren und Zucker (8.5% N)". Der Naehrstoffplan nennt 9-0-0, was eine leichte Abweichung von der Steckbrief-Angabe von 8.5% ist.
@@ -123,7 +123,7 @@ In den Dosierungen und der Begründung (0.5 ml/L, halbe Dosis wegen organischem 
 
 **Schweregrad:** Hinweis (ergaenzende Information wuerde fachliche Tiefe erhoehen)
 
-**Dokument:** `spec/ref/nutrient-plans/bohne_plagron_terra.md`, Abschnitt 4 (EC-Budget-Kommentar)
+**Dokument:** `spec/knowledge/nutrient-plans/bohne_plagron_terra.md`, Abschnitt 4 (EC-Budget-Kommentar)
 
 **Problem:**
 Der Plan begruendet den Einsatz von Terra Bloom statt Terra Grow korrekt und ausfuehrlich. Die Aussage lautet:
@@ -142,7 +142,7 @@ Die Fachaussage ist richtig. Fuer ein Referenzdokument waere eine kurze quantita
 
 **Schweregrad:** Gering (Verbesserungsvorschlag)
 
-**Dokument:** `spec/ref/nutrient-plans/bohne_plagron_terra.md`, Abschnitt 4.4 (FLOWERING)
+**Dokument:** `spec/knowledge/nutrient-plans/bohne_plagron_terra.md`, Abschnitt 4.4 (FLOWERING)
 
 **Problem:**
 Das Dokument beschreibt in Abschnitt 4.4 korrekt: "Hitze ueber 30 degC = Bluetenabwurf! Gleichmaessig giessen (alle 2 Tage)." Der globale Giessplan ist jedoch auf 3 Tage eingestellt. Es fehlt ein `watering_schedule_override` fuer die FLOWERING-Phase, der das Intervall auf 2 Tage setzt -- analog wie GERMINATION einen Override hat.
@@ -169,7 +169,7 @@ FLOWERING-Phase um `watering_schedule_override` erganzen:
 
 **Schweregrad:** Hinweis (fachliche Ergaenzung)
 
-**Dokument:** `spec/ref/nutrient-plans/erbse_plagron_terra.md`, Abschnitt 2 (Phasen-Mapping)
+**Dokument:** `spec/knowledge/nutrient-plans/erbse_plagron_terra.md`, Abschnitt 2 (Phasen-Mapping)
 
 **Problem:**
 Das Dokument beschreibt korrekt:
@@ -188,7 +188,7 @@ Fuer den Anbau im Fruehsommer in Mitteleuropa (Maerz-Juli) sind die Taglaengen n
 
 **Schweregrad:** Gering
 
-**Dokument:** `spec/ref/nutrient-plans/erbse_plagron_terra.md`, Abschnitt 4.4 (FLOWERING); `spec/ref/plant-info/pisum_sativum.md`, Abschnitt 2.2
+**Dokument:** `spec/knowledge/nutrient-plans/erbse_plagron_terra.md`, Abschnitt 4.4 (FLOWERING); `spec/knowledge/plants/pisum_sativum.md`, Abschnitt 2.2
 
 **Problem:**
 Der Steckbrief nennt fuer FLOWERING: "Giessintervall: 1-2 Tage (erhoehter Wasserbedarf waehrend Bluete und Huelsenbildung)."

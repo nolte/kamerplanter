@@ -4,7 +4,7 @@
 > **Pflanze:** Guzmania lingulata (light_feeder, perennial/monokarp, Indoor/Orchideensubstrat)
 > **Produkt:** Gardol Gruenpflanzenduenger NPK 6-4-6 (Bauhaus)
 > **Erstellt:** 2026-03-01
-> **Quellen:** spec/ref/plant-info/guzmania_lingulata.md, spec/ref/products/gardol_gruenpflanzenduenger.md
+> **Quellen:** spec/knowledge/plants/guzmania_lingulata.md, spec/knowledge/products/gardol_gruenpflanzenduenger.md
 
 ---
 
@@ -519,8 +519,8 @@ Legende: --- = keine Duengung, === = 1/4-Dosis (1 ml/L Gardol)
 
 | Entitaet | Referenz-Dokument | KA-Feld |
 |----------|-------------------|---------|
-| Fertilizer: Gardol Gruenpflanzenduenger | `spec/ref/products/gardol_gruenpflanzenduenger.md` | `fertilizer_dosages.fertilizer_key` |
-| Species: Guzmania lingulata | `spec/ref/plant-info/guzmania_lingulata.md` | Via `nutrient_plans` -> `uses_nutrient_plan` edge |
+| Fertilizer: Gardol Gruenpflanzenduenger | `spec/knowledge/products/gardol_gruenpflanzenduenger.md` | `fertilizer_dosages.fertilizer_key` |
+| Species: Guzmania lingulata | `spec/knowledge/plants/guzmania_lingulata.md` | Via `nutrient_plans` -> `uses_nutrient_plan` edge |
 | SubstrateType: ORCHID_BARK | Built-in Enum | `nutrient_plans.recommended_substrate_type` |
 
 ---
@@ -551,14 +551,14 @@ Mineralischer Fluessigduenger -- bei versehentlichem Kontakt durch Haustiere ode
 - **Hautkontakt:** Mit Wasser und Seife abwaschen.
 - **Flasche:** Ausserhalb der Reichweite von Kindern und Haustieren aufbewahren.
 
-Die Toxizitaetsdaten der Pflanze sind im Steckbrief dokumentiert (vgl. `spec/ref/plant-info/guzmania_lingulata.md`, Abschnitt 1.4).
+Die Toxizitaetsdaten der Pflanze sind im Steckbrief dokumentiert (vgl. `spec/knowledge/plants/guzmania_lingulata.md`, Abschnitt 1.4).
 
 ---
 
 ## Quellenverzeichnis
 
-1. Guzmania lingulata Pflanzensteckbrief: `spec/ref/plant-info/guzmania_lingulata.md`
-2. Gardol Gruenpflanzenduenger Produktdaten: `spec/ref/products/gardol_gruenpflanzenduenger.md`
+1. Guzmania lingulata Pflanzensteckbrief: `spec/knowledge/plants/guzmania_lingulata.md`
+2. Gardol Gruenpflanzenduenger Produktdaten: `spec/knowledge/products/gardol_gruenpflanzenduenger.md`
 3. NutrientPlan Datenmodell: `src/backend/app/domain/models/nutrient_plan.py`
 4. PhaseName Enum: `src/backend/app/common/enums.py`
 5. ASPCA Animal Poison Control -- Guzmania lingulata: https://www.aspca.org/pet-care/animal-poison-control/toxic-and-non-toxic-plants

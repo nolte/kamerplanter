@@ -729,10 +729,10 @@ class ILlmAdapter(ABC):
 
 #### 3.4.4 Knowledge Base (Wissens-YAML)
 
-Die Wissensdatenbank besteht aus ~30 kuratierten YAML-Dateien unter `spec/knowledge/`, organisiert nach Fachbereichen:
+Die Wissensdatenbank besteht aus ~30 kuratierten YAML-Dateien unter `spec/knowledge/rag/`, organisiert nach Fachbereichen:
 
 ```
-spec/knowledge/
+spec/knowledge/rag/
 ├── allgemein/          # Anfänger-Tipps, Fehler vermeiden, Ertragsoptimierung
 ├── bewaesserung/       # Gießstrategien, Wasserqualität, Überwässerung
 ├── diagnostik/         # Nährstoffmangel, pH/EC-Abweichungen, Schädlinge, Pilzkrankheiten

@@ -5,7 +5,7 @@
 > **Cultivare:** Armateras, Hapet Daydream, Lavender Perfection, Great Silence, Embassy (alle 5 teilen diesen Plan)
 > **Produkte:** Plagron Terra Grow, Terra Bloom, Power Roots, Pure Zym, PK 13-14
 > **Erstellt:** 2026-03-06
-> **Quellen:** spec/ref/products/plagron_terra_grow.md, spec/ref/products/plagron_terra_bloom.md, spec/ref/products/plagron_power_roots.md, spec/ref/products/plagron_pure_zym.md, spec/ref/products/plagron_pk_13_14.md, spec/ref/plant-info/dahlia_x_hybrida_armateras.md, spec/ref/plant-info/dahlia_embassy.md
+> **Quellen:** spec/knowledge/products/plagron_terra_grow.md, spec/knowledge/products/plagron_terra_bloom.md, spec/knowledge/products/plagron_power_roots.md, spec/knowledge/products/plagron_pure_zym.md, spec/knowledge/products/plagron_pk_13_14.md, spec/knowledge/plants/dahlia_x_hybrida_armateras.md, spec/knowledge/plants/dahlia_embassy.md
 
 ---
 
@@ -588,14 +588,14 @@ Alle 5 Cultivare teilen diesen Naehrstoffplan. Sortentypische Anpassungen:
 
 | Entitaet | Referenz-Dokument | KA-Feld |
 |----------|-------------------|---------|
-| Fertilizer: Terra Grow | `spec/ref/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Terra Bloom | `spec/ref/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Power Roots | `spec/ref/products/plagron_power_roots.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Pure Zym | `spec/ref/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: PK 13-14 | `spec/ref/products/plagron_pk_13_14.md` | `fertilizer_dosages.fertilizer_key` |
-| Species: Dahlia pinnata | `spec/ref/plant-info/dahlia_x_hybrida_armateras.md` | `species.scientific_name` |
-| Cultivar: Armateras | `spec/ref/plant-info/dahlia_x_hybrida_armateras.md` | `cultivar.name` |
-| Cultivar: Embassy | `spec/ref/plant-info/dahlia_embassy.md` | `cultivar.name` |
+| Fertilizer: Terra Grow | `spec/knowledge/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Terra Bloom | `spec/knowledge/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Power Roots | `spec/knowledge/products/plagron_power_roots.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Pure Zym | `spec/knowledge/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: PK 13-14 | `spec/knowledge/products/plagron_pk_13_14.md` | `fertilizer_dosages.fertilizer_key` |
+| Species: Dahlia pinnata | `spec/knowledge/plants/dahlia_x_hybrida_armateras.md` | `species.scientific_name` |
+| Cultivar: Armateras | `spec/knowledge/plants/dahlia_x_hybrida_armateras.md` | `cultivar.name` |
+| Cultivar: Embassy | `spec/knowledge/plants/dahlia_embassy.md` | `cultivar.name` |
 | SubstrateType: SOIL | Built-in Enum | `nutrient_plans.recommended_substrate_type` |
 
 ---
@@ -621,13 +621,13 @@ Alle 5 Cultivare teilen diesen Naehrstoffplan. Sortentypische Anpassungen:
 
 ## Quellenverzeichnis
 
-1. Plagron Terra Grow Produktdaten: `spec/ref/products/plagron_terra_grow.md`
-2. Plagron Terra Bloom Produktdaten: `spec/ref/products/plagron_terra_bloom.md`
-3. Plagron Power Roots Produktdaten: `spec/ref/products/plagron_power_roots.md`
-4. Plagron Pure Zym Produktdaten: `spec/ref/products/plagron_pure_zym.md`
-5. Plagron PK 13-14 Produktdaten: `spec/ref/products/plagron_pk_13_14.md`
-6. Dahlia pinnata 'Armateras' Pflanzensteckbrief: `spec/ref/plant-info/dahlia_x_hybrida_armateras.md`
-7. Dahlia 'Embassy' Pflanzensteckbrief: `spec/ref/plant-info/dahlia_embassy.md`
+1. Plagron Terra Grow Produktdaten: `spec/knowledge/products/plagron_terra_grow.md`
+2. Plagron Terra Bloom Produktdaten: `spec/knowledge/products/plagron_terra_bloom.md`
+3. Plagron Power Roots Produktdaten: `spec/knowledge/products/plagron_power_roots.md`
+4. Plagron Pure Zym Produktdaten: `spec/knowledge/products/plagron_pure_zym.md`
+5. Plagron PK 13-14 Produktdaten: `spec/knowledge/products/plagron_pk_13_14.md`
+6. Dahlia pinnata 'Armateras' Pflanzensteckbrief: `spec/knowledge/plants/dahlia_x_hybrida_armateras.md`
+7. Dahlia 'Embassy' Pflanzensteckbrief: `spec/knowledge/plants/dahlia_embassy.md`
 8. NutrientPlan Datenmodell: `src/backend/app/domain/models/nutrient_plan.py`
 9. PhaseName Enum: `src/backend/app/common/enums.py`
 

@@ -6,6 +6,37 @@ tags: [giessen, substrat, erde, coco, hydroponik, pon, sphagnum, frequenz, topfg
 expertise_level: [beginner, intermediate, expert]
 applicable_phases: [seedling, vegetative, flowering]
 chunks:
+  - id: giessen-zimmerpflanzen
+    title: Wie oft Zimmerpflanze giessen — Fingertest und Topfgewicht
+    content: |
+      Wie oft soll ich meine Zimmerpflanze giessen? Die Antwort ist:
+      Nicht nach Zeitplan! Es gibt keinen festen Rhythmus wie "jeden
+      Montag giessen". Ob eine Zimmerpflanze Wasser braucht, haengt von
+      vielen Faktoren ab und ist individuell — es kommt darauf an.
+      Die Giess-Frequenz variiert je nach Pflanze, Topfgroesse, Substrat,
+      Licht, Temperatur und Jahreszeit. Pauschal laesst sich nicht sagen
+      "alle X Tage giessen". Stattdessen: Substrat pruefen vor jedem
+      Giessen.
+      Fingertest (beste Methode): Zeigefinger 2-3 cm tief in die Erde
+      stecken. Fuehlt sich das Substrat noch feucht an, nicht giessen.
+      Ist die Erde trocken und kruemelig, ist es Zeit zu giessen. Den
+      Fingertest VOR jedem Giessen machen — er ist die zuverlaessigste
+      Methode fuer Zimmerpflanzen.
+      Topfgewicht-Methode (Alternative/Ergaenzung): Topf hochheben und
+      das Gewicht pruefen. Schwerer Topf bedeutet noch feucht, also nicht
+      giessen. Leichter Topf bedeutet Zeit zu giessen. Tipp: Frisch
+      gegossenen Topf wiegen oder anheben als Referenz, um das Topfgewicht
+      einschaetzen zu lernen.
+      Saisonale Unterschiede bei Zimmerpflanzen:
+      - Sommer/Wachstumsphase: haeufiger giessen (alle 3-7 Tage)
+      - Winter/Ruhephase: deutlich seltener (alle 7-14 Tage)
+      Topfmaterial beeinflusst die Frequenz:
+      - Plastik: Haelt Feuchtigkeit laenger
+      - Terracotta/Ton: Trocknet schneller durch Verdunstung ueber Waende
+    metadata:
+      topic: watering_houseplants
+      test_method: [finger_test, weight_method]
+
   - id: giessen-erde
     title: Giess-Strategie fuer Erde und erdbasierte Substrate
     content: |
@@ -42,23 +73,28 @@ chunks:
   - id: giessen-coco
     title: Giess-Strategie fuer Kokos/Coco
     content: |
-      Coco ist KEIN Erde-Ersatz — Giessverhalten ist fundamental anders!
-      Kernregel: Coco haeufig und mit Naehrloesung giessen.
-      Nie komplett austrocknen lassen (wird hydrophob).
-      Nie nur mit reinem Wasser giessen (wascht CEC-gebundene Naehrstoffe aus).
+      Coco ist KEIN Erde-Ersatz — Giessverhalten ist fundamental anders
+      als in erdbasierten Substraten! Coco und Erde haben nichts gemeinsam.
+      Kernregel: Coco haeufig und immer mit Naehrloesung giessen.
+      Nie komplett austrocknen lassen — Coco wird hydrophob wenn es
+      austrocknet und nimmt dann kein Wasser mehr auf. Feucht halten
+      ist Pflicht.
+      Nie nur mit reinem Wasser giessen — immer Duenger bzw. Naehrloesung
+      verwenden. Reines Wasser wascht CEC-gebundene Naehrstoffe aus dem
+      Coco. Deshalb: Immer mit Naehrloesung giessen, nie nur Wasser.
       Hochfrequenz-Fertigation (Standard in Coco):
-      - Saemlinge: 1×/Tag, kleine Menge
-      - Vegetativ: 2-3×/Tag
-      - Bluete: 3-5×/Tag (Peak Bloom bis 7× in kleinen Toepfen)
+      - Saemlinge: 1 mal taeglich, kleine Menge
+      - Vegetativ: 2-3 mal taeglich
+      - Bluete: 3-5 mal taeglich (Peak Bloom bis 7 mal in kleinen Toepfen)
       - Immer 10-20% Runoff als Ziel
+      In der Bluete also mehrmals taeglich giessen — 3 bis 5 mal taeglich
+      ist Standard. Das klingt viel, ist aber noetig.
       Warum so oft? Coco haelt Wasser UND Luft gleichzeitig (anders als Erde).
       Haeufiges Giessen in Coco fuehrt NICHT zu Ueberwaesserung, weil die
       Struktur natuerlich belueftet bleibt. Im Gegenteil: Haeufiges Giessen
-      = haeufiger frische Naehrstoffe = schnelleres Wachstum.
-      Automatisierung: Bei 3-5× taeglich wird manuelles Giessen unpraktisch.
-      Timer-gesteuerte Bewaesserung (Tropfer, Halos) empfohlen ab
-      fortgeschrittenem Level. Kamerplanter kann Giess-Zeitplan verwalten
-      (WateringSchedule / Giessplan).
+      bedeutet haeufiger frische Naehrstoffe und schnelleres Wachstum.
+      Automatisierung: Bei 3-5 mal taeglich wird manuelles Giessen unpraktisch.
+      Timer-gesteuerte Bewaesserung (Tropfer, Halos) empfohlen.
       Topfgroesse in Coco: Kleiner als in Erde (3-5L reichen fuer grosse
       Pflanzen bei Hochfrequenz-Fertigation vs. 10-20L in Erde).
     metadata:
@@ -149,3 +185,35 @@ chunks:
       topic: watering_outdoor
       best_time: morning
       frequency_per_week: [2, 3]
+
+  - id: giess-zeitpunkt
+    title: Wann giessen — morgens oder abends?
+    content: |
+      Soll ich morgens oder abends giessen? Die kurze Antwort: Morgens
+      ist der beste Zeitpunkt zum Giessen, sowohl indoor als auch outdoor.
+      Morgens giessen hat klare Vorteile gegenueber abends oder mittags.
+      Outdoor / Freiland — morgens giessen (5-9 Uhr):
+      Im Garten und auf dem Balkon ist morgens die beste Giesszeit. Die
+      Pflanze hat den ganzen Tag Zeit, das Wasser aufzunehmen. Der Tau
+      auf den Blaettern kann abtrocknen, was Pilzkrankheiten vorbeugt.
+      Die Verdunstung ist morgens noch gering, das Wasser versickert
+      tiefer ins Erdreich. Outdoor morgens zu giessen ist die goldene
+      Regel fuer jeden Gaertner.
+      Abends ist die zweitbeste Option (weniger Verdunstung als mittags),
+      hat aber den Nachteil, dass Feuchtigkeit ueber Nacht auf den
+      Blaettern bleibt und Pilzkrankheiten foerdern kann.
+      NICHT mittags in voller Sonne giessen — hohe Verdunstung und
+      Wasserverschwendung. Der "Brennglas-Effekt" ist zwar ein Mythos,
+      aber es ist trotzdem der schlechteste Zeitpunkt.
+      Indoor / Growzelt / Growroom — vor der Lichtphase giessen:
+      Bei Indoor-Anbau im Zelt oder Growroom am besten direkt vor
+      Beginn der Lichtphase giessen, also vor dem Einschalten der Lampe.
+      Warum? Die Pflanze beginnt mit der Transpiration sobald das Licht
+      angeht und braucht dann frisches Wasser. Im Zelt vor der Lichtphase
+      zu giessen ist das Indoor-Aequivalent zum "morgens giessen".
+      Zimmerpflanzen: Am besten morgens oder vormittags giessen, wenn
+      das Tageslicht einsetzt. So kann ueberschuessige Feuchtigkeit
+      verdunsten und die Pflanze hat Energie fuer die Wasseraufnahme.
+    metadata:
+      topic: watering_timing
+      best_time: [morning, before_lights_on]

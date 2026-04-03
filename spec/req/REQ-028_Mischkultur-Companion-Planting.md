@@ -651,7 +651,7 @@ Prefix: `/api/v1/companion-planting`
 
 ### 6.1 Datenquelle
 
-Die Seed-Daten werden aus den 185 plant-info Dokumenten (`spec/ref/plant-info/*.md`) extrahiert. Jedes Dokument enthält eine Sektion "6. Fruchtfolge & Mischkultur" mit strukturierten Tabellen für gute und schlechte Nachbarn inkl. Kompatibilitäts-Score und KA-Edge-Typ.
+Die Seed-Daten werden aus den 185 plant-info Dokumenten (`spec/knowledge/plants/*.md`) extrahiert. Jedes Dokument enthält eine Sektion "6. Fruchtfolge & Mischkultur" mit strukturierten Tabellen für gute und schlechte Nachbarn inkl. Kompatibilitäts-Score und KA-Edge-Typ.
 
 ### 6.2 compatible_with-Edges (Auswahl der wichtigsten Paare)
 

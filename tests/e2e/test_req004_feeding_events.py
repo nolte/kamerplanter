@@ -77,6 +77,7 @@ class TestFeedingEventListPage:
             "TC-REQ-004-041 FAIL: Create button should be displayed and visible"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.smoke
     def test_feeding_event_list_has_columns(
         self, feeding_list: FeedingEventListPage, screenshot: Callable[..., Path]
@@ -140,6 +141,7 @@ class TestFeedingEventListPage:
             f"before={initial_count}, after={filtered_count}"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.core_crud
     def test_feeding_event_sort_by_column(
         self, feeding_list: FeedingEventListPage, screenshot: Callable[..., Path]

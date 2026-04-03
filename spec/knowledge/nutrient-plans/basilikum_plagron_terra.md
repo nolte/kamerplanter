@@ -4,7 +4,7 @@
 > **Pflanze:** Ocimum basilicum (einjaehrig, Schwachzehrer, Indoor ganzjaehrig / Outdoor Mai--September)
 > **Produkte:** Plagron Terra Grow, Pure Zym
 > **Erstellt:** 2026-03-01
-> **Quellen:** spec/ref/products/plagron_terra_grow.md, spec/ref/products/plagron_pure_zym.md, spec/ref/plant-info/ocimum_basilicum.md
+> **Quellen:** spec/knowledge/products/plagron_terra_grow.md, spec/knowledge/products/plagron_pure_zym.md, spec/knowledge/plants/ocimum_basilicum.md
 
 ---
 
@@ -356,7 +356,7 @@ Basilikum und Tomate sind klassische Partner (Kompatibilitaets-Score 0.9):
 | FLOWERING | 22--28 | 1,0--1,4 | 50--60 |
 | HARVEST | 18--25 | 1,0--1,4 | 50--60 |
 
-Quelle: `spec/ref/plant-info/ocimum_basilicum.md`, Abschnitt 2.2
+Quelle: `spec/knowledge/plants/ocimum_basilicum.md`, Abschnitt 2.2
 
 ### Wasserqualitaet
 
@@ -595,18 +595,18 @@ Quelle: `spec/ref/plant-info/ocimum_basilicum.md`, Abschnitt 2.2
 
 | Entitaet | Referenz-Dokument | KA-Feld |
 |----------|-------------------|---------|
-| Fertilizer: Terra Grow | `spec/ref/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Pure Zym | `spec/ref/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
-| Species: Ocimum basilicum | `spec/ref/plant-info/ocimum_basilicum.md` | `nutrient_plans` -> `species` (via edge) |
+| Fertilizer: Terra Grow | `spec/knowledge/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Pure Zym | `spec/knowledge/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
+| Species: Ocimum basilicum | `spec/knowledge/plants/ocimum_basilicum.md` | `nutrient_plans` -> `species` (via edge) |
 | SubstrateType: SOIL | Built-in Enum | `nutrient_plans.recommended_substrate_type` |
 
 ---
 
 ## Quellenverzeichnis
 
-1. Plagron Terra Grow Produktdaten: `spec/ref/products/plagron_terra_grow.md`
-2. Plagron Pure Zym Produktdaten: `spec/ref/products/plagron_pure_zym.md`
-3. Basilikum Pflanzendaten: `spec/ref/plant-info/ocimum_basilicum.md`
+1. Plagron Terra Grow Produktdaten: `spec/knowledge/products/plagron_terra_grow.md`
+2. Plagron Pure Zym Produktdaten: `spec/knowledge/products/plagron_pure_zym.md`
+3. Basilikum Pflanzendaten: `spec/knowledge/plants/ocimum_basilicum.md`
 4. NutrientPlan Datenmodell: `src/backend/app/domain/models/nutrient_plan.py`
 5. PhaseName Enum: `src/backend/app/common/enums.py`
 6. NCSU Extension -- Ocimum basilicum: https://plants.ces.ncsu.edu/plants/ocimum-basilicum/

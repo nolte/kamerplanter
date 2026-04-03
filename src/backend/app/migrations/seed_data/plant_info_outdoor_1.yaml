@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=./schemas/plant_info.schema.yaml
-# Plant-info seed data from spec/ref/plant-info/*.md — Outdoor batch 1.
+# Plant-info seed data from spec/knowledge/plants/*.md — Outdoor batch 1.
 #
 # Covers 30 plant-info documents (allium_cepa through foeniculum_vulgare).
 # Adds 5 new botanical families, 12 new species, enriches 18 existing species,

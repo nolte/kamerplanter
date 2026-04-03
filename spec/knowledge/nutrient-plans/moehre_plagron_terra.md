@@ -4,7 +4,7 @@
 > **Pflanze:** Daucus carota subsp. sativus (Schwachzehrer/Mittelzehrer, Outdoor, Direktsaat)
 > **Produkte:** Plagron Terra Grow, Terra Bloom, Pure Zym
 > **Erstellt:** 2026-03-06
-> **Quellen:** spec/ref/products/plagron_terra_grow.md, spec/ref/products/plagron_terra_bloom.md, spec/ref/products/plagron_pure_zym.md, spec/ref/plant-info/daucus_carota.md
+> **Quellen:** spec/knowledge/products/plagron_terra_grow.md, spec/knowledge/products/plagron_terra_bloom.md, spec/knowledge/products/plagron_pure_zym.md, spec/knowledge/plants/daucus_carota.md
 
 ---
 
@@ -471,9 +471,9 @@ Bei 1 Laufmeter Moehrenreihe (ca. 20--25 Pflanzen), 0.5 L Giessloessung pro Duen
 
 | Entitaet | Referenz-Dokument | KA-Feld |
 |----------|-------------------|---------|
-| Fertilizer: Terra Bloom | `spec/ref/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Pure Zym | `spec/ref/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
-| Species: Daucus carota subsp. sativus | `spec/ref/plant-info/daucus_carota.md` | `species.scientific_name` |
+| Fertilizer: Terra Bloom | `spec/knowledge/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Pure Zym | `spec/knowledge/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
+| Species: Daucus carota subsp. sativus | `spec/knowledge/plants/daucus_carota.md` | `species.scientific_name` |
 | SubstrateType: SOIL | Built-in Enum | `nutrient_plans.recommended_substrate_type` |
 
 ---
@@ -500,9 +500,9 @@ Bei 1 Laufmeter Moehrenreihe (ca. 20--25 Pflanzen), 0.5 L Giessloessung pro Duen
 
 ## Quellenverzeichnis
 
-1. Plagron Terra Bloom Produktdaten: `spec/ref/products/plagron_terra_bloom.md`
-2. Plagron Pure Zym Produktdaten: `spec/ref/products/plagron_pure_zym.md`
-3. Daucus carota Pflanzendaten: `spec/ref/plant-info/daucus_carota.md`
+1. Plagron Terra Bloom Produktdaten: `spec/knowledge/products/plagron_terra_bloom.md`
+2. Plagron Pure Zym Produktdaten: `spec/knowledge/products/plagron_pure_zym.md`
+3. Daucus carota Pflanzendaten: `spec/knowledge/plants/daucus_carota.md`
 4. NutrientPlan Datenmodell: `src/backend/app/domain/models/nutrient_plan.py`
 5. PhaseName Enum: `src/backend/app/common/enums.py`
 

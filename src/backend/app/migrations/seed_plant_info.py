@@ -1,4 +1,4 @@
-"""Seed plant-info data from spec/ref/plant-info/*.md (32 documents, 28 species).
+"""Seed plant-info data from spec/knowledge/plants/*.md (32 documents, 28 species).
 
 Adds 1 new botanical family (Iridaceae), 4 new species (Dahlia pinnata,
 Petunia x hybrida, Tigridia pavonia, Apium graveolens var. rapaceum),
@@ -8,7 +8,7 @@ enriches 24 existing species, adds art-specific growth phases for 11 species,
 All hardcoded data lives in seed_data/plant_info.yaml — this module contains
 only the loading, construction and seeding logic.
 
-Sources: spec/ref/plant-info/*.md (32 plant-info documents)
+Sources: spec/knowledge/plants/*.md (32 plant-info documents)
 """
 
 import time

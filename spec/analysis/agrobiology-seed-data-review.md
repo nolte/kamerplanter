@@ -2,7 +2,7 @@
 **Erstellt von:** Agrarbiologie-Experte (Subagent)
 **Datum:** 2026-03-18
 **Auftrag:** Verifikation aller [AGROBIO-CHECK] Findings aus dem Seed-Data-Validator
-**Referenz-Report:** `spec/requirements-analysis/seed-data-validation-report.md`
+**Referenz-Report:** `spec/analysis/seed-data-validation-report.md`
 **Analysierte Seed-Dateien:** `botanical_families.yaml`, `ipm.yaml`, `fertilizers.yaml`, `plagron.yaml`, `plant_info_indoor_3.yaml`, `plant_info_outdoor_1.yaml`
 
 ---

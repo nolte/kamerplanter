@@ -150,7 +150,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Evaluate data source availability
 5. Create report with findings (errors/incomplete/inaccurate)
 
-**Output:** `spec/requirements-analysis/agrobiology-review.md` — Detailed report with botanical findings, correction proposals and data sources
+**Output:** `spec/analysis/agrobiology-review.md` — Detailed report with botanical findings, correction proposals and data sources
 
 ---
 
@@ -172,7 +172,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Validate growing parameters (photoperiod, VPD, EC)
 5. Report with legal checks and best-practice deviations
 
-**Output:** `spec/requirements-analysis/cannabis-grower-review.md` — Legality check, growing parameter validation, risk assessment
+**Output:** `spec/analysis/cannabis-grower-review.md` — Legality check, growing parameter validation, risk assessment
 
 ---
 
@@ -196,7 +196,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 5. Conduct competitor comparison (Planta, Greg)
 6. Report with dealbreakers, optimizations, effort analysis
 
-**Output:** `spec/requirements-analysis/casual-houseplant-user-review.md` — Layperson perspective, dealbreakers, effort analysis, competitor comparison
+**Output:** `spec/analysis/casual-houseplant-user-review.md` — Layperson perspective, dealbreakers, effort analysis, competitor comparison
 
 ---
 
@@ -219,7 +219,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Immediately fix critical vulnerabilities (P0/P1)
 5. Security report with resolved and open items
 
-**Output:** `spec/requirements-analysis/code-security-review.md` — Security audit, P0/P1/P2/P3 findings, compliance matrix
+**Output:** `spec/analysis/code-security-review.md` — Security audit, P0/P1/P2/P3 findings, compliance matrix
 
 ---
 
@@ -244,7 +244,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 6. Verify ADR freshness (status, technology references)
 7. Find dead links and code references
 
-**Output:** `spec/requirements-analysis/docs-freshness-report.md` — Report with API gaps, user guide errors, parity violations, ADR findings, dead links
+**Output:** `spec/analysis/docs-freshness-report.md` — Report with API gaps, user guide errors, parity violations, ADR findings, dead links
 
 ---
 
@@ -290,7 +290,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Validate mobile on-site scenarios
 5. Report with design findings and wireframe proposals
 
-**Output:** `spec/requirements-analysis/frontend-design-review.md` — Responsive matrix, kiosk detail assessment, touch target audit, wireframes
+**Output:** `spec/analysis/frontend-design-review.md` — Responsive matrix, kiosk detail assessment, touch target audit, wireframes
 
 ---
 
@@ -384,7 +384,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Correct YAML files directly with the Edit tool
 5. Create report with findings and corrections
 
-**Output:** Corrected YAML files + `spec/requirements-analysis/growing-phase-audit.md` with findings and verification
+**Output:** Corrected YAML files + `spec/analysis/growing-phase-audit.md` with findings and verification
 
 ---
 
@@ -452,7 +452,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Perform quality checks (empty values, identical DE/EN, placeholder consistency)
 5. Output report categorized by severity
 
-**Output:** `spec/requirements-analysis/i18n-completeness-report.md` — Missing keys, orphaned keys, identical values, empty entries
+**Output:** `spec/analysis/i18n-completeness-report.md` — Missing keys, orphaned keys, identical values, empty entries
 
 ---
 
@@ -475,7 +475,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Reconcile OWASP ASVS against specs
 5. Report with security gaps and GDPR recommendations
 
-**Output:** `spec/requirements-analysis/it-security-review.md` — Security assessment, GDPR audit, recommendations
+**Output:** `spec/analysis/it-security-review.md` — Security assessment, GDPR audit, recommendations
 
 ---
 
@@ -521,7 +521,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Validate crop rotation, overwintering, companion planting features
 5. Report with practical notes and improvement proposals
 
-**Output:** `spec/requirements-analysis/outdoor-garden-planner-review.md` — Hobby gardener perspective, practical feedback
+**Output:** `spec/analysis/outdoor-garden-planner-review.md` — Hobby gardener perspective, practical feedback
 
 ---
 
@@ -637,7 +637,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Systematically check for contradictions
 5. Generate report with contradiction findings
 
-**Output:** `spec/requirements-analysis/contradiction-analysis.md` — Contradictions, inconsistencies, recommendations
+**Output:** `spec/analysis/contradiction-analysis.md` — Contradictions, inconsistencies, recommendations
 
 ---
 
@@ -661,7 +661,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 5. Multi-source verification (manufacturer, SDS, retailer)
 6. Report with data quality findings
 
-**Output:** `spec/requirements-analysis/seed-data-validation.md` — Data quality report with findings
+**Output:** `spec/analysis/seed-data-validation.md` — Data quality report with findings
 
 ---
 
@@ -753,7 +753,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 4. Estimate market size and potential
 5. Report with personas and market analysis
 
-**Output:** `spec/requirements-analysis/target-audience-analysis.md` — Target audience analysis, personas, market potential
+**Output:** `spec/analysis/target-audience-analysis.md` — Target audience analysis, personas, market potential
 
 ---
 
@@ -847,7 +847,7 @@ Overview of all available Claude Code agents in the Kamerplanter project for aut
 ## Notes for Developers
 
 - **Start an agent:** `/agent <agent-name>` in the Claude Code chat
-- **Reports:** Analysis agents write to `spec/requirements-analysis/`, Selenium reports to `test-reports/`, test cases to `spec/test-cases/`, documentation to `docs/`
+- **Reports:** Analysis agents write to `spec/analysis/`, Selenium reports to `test-reports/`, test cases to `spec/test-cases/`, documentation to `docs/`
 - **Model choice:** `opus` = highest quality (complex features), `sonnet` = best value (review, analysis), `haiku` = fast & cheap (simple tasks)
 - **Tool availability:** Not all agents have all tools — e.g. `png-to-transparent-svg` has no Edit tool
 

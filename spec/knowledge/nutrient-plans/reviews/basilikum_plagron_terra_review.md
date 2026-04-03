@@ -4,10 +4,10 @@
 **Datum:** 2026-03-01
 **Fokus:** Kraeuteranbau (Kuechenkraut), Indoor-/Outdoor-Topfkultur, Erdsubstrat, Schwachzehrer, Blatterntekultur
 **Analysierte Dokumente:**
-- `spec/ref/nutrient-plans/basilikum_plagron_terra.md` (v1.0)
-- `spec/ref/products/plagron_terra_grow.md` (v1.0)
-- `spec/ref/products/plagron_pure_zym.md` (v1.0)
-- `spec/ref/plant-info/ocimum_basilicum.md` (v1.0)
+- `spec/knowledge/nutrient-plans/basilikum_plagron_terra.md` (v1.0)
+- `spec/knowledge/products/plagron_terra_grow.md` (v1.0)
+- `spec/knowledge/products/plagron_pure_zym.md` (v1.0)
+- `spec/knowledge/plants/ocimum_basilicum.md` (v1.0)
 
 ---
 
@@ -159,7 +159,7 @@ Das ist kein Fehler im engeren Sinne: Ein Nährstoffplan muss keine Klimaparamet
 | FLOWERING | 22--28 | 1,0--1,4 | 50--60 |
 | HARVEST | 18--25 | 1,0--1,4 | 50--60 |
 
-Quelle: spec/ref/plant-info/ocimum_basilicum.md, Abschnitt 2.2
+Quelle: spec/knowledge/plants/ocimum_basilicum.md, Abschnitt 2.2
 ```
 
 ---

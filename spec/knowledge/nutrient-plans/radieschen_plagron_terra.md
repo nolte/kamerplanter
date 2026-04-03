@@ -4,7 +4,7 @@
 > **Pflanze:** Raphanus sativus var. sativus (Schwachzehrer, Outdoor, Direktsaat)
 > **Produkte:** Plagron Terra Bloom
 > **Erstellt:** 2026-03-06
-> **Quellen:** spec/ref/products/plagron_terra_bloom.md, spec/ref/plant-info/raphanus_sativus_var_sativus.md
+> **Quellen:** spec/knowledge/products/plagron_terra_bloom.md, spec/knowledge/plants/raphanus_sativus_var_sativus.md
 
 ---
 
@@ -385,8 +385,8 @@ Bei 6--8 Sukzessionssaetzen pro Saison, je 1 Laufmeter, 0.2 L Giessloessung:
 
 | Entitaet | Referenz-Dokument | KA-Feld |
 |----------|-------------------|---------|
-| Fertilizer: Terra Bloom | `spec/ref/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
-| Species: Raphanus sativus var. sativus | `spec/ref/plant-info/raphanus_sativus_var_sativus.md` | `species.scientific_name` |
+| Fertilizer: Terra Bloom | `spec/knowledge/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
+| Species: Raphanus sativus var. sativus | `spec/knowledge/plants/raphanus_sativus_var_sativus.md` | `species.scientific_name` |
 | SubstrateType: SOIL | Built-in Enum | `nutrient_plans.recommended_substrate_type` |
 
 ---
@@ -410,8 +410,8 @@ Bei 6--8 Sukzessionssaetzen pro Saison, je 1 Laufmeter, 0.2 L Giessloessung:
 
 ## Quellenverzeichnis
 
-1. Plagron Terra Bloom Produktdaten: `spec/ref/products/plagron_terra_bloom.md`
-2. Raphanus sativus Pflanzendaten: `spec/ref/plant-info/raphanus_sativus_var_sativus.md`
+1. Plagron Terra Bloom Produktdaten: `spec/knowledge/products/plagron_terra_bloom.md`
+2. Raphanus sativus Pflanzendaten: `spec/knowledge/plants/raphanus_sativus_var_sativus.md`
 3. NutrientPlan Datenmodell: `src/backend/app/domain/models/nutrient_plan.py`
 4. PhaseName Enum: `src/backend/app/common/enums.py`
 

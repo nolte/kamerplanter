@@ -371,7 +371,7 @@ cd src/frontend && npx tsc --noEmit && npx eslint src/
 
 ## Phase 4: Report erstellen
 
-Erstelle `spec/requirements-analysis/code-security-review.md`:
+Erstelle `spec/analysis/code-security-review.md`:
 
 ```markdown
 # Code-Security-Review

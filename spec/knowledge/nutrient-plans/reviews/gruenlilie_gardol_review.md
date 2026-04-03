@@ -5,9 +5,9 @@
 **Reviewtyp:** Vollstaendige fachliche Pruefung (NPK, EC, Phasen, Giessplan, Ca/Mg/Fe, Sicherheit, Konsistenz)
 **Pruefstatus:** Abgeschlossen
 
-**Gepruefter Plan:** `/spec/ref/nutrient-plans/gruenlilie_gardol.md` v1.0
-**Steckbrief:** `/spec/ref/plant-info/chlorophytum_comosum.md`
-**Produktdaten:** `/spec/ref/products/gardol_gruenpflanzenduenger.md`
+**Gepruefter Plan:** `/spec/knowledge/nutrient-plans/gruenlilie_gardol.md` v1.0
+**Steckbrief:** `/spec/knowledge/plants/chlorophytum_comosum.md`
+**Produktdaten:** `/spec/knowledge/products/gardol_gruenpflanzenduenger.md`
 
 ---
 
@@ -387,9 +387,9 @@ Drei Inkonsistenzen gefunden (F-002, F-003, F-004). Details siehe obige Befunde.
 
 ## Quellen dieses Reviews
 
-1. Gepruefter Plan: `/spec/ref/nutrient-plans/gruenlilie_gardol.md` v1.0
-2. Steckbrief: `/spec/ref/plant-info/chlorophytum_comosum.md`
-3. Produktdaten: `/spec/ref/products/gardol_gruenpflanzenduenger.md`
+1. Gepruefter Plan: `/spec/knowledge/nutrient-plans/gruenlilie_gardol.md` v1.0
+2. Steckbrief: `/spec/knowledge/plants/chlorophytum_comosum.md`
+3. Produktdaten: `/spec/knowledge/products/gardol_gruenpflanzenduenger.md`
 4. ASPCA Animal Poison Control -- Spider Plant: https://www.aspca.org/pet-care/aspca-poison-control/toxic-and-non-toxic-plants/spider-plant
 5. NC State Extension -- Chlorophytum comosum: https://plants.ces.ncsu.edu/plants/chlorophytum-comosum/
 6. Wisconsin Horticulture Extension -- Spider Plant: https://hort.extension.wisc.edu/articles/spider-plant-chlorophytum-comosum/

@@ -6,7 +6,7 @@
 > **Zielgroesse:** 256x256px (primaer), skalierbar auf 64x64 und 512x512
 > **Format:** PNG (transparent), SVG-tauglich
 > **Einsatzort:** Phasen-Timeline in PlantInstanceDetailPage fuer Weihnachtsstern (Euphorbia pulcherrima), Poinsettia und andere Kurztag-Pflanzen; Anzeige der aktiven Verdunkelungsphase
-> **Referenz:** `spec/ref/graphic-prompts/timeline-kami-phasen.md` (Phasen 1–5), `spec/ref/graphic-prompts/timeline-kami-phasen-erweitert.md` (Phasen 6–11), `spec/ref/graphic-prompts/timeline-kami-phase-flushing.md`, `KAMI-CHARACTER-REFERENCE.md` v1.0
+> **Referenz:** `spec/design/timeline-kami-phasen.md` (Phasen 1–5), `spec/design/timeline-kami-phasen-erweitert.md` (Phasen 6–11), `spec/design/timeline-kami-phase-flushing.md`, `KAMI-CHARACTER-REFERENCE.md` v1.0
 
 ---
 

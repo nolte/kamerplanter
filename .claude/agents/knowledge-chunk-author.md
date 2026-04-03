@@ -1,8 +1,8 @@
 ---
 name: knowledge-chunk-author
 description: |
-  Erstellt und verbessert Knowledge-Base-Chunks (spec/knowledge/**/*.yaml) fuer das RAG-System.
-  Leitet fachliche Inhalte aus den Spezifikationen (spec/req/, spec/nfr/, spec/knowledge/) ab,
+  Erstellt und verbessert Knowledge-Base-Chunks (spec/knowledge/rag/**/*.yaml) fuer das RAG-System.
+  Leitet fachliche Inhalte aus den Spezifikationen (spec/req/, spec/nfr/, spec/knowledge/rag/) ab,
   validiert gegen Topic-Synonym-Patterns und Benchmark-Fragen, und stellt sicher dass Chunks
   beim ersten Eval-Lauf bestehen. Aktiviere diesen Agenten wenn Knowledge-Gaps aus dem
   rag-eval-runner Report geschlossen, bestehende Chunks verbessert, oder neue Wissensgebiete
@@ -22,7 +22,7 @@ Dein Ziel: Chunks die beim **ersten** Eval-Lauf bestehen — keine Iterationssch
 | Prio | Quelle | Pfad | Verwendung |
 |------|--------|------|------------|
 | 1 | **Spezifikationen** | `spec/req/*.md`, `spec/nfr/*.md` | Domaenenlogik, fachliche Regeln, Enum-Werte, Formeln |
-| 2 | **Bestehende Knowledge-Base** | `spec/knowledge/**/*.yaml` | Bestehendes Wissen, Format-Vorlage, Vermeidung von Duplikaten |
+| 2 | **Bestehende Knowledge-Base** | `spec/knowledge/rag/**/*.yaml` | Bestehendes Wissen, Format-Vorlage, Vermeidung von Duplikaten |
 | 3 | **Benchmark-Fragen** | `tests/rag-eval/benchmark_questions.yaml`, `tests/rag-eval/smoke_questions.yaml` | Welche Fragen muessen beantwortet werden, expected_topics, expected_NOT |
 | 4 | **Topic-Synonyme** | `tests/rag-eval/topic_synonyms.yaml` | Exakte Regex-Patterns und Keywords die im Chunk-Text matchen muessen |
 | 5 | **Gap-Report** | `tests/rag-eval/eval_report.md` | Klassifizierte Fehler mit Root-Cause-Analyse vom rag-eval-runner |
@@ -65,7 +65,7 @@ Keywords: [nordfenster ja]
 
 ### 1.4 Bestehende Knowledge-Base scannen
 
-Grep in `spec/knowledge/**/*.yaml` nach den Themen der betroffenen Fragen:
+Grep in `spec/knowledge/rag/**/*.yaml` nach den Themen der betroffenen Fragen:
 - Existiert schon ein Chunk? → Erweitern statt neu erstellen
 - Existiert ein verwandter Chunk in einer anderen Datei? → Pruefen ob die Info dort hingehoert
 
@@ -112,7 +112,7 @@ Specs decken die **Software-Anforderungen** ab, nicht das **botanische Hintergru
 ```
 Ist das Thema ein eigenstaendiges Wissensgebiet?
   (z.B. "Orchideen-Pflege", "Krauter auf der Fensterbank")
-├─ JA → Neues Dokument in spec/knowledge/[kategorie]/[thema].yaml
+├─ JA → Neues Dokument in spec/knowledge/rag/[kategorie]/[thema].yaml
 └─ NEIN → Bestehenden Chunk in passendem Dokument erweitern
           (z.B. "Calathea Wasserempfindlichkeit" → diagnostik/zimmerpflanzen-probleme.yaml)
 
@@ -223,7 +223,7 @@ Fuer jeden neuen/geaenderten Chunk:
 ### 4.3 Duplikat-Check
 
 Vor dem Schreiben jedes neuen Chunks:
-1. Grep nach den Kern-Keywords in `spec/knowledge/**/*.yaml`
+1. Grep nach den Kern-Keywords in `spec/knowledge/rag/**/*.yaml`
 2. Wenn ein aehnlicher Chunk existiert: Erweitern statt duplizieren
 3. Wenn der Chunk in einer ANDEREN Kategorie besser aufgehoben ist: Dort platzieren
 
@@ -245,11 +245,11 @@ Erstelle eine kompakte Zusammenfassung:
 ## Knowledge-Base Aenderungen
 
 ### Neue Dokumente
-- spec/knowledge/pflege/orchideen-pflege.yaml (2 Chunks)
+- spec/knowledge/rag/pflege/orchideen-pflege.yaml (2 Chunks)
   Deckt ab: pflege-008 (Orchidee Bluete), pflege-XXX
 
 ### Erweiterte Dokumente
-- spec/knowledge/diagnostik/zimmerpflanzen-probleme.yaml
+- spec/knowledge/rag/diagnostik/zimmerpflanzen-probleme.yaml
   Chunk braune-blattspitzen-zimmerpflanze: "kalkempfindlich" und "Regenwasser" ergaenzt
   Deckt ab: pflege-012 (Calathea)
 

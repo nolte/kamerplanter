@@ -30,6 +30,7 @@ def family_list(browser: WebDriver, base_url: str) -> BotanicalFamilyListPage:
 class TestBotanicalFamilyListPage:
     """Botanical Family list operations (Spec: TC-001-001, TC-001-002, TC-001-003, TC-001-005)."""
 
+    @pytest.mark.requires_desktop
     @pytest.mark.smoke
     def test_display_families_in_data_table(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
@@ -99,6 +100,7 @@ class TestBotanicalFamilyListPage:
             "TC-REQ-001-008 FAIL: Expected at least one family matching 'Starkzehrer'"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.core_crud
     def test_sort_families_by_column(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]

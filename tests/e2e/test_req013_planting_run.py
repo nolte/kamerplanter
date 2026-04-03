@@ -76,6 +76,7 @@ class TestPlantingRunListPage:
             "TC-REQ-013-001 FAIL: Expected [data-testid='planting-run-list-page'] to be visible"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.smoke
     def test_list_displays_data_table_with_columns(
         self,
@@ -196,6 +197,7 @@ class TestPlantingRunListPage:
                 f"TC-REQ-013-006 FAIL: Expected count after reset ({reset_count}) close to initial ({initial_count})"
             )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.core_crud
     def test_sort_by_column_shows_sort_chip(
         self,

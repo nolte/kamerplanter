@@ -4,7 +4,7 @@
 > **Pflanze:** Monstera deliciosa (medium_feeder, perennial, Indoor/Erde)
 > **Produkt:** Gardol Gruenpflanzenduenger NPK 6-4-6 (Bauhaus)
 > **Erstellt:** 2026-03-01
-> **Quellen:** spec/ref/plant-info/monstera_deliciosa.md, spec/ref/products/gardol_gruenpflanzenduenger.md
+> **Quellen:** spec/knowledge/plants/monstera_deliciosa.md, spec/knowledge/products/gardol_gruenpflanzenduenger.md
 
 ---
 
@@ -451,8 +451,8 @@ Legende: --- = keine Duengung, ### = halbe Dosis (2 ml/L), === = volle Dosis (4 
 
 | Entitaet | Referenz-Dokument | KA-Feld |
 |----------|-------------------|---------|
-| Fertilizer: Gardol Gruenpflanzenduenger | `spec/ref/products/gardol_gruenpflanzenduenger.md` | `fertilizer_dosages.fertilizer_key` |
-| Species: Monstera deliciosa | `spec/ref/plant-info/monstera_deliciosa.md` | Via `nutrient_plans` -> `uses_nutrient_plan` edge |
+| Fertilizer: Gardol Gruenpflanzenduenger | `spec/knowledge/products/gardol_gruenpflanzenduenger.md` | `fertilizer_dosages.fertilizer_key` |
+| Species: Monstera deliciosa | `spec/knowledge/plants/monstera_deliciosa.md` | Via `nutrient_plans` -> `uses_nutrient_plan` edge |
 | SubstrateType: SOIL | Built-in Enum | `nutrient_plans.recommended_substrate_type` |
 
 ---
@@ -468,14 +468,14 @@ Legende: --- = keine Duengung, ### = halbe Dosis (2 ml/L), === = volle Dosis (4 
 - **Umtopfen:** Handschuhe tragen -- Pflanzensaft enthaelt Calciumoxalat-Raphiden und kann Kontaktdermatitis ausloesen.
 - **Gardol-Konzentrat:** Mineralischer Fluessigduenger -- bei versehentlichem Kontakt durch Haustiere oder Kinder giftnotrufzentrale kontaktieren.
 
-Die Toxizitaetsdaten der Pflanze sind im Steckbrief dokumentiert (vgl. `spec/ref/plant-info/monstera_deliciosa.md`, Abschnitt 1.4).
+Die Toxizitaetsdaten der Pflanze sind im Steckbrief dokumentiert (vgl. `spec/knowledge/plants/monstera_deliciosa.md`, Abschnitt 1.4).
 
 ---
 
 ## Quellenverzeichnis
 
-1. Monstera deliciosa Pflanzensteckbrief: `spec/ref/plant-info/monstera_deliciosa.md`
-2. Gardol Gruenpflanzenduenger Produktdaten: `spec/ref/products/gardol_gruenpflanzenduenger.md`
+1. Monstera deliciosa Pflanzensteckbrief: `spec/knowledge/plants/monstera_deliciosa.md`
+2. Gardol Gruenpflanzenduenger Produktdaten: `spec/knowledge/products/gardol_gruenpflanzenduenger.md`
 3. NutrientPlan Datenmodell: `src/backend/app/domain/models/nutrient_plan.py`
 4. PhaseName Enum: `src/backend/app/common/enums.py`
 

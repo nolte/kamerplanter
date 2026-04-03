@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=./schemas/plant_info.schema.yaml
 # Adventskalender 2025 (Historische Sorten) — Seed Data
-# Sources: spec/ref/plant-info/*.md (18 plant-info documents)
+# Sources: spec/knowledge/plants/*.md (18 plant-info documents)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # §1 New Botanical Families (2)

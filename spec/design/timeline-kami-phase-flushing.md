@@ -6,7 +6,7 @@
 > **Zielgroesse:** 256x256px (primaer), skalierbar auf 64x64 und 512x512
 > **Format:** PNG (transparent), SVG-tauglich
 > **Einsatzort:** Phasen-Timeline in PlantInstanceDetailPage, FlushingProtocol-Badge (REQ-004), Giesskalen-Ansicht kurz vor Ernte
-> **Referenz:** `spec/ref/graphic-prompts/timeline-kami-phasen.md` (Phasen 1–5), `spec/ref/graphic-prompts/timeline-kami-phasen-erweitert.md` (Phasen 6–11), `KAMI-CHARACTER-REFERENCE.md` v1.0, REQ-004 (FlushingProtocol)
+> **Referenz:** `spec/design/timeline-kami-phasen.md` (Phasen 1–5), `spec/design/timeline-kami-phasen-erweitert.md` (Phasen 6–11), `KAMI-CHARACTER-REFERENCE.md` v1.0, REQ-004 (FlushingProtocol)
 
 ---
 

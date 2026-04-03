@@ -2,12 +2,12 @@
 
 **Reviewer:** Agrarbiologie-Experte (Subagent)
 **Datum:** 2026-03-01
-**Pruefgegenstand:** `spec/ref/nutrient-plans/stiefmuetterchen_plagron_terra.md` v1.0
+**Pruefgegenstand:** `spec/knowledge/nutrient-plans/stiefmuetterchen_plagron_terra.md` v1.0
 **Quell-Dokumente:**
-- Pflanzensteckbrief: `spec/ref/plant-info/viola_x_wittrockiana.md`
-- Produktdaten Terra Grow: `spec/ref/products/plagron_terra_grow.md`
-- Produktdaten Terra Bloom: `spec/ref/products/plagron_terra_bloom.md`
-- Produktdaten Pure Zym: `spec/ref/products/plagron_pure_zym.md`
+- Pflanzensteckbrief: `spec/knowledge/plants/viola_x_wittrockiana.md`
+- Produktdaten Terra Grow: `spec/knowledge/products/plagron_terra_grow.md`
+- Produktdaten Terra Bloom: `spec/knowledge/products/plagron_terra_bloom.md`
+- Produktdaten Pure Zym: `spec/knowledge/products/plagron_pure_zym.md`
 
 ---
 

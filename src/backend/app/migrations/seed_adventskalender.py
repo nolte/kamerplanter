@@ -4,7 +4,7 @@ Adds 2 new botanical families, 4 new species, enriches 14 existing species,
 replaces generic phases with art-specific growth phases (18 species),
 adds ~120 cultivars, companion planting edges, and IPM data.
 
-Sources: spec/ref/plant-info/*.md (18 plant-info documents)
+Sources: spec/knowledge/plants/*.md (18 plant-info documents)
 Data loaded from seed_data/adventskalender.yaml.
 """
 

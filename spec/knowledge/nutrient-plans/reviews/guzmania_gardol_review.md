@@ -2,10 +2,10 @@
 
 **Reviewer:** Agrarbiologie-Experte (Subagent)
 **Datum:** 2026-03-01
-**Geprueftes Dokument:** `spec/ref/nutrient-plans/guzmania_gardol.md` v1.0
+**Geprueftes Dokument:** `spec/knowledge/nutrient-plans/guzmania_gardol.md` v1.0
 **Referenzdokumente:**
-- `spec/ref/plant-info/guzmania_lingulata.md`
-- `spec/ref/products/gardol_gruenpflanzenduenger.md`
+- `spec/knowledge/plants/guzmania_lingulata.md`
+- `spec/knowledge/products/gardol_gruenpflanzenduenger.md`
 **Gegen-Modell geprueft:** `src/backend/app/domain/models/nutrient_plan.py`, `src/backend/app/common/enums.py`
 
 ---
@@ -338,7 +338,7 @@ Die folgenden fachlichen Aussagen wurden als korrekt bestaetigt:
 
 ### Korrektur F-001: FoliarParams Feldname
 
-In `/spec/ref/nutrient-plans/guzmania_gardol.md`, JSON VEGETATIVE, Delivery Channel "blatternaehrung":
+In `/spec/knowledge/nutrient-plans/guzmania_gardol.md`, JSON VEGETATIVE, Delivery Channel "blatternaehrung":
 
 Ersetze:
 ```json
@@ -358,7 +358,7 @@ Durch:
 
 ### Korrektur F-002: Channel-ID URL-Encoding in Tabellen
 
-In `/spec/ref/nutrient-plans/guzmania_gardol.md`, Abschnitt 3.2 Tabellenzeile:
+In `/spec/knowledge/nutrient-plans/guzmania_gardol.md`, Abschnitt 3.2 Tabellenzeile:
 
 Ersetze:
 ```

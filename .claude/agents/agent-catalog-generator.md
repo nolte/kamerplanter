@@ -139,7 +139,7 @@ Verwende MkDocs-Material Admonition (`!!! tip`):
 ## Hinweise für Entwickler
 
 - **Agent starten:** `/agent <name>` im Claude Code Chat
-- **Reports:** Analyse-Agents → `spec/requirements-analysis/`, Selenium-Reports → `test-reports/`, Testfälle → `spec/test-cases/`, Doku → `docs/`
+- **Reports:** Analyse-Agents → `spec/analysis/`, Selenium-Reports → `test-reports/`, Testfälle → `spec/test-cases/`, Doku → `docs/`
 - **Modellwahl:** `opus` = höchste Qualität, `sonnet` = Preis-Leistung, `haiku` = schnell & günstig
 
 Verwende ein **Mermaid-Diagramm** für die Agenten-Abhängigkeiten (statt ASCII-Art) — MkDocs-Material rendert Mermaid nativ.

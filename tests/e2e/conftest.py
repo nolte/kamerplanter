@@ -94,15 +94,26 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "core_crud: mark test as part of the core CRUD suite (species, cultivar, site CRUD for average users)",
     )
+    config.addinivalue_line(
+        "markers",
+        "requires_desktop: mark test as requiring desktop viewport (skipped on mobile/tablet)",
+    )
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """Auto-skip tests based on app mode and resume state."""
+    """Auto-skip tests based on app mode, device and resume state."""
     if config.getoption("--app-mode") == "light":
         skip_light = pytest.mark.skip(reason="requires full auth mode (running in light mode)")
         for item in items:
             if "requires_auth" in item.keywords:
                 item.add_marker(skip_light)
+
+    if config.getoption("--device") != "desktop":
+        device = config.getoption("--device")
+        skip_mobile = pytest.mark.skip(reason=f"requires desktop viewport (running on {device})")
+        for item in items:
+            if "requires_desktop" in item.keywords:
+                item.add_marker(skip_mobile)
 
     # Resume mode: skip tests that already passed in a previous run
     resume_dir = config.getoption("--resume", default=None)

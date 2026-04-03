@@ -4,7 +4,7 @@
 > **Pflanze:** Lactuca sativa (Mittelzehrer, Outdoor, annuell)
 > **Produkte:** Plagron Terra Grow, Pure Zym
 > **Erstellt:** 2026-03-06
-> **Quellen:** spec/ref/products/plagron_terra_grow.md, spec/ref/products/plagron_pure_zym.md, spec/ref/plant-info/lactuca_sativa.md
+> **Quellen:** spec/knowledge/products/plagron_terra_grow.md, spec/knowledge/products/plagron_pure_zym.md, spec/knowledge/plants/lactuca_sativa.md
 
 ---
 
@@ -479,9 +479,9 @@ Bei einem Kopfsalat (25 cm Topf/Beet), 0.15 L Giessloessung pro Duengung, Duengu
 
 | Entitaet | Referenz-Dokument | KA-Feld |
 |----------|-------------------|---------|
-| Fertilizer: Terra Grow | `spec/ref/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Pure Zym | `spec/ref/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
-| Species: Lactuca sativa | `spec/ref/plant-info/lactuca_sativa.md` | `species.scientific_name` |
+| Fertilizer: Terra Grow | `spec/knowledge/products/plagron_terra_grow.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Pure Zym | `spec/knowledge/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
+| Species: Lactuca sativa | `spec/knowledge/plants/lactuca_sativa.md` | `species.scientific_name` |
 | SubstrateType: SOIL | Built-in Enum | `nutrient_plans.recommended_substrate_type` |
 
 ---
@@ -506,9 +506,9 @@ Bei einem Kopfsalat (25 cm Topf/Beet), 0.15 L Giessloessung pro Duengung, Duengu
 
 ## Quellenverzeichnis
 
-1. Plagron Terra Grow Produktdaten: `spec/ref/products/plagron_terra_grow.md`
-2. Plagron Pure Zym Produktdaten: `spec/ref/products/plagron_pure_zym.md`
-3. Lactuca sativa Pflanzendaten: `spec/ref/plant-info/lactuca_sativa.md`
+1. Plagron Terra Grow Produktdaten: `spec/knowledge/products/plagron_terra_grow.md`
+2. Plagron Pure Zym Produktdaten: `spec/knowledge/products/plagron_pure_zym.md`
+3. Lactuca sativa Pflanzendaten: `spec/knowledge/plants/lactuca_sativa.md`
 4. NutrientPlan Datenmodell: `src/backend/app/domain/models/nutrient_plan.py`
 5. PhaseName Enum: `src/backend/app/common/enums.py`
 

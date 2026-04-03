@@ -72,6 +72,7 @@ class TestWorkflowTemplateListPage:
             "to be visible"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.core_crud
     def test_workflow_list_shows_data_table(
         self,

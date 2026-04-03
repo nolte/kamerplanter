@@ -76,6 +76,7 @@ class TestSubstrateListPage:
             "TC-REQ-019-001 FAIL: Expected [data-testid='page-title'] to be visible"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.smoke
     def test_list_displays_data_table_with_columns(
         self,
@@ -193,6 +194,7 @@ class TestSubstrateListPage:
             "TC-REQ-019-006 FAIL: Expected no-search-results message or zero rows"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.core_crud
     def test_sort_by_column_shows_sort_chip(
         self,

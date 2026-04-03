@@ -166,7 +166,7 @@ Prüfe ob die aktuelle Anforderungsstruktur folgende Persona-Bedürfnisse abdeck
 
 ## Phase 4: Report erstellen
 
-Erstelle `spec/requirements-analysis/target-audience-report.md`:
+Erstelle `spec/analysis/target-audience-report.md`:
 
 ```markdown
 # Zielgruppen- und Anwendungsgebietsanalyse

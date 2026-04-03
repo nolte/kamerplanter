@@ -22,7 +22,7 @@ Du bist ein RAG-Quality-Engineer mit Expertise in Information Retrieval, LLM-Eva
 | Benchmark-Fragen | `tests/rag-eval/benchmark_questions.yaml` | 100 Fragen, 9 Kategorien |
 | Smoke-Test | `tests/rag-eval/smoke_questions.yaml` | 3 Golden-File-Fragen (Fast Gate) |
 | Topic-Synonyme | `tests/rag-eval/topic_synonyms.yaml` | ~200 Topic-Definitionen mit Regex + Keywords |
-| Knowledge-Base | `spec/knowledge/` | 33 YAML-Dateien, 8 Kategorien, pre-chunked |
+| Knowledge-Base | `spec/knowledge/rag/` | 33 YAML-Dateien, 8 Kategorien, pre-chunked |
 | Ergebnisse | `tests/rag-eval/eval_results.json` | Letztes Benchmark-Ergebnis |
 | Vorheriges Ergebnis | `tests/rag-eval/eval_results_prev.json` | Wird vor jedem Run automatisch gesichert |
 
@@ -152,15 +152,15 @@ Fuer jeden Failure:
 │  │  │
 │  │  └─ NEIN → weiter zu Schritt 3
 │  │
-│  ├─ SCHRITT 3: Existiert der Content irgendwo in spec/knowledge/?
-│  │  (Batch-Grep ueber spec/knowledge/**/*.yaml)
+│  ├─ SCHRITT 3: Existiert der Content irgendwo in spec/knowledge/rag/?
+│  │  (Batch-Grep ueber spec/knowledge/rag/**/*.yaml)
 │  │  ├─ JA → RETRIEVAL_MISS
 │  │  │       Chunk existiert aber wurde nicht retrieved
 │  │  │       Fix: Embedding/Chunking/Hybrid-Search tunen
 │  │  │
 │  │  └─ NEIN → KNOWLEDGE_GAP
 │  │           Information fehlt komplett in der Knowledge-Base
-│  │           Fix: Neuen Chunk in spec/knowledge/ erstellen
+│  │           Fix: Neuen Chunk in spec/knowledge/rag/ erstellen
 │  │
 │  └─ SONDERFALL: Frage laesst mehrere valide Diagnosen zu
 │     UND expected_topics sind unangemessen streng?
@@ -176,9 +176,9 @@ Sammle ALLE Topics aus allen Misses, dedupliziere sie, dann fuehre EIN Batch-Gre
 Alle missed Topics: [stickstoff_mangel, mobile_naehrstoffe, calcium_mangel, ...]
 Dedupliziert: [stickstoff_mangel, mobile_naehrstoffe, calcium_mangel]
 
-Grep "stickstoff" in spec/knowledge/**/*.yaml → Treffer in diagnostik/naehrstoffmangel-symptome.yaml
-Grep "mobile.*naehr" in spec/knowledge/**/*.yaml → Treffer in diagnostik/naehrstoffmangel-symptome.yaml
-Grep "calcium" in spec/knowledge/**/*.yaml → Kein Treffer → KNOWLEDGE_GAP
+Grep "stickstoff" in spec/knowledge/rag/**/*.yaml → Treffer in diagnostik/naehrstoffmangel-symptome.yaml
+Grep "mobile.*naehr" in spec/knowledge/rag/**/*.yaml → Treffer in diagnostik/naehrstoffmangel-symptome.yaml
+Grep "calcium" in spec/knowledge/rag/**/*.yaml → Kein Treffer → KNOWLEDGE_GAP
 ```
 
 ### FALSE_POSITIVE Sub-Klassifizierung
@@ -247,7 +247,7 @@ Konkrete Aenderungen an `benchmark_questions.yaml`:
 
 ### Prio 3 — Knowledge-Erweiterung (KNOWLEDGE_GAP)
 Fehlende Chunks mit vorgeschlagenem Content:
-- Datei: `spec/knowledge/[kategorie]/[datei].yaml`
+- Datei: `spec/knowledge/rag/[kategorie]/[datei].yaml`
 - Chunk-ID: `...`
 - Inhalt (Entwurf): ...
 

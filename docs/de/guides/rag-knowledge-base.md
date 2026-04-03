@@ -198,7 +198,7 @@ Der neue Guide wird beim nächsten Reindex-Zyklus (täglich, 06:00 Uhr UTC) in d
 
 ## Wissensbasis reindexieren (Operator/Entwickler)
 
-Nach Änderungen an den Knowledge-YAML-Dateien unter `spec/knowledge/` müssen die Vektoren in pgvector neu berechnet werden. Das passiert automatisch wöchentlich (Sonntag 03:00 UTC), kann aber auch manuell angestoßen werden.
+Nach Änderungen an den Knowledge-YAML-Dateien unter `spec/knowledge/rag/` müssen die Vektoren in pgvector neu berechnet werden. Das passiert automatisch wöchentlich (Sonntag 03:00 UTC), kann aber auch manuell angestoßen werden.
 
 ### Voraussetzungen
 
@@ -210,7 +210,7 @@ Nach Änderungen an den Knowledge-YAML-Dateien unter `spec/knowledge/` müssen d
 
 ```bash
 # 1. Knowledge-YAML-Dateien bearbeiten
-#    z.B. spec/knowledge/diagnostik/naehrstoffmangel-symptome.yaml
+#    z.B. spec/knowledge/rag/diagnostik/naehrstoffmangel-symptome.yaml
 
 # 2. Neu deployen (damit die Dateien im Container ankommen)
 skaffold dev   # oder: skaffold run

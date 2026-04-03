@@ -171,7 +171,7 @@ Prüfe ALLE Anforderungen auf folgende Begriffe und bewerte ob ein Laie sie vers
 
 ## Phase 3: Report erstellen
 
-Erstelle `spec/requirements-analysis/casual-houseplant-user-review.md`:
+Erstelle `spec/analysis/casual-houseplant-user-review.md`:
 
 ```markdown
 # Review: Lustloser Zimmerpflanzen-Besitzer

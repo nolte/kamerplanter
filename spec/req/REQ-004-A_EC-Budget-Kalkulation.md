@@ -10,7 +10,7 @@ Status: Entwurf
 Version: 1.1 (Agrarbiologie-Review eingearbeitet)
 ```
 
-<!-- Quelle: Agrarbiologie-Review spec/requirements-analysis/agrobiology-review-REQ-004-A.md -->
+<!-- Quelle: Agrarbiologie-Review spec/analysis/agrobiology-review-REQ-004-A.md -->
 
 ## 1. Überblick
 

@@ -72,6 +72,7 @@ class TestPlantInstanceListPage:
             "to be visible"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.smoke
     def test_list_displays_data_table_with_columns(
         self,
@@ -470,6 +471,7 @@ class TestPlantInstanceSearchAndSort:
             "TC-REQ-001-PI-012 FAIL: Expected search chip to be visible"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.core_crud
     def test_sort_by_column_shows_sort_chip(
         self,

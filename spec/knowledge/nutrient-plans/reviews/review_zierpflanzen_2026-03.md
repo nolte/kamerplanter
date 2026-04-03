@@ -3,19 +3,19 @@
 **Reviewer:** Agrarbiologie-Experte (Subagent)
 **Datum:** 2026-03-06
 **Pruefgegenstand:**
-- `spec/ref/nutrient-plans/dahlie_plagron_terra.md` v1.0
-- `spec/ref/nutrient-plans/petunie_plagron_terra.md` v1.0
-- `spec/ref/nutrient-plans/tigerblume_plagron_terra.md` v1.0
+- `spec/knowledge/nutrient-plans/dahlie_plagron_terra.md` v1.0
+- `spec/knowledge/nutrient-plans/petunie_plagron_terra.md` v1.0
+- `spec/knowledge/nutrient-plans/tigerblume_plagron_terra.md` v1.0
 
 **Quell-Dokumente:**
-- `spec/ref/plant-info/dahlia_x_hybrida_armateras.md`
-- `spec/ref/plant-info/petunia_x_hybrida.md`
-- `spec/ref/plant-info/tigridia_pavonia.md`
-- `spec/ref/products/plagron_terra_grow.md`
-- `spec/ref/products/plagron_terra_bloom.md`
-- `spec/ref/products/plagron_pk_13_14.md`
-- `spec/ref/products/plagron_pure_zym.md`
-- `spec/ref/products/plagron_sugar_royal.md`
+- `spec/knowledge/plants/dahlia_x_hybrida_armateras.md`
+- `spec/knowledge/plants/petunia_x_hybrida.md`
+- `spec/knowledge/plants/tigridia_pavonia.md`
+- `spec/knowledge/products/plagron_terra_grow.md`
+- `spec/knowledge/products/plagron_terra_bloom.md`
+- `spec/knowledge/products/plagron_pk_13_14.md`
+- `spec/knowledge/products/plagron_pure_zym.md`
+- `spec/knowledge/products/plagron_sugar_royal.md`
 
 **EC-Faktoren (gemaess Pruefauftrag):**
 Terra Grow 0.08, Terra Bloom 0.10, Power Roots 0.01, Pure Zym 0.00, Sugar Royal 0.02, PK 13-14 0.25 mS/cm pro ml/L

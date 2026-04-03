@@ -4,14 +4,14 @@
 **Datum:** 2026-03-06
 **Fokus:** Kraeuteranbau Outdoor/Indoor, Erdsubstrat, Schwachzehrer/Mittelzehrer, Blatterntekultur, Perennial-Zyklussteuerung
 **Analysierte Dokumente:**
-- `spec/ref/nutrient-plans/petersilie_plagron_terra.md` (v1.0)
-- `spec/ref/nutrient-plans/schnittlauch_plagron_terra.md` (v1.0)
-- `spec/ref/nutrient-plans/dill_plagron_terra.md` (v1.0)
-- `spec/ref/plant-info/petroselinum_crispum.md`
-- `spec/ref/plant-info/allium_schoenoprasum.md`
-- `spec/ref/plant-info/anethum_graveolens.md`
-- `spec/ref/products/plagron_terra_grow.md` (EC-Referenzwert 0,08 mS/cm pro ml/L)
-- `spec/ref/products/plagron_pure_zym.md` (EC-Referenzwert 0,00 mS/cm pro ml/L)
+- `spec/knowledge/nutrient-plans/petersilie_plagron_terra.md` (v1.0)
+- `spec/knowledge/nutrient-plans/schnittlauch_plagron_terra.md` (v1.0)
+- `spec/knowledge/nutrient-plans/dill_plagron_terra.md` (v1.0)
+- `spec/knowledge/plants/petroselinum_crispum.md`
+- `spec/knowledge/plants/allium_schoenoprasum.md`
+- `spec/knowledge/plants/anethum_graveolens.md`
+- `spec/knowledge/products/plagron_terra_grow.md` (EC-Referenzwert 0,08 mS/cm pro ml/L)
+- `spec/knowledge/products/plagron_pure_zym.md` (EC-Referenzwert 0,00 mS/cm pro ml/L)
 
 ---
 

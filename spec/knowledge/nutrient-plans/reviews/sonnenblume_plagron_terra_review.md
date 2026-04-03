@@ -2,15 +2,15 @@
 
 **Reviewer:** Agrarbiologie-Experte (Subagent)
 **Datum:** 2026-03-01
-**Geprueftes Dokument:** `spec/ref/nutrient-plans/sonnenblume_plagron_terra.md`
-**Pflanzensteckbrief:** `spec/ref/plant-info/helianthus_annuus.md`
+**Geprueftes Dokument:** `spec/knowledge/nutrient-plans/sonnenblume_plagron_terra.md`
+**Pflanzensteckbrief:** `spec/knowledge/plants/helianthus_annuus.md`
 **Geprueft gegen Produktdaten:**
-- `spec/ref/products/plagron_terra_grow.md`
-- `spec/ref/products/plagron_terra_bloom.md`
-- `spec/ref/products/plagron_power_roots.md`
-- `spec/ref/products/plagron_pure_zym.md`
-- `spec/ref/products/plagron_sugar_royal.md`
-- `spec/ref/products/plagron_green_sensation.md`
+- `spec/knowledge/products/plagron_terra_grow.md`
+- `spec/knowledge/products/plagron_terra_bloom.md`
+- `spec/knowledge/products/plagron_power_roots.md`
+- `spec/knowledge/products/plagron_pure_zym.md`
+- `spec/knowledge/products/plagron_sugar_royal.md`
+- `spec/knowledge/products/plagron_green_sensation.md`
 
 ---
 

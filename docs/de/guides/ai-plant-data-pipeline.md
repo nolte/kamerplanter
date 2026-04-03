@@ -7,9 +7,9 @@ Kamerplanter verwaltet pro Pflanzenart bis zu 80+ strukturierte Felder -- von Ta
 ```mermaid
 flowchart LR
     A["Pflanzenname\n(z.B. 'Basilikum')"] --> B["plant-info-document-generator"]
-    B --> C["Pflanzendokument\nspec/ref/plant-info/*.md"]
+    B --> C["Pflanzendokument\nspec/knowledge/plants/*.md"]
     C --> D["agrobiology-requirements-reviewer"]
-    D --> E["Review-Report\nspec/requirements-analysis/"]
+    D --> E["Review-Report\nspec/analysis/"]
     E -->|Korrekturen| C
     C --> F["Seed-Data / CSV-Import\n(REQ-012)"]
 ```
@@ -24,7 +24,7 @@ Der Workflow besteht aus drei Schritten:
 
 ## Schritt 1: Pflanzendokument generieren
 
-Der Agent `plant-info-document-generator` recherchiert automatisch alle relevanten Daten und erstellt ein strukturiertes Markdown-Dokument unter `spec/ref/plant-info/`.
+Der Agent `plant-info-document-generator` recherchiert automatisch alle relevanten Daten und erstellt ein strukturiertes Markdown-Dokument unter `spec/knowledge/plants/`.
 
 ### Aufruf in Claude Code
 
@@ -57,10 +57,10 @@ Claude Code erkennt den Kontext und aktiviert den `plant-info-document-generator
 Das Dokument wird gespeichert als:
 
 ```
-spec/ref/plant-info/<scientific_name_snake_case>.md
+spec/knowledge/plants/<scientific_name_snake_case>.md
 ```
 
-Beispiel: `spec/ref/plant-info/ocimum_basilicum.md`
+Beispiel: `spec/knowledge/plants/ocimum_basilicum.md`
 
 ### Dokumentstruktur
 
@@ -88,7 +88,7 @@ Der Agent `agrobiology-requirements-reviewer` prueft das Dokument aus Sicht eine
 ### Aufruf in Claude Code
 
 ```
-Pruefe das Pflanzendokument spec/ref/plant-info/ocimum_basilicum.md auf fachliche Korrektheit
+Pruefe das Pflanzendokument spec/knowledge/plants/ocimum_basilicum.md auf fachliche Korrektheit
 ```
 
 ### Was der Review-Agent prueft
@@ -106,7 +106,7 @@ Pruefe das Pflanzendokument spec/ref/plant-info/ocimum_basilicum.md auf fachlich
 Der Review-Report wird gespeichert unter:
 
 ```
-spec/requirements-analysis/plant-info-agrobiology-review-<batch>.md
+spec/analysis/plant-info-agrobiology-review-<batch>.md
 ```
 
 Findings werden klassifiziert als:
@@ -139,7 +139,7 @@ Jedes Pflanzendokument enthaelt im Abschnitt 8 fertige CSV-Zeilen, die ueber die
 Aktuell sind 32 Pflanzen vollstaendig dokumentiert:
 
 ```
-spec/ref/plant-info/
+spec/knowledge/plants/
 ```
 
 Darunter Gemuese (Tomate, Paprika, Gurke, Zucchini, ...), Kraeuter (Basilikum, Petersilie, Dill, Schnittlauch, ...), Zierpflanzen (Dahlie, Petunie, Sonnenblume, ...) und Zimmerpflanzen (Monstera, Einblatt, Gruenlilie, Guzmania).

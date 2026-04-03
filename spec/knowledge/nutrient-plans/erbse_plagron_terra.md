@@ -4,7 +4,7 @@
 > **Pflanze:** Pisum sativum (Schwachzehrer, Outdoor, annuell, N-Fixierer, Kuehle-Liebhaber)
 > **Produkte:** Plagron Terra Bloom, Pure Zym
 > **Erstellt:** 2026-03-06
-> **Quellen:** spec/ref/products/plagron_terra_bloom.md, spec/ref/products/plagron_pure_zym.md, spec/ref/plant-info/pisum_sativum.md
+> **Quellen:** spec/knowledge/products/plagron_terra_bloom.md, spec/knowledge/products/plagron_pure_zym.md, spec/knowledge/plants/pisum_sativum.md
 
 ---
 
@@ -549,9 +549,9 @@ Bei einer Erbsen-Reihe (20 Pflanzen), 0.15 L Giessloessung pro Duengung (gesamte
 
 | Entitaet | Referenz-Dokument | KA-Feld |
 |----------|-------------------|---------|
-| Fertilizer: Terra Bloom | `spec/ref/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
-| Fertilizer: Pure Zym | `spec/ref/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
-| Species: Pisum sativum | `spec/ref/plant-info/pisum_sativum.md` | `species.scientific_name` |
+| Fertilizer: Terra Bloom | `spec/knowledge/products/plagron_terra_bloom.md` | `fertilizer_dosages.fertilizer_key` |
+| Fertilizer: Pure Zym | `spec/knowledge/products/plagron_pure_zym.md` | `fertilizer_dosages.fertilizer_key` |
+| Species: Pisum sativum | `spec/knowledge/plants/pisum_sativum.md` | `species.scientific_name` |
 | SubstrateType: SOIL | Built-in Enum | `nutrient_plans.recommended_substrate_type` |
 
 ---
@@ -577,9 +577,9 @@ Bei einer Erbsen-Reihe (20 Pflanzen), 0.15 L Giessloessung pro Duengung (gesamte
 
 ## Quellenverzeichnis
 
-1. Plagron Terra Bloom Produktdaten: `spec/ref/products/plagron_terra_bloom.md`
-2. Plagron Pure Zym Produktdaten: `spec/ref/products/plagron_pure_zym.md`
-3. Pisum sativum Pflanzensteckbrief: `spec/ref/plant-info/pisum_sativum.md`
+1. Plagron Terra Bloom Produktdaten: `spec/knowledge/products/plagron_terra_bloom.md`
+2. Plagron Pure Zym Produktdaten: `spec/knowledge/products/plagron_pure_zym.md`
+3. Pisum sativum Pflanzensteckbrief: `spec/knowledge/plants/pisum_sativum.md`
 4. NutrientPlan Datenmodell: `src/backend/app/domain/models/nutrient_plan.py`
 5. PhaseName Enum: `src/backend/app/common/enums.py`
 

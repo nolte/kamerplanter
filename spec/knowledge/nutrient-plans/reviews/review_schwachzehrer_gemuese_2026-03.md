@@ -407,7 +407,7 @@ Alle vier Plaene haben korrekte EC-Budgets, biologisch sinnvolle Phasenstrukture
 
 ## Querverweise auf andere Reviews
 
-- REQ-004-A (EC-Budget-Kalkulation): EC-Budget-Methodik dieser Plaene stimmt mit `spec/requirements-analysis/agrobiology-review-REQ-004-A.md` ueberein.
+- REQ-004-A (EC-Budget-Kalkulation): EC-Budget-Methodik dieser Plaene stimmt mit `spec/analysis/agrobiology-review-REQ-004-A.md` ueberein.
 - Outdoor-Garden-Planner Review (G-001 bis G-031): Die Bodenanalyse-Integration (G-XXX) und phenologische Trigger (Bodentemperatur statt Kalender) werden in den Plaenen partiell umgesetzt (Moehre: "ab 5 degC Bodentemperatur") -- das ist lobenswert.
 - plant-info-agrobiology-review-batch3-vegetables-2026-03.md: Sollte auf Konsistenz mit den hier geprueften Steckbriefen abgeglichen werden.
 

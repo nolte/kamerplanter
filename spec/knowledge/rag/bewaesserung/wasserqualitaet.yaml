@@ -32,22 +32,29 @@ chunks:
       parameters: [ec, ph, gh, kh, chlorine]
 
   - id: chlor-chloramin
-    title: Chlor und Chloramin im Leitungswasser behandeln
+    title: Chlor im Leitungswasser — schadet es Pflanzen?
     content: |
-      Chlor (Cl2):
+      Schadet Chlor im Leitungswasser meinen Pflanzen? In normalen
+      Konzentrationen ist Chlor nicht akut schaedlich fuer Pflanzen,
+      kann aber auf Dauer nuetzliche Mikroorganismen im Substrat
+      abtöten (Mykorrhiza, Trichoderma). Es lohnt sich also, das Chlor
+      zu entfernen.
+      Chlor (Cl2) entfernen — einfach abstehen lassen:
       - In den meisten deutschen Wasserwerken: 0.1-0.3 mg/L
-      - VERFLUCHTIGT sich: Wasser 24 Stunden offen stehen lassen
-        oder kraeftig belueften (Luftstein fuer 1-2 Stunden)
-      - Unschaedlich in geringen Mengen, aber toetet nuetzliche
-        Mikroorganismen im Substrat (Mykorrhiza, Trichoderma)
-      Chloramin (NH2Cl):
-      - Stabile Verbindung, verfluchtigt NICHT durch Stehenlassen!
+      - Chlor verfluchtigt sich von selbst: Wasser 24 Stunden offen
+        stehen lassen. Nach 24 Stunden abstehen ist das Chlor verflogen.
+      - Alternativ: Kraeftig belueften (Luftstein fuer 1-2 Stunden),
+        dann verfliegt das Chlor noch schneller.
+      Chloramin (NH2Cl) — Achtung, anders als Chlor!
+      - Chloramin ist eine stabile Verbindung und verfliegt NICHT durch
+        Stehenlassen. Abstehen bringt bei Chloramin nichts.
       - In Deutschland selten, in USA/UK haeufig
-      - Entfernung: Aktivkohle-Wasserfilter oder Vitamin C
+      - Entfernung: Aktivkohle-Filter (Kohlefilter) oder Vitamin C
         (Ascorbinsaeure, 1g pro 400L neutralisiert Chloramin)
       - Oder: RO-Anlage entfernt Chloramin zuverlaessig
       Praxisempfehlung:
-      - Fuer normale Zimmerpflanzen: Wasser 24h stehen lassen reicht
+      - Fuer normale Zimmerpflanzen: Wasser 24 Stunden abstehen lassen
+        reicht voellig aus
       - Fuer empfindliche Kulturen, Hydro, organischen Anbau mit
         lebender Biologie: Aktivkohle-Filter oder RO
       - Wer nicht weiss ob Chlor oder Chloramin: Wasserversorger fragen
@@ -88,24 +95,29 @@ chunks:
   - id: regenwasser
     title: Regenwasser — kostenlose Alternative
     content: |
-      Frisch gefallenes Regenwasser ist weich (EC 0.01-0.1 mS/cm), leicht sauer
-      (pH 5.5-6.5) und frei von Chlor/Kalk — ideal fuer die meisten Pflanzen.
-      Achtung: Nach laengerem Lagern in offenen Behaeltern steigt der pH durch
-      CO2-Ausgasung auf 6.5-7.5. Gelagertes Regenwasser vor Nutzung pH pruefen.
+      Kann ich Regenwasser fuer meine Pflanzen verwenden? Ja, Regenwasser
+      ist gut geeignet und empfehlenswert fuer die meisten Pflanzen!
+      Frisch gefallenes Regenwasser ist weich (EC 0.01-0.1 mS/cm), leicht
+      sauer (pH 5.5-6.5) und frei von Chlor und Kalk. Es ist eine der
+      besten Wasserquellen fuer Pflanzen.
+      Achtung: Nach laengerem Lagern in offenen Behaeltern steigt der pH
+      durch CO2-Ausgasung auf 6.5-7.5. Gelagertes Regenwasser vor Nutzung
+      pH pruefen.
       Vorteile:
       - Kostenlos und nachhaltig
       - Natuerlich weich (wie RO, aber ohne Energiekosten)
       - pH nahe dem idealen Bereich fuer die meisten Pflanzen
       - Enthaelt natuerlich geloesten Stickstoff (aus Atmosphaere)
       Nachteile und Risiken:
-      - CalMag-Supplementierung noetig (wie bei RO)
+      - Weil Regenwasser so weich ist, ist CalMag noetig — genau wie bei
+        RO-Wasser fehlen Calcium und Magnesium. CalMag-Supplementierung
+        ist daher empfohlen, besonders fuer naehrstoffhungrige Pflanzen.
       - Qualitaet schwankt (Vogelkot, Pollen, Staub, Dachchemikalien)
-      - Lagerung: Algenbildung in Licht → dunkel und kuehl lagern
-      - Stehend → Bakterien-Wachstum → regelmaessig erneuern
       - Erste 5 Minuten Regen: Dach-Schmutz → Vorlauf abfliessen lassen
       - Bitumen-/Kupfer-Daecher: Schwermetall-Kontamination moeglich
-      Lagerung:
+      Lagerung — wichtig: Regenwasser dunkel lagern!
       - Dunkle, geschlossene Behaelter (IBC, Regentonne mit Deckel)
+      - Licht vermeiden, sonst Algenbildung im Wasser
       - Mueckennetz am Zulauf (keine Brutstelle fuer Muecken!)
       - Alle 2-4 Wochen EC und pH pruefen
       - Vor Nutzung in Hydro: Filtern (Grobfilter + 5µm fuer Tropfer)

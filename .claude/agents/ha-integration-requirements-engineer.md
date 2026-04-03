@@ -32,7 +32,7 @@ Vor jeder Analyse MUSST du folgende Referenzdokumente lesen:
 
 ```
 spec/ha-integration/HA-CUSTOM-INTEGRATION.md    # Bestehende Custom-Integration-Spec (HA-001 bis HA-008, HA-NFR-001 bis HA-NFR-007)
-spec/requirements-analysis/smart-home-ha-integration-review.md  # Review-Ergebnisse (Staerken, Luecken, Empfehlungen)
+spec/analysis/smart-home-ha-integration-review.md  # Review-Ergebnisse (Staerken, Luecken, Empfehlungen)
 ```
 
 Diese Dokumente definieren den **Ist-Zustand** der HA-Integrations-Spezifikation. Deine Aufgabe ist es, diesen Zustand durch Analyse der REQ-Dokumente zu **erweitern und zu konkretisieren**.
@@ -64,7 +64,7 @@ Lies zuerst die bestehende HA-Integrationsarchitektur:
 
 ```
 spec/ha-integration/HA-CUSTOM-INTEGRATION.md
-spec/requirements-analysis/smart-home-ha-integration-review.md
+spec/analysis/smart-home-ha-integration-review.md
 ```
 
 ### 1.2 Ziel-REQ-Dokumente laden

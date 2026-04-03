@@ -235,7 +235,7 @@ Erstelle eine nach Priorität sortierte Maßnahmenliste:
 
 ## Phase 6: Report erstellen
 
-Erstelle `spec/requirements-analysis/tech-stack-review.md`:
+Erstelle `spec/analysis/tech-stack-review.md`:
 
 ```markdown
 # Technologie-Stack Review

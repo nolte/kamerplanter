@@ -68,7 +68,7 @@ custom_components/kamerplanter/
     └── en.json
 ```
 
-> **Icon-Assets:** Das Kami-Maskottchen (Happy-Pose) dient als Integration-Icon. Fertige Icons mit transparentem Hintergrund: `docs/img/ha_integration/icon.png` (256×256) und `docs/img/ha_integration/icon@2x.png` (512×512). Generierungs-Prompts: `spec/ref/graphic-prompts/ha-integration-icon-kami.md`.
+> **Icon-Assets:** Das Kami-Maskottchen (Happy-Pose) dient als Integration-Icon. Fertige Icons mit transparentem Hintergrund: `docs/img/ha_integration/icon.png` (256×256) und `docs/img/ha_integration/icon@2x.png` (512×512). Generierungs-Prompts: `spec/design/ha-integration-icon-kami.md`.
 >
 > ![Kami HA Icon](../../docs/img/ha_integration/icon.png)
 

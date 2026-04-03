@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     llm_api_url: str = "http://ollama:11434"
     llm_api_key: str = ""
     llm_model: str = "gemma3:12b"
-    llm_max_tokens: int = 1024
+    llm_max_tokens: int = 2048
     llm_temperature: float = 0.1
 
     # Reranker service (optional — disabled when URL is empty)

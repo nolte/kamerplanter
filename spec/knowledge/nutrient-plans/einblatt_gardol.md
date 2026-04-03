@@ -4,7 +4,7 @@
 > **Pflanze:** Spathiphyllum wallisii (light_feeder, perennial, Indoor/Erde)
 > **Produkt:** Gardol Gruenpflanzenduenger NPK 6-4-6 (Bauhaus)
 > **Erstellt:** 2026-03-01
-> **Quellen:** spec/ref/plant-info/spathiphyllum_wallisii.md, spec/ref/products/gardol_gruenpflanzenduenger.md
+> **Quellen:** spec/knowledge/plants/spathiphyllum_wallisii.md, spec/knowledge/products/gardol_gruenpflanzenduenger.md
 
 ---
 
@@ -463,8 +463,8 @@ Legende: --- = keine Duengung, ... = Viertel-Dosis (1 ml/L), ### = halbe Dosis (
 
 | Entitaet | Referenz-Dokument | KA-Feld |
 |----------|-------------------|---------|
-| Fertilizer: Gardol Gruenpflanzenduenger | `spec/ref/products/gardol_gruenpflanzenduenger.md` | `fertilizer_dosages.fertilizer_key` |
-| Species: Spathiphyllum wallisii | `spec/ref/plant-info/spathiphyllum_wallisii.md` | Via `nutrient_plans` -> `uses_nutrient_plan` edge |
+| Fertilizer: Gardol Gruenpflanzenduenger | `spec/knowledge/products/gardol_gruenpflanzenduenger.md` | `fertilizer_dosages.fertilizer_key` |
+| Species: Spathiphyllum wallisii | `spec/knowledge/plants/spathiphyllum_wallisii.md` | Via `nutrient_plans` -> `uses_nutrient_plan` edge |
 | SubstrateType: SOIL | Built-in Enum | `nutrient_plans.recommended_substrate_type` |
 
 ---
@@ -487,14 +487,14 @@ Legende: --- = keine Duengung, ... = Viertel-Dosis (1 ml/L), ### = halbe Dosis (
 - Muenchen: 089 19240
 - Bonn: 0228 19240
 
-Die Toxizitaetsdaten der Pflanze sind im Steckbrief dokumentiert (vgl. `spec/ref/plant-info/spathiphyllum_wallisii.md`, Abschnitt 1.4).
+Die Toxizitaetsdaten der Pflanze sind im Steckbrief dokumentiert (vgl. `spec/knowledge/plants/spathiphyllum_wallisii.md`, Abschnitt 1.4).
 
 ---
 
 ## Quellenverzeichnis
 
-1. Spathiphyllum wallisii Pflanzensteckbrief: `spec/ref/plant-info/spathiphyllum_wallisii.md`
-2. Gardol Gruenpflanzenduenger Produktdaten: `spec/ref/products/gardol_gruenpflanzenduenger.md`
+1. Spathiphyllum wallisii Pflanzensteckbrief: `spec/knowledge/plants/spathiphyllum_wallisii.md`
+2. Gardol Gruenpflanzenduenger Produktdaten: `spec/knowledge/products/gardol_gruenpflanzenduenger.md`
 3. NutrientPlan Datenmodell: `src/backend/app/domain/models/nutrient_plan.py`
 4. PhaseName Enum: `src/backend/app/common/enums.py`
 5. ASPCA Animal Poison Control -- Peace Lily: https://www.aspca.org/pet-care/animal-poison-control/toxic-and-non-toxic-plants/peace-lily

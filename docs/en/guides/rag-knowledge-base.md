@@ -198,7 +198,7 @@ The new guide is included in the vector database at the next re-index cycle (dai
 
 ## Reindexing the Knowledge Base (Operator/Developer)
 
-After modifying knowledge YAML files under `spec/knowledge/`, the vectors in pgvector must be recomputed. This happens automatically once a week (Sunday 03:00 UTC) but can also be triggered manually.
+After modifying knowledge YAML files under `spec/knowledge/rag/`, the vectors in pgvector must be recomputed. This happens automatically once a week (Sunday 03:00 UTC) but can also be triggered manually.
 
 ### Prerequisites
 
@@ -210,7 +210,7 @@ After modifying knowledge YAML files under `spec/knowledge/`, the vectors in pgv
 
 ```bash
 # 1. Edit knowledge YAML files
-#    e.g. spec/knowledge/diagnostik/naehrstoffmangel-symptome.yaml
+#    e.g. spec/knowledge/rag/diagnostik/naehrstoffmangel-symptome.yaml
 
 # 2. Redeploy (so the files are available in the container)
 skaffold dev   # or: skaffold run

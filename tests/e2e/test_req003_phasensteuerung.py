@@ -127,6 +127,7 @@ class TestPlantInstanceListPage:
                 "TC-REQ-003-002 FAIL: DataTable should be visible"
             )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.smoke
     def test_plant_list_column_headers_include_phase(
         self, plant_list: PlantInstanceListExt, screenshot: Callable[..., Path]
@@ -224,6 +225,7 @@ class TestPlantInstanceListPage:
             f"TC-REQ-003-006 FAIL: Expected search chip after searching for '{search_term}'"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.core_crud
     def test_plant_list_sort_by_column(
         self, plant_list: PlantInstanceListExt, screenshot: Callable[..., Path]

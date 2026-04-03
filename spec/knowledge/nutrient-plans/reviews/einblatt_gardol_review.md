@@ -2,10 +2,10 @@
 
 **Reviewer:** Agrarbiologie-Experte (Zimmerpflanzen / Indoor-Anbau)
 **Datum:** 2026-03-01
-**Dokument unter Pruefung:** `spec/ref/nutrient-plans/einblatt_gardol.md` v1.0
+**Dokument unter Pruefung:** `spec/knowledge/nutrient-plans/einblatt_gardol.md` v1.0
 **Referenzdokumente:**
-- Pflanzensteckbrief: `spec/ref/plant-info/spathiphyllum_wallisii.md`
-- Produktdaten: `spec/ref/products/gardol_gruenpflanzenduenger.md`
+- Pflanzensteckbrief: `spec/knowledge/plants/spathiphyllum_wallisii.md`
+- Produktdaten: `spec/knowledge/products/gardol_gruenpflanzenduenger.md`
 
 ---
 
@@ -386,10 +386,10 @@ Diese Luecken existieren im Produktdatenblatt und schraenken die Prazision des N
 
 ## Dateiverweise
 
-- Analysierter Plan: `/home/nolte/repos/github/kamerplanter/spec/ref/nutrient-plans/einblatt_gardol.md`
-- Pflanzensteckbrief: `/home/nolte/repos/github/kamerplanter/spec/ref/plant-info/spathiphyllum_wallisii.md`
-- Produktdaten: `/home/nolte/repos/github/kamerplanter/spec/ref/products/gardol_gruenpflanzenduenger.md`
-- Verwandter Review (Monstera): `/home/nolte/repos/github/kamerplanter/spec/requirements-analysis/agrobiology-review-monstera-nutrient-plan-2026-03.md`
+- Analysierter Plan: `/home/nolte/repos/github/kamerplanter/spec/knowledge/nutrient-plans/einblatt_gardol.md`
+- Pflanzensteckbrief: `/home/nolte/repos/github/kamerplanter/spec/knowledge/plants/spathiphyllum_wallisii.md`
+- Produktdaten: `/home/nolte/repos/github/kamerplanter/spec/knowledge/products/gardol_gruenpflanzenduenger.md`
+- Verwandter Review (Monstera): `/home/nolte/repos/github/kamerplanter/spec/analysis/agrobiology-review-monstera-nutrient-plan-2026-03.md`
 
 ---
 

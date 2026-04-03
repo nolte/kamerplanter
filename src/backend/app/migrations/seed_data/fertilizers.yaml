@@ -10,8 +10,8 @@
 #   https://www.advancednutrients.com/products/voodoo-juice/
 #   https://www.advancednutrients.com/de/products/ph-perfect-grow-micro-bloom/
 # Sources — Third-Party Supplements:
-#   spec/ref/products/hg-drip-clean.md
-#   spec/ref/products/bn-free-flow.md
+#   spec/knowledge/products/hg-drip-clean.md
+#   spec/knowledge/products/bn-free-flow.md
 
 fertilizers:
   # ── Base Nutrients (GMB 3-Part) ──────────────────────────────────────────────

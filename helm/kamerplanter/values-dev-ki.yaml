@@ -61,7 +61,7 @@ controllers:
           LLM_PROVIDER: "ollama"
           LLM_API_URL: "http://192.168.178.130:31434"
           LLM_MODEL: "gemma3:12b"
-          LLM_MAX_TOKENS: "1024"
+          LLM_MAX_TOKENS: "2048"
           LLM_TEMPERATURE: "0.1"
           RERANKER_URL: "http://kamerplanter-ki-reranker-service:8081"
           RERANKER_INITIAL_K: "20"

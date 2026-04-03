@@ -4,14 +4,14 @@
 **Datum:** 2026-03-01
 **Fokus:** Indoor-Vorkultur + Outdoor Freiland/Gewächshaus, Erdkultur, Starkzehrer, saisonaler Anbau
 **Analysierte Dokumente:**
-- `spec/ref/nutrient-plans/tomate_plagron_terra.md` (v1.0)
-- `spec/ref/plant-info/solanum_lycopersicum.md` (v1.0)
-- `spec/ref/products/plagron_terra_grow.md` (v1.0)
-- `spec/ref/products/plagron_terra_bloom.md` (v1.0)
-- `spec/ref/products/plagron_power_roots.md` (v1.0)
-- `spec/ref/products/plagron_pure_zym.md` (v1.0)
-- `spec/ref/products/plagron_sugar_royal.md` (v1.0)
-- `spec/ref/products/plagron_pk_13_14.md` (v1.0)
+- `spec/knowledge/nutrient-plans/tomate_plagron_terra.md` (v1.0)
+- `spec/knowledge/plants/solanum_lycopersicum.md` (v1.0)
+- `spec/knowledge/products/plagron_terra_grow.md` (v1.0)
+- `spec/knowledge/products/plagron_terra_bloom.md` (v1.0)
+- `spec/knowledge/products/plagron_power_roots.md` (v1.0)
+- `spec/knowledge/products/plagron_pure_zym.md` (v1.0)
+- `spec/knowledge/products/plagron_sugar_royal.md` (v1.0)
+- `spec/knowledge/products/plagron_pk_13_14.md` (v1.0)
 
 ---
 
@@ -44,7 +44,7 @@
 
 **Schweregrad:** Wichtig
 
-**Dokument:** `spec/ref/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 4.5 (HARVEST, Zeile ~243); `spec/ref/plant-info/solanum_lycopersicum.md`, Abschnitt 3.4 (Zeile ~261)
+**Dokument:** `spec/knowledge/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 4.5 (HARVEST, Zeile ~243); `spec/knowledge/plants/solanum_lycopersicum.md`, Abschnitt 3.4 (Zeile ~261)
 
 **Problem:**
 Der Pflanzensteckbrief formuliert klar: "K:N-Verhaeltnis ab Fruchtphase mindestens 2:1 fuer optimalen Geschmack." Terra Bloom liefert laut Produktdatenblatt:
@@ -75,7 +75,7 @@ Option C (minimal): Im HARVEST-Phasen-Hinweistext ergaenzen: "Terra Bloom liefer
 
 **Schweregrad:** Wichtig
 
-**Dokument:** `spec/ref/nutrient-plans/tomate_plagron_terra.md`, Abschnitte 4.2 bis 4.5 (alle Phasen, `magnesium_ppm: null`)
+**Dokument:** `spec/knowledge/nutrient-plans/tomate_plagron_terra.md`, Abschnitte 4.2 bis 4.5 (alle Phasen, `magnesium_ppm: null`)
 
 **Problem:**
 Saemtliche 4 aktiven Duengungsphasen (SEEDLING, VEGETATIVE, FLOWERING, HARVEST) weisen `magnesium_ppm: null` auf. Dies ist fuer Tomaten als Starkzehrer nicht vollstaendig:
@@ -101,7 +101,7 @@ Bei 5 ml/L Terra Bloom und 1 Liter Giessloessung: 0.8% Mg x 5 ml/L = 0.04 g/L = 
 
 **Schweregrad:** Wichtig
 
-**Dokument:** `spec/ref/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 3.3 (Delivery Channel naehrloesung-bluete, Zeile ~96) vs. Abschnitt 8.2 FLOWERING JSON (Zeile ~608)
+**Dokument:** `spec/knowledge/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 3.3 (Delivery Channel naehrloesung-bluete, Zeile ~96) vs. Abschnitt 8.2 FLOWERING JSON (Zeile ~608)
 
 **Problem:**
 Im Delivery-Channel-Hinweis (Abschnitt 3.3) wird als Mischungsreihenfolge angegeben:
@@ -137,7 +137,7 @@ Damit stimmen Tabelle und JSON ueberein.
 
 **Schweregrad:** Hinweis
 
-**Dokument:** `spec/ref/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 4.4 (FLOWERING, Zeile ~217); `spec/ref/products/plagron_power_roots.md`, Abschnitt 3.1
+**Dokument:** `spec/knowledge/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 4.4 (FLOWERING, Zeile ~217); `spec/knowledge/products/plagron_power_roots.md`, Abschnitt 3.1
 
 **Problem:**
 Der Plan beschreibt in FLOWERING-Notes: "Power Roots absetzen." Dies ist korrekt -- Power Roots ist fuer Wachstum und fruehe Bluete konzipiert. Das Produktdokument gibt als Absetzpunkt "Ende 3. Bluetewoche" an und zeigt im offiziellen Plagron-Schema Power Roots bis Woche 5 (erste Bluetewoche) und Absetzen in Woche 6.
@@ -159,7 +159,7 @@ Jahresplan-ASCII-Grafik ggf. anpassen: "==>" fuer Power Roots zeigt Ende April/A
 
 **Schweregrad:** Hinweis
 
-**Dokument:** `spec/ref/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 4.4 (FLOWERING, Zeile ~217) und Abschnitt 6 (BER-Praevention)
+**Dokument:** `spec/knowledge/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 4.4 (FLOWERING, Zeile ~217) und Abschnitt 6 (BER-Praevention)
 
 **Problem:**
 Der Plan empfiehlt an zwei Stellen ein "CalMag-Foliarspray 0.5% an erster Fruchttraube" zur BER-Praevention. "CalMag" ist kein generisches Produkt, sondern ein Produktgattungsname (CANNA CalMag Agent, General Hydroponics CALiMAGic etc.). Im Plagron-Terra-Kontext gibt es kein CalMag-Supplement in der Produktlinie.
@@ -184,7 +184,7 @@ Formulierung praezisieren:
 
 **Schweregrad:** Gering (Konsistenzfehler)
 
-**Dokument:** `spec/ref/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 4.2 (SEEDLING, Zeile ~162) vs. Abschnitt 5 (Jahresplan, Zeile ~297)
+**Dokument:** `spec/knowledge/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 4.2 (SEEDLING, Zeile ~162) vs. Abschnitt 5 (Jahresplan, Zeile ~297)
 
 **Problem:**
 In den SEEDLING-Phase-Notes (Abschnitt 4.2) steht: "Noch kein Pure Zym oder Sugar Royal noetig." Das SEEDLING-JSON (Abschnitt 8.2) enthaelt korrekt keine fertilizer_dosages fuer Pure Zym oder Sugar Royal.
@@ -204,7 +204,7 @@ Die April-Zeile des Jahresplans praezisieren: "April" in zwei Teilzeilen aufteil
 
 **Schweregrad:** Gering
 
-**Dokument:** `spec/ref/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 4.6 (FLUSHING), Abschnitt 8.2 FLUSHING JSON (Zeile ~679)
+**Dokument:** `spec/knowledge/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 4.6 (FLUSHING), Abschnitt 8.2 FLUSHING JSON (Zeile ~679)
 
 **Problem:**
 Sowohl in der Delivery-Channel-Tabelle (Abschnitt 4.6) als auch im FLUSHING-JSON ist `target_ec_ms: 0.0` gesetzt. Pure Zym (0-0-0) liefert tatsaechlich EC = 0.0 mS/cm als eigenen Beitrag.
@@ -224,7 +224,7 @@ Konsistent mit dem Monstera-Review (MN-004): `target_ec_ms: 0.0` fuer Duenger-fr
 
 **Schweregrad:** Hinweis (konzeptionell)
 
-**Dokument:** `spec/ref/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 4.5 (HARVEST); `spec/ref/plant-info/solanum_lycopersicum.md`, Abschnitt 2.3
+**Dokument:** `spec/knowledge/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 4.5 (HARVEST); `spec/knowledge/plants/solanum_lycopersicum.md`, Abschnitt 2.3
 
 **Problem:**
 Die HARVEST-Phase setzt `npk_ratio: [2.0, 2.0, 4.0]` -- identisch mit der FLOWERING-Phase. Das tatsaechlich verwendete Produkt (Terra Bloom) hat NPK 2-2-4, was korrekt ist.
@@ -247,7 +247,7 @@ Das Verhaeltnis 2:1.5:4 (Terra Bloom bei 4 ml/L) ist fuer Tomate in der Fruchtph
 
 **Schweregrad:** Gering (Konsistenzfehler)
 
-**Dokument:** `spec/ref/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 3.2 (Delivery Channel naehrloesung-wachstum, Zeile ~85) vs. Abschnitt 8.2 VEGETATIVE JSON
+**Dokument:** `spec/knowledge/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 3.2 (Delivery Channel naehrloesung-wachstum, Zeile ~85) vs. Abschnitt 8.2 VEGETATIVE JSON
 
 **Problem:**
 Der Delivery-Channel-Hinweis (Abschnitt 3.2) nennt als Mischungsreihenfolge:
@@ -267,7 +267,7 @@ In der Tabelle (Abschnitt 4.3, VEGETATIVE Delivery Channel) Sugar Royal mit "(op
 
 **Schweregrad:** Hinweis
 
-**Dokument:** `spec/ref/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 4 (EC-Budget-Einleitung, Zeile ~116)
+**Dokument:** `spec/knowledge/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 4 (EC-Budget-Einleitung, Zeile ~116)
 
 **Problem:**
 Die EC-Budget-Einleitung gibt an: "Leitungswasser liefert typisch 0.3--0.7 mS/cm (je nach Region)." Das ist eine realistische Bandbreite fuer weiche bis mittelharte Regionen, unterschaetzt aber Extremwerte:
@@ -288,7 +288,7 @@ Bandbreite erweitern: "Leitungswasser liefert typisch 0.2--0.8 mS/cm (regionenab
 
 **Schweregrad:** Hinweis
 
-**Dokument:** `spec/ref/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 4.4 (FLOWERING, Zeile ~217)
+**Dokument:** `spec/knowledge/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 4.4 (FLOWERING, Zeile ~217)
 
 **Problem:**
 Der Plan empfiehlt korrekt: "Bluetenstaende taeglich leicht schuetteln oder Vibrieren (elektr. Zahnbuerste) -- Tomaten sind Windbestaeuber."
@@ -309,7 +309,7 @@ Hinweis erweitern: "Bestaeubung unter Glas: Bluetenstaende taeglich bei geoeffne
 
 **Schweregrad:** Hinweis
 
-**Dokument:** `spec/ref/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 2 (Phasen-Mapping, Zeile ~56) und Abschnitt 6 (Fruchtfolge)
+**Dokument:** `spec/knowledge/nutrient-plans/tomate_plagron_terra.md`, Abschnitt 2 (Phasen-Mapping, Zeile ~56) und Abschnitt 6 (Fruchtfolge)
 
 **Problem:**
 Der Plan empfiehlt korrekt "3-4 Jahre Anbaupause fuer Solanaceae auf gleicher Flaeche". Dies ist fuer Freilandbeet- und Gewaechshaus-Bodenkultur absolut richtig.
