@@ -12,6 +12,18 @@
 ##   docker compose -f docker-compose.e2e.yml --profile full \
 ##     up e2e-tests-full --build --abort-on-container-exit
 ##
+## Usage (mobile — iPhone 14 Pro viewport, touch emulation):
+##   docker compose -f docker-compose.e2e.yml --profile mobile \
+##     up e2e-tests-mobile --build --abort-on-container-exit
+##
+## Usage (tablet — iPad Air viewport, touch emulation):
+##   docker compose -f docker-compose.e2e.yml --profile tablet \
+##     up e2e-tests-tablet --build --abort-on-container-exit
+##
+## Usage (full + mobile combined):
+##   docker compose -f docker-compose.e2e.yml --profile full-mobile \
+##     up e2e-tests-full-mobile --build --abort-on-container-exit
+##
 ## Reports are written to ./test-reports/ on the host.
 ##
 
@@ -319,3 +331,135 @@ services:
       - --generate-protocol
       - --base-url=http://frontend-full:80
       - --app-mode=full
+
+  # ═══════════════════════════════════════════════════════════════
+  #  Mobile / Tablet Profiles — responsive testing
+  #
+  #  Usage (light mode, mobile):
+  #    docker compose -f docker-compose.e2e.yml --profile mobile \
+  #      up e2e-tests-mobile --build --abort-on-container-exit
+  #
+  #  Usage (light mode, tablet):
+  #    docker compose -f docker-compose.e2e.yml --profile tablet \
+  #      up e2e-tests-tablet --build --abort-on-container-exit
+  #
+  #  Usage (full mode, mobile):
+  #    docker compose -f docker-compose.e2e.yml --profile full-mobile \
+  #      up e2e-tests-full-mobile --build --abort-on-container-exit
+  # ═══════════════════════════════════════════════════════════════
+
+  # ── E2E Mobile (light mode) ─────────────────────────────────
+  e2e-tests-mobile:
+    build:
+      context: ./tests/e2e
+    environment:
+      SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
+      E2E_BASE_URL: http://frontend:80
+      E2E_DEVICE: mobile
+      KAMERPLANTER_MODE: light
+    depends_on:
+      frontend:
+        condition: service_healthy
+      chrome:
+        condition: service_started
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ./test-reports:/app/test-reports
+    profiles: ["mobile"]
+    entrypoint:
+      - pytest
+      - -n
+      - "4"
+      - --dist=loadfile
+      - --tb=short
+      - --generate-protocol
+      - --base-url=http://frontend:80
+      - --app-mode=light
+      - --device=mobile
+
+  # ── E2E Tablet (light mode) ─────────────────────────────────
+  e2e-tests-tablet:
+    build:
+      context: ./tests/e2e
+    environment:
+      SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
+      E2E_BASE_URL: http://frontend:80
+      E2E_DEVICE: tablet
+      KAMERPLANTER_MODE: light
+    depends_on:
+      frontend:
+        condition: service_healthy
+      chrome:
+        condition: service_started
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ./test-reports:/app/test-reports
+    profiles: ["tablet"]
+    entrypoint:
+      - pytest
+      - -n
+      - "4"
+      - --dist=loadfile
+      - --tb=short
+      - --generate-protocol
+      - --base-url=http://frontend:80
+      - --app-mode=light
+      - --device=tablet
+
+  # ── E2E Mobile (full mode) ──────────────────────────────────
+  e2e-tests-full-mobile:
+    build:
+      context: ./tests/e2e
+    environment:
+      SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
+      E2E_BASE_URL: http://frontend-full:80
+      E2E_DEVICE: mobile
+      KAMERPLANTER_MODE: full
+    depends_on:
+      frontend-full:
+        condition: service_healthy
+      chrome:
+        condition: service_started
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ./test-reports:/app/test-reports
+    profiles: ["full-mobile"]
+    entrypoint:
+      - pytest
+      - -n
+      - "4"
+      - --dist=loadfile
+      - --tb=short
+      - --generate-protocol
+      - --base-url=http://frontend-full:80
+      - --app-mode=full
+      - --device=mobile
+
+  # ── E2E Tablet (full mode) ──────────────────────────────────
+  e2e-tests-full-tablet:
+    build:
+      context: ./tests/e2e
+    environment:
+      SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
+      E2E_BASE_URL: http://frontend-full:80
+      E2E_DEVICE: tablet
+      KAMERPLANTER_MODE: full
+    depends_on:
+      frontend-full:
+        condition: service_healthy
+      chrome:
+        condition: service_started
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ./test-reports:/app/test-reports
+    profiles: ["full-tablet"]
+    entrypoint:
+      - pytest
+      - -n
+      - "4"
+      - --dist=loadfile
+      - --tb=short
+      - --generate-protocol
+      - --base-url=http://frontend-full:80
+      - --app-mode=full
+      - --device=tablet

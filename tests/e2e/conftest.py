@@ -52,6 +52,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="Resume a previous interrupted test run from checkpoint. "
              "Pass the test-reports/e2e/<timestamp>/ directory path.",
     )
+    parser.addoption(
+        "--device",
+        default=os.environ.get("E2E_DEVICE", "desktop"),
+        choices=["desktop", "mobile", "tablet"],
+        help="Device profile for viewport/user-agent emulation (default: desktop)",
+    )
 
 
 # Import protocol_plugin — works both in-repo (as package) and in Docker (flat).
@@ -114,10 +120,56 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
                         item.add_marker(skip_resume)
 
 
+# ── Device profiles for responsive testing ────────────────────────────────
+# Each profile defines viewport dimensions, device scale factor, touch support,
+# and a user-agent string.  Used by the ``browser`` fixture to configure
+# Chrome DevTools Protocol mobile emulation.
+DEVICE_PROFILES: dict[str, dict] = {
+    "desktop": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 1,
+        "mobile": False,
+        "userAgent": "",  # empty = keep default Chrome UA
+    },
+    "mobile": {
+        # iPhone 14 Pro equivalent
+        "width": 393,
+        "height": 852,
+        "deviceScaleFactor": 3,
+        "mobile": True,
+        "userAgent": (
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+            "Version/17.0 Mobile/15E148 Safari/604.1"
+        ),
+    },
+    "tablet": {
+        # iPad Air equivalent
+        "width": 820,
+        "height": 1180,
+        "deviceScaleFactor": 2,
+        "mobile": True,
+        "userAgent": (
+            "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) "
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+            "Version/17.0 Mobile/15E148 Safari/604.1"
+        ),
+    },
+}
+
+
 @pytest.fixture(scope="session")
 def app_mode(request: pytest.FixtureRequest) -> str:
     """Return the current app mode ('light' or 'full')."""
     return request.config.getoption("--app-mode")
+
+
+@pytest.fixture(scope="session")
+def device_profile(request: pytest.FixtureRequest) -> dict:
+    """Return the active device profile dict (viewport, UA, scale, touch)."""
+    name = request.config.getoption("--device")
+    return {**DEVICE_PROFILES[name], "name": name}
 
 
 @pytest.fixture(scope="session")
@@ -302,7 +354,7 @@ def _e2e_api_post(e2e_seed_data: dict, base_url: str, path: str, data: dict | No
 
 
 @pytest.fixture(scope="session")
-def browser(request: pytest.FixtureRequest, e2e_seed_data: dict) -> webdriver.Remote:
+def browser(request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile: dict) -> webdriver.Remote:
     """Create a headless browser session per xdist worker (NFR-008 §3.1).
 
     Depends on ``e2e_seed_data`` to ensure the demo user exists before
@@ -315,17 +367,22 @@ def browser(request: pytest.FixtureRequest, e2e_seed_data: dict) -> webdriver.Re
     When ``SELENIUM_REMOTE_URL`` is set (e.g. in docker-compose.e2e.yml),
     a Remote WebDriver connecting to Selenium Grid is used.  Otherwise a
     local browser is started as before.
+
+    The ``--device`` option controls viewport size and mobile emulation
+    via Chrome DevTools Protocol.
     """
     browser_name = request.config.getoption("--browser")
     remote_url = os.environ.get("SELENIUM_REMOTE_URL")
+    dev = device_profile
+    win_size = f"{dev['width']},{dev['height']}"
 
     if remote_url:
         # ── Remote WebDriver (Selenium Grid / Docker) ──────────
         if browser_name == "firefox":
             options = webdriver.FirefoxOptions()
             options.add_argument("--headless")
-            options.add_argument("--width=1920")
-            options.add_argument("--height=1080")
+            options.add_argument(f"--width={dev['width']}")
+            options.add_argument(f"--height={dev['height']}")
             options.set_preference("intl.accept_languages", "de-DE,de")
         else:
             options = webdriver.ChromeOptions()
@@ -333,7 +390,7 @@ def browser(request: pytest.FixtureRequest, e2e_seed_data: dict) -> webdriver.Re
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--disable-gpu")
-            options.add_argument("--window-size=1920,1080")
+            options.add_argument(f"--window-size={win_size}")
             options.add_argument("--lang=de-DE")
         driver = webdriver.Remote(
             command_executor=remote_url,
@@ -349,8 +406,8 @@ def browser(request: pytest.FixtureRequest, e2e_seed_data: dict) -> webdriver.Re
         # ── Local Firefox ──────────────────────────────────────
         options = webdriver.FirefoxOptions()
         options.add_argument("--headless")
-        options.add_argument("--width=1920")
-        options.add_argument("--height=1080")
+        options.add_argument(f"--width={dev['width']}")
+        options.add_argument(f"--height={dev['height']}")
         gecko_path = shutil.which("geckodriver")
         if gecko_path:
             service = FirefoxService(gecko_path)
@@ -367,7 +424,7 @@ def browser(request: pytest.FixtureRequest, e2e_seed_data: dict) -> webdriver.Re
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
         options.add_argument("--remote-debugging-port=0")
-        options.add_argument("--window-size=1920,1080")
+        options.add_argument(f"--window-size={win_size}")
         # Support snap-installed Chromium (Ubuntu)
         chromium_snap = shutil.which("chromium-browser") or shutil.which("chromium")
         if chromium_snap and not shutil.which("google-chrome"):
@@ -384,8 +441,31 @@ def browser(request: pytest.FixtureRequest, e2e_seed_data: dict) -> webdriver.Re
             service = ChromeService()
         driver = webdriver.Chrome(service=service, options=options)
 
-    # Export browser name for the protocol plugin metadata
+    # ── Apply device emulation via CDP (Chrome only) ──────────────────
+    if dev["name"] != "desktop":
+        try:
+            driver.execute_cdp_cmd("Emulation.setDeviceMetricsOverride", {
+                "width": dev["width"],
+                "height": dev["height"],
+                "deviceScaleFactor": dev["deviceScaleFactor"],
+                "mobile": dev["mobile"],
+            })
+            if dev["userAgent"]:
+                driver.execute_cdp_cmd("Emulation.setUserAgentOverride", {
+                    "userAgent": dev["userAgent"],
+                })
+            driver.execute_cdp_cmd("Emulation.setTouchEmulationEnabled", {
+                "enabled": True,
+            })
+        except Exception:
+            # CDP not available (Firefox, older grids) — viewport size is
+            # already set via window-size argument, so tests still run at
+            # the correct dimensions, just without touch/UA emulation.
+            pass
+
+    # Export browser + device name for the protocol plugin metadata
     os.environ["E2E_BROWSER"] = browser_name
+    os.environ["E2E_DEVICE"] = dev["name"]
 
     driver.implicitly_wait(10)
 

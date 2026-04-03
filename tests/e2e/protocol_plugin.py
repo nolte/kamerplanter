@@ -180,6 +180,7 @@ class ProtocolGenerator:
         os_info = f"{platform.system()} {platform.release()}"
         python_version = platform.python_version()
         browser_info = os.environ.get("E2E_BROWSER", "chrome (headless)")
+        device_info = os.environ.get("E2E_DEVICE", "desktop")
 
         lines: list[str] = []
 
@@ -199,6 +200,7 @@ class ProtocolGenerator:
             f"| **Branch** | {git_branch} |",
             f"| **Betriebssystem** | {os_info} |",
             f"| **Browser** | {browser_info} |",
+            f"| **Device** | {device_info} |",
             f"| **Python** | {python_version} |",
             "",
         ])
