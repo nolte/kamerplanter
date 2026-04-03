@@ -85,23 +85,19 @@ export default function PestListPage() {
 
   return (
     <Box data-testid="pest-list-page">
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <PageTitle title={t('pages.ipm.pestsTitle')} />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateOpen(true)}
-          data-testid="create-button"
-        >
-          {t('pages.ipm.createPest')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={t('pages.ipm.pestsTitle')}
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+            data-testid="create-button"
+          >
+            {t('pages.ipm.createPest')}
+          </Button>
+        }
+      />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.ipm.pestListIntro')}
       </Typography>

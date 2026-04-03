@@ -178,5 +178,5 @@ Kamerplanter erlaubt, phasenbezogene VPD-Zielwerte pro Anforderungsprofil anzupa
 
 - [Phasensteuerung](../user-guide/growth-phases.md)
 - [GDD-Berechnung](gdd-calculation.md)
-- [Umgebungssteuerung](../user-guide/environment-control.md)
+- [Umgebungssteuerung](../user-guide/actuator-control.md)
 - [Sensorik](../user-guide/sensors.md)

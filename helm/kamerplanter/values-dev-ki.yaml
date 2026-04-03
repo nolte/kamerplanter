@@ -61,8 +61,11 @@ controllers:
           LLM_PROVIDER: "ollama"
           LLM_API_URL: "http://192.168.178.130:31434"
           LLM_MODEL: "gemma3:12b"
-          LLM_MAX_TOKENS: "1024"
-          LLM_TEMPERATURE: "0.3"
+          LLM_MAX_TOKENS: "2048"
+          LLM_TEMPERATURE: "0.1"
+          RERANKER_URL: "http://kamerplanter-ki-reranker-service:8081"
+          RERANKER_INITIAL_K: "20"
+          RERANKER_TOP_K: "5"
           KNOWLEDGE_PATH: "/app/knowledge"
         probes:
           liveness:
@@ -94,6 +97,54 @@ controllers:
           limits:
             cpu: "1"
             memory: 512Mi
+
+  reranker-service:
+    replicas: 1
+    strategy: Recreate
+    pod:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+    containers:
+      main:
+        image:
+          repository: kamerplanter-reranker-service
+          tag: latest
+          pullPolicy: IfNotPresent
+        securityContext:
+          readOnlyRootFilesystem: false
+        env:
+          RERANKER_MODEL: "bge-reranker-v2-m3"
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: 8081
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 10
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /ready
+                port: 8081
+              initialDelaySeconds: 30
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 30
+        resources:
+          requests:
+            cpu: 100m
+            memory: 1536Mi
+          limits:
+            cpu: "2"
+            memory: 4Gi
 
   embedding-service:
     replicas: 1
@@ -215,6 +266,11 @@ service:
     ports:
       http:
         port: 8000
+  reranker-service:
+    controller: reranker-service
+    ports:
+      http:
+        port: 8081
   embedding-service:
     controller: embedding-service
     ports:
@@ -300,6 +356,14 @@ networkpolicies:
           ports:
             - protocol: TCP
               port: 8080
+        # Reranker Service (same release)
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: reranker-service
+          ports:
+            - protocol: TCP
+              port: 8081
         # DNS resolution
         - to:
             - namespaceSelector: {}
@@ -331,6 +395,33 @@ networkpolicies:
               port: 443
             - protocol: TCP
               port: 80
+
+  reranker-service:
+    controller: reranker-service
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: knowledge-service
+          ports:
+            - protocol: TCP
+              port: 8081
+      egress:
+        # DNS resolution
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
 
   embedding-service:
     controller: embedding-service

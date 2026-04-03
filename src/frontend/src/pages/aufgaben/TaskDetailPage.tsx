@@ -689,8 +689,16 @@ export default function TaskDetailPage() {
 
                 {task.recurrence_rule && (
                   <MetaItem label={t('pages.tasks.recurrenceRule')}>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                      {task.recurrence_rule}
+                    <Typography variant="body2">
+                      {(() => {
+                        const recurrenceLabels: Record<string, string> = {
+                          'FREQ=DAILY': t('pages.tasks.recurrenceDaily'),
+                          'FREQ=WEEKLY': t('pages.tasks.recurrenceWeekly'),
+                          'FREQ=WEEKLY;INTERVAL=2': t('pages.tasks.recurrenceBiweekly'),
+                          'FREQ=MONTHLY': t('pages.tasks.recurrenceMonthly'),
+                        };
+                        return recurrenceLabels[task.recurrence_rule] ?? task.recurrence_rule;
+                      })()}
                     </Typography>
                   </MetaItem>
                 )}
@@ -1264,11 +1272,18 @@ export default function TaskDetailPage() {
                 label={t('pages.tasks.assignedTo')}
                 helperText={t('pages.tasks.assignedToHelper')}
               />
-              <FormTextField
+              <FormSelectField
                 name="recurrence_rule"
                 control={editControl}
                 label={t('pages.tasks.recurrenceRule')}
                 helperText={t('pages.tasks.recurrenceRuleHelper')}
+                options={[
+                  { value: '', label: t('pages.tasks.recurrenceNone') },
+                  { value: 'FREQ=DAILY', label: t('pages.tasks.recurrenceDaily') },
+                  { value: 'FREQ=WEEKLY', label: t('pages.tasks.recurrenceWeekly') },
+                  { value: 'FREQ=WEEKLY;INTERVAL=2', label: t('pages.tasks.recurrenceBiweekly') },
+                  { value: 'FREQ=MONTHLY', label: t('pages.tasks.recurrenceMonthly') },
+                ]}
               />
             </CardContent>
           </Card>

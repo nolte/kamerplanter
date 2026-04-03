@@ -63,6 +63,8 @@ import PrintButton from '@/components/common/PrintButton';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useLocalFavorites } from '@/hooks/useLocalFavorites';
+import { useAppDispatch } from '@/store/hooks';
+import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import WateringLogCreateDialog from '@/pages/giessprotokoll/WateringLogCreateDialog';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 import { downloadNutrientPlanPdf } from '@/api/endpoints/print';
@@ -572,6 +574,7 @@ export default function NutrientPlanDetailPage() {
   const { key } = useParams<{ key: string }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
 
@@ -730,6 +733,19 @@ export default function NutrientPlanDetailPage() {
       loadValidation();
     }
   }, [tab, loadValidation]);
+
+  // Dynamic breadcrumbs
+  useEffect(() => {
+    if (!plan) return;
+    dispatch(setBreadcrumbs([
+      { label: 'nav.dashboard', path: '/dashboard' },
+      { label: 'nav.nutrientPlans', path: '/duengung/plans' },
+      { label: plan.name },
+    ]));
+  }, [plan, dispatch]);
+
+  // Clear dynamic breadcrumbs on unmount
+  useEffect(() => () => { dispatch(setBreadcrumbs([])); }, [dispatch]);
 
   const onSave = async (data: EditFormData) => {
     if (!key) return;

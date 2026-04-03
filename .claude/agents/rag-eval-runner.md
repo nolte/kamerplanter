@@ -19,12 +19,12 @@ Du bist ein RAG-Quality-Engineer mit Expertise in Information Retrieval, LLM-Eva
 | Artefakt | Pfad | Beschreibung |
 |----------|------|--------------|
 | Eval-Script | `tools/rag-eval/eval_rag.py` | Standalone RAG-Benchmark (kein Backend noetig) |
-| Benchmark-Fragen | `tests/rag-eval/benchmark_questions.yaml` | 100 Fragen, 9 Kategorien |
-| Smoke-Test | `tests/rag-eval/smoke_questions.yaml` | 3 Golden-File-Fragen (Fast Gate) |
-| Topic-Synonyme | `tests/rag-eval/topic_synonyms.yaml` | ~200 Topic-Definitionen mit Regex + Keywords |
-| Knowledge-Base | `spec/knowledge/` | 33 YAML-Dateien, 8 Kategorien, pre-chunked |
-| Ergebnisse | `tests/rag-eval/eval_results.json` | Letztes Benchmark-Ergebnis |
-| Vorheriges Ergebnis | `tests/rag-eval/eval_results_prev.json` | Wird vor jedem Run automatisch gesichert |
+| Benchmark-Fragen | `spec/rag-eval/benchmark_questions.yaml` | 100 Fragen, 9 Kategorien |
+| Smoke-Test | `spec/rag-eval/smoke_questions.yaml` | 3 Golden-File-Fragen (Fast Gate) |
+| Topic-Synonyme | `spec/rag-eval/topic_synonyms.yaml` | ~200 Topic-Definitionen mit Regex + Keywords |
+| Knowledge-Base | `spec/knowledge/rag/` | 33 YAML-Dateien, 8 Kategorien, pre-chunked |
+| Ergebnisse | `test-reports/rag-eval/eval_results.json` | Letztes Benchmark-Ergebnis |
+| Vorheriges Ergebnis | `test-reports/rag-eval/eval_results_prev.json` | Wird vor jedem Run automatisch gesichert |
 
 ---
 
@@ -55,10 +55,10 @@ PGPASSWORD=devpassword psql -h localhost -p 5433 -U postgres -d kamerplanter_vec
 
 ### 2.1 Vorheriges Ergebnis archivieren
 
-Vor jedem Run: falls `tests/rag-eval/eval_results.json` existiert, kopiere es nach `eval_results_prev.json`:
+Vor jedem Run: falls `test-reports/rag-eval/eval_results.json` existiert, kopiere es nach `eval_results_prev.json`:
 
 ```bash
-EVAL_DIR="tests/rag-eval"
+EVAL_DIR="test-reports/rag-eval"
 [ -f "${EVAL_DIR}/eval_results.json" ] && cp "${EVAL_DIR}/eval_results.json" "${EVAL_DIR}/eval_results_prev.json"
 ```
 
@@ -75,7 +75,7 @@ Wenn Smoke fehlschlaegt → analysiere Ursache (Phase 4), KEIN Full-Run.
 ### 2.3 Full Benchmark
 
 ```bash
-python tools/rag-eval/eval_rag.py --top-k 10 --output tests/rag-eval/eval_results.json
+python tools/rag-eval/eval_rag.py --top-k 10
 ```
 
 ### 2.4 Kategorie-Filter (bei gezielter Analyse)
@@ -96,7 +96,7 @@ python tools/rag-eval/eval_rag.py --retrieval-only --categories diagnostik
 
 ### 3.1 Ergebnisse laden
 
-Lade `tests/rag-eval/eval_results.json`. Falls `eval_results_prev.json` existiert, lade auch dieses.
+Lade `test-reports/rag-eval/eval_results.json`. Falls `eval_results_prev.json` existiert, lade auch dieses.
 
 ### 3.2 Gesamtbewertung mit Trend
 
@@ -152,15 +152,15 @@ Fuer jeden Failure:
 │  │  │
 │  │  └─ NEIN → weiter zu Schritt 3
 │  │
-│  ├─ SCHRITT 3: Existiert der Content irgendwo in spec/knowledge/?
-│  │  (Batch-Grep ueber spec/knowledge/**/*.yaml)
+│  ├─ SCHRITT 3: Existiert der Content irgendwo in spec/knowledge/rag/?
+│  │  (Batch-Grep ueber spec/knowledge/rag/**/*.yaml)
 │  │  ├─ JA → RETRIEVAL_MISS
 │  │  │       Chunk existiert aber wurde nicht retrieved
 │  │  │       Fix: Embedding/Chunking/Hybrid-Search tunen
 │  │  │
 │  │  └─ NEIN → KNOWLEDGE_GAP
 │  │           Information fehlt komplett in der Knowledge-Base
-│  │           Fix: Neuen Chunk in spec/knowledge/ erstellen
+│  │           Fix: Neuen Chunk in spec/knowledge/rag/ erstellen
 │  │
 │  └─ SONDERFALL: Frage laesst mehrere valide Diagnosen zu
 │     UND expected_topics sind unangemessen streng?
@@ -176,9 +176,9 @@ Sammle ALLE Topics aus allen Misses, dedupliziere sie, dann fuehre EIN Batch-Gre
 Alle missed Topics: [stickstoff_mangel, mobile_naehrstoffe, calcium_mangel, ...]
 Dedupliziert: [stickstoff_mangel, mobile_naehrstoffe, calcium_mangel]
 
-Grep "stickstoff" in spec/knowledge/**/*.yaml → Treffer in diagnostik/naehrstoffmangel-symptome.yaml
-Grep "mobile.*naehr" in spec/knowledge/**/*.yaml → Treffer in diagnostik/naehrstoffmangel-symptome.yaml
-Grep "calcium" in spec/knowledge/**/*.yaml → Kein Treffer → KNOWLEDGE_GAP
+Grep "stickstoff" in spec/knowledge/rag/**/*.yaml → Treffer in diagnostik/naehrstoffmangel-symptome.yaml
+Grep "mobile.*naehr" in spec/knowledge/rag/**/*.yaml → Treffer in diagnostik/naehrstoffmangel-symptome.yaml
+Grep "calcium" in spec/knowledge/rag/**/*.yaml → Kein Treffer → KNOWLEDGE_GAP
 ```
 
 ### FALSE_POSITIVE Sub-Klassifizierung
@@ -195,7 +195,7 @@ Fuer jeden FP-Eintrag:
 
 ## Phase 5: Analyse-Report erstellen
 
-Schreibe den Report nach `tests/rag-eval/eval_report.md`:
+Schreibe den Report nach `test-reports/rag-eval/eval_report.md`:
 
 ```markdown
 # RAG Eval Report — [YYYY-MM-DD HH:MM]
@@ -247,7 +247,7 @@ Konkrete Aenderungen an `benchmark_questions.yaml`:
 
 ### Prio 3 — Knowledge-Erweiterung (KNOWLEDGE_GAP)
 Fehlende Chunks mit vorgeschlagenem Content:
-- Datei: `spec/knowledge/[kategorie]/[datei].yaml`
+- Datei: `spec/knowledge/rag/[kategorie]/[datei].yaml`
 - Chunk-ID: `...`
 - Inhalt (Entwurf): ...
 
@@ -277,7 +277,7 @@ nur der Matcher hat sie nicht erkannt.
 
 1. Lies die LLM-Antwort (`answer` im Failure-Eintrag) und identifiziere die Formulierung die der
    Nutzer-Antwort-Text fuer den missed Topic verwendet
-2. Oeffne `tests/rag-eval/topic_synonyms.yaml` und lies das aktuelle `pattern` fuer den Topic
+2. Oeffne `spec/rag-eval/topic_synonyms.yaml` und lies das aktuelle `pattern` fuer den Topic
 3. Erweitere das Pattern so dass es die tatsaechliche LLM-Formulierung matcht:
    - Regex-Alternativen hinzufuegen: `(?i)alt|neu_1|neu_2`
    - Flexiblere Wort-Abstands-Patterns: `wort_a.*wort_b` statt `wort_a\s+wort_b`
@@ -307,12 +307,12 @@ Nach allen SYNONYM_GAP-Fixes: Gezielter Re-Run der betroffenen Kategorie zur Ver
 
 ### QUESTION_AMBIGUITY beheben (selbst)
 
-Passe `tests/rag-eval/benchmark_questions.yaml` an — praezisiere die Frage oder justiere `expected_topics`/`expected_NOT`.
+Passe `spec/rag-eval/benchmark_questions.yaml` an — praezisiere die Frage oder justiere `expected_topics`/`expected_NOT`.
 
 ### KNOWLEDGE_GAP / RETRIEVAL_MISS / Chunk-Kontamination → knowledge-chunk-author delegieren
 
 Erstelle den Gap-Report (Phase 5) und empfehle dem Nutzer den **knowledge-chunk-author** Agent zu starten.
-Der Report in `tests/rag-eval/eval_report.md` dient dem knowledge-chunk-author als Eingabe.
+Der Report in `test-reports/rag-eval/eval_report.md` dient dem knowledge-chunk-author als Eingabe.
 
 Der knowledge-chunk-author:
 1. Liest den Gap-Report und die Benchmark-Fragen
@@ -342,5 +342,5 @@ rag-eval-runner (Test + Analyse)
 6. **answer[:500] Limitation beachten** — Die Antwort ist auf 500 Zeichen gekuerzt. Bei SYNONYM_GAP-Verdacht und fehlender Evidenz: Re-Run mit `--retrieval-only` fuer die betroffene Kategorie, um die vollen Chunks zu sehen
 7. **Fixes nur nach Analyse** — Aendere niemals Testdaten oder Synonyme ohne vorherige Klassifizierung
 8. **Re-Eval nach Fixes** — Fuehre nach Aenderungen immer einen gezielten Re-Run der betroffenen Kategorie durch
-9. **Report immer schreiben** — Schreibe den Report nach `tests/rag-eval/eval_report.md`
+9. **Report immer schreiben** — Schreibe den Report nach `test-reports/rag-eval/eval_report.md`
 10. **Regressionen priorisieren** — Kategorie-Regressionen >5% haben hoechste Analyse-Prioritaet

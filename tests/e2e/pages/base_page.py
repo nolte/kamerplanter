@@ -58,6 +58,14 @@ class BasePage:
             EC.element_to_be_clickable(locator)
         )
 
+    def wait_for_element_hidden(
+        self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
+    ) -> None:
+        """Wait until an element is no longer visible (e.g. MUI Dialog fade-out)."""
+        WebDriverWait(self.driver, timeout).until(
+            EC.invisibility_of_element_located(locator)
+        )
+
     def wait_for_loading_complete(self, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until all ``[data-testid='loading-skeleton']`` elements disappear."""
         WebDriverWait(self.driver, timeout).until(

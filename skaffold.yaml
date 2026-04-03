@@ -153,6 +153,10 @@ build:
       context: docker/embedding-service
       docker:
         dockerfile: Dockerfile.dev
+    - image: kamerplanter-reranker-service
+      context: docker/reranker-service
+      docker:
+        dockerfile: Dockerfile.dev
 
 deploy:
   statusCheckDeadlineSeconds: 1800
@@ -172,6 +176,8 @@ deploy:
           controllers.knowledge-service.initContainers.knowledge.image.tag: "{{.IMAGE_TAG_kamerplanter_knowledge}}"
           controllers.embedding-service.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_embedding_service}}"
           controllers.embedding-service.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_embedding_service}}"
+          controllers.reranker-service.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_reranker_service}}"
+          controllers.reranker-service.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_reranker_service}}"
 
 portForward:
   - resourceType: service
@@ -189,3 +195,8 @@ portForward:
     namespace: default
     port: 8080
     localPort: 8080
+  - resourceType: service
+    resourceName: kamerplanter-ki-reranker-service
+    namespace: default
+    port: 8081
+    localPort: 8081

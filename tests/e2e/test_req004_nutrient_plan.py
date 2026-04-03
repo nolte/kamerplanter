@@ -74,6 +74,7 @@ class TestNutrientPlanListPage:
             "TC-REQ-004-031 FAIL: Nutrient plan table should be present with row count >= 0"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.smoke
     def test_plan_list_has_required_columns(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
@@ -135,6 +136,7 @@ class TestNutrientPlanListPage:
             "TC-REQ-004-034 FAIL: Expected a search chip to appear after typing in the search field"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.core_crud
     def test_plan_list_sort_by_column(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]

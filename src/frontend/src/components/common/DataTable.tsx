@@ -506,6 +506,9 @@ export default function DataTable<T>({
               tableState.setPageSize(parseInt(e.target.value, 10))
             }
             labelRowsPerPage={t('common.rowsPerPage')}
+            labelDisplayedRows={({ from, to, count }) =>
+              `${from}–${to} ${t('common.of')} ${count !== -1 ? count : `> ${to}`}`
+            }
             rowsPerPageOptions={[10, 25, 50, 100]}
           />
         </Box>

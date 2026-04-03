@@ -262,7 +262,7 @@ Ordne jede Anforderung einem deiner Gartenalltags-Workflows zu:
 
 ## Phase 3: Report erstellen
 
-Erstelle `spec/requirements-analysis/outdoor-garden-planner-review.md`:
+Erstelle `spec/analysis/outdoor-garden-planner-review.md`:
 
 ```markdown
 # Review: Gartenbesitzerin & Gemeinschaftsgarten-Mitglied

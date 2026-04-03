@@ -93,12 +93,14 @@ export default function SlotDetailPage() {
   return (
     <Box data-testid="slot-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <PageTitle title={slot?.slot_id ?? t('entities.slot')} />
-        <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
-          {t('common.delete')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={slot?.slot_id ?? t('entities.slot')}
+        action={
+          <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
+            {t('common.delete')}
+          </Button>
+        }
+      />
 
       <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900 }}>
         <FormRow>

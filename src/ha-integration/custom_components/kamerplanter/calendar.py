@@ -27,17 +27,28 @@ _PHASE_STATUS_LABEL: dict[str, str] = {
 
 # Phase name → emoji icon
 _PHASE_ICON: dict[str, str] = {
-    "germination": "\U0001f331",    # seedling
-    "seedling": "\U0001f33f",       # herb
-    "vegetative": "\U0001f33e",     # sheaf of rice
-    "flowering": "\U0001f33a",      # hibiscus
-    "ripening": "\U0001f347",       # grapes
-    "harvest": "\u2702\ufe0f",      # scissors
-    "drying": "\U0001f32c\ufe0f",   # wind
-    "curing": "\U0001f3fa",         # amphora
-    "dormancy": "\u2744\ufe0f",     # snowflake
-    "pre_sowing": "\U0001fab4",     # potted plant
-    "transplant": "\U0001f9f4",     # bucket (repotting)
+    # Core phases (REQ-003)
+    "germination": "\U0001f331",    # 🌱 seedling
+    "seedling": "\U0001f33f",       # 🌿 herb
+    "vegetative": "\U0001f33e",     # 🌾 sheaf of rice
+    "flowering": "\U0001f33a",      # 🌺 hibiscus
+    "harvest": "\u2702\ufe0f",      # ✂️ scissors
+    # Extended phases (perennial cycle)
+    "ripening": "\U0001f347",       # 🍇 grapes
+    "juvenile": "\U0001f33b",       # 🌻 sunflower (young growth)
+    "climbing": "\U0001faa2",       # 🪢 knot (climbing/twining)
+    "mature": "\U0001f333",         # 🌳 deciduous tree
+    "dormancy": "\u2744\ufe0f",     # ❄️ snowflake
+    "senescence": "\U0001f342",     # 🍂 fallen leaf
+    # Special phases
+    "flushing": "\U0001f4a7",       # 💧 droplet (nutrient flush)
+    "short_day_induction": "\U0001f319",  # 🌙 crescent moon
+    "leaf_phase": "\U0001fab4",     # 🪴 potted plant (bulb leaf growth)
+    # Post-harvest / transitions
+    "drying": "\U0001f32c\ufe0f",   # 🌬️ wind
+    "curing": "\U0001f3fa",         # 🏺 amphora
+    "pre_sowing": "\U0001f3f7\ufe0f",  # 🏷️ label (preparation)
+    "transplant": "\U0001f9f4",     # 🧴 bucket (repotting)
 }
 
 # Task category → emoji icon

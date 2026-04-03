@@ -45,6 +45,19 @@ from .pages.onboarding_wizard_page import OnboardingWizardPage
 # -- Fixtures -----------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def reset_onboarding_state(e2e_seed_data: dict, base_url: str) -> None:
+    """Reset onboarding to 'not started' before each wizard test.
+
+    The e2e_seed_data fixture skips onboarding so the browser lands on /dashboard.
+    Wizard tests need a fresh state to see the wizard stepper instead of the
+    'already completed' card.
+    """
+    from .conftest import _e2e_api_post
+
+    _e2e_api_post(e2e_seed_data, base_url, "onboarding/reset")
+
+
 @pytest.fixture
 def wizard(browser: WebDriver, base_url: str) -> OnboardingWizardPage:
     """Return an OnboardingWizardPage bound to the test browser."""

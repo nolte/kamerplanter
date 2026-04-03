@@ -5,6 +5,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
+import Typography from '@mui/material/Typography';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -93,12 +94,15 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
     <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>{t('pages.sites.create')}</DialogTitle>
       <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t('pages.sites.createIntro')}
+        </Typography>
         <form onSubmit={handleSubmit(onSubmit)}>
           {/* beginner */}
-          <FormTextField name="name" control={control} label={t('pages.sites.name')} required />
+          <FormTextField name="name" control={control} label={t('pages.sites.name')} helperText={t('pages.sites.nameHelper')} required autoFocus />
           {/* intermediate */}
           <ExpertiseFieldWrapper minLevel={fc.climate_zone.level}>
-            <FormTextField name="climate_zone" control={control} label={t('pages.sites.climateZone')} />
+            <FormTextField name="climate_zone" control={control} label={t('pages.sites.climateZone')} helperText={t('pages.sites.climateZoneHelper')} />
           </ExpertiseFieldWrapper>
           <ExpertiseFieldWrapper minLevel={fc.total_area_m2.level}>
             <FormNumberField name="total_area_m2" control={control} label={t('pages.sites.totalArea')} helperText={t('pages.sites.totalAreaHelper')} min={0} />

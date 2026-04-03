@@ -163,6 +163,7 @@ Die folgende Tabelle listet alle verfügbaren Router-Gruppen. Im Full-Modus sind
 | Nährstoffberechnungen | `/nutrient-calculations` | Mischprotokoll, Spülung, Runoff, Mischsicherheit, Wassermischung, EC-Budget | REQ-004 |
 | Benachrichtigungen | `/notifications` | Benachrichtigungen, Präferenzen, Test-Versand | REQ-022 |
 | Beobachtungen | `/observations` | Sensordaten-CRUD (TimescaleDB) | REQ-005 |
+| Druckansichten | `/print` | PDF-Export für Nährstoffpläne, Pflegelisten, Pflanzschilder | REQ-032 |
 
 ### Admin-Endpunkte
 

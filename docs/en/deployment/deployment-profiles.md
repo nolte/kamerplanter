@@ -28,6 +28,7 @@ Every Kamerplanter installation consists of a **core** (always required) and **o
 | **Knowledge Service** | RAG pipeline: search knowledge base, enrich context | 512 MB RAM | Separate deployment |
 | **VectorDB** (pgvector) | Vector store for RAG embeddings | 256 MB RAM | `VECTORDB_ENABLED` |
 | **Embedding Service** | ONNX-based embedding computation (no PyTorch) | 512 MB RAM | Separate deployment |
+| **Reranker Service** | Cross-encoder re-ranking for higher RAG precision (ADR-007) | 1.5–4 GB RAM | `RERANKER_URL` |
 | **TimescaleDB** | Time-series sensor data, automatic downsampling | 256--512 MB RAM | `TIMESCALEDB_ENABLED` |
 | **Home Assistant** | Sensor and actuator integration (temperature, humidity, lights) | External | `HA_URL` + `HA_ACCESS_TOKEN` |
 | **External enrichment** | Auto-enrich plant data from GBIF and Perenual | — | `PERENUAL_API_KEY` |
@@ -44,6 +45,7 @@ The following matrix shows five predefined profiles. Each profile is a recommend
 | **Operating mode** | Light | Light | Full | Full | Full |
 | **AI assistant** | — | Ollama (local) | Ollama (local) | Ollama + cloud fallback | Cloud (OpenAI / Anthropic) |
 | **Knowledge Service + RAG** | — | — | Optional | Yes | Yes |
+| **Reranker Service** | — | — | Optional | Optional | Yes |
 | **TimescaleDB** | — | — | Optional | Yes | Yes |
 | **Home Assistant** | — | Optional | Optional | Yes | Optional |
 | **External enrichment** | — | Optional | Yes | Yes | Yes |
@@ -267,6 +269,7 @@ You run professional indoor growing or a large community garden with role manage
 - [x] Celery Worker + Beat
 - [x] Ollama + cloud fallback (OpenAI or Anthropic)
 - [x] Knowledge Service + VectorDB + Embedding Service
+- [x] Reranker Service (cross-encoder re-ranking)
 - [x] TimescaleDB
 - [x] Home Assistant
 - [x] External enrichment (GBIF + Perenual)
@@ -305,6 +308,19 @@ controllers:
 
   knowledge-service:
     enabled: true
+    containers:
+      main:
+        env:
+          RERANKER_URL: "http://kamerplanter-ki-reranker-service:8081"
+          RERANKER_INITIAL_K: "20"
+          RERANKER_TOP_K: "5"
+
+  reranker-service:
+    enabled: true
+    containers:
+      main:
+        env:
+          RERANKER_MODEL: "bge-reranker-v2-m3"
 
   embedding-service:
     enabled: true
@@ -382,6 +398,7 @@ The profiles above are recommendations. You can enable or disable any component 
 | AI care tips? | `AI_DEFAULT_PROVIDER` | `ollama`, `llamacpp`, `openai`, `anthropic`, `openai-compatible`, `none` |
 | Sensor time-series? | `TIMESCALEDB_ENABLED` | `true` / `false` |
 | RAG knowledge base? | `VECTORDB_ENABLED` | `true` / `false` |
+| Re-ranking (higher precision)? | `RERANKER_URL` | HTTP URL of the reranker service (empty = disabled) |
 | Home Assistant? | `HA_URL` + `HA_ACCESS_TOKEN` | URL + token (empty = disabled) |
 | Plant data enrichment? | `PERENUAL_API_KEY` | API key (empty = GBIF only) |
 
@@ -394,9 +411,12 @@ docker compose up -d
 # With Ollama and TimescaleDB:
 docker compose --profile ollama --profile timescaledb up -d
 
-# With everything:
+# With RAG (Knowledge Service + VectorDB + Reranker):
 docker compose --profile ollama --profile timescaledb --profile vectordb up -d
 ```
+
+!!! note "Reranker in the Docker Compose `vectordb` profile"
+    The `reranker-service` is assigned to the `vectordb` Docker Compose profile and starts together with the Knowledge Service and VectorDB. The reranker is more resource-intensive than the embedding service and VectorDB — on low-powered hardware you can leave `RERANKER_URL` empty to use hybrid search without re-ranking.
 
 For a complete list of all environment variables, see [Environment Variables](../reference/environment-variables.md).
 

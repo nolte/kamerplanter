@@ -455,11 +455,25 @@ export default function TaskQueuePage() {
     }
 
     // Add care reminders (skip those that already have a pending task to avoid duplication)
-    const taskPlantTypes = new Set(
-      taskQueue
-        .filter((t) => t.category === 'care_reminder' && t.entity_type === 'plant_instance' && t.entity_key)
-        .map((t) => `${t.entity_key}-${t.name?.split('\u2014')[1]?.trim()}`),
-    );
+    // Build dedup set from care_reminder tasks keyed by entity_key + reminder type
+    const taskPlantTypes = new Set<string>();
+    // Also build a name-based dedup set for tasks missing entity_key (legacy data)
+    const taskNameTypes = new Set<string>();
+    for (const t of taskQueue) {
+      if (t.category !== 'care_reminder') continue;
+      const parts = t.name?.split('\u2014');
+      const reminderType = parts && parts.length > 1 ? parts[1].trim() : undefined;
+      if (!reminderType) continue;
+
+      if (t.entity_type === 'plant_instance' && t.entity_key) {
+        taskPlantTypes.add(`${t.entity_key}-${reminderType}`);
+      }
+      // Fallback: use the plant name prefix for matching (handles entity_key=null tasks)
+      const namePrefix = parts[0].trim();
+      if (namePrefix) {
+        taskNameTypes.add(`${namePrefix}-${reminderType}`);
+      }
+    }
 
     for (const entry of careDashboard) {
       if (entry.urgency === 'not_due') continue;
@@ -468,6 +482,9 @@ export default function TaskQueuePage() {
       // Skip if there's already a care_reminder task for this plant + type
       const typeKey = `${entry.plant_key}-${entry.reminder_type}`;
       if (taskPlantTypes.has(typeKey)) continue;
+      // Fallback: match by plant name from dashboard entry
+      const nameKey = `${entry.plant_name}-${entry.reminder_type}`;
+      if (taskNameTypes.has(nameKey)) continue;
 
       items.push({
         id: `care-${entry.plant_key}-${entry.reminder_type}`,
@@ -691,7 +708,7 @@ export default function TaskQueuePage() {
         </Card>
       );
     },
-    [actionLoading, navigate, handleStart, handleComplete, handleSkip, t, plantNameMap, bulkMode, selectedKeys, toggleSelection],
+    [actionLoading, navigate, handleStart, handleComplete, handleSkip, t, i18n.language, plantNameMap, bulkMode, selectedKeys, toggleSelection],
   );
 
   const renderCareCard = useCallback(
@@ -867,56 +884,58 @@ export default function TaskQueuePage() {
 
   return (
     <Box data-testid="task-queue-page">
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-        <PageTitle title={t('pages.tasks.queueTitle')} />
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          {!bulkMode && (
-            <>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={generateLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
-                onClick={handleGenerateCareReminders}
-                disabled={generateLoading}
-                data-testid="generate-reminders-button"
-              >
-                {t('pages.tasks.generateReminders')}
-              </Button>
-              {taskCount > 0 && (
+      <PageTitle
+        title={t('pages.tasks.queueTitle')}
+        action={
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {!bulkMode && (
+              <>
                 <Button
                   variant="outlined"
                   size="small"
-                  startIcon={<EditIcon />}
-                  onClick={() => setBulkMode(true)}
-                  data-testid="bulk-mode-button"
+                  startIcon={generateLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
+                  onClick={handleGenerateCareReminders}
+                  disabled={generateLoading}
+                  data-testid="generate-reminders-button"
                 >
-                  {t('pages.tasks.bulkEdit')}
+                  {t('pages.tasks.generateReminders')}
                 </Button>
-              )}
+                {taskCount > 0 && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<EditIcon />}
+                    onClick={() => setBulkMode(true)}
+                    data-testid="bulk-mode-button"
+                  >
+                    {t('pages.tasks.bulkEdit')}
+                  </Button>
+                )}
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => setCreateOpen(true)}
+                  data-testid="create-task-button"
+                >
+                  {t('pages.tasks.createTask')}
+                </Button>
+              </>
+            )}
+            {bulkMode && (
               <Button
-                variant="contained"
+                variant="outlined"
                 size="small"
-                startIcon={<AddIcon />}
-                onClick={() => setCreateOpen(true)}
-                data-testid="create-task-button"
+                startIcon={<CloseIcon />}
+                onClick={exitBulkMode}
+                data-testid="exit-bulk-mode"
               >
-                {t('pages.tasks.createTask')}
+                {t('common.cancel')}
               </Button>
-            </>
-          )}
-          {bulkMode && (
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<CloseIcon />}
-              onClick={exitBulkMode}
-              data-testid="exit-bulk-mode"
-            >
-              {t('common.cancel')}
-            </Button>
-          )}
-        </Box>
-      </Box>
+            )}
+          </Box>
+        }
+      />
 
       {/* Bulk action bar */}
       {bulkMode && (

@@ -11,6 +11,7 @@ import secrets
 from fastapi import Request, Response
 
 from app.common.exceptions import ForbiddenError
+from app.config.settings import settings
 
 _CSRF_COOKIE = "csrf_token"
 _CSRF_HEADER = "x-csrf-token"
@@ -23,7 +24,7 @@ def set_csrf_cookie(response: Response) -> str:
         key=_CSRF_COOKIE,
         value=token,
         httponly=False,  # Frontend must read this
-        secure=True,
+        secure=settings.cookie_secure,
         samesite="lax",
         path="/",
     )

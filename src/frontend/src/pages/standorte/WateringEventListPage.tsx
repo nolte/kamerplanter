@@ -378,23 +378,19 @@ export default function WateringEventListPage() {
 
   return (
     <Box data-testid="watering-event-list-page">
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <PageTitle title={t('pages.wateringEvents.title')} />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateOpen(true)}
-          data-testid="create-button"
-        >
-          {t('pages.wateringEvents.create')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={t('pages.wateringEvents.title')}
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+            data-testid="create-button"
+          >
+            {t('pages.wateringEvents.create')}
+          </Button>
+        }
+      />
       <DataTable
         columns={columns}
         rows={events}

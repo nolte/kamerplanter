@@ -84,6 +84,7 @@ class TestTankListPage:
             "TC-REQ-014-001 FAIL: Expected [data-testid='tank-list-page'] to be visible"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.smoke
     def test_list_displays_data_table_with_columns(
         self,
@@ -204,6 +205,7 @@ class TestTankListPage:
                 f"TC-REQ-014-006 FAIL: Expected count after reset ({reset_count}) close to initial ({initial_count})"
             )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.core_crud
     def test_sort_by_column_shows_sort_chip(
         self,

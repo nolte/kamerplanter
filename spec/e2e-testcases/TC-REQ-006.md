@@ -2,7 +2,7 @@
 req_id: REQ-006
 title: Modulare Aufgabenplanung & Benutzerdefinierte Workflows
 category: Prozessmanagement
-test_count: 72
+test_count: 75
 coverage_areas:
   - Task-Queue (Aufgabenliste)
   - Task-Detailseite (CRUD, Status, Tabs)
@@ -26,8 +26,9 @@ coverage_areas:
   - Dormant-Status & Phasengebundene Tasks
   - Dependency-Ketten & Auto-Rescheduling
   - Phänologische Ereignisse & Seasonal-Trigger
+  - Phänologischer Trigger im Task-Template-Dialog konfigurieren
   - Gießplan-Tasks (Watering-Integration)
-generated: 2026-03-21
+generated: 2026-04-02
 version: "3.0"
 ---
 
@@ -1463,6 +1464,95 @@ Dieses Dokument enthält alle End-to-End-Testfälle für REQ-006 aus der Perspek
 
 ---
 
+## Gruppe 10b: Phänologische Trigger konfigurieren (Task-Template-Dialog)
+
+### TC-006-073: Task-Template — Trigger-Typ "Phänologisch" auswählen und Zeigerpflanze konfigurieren
+
+**Anforderung**: REQ-006 §1 — Phenological-Trigger (G-005); TaskTemplate.trigger_type='phenological', TaskTemplate.phenological_event
+**Priorität**: High
+**Kategorie**: Happy Path / Dialog / Formvalidierung
+
+**Vorbedingungen**:
+- Nutzer ist eingeloggt und befindet sich auf der Workflow-Detailseite eines eigenen (nicht System-)Workflows
+- Tab "Task-Templates" ist aktiv
+- Dialog "Task-Template hinzufügen" oder "Task-Template bearbeiten" ist geöffnet
+
+**Testschritte**:
+1. Nutzer öffnet den Dialog "Task-Template hinzufügen" (Button "+ Task hinzufügen")
+2. Nutzer gibt Name ein: "Rosen schneiden"
+3. Nutzer wählt im Dropdown "Trigger-Typ" den Wert "Phänologisch" aus
+4. Das Formular zeigt ein neues Dropdown "Phänologisches Ereignis"
+5. Nutzer wählt im Dropdown "Phänologisches Ereignis" den Wert "Forsythienblüte" (forsythia_bloom) aus
+6. Nutzer gibt Kategorie "Saisonal" an
+7. Nutzer klickt "Speichern"
+
+**Erwartetes Ergebnis**:
+- Nach Schritt 3: Das Feld "Phänologisches Ereignis" erscheint im Formular; Felder für "Tage-Offset" und "Kalenderdatum" werden ausgeblendet oder sind deaktiviert
+- Nach Schritt 5: Das Dropdown zeigt alle vordefinierten phänologischen Zeigerpflanzen: "Haselblüte", "Forsythienblüte", "Apfelblüte", "Holunderblüte", "Lindenblüte", "Erster Frost"
+- Nach Schritt 7: Dialog schließt sich, Snackbar "Gespeichert"
+- Das neue Task-Template erscheint in der Template-Liste mit Trigger-Badge "Phänologisch: Forsythienblüte" (oder ähnliche Anzeige)
+
+**Nachbedingungen**: TaskTemplate mit trigger_type='phenological' und phenological_event='forsythia_bloom' ist gespeichert
+
+**Tags**: [req-006, phaenologie, task-template, trigger-typ, forsythia-bloom, g-005, dialog]
+
+---
+
+### TC-006-074: Phänologisch getriggerte Task bleibt dormant bis Ereignis eingetreten ist
+
+**Anforderung**: REQ-006 §1 — Phenological-Trigger (G-005); PhenologicalEvent-Dokumentation als Aktivierungsbedingung
+**Priorität**: Critical
+**Kategorie**: Zustandswechsel / Grenzwert
+
+**Vorbedingungen**:
+- Workflow mit TaskTemplate (trigger_type='phenological', phenological_event='elderberry_bloom') ist auf eine Pflanze instanziiert
+- Kein PhenologicalEvent vom Typ 'elderberry_bloom' für das aktuelle Jahr und den zugehörigen Standort ist dokumentiert
+
+**Testschritte**:
+1. Nutzer navigiert zu `/aufgaben/queue`
+2. Nutzer aktiviert Anzeige "Geplante Tasks" (dormant section)
+
+**Erwartetes Ergebnis**:
+- Die phänologisch verknüpfte Task ("Bohnen säen" oder ähnlich) ist NICHT in der aktiven Task-Queue sichtbar
+- Die Task erscheint im Bereich "Geplant" (dormant) mit dem Hinweis "Wartet auf: Holunderblüte" oder "Ausstehend: phänologisches Ereignis nicht eingetreten"
+- Kein Fälligkeitsdatum ist gesetzt (oder es wird "—" angezeigt)
+- Action-Buttons (Starten, Abschließen) sind ausgegraut oder nicht vorhanden
+
+**Nachbedingungen**: Task bleibt im Status dormant bis Holunderblüte dokumentiert wird
+
+**Tags**: [req-006, phaenologie, dormant, holunderblüte, elderberry-bloom, g-005, grenzwert]
+
+---
+
+### TC-006-075: Phänologischen Trigger durch Kalenderdatum-Trigger ersetzen (Trigger-Typ ändern)
+
+**Anforderung**: REQ-006 §1 — Phenological-Trigger (G-005); TaskTemplate editierbar; §1 Individuelle Task-Anpassung innerhalb von Workflows
+**Priorität**: Medium
+**Kategorie**: Happy Path / Dialog / Zustandswechsel
+
+**Vorbedingungen**:
+- Task-Template mit trigger_type='phenological' und phenological_event='apple_bloom' existiert in einem Workflow
+- Der Dialog "Task-Template bearbeiten" ist für dieses Template geöffnet
+
+**Testschritte**:
+1. Nutzer öffnet den Bearbeiten-Dialog für das phänologische Task-Template
+2. Nutzer wählt im Dropdown "Trigger-Typ" den Wert "Absolutes Datum" aus
+3. Das Formular zeigt ein Kalender-Datumsfeld; das Dropdown "Phänologisches Ereignis" verschwindet
+4. Nutzer gibt ein konkretes Datum ein: 20.04. (des aktuellen Jahres)
+5. Nutzer klickt "Speichern"
+
+**Erwartetes Ergebnis**:
+- Nach Schritt 2: Das Feld "Phänologisches Ereignis" (Zeigerpflanzen-Dropdown) wird ausgeblendet oder deaktiviert; stattdessen erscheint ein Datum-Eingabefeld
+- Nach Schritt 5: Dialog schließt sich, Snackbar "Gespeichert"
+- Das Task-Template zeigt in der Übersicht nun Trigger-Badge "Absolutes Datum: 20.04." statt "Phänologisch: Apfelblüte"
+- Bereits dormante Instanzen dieses Templates in der Task-Queue zeigen nun das Fälligkeitsdatum 20.04. und sind nicht mehr auf ein phänologisches Ereignis angewiesen
+
+**Nachbedingungen**: TaskTemplate hat trigger_type='absolute_date'; vorheriger phenological_event-Wert ist nicht mehr aktiv
+
+**Tags**: [req-006, phaenologie, trigger-typ-aendern, absolutes-datum, apple-bloom, dialog, g-005]
+
+---
+
 ## Gruppe 11: Gießplan-Task-Integration (REQ-004/REQ-014)
 
 ### TC-006-058: Gießplan-Task erscheint in Task-Queue (Weekday-Modus)
@@ -1839,8 +1929,11 @@ Dieses Dokument enthält alle End-to-End-Testfälle für REQ-006 aus der Perspek
 | §1 Dormant-Status, Phasenwechsel-Hook | TC-006-048, TC-006-049 |
 | §1 Dependency-Ketten, Auto-Rescheduling | TC-006-050, TC-006-051 |
 | §1 Activity Plans Übersicht | TC-006-052, TC-006-053 |
-| §1 Phänologische Ereignisse (G-005) | TC-006-056 |
+| §1 Phänologische Ereignisse — Dokumentation (G-005) | TC-006-056 |
 | §1 Seasonal-Month-Trigger (G-005) | TC-006-057 |
+| §1 Phänologischer Trigger im Task-Template-Dialog konfigurieren (G-005) | TC-006-073 |
+| §1 Dormant-Verhalten phänologisch getriggerter Tasks (G-005) | TC-006-074 |
+| §1 Phänologischen Trigger auf Kalender-Trigger umstellen (G-005) | TC-006-075 |
 | §3 Gießplan-Tasks (Celery-Beat, Idempotenz) | TC-006-058, TC-006-059 |
 | §1 Workflow manuell erstellen | TC-006-060 |
 | §1 Recovery-Timer, Canopy-Metriken (G-004) | TC-006-061, TC-006-062, TC-006-063, TC-006-064 |
@@ -1860,3 +1953,4 @@ Dieses Dokument enthält alle End-to-End-Testfälle für REQ-006 aus der Perspek
 | TC-006-051 | REQ-003 (Phasengebundene Task-Kette) |
 | TC-006-058–TC-006-059 | REQ-004 (NutrientPlan + WateringSchedule), REQ-013 (PlantingRun) |
 | TC-006-061–TC-006-064 | REQ-013 (PlantInstance), REQ-005 (Canopy-Höhe als Sensorwert) |
+| TC-006-073–TC-006-075 | REQ-002 (Standort/Site für observed_at_site-Edge), REQ-001 (Zeigerpflanzen-Vokabular) |

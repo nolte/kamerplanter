@@ -2,7 +2,7 @@
 
 Detaillierte Zielgruppen-Dokumente fuer kontextbezogene Evaluierung, Testfall-Ableitung und Persona-basierte Anforderungspruefung.
 
-**Quelle:** Abgeleitet aus `spec/requirements-analysis/target-audience-analysis.md`
+**Quelle:** Abgeleitet aus `spec/analysis/target-audience-analysis.md`
 
 ---
 

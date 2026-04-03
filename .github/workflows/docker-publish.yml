@@ -8,7 +8,7 @@ on:
       - 'src/backend/**'
       - 'src/frontend/**'
       - 'docker/**'
-      - 'spec/knowledge/**'
+      - 'spec/knowledge/rag/**'
       - 'helm/**'
   workflow_dispatch:
 
@@ -46,7 +46,7 @@ jobs:
               - 'docker/vectordb/**'
             knowledge:
               - 'docker/knowledge/**'
-              - 'spec/knowledge/**'
+              - 'spec/knowledge/rag/**'
             embedding-service:
               - 'docker/embedding-service/**'
             helm:

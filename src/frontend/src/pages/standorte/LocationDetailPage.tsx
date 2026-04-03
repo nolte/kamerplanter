@@ -312,12 +312,14 @@ export default function LocationDetailPage() {
     <Box data-testid="location-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <PageTitle title={location?.name ?? t('entities.location')} />
-        <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
-          {t('common.delete')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={location?.name ?? t('entities.location')}
+        action={
+          <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
+            {t('common.delete')}
+          </Button>
+        }
+      />
 
       <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
         <Typography variant="body2" color="text.secondary">

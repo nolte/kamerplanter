@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=./schemas/plant_info.schema.yaml
-# Indoor plant seed data batch 1 — from spec/ref/plant-info/*.md (30 documents).
+# Indoor plant seed data batch 1 — from spec/knowledge/plants/*.md (30 documents).
 #
 # Adds 15 new botanical families, 29 new species, enriches 1 existing species
 # (Chlorophytum comosum already has enrichment in plant_info.yaml — skip here),
@@ -1263,7 +1263,7 @@ lifecycle_configs:
     cycle_type: perennial
     photoperiod_type: day_neutral
     typical_lifespan_years: 20
-    dormancy_required: false
+    dormancy_required: false  # Tropical evergreen — no true dormancy
     vernalization_required: false
     vernalization_min_days: null
     critical_day_length_hours: null

@@ -11,6 +11,7 @@ from app.embedding import EmbeddingEngine
 from app.ingestor import KnowledgeIngestor
 from app.llm import create_llm_adapter
 from app.prompt_engine import PromptEngine
+from app.reranker import RerankerEngine
 from app.schemas import (
     AskRequest,
     AskResponse,
@@ -53,11 +54,20 @@ async def lifespan(app: FastAPI):
     llm_adapter = create_llm_adapter(settings)
     prompt_engine = PromptEngine()
 
+    reranker = RerankerEngine(settings.reranker_url or None)
+    if reranker.available:
+        logger.info("reranker_enabled", url=settings.reranker_url)
+    else:
+        logger.info("reranker_disabled")
+
     _service = KnowledgeService(
         embedding_engine=embedding_engine,
         chunk_repo=chunk_repo,
         llm_adapter=llm_adapter,
         prompt_engine=prompt_engine,
+        reranker=reranker,
+        reranker_initial_k=settings.reranker_initial_k,
+        reranker_top_k=settings.reranker_top_k,
         max_tokens=settings.llm_max_tokens,
         temperature=settings.llm_temperature,
         default_doc_language=settings.rag_doc_language,

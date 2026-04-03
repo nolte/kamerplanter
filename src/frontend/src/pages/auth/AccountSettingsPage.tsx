@@ -132,18 +132,18 @@ export default function AccountSettingsPage() {
     if (isLightMode) {
       return [
         { key: 'profile', label: t('pages.auth.tabProfile') },
-        { key: 'experience', label: t('pages.auth.tabExperience') },
         { key: 'notifications', label: t('pages.auth.tabNotifications') },
+        { key: 'experience', label: t('pages.auth.tabExperience') },
         { key: 'ha', label: t('pages.auth.tabIntegrations') },
       ];
     }
     return [
       { key: 'profile', label: t('pages.auth.tabProfile') },
+      { key: 'notifications', label: t('pages.auth.tabNotifications') },
+      { key: 'experience', label: t('pages.auth.tabExperience') },
       { key: 'security', label: t('pages.auth.tabSecurity') },
       { key: 'sessions', label: t('pages.auth.tabSessions') },
       { key: 'apikeys', label: t('pages.auth.tabApiKeys') },
-      { key: 'experience', label: t('pages.auth.tabExperience') },
-      { key: 'notifications', label: t('pages.auth.tabNotifications') },
       { key: 'ha', label: t('pages.auth.tabIntegrations') },
       { key: 'platform', label: t('pages.auth.tabPlatform') },
       { key: 'account', label: t('pages.auth.tabAccount') },
@@ -424,7 +424,17 @@ export default function AccountSettingsPage() {
 
       <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)} sx={{ mb: 3 }} variant="scrollable" scrollButtons="auto">
         {tabs.map((tab) => (
-          <Tab key={tab.key} label={tab.label} />
+          <Tab
+            key={tab.key}
+            label={tab.label}
+            sx={tab.key === 'account' ? {
+              color: 'error.main',
+              '&.Mui-selected': { color: 'error.main' },
+              ml: 1,
+              borderLeft: 1,
+              borderColor: 'divider',
+            } : undefined}
+          />
         ))}
       </Tabs>
 
@@ -751,6 +761,7 @@ export default function AccountSettingsPage() {
                 exclusive
                 onChange={handleExperienceLevelChange}
                 fullWidth
+                orientation={fullScreen ? 'vertical' : 'horizontal'}
                 aria-label={t('pages.auth.experienceLevelTitle')}
               >
                 {EXPERIENCE_LEVELS.map(({ level, icon }) => (

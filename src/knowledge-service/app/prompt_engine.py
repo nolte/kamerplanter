@@ -37,9 +37,19 @@ _DIAGNOSIS_PATTERNS = re.compile(
 )
 
 _EXTRACTION_SUFFIX: dict[str, str] = {
-    "de": ("Zitiere konkrete Schritte, Werte und Reihenfolgen aus dem Kontext. Nutze NUR den Kontext. Erfinde nichts."),
+    "de": (
+        "Nenne mindestens 3-4 konkrete Punkte aus dem Kontext. "
+        "Zitiere konkrete Schritte, Werte und Reihenfolgen. Nutze NUR den Kontext. Erfinde nichts.\n\n"
+        "Beispiel fuer eine gute Antwort:\n"
+        "Frage: Wie giesse ich meine Zimmerpflanze richtig?\n"
+        "Antwort: 1. Fingerprobe: Erst giessen wenn die oberen 2-3 cm Substrat trocken sind. "
+        "2. Gruendlich durchgiessen bis Wasser aus den Abzugsloechern laeuft. "
+        "3. Ueberschuessiges Wasser im Untersetzer nach 30 Minuten weggiessen. "
+        "4. Nicht nach Zeitplan giessen — der Bedarf haengt von Licht, Temperatur und Jahreszeit ab."
+    ),
     "en": (
-        "Quote specific steps, values, and sequences from the context. "
+        "State at least 3-4 concrete points from the context. "
+        "Quote specific steps, values, and sequences. "
         "Use ONLY the provided context. Do not make up facts."
     ),
 }

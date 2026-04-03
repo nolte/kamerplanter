@@ -39,7 +39,7 @@ def _set_refresh_cookie(
         "key": "kp_refresh",
         "value": raw_refresh_token,
         "httponly": True,
-        "secure": True,
+        "secure": settings.cookie_secure,
         "samesite": "lax",
         "path": "/api/v1/auth",
     }

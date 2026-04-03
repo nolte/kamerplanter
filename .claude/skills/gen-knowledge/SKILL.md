@@ -1,6 +1,6 @@
 ---
 name: gen-knowledge
-description: "Generiert qualitativ hochwertige YAML-Knowledge-Dokumente fuer die RAG-Vektordatenbank (spec/knowledge/). Recherchiert Themen gruendlich und erzeugt fachlich korrekte, chunked, retrieval-optimierte Dokumente. Nutze diesen Skill wenn neue Wissensdokumente zu Pflanzenpflege, Duengung, Diagnostik, Umweltsteuerung, Outdoor-Anbau oder Bewaesserung erstellt werden sollen."
+description: "Generiert qualitativ hochwertige YAML-Knowledge-Dokumente fuer die RAG-Vektordatenbank (spec/knowledge/rag/). Recherchiert Themen gruendlich und erzeugt fachlich korrekte, chunked, retrieval-optimierte Dokumente. Nutze diesen Skill wenn neue Wissensdokumente zu Pflanzenpflege, Duengung, Diagnostik, Umweltsteuerung, Outdoor-Anbau oder Bewaesserung erstellt werden sollen."
 argument-hint: "<Thema> [--category <kategorie>] [--level <beginner|intermediate|expert>]"
 disable-model-invocation: true
 ---
@@ -25,7 +25,7 @@ Falls das Thema unklar oder zu breit ist, frage den Nutzer nach Praezisierung.
 
 ## Schritt 2: Bestehendes Wissen pruefen
 
-1. Lies das Verzeichnis `spec/knowledge/` (Glob `spec/knowledge/**/*.yaml`)
+1. Lies das Verzeichnis `spec/knowledge/rag/` (Glob `spec/knowledge/rag/**/*.yaml`)
 2. Pruefe ob ein Dokument zum gleichen oder stark ueberlappenden Thema bereits existiert
 3. Falls ja: Melde dem Nutzer welches Dokument existiert und frage ob:
    - Das bestehende Dokument **erweitert** werden soll
@@ -109,7 +109,7 @@ aber sind fuer zukuenftige Filter-Queries nuetzlich. Verwende numerische Ranges 
 
 ## Schritt 5: Dokument schreiben
 
-Schreibe die YAML-Datei nach `spec/knowledge/{category}/{kebab-case-dateiname}.yaml`.
+Schreibe die YAML-Datei nach `spec/knowledge/rag/{category}/{kebab-case-dateiname}.yaml`.
 
 ### Datei-Header (Pflicht):
 
@@ -129,7 +129,7 @@ chunks:
 
 1. **Sprache**: Deutsch (Fachwissen-Dokument), aber Fachbegriffe auch auf Englisch nennen
 2. **Umlaute**: KEINE Umlaute in YAML-Strings verwenden (ae, oe, ue, ss statt ae, oe, ue, ss).
-   Das ist Konvention im gesamten `spec/knowledge/` Verzeichnis.
+   Das ist Konvention im gesamten `spec/knowledge/rag/` Verzeichnis.
 3. **Formatierung im Content**: Einfache Markdown-artige Listen (- Item), Nummerierungen (1. 2. 3.).
    KEIN Markdown-Heading (#), keine Links, keine Bilder.
 4. **Zahlen**: Immer mit Einheit, Ranges mit Bindestrich (z.B. "5.8-6.2 pH", "0.3-0.5 ml/L")
@@ -156,19 +156,19 @@ Pruefe das erstellte Dokument gegen diese Checkliste:
 
 Validiere die YAML-Syntax:
 ```bash
-python3 -c "import yaml; yaml.safe_load(open('spec/knowledge/{category}/{dateiname}.yaml'))"
+python3 -c "import yaml; yaml.safe_load(open('spec/knowledge/rag/{category}/{dateiname}.yaml'))"
 ```
 
 ## Schritt 7: Benchmark-Integration (optional)
 
 Falls das Thema diagnostisch ist (Kategorie `diagnostik` oder `duengung`):
 
-1. Pruefe ob `tests/rag-eval/benchmark_questions.yaml` Fragen enthaelt die das neue Dokument beantworten sollte
+1. Pruefe ob `spec/rag-eval/benchmark_questions.yaml` Fragen enthaelt die das neue Dokument beantworten sollte
 2. Falls ja: Notiere dem Nutzer welche Benchmark-Fragen nun besser beantwortet werden koennten
 3. Falls nein: Schlage 2-3 neue Benchmark-Fragen vor die zum neuen Dokument passen
 
 Falls das Thema neue Keywords einfuehrt:
-- Schlage Ergaenzungen fuer `tests/rag-eval/topic_synonyms.yaml` vor
+- Schlage Ergaenzungen fuer `spec/rag-eval/topic_synonyms.yaml` vor
 
 ## Qualitaetskriterien (die ein GUTES von einem MITTELMASSIGEN Dokument unterscheiden):
 

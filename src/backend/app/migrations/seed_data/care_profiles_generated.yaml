@@ -1054,6 +1054,20 @@ care_profiles:
     dormancy_months: []
     notes: "Dragon tree — loses lower leaves naturally as it grows, forming a bare trunk. Can be cut back to any height and will resprout. Sensitive to fluoride in water — use filtered water. Brown tips are common."
 
+  "Dracaena fragrans":
+    watering_interval_summer_days: 7
+    watering_interval_winter_days: 17
+    fertilizing_interval_days: 28
+    fertilizing_months: [3, 4, 5, 6, 7, 8, 9]
+    misting_recommended: false
+    cleaning_interval_days: 14
+    repotting_interval_months: 30
+    pest_check_interval_days: 14
+    rotation_interval_days: 14
+    pruning_season: [3, 4]
+    dormancy_months: [11, 12, 1, 2]
+    notes: "Corn plant — fluoride-sensitive (use filtered or aged tap water, never fresh tap). Half-strength fertilizer only. No fertilizer Oct-Feb. Brown tips usually fluoride damage, not underwatering. Can be cut back to any height and will resprout."
+
   "Fatsia japonica":
     watering_interval_summer_days: 5
     watering_interval_winter_days: 10
@@ -1411,6 +1425,20 @@ care_profiles:
     pruning_season: []
     dormancy_months: []
     notes: "Urn plant — keep the central cup (tank) filled with fresh water, flush monthly. The mother rosette dies after flowering but produces offsets (pups). Detach pups when 1/3 mother size."
+
+  "Nymphaea alba":
+    watering_interval_summer_days: 0
+    watering_interval_winter_days: 0
+    fertilizing_interval_days: 35
+    fertilizing_months: [4, 5, 6, 7, 8]
+    misting_recommended: false
+    cleaning_interval_days: 7
+    repotting_interval_months: 48
+    pest_check_interval_days: 14
+    rotation_interval_days: 0
+    pruning_season: [3, 4, 9, 10]
+    dormancy_months: [11, 12, 1, 2, 3]
+    notes: "White water lily — fully aquatic, no watering needed (pond plant). Depot fertilizer tablets only, NEVER liquid fertilizer in pond water (causes algae). Remove dead leaves promptly. Lower planting basket to 60+ cm depth before winter. Divide rhizome every 3-5 years."
 
   "Neoregelia carolinae":
     watering_interval_summer_days: 7

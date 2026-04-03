@@ -37,6 +37,7 @@ def species_detail(browser: WebDriver, base_url: str) -> SpeciesDetailPage:
 class TestSpeciesListPage:
     """Species list display and navigation (Spec: TC-001-019, TC-001-030)."""
 
+    @pytest.mark.requires_desktop
     @pytest.mark.smoke
     @pytest.mark.core_crud
     def test_display_species_in_data_table(

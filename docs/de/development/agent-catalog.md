@@ -150,7 +150,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 4. Datenquelle-Verfügbarkeit bewerten
 5. Report mit Findings (Fehler/Unvollständig/Ungenau) erstellen
 
-**Output:** `spec/requirements-analysis/agrobiology-review.md` — Detaillierter Report mit botanischen Findings, Korrekturvorschlägen und Datenquellen
+**Output:** `spec/analysis/agrobiology-review.md` — Detaillierter Report mit botanischen Findings, Korrekturvorschlägen und Datenquellen
 
 ---
 
@@ -172,7 +172,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 4. Growing-Parameter (Photoperiode, VPD, EC) validieren
 5. Report mit Legal-Checks und Best-Practice-Abweichungen
 
-**Output:** `spec/requirements-analysis/cannabis-grower-review.md` — Legalitäts-Check, Growing-Parameter-Validierung, Risiko-Bewertung
+**Output:** `spec/analysis/cannabis-grower-review.md` — Legalitäts-Check, Growing-Parameter-Validierung, Risiko-Bewertung
 
 ---
 
@@ -196,7 +196,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 5. Konkurrenz-Vergleich (Planta, Greg) durchführen
 6. Report mit Dealbreakern, Optimierungen, Aufwand-Analyse
 
-**Output:** `spec/requirements-analysis/casual-houseplant-user-review.md` — Laien-Perspektive, Dealbreaker, Aufwand-Analyse, Konkurrenz-Vergleich
+**Output:** `spec/analysis/casual-houseplant-user-review.md` — Laien-Perspektive, Dealbreaker, Aufwand-Analyse, Konkurrenz-Vergleich
 
 ---
 
@@ -219,7 +219,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 4. Kritische Schwachstellen (P0/P1) sofort beheben
 5. Security-Report mit behobenen und offenen Punkten
 
-**Output:** `spec/requirements-analysis/code-security-review.md` — Security-Audit, P0/P1/P2/P3 Findings, Compliance-Matrix
+**Output:** `spec/analysis/code-security-review.md` — Security-Audit, P0/P1/P2/P3 Findings, Compliance-Matrix
 
 ---
 
@@ -244,7 +244,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 6. ADR-Aktualität überprüfen (Status, Technologie-Referenzen)
 7. Tote Links und Code-Referenzen finden
 
-**Output:** `spec/requirements-analysis/docs-freshness-report.md` — Report mit API-Lücken, User-Guide-Fehlern, Parität-Violations, ADR-Befunden, toten Links
+**Output:** `spec/analysis/docs-freshness-report.md` — Report mit API-Lücken, User-Guide-Fehlern, Parität-Violations, ADR-Befunden, toten Links
 
 ---
 
@@ -290,7 +290,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 4. Mobile Vor-Ort-Szenarien validieren
 5. Report mit Design-Findings und Wireframe-Vorschlägen
 
-**Output:** `spec/requirements-analysis/frontend-design-review.md` — Responsive-Matrix, Kiosk-Detailbewertung, Touch-Target-Audit, Wireframes
+**Output:** `spec/analysis/frontend-design-review.md` — Responsive-Matrix, Kiosk-Detailbewertung, Touch-Target-Audit, Wireframes
 
 ---
 
@@ -384,7 +384,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 4. YAML-Dateien direkt mit dem Edit-Tool korrigieren
 5. Report mit Findings und Verifizierungen erstellen
 
-**Output:** Korrigierte YAML-Dateien + `spec/requirements-analysis/growing-phase-audit.md` mit Findings und Verifizierung
+**Output:** Korrigierte YAML-Dateien + `spec/analysis/growing-phase-audit.md` mit Findings und Verifizierung
 
 ---
 
@@ -452,7 +452,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 4. Qualitätsprüfungen durchführen (leere Werte, identische DE/EN, Placeholder-Konsistenz)
 5. Report mit Kategorisierung nach Schweregrad ausgeben
 
-**Output:** `spec/requirements-analysis/i18n-completeness-report.md` — Fehlende Keys, verwaiste Keys, identische Werte, leere Einträge
+**Output:** `spec/analysis/i18n-completeness-report.md` — Fehlende Keys, verwaiste Keys, identische Werte, leere Einträge
 
 ---
 
@@ -475,7 +475,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 4. OWASP ASVS gegen Specs abgleichen
 5. Report mit Security-Lücken und DSGVO-Empfehlungen
 
-**Output:** `spec/requirements-analysis/it-security-review.md` — Sicherheitsbewertung, DSGVO-Audit, Empfehlungen
+**Output:** `spec/analysis/it-security-review.md` — Sicherheitsbewertung, DSGVO-Audit, Empfehlungen
 
 ---
 
@@ -521,7 +521,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 4. Fruchtfolge, Überwinterung, Mischkultur-Features validieren
 5. Report mit praktischen Hinweisen und Verbesserungsvorschlägen
 
-**Output:** `spec/requirements-analysis/outdoor-garden-planner-review.md` — Hobbygärtner-Perspektive, Praxis-Feedback
+**Output:** `spec/analysis/outdoor-garden-planner-review.md` — Hobbygärtner-Perspektive, Praxis-Feedback
 
 ---
 
@@ -614,7 +614,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 6. Priorisierte Verbesserungsmassnahmen vorschlagen
 7. Optionale Quick-Fixes anwenden (Synonym erweitern, Fragen anpassen, Knowledge-Chunks erstellen)
 
-**Output:** `tests/rag-eval/eval_report.md` — Fehlerklassifizierung, Kategorie-Trend, priorisierte Verbesserungsmassnahmen
+**Output:** `test-reports/rag-eval/eval_report.md` — Fehlerklassifizierung, Kategorie-Trend, priorisierte Verbesserungsmassnahmen
 
 ---
 
@@ -637,7 +637,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 4. Systematisch auf Widersprüche prüfen
 5. Report mit Widerspruch-Findings generieren
 
-**Output:** `spec/requirements-analysis/contradiction-analysis.md` — Widersprüche, Inkonsistenzen, Empfehlungen
+**Output:** `spec/analysis/contradiction-analysis.md` — Widersprüche, Inkonsistenzen, Empfehlungen
 
 ---
 
@@ -661,7 +661,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 5. Multi-Source-Verifikation (Hersteller, SDS, Händler)
 6. Report mit Data Quality Findings
 
-**Output:** `spec/requirements-analysis/seed-data-validation.md` — Datenqualitäts-Report mit Findings
+**Output:** `spec/analysis/seed-data-validation.md` — Datenqualitäts-Report mit Findings
 
 ---
 
@@ -753,7 +753,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 4. Marktgröße und -potential schätzen
 5. Report mit Personas und Marktanalyse
 
-**Output:** `spec/requirements-analysis/target-audience-analysis.md` — Zielgruppen-Analyse, Personas, Marktpotenzial
+**Output:** `spec/analysis/target-audience-analysis.md` — Zielgruppen-Analyse, Personas, Marktpotenzial
 
 ---
 
@@ -847,7 +847,7 @@ description: Übersicht aller verfügbaren Claude Code Agents im Kamerplanter-Pr
 ## Hinweise für Entwickler
 
 - **Agent starten:** `/agent <agent-name>` im Claude Code Chat
-- **Reports:** Analyse-Agents schreiben zu `spec/requirements-analysis/`, Selenium-Reports zu `test-reports/`, Testfälle zu `spec/test-cases/`, Doku zu `docs/`
+- **Reports:** Analyse-Agents schreiben zu `spec/analysis/`, Selenium-Reports zu `test-reports/`, Testfälle zu `spec/test-cases/`, Doku zu `docs/`
 - **Modellwahl:** `opus` = höchste Qualität (komplexe Features), `sonnet` = Preis-Leistung (Review, Analyse), `haiku` = schnell & günstig (einfache Tasks)
 - **Tool-Verfügbarkeit:** Nicht alle Agents haben alle Tools — z.B. `png-to-transparent-svg` hat kein Edit-Tool
 

@@ -92,27 +92,29 @@ export default function SubstrateListPage() {
 
   return (
     <>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <PageTitle title={t('pages.substrates.title')} />
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {hasFavorites && (
-            <Tooltip title={t('pages.plantInstances.substrateFavFilter')}>
-              <IconButton
-                onClick={() => setFavFilterActive((p) => !p)}
-                color={favFilterActive ? 'warning' : 'default'}
-              >
-                <FilterListIcon />
-              </IconButton>
-            </Tooltip>
-          )}
-          <Button variant="outlined" startIcon={<BlenderIcon />} onClick={() => setMixOpen(true)}>
-            {t('pages.substrates.createMix')}
-          </Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-            {t('pages.substrates.create')}
-          </Button>
-        </Box>
-      </Box>
+      <PageTitle
+        title={t('pages.substrates.title')}
+        action={
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {hasFavorites && (
+              <Tooltip title={t('pages.plantInstances.substrateFavFilter')}>
+                <IconButton
+                  onClick={() => setFavFilterActive((p) => !p)}
+                  color={favFilterActive ? 'warning' : 'default'}
+                >
+                  <FilterListIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Button variant="outlined" startIcon={<BlenderIcon />} onClick={() => setMixOpen(true)}>
+              {t('pages.substrates.createMix')}
+            </Button>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+              {t('pages.substrates.create')}
+            </Button>
+          </Box>
+        }
+      />
       <DataTable
         columns={columns}
         rows={filteredItems}

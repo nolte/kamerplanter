@@ -146,7 +146,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
         </Typography>
         <form onSubmit={handleSubmit(onSubmit)}>
           {/* --- Taxonomy section --- */}
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, mt: 2 }}>
             {t('pages.species.sectionTaxonomy')}
           </Typography>
           <ExpertiseFieldWrapper minLevel={fc.scientific_name.level}>
@@ -198,7 +198,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
           </ExpertiseFieldWrapper>
 
           {/* --- Growth section --- */}
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, mt: 2 }}>
             {t('pages.species.sectionGrowth')}
           </Typography>
           <ExpertiseFieldWrapper minLevel={fc.growth_habit.level}>
@@ -227,7 +227,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
           </ExpertiseFieldWrapper>
 
           {/* --- Environment section --- */}
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, mt: 2 }}>
             {t('pages.species.sectionEnvironment')}
           </Typography>
           <ExpertiseFieldWrapper minLevel={fc.hardiness_zones.level}>
@@ -267,7 +267,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
           </ExpertiseFieldWrapper>
 
           {/* --- Classification section --- */}
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, mt: 2 }}>
             {t('pages.species.sectionClassification')}
           </Typography>
           <ExpertiseFieldWrapper minLevel={fc.synonyms.level}>
@@ -296,7 +296,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
           </ExpertiseFieldWrapper>
 
           {/* --- Cultivation conditions section --- */}
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, mt: 2 }}>
             {t('pages.species.sectionCultivation')}
           </Typography>
           <ExpertiseFieldWrapper minLevel={fc.container_suitable.level}>

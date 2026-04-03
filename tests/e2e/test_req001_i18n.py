@@ -53,6 +53,7 @@ TRAIT_DE = {
 class TestBotanicalFamilyEnumTranslations:
     """All enum values displayed in German translation (Spec: TC-001-053)."""
 
+    @pytest.mark.requires_desktop
     @pytest.mark.smoke
     def test_botanical_family_enums_in_german(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
@@ -104,6 +105,7 @@ class TestBotanicalFamilyEnumTranslations:
 class TestSpeciesEnumTranslations:
     """Growth habit enums displayed in German on species list (Spec: TC-001-053)."""
 
+    @pytest.mark.requires_desktop
     @pytest.mark.smoke
     def test_species_enums_in_german(
         self, species_list: SpeciesListPage, screenshot: Callable[..., Path]

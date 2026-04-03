@@ -342,28 +342,30 @@ export default function SpeciesDetailPage() {
   return (
     <>
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <PageTitle title={current?.scientific_name ?? t('entities.species')} />
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {key && (
-            <Tooltip title={t('pages.calendar.sowingCalendar.toggleFavorite')}>
-              <IconButton
-                onClick={() => toggleFavorite(key)}
-                color={isFavorite(key) ? 'warning' : 'default'}
-                data-testid="species-favorite-toggle"
-              >
-                {isFavorite(key) ? <StarIcon /> : <StarBorderIcon />}
-              </IconButton>
-            </Tooltip>
-          )}
-          <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setCreatePlantOpen(true)}>
-            {t('pages.species.createPlantInstance')}
-          </Button>
-          <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
-            {t('common.delete')}
-          </Button>
-        </Box>
-      </Box>
+      <PageTitle
+        title={current?.scientific_name ?? t('entities.species')}
+        action={
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {key && (
+              <Tooltip title={t('pages.calendar.sowingCalendar.toggleFavorite')}>
+                <IconButton
+                  onClick={() => toggleFavorite(key)}
+                  color={isFavorite(key) ? 'warning' : 'default'}
+                  data-testid="species-favorite-toggle"
+                >
+                  {isFavorite(key) ? <StarIcon /> : <StarBorderIcon />}
+                </IconButton>
+              </Tooltip>
+            )}
+            <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setCreatePlantOpen(true)}>
+              {t('pages.species.createPlantInstance')}
+            </Button>
+            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
+              {t('common.delete')}
+            </Button>
+          </Box>
+        }
+      />
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }} variant="scrollable" scrollButtons="auto">
         <Tab label={t('common.edit')} />

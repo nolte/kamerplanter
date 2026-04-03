@@ -133,7 +133,12 @@ export default function HarvestCreateDialog({
               control={control}
               label={t('pages.harvest.plantKey')}
               required
-              disabled={loadingPlants}
+              disabled={loadingPlants || plants.length === 0}
+              helperText={
+                !loadingPlants && plants.length === 0
+                  ? t('pages.harvest.noPlantsAvailable')
+                  : undefined
+              }
               options={plants.map((p) => ({
                 value: p.key,
                 label: p.plant_name || p.instance_id,
@@ -145,6 +150,7 @@ export default function HarvestCreateDialog({
             control={control}
             label={t('pages.harvest.batchId')}
             helperText={t('pages.harvest.batchIdHelper')}
+            autoFocus
           />
           <FormSelectField
             name="harvest_type"

@@ -316,7 +316,7 @@ Prüfe systematisch ob folgende Praxis-Workflows in IRGENDEINER Anforderung abge
 
 ## Phase 3: Report erstellen
 
-Erstelle `spec/requirements-analysis/cannabis-indoor-grower-review.md`:
+Erstelle `spec/analysis/cannabis-indoor-grower-review.md`:
 
 ```markdown
 # Indoor-Cannabis-Grower Praxisreview

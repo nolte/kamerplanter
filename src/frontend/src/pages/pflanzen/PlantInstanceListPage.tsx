@@ -353,51 +353,43 @@ export default function PlantInstanceListPage() {
 
   return (
     <Box data-testid="plant-instance-list-page">
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: { xs: 'flex-start', sm: 'center' },
-          flexWrap: 'wrap',
-          gap: 1,
-          mb: 1,
-        }}
-      >
-        <PageTitle title={t('pages.plantInstances.title')} />
-
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <FormControlLabel
-            control={
-              <Switch checked={hideRemoved} onChange={(_, v) => setHideRemoved(v)} size="small" />
-            }
-            label={t('pages.plantInstances.hideRemoved')}
-            sx={{ mr: 0 }}
-          />
-          <Tooltip title={t('print.printLabels')}>
-            <span>
-              <IconButton
-                onClick={() => setLabelDialogOpen(true)}
-                disabled={filteredItems.length === 0}
-                aria-label={t('print.printLabels')}
-                data-testid="label-button"
-              >
-                <QrCode2Icon />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => {
-              setDuplicateData(undefined);
-              setCreateOpen(true);
-            }}
-            data-testid="create-button"
-          >
-            {t('pages.plantInstances.create')}
-          </Button>
-        </Box>
-      </Box>
+      <PageTitle
+        title={t('pages.plantInstances.title')}
+        action={
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <FormControlLabel
+              control={
+                <Switch checked={hideRemoved} onChange={(_, v) => setHideRemoved(v)} size="small" />
+              }
+              label={t('pages.plantInstances.hideRemoved')}
+              sx={{ mr: 0 }}
+            />
+            <Tooltip title={t('print.printLabels')}>
+              <span>
+                <IconButton
+                  onClick={() => setLabelDialogOpen(true)}
+                  disabled={filteredItems.length === 0}
+                  aria-label={t('print.printLabels')}
+                  data-testid="label-button"
+                >
+                  <QrCode2Icon />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => {
+                setDuplicateData(undefined);
+                setCreateOpen(true);
+              }}
+              data-testid="create-button"
+            >
+              {t('pages.plantInstances.create')}
+            </Button>
+          </Box>
+        }
+      />
 
       {!loading && filteredItems.length > 0 && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>

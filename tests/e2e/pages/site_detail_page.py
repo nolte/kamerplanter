@@ -136,6 +136,7 @@ class SiteDetailPage(BasePage):
 
     def cancel_delete(self) -> None:
         self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_for_element_hidden(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_visible(self) -> bool:
         elements = self.driver.find_elements(*self.CONFIRM_DIALOG)

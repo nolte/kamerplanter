@@ -198,6 +198,13 @@ export default function SpeciesWorkflowsSection({ speciesKey }: Props) {
                           size="small"
                           color="primary"
                           variant="outlined"
+                          clickable
+                          aria-label={t('pages.species.viewWorkflowAssignments', { name: wf.name })}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            navigate(`/aufgaben/workflows/${wf.key}`);
+                          }}
                         />
                       )}
                     </Box>

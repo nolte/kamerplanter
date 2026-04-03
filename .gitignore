@@ -39,7 +39,7 @@ site/
 *.tsbuildinfo
 
 # RAG eval results (legacy location — now in test-reports/rag-eval/)
-tests/rag-eval/eval_results.json
+test-reports/rag-eval/eval_results.json
 
 # Pre-downloaded ONNX models (large binaries)
 docker/embedding-service/models/

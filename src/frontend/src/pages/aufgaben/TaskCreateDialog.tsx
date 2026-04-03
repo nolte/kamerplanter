@@ -227,11 +227,18 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
             suffix="min"
           />
           <ExpertiseFieldWrapper minLevel="intermediate">
-            <FormTextField
+            <FormSelectField
               name="recurrence_rule"
               control={control}
               label={t('pages.tasks.recurrenceRule')}
               helperText={t('pages.tasks.recurrenceRuleHelper')}
+              options={[
+                { value: '', label: t('pages.tasks.recurrenceNone') },
+                { value: 'FREQ=DAILY', label: t('pages.tasks.recurrenceDaily') },
+                { value: 'FREQ=WEEKLY', label: t('pages.tasks.recurrenceWeekly') },
+                { value: 'FREQ=WEEKLY;INTERVAL=2', label: t('pages.tasks.recurrenceBiweekly') },
+                { value: 'FREQ=MONTHLY', label: t('pages.tasks.recurrenceMonthly') },
+              ]}
             />
           </ExpertiseFieldWrapper>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>

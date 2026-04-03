@@ -735,17 +735,25 @@ class PlantNextPhaseSensor(KpSensorBase):
             "germination", "seedling", "vegetative", "flowering",
             "ripening", "harvest",
         ]
+        _EXTENDED_PHASES = [
+            "germination", "seedling", "juvenile", "vegetative",
+            "climbing", "short_day_induction", "leaf_phase",
+            "flowering", "ripening", "harvest", "flushing",
+            "drying", "curing", "senescence", "dormancy",
+        ]
         if current_phase:
-            try:
-                idx = next(
-                    i for i, p in enumerate(_STANDARD_PHASES)
-                    if p == current_phase
-                )
-                if idx + 1 < len(_STANDARD_PHASES):
-                    self._attr_native_value = _STANDARD_PHASES[idx + 1]
-                    return
-            except StopIteration:
-                pass
+            # Try extended phases first, fall back to standard
+            for phase_list in (_EXTENDED_PHASES, _STANDARD_PHASES):
+                try:
+                    idx = next(
+                        i for i, p in enumerate(phase_list)
+                        if p == current_phase
+                    )
+                    if idx + 1 < len(phase_list):
+                        self._attr_native_value = phase_list[idx + 1]
+                        return
+                except StopIteration:
+                    continue
 
         self._attr_native_value = None
 

@@ -62,6 +62,7 @@ class TestDiseaseListPage:
             "TC-REQ-010-014 FAIL: Expected [data-testid='create-button'] to be visible"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.smoke
     def test_table_has_expected_column_headers(
         self,
@@ -148,6 +149,7 @@ class TestDiseaseListPage:
             "TC-REQ-010-018 FAIL: Expected zero rows for non-matching search"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.core_crud
     def test_sort_by_column(
         self,

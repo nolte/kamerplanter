@@ -231,7 +231,7 @@ Ordne jede Anforderung einem der drei Integrationskan\u00e4le zu:
 
 ## Phase 3: Report erstellen
 
-Erstelle `spec/requirements-analysis/smart-home-ha-integration-review.md`:
+Erstelle `spec/analysis/smart-home-ha-integration-review.md`:
 
 ```markdown
 # Review: Smart-Home-Enthusiast & Home-Assistant-Integration

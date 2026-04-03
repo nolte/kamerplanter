@@ -26,7 +26,7 @@ from .pages import LoginPage
 pytestmark = pytest.mark.requires_auth
 
 # -- Demo credentials ---------------------------------------------------------
-DEMO_EMAIL = "demo@kamerplanter.local"
+DEMO_EMAIL = "demo@kamerplanter.example"
 DEMO_PASSWORD = "demo-passwort-2024"
 
 

@@ -111,22 +111,34 @@ export default function WateringLogListPage() {
       searchValue: (r) => (r.resolved_fertilizers ?? []).map((rf) => rf.name).join(' '),
     },
     {
-      id: 'ecBeforeAfter',
-      label: `${t('pages.wateringLogs.ecBefore')} / ${t('pages.wateringLogs.ecAfter')}`,
-      hideBelowBreakpoint: 'lg',
-      render: (r) => {
-        const before = r.ec_before != null ? `${r.ec_before}` : '\u2014';
-        const after = r.ec_after != null ? `${r.ec_after}` : '\u2014';
-        return (
-          <Typography variant="body2" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-            {before} / {after}
-            {(r.ec_before != null || r.ec_after != null) && (
-              <Typography component="span" variant="caption" color="text.secondary"> mS/cm</Typography>
-            )}
-          </Typography>
-        );
-      },
-      searchValue: (r) => `${r.ec_before ?? ''} ${r.ec_after ?? ''}`,
+      id: 'ecBefore',
+      label: t('pages.wateringLogs.ecBefore'),
+      hideBelowBreakpoint: 'md',
+      render: (r) => (
+        <Typography variant="body2" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+          {r.ec_before != null ? r.ec_before : '\u2014'}
+          {r.ec_before != null && (
+            <Typography component="span" variant="caption" color="text.secondary"> mS/cm</Typography>
+          )}
+        </Typography>
+      ),
+      align: 'right',
+      searchValue: (r) => (r.ec_before != null ? String(r.ec_before) : ''),
+    },
+    {
+      id: 'ecAfter',
+      label: t('pages.wateringLogs.ecAfter'),
+      hideBelowBreakpoint: 'md',
+      render: (r) => (
+        <Typography variant="body2" sx={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+          {r.ec_after != null ? r.ec_after : '\u2014'}
+          {r.ec_after != null && (
+            <Typography component="span" variant="caption" color="text.secondary"> mS/cm</Typography>
+          )}
+        </Typography>
+      ),
+      align: 'right',
+      searchValue: (r) => (r.ec_after != null ? String(r.ec_after) : ''),
     },
     {
       id: 'phBeforeAfter',
@@ -158,23 +170,19 @@ export default function WateringLogListPage() {
 
   return (
     <Box data-testid="watering-log-list-page">
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <PageTitle title={t('pages.wateringLogs.title')} />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateOpen(true)}
-          data-testid="create-watering-log-button"
-        >
-          {t('pages.wateringLogs.create')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={t('pages.wateringLogs.title')}
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+            data-testid="create-watering-log-button"
+          >
+            {t('pages.wateringLogs.create')}
+          </Button>
+        }
+      />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.wateringLogs.description')}
       </Typography>

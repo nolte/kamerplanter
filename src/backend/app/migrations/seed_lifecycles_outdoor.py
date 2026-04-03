@@ -38,6 +38,7 @@ def run_seed_lifecycles_outdoor() -> None:
             vernalization_required=entry.get("vernalization_required", False),
             vernalization_min_days=entry.get("vernalization_min_days"),
             photoperiod_type=PhotoperiodType(entry.get("photoperiod_type", "day_neutral")),
+            cycle_restart_phase_order=entry.get("cycle_restart_phase_order"),
         )
         created_lc = repo.create_lifecycle(lc)
         lc_key = created_lc.key or ""
@@ -51,6 +52,7 @@ def run_seed_lifecycles_outdoor() -> None:
                 sequence_order=phase_data["sequence_order"],
                 is_terminal=phase_data.get("is_terminal", False),
                 allows_harvest=phase_data.get("allows_harvest", False),
+                is_recurring=phase_data.get("is_recurring", False),
                 stress_tolerance=StressTolerance(phase_data.get("stress_tolerance", "medium")),
             )
             created_phase = repo.create_phase(phase)

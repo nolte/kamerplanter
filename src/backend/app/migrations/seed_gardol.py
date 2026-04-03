@@ -2,14 +2,14 @@
 
 Sources — Gardol:
   Gardol Grünpflanzendünger NPK 6-4-6 (Bauhaus)
-  spec/ref/products/gardol_gruenpflanzenduenger.md
+  spec/knowledge/products/gardol_gruenpflanzenduenger.md
 
 Nutrient plans:
-  spec/ref/nutrient-plans/monstera_deliciosa_gardol.md
-  spec/ref/nutrient-plans/gruenlilie_gardol.md
-  spec/ref/nutrient-plans/einblatt_gardol.md
-  spec/ref/nutrient-plans/guzmania_gardol.md
-  spec/ref/nutrient-plans/yucca_gardol.md
+  spec/knowledge/nutrient-plans/monstera_deliciosa_gardol.md
+  spec/knowledge/nutrient-plans/gruenlilie_gardol.md
+  spec/knowledge/nutrient-plans/einblatt_gardol.md
+  spec/knowledge/nutrient-plans/guzmania_gardol.md
+  spec/knowledge/nutrient-plans/yucca_gardol.md
 """
 
 from typing import Any

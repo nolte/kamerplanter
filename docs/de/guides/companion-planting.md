@@ -119,7 +119,8 @@ Zwei Kraeuter, die sich fast ueberall einsetzen lassen:
 3. Waehlten Sie Ihre Primaerpflanze (z.B. Tomate).
 4. Das System zeigt Ihnen sofort Empfehlungen fuer Begleitpflanzen.
 
-![Screenshot: Mischkultur-Empfehlungen im Pflanzdurchlauf-Dialog](../../assets/images/screenshots/companion-planting-suggestions.png)
+!!! info "Screenshot folgt"
+    Dieser Screenshot wird in einer zukünftigen Version ergänzt.
 
 ### Schritt 2: Begleitpflanzen auswaehlen
 

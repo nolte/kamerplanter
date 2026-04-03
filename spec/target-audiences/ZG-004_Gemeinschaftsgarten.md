@@ -3,7 +3,7 @@
 **Version:** 1.0
 **Datum:** 2026-03-30
 **Kategorie:** Sekundaere Zielgruppe (teilweise adressiert)
-**Quelle:** `spec/requirements-analysis/target-audience-analysis.md`
+**Quelle:** `spec/analysis/target-audience-analysis.md`
 
 ---
 

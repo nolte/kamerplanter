@@ -90,6 +90,9 @@ export default function SubstrateCreateDialog({ open, onClose, onCreated }: Prop
     <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{t('pages.substrates.create')}</DialogTitle>
       <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t('pages.substrates.createIntro')}
+        </Typography>
         <form onSubmit={handleSubmit(onSubmit)}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
             {t('pages.substrates.sectionIdentification')}
@@ -103,9 +106,9 @@ export default function SubstrateCreateDialog({ open, onClose, onCreated }: Prop
               value: v, label: t(`enums.substrateType.${v}`),
             }))}
           />
-          <FormTextField name="brand" control={control} label={t('pages.substrates.brand')} helperText={t('pages.substrates.brandHelper')} />
-          <FormTextField name="name_de" control={control} label={`${t('pages.substrates.name')} (DE)`} helperText={t('pages.substrates.nameHelper')} />
-          <FormTextField name="name_en" control={control} label={`${t('pages.substrates.name')} (EN)`} helperText={t('pages.substrates.nameHelper')} />
+          <FormTextField name="brand" control={control} label={t('pages.substrates.brand')} helperText={t('pages.substrates.brandHelper')} autoFocus />
+          <FormTextField name="name_de" control={control} label={`${t('pages.substrates.name')} (${t('common.langDE')})`} helperText={t('pages.substrates.nameHelper')} />
+          <FormTextField name="name_en" control={control} label={`${t('pages.substrates.name')} (${t('common.langEN')})`} helperText={t('pages.substrates.nameHelper')} />
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
             {t('pages.substrates.sectionChemistry')}
           </Typography>

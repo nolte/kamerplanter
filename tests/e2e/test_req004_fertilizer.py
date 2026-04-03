@@ -76,6 +76,7 @@ class TestFertilizerListPage:
             "TC-REQ-004-001 FAIL: Fertilizer table should be present and row count >= 0"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.smoke
     def test_fertilizer_list_has_required_columns(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
@@ -170,6 +171,7 @@ class TestFertilizerListPage:
             f"TC-REQ-004-005 FAIL: Expected search input to contain 'base', got: '{search_value}'"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.core_crud
     def test_fertilizer_list_sort_by_column(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=./schemas/plant_info.schema.yaml
 # Supplement seed data for 9 species/cultivars missing from plant_info_*.yaml
-# Generated from spec/ref/plant-info/*.md reference documents.
+# Generated from spec/knowledge/plants/*.md reference documents.
 #
 # Covers:
 #   3 outdoor vegetables: Allium porrum, Beta vulgaris subsp. vulgaris,

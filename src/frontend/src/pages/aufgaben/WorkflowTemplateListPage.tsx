@@ -25,7 +25,7 @@ import AddIcon from '@mui/icons-material/Add';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import SearchIcon from '@mui/icons-material/Search';
 import SettingsIcon from '@mui/icons-material/Settings';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -78,9 +78,11 @@ function WorkflowCard({
       >
         <CardContent sx={{ flexGrow: 1, pb: 1 }}>
           {/* Name */}
-          <Typography variant="subtitle1" component="h3" gutterBottom noWrap fontWeight={600}>
-            {workflow.name}
-          </Typography>
+          <Tooltip title={workflow.name} disableHoverListener={workflow.name.length <= 40} enterDelay={500}>
+            <Typography variant="subtitle1" component="h3" gutterBottom noWrap fontWeight={600}>
+              {workflow.name}
+            </Typography>
+          </Tooltip>
 
           {/* Species info */}
           <Box sx={{ mb: 1.5, minHeight: 28 }}>
@@ -201,13 +203,13 @@ function WorkflowCard({
       </CardActionArea>
 
       <CardActions sx={{ justifyContent: 'flex-end', pt: 0, px: 2, pb: 1 }}>
-        <Tooltip title={t('pages.tasks.instantiateWorkflow')}>
+        <Tooltip title={t('pages.tasks.applyWorkflow')}>
           <IconButton
             size="small"
             onClick={() => onInstantiate(workflow.key)}
-            aria-label={t('pages.tasks.instantiateWorkflow')}
+            aria-label={t('pages.tasks.applyWorkflow')}
           >
-            <PlayArrowIcon fontSize="small" />
+            <AssignmentTurnedInIcon fontSize="small" />
           </IconButton>
         </Tooltip>
         <Tooltip title={t('pages.tasks.duplicateWorkflow')}>
@@ -345,17 +347,9 @@ export default function WorkflowTemplateListPage() {
   return (
     <Box data-testid="workflow-template-list-page">
       {/* Header */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' },
-          justifyContent: 'space-between',
-          alignItems: { xs: 'stretch', sm: 'center' },
-          gap: 1,
-        }}
-      >
-        <PageTitle title={t('pages.tasks.workflowsTitle')} />
-        <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+      <PageTitle
+        title={t('pages.tasks.workflowsTitle')}
+        action={
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -364,8 +358,8 @@ export default function WorkflowTemplateListPage() {
           >
             {t('pages.tasks.createWorkflow')}
           </Button>
-        </Box>
-      </Box>
+        }
+      />
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.tasks.workflowsIntro')}

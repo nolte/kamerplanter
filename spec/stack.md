@@ -729,10 +729,10 @@ class ILlmAdapter(ABC):
 
 #### 3.4.4 Knowledge Base (Wissens-YAML)
 
-Die Wissensdatenbank besteht aus ~30 kuratierten YAML-Dateien unter `spec/knowledge/`, organisiert nach Fachbereichen:
+Die Wissensdatenbank besteht aus ~30 kuratierten YAML-Dateien unter `spec/knowledge/rag/`, organisiert nach Fachbereichen:
 
 ```
-spec/knowledge/
+spec/knowledge/rag/
 ├── allgemein/          # Anfänger-Tipps, Fehler vermeiden, Ertragsoptimierung
 ├── bewaesserung/       # Gießstrategien, Wasserqualität, Überwässerung
 ├── diagnostik/         # Nährstoffmangel, pH/EC-Abweichungen, Schädlinge, Pilzkrankheiten
@@ -793,8 +793,8 @@ Beide Endpunkte sind **öffentlich** (keine JWT-Authentifizierung erforderlich).
 
 Unter `tools/rag-eval/` liegt ein Evaluierungs-Framework:
 
-- **Benchmark-Fragen**: `tests/rag-eval/benchmark_questions.yaml` mit erwarteten Themen/Quellen
-- **Topic-Synonyme**: `tests/rag-eval/topic_synonyms.yaml` für Retrieval-Qualitätsmessung
+- **Benchmark-Fragen**: `spec/rag-eval/benchmark_questions.yaml` mit erwarteten Themen/Quellen
+- **Topic-Synonyme**: `spec/rag-eval/topic_synonyms.yaml` für Retrieval-Qualitätsmessung
 - **Eval-Script**: `tools/rag-eval/eval_rag.py` — automatisierte Qualitätsprüfung der RAG-Pipeline
 - **Notebook**: `tools/rag-eval/rag_eval.ipynb` — interaktive Analyse und Visualisierung
 

@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=./schemas/plant_info.schema.yaml
-# Plant-info seed data from spec/ref/plant-info/*.md (32 documents, 28 species).
+# Plant-info seed data from spec/knowledge/plants/*.md (32 documents, 28 species).
 #
 # Adds 1 new botanical family (Iridaceae), 4 new species, enriches 24 existing
 # species, adds art-specific growth phases for 11 species, ~120 cultivars,

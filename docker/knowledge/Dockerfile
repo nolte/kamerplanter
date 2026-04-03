@@ -6,7 +6,7 @@ LABEL org.opencontainers.image.title="kamerplanter-knowledge" \
       org.opencontainers.image.vendor="Kamerplanter" \
       org.opencontainers.image.licenses="MIT"
 
-COPY spec/knowledge/ /knowledge/
+COPY spec/knowledge/rag/ /knowledge/
 
 # Init container entrypoint: copy knowledge files to shared volume.
 # Mount an emptyDir at /target — all knowledge YAMLs are copied there.

@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:5173"
     hibp_enabled: bool = False
     require_email_verification: bool = False  # Set True in production
+    cookie_secure: bool = True  # Set False for HTTP-only E2E environments
 
     # Email
     email_adapter: str = "console"  # console | smtp | resend

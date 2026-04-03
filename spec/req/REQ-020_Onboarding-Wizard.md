@@ -741,7 +741,7 @@ Jedes Kit liefert für jede enthaltene Species:
 | `balkon-blumen` | Petunie Plagron Terra, Stiefmütterchen Plagron Terra | Erde |
 | `balkon-blumen-voranzucht` | Petunie Plagron Terra, Stiefmütterchen Plagron Terra | Erde |
 
-**Hinweis:** Die Nährstoffpläne werden aus den bestehenden Seed-Daten unter `spec/ref/nutrient-plans/` referenziert. Jeder Plan muss als `is_template: true` in der `nutrient_plans`-Collection existieren.
+**Hinweis:** Die Nährstoffpläne werden aus den bestehenden Seed-Daten unter `spec/knowledge/nutrient-plans/` referenziert. Jeder Plan muss als `is_template: true` in der `nutrient_plans`-Collection existieren.
 <!-- /Quelle: Favoriten-System v1.5 -->
 
 **Zimmerpflanzen-spezifische GrowthPhases:**

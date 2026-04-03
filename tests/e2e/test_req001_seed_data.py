@@ -50,6 +50,7 @@ SEED_FAMILIES = [
 class TestSeedDataFamilies:
     """Verify seed data — 9 botanical families (Spec: TC-001-054)."""
 
+    @pytest.mark.requires_desktop
     @pytest.mark.smoke
     def test_nine_seed_families_present(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]

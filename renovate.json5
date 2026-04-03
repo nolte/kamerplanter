@@ -2,5 +2,6 @@
   "extends": [
     "github>nolte/gh-plumbing//renovate-configs/common#v1.1.12",
     "group:all"
-  ]
+  ],
+  "mode": "full"
 }

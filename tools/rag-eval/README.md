@@ -144,6 +144,6 @@ Beide Varianten schreiben `test-reports/rag-eval/eval_results.json`:
 
 | Datei | Beschreibung |
 |-------|-------------|
-| `tests/rag-eval/benchmark_questions.yaml` | 100 kuratierte Fragen mit erwarteten Topics |
-| `tests/rag-eval/topic_synonyms.yaml` | Synonym-Woerterbuch fuer Topic-Match (Regex + Keywords) |
-| `tests/rag-eval/RAG_EVAL_SPEC.md` | Vollstaendige Spezifikation des Eval-Frameworks |
+| `spec/rag-eval/benchmark_questions.yaml` | 100 kuratierte Fragen mit erwarteten Topics |
+| `spec/rag-eval/topic_synonyms.yaml` | Synonym-Woerterbuch fuer Topic-Match (Regex + Keywords) |
+| `spec/rag-eval/RAG_EVAL_SPEC.md` | Vollstaendige Spezifikation des Eval-Frameworks |

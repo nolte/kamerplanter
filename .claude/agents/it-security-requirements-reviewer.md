@@ -265,7 +265,7 @@ Prüfe gegen den Soll-Zustand aus REQ-024:
 
 ## Phase 3: Report erstellen
 
-Erstelle `spec/requirements-analysis/it-security-review.md`:
+Erstelle `spec/analysis/it-security-review.md`:
 
 ```markdown
 # IT-Security Anforderungsreview

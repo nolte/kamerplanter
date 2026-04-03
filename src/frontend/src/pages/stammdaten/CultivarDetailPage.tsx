@@ -228,16 +228,18 @@ export default function CultivarDetailPage() {
     <Box data-testid="cultivar-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <PageTitle title={cultivar?.name ?? t('entities.cultivar')} />
-        <Button
-          color="error"
-          startIcon={<DeleteIcon />}
-          onClick={() => setDeleteOpen(true)}
-        >
-          {t('common.delete')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={cultivar?.name ?? t('entities.cultivar')}
+        action={
+          <Button
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => setDeleteOpen(true)}
+          >
+            {t('common.delete')}
+          </Button>
+        }
+      />
 
       {/* Species context chip */}
       {species && (

@@ -495,7 +495,7 @@ Werden als Defaults verwendet wenn kein CLI-Argument gesetzt ist:
 | `VECTORDB_DSN` | `host=localhost port=5433 dbname=kamerplanter_vectors ...` |
 | `LLM_API_URL` | `http://localhost:11434` |
 | `LLM_MODEL` | `gemma3:4b` |
-| `EVAL_DATA_DIR` | `tests/rag-eval/` |
+| `EVAL_DATA_DIR` | `spec/rag-eval/` |
 
 ### Resume-Mechanismus
 
@@ -508,7 +508,7 @@ Jede Frage wird gegen erwartete Topics (`expected_topics`) und Ausschluss-Topics
 ### Testdaten
 
 ```
-tests/rag-eval/
+spec/rag-eval/
 ├── benchmark_questions.yaml   # 100 kuratierte Fragen mit erwarteten Topics
 ├── smoke_questions.yaml       # Schnelle Smoke-Test-Teilmenge
 ├── topic_synonyms.yaml        # Synonym-Woerterbuch fuer Topic-Matching
@@ -516,7 +516,7 @@ tests/rag-eval/
 └── RAG_EVAL_SPEC.md           # Detaillierte Framework-Spezifikation
 ```
 
-Detaillierte Spezifikation des Frameworks: `tests/rag-eval/RAG_EVAL_SPEC.md`
+Detaillierte Spezifikation des Frameworks: `spec/rag-eval/RAG_EVAL_SPEC.md`
 
 ---
 

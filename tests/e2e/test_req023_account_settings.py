@@ -23,7 +23,7 @@ from .pages import AccountSettingsPage, LoginPage
 pytestmark = pytest.mark.requires_auth
 
 # -- Demo credentials ---------------------------------------------------------
-DEMO_EMAIL = "demo@kamerplanter.local"
+DEMO_EMAIL = "demo@kamerplanter.example"
 DEMO_PASSWORD = "demo-passwort-2024"
 
 
@@ -79,7 +79,7 @@ class TestAccountSettingsProfile:
         assert len(tab_labels) > 0, (
             "TC-REQ-023-024 FAIL: Expected at least one tab in account settings"
         )
-        assert any("Profil" in label for label in tab_labels), (
+        assert any("profil" in label.lower() for label in tab_labels), (
             f"TC-REQ-023-024 FAIL: Expected 'Profil' tab, got: {tab_labels}"
         )
 
@@ -270,7 +270,7 @@ class TestAccountSettingsTabs:
 
         tab_labels = account_page.get_tab_labels()
 
-        expected_tabs = ["Profil", "Sicherheit"]
+        expected_tabs = ["Profil", "Sicherheit", "Benachrichtigungen", "Erfahrung"]
         for expected in expected_tabs:
             assert any(expected in label for label in tab_labels), (
                 f"TC-REQ-023-030 FAIL: Expected tab '{expected}' in tab list, got: {tab_labels}"

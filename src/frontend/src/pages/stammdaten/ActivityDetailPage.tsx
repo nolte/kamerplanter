@@ -194,19 +194,21 @@ export default function ActivityDetailPage() {
   return (
     <Box data-testid="activity-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <PageTitle title={displayName} />
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {activity.is_system && (
-            <Chip label={t('pages.activities.systemActivity')} color="info" size="small" />
-          )}
-          {!activity.is_system && (
-            <Button color="error" onClick={() => setDeleteOpen(true)}>
-              {t('common.delete')}
-            </Button>
-          )}
-        </Box>
-      </Box>
+      <PageTitle
+        title={displayName}
+        action={
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {activity.is_system && (
+              <Chip label={t('pages.activities.systemActivity')} color="info" size="small" />
+            )}
+            {!activity.is_system && (
+              <Button color="error" onClick={() => setDeleteOpen(true)}>
+                {t('common.delete')}
+              </Button>
+            )}
+          </Box>
+        }
+      />
 
       {activity.is_system && (
         <Alert severity="info" sx={{ mb: 2 }}>

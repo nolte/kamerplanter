@@ -81,7 +81,7 @@ Erstelle für jede vom Nutzer beschriebene Grafik einen **produktionsreifen Gemi
 **BEVOR du irgendeinen Prompt erstellst**, lies IMMER die vollstaendige Kami-Charakter-Referenz:
 
 ```
-spec/ref/graphic-prompts/KAMI-CHARACTER-REFERENCE.md
+spec/design/KAMI-CHARACTER-REFERENCE.md
 ```
 
 Dieses Dokument ist die **verbindliche Quelle** fuer:
@@ -186,13 +186,13 @@ Avoid: photorealistic human faces, text/typography in the image, watermarks, bus
 Erstelle pro Grafikauftrag ein strukturiertes Prompt-Dokument. Speichere es unter:
 
 ```
-spec/ref/graphic-prompts/<grafiktyp>_<beschreibung_snake_case>.md
+spec/design/<grafiktyp>_<beschreibung_snake_case>.md
 ```
 
 Beispiele:
-- `spec/ref/graphic-prompts/app-icon_kamerplanter_logo.md`
-- `spec/ref/graphic-prompts/empty-state_keine_pflanzen.md`
-- `spec/ref/graphic-prompts/onboarding_willkommen.md`
+- `spec/design/app-icon_kamerplanter_logo.md`
+- `spec/design/empty-state_keine_pflanzen.md`
+- `spec/design/onboarding_willkommen.md`
 
 ### Dokument-Struktur
 
@@ -261,7 +261,7 @@ Falls sinnvoll, zusätzliche Prompt-Varianten:
 
 Wenn der Nutzer mehrere Grafiken auf einmal anfordert:
 
-1. Erstelle eine Übersichtsdatei: `spec/ref/graphic-prompts/_index.md`
+1. Erstelle eine Übersichtsdatei: `spec/design/_index.md`
 2. Liste alle generierten Prompts mit Status
 3. Achte auf **visuelle Konsistenz** zwischen den Prompts:
    - Gleicher Illustrationsstil

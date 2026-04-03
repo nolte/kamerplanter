@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
@@ -12,7 +12,8 @@ import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchBatches } from '@/store/slices/harvestSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
-import type { HarvestBatch } from '@/api/types';
+import type { HarvestBatch, PlantInstance } from '@/api/types';
+import * as plantApi from '@/api/endpoints/plantInstances';
 import HarvestCreateDialog from './HarvestCreateDialog';
 import { kamiHarvest } from '@/assets/brand/illustrations';
 
@@ -32,6 +33,7 @@ export default function HarvestBatchListPage() {
   const navigate = useNavigate();
   const { batches, loading } = useAppSelector((s) => s.harvest);
   const [createOpen, setCreateOpen] = useState(false);
+  const [plantMap, setPlantMap] = useState<Map<string, PlantInstance>>(new Map());
   const tableState = useTableUrlState({
     defaultSort: { column: 'harvestDate', direction: 'desc' },
   });
@@ -40,7 +42,24 @@ export default function HarvestBatchListPage() {
     dispatch(fetchBatches({}));
   }, [dispatch]);
 
-  const columns: Column<HarvestBatch>[] = [
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolve() {
+      const plants = await plantApi.listPlantInstances(0, 500);
+      if (cancelled) return;
+      const map = new Map<string, PlantInstance>();
+      for (const p of plants) {
+        map.set(p.key, p);
+      }
+      setPlantMap(map);
+    }
+
+    resolve().catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const columns: Column<HarvestBatch>[] = useMemo(() => [
     {
       id: 'batchId',
       label: t('pages.harvest.batchId'),
@@ -49,7 +68,14 @@ export default function HarvestBatchListPage() {
     {
       id: 'plantKey',
       label: t('pages.harvest.plantKey'),
-      render: (r) => r.plant_key,
+      render: (r) => {
+        const plant = plantMap.get(r.plant_key);
+        return plant?.plant_name || plant?.instance_id || r.plant_key;
+      },
+      searchValue: (r) => {
+        const plant = plantMap.get(r.plant_key);
+        return plant?.plant_name || plant?.instance_id || r.plant_key;
+      },
       hideBelowBreakpoint: 'md',
     },
     {
@@ -100,27 +126,23 @@ export default function HarvestBatchListPage() {
           ? t(`enums.qualityGrade.${r.quality_grade}`)
           : '',
     },
-  ];
+  ], [t, plantMap]);
 
   return (
     <Box data-testid="harvest-batch-list-page">
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <PageTitle title={t('pages.harvest.title')} />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateOpen(true)}
-          data-testid="create-button"
-        >
-          {t('pages.harvest.create')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={t('pages.harvest.title')}
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+            data-testid="create-button"
+          >
+            {t('pages.harvest.create')}
+          </Button>
+        }
+      />
       <Typography
         variant="body2"
         color="text.secondary"

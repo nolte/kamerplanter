@@ -396,26 +396,19 @@ export default function SiteListPage() {
 
   return (
     <Box data-testid="site-list-page">
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: { xs: 'flex-start', sm: 'center' },
-          flexWrap: 'wrap',
-          gap: 1,
-          mb: 1,
-        }}
-      >
-        <PageTitle title={t('pages.sites.title')} />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateOpen(true)}
-          data-testid="create-button"
-        >
-          {t('pages.sites.create')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={t('pages.sites.title')}
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+            data-testid="create-button"
+          >
+            {t('pages.sites.create')}
+          </Button>
+        }
+      />
 
       {!loading && sites.length > 0 && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

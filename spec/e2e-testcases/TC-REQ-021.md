@@ -2,12 +2,13 @@
 req_id: REQ-021
 title: Dreistufiger UI-Modus (Einsteiger / Fortgeschritten / Experte)
 category: Benutzerführung
-test_count: 52
+test_count: 60
 coverage_areas:
   - Erfahrungsstufen-Umschalter (AccountSettingsPage Tab "Erfahrungsstufe")
   - Onboarding-Schritt ExperienceLevelStep (Erstauswahl)
   - Serverseitige Persistenz (geräteübergreifende Wiederherstellung)
   - Navigations-Tiering (Seitenleiste, 3 Stufen)
+  - Beginner-Navigations-Set v1.2 (8 Menüpunkte incl. Standorte, Kalender, Gießprotokoll, Pflege-Dashboard)
   - Feld-Sichtbarkeit SpeciesCreateDialog
   - Feld-Sichtbarkeit PlantingRunCreateDialog
   - Feld-Sichtbarkeit SiteCreateDialog / WaterSourceSection
@@ -20,13 +21,15 @@ coverage_areas:
   - Quick-Add-Plant-Dialog (Beginner-Flow, Abschnitt 3.8)
   - Default-Wert für neue Nutzer
   - i18n-Sprachumschaltung (DE/EN)
-generated: 2026-03-21
-version: "1.1"
+  - Navigations-Referenztabelle 19 Pfade x 3 Stufen (§ 3.3)
+  - Begründungs-Tooltip bei gesperrten Menüpunkten
+generated: 2026-04-02
+version: "1.2"
 ---
 
 # TC-REQ-021: Dreistufiger UI-Modus (Erfahrungsstufen)
 
-Dieses Dokument enthaelt End-to-End-Testfaelle aus **REQ-021 Erfahrungsstufen-basierter UI-Modus v1.1**, ausschliesslich aus der Perspektive eines Nutzers im Browser. Keine API-Calls, HTTP-Statuscodes oder Datenbankabfragen erscheinen in diesen Testfaellen. Alle Schritte beschreiben, was der Nutzer sieht, anklickt, eintippt und auf dem Bildschirm erwartet.
+Dieses Dokument enthaelt End-to-End-Testfaelle aus **REQ-021 Erfahrungsstufen-basierter UI-Modus v1.2**, ausschliesslich aus der Perspektive eines Nutzers im Browser. Keine API-Calls, HTTP-Statuscodes oder Datenbankabfragen erscheinen in diesen Testfaellen. Alle Schritte beschreiben, was der Nutzer sieht, anklickt, eintippt und auf dem Bildschirm erwartet.
 
 Die UI-Sprache ist **Deutsch** (Standard-Locale). Alle Labels, Buttons und Meldungen entsprechen den deutschen i18n-Texten. Der Modus wird serverseitig in der `user_preferences`-Collection gespeichert und beim Login automatisch geladen; das Backend liefert immer alle Daten — die Filterung erfolgt ausschliesslich im Frontend.
 
@@ -155,7 +158,7 @@ Die UI-Sprache ist **Deutsch** (Standard-Locale). Alle Labels, Buttons und Meldu
 - Es erscheint **keine** Bestätigungs-Dialog-Box (kein `window.confirm`)
 - Der Button "Fortgeschritten" ist sofort als aktiv markiert
 - Eine Erfolgsmeldung (Snackbar) "Gespeichert" erscheint kurz
-- Die Seitenleisten-Navigation ändert sich sofort: Neue Menüpunkte "Standorte", "Düngung", "Stammdaten" und "Kalender" erscheinen in der Navigation
+- Die Seitenleisten-Navigation ändert sich sofort: Zusätzlich zu den bereits für Einsteiger sichtbaren Punkten erscheinen "Düngung" (mit "Düngemittel" und "Nährstoffpläne") und "Stammdaten" (mit "Botanische Familien" und "Arten") — "Standorte", "Kalender", "Gießprotokoll" und "Pflege-Dashboard" waren bereits im Einsteiger-Modus sichtbar
 
 **Nachbedingungen**:
 - Erfahrungsstufe ist auf `intermediate` gespeichert (serverseitig via PATCH /api/v1/user-preferences)
@@ -227,13 +230,14 @@ Die UI-Sprache ist **Deutsch** (Standard-Locale). Alle Labels, Buttons und Meldu
 - Dialog schließt sich
 - ToggleButton "Anfänger" ist jetzt aktiv markiert
 - Snackbar "Gespeichert" erscheint
-- In der Seitenleiste verschwinden sofort alle Expert-/Intermediate-Menüpunkte
-- Nur noch 5 Kernmenüpunkte sind sichtbar: Dashboard, Pflanzen (Pflanzeninstanzen), Aufgaben (Aufgabenwarteschlange), Einstellungen sowie ggf. Onboarding/Pflege
+- In der Seitenleiste verschwinden sofort alle Expert-/Intermediate-exklusiven Menüpunkte ("Düngung", "Stammdaten", "Pflanzenschutz", "Ernte", "Durchläufe" usw.)
+- Genau 8 Kernmenüpunkte bleiben sichtbar: Dashboard, Kalender, Gießprotokoll, Pflege-Dashboard, Meine Pflanzen (Pflanzeninstanzen), Aufgaben (Aufgabenwarteschlange), Standorte, Einrichtung/Onboarding; sowie Einstellungen im Menü
+- Folgende Abschnitte sind **nicht** mehr sichtbar: "Düngung", "Stammdaten", "Durchläufe", "Pflanzenschutz", "Ernte"
 
 **Nachbedingungen**:
 - Erfahrungsstufe auf `beginner` gespeichert
 
-**Tags**: [req-021, downgrade, confirmed, beginner-navigation, data-preservation]
+**Tags**: [req-021, downgrade, confirmed, beginner-navigation, 8-items, data-preservation]
 
 ---
 
@@ -300,15 +304,14 @@ Die UI-Sprache ist **Deutsch** (Standard-Locale). Alle Labels, Buttons und Meldu
 2. Nutzer beobachtet die Seitenleisten-Navigation nach dem Redirect auf `/dashboard`
 
 **Erwartete Ergebnisse**:
-- Die Seitenleiste zeigt sofort Intermediate-Menüpunkte: "Standorte", "Düngung", "Stammdaten", "Kalender" sind sichtbar
-- Beginner-only-Menüpunkte fehlen nicht (sie bleiben sichtbar, da Intermediate alle Beginner-Punkte enthält)
-- Expert-exklusive Menüpunkte ("Pflanzenschutz", "Ernte", "Durchläufe") sind **nicht** sichtbar
+- Die Seitenleiste zeigt sofort alle Intermediate-Menüpunkte: Alle 8 Beginner-Punkte sind sichtbar (inkl. "Standorte", "Kalender", "Gießprotokoll", "Pflege-Dashboard") sowie zusätzlich "Düngung" (mit Düngemittel und Nährstoffpläne) und "Stammdaten" (mit Botanische Familien und Arten)
+- Expert-exklusive Menüpunkte ("Pflanzenschutz", "Ernte", "Durchläufe", "Tanks", "Substrate") sind **nicht** sichtbar
 - Im Tab "Erfahrungsstufe" der Kontoeinstellungen ist "Fortgeschritten" als aktiv markiert
 
 **Nachbedingungen**:
 - Keine Änderung (Persistenz bestätigt)
 
-**Tags**: [req-021, persistence, cross-session, login-restore, intermediate]
+**Tags**: [req-021, persistence, cross-session, login-restore, intermediate, v1.2]
 
 ---
 
@@ -326,7 +329,7 @@ Die UI-Sprache ist **Deutsch** (Standard-Locale). Alle Labels, Buttons und Meldu
 
 **Erwartete Ergebnisse**:
 - Im Tab "Erfahrungsstufe" ist "Anfänger" als aktiv markiert
-- Seitenleiste zeigt nur Beginner-Menüpunkte (max. 5 Kernpunkte)
+- Seitenleiste zeigt genau die 8 Beginner-Kernmenüpunkte: Dashboard, Kalender, Gießprotokoll, Pflege-Dashboard, Meine Pflanzen, Aufgaben, Standorte, Einrichtung
 
 **Nachbedingungen**:
 - Keine Änderung
@@ -337,9 +340,9 @@ Die UI-Sprache ist **Deutsch** (Standard-Locale). Alle Labels, Buttons und Meldu
 
 ## 4. Navigations-Tiering
 
-### TC-021-013: Anfänger-Navigation zeigt genau die Kernmenüpunkte
+### TC-021-013: Anfänger-Navigation zeigt genau die 8 Kernmenüpunkte (v1.2)
 
-**Requirement**: REQ-021 § 3.3 — "Einsteiger (5 Menüpunkte)"
+**Requirement**: REQ-021 § 3.3 — "Einsteiger (8 Menüpunkte + Einrichtung & Einstellungen)"
 **Priority**: Critical
 **Category**: Listenansicht
 **Vorbedingungen**:
@@ -350,21 +353,28 @@ Die UI-Sprache ist **Deutsch** (Standard-Locale). Alle Labels, Buttons und Meldu
 2. Nutzer liest alle sichtbaren Menüeinträge
 
 **Erwartete Ergebnisse**:
-- Sichtbare Top-Level-Punkte und Abschnitte: Dashboard, Pflanzen (Abschnitt mit Eintrag "Pflanzeninstanzen"), Aufgaben (Abschnitt mit "Aufgabenwarteschlange"), Pflege (wenn Eintrag `/pflege` aktiv)
-- Folgende Menüabschnitte sind **nicht** sichtbar: Stammdaten, Standorte, Düngung, Pflanzenschutz, Ernte, Durchläufe
-- Folgende Einzelpunkte sind **nicht** sichtbar: "Arten", "Botanische Familien", "Substrate", "Tanks", "Düngemittel", "Nährstoffpläne", "Nährstoff-Berechnungen", "Schädlinge", "Krankheiten", "Behandlungen", "Erntechargen", "Pflanzdurchläufe", "Workflows"
-- "Kalender" ist ebenfalls **nicht** sichtbar (erfordert `intermediate`)
+- Folgende 8 Kernmenüpunkte sind sichtbar:
+  1. Dashboard (`/dashboard`)
+  2. Kalender (`/kalender`)
+  3. Gießprotokoll (`/giessprotokoll`)
+  4. Pflege-Dashboard (`/pflege`)
+  5. Meine Pflanzen / Pflanzeninstanzen (`/pflanzen/plant-instances`)
+  6. Aufgaben / Aufgabenwarteschlange (`/aufgaben/queue`)
+  7. Standorte (`/standorte/sites`)
+  8. Einrichtung / Onboarding (`/onboarding`)
+- Folgende Menüabschnitte sind **nicht** sichtbar: Düngung, Stammdaten, Pflanzenschutz, Ernte, Durchläufe
+- Folgende Einzelpunkte sind **nicht** sichtbar: "Botanische Familien", "Arten", "Substrate", "Tanks", "Düngemittel", "Nährstoffpläne", "Nährstoff-Berechnungen", "Schädlinge", "Krankheiten", "Behandlungen", "Erntechargen", "Pflanzdurchläufe", "Workflows", "Mischkultur", "Fruchtfolge", "Import"
 
 **Nachbedingungen**:
 - Keine Änderung
 
-**Tags**: [req-021, beginner-navigation, sidebar, nav-tiering, 5-items]
+**Tags**: [req-021, beginner-navigation, sidebar, nav-tiering, 8-items, v1.2]
 
 ---
 
-### TC-021-014: Fortgeschritten-Navigation enthält zusätzliche Abschnitte
+### TC-021-014: Fortgeschritten-Navigation enthält alle Beginner-Punkte plus Düngung und Stammdaten (v1.2)
 
-**Requirement**: REQ-021 § 3.3 — "Fortgeschritten (8 Menüpunkte)"
+**Requirement**: REQ-021 § 3.3 — "Fortgeschritten (zusätzlich zu Einsteiger: Düngung, Stammdaten)"
 **Priority**: High
 **Category**: Listenansicht
 **Vorbedingungen**:
@@ -375,14 +385,14 @@ Die UI-Sprache ist **Deutsch** (Standard-Locale). Alle Labels, Buttons und Meldu
 2. Nutzer liest alle sichtbaren Menüeinträge
 
 **Erwartete Ergebnisse**:
-- Alle Beginner-Punkte sind sichtbar
-- Zusätzlich sichtbar: Abschnitt "Stammdaten" mit Einträgen "Botanische Familien" und "Arten"; Abschnitt "Standorte" mit Eintrag "Standorte"; Abschnitt "Düngung" mit "Düngemittel" und "Nährstoffpläne"; "Kalender" als Top-Level-Eintrag
-- Folgende Expert-Punkte sind **nicht** sichtbar: "Pflanzenschutz", "Ernte", "Durchläufe", "Substrate", "Tanks", "Nährstoff-Berechnungen", "Mischkultur", "Fruchtfolge"
+- Alle 8 Beginner-Punkte sind sichtbar (Dashboard, Kalender, Gießprotokoll, Pflege-Dashboard, Meine Pflanzen, Aufgaben, Standorte, Einrichtung)
+- Zusätzlich sichtbar: Abschnitt "Stammdaten" mit Einträgen "Botanische Familien" (`/stammdaten/botanical-families`) und "Arten" (`/stammdaten/species`); Abschnitt "Düngung" mit "Düngemittel" (`/duengung/fertilizers`) und "Nährstoffpläne" (`/duengung/plans`)
+- Folgende Expert-Punkte sind **nicht** sichtbar: "Pflanzenschutz", "Ernte", "Durchläufe", "Substrate", "Tanks", "Nährstoff-Berechnungen", "Mischkultur", "Fruchtfolge", "Import", "Workflows"
 
 **Nachbedingungen**:
 - Keine Änderung
 
-**Tags**: [req-021, intermediate-navigation, sidebar, nav-tiering]
+**Tags**: [req-021, intermediate-navigation, sidebar, nav-tiering, v1.2]
 
 ---
 
@@ -429,6 +439,220 @@ Die UI-Sprache ist **Deutsch** (Standard-Locale). Alle Labels, Buttons und Meldu
 - Keine Änderung der Erfahrungsstufe
 
 **Tags**: [req-021, url-direct-access, no-access-control, beginner]
+
+---
+
+## 4b. Navigations-Tiering — Neue Beginner-Routen (v1.2)
+
+### TC-021-053: Einsteiger-Modus zeigt Menüpunkt "Standorte" (`/standorte/sites`)
+
+**Requirement**: REQ-021 § 3.3 v1.2 — "Standorte sind Grundinfrastruktur — ohne Standort kein vollständiger Pflanzen-Workflow"
+**Priority**: Critical
+**Category**: Listenansicht
+**Vorbedingungen**:
+- Nutzer ist eingeloggt, Erfahrungsstufe: `beginner`
+
+**Testschritte**:
+1. Nutzer öffnet die Seitenleiste (Sidebar)
+2. Nutzer sucht den Eintrag "Standorte" in der Navigation
+
+**Erwartete Ergebnisse**:
+- Der Menüpunkt "Standorte" ist in der Seitenleiste sichtbar
+- Beim Klick auf "Standorte" navigiert der Browser zu `/standorte/sites`
+- Die Standortliste lädt und ist vollständig bedienbar
+
+**Nachbedingungen**:
+- Nutzer befindet sich auf `/standorte/sites`
+
+**Tags**: [req-021, beginner-navigation, standorte, v1.2, new-beginner-route]
+
+---
+
+### TC-021-054: Einsteiger-Modus zeigt Menüpunkt "Kalender" (`/kalender`)
+
+**Requirement**: REQ-021 § 3.3 v1.2 — "Zeitplanung ist Grundfunktion"; Referenztabelle: `/kalender` = Einsteiger
+**Priority**: Critical
+**Category**: Listenansicht
+**Vorbedingungen**:
+- Nutzer ist eingeloggt, Erfahrungsstufe: `beginner`
+
+**Testschritte**:
+1. Nutzer öffnet die Seitenleiste (Sidebar)
+2. Nutzer sucht den Eintrag "Kalender" in der Navigation
+
+**Erwartete Ergebnisse**:
+- Der Menüpunkt "Kalender" ist in der Seitenleiste sichtbar
+- Beim Klick auf "Kalender" navigiert der Browser zu `/kalender`
+- Die Kalenderansicht lädt
+
+**Nachbedingungen**:
+- Nutzer befindet sich auf `/kalender`
+
+**Tags**: [req-021, beginner-navigation, kalender, v1.2, new-beginner-route]
+
+---
+
+### TC-021-055: Einsteiger-Modus zeigt Menüpunkt "Gießprotokoll" (`/giessprotokoll`)
+
+**Requirement**: REQ-021 § 3.3 v1.2 — "Gieß-Tracking ist Kernbedürfnis"; Referenztabelle: `/giessprotokoll` = Einsteiger
+**Priority**: Critical
+**Category**: Listenansicht
+**Vorbedingungen**:
+- Nutzer ist eingeloggt, Erfahrungsstufe: `beginner`
+
+**Testschritte**:
+1. Nutzer öffnet die Seitenleiste (Sidebar)
+2. Nutzer sucht den Eintrag "Gießprotokoll" in der Navigation
+
+**Erwartete Ergebnisse**:
+- Der Menüpunkt "Gießprotokoll" ist in der Seitenleiste sichtbar
+- Beim Klick navigiert der Browser zu `/giessprotokoll`
+- Die Gießprotokoll-Seite lädt
+
+**Nachbedingungen**:
+- Nutzer befindet sich auf `/giessprotokoll`
+
+**Tags**: [req-021, beginner-navigation, giessprotokoll, v1.2, new-beginner-route]
+
+---
+
+### TC-021-056: Einsteiger-Modus zeigt Menüpunkt "Pflege-Dashboard" (`/pflege`)
+
+**Requirement**: REQ-021 § 3.3 v1.2 — "Pflege-Dashboard (REQ-022)"; Referenztabelle: `/pflege` = Einsteiger
+**Priority**: Critical
+**Category**: Listenansicht
+**Vorbedingungen**:
+- Nutzer ist eingeloggt, Erfahrungsstufe: `beginner`
+
+**Testschritte**:
+1. Nutzer öffnet die Seitenleiste (Sidebar)
+2. Nutzer sucht den Eintrag "Pflege-Dashboard" (oder "Pflege") in der Navigation
+
+**Erwartete Ergebnisse**:
+- Der Menüpunkt "Pflege-Dashboard" (oder "Pflege") ist in der Seitenleiste sichtbar
+- Beim Klick navigiert der Browser zu `/pflege`
+- Die Pflege-Dashboard-Seite lädt mit den anstehenden Pflegeaufgaben
+
+**Nachbedingungen**:
+- Nutzer befindet sich auf `/pflege`
+
+**Tags**: [req-021, beginner-navigation, pflege-dashboard, v1.2, new-beginner-route, req-022]
+
+---
+
+### TC-021-057: Einsteiger sieht NICHT "Durchläufe", "Tanks", "Substrate", "IPM" (Negativprüfung)
+
+**Requirement**: REQ-021 § 3.3 v1.2 — Referenztabelle: `/durchlaeufe/planting-runs`, `/standorte/tanks`, `/standorte/substrates`, `/pflanzenschutz/*` = Experte
+**Priority**: Critical
+**Category**: Listenansicht
+**Vorbedingungen**:
+- Nutzer ist eingeloggt, Erfahrungsstufe: `beginner`
+
+**Testschritte**:
+1. Nutzer öffnet die Seitenleiste (Sidebar)
+2. Nutzer prüft alle sichtbaren Menüeinträge gegen die verbotene Liste
+
+**Erwartete Ergebnisse**:
+- Folgende Menüpunkte sind **nicht** sichtbar: "Durchläufe" / "Pflanzdurchläufe", "Tanks", "Substrate", "Schädlinge", "Krankheiten", "Behandlungen" (IPM-Sektion), "Ernte" / "Erntechargen", "Workflows", "Nährstoff-Berechnungen", "Mischkultur", "Fruchtfolge", "Import"
+- Die Abschnitte "Düngung", "Stammdaten" (Familien/Arten), "Pflanzenschutz" sind vollständig ausgeblendet
+
+**Nachbedingungen**:
+- Keine Änderung
+
+**Tags**: [req-021, beginner-navigation, negative-test, hidden-items, v1.2]
+
+---
+
+### TC-021-058: Vollständige Navigations-Matrix — 19 Pfade, 3 Stufen (§ 3.3 Referenztabelle)
+
+**Requirement**: REQ-021 § 3.3 v1.2 — Referenztabelle "Pfade und minimales Level"
+**Priority**: High
+**Category**: Listenansicht
+**Vorbedingungen**:
+- Drei separate Browsersitzungen mit je einem Nutzer: `beginner`, `intermediate`, `expert`
+
+**Testschritte**:
+1. In jeder Sitzung: Seitenleiste öffnen und die sichtbaren Menüpunkte auflisten
+2. Ergebnis gegen die Referenztabelle aus § 3.3 prüfen
+
+**Erwartete Ergebnisse**:
+
+| Pfad | Einsteiger | Fortgeschritten | Experte |
+|------|:----------:|:---------------:|:-------:|
+| `/dashboard` | Sichtbar | Sichtbar | Sichtbar |
+| `/kalender` | Sichtbar | Sichtbar | Sichtbar |
+| `/giessprotokoll` | Sichtbar | Sichtbar | Sichtbar |
+| `/pflege` | Sichtbar | Sichtbar | Sichtbar |
+| `/pflanzen/plant-instances` | Sichtbar | Sichtbar | Sichtbar |
+| `/aufgaben/queue` | Sichtbar | Sichtbar | Sichtbar |
+| `/standorte/sites` | Sichtbar | Sichtbar | Sichtbar |
+| `/duengung/fertilizers` | Nicht sichtbar | Sichtbar | Sichtbar |
+| `/duengung/plans` | Nicht sichtbar | Sichtbar | Sichtbar |
+| `/stammdaten/botanical-families` | Nicht sichtbar | Sichtbar | Sichtbar |
+| `/stammdaten/species` | Nicht sichtbar | Sichtbar | Sichtbar |
+| `/durchlaeufe/planting-runs` | Nicht sichtbar | Nicht sichtbar | Sichtbar |
+| `/aufgaben/workflows` | Nicht sichtbar | Nicht sichtbar | Sichtbar |
+| `/standorte/substrates` | Nicht sichtbar | Nicht sichtbar | Sichtbar |
+| `/standorte/tanks` | Nicht sichtbar | Nicht sichtbar | Sichtbar |
+| `/pflanzen/calculations` | Nicht sichtbar | Nicht sichtbar | Sichtbar |
+| `/duengung/calculations` | Nicht sichtbar | Nicht sichtbar | Sichtbar |
+| `/pflanzenschutz/pests` | Nicht sichtbar | Nicht sichtbar | Sichtbar |
+| `/ernte/batches` | Nicht sichtbar | Nicht sichtbar | Sichtbar |
+
+**Nachbedingungen**:
+- Keine Änderung
+
+**Tags**: [req-021, nav-matrix, all-paths, all-levels, reference-table, v1.2]
+
+---
+
+### TC-021-059: Gesperrter Menüpunkt zeigt Begründungs-Tooltip (Experten-Route im Beginner-Modus)
+
+**Requirement**: REQ-021 § 3.3 — Designprinzip; "Experte (alle Menüpunkte)"; Begründung-Spalte in Referenztabelle
+**Priority**: Medium
+**Category**: Dialog
+**Vorbedingungen**:
+- Nutzer ist eingeloggt, Erfahrungsstufe: `beginner`
+- Ein für Einsteiger gesperrter Menüpunkt ist in der Sidebar vorhanden (z.B. als deaktiviertes/ausgegraut dargestelltes Element, falls die Implementierung solche Tooltips vorsieht)
+
+**Testschritte**:
+1. Nutzer zeigt mit der Maus auf einen nicht sichtbaren oder ausgegraut angezeigten Expert-Menüpunkt (z.B. "Durchläufe" oder "Tanks") — sofern die Sidebar solche Einträge als deaktiviert rendert statt sie vollständig auszublenden
+2. Nutzer wartet ca. 1 Sekunde auf den Tooltip
+
+**Erwartete Ergebnisse**:
+- Wenn die Implementierung Tooltips vorsieht: Ein Tooltip erscheint mit einer Begründung, z.B. "Verfügbar ab Erfahrungsstufe: Experte" oder "Wechsle zu 'Experte' in den Einstellungen, um diesen Bereich freizuschalten"
+- Wenn die Implementierung vollständiges Ausblenden verwendet (keine deaktivierten Einträge): Kein Tooltip nötig — dieser Testfall gilt als "nicht anwendbar" und wird als N/A markiert
+
+**Nachbedingungen**:
+- Keine Änderung der Erfahrungsstufe
+
+**Tags**: [req-021, tooltip, locked-menu-item, beginner, ux, optional-implementation]
+
+---
+
+### TC-021-060: Direkte URL-Navigation zu einer neuen Beginner-Route als Anfänger — Seite lädt korrekt
+
+**Requirement**: REQ-021 § 3.3 v1.2 — Neue Beginner-Routen `/kalender`, `/giessprotokoll`, `/pflege`, `/standorte/sites`
+**Priority**: High
+**Category**: Navigation
+**Vorbedingungen**:
+- Nutzer ist eingeloggt, Erfahrungsstufe: `beginner`
+
+**Testschritte**:
+1. Nutzer gibt in der Adressleiste `/kalender` ein und drückt Enter
+2. Nutzer navigiert zurück, gibt `/giessprotokoll` ein und drückt Enter
+3. Nutzer navigiert zurück, gibt `/pflege` ein und drückt Enter
+4. Nutzer navigiert zurück, gibt `/standorte/sites` ein und drückt Enter
+
+**Erwartete Ergebnisse**:
+- Alle vier Seiten laden ohne Fehlermeldung
+- Die zugehörigen Menüpunkte sind in der Seitenleiste aktiv hervorgehoben
+- Kein "403 Forbidden"- oder "404 Not Found"-Fehler erscheint
+
+**Nachbedingungen**:
+- Nutzer befindet sich auf `/standorte/sites`
+
+**Tags**: [req-021, beginner-navigation, url-direct-access, v1.2, new-beginner-routes]
 
 ---
 
@@ -1329,9 +1553,17 @@ Die UI-Sprache ist **Deutsch** (Standard-Locale). Alle Labels, Buttons und Meldu
 | § 3.2 GrowthPhaseDialog | Feld-Sichtbarkeit VPD/EC/pH | TC-021-028, TC-021-029, TC-021-030 |
 | § 3.2 FertilizerCreateDialog | mixing_priority, ec_contribution | TC-021-031, TC-021-032 |
 | § 3.2 NutrientCalculationsPage | Kalkulator-Sichtbarkeit | TC-021-033, TC-021-034, TC-021-035 |
-| § 3.3 Navigations-Tiering Anfänger | 5 Kernmenüpunkte | TC-021-013 |
-| § 3.3 Navigations-Tiering Fortgeschritten | 8 Menüpunkte | TC-021-014 |
+| § 3.3 Navigations-Tiering Anfänger v1.2 | 8 Kernmenüpunkte (incl. Standorte, Kalender, Gießprotokoll, Pflege) | TC-021-013, TC-021-053–TC-021-060 |
+| § 3.3 Navigations-Tiering Fortgeschritten | Beginner + Düngung + Stammdaten | TC-021-014 |
 | § 3.3 Navigations-Tiering Experte | alle Menüpunkte | TC-021-015 |
+| § 3.3 Neue Beginner-Route /standorte/sites | Standorte sichtbar im Einsteiger-Modus | TC-021-053 |
+| § 3.3 Neue Beginner-Route /kalender | Kalender sichtbar im Einsteiger-Modus | TC-021-054 |
+| § 3.3 Neue Beginner-Route /giessprotokoll | Gießprotokoll sichtbar im Einsteiger-Modus | TC-021-055 |
+| § 3.3 Neue Beginner-Route /pflege | Pflege-Dashboard sichtbar im Einsteiger-Modus | TC-021-056 |
+| § 3.3 Negativprüfung — Expert-only im Beginner-Modus | Durchläufe/Tanks/Substrate/IPM nicht sichtbar | TC-021-057 |
+| § 3.3 Referenztabelle 19 Pfade x 3 Stufen | Vollständige Navigations-Matrix | TC-021-058 |
+| § 3.3 Tooltip gesperrter Menüpunkt | Begründungs-Tooltip | TC-021-059 |
+| § 3.3 URL-Navigation neue Beginner-Routen | Direkte URL-Eingabe | TC-021-060 |
 | § 3.4 useExpertiseLevel Hook | isFieldVisible, isNavVisible | TC-021-016, TC-021-052 |
 | § 3.4 ExpertiseFieldWrapper | null-Rendering | TC-021-052 |
 | § 3.4 ShowAllFieldsToggle | Temporäre Einblendung | TC-021-020, TC-021-021, TC-021-022, TC-021-048 |

@@ -15,10 +15,10 @@ class InvitationAcceptPage(BasePage):
 
     # -- Locators ----------------------------------------------------------
     LOADING_SPINNER = (By.CSS_SELECTOR, ".MuiCircularProgress-root")
-    SUCCESS_ICON = (By.CSS_SELECTOR, "[data-testid='CheckCircleIcon']")
-    ERROR_ICON = (By.CSS_SELECTOR, "[data-testid='ErrorIcon']")
+    SUCCESS_ICON = (By.CSS_SELECTOR, "[data-testid='CheckCircleIcon'],svg.MuiSvgIcon-colorSuccess")
+    ERROR_ICON = (By.CSS_SELECTOR, "[data-testid='ErrorIcon'],svg.MuiSvgIcon-colorError")
     HEADING = (By.CSS_SELECTOR, ".MuiTypography-h6")
-    ERROR_DETAIL = (By.CSS_SELECTOR, ".MuiTypography-colorTextSecondary")
+    ERROR_DETAIL = (By.CSS_SELECTOR, ".MuiTypography-root[class*='colorText'],.MuiTypography-root.MuiTypography-colorTextSecondary")
     DASHBOARD_BUTTON = (By.CSS_SELECTOR, "button.MuiButton-contained")
     DASHBOARD_BUTTON_OUTLINED = (By.CSS_SELECTOR, "button.MuiButton-outlined")
 

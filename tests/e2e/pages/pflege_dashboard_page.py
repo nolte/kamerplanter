@@ -214,8 +214,10 @@ class PflegeDashboardPage(BasePage):
         TaskQueuePage care cards have no per-card urgency chip. This method
         returns the section header text instead, or the due-date caption.
         """
-        # Try to get the due-date text from the card (caption element)
-        captions = card.find_elements(By.CSS_SELECTOR, ".MuiTypography-caption")
+        # Try to get the due-date text from the card (caption or body2 element)
+        captions = card.find_elements(
+            By.CSS_SELECTOR, ".MuiTypography-caption, .MuiTypography-body2"
+        )
         for cap in captions:
             text = cap.text.strip()
             if text and any(c.isdigit() for c in text):

@@ -44,7 +44,9 @@ export default function MainLayout() {
   const user = useAppSelector((s) => s.auth.user);
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [lightModeWarningDismissed, setLightModeWarningDismissed] = useState(false);
+  const [lightModeWarningDismissed, setLightModeWarningDismissed] = useState(
+    () => localStorage.getItem('kp-light-mode-warning-dismissed') === 'true',
+  );
 
   const showLightModeWarning = isLightMode && !isPrivateNetwork() && !lightModeWarningDismissed;
 
@@ -192,7 +194,10 @@ export default function MainLayout() {
         {showLightModeWarning && (
           <Alert
             severity="warning"
-            onClose={() => setLightModeWarningDismissed(true)}
+            onClose={() => {
+              setLightModeWarningDismissed(true);
+              localStorage.setItem('kp-light-mode-warning-dismissed', 'true');
+            }}
             sx={{ mb: 2 }}
           >
             {t('common.lightModeWarning')}

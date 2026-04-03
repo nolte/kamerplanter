@@ -182,7 +182,7 @@ function EntryRow({ index, control, setValue, speciesList, onRemove, canRemove }
         />
       </Box>
       <Tooltip title={t('pages.plantingRuns.removeEntry')}>
-        <span>
+        <span style={{ alignSelf: 'flex-start' }}>
           <IconButton
             onClick={onRemove}
             disabled={!canRemove}

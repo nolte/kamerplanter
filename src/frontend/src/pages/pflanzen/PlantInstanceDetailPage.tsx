@@ -559,15 +559,21 @@ export default function PlantInstanceDetailPage() {
   }, [currentGrowthPhase, assignedCultivar]);
 
   // Estimated harvest date: planted_on + sum(all growth phase durations)
+  // Perennials and plants without harvest phases do not show an estimated harvest date.
   const estimatedHarvest = useMemo(() => {
     if (!plant?.planted_on || growthPhases.length === 0 || plant.removed_on) return null;
+    // Perennials have recurring cycles — no single harvest endpoint
+    if (currentPhase?.cycle_type === 'perennial') return null;
+    // No harvest phase configured — nothing to estimate
+    if (currentPhase?.has_harvest_phase === false) return null;
+    if (!growthPhases.some((gp) => gp.allows_harvest)) return null;
     const totalDays = growthPhases.reduce((sum, gp) => sum + gp.typical_duration_days, 0);
     if (totalDays === 0) return null;
     const planted = new Date(plant.planted_on);
     const harvestDate = new Date(planted.getTime() + totalDays * 86400000);
     const daysRemaining = Math.ceil((harvestDate.getTime() - Date.now()) / 86400000);
     return { date: harvestDate, daysRemaining };
-  }, [plant?.planted_on, plant?.removed_on, growthPhases]);
+  }, [plant?.planted_on, plant?.removed_on, growthPhases, currentPhase?.cycle_type, currentPhase?.has_harvest_phase]);
 
   // Active nutrient plan phase entry for the current week (handles perennial cycle restarts)
   const activePhaseEntry = useMemo(() => {
@@ -804,56 +810,49 @@ export default function PlantInstanceDetailPage() {
   return (
     <Box data-testid="plant-instance-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: { xs: 'flex-start', sm: 'center' },
-          flexDirection: { xs: 'column', sm: 'row' },
-          gap: 1,
-          mb: 0.5,
-        }}
-      >
-        <PageTitle title={plant?.plant_name ?? plant?.instance_id ?? t('entities.plantInstance')} />
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flexShrink: 0 }}>
-          <Button
-            startIcon={<LabelIcon />}
-            onClick={() => setTagDialogOpen(true)}
-            data-testid="tag-button"
-            size="small"
-          >
-            {t('pages.plantInstances.tag.button')}
-          </Button>
-          <Button
-            startIcon={<QrCode2Icon />}
-            onClick={() => setLabelDialogOpen(true)}
-            data-testid="label-button"
-            size="small"
-            aria-label={t('print.printLabels')}
-          >
-            {t('print.printLabelsShort')}
-          </Button>
-          <Button
-            startIcon={<SwapHorizIcon />}
-            onClick={() => setTransitionOpen(true)}
-            disabled={!!plant?.removed_on}
-            data-testid="transition-button"
-            size="small"
-          >
-            {t('pages.phases.transition')}
-          </Button>
-          <Button
-            color="error"
-            startIcon={<RemoveCircleIcon />}
-            onClick={() => setRemoveOpen(true)}
-            disabled={!!plant?.removed_on}
-            data-testid="remove-button"
-            size="small"
-          >
-            {t('pages.plantInstances.remove')}
-          </Button>
-        </Box>
-      </Box>
+      <PageTitle
+        title={plant?.plant_name ?? plant?.instance_id ?? t('entities.plantInstance')}
+        action={
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flexShrink: 0 }}>
+            <Button
+              startIcon={<LabelIcon />}
+              onClick={() => setTagDialogOpen(true)}
+              data-testid="tag-button"
+              size="small"
+            >
+              {t('pages.plantInstances.tag.button')}
+            </Button>
+            <Button
+              startIcon={<QrCode2Icon />}
+              onClick={() => setLabelDialogOpen(true)}
+              data-testid="label-button"
+              size="small"
+              aria-label={t('print.printLabels')}
+            >
+              {t('print.printLabelsShort')}
+            </Button>
+            <Button
+              startIcon={<SwapHorizIcon />}
+              onClick={() => setTransitionOpen(true)}
+              disabled={!!plant?.removed_on}
+              data-testid="transition-button"
+              size="small"
+            >
+              {t('pages.phases.transition')}
+            </Button>
+            <Button
+              color="error"
+              startIcon={<RemoveCircleIcon />}
+              onClick={() => setRemoveOpen(true)}
+              disabled={!!plant?.removed_on}
+              data-testid="remove-button"
+              size="small"
+            >
+              {t('pages.plantInstances.remove')}
+            </Button>
+          </Box>
+        }
+      />
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }} variant="scrollable" scrollButtons="auto">
         <Tab label={t('pages.plantInstances.info')} />

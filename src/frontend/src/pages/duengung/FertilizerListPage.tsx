@@ -10,6 +10,7 @@ import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import FilterListOffIcon from '@mui/icons-material/FilterListOff';
@@ -186,35 +187,34 @@ export default function FertilizerListPage() {
 
   return (
     <Box data-testid="fertilizer-list-page">
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <PageTitle title={t('pages.fertilizers.title')} />
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {hasFavorites && (
-            <Tooltip title={t('pages.fertilizers.favFilter')}>
-              <IconButton
-                onClick={() => setFavFilterActive((p) => !p)}
-                color={favFilterActive ? 'warning' : 'default'}
-              >
-                <FilterListIcon />
-              </IconButton>
-            </Tooltip>
-          )}
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateOpen(true)}
-            data-testid="create-button"
-          >
-            {t('pages.fertilizers.create')}
-          </Button>
-        </Box>
-      </Box>
+      <PageTitle
+        title={t('pages.fertilizers.title')}
+        action={
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {hasFavorites && (
+              <Tooltip title={t('pages.fertilizers.favFilter')}>
+                <IconButton
+                  onClick={() => setFavFilterActive((p) => !p)}
+                  color={favFilterActive ? 'warning' : 'default'}
+                >
+                  <FilterListIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateOpen(true)}
+              data-testid="create-button"
+            >
+              {t('pages.fertilizers.create')}
+            </Button>
+          </Box>
+        }
+      />
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {t('pages.fertilizers.listIntro')}
+      </Typography>
 
       <Paper
         variant="outlined"

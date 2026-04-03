@@ -147,7 +147,7 @@ class TestWorkflowNavigation:
     """Navigation between workflow list and workflow detail pages (Spec: TC-006-034, TC-006-039)."""
 
     @pytest.mark.skip(
-        reason="WorkflowListPage route /aufgaben/workflows redirects to /stammdaten/species — no standalone list page"
+        reason="WorkflowListPage route /aufgaben/workflows — breadcrumb parent corrected to /aufgaben/queue, list page not yet standalone"
     )
     @pytest.mark.core_crud
     def test_workflow_list_to_detail_and_back(

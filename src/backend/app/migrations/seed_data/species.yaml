@@ -1304,6 +1304,62 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: limited
 
+  # -- Asparagaceae (3) --
+  - scientific_name: Dracaena fragrans
+    common_names: [Corn Plant, Duftdracaena, Maispalme, Mass Cane, Happy Plant]
+    family: Asparagaceae
+    genus: Dracaena
+    growth_habit: tree
+    root_type: fibrous
+    base_temp: 15.0
+    hardiness_zones: ["10b", "11a", "11b", "12a", "12b"]
+    native_habitat: Tropical Africa
+    allelopathy_score: 0.0
+    frost_sensitivity: sensitive
+    container_suitable: "yes"
+    recommended_container_volume_l: "10--30"
+    min_container_depth_cm: 20
+    mature_height_cm: "150--300"
+    mature_width_cm: "50--100"
+    spacing_cm: "80"
+    indoor_suitable: "yes"
+    balcony_suitable: limited
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: light_feeder
+    hardiness_detail: "No frost tolerance; damage from +5 C, death below 0 C. Tropical origin."
+    bloom_months: [5, 6]
+
+  # -- Nymphaeaceae (1) --
+  - scientific_name: Nymphaea alba
+    common_names: [White Water Lily, Weisse Seerose, European White Waterlily]
+    family: Nymphaeaceae
+    genus: Nymphaea
+    growth_habit: herb
+    root_type: fibrous
+    base_temp: 8.0
+    hardiness_zones: ["4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b", "10a", "10b"]
+    native_habitat: Europe, North Africa, temperate Asia
+    allelopathy_score: 0.0
+    frost_sensitivity: hardy
+    sowing_indoor_weeks_before_last_frost: 10
+    sowing_outdoor_after_last_frost_days: 21
+    direct_sow_months: [5, 6]
+    bloom_months: [6, 7, 8, 9]
+    allows_harvest: false
+    container_suitable: "yes"
+    recommended_container_volume_l: "20--40"
+    min_container_depth_cm: 60
+    mature_height_cm: "10--30"
+    mature_width_cm: "200--300"
+    spacing_cm: "300"
+    indoor_suitable: limited
+    balcony_suitable: "yes"
+    greenhouse_recommended: false
+    support_required: false
+    nutrient_demand_level: heavy_feeder
+    hardiness_detail: "Hardy to -25 C (Zone 4). Rhizome overwinters frost-free in pond substrate at min. 60 cm water depth."
+
   # -- Araceae (3) --
   - scientific_name: Epipremnum aureum
     common_names: [Pothos, Efeutute]

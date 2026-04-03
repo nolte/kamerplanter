@@ -28,7 +28,8 @@ Each card displays:
 - **Recommendation** — A concrete action you can take
 - **Priority** — Critical, high, medium, or low (color-coded)
 
-![Screenshot: Tip cards on a planting run detail page](../../assets/images/screenshots/ai-tip-cards.png)
+!!! info "Screenshot pending"
+    This screenshot will be added in a future version.
 
 ### When are tip cards refreshed?
 

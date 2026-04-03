@@ -87,6 +87,7 @@ class TestHarvestBatchListPage:
             "TC-REQ-007-017 FAIL: Expected page title to be non-empty"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.core_crud
     def test_list_displays_data_table_with_columns(
         self,
@@ -197,6 +198,7 @@ class TestHarvestBatchListPage:
             f"<= initial ({initial_count})"
         )
 
+    @pytest.mark.requires_desktop
     @pytest.mark.core_crud
     def test_sort_by_column_shows_sort_chip(
         self,

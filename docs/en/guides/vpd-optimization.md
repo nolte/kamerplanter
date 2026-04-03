@@ -178,5 +178,5 @@ Kamerplanter allows you to adjust phase-specific VPD target values per requireme
 
 - [Phase Control](../user-guide/growth-phases.md)
 - [GDD Calculation](gdd-calculation.md)
-- [Environment Control](../user-guide/environment-control.md)
+- [Environment Control](../user-guide/actuator-control.md)
 - [Sensors](../user-guide/sensors.md)

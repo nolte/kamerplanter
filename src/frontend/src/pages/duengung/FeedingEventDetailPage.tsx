@@ -152,22 +152,18 @@ export default function FeedingEventDetailPage() {
   return (
     <Box data-testid="feeding-event-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <PageTitle title={event.timestamp ? new Date(event.timestamp).toLocaleString() : t('entities.feedingEvent')} />
-        <Button
-          color="error"
-          startIcon={<DeleteIcon />}
-          onClick={() => setDeleteOpen(true)}
-        >
-          {t('common.delete')}
-        </Button>
-      </Box>
+      <PageTitle
+        title={event.timestamp ? new Date(event.timestamp).toLocaleString() : t('entities.feedingEvent')}
+        action={
+          <Button
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => setDeleteOpen(true)}
+          >
+            {t('common.delete')}
+          </Button>
+        }
+      />
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab label={t('pages.feedingEvents.tabDetails')} />

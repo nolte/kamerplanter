@@ -110,6 +110,8 @@ plugins:
             Vermehrung: Propagation
             Datenschutz (DSGVO): Privacy (GDPR)
             Druckansichten & Export: Print & Export
+            Gießprotokoll: Watering Log
+            Plattform-Admin: Platform Admin
             Architektur: Architecture
             Überblick: Overview
             Backend: Backend
@@ -232,6 +234,7 @@ nav:
       - Standorte & Substrate: de/user-guide/locations-substrates.md
       - Wachstumsphasen: de/user-guide/growth-phases.md
       - Dünge-Logik: de/user-guide/fertilization.md
+      - Gießprotokoll: de/user-guide/watering-log.md
       - Sensorik: de/user-guide/sensors.md
       - Aufgaben: de/user-guide/tasks.md
       - Ernte: de/user-guide/harvest.md
@@ -250,6 +253,7 @@ nav:
       - Vermehrung: de/user-guide/propagation.md
       - Datenschutz (DSGVO): de/user-guide/privacy.md
       - Druckansichten & Export: de/user-guide/print-export.md
+      - Plattform-Admin: de/user-guide/admin.md
   - Architektur:
       - de/architecture/index.md
       - Überblick: de/architecture/overview.md
