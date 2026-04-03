@@ -509,9 +509,9 @@ backend:
 
 ## Referenzen
 
-- [REQ-031 — KI-Assistent & Pflanzenberatung](../../../spec/req/REQ-031_KI-Assistent-Pflanzenberatung.md)
-- [REQ-011 — Externe Stammdatenanreicherung (Adapter-Pattern)](../../../spec/req/REQ-011_Externe-Stammdatenanreicherung.md)
-- [REQ-025 — Datenschutz & DSGVO](../../../spec/req/REQ-025_Datenschutz-Betroffenenrechte.md)
+- REQ-031 — KI-Assistent & Pflanzenberatung (`spec/req/REQ-031_KI-Assistent-Pflanzenberatung.md`)
+- REQ-011 — Externe Stammdatenanreicherung (`spec/req/REQ-011_Externe-Stammdatenanreicherung.md`)
+- REQ-025 — Datenschutz & DSGVO (`spec/req/REQ-025_Datenschutz-Betroffenenrechte.md`)
 - [ADR-006 — Embedding-Modell E5-base und Hybrid Search](../adr/006-embedding-modell-e5-base-hybrid-search.md)
 - [ADR-007 — Cross-Encoder Re-Ranking für RAG-Pipeline](../adr/007-cross-encoder-reranking.md)
 - [RAG-Wissensbasis verstehen](../guides/rag-knowledge-base.md)
