@@ -79,7 +79,19 @@ task docs:serve         # MkDocs local preview
 ## Project Structure
 
 ```
-spec/                     # Specifications (German, 28 REQs + 11 NFRs)
+spec/                     # Specifications (German)
+  req/                    #   Functional requirements (REQ-001 – REQ-032)
+  nfr/                    #   Non-functional requirements (NFR-001 – NFR-012)
+  ui-nfr/                 #   UI non-functional requirements
+  style-guides/           #   Code style guides (Backend, Frontend, Helm)
+  knowledge/              #   Plant & domain knowledge base
+    rag/                  #     RAG-optimized YAML chunks (8 categories)
+    plants/               #     Plant info documents (210 species)
+    products/             #     Fertilizer product data
+    nutrient-plans/       #     Nutrient plan documents
+  rag-eval/               #   RAG benchmark questions & topic synonyms
+  design/                 #   KAMI graphic prompts
+  analysis/               #   Review & analysis reports
 src/
   backend/                # Python/FastAPI backend (5-layer architecture)
   frontend/               # React/TypeScript frontend
@@ -87,6 +99,7 @@ src/
   ha-integration/         # Home Assistant custom integration
 helm/                     # Helm charts (bjw-s/common)
 tests/e2e/                # Selenium E2E test suite
+test-reports/             # Generated test results (rag-eval, e2e)
 docs/                     # MkDocs documentation (de/en)
 ```
 
