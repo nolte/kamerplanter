@@ -2,8 +2,11 @@
  * kamerplanter-plant-card
  *
  * Custom Lovelace card for Kamerplanter plant instances and planting runs.
- * Shows phase timeline with Kami SVG illustrations, current phase hero,
+ * Shows phase timeline with Kami SVG illustrations, progress bar,
  * next-phase hint, and transition history table.
+ *
+ * This card merges the former kamerplanter-phase-card functionality
+ * (progress bar, week/day tracking) into a single unified card.
  *
  * Follows: https://developers.home-assistant.io/docs/frontend/custom-ui/custom-card
  *
@@ -17,17 +20,40 @@
  * ================================================================== */
 
 const KAMI_PHASE_SVG = {
-  germination: "/local/kami/timeline-kami-phase-germination.svg",
-  seedling:    "/local/kami/timeline-kami-phase-seedling.svg",
-  vegetative:  "/local/kami/timeline-kami-phase-vegetative.svg",
-  flowering:   "/local/kami/timeline-kami-phase-flowering.svg",
-  ripening:    "/local/kami/timeline-kami-phase-ripening.svg",
-  harvest:     "/local/kami/timeline-kami-phase-harvest.svg",
-  dormancy:    "/local/kami/timeline-kami-phase-dormancy.svg",
-  juvenile:    "/local/kami/timeline-kami-phase-juvenile.svg",
-  climbing:    "/local/kami/timeline-kami-phase-climbing.svg",
-  mature:      "/local/kami/timeline-kami-phase-mature.svg",
-  senescence:  "/local/kami/timeline-kami-phase-senescence.svg",
+  germination:         "/local/kami/timeline-kami-phase-germination.svg",
+  seedling:            "/local/kami/timeline-kami-phase-seedling.svg",
+  vegetative:          "/local/kami/timeline-kami-phase-vegetative.svg",
+  flowering:           "/local/kami/timeline-kami-phase-flowering.svg",
+  ripening:            "/local/kami/timeline-kami-phase-ripening.svg",
+  harvest:             "/local/kami/timeline-kami-phase-harvest.svg",
+  dormancy:            "/local/kami/timeline-kami-phase-dormancy.svg",
+  juvenile:            "/local/kami/timeline-kami-phase-juvenile.svg",
+  climbing:            "/local/kami/timeline-kami-phase-climbing.svg",
+  mature:              "/local/kami/timeline-kami-phase-mature.svg",
+  senescence:          "/local/kami/timeline-kami-phase-senescence.svg",
+  flushing:            "/local/kami/timeline-kami-phase-flushing.svg",
+  leaf_phase:          "/local/kami/timeline-kami-phase-leaf-phase.svg",
+  short_day_induction: "/local/kami/timeline-kami-phase-short-day-induction.svg",
+};
+
+const PHASE_LABELS = {
+  germination:         "Keimung",
+  seedling:            "Sämling",
+  vegetative:          "Vegetativ",
+  flowering:           "Blüte",
+  ripening:            "Reife",
+  harvest:             "Ernte",
+  dormancy:            "Ruhephase",
+  flush:               "Spülphase",
+  flushing:            "Spülung",
+  drying:              "Trocknung",
+  curing:              "Curing",
+  leaf_phase:          "Blattphase",
+  short_day_induction: "Kurztageinleitung",
+  juvenile:            "Juvenil",
+  climbing:            "Kletterphase",
+  mature:              "Reifephase",
+  senescence:          "Seneszenz",
 };
 
 const STANDARD_PHASES = [
@@ -49,6 +75,11 @@ function escapeHtml(s) {
 
 function capitalize(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+}
+
+function phaseLabel(phase) {
+  const key = (phase || "").toLowerCase();
+  return PHASE_LABELS[key] || capitalize(phase);
 }
 
 function fmtDate(iso) {
@@ -155,19 +186,50 @@ const CARD_STYLES = `
     box-sizing: border-box;
   }
 
-  /* ---- Hero ---- */
-  .kp-hero {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
+  /* ---- Progress bar ---- */
+  .kp-progress {
     margin-bottom: 16px;
   }
-  .kp-hero__phase {
-    font-size: 1.3em;
-    font-weight: 700;
+  .kp-progress__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .kp-progress__phase {
+    font-size: 1.05em;
+    font-weight: 600;
     color: var(--primary-text-color);
   }
-  .kp-hero__days {
+  .kp-progress__info {
+    font-size: 0.9em;
+    font-weight: 500;
+    color: var(--secondary-text-color);
+  }
+  .kp-progress__track {
+    width: 100%;
+    height: 10px;
+    background: var(--divider-color, #e0e0e0);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .kp-progress__fill {
+    height: 100%;
+    border-radius: 5px;
+    background: var(--primary-color, #4caf50);
+    transition: width 0.5s ease;
+  }
+  .kp-progress__footer {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+  }
+  .kp-progress__pct {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--primary-color, #4caf50);
+  }
+  .kp-progress__remaining {
     font-size: 0.85em;
     color: var(--secondary-text-color);
   }
@@ -336,6 +398,10 @@ const CARD_STYLES = `
     font-size: 0.88em;
     color: var(--primary-text-color);
     margin-bottom: 14px;
+  }
+  .kp-next--active {
+    background: rgba(76, 175, 80, 0.12);
+    border-left: 3px solid var(--primary-color, #4caf50);
   }
   .kp-next__kami {
     width: 28px;
@@ -522,10 +588,6 @@ class KamerplanterPlantCard extends HTMLElement {
 
   /* ---- Lifecycle (HA spec) ---------------------------------------- */
 
-  /**
-   * Called by HA with card configuration. Must throw on invalid config.
-   * @param {object} config
-   */
   setConfig(config) {
     if (!config.device_id) {
       throw new Error("Bitte ein Device ausw\u00e4hlen");
@@ -533,31 +595,23 @@ class KamerplanterPlantCard extends HTMLElement {
     this._config = { title: "", ...config };
   }
 
-  /**
-   * Called by HA on every state change.
-   * @param {object} hass
-   */
   set hass(hass) {
     this._hass = hass;
     this._update();
   }
 
-  /** Card height in 50px units (masonry view). */
   getCardSize() {
     return 8;
   }
 
-  /** Grid options for HA sections view (56px per row). */
   getGridOptions() {
     return { columns: 6, min_columns: 3, rows: 8, min_rows: 4 };
   }
 
-  /** Returns editor custom element. */
   static getConfigElement() {
     return document.createElement("kamerplanter-plant-card-editor");
   }
 
-  /** Stub config for card picker — tries to pre-select first active plant device. */
   static getStubConfig(hass) {
     if (!hass) return { device_id: "", title: "" };
     const entities = hass.entities || {};
@@ -627,7 +681,6 @@ class KamerplanterPlantCard extends HTMLElement {
 
   /* ---- DOM build & update --------------------------------------- */
 
-  /** Ensure static DOM skeleton exists. */
   _ensureDom() {
     if (this._built) return;
 
@@ -645,10 +698,7 @@ class KamerplanterPlantCard extends HTMLElement {
           <div class="kp-header__days" id="daysBadge" hidden></div>
         </div>
         <div class="kp-content">
-          <div class="kp-hero">
-            <span class="kp-hero__phase" id="heroPhase"></span>
-            <span class="kp-hero__days" id="heroDays"></span>
-          </div>
+          <div class="kp-progress" id="progress" hidden></div>
           <div class="kp-timeline" id="timeline"></div>
           <div class="kp-next" id="nextHint" hidden></div>
           <div class="kp-details" id="details" hidden></div>
@@ -717,11 +767,15 @@ class KamerplanterPlantCard extends HTMLElement {
       daysEl.hidden = true;
     }
 
-    /* Hero */
-    $("heroPhase").textContent = capitalize(currentPhase);
-    $("heroDays").textContent = (daysInPhase != null && daysInPhase !== "unknown")
-      ? `seit ${daysInPhase} ${Number(daysInPhase) === 1 ? "Tag" : "Tage"}`
-      : "";
+    /* Progress bar */
+    const progressEl = $("progress");
+    const progressHtml = this._renderProgress(tAttrs, currentPhase);
+    if (progressHtml) {
+      progressEl.innerHTML = progressHtml;
+      progressEl.hidden = false;
+    } else {
+      progressEl.hidden = true;
+    }
 
     /* Timeline */
     const phases = this._buildPhases(tAttrs, currentPhase);
@@ -729,12 +783,10 @@ class KamerplanterPlantCard extends HTMLElement {
 
     /* Next phase hint */
     const nextEl = $("nextHint");
-    if (nextPhase && nextPhase !== "None" && nextPhase !== "unknown") {
-      const nSvg = kamiSvg(nextPhase);
-      nextEl.innerHTML = nSvg
-        ? `<img class="kp-next__kami" src="${nSvg}" alt="" />`
-        : `<span class="kp-next__arrow">\u2192</span>`;
-      nextEl.innerHTML += `<span>N\u00e4chste Phase: <strong>${escapeHtml(capitalize(nextPhase))}</strong></span>`;
+    const nextHintHtml = this._renderNextHint(tAttrs, nextPhase);
+    if (nextHintHtml) {
+      nextEl.innerHTML = nextHintHtml;
+      nextEl.className = "kp-next" + (tAttrs.weeks_until_next_phase === 0 ? " kp-next--active" : "");
       nextEl.hidden = false;
     } else {
       nextEl.hidden = true;
@@ -752,6 +804,76 @@ class KamerplanterPlantCard extends HTMLElement {
   }
 
   /* ---- Partial renderers ---------------------------------------- */
+
+  /** Render progress bar if week/day data is available. Returns HTML string or null. */
+  _renderProgress(tAttrs, currentPhase) {
+    const phaseWeek = tAttrs.phase_week;
+    const plannedWeeks = tAttrs.phase_planned_weeks;
+    const progressPct = tAttrs.phase_progress_pct;
+    const daysInPhase = tAttrs.days_in_phase;
+    const typicalDays = tAttrs.typical_duration_days;
+    const remainingDays = tAttrs.remaining_days;
+    const remainingWeeks = tAttrs.phase_remaining_weeks;
+
+    if (phaseWeek == null || plannedWeeks == null || plannedWeeks <= 0) return null;
+
+    const pct = Math.min(100, progressPct || 0);
+    const infoText = daysInPhase != null
+      ? `Tag ${daysInPhase} / ${typicalDays || "?"}`
+      : `Woche ${phaseWeek} / ${plannedWeeks}`;
+    const remainText = remainingDays != null
+      ? `${remainingDays} ${remainingDays === 1 ? "Tag" : "Tage"} verbleibend`
+      : remainingWeeks != null
+        ? `${remainingWeeks} ${remainingWeeks === 1 ? "Woche" : "Wochen"} verbleibend`
+        : "";
+
+    return `
+      <div class="kp-progress__header">
+        <span class="kp-progress__phase">${escapeHtml(phaseLabel(currentPhase))}</span>
+        <span class="kp-progress__info">${infoText}</span>
+      </div>
+      <div class="kp-progress__track">
+        <div class="kp-progress__fill" style="width:${pct}%"></div>
+      </div>
+      <div class="kp-progress__footer">
+        <span class="kp-progress__pct">${pct}%</span>
+        ${remainText ? `<span class="kp-progress__remaining">${remainText}</span>` : ""}
+      </div>
+    `;
+  }
+
+  /** Render next-phase hint. Returns HTML string or null. */
+  _renderNextHint(tAttrs, nextPhase) {
+    /* Prefer plan-based next phase with week countdown */
+    const nextPlanPhase = tAttrs.next_plan_phase;
+    const nextPhaseWeeks = tAttrs.next_plan_phase_weeks;
+    const weeksUntilNext = tAttrs.weeks_until_next_phase;
+
+    if (nextPlanPhase != null && weeksUntilNext != null) {
+      const label = phaseLabel(nextPlanPhase);
+      const nKami = kamiSvg(nextPlanPhase);
+      const kamiImg = nKami
+        ? `<img class="kp-next__kami" src="${nKami}" alt="" />`
+        : `<span class="kp-next__arrow">\u2192</span>`;
+
+      if (weeksUntilNext === 0) {
+        return `${kamiImg}<span><strong>${escapeHtml(label)}</strong> hat begonnen (${nextPhaseWeeks} ${nextPhaseWeeks === 1 ? "Woche" : "Wochen"})</span>`;
+      }
+      return `${kamiImg}<span><strong>${escapeHtml(label)}</strong> in ${weeksUntilNext} ${weeksUntilNext === 1 ? "Woche" : "Wochen"}</span>`;
+    }
+
+    /* Fallback: simple next_phase sensor */
+    if (nextPhase && nextPhase !== "None" && nextPhase !== "unknown") {
+      const label = phaseLabel(nextPhase);
+      const nSvg = kamiSvg(nextPhase);
+      const visual = nSvg
+        ? `<img class="kp-next__kami" src="${nSvg}" alt="" />`
+        : `<span class="kp-next__arrow">\u2192</span>`;
+      return `${visual}<span>N\u00e4chste Phase: <strong>${escapeHtml(label)}</strong></span>`;
+    }
+
+    return null;
+  }
 
   _renderTimeline(phases) {
     if (phases.length === 0) return "";
@@ -790,7 +912,7 @@ class KamerplanterPlantCard extends HTMLElement {
             ${marker}
           </div>
           <div class="kp-step__body">
-            <span class="kp-step__name">${escapeHtml(capitalize(p.name))}</span>
+            <span class="kp-step__name">${escapeHtml(phaseLabel(p.name))}</span>
             ${dateStr ? `<span class="kp-step__date">${fmtDateShort(dateStr)}</span>` : ""}
             ${p.days != null ? `<span class="kp-step__duration">${p.days}d</span>` : ""}
           </div>
@@ -809,7 +931,7 @@ class KamerplanterPlantCard extends HTMLElement {
         <div class="kp-details__row${isCur ? " kp-details__row--current" : ""}">
           <span class="kp-details__phase">
             ${svg ? `<img src="${svg}" alt="" />` : ""}
-            ${escapeHtml(capitalize(p.name))}
+            ${escapeHtml(phaseLabel(p.name))}
           </span>
           <span class="kp-details__date">${fmtDate(p.started || p.date || "")}</span>
           <span class="kp-details__days">${p.days != null ? `${p.days}d` : "\u2014"}</span>
@@ -834,8 +956,8 @@ customElements.define("kamerplanter-plant-card", KamerplanterPlantCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "kamerplanter-plant-card",
-  name: "Kamerplanter Pflanzen-Phasen",
-  description: "Zeigt Phasen\u00fcberg\u00e4nge mit Kami-Illustrationen f\u00fcr Pflanzeninstanzen und Planting Runs",
+  name: "Kamerplanter Pflanze",
+  description: "Zeigt Phasen\u00fcberg\u00e4nge, Fortschritt und Historie mit Kami-Illustrationen f\u00fcr Pflanzeninstanzen und Planting Runs",
   preview: false,
   documentationURL: "https://kamerplanter.readthedocs.io/de/latest/guides/home-assistant-integration/",
 });
