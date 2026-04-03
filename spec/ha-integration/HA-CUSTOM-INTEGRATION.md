@@ -1038,10 +1038,14 @@ Unified Card für Pflanzeninstanzen und Planting Runs. Zeigt Phasenübergänge, 
 
 **Konfiguration:**
 
-| Feld | Typ | Pflicht | Beschreibung |
-|------|-----|---------|-------------|
-| `device_id` | `string` | Ja | HA Device-ID einer Kamerplanter Pflanze / Planting Run |
-| `title` | `string` | Nein | Optionaler Titel (Default: Device-Name) |
+| Feld | Typ | Pflicht | Default | Beschreibung |
+|------|-----|---------|---------|-------------|
+| `device_id` | `string` | Ja | — | HA Device-ID einer Kamerplanter Pflanze / Planting Run |
+| `title` | `string` | Nein | Device-Name | Optionaler Titel |
+| `show_progress` | `boolean` | Nein | `true` | Fortschrittsbalken (Woche/Tag/%) anzeigen |
+| `show_timeline` | `boolean` | Nein | `true` | Phasen-Timeline-Stepper anzeigen |
+| `show_next_hint` | `boolean` | Nein | `true` | Nächste-Phase-Hinweis anzeigen |
+| `show_details` | `boolean` | Nein | `true` | Phasen-Historie-Tabelle anzeigen |
 
 **Konfiguration im Editor:** Device-Picker mit `selector: { device: { integration: "kamerplanter" } }` — zeigt nur Kamerplanter-Devices. Nutzt `ha-form` + Schema-Pattern (UI-NFR-015 §2.1).
 
@@ -1051,6 +1055,11 @@ Unified Card für Pflanzeninstanzen und Planting Runs. Zeigt Phasenübergänge, 
 type: custom:kamerplanter-plant-card
 device_id: abc123def456
 title: Northern Lights #3
+# Bereiche ein-/ausblenden (alle default: true)
+show_progress: true
+show_timeline: true
+show_next_hint: true
+show_details: false    # z.B. kompakte Darstellung ohne Historie
 ```
 
 **Aufbau der Card (Top → Bottom):**

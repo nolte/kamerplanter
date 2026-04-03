@@ -486,6 +486,11 @@ const CARD_STYLES = `
     min-width: 36px;
   }
 
+  /* ---- Hidden override ---- */
+  [hidden] {
+    display: none !important;
+  }
+
   /* ---- Empty / Error states ---- */
   .kp-empty {
     padding: 24px 16px;
@@ -523,6 +528,14 @@ const PLANT_CARD_SCHEMA = [
     selector: { device: { integration: "kamerplanter" } } },
   { name: "title",     label: "Titel (optional)",
     selector: { text: {} } },
+  { name: "show_progress",  label: "Fortschrittsbalken anzeigen",
+    selector: { boolean: {} } },
+  { name: "show_timeline",  label: "Phasen-Timeline anzeigen",
+    selector: { boolean: {} } },
+  { name: "show_next_hint", label: "Nächste-Phase-Hinweis anzeigen",
+    selector: { boolean: {} } },
+  { name: "show_details",   label: "Phasen-Historie anzeigen",
+    selector: { boolean: {} } },
 ];
 
 /* ================================================================== *
@@ -536,7 +549,12 @@ const PLANT_CARD_SCHEMA = [
  */
 class KamerplanterPlantCardEditor extends HTMLElement {
   setConfig(config) {
-    this._config = { device_id: "", title: "", ...config };
+    this._config = {
+      device_id: "", title: "",
+      show_progress: true, show_timeline: true,
+      show_next_hint: true, show_details: true,
+      ...config,
+    };
     if (this._hass) this._scheduleRender();
   }
 
@@ -588,11 +606,21 @@ class KamerplanterPlantCard extends HTMLElement {
 
   /* ---- Lifecycle (HA spec) ---------------------------------------- */
 
+  static get CONFIG_DEFAULTS() {
+    return {
+      title: "",
+      show_progress: true,
+      show_timeline: true,
+      show_next_hint: true,
+      show_details: true,
+    };
+  }
+
   setConfig(config) {
     if (!config.device_id) {
       throw new Error("Bitte ein Device ausw\u00e4hlen");
     }
-    this._config = { title: "", ...config };
+    this._config = { ...KamerplanterPlantCard.CONFIG_DEFAULTS, ...config };
   }
 
   set hass(hass) {
@@ -613,7 +641,8 @@ class KamerplanterPlantCard extends HTMLElement {
   }
 
   static getStubConfig(hass) {
-    if (!hass) return { device_id: "", title: "" };
+    const defaults = { ...KamerplanterPlantCard.CONFIG_DEFAULTS, device_id: "" };
+    if (!hass) return defaults;
     const entities = hass.entities || {};
     const states = hass.states || {};
     const devices = hass.devices || {};
@@ -626,10 +655,10 @@ class KamerplanterPlantCard extends HTMLElement {
       if (!dev) continue;
       const model = (dev.model || "").toLowerCase();
       if (model.includes("plant instance") || model.includes("planting run")) {
-        return { device_id: ent.device_id, title: "" };
+        return { ...defaults, device_id: ent.device_id };
       }
     }
-    return { device_id: "", title: "" };
+    return defaults;
   }
 
   /* ---- Data ---------------------------------------------------- */
@@ -769,35 +798,54 @@ class KamerplanterPlantCard extends HTMLElement {
 
     /* Progress bar */
     const progressEl = $("progress");
-    const progressHtml = this._renderProgress(tAttrs, currentPhase);
-    if (progressHtml) {
-      progressEl.innerHTML = progressHtml;
-      progressEl.hidden = false;
+    if (this._config.show_progress) {
+      const progressHtml = this._renderProgress(tAttrs, currentPhase);
+      if (progressHtml) {
+        progressEl.innerHTML = progressHtml;
+        progressEl.hidden = false;
+      } else {
+        progressEl.hidden = true;
+      }
     } else {
       progressEl.hidden = true;
     }
 
     /* Timeline */
     const phases = this._buildPhases(tAttrs, currentPhase);
-    $("timeline").innerHTML = this._renderTimeline(phases);
+    const timelineEl = $("timeline");
+    if (this._config.show_timeline) {
+      timelineEl.innerHTML = this._renderTimeline(phases);
+      timelineEl.hidden = false;
+    } else {
+      timelineEl.innerHTML = "";
+      timelineEl.hidden = true;
+    }
 
     /* Next phase hint */
     const nextEl = $("nextHint");
-    const nextHintHtml = this._renderNextHint(tAttrs, nextPhase);
-    if (nextHintHtml) {
-      nextEl.innerHTML = nextHintHtml;
-      nextEl.className = "kp-next" + (tAttrs.weeks_until_next_phase === 0 ? " kp-next--active" : "");
-      nextEl.hidden = false;
+    if (this._config.show_next_hint) {
+      const nextHintHtml = this._renderNextHint(tAttrs, nextPhase);
+      if (nextHintHtml) {
+        nextEl.innerHTML = nextHintHtml;
+        nextEl.className = "kp-next" + (tAttrs.weeks_until_next_phase === 0 ? " kp-next--active" : "");
+        nextEl.hidden = false;
+      } else {
+        nextEl.hidden = true;
+      }
     } else {
       nextEl.hidden = true;
     }
 
     /* Detail table */
-    const recorded = phases.filter((p) => p.status === "completed" || p.status === "current");
     const detailEl = $("details");
-    if (recorded.length > 0) {
-      detailEl.innerHTML = this._renderDetails(recorded);
-      detailEl.hidden = false;
+    if (this._config.show_details) {
+      const recorded = phases.filter((p) => p.status === "completed" || p.status === "current");
+      if (recorded.length > 0) {
+        detailEl.innerHTML = this._renderDetails(recorded);
+        detailEl.hidden = false;
+      } else {
+        detailEl.hidden = true;
+      }
     } else {
       detailEl.hidden = true;
     }

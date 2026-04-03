@@ -1035,7 +1035,7 @@ def _enrich_phase_progress(attrs: dict[str, Any], run: dict[str, Any]) -> None:
         else:
             return
 
-    phase_name = current_phase.get("display_name", current_phase.get("phase_name", ""))
+    phase_name = current_phase.get("phase_name", current_phase.get("display_name", ""))
     entered_str = current_phase.get("actual_entered_at")
     typical_days = current_phase.get("typical_duration_days", 0)
 
@@ -1056,6 +1056,9 @@ def _enrich_phase_progress(attrs: dict[str, Any], run: dict[str, Any]) -> None:
     progress_pct = round(min(100, (days_in / typical_days) * 100)) if typical_days > 0 else 0
 
     attrs["current_phase_name"] = phase_name
+    display_name = current_phase.get("display_name", "")
+    if display_name:
+        attrs["current_phase_display_name"] = display_name
     attrs["phase_week"] = week_in_phase
     attrs["phase_planned_weeks"] = planned_weeks
     attrs["phase_remaining_weeks"] = remaining
@@ -1068,7 +1071,7 @@ def _enrich_phase_progress(attrs: dict[str, Any], run: dict[str, Any]) -> None:
     # Next phase info
     if current_idx + 1 < len(all_phases):
         next_p = all_phases[current_idx + 1]
-        next_name = next_p.get("display_name", next_p.get("phase_name", ""))
+        next_name = next_p.get("phase_name", next_p.get("display_name", ""))
         next_typical = next_p.get("typical_duration_days", 0)
         next_weeks = max(1, next_typical // 7) if next_typical else 0
         weeks_until = max(0, remaining)
