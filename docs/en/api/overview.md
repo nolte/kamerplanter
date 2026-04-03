@@ -163,6 +163,7 @@ The following table lists all available router groups. In full mode, `auth`, `oi
 | Nutrient Calculations | `/nutrient-calculations` | Mixing protocol, flushing, runoff, mixing safety, water mix, EC budget | REQ-004 |
 | Notifications | `/notifications` | Notifications, preferences, test delivery | REQ-022 |
 | Observations | `/observations` | Sensor data CRUD (TimescaleDB) | REQ-005 |
+| Print Views | `/print` | PDF export for nutrient plans, care lists, plant labels | REQ-032 |
 
 ### Admin Endpoints
 

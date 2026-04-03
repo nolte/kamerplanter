@@ -119,7 +119,8 @@ Two flowers that can be used almost anywhere:
 3. Choose your primary plant (e.g., tomato).
 4. The system immediately shows you recommendations for companion plants.
 
-![Screenshot: Companion planting suggestions in the planting run dialog](../../assets/images/screenshots/companion-planting-suggestions.png)
+!!! info "Screenshot pending"
+    This screenshot will be added in a future version.
 
 ### Step 2: Select companion plants
 

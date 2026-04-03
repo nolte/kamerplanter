@@ -511,7 +511,7 @@ backend:
 
 - [REQ-031 — AI Assistant & Plant Advisory](../../../spec/req/REQ-031_KI-Assistent-Pflanzenberatung.md)
 - [REQ-011 — External Master Data Enrichment (Adapter Pattern)](../../../spec/req/REQ-011_Externe-Stammdatenanreicherung.md)
-- [REQ-025 — Privacy & GDPR](../../../spec/req/REQ-025_Datenschutz.md)
+- [REQ-025 — Privacy & GDPR](../../../spec/req/REQ-025_Datenschutz-Betroffenenrechte.md)
 - [ADR-006 — Embedding Model E5-base and Hybrid Search](../adr/006-embedding-model-e5-base-hybrid-search.md)
 - [ADR-007 — Cross-Encoder Re-Ranking for RAG Pipeline](../adr/007-cross-encoder-reranking.md)
 - [Understanding the RAG Knowledge Base](../guides/rag-knowledge-base.md)

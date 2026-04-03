@@ -28,7 +28,8 @@ Jede Karte zeigt:
 - **Empfehlung** — Was Sie konkret tun können
 - **Priorität** — Kritisch, hoch, mittel oder niedrig (farblich markiert)
 
-![Screenshot: Tipp-Karten auf der Detailseite eines Pflanzdurchlaufs](../../assets/images/screenshots/ai-tip-cards.png)
+!!! info "Screenshot folgt"
+    Dieser Screenshot wird in einer zukünftigen Version ergänzt.
 
 ### Wann werden Tipp-Karten aktualisiert?
 

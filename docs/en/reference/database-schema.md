@@ -13,7 +13,7 @@ Kamerplanter uses ArangoDB as its primary database — a multi-model system comb
 | Document collections | 54 |
 | Edge collections | ~75 |
 | Primary persistence | ArangoDB 3.11+ |
-| Time-series data | TimescaleDB (future, REQ-005) |
+| Time-series data | TimescaleDB (optional, REQ-005) |
 | Cache / Queue | Redis / Valkey |
 
 ---
