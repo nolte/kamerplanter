@@ -136,8 +136,6 @@ async def async_setup_entry(
 
     def _discover_plant_channels() -> list[SensorEntity]:
         """Discover new plant channel entities from coordinator data."""
-        import logging
-        _log = logging.getLogger(__name__)
         new_entities: list[SensorEntity] = []
         if not plant_coord.data:
             return new_entities
@@ -147,12 +145,6 @@ async def async_setup_entry(
             key = plant["key"]
             dev = plant_device_info(entry, plant)
             dosage_data = plant.get("_current_dosages")
-            _log.warning(
-                "Channel discovery plant=%s dosage_data=%s channels=%s",
-                key,
-                type(dosage_data).__name__ if dosage_data else "None",
-                len(dosage_data.get("channels", [])) if isinstance(dosage_data, dict) else "N/A",
-            )
             if dosage_data and isinstance(dosage_data, dict):
                 for channel in dosage_data.get("channels", []):
                     ch_id = channel.get("channel_id", "")
@@ -327,7 +319,13 @@ async def async_setup_entry(
 
     entry.async_on_unload(loc_coord.async_add_listener(_on_loc_update))
 
-            # Legacy tank sensor under location (kept for backwards compat)
+    # Legacy tank sensor under location (kept for backwards compat)
+    if loc_coord.data:
+        for loc in loc_coord.data:
+            loc_key = loc.get("key") or loc.get("_key", "")
+            if not loc_key:
+                continue
+            dev = location_device_info(entry, loc)
             for tank in loc.get("_tanks", []):
                 tank_key = tank.get("key", "")
                 if tank_key:
