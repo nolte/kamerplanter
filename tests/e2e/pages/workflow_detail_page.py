@@ -44,7 +44,7 @@ class WorkflowDetailPage(BasePage):
     def get_workflow_title(self) -> str:
         """Return the page heading (workflow name)."""
         el = self.wait_for_element(
-            (By.CSS_SELECTOR, "[data-testid='workflow-detail-page'] h5, [data-testid='workflow-detail-page'] h4")
+            (By.CSS_SELECTOR, "[data-testid='page-title']")
         )
         return el.text
 
