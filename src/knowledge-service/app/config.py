@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # Embedding service
     embedding_service_url: str = "http://embedding-service:8080"
-    embedding_model: str = "multilingual-e5-base"
+    embedding_model: str = "multilingual-e5-large"
 
     # LLM
     llm_provider: str = "ollama"  # anthropic | ollama | openai_compatible
