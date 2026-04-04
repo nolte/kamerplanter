@@ -1045,6 +1045,7 @@ Unified Card für Pflanzeninstanzen und Planting Runs. Zeigt Phasenübergänge, 
 | `show_progress` | `boolean` | Nein | `true` | Fortschrittsbalken (Woche/Tag/%) anzeigen |
 | `show_timeline` | `boolean` | Nein | `true` | Phasen-Timeline-Stepper anzeigen |
 | `show_next_hint` | `boolean` | Nein | `true` | Nächste-Phase-Hinweis anzeigen |
+| `show_stats` | `boolean` | Nein | `true` | Wochen- & Ernte-Statistik anzeigen |
 | `show_details` | `boolean` | Nein | `true` | Phasen-Historie-Tabelle anzeigen |
 
 **Konfiguration im Editor:** Device-Picker mit `selector: { device: { integration: "kamerplanter" } }` — zeigt nur Kamerplanter-Devices. Nutzt `ha-form` + Schema-Pattern (UI-NFR-015 §2.1).
@@ -1068,6 +1069,11 @@ show_details: false    # z.B. kompakte Darstellung ohne Historie
 ┌──────────────────────────────────────────┐
 │  [Kami]  Northern Lights #3    [ 42d ]   │  ← Header: Kami-Icon, Name, Days-Badge
 │          Plagron Terra Grow              │  ← Nutrient-Plan-Badge (optional)
+├──────────────────────────────────────────┤
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ │
+│  │    12    │ │     3    │ │   44d    │ │  ← Stats: Gesamtwoche, Phasenwoche,
+│  │Gesamtwoche│ │Phasenwoche│ │bis Ernte │ │     Tage bis Ernte
+│  └──────────┘ └──────────┘ └──────────┘ │
 ├──────────────────────────────────────────┤
 │  Blüte                    Tag 12 / 56    │  ← Progress: Phase-Label, Tag/Woche
 │  ████████████░░░░░░░░░░░░░░░░░░░░░░░░░  │  ← Progress-Bar
@@ -1112,6 +1118,9 @@ show_details: false    # z.B. kompakte Darstellung ohne Historie
 | `next_plan_phase` | `str` | Nächste Phase aus Nährstoffplan |
 | `next_plan_phase_weeks` | `int` | Geplante Wochen der nächsten Phase |
 | `weeks_until_next_phase` | `int` | Wochen bis Phasenwechsel |
+| `overall_week` | `int` | Gesamtwoche seit Grow-Start |
+| `overall_days` | `int` | Gesamttage seit Grow-Start |
+| `days_to_harvest` | `int` | Verbleibende Tage bis geplante Ernte (Summe aller Restphasen) |
 | `{phase_name}` | `object` | Pro Phase: `{ status, started, date, days }` |
 
 **Phase-Status-Werte:** `completed`, `current`, `upcoming`
@@ -1145,6 +1154,7 @@ show_details: false    # z.B. kompakte Darstellung ohne Historie
 
 | Abschnitt | Sichtbar wenn |
 |-----------|--------------|
+| Stats-Kacheln | `overall_week`, `phase_week` oder `days_to_harvest` vorhanden |
 | Progress-Bar | `phase_week` + `phase_planned_weeks` vorhanden und > 0 |
 | Days-Badge | `days_in_phase` vorhanden und nicht `unknown` |
 | Nutrient-Plan-Badge | `nutrient_plan` vorhanden und nicht `None`/`unknown` |
