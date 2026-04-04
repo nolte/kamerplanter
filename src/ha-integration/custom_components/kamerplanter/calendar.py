@@ -12,9 +12,11 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, EVENT_TASK_COMPLETED
+from .const import EVENT_TASK_COMPLETED
 from .coordinator import KamerplanterPlantCoordinator, KamerplanterTaskCoordinator
-from .sensor import server_device_info
+from .entity import server_device_info
+
+PARALLEL_UPDATES = 0  # CoordinatorEntity — no own polling
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -88,9 +90,9 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Kamerplanter calendar entities."""
-    data = hass.data[DOMAIN][entry.entry_id]
-    plant_coordinator: KamerplanterPlantCoordinator = data["coordinators"]["plants"]
-    task_coordinator: KamerplanterTaskCoordinator = data["coordinators"]["tasks"]
+    coordinators = entry.runtime_data.coordinators
+    plant_coordinator: KamerplanterPlantCoordinator = coordinators["plants"]
+    task_coordinator: KamerplanterTaskCoordinator = coordinators["tasks"]
 
     async_add_entities([
         KamerplanterPhaseCalendar(plant_coordinator, entry),
@@ -116,8 +118,7 @@ class KamerplanterPhaseCalendar(CoordinatorEntity, CalendarEntity):
         super().__init__(coordinator)
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_kp_phases_calendar"
-        self.entity_id = "calendar.kp_phases"
-        self._attr_name = "Kamerplanter Phasen"
+        self._attr_translation_key = "phases"
         self._attr_device_info = server_device_info(entry)
 
     def _build_events(self) -> list[CalendarEvent]:
@@ -239,8 +240,7 @@ class KamerplanterTaskCalendar(CalendarEntity):
         self._coordinator = coordinator
         self._unsub: Any = None
         self._attr_unique_id = f"{entry.entry_id}_kp_tasks_calendar"
-        self.entity_id = "calendar.kp_tasks"
-        self._attr_name = "Kamerplanter Tasks"
+        self._attr_translation_key = "tasks"
         self._attr_device_info = server_device_info(entry)
 
     def _build_events(self) -> list[CalendarEvent]:

@@ -72,6 +72,7 @@ class KamerplanterMixCardEditor extends HTMLElement {
     this._form.hass = this._hass;
     this._form.schema = _buildMixSchema(this._hass);
     this._form.data = this._config;
+    this._form.computeLabel = (schema) => schema.label || schema.name;
   }
 }
 customElements.define("kamerplanter-mix-card-editor", KamerplanterMixCardEditor);
@@ -93,8 +94,12 @@ class KamerplanterMixCard extends HTMLElement {
   }
 
   set hass(hass) {
+    const entities = (this._config?.entities || []).filter(Boolean);
+    const changed = !this._hass || entities.some(
+      id => this._hass.states[id] !== hass.states[id]
+    );
     this._hass = hass;
-    if (this._config) this._render();
+    if (changed && this._config) this._render();
   }
 
   setConfig(config) {

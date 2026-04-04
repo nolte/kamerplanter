@@ -87,6 +87,7 @@ class KamerplanterTankCardEditor extends HTMLElement {
     this._form.hass = this._hass;
     this._form.schema = _buildTankSchema(this._hass);
     this._form.data = this._config;
+    this._form.computeLabel = (schema) => schema.label || schema.name;
   }
 }
 customElements.define("kamerplanter-tank-card-editor", KamerplanterTankCardEditor);
@@ -97,7 +98,23 @@ customElements.define("kamerplanter-tank-card-editor", KamerplanterTankCardEdito
 class KamerplanterTankCard extends HTMLElement {
   constructor() { super(); this.attachShadow({ mode: "open" }); }
 
-  set hass(hass) { this._hass = hass; if (this._config) this._render(); }
+  set hass(hass) {
+    const entities = this._getMonitoredEntities();
+    const changed = !this._hass || entities.some(
+      id => this._hass.states[id] !== hass.states[id]
+    );
+    this._hass = hass;
+    if (changed && this._config) this._render();
+  }
+
+  _getMonitoredEntities() {
+    if (!this._config) return [];
+    const ids = [this._config.tank_entity];
+    if (this._config.ph_entity) ids.push(this._config.ph_entity);
+    if (this._config.ec_entity) ids.push(this._config.ec_entity);
+    if (this._config.temp_entity) ids.push(this._config.temp_entity);
+    return ids.filter(Boolean);
+  }
 
   setConfig(config) {
     if (!config.tank_entity) throw new Error("Please define a tank entity");

@@ -15,9 +15,11 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, EVENT_TASK_COMPLETED
+from .const import EVENT_TASK_COMPLETED
 from .coordinator import KamerplanterTaskCoordinator
-from .sensor import server_device_info
+from .entity import server_device_info
+
+PARALLEL_UPDATES = 1  # Serialize task completions
 
 
 async def async_setup_entry(
@@ -26,9 +28,8 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Kamerplanter todo entities."""
-    data = hass.data[DOMAIN][entry.entry_id]
-    task_coordinator: KamerplanterTaskCoordinator = data["coordinators"]["tasks"]
-    api = data["api"]
+    task_coordinator: KamerplanterTaskCoordinator = entry.runtime_data.coordinators["tasks"]
+    api = entry.runtime_data.api
 
     async_add_entities([KamerplanterTodoList(task_coordinator, entry, api)])
 
@@ -52,8 +53,7 @@ class KamerplanterTodoList(CoordinatorEntity, TodoListEntity):
         self._entry = entry
         self._api = api
         self._attr_unique_id = f"{entry.entry_id}_kp_todo"
-        self.entity_id = "todo.kp_tasks"
-        self._attr_name = "Kamerplanter Tasks"
+        self._attr_translation_key = "tasks"
         self._attr_device_info = server_device_info(entry)
 
     @property

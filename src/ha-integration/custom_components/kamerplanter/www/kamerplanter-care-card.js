@@ -89,6 +89,7 @@ class KamerplanterCareCardEditor extends HTMLElement {
     this._form.hass = this._hass;
     this._form.schema = CARE_CARD_SCHEMA;
     this._form.data = this._config;
+    this._form.computeLabel = (schema) => schema.label || schema.name;
   }
 }
 customElements.define("kamerplanter-care-card-editor", KamerplanterCareCardEditor);
@@ -102,8 +103,16 @@ class KamerplanterCareCard extends HTMLElement {
   }
 
   set hass(hass) {
+    const oldDue = this._hass?.states[this._config?.entity_due];
+    const newDue = hass.states[this._config?.entity_due];
+    const oldOverdue = this._hass?.states[this._config?.entity_overdue];
+    const newOverdue = hass.states[this._config?.entity_overdue];
     this._hass = hass;
-    this._render();
+
+    if (oldDue !== newDue || oldOverdue !== newOverdue || !this._rendered) {
+      this._render();
+      this._rendered = true;
+    }
   }
 
   setConfig(config) {
@@ -113,10 +122,21 @@ class KamerplanterCareCard extends HTMLElement {
       entity_due: config.entity_due || "sensor.kp_tasks_due_today",
       entity_overdue: config.entity_overdue || "sensor.kp_tasks_overdue",
     };
+    this._rendered = false;
   }
 
   getCardSize() {
     return 3;
+  }
+
+  getGridOptions() {
+    return {
+      columns: 6,
+      rows: 4,
+      min_columns: 3,
+      min_rows: 2,
+      max_rows: 8,
+    };
   }
 
   static getConfigElement() {

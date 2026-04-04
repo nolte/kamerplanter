@@ -504,6 +504,7 @@ def get_care_reminder_service() -> CareReminderService:
         get_task_repo(),
         watering_log_repo=get_watering_log_repo(),
         plant_repo=get_plant_repo(),
+        lifecycle_repo=get_lifecycle_repo(),
     )
 
 

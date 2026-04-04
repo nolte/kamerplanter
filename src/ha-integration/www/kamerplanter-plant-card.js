@@ -219,6 +219,15 @@ const CARD_STYLES = `
     background: var(--primary-color, #4caf50);
     transition: width 0.5s ease;
   }
+  .kp-progress__fill--indeterminate {
+    width: 40%;
+    animation: kp-progress-slide 1.8s ease-in-out infinite;
+  }
+  @keyframes kp-progress-slide {
+    0%   { margin-left: 0;   opacity: 0.7; }
+    50%  { margin-left: 60%; opacity: 1; }
+    100% { margin-left: 0;   opacity: 0.7; }
+  }
   .kp-progress__footer {
     display: flex;
     justify-content: space-between;
@@ -235,11 +244,32 @@ const CARD_STYLES = `
   }
 
   /* ---- Timeline ---- */
+  .kp-timeline-wrapper {
+    position: relative;
+    margin-bottom: 20px;
+  }
+  .kp-timeline-wrapper::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 32px;
+    height: 100%;
+    background: linear-gradient(to right, transparent, var(--card-background-color, #fff));
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .kp-timeline-wrapper--scrollable::after {
+    opacity: 1;
+  }
+  .kp-timeline-wrapper--scrolled-end::after {
+    opacity: 0;
+  }
   .kp-timeline {
     display: flex;
     align-items: flex-start;
     width: 100%;
-    margin-bottom: 20px;
     box-sizing: border-box;
     overflow-x: auto;
     overflow-y: hidden;
@@ -361,7 +391,7 @@ const CARD_STYLES = `
     width: 100%;
   }
   .kp-step__name {
-    font-size: 0.72em;
+    font-size: max(0.72em, 11px);
     font-weight: 500;
     color: var(--secondary-text-color);
     text-align: center;
@@ -379,7 +409,7 @@ const CARD_STYLES = `
   }
   .kp-step__date,
   .kp-step__duration {
-    font-size: 0.62em;
+    font-size: max(0.65em, 10px);
     color: var(--secondary-text-color);
     opacity: 0.7;
   }
@@ -486,6 +516,43 @@ const CARD_STYLES = `
     min-width: 36px;
   }
 
+  /* ---- Stats row ---- */
+  .kp-stats {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .kp-stats__item {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 10px 6px;
+    border-radius: 10px;
+    background: var(--secondary-background-color, #f5f5f5);
+  }
+  .kp-stats__value {
+    font-size: 1.5em;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--primary-text-color);
+  }
+  .kp-stats__unit {
+    font-size: 0.55em;
+    font-weight: 400;
+    opacity: 0.7;
+  }
+  .kp-stats__label {
+    font-size: 0.7em;
+    color: var(--secondary-text-color);
+    text-align: center;
+    line-height: 1.2;
+  }
+  .kp-stats__item--harvest .kp-stats__value {
+    color: var(--primary-color, #4caf50);
+  }
+
   /* ---- Hidden override ---- */
   [hidden] {
     display: none !important;
@@ -534,6 +601,8 @@ const PLANT_CARD_SCHEMA = [
     selector: { boolean: {} } },
   { name: "show_next_hint", label: "Nächste-Phase-Hinweis anzeigen",
     selector: { boolean: {} } },
+  { name: "show_stats",     label: "Wochen- & Ernte-Statistik anzeigen",
+    selector: { boolean: {} } },
   { name: "show_details",   label: "Phasen-Historie anzeigen",
     selector: { boolean: {} } },
 ];
@@ -552,7 +621,7 @@ class KamerplanterPlantCardEditor extends HTMLElement {
     this._config = {
       device_id: "", title: "",
       show_progress: true, show_timeline: true,
-      show_next_hint: true, show_details: true,
+      show_stats: true, show_next_hint: true, show_details: true,
       ...config,
     };
     if (this._hass) this._scheduleRender();
@@ -588,6 +657,7 @@ class KamerplanterPlantCardEditor extends HTMLElement {
     this._form.hass = this._hass;
     this._form.schema = PLANT_CARD_SCHEMA;
     this._form.data = this._config;
+    this._form.computeLabel = (schema) => schema.label || schema.name;
   }
 }
 
@@ -611,6 +681,7 @@ class KamerplanterPlantCard extends HTMLElement {
       title: "",
       show_progress: true,
       show_timeline: true,
+      show_stats: true,
       show_next_hint: true,
       show_details: true,
     };
@@ -621,19 +692,58 @@ class KamerplanterPlantCard extends HTMLElement {
       throw new Error("Bitte ein Device ausw\u00e4hlen");
     }
     this._config = { ...KamerplanterPlantCard.CONFIG_DEFAULTS, ...config };
+    this._monitoredEntities = [];
   }
 
   set hass(hass) {
+    // Collect monitored entities on first call
+    if (this._monitoredEntities.length === 0 && hass) {
+      this._monitoredEntities = Object.keys(hass.states).filter(
+        id => id.startsWith("sensor.") || id.startsWith("binary_sensor.")
+      );
+    }
+
+    // Change-detection: only re-render when own entities changed
+    const changed = !this._hass || this._monitoredEntities.some(
+      id => this._hass.states[id] !== hass.states[id]
+    );
     this._hass = hass;
-    this._update();
+    if (changed) this._update();
+  }
+
+  _handleMoreInfo(entityId) {
+    const event = new Event("hass-more-info", { bubbles: true, composed: true });
+    event.detail = { entityId };
+    this.dispatchEvent(event);
   }
 
   getCardSize() {
-    return 8;
+    let size = 2; // header always visible
+    const c = this._config || {};
+    if (c.show_stats !== false) size += 1;
+    if (c.show_progress !== false) size += 2;
+    if (c.show_timeline !== false) size += 2;
+    if (c.show_next_hint !== false) size += 1;
+    if (c.show_details !== false) size += 2;
+    return size;
   }
 
   getGridOptions() {
-    return { columns: 6, min_columns: 3, rows: 8, min_rows: 4 };
+    // Sections view: 12-column grid, 56px per row + 8px gap
+    // Calculate rows from active sections
+    let rows = 2; // header
+    const c = this._config || {};
+    if (c.show_stats !== false) rows += 1;
+    if (c.show_progress !== false) rows += 2;
+    if (c.show_timeline !== false) rows += 2;
+    if (c.show_next_hint !== false) rows += 1;
+    if (c.show_details !== false) rows += 2;
+    return {
+      columns: 12,
+      min_columns: 6,
+      rows: rows,
+      min_rows: 2,
+    };
   }
 
   static getConfigElement() {
@@ -667,13 +777,43 @@ class KamerplanterPlantCard extends HTMLElement {
   _getEntityMap() {
     const id = this._config.device_id;
     if (!id || !this._hass) return {};
-    const map = {};
+
+    // Collect all entity_ids for this device to derive the common prefix.
+    // Entity IDs follow: sensor.kp_{slug}_{suffix} where slug can contain
+    // underscores (e.g. "canna_0321_e02"), so we cannot split with a simple regex.
+    // Instead, find the common prefix from all entity_ids of this device.
+    const deviceEnts = [];
     for (const ent of Object.values(this._hass.entities || {})) {
       if (ent.device_id !== id) continue;
+      const eid = ent.entity_id;
+      if (/^(?:sensor|binary_sensor)\.kp_/.test(eid)) {
+        deviceEnts.push(ent);
+      }
+    }
+
+    if (deviceEnts.length === 0) return {};
+
+    // Derive common prefix: strip domain, find longest common prefix of the
+    // object_id part (after "sensor." / "binary_sensor.").
+    const objectIds = deviceEnts.map((e) => e.entity_id.replace(/^[^.]+\./, ""));
+    let prefix = objectIds[0];
+    for (let i = 1; i < objectIds.length; i++) {
+      while (!objectIds[i].startsWith(prefix)) {
+        // Remove last _segment from prefix
+        const idx = prefix.lastIndexOf("_");
+        if (idx <= 0) { prefix = ""; break; }
+        prefix = prefix.substring(0, idx + 1); // keep trailing _
+      }
+      if (!prefix) break;
+    }
+
+    const map = {};
+    for (const ent of deviceEnts) {
       const st = this._hass.states[ent.entity_id];
       if (!st) continue;
-      const m = ent.entity_id.match(/^(?:sensor|binary_sensor)\.kp_\w+?_(.+)$/);
-      if (m) map[m[1]] = st;
+      const objId = ent.entity_id.replace(/^[^.]+\./, "");
+      const suffix = prefix ? objId.substring(prefix.length) : objId;
+      if (suffix) map[suffix] = st;
     }
     return map;
   }
@@ -727,8 +867,11 @@ class KamerplanterPlantCard extends HTMLElement {
           <div class="kp-header__days" id="daysBadge" hidden></div>
         </div>
         <div class="kp-content">
+          <div class="kp-stats" id="stats" hidden></div>
           <div class="kp-progress" id="progress" hidden></div>
-          <div class="kp-timeline" id="timeline"></div>
+          <div class="kp-timeline-wrapper" id="timelineWrapper">
+            <div class="kp-timeline" id="timeline"></div>
+          </div>
           <div class="kp-next" id="nextHint" hidden></div>
           <div class="kp-details" id="details" hidden></div>
         </div>
@@ -796,6 +939,23 @@ class KamerplanterPlantCard extends HTMLElement {
       daysEl.hidden = true;
     }
 
+    /* Stats row */
+    const statsEl = $("stats");
+    if (this._config.show_stats) {
+      const overallWeek = tAttrs.overall_week;
+      const phaseWeek = tAttrs.phase_week;
+      const daysToHarvest = tAttrs.days_to_harvest;
+
+      if (overallWeek != null || phaseWeek != null || daysToHarvest != null) {
+        statsEl.innerHTML = this._renderStats(overallWeek, phaseWeek, daysToHarvest);
+        statsEl.hidden = false;
+      } else {
+        statsEl.hidden = true;
+      }
+    } else {
+      statsEl.hidden = true;
+    }
+
     /* Progress bar */
     const progressEl = $("progress");
     if (this._config.show_progress) {
@@ -813,12 +973,14 @@ class KamerplanterPlantCard extends HTMLElement {
     /* Timeline */
     const phases = this._buildPhases(tAttrs, currentPhase);
     const timelineEl = $("timeline");
+    const wrapperEl = $("timelineWrapper");
     if (this._config.show_timeline) {
       timelineEl.innerHTML = this._renderTimeline(phases);
-      timelineEl.hidden = false;
+      wrapperEl.hidden = false;
+      this._setupScrollFade(timelineEl, wrapperEl);
     } else {
       timelineEl.innerHTML = "";
-      timelineEl.hidden = true;
+      wrapperEl.hidden = true;
     }
 
     /* Next phase hint */
@@ -853,6 +1015,54 @@ class KamerplanterPlantCard extends HTMLElement {
 
   /* ---- Partial renderers ---------------------------------------- */
 
+  /** Detect timeline overflow and toggle scroll-fade indicator. */
+  _setupScrollFade(timelineEl, wrapperEl) {
+    requestAnimationFrame(() => {
+      const isScrollable = timelineEl.scrollWidth > timelineEl.clientWidth + 2;
+      wrapperEl.classList.toggle("kp-timeline-wrapper--scrollable", isScrollable);
+      wrapperEl.classList.remove("kp-timeline-wrapper--scrolled-end");
+
+      if (isScrollable && !timelineEl._kpScrollHandler) {
+        timelineEl._kpScrollHandler = () => {
+          const atEnd = timelineEl.scrollLeft + timelineEl.clientWidth >= timelineEl.scrollWidth - 4;
+          wrapperEl.classList.toggle("kp-timeline-wrapper--scrolled-end", atEnd);
+        };
+        timelineEl.addEventListener("scroll", timelineEl._kpScrollHandler, { passive: true });
+      }
+    });
+  }
+
+  /** Render stats row with 3 KPI tiles. */
+  _renderStats(overallWeek, phaseWeek, daysToHarvest) {
+    let html = "";
+
+    if (overallWeek != null) {
+      html += `
+        <div class="kp-stats__item">
+          <span class="kp-stats__value">${overallWeek}</span>
+          <span class="kp-stats__label">Gesamtwoche</span>
+        </div>`;
+    }
+
+    if (phaseWeek != null) {
+      html += `
+        <div class="kp-stats__item">
+          <span class="kp-stats__value">${phaseWeek}</span>
+          <span class="kp-stats__label">Phasenwoche</span>
+        </div>`;
+    }
+
+    if (daysToHarvest != null) {
+      html += `
+        <div class="kp-stats__item kp-stats__item--harvest">
+          <span class="kp-stats__value">${daysToHarvest}<span class="kp-stats__unit">d</span></span>
+          <span class="kp-stats__label">bis Ernte</span>
+        </div>`;
+    }
+
+    return html;
+  }
+
   /** Render progress bar if week/day data is available. Returns HTML string or null. */
   _renderProgress(tAttrs, currentPhase) {
     const phaseWeek = tAttrs.phase_week;
@@ -863,31 +1073,56 @@ class KamerplanterPlantCard extends HTMLElement {
     const remainingDays = tAttrs.remaining_days;
     const remainingWeeks = tAttrs.phase_remaining_weeks;
 
-    if (phaseWeek == null || plannedWeeks == null || plannedWeeks <= 0) return null;
+    // Full progress mode: plan-based week/percentage data available
+    if (phaseWeek != null && plannedWeeks != null && plannedWeeks > 0) {
+      const pct = Math.min(100, progressPct || 0);
+      const infoText = daysInPhase != null
+        ? `Tag ${daysInPhase} / ${typicalDays || "?"}`
+        : `Woche ${phaseWeek} / ${plannedWeeks}`;
+      const remainText = remainingDays != null
+        ? `${remainingDays} ${remainingDays === 1 ? "Tag" : "Tage"} verbleibend`
+        : remainingWeeks != null
+          ? `${remainingWeeks} ${remainingWeeks === 1 ? "Woche" : "Wochen"} verbleibend`
+          : "";
 
-    const pct = Math.min(100, progressPct || 0);
-    const infoText = daysInPhase != null
-      ? `Tag ${daysInPhase} / ${typicalDays || "?"}`
-      : `Woche ${phaseWeek} / ${plannedWeeks}`;
-    const remainText = remainingDays != null
-      ? `${remainingDays} ${remainingDays === 1 ? "Tag" : "Tage"} verbleibend`
-      : remainingWeeks != null
-        ? `${remainingWeeks} ${remainingWeeks === 1 ? "Woche" : "Wochen"} verbleibend`
-        : "";
+      return `
+        <div class="kp-progress__header">
+          <span class="kp-progress__phase">${escapeHtml(phaseLabel(currentPhase))}</span>
+          <span class="kp-progress__info">${infoText}</span>
+        </div>
+        <div class="kp-progress__track">
+          <div class="kp-progress__fill" style="width:${pct}%"></div>
+        </div>
+        <div class="kp-progress__footer">
+          <span class="kp-progress__pct">${pct}%</span>
+          ${remainText ? `<span class="kp-progress__remaining">${remainText}</span>` : ""}
+        </div>
+      `;
+    }
 
-    return `
-      <div class="kp-progress__header">
-        <span class="kp-progress__phase">${escapeHtml(phaseLabel(currentPhase))}</span>
-        <span class="kp-progress__info">${infoText}</span>
-      </div>
-      <div class="kp-progress__track">
-        <div class="kp-progress__fill" style="width:${pct}%"></div>
-      </div>
-      <div class="kp-progress__footer">
-        <span class="kp-progress__pct">${pct}%</span>
-        ${remainText ? `<span class="kp-progress__remaining">${remainText}</span>` : ""}
-      </div>
-    `;
+    // Fallback mode: only days_in_phase available (no plan data)
+    if (daysInPhase != null) {
+      const weeks = Math.floor(daysInPhase / 7);
+      const daysMod = daysInPhase % 7;
+      const durationText = weeks > 0
+        ? `${weeks} ${weeks === 1 ? "Woche" : "Wochen"}, ${daysMod} ${daysMod === 1 ? "Tag" : "Tage"}`
+        : `${daysInPhase} ${daysInPhase === 1 ? "Tag" : "Tage"}`;
+
+      return `
+        <div class="kp-progress__header">
+          <span class="kp-progress__phase">${escapeHtml(phaseLabel(currentPhase))}</span>
+          <span class="kp-progress__info">Tag ${daysInPhase}</span>
+        </div>
+        <div class="kp-progress__track">
+          <div class="kp-progress__fill kp-progress__fill--indeterminate"></div>
+        </div>
+        <div class="kp-progress__footer">
+          <span class="kp-progress__remaining">${durationText} in dieser Phase</span>
+        </div>
+      `;
+    }
+
+    return null;
   }
 
   /** Render next-phase hint. Returns HTML string or null. */

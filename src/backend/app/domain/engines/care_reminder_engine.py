@@ -170,9 +170,15 @@ class CareReminderEngine:
         last_confirmation: CareConfirmation | None,
         current_phase: str | None = None,
         hemisphere: str = "north",
+        phase_watering_interval: int | None = None,
     ) -> date | None:
         """Calculate the next due date for a specific reminder type."""
-        interval = self._get_interval_days(profile, reminder_type, hemisphere)
+        interval = self._get_interval_days(
+            profile,
+            reminder_type,
+            hemisphere,
+            phase_watering_interval=phase_watering_interval,
+        )
         if interval is None:
             return None
 
@@ -375,13 +381,15 @@ class CareReminderEngine:
         profile: CareProfile,
         reminder_type: ReminderType,
         hemisphere: str = "north",
+        phase_watering_interval: int | None = None,
     ) -> int | None:
         """Get the interval in days for a reminder type, season-adjusted."""
         month = date.today().month
         is_winter = self._is_winter(month, hemisphere)
 
         if reminder_type == ReminderType.WATERING:
-            base = profile.watering_interval_learned or profile.watering_interval_days
+            # Phase-specific interval takes priority over care profile
+            base = phase_watering_interval or profile.watering_interval_learned or profile.watering_interval_days
             if is_winter:
                 return int(base * profile.winter_watering_multiplier)
             return base

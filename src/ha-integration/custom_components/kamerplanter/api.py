@@ -334,6 +334,22 @@ class KamerplanterApi:
         except KamerplanterApiError:
             return []
 
+    async def async_get_run_watering_schedule(
+        self, run_key: str, days_ahead: int = 14
+    ) -> dict[str, Any]:
+        """Fetch watering schedule for a planting run."""
+        return await self._request(
+            "GET",
+            f"{self._tenant_prefix}/planting-runs/{run_key}/watering-schedule",
+            params={"days_ahead": days_ahead},
+        )
+
+    async def async_get_care_dashboard(self) -> list[dict[str, Any]]:
+        """Fetch care dashboard entries (due dates per plant and reminder type)."""
+        return await self._request(
+            "GET", f"{self._tenant_prefix}/care-reminders/dashboard"
+        )
+
     async def async_get_overdue_tasks(self) -> list[dict[str, Any]]:
         """Fetch overdue tasks."""
         return await self._request("GET", f"{self._tenant_prefix}/tasks/overdue")
@@ -402,6 +418,52 @@ class KamerplanterApi:
             )
         except KamerplanterApiError:
             return []
+
+    # --- Growth phases ---
+
+    async def async_get_growth_phase(self, phase_key: str) -> dict[str, Any] | None:
+        """Fetch a single growth phase by key."""
+        try:
+            return await self._request(
+                "GET", f"/api/v1/growth-phases/{phase_key}"
+            )
+        except KamerplanterApiError:
+            return None
+
+    # --- Care reminders (REQ-022) ---
+
+    async def async_get_care_profile(self, plant_key: str) -> dict[str, Any] | None:
+        """Fetch care profile for a plant (auto-created if missing)."""
+        try:
+            return await self._request(
+                "GET", f"/api/v1/care-reminders/plants/{plant_key}/profile"
+            )
+        except KamerplanterApiError:
+            return None
+
+    async def async_get_care_history(
+        self, plant_key: str, reminder_type: str = "watering", limit: int = 1
+    ) -> list[dict[str, Any]]:
+        """Fetch care confirmation history for a plant."""
+        try:
+            return await self._request(
+                "GET",
+                f"/api/v1/care-reminders/plants/{plant_key}/history",
+                params={"reminder_type": reminder_type, "limit": limit},
+            )
+        except KamerplanterApiError:
+            return []
+
+    async def async_get_run_watering_schedule(
+        self, run_key: str
+    ) -> dict[str, Any] | None:
+        """Fetch watering schedule for a planting run."""
+        try:
+            return await self._request(
+                "GET", f"{self._tenant_prefix}/planting-runs/{run_key}/watering-schedule"
+            )
+        except KamerplanterApiError:
+            return None
 
     # --- Notification endpoints (REQ-030) ---
 
