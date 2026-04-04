@@ -95,6 +95,15 @@ Setze die Delta-Liste um. Beachte dabei:
 
 ---
 
+## Entwicklungsumgebung
+
+- **Lokaler Kind-Cluster** (Kubernetes in Docker) via Skaffold
+- Home Assistant laeuft als StatefulSet `homeassistant-0` im Namespace `default`
+- Die HA-Integration wird **nicht** automatisch per Skaffold deployed, sondern manuell per `kubectl cp` + Container-Restart
+- Alle kubectl-Befehle laufen gegen den lokalen Kind-Cluster
+
+---
+
 ## Verbindliche Regeln
 
 ### NICHT AENDERN (ausser bei direktem API-Bruch):

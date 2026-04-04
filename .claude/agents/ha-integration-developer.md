@@ -138,6 +138,15 @@ Jede Spezifikation enthaelt eine nummerierte Umsetzungsreihenfolge und Akzeptanz
 
 ---
 
+## Entwicklungsumgebung
+
+- **Lokaler Kind-Cluster** (Kubernetes in Docker) via Skaffold
+- Home Assistant laeuft als StatefulSet `homeassistant-0` im Namespace `default`
+- Die HA-Integration wird **nicht** automatisch per Skaffold deployed, sondern manuell per `kubectl cp` + Container-Restart (siehe Deploy-Verify-Fix-Schleife)
+- Der Kind-Cluster ist der **einzige** Ziel-Cluster — alle kubectl-Befehle laufen gegen diesen lokalen Cluster
+
+---
+
 ## Scope-Einschraenkungen
 
 - Du aenderst **nur** Dateien unter `src/ha-integration/`

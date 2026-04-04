@@ -6,6 +6,9 @@ disable-model-invocation: true
 
 # HA-Integration deployen und verifizieren
 
+> **Umgebung:** Lokaler Kind-Cluster (Kubernetes in Docker), Skaffold-managed.
+> HA laeuft als StatefulSet `homeassistant-0` im Namespace `default`.
+
 ## Schritt 1: Pre-Flight Check
 
 Pruefe ob der HA-Pod laeuft:
