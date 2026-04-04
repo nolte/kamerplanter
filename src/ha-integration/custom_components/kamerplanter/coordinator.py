@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 import async_timeout
@@ -166,9 +166,21 @@ class KamerplanterPlantCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
         except Exception:  # noqa: BLE001
             plant["_nutrient_plan"] = None
 
-        # Current dosages (only if plan and phase present)
-        if started and plant.get("_nutrient_plan"):
-            week = _calc_current_week(started)
+        # Current dosages (only if plan present)
+        # Seasonal plans (cycle_restart_from_sequence set) use ISO calendar
+        # week instead of weeks-since-phase-start, because their phase entries
+        # are keyed to calendar weeks (W1=Jan, W14=Apr, etc.).
+        # Fallback to week 1 when current_phase_started_at is missing
+        # (common for houseplants without explicit phase transitions).
+        plan = plant.get("_nutrient_plan")
+        if plan:
+            is_seasonal = plan.get("cycle_restart_from_sequence") is not None
+            if is_seasonal:
+                week = date.today().isocalendar().week
+            elif started:
+                week = _calc_current_week(started)
+            else:
+                week = 1
             try:
                 plant["_current_dosages"] = await self.api.async_get_plant_current_dosages(key, week)
             except Exception:  # noqa: BLE001
@@ -316,7 +328,11 @@ class KamerplanterLocationCoordinator(DataUpdateCoordinator[list[dict[str, Any]]
                         timeline = await self.api.async_get_run_phase_timeline(run_key)
                         primary["_timeline"] = timeline
                         all_entries = primary.get("_phase_entries", [])
-                        eff_week = _calc_effective_plan_week(timeline, all_entries)
+                        is_seasonal = plan and plan.get("cycle_restart_from_sequence") is not None
+                        if is_seasonal:
+                            eff_week = date.today().isocalendar().week
+                        else:
+                            eff_week = _calc_effective_plan_week(timeline, all_entries)
                         if eff_week is not None:
                             primary["_current_week"] = eff_week
                             primary["_current_phase_entries"] = _filter_current_phase_entries(
@@ -433,7 +449,11 @@ class KamerplanterRunCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
                     timeline = await self.api.async_get_run_phase_timeline(run["key"])
                     run["_timeline"] = timeline
                     all_entries = run.get("_phase_entries", [])
-                    eff_week = _calc_effective_plan_week(timeline, all_entries)
+                    is_seasonal = plan and plan.get("cycle_restart_from_sequence") is not None
+                    if is_seasonal:
+                        eff_week = date.today().isocalendar().week
+                    else:
+                        eff_week = _calc_effective_plan_week(timeline, all_entries)
                     if eff_week is not None:
                         run["_current_week"] = eff_week
                         run["_current_phase_entries"] = _filter_current_phase_entries(

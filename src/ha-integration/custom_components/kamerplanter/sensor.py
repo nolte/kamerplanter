@@ -130,17 +130,35 @@ async def async_setup_entry(
                 PlantDaysUntilWateringSensor(plant_coord, entry, key, dev),
             ])
 
-    # Plant channel sensors — one per delivery channel, dosages as attributes
-    if plant_coord.data:
+    # Plant channel sensors — one per delivery channel, dosages as attributes.
+    # Channels are discovered dynamically: initial setup + listener for late arrivals.
+    known_plant_channels: set[str] = set()
+
+    def _discover_plant_channels() -> list[SensorEntity]:
+        """Discover new plant channel entities from coordinator data."""
+        import logging
+        _log = logging.getLogger(__name__)
+        new_entities: list[SensorEntity] = []
+        if not plant_coord.data:
+            return new_entities
         for plant in plant_coord.data:
             if plant.get("removed_on"):
                 continue
             key = plant["key"]
             dev = plant_device_info(entry, plant)
             dosage_data = plant.get("_current_dosages")
+            _log.warning(
+                "Channel discovery plant=%s dosage_data=%s channels=%s",
+                key,
+                type(dosage_data).__name__ if dosage_data else "None",
+                len(dosage_data.get("channels", [])) if isinstance(dosage_data, dict) else "N/A",
+            )
             if dosage_data and isinstance(dosage_data, dict):
                 for channel in dosage_data.get("channels", []):
                     ch_id = channel.get("channel_id", "")
+                    uid = f"{key}_{ch_id}"
+                    if uid in known_plant_channels:
+                        continue
                     ch_label = channel.get("label", ch_id)
                     dosages = {
                         d.get("product_name", d.get("fertilizer_key", "?")): d.get("ml_per_liter")
@@ -148,12 +166,26 @@ async def async_setup_entry(
                         if d.get("ml_per_liter") is not None
                     }
                     if dosages:
-                        entities.append(
+                        known_plant_channels.add(uid)
+                        new_entities.append(
                             PlantChannelSensor(
                                 plant_coord, entry, key, dev,
                                 ch_id, ch_label, dosages,
                             )
                         )
+        return new_entities
+
+    # Initial discovery
+    entities.extend(_discover_plant_channels())
+
+    # Re-discover on each coordinator update (late-arriving channels)
+    @callback
+    def _on_plant_update() -> None:
+        new = _discover_plant_channels()
+        if new:
+            async_add_entities(new)
+
+    entry.async_on_unload(plant_coord.async_add_listener(_on_plant_update))
 
     # Planting run sensors — only active/planned runs
     if run_coord and run_coord.data:
@@ -170,38 +202,53 @@ async def async_setup_entry(
                 RunNextPhaseSensor(run_coord, entry, key, dev),
                 RunDaysUntilWateringSensor(run_coord, entry, key, dev),
             ])
-            # Run channel sensors — discover from ALL phase entries so entities
-            # exist for every channel; _handle_coordinator_update filters to
-            # the current week dynamically.
-            current_entries = run.get("_phase_entries", [])
-            channel_labels: dict[str, str] = {}
-            channel_dosages: dict[str, dict[str, float]] = {}
-            channel_volumes: dict[str, float | None] = {}
-            for pe in current_entries:
+    # Run channel sensors — dynamic discovery (same pattern as plant channels)
+    known_run_channels: set[str] = set()
+
+    def _discover_run_channels() -> list[SensorEntity]:
+        new_entities: list[SensorEntity] = []
+        if not run_coord or not run_coord.data:
+            return new_entities
+        for run in run_coord.data:
+            if run.get("status") in ("completed", "cancelled"):
+                continue
+            key = run["key"]
+            dev = run_device_info(entry, run)
+            for pe in run.get("_phase_entries", []):
                 for channel in pe.get("delivery_channels", []):
                     ch_id = channel.get("channel_id", "")
                     if not ch_id:
                         continue
-                    if ch_id not in channel_labels:
-                        channel_labels[ch_id] = channel.get("label", ch_id)
-                    if ch_id not in channel_dosages:
-                        channel_dosages[ch_id] = {}
-                    if ch_id not in channel_volumes:
-                        channel_volumes[ch_id] = _extract_channel_volume(channel)
+                    uid = f"{key}_{ch_id}"
+                    if uid in known_run_channels:
+                        continue
+                    dosages: dict[str, float] = {}
                     for dosage in channel.get("fertilizer_dosages", []):
                         product = dosage.get("product_name", dosage.get("fertilizer_key", "?"))
                         ml = dosage.get("ml_per_liter")
-                        if product and ml is not None and product not in channel_dosages[ch_id]:
-                            channel_dosages[ch_id][product] = ml
-            for ch_id, dosages in channel_dosages.items():
-                if dosages:
-                    entities.append(
-                        RunChannelSensor(
-                            run_coord, entry, key, dev,
-                            ch_id, channel_labels[ch_id], dosages,
-                            channel_volumes.get(ch_id),
+                        if product and ml is not None:
+                            dosages[product] = ml
+                    if dosages:
+                        known_run_channels.add(uid)
+                        new_entities.append(
+                            RunChannelSensor(
+                                run_coord, entry, key, dev,
+                                ch_id, channel.get("label", ch_id), dosages,
+                                _extract_channel_volume(channel),
+                            )
                         )
-                    )
+        return new_entities
+
+    entities.extend(_discover_run_channels())
+
+    @callback
+    def _on_run_update() -> None:
+        new = _discover_run_channels()
+        if new:
+            async_add_entities(new)
+
+    if run_coord:
+        entry.async_on_unload(run_coord.async_add_listener(_on_run_update))
 
     # Location sensors — each location becomes a device
     if loc_coord.data:
@@ -225,49 +272,60 @@ async def async_setup_entry(
                     LocationRunNextPhaseSensor(loc_coord, entry, loc_key, dev),
                     LocationRunPhaseTimelineSensor(loc_coord, entry, loc_key, dev),
                 ])
-                # Channel sensors from primary run
-                # Channel sensors from current week's phase entry only
-                current_entries = primary_run.get(
-                    "_current_phase_entries",
-                    primary_run.get("_phase_entries", []),
-                )
-                loc_tanks = loc.get("_tanks", [])
-                channel_labels: dict[str, str] = {}
-                channel_dosages: dict[str, dict[str, float]] = {}
-                channel_volumes: dict[str, float | None] = {}
-                for pe in current_entries:
-                    for channel in pe.get("delivery_channels", []):
-                        ch_id = channel.get("channel_id", "")
-                        if not ch_id:
-                            continue
-                        if ch_id not in channel_labels:
-                            channel_labels[ch_id] = channel.get("label", ch_id)
-                        if ch_id not in channel_dosages:
-                            channel_dosages[ch_id] = {}
-                        if ch_id not in channel_volumes:
-                            channel_volumes[ch_id] = _extract_channel_volume(
-                                channel, loc_tanks
-                            )
-                        for dosage in channel.get("fertilizer_dosages", []):
-                            product = dosage.get(
-                                "product_name", dosage.get("fertilizer_key", "?")
-                            )
-                            ml = dosage.get("ml_per_liter")
-                            if (
-                                product
-                                and ml is not None
-                                and product not in channel_dosages[ch_id]
-                            ):
-                                channel_dosages[ch_id][product] = ml
-                for ch_id, dosages in channel_dosages.items():
+    # Location channel sensors — dynamic discovery
+    known_loc_channels: set[str] = set()
+
+    def _discover_loc_channels() -> list[SensorEntity]:
+        new_entities: list[SensorEntity] = []
+        if not loc_coord.data:
+            return new_entities
+        for loc in loc_coord.data:
+            loc_key = loc.get("key") or loc.get("_key", "")
+            primary_run = loc.get("_primary_run")
+            if not loc_key or not primary_run:
+                continue
+            dev = location_device_info(entry, loc)
+            current_entries = primary_run.get(
+                "_current_phase_entries",
+                primary_run.get("_phase_entries", []),
+            )
+            loc_tanks = loc.get("_tanks", [])
+            for pe in current_entries:
+                for channel in pe.get("delivery_channels", []):
+                    ch_id = channel.get("channel_id", "")
+                    if not ch_id:
+                        continue
+                    uid = f"{loc_key}_{ch_id}"
+                    if uid in known_loc_channels:
+                        continue
+                    dosages: dict[str, float] = {}
+                    for dosage in channel.get("fertilizer_dosages", []):
+                        product = dosage.get(
+                            "product_name", dosage.get("fertilizer_key", "?")
+                        )
+                        ml = dosage.get("ml_per_liter")
+                        if product and ml is not None:
+                            dosages[product] = ml
                     if dosages:
-                        entities.append(
+                        known_loc_channels.add(uid)
+                        new_entities.append(
                             LocationChannelSensor(
                                 loc_coord, entry, loc_key, dev,
-                                ch_id, channel_labels[ch_id], dosages,
-                                channel_volumes.get(ch_id),
+                                ch_id, channel.get("label", ch_id), dosages,
+                                _extract_channel_volume(channel, loc_tanks),
                             )
                         )
+        return new_entities
+
+    entities.extend(_discover_loc_channels())
+
+    @callback
+    def _on_loc_update() -> None:
+        new = _discover_loc_channels()
+        if new:
+            async_add_entities(new)
+
+    entry.async_on_unload(loc_coord.async_add_listener(_on_loc_update))
 
             # Legacy tank sensor under location (kept for backwards compat)
             for tank in loc.get("_tanks", []):
