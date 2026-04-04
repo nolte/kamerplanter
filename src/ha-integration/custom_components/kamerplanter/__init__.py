@@ -1,10 +1,10 @@
 """The Kamerplanter integration."""
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from aiohttp import ClientSession
 from homeassistant.config_entries import ConfigEntry
@@ -47,7 +47,9 @@ class KamerplanterRuntimeData:
 type KamerplanterConfigEntry = ConfigEntry[KamerplanterRuntimeData]
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: KamerplanterConfigEntry) -> bool:
+async def async_setup_entry(
+    hass: HomeAssistant, entry: KamerplanterConfigEntry
+) -> bool:
     """Set up Kamerplanter from a config entry."""
     session: ClientSession = async_get_clientsession(hass)
 
@@ -85,26 +87,69 @@ async def async_setup_entry(hass: HomeAssistant, entry: KamerplanterConfigEntry)
     if www_dir.is_dir():
         from homeassistant.components.http import StaticPathConfig
 
-        js_files = await hass.async_add_executor_job(
-            lambda: list(www_dir.glob("*.js"))
-        )
+        js_files = await hass.async_add_executor_job(lambda: list(www_dir.glob("*.js")))
         paths = [
             StaticPathConfig(f"/{DOMAIN}/{js_file.name}", str(js_file), True)
             for js_file in js_files
         ]
         if paths:
             # On reload, routes are already registered — filter out existing ones
-            registered = {r.get_info().get("path", "") for r in hass.http.app.router.routes() if hasattr(r, "get_info")}
+            registered = {
+                r.get_info().get("path", "")
+                for r in hass.http.app.router.routes()
+                if hasattr(r, "get_info")
+            }
             new_paths = [p for p in paths if p.url_path not in registered]
             if new_paths:
                 await hass.http.async_register_static_paths(new_paths)
                 for p in new_paths:
-                    _LOGGER.debug("Registered Lovelace resource: %s", p.url_path)
+                    _LOGGER.debug("Registered static path: %s", p.url_path)
+
+        # Register as Lovelace resources so cards appear in the card picker
+        await _async_register_lovelace_resources(hass, js_files)
 
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: KamerplanterConfigEntry) -> bool:
+async def _async_register_lovelace_resources(
+    hass: HomeAssistant, js_files: list[Path]
+) -> None:
+    """Register JS files as Lovelace resources (idempotent)."""
+    try:
+        from homeassistant.components.lovelace import (
+            DOMAIN as LOVELACE_DOMAIN,
+        )
+        from homeassistant.components.lovelace.resources import (
+            ResourceStorageCollection,
+        )
+
+        lovelace_data = hass.data.get(LOVELACE_DOMAIN)
+        if lovelace_data is None:
+            return
+        resources: ResourceStorageCollection | None = getattr(
+            lovelace_data, "resources", None
+        )
+        if resources is None:
+            return
+
+        # Ensure storage is loaded
+        if not resources.loaded:
+            await resources.async_load()
+
+        existing_urls = {r["url"] for r in resources.async_items()}
+
+        for js_file in js_files:
+            url = f"/{DOMAIN}/{js_file.name}"
+            if url not in existing_urls:
+                await resources.async_create_item({"res_type": "module", "url": url})
+                _LOGGER.info("Registered Lovelace resource: %s", url)
+    except Exception:
+        _LOGGER.debug("Could not auto-register Lovelace resources", exc_info=True)
+
+
+async def async_unload_entry(
+    hass: HomeAssistant, entry: KamerplanterConfigEntry
+) -> bool:
     """Unload a config entry."""
     # runtime_data is automatically cleaned up by HA
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
@@ -116,7 +161,8 @@ async def _async_register_services(hass: HomeAssistant) -> None:
     def _get_runtime_data(entry_id: str = "") -> KamerplanterRuntimeData | None:
         """Get runtime_data from the first (or targeted) config entry."""
         entries = [
-            e for e in hass.config_entries.async_entries(DOMAIN)
+            e
+            for e in hass.config_entries.async_entries(DOMAIN)
             if not entry_id or e.entry_id == entry_id
         ]
         if entries and hasattr(entries[0], "runtime_data"):
@@ -126,7 +172,8 @@ async def _async_register_services(hass: HomeAssistant) -> None:
     async def handle_refresh(call: ServiceCall) -> None:
         target_id = call.data.get("entry_id", "")
         entries = [
-            e for e in hass.config_entries.async_entries(DOMAIN)
+            e
+            for e in hass.config_entries.async_entries(DOMAIN)
             if not target_id or e.entry_id == target_id
         ]
         for entry in entries:
@@ -137,7 +184,8 @@ async def _async_register_services(hass: HomeAssistant) -> None:
     async def handle_clear_cache(call: ServiceCall) -> None:
         target_id = call.data.get("entry_id", "")
         entries = [
-            e for e in hass.config_entries.async_entries(DOMAIN)
+            e
+            for e in hass.config_entries.async_entries(DOMAIN)
             if not target_id or e.entry_id == target_id
         ]
         for entry in entries:
@@ -148,8 +196,14 @@ async def _async_register_services(hass: HomeAssistant) -> None:
 
     # Known suffixes for tank entities (used to extract tank_key from entity_id)
     _TANK_ENTITY_SUFFIXES = (
-        "_info", "_volume", "_fill_level", "_ec", "_ph",
-        "_water_temp", "_solution_age_days", "_alert_active",
+        "_info",
+        "_volume",
+        "_fill_level",
+        "_ec",
+        "_ph",
+        "_water_temp",
+        "_solution_age_days",
+        "_alert_active",
     )
 
     def _resolve_tank_key(call_data: dict) -> str | None:
@@ -187,7 +241,11 @@ async def _async_register_services(hass: HomeAssistant) -> None:
 
     async def handle_fill_tank(call: ServiceCall) -> None:
         """Handle the fill_tank service call."""
-        _LOGGER.debug("fill_tank call.data keys: %s, values: %s", list(call.data.keys()), dict(call.data))
+        _LOGGER.debug(
+            "fill_tank call.data keys: %s, values: %s",
+            list(call.data.keys()),
+            dict(call.data),
+        )
         tank_key = _resolve_tank_key(dict(call.data))
         if not tank_key:
             _LOGGER.error(
@@ -242,14 +300,16 @@ async def _async_register_services(hass: HomeAssistant) -> None:
                             for dosage in channel.get("fertilizer_dosages", []):
                                 ml = dosage.get("ml_per_liter")
                                 if ml is not None and ml > 0:
-                                    fertilizers_used.append({
-                                        "product_key": dosage.get("fertilizer_key"),
-                                        "product_name": dosage.get(
-                                            "product_name",
-                                            dosage.get("fertilizer_key", "unknown"),
-                                        ),
-                                        "ml_per_liter": ml,
-                                    })
+                                    fertilizers_used.append(
+                                        {
+                                            "product_key": dosage.get("fertilizer_key"),
+                                            "product_name": dosage.get(
+                                                "product_name",
+                                                dosage.get("fertilizer_key", "unknown"),
+                                            ),
+                                            "ml_per_liter": ml,
+                                        }
+                                    )
                 break
 
         # Build fill event payload
@@ -268,12 +328,17 @@ async def _async_register_services(hass: HomeAssistant) -> None:
 
         _LOGGER.info(
             "Filling tank %s (%s): %.1fL, %d fertilizers",
-            tank_key, fill_type, volume, len(fertilizers_used),
+            tank_key,
+            fill_type,
+            volume,
+            len(fertilizers_used),
         )
 
         try:
             result = await api.async_fill_tank(tank_key, payload)
-            _LOGGER.info("Tank fill recorded: %s", result.get("fill_event", {}).get("key"))
+            _LOGGER.info(
+                "Tank fill recorded: %s", result.get("fill_event", {}).get("key")
+            )
 
             # Refresh coordinators to reflect new state
             for coordinator in runtime_data.coordinators.values():
@@ -300,7 +365,7 @@ async def _async_register_services(hass: HomeAssistant) -> None:
             # Strategy 2: Parse from entity_id pattern
             entity_name = entity_id.split(".", 1)[-1]
             if entity_name.startswith("kp_") and entity_name.endswith(_CHANNEL_SUFFIX):
-                rest = entity_name[3:-len(_CHANNEL_SUFFIX)]
+                rest = entity_name[3 : -len(_CHANNEL_SUFFIX)]
                 for entry in hass.config_entries.async_entries(DOMAIN):
                     if not hasattr(entry, "runtime_data"):
                         continue
@@ -310,7 +375,7 @@ async def _async_register_services(hass: HomeAssistant) -> None:
                             pk = plant.get("key", "")
                             slug = pk.replace("-", "_").lower()
                             if rest.startswith(slug + "_"):
-                                channel_slug = rest[len(slug) + 1:]
+                                channel_slug = rest[len(slug) + 1 :]
                                 dosage_data = plant.get("_current_dosages")
                                 if dosage_data and isinstance(dosage_data, dict):
                                     for ch in dosage_data.get("channels", []):
@@ -318,11 +383,14 @@ async def _async_register_services(hass: HomeAssistant) -> None:
                                         if _slugify_label(ch_id) == channel_slug:
                                             _LOGGER.debug(
                                                 "Resolved plant_key='%s', channel_id='%s' from entity_id",
-                                                pk, ch_id,
+                                                pk,
+                                                ch_id,
                                             )
                                             return pk, ch_id
 
-                _LOGGER.error("Could not resolve plant/channel from entity_id %s", entity_id)
+                _LOGGER.error(
+                    "Could not resolve plant/channel from entity_id %s", entity_id
+                )
                 return None, None
 
         plant_key = call_data.get("plant_key")
@@ -335,6 +403,7 @@ async def _async_register_services(hass: HomeAssistant) -> None:
         """Slugify a label for entity ID matching (simplified)."""
         import re
         import unicodedata
+
         text = unicodedata.normalize("NFKD", text)
         text = text.encode("ascii", "ignore").decode("ascii")
         text = re.sub(r"[^a-z0-9]+", "_", text.lower())
@@ -344,7 +413,8 @@ async def _async_register_services(hass: HomeAssistant) -> None:
         """Handle the water_channel service call."""
         _LOGGER.debug(
             "water_channel call.data keys: %s, values: %s",
-            list(call.data.keys()), dict(call.data),
+            list(call.data.keys()),
+            dict(call.data),
         )
         plant_key, channel_id = _resolve_plant_channel(dict(call.data))
         if not plant_key:
@@ -385,17 +455,20 @@ async def _async_register_services(hass: HomeAssistant) -> None:
                             ml = dosage.get("ml_per_liter")
                             fert_key = dosage.get("fertilizer_key")
                             if ml is not None and ml > 0 and fert_key:
-                                fertilizers_used.append({
-                                    "fertilizer_key": fert_key,
-                                    "ml_per_liter": ml,
-                                })
+                                fertilizers_used.append(
+                                    {
+                                        "fertilizer_key": fert_key,
+                                        "ml_per_liter": ml,
+                                    }
+                                )
                         break
 
         if volume_liters is None or volume_liters <= 0:
             _LOGGER.error(
                 "No volume resolved for plant %s channel %s. "
                 "Provide volume_liters or ensure the nutrient plan defines a channel volume.",
-                plant_key, channel_id,
+                plant_key,
+                channel_id,
             )
             return
 
@@ -417,15 +490,16 @@ async def _async_register_services(hass: HomeAssistant) -> None:
 
         _LOGGER.info(
             "Watering plant %s channel '%s': %.2fL, %d fertilizers",
-            plant_key, channel_id, volume_liters, len(fertilizers_used),
+            plant_key,
+            channel_id,
+            volume_liters,
+            len(fertilizers_used),
         )
 
         try:
             result = await api.async_create_watering_log(payload)
             log_data = result.get("log", result)
-            _LOGGER.info(
-                "Watering log created: %s", log_data.get("key", "unknown")
-            )
+            _LOGGER.info("Watering log created: %s", log_data.get("key", "unknown"))
 
             for coordinator in runtime_data.coordinators.values():
                 await coordinator.async_request_refresh()
@@ -453,7 +527,8 @@ async def _async_register_services(hass: HomeAssistant) -> None:
 
         _LOGGER.info(
             "Confirming care reminder %s with action '%s'",
-            notification_key, action,
+            notification_key,
+            action,
         )
 
         try:
@@ -463,15 +538,14 @@ async def _async_register_services(hass: HomeAssistant) -> None:
             )
             _LOGGER.info(
                 "Care reminder %s confirmed: %s",
-                notification_key, result,
+                notification_key,
+                result,
             )
 
             for coordinator in runtime_data.coordinators.values():
                 await coordinator.async_request_refresh()
         except Exception:
-            _LOGGER.exception(
-                "Failed to confirm care reminder %s", notification_key
-            )
+            _LOGGER.exception("Failed to confirm care reminder %s", notification_key)
 
     hass.services.async_register(DOMAIN, SERVICE_REFRESH, handle_refresh)
     hass.services.async_register(DOMAIN, SERVICE_CLEAR_CACHE, handle_clear_cache)

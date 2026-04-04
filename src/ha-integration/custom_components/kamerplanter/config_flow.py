@@ -1,4 +1,5 @@
 """Config flow for the Kamerplanter integration."""
+
 from __future__ import annotations
 
 import logging
@@ -94,9 +95,7 @@ class KamerplanterConfigFlow(ConfigFlow, domain=DOMAIN):
             session = async_get_clientsession(self.hass)
 
             # Probe health endpoint (no auth needed)
-            api_no_auth = KamerplanterApi(
-                base_url=self._base_url, session=session
-            )
+            api_no_auth = KamerplanterApi(base_url=self._base_url, session=session)
             try:
                 health = await api_no_auth.async_get_health()
                 self._server_version = health.get("version", "unknown")
@@ -223,9 +222,11 @@ class KamerplanterConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reauth_confirm",
-            data_schema=vol.Schema({
-                vol.Required(CONF_API_KEY): str,
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_API_KEY): str,
+                }
+            ),
             errors=errors,
         )
 
@@ -254,9 +255,13 @@ class KamerplanterConfigFlow(ConfigFlow, domain=DOMAIN):
         reconfigure_entry = self._get_reconfigure_entry()
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=vol.Schema({
-                vol.Required(CONF_URL, default=reconfigure_entry.data.get(CONF_URL, "")): str,
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_URL, default=reconfigure_entry.data.get(CONF_URL, "")
+                    ): str,
+                }
+            ),
             errors=errors,
         )
 
@@ -267,9 +272,7 @@ class KamerplanterConfigFlow(ConfigFlow, domain=DOMAIN):
         """Build schema for step 1 (URL + API key)."""
         return vol.Schema(
             {
-                vol.Required(
-                    CONF_URL, default="http://localhost:8000"
-                ): str,
+                vol.Required(CONF_URL, default="http://localhost:8000"): str,
                 vol.Optional(CONF_API_KEY): str,
             }
         )

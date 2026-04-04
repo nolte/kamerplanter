@@ -8,7 +8,6 @@ from typing import Any
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
 
-from .const import API_KEY_PREFIX
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -122,17 +121,13 @@ class KamerplanterApi:
             tree = await self.async_get_location_tree(site_key)
             # Also fetch flat details for full field set
             top_level = await self.async_get_locations(site_key)
-            detail_by_key = {
-                loc.get("key", ""): loc for loc in top_level
-            }
+            detail_by_key = {loc.get("key", ""): loc for loc in top_level}
             # Collect all child keys from tree, then fetch their details
             child_keys: list[str] = []
             self._collect_child_keys(tree, child_keys)
             for ck in child_keys:
                 try:
-                    child_locs = await self.async_get_locations_by_parent(
-                        site_key, ck
-                    )
+                    child_locs = await self.async_get_locations_by_parent(site_key, ck)
                     for cl in child_locs:
                         detail_by_key[cl.get("key", "")] = cl
                 except KamerplanterApiError:
@@ -173,29 +168,21 @@ class KamerplanterApi:
                 KamerplanterApi._collect_child_keys(children, parent_keys)
 
     @staticmethod
-    def _flatten_tree_keys(
-        nodes: list[dict[str, Any]], keys: list[str]
-    ) -> None:
+    def _flatten_tree_keys(nodes: list[dict[str, Any]], keys: list[str]) -> None:
         """Flatten tree to a list of all keys."""
         for node in nodes:
             key = node.get("key", "")
             if key:
                 keys.append(key)
-            KamerplanterApi._flatten_tree_keys(
-                node.get("children", []), keys
-            )
+            KamerplanterApi._flatten_tree_keys(node.get("children", []), keys)
 
     @staticmethod
-    def _find_tree_node(
-        nodes: list[dict[str, Any]], key: str
-    ) -> dict[str, Any] | None:
+    def _find_tree_node(nodes: list[dict[str, Any]], key: str) -> dict[str, Any] | None:
         """Find a node by key in a tree."""
         for node in nodes:
             if node.get("key") == key:
                 return node
-            found = KamerplanterApi._find_tree_node(
-                node.get("children", []), key
-            )
+            found = KamerplanterApi._find_tree_node(node.get("children", []), key)
             if found:
                 return found
         return None
@@ -206,14 +193,13 @@ class KamerplanterApi:
         """Fetch the nutrient plan assigned to a plant instance."""
         try:
             return await self._request(
-                "GET", f"{self._tenant_prefix}/plant-instances/{plant_key}/nutrient-plan"
+                "GET",
+                f"{self._tenant_prefix}/plant-instances/{plant_key}/nutrient-plan",
             )
         except KamerplanterApiError:
             return None
 
-    async def async_get_run_nutrient_plan(
-        self, run_key: str
-    ) -> dict[str, Any] | None:
+    async def async_get_run_nutrient_plan(self, run_key: str) -> dict[str, Any] | None:
         """Fetch the nutrient plan assigned to a planting run."""
         try:
             result = await self._request(
@@ -268,9 +254,7 @@ class KamerplanterApi:
         except KamerplanterApiError:
             return []
 
-    async def async_get_plan_phase_entries(
-        self, plan_key: str
-    ) -> list[dict[str, Any]]:
+    async def async_get_plan_phase_entries(self, plan_key: str) -> list[dict[str, Any]]:
         """Fetch phase entries for a nutrient plan."""
         try:
             return await self._request(
@@ -279,9 +263,7 @@ class KamerplanterApi:
         except KamerplanterApiError:
             return []
 
-    async def async_get_run_phase_timeline(
-        self, run_key: str
-    ) -> list[dict[str, Any]]:
+    async def async_get_run_phase_timeline(self, run_key: str) -> list[dict[str, Any]]:
         """Fetch phase timeline for a planting run."""
         try:
             return await self._request(
@@ -322,7 +304,9 @@ class KamerplanterApi:
         """Fetch plant instances at slots belonging to a location."""
         try:
             slots = await self._request(
-                "GET", f"{self._tenant_prefix}/slots", params={"location_key": location_key}
+                "GET",
+                f"{self._tenant_prefix}/slots",
+                params={"location_key": location_key},
             )
             plants: list[dict[str, Any]] = []
             all_plants = await self.async_get_plants()
@@ -376,9 +360,7 @@ class KamerplanterApi:
             json=payload,
         )
 
-    async def async_get_tank_active_plans(
-        self, tank_key: str
-    ) -> list[dict[str, Any]]:
+    async def async_get_tank_active_plans(self, tank_key: str) -> list[dict[str, Any]]:
         """Fetch active nutrient plans for a tank."""
         try:
             return await self._request(
@@ -387,9 +369,7 @@ class KamerplanterApi:
         except KamerplanterApiError:
             return []
 
-    async def async_get_tank_latest_fill(
-        self, tank_key: str
-    ) -> dict[str, Any] | None:
+    async def async_get_tank_latest_fill(self, tank_key: str) -> dict[str, Any] | None:
         """Fetch the latest fill event for a tank."""
         try:
             return await self._request(
@@ -408,9 +388,7 @@ class KamerplanterApi:
             json=payload,
         )
 
-    async def async_get_tank_sensors(
-        self, tank_key: str
-    ) -> list[dict[str, Any]]:
+    async def async_get_tank_sensors(self, tank_key: str) -> list[dict[str, Any]]:
         """Fetch HA sensor mappings linked to a tank."""
         try:
             return await self._request(
@@ -424,9 +402,7 @@ class KamerplanterApi:
     async def async_get_growth_phase(self, phase_key: str) -> dict[str, Any] | None:
         """Fetch a single growth phase by key."""
         try:
-            return await self._request(
-                "GET", f"/api/v1/growth-phases/{phase_key}"
-            )
+            return await self._request("GET", f"/api/v1/growth-phases/{phase_key}")
         except KamerplanterApiError:
             return None
 
@@ -453,17 +429,6 @@ class KamerplanterApi:
             )
         except KamerplanterApiError:
             return []
-
-    async def async_get_run_watering_schedule(
-        self, run_key: str
-    ) -> dict[str, Any] | None:
-        """Fetch watering schedule for a planting run."""
-        try:
-            return await self._request(
-                "GET", f"{self._tenant_prefix}/planting-runs/{run_key}/watering-schedule"
-            )
-        except KamerplanterApiError:
-            return None
 
     # --- Notification endpoints (REQ-030) ---
 

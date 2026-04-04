@@ -1,4 +1,5 @@
 """Button entities for the Kamerplanter integration (HA-NFR-007)."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone

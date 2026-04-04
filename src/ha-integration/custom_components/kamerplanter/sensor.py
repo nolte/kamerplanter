@@ -1,4 +1,5 @@
 """Sensor entities for the Kamerplanter integration."""
+
 from __future__ import annotations
 
 import re
@@ -89,12 +90,16 @@ def _extract_channel_volume(
     return None
 
 
-
 # Re-export for backwards compatibility (device info moved to entity.py)
 __all__ = [
-    "_slugify_key", "_slugify_label", "_extract_channel_volume",
-    "plant_device_info", "run_device_info", "location_device_info",
-    "tank_device_info", "server_device_info",
+    "_slugify_key",
+    "_slugify_label",
+    "_extract_channel_volume",
+    "plant_device_info",
+    "run_device_info",
+    "location_device_info",
+    "tank_device_info",
+    "server_device_info",
 ]
 
 
@@ -120,15 +125,17 @@ async def async_setup_entry(
                 continue
             key = plant["key"]
             dev = plant_device_info(entry, plant)
-            entities.extend([
-                PlantPhaseSensor(plant_coord, entry, key, dev),
-                PlantDaysInPhaseSensor(plant_coord, entry, key, dev),
-                PlantNutrientPlanSensor(plant_coord, entry, key, dev),
-                PlantPhaseTimelineSensor(plant_coord, entry, key, dev),
-                PlantNextPhaseSensor(plant_coord, entry, key, dev),
-                PlantActiveChannelsSensor(plant_coord, entry, key, dev),
-                PlantDaysUntilWateringSensor(plant_coord, entry, key, dev),
-            ])
+            entities.extend(
+                [
+                    PlantPhaseSensor(plant_coord, entry, key, dev),
+                    PlantDaysInPhaseSensor(plant_coord, entry, key, dev),
+                    PlantNutrientPlanSensor(plant_coord, entry, key, dev),
+                    PlantPhaseTimelineSensor(plant_coord, entry, key, dev),
+                    PlantNextPhaseSensor(plant_coord, entry, key, dev),
+                    PlantActiveChannelsSensor(plant_coord, entry, key, dev),
+                    PlantDaysUntilWateringSensor(plant_coord, entry, key, dev),
+                ]
+            )
 
     # Plant channel sensors — one per delivery channel, dosages as attributes.
     # Channels are discovered dynamically: initial setup + listener for late arrivals.
@@ -153,7 +160,9 @@ async def async_setup_entry(
                         continue
                     ch_label = channel.get("label", ch_id)
                     dosages = {
-                        d.get("product_name", d.get("fertilizer_key", "?")): d.get("ml_per_liter")
+                        d.get("product_name", d.get("fertilizer_key", "?")): d.get(
+                            "ml_per_liter"
+                        )
                         for d in channel.get("dosages", [])
                         if d.get("ml_per_liter") is not None
                     }
@@ -161,8 +170,13 @@ async def async_setup_entry(
                         known_plant_channels.add(uid)
                         new_entities.append(
                             PlantChannelSensor(
-                                plant_coord, entry, key, dev,
-                                ch_id, ch_label, dosages,
+                                plant_coord,
+                                entry,
+                                key,
+                                dev,
+                                ch_id,
+                                ch_label,
+                                dosages,
                             )
                         )
         return new_entities
@@ -186,14 +200,16 @@ async def async_setup_entry(
                 continue
             key = run["key"]
             dev = run_device_info(entry, run)
-            entities.extend([
-                RunStatusSensor(run_coord, entry, key, dev),
-                RunPlantCountSensor(run_coord, entry, key, dev),
-                RunNutrientPlanSensor(run_coord, entry, key, dev),
-                RunPhaseTimelineSensor(run_coord, entry, key, dev),
-                RunNextPhaseSensor(run_coord, entry, key, dev),
-                RunDaysUntilWateringSensor(run_coord, entry, key, dev),
-            ])
+            entities.extend(
+                [
+                    RunStatusSensor(run_coord, entry, key, dev),
+                    RunPlantCountSensor(run_coord, entry, key, dev),
+                    RunNutrientPlanSensor(run_coord, entry, key, dev),
+                    RunPhaseTimelineSensor(run_coord, entry, key, dev),
+                    RunNextPhaseSensor(run_coord, entry, key, dev),
+                    RunDaysUntilWateringSensor(run_coord, entry, key, dev),
+                ]
+            )
     # Run channel sensors — dynamic discovery (same pattern as plant channels)
     known_run_channels: set[str] = set()
 
@@ -216,7 +232,9 @@ async def async_setup_entry(
                         continue
                     dosages: dict[str, float] = {}
                     for dosage in channel.get("fertilizer_dosages", []):
-                        product = dosage.get("product_name", dosage.get("fertilizer_key", "?"))
+                        product = dosage.get(
+                            "product_name", dosage.get("fertilizer_key", "?")
+                        )
                         ml = dosage.get("ml_per_liter")
                         if product and ml is not None:
                             dosages[product] = ml
@@ -224,8 +242,13 @@ async def async_setup_entry(
                         known_run_channels.add(uid)
                         new_entities.append(
                             RunChannelSensor(
-                                run_coord, entry, key, dev,
-                                ch_id, channel.get("label", ch_id), dosages,
+                                run_coord,
+                                entry,
+                                key,
+                                dev,
+                                ch_id,
+                                channel.get("label", ch_id),
+                                dosages,
                                 _extract_channel_volume(channel),
                             )
                         )
@@ -249,21 +272,25 @@ async def async_setup_entry(
             if not loc_key:
                 continue
             dev = location_device_info(entry, loc)
-            entities.extend([
-                LocationTypeSensor(loc_coord, entry, loc_key, dev),
-                LocationActiveRunCountSensor(loc_coord, entry, loc_key, dev),
-                LocationActivePlantCountSensor(loc_coord, entry, loc_key, dev),
-            ])
+            entities.extend(
+                [
+                    LocationTypeSensor(loc_coord, entry, loc_key, dev),
+                    LocationActiveRunCountSensor(loc_coord, entry, loc_key, dev),
+                    LocationActivePlantCountSensor(loc_coord, entry, loc_key, dev),
+                ]
+            )
             # When an active run is assigned, add run-like sensors
             primary_run = loc.get("_primary_run")
             if primary_run:
-                entities.extend([
-                    LocationRunPhaseSensor(loc_coord, entry, loc_key, dev),
-                    LocationRunDaysInPhaseSensor(loc_coord, entry, loc_key, dev),
-                    LocationRunNutrientPlanSensor(loc_coord, entry, loc_key, dev),
-                    LocationRunNextPhaseSensor(loc_coord, entry, loc_key, dev),
-                    LocationRunPhaseTimelineSensor(loc_coord, entry, loc_key, dev),
-                ])
+                entities.extend(
+                    [
+                        LocationRunPhaseSensor(loc_coord, entry, loc_key, dev),
+                        LocationRunDaysInPhaseSensor(loc_coord, entry, loc_key, dev),
+                        LocationRunNutrientPlanSensor(loc_coord, entry, loc_key, dev),
+                        LocationRunNextPhaseSensor(loc_coord, entry, loc_key, dev),
+                        LocationRunPhaseTimelineSensor(loc_coord, entry, loc_key, dev),
+                    ]
+                )
     # Location channel sensors — dynamic discovery
     known_loc_channels: set[str] = set()
 
@@ -302,8 +329,13 @@ async def async_setup_entry(
                         known_loc_channels.add(uid)
                         new_entities.append(
                             LocationChannelSensor(
-                                loc_coord, entry, loc_key, dev,
-                                ch_id, channel.get("label", ch_id), dosages,
+                                loc_coord,
+                                entry,
+                                loc_key,
+                                dev,
+                                ch_id,
+                                channel.get("label", ch_id),
+                                dosages,
                                 _extract_channel_volume(channel, loc_tanks),
                             )
                         )
@@ -362,11 +394,13 @@ async def async_setup_entry(
 
     # --- Task / care notification sensors (REQ-030) ---
     srv_dev = server_device_info(entry)
-    entities.extend([
-        TasksDueTodaySensor(task_coord, alert_coord, entry, srv_dev),
-        TasksOverdueSensor(alert_coord, entry, srv_dev),
-        NextWateringSensor(task_coord, entry, srv_dev),
-    ])
+    entities.extend(
+        [
+            TasksDueTodaySensor(task_coord, alert_coord, entry, srv_dev),
+            TasksOverdueSensor(alert_coord, entry, srv_dev),
+            NextWateringSensor(task_coord, entry, srv_dev),
+        ]
+    )
 
     async_add_entities(entities)
 
@@ -414,7 +448,9 @@ class PlantPhaseSensor(KpSensorBase):
 
     _attr_translation_key = "phase"
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "phase", dev)
 
     @callback
@@ -432,7 +468,9 @@ class PlantDaysInPhaseSensor(KpSensorBase):
     _attr_native_unit_of_measurement = UnitOfTime.DAYS
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "days_in_phase", dev)
 
     @callback
@@ -454,7 +492,9 @@ class PlantNutrientPlanSensor(KpSensorBase):
 
     _attr_translation_key = "nutrient_plan"
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "nutrient_plan", dev)
 
     @callback
@@ -507,7 +547,9 @@ class PlantChannelSensor(KpSensorBase):
                     ch_id = channel.get("channel_id", "")
                     if ch_id == self._channel_id:
                         dosages = {
-                            d.get("product_name", d.get("fertilizer_key", "?")): d.get("ml_per_liter")
+                            d.get("product_name", d.get("fertilizer_key", "?")): d.get(
+                                "ml_per_liter"
+                            )
                             for d in channel.get("dosages", [])
                             if d.get("ml_per_liter") is not None
                         }
@@ -532,7 +574,9 @@ class PlantActiveChannelsSensor(KpSensorBase):
 
     _attr_translation_key = "active_channels"
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "active_channels", dev)
         resource = self._find_resource()
         if resource:
@@ -546,7 +590,9 @@ class PlantActiveChannelsSensor(KpSensorBase):
             ch_id = ch.get("channel_id", "")
             attrs["channel_ids"].append(ch_id)
             dosage_summary = {
-                d.get("product_name", d.get("fertilizer_key", "?")): d.get("ml_per_liter")
+                d.get("product_name", d.get("fertilizer_key", "?")): d.get(
+                    "ml_per_liter"
+                )
                 for d in ch.get("dosages", [])
                 if d.get("ml_per_liter") is not None
             }
@@ -584,7 +630,9 @@ class PlantDaysUntilWateringSensor(KpSensorBase):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:watering-can"
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "days_until_watering", dev)
 
     @callback
@@ -637,7 +685,9 @@ class PlantPhaseTimelineSensor(KpSensorBase):
 
     _attr_translation_key = "phase_timeline"
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "phase_timeline", dev)
         resource = self._find_resource()
         if resource:
@@ -655,7 +705,11 @@ class PlantPhaseTimelineSensor(KpSensorBase):
             exited = h.get("exited_at")
             days = h.get("actual_duration_days")
             if days is None and entered and not exited:
-                entered_dt = datetime.fromisoformat(entered) if isinstance(entered, str) else entered
+                entered_dt = (
+                    datetime.fromisoformat(entered)
+                    if isinstance(entered, str)
+                    else entered
+                )
                 if hasattr(entered_dt, "tzinfo") and entered_dt.tzinfo is None:
                     entered_dt = entered_dt.replace(tzinfo=timezone.utc)
                 days = (datetime.now(tz=timezone.utc) - entered_dt).days
@@ -672,13 +726,15 @@ class PlantPhaseTimelineSensor(KpSensorBase):
             else:
                 status = "unknown"
 
-            phases.append({
-                "phase": phase_name,
-                "status": status,
-                "started": entered_str,
-                "date": entered_str,
-                "days": days,
-            })
+            phases.append(
+                {
+                    "phase": phase_name,
+                    "status": status,
+                    "started": entered_str,
+                    "date": entered_str,
+                    "days": days,
+                }
+            )
 
         # Fallback: if current_phase is not in history, synthesize an entry
         if current_phase and current_phase.lower() not in seen_phases:
@@ -693,13 +749,15 @@ class PlantPhaseTimelineSensor(KpSensorBase):
                     started_str = str(current_started)[:10]
                 except (ValueError, TypeError):
                     pass
-            phases.append({
-                "phase": current_phase,
-                "status": "current",
-                "started": started_str,
-                "date": started_str,
-                "days": days_in,
-            })
+            phases.append(
+                {
+                    "phase": current_phase,
+                    "status": "current",
+                    "started": started_str,
+                    "date": started_str,
+                    "days": days_in,
+                }
+            )
 
         current = next((p["phase"] for p in phases if p["status"] == "current"), None)
         if not current:
@@ -756,7 +814,9 @@ class PlantPhaseTimelineSensor(KpSensorBase):
                         first_dt = first_dt.replace(tzinfo=timezone.utc)
                     total_days = (datetime.now(tz=timezone.utc) - first_dt).days
                     attrs["overall_week"] = max(1, total_days // 7 + 1)
-                    attrs["phase_week"] = attrs.get("phase_week", max(1, days_in // 7 + 1))
+                    attrs["phase_week"] = attrs.get(
+                        "phase_week", max(1, days_in // 7 + 1)
+                    )
 
                     # Estimate days to harvest from nutrient plan total duration
                     total_planned = self._resolve_total_planned_days(plant)
@@ -777,7 +837,9 @@ class PlantPhaseTimelineSensor(KpSensorBase):
         self._attr_extra_state_attributes = attrs
 
     @staticmethod
-    def _resolve_typical_duration(plant: dict[str, Any], current_phase: str | None) -> int | None:
+    def _resolve_typical_duration(
+        plant: dict[str, Any], current_phase: str | None
+    ) -> int | None:
         """Try to find typical_duration_days for the current phase from the nutrient plan."""
         plan = plant.get("_nutrient_plan")
         if not plan or not current_phase:
@@ -794,7 +856,8 @@ class PlantPhaseTimelineSensor(KpSensorBase):
 
     @staticmethod
     def _resolve_next_phase(
-        plant: dict[str, Any], current_phase: str | None,
+        plant: dict[str, Any],
+        current_phase: str | None,
     ) -> dict[str, Any] | None:
         """Find the next phase after current from the nutrient plan entries."""
         plan = plant.get("_nutrient_plan")
@@ -813,8 +876,12 @@ class PlantPhaseTimelineSensor(KpSensorBase):
                 found_current = True
         # Fallback: standard phase sequence
         _PHASES = [
-            "germination", "seedling", "vegetative", "flowering",
-            "ripening", "harvest",
+            "germination",
+            "seedling",
+            "vegetative",
+            "flowering",
+            "ripening",
+            "harvest",
         ]
         cp = current_phase.lower()
         for i, p in enumerate(_PHASES):
@@ -852,7 +919,9 @@ class PlantNextPhaseSensor(KpSensorBase):
 
     _attr_translation_key = "next_phase"
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "next_phase", dev)
         resource = self._find_resource()
         if resource:
@@ -874,22 +943,36 @@ class PlantNextPhaseSensor(KpSensorBase):
 
         # No next phase found in history — try standard phase sequence
         _STANDARD_PHASES = [
-            "germination", "seedling", "vegetative", "flowering",
-            "ripening", "harvest",
+            "germination",
+            "seedling",
+            "vegetative",
+            "flowering",
+            "ripening",
+            "harvest",
         ]
         _EXTENDED_PHASES = [
-            "germination", "seedling", "juvenile", "vegetative",
-            "climbing", "short_day_induction", "leaf_phase",
-            "flowering", "ripening", "harvest", "flushing",
-            "drying", "curing", "senescence", "dormancy",
+            "germination",
+            "seedling",
+            "juvenile",
+            "vegetative",
+            "climbing",
+            "short_day_induction",
+            "leaf_phase",
+            "flowering",
+            "ripening",
+            "harvest",
+            "flushing",
+            "drying",
+            "curing",
+            "senescence",
+            "dormancy",
         ]
         if current_phase:
             # Try extended phases first, fall back to standard
             for phase_list in (_EXTENDED_PHASES, _STANDARD_PHASES):
                 try:
                     idx = next(
-                        i for i, p in enumerate(phase_list)
-                        if p == current_phase
+                        i for i, p in enumerate(phase_list) if p == current_phase
                     )
                     if idx + 1 < len(phase_list):
                         self._attr_native_value = phase_list[idx + 1]
@@ -918,7 +1001,9 @@ class RunStatusSensor(KpSensorBase):
 
     _attr_translation_key = "run_status"
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "status", dev)
 
     @callback
@@ -935,7 +1020,9 @@ class RunPlantCountSensor(KpSensorBase):
     _attr_translation_key = "plant_count"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "plant_count", dev)
 
     @callback
@@ -951,7 +1038,9 @@ class RunNutrientPlanSensor(KpSensorBase):
 
     _attr_translation_key = "nutrient_plan"
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "nutrient_plan", dev)
 
     @callback
@@ -968,14 +1057,18 @@ class RunPhaseTimelineSensor(KpSensorBase):
 
     _attr_translation_key = "phase_timeline"
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "phase_timeline", dev)
         resource = self._find_resource()
         if resource:
             self._update_from_timeline(resource.get("_timeline", []), resource)
 
     def _update_from_timeline(
-        self, timeline: list[dict[str, Any]], run: dict[str, Any] | None = None,
+        self,
+        timeline: list[dict[str, Any]],
+        run: dict[str, Any] | None = None,
     ) -> None:
         phases = self._extract_phases(timeline)
         current = next((p["phase"] for p in phases if p["status"] == "current"), None)
@@ -1011,18 +1104,19 @@ class RunPhaseTimelineSensor(KpSensorBase):
                     days = (datetime.now(tz=timezone.utc) - entered).days
                 # Determine display date: actual start or projected start
                 proj_start = p.get("projected_start")
-                proj_end = p.get("projected_end")
                 display_date = started[:10] if started else None
                 if not display_date and proj_start:
                     ds = str(proj_start)
                     display_date = ds[:10] if len(ds) >= 10 else ds
-                phases.append({
-                    "phase": p.get("display_name", p.get("phase_name", "?")),
-                    "status": p.get("status", "unknown"),
-                    "started": started[:10] if started else None,
-                    "date": display_date,
-                    "days": days,
-                })
+                phases.append(
+                    {
+                        "phase": p.get("display_name", p.get("phase_name", "?")),
+                        "status": p.get("status", "unknown"),
+                        "started": started[:10] if started else None,
+                        "date": display_date,
+                        "days": days,
+                    }
+                )
         return phases
 
     async def async_added_to_hass(self) -> None:
@@ -1042,7 +1136,9 @@ class RunNextPhaseSensor(KpSensorBase):
 
     _attr_translation_key = "next_phase"
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "next_phase", dev)
         resource = self._find_resource()
         if resource:
@@ -1078,7 +1174,9 @@ class RunDaysUntilWateringSensor(KpSensorBase):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:watering-can"
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "days_until_watering", dev)
 
     @callback
@@ -1144,9 +1242,7 @@ class RunChannelSensor(KpSensorBase):
         self._attr_name = channel_label
         self._channel_id = channel_id
         self._attr_native_value = len(dosages)
-        attrs: dict[str, Any] = {
-            f"{name} (ml/L)": val for name, val in dosages.items()
-        }
+        attrs: dict[str, Any] = {f"{name} (ml/L)": val for name, val in dosages.items()}
         if volume_liters:
             attrs["volume_liters"] = volume_liters
         self._attr_extra_state_attributes = attrs
@@ -1168,7 +1264,9 @@ class RunChannelSensor(KpSensorBase):
                 for channel in pe.get("delivery_channels", []):
                     if channel.get("channel_id") == self._channel_id:
                         for d in channel.get("fertilizer_dosages", []):
-                            product = d.get("product_name", d.get("fertilizer_key", "?"))
+                            product = d.get(
+                                "product_name", d.get("fertilizer_key", "?")
+                            )
                             ml = d.get("ml_per_liter")
                             if product and ml is not None and product not in dosages:
                                 dosages[product] = ml
@@ -1242,7 +1340,9 @@ def _enrich_phase_progress(attrs: dict[str, Any], run: dict[str, Any]) -> None:
     planned_weeks = max(1, typical_days // 7)
     week_in_phase = max(1, days_in // 7 + 1)
     remaining = max(0, planned_weeks - week_in_phase)
-    progress_pct = round(min(100, (days_in / typical_days) * 100)) if typical_days > 0 else 0
+    progress_pct = (
+        round(min(100, (days_in / typical_days) * 100)) if typical_days > 0 else 0
+    )
 
     attrs["current_phase_name"] = phase_name
     display_name = current_phase.get("display_name", "")
@@ -1277,7 +1377,7 @@ def _enrich_phase_progress(attrs: dict[str, Any], run: dict[str, Any]) -> None:
 
     # Days until planned harvest: remaining days in current phase + all future phases
     days_to_harvest = remaining_days
-    for p in all_phases[current_idx + 1:]:
+    for p in all_phases[current_idx + 1 :]:
         days_to_harvest += p.get("typical_duration_days", 0)
     attrs["days_to_harvest"] = days_to_harvest
 
@@ -1314,7 +1414,9 @@ class LocationTypeSensor(_LocationSensorBase):
 
     _attr_translation_key = "location_type"
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "location_type", dev)
 
     @callback
@@ -1336,7 +1438,9 @@ class LocationActiveRunCountSensor(_LocationSensorBase):
     _attr_translation_key = "active_runs"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "active_runs", dev)
 
     @callback
@@ -1357,7 +1461,9 @@ class LocationActivePlantCountSensor(_LocationSensorBase):
     _attr_translation_key = "active_plants"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "active_plants", dev)
 
     @callback
@@ -1383,7 +1489,9 @@ class LocationRunPhaseSensor(_LocationSensorBase):
 
     _attr_translation_key = "phase"
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "phase", dev)
 
     @callback
@@ -1415,7 +1523,9 @@ class LocationRunDaysInPhaseSensor(_LocationSensorBase):
     _attr_native_unit_of_measurement = UnitOfTime.DAYS
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "days_in_phase", dev)
 
     @callback
@@ -1426,9 +1536,7 @@ class LocationRunDaysInPhaseSensor(_LocationSensorBase):
             if run:
                 timeline = run.get("_timeline", [])
                 phases = RunPhaseTimelineSensor._extract_phases(timeline)
-                current = next(
-                    (p for p in phases if p["status"] == "current"), None
-                )
+                current = next((p for p in phases if p["status"] == "current"), None)
                 self._attr_native_value = current["days"] if current else None
             else:
                 self._attr_native_value = None
@@ -1440,7 +1548,9 @@ class LocationRunNutrientPlanSensor(_LocationSensorBase):
 
     _attr_translation_key = "nutrient_plan"
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "nutrient_plan", dev)
 
     @callback
@@ -1461,7 +1571,9 @@ class LocationRunNextPhaseSensor(_LocationSensorBase):
 
     _attr_translation_key = "next_phase"
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "next_phase", dev)
 
     @callback
@@ -1492,7 +1604,9 @@ class LocationRunPhaseTimelineSensor(_LocationSensorBase):
 
     _attr_translation_key = "phase_timeline"
 
-    def __init__(self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo) -> None:
+    def __init__(
+        self, coordinator: Any, entry: ConfigEntry, key: str, dev: DeviceInfo
+    ) -> None:
         super().__init__(coordinator, entry, key, "phase_timeline", dev)
 
     @callback
@@ -1550,9 +1664,7 @@ class LocationChannelSensor(_LocationSensorBase):
         self._attr_name = channel_label
         self._channel_id = channel_id
         self._attr_native_value = len(dosages)
-        attrs: dict[str, Any] = {
-            f"{name} (ml/L)": val for name, val in dosages.items()
-        }
+        attrs: dict[str, Any] = {f"{name} (ml/L)": val for name, val in dosages.items()}
         if volume_liters:
             attrs["volume_liters"] = volume_liters
         self._attr_extra_state_attributes = attrs
@@ -1687,9 +1799,7 @@ class LocationTankSensor(_LocationSensorBase):
         if tank:
             latest = tank.get("_latest_fill")
             if latest and latest.get("filled_at"):
-                self._attr_native_value = datetime.fromisoformat(
-                    latest["filled_at"]
-                )
+                self._attr_native_value = datetime.fromisoformat(latest["filled_at"])
             else:
                 self._attr_native_value = None
             self._attr_extra_state_attributes = {
@@ -1701,14 +1811,16 @@ class LocationTankSensor(_LocationSensorBase):
                 "location_key": tank.get("location_key"),
             }
             if latest:
-                self._attr_extra_state_attributes.update({
-                    "last_fill_type": latest.get("fill_type"),
-                    "last_fill_volume": latest.get("volume_liters"),
-                    "last_fill_ec": latest.get("measured_ec_ms"),
-                    "last_fill_ph": latest.get("measured_ph"),
-                    "last_fill_performed_by": latest.get("performed_by"),
-                    "fertilizers_count": len(latest.get("fertilizers_used", [])),
-                })
+                self._attr_extra_state_attributes.update(
+                    {
+                        "last_fill_type": latest.get("fill_type"),
+                        "last_fill_volume": latest.get("volume_liters"),
+                        "last_fill_ec": latest.get("measured_ec_ms"),
+                        "last_fill_ph": latest.get("measured_ph"),
+                        "last_fill_performed_by": latest.get("performed_by"),
+                        "fertilizers_count": len(latest.get("fertilizers_used", [])),
+                    }
+                )
         self.async_write_ha_state()
 
     async def async_added_to_hass(self) -> None:
@@ -1904,12 +2016,14 @@ class TasksDueTodaySensor(KamerplanterEntity, RestoreEntity, SensorEntity):
             category = task.get("category", "")
             if name:
                 plant_names.append(name)
-            plants_detail.append({
-                "name": name,
-                "task_key": task.get("key", ""),
-                "category": category,
-                "plant_key": task.get("plant_key", ""),
-            })
+            plants_detail.append(
+                {
+                    "name": name,
+                    "task_key": task.get("key", ""),
+                    "category": category,
+                    "plant_key": task.get("plant_key", ""),
+                }
+            )
 
         summary = ", ".join(plant_names) if plant_names else "Keine Aufgaben heute"
         self._attr_extra_state_attributes = {
@@ -1970,12 +2084,14 @@ class TasksOverdueSensor(KamerplanterEntity, RestoreEntity, SensorEntity):
             due = alert.get("due_date", "")
             plant_name = alert.get("plant_name") or alert.get("name", "")
             plant_key = alert.get("plant_key", "")
-            plants.append({
-                "name": plant_name,
-                "plant_key": plant_key,
-                "due_date": due,
-                "task_key": alert.get("key", ""),
-            })
+            plants.append(
+                {
+                    "name": plant_name,
+                    "plant_key": plant_key,
+                    "due_date": due,
+                    "task_key": alert.get("key", ""),
+                }
+            )
             if due:
                 try:
                     due_date = date.fromisoformat(due)
@@ -2035,9 +2151,8 @@ class NextWateringSensor(KamerplanterEntity, RestoreEntity, SensorEntity):
         for task in self.coordinator.data:
             category = (task.get("category") or "").lower()
             name = (task.get("name") or task.get("title") or "").lower()
-            is_watering = (
-                category in watering_keywords
-                or any(kw in name for kw in watering_keywords)
+            is_watering = category in watering_keywords or any(
+                kw in name for kw in watering_keywords
             )
             if not is_watering:
                 continue

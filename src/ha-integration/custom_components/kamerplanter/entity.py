@@ -1,11 +1,15 @@
 """Base entity for the Kamerplanter integration."""
+
 from __future__ import annotations
 
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+)
 
 from .const import DOMAIN
 
@@ -81,7 +85,9 @@ def location_device_info(entry: ConfigEntry, loc: dict[str, Any]) -> DeviceInfo:
 
 
 def tank_device_info(
-    entry: ConfigEntry, tank: dict[str, Any], loc: dict[str, Any] | None = None,
+    entry: ConfigEntry,
+    tank: dict[str, Any],
+    loc: dict[str, Any] | None = None,
 ) -> DeviceInfo:
     """Create DeviceInfo for a tank (child device)."""
     key = tank.get("key", "")

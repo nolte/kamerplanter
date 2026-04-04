@@ -1,4 +1,5 @@
 """Binary sensor entities for the Kamerplanter integration."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -50,7 +51,11 @@ async def async_setup_entry(
         plant_keys_seen: set[str] = set()
         for alert in alert_coordinator.data:
             plant_key = alert.get("plant_key")
-            if plant_key and plant_key not in plant_keys_seen and plant_key in plant_lookup:
+            if (
+                plant_key
+                and plant_key not in plant_keys_seen
+                and plant_key in plant_lookup
+            ):
                 plant_keys_seen.add(plant_key)
                 dev = plant_device_info(entry, plant_lookup[plant_key])
                 entities.append(
@@ -63,7 +68,10 @@ async def async_setup_entry(
             loc_key = loc.get("key") or loc.get("_key", "")
             if not loc_key:
                 continue
-            if loc.get("_active_run_count", 0) > 0 or loc.get("_active_plant_count", 0) > 0:
+            if (
+                loc.get("_active_run_count", 0) > 0
+                or loc.get("_active_plant_count", 0) > 0
+            ):
                 dev = location_device_info(entry, loc)
                 entities.append(
                     LocationNeedsAttentionSensor(
@@ -73,21 +81,15 @@ async def async_setup_entry(
 
     # Global sensor offline — under server device
     srv_dev = server_device_info(entry)
-    entities.append(
-        SensorOfflineSensor(alert_coordinator, entry, srv_dev)
-    )
+    entities.append(SensorOfflineSensor(alert_coordinator, entry, srv_dev))
 
     # Care overdue — true when at least one task is overdue (REQ-030)
-    entities.append(
-        CareOverdueSensor(alert_coordinator, entry, srv_dev)
-    )
+    entities.append(CareOverdueSensor(alert_coordinator, entry, srv_dev))
 
     async_add_entities(entities)
 
 
-class PlantNeedsAttentionSensor(
-    KamerplanterEntity, RestoreEntity, BinarySensorEntity
-):
+class PlantNeedsAttentionSensor(KamerplanterEntity, RestoreEntity, BinarySensorEntity):
     """Binary sensor indicating a plant needs attention."""
 
     _attr_translation_key = "needs_attention"

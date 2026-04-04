@@ -1,4 +1,5 @@
 """DataUpdateCoordinators for the Kamerplanter integration."""
+
 from __future__ import annotations
 
 import asyncio
@@ -102,7 +103,9 @@ def _filter_current_phase_entries(
 class KamerplanterPlantCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
     """Coordinator for plant data."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, api: KamerplanterApi) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, api: KamerplanterApi
+    ) -> None:
         interval = entry.options.get(CONF_POLL_PLANTS, DEFAULT_POLL_PLANTS)
         super().__init__(
             hass,
@@ -182,11 +185,15 @@ class KamerplanterPlantCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
             else:
                 week = 1
             try:
-                plant["_current_dosages"] = await self.api.async_get_plant_current_dosages(key, week)
+                plant[
+                    "_current_dosages"
+                ] = await self.api.async_get_plant_current_dosages(key, week)
             except Exception:  # noqa: BLE001
                 plant["_current_dosages"] = None
             try:
-                plant["_active_channels"] = await self.api.async_get_plant_active_channels(key, week)
+                plant[
+                    "_active_channels"
+                ] = await self.api.async_get_plant_active_channels(key, week)
             except Exception:  # noqa: BLE001
                 plant["_active_channels"] = []
         else:
@@ -235,7 +242,9 @@ class KamerplanterPlantCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
 class KamerplanterLocationCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
     """Coordinator for location data enriched with assigned runs/instances."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, api: KamerplanterApi) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, api: KamerplanterApi
+    ) -> None:
         interval = entry.options.get(CONF_POLL_LOCATIONS, DEFAULT_POLL_LOCATIONS)
         super().__init__(
             hass,
@@ -280,7 +289,8 @@ class KamerplanterLocationCoordinator(DataUpdateCoordinator[list[dict[str, Any]]
                     except Exception:  # noqa: BLE001
                         runs = []
                     active_runs = [
-                        r for r in runs
+                        r
+                        for r in runs
                         if r.get("status") not in ("completed", "cancelled")
                     ]
                     loc["_active_runs"] = active_runs
@@ -291,16 +301,26 @@ class KamerplanterLocationCoordinator(DataUpdateCoordinator[list[dict[str, Any]]
                         r.get("actual_quantity", 0) for r in active_runs
                     )
                     try:
-                        slot_plants = await self.api.async_get_plant_instances_by_location(loc_key)
+                        slot_plants = (
+                            await self.api.async_get_plant_instances_by_location(
+                                loc_key
+                            )
+                        )
                     except Exception:  # noqa: BLE001
                         slot_plants = []
-                    active_slot_plants = [p for p in slot_plants if not p.get("removed_on")]
+                    active_slot_plants = [
+                        p for p in slot_plants if not p.get("removed_on")
+                    ]
                     loc["_active_plants"] = active_slot_plants
-                    loc["_active_plant_count"] = max(run_plant_count, len(active_slot_plants))
+                    loc["_active_plant_count"] = max(
+                        run_plant_count, len(active_slot_plants)
+                    )
                     loc["_run_plant_count"] = run_plant_count
                     _LOGGER.debug(
                         "Location %s: %d active runs, %d run_plants, %d slot_plants",
-                        loc_key, len(active_runs), run_plant_count,
+                        loc_key,
+                        len(active_runs),
+                        run_plant_count,
                         len(active_slot_plants),
                     )
 
@@ -323,20 +343,24 @@ class KamerplanterLocationCoordinator(DataUpdateCoordinator[list[dict[str, Any]]
                                             and fk in self._fert_lookup
                                             and "product_name" not in dosage
                                         ):
-                                            dosage["product_name"] = self._fert_lookup[fk]
+                                            dosage["product_name"] = self._fert_lookup[
+                                                fk
+                                            ]
                             primary["_phase_entries"] = entries
                         timeline = await self.api.async_get_run_phase_timeline(run_key)
                         primary["_timeline"] = timeline
                         all_entries = primary.get("_phase_entries", [])
-                        is_seasonal = plan and plan.get("cycle_restart_from_sequence") is not None
+                        is_seasonal = (
+                            plan and plan.get("cycle_restart_from_sequence") is not None
+                        )
                         if is_seasonal:
                             eff_week = date.today().isocalendar().week
                         else:
                             eff_week = _calc_effective_plan_week(timeline, all_entries)
                         if eff_week is not None:
                             primary["_current_week"] = eff_week
-                            primary["_current_phase_entries"] = _filter_current_phase_entries(
-                                all_entries, eff_week
+                            primary["_current_phase_entries"] = (
+                                _filter_current_phase_entries(all_entries, eff_week)
                             )
                         loc["_primary_run"] = primary
 
@@ -358,7 +382,9 @@ class KamerplanterLocationCoordinator(DataUpdateCoordinator[list[dict[str, Any]]
                         except Exception:  # noqa: BLE001
                             tank["_latest_fill"] = None
                         try:
-                            tank["_ha_sensors"] = await self.api.async_get_tank_sensors(tk)
+                            tank["_ha_sensors"] = await self.api.async_get_tank_sensors(
+                                tk
+                            )
                         except Exception:  # noqa: BLE001
                             tank["_ha_sensors"] = []
                     loc["_tanks"] = loc_tanks
@@ -375,7 +401,9 @@ class KamerplanterLocationCoordinator(DataUpdateCoordinator[list[dict[str, Any]]
 class KamerplanterAlertCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
     """Coordinator for alerts (derived from overdue tasks)."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, api: KamerplanterApi) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, api: KamerplanterApi
+    ) -> None:
         interval = entry.options.get(CONF_POLL_ALERTS, DEFAULT_POLL_ALERTS)
         super().__init__(
             hass,
@@ -402,7 +430,9 @@ class KamerplanterAlertCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
 class KamerplanterRunCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
     """Coordinator for planting run data."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, api: KamerplanterApi) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, api: KamerplanterApi
+    ) -> None:
         interval = entry.options.get(CONF_POLL_PLANTS, DEFAULT_POLL_PLANTS)
         super().__init__(
             hass,
@@ -438,18 +468,26 @@ class KamerplanterRunCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
                     plan = await self.api.async_get_run_nutrient_plan(run["key"])
                     run["_nutrient_plan"] = plan
                     if plan and plan.get("key"):
-                        entries = await self.api.async_get_plan_phase_entries(plan["key"])
+                        entries = await self.api.async_get_plan_phase_entries(
+                            plan["key"]
+                        )
                         for entry in entries:
                             for channel in entry.get("delivery_channels", []):
                                 for dosage in channel.get("fertilizer_dosages", []):
                                     fk = dosage.get("fertilizer_key", "")
-                                    if fk and fk in self._fert_lookup and "product_name" not in dosage:
+                                    if (
+                                        fk
+                                        and fk in self._fert_lookup
+                                        and "product_name" not in dosage
+                                    ):
                                         dosage["product_name"] = self._fert_lookup[fk]
                         run["_phase_entries"] = entries
                     timeline = await self.api.async_get_run_phase_timeline(run["key"])
                     run["_timeline"] = timeline
                     all_entries = run.get("_phase_entries", [])
-                    is_seasonal = plan and plan.get("cycle_restart_from_sequence") is not None
+                    is_seasonal = (
+                        plan and plan.get("cycle_restart_from_sequence") is not None
+                    )
                     if is_seasonal:
                         eff_week = date.today().isocalendar().week
                     else:
@@ -486,7 +524,9 @@ class KamerplanterRunCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
 class KamerplanterTaskCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
     """Coordinator for pending tasks."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, api: KamerplanterApi) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, api: KamerplanterApi
+    ) -> None:
         interval = entry.options.get(CONF_POLL_TASKS, DEFAULT_POLL_TASKS)
         super().__init__(
             hass,
