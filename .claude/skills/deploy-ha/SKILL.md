@@ -46,15 +46,19 @@ kubectl cp src/ha-integration/custom_components/kamerplanter/ default/homeassist
 kubectl exec homeassistant-0 -n default -- rm -rf /config/custom_components/kamerplanter/__pycache__ 2>&1; echo "EXIT:$?"
 ```
 
-### 3c. Pod neustarten
+### 3c. HA-Prozess neustarten (NICHT den Pod loeschen!)
+
+**WICHTIG:** `kubectl delete pod` ist VERBOTEN fuer Hot-Reload!
+Der InitContainer `copy-ha-integration` wuerde die manuell kopierten Dateien mit dem alten Image ueberschreiben.
+Stattdessen: HA-Prozess im Container beenden → Kubernetes startet nur den Container neu (nicht den Pod) → InitContainers laufen NICHT erneut.
 
 ```bash
-kubectl delete pod homeassistant-0 -n default 2>&1; echo "EXIT:$?"
+kubectl exec homeassistant-0 -n default -- kill 1 2>&1; echo "EXIT:$?"
 ```
 
-## Schritt 4: Warten auf Pod-Ready
+## Schritt 4: Warten auf Container-Ready
 
-Warte bis der Pod wieder laeuft (max 120s):
+Warte bis der Container wieder laeuft (max 120s). Der Pod bleibt bestehen, nur der Container restartet:
 
 ```bash
 kubectl wait --for=condition=ready pod/homeassistant-0 -n default --timeout=120s 2>&1; echo "EXIT:$?"
@@ -84,8 +88,8 @@ Stelle das Ergebnis in folgender Form dar:
 | Lint               | Pass/Fail  | {details}                      |
 | Copy               | Pass/Fail  | kubectl cp                     |
 | Cache Clear        | Pass/Fail  | __pycache__ entfernt           |
-| Pod Restart        | Pass/Fail  | homeassistant-0 deleted        |
-| Pod Ready          | Pass/Fail  | {time} bis Ready               |
+| HA Restart         | Pass/Fail  | kill 1 (Container-Restart)     |
+| Container Ready    | Pass/Fail  | {time} bis Ready               |
 | Integration Loaded | Pass/Fail  | Setup-Log-Eintraege            |
 | Errors             | Pass/Fail  | {n} Fehler in Logs             |
 ```

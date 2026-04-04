@@ -173,8 +173,11 @@ kubectl cp src/ha-integration/custom_components/kamerplanter/ \
 kubectl exec homeassistant-0 -n default -- \
   rm -rf /config/custom_components/kamerplanter/__pycache__
 
-# 3. Pod neustarten
-kubectl delete pod homeassistant-0 -n default
+# 3. HA-Prozess neustarten (NICHT kubectl delete pod!)
+# Pod loeschen wuerde den InitContainer copy-ha-integration triggern,
+# der die kopierten Dateien mit dem alten Image ueberschreibt!
+# kill 1 beendet nur den HA-Prozess → Container-Restart ohne InitContainer.
+kubectl exec homeassistant-0 -n default -- kill 1
 ```
 
 Fuehre diese Schritte ohne zu fragen. PVC bleibt erhalten.

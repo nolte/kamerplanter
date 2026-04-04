@@ -128,10 +128,10 @@ Nach Abschluss der Aenderungen deploye die Integration und verifiziere den Start
 # 1. Lint
 cd src/ha-integration && ruff check custom_components/ 2>&1 && ruff format --check custom_components/ 2>&1
 
-# 2. Deploy
+# 2. Deploy (NICHT kubectl delete pod — InitContainer wuerde altes Image kopieren!)
 kubectl cp src/ha-integration/custom_components/kamerplanter/ default/homeassistant-0:/config/custom_components/kamerplanter/
 kubectl exec homeassistant-0 -n default -- rm -rf /config/custom_components/kamerplanter/__pycache__
-kubectl delete pod homeassistant-0 -n default
+kubectl exec homeassistant-0 -n default -- kill 1
 
 # 3. Warten + Verifizieren
 kubectl wait --for=condition=ready pod/homeassistant-0 -n default --timeout=120s
