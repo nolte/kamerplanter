@@ -122,12 +122,23 @@ Setze die Delta-Liste um. Beachte dabei:
 - **Style-Guide-Referenz:** Fuer Backend-API-Verstaendnis lies `spec/style-guides/BACKEND.md` — insbesondere Abschnitte zu Namenskonventionen, Router-Setup, Tenant-Scoped Routing und Pydantic-Schemas. Der HA-Code selbst folgt HA-Konventionen, aber die API-Anbindung muss die Backend-Patterns korrekt widerspiegeln.
 
 ### Deployment-Workflow:
-Nach Abschluss der Aenderungen weise den Benutzer darauf hin, dass die HA-Integration manuell deployed werden muss:
-```
+Nach Abschluss der Aenderungen deploye die Integration und verifiziere den Start:
+
+```bash
+# 1. Lint
+cd src/ha-integration && ruff check custom_components/ 2>&1 && ruff format --check custom_components/ 2>&1
+
+# 2. Deploy
 kubectl cp src/ha-integration/custom_components/kamerplanter/ default/homeassistant-0:/config/custom_components/kamerplanter/
-kubectl exec default/homeassistant-0 -- rm -rf /config/custom_components/kamerplanter/__pycache__
+kubectl exec homeassistant-0 -n default -- rm -rf /config/custom_components/kamerplanter/__pycache__
 kubectl delete pod homeassistant-0 -n default
+
+# 3. Warten + Verifizieren
+kubectl wait --for=condition=ready pod/homeassistant-0 -n default --timeout=120s
+kubectl logs homeassistant-0 -n default --since=90s 2>&1 | grep -iE "(kamerplanter|error|exception)" | tail -30
 ```
+
+Fuehre Deploy ohne zu fragen aus. Bei Fehlern in den Logs: analysiere, behebe, deploye erneut (max 3 Iterationen).
 
 ---
 
