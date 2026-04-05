@@ -15,6 +15,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [7, 8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "10--20"
     min_container_depth_cm: 30
@@ -42,6 +43,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [7, 8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "5--15"
     min_container_depth_cm: 25
@@ -67,6 +69,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [7, 8, 9]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "15--25"
     min_container_depth_cm: 30
@@ -91,6 +94,7 @@ species:
     direct_sow_months: [4, 5]
     harvest_months: [6, 7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "30--50"
     min_container_depth_cm: 40
@@ -115,6 +119,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "10--20"
     min_container_depth_cm: 25
@@ -141,6 +146,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [8, 9]
     frost_sensitivity: sensitive
+    plant_category: outdoor_ornamental
     container_suitable: limited
     recommended_container_volume_l: "15--25"
     min_container_depth_cm: 30
@@ -166,6 +172,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [9, 10]
     frost_sensitivity: sensitive
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "10--25"
     min_container_depth_cm: 25
@@ -191,6 +198,7 @@ species:
     direct_sow_months: [3, 4]
     harvest_months: [8, 9]
     frost_sensitivity: hardy
+    plant_category: herb
     container_suitable: limited
     recommended_container_volume_l: "30--50"
     min_container_depth_cm: 40
@@ -217,6 +225,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [6, 7, 8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -241,6 +250,7 @@ species:
     direct_sow_months: [3, 4, 5]
     harvest_months: [6, 7, 8, 9]
     frost_sensitivity: very_hardy
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -264,6 +274,7 @@ species:
     direct_sow_months: [4, 5]
     harvest_months: [6, 7, 8, 9]
     frost_sensitivity: hardy
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "2--5"
     min_container_depth_cm: 15
@@ -288,6 +299,7 @@ species:
     sowing_outdoor_after_last_frost_days: 14
     harvest_months: [6, 7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "5--10"
     min_container_depth_cm: 20
@@ -311,6 +323,7 @@ species:
     direct_sow_months: [4, 5]
     harvest_months: [6, 7, 8, 9]
     frost_sensitivity: hardy
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "5--10"
     min_container_depth_cm: 20
@@ -336,6 +349,7 @@ species:
     bloom_months: [6, 7, 8]
     allows_harvest: true  # W-006: flower and oil harvest
     frost_sensitivity: hardy
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "5--10"
     min_container_depth_cm: 20
@@ -360,6 +374,7 @@ species:
     direct_sow_months: [3, 4, 5, 6, 7]
     harvest_months: [6, 7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "10--20"
     min_container_depth_cm: 30
@@ -384,6 +399,7 @@ species:
     direct_sow_months: [5, 6]
     harvest_months: [8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "10--20"
     min_container_depth_cm: 30
@@ -407,6 +423,7 @@ species:
     direct_sow_months: [4, 5, 6, 7]
     harvest_months: [6, 7, 8, 9]
     frost_sensitivity: moderate
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 20
@@ -430,6 +447,7 @@ species:
     direct_sow_months: [4, 5, 6, 7, 8]
     harvest_months: [6, 7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -454,6 +472,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [8, 9, 10, 11]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "10--15"
     min_container_depth_cm: 25
@@ -478,6 +497,7 @@ species:
     direct_sow_months: [3, 4, 5, 6, 7]
     harvest_months: [5, 6, 7, 8, 9, 10, 11]
     frost_sensitivity: moderate
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 20
@@ -503,6 +523,7 @@ species:
     direct_sow_months: [4, 5, 6]
     harvest_months: [6, 7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "15--25"
     min_container_depth_cm: 30
@@ -527,6 +548,7 @@ species:
     direct_sow_months: [4, 5, 6]
     harvest_months: [7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "15--25"
     min_container_depth_cm: 30
@@ -551,6 +573,7 @@ species:
     direct_sow_months: [3, 4, 5, 6, 7]
     harvest_months: [5, 6, 7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "5--10"
     min_container_depth_cm: 20
@@ -574,6 +597,7 @@ species:
     direct_sow_months: [3, 4, 5, 6, 7, 8, 9]
     harvest_months: [4, 5, 6, 7, 8, 9, 10]
     frost_sensitivity: hardy
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -597,6 +621,7 @@ species:
     direct_sow_months: [3, 4, 5, 6, 7, 8, 9]
     harvest_months: [4, 5, 6, 7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -621,6 +646,7 @@ species:
     direct_sow_months: [4, 5, 6]
     harvest_months: [7, 8, 9, 10, 11]
     frost_sensitivity: hardy
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "15--25"
     min_container_depth_cm: 25
@@ -645,6 +671,7 @@ species:
     direct_sow_months: [5, 6, 7]
     harvest_months: [7, 8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "5--10"
     min_container_depth_cm: 20
@@ -669,6 +696,7 @@ species:
     direct_sow_months: [3, 4, 5, 6]
     harvest_months: [5, 6, 7, 8, 9]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "5--10"
     min_container_depth_cm: 20
@@ -693,6 +721,7 @@ species:
     direct_sow_months: [2, 3, 4]
     harvest_months: [6, 7]
     frost_sensitivity: very_hardy
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "10--20"
     min_container_depth_cm: 25
@@ -717,6 +746,7 @@ species:
     direct_sow_months: [5, 6]
     harvest_months: [9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "10--15"
     min_container_depth_cm: 20
@@ -740,6 +770,7 @@ species:
     direct_sow_months: [4, 5]
     harvest_months: [7, 8]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "20--40"
     mature_width_cm: "15--25"
@@ -762,6 +793,7 @@ species:
     bloom_months: [6, 7, 8, 9]
     allows_harvest: false
     frost_sensitivity: very_hardy
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "20--40"
     mature_width_cm: "20--30"
@@ -785,6 +817,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [7, 8, 9]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "15--25"
     min_container_depth_cm: 25
@@ -811,6 +844,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [8, 9]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "20--30"
     min_container_depth_cm: 30
@@ -836,6 +870,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [7, 8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "20--40"
     min_container_depth_cm: 30
@@ -860,6 +895,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "40--60"
     mature_width_cm: "200--400"
@@ -882,6 +918,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [8, 9]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "30--50"
     mature_width_cm: "200--400"
@@ -905,6 +942,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "300--500"
     mature_width_cm: "100--200"
@@ -930,6 +968,7 @@ species:
     direct_sow_months: [3, 4, 5, 6, 7, 8]
     harvest_months: [5, 6, 7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -953,6 +992,7 @@ species:
     direct_sow_months: [5, 6, 7]
     harvest_months: [10, 11, 12]
     frost_sensitivity: hardy
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "10--15"
     min_container_depth_cm: 25
@@ -978,6 +1018,7 @@ species:
     harvest_months: [9, 10]
     bloom_months: [7, 8, 9]
     frost_sensitivity: sensitive
+    plant_category: outdoor_ornamental
     container_suitable: limited
     recommended_container_volume_l: "10--20"
     min_container_depth_cm: 25
@@ -1004,6 +1045,7 @@ species:
     bloom_months: [6, 7, 8, 9, 10]
     allows_harvest: false
     frost_sensitivity: sensitive
+    plant_category: outdoor_ornamental
     container_suitable: "yes"
     recommended_container_volume_l: "2--5"
     min_container_depth_cm: 15
@@ -1027,6 +1069,7 @@ species:
     direct_sow_months: [3, 4, 5]
     harvest_months: [6, 7, 8]
     frost_sensitivity: hardy
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -1050,6 +1093,7 @@ species:
     direct_sow_months: [4, 5]
     harvest_months: [6, 7, 8, 9]
     frost_sensitivity: moderate
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "5--10"
     min_container_depth_cm: 20
@@ -1075,6 +1119,7 @@ species:
     direct_sow_months: [5, 6]
     harvest_months: [8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "150--300"
     mature_width_cm: "40--60"
@@ -1101,6 +1146,7 @@ species:
         direct_sow_months: [10, 11]
         harvest_months: [6, 7]
     frost_sensitivity: very_hardy
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "60--120"
     mature_width_cm: "5--10"
@@ -1122,6 +1168,7 @@ species:
     direct_sow_months: [3, 4]
     harvest_months: [7, 8]
     frost_sensitivity: hardy
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "60--100"
     mature_width_cm: "5--10"
@@ -1143,6 +1190,7 @@ species:
     direct_sow_months: [3, 4]
     harvest_months: [7, 8]
     frost_sensitivity: hardy
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "60--120"
     mature_width_cm: "5--10"
@@ -1165,6 +1213,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "80--120"
     mature_width_cm: "10--15"
@@ -1186,6 +1235,7 @@ species:
     direct_sow_months: [5, 6]
     harvest_months: [9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "100--300"
     mature_width_cm: "20--40"
@@ -1215,6 +1265,7 @@ species:
     greenhouse_recommended: true
     support_required: true
     frost_sensitivity: sensitive
+    plant_category: tropical_foliage
     nutrient_demand_level: medium_feeder
 
   - scientific_name: Spathiphyllum wallisii
@@ -1236,6 +1287,7 @@ species:
     balcony_suitable: limited
     greenhouse_recommended: true
     frost_sensitivity: sensitive
+    plant_category: tropical_foliage
     nutrient_demand_level: medium_feeder
 
   # -- Asparagaceae (1) --
@@ -1257,6 +1309,7 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: limited
     frost_sensitivity: sensitive
+    plant_category: indoor_houseplant
     nutrient_demand_level: light_feeder
 
   # -- Bromeliaceae (1) --
@@ -1279,6 +1332,7 @@ species:
     balcony_suitable: limited
     greenhouse_recommended: true
     frost_sensitivity: sensitive
+    plant_category: tropical_foliage
     nutrient_demand_level: light_feeder
 
   # -- Rosaceae (1) --
@@ -1296,6 +1350,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [5, 6, 7, 8, 9]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 20
@@ -1326,6 +1381,7 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: limited
     frost_sensitivity: sensitive
+    plant_category: indoor_houseplant
     nutrient_demand_level: light_feeder
 
   # -- Marantaceae (1) --
@@ -1348,6 +1404,7 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: "no"
     frost_sensitivity: sensitive
+    plant_category: tropical_foliage
     nutrient_demand_level: medium_feeder
 
   # -- Asparagaceae (2) --
@@ -1369,6 +1426,7 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: limited
     frost_sensitivity: sensitive
+    plant_category: succulent_cactus
     nutrient_demand_level: light_feeder
 
   # -- Asparagaceae (3) --
@@ -1383,6 +1441,7 @@ species:
     native_habitat: Tropical Africa
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
+    plant_category: tropical_foliage
     container_suitable: "yes"
     recommended_container_volume_l: "10--30"
     min_container_depth_cm: 20
@@ -1409,6 +1468,7 @@ species:
     native_habitat: Europe, North Africa, temperate Asia
     allelopathy_score: 0.0
     frost_sensitivity: hardy
+    plant_category: outdoor_ornamental
     # Propagation by rhizome division only; seed propagation impractical
     sowing_indoor_weeks_before_last_frost: null
     sowing_outdoor_after_last_frost_days: null
@@ -1448,6 +1508,7 @@ species:
     balcony_suitable: limited
     support_required: true
     frost_sensitivity: sensitive
+    plant_category: tropical_foliage
     nutrient_demand_level: medium_feeder
 
   # -- Amaryllidaceae (1) --
@@ -1465,6 +1526,7 @@ species:
     direct_sow_months: [3, 4, 5]
     harvest_months: [4, 5, 6, 7, 8, 9, 10]
     frost_sensitivity: hardy
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "1--3"
     min_container_depth_cm: 15
@@ -1488,6 +1550,7 @@ species:
     allelopathy_score: 0.0
     bloom_months: [5, 6, 7, 8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: balcony_plant
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -1512,6 +1575,7 @@ species:
     sowing_indoor_weeks_before_last_frost: 10
     bloom_months: [5, 6, 7, 8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: balcony_plant
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -1536,6 +1600,7 @@ species:
     sowing_indoor_weeks_before_last_frost: 8
     bloom_months: [5, 6, 7, 8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: balcony_plant
     container_suitable: "yes"
     recommended_container_volume_l: "2--5"
     min_container_depth_cm: 15
@@ -1562,6 +1627,7 @@ species:
     bloom_months: [3, 4, 5, 6, 7, 8, 9, 10]
     allows_harvest: false
     frost_sensitivity: hardy
+    plant_category: balcony_plant
     container_suitable: "yes"
     recommended_container_volume_l: "1--3"
     min_container_depth_cm: 15

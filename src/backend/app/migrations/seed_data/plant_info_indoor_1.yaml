@@ -387,7 +387,7 @@ new_species:
   - scientific_name: "Aeschynanthus radicans"
     common_names: [Schamblume, Lippenstiftpflanze, Lipstick Plant]
     genus: Aeschynanthus
-    plant_category: indoor_houseplant
+    plant_category: tropical_foliage
     growth_habit: vine
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b, 12a]
@@ -479,7 +479,7 @@ new_species:
   - scientific_name: "Anthurium andraeanum"
     common_names: [Flamingoblume, Anthurie, Flamingo Flower, Painter's Palette]
     genus: Anthurium
-    plant_category: indoor_houseplant
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -502,7 +502,7 @@ new_species:
   - scientific_name: "Aphelandra squarrosa"
     common_names: [Glanzkölbchen, Zebrakraut, Zebra Plant]
     genus: Aphelandra
-    plant_category: indoor_houseplant
+    plant_category: tropical_foliage
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [11a, 11b, 12a]
@@ -548,7 +548,7 @@ new_species:
   - scientific_name: "Asparagus setaceus"
     common_names: [Feder-Spargel, Asparagus Fern, Lace Fern]
     genus: Asparagus
-    plant_category: indoor_houseplant
+    plant_category: tropical_foliage
     growth_habit: vine
     root_type: tuberous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -571,7 +571,7 @@ new_species:
   - scientific_name: "Aspidistra elatior"
     common_names: [Schusterpalme, Gusseisenpflanze, Cast Iron Plant, Bar Room Plant]
     genus: Aspidistra
-    plant_category: tropical_foliage
+    plant_category: indoor_houseplant
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b, 11a]
@@ -795,7 +795,7 @@ new_species:
   - scientific_name: "Coffea arabica"
     common_names: [Kaffeepflanze, Arabica-Kaffee, Coffee Plant, Arabian Coffee]
     genus: Coffea
-    plant_category: indoor_houseplant
+    plant_category: tropical_foliage
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b, 12a, 12b]

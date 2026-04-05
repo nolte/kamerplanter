@@ -334,6 +334,7 @@ new_species:
   - scientific_name: "Dracaena trifasciata"
     common_names: [Bogenhanf, Schwiegermutterzunge, Snake Plant, Mother-in-Law's Tongue]
     genus: Dracaena
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [9b, 10a, 10b, 11a, 11b]
@@ -361,6 +362,7 @@ new_species:
   - scientific_name: "Dypsis lutescens"
     common_names: [Goldfruchtpalme, Areca-Palme, Areca Palm, Butterfly Palm, Golden Cane Palm]
     genus: Dypsis
+    plant_category: tropical_foliage
     growth_habit: tree
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -388,6 +390,7 @@ new_species:
   - scientific_name: "Echeveria elegans"
     common_names: [Mexikanische Schneekugel, Glashausrose, Mexican Snowball, Mexican Gem]
     genus: Echeveria
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -418,6 +421,7 @@ new_species:
   - scientific_name: "Euphorbia pulcherrima"
     common_names: [Weihnachtsstern, Adventsstern, Poinsettia, Christmas Star]
     genus: Euphorbia
+    plant_category: indoor_houseplant
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -445,6 +449,7 @@ new_species:
   - scientific_name: "Fatsia japonica"
     common_names: [Zimmeraralie, Japanische Aralie, Japanese Aralia, Paperplant]
     genus: Fatsia
+    plant_category: indoor_houseplant
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [8a, 8b, 9a, 9b, 10a, 10b, 11a]
@@ -472,6 +477,7 @@ new_species:
   - scientific_name: "Ficus benjamina"
     common_names: [Birkenfeige, Weeping Fig, Benjamin Fig]
     genus: Ficus
+    plant_category: tropical_foliage
     growth_habit: tree
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -499,6 +505,7 @@ new_species:
   - scientific_name: "Ficus elastica"
     common_names: [Gummibaum, Rubber Plant, Rubber Fig, Indian Rubber Tree]
     genus: Ficus
+    plant_category: tropical_foliage
     growth_habit: tree
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -526,6 +533,7 @@ new_species:
   - scientific_name: "Ficus lyrata"
     common_names: [Geigenfeige, Fiddle Leaf Fig]
     genus: Ficus
+    plant_category: tropical_foliage
     growth_habit: tree
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -553,6 +561,7 @@ new_species:
   - scientific_name: "Fittonia albivenis"
     common_names: [Fittonie, Mosaikpflanze, Nerve Plant, Mosaic Plant]
     genus: Fittonia
+    plant_category: tropical_foliage
     growth_habit: groundcover
     root_type: fibrous
     hardiness_zones: [11a, 11b, 12a]
@@ -580,6 +589,7 @@ new_species:
   - scientific_name: "Gardenia jasminoides"
     common_names: [Gardenie, Knopflochblume, Gardenia, Cape Jasmine]
     genus: Gardenia
+    plant_category: indoor_houseplant
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [8a, 8b, 9a, 9b, 10a, 10b, 11a, 11b]
@@ -607,6 +617,7 @@ new_species:
   - scientific_name: "Goeppertia lancifolia"
     common_names: [Klapperschlangen-Calathea, Lanzettblatt-Calathea, Rattlesnake Plant]
     genus: Goeppertia
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [11a, 11b, 12a, 12b]
@@ -634,6 +645,7 @@ new_species:
   - scientific_name: "Goeppertia makoyana"
     common_names: [Pfauenkorb-Marante, Korbmarante, Peacock Plant, Cathedral Windows]
     genus: Goeppertia
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -661,6 +673,7 @@ new_species:
   - scientific_name: "Goeppertia orbifolia"
     common_names: [Orbifolia-Korbmarante, Calathea orbifolia, Round-leaf Calathea]
     genus: Goeppertia
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [11a, 11b, 12a, 12b]
@@ -688,6 +701,7 @@ new_species:
   - scientific_name: "Gymnocalycium mihanovichii"
     common_names: [Erdbeerkaktus, Hibotan, Moon Cactus, Chin Cactus]
     genus: Gymnocalycium
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b, 12a, 12b]
@@ -715,6 +729,7 @@ new_species:
   - scientific_name: "Haworthiopsis fasciata"
     common_names: [Zebra-Haworthie, Zebrapflanze, Zebra Plant, Zebra Cactus]
     genus: Haworthiopsis
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [9b, 10a, 10b, 11a, 11b]
@@ -742,6 +757,7 @@ new_species:
   - scientific_name: "Hedera helix"
     common_names: [Gewoehnlicher Efeu, English Ivy, Common Ivy]
     genus: Hedera
+    plant_category: indoor_houseplant
     growth_habit: vine
     root_type: fibrous
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
@@ -769,6 +785,7 @@ new_species:
   - scientific_name: "Hibiscus rosa-sinensis"
     common_names: [Chinesischer Roseneibisch, Zimmer-Hibiskus, Chinese Hibiscus, Tropical Hibiscus]
     genus: Hibiscus
+    plant_category: balcony_plant
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -796,6 +813,7 @@ new_species:
   - scientific_name: "Hippeastrum hybridum"
     common_names: [Ritterstern, Amaryllis, Hippeastrum, Knight's Star Lily]
     genus: Hippeastrum
+    plant_category: bulb_tuber
     growth_habit: herb
     root_type: bulbous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -823,6 +841,7 @@ new_species:
   - scientific_name: "Howea forsteriana"
     common_names: [Kentiapalme, Kentia Palm, Sentry Palm, Thatch Palm]
     genus: Howea
+    plant_category: tropical_foliage
     growth_habit: tree
     root_type: fibrous
     hardiness_zones: [9b, 10a, 10b, 11a, 11b]
@@ -850,6 +869,7 @@ new_species:
   - scientific_name: "Hoya carnosa"
     common_names: [Wachsblume, Porzellanblume, Wax Plant, Porcelain Flower]
     genus: Hoya
+    plant_category: tropical_foliage
     growth_habit: vine
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b, 12a]
@@ -877,6 +897,7 @@ new_species:
   - scientific_name: "Impatiens walleriana"
     common_names: [Fleissiges Lieschen, Busy Lizzie, Patient Lucy]
     genus: Impatiens
+    plant_category: balcony_plant
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -904,6 +925,7 @@ new_species:
   - scientific_name: "Jasminum polyanthum"
     common_names: [Vielbluetigter Jasmin, Winterjasmin, Pink Jasmine, Winter-blooming Jasmine]
     genus: Jasminum
+    plant_category: indoor_houseplant
     growth_habit: vine
     root_type: fibrous
     hardiness_zones: [8a, 8b, 9a, 9b, 10a, 10b]
@@ -931,6 +953,7 @@ new_species:
   - scientific_name: "Kalanchoe blossfeldiana"
     common_names: [Flammendes Kaethchen, Kalanchoe, Flaming Katy, Christmas Kalanchoe]
     genus: Kalanchoe
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -958,6 +981,7 @@ new_species:
   - scientific_name: "Kalanchoe daigremontiana"
     common_names: [Brutblatt, Goethepflanze, Mother of Thousands, Mexican Hat Plant]
     genus: Kalanchoe
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [9b, 10a, 10b, 11a, 11b]
@@ -985,6 +1009,7 @@ new_species:
   - scientific_name: "Lithops spp."
     common_names: [Lebende Steine, Lithops, Living Stones, Stone Plants]
     genus: Lithops
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: taproot
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -1012,6 +1037,7 @@ new_species:
   - scientific_name: "Livistona chinensis"
     common_names: [Chinesische Faecherpalme, Brunnenpalme, Chinese Fan Palm, Fountain Palm]
     genus: Livistona
+    plant_category: tropical_foliage
     growth_habit: tree
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -1039,6 +1065,7 @@ new_species:
   - scientific_name: "Mammillaria spp."
     common_names: [Warzenkaktus, Mammillaria, Pincushion Cactus, Nipple Cactus]
     genus: Mammillaria
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -1068,6 +1095,7 @@ new_species:
   - scientific_name: "Maranta leuconeura"
     common_names: [Pfeilwurz, Marante, Prayer Plant]
     genus: Maranta
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [11a, 11b, 12a]

@@ -122,6 +122,7 @@ new_species:
   - scientific_name: "Allium cepa"
     common_names: ["Zwiebel", "Kuechenzwiebel", "Onion", "Common Onion"]
     genus: Allium
+    plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: bulbous
     native_habitat: "Zentralasien"
@@ -161,6 +162,7 @@ new_species:
   - scientific_name: "Allium sativum"
     common_names: ["Knoblauch", "Garlic"]
     genus: Allium
+    plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: bulbous
     native_habitat: "Zentralasien"
@@ -199,6 +201,7 @@ new_species:
   - scientific_name: "Anemone hupehensis"
     common_names: ["Herbstanemone", "Japanese Anemone", "Chinese Anemone"]
     genus: Anemone
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: fibrous
     native_habitat: "China"
@@ -235,6 +238,7 @@ new_species:
   - scientific_name: "Asparagus officinalis"
     common_names: ["Spargel", "Asparagus", "Garden Asparagus"]
     genus: Asparagus
+    plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: fibrous
     native_habitat: "Europa, Westasien, Nordafrika"
@@ -272,6 +276,7 @@ new_species:
   - scientific_name: "Astilbe chinensis"
     common_names: ["Prachtspiere", "Chinese Astilbe", "False Goat's Beard"]
     genus: Astilbe
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: fibrous
     native_habitat: "China, Korea, Japan"
@@ -306,6 +311,7 @@ new_species:
   - scientific_name: "Brassica oleracea var. sabellica"
     common_names: ["Gruenkohl", "Kale", "Borecole"]
     genus: Brassica
+    plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: fibrous
     native_habitat: "Mittelmeerraum, Westeuropa"
@@ -342,6 +348,7 @@ new_species:
   - scientific_name: "Buxus sempervirens"
     common_names: ["Buchsbaum", "Common Boxwood", "European Box"]
     genus: Buxus
+    plant_category: outdoor_ornamental
     growth_habit: shrub
     root_type: fibrous
     native_habitat: "Suedwesteuropa, Nordafrika, Westasien"
@@ -377,6 +384,7 @@ new_species:
   - scientific_name: "Calendula officinalis"
     common_names: ["Ringelblume", "Pot Marigold", "Calendula"]
     genus: Calendula
+    plant_category: herb
     growth_habit: herb
     root_type: taproot
     native_habitat: "Mittelmeerraum"
@@ -414,6 +422,7 @@ new_species:
   - scientific_name: "Clematis spp."
     common_names: ["Waldrebe", "Clematis"]
     genus: Clematis
+    plant_category: outdoor_ornamental
     growth_habit: vine
     root_type: fibrous
     native_habitat: "Nordhalbkugel, temperierte Zonen"
@@ -450,6 +459,7 @@ new_species:
   - scientific_name: "Cornus mas"
     common_names: ["Kornelkirsche", "Dirndlstrauch", "Cornelian Cherry"]
     genus: Cornus
+    plant_category: outdoor_ornamental
     growth_habit: shrub
     root_type: fibrous
     native_habitat: "Suedeuropa, Westasien"
@@ -485,6 +495,7 @@ new_species:
   - scientific_name: "Delphinium elatum"
     common_names: ["Rittersporn", "Delphinium", "Larkspur"]
     genus: Delphinium
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: fibrous
     native_habitat: "Europa, Zentralasien"
@@ -521,6 +532,7 @@ new_species:
   - scientific_name: "Echinacea purpurea"
     common_names: ["Purpur-Sonnenhut", "Purple Coneflower", "Echinacea"]
     genus: Echinacea
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: fibrous
     native_habitat: "Nordamerika (oestliches USA)"

@@ -56,6 +56,7 @@ new_species:
       - "Monkey Mask"
       - "Swiss Cheese Vine"
     genus: Monstera
+    plant_category: tropical_foliage
     growth_habit: vine
     root_type: fibrous
     hardiness_zones:
@@ -81,6 +82,7 @@ new_species:
       - "Karminrote Neoregelia"
       - "Blushing Bromeliad"
     genus: Neoregelia
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones:
@@ -107,6 +109,7 @@ new_species:
       - "Boston Fern"
       - "Sword Fern"
     genus: Nephrolepis
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones:
@@ -135,6 +138,7 @@ new_species:
       - "Bunny Ears Cactus"
       - "Angel Wings Cactus"
     genus: Opuntia
+    plant_category: succulent_cactus
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones:
@@ -163,6 +167,7 @@ new_species:
       - "Purple Shamrock"
       - "False Shamrock"
     genus: Oxalis
+    plant_category: bulb_tuber
     growth_habit: herb
     root_type: bulbous
     hardiness_zones:
@@ -197,6 +202,7 @@ new_species:
       - "Money Tree"
       - "Guiana Chestnut"
     genus: Pachira
+    plant_category: tropical_foliage
     growth_habit: tree
     root_type: fibrous
     hardiness_zones:
@@ -223,6 +229,7 @@ new_species:
       - "Zonal Geranium"
       - "Horseshoe Geranium"
     genus: Pelargonium
+    plant_category: balcony_plant
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones:
@@ -249,6 +256,7 @@ new_species:
       - "Baby Rubber Plant"
       - "Pepper Face"
     genus: Peperomia
+    plant_category: indoor_houseplant
     growth_habit: herb
     root_type: fibrous
     hardiness_zones:
@@ -275,6 +283,7 @@ new_species:
       - "Phalaenopsis"
       - "Moth Orchid"
     genus: Phalaenopsis
+    plant_category: orchid
     growth_habit: herb
     root_type: fibrous
     hardiness_zones:
@@ -303,6 +312,7 @@ new_species:
       - "Herzblatt-Philodendron"
       - "Heartleaf Philodendron"
     genus: Philodendron
+    plant_category: tropical_foliage
     growth_habit: vine
     root_type: fibrous
     hardiness_zones:
@@ -329,6 +339,7 @@ new_species:
       - "Chinese Money Plant"
       - "Pancake Plant"
     genus: Pilea
+    plant_category: indoor_houseplant
     growth_habit: herb
     root_type: fibrous
     hardiness_zones:
@@ -356,6 +367,7 @@ new_species:
       - "Staghorn Fern"
       - "Elkhorn Fern"
     genus: Platycerium
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones:
@@ -384,6 +396,7 @@ new_species:
       - "Swedish Ivy"
       - "Wax Plant"
     genus: Plectranthus
+    plant_category: indoor_houseplant
     growth_habit: herb
     root_type: fibrous
     hardiness_zones:
@@ -409,6 +422,7 @@ new_species:
       - "Binsenkaktus"
       - "Mistletoe Cactus"
     genus: Rhipsalis
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones:
@@ -436,6 +450,7 @@ new_species:
       - "Indoor Azalea"
       - "Sims' Azalea"
     genus: Rhododendron
+    plant_category: indoor_houseplant
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones:
@@ -464,6 +479,7 @@ new_species:
       - "Dwarf Umbrella Tree"
       - "Hawaiian Umbrella Tree"
     genus: Schefflera
+    plant_category: tropical_foliage
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones:
@@ -490,6 +506,7 @@ new_species:
       - "Christmas Cactus"
       - "Holiday Cactus"
     genus: Schlumbergera
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones:
@@ -516,6 +533,7 @@ new_species:
       - "Donkey's Tail"
       - "Burro's Tail"
     genus: Sedum
+    plant_category: succulent_cactus
     growth_habit: vine
     root_type: fibrous
     hardiness_zones:
@@ -544,6 +562,7 @@ new_species:
       - "Baby's Tears"
       - "Mind-Your-Own-Business"
     genus: Soleirolia
+    plant_category: indoor_houseplant
     growth_habit: groundcover
     root_type: fibrous
     hardiness_zones:
@@ -571,6 +590,7 @@ new_species:
       - "Madagaskarjasmin"
       - "Madagascar Jasmine"
     genus: Stephanotis
+    plant_category: indoor_houseplant
     growth_habit: vine
     root_type: fibrous
     hardiness_zones:
@@ -597,6 +617,7 @@ new_species:
       - "Bird of Paradise"
       - "Crane Flower"
     genus: Strelitzia
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones:
@@ -624,6 +645,7 @@ new_species:
       - "Streptocarpus"
       - "Cape Primrose"
     genus: Streptocarpus
+    plant_category: indoor_houseplant
     growth_habit: herb
     root_type: fibrous
     hardiness_zones:
@@ -650,6 +672,7 @@ new_species:
       - "Triostar Stromanthe"
       - "Never Never Plant"
     genus: Stromanthe
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: tuberous
     hardiness_zones:
@@ -675,6 +698,7 @@ new_species:
       - "Louisianamoos"
       - "Spanish Moss"
     genus: Tillandsia
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones:
@@ -705,6 +729,7 @@ new_species:
       - "Wandering Dude"
       - "Silver Inch Plant"
     genus: Tradescantia
+    plant_category: indoor_houseplant
     growth_habit: groundcover
     root_type: fibrous
     hardiness_zones:
@@ -732,6 +757,7 @@ new_species:
       - "Vriesea"
       - "Flaming Sword"
     genus: Vriesea
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones:
@@ -760,6 +786,7 @@ new_species:
       - "Spineless Yucca"
       - "Stick Yucca"
     genus: Yucca
+    plant_category: indoor_houseplant
     growth_habit: tree
     root_type: fibrous
     hardiness_zones:
@@ -788,6 +815,7 @@ new_species:
       - "ZZ Plant"
       - "Zanzibar Gem"
     genus: Zamioculcas
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: tuberous
     hardiness_zones:
@@ -816,6 +844,7 @@ new_species:
       - "Calla Lily"
       - "Arum Lily"
     genus: Zantedeschia
+    plant_category: bulb_tuber
     growth_habit: herb
     root_type: tuberous
     hardiness_zones:

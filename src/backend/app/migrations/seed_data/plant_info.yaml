@@ -43,7 +43,7 @@ new_species:
   - scientific_name: "Dahlia pinnata"
     common_names: [Dahlie, Dahlia, Garden Dahlia]
     genus: Dahlia
-    plant_category: outdoor_ornamental
+    plant_category: bulb_tuber
     growth_habit: herb
     root_type: tuberous
     hardiness_zones: [8a, 8b, 9a, 9b, 10a, 10b, 11a]
@@ -79,7 +79,7 @@ new_species:
       - Mexican Shell Flower
       - Peacock Flower
     genus: Tigridia
-    plant_category: outdoor_ornamental
+    plant_category: bulb_tuber
     growth_habit: herb
     root_type: corm
     hardiness_zones: [7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b]
@@ -215,7 +215,7 @@ species_enrichment:
 
   "Petunia x hybrida":
     # Enrichment fields from removed new_species entry (species exists in species.yaml)
-    plant_category: outdoor_ornamental
+    plant_category: balcony_plant
     allows_harvest: false
     sowing_outdoor_after_last_frost_days: 14
     direct_sow_months: []

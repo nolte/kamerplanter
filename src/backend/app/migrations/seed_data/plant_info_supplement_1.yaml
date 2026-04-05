@@ -38,7 +38,7 @@ new_species:
   - scientific_name: "Streptocarpus ionanthus"
     common_names: ["Usambaraveilchen", "Afrikanisches Veilchen", "African Violet"]
     genus: Streptocarpus
-    plant_category: tropical_foliage
+    plant_category: indoor_houseplant
     growth_habit: herb
     root_type: fibrous
     native_habitat: "Tansania, Kenia (Usambaragebirge)"
