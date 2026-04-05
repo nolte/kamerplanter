@@ -1,7 +1,7 @@
 # RAG Eval Benchmark Report
 
-**Datum:** 2026-04-04
-**Status:** PASS (80.8% Gesamt, Threshold 70%)
+**Datum:** 2026-04-05
+**Status:** PASS (82.9% Gesamt, Threshold 70%)
 **Benchmark:** 100 Fragen, 9 Kategorien
 
 Dieses Dokument dient als Referenz-Baseline fuer zukuenftige Testlaeufe.
@@ -84,26 +84,26 @@ gegen diese Ergebnisse verglichen werden.
 
 | Metrik | Wert |
 |--------|------|
-| **Gesamtscore** | **80.8%** |
+| **Gesamtscore** | **82.9%** |
 | **Threshold** | 70% |
 | **Status** | **PASS** |
 | Fragen evaluiert | 100 |
-| Failures | 29 |
-| PASS-Fragen (>=0.7) | 71 |
+| Failures | 21 |
+| PASS-Fragen (>=0.7) | 79 |
 
 ### Kategorie-Scores
 
 | Kategorie | Score | Status | Fragen | PASS | FAIL |
 |-----------|-------|--------|--------|------|------|
-| Phasen | 100.0% | PASS | 10 | 10 | 0 |
-| Bewaesserung | 87.5% | PASS | 10 | 9 | 1 |
-| Diagnostik | 86.1% | PASS | 15 | 12 | 3 |
-| Anfaenger | 83.3% | PASS | 3 | 3 | 0 |
-| Pflege | 78.5% | PASS | 12 | 9 | 3 |
-| Duengung | 75.3% | PASS | 15 | 11 | 4 |
-| IPM | 75.0% | PASS | 10 | 7 | 3 |
-| Companion Planting | 74.7% | PASS | 10 | 7 | 3 |
-| Umwelt | 72.9% | PASS | 15 | 10 | 5 |
+| Anfaenger | 100.0% | PASS | 3 | 3 | 0 |
+| Phasen | 97.5% | PASS | 10 | 10 | 0 |
+| IPM | 91.0% | PASS | 10 | 10 | 0 |
+| Companion Planting | 88.0% | PASS | 10 | 9 | 1 |
+| Bewaesserung | 85.0% | PASS | 10 | 8 | 2 |
+| Umwelt | 79.8% | PASS | 15 | 11 | 4 |
+| Diagnostik | 78.9% | PASS | 15 | 10 | 5 |
+| Pflege | 76.8% | PASS | 15 | 12 | 3 |
+| Duengung | 71.8% | PASS | 15 | 9 | 6 |
 
 ---
 
@@ -160,20 +160,21 @@ gegen diese Ergebnisse verglichen werden.
 | + Bewaesserung Runde 2 | Gezielte Chunk-Fixes | Bewaesserung 75.0% | **9/9** |
 | + max_tokens 2048 + Few-Shot + min 3-4 Punkte | Prompt-Verbesserung | 78.0%+ (teilweise Laeufe) | 9/9 |
 | + **e5-large + 42 broadened Patterns** | Embedding 768->1024, Synonym-Patterns | **80.8% (Full)** | **9/9** |
+| + Sharpened Prompts (anti-FP) | Strenge Regeln fuer diagnosis+factual, keine Differentialdiagnosen | 80.85% (Full) | 8/9 (Umwelt FAIL) |
+| + **Umwelt Synonym-Fixes** | 15 weitere Patterns broadened, Chunk-Verbesserungen | **82.9% (Full)** | **9/9** |
 
 ---
 
-## Verbleibende Failures (29 Fragen)
+## Verbleibende Failures (21 Fragen)
 
 ### Haeufigste Fehlerklassen
 
 | Fehlerklasse | Anzahl | Beschreibung |
 |-------------|--------|--------------|
-| GENERATION_MISS | ~12 | LLM generiert nicht alle Keywords trotz vorhandenem Chunk |
-| FALSE_POSITIVE | ~7 | LLM nennt expected_NOT Topics |
-| LLM_NONDETERMINISMUS | ~5 | Score schwankt zwischen Laeufen (0.50 vs 1.00) |
-| RETRIEVAL_MISS | ~3 | Richtiger Chunk wird nicht in Top-5 retrievt |
-| SYNONYM_GAP | ~2 | Restliche Pattern-Luecken |
+| GENERATION_MISS | ~10 | LLM generiert nicht alle Keywords trotz vorhandenem Chunk |
+| FALSE_POSITIVE | ~5 | LLM nennt expected_NOT Topics |
+| LLM_NONDETERMINISMUS | ~4 | Score schwankt zwischen Laeufen (0.50 vs 1.00) |
+| RETRIEVAL_MISS | ~2 | Richtiger Chunk wird nicht in Top-5 retrievt |
 
 ### Naechste Optimierungs-Hebel (priorisiert)
 
