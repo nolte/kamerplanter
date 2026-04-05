@@ -1,7 +1,119 @@
 {
   "extends": [
-    "github>nolte/gh-plumbing//renovate-configs/common#v1.1.12",
-    "group:all"
+    "github>nolte/gh-plumbing//renovate-configs/common#v1.1.12"
   ],
-  "mode": "full"
+  "mode": "full",
+  "separateMajorMinor": true,
+  "separateMinorPatch": false,
+  "packageRules": [
+    // ── GitHub Actions ──────────────────────────────────────
+    {
+      "groupName": "github-actions",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "automerge": true
+    },
+    {
+      "groupName": "github-actions major",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["major"]
+    },
+
+    // ── Python: patch/minor (safe) ──────────────────────────
+    {
+      "groupName": "python minor/patch",
+      "matchManagers": ["pip_requirements"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "excludePackageNames": [
+        "starlette", "fastapi", "pydantic", "pydantic-core"
+      ]
+    },
+
+    // ── Python: FastAPI + Starlette + Pydantic (coupled) ────
+    {
+      "groupName": "python fastapi-stack",
+      "matchManagers": ["pip_requirements"],
+      "matchPackageNames": [
+        "fastapi", "starlette", "pydantic", "pydantic-core"
+      ]
+    },
+
+    // ── Python: major bumps (individual PRs) ────────────────
+    {
+      "groupName": "python major",
+      "matchManagers": ["pip_requirements"],
+      "matchUpdateTypes": ["major"]
+    },
+
+    // ── Frontend: ESLint ecosystem ──────────────────────────
+    {
+      "groupName": "frontend eslint",
+      "matchManagers": ["npm"],
+      "matchPackagePatterns": ["eslint"]
+    },
+
+    // ── Frontend: MUI ───────────────────────────────────────
+    {
+      "groupName": "frontend mui",
+      "matchManagers": ["npm"],
+      "matchPackagePatterns": ["^@mui/"]
+    },
+
+    // ── Frontend: React ecosystem ───────────────────────────
+    {
+      "groupName": "frontend react",
+      "matchManagers": ["npm"],
+      "matchPackageNames": [
+        "react", "react-dom", "@types/react", "@types/react-dom"
+      ]
+    },
+
+    // ── Frontend: TypeScript (major = separate) ─────────────
+    {
+      "groupName": "frontend typescript",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["typescript"]
+    },
+
+    // ── Frontend: remaining minor/patch ─────────────────────
+    {
+      "groupName": "frontend minor/patch",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "excludePackagePatterns": ["eslint", "^@mui/"],
+      "excludePackageNames": [
+        "react", "react-dom", "@types/react", "@types/react-dom",
+        "typescript"
+      ]
+    },
+
+    // ── Docker: databases (major = separate) ────────────────
+    {
+      "groupName": "docker databases",
+      "matchManagers": ["docker-compose"],
+      "matchPackageNames": [
+        "arangodb", "valkey/valkey", "timescale/timescaledb"
+      ]
+    },
+
+    // ── Docker: Selenium ────────────────────────────────────
+    {
+      "groupName": "docker selenium",
+      "matchManagers": ["docker-compose"],
+      "matchPackagePatterns": ["selenium"]
+    },
+
+    // ── Helm charts ─────────────────────────────────────────
+    {
+      "groupName": "helm charts",
+      "matchManagers": ["helmv3"]
+    },
+
+    // ── Node.js runtime ─────────────────────────────────────
+    {
+      "groupName": "nodejs",
+      "matchManagers": ["asdf"],
+      "matchPackageNames": ["nodejs"]
+    }
+  ]
 }
