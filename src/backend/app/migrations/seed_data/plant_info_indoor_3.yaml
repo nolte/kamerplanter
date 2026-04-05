@@ -23,7 +23,7 @@ new_species_family_map:
   "Pachira aquatica": Malvaceae
   "Pelargonium zonale": Geraniaceae
   "Peperomia obtusifolia": Piperaceae
-  "Phalaenopsis spp.": Orchidaceae
+  "Phalaenopsis hybrida": Orchidaceae
   "Philodendron hederaceum": Araceae
   "Pilea peperomioides": Urticaceae
   "Platycerium bifurcatum": Polypodiaceae
@@ -269,7 +269,7 @@ new_species:
     nutrient_demand_level: light_feeder
     frost_sensitivity: sensitive
 
-  - scientific_name: "Phalaenopsis spp."
+  - scientific_name: "Phalaenopsis hybrida"
     common_names:
       - "Schmetterlingsorchidee"
       - "Phalaenopsis"
@@ -904,7 +904,7 @@ lifecycle_configs:
     vernalization_required: false
     typical_lifespan_years: 10
 
-  "Phalaenopsis spp.":
+  "Phalaenopsis hybrida":
     cycle_type: perennial
     photoperiod_type: day_neutral
     dormancy_required: false
@@ -962,8 +962,10 @@ lifecycle_configs:
 
   "Schlumbergera truncata":
     cycle_type: perennial
+    # Obligate short-day plant; requires >12h uninterrupted darkness for 6-8 weeks to induce flowering
     photoperiod_type: short_day
-    dormancy_required: true
+    critical_day_length_hours: 12.0
+    dormancy_required: false  # U-004: No true dormancy — cool rest phase aids blooming but is photoperiod-driven
     # BOT-003: Kurztagspflanze — Blühinduktion durch Photoperiode, NICHT durch Kälte
     vernalization_required: false
     typical_lifespan_years: 30
@@ -1489,7 +1491,7 @@ growth_phases:
         calcium_ppm: null
         magnesium_ppm: null
 
-  "Phalaenopsis spp.":
+  "Phalaenopsis hybrida":
     - name: vegetative
       display_name: "Vegetatives Wachstum"
       duration_days: 120

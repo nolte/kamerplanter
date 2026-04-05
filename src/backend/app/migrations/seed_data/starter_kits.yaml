@@ -57,7 +57,7 @@ starter_kits:
     site_type: indoor
     species_keys: []
     species_names:
-      - Calathea orbifolia
+      - Goeppertia orbifolia
       - Chlorophytum comosum
       - Pilea peperomioides
     toxicity_warning: false

@@ -212,7 +212,7 @@ care_profiles:
     dormancy_months: []
     notes: "Prayer plant — leaves fold up at night. Sensitive to hard water and low humidity. Use filtered or rainwater. Group with other plants for humidity."
 
-  "Calathea orbifolia":
+  "Goeppertia orbifolia":
     watering_interval_summer_days: 5
     watering_interval_winter_days: 8
     fertilizing_interval_days: 21
@@ -1486,7 +1486,7 @@ care_profiles:
   # INDOOR HOUSEPLANTS — Orchids
   # ============================================================================
 
-  "Phalaenopsis spp.":
+  "Phalaenopsis hybrida":
     watering_interval_summer_days: 7
     watering_interval_winter_days: 10
     fertilizing_interval_days: 14
