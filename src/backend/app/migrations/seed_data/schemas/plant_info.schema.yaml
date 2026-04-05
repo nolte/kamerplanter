@@ -146,7 +146,8 @@ $defs:
       description: { type: string }
       rotation_category:
         type: string
-        enum: [fruit, root, leaf, legume, allium, herb, fiber, ornamental, green_manure, cereal]
+        enum: [fruit, root, leaf, legume, allium, herb, fiber, ornamental, green_manure, cereal,
+               brassica, composite, cucurbit, grain, permanent, vegetable]
     required: [name, common_name_de, common_name_en, order, typical_nutrient_demand,
                frost_tolerance, typical_root_depth, typical_growth_forms,
                pollination_type, soil_ph_preference, description, rotation_category]
@@ -166,12 +167,12 @@ $defs:
         enum: [herb, shrub, tree, vine, groundcover]
       root_type:
         type: string
-        enum: [fibrous, taproot, tuberous, bulbous, corm, rhizomatous, aerial]
+        enum: [fibrous, taproot, tuberous, bulbous, corm]
       hardiness_zones:
         type: array
         items:
           type: string
-          pattern: "^\\d{1,2}[ab]$"
+          pattern: "^\\d{1,2}[ab]?$"
       native_habitat: { type: string }
       allelopathy_score:
         type: number
@@ -219,9 +220,8 @@ $defs:
         enum: [heavy_feeder, medium_feeder, light_feeder, nitrogen_fixer]
       plant_category:
         type: string
-        enum: [tropical_foliage, succulent_cactus, orchid, fern, palm, bromeliad,
-               carnivorous, aquatic, bulb_tuber, herb_spice, vegetable, fruit,
-               berry, ornamental_grass, climbing_vine, balcony_plant, tree, shrub]
+        enum: [indoor_houseplant, outdoor_ornamental, outdoor_vegetable, balcony_plant,
+               succulent_cactus, tropical_foliage, orchid, herb, bulb_tuber]
         description: "Broad category for UI grouping"
     required: [scientific_name, common_names, genus, growth_habit, root_type]
     additionalProperties: true

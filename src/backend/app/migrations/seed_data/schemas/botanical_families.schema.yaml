@@ -72,7 +72,8 @@ $defs:
         type: string
       rotation_category:
         type: string
-        enum: [fruit, root, leaf, legume, allium, herb, fiber, ornamental, green_manure, cereal]
+        enum: [fruit, root, leaf, legume, allium, herb, fiber, ornamental, green_manure, cereal,
+               brassica, composite, cucurbit, grain, permanent, vegetable]
     required: [name, common_name_de, common_name_en, order, typical_nutrient_demand,
                frost_tolerance, typical_root_depth, typical_growth_forms,
                pollination_type, soil_ph_preference, description, rotation_category]

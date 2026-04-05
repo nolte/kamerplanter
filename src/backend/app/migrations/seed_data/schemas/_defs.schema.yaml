@@ -12,7 +12,7 @@ $defs:
 
   root_type:
     type: string
-    enum: [fibrous, taproot, tuberous, bulbous, corm, rhizomatous, aerial]
+    enum: [fibrous, taproot, tuberous, bulbous, corm]
 
   root_depth:
     type: string
@@ -127,7 +127,8 @@ $defs:
 
   rotation_category:
     type: string
-    enum: [fruit, root, leaf, legume, allium, herb, fiber, ornamental, green_manure, cereal]
+    enum: [fruit, root, leaf, legume, allium, herb, fiber, ornamental, green_manure, cereal,
+           brassica, composite, cucurbit, grain, permanent, vegetable]
 
   plant_trait:
     type: string
@@ -162,7 +163,7 @@ $defs:
 
   hardiness_zone:
     type: string
-    pattern: "^\\d{1,2}[ab]$"
+    pattern: "^\\d{1,2}[ab]?$"
 
   npk_ratio:
     type: array

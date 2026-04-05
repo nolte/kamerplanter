@@ -25,6 +25,8 @@ species:
     balcony_suitable: limited
     greenhouse_recommended: true
     support_required: true
+    nutrient_demand_level: heavy_feeder
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Capsicum annuum
     common_names: [Pepper, Paprika, Chili]
@@ -49,6 +51,7 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: "yes"
     greenhouse_recommended: true
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Solanum melongena
     common_names: [Eggplant, Aubergine]
@@ -73,6 +76,7 @@ species:
     indoor_suitable: limited
     balcony_suitable: limited
     greenhouse_recommended: true
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Solanum tuberosum
     common_names: [Potato, Kartoffel]
@@ -95,6 +99,7 @@ species:
     spacing_cm: "30--40"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Physalis peruviana
     common_names: [Cape Gooseberry, Physalis, Andenbeere]
@@ -120,6 +125,7 @@ species:
     balcony_suitable: "yes"
     greenhouse_recommended: true
     support_required: true
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Nicotiana tabacum
     common_names: [Tobacco, Tabak]
@@ -143,6 +149,7 @@ species:
     spacing_cm: "50--80"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: heavy_feeder
 
   # -- Cannabaceae (2) --
   - scientific_name: Cannabis sativa
@@ -169,6 +176,7 @@ species:
     balcony_suitable: limited
     greenhouse_recommended: true
     support_required: false
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Humulus lupulus
     common_names: [Hops, Hopfen]
@@ -192,6 +200,7 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "no"
     support_required: true
+    nutrient_demand_level: heavy_feeder
 
   # -- Lamiaceae (6) --
   - scientific_name: Ocimum basilicum
@@ -217,6 +226,7 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: "yes"
     greenhouse_recommended: true
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Mentha piperita
     common_names: [Peppermint, Pfefferminze]
@@ -239,6 +249,7 @@ species:
     spacing_cm: "30--45"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Thymus vulgaris
     common_names: [Thyme, Thymian]
@@ -261,6 +272,7 @@ species:
     spacing_cm: "20--30"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Salvia rosmarinus
     common_names: [Rosemary, Rosmarin]
@@ -284,6 +296,7 @@ species:
     spacing_cm: "60--90"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Salvia officinalis
     common_names: [Sage, Salbei]
@@ -306,6 +319,7 @@ species:
     spacing_cm: "40--50"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Lavandula angustifolia
     common_names: [Lavender, Lavendel]
@@ -330,6 +344,7 @@ species:
     spacing_cm: "30--45"
     indoor_suitable: limited
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   # -- Apiaceae (6) --
   - scientific_name: Daucus carota
@@ -353,6 +368,7 @@ species:
     spacing_cm: "5--8"
     indoor_suitable: "no"
     balcony_suitable: "yes"
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Foeniculum vulgare
     common_names: [Fennel, Fenchel]
@@ -376,6 +392,7 @@ species:
     spacing_cm: "30--40"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Anethum graveolens
     common_names: [Dill]
@@ -398,6 +415,7 @@ species:
     spacing_cm: "15--25"
     indoor_suitable: limited
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Coriandrum sativum
     common_names: [Coriander, Koriander]
@@ -420,6 +438,7 @@ species:
     spacing_cm: "10--20"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Apium graveolens
     common_names: [Celery, Sellerie]
@@ -443,6 +462,7 @@ species:
     spacing_cm: "25--30"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Petroselinum crispum
     common_names: [Parsley, Petersilie]
@@ -466,6 +486,7 @@ species:
     spacing_cm: "15--20"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: medium_feeder
 
   # -- Brassicaceae (6) --
   - scientific_name: Brassica oleracea var. italica
@@ -490,6 +511,7 @@ species:
     spacing_cm: "40--50"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Brassica oleracea var. botrytis
     common_names: [Cauliflower, Blumenkohl]
@@ -513,6 +535,7 @@ species:
     spacing_cm: "50--60"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Brassica oleracea var. gongylodes
     common_names: [Kohlrabi]
@@ -536,6 +559,7 @@ species:
     spacing_cm: "20--25"
     indoor_suitable: "no"
     balcony_suitable: "yes"
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Raphanus sativus
     common_names: [Radish, Rettich, Radieschen]
@@ -558,6 +582,7 @@ species:
     spacing_cm: "3--5"
     indoor_suitable: limited
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Eruca vesicaria
     common_names: [Arugula, Rucola]
@@ -580,6 +605,7 @@ species:
     spacing_cm: "10--15"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Brassica oleracea var. capitata
     common_names: [Cabbage, "Weißkohl"]
@@ -603,6 +629,7 @@ species:
     spacing_cm: "40--50"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: heavy_feeder
 
   # -- Fabaceae (6) --
   - scientific_name: Phaseolus vulgaris
@@ -626,6 +653,7 @@ species:
     spacing_cm: "10--15"
     indoor_suitable: "no"
     balcony_suitable: "yes"
+    nutrient_demand_level: nitrogen_fixer
 
   - scientific_name: Pisum sativum
     common_names: [Pea, Erbse]
@@ -650,6 +678,7 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "yes"
     support_required: true
+    nutrient_demand_level: nitrogen_fixer
 
   - scientific_name: Vicia faba
     common_names: [Broad Bean, Ackerbohne, Dicke Bohne]
@@ -673,6 +702,7 @@ species:
     indoor_suitable: "no"
     balcony_suitable: limited
     support_required: true
+    nutrient_demand_level: nitrogen_fixer
 
   - scientific_name: Glycine max
     common_names: [Soybean, Sojabohne]
@@ -695,6 +725,7 @@ species:
     spacing_cm: "10--15"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: nitrogen_fixer
 
   - scientific_name: Lens culinaris
     common_names: [Lentil, Linse]
@@ -715,6 +746,7 @@ species:
     spacing_cm: "5--10"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: nitrogen_fixer
 
   - scientific_name: Trifolium pratense
     common_names: [Red Clover, Rotklee]
@@ -736,6 +768,7 @@ species:
     spacing_cm: "10--15"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: nitrogen_fixer
 
   # -- Cucurbitaceae (6) --
   - scientific_name: Cucumis sativus
@@ -762,6 +795,7 @@ species:
     balcony_suitable: limited
     greenhouse_recommended: true
     support_required: true
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Cucumis melo
     common_names: [Melon, Melone, Honigmelone]
@@ -786,6 +820,7 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "no"
     greenhouse_recommended: true
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Cucurbita pepo
     common_names: [Zucchini, Squash]
@@ -809,6 +844,7 @@ species:
     spacing_cm: "60--100"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Cucurbita maxima
     common_names: [Pumpkin, "Kürbis", "Riesenkürbis"]
@@ -830,6 +866,7 @@ species:
     spacing_cm: "100--200"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Citrullus lanatus
     common_names: [Watermelon, Wassermelone]
@@ -852,6 +889,7 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "no"
     greenhouse_recommended: true
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Luffa aegyptiaca
     common_names: [Luffa, Schwammgurke]
@@ -875,6 +913,7 @@ species:
     balcony_suitable: "no"
     greenhouse_recommended: true
     support_required: true
+    nutrient_demand_level: heavy_feeder
 
   # -- Asteraceae (6) --
   - scientific_name: Lactuca sativa
@@ -899,6 +938,7 @@ species:
     spacing_cm: "20--30"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Cichorium intybus
     common_names: [Chicory, "Chicorée", Wegwarte]
@@ -921,6 +961,7 @@ species:
     spacing_cm: "20--30"
     indoor_suitable: limited
     balcony_suitable: limited
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Helianthus annuus
     common_names: [Sunflower, Sonnenblume]
@@ -946,6 +987,7 @@ species:
     indoor_suitable: "no"
     balcony_suitable: limited
     support_required: true
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Tagetes erecta
     common_names: [Marigold, Tagetes, Studentenblume]
@@ -970,6 +1012,7 @@ species:
     spacing_cm: "20--30"
     indoor_suitable: "no"
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Matricaria chamomilla
     common_names: [Chamomile, Kamille]
@@ -992,6 +1035,7 @@ species:
     spacing_cm: "15--20"
     indoor_suitable: limited
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Artemisia dracunculus
     common_names: [Tarragon, Estragon]
@@ -1014,6 +1058,7 @@ species:
     spacing_cm: "30--40"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: medium_feeder
 
   # -- Poaceae (6) --
   - scientific_name: Zea mays
@@ -1036,6 +1081,7 @@ species:
     spacing_cm: "20--30"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Triticum aestivum
     common_names: [Wheat, Weizen]
@@ -1061,6 +1107,7 @@ species:
     spacing_cm: "3--5"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Hordeum vulgare
     common_names: [Barley, Gerste]
@@ -1081,6 +1128,7 @@ species:
     spacing_cm: "3--5"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Avena sativa
     common_names: [Oat, Hafer]
@@ -1101,6 +1149,7 @@ species:
     spacing_cm: "3--5"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Oryza sativa
     common_names: [Rice, Reis]
@@ -1122,6 +1171,7 @@ species:
     spacing_cm: "15--20"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Sorghum bicolor
     common_names: [Sorghum, Hirse]
@@ -1142,6 +1192,7 @@ species:
     spacing_cm: "15--20"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: medium_feeder
 
   # -- Araceae (2) --
   - scientific_name: Monstera deliciosa
@@ -1163,6 +1214,8 @@ species:
     balcony_suitable: limited
     greenhouse_recommended: true
     support_required: true
+    frost_sensitivity: sensitive
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Spathiphyllum wallisii
     common_names: [Peace Lily, Einblatt]
@@ -1182,6 +1235,8 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: limited
     greenhouse_recommended: true
+    frost_sensitivity: sensitive
+    nutrient_demand_level: medium_feeder
 
   # -- Asparagaceae (1) --
   - scientific_name: Chlorophytum comosum
@@ -1201,6 +1256,8 @@ species:
     mature_width_cm: "30--60"
     indoor_suitable: "yes"
     balcony_suitable: limited
+    frost_sensitivity: sensitive
+    nutrient_demand_level: light_feeder
 
   # -- Bromeliaceae (1) --
   - scientific_name: Guzmania lingulata
@@ -1221,6 +1278,8 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: limited
     greenhouse_recommended: true
+    frost_sensitivity: sensitive
+    nutrient_demand_level: light_feeder
 
   # -- Rosaceae (1) --
   - scientific_name: Fragaria x ananassa
@@ -1246,6 +1305,7 @@ species:
     indoor_suitable: limited
     balcony_suitable: "yes"
     greenhouse_recommended: true
+    nutrient_demand_level: medium_feeder
 
   # -- Urticaceae (1) --
   - scientific_name: Pilea peperomioides
@@ -1265,6 +1325,8 @@ species:
     mature_width_cm: "20--30"
     indoor_suitable: "yes"
     balcony_suitable: limited
+    frost_sensitivity: sensitive
+    nutrient_demand_level: light_feeder
 
   # -- Marantaceae (1) --
   # Formerly Calathea orbifolia; reclassified Borchsenius et al. 2012
@@ -1285,6 +1347,8 @@ species:
     mature_width_cm: "40--60"
     indoor_suitable: "yes"
     balcony_suitable: "no"
+    frost_sensitivity: sensitive
+    nutrient_demand_level: medium_feeder
 
   # -- Asparagaceae (2) --
   - scientific_name: Dracaena trifasciata
@@ -1304,6 +1368,8 @@ species:
     mature_width_cm: "20--40"
     indoor_suitable: "yes"
     balcony_suitable: limited
+    frost_sensitivity: sensitive
+    nutrient_demand_level: light_feeder
 
   # -- Asparagaceae (3) --
   - scientific_name: Dracaena fragrans
@@ -1381,6 +1447,8 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: limited
     support_required: true
+    frost_sensitivity: sensitive
+    nutrient_demand_level: medium_feeder
 
   # -- Amaryllidaceae (1) --
   - scientific_name: Allium schoenoprasum
@@ -1405,6 +1473,7 @@ species:
     spacing_cm: "15--20"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: medium_feeder
 
   # -- Geraniaceae (1) --
   - scientific_name: Pelargonium zonale
@@ -1427,6 +1496,7 @@ species:
     spacing_cm: "25--35"
     indoor_suitable: limited
     balcony_suitable: "yes"
+    nutrient_demand_level: medium_feeder
 
   # -- Solanaceae (Petunia) --
   - scientific_name: Petunia x hybrida
@@ -1450,6 +1520,7 @@ species:
     spacing_cm: "25--30"
     indoor_suitable: "no"
     balcony_suitable: "yes"
+    nutrient_demand_level: medium_feeder
 
   # -- Verbenaceae (1) --
   - scientific_name: Verbena x hybrida
@@ -1473,6 +1544,7 @@ species:
     spacing_cm: "25--30"
     indoor_suitable: "no"
     balcony_suitable: "yes"
+    nutrient_demand_level: medium_feeder
 
   # -- Violaceae (1) --
   - scientific_name: Viola x wittrockiana
@@ -1498,6 +1570,7 @@ species:
     spacing_cm: "20--25"
     indoor_suitable: "no"
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
 cultivars:
   Solanum lycopersicum:

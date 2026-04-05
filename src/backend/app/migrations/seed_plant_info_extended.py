@@ -59,6 +59,7 @@ YAML_FILES = [
     "plant_info_outdoor_1.yaml",
     "plant_info_outdoor_2.yaml",
     "plant_info_outdoor_3.yaml",
+    "plant_info_supplement_1.yaml",
 ]
 
 
