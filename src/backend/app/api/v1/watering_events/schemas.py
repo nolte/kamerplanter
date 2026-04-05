@@ -18,7 +18,7 @@ class WateringEventCreate(BaseModel):
     application_method: str = "drench"
     is_supplemental: bool = False
     volume_liters: float = Field(gt=0)
-    plant_keys: list[str] = Field(min_length=1)
+    plant_keys: list[str] = Field(default_factory=list)
     tank_fill_event_key: str | None = None
     nutrient_plan_key: str | None = None
     fertilizers_used: list[FertilizerSnapshotSchema] = Field(default_factory=list)
