@@ -289,6 +289,25 @@ Alle `unique_id`-Werte folgen diesem Muster (Entity-Registry-Kompatibilitaet):
 
 **WICHTIG:** Das `unique_id`-Format darf **nie** geaendert werden, da HA die Entity-Registry darauf basiert. Aenderungen fuehren zu verwaisten Entities und gebrochenen Automationen.
 
+### 6.1 Englische entity_ids (PFLICHT)
+
+HA generiert `entity_id`-Slugs aus dem uebersetzten Entity-Namen der **Systemsprache** bei Erstregistrierung. Damit entity_ids sprachunabhaengig und stabil bleiben:
+
+- **HA-Systemsprache MUSS `en` sein** (`configuration.yaml: language: en`)
+- `strings.json` liefert die englischen Namen (Source of Truth fuer entity_ids)
+- `translations/de.json` liefert die deutschen UI-Anzeigenamen (nur Frontend)
+- Nutzer koennen ihre persoenliche HA-UI-Sprache auf Deutsch stellen
+
+Beispiel bei korrekter Konfiguration (`language: en`):
+```
+sensor.northern_lights_01_days_until_watering   ← korrekt (englisch)
+```
+
+Beispiel bei falscher Konfiguration (`language: de`):
+```
+sensor.northern_lights_01_tage_bis_giessen      ← FALSCH (deutsch, instabil)
+```
+
 ---
 
 ## 7. Device Lifecycle

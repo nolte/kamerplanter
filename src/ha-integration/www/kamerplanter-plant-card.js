@@ -688,9 +688,6 @@ class KamerplanterPlantCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config.device_id) {
-      throw new Error("Bitte ein Device ausw\u00e4hlen");
-    }
     this._config = { ...KamerplanterPlantCard.CONFIG_DEFAULTS, ...config };
     this._monitoredEntities = [];
   }
@@ -881,16 +878,89 @@ class KamerplanterPlantCard extends HTMLElement {
   }
 
   /** Main update — reads sensors and patches DOM. */
+  _renderPreview() {
+    this._built = false;
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host { display: block; }
+        ha-card { padding: 0; overflow: hidden; }
+        .kp-header { display: flex; align-items: center; padding: 12px 16px; gap: 12px; }
+        .kp-header__icon { font-size: 28px; }
+        .kp-header__text { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .kp-header__name { font-size: 1rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .kp-header__plan { font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; background: #e8f5e9; color: #2e7d32; font-weight: 600; width: fit-content; margin-top: 2px; }
+        .kp-header__days { font-size: 1.3rem; font-weight: 700; color: var(--primary-color, #03a9f4); text-align: center; line-height: 1; }
+        .kp-header__days small { font-size: 0.6em; font-weight: 500; }
+        .kp-stats { display: flex; gap: 8px; padding: 0 16px 8px; }
+        .kp-stats__item { flex: 1; text-align: center; padding: 6px 4px; border-radius: 8px; background: #f5f5f5; }
+        .kp-stats__value { display: block; font-size: 1.1rem; font-weight: 700; }
+        .kp-stats__value .kp-stats__unit { font-size: 0.7em; font-weight: 500; }
+        .kp-stats__label { display: block; font-size: 0.65rem; color: #757575; text-transform: uppercase; letter-spacing: 0.03em; }
+        .kp-stats__item--harvest { background: #fff3e0; }
+        .kp-progress { padding: 0 16px 12px; }
+        .kp-progress__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .kp-progress__phase { font-weight: 600; font-size: 0.9rem; }
+        .kp-progress__info { font-size: 0.8rem; color: #757575; }
+        .kp-progress__track { height: 8px; border-radius: 4px; background: #e0e0e0; overflow: hidden; }
+        .kp-progress__fill { height: 100%; border-radius: 4px; transition: width 0.4s; }
+        .kp-progress__footer { display: flex; justify-content: space-between; margin-top: 4px; }
+        .kp-progress__pct { font-size: 0.75rem; font-weight: 600; }
+        .kp-progress__remain { font-size: 0.75rem; color: #757575; }
+        .kp-timeline-wrapper { padding: 0 16px 12px; position: relative; }
+        .kp-timeline { display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+        .kp-timeline::-webkit-scrollbar { display: none; }
+        .kp-phase-pill { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 60px; padding: 6px 8px; position: relative; }
+        .kp-phase-pill__dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid; }
+        .kp-phase-pill__dot--completed { background: var(--dot-color); border-color: var(--dot-color); }
+        .kp-phase-pill__dot--current { background: #fff; border-color: var(--dot-color); box-shadow: 0 0 0 3px rgba(76,175,80,0.25); }
+        .kp-phase-pill__dot--upcoming { background: #fff; border-color: #bdbdbd; }
+        .kp-phase-pill__label { font-size: 0.65rem; text-align: center; white-space: nowrap; }
+        .kp-phase-pill__days { font-size: 0.6rem; color: #9e9e9e; }
+        .kp-phase-pill__line { position: absolute; top: 11px; left: -50%; right: 50%; height: 2px; z-index: -1; }
+      </style>
+      <ha-card>
+        <div class="kp-header">
+          <span class="kp-header__icon">\uD83C\uDF31</span>
+          <div class="kp-header__text">
+            <span class="kp-header__name">Northern Lights #03</span>
+            <span class="kp-header__plan">GH Flora Bloom</span>
+          </div>
+          <div class="kp-header__days">28<small>d</small></div>
+        </div>
+        <div class="kp-stats">
+          <div class="kp-stats__item"><span class="kp-stats__value">6</span><span class="kp-stats__label">Gesamtwoche</span></div>
+          <div class="kp-stats__item"><span class="kp-stats__value">4</span><span class="kp-stats__label">Phasenwoche</span></div>
+          <div class="kp-stats__item kp-stats__item--harvest"><span class="kp-stats__value">35<span class="kp-stats__unit">d</span></span><span class="kp-stats__label">bis Ernte</span></div>
+        </div>
+        <div class="kp-progress">
+          <div class="kp-progress__header"><span class="kp-progress__phase">Bl\u00fcte</span><span class="kp-progress__info">Tag 28 / 63</span></div>
+          <div class="kp-progress__track"><div class="kp-progress__fill" style="width:44%;background:#e91e63"></div></div>
+          <div class="kp-progress__footer"><span class="kp-progress__pct">44%</span><span class="kp-progress__remain">35 Tage verbleibend</span></div>
+        </div>
+        <div class="kp-timeline-wrapper">
+          <div class="kp-timeline">
+            <div class="kp-phase-pill"><div class="kp-phase-pill__dot kp-phase-pill__dot--completed" style="--dot-color:#795548"></div><span class="kp-phase-pill__label">Keimung</span><span class="kp-phase-pill__days">5d</span></div>
+            <div class="kp-phase-pill"><div class="kp-phase-pill__line" style="background:#8bc34a"></div><div class="kp-phase-pill__dot kp-phase-pill__dot--completed" style="--dot-color:#8bc34a"></div><span class="kp-phase-pill__label">Setzling</span><span class="kp-phase-pill__days">10d</span></div>
+            <div class="kp-phase-pill"><div class="kp-phase-pill__line" style="background:#4caf50"></div><div class="kp-phase-pill__dot kp-phase-pill__dot--completed" style="--dot-color:#4caf50"></div><span class="kp-phase-pill__label">Vegetativ</span><span class="kp-phase-pill__days">14d</span></div>
+            <div class="kp-phase-pill"><div class="kp-phase-pill__line" style="background:#e91e63"></div><div class="kp-phase-pill__dot kp-phase-pill__dot--current" style="--dot-color:#e91e63"></div><span class="kp-phase-pill__label">Bl\u00fcte</span><span class="kp-phase-pill__days">28d</span></div>
+            <div class="kp-phase-pill"><div class="kp-phase-pill__line" style="background:#bdbdbd"></div><div class="kp-phase-pill__dot kp-phase-pill__dot--upcoming" style="--dot-color:#bdbdbd"></div><span class="kp-phase-pill__label">Ernte</span><span class="kp-phase-pill__days">\u2014</span></div>
+          </div>
+        </div>
+      </ha-card>
+    `;
+  }
+
   _update() {
-    if (!this._hass || !this._config) return;
+    if (!this._config) return;
+    if (!this._hass || !this._config.device_id) {
+      this._renderPreview();
+      return;
+    }
 
     const ents = this._getEntityMap();
 
     if (Object.keys(ents).length === 0) {
-      this.shadowRoot.innerHTML = `
-        <style>${CARD_STYLES}</style>
-        <ha-card><div class="kp-error">Device nicht gefunden oder keine Entities</div></ha-card>
-      `;
+      this._renderPreview();
       this._built = false;
       return;
     }
@@ -1241,6 +1311,6 @@ window.customCards.push({
   type: "kamerplanter-plant-card",
   name: "Kamerplanter Pflanze",
   description: "Zeigt Phasen\u00fcberg\u00e4nge, Fortschritt und Historie mit Kami-Illustrationen f\u00fcr Pflanzeninstanzen und Planting Runs",
-  preview: false,
+  preview: true,
   documentationURL: "https://kamerplanter.readthedocs.io/de/latest/guides/home-assistant-integration/",
 });

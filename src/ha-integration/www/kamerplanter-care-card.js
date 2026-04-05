@@ -116,7 +116,6 @@ class KamerplanterCareCard extends HTMLElement {
   }
 
   setConfig(config) {
-    this._isPreview = !!config.__preview;
     this._config = {
       title: config.title || "Kamerplanter Pflege",
       upcoming_days: config.upcoming_days || 3,
@@ -146,7 +145,6 @@ class KamerplanterCareCard extends HTMLElement {
 
   static getStubConfig() {
     return {
-      __preview: true,
       title: "Kamerplanter Pflege",
       upcoming_days: 3,
     };
@@ -274,11 +272,19 @@ class KamerplanterCareCard extends HTMLElement {
 
   _render() {
     if (!this.shadowRoot) return;
-    if (this._isPreview) {
+    if (!this._hass || !this._config) {
       this._renderPreview();
       return;
     }
-    if (!this._hass || !this._config) return;
+
+    const dueTodayState = this._hass.states[this._config.entity_due];
+    const overdueState = this._hass.states[this._config.entity_overdue];
+
+    // Show preview when no real entities exist (e.g. card picker)
+    if (!dueTodayState && !overdueState) {
+      this._renderPreview();
+      return;
+    }
 
     const overdueTasks =
       overdueState && overdueState.attributes

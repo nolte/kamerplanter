@@ -11,7 +11,11 @@ data:
       name: Kamerplanter Test HA
       unit_system: metric
       time_zone: Europe/Berlin
-      language: de
+      # System language MUST be English so entity_ids are generated from
+      # strings.json (EN) — e.g. sensor.plant_1_days_until_watering
+      # instead of sensor.plant_1_tage_bis_giessen.
+      # Individual HA users can set their UI language to German.
+      language: en
 
     default_config:
 

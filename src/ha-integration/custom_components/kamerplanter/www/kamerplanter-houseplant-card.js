@@ -384,7 +384,8 @@ class KamerplanterHouseplantCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config.device_id) {
+    this._isPreview = !!config.__preview;
+    if (!this._isPreview && !config.device_id) {
       throw new Error("device_id is required");
     }
     this._config = { ...KamerplanterHouseplantCard.CONFIG_DEFAULTS, ...config };
@@ -416,16 +417,8 @@ class KamerplanterHouseplantCard extends HTMLElement {
     return document.createElement("kamerplanter-houseplant-card-editor");
   }
 
-  static getStubConfig(hass) {
-    const defaults = { ...KamerplanterHouseplantCard.CONFIG_DEFAULTS, device_id: "" };
-    if (!hass) return defaults;
-    for (const ent of Object.values(hass.entities || {})) {
-      if (!ent.entity_id.startsWith("sensor.kp_")) continue;
-      if (!ent.entity_id.endsWith("_phase")) continue;
-      const dev = (hass.devices || {})[ent.device_id];
-      if (dev) return { ...defaults, device_id: ent.device_id };
-    }
-    return defaults;
+  static getStubConfig() {
+    return { ...KamerplanterHouseplantCard.CONFIG_DEFAULTS, __preview: true, device_id: "" };
   }
 
   /* ---- Data helpers --------------------------------------------- */
@@ -484,8 +477,53 @@ class KamerplanterHouseplantCard extends HTMLElement {
 
   /* ---- DOM ------------------------------------------------------ */
 
+  _renderPreview() {
+    if (!this.shadowRoot) return;
+    this._built = false;
+    this.shadowRoot.innerHTML = `
+      <style>${HP_STYLES}</style>
+      <ha-card>
+        <div class="hp-header">
+          <span class="hp-header__icon">\uD83C\uDF3F</span>
+          <div class="hp-header__text">
+            <span class="hp-header__name">Monstera deliciosa</span>
+            <span class="hp-header__phase">Vegetativ \u2014 Tag 45</span>
+          </div>
+          <div class="hp-header__days">45<small>d</small></div>
+        </div>
+        <div class="hp-watering hp-watering--today">
+          <ha-icon icon="mdi:watering-can" class="hp-watering__icon"></ha-icon>
+          <div class="hp-watering__info">
+            <div class="hp-watering__label">Heute giessen!</div>
+            <div class="hp-watering__value">Heute faellig</div>
+            <div class="hp-watering__detail">Intervall: 5 Tage</div>
+          </div>
+        </div>
+        <div class="hp-fert">
+          <div class="hp-fert__header">
+            <ha-icon icon="mdi:bottle-tonic" class="hp-fert__icon"></ha-icon>
+            <span class="hp-fert__plan-name">Zimmerpflanzen Universal</span>
+          </div>
+          <div class="hp-fert__channels">
+            <div class="hp-fert__channel">
+              <div class="hp-fert__dosages">
+                <span class="hp-fert__dosage">NPK 7-3-6 <span class="hp-fert__dosage-ml">2.0 ml/L</span></span>
+                <span class="hp-fert__dosage">CalMag <span class="hp-fert__dosage-ml">0.5 ml/L</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ha-card>
+    `;
+  }
+
   _update() {
-    if (!this.shadowRoot || !this._hass || !this._config) return;
+    if (!this.shadowRoot) return;
+    if (this._isPreview) {
+      this._renderPreview();
+      return;
+    }
+    if (!this._hass || !this._config || !this._config.device_id) return;
 
     const ents = this._getEntityMap();
 
@@ -660,7 +698,7 @@ window.customCards.push({
   type: "kamerplanter-houseplant-card",
   name: "Kamerplanter Zimmerpflanze",
   description: "Kompakte Karte fuer mehrjaehrige Pflanzen mit Giess-Status, Phase und Duenger-Info.",
-  preview: false,
+  preview: true,
   documentationURL: "https://kamerplanter.readthedocs.io/de/latest/guides/home-assistant-integration/",
 });
 

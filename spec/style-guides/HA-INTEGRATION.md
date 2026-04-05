@@ -235,17 +235,32 @@ class PlantPhaseSensor(KamerplanterEntity, SensorEntity):
         # ★ KEIN self.entity_id = "sensor.kp_..."
 ```
 
-HA generiert die `entity_id` automatisch aus Device-Name + Entity-Name:
-- Device "Tomate #1" + Entity "Phase" → `sensor.tomate_1_phase`
+HA generiert die `entity_id` automatisch aus Device-Name + Entity-Name.
+Die entity_id basiert auf dem **uebersetzten Namen der HA-Systemsprache** bei der Erstregistrierung.
 
-### 5.2 Verbotenes Pattern
+### 5.2 Englische entity_ids (PFLICHT)
+
+Damit entity_ids immer englisch und sprachunabhaengig sind:
+
+1. **HA-Systemsprache MUSS `en` sein** (`configuration.yaml: language: en`)
+2. `strings.json` enthaelt englische Entity-Namen (Source of Truth)
+3. `translations/de.json` enthaelt deutsche UI-Namen (nur Anzeige)
+4. Nutzer koennen ihre persoenliche UI-Sprache auf Deutsch stellen
+
+Beispiel:
+- Device "Tomato #1" + Entity "Days Until Watering" → `sensor.tomato_1_days_until_watering`
+
+**FALSCH** (bei `language: de`):
+- `sensor.tomate_1_tage_bis_giessen` — deutsch, instabil, bricht bei Sprachwechsel
+
+### 5.3 Verbotenes Pattern
 
 ```python
 # ✗ VERBOTEN — Anti-Pattern
 self.entity_id = f"sensor.kp_{slug}_phase"
 ```
 
-### 5.3 unique_id Format
+### 5.4 unique_id Format
 
 ```
 {entry_id}_{resource_type}_{resource_slug}_{suffix}
