@@ -41,12 +41,12 @@ Agents die bestehende Dokumente, Code oder Anforderungen pruefend analysieren.
 | `e2e-result-reviewer` | T | opus | Selenium-Test-Ergebnisse gegen Spec |
 | `frontend-design-reviewer` | T | sonnet | Responsive Design, Kiosk, Accessibility |
 | `frontend-usability-optimizer` | T | sonnet | MUI-Formulare, Darstellung, i18n |
-| `growing-phase-auditor` | F | sonnet | Botanische Korrektheit von Phasen |
+| `growing-phase-auditor` | F | sonnet | Botanische Korrektheit von Phasen (3-Quellen-Pflicht) |
 | `i18n-completeness-checker` | T | haiku | DE/EN-Uebersetzungen auf Luecken |
 | `it-security-requirements-reviewer` | T | sonnet | Sicherheit und DSGVO in Anforderungen |
 | `outdoor-garden-planner-reviewer` | F | sonnet | Freiland-Gartenplanung und Aussaen |
 | `requirements-contradiction-analyzer` | T | sonnet | Widersprueche in Anforderungen |
-| `seed-data-validator` | F | sonnet | YAML-Seed-Daten auf Vollstaendigkeit |
+| `seed-data-validator` | F | sonnet | YAML-Seed-Daten auf Vollstaendigkeit (3-Quellen-Pflicht) |
 
 ### Entwicklung (3 Agents)
 
@@ -196,11 +196,14 @@ Skills sind automatisierte Workflows ohne UI-Invocation. Sie werden via `/skill-
 3. **Struktur validieren**: `selenium-test-reviewer`
 4. **Screenshots analysieren**: `e2e-result-reviewer`
 
-### Szenario 4: Datenqualitaet sichern
+### Szenario 4: Datenqualitaet sichern (3-Quellen-Verifikation)
 
-1. **Seeds validieren**: `seed-data-validator`
+!!! warning "Multi-Source-Verifikation"
+    `seed-data-validator` und `growing-phase-auditor` wenden die **3-Quellen-Regel** an: Jede fachliche Aussage muss durch mindestens 3 unabhaengige Quellen (Uni-Publikationen, taxonomische Datenbanken, Saatguthersteller, Fachliteratur) bestaetigt werden. Nicht verifizierbare Daten werden als `[UNVERIFIED]` oder `[NO-SOURCE]` markiert — niemals erfunden.
+
+1. **Seeds validieren**: `seed-data-validator` — Struktur + Referenzen + fachliche Plausibilitaet (3-Quellen)
 2. **Botanische Korrektheit**: `agrobiology-requirements-reviewer`
-3. **Phasen auditieren**: `growing-phase-auditor`
+3. **Phasen auditieren**: `growing-phase-auditor` — Bluehmonate, Aussaat, Ernte (3-Quellen)
 4. **RAG-Knowledge**: `knowledge-chunk-author`
 
 ### Szenario 5: HA-Integration erweitern
