@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | grep -qE '\\.claude/(agents|skills)/' && echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"HINWEIS: Eine Agent- oder Skill-Definition wurde geaendert. Bitte den Agent-Katalog (docs/de/development/agent-catalog.md) mit dem agent-catalog-generator Agent neu generieren.\"}}' || true",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | grep -qE '\\.claude/(agents|skills)/' && echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"HINWEIS: Eine Agent- oder Skill-Definition wurde geaendert. Bitte den Agent-Katalog mit /update-catalog neu generieren.\"}}' || true",
             "timeout": 5,
             "statusMessage": "Checking agent/skill changes..."
           }
