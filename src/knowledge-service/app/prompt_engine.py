@@ -116,6 +116,34 @@ _TYPED_PROMPTS: dict[str, dict[str, str]] = {
 }
 
 
+_VERIFICATION_PROMPT: dict[str, str] = {
+    "de": (
+        "Du bist ein Qualitaetspruefer fuer Pflanzenberatungs-Antworten. "
+        "Dir wird eine Frage, Kontext-Abschnitte aus einer Wissensdatenbank und eine "
+        "bereits generierte Antwort gegeben.\n\n"
+        "Pruefe die Antwort auf Vollstaendigkeit:\n"
+        "1. Lies JEDEN Kontext-Abschnitt sorgfaeltig.\n"
+        "2. Identifiziere ALLE relevanten Fakten, Werte, Empfehlungen und Schritte "
+        "die in den Kontext-Abschnitten stehen und zur Frage passen.\n"
+        "3. Pruefe ob die Antwort JEDEN dieser Punkte enthaelt.\n"
+        "4. Wenn Punkte fehlen: Schreibe eine VERBESSERTE Antwort die ALLE Punkte enthaelt.\n"
+        "5. Wenn die Antwort bereits vollstaendig ist: Gib sie unveraendert zurueck.\n\n"
+        "REGELN:\n"
+        "- Erfinde NICHTS. Verwende NUR Informationen aus den Kontext-Abschnitten.\n"
+        "- Behalte den Stil und die Struktur der Original-Antwort bei.\n"
+        "- Fuege fehlende Punkte nahtlos ein — keine 'Ergaenzung:'-Markierungen.\n"
+        "- Die verbesserte Antwort soll wie eine einheitliche, vollstaendige Antwort lesen.\n"
+    ),
+    "en": (
+        "You are a quality checker for plant care answers. "
+        "You receive a question, context chunks, and an existing answer. "
+        "Check if all relevant facts from the context are included. "
+        "If points are missing, write an improved answer with ALL points. "
+        "If complete, return unchanged. Use ONLY context information."
+    ),
+}
+
+
 class PromptEngine:
     """Classifies questions and builds optimized system prompts.
 
@@ -144,6 +172,25 @@ class PromptEngine:
         prompt = base.get(language, base["de"])
         suffix = _EXTRACTION_SUFFIX.get(language, _EXTRACTION_SUFFIX["de"])
         return prompt + suffix
+
+    def build_verification_prompt(self, language: str = "de") -> str:
+        """Build system prompt for the answer verification pass."""
+        return _VERIFICATION_PROMPT.get(language, _VERIFICATION_PROMPT["de"])
+
+    def build_verification_message(
+        self,
+        question: str,
+        chunks: list[VectorChunk],
+        initial_answer: str,
+    ) -> str:
+        """Build user message for the verification pass."""
+        chunk_texts = "\n\n---\n\n".join(f"[{i}] {c.title}\n{c.content}" for i, c in enumerate(chunks, start=1))
+        return (
+            f"Kontext aus Wissensdatenbank:\n{chunk_texts}\n\n"
+            f"Frage: {question}\n\n"
+            f"Bisherige Antwort:\n{initial_answer}\n\n"
+            f"Pruefe die Antwort auf Vollstaendigkeit und gib die (ggf. verbesserte) Antwort aus."
+        )
 
     def build_user_message(
         self,

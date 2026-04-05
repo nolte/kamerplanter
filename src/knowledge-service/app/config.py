@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     reranker_initial_k: int = 20
     reranker_top_k: int = 5
 
+    # Answer verification (optional second LLM pass)
+    answer_verification: bool = False
+
     # RAG language defaults
     rag_doc_language: str = "de"
     rag_prompt_language: str = "de"
