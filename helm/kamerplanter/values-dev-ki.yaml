@@ -66,6 +66,7 @@ controllers:
           RERANKER_URL: "http://kamerplanter-ki-reranker-service:8081"
           RERANKER_INITIAL_K: "20"
           RERANKER_TOP_K: "5"
+          ANSWER_VERIFICATION: "true"
           KNOWLEDGE_PATH: "/app/knowledge"
         probes:
           liveness:
