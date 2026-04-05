@@ -31,9 +31,9 @@ class TestWateringEvent:
         )
         assert len(event.plant_keys) == 3
 
-    def test_plant_keys_min_length(self):
-        with pytest.raises(ValidationError, match="plant_keys"):
-            WateringEvent(volume_liters=5.0, plant_keys=[])
+    def test_plant_keys_allows_empty(self):
+        event = WateringEvent(volume_liters=5.0, plant_keys=[])
+        assert event.plant_keys == []
 
     def test_volume_must_be_positive(self):
         with pytest.raises(ValidationError):
