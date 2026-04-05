@@ -146,7 +146,8 @@ Knollensellerie ist ein Starkzehrer mit hoher EC-Toleranz (bis 2.4 mS/cm in Hydr
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0  |
+| target_substrate_ec_ms | 0.0  |
+| solution_ec_ms | 0.0  |
 | reference_ec_ms | 0.0  |
 | target_ph | 6.2 |
 | fertilizer_dosages | [] (leer -- kein Duenger) |
@@ -164,17 +165,18 @@ Knollensellerie ist ein Starkzehrer mit hoher EC-Toleranz (bis 2.4 mS/cm in Hydr
 | NPK-Verhaeltnis | (3, 1, 3) | `phase_entries.npk_ratio` |
 | Calcium (ppm) | 80 | `phase_entries.calcium_ppm` |
 | Magnesium (ppm) | 30 | `phase_entries.magnesium_ppm` |
-| Hinweise | Sehr lange Jungpflanzenphase (7 Wochen). Viertel-Dosis Terra Grow (1.5 ml/L). Pikieren in Einzeltoepfe (6--8 cm) nach 2. echtem Blattpaar (ca. Woche 6). Power Roots foerdert fruehe Wurzelentwicklung. **SCHOSS-GEFAHR:** Temperaturen NICHT unter 10 degC fuer laengere Zeit (>10 Tage) -- loest Vernalisation aus und Pflanze schiesst im 1. Jahr! Abhaertung ab Woche 9 vorsichtig durchfuehren -- nie unter 12 degC, idealerweise nur tagsueber bei 15+ degC. | `phase_entries.notes` |
+| Hinweise | Sehr lange Jungpflanzenphase (7 Wochen). Starterdosis Terra Grow (1.5 ml/L). Pikieren in Einzeltoepfe (6--8 cm) nach 2. echtem Blattpaar (ca. Woche 6). Power Roots foerdert fruehe Wurzelentwicklung. **SCHOSS-GEFAHR:** Temperaturen NICHT unter 10 degC fuer laengere Zeit (>10 Tage) -- loest Vernalisation aus und Pflanze schiesst im 1. Jahr! Abhaertung ab Woche 9 vorsichtig durchfuehren -- nie unter 12 degC, idealerweise nur tagsueber bei 15+ degC. | `phase_entries.notes` |
 | Giessplan-Override | Intervall 2 Tage | `phase_entries.watering_schedule_override` |
 
 **Delivery Channel: naehrloesung-wachstum**
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6  |
+| target_substrate_ec_ms | 0.6  |
+| solution_ec_ms | 0.53 |
 | reference_ec_ms | 0.6  |
 | target_ph | 6.2 |
-| Terra Grow ml/L | 1.5 (Viertel-Dosis) |
+| Terra Grow ml/L | 1.5 (Starterdosis) |
 | Power Roots ml/L | 1.0 |
 | Pure Zym ml/L | -- (noch nicht) |
 | Sugar Royal ml/L | -- (noch nicht) |
@@ -198,7 +200,8 @@ Knollensellerie ist ein Starkzehrer mit hoher EC-Toleranz (bis 2.4 mS/cm in Hydr
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.5  |
+| target_substrate_ec_ms | 1.5  |
+| solution_ec_ms | 0.83 |
 | reference_ec_ms | 1.5  |
 | target_ph | 6.2 |
 | Terra Grow ml/L | 5.0 (volle Dosis) |
@@ -211,6 +214,8 @@ Knollensellerie ist ein Starkzehrer mit hoher EC-Toleranz (bis 2.4 mS/cm in Hydr
 **Hinweis Erdkultur:** Die berechnete EC der Giessloessung (~0.8 mS/cm) liegt unter den hydroponischen Zielwerten (1.4--2.0 mS/cm). Das ist korrekt fuer Erdkultur -- das Substrat speichert und puffert Naehrstoffe. Bei wuechsigen Pflanzen Terra Grow auf 6--7 ml/L steigern (EC ~1.0 mS/cm).
 
 ### 4.4 FLOWERING -- Knollenbildung (Woche 19--28)
+
+> **Semantische Remappung:** Sellerie bildet keine Blueten im Kulturjahr. Die FLOWERING-Phase wird hier als "physiologische Reifephase vor der Ernte" (Knollenbildung) interpretiert. Analoges Muster bei Rosenkohl (Sprossenreife). Siehe REQ-003 Phase-State-Machine.
 
 | Parameter | Wert | KA-Feld |
 |-----------|------|---------|
@@ -228,7 +233,8 @@ Knollensellerie ist ein Starkzehrer mit hoher EC-Toleranz (bis 2.4 mS/cm in Hydr
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.8  |
+| target_substrate_ec_ms | 1.8  |
+| solution_ec_ms | 0.92 |
 | reference_ec_ms | 1.8  |
 | target_ph | 6.2 |
 | Terra Bloom ml/L | 5.0 |
@@ -256,7 +262,8 @@ Knollensellerie ist ein Starkzehrer mit hoher EC-Toleranz (bis 2.4 mS/cm in Hydr
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.2  |
+| target_substrate_ec_ms | 1.2  |
+| solution_ec_ms | 0.70 |
 | reference_ec_ms | 1.2  |
 | target_ph | 6.2 |
 | Terra Bloom ml/L | 3.0 (reduziert) |
@@ -282,7 +289,8 @@ Knollensellerie ist ein Starkzehrer mit hoher EC-Toleranz (bis 2.4 mS/cm in Hydr
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0  |
+| target_substrate_ec_ms | 0.0  |
+| solution_ec_ms | 0.0  |
 | reference_ec_ms | 0.0  |
 | target_ph | 6.2 |
 | Pure Zym ml/L | 1.0 |
@@ -318,7 +326,7 @@ Pure Zym:    |---   |---  |---  |-->==|===  |===  |===  |===  |===|
 Sugar Royal: |---   |---  |---  |-->==|===  |===  |==→--|---  |---|
 
 Legende: --- = nicht verwendet, ### = reduzierte Dosis, === = volle Dosis
-         ##- = Viertel-Dosis, --> = Start, ->  = Uebergang
+         ##- = Starterdosis, --> = Start, ->  = Uebergang
 ```
 
 ### Jahresverbrauch (geschaetzt)
@@ -466,7 +474,8 @@ Schwarze Verfaerbung im Knolleninneren durch unzureichenden Ca-Transport.
       "application_method": "drench",
       "enabled": true,
       "notes": "Nur Wasser. Feine Spr\u00fchung, Substrat gleichm\u00e4\u00dfig feucht halten. Lichtkeimer!",
-      "target_ec_ms": 0.0,
+      "target_substrate_ec_ms": 0.0,
+      "solution_ec_ms": 0.0,
       "reference_ec_ms": 0.0,
       "target_ph": 6.2,
       "fertilizer_dosages": [],
@@ -489,7 +498,7 @@ Schwarze Verfaerbung im Knolleninneren durch unzureichenden Ca-Transport.
   "npk_ratio": [3.0, 1.0, 3.0],
   "calcium_ppm": 80,
   "magnesium_ppm": 30,
-  "notes": "Viertel-Dosis Terra Grow (1.5 ml/L). Pikieren nach 2. Blattpaar. Temperaturen NIE unter 10\u00b0C (Vernalisation/Schoss-Gefahr!). Abh\u00e4rtung ab Woche 9 vorsichtig, nie unter 12\u00b0C.",
+  "notes": "Starterdosis Terra Grow (1.5 ml/L). Pikieren nach 2. Blattpaar. Temperaturen NIE unter 10\u00b0C (Vernalisation/Schoss-Gefahr!). Abh\u00e4rtung ab Woche 9 vorsichtig, nie unter 12\u00b0C.",
   "watering_schedule_override": {
     "schedule_mode": "interval",
     "interval_days": 2,
@@ -504,8 +513,9 @@ Schwarze Verfaerbung im Knolleninneren durch unzureichenden Ca-Transport.
       "label": "Wachstumsd\u00fcngung S\u00e4mling (Gie\u00dfkanne)",
       "application_method": "drench",
       "enabled": true,
-      "notes": "Terra Grow Viertel-Dosis + Power Roots",
-      "target_ec_ms": 0.6,
+      "notes": "Terra Grow Starterdosis + Power Roots",
+      "target_substrate_ec_ms": 0.6,
+      "solution_ec_ms": 0.53,
       "reference_ec_ms": 0.6,
       "target_ph": 6.2,
       "fertilizer_dosages": [
@@ -539,7 +549,8 @@ Schwarze Verfaerbung im Knolleninneren durch unzureichenden Ca-Transport.
       "application_method": "drench",
       "enabled": true,
       "notes": "Terra Grow + alle Additive. Reihenfolge: Terra Grow \u2192 Power Roots \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen",
-      "target_ec_ms": 1.5,
+      "target_substrate_ec_ms": 1.5,
+      "solution_ec_ms": 0.83,
       "reference_ec_ms": 1.5,
       "target_ph": 6.2,
       "fertilizer_dosages": [
@@ -575,7 +586,8 @@ Schwarze Verfaerbung im Knolleninneren durch unzureichenden Ca-Transport.
       "application_method": "drench",
       "enabled": true,
       "notes": "Terra Bloom + Additive. Reihenfolge: Terra Bloom \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen",
-      "target_ec_ms": 1.8,
+      "target_substrate_ec_ms": 1.8,
+      "solution_ec_ms": 0.92,
       "reference_ec_ms": 1.8,
       "target_ph": 6.2,
       "fertilizer_dosages": [
@@ -610,7 +622,8 @@ Schwarze Verfaerbung im Knolleninneren durch unzureichenden Ca-Transport.
       "application_method": "drench",
       "enabled": true,
       "notes": "Reduzierter Terra Bloom. Kein Sugar Royal.",
-      "target_ec_ms": 1.2,
+      "target_substrate_ec_ms": 1.2,
+      "solution_ec_ms": 0.70,
       "reference_ec_ms": 1.2,
       "target_ph": 6.2,
       "fertilizer_dosages": [
@@ -652,7 +665,8 @@ Schwarze Verfaerbung im Knolleninneren durch unzureichenden Ca-Transport.
       "application_method": "drench",
       "enabled": true,
       "notes": "Nur Wasser + Pure Zym. Kein D\u00fcnger.",
-      "target_ec_ms": 0.0,
+      "target_substrate_ec_ms": 0.0,
+      "solution_ec_ms": 0.0,
       "reference_ec_ms": 0.0,
       "target_ph": 6.2,
       "fertilizer_dosages": [

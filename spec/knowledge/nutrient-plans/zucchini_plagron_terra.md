@@ -47,7 +47,7 @@ Zucchini ist eine einjaehrige Nutzpflanze in Mitteleuropa (Cucurbita pepo). Typi
 | Zucchini-Phase | PhaseName (Enum) | Wochen | Kalender (ca.) | Begruendung | is_recurring |
 |----------------|-----------------|--------|----------------|-------------|-------------|
 | Keimung | GERMINATION | 1--2 | Mitte April | Indoor-Aussaat in Einzeltoepfe, 22--25 degC. Dunkelkeimer, 2--3 cm tief. Kein Duenger. | false |
-| Saemling | SEEDLING | 3--4 | Ende April--Anfang Mai | Jungpflanze mit Keimblaettern + ersten echten Blaettern. Viertel-Dosis Terra Grow. Nicht pikieren (empfindliche Wurzeln)! | false |
+| Saemling | SEEDLING | 3--4 | Ende April--Anfang Mai | Jungpflanze mit Keimblaettern + ersten echten Blaettern. Starterdosis Terra Grow. Nicht pikieren (empfindliche Wurzeln)! | false |
 | Vegetatives Wachstum | VEGETATIVE | 5--8 | Mai--Anfang Juni | Volle Duengung Terra Grow. Extrem schnelles Blattwachstum. Abhaertung + Auspflanzen nach Eisheiligen (ca. 15. Mai). | false |
 | Bluete + Fruchtbildung | FLOWERING | 9--12 | Juni--Anfang Juli | Umstellung auf Terra Bloom. Erste maennliche, dann weibliche Blueten. Bestaeubung durch Insekten oder Hand. | false |
 | Dauerernte | HARVEST | 13--20 | Juli--Mitte September | Terra Bloom reduziert. Kontinuierliche Ernte alle 2--3 Tage bei 15--25 cm Fruchtlaenge. K:N-Verhaeltnis hoch. | false |
@@ -144,7 +144,8 @@ Zucchini sind Starkzehrer mit hoher EC-Toleranz (bis 2.8 mS/cm in Hydrokultur, S
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0  |
+| target_substrate_ec_ms | 0.0  |
+| solution_ec_ms | 0.0  |
 | reference_ec_ms | 0.0  |
 | target_ph | 6.2 |
 | fertilizer_dosages | [] (leer -- kein Duenger) |
@@ -162,17 +163,18 @@ Zucchini sind Starkzehrer mit hoher EC-Toleranz (bis 2.8 mS/cm in Hydrokultur, S
 | NPK-Verhaeltnis | (3, 1, 3) | `phase_entries.npk_ratio` |
 | Calcium (ppm) | null | `phase_entries.calcium_ppm` |
 | Magnesium (ppm) | null | `phase_entries.magnesium_ppm` |
-| Hinweise | Viertel-Dosis Terra Grow (1.5 ml/L). Jungpflanzen mit 2--3 echten Blaettern. Power Roots foerdert fruehe Wurzelentwicklung. Noch kein Pure Zym oder Sugar Royal noetig. Nicht pikieren! Kuehlere Nachttemperaturen (16 degC) foerdern gedrungenen Wuchs. Abhaertung beginnt Ende Woche 4 (7--10 Tage raus stellen). | `phase_entries.notes` |
+| Hinweise | Starterdosis Terra Grow (1.5 ml/L). Jungpflanzen mit 2--3 echten Blaettern. Power Roots foerdert fruehe Wurzelentwicklung. Noch kein Pure Zym oder Sugar Royal noetig. Nicht pikieren! Kuehlere Nachttemperaturen (16 degC) foerdern gedrungenen Wuchs. Abhaertung beginnt Ende Woche 4 (7--10 Tage raus stellen). | `phase_entries.notes` |
 | Giessplan-Override | Intervall 2 Tage | `phase_entries.watering_schedule_override` |
 
 **Delivery Channel: naehrloesung-wachstum**
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6  |
+| target_substrate_ec_ms | 0.6  |
+| solution_ec_ms | 0.53 |
 | reference_ec_ms | 0.6  |
 | target_ph | 6.2 |
-| Terra Grow ml/L | 1.5 (Viertel-Dosis) |
+| Terra Grow ml/L | 1.5 (Starterdosis) |
 | Power Roots ml/L | 1.0 |
 | Pure Zym ml/L | -- (noch nicht) |
 | Sugar Royal ml/L | -- (noch nicht) |
@@ -196,7 +198,8 @@ Zucchini sind Starkzehrer mit hoher EC-Toleranz (bis 2.8 mS/cm in Hydrokultur, S
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.5  |
+| target_substrate_ec_ms | 1.5  |
+| solution_ec_ms | 0.83 |
 | reference_ec_ms | 1.5  |
 | target_ph | 6.2 |
 | Terra Grow ml/L | 5.0 (volle Dosis) |
@@ -225,7 +228,8 @@ Zucchini sind Starkzehrer mit hoher EC-Toleranz (bis 2.8 mS/cm in Hydrokultur, S
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 2.0  |
+| target_substrate_ec_ms | 2.0  |
+| solution_ec_ms | 0.92 |
 | reference_ec_ms | 2.0  |
 | target_ph | 6.2 |
 | Terra Bloom ml/L | 5.0 |
@@ -251,7 +255,8 @@ Zucchini sind Starkzehrer mit hoher EC-Toleranz (bis 2.8 mS/cm in Hydrokultur, S
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.8  |
+| target_substrate_ec_ms | 1.8  |
+| solution_ec_ms | 0.80 |
 | reference_ec_ms | 1.8  |
 | target_ph | 6.2 |
 | Terra Bloom ml/L | 4.0 (reduziert) |
@@ -279,7 +284,8 @@ Zucchini sind Starkzehrer mit hoher EC-Toleranz (bis 2.8 mS/cm in Hydrokultur, S
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0  |
+| target_substrate_ec_ms | 0.0  |
+| solution_ec_ms | 0.0  |
 | reference_ec_ms | 0.0  |
 | target_ph | 6.2 |
 | Pure Zym ml/L | 1.0 |
@@ -315,7 +321,7 @@ Pure Zym:    |---   |-->===|===   |===  |===  |===  |===  |
 Sugar Royal: |---   |-->===|===   |===  |==→--|---  |---  |
 
 Legende: --- = nicht verwendet, ### = reduzierte Dosis, === = volle Dosis
-         ##- = Viertel-Dosis, --> = Start, ->  = Uebergang
+         ##- = Starterdosis, --> = Start, ->  = Uebergang
 ```
 
 ### Jahresverbrauch (geschaetzt)
@@ -488,7 +494,8 @@ Die haeufigste Krankheit bei Zucchini. Tritt ab Hochsommer (August) fast immer a
       "application_method": "drench",
       "enabled": true,
       "notes": "Nur Wasser. Feine Spr\u00fchung, Substrat gleichm\u00e4\u00dfig feucht halten.",
-      "target_ec_ms": 0.0,
+      "target_substrate_ec_ms": 0.0,
+      "solution_ec_ms": 0.0,
       "reference_ec_ms": 0.0,
       "target_ph": 6.2,
       "fertilizer_dosages": [],
@@ -511,7 +518,7 @@ Die haeufigste Krankheit bei Zucchini. Tritt ab Hochsommer (August) fast immer a
   "npk_ratio": [3.0, 1.0, 3.0],
   "calcium_ppm": null,
   "magnesium_ppm": null,
-  "notes": "Viertel-Dosis Terra Grow (1.5 ml/L). Nicht pikieren (empfindliche Wurzeln). Power Roots f\u00f6rdert Wurzelentwicklung. Abh\u00e4rtung beginnt Ende Woche 4.",
+  "notes": "Starterdosis Terra Grow (1.5 ml/L). Nicht pikieren (empfindliche Wurzeln). Power Roots f\u00f6rdert Wurzelentwicklung. Abh\u00e4rtung beginnt Ende Woche 4.",
   "watering_schedule_override": {
     "schedule_mode": "interval",
     "interval_days": 2,
@@ -526,8 +533,9 @@ Die haeufigste Krankheit bei Zucchini. Tritt ab Hochsommer (August) fast immer a
       "label": "Wachstumsd\u00fcngung S\u00e4mling (Gie\u00dfkanne)",
       "application_method": "drench",
       "enabled": true,
-      "notes": "Terra Grow Viertel-Dosis + Power Roots",
-      "target_ec_ms": 0.6,
+      "notes": "Terra Grow Starterdosis + Power Roots",
+      "target_substrate_ec_ms": 0.6,
+      "solution_ec_ms": 0.53,
       "reference_ec_ms": 0.6,
       "target_ph": 6.2,
       "fertilizer_dosages": [
@@ -561,7 +569,8 @@ Die haeufigste Krankheit bei Zucchini. Tritt ab Hochsommer (August) fast immer a
       "application_method": "drench",
       "enabled": true,
       "notes": "Terra Grow + alle Additive. Reihenfolge: Terra Grow \u2192 Power Roots \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen",
-      "target_ec_ms": 1.5,
+      "target_substrate_ec_ms": 1.5,
+      "solution_ec_ms": 0.83,
       "reference_ec_ms": 1.5,
       "target_ph": 6.2,
       "fertilizer_dosages": [
@@ -597,7 +606,8 @@ Die haeufigste Krankheit bei Zucchini. Tritt ab Hochsommer (August) fast immer a
       "application_method": "drench",
       "enabled": true,
       "notes": "Terra Bloom + Additive. Reihenfolge: Terra Bloom \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen",
-      "target_ec_ms": 2.0,
+      "target_substrate_ec_ms": 2.0,
+      "solution_ec_ms": 0.92,
       "reference_ec_ms": 2.0,
       "target_ph": 6.2,
       "fertilizer_dosages": [
@@ -632,7 +642,8 @@ Die haeufigste Krankheit bei Zucchini. Tritt ab Hochsommer (August) fast immer a
       "application_method": "drench",
       "enabled": true,
       "notes": "Reduzierter Terra Bloom. Kein Sugar Royal.",
-      "target_ec_ms": 1.8,
+      "target_substrate_ec_ms": 1.8,
+      "solution_ec_ms": 0.80,
       "reference_ec_ms": 1.8,
       "target_ph": 6.2,
       "fertilizer_dosages": [
@@ -674,7 +685,8 @@ Die haeufigste Krankheit bei Zucchini. Tritt ab Hochsommer (August) fast immer a
       "application_method": "drench",
       "enabled": true,
       "notes": "Nur Wasser + Pure Zym. Kein D\u00fcnger.",
-      "target_ec_ms": 0.0,
+      "target_substrate_ec_ms": 0.0,
+      "solution_ec_ms": 0.0,
       "reference_ec_ms": 0.0,
       "target_ph": 6.2,
       "fertilizer_dosages": [

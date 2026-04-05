@@ -176,7 +176,7 @@ Manuelle Giessduengung per Giesskanne oder Spruehflasche. Minimales 2-Kanal-Syst
 | week_start | 6 | `phase_entries.week_start` |
 | week_end | 12 | `phase_entries.week_end` |
 | is_recurring | false | `phase_entries.is_recurring` |
-| NPK-Verhaeltnis | (3, 1, 2) | `phase_entries.npk_ratio` |
+| NPK-Verhaeltnis | (3, 1, 3) | `phase_entries.npk_ratio` |
 | Calcium (ppm) | null | `phase_entries.calcium_ppm` |
 | Magnesium (ppm) | null | `phase_entries.magnesium_ppm` |
 | Hinweise | **HAUPTERNTEPHASE.** Halbe Dosis Terra Grow (2.5 ml/L) -- das ist die MAXIMALE Dosierung fuer Basilikum, nicht die Startdosis! Regelmaessiges Entspitzen der Triebspitzen (immer ueber einem Blattpaar schneiden) stimuliert Seitenverzweigung und verzoegert die Bluete. Bluetenansaetze sofort entfernen (Pinzieren). Nach der Ernte sinkt der Aromaoelgehalt nur leicht, bei Ueberduengung dagegen drastisch (bis zu 28%). Daher: Dosierung NICHT erhoehen, auch wenn die Pflanze "noch mehr vertragen koennte". EC-Zielwert 0.6 mS/cm (nicht 0.8!) -- bei Basilikum bringt weniger Duenger mehr Aroma. | `phase_entries.notes` |
@@ -201,7 +201,7 @@ Manuelle Giessduengung per Giesskanne oder Spruehflasche. Minimales 2-Kanal-Syst
 | week_start | 13 | `phase_entries.week_start` |
 | week_end | 16 | `phase_entries.week_end` |
 | is_recurring | false | `phase_entries.is_recurring` |
-| NPK-Verhaeltnis | (3, 1, 2) | `phase_entries.npk_ratio` |
+| NPK-Verhaeltnis | (3, 1, 3) | `phase_entries.npk_ratio` |
 | Calcium (ppm) | null | `phase_entries.calcium_ppm` |
 | Magnesium (ppm) | null | `phase_entries.magnesium_ppm` |
 | Hinweise | Reduzierter Terra Grow (2.0 ml/L). Basilikum ist eine Kurztagspflanze -- kuerzere Tage im Spaetsommer/Herbst loesen die Bluete aus. Zwei Strategien: **(A) Blatternten-Modus (Standard):** ALLE Bluetenknospen sofort ausbrechen. Weiter ernten, solange Blaetter aromatisch sind. Duengung reduzieren, da die Pflanze trotzdem langsam an Kraft verliert. **(B) Saatgut-Modus:** Bluete zulassen, nicht mehr duengen, Saatgut nach Reife sammeln. Bei Indoor-Kultur mit >14h Belichtung kann die Bluete monatelang verzoegert werden (Langtagsverzoegerung). **Kein Bloom-Duenger noetig:** Wir WOLLEN die Bluete unterdruecken, nicht foerdern. Terra Grow (N-betont) bleibt korrekt. | `phase_entries.notes` |

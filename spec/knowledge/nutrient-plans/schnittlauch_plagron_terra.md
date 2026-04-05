@@ -202,7 +202,7 @@ Schnittlauch ist ein Schwachzehrer. Ziel-EC der Gesamtloesung: **0.3--0.7 mS/cm*
 | NPK-Verhaeltnis | (0, 0, 0) | `phase_entries.npk_ratio` |
 | Calcium (ppm) | null | `phase_entries.calcium_ppm` |
 | Magnesium (ppm) | null | `phase_entries.magnesium_ppm` |
-| Hinweise | Keine Duengung waehrend der Bluete. Lila Kugelblueten sind essbar (Salat, Kraeuteressig). Fuer Blatternte: Bluetenstaende frueh entfernen, da nach der Bluete die Halmqualitaet nachlasst. Nach Abschluss der Bluete: kompletten Rueckschnitt durchfuehren -> kraeftiger 2. Austrieb (zurueck zu VEGETATIVE). Zur Saatgutgewinnung: Blueten ausreifen lassen. | `phase_entries.notes` |
+| Hinweise | Keine Duengung waehrend der Bluete -- keine Samenreife angestrebt und Bluetezeit kurz (3--4 Wochen), die Zwiebelspeicher reichen fuer die Bluephase aus. Lila Kugelblueten sind essbar (Salat, Kraeuteressig). Fuer Blatternte: Bluetenstaende frueh entfernen, da nach der Bluete die Halmqualitaet nachlasst. Nach Abschluss der Bluete: kompletten Rueckschnitt durchfuehren -> kraeftiger 2. Austrieb (zurueck zu VEGETATIVE). Zur Saatgutgewinnung: Blueten ausreifen lassen. | `phase_entries.notes` |
 
 **Delivery Channel: wasser-pur**
 
@@ -304,7 +304,7 @@ Bei einem Schnittlauch-Horst im 3--5 L Topf, 0.2 L Giessloessung pro Duengung, D
 
 - Alle Allium-Arten brauchen Schwefel fuer Aromastoffe (Allicin, Thiosulfinate)
 - Terra Grow enthaelt keine spezifische Schwefelquelle
-- **Loesung:** Kompost im Fruehjahr einarbeiten (liefert Schwefel organisch), oder optional 0.5 g/L Bittersalz (Magnesiumsulfat) ins Giesswasser 1x/Monat
+- **Loesung:** Kompost im Fruehjahr einarbeiten (liefert Schwefel organisch), oder optional 0.5 g/L Bittersalz (Magnesiumsulfat) ins Giesswasser 1x/Monat. Alternative bei magnesiumreichem Leitungswasser: Kaliumsulfat (K2SO4) liefert Schwefel ohne zusaetzliches Magnesium.
 
 ### Schnittlauch-Rost (Puccinia allii)
 
@@ -477,7 +477,7 @@ Bei einem Schnittlauch-Horst im 3--5 L Topf, 0.2 L Giessloessung pro Duengung, D
   "npk_ratio": [0.0, 0.0, 0.0],
   "calcium_ppm": null,
   "magnesium_ppm": null,
-  "notes": "Keine D\u00fcngung. Essbare Kugelbl\u00fcten (lila). Bl\u00fctenst\u00e4nde f\u00fcr Blattqualit\u00e4t entfernen oder f\u00fcr Deko stehen lassen. Nach Bl\u00fcte: kompletter R\u00fcckschnitt \u2192 kr\u00e4ftiger 2. Austrieb.",
+  "notes": "Keine D\u00fcngung \u2014 keine Samenreife angestrebt und Bl\u00fctezeit kurz (3\u20134 Wochen), die Zwiebelspeicher reichen f\u00fcr die Bl\u00fctephase aus. Essbare Kugelbl\u00fcten (lila). Bl\u00fctenst\u00e4nde f\u00fcr Blattqualit\u00e4t entfernen oder f\u00fcr Deko stehen lassen. Nach Bl\u00fcte: kompletter R\u00fcckschnitt \u2192 kr\u00e4ftiger 2. Austrieb.",
   "delivery_channels": [
     {
       "channel_id": "wasser-pur",

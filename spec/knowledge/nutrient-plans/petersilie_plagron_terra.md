@@ -129,7 +129,7 @@ Petersilie ist ein Mittelzehrer -- sie vertraegt mehr als Schwachzehrer wie Basi
 | NPK-Verhaeltnis | (0, 0, 0) | `phase_entries.npk_ratio` |
 | Calcium (ppm) | null | `phase_entries.calcium_ppm` |
 | Magnesium (ppm) | null | `phase_entries.magnesium_ppm` |
-| Hinweise | **DUNKELKEIMER:** Samen 0.5 cm mit Erde bedecken. 24h in lauwarmem Wasser einweichen vor Aussaat (loest keimhemmende Furanocumarine). Temperatur 18--22 degC. Keimdauer 14--28 Tage -- Geduld! Substrat gleichmaessig feucht halten, Abdeckung mit Folie oder Vlies. NICHT austrocknen lassen. Kein Duenger. | `phase_entries.notes` |
+| Hinweise | Samen bedeckt saeen (0,5 cm) -- keimhemmende Furanocumarine in der Samenschale erfordern Bodenkontakt, Licht ist kein entscheidender Faktor. 24h in lauwarmem Wasser einweichen vor Aussaat (loest Furanocumarine, verkuerzt Keimdauer um 5--10 Tage). Temperatur 18--22 degC. Keimdauer 14--28 Tage -- Geduld! Substrat gleichmaessig feucht halten, Abdeckung mit Folie oder Vlies. NICHT austrocknen lassen -- Samen keimen nicht nach! Kein Duenger. | `phase_entries.notes` |
 | Giessplan-Override | Intervall 1 Tag (leichtes Spruehen) | `phase_entries.watering_schedule_override` |
 
 **Delivery Channel: wasser-keimung**

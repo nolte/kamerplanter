@@ -47,7 +47,7 @@ Rosenkohl ist eine einjaehrige Nutzpflanze in Mitteleuropa mit sehr langer Kultu
 | Rosenkohl-Phase | PhaseName (Enum) | Wochen | Kalender (ca.) | Begruendung | is_recurring |
 |-----------------|-----------------|--------|----------------|-------------|-------------|
 | Keimung | GERMINATION | 1--2 | Anfang Maerz | Indoor-Aussaat, 15--20 degC. Dunkelkeimer. Kein Duenger. | false |
-| Saemling | SEEDLING | 3--8 | Mitte Maerz--Mitte April | Jungpflanze bis 4--6 echte Blaetter. Viertel-Dosis Terra Grow. Pikieren nach 2. Blattpaar. | false |
+| Saemling | SEEDLING | 3--8 | Mitte Maerz--Mitte April | Jungpflanze bis 4--6 echte Blaetter. Starterdosis Terra Grow. Pikieren nach 2. Blattpaar. | false |
 | Vegetatives Wachstum | VEGETATIVE | 9--22 | Mitte April--Ende August | Volle Duengung. Stammaufbau, Blattbildung, Roeschenansatz. Auspflanzen nach Eisheiligen. **N-STOPP ab W20 (August)!** | false |
 | Roeschenreife + Ernte | HARVEST | 23--28 | September--Mitte Oktober | Roeschen reifen von unten nach oben. Frost verbessert Geschmack. Reduzierte Duengung nur Terra Bloom. | false |
 | Saisonende/Spuelung | FLUSHING | 29--30 | Ende Oktober--November | Kein Duenger. Letzte Roeschen ernten. Strunk kompostieren. | false |
@@ -137,14 +137,15 @@ Rosenkohl ist ein Starkzehrer mit moderater EC-Toleranz (bis 2.0 mS/cm in Erdkul
 | NPK-Verhaeltnis | (0, 0, 0) | `phase_entries.npk_ratio` |
 | Calcium (ppm) | null | `phase_entries.calcium_ppm` |
 | Magnesium (ppm) | null | `phase_entries.magnesium_ppm` |
-| Hinweise | Indoor-Aussaat in Anzuchterde, 15--20 degC (Rosenkohl keimt kuehler als Tomaten). **Dunkelkeimer:** Samen 1--2 cm tief abdecken. Substrat gleichmaessig feucht, nicht nass. Kein Duenger -- Anzuchterde liefert Grundversorgung. Keimung nach 5--8 Tagen. | `phase_entries.notes` |
+| Hinweise | Indoor-Aussaat in Anzuchterde, 18--22 degC (Steckbrief-Optimum). **Dunkelkeimer:** Samen 1--2 cm tief abdecken. Substrat gleichmaessig feucht, nicht nass. Kein Duenger -- Anzuchterde liefert Grundversorgung. Keimung nach 5--8 Tagen. Unterhalb 15 degC stark verzoegerte Keimung; oberhalb 25 degC Schlechtkeimer. | `phase_entries.notes` |
 | Giessplan-Override | Intervall 1 Tag (leichte Spruehung, 0.03 L) | `phase_entries.watering_schedule_override` |
 
 **Delivery Channel: wasser-keimung**
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0  |
+| target_substrate_ec_ms | 0.0  |
+| solution_ec_ms | 0.0  |
 | reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer -- kein Duenger) |
@@ -162,17 +163,18 @@ Rosenkohl ist ein Starkzehrer mit moderater EC-Toleranz (bis 2.0 mS/cm in Erdkul
 | NPK-Verhaeltnis | (3, 1, 3) | `phase_entries.npk_ratio` |
 | Calcium (ppm) | null | `phase_entries.calcium_ppm` |
 | Magnesium (ppm) | null | `phase_entries.magnesium_ppm` |
-| Hinweise | Viertel-Dosis Terra Grow (1.5 ml/L). Pikieren in Einzeltoepfe (8--10 cm) nach 2. echtem Blattpaar (ca. Woche 4--5). Rosenkohl waechst langsamer als Tomaten -- laengere Saemlings-Phase. Power Roots foerdert fruehe Wurzelentwicklung. Temperatur 12--18 degC (kuehler als Tomate!). | `phase_entries.notes` |
+| Hinweise | Starterdosis Terra Grow (1.5 ml/L). Pikieren in Einzeltoepfe (8--10 cm) nach 2. echtem Blattpaar (ca. Woche 4--5). Rosenkohl waechst langsamer als Tomaten -- laengere Saemlings-Phase. Power Roots foerdert fruehe Wurzelentwicklung. Temperatur 12--18 degC (kuehler als Tomate!). | `phase_entries.notes` |
 | Giessplan-Override | Intervall 3 Tage | `phase_entries.watering_schedule_override` |
 
 **Delivery Channel: naehrloesung-wachstum**
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6  |
+| target_substrate_ec_ms | 0.6  |
+| solution_ec_ms | 0.53 |
 | reference_ec_ms | 0.6  |
 | target_ph | 6.5 |
-| Terra Grow ml/L | 1.5 (Viertel-Dosis) |
+| Terra Grow ml/L | 1.5 (Starterdosis) |
 | Power Roots ml/L | 1.0 |
 | Pure Zym ml/L | -- (noch nicht) |
 | Sugar Royal ml/L | -- (noch nicht) |
@@ -197,7 +199,8 @@ Rosenkohl ist ein Starkzehrer mit moderater EC-Toleranz (bis 2.0 mS/cm in Erdkul
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.5  |
+| target_substrate_ec_ms | 1.5  |
+| solution_ec_ms | 0.83 |
 | reference_ec_ms | 1.5  |
 | target_ph | 6.5 |
 | Terra Grow ml/L | 5.0 (volle Dosis) |
@@ -211,7 +214,8 @@ Rosenkohl ist ein Starkzehrer mit moderater EC-Toleranz (bis 2.0 mS/cm in Erdkul
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.0  |
+| target_substrate_ec_ms | 1.0  |
+| solution_ec_ms | 0.70 |
 | reference_ec_ms | 1.0  |
 | target_ph | 6.5 |
 | Terra Bloom ml/L | 3.0 (reduziert) |
@@ -238,7 +242,8 @@ Rosenkohl ist ein Starkzehrer mit moderater EC-Toleranz (bis 2.0 mS/cm in Erdkul
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.0  |
+| target_substrate_ec_ms | 1.0  |
+| solution_ec_ms | 0.70 |
 | reference_ec_ms | 1.0  |
 | target_ph | 6.5 |
 | Terra Bloom ml/L | 3.0 (reduziert) |
@@ -266,7 +271,8 @@ Rosenkohl ist ein Starkzehrer mit moderater EC-Toleranz (bis 2.0 mS/cm in Erdkul
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0  |
+| target_substrate_ec_ms | 0.0  |
+| solution_ec_ms | 0.0  |
 | reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | Pure Zym ml/L | 1.0 |
@@ -305,7 +311,7 @@ Pure Zym:    |---   |---   |-->==|===  |===  |===  |===  |===  |===  |===|
 Sugar Royal: |---   |---   |-->==|===  |===  |===  |==→--|---  |---  |---|
 
 Legende: --- = nicht verwendet, ### = reduzierte Dosis, === = volle Dosis
-         ##- = Viertel-Dosis, --> = Start, ->  = Uebergang
+         ##- = Starterdosis, --> = Start, ->  = Uebergang
          NS = N-Stopp (Umstellung auf Terra Bloom)
 ```
 
@@ -476,7 +482,8 @@ Rosenkohl ist **sehr winterhart** (bis -15 degC):
       "application_method": "drench",
       "enabled": true,
       "notes": "Nur Wasser. Feine Spr\u00fchung, Substrat gleichm\u00e4\u00dfig feucht halten. Dunkelkeimer \u2013 abdecken!",
-      "target_ec_ms": 0.0,
+      "target_substrate_ec_ms": 0.0,
+      "solution_ec_ms": 0.0,
       "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
@@ -499,7 +506,7 @@ Rosenkohl ist **sehr winterhart** (bis -15 degC):
   "npk_ratio": [3.0, 1.0, 3.0],
   "calcium_ppm": null,
   "magnesium_ppm": null,
-  "notes": "Viertel-Dosis Terra Grow (1.5 ml/L). Pikieren nach 2. Blattpaar. K\u00fchlere Temperaturen (12\u201318\u00b0C). Power Roots f\u00f6rdert Wurzelentwicklung.",
+  "notes": "Starterdosis Terra Grow (1.5 ml/L). Pikieren nach 2. Blattpaar. K\u00fchlere Temperaturen (12\u201318\u00b0C). Power Roots f\u00f6rdert Wurzelentwicklung.",
   "watering_schedule_override": {
     "schedule_mode": "interval",
     "interval_days": 3,
@@ -514,8 +521,9 @@ Rosenkohl ist **sehr winterhart** (bis -15 degC):
       "label": "Wachstumsd\u00fcngung S\u00e4mling (Gie\u00dfkanne)",
       "application_method": "drench",
       "enabled": true,
-      "notes": "Terra Grow Viertel-Dosis + Power Roots",
-      "target_ec_ms": 0.6,
+      "notes": "Terra Grow Starterdosis + Power Roots",
+      "target_substrate_ec_ms": 0.6,
+      "solution_ec_ms": 0.53,
       "reference_ec_ms": 0.6,
       "target_ph": 6.5,
       "fertilizer_dosages": [
@@ -549,7 +557,8 @@ Rosenkohl ist **sehr winterhart** (bis -15 degC):
       "application_method": "drench",
       "enabled": true,
       "notes": "Terra Grow + alle Additive (W9\u2013W19). Ab W20 N-Stopp: Wechsel auf naehrloesung-reife!",
-      "target_ec_ms": 1.5,
+      "target_substrate_ec_ms": 1.5,
+      "solution_ec_ms": 0.83,
       "reference_ec_ms": 1.5,
       "target_ph": 6.5,
       "fertilizer_dosages": [
@@ -566,7 +575,8 @@ Rosenkohl ist **sehr winterhart** (bis -15 degC):
       "application_method": "drench",
       "enabled": true,
       "notes": "Ab W20 (N-Stopp): nur Terra Bloom + Pure Zym. Kein Terra Grow, kein Sugar Royal!",
-      "target_ec_ms": 1.0,
+      "target_substrate_ec_ms": 1.0,
+      "solution_ec_ms": 0.70,
       "reference_ec_ms": 1.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [
@@ -600,7 +610,8 @@ Rosenkohl ist **sehr winterhart** (bis -15 degC):
       "application_method": "drench",
       "enabled": true,
       "notes": "Nur Terra Bloom + Pure Zym. Kein N-betontes Produkt.",
-      "target_ec_ms": 1.0,
+      "target_substrate_ec_ms": 1.0,
+      "solution_ec_ms": 0.70,
       "reference_ec_ms": 1.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [
@@ -642,7 +653,8 @@ Rosenkohl ist **sehr winterhart** (bis -15 degC):
       "application_method": "drench",
       "enabled": true,
       "notes": "Nur Wasser + Pure Zym. Kein D\u00fcnger.",
-      "target_ec_ms": 0.0,
+      "target_substrate_ec_ms": 0.0,
+      "solution_ec_ms": 0.0,
       "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [

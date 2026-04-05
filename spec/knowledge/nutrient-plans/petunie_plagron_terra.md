@@ -188,7 +188,7 @@ Petunien sind laut Steckbrief Starkzehrer (heavy_feeder) mit EC-Optimum **1.2--2
 | week_start | 9 | `phase_entries.week_start` |
 | week_end | 14 | `phase_entries.week_end` |
 | is_recurring | false | `phase_entries.is_recurring` |
-| NPK-Verhaeltnis | (2, 1, 2) | `phase_entries.npk_ratio` |
+| NPK-Verhaeltnis | (3, 1, 3) | `phase_entries.npk_ratio` |
 | Calcium (ppm) | 100 | `phase_entries.calcium_ppm` |
 | Magnesium (ppm) | 40 | `phase_entries.magnesium_ppm` |
 | Hinweise | Volle Dosis Terra Grow (5 ml/L) + Pure Zym + Sugar Royal. Aktives Laub- und Triebwachstum. Ca-Betonung fuer Zellwandaufbau. Umtopfen in Endgefaesse (Balkonkasten, Ampel, Kuebel) mit guter Drainage (10--20% Perlite). Langzeitduenger optional beim Umtopfen untermischen. Ab Woche 11 (Mitte April): Abhaertung draussen beginnen -- Petunien sind NICHT frosthart, daher erst nach Eisheiligen (ca. 15. Mai) endgueltig auspflanzen. Pflanzabstand 25--40 cm. Alle 7--14 Tage duengen. | `phase_entries.notes` |
@@ -488,7 +488,7 @@ Fuer vegetativ vermehrte Sorten (Surfinia, Supertunia, Wave):
   "week_start": 9,
   "week_end": 14,
   "is_recurring": false,
-  "npk_ratio": [2.0, 1.0, 2.0],
+  "npk_ratio": [3.0, 1.0, 3.0],
   "calcium_ppm": 100,
   "magnesium_ppm": 40,
   "notes": "Volle Dosis Terra Grow (5 ml/L) + Pure Zym + Sugar Royal. Umtopfen in Endgef\u00e4\u00dfe. Abh\u00e4rtung ab Mitte April, Auspflanzen nach Eisheiligen (Mitte Mai). Pflanzabstand 25\u201340 cm. Alle 7\u201314 Tage d\u00fcngen.",

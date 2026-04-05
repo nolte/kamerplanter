@@ -47,7 +47,7 @@ Paprika ist eine einjaehrige Nutzpflanze in Mitteleuropa (Capsicum annuum). Typi
 | Paprika-Phase | PhaseName (Enum) | Wochen | Kalender (ca.) | Begruendung | is_recurring |
 |---------------|-----------------|--------|----------------|-------------|-------------|
 | Keimung | GERMINATION | 1--3 | Mitte Februar--Anfang Maerz | Indoor-Aussaat auf Heizmatte, 25--28 degC Substrattemperatur. Kein Duenger. Keimdauer 10--21 Tage (laenger als Tomate!). | false |
-| Saemling | SEEDLING | 4--9 | Maerz--Mitte April | Jungpflanze mit Keimblaettern + ersten echten Blaettern. Viertel-Dosis Terra Grow. Pikieren nach 2. Blattpaar. Paprika waechst in der Jugendphase langsam! | false |
+| Saemling | SEEDLING | 4--9 | Maerz--Mitte April | Jungpflanze mit Keimblaettern + ersten echten Blaettern. Starterdosis Terra Grow. Pikieren nach 2. Blattpaar. Paprika waechst in der Jugendphase langsam! | false |
 | Vegetatives Wachstum | VEGETATIVE | 10--16 | Mitte April--Ende Mai | Volle Duengung Terra Grow. Abhaertung + Auspflanzen nach Eisheiligen (ca. 15. Mai). Stuetzstab setzen. | false |
 | Bluete | FLOWERING | 17--22 | Juni--Mitte Juli | Umstellung auf Terra Bloom. Erste Bluetenknospen (Koenigsbluete). PK 13-14 einmalig in Woche 19--20 (peak Fruchtansatz). Koenigsbluete bei Gemuese-Paprika ausbrechen. | false |
 | Fruchtreife + Ernte | HARVEST | 23--28 | Mitte Juli--Mitte September | Kontinuierliche Ernte. Terra Bloom reduziert. Regelmaessiges Ernten foerdert Neuansatz. Farbausreifung dauert 2--3 Wochen extra. | false |
@@ -145,7 +145,8 @@ Paprika sind Starkzehrer mit hoher EC-Toleranz (bis 2.5 mS/cm in Hydrokultur). *
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0  |
+| target_substrate_ec_ms | 0.0  |
+| solution_ec_ms | 0.0  |
 | reference_ec_ms | 0.0  |
 | target_ph | 6.2 |
 | fertilizer_dosages | [] (leer -- kein Duenger) |
@@ -163,17 +164,18 @@ Paprika sind Starkzehrer mit hoher EC-Toleranz (bis 2.5 mS/cm in Hydrokultur). *
 | NPK-Verhaeltnis | (3, 1, 3) | `phase_entries.npk_ratio` |
 | Calcium (ppm) | null | `phase_entries.calcium_ppm` |
 | Magnesium (ppm) | null | `phase_entries.magnesium_ppm` |
-| Hinweise | Viertel-Dosis Terra Grow (1.5 ml/L). Pikieren in Einzeltoepfe (9 cm) nach 2. echtem Blattpaar (ca. Woche 5--6). Paprika waechst in der Jugendphase sehr langsam -- Geduld! Temperaturen unter 15 degC fuehren zu Wachstumsstopp und violetter Blattverfaerbung (Phosphormangel-Symptom). Kuehlere Nachttemperaturen (16--18 degC) foerdern stockigen Wuchs. Power Roots foerdert fruehe Wurzelentwicklung. | `phase_entries.notes` |
+| Hinweise | Starterdosis Terra Grow (1.5 ml/L). Pikieren in Einzeltoepfe (9 cm) nach 2. echtem Blattpaar (ca. Woche 5--6). Paprika waechst in der Jugendphase sehr langsam -- Geduld! Temperaturen unter 15 degC fuehren zu Wachstumsstopp und violetter Blattverfaerbung (Phosphormangel-Symptom). Kuehlere Nachttemperaturen (16--18 degC) foerdern stockigen Wuchs. Power Roots foerdert fruehe Wurzelentwicklung. | `phase_entries.notes` |
 | Giessplan-Override | Intervall 2 Tage | `phase_entries.watering_schedule_override` |
 
 **Delivery Channel: naehrloesung-wachstum**
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6  |
+| target_substrate_ec_ms | 0.6  |
+| solution_ec_ms | 0.53 |
 | reference_ec_ms | 0.6  |
 | target_ph | 6.0 |
-| Terra Grow ml/L | 1.5 (Viertel-Dosis) |
+| Terra Grow ml/L | 1.5 (Starterdosis) |
 | Power Roots ml/L | 1.0 |
 | Pure Zym ml/L | -- (noch nicht) |
 | Sugar Royal ml/L | -- (noch nicht) |
@@ -197,7 +199,8 @@ Paprika sind Starkzehrer mit hoher EC-Toleranz (bis 2.5 mS/cm in Hydrokultur). *
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.5  |
+| target_substrate_ec_ms | 1.5  |
+| solution_ec_ms | 0.83 |
 | reference_ec_ms | 1.5  |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 5.0 (volle Dosis) |
@@ -226,7 +229,8 @@ Paprika sind Starkzehrer mit hoher EC-Toleranz (bis 2.5 mS/cm in Hydrokultur). *
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.8  |
+| target_substrate_ec_ms | 1.8  |
+| solution_ec_ms | 0.92 |
 | reference_ec_ms | 1.8  |
 | target_ph | 6.0 |
 | Terra Bloom ml/L | 5.0 |
@@ -237,7 +241,7 @@ Paprika sind Starkzehrer mit hoher EC-Toleranz (bis 2.5 mS/cm in Hydrokultur). *
 **EC-Budget (ohne PK):** 0.50 (TB 5.0ml) + 0.00 (PZ) + 0.02 (SR) + ~0.4 (Wasser) = **~0.92 mS/cm** ✓
 **EC-Budget (mit PK, W19--20):** 0.50 (TB 5.0ml) + 0.00 (PZ) + 0.02 (SR) + 0.125 (PK 0.5ml) + ~0.4 (Wasser) = **~1.05 mS/cm** ✓
 
-**Hinweis PK 13-14:** Paprika profitiert wie Tomate vom P/K-Schub fuer den Fruchtansatz. Niedrige Dosis (0.5 ml/L), kurze Anwendung (1--2 Wochen). Bei EC-Anstieg auf >1.5 mS/cm in der Giessloessung PK weglassen.
+**Hinweis PK 13-14:** Paprika profitiert wie Tomate vom P/K-Schub fuer den Fruchtansatz. Niedrige Dosis (0.5 ml/L), kurze Anwendung (1--2 Wochen). Bei EC-Anstieg auf >1.5 mS/cm in der Giessloessung PK weglassen. **pH-Hinweis:** pH nicht unter 5.8 fallen lassen -- Calcium-Aufnahme und BER-Praevention (Bluetenendfaeule).
 
 ### 4.5 HARVEST -- Fruchtreife + Ernte (Woche 23--28)
 
@@ -257,7 +261,8 @@ Paprika sind Starkzehrer mit hoher EC-Toleranz (bis 2.5 mS/cm in Hydrokultur). *
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.5  |
+| target_substrate_ec_ms | 1.5  |
+| solution_ec_ms | 0.80 |
 | reference_ec_ms | 1.5  |
 | target_ph | 6.0 |
 | Terra Bloom ml/L | 4.0 (reduziert) |
@@ -283,7 +288,8 @@ Paprika sind Starkzehrer mit hoher EC-Toleranz (bis 2.5 mS/cm in Hydrokultur). *
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0  |
+| target_substrate_ec_ms | 0.0  |
+| solution_ec_ms | 0.0  |
 | reference_ec_ms | 0.0  |
 | target_ph | 6.0 |
 | Pure Zym ml/L | 1.0 |
@@ -322,7 +328,7 @@ Sugar Royal: |---   |---  |---  |-->==|===  |===  |==→--|---  |
 PK 13-14:    |---   |---  |---  |---  |---  |=*=  |---  |---  |
 
 Legende: --- = nicht verwendet, ### = reduzierte Dosis, === = volle Dosis
-         ##- = Viertel-Dosis, =*= = nur 1--2 Wochen in diesem Monat
+         ##- = Starterdosis, =*= = nur 1--2 Wochen in diesem Monat
          --> = Start, ->  = Uebergang
 ```
 
@@ -468,7 +474,8 @@ Paprika wird NICHT wie Tomate ausgegeizt! Nur die untersten Seitentriebe bis zur
       "application_method": "drench",
       "enabled": true,
       "notes": "Nur Wasser. Feine Spr\u00fchung, Substrat gleichm\u00e4\u00dfig feucht halten.",
-      "target_ec_ms": 0.0,
+      "target_substrate_ec_ms": 0.0,
+      "solution_ec_ms": 0.0,
       "reference_ec_ms": 0.0,
       "target_ph": 6.2,
       "fertilizer_dosages": [],
@@ -491,7 +498,7 @@ Paprika wird NICHT wie Tomate ausgegeizt! Nur die untersten Seitentriebe bis zur
   "npk_ratio": [3.0, 1.0, 3.0],
   "calcium_ppm": null,
   "magnesium_ppm": null,
-  "notes": "Viertel-Dosis Terra Grow (1.5 ml/L). Pikieren nach 2. Blattpaar. Paprika w\u00e4chst langsam \u2013 Geduld! K\u00fchlere Nachttemperaturen (16\u201318\u00b0C) f\u00f6rdern st\u00f6ckigen Wuchs. Power Roots f\u00f6rdert Wurzelentwicklung.",
+  "notes": "Starterdosis Terra Grow (1.5 ml/L). Pikieren nach 2. Blattpaar. Paprika w\u00e4chst langsam \u2013 Geduld! K\u00fchlere Nachttemperaturen (16\u201318\u00b0C) f\u00f6rdern st\u00f6ckigen Wuchs. Power Roots f\u00f6rdert Wurzelentwicklung.",
   "watering_schedule_override": {
     "schedule_mode": "interval",
     "interval_days": 2,
@@ -506,8 +513,9 @@ Paprika wird NICHT wie Tomate ausgegeizt! Nur die untersten Seitentriebe bis zur
       "label": "Wachstumsd\u00fcngung S\u00e4mling (Gie\u00dfkanne)",
       "application_method": "drench",
       "enabled": true,
-      "notes": "Terra Grow Viertel-Dosis + Power Roots",
-      "target_ec_ms": 0.6,
+      "notes": "Terra Grow Starterdosis + Power Roots",
+      "target_substrate_ec_ms": 0.6,
+      "solution_ec_ms": 0.53,
       "reference_ec_ms": 0.6,
       "target_ph": 6.0,
       "fertilizer_dosages": [
@@ -541,7 +549,8 @@ Paprika wird NICHT wie Tomate ausgegeizt! Nur die untersten Seitentriebe bis zur
       "application_method": "drench",
       "enabled": true,
       "notes": "Terra Grow + alle Additive. Reihenfolge: Terra Grow \u2192 Power Roots \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen",
-      "target_ec_ms": 1.5,
+      "target_substrate_ec_ms": 1.5,
+      "solution_ec_ms": 0.83,
       "reference_ec_ms": 1.5,
       "target_ph": 6.0,
       "fertilizer_dosages": [
@@ -577,7 +586,8 @@ Paprika wird NICHT wie Tomate ausgegeizt! Nur die untersten Seitentriebe bis zur
       "application_method": "drench",
       "enabled": true,
       "notes": "Terra Bloom + Additive + PK 13-14 (nur W19\u201320!). Reihenfolge: Terra Bloom \u2192 PK 13-14 \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen",
-      "target_ec_ms": 1.8,
+      "target_substrate_ec_ms": 1.8,
+      "solution_ec_ms": 0.92,
       "reference_ec_ms": 1.8,
       "target_ph": 6.0,
       "fertilizer_dosages": [
@@ -613,7 +623,8 @@ Paprika wird NICHT wie Tomate ausgegeizt! Nur die untersten Seitentriebe bis zur
       "application_method": "drench",
       "enabled": true,
       "notes": "Reduzierter Terra Bloom. Kein Sugar Royal, kein PK 13-14.",
-      "target_ec_ms": 1.5,
+      "target_substrate_ec_ms": 1.5,
+      "solution_ec_ms": 0.80,
       "reference_ec_ms": 1.5,
       "target_ph": 6.0,
       "fertilizer_dosages": [
@@ -655,7 +666,8 @@ Paprika wird NICHT wie Tomate ausgegeizt! Nur die untersten Seitentriebe bis zur
       "application_method": "drench",
       "enabled": true,
       "notes": "Nur Wasser + Pure Zym. Kein D\u00fcnger.",
-      "target_ec_ms": 0.0,
+      "target_substrate_ec_ms": 0.0,
+      "solution_ec_ms": 0.0,
       "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [

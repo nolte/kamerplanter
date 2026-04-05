@@ -47,7 +47,7 @@ Porree ist eine zweijaehrige Pflanze, die als Einjaehrige kultiviert wird (Alliu
 | Lauch-Phase | PhaseName (Enum) | Wochen | Kalender (ca.) | Begruendung | is_recurring |
 |-------------|-----------------|--------|----------------|-------------|-------------|
 | Keimung | GERMINATION | 1--3 | Februar | Indoor-Aussaat in Topfplatten, 15--20 degC. Dunkelkeimer, 1--2 cm tief. Kein Duenger. Keimung nach 10--20 Tagen. | false |
-| Saemling (Voranzucht) | SEEDLING | 4--11 | Maerz--April | Lange Saemlings-Phase (8 Wochen). Grasartige Blaetter, langsames Wachstum. Viertel-Dosis Terra Grow. Abhaertung ab April. | false |
+| Saemling (Voranzucht) | SEEDLING | 4--11 | Maerz--April | Lange Saemlings-Phase (8 Wochen). Grasartige Blaetter, langsames Wachstum. Starterdosis Terra Grow. Abhaertung ab April. | false |
 | Vegetatives Wachstum | VEGETATIVE | 12--26 | Mai--August | Volle Duengung Terra Grow, dann Terra Bloom. Extrem lange Phase (15 Wochen). Schaftwachstum, Anhaeuefeln in 3 Etappen. Auspflanzen Mai/Juni in tiefe Furchen. Ab August K-betonte Duengung (Terra Bloom) fuer Winterhaerte. | false |
 | Ernte (Winterernte) | HARVEST | 27--34 | September--Oktober (Ernte bis Maerz) | Keine Duengung mehr. Ernte nach Bedarf, Winterlauch steht im Beet. Frostschutz (Vlies/Laub) auflegen. Vor Schossen im Fruehjahr alle Pflanzen ernten. | false |
 
@@ -146,7 +146,8 @@ Lauch ist ein Starkzehrer mit hohem N- und K-Bedarf. In Erdkultur sind die benoe
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0  |
+| target_substrate_ec_ms | 0.0  |
+| solution_ec_ms | 0.0  |
 | reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer -- kein Duenger) |
@@ -164,17 +165,18 @@ Lauch ist ein Starkzehrer mit hohem N- und K-Bedarf. In Erdkultur sind die benoe
 | NPK-Verhaeltnis | (3, 1, 3) | `phase_entries.npk_ratio` |
 | Calcium (ppm) | null | `phase_entries.calcium_ppm` |
 | Magnesium (ppm) | null | `phase_entries.magnesium_ppm` |
-| Hinweise | Viertel-Dosis Terra Grow (1.5 ml/L), alle 2 Wochen. Lange Voranzuchtsphase (8 Wochen). Saemlinge wachsen langsam und sind duenn/grasartig. Power Roots foerdert Wurzelentwicklung. Noch kein Pure Zym oder Sugar Royal noetig. Abhaertung ab Woche 9--10 (April). Blatt- und Wurzelspitzen bei Pflanzung auf 2/3 kuerzen (foerdert Anwachsen). Pflanzung wenn Saemlinge bleistiftdick sind (ca. 6--8 mm, 15--20 cm hoch). | `phase_entries.notes` |
-| Giessplan-Override | Intervall 2 Tage | `phase_entries.watering_schedule_override` |
+| Hinweise | Starterdosis Terra Grow (1.5 ml/L), alle 2 Wochen. Lange Voranzuchtsphase (8 Wochen). Saemlinge wachsen langsam und sind duenn/grasartig. Power Roots foerdert Wurzelentwicklung. Noch kein Pure Zym oder Sugar Royal noetig. Abhaertung ab Woche 9--10 (April). Blatt- und Wurzelspitzen bei Pflanzung auf 2/3 kuerzen (foerdert Anwachsen). Pflanzung wenn Saemlinge bleistiftdick sind (ca. 6--8 mm, 15--20 cm hoch). | `phase_entries.notes` |
+| Giessplan-Override | Intervall 14 Tage (Beduengung alle 2 Wochen, nicht bei jedem Giessen) | `phase_entries.watering_schedule_override` |
 
 **Delivery Channel: naehrloesung-wachstum**
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6  |
+| target_substrate_ec_ms | 0.6  |
+| solution_ec_ms | 0.53 |
 | reference_ec_ms | 0.6  |
 | target_ph | 6.5 |
-| Terra Grow ml/L | 1.5 (Viertel-Dosis) |
+| Terra Grow ml/L | 1.5 (Starterdosis) |
 | Power Roots ml/L | 1.0 |
 | Pure Zym ml/L | -- (noch nicht) |
 | Sugar Royal ml/L | -- (noch nicht) |
@@ -199,11 +201,12 @@ Lauch ist ein Starkzehrer mit hohem N- und K-Bedarf. In Erdkultur sind die benoe
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.5  |
+| target_substrate_ec_ms | 1.5  |
+| solution_ec_ms | 0.83 |
 | reference_ec_ms | 1.5  |
 | target_ph | 6.5 |
 | Terra Grow ml/L | 5.0 (volle Dosis) |
-| Power Roots ml/L | 1.0 (nur bis Woche 14) |
+| Power Roots ml/L | 1.0 (nur bis Woche 14; nach vollstaendiger Durchwurzelung nicht mehr noetig, aber nicht schaedlich) |
 | Pure Zym ml/L | 1.0 |
 | Sugar Royal ml/L | 1.0 (optional) |
 
@@ -213,7 +216,8 @@ Lauch ist ein Starkzehrer mit hohem N- und K-Bedarf. In Erdkultur sind die benoe
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.2  |
+| target_substrate_ec_ms | 1.2  |
+| solution_ec_ms | 0.80 |
 | reference_ec_ms | 1.2  |
 | target_ph | 6.5 |
 | Terra Bloom ml/L | 4.0 |
@@ -242,7 +246,8 @@ Lauch ist ein Starkzehrer mit hohem N- und K-Bedarf. In Erdkultur sind die benoe
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0  |
+| target_substrate_ec_ms | 0.0  |
+| solution_ec_ms | 0.0  |
 | reference_ec_ms | 0.0  |
 | target_ph | 6.5 |
 | fertilizer_dosages | [] (leer -- kein Duenger) |
@@ -278,7 +283,7 @@ Pure Zym:    |---  |---  |---  |-->==|===  |===  |===  |==→--|---  | ---   |
 Sugar Royal: |---  |---  |---  |---  |-->==|===  |==→--|---  |---  | ---   |
 
 Legende: --- = nicht verwendet, ### = reduzierte Dosis, === = volle Dosis
-         ##- = Viertel-Dosis, --> = Start, ->  = Uebergang
+         ##- = Starterdosis, --> = Start, ->  = Uebergang
          VEG-K = Vegetativ mit K-betonter Duengung (Terra Bloom statt Terra Grow)
 ```
 
@@ -432,7 +437,8 @@ Schossen (Bluete im 1. Jahr) wird ausgeloest durch:
       "application_method": "drench",
       "enabled": true,
       "notes": "Nur Wasser. Feine Spr\u00fchung, Substrat gleichm\u00e4\u00dfig feucht halten.",
-      "target_ec_ms": 0.0,
+      "target_substrate_ec_ms": 0.0,
+      "solution_ec_ms": 0.0,
       "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],
@@ -455,7 +461,7 @@ Schossen (Bluete im 1. Jahr) wird ausgeloest durch:
   "npk_ratio": [3.0, 1.0, 3.0],
   "calcium_ppm": null,
   "magnesium_ppm": null,
-  "notes": "Viertel-Dosis Terra Grow (1.5 ml/L), alle 2 Wochen. Lange Voranzucht (8 Wochen). Power Roots f\u00f6rdert Wurzelentwicklung. Abh\u00e4rtung ab April. Pflanzung wenn S\u00e4mling bleistiftdick (6\u20138 mm, 15\u201320 cm).",
+  "notes": "Starterdosis Terra Grow (1.5 ml/L), alle 2 Wochen. Lange Voranzucht (8 Wochen). Power Roots f\u00f6rdert Wurzelentwicklung. Abh\u00e4rtung ab April. Pflanzung wenn S\u00e4mling bleistiftdick (6\u20138 mm, 15\u201320 cm).",
   "watering_schedule_override": {
     "schedule_mode": "interval",
     "interval_days": 14,
@@ -470,8 +476,9 @@ Schossen (Bluete im 1. Jahr) wird ausgeloest durch:
       "label": "Wachstumsd\u00fcngung S\u00e4mling (Gie\u00dfkanne)",
       "application_method": "drench",
       "enabled": true,
-      "notes": "Terra Grow Viertel-Dosis + Power Roots, alle 2 Wochen",
-      "target_ec_ms": 0.6,
+      "notes": "Terra Grow Starterdosis + Power Roots, alle 2 Wochen",
+      "target_substrate_ec_ms": 0.6,
+      "solution_ec_ms": 0.53,
       "reference_ec_ms": 0.6,
       "target_ph": 6.5,
       "fertilizer_dosages": [
@@ -505,12 +512,13 @@ Schossen (Bluete im 1. Jahr) wird ausgeloest durch:
       "application_method": "drench",
       "enabled": true,
       "notes": "Terra Grow + Additive. Mai\u2013Juli. Reihenfolge: Terra Grow \u2192 Power Roots \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen",
-      "target_ec_ms": 1.5,
+      "target_substrate_ec_ms": 1.5,
+      "solution_ec_ms": 0.83,
       "reference_ec_ms": 1.5,
       "target_ph": 6.5,
       "fertilizer_dosages": [
         {"fertilizer_key": "<terra_grow_key>", "ml_per_liter": 5.0, "optional": false},
-        {"fertilizer_key": "<power_roots_key>", "ml_per_liter": 1.0, "optional": true, "_comment": "Nur bis Woche 14"},
+        {"fertilizer_key": "<power_roots_key>", "ml_per_liter": 1.0, "optional": true, "_comment": "Nur bis Woche 14, nach vollstaendiger Durchwurzelung nicht mehr noetig"},
         {"fertilizer_key": "<pure_zym_key>", "ml_per_liter": 1.0, "optional": false},
         {"fertilizer_key": "<sugar_royal_key>", "ml_per_liter": 1.0, "optional": true}
       ],
@@ -522,7 +530,8 @@ Schossen (Bluete im 1. Jahr) wird ausgeloest durch:
       "application_method": "drench",
       "enabled": true,
       "notes": "Terra Bloom + Pure Zym. Aug\u2013Sep. Kein Sugar Royal (N-Stopp!). Reihenfolge: Terra Bloom \u2192 Pure Zym \u2192 pH pr\u00fcfen",
-      "target_ec_ms": 1.2,
+      "target_substrate_ec_ms": 1.2,
+      "solution_ec_ms": 0.80,
       "reference_ec_ms": 1.2,
       "target_ph": 6.5,
       "fertilizer_dosages": [
@@ -564,7 +573,8 @@ Schossen (Bluete im 1. Jahr) wird ausgeloest durch:
       "application_method": "drench",
       "enabled": true,
       "notes": "Kein D\u00fcnger. Nat\u00fcrlicher Niederschlag gen\u00fcgt. Bei Trockenheit im Herbst gelegentlich gie\u00dfen.",
-      "target_ec_ms": 0.0,
+      "target_substrate_ec_ms": 0.0,
+      "solution_ec_ms": 0.0,
       "reference_ec_ms": 0.0,
       "target_ph": 6.5,
       "fertilizer_dosages": [],

@@ -241,6 +241,12 @@ Bei 6--8 Sukzessionssaetzen pro Saison, je 1 Laufmeter, 0.2 L Giessloessung:
 - Gesteinsmehl auf Blaetter stauben (Fraesshemmung)
 - Neemoel 0.3--0.5% als Blattspruehung
 
+### Hohlknolle / Bor-Mangel
+
+- Neben Trockenstress kann **Bor-Mangel** hohle Knollen mit braunem Kerngewebe verursachen
+- Dieser Plan setzt keine bor-haltigen Produkte ein (Terra Bloom mit 0.48% B ist nur optional)
+- Auf bor-armen Boeden (Sandboeden, stark gekalkter Boden) vorbeugend **1 g Borax pro 10 m2** einarbeiten
+
 ### Ideale Nachbarschaft
 
 - **Mit Moehren:** Radieschen als Markierungssaat (schnellkeimend, markiert langsam keimende Moehrenreihen)
