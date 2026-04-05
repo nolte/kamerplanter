@@ -292,8 +292,8 @@ topics:
     de: [dunkel lagern, Algen vermeiden]
 
   ja_unbedingt:
-    pattern: '(?i)ja[,.]?\s*unbedingt|Pflicht|\bmuss\b|zwingend|essentiell|absolut.*notwendig|unverzichtbar|unbedingt.*noetig|auf.*jeden.*Fall|dringend.*empfohl|grundsaetzlich.*ja|wichtig.*dass|Abfluss.*Loch|Drainage.*L[oö]ch|Sofort.*Topf.*Drainage|Topf.*mit.*Drainage'
-    de: [ja unbedingt, Pflicht, muss, zwingend, essentiell, absolut notwendig, unverzichtbar, auf jeden Fall, dringend empfohlen, grundsaetzlich ja, Drainage-Loecher]
+    pattern: '(?i)ja[,.]?\s*unbedingt|Pflicht|\bmuss\b|zwingend|essentiell|absolut.*notwendig|unverzichtbar|unbedingt.*noetig|auf.*jeden.*Fall|dringend.*empfohl|grundsaetzlich.*ja|wichtig.*dass|definitiv|brauchst.*definitiv|Abfluss.*Loch|Drainage.*L[oö]ch|Sofort.*Topf.*Drainage|Topf.*mit.*Drainage'
+    de: [ja unbedingt, Pflicht, muss, zwingend, essentiell, absolut notwendig, unverzichtbar, auf jeden Fall, dringend empfohlen, grundsaetzlich ja, definitiv, Drainage-Loecher]
 
   drainage:
     pattern: '(?i)Drainage|Abfluss|Ablauf.*Loch|Drainage.*Loch|Abzugsloch|Loch.*Boden|Loch.*Topf|Wasser.*ablauf|Wasser.*abfliess'
@@ -372,8 +372,8 @@ topics:
     de: [Abluft erhoehen, Abluft auf Maximum]
 
   licht_dimmen:
-    pattern: '(?i)Licht.*dimm|Lampe.*dimm|PPFD.*reduzier|Abstand.*erhoeh'
-    de: [Licht dimmen, Lampe dimmen, Abstand erhoehen]
+    pattern: '(?i)Licht.*dimm|Lampe.*dimm|PPFD.*reduzier|Abstand.*erh[oö]h|Intensit[aä]t.*reduzier|Licht.*reduzier|Licht.*runter|Lampe.*h[oö]her|Lampe.*weiter.*weg|weniger.*Licht|Licht.*verringer'
+    de: [Licht dimmen, Lampe dimmen, Abstand erhoehen, Intensitaet reduzieren, weniger Licht]
 
   lichtphase_nachts:
     pattern: '(?i)Licht.*Nacht|Nacht.*Licht|Lampe.*nachts|Beleuchtung.*verleg'
@@ -388,12 +388,12 @@ topics:
     de: [600-1000 PPFD]
 
   dli:
-    pattern: '(?i)DLI|Daily.*Light|Tageslichtsumme|mol.*Tag'
-    de: [DLI, Daily Light Integral]
+    pattern: '(?i)DLI|Daily.*Light|Tageslichtsumme|mol.*Tag|mol\/m.*d|Lichtmenge.*Tag|Tages.*Licht.*Dosis|Licht.*Summe.*Tag|Beleuchtungsdauer.*PPFD|PPFD.*Stunden.*beruecksicht'
+    de: [DLI, Daily Light Integral, Tageslichtsumme, mol/m2/d, Lichtmenge pro Tag]
 
   lichtabstand:
-    pattern: '(?i)Abstand.*Lampe|Lampe.*Abstand|cm.*Abstand|Light.*distance'
-    de: [Lichtabstand, Abstand zur Lampe]
+    pattern: '(?i)Abstand.*Lampe|Lampe.*Abstand|cm.*Abstand|Light.*distance|30.*45.*cm|Lampe.*n[aä]her|Abstand.*LED|LED.*Abstand|Lichtabstand|Lampe.*H[oö]he'
+    de: [Lichtabstand, Abstand zur Lampe, 30-45 cm, Lampe naeher]
 
   vergeilen:
     pattern: '(?i)Vergeil|Etiolation|lang.*duenn|streckt.*Licht'
@@ -408,8 +408,8 @@ topics:
     de: [RH unter 55%, 55 Prozent, RH < 55%, Ziel RH 55%]
 
   vpd_12_16:
-    pattern: '(?i)VPD.*1[.,][2-6]|1[.,]2.*1[.,]6.*kPa'
-    de: [VPD 1.2-1.6]
+    pattern: '(?i)VPD.*1[.,][2-6]|1[.,]2.*1[.,]6.*kPa|VPD.*[uü]ber.*1[.,]2|VPD.*hoch.*halten|VPD.*Schimmel|VPD.*Ziel.*sp[aä]t'
+    de: [VPD 1.2-1.6, VPD hoch halten, VPD Schimmel-Praevention]
 
   kondenswasser:
     pattern: '(?i)Kondenswasser|Kondensation|Tau.*Blaett|Tropfen.*Blaett'
@@ -428,24 +428,24 @@ topics:
     de: [DIF reduzieren, 2-4 Grad DIF]
 
   humidity_dome:
-    pattern: '(?i)Humidity.*Dome|Abdeckung|Kuppel|Klarsichtfolie|Propagator'
-    de: [Humidity Dome, Abdeckung, Kuppel]
+    pattern: '(?i)Humidity.*Dome|Abdeckung|Kuppel|Klarsichtfolie|Propagator|Feuchtigkeitskuppel|Haube|Plastikt[uü]te|Mini.*Gew[aä]chshaus|Anzuchthaube|Dome.*[uü]ber|Folie.*[uü]ber.*S[aä]mling'
+    de: [Humidity Dome, Abdeckung, Kuppel, Feuchtigkeitskuppel, Haube, Anzuchthaube, Mini-Gewaechshaus]
 
   led_effizienter:
-    pattern: '(?i)LED.*effizient|LED.*sparsam|LED.*besser|µmol.*Joule'
-    de: [LED effizienter, LED sparsamer]
+    pattern: '(?i)LED.*effizien[tz]|LED.*sparsam|LED.*besser|µmol.*Joule|LED.*h[oö]here.*Effizien|LED.*Energiekosten.*spar|LED.*Strom.*spar|LED.*µmol'
+    de: [LED effizienter, LED sparsamer, LED hoehere Effizienz, LED Energiekosten sparen]
 
   led_weniger_waerme:
-    pattern: '(?i)LED.*weniger.*Waerme|LED.*kuehl|weniger.*Abwaerme|kein.*Infrarot'
-    de: [LED weniger Waerme, weniger Abwaerme]
+    pattern: '(?i)LED.*weniger.*W[aä]rme|LED.*k[uü]hl|weniger.*Abw[aä]rme|kein.*Infrarot|LED.*weniger.*Abw[aä]rme|LED.*geringe.*Abw[aä]rme'
+    de: [LED weniger Waerme, weniger Abwaerme, LED kuehler]
 
   led_empfohlen:
     pattern: '(?i)LED.*empfohl|LED.*Stand.*Technik|LED.*Neuanschaff'
     de: [LED empfohlen, Stand der Technik]
 
   hps_guenstiger_anschaffung:
-    pattern: '(?i)HPS.*guenstig|HPS.*billig|Natriumdampf.*preisw'
-    de: [HPS guenstiger, Natriumdampf preiswert]
+    pattern: '(?i)HPS.*g[uü]nstig|HPS.*billig|Natriumdampf.*preisw|HPS.*Anschaffung|HPS.*Kaufpreis|HPS.*preiswert|Natriumdampf.*g[uü]nstig|HPS.*niedrig.*Preis|g[uü]nstige.*Anschaffung.*HPS|bew[aä]hrt.*Technik.*g[uü]nstig|h[oö]her.*Kaufpreis.*LED|LED.*h[oö]her.*Kaufpreis|LED.*teurer.*Anschaffung|Anschaffung.*LED.*teurer'
+    de: [HPS guenstiger, Natriumdampf preiswert, HPS guenstige Anschaffung, LED hoeher im Kaufpreis]
 
   blatt_vpd:
     pattern: '(?i)Blatt[- ]?VPD|Leaf[- ]?VPD|Blattemperatur.*VPD'
@@ -936,16 +936,16 @@ topics:
     de: [abluft aus nachts]
 
   abluft_hoch:
-    pattern: '(?i)abluft.*hoch'
-    de: [abluft hoch]
+    pattern: '(?i)abluft.*hoh|abluft.*maximum|abluft.*max|abluft.*voll|Abluft.*hohe.*Stufe|maximaler.*Luftaustausch'
+    de: [abluft hoch, abluft maximum, hohe Stufe, maximaler Luftaustausch]
 
   abluft_maximum:
     pattern: '(?i)abluft.*maximum'
     de: [abluft maximum]
 
   abstand_erhoehen:
-    pattern: '(?i)abstand.*erhoehen'
-    de: [abstand erhoehen]
+    pattern: '(?i)abstand.*erh[oö]h|Lampe.*h[oö]her|Lampe.*weiter.*weg|Licht.*weiter.*weg|h[oö]her.*h[aä]ngen|Abstand.*vergr[oö]ss|mehr.*Abstand.*Lampe'
+    de: [abstand erhoehen, Lampe hoeher haengen, Lampe weiter weg, mehr Abstand zur Lampe]
 
   abstand_wichtig:
     pattern: '(?i)Abstand.*wichtig|Abstand.*Fenster|nicht.*direkt.*Sonne|Sonnenbrand.*vermeid|Abstand.*halten'
@@ -1048,8 +1048,8 @@ topics:
     de: [Bodenschaedlinge, bodenbuertige Schaedlinge, Nematoden]
 
   botrytis_risiko:
-    pattern: '(?i)Botrytis|Grauschimmel|Schimmel.*Risiko|Schimmel.*Gefahr|Faeulnis.*Risiko|Pilz.*Gefahr|Schimmel.*Bl[uü]te|Bl[uü]te.*Schimmel|Bud.*Rot|Bud.*rot'
-    de: [Botrytis, Grauschimmel, Schimmelrisiko, Faeulnisrisiko, Pilzgefahr, Bud Rot]
+    pattern: '(?i)Botrytis|Grauschimmel|Schimmel.*Risiko|Schimmel.*Gefahr|Faeulnis.*Risiko|Pilz.*Gefahr|Schimmel.*Bl[uü]te|Bl[uü]te.*Schimmel|Bud.*Rot|Bud.*rot|Schimmel.*sp[aä]t|Schimmel.*dicht.*Bud|Schimmel.*Pr[aä]vention|Schimmel.*verhindern|Schimmelbildung|F[aä]ulnis.*Bl[uü]te|Bl[uü]ten.*f[aä]ul'
+    de: [Botrytis, Grauschimmel, Schimmelrisiko, Faeulnisrisiko, Pilzgefahr, Bud Rot, Schimmelbildung, Schimmel-Praevention]
 
   calathea:
     pattern: '(?i)calathea'
@@ -1132,8 +1132,8 @@ topics:
     de: [entfernen, abschneiden, abzupfen, abtrennen]
 
   entfeuchter_aus:
-    pattern: '(?i)entfeuchter.*aus'
-    de: [entfeuchter aus]
+    pattern: '(?i)Entfeuchter\s+ausschalten|Entfeuchter\s+abstellen|Entfeuchter\s+abschalten|Entfeuchter\s+aus\b|Entfeuchter\s+weglassen|ohne\s+Entfeuchter|kein\s+Entfeuchter|Entfeuchter\s+unn[oö]tig'
+    de: [Entfeuchter ausschalten, Entfeuchter abstellen, kein Entfeuchter, ohne Entfeuchter, Entfeuchter unnoetig]
 
   entfeuchter_nacht:
     pattern: '(?i)Entfeuchter.*[Nn]acht|[Nn]acht.*Entfeuchter|nachts.*entfeucht'
@@ -1392,8 +1392,8 @@ topics:
     de: [Licht pruefen, hell genug]
 
   licht_zuerst:
-    pattern: '(?i)Licht.*zuerst|erst.*Licht.*optimier|ausreichend.*Licht|PPFD.*zuerst'
-    de: [Licht zuerst, ausreichend Licht]
+    pattern: '(?i)Licht.*zuerst|erst.*Licht.*optimier|ausreichend.*Licht|PPFD.*zuerst|Licht.*limitierend|Licht.*Voraussetzung|Lichtintensit[aä]t.*Voraussetzung|Licht.*>|Licht.*wichtig.*als.*CO2|bevor.*CO2.*Licht|ohne.*gen[uü]gend.*Licht|ohne.*ausreichend.*Licht|Licht.*Faktor|Priorit[aä]t.*Licht|Licht.*h[oö]chste.*Priorit[aä]t|Licht.*erste.*Priorit[aä]t'
+    de: [Licht zuerst, ausreichend Licht, Licht ist limitierend, Licht als Voraussetzung, Prioritaet Licht, Licht hoechste Prioritaet]
 
   luft_vpd_nehmen:
     pattern: '(?i)luft.*vpd.*nehmen'
@@ -1652,8 +1652,8 @@ topics:
     de: [ppfd messen]
 
   ppfd_pruefen:
-    pattern: '(?i)PPFD.*pruef|PPFD.*mess|Licht.*mess|PAR.*mess'
-    de: [PPFD pruefen, PPFD messen]
+    pattern: '(?i)PPFD.*pr[uü]ef|PPFD.*mess|Licht.*mess|PAR.*mess|PPFD.*Wert|PPFD.*[uü]ber|PPFD.*liegen|PPFD.*erreic|PPFD.*sicherstell|PPFD.*mindestens'
+    de: [PPFD pruefen, PPFD messen, PPFD-Wert, PPFD sicherstellen]
 
   problem:
     pattern: '(?i)problem'
@@ -1720,8 +1720,8 @@ topics:
     de: [schimmel]
 
   schimmel_vorbeugung:
-    pattern: '(?i)Schimmel.*vorbeug|Schimmel.*verhindern|Schimmel.*vermeid|Botrytis.*vorbeug'
-    de: [Schimmel vorbeugen]
+    pattern: '(?i)Schimmel.*vorbeug|Schimmel.*verhindern|Schimmel.*vermeid|Botrytis.*vorbeug|Schimmel.*Pr[aä]vention|Feuchtigkeit.*Nester|stagnierende.*Luft.*Schimmel|Luft.*Schimmel|Schimmelbildung.*verhindern|Schimmel.*reduzier|Pilzbefall.*vermeid'
+    de: [Schimmel vorbeugen, Schimmel-Praevention, Schimmelbildung verhindern, Pilzbefall vermeiden]
 
   schnell_trocknen:
     pattern: '(?i)schnell.*trocknen'
@@ -1768,8 +1768,8 @@ topics:
     de: [Spinosad]
 
   stengel_staerkung:
-    pattern: '(?i)Stengel.*staerk|Stamm.*staerk|kraeftig.*Stamm|Pflanze.*kraeftig'
-    de: [Stengel staerken, kraeftiger Stamm]
+    pattern: '(?i)Stengel.*st[aä]rk|Stamm.*st[aä]rk|kr[aä]ftig.*Stamm|Pflanze.*kr[aä]ftig|Stengel.*dick|Stamm.*dick|mechanisch.*Reiz|Thigmo|stabiler.*Stamm|stabiler.*Stengel|Stengel.*stabil|Wind.*Stengel|Stengel.*Wind|St[aä]mme.*dick|dick.*St[aä]mme'
+    de: [Stengel staerken, kraeftiger Stamm, mechanischer Reiz, Thigmotropismus, stabiler Stamm, dicke Staemme]
 
   stickstoff_mangel_behandeln:
     pattern: '(?i)Stickstoff.*Mangel.*behandel|N.*Mangel.*behandel|Stickstoff.*zusetzen|mehr.*Stickstoff|N.*erhoeh|Stickstoff.*erhoeh|stickstoffbetont.*dueng'
@@ -1852,8 +1852,8 @@ topics:
     de: [vpd optimierung]
 
   vpd_zu_hoch:
-    pattern: '(?i)vpd.*hoch'
-    de: [vpd zu hoch]
+    pattern: '(?i)vpd.*hoch|vpd.*[uü]ber.*1[.,][5-9]|VPD.*zu.*gross|VPD.*kritisch|Stomata.*schliess|Transpiration.*zu.*stark|Luft.*zu.*trocken.*VPD|VPD.*Stress|VPD.*Warnschwelle|trocken.*Luft.*S[aä]mling|VPD.*niedrig.*S[aä]mling'
+    de: [vpd zu hoch, VPD kritisch, Stomata schliessen, VPD Stress, VPD Warnschwelle]
 
   wachstum_gestoppt:
     pattern: '(?i)Wachstum.*gestoppt|Wachstum.*eingestellt|kaum.*Wachstum|wenig.*Wachstum'

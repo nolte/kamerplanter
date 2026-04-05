@@ -42,6 +42,13 @@ chunks:
       - Vegetativ: 400-600 PPFD, DLI 26-39 mol/m²/d (18h)
       - Bluete: 600-1000 PPFD, DLI 26-43 mol/m²/d (12h)
       - Mit CO2-Anreicherung: bis 1500 PPFD moeglich, DLI 65+ mol/m²/d
+      WICHTIG: Neben PPFD immer auch DLI (Tageslichtsumme) beruecksichtigen.
+      DLI = PPFD × Beleuchtungsstunden × 0.0036. DLI ist der bessere Vergleichswert
+      weil er Intensitaet UND Dauer zusammenfasst. Ziel-DLI Cannabis Bluete:
+      35-45 mol/m²/d bei 12h. Den Abstand zur Lampe so waehlen, dass der
+      gewuenschte PPFD-Wert erreicht wird. Richtwert Lichtabstand LED Bluete:
+      30-45 cm bei 100% Leistung. PPFD messen (z.B. mit Photone-App) und
+      Abstand entsprechend anpassen.
       Grenze der Licht-Saettigung: Ab ~1000 PPFD (ohne CO2) flacht die
       Photosynthese-Kurve ab. Mehr Licht bringt kaum mehr Wachstum, aber
       Licht-Stress-Risiko steigt. Mit CO2 verschiebt sich die Saettigung
@@ -144,8 +151,11 @@ chunks:
       - Samsung LM301B/H Dioden sind Industriestandard
       - Dimm-Funktion fuer Phasen-Anpassung
       HPS (Natriumdampf-Hochdruck):
-      - Effizienz: 1.5-1.7 µmol/J
-      - Bewaehrte Technik, guenstige Anschaffung
+      - Effizienz: 1.5-1.7 µmol/J (deutlich weniger effizient als LED)
+      - Bewaehrte Technik mit guenstiger Anschaffung — HPS-Komplettsysteme
+        kosten 50-150€, waehrend vergleichbare LED-Panels 200-500€ kosten.
+        HPS ist bei den Anschaffungskosten guenstiger, dafuer bei den
+        laufenden Stromkosten teurer.
       - Hohe Abwaerme → hoehere Stromkosten und Kuehlung noetig
       - Rot-lastiges Spektrum, gut fuer Bluete
       - Blaetter waermer (mehr IR-Strahlung) → VPD-Berechnung anpassen
