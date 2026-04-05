@@ -35,7 +35,7 @@ new_families:
 
 new_species_family_map:
   "Dahlia pinnata": Asteraceae
-  "Petunia x hybrida": Solanaceae
+  # "Petunia x hybrida" removed — already in species.yaml
   "Tigridia pavonia": Iridaceae
   "Apium graveolens var. rapaceum": Apiaceae
 
@@ -54,7 +54,7 @@ new_species:
     allows_harvest: false
     sowing_indoor_weeks_before_last_frost: 5
     sowing_outdoor_after_last_frost_days: 0
-    direct_sow_months: [5, 6]
+    direct_sow_months: []
     harvest_months: []
     bloom_months: [7, 8, 9, 10]
     container_suitable: limited
@@ -68,33 +68,8 @@ new_species:
     greenhouse_recommended: false
     support_required: true
 
-  - scientific_name: "Petunia x hybrida"
-    common_names: [Garten-Petunie, Garden Petunia, Petunia]
-    genus: Petunia
-    plant_category: outdoor_ornamental
-    growth_habit: herb
-    root_type: fibrous
-    hardiness_zones: [10a, 10b, 11a, 11b]
-    native_habitat: "Südamerika (Argentinien, Uruguay)"
-    allelopathy_score: 0.0
-    base_temp: 10.0
-    frost_sensitivity: sensitive
-    allows_harvest: false
-    sowing_indoor_weeks_before_last_frost: 11
-    sowing_outdoor_after_last_frost_days: 14
-    direct_sow_months: []
-    harvest_months: []
-    bloom_months: [6, 7, 8, 9, 10]
-    container_suitable: "yes"
-    recommended_container_volume_l: "5-15"
-    min_container_depth_cm: 20
-    mature_height_cm: "20-40"
-    mature_width_cm: "30-90"
-    spacing_cm: "25-40"
-    indoor_suitable: limited
-    balcony_suitable: "yes"
-    greenhouse_recommended: false
-    support_required: false
+  # Petunia x hybrida removed — already defined in species.yaml.
+  # Enrichment fields moved to species_enrichment section below.
 
   - scientific_name: "Tigridia pavonia"
     common_names:
@@ -238,6 +213,17 @@ species_enrichment:
           volume_ml_min: 150
           volume_ml_max: 300
 
+  "Petunia x hybrida":
+    # Enrichment fields from removed new_species entry (species exists in species.yaml)
+    plant_category: outdoor_ornamental
+    allows_harvest: false
+    sowing_outdoor_after_last_frost_days: 14
+    direct_sow_months: []
+    harvest_months: []
+    greenhouse_recommended: false
+    support_required: false
+    native_habitat: "Suedamerika (Argentinien, Uruguay)"
+
   "Spathiphyllum wallisii":
     container_suitable: "yes"
     recommended_container_volume_l: "2-5"
@@ -316,8 +302,9 @@ species_enrichment:
     indoor_suitable: "no"
     balcony_suitable: "yes"
     frost_sensitivity: hardy
-    sowing_indoor_weeks_before_last_frost: 12
-    sowing_outdoor_after_last_frost_days: -28
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: [7, 8]
     bloom_months: [3, 4, 5, 6, 9, 10]
 
 # ==============================================================================
@@ -426,6 +413,17 @@ lifecycle_configs:
     vernalization_required: true
     vernalization_min_days: 42
     critical_day_length_hours: 14.0
+
+  # Cannabis is a short-day annual — flower induction at <12h light
+  # (except autoflowering cultivars which are day_neutral).
+  "Cannabis sativa":
+    cycle_type: annual
+    photoperiod_type: short_day
+    typical_lifespan_years: 1
+    dormancy_required: false
+    vernalization_required: false
+    vernalization_min_days: null
+    critical_day_length_hours: 12.0
 
 # ==============================================================================
 # S5  ART-SPECIFIC GROWTH PHASES (11 species)
@@ -2117,7 +2115,7 @@ cultivars:
       days_to_maturity: 58
       traits: [high_yield]
       seed_type: clone
-    - name: Mieze Schindler
+    - name: Mieze Schindler  # Benoetigt Bestaeuberpflanze (z.B. Senga Sengana)
       breeder: null
       days_to_maturity: 65
       traits: [heirloom]
@@ -2329,7 +2327,7 @@ companion_planting:
 # S8  IPM DATA
 # ==============================================================================
 
-pests:
+new_pests:
   - scientific_name: "Frankliniella occidentalis"
     common_name: Western Flower Thrips
     pest_type: insect
@@ -2366,9 +2364,9 @@ pests:
       Larven zerstören Wurzeln. Betrifft Erdbeere, Dahlie, Cyclamen,
       viele Zierpflanzen.
 
-  - scientific_name: "Tarsonemus pallidus"
+  - scientific_name: "Tarsonemus pallidus"  # syn. Phytonemus pallidus (EPPO preferred name)
     common_name: Cyclamen Mite
-    pest_type: mite
+    pest_type: arachnid
     lifecycle_days: 14
     optimal_temp_min: 15.0
     optimal_temp_max: 25.0
@@ -2412,8 +2410,8 @@ pests:
       Erdbeerblattlaus. Überträger von Erdbeerviren.
       Hellgrüne Blattläuse an Blattunterseiten und Blütenständen.
 
-  - scientific_name: "Botrytis cinerea (vector)"
-    common_name: Slug
+  - scientific_name: "Arion vulgaris"
+    common_name: Spanish Slug
     pest_type: gastropod
     lifecycle_days: 365
     optimal_temp_min: 5.0
@@ -2423,7 +2421,7 @@ pests:
       Nacktschnecken. Fressen Löcher in Blätter und Früchte.
       Besonders schädlich an Erdbeeren, Salat und Jungpflanzen.
 
-diseases:
+new_diseases:
   - scientific_name: "Botrytis cinerea"
     common_name: Gray Mold
     pathogen_type: fungal
@@ -2457,7 +2455,7 @@ diseases:
 
   - scientific_name: "Phytophthora fragariae"
     common_name: Red Stele Root Rot
-    pathogen_type: fungal
+    pathogen_type: oomycete
     incubation_period_days: 14
     environmental_triggers: [waterlogged_soil, cool_wet_conditions]
     affected_plant_parts: [root]
@@ -2485,7 +2483,7 @@ diseases:
       Tabakmosaikvirus (TMV). Gelbgrünes Mosaikmuster auf Blättern.
       Mechanisch übertragbar. Betrifft Petunia und andere Solanaceae.
 
-treatments:
+new_treatments:
   - name: "Nematodes (Heterorhabditis)"
     treatment_type: biological
     active_ingredient: "Heterorhabditis bacteriophora"
@@ -2542,7 +2540,7 @@ treatments:
       Septoria, Falschen Mehltau und Rost. Karenzzeit beachten.
 
   - name: Alcohol Spray
-    treatment_type: biological
+    treatment_type: chemical
     active_ingredient: "isopropyl alcohol 70%"
     application_method: spray
     safety_interval_days: 0
@@ -2552,684 +2550,666 @@ treatments:
       Alkoholspray gegen Schildläuse und Schmierläuse.
       Wattestäbchen oder Sprühflasche direkt auf Schädlinge.
 
-# Treatment -> Pest targeting edges
-pest_treatments:
-  - treatment: "Nematodes (Heterorhabditis)"
-    pest: Black Vine Weevil
-  - treatment: "Amblyseius cucumeris"
-    pest: Western Flower Thrips
-  - treatment: Yellow Sticky Traps
-    pest: Silverleaf Whitefly
-  - treatment: Potassium Soap
-    pest: Citrus Mealybug
-  - treatment: Potassium Soap
-    pest: Brown Soft Scale
-  - treatment: Potassium Soap
-    pest: Strawberry Aphid
-  - treatment: Alcohol Spray
-    pest: Citrus Mealybug
-  - treatment: Alcohol Spray
-    pest: Brown Soft Scale
-  - treatment: Ferramol
-    pest: Slug
-  - treatment: Neem Oil
-    pest: Western Flower Thrips
-  - treatment: Neem Oil
-    pest: Cyclamen Mite
-  - treatment: Insect Protection Net
-    pest: Silverleaf Whitefly
+# Treatment -> Pest targeting edges (format: [treatment_name, pest_common_name])
+treatment_pest_edges:
+  - ["Nematodes (Heterorhabditis)", "Black Vine Weevil"]
+  - ["Amblyseius cucumeris", "Western Flower Thrips"]
+  - ["Yellow Sticky Traps", "Silverleaf Whitefly"]
+  - ["Potassium Soap", "Citrus Mealybug"]
+  - ["Potassium Soap", "Brown Soft Scale"]
+  - ["Potassium Soap", "Strawberry Aphid"]
+  - ["Alcohol Spray", "Citrus Mealybug"]
+  - ["Alcohol Spray", "Brown Soft Scale"]
+  - ["Ferramol", "Spanish Slug"]
+  - ["Neem Oil", "Western Flower Thrips"]
+  - ["Neem Oil", "Cyclamen Mite"]
+  - ["Insect Protection Net", "Silverleaf Whitefly"]
 
-# Treatment -> Disease targeting edges
-disease_treatments:
-  - treatment: Environmental Control
-    disease: Gray Mold
-  - treatment: Copper Spray
-    disease: Septoria Leaf Spot of Celery
-  - treatment: Crop Rotation
-    disease: Verticillium Wilt
-  - treatment: Crop Rotation
-    disease: Red Stele Root Rot
-  - treatment: Straw Mulch
-    disease: Gray Mold
-  - treatment: Sanitation
-    disease: Dahlia Mosaic Virus
-  - treatment: Sanitation
-    disease: Tobacco Mosaic Virus
+# Treatment -> Disease targeting edges (format: [treatment_name, disease_common_name])
+treatment_disease_edges:
+  - ["Environmental Control", "Gray Mold"]
+  - ["Copper Spray", "Septoria Leaf Spot of Celery"]
+  - ["Crop Rotation", "Verticillium Wilt"]
+  - ["Crop Rotation", "Red Stele Root Rot"]
+  - ["Straw Mulch", "Gray Mold"]
+  - ["Sanitation", "Dahlia Mosaic Virus"]
+  - ["Sanitation", "Tobacco Mosaic Virus"]
 
 # ==============================================================================
 # S9  SUBSTRATES — Standard substrate products
 # ==============================================================================
-# Users can always create custom substrates on top of these defaults.
-# Composition fractions must sum to 1.0 (±0.01), or be empty for type=none / hydro.
-
-substrates:
-  # ── Soil-based ──────────────────────────────────────────────────────
-
-  - type: soil
-    brand: "Universalerde"
-    name_de: "Universalerde"
-    name_en: "Universal Potting Soil"
-    ph_base: 6.3
-    ec_base_ms: 0.5
-    water_retention: high
-    air_porosity_percent: 18.0
-    composition:
-      torf: 0.40
-      kompost: 0.30
-      perlit: 0.15
-      ton: 0.15
-    buffer_capacity: high
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 55.0
-    easily_available_water_percent: 25.0
-    cec_meq_per_100g: 15.0
-    particle_size_mm: 2.0
-    bulk_density_g_per_l: 550.0
-    irrigation_strategy: moderate
-
-  - type: living_soil
-    brand: "Living Soil"
-    name_de: "Living Soil (organisch)"
-    name_en: "Living Soil (Organic)"
-    ph_base: 6.5
-    ec_base_ms: 1.0
-    water_retention: high
-    air_porosity_percent: 22.0
-    composition:
-      kompost: 0.35
-      torf: 0.25
-      wurmhumus: 0.15
-      perlit: 0.15
-      bims: 0.10
-    buffer_capacity: high
-    reusable: true
-    max_reuse_cycles: 5
-    water_holding_capacity_percent: 60.0
-    easily_available_water_percent: 28.0
-    cec_meq_per_100g: 25.0
-    particle_size_mm: 3.0
-    bulk_density_g_per_l: 500.0
-    irrigation_strategy: infrequent
-
-  # ── Torf / Peat ────────────────────────────────────────────────────
-
-  - type: peat
-    brand: ""
-    name_de: "Weißtorf (ungedüngt)"
-    name_en: "White Peat (Unfertilized)"
-    ph_base: 3.8
-    ec_base_ms: 0.05
-    water_retention: high
-    air_porosity_percent: 15.0
-    composition:
-      torf: 1.0
-    buffer_capacity: low
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 70.0
-    easily_available_water_percent: 35.0
-    cec_meq_per_100g: 10.0
-    particle_size_mm: 1.0
-    bulk_density_g_per_l: 120.0
-    irrigation_strategy: moderate
-
-  # ── Kokos / Coco ───────────────────────────────────────────────────
-
-  - type: coco
-    brand: ""
-    name_de: "Kokossubstrat (gewaschen)"
-    name_en: "Coco Coir (Washed)"
-    ph_base: 6.0
-    ec_base_ms: 0.3
-    water_retention: medium
-    air_porosity_percent: 30.0
-    composition:
-      kokosfaser: 0.70
-      kokos_chips: 0.30
-    buffer_capacity: medium
-    reusable: true
-    max_reuse_cycles: 3
-    water_holding_capacity_percent: 45.0
-    easily_available_water_percent: 22.0
-    cec_meq_per_100g: 8.5
-    particle_size_mm: 2.5
-    bulk_density_g_per_l: 90.0
-    irrigation_strategy: frequent
-
-  - type: coco
-    brand: ""
-    name_de: "Kokos/Perlit 70/30"
-    name_en: "Coco/Perlite 70/30"
-    ph_base: 6.0
-    ec_base_ms: 0.2
-    water_retention: medium
-    air_porosity_percent: 35.0
-    composition:
-      kokosfaser: 0.70
-      perlit: 0.30
-    buffer_capacity: medium
-    reusable: true
-    max_reuse_cycles: 2
-    water_holding_capacity_percent: 38.0
-    easily_available_water_percent: 18.0
-    cec_meq_per_100g: 6.0
-    particle_size_mm: 3.0
-    bulk_density_g_per_l: 100.0
-    irrigation_strategy: frequent
-
-  # ── Clay Pebbles ──────────────────────────────────────────────────
-
-  - type: clay_pebbles
-    brand: ""
-    name_de: "Blähton 8-16mm"
-    name_en: "Clay Pebbles 8-16mm"
-    ph_base: 7.0
-    ec_base_ms: 0.0
-    water_retention: low
-    air_porosity_percent: 45.0
-    composition:
-      blaehton: 1.0
-    buffer_capacity: low
-    reusable: true
-    max_reuse_cycles: 10
-    water_holding_capacity_percent: 8.0
-    easily_available_water_percent: 2.0
-    cec_meq_per_100g: 0.2
-    particle_size_mm: 12.0
-    bulk_density_g_per_l: 350.0
-    irrigation_strategy: frequent
-
-  # ── Perlite ───────────────────────────────────────────────────────
-
-  - type: perlite
-    brand: ""
-    name_de: "Perlit (2-6mm)"
-    name_en: "Perlite (2-6mm)"
-    ph_base: 7.2
-    ec_base_ms: 0.0
-    water_retention: low
-    air_porosity_percent: 50.0
-    composition:
-      perlit: 1.0
-    buffer_capacity: low
-    reusable: true
-    max_reuse_cycles: 3
-    water_holding_capacity_percent: 12.0
-    easily_available_water_percent: 5.0
-    cec_meq_per_100g: 0.1
-    particle_size_mm: 4.0
-    bulk_density_g_per_l: 100.0
-    irrigation_strategy: frequent
-
-  # ── Vermiculite ───────────────────────────────────────────────────
-
-  - type: vermiculite
-    brand: ""
-    name_de: "Vermiculit (2-5mm)"
-    name_en: "Vermiculite (2-5mm)"
-    ph_base: 7.0
-    ec_base_ms: 0.0
-    water_retention: high
-    air_porosity_percent: 20.0
-    composition:
-      vermiculit: 1.0
-    buffer_capacity: medium
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 55.0
-    easily_available_water_percent: 30.0
-    cec_meq_per_100g: 15.0
-    particle_size_mm: 3.0
-    bulk_density_g_per_l: 90.0
-    irrigation_strategy: moderate
-
-  # ── Rockwool ──────────────────────────────────────────────────────
-
-  - type: rockwool_slab
-    brand: ""
-    name_de: "Steinwollmatte"
-    name_en: "Rockwool Slab"
-    ph_base: 7.5
-    ec_base_ms: 0.0
-    water_retention: medium
-    air_porosity_percent: 40.0
-    composition:
-      steinwolle: 1.0
-    buffer_capacity: low
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 80.0
-    easily_available_water_percent: 40.0
-    cec_meq_per_100g: 0.3
-    bulk_density_g_per_l: 80.0
-    irrigation_strategy: frequent
-
-  - type: rockwool_plug
-    brand: ""
-    name_de: "Steinwollwürfel (Anzucht)"
-    name_en: "Rockwool Plug (Propagation)"
-    ph_base: 7.5
-    ec_base_ms: 0.0
-    water_retention: medium
-    air_porosity_percent: 35.0
-    composition:
-      steinwolle: 1.0
-    buffer_capacity: low
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 85.0
-    easily_available_water_percent: 45.0
-    cec_meq_per_100g: 0.3
-    bulk_density_g_per_l: 75.0
-    irrigation_strategy: frequent
-
-  # ── Orchid Bark ───────────────────────────────────────────────────
-
-  - type: orchid_bark
-    brand: ""
-    name_de: "Orchideenrinde (Pinienrinde 10-25mm)"
-    name_en: "Orchid Bark (Pine Bark 10-25mm)"
-    ph_base: 4.8
-    ec_base_ms: 0.1
-    water_retention: low
-    air_porosity_percent: 55.0
-    composition:
-      pinienrinde: 1.0
-    buffer_capacity: low
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 15.0
-    easily_available_water_percent: 5.0
-    cec_meq_per_100g: 2.0
-    particle_size_mm: 15.0
-    bulk_density_g_per_l: 250.0
-    irrigation_strategy: frequent
-
-  # ── PON Mineral Substrate ─────────────────────────────────────────
-
-  - type: pon_mineral
-    brand: "Lechuza"
-    name_de: "Lechuza PON (Mineralsubstrat)"
-    name_en: "Lechuza PON (Mineral Substrate)"
-    ph_base: 6.8
-    ec_base_ms: 0.0
-    water_retention: medium
-    air_porosity_percent: 40.0
-    composition:
-      bims: 0.35
-      zeolith: 0.35
-      lava: 0.25
-      langzeitduenger: 0.05
-    buffer_capacity: medium
-    reusable: true
-    max_reuse_cycles: 8
-    water_holding_capacity_percent: 30.0
-    easily_available_water_percent: 12.0
-    cec_meq_per_100g: 12.0
-    particle_size_mm: 6.0
-    bulk_density_g_per_l: 600.0
-    irrigation_strategy: moderate
-
-  # ── Sphagnum Moss ─────────────────────────────────────────────────
-
-  - type: sphagnum
-    brand: ""
-    name_de: "Sphagnum-Moos (getrocknet)"
-    name_en: "Sphagnum Moss (Dried)"
-    ph_base: 4.2
-    ec_base_ms: 0.05
-    water_retention: high
-    air_porosity_percent: 25.0
-    composition:
-      sphagnum: 1.0
-    buffer_capacity: low
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 80.0
-    easily_available_water_percent: 40.0
-    cec_meq_per_100g: 8.0
-    bulk_density_g_per_l: 30.0
-    irrigation_strategy: moderate
-
-  # ── Plagron Substrates ─────────────────────────────────────────────
-
-  - type: soil
-    brand: "Plagron"
-    name_de: "Plagron Lightmix"
-    name_en: "Plagron Light Mix"
-    ph_base: 6.2
-    ec_base_ms: 1.2
-    water_retention: medium
-    air_porosity_percent: 28.0
-    composition:
-      torf: 0.65
-      perlit: 0.15
-      fasern: 0.10
-      wurmhumus: 0.10
-    buffer_capacity: medium
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 48.0
-    easily_available_water_percent: 24.0
-    cec_meq_per_100g: 12.0
-    particle_size_mm: 2.5
-    bulk_density_g_per_l: 430.0
-    irrigation_strategy: moderate
-
-  - type: soil
-    brand: "Plagron"
-    name_de: "Plagron Growmix"
-    name_en: "Plagron Grow Mix"
-    ph_base: 6.2
-    ec_base_ms: 1.4
-    water_retention: medium
-    air_porosity_percent: 26.0
-    composition:
-      torf: 0.55
-      perlit: 0.15
-      fasern: 0.10
-      wurmhumus: 0.20
-    buffer_capacity: medium
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 52.0
-    easily_available_water_percent: 26.0
-    cec_meq_per_100g: 15.0
-    particle_size_mm: 2.5
-    bulk_density_g_per_l: 450.0
-    irrigation_strategy: moderate
-
-  - type: soil
-    brand: "Plagron"
-    name_de: "Plagron Allmix"
-    name_en: "Plagron All-Mix"
-    ph_base: 6.6
-    ec_base_ms: 2.5
-    water_retention: high
-    air_porosity_percent: 22.0
-    composition:
-      torf: 0.45
-      wurmhumus: 0.25
-      perlit: 0.15
-      fasern: 0.10
-      organischer_duenger: 0.05
-    buffer_capacity: high
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 58.0
-    easily_available_water_percent: 28.0
-    cec_meq_per_100g: 22.0
-    particle_size_mm: 2.5
-    bulk_density_g_per_l: 480.0
-    irrigation_strategy: moderate
-
-  - type: soil
-    brand: "Plagron"
-    name_de: "Plagron Royalmix"
-    name_en: "Plagron Royal Mix"
-    ph_base: 6.6
-    ec_base_ms: 1.6
-    water_retention: high
-    air_porosity_percent: 24.0
-    composition:
-      torf: 0.45
-      wurmhumus: 0.25
-      perlit: 0.15
-      fasern: 0.10
-      organischer_duenger: 0.05
-    buffer_capacity: high
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 58.0
-    easily_available_water_percent: 28.0
-    cec_meq_per_100g: 22.0
-    particle_size_mm: 2.5
-    bulk_density_g_per_l: 470.0
-    irrigation_strategy: moderate
-
-  - type: soil
-    brand: "Plagron"
-    name_de: "Plagron Batmix"
-    name_en: "Plagron Bat Mix"
-    ph_base: 6.4
-    ec_base_ms: 1.6
-    water_retention: high
-    air_porosity_percent: 24.0
-    composition:
-      torf: 0.45
-      wurmhumus: 0.20
-      perlit: 0.15
-      fasern: 0.10
-      fledermausguano: 0.10
-    buffer_capacity: high
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 56.0
-    easily_available_water_percent: 27.0
-    cec_meq_per_100g: 20.0
-    particle_size_mm: 2.5
-    bulk_density_g_per_l: 460.0
-    irrigation_strategy: moderate
-
-  - type: soil
-    brand: "Plagron"
-    name_de: "Plagron Promix"
-    name_en: "Plagron Pro Mix"
-    ph_base: 6.6
-    ec_base_ms: 0.7
-    water_retention: medium
-    air_porosity_percent: 25.0
-    composition:
-      torf: 0.70
-      perlit: 0.15
-      fasern: 0.10
-      kalk: 0.05
-    buffer_capacity: medium
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 50.0
-    easily_available_water_percent: 24.0
-    cec_meq_per_100g: 12.0
-    particle_size_mm: 2.5
-    bulk_density_g_per_l: 420.0
-    irrigation_strategy: moderate
-
-  - type: soil
-    brand: "Plagron"
-    name_de: "Plagron Bio Lightmix"
-    name_en: "Plagron Bio Light Mix"
-    ph_base: 6.3
-    ec_base_ms: 0.5
-    water_retention: medium
-    air_porosity_percent: 28.0
-    composition:
-      schwarztorf: 0.40
-      weisstorf: 0.35
-      perlit: 0.15
-      organischer_duenger: 0.10
-    buffer_capacity: medium
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 48.0
-    easily_available_water_percent: 24.0
-    cec_meq_per_100g: 13.0
-    particle_size_mm: 2.5
-    bulk_density_g_per_l: 420.0
-    irrigation_strategy: moderate
-
-  - type: coco
-    brand: "Plagron"
-    name_de: "Plagron Cocos Premium"
-    name_en: "Plagron Cocos Premium"
-    ph_base: 6.3
-    ec_base_ms: 0.1
-    water_retention: medium
-    air_porosity_percent: 30.0
-    composition:
-      kokosfaser: 1.0
-    buffer_capacity: medium
-    reusable: true
-    max_reuse_cycles: 2
-    water_holding_capacity_percent: 50.0
-    easily_available_water_percent: 25.0
-    cec_meq_per_100g: 9.0
-    particle_size_mm: 2.5
-    bulk_density_g_per_l: 85.0
-    irrigation_strategy: frequent
-
-  - type: coco
-    brand: "Plagron"
-    name_de: "Plagron Cocos Perlite 70/30"
-    name_en: "Plagron Cocos Perlite 70/30"
-    ph_base: 6.5
-    ec_base_ms: 0.1
-    water_retention: medium
-    air_porosity_percent: 38.0
-    composition:
-      kokosfaser: 0.70
-      perlit: 0.30
-    buffer_capacity: medium
-    reusable: true
-    max_reuse_cycles: 2
-    water_holding_capacity_percent: 40.0
-    easily_available_water_percent: 20.0
-    cec_meq_per_100g: 6.5
-    particle_size_mm: 3.0
-    bulk_density_g_per_l: 95.0
-    irrigation_strategy: frequent
-
-  # ── Hydro Solution ────────────────────────────────────────────────
-
-  # ── BioBizz Substrates ─────────────────────────────────────────────
-
-  - type: soil
-    brand: "BioBizz"
-    name_de: "BioBizz Light·Mix"
-    name_en: "BioBizz Light Mix"
-    ph_base: 6.2
-    ec_base_ms: 1.2
-    water_retention: medium
-    air_porosity_percent: 30.0
-    composition:
-      torf: 0.55
-      perlit: 0.30
-      kalk: 0.10
-      spurenelemente: 0.05
-    buffer_capacity: medium
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 45.0
-    easily_available_water_percent: 22.0
-    cec_meq_per_100g: 12.0
-    particle_size_mm: 3.0
-    bulk_density_g_per_l: 400.0
-    irrigation_strategy: moderate
-
-  - type: soil
-    brand: "BioBizz"
-    name_de: "BioBizz All·Mix"
-    name_en: "BioBizz All-Mix"
-    ph_base: 6.6
-    ec_base_ms: 2.4
-    water_retention: high
-    air_porosity_percent: 22.0
-    composition:
-      torf: 0.40
-      wurmhumus: 0.20
-      perlit: 0.20
-      pre_mix: 0.15
-      kalk: 0.05
-    buffer_capacity: high
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 58.0
-    easily_available_water_percent: 28.0
-    cec_meq_per_100g: 20.0
-    particle_size_mm: 2.5
-    bulk_density_g_per_l: 480.0
-    irrigation_strategy: moderate
-
-  - type: coco
-    brand: "BioBizz"
-    name_de: "BioBizz Coco·Mix"
-    name_en: "BioBizz Coco-Mix"
-    ph_base: 6.0
-    ec_base_ms: 0.5
-    water_retention: medium
-    air_porosity_percent: 32.0
-    composition:
-      kokosfaser: 0.60
-      kokos_chips: 0.25
-      kokosfaser_fein: 0.15
-    buffer_capacity: medium
-    reusable: true
-    max_reuse_cycles: 2
-    water_holding_capacity_percent: 48.0
-    easily_available_water_percent: 24.0
-    cec_meq_per_100g: 9.0
-    particle_size_mm: 3.0
-    bulk_density_g_per_l: 85.0
-    irrigation_strategy: frequent
-
-  - type: soil
-    brand: "BioBizz"
-    name_de: "BioBizz Worm·Humus"
-    name_en: "BioBizz Worm Humus"
-    ph_base: 7.0
-    ec_base_ms: 1.5
-    water_retention: high
-    air_porosity_percent: 18.0
-    composition:
-      wurmhumus: 1.0
-    buffer_capacity: high
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 65.0
-    easily_available_water_percent: 30.0
-    cec_meq_per_100g: 30.0
-    particle_size_mm: 1.5
-    bulk_density_g_per_l: 600.0
-    irrigation_strategy: infrequent
-
-  - type: peat
-    brand: "BioBizz"
-    name_de: "BioBizz Pre·Mix (Bodenverbesserer)"
-    name_en: "BioBizz Pre-Mix (Soil Conditioner)"
-    ph_base: 6.5
-    ec_base_ms: 1.8
-    water_retention: medium
-    air_porosity_percent: 20.0
-    composition:
-      torf: 0.30
-      seetang: 0.20
-      knochenmehl: 0.15
-      blutmehl: 0.10
-      fledermausguano: 0.10
-      dolomit: 0.10
-      leonardit: 0.05
-    buffer_capacity: high
-    reusable: false
-    max_reuse_cycles: 1
-    water_holding_capacity_percent: 50.0
-    easily_available_water_percent: 22.0
-    cec_meq_per_100g: 25.0
-    particle_size_mm: 2.0
-    bulk_density_g_per_l: 520.0
-    irrigation_strategy: moderate
-
-  # ── Hydro Solution ────────────────────────────────────────────────
-
-  - type: hydro_solution
-    brand: ""
-    name_de: "Hydrokultur (kein Substrat)"
-    name_en: "Hydroponics (No Substrate)"
-    ph_base: 6.0
-    ec_base_ms: 0.0
-    water_retention: low
-    air_porosity_percent: 100.0
-    composition: {}
-    buffer_capacity: low
-    reusable: true
-    max_reuse_cycles: 99
-    irrigation_strategy: continuous
+# REMOVED: 'substrates' is not a valid top-level key in plant_info.schema.yaml.
+# Substrate seed data should be loaded from a dedicated file or added to the
+# schema before re-enabling.  Original data preserved below for reference.
+#
+# substrates:
+#   # ── Soil-based ──────────────────────────────────────────────────────
+#
+#   - type: soil
+#     brand: "Universalerde"
+#     name_de: "Universalerde"
+#     name_en: "Universal Potting Soil"
+#     ph_base: 6.3
+#     ec_base_ms: 0.5
+#     water_retention: high
+#     air_porosity_percent: 18.0
+#     composition:
+#       torf: 0.40
+#       kompost: 0.30
+#       perlit: 0.15
+#       ton: 0.15
+#     buffer_capacity: high
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 55.0
+#     easily_available_water_percent: 25.0
+#     cec_meq_per_100g: 15.0
+#     particle_size_mm: 2.0
+#     bulk_density_g_per_l: 550.0
+#     irrigation_strategy: moderate
+#
+#   - type: living_soil
+#     brand: "Living Soil"
+#     name_de: "Living Soil (organisch)"
+#     name_en: "Living Soil (Organic)"
+#     ph_base: 6.5
+#     ec_base_ms: 1.0
+#     water_retention: high
+#     air_porosity_percent: 22.0
+#     composition:
+#       kompost: 0.35
+#       torf: 0.25
+#       wurmhumus: 0.15
+#       perlit: 0.15
+#       bims: 0.10
+#     buffer_capacity: high
+#     reusable: true
+#     max_reuse_cycles: 5
+#     water_holding_capacity_percent: 60.0
+#     easily_available_water_percent: 28.0
+#     cec_meq_per_100g: 25.0
+#     particle_size_mm: 3.0
+#     bulk_density_g_per_l: 500.0
+#     irrigation_strategy: infrequent
+#
+#   # ── Torf / Peat ────────────────────────────────────────────────────
+#
+#   - type: peat
+#     brand: ""
+#     name_de: "Weißtorf (ungedüngt)"
+#     name_en: "White Peat (Unfertilized)"
+#     ph_base: 3.8
+#     ec_base_ms: 0.05
+#     water_retention: high
+#     air_porosity_percent: 15.0
+#     composition:
+#       torf: 1.0
+#     buffer_capacity: low
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 70.0
+#     easily_available_water_percent: 35.0
+#     cec_meq_per_100g: 10.0
+#     particle_size_mm: 1.0
+#     bulk_density_g_per_l: 120.0
+#     irrigation_strategy: moderate
+#
+#   # ── Kokos / Coco ───────────────────────────────────────────────────
+#
+#   - type: coco
+#     brand: ""
+#     name_de: "Kokossubstrat (gewaschen)"
+#     name_en: "Coco Coir (Washed)"
+#     ph_base: 6.0
+#     ec_base_ms: 0.3
+#     water_retention: medium
+#     air_porosity_percent: 30.0
+#     composition:
+#       kokosfaser: 0.70
+#       kokos_chips: 0.30
+#     buffer_capacity: medium
+#     reusable: true
+#     max_reuse_cycles: 3
+#     water_holding_capacity_percent: 45.0
+#     easily_available_water_percent: 22.0
+#     cec_meq_per_100g: 8.5
+#     particle_size_mm: 2.5
+#     bulk_density_g_per_l: 90.0
+#     irrigation_strategy: frequent
+#
+#   - type: coco
+#     brand: ""
+#     name_de: "Kokos/Perlit 70/30"
+#     name_en: "Coco/Perlite 70/30"
+#     ph_base: 6.0
+#     ec_base_ms: 0.2
+#     water_retention: medium
+#     air_porosity_percent: 35.0
+#     composition:
+#       kokosfaser: 0.70
+#       perlit: 0.30
+#     buffer_capacity: medium
+#     reusable: true
+#     max_reuse_cycles: 2
+#     water_holding_capacity_percent: 38.0
+#     easily_available_water_percent: 18.0
+#     cec_meq_per_100g: 6.0
+#     particle_size_mm: 3.0
+#     bulk_density_g_per_l: 100.0
+#     irrigation_strategy: frequent
+#
+#   # ── Clay Pebbles ──────────────────────────────────────────────────
+#
+#   - type: clay_pebbles
+#     brand: ""
+#     name_de: "Blähton 8-16mm"
+#     name_en: "Clay Pebbles 8-16mm"
+#     ph_base: 7.0
+#     ec_base_ms: 0.0
+#     water_retention: low
+#     air_porosity_percent: 45.0
+#     composition:
+#       blaehton: 1.0
+#     buffer_capacity: low
+#     reusable: true
+#     max_reuse_cycles: 10
+#     water_holding_capacity_percent: 8.0
+#     easily_available_water_percent: 2.0
+#     cec_meq_per_100g: 0.2
+#     particle_size_mm: 12.0
+#     bulk_density_g_per_l: 350.0
+#     irrigation_strategy: frequent
+#
+#   # ── Perlite ───────────────────────────────────────────────────────
+#
+#   - type: perlite
+#     brand: ""
+#     name_de: "Perlit (2-6mm)"
+#     name_en: "Perlite (2-6mm)"
+#     ph_base: 7.2
+#     ec_base_ms: 0.0
+#     water_retention: low
+#     air_porosity_percent: 50.0
+#     composition:
+#       perlit: 1.0
+#     buffer_capacity: low
+#     reusable: true
+#     max_reuse_cycles: 3
+#     water_holding_capacity_percent: 12.0
+#     easily_available_water_percent: 5.0
+#     cec_meq_per_100g: 0.1
+#     particle_size_mm: 4.0
+#     bulk_density_g_per_l: 100.0
+#     irrigation_strategy: frequent
+#
+#   # ── Vermiculite ───────────────────────────────────────────────────
+#
+#   - type: vermiculite
+#     brand: ""
+#     name_de: "Vermiculit (2-5mm)"
+#     name_en: "Vermiculite (2-5mm)"
+#     ph_base: 7.0
+#     ec_base_ms: 0.0
+#     water_retention: high
+#     air_porosity_percent: 20.0
+#     composition:
+#       vermiculit: 1.0
+#     buffer_capacity: medium
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 55.0
+#     easily_available_water_percent: 30.0
+#     cec_meq_per_100g: 15.0
+#     particle_size_mm: 3.0
+#     bulk_density_g_per_l: 90.0
+#     irrigation_strategy: moderate
+#
+#   # ── Rockwool ──────────────────────────────────────────────────────
+#
+#   - type: rockwool_slab
+#     brand: ""
+#     name_de: "Steinwollmatte"
+#     name_en: "Rockwool Slab"
+#     ph_base: 7.5
+#     ec_base_ms: 0.0
+#     water_retention: medium
+#     air_porosity_percent: 40.0
+#     composition:
+#       steinwolle: 1.0
+#     buffer_capacity: low
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 80.0
+#     easily_available_water_percent: 40.0
+#     cec_meq_per_100g: 0.3
+#     bulk_density_g_per_l: 80.0
+#     irrigation_strategy: frequent
+#
+#   - type: rockwool_plug
+#     brand: ""
+#     name_de: "Steinwollwürfel (Anzucht)"
+#     name_en: "Rockwool Plug (Propagation)"
+#     ph_base: 7.5
+#     ec_base_ms: 0.0
+#     water_retention: medium
+#     air_porosity_percent: 35.0
+#     composition:
+#       steinwolle: 1.0
+#     buffer_capacity: low
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 85.0
+#     easily_available_water_percent: 45.0
+#     cec_meq_per_100g: 0.3
+#     bulk_density_g_per_l: 75.0
+#     irrigation_strategy: frequent
+#
+#   # ── Orchid Bark ───────────────────────────────────────────────────
+#
+#   - type: orchid_bark
+#     brand: ""
+#     name_de: "Orchideenrinde (Pinienrinde 10-25mm)"
+#     name_en: "Orchid Bark (Pine Bark 10-25mm)"
+#     ph_base: 4.8
+#     ec_base_ms: 0.1
+#     water_retention: low
+#     air_porosity_percent: 55.0
+#     composition:
+#       pinienrinde: 1.0
+#     buffer_capacity: low
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 15.0
+#     easily_available_water_percent: 5.0
+#     cec_meq_per_100g: 2.0
+#     particle_size_mm: 15.0
+#     bulk_density_g_per_l: 250.0
+#     irrigation_strategy: frequent
+#
+#   # ── PON Mineral Substrate ─────────────────────────────────────────
+#
+#   - type: pon_mineral
+#     brand: "Lechuza"
+#     name_de: "Lechuza PON (Mineralsubstrat)"
+#     name_en: "Lechuza PON (Mineral Substrate)"
+#     ph_base: 6.8
+#     ec_base_ms: 0.0
+#     water_retention: medium
+#     air_porosity_percent: 40.0
+#     composition:
+#       bims: 0.35
+#       zeolith: 0.35
+#       lava: 0.25
+#       langzeitduenger: 0.05
+#     buffer_capacity: medium
+#     reusable: true
+#     max_reuse_cycles: 8
+#     water_holding_capacity_percent: 30.0
+#     easily_available_water_percent: 12.0
+#     cec_meq_per_100g: 12.0
+#     particle_size_mm: 6.0
+#     bulk_density_g_per_l: 600.0
+#     irrigation_strategy: moderate
+#
+#   # ── Sphagnum Moss ─────────────────────────────────────────────────
+#
+#   - type: sphagnum
+#     brand: ""
+#     name_de: "Sphagnum-Moos (getrocknet)"
+#     name_en: "Sphagnum Moss (Dried)"
+#     ph_base: 4.2
+#     ec_base_ms: 0.05
+#     water_retention: high
+#     air_porosity_percent: 25.0
+#     composition:
+#       sphagnum: 1.0
+#     buffer_capacity: low
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 80.0
+#     easily_available_water_percent: 40.0
+#     cec_meq_per_100g: 8.0
+#     bulk_density_g_per_l: 30.0
+#     irrigation_strategy: moderate
+#
+#   # ── Plagron Substrates ─────────────────────────────────────────────
+#
+#   - type: soil
+#     brand: "Plagron"
+#     name_de: "Plagron Lightmix"
+#     name_en: "Plagron Light Mix"
+#     ph_base: 6.2
+#     ec_base_ms: 1.2
+#     water_retention: medium
+#     air_porosity_percent: 28.0
+#     composition:
+#       torf: 0.65
+#       perlit: 0.15
+#       fasern: 0.10
+#       wurmhumus: 0.10
+#     buffer_capacity: medium
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 48.0
+#     easily_available_water_percent: 24.0
+#     cec_meq_per_100g: 12.0
+#     particle_size_mm: 2.5
+#     bulk_density_g_per_l: 430.0
+#     irrigation_strategy: moderate
+#
+#   - type: soil
+#     brand: "Plagron"
+#     name_de: "Plagron Growmix"
+#     name_en: "Plagron Grow Mix"
+#     ph_base: 6.2
+#     ec_base_ms: 1.4
+#     water_retention: medium
+#     air_porosity_percent: 26.0
+#     composition:
+#       torf: 0.55
+#       perlit: 0.15
+#       fasern: 0.10
+#       wurmhumus: 0.20
+#     buffer_capacity: medium
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 52.0
+#     easily_available_water_percent: 26.0
+#     cec_meq_per_100g: 15.0
+#     particle_size_mm: 2.5
+#     bulk_density_g_per_l: 450.0
+#     irrigation_strategy: moderate
+#
+#   - type: soil
+#     brand: "Plagron"
+#     name_de: "Plagron Allmix"
+#     name_en: "Plagron All-Mix"
+#     ph_base: 6.6
+#     ec_base_ms: 2.5
+#     water_retention: high
+#     air_porosity_percent: 22.0
+#     composition:
+#       torf: 0.45
+#       wurmhumus: 0.25
+#       perlit: 0.15
+#       fasern: 0.10
+#       organischer_duenger: 0.05
+#     buffer_capacity: high
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 58.0
+#     easily_available_water_percent: 28.0
+#     cec_meq_per_100g: 22.0
+#     particle_size_mm: 2.5
+#     bulk_density_g_per_l: 480.0
+#     irrigation_strategy: moderate
+#
+#   - type: soil
+#     brand: "Plagron"
+#     name_de: "Plagron Royalmix"
+#     name_en: "Plagron Royal Mix"
+#     ph_base: 6.6
+#     ec_base_ms: 1.6
+#     water_retention: high
+#     air_porosity_percent: 24.0
+#     composition:
+#       torf: 0.45
+#       wurmhumus: 0.25
+#       perlit: 0.15
+#       fasern: 0.10
+#       organischer_duenger: 0.05
+#     buffer_capacity: high
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 58.0
+#     easily_available_water_percent: 28.0
+#     cec_meq_per_100g: 22.0
+#     particle_size_mm: 2.5
+#     bulk_density_g_per_l: 470.0
+#     irrigation_strategy: moderate
+#
+#   - type: soil
+#     brand: "Plagron"
+#     name_de: "Plagron Batmix"
+#     name_en: "Plagron Bat Mix"
+#     ph_base: 6.4
+#     ec_base_ms: 1.6
+#     water_retention: high
+#     air_porosity_percent: 24.0
+#     composition:
+#       torf: 0.45
+#       wurmhumus: 0.20
+#       perlit: 0.15
+#       fasern: 0.10
+#       fledermausguano: 0.10
+#     buffer_capacity: high
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 56.0
+#     easily_available_water_percent: 27.0
+#     cec_meq_per_100g: 20.0
+#     particle_size_mm: 2.5
+#     bulk_density_g_per_l: 460.0
+#     irrigation_strategy: moderate
+#
+#   - type: soil
+#     brand: "Plagron"
+#     name_de: "Plagron Promix"
+#     name_en: "Plagron Pro Mix"
+#     ph_base: 6.6
+#     ec_base_ms: 0.7
+#     water_retention: medium
+#     air_porosity_percent: 25.0
+#     composition:
+#       torf: 0.70
+#       perlit: 0.15
+#       fasern: 0.10
+#       kalk: 0.05
+#     buffer_capacity: medium
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 50.0
+#     easily_available_water_percent: 24.0
+#     cec_meq_per_100g: 12.0
+#     particle_size_mm: 2.5
+#     bulk_density_g_per_l: 420.0
+#     irrigation_strategy: moderate
+#
+#   - type: soil
+#     brand: "Plagron"
+#     name_de: "Plagron Bio Lightmix"
+#     name_en: "Plagron Bio Light Mix"
+#     ph_base: 6.3
+#     ec_base_ms: 0.5
+#     water_retention: medium
+#     air_porosity_percent: 28.0
+#     composition:
+#       schwarztorf: 0.40
+#       weisstorf: 0.35
+#       perlit: 0.15
+#       organischer_duenger: 0.10
+#     buffer_capacity: medium
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 48.0
+#     easily_available_water_percent: 24.0
+#     cec_meq_per_100g: 13.0
+#     particle_size_mm: 2.5
+#     bulk_density_g_per_l: 420.0
+#     irrigation_strategy: moderate
+#
+#   - type: coco
+#     brand: "Plagron"
+#     name_de: "Plagron Cocos Premium"
+#     name_en: "Plagron Cocos Premium"
+#     ph_base: 6.3
+#     ec_base_ms: 0.1
+#     water_retention: medium
+#     air_porosity_percent: 30.0
+#     composition:
+#       kokosfaser: 1.0
+#     buffer_capacity: medium
+#     reusable: true
+#     max_reuse_cycles: 2
+#     water_holding_capacity_percent: 50.0
+#     easily_available_water_percent: 25.0
+#     cec_meq_per_100g: 9.0
+#     particle_size_mm: 2.5
+#     bulk_density_g_per_l: 85.0
+#     irrigation_strategy: frequent
+#
+#   - type: coco
+#     brand: "Plagron"
+#     name_de: "Plagron Cocos Perlite 70/30"
+#     name_en: "Plagron Cocos Perlite 70/30"
+#     ph_base: 6.5
+#     ec_base_ms: 0.1
+#     water_retention: medium
+#     air_porosity_percent: 38.0
+#     composition:
+#       kokosfaser: 0.70
+#       perlit: 0.30
+#     buffer_capacity: medium
+#     reusable: true
+#     max_reuse_cycles: 2
+#     water_holding_capacity_percent: 40.0
+#     easily_available_water_percent: 20.0
+#     cec_meq_per_100g: 6.5
+#     particle_size_mm: 3.0
+#     bulk_density_g_per_l: 95.0
+#     irrigation_strategy: frequent
+#
+#   # ── Hydro Solution ────────────────────────────────────────────────
+#
+#   # ── BioBizz Substrates ─────────────────────────────────────────────
+#
+#   - type: soil
+#     brand: "BioBizz"
+#     name_de: "BioBizz Light·Mix"
+#     name_en: "BioBizz Light Mix"
+#     ph_base: 6.2
+#     ec_base_ms: 1.2
+#     water_retention: medium
+#     air_porosity_percent: 30.0
+#     composition:
+#       torf: 0.55
+#       perlit: 0.30
+#       kalk: 0.10
+#       spurenelemente: 0.05
+#     buffer_capacity: medium
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 45.0
+#     easily_available_water_percent: 22.0
+#     cec_meq_per_100g: 12.0
+#     particle_size_mm: 3.0
+#     bulk_density_g_per_l: 400.0
+#     irrigation_strategy: moderate
+#
+#   - type: soil
+#     brand: "BioBizz"
+#     name_de: "BioBizz All·Mix"
+#     name_en: "BioBizz All-Mix"
+#     ph_base: 6.6
+#     ec_base_ms: 2.4
+#     water_retention: high
+#     air_porosity_percent: 22.0
+#     composition:
+#       torf: 0.40
+#       wurmhumus: 0.20
+#       perlit: 0.20
+#       pre_mix: 0.15
+#       kalk: 0.05
+#     buffer_capacity: high
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 58.0
+#     easily_available_water_percent: 28.0
+#     cec_meq_per_100g: 20.0
+#     particle_size_mm: 2.5
+#     bulk_density_g_per_l: 480.0
+#     irrigation_strategy: moderate
+#
+#   - type: coco
+#     brand: "BioBizz"
+#     name_de: "BioBizz Coco·Mix"
+#     name_en: "BioBizz Coco-Mix"
+#     ph_base: 6.0
+#     ec_base_ms: 0.5
+#     water_retention: medium
+#     air_porosity_percent: 32.0
+#     composition:
+#       kokosfaser: 0.60
+#       kokos_chips: 0.25
+#       kokosfaser_fein: 0.15
+#     buffer_capacity: medium
+#     reusable: true
+#     max_reuse_cycles: 2
+#     water_holding_capacity_percent: 48.0
+#     easily_available_water_percent: 24.0
+#     cec_meq_per_100g: 9.0
+#     particle_size_mm: 3.0
+#     bulk_density_g_per_l: 85.0
+#     irrigation_strategy: frequent
+#
+#   - type: soil
+#     brand: "BioBizz"
+#     name_de: "BioBizz Worm·Humus"
+#     name_en: "BioBizz Worm Humus"
+#     ph_base: 7.0
+#     ec_base_ms: 1.5
+#     water_retention: high
+#     air_porosity_percent: 18.0
+#     composition:
+#       wurmhumus: 1.0
+#     buffer_capacity: high
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 65.0
+#     easily_available_water_percent: 30.0
+#     cec_meq_per_100g: 30.0
+#     particle_size_mm: 1.5
+#     bulk_density_g_per_l: 600.0
+#     irrigation_strategy: infrequent
+#
+#   - type: peat
+#     brand: "BioBizz"
+#     name_de: "BioBizz Pre·Mix (Bodenverbesserer)"
+#     name_en: "BioBizz Pre-Mix (Soil Conditioner)"
+#     ph_base: 6.5
+#     ec_base_ms: 1.8
+#     water_retention: medium
+#     air_porosity_percent: 20.0
+#     composition:
+#       torf: 0.30
+#       seetang: 0.20
+#       knochenmehl: 0.15
+#       blutmehl: 0.10
+#       fledermausguano: 0.10
+#       dolomit: 0.10
+#       leonardit: 0.05
+#     buffer_capacity: high
+#     reusable: false
+#     max_reuse_cycles: 1
+#     water_holding_capacity_percent: 50.0
+#     easily_available_water_percent: 22.0
+#     cec_meq_per_100g: 25.0
+#     particle_size_mm: 2.0
+#     bulk_density_g_per_l: 520.0
+#     irrigation_strategy: moderate
+#
+#   # ── Hydro Solution ────────────────────────────────────────────────
+#
+#   - type: hydro_solution
+#     brand: ""
+#     name_de: "Hydrokultur (kein Substrat)"
+#     name_en: "Hydroponics (No Substrate)"
+#     ph_base: 6.0
+#     ec_base_ms: 0.0
+#     water_retention: low
+#     air_porosity_percent: 100.0
+#     composition: {}
+#     buffer_capacity: low
+#     reusable: true
+#     max_reuse_cycles: 99
+#     irrigation_strategy: continuous

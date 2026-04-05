@@ -78,7 +78,7 @@ new_families:
     common_name_en: Asphodel family
     order: Asparagales
     typical_nutrient_demand: medium
-    frost_tolerance: hardy
+    frost_tolerance: moderate  # Corrected: family spans frost-hardy (Hemerocallis) to sensitive (Aloe) genera
     typical_root_depth: medium
     typical_growth_forms: [herb]
     common_pests: [thrips, slugs, deer]
@@ -514,7 +514,7 @@ new_species:
     root_type: fibrous
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Europa, Nordafrika, Westasien"
-    allelopathy_score: -0.1
+    allelopathy_score: 0.0
     frost_sensitivity: hardy
     allows_harvest: false
     bloom_months: [6, 7]
@@ -592,7 +592,7 @@ new_species:
     root_type: fibrous
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Asien (Himalaya, China), Amerika, Europa"
-    allelopathy_score: -0.3
+    allelopathy_score: 0.0
     frost_sensitivity: hardy
     allows_harvest: false
     bloom_months: [4, 5, 6]
@@ -751,7 +751,7 @@ new_species:
     root_type: taproot
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Europa, Westasien"
-    allelopathy_score: -0.1
+    allelopathy_score: 0.0
     frost_sensitivity: hardy
     allows_harvest: true
     harvest_months: [6, 7]
@@ -915,7 +915,7 @@ new_species:
     root_type: fibrous
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Europa, Asien"
-    allelopathy_score: -0.1
+    allelopathy_score: 0.0
     frost_sensitivity: hardy
     allows_harvest: true
     harvest_months: [6, 7, 8, 9, 10]
@@ -942,7 +942,7 @@ new_species:
     root_type: fibrous
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Europa, Nordafrika, Westasien"
-    allelopathy_score: -0.2
+    allelopathy_score: 0.0
     frost_sensitivity: hardy
     allows_harvest: true
     harvest_months: [6, 7, 8, 9, 10]
@@ -969,7 +969,7 @@ new_species:
     root_type: fibrous
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b]
     native_habitat: "Nordamerika (oestliche USA, Kanada)"
-    allelopathy_score: -0.1
+    allelopathy_score: 0.0
     frost_sensitivity: hardy
     allows_harvest: true
     harvest_months: [7, 8, 9]
@@ -1234,13 +1234,13 @@ new_species:
     root_type: taproot
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a]
     native_habitat: "Westliches Nordamerika"
-    allelopathy_score: -0.2
+    allelopathy_score: 0.0
     frost_sensitivity: hardy
     allows_harvest: false
     sowing_indoor_weeks_before_last_frost: 4
     sowing_outdoor_after_last_frost_days: 14
     direct_sow_months: [4, 5, 6]
-    bloom_months: [5, 6, 7]
+    bloom_months: [5, 6, 7]  # bloom_months gelten erst ab Jahr 2 nach Aussaat
     container_suitable: limited
     recommended_container_volume_l: "15-25"
     min_container_depth_cm: 30
@@ -1263,7 +1263,7 @@ new_species:
     root_type: taproot
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Vorderasien, Kaukasus"
-    allelopathy_score: -0.2
+    allelopathy_score: 0.0
     frost_sensitivity: hardy
     allows_harvest: false
     sowing_outdoor_after_last_frost_days: 0
@@ -1527,7 +1527,7 @@ species_enrichment:
     direct_sow_months: [5, 6, 7]
     nutrient_demand_level: light_feeder
     green_manure_suitable: true
-    allelopathy_score: -0.2
+    allelopathy_score: 0.0
     native_habitat: "Mittel- und Suedamerika"
     support_required: true
     pruning_type: none
@@ -1551,7 +1551,7 @@ species_enrichment:
     direct_sow_months: [3, 4, 5, 6]
     nutrient_demand_level: light_feeder
     green_manure_suitable: true
-    allelopathy_score: -0.3
+    allelopathy_score: 0.0
     native_habitat: "Vorderasien, Mittelmeerraum"
     support_required: true
     pruning_type: none
@@ -1617,7 +1617,7 @@ species_enrichment:
     sowing_outdoor_after_last_frost_days: 14
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
-    allelopathy_score: -0.2
+    allelopathy_score: 0.0
     native_habitat: "Suedamerika (Peru, Ecuador)"
     support_required: true
     pruning_type: summer_pruning
@@ -1641,7 +1641,7 @@ species_enrichment:
     direct_sow_months: [4, 5]
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
-    allelopathy_score: -0.1
+    allelopathy_score: 0.0
     native_habitat: "Suedamerika (Peru, Bolivien)"
     pruning_type: none
     pruning_months: []
@@ -1680,7 +1680,7 @@ species_enrichment:
     direct_sow_months: [3, 4, 5, 8, 9]
     nutrient_demand_level: nitrogen_fixer
     green_manure_suitable: true
-    allelopathy_score: -0.1
+    allelopathy_score: 0.0
     native_habitat: "Europa, Westasien"
     mature_height_cm: "20-60"
     mature_width_cm: "20-40"

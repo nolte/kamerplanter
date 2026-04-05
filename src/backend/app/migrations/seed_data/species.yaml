@@ -320,7 +320,7 @@ species:
     sowing_indoor_weeks_before_last_frost: 8
     sowing_outdoor_after_last_frost_days: 14
     bloom_months: [6, 7, 8]
-    allows_harvest: false
+    allows_harvest: true  # W-006: flower and oil harvest
     frost_sensitivity: hardy
     container_suitable: "yes"
     recommended_container_volume_l: "5--10"

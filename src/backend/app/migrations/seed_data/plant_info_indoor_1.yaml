@@ -58,7 +58,7 @@ new_families:
     common_name_en: Asphodel family
     order: Asparagales
     typical_nutrient_demand: light
-    frost_tolerance: sensitive
+    frost_tolerance: moderate  # Corrected: family spans frost-hardy (Hemerocallis) to sensitive (Aloe) genera
     typical_root_depth: shallow
     typical_growth_forms: [herb, shrub]
     common_pests: [mealybugs, scale_insects]
@@ -352,11 +352,11 @@ new_species:
     allows_harvest: false
     container_suitable: "yes"
     recommended_container_volume_l: "2-5"
-    min_container_depth_cm: 15
-    mature_height_cm: "30-50"
-    mature_width_cm: "30-60"
+    min_container_depth_cm: 12
+    mature_height_cm: "20-45"
+    mature_width_cm: "20-40"
     indoor_suitable: "yes"
-    balcony_suitable: "no"
+    balcony_suitable: limited
     greenhouse_recommended: false
     support_required: false
     nutrient_demand_level: light_feeder
@@ -462,7 +462,7 @@ new_species:
     native_habitat: "Arabische Halbinsel (vermutlich Oman, Jemen)"
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
-    allows_harvest: false
+    allows_harvest: true  # W-003: leaf gel harvest
     bloom_months: [2, 3, 4]
     container_suitable: "yes"
     recommended_container_volume_l: "3-10"
@@ -527,7 +527,7 @@ new_species:
     plant_category: indoor_houseplant
     growth_habit: shrub
     root_type: fibrous
-    hardiness_zones: [7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b]
+    hardiness_zones: [8a, 8b, 9a, 9b, 10a, 10b]
     native_habitat: "Ostasien (Japan, China, Korea)"
     allelopathy_score: 0.0
     frost_sensitivity: moderate
@@ -1000,7 +1000,10 @@ new_species:
 # Chlorophytum comosum already enriched in plant_info.yaml — no additional
 # enrichment needed here.
 
-species_enrichment: {}
+species_enrichment:
+  "Begonia semperflorens":
+    sowing_indoor_weeks_before_last_frost: 12
+    sowing_outdoor_after_last_frost_days: 14
 
 # ==============================================================================
 # S4  LIFECYCLE CONFIGS (29 species)
@@ -1128,7 +1131,7 @@ lifecycle_configs:
     cycle_type: perennial
     photoperiod_type: day_neutral
     typical_lifespan_years: 5
-    dormancy_required: false
+    dormancy_required: true
     vernalization_required: false
     vernalization_min_days: null
     critical_day_length_hours: null
@@ -1174,8 +1177,8 @@ lifecycle_configs:
     photoperiod_type: day_neutral
     typical_lifespan_years: 30
     dormancy_required: true
-    vernalization_required: false
-    vernalization_min_days: null
+    vernalization_required: true
+    vernalization_min_days: 42
     critical_day_length_hours: null
 
   "Codiaeum variegatum":
@@ -2444,10 +2447,35 @@ growth_phases:
         calcium_ppm: 150
         magnesium_ppm: 60
 
+    - name: flowering
+      display_name: "Blüte"
+      duration_days: 60
+      sequence_order: 2
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: medium
+      requirement_profile:
+        light_ppfd_target: 400
+        photoperiod_hours: 12.0
+        temperature_day_c: 22.0
+        temperature_night_c: 17.0
+        humidity_day_percent: 60
+        humidity_night_percent: 65
+        vpd_target_kpa: 0.9
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 400
+      nutrient_profile:
+        npk_ratio: [2, 3, 2]
+        target_ec_ms: 1.2
+        target_ph: 6.0
+        calcium_ppm: 120
+        magnesium_ppm: 50
+
     - name: winter_rest
       display_name: Winterruhe
       duration_days: 150
-      sequence_order: 2
+      sequence_order: 3
       is_terminal: false
       allows_harvest: false
       stress_tolerance: low
@@ -2600,7 +2628,7 @@ growth_phases:
     - name: summer_rest
       display_name: Sommerruhe
       duration_days: 75
-      sequence_order: 2
+      sequence_order: 3
       is_terminal: false
       allows_harvest: false
       stress_tolerance: high
@@ -2625,7 +2653,7 @@ growth_phases:
     - name: flowering
       display_name: Blüte
       duration_days: 45
-      sequence_order: 3
+      sequence_order: 2
       is_terminal: false
       allows_harvest: false
       stress_tolerance: medium
@@ -2778,7 +2806,7 @@ growth_phases:
       display_name: Blüte
       duration_days: 70
       sequence_order: 3
-      is_terminal: true
+      is_terminal: false
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
