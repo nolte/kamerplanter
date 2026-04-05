@@ -32,7 +32,7 @@ services:
 
   # ── Valkey (Redis-compatible) ────────────────────────────
   valkey:
-    image: valkey/valkey:8-alpine
+    image: valkey/valkey:9-alpine
     volumes:
       - valkey_data:/data
     healthcheck:
