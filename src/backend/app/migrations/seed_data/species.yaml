@@ -15,6 +15,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [7, 8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "10--20"
     min_container_depth_cm: 30
@@ -25,6 +26,8 @@ species:
     balcony_suitable: limited
     greenhouse_recommended: true
     support_required: true
+    nutrient_demand_level: heavy_feeder
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Capsicum annuum
     common_names: [Pepper, Paprika, Chili]
@@ -40,6 +43,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [7, 8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "5--15"
     min_container_depth_cm: 25
@@ -49,6 +53,7 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: "yes"
     greenhouse_recommended: true
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Solanum melongena
     common_names: [Eggplant, Aubergine]
@@ -64,6 +69,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [7, 8, 9]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "15--25"
     min_container_depth_cm: 30
@@ -73,6 +79,7 @@ species:
     indoor_suitable: limited
     balcony_suitable: limited
     greenhouse_recommended: true
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Solanum tuberosum
     common_names: [Potato, Kartoffel]
@@ -87,6 +94,7 @@ species:
     direct_sow_months: [4, 5]
     harvest_months: [6, 7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "30--50"
     min_container_depth_cm: 40
@@ -95,6 +103,7 @@ species:
     spacing_cm: "30--40"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Physalis peruviana
     common_names: [Cape Gooseberry, Physalis, Andenbeere]
@@ -110,6 +119,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "10--20"
     min_container_depth_cm: 25
@@ -120,6 +130,7 @@ species:
     balcony_suitable: "yes"
     greenhouse_recommended: true
     support_required: true
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Nicotiana tabacum
     common_names: [Tobacco, Tabak]
@@ -135,6 +146,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [8, 9]
     frost_sensitivity: sensitive
+    plant_category: outdoor_ornamental
     container_suitable: limited
     recommended_container_volume_l: "15--25"
     min_container_depth_cm: 30
@@ -143,6 +155,7 @@ species:
     spacing_cm: "50--80"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: heavy_feeder
 
   # -- Cannabaceae (2) --
   - scientific_name: Cannabis sativa
@@ -159,6 +172,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [9, 10]
     frost_sensitivity: sensitive
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "10--25"
     min_container_depth_cm: 25
@@ -169,6 +183,7 @@ species:
     balcony_suitable: limited
     greenhouse_recommended: true
     support_required: false
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Humulus lupulus
     common_names: [Hops, Hopfen]
@@ -183,6 +198,7 @@ species:
     direct_sow_months: [3, 4]
     harvest_months: [8, 9]
     frost_sensitivity: hardy
+    plant_category: herb
     container_suitable: limited
     recommended_container_volume_l: "30--50"
     min_container_depth_cm: 40
@@ -192,6 +208,7 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "no"
     support_required: true
+    nutrient_demand_level: heavy_feeder
 
   # -- Lamiaceae (6) --
   - scientific_name: Ocimum basilicum
@@ -208,6 +225,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [6, 7, 8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -217,6 +235,7 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: "yes"
     greenhouse_recommended: true
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Mentha piperita
     common_names: [Peppermint, Pfefferminze]
@@ -231,6 +250,7 @@ species:
     direct_sow_months: [3, 4, 5]
     harvest_months: [6, 7, 8, 9]
     frost_sensitivity: very_hardy
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -239,6 +259,7 @@ species:
     spacing_cm: "30--45"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Thymus vulgaris
     common_names: [Thyme, Thymian]
@@ -253,6 +274,7 @@ species:
     direct_sow_months: [4, 5]
     harvest_months: [6, 7, 8, 9]
     frost_sensitivity: hardy
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "2--5"
     min_container_depth_cm: 15
@@ -261,6 +283,7 @@ species:
     spacing_cm: "20--30"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Salvia rosmarinus
     common_names: [Rosemary, Rosmarin]
@@ -276,6 +299,7 @@ species:
     sowing_outdoor_after_last_frost_days: 14
     harvest_months: [6, 7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "5--10"
     min_container_depth_cm: 20
@@ -284,6 +308,7 @@ species:
     spacing_cm: "60--90"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Salvia officinalis
     common_names: [Sage, Salbei]
@@ -298,6 +323,7 @@ species:
     direct_sow_months: [4, 5]
     harvest_months: [6, 7, 8, 9]
     frost_sensitivity: hardy
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "5--10"
     min_container_depth_cm: 20
@@ -306,6 +332,7 @@ species:
     spacing_cm: "40--50"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Lavandula angustifolia
     common_names: [Lavender, Lavendel]
@@ -320,8 +347,9 @@ species:
     sowing_indoor_weeks_before_last_frost: 8
     sowing_outdoor_after_last_frost_days: 14
     bloom_months: [6, 7, 8]
-    allows_harvest: false
+    allows_harvest: true  # W-006: flower and oil harvest
     frost_sensitivity: hardy
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "5--10"
     min_container_depth_cm: 20
@@ -330,6 +358,7 @@ species:
     spacing_cm: "30--45"
     indoor_suitable: limited
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   # -- Apiaceae (6) --
   - scientific_name: Daucus carota
@@ -345,6 +374,7 @@ species:
     direct_sow_months: [3, 4, 5, 6, 7]
     harvest_months: [6, 7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "10--20"
     min_container_depth_cm: 30
@@ -353,6 +383,7 @@ species:
     spacing_cm: "5--8"
     indoor_suitable: "no"
     balcony_suitable: "yes"
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Foeniculum vulgare
     common_names: [Fennel, Fenchel]
@@ -368,6 +399,7 @@ species:
     direct_sow_months: [5, 6]
     harvest_months: [8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "10--20"
     min_container_depth_cm: 30
@@ -376,6 +408,7 @@ species:
     spacing_cm: "30--40"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Anethum graveolens
     common_names: [Dill]
@@ -390,6 +423,7 @@ species:
     direct_sow_months: [4, 5, 6, 7]
     harvest_months: [6, 7, 8, 9]
     frost_sensitivity: moderate
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 20
@@ -398,6 +432,7 @@ species:
     spacing_cm: "15--25"
     indoor_suitable: limited
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Coriandrum sativum
     common_names: [Coriander, Koriander]
@@ -412,6 +447,7 @@ species:
     direct_sow_months: [4, 5, 6, 7, 8]
     harvest_months: [6, 7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -420,6 +456,7 @@ species:
     spacing_cm: "10--20"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Apium graveolens
     common_names: [Celery, Sellerie]
@@ -435,6 +472,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [8, 9, 10, 11]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "10--15"
     min_container_depth_cm: 25
@@ -443,6 +481,7 @@ species:
     spacing_cm: "25--30"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Petroselinum crispum
     common_names: [Parsley, Petersilie]
@@ -458,6 +497,7 @@ species:
     direct_sow_months: [3, 4, 5, 6, 7]
     harvest_months: [5, 6, 7, 8, 9, 10, 11]
     frost_sensitivity: moderate
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 20
@@ -466,6 +506,7 @@ species:
     spacing_cm: "15--20"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: medium_feeder
 
   # -- Brassicaceae (6) --
   - scientific_name: Brassica oleracea var. italica
@@ -482,6 +523,7 @@ species:
     direct_sow_months: [4, 5, 6]
     harvest_months: [6, 7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "15--25"
     min_container_depth_cm: 30
@@ -490,6 +532,7 @@ species:
     spacing_cm: "40--50"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Brassica oleracea var. botrytis
     common_names: [Cauliflower, Blumenkohl]
@@ -505,6 +548,7 @@ species:
     direct_sow_months: [4, 5, 6]
     harvest_months: [7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "15--25"
     min_container_depth_cm: 30
@@ -513,6 +557,7 @@ species:
     spacing_cm: "50--60"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Brassica oleracea var. gongylodes
     common_names: [Kohlrabi]
@@ -528,6 +573,7 @@ species:
     direct_sow_months: [3, 4, 5, 6, 7]
     harvest_months: [5, 6, 7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "5--10"
     min_container_depth_cm: 20
@@ -536,6 +582,7 @@ species:
     spacing_cm: "20--25"
     indoor_suitable: "no"
     balcony_suitable: "yes"
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Raphanus sativus
     common_names: [Radish, Rettich, Radieschen]
@@ -550,6 +597,7 @@ species:
     direct_sow_months: [3, 4, 5, 6, 7, 8, 9]
     harvest_months: [4, 5, 6, 7, 8, 9, 10]
     frost_sensitivity: hardy
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -558,6 +606,7 @@ species:
     spacing_cm: "3--5"
     indoor_suitable: limited
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Eruca vesicaria
     common_names: [Arugula, Rucola]
@@ -572,6 +621,7 @@ species:
     direct_sow_months: [3, 4, 5, 6, 7, 8, 9]
     harvest_months: [4, 5, 6, 7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -580,6 +630,7 @@ species:
     spacing_cm: "10--15"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Brassica oleracea var. capitata
     common_names: [Cabbage, "Weißkohl"]
@@ -595,6 +646,7 @@ species:
     direct_sow_months: [4, 5, 6]
     harvest_months: [7, 8, 9, 10, 11]
     frost_sensitivity: hardy
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "15--25"
     min_container_depth_cm: 25
@@ -603,6 +655,7 @@ species:
     spacing_cm: "40--50"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: heavy_feeder
 
   # -- Fabaceae (6) --
   - scientific_name: Phaseolus vulgaris
@@ -618,6 +671,7 @@ species:
     direct_sow_months: [5, 6, 7]
     harvest_months: [7, 8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "5--10"
     min_container_depth_cm: 20
@@ -626,6 +680,7 @@ species:
     spacing_cm: "10--15"
     indoor_suitable: "no"
     balcony_suitable: "yes"
+    nutrient_demand_level: nitrogen_fixer
 
   - scientific_name: Pisum sativum
     common_names: [Pea, Erbse]
@@ -641,6 +696,7 @@ species:
     direct_sow_months: [3, 4, 5, 6]
     harvest_months: [5, 6, 7, 8, 9]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "5--10"
     min_container_depth_cm: 20
@@ -650,6 +706,7 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "yes"
     support_required: true
+    nutrient_demand_level: nitrogen_fixer
 
   - scientific_name: Vicia faba
     common_names: [Broad Bean, Ackerbohne, Dicke Bohne]
@@ -664,6 +721,7 @@ species:
     direct_sow_months: [2, 3, 4]
     harvest_months: [6, 7]
     frost_sensitivity: very_hardy
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "10--20"
     min_container_depth_cm: 25
@@ -673,6 +731,7 @@ species:
     indoor_suitable: "no"
     balcony_suitable: limited
     support_required: true
+    nutrient_demand_level: nitrogen_fixer
 
   - scientific_name: Glycine max
     common_names: [Soybean, Sojabohne]
@@ -687,6 +746,7 @@ species:
     direct_sow_months: [5, 6]
     harvest_months: [9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "10--15"
     min_container_depth_cm: 20
@@ -695,6 +755,7 @@ species:
     spacing_cm: "10--15"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: nitrogen_fixer
 
   - scientific_name: Lens culinaris
     common_names: [Lentil, Linse]
@@ -709,12 +770,14 @@ species:
     direct_sow_months: [4, 5]
     harvest_months: [7, 8]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "20--40"
     mature_width_cm: "15--25"
     spacing_cm: "5--10"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: nitrogen_fixer
 
   - scientific_name: Trifolium pratense
     common_names: [Red Clover, Rotklee]
@@ -730,12 +793,14 @@ species:
     bloom_months: [6, 7, 8, 9]
     allows_harvest: false
     frost_sensitivity: very_hardy
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "20--40"
     mature_width_cm: "20--30"
     spacing_cm: "10--15"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: nitrogen_fixer
 
   # -- Cucurbitaceae (6) --
   - scientific_name: Cucumis sativus
@@ -752,6 +817,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [7, 8, 9]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "15--25"
     min_container_depth_cm: 25
@@ -762,6 +828,7 @@ species:
     balcony_suitable: limited
     greenhouse_recommended: true
     support_required: true
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Cucumis melo
     common_names: [Melon, Melone, Honigmelone]
@@ -777,6 +844,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [8, 9]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "20--30"
     min_container_depth_cm: 30
@@ -786,6 +854,7 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "no"
     greenhouse_recommended: true
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Cucurbita pepo
     common_names: [Zucchini, Squash]
@@ -801,6 +870,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [7, 8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "20--40"
     min_container_depth_cm: 30
@@ -809,6 +879,7 @@ species:
     spacing_cm: "60--100"
     indoor_suitable: "no"
     balcony_suitable: limited
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Cucurbita maxima
     common_names: [Pumpkin, "Kürbis", "Riesenkürbis"]
@@ -824,12 +895,14 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "40--60"
     mature_width_cm: "200--400"
     spacing_cm: "100--200"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Citrullus lanatus
     common_names: [Watermelon, Wassermelone]
@@ -845,6 +918,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [8, 9]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "30--50"
     mature_width_cm: "200--400"
@@ -852,6 +926,7 @@ species:
     indoor_suitable: "no"
     balcony_suitable: "no"
     greenhouse_recommended: true
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Luffa aegyptiaca
     common_names: [Luffa, Schwammgurke]
@@ -867,6 +942,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "300--500"
     mature_width_cm: "100--200"
@@ -875,6 +951,7 @@ species:
     balcony_suitable: "no"
     greenhouse_recommended: true
     support_required: true
+    nutrient_demand_level: heavy_feeder
 
   # -- Asteraceae (6) --
   - scientific_name: Lactuca sativa
@@ -891,6 +968,7 @@ species:
     direct_sow_months: [3, 4, 5, 6, 7, 8]
     harvest_months: [5, 6, 7, 8, 9, 10]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -899,6 +977,7 @@ species:
     spacing_cm: "20--30"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Cichorium intybus
     common_names: [Chicory, "Chicorée", Wegwarte]
@@ -913,6 +992,7 @@ species:
     direct_sow_months: [5, 6, 7]
     harvest_months: [10, 11, 12]
     frost_sensitivity: hardy
+    plant_category: outdoor_vegetable
     container_suitable: limited
     recommended_container_volume_l: "10--15"
     min_container_depth_cm: 25
@@ -921,6 +1001,7 @@ species:
     spacing_cm: "20--30"
     indoor_suitable: limited
     balcony_suitable: limited
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Helianthus annuus
     common_names: [Sunflower, Sonnenblume]
@@ -937,6 +1018,7 @@ species:
     harvest_months: [9, 10]
     bloom_months: [7, 8, 9]
     frost_sensitivity: sensitive
+    plant_category: outdoor_ornamental
     container_suitable: limited
     recommended_container_volume_l: "10--20"
     min_container_depth_cm: 25
@@ -946,6 +1028,7 @@ species:
     indoor_suitable: "no"
     balcony_suitable: limited
     support_required: true
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Tagetes erecta
     common_names: [Marigold, Tagetes, Studentenblume]
@@ -962,6 +1045,7 @@ species:
     bloom_months: [6, 7, 8, 9, 10]
     allows_harvest: false
     frost_sensitivity: sensitive
+    plant_category: outdoor_ornamental
     container_suitable: "yes"
     recommended_container_volume_l: "2--5"
     min_container_depth_cm: 15
@@ -970,6 +1054,7 @@ species:
     spacing_cm: "20--30"
     indoor_suitable: "no"
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Matricaria chamomilla
     common_names: [Chamomile, Kamille]
@@ -984,6 +1069,7 @@ species:
     direct_sow_months: [3, 4, 5]
     harvest_months: [6, 7, 8]
     frost_sensitivity: hardy
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -992,6 +1078,7 @@ species:
     spacing_cm: "15--20"
     indoor_suitable: limited
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
   - scientific_name: Artemisia dracunculus
     common_names: [Tarragon, Estragon]
@@ -1006,6 +1093,7 @@ species:
     direct_sow_months: [4, 5]
     harvest_months: [6, 7, 8, 9]
     frost_sensitivity: moderate
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "5--10"
     min_container_depth_cm: 20
@@ -1014,6 +1102,7 @@ species:
     spacing_cm: "30--40"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: medium_feeder
 
   # -- Poaceae (6) --
   - scientific_name: Zea mays
@@ -1030,12 +1119,14 @@ species:
     direct_sow_months: [5, 6]
     harvest_months: [8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "150--300"
     mature_width_cm: "40--60"
     spacing_cm: "20--30"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Triticum aestivum
     common_names: [Wheat, Weizen]
@@ -1055,12 +1146,14 @@ species:
         direct_sow_months: [10, 11]
         harvest_months: [6, 7]
     frost_sensitivity: very_hardy
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "60--120"
     mature_width_cm: "5--10"
     spacing_cm: "3--5"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Hordeum vulgare
     common_names: [Barley, Gerste]
@@ -1075,12 +1168,14 @@ species:
     direct_sow_months: [3, 4]
     harvest_months: [7, 8]
     frost_sensitivity: hardy
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "60--100"
     mature_width_cm: "5--10"
     spacing_cm: "3--5"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Avena sativa
     common_names: [Oat, Hafer]
@@ -1095,12 +1190,14 @@ species:
     direct_sow_months: [3, 4]
     harvest_months: [7, 8]
     frost_sensitivity: hardy
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "60--120"
     mature_width_cm: "5--10"
     spacing_cm: "3--5"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Oryza sativa
     common_names: [Rice, Reis]
@@ -1116,12 +1213,14 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "80--120"
     mature_width_cm: "10--15"
     spacing_cm: "15--20"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: heavy_feeder
 
   - scientific_name: Sorghum bicolor
     common_names: [Sorghum, Hirse]
@@ -1136,12 +1235,14 @@ species:
     direct_sow_months: [5, 6]
     harvest_months: [9, 10]
     frost_sensitivity: sensitive
+    plant_category: outdoor_vegetable
     container_suitable: "no"
     mature_height_cm: "100--300"
     mature_width_cm: "20--40"
     spacing_cm: "15--20"
     indoor_suitable: "no"
     balcony_suitable: "no"
+    nutrient_demand_level: medium_feeder
 
   # -- Araceae (2) --
   - scientific_name: Monstera deliciosa
@@ -1163,6 +1264,9 @@ species:
     balcony_suitable: limited
     greenhouse_recommended: true
     support_required: true
+    frost_sensitivity: sensitive
+    plant_category: tropical_foliage
+    nutrient_demand_level: medium_feeder
 
   - scientific_name: Spathiphyllum wallisii
     common_names: [Peace Lily, Einblatt]
@@ -1182,6 +1286,9 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: limited
     greenhouse_recommended: true
+    frost_sensitivity: sensitive
+    plant_category: tropical_foliage
+    nutrient_demand_level: medium_feeder
 
   # -- Asparagaceae (1) --
   - scientific_name: Chlorophytum comosum
@@ -1201,6 +1308,9 @@ species:
     mature_width_cm: "30--60"
     indoor_suitable: "yes"
     balcony_suitable: limited
+    frost_sensitivity: sensitive
+    plant_category: indoor_houseplant
+    nutrient_demand_level: light_feeder
 
   # -- Bromeliaceae (1) --
   - scientific_name: Guzmania lingulata
@@ -1221,6 +1331,9 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: limited
     greenhouse_recommended: true
+    frost_sensitivity: sensitive
+    plant_category: tropical_foliage
+    nutrient_demand_level: light_feeder
 
   # -- Rosaceae (1) --
   - scientific_name: Fragaria x ananassa
@@ -1237,6 +1350,7 @@ species:
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [5, 6, 7, 8, 9]
     frost_sensitivity: moderate
+    plant_category: outdoor_vegetable
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 20
@@ -1246,6 +1360,7 @@ species:
     indoor_suitable: limited
     balcony_suitable: "yes"
     greenhouse_recommended: true
+    nutrient_demand_level: medium_feeder
 
   # -- Urticaceae (1) --
   - scientific_name: Pilea peperomioides
@@ -1265,12 +1380,16 @@ species:
     mature_width_cm: "20--30"
     indoor_suitable: "yes"
     balcony_suitable: limited
+    frost_sensitivity: sensitive
+    plant_category: indoor_houseplant
+    nutrient_demand_level: light_feeder
 
   # -- Marantaceae (1) --
-  - scientific_name: Calathea orbifolia
+  # Formerly Calathea orbifolia; reclassified Borchsenius et al. 2012
+  - scientific_name: Goeppertia orbifolia
     common_names: [Calathea, Korbmarante]
     family: Marantaceae
-    genus: Calathea
+    genus: Goeppertia
     growth_habit: herb
     root_type: fibrous
     base_temp: 15.0
@@ -1284,6 +1403,9 @@ species:
     mature_width_cm: "40--60"
     indoor_suitable: "yes"
     balcony_suitable: "no"
+    frost_sensitivity: sensitive
+    plant_category: tropical_foliage
+    nutrient_demand_level: medium_feeder
 
   # -- Asparagaceae (2) --
   - scientific_name: Dracaena trifasciata
@@ -1303,6 +1425,9 @@ species:
     mature_width_cm: "20--40"
     indoor_suitable: "yes"
     balcony_suitable: limited
+    frost_sensitivity: sensitive
+    plant_category: succulent_cactus
+    nutrient_demand_level: light_feeder
 
   # -- Asparagaceae (3) --
   - scientific_name: Dracaena fragrans
@@ -1316,6 +1441,7 @@ species:
     native_habitat: Tropical Africa
     allelopathy_score: 0.0
     frost_sensitivity: sensitive
+    plant_category: tropical_foliage
     container_suitable: "yes"
     recommended_container_volume_l: "10--30"
     min_container_depth_cm: 20
@@ -1342,9 +1468,11 @@ species:
     native_habitat: Europe, North Africa, temperate Asia
     allelopathy_score: 0.0
     frost_sensitivity: hardy
-    sowing_indoor_weeks_before_last_frost: 10
-    sowing_outdoor_after_last_frost_days: 21
-    direct_sow_months: [5, 6]
+    plant_category: outdoor_ornamental
+    # Propagation by rhizome division only; seed propagation impractical
+    sowing_indoor_weeks_before_last_frost: null
+    sowing_outdoor_after_last_frost_days: null
+    direct_sow_months: []
     bloom_months: [6, 7, 8, 9]
     allows_harvest: false
     container_suitable: "yes"
@@ -1379,6 +1507,9 @@ species:
     indoor_suitable: "yes"
     balcony_suitable: limited
     support_required: true
+    frost_sensitivity: sensitive
+    plant_category: tropical_foliage
+    nutrient_demand_level: medium_feeder
 
   # -- Amaryllidaceae (1) --
   - scientific_name: Allium schoenoprasum
@@ -1395,6 +1526,7 @@ species:
     direct_sow_months: [3, 4, 5]
     harvest_months: [4, 5, 6, 7, 8, 9, 10]
     frost_sensitivity: hardy
+    plant_category: herb
     container_suitable: "yes"
     recommended_container_volume_l: "1--3"
     min_container_depth_cm: 15
@@ -1403,6 +1535,7 @@ species:
     spacing_cm: "15--20"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    nutrient_demand_level: medium_feeder
 
   # -- Geraniaceae (1) --
   - scientific_name: Pelargonium zonale
@@ -1417,6 +1550,7 @@ species:
     allelopathy_score: 0.0
     bloom_months: [5, 6, 7, 8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: balcony_plant
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -1425,6 +1559,7 @@ species:
     spacing_cm: "25--35"
     indoor_suitable: limited
     balcony_suitable: "yes"
+    nutrient_demand_level: medium_feeder
 
   # -- Solanaceae (Petunia) --
   - scientific_name: Petunia x hybrida
@@ -1440,6 +1575,7 @@ species:
     sowing_indoor_weeks_before_last_frost: 10
     bloom_months: [5, 6, 7, 8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: balcony_plant
     container_suitable: "yes"
     recommended_container_volume_l: "3--5"
     min_container_depth_cm: 15
@@ -1448,6 +1584,7 @@ species:
     spacing_cm: "25--30"
     indoor_suitable: "no"
     balcony_suitable: "yes"
+    nutrient_demand_level: medium_feeder
 
   # -- Verbenaceae (1) --
   - scientific_name: Verbena x hybrida
@@ -1463,6 +1600,7 @@ species:
     sowing_indoor_weeks_before_last_frost: 8
     bloom_months: [5, 6, 7, 8, 9, 10]
     frost_sensitivity: sensitive
+    plant_category: balcony_plant
     container_suitable: "yes"
     recommended_container_volume_l: "2--5"
     min_container_depth_cm: 15
@@ -1471,6 +1609,7 @@ species:
     spacing_cm: "25--30"
     indoor_suitable: "no"
     balcony_suitable: "yes"
+    nutrient_demand_level: medium_feeder
 
   # -- Violaceae (1) --
   - scientific_name: Viola x wittrockiana
@@ -1488,6 +1627,7 @@ species:
     bloom_months: [3, 4, 5, 6, 7, 8, 9, 10]
     allows_harvest: false
     frost_sensitivity: hardy
+    plant_category: balcony_plant
     container_suitable: "yes"
     recommended_container_volume_l: "1--3"
     min_container_depth_cm: 15
@@ -1496,6 +1636,7 @@ species:
     spacing_cm: "20--25"
     indoor_suitable: "no"
     balcony_suitable: "yes"
+    nutrient_demand_level: light_feeder
 
 cultivars:
   Solanum lycopersicum:

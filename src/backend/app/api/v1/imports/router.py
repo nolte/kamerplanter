@@ -18,6 +18,7 @@ ALLOWED_MIME_TYPES = frozenset(
         "text/plain",
         "application/csv",
         "application/vnd.ms-excel",
+        "application/octet-stream",  # headless browsers often send this for .csv
     }
 )
 

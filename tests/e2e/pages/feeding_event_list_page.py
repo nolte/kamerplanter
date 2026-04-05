@@ -189,11 +189,13 @@ class FeedingEventListPage(BasePage):
 
     def submit_create_form(self) -> None:
         """Submit the create form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        btn = self.wait_for_element_clickable(self.FORM_SUBMIT)
+        self.scroll_and_click(btn)
 
     def cancel_create_form(self) -> None:
         """Cancel the create form."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        btn = self.wait_for_element_clickable(self.FORM_CANCEL)
+        self.scroll_and_click(btn)
 
     def get_volume_field_value(self) -> str:
         """Return the current value of the volume input."""

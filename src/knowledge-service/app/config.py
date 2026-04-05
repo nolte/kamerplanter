@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # Embedding service
     embedding_service_url: str = "http://embedding-service:8080"
-    embedding_model: str = "multilingual-e5-base"
+    embedding_model: str = "multilingual-e5-large"
 
     # LLM
     llm_provider: str = "ollama"  # anthropic | ollama | openai_compatible
@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     reranker_url: str = ""
     reranker_initial_k: int = 20
     reranker_top_k: int = 5
+
+    # Answer verification (optional second LLM pass)
+    answer_verification: bool = False
 
     # RAG language defaults
     rag_doc_language: str = "de"

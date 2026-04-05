@@ -303,7 +303,7 @@ new_species_family_map:
   "Dracaena trifasciata": Asparagaceae
   "Dypsis lutescens": Arecaceae
   "Echeveria elegans": Crassulaceae
-  "Epipremnum aureum": Araceae
+  # "Epipremnum aureum" removed — already in species.yaml
   "Euphorbia pulcherrima": Euphorbiaceae
   "Fatsia japonica": Araliaceae
   "Ficus benjamina": Moraceae
@@ -334,6 +334,7 @@ new_species:
   - scientific_name: "Dracaena trifasciata"
     common_names: [Bogenhanf, Schwiegermutterzunge, Snake Plant, Mother-in-Law's Tongue]
     genus: Dracaena
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [9b, 10a, 10b, 11a, 11b]
@@ -361,6 +362,7 @@ new_species:
   - scientific_name: "Dypsis lutescens"
     common_names: [Goldfruchtpalme, Areca-Palme, Areca Palm, Butterfly Palm, Golden Cane Palm]
     genus: Dypsis
+    plant_category: tropical_foliage
     growth_habit: tree
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -388,6 +390,7 @@ new_species:
   - scientific_name: "Echeveria elegans"
     common_names: [Mexikanische Schneekugel, Glashausrose, Mexican Snowball, Mexican Gem]
     genus: Echeveria
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -412,36 +415,13 @@ new_species:
     greenhouse_recommended: false
     support_required: false
 
-  - scientific_name: "Epipremnum aureum"
-    common_names: [Efeutute, Goldene Efeutute, Pothos, Golden Pothos, Devil's Ivy]
-    genus: Epipremnum
-    growth_habit: vine
-    root_type: fibrous
-    hardiness_zones: [10a, 10b, 11a, 11b, 12a]
-    native_habitat: "Suedostasien (Mo'orea, Gesellschaftsinseln)"
-    allelopathy_score: 0.0
-    base_temp: 10.0
-    frost_sensitivity: sensitive
-    allows_harvest: false
-    sowing_indoor_weeks_before_last_frost: null
-    sowing_outdoor_after_last_frost_days: null
-    direct_sow_months: []
-    harvest_months: []
-    bloom_months: []
-    container_suitable: "yes"
-    recommended_container_volume_l: "2-10"
-    min_container_depth_cm: 15
-    mature_height_cm: "20-40"
-    mature_width_cm: "40-100"
-    spacing_cm: null
-    indoor_suitable: "yes"
-    balcony_suitable: limited
-    greenhouse_recommended: false
-    support_required: false
+  # Epipremnum aureum removed — already defined in species.yaml.
+  # Enrichment fields moved to species_enrichment section below.
 
   - scientific_name: "Euphorbia pulcherrima"
     common_names: [Weihnachtsstern, Adventsstern, Poinsettia, Christmas Star]
     genus: Euphorbia
+    plant_category: indoor_houseplant
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -469,6 +449,7 @@ new_species:
   - scientific_name: "Fatsia japonica"
     common_names: [Zimmeraralie, Japanische Aralie, Japanese Aralia, Paperplant]
     genus: Fatsia
+    plant_category: indoor_houseplant
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [8a, 8b, 9a, 9b, 10a, 10b, 11a]
@@ -496,6 +477,7 @@ new_species:
   - scientific_name: "Ficus benjamina"
     common_names: [Birkenfeige, Weeping Fig, Benjamin Fig]
     genus: Ficus
+    plant_category: tropical_foliage
     growth_habit: tree
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -523,6 +505,7 @@ new_species:
   - scientific_name: "Ficus elastica"
     common_names: [Gummibaum, Rubber Plant, Rubber Fig, Indian Rubber Tree]
     genus: Ficus
+    plant_category: tropical_foliage
     growth_habit: tree
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -550,6 +533,7 @@ new_species:
   - scientific_name: "Ficus lyrata"
     common_names: [Geigenfeige, Fiddle Leaf Fig]
     genus: Ficus
+    plant_category: tropical_foliage
     growth_habit: tree
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -577,6 +561,7 @@ new_species:
   - scientific_name: "Fittonia albivenis"
     common_names: [Fittonie, Mosaikpflanze, Nerve Plant, Mosaic Plant]
     genus: Fittonia
+    plant_category: tropical_foliage
     growth_habit: groundcover
     root_type: fibrous
     hardiness_zones: [11a, 11b, 12a]
@@ -604,6 +589,7 @@ new_species:
   - scientific_name: "Gardenia jasminoides"
     common_names: [Gardenie, Knopflochblume, Gardenia, Cape Jasmine]
     genus: Gardenia
+    plant_category: indoor_houseplant
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [8a, 8b, 9a, 9b, 10a, 10b, 11a, 11b]
@@ -631,6 +617,7 @@ new_species:
   - scientific_name: "Goeppertia lancifolia"
     common_names: [Klapperschlangen-Calathea, Lanzettblatt-Calathea, Rattlesnake Plant]
     genus: Goeppertia
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [11a, 11b, 12a, 12b]
@@ -658,6 +645,7 @@ new_species:
   - scientific_name: "Goeppertia makoyana"
     common_names: [Pfauenkorb-Marante, Korbmarante, Peacock Plant, Cathedral Windows]
     genus: Goeppertia
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -685,6 +673,7 @@ new_species:
   - scientific_name: "Goeppertia orbifolia"
     common_names: [Orbifolia-Korbmarante, Calathea orbifolia, Round-leaf Calathea]
     genus: Goeppertia
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [11a, 11b, 12a, 12b]
@@ -712,6 +701,7 @@ new_species:
   - scientific_name: "Gymnocalycium mihanovichii"
     common_names: [Erdbeerkaktus, Hibotan, Moon Cactus, Chin Cactus]
     genus: Gymnocalycium
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b, 12a, 12b]
@@ -739,6 +729,7 @@ new_species:
   - scientific_name: "Haworthiopsis fasciata"
     common_names: [Zebra-Haworthie, Zebrapflanze, Zebra Plant, Zebra Cactus]
     genus: Haworthiopsis
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [9b, 10a, 10b, 11a, 11b]
@@ -766,6 +757,7 @@ new_species:
   - scientific_name: "Hedera helix"
     common_names: [Gewoehnlicher Efeu, English Ivy, Common Ivy]
     genus: Hedera
+    plant_category: indoor_houseplant
     growth_habit: vine
     root_type: fibrous
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
@@ -793,6 +785,7 @@ new_species:
   - scientific_name: "Hibiscus rosa-sinensis"
     common_names: [Chinesischer Roseneibisch, Zimmer-Hibiskus, Chinese Hibiscus, Tropical Hibiscus]
     genus: Hibiscus
+    plant_category: balcony_plant
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -820,6 +813,7 @@ new_species:
   - scientific_name: "Hippeastrum hybridum"
     common_names: [Ritterstern, Amaryllis, Hippeastrum, Knight's Star Lily]
     genus: Hippeastrum
+    plant_category: bulb_tuber
     growth_habit: herb
     root_type: bulbous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -847,6 +841,7 @@ new_species:
   - scientific_name: "Howea forsteriana"
     common_names: [Kentiapalme, Kentia Palm, Sentry Palm, Thatch Palm]
     genus: Howea
+    plant_category: tropical_foliage
     growth_habit: tree
     root_type: fibrous
     hardiness_zones: [9b, 10a, 10b, 11a, 11b]
@@ -874,6 +869,7 @@ new_species:
   - scientific_name: "Hoya carnosa"
     common_names: [Wachsblume, Porzellanblume, Wax Plant, Porcelain Flower]
     genus: Hoya
+    plant_category: tropical_foliage
     growth_habit: vine
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b, 12a]
@@ -901,6 +897,7 @@ new_species:
   - scientific_name: "Impatiens walleriana"
     common_names: [Fleissiges Lieschen, Busy Lizzie, Patient Lucy]
     genus: Impatiens
+    plant_category: balcony_plant
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -928,6 +925,7 @@ new_species:
   - scientific_name: "Jasminum polyanthum"
     common_names: [Vielbluetigter Jasmin, Winterjasmin, Pink Jasmine, Winter-blooming Jasmine]
     genus: Jasminum
+    plant_category: indoor_houseplant
     growth_habit: vine
     root_type: fibrous
     hardiness_zones: [8a, 8b, 9a, 9b, 10a, 10b]
@@ -955,6 +953,7 @@ new_species:
   - scientific_name: "Kalanchoe blossfeldiana"
     common_names: [Flammendes Kaethchen, Kalanchoe, Flaming Katy, Christmas Kalanchoe]
     genus: Kalanchoe
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -982,11 +981,12 @@ new_species:
   - scientific_name: "Kalanchoe daigremontiana"
     common_names: [Brutblatt, Goethepflanze, Mother of Thousands, Mexican Hat Plant]
     genus: Kalanchoe
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [9b, 10a, 10b, 11a, 11b]
     native_habitat: "Madagaskar"
-    allelopathy_score: -0.1
+    allelopathy_score: 0.0
     base_temp: 10.0
     frost_sensitivity: sensitive
     allows_harvest: false
@@ -1009,6 +1009,7 @@ new_species:
   - scientific_name: "Lithops spp."
     common_names: [Lebende Steine, Lithops, Living Stones, Stone Plants]
     genus: Lithops
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: taproot
     hardiness_zones: [10a, 10b, 11a, 11b]
@@ -1036,6 +1037,7 @@ new_species:
   - scientific_name: "Livistona chinensis"
     common_names: [Chinesische Faecherpalme, Brunnenpalme, Chinese Fan Palm, Fountain Palm]
     genus: Livistona
+    plant_category: tropical_foliage
     growth_habit: tree
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -1063,6 +1065,7 @@ new_species:
   - scientific_name: "Mammillaria spp."
     common_names: [Warzenkaktus, Mammillaria, Pincushion Cactus, Nipple Cactus]
     genus: Mammillaria
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -1092,6 +1095,7 @@ new_species:
   - scientific_name: "Maranta leuconeura"
     common_names: [Pfeilwurz, Marante, Prayer Plant]
     genus: Maranta
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [11a, 11b, 12a]
@@ -1167,6 +1171,11 @@ species_enrichment:
           volume_ml_max: 50
 
   "Epipremnum aureum":
+    # Enrichment fields from removed new_species entry (species exists in species.yaml)
+    frost_sensitivity: sensitive
+    allows_harvest: false
+    native_habitat: "Suedostasien (Mo'orea, Gesellschaftsinseln)"
+    bloom_months: []
     watering_guide:
       interval_days: 7
       volume_ml_min: 100
@@ -1402,7 +1411,7 @@ species_enrichment:
       seasonal_adjustments:
         - label: "Ruhephase (Aug-Okt)"
           months: [8, 9, 10]
-          interval_days: 0
+          interval_days: 1
           volume_ml_min: 0
           volume_ml_max: 0
 
@@ -1502,12 +1511,12 @@ species_enrichment:
       seasonal_adjustments:
         - label: "Sommerdormanz (Jun-Aug)"
           months: [6, 7, 8]
-          interval_days: 0
+          interval_days: 1
           volume_ml_min: 0
           volume_ml_max: 0
         - label: "Winterhaeufung (Dez-Maerz)"
           months: [12, 1, 2, 3]
-          interval_days: 0
+          interval_days: 1
           volume_ml_min: 0
           volume_ml_max: 0
 
@@ -1653,7 +1662,7 @@ lifecycle_configs:
 
   "Gardenia jasminoides":
     cycle_type: perennial
-    photoperiod_type: day_neutral
+    photoperiod_type: short_day  # W-006/P-002: facultative short-day plant for flower induction
     typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: false
@@ -1789,7 +1798,7 @@ lifecycle_configs:
   "Kalanchoe daigremontiana":
     cycle_type: perennial
     photoperiod_type: short_day
-    typical_lifespan_years: null
+    typical_lifespan_years: 3  # BOT: typical lifespan ~3 years
     dormancy_required: false
     vernalization_required: false
     vernalization_min_days: null
@@ -2066,60 +2075,11 @@ growth_phases:
         magnesium_ppm: null
 
   "Euphorbia pulcherrima":
-    - name: bract_coloring
-      display_name: "Brakteenfaerbung"
-      duration_days: 56
-      sequence_order: 1
-      is_terminal: false
-      allows_harvest: false
-      stress_tolerance: low
-      requirement_profile:
-        light_ppfd_target: 300
-        photoperiod_hours: 10.0
-        temperature_day_c: 20.0
-        temperature_night_c: 16.0
-        humidity_day_percent: 55
-        humidity_night_percent: 60
-        vpd_target_kpa: 0.8
-        co2_ppm: 400
-        irrigation_frequency_days: 5.0
-        irrigation_volume_ml_per_plant: 200
-      nutrient_profile:
-        npk_ratio: [1, 2, 2]
-        target_ec_ms: 0.8
-        target_ph: 6.0
-        calcium_ppm: 60
-        magnesium_ppm: 25
-
-    - name: flowering
-      display_name: "Bluete"
-      duration_days: 90
-      sequence_order: 2
-      is_terminal: false
-      allows_harvest: false
-      stress_tolerance: low
-      requirement_profile:
-        light_ppfd_target: 350
-        photoperiod_hours: 10.0
-        temperature_day_c: 20.0
-        temperature_night_c: 16.0
-        humidity_day_percent: 55
-        humidity_night_percent: 60
-        vpd_target_kpa: 0.8
-        co2_ppm: 400
-        irrigation_frequency_days: 5.0
-        irrigation_volume_ml_per_plant: 200
-      nutrient_profile:
-        npk_ratio: [1, 1, 1]
-        target_ec_ms: 0.6
-        target_ph: 6.0
-        calcium_ppm: 60
-        magnesium_ppm: 25
-
+    # Biologisch korrekte Reihenfolge: Sommer-Wachstum → Herbst-Kurztag → Brakteenfaerbung → Winter-Bluete
     - name: vegetative
       display_name: "Vegetative Phase"
       duration_days: 150
-      sequence_order: 3
+      sequence_order: 1
       is_terminal: false
       allows_harvest: false
       stress_tolerance: medium
@@ -2144,7 +2104,7 @@ growth_phases:
     - name: short_day_induction
       display_name: "Kurztageinleitung"
       duration_days: 56
-      sequence_order: 4
+      sequence_order: 2
       is_terminal: false
       allows_harvest: false
       stress_tolerance: low
@@ -2162,6 +2122,56 @@ growth_phases:
       nutrient_profile:
         npk_ratio: [1, 2, 2]
         target_ec_ms: 0.8
+        target_ph: 6.0
+        calcium_ppm: 60
+        magnesium_ppm: 25
+
+    - name: bract_coloring
+      display_name: "Brakteenfaerbung"
+      duration_days: 56
+      sequence_order: 3
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 300
+        photoperiod_hours: 10.0
+        temperature_day_c: 20.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [1, 2, 2]
+        target_ec_ms: 0.8
+        target_ph: 6.0
+        calcium_ppm: 60
+        magnesium_ppm: 25
+
+    - name: flowering
+      display_name: "Bluete"
+      duration_days: 90
+      sequence_order: 4
+      is_terminal: false
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        light_ppfd_target: 350
+        photoperiod_hours: 10.0
+        temperature_day_c: 20.0
+        temperature_night_c: 16.0
+        humidity_day_percent: 55
+        humidity_night_percent: 60
+        vpd_target_kpa: 0.8
+        co2_ppm: 400
+        irrigation_frequency_days: 5.0
+        irrigation_volume_ml_per_plant: 200
+      nutrient_profile:
+        npk_ratio: [1, 1, 1]
+        target_ec_ms: 0.6
         target_ph: 6.0
         calcium_ppm: 60
         magnesium_ppm: 25
@@ -2798,7 +2808,7 @@ growth_phases:
       nutrient_profile:
         npk_ratio: [1, 2, 2]
         target_ec_ms: 0.45
-        target_ph: 7.0
+        target_ph: 6.5  # BOT: slightly acidic better for succulents
         calcium_ppm: 30
         magnesium_ppm: 10
 
@@ -2823,7 +2833,7 @@ growth_phases:
       nutrient_profile:
         npk_ratio: [0, 0, 0]
         target_ec_ms: 0.0
-        target_ph: 7.0
+        target_ph: 6.5  # BOT: slightly acidic better for succulents
         calcium_ppm: null
         magnesium_ppm: null
 

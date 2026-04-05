@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import time
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -11,7 +14,11 @@ from .base_page import BasePage, DEFAULT_TIMEOUT
 
 
 class WorkflowListPage(BasePage):
-    """Interact with the Workflow Template List page (``/aufgaben/workflows``)."""
+    """Interact with the Workflow Template List page (``/aufgaben/workflows``).
+
+    The page uses a card-based grid layout (not a DataTable).
+    Each workflow is rendered as a ``Card`` with ``data-testid='workflow-card-{key}'``.
+    """
 
     PATH = "/aufgaben/workflows"
 
@@ -19,17 +26,15 @@ class WorkflowListPage(BasePage):
     PAGE = (By.CSS_SELECTOR, "[data-testid='workflow-template-list-page']")
 
     # ── Action buttons ─────────────────────────────────────────────────
-    GENERATE_WORKFLOW_BUTTON = (By.CSS_SELECTOR, "[data-testid='generate-workflow-button']")
     CREATE_WORKFLOW_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-workflow-button']")
 
-    # ── DataTable locators (shared with other list pages) ──────────────
-    TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
-    SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
-    SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
-    SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
-    RESET_FILTERS = (By.CSS_SELECTOR, "[data-testid='reset-filters-button']")
-    SHOWING_COUNT = (By.CSS_SELECTOR, "[data-testid='showing-count']")
+    # ── Search ─────────────────────────────────────────────────────────
+    SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='workflow-search'] input")
+
+    # ── Workflow cards ─────────────────────────────────────────────────
+    WORKFLOW_CARDS = (By.CSS_SELECTOR, "[data-testid^='workflow-card-']")
+
+    # ── Empty state ────────────────────────────────────────────────────
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
 
     # ── Dialogs ────────────────────────────────────────────────────────
@@ -56,53 +61,47 @@ class WorkflowListPage(BasePage):
         self.wait_for_loading_complete()
         return self
 
-    # ── Table interactions ─────────────────────────────────────────────
+    # ── Card interactions ──────────────────────────────────────────────
 
-    def get_row_count(self) -> int:
-        """Return the number of visible table rows."""
-        return len(self.driver.find_elements(*self.TABLE_ROWS))
+    def get_workflow_cards(self) -> list[WebElement]:
+        """Return all visible workflow card elements."""
+        return self.driver.find_elements(*self.WORKFLOW_CARDS)
 
-    def get_column_headers(self) -> list[str]:
-        """Return all visible column header texts."""
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
-        )
-        return [h.text for h in headers if h.text]
+    def get_card_count(self) -> int:
+        """Return the number of visible workflow cards."""
+        return len(self.get_workflow_cards())
 
-    def click_row(self, index: int = 0) -> None:
-        """Click a row by index."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+    def click_card(self, index: int = 0) -> None:
+        """Click a workflow card by index."""
+        cards = self.get_workflow_cards()
+        if index < len(cards):
+            self.scroll_and_click(cards[index])
 
-    def click_row_by_name(self, name: str) -> None:
-        """Click a row whose first cell matches *name*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells and name in cells[0].text:
-                self.scroll_and_click(row)
+    def click_card_by_name(self, name: str) -> None:
+        """Click a workflow card whose text content contains *name*."""
+        cards = self.get_workflow_cards()
+        for card in cards:
+            if name in card.text:
+                self.scroll_and_click(card)
                 return
-        raise ValueError(f"Row with name '{name}' not found in workflow table")
+        raise ValueError(f"Card with name '{name}' not found in workflow list")
 
-    def get_first_column_texts(self) -> list[str]:
-        """Return the text of the Name column for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+    def get_card_titles(self) -> list[str]:
+        """Return the title text from each workflow card.
 
-    def get_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible row."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        Extracts the first Typography/heading text from each card.
+        """
+        cards = self.get_workflow_cards()
+        titles: list[str] = []
+        for card in cards:
+            # Card titles are rendered as Typography variant="subtitle1" or similar
+            # Fall back to the first line of the card text
+            text = card.text.strip()
+            if text:
+                titles.append(text.split("\n")[0])
+            else:
+                titles.append("")
+        return titles
 
     # ── Search ─────────────────────────────────────────────────────────
 
@@ -111,35 +110,19 @@ class WorkflowListPage(BasePage):
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
         search_input.clear()
         search_input.send_keys(term)
-
-    def has_search_chip(self) -> bool:
-        """Check if the search chip is visible."""
-        return len(self.driver.find_elements(*self.SEARCH_CHIP)) > 0
+        # Allow debounce/filtering to take effect
+        time.sleep(0.5)
 
     def has_empty_state(self) -> bool:
         """Check if the empty state illustration is shown."""
         return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
-    def get_showing_count_text(self) -> str:
-        """Return the 'Showing X of Y' text."""
-        el = self.wait_for_element(self.SHOWING_COUNT)
-        return el.text
-
     # ── Buttons ────────────────────────────────────────────────────────
-
-    def click_generate_workflow(self) -> None:
-        """Click the 'Generate from species' button."""
-        self.wait_for_element_clickable(self.GENERATE_WORKFLOW_BUTTON).click()
-        self.wait_for_element_visible(self.DIALOG)
 
     def click_create_workflow(self) -> None:
         """Click the 'Create workflow' button."""
         self.wait_for_element_clickable(self.CREATE_WORKFLOW_BUTTON).click()
         self.wait_for_element_visible(self.DIALOG)
-
-    def has_generate_button(self) -> bool:
-        """Check if the generate workflow button is present."""
-        return len(self.driver.find_elements(*self.GENERATE_WORKFLOW_BUTTON)) > 0
 
     def has_create_button(self) -> bool:
         """Check if the create workflow button is present."""

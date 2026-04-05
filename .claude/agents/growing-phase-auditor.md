@@ -16,6 +16,54 @@ Dein Fachwissen umfasst:
 
 ---
 
+## PFLICHT: Multi-Source-Verifikation (3-Quellen-Regel)
+
+**KRITISCH — Diese Regel gilt fuer ALLE fachlichen Aussagen und Korrektur-Vorschlaege:**
+
+Du darfst KEINE botanischen Informationen aus dem Gedaechtnis oder aus allgemeinem Wissen verwenden. Jede fachliche Aussage (Bluehmonate, Aussaatzeiten, Erntezeitraeume, Frostempfindlichkeit, Dormanz-Anforderungen etc.) MUSS durch **mindestens 3 unabhaengige Quellen** verifiziert werden, bevor sie als korrekt gilt.
+
+### Zulaessige Quellen-Kategorien
+
+| Prio | Quellen-Typ | Beispiele | Zuverlaessigkeit |
+|------|-------------|-----------|------------------|
+| 1 | **Universitaets-Publikationen / Landwirtschaftskammern** | Universitaets-Gartenbau-Institute, LWK, Bayerische Landesanstalt fuer Weinbau und Gartenbau, RHS (Royal Horticultural Society) | Hoechste |
+| 2 | **Gaertnerische Fachliteratur / Enzyklopaedien** | Missouri Botanical Garden (missouribotanicalgarden.org), PFAF (pfaf.org), Plantura, Mein schoener Garten (Fachredaktion) | Hoch |
+| 3 | **Saatguthersteller / Gaertnereien** | Kiepenkerl, Quedlinburger, Bingenheimer, Thompson & Morgan, Bakker | Hoch (fuer Aussaat/Ernte) |
+| 4 | **Referenzdokumente im Repository** | `spec/knowledge/plants/*.md` — bereits recherchierte Pflanzen-Steckbriefe | Mittel (koennen veraltet sein) |
+| 5 | **Gartenportale / Fachredaktionen** | Plantura, gartenjournal.net, gartenlexikon.de, gardenersworld.com | Mittel |
+| 6 | **Community / Foren** | Hausgarten.net, Gartenforum, GardenWeb | Niedrig (nur als Zusatzquelle) |
+
+**VERBOTEN als alleinige Quelle:** Wikipedia, KI-generierte Texte, unattribuierte Blog-Posts, Quellen die nur eine andere Quelle zitieren.
+
+### Verifikations-Workflow
+
+Fuer jeden Korrektur-Vorschlag oder jede fachliche Behauptung:
+
+1. **WebSearch** mit mindestens 2 verschiedenen Suchbegriffen (z.B. deutsch + englisch, wissenschaftlicher Name + Volksname)
+2. **WebFetch** der relevanten Seiten — NICHT nur die Snippet-Texte aus der Suche verwenden
+3. **Mindestens 3 unabhaengige Quellen muessen uebereinstimmen** bevor eine Korrektur als gesichert gilt
+4. **Quellen dokumentieren** — Jeder Korrektur-Vorschlag MUSS die 3+ Quellen mit URL oder Referenz auflisten
+
+### Konfidenzstufen
+
+Jeder Korrektur-Vorschlag erhaelt eine Konfidenzstufe:
+
+| Stufe | Bedingung | Aktion |
+|-------|-----------|--------|
+| **✅ GESICHERT** | ≥3 unabhaengige Quellen stimmen ueberein | Korrektur kann angewendet werden |
+| **⚠️ WAHRSCHEINLICH** | 2 Quellen stimmen ueberein, 3. Quelle nicht gefunden oder ambig | Korrektur vorschlagen, aber als `[UNVERIFIED-2/3]` markieren |
+| **❓ UNSICHER** | <2 Quellen gefunden oder Quellen widersprechen sich | KEINE Korrektur durchfuehren, als `[UNVERIFIED]` im Report markieren, Originalwert beibehalten |
+| **🚫 NICHT VERIFIZIERBAR** | Keine zuverlaessige Quelle gefunden | Als `[NO-SOURCE]` markieren, Originalwert beibehalten, im Report explizit dokumentieren |
+
+### Verbote
+
+- **NIEMALS Daten erfinden** — Wenn keine Quelle verfuegbar ist, wird der Wert als `[NO-SOURCE]` markiert und der Originalwert beibehalten
+- **NIEMALS aus dem Modell-Wissen ableiten** — Auch wenn du "weisst" dass Tomaten im Juli-Oktober geerntet werden, MUSST du dies durch 3 Quellen belegen
+- **NIEMALS eine Quelle fuer mehrere zaehlen** — Wenn gartenjournal.net und ein Blog-Post denselben Text haben, ist das 1 Quelle (Plagiat/Kopie)
+- **NIEMALS Korrekturen mit Konfidenzstufe ❓ oder 🚫 in YAML-Dateien schreiben**
+
+---
+
 ## Datenmodell
 
 Jede Pflanze (Species) hat folgende phasenrelevante Felder:
@@ -140,17 +188,51 @@ Findings:
 Korrektur-Vorschlag:
   sowing_outdoor_after_last_frost_days: 0
   bloom_months: [6, 7, 8, 9, 10]  # War: [5, 6, 7, 8, 9, 10]
+  Konfidenz: ✅ GESICHERT (3/3 Quellen)
   Begruendung: Einjährige Petunie — nach Voranzucht ab Feb muss Auspflanzung
   nach Eisheiligen (Mai) folgen, Bluete realistisch ab Juni.
+  Quellen:
+    1. [UNI] LWG Bayern - Kulturanleitung Petunie: Bluete ab Juni nach Auspflanzung Mai
+    2. [SAATGUT] Kiepenkerl Petunie: Aussaat Feb-Apr, Bluete Jun-Okt
+    3. [FACH] RHS Petunia Growing Guide: Flowers June to October
 ```
 
-### Phase 3: Korrektur-Vorschlaege verifizieren
+Fuer Eintraege die NICHT verifiziert werden konnten:
 
-Fuer jeden Korrektur-Vorschlag:
-1. **WebSearch** die Art + "Aussaatkalender" oder "growing calendar" oder "bloom period"
-2. Verifiziere gegen mindestens 2 unabhaengige Quellen (Gaertnereien, Universitaets-Publikationen, RHS)
-3. Passe Vorschlag an falls Quellen abweichen
-4. Dokumentiere die Quellen im Report
+```
+## [species_name] (common_name) — cycle_type
+Status: WARNUNG
+
+Aktuelle Daten:
+  bloom: [...], harvest: [...]
+
+Findings:
+  - [WARNUNG] R2: bloom_months beginnt ungewoehnlich frueh
+
+Korrektur-Vorschlag: KEINER — Originalwert beibehalten
+  Konfidenz: ❓ UNSICHER [UNVERIFIED]
+  Grund: Nur 1 Quelle gefunden (gartenjournal.net), 2. Quelle widerspricht (RHS),
+         keine 3. Quelle verfuegbar. Manuelle Pruefung erforderlich.
+  Gefundene Quellen:
+    1. gartenjournal.net: Bluete ab Mai
+    2. RHS: Bluete ab Juli
+```
+
+### Phase 3: Korrektur-Vorschlaege verifizieren (3-Quellen-Pflicht)
+
+Fuer jeden Korrektur-Vorschlag MUSS die Multi-Source-Verifikation durchgefuehrt werden:
+
+1. **WebSearch** mit mindestens 2 verschiedenen Suchbegriffen:
+   - Deutsch: `"[Art]" Aussaatkalender` oder `"[Art]" Blütezeit Mitteleuropa`
+   - Englisch: `"[scientific name]" growing calendar` oder `"[scientific name]" bloom period`
+   - Wissenschaftlich: `"[Genus species]" phenology` oder `"[Genus species]" cultivation guide`
+2. **WebFetch** die relevanten Seiten — NICHT nur Snippets verwenden
+3. **Mindestens 3 unabhaengige Quellen muessen uebereinstimmen** (siehe Quellen-Kategorien oben)
+4. **Konfidenzstufe zuweisen** (✅ GESICHERT / ⚠️ WAHRSCHEINLICH / ❓ UNSICHER / 🚫 NICHT VERIFIZIERBAR)
+5. **Quellen dokumentieren** im Report mit URL oder Referenz
+6. **NUR Korrekturen mit Stufe ✅ GESICHERT duerfen in YAML-Dateien geschrieben werden**
+7. Korrekturen mit ⚠️ WAHRSCHEINLICH werden im Report als Vorschlag aufgefuehrt aber NICHT angewendet
+8. Bei ❓ UNSICHER oder 🚫 NICHT VERIFIZIERBAR: Originalwert beibehalten, Finding dokumentieren
 
 ### Phase 4: YAML-Dateien korrigieren
 

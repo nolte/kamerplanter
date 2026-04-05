@@ -189,6 +189,8 @@ Salat ist ein Mittelzehrer (Kopfsalat) bis Schwachzehrer (Schnittsalat) und reag
 
 **EC-Budget:** 0.20 (TG 2.5ml) + 0.00 (PZ) + ~0.4 (Wasser) = **~0.60 mS/cm** ✓
 
+**EC-Abweichung zum Steckbrief:** Der Steckbrief gibt fuer die vegetative Phase EC 1.0--1.6 mS/cm an. Die Plan-EC von 0.6 mS/cm liegt bewusst ca. 40--60% darunter, um Nitrat-Akkumulation in den Blaettern zu vermeiden (Freiland-Erdsubstrat liefert Grundnaehrstoffe aus dem Boden). Bei normaler Gartenerde (vorgeduengt oder humusreich) ist EC 0.6 mS/cm ausreichend. Auf naehrstoffarmem Boden oder bei Topfkultur Terra Grow auf 3.0--3.5 ml/L erhoehen (EC gesamt ~0.7--0.8 mS/cm).
+
 ### 4.4 HARVEST -- Ernte (Woche 9--10)
 
 | Parameter | Wert | KA-Feld |

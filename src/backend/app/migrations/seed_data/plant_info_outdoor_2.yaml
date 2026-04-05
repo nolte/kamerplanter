@@ -78,7 +78,7 @@ new_families:
     common_name_en: Asphodel family
     order: Asparagales
     typical_nutrient_demand: medium
-    frost_tolerance: hardy
+    frost_tolerance: moderate  # Corrected: family spans frost-hardy (Hemerocallis) to sensitive (Aloe) genera
     typical_root_depth: medium
     typical_growth_forms: [herb]
     common_pests: [thrips, slugs, deer]
@@ -351,6 +351,7 @@ new_species:
   - scientific_name: "Forsythia x intermedia"
     common_names: [Forsythie, Goldgloeckchen, Forsythia]
     genus: Forsythia
+    plant_category: outdoor_ornamental
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
@@ -377,6 +378,7 @@ new_species:
   - scientific_name: "Geranium sanguineum"
     common_names: [Blut-Storchschnabel, Bloody Cranesbill]
     genus: Geranium
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
@@ -406,6 +408,7 @@ new_species:
   - scientific_name: "Helleborus niger"
     common_names: [Christrose, Schneerose, Christmas Rose]
     genus: Helleborus
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
@@ -432,6 +435,7 @@ new_species:
   - scientific_name: "Hemerocallis spp."
     common_names: [Taglilie, Daylily]
     genus: Hemerocallis
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: tuberous
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
@@ -458,6 +462,7 @@ new_species:
   - scientific_name: "Hosta spp."
     common_names: [Funkie, Herzlilie, Hosta, Plantain Lily]
     genus: Hosta
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
@@ -484,6 +489,7 @@ new_species:
   - scientific_name: "Hydrangea macrophylla"
     common_names: [Gartenhortensie, Bauernhortensie, Hydrangea, Bigleaf Hydrangea]
     genus: Hydrangea
+    plant_category: outdoor_ornamental
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a]
@@ -510,11 +516,12 @@ new_species:
   - scientific_name: "Ligustrum vulgare"
     common_names: [Liguster, Gewoehnlicher Liguster, Wild Privet]
     genus: Ligustrum
+    plant_category: outdoor_ornamental
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Europa, Nordafrika, Westasien"
-    allelopathy_score: -0.1
+    allelopathy_score: 0.0
     frost_sensitivity: hardy
     allows_harvest: false
     bloom_months: [6, 7]
@@ -536,6 +543,7 @@ new_species:
   - scientific_name: "Paeonia lactiflora"
     common_names: [Staudenpfingstrose, Edelpfingstrose, Chinese Peony, Garden Peony]
     genus: Paeonia
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: tuberous
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
@@ -562,6 +570,7 @@ new_species:
   - scientific_name: "Phlox paniculata"
     common_names: [Flammenblume, Hoher Stauden-Phlox, Garden Phlox]
     genus: Phlox
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
@@ -588,11 +597,12 @@ new_species:
   - scientific_name: "Rhododendron spp."
     common_names: [Rhododendron, Alpenrose]
     genus: Rhododendron
+    plant_category: outdoor_ornamental
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Asien (Himalaya, China), Amerika, Europa"
-    allelopathy_score: -0.3
+    allelopathy_score: 0.0
     frost_sensitivity: hardy
     allows_harvest: false
     bloom_months: [4, 5, 6]
@@ -614,6 +624,7 @@ new_species:
   - scientific_name: "Rosa spp."
     common_names: [Gartenrose, Rose, Garden Rose]
     genus: Rosa
+    plant_category: outdoor_ornamental
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
@@ -640,6 +651,7 @@ new_species:
   - scientific_name: "Syringa vulgaris"
     common_names: [Gemeiner Flieder, Edelflieder, Common Lilac]
     genus: Syringa
+    plant_category: outdoor_ornamental
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b]
@@ -666,6 +678,7 @@ new_species:
   - scientific_name: "Viburnum opulus"
     common_names: [Gewoehnlicher Schneeball, Gemeiner Schneeball, Guelder-rose]
     genus: Viburnum
+    plant_category: outdoor_ornamental
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
@@ -692,6 +705,7 @@ new_species:
   - scientific_name: "Weigela florida"
     common_names: [Liebliche Weigelie, Weigelie, Weigela]
     genus: Weigela
+    plant_category: outdoor_ornamental
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
@@ -720,6 +734,7 @@ new_species:
   - scientific_name: "Malus domestica"
     common_names: [Kulturapfel, Apfel, Apple]
     genus: Malus
+    plant_category: outdoor_vegetable
     growth_habit: tree
     root_type: fibrous
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
@@ -747,11 +762,12 @@ new_species:
   - scientific_name: "Prunus avium"
     common_names: [Suesskirsche, Vogelkirsche, Sweet Cherry, Wild Cherry]
     genus: Prunus
+    plant_category: outdoor_vegetable
     growth_habit: tree
     root_type: taproot
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Europa, Westasien"
-    allelopathy_score: -0.1
+    allelopathy_score: 0.0
     frost_sensitivity: hardy
     allows_harvest: true
     harvest_months: [6, 7]
@@ -774,6 +790,7 @@ new_species:
   - scientific_name: "Prunus domestica"
     common_names: [Pflaume, Zwetschge, Plum, European Plum]
     genus: Prunus
+    plant_category: outdoor_vegetable
     growth_habit: tree
     root_type: fibrous
     hardiness_zones: [4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
@@ -801,6 +818,7 @@ new_species:
   - scientific_name: "Pyrus communis"
     common_names: [Kulturbirne, Gemeine Birne, Pear]
     genus: Pyrus
+    plant_category: outdoor_vegetable
     growth_habit: tree
     root_type: taproot
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
@@ -830,6 +848,7 @@ new_species:
   - scientific_name: "Ribes rubrum"
     common_names: [Rote Johannisbeere, Ahlbeere, Red Currant]
     genus: Ribes
+    plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b]
@@ -857,6 +876,7 @@ new_species:
   - scientific_name: "Ribes uva-crispa"
     common_names: [Stachelbeere, Stachelbeerstrauch, Gooseberry]
     genus: Ribes
+    plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
@@ -884,6 +904,7 @@ new_species:
   - scientific_name: "Rubus fruticosus agg."
     common_names: [Brombeere, Blackberry, Bramble]
     genus: Rubus
+    plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
@@ -911,11 +932,12 @@ new_species:
   - scientific_name: "Rubus idaeus"
     common_names: [Himbeere, Gemeine Himbeere, Raspberry]
     genus: Rubus
+    plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Europa, Asien"
-    allelopathy_score: -0.1
+    allelopathy_score: 0.0
     frost_sensitivity: hardy
     allows_harvest: true
     harvest_months: [6, 7, 8, 9, 10]
@@ -938,11 +960,12 @@ new_species:
   - scientific_name: "Sambucus nigra"
     common_names: [Schwarzer Holunder, Fliederbeere, Hollerbusch, Black Elderberry, Elder]
     genus: Sambucus
+    plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
     native_habitat: "Europa, Nordafrika, Westasien"
-    allelopathy_score: -0.2
+    allelopathy_score: 0.0
     frost_sensitivity: hardy
     allows_harvest: true
     harvest_months: [6, 7, 8, 9, 10]
@@ -965,11 +988,12 @@ new_species:
   - scientific_name: "Vaccinium corymbosum"
     common_names: [Kulturheidelbeere, Amerikanische Heidelbeere, Highbush Blueberry]
     genus: Vaccinium
+    plant_category: outdoor_vegetable
     growth_habit: shrub
     root_type: fibrous
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b]
     native_habitat: "Nordamerika (oestliche USA, Kanada)"
-    allelopathy_score: -0.1
+    allelopathy_score: 0.0
     frost_sensitivity: hardy
     allows_harvest: true
     harvest_months: [7, 8, 9]
@@ -992,6 +1016,7 @@ new_species:
   - scientific_name: "Vitis vinifera"
     common_names: [Weinrebe, Weintraube, Grape Vine]
     genus: Vitis
+    plant_category: outdoor_vegetable
     growth_habit: vine
     root_type: taproot
     hardiness_zones: [5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
@@ -1021,6 +1046,7 @@ new_species:
   - scientific_name: "Levisticum officinale"
     common_names: [Liebstoeckel, Maggikraut, Lovage]
     genus: Levisticum
+    plant_category: herb
     growth_habit: herb
     root_type: taproot
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
@@ -1051,6 +1077,7 @@ new_species:
   - scientific_name: "Melissa officinalis"
     common_names: [Zitronenmelisse, Melisse, Lemon Balm]
     genus: Melissa
+    plant_category: herb
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a]
@@ -1081,6 +1108,7 @@ new_species:
   - scientific_name: "Origanum vulgare"
     common_names: [Oregano, Wilder Majoran, Dost, Oregano]
     genus: Origanum
+    plant_category: herb
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
@@ -1111,6 +1139,7 @@ new_species:
   - scientific_name: "Satureja hortensis"
     common_names: [Sommer-Bohnenkraut, Summer Savory]
     genus: Satureja
+    plant_category: herb
     growth_habit: herb
     root_type: taproot
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b, 11a, 11b]
@@ -1143,6 +1172,7 @@ new_species:
   - scientific_name: "Pastinaca sativa"
     common_names: [Pastinake, Parsnip]
     genus: Pastinaca
+    plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: taproot
     hardiness_zones: [2a, 2b, 3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a]
@@ -1172,6 +1202,7 @@ new_species:
   - scientific_name: "Rheum rhabarbarum"
     common_names: [Rhabarber, Gemueserhabarber, Rhubarb, Garden Rhubarb]
     genus: Rheum
+    plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b]
@@ -1199,6 +1230,7 @@ new_species:
   - scientific_name: "Spinacia oleracea"
     common_names: [Spinat, Echter Spinat, Spinach]
     genus: Spinacia
+    plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: taproot
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
@@ -1230,17 +1262,18 @@ new_species:
   - scientific_name: "Lupinus polyphyllus"
     common_names: [Vielblaettrige Lupine, Staudenlupine, Garden Lupin, Bigleaf Lupin]
     genus: Lupinus
+    plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: taproot
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a]
     native_habitat: "Westliches Nordamerika"
-    allelopathy_score: -0.2
+    allelopathy_score: 0.0
     frost_sensitivity: hardy
     allows_harvest: false
     sowing_indoor_weeks_before_last_frost: 4
     sowing_outdoor_after_last_frost_days: 14
     direct_sow_months: [4, 5, 6]
-    bloom_months: [5, 6, 7]
+    bloom_months: [5, 6, 7]  # bloom_months gelten erst ab Jahr 2 nach Aussaat
     container_suitable: limited
     recommended_container_volume_l: "15-25"
     min_container_depth_cm: 30
@@ -1259,11 +1292,12 @@ new_species:
   - scientific_name: "Medicago sativa"
     common_names: [Luzerne, Alfalfa, Ewiger Klee]
     genus: Medicago
+    plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: taproot
     hardiness_zones: [3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
     native_habitat: "Vorderasien, Kaukasus"
-    allelopathy_score: -0.2
+    allelopathy_score: 0.0
     frost_sensitivity: hardy
     allows_harvest: false
     sowing_outdoor_after_last_frost_days: 0
@@ -1285,6 +1319,7 @@ new_species:
   - scientific_name: "Phacelia tanacetifolia"
     common_names: [Bueschelschoen, Bienenfreund, Phacelia, Scorpion Weed]
     genus: Phacelia
+    plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [2a, 2b, 3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
@@ -1311,6 +1346,7 @@ new_species:
   - scientific_name: "Sinapis alba"
     common_names: [Gelbsenf, Weisser Senf, White Mustard, Yellow Mustard]
     genus: Sinapis
+    plant_category: outdoor_vegetable
     growth_habit: herb
     root_type: taproot
     hardiness_zones: [2a, 2b, 3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b]
@@ -1339,6 +1375,7 @@ new_species:
   - scientific_name: "Tagetes patula"
     common_names: [Studentenblume, Franzoesische Tagetes, French Marigold]
     genus: Tagetes
+    plant_category: outdoor_ornamental
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [2a, 2b, 3a, 3b, 4a, 4b, 5a, 5b, 6a, 6b, 7a, 7b, 8a, 8b, 9a, 9b, 10a, 10b, 11a, 11b]
@@ -1368,6 +1405,7 @@ new_species:
   - scientific_name: "Tropaeolum majus"
     common_names: [Grosse Kapuzinerkresse, Kapuzinerkresse, Garden Nasturtium, Indian Cress]
     genus: Tropaeolum
+    plant_category: herb
     growth_habit: herb
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
@@ -1527,7 +1565,7 @@ species_enrichment:
     direct_sow_months: [5, 6, 7]
     nutrient_demand_level: light_feeder
     green_manure_suitable: true
-    allelopathy_score: -0.2
+    allelopathy_score: 0.0
     native_habitat: "Mittel- und Suedamerika"
     support_required: true
     pruning_type: none
@@ -1551,7 +1589,7 @@ species_enrichment:
     direct_sow_months: [3, 4, 5, 6]
     nutrient_demand_level: light_feeder
     green_manure_suitable: true
-    allelopathy_score: -0.3
+    allelopathy_score: 0.0
     native_habitat: "Vorderasien, Mittelmeerraum"
     support_required: true
     pruning_type: none
@@ -1617,7 +1655,7 @@ species_enrichment:
     sowing_outdoor_after_last_frost_days: 14
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
-    allelopathy_score: -0.2
+    allelopathy_score: 0.0
     native_habitat: "Suedamerika (Peru, Ecuador)"
     support_required: true
     pruning_type: summer_pruning
@@ -1641,7 +1679,7 @@ species_enrichment:
     direct_sow_months: [4, 5]
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
-    allelopathy_score: -0.1
+    allelopathy_score: 0.0
     native_habitat: "Suedamerika (Peru, Bolivien)"
     pruning_type: none
     pruning_months: []
@@ -1680,7 +1718,7 @@ species_enrichment:
     direct_sow_months: [3, 4, 5, 8, 9]
     nutrient_demand_level: nitrogen_fixer
     green_manure_suitable: true
-    allelopathy_score: -0.1
+    allelopathy_score: 0.0
     native_habitat: "Europa, Westasien"
     mature_height_cm: "20-60"
     mature_width_cm: "20-40"

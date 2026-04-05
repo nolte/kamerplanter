@@ -146,9 +146,6 @@ class TestTaskNavigation:
 class TestWorkflowNavigation:
     """Navigation between workflow list and workflow detail pages (Spec: TC-006-034, TC-006-039)."""
 
-    @pytest.mark.skip(
-        reason="WorkflowListPage route /aufgaben/workflows — breadcrumb parent corrected to /aufgaben/queue, list page not yet standalone"
-    )
     @pytest.mark.core_crud
     def test_workflow_list_to_detail_and_back(
         self,
@@ -162,7 +159,7 @@ class TestWorkflowNavigation:
         """
         workflow_list.open()
 
-        if workflow_list.get_row_count() == 0:
+        if workflow_list.get_card_count() == 0:
             pytest.skip("No workflows in database -- cannot test navigation")
 
         screenshot(
@@ -170,11 +167,11 @@ class TestWorkflowNavigation:
             "Workflow list as navigation starting point",
         )
 
-        workflow_list.click_row(0)
+        workflow_list.click_card(0)
         workflow_list.wait_for_url_contains("/aufgaben/workflows/")
         screenshot(
             "TC-REQ-006-038_workflow-detail-reached",
-            "Workflow detail reached via row click",
+            "Workflow detail reached via card click",
         )
 
         assert "/aufgaben/workflows/" in workflow_list.driver.current_url, (

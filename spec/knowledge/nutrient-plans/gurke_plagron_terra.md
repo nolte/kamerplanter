@@ -47,7 +47,7 @@ Gurke ist eine einjaehrige Nutzpflanze in Mitteleuropa (Cucumis sativus). Typisc
 | Gurken-Phase | PhaseName (Enum) | Wochen | Kalender (ca.) | Begruendung | is_recurring |
 |--------------|-----------------|--------|----------------|-------------|-------------|
 | Keimung | GERMINATION | 1 | Anfang April | Indoor-Aussaat auf Heizmatte, 25--30 degC Substrattemperatur. Kein Duenger. Dunkelkeimer, 2--3 cm tief. | false |
-| Saemling | SEEDLING | 2--4 | Mitte April | Jungpflanze mit Keimblaettern + ersten echten Blaettern. Viertel-Dosis Terra Grow. NICHT pikieren -- empfindliche Wurzeln! | false |
+| Saemling | SEEDLING | 2--4 | Mitte April | Jungpflanze mit Keimblaettern + ersten echten Blaettern. Starterdosis Terra Grow. NICHT pikieren -- empfindliche Wurzeln! | false |
 | Vegetatives Wachstum | VEGETATIVE | 5--8 | Mai | Volle Duengung Terra Grow. Kraeftiger Blatt- und Rankenaufbau. Auspflanzen nach Eisheiligen (ca. 15. Mai). Rankhilfe aufstellen. | false |
 | Bluete + Fruchtansatz | FLOWERING | 9--12 | Juni | Umstellung auf Terra Bloom. Erste Bluetenknospen, Fruchtansatz beginnt. PK 13-14 einmalig in Woche 10--11 (peak Fruchtansatz). | false |
 | Dauerertrag + Ernte | HARVEST | 13--20 | Juli--August | Kontinuierliche Ernte alle 1--2 Tage. Terra Bloom reduziert. REGELMAESSIG ERNTEN -- ueberreife Gurken hemmen Neuansatz! | false |
@@ -145,7 +145,8 @@ Gurken sind Starkzehrer mit hoher EC-Toleranz (bis 2.5 mS/cm in Hydrokultur). **
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0  |
+| target_substrate_ec_ms | 0.0  |
+| solution_ec_ms | 0.0  |
 | reference_ec_ms | 0.0  |
 | target_ph | 6.2 |
 | fertilizer_dosages | [] (leer -- kein Duenger) |
@@ -163,17 +164,18 @@ Gurken sind Starkzehrer mit hoher EC-Toleranz (bis 2.5 mS/cm in Hydrokultur). **
 | NPK-Verhaeltnis | (3, 1, 3) | `phase_entries.npk_ratio` |
 | Calcium (ppm) | null | `phase_entries.calcium_ppm` |
 | Magnesium (ppm) | null | `phase_entries.magnesium_ppm` |
-| Hinweise | Viertel-Dosis Terra Grow (1.5 ml/L). Gurken wachsen schnell -- EC zuegig steigern (Starkzehrer!). NICHT pikieren -- empfindliche Wurzeln! Direkt in Einzeltoepfe saeen. Kuehlere Nachttemperaturen (18 degC) foerdern kompakten Wuchs. Power Roots foerdert fruehe Wurzelentwicklung. Noch kein Pure Zym oder Sugar Royal noetig. | `phase_entries.notes` |
+| Hinweise | Starterdosis Terra Grow (1.5 ml/L). Gurken wachsen schnell -- EC zuegig steigern (Starkzehrer!). NICHT pikieren -- empfindliche Wurzeln! Direkt in Einzeltoepfe saeen. Kuehlere Nachttemperaturen (18 degC) foerdern kompakten Wuchs. Power Roots foerdert fruehe Wurzelentwicklung. Noch kein Pure Zym oder Sugar Royal noetig. | `phase_entries.notes` |
 | Giessplan-Override | Intervall 2 Tage | `phase_entries.watering_schedule_override` |
 
 **Delivery Channel: naehrloesung-wachstum**
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.6  |
+| target_substrate_ec_ms | 0.6  |
+| solution_ec_ms | 0.53 |
 | reference_ec_ms | 0.6  |
 | target_ph | 6.0 |
-| Terra Grow ml/L | 1.5 (Viertel-Dosis) |
+| Terra Grow ml/L | 1.5 (Starterdosis) |
 | Power Roots ml/L | 1.0 |
 | Pure Zym ml/L | -- (noch nicht) |
 | Sugar Royal ml/L | -- (noch nicht) |
@@ -197,7 +199,8 @@ Gurken sind Starkzehrer mit hoher EC-Toleranz (bis 2.5 mS/cm in Hydrokultur). **
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.5  |
+| target_substrate_ec_ms | 1.5  |
+| solution_ec_ms | 0.83 |
 | reference_ec_ms | 1.5  |
 | target_ph | 6.0 |
 | Terra Grow ml/L | 5.0 (volle Dosis) |
@@ -226,7 +229,8 @@ Gurken sind Starkzehrer mit hoher EC-Toleranz (bis 2.5 mS/cm in Hydrokultur). **
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.8  |
+| target_substrate_ec_ms | 1.8  |
+| solution_ec_ms | 0.92 |
 | reference_ec_ms | 1.8  |
 | target_ph | 6.0 |
 | Terra Bloom ml/L | 5.0 |
@@ -257,7 +261,8 @@ Gurken sind Starkzehrer mit hoher EC-Toleranz (bis 2.5 mS/cm in Hydrokultur). **
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 1.5  |
+| target_substrate_ec_ms | 1.5  |
+| solution_ec_ms | 0.80 |
 | reference_ec_ms | 1.5  |
 | target_ph | 6.0 |
 | Terra Bloom ml/L | 4.0 (reduziert) |
@@ -285,7 +290,8 @@ Gurken sind Starkzehrer mit hoher EC-Toleranz (bis 2.5 mS/cm in Hydrokultur). **
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0  |
+| target_substrate_ec_ms | 0.0  |
+| solution_ec_ms | 0.0  |
 | reference_ec_ms | 0.0  |
 | target_ph | 6.0 |
 | Pure Zym ml/L | 1.0 |
@@ -323,7 +329,7 @@ Sugar Royal: |---   |---   |-->==|===  |==→--|---  |---  |
 PK 13-14:    |---   |---   |---  |=*=  |---  |---  |---  |
 
 Legende: --- = nicht verwendet, ### = reduzierte Dosis, === = volle Dosis
-         ##- = Viertel-Dosis, =*= = nur 1--2 Wochen in diesem Monat
+         ##- = Starterdosis, =*= = nur 1--2 Wochen in diesem Monat
          --> = Start, ->  = Uebergang
 ```
 
@@ -503,7 +509,8 @@ Echter Mehltau ist die haeufigste Gurkenkrankheit:
       "application_method": "drench",
       "enabled": true,
       "notes": "Nur warmes Wasser (18\u201324\u00b0C). Feine Spr\u00fchung, Substrat gleichm\u00e4\u00dfig feucht halten.",
-      "target_ec_ms": 0.0,
+      "target_substrate_ec_ms": 0.0,
+      "solution_ec_ms": 0.0,
       "reference_ec_ms": 0.0,
       "target_ph": 6.2,
       "fertilizer_dosages": [],
@@ -526,7 +533,7 @@ Echter Mehltau ist die haeufigste Gurkenkrankheit:
   "npk_ratio": [3.0, 1.0, 3.0],
   "calcium_ppm": null,
   "magnesium_ppm": null,
-  "notes": "Viertel-Dosis Terra Grow (1.5 ml/L). NICHT pikieren \u2013 empfindliche Wurzeln! Power Roots f\u00f6rdert Wurzelentwicklung. EC z\u00fcgig steigern (Starkzehrer).",
+  "notes": "Starterdosis Terra Grow (1.5 ml/L). NICHT pikieren \u2013 empfindliche Wurzeln! Power Roots f\u00f6rdert Wurzelentwicklung. EC z\u00fcgig steigern (Starkzehrer).",
   "watering_schedule_override": {
     "schedule_mode": "interval",
     "interval_days": 2,
@@ -541,8 +548,9 @@ Echter Mehltau ist die haeufigste Gurkenkrankheit:
       "label": "Wachstumsd\u00fcngung S\u00e4mling (Gie\u00dfkanne)",
       "application_method": "drench",
       "enabled": true,
-      "notes": "Terra Grow Viertel-Dosis + Power Roots",
-      "target_ec_ms": 0.6,
+      "notes": "Terra Grow Starterdosis + Power Roots",
+      "target_substrate_ec_ms": 0.6,
+      "solution_ec_ms": 0.53,
       "reference_ec_ms": 0.6,
       "target_ph": 6.0,
       "fertilizer_dosages": [
@@ -576,7 +584,8 @@ Echter Mehltau ist die haeufigste Gurkenkrankheit:
       "application_method": "drench",
       "enabled": true,
       "notes": "Terra Grow + alle Additive. Reihenfolge: Terra Grow \u2192 Power Roots \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen",
-      "target_ec_ms": 1.5,
+      "target_substrate_ec_ms": 1.5,
+      "solution_ec_ms": 0.83,
       "reference_ec_ms": 1.5,
       "target_ph": 6.0,
       "fertilizer_dosages": [
@@ -612,7 +621,8 @@ Echter Mehltau ist die haeufigste Gurkenkrankheit:
       "application_method": "drench",
       "enabled": true,
       "notes": "Terra Bloom + Additive + PK 13-14 (nur W10\u201311!). Reihenfolge: Terra Bloom \u2192 PK 13-14 \u2192 Pure Zym \u2192 Sugar Royal \u2192 pH pr\u00fcfen",
-      "target_ec_ms": 1.8,
+      "target_substrate_ec_ms": 1.8,
+      "solution_ec_ms": 0.92,
       "reference_ec_ms": 1.8,
       "target_ph": 6.0,
       "fertilizer_dosages": [
@@ -648,7 +658,8 @@ Echter Mehltau ist die haeufigste Gurkenkrankheit:
       "application_method": "drench",
       "enabled": true,
       "notes": "Reduzierter Terra Bloom. Kein Sugar Royal, kein PK 13-14.",
-      "target_ec_ms": 1.5,
+      "target_substrate_ec_ms": 1.5,
+      "solution_ec_ms": 0.80,
       "reference_ec_ms": 1.5,
       "target_ph": 6.0,
       "fertilizer_dosages": [
@@ -690,7 +701,8 @@ Echter Mehltau ist die haeufigste Gurkenkrankheit:
       "application_method": "drench",
       "enabled": true,
       "notes": "Nur Wasser + Pure Zym. Kein D\u00fcnger.",
-      "target_ec_ms": 0.0,
+      "target_substrate_ec_ms": 0.0,
+      "solution_ec_ms": 0.0,
       "reference_ec_ms": 0.0,
       "target_ph": 6.0,
       "fertilizer_dosages": [

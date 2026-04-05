@@ -354,7 +354,8 @@ Die Integration nutzt 5 DataUpdateCoordinators mit konfigurierbaren Polling-Inte
 kubectl exec homeassistant-0 -c homeassistant -- mkdir -p /config/custom_components
 kubectl cp -c homeassistant src/ha-integration/custom_components/kamerplanter homeassistant-0:/config/custom_components/kamerplanter
 kubectl exec homeassistant-0 -c homeassistant -- rm -rf /config/custom_components/kamerplanter/__pycache__
-kubectl delete pod homeassistant-0 -n default
+# NICHT kubectl delete pod! InitContainer würde Dateien mit altem Image überschreiben.
+kubectl exec homeassistant-0 -n default -- kill 1
 ```
 
-**Wichtig:** `__pycache__` muss gelöscht werden, sonst lädt HA den alten Bytecode. Der Pod-Neustart ist nötig damit HA die Integration neu lädt. Das PVC bleibt erhalten.
+**Wichtig:** `__pycache__` muss gelöscht werden, sonst lädt HA den alten Bytecode. `kill 1` startet nur den HA-Prozess/Container neu — InitContainers laufen **nicht** erneut, die kopierten Dateien bleiben erhalten. `kubectl delete pod` ist **verboten** für Hot-Reload, da der InitContainer `copy-ha-integration` die Dateien mit dem alten Image überschreiben würde.

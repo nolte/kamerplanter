@@ -7,39 +7,9 @@
 # ──────────────────────────────────────────────
 # 1. Neue Botanische Familien
 # ──────────────────────────────────────────────
-new_families:
-  - name: Nephrolepidaceae
-    order: Polypodiales
-  - name: Oxalidaceae
-    order: Oxalidales
-  - name: Malvaceae
-    order: Malvales
-  - name: Geraniaceae
-    order: Geraniales
-  - name: Piperaceae
-    order: Piperales
-  - name: Orchidaceae
-    order: Asparagales
-  - name: Urticaceae
-    order: Rosales
-  - name: Polypodiaceae
-    order: Polypodiales
-  - name: Ericaceae
-    order: Ericales
-  - name: Araliaceae
-    order: Apiales
-  - name: Crassulaceae
-    order: Saxifragales
-  - name: Apocynaceae
-    order: Gentianales
-  - name: Strelitziaceae
-    order: Zingiberales
-  - name: Gesneriaceae
-    order: Lamiales
-  - name: Marantaceae
-    order: Zingiberales
-  - name: Commelinaceae
-    order: Commelinales
+# ENTFERNT: Alle 16 Familien waren entweder Duplikate aus indoor_1/indoor_2/botanical_families.yaml
+# oder hatten nur 2 von 12 Pflichtfeldern (name, order). Familien werden in den jeweiligen
+# Erstdefinitions-Dateien vollstaendig gepflegt.
 
 # ──────────────────────────────────────────────
 # 2. Species → Family Mapping
@@ -53,7 +23,7 @@ new_species_family_map:
   "Pachira aquatica": Malvaceae
   "Pelargonium zonale": Geraniaceae
   "Peperomia obtusifolia": Piperaceae
-  "Phalaenopsis spp.": Orchidaceae
+  "Phalaenopsis hybrida": Orchidaceae
   "Philodendron hederaceum": Araceae
   "Pilea peperomioides": Urticaceae
   "Platycerium bifurcatum": Polypodiaceae
@@ -80,11 +50,20 @@ new_species_family_map:
 # ──────────────────────────────────────────────
 new_species:
   - scientific_name: "Monstera adansonii"
-    common_names: "Adansonii;Fensterblatt;Monkey Mask;Swiss Cheese Vine"
+    common_names:
+      - "Adansonii"
+      - "Fensterblatt"
+      - "Monkey Mask"
+      - "Swiss Cheese Vine"
     genus: Monstera
+    plant_category: tropical_foliage
     growth_habit: vine
     root_type: fibrous
-    hardiness_zones: "10a;10b;11a;11b"
+    hardiness_zones:
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Mittel- und Südamerika — tropische Regenwälder"
     container_suitable: "yes"
     recommended_container_volume_l: "2-8"
@@ -98,11 +77,19 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Neoregelia carolinae"
-    common_names: "Nestrosette;Karminrote Neoregelia;Blushing Bromeliad"
+    common_names:
+      - "Nestrosette"
+      - "Karminrote Neoregelia"
+      - "Blushing Bromeliad"
     genus: Neoregelia
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
-    hardiness_zones: "10a;10b;11a;11b"
+    hardiness_zones:
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Brasilien — tropische Atlantikwälder"
     container_suitable: "yes"
     recommended_container_volume_l: "2-5"
@@ -116,11 +103,22 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Nephrolepis exaltata"
-    common_names: "Schwertfarn;Nephrolepis;Boston Fern;Sword Fern"
+    common_names:
+      - "Schwertfarn"
+      - "Nephrolepis"
+      - "Boston Fern"
+      - "Sword Fern"
     genus: Nephrolepis
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
-    hardiness_zones: "9a;9b;10a;10b;11a;11b"
+    hardiness_zones:
+      - "9a"
+      - "9b"
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Tropische und subtropische Regionen weltweit"
     container_suitable: "yes"
     recommended_container_volume_l: "3-10"
@@ -134,11 +132,22 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Opuntia microdasys"
-    common_names: "Hasenohr-Kaktus;Goldstachel-Kaktus;Bunny Ears Cactus;Angel Wings Cactus"
+    common_names:
+      - "Hasenohr-Kaktus"
+      - "Goldstachel-Kaktus"
+      - "Bunny Ears Cactus"
+      - "Angel Wings Cactus"
     genus: Opuntia
+    plant_category: succulent_cactus
     growth_habit: shrub
     root_type: fibrous
-    hardiness_zones: "9a;9b;10a;10b;11a;11b"
+    hardiness_zones:
+      - "9a"
+      - "9b"
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Mexiko — semi-aride Gebirgsregionen"
     container_suitable: "yes"
     recommended_container_volume_l: "2-8"
@@ -152,11 +161,27 @@ new_species:
     frost_sensitivity: moderate
 
   - scientific_name: "Oxalis triangularis"
-    common_names: "Lila Sauerklee;Glücksklee;Purple Shamrock;False Shamrock"
+    common_names:
+      - "Lila Sauerklee"
+      - "Glücksklee"
+      - "Purple Shamrock"
+      - "False Shamrock"
     genus: Oxalis
+    plant_category: bulb_tuber
     growth_habit: herb
     root_type: bulbous
-    hardiness_zones: "6a;6b;7a;7b;8a;8b;9a;9b;10a;10b;11a"
+    hardiness_zones:
+      - "6a"
+      - "6b"
+      - "7a"
+      - "7b"
+      - "8a"
+      - "8b"
+      - "9a"
+      - "9b"
+      - "10a"
+      - "10b"
+      - "11a"
     native_habitat: "Brasilien, Argentinien"
     container_suitable: "yes"
     recommended_container_volume_l: "0.5-3"
@@ -170,11 +195,21 @@ new_species:
     frost_sensitivity: moderate
 
   - scientific_name: "Pachira aquatica"
-    common_names: "Glückskastanie;Malabar-Kastanie;Pachira;Money Tree;Guiana Chestnut"
+    common_names:
+      - "Glückskastanie"
+      - "Malabar-Kastanie"
+      - "Pachira"
+      - "Money Tree"
+      - "Guiana Chestnut"
     genus: Pachira
+    plant_category: tropical_foliage
     growth_habit: tree
     root_type: fibrous
-    hardiness_zones: "10a;10b;11a;11b"
+    hardiness_zones:
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Mexiko bis Nordbolivien"
     container_suitable: "yes"
     recommended_container_volume_l: "5-20"
@@ -188,11 +223,21 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Pelargonium zonale"
-    common_names: "Geranie;Zonalpelargonie;Zonal Geranium;Horseshoe Geranium"
+    common_names:
+      - "Geranie"
+      - "Zonalpelargonie"
+      - "Zonal Geranium"
+      - "Horseshoe Geranium"
     genus: Pelargonium
+    plant_category: balcony_plant
     growth_habit: shrub
     root_type: fibrous
-    hardiness_zones: "10a;10b;11a;11b;12a"
+    hardiness_zones:
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
+      - "12a"
     native_habitat: "Südafrika (Kap-Region)"
     container_suitable: "yes"
     recommended_container_volume_l: "3-10"
@@ -206,11 +251,20 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Peperomia obtusifolia"
-    common_names: "Zwergpfeffer;Baby Rubber Plant;Pepper Face"
+    common_names:
+      - "Zwergpfeffer"
+      - "Baby Rubber Plant"
+      - "Pepper Face"
     genus: Peperomia
+    plant_category: indoor_houseplant
     growth_habit: herb
     root_type: fibrous
-    hardiness_zones: "10a;10b;11a;11b;12a"
+    hardiness_zones:
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
+      - "12a"
     native_habitat: "Mittel- und Südamerika — tropische Regenwälder"
     container_suitable: "yes"
     recommended_container_volume_l: "0.5-3"
@@ -223,12 +277,22 @@ new_species:
     nutrient_demand_level: light_feeder
     frost_sensitivity: sensitive
 
-  - scientific_name: "Phalaenopsis spp."
-    common_names: "Schmetterlingsorchidee;Phalaenopsis;Moth Orchid"
+  - scientific_name: "Phalaenopsis hybrida"
+    common_names:
+      - "Schmetterlingsorchidee"
+      - "Phalaenopsis"
+      - "Moth Orchid"
     genus: Phalaenopsis
+    plant_category: orchid
     growth_habit: herb
     root_type: fibrous
-    hardiness_zones: "10a;10b;11a;11b;12a;12b"
+    hardiness_zones:
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
+      - "12a"
+      - "12b"
     native_habitat: "Südostasien, Australien — tropische Regenwälder"
     container_suitable: "yes"
     recommended_container_volume_l: "0.5-3"
@@ -240,13 +304,22 @@ new_species:
     support_required: false
     nutrient_demand_level: light_feeder
     frost_sensitivity: sensitive
+    bloom_months: [1, 2, 3, 4, 5]  # VOLL-002: typical bloom Jan-May after autumn cool period
 
   - scientific_name: "Philodendron hederaceum"
-    common_names: "Kletter-Philodendron;Herzblatt-Philodendron;Heartleaf Philodendron"
+    common_names:
+      - "Kletter-Philodendron"
+      - "Herzblatt-Philodendron"
+      - "Heartleaf Philodendron"
     genus: Philodendron
+    plant_category: tropical_foliage
     growth_habit: vine
     root_type: fibrous
-    hardiness_zones: "10a;10b;11a;11b"
+    hardiness_zones:
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Karibik, Mittel- und Südamerika — tropische Regenwälder"
     container_suitable: "yes"
     recommended_container_volume_l: "2-8"
@@ -260,11 +333,21 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Pilea peperomioides"
-    common_names: "Ufopflanze;Chinesischer Geldbaum;Chinese Money Plant;Pancake Plant"
+    common_names:
+      - "Ufopflanze"
+      - "Chinesischer Geldbaum"
+      - "Chinese Money Plant"
+      - "Pancake Plant"
     genus: Pilea
+    plant_category: indoor_houseplant
     growth_habit: herb
     root_type: fibrous
-    hardiness_zones: "9b;10a;10b;11a;11b"
+    hardiness_zones:
+      - "9b"
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "China (Yunnan, Sichuan) — schattige Felshänge"
     container_suitable: "yes"
     recommended_container_volume_l: "1-4"
@@ -278,11 +361,22 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Platycerium bifurcatum"
-    common_names: "Geweihfarn;Elchgeweihfarn;Staghorn Fern;Elkhorn Fern"
+    common_names:
+      - "Geweihfarn"
+      - "Elchgeweihfarn"
+      - "Staghorn Fern"
+      - "Elkhorn Fern"
     genus: Platycerium
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
-    hardiness_zones: "9a;9b;10a;10b;11a;11b"
+    hardiness_zones:
+      - "9a"
+      - "9b"
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Australien, Neuguinea — tropische/subtropische Regenwälder"
     container_suitable: "yes"
     recommended_container_volume_l: "2-8"
@@ -296,11 +390,20 @@ new_species:
     frost_sensitivity: moderate
 
   - scientific_name: "Plectranthus verticillatus"
-    common_names: "Harfenstrauch;Schwedischer Efeu;Swedish Ivy;Wax Plant"
+    common_names:
+      - "Harfenstrauch"
+      - "Schwedischer Efeu"
+      - "Swedish Ivy"
+      - "Wax Plant"
     genus: Plectranthus
+    plant_category: indoor_houseplant
     growth_habit: herb
     root_type: fibrous
-    hardiness_zones: "10a;10b;11a;11b"
+    hardiness_zones:
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Südafrika, Mosambik"
     container_suitable: "yes"
     recommended_container_volume_l: "2-5"
@@ -314,11 +417,20 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Rhipsalis baccifera"
-    common_names: "Korallenkaktus;Binsenkaktus;Mistletoe Cactus"
+    common_names:
+      - "Korallenkaktus"
+      - "Binsenkaktus"
+      - "Mistletoe Cactus"
     genus: Rhipsalis
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
-    hardiness_zones: "9b;10a;10b;11a;11b"
+    hardiness_zones:
+      - "9b"
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Mittel- und Südamerika, Afrika, Sri Lanka — tropische Regenwälder"
     container_suitable: "yes"
     recommended_container_volume_l: "1-5"
@@ -332,11 +444,21 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Rhododendron simsii"
-    common_names: "Zimmerazalee;Indische Azalee;Indoor Azalea;Sims' Azalea"
+    common_names:
+      - "Zimmerazalee"
+      - "Indische Azalee"
+      - "Indoor Azalea"
+      - "Sims' Azalea"
     genus: Rhododendron
+    plant_category: indoor_houseplant
     growth_habit: shrub
     root_type: fibrous
-    hardiness_zones: "8a;8b;9a;9b;10a"
+    hardiness_zones:
+      - "8a"
+      - "8b"
+      - "9a"
+      - "9b"
+      - "10a"
     native_habitat: "China, Taiwan, Südostasien — Bergwälder"
     container_suitable: "yes"
     recommended_container_volume_l: "3-10"
@@ -348,13 +470,23 @@ new_species:
     support_required: false
     nutrient_demand_level: medium_feeder
     frost_sensitivity: moderate
+    bloom_months: [12, 1, 2, 3]  # VOLL-002: typical indoor bloom Dec-Mar after cool phase
 
   - scientific_name: "Schefflera arboricola"
-    common_names: "Kleine Strahlenaralie;Schefflera;Dwarf Umbrella Tree;Hawaiian Umbrella Tree"
+    common_names:
+      - "Kleine Strahlenaralie"
+      - "Schefflera"
+      - "Dwarf Umbrella Tree"
+      - "Hawaiian Umbrella Tree"
     genus: Schefflera
+    plant_category: tropical_foliage
     growth_habit: shrub
     root_type: fibrous
-    hardiness_zones: "10a;10b;11a;11b"
+    hardiness_zones:
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Taiwan — subtropische Wälder"
     container_suitable: "yes"
     recommended_container_volume_l: "5-20"
@@ -368,11 +500,21 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Schlumbergera truncata"
-    common_names: "Weihnachtskaktus;Gliederkaktus;Christmas Cactus;Holiday Cactus"
+    common_names:
+      - "Weihnachtskaktus"
+      - "Gliederkaktus"
+      - "Christmas Cactus"
+      - "Holiday Cactus"
     genus: Schlumbergera
+    plant_category: succulent_cactus
     growth_habit: herb
     root_type: fibrous
-    hardiness_zones: "10a;10b;11a;11b;12a"
+    hardiness_zones:
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
+      - "12a"
     native_habitat: "Brasilien — Küstengebirge (Mata Atlantica)"
     container_suitable: "yes"
     recommended_container_volume_l: "1-5"
@@ -386,11 +528,22 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Sedum morganianum"
-    common_names: "Eselsschwanz;Donkey's Tail;Burro's Tail"
+    common_names:
+      - "Eselsschwanz"
+      - "Donkey's Tail"
+      - "Burro's Tail"
     genus: Sedum
+    plant_category: succulent_cactus
     growth_habit: vine
     root_type: fibrous
-    hardiness_zones: "9b;10a;10b;11a;11b;12a;12b"
+    hardiness_zones:
+      - "9b"
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
+      - "12a"
+      - "12b"
     native_habitat: "Mexiko, Honduras"
     container_suitable: "yes"
     recommended_container_volume_l: "2-5"
@@ -404,11 +557,21 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Soleirolia soleirolii"
-    common_names: "Bubikopf;Baby's Tears;Mind-Your-Own-Business"
+    common_names:
+      - "Bubikopf"
+      - "Baby's Tears"
+      - "Mind-Your-Own-Business"
     genus: Soleirolia
+    plant_category: indoor_houseplant
     growth_habit: groundcover
     root_type: fibrous
-    hardiness_zones: "9a;9b;10a;10b;11a;11b"
+    hardiness_zones:
+      - "9a"
+      - "9b"
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Korsika, Sardinien"
     container_suitable: "yes"
     recommended_container_volume_l: "0.5-2"
@@ -422,11 +585,19 @@ new_species:
     frost_sensitivity: moderate
 
   - scientific_name: "Stephanotis floribunda"
-    common_names: "Brautstrauch;Madagaskarjasmin;Madagascar Jasmine"
+    common_names:
+      - "Brautstrauch"
+      - "Madagaskarjasmin"
+      - "Madagascar Jasmine"
     genus: Stephanotis
+    plant_category: indoor_houseplant
     growth_habit: vine
     root_type: fibrous
-    hardiness_zones: "10a;10b;11a;11b"
+    hardiness_zones:
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Madagaskar"
     container_suitable: "yes"
     recommended_container_volume_l: "5-15"
@@ -440,11 +611,22 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Strelitzia reginae"
-    common_names: "Paradiesvogelblume;Königin-Strelitzie;Bird of Paradise;Crane Flower"
+    common_names:
+      - "Paradiesvogelblume"
+      - "Königin-Strelitzie"
+      - "Bird of Paradise"
+      - "Crane Flower"
     genus: Strelitzia
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
-    hardiness_zones: "9a;9b;10a;10b;11a;11b"
+    hardiness_zones:
+      - "9a"
+      - "9b"
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Südafrika (Ostkap, KwaZulu-Natal)"
     container_suitable: "yes"
     recommended_container_volume_l: "10-25"
@@ -458,11 +640,19 @@ new_species:
     frost_sensitivity: moderate
 
   - scientific_name: "Streptocarpus hybridus"
-    common_names: "Drehfrucht;Streptocarpus;Cape Primrose"
+    common_names:
+      - "Drehfrucht"
+      - "Streptocarpus"
+      - "Cape Primrose"
     genus: Streptocarpus
+    plant_category: indoor_houseplant
     growth_habit: herb
     root_type: fibrous
-    hardiness_zones: "10a;10b;11a;11b"
+    hardiness_zones:
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Südafrika — schattige Bergwälder"
     container_suitable: "yes"
     recommended_container_volume_l: "1-3"
@@ -476,11 +666,20 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Stromanthe sanguinea"
-    common_names: "Stromanthe Triostar;Sanguinea;Triostar Stromanthe;Never Never Plant"
+    common_names:
+      - "Stromanthe Triostar"
+      - "Sanguinea"
+      - "Triostar Stromanthe"
+      - "Never Never Plant"
     genus: Stromanthe
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: tuberous
-    hardiness_zones: "10a;10b;11a;11b"
+    hardiness_zones:
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Brasilien — tropische Regenwälder"
     container_suitable: "yes"
     recommended_container_volume_l: "2-8"
@@ -494,11 +693,23 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Tillandsia usneoides"
-    common_names: "Spanisches Moos;Louisianamoos;Spanish Moss"
+    common_names:
+      - "Spanisches Moos"
+      - "Louisianamoos"
+      - "Spanish Moss"
     genus: Tillandsia
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
-    hardiness_zones: "8a;8b;9a;9b;10a;10b;11a;11b"
+    hardiness_zones:
+      - "8a"
+      - "8b"
+      - "9a"
+      - "9b"
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Südosten USA, Mexiko, Mittel- und Südamerika"
     container_suitable: "yes"
     recommended_container_volume_l: "0"
@@ -512,11 +723,22 @@ new_species:
     frost_sensitivity: moderate
 
   - scientific_name: "Tradescantia zebrina"
-    common_names: "Dreimasterblume;Silbrige Tradescantie;Wandering Dude;Silver Inch Plant"
+    common_names:
+      - "Dreimasterblume"
+      - "Silbrige Tradescantie"
+      - "Wandering Dude"
+      - "Silver Inch Plant"
     genus: Tradescantia
+    plant_category: indoor_houseplant
     growth_habit: groundcover
     root_type: fibrous
-    hardiness_zones: "9a;9b;10a;10b;11a;11b"
+    hardiness_zones:
+      - "9a"
+      - "9b"
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Mexiko, Guatemala, Mittelamerika"
     container_suitable: "yes"
     recommended_container_volume_l: "1-5"
@@ -530,11 +752,21 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Vriesea splendens"
-    common_names: "Flammendes Schwert;Vriesea;Flaming Sword"
+    common_names:
+      - "Flammendes Schwert"
+      - "Vriesea"
+      - "Flaming Sword"
     genus: Vriesea
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: fibrous
-    hardiness_zones: "10a;10b;11a;11b;12a;12b"
+    hardiness_zones:
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
+      - "12a"
+      - "12b"
     native_habitat: "Trinidad, Venezuela, Guayana"
     container_suitable: "yes"
     recommended_container_volume_l: "2-5"
@@ -548,11 +780,22 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Yucca elephantipes"
-    common_names: "Yucca-Palme;Riesen-Palmlilie;Spineless Yucca;Stick Yucca"
+    common_names:
+      - "Yucca-Palme"
+      - "Riesen-Palmlilie"
+      - "Spineless Yucca"
+      - "Stick Yucca"
     genus: Yucca
+    plant_category: indoor_houseplant
     growth_habit: tree
     root_type: fibrous
-    hardiness_zones: "9a;9b;10a;10b;11a;11b"
+    hardiness_zones:
+      - "9a"
+      - "9b"
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Mexiko, Guatemala — Trockenwald und Buschland"
     container_suitable: "yes"
     recommended_container_volume_l: "15-30"
@@ -566,11 +809,21 @@ new_species:
     frost_sensitivity: moderate
 
   - scientific_name: "Zamioculcas zamiifolia"
-    common_names: "Zamioculcas;Glücksfeder;ZZ Plant;Zanzibar Gem"
+    common_names:
+      - "Zamioculcas"
+      - "Glücksfeder"
+      - "ZZ Plant"
+      - "Zanzibar Gem"
     genus: Zamioculcas
+    plant_category: tropical_foliage
     growth_habit: herb
     root_type: tuberous
-    hardiness_zones: "9b;10a;10b;11a;11b"
+    hardiness_zones:
+      - "9b"
+      - "10a"
+      - "10b"
+      - "11a"
+      - "11b"
     native_habitat: "Ostafrika (Tansania, Kenia, Malawi)"
     container_suitable: "yes"
     recommended_container_volume_l: "3-15"
@@ -584,11 +837,24 @@ new_species:
     frost_sensitivity: sensitive
 
   - scientific_name: "Zantedeschia aethiopica"
-    common_names: "Calla;Weiße Calla;Zimmercalla;Calla Lily;Arum Lily"
+    common_names:
+      - "Calla"
+      - "Weiße Calla"
+      - "Zimmercalla"
+      - "Calla Lily"
+      - "Arum Lily"
     genus: Zantedeschia
+    plant_category: bulb_tuber
     growth_habit: herb
     root_type: tuberous
-    hardiness_zones: "8a;8b;9a;9b;10a;10b;11a"
+    hardiness_zones:
+      - "8a"
+      - "8b"
+      - "9a"
+      - "9b"
+      - "10a"
+      - "10b"
+      - "11a"
     native_habitat: "Südafrika, Lesotho"
     container_suitable: "yes"
     recommended_container_volume_l: "5-15"
@@ -598,6 +864,7 @@ new_species:
     indoor_suitable: "yes"
     balcony_suitable: "yes"
     support_required: false
+    bloom_months: [3, 4, 5, 6]  # VOLL-002: typical bloom spring/early summer
     nutrient_demand_level: medium_feeder
     frost_sensitivity: moderate
 
@@ -613,7 +880,7 @@ lifecycle_configs:
   "Monstera adansonii":
     cycle_type: perennial
     photoperiod_type: day_neutral
-    dormancy_required: false
+    dormancy_required: true  # BOT-005: dormancy phase exists in growth_phases
     vernalization_required: false
     typical_lifespan_years: 10
 
@@ -627,7 +894,7 @@ lifecycle_configs:
   "Nephrolepis exaltata":
     cycle_type: perennial
     photoperiod_type: day_neutral
-    dormancy_required: false
+    dormancy_required: true  # BOT-005: dormancy phase exists in growth_phases
     vernalization_required: false
     typical_lifespan_years: 15
 
@@ -666,7 +933,7 @@ lifecycle_configs:
     vernalization_required: false
     typical_lifespan_years: 10
 
-  "Phalaenopsis spp.":
+  "Phalaenopsis hybrida":
     cycle_type: perennial
     photoperiod_type: day_neutral
     dormancy_required: false
@@ -724,9 +991,12 @@ lifecycle_configs:
 
   "Schlumbergera truncata":
     cycle_type: perennial
+    # Obligate short-day plant; requires >12h uninterrupted darkness for 6-8 weeks to induce flowering
     photoperiod_type: short_day
-    dormancy_required: true
-    vernalization_required: true
+    critical_day_length_hours: 12.0
+    dormancy_required: false  # U-004: No true dormancy — cool rest phase aids blooming but is photoperiod-driven
+    # BOT-003: Kurztagspflanze — Blühinduktion durch Photoperiode, NICHT durch Kälte
+    vernalization_required: false
     typical_lifespan_years: 30
 
   "Sedum morganianum":
@@ -1250,7 +1520,7 @@ growth_phases:
         calcium_ppm: null
         magnesium_ppm: null
 
-  "Phalaenopsis spp.":
+  "Phalaenopsis hybrida":
     - name: vegetative
       display_name: "Vegetatives Wachstum"
       duration_days: 120

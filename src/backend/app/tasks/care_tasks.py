@@ -19,6 +19,7 @@ def generate_due_care_reminders() -> dict:
 
     from app.common.dependencies import (
         get_care_reminder_service,
+        get_lifecycle_repo,
         get_nutrient_plan_repo,
         get_plant_repo,
         get_planting_run_repo,
@@ -32,6 +33,7 @@ def generate_due_care_reminders() -> dict:
     run_repo = get_planting_run_repo()
     plant_repo = get_plant_repo()
     nutrient_plan_repo = get_nutrient_plan_repo()
+    lifecycle_repo = get_lifecycle_repo()
 
     today = date.today()
     created_count = 0
@@ -53,7 +55,17 @@ def generate_due_care_reminders() -> dict:
 
         # Always ensure next watering task exists (unless plant has active run schedule)
         if not has_plan:
-            task = care_service.ensure_next_watering_task(profile)
+            # Resolve phase-specific watering interval
+            phase_interval = None
+            plant = plant_repo.get_by_key(plant_key)
+            if plant and plant.current_phase_key:
+                phase = lifecycle_repo.get_phase_by_key(plant.current_phase_key)
+                if phase and phase.watering_interval_days:
+                    phase_interval = phase.watering_interval_days
+            task = care_service.ensure_next_watering_task(
+                profile,
+                phase_watering_interval=phase_interval,
+            )
             if task is not None:
                 created_count += 1
                 logger.info("auto_watering_task_created", plant_key=plant_key, due_date=str(task.due_date))

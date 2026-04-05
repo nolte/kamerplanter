@@ -456,7 +456,8 @@ def complete_task(
                     rt_match,
                 )
             if rt_match == ReminderType.WATERING and profile.auto_create_watering_task:
-                care_service.ensure_next_watering_task(profile)
+                phase_interval = care_service._get_phase_watering_interval(completed.entity_key)
+                care_service.ensure_next_watering_task(profile, phase_watering_interval=phase_interval)
     return _task_response(completed)
 
 

@@ -46,12 +46,12 @@ $defs:
         type: array
         items:
           type: string
-          pattern: "^\\d{1,2}[ab]$"
+          pattern: "^\\d{1,2}[ab]?$"
       native_habitat:
         type: string
       allelopathy_score:
         type: number
-        minimum: 0
+        minimum: -1
         maximum: 1
       # Outdoor sowing fields
       sowing_indoor_weeks_before_last_frost:
@@ -131,5 +131,10 @@ $defs:
         additionalProperties: false
       hardiness_detail:
         type: string
+      plant_category:
+        type: string
+        enum: [indoor_houseplant, outdoor_ornamental, outdoor_vegetable, balcony_plant,
+               succulent_cactus, tropical_foliage, orchid, herb, bulb_tuber]
+        description: "Broad category for UI grouping"
     required: [scientific_name, common_names, family, genus, growth_habit, root_type]
     additionalProperties: true

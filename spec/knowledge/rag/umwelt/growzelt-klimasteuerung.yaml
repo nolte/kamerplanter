@@ -184,12 +184,22 @@ chunks:
     title: Geraete-Einstellungen nach Wachstumsphase
     content: |
       SAEMLING / STECKLING (Woche 1-2):
-      - Humidity Dome oder Befeuchter: RH 70-80%
+      - Humidity Dome (Feuchtigkeitskuppel/Abdeckung) oder Befeuchter: RH 70-80%
       - Abluft: Minimal oder aus (Dome haelt Feuchtigkeit)
       - Umluft: Sehr sanft oder aus unter Dome
       - Entfeuchter: Aus
       - Temperatur: 24-28°C (Heizmatte unter Propagator)
+      - Licht dimmen auf 40-60% oder Abstand erhoehen auf 60-80cm
       - VPD-Ziel: 0.4-0.8 kPa
+      HAEUFIGES PROBLEM — Saemlinge vertrocknen unter LED:
+      Ursache ist fast immer ein zu hoher VPD: Die LED erzeugt Waerme
+      bei niedriger Luftfeuchtigkeit, Saemlinge haben kaum Wurzeln und
+      koennen den Wasserverlust nicht kompensieren. Sofortmassnahmen:
+      1. Humidity Dome (Haube/Abdeckung) ueber die Saemlinge → RH 80%+
+      2. Licht dimmen auf 40-60% (Saemlinge brauchen nur 200-400 PPFD)
+      3. Abstand zur Lampe erhoehen auf mindestens 60-80 cm
+      4. Abluft reduzieren (weniger Feuchtigkeitsabfuhr)
+      Nicht: Einfach mehr giessen — das Problem ist der VPD, nicht das Substrat.
       VEGETATIV (Woche 3-8):
       - Befeuchter: Nur wenn RH unter 50% faellt
       - Abluft: Mittlere Stufe, Unterdruck sichtbar (Waende leicht eingezogen)
@@ -206,11 +216,15 @@ chunks:
       - VPD-Ziel: 1.0-1.4 kPa
       SPAETE BLUETE (Woche 4-8+ Bluete):
       - Befeuchter: AUS (definitiv!)
-      - Abluft: Hohe Stufe (maximaler Luftaustausch)
+      - Abluft: Hohe Stufe (maximaler Luftaustausch fuer Feuchtigkeitsabfuhr)
       - Umluft: Maximum, aber NICHT direkt auf Blueten
       - Entfeuchter: PFLICHT, Dauerbetrieb, Ziel RH <55%
       - Temperatur: 20-24°C Tag, 18-20°C Nacht
-      - VPD-Ziel: 1.2-1.6 kPa (Schimmel-Praevention)
+      - VPD-Ziel: 1.2-1.6 kPa — hoch halten fuer Schimmel-Praevention!
+      ACHTUNG BOTRYTIS-RISIKO: In der spaeten Bluete ist Schimmelbildung
+      (Botrytis/Grauschimmel) die groesste Gefahr. Dichte Buds schliessen
+      Feuchtigkeit ein. Entfeuchter + Abluft auf hoher Stufe + VPD ueber
+      1.2 kPa sind die drei Sauelen gegen Schimmel in der spaeten Bluete.
     metadata:
       topic: device_settings_per_phase
       phases: [seedling, vegetative, early_flower, late_flower]

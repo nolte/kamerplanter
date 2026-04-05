@@ -46,6 +46,8 @@ Erbsen (Pisum sativum) sind Leguminosen mit Rhizobium-Symbiose und klassische Ku
 
 Erbsen sind Langtagspflanzen (Bluete durch laenger werdende Tage im Fruehjahr ausgeloest) und vertragen Temperaturen ueber 25 degC sehr schlecht -- Bluetenabwurf, Ertragsdepression, vorzeitiges Absterben. Daher ist die Erbse eine klassische Fruehjahrskultur (Maerz--Juli).
 
+> **Hinweis moderne Sorten:** Moderne Zuchtlinien reagieren als *quantitative* Langtagpflanzen -- Bluete tritt unter Kurztagbedingungen verspaetet auf, nicht aus. Fuer den Fruehjahrsanbau ist die Langtagreaktion durch den natuerlichen Photoperiod erfuellt.
+
 | Erbse-Phase | PhaseName (Enum) | Wochen | Kalender (ca.) | Begruendung | is_recurring |
 |-------------|-----------------|--------|----------------|-------------|-------------|
 | Keimung | GERMINATION | 1--2 | Maerz | Direktsaat ab Maerz, Bodentemperatur ab 5 degC genuegt. Keimlinge vertragen Frost bis -4 degC! Dunkelkeimer, 3--5 cm tief. Kein Duenger. | false |
@@ -206,6 +208,7 @@ Erbsen sind Schwachzehrer UND N-Fixierer mit dem niedrigsten Duengebedarf aller 
 | Calcium (ppm) | null | `phase_entries.calcium_ppm` |
 | Magnesium (ppm) | null | `phase_entries.magnesium_ppm` |
 | Hinweise | Terra Bloom in Viertel-Dosis (1.25 ml/L) + Pure Zym. P+K fuer Bluete und Huelsenbildung. Kalium foerdert Huelsenqualitaet. **KRITISCH: Hitze ueber 25 degC fuehrt zu Bluetenabwurf und stark reduziertem Huelsenansatz!** Ausreichende Wasserversorgung in dieser Phase essenziell. Erbsen sind Selbstbestaeuber. Alle 14 Tage duengen. Bei Hitze: Mulchschicht 5 cm (Bodentemperatur senken) und Halbschatten-Standort bevorzugen. | `phase_entries.notes` |
+| Giessplan-Override | Intervall 2 Tage (Bluete braucht mehr Wasser) | `phase_entries.watering_schedule_override` |
 
 **Delivery Channel: naehrloesung-pk**
 
@@ -494,6 +497,14 @@ Bei einer Erbsen-Reihe (20 Pflanzen), 0.15 L Giessloessung pro Duengung (gesamte
   "calcium_ppm": null,
   "magnesium_ppm": null,
   "notes": "Terra Bloom Viertel-Dosis (1.25 ml/L) + Pure Zym. P+K f\u00fcr Bl\u00fcte und H\u00fclsenbildung. Hitze \u00fcber 25\u00b0C = Bl\u00fctenabwurf! Gleichm\u00e4\u00dfig gie\u00dfen. Alle 14 Tage d\u00fcngen. Bei Hitze: Mulch 5 cm.",
+  "watering_schedule_override": {
+    "schedule_mode": "interval",
+    "interval_days": 2,
+    "preferred_time": "07:00",
+    "application_method": "drench",
+    "reminder_hours_before": 2,
+    "times_per_day": 1
+  },
   "delivery_channels": [
     {
       "channel_id": "naehrloesung-pk",

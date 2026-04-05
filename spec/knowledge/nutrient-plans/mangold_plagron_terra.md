@@ -126,7 +126,7 @@ Mangold ist ein Mittelzehrer mit moderatem EC-Bedarf (Steckbrief: 1.0--1.6 mS/cm
 | Terra Bloom (2-2-4) | 0.10 | 20 | Ernte (K-betont fuer Blattnachwuchs) |
 | Power Roots (0-0-2) | 0.01 | 60 | Saemling, Vegetativ (frueh) |
 | Pure Zym (0-0-0) | 0.00 | 70 | Vegetativ bis Spuelung |
-| Sugar Royal (9-0-0) | 0.02 | 65 | Vegetativ (optional, moderate Dosis) |
+| Sugar Royal (8.5-0-0) | 0.02 | 65 | Vegetativ (optional, moderate Dosis) |
 
 ### 4.1 GERMINATION -- Keimung (Woche 1--2)
 
@@ -210,6 +210,8 @@ Mangold ist ein Mittelzehrer mit moderatem EC-Bedarf (Steckbrief: 1.0--1.6 mS/cm
 **EC-Budget:** 0.32 (TG 4.0ml) + 0.01 (PR) + 0.00 (PZ) + 0.01 (SR 0.5ml) + ~0.4 (Wasser) = **~0.74 mS/cm** ✓
 
 **Hinweis Mittelzehrer:** Die berechnete EC (~0.7 mS/cm) ist bewusst niedriger als bei Starkzehrern (Tomate: ~0.8, Zucchini: ~0.8). Mangold ist genuegsamer und reagiert auf Ueberdosierung mit Nitrat-Akkumulation. **Nicht auf 5 ml/L steigern.**
+
+**Hinweis target_ec_ms:** `target_ec_ms: 1.2` ist ein Messziel fuer die Gesamtloesung im Substrat-Eluat (inkl. Bodenpuffer). Die Duengeadditive liefern nur ~0.34 mS/cm zuzueglich Leitungswasser ~0.4. Bei sehr armen Substraten kann vorsichtig auf 5 ml/L TG erhoeht werden -- aber Nitrat-Monitoring beachten.
 
 ### 4.4 HARVEST -- Blatternte / Dauerernte (Woche 11--16)
 
@@ -346,7 +348,7 @@ Mangold-Blaetter enthalten Oxalsaeure (wie Spinat, Rhabarber). In normalen Menge
 **Hinweise:**
 - Kochen reduziert den Oxalsaeuregehalt erheblich (geht ins Kochwasser ueber -- wegschuetten!)
 - Personen mit Neigung zu Nierensteinen (Calciumoxalat-Typ) sollten Konsum einschraenken
-- **Abwaegung innere/aeussere Blaetter:** Aeussere (alte) Blaetter enthalten MEHR Oxalsaeure als innere (junge). Wer aus Nitratgruenden bevorzugt aeussere Blaetter erntet, nimmt gleichzeitig hoehere Oxalsaeuremengen auf. Fuer Personen mit Calciumoxalat-Nierensteinneigung: bevorzugt junge Innenblaetter verwenden (etwas hoeherer Nitratwert, aber weniger Oxalsaeure)
+- **Abwaegung innere/aeussere Blaetter:** Junge innere Blaetter enthalten weniger Oxalsaeure als alte aeussere Blaetter (ca. 300-500 mg/100 g vs. 600-1000 mg/100 g Frischgewicht). Fuer Personen mit erhoehtem Nierensteinrisiko (Calciumoxalat) empfiehlt es sich daher, bei reichlichem Mangold-Konsum bevorzugt junge Innenblaetter zu verwenden -- auch wenn diese aus Nitrat-Sicht etwas hoehere Werte aufweisen. Fuer den normalen Gelegenheitskonsum ist die Unterscheidung unbedeutend.
 - Fuer Saeuglinge unter 6 Monaten wegen Nitrat- und Oxalsaeuregehalt nicht geeignet
 
 ### Nitrat-Kontrolle
@@ -529,7 +531,7 @@ Buntstielige Sorten (Bright Lights, Rainbow, Rhubarb Chard) sind ausgesprochen d
   "npk_ratio": [3.0, 1.0, 3.0],
   "calcium_ppm": null,
   "magnesium_ppm": null,
-  "notes": "Moderate Dosis Terra Grow (4 ml/L) \u2013 Mittelzehrer, nicht \u00fcberdosieren! Pure Zym + Sugar Royal (halbe Dosis 0.5 ml/L). Power Roots bis W8. Erste Blatternte ab W8\u20139 m\u00f6glich. Mulchen empfohlen.",
+  "notes": "Moderate Dosis Terra Grow (4 ml/L) \u2013 Mittelzehrer, nicht \u00fcberdosieren! Pure Zym + Sugar Royal (halbe Dosis 0.5 ml/L). Power Roots bis W8. Erste Blatternte ab W8\u20139 m\u00f6glich. Mulchen empfohlen. Hinweis: target_ec_ms 1.2 ist ein Messziel f\u00fcr die Gesamtl\u00f6sung im Substrat-Eluat (inkl. Bodenpuffer). Die D\u00fcngeadditive liefern nur ~0.34 mS/cm zzgl. Leitungswasser ~0.4. Bei sehr armen Substraten kann vorsichtig auf 5 ml/L TG erh\u00f6ht werden \u2013 aber Nitrat-Monitoring beachten.",
   "delivery_channels": [
     {
       "channel_id": "naehrloesung-wachstum",

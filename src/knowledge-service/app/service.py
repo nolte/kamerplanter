@@ -48,6 +48,7 @@ class KnowledgeService:
         temperature: float = 0.3,
         default_doc_language: str = "de",
         default_prompt_language: str = "de",
+        answer_verification: bool = False,
     ) -> None:
         self._embedding = embedding_engine
         self._repo = chunk_repo
@@ -60,6 +61,7 @@ class KnowledgeService:
         self._temperature = temperature
         self._default_doc_language = default_doc_language
         self._default_prompt_language = default_prompt_language
+        self._answer_verification = answer_verification
 
     def search(
         self,
@@ -131,20 +133,51 @@ class KnowledgeService:
             temperature=self._temperature,
         )
 
+        final_answer = response.content
+        total_usage = dict(response.usage)
+
+        # Optional verification pass — check completeness and fill gaps
+        if self._answer_verification and response.content:
+            logger.info("knowledge_verification_start", question=question)
+            verification_system = self._prompt_engine.build_verification_prompt(effective_prompt_lang)
+            verification_message = self._prompt_engine.build_verification_message(
+                question, chunks, response.content,
+            )
+            verification_response: LlmResponse = self._llm.generate(
+                verification_system,
+                verification_message,
+                max_tokens=self._max_tokens,
+                temperature=self._temperature,
+            )
+            final_answer = verification_response.content
+            total_usage["prompt_tokens"] = (
+                total_usage.get("prompt_tokens", 0) + verification_response.usage.get("prompt_tokens", 0)
+            )
+            total_usage["completion_tokens"] = (
+                total_usage.get("completion_tokens", 0) + verification_response.usage.get("completion_tokens", 0)
+            )
+            logger.info(
+                "knowledge_verification_complete",
+                question=question,
+                verification_prompt_tokens=verification_response.usage.get("prompt_tokens", 0),
+                verification_completion_tokens=verification_response.usage.get("completion_tokens", 0),
+            )
+
         logger.info(
             "knowledge_ask_complete",
             question=question,
             question_type=question_type,
             model=response.model,
             sources=len(chunks),
-            prompt_tokens=response.usage.get("prompt_tokens", 0),
-            completion_tokens=response.usage.get("completion_tokens", 0),
+            prompt_tokens=total_usage.get("prompt_tokens", 0),
+            completion_tokens=total_usage.get("completion_tokens", 0),
+            verification=self._answer_verification,
         )
 
         return KnowledgeAnswer(
-            answer=response.content,
+            answer=final_answer,
             question_type=question_type,
             sources=chunks,
             model=response.model,
-            usage=response.usage,
+            usage=total_usage,
         )

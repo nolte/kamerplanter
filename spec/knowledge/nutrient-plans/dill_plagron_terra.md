@@ -176,7 +176,7 @@ Manuelle Giessduengung per Giesskanne. Minimale Volumina (Schwachzehrer, Freilan
 | week_start | 5 | `phase_entries.week_start` |
 | week_end | 8 | `phase_entries.week_end` |
 | is_recurring | false | `phase_entries.is_recurring` |
-| NPK-Verhaeltnis | (2, 1, 2) | `phase_entries.npk_ratio` |
+| NPK-Verhaeltnis | (3, 1, 3) | `phase_entries.npk_ratio` |
 | Calcium (ppm) | null | `phase_entries.calcium_ppm` |
 | Magnesium (ppm) | null | `phase_entries.magnesium_ppm` |
 | Hinweise | **HAUPTERNTEPHASE.** Halbe Dosis Terra Grow (2.0 ml/L) + Pure Zym. Blattspitzen ernten (verzoegert Schossen). Dosierung bewusst niedrig -- ueberdungter Dill schmeckt fad! Kalium foerdert Aromaoelproduktion und Standfestigkeit (K im 3-1-3-Profil ausreichend). Alle 3 Wochen 1x duengen (max. 2 Duengungen in dieser Phase). Halbschattiger Standort verzoegert Schossen. | `phase_entries.notes` |

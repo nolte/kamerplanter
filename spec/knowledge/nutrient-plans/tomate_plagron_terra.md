@@ -18,7 +18,7 @@
 | Referenz-Substrat | SOIL | `nutrient_plans.reference_substrate_type` |
 | Autor | Kamerplanter Referenzdaten | `nutrient_plans.author` |
 | Template | true | `nutrient_plans.is_template` |
-| Version | 1.0 | `nutrient_plans.version` |
+| Version | 1.1 | `nutrient_plans.version` |
 | Tags | tomate, tomato, solanum, lycopersicum, starkzehrer, plagron, terra, pk-13-14, erde, outdoor, gewaechshaus | `nutrient_plans.tags` |
 | Wasserquelle RO-Anteil | null (Leitungswasser) | `nutrient_plans.water_mix_ratio_ro_percent` |
 | Zyklus-Neustart ab Sequenz | null (einjaehrig, kein Neustart) | `nutrient_plans.cycle_restart_from_sequence` |
@@ -145,8 +145,8 @@ Tomaten sind Starkzehrer mit hoher EC-Toleranz (bis 2.5 mS/cm in Hydrokultur). *
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0  |
-| reference_ec_ms | 0.0  |
+| target_ec_ms | null (kein Duenger -- Gesamt-EC entspricht Leitungswasser-EC ~0.3--0.5 mS/cm) |
+| reference_ec_ms | null |
 | target_ph | 6.0 |
 | fertilizer_dosages | [] (leer -- kein Duenger) |
 
@@ -285,8 +285,8 @@ Tomaten sind Starkzehrer mit hoher EC-Toleranz (bis 2.5 mS/cm in Hydrokultur). *
 
 | Feld | Wert |
 |------|------|
-| target_ec_ms | 0.0  |
-| reference_ec_ms | 0.0  |
+| target_ec_ms | null (kein Duenger -- Gesamt-EC entspricht Leitungswasser-EC ~0.3--0.5 mS/cm) |
+| reference_ec_ms | null |
 | target_ph | 6.0 |
 | Pure Zym ml/L | 1.0 |
 | fertilizer_dosages | Pure Zym only |
@@ -465,7 +465,7 @@ Die wichtigste Tomatenkrankheit im Freiland:
   "reference_substrate_type": "soil",
   "author": "Kamerplanter Referenzdaten",
   "is_template": true,
-  "version": "1.0",
+  "version": "1.1",
   "tags": ["tomate", "tomato", "solanum", "lycopersicum", "starkzehrer", "plagron", "terra", "pk-13-14", "erde", "outdoor", "gewaechshaus"],
   "water_mix_ratio_ro_percent": null,
   "cycle_restart_from_sequence": null,
@@ -510,9 +510,9 @@ Die wichtigste Tomatenkrankheit im Freiland:
       "label": "Keimungsspr\u00fchung (Spr\u00fchflasche)",
       "application_method": "drench",
       "enabled": true,
-      "notes": "Nur Wasser. Feine Spr\u00fchung, Substrat gleichm\u00e4\u00dfig feucht halten.",
-      "target_ec_ms": 0.0,
-      "reference_ec_ms": 0.0,
+      "notes": "Nur Wasser, kein D\u00fcnger. Feine Spr\u00fchung, Substrat gleichm\u00e4\u00dfig feucht halten. Gesamt-EC entspricht Leitungswasser-EC (~0.3\u20130.5 mS/cm).",
+      "target_ec_ms": null,
+      "reference_ec_ms": null,
       "target_ph": 6.0,
       "fertilizer_dosages": [],
       "method_params": {"method": "drench", "volume_per_feeding_liters": 0.03}
@@ -697,9 +697,9 @@ Die wichtigste Tomatenkrankheit im Freiland:
       "label": "Substratsp\u00fclung (Gie\u00dfkanne)",
       "application_method": "drench",
       "enabled": true,
-      "notes": "Nur Wasser + Pure Zym. Kein D\u00fcnger.",
-      "target_ec_ms": 0.0,
-      "reference_ec_ms": 0.0,
+      "notes": "Nur Wasser + Pure Zym. Kein D\u00fcnger. Gesamt-EC entspricht Leitungswasser-EC (~0.3\u20130.5 mS/cm).",
+      "target_ec_ms": null,
+      "reference_ec_ms": null,
       "target_ph": 6.0,
       "fertilizer_dosages": [
         {"fertilizer_key": "<pure_zym_key>", "ml_per_liter": 1.0, "optional": false}
@@ -739,5 +739,6 @@ Die wichtigste Tomatenkrankheit im Freiland:
 
 ---
 
-**Dokumentversion:** 1.0
+**Dokumentversion:** 1.1
 **Erstellt:** 2026-03-01
+**Letzte Aenderung:** 2026-04-05 (Review T-001 bis T-012 abgearbeitet)

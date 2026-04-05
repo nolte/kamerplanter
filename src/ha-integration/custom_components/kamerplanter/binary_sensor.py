@@ -9,19 +9,25 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
 from .coordinator import (
     KamerplanterAlertCoordinator,
     KamerplanterLocationCoordinator,
-    KamerplanterTaskCoordinator,
 )
-from .sensor import _slugify_key, location_device_info, plant_device_info, server_device_info
+from .entity import (
+    KamerplanterEntity,
+    _slugify_key,
+    location_device_info,
+    plant_device_info,
+    server_device_info,
+)
+
+PARALLEL_UPDATES = 0  # CoordinatorEntity — no own polling
 
 
 async def async_setup_entry(
@@ -30,23 +36,26 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Kamerplanter binary sensor entities."""
-    data = hass.data[DOMAIN][entry.entry_id]
-    alert_coordinator: KamerplanterAlertCoordinator = data["coordinators"]["alerts"]
-    plant_coordinator = data["coordinators"]["plants"]
-    loc_coordinator: KamerplanterLocationCoordinator = data["coordinators"]["locations"]
+    coordinators = entry.runtime_data.coordinators
+    alert_coordinator: KamerplanterAlertCoordinator = coordinators["alerts"]
+    plant_coordinator = coordinators["plants"]
+    loc_coordinator: KamerplanterLocationCoordinator = coordinators["locations"]
 
     entities: list[BinarySensorEntity] = []
 
     # Plant attention sensors (derived from overdue tasks)
     if alert_coordinator.data and plant_coordinator.data:
-        # Build plant lookup for active plants only
         plant_lookup: dict[str, dict[str, Any]] = {
             p["key"]: p for p in plant_coordinator.data if not p.get("removed_on")
         }
         plant_keys_seen: set[str] = set()
         for alert in alert_coordinator.data:
             plant_key = alert.get("plant_key")
-            if plant_key and plant_key not in plant_keys_seen and plant_key in plant_lookup:
+            if (
+                plant_key
+                and plant_key not in plant_keys_seen
+                and plant_key in plant_lookup
+            ):
                 plant_keys_seen.add(plant_key)
                 dev = plant_device_info(entry, plant_lookup[plant_key])
                 entities.append(
@@ -59,8 +68,10 @@ async def async_setup_entry(
             loc_key = loc.get("key") or loc.get("_key", "")
             if not loc_key:
                 continue
-            # Only add if the location has active runs or plants
-            if loc.get("_active_run_count", 0) > 0 or loc.get("_active_plant_count", 0) > 0:
+            if (
+                loc.get("_active_run_count", 0) > 0
+                or loc.get("_active_plant_count", 0) > 0
+            ):
                 dev = location_device_info(entry, loc)
                 entities.append(
                     LocationNeedsAttentionSensor(
@@ -70,26 +81,19 @@ async def async_setup_entry(
 
     # Global sensor offline — under server device
     srv_dev = server_device_info(entry)
-    entities.append(
-        SensorOfflineSensor(alert_coordinator, entry, srv_dev)
-    )
+    entities.append(SensorOfflineSensor(alert_coordinator, entry, srv_dev))
 
     # Care overdue — true when at least one task is overdue (REQ-030)
-    entities.append(
-        CareOverdueSensor(alert_coordinator, entry, srv_dev)
-    )
+    entities.append(CareOverdueSensor(alert_coordinator, entry, srv_dev))
 
     async_add_entities(entities)
 
 
-class PlantNeedsAttentionSensor(
-    CoordinatorEntity, RestoreEntity, BinarySensorEntity
-):
+class PlantNeedsAttentionSensor(KamerplanterEntity, RestoreEntity, BinarySensorEntity):
     """Binary sensor indicating a plant needs attention."""
 
-    _attr_has_entity_name = True
+    _attr_translation_key = "needs_attention"
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
-    _attr_icon = "mdi:alert-circle"
 
     def __init__(
         self,
@@ -98,13 +102,10 @@ class PlantNeedsAttentionSensor(
         plant_key: str,
         device_info: DeviceInfo,
     ) -> None:
-        super().__init__(coordinator)
+        super().__init__(coordinator, entry.entry_id, device_info)
         self._plant_key = plant_key
         slug = _slugify_key(plant_key)
         self._attr_unique_id = f"{entry.entry_id}_kp_{slug}_needs_attention"
-        self.entity_id = f"binary_sensor.kp_{slug}_needs_attention"
-        self._attr_name = "Needs Attention"
-        self._attr_device_info = device_info
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -124,12 +125,12 @@ class PlantNeedsAttentionSensor(
             self.async_write_ha_state()
 
 
-class SensorOfflineSensor(CoordinatorEntity, RestoreEntity, BinarySensorEntity):
+class SensorOfflineSensor(KamerplanterEntity, RestoreEntity, BinarySensorEntity):
     """Binary sensor indicating sensor connectivity issues."""
 
-    _attr_has_entity_name = True
+    _attr_translation_key = "sensor_offline"
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
-    _attr_icon = "mdi:access-point-network-off"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(
         self,
@@ -137,11 +138,8 @@ class SensorOfflineSensor(CoordinatorEntity, RestoreEntity, BinarySensorEntity):
         entry: ConfigEntry,
         device_info: DeviceInfo,
     ) -> None:
-        super().__init__(coordinator)
+        super().__init__(coordinator, entry.entry_id, device_info)
         self._attr_unique_id = f"{entry.entry_id}_kp_sensor_offline"
-        self.entity_id = "binary_sensor.kp_sensor_offline"
-        self._attr_name = "Sensor Offline"
-        self._attr_device_info = device_info
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -162,13 +160,12 @@ class SensorOfflineSensor(CoordinatorEntity, RestoreEntity, BinarySensorEntity):
 
 
 class LocationNeedsAttentionSensor(
-    CoordinatorEntity, RestoreEntity, BinarySensorEntity
+    KamerplanterEntity, RestoreEntity, BinarySensorEntity
 ):
-    """Binary sensor indicating a location needs attention (overdue tasks for assigned runs/plants)."""
+    """Binary sensor indicating a location needs attention."""
 
-    _attr_has_entity_name = True
+    _attr_translation_key = "needs_attention"
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
-    _attr_icon = "mdi:alert-circle"
 
     def __init__(
         self,
@@ -178,14 +175,11 @@ class LocationNeedsAttentionSensor(
         location_key: str,
         device_info: DeviceInfo,
     ) -> None:
-        super().__init__(alert_coordinator)
+        super().__init__(alert_coordinator, entry.entry_id, device_info)
         self._location_key = location_key
         self._loc_coordinator = loc_coordinator
         slug = _slugify_key(location_key)
         self._attr_unique_id = f"{entry.entry_id}_kp_loc_{slug}_needs_attention"
-        self.entity_id = f"binary_sensor.kp_loc_{slug}_needs_attention"
-        self._attr_name = "Needs Attention"
-        self._attr_device_info = device_info
 
     def _get_location_plant_keys(self) -> set[str]:
         """Get all plant keys associated with this location."""
@@ -224,12 +218,11 @@ class LocationNeedsAttentionSensor(
             self.async_write_ha_state()
 
 
-class CareOverdueSensor(CoordinatorEntity, RestoreEntity, BinarySensorEntity):
+class CareOverdueSensor(KamerplanterEntity, RestoreEntity, BinarySensorEntity):
     """Binary sensor indicating at least one care task is overdue (REQ-030)."""
 
-    _attr_has_entity_name = True
+    _attr_translation_key = "care_overdue"
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
-    _attr_icon = "mdi:watering-can-outline"
 
     def __init__(
         self,
@@ -237,11 +230,8 @@ class CareOverdueSensor(CoordinatorEntity, RestoreEntity, BinarySensorEntity):
         entry: ConfigEntry,
         device_info: DeviceInfo,
     ) -> None:
-        super().__init__(coordinator)
+        super().__init__(coordinator, entry.entry_id, device_info)
         self._attr_unique_id = f"{entry.entry_id}_kp_care_overdue"
-        self.entity_id = "binary_sensor.kp_care_overdue"
-        self._attr_name = "Care Overdue"
-        self._attr_device_info = device_info
 
     @callback
     def _handle_coordinator_update(self) -> None:

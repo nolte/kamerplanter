@@ -170,8 +170,8 @@ export default function WorkflowDetailPage() {
       });
       // Build dynamic breadcrumbs
       const crumbs: { label: string; path?: string }[] = [
-        { label: 'nav.tasks', path: '/aufgaben' },
-        { label: 'pages.tasks.workflowsTitle', path: '/aufgaben/workflows' },
+        { label: 'nav.aufgaben', path: '/aufgaben' },
+        { label: 'nav.workflows', path: '/aufgaben/workflows' },
       ];
       if (wf.species_key) {
         try {

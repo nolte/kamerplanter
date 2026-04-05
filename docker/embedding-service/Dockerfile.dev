@@ -6,14 +6,15 @@ FROM python:3.14-slim AS dl-base
 # hadolint ignore=DL3013
 RUN pip install --no-cache-dir --root-user-action=ignore huggingface-hub sentencepiece
 
-FROM dl-base AS dl-e5-base
+FROM dl-base AS dl-e5-large
 RUN python -c "\
 from huggingface_hub import snapshot_download; \
-snapshot_download('intfloat/multilingual-e5-base', \
+snapshot_download('intfloat/multilingual-e5-large', \
     local_dir='/model', \
-    allow_patterns=['onnx/model.onnx', 'tokenizer*', 'special_tokens*', \
+    allow_patterns=['onnx/model.onnx', 'onnx/model.onnx_data', 'tokenizer*', 'special_tokens*', \
                     'sentencepiece*', 'config.json'])" && \
     mv /model/onnx/model.onnx /model/model.onnx && \
+    (mv /model/onnx/model.onnx_data /model/model.onnx_data 2>/dev/null || true) && \
     rm -rf /model/onnx /model/.cache
 
 # ── Runtime ─────────────────────────────────────────────────────────
@@ -25,7 +26,7 @@ COPY requirements.txt .
 # hadolint ignore=DL3013
 RUN pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
 
-COPY --from=dl-e5-base /model/ /app/models/onnx/multilingual-e5-base/
+COPY --from=dl-e5-large /model/ /app/models/onnx/multilingual-e5-large/
 COPY main.py .
 
 EXPOSE 8080

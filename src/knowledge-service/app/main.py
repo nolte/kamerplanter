@@ -72,6 +72,7 @@ async def lifespan(app: FastAPI):
         temperature=settings.llm_temperature,
         default_doc_language=settings.rag_doc_language,
         default_prompt_language=settings.rag_prompt_language,
+        answer_verification=settings.answer_verification,
     )
 
     _ingestor = KnowledgeIngestor(

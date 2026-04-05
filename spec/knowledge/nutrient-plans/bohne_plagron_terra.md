@@ -118,6 +118,8 @@ Bohnen sind Schwachzehrer UND N-Fixierer. Ziel-EC der Gesamtloesung: **0.3--0.7 
 
 **NICHT verwendet:** Terra Grow (3-1-3) -- zu viel Stickstoff fuer Leguminosen!
 
+**Quantitativer N-Beitrag Terra Bloom:** Bei 2 ml/L Terra Bloom (NPK 2-2-4) wird rechnerisch ~0.04 mg N pro Liter Giessloessung appliziert -- das ist 50-100x weniger als der atmosphaerische N-Eintrag aus der Rhizobium-Symbiose in normalem Kulturboden.
+
 ### 4.1 GERMINATION -- Keimung (Woche 1--2)
 
 | Parameter | Wert | KA-Feld |
@@ -204,6 +206,7 @@ Bohnen sind Schwachzehrer UND N-Fixierer. Ziel-EC der Gesamtloesung: **0.3--0.7 
 | Calcium (ppm) | null | `phase_entries.calcium_ppm` |
 | Magnesium (ppm) | null | `phase_entries.magnesium_ppm` |
 | Hinweise | Terra Bloom niedrige Dosis (2.0 ml/L) + Pure Zym. P+K fuer Bluete und Huelsenbildung. **KRITISCHE PHASE:** Hitze ueber 30 degC und Trockenheit verursachen Bluetenabwurf! Gleichmaessig giessen (alle 2 Tage), morgens, nicht ueber die Blueten. Bohnen sind Selbstbestaeuber. Kalium foerdert Huelsenqualitaet. Alle 14 Tage duengen. Bei Staffelsaat: letzte Saat jetzt (Mitte Juli). | `phase_entries.notes` |
+| Giessplan-Override | Intervall 2 Tage (Bluete braucht mehr Wasser) | `phase_entries.watering_schedule_override` |
 
 **Delivery Channel: naehrloesung-pk**
 
@@ -470,6 +473,14 @@ Bei einer Buschbohnen-Reihe (10 Pflanzen), 0.1 L Giessloessung pro Pflanze/Dueng
   "calcium_ppm": null,
   "magnesium_ppm": null,
   "notes": "Terra Bloom niedrige Dosis (2 ml/L) + Pure Zym. P+K f\u00fcr Bl\u00fcte und H\u00fclsenbildung. Hitze \u00fcber 30\u00b0C = Bl\u00fctenabwurf! Gleichm\u00e4\u00dfig gie\u00dfen (alle 2 Tage). Alle 14 Tage d\u00fcngen.",
+  "watering_schedule_override": {
+    "schedule_mode": "interval",
+    "interval_days": 2,
+    "preferred_time": "07:00",
+    "application_method": "drench",
+    "reminder_hours_before": 2,
+    "times_per_day": 1
+  },
   "delivery_channels": [
     {
       "channel_id": "naehrloesung-pk",

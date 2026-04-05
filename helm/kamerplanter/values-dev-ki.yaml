@@ -57,7 +57,7 @@ controllers:
           VECTORDB_USERNAME: postgres
           VECTORDB_PASSWORD: devpassword
           EMBEDDING_SERVICE_URL: "http://kamerplanter-ki-embedding-service:8080"
-          EMBEDDING_MODEL: "multilingual-e5-base"
+          EMBEDDING_MODEL: "multilingual-e5-large"
           LLM_PROVIDER: "ollama"
           LLM_API_URL: "http://192.168.178.130:31434"
           LLM_MODEL: "gemma3:12b"
@@ -66,6 +66,7 @@ controllers:
           RERANKER_URL: "http://kamerplanter-ki-reranker-service:8081"
           RERANKER_INITIAL_K: "20"
           RERANKER_TOP_K: "5"
+          ANSWER_VERIFICATION: "true"
           KNOWLEDGE_PATH: "/app/knowledge"
         probes:
           liveness:
@@ -162,7 +163,7 @@ controllers:
         securityContext:
           readOnlyRootFilesystem: false
         env:
-          EMBEDDING_MODEL: "multilingual-e5-base"
+          EMBEDDING_MODEL: "multilingual-e5-large"
         probes:
           liveness:
             enabled: true

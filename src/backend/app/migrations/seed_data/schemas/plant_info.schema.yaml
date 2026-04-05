@@ -146,7 +146,8 @@ $defs:
       description: { type: string }
       rotation_category:
         type: string
-        enum: [fruit, root, leaf, legume, allium, herb, fiber, ornamental, green_manure, cereal]
+        enum: [fruit, root, leaf, legume, allium, herb, fiber, ornamental, green_manure, cereal,
+               brassica, composite, cucurbit, grain, permanent, vegetable]
     required: [name, common_name_de, common_name_en, order, typical_nutrient_demand,
                frost_tolerance, typical_root_depth, typical_growth_forms,
                pollination_type, soil_ph_preference, description, rotation_category]
@@ -171,11 +172,11 @@ $defs:
         type: array
         items:
           type: string
-          pattern: "^\\d{1,2}[ab]$"
+          pattern: "^\\d{1,2}[ab]?$"
       native_habitat: { type: string }
       allelopathy_score:
         type: number
-        minimum: 0
+        minimum: -1
         maximum: 1
       base_temp:
         type: number
@@ -217,6 +218,11 @@ $defs:
       nutrient_demand_level:
         type: string
         enum: [heavy_feeder, medium_feeder, light_feeder, nitrogen_fixer]
+      plant_category:
+        type: string
+        enum: [indoor_houseplant, outdoor_ornamental, outdoor_vegetable, balcony_plant,
+               succulent_cactus, tropical_foliage, orchid, herb, bulb_tuber]
+        description: "Broad category for UI grouping"
     required: [scientific_name, common_names, genus, growth_habit, root_type]
     additionalProperties: true
 
@@ -243,7 +249,13 @@ $defs:
           type: string
           enum: [disease_resistant, pest_resistant, high_yield, compact, drought_tolerant,
                  cold_hardy, heat_tolerant, early_maturing, long_season, ornamental,
-                 heirloom, hybrid, f1]
+                 heirloom, hybrid, f1,
+                 variegated, cut_flower, fragrant, winter_hardy, late_season,
+                 edible_flower, ground_cover, shade_tolerant, native, bee_friendly]
+      seed_type:
+        type: string
+        enum: [clone, seed, cutting, division, grafted]
+        description: "Propagation type of the cultivar"
       cycle_type:
         type: string
         enum: [annual, biennial, perennial]
@@ -264,7 +276,7 @@ $defs:
       tags:
         type: array
         items: { type: string }
-    required: [name, species_name]
+    required: [name]
     additionalProperties: true
 
   lifecycle_config:
@@ -294,7 +306,14 @@ $defs:
         type: string
         enum: [germination, seedling, vegetative, flowering, flushing, dormancy,
                harvest, sprouting, budding, fruiting, ripening, senescence, corm_ripening,
-               active_growth, winter_rest, cool_rest, summer_rest]
+               active_growth, winter_rest, cool_rest, summer_rest,
+               shaft_growth, sprout_formation, flowering_fruit, tuber_formation,
+               establishment, pup_establishment, pre_bloom, juvenile, climbing,
+               mature, hardening_off, recovery, bract_coloring, short_day_induction,
+               leaf_phase, dry_storage, growth_bloom, young_palm, winter_dormancy,
+               summer_dormancy, bulbil_establishment, spring_growth, autumn_growth_bloom,
+               winter_hull_change, rest_phase, rest_after_bloom, bud_formation,
+               autumn_ripening, rooting, rest]
       display_name: { type: string }
       duration_days: { type: integer, minimum: 1 }
       sequence_order: { type: integer, minimum: 1 }
@@ -360,6 +379,7 @@ $defs:
       detection_difficulty:
         type: string
         enum: [easy, medium, hard]
+      description: { type: string }
     required: [scientific_name, common_name, pest_type]
     additionalProperties: false
 

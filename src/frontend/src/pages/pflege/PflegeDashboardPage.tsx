@@ -267,7 +267,7 @@ export default function PflegeDashboardPage() {
               </Box>
             </Box>
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Chip
                 label={t(`pages.pflege.${entry.urgency === 'due_today' ? 'dueToday' : entry.urgency}`)}
                 size="small"
@@ -275,26 +275,26 @@ export default function PflegeDashboardPage() {
               />
               <Tooltip title={t('pages.pflege.editProfile')}>
                 <IconButton
-                  size="small"
+                  size="medium"
                   onClick={() => handleEditProfile(entry.plant_key)}
                   data-testid={`edit-profile-${entry.plant_key}`}
                 >
-                  <EditIcon fontSize="small" />
+                  <EditIcon />
                 </IconButton>
               </Tooltip>
               <Tooltip title={t('pages.pflege.confirmAction')}>
                 <span>
                   <IconButton
-                    size="small"
+                    size="medium"
                     color="success"
                     onClick={() => handleConfirmClick(entry)}
                     disabled={isLoading}
                     data-testid={`confirm-${id}`}
                   >
                     {isLoading ? (
-                      <CircularProgress size={18} />
+                      <CircularProgress size={22} />
                     ) : (
-                      <CheckCircleIcon fontSize="small" />
+                      <CheckCircleIcon />
                     )}
                   </IconButton>
                 </span>
@@ -302,16 +302,16 @@ export default function PflegeDashboardPage() {
               <Tooltip title={t('pages.pflege.snoozeTooltip')}>
                 <span>
                   <IconButton
-                    size="small"
+                    size="medium"
                     color="default"
                     onClick={() => handleSnooze(entry.plant_key, entry.reminder_type)}
                     disabled={isLoading}
                     data-testid={`snooze-${id}`}
                   >
                     {isLoading ? (
-                      <CircularProgress size={18} />
+                      <CircularProgress size={22} />
                     ) : (
-                      <SnoozeIcon fontSize="small" />
+                      <SnoozeIcon />
                     )}
                   </IconButton>
                 </span>

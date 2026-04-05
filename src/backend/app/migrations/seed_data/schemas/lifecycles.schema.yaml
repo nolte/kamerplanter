@@ -49,7 +49,15 @@ $defs:
       name:
         type: string
         enum: [germination, seedling, vegetative, flowering, flushing, dormancy,
-               harvest, sprouting, budding, fruiting, ripening, senescence, corm_ripening]
+               harvest, sprouting, budding, fruiting, ripening, senescence, corm_ripening,
+               active_growth, winter_rest, cool_rest, summer_rest,
+               shaft_growth, sprout_formation, flowering_fruit, tuber_formation,
+               establishment, pup_establishment, pre_bloom, juvenile, climbing,
+               mature, hardening_off, recovery, bract_coloring, short_day_induction,
+               leaf_phase, dry_storage, growth_bloom, young_palm, winter_dormancy,
+               summer_dormancy, bulbil_establishment, spring_growth, autumn_growth_bloom,
+               winter_hull_change, rest_phase, rest_after_bloom, bud_formation,
+               autumn_ripening, rooting, rest]
       display_name:
         type: string
         description: "German display name"

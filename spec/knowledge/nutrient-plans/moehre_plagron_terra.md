@@ -287,6 +287,13 @@ Bei 1 Laufmeter Moehrenreihe (ca. 20--25 Pflanzen), 0.5 L Giessloessung pro Duen
 - Fruehoehren (Nantes): 70--90 Tage, Lagersorten (Flakkee): 120--150 Tage
 - Spaete Saetze (Juli) koennen bei Mulchschutz bis November im Boden bleiben
 
+### Bor-Mangel (Qualitaetsrisiko)
+
+- **Symptom:** Risse, Hohlraeume und braeunliche Verfaerbungen in der Speicherwurzel
+- Terra Bloom enthaelt 0.48% Bor -- bei regelmaessiger Duengung ist das Bor-Mangel-Risiko nicht relevant
+- **Bei ungeduengten Boeden (Plan ohne Duengung):** Bor-Status beachten; ggf. 1 g Borax / 10 L Wasser als einmalige Blattspruehung in der vegetativen Phase
+- Bor-arme Boeden: Sandboeden, stark gekalkter Boden, saure Boeden nach Kalkung
+
 ### Anhaeufeln
 
 - Erde an die Wurzelschulter ziehen, wenn die Krone aus dem Boden ragt

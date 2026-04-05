@@ -209,10 +209,20 @@ class ImportPage(BasePage):
     def select_file(self, file_path: str) -> None:
         """Send a file path to the hidden file input element.
 
-        Selenium can send_keys to a file input even if it is hidden;
-        no need to click the label button first.
+        The MUI ``<input hidden>`` renders as ``display: none``, which some
+        Selenium/WebDriver combinations reject for ``send_keys``.  We
+        temporarily make the input visible via JavaScript before interacting.
         """
         file_input = self.driver.find_element(*self.FILE_INPUT)
+        # Make the hidden input visible so Selenium can interact with it
+        self.driver.execute_script(
+            "arguments[0].style.display = 'block';"
+            "arguments[0].style.visibility = 'visible';"
+            "arguments[0].style.height = '1px';"
+            "arguments[0].style.width = '1px';"
+            "arguments[0].style.opacity = '0.01';",
+            file_input,
+        )
         file_input.send_keys(file_path)
 
     def get_file_button_text(self) -> str:
@@ -449,7 +459,10 @@ class ImportPage(BasePage):
         The file is placed in a temp directory and will persist until the OS
         cleans up the temp folder (or the caller deletes it).
         """
-        tmpdir = tempfile.mkdtemp(prefix="kp_e2e_import_")
+        # Use a directory inside $HOME so snap-confined Chromium can access it
+        base = os.path.join(os.path.expanduser("~"), ".cache", "kp_e2e_import")
+        os.makedirs(base, exist_ok=True)
+        tmpdir = tempfile.mkdtemp(prefix="csv_", dir=base)
         filepath = os.path.join(tmpdir, filename)
         content = delimiter.join(header.split(",")) + "\n"
         for row in rows:
@@ -463,7 +476,9 @@ class ImportPage(BasePage):
     @staticmethod
     def create_empty_csv(filename: str = "empty.csv") -> str:
         """Create an empty CSV file and return its path."""
-        tmpdir = tempfile.mkdtemp(prefix="kp_e2e_import_")
+        base = os.path.join(os.path.expanduser("~"), ".cache", "kp_e2e_import")
+        os.makedirs(base, exist_ok=True)
+        tmpdir = tempfile.mkdtemp(prefix="csv_", dir=base)
         filepath = os.path.join(tmpdir, filename)
         with open(filepath, "w"):
             pass  # empty file
@@ -472,7 +487,9 @@ class ImportPage(BasePage):
     @staticmethod
     def create_large_csv(filename: str = "large.csv", size_mb: int = 11) -> str:
         """Create a CSV file exceeding *size_mb* megabytes."""
-        tmpdir = tempfile.mkdtemp(prefix="kp_e2e_import_")
+        base = os.path.join(os.path.expanduser("~"), ".cache", "kp_e2e_import")
+        os.makedirs(base, exist_ok=True)
+        tmpdir = tempfile.mkdtemp(prefix="csv_", dir=base)
         filepath = os.path.join(tmpdir, filename)
         header = "scientific_name,common_names,family,genus\n"
         row = "Solanum lycopersicum,Tomate,Solanaceae,Solanum\n"

@@ -176,6 +176,8 @@ Tigridia pavonia ist ein Schwach-/Mittelzehrer. Ziel-EC der Gesamtloesung: **0.3
 
 **EC-Budget:** 0.16 (TG 2.0ml) + 0.00 (PZ) + ~0.4 (Wasser) = **~0.56 mS/cm** -- ok
 
+**EC-Abweichung zum Steckbrief:** Bewusst unter Steckbrief-Optimum (0.8--1.2 mS/cm), da Tigridia pavonia als Schwachzehrer im Freiland/Kuebel bei hoeherer EC Wachstumshemmung zeigt. Freilandregendilution reduziert die tatsaechliche Substrat-EC zusaetzlich.
+
 ### 4.3 FLOWERING -- Knospenbildung + Bluete (Woche 11--20)
 
 | Parameter | Wert | KA-Feld |
@@ -201,6 +203,8 @@ Tigridia pavonia ist ein Schwach-/Mittelzehrer. Ziel-EC der Gesamtloesung: **0.3
 
 **EC-Budget:** 0.25 (TB 2.5ml) + 0.00 (PZ) + ~0.4 (Wasser) = **~0.65 mS/cm** -- ok
 **EC-Budget (reduziert, W18--20):** 0.15 (TB 1.5ml) + 0.00 (PZ) + ~0.4 (Wasser) = **~0.55 mS/cm** -- ok
+
+**EC-Abweichung zum Steckbrief:** Steckbrief empfiehlt EC 0.8--1.2 mS/cm fuer Knospenbildung/Bluete. Plan-EC liegt bewusst darunter (Schwachzehrer-Strategie). Im Freiland wird die EC durch Niederschlag weiter verduennt.
 
 ### 4.4 HARVEST -- Abreife + Knollenreife (Woche 21--22)
 

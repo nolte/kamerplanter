@@ -56,12 +56,19 @@ class SpeciesDetailPage(BasePage):
             self.scroll_and_click(tabs[index])
 
     def click_tab_by_label(self, label: str) -> None:
+        import time
+
+        # Wait for at least one tab to render (detail page may still be loading)
+        self.wait_for_element(self.TABS, timeout=15)
+        # Allow tabs to fully render
+        time.sleep(0.5)
         tabs = self.driver.find_elements(*self.TABS)
         for tab in tabs:
             if tab.text.upper() == label.upper():
                 self.scroll_and_click(tab)
                 return
-        raise ValueError(f"Tab '{label}' not found")
+        tab_labels = [t.text for t in tabs]
+        raise ValueError(f"Tab '{label}' not found among {tab_labels}")
 
     # ── Edit tab (tab 0) ──────────────────────────────────────────────
 
@@ -251,8 +258,20 @@ class SpeciesDetailPage(BasePage):
             self.scroll_and_click(rows[index])
 
     def delete_phase_at_index(self, index: int) -> None:
+        import time
+
         rows = self.driver.find_elements(*self.PHASE_TABLE_ROWS)
         if index < len(rows):
-            delete_btn = rows[index].find_element(By.CSS_SELECTOR, "button[aria-label]")
-            self.scroll_and_click(delete_btn)
-            self.wait_for_element_visible(self.CONFIRM_DIALOG)
+            # The delete button is the MUI IconButton (not the text "Profil" Button).
+            # Use JS click directly to avoid triggering the row's onClick handler.
+            icon_buttons = rows[index].find_elements(
+                By.CSS_SELECTOR, "button.MuiIconButton-root"
+            )
+            if not icon_buttons:
+                raise ValueError(f"No IconButton found in phase row {index}")
+            self.driver.execute_script(
+                "arguments[0].scrollIntoView({block: 'center'}); arguments[0].click();",
+                icon_buttons[-1],
+            )
+            time.sleep(0.5)  # Allow React state to settle before checking dialog
+            self.wait_for_element_visible(self.CONFIRM_DIALOG, timeout=10)

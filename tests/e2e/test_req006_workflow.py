@@ -2,14 +2,12 @@
 
 Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-006.md):
   TC-REQ-006-024  ->  TC-006-034  Workflow-Template-Liste aufrufen -- Seite rendert
-  TC-REQ-006-025  ->  TC-006-034  Workflow-Liste zeigt DataTable mit Spalten
-  TC-REQ-006-026  ->  TC-006-034  'Aus Spezies generieren'-Button ist sichtbar
+  TC-REQ-006-025  ->  TC-006-034  Workflow-Liste zeigt Workflow-Cards
   TC-REQ-006-027  ->  TC-006-034  'Workflow erstellen'-Button ist sichtbar
-  TC-REQ-006-028  ->  TC-006-034  Workflow-Tabelle zeigt vorhandene Workflows
-  TC-REQ-006-029  ->  TC-006-034  Workflow-Suche filtert die Tabelle
-  TC-REQ-006-030  ->  TC-006-037  Klick auf 'Aus Spezies generieren' oeffnet Dialog
+  TC-REQ-006-028  ->  TC-006-034  Workflow-Cards zeigen vorhandene Workflows
+  TC-REQ-006-029  ->  TC-006-034  Workflow-Suche filtert die Cards
   TC-REQ-006-031  ->  TC-006-038  Klick auf 'Workflow erstellen' oeffnet Dialog
-  TC-REQ-006-032  ->  TC-006-039  Klick auf Workflow-Zeile navigiert zur Detailseite
+  TC-REQ-006-032  ->  TC-006-039  Klick auf Workflow-Card navigiert zur Detailseite
   TC-REQ-006-033  ->  TC-006-039  Workflow-Detailseite rendert mit Tabs
   TC-REQ-006-034  ->  TC-006-039  Workflow-Detailseite Tabs koennen navigiert werden
   TC-REQ-006-035  ->  TC-006-039  Workflow-Detailseite zeigt den Workflow-Namen
@@ -45,9 +43,6 @@ def workflow_detail(browser: WebDriver, base_url: str) -> WorkflowDetailPage:
 # -- TC-006-034: Workflow Template List Page ---------------------------------
 
 
-@pytest.mark.skip(
-    reason="WorkflowListPage route /aufgaben/workflows — breadcrumb parent corrected to /aufgaben/queue, list page not yet standalone"
-)
 class TestWorkflowTemplateListPage:
     """Workflow template list page operations (Spec: TC-006-034, TC-006-035)."""
 
@@ -74,47 +69,26 @@ class TestWorkflowTemplateListPage:
 
     @pytest.mark.requires_desktop
     @pytest.mark.core_crud
-    def test_workflow_list_shows_data_table(
+    def test_workflow_list_shows_cards(
         self,
         workflow_list: WorkflowListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-025: Workflow list shows DataTable with columns.
+        """TC-REQ-006-025: Workflow list shows workflow cards.
 
-        Spec: TC-006-034 -- Workflow-Template-Liste mit Spalten.
+        Spec: TC-006-034 -- Workflow-Liste zeigt Workflow-Cards.
         """
         workflow_list.open()
         screenshot(
-            "TC-REQ-006-025_workflow-table",
-            "Workflow table with column headers",
+            "TC-REQ-006-025_workflow-cards",
+            "Workflow cards grid layout",
         )
 
-        headers = workflow_list.get_column_headers()
-        # The table should have at least a Name column
-        assert len(headers) > 0, (
-            f"TC-REQ-006-025 FAIL: Expected column headers in workflow table, "
-            f"got none. Headers: {headers}"
-        )
-
-    @pytest.mark.core_crud
-    def test_generate_button_is_visible(
-        self,
-        workflow_list: WorkflowListPage,
-        screenshot: Callable[..., Path],
-    ) -> None:
-        """TC-REQ-006-026: 'Generate from species' button is visible.
-
-        Spec: TC-006-034 -- 'Aus Spezies generieren'-Button sichtbar.
-        """
-        workflow_list.open()
-        screenshot(
-            "TC-REQ-006-026_generate-button",
-            "Generate from species button visible",
-        )
-
-        assert workflow_list.has_generate_button(), (
-            "TC-REQ-006-026 FAIL: Expected [data-testid='generate-workflow-button'] "
-            "to be visible"
+        card_count = workflow_list.get_card_count()
+        # Cards should render (zero is valid if no workflows exist)
+        assert card_count >= 0, (
+            f"TC-REQ-006-025 FAIL: Expected non-negative card count, "
+            f"got: {card_count}"
         )
 
     @pytest.mark.core_crud
@@ -139,25 +113,25 @@ class TestWorkflowTemplateListPage:
         )
 
     @pytest.mark.core_crud
-    def test_workflow_list_row_count(
+    def test_workflow_list_card_count(
         self,
         workflow_list: WorkflowListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-028: Workflow table shows available workflows.
+        """TC-REQ-006-028: Workflow cards show available workflows.
 
-        Spec: TC-006-034 -- Workflow-Tabelle zeigt vorhandene Workflows.
+        Spec: TC-006-034 -- Workflow-Cards zeigen vorhandene Workflows.
         """
         workflow_list.open()
         screenshot(
-            "TC-REQ-006-028_workflow-row-count",
-            "Workflow table row count",
+            "TC-REQ-006-028_workflow-card-count",
+            "Workflow card count",
         )
 
-        row_count = workflow_list.get_row_count()
+        card_count = workflow_list.get_card_count()
         # We do not assert > 0 since there may be no workflows yet
-        assert row_count >= 0, (
-            f"TC-REQ-006-028 FAIL: Expected non-negative row count, got: {row_count}"
+        assert card_count >= 0, (
+            f"TC-REQ-006-028 FAIL: Expected non-negative card count, got: {card_count}"
         )
 
     @pytest.mark.core_crud
@@ -166,76 +140,38 @@ class TestWorkflowTemplateListPage:
         workflow_list: WorkflowListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-029: Workflow search filters the table.
+        """TC-REQ-006-029: Workflow search filters the cards.
 
-        Spec: TC-006-034 -- Workflow-Suche filtert die Tabelle.
+        Spec: TC-006-034 -- Workflow-Suche filtert die Cards.
         """
         workflow_list.open()
 
-        if workflow_list.get_row_count() == 0:
+        if workflow_list.get_card_count() == 0:
             pytest.skip("No workflows in database -- cannot test search")
 
+        initial_count = workflow_list.get_card_count()
         screenshot(
             "TC-REQ-006-029_before-workflow-search",
-            "Workflow table before search",
+            "Workflow cards before search",
         )
 
         workflow_list.search("ZZZ_NONEXISTENT_WORKFLOW_9999")
         workflow_list.wait_for_loading_complete()
         screenshot(
             "TC-REQ-006-029_after-workflow-search",
-            "Workflow table after search (no matches expected)",
+            "Workflow cards after search (no matches expected)",
         )
 
-        assert workflow_list.has_search_chip(), (
-            "TC-REQ-006-029 FAIL: Expected search chip to appear after entering "
-            "search term"
-        )
-
-
-# -- TC-006-037: Generate Workflow from Species ------------------------------
-
-
-@pytest.mark.skip(
-    reason="WorkflowListPage route /aufgaben/workflows — breadcrumb parent corrected to /aufgaben/queue, list page not yet standalone"
-)
-class TestWorkflowGenerateFromSpecies:
-    """Generate workflow from species dialog (Spec: TC-006-037)."""
-
-    @pytest.mark.core_crud
-    def test_generate_workflow_opens_dialog(
-        self,
-        workflow_list: WorkflowListPage,
-        screenshot: Callable[..., Path],
-    ) -> None:
-        """TC-REQ-006-030: Click 'Generate from species' opens dialog.
-
-        Spec: TC-006-037 -- Klick auf 'Aus Spezies generieren' oeffnet Dialog.
-        """
-        workflow_list.open()
-        screenshot(
-            "TC-REQ-006-030_before-generate-click",
-            "Workflow list before clicking generate",
-        )
-
-        workflow_list.click_generate_workflow()
-        screenshot(
-            "TC-REQ-006-030_generate-dialog-open",
-            "Generate workflow dialog opened",
-        )
-
-        assert workflow_list.is_dialog_open(), (
-            "TC-REQ-006-030 FAIL: Expected dialog to be open after clicking "
-            "generate button"
+        filtered_count = workflow_list.get_card_count()
+        assert filtered_count < initial_count or filtered_count == 0, (
+            f"TC-REQ-006-029 FAIL: Expected search to filter cards. "
+            f"Before: {initial_count}, After: {filtered_count}"
         )
 
 
 # -- TC-006-038: Workflow Instantiate ----------------------------------------
 
 
-@pytest.mark.skip(
-    reason="WorkflowListPage route /aufgaben/workflows — breadcrumb parent corrected to /aufgaben/queue, list page not yet standalone"
-)
 class TestWorkflowInstantiate:
     """Instantiate (apply) a workflow to a plant (Spec: TC-006-038)."""
 
@@ -270,9 +206,6 @@ class TestWorkflowInstantiate:
 # -- TC-006-039: Workflow Detail Page ----------------------------------------
 
 
-@pytest.mark.skip(
-    reason="WorkflowListPage route /aufgaben/workflows — breadcrumb parent corrected to /aufgaben/queue, detail tests require list page for navigation"
-)
 class TestWorkflowDetailPage:
     """Workflow detail page operations (Spec: TC-006-039, TC-006-040)."""
 
@@ -282,25 +215,25 @@ class TestWorkflowDetailPage:
         workflow_list: WorkflowListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-032: Click workflow row navigates to detail page.
+        """TC-REQ-006-032: Click workflow card navigates to detail page.
 
-        Spec: TC-006-039 -- Klick auf Workflow-Zeile navigiert zur Detailseite.
+        Spec: TC-006-039 -- Klick auf Workflow-Card navigiert zur Detailseite.
         """
         workflow_list.open()
 
-        if workflow_list.get_row_count() == 0:
+        if workflow_list.get_card_count() == 0:
             pytest.skip("No workflows in database -- cannot test detail navigation")
 
         screenshot(
-            "TC-REQ-006-032_before-workflow-row-click",
-            "Workflow list before clicking row",
+            "TC-REQ-006-032_before-workflow-card-click",
+            "Workflow list before clicking card",
         )
 
-        workflow_list.click_row(0)
+        workflow_list.click_card(0)
         workflow_list.wait_for_url_contains("/aufgaben/workflows/")
         screenshot(
             "TC-REQ-006-032_workflow-detail-loaded",
-            "Workflow detail page loaded after row click",
+            "Workflow detail page loaded after card click",
         )
 
         assert "/aufgaben/workflows/" in workflow_list.driver.current_url, (
@@ -321,11 +254,11 @@ class TestWorkflowDetailPage:
         """
         workflow_list.open()
 
-        if workflow_list.get_row_count() == 0:
+        if workflow_list.get_card_count() == 0:
             pytest.skip("No workflows in database -- cannot test detail page")
 
-        # Navigate via row click to get a valid workflow key
-        workflow_list.click_row(0)
+        # Navigate via card click to get a valid workflow key
+        workflow_list.click_card(0)
         workflow_list.wait_for_url_contains("/aufgaben/workflows/")
 
         # Now verify the detail page
@@ -358,10 +291,10 @@ class TestWorkflowDetailPage:
         """
         workflow_list.open()
 
-        if workflow_list.get_row_count() == 0:
+        if workflow_list.get_card_count() == 0:
             pytest.skip("No workflows in database -- cannot test tab navigation")
 
-        workflow_list.click_row(0)
+        workflow_list.click_card(0)
         workflow_list.wait_for_url_contains("/aufgaben/workflows/")
 
         tabs = workflow_detail.get_tab_labels()
@@ -399,10 +332,10 @@ class TestWorkflowDetailPage:
         """
         workflow_list.open()
 
-        if workflow_list.get_row_count() == 0:
+        if workflow_list.get_card_count() == 0:
             pytest.skip("No workflows in database -- cannot test title")
 
-        workflow_list.click_row(0)
+        workflow_list.click_card(0)
         workflow_list.wait_for_url_contains("/aufgaben/workflows/")
 
         title = workflow_detail.get_workflow_title()

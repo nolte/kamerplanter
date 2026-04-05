@@ -72,6 +72,7 @@ class KamerplanterMixCardEditor extends HTMLElement {
     this._form.hass = this._hass;
     this._form.schema = _buildMixSchema(this._hass);
     this._form.data = this._config;
+    this._form.computeLabel = (schema) => schema.label || schema.name;
   }
 }
 customElements.define("kamerplanter-mix-card-editor", KamerplanterMixCardEditor);
@@ -93,13 +94,17 @@ class KamerplanterMixCard extends HTMLElement {
   }
 
   set hass(hass) {
+    const entities = (this._config?.entities || []).filter(Boolean);
+    const changed = !this._hass || entities.some(
+      id => this._hass.states[id] !== hass.states[id]
+    );
     this._hass = hass;
-    if (this._config) this._render();
+    if (changed && this._config) this._render();
   }
 
   setConfig(config) {
-    if (!config.entities || !config.entities.length) throw new Error("Please define at least one entity");
     this._config = config;
+    this._isStub = !config.entities || !config.entities.length;
   }
 
   getCardSize() { return 3; }
@@ -136,8 +141,76 @@ class KamerplanterMixCard extends HTMLElement {
     return v && v > 0 ? v : null;
   }
 
+  _renderPreview() {
+    if (!this.shadowRoot) return;
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host { display: block; overflow: hidden; box-sizing: border-box; }
+        ha-card { padding: 0; overflow: hidden; }
+        .card-header { padding: 12px 16px 0; display: flex; align-items: center; justify-content: space-between; }
+        .card-title { font-size: 1.1em; font-weight: 500; }
+        .card-content { padding: 8px 16px 16px; }
+        .mode-bar { display: flex; border: 1px solid #bdbdbd; border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
+        .seg-btn { flex: 1; padding: 6px 0; border: none; background: transparent; font-size: 0.8em; font-weight: 500; color: #757575; cursor: default; border-right: 1px solid #bdbdbd; }
+        .seg-btn:last-child { border-right: none; }
+        .seg-btn.active { background: #1976d2; color: #fff; font-weight: 600; }
+        .channel { margin-bottom: 16px; }
+        .channel:last-child { margin-bottom: 0; }
+        .channel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e0e0e0; }
+        .channel-name { font-weight: 500; font-size: 0.95em; }
+        .channel-badges { display: flex; gap: 4px; }
+        .badge { font-size: 0.72em; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+        .badge.week { background: #03a9f4; color: #fff; }
+        .badge.vol { background: #e8f5e9; color: #2e7d32; }
+        .dosage-list { display: flex; flex-direction: column; gap: 4px; }
+        .dosage-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f0f0f0; }
+        .dosage-row:last-child { border-bottom: none; }
+        .product-name { font-size: 0.9em; }
+        .dosage-values { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+        .ml-value { font-size: 0.9em; font-weight: 600; }
+        .ml-sub { font-size: 0.72em; color: #9e9e9e; }
+      </style>
+      <ha-card>
+        <div class="card-header"><span class="card-title">Mix Rezept</span></div>
+        <div class="card-content">
+          <div class="mode-bar">
+            <button class="seg-btn">ml/L</button>
+            <button class="seg-btn active">Tank/Kanne</button>
+            <button class="seg-btn">Frei</button>
+          </div>
+          <div class="channel">
+            <div class="channel-header">
+              <span class="channel-name">Bluehdaengung Woche 4</span>
+              <span class="channel-badges">
+                <span class="badge week">W4</span>
+                <span class="badge vol">20 L</span>
+              </span>
+            </div>
+            <div class="dosage-list">
+              <div class="dosage-row">
+                <span class="product-name">Flora Micro</span>
+                <span class="dosage-values"><span class="ml-value">30.0 ml</span><span class="ml-sub">1.5 ml/L</span></span>
+              </div>
+              <div class="dosage-row">
+                <span class="product-name">Flora Bloom</span>
+                <span class="dosage-values"><span class="ml-value">50.0 ml</span><span class="ml-sub">2.5 ml/L</span></span>
+              </div>
+              <div class="dosage-row">
+                <span class="product-name">CalMag</span>
+                <span class="dosage-values"><span class="ml-value">20.0 ml</span><span class="ml-sub">1.0 ml/L</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ha-card>`;
+  }
+
   _render() {
-    if (!this._hass || !this._config) return;
+    if (!this._config) return;
+    if (this._isStub || !this._hass) {
+      this._renderPreview();
+      return;
+    }
     const title = this._config.title || "Mix Rezept";
     const mode = this._mode;
 
@@ -253,4 +326,4 @@ class KamerplanterMixCard extends HTMLElement {
 
 customElements.define("kamerplanter-mix-card", KamerplanterMixCard);
 window.customCards = window.customCards || [];
-window.customCards.push({ type: "kamerplanter-mix-card", name: "Kamerplanter Mix Rezept", description: "D\u00fcnger-Dosierungen mit ml/L, Tank/Kanne oder freier Menge" });
+window.customCards.push({ type: "kamerplanter-mix-card", name: "Kamerplanter Mix Rezept", description: "D\u00fcnger-Dosierungen mit ml/L, Tank/Kanne oder freier Menge", preview: true });

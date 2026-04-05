@@ -4,6 +4,7 @@ from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, Tas
 from app.common.exceptions import NotFoundError
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
+from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.interfaces.watering_log_repository import IWateringLogRepository
@@ -20,12 +21,14 @@ class CareReminderService:
         task_repo: ITaskRepository | None = None,
         watering_log_repo: IWateringLogRepository | None = None,
         plant_repo: IPlantInstanceRepository | None = None,
+        lifecycle_repo: IPhaseRepository | None = None,
     ) -> None:
         self._repo = care_repo
         self._engine = engine
         self._task_repo = task_repo
         self._watering_log_repo = watering_log_repo
         self._plant_repo = plant_repo
+        self._lifecycle_repo = lifecycle_repo
 
     def get_or_create_profile(
         self,
@@ -141,9 +144,22 @@ class CareReminderService:
 
         # Auto-create next watering task if opted in
         if reminder_type == ReminderType.WATERING and profile.auto_create_watering_task:
-            self.ensure_next_watering_task(profile, created)
+            phase_interval = self._get_phase_watering_interval(plant_key)
+            self.ensure_next_watering_task(profile, created, phase_watering_interval=phase_interval)
 
         return created
+
+    def _get_phase_watering_interval(self, plant_key: str) -> int | None:
+        """Look up watering_interval_days from the plant's current growth phase."""
+        if not self._plant_repo or not self._lifecycle_repo:
+            return None
+        plant = self._plant_repo.get_by_key(plant_key)
+        if not plant or not plant.current_phase_key:
+            return None
+        phase = self._lifecycle_repo.get_phase_by_key(plant.current_phase_key)
+        if phase and phase.watering_interval_days:
+            return phase.watering_interval_days
+        return None
 
     def _resolve_slot_keys(self, plant_key: str) -> list[str]:
         """Look up the slot_key for a plant instance."""
@@ -316,6 +332,7 @@ class CareReminderService:
         profile: CareProfile,
         last_confirmation: CareConfirmation | None = None,
         hemisphere: str = "north",
+        phase_watering_interval: int | None = None,
     ) -> Task | None:
         """Ensure exactly one pending watering task exists for this plant.
 
@@ -358,6 +375,7 @@ class CareReminderService:
             ReminderType.WATERING,
             last_confirmation,
             hemisphere=hemisphere,
+            phase_watering_interval=phase_watering_interval,
         )
         if due_date is None:
             return None

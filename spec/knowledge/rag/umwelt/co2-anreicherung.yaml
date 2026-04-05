@@ -111,14 +111,19 @@ chunks:
     title: CO2-Anreicherung — Kosten-Nutzen-Analyse
     content: |
       Wann lohnt sich CO2-Anreicherung?
+      VORAUSSETZUNG — Licht zuerst optimieren:
+      Ohne ausreichend Licht bringt CO2 nichts. PPFD-Werte muessen ueber
+      600 PPFD liegen, besser ueber 800 PPFD. Daher: PPFD zuerst pruefen
+      und messen, bevor ueberhaupt ueber CO2 nachgedacht wird. Licht ist
+      fast immer der limitierende Faktor, nicht CO2.
       LOHNT SICH wenn:
-      - Licht >600 PPFD (besser >800 PPFD) vorhanden
+      - PPFD ueber 600 (besser >800) — mit PPFD-Meter pruefen!
       - Raum ist gut abgedichtet (sonst entweicht CO2 sofort)
       - Temperatur und VPD sind bereits optimiert
       - Ertragssteigerung von 20-30% den Aufwand rechtfertigt
       - Growraum ist gross genug (>1m² Anbauflaeche)
       LOHNT SICH NICHT wenn:
-      - Licht <600 PPFD (Licht ist der limitierende Faktor, nicht CO2)
+      - PPFD unter 600 (Licht ist der limitierende Faktor, nicht CO2)
       - Raum ist undicht (Zeltstoff, offene Lueftung)
       - Temperatur/VPD sind nicht kontrolliert
       - Nur 1-2 Pflanzen auf der Fensterbank

@@ -227,8 +227,9 @@ kubectl cp src/ha-integration/custom_components/kamerplanter/ \
 kubectl exec -n default homeassistant-0 -- \
   rm -rf /config/custom_components/kamerplanter/__pycache__
 
-# 3. Pod neustarten (PVC bleibt erhalten)
-kubectl delete pod homeassistant-0 -n default
+# 3. HA-Prozess neustarten (NICHT kubectl delete pod!)
+# kill 1 startet nur den Container neu — InitContainers laufen NICHT erneut.
+kubectl exec homeassistant-0 -n default -- kill 1
 ```
 
 ---
