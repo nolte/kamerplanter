@@ -41,6 +41,7 @@ def _navigate_to_first_species_cultivar_tab(
         pytest.skip("No species in database")
     species_list.click_row(0)
     species_list.wait_for_url_contains("/stammdaten/species/")
+    species_detail.wait_for_loading_complete()
     species_detail.click_tab_by_label("Sorten")
     species_detail.wait_for_loading_complete()
     if screenshot:

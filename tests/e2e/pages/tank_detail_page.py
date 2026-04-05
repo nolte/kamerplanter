@@ -92,9 +92,16 @@ class TankDetailPage(BasePage):
     # ── Page info ──────────────────────────────────────────────────────
 
     def get_page_title(self) -> str:
-        """Return the tank name from the page title."""
-        el = self.wait_for_element((By.CSS_SELECTOR, "[data-testid='page-title']"))
-        return el.text
+        """Return the tank name from the page title.
+
+        Waits for the detail page container first to avoid reading
+        the list page title during client-side navigation.
+        """
+        self.wait_for_element(self.PAGE)
+        self.wait_for_loading_complete()
+        return self.get_text_stable(
+            (By.CSS_SELECTOR, "[data-testid='tank-detail-page'] [data-testid='page-title']")
+        )
 
     # ── Tab navigation ─────────────────────────────────────────────────
 

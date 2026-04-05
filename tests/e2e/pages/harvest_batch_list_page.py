@@ -236,14 +236,13 @@ class HarvestBatchListPage(BasePage):
         el.send_keys(notes)
 
     def submit_create_form(self) -> None:
-        """Submit the create form via JS dispatch on the form element."""
-        self.driver.execute_script(
-            "var form = document.querySelector(\"div[role='dialog'] form\");"
-            "if (form) {"
-            "  var ev = new Event('submit', {bubbles: true, cancelable: true});"
-            "  form.dispatchEvent(ev);"
-            "}"
-        )
+        """Click the submit button inside the create dialog.
+
+        Previous implementation dispatched a raw DOM submit event which
+        does not reliably trigger React Hook Form's ``handleSubmit``.
+        """
+        btn = self.wait_for_element_clickable(self.FORM_SUBMIT)
+        self.scroll_and_click(btn)
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
