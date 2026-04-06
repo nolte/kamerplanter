@@ -1741,6 +1741,8 @@ perennial_species:
   - Salvia officinalis
   - Lavandula angustifolia
 
+default_phase_sequence: "indoor_default"
+
 default_phases:
   - name: seedling
     display_name: Seedling
@@ -1750,6 +1752,18 @@ default_phases:
     allows_harvest: false
     stress_tolerance: low
     watering_interval_days: 2
+    requirement_profile:
+      light_ppfd_target: 200
+      photoperiod_hours: 18.0
+      temperature_day_c: 24.0
+      temperature_night_c: 20.0
+      humidity_day_percent: 70
+      humidity_night_percent: 75
+      vpd_range: [0.4, 0.8]
+    nutrient_profile:
+      npk_ratio: [1, 1, 1]
+      target_ec_ms: 0.8
+      target_ph: 6.0
 
   - name: vegetative
     display_name: Vegetative
@@ -1759,6 +1773,18 @@ default_phases:
     allows_harvest: false
     stress_tolerance: medium
     watering_interval_days: 3
+    requirement_profile:
+      light_ppfd_target: 400
+      photoperiod_hours: 18.0
+      temperature_day_c: 25.0
+      temperature_night_c: 20.0
+      humidity_day_percent: 60
+      humidity_night_percent: 65
+      vpd_range: [0.8, 1.2]
+    nutrient_profile:
+      npk_ratio: [3, 1, 2]
+      target_ec_ms: 1.5
+      target_ph: 6.0
 
   - name: flowering
     display_name: Flowering
@@ -1768,6 +1794,18 @@ default_phases:
     allows_harvest: false
     stress_tolerance: medium
     watering_interval_days: 2
+    requirement_profile:
+      light_ppfd_target: 600
+      photoperiod_hours: 12.0
+      temperature_day_c: 26.0
+      temperature_night_c: 20.0
+      humidity_day_percent: 50
+      humidity_night_percent: 55
+      vpd_range: [1.0, 1.5]
+    nutrient_profile:
+      npk_ratio: [1, 3, 2]
+      target_ec_ms: 1.8
+      target_ph: 6.0
 
   - name: flushing
     display_name: Flushing
@@ -1777,6 +1815,18 @@ default_phases:
     allows_harvest: false
     stress_tolerance: high
     watering_interval_days: 1
+    requirement_profile:
+      light_ppfd_target: 400
+      photoperiod_hours: 12.0
+      temperature_day_c: 25.0
+      temperature_night_c: 20.0
+      humidity_day_percent: 60
+      humidity_night_percent: 65
+      vpd_range: [0.8, 1.2]
+    nutrient_profile:
+      npk_ratio: [0, 0, 0]
+      target_ec_ms: 0.0
+      target_ph: 6.0
 
   - name: ripening
     display_name: Ripening
@@ -1786,3 +1836,15 @@ default_phases:
     allows_harvest: true
     stress_tolerance: high
     watering_interval_days: 2
+    requirement_profile:
+      light_ppfd_target: 500
+      photoperiod_hours: 12.0
+      temperature_day_c: 24.0
+      temperature_night_c: 18.0
+      humidity_day_percent: 45
+      humidity_night_percent: 50
+      vpd_range: [1.2, 1.6]
+    nutrient_profile:
+      npk_ratio: [0, 1, 2]
+      target_ec_ms: 1.2
+      target_ph: 6.0

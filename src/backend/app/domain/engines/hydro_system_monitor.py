@@ -1,8 +1,23 @@
-from app.config.constants import EC_LIMITS
+# Default EC limits per substrate type (min, max mS/cm).
+# Canonical source: seed_data/substrate_defaults.yaml
+# These defaults are used when no ec_limits are provided at construction time.
+_DEFAULT_EC_LIMITS: dict[str, tuple[float, float]] = {
+    "hydro_solution": (0.5, 3.0),
+    "coco": (0.8, 2.2),
+    "soil": (0.4, 1.6),
+    "living_soil": (0.0, 0.8),
+    "rockwool_slab": (0.5, 2.5),
+    "rockwool_plug": (0.5, 2.5),
+    "clay_pebbles": (0.5, 2.5),
+    "perlite": (0.5, 2.5),
+}
 
 
 class HydroSystemMonitor:
     """Monitors hydroponic system parameters."""
+
+    def __init__(self, ec_limits: dict[str, tuple[float, float]] | None = None) -> None:
+        self._ec_limits = ec_limits if ec_limits is not None else _DEFAULT_EC_LIMITS
 
     def analyze_runoff(
         self,
@@ -71,7 +86,7 @@ class HydroSystemMonitor:
 
     def validate_ec_for_substrate(self, target_ec: float, substrate_type: str) -> tuple[bool, str]:
         """Validate EC target against substrate limits."""
-        limits = EC_LIMITS.get(substrate_type)
+        limits = self._ec_limits.get(substrate_type)
         if limits is None:
             return True, "No EC limits defined for this substrate type"
         low, high = limits

@@ -48,3 +48,56 @@ class TestNutrientProfileGeneration:
         p = self.gen.generate_nutrient_profile("flushing")
         assert p.npk_ratio == (0, 0, 0)
         assert p.target_ec_ms == 0.0
+
+
+class TestFromYamlPhases:
+    def test_from_yaml_phases(self):
+        yaml_data = [
+            {
+                "name": "seedling",
+                "display_name": "Seedling",
+                "typical_duration_days": 14,
+                "sequence_order": 0,
+                "is_terminal": False,
+                "allows_harvest": False,
+                "stress_tolerance": "low",
+                "requirement_profile": {
+                    "light_ppfd_target": 150,
+                    "photoperiod_hours": 20.0,
+                    "temperature_day_c": 22.0,
+                    "temperature_night_c": 18.0,
+                    "humidity_day_percent": 80,
+                    "humidity_night_percent": 85,
+                    "vpd_range": [0.3, 0.6],
+                },
+                "nutrient_profile": {
+                    "npk_ratio": [2, 2, 2],
+                    "target_ec_ms": 0.5,
+                    "target_ph": 5.8,
+                },
+            },
+        ]
+        gen = ResourceProfileGenerator.from_yaml_phases(yaml_data)
+        req = gen.generate_requirement_profile("seedling")
+        assert req.light_ppfd_target == 150
+        assert req.photoperiod_hours == 20.0
+        assert req.humidity_day_percent == 80
+
+        nut = gen.generate_nutrient_profile("seedling")
+        assert nut.npk_ratio == (2, 2, 2)
+        assert nut.target_ec_ms == 0.5
+
+    def test_unknown_phase_uses_defaults(self):
+        gen = ResourceProfileGenerator.from_yaml_phases([])
+        req = gen.generate_requirement_profile("unknown_phase")
+        assert req.light_ppfd_target == 400  # fallback default
+        assert req.photoperiod_hours == 18.0
+
+
+class TestGetVpdRanges:
+    def test_vpd_ranges_from_defaults(self):
+        gen = ResourceProfileGenerator()
+        ranges = gen.get_vpd_ranges()
+        assert ranges["seedling"] == (0.4, 0.8)
+        assert ranges["flowering"] == (1.0, 1.5)
+        assert "vegetative" in ranges
