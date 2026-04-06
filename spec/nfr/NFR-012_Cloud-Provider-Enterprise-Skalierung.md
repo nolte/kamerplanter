@@ -4,7 +4,7 @@ ID: NFR-012
 Titel: Cloud-Provider-Anforderungen & Enterprise-Skalierung
 Kategorie: Infrastruktur / Cloud Unterkategorie: Cloud-Provider, Skalierung, HA, DSGVO-Hosting
 Fokus: Beides (Zierpflanze & Nutzpflanze)
-Technologie: Kubernetes 1.28+, ArangoDB 3.11+, TimescaleDB 2.13+, PostgreSQL 17, Redis 7.2+, Traefik, Prometheus, Grafana
+Technologie: Kubernetes 1.28+, ArangoDB 3.11+, TimescaleDB 2.13+, PostgreSQL 18, Redis 7.2+, Traefik, Prometheus, Grafana
 Status: Entwurf
 Prioritaet: Hoch
 Version: 1.0
@@ -84,7 +84,7 @@ Diese NFR definiert die **Mindestanforderungen an einen Cloud-Provider** und die
 
 - ArangoDB Cluster (3 Nodes)
 - TimescaleDB (Primary + Replica)
-- PostgreSQL 17 + pgvector
+- PostgreSQL 18 + pgvector
 - Redis (optional als Deployment)
 
 ---
@@ -107,14 +107,14 @@ Diese NFR definiert die **Mindestanforderungen an einen Cloud-Provider** und die
 
 | Anforderung | Spezifikation |
 |-------------|---------------|
-| **Managed** | Timescale Cloud oder PostgreSQL 17 + Extension |
+| **Managed** | Timescale Cloud oder PostgreSQL 18 + Extension |
 | **Storage** | 100 GB+ (Continuous Aggregates, 3-Stufen-Downsampling) |
 | **Retention** | 90d raw, 2y hourly, 5y daily (NFR-011 §2.2) |
 | **HA** | Streaming Replication mit automatischem Failover |
 
 **Begruendung:** Sensor-Readings (Temperatur, Luftfeuchtigkeit, pH, EC, PPFD) erfordern minutengenaue Erfassung mit automatischer Aggregation. Das 3-Stufen-Downsampling (NFR-011) spart langfristig Storage bei gleichzeitiger Bewahrung historischer Trends.
 
-### 3.3 PostgreSQL 17 + pgvector (RAG/Vector)
+### 3.3 PostgreSQL 18 + pgvector (RAG/Vector)
 
 | Anforderung | Spezifikation |
 |-------------|---------------|
